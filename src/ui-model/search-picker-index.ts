@@ -10,7 +10,7 @@ export interface SearchPickerIndex<TValue = string> {
   readonly size: number;
 }
 
-export interface SearchPickerQueryProjection<TValue = string> {
+export interface SearchPickerQueryResult<TValue = string> {
   readonly kind: 'search-picker-query';
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
   readonly query: string;
@@ -20,7 +20,7 @@ export interface SearchPickerQueryProjection<TValue = string> {
 interface SearchPickerIndexData<TValue> {
   readonly entries: readonly SearchEntry<TValue>[];
   readonly searchable: readonly (readonly string[])[];
-  readonly projections: Map<string, SearchPickerQueryProjection<TValue>>;
+  readonly queryResults: Map<string, SearchPickerQueryResult<TValue>>;
   queryEvaluations: number;
   candidateEvaluations: number;
 }
@@ -62,7 +62,7 @@ export function prepareSearchPickerIndex<TValue>(entries: readonly SearchEntry<T
   indexData.set(index, {
     entries: normalized,
     searchable,
-    projections: new Map(),
+    queryResults: new Map(),
     queryEvaluations: 0,
     candidateEvaluations: 0
   });
@@ -70,16 +70,16 @@ export function prepareSearchPickerIndex<TValue>(entries: readonly SearchEntry<T
   return index;
 }
 
-export function projectSearchPickerQuery<TValue>(
+export function querySearchPickerIndex<TValue>(
   index: SearchPickerIndex<TValue>,
   query = ''
-): SearchPickerQueryProjection<TValue> {
+): SearchPickerQueryResult<TValue> {
   const data = dataFor(index);
   const normalizedQuery = clean(query).trim().toLocaleLowerCase();
-  const cached = data.projections.get(normalizedQuery);
+  const cached = data.queryResults.get(normalizedQuery);
   if (cached !== undefined) {
-    data.projections.delete(normalizedQuery);
-    data.projections.set(normalizedQuery, cached);
+    data.queryResults.delete(normalizedQuery);
+    data.queryResults.set(normalizedQuery, cached);
     return cached;
   }
   data.queryEvaluations += 1;
@@ -95,18 +95,18 @@ export function projectSearchPickerQuery<TValue>(
         .filter((result): result is typeof result & { readonly score: number } => result.score !== undefined)
         .sort((left, right) => left.score - right.score || left.sourceIndex - right.sourceIndex)
         .map((result) => result.entry));
-  const projection = Object.freeze({
+  const result = Object.freeze({
     kind: 'search-picker-query' as const,
     searchPickerIndex: index,
     query: normalizedQuery,
     entries
   });
-  data.projections.set(normalizedQuery, projection);
-  if (data.projections.size > queryCacheLimit) {
-    const oldest = data.projections.keys().next().value;
-    if (oldest !== undefined) data.projections.delete(oldest);
+  data.queryResults.set(normalizedQuery, result);
+  if (data.queryResults.size > queryCacheLimit) {
+    const oldest = data.queryResults.keys().next().value;
+    if (oldest !== undefined) data.queryResults.delete(oldest);
   }
-  return projection;
+  return result;
 }
 
 export function searchPickerIndexStatistics(index: SearchPickerIndex<unknown>): {
@@ -118,7 +118,7 @@ export function searchPickerIndexStatistics(index: SearchPickerIndex<unknown>): 
   const data = dataFor(index);
   return Object.freeze({
     entries: data.entries.length,
-    cachedQueries: data.projections.size,
+    cachedQueries: data.queryResults.size,
     queryEvaluations: data.queryEvaluations,
     candidateEvaluations: data.candidateEvaluations
   });

@@ -6,7 +6,7 @@ layout, frames, render diffs, and accessible snapshots.
 The core vertical path is:
 
 1. Define an element tree with component factories.
-2. Normalize it to the internal render-node tree.
+2. Resolve the opaque elements to the internal render-node tree.
 3. Lay the tree out with `layoutElement()`.
 4. Render a `Frame`.
 5. Serialize a full frame or incremental `RenderDiff`.
@@ -16,8 +16,6 @@ For the renderer data model behind that path, see
 [Rendering internals](./rendering-internals.md). For component authoring
 guidance, see [UI authoring](./ui-authoring.md) and
 [Building polished components](./building-polished-components.md).
-Applications migrating across the current pre-alpha contract replacement should
-also read [Breaking changes](./breaking-changes.md).
 
 Full-screen TUI runs enter terminal protocols through the session manager and a
 `SessionProtocolPolicy`. The default policy requires alternate screen and raw
@@ -133,8 +131,7 @@ stable `idle` or `inactive` states from scrollability.
 
 Tree components keep hierarchy state caller-controlled. Send the component's
 interaction `onAction` stream through `treeReducer()` and render passive state with
-`treePresentation()` or controlled scroll state with
-`treeScrollablePresentation()`. Component interaction emits selection,
+the tree state fields directly. Component interaction emits selection,
 navigation, activation, disclosure, and scrolling. Filtering, rename workflow,
 and lazy-loading transitions are application or effect commands accepted by the
 same reducer; the renderer does not invent them.
@@ -147,7 +144,7 @@ Tree row rendering uses typed style parts for `indent`, `disclosure`, `icon`,
 `label`, `metadata`, `match`, `placeholder`, `empty`, and `scrollbar` anatomy;
 selected and disabled presentation use visual-state styles. Frame source metadata
 marks disclosure, indent, icon, label, match, and selection-marker parts
-separately for snapshots and debug projections.
+separately for snapshots and debugging.
 
 Command surfaces are ordinary components. Apps decide which normalized key
 names map to search-picker, accept, cancel, or history messages through component `keys`
@@ -267,7 +264,7 @@ matches; selection remains visually stronger. `wrap: true` or
 with the same scroll state, scrollbar, cursor, and accessibility contracts. The
 cursor uses the generic `input.cursor` token in frame metadata. The component does
 not own editing policy, syntax highlighting, file paths, or language semantics.
-Pass `textAreaPresentation(state)` to `presentation` and map `onAction` to an
+Pass the text-area state as `presentation` and map `onAction` to an
 application message. The `TextAreaAction` union covers standard edits,
 grapheme-aware pointer selection, and scrolling; `textAreaReducer()` provides
 the default controlled behavior. Initialize that state with

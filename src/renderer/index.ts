@@ -185,10 +185,7 @@ export type {
 export type {
   CustomRenderer,
   CustomRendererAccessibilityInput,
-  CustomRendererFocusInput,
-  CustomRendererHitInput,
   CustomRendererInput,
-  CustomRendererMeasureInput,
   CustomRendererRenderInput
 } from './custom-renderer.ts';
 export type {

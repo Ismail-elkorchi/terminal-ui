@@ -5,7 +5,6 @@ import type {
 import type { TableRenderColumn } from '../../renderer/model/props/content.ts';
 import { resolveStableIds } from '../../ui-model/identity.ts';
 import type { ColorSwatchPickerOption } from '../options/forms.ts';
-import type { HeatmapCell } from '../options/feedback.ts';
 
 export function tableColumnsForRenderer<TRow>(
   columns: readonly TableColumn<TRow>[] | undefined
@@ -47,10 +46,4 @@ export function searchSelectionHandler<TValue, TMessage>(
   handler: ((entry: SearchEntry<TValue>) => TMessage) | undefined
 ): ((entry: SearchEntry<unknown>) => TMessage) | undefined {
   return handler === undefined ? undefined : (entry) => handler(entry as SearchEntry<TValue>);
-}
-
-export function heatmapRowsForRenderer<TValue>(
-  rows: readonly (readonly HeatmapCell<TValue>[])[]
-): readonly (readonly HeatmapCell[])[] {
-  return rows;
 }

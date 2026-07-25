@@ -3,7 +3,7 @@ import type {
   LogSearchField
 } from '../../../ui-model/log-history.ts';
 
-export interface ProjectedLogViewerRecord {
+export interface LogViewerRecordModel {
   readonly source: LogHistoryRecord;
   readonly bodyText: string;
   readonly metadataEntries: readonly (readonly [string, string])[];
@@ -12,13 +12,13 @@ export interface ProjectedLogViewerRecord {
   readonly folded: boolean;
 }
 
-const expandedRecords = new WeakMap<LogHistoryRecord, ProjectedLogViewerRecord>();
-const foldedRecords = new WeakMap<LogHistoryRecord, ProjectedLogViewerRecord>();
+const expandedRecords = new WeakMap<LogHistoryRecord, LogViewerRecordModel>();
+const foldedRecords = new WeakMap<LogHistoryRecord, LogViewerRecordModel>();
 
-export function projectLogViewerRecord(
+export function logViewerRecordModel(
   record: LogHistoryRecord,
   folded: boolean
-): ProjectedLogViewerRecord {
+): LogViewerRecordModel {
   const cache = folded ? foldedRecords : expandedRecords;
   const cached = cache.get(record);
   if (cached !== undefined) return cached;
@@ -40,7 +40,7 @@ export function projectLogViewerRecord(
     ]),
     { kind: 'body' as const, text: bodyText }
   ]);
-  const projection = Object.freeze({
+  const model = Object.freeze({
     source: record,
     bodyText,
     metadataEntries,
@@ -48,8 +48,8 @@ export function projectLogViewerRecord(
     searchFields,
     folded
   });
-  cache.set(record, projection);
-  return projection;
+  cache.set(record, model);
+  return model;
 }
 
 function foldedBody(text: string): string {

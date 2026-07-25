@@ -4,11 +4,13 @@ import type {
 } from '../../ui-model/contracts.ts';
 import type {
   BarChartItem,
+  ChartDataState,
   ChartInterpolation,
   ChartPointSelection,
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeries,
+  MeterResult,
   MeterVariant,
   HeatmapCell,
   HeatmapSelection,
@@ -80,7 +82,7 @@ export interface SparklineOptions extends ElementOptions<ChartStylePart> {
   readonly values: readonly number[];
   readonly min?: number;
   readonly max?: number;
-  readonly status?: ProcessStatus;
+  readonly dataState?: ChartDataState;
   readonly valueScale?: ValueScale;
   readonly emptyText?: string;
   readonly loadingText?: string;
@@ -91,7 +93,7 @@ export interface BarChartOptions<TMessage = never> extends InteractiveElementOpt
   readonly items: readonly BarChartItem[];
   readonly max?: number;
   readonly selectedId?: string;
-  readonly status?: ProcessStatus;
+  readonly dataState?: ChartDataState;
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
@@ -108,7 +110,7 @@ export interface ChartOptions<TMessage = never> extends InteractiveElementOption
   readonly signedDomain?: boolean;
   readonly xLabel?: string;
   readonly yLabel?: string;
-  readonly status?: ProcessStatus;
+  readonly dataState?: ChartDataState;
   readonly valueScale?: ValueScale;
   readonly sampleMode?: ChartSampleMode;
   readonly sampleAlign?: ChartSampleAlign;
@@ -127,7 +129,7 @@ export interface MeterOptions extends ElementOptions<StatusStylePart> {
   readonly max?: number;
   readonly width?: number;
   readonly variant?: MeterVariant;
-  readonly status?: ProcessStatus;
+  readonly result?: MeterResult;
 }
 
 export interface HeatmapOptions<TValue = unknown, TMessage = never> extends InteractiveElementOptions<ChartStylePart, TMessage> {
@@ -137,7 +139,7 @@ export interface HeatmapOptions<TValue = unknown, TMessage = never> extends Inte
   readonly selected?: HeatmapSelection;
   readonly cellWidth?: number;
   readonly gap?: number;
-  readonly status?: ProcessStatus;
+  readonly dataState?: ChartDataState;
   readonly valueScale?: ValueScale;
   readonly emptyText?: string;
   readonly loadingText?: string;
@@ -155,12 +157,14 @@ export interface SpinnerOptions extends ElementOptions<StatusStylePart> {
 
 export type {
   BarChartItem,
+  ChartDataState,
   ChartInterpolation,
   ChartPointSelection,
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeries,
   ChartSeriesKind,
+  MeterResult,
   MeterVariant,
   HeatmapCell,
   HeatmapSelection,

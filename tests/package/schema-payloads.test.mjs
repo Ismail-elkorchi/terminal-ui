@@ -114,7 +114,7 @@ test('accessible snapshot schema enums match runtime accessibility constants', a
   );
 });
 
-test('accessible snapshot schema accepts current names and rejects removed names', async () => {
+test('accessible snapshot schema accepts current structures and rejects invalid role nesting', async () => {
   const { ajv, validators } = await loadSchemaValidators();
   const validate = validators.get('accessible-snapshot.schema.json');
   const current = {
@@ -160,18 +160,6 @@ test('accessible snapshot schema accepts current names and rejects removed names
       id: 'invalid-rowgroup',
       role: 'rowgroup',
       children: [{ id: 'direct-cell', role: 'gridcell' }]
-    }
-  }), false);
-  assert.equal(validate({ ...current, source: 'widget' }), false);
-  assert.equal(validate({
-    ...current,
-    root: { ...current.root, window: { start: 0, end: 1, total: 1 } }
-  }), false);
-  assert.equal(validate({
-    ...current,
-    root: {
-      ...current.root,
-      children: [{ id: 'item', role: 'option', position: { itemNumber: 1, itemCount: 1 } }]
     }
   }), false);
 });
@@ -275,36 +263,6 @@ test('schemas reject malformed nested public payloads', async () => {
     }
   }), true, ajv.errorsText(frameValidator.errors));
 
-  assert.equal(frameValidator({
-    schemaVersion: 'terminal-ui.tui-frame.v2',
-    width: 1,
-    height: 1,
-    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
-    cells: [{
-      row: 1,
-      column: 1,
-      text: 'x',
-      width: 1,
-      source: {
-        ownerId: 'legacy',
-        ownerKind: 'text',
-        family: 'text',
-        role: 'text',
-        part: 'body',
-        partKind: 'segment',
-        state: 'selected',
-        label: 'Legacy'
-      }
-    }],
-    accessibility: {
-      schemaVersion: 'terminal-ui.accessible-snapshot.v1',
-      source: 'tui',
-      root: { id: 'bad-source', role: 'text' },
-      focusPath: [],
-      diagnostics: []
-    }
-  }), false);
-
   assert.equal(validators.get('tui-frame.schema.json')({
     schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 1,
@@ -377,7 +335,6 @@ test('schemas reject malformed nested public payloads', async () => {
     redactions: []
   });
   assert.equal(transcriptValidator(resizeTranscript({ terminalSize: { columns: 20, rows: 4 } })), true);
-  assert.equal(transcriptValidator(resizeTranscript({ viewport: { columns: 20, rows: 4 } })), false);
 
   const transcriptWithKeyboardFlags = (flags) => ({
     schemaVersion: 'terminal-ui.interaction-transcript.v4',

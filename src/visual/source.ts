@@ -122,10 +122,12 @@ function optionalTextField<Key extends keyof FrameCellSource>(
   return text.length === 0 ? {} : { [key]: text };
 }
 
-function optionalIndex(value: number | undefined): Pick<FrameCellSource, 'itemIndex'> {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? { itemIndex: Math.max(0, Math.floor(value)) }
-    : {};
+function optionalIndex(value: unknown): Pick<FrameCellSource, 'itemIndex'> {
+  if (value === undefined) return {};
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new TypeError('Frame cell source itemIndex must be a non-negative integer.');
+  }
+  return { itemIndex: value };
 }
 
 function optionalCellRole(value: unknown): Pick<FrameCellSource, 'cellRole'> {

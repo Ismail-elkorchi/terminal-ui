@@ -16,7 +16,7 @@ const sanitized = sanitizeTerminalText('\u001B[31mtext');
 
 invariant(decoded.events[0]?.kind === 'key' && decoded.events[0].key === 'enter', 'input decoding failed');
 invariant(placed.width === 5 && placed.height === 2, 'anchored placement failed');
-invariant(selected.ok && selected.text === 'term', 'selection projection failed');
+invariant(selected.ok && selected.text === 'term', 'selection resolution failed');
 invariant(width === 3, 'terminal width measurement failed');
 invariant(!sanitized.text.includes('\u001B'), 'terminal sanitization failed');
 

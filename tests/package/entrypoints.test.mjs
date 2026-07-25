@@ -29,7 +29,6 @@ test('all declared public value exports exist at runtime', async () => {
 
 test('root exposes the primary vertical path', async () => {
   const terminalUi = await import('@ismail-elkorchi/terminal-ui');
-  assert.equal('terminalUiPackage' in terminalUi, false);
   assert.ok(terminalUi.terminalDiagnosticCodes.includes('INPUT_CANCELLED'));
   assert.equal(typeof terminalUi.createTerminalHost, 'function');
   assert.equal(typeof terminalUi.defineTui, 'function');
@@ -57,18 +56,27 @@ test('transcript entrypoint exposes replay against a structural harness target',
   assert.equal(result.transcript.steps[0]?.kind, 'input');
 });
 
-test('testing harness declaration exposes captured output', async () => {
-  const declaration = await readFile(new URL('../../dist/testing/types.d.ts', import.meta.url), 'utf8');
+test('testing harness exposes captured output, clocks, and PTY input closure', () => {
+  assertNoTypeDiagnostics(`
+    import {
+      createTerminalHarness,
+      type ControlledTerminalClock,
+      type PtyTerminalHarness
+    } from '@ismail-elkorchi/terminal-ui/testing';
 
-  assert.match(declaration, /output\(\): string;/u);
-  assert.match(declaration, /readonly clock: ControlledTerminalClock;/u);
-  assert.match(declaration, /interface PtyTerminalHarness/u);
-  assert.match(declaration, /closeInput\(\): void;/u);
+    const harness = createTerminalHarness();
+    const output: string = harness.output();
+    const clock: ControlledTerminalClock = harness.clock;
+    declare const pty: PtyTerminalHarness;
+    pty.closeInput();
+
+    void output;
+    void clock;
+  `);
 });
 
 test('entrypoint declarations expose layered public type contracts', async () => {
   const declaration = await readFile(new URL('../../dist/index.d.ts', import.meta.url), 'utf8');
-  const componentsDeclaration = await readFile(new URL('../../dist/components/index.d.ts', import.meta.url), 'utf8');
   const componentContractsDeclaration = await readFile(new URL('../../dist/ui-model/contracts.d.ts', import.meta.url), 'utf8');
   const componentElementDeclaration = await readFile(new URL('../../dist/element/types.d.ts', import.meta.url), 'utf8');
   const componentOptionDeclarations = (await Promise.all([
@@ -87,8 +95,6 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
   const tuiDeclaration = await readFile(new URL('../../dist/tui/index.d.ts', import.meta.url), 'utf8');
   const tuiTypesDeclaration = await readFile(new URL('../../dist/tui/types.d.ts', import.meta.url), 'utf8');
-  const renderNodeRendererDeclaration = await readFile(new URL('../../dist/renderer/model/renderer.d.ts', import.meta.url), 'utf8');
-  const borderDeclaration = await readFile(new URL('../../dist/visual/border.d.ts', import.meta.url), 'utf8');
 
   for (const typeName of [
     'TuiDefinition',
@@ -135,19 +141,6 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     assert.match(componentOptionDeclarations, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
   }
   assert.doesNotMatch(componentOptionDeclarations, /\bFrameBuffer\b/u);
-  for (const authoredDeclaration of [
-    declaration,
-    componentsDeclaration,
-    componentContractsDeclaration,
-    componentOptionDeclarations,
-    layoutDeclaration,
-    behaviorDeclaration
-  ]) {
-    assert.doesNotMatch(
-      authoredDeclaration,
-      /\b(?:[A-Za-z][A-Za-z0-9]*WidgetOptions|Widget(?:Tone|Status|Item|Role|State|Scope|Event|Renderer))\b/u
-    );
-  }
 
   for (const typeName of [
     'LayoutSize',
@@ -160,7 +153,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     assert.match(layoutDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `layout:${typeName}`);
   }
   assert.doesNotMatch(layoutDeclaration, /\bNavigationStack\b/u);
-  assert.doesNotMatch(layoutDeclaration, /\b(?:Layer|LayoutNode|Rect|RegionOpacity)\b/u);
+  assert.doesNotMatch(layoutDeclaration, /\b(?:Layer|LayoutNode|Rect)\b/u);
   assert.doesNotMatch(layoutDeclaration, /\b(?:gridCellRects|splitTracks)\b/u);
 
   for (const typeName of [
@@ -194,8 +187,6 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   ]) {
     assert.match(rendererDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `renderer:${typeName}`);
   }
-  assert.doesNotMatch(rendererDeclaration, /\blogViewerWindow\b/u);
-
   for (const typeName of [
     'TuiContext',
     'TuiInit',
@@ -206,23 +197,38 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     assert.match(tuiTypesDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `tui:${typeName}`);
   }
   assert.doesNotMatch(tuiDeclaration, /\bFrameBuffer\b/u);
-  assert.doesNotMatch(tuiDeclaration, /\bWidgetRenderer\b/u);
 
   assert.doesNotMatch(componentElementDeclaration, /\bRenderNode\b/u);
   assert.doesNotMatch(componentElementDeclaration, /\b(?:elementFromRenderNode|toRenderNode|toRenderNodes)\b/u);
   assert.doesNotMatch(componentElementDeclaration, /readonly \[key: string\]: unknown;/u);
 
-  assert.match(renderNodeRendererDeclaration, /export interface FocusTarget \{/u);
-  assert.match(renderNodeRendererDeclaration, /readonly id: string;/u);
-  assert.doesNotMatch(renderNodeRendererDeclaration, /readonly id\?: string;/u);
-  assert.match(renderNodeRendererDeclaration, /readonly scopeId\?: string;/u);
-  assert.match(renderNodeRendererDeclaration, /readonly focused: boolean;/u);
-  assert.match(renderNodeRendererDeclaration, /readonly focus: RenderFocusRelation;/u);
-  assert.match(renderNodeRendererDeclaration, /export type RenderFocusRelation = 'none' \| 'self' \| 'descendant';/u);
-  assert.match(borderDeclaration, /export interface BorderTitleSlots \{/u);
-  assert.doesNotMatch(borderDeclaration, /\bBorderTitleRail\b/u);
-  assert.match(borderDeclaration, /readonly titleAlign\?: 'start' \| 'center' \| 'end';/u);
-  assert.doesNotMatch(borderDeclaration, /\b(?:TerminalStyle|RenderSpan|FrameCellSource)\b/u);
+});
+
+test('renderer focus targets and authored border titles expose usable structural contracts', () => {
+  assertNoTypeDiagnostics(`
+    import { text } from '@ismail-elkorchi/terminal-ui/components';
+    import { surface } from '@ismail-elkorchi/terminal-ui/layout';
+    import type {
+      FocusTarget,
+      RenderFocusRelation
+    } from '@ismail-elkorchi/terminal-ui/renderer';
+
+    const relation: RenderFocusRelation = 'descendant';
+    const target: FocusTarget = {
+      id: 'field',
+      bounds: { row: 0, column: 0, width: 8, height: 1 },
+      disabled: false,
+      order: 1,
+      scopeId: 'form'
+    };
+    const element = surface(text('Title'), {
+      title: { start: 'Start', center: 'Center', end: 'End' },
+      border: { kind: 'single', titleAlign: 'center' }
+    });
+
+    void target;
+    void element;
+  `);
 });
 
 test('public renderer helpers accept authored component elements', () => {

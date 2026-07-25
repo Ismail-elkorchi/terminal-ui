@@ -1,4 +1,4 @@
-import type { HeatmapCell } from '../../../../ui-model/feedback.ts';
+import type { HeatmapCell, ValueScaleStop } from '../../../../ui-model/feedback.ts';
 import type { HeatmapAction } from '../../../../ui-model/visualization.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import { fillTextCells, oneCellGlyph, sanitizeTerminalText } from '../../../../text/index.ts';
@@ -7,7 +7,6 @@ import { chartHeatmapStyle, chartSpan } from '../../chart-visual.ts';
 import { numberProp } from '../../render-node-props.ts';
 import type { RenderSpan } from '../../../../visual/render.ts';
 import { valueScaleStyle } from '../../value-scale.ts';
-import type { NormalizedValueScaleStop } from '../../value-scale.ts';
 import { boundedInteger, normalizedIndex, rangeFor } from './values.ts';
 
 const heatmapGlyphs = [' ', '░', '▒', '▓', '█'] as const;
@@ -38,7 +37,7 @@ export function heatmapCellSpans(
     readonly cellWidth: number;
     readonly value: number;
     readonly range: { readonly min: number; readonly max: number };
-    readonly scale: readonly NormalizedValueScaleStop[];
+    readonly scale: readonly ValueScaleStop[];
     readonly intensity: number;
     readonly selected: boolean;
     readonly widthProfile: TextWidthProfile;

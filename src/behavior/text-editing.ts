@@ -20,10 +20,7 @@ import type {
 } from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
-import type {
-  TextAreaAction,
-  TextAreaScrollablePresentation
-} from '../ui-model/text-area.ts';
+import type { TextAreaAction } from '../ui-model/text-area.ts';
 import type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
 
 export interface TextAreaState {
@@ -67,16 +64,6 @@ export function textInputReducer(state: TextEditBuffer, action: TextInputAction)
   return action.kind === 'edit'
     ? editTextBuffer(state, action.operation)
     : applyTextPointerAction(state, action.action);
-}
-
-export function textAreaPresentation(state: TextAreaState): TextAreaScrollablePresentation {
-  return {
-    document: state.document,
-    caret: state.caret,
-    ...(state.selection === undefined ? {} : { selection: state.selection }),
-    scroll: state.scroll,
-    revealCaret: state.revealCaret
-  };
 }
 
 export function textAreaReducer(state: TextAreaState, action: TextAreaAction): TextAreaState {

@@ -32,7 +32,7 @@ export function createBunTerminalHost(options: BunTerminalHostOptions = {}): Ter
 function bunHostOutput(
   name: 'stdout' | 'stderr',
   configured: BunTerminalHostOptions[typeof name],
-  processStream: ProcessOutputLike | undefined
+  processStream: NodeWritableTerminalStream | undefined
 ): Partial<Pick<import('./runtime-streams.ts').StreamTerminalHostOptions, 'stdout' | 'stderr' | 'stdoutOutput' | 'stderrOutput'>> {
   if (configured !== undefined) return { [name]: configured };
   if (processStream === undefined) return {};
@@ -60,14 +60,12 @@ function bunInputOptions(
 
 interface ProcessLike {
   readonly stdin?: AsyncIterable<Uint8Array> & { readonly isTTY?: boolean; setRawMode?: (enabled: boolean) => void };
-  readonly stdout?: ProcessOutputLike;
-  readonly stderr?: ProcessOutputLike;
+  readonly stdout?: NodeWritableTerminalStream;
+  readonly stderr?: NodeWritableTerminalStream;
   readonly env?: Record<string, string>;
   on?(signal: string, handler: () => void): void;
   off?(signal: string, handler: () => void): void;
 }
-
-type ProcessOutputLike = NodeWritableTerminalStream;
 
 function bunGlobal(): BunLike | undefined {
   const value: unknown = Reflect.get(globalThis, 'Bun');

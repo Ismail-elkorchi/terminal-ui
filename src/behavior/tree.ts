@@ -64,18 +64,6 @@ interface TreeSelectionIndex<TMetadata extends Readonly<Record<string, unknown>>
 
 const treeSelectionIndexes = new WeakMap<object, TreeSelectionIndex<Readonly<Record<string, unknown>>>>();
 
-export interface TreePresentation<TMetadata extends Readonly<Record<string, unknown>>> {
-  readonly nodes: readonly TreeNode<TMetadata>[];
-  readonly selected?: string;
-  readonly filterQuery?: string;
-}
-
-export interface TreeScrollablePresentation<
-  TMetadata extends Readonly<Record<string, unknown>>
-> extends TreePresentation<TMetadata> {
-  readonly scroll: ScrollState;
-}
-
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
   state: ScrollableTreeState<TMetadata>,
   action: TreeAction<TMetadata>,
@@ -121,28 +109,6 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
       return nodes === state.nodes ? state : { ...state, nodes };
     }
   }
-}
-
-export function treePresentation<TMetadata extends Readonly<Record<string, unknown>>>(
-  state: PassiveTreeState<TMetadata>
-): TreePresentation<TMetadata> {
-  return treePresentationBase(state);
-}
-
-export function treeScrollablePresentation<TMetadata extends Readonly<Record<string, unknown>>>(
-  state: ScrollableTreeState<TMetadata>
-): TreeScrollablePresentation<TMetadata> {
-  return { ...treePresentationBase(state), scroll: state.scroll };
-}
-
-function treePresentationBase<TMetadata extends Readonly<Record<string, unknown>>>(
-  state: TreeStateBase<TMetadata>
-): TreePresentation<TMetadata> {
-  return {
-    nodes: state.nodes,
-    ...(state.selected === undefined ? {} : { selected: state.selected }),
-    ...(state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery })
-  };
 }
 
 export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknown>>>(

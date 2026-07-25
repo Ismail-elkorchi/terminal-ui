@@ -1,27 +1,27 @@
 import { sanitizeTerminalText } from '../text/index.ts';
-import type { TreeCollection, TreeViewProjection } from './tree.ts';
+import type { PreparedTreeView, TreeCollection } from './tree.ts';
 
-const projections = new WeakMap<object, Map<string, TreeViewProjection>>();
+const views = new WeakMap<object, Map<string, PreparedTreeView>>();
 
 export function prepareTreeView<
   TMetadata extends Readonly<Record<string, unknown>>
 >(
   collection: TreeCollection<TMetadata>,
   filterQuery?: string
-): TreeViewProjection<TMetadata> {
+): PreparedTreeView<TMetadata> {
   const query = collection.kind === 'window' && collection.domain.kind === 'projection'
     ? cleanQuery(collection.domain.filterQuery)
     : cleanQuery(filterQuery);
-  let byQuery = projections.get(collection);
+  let byQuery = views.get(collection);
   if (byQuery === undefined) {
     byQuery = new Map();
-    projections.set(collection, byQuery);
+    views.set(collection, byQuery);
   }
-  const cached = byQuery.get(query) as TreeViewProjection<TMetadata> | undefined;
+  const cached = byQuery.get(query) as PreparedTreeView<TMetadata> | undefined;
   if (cached !== undefined) return cached;
-  const projection = Object.freeze({ kind: 'tree-view' as const, collection, query });
-  byQuery.set(query, projection);
-  return projection;
+  const view = Object.freeze({ kind: 'tree-view' as const, collection, query });
+  byQuery.set(query, view);
+  return view;
 }
 
 function cleanQuery(query: string | undefined): string {

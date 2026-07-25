@@ -11,12 +11,12 @@ import type {
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../../../ui-model/content.ts';
-import type { ListControlAction, ListViewProjection } from '../../../ui-model/list.ts';
+import type { ListControlAction, PreparedListView } from '../../../ui-model/list.ts';
 import type { ComponentDensity } from '../../../ui-model/contracts.ts';
 import type { TextAreaAction } from '../../../ui-model/text-area.ts';
 import type { PaginatorAction } from '../../../ui-model/paginator.ts';
 import type { TableCollection, TableControlAction, TableSortState } from '../../../ui-model/table.ts';
-import type { TreeControlAction, TreeViewProjection } from '../../../ui-model/tree.ts';
+import type { PreparedTreeView, TreeControlAction } from '../../../ui-model/tree.ts';
 import type { InlineContent } from '../../../visual/inline-content.ts';
 import type { InlineContentSegment } from '../../../visual/inline-content.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
@@ -51,7 +51,7 @@ export interface TextAreaRenderProps<TMessage> {
 }
 
 export interface ListRenderProps<TMessage> {
-  readonly view: ListViewProjection<unknown>;
+  readonly view: PreparedListView<unknown>;
   readonly selectedId?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
@@ -97,7 +97,7 @@ export interface TableRenderColumn {
 }
 
 export interface TreeRenderProps<TMessage> {
-  readonly view: TreeViewProjection;
+  readonly view: PreparedTreeView;
   readonly selected?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;

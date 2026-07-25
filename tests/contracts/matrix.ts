@@ -1,6 +1,5 @@
 export const contractKinds = [
   'positive_type',
-  'type_constraint',
   'portable_runtime',
   'host_runtime',
   'schema_artifact'
@@ -46,9 +45,7 @@ const typedEntrypoints = [
 const typeScenarios: readonly ContractScenario[] = typedEntrypoints.map(([entrypoint, name]) => ({
   id: `types:${name}`,
   entrypoints: [entrypoint],
-  contracts: entrypoint === './schemas'
-    ? ['positive_type']
-    : ['positive_type', 'type_constraint'],
+  contracts: ['positive_type'],
   artifacts: ['declarations'],
   runtimes: ['typecheck'],
   hosts: ['none'],

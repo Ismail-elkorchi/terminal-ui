@@ -54,14 +54,14 @@ test('region damage for moving overlay includes old and new bounds only', () => 
 });
 
 test('dirty diff for moved regions round-trips to the full next frame', () => {
-  const previousWidget = movingOverlay(2, 2);
-  const nextWidget = movingOverlay(3, 5);
+  const previousElement = movingOverlay(2, 2);
+  const nextElement = movingOverlay(3, 5);
   const terminalSize = { columns: 12, rows: 5 };
-  const previous = renderElementFrame(previousWidget, terminalSize);
-  const next = renderElementFrame(nextWidget, terminalSize);
+  const previous = renderElementFrame(previousElement, terminalSize);
+  const next = renderElementFrame(nextElement, terminalSize);
   const dirtyRegions = dirtyRegionsForRegionChanges(
-    renderElementRegions(previousWidget, terminalSize),
-    renderElementRegions(nextWidget, terminalSize)
+    renderElementRegions(previousElement, terminalSize),
+    renderElementRegions(nextElement, terminalSize)
   );
   const diff = diffFrames(previous, next, { dirtyRegions });
   const applied = applyDiffToFrame(previous, diff);

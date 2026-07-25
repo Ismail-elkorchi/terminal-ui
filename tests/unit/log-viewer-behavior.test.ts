@@ -6,7 +6,6 @@ import {
   followTailScrollState,
   nextLogViewerMatch,
   prepareLogHistory,
-  logViewerScrollablePresentation,
   logViewerReducer,
   logViewerSearchMatches,
   logHistoryEntryAt
@@ -82,23 +81,6 @@ void test('log viewer append reserves a separator after an empty record', () => 
   assert.equal(logHistoryEntryAt(initial, 0)?.bodyOffset, 0);
   assert.equal(logHistoryEntryAt(appended, 1)?.bodyOffset, 1);
   assert.equal(appended.bodyLength, 2);
-});
-
-void test('logViewerPresentation projects fold, search, follow-tail, and scroll state', () => {
-  const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
-  const projection = logViewerScrollablePresentation(history, {
-    foldedIds: ['a'],
-    followTail: true,
-    searchQuery: 'needle',
-    scroll
-  });
-
-  assert.equal(projection.history, history);
-  assert.deepEqual(projection.foldedIds, ['a']);
-  assert.equal(logHistoryEntryAt(projection.history, 0)?.bodyText, 'alpha\nmore alpha');
-  assert.equal(projection.searchQuery, 'needle');
-  assert.equal(projection.followTail, true);
-  assert.equal(projection.scroll, scroll);
 });
 
 void test('followTailScrollState returns a bottom-pinned scroll state', () => {

@@ -343,7 +343,7 @@ test('wrapped textArea exposes scrollbar scope over visual rows', () => {
   );
 });
 
-test('editable text controls remain readable in high contrast and no-color projections', () => {
+test('editable text controls remain readable in high contrast and no-color rendering modes', () => {
   const element = column([
     textInput({
       id: 'contrast-input',

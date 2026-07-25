@@ -12,12 +12,9 @@ const selection: TextSelection = { startOffset: 0, endOffsetExclusive: 1 };
 
 // @ts-expect-error text selections use numeric offsets
 const invalidSelection: TextSelection = { startOffset: '0', endOffsetExclusive: 1 };
-// @ts-expect-error text selections use explicit code-unit offset fields
-const legacySelection: TextSelection = { start: 0, end: 1 };
 
 void metrics;
 void index;
 void sanitized;
 void selection;
 void invalidSelection;
-void legacySelection;

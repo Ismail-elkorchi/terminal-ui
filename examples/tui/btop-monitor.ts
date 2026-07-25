@@ -297,8 +297,7 @@ function cpuPanel(state: MonitorState) {
           valueScale: monitorScale,
           xLabel: `last ${String(cpuValues.length)} samples`,
           yLabel: 'CPU',
-          legend: false,
-          status: 'success'
+          legend: false
         })
       ], {
         id: 'cpu-graph-column',
@@ -388,7 +387,7 @@ function memoryRow(
       labelPosition: 'none',
       barWidth: 24,
       valueScale: monitorScale,
-      status: meterStatus(status)
+      status
     })
   ], { id: `${label}-row`, gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }] });
 }
@@ -459,8 +458,7 @@ function networkPanel(state: MonitorState) {
         interpolation: 'nearest',
         legend: false,
         yLabel: '10K',
-        xLabel: 'wlp3s0',
-        status: 'success'
+        xLabel: 'wlp3s0'
       }),
       stats: column([
         structuredLine('download', '▼ 474 Byte/s', 'Top: 717 Kibps'),
@@ -572,10 +570,6 @@ function formatUptime(tick: number): string {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function meterStatus(status: 'running' | 'warning' | 'success'): 'running' | 'warning' | 'success' {
-  return status;
 }
 
 function panelTitle(title: string, detail: string, metric: string): readonly InlineTextSegment[] {

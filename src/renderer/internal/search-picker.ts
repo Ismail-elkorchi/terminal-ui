@@ -10,7 +10,7 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { SearchEntry } from '../../ui-model/contracts.ts';
 import { searchPickerWindow } from '../../behavior/search-picker.ts';
-import type { SearchPickerFilterResult, SearchPickerWindowInput } from '../../behavior/search-picker.ts';
+import type { SearchPickerWindow, SearchPickerWindowInput } from '../../behavior/search-picker.ts';
 import type { Rect } from '../model/layout.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import type { HitTarget } from '../model/renderer.ts';
@@ -25,7 +25,7 @@ interface SearchPickerRenderModel {
   readonly title: string;
   readonly query: string;
   readonly helpText: string;
-  readonly window: SearchPickerFilterResult<unknown>;
+  readonly window: SearchPickerWindow<unknown>;
   readonly selectedPreview?: string;
   readonly resultSummary: string;
   readonly availableEntries: number;

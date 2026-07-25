@@ -82,7 +82,7 @@ test('style-only diffs are incremental and preserve visual dimensions', () => {
   assert.equal(diff.height, previous.height);
 });
 
-test('log viewer cached projections equal fresh projections across render environments', () => {
+test('log viewer cached prepared data produces the same frames as fresh data across render environments', () => {
   const items = Array.from({ length: 96 }, (_value, index) => Object.freeze({
     id: `item-${String(index)}`,
     text: `${index % 3 === 0 ? 'needle ' : ''}row ${String(index)} wide 界 emoji 🙂 combining e\u0301 ${'body '.repeat(index % 7)}`,

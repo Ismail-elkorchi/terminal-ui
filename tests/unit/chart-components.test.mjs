@@ -110,10 +110,10 @@ test('barChart budgets labels and fills in terminal cells under wide profiles', 
   assert.deepEqual(valueCells.map((cell) => cell.column), [15, 16]);
 });
 
-test('barChart renders loading state from shared chart state contract', () => {
+test('barChart renders its loading data state', () => {
   const frame = renderElementFrame(barChart({
     id: 'loading-bars',
-    status: 'running',
+    dataState: 'loading',
     loadingText: 'Loading bars',
     items: []
   }), { columns: 24, rows: 1 });
@@ -121,6 +121,17 @@ test('barChart renders loading state from shared chart state contract', () => {
   assert.match(renderFramePlain(frame), /Loading bars/u);
   assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.elementKind, 'barChart');
   assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.description, 'state.loading.message');
+});
+
+test('chart and meter reject values outside their component-specific state contracts', () => {
+  assert.throws(
+    () => chart({ id: 'invalid-chart', series: [], dataState: 'success' }),
+    /chart dataState must be loading or error/u
+  );
+  assert.throws(
+    () => meter({ id: 'invalid-meter', value: 10, result: 'running' }),
+    /meter result must be success, warning, or error/u
+  );
 });
 
 test('chart plots series into a bounded text canvas', () => {
@@ -322,7 +333,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
 test('chart renders error state without anonymous text cells', () => {
   const frame = renderElementFrame(chart({
     id: 'error-chart',
-    status: 'error',
+    dataState: 'error',
     errorText: 'Chart unavailable',
     series: [{ id: 'one', points: [1, 2, 3] }]
   }), { columns: 24, rows: 1 });
@@ -355,7 +366,7 @@ test('meter renders a labeled bounded meter with progress accessibility', () => 
     value: 75,
     max: 100,
     width: 10,
-    status: 'success'
+    result: 'success'
   }), { columns: 32, rows: 1 });
 
   const output = renderFramePlain(frame);
@@ -371,7 +382,7 @@ test('meter renders a labeled bounded meter with progress accessibility', () => 
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.elementKind, 'meter');
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.description, 'metric.label');
   assert.equal(frame.cells.find((cell) => cell.text === '7')?.source?.description, 'metric.value');
-  assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.description, 'status.value');
+  assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.description, 'result.value');
 });
 
 test('meter width is a terminal-cell budget under wide profiles', () => {
@@ -394,7 +405,7 @@ test('meter dial variant renders distinct tested dial anatomy', () => {
     max: 100,
     width: 8,
     variant: 'dial',
-    status: 'warning'
+    result: 'warning'
   }), { columns: 16, rows: 4 });
   const output = renderFramePlain(frame);
 

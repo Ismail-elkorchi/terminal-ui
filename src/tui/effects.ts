@@ -2,7 +2,6 @@ import { diagnostic } from '../diagnostics.ts';
 import { effectExecutionId } from '../foundation/identity.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalClock } from '../host/index.ts';
-import type { EffectExecutionId } from '../foundation/identity.ts';
 import { createProducerAdmissionLease } from './producer-admission.ts';
 import type { ProducerAdmissionLease } from './producer-admission.ts';
 import type {
@@ -14,7 +13,7 @@ import type {
 } from './types.ts';
 
 interface ActiveEffect {
-  readonly id: EffectExecutionId;
+  readonly id: string;
   readonly controller: AbortController;
   readonly lease: ProducerAdmissionLease;
   completion: Promise<void>;
@@ -54,10 +53,10 @@ export function createTuiEffectManager<TMessage>(
 ): TuiEffectManager<TMessage> {
   const policy = normalizeEffectPolicy(options.policy);
   const active = new Set<ActiveEffect>();
-  const activeById = new Map<EffectExecutionId, Set<ActiveEffect>>();
-  const queues = new Map<EffectExecutionId, TuiEffect<TMessage>[]>();
-  const pendingReplacements = new Map<EffectExecutionId, TuiEffect<TMessage>>();
-  const replacementDeadlines = new Map<EffectExecutionId, ReplacementDeadline>();
+  const activeById = new Map<string, Set<ActiveEffect>>();
+  const queues = new Map<string, TuiEffect<TMessage>[]>();
+  const pendingReplacements = new Map<string, TuiEffect<TMessage>>();
+  const replacementDeadlines = new Map<string, ReplacementDeadline>();
   const executionFailures: unknown[] = [];
   let rejected = 0;
   let disposed = false;
@@ -65,7 +64,7 @@ export function createTuiEffectManager<TMessage>(
   function launch(effect: TuiEffect<TMessage>): void {
     const id = effectExecutionId(effect.id);
     const controller = new AbortController();
-    const lease = createProducerAdmissionLease('effect', String(id), controller.signal);
+    const lease = createProducerAdmissionLease('effect', id, controller.signal);
     const execution: ActiveEffect = { id, controller, lease, completion: Promise.resolve() };
     execution.completion = executeEffect(effect, execution, options)
       .catch((cause: unknown) => {
@@ -85,12 +84,12 @@ export function createTuiEffectManager<TMessage>(
     activeById.set(id, group);
   }
 
-  function hasCapacity(id: EffectExecutionId): boolean {
+  function hasCapacity(id: string): boolean {
     return active.size < policy.maxActive
       && (activeById.get(id)?.size ?? 0) < policy.maxActivePerId;
   }
 
-  function launchPending(preferredId?: EffectExecutionId): void {
+  function launchPending(preferredId?: string): void {
     if (disposed) return;
     if (preferredId !== undefined && hasCapacity(preferredId)) {
       const replacement = pendingReplacements.get(preferredId);
@@ -160,7 +159,7 @@ export function createTuiEffectManager<TMessage>(
     else enqueue(effect, id);
   }
 
-  function enqueue(effect: TuiEffect<TMessage>, id: EffectExecutionId): void {
+  function enqueue(effect: TuiEffect<TMessage>, id: string): void {
     const queue = queues.get(id) ?? [];
     if (queuedCount(queues) >= policy.maxQueued || queue.length >= policy.maxQueuedPerId) {
       rejectEffect(effect, 'queue_limit');
@@ -231,7 +230,7 @@ export function createTuiEffectManager<TMessage>(
     return queuedCount(queues) + pendingReplacements.size < policy.maxQueued;
   }
 
-  function startReplacementDeadline(id: EffectExecutionId, effect: TuiEffect<TMessage>): void {
+  function startReplacementDeadline(id: string, effect: TuiEffect<TMessage>): void {
     cancelReplacementDeadline(id);
     const controller = new AbortController();
     const deadline: ReplacementDeadline = {
@@ -253,7 +252,7 @@ export function createTuiEffectManager<TMessage>(
     replacementDeadlines.set(id, deadline);
   }
 
-  function cancelReplacementDeadline(id: EffectExecutionId): void {
+  function cancelReplacementDeadline(id: string): void {
     const deadline = replacementDeadlines.get(id);
     if (deadline === undefined) return;
     replacementDeadlines.delete(id);
@@ -356,7 +355,7 @@ function effectFailure(
   });
 }
 
-function queuedCount<TMessage>(queues: ReadonlyMap<EffectExecutionId, readonly TuiEffect<TMessage>[]>): number {
+function queuedCount<TMessage>(queues: ReadonlyMap<string, readonly TuiEffect<TMessage>[]>): number {
   let count = 0;
   for (const queue of queues.values()) count += queue.length;
   return count;

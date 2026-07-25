@@ -23,13 +23,13 @@ import {
   type LogViewerBodySelection
 } from './log-viewer/content.ts';
 import {
-  projectLogViewerLayout,
-  projectLogViewerSearch,
+  logViewerLayout,
+  searchLogViewerHistory,
   logViewerRowForEntry,
-  type LogViewerLayoutProjection,
+  type LogViewerLayout,
   visibleLogViewerRecords
-} from './log-viewer/projection.ts';
-import { projectLogViewerRecord } from './log-viewer/record-projection.ts';
+} from './log-viewer/prepared-data.ts';
+import { logViewerRecordModel } from './log-viewer/record-model.ts';
 import { extractLogViewerSelectionText } from '../../behavior/log-viewer-selection.ts';
 import { logHistoryRecordById } from '../../ui-model/log-history.ts';
 import { stringify } from './render-node-props.ts';
@@ -66,7 +66,7 @@ interface LogViewerVisibleRow {
   readonly bodyPositions?: readonly LogViewerBodyPosition[];
 }
 
-interface LogViewerRecordRowProjection {
+interface LogViewerRecordRows {
   readonly rows: readonly LogViewerVisibleRow[];
   readonly matchStartRows: readonly number[];
 }
@@ -109,7 +109,7 @@ export function logViewerWindow(
     && cached.height === node.bounds.height
     && cached.widthProfile === widthProfile
   ) return cached.window;
-  const window = projectLogViewerWindow(renderNode, node, widthProfile);
+  const window = buildLogViewerWindow(renderNode, node, widthProfile);
   logViewerWindowCache.set(renderNode, {
     width: node.bounds.width,
     height: node.bounds.height,
@@ -119,7 +119,7 @@ export function logViewerWindow(
   return window;
 }
 
-function projectLogViewerWindow(
+function buildLogViewerWindow(
   renderNode: LogViewerNode,
   node: Pick<LayoutNode, 'bounds'>,
   widthProfile: TextWidthProfile
@@ -130,15 +130,15 @@ function projectLogViewerWindow(
   const selection = selectionProp(renderNode);
   const foldedIds = new Set(renderNode.props.foldedIds ?? []);
   const includeBodyPositions = renderNode.props.toActionMessage !== undefined;
-  const projection = projectLogViewerLayout(history, node.bounds.width, wrap, widthProfile, foldedIds);
-  const search = projectLogViewerSearch(history, query, foldedIds);
-  const rowsByRecord = new Map<LogHistoryRecord, LogViewerRecordRowProjection>();
-  const projectionForRecord = (record: LogHistoryRecord): LogViewerRecordRowProjection => {
+  const layout = logViewerLayout(history, node.bounds.width, wrap, widthProfile, foldedIds);
+  const search = searchLogViewerHistory(history, query, foldedIds);
+  const rowsByRecord = new Map<LogHistoryRecord, LogViewerRecordRows>();
+  const rowsForRecordModel = (record: LogHistoryRecord): LogViewerRecordRows => {
     const cached = rowsByRecord.get(record);
     if (cached !== undefined) return cached;
-    const rows = logViewerRecordRowProjection(
+    const rows = logViewerRecordRows(
       renderNode,
-      projectLogViewerRecord(record, foldedIds.has(record.entry.id)),
+      logViewerRecordModel(record, foldedIds.has(record.entry.id)),
       node.bounds.width,
       query,
       selectionForRecord(history, record, selection),
@@ -150,34 +150,34 @@ function projectLogViewerWindow(
     return rows;
   };
   const rowsForRecord = (record: LogHistoryRecord): readonly LogViewerVisibleRow[] => (
-    projectionForRecord(record).rows
+    rowsForRecordModel(record).rows
   );
   const selectedMatch = selectedSearchMatch(renderNode, search.matches);
   const firstMatchRow = matchingLogViewerRow(
     history,
-    projection,
+    layout,
     selectedMatch,
-    projectionForRecord
+    rowsForRecordModel
   );
   const explicitScroll = scrollStateProp(renderNode);
   const scroll = explicitScroll === undefined
-    ? defaultScrollState(projection.totalRows, node.bounds.height, firstMatchRow)
+    ? defaultScrollState(layout.totalRows, node.bounds.height, firstMatchRow)
     : normalizeScrollState({
         ...explicitScroll,
-        contentRows: projection.totalRows,
+        contentRows: layout.totalRows,
         viewportRows: node.bounds.height
       });
   const visibleWindow = visibleWindowFromScroll(scroll);
   const omittedBefore = visibleWindow.startIndex;
-  const omittedAfter = Math.max(0, projection.totalRows - visibleWindow.endIndexExclusive);
+  const omittedAfter = Math.max(0, layout.totalRows - visibleWindow.endIndexExclusive);
   const visibleRows = visibleLogViewerRecords(
-    projection,
+    layout,
     visibleWindow.startIndex,
     visibleWindow.endIndexExclusive
   )
     .flatMap(({ record, localStart, localEnd }) => rowsForRecord(record).slice(localStart, localEnd));
   return {
-    rows: projection.totalRows === 0
+    rows: layout.totalRows === 0
       ? emptyRows(renderNode, node.bounds.height)
       : withOmissionMarkers(
           renderNode,
@@ -187,7 +187,7 @@ function projectLogViewerWindow(
           node.bounds.height,
           scroll.followTail
         ),
-    totalRows: projection.totalRows,
+    totalRows: layout.totalRows,
     start: visibleWindow.startIndex,
     end: visibleWindow.endIndexExclusive,
     omittedBefore,
@@ -200,15 +200,15 @@ function projectLogViewerWindow(
 
 function matchingLogViewerRow(
   history: LogHistory,
-  projection: LogViewerLayoutProjection,
+  layout: LogViewerLayout,
   match: LogSearchMatch | undefined,
-  projectionForRecord: (record: LogHistoryRecord) => LogViewerRecordRowProjection
+  rowsForRecord: (record: LogHistoryRecord) => LogViewerRecordRows
 ): number | undefined {
   if (match === undefined) return undefined;
   const record = logHistoryRecordById(history, match.entryId);
-  const entryStartRow = logViewerRowForEntry(projection, match.entryIndex);
+  const entryStartRow = logViewerRowForEntry(layout, match.entryIndex);
   if (record === undefined || entryStartRow === undefined) return undefined;
-  const matchedRow = projectionForRecord(record).matchStartRows[match.occurrenceIndex];
+  const matchedRow = rowsForRecord(record).matchStartRows[match.occurrenceIndex];
   return matchedRow === undefined ? undefined : entryStartRow + matchedRow;
 }
 
@@ -295,18 +295,18 @@ function logViewerDescription(renderNode: LogViewerNode, window: LogViewerWindow
   return `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(window.totalRows)} log rows. Omitted before: ${String(window.omittedBefore)}. Omitted after: ${String(window.omittedAfter)}.${followTailText}${queryText}${selectionText}`;
 }
 
-function logViewerRecordRowProjection(
+function logViewerRecordRows(
   renderNode: LogViewerNode,
-  projected: ReturnType<typeof projectLogViewerRecord>,
+  recordModel: ReturnType<typeof logViewerRecordModel>,
   width: number,
   query: string,
   selection: LogViewerBodySelection | undefined,
   wrap: boolean,
   includeBodyPositions: boolean,
   widthProfile: TextWidthProfile
-): LogViewerRecordRowProjection {
-  const record = projected.source;
-  const fullLine = logViewerFullLineSpans(renderNode, projected, query, selection);
+): LogViewerRecordRows {
+  const record = recordModel.source;
+  const fullLine = logViewerFullLineSpans(renderNode, recordModel, query, selection);
   const matchStartRows = wrap
     ? matchRowsForSpans(fullLine, width, widthProfile)
     : fullLine.filter((segment) => segment.matched === true).map(() => 0);
@@ -315,16 +315,16 @@ function logViewerRecordRowProjection(
     : [{ spans: fullLine } satisfies RenderLine];
   let bodyCursor = 0;
   const rows = lines.map((renderLine, lineIndex) => {
-    const positionProjection = includeBodyPositions
+    const bodyPositions = includeBodyPositions
       ? bodyPositionsForLine(
           renderLine.spans,
-          projected.bodyText,
+          recordModel.bodyText,
           record.entry.id,
           bodyCursor,
           widthProfile
         )
       : { positions: [], nextBodyCursor: bodyCursor };
-    bodyCursor = positionProjection.nextBodyCursor;
+    bodyCursor = bodyPositions.nextBodyCursor;
     return {
       id: `${renderNode.id ?? 'logViewer'}:entry:${String(record.entryIndex)}:line:${String(lineIndex)}`,
       text: renderLine.spans.map((segment) => segment.text).join(''),
@@ -332,12 +332,12 @@ function logViewerRecordRowProjection(
       sourceEntryId: record.entry.id,
       sourceEntryIndex: record.entryIndex,
       ...timestampForEntry(record.entry),
-      ...metadataForRecord(projected.metadataEntries),
+      ...metadataForRecord(recordModel.metadataEntries),
       matched: renderLine.spans.some((segment) => segment.source?.partType === 'match'),
       ...(selection === undefined ? {} : { selected: true }),
-      ...(positionProjection.positions.length === 0
+      ...(bodyPositions.positions.length === 0
         ? {}
-        : { bodyPositions: positionProjection.positions })
+        : { bodyPositions: bodyPositions.positions })
     };
   });
   return { rows: Object.freeze(rows), matchStartRows: Object.freeze(matchStartRows) };
@@ -567,11 +567,11 @@ function isBodyTextSpan(currentSpan: RenderSpan): boolean {
 
 function logViewerFullLineSpans(
   renderNode: LogViewerNode,
-  projected: ReturnType<typeof projectLogViewerRecord>,
+  recordModel: ReturnType<typeof logViewerRecordModel>,
   query: string,
   selection?: LogViewerBodySelection
 ): readonly LogViewerTextSegment[] {
-  const record = projected.source;
+  const record = recordModel.source;
   const timestampStyle = logViewerTimestampStyle(renderNode);
   const metadataStyle = logViewerMetadataStyle(renderNode);
   const separatorStyle = logViewerMetadataSeparatorStyle(renderNode);
@@ -588,7 +588,7 @@ function logViewerFullLineSpans(
       separatorStyle
     ));
   }
-  for (const [key, value] of projected.metadataEntries) {
+  for (const [key, value] of recordModel.metadataEntries) {
     appendGap(spans, renderNode);
     spans.push(...metadataSpans(
       renderNode,
@@ -602,7 +602,7 @@ function logViewerFullLineSpans(
     ));
   }
   appendGap(spans, renderNode);
-  spans.push(...bodySpans(renderNode, record.entry, record.entryIndex, projected.bodyText, query, selection));
+  spans.push(...bodySpans(renderNode, record.entry, record.entryIndex, recordModel.bodyText, query, selection));
   return spans.filter((span) => span.text.length > 0);
 }
 

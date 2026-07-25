@@ -48,7 +48,6 @@ import type {
 import type {
   GridRenderProps,
   ColumnRenderProps,
-  RowRenderProps,
   SplitPaneRenderProps
 } from './layout.ts';
 import type { DialogRenderProps } from './dialog.ts';
@@ -64,7 +63,6 @@ import type {
 import type {
   AbsoluteRenderProps,
   CanvasRenderProps,
-  OverlayRenderProps,
   SurfaceRenderProps
 } from './surfaces.ts';
 
@@ -72,7 +70,7 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly text: TextRenderProps;
   readonly richText: RichTextRenderProps;
   readonly column: ColumnRenderProps;
-  readonly row: RowRenderProps;
+  readonly row: ColumnRenderProps;
   readonly list: ListRenderProps<TMessage>;
   readonly table: TableRenderProps<TMessage>;
   readonly tree: TreeRenderProps<TMessage>;
@@ -103,7 +101,7 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly canvas: CanvasRenderProps;
   readonly surface: SurfaceRenderProps;
   readonly absolute: AbsoluteRenderProps;
-  readonly overlay: OverlayRenderProps;
+  readonly overlay: Record<never, never>;
   readonly statusBar: StatusBarRenderProps;
   readonly helpBar: HelpBarRenderProps;
   readonly statusIndicator: StatusIndicatorRenderProps;

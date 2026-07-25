@@ -211,7 +211,7 @@ test('activityFeed exposes block hit targets and keyboard focus when interactive
   });
 });
 
-test('activityFeed uses one measured projection for clipped rendering hit targets and accessibility', () => {
+test('activityFeed uses one measured window for clipped rendering hit targets and accessibility', () => {
   const element = activityFeed({
     id: 'measured-feed',
     blocks,
@@ -347,15 +347,15 @@ function colorCapabilities() {
 
 test('activityFeedPresentation preserves stable selection across reordered blocks', () => {
   const reordered = [blocks[2], blocks[0], blocks[1]];
-  const projection = activityFeedPresentation(reordered, {
+  const presentation = activityFeedPresentation(reordered, {
     selectedId: 'done',
     expandedIds: [],
     collapsedIds: []
   });
 
-  assert.equal(projection.blocks.length, 3);
-  assert.equal(projection.blocks[0]?.id, 'done');
-  assert.equal(projection.selectedId, 'done');
+  assert.equal(presentation.blocks.length, 3);
+  assert.equal(presentation.blocks[0]?.id, 'done');
+  assert.equal(presentation.selectedId, 'done');
 });
 
 function noColorCapabilities() {

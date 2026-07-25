@@ -13,7 +13,7 @@ import type {
   TreeOptions
 } from '../options/content.ts';
 import type { ScrollEvent } from '../../interaction/scroll.ts';
-import { prepareListProjection } from '../../behavior/list.ts';
+import { prepareListViewForOptions } from '../../behavior/list.ts';
 import { prepareTableCollection } from '../../behavior/table.ts';
 import { prepareTreeCollection } from '../../behavior/tree.ts';
 import { prepareTreeView } from '../../ui-model/tree-view.ts';
@@ -63,7 +63,7 @@ export function list<
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 /* eslint-enable @typescript-eslint/unified-signatures */
 export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
-  const view = prepareListProjection(options);
+  const view = prepareListViewForOptions(options);
   const keyMap = listKeyBindings(options, view.source);
   const toActionMessage: ((action: ListControlAction) => unknown) | undefined = options.onAction;
   const toScrollActionMessage = isScrollableListOptions(options) ? options.onAction : undefined;

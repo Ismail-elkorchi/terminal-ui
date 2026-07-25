@@ -5,12 +5,12 @@ import { fillTextCells, measureTextCells, oneCellGlyph } from '../../../text/ind
 import type { TextWidthProfile } from '../../../text/index.ts';
 import {
   chartLabelStyle,
-  chartMetricStyle,
   chartPlaceholderStyle,
   chartSpan,
-  chartStatus,
   chartTextFromBlock,
-  chartValueStyle
+  chartValueStyle,
+  meterMetricStyle,
+  meterResult
 } from '../chart-visual.ts';
 import { numberProp } from '../render-node-props.ts';
 import type { RenderBlock } from '../../../visual/render.ts';
@@ -30,7 +30,7 @@ export function meterBlock(
   const filledCells = Math.round(ratio * width);
   const emptyCells = Math.max(0, width - filledCells);
   const label = cleanLabel(renderNode.props.label);
-  const status = chartStatus(renderNode.props.status);
+  const result = meterResult(renderNode.props.result);
   const valueText = `${String(Math.round(ratio * 100))}%`;
   return {
     lines: [{
@@ -46,7 +46,7 @@ export function meterBlock(
           'fill',
           'metric.bar.filled',
           fillTextCells(theme.tokens.symbols.progressFilled, filledCells, { widthProfile }),
-          chartMetricStyle(renderNode, status)
+          meterMetricStyle(renderNode, result)
         ),
         chartSpan(
           renderNode,
@@ -58,10 +58,10 @@ export function meterBlock(
         ),
         chartSpan(renderNode, 'meter', 'frame', 'metric.bar.close', ']', chartPlaceholderStyle(renderNode)),
         chartSpan(renderNode, 'meter', 'separator', 'metric.separator.beforeValue', ' ', chartPlaceholderStyle(renderNode)),
-        chartSpan(renderNode, 'meter', 'metric', 'metric.value', valueText, chartMetricStyle(renderNode, status)),
-        ...(status === undefined ? [] : [
-          chartSpan(renderNode, 'meter', 'separator', 'status.separator', ' ', chartPlaceholderStyle(renderNode)),
-          chartSpan(renderNode, 'meter', 'status', 'status.value', status, chartMetricStyle(renderNode, status))
+        chartSpan(renderNode, 'meter', 'metric', 'metric.value', valueText, meterMetricStyle(renderNode, result)),
+        ...(result === undefined ? [] : [
+          chartSpan(renderNode, 'meter', 'separator', 'result.separator', ' ', chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'result', 'result.value', result, meterMetricStyle(renderNode, result))
         ])
       ]
     }]
@@ -78,7 +78,7 @@ function meterDialBlock(
   const filledCells = Math.round(ratio * innerWidth);
   const emptyCells = Math.max(0, innerWidth - filledCells);
   const label = cleanLabel(renderNode.props.label);
-  const status = chartStatus(renderNode.props.status);
+  const result = meterResult(renderNode.props.result);
   const valueText = `${String(Math.round(ratio * 100))}%`;
   const markerGlyph = '▲';
   const markerCells = measureTextCells(markerGlyph, { widthProfile }).cells;
@@ -97,7 +97,7 @@ function meterDialBlock(
       {
         spans: [
           chartSpan(renderNode, 'meter', 'frame', 'dial.open', oneCellGlyph('╭', '+', { widthProfile }), chartPlaceholderStyle(renderNode)),
-          chartSpan(renderNode, 'meter', 'fill', 'dial.filled', fillTextCells('─', filledCells, { widthProfile }), chartMetricStyle(renderNode, status)),
+          chartSpan(renderNode, 'meter', 'fill', 'dial.filled', fillTextCells('─', filledCells, { widthProfile }), meterMetricStyle(renderNode, result)),
           chartSpan(renderNode, 'meter', 'fill', 'dial.empty', fillTextCells('─', emptyCells, { widthProfile }), chartPlaceholderStyle(renderNode)),
           chartSpan(renderNode, 'meter', 'frame', 'dial.close', oneCellGlyph('╮', '+', { widthProfile }), chartPlaceholderStyle(renderNode))
         ]
@@ -105,7 +105,7 @@ function meterDialBlock(
       {
         spans: [
           chartSpan(renderNode, 'meter', 'frame', 'dial.side.left', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(renderNode)),
-          chartSpan(renderNode, 'meter', 'marker', 'dial.needle', marker, chartMetricStyle(renderNode, status)),
+          chartSpan(renderNode, 'meter', 'marker', 'dial.needle', marker, meterMetricStyle(renderNode, result)),
           chartSpan(renderNode, 'meter', 'frame', 'dial.side.right', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(renderNode)),
           chartSpan(renderNode, 'meter', 'separator', 'dial.separator.beforeValue', ' ', chartPlaceholderStyle(renderNode)),
           chartSpan(renderNode, 'meter', 'metric', 'dial.value', valueText, chartValueStyle(renderNode))

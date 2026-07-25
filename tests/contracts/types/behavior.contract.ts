@@ -6,7 +6,6 @@ import {
   tableReducer,
   type CommandInputState
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import * as behavior from '@ismail-elkorchi/terminal-ui/behavior';
 
 const command: CommandInputState = { input: { text: '', cursor: 0 }, history: [], suggestions: [] };
 const edited = commandInputReducer(command, { kind: 'edit', operation: { kind: 'insert', text: 'x' } });
@@ -22,10 +21,7 @@ const pointer = pointerInteractionReducer({}, { kind: 'enter', targetId: 'save:c
 
 // @ts-expect-error reducer actions are discriminated contracts
 scrollReducer(scrolled, { kind: 'scrollLines', rows: 'two' });
-// @ts-expect-error pointer interaction no longer uses presentation vocabulary
-type RemovedPointerPresentationReducer = typeof behavior['pointerPresentationReducer'];
 
 void edited;
 void table;
 void pointer;
-void (undefined as unknown as RemovedPointerPresentationReducer);

@@ -13,7 +13,6 @@ export type {
   ColumnOptions,
   GridAreasOptions,
   GridOptions,
-  OverlayOptions,
   RowOptions,
   SplitPaneOptions,
   SurfaceOptions,

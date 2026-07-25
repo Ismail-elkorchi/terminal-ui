@@ -732,7 +732,7 @@ for (const current of cases) {
     assert.doesNotMatch(plain, /\u001B/u);
     assert.doesNotMatch(accessibilityJson, /\u001B/u);
     assertCellsAreInsideFrame(frame);
-    assertWidgetVisualSnapshot(snapshot, current, terminalSizeNormal, `${current.name} default`);
+    assertElementVisualSnapshot(snapshot, current, terminalSizeNormal, `${current.name} default`);
 
     if (current.expectStyledCells === true) {
       assert.equal(frame.cells.some((cell) => cell.style !== undefined), true);
@@ -764,7 +764,7 @@ for (const current of cases) {
     const highContrastFrame = renderElementFrame(current.element(), terminalSizeNormal, { theme: highContrastTheme });
     assert.equal(validateAccessibleSnapshot(highContrastFrame.accessibility).ok, true);
     assertCellsAreInsideFrame(highContrastFrame);
-    assertWidgetVisualSnapshot(
+    assertElementVisualSnapshot(
       createVisualSnapshot({ frame: highContrastFrame, ansi: { capabilities: colorCapabilities(), theme: highContrastTheme } }),
       current,
       terminalSizeNormal,
@@ -772,12 +772,12 @@ for (const current of cases) {
     );
 
     const noColorSnapshot = createVisualSnapshot({ frame, ansi: { capabilities: noColorCapabilities() } });
-    assertWidgetVisualSnapshot(noColorSnapshot, current, terminalSizeNormal, `${current.name} no color`);
+    assertElementVisualSnapshot(noColorSnapshot, current, terminalSizeNormal, `${current.name} no color`);
     assert.doesNotMatch(noColorSnapshot.ansiFrame, /\\x1b\[[0-9;]*m/u, `${current.name} no-color snapshot should not emit SGR`);
   });
 }
 
-function assertWidgetVisualSnapshot(snapshot, current, terminalSize, label) {
+function assertElementVisualSnapshot(snapshot, current, terminalSize, label) {
   const frameJson = JSON.parse(snapshot.frameJson);
   const hitTargets = JSON.parse(snapshot.hitTargetJson);
   const focusTargets = JSON.parse(snapshot.focusTargetJson);

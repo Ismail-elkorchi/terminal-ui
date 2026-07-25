@@ -689,7 +689,7 @@ test('record results and notification tones retain their component-specific styl
   assert.equal(styleFor(notificationFrame, '█')?.fg?.token, 'status.running');
 });
 
-test('chart components use shared visual state styles and source metadata', () => {
+test('chart components apply their styles and source metadata', () => {
   const barFrame = renderElementFrame(barChart({
     id: 'bars',
     selectedId: 'atlas',
@@ -703,7 +703,7 @@ test('chart components use shared visual state styles and source metadata', () =
 }), { columns: 24, rows: 1 });
   const chartFrame = renderElementFrame(chart({
     id: 'chart',
-    status: 'error',
+    dataState: 'error',
     errorText: 'Unavailable'
   }), { columns: 24, rows: 1 });
   const heatmapFrame = renderElementFrame(heatmap({

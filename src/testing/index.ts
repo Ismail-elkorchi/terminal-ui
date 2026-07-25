@@ -34,7 +34,7 @@ export type {
   RenderRegionHitTarget
 } from '../renderer/internal/render.ts';
 export { placeNotificationStack } from '../renderer/internal/notifications.ts';
-export { logViewerSearchStatistics } from '../renderer/internal/log-viewer/projection.ts';
+export { logViewerSearchStatistics } from '../renderer/internal/log-viewer/prepared-data.ts';
 export { searchPickerIndexStatistics } from '../ui-model/search-picker-index.ts';
 export type {
   NotificationStackPlacementInput,

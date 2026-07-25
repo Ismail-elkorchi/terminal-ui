@@ -23,7 +23,6 @@ import {
 } from '../internal/interaction.ts';
 import { optionalId, requiredId } from '../../authoring/render-node.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
-import { heatmapRowsForRenderer } from '../internal/domain.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
@@ -175,6 +174,7 @@ function assertProgressBarMode(mode: ProgressBarOptions['mode']): void {
 }
 
 export function sparkline(options: SparklineOptions): Element {
+  assertChartDataState(options.dataState, 'sparkline');
   return componentElementFromRenderNode<'sparkline'>({
     ...optionalId(options.id),
     kind: 'sparkline',
@@ -182,7 +182,7 @@ export function sparkline(options: SparklineOptions): Element {
       values: options.values,
       ...(options.min === undefined ? {} : { min: options.min }),
       ...(options.max === undefined ? {} : { max: options.max }),
-      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.dataState === undefined ? {} : { dataState: options.dataState }),
       ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
@@ -205,6 +205,7 @@ export function barChart<
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
+  assertChartDataState(options.dataState, 'barChart');
   resolveStableIds(options.items, (item) => item.id, 'barChart');
   const onAction = options.onAction;
   const selectedIndex = options.items.findIndex((item) => item.id === options.selectedId);
@@ -224,7 +225,7 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
       items: options.items,
       ...(options.max === undefined ? {} : { max: options.max }),
       ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
-      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.dataState === undefined ? {} : { dataState: options.dataState }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
       ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
@@ -235,6 +236,7 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
 }
 
 export function chart<const TMessage = never>(options: ChartOptions<TMessage>): Element<TMessage> {
+  assertChartDataState(options.dataState, 'chart');
   const onAction = options.onAction;
   const selected = options.selected;
   const generated = onAction === undefined ? undefined : {
@@ -262,7 +264,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
       ...(options.signedDomain === undefined ? {} : { signedDomain: options.signedDomain }),
       ...(options.xLabel === undefined ? {} : { xLabel: options.xLabel }),
       ...(options.yLabel === undefined ? {} : { yLabel: options.yLabel }),
-      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.dataState === undefined ? {} : { dataState: options.dataState }),
       ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale }),
       ...(options.sampleMode === undefined ? {} : { sampleMode: options.sampleMode }),
       ...(options.sampleAlign === undefined ? {} : { sampleAlign: options.sampleAlign }),
@@ -279,6 +281,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
 }
 
 export function meter(options: MeterOptions): Element {
+  assertMeterResult(options.result);
   return componentElementFromRenderNode<'meter'>({
     ...optionalId(options.id),
     kind: 'meter',
@@ -289,13 +292,14 @@ export function meter(options: MeterOptions): Element {
       ...(options.max === undefined ? {} : { max: options.max }),
       ...(options.width === undefined ? {} : { width: options.width }),
       ...(options.variant === undefined ? {} : { variant: options.variant }),
-      ...(options.status === undefined ? {} : { status: options.status })
+      ...(options.result === undefined ? {} : { result: options.result })
     },
     ...componentMetaProps(options.meta)
   });
 }
 
 export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<TValue, TMessage>): Element<TMessage> {
+  assertChartDataState(options.dataState, 'heatmap');
   const onAction = options.onAction;
   const selected = options.selected;
   const generated = onAction === undefined ? undefined : {
@@ -319,13 +323,13 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
     ...requiredId(options.id, 'heatmap'),
     kind: 'heatmap',
     props: {
-      rows: heatmapRowsForRenderer(options.rows),
+      rows: options.rows,
       ...(options.min === undefined ? {} : { min: options.min }),
       ...(options.max === undefined ? {} : { max: options.max }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.cellWidth === undefined ? {} : { cellWidth: options.cellWidth }),
       ...(options.gap === undefined ? {} : { gap: options.gap }),
-      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.dataState === undefined ? {} : { dataState: options.dataState }),
       ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
@@ -350,4 +354,14 @@ export function spinner(options: SpinnerOptions = {}): Element {
     },
     ...componentMetaProps(options.meta)
   });
+}
+
+function assertChartDataState(value: unknown, component: string): void {
+  if (value === undefined || value === 'loading' || value === 'error') return;
+  throw new TypeError(`${component} dataState must be loading or error.`);
+}
+
+function assertMeterResult(value: unknown): void {
+  if (value === undefined || value === 'success' || value === 'warning' || value === 'error') return;
+  throw new TypeError('meter result must be success, warning, or error.');
 }

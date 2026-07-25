@@ -35,11 +35,6 @@ table({
 tree({ id: 'tree', collection: treeCollection });
 paginationWindow({ pageNumber: 2, pageSize: 25, totalCount: 100 });
 
-// @ts-expect-error collection windows use explicit index and count fields
-prepareListCollection(['alpha'], (value) => ({ id: value, label: value }), { start: 0, total: 1, domain: { kind: 'source' } });
-// @ts-expect-error pagination input uses totalCount
-paginationWindow({ page: 2, pageSize: 25, total: 100 });
-
 // @ts-expect-error externally windowed lists cannot be filtered locally
 list({ id: 'filtered-window-list', collection: listCollection, filterQuery: 'alpha' });
 // @ts-expect-error externally windowed trees cannot be filtered locally

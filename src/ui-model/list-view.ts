@@ -5,12 +5,12 @@ import type {
   ListCollectionRecord,
   ListItemProjection,
   ListViewEntry,
-  ListViewProjection,
+  PreparedListView,
   WindowedListCollection
 } from './list.ts';
 
 interface ListViewIndex<TValue> {
-  readonly projection: ListViewProjection<TValue>;
+  readonly view: PreparedListView<TValue>;
   readonly selectablePositions: ReadonlyMap<string, number>;
   readonly scrollPositions: ReadonlyMap<string, number>;
 }
@@ -20,27 +20,27 @@ const views = new WeakMap<object, Map<string, ListViewIndex<unknown>>>();
 export function prepareListView<TValue>(
   collection: CompleteListCollection<TValue>,
   options?: { readonly filterQuery?: string }
-): ListViewProjection<TValue>;
+): PreparedListView<TValue>;
 export function prepareListView<TValue>(
   collection: WindowedListCollection<TValue>
-): ListViewProjection<TValue>;
+): PreparedListView<TValue>;
 export function prepareListView<TValue>(
   collection: ListCollection<TValue>,
   options: { readonly filterQuery?: string } = {}
-): ListViewProjection<TValue> {
+): PreparedListView<TValue> {
   const query = queryFor(collection, options.filterQuery);
-  return viewIndex(collection, query).projection;
+  return viewIndex(collection, query).view;
 }
 
 export function listViewSelectablePosition<TValue>(
-  view: ListViewProjection<TValue>,
+  view: PreparedListView<TValue>,
   id: string
 ): number | undefined {
   return viewIndex(view.source, view.query).selectablePositions.get(id);
 }
 
 export function listViewScrollPosition<TValue>(
-  view: ListViewProjection<TValue>,
+  view: PreparedListView<TValue>,
   id: string
 ): number | undefined {
   return viewIndex(view.source, view.query).scrollPositions.get(id);
@@ -74,7 +74,7 @@ function viewIndex<TValue>(collection: ListCollection<TValue>, query: string): L
     });
   }));
   const selectable = Object.freeze(entries.filter((entry) => entry.selectableIndex !== undefined));
-  const projection = Object.freeze({
+  const view = Object.freeze({
     kind: 'list-view' as const,
     source: collection,
     query,
@@ -83,7 +83,7 @@ function viewIndex<TValue>(collection: ListCollection<TValue>, query: string): L
     startIndex: collection.kind === 'window' ? collection.startIndex : 0,
     totalCount: collection.kind === 'window' ? collection.totalCount : entries.length
   });
-  const index = Object.freeze({ projection, selectablePositions, scrollPositions });
+  const index = Object.freeze({ view, selectablePositions, scrollPositions });
   byQuery.set(query, index);
   return index;
 }

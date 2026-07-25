@@ -7,7 +7,6 @@ import type {
 } from '../../element/metadata.ts';
 import type { RenderNodeRenderer } from './renderer.ts';
 import type { RenderNodePropsByKind } from './props/index.ts';
-import type { RenderNodeId } from '../../foundation/identity.ts';
 import type {
   PointerInteractionAction,
   PointerInteractionState
@@ -19,7 +18,7 @@ export interface RenderNodePointerInteraction<TMessage> {
 }
 
 interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
-  readonly id?: RenderNodeId;
+  readonly id?: string;
   readonly kind: TKind;
   readonly props: RenderNodePropsByKind<TMessage>[TKind];
   readonly layer?: ElementLayer;

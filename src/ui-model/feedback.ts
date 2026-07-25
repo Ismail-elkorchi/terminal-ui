@@ -68,6 +68,7 @@ export type ChartSeriesKind = 'line' | 'scatter' | 'area' | 'bar';
 export type ChartSampleMode = 'one-per-column' | 'fit' | 'window';
 export type ChartSampleAlign = 'start' | 'end';
 export type ChartInterpolation = 'nearest' | 'linear';
+export type ChartDataState = 'loading' | 'error';
 
 export interface ChartPointSelection {
   readonly series: string;
@@ -75,6 +76,7 @@ export interface ChartPointSelection {
 }
 
 export type MeterVariant = 'linear' | 'dial';
+export type MeterResult = 'success' | 'warning' | 'error';
 
 export interface HeatmapCell<TValue = unknown> {
   readonly id: string;

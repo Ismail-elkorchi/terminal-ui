@@ -1,7 +1,6 @@
 import { diagnostic } from '../diagnostics.ts';
 import { subscriptionExecutionId } from '../foundation/identity.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { SubscriptionExecutionId } from '../foundation/identity.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
 import { createProducerAdmissionLease } from './producer-admission.ts';
 import type { ProducerAdmissionLease } from './producer-admission.ts';
@@ -15,7 +14,7 @@ import type {
 } from './types.ts';
 
 interface ActiveTuiEventSource<TMessage> {
-  readonly id: SubscriptionExecutionId;
+  readonly id: string;
   readonly generation: string | number;
   readonly controller: AbortController;
   readonly lease: ProducerAdmissionLease;
@@ -56,8 +55,8 @@ export interface TuiSubscriptionManagerOptions<TState, TMessage> {
 export function createTuiSubscriptionManager<TState, TMessage>(
   options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): TuiSubscriptionManager<TState, TMessage> {
-  const active = new Map<SubscriptionExecutionId, ActiveTuiEventSource<TMessage>>();
-  const terminal = new Map<SubscriptionExecutionId, TerminalSourceGeneration>();
+  const active = new Map<string, ActiveTuiEventSource<TMessage>>();
+  const terminal = new Map<string, TerminalSourceGeneration>();
   const retiring = new Set<Promise<void>>();
   const retirementFailures: unknown[] = [];
   let disposed = false;
@@ -122,7 +121,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   ): ActiveTuiEventSource<TMessage> {
     const controller = new AbortController();
     const id = subscriptionExecutionId(source.id);
-    const lease = createProducerAdmissionLease('subscription', `${String(id)}:${String(source.generation)}`, controller.signal);
+    const lease = createProducerAdmissionLease('subscription', `${id}:${String(source.generation)}`, controller.signal);
     const activeSource: ActiveTuiEventSource<TMessage> = {
       id,
       generation: source.generation,
@@ -283,7 +282,7 @@ function assertUniqueSourceIds<TMessage>(
   sources: readonly TuiEventSource<TMessage>[],
   reportDiagnostic: (item: TerminalDiagnostic) => void
 ): void {
-  const seen = new Set<SubscriptionExecutionId>();
+  const seen = new Set<string>();
   for (const source of sources) {
     const id = subscriptionExecutionId(source.id);
     if (seen.has(id)) {

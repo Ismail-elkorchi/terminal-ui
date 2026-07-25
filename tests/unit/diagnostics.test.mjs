@@ -22,7 +22,7 @@ test('diagnostic fingerprints do not depend on the process locale comparator', (
   }
 });
 
-test('diagnostic fingerprints distinguish contents that collide under the former 32-bit fingerprint', () => {
+test('diagnostic fingerprints distinguish structurally different contents', () => {
   const first = diagnostic('TUI_RUN_FAILED', 'candidate-5qshf2-1q2u');
   const second = diagnostic('TUI_RUN_FAILED', 'candidate-d5l61y-2d0e');
 

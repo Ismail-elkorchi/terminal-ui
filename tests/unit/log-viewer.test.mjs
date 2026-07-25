@@ -102,7 +102,7 @@ test('log viewer renders timestamp, metadata, and entry styles through visible r
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
 
-test('log viewer rendering uses the prepared metadata order used for row projection', () => {
+test('log viewer rendering uses the prepared metadata order used for row layout', () => {
   const history = prepareLogHistory([{
     id: 'ordered',
     metadata: { a: 'long-value', Z: 'short' },

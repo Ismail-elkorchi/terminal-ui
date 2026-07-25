@@ -4,7 +4,7 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import { indeterminateProgressFrame } from '../../behavior/feedback.ts';
 import type { ProcessStatus } from '../../ui-model/contracts.ts';
 import { normalizeProcessStatus } from '../../ui-model/status.ts';
-import type { ProgressBarLabelPosition, ProgressBarDisplay } from '../../ui-model/feedback.ts';
+import type { ProgressBarLabelPosition, ProgressBarDisplay, ValueScaleStop } from '../../ui-model/feedback.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { block, line } from './frame.ts';
@@ -13,7 +13,6 @@ import { numberProp, stringify } from './render-node-props.ts';
 import { measureRenderSpans } from '../../visual/render.ts';
 import { normalizeValueScale, valueScaleStyle } from './value-scale.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './frame.ts';
-import type { NormalizedValueScaleStop } from './value-scale.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 interface ProgressModel {
@@ -27,7 +26,7 @@ interface ProgressModel {
   readonly barWidth: number;
   readonly percentage: number;
   readonly frame: number;
-  readonly valueScale: readonly NormalizedValueScaleStop[];
+  readonly valueScale: readonly ValueScaleStop[];
   readonly elapsedMs?: number;
   readonly remainingMs?: number;
 }

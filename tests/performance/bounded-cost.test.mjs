@@ -68,7 +68,7 @@ test('large list rendering is bounded by terminal size, not collection size', ()
   assert.equal(frame.accessibility.root.description, 'Showing 39996-40005 of 50000 items.');
 });
 
-test('prepared list collections retain projection work across renders and actions', () => {
+test('prepared list collections retain item preparation across renders and actions', () => {
   let projectorCalls = 0;
   const values = Array.from({ length: 50_000 }, (_value, index) => `Item ${String(index)}`);
   const collection = prepareListCollection(values, (value, index) => {
@@ -118,7 +118,7 @@ test('large log viewer rendering is bounded by terminal size, not collection siz
   assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 log rows. Omitted before: 99988. Omitted after: 0. Follow tail: true.');
 });
 
-test('prepared log history pays source normalization once and projections do not reread entries', () => {
+test('prepared log history pays source normalization once and rendering does not reread entries', () => {
   let textReads = 0;
   const items = Array.from({ length: 20_000 }, (_value, index) => ({
     id: `line-${String(index)}`,
@@ -324,7 +324,7 @@ test('fill-width tables do not scan offscreen row values for intrinsic measureme
 test('large table retained damage is narrowed to changed visible rows', () => {
   const terminalSize = { columns: 64, rows: 12 };
   const rows = Array.from({ length: 20_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`]);
-  const previousWidget = table({
+  const previousElement = table({
     getRowId: (_row, index) => String(index),
     id: 'large-table-damage',
     presentation: { selectedCell: { rowId: '12000', columnIndex: 1 } },
@@ -338,7 +338,7 @@ test('large table retained damage is narrowed to changed visible rows', () => {
     ],
     rows
   });
-  const nextWidget = table({
+  const nextElement = table({
     getRowId: (_row, index) => String(index),
     id: 'large-table-damage',
     presentation: { selectedCell: { rowId: '12000', columnIndex: 2 } },
@@ -353,8 +353,8 @@ test('large table retained damage is narrowed to changed visible rows', () => {
     rows
   });
   const dirty = dirtyRegionsForRegionChanges(
-    renderElementRegions(previousWidget, terminalSize),
-    renderElementRegions(nextWidget, terminalSize)
+    renderElementRegions(previousElement, terminalSize),
+    renderElementRegions(nextElement, terminalSize)
   );
 
   assert.deepEqual(dirty?.rects, [
@@ -365,21 +365,21 @@ test('large table retained damage is narrowed to changed visible rows', () => {
 
 test('large sparse canvas retained damage is narrowed to touched cells', () => {
   const terminalSize = { columns: 120, rows: 40 };
-  const previousWidget = canvas({
+  const previousElement = canvas({
     id: 'sparse-canvas-damage',
     painter({ canvas }) {
       canvas.text(59, 19, [{ text: 'A' }]);
     }
   });
-  const nextWidget = canvas({
+  const nextElement = canvas({
     id: 'sparse-canvas-damage',
     painter({ canvas }) {
       canvas.text(59, 19, [{ text: 'B' }]);
     }
   });
   const dirty = dirtyRegionsForRegionChanges(
-    renderElementRegions(previousWidget, terminalSize),
-    renderElementRegions(nextWidget, terminalSize)
+    renderElementRegions(previousElement, terminalSize),
+    renderElementRegions(nextElement, terminalSize)
   );
 
   assert.deepEqual(dirty?.rects, [

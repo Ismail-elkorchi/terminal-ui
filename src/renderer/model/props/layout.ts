@@ -3,7 +3,6 @@ import type { SplitPaneAction } from '../../../ui-model/split-pane.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
 export type ColumnRenderProps = RenderNodeLayoutProps & { readonly sizes?: readonly LayoutSize[] };
-export type RowRenderProps = ColumnRenderProps;
 
 export interface GridRenderProps extends RenderNodeLayoutProps {
   readonly rows: readonly LayoutSize[];

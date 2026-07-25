@@ -69,7 +69,7 @@ test('TUI non-TTY last_frame mode writes readable text without control sequences
   assert.doesNotMatch(host.output(), /\u001B\[/u);
 });
 
-test('TUI non-TTY projection reports initialization failures precisely and disposes the host', async () => {
+test('TUI non-TTY run reports initialization failures precisely and disposes the host', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
   let disposed = false;
   const dispose = host.dispose.bind(host);

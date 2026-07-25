@@ -11,7 +11,6 @@ import {
   treeDisclosureAction,
   treeNodeCanDisclose,
   treeNodeMatches,
-  treePresentation,
   treeReducer,
   visibleTreeRows
 } from '../../dist/behavior/index.js';
@@ -48,7 +47,7 @@ void test('treeReducer models lazy pending success error and empty states', () =
   assert.deepEqual(loadedRoot.metadata, { path: '/workspace/root' });
   assert.equal(emptyRoot.loading.kind, 'empty');
 
-  const failedFrame = renderElementFrame(tree({ id: 'lazy-error', ...treePresentation(failed) }), { columns: 24, rows: 3 });
+  const failedFrame = renderElementFrame(tree({ id: 'lazy-error', ...failed }), { columns: 24, rows: 3 });
   assert.match(renderFramePlain(failedFrame), /Network failed/u);
 });
 

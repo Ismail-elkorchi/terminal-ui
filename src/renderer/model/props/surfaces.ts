@@ -21,5 +21,3 @@ export interface AbsoluteRenderProps {
   readonly width?: number;
   readonly height?: number;
 }
-
-export type OverlayRenderProps = Record<never, never>;

@@ -16,15 +16,9 @@ import {
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
   createScrollState,
-  listPresentation,
-  listScrollablePresentation,
   prepareLogHistory,
-  logViewerPresentation,
-  logViewerScrollablePresentation,
   tablePresentation,
   tableScrollablePresentation,
-  treePresentation,
-  treeScrollablePresentation,
   type PassiveListState,
   type PassiveLogViewerState,
   type PassiveTableState,
@@ -55,13 +49,13 @@ const history = prepareLogHistory([]);
 const passiveList = list({
   id: 'passive-list', items: ['one'],
   projectItem: (value) => ({ id: value, label: value }),
-  ...listPresentation(passiveListState),
+  ...passiveListState,
   onAction: (action) => ({ kind: 'passiveList' as const, action })
 });
 const scrollableList = list({
   id: 'scrollable-list', items: ['one'],
   projectItem: (value) => ({ id: value, label: value }),
-  ...listScrollablePresentation(scrollableListState),
+  ...scrollableListState,
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'scrollableList' as const, action })
 });
@@ -77,20 +71,20 @@ const scrollableTable = table({
   onAction: (action) => ({ kind: 'scrollableTable' as const, action })
 });
 const passiveTree = tree({
-  id: 'passive-tree', ...treePresentation(passiveTreeState),
+  id: 'passive-tree', ...passiveTreeState,
   onAction: (action) => ({ kind: 'passiveTree' as const, action })
 });
 const scrollableTree = tree({
-  id: 'scrollable-tree', ...treeScrollablePresentation(scrollableTreeState),
+  id: 'scrollable-tree', ...scrollableTreeState,
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'scrollableTree' as const, action })
 });
 const passiveLog = logViewer({
-  id: 'passive-log', ...logViewerPresentation(history, passiveLogViewerState),
+  id: 'passive-log', history, ...passiveLogViewerState,
   onAction: (action) => ({ kind: 'passiveLog' as const, action })
 });
 const scrollableLog = logViewer({
-  id: 'scrollable-log', ...logViewerScrollablePresentation(history, scrollableLogViewerState),
+  id: 'scrollable-log', history, ...scrollableLogViewerState,
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'scrollableLog' as const, action })
 });

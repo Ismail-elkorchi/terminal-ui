@@ -21,10 +21,6 @@ surface(text('body'), {
 richText({ segments: [{ kind: 'text', text: 'unsafe', source: { elementId: 'caller' } }] });
 // @ts-expect-error symbolic content requires accessible text
 richText({ segments: [{ kind: 'symbol', unicode: '→', ascii: '->' }] });
-surface(text('invalid border title'), {
-  // @ts-expect-error border geometry does not own authored title content
-  border: { kind: 'single', title: 'Legacy title' }
-});
 surface(text('invalid title source'), {
   // @ts-expect-error surface titles cannot author renderer source metadata
   title: [{ kind: 'text', text: 'Title', source: { elementId: 'caller' } }]

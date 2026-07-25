@@ -37,18 +37,18 @@ interface ActivityFeedMeasuredBlock {
   readonly lines: readonly RenderLine[];
 }
 
-interface ActivityFeedProjection {
+interface ActivityFeedRenderModel {
   readonly blocks: readonly StructuredBlock[];
   readonly selectedIndex: number | undefined;
   readonly window: MeasuredWindow<ActivityFeedMeasuredBlock>;
 }
 
-const activityFeedProjectionCache = new WeakMap<object, {
+const activityFeedRenderModelCache = new WeakMap<object, {
   readonly width: number;
   readonly height: number;
   readonly theme: TerminalTheme;
   readonly widthProfileKey: string;
-  readonly projection: ActivityFeedProjection;
+  readonly model: ActivityFeedRenderModel;
 }>();
 
 export function structuredBlockText(
@@ -119,7 +119,7 @@ export function activityFeedAccessibleBase(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
-  const { blocks, window } = activityFeedProjection(renderNode, node.bounds, theme, widthProfile);
+  const { blocks, window } = activityFeedRenderModel(renderNode, node.bounds, theme, widthProfile);
   return {
     id,
     role: 'listbox',
@@ -137,13 +137,13 @@ export function activityFeedAccessibleChildren(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly AccessibleNode[] {
-  const projection = activityFeedProjection(renderNode, node.bounds, theme, widthProfile);
-  return projection.window.entries.map(({ item: { value: { block, index } } }) => ({
+  const model = activityFeedRenderModel(renderNode, node.bounds, theme, widthProfile);
+  return model.window.entries.map(({ item: { value: { block, index } } }) => ({
     id: `${renderNode.id ?? 'activityFeed'}:block:${block.id}`,
     role: 'option',
     label: block.title,
     value: block.summary ?? block.title,
-    selected: projection.selectedIndex === index,
+    selected: model.selectedIndex === index,
     description: structuredBlockDescription(block)
   }));
 }
@@ -156,8 +156,8 @@ export function activityFeedHitTargets<TMessage>(
 ): readonly HitTarget<TMessage>[] {
   const toActionMessage = activityFeedActionMessageFactory(renderNode);
   if (toActionMessage === undefined) return [];
-  const projection = activityFeedProjection(renderNode, bounds, theme, widthProfile);
-  return projection.window.entries.map(({ item: { value: { block } }, rowOffset, visibleRows }) => ({
+  const model = activityFeedRenderModel(renderNode, bounds, theme, widthProfile);
+  return model.window.entries.map(({ item: { value: { block } }, rowOffset, visibleRows }) => ({
       id: `${renderNode.id ?? 'activityFeed'}:block:${block.id}`,
       bounds: {
         row: bounds.row + rowOffset,
@@ -177,26 +177,26 @@ function activityFeedRows(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly RenderLine[] {
-  const projection = activityFeedProjection(renderNode, node.bounds, theme, widthProfile);
-  return projection.window.entries.flatMap(({ item: { value }, clippedRowsBefore, visibleRows }) =>
+  const model = activityFeedRenderModel(renderNode, node.bounds, theme, widthProfile);
+  return model.window.entries.flatMap(({ item: { value }, clippedRowsBefore, visibleRows }) =>
     value.lines.slice(clippedRowsBefore, clippedRowsBefore + visibleRows)
   );
 }
 
-function activityFeedProjection(
+function activityFeedRenderModel(
   renderNode: ActivityFeedNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
-): ActivityFeedProjection {
-  const cached = activityFeedProjectionCache.get(renderNode);
+): ActivityFeedRenderModel {
+  const cached = activityFeedRenderModelCache.get(renderNode);
   const profileKey = textWidthProfileKey(widthProfile);
   if (
     cached?.width === bounds.width
     && cached.height === bounds.height
     && cached.theme === theme
     && cached.widthProfileKey === profileKey
-  ) return cached.projection;
+  ) return cached.model;
   const blocks = activityFeedBlocks(renderNode);
   const selectedIndex = selectedBlockIndex(renderNode, blocks.length);
   const measured = blocks.map((block, index): ActivityFeedMeasuredBlock => {
@@ -228,15 +228,15 @@ function activityFeedProjection(
     viewportRows: bounds.height,
     ...(selectedId === undefined ? {} : { selectedId })
   });
-  const projection = { blocks, selectedIndex, window };
-  activityFeedProjectionCache.set(renderNode, {
+  const model = { blocks, selectedIndex, window };
+  activityFeedRenderModelCache.set(renderNode, {
     width: bounds.width,
     height: bounds.height,
     theme,
     widthProfileKey: profileKey,
-    projection
+    model
   });
-  return projection;
+  return model;
 }
 
 function activityFeedItemLines(

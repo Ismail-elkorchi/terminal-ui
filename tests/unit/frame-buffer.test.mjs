@@ -90,10 +90,10 @@ test('FrameCellSource sanitizes stable structured metadata before entering frame
     partName: 'body',
     partType: 'segment',
     itemId: 'item',
-    itemIndex: 2.9,
+    itemIndex: 2,
     interactionState: 'selected',
     description: 'Title',
-    ignored: 'legacy'
+    ignored: 'discarded'
   });
 
   assert.deepEqual(sanitized, {
@@ -116,8 +116,31 @@ test('FrameCellSource sanitizes stable structured metadata before entering frame
   );
 
   const buffer = createFrameBuffer(4, 1);
-  buffer.write(1, 1, [{ text: 'A', source: frameCellSource({ elementId: 'cell', kind: 'legacy', itemIndex: -1 }) }]);
+  buffer.write(1, 1, [{ text: 'A', source: frameCellSource({ elementId: 'cell', itemIndex: 0 }) }]);
   assert.deepEqual(buffer.snapshot().cells[0]?.source, { elementId: 'cell', itemIndex: 0 });
+});
+
+test('FrameCellSource rejects item indexes that its schemas reject', () => {
+  for (const itemIndex of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(
+      () => sanitizeFrameCellSource({ elementId: 'invalid', itemIndex }),
+      /Frame cell source itemIndex must be a non-negative integer/u
+    );
+  }
+
+  for (const filename of [
+    'tui-frame.schema.json',
+    'render-diff.schema.json',
+    'interaction-transcript.schema.json'
+  ]) {
+    const schema = JSON.parse(readFileSync(
+      new URL(`../../schemas/${filename}`, import.meta.url),
+      'utf8'
+    ));
+    const itemIndex = schema.$defs.frameCellSource.properties.itemIndex;
+    assert.equal(itemIndex.type, 'integer', filename);
+    assert.equal(itemIndex.minimum, 0, filename);
+  }
 });
 
 test('FrameCellSource interaction states agree across cleanup, frames, and schemas', () => {

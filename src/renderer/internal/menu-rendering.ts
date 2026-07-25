@@ -95,11 +95,11 @@ export function dropdownMenuBlock(
   };
 }
 
-export function menuAccessibleBase(_widget: MenuNode, id: string, focused: boolean): AccessibleNode {
+export function menuAccessibleBase(_renderNode: MenuNode, id: string, focused: boolean): AccessibleNode {
   return { id, role: 'menu', label: id, ...(focused ? { focused } : {}) };
 }
 
-export function menuBarAccessibleBase(_widget: MenuBarNode, id: string, focused: boolean): AccessibleNode {
+export function menuBarAccessibleBase(_renderNode: MenuBarNode, id: string, focused: boolean): AccessibleNode {
   return { id, role: 'menubar', label: id, ...(focused ? { focused } : {}) };
 }
 

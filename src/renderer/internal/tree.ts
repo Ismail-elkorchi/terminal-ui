@@ -29,15 +29,15 @@ interface TreeWindow {
   readonly end: number;
 }
 
-interface TreeProjection {
+interface TreeRenderModel {
   readonly totalRows: number;
   readonly selected: string | undefined;
   readonly window: TreeWindow;
 }
 
-const treeProjectionCache = new WeakMap<object, {
+const treeRenderModelCache = new WeakMap<object, {
   readonly height: number;
-  readonly projection: TreeProjection;
+  readonly model: TreeRenderModel;
 }>();
 
 export function treeBlock(
@@ -47,7 +47,7 @@ export function treeBlock(
   widthProfile: TextWidthProfile,
   focused = false
 ): RenderBlock {
-  const { totalRows, selected, window } = treeProjection(renderNode, bounds.height);
+  const { totalRows, selected, window } = treeRenderModel(renderNode, bounds.height);
   if (totalRows === 0 && bounds.height > 0) {
     return {
       lines: [{
@@ -64,7 +64,7 @@ export function treeBlock(
 }
 
 export function treeAccessibleBase(renderNode: TreeRenderNode, bounds: Rect, id: string, focused: boolean): AccessibleNode {
-  const { totalRows, window } = treeProjection(renderNode, bounds.height);
+  const { totalRows, window } = treeRenderModel(renderNode, bounds.height);
   return {
     id,
     role: 'tree',
@@ -82,7 +82,7 @@ export function treeAccessibleBase(renderNode: TreeRenderNode, bounds: Rect, id:
 }
 
 export function treeAccessibleChildren(renderNode: TreeRenderNode, bounds: Rect): readonly AccessibleNode[] {
-  const { totalRows, selected, window } = treeProjection(renderNode, bounds.height);
+  const { totalRows, selected, window } = treeRenderModel(renderNode, bounds.height);
   return window.rows.map((row, index) => ({
     id: `${renderNode.id ?? 'tree'}:${row.node.id}`,
     role: 'treeitem',
@@ -103,7 +103,7 @@ export function treeAccessibleChildren(renderNode: TreeRenderNode, bounds: Rect)
 export function treeHitTargets<TMessage>(renderNode: TreeRenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = toActionMessageProp(renderNode);
   if (toMessage === undefined) return [];
-  const { window } = treeProjection(renderNode, bounds.height);
+  const { window } = treeRenderModel(renderNode, bounds.height);
   return window.rows.flatMap((row, index): HitTarget<TMessage>[] => {
     if (row.lazyPlaceholder === true || row.node.disabled === true) return [];
     const targets: HitTarget<TMessage>[] = [];
@@ -308,17 +308,17 @@ function treeSourceState(
   return state === undefined ? {} : { state };
 }
 
-function treeProjection(renderNode: TreeRenderNode, height: number): TreeProjection {
-  const cached = treeProjectionCache.get(renderNode);
-  if (cached?.height === height) return cached.projection;
+function treeRenderModel(renderNode: TreeRenderNode, height: number): TreeRenderModel {
+  const cached = treeRenderModelCache.get(renderNode);
+  if (cached?.height === height) return cached.model;
   const selected = selectedTreeId(renderNode);
-  const projection = {
+  const model = {
     totalRows: renderNode.props.view.collection.totalCount,
     selected,
     window: treeWindow(renderNode, height, selected)
   };
-  treeProjectionCache.set(renderNode, { height, projection });
-  return projection;
+  treeRenderModelCache.set(renderNode, { height, model });
+  return model;
 }
 
 function treeWindow(renderNode: TreeRenderNode, height: number, selected: string | undefined): TreeWindow {

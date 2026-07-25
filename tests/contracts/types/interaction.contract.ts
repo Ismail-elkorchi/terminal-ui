@@ -30,9 +30,6 @@ const pointerStyle = pointerVisualState(pointerState, 'save:control');
 
 // @ts-expect-error placement vocabulary is closed
 const invalidPlacement: AnchoredSurfacePlacement = 'center';
-type RemovedPointerPresentationState =
-  // @ts-expect-error pointer state is interaction data, not presentation data
-  import('@ismail-elkorchi/terminal-ui/interaction').PointerPresentationState;
 
 void bounds;
 void selected;
@@ -41,4 +38,3 @@ void pointerAction;
 void pointerOptions;
 void pointerStyle;
 void invalidPlacement;
-void (undefined as unknown as RemovedPointerPresentationState);

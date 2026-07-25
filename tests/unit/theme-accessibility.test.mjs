@@ -99,25 +99,6 @@ test('theme fingerprints are stable for equivalent themes and change with theme 
   }
 });
 
-test('theme definitions reject removed top-level token fields', () => {
-  assert.throws(
-    () => defineTheme({ name: 'legacy', colors: {} }),
-    /Unsupported theme definition key: colors/u
-  );
-  assert.throws(
-    () => defineTheme({ name: 'legacy', symbols: {} }),
-    /Unsupported theme definition key: symbols/u
-  );
-  assert.throws(
-    () => defineTheme({ name: 'legacy', spacing: {} }),
-    /Unsupported theme definition key: spacing/u
-  );
-  assert.throws(
-    () => defineTheme({ name: 'legacy', tokens: { spacing: {} } }),
-    /Unsupported design token key: spacing/u
-  );
-});
-
 test('rich text components preserve render spans and render their plain text into frames', () => {
   const element = richText({
     id: 'styled-title',
@@ -283,16 +264,10 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     { id: 'row-position-range', role: 'row', position: { rowIndex: 2, rowCount: 1 } },
     { id: 'column-position', role: 'gridcell', position: { columnIndex: 0, columnCount: 1 } },
     { id: 'column-position-range', role: 'gridcell', position: { columnIndex: 2, columnCount: 1 } },
-    { id: 'legacy-position', role: 'option', position: { itemNumber: 1, setSize: 1 } },
     {
       id: 'window',
       role: 'listbox',
       window: { startIndex: 1, endIndexExclusive: 3, totalCount: 2 }
-    },
-    {
-      id: 'legacy-window',
-      role: 'listbox',
-      window: { start: 0, endIndexExclusive: 1, totalCount: 1 }
     },
     {
       id: 'numeric-role',

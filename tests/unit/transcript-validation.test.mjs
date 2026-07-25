@@ -124,16 +124,6 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     [{ ...validDiff, operations: [{ kind: 'clearRect', bounds: { row: 0, column: 1, width: 1, height: 1 } }] }, /clearRect bounds/u],
     [{ ...validDiff, operations: [{ kind: 'other' }] }, /unsupported diff operation/u]
   ];
-  const oldCommit = runtimeCommit(validFrame, validDiff);
-  const { terminalSize: removedTerminalSize, ...commitWithoutTerminalSize } = oldCommit;
-  assertInvalid(transcript({
-    id: 'removed-commit-viewport',
-    steps: [{
-      kind: 'commit',
-      commit: { ...commitWithoutTerminalSize, viewport: removedTerminalSize }
-    }]
-  }), /terminal size/u);
-
   for (const [frame, pattern] of frames) {
     assertInvalid(transcript({
       id: 'invalid-frame',

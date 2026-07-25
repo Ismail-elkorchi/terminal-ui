@@ -16,11 +16,6 @@ export interface CheckboxGroupState {
   readonly focused?: string;
 }
 
-export interface CheckboxGroupPresentation {
-  readonly selected: readonly string[];
-  readonly focused?: string;
-}
-
 export function checkboxGroupReducer<TValue>(
   state: CheckboxGroupState,
   action: CheckboxGroupAction,
@@ -65,7 +60,7 @@ export function normalizeCheckboxGroupState<TValue>(
 export function checkboxGroupPresentation<TValue>(
   state: CheckboxGroupState,
   options: readonly ChoiceItem<TValue>[]
-): CheckboxGroupPresentation {
+): CheckboxGroupState {
   const normalized = normalizeCheckboxGroupState(state, options);
   return {
     selected: normalized.selected,
@@ -77,8 +72,6 @@ export interface RadioGroupState {
   readonly selected?: string;
   readonly focused?: string;
 }
-
-export type RadioGroupPresentation = RadioGroupState;
 
 export function radioGroupReducer<TValue>(
   state: RadioGroupState,
@@ -102,17 +95,15 @@ export function normalizeRadioGroupState<TValue>(
 export function radioGroupPresentation<TValue>(
   state: RadioGroupState,
   options: readonly ChoiceItem<TValue>[]
-): RadioGroupPresentation {
+): RadioGroupState {
   return compactSingleChoice(normalizeRadioGroupState(state, options));
 }
 
-export type SelectState = SelectPresentation;
-
 export function selectReducer<TValue>(
-  state: SelectState,
+  state: SelectPresentation,
   action: SelectAction,
   options: readonly ChoiceItem<TValue>[]
-): SelectState {
+): SelectPresentation {
   const normalized = normalizeSelectState(state, options);
   const enabled = enabledIds(options, 'select');
   switch (action.kind) {
@@ -148,9 +139,9 @@ export function selectReducer<TValue>(
 }
 
 export function normalizeSelectState<TValue>(
-  state: SelectState,
+  state: SelectPresentation,
   options: readonly ChoiceItem<TValue>[]
-): SelectState {
+): SelectPresentation {
   const enabled = enabledIds(options, 'select');
   const selected = state.selected !== undefined && enabled.includes(state.selected) ? state.selected : undefined;
   if (state.kind === 'closed') return closedSelect(selected);
@@ -170,7 +161,7 @@ export function normalizeSelectState<TValue>(
 }
 
 export function selectPresentation<TValue>(
-  state: SelectState,
+  state: SelectPresentation,
   options: readonly ChoiceItem<TValue>[]
 ): SelectPresentation {
   const normalized = normalizeSelectState(state, options);
@@ -188,8 +179,6 @@ export interface ColorSwatchPickerState {
   readonly selected?: string;
   readonly focused?: string;
 }
-
-export type ColorSwatchPickerPresentation = ColorSwatchPickerState;
 
 export function colorSwatchPickerReducer<TValue>(
   state: ColorSwatchPickerState,
@@ -219,7 +208,7 @@ export function normalizeColorSwatchPickerState<TValue>(
 export function colorSwatchPickerPresentation<TValue>(
   state: ColorSwatchPickerState,
   options: readonly ColorSwatchPickerOption<TValue>[]
-): ColorSwatchPickerPresentation {
+): ColorSwatchPickerState {
   return compactSingleChoice(normalizeColorSwatchPickerState(state, options));
 }
 

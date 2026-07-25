@@ -14,9 +14,6 @@ const app: TuiApp<State, Message> = defineTui<State, Message>({
     : { state: { count: 0 } },
   view: (state, context): Element<Message> => {
     const columns = context.terminalSize.columns;
-    // @ts-expect-error TUI context no longer calls terminal dimensions a viewport
-    const removedViewport = context.viewport;
-    void removedViewport;
     return text(`${String(state.count)}/${String(columns)}`);
   }
 });

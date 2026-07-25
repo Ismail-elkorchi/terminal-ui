@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  searchPickerProjection,
   prepareSearchPickerIndex,
   searchPickerWindow
 } from '../../dist/behavior/index.js';
@@ -20,11 +19,11 @@ const index = prepareSearchPickerIndex(entries);
 
 test('searchPicker filtering is fuzzy stable and value-agnostic', () => {
   assert.deepEqual(
-    searchPickerProjection(index, 'term').entries.map((entry) => entry.id),
+    searchPickerWindow({ searchPickerIndex: index, query: 'term' }).entries.map((entry) => entry.id),
     ['toggle-terminal']
   );
   assert.deepEqual(
-    searchPickerProjection(index, 'rt').entries.map((entry) => entry.id),
+    searchPickerWindow({ searchPickerIndex: index, query: 'rt' }).entries.map((entry) => entry.id),
     ['run-tests']
   );
 });
@@ -42,8 +41,8 @@ test('searchPicker filtering reuses immutable entry search text across queries',
   };
 
   const measuredIndex = prepareSearchPickerIndex([measuredEntry]);
-  assert.deepEqual(searchPickerProjection(measuredIndex, 'measured').entries.map((entry) => entry.id), ['measured']);
-  assert.deepEqual(searchPickerProjection(measuredIndex, 'stable').entries.map((entry) => entry.id), ['measured']);
+  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, query: 'measured' }).entries.map((entry) => entry.id), ['measured']);
+  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, query: 'stable' }).entries.map((entry) => entry.id), ['measured']);
   assert.equal(labelReads, 1);
 });
 

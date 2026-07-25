@@ -7,15 +7,13 @@ import {
   commandInputPresentation,
   commandInputReducer,
   createScrollState,
-  searchPickerPresentation,
   searchPickerReducer,
   prepareSearchPickerIndex,
   selectedSearchPickerEntry,
   tableReducer,
   tableScrollablePresentation,
   tabsReducer,
-  treeReducer,
-  treeScrollablePresentation
+  treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type {
   CommandInputAction,
@@ -143,7 +141,7 @@ function initialState(): WorkspaceState {
       history: [],
       suggestions
     },
-    searchPicker: { open: false, used: false, query: '', selectedIndex: 0, selectedIds: [] },
+    searchPicker: { open: false, used: false, query: '', selectedIndex: 0 },
     resolved: new Set<string>(),
     activity: ['Workspace started.', 'Loaded six controlled ticket records.'],
     pointer: { tree: false, table: false, searchPicker: false }
@@ -300,7 +298,7 @@ function navigationPane(state: WorkspaceState) {
   return surface(column([
     tree({
       id: 'workspace-tree',
-      ...treeScrollablePresentation(state.tree),
+      ...state.tree,
       scrollbar: { visible: 'auto' },
       onAction: (action): WorkspaceMessage => ({ kind: 'tree', action })
     }),
@@ -407,7 +405,8 @@ function searchPickerLayer(state: WorkspaceState) {
     id: 'workspace-search-picker',
     title: 'Commands',
     searchPickerIndex: workspaceSearchPickerIndex,
-    ...searchPickerPresentation(state.searchPicker),
+    query: state.searchPicker.query,
+    selectedIndex: state.searchPicker.selectedIndex,
     onAction: (action): WorkspaceMessage => ({ kind: 'searchPicker', action }),
     onSelect: (entry): WorkspaceMessage => ({ kind: 'acceptSearchPicker', source: 'pointer', value: entry.value }),
     keys: {

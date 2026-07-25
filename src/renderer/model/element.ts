@@ -4,7 +4,7 @@ import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 
 const renderNodes = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
-const inspectionCategories = new WeakMap<object, ElementInspection['category']>();
+const renderNodeInspections = new WeakMap<object, ElementInspection>();
 
 export function componentElementFromRenderNode<
   const TKind extends RenderNodeKind,
@@ -35,9 +35,10 @@ function elementFromRenderNode<
   category: ElementInspection['category']
 ): Element<TMessage> {
   const element = Object.freeze({}) as Element<TMessage>;
+  const inspection = inspectRenderNode(node, category);
   renderNodes.set(element, node);
-  inspectionCategories.set(node, category);
-  inspections.set(element, inspectRenderNode(node, category));
+  renderNodeInspections.set(node, inspection);
+  inspections.set(element, inspection);
   return element;
 }
 
@@ -95,9 +96,10 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
       styleStates: Object.freeze(styleStates),
       layered: node.layer !== undefined
     }),
-    children: Object.freeze((node.children ?? []).map((child) =>
-      inspectRenderNode(child, inspectionCategories.get(child) ?? category)
-    ))
+    children: Object.freeze((node.children ?? []).flatMap((child) => {
+      const childInspection = renderNodeInspections.get(child);
+      return childInspection === undefined ? [] : [childInspection];
+    }))
   };
   return Object.freeze(inspection);
 }

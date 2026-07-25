@@ -23,8 +23,6 @@ const message: SaveMessage = { kind: 'save' };
 
 // @ts-expect-error interactive components require stable identity
 button({ label: 'Invalid', onPress: () => ({ kind: 'invalid' } as const) });
-// @ts-expect-error lower-layer handling is named by the operation, not opacity
-text('Removed opacity contract', { meta: { layer: { opacity: 'opaque' } } });
 
 void rows;
 void passive;

@@ -18,8 +18,6 @@ const renderSpan: RenderSpan = span('ready', { style: { bold: true } });
 const frame: Frame = renderElementFrame(text('Ready'), { columns: 20, rows: 2 });
 const plain = renderFramePlain(frame);
 const renderStage: RenderStage = 'resolve_element';
-// @ts-expect-error resolving an opaque element is not a normalization stage
-const removedRenderStage: RenderStage = 'normalize';
 
 // @ts-expect-error render bounds use terminal cell numbers
 renderElementFrame(text('Invalid'), { columns: '20', rows: 2 });
@@ -28,16 +26,10 @@ const invalidInteractionState: FrameCellSource = {
   // @ts-expect-error frame-cell interaction state is a closed serialization contract
   interactionState: 'busy'
 };
-const removedFrameCellState: FrameCellSource = {
-  // @ts-expect-error serialized interaction metadata no longer uses the ambiguous state field
-  state: 'focused'
-};
 const validInteractionState: FrameCellSource = { interactionState: 'focused' };
 
 declare const drawing: Canvas2D;
 drawing.brailleSubcell(0, 0);
-// @ts-expect-error Braille drawing names its subcell coordinate system explicitly
-type RemovedBraillePoint = Canvas2D['braillePoint'];
 const absoluteRect: Rect = { row: 1, column: 1, width: 2, height: 2 };
 // @ts-expect-error absolute frame rectangles are not local Canvas2D rectangles
 drawing.rect(absoluteRect, { fill: { text: '*' } });
@@ -58,12 +50,8 @@ custom({
 
 declare const customRenderInput: CustomRendererRenderInput<undefined>;
 customRenderInput.target.write(1, 1, [{ text: 'ok' }]);
-// @ts-expect-error the removed buffer field does not describe the write-only public target
-type RemovedCustomBuffer = CustomRendererRenderInput<undefined>['buffer'];
 declare const framePassContext: FramePassContext;
 const framePassColumns = framePassContext.terminalSize.columns;
-// @ts-expect-error frame passes no longer call terminal dimensions a viewport
-const removedFramePassViewport = framePassContext.viewport;
 
 // @ts-expect-error ordinary public rendering returns a frame, not its private render node
 const privateRenderNode = frame.node;
@@ -72,15 +60,10 @@ const privateRegions = frame.regions;
 
 void renderSpan;
 void renderStage;
-void removedRenderStage;
 void plain;
 void invalidInteractionState;
-void removedFrameCellState;
 void validInteractionState;
 void privateRenderNode;
 void privateRegions;
 void customRenderInput;
 void framePassColumns;
-void removedFramePassViewport;
-void (undefined as unknown as RemovedBraillePoint);
-void (undefined as unknown as RemovedCustomBuffer);

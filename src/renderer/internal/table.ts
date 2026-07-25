@@ -43,7 +43,7 @@ interface TableWindow {
   readonly omittedAfter: number;
 }
 
-interface TableProjection {
+interface TableLayout {
   readonly totalRows: number;
   readonly columns: readonly NormalizedTableColumn[];
   readonly spacing: TableMetrics;
@@ -62,11 +62,11 @@ interface SelectedTableCell {
   readonly column: number;
 }
 
-const tableProjectionCache = new WeakMap<object, {
+const tableLayoutCache = new WeakMap<object, {
   readonly width: number;
   readonly height: number;
   readonly widthProfileKey: string;
-  readonly projection: TableProjection;
+  readonly layout: TableLayout;
 }>();
 
 export function tableBlock(
@@ -86,7 +86,7 @@ export function tableBlock(
     selectedCell,
     window,
     widths
-  } = tableProjection(renderNode, bounds, widthProfile);
+  } = tableLayout(renderNode, bounds, widthProfile);
   const lines: RenderLine[] = [];
   if (hasHeader && headerHeight > 0) {
     lines.push(scrolledLine(
@@ -126,7 +126,7 @@ export function tableAccessibleBase(
   focused: boolean,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
-  const { totalRows, columns, window } = tableProjection(renderNode, bounds, widthProfile);
+  const { totalRows, columns, window } = tableLayout(renderNode, bounds, widthProfile);
   return {
     id,
     role: 'grid',
@@ -152,7 +152,7 @@ export function tableAccessibleChildren(
   bounds: Rect,
   widthProfile: TextWidthProfile
 ): readonly AccessibleNode[] {
-  const { totalRows, columns, hasHeader, window, selectedCell } = tableProjection(renderNode, bounds, widthProfile);
+  const { totalRows, columns, hasHeader, window, selectedCell } = tableLayout(renderNode, bounds, widthProfile);
   const headerRow: AccessibleNode[] = hasHeader
     ? [{
         id: `${renderNode.id ?? 'table'}:headers`,
@@ -227,7 +227,7 @@ export function tableHitTargets<TMessage>(
 ): readonly HitTarget<TMessage>[] {
   const toMessage = tableActionMessageFactory(renderNode);
   if (toMessage === undefined) return [];
-  const { columns, spacing, headerHeight, window, widths, selectedCell } = tableProjection(renderNode, bounds, widthProfile);
+  const { columns, spacing, headerHeight, window, widths, selectedCell } = tableLayout(renderNode, bounds, widthProfile);
   const headerTargets = headerHeight <= 0
     ? []
     : tableHeaderHitTargets(renderNode, columns, widths, bounds, window.horizontalOffset, spacing, toMessage);
@@ -363,14 +363,14 @@ function tableWindow(renderNode: TableNode, bodyHeight: number, selected: number
   };
 }
 
-function tableProjection(renderNode: TableNode, bounds: Rect, widthProfile: TextWidthProfile): TableProjection {
-  const cached = tableProjectionCache.get(renderNode);
+function tableLayout(renderNode: TableNode, bounds: Rect, widthProfile: TextWidthProfile): TableLayout {
+  const cached = tableLayoutCache.get(renderNode);
   const profileKey = textWidthProfileKey(widthProfile);
   if (
     cached?.width === bounds.width
     && cached.height === bounds.height
     && cached.widthProfileKey === profileKey
-  ) return cached.projection;
+  ) return cached.layout;
   const collection = renderNode.props.collection;
   const selected = selectedTableRow(renderNode, collection);
   const selectedCell = selectedTableCell(renderNode, collection);
@@ -380,7 +380,7 @@ function tableProjection(renderNode: TableNode, bounds: Rect, widthProfile: Text
   const headerHeight = hasHeader && renderNode.props.stickyHeader !== false ? 1 : 0;
   const bodyHeight = Math.max(0, bounds.height - headerHeight);
   const window = tableWindow(renderNode, bodyHeight, selected);
-  const projection: TableProjection = {
+  const layout: TableLayout = {
     totalRows: collection.totalCount,
     columns,
     spacing,
@@ -398,13 +398,13 @@ function tableProjection(renderNode: TableNode, bounds: Rect, widthProfile: Text
       widthProfile
     )
   };
-  tableProjectionCache.set(renderNode, {
+  tableLayoutCache.set(renderNode, {
     width: bounds.width,
     height: bounds.height,
     widthProfileKey: profileKey,
-    projection
+    layout
   });
-  return projection;
+  return layout;
 }
 
 function tableRowSample(

@@ -1,11 +1,13 @@
 import type { HelpGroup, ProcessStatus } from '../../../ui-model/contracts.ts';
 import type {
   BarChartItem,
+  ChartDataState,
   ChartInterpolation,
   ChartPointSelection,
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeries,
+  MeterResult,
   MeterVariant,
   HeatmapCell,
   HeatmapSelection,
@@ -61,7 +63,7 @@ export interface SparklineRenderProps {
   readonly values: readonly number[];
   readonly min?: number;
   readonly max?: number;
-  readonly status?: ProcessStatus;
+  readonly dataState?: ChartDataState;
   readonly valueScale?: ValueScale;
   readonly emptyText?: string;
   readonly loadingText?: string;
@@ -72,7 +74,7 @@ export interface BarChartRenderProps<TMessage> {
   readonly items: readonly BarChartItem[];
   readonly max?: number;
   readonly selectedId?: string;
-  readonly status?: ProcessStatus;
+  readonly dataState?: ChartDataState;
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
@@ -88,7 +90,7 @@ export interface ChartRenderProps<TMessage> {
   readonly signedDomain?: boolean;
   readonly xLabel?: string;
   readonly yLabel?: string;
-  readonly status?: ProcessStatus;
+  readonly dataState?: ChartDataState;
   readonly valueScale?: ValueScale;
   readonly sampleMode?: ChartSampleMode;
   readonly sampleAlign?: ChartSampleAlign;
@@ -106,7 +108,7 @@ export interface MeterRenderProps {
   readonly max?: number;
   readonly width?: number;
   readonly variant?: MeterVariant;
-  readonly status?: ProcessStatus;
+  readonly result?: MeterResult;
 }
 
 export interface HeatmapRenderProps<TMessage> {
@@ -116,7 +118,7 @@ export interface HeatmapRenderProps<TMessage> {
   readonly selected?: HeatmapSelection;
   readonly cellWidth?: number;
   readonly gap?: number;
-  readonly status?: ProcessStatus;
+  readonly dataState?: ChartDataState;
   readonly valueScale?: ValueScale;
   readonly emptyText?: string;
   readonly loadingText?: string;

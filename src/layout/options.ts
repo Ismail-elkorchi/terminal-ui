@@ -97,5 +97,3 @@ export interface AbsoluteOptions extends ElementOptions {
   readonly width?: number;
   readonly height?: number;
 }
-
-export type OverlayOptions = ElementOptions;

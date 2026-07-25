@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { button, inspectElement, textInput } from '../../dist/components/index.js';
+import { button, inspectElement, select, textInput } from '../../dist/components/index.js';
 import { column, surface } from '../../dist/layout/index.js';
 import { custom } from '../../dist/renderer/index.js';
 
-test('element inspection exposes an immutable authoring projection without renderer payloads', () => {
+test('element inspection exposes an immutable authoring description without renderer payloads', () => {
   const element = surface(column([
     textInput({
       id: 'query',
@@ -104,6 +104,16 @@ test('element inspection identifies custom renderer elements without changing di
   assert.equal(inspection.category, 'extension');
   assert.equal(inspection.id, 'plug-in');
   assert.equal('renderer' in inspection, false);
+});
+
+test('element inspection omits private renderer children that have no authored category', () => {
+  const inspection = inspectElement(select({
+    id: 'choice',
+    options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
+    presentation: { kind: 'open', selected: 'alpha', highlighted: 'alpha' }
+  }));
+
+  assert.deepEqual(inspection.children, []);
 });
 
 test('element inspection rejects objects outside the authored element boundary', () => {

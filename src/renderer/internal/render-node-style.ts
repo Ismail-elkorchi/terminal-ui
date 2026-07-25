@@ -3,10 +3,8 @@ import type { ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 
-export type RenderNodeStylePart = string;
-
 export interface RenderNodeStyleInput {
-  readonly part: RenderNodeStylePart;
+  readonly part: string;
   readonly state?: ElementVisualState;
   readonly base?: TerminalStyle;
 }
@@ -21,7 +19,7 @@ export function resolveRenderNodeStyle(renderNode: RenderNode, input: RenderNode
   );
 }
 
-export function renderNodeStyle(renderNode: RenderNode, part: RenderNodeStylePart, state?: ElementVisualState): TerminalStyle | undefined {
+export function renderNodeStyle(renderNode: RenderNode, part: string, state?: ElementVisualState): TerminalStyle | undefined {
   return resolveRenderNodeStyle(renderNode, {
     part,
     ...(state === undefined ? {} : { state })
@@ -50,7 +48,7 @@ export function defaultStyleForTextRole(role: ElementTextRole): TerminalStyle | 
   }
 }
 
-export function defaultStyleForPart(part: RenderNodeStylePart): TerminalStyle | undefined {
+export function defaultStyleForPart(part: string): TerminalStyle | undefined {
   switch (part) {
     case 'root':
     case 'content':

@@ -34,7 +34,7 @@ export interface ListViewEntry<TValue> {
   readonly item: ListCollectionRecord<TValue>['item'];
 }
 
-export interface ListViewProjection<TValue> {
+export interface PreparedListView<TValue> {
   readonly kind: 'list-view';
   readonly source: ListCollection<TValue>;
   readonly query: string;

@@ -34,7 +34,7 @@ const formOptions = [
   { id: 'beta', label: 'Beta', value: 'beta' }
 ];
 
-const disabledWidgetCases = [
+const disabledElementCases = [
   {
     name: 'button',
     element: () => button({ id: 'disabled-button', label: 'Submit', onPress: () => message, disabled: true })
@@ -130,7 +130,7 @@ const disabledWidgetCases = [
   }
 ];
 
-for (const current of disabledWidgetCases) {
+for (const current of disabledElementCases) {
   test(`disabled ${current.name} suppresses focus pointer and exposes accessibility state`, () => {
     const frame = renderElementFrame(current.element(), { columns: 48, rows: 8 });
 

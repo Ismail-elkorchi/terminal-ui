@@ -9,10 +9,6 @@ export interface TabsState {
   readonly selected?: string;
 }
 
-export interface TabsPresentation {
-  readonly selected?: string;
-}
-
 export function tabsReducer(
   state: TabsState,
   action: TabAction,
@@ -33,10 +29,6 @@ export function tabsReducer(
       return tab === undefined ? state : { selected: tab.id };
     }
   }
-}
-
-export function tabsPresentation(state: TabsState): TabsPresentation {
-  return state.selected === undefined ? {} : { selected: state.selected };
 }
 
 function adjacentTab(state: TabsState, tabs: readonly TabBehaviorItem[], delta: number): TabsState {

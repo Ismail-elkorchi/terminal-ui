@@ -37,7 +37,7 @@ export async function runTuiNonTty<TState, TMessage>(
   try {
     state = app.definition.init(nonTtyContext(host, capabilities));
   } catch (cause) {
-    return finalizeFailedProjection(app, host, reporter, undefined, [diagnostic(
+    return finalizeFailedNonTtyRun(app, host, reporter, undefined, [diagnostic(
       'TUI_INITIALIZATION_FAILED',
       'Non-TTY TUI initialization failed.',
       { target: app.id, cause }
@@ -66,9 +66,9 @@ export async function runTuiNonTty<TState, TMessage>(
       diff: diffFrames(undefined, frame)
     });
   } catch (cause) {
-    return finalizeFailedProjection(app, host, reporter, state, [diagnostic(
-      'TUI_PROJECTION_FAILED',
-      'Non-TTY TUI projection failed.',
+    return finalizeFailedNonTtyRun(app, host, reporter, state, [diagnostic(
+      'TUI_RENDER_FAILED',
+      'Non-TTY TUI rendering failed.',
       { target: app.id, cause }
     )], options.lifecycle);
   }
@@ -165,7 +165,7 @@ async function finalizeRejectedHost<TState, TMessage>(
   return { status: 'error', diagnostics, snapshot: tuiSnapshot(app.id) };
 }
 
-async function finalizeFailedProjection<TState, TMessage>(
+async function finalizeFailedNonTtyRun<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   host: TerminalHost,
   reporter: DiagnosticOccurrenceReporter,

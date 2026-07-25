@@ -1,25 +1,19 @@
 import { sanitizeTerminalText } from '../../text/index.ts';
 import { isThemeColorToken } from '../../theme/index.ts';
-import type { ThemeColorToken } from '../../theme/index.ts';
+import type { ValueScaleStop } from '../../ui-model/feedback.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles } from './render-node-style.ts';
 
-export interface NormalizedValueScaleStop {
-  readonly at: number;
-  readonly token: ThemeColorToken;
-  readonly label?: string;
-}
-
-export interface ValueDomain {
+interface ValueDomain {
   readonly min: number;
   readonly max: number;
 }
 
 const scaleStopLimit = 32;
 
-export function normalizeValueScale(value: unknown): readonly NormalizedValueScaleStop[] {
+export function normalizeValueScale(value: unknown): readonly ValueScaleStop[] {
   if (!Array.isArray(value)) return [];
-  const stops = value.flatMap((item): readonly NormalizedValueScaleStop[] => {
+  const stops = value.flatMap((item): readonly ValueScaleStop[] => {
     if (typeof item !== 'object' || item === null) return [];
     const at = (item as { readonly at?: unknown }).at;
     const token = (item as { readonly token?: unknown }).token;
@@ -41,7 +35,7 @@ export function normalizeValueScale(value: unknown): readonly NormalizedValueSca
 export function valueScaleStyle(
   value: number,
   domain: ValueDomain,
-  scale: readonly NormalizedValueScaleStop[],
+  scale: readonly ValueScaleStop[],
   base?: TerminalStyle
 ): TerminalStyle | undefined {
   const stop = valueScaleStop(value, domain, scale);
@@ -55,8 +49,8 @@ export function valueScaleStyle(
 export function valueScaleStop(
   value: number,
   domain: ValueDomain,
-  scale: readonly NormalizedValueScaleStop[]
-): NormalizedValueScaleStop | undefined {
+  scale: readonly ValueScaleStop[]
+): ValueScaleStop | undefined {
   if (scale.length === 0 || !Number.isFinite(value)) return undefined;
   const ratio = normalizedRatio(value, domain);
   let selected = scale[0];

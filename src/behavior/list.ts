@@ -8,7 +8,7 @@ import type {
   ListItemProjection,
   ListItemProjector,
   ListViewEntry,
-  ListViewProjection,
+  PreparedListView,
   WindowedListCollection
 } from '../ui-model/list.ts';
 import {
@@ -55,14 +55,6 @@ export type ListReducerOptions<TValue> =
     }
 ;
 
-export interface ListPresentation {
-  readonly selectedId?: string;
-}
-
-export interface ListScrollablePresentation extends ListPresentation {
-  readonly scroll: ScrollState;
-}
-
 export function listReducer<TValue>(
   state: ScrollableListState,
   action: ListAction,
@@ -84,7 +76,7 @@ export function listReducer<TValue>(
       : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
   }
   if (action.kind === 'activate') return state;
-  const view = viewForListOptions(options);
+  const view = prepareListViewForOptions(options);
   const { selectable } = view;
   if (selectable.length === 0) return withoutSelection(state);
   const selectedId = selectedIdForAction(state.selectedId, action, view, state.scroll?.viewportRows);
@@ -101,22 +93,8 @@ export function listReducer<TValue>(
       };
 }
 
-export function listPresentation(state: PassiveListState): ListPresentation {
-  return listPresentationBase(state);
-}
-
-export function listScrollablePresentation(state: ScrollableListState): ListScrollablePresentation {
-  return { ...listPresentationBase(state), scroll: state.scroll };
-}
-
-function listPresentationBase(state: ListStateBase): ListPresentation {
-  return {
-    ...(state.selectedId === undefined ? {} : { selectedId: state.selectedId })
-  };
-}
-
 export function visibleListEntries<TValue>(options: ListReducerOptions<TValue>): readonly ListViewEntry<TValue>[] {
-  return viewForListOptions(options).entries;
+  return prepareListViewForOptions(options).entries;
 }
 
 export function prepareListCollection<TValue>(
@@ -144,10 +122,6 @@ export function prepareListCollection<TValue>(
     : windowedCollection({ records, window });
 }
 
-export function prepareListProjection<TValue>(options: ListReducerOptions<TValue>): ListViewProjection<TValue> {
-  return viewForListOptions(options);
-}
-
 function normalizedListItem(item: ListItemProjection): ListCollectionRecord<unknown>['item'] {
   const clean = (value: string): string => sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
   return Object.freeze({
@@ -162,7 +136,7 @@ function normalizedListItem(item: ListItemProjection): ListCollectionRecord<unkn
 function selectedIdForAction<TValue>(
   current: string | undefined,
   action: Exclude<ListAction, { readonly kind: 'scroll' | 'activate' }>,
-  view: ListViewProjection<TValue>,
+  view: PreparedListView<TValue>,
   viewportRows = 1
 ): string | undefined {
   const { selectable } = view;
@@ -177,7 +151,7 @@ function selectedIdForAction<TValue>(
   return selectable[wrapIndex(currentPosition + delta, selectable.length)]?.item.id;
 }
 
-function viewForListOptions<TValue>(options: ListReducerOptions<TValue>): ListViewProjection<TValue> {
+export function prepareListViewForOptions<TValue>(options: ListReducerOptions<TValue>): PreparedListView<TValue> {
   if (options.collection?.kind === 'window') return prepareListView(options.collection);
   const collection = options.collection ?? prepareListCollection(options.items, options.projectItem);
   return prepareListView(collection, options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery });

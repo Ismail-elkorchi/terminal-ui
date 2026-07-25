@@ -320,7 +320,7 @@ test('picker swatches remain inside their fixed cell budget under ambiguous-wide
   });
 });
 
-test('form controls keep state visible in high contrast and no-color projections', () => {
+test('form controls keep state visible in high contrast and no-color rendering modes', () => {
   const element = column([
     checkbox({
       id: 'agree',

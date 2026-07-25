@@ -94,7 +94,7 @@ test('overlay accessibility and initial focus follow topmost visual order', () =
     textInput({ id: 'lower-field', presentation: { value: 'lower', cursor: 0 } }),
     textInput({ id: 'upper-field', presentation: { value: 'upper', cursor: 0 } })
   ], { id: 'focus-overlay' });
-  const zWidget = overlay([
+  const zElement = overlay([
     text('LOW', {
     id: 'low-layer',
     meta: {
@@ -114,7 +114,7 @@ test('overlay accessibility and initial focus follow topmost visual order', () =
   ], { id: 'accessibility-overlay' });
 
   const frame = renderElementFrame(element, { columns: 12, rows: 2 });
-  const zFrame = renderElementFrame(zWidget, { columns: 12, rows: 2 });
+  const zFrame = renderElementFrame(zElement, { columns: 12, rows: 2 });
 
   assert.deepEqual(frame.focusPath, ['focus-overlay', 'upper-field']);
   assert.deepEqual(frame.accessibility.root.children?.map((node) => node.id), ['upper-field', 'lower-field']);

@@ -28,19 +28,6 @@ export interface ScrollableLogViewerState extends LogViewerStateBase {
 
 export type LogViewerState = PassiveLogViewerState | ScrollableLogViewerState;
 
-export interface LogViewerPresentation {
-  readonly history: LogHistory;
-  readonly followTail: boolean;
-  readonly searchQuery?: string;
-  readonly selectedMatch?: LogSearchMatch;
-  readonly foldedIds: readonly string[];
-  readonly selection?: LogViewerSelection;
-}
-
-export interface LogViewerScrollablePresentation extends LogViewerPresentation {
-  readonly scroll: ScrollState;
-}
-
 export function logViewerReducer(
   state: ScrollableLogViewerState,
   action: LogViewerAction
@@ -92,34 +79,6 @@ export function logViewerReducer(state: LogViewerState, action: LogViewerAction)
     case 'setFollowTail':
       return state.followTail === action.followTail ? state : { ...state, followTail: action.followTail };
   }
-}
-
-export function logViewerPresentation(
-  history: LogHistory,
-  state: PassiveLogViewerState
-): LogViewerPresentation {
-  return logViewerPresentationBase(history, state);
-}
-
-export function logViewerScrollablePresentation(
-  history: LogHistory,
-  state: ScrollableLogViewerState
-): LogViewerScrollablePresentation {
-  return { ...logViewerPresentationBase(history, state), scroll: state.scroll };
-}
-
-function logViewerPresentationBase(
-  history: LogHistory,
-  state: LogViewerStateBase
-): LogViewerPresentation {
-  return {
-    history,
-    followTail: state.followTail,
-    foldedIds: state.foldedIds,
-    ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
-    ...(state.selectedMatch === undefined ? {} : { selectedMatch: state.selectedMatch }),
-    ...(state.selection === undefined ? {} : { selection: state.selection })
-  };
 }
 
 export function logViewerSearchMatches(

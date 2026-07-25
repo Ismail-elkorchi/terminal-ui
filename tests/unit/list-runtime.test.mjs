@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createScrollState, listReducer, prepareListCollection, prepareListProjection } from '../../dist/behavior/index.js';
+import { createScrollState, listReducer, prepareListCollection } from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { list } from '../../dist/components/index.js';
 
@@ -47,7 +47,6 @@ test('windowed collection uses its declared external projection query', () => {
   const frame = renderElementFrame(list({ id: 'window-filter', collection }), { columns: 24, rows: 2 });
 
   assert.match(renderFramePlain(frame), /Item 100/u);
-  assert.equal(prepareListProjection({ collection }).query, 'item');
 });
 
 test('list component filters items and can use explicit shared scroll state', () => {

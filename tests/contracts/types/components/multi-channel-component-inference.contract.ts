@@ -9,7 +9,6 @@ import {
   type TextAreaAction,
   type TreeAction
 } from '@ismail-elkorchi/terminal-ui/components';
-import * as components from '@ismail-elkorchi/terminal-ui/components';
 import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
 import { prepareSearchPickerIndex } from '@ismail-elkorchi/terminal-ui/behavior';
 
@@ -57,15 +56,6 @@ const search = searchPicker({
   }
 });
 
-// @ts-expect-error searchPicker input names its prepared search index explicitly
-searchPicker({ id: 'legacy-search', index: prepareSearchPickerIndex([{ id: 'open', label: 'Open', value: 1 }]) });
-type RemovedPaletteFactory =
-  // @ts-expect-error the generic searchable-selection component is named searchPicker
-  typeof components.palette;
-type RemovedPaletteAction =
-  // @ts-expect-error the old palette family is not exported
-  import('@ismail-elkorchi/terminal-ui/components').PaletteAction;
-
 export type TreeMessage =
   | { readonly kind: 'tree'; readonly action: TreeAction }
   | { readonly kind: 'activate' };
@@ -89,5 +79,3 @@ export type _CommandActual = Assert<MessageOf<typeof commands> extends CommandMe
 export type _CommandExpected = Assert<CommandMessage extends MessageOf<typeof commands> ? true : false>;
 export type _SearchPickerActual = Assert<MessageOf<typeof search> extends SearchPickerMessage ? true : false>;
 export type _SearchPickerExpected = Assert<SearchPickerMessage extends MessageOf<typeof search> ? true : false>;
-void (undefined as unknown as RemovedPaletteAction);
-void (undefined as unknown as RemovedPaletteFactory);

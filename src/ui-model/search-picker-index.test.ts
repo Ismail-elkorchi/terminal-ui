@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   searchPickerIndexStatistics,
   prepareSearchPickerIndex,
-  projectSearchPickerQuery
+  querySearchPickerIndex
 } from './search-picker-index.ts';
 
 void test('searchPicker indexes snapshot entries and retain ranked query work', () => {
@@ -13,10 +13,10 @@ void test('searchPicker indexes snapshot entries and retain ranked query work', 
     { id: 'theme', label: 'Change theme', value: 'theme', keywords: ['view'] }
   ];
   const index = prepareSearchPickerIndex(source);
-  const first = projectSearchPickerQuery(index, 'file');
+  const first = querySearchPickerIndex(index, 'file');
 
   source.splice(0, source.length, { id: 'mutated', label: 'Mutated', value: 'mutated', keywords: [] });
-  const retained = projectSearchPickerQuery(index, 'file');
+  const retained = querySearchPickerIndex(index, 'file');
 
   assert.equal(retained, first);
   assert.deepEqual(retained.entries.map((entry) => entry.id), ['open', 'close']);

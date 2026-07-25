@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  textAreaPresentation,
   textAreaReducer,
   createTextAreaState,
   textInputPresentation,
@@ -69,7 +68,7 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
     }
   });
   assert.equal(scrolled.scroll.offsetRow, 3);
-  assert.deepEqual(textAreaPresentation(scrolled), {
+  assert.deepEqual(scrolled, {
     document: selected.document,
     caret: { position: { offset: 10, affinity: 'downstream' } },
     selection: {

@@ -1,7 +1,7 @@
 import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import type { RenderNode } from '../../renderer/model/index.ts';
-import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../../element/index.ts';
-import type { AbsoluteOptions, OverlayOptions, SurfaceOptions } from '../options.ts';
+import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementOptions } from '../../element/index.ts';
+import type { AbsoluteOptions, SurfaceOptions } from '../options.ts';
 import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
 import {
   optionalId,
@@ -60,11 +60,11 @@ export function absolute<const TChild extends Element<unknown>>(
 
 export function overlay<const TChildren extends ElementChildren>(
   children: TChildren,
-  options?: OverlayOptions
+  options?: ElementOptions
 ): Element<ElementChildrenMessage<TChildren>>;
 export function overlay<const TChildren extends ElementChildren>(
   children: TChildren,
-  options: OverlayOptions = {}
+  options: ElementOptions = {}
 ): Element<ElementChildrenMessage<TChildren>> {
   type Message = ElementChildrenMessage<TChildren>;
   return layoutElementFromRenderNode<'overlay', Message>({

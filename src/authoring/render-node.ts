@@ -3,7 +3,6 @@ import { toRenderNodes } from '../renderer/model/element.ts';
 import type { RenderNode } from '../renderer/model/index.ts';
 import type { RenderNodeLayoutProps } from '../renderer/model/props/shared-layout.ts';
 import type { LayoutFlowOptions } from '../geometry/types.ts';
-import type { RenderNodeId } from '../foundation/identity.ts';
 import type { ElementChildren, ElementChildrenMessage } from '../element/index.ts';
 
 export function renderNodeChildren<const TChildren extends ElementChildren>(
@@ -27,11 +26,11 @@ export function layoutProps(options: LayoutFlowOptions): RenderNodeLayoutProps &
   };
 }
 
-export function optionalId(id: string | undefined): { readonly id?: RenderNodeId } {
+export function optionalId(id: string | undefined): { readonly id?: string } {
   return id === undefined ? {} : { id: renderNodeId(id) };
 }
 
-export function requiredId(id: string | undefined, component: string): { readonly id: RenderNodeId } {
+export function requiredId(id: string | undefined, component: string): { readonly id: string } {
   if (id === undefined) throw new TypeError(`${component} requires an id.`);
   return { id: renderNodeId(id, component) };
 }

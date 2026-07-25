@@ -366,7 +366,7 @@ function runRenderScenario(scenario) {
     const authoringDuration = performance.now() - authoringStarted;
     const currentStages = new Map();
     const currentWork = new Map();
-    const projectionWorkBefore = scenario.workSnapshot?.() ?? {};
+    const scenarioWorkBefore = scenario.workSnapshot?.() ?? {};
     const instrumentation = {
       recordWork(sample) {
         currentWork.set(sample.kind, (currentWork.get(sample.kind) ?? 0) + sample.count);
@@ -390,9 +390,9 @@ function runRenderScenario(scenario) {
     renderDiffAnsi(diff, { capabilities: benchmarkContext.capabilities, instrumentation });
     const outputDuration = performance.now() - outputStarted;
     const totalDuration = performance.now() - totalStarted;
-    const projectionWorkAfter = scenario.workSnapshot?.() ?? {};
-    for (const [kind, count] of Object.entries(projectionWorkAfter)) {
-      currentWork.set(kind, count - (projectionWorkBefore[kind] ?? 0));
+    const scenarioWorkAfter = scenario.workSnapshot?.() ?? {};
+    for (const [kind, count] of Object.entries(scenarioWorkAfter)) {
+      currentWork.set(kind, count - (scenarioWorkBefore[kind] ?? 0));
     }
     previous = frame;
     if (!measured) continue;

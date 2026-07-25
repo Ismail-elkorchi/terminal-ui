@@ -1,8 +1,7 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { ProcessStatus } from '../../ui-model/contracts.ts';
-import { normalizeProcessStatus } from '../../ui-model/status.ts';
+import type { ChartDataState, MeterResult } from '../../ui-model/feedback.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { block, line, span } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -36,12 +35,15 @@ export type ChartVisualKind =
   | 'selected'
   | 'separator'
   | 'series'
-  | 'status'
+  | 'result'
   | 'threshold';
 
-export function chartStatus(value: unknown): ProcessStatus | undefined {
-  if (value === undefined) return undefined;
-  return normalizeProcessStatus(value, 'idle');
+export function chartDataState(value: unknown): ChartDataState | undefined {
+  return value === 'loading' || value === 'error' ? value : undefined;
+}
+
+export function meterResult(value: unknown): MeterResult | undefined {
+  return value === 'success' || value === 'warning' || value === 'error' ? value : undefined;
 }
 
 export function chartStateBlock(
@@ -55,11 +57,11 @@ export function chartStateBlock(
     readonly errorText?: string;
   }
 ): RenderBlock | undefined {
-  const status = chartStatus(renderNode.props.status);
-  if (status === 'running') {
+  const dataState = chartDataState(renderNode.props.dataState);
+  if (dataState === 'loading') {
     return chartMessageBlock(renderNode, kind, 'loading', theme, input.loadingText, 'Loading data');
   }
-  if (status === 'error') {
+  if (dataState === 'error') {
     return chartMessageBlock(renderNode, kind, 'error', theme, input.errorText, 'Unable to render data');
   }
   if (input.empty) {
@@ -156,13 +158,11 @@ export function chartHeatmapStyle(renderNode: ChartVisualNode, intensity: number
   );
 }
 
-export function chartMetricStyle(renderNode: ChartVisualNode, status?: ProcessStatus): TerminalStyle | undefined {
-  if (status === undefined || status === 'idle' || status === 'running') {
-    return chartSeriesStyle(renderNode, 0);
-  }
+export function meterMetricStyle(renderNode: ChartVisualNode, result?: MeterResult): TerminalStyle | undefined {
+  if (result === undefined) return chartSeriesStyle(renderNode, 0);
   return mergeStyles(
     chartValueStyle(renderNode),
-    statusStyle(status)
+    statusStyle(result)
   );
 }
 
@@ -225,7 +225,7 @@ function roleForVisual(visual: ChartVisualKind): NonNullable<FrameCellSource['ce
     case 'legend':
     case 'loading':
     case 'metric':
-    case 'status':
+    case 'result':
       return 'text';
   }
 }

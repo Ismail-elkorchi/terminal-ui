@@ -10,14 +10,14 @@ import {
   logHistoryRecordMatchesPrepared
 } from '../../../ui-model/log-history.ts';
 import type { LogSearchMatch } from '../../../ui-model/log-history.ts';
-import { projectLogViewerRecord } from './record-projection.ts';
+import { logViewerRecordModel } from './record-model.ts';
 
-export interface LogViewerLayoutProjection {
-  readonly segments: readonly LogViewerSegmentProjection[];
+export interface LogViewerLayout {
+  readonly segments: readonly LogViewerSegmentLayout[];
   readonly totalRows: number;
 }
 
-export interface LogViewerSegmentProjection {
+export interface LogViewerSegmentLayout {
   readonly segment: LogHistorySegment;
   readonly startRow: number;
   readonly rowStarts: readonly number[];
@@ -33,7 +33,7 @@ export interface LogViewerVisibleRecord {
   readonly localEnd: number;
 }
 
-export interface LogViewerSearchProjection {
+export interface LogViewerSearchResults {
   readonly matchingEntries: number;
   readonly matches: readonly LogSearchMatch[];
 }
@@ -55,15 +55,15 @@ const layoutCache = new WeakMap<LogHistorySegment, Map<string, CachedSegmentLayo
 const searchCache = new WeakMap<LogHistorySegment, Map<string, CachedSegmentSearch>>();
 const searchWork = new WeakMap<LogHistorySegment, { queryEvaluations: number; recordEvaluations: number }>();
 
-export function projectLogViewerLayout(
+export function logViewerLayout(
   history: LogHistory,
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile,
   foldedIds: ReadonlySet<string> = new Set()
-): LogViewerLayoutProjection {
+): LogViewerLayout {
   const geometryKey = `${wrap ? 'wrap' : 'single'}:${String(Math.max(0, width))}:${textWidthProfileKey(widthProfile)}`;
-  const segments: LogViewerSegmentProjection[] = [];
+  const segments: LogViewerSegmentLayout[] = [];
   let startRow = 0;
   for (const segment of history.segments) {
     const foldKey = segment.records
@@ -79,29 +79,29 @@ export function projectLogViewerLayout(
 }
 
 export function visibleLogViewerRecords(
-  projection: LogViewerLayoutProjection,
+  layout: LogViewerLayout,
   start: number,
   end: number
 ): readonly LogViewerVisibleRecord[] {
-  if (end <= start || projection.segments.length === 0) return [];
+  if (end <= start || layout.segments.length === 0) return [];
   const visible: LogViewerVisibleRecord[] = [];
-  let segmentIndex = firstOverlappingSegment(projection.segments, start);
-  while (segmentIndex < projection.segments.length) {
-    const projected = projection.segments[segmentIndex];
-    if (projected === undefined || projected.startRow >= end) break;
-    const localViewportStart = Math.max(0, start - projected.startRow);
-    const localViewportEnd = Math.min(projected.totalRows, end - projected.startRow);
-    let recordIndex = firstOverlappingRecord(projected, localViewportStart);
-    while (recordIndex < projected.segment.records.length) {
-      const record = projected.segment.records[recordIndex];
-      const localRowStart = projected.rowStarts[recordIndex] ?? 0;
-      const rowCount = projected.rowCounts[recordIndex] ?? 1;
+  let segmentIndex = firstOverlappingSegment(layout.segments, start);
+  while (segmentIndex < layout.segments.length) {
+    const segmentLayout = layout.segments[segmentIndex];
+    if (segmentLayout === undefined || segmentLayout.startRow >= end) break;
+    const localViewportStart = Math.max(0, start - segmentLayout.startRow);
+    const localViewportEnd = Math.min(segmentLayout.totalRows, end - segmentLayout.startRow);
+    let recordIndex = firstOverlappingRecord(segmentLayout, localViewportStart);
+    while (recordIndex < segmentLayout.segment.records.length) {
+      const record = segmentLayout.segment.records[recordIndex];
+      const localRowStart = segmentLayout.rowStarts[recordIndex] ?? 0;
+      const rowCount = segmentLayout.rowCounts[recordIndex] ?? 1;
       const localRowEnd = localRowStart + rowCount;
       if (localRowStart >= localViewportEnd) break;
       if (record !== undefined && localRowEnd > localViewportStart) {
         visible.push({
           record,
-          rowStart: projected.startRow + localRowStart,
+          rowStart: segmentLayout.startRow + localRowStart,
           rowCount,
           localStart: Math.max(0, localViewportStart - localRowStart),
           localEnd: Math.min(rowCount, localViewportEnd - localRowStart)
@@ -115,22 +115,22 @@ export function visibleLogViewerRecords(
 }
 
 export function logViewerRowForEntry(
-  projection: LogViewerLayoutProjection,
+  layout: LogViewerLayout,
   entryIndex: number
 ): number | undefined {
-  const segmentIndex = segmentContainingEntry(projection.segments, entryIndex);
-  const projected = projection.segments[segmentIndex];
-  if (projected === undefined) return undefined;
-  const localIndex = entryIndex - projected.segment.startIndex;
-  const localRow = projected.rowStarts[localIndex];
-  return localRow === undefined ? undefined : projected.startRow + localRow;
+  const segmentIndex = segmentContainingEntry(layout.segments, entryIndex);
+  const segmentLayout = layout.segments[segmentIndex];
+  if (segmentLayout === undefined) return undefined;
+  const localIndex = entryIndex - segmentLayout.segment.startIndex;
+  const localRow = segmentLayout.rowStarts[localIndex];
+  return localRow === undefined ? undefined : segmentLayout.startRow + localRow;
 }
 
-export function projectLogViewerSearch(
+export function searchLogViewerHistory(
   history: LogHistory,
   query: string,
   foldedIds: ReadonlySet<string> = new Set()
-): LogViewerSearchProjection {
+): LogViewerSearchResults {
   const searchQuery = query.trim();
   if (searchQuery.length === 0) return { matchingEntries: 0, matches: [] };
   const preparedQuery = prepareLogSearchQuery(searchQuery);
@@ -141,9 +141,9 @@ export function projectLogViewerSearch(
       .filter((record) => foldedIds.has(record.entry.id))
       .map((record) => record.entry.id)
       .join('\u0000');
-    const projected = segmentSearch(segment, `${searchQuery}:${foldKey}`, preparedQuery, foldedIds);
-    matchingEntries += projected.matchingEntries;
-    allMatches.push(...projected.matches);
+    const results = segmentSearch(segment, `${searchQuery}:${foldKey}`, preparedQuery, foldedIds);
+    matchingEntries += results.matchingEntries;
+    allMatches.push(...results.matches);
   }
   return {
     matchingEntries,
@@ -167,9 +167,9 @@ function segmentSearch(
   const matches: LogSearchMatch[] = [];
   let matchingEntries = 0;
   for (const record of segment.records) {
-    const projected = projectLogViewerRecord(record, foldedIds.has(record.entry.id));
+    const recordModel = logViewerRecordModel(record, foldedIds.has(record.entry.id));
     const recordMatches = logHistoryRecordMatchesPrepared(
-      { ...record, searchFields: projected.searchFields },
+      { ...record, searchFields: recordModel.searchFields },
       query
     );
     if (recordMatches.length > 0) {
@@ -212,24 +212,24 @@ function segmentLayout(
   let totalRows = 0;
   for (const record of segment.records) {
     rowStarts.push(totalRows);
-    const projected = projectLogViewerRecord(record, foldedIds.has(record.entry.id));
+    const recordModel = logViewerRecordModel(record, foldedIds.has(record.entry.id));
     const rowCount = wrap && width > 0
-      ? Math.max(1, wrapTextCells(projected.displayText, width, { widthProfile }).length)
+      ? Math.max(1, wrapTextCells(recordModel.displayText, width, { widthProfile }).length)
       : 1;
     rowCounts.push(rowCount);
     totalRows += rowCount;
   }
-  const projection = Object.freeze({
+  const layout = Object.freeze({
     rowStarts: Object.freeze(rowStarts),
     rowCounts: Object.freeze(rowCounts),
     totalRows
   });
-  retain(cache, key, projection, MAX_LAYOUTS_PER_SEGMENT);
-  return projection;
+  retain(cache, key, layout, MAX_LAYOUTS_PER_SEGMENT);
+  return layout;
 }
 
 function firstOverlappingSegment(
-  segments: readonly LogViewerSegmentProjection[],
+  segments: readonly LogViewerSegmentLayout[],
   row: number
 ): number {
   let low = 0;
@@ -243,7 +243,7 @@ function firstOverlappingSegment(
   return low;
 }
 
-function firstOverlappingRecord(segment: LogViewerSegmentProjection, row: number): number {
+function firstOverlappingRecord(segment: LogViewerSegmentLayout, row: number): number {
   let low = 0;
   let high = segment.rowStarts.length;
   while (low < high) {
@@ -257,17 +257,17 @@ function firstOverlappingRecord(segment: LogViewerSegmentProjection, row: number
 }
 
 function segmentContainingEntry(
-  segments: readonly LogViewerSegmentProjection[],
+  segments: readonly LogViewerSegmentLayout[],
   entryIndex: number
 ): number {
   let low = 0;
   let high = segments.length - 1;
   while (low <= high) {
     const middle = Math.floor((low + high) / 2);
-    const projected = segments[middle];
-    if (projected === undefined) return -1;
-    const start = projected.segment.startIndex;
-    const end = start + projected.segment.records.length;
+    const segmentLayout = segments[middle];
+    if (segmentLayout === undefined) return -1;
+    const start = segmentLayout.segment.startIndex;
+    const end = start + segmentLayout.segment.records.length;
     if (entryIndex < start) high = middle - 1;
     else if (entryIndex >= end) low = middle + 1;
     else return middle;

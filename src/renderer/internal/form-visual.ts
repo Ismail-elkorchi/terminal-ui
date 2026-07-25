@@ -6,8 +6,6 @@ import { line } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
 
-export type FormControlState = ElementVisualState;
-
 export type FormVisualKind =
   | 'activeLine'
   | 'cursor'
@@ -86,11 +84,11 @@ export function formLine(spans: readonly RenderSpan[]): RenderLine {
   return line(spans);
 }
 
-export function formLabelStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+export function formLabelStyle(renderNode: RenderNode, state?: ElementVisualState): TerminalStyle | undefined {
   return mergeStyles(renderNodeStyle(renderNode, 'label', state), formValidationStyle(renderNode));
 }
 
-export function formValueStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+export function formValueStyle(renderNode: RenderNode, state?: ElementVisualState): TerminalStyle | undefined {
   return mergeStyles(renderNodeStyle(renderNode, formValuePart(renderNode), state), formValidationStyle(renderNode));
 }
 
@@ -101,7 +99,7 @@ export function formPlaceholderStyle(renderNode: RenderNode): TerminalStyle | un
   });
 }
 
-export function formMarkerStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+export function formMarkerStyle(renderNode: RenderNode, state?: ElementVisualState): TerminalStyle | undefined {
   const part = formMarkerPart(renderNode);
   return mergeStyles(
     renderNodeStyle(renderNode, part),
@@ -145,7 +143,7 @@ export function formErrorStyle(renderNode: RenderNode): TerminalStyle | undefine
   return mergeStyles(themeStyle('status.error', { bold: true }), renderNode.styles?.parts?.['error']);
 }
 
-export function formControlState(renderNode: FormStateNode, selected = false): FormControlState | undefined {
+export function formControlState(renderNode: FormStateNode, selected = false): ElementVisualState | undefined {
   if (renderNode.props.disabled === true) return 'disabled';
   return selected ? 'selected' : undefined;
 }
@@ -165,7 +163,7 @@ export function optionControlState(
     readonly disabled?: boolean;
     readonly active?: boolean;
   }
-): FormControlState | undefined {
+): ElementVisualState | undefined {
   if (input.disabled === true || renderNode.props.disabled === true) return 'disabled';
   if (input.active === true) return 'focused';
   return input.selected ? 'selected' : undefined;
@@ -178,7 +176,7 @@ export function separatorSpan(renderNode: RenderNode, text = ' '): RenderSpan {
 export function controlLabelSpans(
   renderNode: RenderNode,
   text: string,
-  state?: FormControlState,
+  state?: ElementVisualState,
   options: { readonly required?: boolean; readonly label?: string } = {}
 ): readonly RenderSpan[] {
   return labelSpans(renderNode, options.label ?? 'label', text, state, options.required === true);
@@ -187,7 +185,7 @@ export function controlLabelSpans(
 export function controlPrefixSpans(
   renderNode: RenderNode,
   text: string,
-  state?: FormControlState,
+  state?: ElementVisualState,
   options: { readonly required?: boolean; readonly label?: string } = {}
 ): readonly RenderSpan[] {
   const label = controlLabelSpans(renderNode, text, state, options);
@@ -202,7 +200,7 @@ export function labelSpans(
   renderNode: RenderNode,
   label: string,
   text: string,
-  state?: FormControlState,
+  state?: ElementVisualState,
   required = false
 ): readonly RenderSpan[] {
   if (text.length === 0) {

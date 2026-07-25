@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { applyScrollEvent, createScrollState, treeReducer, treeScrollablePresentation } from '../../dist/behavior/index.js';
+import { applyScrollEvent, createScrollState, treeReducer } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { custom, renderFramePlain } from '../../dist/renderer/index.js';
 import { contextMenu, text, textArea, tree } from '../../dist/components/index.js';
@@ -686,7 +686,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
     }),
     view: (state) => tree({
       id: 'tree-scroll',
-      ...treeScrollablePresentation(state.tree),
+      ...state.tree,
       scrollbar: { visible: 'always' },
       onAction: (action) => ({ action })
     })

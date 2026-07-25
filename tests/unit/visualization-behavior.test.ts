@@ -2,11 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  barChartPresentation,
   barChartReducer,
-  chartPresentation,
   chartReducer,
-  heatmapPresentation,
   heatmapReducer
 } from '../../dist/behavior/index.js';
 import { barChart, chart, heatmap } from '../../dist/components/index.js';
@@ -30,7 +27,7 @@ void test('bar chart behavior keeps stable selection through reorder and deletio
   const moved = barChartReducer(selected, { kind: 'move', delta: 1 }, reordered);
   const recovered = barChartReducer(selected, { kind: 'move', delta: 1 }, [cpu, disk]);
 
-  assert.deepEqual(barChartPresentation(selected), { selectedId: 'memory' });
+  assert.deepEqual(selected, { selectedId: 'memory' });
   assert.deepEqual(moved, { selectedId: 'cpu' });
   assert.deepEqual(recovered, { selectedId: 'cpu' });
 });
@@ -58,7 +55,7 @@ void test('chart behavior navigates series, points, and pages without owning dat
   const paged = chartReducer({ selected: { series: 'cpu', pointIndex: 1 } }, { kind: 'pagePoints', delta: 1 }, series, { pageSize: 3 });
   const moved = chartReducer(paged, { kind: 'moveSeries', delta: 1 }, series);
 
-  assert.deepEqual(chartPresentation(paged), { selected: { series: 'cpu', pointIndex: 4 } });
+  assert.deepEqual(paged, { selected: { series: 'cpu', pointIndex: 4 } });
   assert.deepEqual(moved, { selected: { series: 'memory', pointIndex: 2 } });
 });
 
@@ -82,7 +79,7 @@ void test('heatmap behavior navigates selectable cells by row and page', () => {
   const paged = heatmapReducer(moved, { kind: 'pageRows', delta: 1 }, rows, { pageRows: 2 });
 
   assert.deepEqual(moved, { selected: { rowIndex: 1, columnIndex: 1 } });
-  assert.deepEqual(heatmapPresentation(paged), { selected: { rowIndex: 2, columnIndex: 1 } });
+  assert.deepEqual(paged, { selected: { rowIndex: 2, columnIndex: 1 } });
 });
 
 void test('chart and heatmap pointer targets emit semantic select actions', () => {

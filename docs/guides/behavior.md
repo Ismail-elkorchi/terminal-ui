@@ -96,7 +96,6 @@ import {
   type SearchEntry
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
-  searchPickerPresentation,
   searchPickerReducer,
   prepareSearchPickerIndex,
   type SearchPickerState
@@ -120,7 +119,8 @@ function searchPickerView(state: SearchPickerState) {
   return searchPicker({
     id: 'commands',
     searchPickerIndex,
-    ...searchPickerPresentation(state),
+    query: state.query,
+    selectedIndex: state.selectedIndex,
     onAction: (action): SearchPickerMessage => ({ kind: 'searchPicker', action }),
     keys: {
       enter: (): SearchPickerMessage => ({ kind: 'acceptSearchPicker' }),
@@ -140,7 +140,6 @@ effects into the component:
 ```ts
 import { tree, type TreeControlAction, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
 import {
-  treePresentation,
   treeReducer,
   type PassiveTreeState
 } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -154,7 +153,7 @@ function updateTree(state: PassiveTreeState, message: Message): PassiveTreeState
 function treeView(state: PassiveTreeState) {
   return tree({
     id: 'navigation',
-    ...treePresentation(state),
+    ...state,
     onAction: (action: TreeControlAction): Message => ({ kind: 'tree', action })
   });
 }
@@ -235,19 +234,19 @@ terminal `row` and `column` coordinates. Drawing operations explicitly
 documented as local accept zero-based terminal-cell coordinates and convert
 them before writing.
 
-Append-heavy documents use the same retained-projection rule through a
+Append-heavy documents use the same retained prepared-data rule through a
 dedicated contract. Build a `LogHistory` once with
 `prepareLogHistory()`, store it in application state, and append log entries
 with `appendLogHistory()`. The append helper preserves existing history
 segments, while wrapping and search indexes are reused by the renderer.
 
-Scrollable controls use exact state and projection variants. For example,
-`PassiveTableState` is projected with `tablePresentation()`, while
-`ScrollableTableState` is projected with `tableScrollablePresentation()` and
+Scrollable controls use exact state and presentation variants. For example,
+`PassiveTableState` is prepared with `tablePresentation()`, while
+`ScrollableTableState` is prepared with `tableScrollablePresentation()` and
 accepts the complete `TableAction` stream. Lists, trees, and the log viewer follow
 the same naming and action split. This prevents passive controls from receiving
 scroll actions that cannot change their state and prevents scrollable controls
-from losing required scroll metrics during projection.
+from losing required scroll metrics in their renderer-facing data.
 
 Resizable panes use normalized shares so terminal resizing does not make the
 application persist stale cell coordinates. `createSplitPaneState()` owns the

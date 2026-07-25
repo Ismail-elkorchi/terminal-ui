@@ -11,8 +11,6 @@ export interface BarChartState {
   readonly selectedId?: string;
 }
 
-export type BarChartPresentation = BarChartState;
-
 export function barChartReducer(
   state: BarChartState,
   action: BarChartAction,
@@ -30,10 +28,6 @@ export function barChartReducer(
   return barSelection(items[wrapIndex(current + action.delta, items.length)]?.id);
 }
 
-export function barChartPresentation(state: BarChartState): BarChartPresentation {
-  return state.selectedId === undefined ? {} : { selectedId: state.selectedId };
-}
-
 function barSelection(selectedId: string | undefined): BarChartState {
   return selectedId === undefined ? {} : { selectedId };
 }
@@ -45,8 +39,6 @@ export interface ChartState {
 export interface ChartReducerOptions {
   readonly pageSize?: number;
 }
-
-export type ChartPresentation = ChartState;
 
 export function chartReducer(
   state: ChartState,
@@ -84,10 +76,6 @@ export function chartReducer(
   }
 }
 
-export function chartPresentation(state: ChartState): ChartPresentation {
-  return state.selected === undefined ? {} : { selected: state.selected };
-}
-
 export interface HeatmapState {
   readonly selected?: HeatmapSelection;
 }
@@ -95,8 +83,6 @@ export interface HeatmapState {
 export interface HeatmapReducerOptions {
   readonly pageRows?: number;
 }
-
-export type HeatmapPresentation = HeatmapState;
 
 export function heatmapReducer<TValue>(
   state: HeatmapState,
@@ -136,10 +122,6 @@ export function heatmapReducer<TValue>(
       return last === undefined ? state : { selected: { rowIndex: last.rowIndex, columnIndex: last.columnIndex } };
     }
   }
-}
-
-export function heatmapPresentation(state: HeatmapState): HeatmapPresentation {
-  return state.selected === undefined ? {} : { selected: state.selected };
 }
 
 function selectedChartPoint(

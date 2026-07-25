@@ -18,7 +18,7 @@ const policy = Object.freeze({
   weekStartsOn: 1
 } satisfies CalendarBehaviorOptions);
 
-void test('date picker projection creates a deterministic six-week civil calendar', () => {
+void test('date picker presentation creates a deterministic six-week civil calendar', () => {
   const presentation = calendarPresentation({
     visibleMonth: { year: 2024, month: 2 },
     selected: { year: 2024, month: 2, day: 29 },

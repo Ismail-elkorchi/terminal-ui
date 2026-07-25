@@ -14,7 +14,6 @@ import {
   radioGroupPresentation,
   selectPresentation,
   selectReducer,
-  tabsPresentation,
   tabsReducer
 } from '../../dist/behavior/index.js';
 import type {
@@ -29,19 +28,19 @@ const choices = [
   { id: 'beta', label: 'Beta', value: 3 }
 ] satisfies readonly ChoiceItem<number>[];
 
-void test('menu behavior owns selection, hierarchy projection, and activation state', () => {
+void test('menu behavior owns selection, hierarchy presentation, and activation state', () => {
   const items = [
     { kind: 'submenu', id: 'file', label: 'File', children: [{ kind: 'action', id: 'open', label: 'Open' }] },
     { kind: 'action', id: 'disabled', label: 'Disabled', disabled: true }
   ] satisfies readonly MenuItem[];
   const entered = menuReducer({ activePath: ['file'] }, { kind: 'enter' }, items);
   const returned = menuReducer(entered, { kind: 'back' }, items);
-  const projection = menuPresentation(items, entered);
+  const presentation = menuPresentation(items, entered);
 
   assert.deepEqual(entered.activePath, ['file', 'open']);
   assert.deepEqual(returned.activePath, ['file']);
-  const projectedFile = projection.items[0];
-  assert.equal(projectedFile?.kind === 'submenu' ? projectedFile.expanded : undefined, true);
+  const fileItem = presentation.items[0];
+  assert.equal(fileItem?.kind === 'submenu' ? fileItem.expanded : undefined, true);
   assert.equal(menuReducer(returned, { kind: 'focus', id: 'disabled' }, items), returned);
 });
 
@@ -69,7 +68,7 @@ void test('tabs behavior skips disabled tabs and leaves close handling with the 
   ];
   const moved = tabsReducer({ selected: 'one' }, { kind: 'move', delta: 1 }, items);
 
-  assert.deepEqual(tabsPresentation(moved), { selected: 'three' });
+  assert.deepEqual(moved, { selected: 'three' });
   assert.equal(tabsReducer(moved, { kind: 'close', id: 'three' }, items), moved);
 });
 

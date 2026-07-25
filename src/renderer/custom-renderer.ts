@@ -14,8 +14,6 @@ export interface CustomRendererInput<TState> {
   readonly widthProfile: TextWidthProfile;
 }
 
-export type CustomRendererMeasureInput<TState> = CustomRendererInput<TState>;
-
 export interface CustomRendererRenderInput<TState> extends CustomRendererInput<TState> {
   readonly target: RenderTarget;
   readonly focus: RenderFocusRelation;
@@ -26,13 +24,10 @@ export interface CustomRendererAccessibilityInput<TState> extends CustomRenderer
   readonly focused: boolean;
 }
 
-export type CustomRendererFocusInput<TState> = CustomRendererInput<TState>;
-export type CustomRendererHitInput<TState> = CustomRendererInput<TState>;
-
 export interface CustomRenderer<TState = undefined, TMessage = never> {
-  measure?(input: CustomRendererMeasureInput<TState>): Measurement;
+  measure?(input: CustomRendererInput<TState>): Measurement;
   render(input: CustomRendererRenderInput<TState>): void;
   accessibility?(input: CustomRendererAccessibilityInput<TState>): AccessibleNode;
-  focusTargets?(input: CustomRendererFocusInput<TState>): readonly FocusTarget[];
-  hitTargets?(input: CustomRendererHitInput<TState>): readonly HitTarget<TMessage>[];
+  focusTargets?(input: CustomRendererInput<TState>): readonly FocusTarget[];
+  hitTargets?(input: CustomRendererInput<TState>): readonly HitTarget<TMessage>[];
 }

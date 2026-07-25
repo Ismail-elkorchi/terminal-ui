@@ -57,7 +57,6 @@ export {
   applyTextPointerAction,
   createTextAreaState,
   selectionFromTextPointerAction,
-  textAreaPresentation,
   textAreaReducer,
   textInputPresentation,
   textInputReducer
@@ -86,16 +85,11 @@ export type {
   PointerInteractionState
 } from '../interaction/pointer-interaction.ts';
 export {
-  listPresentation,
-  listScrollablePresentation,
   prepareListCollection,
-  prepareListProjection,
   listReducer,
   visibleListEntries
 } from './list.ts';
 export type {
-  ListPresentation,
-  ListScrollablePresentation,
   ListReducerOptions,
   PassiveListState,
   ScrollableListState,
@@ -110,7 +104,6 @@ export type {
   ListItemProjection,
   ListItemProjector,
   ListViewEntry,
-  ListViewProjection,
   WindowedListCollection
 } from '../ui-model/list.ts';
 export { rangeSliderReducer } from './range-slider.ts';
@@ -171,28 +164,20 @@ export type {
   NotificationState
 } from './notifications.ts';
 export {
-  groupSearchPickerEntries,
-  searchPickerProjection,
-  searchPickerPresentation,
   searchPickerReducer,
-  searchPickerStatus,
   searchPickerWindow,
   selectedSearchPickerEntry
 } from './search-picker.ts';
 export type {
-  SearchPickerAsyncState,
-  SearchPickerFilterResult,
-  SearchPickerGroup,
-  SearchPickerGroupSelector,
-  SearchPickerPresentation,
   SearchPickerReducerOptions,
   SearchPickerSelectionInput,
   SearchPickerState,
+  SearchPickerWindow,
   SearchPickerWindowInput
 } from './search-picker.ts';
 export type { SearchPickerAction } from '../ui-model/search-picker.ts';
 export { prepareSearchPickerIndex } from '../ui-model/search-picker-index.ts';
-export type { SearchPickerIndex, SearchPickerQueryProjection } from '../ui-model/search-picker-index.ts';
+export type { SearchPickerIndex } from '../ui-model/search-picker-index.ts';
 export {
   contextMenuPresentation,
   contextMenuReducer,
@@ -219,8 +204,8 @@ export type {
   MenuBarPresentation,
   MenuPresentation
 } from '../ui-model/menu.ts';
-export { tabsPresentation, tabsReducer } from './tabs.ts';
-export type { TabsPresentation, TabsState } from './tabs.ts';
+export { tabsReducer } from './tabs.ts';
+export type { TabsState } from './tabs.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 export type {
@@ -230,20 +215,14 @@ export type {
   LogViewerSelection
 } from '../ui-model/log-viewer.ts';
 export {
-  barChartPresentation,
   barChartReducer,
-  chartPresentation,
   chartReducer,
-  heatmapPresentation,
   heatmapReducer
 } from './visualization.ts';
 export type {
-  BarChartPresentation,
   BarChartState,
-  ChartPresentation,
   ChartReducerOptions,
   ChartState,
-  HeatmapPresentation,
   HeatmapReducerOptions,
   HeatmapState
 } from './visualization.ts';
@@ -263,13 +242,9 @@ export {
   selectReducer
 } from './choice-controls.ts';
 export type {
-  CheckboxGroupPresentation,
   CheckboxGroupState,
-  ColorSwatchPickerPresentation,
   ColorSwatchPickerState,
-  RadioGroupPresentation,
-  RadioGroupState,
-  SelectState
+  RadioGroupState
 } from './choice-controls.ts';
 export type {
   CheckboxGroupAction,
@@ -325,15 +300,11 @@ export type {
 export {
   followTailScrollState,
   nextLogViewerMatch,
-  logViewerPresentation,
-  logViewerScrollablePresentation,
   logViewerReducer,
   logViewerSearchMatches
 } from './log-viewer.ts';
 export type {
   PassiveLogViewerState,
-  LogViewerPresentation,
-  LogViewerScrollablePresentation,
   ScrollableLogViewerState,
   LogViewerState
 } from './log-viewer.ts';
@@ -400,16 +371,12 @@ export {
   treeDisclosureAction,
   treeNodeCanDisclose,
   treeNodeMatches,
-  treePresentation,
-  treeScrollablePresentation,
   treeReducer,
   visibleTreeRows
 } from './tree.ts';
 export type {
   PassiveTreeState,
   ScrollableTreeState,
-  TreePresentation,
-  TreeScrollablePresentation,
   TreeRenameState,
   TreeState,
   TreeVisibleRowsOptions
@@ -418,7 +385,6 @@ export type {
   CompleteTreeCollection,
   TreeCollection,
   TreeCollectionRecord,
-  TreeViewProjection,
   TreeVisibleRow,
   WindowedTreeCollection
 } from '../ui-model/tree.ts';

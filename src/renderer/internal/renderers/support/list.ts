@@ -13,7 +13,7 @@ import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import type { ListControlAction } from '../../../../ui-model/list.ts';
-import type { ListViewProjection } from '../../../../ui-model/list.ts';
+import type { PreparedListView } from '../../../../ui-model/list.ts';
 import { interactionVisualState, renderNodeTargetId } from '../../pointer-interaction.ts';
 import { measureBlock } from '../../measurement.ts';
 import type { Measurement } from '../../../model/measurement.ts';
@@ -23,19 +23,19 @@ type ListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'list'>;
 const intrinsicMeasurementRows = 64;
 
 export function listScrollbarState(renderNode: ListNode, bounds: Rect): ScrollState {
-  const projection = renderNode.props.view;
-  const selected = selectedVisibleIndex(projection, stringify(renderNode.props.selectedId));
+  const view = renderNode.props.view;
+  const selected = selectedVisibleIndex(view, stringify(renderNode.props.selectedId));
   const explicitScroll = scrollStateFromUnknown(renderNode.props.scroll);
   if (explicitScroll !== undefined) {
     return normalizeScrollState({
       ...explicitScroll,
-      contentRows: projection.totalCount,
+      contentRows: view.totalCount,
       contentColumns: bounds.width,
       viewportRows: bounds.height,
       viewportColumns: bounds.width
     });
   }
-  const window = listWindow(renderNode, projection, bounds.height, selected, bounds.width);
+  const window = listWindow(renderNode, view, bounds.height, selected, bounds.width);
   return createScrollState({
     offsetRow: window.startIndex,
     offsetColumn: window.offsetColumn,
@@ -48,11 +48,11 @@ export function listScrollbarState(renderNode: ListNode, bounds: Rect): ScrollSt
 }
 
 export function listBlock(renderNode: ListNode, height: number, theme: TerminalTheme, focused = false): RenderBlock {
-  const projection = renderNode.props.view;
+  const view = renderNode.props.view;
   const selectedId = stringify(renderNode.props.selectedId);
-  const selected = selectedVisibleIndex(projection, selectedId);
-  const window = listWindow(renderNode, projection, height, selected);
-  const query = projection.query;
+  const selected = selectedVisibleIndex(view, selectedId);
+  const window = listWindow(renderNode, view, height, selected);
+  const query = view.query;
   if (window.rows.length === 0 && height > 0) {
     return {
       lines: [{
@@ -131,9 +131,9 @@ export function listIntrinsicMeasurement(
 }
 
 export function listAccessibleNode(renderNode: ListNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
-  const projection = renderNode.props.view;
-  const selected = selectedVisibleIndex(projection, stringify(renderNode.props.selectedId));
-  const window = listWindow(renderNode, projection, node.bounds.height, selected, node.bounds.width);
+  const view = renderNode.props.view;
+  const selected = selectedVisibleIndex(view, stringify(renderNode.props.selectedId));
+  const window = listWindow(renderNode, view, node.bounds.height, selected, node.bounds.width);
   return {
     id,
     role: 'listbox',
@@ -141,16 +141,16 @@ export function listAccessibleNode(renderNode: ListNode, node: LayoutNode, id: s
     description: windowDescription('items', {
       start: window.startIndex,
       end: window.endIndexExclusive
-    }, projection.totalCount),
+    }, view.totalCount),
     ...(focused ? { focused } : {})
   };
 }
 
 export function listAccessibleChildren(renderNode: ListNode, node: LayoutNode): readonly AccessibleNode[] {
-  const projection = renderNode.props.view;
+  const view = renderNode.props.view;
   const selectedId = stringify(renderNode.props.selectedId);
-  const selected = selectedVisibleIndex(projection, selectedId);
-  const window = listWindow(renderNode, projection, node.bounds.height, selected, node.bounds.width);
+  const selected = selectedVisibleIndex(view, selectedId);
+  const window = listWindow(renderNode, view, node.bounds.height, selected, node.bounds.width);
   return window.rows.map((entry) => ({
       id: listOptionTargetId(renderNode, entry.id),
       role: 'option',
@@ -166,12 +166,12 @@ function listOptionTargetId(renderNode: ListNode, entryId: string): string {
 }
 
 export function listCursor(renderNode: ListNode, bounds: Rect): { readonly row: number; readonly column: number } {
-  const projection = renderNode.props.view;
-  const selected = selectedVisibleIndex(projection, stringify(renderNode.props.selectedId));
-  if (selected < 0 || projection.totalCount === 0 || bounds.height <= 0) {
+  const view = renderNode.props.view;
+  const selected = selectedVisibleIndex(view, stringify(renderNode.props.selectedId));
+  if (selected < 0 || view.totalCount === 0 || bounds.height <= 0) {
     return { row: bounds.row, column: bounds.column };
   }
-  const window = listWindow(renderNode, projection, bounds.height, selected, bounds.width);
+  const window = listWindow(renderNode, view, bounds.height, selected, bounds.width);
   const selectedRow = selected >= window.startIndex && selected < window.endIndexExclusive
     ? bounds.row + selected - window.startIndex
     : bounds.row;
@@ -181,9 +181,9 @@ export function listCursor(renderNode: ListNode, bounds: Rect): { readonly row: 
 export function listHitTargets<TMessage>(renderNode: ListNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = toActionMessageProp(renderNode);
   if (toMessage === undefined) return [];
-  const projection = renderNode.props.view;
-  const selected = selectedVisibleIndex(projection, stringify(renderNode.props.selectedId));
-  const window = listWindow(renderNode, projection, bounds.height, selected, bounds.width);
+  const view = renderNode.props.view;
+  const selected = selectedVisibleIndex(view, stringify(renderNode.props.selectedId));
+  const window = listWindow(renderNode, view, bounds.height, selected, bounds.width);
   return window.rows.flatMap((entry, index): HitTarget<TMessage>[] => {
     if (entry.item.disabled) return [];
     const itemIndex = entry.sourceIndex;
@@ -203,7 +203,7 @@ export function listHitTargets<TMessage>(renderNode: ListNode<TMessage>, bounds:
   });
 }
 
-function listWindow(renderNode: ListNode, projection: ListViewProjection<unknown>, height: number, selected: number, width = 0) {
+function listWindow(renderNode: ListNode, view: PreparedListView<unknown>, height: number, selected: number, width = 0) {
   const input = {
     viewportRows: height,
     viewportColumns: width,
@@ -211,12 +211,12 @@ function listWindow(renderNode: ListNode, projection: ListViewProjection<unknown
     selectedIndex: selected,
     ...scrollInput(renderNode)
   };
-  if (projection.source.kind === 'complete') return rowWindow(projection.entries, input);
-  const window = projectedRowWindow(projection.source, input);
-  const localStart = window.startIndex - projection.source.startIndex;
+  if (view.source.kind === 'complete') return rowWindow(view.entries, input);
+  const window = projectedRowWindow(view.source, input);
+  const localStart = window.startIndex - view.source.startIndex;
   return {
     ...window,
-    rows: projection.entries.slice(localStart, localStart + window.rows.length)
+    rows: view.entries.slice(localStart, localStart + window.rows.length)
   };
 }
 
@@ -229,8 +229,8 @@ function toActionMessageProp<TMessage>(renderNode: ListNode<TMessage>): ((action
   return renderNode.props.toActionMessage;
 }
 
-function selectedVisibleIndex(projection: ListViewProjection<unknown>, selectedId: string): number {
+function selectedVisibleIndex(view: PreparedListView<unknown>, selectedId: string): number {
   if (selectedId.length === 0) return -1;
-  const local = projection.entries.findIndex((entry) => entry.id === selectedId);
-  return local < 0 ? -1 : projection.startIndex + local;
+  const local = view.entries.findIndex((entry) => entry.id === selectedId);
+  return local < 0 ? -1 : view.startIndex + local;
 }

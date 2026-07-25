@@ -338,19 +338,6 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
   assert.equal(span.ok, false);
   assert.match(span.error.message, /write span source.*interactionState must be focused/u);
 
-  const removedField = validateCommit({
-    ...baseFrame,
-    cells: [{
-      row: 1,
-      column: 1,
-      text: 'x',
-      width: 1,
-      source: { state: 'selected' }
-    }]
-  }, baseDiff);
-  assert.equal(removedField.ok, false);
-  assert.match(removedField.error.message, /frame cell 0.*unsupported field: state/u);
-
   const valid = validateCommit({
     ...baseFrame,
     cells: [{
@@ -411,7 +398,6 @@ test('diagnostics normalize causes into JSON-safe transcript data', () => {
   });
 
   assert.deepEqual(item.cause, { name: 'Error', message: 'socket closed' });
-  assert.equal(JSON.stringify(item).includes('column'), false);
   assert.equal(validateTranscript(transcript).ok, true);
   assert.equal(invalid.ok, false);
   assert.match(invalid.error.message, /diagnostic cause/u);

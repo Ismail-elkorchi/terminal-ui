@@ -3,22 +3,10 @@ import { rowWindow } from './data-window.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { SearchEntry } from '../ui-model/contracts.ts';
 import type { SearchPickerAction } from '../ui-model/search-picker.ts';
-import { projectSearchPickerQuery } from '../ui-model/search-picker-index.ts';
-import type { SearchPickerIndex, SearchPickerQueryProjection } from '../ui-model/search-picker-index.ts';
-
-export type SearchPickerAsyncState<TValue = string> =
-  | { readonly status: 'idle'; readonly entries: readonly SearchEntry<TValue>[] }
-  | { readonly status: 'loading'; readonly entries: readonly SearchEntry<TValue>[] }
-  | { readonly status: 'error'; readonly entries: readonly SearchEntry<TValue>[]; readonly message: string };
+import { querySearchPickerIndex } from '../ui-model/search-picker-index.ts';
+import type { SearchPickerIndex } from '../ui-model/search-picker-index.ts';
 
 export interface SearchPickerState {
-  readonly query: string;
-  readonly selectedIndex: number;
-  readonly selectedIds: readonly string[];
-  readonly previewId?: string;
-}
-
-export interface SearchPickerPresentation {
   readonly query: string;
   readonly selectedIndex: number;
 }
@@ -36,7 +24,7 @@ export interface SearchPickerWindowInput<TValue = string> {
   readonly limit?: number;
 }
 
-export interface SearchPickerFilterResult<TValue = string> {
+export interface SearchPickerWindow<TValue = string> {
   readonly entries: readonly SearchEntry<TValue>[];
   readonly selectedIndex?: number;
   readonly selectedEntry?: SearchEntry<TValue>;
@@ -52,24 +40,6 @@ export interface SearchPickerSelectionInput<TValue = string> {
   readonly state: SearchPickerState;
   readonly scroll?: ScrollState;
   readonly limit?: number;
-}
-
-export interface SearchPickerGroup<TValue = string> {
-  readonly id: string;
-  readonly label: string;
-  readonly entries: readonly SearchEntry<TValue>[];
-}
-
-export type SearchPickerGroupSelector<TValue> = (entry: SearchEntry<TValue>) => {
-  readonly id: string;
-  readonly label?: string;
-};
-
-export function searchPickerPresentation(state: SearchPickerState): SearchPickerPresentation {
-  return {
-    query: state.query,
-    selectedIndex: state.selectedIndex
-  };
 }
 
 export function searchPickerReducer<TValue>(
@@ -105,35 +75,15 @@ export function searchPickerReducer<TValue>(
         ...state,
         selectedIndex: wrapIndex(
           state.selectedIndex + action.delta,
-          projectSearchPickerQuery(options.searchPickerIndex, state.query).entries.length
+          querySearchPickerIndex(options.searchPickerIndex, state.query).entries.length
         )
       };
-    case 'selectIndex':
-      return {
-        ...state,
-        selectedIndex: clampIndex(
-          action.entryIndex,
-          projectSearchPickerQuery(options.searchPickerIndex, state.query).entries.length
-        )
-      };
-    case 'toggleSelected':
-      return {
-        ...state,
-        selectedIds: toggleId(state.selectedIds, action.id)
-      };
-    case 'clearSelected':
-      return {
-        ...state,
-        selectedIds: []
-      };
-    case 'preview':
-      return action.id === undefined ? withoutPreview(state) : { ...state, previewId: action.id };
   }
 }
 
-export function searchPickerWindow<TValue>(input: SearchPickerWindowInput<TValue>): SearchPickerFilterResult<TValue> {
-  const projection = projectSearchPickerQuery(input.searchPickerIndex, input.query ?? '');
-  const filtered = projection.entries;
+export function searchPickerWindow<TValue>(input: SearchPickerWindowInput<TValue>): SearchPickerWindow<TValue> {
+  const result = querySearchPickerIndex(input.searchPickerIndex, input.query ?? '');
+  const filtered = result.entries;
   const totalCount = filtered.length;
   const limit = Math.max(1, Math.floor(input.limit ?? totalCount));
   if (totalCount === 0) {
@@ -174,40 +124,6 @@ export function selectedSearchPickerEntry<TValue>(input: SearchPickerSelectionIn
   }).selectedEntry;
 }
 
-export function groupSearchPickerEntries<TValue>(
-  entries: readonly SearchEntry<TValue>[],
-  groupFor: SearchPickerGroupSelector<TValue>
-): readonly SearchPickerGroup<TValue>[] {
-  const groups = new Map<string, { label: string; entries: SearchEntry<TValue>[] }>();
-  for (const entry of entries) {
-    const group = groupFor(entry);
-    const current = groups.get(group.id);
-    if (current === undefined) {
-      groups.set(group.id, { label: group.label ?? group.id, entries: [entry] });
-    } else {
-      current.entries.push(entry);
-    }
-  }
-  return [...groups.entries()].map(([id, group]) => ({
-    id,
-    label: group.label,
-    entries: group.entries
-  }));
-}
-
-export function searchPickerStatus<TValue>(
-  state: SearchPickerAsyncState<TValue>
-): 'idle' | 'loading' | 'error' | 'empty' {
-  if (state.status === 'loading' || state.status === 'error') return state.status;
-  return state.entries.length === 0 ? 'empty' : 'idle';
-}
-
-function toggleId(ids: readonly string[], id: string): readonly string[] {
-  return ids.includes(id)
-    ? ids.filter((current) => current !== id)
-    : [...ids, id];
-}
-
 function wrapIndex(index: number, count: number): number {
   const size = Math.max(0, Math.floor(count));
   if (size === 0) return 0;
@@ -229,16 +145,4 @@ function selectedIndex<TValue>(
     if (byId !== -1) return byId;
   }
   return clampIndex(input.selectedIndex ?? 0, entries.length);
-}
-
-export function searchPickerProjection<TValue>(index: SearchPickerIndex<TValue>, query = ''): SearchPickerQueryProjection<TValue> {
-  return projectSearchPickerQuery(index, query);
-}
-
-function withoutPreview(state: SearchPickerState): SearchPickerState {
-  return {
-    query: state.query,
-    selectedIndex: state.selectedIndex,
-    selectedIds: state.selectedIds
-  };
 }

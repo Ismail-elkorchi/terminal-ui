@@ -14,8 +14,3 @@ table({
   getRowId: (row) => row.id,
   density: regular
 });
-
-// @ts-expect-error removed table-only density vocabulary
-table({ id: 'dense', rows: [], getRowId: () => '', density: 'dense' });
-// @ts-expect-error removed table-only density vocabulary
-table({ id: 'normal', rows: [], getRowId: () => '', density: 'normal' });

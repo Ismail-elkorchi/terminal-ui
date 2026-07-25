@@ -25,7 +25,7 @@ import {
   textInput
 } from '../../dist/components/index.js';
 
-function dashboardWidget(state) {
+function dashboardElement(state) {
   return surface(
     column([
       text('Terminal workbench', { id: 'title' }),
@@ -52,10 +52,10 @@ function dashboardWidget(state) {
 }
 
 test('vertical TUI slice turns element tree into layout, frame, diff, and runtime memory evidence', async () => {
-  const initialWidget = dashboardWidget({ submitted: false });
+  const initialElement = dashboardElement({ submitted: false });
 
   const terminalSize = { columns: 30, rows: 6 };
-  const layout = layoutElement(initialWidget, terminalSize);
+  const layout = layoutElement(initialElement, terminalSize);
   assert.equal(layout.kind, 'surface');
   assert.equal(layout.id, 'root-surface');
   assert.deepEqual(layout.bounds, { row: 1, column: 1, width: 30, height: 6 });
@@ -63,7 +63,7 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
   assert.equal(layout.children[0]?.children[1]?.kind, 'row');
   assert.equal(layout.children[0]?.children[1]?.children[1]?.id, 'action-field');
 
-  const frame = renderElementFrame(initialWidget, terminalSize);
+  const frame = renderElementFrame(initialElement, terminalSize);
   assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v2');
   assert.equal(frame.width, 30);
   assert.equal(frame.height, 6);
@@ -76,7 +76,7 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
   assert.match(rendered, /Left pane/u);
   assert.match(rendered, /Press en…/u);
 
-  const submittedFrame = renderElementFrame(dashboardWidget({ submitted: true }), terminalSize, {
+  const submittedFrame = renderElementFrame(dashboardElement({ submitted: true }), terminalSize, {
     focusPath: frame.focusPath
   });
   const diff = diffFrames(frame, submittedFrame);
@@ -103,7 +103,7 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
       state: { submitted: message.type === 'submit' },
       ...(message.type === 'submit' ? { exit: {} } : {})
     }),
-    view: dashboardWidget
+    view: dashboardElement
   });
   const harness = createTerminalHarness({ terminalSize });
   harness.host.input('\r');

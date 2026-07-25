@@ -27,10 +27,8 @@ import {
   menuBarPresentation,
   menuBarReducer,
   tabsReducer,
-  textAreaPresentation,
   textAreaReducer,
   treeReducer,
-  treeScrollablePresentation,
   visibleTreeRows
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputAction, CommandInputState, MenuBarState, ScrollableTreeState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -496,7 +494,7 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
     text(state.root === undefined ? 'No folder open' : path.basename(state.root), { id: 'explorer-root', textRole: 'metadata' }),
     tree({
       id: 'editor-tree',
-      ...treeScrollablePresentation(state.tree),
+      ...state.tree,
       emptyText: 'Use /folder <path>',
       onAction: (action): EditorMessage => ({ kind: 'tree', action })
     }),
@@ -522,7 +520,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
       closable: true,
       panel: textArea({
         id: `editor:${buffer.path}`,
-        presentation: textAreaPresentation(buffer.editor),
+        presentation: buffer.editor,
         lineNumbers: true,
         activeLine: true,
         scrollbar: { visible: 'auto' },

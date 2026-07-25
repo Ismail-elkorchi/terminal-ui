@@ -20,7 +20,7 @@ const snapshot = toAccessibleSnapshot({
 });
 const validation = validateAccessibleSnapshot(snapshot);
 
-invariant(plain.includes('Portable renderer'), 'renderer projection failed');
+invariant(plain.includes('Portable renderer'), 'plain rendering failed');
 invariant(frame.accessibility.source === 'renderer', 'direct renderer snapshot source was not renderer');
 invariant(validation.ok, 'accessibility validation failed');
 

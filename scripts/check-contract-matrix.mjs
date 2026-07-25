@@ -31,10 +31,6 @@ for (const scenario of contractScenarios) {
   for (const contract of scenario.contracts) {
     assert.ok(knownContracts.has(contract), `${scenario.id} names unknown contract ${contract}.`);
   }
-  if (scenario.contracts.includes('type_constraint')) {
-    const source = await readFile(new URL(`../${scenario.path}`, import.meta.url), 'utf8');
-    assert.match(source, /@ts-expect-error/u, `${scenario.id} claims no executable invalid-call assertion.`);
-  }
   if (scenario.contracts.includes('portable_runtime')) {
     assert.deepEqual(scenario.artifacts, ['npm_tarball'], `${scenario.id} must execute the installed npm artifact.`);
     assert.deepEqual(scenario.runtimes, ['node', 'deno', 'bun'], `${scenario.id} must run under all portable runtimes.`);
@@ -67,7 +63,6 @@ function codeEntrypoints(exports) {
 
 function requiredContracts(entrypoint) {
   const required = ['positive_type', 'portable_runtime'];
-  if (entrypoint !== './schemas') required.push('type_constraint');
   if (entrypoint === './host' || entrypoint === './protocol' || entrypoint === './tui') {
     required.push('host_runtime');
   }

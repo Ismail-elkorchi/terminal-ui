@@ -2,13 +2,13 @@ import type {
   ChartInterpolation,
   ChartSampleAlign,
   ChartSampleMode,
-  ChartSeries
+  ChartSeries,
+  ValueScaleStop
 } from '../../../../ui-model/feedback.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import { sanitizeTerminalText } from '../../../../text/index.ts';
 import { chartSeriesStyle } from '../../chart-visual.ts';
 import { normalizeValueScale, valueScaleStyle } from '../../value-scale.ts';
-import type { NormalizedValueScaleStop } from '../../value-scale.ts';
 import { numberArray } from './values.ts';
 
 type ChartNode = RenderNodeOfKind<unknown, 'chart'>;
@@ -85,8 +85,8 @@ export function chartSeriesSampleMode(renderNode: ChartNode, item: ChartSeries):
 
 export function chartSeriesScale(
   item: ChartSeries,
-  fallback: readonly NormalizedValueScaleStop[]
-): readonly NormalizedValueScaleStop[] {
+  fallback: readonly ValueScaleStop[]
+): readonly ValueScaleStop[] {
   return Array.isArray(item.valueScale) && item.valueScale.length > 0
     ? normalizeValueScale(item.valueScale)
     : fallback;
@@ -95,7 +95,7 @@ export function chartSeriesScale(
 export function chartPointStyle(
   value: number,
   range: { readonly min: number; readonly max: number },
-  scale: readonly NormalizedValueScaleStop[],
+  scale: readonly ValueScaleStop[],
   fallback: ReturnType<typeof chartSeriesStyle>
 ): ReturnType<typeof chartSeriesStyle> {
   return valueScaleStyle(value, range, scale, fallback);

@@ -125,7 +125,7 @@ custom renderer state
 Each built-in render-node kind has explicit normalized render props. Renderer
 code may validate untrusted values at extension or serialization boundaries,
 but the internal model does not derive its prop shape from authored component
-options and does not use a generic authored-props alias.
+options.
 
 The physical dependency direction is enforced by package tests:
 
@@ -159,7 +159,7 @@ component vocabulary.
 
 ## Testing
 
-Application tests inspect public projections:
+Application tests inspect public descriptions:
 
 - frames and frame diffs;
 - plain, ANSI, and accessible output;
@@ -170,7 +170,7 @@ Application tests inspect public projections:
 They do not inspect private render-node fields through authored elements.
 
 Use `inspectElement(element)` when authoring tools or diagnostics need a stable,
-read-only description before rendering. The projection includes authored
+read-only description before rendering. The inspection includes authored
 identity, whether the element came from the component, layout, or renderer
 extension API, input capabilities, focus policy, visual state, and child
 structure; it does not expose renderer props, callback values, or render-node
@@ -192,4 +192,3 @@ participate in render dispatch.
 - Factories infer a union across independent callbacks, direct messages, local
   key bindings, and child elements; ordinary heterogeneous composition does
   not require a factory message type argument.
-- No compatibility alias preserves the removed structural authoring API.

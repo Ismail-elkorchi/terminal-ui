@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
-import type { ChartSeries } from '../../../ui-model/feedback.ts';
+import type { ChartSeries, ValueScaleStop } from '../../../ui-model/feedback.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import {
@@ -21,7 +21,6 @@ import type { HitTarget } from '../../model/renderer.ts';
 import { oneCellGlyph } from '../../../text/index.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
 import { normalizeValueScale } from '../value-scale.ts';
-import type { NormalizedValueScaleStop } from '../value-scale.ts';
 import {
   chartLabelsBlock,
   chartLayout,
@@ -151,7 +150,7 @@ function drawFilledChartSeries(
   height: number,
   glyph: string,
   fallback: ReturnType<typeof chartSeriesStyle>,
-  scale: readonly NormalizedValueScaleStop[],
+  scale: readonly ValueScaleStop[],
   signed: boolean
 ): void {
   if (visible.length === 0) return;
@@ -185,7 +184,7 @@ function drawSegmentedChartLine(
   height: number,
   glyph: string,
   fallback: ReturnType<typeof chartSeriesStyle>,
-  scale: readonly NormalizedValueScaleStop[],
+  scale: readonly ValueScaleStop[],
   signed: boolean
 ): void {
   if (visible.length === 0) return;

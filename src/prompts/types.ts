@@ -296,11 +296,9 @@ export interface ProgressResult {
 
 export interface ProgressController {
   readonly signal: AbortSignal;
-  update(next: ProgressUpdate): Promise<ProgressState>;
+  update(next: ProgressSnapshot): Promise<ProgressState>;
   snapshot(): AccessibleSnapshot;
 }
-
-export type ProgressUpdate = ProgressSnapshot;
 
 export type ProgressTask = (
   controller: ProgressController
@@ -314,6 +312,6 @@ export type ProgressOptions = {
 export type ProgressState = {
   readonly id: string;
   readonly label: string;
-  update(next: ProgressUpdate): ProgressState;
+  update(next: ProgressSnapshot): ProgressState;
   snapshot(): AccessibleSnapshot;
 } & ProgressSnapshot;
