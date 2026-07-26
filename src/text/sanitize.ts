@@ -1,7 +1,15 @@
 import type { RemovedControlSequence, SanitizedTerminalText, SanitizeTerminalTextOptions } from './types.ts';
 
-const escapeOrCsi = new RegExp(String.raw`\u001B(?:\[[0-?]*[ -/]*[@-~]|[@-Z\\-_])`, 'gu');
-const controlCharacters = new RegExp(String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]`, 'gu');
+const escape = '\u001B';
+const stringTerminator = String.raw`(?:\u001B\\|\u009C)`;
+const unsafeTerminalSequence = new RegExp([
+  String.raw`(?:\u001B\]|\u009D)[\s\S]*?(?:\u0007|${stringTerminator})`,
+  String.raw`(?:\u001BP|\u0090)[\s\S]*?${stringTerminator}`,
+  String.raw`(?:\u001B[X^_]|\u0098|\u009E|\u009F)[\s\S]*?${stringTerminator}`,
+  String.raw`(?:\u001B\[|\u009B)[0-?]*[ -/]*[@-~]`,
+  String.raw`\u001B[ -/]*[0-~]`,
+  String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]`
+].join('|'), 'gu');
 const sanitizeCacheLimit = 8192;
 const sanitizeCacheMaxTextLength = 4096;
 const sanitizeCache = new Map<string, SanitizedTerminalText>();
@@ -29,12 +37,12 @@ export function sanitizeTerminalText(
     return result;
   }
   const removedControlSequences: RemovedControlSequence[] = [];
-  const withoutEscapes = text.replace(escapeOrCsi, (sequence: string, codeUnitOffset: number) => {
-    removedControlSequences.push({ sequence, codeUnitOffset, kind: 'escape' });
-    return replacement;
-  });
-  const sanitized = withoutEscapes.replace(controlCharacters, (sequence: string, codeUnitOffset: number) => {
-    removedControlSequences.push({ sequence, codeUnitOffset, kind: 'control' });
+  const sanitized = text.replace(unsafeTerminalSequence, (sequence: string, codeUnitOffset: number) => {
+    removedControlSequences.push({
+      sequence,
+      codeUnitOffset,
+      kind: isTerminalEscape(sequence) ? 'escape' : 'control'
+    });
     return replacement;
   });
   const result = Object.freeze({
@@ -52,11 +60,28 @@ export function sanitizeTerminalText(
 function hasUnsafeTerminalText(text: string): boolean {
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
-    if (code === 0x1b || code <= 0x08 || code === 0x0b || code === 0x0c || (code >= 0x0e && code <= 0x1f) || code === 0x7f) {
+    if (code === 0x1b
+      || code <= 0x08
+      || code === 0x0b
+      || code === 0x0c
+      || (code >= 0x0e && code <= 0x1f)
+      || (code >= 0x7f && code <= 0x9f)) {
       return true;
     }
   }
   return false;
+}
+
+function isTerminalEscape(sequence: string): boolean {
+  if (sequence.startsWith(escape)) return true;
+  const code = sequence.charCodeAt(0);
+  return code === 0x90
+    || code === 0x98
+    || code === 0x9b
+    || code === 0x9c
+    || code === 0x9d
+    || code === 0x9e
+    || code === 0x9f;
 }
 
 function sanitizeCacheKey(text: string, replacement: string): string | undefined {

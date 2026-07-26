@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { stripVTControlCharacters } from 'node:util';
 
 import {
   clipTextCells,
@@ -53,6 +54,49 @@ test('text sanitization cache separates text and replacement tuples unambiguousl
   assert.equal(unsafe.text, 'bac');
   assert.equal(safe.text, 'c');
   assert.equal(safe.changed, false);
+});
+
+test('terminal sanitization agrees with the native VT stripper on complete common sequences', () => {
+  const cases = [
+    'a\u001B[31mred\u001B[0mz',
+    'a\u001B]0;title\u0007z',
+    'a\u001B]0;title\u001B\\z',
+    'a\u009B31mred\u009B0mz',
+    'a\u001B7z'
+  ];
+
+  for (const value of cases) {
+    assert.equal(sanitizeTerminalText(value).text, stripVTControlCharacters(value));
+  }
+});
+
+test('terminal sanitization retains richer DCS, control, terminator, and malformed-input semantics', () => {
+  const dcs = 'a\u001BP1;2|payload\u001B\\z';
+  const control = 'a\u0001z';
+  const terminator = 'a\u001B\\z';
+  const incompleteCsi = 'a\u001B[31';
+  const incompleteOsc = 'a\u001B]0;title';
+
+  assert.equal(sanitizeTerminalText(dcs).text, 'az');
+  assert.equal(stripVTControlCharacters(dcs), 'a1;2|payload\u001B\\z');
+  assert.equal(sanitizeTerminalText(control).text, 'az');
+  assert.equal(stripVTControlCharacters(control), control);
+  assert.equal(sanitizeTerminalText(terminator).text, 'az');
+  assert.equal(stripVTControlCharacters(terminator), terminator);
+  assert.equal(sanitizeTerminalText(incompleteCsi).text, 'a31');
+  assert.equal(stripVTControlCharacters(incompleteCsi), 'a');
+  assert.equal(sanitizeTerminalText(incompleteOsc).text, 'a0;title');
+  assert.equal(stripVTControlCharacters(incompleteOsc), 'aitle');
+});
+
+test('terminal sanitization reports original code-unit offsets while applying replacements', () => {
+  const sanitized = sanitizeTerminalText('a\u001B[31mred\u0007z', { replacement: '?' });
+
+  assert.equal(sanitized.text, 'a?red?z');
+  assert.deepEqual(sanitized.removedControlSequences, [
+    { sequence: '\u001B[31m', codeUnitOffset: 1, kind: 'escape' },
+    { sequence: '\u0007', codeUnitOffset: 9, kind: 'control' }
+  ]);
 });
 
 test('text measurement exposes grapheme segments and respects emoji width options', () => {
@@ -166,6 +210,8 @@ test('terminal text index maps grapheme, visual, and byte offsets', () => {
 
 test('terminal text index handles wide cells, lines, tabs, and standalone helpers', () => {
   const wide = createTerminalTextIndex('a界b');
+  const wordIndex = createTerminalTextIndex('🙂你好，مرحبا');
+  const chineseWord = wordIndex.wordSelectionAt('🙂'.length);
   const multiline = 'alpha\nβeta🙂\nمرحبا';
   const line = lineSelectionAt(multiline, multiline.indexOf('🙂'));
 
@@ -173,6 +219,14 @@ test('terminal text index handles wide cells, lines, tabs, and standalone helper
   assert.equal(wide.graphemeIndexToVisualColumn(2), 3);
   assert.equal(wide.visualColumnToGraphemeIndex(2), 1);
   assert.equal(terminalTextWidth('界🙂'), 4);
+  assert.equal(
+    wordIndex.graphemeIndexToVisualColumn(wordIndex.codeUnitOffsetToGraphemeIndex(chineseWord.startOffset)),
+    2
+  );
+  assert.equal(
+    wordIndex.graphemeIndexToVisualColumn(wordIndex.codeUnitOffsetToGraphemeIndex(chineseWord.endOffsetExclusive)),
+    6
+  );
   assert.equal(selectedText(multiline, line), 'βeta🙂');
   assert.equal(selectedText('one\tأربعة two', wordSelectionAt('one\tأربعة two', 5)), 'أربعة');
 });
@@ -216,6 +270,29 @@ test('text editing supports word operations and selection movement', () => {
   assert.deepEqual(
     editTextBuffer({ text: 'alpha bravo', cursor: 0 }, { kind: 'selectAll' }),
     { text: 'alpha bravo', cursor: 'alpha bravo'.length, selection: { startOffset: 0, endOffsetExclusive: 'alpha bravo'.length } }
+  );
+});
+
+test('word editing uses Unicode word boundaries for punctuation and multilingual text', () => {
+  assert.equal(selectedText('hello,world', wordSelectionAt('hello,world', 6)), 'world');
+  assert.deepEqual(wordSelectionAt('hello,world', 5), {
+    startOffset: 5,
+    endOffsetExclusive: 5
+  });
+  assert.equal(selectedText('مرحبا،العالم', wordSelectionAt('مرحبا،العالم', 7)), 'العالم');
+  assert.equal(selectedText('你好世界', wordSelectionAt('你好世界', 2)), '世界');
+  assert.equal(selectedText('e\u0301lan', wordSelectionAt('e\u0301lan', 1)), 'e\u0301lan');
+  assert.deepEqual(wordSelectionAt('go👩‍💻now', 3), {
+    startOffset: 2,
+    endOffsetExclusive: 2
+  });
+  assert.deepEqual(
+    editTextBuffer({ text: 'hello, world', cursor: 'hello'.length }, { kind: 'deleteWordForward' }),
+    { text: 'hello', cursor: 'hello'.length }
+  );
+  assert.deepEqual(
+    editTextBuffer({ text: 'مرحبا،العالم', cursor: 'مرحبا،'.length }, { kind: 'moveWordRight' }),
+    { text: 'مرحبا،العالم', cursor: 'مرحبا،العالم'.length }
   );
 });
 

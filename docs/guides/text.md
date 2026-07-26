@@ -9,6 +9,15 @@ display-facing output. Editing and cursor movement operate on grapheme
 boundaries, so combined characters and emoji are not split by ordinary edit
 operations.
 
+## Word Navigation
+
+Word selection, movement, and deletion use Unicode word segmentation through
+`Intl.Segmenter`. Punctuation, whitespace, and emoji separate word-like
+segments; Arabic and CJK text do not require whitespace separators. Returned
+offsets remain UTF-16 code-unit offsets aligned to grapheme boundaries, so the
+terminal text index can map them to grapheme and cell positions without
+splitting combining sequences.
+
 ## Cell Width
 
 Cell measurement uses `defaultTextWidthProfile`: emoji presentation is wide and

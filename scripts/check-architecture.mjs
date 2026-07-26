@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
 
-const root = path.resolve(new URL('../src', import.meta.url).pathname);
+const root = path.resolve(import.meta.dirname, '../src');
 const sourceFiles = await collectTypeScript(root);
 const knownSourceFiles = new Set(sourceFiles);
 const dependencyGraph = new Map();
@@ -267,10 +267,9 @@ function stronglyConnectedComponents(graph) {
 
 async function collectTypeScript(directory) {
   const files = [];
-  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-    const entryPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await collectTypeScript(entryPath));
-    else if (entry.isFile() && entry.name.endsWith('.ts')) files.push(entryPath);
+  const patterns = ['**/*.ts', '.*/**/*.ts', '**/.*/**/*.ts'];
+  for await (const file of fs.glob(patterns, { cwd: directory })) {
+    files.push(path.resolve(directory, file));
   }
-  return files;
+  return files.sort((left, right) => left.localeCompare(right));
 }

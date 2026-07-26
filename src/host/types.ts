@@ -219,18 +219,18 @@ export type MouseReportingMode = 'none' | 'click' | 'drag' | 'all';
 export interface NodeReadableTerminalStream extends AsyncIterable<string | Uint8Array> {
   readonly isTTY?: boolean;
   readonly isRaw?: boolean;
+  iterator?(options?: { readonly destroyOnReturn?: boolean }): AsyncIterator<string | Uint8Array>;
   setRawMode?(enabled: boolean): void;
   pause?(): void;
   resume?(): void;
   unref?(): void;
-  on?(event: string, listener: (...args: unknown[]) => void): void;
-  off?(event: string, listener: (...args: unknown[]) => void): void;
 }
 
 export interface NodeWritableTerminalStream {
   readonly isTTY?: boolean;
   readonly columns?: number;
   readonly rows?: number;
+  getColorDepth?(): number;
   write(chunk: string | Uint8Array, callback: (error?: Error | null) => void): boolean;
   once(event: 'drain' | 'error' | 'close', listener: (...args: unknown[]) => void): void;
   on?(event: 'resize', listener: () => void): void;

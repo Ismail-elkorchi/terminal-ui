@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { glob } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 export const testLaneNames = Object.freeze([
@@ -12,8 +12,6 @@ export const testLaneNames = Object.freeze([
   'security',
   'unit'
 ]);
-
-const testFilePattern = /\.test\.(?:mjs|ts)$/u;
 
 export async function discoverTestFiles(directories) {
   const files = [];
@@ -32,13 +30,13 @@ export function testLaneDirectories(root, lane) {
 
 async function discoverDirectory(directory) {
   const files = [];
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...await discoverDirectory(path));
-    } else if (entry.isFile() && testFilePattern.test(entry.name)) {
-      files.push(path);
-    }
+  const patterns = ['mjs', 'ts'].flatMap((extension) => [
+    `**/*.test.${extension}`,
+    `.*/**/*.test.${extension}`,
+    `**/.*/**/*.test.${extension}`
+  ]);
+  for await (const file of glob(patterns, { cwd: directory })) {
+    files.push(resolve(directory, file));
   }
-  return files;
+  return files.sort((left, right) => left.localeCompare(right));
 }

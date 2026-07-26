@@ -150,6 +150,38 @@ test('color and protocol evidence follow explicit override precedence', () => {
   assert.deepEqual(protocol.synchronizedOutput.facts.slice(-2).map((fact) => fact.kind), ['probe', 'override']);
 });
 
+test('Node capability resolution uses native color depth without overriding explicit configuration', async () => {
+  const output = {
+    isTTY: true,
+    columns: 80,
+    rows: 24,
+    getColorDepth: () => 8,
+    write(_chunk, callback) {
+      callback();
+      return true;
+    },
+    once() {},
+    off() {}
+  };
+  const detected = createNodeTerminalHost({
+    stdin: runtimeInput([]),
+    stdout: output,
+    stderr: output,
+    env: { COLORTERM: 'truecolor' }
+  });
+  const explicit = createNodeTerminalHost({
+    stdin: runtimeInput([]),
+    stdout: output,
+    stderr: output,
+    capabilities: { colorDepth: 24 }
+  });
+
+  assert.equal((await detected.getCapabilities()).color.depth, 8);
+  assert.equal((await explicit.getCapabilities()).color.depth, 24);
+  await detected.dispose();
+  await explicit.dispose();
+});
+
 test('synchronized output requires an explicit probe or override', () => {
   const host = {
     runtime: 'node',

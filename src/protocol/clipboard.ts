@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { diagnostic } from '../diagnostics.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
@@ -66,17 +67,5 @@ function clipboardDenied(): ClipboardWriteResult {
 }
 
 function base64(bytes: Uint8Array): string {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let output = '';
-  for (let index = 0; index < bytes.length; index += 3) {
-    const first = bytes[index] ?? 0;
-    const second = bytes[index + 1] ?? 0;
-    const third = bytes[index + 2] ?? 0;
-    const value = (first << 16) | (second << 8) | third;
-    output += alphabet[(value >> 18) & 63] ?? '';
-    output += alphabet[(value >> 12) & 63] ?? '';
-    output += index + 1 < bytes.length ? alphabet[(value >> 6) & 63] ?? '' : '=';
-    output += index + 2 < bytes.length ? alphabet[value & 63] ?? '' : '=';
-  }
-  return output;
+  return Buffer.from(bytes).toString('base64');
 }

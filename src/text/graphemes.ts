@@ -2,7 +2,8 @@ import type { GraphemeSegment, TextMeasurementOptions } from './types.ts';
 import { eastAsianAmbiguousRanges, eastAsianWideRanges } from './unicode-width-data.ts';
 import { defaultTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 
-const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
 const segmentCacheLimit = 4096;
 const segmentCacheMaxTextLength = 4096;
 const segmentCache = new Map<string, readonly GraphemeSegment[]>();
@@ -20,7 +21,7 @@ export function segmentGraphemesForMeasurement(
     const cached = segmentCache.get(cacheKey);
     if (cached !== undefined) return cached;
   }
-  const segments = Object.freeze([...segmenter.segment(text)].map((segment) => Object.freeze({
+  const segments = Object.freeze([...graphemeSegmenter.segment(text)].map((segment) => Object.freeze({
     text: segment.segment,
     startOffset: segment.index,
     endOffsetExclusive: segment.index + segment.segment.length,
@@ -31,6 +32,20 @@ export function segmentGraphemesForMeasurement(
     trimSegmentCache();
   }
   return segments;
+}
+
+export function segmentWords(text: string): readonly {
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
+}[] {
+  return [...wordSegmenter.segment(text)].flatMap((segment) =>
+    segment.isWordLike === true
+      ? [{
+          startOffset: segment.index,
+          endOffsetExclusive: segment.index + segment.segment.length
+        }]
+      : []
+  );
 }
 
 function measureGraphemeCells(text: string, options: TextMeasurementOptions): number {

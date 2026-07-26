@@ -27,6 +27,35 @@ test('clipboard OSC 52 sequence is gated by explicit policy', () => {
   assert.equal(oversized.diagnostic.data?.maxBytes, 2);
 });
 
+test('clipboard OSC 52 Base64 output covers complete UTF-8 byte groups and padding', () => {
+  const cases = [
+    ['', ''],
+    ['f', 'Zg=='],
+    ['fo', 'Zm8='],
+    ['foo', 'Zm9v'],
+    ['界🙂', '55WM8J+Zgg==']
+  ];
+
+  for (const [value, encoded] of cases) {
+    const result = createClipboardWriteSequence(value, { allow: true });
+    assert.equal(result.ok, true);
+    assert.equal(result.sequence, `\u001B]52;c;${encoded}\u0007`);
+  }
+});
+
+test('clipboard limits apply to sanitized UTF-8 bytes before Base64 encoding', () => {
+  const exact = createClipboardWriteSequence('界🙂', { allow: true, maxBytes: 7 });
+  const oversized = createClipboardWriteSequence('界🙂', { allow: true, maxBytes: 6 });
+  const sanitized = createClipboardWriteSequence('\u001B[31mf', { allow: true, maxBytes: 1 });
+
+  assert.equal(exact.ok, true);
+  assert.equal(exact.byteLength, 7);
+  assert.equal(oversized.ok, false);
+  assert.equal(oversized.diagnostic.data?.byteLength, 7);
+  assert.equal(sanitized.ok, true);
+  assert.equal(sanitized.sequence, '\u001B]52;c;Zg==\u0007');
+});
+
 test('writeClipboardText writes through an explicit protocol sink', async () => {
   const host = createMemoryTerminalHost();
   const copied = await writeClipboardText(protocolSink(host), 'copy me', { allow: true });

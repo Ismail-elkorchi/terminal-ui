@@ -102,6 +102,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
   });
+  const colorDepth = nativeColorDepth(outputStream);
   const resolverInput = {
     host: {
       runtime: 'node',
@@ -111,7 +112,8 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       rows: getTerminalSize().rows,
       rawInput: typeof inputStream.setRawMode === 'function',
       resizeEvents: typeof outputStream.on === 'function' && typeof outputStream.off === 'function',
-      terminalProtocols: stdout.isTty()
+      terminalProtocols: stdout.isTty(),
+      ...(colorDepth === undefined ? {} : { colorDepth })
     },
     environment: { variables: options.env ?? nodeProcess.env },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
@@ -157,4 +159,15 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;
+}
+
+function nativeColorDepth(
+  stream: NonNullable<NodeTerminalHostOptions['stdout']>
+): 1 | 4 | 8 | 24 | undefined {
+  try {
+    const depth = stream.getColorDepth?.();
+    return depth === 1 || depth === 4 || depth === 8 || depth === 24 ? depth : undefined;
+  } catch {
+    return undefined;
+  }
 }

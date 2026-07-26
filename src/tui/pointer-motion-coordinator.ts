@@ -80,9 +80,6 @@ export function createPointerMotionCoordinator<TResult>(
 }
 
 function createMotionCycle<TResult>(): MotionCycle<TResult> {
-  let resolve!: (results: readonly TResult[]) => void;
-  const promise = new Promise<readonly TResult[]>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
+  const { promise, resolve } = Promise.withResolvers<readonly TResult[]>();
   return { promise, resolve };
 }

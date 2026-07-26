@@ -306,15 +306,11 @@ export function runtimeInputSourceFromAsyncIterable(
       const signal = options.signal;
       if (isAborted(signal)) return;
       const iterator = source[Symbol.asyncIterator]();
-      let resolveAbort = (): void => undefined;
+      const { promise: aborted, resolve: resolveAbort } =
+        Promise.withResolvers<IteratorResult<string | Uint8Array>>();
       const abort = (): void => {
-        resolveAbort();
+        resolveAbort({ done: true, value: undefined });
       };
-      const aborted = new Promise<IteratorResult<string | Uint8Array>>((resolve) => {
-        resolveAbort = () => {
-          resolve({ done: true, value: undefined });
-        };
-      });
       signal?.addEventListener('abort', abort, { once: true });
       try {
         for (;;) {

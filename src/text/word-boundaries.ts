@@ -1,34 +1,21 @@
-import { segmentGraphemes } from './graphemes.ts';
+import { segmentGraphemes, segmentWords } from './graphemes.ts';
 import { clampTextOffset, normalizeTextCursor } from './selection-model.ts';
 import type { TextSelection } from './types.ts';
 
+interface WordSegment {
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
+}
+
 export function wordSelectionAt(text: string, offset: number): TextSelection {
-  const segments = segmentGraphemes(text);
-  if (segments.length === 0) return { startOffset: 0, endOffsetExclusive: 0 };
-
   const cursor = normalizeTextCursor(text, offset);
-  const index = segmentIndexForWord(text, cursor);
-  if (index === undefined) return { startOffset: cursor, endOffsetExclusive: cursor };
-  const segment = segments[index];
-  if (segment === undefined || isWordSeparator(segment.text)) return { startOffset: cursor, endOffsetExclusive: cursor };
-
-  let startIndex = index;
-  while (startIndex > 0) {
-    const previous = segments[startIndex - 1];
-    if (previous === undefined || isWordSeparator(previous.text)) break;
-    startIndex -= 1;
-  }
-
-  let endIndex = index + 1;
-  while (endIndex < segments.length) {
-    const next = segments[endIndex];
-    if (next === undefined || isWordSeparator(next.text)) break;
-    endIndex += 1;
-  }
-
-  const start = segments[startIndex]?.startOffset ?? cursor;
-  const end = segments[endIndex]?.startOffset ?? text.length;
-  return { startOffset: start, endOffsetExclusive: end };
+  const segments = wordSegments(text);
+  const segment = segments.find((candidate) =>
+    cursor >= candidate.startOffset && cursor < candidate.endOffsetExclusive
+  ) ?? (segments.at(-1)?.endOffsetExclusive === cursor ? segments.at(-1) : undefined);
+  return segment === undefined
+    ? { startOffset: cursor, endOffsetExclusive: cursor }
+    : { startOffset: segment.startOffset, endOffsetExclusive: segment.endOffsetExclusive };
 }
 
 export function lineSelectionAt(text: string, offset: number): TextSelection {
@@ -51,21 +38,21 @@ export function lineEndOffset(text: string, offset: number): number {
 }
 
 export function previousWordBoundary(text: string, offset: number): number {
-  const segments = segmentGraphemes(text);
   const cursor = normalizeTextCursor(text, offset);
-  let index = previousSegmentIndex(segments, cursor);
-  while (index >= 0 && isWordSeparator(segments[index]?.text ?? '')) index -= 1;
-  while (index > 0 && !isWordSeparator(segments[index - 1]?.text ?? '')) index -= 1;
-  return segments[index]?.startOffset ?? 0;
+  const segments = wordSegments(text);
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const segment = segments[index];
+    if (segment !== undefined && segment.startOffset < cursor) return segment.startOffset;
+  }
+  return 0;
 }
 
 export function nextWordBoundary(text: string, offset: number): number {
-  const segments = segmentGraphemes(text);
   const cursor = normalizeTextCursor(text, offset);
-  let index = segmentIndexAtOrAfter(segments, cursor);
-  while (index < segments.length && isWordSeparator(segments[index]?.text ?? '')) index += 1;
-  while (index < segments.length && !isWordSeparator(segments[index]?.text ?? '')) index += 1;
-  return segments[index]?.startOffset ?? text.length;
+  for (const segment of wordSegments(text)) {
+    if (segment.endOffsetExclusive > cursor) return segment.endOffsetExclusive;
+  }
+  return text.length;
 }
 
 export function lineOffsetByDelta(text: string, offset: number, delta: number): number {
@@ -79,27 +66,12 @@ export function lineOffsetByDelta(text: string, offset: number, delta: number): 
   return offsetAtVisualColumn(text, targetStart, targetEnd, column);
 }
 
-function previousSegmentIndex(
-  segments: readonly { readonly startOffset: number; readonly endOffsetExclusive: number }[],
-  cursor: number
-): number {
-  let previous = -1;
-  for (const [index, segment] of segments.entries()) {
-    if (segment.startOffset >= cursor) break;
-    if (segment.endOffsetExclusive <= cursor) previous = index;
-    if (cursor > segment.startOffset && cursor < segment.endOffsetExclusive) return index;
-  }
-  return previous;
-}
-
-function segmentIndexAtOrAfter(
-  segments: readonly { readonly startOffset: number; readonly endOffsetExclusive: number }[],
-  cursor: number
-): number {
-  for (const [index, segment] of segments.entries()) {
-    if (cursor <= segment.startOffset || (cursor > segment.startOffset && cursor < segment.endOffsetExclusive)) return index;
-  }
-  return segments.length;
+function wordSegments(text: string): readonly WordSegment[] {
+  return segmentWords(text).flatMap((segment) => {
+    const startOffset = normalizeTextCursor(text, segment.startOffset);
+    const endOffsetExclusive = normalizeTextCursor(text, segment.endOffsetExclusive);
+    return startOffset === endOffsetExclusive ? [] : [{ startOffset, endOffsetExclusive }];
+  });
 }
 
 function lineStartOffsets(text: string): readonly number[] {
@@ -142,24 +114,4 @@ function offsetAtVisualColumn(text: string, start: number, end: number, column: 
     current = next;
   }
   return end;
-}
-
-function segmentIndexForWord(text: string, cursor: number): number | undefined {
-  const segments = segmentGraphemes(text);
-  let previousBoundary: number | undefined;
-  for (const [index, segment] of segments.entries()) {
-    if (cursor > segment.startOffset && cursor < segment.endOffsetExclusive) return index;
-    if (cursor === segment.startOffset) {
-      if (!isWordSeparator(segment.text)) return index;
-      const previous = previousBoundary === undefined ? undefined : segments[previousBoundary];
-      if (previous !== undefined && !isWordSeparator(previous.text)) return previousBoundary;
-      return index;
-    }
-    if (cursor === segment.endOffsetExclusive) previousBoundary = index;
-  }
-  return previousBoundary ?? (text.length === 0 ? undefined : segments.length - 1);
-}
-
-function isWordSeparator(text: string): boolean {
-  return /^\s+$/u.test(text);
 }

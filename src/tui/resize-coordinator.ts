@@ -60,11 +60,6 @@ export function createResizeCoordinator<TTerminalSize, TResult>(
 }
 
 function createResizeCycle<TResult>(): ResizeCycle<TResult> {
-  let resolve!: (result: TResult) => void;
-  let reject!: (cause: unknown) => void;
-  const promise = new Promise<TResult>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
+  const { promise, resolve, reject } = Promise.withResolvers<TResult>();
   return { promise, resolve, reject };
 }
