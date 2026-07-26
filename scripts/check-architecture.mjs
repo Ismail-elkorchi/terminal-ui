@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
+import { globFiles } from './glob-files.mjs';
 
 const root = path.resolve(import.meta.dirname, '../src');
 const sourceFiles = await collectTypeScript(root);
@@ -266,10 +267,6 @@ function stronglyConnectedComponents(graph) {
 }
 
 async function collectTypeScript(directory) {
-  const files = [];
   const patterns = ['**/*.ts', '.*/**/*.ts', '**/.*/**/*.ts'];
-  for await (const file of fs.glob(patterns, { cwd: directory })) {
-    files.push(path.resolve(directory, file));
-  }
-  return files.sort((left, right) => left.localeCompare(right));
+  return globFiles(directory, patterns);
 }

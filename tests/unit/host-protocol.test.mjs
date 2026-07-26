@@ -151,11 +151,16 @@ test('color and protocol evidence follow explicit override precedence', () => {
 });
 
 test('Node capability resolution uses native color depth without overriding explicit configuration', async () => {
+  const injectedEnvironment = { COLORTERM: 'truecolor' };
+  const detectedEnvironments = [];
   const output = {
     isTTY: true,
     columns: 80,
     rows: 24,
-    getColorDepth: () => 8,
+    getColorDepth: (environment) => {
+      detectedEnvironments.push(environment);
+      return 8;
+    },
     write(_chunk, callback) {
       callback();
       return true;
@@ -167,7 +172,7 @@ test('Node capability resolution uses native color depth without overriding expl
     stdin: runtimeInput([]),
     stdout: output,
     stderr: output,
-    env: { COLORTERM: 'truecolor' }
+    env: injectedEnvironment
   });
   const explicit = createNodeTerminalHost({
     stdin: runtimeInput([]),
@@ -178,6 +183,7 @@ test('Node capability resolution uses native color depth without overriding expl
 
   assert.equal((await detected.getCapabilities()).color.depth, 8);
   assert.equal((await explicit.getCapabilities()).color.depth, 24);
+  assert.equal(detectedEnvironments[0], injectedEnvironment);
   await detected.dispose();
   await explicit.dispose();
 });

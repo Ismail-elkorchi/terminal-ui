@@ -38,8 +38,42 @@ import {
   tableReducer,
   treeReducer
 } from '../../dist/behavior/index.js';
+import {
+  createTerminalTextIndex,
+  editTextBuffer
+} from '../../dist/text/index.js';
 
 const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
+
+test('prepared word boundaries keep large multilingual lookups bounded', { timeout: 10_000 }, () => {
+  const manyShortWords = `${'a '.repeat(50_000)}終`;
+  const cjk = '你好世界'.repeat(25_000);
+  const combining = 'e\u0301lan '.repeat(16_667);
+
+  for (const value of [manyShortWords, cjk, combining]) {
+    const index = createTerminalTextIndex(value);
+    for (let lookup = 0; lookup < 1_000; lookup += 1) {
+      const offset = Math.floor((lookup / 1_000) * value.length);
+      const selection = index.wordSelectionAt(offset);
+      assert.ok(selection.startOffset >= 0);
+      assert.ok(selection.endOffsetExclusive <= value.length);
+      assert.ok(selection.endOffsetExclusive >= selection.startOffset);
+    }
+  }
+});
+
+test('repeated word editing remains bounded on a ten-thousand-unit buffer', { timeout: 10_000 }, () => {
+  const text = `${'alpha,世界 '.repeat(800)}ending`;
+  let buffer = { text, cursor: text.length };
+  for (let operation = 0; operation < 100; operation += 1) {
+    buffer = editTextBuffer(buffer, { kind: 'moveWordLeft' });
+  }
+  for (let operation = 0; operation < 20; operation += 1) {
+    buffer = editTextBuffer(buffer, { kind: 'deleteWordBackward' });
+  }
+  assert.ok(buffer.cursor >= 0);
+  assert.ok(buffer.cursor <= buffer.text.length);
+});
 
 test('paste bursts decode as one paste event instead of per-character key churn', () => {
   const decoder = createInputDecoder();

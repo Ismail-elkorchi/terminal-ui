@@ -224,13 +224,15 @@ export interface NodeReadableTerminalStream extends AsyncIterable<string | Uint8
   pause?(): void;
   resume?(): void;
   unref?(): void;
+  on?(event: 'data' | 'end' | 'close' | 'error', listener: (...args: unknown[]) => void): void;
+  off?(event: 'data' | 'end' | 'close' | 'error', listener: (...args: unknown[]) => void): void;
 }
 
 export interface NodeWritableTerminalStream {
   readonly isTTY?: boolean;
   readonly columns?: number;
   readonly rows?: number;
-  getColorDepth?(): number;
+  getColorDepth?(env?: Record<string, string | undefined>): number;
   write(chunk: string | Uint8Array, callback: (error?: Error | null) => void): boolean;
   once(event: 'drain' | 'error' | 'close', listener: (...args: unknown[]) => void): void;
   on?(event: 'resize', listener: () => void): void;

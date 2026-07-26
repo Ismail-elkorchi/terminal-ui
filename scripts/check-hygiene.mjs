@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { globFiles } from './glob-files.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const includedExtensions = ['.cjs', '.css', '.html', '.js', '.json', '.md', '.mjs', '.ts', '.yaml', '.yml'];
@@ -30,9 +31,5 @@ async function filesUnder(directory) {
     `.*/**/*${extension}`,
     `**/.*/**/*${extension}`
   ]);
-  const files = new Set();
-  for await (const file of fs.glob(patterns, { cwd: directory, exclude: ignoredDirectories })) {
-    files.add(path.resolve(directory, file));
-  }
-  return [...files].sort((left, right) => left.localeCompare(right));
+  return globFiles(directory, patterns, { exclude: ignoredDirectories });
 }

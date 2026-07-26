@@ -280,7 +280,11 @@ export function runtimeInputSourceFromReadableStream(
       const signal = options.signal;
       if (isAborted(signal)) return;
       const reader = source.getReader();
-      const abort = (): void => { void reader.cancel(); };
+      let cancellation: Promise<void> | undefined;
+      const abort = (): void => {
+        cancellation ??= reader.cancel();
+        void cancellation.catch(() => undefined);
+      };
       signal?.addEventListener('abort', abort, { once: true });
       try {
         for (;;) {
@@ -292,7 +296,11 @@ export function runtimeInputSourceFromReadableStream(
         if (!isAborted(signal)) throw cause;
       } finally {
         signal?.removeEventListener('abort', abort);
-        reader.releaseLock();
+        try {
+          await cancellation;
+        } finally {
+          reader.releaseLock();
+        }
       }
     }
   };
@@ -320,8 +328,7 @@ export function runtimeInputSourceFromAsyncIterable(
         }
       } finally {
         signal?.removeEventListener('abort', abort);
-        const completion = iterator.return?.();
-        if (!isAborted(signal)) await completion;
+        await iterator.return?.();
       }
     }
   };

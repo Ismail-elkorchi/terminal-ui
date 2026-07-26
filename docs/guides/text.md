@@ -18,6 +18,19 @@ offsets remain UTF-16 code-unit offsets aligned to grapheme boundaries, so the
 terminal text index can map them to grapheme and cell positions without
 splitting combining sequences.
 
+The default word locale is explicitly `en`; it does not depend on the process
+locale. Boundary helpers, text indexes, and edit functions accept
+`{ locale: "…" }` when an application needs another locale. Segmentation uses
+the host runtime's Unicode implementation, so Unicode-data upgrades may refine
+language boundaries. Node, Deno, and Bun therefore share the locale contract
+and grapheme-alignment invariants rather than a package-owned Unicode data
+version.
+
+`createTerminalTextIndex()` prepares grapheme offsets and word boundaries once.
+Its word-selection and word-movement lookups use that prepared data. Immutable
+text documents retain these indexes per visited line and naturally invalidate
+them when an edit produces a new document.
+
 ## Cell Width
 
 Cell measurement uses `defaultTextWidthProfile`: emoji presentation is wide and

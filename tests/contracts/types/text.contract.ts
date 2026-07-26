@@ -6,7 +6,9 @@ import {
 } from '@ismail-elkorchi/terminal-ui/text';
 
 const metrics = measureTextCells('A界');
-const index = createTerminalTextIndex('A界');
+const index = createTerminalTextIndex('A界', { locale: 'zh' });
+const previousWord = index.previousWordBoundary(index.codeUnits);
+const nextWord = index.nextWordBoundary(0);
 const sanitized = sanitizeTerminalText('\u001B[31mtext');
 const selection: TextSelection = { startOffset: 0, endOffsetExclusive: 1 };
 
@@ -15,6 +17,8 @@ const invalidSelection: TextSelection = { startOffset: '0', endOffsetExclusive: 
 
 void metrics;
 void index;
+void previousWord;
+void nextWord;
 void sanitized;
 void selection;
 void invalidSelection;

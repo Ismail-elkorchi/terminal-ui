@@ -56,6 +56,26 @@ test('clipboard limits apply to sanitized UTF-8 bytes before Base64 encoding', (
   assert.equal(sanitized.sequence, '\u001B]52;c;Zg==\u0007');
 });
 
+test('clipboard limits must be finite non-negative safe integers', () => {
+  for (const maxBytes of [
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    -1,
+    1.5,
+    Number.MAX_SAFE_INTEGER + 1
+  ]) {
+    assert.throws(
+      () => createClipboardWriteSequence('copy', { allow: true, maxBytes }),
+      /maxBytes must be a finite non-negative safe integer/u
+    );
+  }
+  assert.equal(
+    createClipboardWriteSequence('', { allow: true, maxBytes: Number.MAX_SAFE_INTEGER }).ok,
+    true
+  );
+});
+
 test('writeClipboardText writes through an explicit protocol sink', async () => {
   const host = createMemoryTerminalHost();
   const copied = await writeClipboardText(protocolSink(host), 'copy me', { allow: true });

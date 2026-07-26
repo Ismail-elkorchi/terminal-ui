@@ -13,9 +13,9 @@ import {
   nextGraphemeBoundary,
   previousGraphemeBoundary
 } from './selection-model.ts';
-import { nextWordBoundary, previousWordBoundary } from './word-boundaries.ts';
 import type {
   TextCaret,
+  TextBoundaryOptions,
   TextDocumentSelection,
   TextEditOperation,
   TextPosition
@@ -23,6 +23,10 @@ import type {
 import type { TextDocument } from './document.ts';
 
 const PAGE_LINE_DELTA = 10;
+const documentLineIndexes = new WeakMap<TextDocument, Map<string, {
+  readonly text: string;
+  readonly index: ReturnType<typeof createTerminalTextIndex>;
+}>>();
 
 export interface TextDocumentEditState {
   readonly document: TextDocument;
@@ -40,7 +44,8 @@ export interface TextDocumentEditResult extends TextDocumentEditState {
 
 export function editTextDocument(
   state: TextDocumentEditState,
-  operation: TextEditOperation
+  operation: TextEditOperation,
+  options: TextBoundaryOptions = {}
 ): TextDocumentEditResult {
   const caret = normalizeTextCaret(state.document, state.caret);
   const selection = normalizeTextDocumentSelectionModel(state.document, state.selection);
@@ -69,18 +74,42 @@ export function editTextDocument(
     }
     case 'deleteWordBackward':
       if (selection !== undefined) return replaceRange(state, caret, selection, '');
-      return replaceOffsets(state, previousWordOffset(state.document, caret.position.offset), caret.position.offset, '');
+      return replaceOffsets(
+        state,
+        previousWordOffset(state.document, caret.position.offset, options),
+        caret.position.offset,
+        ''
+      );
     case 'deleteWordForward':
       if (selection !== undefined) return replaceRange(state, caret, selection, '');
-      return replaceOffsets(state, caret.position.offset, nextWordOffset(state.document, caret.position.offset), '');
+      return replaceOffsets(
+        state,
+        caret.position.offset,
+        nextWordOffset(state.document, caret.position.offset, options),
+        ''
+      );
     case 'moveLeft':
       return move(state, caret, selection, leftOffset(state.document, caret, selection, operation.select), 'upstream', operation.select);
     case 'moveRight':
       return move(state, caret, selection, rightOffset(state.document, caret, selection, operation.select), 'downstream', operation.select);
     case 'moveWordLeft':
-      return move(state, caret, selection, previousWordOffset(state.document, caret.position.offset), 'upstream', operation.select);
+      return move(
+        state,
+        caret,
+        selection,
+        previousWordOffset(state.document, caret.position.offset, options),
+        'upstream',
+        operation.select
+      );
     case 'moveWordRight':
-      return move(state, caret, selection, nextWordOffset(state.document, caret.position.offset), 'downstream', operation.select);
+      return move(
+        state,
+        caret,
+        selection,
+        nextWordOffset(state.document, caret.position.offset, options),
+        'downstream',
+        operation.select
+      );
     case 'moveHome': {
       const line = lineContaining(state.document, caret.position.offset);
       return move(state, caret, selection, line.startOffset, 'downstream', operation.select);
@@ -169,7 +198,7 @@ function moveByLine(
   selecting: boolean | undefined
 ): TextDocumentEditResult {
   const current = lineContaining(state.document, caret.position.offset);
-  const currentIndex = createTerminalTextIndex(current.text);
+  const currentIndex = textIndexForLine(state.document, current);
   const local = Math.max(0, Math.min(current.text.length, caret.position.offset - current.startOffset));
   const preferred = caret.preferredColumnCells
     ?? currentIndex.graphemeIndexToVisualColumn(currentIndex.codeUnitOffsetToGraphemeIndex(local));
@@ -178,7 +207,7 @@ function moveByLine(
     Math.min(textDocumentLineCount(state.document) - 1, current.lineIndex + delta)
   );
   const target = textDocumentLineAt(state.document, targetIndex) ?? current;
-  const targetText = createTerminalTextIndex(target.text);
+  const targetText = textIndexForLine(state.document, target);
   const grapheme = targetText.visualColumnToGraphemeIndex(preferred);
   const offset = target.startOffset + targetText.graphemeIndexToCodeUnitOffset(grapheme);
   return move(state, caret, selection, offset, 'downstream', selecting, preferred);
@@ -213,17 +242,47 @@ function rightOffset(
   return line.startOffset + nextGraphemeBoundary(line.text, caret.position.offset - line.startOffset);
 }
 
-function previousWordOffset(document: TextDocument, offset: number): number {
+function previousWordOffset(
+  document: TextDocument,
+  offset: number,
+  options: TextBoundaryOptions
+): number {
   const line = lineContaining(document, offset);
   if (offset === line.startOffset && line.lineIndex > 0) return offset - 1;
-  return line.startOffset + previousWordBoundary(line.text, offset - line.startOffset);
+  return line.startOffset + textIndexForLine(document, line, options).previousWordBoundary(
+    offset - line.startOffset
+  );
 }
 
-function nextWordOffset(document: TextDocument, offset: number): number {
+function nextWordOffset(
+  document: TextDocument,
+  offset: number,
+  options: TextBoundaryOptions
+): number {
   const line = lineContaining(document, offset);
   if (offset === line.endOffsetExclusive
     && line.lineIndex < textDocumentLineCount(document) - 1) return offset + 1;
-  return line.startOffset + nextWordBoundary(line.text, offset - line.startOffset);
+  return line.startOffset + textIndexForLine(document, line, options).nextWordBoundary(
+    offset - line.startOffset
+  );
+}
+
+function textIndexForLine(
+  document: TextDocument,
+  line: NonNullable<ReturnType<typeof textDocumentLineAt>>,
+  options: TextBoundaryOptions = {}
+): ReturnType<typeof createTerminalTextIndex> {
+  let indexes = documentLineIndexes.get(document);
+  if (indexes === undefined) {
+    indexes = new Map();
+    documentLineIndexes.set(document, indexes);
+  }
+  const key = `${options.locale ?? 'en'}\u0000${String(line.lineIndex)}`;
+  const cached = indexes.get(key);
+  if (cached?.text === line.text) return cached.index;
+  const index = createTerminalTextIndex(line.text, options);
+  indexes.set(key, { text: line.text, index });
+  return index;
 }
 
 function lineContaining(document: TextDocument, offset: number): NonNullable<ReturnType<typeof textDocumentLineAt>> {

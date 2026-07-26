@@ -1,9 +1,11 @@
-import type { GraphemeSegment, TextMeasurementOptions } from './types.ts';
+import type { GraphemeSegment, TextBoundaryOptions, TextMeasurementOptions } from './types.ts';
 import { eastAsianAmbiguousRanges, eastAsianWideRanges } from './unicode-width-data.ts';
 import { defaultTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 
 const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-const wordSegmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
+const defaultWordLocale = 'en';
+const wordSegmenterCacheLimit = 32;
+const wordSegmenters = new Map<string, Intl.Segmenter>();
 const segmentCacheLimit = 4096;
 const segmentCacheMaxTextLength = 4096;
 const segmentCache = new Map<string, readonly GraphemeSegment[]>();
@@ -34,18 +36,35 @@ export function segmentGraphemesForMeasurement(
   return segments;
 }
 
-export function segmentWords(text: string): readonly {
+export function* segmentWords(text: string, options: TextBoundaryOptions = {}): Iterable<{
   readonly startOffset: number;
   readonly endOffsetExclusive: number;
-}[] {
-  return [...wordSegmenter.segment(text)].flatMap((segment) =>
-    segment.isWordLike === true
-      ? [{
-          startOffset: segment.index,
-          endOffsetExclusive: segment.index + segment.segment.length
-        }]
-      : []
-  );
+}> {
+  for (const segment of wordSegmenter(options.locale).segment(text)) {
+    if (segment.isWordLike === true) {
+      yield {
+        startOffset: segment.index,
+        endOffsetExclusive: segment.index + segment.segment.length
+      };
+    }
+  }
+}
+
+function wordSegmenter(locale = defaultWordLocale): Intl.Segmenter {
+  const cached = wordSegmenters.get(locale);
+  if (cached !== undefined) {
+    wordSegmenters.delete(locale);
+    wordSegmenters.set(locale, cached);
+    return cached;
+  }
+  const segmenter = new Intl.Segmenter(locale, { granularity: 'word' });
+  wordSegmenters.set(locale, segmenter);
+  while (wordSegmenters.size > wordSegmenterCacheLimit) {
+    const oldest = wordSegmenters.keys().next().value;
+    if (oldest === undefined) break;
+    wordSegmenters.delete(oldest);
+  }
+  return segmenter;
 }
 
 function measureGraphemeCells(text: string, options: TextMeasurementOptions): number {

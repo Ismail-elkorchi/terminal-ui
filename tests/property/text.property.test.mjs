@@ -45,6 +45,24 @@ test('text property checks keep sanitization segmentation clipping and wrapping 
   }
 });
 
+test('accepted sanitization replacements cannot reintroduce unsafe terminal text', () => {
+  const replacements = ['', '?', '\uFFFD', '🙂', '\n'];
+  for (const value of textSamples) {
+    for (const replacement of replacements) {
+      const sanitized = sanitizeTerminalText(value, { replacement });
+      assert.deepEqual(
+        sanitizeTerminalText(sanitized.text),
+        {
+          text: sanitized.text,
+          changed: false,
+          removedControlSequences: []
+        },
+        `sanitization was not idempotent for ${JSON.stringify(value)} with ${JSON.stringify(replacement)}`
+      );
+    }
+  }
+});
+
 test('scroll window properties keep normalized windows within content bounds', () => {
   for (let index = 0; index < 128; index += 1) {
     const contentRows = (index * 37) % 500;

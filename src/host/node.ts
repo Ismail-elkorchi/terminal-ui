@@ -102,7 +102,8 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
   });
-  const colorDepth = nativeColorDepth(outputStream);
+  const environment = options.env ?? nodeProcess.env;
+  const colorDepth = nativeColorDepth(outputStream, environment);
   const resolverInput = {
     host: {
       runtime: 'node',
@@ -115,7 +116,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       terminalProtocols: stdout.isTty(),
       ...(colorDepth === undefined ? {} : { colorDepth })
     },
-    environment: { variables: options.env ?? nodeProcess.env },
+    environment: { variables: environment },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
@@ -137,7 +138,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     stderr,
     signals: new NodeSignals(nodeProcess, outputStream),
     clock,
-    env: new ProcessEnvironment(options.env ?? nodeProcess.env),
+    env: new ProcessEnvironment(environment),
     getTerminalSize,
     getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
@@ -162,10 +163,11 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
 }
 
 function nativeColorDepth(
-  stream: NonNullable<NodeTerminalHostOptions['stdout']>
+  stream: NonNullable<NodeTerminalHostOptions['stdout']>,
+  environment: Record<string, string | undefined>
 ): 1 | 4 | 8 | 24 | undefined {
   try {
-    const depth = stream.getColorDepth?.();
+    const depth = stream.getColorDepth?.(environment);
     return depth === 1 || depth === 4 || depth === 8 || depth === 24 ? depth : undefined;
   } catch {
     return undefined;

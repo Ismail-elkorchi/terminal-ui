@@ -24,10 +24,10 @@ export function createClipboardWriteSequence(
   text: string,
   policy: ClipboardWritePolicy
 ): ClipboardWriteResult {
+  const maxBytes = clipboardMaxBytes(policy.maxBytes);
   if (!policy.allow) return clipboardDenied();
   const sanitized = sanitizeTerminalText(text).text;
   const bytes = new TextEncoder().encode(sanitized);
-  const maxBytes = Math.max(0, Math.floor(policy.maxBytes ?? 1_000_000));
   if (bytes.byteLength > maxBytes) {
     return {
       ok: false,
@@ -64,6 +64,14 @@ function clipboardDenied(): ClipboardWriteResult {
       target: 'clipboard'
     })
   };
+}
+
+function clipboardMaxBytes(value: number | undefined): number {
+  if (value === undefined) return 1_000_000;
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError('Clipboard maxBytes must be a finite non-negative safe integer.');
+  }
+  return value;
 }
 
 function base64(bytes: Uint8Array): string {

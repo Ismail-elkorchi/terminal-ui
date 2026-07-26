@@ -36,7 +36,7 @@ void test('Node input falls back to a custom async-iterable stream', async () =>
   assert.equal((await reader.next()).done, true);
 });
 
-void test('aborting a pending native read settles it without destroying stdin', async () => {
+void test('aborting a pending Node stream read detaches without destroying stdin', async () => {
   const stream = new Readable({ read() {} });
   const input = new NodeInput(stream);
   const controller = new AbortController();
@@ -47,9 +47,11 @@ void test('aborting a pending native read settles it without destroying stdin', 
 
   assert.deepEqual(await pending, { done: true, value: undefined });
   assert.equal(stream.destroyed, false);
-  stream.push('release pending native read');
+  const later = stream.iterator({ destroyOnReturn: false });
+  stream.push('later consumer');
+  assert.equal(nativeText(await later.next()), 'later consumer');
+  await later.return?.();
   stream.push(null);
-  await new Promise<void>((resolve) => { setImmediate(resolve); });
 });
 
 void test('Node input reports stream end, close, and errors', async () => {
@@ -94,6 +96,82 @@ void test('disposing Node input settles active readers and releases stream owner
   assert.equal(unreferenced, true);
 });
 
+void test('disposing Node input detaches from a Node stream before a later consumer reads', async () => {
+  const stream = new Readable({ read() {} });
+  const input = new NodeInput(stream);
+  const pending = input.read()[Symbol.asyncIterator]().next();
+
+  await input.dispose();
+  assert.deepEqual(await pending, { done: true, value: undefined });
+
+  const later = stream.iterator({ destroyOnReturn: false });
+  stream.push('preserved');
+  assert.equal(nativeText(await later.next()), 'preserved');
+  await later.return?.();
+  stream.push(null);
+});
+
+void test('custom iterator close failures release reader ownership and reject cleanup', async () => {
+  let generation = 0;
+  const input = new NodeInput({
+    iterator() {
+      generation += 1;
+      if (generation === 1) {
+        return {
+          next: () => new Promise<IteratorResult<string | Uint8Array>>(() => undefined),
+          return: () => Promise.reject(new Error('detach failed'))
+        };
+      }
+      return values('replacement');
+    },
+    [Symbol.asyncIterator]: pendingValues
+  });
+  const reader = input.read()[Symbol.asyncIterator]();
+  const pending = reader.next();
+  const returnReader = reader.return?.bind(reader);
+  if (returnReader === undefined) throw new Error('Node input reader must support return().');
+
+  await assert.rejects(returnReader(), /detach failed/u);
+  assert.deepEqual(await pending, { done: true, value: undefined });
+  assert.equal(text(await input.read()[Symbol.asyncIterator]().next()), 'replacement');
+});
+
+void test('custom iterator remains owned until pending close settles', async () => {
+  const close = Promise.withResolvers<IteratorResult<string | Uint8Array>>();
+  const input = new NodeInput({
+    iterator: () => ({
+      next: () => new Promise<IteratorResult<string | Uint8Array>>(() => undefined),
+      return: () => close.promise
+    }),
+    [Symbol.asyncIterator]: pendingValues
+  });
+  const reader = input.read()[Symbol.asyncIterator]();
+  const pending = reader.next();
+  const closing = reader.return?.();
+
+  assert.deepEqual(await pending, { done: true, value: undefined });
+  assert.throws(
+    () => input.read()[Symbol.asyncIterator](),
+    /already has an active reader/u
+  );
+  close.resolve({ done: true, value: undefined });
+  await closing;
+});
+
+void test('repeated Node input abort and disposal calls share cleanup', async () => {
+  const stream = new Readable({ read() {} });
+  const input = new NodeInput(stream);
+  const controller = new AbortController();
+  const pending = input.read({ signal: controller.signal })[Symbol.asyncIterator]().next();
+
+  controller.abort();
+  controller.abort();
+  await Promise.all([input.dispose(), input.dispose()]);
+
+  assert.deepEqual(await pending, { done: true, value: undefined });
+  assert.equal(stream.destroyed, false);
+});
+
 void test('Node input preserves burst chunks and rejects competing readers', async () => {
   const input = new NodeInput(Readable.from(['a', 'b', 'c'], { objectMode: true }));
   const reader = input.read()[Symbol.asyncIterator]();
@@ -128,4 +206,11 @@ function text(result: IteratorResult<TerminalInputChunk>): string | undefined {
   return typeof result.value.data === 'string'
     ? result.value.data
     : new TextDecoder().decode(result.value.data);
+}
+
+function nativeText(result: IteratorResult<unknown>): string | undefined {
+  if (result.done === true) return undefined;
+  if (typeof result.value === 'string') return result.value;
+  if (result.value instanceof Uint8Array) return new TextDecoder().decode(result.value);
+  throw new Error('Native stream returned an invalid input chunk.');
 }

@@ -19,6 +19,9 @@ export function sanitizeTerminalText(
   options: SanitizeTerminalTextOptions = {}
 ): SanitizedTerminalText {
   const replacement = options.replacement ?? '';
+  if (hasUnsafeTerminalText(replacement)) {
+    throw new TypeError('Terminal text replacement must not contain control characters or terminal sequences.');
+  }
   const cacheKey = sanitizeCacheKey(text, replacement);
   if (cacheKey !== undefined) {
     const cached = sanitizeCache.get(cacheKey);

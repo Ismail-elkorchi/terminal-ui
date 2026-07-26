@@ -28,6 +28,12 @@ export interface TextMeasurementOptions {
   readonly widthProfile?: TextWidthProfile;
 }
 
+export interface TextBoundaryOptions {
+  readonly locale?: string;
+}
+
+export interface TextIndexOptions extends TextMeasurementOptions, TextBoundaryOptions {}
+
 export interface TextClipOptions extends TextMeasurementOptions {
   readonly ellipsis?: string;
 }
@@ -70,6 +76,8 @@ export interface TerminalTextIndex {
   visualColumnToGraphemeIndex(column: number): number;
   graphemeIndexToByteOffset(index: number): number;
   byteOffsetToGraphemeIndex(offset: number): number;
+  previousWordBoundary(offset: number): number;
+  nextWordBoundary(offset: number): number;
   wordSelectionAt(offset: number): TextSelection;
   lineSelectionAt(offset: number): TextSelection;
   selectedText(selection: TextSelection): string;

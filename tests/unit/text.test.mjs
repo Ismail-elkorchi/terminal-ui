@@ -49,11 +49,15 @@ test('oneCellGlyph preserves fixed-cell geometry across width profiles', () => {
 
 test('text sanitization cache separates text and replacement tuples unambiguously', () => {
   const unsafe = sanitizeTerminalText('b\u0000c', { replacement: 'a' });
-  const safe = sanitizeTerminalText('c', { replacement: 'a\u0000b' });
+  const safe = sanitizeTerminalText('c', { replacement: 'ab' });
 
   assert.equal(unsafe.text, 'bac');
   assert.equal(safe.text, 'c');
   assert.equal(safe.changed, false);
+  assert.throws(
+    () => sanitizeTerminalText('safe', { replacement: 'a\u001B[31mb' }),
+    /replacement must not contain control characters or terminal sequences/u
+  );
 });
 
 test('terminal sanitization agrees with the native VT stripper on complete common sequences', () => {
@@ -229,6 +233,27 @@ test('terminal text index handles wide cells, lines, tabs, and standalone helper
   );
   assert.equal(selectedText(multiline, line), 'βeta🙂');
   assert.equal(selectedText('one\tأربعة two', wordSelectionAt('one\tأربعة two', 5)), 'أربعة');
+});
+
+test('terminal text index prepares word segmentation once for repeated lookups', () => {
+  const original = Intl.Segmenter.prototype.segment;
+  let wordSegmentations = 0;
+  Intl.Segmenter.prototype.segment = function segment(value) {
+    if (this.resolvedOptions().granularity === 'word') wordSegmentations += 1;
+    return original.call(this, value);
+  };
+  try {
+    const index = createTerminalTextIndex('alpha bravo 世界 مرحبا');
+    assert.equal(wordSegmentations, 0);
+    for (let lookup = 0; lookup < 100; lookup += 1) {
+      index.wordSelectionAt(lookup % index.codeUnits);
+      index.previousWordBoundary(lookup % index.codeUnits);
+      index.nextWordBoundary(lookup % index.codeUnits);
+    }
+    assert.equal(wordSegmentations, 1);
+  } finally {
+    Intl.Segmenter.prototype.segment = original;
+  }
 });
 
 test('text editing replaces selections and uses spec-shaped home/end operations', () => {

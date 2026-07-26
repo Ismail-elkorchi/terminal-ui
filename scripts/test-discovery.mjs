@@ -1,5 +1,5 @@
-import { glob } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { globFiles } from './glob-files.mjs';
 
 export const testLaneNames = Object.freeze([
   'acceptance',
@@ -14,11 +14,11 @@ export const testLaneNames = Object.freeze([
 ]);
 
 export async function discoverTestFiles(directories) {
-  const files = [];
+  const files = new Set();
   for (const directory of directories) {
-    files.push(...await discoverDirectory(resolve(directory)));
+    for (const file of await discoverDirectory(resolve(directory))) files.add(file);
   }
-  return files.sort((left, right) => left.localeCompare(right));
+  return [...files].sort((left, right) => left.localeCompare(right));
 }
 
 export function testLaneDirectories(root, lane) {
@@ -29,14 +29,10 @@ export function testLaneDirectories(root, lane) {
 }
 
 async function discoverDirectory(directory) {
-  const files = [];
   const patterns = ['mjs', 'ts'].flatMap((extension) => [
     `**/*.test.${extension}`,
     `.*/**/*.test.${extension}`,
     `**/.*/**/*.test.${extension}`
   ]);
-  for await (const file of glob(patterns, { cwd: directory })) {
-    files.push(resolve(directory, file));
-  }
-  return files.sort((left, right) => left.localeCompare(right));
+  return globFiles(directory, patterns);
 }

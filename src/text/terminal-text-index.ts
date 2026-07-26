@@ -1,18 +1,23 @@
 import { segmentGraphemesForMeasurement } from './graphemes.ts';
 import { selectedText } from './selection-model.ts';
-import { lineSelectionAt, wordSelectionAt } from './word-boundaries.ts';
-import type { TerminalTextIndex, TextMeasurementOptions, TextSelection } from './types.ts';
+import { lineSelectionAt, prepareWordBoundaryIndex } from './word-boundaries.ts';
+import type { TerminalTextIndex, TextIndexOptions, TextSelection } from './types.ts';
 
 const encoder = new TextEncoder();
 
 export function createTerminalTextIndex(
   text: string,
-  options: TextMeasurementOptions = {}
+  options: TextIndexOptions = {}
 ): TerminalTextIndex {
   const graphemes = segmentGraphemesForMeasurement(text, options);
   const codeUnitOffsets = graphemeCodeUnitOffsets(graphemes, text.length);
   const visualOffsets = visualColumnOffsets(graphemes);
   const byteOffsets = utf8ByteOffsets(graphemes);
+  let words: ReturnType<typeof prepareWordBoundaryIndex> | undefined;
+  const wordIndex = (): ReturnType<typeof prepareWordBoundaryIndex> => {
+    words ??= prepareWordBoundaryIndex(text, codeUnitOffsets, options);
+    return words;
+  };
 
   return {
     text,
@@ -39,8 +44,14 @@ export function createTerminalTextIndex(
     byteOffsetToGraphemeIndex(offset) {
       return offsetToGraphemeIndex(offset, byteOffsets, byteOffsets[byteOffsets.length - 1] ?? 0);
     },
+    previousWordBoundary(offset) {
+      return wordIndex().previous(offset);
+    },
+    nextWordBoundary(offset) {
+      return wordIndex().next(offset);
+    },
     wordSelectionAt(offset) {
-      return wordSelectionAt(text, offset);
+      return wordIndex().selectionAt(offset);
     },
     lineSelectionAt(offset) {
       return lineSelectionAt(text, offset);
@@ -76,12 +87,14 @@ function utf8ByteOffsets(graphemes: readonly { readonly text: string }[]): reado
 
 function offsetToGraphemeIndex(offset: number, offsets: readonly number[], max: number): number {
   const bounded = Number.isFinite(offset) ? Math.max(0, Math.min(max, Math.floor(offset))) : 0;
-  for (let index = 0; index < offsets.length - 1; index += 1) {
-    const start = offsets[index] ?? 0;
-    const end = offsets[index + 1] ?? start;
-    if (bounded < end) return index;
+  let lower = 0;
+  let upper = offsets.length;
+  while (lower < upper) {
+    const middle = Math.floor((lower + upper) / 2);
+    if ((offsets[middle] ?? 0) <= bounded) lower = middle + 1;
+    else upper = middle;
   }
-  return Math.max(0, offsets.length - 1);
+  return Math.max(0, Math.min(offsets.length - 1, lower - 1));
 }
 
 function clampIndex(index: number, length: number): number {

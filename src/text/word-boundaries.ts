@@ -1,21 +1,59 @@
 import { segmentGraphemes, segmentWords } from './graphemes.ts';
 import { clampTextOffset, normalizeTextCursor } from './selection-model.ts';
-import type { TextSelection } from './types.ts';
+import type { TextBoundaryOptions, TextSelection } from './types.ts';
 
-interface WordSegment {
-  readonly startOffset: number;
-  readonly endOffsetExclusive: number;
+export interface PreparedWordBoundaryIndex {
+  previous(offset: number): number;
+  next(offset: number): number;
+  selectionAt(offset: number): TextSelection;
 }
 
-export function wordSelectionAt(text: string, offset: number): TextSelection {
-  const cursor = normalizeTextCursor(text, offset);
-  const segments = wordSegments(text);
-  const segment = segments.find((candidate) =>
-    cursor >= candidate.startOffset && cursor < candidate.endOffsetExclusive
-  ) ?? (segments.at(-1)?.endOffsetExclusive === cursor ? segments.at(-1) : undefined);
-  return segment === undefined
-    ? { startOffset: cursor, endOffsetExclusive: cursor }
-    : { startOffset: segment.startOffset, endOffsetExclusive: segment.endOffsetExclusive };
+export function prepareWordBoundaryIndex(
+  text: string,
+  graphemeOffsets: readonly number[],
+  options: TextBoundaryOptions = {}
+): PreparedWordBoundaryIndex {
+  const segments = [...normalizedWordSegments(text, graphemeOffsets, options)];
+  const starts = segments.map((segment) => segment.startOffset);
+  const ends = segments.map((segment) => segment.endOffsetExclusive);
+  return {
+    previous(offset) {
+      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const index = lowerBound(starts, cursor) - 1;
+      return segments[index]?.startOffset ?? 0;
+    },
+    next(offset) {
+      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const index = upperBound(ends, cursor);
+      return segments[index]?.endOffsetExclusive ?? text.length;
+    },
+    selectionAt(offset) {
+      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const index = upperBound(starts, cursor) - 1;
+      const segment = segments[index];
+      const selected = segment !== undefined
+        && cursor >= segment.startOffset
+        && cursor < segment.endOffsetExclusive
+        ? segment
+        : segments.at(-1)?.endOffsetExclusive === cursor
+          ? segments.at(-1)
+          : undefined;
+      return selected === undefined
+        ? { startOffset: cursor, endOffsetExclusive: cursor }
+        : {
+            startOffset: selected.startOffset,
+            endOffsetExclusive: selected.endOffsetExclusive
+          };
+    }
+  };
+}
+
+export function wordSelectionAt(
+  text: string,
+  offset: number,
+  options: TextBoundaryOptions = {}
+): TextSelection {
+  return standaloneWordBoundaryIndex(text, options).selectionAt(offset);
 }
 
 export function lineSelectionAt(text: string, offset: number): TextSelection {
@@ -37,22 +75,20 @@ export function lineEndOffset(text: string, offset: number): number {
   return next === -1 ? text.length : next;
 }
 
-export function previousWordBoundary(text: string, offset: number): number {
-  const cursor = normalizeTextCursor(text, offset);
-  const segments = wordSegments(text);
-  for (let index = segments.length - 1; index >= 0; index -= 1) {
-    const segment = segments[index];
-    if (segment !== undefined && segment.startOffset < cursor) return segment.startOffset;
-  }
-  return 0;
+export function previousWordBoundary(
+  text: string,
+  offset: number,
+  options: TextBoundaryOptions = {}
+): number {
+  return standaloneWordBoundaryIndex(text, options).previous(offset);
 }
 
-export function nextWordBoundary(text: string, offset: number): number {
-  const cursor = normalizeTextCursor(text, offset);
-  for (const segment of wordSegments(text)) {
-    if (segment.endOffsetExclusive > cursor) return segment.endOffsetExclusive;
-  }
-  return text.length;
+export function nextWordBoundary(
+  text: string,
+  offset: number,
+  options: TextBoundaryOptions = {}
+): number {
+  return standaloneWordBoundaryIndex(text, options).next(offset);
 }
 
 export function lineOffsetByDelta(text: string, offset: number, delta: number): number {
@@ -66,12 +102,94 @@ export function lineOffsetByDelta(text: string, offset: number, delta: number): 
   return offsetAtVisualColumn(text, targetStart, targetEnd, column);
 }
 
-function wordSegments(text: string): readonly WordSegment[] {
-  return segmentWords(text).flatMap((segment) => {
-    const startOffset = normalizeTextCursor(text, segment.startOffset);
-    const endOffsetExclusive = normalizeTextCursor(text, segment.endOffsetExclusive);
-    return startOffset === endOffsetExclusive ? [] : [{ startOffset, endOffsetExclusive }];
-  });
+function standaloneWordBoundaryIndex(
+  text: string,
+  options: TextBoundaryOptions
+): PreparedWordBoundaryIndex {
+  const graphemes = segmentGraphemes(text);
+  const graphemeOffsets = [...graphemes.map((segment) => segment.startOffset), text.length];
+  return {
+    previous(offset) {
+      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      let boundary = 0;
+      for (const segment of normalizedWordSegments(text, graphemeOffsets, options)) {
+        if (segment.startOffset >= cursor) break;
+        boundary = segment.startOffset;
+      }
+      return boundary;
+    },
+    next(offset) {
+      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      for (const segment of normalizedWordSegments(text, graphemeOffsets, options)) {
+        if (segment.endOffsetExclusive > cursor) return segment.endOffsetExclusive;
+      }
+      return text.length;
+    },
+    selectionAt(offset) {
+      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      let last: { readonly startOffset: number; readonly endOffsetExclusive: number } | undefined;
+      for (const segment of normalizedWordSegments(text, graphemeOffsets, options)) {
+        if (cursor >= segment.startOffset && cursor < segment.endOffsetExclusive) {
+          return segment;
+        }
+        if (segment.startOffset > cursor) {
+          return { startOffset: cursor, endOffsetExclusive: cursor };
+        }
+        last = segment;
+      }
+      return last?.endOffsetExclusive === cursor
+        ? last
+        : { startOffset: cursor, endOffsetExclusive: cursor };
+    }
+  };
+}
+
+function* normalizedWordSegments(
+  text: string,
+  graphemeOffsets: readonly number[],
+  options: TextBoundaryOptions
+): Iterable<{ readonly startOffset: number; readonly endOffsetExclusive: number }> {
+  for (const segment of segmentWords(text, options)) {
+    const startOffset = normalizePreparedOffset(segment.startOffset, graphemeOffsets, text.length);
+    const endOffsetExclusive = normalizePreparedOffset(
+      segment.endOffsetExclusive,
+      graphemeOffsets,
+      text.length
+    );
+    if (startOffset !== endOffsetExclusive) yield { startOffset, endOffsetExclusive };
+  }
+}
+
+function normalizePreparedOffset(
+  offset: number,
+  graphemeOffsets: readonly number[],
+  textLength: number
+): number {
+  const bounded = clampTextOffset(offset, textLength);
+  const index = Math.max(0, upperBound(graphemeOffsets, bounded) - 1);
+  return graphemeOffsets[index] ?? 0;
+}
+
+function lowerBound(values: readonly number[], target: number): number {
+  let lower = 0;
+  let upper = values.length;
+  while (lower < upper) {
+    const middle = Math.floor((lower + upper) / 2);
+    if ((values[middle] ?? 0) < target) lower = middle + 1;
+    else upper = middle;
+  }
+  return lower;
+}
+
+function upperBound(values: readonly number[], target: number): number {
+  let lower = 0;
+  let upper = values.length;
+  while (lower < upper) {
+    const middle = Math.floor((lower + upper) / 2);
+    if ((values[middle] ?? 0) <= target) lower = middle + 1;
+    else upper = middle;
+  }
+  return lower;
 }
 
 function lineStartOffsets(text: string): readonly number[] {

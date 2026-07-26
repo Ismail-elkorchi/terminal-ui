@@ -3,6 +3,7 @@ import type {
   TerminalInputChunk,
   TerminalInputReadOptions
 } from './types.ts';
+import { settleResourceDisposal } from './dispose.ts';
 
 const KITTY_QUERY_PREFIX = Uint8Array.of(0x1b, 0x5b, 0x3f);
 const KITTY_QUERY_TERMINATOR = 0x75;
@@ -20,6 +21,7 @@ export class TerminalInputAuthority implements TerminalInput {
   readonly #replay: TerminalInputChunk[] = [];
   #iterator: AsyncIterator<TerminalInputChunk> | undefined;
   #pending: Promise<IteratorResult<TerminalInputChunk>> | undefined;
+  #disposal: Promise<void> | undefined;
   #readerActive = false;
   #disposed = false;
 
@@ -60,13 +62,32 @@ export class TerminalInputAuthority implements TerminalInput {
     }
   }
 
-  async dispose(): Promise<void> {
-    if (this.#disposed) return;
+  dispose(): Promise<void> {
+    if (this.#disposal !== undefined) return this.#disposal;
     this.#disposed = true;
     this.#sourceController.abort('terminal_input_disposed');
-    await this.#iterator?.return?.();
-    await this.#disposeSource?.();
-    this.#replay.length = 0;
+    const iterator = this.#iterator;
+    const pending = this.#pending;
+    const iteratorClose = Promise.resolve()
+      .then(async () => iterator?.return?.())
+      .then(() => undefined);
+    void iteratorClose.catch(() => undefined);
+    this.#disposal = settleResourceDisposal([
+      async () => {
+        await pending;
+      },
+      async () => {
+        await iteratorClose;
+      },
+      async () => {
+        await this.#disposeSource?.();
+      }
+    ]).finally(() => {
+      if (this.#pending === pending) this.#pending = undefined;
+      this.#readerActive = false;
+      this.#replay.length = 0;
+    });
+    return this.#disposal;
   }
 
   setRawMode(enabled: boolean): Promise<void> | void {
