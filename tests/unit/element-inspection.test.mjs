@@ -24,7 +24,6 @@ test('element inspection exposes an immutable authoring description without rend
   const inspection = inspectElement(element);
 
   assert.deepEqual(inspection, {
-    schemaVersion: 'terminal-ui.element.v1',
     kind: 'surface',
     category: 'layout',
     id: 'panel',
@@ -37,7 +36,6 @@ test('element inspection exposes an immutable authoring description without rend
       layered: false
     },
     children: [{
-      schemaVersion: 'terminal-ui.element.v1',
       kind: 'column',
       category: 'layout',
       id: 'controls',
@@ -51,7 +49,6 @@ test('element inspection exposes an immutable authoring description without rend
       },
       children: [
         {
-          schemaVersion: 'terminal-ui.element.v1',
           kind: 'textInput',
           category: 'component',
           id: 'query',
@@ -66,7 +63,6 @@ test('element inspection exposes an immutable authoring description without rend
           children: []
         },
         {
-          schemaVersion: 'terminal-ui.element.v1',
           kind: 'button',
           category: 'component',
           id: 'submit',
@@ -106,7 +102,7 @@ test('element inspection identifies custom renderer elements without changing di
   assert.equal('renderer' in inspection, false);
 });
 
-test('element inspection omits private renderer children that have no authored category', () => {
+test('element inspection omits private renderer children that have no public factory category', () => {
   const inspection = inspectElement(select({
     id: 'choice',
     options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
@@ -116,7 +112,7 @@ test('element inspection omits private renderer children that have no authored c
   assert.deepEqual(inspection.children, []);
 });
 
-test('element inspection rejects objects outside the authored element boundary', () => {
+test('element inspection rejects objects outside the element factory boundary', () => {
   assert.throws(
     () => inspectElement({}),
     /component, layout, or renderer-extension factory/u

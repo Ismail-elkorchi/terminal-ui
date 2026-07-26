@@ -21,7 +21,7 @@ const runtimeGlobalNames = new Set(['Bun', 'Deno', 'globalThis', 'process']);
 
 const foundationDependencies = new Map([
   ['diagnostic-identity.ts', new Set()],
-  ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'text'])],
+  ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'foundation', 'text'])],
   ['foundation', new Set()],
   ['geometry', new Set()],
   ['text', new Set()]
@@ -54,6 +54,7 @@ for (const filePath of sourceFiles) {
   inspectDeterministicGlobals(sourceFile, sourceLayer, filePath);
   inspectCentralRenderDispatch(sourceFile, filePath);
   inspectElementFactoryCategory(sourceFile, filePath);
+  inspectTestingEntrypoint(sourceFile, filePath);
   inspectTuiContext(sourceFile, filePath);
 }
 
@@ -170,6 +171,20 @@ function inspectElementFactoryCategory(sourceFile, filePath) {
   for (const constructor of calls) {
     if (constructor !== expected) {
       failures.push(`${relative(filePath)} uses ${constructor}; expected ${expected}`);
+    }
+  }
+}
+
+function inspectTestingEntrypoint(sourceFile, filePath) {
+  if (sourceRelative(filePath) !== 'testing/index.ts') return;
+  for (const statement of sourceFile.statements) {
+    if (!ts.isExportDeclaration(statement)) continue;
+    const specifier = statement.moduleSpecifier;
+    if (specifier === undefined || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('..')) continue;
+    const target = path.resolve(path.dirname(filePath), specifier.text);
+    const targetPath = sourceRelative(target);
+    if (!targetPath.endsWith('/index.ts')) {
+      failures.push(`src/testing/index.ts exports package-private module ${targetPath}`);
     }
   }
 }

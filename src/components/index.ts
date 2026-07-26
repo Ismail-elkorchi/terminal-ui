@@ -156,11 +156,5 @@ export {
   isProcessStatus,
   isRecordResult,
   isStatusBarStatus,
-  isValidationLevel,
-  normalizeNotificationTone,
-  normalizeProcessStatus,
-  normalizeStatusBarStatus,
-  optionalProcessStatus,
-  optionalRecordResult,
-  optionalValidationLevel
+  isValidationLevel
 } from '../ui-model/status.ts';

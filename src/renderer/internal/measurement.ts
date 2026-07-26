@@ -1,4 +1,5 @@
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
+import { finiteNonNegativeIntegerOrZero } from '../../foundation/validation.ts';
 import { measureRenderBlock as renderBlockSize, measureRenderLine } from '../../visual/render.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import type { TextMeasurementOptions } from '../../text/index.ts';
@@ -18,8 +19,8 @@ export function measurement(input: MeasurementInput): Measurement {
 }
 
 export function normalizeMeasurement(measure: Measurement): Measurement {
-  const minWidth = nonNegativeInteger(measure.minWidth);
-  const minHeight = nonNegativeInteger(measure.minHeight);
+  const minWidth = finiteNonNegativeIntegerOrZero(measure.minWidth);
+  const minHeight = finiteNonNegativeIntegerOrZero(measure.minHeight);
   const maxWidth = optionalMaxSize(measure.maxWidth, minWidth);
   const maxHeight = optionalMaxSize(measure.maxHeight, minHeight);
   const preferredWidth = clampMeasurementAxis(measure.preferredWidth, minWidth, maxWidth);
@@ -81,7 +82,7 @@ export function measureLines(lines: readonly string[], options: TextMeasurementO
 export function combineMeasurementsVertically(measures: readonly Measurement[], gap = 0): Measurement {
   if (measures.length === 0) return zeroMeasurement();
   const normalized = measures.map(normalizeMeasurement);
-  const gapCells = nonNegativeInteger(gap) * Math.max(0, normalized.length - 1);
+  const gapCells = finiteNonNegativeIntegerOrZero(gap) * Math.max(0, normalized.length - 1);
   return measurement({
     minWidth: normalized.reduce((max, current) => Math.max(max, current.minWidth), 0),
     minHeight: normalized.reduce((sum, current) => sum + current.minHeight, 0) + gapCells,
@@ -93,7 +94,7 @@ export function combineMeasurementsVertically(measures: readonly Measurement[], 
 export function combineMeasurementsHorizontally(measures: readonly Measurement[], gap = 0): Measurement {
   if (measures.length === 0) return zeroMeasurement();
   const normalized = measures.map(normalizeMeasurement);
-  const gapCells = nonNegativeInteger(gap) * Math.max(0, normalized.length - 1);
+  const gapCells = finiteNonNegativeIntegerOrZero(gap) * Math.max(0, normalized.length - 1);
   return measurement({
     minWidth: normalized.reduce((sum, current) => sum + current.minWidth, 0) + gapCells,
     minHeight: normalized.reduce((max, current) => Math.max(max, current.minHeight), 0),
@@ -120,8 +121,4 @@ function optionalMaxSize(value: number | undefined, min: number): number | undef
 function clampMeasurementAxis(value: number, min: number, max: number | undefined): number {
   const preferred = Number.isFinite(value) ? Math.max(min, Math.floor(value)) : min;
   return max === undefined ? preferred : Math.min(preferred, Math.max(min, max));
-}
-
-function nonNegativeInteger(value: number | undefined): number {
-  return value === undefined || !Number.isFinite(value) ? 0 : Math.max(0, Math.floor(value));
 }

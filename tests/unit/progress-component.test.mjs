@@ -107,17 +107,17 @@ test('progressBar renders explicit elapsed and remaining timing without hidden c
   assert.equal(frame.accessibility.root.description, '1m05s elapsed 2m05s left');
 });
 
-test('progressBar ignores invalid timing fields', () => {
-  const frame = renderElementFrame(progressBar({
-    id: 'invalid-timing',
+test('progressBar rejects invalid authored display and geometry values', () => {
+  const base = {
+    id: 'invalid-progress',
     label: 'Sync',
-    mode: { kind: 'determinate', value: 1, max: 2 },
-    elapsedMs: -1,
-    remainingMs: Number.NaN
-  }), { columns: 32, rows: 1 });
-
-  assert.equal(renderFramePlain(frame), 'Sync [█████░░░░░] 1/2');
-  assert.equal(frame.accessibility.root.description, undefined);
+    mode: { kind: 'determinate', value: 1, max: 2 }
+  };
+  assert.throws(() => progressBar({ ...base, elapsedMs: -1 }), RangeError);
+  assert.throws(() => progressBar({ ...base, remainingMs: Number.NaN }), RangeError);
+  assert.throws(() => progressBar({ ...base, barWidth: 0 }), RangeError);
+  assert.throws(() => progressBar({ ...base, display: 'value' }), TypeError);
+  assert.throws(() => progressBar({ ...base, labelPosition: 'middle' }), TypeError);
 });
 
 test('progressBar supports label-free percentage and tiny viewport clipping', () => {

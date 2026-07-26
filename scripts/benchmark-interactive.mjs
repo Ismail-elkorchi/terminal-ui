@@ -36,7 +36,8 @@ import {
 } from '../dist/text/index.js';
 import { defaultTheme } from '../dist/theme/index.js';
 import { createTuiRuntime, defineTui } from '../dist/tui/index.js';
-import { searchPickerIndexStatistics, logViewerSearchStatistics } from '../dist/testing/index.js';
+import { logViewerSearchStatistics } from '../dist/renderer/internal/log-viewer/prepared-data.js';
+import { searchPickerIndexStatistics } from '../dist/ui-model/search-picker-index.js';
 import { summarizeSamples } from './benchmark-statistics.mjs';
 
 const quick = process.env['TERMINAL_UI_BENCHMARK_QUICK'] === '1';
@@ -130,7 +131,7 @@ function renderScenarios(realApps) {
     {
       name: 'scrolling-text-area',
       scale: textDocumentLineCount(selectionDocument),
-      author(index) {
+      createElement(index) {
         return textArea({
           id: 'scrolling-editor',
           presentation: {
@@ -151,7 +152,7 @@ function renderScenarios(realApps) {
       name: 'scrolling-log-viewer',
       scale: history.entryCount,
       setupWork: { normalized_records: history.entryCount },
-      author(index) {
+      createElement(index) {
         return logViewer({
           id: 'scrolling-log',
           history,
@@ -168,7 +169,7 @@ function renderScenarios(realApps) {
       name: 'scrolling-table',
       scale: tableCollection.records.length,
       setupWork: { normalized_records: tableCollection.records.length },
-      author(index) {
+      createElement(index) {
         return table({
           id: 'scrolling-processes',
           collection: tableCollection,
@@ -188,7 +189,7 @@ function renderScenarios(realApps) {
       name: 'scrolling-tree',
       scale: treeCollection.records.length,
       setupWork: { normalized_records: treeCollection.records.length },
-      author(index) {
+      createElement(index) {
         return tree({
           id: 'scrolling-tree',
           collection: treeCollection,
@@ -204,7 +205,7 @@ function renderScenarios(realApps) {
     {
       name: 'typing-text-area',
       scale: 200,
-      author(index) {
+      createElement(index) {
         return textArea({
           id: 'editor',
           presentation: {
@@ -217,7 +218,7 @@ function renderScenarios(realApps) {
     {
       name: 'selecting-large-text-area',
       scale: textDocumentLineCount(selectionDocument),
-      author(index) {
+      createElement(index) {
         const end = Math.min(textDocumentLength(selectionDocument), 1_000 + index);
         return textArea({
           id: 'large-editor',
@@ -235,7 +236,7 @@ function renderScenarios(realApps) {
       name: 'prepared-small-table',
       scale: smallTableCollection.records.length,
       setupWork: { normalized_records: smallTableCollection.records.length },
-      author(index) {
+      createElement(index) {
         return table({
           id: 'small-processes',
           collection: smallTableCollection,
@@ -248,7 +249,7 @@ function renderScenarios(realApps) {
       name: 'prepared-large-table',
       scale: tableRows.length,
       setupWork: { normalized_records: tableCollection.records.length },
-      author(index) {
+      createElement(index) {
         const selected = Math.min(tableRows.length - 1, Math.floor(tableRows.length / 2) + index);
         return table({
           id: 'processes',
@@ -262,7 +263,7 @@ function renderScenarios(realApps) {
       name: 'long-log-viewer-wrap',
       scale: history.entryCount,
       setupWork: { normalized_records: history.entryCount },
-      author(index) {
+      createElement(index) {
         return logViewer({
           id: 'wrapped-log',
           history: appendLogHistory(history, [{
@@ -281,7 +282,7 @@ function renderScenarios(realApps) {
         const statistics = logViewerSearchStatistics(history);
         return { query_candidates: statistics.recordEvaluations };
       },
-      author(index) {
+      createElement(index) {
         return logViewer({
           id: 'searched-log',
           history,
@@ -297,7 +298,7 @@ function renderScenarios(realApps) {
         const statistics = searchPickerIndexStatistics(searchPickerIndex);
         return { query_candidates: statistics.candidateEvaluations };
       },
-      author(index) {
+      createElement(index) {
         return searchPicker({
           id: 'commands',
           searchPickerIndex,
@@ -309,7 +310,7 @@ function renderScenarios(realApps) {
     {
       name: 'layered-overlay',
       scale: 3,
-      author(index) {
+      createElement(index) {
         return overlay([
           text(`base ${String(index)}`, { id: 'base' }),
           text(`overlay ${String(index)}`, { id: 'overlay', meta: { layer: { zIndex: 2 } } }),
@@ -320,7 +321,7 @@ function renderScenarios(realApps) {
     {
       name: 'dense-canvas-composition',
       scale: terminalSize.columns * terminalSize.rows,
-      author(index) {
+      createElement(index) {
         return column([
           canvas({
             id: 'dense-canvas',
@@ -339,7 +340,7 @@ function renderScenarios(realApps) {
       return {
         name: `real-example-${app.id}`,
         scale: 1,
-        author() {
+        createElement() {
           return app.definition.view(state, benchmarkContext);
         }
       };
@@ -352,7 +353,7 @@ function runRenderScenario(scenario) {
   const stageSamples = new Map();
   const diffSamples = [];
   const outputSamples = [];
-  const authoringSamples = [];
+  const elementConstructionSamples = [];
   const totalSamples = [];
   const workSamples = new Map();
   const heapBefore = process.memoryUsage().heapUsed;
@@ -361,9 +362,9 @@ function runRenderScenario(scenario) {
     const measured = index >= 0;
     const value = Math.max(0, index + 1);
     const totalStarted = performance.now();
-    const authoringStarted = performance.now();
-    const element = scenario.author(value);
-    const authoringDuration = performance.now() - authoringStarted;
+    const elementConstructionStarted = performance.now();
+    const element = scenario.createElement(value);
+    const elementConstructionDuration = performance.now() - elementConstructionStarted;
     const currentStages = new Map();
     const currentWork = new Map();
     const scenarioWorkBefore = scenario.workSnapshot?.() ?? {};
@@ -396,7 +397,7 @@ function runRenderScenario(scenario) {
     }
     previous = frame;
     if (!measured) continue;
-    authoringSamples.push(authoringDuration);
+    elementConstructionSamples.push(elementConstructionDuration);
     diffSamples.push(diffDuration);
     outputSamples.push(outputDuration);
     totalSamples.push(totalDuration);
@@ -410,7 +411,7 @@ function runRenderScenario(scenario) {
     scale: scenario.scale,
     setupWork: scenario.setupWork ?? {},
     stages: {
-      authoring: summarizeSamples(authoringSamples),
+      elementConstruction: summarizeSamples(elementConstructionSamples),
       ...Object.fromEntries([...stageSamples].map(([stage, samples]) => [stage, summarizeSamples(samples)])),
       diff: summarizeSamples(diffSamples),
       outputPlanning: summarizeSamples(outputSamples),

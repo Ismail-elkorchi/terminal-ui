@@ -1,4 +1,5 @@
 import { defaultSessionProtocolPolicy } from './session-policy.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
 import type { MouseReportingMode } from '../host/index.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
@@ -77,7 +78,7 @@ function optionalTimeout(value: number | undefined, name: keyof TuiLifecyclePoli
 
 function normalizeSessionPolicy(policy: unknown): SessionProtocolPolicy {
   const value = policy ?? defaultSessionProtocolPolicy;
-  if (!isRecord(value)) throw new TypeError('TUI session policy must be an object.');
+  if (!isNonArrayObject(value)) throw new TypeError('TUI session policy must be an object.');
   const keyboard = requiredRecord(value['keyboard'], 'keyboard');
   const cursorVisibility = requiredRecord(value['cursorVisibility'], 'cursorVisibility');
   const mouseReporting = requiredRecord(value['mouseReporting'], 'mouseReporting');
@@ -107,7 +108,7 @@ function normalizeSessionPolicy(policy: unknown): SessionProtocolPolicy {
 
 function normalizeInitialFocus(selector: unknown): InitialFocusSelector | undefined {
   if (selector === undefined) return undefined;
-  if (!isRecord(selector)) throw new TypeError('TUI initial focus selector must be an object.');
+  if (!isNonArrayObject(selector)) throw new TypeError('TUI initial focus selector must be an object.');
   if (selector['kind'] === 'path') {
     if (!Array.isArray(selector['path'])) throw new TypeError('TUI initial focus path must be an array.');
     const path: readonly unknown[] = selector['path'];
@@ -147,7 +148,7 @@ function oneOf<const TValues extends readonly string[]>(
 }
 
 function requiredRecord(value: unknown, name: string): Record<string, unknown> {
-  if (!isRecord(value)) throw new TypeError(`TUI session policy ${name} must be an object.`);
+  if (!isNonArrayObject(value)) throw new TypeError(`TUI session policy ${name} must be an object.`);
   return value;
 }
 
@@ -156,8 +157,4 @@ function nonEmptyString(value: unknown, name: string): string {
     throw new TypeError(`TUI initial focus ${name} must be non-empty.`);
   }
   return value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

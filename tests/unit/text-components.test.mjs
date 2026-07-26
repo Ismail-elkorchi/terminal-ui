@@ -14,7 +14,8 @@ import {
 } from '../../dist/renderer/index.js';
 import {
   highContrastTheme } from '../../dist/theme/index.js';
-import { createVisualSnapshot, renderElementRegions } from '../../dist/testing/index.js';
+import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { statusIndicator,
   commandInput,
   helpBar,

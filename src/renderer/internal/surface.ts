@@ -41,7 +41,7 @@ export function drawSurface(
   renderNode: SurfaceNode,
   theme: TerminalTheme
 ): void {
-  const appearance = surfaceAppearanceFromValue(renderNode.props.appearance);
+  const appearance = renderNode.props.appearance;
   const border = surfaceBorderForBounds(renderNode, bounds, appearance, theme);
   drawSurfaceFrame(buffer, bounds, renderNode, theme, false, {
     ...(appearance === undefined ? {} : { appearance }),
@@ -83,18 +83,9 @@ export function drawSurfaceFrame(
   if (border !== undefined) drawBorder(buffer, bounds, border, theme);
 }
 
-function surfaceAppearanceFromValue(value: unknown): SurfaceAppearance | undefined {
-  return value === 'neutral'
-    || value === 'bar'
-    || value === 'raised'
-    || value === 'inset'
-    ? value
-    : undefined;
-}
-
 function surfaceBorder(
   renderNode: SurfaceNode,
-  appearance = surfaceAppearanceFromValue(renderNode.props.appearance),
+  appearance = renderNode.props.appearance,
   theme?: TerminalTheme
 ): BorderStyle | undefined {
   const explicit = borderStyleFromValue(renderNode.props.border);
@@ -112,7 +103,7 @@ function surfaceBorder(
 function surfaceBorderForBounds(
   renderNode: SurfaceNode,
   bounds: Rect,
-  appearance = surfaceAppearanceFromValue(renderNode.props.appearance),
+  appearance = renderNode.props.appearance,
   theme?: TerminalTheme
 ): BorderStyle | undefined {
   return surfaceBorderWithinBounds(surfaceBorder(renderNode, appearance, theme), bounds);

@@ -8,8 +8,7 @@ import type { Element } from '../element/index.ts';
 import type { Frame } from '../renderer/internal/frame.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
-import type { TuiMessageSource } from '../runtime-model/message-source.ts';
-import type { MessageResolution } from '../interaction/message.ts';
+import type { MessageResolution, TuiMessageSource } from '../interaction/message.ts';
 
 export interface TuiDefinition<TState, TMessage> {
   readonly id?: string;
@@ -77,7 +76,7 @@ export interface TuiContext {
   readonly clock: TerminalClock;
 }
 
-export type { TuiMessageSource } from '../runtime-model/message-source.ts';
+export type { TuiMessageSource } from '../interaction/message.ts';
 
 export type TuiNonTtyMode = 'reject' | 'transcript_only' | 'last_frame';
 

@@ -10,6 +10,7 @@ import type { RenderNodeInputMap } from './model/index.ts';
 import type { RenderNodeRenderer } from './model/renderer.ts';
 import type { CustomRenderer } from './custom-renderer.ts';
 import { renderNodeId } from '../foundation/identity.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 import { renderNodeInteraction } from './model/metadata.ts';
 
 const rendererHookNames = [
@@ -78,7 +79,7 @@ export function assertCustomRenderer(
   value: unknown,
   options: CustomRendererValidationOptions<unknown>
 ): asserts value is CustomRenderer<unknown, unknown> {
-  if (!isRecord(value) || typeof value['render'] !== 'function') {
+  if (!isNonArrayObject(value) || typeof value['render'] !== 'function') {
     throw new Error('Custom renderers must provide a renderer with a render function.');
   }
   for (const hook of rendererHookNames) {
@@ -100,6 +101,9 @@ function adaptCustomRenderer<TState, TMessage>(
   renderer: CustomRenderer<TState, TMessage>,
   state: TState
 ): RenderNodeRenderer<TMessage, 'custom'> {
+  const accessibility = renderer.accessibility?.bind(renderer);
+  const focusTargets = renderer.focusTargets?.bind(renderer);
+  const hitTargets = renderer.hitTargets?.bind(renderer);
   return {
     measure: ({ bounds, theme, widthProfile }) => renderer.measure?.({ state, bounds, theme, widthProfile }) ?? {
         minWidth: 0,
@@ -110,21 +114,21 @@ function adaptCustomRenderer<TState, TMessage>(
     render: ({ layoutNode, buffer, theme, widthProfile, focus }) => {
       renderer.render({ state, bounds: layoutNode.bounds, target: buffer, theme, widthProfile, focus });
     },
-    ...(renderer.accessibility === undefined ? {} : {
-      accessibility: ({ layoutNode, id, focused, theme, widthProfile }) => renderer.accessibility?.({
+    ...(accessibility === undefined ? {} : {
+      accessibility: ({ layoutNode, id, focused, theme, widthProfile }) => accessibility({
         state,
         bounds: layoutNode.bounds,
         id,
         focused,
         theme,
         widthProfile
-      }) ?? { id, role: 'text', label: id }
+      })
     }),
-    ...(renderer.focusTargets === undefined ? {} : {
-      focusTargets: ({ bounds, theme, widthProfile }) => renderer.focusTargets?.({ state, bounds, theme, widthProfile }) ?? []
+    ...(focusTargets === undefined ? {} : {
+      focusTargets: ({ bounds, theme, widthProfile }) => focusTargets({ state, bounds, theme, widthProfile })
     }),
-    ...(renderer.hitTargets === undefined ? {} : {
-      hitTargets: ({ bounds, theme, widthProfile }) => renderer.hitTargets?.({ state, bounds, theme, widthProfile }) ?? []
+    ...(hitTargets === undefined ? {} : {
+      hitTargets: ({ bounds, theme, widthProfile }) => hitTargets({ state, bounds, theme, widthProfile })
     })
   };
 }
@@ -160,9 +164,5 @@ function assertDecorativeCustomRendererIsNotInteractive<TMessage>(
 }
 
 function isDecorativeAccessibility(value: ElementAccessibility | undefined): boolean {
-  return isRecord(value) && value['decorative'] === true && !('role' in value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return isNonArrayObject(value) && value['decorative'] === true && !('role' in value);
 }

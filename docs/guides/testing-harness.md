@@ -36,6 +36,12 @@ targets, accessibility, and cost bounded by terminal size. See
 [Rendering internals](./rendering-internals.md) and
 [Building polished components](./building-polished-components.md).
 
+The testing entrypoint deliberately contains harnesses, interaction scripts,
+visual snapshots, and public assertions only. Dirty-region planners, render
+regions, diff interpreters, notification placement, prepared search indexes,
+and scrollbar implementation details are package-private and are not testing
+contracts.
+
 Executable example:
 
 - `examples/testing/harness.mjs`

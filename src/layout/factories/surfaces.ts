@@ -9,6 +9,11 @@ import {
 } from '../../authoring/render-node.ts';
 import { assertSurfaceChild, surfaceLayoutProps } from './internals.ts';
 import { normalizeBorderTitle } from '../../visual/border.ts';
+import {
+  assertFiniteNumber,
+  assertOptionalEnum,
+  assertOptionalFiniteNumber
+} from '../../authoring/validation.ts';
 
 export function surface<const TChild extends Element<unknown>>(
   child: TChild,
@@ -20,6 +25,7 @@ export function surface<const TChild extends Element<unknown>>(
 ): Element<ElementMessage<TChild>> {
   type Message = ElementMessage<TChild>;
   assertSurfaceChild(child);
+  assertOptionalEnum(options.appearance, ['neutral', 'bar', 'raised', 'inset'], 'surface() appearance');
   return layoutElementFromRenderNode<'surface', Message>({
     ...optionalId(options.id),
     kind: 'surface',
@@ -44,6 +50,10 @@ export function absolute<const TChild extends Element<unknown>>(
   options: AbsoluteOptions
 ): Element<ElementMessage<TChild>> {
   type Message = ElementMessage<TChild>;
+  assertFiniteNumber(options.row, 'absolute() row');
+  assertFiniteNumber(options.column, 'absolute() column');
+  assertOptionalFiniteNumber(options.width, 'absolute() width');
+  assertOptionalFiniteNumber(options.height, 'absolute() height');
   return layoutElementFromRenderNode<'absolute', Message>({
     ...optionalId(options.id),
     kind: 'absolute',

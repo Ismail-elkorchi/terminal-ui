@@ -8,10 +8,8 @@ import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual
 import type { Rect } from '../model/layout.ts';
 import { clipRenderSpans } from '../../visual/render.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import { numberProp } from './render-node-props.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
-import { normalizeNotificationTone } from '../../ui-model/status.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone } from '../../ui-model/feedback.ts';
 import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
 import type { NotificationStackPresentation } from '../../ui-model/notification-stack.ts';
@@ -177,7 +175,7 @@ function renderNotificationCard(
   theme: TerminalTheme
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const tone = normalizeNotificationTone(card.item.tone);
+  const tone = card.item.tone ?? 'info';
   fillCardBackground(buffer, renderNode, bounds, card.item, tone, card.state);
   drawBorder(buffer, bounds, notificationBorder(renderNode, card, tone, theme), theme);
   if (card.item.dismissible !== false && bounds.width >= 3) {
@@ -267,8 +265,7 @@ function notificationStackSizeFromCards(cards: readonly NotificationCard[]): Not
 }
 
 function notificationItems(renderNode: NotificationStackNode): readonly NotificationItem[] {
-  const items = notificationPresentation(renderNode).items;
-  return items.filter(isNotificationItem);
+  return notificationPresentation(renderNode).items;
 }
 
 function cardContentLines(item: NotificationItem): readonly NotificationCardLine[] {
@@ -443,12 +440,11 @@ function foregroundToken(tone: NotificationTone): ThemeColorToken {
 }
 
 function notificationPlacement(renderNode: NotificationStackNode): NotificationPlacement {
-  const placement = renderNode.props.placement;
-  return placement === 'bottom-right' || placement === 'centered-stack' ? placement : 'top-right';
+  return renderNode.props.placement ?? 'top-right';
 }
 
 function notificationMaxWidth(renderNode: NotificationStackNode): number {
-  const value = numberProp(renderNode, 'maxWidth');
+  const value = renderNode.props.maxWidth;
   return value === undefined ? 44 : Math.max(20, Math.min(120, Math.floor(value)));
 }
 
@@ -462,19 +458,11 @@ function notificationPresentation(renderNode: NotificationStackNode): Notificati
 }
 
 function notificationActionMessageFactory<TMessage>(renderNode: NotificationStackNode<TMessage>): ((action: NotificationStackAction) => TMessage) | undefined {
-  const candidate = renderNode.props.toActionMessage;
-  return typeof candidate === 'function' ? candidate : undefined;
+  return renderNode.props.toActionMessage;
 }
 
 function notificationDismissMessageFactory<TMessage>(renderNode: NotificationStackNode<TMessage>): ((id: string) => TMessage) | undefined {
-  const candidate = renderNode.props.toDismissMessage;
-  return typeof candidate === 'function' ? candidate : undefined;
-}
-
-function isNotificationItem(value: unknown): value is NotificationItem {
-  if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate['id'] === 'string' && typeof candidate['title'] === 'string';
+  return renderNode.props.toDismissMessage;
 }
 
 function clampProgress(value: number): number {

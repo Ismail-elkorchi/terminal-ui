@@ -1,7 +1,7 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { ChartDataState, MeterResult } from '../../ui-model/feedback.ts';
+import type { MeterResult } from '../../ui-model/feedback.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { block, line, span } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -38,14 +38,6 @@ export type ChartVisualKind =
   | 'result'
   | 'threshold';
 
-export function chartDataState(value: unknown): ChartDataState | undefined {
-  return value === 'loading' || value === 'error' ? value : undefined;
-}
-
-export function meterResult(value: unknown): MeterResult | undefined {
-  return value === 'success' || value === 'warning' || value === 'error' ? value : undefined;
-}
-
 export function chartStateBlock(
   renderNode: ChartDataNode,
   kind: ChartSurfaceKind,
@@ -57,7 +49,7 @@ export function chartStateBlock(
     readonly errorText?: string;
   }
 ): RenderBlock | undefined {
-  const dataState = chartDataState(renderNode.props.dataState);
+  const dataState = renderNode.props.dataState;
   if (dataState === 'loading') {
     return chartMessageBlock(renderNode, kind, 'loading', theme, input.loadingText, 'Loading data');
   }

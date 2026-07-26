@@ -1,5 +1,6 @@
 import { redactSecretLikeText } from './text/secrets.ts';
 import { sha256Hex } from './diagnostic-identity.ts';
+import { isNonArrayObject, isStringMember } from './foundation/validation.ts';
 
 export type TerminalSeverity = 'debug' | 'info' | 'warning' | 'error' | 'fatal';
 
@@ -196,15 +197,15 @@ function redactDiagnosticText(value: string): string {
 }
 
 export function terminalDiagnosticIssue(item: unknown): string | undefined {
-  if (!isRecord(item)) return 'diagnostic must be an object.';
+  if (!isNonArrayObject(item)) return 'diagnostic must be an object.';
   if (item['schemaVersion'] !== 'terminal-ui.terminal-diagnostic.v1') return 'diagnostic schemaVersion is invalid.';
   if (typeof item['fingerprint'] !== 'string' || item['fingerprint'].length === 0) {
     return 'diagnostic fingerprint must be a non-empty string.';
   }
-  if (!isOneOf(item['code'], terminalDiagnosticCodes)) {
+  if (!isStringMember(item['code'], terminalDiagnosticCodes)) {
     return `unsupported diagnostic code: ${String(item['code'])}.`;
   }
-  if (!isOneOf(item['severity'], terminalSeverities)) {
+  if (!isStringMember(item['severity'], terminalSeverities)) {
     return `unsupported diagnostic severity: ${String(item['severity'])}.`;
   }
   if (typeof item['message'] !== 'string') return 'diagnostic message must be a string.';
@@ -217,7 +218,7 @@ export function terminalDiagnosticIssue(item: unknown): string | undefined {
   if (item['hint'] !== undefined && typeof item['hint'] !== 'string') return 'diagnostic hint must be a string.';
   if (
     item['data'] !== undefined
-    && (!isRecord(item['data']) || !Object.values(item['data']).every(isDiagnosticValue))
+    && (!isNonArrayObject(item['data']) || !Object.values(item['data']).every(isDiagnosticValue))
   ) {
     return 'diagnostic data must be a JSON-safe object.';
   }
@@ -242,7 +243,7 @@ export function terminalDiagnosticIssue(item: unknown): string | undefined {
 export function diagnosticOccurrenceIssue(item: unknown): string | undefined {
   const diagnosticIssue = terminalDiagnosticIssue(item);
   if (diagnosticIssue !== undefined) return diagnosticIssue;
-  if (!isRecord(item)) return 'diagnostic occurrence must be an object.';
+  if (!isNonArrayObject(item)) return 'diagnostic occurrence must be an object.';
   if (typeof item['id'] !== 'string' || item['id'].length === 0) {
     return 'diagnostic occurrence id must be a non-empty string.';
   }
@@ -266,13 +267,5 @@ function isDiagnosticValue(value: unknown): boolean {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
   if (typeof value === 'number') return Number.isFinite(value);
   if (Array.isArray(value)) return value.every(isDiagnosticValue);
-  return isRecord(value) && Object.values(value).every(isDiagnosticValue);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isOneOf<TValue extends string>(value: unknown, options: readonly TValue[]): value is TValue {
-  return typeof value === 'string' && (options as readonly string[]).includes(value);
+  return isNonArrayObject(value) && Object.values(value).every(isDiagnosticValue);
 }

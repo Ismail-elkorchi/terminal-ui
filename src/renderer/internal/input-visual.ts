@@ -1,4 +1,5 @@
 import { clipTextCells, sanitizeTerminalText, terminalTextWidth } from '../../text/index.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 import { block, line, span } from './frame.ts';
 import { formSource, type FormVisualKind } from './form-visual.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
@@ -445,7 +446,7 @@ function normalizeTextAreaHighlight(
   windowStart: number,
   windowEnd: number
 ): NormalizedTextAreaHighlight | undefined {
-  if (!isRecord(value)) return undefined;
+  if (!isNonArrayObject(value)) return undefined;
   const startOffset = value['startOffset'];
   const endOffsetExclusive = value['endOffsetExclusive'];
   if (typeof startOffset !== 'number'
@@ -462,7 +463,7 @@ function normalizeTextAreaHighlight(
   const label = typeof value['label'] === 'string' && value['label'].length > 0
     ? value['label']
     : `highlight.${String(index)}`;
-  const style = isRecord(value['style'])
+  const style = isNonArrayObject(value['style'])
     ? value['style'] as TextAreaHighlight['style']
     : undefined;
   return {
@@ -582,13 +583,13 @@ function textAreaLineNumberOptions(
   renderNode: TextAreaNode
 ): { readonly start: number; readonly minWidth: number } | undefined {
   const raw = renderNode.props.lineNumbers;
-  if (raw !== true && !isRecord(raw)) return undefined;
-  const startNumber = isRecord(raw)
+  if (raw !== true && !isNonArrayObject(raw)) return undefined;
+  const startNumber = isNonArrayObject(raw)
     && typeof raw['startNumber'] === 'number'
     && Number.isFinite(raw['startNumber'])
     ? Math.floor(raw['startNumber'])
     : 1;
-  const minWidth = isRecord(raw) && typeof raw['minWidth'] === 'number' && Number.isFinite(raw['minWidth'])
+  const minWidth = isNonArrayObject(raw) && typeof raw['minWidth'] === 'number' && Number.isFinite(raw['minWidth'])
     ? Math.max(1, Math.floor(raw['minWidth']))
     : 1;
   return { start: startNumber, minWidth };
@@ -596,8 +597,4 @@ function textAreaLineNumberOptions(
 
 function textAreaActiveLineEnabled(renderNode: TextAreaNode): boolean {
   return renderNode.props.activeLine === true;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

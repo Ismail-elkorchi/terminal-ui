@@ -3,9 +3,10 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { contractScenarios } from '../tests/contracts/matrix.ts';
+import { globFiles } from './glob-files.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const contractRuntimeRoot = join(projectRoot, 'tests', 'contracts', 'runtime');
 const jsrJson = JSON.parse(await readFile(join(projectRoot, 'jsr.json'), 'utf8'));
 const packageName = jsrJson.name;
 const temporaryRoot = await mkdtemp(join(tmpdir(), 'terminal-ui-jsr-runtime-'));
@@ -19,18 +20,14 @@ try {
   const importMapPath = join(temporaryRoot, 'import-map.json');
   await writeFile(importMapPath, `${JSON.stringify({ imports }, null, 2)}\n`, 'utf8');
 
-  const scenarios = [...new Set(contractScenarios
-    .filter((scenario) => scenario.contracts.includes('portable_runtime')
-      || scenario.id === 'schemas:jsr-artifacts')
-    .map((scenario) => scenario.path))];
-  for (const scenarioPath of scenarios) {
+  for (const scenarioPath of await globFiles(contractRuntimeRoot, ['**/*.mjs'])) {
     const result = await run('deno', [
       'run',
       '--quiet',
       `--allow-read=${projectRoot}`,
       '--import-map',
       importMapPath,
-      resolve(projectRoot, scenarioPath)
+      scenarioPath
     ]);
     const payload = JSON.parse(result.stdout.trim());
     if (payload.ok !== true) throw new Error(`JSR scenario ${scenarioPath} did not report success.`);

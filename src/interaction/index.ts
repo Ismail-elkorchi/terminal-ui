@@ -1,7 +1,7 @@
 export type * from './anchored-surface.ts';
 export { placeAnchoredSurface } from './anchored-surface.ts';
 export type * from './focus.ts';
-export type * from './message.ts';
+export type { IgnoredMessage, MessageResolution } from './message.ts';
 export { ignoreMessage, isIgnoredMessage } from './message.ts';
 export type * from './pointer-interaction.ts';
 export { pointerVisualState } from './pointer-interaction.ts';

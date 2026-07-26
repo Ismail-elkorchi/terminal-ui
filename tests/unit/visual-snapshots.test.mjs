@@ -20,7 +20,6 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
   const second = createVisualSnapshot({ frame, previousFrame: frame });
 
   assert.deepEqual(second, first);
-  assert.equal(first.schemaVersion, 'terminal-ui.visual-snapshots.v1');
   assert.equal(first.plainTextFrame, '[›Run ]');
   assert.match(first.ansiFrame, /\\x1b\[H/u);
   assert.doesNotMatch(first.ansiFrame, /\u001B/u);

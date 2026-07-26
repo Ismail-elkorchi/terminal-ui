@@ -1,4 +1,5 @@
 import type { InteractionTranscript, RedactionPolicy, TranscriptRedaction } from './types.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 
 export function redactTranscript(
   transcript: InteractionTranscript,
@@ -23,7 +24,7 @@ function redactValue(
   if (Array.isArray(value)) {
     return value.map((item, index) => redactValue(item, `${path}[${String(index)}]`, secrets, replacement, redactions));
   }
-  if (isRecord(value)) {
+  if (isNonArrayObject(value)) {
     return Object.fromEntries(
       Object.entries(value).map(([key, item]) => [
         key,
@@ -48,8 +49,4 @@ function redactString(
     redactions.push({ path, reason: 'secret' });
   }
   return next;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

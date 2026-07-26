@@ -1,4 +1,5 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 import { measureTextCells } from '../../text/index.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -701,7 +702,7 @@ function selectedTableCell(
   collection: TableCollection<unknown>
 ): SelectedTableCell | undefined {
   const selectedCell = renderNode.props.selectedCell;
-  if (!isRecord(selectedCell)) return undefined;
+  if (!isNonArrayObject(selectedCell)) return undefined;
   const rowId = selectedCell.rowId;
   const columnIndex = selectedCell.columnIndex;
   if (typeof rowId !== 'string') return undefined;
@@ -723,9 +724,6 @@ function tableActionMessageFactory<TMessage>(renderNode: TableNode<TMessage>): (
   return renderNode.props.toActionMessage;
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function tableSource(
   renderNode: TableNode,

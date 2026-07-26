@@ -4,10 +4,10 @@ import test from 'node:test';
 import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
-  createVisualSnapshot,
-  renderElementRegions,
-  logViewerSearchStatistics
+  createVisualSnapshot
 } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { logViewerSearchStatistics } from '../../dist/renderer/internal/log-viewer/prepared-data.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   appendLogHistory,

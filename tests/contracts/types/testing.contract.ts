@@ -10,13 +10,9 @@ const script: InteractionScript = {
   steps: [{ kind: 'input', event: 'x' }, { kind: 'assertOutput', includes: 'x' }]
 };
 const result = runInteractionScript(harness, script);
-type TestingModule = typeof import('@ismail-elkorchi/terminal-ui/testing');
 
 // @ts-expect-error interaction steps are discriminated
 const invalidScript: InteractionScript = { id: 'invalid', steps: [{ kind: 'sleep', ms: 1 }] };
-// @ts-expect-error private runtime render results are not part of the testing package
-type PrivateRenderResult = TestingModule['InternalRenderResult'];
 
 void result;
 void invalidScript;
-void (undefined as unknown as PrivateRenderResult);

@@ -1,4 +1,5 @@
 import { renderNodeId } from '../foundation/identity.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 import { extensionElementFromRenderNode, toRenderNodes } from './model/element.ts';
 import { renderNodeInteraction } from './model/metadata.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -130,6 +131,8 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
   childCount: number
 ): RenderNodeRenderer<TMessage, 'custom'> {
   const render = renderer.render;
+  const focusTargets = renderer.focusTargets;
+  const hitTargets = renderer.hitTargets;
   return {
     measure: ({ bounds, theme, widthProfile, childCount: measuredChildCount, measureChild }) =>
       renderer.measure?.({ state, bounds, theme, widthProfile, childCount: measuredChildCount, measureChild })
@@ -151,17 +154,17 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
       theme,
       widthProfile
     }),
-    ...(renderer.focusTargets === undefined ? {} : {
-      focusTargets: ({ bounds, theme, widthProfile }) => renderer.focusTargets?.({ state, bounds, theme, widthProfile }) ?? []
+    ...(focusTargets === undefined ? {} : {
+      focusTargets: ({ bounds, theme, widthProfile }) => focusTargets({ state, bounds, theme, widthProfile })
     }),
-    ...(renderer.hitTargets === undefined ? {} : {
-      hitTargets: ({ bounds, theme, widthProfile }) => renderer.hitTargets?.({ state, bounds, theme, widthProfile }) ?? []
+    ...(hitTargets === undefined ? {} : {
+      hitTargets: ({ bounds, theme, widthProfile }) => hitTargets({ state, bounds, theme, widthProfile })
     })
   };
 }
 
 function assertCustomCompositeRenderer(value: unknown): asserts value is CustomCompositeRenderer<unknown, unknown> {
-  if (!isRecord(value) || typeof value['layout'] !== 'function' || typeof value['accessibility'] !== 'function') {
+  if (!isNonArrayObject(value) || typeof value['layout'] !== 'function' || typeof value['accessibility'] !== 'function') {
     throw new TypeError('Custom composite renderers require layout and accessibility functions.');
   }
   for (const hook of ['measure', 'render', 'focusTargets', 'hitTargets'] as const) {
@@ -197,8 +200,4 @@ function rectFits(value: Rect, parent: Rect): boolean {
 
 function zeroMeasurement(): Measurement {
   return { minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

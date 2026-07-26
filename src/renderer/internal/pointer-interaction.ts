@@ -15,7 +15,7 @@ export function pointerInteractionHitTargets<TMessage>(
   const toActionMessage = renderNode.pointer?.toActionMessage;
   if (toActionMessage === undefined) return targets;
   if (targets.length === 0 && renderNodeDisabled(renderNode)) return targets;
-  const authoredTargets = targets.length > 0
+  const interactionTargets = targets.length > 0
     ? targets
     : [{
         id: `${renderNode.id ?? renderNode.kind}:root`,
@@ -24,7 +24,7 @@ export function pointerInteractionHitTargets<TMessage>(
         message: ignoreMessage,
         cursor: 'default' as const
       }];
-  return authoredTargets.map((target) => decoratePointerTarget(target, toActionMessage));
+  return interactionTargets.map((target) => decoratePointerTarget(target, toActionMessage));
 }
 
 export function renderNodePointerVisualState(

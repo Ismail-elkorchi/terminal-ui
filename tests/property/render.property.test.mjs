@@ -9,7 +9,7 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { applyRenderDiff } from '../../dist/testing/index.js';
+import { applyRenderDiff } from '../../dist/renderer/internal/diff-interpreter.js';
 import {
   richText,
   logViewer,

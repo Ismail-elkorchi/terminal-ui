@@ -19,6 +19,11 @@ interaction steps. Frame, render diff, accessible snapshot, diagnostic, input,
 and restore entries must be shaped as their public machine-readable contracts,
 not just tagged with a step kind.
 
+Schema versions identify these serialized contracts. The interaction
+transcript, frame, render-diff, and accessibility schemas form a linked schema
+set; register the published `schemaArtifacts` when compiling them. In-memory
+renderer and inspection objects do not carry schema versions.
+
 Diagnostics separate immutable content from reported occurrences. A
 `TerminalDiagnostic.fingerprint` identifies equal sanitized content. A
 `DiagnosticOccurrence` adds an owner-local `id` and `sequence` when that

@@ -257,33 +257,33 @@ test('public renderer helpers accept authored component elements', () => {
   `);
 });
 
-test('public authored Element rejects arbitrary objects', () => {
+test('public Element contracts reject arbitrary objects', () => {
   assertNoTypeDiagnostics(`
     import type { Element } from '@ismail-elkorchi/terminal-ui/components';
     import { renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
 
-    // @ts-expect-error plain objects are not authored terminal-ui elements
+    // @ts-expect-error plain objects are not terminal-ui elements
     const invalidElement: Element = {};
 
-    // @ts-expect-error renderer helpers require authored terminal-ui elements
+    // @ts-expect-error renderer helpers require terminal-ui elements
     renderElementFrame({}, { columns: 10, rows: 3 });
 
     void invalidElement;
   `);
 });
 
-test('renderer and layout boundaries reject unauthored JavaScript objects', async () => {
+test('renderer and layout boundaries reject objects not created by element factories', async () => {
   const { text } = await import('@ismail-elkorchi/terminal-ui/components');
   const { column } = await import('@ismail-elkorchi/terminal-ui/layout');
   const { renderElementFrame, renderFramePlain } = await import('@ismail-elkorchi/terminal-ui/renderer');
-  const invalid = { kind: 'text', props: { content: 'not authored' } };
-  const element = text('authored');
+  const invalid = { kind: 'text', props: { content: 'plain object' } };
+  const element = text('valid element');
 
   assert.equal(Object.isFrozen(element), true);
   assert.deepEqual(Reflect.ownKeys(element), []);
   assert.equal('kind' in element, false);
   assert.equal('props' in element, false);
-  assert.equal(renderFramePlain(renderElementFrame(element, { columns: 10, rows: 3 })), 'authored');
+  assert.equal(renderFramePlain(renderElementFrame(element, { columns: 20, rows: 3 })), 'valid element');
 
   assert.throws(
     () => renderElementFrame(invalid, { columns: 10, rows: 3 }),

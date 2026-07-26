@@ -6,6 +6,7 @@ import {
   normalizeTextSelection,
   terminalTextWidth
 } from '../../text/index.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { TextMeasurementOptions, TextSelection } from '../../text/index.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 
@@ -110,7 +111,7 @@ export function textDisplayWidth(value: string, options: TextMeasurementOptions)
 }
 
 export function selectionFromUnknown(value: string, selection: unknown): TextSelection | undefined {
-  if (!isRecord(selection)) return undefined;
+  if (!isNonArrayObject(selection)) return undefined;
   const startOffset = selection['startOffset'];
   const endOffsetExclusive = selection['endOffsetExclusive'];
   if (typeof startOffset !== 'number' || typeof endOffsetExclusive !== 'number') return undefined;
@@ -132,8 +133,4 @@ function styledSpan(text: string, style: TerminalStyle | undefined, source: Fram
 function clampColumn(cells: number, maxColumns: number | undefined): number {
   const max = maxColumns === undefined ? cells : Math.max(0, Math.floor(maxColumns));
   return Math.max(0, Math.min(max, cells));
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

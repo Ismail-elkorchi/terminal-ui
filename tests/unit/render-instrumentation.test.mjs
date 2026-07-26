@@ -32,7 +32,7 @@ test('render instrumentation records each stage only when requested', () => {
   ]);
   assert.equal(samples.every((sample) => sample.durationMs === 1), true);
   assert.deepEqual(Object.fromEntries(work.map((sample) => [sample.kind, sample.count])), {
-    authored_nodes: 1,
+    render_nodes: 1,
     measured_nodes: 1,
     rendered_nodes: 1,
     hit_target_candidates: 0,

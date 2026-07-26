@@ -1,7 +1,8 @@
 import type { ElementOverflowPriority } from '../../../../element/metadata.ts';
+import { isNonArrayObject } from '../../../../foundation/validation.ts';
 import type { RenderNode, RenderNodeOfKind, RenderNodesOfKind } from '../../../model/index.ts';
 import { layoutContentBounds, splitTracks } from '../../layout-geometry.ts';
-import { emptyRect, isRecord } from './common.ts';
+import { emptyRect } from './common.ts';
 import type { Rect } from '../../../model/layout.ts';
 import type {
   GridLayoutOptions,
@@ -323,7 +324,7 @@ function isLayoutOverflow(value: unknown): value is LayoutOverflow {
 }
 
 function isInsetObject(value: unknown): value is Exclude<LayoutInsetInput, number> {
-  if (!isRecord(value)) return false;
+  if (!isNonArrayObject(value)) return false;
   return insetFieldIsValid(value['top'])
     && insetFieldIsValid(value['right'])
     && insetFieldIsValid(value['bottom'])

@@ -7,11 +7,11 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
-  applyRenderDiff,
   createDirtyRegionSet,
-  dirtyRegionsForRegionChanges,
-  renderElementRegions
-} from '../../dist/testing/index.js';
+  dirtyRegionsForRegionChanges
+} from '../../dist/renderer/internal/dirty-regions.js';
+import { applyRenderDiff } from '../../dist/renderer/internal/diff-interpreter.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import {
   absolute,
   overlay,

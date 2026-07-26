@@ -1,3 +1,5 @@
+import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
+
 export interface MeasuredWindowItem<TValue> {
   readonly id: string;
   readonly value: TValue;
@@ -33,12 +35,12 @@ export interface MeasuredWindow<TValue> {
 }
 
 export function measuredWindow<TValue>(input: MeasuredWindowInput<TValue>): MeasuredWindow<TValue> {
-  const viewportRows = nonNegativeInteger(input.viewportRows);
+  const viewportRows = finiteNonNegativeIntegerOrZero(input.viewportRows);
   const items = normalizeItems(input.items);
   const starts = itemStarts(items);
   const totalRows = starts.at(-1) ?? 0;
   const maxOffset = Math.max(0, totalRows - viewportRows);
-  const requestedOffset = clamp(nonNegativeInteger(input.offsetRow ?? 0), 0, maxOffset);
+  const requestedOffset = clamp(finiteNonNegativeIntegerOrZero(input.offsetRow ?? 0), 0, maxOffset);
   const selectedIndex = input.selectedId === undefined
     ? undefined
     : items.findIndex((item) => item.id === input.selectedId);
@@ -87,7 +89,7 @@ function normalizeItems<TValue>(items: readonly MeasuredWindowItem<TValue>[]): r
   return items.map((item) => {
     if (ids.has(item.id)) throw new Error(`Duplicate measured item id: ${item.id}`);
     ids.add(item.id);
-    return { ...item, rows: nonNegativeInteger(item.rows) };
+    return { ...item, rows: finiteNonNegativeIntegerOrZero(item.rows) };
   });
 }
 
@@ -110,10 +112,6 @@ function revealItemOffset(
   if (startRow < offsetRow) return clamp(startRow, 0, maxOffset);
   if (endRow > offsetRow + viewportRows) return clamp(endRow - viewportRows, 0, maxOffset);
   return offsetRow;
-}
-
-function nonNegativeInteger(value: number): number {
-  return Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

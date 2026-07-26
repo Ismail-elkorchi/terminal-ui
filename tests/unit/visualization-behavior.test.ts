@@ -9,7 +9,7 @@ import {
 import { barChart, chart, heatmap } from '../../dist/components/index.js';
 import type { BarChartItem } from '../../dist/components/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
 
 void test('bar chart behavior keeps stable selection through reorder and deletion', () => {

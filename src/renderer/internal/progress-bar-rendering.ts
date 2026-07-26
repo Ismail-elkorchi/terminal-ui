@@ -3,13 +3,12 @@ import { fillTextCells, measureTextCells, sanitizeTerminalText } from '../../tex
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import { indeterminateProgressFrame } from '../../behavior/feedback.ts';
 import type { ProcessStatus } from '../../ui-model/contracts.ts';
-import { normalizeProcessStatus } from '../../ui-model/status.ts';
 import type { ProgressBarLabelPosition, ProgressBarDisplay, ValueScaleStop } from '../../ui-model/feedback.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { block, line } from './frame.ts';
 import { feedbackStatusMarkerSpan, feedbackStructureSpan, feedbackTextSpan } from './feedback-visual.ts';
-import { numberProp, stringify } from './render-node-props.ts';
+import { stringify } from './render-node-props.ts';
 import { measureRenderSpans } from '../../visual/render.ts';
 import { normalizeValueScale, valueScaleStyle } from './value-scale.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './frame.ts';
@@ -294,13 +293,13 @@ function progressModel(renderNode: ProgressBarNode): ProgressModel {
   const indeterminate = mode.kind === 'indeterminate';
   const max = mode.kind === 'determinate' ? mode.max ?? 100 : 100;
   const value = mode.kind === 'determinate' ? Math.max(0, Math.min(max, mode.value)) : 0;
-  const barWidth = boundedBarWidth(numberProp(renderNode, 'barWidth'));
+  const barWidth = renderNode.props.barWidth ?? 10;
   const percentage = max === 0 ? 0 : Math.round((value / max) * 100);
   return {
     label: sanitizeTerminalText(stringify(renderNode.props.label)).text,
-    display: progressDisplay(renderNode.props.display),
-    labelPosition: progressLabelPosition(renderNode.props.labelPosition),
-    status: normalizeProcessStatus(renderNode.props.status, 'running'),
+    display: renderNode.props.display ?? 'bar+value',
+    labelPosition: renderNode.props.labelPosition ?? 'start',
+    status: renderNode.props.status ?? 'running',
     indeterminate,
     value,
     max,
@@ -308,8 +307,8 @@ function progressModel(renderNode: ProgressBarNode): ProgressModel {
     percentage,
     frame: mode.kind === 'indeterminate' ? Math.floor(mode.frame ?? 0) : 0,
     valueScale: normalizeValueScale(renderNode.props.valueScale),
-    ...durationProp('elapsedMs', renderNode.props.elapsedMs),
-    ...durationProp('remainingMs', renderNode.props.remainingMs)
+    ...(renderNode.props.elapsedMs === undefined ? {} : { elapsedMs: renderNode.props.elapsedMs }),
+    ...(renderNode.props.remainingMs === undefined ? {} : { remainingMs: renderNode.props.remainingMs })
   };
 }
 
@@ -331,15 +330,6 @@ function timingText(model: ProgressModel): string {
   return parts.join(' ');
 }
 
-function durationProp<TKey extends 'elapsedMs' | 'remainingMs'>(
-  key: TKey,
-  value: unknown
-): Pick<ProgressModel, TKey> | Record<string, never> {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0
-    ? { [key]: Math.floor(value) } as Pick<ProgressModel, TKey>
-    : {};
-}
-
 function formatDuration(milliseconds: number): string {
   const totalSeconds = Math.floor(milliseconds / 1000);
   if (totalSeconds < 60) return `${String(totalSeconds)}s`;
@@ -351,21 +341,4 @@ function formatDuration(milliseconds: number): string {
   return remainingMinutes === 0 ? `${String(hours)}h` : `${String(hours)}h${String(remainingMinutes).padStart(2, '0')}m`;
 }
 
-function boundedBarWidth(value: number | undefined): number {
-  if (value === undefined || !Number.isFinite(value)) return 10;
-  return Math.max(1, Math.min(120, Math.floor(value)));
-}
-
-function progressDisplay(value: unknown): ProgressBarDisplay {
-  return value === 'bar'
-    || value === 'bar+percent'
-    || value === 'bar+value'
-    || value === 'bar+value+percent'
-    ? value
-    : 'bar+value';
-}
-
-function progressLabelPosition(value: unknown): ProgressBarLabelPosition {
-  return value === 'end' || value === 'none' ? value : 'start';
-}
 type ProgressBarNode = RenderNodeOfKind<unknown, 'progressBar'>;

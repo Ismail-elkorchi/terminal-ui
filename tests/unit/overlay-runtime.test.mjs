@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { canvas, contextMenu, dialog, dropdownMenu, table, text, textInput } from '../../dist/components/index.js';
 import { absolute, overlay, surface } from '../../dist/layout/index.js';
 

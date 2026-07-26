@@ -299,6 +299,14 @@ test('malformed custom renderers fail as programmer errors', () => {
     /Custom renderers must provide a renderer with a render function/u
   );
   assert.throws(
+    () => custom({ id: 'array-renderer', renderer: [] }),
+    /Custom renderers must provide a renderer with a render function/u
+  );
+  assert.throws(
+    () => customComposite({ id: 'array-composite-renderer', renderer: [], children: [] }),
+    /Custom composite renderers require layout and accessibility functions/u
+  );
+  assert.throws(
     () => custom({
       id: 'bad-accessibility-hook',
       renderer: {
@@ -307,6 +315,22 @@ test('malformed custom renderers fail as programmer errors', () => {
       }
     }),
     /renderer field "accessibility" must be a function/u
+  );
+});
+
+test('custom renderer hook results are not replaced with renderer fallbacks', () => {
+  const element = custom({
+    id: 'missing-accessibility-result',
+    renderer: {
+      render() {},
+      accessibility() {
+        return undefined;
+      }
+    }
+  });
+  assert.throws(
+    () => renderElementFrame(element, { columns: 10, rows: 2 }),
+    TypeError
   );
 });
 

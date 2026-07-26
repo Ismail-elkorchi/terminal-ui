@@ -4,10 +4,10 @@ import test from 'node:test';
 import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
-  createVisualSnapshot,
-  placeNotificationStack,
-  renderElementRegions
+  createVisualSnapshot
 } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { placeNotificationStack } from '../../dist/renderer/internal/notifications.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { measureTextCells } from '../../dist/text/index.js';
 import {
@@ -19,6 +19,23 @@ import {
   notificationStack,
   text
 } from '../../dist/components/index.js';
+
+test('notification authoring rejects malformed items instead of omitting them', () => {
+  assert.throws(() => notificationStack({
+    id: 'invalid-notices',
+    presentation: {
+      kind: 'live',
+      items: [{ id: 'broken', title: 'Broken', tone: 'fatal' }]
+    }
+  }), TypeError);
+  assert.throws(() => notificationStack({
+    id: 'invalid-progress',
+    presentation: {
+      kind: 'live',
+      items: [{ id: 'broken', title: 'Broken', progress: Number.NaN }]
+    }
+  }), RangeError);
+});
 
 test('notificationStack renders stacked status cards with semantic styles and accessibility', () => {
   const frame = renderElementFrame(notificationStack({

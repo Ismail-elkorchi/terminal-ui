@@ -17,7 +17,7 @@ import {
   scrollbarInteractionReducer,
   scrollbarLayout,
   scrollbarVisualStateForTarget
-} from '../../dist/testing/index.js';
+} from '../../dist/renderer/internal/scrollbar.js';
 import {
   menu,
   searchPicker,

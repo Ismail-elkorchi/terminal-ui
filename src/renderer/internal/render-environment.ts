@@ -18,8 +18,8 @@ export interface RenderEnvironmentInput {
 
 export function createRenderEnvironment(input: RenderEnvironmentInput): RenderEnvironment {
   const terminalSize = Object.freeze({
-    columns: nonNegativeInteger(input.terminalSize.columns, 'terminal size columns'),
-    rows: nonNegativeInteger(input.terminalSize.rows, 'terminal size rows')
+    columns: requireNonNegativeInteger(input.terminalSize.columns, 'terminal size columns'),
+    rows: requireNonNegativeInteger(input.terminalSize.rows, 'terminal size rows')
   });
   const theme = input.theme === undefined
     ? defaultTheme
@@ -31,7 +31,7 @@ export function createRenderEnvironment(input: RenderEnvironmentInput): RenderEn
   });
 }
 
-function nonNegativeInteger(value: number, label: string): number {
+function requireNonNegativeInteger(value: number, label: string): number {
   if (!Number.isInteger(value) || value < 0) throw new TypeError(`${label} must be a non-negative integer.`);
   return value;
 }

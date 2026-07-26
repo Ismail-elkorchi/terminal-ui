@@ -1,8 +1,8 @@
 import { numberProp } from '../../render-node-props.ts';
+import { finiteNonNegativeIntegerOrZero } from '../../../../foundation/validation.ts';
 import { normalizeScrollState } from '../../../../behavior/scroll.ts';
 import { renderNodeStyle } from '../../render-node-style.ts';
 import { renderNodeFrameSource } from '../../../../visual/source.ts';
-import { nonNegativeInteger } from './common.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
 import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
@@ -47,8 +47,8 @@ export function viewportVisualState(renderNode: ViewportNode, bounds: Rect): Vie
   const contentColumns = contentSize(renderNode, 'contentColumns', bounds.width);
   const empty = contentRows === 0 || contentColumns === 0;
   const scroll = normalizeScrollState({
-    offsetRow: nonNegativeInteger(numberProp(renderNode, 'scrollRow')),
-    offsetColumn: nonNegativeInteger(numberProp(renderNode, 'scrollColumn')),
+    offsetRow: finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'scrollRow')),
+    offsetColumn: finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'scrollColumn')),
     contentRows,
     contentColumns,
     viewportRows: bounds.height,
@@ -133,8 +133,8 @@ export function viewportIndicatorCellKey(row: number, column: number): string {
 
 function contentSize(renderNode: ViewportNode, key: 'contentRows' | 'contentColumns', fallback: number): number {
   return renderNode.props[key] === undefined
-    ? Math.max(0, fallback + nonNegativeInteger(numberProp(renderNode, key === 'contentRows' ? 'scrollRow' : 'scrollColumn')))
-    : nonNegativeInteger(numberProp(renderNode, key));
+    ? Math.max(0, fallback + finiteNonNegativeIntegerOrZero(numberProp(renderNode, key === 'contentRows' ? 'scrollRow' : 'scrollColumn')))
+    : finiteNonNegativeIntegerOrZero(numberProp(renderNode, key));
 }
 
 function centered(bounds: Rect): { readonly row: number; readonly column: number } {

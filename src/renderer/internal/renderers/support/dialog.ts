@@ -1,4 +1,5 @@
 import type { TerminalTheme } from '../../../../theme/index.ts';
+import { finiteNonNegativeIntegerOrZero } from '../../../../foundation/validation.ts';
 import type { RenderNode, RenderNodeOfKind } from '../../../model/index.ts';
 import type { BorderStyle } from '../../border.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
@@ -8,7 +9,7 @@ import type { Measurement } from '../../measurement.ts';
 import type { TerminalStyle } from '../../../../visual/render.ts';
 import { numberProp } from '../../render-node-props.ts';
 import { borderContentBounds } from './border.ts';
-import { clampRect, nonNegativeInteger } from './common.ts';
+import { clampRect } from './common.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import { oneCellGlyph } from '../../../../text/index.ts';
 
@@ -109,7 +110,7 @@ function dialogHasActions(renderNode: RenderNode): boolean {
 
 function dialogActionHeight(contentHeight: number, measure: Measurement | undefined): number {
   if (contentHeight <= 0) return 0;
-  const preferred = Math.max(1, nonNegativeInteger(measure?.preferredHeight));
+  const preferred = Math.max(1, finiteNonNegativeIntegerOrZero(measure?.preferredHeight));
   return Math.min(preferred, contentHeight <= 1 ? contentHeight : contentHeight - 1);
 }
 

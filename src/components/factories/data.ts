@@ -26,7 +26,7 @@ import {
   tableKeyBindings,
   treeKeyBindings
 } from '../internal/interaction.ts';
-import { tableColumnsForRenderer } from '../internal/domain.ts';
+import { tableColumnsForRenderer, tablePresentationForRenderer } from '../internal/domain.ts';
 import { requiredId } from '../../authoring/render-node.ts';
 import type {
   ComponentKeyBindingMessages,
@@ -127,7 +127,7 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
   const columns = tableColumnsForRenderer(options.columns);
   const toActionMessage = options.onAction;
   const toScrollActionMessage = isScrollableTableOptions(options) ? options.onAction : undefined;
-  const presentation = options.presentation;
+  const presentation = tablePresentationForRenderer(options.presentation);
   const scroll = isScrollableTableOptions(options) ? options.presentation.scroll : undefined;
   return componentElementFromRenderNode<'table', unknown>({
     ...requiredId(options.id, 'table'),

@@ -2,28 +2,60 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/interaction-transcript.schema.json",
   "type": "object",
-  "required": ["schemaVersion", "id", "source", "steps", "diagnostics", "redactions"],
+  "required": [
+    "schemaVersion",
+    "id",
+    "source",
+    "steps",
+    "diagnostics",
+    "redactions"
+  ],
   "properties": {
-    "schemaVersion": { "const": "terminal-ui.interaction-transcript.v4" },
-    "id": { "type": "string", "minLength": 1 },
-    "source": { "enum": ["prompt", "tui", "test", "replay"] },
-    "startedAt": { "type": "string" },
+    "schemaVersion": {
+      "const": "terminal-ui.interaction-transcript.v4"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "enum": [
+        "prompt",
+        "tui",
+        "test",
+        "replay"
+      ]
+    },
+    "startedAt": {
+      "type": "string"
+    },
     "steps": {
       "type": "array",
-      "items": { "$ref": "#/$defs/step" }
+      "items": {
+        "$ref": "#/$defs/step"
+      }
     },
     "diagnostics": {
       "type": "array",
-      "items": { "$ref": "#/$defs/diagnosticOccurrence" }
+      "items": {
+        "$ref": "#/$defs/diagnosticOccurrence"
+      }
     },
     "redactions": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path", "reason"],
+        "required": [
+          "path",
+          "reason"
+        ],
         "properties": {
-          "path": { "type": "string" },
-          "reason": { "type": "string" }
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       }
@@ -31,69 +63,109 @@
   },
   "additionalProperties": false,
   "$defs": {
-    "textWidthProfile": {
-      "type": "object",
-      "required": ["emoji", "ambiguous"],
-      "properties": {
-        "emoji": { "enum": ["narrow", "wide"] },
-        "ambiguous": { "enum": ["narrow", "wide"] }
-      },
-      "additionalProperties": false
-    },
     "step": {
       "oneOf": [
         {
           "type": "object",
-          "required": ["kind", "event"],
+          "required": [
+            "kind",
+            "event"
+          ],
           "properties": {
-            "kind": { "const": "input" },
-            "event": { "$ref": "#/$defs/inputEvent" }
+            "kind": {
+              "const": "input"
+            },
+            "event": {
+              "$ref": "#/$defs/inputEvent"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "source", "message"],
+          "required": [
+            "kind",
+            "source",
+            "message"
+          ],
           "properties": {
-            "kind": { "const": "message" },
-            "source": { "enum": ["input", "signal", "timer", "external", "effect"] },
+            "kind": {
+              "const": "message"
+            },
+            "source": {
+              "enum": [
+                "input",
+                "signal",
+                "timer",
+                "external",
+                "effect"
+              ]
+            },
             "message": true
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "commit"],
+          "required": [
+            "kind",
+            "commit"
+          ],
           "properties": {
-            "kind": { "const": "commit" },
-            "commit": { "$ref": "#/$defs/runtimeCommit" }
+            "kind": {
+              "const": "commit"
+            },
+            "commit": {
+              "$ref": "#/$defs/runtimeCommit"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "snapshot"],
+          "required": [
+            "kind",
+            "snapshot"
+          ],
           "properties": {
-            "kind": { "const": "snapshot" },
-            "snapshot": { "$ref": "#/$defs/accessibleSnapshot" }
+            "kind": {
+              "const": "snapshot"
+            },
+            "snapshot": {
+              "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/accessible-snapshot.schema.json"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "diagnostic"],
+          "required": [
+            "kind",
+            "diagnostic"
+          ],
           "properties": {
-            "kind": { "const": "diagnostic" },
-            "diagnostic": { "$ref": "#/$defs/diagnosticOccurrence" }
+            "kind": {
+              "const": "diagnostic"
+            },
+            "diagnostic": {
+              "$ref": "#/$defs/diagnosticOccurrence"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "result"],
+          "required": [
+            "kind",
+            "result"
+          ],
           "properties": {
-            "kind": { "const": "restore" },
-            "result": { "$ref": "#/$defs/restoreResult" }
+            "kind": {
+              "const": "restore"
+            },
+            "result": {
+              "$ref": "#/$defs/restoreResult"
+            }
           },
           "additionalProperties": false
         }
@@ -101,14 +173,37 @@
     },
     "runtimeCommit": {
       "type": "object",
-      "required": ["id", "stateVersion", "terminalSize", "frame", "diff"],
+      "required": [
+        "id",
+        "stateVersion",
+        "terminalSize",
+        "frame",
+        "diff"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "stateVersion": { "type": "integer", "minimum": 0 },
-        "terminalSize": { "$ref": "#/$defs/terminalSize" },
-        "focusPath": { "type": "array", "items": { "type": "string" } },
-        "frame": { "$ref": "#/$defs/frame" },
-        "diff": { "$ref": "#/$defs/renderDiff" }
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "terminalSize": {
+          "$ref": "#/$defs/terminalSize"
+        },
+        "focusPath": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "frame": {
+          "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/tui-frame.schema.json"
+        },
+        "diff": {
+          "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/render-diff.schema.json"
+        }
       },
       "additionalProperties": false
     },
@@ -116,21 +211,76 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 1114111,
-      "not": { "minimum": 55296, "maximum": 57343 }
+      "not": {
+        "minimum": 55296,
+        "maximum": 57343
+      }
     },
     "inputEvent": {
       "oneOf": [
         {
           "type": "object",
-          "required": ["kind", "key", "modifiers", "eventType", "location"],
+          "required": [
+            "kind",
+            "key",
+            "modifiers",
+            "eventType",
+            "location"
+          ],
           "properties": {
-            "kind": { "const": "key" },
+            "kind": {
+              "const": "key"
+            },
             "key": {
               "enum": [
-                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
-                "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
-                "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-                "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
+                "a",
+                "b",
+                "c",
+                "d",
+                "e",
+                "f",
+                "g",
+                "h",
+                "i",
+                "j",
+                "k",
+                "l",
+                "m",
+                "n",
+                "o",
+                "p",
+                "q",
+                "r",
+                "s",
+                "t",
+                "u",
+                "v",
+                "w",
+                "x",
+                "y",
+                "z",
+                "0",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "f1",
+                "f2",
+                "f3",
+                "f4",
+                "f5",
+                "f6",
+                "f7",
+                "f8",
+                "f9",
+                "f10",
+                "f11",
+                "f12",
                 "enter",
                 "escape",
                 "tab",
@@ -155,75 +305,185 @@
                 "unknown"
               ]
             },
-            "sequence": { "type": "string" },
-            "keyCodePoint": { "$ref": "#/$defs/unicodeScalar" },
-            "committedText": { "type": "string" },
+            "sequence": {
+              "type": "string"
+            },
+            "keyCodePoint": {
+              "$ref": "#/$defs/unicodeScalar"
+            },
+            "committedText": {
+              "type": "string"
+            },
             "alternateCodePoints": {
               "type": "object",
               "minProperties": 1,
               "properties": {
-                "shifted": { "$ref": "#/$defs/unicodeScalar" },
-                "baseLayout": { "$ref": "#/$defs/unicodeScalar" }
+                "shifted": {
+                  "$ref": "#/$defs/unicodeScalar"
+                },
+                "baseLayout": {
+                  "$ref": "#/$defs/unicodeScalar"
+                }
               },
               "additionalProperties": false
             },
             "modifiers": {
               "type": "object",
-              "required": ["ctrl", "alt", "shift", "meta"],
+              "required": [
+                "ctrl",
+                "alt",
+                "shift",
+                "meta"
+              ],
               "properties": {
-                "ctrl": { "type": "boolean" },
-                "alt": { "type": "boolean" },
-                "shift": { "type": "boolean" },
-                "meta": { "type": "boolean" }
+                "ctrl": {
+                  "type": "boolean"
+                },
+                "alt": {
+                  "type": "boolean"
+                },
+                "shift": {
+                  "type": "boolean"
+                },
+                "meta": {
+                  "type": "boolean"
+                }
               },
               "additionalProperties": false
             },
-            "eventType": { "enum": ["press", "repeat", "release"] },
-            "location": { "enum": ["standard", "numpad", "unknown"] }
+            "eventType": {
+              "enum": [
+                "press",
+                "repeat",
+                "release"
+              ]
+            },
+            "location": {
+              "enum": [
+                "standard",
+                "numpad",
+                "unknown"
+              ]
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "text", "paste"],
+          "required": [
+            "kind",
+            "text",
+            "paste"
+          ],
           "properties": {
-            "kind": { "const": "text" },
-            "text": { "type": "string" },
-            "paste": { "const": false }
+            "kind": {
+              "const": "text"
+            },
+            "text": {
+              "type": "string"
+            },
+            "paste": {
+              "const": false
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "text", "bracketed"],
+          "required": [
+            "kind",
+            "text",
+            "bracketed"
+          ],
           "properties": {
-            "kind": { "const": "paste" },
-            "text": { "type": "string" },
-            "bracketed": { "type": "boolean" }
+            "kind": {
+              "const": "paste"
+            },
+            "text": {
+              "type": "string"
+            },
+            "bracketed": {
+              "type": "boolean"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "sequence", "encoding", "action", "button", "row", "column", "rawCode", "modifiers"],
+          "required": [
+            "kind",
+            "sequence",
+            "encoding",
+            "action",
+            "button",
+            "row",
+            "column",
+            "rawCode",
+            "modifiers"
+          ],
           "properties": {
-            "kind": { "const": "mouse" },
-            "sequence": { "type": "string" },
-            "encoding": { "enum": ["sgr", "x10"] },
-            "action": { "enum": ["press", "release", "drag", "move", "wheel"] },
+            "kind": {
+              "const": "mouse"
+            },
+            "sequence": {
+              "type": "string"
+            },
+            "encoding": {
+              "enum": [
+                "sgr",
+                "x10"
+              ]
+            },
+            "action": {
+              "enum": [
+                "press",
+                "release",
+                "drag",
+                "move",
+                "wheel"
+              ]
+            },
             "button": {
-              "enum": ["left", "middle", "right", "wheelUp", "wheelDown", "wheelLeft", "wheelRight", "none", "unknown"]
+              "enum": [
+                "left",
+                "middle",
+                "right",
+                "wheelUp",
+                "wheelDown",
+                "wheelLeft",
+                "wheelRight",
+                "none",
+                "unknown"
+              ]
             },
-            "row": { "type": "integer", "minimum": 1 },
-            "column": { "type": "integer", "minimum": 1 },
-            "rawCode": { "type": "integer" },
+            "row": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "column": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "rawCode": {
+              "type": "integer"
+            },
             "modifiers": {
               "type": "object",
-              "required": ["shift", "alt", "ctrl"],
+              "required": [
+                "shift",
+                "alt",
+                "ctrl"
+              ],
               "properties": {
-                "shift": { "type": "boolean" },
-                "alt": { "type": "boolean" },
-                "ctrl": { "type": "boolean" }
+                "shift": {
+                  "type": "boolean"
+                },
+                "alt": {
+                  "type": "boolean"
+                },
+                "ctrl": {
+                  "type": "boolean"
+                }
               },
               "additionalProperties": false
             }
@@ -232,45 +492,78 @@
         },
         {
           "type": "object",
-          "required": ["kind", "terminalSize"],
+          "required": [
+            "kind",
+            "terminalSize"
+          ],
           "properties": {
-            "kind": { "const": "resize" },
-            "terminalSize": { "$ref": "#/$defs/terminalSize" }
+            "kind": {
+              "const": "resize"
+            },
+            "terminalSize": {
+              "$ref": "#/$defs/terminalSize"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "focused"],
+          "required": [
+            "kind",
+            "focused"
+          ],
           "properties": {
-            "kind": { "const": "focus" },
-            "focused": { "type": "boolean" }
+            "kind": {
+              "const": "focus"
+            },
+            "focused": {
+              "type": "boolean"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "signal"],
+          "required": [
+            "kind",
+            "signal"
+          ],
           "properties": {
-            "kind": { "const": "signal" },
-            "signal": { "type": "string", "minLength": 1 }
+            "kind": {
+              "const": "signal"
+            },
+            "signal": {
+              "type": "string",
+              "minLength": 1
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind"],
+          "required": [
+            "kind"
+          ],
           "properties": {
-            "kind": { "const": "end" }
+            "kind": {
+              "const": "end"
+            }
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "sequence"],
+          "required": [
+            "kind",
+            "sequence"
+          ],
           "properties": {
-            "kind": { "const": "unknown" },
-            "sequence": { "type": "string" }
+            "kind": {
+              "const": "unknown"
+            },
+            "sequence": {
+              "type": "string"
+            }
           },
           "additionalProperties": false
         }
@@ -278,579 +571,342 @@
     },
     "terminalSize": {
       "type": "object",
-      "required": ["columns", "rows"],
-      "properties": {
-        "columns": { "type": "integer", "minimum": 1 },
-        "rows": { "type": "integer", "minimum": 1 }
-      },
-      "additionalProperties": false
-    },
-    "frame": {
-      "type": "object",
-      "required": ["schemaVersion", "width", "height", "widthProfile", "cells", "accessibility"],
-      "properties": {
-        "schemaVersion": { "const": "terminal-ui.tui-frame.v2" },
-        "width": { "type": "integer", "minimum": 0 },
-        "height": { "type": "integer", "minimum": 0 },
-        "widthProfile": { "$ref": "#/$defs/textWidthProfile" },
-        "cells": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/frameCell" }
-        },
-        "hitTargets": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/frameHitTarget" }
-        },
-        "cursor": { "$ref": "#/$defs/cursor" },
-        "focusPath": { "type": "array", "items": { "type": "string" } },
-        "metadata": { "$ref": "#/$defs/frameBufferSnapshotMetadata" },
-        "accessibility": { "$ref": "#/$defs/accessibleSnapshot" }
-      },
-      "additionalProperties": false
-    },
-    "frameCell": {
-      "type": "object",
-      "required": ["row", "column", "text", "width"],
-      "properties": {
-        "row": { "type": "integer", "minimum": 1 },
-        "column": { "type": "integer", "minimum": 1 },
-        "text": { "type": "string" },
-        "width": { "type": "integer", "minimum": 0 },
-        "style": { "$ref": "#/$defs/terminalStyle" },
-        "link": { "$ref": "#/$defs/terminalLink" },
-        "source": { "$ref": "#/$defs/frameCellSource" },
-        "continuation": { "type": "boolean" }
-      },
-      "additionalProperties": false
-    },
-    "frameHitTarget": {
-      "type": "object",
-      "required": ["id", "bounds"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "bounds": { "$ref": "#/$defs/rect" },
-        "accepts": {
-          "type": "array",
-          "items": {
-            "enum": ["pointerDown", "pointerUp", "click", "contextMenu", "scroll", "dragStart", "drag", "dragEnd", "hover", "enter", "leave"]
-          },
-          "uniqueItems": true
-        },
-        "focus": { "$ref": "#/$defs/pointerFocus" },
-        "cursor": { "enum": ["pointer", "text", "default"] },
-        "zIndex": { "type": "integer" }
-      },
-      "additionalProperties": false
-    },
-    "pointerFocus": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": ["kind", "path"],
-          "properties": {
-            "kind": { "const": "focus" },
-            "path": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind"],
-          "properties": { "kind": { "const": "preserve" } },
-          "additionalProperties": false
-        }
-      ]
-    },
-    "frameBufferSnapshotMetadata": {
-      "type": "object",
-      "required": ["writtenBounds", "clearedBounds", "rowFingerprints", "fingerprint"],
-      "properties": {
-        "writtenBounds": { "$ref": "#/$defs/dirtyRegionSet" },
-        "clearedBounds": { "$ref": "#/$defs/dirtyRegionSet" },
-        "rowFingerprints": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/frameRowFingerprint" }
-        },
-        "fingerprint": { "type": "string", "minLength": 1 }
-      },
-      "additionalProperties": false
-    },
-    "dirtyRegionSet": {
-      "type": "object",
-      "required": ["rects"],
-      "properties": {
-        "rects": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/rect" }
-        }
-      },
-      "additionalProperties": false
-    },
-    "frameRowFingerprint": {
-      "type": "object",
-      "required": ["row", "fingerprint"],
-      "properties": {
-        "row": { "type": "integer", "minimum": 1 },
-        "fingerprint": { "type": "string", "minLength": 1 }
-      },
-      "additionalProperties": false
-    },
-    "cursor": {
-      "type": "object",
-      "required": ["row", "column"],
-      "properties": {
-        "row": { "type": "integer", "minimum": 1 },
-        "column": { "type": "integer", "minimum": 1 },
-        "style": { "$ref": "#/$defs/terminalStyle" },
-        "source": { "$ref": "#/$defs/frameCellSource" }
-      },
-      "additionalProperties": false
-    },
-    "renderDiff": {
-      "type": "object",
-      "required": ["schemaVersion", "width", "height", "widthProfile", "operations", "fullRewrite"],
-      "properties": {
-        "schemaVersion": { "const": "terminal-ui.render-diff.v3" },
-        "width": { "type": "integer", "minimum": 0 },
-        "height": { "type": "integer", "minimum": 0 },
-        "widthProfile": { "$ref": "#/$defs/textWidthProfile" },
-        "operations": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/renderOperation" }
-        },
-        "cursor": { "$ref": "#/$defs/cursor" },
-        "fullRewrite": { "type": "boolean" },
-        "dirtyRegions": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/rect" }
-        }
-      },
-      "additionalProperties": false
-    },
-    "renderOperation": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": ["kind", "row", "column", "spans"],
-          "properties": {
-            "kind": { "const": "write" },
-            "row": { "type": "integer", "minimum": 1 },
-            "column": { "type": "integer", "minimum": 1 },
-            "spans": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/renderSpan" } }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "bounds"],
-          "properties": {
-            "kind": { "const": "clearRect" },
-            "bounds": { "$ref": "#/$defs/rect" }
-          },
-          "additionalProperties": false
-        }
-      ]
-    },
-    "rect": {
-      "type": "object",
-      "required": ["row", "column", "width", "height"],
-      "properties": {
-        "row": { "type": "integer", "minimum": 1 },
-        "column": { "type": "integer", "minimum": 1 },
-        "width": { "type": "integer", "minimum": 1 },
-        "height": { "type": "integer", "minimum": 1 }
-      },
-      "additionalProperties": false
-    },
-    "renderSpan": {
-      "type": "object",
-      "required": ["text"],
-      "properties": {
-        "text": { "type": "string" },
-        "style": { "$ref": "#/$defs/terminalStyle" },
-        "link": { "$ref": "#/$defs/terminalLink" },
-        "source": { "$ref": "#/$defs/frameCellSource" }
-      },
-      "additionalProperties": false
-    },
-    "terminalStyle": {
-      "type": "object",
-      "properties": {
-        "fg": { "$ref": "#/$defs/terminalColor" },
-        "bg": { "$ref": "#/$defs/terminalColor" },
-        "bold": { "type": "boolean" },
-        "dim": { "type": "boolean" },
-        "italic": { "type": "boolean" },
-        "underline": { "type": "boolean" },
-        "strikethrough": { "type": "boolean" },
-        "inverse": { "type": "boolean" },
-        "hidden": { "type": "boolean" }
-      },
-      "additionalProperties": false
-    },
-    "terminalColor": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": ["kind", "value"],
-          "properties": {
-            "kind": { "const": "ansi" },
-            "value": { "type": "integer", "minimum": 0, "maximum": 255 }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "r", "g", "b"],
-          "properties": {
-            "kind": { "const": "rgb" },
-            "r": { "type": "integer", "minimum": 0, "maximum": 255 },
-            "g": { "type": "integer", "minimum": 0, "maximum": 255 },
-            "b": { "type": "integer", "minimum": 0, "maximum": 255 }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "token"],
-          "properties": {
-            "kind": { "const": "theme" },
-            "token": { "type": "string", "minLength": 1 }
-          },
-          "additionalProperties": false
-        }
-      ]
-    },
-    "terminalLink": {
-      "type": "object",
-      "required": ["href"],
-      "properties": {
-        "href": { "type": "string" },
-        "id": { "type": "string" }
-      },
-      "additionalProperties": false
-    },
-    "frameCellSource": {
-      "type": "object",
-      "properties": {
-        "elementId": { "type": "string" },
-        "elementKind": { "type": "string" },
-        "rendererFamily": { "type": "string" },
-        "cellRole": { "enum": ["text", "border", "separator", "scrollbar", "cursor", "decoration", "chart", "custom"] },
-        "partName": { "type": "string" },
-        "partType": { "type": "string" },
-        "itemId": { "type": "string" },
-        "itemIndex": { "type": "integer", "minimum": 0 },
-        "interactionState": { "enum": ["focused", "hovered", "pressed", "selected", "disabled", "active"] },
-        "description": { "type": "string" }
-      },
-      "additionalProperties": false
-    },
-    "accessibleSnapshot": {
-      "type": "object",
-      "required": ["schemaVersion", "source", "root", "focusPath", "diagnostics"],
-      "properties": {
-        "schemaVersion": { "const": "terminal-ui.accessible-snapshot.v1" },
-        "source": { "enum": ["prompt", "tui", "renderer", "progress", "test_harness"] },
-        "title": { "type": "string" },
-        "root": { "$ref": "#/$defs/accessibleNode" },
-        "focusPath": { "type": "array", "items": { "type": "string" } },
-        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnosticContent" } }
-      },
-      "additionalProperties": false
-    },
-    "accessibleNode": {
-      "type": "object",
-      "required": ["id", "role"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "role": {
-          "enum": [
-            "application",
-            "dialog",
-            "form",
-            "group",
-            "navigation",
-            "status",
-            "progressbar",
-            "meter",
-            "textbox",
-            "button",
-            "checkbox",
-            "switch",
-            "radio",
-            "radiogroup",
-            "slider",
-            "spinbutton",
-            "combobox",
-            "listbox",
-            "option",
-        "menu",
-            "menubar",
-            "menuitem",
-            "menuitemcheckbox",
-            "menuitemradio",
-            "tablist",
-            "tab",
-            "table",
-            "grid",
-            "rowgroup",
-            "row",
-            "cell",
-            "gridcell",
-            "columnheader",
-            "rowheader",
-            "tree",
-            "treeitem",
-            "image",
-            "text"
-          ]
-        },
-        "label": { "type": "string" },
-        "value": {
-          "anyOf": [
-            { "type": "string" },
-            { "type": "number" },
-            { "type": "boolean" },
-            { "type": "null" }
-          ]
-        },
-        "focused": { "type": "boolean" },
-        "selected": { "type": "boolean" },
-        "disabled": { "type": "boolean" },
-        "expanded": { "type": "boolean" },
-        "checked": { "anyOf": [{ "type": "boolean" }, { "const": "mixed" }] },
-        "numericValue": {
-          "type": "object",
-          "properties": {
-            "current": { "type": "number" },
-            "minimum": { "type": "number" },
-            "maximum": { "type": "number" },
-            "indeterminate": { "type": "boolean" }
-          },
-          "additionalProperties": false
-        },
-        "live": { "enum": ["off", "polite", "assertive"] },
-        "scope": {
-          "type": "object",
-          "required": ["kind"],
-          "properties": {
-            "kind": { "enum": ["document", "modal", "popover", "menu"] },
-            "trapsFocus": { "type": "boolean" },
-            "obscuresBackground": { "type": "boolean" }
-          },
-          "additionalProperties": false
-        },
-        "window": {
-          "type": "object",
-          "required": ["startIndex", "endIndexExclusive", "totalCount"],
-          "properties": {
-            "startIndex": { "type": "integer", "minimum": 0 },
-            "endIndexExclusive": { "type": "integer", "minimum": 0 },
-            "totalCount": { "type": "integer", "minimum": 0 },
-            "omittedBefore": { "type": "integer", "minimum": 0 },
-            "omittedAfter": { "type": "integer", "minimum": 0 }
-          },
-          "additionalProperties": false
-        },
-        "position": {
-          "type": "object",
-          "properties": {
-            "positionInSet": { "type": "integer", "minimum": 1 },
-            "setSize": { "type": "integer", "minimum": 1 },
-            "level": { "type": "integer", "minimum": 1 },
-            "rowIndex": { "type": "integer", "minimum": 1 },
-            "rowCount": { "type": "integer", "minimum": 1 },
-            "columnIndex": { "type": "integer", "minimum": 1 },
-            "columnCount": { "type": "integer", "minimum": 1 },
-            "columnLabel": { "type": "string" },
-            "group": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "description": { "type": "string" },
-        "controls": { "type": "string", "minLength": 1 },
-        "labelledBy": { "type": "string", "minLength": 1 },
-        "children": { "type": "array", "items": { "$ref": "#/$defs/accessibleNode" } }
-      },
-      "allOf": [
-        {
-          "if": { "type": "object", "properties": { "checked": true }, "required": ["checked"] },
-          "then": { "type": "object", "properties": { "role": { "enum": ["checkbox", "switch", "radio", "menuitemcheckbox", "menuitemradio"] } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "checked": { "const": "mixed" } }, "required": ["checked"] },
-          "then": { "type": "object", "properties": { "role": { "enum": ["checkbox", "menuitemcheckbox"] } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "selected": true }, "required": ["selected"] },
-          "then": { "type": "object", "properties": { "role": { "enum": ["option", "tab", "row", "gridcell", "treeitem"] } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "expanded": true }, "required": ["expanded"] },
-          "then": { "type": "object", "properties": { "role": { "enum": ["button", "combobox", "menuitem", "menuitemcheckbox", "menuitemradio", "treeitem"] } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "numericValue": true }, "required": ["numericValue"] },
-          "then": { "type": "object", "properties": { "role": { "enum": ["progressbar", "meter", "slider", "spinbutton"] } } }
-        },
-        {
-          "if": {
-            "type": "object",
-            "properties": {
-              "numericValue": {
-                "type": "object",
-                "properties": { "indeterminate": { "const": true } },
-                "required": ["indeterminate"]
-              }
-            },
-            "required": ["numericValue"]
-          },
-          "then": { "type": "object", "properties": { "role": { "const": "progressbar" } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "const": "listbox" } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/optionNode" } } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "enum": ["menu", "menubar"] } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/menuItemNode" } } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "const": "combobox" } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/comboboxChildNode" } } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "const": "tablist" } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/tabNode" } } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "const": "radiogroup" } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/radioNode" } } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "enum": ["table", "grid"] } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/tableChildNode" } } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "const": "row" } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/tableCellNode" } } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "const": "rowgroup" } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/rowNode" } } } }
-        },
-        {
-          "if": { "type": "object", "properties": { "role": { "const": "tree" } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/treeItemNode" } } } }
-        }
+      "required": [
+        "columns",
+        "rows"
       ],
+      "properties": {
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
       "additionalProperties": false
-    },
-    "optionNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["option", "group"] } } }]
-    },
-    "menuItemNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["menuitem", "menuitemcheckbox", "menuitemradio", "group"] } } }]
-    },
-    "comboboxChildNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["listbox", "status"] } } }]
-    },
-    "tabNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "tab" } } }]
-    },
-    "radioNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["radio", "group"] } } }]
-    },
-    "rowNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "row" } } }]
-    },
-    "tableChildNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["row", "rowgroup"] } } }]
-    },
-    "tableCellNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["cell", "gridcell", "columnheader", "rowheader"] } } }]
-    },
-    "treeItemNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["treeitem", "group"] } } }]
     },
     "diagnosticContent": {
       "type": "object",
-      "required": ["schemaVersion", "fingerprint", "code", "severity", "message"],
+      "required": [
+        "schemaVersion",
+        "fingerprint",
+        "code",
+        "severity",
+        "message"
+      ],
       "properties": {
-        "schemaVersion": { "const": "terminal-ui.terminal-diagnostic.v1" },
-        "fingerprint": { "type": "string", "minLength": 1 },
-        "code": { "type": "string", "minLength": 1 },
-        "severity": { "enum": ["debug", "info", "warning", "error", "fatal"] },
-        "message": { "type": "string" },
-        "target": { "type": "string" },
-        "cause": { "$ref": "#/$defs/diagnosticValue" },
-        "hint": { "type": "string" },
+        "schemaVersion": {
+          "const": "terminal-ui.terminal-diagnostic.v1"
+        },
+        "fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": [
+            "debug",
+            "info",
+            "warning",
+            "error",
+            "fatal"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "cause": {
+          "$ref": "#/$defs/diagnosticValue"
+        },
+        "hint": {
+          "type": "string"
+        },
         "data": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/diagnosticValue" }
+          "additionalProperties": {
+            "$ref": "#/$defs/diagnosticValue"
+          }
         }
       },
       "additionalProperties": false
     },
     "diagnosticOccurrence": {
       "type": "object",
-      "required": ["schemaVersion", "fingerprint", "id", "owner", "sequence", "code", "severity", "message"],
+      "required": [
+        "schemaVersion",
+        "fingerprint",
+        "id",
+        "owner",
+        "sequence",
+        "code",
+        "severity",
+        "message"
+      ],
       "properties": {
-        "schemaVersion": { "const": "terminal-ui.terminal-diagnostic.v1" },
-        "fingerprint": { "type": "string", "minLength": 1 },
-        "id": { "type": "string", "minLength": 1 },
-        "owner": { "type": "string", "minLength": 1 },
-        "sequence": { "type": "integer", "minimum": 1 },
-        "code": { "type": "string", "minLength": 1 },
-        "severity": { "enum": ["debug", "info", "warning", "error", "fatal"] },
-        "message": { "type": "string" },
-        "target": { "type": "string" },
-        "cause": { "$ref": "#/$defs/diagnosticValue" },
-        "hint": { "type": "string" },
+        "schemaVersion": {
+          "const": "terminal-ui.terminal-diagnostic.v1"
+        },
+        "fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "enum": [
+            "debug",
+            "info",
+            "warning",
+            "error",
+            "fatal"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "cause": {
+          "$ref": "#/$defs/diagnosticValue"
+        },
+        "hint": {
+          "type": "string"
+        },
         "data": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/diagnosticValue" }
+          "additionalProperties": {
+            "$ref": "#/$defs/diagnosticValue"
+          }
         }
       },
       "additionalProperties": false
     },
     "diagnosticValue": {
       "oneOf": [
-        { "type": "string" },
-        { "type": "number" },
-        { "type": "boolean" },
-        { "type": "null" },
-        { "type": "array", "items": { "$ref": "#/$defs/diagnosticValue" } },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnosticValue"
+          }
+        },
         {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/diagnosticValue" }
+          "additionalProperties": {
+            "$ref": "#/$defs/diagnosticValue"
+          }
         }
       ]
     },
     "restoreResult": {
       "type": "object",
-      "required": ["status", "reason", "requested", "attempted", "confirmed", "resultingState", "diagnostics"],
+      "required": [
+        "status",
+        "reason",
+        "requested",
+        "attempted",
+        "confirmed",
+        "resultingState",
+        "diagnostics"
+      ],
       "properties": {
-        "status": { "enum": ["restored", "partial", "failed"] },
-        "reason": { "enum": ["success", "cancelled", "interrupted", "timeout", "error", "disposed"] },
-        "requested": { "$ref": "#/$defs/terminalStateSnapshot" },
-        "attempted": { "type": "array", "items": { "$ref": "#/$defs/terminalStateChange" } },
-        "confirmed": { "type": "array", "items": { "$ref": "#/$defs/terminalStateChange" } },
-        "resultingState": { "$ref": "#/$defs/terminalStateSnapshot" },
-        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnosticContent" } }
+        "status": {
+          "enum": [
+            "restored",
+            "partial",
+            "failed"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "success",
+            "cancelled",
+            "interrupted",
+            "timeout",
+            "error",
+            "disposed"
+          ]
+        },
+        "requested": {
+          "$ref": "#/$defs/terminalStateSnapshot"
+        },
+        "attempted": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/terminalStateChange"
+          }
+        },
+        "confirmed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/terminalStateChange"
+          }
+        },
+        "resultingState": {
+          "$ref": "#/$defs/terminalStateSnapshot"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnosticContent"
+          }
+        }
       },
       "additionalProperties": false
     },
     "terminalStateChange": {
       "oneOf": [
-        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "rawInput" }, "enabled": { "type": "boolean" } }, "additionalProperties": false },
-        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "alternateScreen" }, "enabled": { "type": "boolean" } }, "additionalProperties": false },
-        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "bracketedPaste" }, "enabled": { "type": "boolean" } }, "additionalProperties": false },
-        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "mouseReporting" }, "enabled": { "enum": ["none", "click", "drag", "all"] } }, "additionalProperties": false },
-        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "focusReporting" }, "enabled": { "type": "boolean" } }, "additionalProperties": false },
-        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "keyboardProfile" }, "enabled": { "$ref": "#/$defs/keyboardProfile" } }, "additionalProperties": false },
-        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "cursorVisible" }, "enabled": { "type": "boolean" } }, "additionalProperties": false }
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "enabled"
+          ],
+          "properties": {
+            "kind": {
+              "const": "rawInput"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "enabled"
+          ],
+          "properties": {
+            "kind": {
+              "const": "alternateScreen"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "enabled"
+          ],
+          "properties": {
+            "kind": {
+              "const": "bracketedPaste"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "enabled"
+          ],
+          "properties": {
+            "kind": {
+              "const": "mouseReporting"
+            },
+            "enabled": {
+              "enum": [
+                "none",
+                "click",
+                "drag",
+                "all"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "enabled"
+          ],
+          "properties": {
+            "kind": {
+              "const": "focusReporting"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "enabled"
+          ],
+          "properties": {
+            "kind": {
+              "const": "keyboardProfile"
+            },
+            "enabled": {
+              "$ref": "#/$defs/keyboardProfile"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "enabled"
+          ],
+          "properties": {
+            "kind": {
+              "const": "cursorVisible"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
       ]
     },
     "terminalStateSnapshot": {
@@ -866,24 +922,65 @@
         "provenance"
       ],
       "properties": {
-        "rawInput": { "type": "boolean" },
-        "alternateScreen": { "type": "boolean" },
-        "bracketedPaste": { "type": "boolean" },
-        "mouseReporting": { "enum": ["none", "click", "drag", "all"] },
-        "focusReporting": { "type": "boolean" },
-        "keyboardProfile": { "$ref": "#/$defs/keyboardProfile" },
-        "cursorVisible": { "type": "boolean" },
+        "rawInput": {
+          "type": "boolean"
+        },
+        "alternateScreen": {
+          "type": "boolean"
+        },
+        "bracketedPaste": {
+          "type": "boolean"
+        },
+        "mouseReporting": {
+          "enum": [
+            "none",
+            "click",
+            "drag",
+            "all"
+          ]
+        },
+        "focusReporting": {
+          "type": "boolean"
+        },
+        "keyboardProfile": {
+          "$ref": "#/$defs/keyboardProfile"
+        },
+        "cursorVisible": {
+          "type": "boolean"
+        },
         "provenance": {
           "type": "object",
-          "required": ["rawInput", "alternateScreen", "bracketedPaste", "mouseReporting", "focusReporting", "keyboardProfile", "cursorVisible"],
+          "required": [
+            "rawInput",
+            "alternateScreen",
+            "bracketedPaste",
+            "mouseReporting",
+            "focusReporting",
+            "keyboardProfile",
+            "cursorVisible"
+          ],
           "properties": {
-            "rawInput": { "$ref": "#/$defs/terminalStateKnowledge" },
-            "alternateScreen": { "$ref": "#/$defs/terminalStateKnowledge" },
-            "bracketedPaste": { "$ref": "#/$defs/terminalStateKnowledge" },
-            "mouseReporting": { "$ref": "#/$defs/terminalStateKnowledge" },
-            "focusReporting": { "$ref": "#/$defs/terminalStateKnowledge" },
-            "keyboardProfile": { "$ref": "#/$defs/terminalStateKnowledge" },
-            "cursorVisible": { "$ref": "#/$defs/terminalStateKnowledge" }
+            "rawInput": {
+              "$ref": "#/$defs/terminalStateKnowledge"
+            },
+            "alternateScreen": {
+              "$ref": "#/$defs/terminalStateKnowledge"
+            },
+            "bracketedPaste": {
+              "$ref": "#/$defs/terminalStateKnowledge"
+            },
+            "mouseReporting": {
+              "$ref": "#/$defs/terminalStateKnowledge"
+            },
+            "focusReporting": {
+              "$ref": "#/$defs/terminalStateKnowledge"
+            },
+            "keyboardProfile": {
+              "$ref": "#/$defs/terminalStateKnowledge"
+            },
+            "cursorVisible": {
+              "$ref": "#/$defs/terminalStateKnowledge"
+            }
           },
           "additionalProperties": false
         }
@@ -891,31 +988,56 @@
       "additionalProperties": false
     },
     "terminalStateKnowledge": {
-      "enum": ["observed", "explicit", "library_known", "assumed", "indeterminate"]
+      "enum": [
+        "observed",
+        "explicit",
+        "library_known",
+        "assumed",
+        "indeterminate"
+      ]
     },
     "keyboardProfile": {
-          "oneOf": [
-            {
-              "type": "object",
-              "required": ["kind"],
-              "properties": { "kind": { "const": "legacy" } },
-              "additionalProperties": false
-            },
-            {
-              "type": "object",
-              "required": ["kind", "flags"],
-              "properties": {
-                "kind": { "const": "kitty" },
-                "flags": {
-                  "anyOf": [
-                    { "type": "integer", "minimum": 1, "maximum": 15 },
-                    { "type": "integer", "minimum": 24, "maximum": 31 }
-                  ]
-                }
-              },
-              "additionalProperties": false
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "legacy"
             }
-          ]
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "flags"
+          ],
+          "properties": {
+            "kind": {
+              "const": "kitty"
+            },
+            "flags": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 15
+                },
+                {
+                  "type": "integer",
+                  "minimum": 24,
+                  "maximum": 31
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }

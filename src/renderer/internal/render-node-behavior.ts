@@ -16,7 +16,7 @@ import type { Measurement } from './measurement.ts';
 import type { FocusTarget, HitTarget, RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
 
 export function rendererForRenderNode<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
-  if (renderNode.kind === 'custom') return customRenderer(renderNode);
+  if (renderNode.kind === 'custom') return renderNode.custom.renderer;
   return builtinRenderNodeRenderers[renderNode.kind] as RenderNodeRenderer<TMessage>;
 }
 
@@ -203,12 +203,4 @@ export function hitTargetsForRenderNode<TMessage>(
   return interactionTargets.map((hitTarget): HitTarget<TMessage> => hitTarget.focus === undefined
     ? { ...hitTarget, focus: { kind: 'target', targetId: focusTarget.id } }
     : hitTarget);
-}
-
-function customRenderer<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
-  const renderer = renderNode.custom?.renderer;
-  if (renderer === undefined) {
-    throw new Error('Custom renderers must provide a renderer.');
-  }
-  return renderer;
 }

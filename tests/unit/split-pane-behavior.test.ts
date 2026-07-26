@@ -10,7 +10,8 @@ import type { SplitPaneState } from '../../dist/behavior/index.js';
 import { text } from '../../dist/components/index.js';
 import { splitPane } from '../../dist/layout/index.js';
 import type { SplitPaneAction } from '../../dist/layout/index.js';
-import { createTerminalHarness, renderElementRegions } from '../../dist/testing/index.js';
+import { createTerminalHarness } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
 

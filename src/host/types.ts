@@ -4,8 +4,10 @@ import type { TerminalCapabilityProfile } from './capability-types.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
+import type { MouseReportingMode } from '../protocol/index.ts';
 
 export type { TerminalSize } from '../geometry/types.ts';
+export type { MouseReportingMode } from '../protocol/index.ts';
 
 export interface TerminalOutputChunk {
   readonly text?: string;
@@ -213,8 +215,6 @@ export type TerminalRestoreReason =
   | 'timeout'
   | 'error'
   | 'disposed';
-
-export type MouseReportingMode = 'none' | 'click' | 'drag' | 'all';
 
 export interface NodeReadableTerminalStream extends AsyncIterable<string | Uint8Array> {
   readonly isTTY?: boolean;

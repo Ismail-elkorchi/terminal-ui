@@ -52,6 +52,19 @@ test('feedback status components preserve state in high contrast and no color ou
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'progress' && cell.text === 'x')?.source?.description, 'status.marker');
 });
 
+test('feedback factories reject invalid authored status values', () => {
+  assert.throws(() => statusIndicator({ status: 'finished' }), TypeError);
+  assert.throws(() => spinner({ status: 'pending' }), TypeError);
+  assert.throws(() => progressBar({
+    mode: { kind: 'determinate', value: 1 },
+    status: 'progress'
+  }), TypeError);
+  assert.throws(() => statusBar({
+    id: 'invalid-status',
+    leading: [{ id: 'item', kind: 'status', text: 'Broken', status: 'finished' }]
+  }), TypeError);
+});
+
 function colorCapabilities() {
   return resolveTerminalCapabilities({
     host: {

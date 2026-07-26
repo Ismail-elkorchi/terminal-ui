@@ -27,7 +27,6 @@ import { defaultTheme } from '../../theme/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
-import { normalizeProcessStatus } from '../../ui-model/status.ts';
 import type { CursorPosition } from '../model/cursor.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from '../model/layout.ts';
@@ -222,7 +221,7 @@ export function spinnerText(renderNode: SpinnerNode, theme: TerminalTheme): stri
 }
 
 export function spinnerAccessibleBase(renderNode: SpinnerNode, id: string): AccessibleNode {
-  const status = normalizeProcessStatus(renderNode.props.status, 'running');
+  const status = renderNode.props.status ?? 'running';
   const label = stringify(renderNode.props.label) || 'Loading';
   return {
     id,

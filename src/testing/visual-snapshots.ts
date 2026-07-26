@@ -1,4 +1,5 @@
 import { resolveTerminalCapabilities } from '../host/index.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 import { diffFrames, projectTuiOutput } from '../renderer/index.ts';
 import type { Frame, FrameHitTarget, RenderDiff, RenderSerializeOptions } from '../renderer/index.ts';
 
@@ -10,7 +11,6 @@ export interface VisualSnapshotInput {
 }
 
 export interface VisualSnapshotArtifacts {
-  readonly schemaVersion: 'terminal-ui.visual-snapshots.v1';
   readonly plainTextFrame: string;
   readonly accessibleText: string;
   readonly ansiFrame: string;
@@ -26,7 +26,6 @@ export function createVisualSnapshot(input: VisualSnapshotInput): VisualSnapshot
   const diff = input.diff ?? diffFrames(input.previousFrame, input.frame);
   const projection = projectTuiOutput({ frame: input.frame, ansi: input.ansi ?? defaultAnsiOptions() });
   return {
-    schemaVersion: 'terminal-ui.visual-snapshots.v1',
     plainTextFrame: projection.plainTextFrame,
     accessibleText: projection.accessibleText,
     ansiFrame: normalizeAnsi(projection.ansiFrame ?? ''),
@@ -85,13 +84,9 @@ function stableJson(value: unknown): string {
 function stableValue(value: unknown): unknown {
   if (value === null || typeof value !== 'object') return value;
   if (Array.isArray(value)) return value.map((item) => stableValue(item));
-  if (!isRecord(value)) return null;
+  if (!isNonArrayObject(value)) return null;
   const entries = Object.entries(value)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, entryValue]) => [key, stableValue(entryValue)] as const);
   return Object.fromEntries(entries);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

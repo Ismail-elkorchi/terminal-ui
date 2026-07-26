@@ -1,4 +1,5 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
+import { finiteNonNegativeIntegerOrZero, isNonArrayObject } from '../../foundation/validation.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import {
   commandMatchSpans, commandMetadataStyle, commandRowStyle, commandSelectionMarkerSpans, commandStatusSpans, styledSpan
@@ -12,7 +13,6 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
 import type { SuggestionItem } from '../../ui-model/contracts.ts';
-import { optionalValidationLevel } from '../../ui-model/status.ts';
 import type { CommandInputDisplay, CommandInputValidation } from '../../ui-model/documents.ts';
 import type { CursorPosition } from '../model/cursor.ts';
 import type { Rect } from '../model/layout.ts';
@@ -50,7 +50,7 @@ export function commandInputBlock(
   if (bounds.height > lines.length && validation !== undefined) lines.push(validationLine(renderNode, validation, theme));
   if (display === 'expanded') {
     const suggestions = commandInputSuggestions(renderNode);
-    const selected = nonNegativeInteger(numberProp(renderNode, 'selectedSuggestionIndex'));
+    const selected = finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'selectedSuggestionIndex'));
     const remaining = Math.max(0, bounds.height - lines.length - footerReserve(renderNode));
     lines.push(...suggestions.slice(0, remaining).map((suggestion, index) => suggestionLine(
       renderNode,
@@ -88,7 +88,7 @@ export function commandInputAccessibleChildren(renderNode: CommandInputNode): re
       value: validation.message
     });
   }
-  const selected = nonNegativeInteger(numberProp(renderNode, 'selectedSuggestionIndex'));
+  const selected = finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'selectedSuggestionIndex'));
   if (suggestions.length > 0) {
     const id = renderNode.id ?? 'command-input';
     children.push({
@@ -286,7 +286,7 @@ function commandInputSuggestions(renderNode: CommandInputNode): readonly Suggest
   const suggestions = renderNode.props.suggestions;
   return Array.isArray(suggestions)
     ? suggestions.flatMap((suggestion): SuggestionItem[] => {
-        if (!isRecord(suggestion)) return [];
+        if (!isNonArrayObject(suggestion)) return [];
         const value = suggestion['value'];
         if (typeof value !== 'string') return [];
         const label = suggestion['label'];
@@ -303,15 +303,7 @@ function commandInputSuggestions(renderNode: CommandInputNode): readonly Suggest
 }
 
 function validationProp(renderNode: CommandInputNode): CommandInputValidation | undefined {
-  const validation = renderNode.props.validation;
-  if (!isRecord(validation)) return undefined;
-  const message = validation.message;
-  if (typeof message !== 'string' || message.length === 0) return undefined;
-  const level = optionalValidationLevel(validation.level);
-  return {
-    message: clean(message),
-    ...(level === undefined ? {} : { level })
-  };
+  return renderNode.props.validation;
 }
 
 function valueWindowSpans(
@@ -422,12 +414,4 @@ function clean(value: string): string {
   return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
 }
 
-function nonNegativeInteger(value: number | undefined): number {
-  if (value === undefined || !Number.isFinite(value)) return 0;
-  return Math.max(0, Math.floor(value));
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 type CommandInputNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'commandInput'>;

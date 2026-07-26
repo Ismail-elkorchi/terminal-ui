@@ -1,4 +1,5 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { MenuActionTone } from '../../ui-model/menu.ts';
@@ -267,7 +268,7 @@ function menuItems(value: unknown, depth: number): readonly VisibleMenuItem[] {
 }
 
 function sanitizeMenuItem(value: unknown, depth: number): readonly VisibleMenuItem[] {
-  if (!isRecord(value)) return [];
+  if (!isNonArrayObject(value)) return [];
   const id = value['id'];
   const label = value['label'];
   const kind = value['kind'];
@@ -335,9 +336,6 @@ function clean(value: string): string {
   return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function menuItemTargetId(renderNode: MenuNode, itemId: string): string {
   return renderNodeTargetId(renderNode, itemId);

@@ -1,4 +1,5 @@
 import { diagnostic, terminalDiagnosticIssue } from '../diagnostics.ts';
+import { isNonArrayObject, isNonEmptyString } from '../foundation/validation.ts';
 import { err, ok } from '../result.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import { collectFocusPath, nodePath } from './snapshot.ts';
@@ -16,7 +17,7 @@ export function validateAccessibleSnapshot(snapshot: unknown): Result<Accessible
 }
 
 function firstSnapshotIssue(snapshot: unknown): TerminalDiagnostic | undefined {
-  if (!isRecord(snapshot)) return accessibilityFailure('Accessible snapshot must be an object.');
+  if (!isNonArrayObject(snapshot)) return accessibilityFailure('Accessible snapshot must be an object.');
   if (snapshot['schemaVersion'] !== 'terminal-ui.accessible-snapshot.v1') {
     return accessibilityFailure('Unsupported accessible snapshot schema version.');
   }
@@ -60,7 +61,7 @@ function isAccessibleNode(value: unknown): value is AccessibleNode {
 }
 
 function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | undefined {
-  if (!isRecord(node)) return accessibilityFailure('Accessible node must be an object.');
+  if (!isNonArrayObject(node)) return accessibilityFailure('Accessible node must be an object.');
   const unknownField = firstUnknownField(node, accessibleNodeFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node field is unsupported: ${unknownField}.`);
@@ -150,7 +151,7 @@ function liveIssueForNode(node: Record<string, unknown>, id: string): TerminalDi
 function scopeIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   const scope = node['scope'];
   if (scope === undefined) return undefined;
-  if (!isRecord(scope)) return accessibilityFailure('Accessible node scope must be an object.', id);
+  if (!isNonArrayObject(scope)) return accessibilityFailure('Accessible node scope must be an object.', id);
   const unknownField = firstUnknownField(scope, scopeFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node scope field is unsupported: ${unknownField}.`, id);
@@ -171,7 +172,7 @@ const scopeFields = new Set(['kind', 'trapsFocus', 'obscuresBackground']);
 function windowIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   const window = node['window'];
   if (window === undefined) return undefined;
-  if (!isRecord(window)) return accessibilityFailure('Accessible node window must be an object.', id);
+  if (!isNonArrayObject(window)) return accessibilityFailure('Accessible node window must be an object.', id);
   const unknownField = firstUnknownField(window, windowFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node window field is unsupported: ${unknownField}.`, id);
@@ -204,7 +205,7 @@ const windowFields = new Set([
 function positionIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   const position = node['position'];
   if (position === undefined) return undefined;
-  if (!isRecord(position)) return accessibilityFailure('Accessible node position must be an object.', id);
+  if (!isNonArrayObject(position)) return accessibilityFailure('Accessible node position must be an object.', id);
   const unknownField = firstUnknownField(position, positionFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node position field is unsupported: ${unknownField}.`, id);
@@ -325,7 +326,7 @@ function numericValueIssueForNode(node: Record<string, unknown>, id: string): Te
   if (!['progressbar', 'meter', 'slider', 'spinbutton'].includes(String(node['role']))) {
     return accessibilityFailure('Accessible numericValue is only valid on progressbar, meter, slider, or spinbutton nodes.', id);
   }
-  if (!isRecord(numericValue)) return accessibilityFailure('Accessible numericValue must be an object.', id);
+  if (!isNonArrayObject(numericValue)) return accessibilityFailure('Accessible numericValue must be an object.', id);
   const unknownField = firstUnknownField(numericValue, numericValueFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible numericValue field is unsupported: ${unknownField}.`, id);
@@ -423,14 +424,6 @@ function optionalStringIssue(
 
 function isAccessibleValue(value: unknown): boolean {
   return value === null || ['string', 'number', 'boolean'].includes(typeof value);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isNonNegativeInteger(value: unknown): boolean {

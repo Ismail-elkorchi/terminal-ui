@@ -37,21 +37,21 @@ export function dialog<TMessage>(child: Element<TMessage>, options: DialogOption
 
 function dialogMeta<TMessage>(options: DialogOptions<TMessage>) {
   const base = withMetaDefaults(options.meta, { layer: { underlay: 'clear' } });
-  const authoredFocus = {
+  const callerFocus = {
     ...(base.focus?.disabled === undefined ? {} : { disabled: base.focus.disabled }),
     ...(base.focus?.order === undefined ? {} : { order: base.focus.order })
   };
   if (!options.modal) {
     return {
       ...base,
-      ...(Object.keys(authoredFocus).length === 0 ? { focus: {} } : { focus: authoredFocus })
+      ...(Object.keys(callerFocus).length === 0 ? { focus: {} } : { focus: callerFocus })
     };
   }
   const initialFocus = normalizeInitialFocus(options.focusPolicy.initialFocus);
   return {
     ...base,
     focus: {
-      ...authoredFocus,
+      ...callerFocus,
       scope: {
         kind: 'contain' as const,
         ...(initialFocus === undefined ? {} : { initialFocus }),

@@ -130,8 +130,7 @@ test('FrameCellSource rejects item indexes that its schemas reject', () => {
 
   for (const filename of [
     'tui-frame.schema.json',
-    'render-diff.schema.json',
-    'interaction-transcript.schema.json'
+    'render-diff.schema.json'
   ]) {
     const schema = JSON.parse(readFileSync(
       new URL(`../../schemas/${filename}`, import.meta.url),
@@ -158,8 +157,7 @@ test('FrameCellSource interaction states agree across cleanup, frames, and schem
 
   const schemaStates = [
     ['tui-frame.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum],
-    ['render-diff.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum],
-    ['interaction-transcript.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum]
+    ['render-diff.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum]
   ];
   for (const [filename, getStates] of schemaStates) {
     const schema = JSON.parse(readFileSync(
@@ -167,7 +165,8 @@ test('FrameCellSource interaction states agree across cleanup, frames, and schem
       'utf8'
     ));
     assert.deepEqual(getStates(schema), states, filename);
-    assert.deepEqual(schema.$defs.frameCellSource.properties.cellRole.enum, roles, filename);
+    const frameCellSource = schema.$defs.frameCellSource;
+    assert.deepEqual(frameCellSource.properties.cellRole.enum, roles, filename);
   }
 });
 

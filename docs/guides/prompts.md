@@ -26,7 +26,7 @@ output.
 `confirm()` snapshots use the `checkbox` role and expose both `value` and
 `checked` so assistive tooling can read the selected state directly.
 
-`editor()` is the multiline authoring primitive. It does not spawn a process by
+`editor()` is the multiline text-entry prompt. It does not spawn a process by
 itself. Provide an explicit `editorAdapter` to own temporary files, spawning,
 and cleanup. The prompt resolves command preference as `editorCommand`, then
 `VISUAL`, then `EDITOR`, and passes the chosen argv candidate to the adapter

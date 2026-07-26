@@ -14,7 +14,7 @@ import {
   renderElementFrame,
   renderFramePlain
 } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
 
 void test('number input analysis preserves empty incomplete invalid valid and range states', () => {

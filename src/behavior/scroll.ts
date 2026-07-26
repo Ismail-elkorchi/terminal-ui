@@ -1,3 +1,4 @@
+import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
 import type {
   CreateScrollStateInput,
   ScrollAction,
@@ -103,13 +104,13 @@ export function visibleWindowFromScroll(state: ScrollState): ScrollVisibleWindow
 }
 
 export function normalizeScrollState(state: ScrollState): ScrollState {
-  const contentRows = nonNegativeInteger(state.contentRows);
-  const contentColumns = nonNegativeInteger(state.contentColumns);
-  const viewportRows = nonNegativeInteger(state.viewportRows);
-  const viewportColumns = nonNegativeInteger(state.viewportColumns);
+  const contentRows = finiteNonNegativeIntegerOrZero(state.contentRows);
+  const contentColumns = finiteNonNegativeIntegerOrZero(state.contentColumns);
+  const viewportRows = finiteNonNegativeIntegerOrZero(state.viewportRows);
+  const viewportColumns = finiteNonNegativeIntegerOrZero(state.viewportColumns);
   const normalized: ScrollState = {
-    offsetRow: clamp(nonNegativeInteger(state.offsetRow), 0, bottomOffset(contentRows, viewportRows)),
-    offsetColumn: clamp(nonNegativeInteger(state.offsetColumn), 0, bottomOffset(contentColumns, viewportColumns)),
+    offsetRow: clamp(finiteNonNegativeIntegerOrZero(state.offsetRow), 0, bottomOffset(contentRows, viewportRows)),
+    offsetColumn: clamp(finiteNonNegativeIntegerOrZero(state.offsetColumn), 0, bottomOffset(contentColumns, viewportColumns)),
     contentRows,
     contentColumns,
     viewportRows,
@@ -134,7 +135,7 @@ function centeredOffset(total: number, size: number, preferredIndex: number): nu
 }
 
 function bottomOffset(total: number, size: number): number {
-  return Math.max(0, nonNegativeInteger(total) - Math.max(0, nonNegativeInteger(size)));
+  return Math.max(0, finiteNonNegativeIntegerOrZero(total) - Math.max(0, finiteNonNegativeIntegerOrZero(size)));
 }
 
 function normalizeSelectedIndex(index: number, total: number): number {
@@ -155,10 +156,6 @@ function sameScrollState(left: ScrollState, right: ScrollState): boolean {
     && left.viewportColumns === right.viewportColumns
     && left.followTail === right.followTail
     && left.selectedIndex === right.selectedIndex;
-}
-
-function nonNegativeInteger(value: number): number {
-  return Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -8,7 +8,6 @@ export interface OutputProjectionInput {
 }
 
 export interface OutputProjection {
-  readonly schemaVersion: 'terminal-ui.output-projection.v1';
   readonly plainTextFrame: string;
   readonly accessibleText: string;
   readonly accessibility: AccessibleSnapshot;
@@ -18,7 +17,6 @@ export interface OutputProjection {
 
 export function projectTuiOutput(input: OutputProjectionInput): OutputProjection {
   return {
-    schemaVersion: 'terminal-ui.output-projection.v1',
     plainTextFrame: renderFramePlain(input.frame),
     accessibleText: renderAccessibleSnapshot(input.frame.accessibility),
     accessibility: input.frame.accessibility,

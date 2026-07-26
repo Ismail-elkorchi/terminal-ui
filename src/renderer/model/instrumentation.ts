@@ -1,7 +1,7 @@
 export type RenderWorkKind =
   | 'normalized_records'
   | 'query_candidates'
-  | 'authored_nodes'
+  | 'render_nodes'
   | 'measured_nodes'
   | 'rendered_nodes'
   | 'composed_cells'

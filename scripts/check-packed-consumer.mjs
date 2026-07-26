@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { contractScenarios } from '../tests/contracts/matrix.ts';
+import { globFiles } from './glob-files.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const fixtureRoot = join(projectRoot, 'tests', 'consumer');
@@ -12,13 +12,8 @@ const contractRuntimeRoot = join(projectRoot, 'tests', 'contracts', 'runtime');
 const temporaryRoot = await mkdtemp(join(tmpdir(), 'terminal-ui-packed-consumer-'));
 const packRoot = join(temporaryRoot, 'package');
 const consumerRoot = join(temporaryRoot, 'consumer');
-const packedContractScenarios = contractScenarios
-  .filter((scenario) => scenario.runner === 'check:consumer' && scenario.artifacts.includes('npm_tarball'))
-  .map((scenario) => ({
-    id: scenario.id,
-    path: contractRuntimePath(scenario.path),
-    runtimes: scenario.runtimes
-  }));
+const packedContractScenarios = (await globFiles(contractRuntimeRoot, ['**/*.mjs']))
+  .map((path) => relative(contractRuntimeRoot, path).split('\\').join('/'));
 
 try {
   await mkdir(packRoot, { recursive: true });
@@ -63,12 +58,11 @@ try {
       throw new Error(`${runtime.name} did not execute the packed consumer successfully.\n${result.stdout}`);
     }
     for (const scenario of packedContractScenarios) {
-      if (!scenario.runtimes.includes(runtime.name)) continue;
-      const scenarioResult = await run(runtime.command, runtimeArgs(runtime.name, scenario.path), consumerRoot);
+      const scenarioResult = await run(runtime.command, runtimeArgs(runtime.name, scenario), consumerRoot);
       const payload = JSON.parse(scenarioResult.stdout.trim());
-      const expectedResult = scenario.path.replace(/\.mjs$/u, '').split('/').at(-1);
+      const expectedResult = scenario.replace(/\.mjs$/u, '').split('/').at(-1);
       if (payload.ok !== true || payload.scenario !== expectedResult) {
-        throw new Error(`${runtime.name} returned an invalid contract result for ${scenario.id}.\n${scenarioResult.stdout}`);
+        throw new Error(`${runtime.name} returned an invalid contract result for ${scenario}.\n${scenarioResult.stdout}`);
       }
     }
     process.stdout.write(`terminal-ui packed artifact passed under ${runtime.name}\n`);
@@ -80,14 +74,6 @@ try {
 function runtimeArgs(runtime, scenario) {
   const path = `contracts-runtime/${scenario}`;
   return runtime === 'deno' ? ['run', '--node-modules-dir=manual', path] : [path];
-}
-
-function contractRuntimePath(path) {
-  const relativePath = relative('tests/contracts/runtime', path).split('\\').join('/');
-  if (relativePath.length === 0 || relativePath === '..' || relativePath.startsWith('../')) {
-    throw new Error(`Packed contract scenario must be owned by tests/contracts/runtime: ${path}`);
-  }
-  return relativePath;
 }
 
 async function run(command, args, cwd) {

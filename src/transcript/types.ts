@@ -4,7 +4,7 @@ import type { TerminalRestoreResult, TerminalSize } from '../host/index.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
-import type { TuiMessageSource } from '../runtime-model/message-source.ts';
+import type { TuiMessageSource } from '../interaction/message.ts';
 
 export interface InteractionTranscript {
   readonly schemaVersion: 'terminal-ui.interaction-transcript.v4';

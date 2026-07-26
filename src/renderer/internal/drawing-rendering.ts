@@ -1,7 +1,6 @@
-import { numberProp, stringify } from './render-node-props.ts';
+import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
-import type { CanvasPainterInput } from '../model/canvas.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RenderNodeRenderInput } from '../model/renderer.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
@@ -15,11 +14,7 @@ type AbsoluteNode = RenderNodeOfKind<unknown, 'absolute'>;
 type OverlayNode = RenderNodeOfKind<unknown, 'overlay'>;
 
 export function renderCanvas(input: RenderNodeRenderInput<unknown, 'canvas'>): void {
-  const painter = canvasPainter(input.renderNode.props.painter);
-  if (painter === undefined) {
-    throw new Error('Canvas renderNodes must provide a painter.');
-  }
-  painter({
+  input.renderNode.props.painter({
     canvas: createCanvas2D(input.buffer, input.layoutNode.bounds),
     bounds: input.layoutNode.bounds,
     theme: input.theme
@@ -33,12 +28,12 @@ export function surfaceChildBounds(renderNode: SurfaceNode, bounds: Rect): reado
 
 export function absoluteChildBounds(renderNode: AbsoluteNode, bounds: Rect): readonly Rect[] {
   if ((renderNode.children ?? []).length === 0) return [];
-  const rowOffset = Math.floor(numberProp(renderNode, 'row') ?? 1);
-  const columnOffset = Math.floor(numberProp(renderNode, 'column') ?? 1);
+  const rowOffset = Math.floor(renderNode.props.row);
+  const columnOffset = Math.floor(renderNode.props.column);
   const row = bounds.row + rowOffset - 1;
   const column = bounds.column + columnOffset - 1;
-  const width = Math.floor(numberProp(renderNode, 'width') ?? bounds.column + bounds.width - column);
-  const height = Math.floor(numberProp(renderNode, 'height') ?? bounds.row + bounds.height - row);
+  const width = Math.floor(renderNode.props.width ?? bounds.column + bounds.width - column);
+  const height = Math.floor(renderNode.props.height ?? bounds.row + bounds.height - row);
   const childBounds = intersectRects(bounds, {
     row,
     column,
@@ -89,11 +84,6 @@ export function overlayAccessibleBase(id: string, focused: boolean): AccessibleN
     scope: { kind: 'popover' },
     ...(focused ? { focused } : {})
   };
-}
-
-function canvasPainter(value: unknown): ((input: CanvasPainterInput) => void) | undefined {
-  if (typeof value !== 'function') return undefined;
-  return value as (input: CanvasPainterInput) => void;
 }
 
 function intersectRects(left: Rect, right: Rect): Rect | undefined {

@@ -11,7 +11,8 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { dirtyRegionsForRegionChanges, renderElementRegions } from '../../dist/testing/index.js';
+import { dirtyRegionsForRegionChanges } from '../../dist/renderer/internal/dirty-regions.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import {
   button,
   canvas,

@@ -1,4 +1,5 @@
 import { borderStyleFromValue } from '../border.ts';
+import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
 import {
   combineMeasurementsHorizontally,
   combineMeasurementsOverlay,
@@ -9,24 +10,23 @@ import {
 } from '../measurement.ts';
 import { numberProp } from '../render-node-props.ts';
 import { tabsHeaderText } from './support/tabs.ts';
-import { nonNegativeInteger } from './support/common.ts';
 import { childMeasurements } from './measurement-support.ts';
 import type { RendererMeasurementMap } from './types.ts';
 
 export const layoutMeasurements = {
   row: ({ renderNode, childCount, measureChild }) => combineMeasurementsHorizontally(
     childMeasurements(childCount, measureChild),
-    nonNegativeInteger(numberProp(renderNode, 'gap'))
+    finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
   ),
   column: ({ renderNode, childCount, measureChild }) => combineMeasurementsVertically(
     childMeasurements(childCount, measureChild),
-    nonNegativeInteger(numberProp(renderNode, 'gap'))
+    finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
   ),
   viewport: ({ renderNode, childCount, measureChild }) => {
     const content = combineMeasurementsOverlay(childMeasurements(childCount, measureChild));
     return measureSize(
-      Math.max(content.preferredWidth, nonNegativeInteger(numberProp(renderNode, 'contentColumns'))),
-      Math.max(content.preferredHeight, nonNegativeInteger(numberProp(renderNode, 'contentRows')))
+      Math.max(content.preferredWidth, finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'contentColumns'))),
+      Math.max(content.preferredHeight, finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'contentRows')))
     );
   },
   grid: ({ childCount, measureChild }) => combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),

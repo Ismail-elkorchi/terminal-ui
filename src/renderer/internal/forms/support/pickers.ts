@@ -3,6 +3,7 @@ import type {
 } from '../../../../ui-model/forms.ts';
 import type { CalendarDate, CalendarDay } from '../../../../ui-model/calendar.ts';
 import { oneCellGlyph, padTextCells } from '../../../../text/index.ts';
+import { isNonArrayObject } from '../../../../foundation/validation.ts';
 import type { TextWidthProfile } from '../../../../text/index.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
@@ -19,8 +20,7 @@ import {
   clean,
   clip,
   clipNoEllipsis,
-  finiteNumber,
-  isRecord
+  finiteNumber
 } from './shared.ts';
 
 type ColorSwatchPickerNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'colorSwatchPicker'>;
@@ -182,7 +182,7 @@ export function calendarCellSpans(
 }
 
 function sanitizeColorOption(value: unknown): readonly ColorSwatchPickerOption<unknown>[] {
-  if (!isRecord(value)) return [];
+  if (!isNonArrayObject(value)) return [];
   const id = value['id'];
   const label = value['label'];
   if (typeof id !== 'string' || typeof label !== 'string') return [];
@@ -195,12 +195,12 @@ function sanitizeColorOption(value: unknown): readonly ColorSwatchPickerOption<u
     ...(value['disabled'] === true ? { disabled: true } : {}),
     ...(typeof description === 'string' ? { description: clean(description) } : {}),
     ...(typeof swatch === 'string' ? { swatch: clean(swatch) } : {}),
-    ...(isRecord(value['style']) ? { style: value['style'] } : {})
+    ...(isNonArrayObject(value['style']) ? { style: value['style'] } : {})
   }];
 }
 
 function sanitizeCalendarDay(value: unknown): readonly CalendarDay[] {
-  if (!isRecord(value)) return [];
+  if (!isNonArrayObject(value)) return [];
   const id = value['id'];
   const label = value['label'];
   const date = sanitizeCalendarDate(value['date']);
@@ -260,7 +260,7 @@ function calendarDayState(
 }
 
 function sanitizeCalendarDate(value: unknown): CalendarDate | undefined {
-  if (!isRecord(value)) return undefined;
+  if (!isNonArrayObject(value)) return undefined;
   const year = value['year'];
   const month = value['month'];
   const day = value['day'];

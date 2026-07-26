@@ -1,8 +1,9 @@
 import type { ChoiceItem } from '../../../../ui-model/contracts.ts';
+import { isNonArrayObject } from '../../../../foundation/validation.ts';
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../../../model/index.ts';
 import type { TerminalStyle } from '../../frame.ts';
 import { resolveRenderNodeStyle } from '../../render-node-style.ts';
-import { clean, isRecord } from './shared.ts';
+import { clean } from './shared.ts';
 
 type CheckboxGroupNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'checkboxGroup'>;
 type ChoiceNode<TMessage = unknown> = RenderNodesOfKind<TMessage, 'radioGroup' | 'select'>;
@@ -27,7 +28,7 @@ export function formOptions(renderNode: ChoiceControlNode): readonly ChoiceItem<
 }
 
 export function sanitizeOption(value: unknown): readonly ChoiceItem<unknown>[] {
-  if (!isRecord(value)) return [];
+  if (!isNonArrayObject(value)) return [];
   const id = value['id'];
   const label = value['label'];
   if (typeof id !== 'string' || typeof label !== 'string') return [];

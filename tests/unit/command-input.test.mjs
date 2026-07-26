@@ -7,7 +7,7 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { commandInput } from '../../dist/components/index.js';
 
 test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
@@ -340,4 +340,12 @@ test('commandInput exposes prompt value selection suggestion validation and foot
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'suggestion.0.description')?.text, ' ');
   assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.description, 'footer');
   assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.partType, 'footer');
+});
+
+test('commandInput rejects invalid validation levels at the authoring boundary', () => {
+  assert.throws(() => commandInput({
+    id: 'invalid-validation-level',
+    presentation: { value: '', cursor: 0, suggestions: [] },
+    validation: { message: 'Invalid', level: 'success' }
+  }), /validation level must be info, warning, or error/u);
 });

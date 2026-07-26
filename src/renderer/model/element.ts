@@ -79,7 +79,6 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   const styleStates = Object.keys(node.styles?.states ?? {}).sort();
   const keyboard = node.keyMap !== undefined && Object.keys(node.keyMap).length > 0;
   const inspection: ElementInspection = {
-    schemaVersion: 'terminal-ui.element.v1',
     kind: node.kind,
     category,
     ...(node.id === undefined ? {} : { id: node.id }),

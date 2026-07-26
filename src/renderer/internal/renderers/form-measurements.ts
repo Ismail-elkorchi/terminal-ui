@@ -13,20 +13,20 @@ import {
   textInputBlock,
   toggleSwitchBlock
 } from '../forms/index.ts';
+import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
 import { combineMeasurementsVertically, measureBlock } from '../measurement.ts';
 import { numberProp } from '../render-node-props.ts';
-import { nonNegativeInteger } from './support/common.ts';
 import { childMeasurements, constrainedMeasureBounds } from './measurement-support.ts';
 import type { RendererMeasurementMap } from './types.ts';
 
 export const formMeasurements = {
   form: ({ renderNode, childCount, measureChild }) => combineMeasurementsVertically(
     childMeasurements(childCount, measureChild),
-    nonNegativeInteger(numberProp(renderNode, 'gap'))
+    finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
   ),
   field: ({ renderNode, childCount, measureChild }) => combineMeasurementsVertically(
     childMeasurements(childCount, measureChild),
-    nonNegativeInteger(numberProp(renderNode, 'gap'))
+    finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
   ),
   label: ({ renderNode, bounds, widthProfile }) => measureBlock(
     labelBlock(renderNode, constrainedMeasureBounds(bounds), widthProfile),

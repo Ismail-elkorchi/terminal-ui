@@ -8,11 +8,11 @@ import {
 
 test('structural budgets report the scenario and exceeded work kind', () => {
   const report = performanceReport({
-    work: { authored_nodes: workSummary(17) }
+    work: { render_nodes: workSummary(17) }
   });
 
   assert.deepEqual(structuralBudgetViolations(report), [
-    'sample/authored_nodes: 17 > 16'
+    'sample/render_nodes: 17 > 16'
   ]);
 });
 

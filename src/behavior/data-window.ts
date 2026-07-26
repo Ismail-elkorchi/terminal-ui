@@ -4,6 +4,7 @@ import {
   scrollReducer,
   visibleWindowFromScroll
 } from './scroll.ts';
+import { finiteNonNegativeIntegerOrZero, isNonArrayObject } from '../foundation/validation.ts';
 import type { ScrollState, ScrollVisibleWindow } from '../interaction/scroll.ts';
 import type { CollectionProjection, CollectionRecord } from '../ui-model/collection.ts';
 
@@ -26,11 +27,11 @@ export interface DataWindow extends ScrollVisibleWindow {
 }
 
 export function dataWindow(input: DataWindowInput): DataWindow {
-  const totalRows = nonNegativeInteger(input.totalRows);
-  const viewportRows = nonNegativeInteger(input.viewportRows);
+  const totalRows = finiteNonNegativeIntegerOrZero(input.totalRows);
+  const viewportRows = finiteNonNegativeIntegerOrZero(input.viewportRows);
   const selectedIndex = normalizeSelectedIndex(input.selectedIndex, totalRows);
-  const contentColumns = nonNegativeInteger(input.contentColumns ?? input.scroll?.contentColumns ?? input.viewportColumns ?? 0);
-  const viewportColumns = nonNegativeInteger(input.viewportColumns ?? input.scroll?.viewportColumns ?? contentColumns);
+  const contentColumns = finiteNonNegativeIntegerOrZero(input.contentColumns ?? input.scroll?.contentColumns ?? input.viewportColumns ?? 0);
+  const viewportColumns = finiteNonNegativeIntegerOrZero(input.viewportColumns ?? input.scroll?.viewportColumns ?? contentColumns);
   const scroll = input.scroll === undefined
     ? scrollForSelection({
         totalRows,
@@ -77,9 +78,9 @@ export function projectedRowWindow<TRecord extends CollectionRecord>(
   input: Omit<DataWindowInput, 'totalRows'>
 ): DataWindow & { readonly rows: readonly TRecord[] } {
   if (projection.kind === 'complete') return rowWindow(projection.records, input);
-  const viewportRows = nonNegativeInteger(input.viewportRows);
-  const contentColumns = nonNegativeInteger(input.contentColumns ?? input.scroll?.contentColumns ?? input.viewportColumns ?? 0);
-  const viewportColumns = nonNegativeInteger(input.viewportColumns ?? input.scroll?.viewportColumns ?? contentColumns);
+  const viewportRows = finiteNonNegativeIntegerOrZero(input.viewportRows);
+  const contentColumns = finiteNonNegativeIntegerOrZero(input.contentColumns ?? input.scroll?.contentColumns ?? input.viewportColumns ?? 0);
+  const viewportColumns = finiteNonNegativeIntegerOrZero(input.viewportColumns ?? input.scroll?.viewportColumns ?? contentColumns);
   const requested = dataWindow({
     ...input,
     totalRows: projection.totalCount,
@@ -119,7 +120,7 @@ export function projectedRowWindow<TRecord extends CollectionRecord>(
 }
 
 export function scrollStateFromUnknown(value: unknown): ScrollState | undefined {
-  if (!isRecord(value)) return undefined;
+  if (!isNonArrayObject(value)) return undefined;
   const offsetRow = numberField(value, 'offsetRow');
   const offsetColumn = numberField(value, 'offsetColumn');
   const contentRows = numberField(value, 'contentRows');
@@ -179,12 +180,4 @@ function normalizeSelectedIndex(index: number | undefined, totalRows: number): n
 function numberField(value: Readonly<Record<string, unknown>>, key: string): number | undefined {
   const field = value[key];
   return typeof field === 'number' && Number.isFinite(field) ? field : undefined;
-}
-
-function nonNegativeInteger(value: number): number {
-  return Math.max(0, Math.floor(Number.isFinite(value) ? value : 0));
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

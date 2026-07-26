@@ -28,10 +28,6 @@ export function focusHitTargets<TMessage>(
   }];
 }
 
-export function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 export function groupAccessibleNode(id: string, focused: boolean): AccessibleNode {
   return {
     id,
@@ -77,9 +73,4 @@ export function cellInside(cell: FrameCell, bounds: Rect): boolean {
     && cell.row < bounds.row + bounds.height
     && cell.column >= bounds.column
     && cell.column < bounds.column + bounds.width;
-}
-
-export function nonNegativeInteger(value: number | undefined): number {
-  if (value === undefined) return 0;
-  return Math.max(0, Math.floor(value));
 }

@@ -67,8 +67,8 @@ export function windowedCollection<TRecord extends CollectionRecord>(input: {
   readonly records: readonly TRecord[];
   readonly window: CollectionWindow;
 }): WindowedCollectionProjection<TRecord> {
-  const startIndex = nonNegativeInteger(input.window.startIndex, 'collection window startIndex');
-  const totalCount = nonNegativeInteger(input.window.totalCount, 'collection totalCount');
+  const startIndex = requireNonNegativeSafeInteger(input.window.startIndex, 'collection window startIndex');
+  const totalCount = requireNonNegativeSafeInteger(input.window.totalCount, 'collection totalCount');
   if (startIndex > totalCount) throw new RangeError('collection window startIndex must not exceed its totalCount.');
   if (input.records.length > totalCount - startIndex) {
     throw new RangeError('collection window records must fit inside its declared total.');
@@ -137,7 +137,7 @@ function identityIndex<TRecord extends CollectionRecord>(
   return index;
 }
 
-function nonNegativeInteger(value: number, label: string): number {
+function requireNonNegativeSafeInteger(value: number, label: string): number {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new RangeError(`${label} must be a non-negative safe integer.`);
   }

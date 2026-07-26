@@ -1,4 +1,5 @@
 import type { TextWidthProfile } from '../../../../text/index.ts';
+import { finiteNonNegativeIntegerOr, isNonArrayObject } from '../../../../foundation/validation.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import type {
   RenderNodeKind,
@@ -9,7 +10,6 @@ import { dataWindow } from '../../../../behavior/data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../../../behavior/scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { logViewerWindow } from '../../log-viewer.ts';
-import { isRecord } from './common.ts';
 import { viewportVisualState } from './viewport.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
 import type { LayoutNode, Rect } from '../../../model/layout.ts';
@@ -375,7 +375,7 @@ function scrollbarOptionsProp(
   fallbackAxis: NonNullable<ScrollbarOptions['axis']>
 ): ScrollbarOptions | undefined {
   const raw = renderNode.props.scrollbar;
-  if (!isRecord(raw)) return undefined;
+  if (!isNonArrayObject(raw)) return undefined;
   const visible = raw['visible'];
   const axis = raw['axis'];
   const visualState = raw['visualState'];
@@ -388,13 +388,13 @@ function scrollbarOptionsProp(
 
 function scrollWheelPolicyProp(renderNode: ScrollableNode): NormalizedScrollWheelPolicy {
   const raw = renderNode.props.scrollPolicy;
-  if (!isRecord(raw)) return defaultWheelPolicy();
+  if (!isNonArrayObject(raw)) return defaultWheelPolicy();
   const wheel = raw['wheel'];
-  if (!isRecord(wheel)) return defaultWheelPolicy();
+  if (!isNonArrayObject(wheel)) return defaultWheelPolicy();
   return {
     unit: wheel['unit'] === 'page' ? 'page' : 'line',
-    rows: nonNegativeInteger(wheel['rows'], WHEEL_SCROLL_LINES),
-    columns: nonNegativeInteger(wheel['columns'], WHEEL_SCROLL_COLUMNS)
+    rows: finiteNonNegativeIntegerOr(wheel['rows'], WHEEL_SCROLL_LINES),
+    columns: finiteNonNegativeIntegerOr(wheel['columns'], WHEEL_SCROLL_COLUMNS)
   };
 }
 
@@ -404,12 +404,6 @@ function defaultWheelPolicy(): NormalizedScrollWheelPolicy {
     rows: WHEEL_SCROLL_LINES,
     columns: WHEEL_SCROLL_COLUMNS
   };
-}
-
-function nonNegativeInteger(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? Math.max(0, Math.floor(value))
-    : fallback;
 }
 
 function isScrollbarAxis(value: unknown): value is NonNullable<ScrollbarOptions['axis']> {
@@ -526,7 +520,7 @@ interface RenderNodeScrollStateInput {
 }
 
 function normalizedRenderNodeScroll(renderNode: StateBackedScrollableNode, input: RenderNodeScrollStateInput): ReturnType<typeof normalizeScrollState> {
-  const raw: Readonly<Record<string, unknown>> = isRecord(renderNode.props.scroll) ? renderNode.props.scroll : {};
+  const raw: Readonly<Record<string, unknown>> = isNonArrayObject(renderNode.props.scroll) ? renderNode.props.scroll : {};
   const selectedIndex = scrollNumberField(raw, 'selectedIndex');
   return normalizeScrollState({
     offsetRow: input.offsetRow ?? scrollNumberField(raw, 'offsetRow') ?? 0,
@@ -542,7 +536,7 @@ function normalizedRenderNodeScroll(renderNode: StateBackedScrollableNode, input
 
 function scrollNumberProp(renderNode: StateBackedScrollableNode, key: string): number | undefined {
   const raw = renderNode.props.scroll;
-  return isRecord(raw) ? scrollNumberField(raw, key) : undefined;
+  return isNonArrayObject(raw) ? scrollNumberField(raw, key) : undefined;
 }
 
 function scrollNumberField(record: Readonly<Record<string, unknown>>, key: string): number | undefined {
@@ -553,7 +547,7 @@ function scrollNumberField(record: Readonly<Record<string, unknown>>, key: strin
 function countMenuRows(value: unknown): number {
   if (!Array.isArray(value)) return 0;
   return value.reduce<number>((count, item) => {
-    if (!isRecord(item)) return count;
+    if (!isNonArrayObject(item)) return count;
     const children = item['expanded'] === true ? countMenuRows(item['children']) : 0;
     return count + 1 + children;
   }, 0);
@@ -561,7 +555,7 @@ function countMenuRows(value: unknown): number {
 
 function selectedTableRow(renderNode: TableNode): number {
   const selectedCell = renderNode.props.selectedCell;
-  const selectedCellId = isRecord(selectedCell) && typeof selectedCell.rowId === 'string'
+  const selectedCellId = isNonArrayObject(selectedCell) && typeof selectedCell.rowId === 'string'
     ? selectedCell.rowId
     : undefined;
   const selectedRowId = selectedCellId ?? (typeof renderNode.props.selectedRowId === 'string' ? renderNode.props.selectedRowId : undefined);

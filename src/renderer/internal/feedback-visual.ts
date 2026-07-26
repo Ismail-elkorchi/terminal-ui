@@ -3,7 +3,6 @@ import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { HelpGroup, ProcessStatus } from '../../ui-model/contracts.ts';
 import type { StatusBarItem, StatusBarSection } from '../../ui-model/feedback.ts';
-import { normalizeProcessStatus, normalizeStatusBarStatus } from '../../ui-model/status.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { block, clipRenderSpans, line, measureRenderSpans, span } from '../../visual/render.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -12,7 +11,7 @@ import { statusMarker, statusStyle } from './status-visual.ts';
 import { numberProp, stringify } from './render-node-props.ts';
 import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
 import { normalizeSpinnerFrameIndex } from '../../behavior/spinner.ts';
-import { inlineContentAccessibleText, isInlineContent } from '../../visual/inline-content.ts';
+import { inlineContentAccessibleText } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import { renderInlineContent } from './inline-content.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -49,9 +48,9 @@ export function statusBarBlock(
   widthProfile: TextWidthProfile,
   maxCells?: number
 ): RenderBlock {
-  const leading = statusBarSectionSpans(renderNode, 'leading', statusBarItems(renderNode.props.leading), theme);
-  const center = statusBarSectionSpans(renderNode, 'center', statusBarItems(renderNode.props.center), theme);
-  const trailing = statusBarSectionSpans(renderNode, 'trailing', statusBarItems(renderNode.props.trailing), theme);
+  const leading = statusBarSectionSpans(renderNode, 'leading', renderNode.props.leading, theme);
+  const center = statusBarSectionSpans(renderNode, 'center', renderNode.props.center, theme);
+  const trailing = statusBarSectionSpans(renderNode, 'trailing', renderNode.props.trailing, theme);
   return block([line(maxCells === undefined
     ? joinedStatusBarSections(renderNode, [leading, center, trailing])
     : placedStatusBarSections(renderNode, leading, center, trailing, maxCells, widthProfile))]);
@@ -63,31 +62,12 @@ export function statusBarText(renderNode: StatusBarNode, theme: TerminalTheme, w
 
 export function statusBarAccessibleText(renderNode: StatusBarNode): string {
   return [renderNode.props.leading, renderNode.props.center, renderNode.props.trailing]
-    .flatMap((section) => statusBarItems(section).map((item) => [
+    .flatMap((section) => section.map((item) => [
       item.leading === undefined ? '' : inlineContentAccessibleText(item.leading),
       item.text,
       item.trailing === undefined ? '' : inlineContentAccessibleText(item.trailing)
     ].filter((value) => value.length > 0).join(' ')))
     .join('  ');
-}
-
-function statusBarItems(value: unknown): readonly StatusBarItem[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item): readonly StatusBarItem[] => {
-    if (typeof item !== 'object' || item === null) return [];
-    const candidate = item as Partial<StatusBarItem>;
-    if (typeof candidate.id !== 'string' || typeof candidate.text !== 'string') return [];
-    const id = sanitizeTerminalText(candidate.id).text;
-    const text = sanitizeTerminalText(candidate.text).text;
-    const adornments = {
-      ...(isInlineContent(candidate.leading) ? { leading: candidate.leading } : {}),
-      ...(isInlineContent(candidate.trailing) ? { trailing: candidate.trailing } : {})
-    };
-    if (candidate.kind === 'status') {
-      return [{ id, kind: 'status', text, status: normalizeStatusBarStatus(candidate.status), ...adornments }];
-    }
-    return candidate.kind === 'text' ? [{ id, kind: 'text', text, ...adornments }] : [];
-  });
 }
 
 function statusBarSectionSpans(
@@ -401,7 +381,7 @@ export function helpBarText(renderNode: HelpBarNode, widthProfile: TextWidthProf
 
 export function statusIndicatorBlock(renderNode: StatusIndicatorNode, theme: TerminalTheme): RenderBlock {
   const label = stringify(renderNode.props.label) || 'Activity';
-  const status = normalizeProcessStatus(renderNode.props.status);
+  const status = renderNode.props.status ?? 'idle';
   return block([line(statusLineSpans(renderNode, {
     kind: 'statusIndicator',
     label,
@@ -416,7 +396,7 @@ export function statusIndicatorText(renderNode: StatusIndicatorNode, theme: Term
 }
 
 export function spinnerBlock(renderNode: SpinnerNode, theme: TerminalTheme): RenderBlock {
-  const status = normalizeProcessStatus(renderNode.props.status, 'running');
+  const status = renderNode.props.status ?? 'running';
   const label = stringify(renderNode.props.label) || 'Loading';
   return block([line(statusLineSpans(renderNode, {
     kind: 'spinner',

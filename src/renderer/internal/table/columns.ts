@@ -7,7 +7,7 @@ import type {
   TableColumnWidth
 } from '../../../ui-model/content.ts';
 import type { TableRenderColumn } from '../../model/props/content.ts';
-import type { TableSortDirection, TableSortState } from '../../../ui-model/table.ts';
+import type { TableSortDirection } from '../../../ui-model/table.ts';
 import type { InlineContent, InlineContentSegment } from '../../../visual/inline-content.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
 
@@ -33,7 +33,9 @@ export interface NormalizedTableColumn {
 
 export function tableColumns(renderNode: TableNode, rows: readonly unknown[]): readonly NormalizedTableColumn[] {
   const raw = renderNode.props.columns;
-  const configured = raw?.flatMap((column, index) => normalizeColumn(column, index)) ?? [];
+  const configured = raw?.flatMap((column, index): readonly NormalizedTableColumn[] =>
+    column.hidden === true ? [] : [normalizedColumn(column, index)]
+  ) ?? [];
   const columns = configured.length > 0 ? configured : Array.from({
     length: rows.reduce<number>((max, row) => Math.max(max, rowCells(row).length), 0)
   }, (_value, index): NormalizedTableColumn => ({
@@ -43,8 +45,8 @@ export function tableColumns(renderNode: TableNode, rows: readonly unknown[]): r
     semantic: 'text',
     value: (row: unknown) => rowCells(row)[index]
   }));
-  const sort = tableSort(renderNode.props.sort);
-  const widths = tableColumnWidthOverrides(renderNode.props.columnWidths);
+  const sort = renderNode.props.sort;
+  const widths = renderNode.props.columnWidths ?? {};
   return columns.map((column) => ({
     ...column,
     ...(widths[column.id] === undefined ? {} : { width: widths[column.id] }),
@@ -121,38 +123,22 @@ export function displayTableValue(value: unknown): string {
   return typeof json === 'string' ? sanitizeTableText(json) : '';
 }
 
-function normalizeColumn(column: TableRenderColumn, index: number): readonly NormalizedTableColumn[] {
-  if (column.hidden === true) return [];
-  const id = column.id;
-  const value = column.value;
-  if (typeof id !== 'string' || id.trim().length === 0) {
-    throw new TypeError(`Table column ${String(index)} must define a non-empty id.`);
-  }
-  if (typeof value !== 'function') {
-    throw new TypeError(`Table column "${id}" must define a value(row, rowIndex) accessor.`);
-  }
-  const header = column.header;
-  const align = column.align;
-  const style = column.style;
-  const headerStyle = column.headerStyle;
-  const renderCell = column.renderCell;
-  const width = normalizeWidth(column.width);
-  const normalizedAlign: TableColumnAlignment = align === 'center' || align === 'end' ? align : 'start';
-  const semantic = normalizeColumnSemantic(column.semantic, normalizedAlign);
-  return [{
-    id: sanitizeTableText(id),
+function normalizedColumn(column: TableRenderColumn, index: number): NormalizedTableColumn {
+  const align = column.align ?? 'start';
+  return {
+    id: column.id,
     index,
-    ...(typeof header === 'string' ? { header: sanitizeTableText(header) } : {}),
-    ...(width === undefined ? {} : { width }),
-    align: normalizedAlign,
-    semantic,
-    value,
-    ...(isTerminalStyle(style) ? { style } : {}),
-    ...(isTerminalStyle(headerStyle) ? { headerStyle } : {}),
-    ...(typeof renderCell === 'function' ? { renderCell } : {}),
+    ...(column.header === undefined ? {} : { header: column.header }),
+    ...(column.width === undefined ? {} : { width: column.width }),
+    align,
+    semantic: column.semantic ?? (align === 'end' ? 'metric' : 'text'),
+    value: column.value,
+    ...(column.style === undefined ? {} : { style: column.style }),
+    ...(column.headerStyle === undefined ? {} : { headerStyle: column.headerStyle }),
+    ...(column.renderCell === undefined ? {} : { renderCell: column.renderCell }),
     ...(column.sortable === true ? { sortable: true } : {}),
     ...(column.resizable === true ? { resizable: true } : {})
-  }];
+  };
 }
 
 function requiresIntrinsicWidth(width: TableColumnWidth | undefined): boolean {
@@ -192,56 +178,9 @@ function intrinsicColumnWidth(
   return Math.max(1, headerWidth, Math.min(cellWidth, 24));
 }
 
-function tableSort(value: unknown): TableSortState | undefined {
-  if (!isRecord(value)) return undefined;
-  const columnId = value['columnId'];
-  const direction = value['direction'];
-  return typeof columnId === 'string' && (direction === 'ascending' || direction === 'descending')
-    ? { columnId, direction }
-    : undefined;
-}
-
-function tableColumnWidthOverrides(value: unknown): Readonly<Record<string, number>> {
-  if (!isRecord(value)) return {};
-  return Object.fromEntries(Object.entries(value).flatMap(([id, width]) =>
-    typeof width === 'number' && Number.isFinite(width)
-      ? [[id, Math.max(1, Math.floor(width))] as const]
-      : []
-  ));
-}
-
-function normalizeColumnSemantic(value: unknown, align: TableColumnAlignment): TableColumnSemantic {
-  if (value === 'metric' || value === 'metadata' || value === 'text') return value;
-  return align === 'end' ? 'metric' : 'text';
-}
-
-function normalizeWidth(value: unknown): TableColumnWidth | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(1, Math.floor(value));
-  if (!isRecord(value)) return undefined;
-  const kind = value['kind'];
-  if (kind === 'fixed' && typeof value['cells'] === 'number') return { kind, cells: Math.max(1, Math.floor(value['cells'])) };
-  if (kind === 'percent' && typeof value['value'] === 'number') return { kind, value: Math.max(0, value['value']) };
-  if (kind === 'fill') return { kind, ...(typeof value['weight'] === 'number' ? { weight: Math.max(1, value['weight']) } : {}) };
-  if (kind === 'content') {
-    return {
-      kind,
-      ...(typeof value['min'] === 'number' ? { min: Math.max(1, Math.floor(value['min'])) } : {}),
-      ...(typeof value['max'] === 'number' ? { max: Math.max(1, Math.floor(value['max'])) } : {})
-    };
-  }
-  return undefined;
-}
 
 function rowCells(row: unknown): readonly unknown[] {
   return Array.isArray(row) ? row : [row];
-}
-
-function isTerminalStyle(value: unknown): value is TerminalStyle {
-  return isRecord(value);
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 type TableNode = RenderNodeOfKind<unknown, 'table'>;

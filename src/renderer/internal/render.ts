@@ -136,7 +136,7 @@ export function renderElementInternal<TMessage>(
   options: RenderElementOptions = {}
 ): InternalRenderResult<TMessage> {
   const renderNode = measureRenderStage(options.instrumentation, 'resolve_element', () => toRenderNode(element));
-  recordRenderWork(options.instrumentation, { kind: 'authored_nodes', count: renderNodeCount(renderNode) });
+  recordRenderWork(options.instrumentation, { kind: 'render_nodes', count: renderNodeCount(renderNode) });
   const environment = createRenderEnvironment({
     terminalSize,
     ...(options.theme === undefined ? {} : { theme: options.theme }),

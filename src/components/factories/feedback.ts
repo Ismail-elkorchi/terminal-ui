@@ -29,9 +29,20 @@ import type {
   InferredElementKeyBindings
 } from '../internal/messages.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
-import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
+import type {
+  NotificationStackAction,
+  NotificationStackPresentation
+} from '../../ui-model/notification-stack.ts';
+import type { NotificationItem, StatusBarItem } from '../../ui-model/feedback.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 import { resolveStableIds } from '../../ui-model/identity.ts';
+import {
+  isNotificationTone,
+  isProcessStatus,
+  isStatusBarStatus
+} from '../../ui-model/status.ts';
+import { sanitizeTerminalText } from '../../text/index.ts';
+import { assertOptionalEnum, assertOptionalFiniteNumber } from '../../authoring/validation.ts';
 
 export function notificationStack<
   const TDismissMessage = never,
@@ -60,28 +71,35 @@ export function notificationStack<
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function notificationStack(rawOptions: object): Element<unknown> {
   const options = rawOptions as NotificationStackOptions<unknown>;
+  const presentation = normalizeNotificationPresentation(options.presentation);
+  assertOptionalEnum(
+    options.placement,
+    ['top-right', 'bottom-right', 'centered-stack'],
+    'notificationStack placement'
+  );
+  assertOptionalFiniteNumber(options.maxWidth, 'notificationStack maxWidth');
   const onAction = 'onAction' in options ? options.onAction : undefined;
   const onDismiss = 'onDismiss' in options ? options.onDismiss : undefined;
   const keys = 'keys' in options ? options.keys : undefined;
   const meta = withMetaDefaults(options.meta, {
-    focus: { disabled: options.presentation.kind === 'live' }
+    focus: { disabled: presentation.kind === 'live' }
   });
-  const generated = onAction === undefined || options.presentation.kind !== 'history' ? undefined : {
+  const generated = onAction === undefined || presentation.kind !== 'history' ? undefined : {
     arrowUp: () => onAction({ kind: 'move', delta: -1 }),
     arrowDown: () => onAction({ kind: 'move', delta: 1 }),
-    delete: () => options.presentation.kind !== 'history' || options.presentation.selected === undefined
+    delete: () => presentation.selected === undefined
       ? undefined
-      : onAction({ kind: 'dismiss', id: options.presentation.selected })
+      : onAction({ kind: 'dismiss', id: presentation.selected })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
   const keyMap = onAction === undefined
     ? undefined
     : mergeKeyBindings(generated, keys);
-  resolveStableIds(options.presentation.items, (item) => item.id, 'notificationStack');
+  resolveStableIds(presentation.items, (item) => item.id, 'notificationStack');
   return componentElementFromRenderNode<'notificationStack', unknown>({
     ...requiredId(options.id, 'notificationStack'),
     kind: 'notificationStack',
     props: {
-      presentation: options.presentation,
+      presentation,
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
       ...(onDismiss === undefined ? {} : { toDismissMessage: onDismiss }),
@@ -107,13 +125,18 @@ export function statusBar(options: StatusBarOptions): Element {
 }
 
 function normalizedStatusItems(
-  items: readonly import('../../ui-model/feedback.ts').StatusBarItem[]
-): readonly import('../../ui-model/feedback.ts').StatusBarItem[] {
-  return items.map((item) => ({
-    ...item,
-    ...(item.leading === undefined ? {} : { leading: normalizeInlineContent(item.leading) }),
-    ...(item.trailing === undefined ? {} : { trailing: normalizeInlineContent(item.trailing) })
-  }));
+  items: readonly StatusBarItem[]
+): readonly StatusBarItem[] {
+  return items.map((item) => {
+    assertStatusBarItem(item);
+    return {
+      ...item,
+      id: sanitizeTerminalText(item.id).text,
+      text: sanitizeTerminalText(item.text).text,
+      ...(item.leading === undefined ? {} : { leading: normalizeInlineContent(item.leading) }),
+      ...(item.trailing === undefined ? {} : { trailing: normalizeInlineContent(item.trailing) })
+    };
+  });
 }
 
 export function helpBar(options: HelpBarOptions): Element {
@@ -127,6 +150,7 @@ export function helpBar(options: HelpBarOptions): Element {
 }
 
 export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
+  assertProcessStatus(options.status, 'statusIndicator');
   return componentElementFromRenderNode<'statusIndicator'>({
     ...optionalId(options.id),
     kind: 'statusIndicator',
@@ -140,17 +164,27 @@ export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
 
 export function progressBar(options: ProgressBarOptions): Element {
   assertProgressBarMode(options.mode);
+  assertProcessStatus(options.status, 'progressBar');
+  assertOptionalEnum(
+    options.display,
+    ['bar', 'bar+percent', 'bar+value', 'bar+value+percent'],
+    'progressBar display'
+  );
+  assertOptionalEnum(options.labelPosition, ['start', 'end', 'none'], 'progressBar labelPosition');
+  const barWidth = normalizedProgressBarWidth(options.barWidth);
+  const elapsedMs = normalizedDuration(options.elapsedMs, 'progressBar elapsedMs');
+  const remainingMs = normalizedDuration(options.remainingMs, 'progressBar remainingMs');
   return componentElementFromRenderNode<'progressBar'>({
     ...optionalId(options.id),
     kind: 'progressBar',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
       mode: options.mode,
-      ...(options.barWidth === undefined ? {} : { barWidth: options.barWidth }),
+      ...(barWidth === undefined ? {} : { barWidth }),
       ...(options.display === undefined ? {} : { display: options.display }),
       ...(options.labelPosition === undefined ? {} : { labelPosition: options.labelPosition }),
-      ...(options.elapsedMs === undefined ? {} : { elapsedMs: options.elapsedMs }),
-      ...(options.remainingMs === undefined ? {} : { remainingMs: options.remainingMs }),
+      ...(elapsedMs === undefined ? {} : { elapsedMs }),
+      ...(remainingMs === undefined ? {} : { remainingMs }),
       ...(options.status === undefined ? {} : { status: options.status }),
       ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale })
     },
@@ -171,6 +205,20 @@ function assertProgressBarMode(mode: ProgressBarOptions['mode']): void {
   if (mode.max !== undefined && (!Number.isFinite(mode.max) || mode.max <= 0)) {
     throw new RangeError('progressBar determinate max must be finite and greater than zero.');
   }
+}
+
+function normalizedProgressBarWidth(value: unknown): number | undefined {
+  assertOptionalFiniteNumber(value, 'progressBar barWidth');
+  if (value === undefined) return undefined;
+  if (value <= 0) throw new RangeError('progressBar barWidth must be greater than zero.');
+  return Math.max(1, Math.min(120, Math.floor(value)));
+}
+
+function normalizedDuration(value: unknown, label: string): number | undefined {
+  assertOptionalFiniteNumber(value, label);
+  if (value === undefined) return undefined;
+  if (value < 0) throw new RangeError(`${label} must be non-negative.`);
+  return Math.floor(value);
 }
 
 export function sparkline(options: SparklineOptions): Element {
@@ -343,6 +391,7 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
 }
 
 export function spinner(options: SpinnerOptions = {}): Element {
+  assertProcessStatus(options.status, 'spinner');
   return componentElementFromRenderNode<'spinner'>({
     ...optionalId(options.id),
     kind: 'spinner',
@@ -356,6 +405,46 @@ export function spinner(options: SpinnerOptions = {}): Element {
   });
 }
 
+function normalizeNotificationPresentation(
+  value: NotificationStackPresentation
+): NotificationStackPresentation {
+  const items = Object.freeze(value.items.map(normalizeNotificationItem));
+  const kind: unknown = value.kind;
+  if (kind === 'live') return Object.freeze({ kind: 'live', items });
+  if (kind !== 'history') {
+    throw new TypeError('notificationStack presentation kind must be live or history.');
+  }
+  const history = value as Extract<NotificationStackPresentation, { readonly kind: 'history' }>;
+  return Object.freeze({
+    kind: 'history',
+    items,
+    ...(history.selected === undefined ? {} : { selected: sanitizeLine(history.selected) })
+  });
+}
+
+function normalizeNotificationItem(value: NotificationItem): NotificationItem {
+  if (value.id.trim().length === 0) throw new TypeError('Notification item id must not be empty.');
+  if (value.tone !== undefined && !isNotificationTone(value.tone)) {
+    throw new TypeError('Notification item tone is invalid.');
+  }
+  if (value.progress !== undefined && !Number.isFinite(value.progress)) {
+    throw new RangeError('Notification item progress must be finite when provided.');
+  }
+  return Object.freeze({
+    id: sanitizeLine(value.id),
+    title: sanitizeLine(value.title),
+    ...(value.message === undefined ? {} : { message: sanitizeLine(value.message) }),
+    ...(value.tone === undefined ? {} : { tone: value.tone }),
+    ...(value.progress === undefined ? {} : { progress: value.progress }),
+    ...(value.detail === undefined ? {} : { detail: sanitizeLine(value.detail) }),
+    ...(value.dismissible === undefined ? {} : { dismissible: value.dismissible })
+  });
+}
+
+function sanitizeLine(value: string): string {
+  return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
+}
+
 function assertChartDataState(value: unknown, component: string): void {
   if (value === undefined || value === 'loading' || value === 'error') return;
   throw new TypeError(`${component} dataState must be loading or error.`);
@@ -364,4 +453,16 @@ function assertChartDataState(value: unknown, component: string): void {
 function assertMeterResult(value: unknown): void {
   if (value === undefined || value === 'success' || value === 'warning' || value === 'error') return;
   throw new TypeError('meter result must be success, warning, or error.');
+}
+
+function assertStatusBarItem(item: StatusBarItem): void {
+  const candidate: { readonly kind?: unknown; readonly status?: unknown } = item;
+  if (candidate.kind === 'text') return;
+  if (candidate.kind === 'status' && isStatusBarStatus(candidate.status)) return;
+  throw new TypeError('statusBar item kind or status is invalid.');
+}
+
+function assertProcessStatus(value: unknown, component: string): void {
+  if (value === undefined || isProcessStatus(value)) return;
+  throw new TypeError(`${component} status must be idle, running, success, warning, or error.`);
 }

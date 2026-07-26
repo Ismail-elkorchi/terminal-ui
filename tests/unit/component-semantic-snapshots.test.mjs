@@ -782,7 +782,6 @@ function assertElementVisualSnapshot(snapshot, current, terminalSize, label) {
   const hitTargets = JSON.parse(snapshot.hitTargetJson);
   const focusTargets = JSON.parse(snapshot.focusTargetJson);
 
-  assert.equal(snapshot.schemaVersion, 'terminal-ui.visual-snapshots.v1', `${label}: snapshot schema`);
   assert.match(snapshot.plainTextFrame, current.expectText, `${label}: plain frame`);
   assert.match(snapshot.ansiFrame, /\\x1b\[/u, `${label}: ANSI frame`);
   assert.doesNotMatch(snapshot.ansiFrame, /\u001B/u, `${label}: raw ANSI leaked into normalized ANSI artifact`);

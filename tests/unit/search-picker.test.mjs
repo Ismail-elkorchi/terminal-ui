@@ -123,7 +123,7 @@ test('searchPicker component renders query matches disabled entries preview help
   assert.equal(frame.accessibility.root.children?.[0]?.value, undefined);
 });
 
-test('searchPicker entry normalization is retained across authored frames', () => {
+test('searchPicker entry normalization is retained across repeated element construction', () => {
   let labelReads = 0;
   const measuredEntries = Array.from({ length: 100 }, (_, index) => ({
     id: `entry-${String(index)}`,
@@ -134,15 +134,15 @@ test('searchPicker entry normalization is retained across authored frames', () =
     value: index
   }));
   const measuredIndex = prepareSearchPickerIndex(measuredEntries);
-  const authoredFrame = (query) => searchPicker({
+  const elementForQuery = (query) => searchPicker({
     id: 'measured-searchPicker',
       searchPickerIndex: measuredIndex,
     query,
     onSelect: (entry) => entry.value
   });
 
-  renderElementFrame(authoredFrame('entry'), { columns: 60, rows: 12 });
-  renderElementFrame(authoredFrame('entry-9'), { columns: 60, rows: 12 });
+  renderElementFrame(elementForQuery('entry'), { columns: 60, rows: 12 });
+  renderElementFrame(elementForQuery('entry-9'), { columns: 60, rows: 12 });
 
   assert.equal(labelReads, measuredEntries.length);
 });

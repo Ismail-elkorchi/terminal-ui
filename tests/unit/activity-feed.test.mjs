@@ -3,7 +3,8 @@ import test from 'node:test';
 
 import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
-import { createVisualSnapshot, renderElementRegions } from '../../dist/testing/index.js';
+import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   renderElementFrame,
@@ -66,6 +67,10 @@ test('structuredBlock renders collapsed and expanded block data', () => {
     ['queued:summary', 'Waiting for a worker'],
     ['queued:field:owner', 'scheduler']
   ]);
+});
+
+test('document factories reject invalid record results', () => {
+  assert.throws(() => structuredBlock({ title: 'Invalid', result: 'complete' }), TypeError);
 });
 
 test('structuredBlock sanitizes terminal control sequences', () => {

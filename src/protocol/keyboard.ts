@@ -39,12 +39,10 @@ export function kittyKeyboardProfile(flags: number): TerminalKeyboardProfile {
 }
 
 export function normalizeKeyboardProfile(profile: unknown): TerminalKeyboardProfile {
-  if (!isRecord(profile)) throw new TypeError('Terminal keyboard profile must be an object.');
+  if (!isNonArrayObject(profile)) throw new TypeError('Terminal keyboard profile must be an object.');
   if (profile['kind'] === 'legacy') return LEGACY_KEYBOARD_PROFILE;
   if (profile['kind'] === 'kitty' && typeof profile['flags'] === 'number') return kittyKeyboardProfile(profile['flags']);
   throw new TypeError('Terminal keyboard profile kind must be legacy or kitty.');
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
+import { isNonArrayObject } from '../foundation/validation.ts';

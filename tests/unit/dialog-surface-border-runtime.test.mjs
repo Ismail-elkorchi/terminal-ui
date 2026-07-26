@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createFrameBuffer, drawBorder, layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import { button, dialog, text } from '../../dist/components/index.js';
 import { row, surface } from '../../dist/layout/index.js';
@@ -22,6 +22,13 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
   const rendered = frame.cells.map((cell) => cell.text).join('');
   assert.equal(frame.accessibility.root.label, 'Confirm');
   assert.match(rendered, /inside/u);
+});
+
+test('surface authoring rejects unknown appearances', () => {
+  assert.throws(
+    () => surface(text('content'), { appearance: 'floating' }),
+    TypeError
+  );
 });
 
 test('dialog accessibility label derives from structured authored titles', () => {

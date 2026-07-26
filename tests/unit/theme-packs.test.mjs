@@ -139,7 +139,7 @@ test('theme matrix snapshots cover core components with packs high contrast and 
 
     assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true, theme.name);
     assert.equal(frame.cells.every((cell) => cell.row >= 1 && cell.row <= frame.height && cell.column >= 1 && cell.column <= frame.width), true);
-    assert.equal(createVisualSnapshot({ frame }).schemaVersion, 'terminal-ui.visual-snapshots.v1');
+    assert.equal(typeof createVisualSnapshot({ frame }).plainTextFrame, 'string');
   }
 });
 
@@ -243,5 +243,5 @@ test('default theme specimen composes surface control text command log and data 
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'chart.series.2'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'table.header'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.token === 'surface.raised.background'), true);
-  assert.equal(createVisualSnapshot({ frame }).schemaVersion, 'terminal-ui.visual-snapshots.v1');
+  assert.equal(typeof createVisualSnapshot({ frame }).plainTextFrame, 'string');
 });

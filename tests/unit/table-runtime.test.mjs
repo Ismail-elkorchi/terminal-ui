@@ -47,6 +47,25 @@ test('list and table reject empty or duplicate stable ids at authoring time', ()
     getRowId: () => '',
     columns: [{ id: 'value', header: 'Value', value: (row) => row[0] }]
   }), /ids must not be empty/u);
+  assert.throws(() => table({
+    id: 'invalid-column',
+    rows: [['alpha']],
+    getRowId: () => 'alpha',
+    columns: [{ id: 'value', value: (row) => row[0], align: 'left' }]
+  }), TypeError);
+  assert.throws(() => table({
+    id: 'invalid-width',
+    rows: [['alpha']],
+    getRowId: () => 'alpha',
+    columns: [{ id: 'value', value: (row) => row[0], width: Number.NaN }]
+  }), RangeError);
+  assert.throws(() => table({
+    id: 'invalid-cell-selection',
+    rows: [['alpha']],
+    getRowId: () => 'alpha',
+    columns: [{ id: 'value', value: (row) => row[0] }],
+    presentation: { selectedCell: { rowId: 'alpha', columnIndex: 0.5 } }
+  }), TypeError);
 });
 
 test('table component renders constrained columns and selected rows', () => {

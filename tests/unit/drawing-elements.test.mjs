@@ -7,7 +7,7 @@ import { blockSpan,
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/testing/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import {
   absolute,
   overlay,
@@ -337,6 +337,6 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
 test('canvas rejects missing painters as programmer errors', () => {
   assert.throws(
     () => canvas({ id: 'bad-canvas-factory', painter: undefined }),
-    /canvas\(\) requires a painter function/u
+    TypeError
   );
 });

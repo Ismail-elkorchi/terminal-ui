@@ -1,5 +1,7 @@
 const ignoredMessageBrand: unique symbol = Symbol('terminal-ui.ignored-message');
 
+export type TuiMessageSource = 'input' | 'signal' | 'timer' | 'external' | 'effect';
+
 export interface IgnoredMessage {
   readonly [ignoredMessageBrand]: true;
 }

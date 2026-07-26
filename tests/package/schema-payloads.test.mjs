@@ -5,8 +5,11 @@ import test from 'node:test';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
-import { accessibleRoles,
-  accessibleSources } from '../../dist/accessibility/index.js';
+import {
+  accessibleRoles,
+  accessibleSources,
+  validateAccessibleSnapshot
+} from '../../dist/accessibility/index.js';
 import { diagnostic,
   terminalDiagnosticCodes } from '../../dist/diagnostics.js';
 import { input,
@@ -94,8 +97,10 @@ test('accessible snapshot schema enums match runtime accessibility constants', a
 
   assert.deepEqual(accessibleSchema.properties.source.enum, [...accessibleSources]);
   assert.deepEqual(accessibleSchema.$defs.accessibleNode.properties.role.enum, [...accessibleRoles]);
-  assert.deepEqual(transcriptSchema.$defs.accessibleSnapshot.properties.source.enum, [...accessibleSources]);
-  assert.deepEqual(transcriptSchema.$defs.accessibleNode.properties.role.enum, [...accessibleRoles]);
+  assert.equal(
+    transcriptSchema.$defs.step.oneOf[3].properties.snapshot.$ref,
+    accessibleSchema.$id
+  );
   assert.deepEqual(
     Object.keys(accessibleSchema.$defs.accessibleNode.properties.window.properties),
     ['startIndex', 'endIndexExclusive', 'totalCount', 'omittedBefore', 'omittedAfter']
@@ -104,14 +109,25 @@ test('accessible snapshot schema enums match runtime accessibility constants', a
     Object.keys(accessibleSchema.$defs.accessibleNode.properties.position.properties),
     ['positionInSet', 'setSize', 'level', 'rowIndex', 'rowCount', 'columnIndex', 'columnCount', 'columnLabel', 'group']
   );
-  assert.deepEqual(
-    transcriptSchema.$defs.accessibleNode.properties.window,
-    accessibleSchema.$defs.accessibleNode.properties.window
-  );
-  assert.deepEqual(
-    transcriptSchema.$defs.accessibleNode.properties.position,
-    accessibleSchema.$defs.accessibleNode.properties.position
-  );
+});
+
+test('accessibility schema validates structure while runtime validation enforces cross-field semantics', async () => {
+  const { ajv, validators } = await loadSchemaValidators();
+  const validateStructure = validators.get('accessible-snapshot.schema.json');
+  const structurallyValid = {
+    schemaVersion: 'terminal-ui.accessible-snapshot.v1',
+    source: 'renderer',
+    root: {
+      id: 'invalid-position',
+      role: 'option',
+      position: { positionInSet: 2, setSize: 1 }
+    },
+    focusPath: [],
+    diagnostics: []
+  };
+
+  assert.equal(validateStructure(structurallyValid), true, ajv.errorsText(validateStructure.errors));
+  assert.equal(validateAccessibleSnapshot(structurallyValid).ok, false);
 });
 
 test('accessible snapshot schema accepts current structures and rejects invalid role nesting', async () => {

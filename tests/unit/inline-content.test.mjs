@@ -148,7 +148,7 @@ test('inline adornments use component part styles and source anatomy', () => {
   assert.equal(frames[3]?.cells.find((cell) => cell.source?.partType === 'trailing')?.style?.fg?.token, 'status.warning');
 });
 
-test('table inline cell content preserves authored style while replacing authored source metadata', () => {
+test('table inline cell content preserves caller style while replacing injected source metadata', () => {
   const frame = renderElementFrame(table({
     id: 'results',
     rows: [{ id: 'one', state: 'ready' }],
@@ -161,7 +161,7 @@ test('table inline cell content preserves authored style while replacing authore
         kind: 'text',
         text: String(value),
         style: { fg: { kind: 'theme', token: 'status.success' } },
-        source: { elementId: 'authored' }
+        source: { elementId: 'injected' }
       })
     })]
   }), { columns: 20, rows: 2 });

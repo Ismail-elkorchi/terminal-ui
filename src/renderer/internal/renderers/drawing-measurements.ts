@@ -1,4 +1,5 @@
 import { borderStyleFromValue } from '../border.ts';
+import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
 import { dividerPreferredSize } from '../divider.ts';
 import {
   combineMeasurementsOverlay,
@@ -8,7 +9,6 @@ import {
 } from '../measurement.ts';
 import { numberProp, stringify } from '../render-node-props.ts';
 import { tooltipPreferredSize } from '../tooltip.ts';
-import { nonNegativeInteger } from './support/common.ts';
 import { childMeasurements } from './measurement-support.ts';
 import type { RendererMeasurementMap } from './types.ts';
 
@@ -30,8 +30,8 @@ export const drawingMeasurements = {
   },
   absolute: ({ renderNode, measureChild }) => {
     const content = measureChild(0);
-    const width = nonNegativeInteger(numberProp(renderNode, 'width'));
-    const height = nonNegativeInteger(numberProp(renderNode, 'height'));
+    const width = finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'width'));
+    const height = finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'height'));
     return measureSize(width || content.preferredWidth, height || content.preferredHeight);
   },
   overlay: ({ childCount, measureChild }) => combineMeasurementsOverlay(

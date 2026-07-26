@@ -122,10 +122,11 @@ accessibility definitions
 custom renderer state
 ```
 
-Each built-in render-node kind has explicit normalized render props. Renderer
-code may validate untrusted values at extension or serialization boundaries,
-but the internal model does not derive its prop shape from authored component
-options.
+Each built-in render-node kind has explicit normalized render props. Public
+factories validate JavaScript and dynamic authored values, sanitize terminal
+text, and normalize private renderer inputs once. Renderer code validates
+extension outputs and serialized or host-provided data, but does not silently
+repair invalid values in its typed private prop model.
 
 The physical dependency direction is enforced by package tests:
 
@@ -140,6 +141,10 @@ foundation, neutral contracts, behavior, and private renderer model
   -> TUI runtime
   -> testing
 ```
+
+The runtime entrypoint is a facade over lifecycle, state reduction, frame
+commit, diagnostics, and change-publication collaborators. There is still one
+serialized dispatch path and one renderer dispatch registry.
 
 Component/layout authoring and renderer implementation are sibling consumers
 of the private renderer model. The renderer implementation does not import

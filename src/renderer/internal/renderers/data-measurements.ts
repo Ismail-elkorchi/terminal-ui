@@ -1,11 +1,11 @@
 import { logHistoryEntryAt } from '../../../ui-model/log-history.ts';
+import { isNonArrayObject } from '../../../foundation/validation.ts';
 import { barChartText, chartText, meterText, heatmapText, sparklineText } from '../charts/index.ts';
 import { paginatorText } from '../data-rendering.ts';
 import { measureBlock, measureSize, measureText } from '../measurement.ts';
 import { activityFeedBlock, structuredBlockBlock } from '../structured-block.ts';
 import { treeBlock } from '../tree.ts';
 import { tableIntrinsicSize } from '../table/columns.ts';
-import { isRecord } from './support/common.ts';
 import { listIntrinsicMeasurement } from './support/list.ts';
 import {
   boundedMeasureSize,
@@ -80,7 +80,7 @@ export const dataMeasurements = {
 
 function logViewerMeasureText(renderNode: RenderNodeOfKind<unknown, 'logViewer'>): string {
   const history = renderNode.props.history;
-  const scroll = isRecord(renderNode.props.scroll) ? renderNode.props.scroll : undefined;
+  const scroll = isNonArrayObject(renderNode.props.scroll) ? renderNode.props.scroll : undefined;
   const viewportRows = boundedMeasureSize(
     typeof scroll?.viewportRows === 'number' ? scroll.viewportRows : 0,
     1,

@@ -9,8 +9,7 @@ import {
   chartSpan,
   chartTextFromBlock,
   chartValueStyle,
-  meterMetricStyle,
-  meterResult
+  meterMetricStyle
 } from '../chart-visual.ts';
 import { numberProp } from '../render-node-props.ts';
 import type { RenderBlock } from '../../../visual/render.ts';
@@ -30,7 +29,7 @@ export function meterBlock(
   const filledCells = Math.round(ratio * width);
   const emptyCells = Math.max(0, width - filledCells);
   const label = cleanLabel(renderNode.props.label);
-  const result = meterResult(renderNode.props.result);
+  const result = renderNode.props.result;
   const valueText = `${String(Math.round(ratio * 100))}%`;
   return {
     lines: [{
@@ -78,7 +77,7 @@ function meterDialBlock(
   const filledCells = Math.round(ratio * innerWidth);
   const emptyCells = Math.max(0, innerWidth - filledCells);
   const label = cleanLabel(renderNode.props.label);
-  const result = meterResult(renderNode.props.result);
+  const result = renderNode.props.result;
   const valueText = `${String(Math.round(ratio * 100))}%`;
   const markerGlyph = '▲';
   const markerCells = measureTextCells(markerGlyph, { widthProfile }).cells;

@@ -1,4 +1,5 @@
 import type { Rect } from '../geometry/types.ts';
+import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
 
 export type AnchoredSurfaceSide = 'above' | 'below' | 'left' | 'right';
 
@@ -31,7 +32,7 @@ export interface PlaceAnchoredSurfaceInput {
 export function placeAnchoredSurface(input: PlaceAnchoredSurfaceInput): Rect {
   const viewport = normalizeRect(input.viewport);
   const size = boundedSize(input.size, viewport);
-  const margin = nonNegativeInteger(input.margin ?? 1);
+  const margin = finiteNonNegativeIntegerOrZero(input.margin ?? 1);
   const anchor = anchorBounds(input.anchor);
   const placement = input.placement ?? (input.anchor.kind === 'cursor' ? 'cursor' : 'auto');
   const candidates = candidateOrder(placement, input.fallback);
@@ -127,8 +128,8 @@ function containsRect(outer: Rect, inner: Rect): boolean {
 
 function boundedSize(size: AnchoredSurfaceSize, viewport: Rect): AnchoredSurfaceSize {
   return {
-    width: Math.min(nonNegativeInteger(size.width), viewport.width),
-    height: Math.min(nonNegativeInteger(size.height), viewport.height)
+    width: Math.min(finiteNonNegativeIntegerOrZero(size.width), viewport.width),
+    height: Math.min(finiteNonNegativeIntegerOrZero(size.height), viewport.height)
   };
 }
 
@@ -136,11 +137,7 @@ function normalizeRect(rect: Rect): Rect {
   return {
     row: Math.floor(rect.row),
     column: Math.floor(rect.column),
-    width: nonNegativeInteger(rect.width),
-    height: nonNegativeInteger(rect.height)
+    width: finiteNonNegativeIntegerOrZero(rect.width),
+    height: finiteNonNegativeIntegerOrZero(rect.height)
   };
-}
-
-function nonNegativeInteger(value: number): number {
-  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }

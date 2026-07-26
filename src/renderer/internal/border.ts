@@ -1,4 +1,5 @@
 import { oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { BorderKind } from '../../visual/border.ts';
@@ -110,7 +111,7 @@ function horizontalLine(
 }
 
 export function borderStyleFromValue(value: unknown): BorderStyle | undefined {
-  if (!isRecord(value)) return undefined;
+  if (!isNonArrayObject(value)) return undefined;
   const kind = value['kind'];
   if (!isBorderKind(kind)) return undefined;
   const titleAlign = value['titleAlign'];
@@ -368,8 +369,4 @@ const emptyGlyphs: BorderGlyphs = {
 
 function isTitleAlign(value: unknown): value is NonNullable<BorderStyle['titleAlign']> {
   return value === 'start' || value === 'center' || value === 'end';
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null;
 }

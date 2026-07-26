@@ -1,4 +1,4 @@
-const authoredNodeLimits = Object.freeze({
+const renderNodeLimits = Object.freeze({
   'real-example-btop-monitor': 160,
   'real-example-ide-editor': 40,
   'real-example-interactive-workspace': 56
@@ -14,12 +14,12 @@ export function structuralBudgetViolations(report) {
       violations.push(violation(scenario.name, 'normalized_records', setupRecords, scenario.scale));
     }
     const work = scenario.work ?? {};
-    const authored = maximum(work.authored_nodes);
+    const renderNodes = maximum(work.render_nodes);
     const measured = maximum(work.measured_nodes);
     const rendered = maximum(work.rendered_nodes);
-    const authoredLimit = authoredNodeLimits[scenario.name] ?? 16;
-    check(violations, scenario.name, 'authored_nodes', authored, authoredLimit);
-    check(violations, scenario.name, 'measured_nodes', measured, authored);
+    const renderNodeLimit = renderNodeLimits[scenario.name] ?? 16;
+    check(violations, scenario.name, 'render_nodes', renderNodes, renderNodeLimit);
+    check(violations, scenario.name, 'measured_nodes', measured, renderNodes);
     check(violations, scenario.name, 'rendered_nodes', rendered, measured);
     check(violations, scenario.name, 'query_candidates', maximum(work.query_candidates), scenario.scale);
     check(violations, scenario.name, 'composed_cells', maximum(work.composed_cells), terminalSizeCells * 2);

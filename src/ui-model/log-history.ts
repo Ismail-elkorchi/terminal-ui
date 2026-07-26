@@ -1,4 +1,5 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 import {
   findPreparedTextMatches,
   prepareTextSearchIndex,
@@ -146,7 +147,7 @@ export function logHistoryRecordById(
 }
 
 export function isLogHistory(value: unknown): value is LogHistory {
-  return isRecord(value) && histories.has(value);
+  return isNonArrayObject(value) && histories.has(value);
 }
 
 export function assertLogHistory(value: unknown): asserts value is LogHistory {
@@ -306,10 +307,6 @@ function segmentContainingIndex(
 
 function compareCodePoints(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function registerHistory<T extends LogHistory>(history: T): T {

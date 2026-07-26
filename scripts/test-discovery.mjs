@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { globFiles } from './glob-files.mjs';
 
-export const testLaneNames = Object.freeze([
+const testLaneNames = Object.freeze([
   'acceptance',
   'conformance',
   'integration',

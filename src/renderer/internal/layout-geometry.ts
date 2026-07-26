@@ -8,6 +8,7 @@ import type {
   LayoutSize,
   Rect
 } from '../../geometry/types.ts';
+import { finiteNonNegativeIntegerOrZero } from '../../foundation/validation.ts';
 
 export function splitTracks(
   bounds: Rect,
@@ -173,14 +174,14 @@ function insetRect(bounds: Rect, inset: LayoutInsets): Rect {
 }
 
 function constrainRect(bounds: Rect, options: LayoutFlowOptions): Rect {
-  const minWidth = nonNegativeInteger(options.minWidth);
-  const minHeight = nonNegativeInteger(options.minHeight);
+  const minWidth = finiteNonNegativeIntegerOrZero(options.minWidth);
+  const minHeight = finiteNonNegativeIntegerOrZero(options.minHeight);
   const maxWidth = options.maxWidth === undefined
     ? options.overflow === 'visible' ? Number.POSITIVE_INFINITY : bounds.width
-    : nonNegativeInteger(options.maxWidth);
+    : finiteNonNegativeIntegerOrZero(options.maxWidth);
   const maxHeight = options.maxHeight === undefined
     ? options.overflow === 'visible' ? Number.POSITIVE_INFINITY : bounds.height
-    : nonNegativeInteger(options.maxHeight);
+    : finiteNonNegativeIntegerOrZero(options.maxHeight);
   const targetWidth = Math.min(Math.max(bounds.width, minWidth), maxWidth);
   const targetHeight = Math.min(Math.max(bounds.height, minHeight), maxHeight);
   const width = options.overflow === 'visible' ? targetWidth : Math.min(targetWidth, bounds.width);
@@ -201,29 +202,24 @@ function alignedStart(start: number, available: number, size: number, alignment:
 
 function normalizeInsets(input: LayoutInsetInput | undefined): LayoutInsets {
   if (typeof input === 'number') {
-    const value = nonNegativeInteger(input);
+    const value = finiteNonNegativeIntegerOrZero(input);
     return { top: value, right: value, bottom: value, left: value };
   }
   if (input === undefined) return { top: 0, right: 0, bottom: 0, left: 0 };
   return {
-    top: nonNegativeInteger(input.top),
-    right: nonNegativeInteger(input.right),
-    bottom: nonNegativeInteger(input.bottom),
-    left: nonNegativeInteger(input.left)
+    top: finiteNonNegativeIntegerOrZero(input.top),
+    right: finiteNonNegativeIntegerOrZero(input.right),
+    bottom: finiteNonNegativeIntegerOrZero(input.bottom),
+    left: finiteNonNegativeIntegerOrZero(input.left)
   };
 }
 
 function normalizedGap(value: number | undefined): number {
-  return nonNegativeInteger(value);
+  return finiteNonNegativeIntegerOrZero(value);
 }
 
 function gapOptions(value: number | undefined): LayoutFlowOptions {
   return value === undefined ? {} : { gap: value };
-}
-
-function nonNegativeInteger(value: number | undefined): number {
-  if (value === undefined || !Number.isFinite(value)) return 0;
-  return Math.max(0, Math.floor(value));
 }
 
 function fitSizes(sizes: readonly number[], total: number): readonly number[] {

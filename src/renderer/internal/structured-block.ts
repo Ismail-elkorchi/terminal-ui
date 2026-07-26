@@ -1,16 +1,14 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
-import { sanitizeTerminalText, wrapTextCells } from '../../text/index.ts';
+import { wrapTextCells } from '../../text/index.ts';
 import { measureTextCells, textWidthProfileKey } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { measuredWindow, type MeasuredWindow } from '../../behavior/measured-window.ts';
 import {
   type DocumentSourceOptions, documentBodyStyle, documentDetailStyle, documentFieldSpans, documentMarkerStyle, documentRecordLevelStyle, documentResultStyle, documentSpan, documentSummaryStyle, documentTitleStyle, sourceToken
 } from './document-visual.ts';
-import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { FieldItem, LogLevel } from '../../ui-model/contracts.ts';
-import { isRecordResult, optionalRecordResult } from '../../ui-model/status.ts';
+import type { FieldItem } from '../../ui-model/contracts.ts';
 import type { StructuredBlock } from '../../ui-model/documents.ts';
 import type { LayoutNode } from '../model/layout.ts';
 import type { Rect } from '../model/layout.ts';
@@ -335,25 +333,14 @@ function structuredBlockAccessibleChildren(block: StructuredBlock, id: string): 
 }
 
 function blockFromRenderNode(renderNode: StructuredBlockNode): StructuredBlock {
-  const title = stringify(renderNode.props.title);
   return {
     id: renderNode.id ?? 'structured-block',
-    title: title.length === 0 ? renderNode.id ?? 'Block' : title,
-    ...optionalString('summary', renderNode.props.summary),
-    ...optionalStyle(renderNode.props.style),
-    ...optionalResult(renderNode.props.result),
-    ...optionalLevel(renderNode.props.level),
-    ...optionalFields(renderNode.props.fields),
-    ...optionalString('body', renderNode.props.body),
-    ...optionalString('details', renderNode.props.details),
-    ...(renderNode.props.collapsed === true ? { collapsed: true } : {})
+    ...renderNode.props
   };
 }
 
 function activityFeedBlocks(renderNode: ActivityFeedNode): readonly StructuredBlock[] {
-  return Array.isArray(renderNode.props.blocks)
-    ? renderNode.props.blocks.filter(isStructuredBlock).map(sanitizeBlock)
-    : [];
+  return renderNode.props.blocks;
 }
 
 function activityFeedActionMessageFactory<TMessage>(
@@ -363,102 +350,10 @@ function activityFeedActionMessageFactory<TMessage>(
 }
 
 function selectedBlockIndex(renderNode: ActivityFeedNode, length: number): number | undefined {
-  const selectedId = stringify(renderNode.props.selectedId);
-  if (selectedId.length === 0 || length <= 0) return undefined;
+  const selectedId = renderNode.props.selectedId;
+  if (selectedId === undefined || selectedId.length === 0 || length <= 0) return undefined;
   const selected = activityFeedBlocks(renderNode).findIndex((block) => block.id === selectedId);
   return selected < 0 ? undefined : selected;
-}
-
-function sanitizeBlock(block: StructuredBlock): StructuredBlock {
-  return {
-    id: cleanLine(block.id),
-    title: cleanLine(block.title),
-    ...(block.summary === undefined ? {} : { summary: cleanLine(block.summary) }),
-    ...(block.style === undefined ? {} : { style: block.style }),
-    ...(isRecordResult(block.result) ? { result: block.result } : {}),
-    ...(isLogLevel(block.level) ? { level: block.level } : {}),
-    ...(block.fields === undefined ? {} : { fields: block.fields.map(sanitizeField) }),
-    ...(block.body === undefined ? {} : { body: cleanText(block.body) }),
-    ...(block.details === undefined ? {} : { details: cleanText(block.details) }),
-    ...(block.collapsed === undefined ? {} : { collapsed: block.collapsed })
-  };
-}
-
-function sanitizeField(field: FieldItem): FieldItem {
-  return {
-    label: cleanLine(field.label),
-    value: cleanLine(field.value)
-  };
-}
-
-function isStructuredBlock(value: unknown): value is StructuredBlock {
-  return typeof value === 'object'
-    && value !== null
-    && 'id' in value
-    && 'title' in value
-    && typeof value.id === 'string'
-    && typeof value.title === 'string';
-}
-
-function optionalString<TKey extends 'summary' | 'body' | 'details'>(
-  key: TKey,
-  value: unknown
-): Pick<StructuredBlock, TKey> | Record<string, never> {
-  return typeof value === 'string' && value.length > 0
-    ? { [key]: cleanText(value) } as Pick<StructuredBlock, TKey>
-    : {};
-}
-
-function optionalStyle(value: unknown): Pick<StructuredBlock, 'style'> | Record<string, never> {
-  return isTerminalStyle(value) ? { style: value } : {};
-}
-
-function optionalResult(value: unknown): Pick<StructuredBlock, 'result'> | Record<string, never> {
-  const result = optionalRecordResult(value);
-  return result === undefined ? {} : { result };
-}
-
-function optionalLevel(value: unknown): Pick<StructuredBlock, 'level'> | Record<string, never> {
-  return isLogLevel(value) ? { level: value } : {};
-}
-
-function isLogLevel(value: unknown): value is LogLevel {
-  return value === 'info' || value === 'warning' || value === 'error';
-}
-
-function optionalFields(value: unknown): Pick<StructuredBlock, 'fields'> | Record<string, never> {
-  if (!Array.isArray(value)) return {};
-  const fields = value.filter(isField).map(sanitizeField);
-  return fields.length === 0 ? {} : { fields };
-}
-
-function isField(value: unknown): value is FieldItem {
-  return typeof value === 'object'
-    && value !== null
-    && 'label' in value
-    && 'value' in value
-    && typeof value.label === 'string'
-    && typeof value.value === 'string';
-}
-
-function isTerminalStyle(value: unknown): value is TerminalStyle {
-  if (!isRecord(value)) return false;
-  const style = value;
-  return optionalBoolean(style['bold'])
-    && optionalBoolean(style['dim'])
-    && optionalBoolean(style['italic'])
-    && optionalBoolean(style['underline'])
-    && optionalBoolean(style['strikethrough'])
-    && optionalBoolean(style['inverse'])
-    && optionalBoolean(style['hidden']);
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null;
-}
-
-function optionalBoolean(value: unknown): boolean {
-  return value === undefined || typeof value === 'boolean';
 }
 
 function headerLine(
@@ -602,12 +497,4 @@ function sourceOptionsForBlock(input: {
     ...(input.itemIndex === undefined ? {} : { itemIndex: input.itemIndex }),
     ...(input.selected === true ? { state: 'selected' } : {})
   };
-}
-
-function cleanLine(value: string): string {
-  return cleanText(value).replace(/\s*\n\s*/gu, ' ');
-}
-
-function cleanText(value: string): string {
-  return sanitizeTerminalText(value).text;
 }
