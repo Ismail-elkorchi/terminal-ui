@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
-import type { RenderNodeOfKind } from '../../model/index.ts';
+import type { RenderNodeOfKind, RenderNodesOfKind } from '../../model/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import { stringify, numberProp } from '../render-node-props.ts';
 import type { CursorPosition } from '../../model/cursor.ts';
@@ -18,7 +18,7 @@ type RadioGroupNode = RenderNodeOfKind<unknown, 'radioGroup'>;
 type ColorSwatchPickerNode = RenderNodeOfKind<unknown, 'colorSwatchPicker'>;
 type CalendarNode = RenderNodeOfKind<unknown, 'calendar'>;
 type SelectNode = RenderNodeOfKind<unknown, 'select'>;
-type TextInputNode = RenderNodeOfKind<unknown, 'textInput'>;
+type TextInputNode = RenderNodesOfKind<unknown, 'textInput' | 'passwordInput'>;
 type NumberInputNode = RenderNodeOfKind<unknown, 'numberInput'>;
 import type { Rect } from '../../model/layout.ts';
 import {
@@ -311,6 +311,18 @@ export function selectAccessibleChildren(renderNode: SelectNode): readonly Acces
 
 export function textInputAccessibleBase(renderNode: TextInputNode, id: string, focused: boolean): AccessibleNode {
   return inputAccessibleBase(renderNode, id, focused, inputValue(renderNode));
+}
+
+export function passwordInputAccessibleBase(renderNode: TextInputNode, id: string, focused: boolean): AccessibleNode {
+  const accessible = inputAccessibleBase(renderNode, id, focused, '');
+  return {
+    id,
+    role: 'textbox',
+    label: id,
+    ...(accessible.disabled === undefined ? {} : { disabled: accessible.disabled }),
+    ...(accessible.focused === undefined ? {} : { focused: accessible.focused }),
+    description: [accessible.description, 'Password input.'].filter(Boolean).join(' ')
+  };
 }
 
 export function numberInputAccessibleBase(renderNode: NumberInputNode, id: string, focused: boolean): AccessibleNode {

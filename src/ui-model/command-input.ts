@@ -19,4 +19,5 @@ export type CommandInputAction =
   | { readonly kind: 'moveSuggestion'; readonly delta: 1 | -1 }
   | { readonly kind: 'selectSuggestion'; readonly suggestionIndex: number }
   | { readonly kind: 'acceptSuggestion' }
+  | { readonly kind: 'dismissSuggestions' }
   | { readonly kind: 'setValue'; readonly value: string };

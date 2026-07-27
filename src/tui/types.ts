@@ -65,6 +65,7 @@ export type TuiInputBinding<TState, TMessage> =
 
 export interface TuiUpdateResult<TState, TMessage> {
   readonly state: TState;
+  readonly cancelEffects?: readonly string[];
   readonly effects?: readonly TuiEffect<TMessage>[];
   readonly focus?: InitialFocusSelector;
   readonly exit?: TuiExitRequest;

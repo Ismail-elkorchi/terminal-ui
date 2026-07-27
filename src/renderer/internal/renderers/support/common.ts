@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../../../accessibility/index.ts';
-import type { RenderNode, RenderNodeOfKind } from '../../../model/index.ts';
+import type { RenderNode, RenderNodesOfKind } from '../../../model/index.ts';
 import type { CursorPosition } from '../../../model/cursor.ts';
 import type { FrameCell } from '../../frame.ts';
 import type { Rect } from '../../../model/layout.ts';
@@ -13,7 +13,7 @@ export function hasKeyboardOrInputMap(renderNode: RenderNode): boolean {
 }
 
 export function focusHitTargets<TMessage>(
-  renderNode: RenderNodeOfKind<TMessage, 'textInput'>,
+  renderNode: RenderNodesOfKind<TMessage, 'textInput' | 'passwordInput'>,
   bounds: Rect,
   suffix: string
 ): readonly HitTarget<TMessage>[] {

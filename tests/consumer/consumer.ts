@@ -6,6 +6,7 @@ import {
   createTerminalHost,
   defineTui,
   ok,
+  passwordInput,
   splitPane,
   surface,
   table,
@@ -14,6 +15,7 @@ import {
   type CommandInputAction,
   type Element,
   type TableAction,
+  type TextInputAction,
   type TreeAction
 } from '@ismail-elkorchi/terminal-ui';
 import { custom, customComposite } from '@ismail-elkorchi/terminal-ui/component';
@@ -35,6 +37,7 @@ type Message =
   | { readonly kind: 'selectRow'; readonly action: TableAction }
   | { readonly kind: 'tree'; readonly action: TreeAction }
   | { readonly kind: 'command'; readonly action: CommandInputAction }
+  | { readonly kind: 'secret'; readonly action: TextInputAction }
   | { readonly kind: 'submit' };
 
 interface State {
@@ -67,22 +70,36 @@ function view(state: State): Element<Message> {
     | { readonly kind: 'submit' }
   > = commandInput({
     id: 'commands',
-    presentation: behavior.commandInputPresentation({ input: { text: '', cursor: 0 }, history: [], suggestions: [] }),
+    presentation: behavior.commandInputPresentation({
+      input: { text: '', cursor: 0 },
+      history: [],
+      suggestions: [{ label: 'Open', value: 'open' }]
+    }),
+    display: 'popup',
+    placement: 'above',
+    maxVisibleSuggestions: 4,
     onAction: (action) => ({ kind: 'command' as const, action }),
     onSubmit: () => ({ kind: 'submit' as const })
+  });
+  const secret: Element<{ readonly kind: 'secret'; readonly action: TextInputAction }> = passwordInput({
+    id: 'secret',
+    presentation: { value: 'private', cursor: 7 },
+    onAction: (action) => ({ kind: 'secret', action })
   });
   const content: Element<Message> = column([
     text(`Count: ${String(state.count)}`, { id: 'count', textRole: 'metric' }),
     increment,
     processes,
     files,
-    commands
+    commands,
+    secret
   ], {
     id: 'content',
     sizes: [
       { kind: 'fixed', cells: 1 },
       { kind: 'fixed', cells: 1 },
       { kind: 'fixed', cells: 2 },
+      { kind: 'fixed', cells: 1 },
       { kind: 'fixed', cells: 1 },
       { kind: 'fixed', cells: 1 }
     ]

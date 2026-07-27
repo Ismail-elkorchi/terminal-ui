@@ -47,6 +47,7 @@ type FormStateNode = RenderNodesOfKind<
   | 'select'
   | 'slider'
   | 'textInput'
+  | 'passwordInput'
   | 'toggleSwitch'
 >;
 

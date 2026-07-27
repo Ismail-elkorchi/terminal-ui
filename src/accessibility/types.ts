@@ -86,6 +86,9 @@ export type AccessibleRole =
   | 'heading'
   | 'link'
   | 'navigation'
+  | 'toolbar'
+  | 'search'
+  | 'complementary'
   | 'status'
   | 'progressbar'
   | 'meter'
@@ -140,6 +143,9 @@ export const accessibleRoles = [
   'heading',
   'link',
   'navigation',
+  'toolbar',
+  'search',
+  'complementary',
   'status',
   'progressbar',
   'meter',

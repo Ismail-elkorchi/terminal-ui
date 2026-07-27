@@ -90,6 +90,7 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly radioGroup: RadioGroupRenderProps<TMessage>;
   readonly select: SelectRenderProps<TMessage>;
   readonly textInput: TextInputRenderProps<TMessage>;
+  readonly passwordInput: TextInputRenderProps<TMessage>;
   readonly numberInput: NumberInputRenderProps<TMessage>;
   readonly menu: MenuRenderProps<TMessage>;
   readonly menuBar: MenuBarRenderProps<TMessage>;

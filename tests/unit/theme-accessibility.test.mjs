@@ -255,6 +255,28 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
         { id: 'name-label', role: 'text', label: 'Name' },
         { id: 'name-input', role: 'textbox', labelledBy: 'name-label' }
       ]
+    },
+    {
+      id: 'browser',
+      role: 'application',
+      children: [
+        {
+          id: 'browser-toolbar',
+          role: 'toolbar',
+          children: [{ id: 'back', role: 'button', label: 'Back' }]
+        },
+        {
+          id: 'browser-search',
+          role: 'search',
+          children: [{ id: 'location', role: 'combobox', label: 'Address' }]
+        },
+        {
+          id: 'browser-library',
+          role: 'complementary',
+          label: 'Library',
+          children: [{ id: 'history', role: 'list' }]
+        }
+      ]
     }
   ];
 

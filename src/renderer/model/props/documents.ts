@@ -24,6 +24,7 @@ import type { LogViewerAction } from '../../../ui-model/log-viewer.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
 import type { MessageResolution } from '../../../interaction/message.ts';
+import type { AnchoredSurfacePlacement } from '../../../interaction/anchored-surface.ts';
 
 export interface ViewportRenderProps<TMessage> extends RenderNodeLayoutProps {
   readonly scrollRow?: number;
@@ -80,6 +81,8 @@ export interface CommandInputRenderProps<TMessage> {
   readonly selectedSuggestionIndex?: number;
   readonly historyIndex?: number;
   readonly display?: CommandInputDisplay;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleSuggestions: number;
   readonly toActionMessage?: (action: CommandInputAction) => TMessage;
 }
 

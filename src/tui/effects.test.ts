@@ -48,7 +48,7 @@ void test('parallel effects with one id both run', async () => {
   const started: string[] = [];
   const first = gate();
   const second = gate();
-  const { effects } = manager();
+  const { effects } = manager<string>();
   effects.start([
     { id: 'load', concurrency: 'parallel', run: async () => { started.push('first'); await first.promise; return { kind: 'none' }; } },
     { id: 'load', concurrency: 'parallel', run: async () => { started.push('second'); await second.promise; return { kind: 'none' }; } }
@@ -95,6 +95,45 @@ void test('replace effects abort prior work with the same id', async () => {
     replacement.release();
     await effects.dispose();
   }
+});
+
+void test('selective cancellation stops matching active and queued effects without disposing the manager', async () => {
+  const started: string[] = [];
+  const aborted: string[] = [];
+  const { effects } = manager<string>();
+  const hanging = (id: string): TuiEffect<string> => ({
+    id,
+    concurrency: 'enqueue',
+    async run({ signal }) {
+      started.push(id);
+      await new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => {
+          aborted.push(id);
+          resolve();
+        }, { once: true });
+      });
+      return { kind: 'none' };
+    }
+  });
+
+  effects.start([hanging('navigation'), hanging('navigation'), hanging('download')]);
+  await waitUntil(() => started.includes('navigation') && started.includes('download'));
+  effects.cancelIds(['navigation']);
+  await waitUntil(() => aborted.includes('navigation'));
+
+  assert.equal(started.filter((id) => id === 'navigation').length, 1);
+  assert.equal(effects.metrics().queued, 0);
+
+  effects.start([{
+    id: 'after-cancel',
+    concurrency: 'parallel',
+    async run() {
+      started.push('after-cancel');
+      return { kind: 'none' };
+    }
+  }]);
+  await waitUntil(() => started.includes('after-cancel'));
+  await effects.dispose();
 });
 
 void test('enqueue effects run in order while keep-first ignores later starts explicitly', async () => {

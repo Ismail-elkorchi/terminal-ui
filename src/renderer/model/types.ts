@@ -72,6 +72,7 @@ export type RenderNodeKind =
   | 'radioGroup'
   | 'select'
   | 'textInput'
+  | 'passwordInput'
   | 'numberInput'
   | 'menu'
   | 'menuBar'

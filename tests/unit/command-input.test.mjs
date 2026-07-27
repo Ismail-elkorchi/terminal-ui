@@ -160,6 +160,92 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.selected, true);
 });
 
+test('commandInput popup anchors suggestions without increasing the input height', () => {
+  const frame = renderElementFrame(commandInput({
+    id: 'omnibox',
+    prompt: '',
+    presentation: {
+      value: 'exa',
+      cursor: 3,
+      suggestions: [
+        { value: 'https://example.com', label: 'Example', description: 'History' },
+        { value: 'https://example.org', label: 'Example.org', description: 'Bookmark' }
+      ],
+      selectedSuggestionIndex: 0
+    },
+    display: 'popup',
+    maxVisibleSuggestions: 2,
+    onAction: (action) => action,
+    onSubmit: (value) => ({ value })
+  }), { columns: 36, rows: 6 });
+
+  const output = frame.cells.map((cell) => cell.text).join('');
+  assert.match(output, /exa/u);
+  assert.match(output, /Example/u);
+  assert.match(output, /History/u);
+  assert.equal(frame.accessibility.root.role, 'combobox');
+  assert.equal(frame.accessibility.root.expanded, true);
+  assert.equal(frame.accessibility.root.controls, 'omnibox:suggestions');
+  assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
+});
+
+test('commandInput generated keys navigate and submit the selected suggestion', async () => {
+  const app = defineTui({
+    id: 'command-generated-keys',
+    init: () => ({
+      presentation: {
+        value: 'exa',
+        cursor: 3,
+        suggestions: [
+          { value: 'https://one.example', label: 'One' },
+          { value: 'https://two.example', label: 'Two' }
+        ]
+      },
+      submitted: null
+    }),
+    update: (state, message) => message.kind === 'action'
+      ? {
+          state: {
+            ...state,
+            presentation: {
+              ...state.presentation,
+              ...(message.action.kind === 'moveSuggestion'
+                ? { selectedSuggestionIndex: message.action.delta > 0 ? 0 : 1 }
+                : {})
+            }
+          }
+        }
+      : { state: { ...state, submitted: message.value } },
+    view: (state) => commandInput({
+      id: 'generated-command',
+      presentation: state.presentation,
+      display: 'popup',
+      onAction: (action) => ({ kind: 'action', action }),
+      onSubmit: (value) => ({ kind: 'submit', value })
+    })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'arrowDown',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'enter',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.equal(runtime.state().submitted, 'https://one.example');
+  await runtime.dispose();
+});
+
 test('commandInput renders completion preview validation footer match styles and wide cursor position', () => {
   const frame = renderElementFrame(
     commandInput({

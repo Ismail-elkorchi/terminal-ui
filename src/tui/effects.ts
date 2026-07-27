@@ -27,6 +27,7 @@ export interface TuiEffectManagerMetrics {
 
 export interface TuiEffectManager<TMessage> {
   start(effects: readonly TuiEffect<TMessage>[]): void;
+  cancelIds(ids: readonly string[]): void;
   cancel(): void;
   dispose(): Promise<void>;
   metrics(): TuiEffectManagerMetrics;
@@ -193,6 +194,11 @@ export function createTuiEffectManager<TMessage>(
       if (disposed) return;
       for (const effect of effects) schedule(effect);
     },
+    cancelIds(ids) {
+      if (disposed) return;
+      for (const value of ids) cancelId(effectExecutionId(value));
+      launchPending();
+    },
     cancel() {
       cancelAll();
     },
@@ -225,6 +231,16 @@ export function createTuiEffectManager<TMessage>(
     for (const deadline of replacementDeadlines.values()) deadline.controller.abort();
     replacementDeadlines.clear();
     for (const execution of active) {
+      execution.lease.revoke();
+      execution.controller.abort();
+    }
+  }
+
+  function cancelId(id: string): void {
+    queues.delete(id);
+    pendingReplacements.delete(id);
+    cancelReplacementDeadline(id);
+    for (const execution of activeById.get(id) ?? []) {
       execution.lease.revoke();
       execution.controller.abort();
     }

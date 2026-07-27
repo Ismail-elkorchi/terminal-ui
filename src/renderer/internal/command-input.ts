@@ -21,6 +21,10 @@ import type { HitTarget } from '../model/renderer.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
+import { placeAnchoredSurface } from '../../interaction/anchored-surface.ts';
+import { terminalTextWidth } from '../../text/index.ts';
+import type { LayoutNode } from '../model/layout.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 
 type CommandPartKind =
   | 'completion'
@@ -77,7 +81,7 @@ export function commandInputText(
 }
 
 export function commandInputAccessibleChildren(renderNode: CommandInputNode): readonly AccessibleNode[] | undefined {
-  const suggestions = commandInputDisplay(renderNode) === 'expanded' ? commandInputSuggestions(renderNode) : [];
+  const suggestions = commandInputDisplay(renderNode) === 'compact' ? [] : commandInputSuggestions(renderNode);
   const validation = validationProp(renderNode);
   const children: AccessibleNode[] = [];
   if (validation !== undefined) {
@@ -157,6 +161,68 @@ export function commandInputSuggestionHitTargets<TMessage>(
       cursor: 'pointer'
     }];
   });
+}
+
+export function commandInputPopupBounds(
+  renderNode: CommandInputNode,
+  bounds: Rect,
+  viewport: Rect,
+  widthProfile: TextWidthProfile
+): readonly Rect[] {
+  if (!commandInputUsesPopup(renderNode) || (renderNode.children?.length ?? 0) === 0) return [];
+  const suggestions = commandInputSuggestions(renderNode);
+  const visibleRows = Math.min(suggestions.length, renderNode.props.maxVisibleSuggestions);
+  const contentWidth = suggestions.reduce((width, suggestion) => Math.max(
+    width,
+    terminalTextWidth(
+      suggestion.description === undefined
+        ? suggestion.label ?? suggestion.value
+        : `${suggestion.label ?? suggestion.value} · ${suggestion.description}`,
+      { widthProfile }
+    )
+  ), 0);
+  return [placeAnchoredSurface({
+    viewport,
+    anchor: {
+      kind: 'target',
+      bounds: { row: bounds.row, column: bounds.column, width: bounds.width, height: 1 }
+    },
+    size: {
+      width: Math.max(bounds.width, contentWidth + 4),
+      height: visibleRows + 2
+    },
+    ...(renderNode.props.placement === undefined ? {} : { placement: renderNode.props.placement }),
+    margin: 0
+  })];
+}
+
+export function commandInputPopupHitTargets<TMessage>(
+  renderNode: CommandInputNode<TMessage>,
+  layout: LayoutNode
+): readonly HitTarget<TMessage>[] {
+  const toMessage = renderNode.props.toActionMessage;
+  if (!commandInputUsesPopup(renderNode) || toMessage === undefined) return [];
+  const popupBounds = layout.children[0]?.bounds;
+  return [
+    {
+      id: renderNodeTargetId(renderNode, 'outside'),
+      bounds: layout.viewport,
+      accepts: ['click'],
+      message: () => toMessage({ kind: 'dismissSuggestions' }),
+      zIndex: 18
+    },
+    ...(popupBounds === undefined ? [] : [{
+      id: renderNodeTargetId(renderNode, 'popup'),
+      bounds: popupBounds,
+      accepts: ['click'] as const,
+      message: ignoreMessage,
+      zIndex: 19
+    }])
+  ];
+}
+
+export function commandInputUsesPopup(renderNode: CommandInputNode): boolean {
+  return commandInputDisplay(renderNode) === 'popup' && commandInputSuggestions(renderNode).length > 0;
 }
 
 function inputLine(renderNode: CommandInputNode, width: number, widthProfile: TextWidthProfile): RenderLine {
@@ -382,7 +448,9 @@ function footerReserve(renderNode: CommandInputNode): number {
 }
 
 function commandInputDisplay(renderNode: CommandInputNode): CommandInputDisplay {
-  return renderNode.props.display === 'expanded' ? 'expanded' : 'compact';
+  return renderNode.props.display === 'expanded' || renderNode.props.display === 'popup'
+    ? renderNode.props.display
+    : 'compact';
 }
 
 function matchQuery(renderNode: CommandInputNode): string {

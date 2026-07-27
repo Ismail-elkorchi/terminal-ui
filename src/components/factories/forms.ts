@@ -10,6 +10,7 @@ import type {
   FormOptions,
   LabelOptions,
   NumberInputOptions,
+  PasswordInputOptions,
   RadioGroupOptions,
   RangeSliderOptions,
   SelectOptions,
@@ -57,6 +58,8 @@ import {
   normalizeRadioGroupState,
   normalizeSelectState
 } from '../../behavior/choice-controls.ts';
+import { segmentGraphemes, terminalTextWidth } from '../../text/index.ts';
+import type { TextPointerAction } from '../../interaction/text-pointer.ts';
 
 export function form<const TChildren extends ElementChildren>(
   children: TChildren,
@@ -435,6 +438,110 @@ export function textInput(options: TextInputOptions<unknown>): Element<unknown> 
       meta: options.meta
     })
   });
+}
+
+export function passwordInput<
+  const TSubmitMessage = never,
+  const TActionMessage = never,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  PasswordInputOptions,
+  {
+    readonly onAction: TActionMessage;
+    readonly onSubmit: TSubmitMessage;
+  },
+  TKeys,
+  TPointerMessage
+>): Element<TSubmitMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+export function passwordInput(options: PasswordInputOptions<unknown>): Element<unknown> {
+  const mask = passwordMask(options.mask);
+  const sourceValue = options.presentation.value;
+  const masked = maskedPasswordPresentation(options.presentation, mask);
+  const onAction = options.onAction;
+  const adaptedAction = onAction === undefined
+    ? undefined
+    : (action: import('../../ui-model/text-input.ts').TextInputAction) => onAction(
+        action.kind === 'pointer'
+          ? { kind: 'pointer', action: sourcePointerAction(sourceValue, action.action, mask.length) }
+          : action
+      );
+  const keyMap = textInputKeyBindings(adaptedAction, options.onSubmit, sourceValue, options.keys);
+  return componentElementFromRenderNode<'passwordInput', unknown>({
+    ...requiredRenderNodeId(options.id, 'passwordInput'),
+    kind: 'passwordInput',
+    props: {
+      value: masked.value,
+      cursor: masked.cursor,
+      ...(masked.selection === undefined ? {} : { selection: masked.selection }),
+      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
+      ...(adaptedAction === undefined ? {} : { toActionMessage: adaptedAction }),
+      ...(options.required === undefined ? {} : { required: options.required }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.error === undefined ? {} : { error: options.error })
+    },
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionProps({
+      ...textActionInputHandlers(adaptedAction),
+      pointer: options.pointer,
+      meta: options.meta
+    })
+  });
+}
+
+function passwordMask(value: string | undefined): string {
+  const mask = value ?? '•';
+  if (segmentGraphemes(mask).length !== 1 || terminalTextWidth(mask) !== 1) {
+    throw new RangeError('passwordInput mask must be one printable one-cell grapheme.');
+  }
+  return mask;
+}
+
+function maskedPasswordPresentation(
+  presentation: import('../../ui-model/text-input.ts').TextInputPresentation,
+  mask: string
+): import('../../ui-model/text-input.ts').TextInputPresentation {
+  const segments = segmentGraphemes(presentation.value);
+  return {
+    value: mask.repeat(segments.length),
+    cursor: maskedPasswordOffset(segments, presentation.cursor, mask.length),
+    ...(presentation.selection === undefined ? {} : {
+      selection: {
+        startOffset: maskedPasswordOffset(segments, presentation.selection.startOffset, mask.length),
+        endOffsetExclusive: maskedPasswordOffset(segments, presentation.selection.endOffsetExclusive, mask.length)
+      }
+    })
+  };
+}
+
+function maskedPasswordOffset(
+  segments: ReturnType<typeof segmentGraphemes>,
+  sourceOffset: number,
+  maskCodeUnits: number
+): number {
+  return segments.filter((segment) => segment.endOffsetExclusive <= sourceOffset).length * maskCodeUnits;
+}
+
+function sourcePasswordOffset(value: string, maskedOffset: number, maskCodeUnits: number): number {
+  const segments = segmentGraphemes(value);
+  const graphemeIndex = Math.max(0, Math.min(segments.length, Math.floor(maskedOffset / maskCodeUnits)));
+  return graphemeIndex >= segments.length
+    ? value.length
+    : segments[graphemeIndex]?.startOffset ?? value.length;
+}
+
+function sourcePointerAction(
+  value: string,
+  action: TextPointerAction,
+  maskCodeUnits: number
+): TextPointerAction {
+  const offset = sourcePasswordOffset(value, action.offset, maskCodeUnits);
+  if (action.kind === 'placeCaret') return { kind: 'placeCaret', offset };
+  return {
+    kind: action.kind,
+    anchor: sourcePasswordOffset(value, action.anchor, maskCodeUnits),
+    offset
+  };
 }
 
 export function numberInput<

@@ -25,6 +25,7 @@ export {
   menuBar,
   notificationStack,
   numberInput,
+  passwordInput,
   searchPicker,
   paginator,
   progressBar,

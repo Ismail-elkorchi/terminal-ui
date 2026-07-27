@@ -25,6 +25,8 @@ import {
   commandInputBlock,
   commandInputCursor,
   commandInputPointerOffset,
+  commandInputPopupBounds,
+  commandInputPopupHitTargets,
   commandInputSuggestionHitTargets
 } from '../command-input.ts';
 import { searchPickerAccessibleChildren, searchPickerBlock, searchPickerHitTargets } from '../search-picker.ts';
@@ -128,12 +130,15 @@ export const menuRenderers = {
   },
   commandInput: {
     measure: menuMeasurements.commandInput,
-    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+    layout: ({ renderNode, bounds, viewport, widthProfile }) =>
+      commandInputPopupBounds(renderNode, bounds, viewport, widthProfile),
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile, renderChildren }) => {
       writeRenderBlock(
         buffer,
         layoutNode.bounds,
         commandInputBlock(renderNode, layoutNode.bounds, theme, widthProfile)
       );
+      renderChildren();
     },
     accessibility: ({ renderNode, id, focused }) => {
       const children = commandInputAccessibleChildren(renderNode);
@@ -142,6 +147,12 @@ export const menuRenderers = {
         role: 'combobox',
         label: stringify(renderNode.props.prompt) || id,
         value: stringify(renderNode.props.value),
+        ...(children?.some((child) => child.role === 'listbox')
+          ? {
+              expanded: true,
+              controls: `${renderNode.id ?? 'command-input'}:suggestions`
+            }
+          : {}),
         ...(focused ? { focused } : {}),
         ...(children === undefined ? {} : { children })
       };
@@ -149,7 +160,8 @@ export const menuRenderers = {
     focusTargets: ({ renderNode, bounds, widthProfile }) => [
       focusTarget(bounds, commandInputCursor(renderNode, bounds, widthProfile))
     ],
-    hitTargets: ({ renderNode, bounds, widthProfile }) => [
+    hitTargets: ({ renderNode, bounds, layoutNode, widthProfile }) => [
+      ...commandInputPopupHitTargets(renderNode, layoutNode),
       ...textPointerHitTargets({
         id: `${renderNode.id ?? renderNode.kind}:text`,
         bounds: { ...bounds, height: Math.min(1, bounds.height) },
@@ -158,7 +170,9 @@ export const menuRenderers = {
           ? undefined
           : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
         offsetAt: (event) => commandInputPointerOffset(renderNode, bounds, event, widthProfile)
-      }),
+      }).map((target) => renderNode.props.display === 'popup'
+        ? { ...target, zIndex: 21 }
+        : target),
       ...commandInputSuggestionHitTargets(renderNode, bounds)
     ]
   },

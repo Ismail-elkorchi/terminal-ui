@@ -258,11 +258,18 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function handleInputImmediately(event: InputEvent): Promise<TuiInputResult<TState>> {
-    if (event.kind !== 'resize') options.transcript?.record({ kind: 'input', event });
     if (event.kind === 'mouse') {
+      options.transcript?.record({ kind: 'input', event });
       return dispatchQueue.run(() => handleMouseInputInternal(event));
     }
     lifecycle.assertOperational();
+    const redactInput = focusedInputIsSensitive() && eventContainsSensitiveText(event);
+    if (event.kind !== 'resize') {
+      options.transcript?.record({
+        kind: 'input',
+        event: redactInput ? redactedInputEvent(event) : event
+      });
+    }
     const state = store.state();
     const frame = commits.frame();
     if (event.kind === 'resize') {
@@ -277,7 +284,7 @@ export function createTuiRuntime<TState, TMessage>(
       }
       return { handled: false, state, frame };
     }
-    const nextState = await dispatchQueue.run(() => dispatchInternal(message, 'input'));
+    const nextState = await dispatchQueue.run(() => dispatchInternal(message, 'input', redactInput));
     const nextFrame = commits.frame();
     return terminalExit === undefined
       ? { handled: true, state: nextState, frame: nextFrame }
@@ -312,14 +319,26 @@ export function createTuiRuntime<TState, TMessage>(
     }
   }
 
-  async function dispatchInternal(message: TMessage, source: TuiMessageSource): Promise<TState> {
-    return dispatchManyInternal([message], source);
+  async function dispatchInternal(
+    message: TMessage,
+    source: TuiMessageSource,
+    redacted = false
+  ): Promise<TState> {
+    return dispatchManyInternal([message], source, redacted);
   }
 
-  async function dispatchManyInternal(messages: readonly TMessage[], source: TuiMessageSource): Promise<TState> {
+  async function dispatchManyInternal(
+    messages: readonly TMessage[],
+    source: TuiMessageSource,
+    redacted = false
+  ): Promise<TState> {
     lifecycle.assertOperational();
     return commitRuntimeTransition({
-      messages: messages.map((message) => ({ message, source })),
+      messages: messages.map((message) => ({
+        message,
+        source,
+        ...(redacted ? { redacted: true } : {})
+      })),
       terminalSize: commits.terminalSize(),
       requestedFocusPath: commits.focusPath()
     });
@@ -361,7 +380,10 @@ export function createTuiRuntime<TState, TMessage>(
       recordReductionMessages(reduction);
       const exit = completeReduction(reduction, commits.renderOrUndefined()?.frame);
       if (exit !== undefined) changes.publish({ kind: 'exit', exit });
-      if (reduction.exitReason === undefined) effects.start(reduction.effects);
+      if (reduction.exitReason === undefined) {
+        effects.cancelIds(reduction.cancelEffects);
+        effects.start(reduction.effects);
+      }
       return reduction.state;
     }
 
@@ -392,14 +414,28 @@ export function createTuiRuntime<TState, TMessage>(
     });
     if (exit !== undefined) changes.publish({ kind: 'exit', exit });
     if (preparedSubscriptions !== undefined) subscriptions.activate(preparedSubscriptions);
-    if (reduction.exitReason === undefined) effects.start(reduction.effects);
+    if (reduction.exitReason === undefined) {
+      effects.cancelIds(reduction.cancelEffects);
+      effects.start(reduction.effects);
+    }
     return reduction.state;
   }
 
   function recordReductionMessages(reduction: RuntimeReduction<TState, TMessage>): void {
     for (const item of reduction.messages) {
-      options.transcript?.record({ kind: 'message', source: item.source, message: item.message });
+      options.transcript?.record({
+        kind: 'message',
+        source: item.source,
+        message: item.redacted === true ? '[redacted]' : item.message
+      });
     }
+  }
+
+  function focusedInputIsSensitive(): boolean {
+    const current = commits.renderOrUndefined();
+    if (current === undefined) return false;
+    return findRenderNodeFocusTarget(current.node, current.layout, commits.focusPath())
+      ?.renderNode.kind === 'passwordInput';
   }
 
   function completeReduction(
@@ -685,6 +721,21 @@ function committedTextInputEvent(
     && event.committedText !== undefined
     ? { kind: 'text', text: event.committedText, paste: false }
     : undefined;
+}
+
+function eventContainsSensitiveText(event: InputEvent): boolean {
+  if (event.kind === 'text' || event.kind === 'paste') return event.text.length > 0;
+  if (event.kind !== 'key' || event.eventType === 'release') return false;
+  if (event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta) return false;
+  return event.committedText !== undefined
+    || event.keyCodePoint !== undefined
+    || /^[a-z0-9]$/u.test(event.key)
+    || event.key === 'space';
+}
+
+function redactedInputEvent(event: InputEvent): InputEvent {
+  if (event.kind === 'paste') return { ...event, text: '[redacted]' };
+  return { kind: 'text', text: '[redacted]', paste: false };
 }
 
 function runtimeDisposalTimeout(value: number | undefined): number {

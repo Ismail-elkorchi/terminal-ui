@@ -32,6 +32,7 @@ import { sanitizeTerminalText } from '../../text/index.ts';
 import { isRecordResult, isValidationLevel } from '../../ui-model/status.ts';
 import type { FieldItem, LogLevel } from '../../ui-model/contracts.ts';
 import type { CommandInputValidation, StructuredBlock } from '../../ui-model/documents.ts';
+import { commandInputPopupRenderNode } from '../internal/command-input-popup.ts';
 
 /* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
 export function logViewer<
@@ -172,14 +173,35 @@ export function commandInput<
 ): Element<TActionMessage | TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function commandInput(options: CommandInputOptions<unknown>): Element<unknown> {
   const action = options.onAction;
-  const generatedKeys = action === undefined ? undefined : commandInputKeyBindings(action);
+  const generatedKeys = action === undefined
+    ? undefined
+    : commandInputKeyBindings(action, options.presentation);
   const onSubmit = options.onSubmit;
+  const selectedSuggestion = options.presentation.selectedSuggestionIndex === undefined
+    ? undefined
+    : options.presentation.suggestions[options.presentation.selectedSuggestionIndex];
+  const submittedValue = selectedSuggestion?.disabled === true
+    ? options.presentation.value
+    : selectedSuggestion?.value ?? options.presentation.value;
   const submitKeys = onSubmit === undefined
     ? undefined
-    : { enter: () => onSubmit(options.presentation.value) };
+    : { enter: () => onSubmit(submittedValue) };
   const keyMap = mergeKeyBindings(mergeKeyBindings(generatedKeys, submitKeys), options.keys);
   const presentation = options.presentation;
   const validation = normalizeCommandInputValidation(options.validation);
+  const maxVisibleSuggestions = commandInputVisibleSuggestionLimit(options.maxVisibleSuggestions);
+  const popup = options.display === 'popup' && presentation.suggestions.length > 0
+    ? commandInputPopupRenderNode({
+        parentElementId: options.id,
+        suggestions: presentation.suggestions,
+        ...(presentation.selectedSuggestionIndex === undefined
+          ? {}
+          : { selectedSuggestionIndex: presentation.selectedSuggestionIndex }),
+        maxVisibleSuggestions,
+        ...(action === undefined ? {} : { toActionMessage: action }),
+        ...(onSubmit === undefined ? {} : { toSubmitMessage: onSubmit })
+      })
+    : undefined;
   return componentElementFromRenderNode<'commandInput', unknown>({
     ...requiredRenderNodeId(options.id, 'commandInput'),
     kind: 'commandInput',
@@ -197,8 +219,11 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
       ...(presentation.selectedSuggestionIndex === undefined ? {} : { selectedSuggestionIndex: presentation.selectedSuggestionIndex }),
       ...(presentation.historyIndex === undefined ? {} : { historyIndex: presentation.historyIndex }),
       ...(options.display === undefined ? {} : { display: options.display }),
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      maxVisibleSuggestions,
       ...(action === undefined ? {} : { toActionMessage: action })
     },
+    ...(popup === undefined ? {} : { children: [popup] }),
     ...interactionProps({
       ...(action === undefined ? {} : {
         onInput: (text) => action({ kind: 'edit', operation: { kind: 'insert', text } }),
@@ -209,6 +234,14 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
       meta: options.meta
     })
   });
+}
+
+function commandInputVisibleSuggestionLimit(value: number | undefined): number {
+  if (value === undefined) return 8;
+  if (!Number.isFinite(value) || value < 1) {
+    throw new RangeError('commandInput maxVisibleSuggestions must be a positive finite number.');
+  }
+  return Math.max(1, Math.floor(value));
 }
 
 export function searchPicker<

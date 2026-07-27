@@ -21,7 +21,7 @@ import { selectionFromUnknown } from '../../text-display.ts';
 type FormNode = RenderNodeOfKind<unknown, 'form'>;
 type FieldNode = RenderNodeOfKind<unknown, 'field'>;
 type LabelNode = RenderNodeOfKind<unknown, 'label'>;
-type TextInputNode = RenderNodeOfKind<unknown, 'textInput'>;
+type TextInputNode = RenderNodesOfKind<unknown, 'textInput' | 'passwordInput'>;
 type NumberInputNode = RenderNodeOfKind<unknown, 'numberInput'>;
 type InputControlNode = TextInputNode | NumberInputNode;
 type ErrorControlNode = RenderNodesOfKind<
@@ -37,11 +37,12 @@ type ErrorControlNode = RenderNodesOfKind<
   | 'select'
   | 'slider'
   | 'textInput'
+  | 'passwordInput'
   | 'toggleSwitch'
 >;
 type DescribedControlNode = RenderNodesOfKind<
   unknown,
-  'checkbox' | 'field' | 'numberInput' | 'radioGroup' | 'select' | 'textInput'
+  'checkbox' | 'field' | 'numberInput' | 'radioGroup' | 'select' | 'textInput' | 'passwordInput'
 >;
 
 export function controlInputBlock(

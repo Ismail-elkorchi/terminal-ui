@@ -8,10 +8,12 @@ typed protocol APIs, not in user-supplied labels, choices, titles, or command
 output. Protocol APIs validate their own parameters before emitting terminal
 control sequences.
 
-Password prompts mask rendered input, honor caller-provided mask symbols, and
-redact secrets from transcripts and snapshots. Interactive prompt and TUI
-transcript capture is opt-in. Transcript redaction records every modified path
-so exported recordings stay auditable without leaking the original value.
+Password prompts and `passwordInput()` mask rendered input, honor
+caller-provided mask symbols, and omit secrets from accessibility output.
+While a password input has focus, TUI input events and the messages they
+produce are redacted in transcripts. Interactive prompt and TUI transcript
+capture is opt-in. Transcript redaction records every modified path so exported
+recordings stay auditable without leaking the original value.
 
 Terminal sessions apply protocol setup through `SessionProtocolPolicy`, then
 restore raw input, alternate screen, bracketed paste, mouse reporting, focus

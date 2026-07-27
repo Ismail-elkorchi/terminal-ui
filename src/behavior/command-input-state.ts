@@ -37,6 +37,13 @@ export function commandInputReducer(state: CommandInputState, action: CommandInp
         ? state
         : withClearedSuggestion({ ...state, input: { text: suggestion.value, cursor: suggestion.value.length } });
     }
+    case 'dismissSuggestions':
+      return {
+        input: state.input,
+        history: state.history,
+        suggestions: [],
+        ...(state.historyIndex === undefined ? {} : { historyIndex: state.historyIndex })
+      };
   }
 }
 

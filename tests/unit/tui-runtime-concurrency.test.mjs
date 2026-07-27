@@ -565,6 +565,79 @@ test('multi-message effect output commits one atomic state transition', async ()
   await runtime.dispose();
 });
 
+test('TUI updates cancel one effect id without cancelling unrelated or later effects', async () => {
+  let navigationAborted = false;
+  let unrelatedCompleted = false;
+  let laterCompleted = false;
+  const unrelated = deferred();
+  const app = defineTui({
+    id: 'selective-effect-cancellation',
+    init: () => ({ phase: 'idle' }),
+    update: (state, message) => {
+      if (message.kind === 'start') {
+        return {
+          state: { phase: 'running' },
+          effects: [
+            {
+              id: 'navigation:tab-1',
+              concurrency: 'replace',
+              async run({ signal }) {
+                await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+                navigationAborted = true;
+                return { kind: 'none' };
+              }
+            },
+            {
+              id: 'download:1',
+              concurrency: 'parallel',
+              async run() {
+                await unrelated.promise;
+                unrelatedCompleted = true;
+                return { kind: 'none' };
+              }
+            }
+          ]
+        };
+      }
+      if (message.kind === 'stop') {
+        return {
+          state: { phase: 'stopped' },
+          cancelEffects: ['navigation:tab-1']
+        };
+      }
+      if (message.kind === 'later') {
+        return {
+          state,
+          effects: [{
+            id: 'navigation:tab-2',
+            concurrency: 'parallel',
+            async run() {
+              laterCompleted = true;
+              return { kind: 'none' };
+            }
+          }]
+        };
+      }
+      return { state };
+    },
+    view: (state) => text(state.phase, { id: 'selective-effect-state' })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.dispatch({ kind: 'start' });
+  await runtime.dispatch({ kind: 'stop' });
+  await waitUntil(() => navigationAborted);
+  assert.equal(unrelatedCompleted, false);
+
+  await runtime.dispatch({ kind: 'later' });
+  await waitUntil(() => laterCompleted);
+  unrelated.release();
+  await waitUntil(() => unrelatedCompleted);
+  await runtime.dispose();
+});
+
 function deferred() {
   let release;
   const promise = new Promise((resolve) => {

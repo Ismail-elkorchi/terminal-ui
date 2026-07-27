@@ -5,6 +5,7 @@ import type { TuiMessageSource } from '../interaction/message.ts';
 export interface PendingTuiMessage<TMessage> {
   readonly message: TMessage;
   readonly source: TuiMessageSource;
+  readonly redacted?: boolean;
 }
 
 export interface RuntimeReduction<TState, TMessage> {
@@ -12,6 +13,7 @@ export interface RuntimeReduction<TState, TMessage> {
   readonly stateVersion: number;
   readonly stateUpdates: number;
   readonly messages: readonly PendingTuiMessage<TMessage>[];
+  readonly cancelEffects: readonly string[];
   readonly effects: readonly TuiEffect<TMessage>[];
   readonly focus?: InitialFocusSelector;
   readonly exitReason?: string;
@@ -38,12 +40,14 @@ export function createRuntimeStore<TState, TMessage>(
       let exitReason: string | undefined;
       let focus: InitialFocusSelector | undefined;
       const applied: PendingTuiMessage<TMessage>[] = [];
+      const cancelEffects = new Set<string>();
       const effects: TuiEffect<TMessage>[] = [];
       for (const item of messages) {
         if (exitReason !== undefined) break;
         messageDispatched();
         const result = update(state, item.message, context);
         applied.push(item);
+        for (const id of result.cancelEffects ?? []) cancelEffects.add(id);
         effects.push(...(result.effects ?? []));
         if (result.focus !== undefined) focus = result.focus;
         if (result.state !== state) {
@@ -58,6 +62,7 @@ export function createRuntimeStore<TState, TMessage>(
         stateVersion: nextStateVersion,
         stateUpdates,
         messages: applied,
+        cancelEffects: [...cancelEffects],
         effects,
         ...(focus === undefined ? {} : { focus }),
         ...(exitReason === undefined ? {} : { exitReason })

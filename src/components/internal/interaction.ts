@@ -181,16 +181,21 @@ export function activationKeyBindings<TMessage>(
 }
 
 export function commandInputKeyBindings<TMessage>(
-  onAction: (action: CommandInputAction) => TMessage
+  onAction: (action: CommandInputAction) => TMessage,
+  presentation: import('../../ui-model/command-input.ts').CommandInputPresentation
 ): ElementKeyBindings<TMessage> {
   const edit = (operation: TextEditOperation): TMessage => onAction({ kind: 'edit', operation });
+  const hasSuggestions = presentation.suggestions.some((suggestion) => suggestion.disabled !== true);
   return {
     backspace: () => edit({ kind: 'deleteBackward' }),
     delete: () => edit({ kind: 'deleteForward' }),
     arrowLeft: () => edit({ kind: 'moveLeft' }),
     arrowRight: () => edit({ kind: 'moveRight' }),
+    arrowUp: () => onAction(hasSuggestions ? { kind: 'moveSuggestion', delta: -1 } : { kind: 'historyPrevious' }),
+    arrowDown: () => onAction(hasSuggestions ? { kind: 'moveSuggestion', delta: 1 } : { kind: 'historyNext' }),
     home: () => edit({ kind: 'moveHome' }),
-    end: () => edit({ kind: 'moveEnd' })
+    end: () => edit({ kind: 'moveEnd' }),
+    tab: () => onAction({ kind: 'acceptSuggestion' })
   };
 }
 

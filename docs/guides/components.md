@@ -21,6 +21,7 @@ layering, or geometry-only interaction are documented in
 | `richText()` | Styled caller-supplied inline content with optional links and accessible symbol fallbacks. | A document model, markdown renderer, or source-metadata escape hatch. |
 | `textArea()` | Caller-controlled multi-line editable text surface with cursor, selection, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
 | `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command picker, number parser, or multi-line editor. |
+| `passwordInput()` | Caller-controlled single-line secret entry that masks rendered content, accessibility output, and TUI transcripts. | Secret storage, validation, or authentication by itself. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
 | `tabs()` | Tab header plus selected-panel layout with semantic select, close, and navigation actions. | Navigation routing, persistence, or hidden panel state. |
 | `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. | A general overlay system, route, or storage for open/closed state. |
@@ -43,7 +44,7 @@ layering, or geometry-only interaction are documented in
 | `contextMenu()` | Controlled contextual command surface anchored to a target or cursor. | Global navigation, a form selector, or persistent sidebar. |
 | `dropdownMenu()` | Controlled compact action trigger with separate open, highlight, activation, dismissal, and popup-scroll state. | A validated form value control; use `select()` for required/error form semantics. |
 | `searchPicker()` | Searchable bounded picker for commands or data entries. | A shell, command parser, or application command registry. |
-| `commandInput()` | Single-line command entry with suggestions and history hooks. | A general message composer, transcript, event log, or command execution engine. |
+| `commandInput()` | Single-line command entry with history hooks and compact, expanded, or anchored-popup suggestions. | A general message composer, transcript, event log, or command execution engine. |
 | `list()` | Fixed-row selectable/filterable list using an explicit stable item projection. | A table, tree, arbitrary-element collection, or virtual data store. |
 | `table()` | Structured rows and columns with selection, scrolling, sorting, resizing, density, and cell semantics. | A spreadsheet engine or database. |
 | `tree()` | Expandable hierarchy with selection, filtering, lazy placeholders, and pointer targets. | A filesystem API or storage of expansion state. |

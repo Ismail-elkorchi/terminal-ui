@@ -1,6 +1,7 @@
 import type { TerminalStyle } from '../../visual/render.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
+import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import type {
   SearchEntry,
   FieldItem,
@@ -86,6 +87,8 @@ export interface CommandInputOptions<TMessage = never> extends InteractiveElemen
   readonly footer?: string;
   readonly matchQuery?: string;
   readonly display?: CommandInputDisplay;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleSuggestions?: number;
   readonly onAction?: (action: CommandInputAction) => TMessage;
   readonly onSubmit?: (value: string) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;

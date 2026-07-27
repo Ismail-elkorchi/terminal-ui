@@ -14,7 +14,7 @@ import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyl
 import type { Rect } from '../model/layout.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 
-type SingleLineInputNode = RenderNodesOfKind<unknown, 'numberInput' | 'textInput'>;
+type SingleLineInputNode = RenderNodesOfKind<unknown, 'numberInput' | 'textInput' | 'passwordInput'>;
 type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
 type InputNode = SingleLineInputNode | TextAreaNode;
 

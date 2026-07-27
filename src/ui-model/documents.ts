@@ -26,4 +26,4 @@ export interface CommandInputValidation {
   readonly level?: ValidationLevel;
 }
 
-export type CommandInputDisplay = 'compact' | 'expanded';
+export type CommandInputDisplay = 'compact' | 'expanded' | 'popup';

@@ -28,6 +28,7 @@ import {
   numberInputCursor,
   numberInputHitTargets,
   optionHitTargets,
+  passwordInputAccessibleBase,
   pickerHitTargets,
   radioGroupAccessibleBase,
   radioGroupAccessibleChildren,
@@ -288,6 +289,41 @@ export const formRenderers = {
           }))
     ]
   },
+  passwordInput: {
+    measure: formMeasurements.passwordInput,
+    render: ({ renderNode, layoutNode, buffer, focus, theme, widthProfile }) => {
+      writeRenderBlock(
+        buffer,
+        layoutNode.bounds,
+        textInputBlock(renderNode, layoutNode.bounds, focus === 'self', theme, widthProfile)
+      );
+    },
+    accessibility: ({ renderNode, id, focused }) => passwordInputAccessibleBase(renderNode, id, focused),
+    focusTargets: ({ renderNode, bounds, theme, widthProfile }) => [
+      focusTarget(bounds, textInputCursor(renderNode, bounds, theme, widthProfile))
+    ],
+    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => [
+      ...focusHitTargets(renderNode, bounds, 'input'),
+      ...(renderNode.props.disabled === true
+        ? []
+        : textPointerHitTargets({
+            id: `${renderNode.id ?? renderNode.kind}:text`,
+            bounds,
+            focusTargetId: 'self',
+            toMessage: renderNode.props.toActionMessage === undefined
+              ? undefined
+              : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
+            offsetAt: (event) => singleLineInputPointerOffset({
+              renderNode,
+              bounds,
+              theme,
+              widthProfile,
+              value: stringify(renderNode.props.value),
+              placeholder: stringify(renderNode.props.placeholder)
+            }, event)
+          }))
+    ]
+  },
   numberInput: {
     measure: formMeasurements.numberInput,
     render: ({ renderNode, layoutNode, buffer, focus, theme, widthProfile }) => {
@@ -318,5 +354,6 @@ export const formRenderers = {
   | 'colorSwatchPicker'
   | 'calendar'
   | 'textInput'
+  | 'passwordInput'
   | 'numberInput'
 >;

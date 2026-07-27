@@ -76,6 +76,10 @@ export const formMeasurements = {
     textInputBlock(renderNode, constrainedMeasureBounds(bounds), false, theme, widthProfile),
     { widthProfile }
   ),
+  passwordInput: ({ renderNode, bounds, theme, widthProfile }) => measureBlock(
+    textInputBlock(renderNode, constrainedMeasureBounds(bounds), false, theme, widthProfile),
+    { widthProfile }
+  ),
   numberInput: ({ renderNode, bounds, theme, widthProfile }) => measureBlock(
     numberInputBlock(renderNode, constrainedMeasureBounds(bounds), false, theme, widthProfile),
     { widthProfile }
@@ -95,5 +99,6 @@ export const formMeasurements = {
   | 'colorSwatchPicker'
   | 'calendar'
   | 'textInput'
+  | 'passwordInput'
   | 'numberInput'
 >;

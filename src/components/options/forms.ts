@@ -186,6 +186,10 @@ export interface TextInputOptions<TMessage = never> extends InteractiveElementOp
   readonly onAction?: (action: TextInputAction) => TMessage;
 }
 
+export interface PasswordInputOptions<TMessage = never> extends TextInputOptions<TMessage> {
+  readonly mask?: string;
+}
+
 export interface NumberInputOptions<TMessage = never> extends InteractiveElementOptions<NumberInputStylePart, TMessage> {
   readonly presentation: NumberInputPresentation;
   readonly placeholder?: string;

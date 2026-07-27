@@ -1,4 +1,4 @@
-import type { RenderNodeOfKind } from '../../model/index.ts';
+import type { RenderNodeOfKind, RenderNodesOfKind } from '../../model/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
 
@@ -15,7 +15,7 @@ type RadioGroupNode = RenderNodeOfKind<unknown, 'radioGroup'>;
 type ColorSwatchPickerNode = RenderNodeOfKind<unknown, 'colorSwatchPicker'>;
 type CalendarNode = RenderNodeOfKind<unknown, 'calendar'>;
 type SelectNode = RenderNodeOfKind<unknown, 'select'>;
-type TextInputNode = RenderNodeOfKind<unknown, 'textInput'>;
+type TextInputNode = RenderNodesOfKind<unknown, 'textInput' | 'passwordInput'>;
 type NumberInputNode = RenderNodeOfKind<unknown, 'numberInput'>;
 import { block, padRenderLine } from '../frame.ts';
 import { line } from '../../../visual/render.ts';
