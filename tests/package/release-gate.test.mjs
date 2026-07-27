@@ -171,7 +171,7 @@ async function sourceFiles(directory, extension = '.ts') {
 }
 
 function workflowJob(source, jobId) {
-  const lines = source.split('\n');
+  const lines = source.split(/\r?\n/u);
   const start = lines.findIndex((line) => line === `  ${jobId}:`);
   assert.notEqual(start, -1, `Missing CI job ${jobId}.`);
   const followingJob = lines.slice(start + 1).findIndex((line) => /^  [a-z][a-z0-9-]*:$/u.test(line));

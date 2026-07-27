@@ -17,7 +17,7 @@ test('test discovery includes nested TypeScript and JavaScript suites', async ()
     ]);
 
     const files = await discoverTestFiles([root]);
-    assert.deepEqual(files.map((file) => file.slice(root.length + 1)), [
+    assert.deepEqual(files.map((file) => file.slice(root.length + 1).replaceAll('\\', '/')), [
       'owner/internal/nested.test.ts',
       'root.test.mjs'
     ]);

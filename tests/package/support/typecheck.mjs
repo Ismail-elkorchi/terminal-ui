@@ -13,7 +13,9 @@ export function typecheckSources(sources) {
     const language = input.language ?? 'ts';
     const extension = language === 'js' || language === 'javascript' ? 'mjs' : 'mts';
     const name = input.name ?? `public-typecheck-${String(index + 1)}`;
-    const fileName = fileURLToPath(new URL(`../__${sanitizeName(name)}__.${extension}`, import.meta.url));
+    const fileName = normalizeVirtualPath(
+      fileURLToPath(new URL(`../__${sanitizeName(name)}__.${extension}`, import.meta.url))
+    );
     return [fileName, input.source.replaceAll(jsrPackageSpecifier, npmPackageSpecifier)];
   }));
   const compilerOptions = {
@@ -35,13 +37,15 @@ export function typecheckSources(sources) {
   const fileExists = host.fileExists.bind(host);
   const readFile = host.readFile.bind(host);
 
-  host.getSourceFile = (path, languageVersion, onError, shouldCreateNewSourceFile) =>
-    virtualSources.has(path)
-      ? ts.createSourceFile(path, virtualSources.get(path) ?? '', languageVersion, true)
+  host.getSourceFile = (path, languageVersion, onError, shouldCreateNewSourceFile) => {
+    const virtualPath = normalizeVirtualPath(path);
+    return virtualSources.has(virtualPath)
+      ? ts.createSourceFile(virtualPath, virtualSources.get(virtualPath) ?? '', languageVersion, true)
       : getSourceFile(path, languageVersion, onError, shouldCreateNewSourceFile);
-  host.fileExists = (path) => virtualSources.has(path) || fileExists(path);
-  host.readFile = (path) => virtualSources.has(path)
-    ? virtualSources.get(path) ?? ''
+  };
+  host.fileExists = (path) => virtualSources.has(normalizeVirtualPath(path)) || fileExists(path);
+  host.readFile = (path) => virtualSources.has(normalizeVirtualPath(path))
+    ? virtualSources.get(normalizeVirtualPath(path)) ?? ''
     : readFile(path);
 
   const program = ts.createProgram([...virtualSources.keys()], compilerOptions, host);
@@ -57,4 +61,8 @@ export function formatTypeDiagnostic(diagnostic) {
 
 function sanitizeName(value) {
   return value.replaceAll(/[^A-Za-z0-9_-]/gu, '-');
+}
+
+function normalizeVirtualPath(value) {
+  return value.replaceAll('\\', '/');
 }

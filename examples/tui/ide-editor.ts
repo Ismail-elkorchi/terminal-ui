@@ -2,6 +2,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import {
   column,
@@ -771,7 +772,8 @@ async function waitForIdle(runtime: TuiRuntime<EditorState, EditorMessage>): Pro
   throw new Error('IDE operation did not settle');
 }
 
-const isMain = process.argv[1] !== undefined && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+const isMain = process.argv[1] !== undefined
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY) {

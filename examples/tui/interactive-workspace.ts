@@ -1,4 +1,6 @@
+import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import {
   button,
@@ -558,7 +560,10 @@ function mouseEvent(
   };
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+const isMain = process.argv[1] !== undefined
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY && !process.argv.includes('--scripted')) {
     const exit = await runTui(interactiveWorkspaceApp, createTerminalHost({ runtime: 'node' }), {
       initialFocus: { kind: 'path', path: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command'] }
