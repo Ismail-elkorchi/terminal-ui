@@ -45,7 +45,7 @@ jobs:
           bun-version: 1.3.14
       - run: npm ci
       - run: npm run build
-      - run: npm run check:pack
+      - run: npm run check:package
       - run: npm run check:consumer
       - run: npm run check:runtime
       - run: npm run check:jsr
@@ -69,4 +69,4 @@ jobs:
       - run: npm run build
       - run: node scripts/runtime-smoke.mjs
       - run: node --test tests/integration/node-host-lifecycle.test.mjs
-      - run: npm run check:pack
+      - run: npm run check:package
