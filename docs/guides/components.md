@@ -18,7 +18,7 @@ layering, or geometry-only interaction are documented in
 | Component | Role | Not |
 | --- | --- | --- |
 | `text()` | Static sanitized text with an optional semantic text role. | A text editor, input, or rich styling container. |
-| `richText()` | Styled authored inline content with optional links and accessible symbol fallbacks. | A document model, markdown renderer, or source-metadata escape hatch. |
+| `richText()` | Styled caller-supplied inline content with optional links and accessible symbol fallbacks. | A document model, markdown renderer, or source-metadata escape hatch. |
 | `textArea()` | Caller-controlled multi-line editable text surface with cursor, selection, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
 | `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command picker, number parser, or multi-line editor. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
@@ -126,7 +126,7 @@ metric, or badge. Validation, warning, failure, and success are not text roles.
 
 ## Inline Content And Adornments
 
-`richText()` and component adornments use authored inline content rather than
+`richText()` and component adornments use caller-supplied inline content rather than
 renderer spans. A text segment may carry local style and link data. A symbol
 segment supplies Unicode and printable-ASCII renderings plus required
 `accessibleText`, so the active theme chooses a deterministic symbol mode
@@ -148,16 +148,16 @@ button({
 });
 ```
 
-Callers do not author frame source metadata. The renderer assigns component,
+Callers do not supply frame source metadata. The renderer assigns component,
 part, item, and visual-state identity when it converts inline content into
 render spans. Core theme color tokens are a closed vocabulary; application
 tokens must use the `custom.*` namespace.
 
-`dialog()` titles accept authored inline content. A `BorderTitleSlots` object
+`dialog()` titles accept caller-supplied inline content. A `BorderTitleSlots` object
 places title content in its `start`, `center`, and `end` slots. Its `border`
 option owns geometry only: border kind and title alignment. Renderer spans,
 frame source metadata, and border styles remain renderer-extension concerns.
 
-For app structure and controlled state, see [UI authoring](./ui-authoring.md).
+For app structure and controlled state, see [Building terminal apps](./building-terminal-apps.md).
 For reusable reducers, see [Behavior helpers](./behavior.md). For custom
 renderer escape hatches, see [Renderer extensions](./renderer-extensions.md).

@@ -107,7 +107,7 @@ test('progressBar renders explicit elapsed and remaining timing without hidden c
   assert.equal(frame.accessibility.root.description, '1m05s elapsed 2m05s left');
 });
 
-test('progressBar rejects invalid authored display and geometry values', () => {
+test('progressBar rejects invalid caller-supplied display and geometry values', () => {
   const base = {
     id: 'invalid-progress',
     label: 'Sync',
@@ -191,7 +191,7 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
   assert.deepEqual(frame.accessibility.root.numericValue, { indeterminate: true });
 });
 
-test('progressBar rejects invalid authored progress modes', () => {
+test('progressBar rejects invalid caller-supplied progress modes', () => {
   assert.throws(
     () => progressBar({ id: 'nan-value', mode: { kind: 'determinate', value: Number.NaN } }),
     /value must be finite/u

@@ -31,7 +31,7 @@ const symbol = {
   accessibleText: 'status'
 };
 
-test('inline content normalization sanitizes authored data and validates symbolic fallbacks', () => {
+test('inline content normalization sanitizes caller-supplied data and validates symbolic fallbacks', () => {
   const normalized = normalizeInlineContent([
     {
       kind: 'text',

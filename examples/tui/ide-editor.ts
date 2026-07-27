@@ -3,22 +3,35 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import { createMemoryTerminalHost, createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
-import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
-import { column, grid, overlay, surface } from '@ismail-elkorchi/terminal-ui/layout';
 import {
+  column,
   commandInput,
+  createTerminalHost,
+  defineTui,
   dialog,
+  grid,
   helpBar,
   menuBar,
+  overlay,
+  runTui,
   statusBar,
   structuredBlock,
+  surface,
   tabs,
   text,
   textArea,
   tree
-} from '@ismail-elkorchi/terminal-ui/components';
-import type { MenuItem, TabAction, TextAreaAction, TreeInteractionAction, TreeNode } from '@ismail-elkorchi/terminal-ui/components';
+} from '@ismail-elkorchi/terminal-ui';
+import type {
+  Element,
+  MenuItem,
+  TabAction,
+  TextAreaAction,
+  TreeInteractionAction,
+  TreeNode
+} from '@ismail-elkorchi/terminal-ui';
+import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
+import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import {
   commandInputPresentation,
   createTextAreaState,
@@ -32,9 +45,8 @@ import {
   visibleTreeRows
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputAction, CommandInputState, MenuBarState, ScrollableTreeState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
-import { createTuiRuntime, defineTui, runTui } from '@ismail-elkorchi/terminal-ui/tui';
+import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TuiEffect, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
-import type { Element } from '@ismail-elkorchi/terminal-ui/components';
 import { textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
 
 type EntryMetadata = Readonly<{

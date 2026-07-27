@@ -1,5 +1,6 @@
-import { mergeKeyBindings } from '../../authoring/metadata.ts';
-import { layoutProps, optionalId, requiredId, renderNodeChildren } from '../../authoring/render-node.ts';
+import { mergeKeyBindings } from '../../element/metadata-normalization.ts';
+import { optionalRenderNodeId, requiredRenderNodeId, renderNodeChildren } from '../../renderer/model/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import { layoutElementFromRenderNode } from '../../renderer/model/element.ts';
@@ -19,12 +20,12 @@ export function splitPane<
   assertSplitPaneOptions(renderChildren.length, options);
   if (options.onAction === undefined) {
     return layoutElementFromRenderNode<'splitPane', Message>({
-      ...optionalId(options.id),
+      ...optionalRenderNodeId(options.id),
       kind: 'splitPane',
       props: {
         direction: options.direction,
         ...(options.sizes === undefined ? {} : { sizes: options.sizes }),
-        ...layoutProps(options)
+        ...renderNodeLayoutProps(options)
       },
       children: renderChildren,
       ...interactionProps({ meta: options.meta })
@@ -33,14 +34,14 @@ export function splitPane<
 
   const keys = mergeKeyBindings(splitPaneKeyBindings(options), options.keys);
   return layoutElementFromRenderNode<'splitPane', Message>({
-    ...requiredId(options.id, 'splitPane'),
+    ...requiredRenderNodeId(options.id, 'splitPane'),
     kind: 'splitPane',
     props: {
       direction: options.direction,
       sizes: options.sizes,
       selectedDivider: options.selectedDivider ?? 0,
       toActionMessage: (action: SplitPaneAction) => options.onAction(action),
-      ...layoutProps({ ...options, gap: options.gap ?? 1 })
+      ...renderNodeLayoutProps({ ...options, gap: options.gap ?? 1 })
     },
     children: renderChildren,
     ...interactionProps({ keys, meta: options.meta })

@@ -100,7 +100,7 @@ test('menu models reject duplicate identities across nested branches', () => {
   ], { activePath: [] }), /menu item ids must be unique; duplicate id: duplicate/u);
 });
 
-test('menu models reject malformed structural item variants at the authoring boundary', () => {
+test('menu models reject malformed structural item variants at the factory boundary', () => {
   assert.throws(() => menuPresentation([
     { kind: 'submenu', id: 'empty', label: 'Empty', children: [] }
   ], { activePath: [] }), /requires at least one child/u);

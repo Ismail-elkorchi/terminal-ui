@@ -22,7 +22,7 @@ richText({ segments: [{ kind: 'text', text: 'unsafe', source: { elementId: 'call
 // @ts-expect-error symbolic content requires accessible text
 richText({ segments: [{ kind: 'symbol', unicode: '→', ascii: '->' }] });
 surface(text('invalid title source'), {
-  // @ts-expect-error surface titles cannot author renderer source metadata
+  // @ts-expect-error surface titles cannot supply renderer source metadata
   title: [{ kind: 'text', text: 'Title', source: { elementId: 'caller' } }]
 });
 button({

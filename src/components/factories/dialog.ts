@@ -1,5 +1,6 @@
-import { mergeKeyBindings, withMetaDefaults } from '../../authoring/metadata.ts';
-import { layoutProps, requiredId } from '../../authoring/render-node.ts';
+import { mergeKeyBindings, withMetaDefaults } from '../../element/metadata-normalization.ts';
+import { requiredRenderNodeId } from '../../renderer/model/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import type { Element } from '../../element/index.ts';
 import { componentElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
@@ -16,7 +17,7 @@ export function dialog<TMessage>(child: Element<TMessage>, options: DialogOption
     ? { escape: () => dismissal.onDismiss('escape') }
     : undefined, options.keys);
   return componentElementFromRenderNode<'dialog', TMessage>({
-    ...requiredId(options.id, 'dialog'),
+    ...requiredRenderNodeId(options.id, 'dialog'),
     kind: 'dialog',
     props: {
       ...(options.title === undefined ? {} : { title: normalizeBorderTitle(options.title) }),
@@ -28,7 +29,7 @@ export function dialog<TMessage>(child: Element<TMessage>, options: DialogOption
       ...(dismissal === undefined
         ? {}
         : { toDismissMessage: (reason: DialogDismissReason) => dismissal.onDismiss(reason) }),
-      ...layoutProps(options)
+      ...renderNodeLayoutProps(options)
     },
     children: actionsNode === undefined ? [toRenderNode(child)] : [toRenderNode(child), actionsNode],
     ...interactionProps({ ...options, keys, meta })

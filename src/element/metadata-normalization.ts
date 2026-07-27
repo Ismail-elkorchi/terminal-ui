@@ -2,7 +2,7 @@ import type {
   ElementKeyBindings,
   ElementMeta,
   ElementStyles
-} from '../element/metadata.ts';
+} from './metadata.ts';
 import { inputTriggerIdentity } from '../input/index.ts';
 
 export function mergeKeyBindings<TMessage>(

@@ -39,11 +39,11 @@ import {
   textInputKeyBindings
 } from '../internal/interaction.ts';
 import {
-  layoutProps,
-  optionalId,
-  requiredId,
+  optionalRenderNodeId,
+  requiredRenderNodeId,
   renderNodeChildren
-} from '../../authoring/render-node.ts';
+} from '../../renderer/model/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import { choiceItemsForRenderer, colorOptionsForRenderer } from '../internal/domain.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import { selectPopupRenderNode } from '../internal/select-popup.ts';
@@ -64,11 +64,11 @@ export function form<const TChildren extends ElementChildren>(
 ): Element<ElementChildrenMessage<TChildren>> {
   type Message = ElementChildrenMessage<TChildren>;
   return componentElementFromRenderNode<'form', Message>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'form',
     props: {
       ...(options.title === undefined ? {} : { title: options.title }),
-      ...layoutProps(options)
+      ...renderNodeLayoutProps(options)
     },
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
@@ -81,7 +81,7 @@ export function field<const TChildren extends ElementChildren>(
 ): Element<ElementChildrenMessage<TChildren>> {
   type Message = ElementChildrenMessage<TChildren>;
   return componentElementFromRenderNode<'field', Message>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'field',
     props: {
       label: options.label,
@@ -89,7 +89,7 @@ export function field<const TChildren extends ElementChildren>(
       ...(options.error === undefined ? {} : { error: options.error }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
-      ...layoutProps(options)
+      ...renderNodeLayoutProps(options)
     },
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
@@ -101,7 +101,7 @@ export function label(options: LabelOptions): Element {
     throw new Error('label() requires a non-empty target control id.');
   }
   return componentElementFromRenderNode<'label'>({
-    ...requiredId(options.id, 'label'),
+    ...requiredRenderNodeId(options.id, 'label'),
     kind: 'label',
     props: {
       text: options.text,
@@ -131,7 +131,7 @@ export function button(options: ButtonOptions<unknown>): Element<unknown> {
     options.keys
   );
   return componentElementFromRenderNode<'button', unknown>({
-    ...requiredId(options.id, 'button'),
+    ...requiredRenderNodeId(options.id, 'button'),
     kind: 'button',
     props: {
       label: options.label,
@@ -154,7 +154,7 @@ export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessa
     options.keys
   );
   return componentElementFromRenderNode<'checkbox', TMessage>({
-    ...requiredId(options.id, 'checkbox'),
+    ...requiredRenderNodeId(options.id, 'checkbox'),
     kind: 'checkbox',
     props: {
       label: options.label,
@@ -176,7 +176,7 @@ export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOption
     options.keys
   );
   return componentElementFromRenderNode<'toggleSwitch', TMessage>({
-    ...requiredId(options.id, 'toggleSwitch'),
+    ...requiredRenderNodeId(options.id, 'toggleSwitch'),
     kind: 'toggleSwitch',
     props: {
       label: options.label,
@@ -197,7 +197,7 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
   assertNumericControlValue('slider', options.value, range);
   const keyMap = sliderKeyBindings(options);
   return componentElementFromRenderNode<'slider', TMessage>({
-    ...requiredId(options.id, 'slider'),
+    ...requiredRenderNodeId(options.id, 'slider'),
     kind: 'slider',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
@@ -228,7 +228,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
   }
   const keyMap = rangeSliderKeyBindings(options);
   return componentElementFromRenderNode<'rangeSlider', TMessage>({
-    ...requiredId(options.id, 'rangeSlider'),
+    ...requiredRenderNodeId(options.id, 'rangeSlider'),
     kind: 'rangeSlider',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
@@ -253,7 +253,7 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
   }, options.options);
   const keyMap = checkboxGroupKeyBindings(options);
   return componentElementFromRenderNode<'checkboxGroup', TMessage>({
-    ...requiredId(options.id, 'checkboxGroup'),
+    ...requiredRenderNodeId(options.id, 'checkboxGroup'),
     kind: 'checkboxGroup',
     props: {
       options: normalizedOptions,
@@ -278,7 +278,7 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
   }, options.options);
   const keyMap = radioGroupKeyBindings(options);
   return componentElementFromRenderNode<'radioGroup', TMessage>({
-    ...requiredId(options.id, 'radioGroup'),
+    ...requiredRenderNodeId(options.id, 'radioGroup'),
     kind: 'radioGroup',
     props: {
       options: normalizedOptions,
@@ -303,7 +303,7 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
   }, options.options);
   const keyMap = colorSwatchPickerKeyBindings(options);
   return componentElementFromRenderNode<'colorSwatchPicker', TMessage>({
-    ...requiredId(options.id, 'colorSwatchPicker'),
+    ...requiredRenderNodeId(options.id, 'colorSwatchPicker'),
     kind: 'colorSwatchPicker',
     props: {
       options: normalizedOptions,
@@ -334,7 +334,7 @@ export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
   const keyMap = calendarKeyBindings(options);
   const onAction = options.onAction;
   return componentElementFromRenderNode<'calendar', unknown>({
-    ...requiredId(options.id, 'calendar'),
+    ...requiredRenderNodeId(options.id, 'calendar'),
     kind: 'calendar',
     props: {
       days: options.days,
@@ -370,7 +370,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
       })
     : undefined;
   return componentElementFromRenderNode<'select', TMessage>({
-    ...requiredId(options.id, 'select'),
+    ...requiredRenderNodeId(options.id, 'select'),
     kind: 'select',
     props: {
       options: normalizedOptions,
@@ -416,7 +416,7 @@ export function textInput(options: TextInputOptions<unknown>): Element<unknown> 
   const presentation = options.presentation;
   const keyMap = textInputKeyBindings(options.onAction, options.onSubmit, presentation.value, options.keys);
   return componentElementFromRenderNode<'textInput', unknown>({
-    ...requiredId(options.id, 'textInput'),
+    ...requiredRenderNodeId(options.id, 'textInput'),
     kind: 'textInput',
     props: {
       value: presentation.value,
@@ -455,7 +455,7 @@ export function numberInput(options: NumberInputOptions<unknown>): Element<unkno
       : (operation) => options.onAction?.({ kind: 'edit', operation })
   );
   return componentElementFromRenderNode<'numberInput', unknown>({
-    ...requiredId(options.id, 'numberInput'),
+    ...requiredRenderNodeId(options.id, 'numberInput'),
     kind: 'numberInput',
     props: {
       presentation: options.presentation,

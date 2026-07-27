@@ -18,7 +18,7 @@ import {
   mergeKeyBindings,
   searchPickerKeyBindings
 } from '../internal/interaction.ts';
-import { optionalId, requiredId } from '../../authoring/render-node.ts';
+import { optionalRenderNodeId, requiredRenderNodeId } from '../../renderer/model/element.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import { searchSelectionHandler } from '../internal/domain.ts';
 import type {
@@ -72,7 +72,7 @@ export function logViewer(options: LogViewerOptions<unknown>): Element<unknown> 
           ? ignoreMessage()
           : onControlAction(action);
   return componentElementFromRenderNode<'logViewer', unknown>({
-    ...requiredId(options.id, 'logViewer'),
+    ...requiredRenderNodeId(options.id, 'logViewer'),
     kind: 'logViewer',
     props: {
       history: options.history,
@@ -110,7 +110,7 @@ export function structuredBlock(options: StructuredBlockOptions): Element {
     ...(options.collapsed === undefined ? {} : { collapsed: options.collapsed })
   });
   return componentElementFromRenderNode<'structuredBlock'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'structuredBlock',
     props: {
       title: block.title,
@@ -142,7 +142,7 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
   return componentElementFromRenderNode<'activityFeed', TMessage>({
-    ...requiredId(options.id, 'activityFeed'),
+    ...requiredRenderNodeId(options.id, 'activityFeed'),
     kind: 'activityFeed',
     props: {
       blocks,
@@ -181,7 +181,7 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
   const presentation = options.presentation;
   const validation = normalizeCommandInputValidation(options.validation);
   return componentElementFromRenderNode<'commandInput', unknown>({
-    ...requiredId(options.id, 'commandInput'),
+    ...requiredRenderNodeId(options.id, 'commandInput'),
     kind: 'commandInput',
     props: {
       value: presentation.value,
@@ -253,7 +253,7 @@ export function searchPicker<TValue>(options: SearchPickerOptions<TValue, unknow
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
   const toMessage = searchSelectionHandler(options.onSelect);
   return componentElementFromRenderNode<'searchPicker', unknown>({
-    ...requiredId(options.id, 'searchPicker'),
+    ...requiredRenderNodeId(options.id, 'searchPicker'),
     kind: 'searchPicker',
     props: {
       searchPickerIndex: options.searchPickerIndex,

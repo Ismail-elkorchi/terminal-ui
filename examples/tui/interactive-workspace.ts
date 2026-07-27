@@ -1,8 +1,27 @@
 import process from 'node:process';
 
-import { createMemoryTerminalHost, createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
-import { createTuiRuntime, defineTui, runTui } from '@ismail-elkorchi/terminal-ui/tui';
-import type { TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
+import {
+  button,
+  column,
+  commandInput,
+  createTerminalHost,
+  defineTui,
+  grid,
+  helpBar,
+  overlay,
+  runTui,
+  searchPicker,
+  statusBar,
+  structuredBlock,
+  surface,
+  table,
+  tabs,
+  text,
+  tree
+} from '@ismail-elkorchi/terminal-ui';
+import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
+import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
+import type { TuiUpdateResult } from '@ismail-elkorchi/terminal-ui';
 import {
   commandInputPresentation,
   commandInputReducer,
@@ -27,20 +46,7 @@ import type {
   TreeInteractionAction
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
-import { column, grid, overlay, surface } from '@ismail-elkorchi/terminal-ui/layout';
-import {
-  button,
-  commandInput,
-  helpBar,
-  searchPicker,
-  statusBar,
-  structuredBlock,
-  table,
-  tabs,
-  text,
-  tree
-} from '@ismail-elkorchi/terminal-ui/components';
-import type { SearchEntry, TableColumn, TreeNode } from '@ismail-elkorchi/terminal-ui/components';
+import type { SearchEntry, TableColumn, TreeNode } from '@ismail-elkorchi/terminal-ui';
 import type { InputEvent, KeyEvent, MouseEvent } from '@ismail-elkorchi/terminal-ui/input';
 
 interface Ticket {

@@ -42,6 +42,11 @@ regions, diff interpreters, notification placement, prepared search indexes,
 and scrollbar implementation details are package-private and are not testing
 contracts.
 
+Reusable component packages can call `renderElementSnapshot()` with an opaque
+element and terminal size. It renders through the production element pipeline
+and returns the frame, diff, plain text, ANSI, accessibility, focus, and
+hit-target artifacts without requiring low-level renderer imports.
+
 Executable example:
 
 - `examples/testing/harness.mjs`

@@ -3,9 +3,9 @@ import test from 'node:test';
 
 import { button, inspectElement, select, textInput } from '../../dist/components/index.js';
 import { column, surface } from '../../dist/layout/index.js';
-import { custom } from '../../dist/renderer/index.js';
+import { custom } from '../../dist/component/index.js';
 
-test('element inspection exposes an immutable authoring description without renderer payloads', () => {
+test('element inspection exposes an immutable factory description without renderer payloads', () => {
   const element = surface(column([
     textInput({
       id: 'query',

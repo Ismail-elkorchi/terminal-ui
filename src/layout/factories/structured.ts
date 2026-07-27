@@ -9,10 +9,10 @@ import type {
 import type { GridAreasOptions, GridOptions } from '../options.ts';
 import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
 import {
-  layoutProps,
-  optionalId,
+  optionalRenderNodeId,
   renderNodeChildren
-} from '../../authoring/render-node.ts';
+} from '../../renderer/model/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import { assertGridAreaChildren, gridAreaNames, parseGridAreas } from './internals.ts';
 
 export function grid<const TChildren extends ElementChildren>(
@@ -28,7 +28,7 @@ export function grid(
 ): Element<unknown> {
   if (options !== undefined) {
     return layoutElementFromRenderNode<'grid', unknown>({
-      ...optionalId(options.id),
+      ...optionalRenderNodeId(options.id),
       kind: 'grid',
       props: {
         rows: options.rows,
@@ -36,7 +36,7 @@ export function grid(
         ...(options.gap === undefined ? {} : { gap: options.gap }),
         ...(options.rowGap === undefined ? {} : { rowGap: options.rowGap }),
         ...(options.columnGap === undefined ? {} : { columnGap: options.columnGap }),
-        ...layoutProps(options)
+        ...renderNodeLayoutProps(options)
       },
       children: renderNodeChildren(childrenOrOptions as ElementChildren),
       ...componentMetaProps(options.meta)
@@ -54,7 +54,7 @@ export function grid(
     throw new RangeError(`grid areas columns length ${String(areaOptions.columns.length)} must match template columns ${String(template[0].length)}.`);
   }
   return layoutElementFromRenderNode<'grid', unknown>({
-    ...optionalId(areaOptions.id),
+    ...optionalRenderNodeId(areaOptions.id),
     kind: 'grid',
     props: {
       areas: template,
@@ -64,7 +64,7 @@ export function grid(
       ...(areaOptions.gap === undefined ? {} : { gap: areaOptions.gap }),
       ...(areaOptions.rowGap === undefined ? {} : { rowGap: areaOptions.rowGap }),
       ...(areaOptions.columnGap === undefined ? {} : { columnGap: areaOptions.columnGap }),
-      ...layoutProps(areaOptions)
+      ...renderNodeLayoutProps(areaOptions)
     },
     children: toRenderNodes(
       areaNames

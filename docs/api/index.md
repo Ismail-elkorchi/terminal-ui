@@ -3,17 +3,17 @@
 `terminal-ui` publishes one root entrypoint and focused subpath entrypoints.
 The root entrypoint exposes the main vertical path:
 
-- `createTerminalHost()` and `createMemoryTerminalHost()`
-- `runPrompt()`
-- `defineTui()`, `runTui()`, `createTuiRuntime()`, and subscription sources
-- common typed component factories such as `textInput()`, `button()`,
+- `createTerminalHost()`, `defineTui()`, and `runTui()`
+- `intervalSource()`, `timeoutSource()`, and `animationSource()` for app
+  subscriptions
+- typed component factories such as `textInput()`, `button()`,
   `table()`, `tabs()`, and `commandInput()`
+- `tableColumn()` when a table column needs a typed custom renderer
 - layout factories such as `column()`, `row()`, `grid()`, `surface()`,
   and `viewport()`
+- the `behavior` namespace for controlled-state reducers and prepared views
 - `resolveSelectedText()` and `copySelectedTextToClipboard()` for
   caller-controlled TUI text selection flows
-- `toAccessibleSnapshot()`, `findAccessibleNode()`, and
-  `validateAccessibleSnapshot()`
 
 The subpath entrypoints are:
 
@@ -26,6 +26,7 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/prompts`
 - `@ismail-elkorchi/terminal-ui/tui`
 - `@ismail-elkorchi/terminal-ui/components`
+- `@ismail-elkorchi/terminal-ui/component`
 - `@ismail-elkorchi/terminal-ui/layout`
 - `@ismail-elkorchi/terminal-ui/behavior`
 - `@ismail-elkorchi/terminal-ui/renderer`
@@ -52,7 +53,7 @@ and `renderDiffAnsi()`. See
 [Rendering internals](../guides/rendering-internals.md) for how those pieces
 fit together.
 
-Authoring APIs are described in [UI authoring](../guides/ui-authoring.md),
+Application and component APIs are described in [Building terminal apps](../guides/building-terminal-apps.md),
 [Components](../guides/components.md), and
 [Behavior helpers](../guides/behavior.md). Renderer escape hatches are
 described in [Renderer extensions](../guides/renderer-extensions.md).

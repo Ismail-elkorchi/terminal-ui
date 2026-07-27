@@ -19,7 +19,7 @@ import {
   withMetaDefaults
 } from '../internal/interaction.ts';
 import { menuPopupRenderNode } from '../internal/menu-popup.ts';
-import { optionalId, requiredId } from '../../authoring/render-node.ts';
+import { optionalRenderNodeId, requiredRenderNodeId } from '../../renderer/model/element.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
@@ -40,7 +40,7 @@ export function menu(options: MenuOptions<unknown>): Element<unknown> {
   const onAction = options.onAction;
   const keyMap = menuKeyBindings(options.presentation, onAction, options.keys);
   return componentElementFromRenderNode<'menu', unknown>({
-    ...requiredId(options.id, 'menu'),
+    ...requiredRenderNodeId(options.id, 'menu'),
     kind: 'menu',
     props: {
       items: menuItemsForRenderer(options.presentation.items),
@@ -84,7 +84,7 @@ export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
       })
     : undefined;
   return componentElementFromRenderNode<'menuBar', unknown>({
-    ...requiredId(options.id, 'menuBar'),
+    ...requiredRenderNodeId(options.id, 'menuBar'),
     kind: 'menuBar',
     props: {
       items: menuItemsForRenderer(options.items),
@@ -134,7 +134,7 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
     ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } }, layer: { underlay: 'preserve' } })
     : withMetaDefaults(options.meta, { focus: { disabled: true }, layer: { underlay: 'preserve' } });
   return componentElementFromRenderNode<'contextMenu', unknown>({
-    ...requiredId(options.id, 'contextMenu'),
+    ...requiredRenderNodeId(options.id, 'contextMenu'),
     kind: 'contextMenu',
     props: {
       presentation: options.presentation,
@@ -179,7 +179,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
     ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } }, layer: { underlay: 'clear' } })
     : options.meta;
   return componentElementFromRenderNode<'dropdownMenu', unknown>({
-    ...requiredId(options.id, 'dropdownMenu'),
+    ...requiredRenderNodeId(options.id, 'dropdownMenu'),
     kind: 'dropdownMenu',
     props: {
       items: menuItemsForRenderer(options.items),
@@ -198,7 +198,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
 
 export function divider(options: DividerOptions = {}): Element {
   return componentElementFromRenderNode<'divider'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'divider',
     props: {
       ...(options.orientation === undefined ? {} : { orientation: options.orientation }),
@@ -216,7 +216,7 @@ export function tooltip(options: TooltipOptions): Element {
     layer: { visible, zIndex: 20, underlay: 'clear' }
   });
   return componentElementFromRenderNode<'tooltip'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'tooltip',
     props: {
       content: options.content,

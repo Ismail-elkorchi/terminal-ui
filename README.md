@@ -19,9 +19,10 @@ npm install @ismail-elkorchi/terminal-ui
 import { runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
 ```
 
-The root entrypoint exposes the primary runtime path: `createTerminalHost`,
-`defineTui`, `runTui`, results, and diagnostics. Components, layout, behavior,
-prompts, themes, hosts, rendering, and testing use explicit package subpaths.
+The root entrypoint is the application façade: terminal-host creation, TUI
+execution and scheduler sources, built-in component and layout factories, the
+`behavior` namespace, results, and diagnostics. Prompts, component extensions,
+advanced hosts, themes, rendering, and testing use focused package subpaths.
 
 Host adapters cover Node, Deno, Bun, memory-backed tests, and explicit
 caller-managed PTY-style streams.
@@ -46,9 +47,13 @@ const result = await runPrompt(input({ label: 'Name' }));
 Basic full-screen app:
 
 ```ts
-import { createTerminalHost, defineTui, runTui } from '@ismail-elkorchi/terminal-ui';
-import { textInput, type TextInputAction } from '@ismail-elkorchi/terminal-ui/components';
-import { textInputPresentation, textInputReducer } from '@ismail-elkorchi/terminal-ui/behavior';
+import {
+  behavior,
+  defineTui,
+  runTui,
+  textInput,
+  type TextInputAction
+} from '@ismail-elkorchi/terminal-ui';
 
 type Message =
   | { readonly kind: 'edit'; readonly action: TextInputAction }
@@ -59,16 +64,16 @@ const app = defineTui({
   init: () => ({ text: 'ready', cursor: 5 }),
   update: (state, message: Message) => message.kind === 'submit'
     ? { state, exit: { reason: state.text } }
-    : { state: textInputReducer(state, message.action) },
+    : { state: behavior.textInputReducer(state, message.action) },
   view: (state) => textInput({
     id: 'field',
-    presentation: textInputPresentation(state),
+    presentation: behavior.textInputPresentation(state),
     onAction: (action): Message => ({ kind: 'edit', action }),
     onSubmit: (): Message => ({ kind: 'submit' })
   })
 });
 
-await runTui(app, createTerminalHost());
+await runTui(app);
 ```
 
 Layout and styled components:
@@ -92,7 +97,8 @@ console.log(renderFramePlain(frame));
 Custom renderer:
 
 ```ts
-import { custom, renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
+import { custom } from '@ismail-elkorchi/terminal-ui/component';
+import { renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
 
 const meter = custom({
   id: 'meter',

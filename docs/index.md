@@ -1,6 +1,6 @@
 # @ismail-elkorchi/terminal-ui
 
-`terminal-ui` provides a typed element authoring model for terminal user
+`terminal-ui` provides a typed model for composing terminal user
 interfaces, with runtime hosts, input, components, layout, controlled behavior,
 rendering, prompts, accessibility, transcripts, and deterministic testing.
 
@@ -37,10 +37,10 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 - [Text measurement](./guides/text.md)
 - [Prompts](./guides/prompts.md)
 - [TUI rendering](./guides/tui.md)
-- [UI authoring](./guides/ui-authoring.md)
+- [Building terminal apps](./guides/building-terminal-apps.md)
 - [Components](./guides/components.md)
 - [Behavior helpers](./guides/behavior.md)
-- [Public UI authoring model](./guides/public-ui-authoring-model.md)
+- [Element and component model](./guides/element-and-component-model.md)
 - [Architecture](./guides/architecture.md)
 - [Rendering internals](./guides/rendering-internals.md)
 - [Building polished components](./guides/building-polished-components.md)

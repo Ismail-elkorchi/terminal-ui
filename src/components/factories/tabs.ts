@@ -1,5 +1,6 @@
-import { mergeKeyBindings } from '../../authoring/metadata.ts';
-import { layoutProps, requiredId } from '../../authoring/render-node.ts';
+import { mergeKeyBindings } from '../../element/metadata-normalization.ts';
+import { requiredRenderNodeId } from '../../renderer/model/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import { componentElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
@@ -35,13 +36,13 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
   } satisfies ElementKeyBindings<TMessage>;
   const keys = mergeKeyBindings(generated, options.keys);
   return componentElementFromRenderNode<'tabs', TMessage>({
-    ...requiredId(options.id, 'tabs'),
+    ...requiredRenderNodeId(options.id, 'tabs'),
     kind: 'tabs',
     props: {
       tabs,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(onAction === undefined ? {} : { toActionMessage: (action: TabAction) => onAction(action) }),
-      ...layoutProps(options)
+      ...renderNodeLayoutProps(options)
     },
     children: options.tabs.map((tab) => toRenderNode(tab.panel)),
     ...interactionProps({ keys, pointer: options.pointer, meta: options.meta })

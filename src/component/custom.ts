@@ -5,13 +5,48 @@ import type {
   ElementTextInputHandlers
 } from '../element/metadata.ts';
 import type { Element } from '../element/index.ts';
-import { extensionElementFromRenderNode } from './model/element.ts';
-import type { RenderNodeInputMap } from './model/index.ts';
-import type { RenderNodeRenderer } from './model/renderer.ts';
-import type { CustomRenderer } from './custom-renderer.ts';
+import { extensionElementFromRenderNode } from '../renderer/model/element.ts';
+import type { RenderNodeInputMap } from '../renderer/model/index.ts';
+import type {
+  FocusTarget,
+  HitTarget,
+  RenderFocusRelation,
+  RenderNodeRenderer
+} from '../renderer/model/renderer.ts';
+import type { RenderTarget } from '../renderer/model/render-target.ts';
+import type { Measurement } from '../renderer/model/measurement.ts';
+import type { AccessibleNode } from '../accessibility/index.ts';
+import type { Rect } from '../geometry/types.ts';
+import type { TerminalTheme } from '../theme/index.ts';
+import type { TextWidthProfile } from '../text/index.ts';
 import { renderNodeId } from '../foundation/identity.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import { renderNodeInteraction } from './model/metadata.ts';
+import { renderNodeInteraction } from '../renderer/model/metadata.ts';
+
+export interface CustomRendererInput<TState> {
+  readonly state: TState;
+  readonly bounds: Rect;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+}
+
+export interface CustomRendererRenderInput<TState> extends CustomRendererInput<TState> {
+  readonly target: RenderTarget;
+  readonly focus: RenderFocusRelation;
+}
+
+export interface CustomRendererAccessibilityInput<TState> extends CustomRendererInput<TState> {
+  readonly id: string;
+  readonly focused: boolean;
+}
+
+export interface CustomRenderer<TState = undefined, TMessage = never> {
+  measure?(input: CustomRendererInput<TState>): Measurement;
+  render(input: CustomRendererRenderInput<TState>): void;
+  accessibility?(input: CustomRendererAccessibilityInput<TState>): AccessibleNode;
+  focusTargets?(input: CustomRendererInput<TState>): readonly FocusTarget[];
+  hitTargets?(input: CustomRendererInput<TState>): readonly HitTarget<TMessage>[];
+}
 
 const rendererHookNames = [
   'measure',
@@ -75,7 +110,7 @@ export function custom<TState, const TMessage = never>(
   });
 }
 
-export function assertCustomRenderer(
+function assertCustomRenderer(
   value: unknown,
   options: CustomRendererValidationOptions<unknown>
 ): asserts value is CustomRenderer<unknown, unknown> {

@@ -174,31 +174,6 @@ export type {
   OutputProjectionInput
 } from './internal/output-projection.ts';
 export {
-  custom
-} from './custom-element.ts';
-export { customComposite } from './custom-composite.ts';
-export type {
-  CustomElementOptions,
-  StatefulCustomElementOptions,
-  StatelessCustomElementOptions
-} from './custom-element.ts';
-export type {
-  CustomRenderer,
-  CustomRendererAccessibilityInput,
-  CustomRendererInput,
-  CustomRendererRenderInput
-} from './custom-renderer.ts';
-export type {
-  CustomCompositeAccessibilityInput,
-  CustomCompositeInput,
-  CustomCompositeLayoutInput,
-  CustomCompositeMeasureInput,
-  CustomCompositeRenderer,
-  CustomCompositeRenderInput,
-  StatefulCustomCompositeOptions,
-  StatelessCustomCompositeOptions
-} from './custom-composite.ts';
-export {
   gridCellRects,
   splitTracks
 } from './internal/layout-geometry.ts';

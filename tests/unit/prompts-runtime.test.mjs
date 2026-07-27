@@ -40,13 +40,14 @@ test('prompt factories create typed prompt definitions', () => {
 });
 
 test('runPrompt submits defaults, reports validation failures, and redacts password snapshots', async () => {
-  const submitted = await runPrompt(input({ label: 'Name', defaultValue: 'Ada' }));
+  const host = createMemoryTerminalHost({ isTty: false });
+  const submitted = await runPrompt(input({ label: 'Name', defaultValue: 'Ada' }), host);
   assert.equal(submitted.status, 'submitted');
   assert.equal(submitted.value, 'Ada');
   assert.equal(submitted.snapshot.root.role, 'textbox');
   assert.equal(submitted.snapshot.root.value, 'Ada');
 
-  const confirmed = await runPrompt(confirm({ label: 'Continue?', defaultValue: true }));
+  const confirmed = await runPrompt(confirm({ label: 'Continue?', defaultValue: true }), host);
   assert.equal(confirmed.status, 'submitted');
   assert.equal(confirmed.value, true);
   assert.equal(confirmed.snapshot.root.role, 'checkbox');
@@ -57,18 +58,18 @@ test('runPrompt submits defaults, reports validation failures, and redacts passw
     label: 'Name',
     defaultValue: '',
     validate: () => ({ ok: false, message: 'Name is required.', code: 'required' })
-  }));
+  }), host);
   assert.equal(invalid.status, 'aborted');
   assert.equal(invalid.reason, 'validation_failed');
   assert.equal(invalid.diagnostics[0]?.code, 'PROMPT_VALIDATION_FAILED');
 
-  const required = await runPrompt(input({ label: 'Name', defaultValue: '', required: true }));
+  const required = await runPrompt(input({ label: 'Name', defaultValue: '', required: true }), host);
   assert.equal(required.status, 'aborted');
   assert.equal(required.reason, 'validation_failed');
   assert.equal(required.diagnostics[0]?.message, 'Prompt value is required.');
   assert.equal(required.diagnostics[0]?.data?.validationCode, 'required');
 
-  const secret = await runPrompt(password({ label: 'Token', defaultValue: 'super-secret' }));
+  const secret = await runPrompt(password({ label: 'Token', defaultValue: 'super-secret' }), host);
   assert.equal(secret.status, 'submitted');
   assert.equal(secret.value, 'super-secret');
   assert.equal(secret.snapshot.root.value, null);
@@ -82,7 +83,7 @@ test('runPrompt submits defaults, reports validation failures, and redacts passw
       message: `Rejected password value: ${value}`,
       code: `invalid-${value}`
     })
-  }));
+  }), host);
   assert.equal(leakedValidation.status, 'aborted');
   assert.equal(leakedValidation.reason, 'validation_failed');
   assert.equal(leakedValidation.diagnostics[0]?.message, 'Rejected password value: [redacted]');
@@ -96,7 +97,7 @@ test('runPrompt submits defaults, reports validation failures, and redacts passw
     validate: (value) => {
       throw new Error(`Rejected ${value}`);
     }
-  }));
+  }), host);
   assert.equal(thrownValidation.status, 'aborted');
   assert.equal(thrownValidation.reason, 'validation_failed');
   assert.equal(thrownValidation.diagnostics[0]?.message, 'Prompt validation failed before submission.');
@@ -104,7 +105,8 @@ test('runPrompt submits defaults, reports validation failures, and redacts passw
 });
 
 test('runPrompt reports unavailable editor prompts instead of submitting draft defaults', async () => {
-  const result = await runPrompt(editor({ label: 'Body', defaultValue: 'draft' }));
+  const host = createMemoryTerminalHost({ isTty: false });
+  const result = await runPrompt(editor({ label: 'Body', defaultValue: 'draft' }), host);
 
   assert.equal(result.status, 'aborted');
   assert.equal(result.reason, 'host_error');
@@ -112,13 +114,36 @@ test('runPrompt reports unavailable editor prompts instead of submitting draft d
 });
 
 test('runPrompt accepts explicit provided values for editor prompts', async () => {
+  const host = createMemoryTerminalHost({ isTty: false });
   const result = await runPrompt(editor({
     label: 'Body',
     nonTty: { mode: 'provided_value', value: 'final body' }
-  }));
+  }), host);
 
   assert.equal(result.status, 'submitted');
   assert.equal(result.value, 'final body');
+});
+
+test('runPrompt leaves a caller-provided host under caller ownership', async () => {
+  const memoryHost = createMemoryTerminalHost({ isTty: false });
+  let disposeCalls = 0;
+  const host = {
+    ...memoryHost,
+    dispose: async () => {
+      disposeCalls += 1;
+      await memoryHost.dispose();
+    }
+  };
+
+  const result = await runPrompt(input({
+    label: 'Name',
+    nonTty: { mode: 'provided_value', value: 'Ada' }
+  }), host);
+
+  assert.equal(result.status, 'submitted');
+  assert.equal(result.value, 'Ada');
+  assert.equal(disposeCalls, 0);
+  await memoryHost.dispose();
 });
 
 test('runPrompt uses explicit editor adapters for long-form editor prompts', async () => {

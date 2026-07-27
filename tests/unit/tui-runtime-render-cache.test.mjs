@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { custom } from '../../dist/renderer/index.js';
+import { custom } from '../../dist/component/index.js';
 import { button, tabs, text, textArea, textInput } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';

@@ -27,7 +27,7 @@ import {
   treeKeyBindings
 } from '../internal/interaction.ts';
 import { tableColumnsForRenderer, tablePresentationForRenderer } from '../internal/domain.ts';
-import { requiredId } from '../../authoring/render-node.ts';
+import { requiredRenderNodeId } from '../../renderer/model/element.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
@@ -68,7 +68,7 @@ export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unk
   const toActionMessage: ((action: ListControlAction) => unknown) | undefined = options.onAction;
   const toScrollActionMessage = isScrollableListOptions(options) ? options.onAction : undefined;
   return componentElementFromRenderNode<'list', unknown>({
-    ...requiredId(options.id, 'list'),
+    ...requiredRenderNodeId(options.id, 'list'),
     kind: 'list',
     props: {
       view,
@@ -130,7 +130,7 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
   const presentation = tablePresentationForRenderer(options.presentation);
   const scroll = isScrollableTableOptions(options) ? options.presentation.scroll : undefined;
   return componentElementFromRenderNode<'table', unknown>({
-    ...requiredId(options.id, 'table'),
+    ...requiredRenderNodeId(options.id, 'table'),
     kind: 'table',
     props: {
       collection,
@@ -203,7 +203,7 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
   );
   const view = prepareTreeView(collection, options.filterQuery);
   return componentElementFromRenderNode<'tree', unknown>({
-    ...requiredId(options.id, 'tree'),
+    ...requiredRenderNodeId(options.id, 'tree'),
     kind: 'tree',
     props: {
       view,
@@ -244,7 +244,7 @@ export function paginator<
 export function paginator(options: PaginatorOptions<unknown>): Element<unknown> {
   const keyMap = paginatorKeyBindings(options);
   return componentElementFromRenderNode<'paginator', unknown>({
-    ...requiredId(options.id, 'paginator'),
+    ...requiredRenderNodeId(options.id, 'paginator'),
     kind: 'paginator',
     props: {
       pageNumber: options.pageNumber,

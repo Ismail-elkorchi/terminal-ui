@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { createVisualSnapshot, renderElementSnapshot } from '../../dist/testing/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import {
   button,
@@ -31,6 +31,28 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
   assert.match(first.hitTargetJson, /"id": "run:control"/u);
   assert.match(first.focusTargetJson, /"focusPath"/u);
   assert.match(first.focusTargetJson, /"run"/u);
+});
+
+test('element snapshots render opaque elements through the testing facade', () => {
+  const element = button({
+    id: 'save',
+    label: 'Save',
+    onPress: () => ({ kind: 'save' })
+  });
+
+  const first = renderElementSnapshot({
+    element,
+    terminalSize: { columns: 12, rows: 2 }
+  });
+  const second = renderElementSnapshot({
+    element,
+    terminalSize: { columns: 12, rows: 2 },
+    previousFrame: first.frame
+  });
+
+  assert.equal(first.plainTextFrame, '[›Save ]');
+  assert.match(first.accessibleText, /- button: Save/u);
+  assert.equal(second.diff.operations.length, 0);
 });
 
 test('visual snapshots fail on uncontrolled style changes through structured frame JSON', () => {

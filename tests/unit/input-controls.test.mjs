@@ -73,7 +73,7 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'range' && cell.source?.description === 'track.endHandle')?.text, '●');
 });
 
-test('slider controls reject invalid authored numeric contracts consistently', () => {
+test('slider controls reject invalid caller-supplied numeric contracts consistently', () => {
   const validRangeState = { value: { start: 10, end: 20 }, activeHandle: 'start' };
   assert.throws(() => slider({ id: 'nan-slider', value: Number.NaN }), /value must be finite/u);
   assert.throws(() => slider({ id: 'bounds-slider', value: 1, min: 2, max: 1 }), /finite ordered bounds/u);

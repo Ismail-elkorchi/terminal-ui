@@ -3,7 +3,8 @@ import type { RenderNode } from '../../renderer/model/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { ViewportOptions } from '../options.ts';
 import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
-import { layoutProps, requiredId } from '../../authoring/render-node.ts';
+import { requiredRenderNodeId } from '../../renderer/model/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 
 export function viewport<const TChild extends Element<unknown>, const TMessage = never>(
   child: TChild,
@@ -12,7 +13,7 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
   type Message = ElementMessage<TChild> | TMessage;
   const childNode = toRenderNode(child);
   return layoutElementFromRenderNode<'viewport', Message>({
-    ...requiredId(options.id, 'viewport'),
+    ...requiredRenderNodeId(options.id, 'viewport'),
     kind: 'viewport',
     props: {
       ...(options.scrollRow === undefined ? {} : { scrollRow: options.scrollRow }),
@@ -22,7 +23,7 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
       ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
-      ...layoutProps(options)
+      ...renderNodeLayoutProps(options)
     },
     children: [childNode] as readonly RenderNode<Message>[],
     ...interactionProps(options)

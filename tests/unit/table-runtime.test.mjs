@@ -35,7 +35,7 @@ async function clickAt(runtime, row, column) {
   return runtime.handleInput(mouseRelease(row, column));
 }
 
-test('list and table reject empty or duplicate stable ids at authoring time', () => {
+test('list and table reject empty or duplicate stable ids in their factories', () => {
   assert.throws(() => list({
     id: 'duplicate-list',
     items: ['alpha', 'alpha'],

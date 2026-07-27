@@ -7,8 +7,9 @@ A directory remains useful when it establishes a stable dependency boundary:
   contracts shared without depending on rendering.
 - `ui-model` contains component-domain data and prepared views shared by
   components, behavior, and rendering.
-- `authoring` contains the private boundary that validates and normalizes
-  authored values before constructing renderer data.
+- `element` contains opaque public element and metadata contracts.
+- `component` adapts safe third-party renderer strategies to private renderer
+  data without exposing render nodes.
 - `renderer/model` contains the private typed representation consumed by the
   renderer implementation.
 
@@ -24,8 +25,8 @@ The principal dependency flow is:
 
 ```text
 geometry, interaction, text, visual, and UI model
-  -> authoring and private renderer model
-  -> component, layout, and renderer-extension factories
+  -> private renderer model
+  -> built-in component, layout, and component-extension factories
   -> renderer implementation
   -> TUI runtime
   -> public testing harness
@@ -37,14 +38,21 @@ enforce these directions, prohibit dependency cycles across layers, keep
 render-node dispatch in the renderer registry, and prevent the testing
 entrypoint from re-exporting package-private modules.
 
-## Authoring And Rendering
+Built-in and third-party components meet at the same opaque `Element` boundary
+and enter the same render dispatch. Built-ins use package-private node
+constructors because they ship with the renderer; the public `component`
+facade adapts third-party measure, layout, render, accessibility, focus, and
+pointer strategies without exposing those nodes. This is one extension seam,
+not a parallel component model or a second dispatcher.
+
+## Element Factories And Rendering
 
 Public factories are the runtime boundary for JavaScript consumers and dynamic
 application data. They reject invalid discriminants and structures, normalize
-bounded numeric configuration, and sanitize authored terminal text before
+bounded numeric configuration, and sanitize caller-supplied terminal text before
 creating a private render node. The renderer can then rely on the private
 node's TypeScript contract instead of silently dropping or replacing invalid
-authored values.
+caller-supplied values.
 
 Runtime checks remain where TypeScript cannot establish truth: custom-renderer
 outputs, terminal host results, input and protocol decoding, serialized data,

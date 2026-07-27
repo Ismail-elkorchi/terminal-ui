@@ -1,6 +1,7 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
+import { createTerminalHost } from '../host/index.ts';
 import type { TerminalHost, TerminalRestoreReason } from '../host/index.ts';
 import { isCancelKey, isInterruptKey } from '../input/index.ts';
 import type { InputEvent } from '../input/index.ts';
@@ -76,10 +77,47 @@ export async function runPrompt<TChoice>(
   prompt: PromptDefinition<TChoice>,
   host?: TerminalHost
 ): Promise<PromptResult<PromptRunValue<TChoice>>> {
+  const ownsHost = host === undefined;
+  const terminalHost = host ?? createTerminalHost();
+  let result: PromptResult<PromptRunValue<TChoice>>;
+  try {
+    result = await runPromptWithHost(prompt, terminalHost);
+  } catch (cause) {
+    if (ownsHost) {
+      try {
+        await terminalHost.dispose();
+      } catch (cleanupCause) {
+        throw new AggregateError(
+          [cause, cleanupCause],
+          'Prompt execution and default terminal host cleanup both failed.',
+          { cause: cleanupCause }
+        );
+      }
+    }
+    throw cause;
+  }
+  if (!ownsHost) return result;
+  try {
+    await terminalHost.dispose();
+    return result;
+  } catch (cause) {
+    return withPromptDiagnostics(result, [
+      diagnostic('HOST_RESTORE_FAILED', 'Default terminal host cleanup failed after prompt execution.', {
+        cause,
+        target: prompt.id ?? prompt.kind
+      })
+    ]);
+  }
+}
+
+async function runPromptWithHost<TChoice>(
+  prompt: PromptDefinition<TChoice>,
+  host: TerminalHost
+): Promise<PromptResult<PromptRunValue<TChoice>>> {
   if (prompt.kind === 'progress' && prompt.progressTask !== undefined) {
     return runProgressPrompt(prompt, host);
   }
-  if (host?.stdin.isTty() === true && isInteractivePrompt(prompt)) {
+  if (host.stdin.isTty() && isInteractivePrompt(prompt)) {
     return runInteractivePrompt(prompt, host);
   }
 
@@ -95,7 +133,7 @@ export async function runPrompt<TChoice>(
   const defaultResult = await submitDefaultNonTtyValue(prompt, snapshot, host);
   if (defaultResult !== undefined) return defaultResult;
 
-  if (host?.stdin.isTty() === false && prompt.kind === 'input' && nonTtyMode(prompt) === 'line_fallback') {
+  if (!host.stdin.isTty() && prompt.kind === 'input' && nonTtyMode(prompt) === 'line_fallback') {
     return runLineFallbackPrompt(prompt, host);
   }
   return nonTtyDenied(prompt, snapshot);

@@ -5,6 +5,7 @@ import {
   setupTuiSession,
   tuiSnapshot
 } from './lifecycle.ts';
+import { createTerminalHost } from '../host/index.ts';
 import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntime } from './runtime.ts';
 import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
@@ -41,15 +42,7 @@ export async function runTui<TState, TMessage>(
       })
     ])), transcript);
   }
-  if (host === undefined) {
-    return withTuiTranscript(errorExit(app.id, reportDiagnostics(diagnosticReporter, [
-      diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Full-screen TUI requires an explicit terminal host.', {
-        target: app.id
-      })
-    ])), transcript);
-  }
-  const terminalHost = host;
-
+  const terminalHost = host ?? createTerminalHost();
   const lifecycle = new TuiRunLifecycleOwner(app, terminalHost, normalized, transcript);
   let session: TerminalSession | undefined;
   let exit: TuiExit<TState> | undefined;

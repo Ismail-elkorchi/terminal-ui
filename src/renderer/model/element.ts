@@ -1,5 +1,6 @@
 import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementValue } from '../../element/index.ts';
 import type { ElementInspection } from '../../element/inspection.ts';
+import { renderNodeId } from '../../foundation/identity.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 
 const renderNodes = new WeakMap<object, unknown>();
@@ -65,6 +66,24 @@ export function toRenderNodes<const TChildren extends ElementChildren>(
     ? children
     : [children];
   return values.map((element) => toRenderNode(element));
+}
+
+export function renderNodeChildren<const TChildren extends ElementChildren>(
+  children: TChildren
+): readonly RenderNode<ElementChildrenMessage<TChildren>>[] {
+  return toRenderNodes(children);
+}
+
+export function optionalRenderNodeId(id: string | undefined): { readonly id?: string } {
+  return id === undefined ? {} : { id: renderNodeId(id) };
+}
+
+export function requiredRenderNodeId(
+  id: string | undefined,
+  component: string
+): { readonly id: string } {
+  if (id === undefined) throw new TypeError(`${component} requires an id.`);
+  return { id: renderNodeId(id, component) };
 }
 
 function isObject(value: unknown): value is object {

@@ -18,19 +18,20 @@ The rendering path is:
 
 The renderer contains its private node model and implementation kernel.
 Component and layout factories construct private render nodes through shared
-authoring helpers and convert callbacks into internal input handlers; renderer
-implementation modules never import those factories or the TUI runtime. The
+element conversion and metadata helpers; they convert callbacks into internal
+input handlers. Renderer implementation modules never import those factories
+or the TUI runtime. The
 renderer resolves each opaque element to its private node before measuring,
 arranging, and rendering it. The `tui` source directory contains application and
 terminal-session lifecycle rather than frame, layout, or render-node rendering.
 
-The renderer package has two deliberate public layers. Application and test
-code uses `renderElementFrame()`, frame/diff
-serialization, and output projection. Renderer extensions use `custom()`,
-`customComposite()`, `Canvas2D`, render spans, bounded `RenderTarget`, geometry,
-measurement, and frame-source contracts. Layout nodes, frames, and diffs are
-immutable data contracts; private render nodes and region target indexes remain
-private implementation details.
+The renderer package exposes frame construction, frame/diff serialization, and
+output projection. Component extensions use `custom()` and
+`customComposite()` from the component entrypoint, which exposes bounded
+`RenderTarget`, geometry, measurement, accessibility, focus, and hit-target
+contracts. `Canvas2D` remains available through the canvas component and
+renderer drawing APIs. Private render nodes and region target indexes remain
+implementation details.
 
 The ordinary public render function returns only a frame. Focus regions,
 pointer regions, private render nodes, and region target indexes are produced

@@ -1,11 +1,11 @@
-# Public UI Authoring Model
+# Element And Component Model
 
-This document defines the boundary between public UI authoring and the internal
-renderer representation.
+This document defines the boundary between the public element API and the
+internal renderer representation.
 
 The render pipeline already has the right responsibilities: deterministic
 layout, region composition, source-aware frames, frame passes, accessibility,
-focus and hit targets, and diffable output. The authoring model keeps those
+focus and hit targets, and diffable output. The public element model keeps those
 mechanisms out of ordinary application code.
 
 ## Layers
@@ -13,7 +13,7 @@ mechanisms out of ordinary application code.
 | Layer | Responsibilities | Outside its responsibilities |
 | --- | --- | --- |
 | App API | `defineTui`, init/update/view, subscriptions, and runtime lifecycle. | Renderer packets, component prop bags, and frame internals. |
-| UI authoring API | Typed layout and component factories returning opaque elements. | Measurement, hit-target construction, accessibility tree construction, and renderer props. |
+| Element API | Typed layout and component factories returning opaque elements. | Measurement, hit-target construction, accessibility tree construction, and renderer props. |
 | Behavior API | Pure reducers and state helpers for controlled components. | Rendering and runtime side effects. |
 | Renderer extension API | Custom renderer hooks, measurement, layout, frames, focus targets, hit targets, and accessibility. | Private render nodes, product-specific concepts, and application state. |
 
@@ -30,7 +30,7 @@ view() returns an opaque Element<TMessage> handle
 runtime objects. Normal application code cannot inspect renderer fields through
 an element.
 
-## Authoring Values
+## Element Values
 
 Public component and layout factories return `Element<TMessage>`.
 Applications can compose and render elements, but cannot read `kind`, `props`,
@@ -58,7 +58,7 @@ button({
 
 Rules:
 
-- `id` remains top-level because it is authored identity for focus, tests,
+- `id` remains top-level because it is caller-supplied identity for focus, tests,
   accessibility, state association, and event routing.
 - Semantic state such as button `state`, selection, required state, and validation errors
   belongs to the component.
@@ -86,7 +86,7 @@ Public event props describe user intent and return caller-controlled messages:
 | `keys` | Component-local key bindings not covered by semantic events. |
 
 Handlers may return `undefined` when a conditional interaction is declined.
-Internally, factories convert authored callbacks into key maps and input maps,
+Internally, factories convert caller-supplied callbacks into key maps and input maps,
 then the renderer derives focus targets and hit targets from the private render
 node. Those mechanisms are not public component state.
 
@@ -95,13 +95,15 @@ node. Those mechanisms are not public component state.
 | Entrypoint | Contract |
 | --- | --- |
 | `./components` | Typed component factories, `Element`, and shared component data contracts. |
+| `./component` | Safe contracts for reusable third-party component extensions. |
 | `./layout` | Layout and composition factories plus responsive view selection. |
 | `./behavior` | Pure reducers and controlled-state helpers. |
-| `./renderer` | Advanced renderer extensions and frame/rendering primitives. |
+| `./renderer` | Frame construction, diffing, serialization, and drawing primitives. |
 | `./tui` | App definitions, runtime lifecycle, subscriptions, and session policy. |
 
-The root entrypoint exposes the primary app-authoring path. It does not expose
-renderer internals or behavior reducers as ordinary component authoring.
+The root entrypoint exposes the primary application path: TUI execution,
+built-in component and layout factories, and the behavior namespace. It does
+not expose renderer internals as ordinary component APIs.
 
 ## Internal Representation
 
@@ -123,7 +125,7 @@ custom renderer state
 ```
 
 Each built-in render-node kind has explicit normalized render props. Public
-factories validate JavaScript and dynamic authored values, sanitize terminal
+factories validate JavaScript and dynamic caller-supplied values, sanitize terminal
 text, and normalize private renderer inputs once. Renderer code validates
 extension outputs and serialized or host-provided data, but does not silently
 repair invalid values in its typed private prop model.
@@ -146,9 +148,9 @@ The runtime entrypoint is a facade over lifecycle, state reduction, frame
 commit, diagnostics, and change-publication collaborators. There is still one
 serialized dispatch path and one renderer dispatch registry.
 
-Component/layout authoring and renderer implementation are sibling consumers
+Component/layout factories and renderer implementation are sibling consumers
 of the private renderer model. The renderer implementation does not import
-component factories, layout factories, the private authoring helpers, or the
+component factories, layout factories, private element conversion helpers, or the
 TUI runtime. The TUI directory contains application/runtime lifecycle only.
 
 ## Canvas And Custom Rendering
@@ -157,7 +159,7 @@ TUI runtime. The TUI directory contains application/runtime lifecycle only.
 bounds, theme data, source metadata, and caller-controlled state. It does not receive
 direct frame-buffer or terminal-host access.
 
-`custom()` lives under `./renderer`. It exposes bounded measurement, rendering,
+`custom()` lives under `./component`. It exposes bounded measurement, rendering,
 accessibility, focus-target, and hit-target inputs without exposing private
 render-node fields; it is an advanced extension point, not part of the default
 component vocabulary.
@@ -172,14 +174,14 @@ Application tests inspect public descriptions:
 - focus paths and cursor positions;
 - hit targets and interaction transcripts.
 
-They do not inspect private render-node fields through authored elements.
+They do not inspect private render-node fields through caller-supplied elements.
 
-Use `inspectElement(element)` when authoring tools or diagnostics need a stable,
-read-only description before rendering. The inspection includes authored
+Use `inspectElement(element)` when component tools or diagnostics need a stable,
+read-only description before rendering. The inspection includes caller-supplied
 identity, whether the element came from the component, layout, or renderer
 extension API, input capabilities, focus policy, visual state, and child
 structure; it does not expose renderer props, callback values, or render-node
-hooks. The category describes the authoring entrypoint only and does not
+hooks. The category describes the factory entrypoint only and does not
 participate in render dispatch.
 
 ## Invariants
@@ -188,10 +190,10 @@ participate in render dispatch.
   `Element<TMessage>` handles.
 - Public declarations do not expose `RenderNode` or `props` through components
   and layout.
-- Private render nodes are not exported by any public entrypoint. The renderer
+- Private render nodes are not exported by any public entrypoint. The component
   extension entrypoint exposes a bounded write-only render target,
   custom-renderer hooks, focus targets, and hit targets.
-- Component option and event names describe authoring intent, not renderer
+- Component option and event names describe caller intent, not renderer
   machinery.
 - Component state remains caller-controlled and message types remain generic.
 - Factories infer a union across independent callbacks, direct messages, local

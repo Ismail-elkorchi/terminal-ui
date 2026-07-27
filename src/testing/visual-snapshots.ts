@@ -1,7 +1,12 @@
 import { resolveTerminalCapabilities } from '../host/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import { diffFrames, projectTuiOutput } from '../renderer/index.ts';
+import { diffFrames, projectTuiOutput, renderElementFrame } from '../renderer/index.ts';
+import type { Element } from '../element/index.ts';
+import type { TerminalSize } from '../host/index.ts';
+import type { FocusPath } from '../interaction/index.ts';
 import type { Frame, FrameHitTarget, RenderDiff, RenderSerializeOptions } from '../renderer/index.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
+import type { TextWidthProfile } from '../text/index.ts';
 
 export interface VisualSnapshotInput {
   readonly frame: Frame;
@@ -19,6 +24,40 @@ export interface VisualSnapshotArtifacts {
   readonly diffJson: string;
   readonly hitTargetJson: string;
   readonly focusTargetJson: string;
+}
+
+export interface ElementSnapshotInput {
+  readonly element: Element<unknown>;
+  readonly terminalSize: TerminalSize;
+  readonly previousFrame?: Frame;
+  readonly theme?: TerminalTheme | TerminalThemeDefinition;
+  readonly widthProfile?: TextWidthProfile;
+  readonly focusPath?: FocusPath;
+  readonly ansi?: RenderSerializeOptions;
+}
+
+export interface ElementSnapshotResult extends VisualSnapshotArtifacts {
+  readonly frame: Frame;
+  readonly diff: RenderDiff;
+}
+
+export function renderElementSnapshot(input: ElementSnapshotInput): ElementSnapshotResult {
+  const frame = renderElementFrame(input.element, input.terminalSize, {
+    ...(input.theme === undefined ? {} : { theme: input.theme }),
+    ...(input.widthProfile === undefined ? {} : { widthProfile: input.widthProfile }),
+    ...(input.focusPath === undefined ? {} : { focusPath: input.focusPath })
+  });
+  const diff = diffFrames(input.previousFrame, frame);
+  return {
+    frame,
+    diff,
+    ...createVisualSnapshot({
+      frame,
+      diff,
+      ...(input.previousFrame === undefined ? {} : { previousFrame: input.previousFrame }),
+      ...(input.ansi === undefined ? {} : { ansi: input.ansi })
+    })
+  };
 }
 
 export function createVisualSnapshot(input: VisualSnapshotInput): VisualSnapshotArtifacts {

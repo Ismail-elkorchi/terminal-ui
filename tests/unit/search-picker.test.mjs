@@ -123,7 +123,7 @@ test('searchPicker component renders query matches disabled entries preview help
   assert.equal(frame.accessibility.root.children?.[0]?.value, undefined);
 });
 
-test('searchPicker entry normalization is retained across repeated element construction', () => {
+test('searchPicker reuses normalized entries across repeated factory calls', () => {
   let labelReads = 0;
   const measuredEntries = Array.from({ length: 100 }, (_, index) => ({
     id: `entry-${String(index)}`,

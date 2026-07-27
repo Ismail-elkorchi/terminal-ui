@@ -50,7 +50,7 @@ test('treeReducer toggles nested expansion without mutating input nodes', () => 
   assert.match(renderFramePlain(frame), /Child/u);
 });
 
-test('tree authoring rejects duplicate identities across nested branches', () => {
+test('tree factory rejects duplicate identities across nested branches', () => {
   assert.throws(() => tree({
     id: 'duplicate-tree',
     nodes: [

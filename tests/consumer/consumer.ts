@@ -1,15 +1,13 @@
 import {
-  commandInputReducer,
-  commandInputPresentation,
-  createSplitPaneState,
-  createScrollState,
-  scrollReducer,
-  splitPanePresentation,
-  splitPaneReducer
-} from '@ismail-elkorchi/terminal-ui/behavior';
-import {
+  behavior,
   button,
   commandInput,
+  column,
+  createTerminalHost,
+  defineTui,
+  ok,
+  splitPane,
+  surface,
   table,
   text,
   tree,
@@ -17,11 +15,9 @@ import {
   type Element,
   type TableAction,
   type TreeAction
-} from '@ismail-elkorchi/terminal-ui/components';
-import { column, splitPane, surface } from '@ismail-elkorchi/terminal-ui/layout';
+} from '@ismail-elkorchi/terminal-ui';
+import { custom, customComposite } from '@ismail-elkorchi/terminal-ui/component';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
-import { defineTui } from '@ismail-elkorchi/terminal-ui/tui';
-import { createTerminalHost, ok } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { createInputDecoder } from '@ismail-elkorchi/terminal-ui/input';
 import { resolveSelectedText } from '@ismail-elkorchi/terminal-ui/interaction';
@@ -31,7 +27,7 @@ import { defaultTheme, resolveThemeColor } from '@ismail-elkorchi/terminal-ui/th
 import { confirm, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
 import { createTranscriptRecorder, validateTranscript } from '@ismail-elkorchi/terminal-ui/transcript';
-import { createTerminalHarness } from '@ismail-elkorchi/terminal-ui/testing';
+import { createTerminalHarness, renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
 import { schemaArtifacts } from '@ismail-elkorchi/terminal-ui/schemas';
 
 type Message =
@@ -71,7 +67,7 @@ function view(state: State): Element<Message> {
     | { readonly kind: 'submit' }
   > = commandInput({
     id: 'commands',
-    presentation: commandInputPresentation({ input: { text: '', cursor: 0 }, history: [], suggestions: [] }),
+    presentation: behavior.commandInputPresentation({ input: { text: '', cursor: 0 }, history: [], suggestions: [] }),
     onAction: (action) => ({ kind: 'command' as const, action }),
     onSubmit: () => ({ kind: 'submit' as const })
   });
@@ -103,23 +99,23 @@ const app = defineTui<State, Message>({
   view
 });
 
-const scroll = scrollReducer(createScrollState({
+const scroll = behavior.scrollReducer(behavior.createScrollState({
   contentRows: 20,
   viewportRows: 5
 }), { kind: 'scrollLines', rows: 2 });
-const command = commandInputReducer({
+const command = behavior.commandInputReducer({
   input: { text: '', cursor: 0 },
   history: [],
   suggestions: []
 }, { kind: 'edit', operation: { kind: 'insert', text: 'open' } });
-const split = splitPaneReducer(createSplitPaneState(2), {
+const split = behavior.splitPaneReducer(behavior.createSplitPaneState(2), {
   kind: 'resizeBy',
   deltaShare: 0.1
 });
 const panes = splitPane([text('Left'), text('Right')], {
   id: 'consumer-panes',
   direction: 'horizontal',
-  ...splitPanePresentation(split),
+  ...behavior.splitPanePresentation(split),
   onAction: (action) => ({ kind: 'split' as const, action })
 });
 const renderedView = renderElementFrame(view({ count: 1 }), {
@@ -136,6 +132,30 @@ const selected = resolveSelectedText({
   sources: [{ id: 'consumer-source', text: 'selected text', selection: { startOffset: 0, endOffsetExclusive: 8 } }]
 });
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
+const extension = custom({
+  id: 'packed-extension',
+  renderer: {
+    render({ target, bounds }) {
+      target.write(bounds.row, bounds.column, [{ text: 'Extension' }]);
+    },
+    accessibility: ({ id }) => ({ id, role: 'text', label: 'Extension' })
+  }
+});
+const extensionPanel = customComposite({
+  id: 'packed-extension-panel',
+  children: [extension, text('Child')] as const,
+  renderer: {
+    layout: ({ bounds }) => [
+      { ...bounds, height: 1 },
+      { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
+    ],
+    accessibility: ({ id }) => ({ id, role: 'group', label: 'Extension panel' })
+  }
+});
+const extensionSnapshot = renderElementSnapshot({
+  element: extensionPanel,
+  terminalSize: { columns: 20, rows: 3 }
+});
 const result = ok('root-entrypoint');
 const protocolWrites: string[] = [];
 const protocol = createProtocolWriter({
@@ -179,6 +199,9 @@ if (!selected.ok || selected.text !== 'selected') {
 if (harness.host.runtime !== 'memory') throw new Error('The testing entrypoint did not create a harness.');
 if (harness.snapshot().source !== 'test_harness' || harness.snapshot().root.role !== 'group') {
   throw new Error('The packed testing entrypoint returned an invalid empty harness snapshot.');
+}
+if (!extensionSnapshot.plainTextFrame.includes('Extension') || !extensionSnapshot.plainTextFrame.includes('Child')) {
+  throw new Error('The packed component and testing facades did not render a reusable extension.');
 }
 if (renderedView.accessibility.source !== 'renderer') {
   throw new Error('The packed renderer entrypoint returned an invalid snapshot source.');

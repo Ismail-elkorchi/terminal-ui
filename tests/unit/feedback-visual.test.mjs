@@ -52,7 +52,7 @@ test('feedback status components preserve state in high contrast and no color ou
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'progress' && cell.text === 'x')?.source?.description, 'status.marker');
 });
 
-test('feedback factories reject invalid authored status values', () => {
+test('feedback factories reject invalid caller-supplied status values', () => {
   assert.throws(() => statusIndicator({ status: 'finished' }), TypeError);
   assert.throws(() => spinner({ status: 'pending' }), TypeError);
   assert.throws(() => progressBar({

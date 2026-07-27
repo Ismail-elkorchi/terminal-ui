@@ -1,7 +1,7 @@
 import { renderNodeId } from '../foundation/identity.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import { extensionElementFromRenderNode, toRenderNodes } from './model/element.ts';
-import { renderNodeInteraction } from './model/metadata.ts';
+import { extensionElementFromRenderNode, toRenderNodes } from '../renderer/model/element.ts';
+import { renderNodeInteraction } from '../renderer/model/metadata.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type {
   Element,
@@ -13,9 +13,9 @@ import type {
 } from '../element/index.ts';
 import type { Rect } from '../geometry/types.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Measurement } from './model/measurement.ts';
-import type { FocusTarget, HitTarget, RenderFocusRelation, RenderNodeRenderer } from './model/renderer.ts';
-import type { RenderTarget } from './model/render-target.ts';
+import type { Measurement } from '../renderer/model/measurement.ts';
+import type { FocusTarget, HitTarget, RenderFocusRelation, RenderNodeRenderer } from '../renderer/model/renderer.ts';
+import type { RenderTarget } from '../renderer/model/render-target.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 
 export interface CustomCompositeInput<TState> {

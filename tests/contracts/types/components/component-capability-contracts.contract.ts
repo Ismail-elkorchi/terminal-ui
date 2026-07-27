@@ -36,7 +36,7 @@ structuredBlock({
 });
 structuredBlock({ id: 'warning-record', title: 'Build output', level: 'warning' });
 
-// @ts-expect-error interactive components require authored identity
+// @ts-expect-error interactive components require caller-supplied identity
 button({ label: 'Save' });
 // @ts-expect-error a control label must identify its target control
 label({ id: 'missing-label-target', text: 'Query' });

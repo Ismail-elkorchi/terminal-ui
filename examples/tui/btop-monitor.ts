@@ -1,32 +1,29 @@
 import process from 'node:process';
 
-import { createMemoryTerminalHost, createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
-import {
-  createTuiRuntime,
-  defineTui,
-  intervalSource,
-  runTui
-} from '@ismail-elkorchi/terminal-ui/tui';
-import type { TuiContext, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
-import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
-import type { FrameHitTarget, TerminalStyle } from '@ismail-elkorchi/terminal-ui/renderer';
-import {
-  grid,
-  row,
-  column,
-  surface
-} from '@ismail-elkorchi/terminal-ui/layout';
 import {
   chart,
+  column,
+  createTerminalHost,
+  defineTui,
+  grid,
   helpBar,
+  intervalSource,
   progressBar,
+  row,
+  runTui,
   sparkline,
   statusBar,
+  surface,
   table,
   tableColumn,
   text
-} from '@ismail-elkorchi/terminal-ui/components';
-import type { InlineTextSegment, TableColumn, TableColumnBuilder, ValueScale } from '@ismail-elkorchi/terminal-ui/components';
+} from '@ismail-elkorchi/terminal-ui';
+import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
+import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
+import type { TuiContext, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
+import type { FrameHitTarget, TerminalStyle } from '@ismail-elkorchi/terminal-ui/renderer';
+import type { InlineTextSegment, TableColumn, TableColumnBuilder, ValueScale } from '@ismail-elkorchi/terminal-ui';
 import {
   createScrollState,
   sortTableRows,

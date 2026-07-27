@@ -21,7 +21,7 @@ import {
   mergeKeyBindings,
   withMetaDefaults
 } from '../internal/interaction.ts';
-import { optionalId, requiredId } from '../../authoring/render-node.ts';
+import { optionalRenderNodeId, requiredRenderNodeId } from '../../renderer/model/element.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import type {
   ComponentKeyBindingMessages,
@@ -42,7 +42,7 @@ import {
   isStatusBarStatus
 } from '../../ui-model/status.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
-import { assertOptionalEnum, assertOptionalFiniteNumber } from '../../authoring/validation.ts';
+import { assertOptionalEnum, assertOptionalFiniteNumber } from '../../foundation/validation.ts';
 
 export function notificationStack<
   const TDismissMessage = never,
@@ -96,7 +96,7 @@ export function notificationStack(rawOptions: object): Element<unknown> {
     : mergeKeyBindings(generated, keys);
   resolveStableIds(presentation.items, (item) => item.id, 'notificationStack');
   return componentElementFromRenderNode<'notificationStack', unknown>({
-    ...requiredId(options.id, 'notificationStack'),
+    ...requiredRenderNodeId(options.id, 'notificationStack'),
     kind: 'notificationStack',
     props: {
       presentation,
@@ -117,7 +117,7 @@ export function statusBar(options: StatusBarOptions): Element {
   const trailing = normalizedStatusItems(options.trailing ?? []);
   resolveStableIds([...leading, ...center, ...trailing], (item) => item.id, 'statusBar');
   return componentElementFromRenderNode<'statusBar'>({
-    ...requiredId(options.id, 'statusBar'),
+    ...requiredRenderNodeId(options.id, 'statusBar'),
     kind: 'statusBar',
     props: { leading, center, trailing },
     ...componentMetaProps(options.meta)
@@ -142,7 +142,7 @@ function normalizedStatusItems(
 export function helpBar(options: HelpBarOptions): Element {
   resolveStableIds(options.groups, (group) => group.id, 'helpBar');
   return componentElementFromRenderNode<'helpBar'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'helpBar',
     props: { groups: options.groups },
     ...componentMetaProps(options.meta)
@@ -152,7 +152,7 @@ export function helpBar(options: HelpBarOptions): Element {
 export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
   assertProcessStatus(options.status, 'statusIndicator');
   return componentElementFromRenderNode<'statusIndicator'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'statusIndicator',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
@@ -175,7 +175,7 @@ export function progressBar(options: ProgressBarOptions): Element {
   const elapsedMs = normalizedDuration(options.elapsedMs, 'progressBar elapsedMs');
   const remainingMs = normalizedDuration(options.remainingMs, 'progressBar remainingMs');
   return componentElementFromRenderNode<'progressBar'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'progressBar',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
@@ -224,7 +224,7 @@ function normalizedDuration(value: unknown, label: string): number | undefined {
 export function sparkline(options: SparklineOptions): Element {
   assertChartDataState(options.dataState, 'sparkline');
   return componentElementFromRenderNode<'sparkline'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'sparkline',
     props: {
       values: options.values,
@@ -267,7 +267,7 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
       : onAction({ kind: 'activate', id: options.items[selectedIndex]?.id ?? '', itemIndex: selectedIndex })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
   return componentElementFromRenderNode<'barChart', unknown>({
-    ...requiredId(options.id, 'barChart'),
+    ...requiredRenderNodeId(options.id, 'barChart'),
     kind: 'barChart',
     props: {
       items: options.items,
@@ -301,7 +301,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
       : onAction({ kind: 'select', series: selected.series, pointIndex: selected.pointIndex })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   return componentElementFromRenderNode<'chart', TMessage>({
-    ...requiredId(options.id, 'chart'),
+    ...requiredRenderNodeId(options.id, 'chart'),
     kind: 'chart',
     props: {
       series: options.series,
@@ -331,7 +331,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
 export function meter(options: MeterOptions): Element {
   assertMeterResult(options.result);
   return componentElementFromRenderNode<'meter'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'meter',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
@@ -368,7 +368,7 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
         })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   return componentElementFromRenderNode<'heatmap', TMessage>({
-    ...requiredId(options.id, 'heatmap'),
+    ...requiredRenderNodeId(options.id, 'heatmap'),
     kind: 'heatmap',
     props: {
       rows: options.rows,
@@ -393,7 +393,7 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
 export function spinner(options: SpinnerOptions = {}): Element {
   assertProcessStatus(options.status, 'spinner');
   return componentElementFromRenderNode<'spinner'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'spinner',
     props: {
       ...(options.frames === undefined ? {} : { frames: options.frames }),

@@ -14,13 +14,15 @@ export type {
   VisibleTextAssertion
 } from './types.ts';
 export type {
+  ElementSnapshotInput,
+  ElementSnapshotResult,
   VisualSnapshotArtifacts,
   VisualSnapshotInput
 } from './visual-snapshots.ts';
 export type { ControlledTerminalClock } from '../host/index.ts';
 export { createTerminalHarness, toAccessibleSnapshotFromHarness } from './harness.ts';
 export { createPtyTerminalHarness, isPtyHarnessUnavailable } from './pty-harness.ts';
-export { createVisualSnapshot } from './visual-snapshots.ts';
+export { createVisualSnapshot, renderElementSnapshot } from './visual-snapshots.ts';
 export {
   assertFocus,
   assertHitTarget,

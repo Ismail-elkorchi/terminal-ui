@@ -4,16 +4,16 @@ import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, 
 import type { AbsoluteOptions, SurfaceOptions } from '../options.ts';
 import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
 import {
-  optionalId,
+  optionalRenderNodeId,
   renderNodeChildren
-} from '../../authoring/render-node.ts';
+} from '../../renderer/model/element.ts';
 import { assertSurfaceChild, surfaceLayoutProps } from './internals.ts';
 import { normalizeBorderTitle } from '../../visual/border.ts';
 import {
   assertFiniteNumber,
   assertOptionalEnum,
   assertOptionalFiniteNumber
-} from '../../authoring/validation.ts';
+} from '../../foundation/validation.ts';
 
 export function surface<const TChild extends Element<unknown>>(
   child: TChild,
@@ -27,7 +27,7 @@ export function surface<const TChild extends Element<unknown>>(
   assertSurfaceChild(child);
   assertOptionalEnum(options.appearance, ['neutral', 'bar', 'raised', 'inset'], 'surface() appearance');
   return layoutElementFromRenderNode<'surface', Message>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'surface',
     props: {
       ...(options.title === undefined ? {} : { title: normalizeBorderTitle(options.title) }),
@@ -55,7 +55,7 @@ export function absolute<const TChild extends Element<unknown>>(
   assertOptionalFiniteNumber(options.width, 'absolute() width');
   assertOptionalFiniteNumber(options.height, 'absolute() height');
   return layoutElementFromRenderNode<'absolute', Message>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'absolute',
     props: {
       row: options.row,
@@ -78,7 +78,7 @@ export function overlay<const TChildren extends ElementChildren>(
 ): Element<ElementChildrenMessage<TChildren>> {
   type Message = ElementChildrenMessage<TChildren>;
   return layoutElementFromRenderNode<'overlay', Message>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'overlay',
     props: {},
     children: renderNodeChildren(children),

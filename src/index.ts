@@ -24,7 +24,14 @@ export type {
   TerminalSize
 } from './host/index.ts';
 
-export { copySelectedTextToClipboard, defineTui, runTui } from './tui/index.ts';
+export {
+  animationSource,
+  copySelectedTextToClipboard,
+  defineTui,
+  intervalSource,
+  runTui,
+  timeoutSource
+} from './tui/index.ts';
 export { resolveSelectedText } from './interaction/index.ts';
 export type {
   CopySelectedTextInput,
@@ -44,3 +51,9 @@ export type {
   SelectableTextSource,
   SelectionInteractionMode
 } from './interaction/index.ts';
+
+export * from './components/factories.ts';
+export { tableColumn } from './ui-model/content.ts';
+export type * from './components/index.ts';
+export * from './layout/index.ts';
+export * as behavior from './behavior/index.ts';

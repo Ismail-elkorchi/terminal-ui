@@ -188,7 +188,7 @@ test('surface appearance draws background border and shadow', () => {
   assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
 });
 
-test('surface titles preserve authored inline styles with renderer-produced source metadata', () => {
+test('surface titles preserve caller-supplied inline styles with renderer-produced source metadata', () => {
   const frame = renderElementFrame(surface(text('body', { id: 'body' }), {
     id: 'metric-panel',
     title: [

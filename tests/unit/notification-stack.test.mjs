@@ -20,7 +20,7 @@ import {
   text
 } from '../../dist/components/index.js';
 
-test('notification authoring rejects malformed items instead of omitting them', () => {
+test('notification factory rejects malformed items instead of omitting them', () => {
   assert.throws(() => notificationStack({
     id: 'invalid-notices',
     presentation: {

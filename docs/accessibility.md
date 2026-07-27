@@ -1,6 +1,6 @@
 # Accessibility
 
-Every prompt, authored element tree, and TUI frame has an accessible snapshot path.
+Every prompt, caller-supplied element tree, and TUI frame has an accessible snapshot path.
 Snapshots are machine-readable data with roles, labels, values, focus state,
 selection state, disabled state, expanded state, checked state, progress state,
 diagnostics, and source metadata where the surface can provide them.
@@ -19,7 +19,7 @@ cells, column headers, and row headers. List boxes, menus, radio groups, and
 trees may use grouping nodes around their required item roles. Built-in table
 headers are emitted as column headers. A separate `label()` element creates a
 machine-readable `labelledBy` relationship on its target control. Labels and
-descriptions authored directly on built-in controls remain fields on the node
+descriptions caller-supplied directly on built-in controls remain fields on the node
 they describe and do not require separate descriptive children.
 
 Positions exposed to accessibility consumers are positive and one-based:

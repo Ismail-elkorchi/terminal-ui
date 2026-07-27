@@ -13,8 +13,8 @@ The core vertical path is:
 6. Test the result with the memory harness.
 
 For the renderer data model behind that path, see
-[Rendering internals](./rendering-internals.md). For component authoring
-guidance, see [UI authoring](./ui-authoring.md) and
+[Rendering internals](./rendering-internals.md). For component construction
+guidance, see [Building terminal apps](./building-terminal-apps.md) and
 [Building polished components](./building-polished-components.md).
 
 Full-screen TUI runs enter terminal protocols through the session manager and a
@@ -25,6 +25,11 @@ skipped or failed setup. Callers can explicitly disable protocols, require
 them, or request other mouse reporting modes without changing component code.
 Restoration still runs through the same session path and restores only state
 that was actually changed.
+
+`runTui(app)` creates the runtime host for the current platform. Passing a host
+is useful for adapters and tests, but `runTui()` still consumes that host for
+the run and disposes it after terminal restoration. Use `createTuiRuntime()`
+when a custom event loop needs a longer-lived, externally coordinated host.
 
 Setup diagnostics are app-facing data. `runTui()` passes session setup
 diagnostics into `TuiContext.diagnostics`; `TuiContext.terminalSize` contains

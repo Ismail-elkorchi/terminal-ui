@@ -15,7 +15,7 @@ import {
   textAreaKeyBindings,
   textActionInputHandlers
 } from '../internal/interaction.ts';
-import { optionalId, requiredId } from '../../authoring/render-node.ts';
+import { optionalRenderNodeId, requiredRenderNodeId } from '../../renderer/model/element.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import type {
   ComponentKeyBindingMessages,
@@ -25,7 +25,7 @@ import type {
 
 export function text(content: string, options: TextOptions = {}): Element {
   return componentElementFromRenderNode<'text'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'text',
     props: {
       content,
@@ -37,7 +37,7 @@ export function text(content: string, options: TextOptions = {}): Element {
 
 export function richText(options: RichTextOptions): Element {
   return componentElementFromRenderNode<'richText'>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'richText',
     props: {
       segments: normalizeInlineContent(options.segments),
@@ -92,7 +92,7 @@ export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
   const presentation = options.presentation;
   assertTextDocument(presentation.document);
   return componentElementFromRenderNode<'textArea', unknown>({
-    ...requiredId(options.id, 'textArea'),
+    ...requiredRenderNodeId(options.id, 'textArea'),
     kind: 'textArea',
     props: {
       document: presentation.document,

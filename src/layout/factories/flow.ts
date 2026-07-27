@@ -2,7 +2,8 @@ import { layoutElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ColumnOptions, RowOptions } from '../options.ts';
 import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
-import { layoutProps, optionalId, renderNodeChildren } from '../../authoring/render-node.ts';
+import { optionalRenderNodeId, renderNodeChildren } from '../../renderer/model/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import { assertTrackCount } from './internals.ts';
 
 export function column<const TChildren extends ElementChildren>(
@@ -17,11 +18,11 @@ export function column<const TChildren extends ElementChildren>(
   assertTrackCount('column', options.sizes, childList.length);
   type Message = ElementChildrenMessage<TChildren>;
   return layoutElementFromRenderNode<'column', Message>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'column',
     props: {
       ...(options.sizes === undefined ? {} : { sizes: options.sizes }),
-      ...layoutProps(options)
+      ...renderNodeLayoutProps(options)
     },
     children: childList,
     ...componentMetaProps(options.meta)
@@ -40,11 +41,11 @@ export function row<const TChildren extends ElementChildren>(
   assertTrackCount('row', options.sizes, childList.length);
   type Message = ElementChildrenMessage<TChildren>;
   return layoutElementFromRenderNode<'row', Message>({
-    ...optionalId(options.id),
+    ...optionalRenderNodeId(options.id),
     kind: 'row',
     props: {
       ...(options.sizes === undefined ? {} : { sizes: options.sizes }),
-      ...layoutProps(options)
+      ...renderNodeLayoutProps(options)
     },
     children: childList,
     ...componentMetaProps(options.meta)

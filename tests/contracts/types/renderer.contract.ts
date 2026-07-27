@@ -1,11 +1,13 @@
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 import {
   custom,
+  type CustomRendererRenderInput
+} from '@ismail-elkorchi/terminal-ui/component';
+import {
   renderElementFrame,
   renderFramePlain,
   span,
   type Canvas2D,
-  type CustomRendererRenderInput,
   type FramePassContext,
   type FrameCellSource,
   type Frame,

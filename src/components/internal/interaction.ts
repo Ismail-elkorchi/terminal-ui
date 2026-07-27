@@ -25,7 +25,7 @@ import type { CommandInputAction } from '../../ui-model/command-input.ts';
 import type { SearchPickerAction } from '../../ui-model/search-picker.ts';
 import type { TextEditOperation } from '../../text/index.ts';
 import type { RenderMenuItem } from '../../renderer/model/props/menus.ts';
-import { mergeKeyBindings } from '../../authoring/metadata.ts';
+import { mergeKeyBindings } from '../../element/metadata-normalization.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import { assertValidMenuItems } from '../../ui-model/menu.ts';
 import type { TableCollection } from '../../ui-model/table.ts';
@@ -34,7 +34,7 @@ import { collectionRecordById } from '../../ui-model/collection.ts';
 export {
   mergeKeyBindings,
   withMetaDefaults
-} from '../../authoring/metadata.ts';
+} from '../../element/metadata-normalization.ts';
 export {
   renderNodeInteraction as interactionProps,
   renderNodeMeta as componentMetaProps

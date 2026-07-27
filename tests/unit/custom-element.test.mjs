@@ -13,8 +13,7 @@ import {
 } from '../../dist/renderer/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { button, text } from '../../dist/components/index.js';
-import { custom } from '../../dist/renderer/index.js';
-import { customComposite } from '../../dist/renderer/index.js';
+import { custom, customComposite } from '../../dist/component/index.js';
 import {
   splitPane,
   column,

@@ -1,16 +1,23 @@
-import { createTerminalHarness, runInteractionScript } from '@ismail-elkorchi/terminal-ui/testing';
-import { diffFrames, renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
-import { text } from '@ismail-elkorchi/terminal-ui/components';
+import {
+  createTerminalHarness,
+  renderElementSnapshot,
+  runInteractionScript
+} from '@ismail-elkorchi/terminal-ui/testing';
+import { text } from '@ismail-elkorchi/terminal-ui';
 
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const emptySnapshot = harness.snapshot();
-const frame = renderElementFrame(text('Harness ready', { id: 'ready' }), { columns: 20, rows: 4 });
+const rendered = renderElementSnapshot({
+  element: text('Harness ready', { id: 'ready' }),
+  terminalSize: { columns: 20, rows: 4 }
+});
+const frame = rendered.frame;
 harness.recordCommit({
   id: 'example:commit:1',
   stateVersion: 0,
   terminalSize: { columns: frame.width, rows: frame.height },
   frame,
-  diff: diffFrames(undefined, frame)
+  diff: rendered.diff
 });
 
 const result = await runInteractionScript(harness, {

@@ -1,4 +1,4 @@
-# UI Authoring
+# Building Terminal Apps
 
 `terminal-ui` applications are pure state machines that return opaque UI
 elements from `view()`. The renderer performs layout, frame construction, focus
@@ -10,25 +10,23 @@ Normal application code should think in layers:
 - layout: `column()`, `row()`, `grid()`, `splitPane()`, and `overlay()`;
 - components: `dialog()`, `tabs()`, controls, data views, text surfaces, feedback, and visualization;
 - behavior: pure reducers and state helpers for controlled components;
-- renderer extensions: `custom()` and low-level frame/rendering contracts.
+- component extensions: `custom()` and `customComposite()`;
+- renderer APIs: frame construction, diffing, and serialization.
 
-The authored value is `Element<TMessage>`. It is intentionally opaque:
+The caller-supplied value is `Element<TMessage>`. It is intentionally opaque:
 application code composes it and returns it, but does not inspect `kind`,
 `props`, renderer callbacks, hit targets, or frame internals.
 
 ## Basic Shape
 
 ```ts
-import { defineTui, runTui } from '@ismail-elkorchi/terminal-ui';
-import { button, text } from '@ismail-elkorchi/terminal-ui/components';
-import { createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
-import { column } from '@ismail-elkorchi/terminal-ui/layout';
+import { button, column, defineTui, runTui, text } from '@ismail-elkorchi/terminal-ui';
 
 type Message = { kind: 'save' } | { kind: 'quit' };
 interface State { readonly saved: boolean; }
 
 const app = defineTui<State, Message>({
-  id: 'authoring-example',
+  id: 'terminal-app-example',
   init: () => ({ saved: false }),
   update: (state, message) => {
     if (message.kind === 'save') return { state: { saved: true } };
@@ -41,7 +39,7 @@ const app = defineTui<State, Message>({
   ])
 });
 
-await runTui(app, createTerminalHost());
+await runTui(app);
 ```
 
 ## Component Options
@@ -49,7 +47,7 @@ await runTui(app, createTerminalHost());
 Component options put domain state first and system metadata second.
 
 ```ts
-import { button } from '@ismail-elkorchi/terminal-ui/components';
+import { button } from '@ismail-elkorchi/terminal-ui';
 
 type Message = { readonly kind: 'save' };
 
@@ -71,7 +69,7 @@ button({
 
 Rules:
 
-- keep `id` top-level; it is authored identity for focus, tests,
+- keep `id` top-level; it is caller-supplied identity for focus, tests,
   accessibility, state association, routing, and examples;
 - keep semantic component state such as button `state`, selection, validation errors,
   `required`, and values on the component itself;
@@ -103,16 +101,18 @@ See [Components](./components.md) for component roles and
 ## Rendering Boundary
 
 The renderer sees normalized `RenderNode<TMessage>` values. That shape is not
-the consumer authoring contract.
+part of the public element contract.
 
-Use renderer APIs when writing tests, visual snapshots, or custom renderers:
+Use the testing façade for element snapshots:
 
-- `renderElementFrame()`;
-- `renderFramePlain()`;
-- `diffFrames()`;
-- `FrameBuffer`;
-- `RenderSpan`;
-- `custom()`.
+- `renderElementSnapshot()`;
+- `createTerminalHarness()`;
+- `runInteractionScript()`.
+
+Use `custom()` and `customComposite()` from the component entrypoint when a
+reusable component needs bounded rendering, measurement, accessibility, focus,
+or pointer targets. Use the renderer entrypoint for direct frame construction,
+diffing, and serialization.
 
 See [Renderer extensions](./renderer-extensions.md) and
 [Rendering internals](./rendering-internals.md).

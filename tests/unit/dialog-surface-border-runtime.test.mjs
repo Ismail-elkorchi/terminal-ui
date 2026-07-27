@@ -24,14 +24,14 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
   assert.match(rendered, /inside/u);
 });
 
-test('surface authoring rejects unknown appearances', () => {
+test('surface rejects unknown appearances at its factory boundary', () => {
   assert.throws(
     () => surface(text('content'), { appearance: 'floating' }),
     TypeError
   );
 });
 
-test('dialog accessibility label derives from structured authored titles', () => {
+test('dialog accessibility label derives from structured caller-supplied titles', () => {
   const spanTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
     id: 'span-dialog',
     modal: true,

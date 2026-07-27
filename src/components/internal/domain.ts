@@ -11,7 +11,7 @@ import {
   assertFiniteNumber,
   assertOptionalEnum,
   assertOptionalFiniteNumber
-} from '../../authoring/validation.ts';
+} from '../../foundation/validation.ts';
 import type { TableColumnWidth } from '../../ui-model/content.ts';
 import type { TablePresentation } from '../../ui-model/table.ts';
 

@@ -342,7 +342,7 @@ test('commandInput exposes prompt value selection suggestion validation and foot
   assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.partType, 'footer');
 });
 
-test('commandInput rejects invalid validation levels at the authoring boundary', () => {
+test('commandInput rejects invalid validation levels at its factory boundary', () => {
   assert.throws(() => commandInput({
     id: 'invalid-validation-level',
     presentation: { value: '', cursor: 0, suggestions: [] },

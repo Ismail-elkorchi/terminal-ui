@@ -10,6 +10,7 @@ const dependencyGraph = new Map();
 const failures = [];
 const deterministicGlobalLayers = new Set([
   'behavior',
+  'component',
   'components',
   'layout',
   'renderer',
@@ -142,8 +143,8 @@ function inspectElementFactoryCategory(sourceFile, filePath) {
       ? undefined
       : 'layoutElementFromRenderNode';
   } else if (new Set([
-    'renderer/custom-composite.ts',
-    'renderer/custom-element.ts'
+    'component/custom-composite.ts',
+    'component/custom.ts'
   ]).has(sourcePath)) {
     expected = 'extensionElementFromRenderNode';
   }
@@ -208,15 +209,15 @@ function inspectTuiContext(sourceFile, filePath) {
 
 function forbiddenDependency(sourceFile, sourceLayer, targetLayer, targetFile) {
   const neutral = new Set(['behavior', 'element', 'geometry', 'interaction', 'ui-model', 'visual']);
-  const upper = new Set(['authoring', 'components', 'layout', 'renderer', 'testing', 'transcript', 'tui']);
+  const upper = new Set(['component', 'components', 'layout', 'renderer', 'testing', 'transcript', 'tui']);
   if (sourceLayer === 'visual' && new Set(['behavior', 'interaction', 'ui-model']).has(targetLayer)) return true;
   if (sourceLayer === 'interaction' && new Set(['behavior', 'ui-model']).has(targetLayer)) return true;
   if (sourceLayer === 'ui-model' && targetLayer === 'behavior') return true;
   if (sourceRelative(sourceFile).startsWith('renderer/model/')
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
   if (neutral.has(sourceLayer) && upper.has(targetLayer)) return true;
-  if (sourceLayer === 'authoring' && new Set(['components', 'layout', 'tui']).has(targetLayer)) return true;
-  if (sourceLayer === 'authoring' && targetLayer === 'renderer'
+  if (sourceLayer === 'component' && new Set(['components', 'layout', 'tui']).has(targetLayer)) return true;
+  if (sourceLayer === 'component' && targetLayer === 'renderer'
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
   if (sourceLayer === 'components' && new Set(['layout', 'tui']).has(targetLayer)) return true;
   if (sourceLayer === 'components' && targetLayer === 'renderer'
@@ -224,7 +225,7 @@ function forbiddenDependency(sourceFile, sourceLayer, targetLayer, targetFile) {
   if (sourceLayer === 'layout' && new Set(['components', 'tui']).has(targetLayer)) return true;
   if (sourceLayer === 'layout' && targetLayer === 'renderer'
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
-  if (sourceLayer === 'renderer' && new Set(['authoring', 'components', 'layout', 'tui']).has(targetLayer)) return true;
+  if (sourceLayer === 'renderer' && new Set(['component', 'components', 'layout', 'tui']).has(targetLayer)) return true;
   if (sourceLayer === 'transcript' && targetLayer === 'tui') return true;
   if (sourceLayer === 'visual' && targetLayer === 'theme') return true;
   if (sourceLayer === 'theme' && new Set(['renderer', 'tui']).has(targetLayer)) return true;

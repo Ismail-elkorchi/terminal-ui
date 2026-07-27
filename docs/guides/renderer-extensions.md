@@ -2,15 +2,14 @@
 
 Renderer extensions are the advanced escape hatch for visuals that cannot be
 expressed with the built-in component set. They are not the default application
-authoring model.
+component model.
 
-`terminal-ui` exposes two extension paths:
+`terminal-ui` exposes two levels of extension:
 
-- `canvas()` from the component layer for bounded drawing through `Canvas2D`;
-- `custom()` from the renderer entrypoint for a custom renderer for one
-  element;
-- `customComposite()` when the custom renderer must additionally measure and
-  arrange opaque authored children without exposing renderer nodes.
+- `canvas()` from the built-in component catalog for bounded drawing through
+  `Canvas2D`;
+- `custom()` and `customComposite()` from the component-library entrypoint for
+  reusable renderer extensions.
 
 ## Canvas Component
 
@@ -19,8 +18,8 @@ assigned by layout. A canvas painter receives a safe drawing surface, bounds,
 theme, source metadata, and caller-controlled state. It cannot measure itself,
 manage children, expose custom focus targets, or emit arbitrary host output.
 
-Canvas output is clipped, sanitized, styled, diffed, and projected into
-accessibility through the canvas component's label or accessibility metadata.
+Canvas output is clipped, sanitized, styled, diffed, and represented in
+accessibility output through the canvas component's label or accessibility metadata.
 Canvas points use local, zero-based terminal-cell coordinates. The drawing
 surface converts them to the one-based row and column coordinates of its
 assigned terminal rectangle. Coordinates and sizes must be finite integers;
@@ -36,14 +35,14 @@ other drawing operations.
 
 ## Custom Renderer
 
-Import `custom()` from `@ismail-elkorchi/terminal-ui/renderer`.
+Import `custom()` from `@ismail-elkorchi/terminal-ui/component`.
 
 Use it only when a built-in component is the wrong shape and the renderer needs
 to own one or more of:
 
 - measurement;
 - styled frame rendering;
-- accessibility projection;
+- accessibility output;
 - focus targets;
 - pointer hit targets.
 

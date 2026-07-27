@@ -2,6 +2,9 @@
 
 Prompts return typed results instead of throwing for ordinary cancellation,
 timeout, validation failure, or deterministic non-TTY denial.
+`runPrompt(prompt)` creates and disposes a runtime host for the call. An
+explicit host remains caller-owned so several prompts can share one terminal
+adapter and clock before the caller disposes it.
 Interactive prompt transcripts are opt-in with `transcript: { enabled: true }`.
 When enabled, they record normalized input plus the final diagnostics and
 snapshot for submitted and aborted prompts.

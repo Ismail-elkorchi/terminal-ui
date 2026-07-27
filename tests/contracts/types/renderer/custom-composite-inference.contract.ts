@@ -1,5 +1,5 @@
 import { button, type Element } from '@ismail-elkorchi/terminal-ui/components';
-import { customComposite } from '@ismail-elkorchi/terminal-ui/renderer';
+import { customComposite } from '@ismail-elkorchi/terminal-ui/component';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Equal<TLeft, TRight> =

@@ -33,9 +33,11 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.createTerminalHost, 'function');
   assert.equal(typeof terminalUi.defineTui, 'function');
   assert.equal(typeof terminalUi.runTui, 'function');
-  for (const advancedExport of ['button', 'grid', 'renderElementFrame', 'tableReducer', 'createTerminalHarness', 'confirm']) {
-    assert.equal(advancedExport in terminalUi, false, advancedExport);
-  }
+  assert.equal(typeof terminalUi.intervalSource, 'function');
+  assert.equal(typeof terminalUi.button, 'function');
+  assert.equal(typeof terminalUi.grid, 'function');
+  assert.equal(typeof terminalUi.tableColumn, 'function');
+  assert.equal(typeof terminalUi.behavior.textInputReducer, 'function');
 });
 
 test('transcript entrypoint exposes replay against a structural harness target', async () => {
@@ -60,18 +62,25 @@ test('testing harness exposes captured output, clocks, and PTY input closure', (
   assertNoTypeDiagnostics(`
     import {
       createTerminalHarness,
+      renderElementSnapshot,
       type ControlledTerminalClock,
       type PtyTerminalHarness
     } from '@ismail-elkorchi/terminal-ui/testing';
+    import { text } from '@ismail-elkorchi/terminal-ui';
 
     const harness = createTerminalHarness();
     const output: string = harness.output();
     const clock: ControlledTerminalClock = harness.clock;
     declare const pty: PtyTerminalHarness;
     pty.closeInput();
+    const snapshot = renderElementSnapshot({
+      element: text('Ready'),
+      terminalSize: { columns: 20, rows: 2 }
+    });
 
     void output;
     void clock;
+    void snapshot.frame;
   `);
 });
 
@@ -92,6 +101,11 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     : readFile(new URL(`../../dist/components/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
+  const componentExtensionDeclaration = (await Promise.all([
+    'index',
+    'custom',
+    'custom-composite'
+  ].map((name) => readFile(new URL(`../../dist/component/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
   const tuiDeclaration = await readFile(new URL('../../dist/tui/index.d.ts', import.meta.url), 'utf8');
   const tuiTypesDeclaration = await readFile(new URL('../../dist/tui/types.d.ts', import.meta.url), 'utf8');
@@ -182,10 +196,17 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'LayoutNode',
     'Rect',
     'RenderDiff',
-    'RenderSpan',
-    'CustomRenderer'
+    'RenderSpan'
   ]) {
     assert.match(rendererDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `renderer:${typeName}`);
+  }
+  for (const typeName of [
+    'CustomRenderer',
+    'CustomCompositeRenderer',
+    'Element',
+    'RenderTarget'
+  ]) {
+    assert.match(componentExtensionDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `component:${typeName}`);
   }
   for (const typeName of [
     'TuiContext',
@@ -198,20 +219,21 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   }
   assert.doesNotMatch(tuiDeclaration, /\bFrameBuffer\b/u);
 
+  assert.doesNotMatch(componentExtensionDeclaration, /\bRenderNode\b/u);
   assert.doesNotMatch(componentElementDeclaration, /\bRenderNode\b/u);
   assert.doesNotMatch(componentElementDeclaration, /\b(?:elementFromRenderNode|toRenderNode|toRenderNodes)\b/u);
   assert.doesNotMatch(componentElementDeclaration, /readonly \[key: string\]: unknown;/u);
 
 });
 
-test('renderer focus targets and authored border titles expose usable structural contracts', () => {
+test('component extension focus targets and border title slots expose usable structural contracts', () => {
   assertNoTypeDiagnostics(`
     import { text } from '@ismail-elkorchi/terminal-ui/components';
     import { surface } from '@ismail-elkorchi/terminal-ui/layout';
     import type {
       FocusTarget,
       RenderFocusRelation
-    } from '@ismail-elkorchi/terminal-ui/renderer';
+    } from '@ismail-elkorchi/terminal-ui/component';
 
     const relation: RenderFocusRelation = 'descendant';
     const target: FocusTarget = {
@@ -231,7 +253,7 @@ test('renderer focus targets and authored border titles expose usable structural
   `);
 });
 
-test('public renderer helpers accept authored component elements', () => {
+test('public renderer helpers accept component elements', () => {
   assertNoTypeDiagnostics(`
     import { dialog, tabs, text } from '@ismail-elkorchi/terminal-ui/components';
     import { column } from '@ismail-elkorchi/terminal-ui/layout';
@@ -254,6 +276,61 @@ test('public renderer helpers accept authored component elements', () => {
 
     void frame;
     void layout;
+  `);
+});
+
+test('component packages can define and test reusable extensions through focused facades', () => {
+  assertNoTypeDiagnostics(`
+    import {
+      custom,
+      customComposite,
+      type Element
+    } from '@ismail-elkorchi/terminal-ui/component';
+    import { button } from '@ismail-elkorchi/terminal-ui/components';
+    import { renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
+
+    type Message = { readonly kind: 'activate' };
+
+    function meter(value: number): Element {
+      return custom({
+        id: 'meter',
+        state: value,
+        renderer: {
+          render({ state, bounds, target }) {
+            target.write(bounds.row, bounds.column, [{ text: String(state) }]);
+          },
+          accessibility: ({ id, state }) => ({
+            id,
+            role: 'meter',
+            label: 'Usage',
+            numericValue: { current: state, minimum: 0, maximum: 100 }
+          })
+        }
+      });
+    }
+
+    const action = button({
+      id: 'activate',
+      label: 'Activate',
+      onPress: (): Message => ({ kind: 'activate' })
+    });
+    const element = customComposite({
+      id: 'panel',
+      children: [meter(42), action] as const,
+      renderer: {
+        layout: ({ bounds }) => [
+          { ...bounds, height: 1 },
+          { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
+        ],
+        accessibility: ({ id }) => ({ id, role: 'group', label: 'Panel' })
+      }
+    });
+    const snapshot = renderElementSnapshot({
+      element,
+      terminalSize: { columns: 20, rows: 3 }
+    });
+
+    void snapshot.accessibilityJson;
   `);
 });
 

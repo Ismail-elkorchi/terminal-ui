@@ -3,7 +3,8 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { pointerInteractionReducer } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { custom, renderFramePlain } from '../../dist/renderer/index.js';
+import { custom } from '../../dist/component/index.js';
+import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, tree } from '../../dist/components/index.js';
 import { overlay } from '../../dist/layout/index.js';
 

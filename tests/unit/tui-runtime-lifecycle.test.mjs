@@ -584,21 +584,28 @@ test('runTui rejects non-TTY hosts deterministically before opening fullscreen p
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
 
-test('runTui reports a typed diagnostic when no host is provided', async () => {
+test('runTui consumes and disposes its terminal host', async () => {
   const app = defineTui({
-    id: 'missing-host-tui',
+    id: 'caller-owned-host-tui',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
     view: () => text('ready')
   });
+  const memoryHost = createMemoryTerminalHost({ isTty: false });
+  let disposeCalls = 0;
+  const host = {
+    ...memoryHost,
+    dispose: async () => {
+      disposeCalls += 1;
+      await memoryHost.dispose();
+    }
+  };
 
-  const exit = await runTui(app);
+  const exit = await runTui(app, host);
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics[0]?.code, 'HOST_CAPABILITY_UNAVAILABLE');
-  assert.equal(exit.diagnostics[0]?.target, 'missing-host-tui');
-  assert.equal(exit.snapshot.source, 'tui');
-  assert.equal(exit.snapshot.root.id, 'missing-host-tui');
+  assert.equal(disposeCalls, 1);
 });
 
 test('TUI runtime exposes diagnostics to app views', async () => {

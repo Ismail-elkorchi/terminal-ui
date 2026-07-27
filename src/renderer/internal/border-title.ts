@@ -1,9 +1,9 @@
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type {
-  BorderTitle as AuthoredBorderTitle,
-  BorderTitleContent as AuthoredBorderTitleContent,
-  BorderTitleSlots as AuthoredBorderTitleSlots
+  BorderTitle as BorderTitleInput,
+  BorderTitleContent as BorderTitleContentInput,
+  BorderTitleSlots as BorderTitleSlotsInput
 } from '../../visual/border.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
 import { span } from '../../visual/render.ts';
@@ -17,7 +17,7 @@ export interface BorderTitleRenderOptions {
 }
 
 export function renderBorderTitle(
-  title: AuthoredBorderTitle | undefined,
+  title: BorderTitleInput | undefined,
   options: BorderTitleRenderOptions
 ): BorderTitle | undefined {
   if (title === undefined) return undefined;
@@ -32,9 +32,9 @@ export function renderBorderTitle(
   return renderTitleContent(title, 'title', options);
 }
 
-function renderTitleSlot<TKey extends keyof AuthoredBorderTitleSlots>(
+function renderTitleSlot<TKey extends keyof BorderTitleSlotsInput>(
   key: TKey,
-  content: AuthoredBorderTitleContent | undefined,
+  content: BorderTitleContentInput | undefined,
   options: BorderTitleRenderOptions
 ): Pick<BorderTitleSlots, TKey> | Record<string, never> {
   if (content === undefined) return {};
@@ -43,7 +43,7 @@ function renderTitleSlot<TKey extends keyof AuthoredBorderTitleSlots>(
 }
 
 function renderTitleContent(
-  content: AuthoredBorderTitleContent,
+  content: BorderTitleContentInput,
   part: string,
   options: BorderTitleRenderOptions
 ): BorderTitleContent | undefined {
@@ -64,7 +64,7 @@ function renderTitleContent(
   return spans.length === 0 ? undefined : spans;
 }
 
-function isTitleSlots(title: AuthoredBorderTitle): title is AuthoredBorderTitleSlots {
+function isTitleSlots(title: BorderTitleInput): title is BorderTitleSlotsInput {
   return typeof title === 'object'
     && !Array.isArray(title)
     && ('start' in title || 'center' in title || 'end' in title);
