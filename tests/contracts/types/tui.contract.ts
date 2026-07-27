@@ -10,7 +10,18 @@ const app: TuiApp<State, Message> = defineTui<State, Message>({
   id: 'contract',
   init: () => ({ count: 0 }),
   update: (state, message) => message.kind === 'increment'
-    ? { state: { count: state.count + 1 } }
+    ? {
+        state: { count: state.count + 1 },
+        focus: { kind: 'element', elementId: 'counter' },
+        effects: [{
+          id: 'edit',
+          concurrency: 'keep-first',
+          run: async (context) => {
+            await context.withTerminalSuspended(() => Promise.resolve());
+            return { kind: 'none' };
+          }
+        }]
+      }
     : { state: { count: 0 } },
   view: (state, context): Element<Message> => {
     const columns = context.terminalSize.columns;

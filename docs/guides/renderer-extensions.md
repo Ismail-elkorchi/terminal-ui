@@ -54,7 +54,9 @@ clipping, bypass text sanitization, or create hidden application state.
 
 The custom render hook receives `focus: 'none' | 'self' | 'descendant'` for
 visual treatment. Its accessibility hook receives the exact `focused`
-boolean, so ancestor visuals do not become accessibility focus.
+boolean, so ancestor visuals do not become accessibility focus. When a custom
+renderer has several focus targets, both hooks also receive
+`focusedTargetId`, identifying the target that currently owns focus.
 
 Interactive custom renderers must expose accessibility. Pure decoration may
 opt into `meta: { accessibility: { decorative: true } }`, but decorative output
@@ -85,6 +87,8 @@ bounded rectangle per child. The framework renders those
 children and preserves their accessibility, focus, pointer targets, clipping,
 layers, source metadata, and message union. The optional render hook paints the
 container before its children through the bounded `RenderTarget`.
+The accessibility hook receives the visible child accessibility nodes and may
+return them as part of its own semantic structure.
 
 Composite extensions cannot inspect private render nodes, write to a terminal
 host, retain hidden state, omit child bounds, or place child bounds outside the

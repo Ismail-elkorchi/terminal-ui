@@ -130,6 +130,8 @@ export function accessibilityForRenderNode(
   node: LayoutNode,
   id: string,
   focused: boolean,
+  focusedTargetId: string | undefined,
+  children: readonly AccessibleNode[],
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
@@ -137,7 +139,16 @@ export function accessibilityForRenderNode(
   if (renderer.accessibility === undefined) {
     throw new Error(`RenderNode "${id}" must provide accessibility or be marked decorative.`);
   }
-  return renderer.accessibility({ renderNode: renderNode, layoutNode: node, id, focused, theme, widthProfile });
+  return renderer.accessibility({
+    renderNode: renderNode,
+    layoutNode: node,
+    id,
+    focused,
+    ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
+    children,
+    theme,
+    widthProfile
+  });
 }
 
 export function focusTargetsForRenderNode(

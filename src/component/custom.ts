@@ -33,11 +33,13 @@ export interface CustomRendererInput<TState> {
 export interface CustomRendererRenderInput<TState> extends CustomRendererInput<TState> {
   readonly target: RenderTarget;
   readonly focus: RenderFocusRelation;
+  readonly focusedTargetId?: string;
 }
 
 export interface CustomRendererAccessibilityInput<TState> extends CustomRendererInput<TState> {
   readonly id: string;
   readonly focused: boolean;
+  readonly focusedTargetId?: string;
 }
 
 export interface CustomRenderer<TState = undefined, TMessage = never> {
@@ -146,15 +148,24 @@ function adaptCustomRenderer<TState, TMessage>(
         preferredWidth: 0,
         preferredHeight: 0
       },
-    render: ({ layoutNode, buffer, theme, widthProfile, focus }) => {
-      renderer.render({ state, bounds: layoutNode.bounds, target: buffer, theme, widthProfile, focus });
+    render: ({ layoutNode, buffer, theme, widthProfile, focus, focusedTargetId }) => {
+      renderer.render({
+        state,
+        bounds: layoutNode.bounds,
+        target: buffer,
+        theme,
+        widthProfile,
+        focus,
+        ...(focusedTargetId === undefined ? {} : { focusedTargetId })
+      });
     },
     ...(accessibility === undefined ? {} : {
-      accessibility: ({ layoutNode, id, focused, theme, widthProfile }) => accessibility({
+      accessibility: ({ layoutNode, id, focused, focusedTargetId, theme, widthProfile }) => accessibility({
         state,
         bounds: layoutNode.bounds,
         id,
         focused,
+        ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
         theme,
         widthProfile
       })

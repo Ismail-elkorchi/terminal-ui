@@ -74,6 +74,10 @@ that reason after terminal-text sanitization.
 layout still contains that target; otherwise the runtime falls back to the first
 focusable component.
 
+An update may return `focus` with the same selector shape to move focus after
+an application transition. The requested target is resolved against the frame
+produced by that transition; if it is absent, normal focus fallback applies.
+
 `runTui(app, host, { theme })` and `createTuiRuntime({ theme })` accept either a
 theme object or a `(state) => theme` function. Use the function form when a
 full-screen app needs live theme changes driven by ordinary application state.
@@ -89,6 +93,13 @@ application message. Effects have stable ids, receive an abort signal, report
 failures as diagnostics, and may map failures back to a message through
 `onError`. Promises therefore stay outside the serialized state-transition
 critical section.
+
+An effect that must temporarily hand the terminal to a child process can run
+that operation through `context.withTerminalSuspended()`. `runTui()` pauses
+input ownership, restores the active terminal session, runs the operation,
+then starts a fresh session and performs a full repaint. This is intended for
+interactive programs such as an external editor, not ordinary background
+work. The terminal host remains private to the runtime.
 
 Effects and subscriptions receive an abort signal and app-facing context, but
 not the terminal host. Cancellation revokes producer authority before queued

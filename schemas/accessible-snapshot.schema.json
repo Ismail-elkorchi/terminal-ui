@@ -24,9 +24,12 @@
         "role": {
           "enum": [
             "application",
+            "document",
             "dialog",
             "form",
             "group",
+            "heading",
+            "link",
             "navigation",
             "status",
             "progressbar",
@@ -49,6 +52,9 @@
             "menuitemradio",
             "tablist",
             "tab",
+            "tabpanel",
+            "list",
+            "listitem",
             "table",
             "grid",
             "rowgroup",

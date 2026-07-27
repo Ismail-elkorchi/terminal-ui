@@ -10,13 +10,24 @@ const snapshot = toAccessibleSnapshot({
   source,
   root: {
     id: 'root',
-    role: 'listbox',
+    role: 'document',
     label: 'Contract',
-    window: { startIndex: 0, endIndexExclusive: 1, totalCount: 1 },
     children: [{
-      id: 'item',
-      role: 'option',
-      position: { positionInSet: 1, setSize: 1 }
+      id: 'link',
+      role: 'link',
+      label: 'Next page'
+    }, {
+      id: 'items',
+      role: 'list',
+      children: [{
+        id: 'first',
+        role: 'listitem',
+        label: 'First item'
+      }]
+    }, {
+      id: 'details',
+      role: 'tabpanel',
+      label: 'Details'
     }]
   }
 });

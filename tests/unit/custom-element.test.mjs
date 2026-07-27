@@ -449,6 +449,7 @@ test('decorative custom renderers cannot expose interaction targets', () => {
 });
 
 test('custom composites arrange opaque children while preserving interaction and accessibility', async () => {
+  let accessibleChildIds = [];
   const app = defineTui({
     id: 'custom-composite-tui',
     init: () => ({ selected: 'none' }),
@@ -482,8 +483,9 @@ test('custom composites arrange opaque children while preserving interaction and
         render({ bounds, target }) {
           target.write(bounds.row + 1, bounds.column, [{ text: `selected:${state.selected}` }]);
         },
-        accessibility({ id }) {
-          return { id, role: 'group', label: 'Actions' };
+        accessibility({ id, children }) {
+          accessibleChildIds = children.map((child) => child.id);
+          return { id, role: 'group', label: 'Actions', children };
         }
       }
     })
@@ -501,6 +503,7 @@ test('custom composites arrange opaque children while preserving interaction and
   });
 
   assert.equal(runtime.state().selected, 'save');
+  assert.deepEqual(accessibleChildIds, ['save', 'cancel']);
   assert.deepEqual(runtime.frame().accessibility.root.children?.map((child) => child.id), ['save', 'cancel']);
   assert.match(renderFramePlain(runtime.frame()), /Save.*Cancel/u);
   assert.match(renderFramePlain(runtime.frame()), /selected:save/u);

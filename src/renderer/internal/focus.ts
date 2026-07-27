@@ -139,6 +139,17 @@ export function renderFocusRelation(
   return samePath(activePath, renderNodePath) ? 'self' : 'descendant';
 }
 
+export function focusedTargetIdForLayoutNode(
+  layout: LayoutNode,
+  renderNodePath: FocusPath,
+  activePath: FocusPath | undefined
+): string | undefined {
+  if (activePath === undefined) return undefined;
+  return layout.focusTargets.find((target, index) =>
+    samePath(activePath, targetPath(renderNodePath, target.id, index, layout.focusTargets.length))
+  )?.id;
+}
+
 export function focusPathForLayoutTarget(
   target: RenderNodeLayoutTarget<unknown>,
   targetId: string

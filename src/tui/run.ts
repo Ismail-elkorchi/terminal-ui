@@ -10,6 +10,8 @@ import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntime } from './runtime.ts';
 import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
 import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
+import { TuiInputSuspensionController } from './input-suspension.ts';
+import { createTerminalSuspension } from './terminal-suspension.ts';
 import { normalizeTuiRunOptions } from './run-configuration.ts';
 import { createTuiTranscript, withTuiTranscript } from './transcript.ts';
 import type {
@@ -43,8 +45,30 @@ export async function runTui<TState, TMessage>(
     ])), transcript);
   }
   const terminalHost = host ?? createTerminalHost();
-  const lifecycle = new TuiRunLifecycleOwner(app, terminalHost, normalized, transcript);
   let session: TerminalSession | undefined;
+  const lifecycle = new TuiRunLifecycleOwner(app, terminalHost, normalized, transcript);
+  const inputSuspension = new TuiInputSuspensionController();
+  const withTerminalSuspended = createTerminalSuspension({
+    appId: app.id,
+    host: terminalHost,
+    input: inputSuspension,
+    policy: normalized.sessionPolicy,
+    ...(transcript === undefined ? {} : { transcript }),
+    runtime: () => {
+      const runtime = lifecycle.runtime;
+      if (runtime === undefined) throw new Error('TUI runtime is unavailable during terminal suspension.');
+      return runtime;
+    },
+    session: () => {
+      const activeSession = lifecycle.session;
+      if (activeSession === undefined) throw new Error('Terminal session is unavailable during suspension.');
+      return activeSession;
+    },
+    replaceSession: (nextSession) => {
+      lifecycle.replaceSession(nextSession);
+      session = nextSession;
+    }
+  });
   let exit: TuiExit<TState> | undefined;
   let failure: unknown;
   let setupFailed = false;
@@ -86,6 +110,7 @@ export async function runTui<TState, TMessage>(
         host: terminalHost,
         ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),
         ...(normalized.theme === undefined ? {} : { theme: normalized.theme }),
+        withTerminalSuspended,
         input: {
           capabilities: session.capabilities,
           bracketedPaste: setup.applied.some((item) => item.kind === 'bracketedPaste' && item.enabled),
@@ -100,7 +125,7 @@ export async function runTui<TState, TMessage>(
       await startupPhase('runtime_start', async () => runtime.start());
       exit = await runTuiInputLoop(runtime, transcript, (retirement) => {
         lifecycle.retireInput(retirement);
-      });
+      }, inputSuspension);
       lifecycle.complete(exit);
     }
   } catch (cause) {

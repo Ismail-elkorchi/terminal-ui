@@ -1,4 +1,4 @@
-import { focusPathIncludes } from './focus.ts';
+import { focusPathIncludes, focusedTargetIdForLayoutNode } from './focus.ts';
 import { accessibilityForRenderNode, focusTargetsForRenderNode } from './render-node-behavior.ts';
 import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
@@ -28,8 +28,18 @@ export function accessibleNode(
     assertDecorativeRenderNodeIsNotInteractive(renderNode, node, theme, widthProfile);
     return decorativeRootNode(id, renderNode.accessibility);
   }
-  const base = accessibilityForRenderNode(renderNode, node, id, focusPathIncludes(focusPath, path), theme, widthProfile);
-  const children = base.children ?? accessibleChildren(renderNode, node, path, focusPath, theme, widthProfile);
+  const renderedChildren = accessibleChildren(renderNode, node, path, focusPath, theme, widthProfile) ?? [];
+  const base = accessibilityForRenderNode(
+    renderNode,
+    node,
+    id,
+    focusPathIncludes(focusPath, path),
+    focusedTargetIdForLayoutNode(node, path, focusPath),
+    renderedChildren,
+    theme,
+    widthProfile
+  );
+  const children = base.children ?? (renderedChildren.length === 0 ? undefined : renderedChildren);
   return mergeAccessibleNode(withScope(base, renderNode), renderNode.accessibility, children);
 }
 

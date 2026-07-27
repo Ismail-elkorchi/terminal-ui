@@ -133,13 +133,13 @@ export const layoutRenderers = {
       ));
       input.renderChildren();
     },
-    accessibility: ({ renderNode, id, focused }) => ({
+    accessibility: ({ renderNode, id, focused, children }) => ({
       id,
-      role: 'tablist',
+      role: 'group',
       label: id,
       ...(typeof renderNode.props.selected === 'string' ? { value: renderNode.props.selected } : {}),
       ...(focused ? { focused } : {}),
-      children: tabsAccessibleChildren(renderNode)
+      children: tabsAccessibleChildren(renderNode, children)
     }),
     hitTargets: ({ renderNode, bounds, theme, widthProfile }) => tabsHitTargets(
       renderNode,

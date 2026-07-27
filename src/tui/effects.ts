@@ -37,6 +37,10 @@ export interface TuiEffectManagerOptions<TMessage> {
   readonly context: () => Promise<TuiContext>;
   readonly dispatch: (messages: readonly TMessage[], lease: ProducerAdmissionLease) => Promise<void>;
   readonly reportDiagnostic: (item: TerminalDiagnostic) => void;
+  readonly withTerminalSuspended?: <TValue>(
+    operation: () => Promise<TValue>,
+    signal: AbortSignal
+  ) => Promise<TValue>;
   readonly policy?: TuiEffectPolicy;
 }
 
@@ -282,7 +286,16 @@ async function executeEffect<TMessage>(
   if (controller.signal.aborted) return;
   let output: TuiEffectOutput<TMessage>;
   try {
-    const context: TuiEffectContext = { ...base, signal: controller.signal };
+    const context: TuiEffectContext = {
+      ...base,
+      signal: controller.signal,
+      withTerminalSuspended: <TValue>(operation: () => Promise<TValue>) => {
+        const suspend = options.withTerminalSuspended;
+        return suspend === undefined
+          ? Promise.reject(new Error('Terminal suspension is only available to runtimes owned by runTui().'))
+          : suspend(operation, controller.signal);
+      }
+    };
     if (signalIsAborted(controller.signal)) return;
     output = await effect.run(context);
   } catch (cause) {

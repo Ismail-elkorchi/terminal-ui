@@ -79,9 +79,12 @@ export interface AccessiblePosition {
 
 export type AccessibleRole =
   | 'application'
+  | 'document'
   | 'dialog'
   | 'form'
   | 'group'
+  | 'heading'
+  | 'link'
   | 'navigation'
   | 'status'
   | 'progressbar'
@@ -104,6 +107,9 @@ export type AccessibleRole =
   | 'menuitemradio'
   | 'tablist'
   | 'tab'
+  | 'tabpanel'
+  | 'list'
+  | 'listitem'
   | 'table'
   | 'grid'
   | 'rowgroup'
@@ -127,9 +133,12 @@ export interface AccessibleSnapshotInput {
 
 export const accessibleRoles = [
   'application',
+  'document',
   'dialog',
   'form',
   'group',
+  'heading',
+  'link',
   'navigation',
   'status',
   'progressbar',
@@ -152,6 +161,9 @@ export const accessibleRoles = [
   'menuitemradio',
   'tablist',
   'tab',
+  'tabpanel',
+  'list',
+  'listitem',
   'table',
   'grid',
   'rowgroup',

@@ -60,6 +60,10 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
     return this.#runtime;
   }
 
+  get session(): TerminalSession | undefined {
+    return this.#session;
+  }
+
   openSession(session: TerminalSession): void {
     this.expectPhase('prepared');
     this.#session = session;
@@ -70,6 +74,13 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
     this.expectPhase('session_open');
     this.#runtime = runtime;
     this.#phase = 'runtime_active';
+  }
+
+  replaceSession(session: TerminalSession): void {
+    if (this.#phase !== 'runtime_active') {
+      throw new Error(`Cannot replace the terminal session from phase ${this.#phase}.`);
+    }
+    this.#session = session;
   }
 
   complete(exit: TuiExit<TState>): void {

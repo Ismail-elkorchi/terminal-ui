@@ -27,11 +27,16 @@ test('tabs render only the selected panel as focusable content', () => {
   assert.ok(frame.focusPath?.includes('second-input'));
   assert.ok(!frame.focusPath?.includes('first-input'));
   assert.match(frame.cells.map((cell) => cell.text).join(''), /▏Second/u);
-  assert.equal(frame.accessibility.root.role, 'tablist');
+  assert.equal(frame.accessibility.root.role, 'group');
   assert.equal(frame.accessibility.root.value, 'second');
-  assert.equal(frame.accessibility.root.children?.[1]?.role, 'tab');
-  assert.equal(frame.accessibility.root.children?.[1]?.controls, 'second-input');
-  assert.equal(frame.accessibility.root.children?.[1]?.description, 'Visible editor panel');
+  const tablist = frame.accessibility.root.children?.[0];
+  assert.equal(tablist?.role, 'tablist');
+  assert.equal(tablist?.children?.[1]?.role, 'tab');
+  assert.equal(tablist?.children?.[1]?.controls, 'tabs:second:panel');
+  assert.equal(tablist?.children?.[1]?.description, 'Visible editor panel');
+  assert.equal(frame.accessibility.root.children?.[2]?.role, 'tabpanel');
+  assert.equal(frame.accessibility.root.children?.[2]?.labelledBy, 'tabs:second');
+  assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.id, 'second-input');
 });
 
 test('tabs keep active markers disabled targets and overflow visible without color', () => {
@@ -78,8 +83,9 @@ test('tabs keep the selected tab visible when headers overflow', () => {
   assert.doesNotMatch(header, /Alpha/u);
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['tabs:tab:gamma', 'tabs:tab:gamma:close']);
   assert.equal(frame.cells.find((cell) => cell.source?.partType === 'overflow')?.text, '…');
-  assert.equal(frame.accessibility.root.children?.[2]?.value, '2');
-  assert.deepEqual(frame.accessibility.root.children?.[2]?.children, [{
+  const gamma = frame.accessibility.root.children?.[0]?.children?.[2];
+  assert.equal(gamma?.value, '2');
+  assert.deepEqual(gamma?.children, [{
     id: 'tabs:tab:gamma:close',
     role: 'button',
     label: 'Close Gamma'

@@ -43,6 +43,7 @@ export interface TerminalCapabilityDetectionOptions {
 
 export interface TerminalInput {
   read(options?: TerminalInputReadOptions): AsyncIterable<TerminalInputChunk>;
+  release?(): Promise<void>;
   setRawMode?(enabled: boolean): Promise<void> | void;
   isRawModeEnabled?(): boolean;
   isTty(): boolean;

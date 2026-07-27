@@ -47,8 +47,8 @@ function firstSnapshotIssue(snapshot: unknown): TerminalDiagnostic | undefined {
     focusPath: snapshot['focusPath']
   });
   if (focusIssue !== undefined) return focusIssue;
-  const labelRelationshipIssue = firstLabelRelationshipIssue(snapshot['root']);
-  if (labelRelationshipIssue !== undefined) return labelRelationshipIssue;
+  const relationshipIssue = firstRelationshipIssue(snapshot['root']);
+  if (relationshipIssue !== undefined) return relationshipIssue;
   return undefined;
 }
 
@@ -281,19 +281,39 @@ function firstFocusIssue(
   return undefined;
 }
 
-function firstLabelRelationshipIssue(root: AccessibleNode): TerminalDiagnostic | undefined {
+function firstRelationshipIssue(root: AccessibleNode): TerminalDiagnostic | undefined {
   const nodes = new Map<string, AccessibleNode>();
   collectAccessibleNodes(root, nodes);
   for (const node of nodes.values()) {
-    if (node.labelledBy === undefined) continue;
-    if (node.labelledBy === node.id) {
-      return accessibilityFailure('Accessible node labelledBy must identify a different node.', node.id);
+    if (node.labelledBy !== undefined) {
+      if (node.labelledBy === node.id) {
+        return accessibilityFailure('Accessible node labelledBy must identify a different node.', node.id);
+      }
+      const label = nodes.get(node.labelledBy);
+      if (label === undefined) {
+        return accessibilityFailure(
+          `Accessible node labelledBy must identify a node in the same snapshot: ${node.labelledBy}.`,
+          node.id
+        );
+      }
+      if (node.role === 'tabpanel' && label.role !== 'tab') {
+        return accessibilityFailure('Accessible tabpanel nodes must be labelled by a tab.', node.id);
+      }
     }
-    if (!nodes.has(node.labelledBy)) {
-      return accessibilityFailure(
-        `Accessible node labelledBy must identify a node in the same snapshot: ${node.labelledBy}.`,
-        node.id
-      );
+    if (node.controls !== undefined) {
+      if (node.controls === node.id) {
+        return accessibilityFailure('Accessible node controls must identify a different node.', node.id);
+      }
+      const controlled = nodes.get(node.controls);
+      if (controlled === undefined) {
+        return accessibilityFailure(
+          `Accessible node controls must identify a node in the same snapshot: ${node.controls}.`,
+          node.id
+        );
+      }
+      if (node.role === 'tab' && controlled.role !== 'tabpanel') {
+        return accessibilityFailure('Accessible tab nodes must control a tabpanel.', node.id);
+      }
     }
   }
   return undefined;
@@ -402,6 +422,7 @@ const requiredChildRoles: Readonly<Record<string, ReadonlySet<string>>> = Object
   menubar: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio', 'group']),
   combobox: new Set(['listbox', 'status']),
   tablist: new Set(['tab']),
+  list: new Set(['listitem', 'group']),
   radiogroup: new Set(['radio', 'group']),
   table: new Set(['row', 'rowgroup']),
   grid: new Set(['row', 'rowgroup']),

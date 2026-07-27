@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../../../accessibility/index.ts';
-import type { RenderNodeOfKind } from '../../../model/index.ts';
+import type { RenderNode, RenderNodeOfKind } from '../../../model/index.ts';
 import { isFrameCellInteractionState, renderNodeFrameSource } from '../../../../visual/source.ts';
 import { stringify } from '../../render-node-props.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../../../visual/render.ts';
@@ -87,18 +87,30 @@ export function tabsHeaderBlock(
   };
 }
 
-export function tabsAccessibleChildren(renderNode: TabsNode): readonly AccessibleNode[] {
+export function tabsAccessibleChildren(
+  renderNode: TabsNode,
+  panelChildren: readonly AccessibleNode[]
+): readonly AccessibleNode[] {
   const tabs = tabItems(renderNode);
   const selected = selectedTabIndex(renderNode, tabs);
-  return tabs.map((tab, index) => ({
-    id: `${renderNode.id ?? 'tabs'}:${tab.id}`,
+  const rootId = renderNode.id ?? 'tabs';
+  const selectedChild = renderNode.children?.[selected];
+  const selectedChildIndex = (renderNode.children ?? [])
+    .slice(0, selected)
+    .filter((child) => !hasDecorativeAccessibility(child))
+    .length;
+  const selectedPanelChild = selectedChild !== undefined && hasDecorativeAccessibility(selectedChild)
+    ? undefined
+    : panelChildren[selectedChildIndex];
+  const tabNodes = tabs.map((tab, index): AccessibleNode => ({
+    id: tabAccessibleId(rootId, tab.id),
     role: 'tab',
     label: tab.label,
     ...(tab.badge === undefined ? {} : { value: tab.badge }),
     ...(tab.description === undefined ? {} : { description: tab.description }),
     selected: index === selected,
     disabled: tab.disabled === true,
-    ...(renderNode.children?.[index]?.id === undefined ? {} : { controls: renderNode.children[index].id }),
+    controls: tabPanelAccessibleId(rootId, tab.id),
     ...(tab.closable !== true || tab.disabled === true
       ? {}
       : {
@@ -109,6 +121,36 @@ export function tabsAccessibleChildren(renderNode: TabsNode): readonly Accessibl
           }]
         })
   }));
+  const panels = tabs.map((tab, index): AccessibleNode => ({
+    id: tabPanelAccessibleId(rootId, tab.id),
+    role: 'tabpanel',
+    label: tab.label,
+    labelledBy: tabAccessibleId(rootId, tab.id),
+    ...(index !== selected || selectedPanelChild === undefined
+      ? {}
+      : { children: [selectedPanelChild] })
+  }));
+  return [{
+    id: `${rootId}:tablist`,
+    role: 'tablist',
+    label: rootId,
+    children: tabNodes
+  }, ...panels];
+}
+
+function hasDecorativeAccessibility(renderNode: RenderNode): boolean {
+  const accessibility = renderNode.accessibility;
+  return accessibility !== undefined
+    && 'decorative' in accessibility
+    && accessibility.decorative;
+}
+
+function tabAccessibleId(rootId: string, tabId: string): string {
+  return `${rootId}:${tabId}`;
+}
+
+function tabPanelAccessibleId(rootId: string, tabId: string): string {
+  return `${rootId}:${tabId}:panel`;
 }
 
 export function tabsHitTargets<TMessage>(

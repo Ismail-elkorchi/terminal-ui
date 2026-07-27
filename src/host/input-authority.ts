@@ -17,10 +17,11 @@ export interface KittyKeyboardProbeResult {
 export class TerminalInputAuthority implements TerminalInput {
   readonly #source: TerminalInput;
   readonly #disposeSource: (() => void | Promise<void>) | undefined;
-  readonly #sourceController = new AbortController();
+  #sourceController = new AbortController();
   readonly #replay: TerminalInputChunk[] = [];
   #iterator: AsyncIterator<TerminalInputChunk> | undefined;
   #pending: Promise<IteratorResult<TerminalInputChunk>> | undefined;
+  #release: Promise<void> | undefined;
   #disposal: Promise<void> | undefined;
   #readerActive = false;
   #disposed = false;
@@ -88,6 +89,40 @@ export class TerminalInputAuthority implements TerminalInput {
       this.#replay.length = 0;
     });
     return this.#disposal;
+  }
+
+  release(): Promise<void> {
+    if (this.#disposed) return Promise.resolve();
+    if (this.#readerActive) {
+      return Promise.reject(new Error('Terminal input cannot be released while a reader is active.'));
+    }
+    if (this.#release !== undefined) return this.#release;
+    const iterator = this.#iterator;
+    const pending = this.#pending;
+    if (iterator === undefined) return Promise.resolve();
+    const sourceController = this.#sourceController;
+    sourceController.abort('terminal_input_released');
+    const iteratorClose = Promise.resolve()
+      .then(async () => iterator.return?.())
+      .then(() => undefined);
+    this.#release = Promise.allSettled([
+      pending ?? Promise.resolve(),
+      iteratorClose
+    ]).then((results) => {
+      const failures: unknown[] = [];
+      for (const result of results) {
+        if (result.status === 'rejected') failures.push(result.reason);
+      }
+      if (failures.length > 0) throw new AggregateError(failures, 'Terminal input release failed.');
+    }).finally(() => {
+      if (this.#iterator === iterator) this.#iterator = undefined;
+      if (this.#pending === pending) this.#pending = undefined;
+      if (!this.#disposed && this.#sourceController === sourceController) {
+        this.#sourceController = new AbortController();
+      }
+      this.#release = undefined;
+    });
+    return this.#release;
   }
 
   setRawMode(enabled: boolean): Promise<void> | void {

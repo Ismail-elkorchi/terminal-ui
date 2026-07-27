@@ -3,7 +3,13 @@ import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../model/element.ts';
 import type { RenderNode } from '../model/index.ts';
 import { createRenderEnvironment } from './render-environment.ts';
-import { findRenderNodeFocusTarget, focusPathForLayoutTarget, renderFocusRelation, resolveFocusPath } from './focus.ts';
+import {
+  findRenderNodeFocusTarget,
+  focusedTargetIdForLayoutNode,
+  focusPathForLayoutTarget,
+  renderFocusRelation,
+  resolveFocusPath
+} from './focus.ts';
 import { createRegionTargetIndex } from './region-target-index.ts';
 import type { RegionTargetIndex } from './region-target-index.ts';
 import { createFrameBuffer } from './frame.ts';
@@ -310,12 +316,14 @@ function renderRenderNodeToRegion<TMessage>(
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
+  const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
   renderRenderNode(renderNode, {
     layoutNode: node,
     buffer: region.buffer,
     theme,
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
+    ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
     renderChildren(target = region.buffer) {
       renderRenderNodeChildrenToRegions(renderNode, node, path, target, region, composer, theme, widthProfile, focusPath);
     }
@@ -357,12 +365,14 @@ function renderRenderNodeToBuffer<TMessage>(
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
+  const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
   renderRenderNode(renderNode, {
     layoutNode: node,
     buffer,
     theme,
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
+    ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
     renderChildren(target = buffer) {
       for (const { child, childNode } of orderedChildren(renderNode.children ?? [], node)) {
         renderRenderNodeToBuffer(child, childNode, path, target, theme, widthProfile, focusPath);

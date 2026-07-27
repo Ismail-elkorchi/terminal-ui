@@ -133,6 +133,9 @@ export function createTuiRuntime<TState, TMessage>(
     dispatch(messages, lease) {
       return dispatchQueue.run(() => dispatchManyAdmitted(messages, 'effect', lease)).then(() => undefined);
     },
+    ...(options.withTerminalSuspended === undefined
+      ? {}
+      : { withTerminalSuspended: options.withTerminalSuspended }),
     ...(options.effectPolicy === undefined ? {} : { policy: options.effectPolicy })
   });
 
@@ -190,6 +193,25 @@ export function createTuiRuntime<TState, TMessage>(
       wheelInput.reset();
       pointerMotion.reset();
       pointerRouter.reset();
+    },
+    suspendOutput() {
+      lifecycle.assertOperational();
+      commits.suspendOutput();
+    },
+    resumeOutput() {
+      lifecycle.assertOperational();
+      commits.resumeOutput();
+    },
+    redraw() {
+      return dispatchQueue.run(async () => {
+        await commitRuntimeTransition({
+          messages: [],
+          terminalSize: options.host.getTerminalSize(),
+          requestedFocusPath: commits.focusPath(),
+          forceFrame: true
+        });
+        return commits.frame();
+      });
     },
     nextChange(signal) {
       lifecycle.assertWaitable();
@@ -330,7 +352,11 @@ export function createTuiRuntime<TState, TMessage>(
     const terminalSizeChanged = input.terminalSize.columns !== terminalSize.columns
       || input.terminalSize.rows !== terminalSize.rows;
     const focusChanged = !sameFocusPath(input.requestedFocusPath, commits.focusPath());
-    const requiresFrame = input.forceFrame === true || reduction.stateUpdates > 0 || terminalSizeChanged || focusChanged;
+    const requiresFrame = input.forceFrame === true
+      || reduction.stateUpdates > 0
+      || terminalSizeChanged
+      || focusChanged
+      || reduction.focus !== undefined;
     if (!requiresFrame) {
       recordReductionMessages(reduction);
       const exit = completeReduction(reduction, commits.renderOrUndefined()?.frame);
@@ -348,7 +374,8 @@ export function createTuiRuntime<TState, TMessage>(
       context,
       input.terminalSize,
       input.requestedFocusPath,
-      reduction.stateVersion
+      reduction.stateVersion,
+      reduction.focus
     );
     store.commit(reduction);
     metrics.stateUpdates += reduction.stateUpdates;

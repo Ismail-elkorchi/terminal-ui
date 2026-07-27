@@ -653,16 +653,25 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
 });
 
 test('TUI runtime traverses multiple custom focus targets within one element', async () => {
+  const renderedTargets = [];
+  const accessibleTargets = [];
   const renderer = {
-    render({ target, bounds }) {
+    render({ target, bounds, focusedTargetId }) {
+      renderedTargets.push(focusedTargetId);
       target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
     },
-    accessibility({ id, focused }) {
+    accessibility({ id, focusedTargetId }) {
+      accessibleTargets.push(focusedTargetId);
       return {
         id,
         role: 'application',
         label: 'Custom focus regions',
-        ...(focused ? { focused } : {})
+        children: ['left', 'right'].map((targetId) => ({
+          id: targetId,
+          role: 'button',
+          label: targetId,
+          ...(focusedTargetId === targetId ? { focused: true } : {})
+        }))
       };
     },
     focusTargets({ bounds }) {
@@ -691,9 +700,60 @@ test('TUI runtime traverses multiple custom focus targets within one element', a
 
   await runtime.start();
   assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'right']);
+  assert.equal(renderedTargets.at(-1), 'right');
+  assert.equal(accessibleTargets.at(-1), 'right');
 
   await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'left']);
+  assert.equal(renderedTargets.at(-1), 'left');
+  assert.equal(accessibleTargets.at(-1), 'left');
+});
+
+test('TUI updates can focus a specific custom target after rendering new state', async () => {
+  const renderer = {
+    render({ target, bounds }) {
+      target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
+    },
+    accessibility({ id, focusedTargetId }) {
+      return {
+        id,
+        role: 'group',
+        children: ['left', 'right'].map((targetId) => ({
+          id: targetId,
+          role: 'button',
+          label: targetId,
+          ...(focusedTargetId === targetId ? { focused: true } : {})
+        }))
+      };
+    },
+    focusTargets({ bounds }) {
+      return [
+        { id: 'left', bounds: { ...bounds, width: 1 } },
+        { id: 'right', bounds: { ...bounds, column: bounds.column + 1, width: 1 } }
+      ];
+    }
+  };
+  const app = defineTui({
+    id: 'programmatic-custom-focus',
+    init: () => ({ active: 'left' }),
+    update: (_state, message) => ({
+      state: { active: message.targetId },
+      focus: {
+        kind: 'elementTarget',
+        elementId: 'custom-board',
+        targetId: message.targetId
+      }
+    }),
+    view: () => custom({ id: 'custom-board', renderer })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 10, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.dispatch({ targetId: 'right' });
+
+  assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'right']);
+  assert.equal(runtime.frame().accessibility.root.children?.[1]?.focused, true);
 });
 
 test('TUI frame accessibility uses element metadata and marks only the active focus target', async () => {

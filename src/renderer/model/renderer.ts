@@ -62,6 +62,7 @@ export interface RenderNodeRenderInput<
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
   readonly focus: RenderFocusRelation;
+  readonly focusedTargetId?: string;
   readonly renderChildren: (target?: RenderTarget) => void;
 }
 
@@ -75,6 +76,8 @@ export interface RenderNodeAccessibilityInput<
   readonly layoutNode: LayoutNode;
   readonly id: string;
   readonly focused: boolean;
+  readonly focusedTargetId?: string;
+  readonly children: readonly AccessibleNode[];
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
 }

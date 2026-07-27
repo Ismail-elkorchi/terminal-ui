@@ -1,3 +1,4 @@
+import type { InitialFocusSelector } from '../interaction/focus.ts';
 import type { TuiContext, TuiEffect, TuiUpdate } from './types.ts';
 import type { TuiMessageSource } from '../interaction/message.ts';
 
@@ -12,6 +13,7 @@ export interface RuntimeReduction<TState, TMessage> {
   readonly stateUpdates: number;
   readonly messages: readonly PendingTuiMessage<TMessage>[];
   readonly effects: readonly TuiEffect<TMessage>[];
+  readonly focus?: InitialFocusSelector;
   readonly exitReason?: string;
 }
 
@@ -34,6 +36,7 @@ export function createRuntimeStore<TState, TMessage>(
       let nextStateVersion = stateVersion;
       let stateUpdates = 0;
       let exitReason: string | undefined;
+      let focus: InitialFocusSelector | undefined;
       const applied: PendingTuiMessage<TMessage>[] = [];
       const effects: TuiEffect<TMessage>[] = [];
       for (const item of messages) {
@@ -42,6 +45,7 @@ export function createRuntimeStore<TState, TMessage>(
         const result = update(state, item.message, context);
         applied.push(item);
         effects.push(...(result.effects ?? []));
+        if (result.focus !== undefined) focus = result.focus;
         if (result.state !== state) {
           nextStateVersion += 1;
           stateUpdates += 1;
@@ -55,6 +59,7 @@ export function createRuntimeStore<TState, TMessage>(
         stateUpdates,
         messages: applied,
         effects,
+        ...(focus === undefined ? {} : { focus }),
         ...(exitReason === undefined ? {} : { exitReason })
       };
     },

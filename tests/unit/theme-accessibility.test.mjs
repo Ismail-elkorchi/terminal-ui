@@ -165,6 +165,31 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
 test('accessible snapshots enforce role fields, direct-child roles, numeric values, and index bases', () => {
   const validRoots = [
     {
+      id: 'document',
+      role: 'document',
+      children: [
+        { id: 'heading', role: 'heading', label: 'Documentation', position: { level: 1 } },
+        { id: 'link', role: 'link', label: 'Next page' },
+        {
+          id: 'list',
+          role: 'list',
+          children: [{ id: 'list-item', role: 'listitem', label: 'First item' }]
+        },
+        {
+          id: 'tabs',
+          role: 'group',
+          children: [
+            {
+              id: 'tablist',
+              role: 'tablist',
+              children: [{ id: 'tab', role: 'tab', controls: 'panel', selected: true }]
+            },
+            { id: 'panel', role: 'tabpanel', labelledBy: 'tab' }
+          ]
+        }
+      ]
+    },
+    {
       id: 'form',
       role: 'form',
       children: [{ id: 'switch', role: 'switch', checked: true }]
@@ -244,11 +269,11 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
   }
   assert.match(renderAccessibleSnapshot(toAccessibleSnapshot({
     source: 'renderer',
-    root: validRoots[2]
+    root: validRoots[3]
   })), /position:1\/3/u);
   assert.match(renderAccessibleSnapshot(toAccessibleSnapshot({
     source: 'renderer',
-    root: validRoots[3]
+    root: validRoots[4]
   })), /\[row:1\/1\]/u);
 
   const invalidRoots = [
@@ -289,7 +314,24 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     { id: 'grid', role: 'grid', children: [{ id: 'cell', role: 'gridcell' }] },
     { id: 'rowgroup', role: 'rowgroup', children: [{ id: 'cell', role: 'gridcell' }] },
     { id: 'missing-label-reference', role: 'textbox', labelledBy: 'missing-label' },
-    { id: 'self-label-reference', role: 'textbox', labelledBy: 'self-label-reference' }
+    { id: 'self-label-reference', role: 'textbox', labelledBy: 'self-label-reference' },
+    { id: 'missing-control-reference', role: 'tab', controls: 'missing-panel' },
+    {
+      id: 'wrong-control-role',
+      role: 'group',
+      children: [
+        { id: 'wrong-tab', role: 'tab', controls: 'not-a-panel' },
+        { id: 'not-a-panel', role: 'group' }
+      ]
+    },
+    {
+      id: 'wrong-tabpanel-label',
+      role: 'group',
+      children: [
+        { id: 'plain-label', role: 'text' },
+        { id: 'wrong-panel', role: 'tabpanel', labelledBy: 'plain-label' }
+      ]
+    }
   ];
 
   for (const root of invalidRoots) {

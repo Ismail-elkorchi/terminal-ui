@@ -13,6 +13,7 @@ import {
   renderCurrentFrame,
   resolveTuiTheme
 } from './runtime-frame.ts';
+import { diffFrames } from '../renderer/internal/frame.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { FocusPath } from '../interaction/focus.ts';
@@ -32,6 +33,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
   let pendingInitialFocus = options.initialFocus;
   let focusReturnPaths: FocusPath[] = [];
   let outputBaselineKnown = false;
+  let outputSuspended = false;
   let nextCommitSequence = 1;
 
   const coordinator = {
@@ -43,6 +45,14 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       return currentRender.frame;
     },
     focusPath: () => currentFocusPath,
+    suspendOutput() {
+      outputSuspended = true;
+      outputBaselineKnown = false;
+    },
+    resumeOutput() {
+      outputSuspended = false;
+      outputBaselineKnown = false;
+    },
     async initial(state: TState, context: TuiContext, stateVersion: number) {
       const theme = resolveTuiTheme(options.theme, state);
       const resolution = resolveCandidate(
@@ -65,7 +75,8 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       context: TuiContext,
       terminalSize: TerminalSize,
       requestedFocusPath: FocusPath | undefined,
-      stateVersion: number
+      stateVersion: number,
+      focus?: TuiRuntimeOptions<TState, TMessage>['initialFocus']
     ) {
       const theme = resolveTuiTheme(options.theme, state);
       const previousFrame = frameDiffBase(theme.fingerprint);
@@ -75,7 +86,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         theme,
         requestedFocusPath,
         focusReturnPaths,
-        undefined,
+        focus,
         stateVersion,
         candidateCommitId()
       );
@@ -102,6 +113,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     render: RenderCommitCandidate<TMessage>,
     theme: RenderCommitCandidate<TMessage>['theme']
   ): Promise<RenderDiff> {
+    if (outputSuspended) return diffFrames(previousFrame, render.frame);
     try {
       const dirtyRegions = previousFrame === undefined
         ? undefined
@@ -174,8 +186,8 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         diagnostics.push(diagnostic(
           'TUI_FOCUS_SELECTION_INVALID',
           resolution.kind === 'missing'
-            ? 'Initial focus selector did not match an active focus target.'
-            : 'Initial focus selector matched multiple active focus targets.',
+            ? 'Focus selector did not match an active focus target.'
+            : 'Focus selector matched multiple active focus targets.',
           {
             severity: 'warning',
             target: options.app.id,

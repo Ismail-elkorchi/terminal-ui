@@ -66,6 +66,7 @@ export type TuiInputBinding<TState, TMessage> =
 export interface TuiUpdateResult<TState, TMessage> {
   readonly state: TState;
   readonly effects?: readonly TuiEffect<TMessage>[];
+  readonly focus?: InitialFocusSelector;
   readonly exit?: TuiExitRequest;
 }
 
@@ -87,6 +88,7 @@ export interface TuiNonTtyPolicy {
 
 export interface TuiEffectContext extends TuiContext {
   readonly signal: AbortSignal;
+  readonly withTerminalSuspended: <TValue>(operation: () => Promise<TValue>) => Promise<TValue>;
 }
 
 export interface TuiEffectFailure {
@@ -186,6 +188,10 @@ export interface TuiRuntimeOptions<TState, TMessage> {
   readonly input?: InputPipelineOptions;
   readonly diagnostics?: readonly TerminalDiagnostic[];
   readonly effectPolicy?: TuiEffectPolicy;
+  readonly withTerminalSuspended?: <TValue>(
+    operation: () => Promise<TValue>,
+    signal: AbortSignal
+  ) => Promise<TValue>;
 }
 
 export interface TuiRunOptions<TState = unknown> {
@@ -224,6 +230,9 @@ export interface TuiRuntime<TState, TMessage> {
   ): Promise<TuiInputBatchResult<TState>>;
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
   resetInput(): void;
+  suspendOutput(): void;
+  resumeOutput(): void;
+  redraw(): Promise<Frame>;
   nextChange(signal?: AbortSignal): Promise<TuiRuntimeChange<TState>>;
   dispose(options?: TuiRuntimeDisposeOptions): Promise<void>;
   state(): TState;

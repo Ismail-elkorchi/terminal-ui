@@ -39,11 +39,14 @@ export interface CustomCompositeLayoutInput<TState> extends CustomCompositeInput
 export interface CustomCompositeRenderInput<TState> extends CustomCompositeInput<TState> {
   readonly target: RenderTarget;
   readonly focus: RenderFocusRelation;
+  readonly focusedTargetId?: string;
 }
 
 export interface CustomCompositeAccessibilityInput<TState> extends CustomCompositeInput<TState> {
   readonly id: string;
   readonly focused: boolean;
+  readonly focusedTargetId?: string;
+  readonly children: readonly AccessibleNode[];
 }
 
 export interface CustomCompositeRenderer<TState = undefined, TMessage = never> {
@@ -142,15 +145,25 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
       bounds,
       childCount
     ),
-    render: ({ layoutNode, buffer, theme, widthProfile, focus, renderChildren }) => {
-      render?.({ state, bounds: layoutNode.bounds, target: buffer, theme, widthProfile, focus });
+    render: ({ layoutNode, buffer, theme, widthProfile, focus, focusedTargetId, renderChildren }) => {
+      render?.({
+        state,
+        bounds: layoutNode.bounds,
+        target: buffer,
+        theme,
+        widthProfile,
+        focus,
+        ...(focusedTargetId === undefined ? {} : { focusedTargetId })
+      });
       renderChildren();
     },
-    accessibility: ({ layoutNode, id, focused, theme, widthProfile }) => renderer.accessibility({
+    accessibility: ({ layoutNode, id, focused, focusedTargetId, children, theme, widthProfile }) => renderer.accessibility({
       state,
       bounds: layoutNode.bounds,
       id,
       focused,
+      ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
+      children,
       theme,
       widthProfile
     }),

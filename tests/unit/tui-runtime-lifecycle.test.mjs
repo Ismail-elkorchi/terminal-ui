@@ -804,6 +804,50 @@ test('runTui processes host input chunks until the app exits', async () => {
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
 });
 
+test('TUI effects can suspend the terminal for an external operation and resume with a full frame', async () => {
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
+  let rawModeDuringOperation;
+  const app = defineTui({
+    id: 'terminal-suspension',
+    init: () => ({ phase: 'idle' }),
+    update: (state, message) => {
+      if (message.kind === 'start') {
+        return {
+          state: { phase: 'suspending' },
+          effects: [{
+            id: 'external-operation',
+            concurrency: 'keep-first',
+            async run(context) {
+              await context.withTerminalSuspended(async () => {
+                rawModeDuringOperation = harness.host.stdin.isRawModeEnabled();
+                await harness.resize({ columns: 24, rows: 4 });
+              });
+              return { kind: 'message', message: { kind: 'done' } };
+            }
+          }]
+        };
+      }
+      return { state: { phase: 'done' }, exit: { reason: 'done' } };
+    },
+    view: (state) => textInput({
+      id: 'suspension-input',
+      presentation: { value: state.phase, cursor: 0 },
+      onSubmit: () => ({ kind: 'start' })
+    })
+  });
+
+  const running = runTui(app, harness.host);
+  await waitUntil(() => harness.frames().length > 0);
+  await harness.input('\r');
+  const exit = await running;
+
+  assert.equal(exit.status, 'completed');
+  assert.equal(rawModeDuringOperation, false);
+  assert.equal(harness.restores().length, 2);
+  assert.equal(harness.frames().at(-1)?.width, 24);
+  assert.ok(harness.frames().length >= 3);
+});
+
 test('runTui preserves sanitized completed exit reasons', async () => {
   const app = defineTui({
     id: 'exit-reason',
