@@ -24,7 +24,7 @@ test('progressBar component supports value plus percentage display and status to
   const valueCell = frame.cells.find((cell) => cell.source?.description === 'value' && cell.text === '5');
   const percentageCell = frame.cells.find((cell) => cell.source?.description === 'percentage' && cell.text === '5');
 
-  assert.equal(renderFramePlain(frame), '✓ Deploy [██░░] 5/10 50%');
+  assert.equal(renderFramePlain(frame), '✓ Deploy ██░░ 5/10 50%');
   assert.equal(markerCell?.text, '✓');
   assert.equal(markerCell?.source?.cellRole, 'decoration');
   assert.deepEqual(filledCell?.style?.fg, { kind: 'theme', token: 'status.success' });
@@ -48,7 +48,7 @@ test('progressBar supports bar-only display with end label and explicit bar widt
   const filled = frame.cells.find((cell) => cell.source?.description === 'filled');
   const empty = frame.cells.find((cell) => cell.source?.description === 'track');
 
-  assert.equal(renderFramePlain(frame), '[█░░░] Build');
+  assert.equal(renderFramePlain(frame), '█░░░ Build');
   assert.equal(filled?.style?.fg?.token, 'control.track.filled');
   assert.equal(filled?.style?.bold, true);
   assert.equal(empty?.style?.fg?.token, 'control.track');
@@ -65,8 +65,8 @@ test('progressBar treats bar width as terminal cells under ambiguous-wide profil
     display: 'bar'
   }), { columns: 6, rows: 1 }, { widthProfile });
 
-  assert.equal(renderFramePlain(frame), '[██]');
-  assert.equal(frame.cells.find((cell) => cell.source?.description === 'frame.close')?.column, 6);
+  assert.equal(renderFramePlain(frame), '██');
+  assert.equal(frame.cells.filter((cell) => cell.continuation !== true).length, 2);
 });
 
 test('progressBar valueScale renders segmented fill tokens', () => {
@@ -85,7 +85,7 @@ test('progressBar valueScale renders segmented fill tokens', () => {
 
   const segments = frame.cells.filter((cell) => cell.source?.description?.startsWith('segment.') === true);
 
-  assert.equal(renderFramePlain(frame), '[████░]');
+  assert.equal(renderFramePlain(frame), '████░');
   assert.equal(segments.length, 4);
   assert.equal(segments[0]?.style?.fg?.token, 'scale.low');
   assert.equal(segments[2]?.style?.fg?.token, 'scale.high');
@@ -103,7 +103,7 @@ test('progressBar renders explicit elapsed and remaining timing without hidden c
     remainingMs: 125_000
   }), { columns: 64, rows: 1 });
 
-  assert.equal(renderFramePlain(frame), 'Upload [██░░] 2/4 50% 1m05s elapsed 2m05s left');
+  assert.equal(renderFramePlain(frame), 'Upload ██░░ 2/4 50% 1m05s elapsed 2m05s left');
   assert.equal(frame.accessibility.root.description, '1m05s elapsed 2m05s left');
 });
 
@@ -130,7 +130,7 @@ test('progressBar supports label-free percentage and tiny viewport clipping', ()
     display: 'bar+percent'
   }), { columns: 6, rows: 1 });
 
-  assert.equal(renderFramePlain(frame), '[███░]');
+  assert.equal(renderFramePlain(frame), '██ 75%');
   assert.deepEqual(frame.accessibility.root.numericValue, { current: 3, minimum: 0, maximum: 4 });
 });
 
@@ -163,9 +163,9 @@ test('progressBar degrades display parts deterministically under width pressure'
     status: 'success'
   }), { columns: 6, rows: 1 });
 
-  assert.equal(renderFramePlain(normal), '✓ [██████░░] 3/4 75%');
-  assert.equal(renderFramePlain(tight), '✓ [█] 75%');
-  assert.equal(renderFramePlain(tiny), '✓ [██]');
+  assert.equal(renderFramePlain(normal), '✓ ████████░░ 3/4 75%');
+  assert.equal(renderFramePlain(tight), '✓ ██░ 75%');
+  assert.equal(renderFramePlain(tiny), '✓ ███░');
   assert.equal(tight.cells.some((cell) => cell.source?.description === 'percentage'), true);
   assert.equal(tight.cells.some((cell) => cell.source?.description === 'value'), false);
   assert.equal(tight.cells.some((cell) => cell.source?.description === 'label'), false);
@@ -184,7 +184,7 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
   const activeCell = frame.cells.find((cell) => cell.source?.description === 'active');
   const markerCell = frame.cells.find((cell) => cell.source?.description === 'status.marker');
 
-  assert.equal(renderFramePlain(frame), '! Waiting [░██░]');
+  assert.equal(renderFramePlain(frame), '! Waiting ░██░');
   assert.equal(markerCell?.text, '!');
   assert.equal(activeCell?.style?.fg?.token, 'status.warning');
   assert.equal(activeCell?.source?.cellRole, 'decoration');
@@ -229,9 +229,9 @@ test('progressBar clamps 0 percent 100 percent and overflow values visibly', () 
     display: 'bar+percent'
   }), { columns: 12, rows: 1 });
 
-  assert.equal(renderFramePlain(empty), '[░░░░] 0%');
-  assert.equal(renderFramePlain(complete), '[████] 100%');
-  assert.equal(renderFramePlain(overflow), '[████] 100%');
+  assert.equal(renderFramePlain(empty), '░░░░ 0%');
+  assert.equal(renderFramePlain(complete), '████ 100%');
+  assert.equal(renderFramePlain(overflow), '████ 100%');
   assert.deepEqual(empty.accessibility.root.numericValue, { current: 0, minimum: 0, maximum: 10 });
   assert.deepEqual(complete.accessibility.root.numericValue, { current: 10, minimum: 0, maximum: 10 });
   assert.deepEqual(overflow.accessibility.root.numericValue, { current: 10, minimum: 0, maximum: 10 });
@@ -255,7 +255,7 @@ test('progressBar visual snapshots stay readable in high contrast and no color m
     ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
   });
 
-  assert.equal(highContrast.plainTextFrame, '! Theme [##--] 2/4 50%');
+  assert.equal(highContrast.plainTextFrame, '! Theme ##-- 2/4 50%');
   assert.match(highContrast.ansiFrame, /\\x1b\[/u);
   assert.match(highContrast.frameJson, /"token": "status.warning"/u);
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);

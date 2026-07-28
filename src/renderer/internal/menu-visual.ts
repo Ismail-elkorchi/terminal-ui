@@ -97,10 +97,10 @@ export function dropdownMenuControlLine(input: {
       : [
           menuSpan(input.renderNode, `${input.label}: `, renderNodeStyle(input.renderNode, 'label'), { label: 'label' })
         ]),
-    menuSpan(input.renderNode, '[', controlStyle, { label: 'dropdownMenu-open', state }),
+    menuSpan(input.renderNode, input.focused === true ? `${input.theme.tokens.symbols.pointer} ` : '  ', controlStyle, { label: 'dropdownMenu-focus', state }),
     menuSpan(input.renderNode, input.value, mergeStyles(stateStyle, controlStyle), { label: 'dropdownMenu-value', state }),
     menuSpan(input.renderNode, ` ${marker}`, controlStyle, { label: 'dropdownMenu-marker', state }),
-    menuSpan(input.renderNode, ']', controlStyle, { label: 'dropdownMenu-close', state })
+    menuSpan(input.renderNode, '  ', controlStyle, { label: 'dropdownMenu-padding', state })
   ];
   return { spans: clipSpans(spans, input.width, input.widthProfile) };
 }

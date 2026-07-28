@@ -11,7 +11,7 @@ For each component or renderer extension:
 
 - define stable input data and keep application state outside the renderer;
 - measure minimum and preferred size without reading terminal globals;
-- render through `FrameBuffer` only;
+- render through the framework-provided drawing target;
 - use `RenderSpan` values so style survives clipping and wrapping;
 - handle tiny widths and heights without throwing;
 - expose focus targets only when keyboard interaction exists;

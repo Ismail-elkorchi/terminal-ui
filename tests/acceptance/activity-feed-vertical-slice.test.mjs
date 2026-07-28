@@ -52,8 +52,8 @@ test('activity feed vertical slice maps generic activity blocks through runtime 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state?.selectedId, 'two');
   assert.equal(harness.frames().length, 2);
-  assert.match(renderFramePlain(harness.frames()[0]), /› \[\+\] \[pending\] One/u);
-  assert.match(renderFramePlain(harness.frames()[1]), /› \[\+\] \[running\] Two/u);
+  assert.match(renderFramePlain(harness.frames()[0]), /› ▸ \[pending\] One/u);
+  assert.match(renderFramePlain(harness.frames()[1]), /› ▸ \[running\] Two/u);
   assert.equal(harness.snapshot().root.id, 'root');
   assert.equal(findAccessibleNode(harness.snapshot(), 'activity')?.role, 'listbox');
   assert.equal(harness.restores().length, 1);

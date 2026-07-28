@@ -81,11 +81,11 @@ export function calendarMonthHeaderSpans(renderNode: CalendarNode): readonly Ren
     return [formSpan(renderNode, 'title', 'month.label', label, formLabelStyle(renderNode))];
   }
   return [
-    formSpan(renderNode, 'marker', 'month.previous', '[‹]', formMarkerStyle(renderNode)),
+    formSpan(renderNode, 'marker', 'month.previous', ' ‹ ', formMarkerStyle(renderNode)),
     separatorSpan(renderNode),
     formSpan(renderNode, 'title', 'month.label', label, formLabelStyle(renderNode)),
     separatorSpan(renderNode),
-    formSpan(renderNode, 'marker', 'month.next', '[›]', formMarkerStyle(renderNode))
+    formSpan(renderNode, 'marker', 'month.next', ' › ', formMarkerStyle(renderNode))
   ];
 }
 

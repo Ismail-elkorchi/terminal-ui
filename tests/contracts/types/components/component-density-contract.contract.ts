@@ -1,4 +1,4 @@
-import { table, type ComponentDensity } from '@ismail-elkorchi/terminal-ui/components';
+import { button, table, type ComponentDensity } from '@ismail-elkorchi/terminal-ui/components';
 
 const compact: ComponentDensity = 'compact';
 const regular: ComponentDensity = 'regular';
@@ -14,3 +14,5 @@ table({
   getRowId: (row) => row.id,
   density: regular
 });
+button({ id: 'compact-action', label: 'Save', density: compact });
+button({ id: 'regular-action', label: 'Save', density: regular });

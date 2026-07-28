@@ -143,7 +143,8 @@ export function button(options: ButtonOptions<unknown>): Element<unknown> {
       ...(onPress === undefined ? {} : { toPressMessage: onPress }),
       state,
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
-      ...(options.tone === undefined ? {} : { tone: options.tone })
+      ...(options.tone === undefined ? {} : { tone: options.tone }),
+      ...(options.density === undefined ? {} : { density: options.density })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })

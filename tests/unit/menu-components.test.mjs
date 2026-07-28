@@ -75,7 +75,7 @@ test('menu component renders nested checked disabled items with menu accessibili
   assert.match(output, /Create item/u);
   assert.match(output, /▾ Open/u);
   assert.match(output, /›\s+Recent/u);
-  assert.match(output, /\[x\]/u);
+  assert.match(output, /☑/u);
   assert.match(output, /×\s+Delete/u);
   assert.equal(frame.cells.find((cell) => cell.text === 'D' && cell.source?.itemId === 'delete')?.style?.fg?.token, 'status.error');
   assert.match(output, /Disabled/u);
@@ -155,7 +155,7 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
 
   assert.match(output, /› File  - Edit/u);
   assert.match(output, /Actions/u);
-  assert.match(output, /Theme: \[Dark ▾\]/u);
+  assert.match(output, /Theme: › Dark ▾/u);
   assert.match(output, /Light/u);
   assert.equal(menuBarFrame.cells.find((cell) => cell.text === 'F')?.source?.elementKind, 'menuBar');
   assert.equal(contextFrame.accessibility.root.role, 'menu');

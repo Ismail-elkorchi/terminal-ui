@@ -53,7 +53,7 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
   const frame = renderElementFrame(element, { columns: 56, rows: 7 });
   const output = renderFramePlain(frame);
 
-  assert.match(output, /Live updates: \[ On \] Off/u);
+  assert.match(output, /Live updates: ━◉ On/u);
   assert.match(output, /Volume: ━+●/u);
   assert.match(output, /Window: ─+●━+●/u);
   assert.ok(frame.hitTargets?.some((target) => target.id === 'switch:control'));
@@ -66,8 +66,8 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.role, 'slider');
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.selected, undefined);
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.numericValue?.current, 20);
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.elementKind, 'toggleSwitch');
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.description, 'value.on.open');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'switch.track')?.source?.elementKind, 'toggleSwitch');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'switch.track')?.text, '━');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'slider' && cell.text === '●')?.source?.description, 'track.handle');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'range' && cell.source?.description === 'track.startHandle')?.text, '●');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'range' && cell.source?.description === 'track.endHandle')?.text, '●');
@@ -223,8 +223,8 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
   const output = renderFramePlain(frame);
 
   assert.match(output, /Channels/u);
-  assert.match(output, /\[x\] Email/u);
-  assert.match(output, /\[ \] SMS/u);
+  assert.match(output, /☑ Email/u);
+  assert.match(output, /☐ SMS/u);
   assert.match(output, /Accent/u);
   assert.match(output, /Selected: ■ Green/u);
   assert.match(output, /\[■ Green/u);
@@ -259,8 +259,8 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
     columnIndex: 1,
     columnCount: 7
   });
-  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'check-list' && cell.text === 'x')?.source?.description, 'option.email.marker.checked');
-  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'check-list' && cell.text === 'x')?.source?.cellRole, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'check-list' && cell.text === '☑')?.source?.description, 'option.email.marker.checked');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'check-list' && cell.text === '☑')?.source?.cellRole, 'decoration');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'colors' && cell.text === 'S')?.source?.description, 'summary.label');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'colors' && cell.source?.description === 'summary.swatch')?.style?.bg?.token, 'control.primary.background');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'colors' && cell.source?.description === 'summary.swatch')?.source?.cellRole, 'decoration');

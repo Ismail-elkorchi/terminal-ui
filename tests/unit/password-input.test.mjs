@@ -16,7 +16,7 @@ test('passwordInput masks graphemes and omits its value from accessibility', () 
     presentation: { value: secret, cursor: secret.length }
   }), { columns: 16, rows: 1 });
 
-  assert.equal(renderFramePlain(frame), '›[ ••• ]');
+  assert.equal(renderFramePlain(frame), '› •••');
   assert.doesNotMatch(JSON.stringify(frame), /a🙂/u);
   assert.equal(frame.accessibility.root.role, 'textbox');
   assert.equal('value' in frame.accessibility.root, false);
@@ -33,7 +33,7 @@ test('passwordInput maps masked pointer offsets back to source grapheme boundari
     .find((candidate) => candidate.id === 'secret-pointer:text');
   assert.ok(target);
 
-  const message = target.message(pointerEvent(6));
+  const message = target.message(pointerEvent(5));
   assert.deepEqual(message, {
     kind: 'pointer',
     action: { kind: 'placeCaret', offset: 3 }

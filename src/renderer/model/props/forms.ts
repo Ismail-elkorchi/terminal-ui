@@ -1,6 +1,6 @@
 import type { TextSelection } from '../../../text/index.ts';
 import type { AnchoredSurfacePlacement } from '../../../interaction/anchored-surface.ts';
-import type { ChoiceItem } from '../../../ui-model/contracts.ts';
+import type { ChoiceItem, ComponentDensity } from '../../../ui-model/contracts.ts';
 import type {
   ButtonState,
   ButtonTone,
@@ -48,6 +48,7 @@ export interface ButtonRenderProps<TMessage> {
   readonly state?: ButtonState;
   readonly disabled?: boolean;
   readonly tone?: ButtonTone;
+  readonly density?: ComponentDensity;
 }
 
 export interface CheckboxRenderProps<TMessage> {

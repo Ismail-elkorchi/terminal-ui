@@ -8,13 +8,13 @@ import { createVisualSnapshot } from '../../dist/testing/index.js';
 import {
   catppuccinTheme,
   contrastColor,
-  defaultTheme,
   deriveSurface,
   draculaTheme,
   ensureContrast,
   gruvboxTheme,
   highContrastTheme,
   monochromeTheme,
+  modernTheme,
   noColorTheme,
   nordTheme,
   resolveTerminalStyle,
@@ -223,7 +223,7 @@ test('default theme specimen composes surface control text command log and data 
     title: 'Theme specimen',
     border: { kind: 'rounded' },
     padding: 1
-  }), { columns: 72, rows: 32 }, { theme: defaultTheme });
+  }), { columns: 72, rows: 32 }, { theme: modernTheme });
 
   const tokenAt = (text, predicate = () => true) =>
     frame.cells.find((cell) => cell.text === text && predicate(cell))?.style;

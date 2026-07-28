@@ -165,10 +165,11 @@ test('editable text controls expose source metadata for frame, value, placeholde
     presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42 }
   }), { columns: 12, rows: 1 });
 
-  assert.equal(inputFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'frame.prefix');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'frame.prefix');
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'a')?.source?.description, 'value');
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.description, 'selection');
-  assert.equal(inputFrame.cells.find((cell) => cell.text === ']')?.source?.description, 'frame.suffix');
+  assert.equal(inputFrame.cells.some((cell) => cell.source?.description === 'frame.suffix'), false);
+  assert.equal(inputFrame.cells.some((cell) => cell.source?.description === 'value.padding'), true);
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.elementId, 'email');
   assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'E')?.source?.description, 'placeholder');
   assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.elementKind, 'numberInput');
@@ -191,9 +192,9 @@ test('text components map Unicode cursor positions through the shared text contr
     presentation: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: [] }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
-  assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 7 });
-  assert.deepEqual(cursorPosition(secondaryInputFrame.cursor), { row: 1, column: 8 });
-  assert.deepEqual(cursorPosition(commandFrame.cursor), { row: 1, column: 6 });
+  assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 6 });
+  assert.deepEqual(cursorPosition(secondaryInputFrame.cursor), { row: 1, column: 7 });
+  assert.deepEqual(cursorPosition(commandFrame.cursor), { row: 1, column: 8 });
   assert.deepEqual(textInputFrame.cursor?.source, formSource('unicode-input', 'textInput', 'cursor'));
   assert.deepEqual(secondaryInputFrame.cursor?.source, formSource('unicode-field', 'textInput', 'cursor'));
   assert.deepEqual(commandFrame.cursor?.source, {
@@ -210,9 +211,9 @@ test('text components map Unicode cursor positions through the shared text contr
   assert.equal(commandFrame.cursor?.style?.inverse, true);
   assert.equal(textInputFrame.cells.find((cell) => cell.column === textInputFrame.cursor?.column)?.style?.inverse, true);
   assert.equal(commandFrame.cells.find((cell) => cell.column === commandFrame.cursor?.column)?.style?.inverse, true);
-  assert.equal(renderFramePlain(textInputFrame), '›[ a🙂界b ]');
-  assert.equal(renderFramePlain(secondaryInputFrame), '›[ go🙂 ]');
-  assert.equal(renderFramePlain(commandFrame), '> a🙂界b');
+  assert.equal(renderFramePlain(textInputFrame), '› a🙂界b');
+  assert.equal(renderFramePlain(secondaryInputFrame), '› go🙂');
+  assert.equal(renderFramePlain(commandFrame), '› > a🙂界b');
   assert.equal(textInputFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
   assert.equal(commandFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
 });
@@ -372,8 +373,8 @@ test('editable text controls remain readable in high contrast and no-color rende
     ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
   });
 
-  assert.match(highContrast.plainTextFrame, /x\[ alpha \]/u);
-  assert.match(highContrast.plainTextFrame, /\/command/u);
+  assert.match(highContrast.plainTextFrame, /x alpha/u);
+  assert.match(highContrast.plainTextFrame, /\| \/command/u);
   assert.match(highContrast.ansiFrame, /\\x1b\[/u);
   assert.match(highContrast.frameJson, /"description": "selection"/u);
   assert.match(highContrast.frameJson, /"description": "validation"/u);
@@ -402,9 +403,9 @@ test('textInput maps pointer positions to text offsets when opted in', () => {
   const message = target.message(pointerEvent({
     kind: 'pointerDown',
     row: 1,
-    column: 6,
+    column: 5,
     localRow: 1,
-    localColumn: 6
+    localColumn: 5
   }));
 
   assert.deepEqual(message?.action, {

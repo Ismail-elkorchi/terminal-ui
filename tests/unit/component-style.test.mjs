@@ -42,6 +42,7 @@ import {
   tree
 } from '../../dist/components/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { modernTheme } from '../../dist/theme/index.js';
 import {
   row,
   column,
@@ -120,21 +121,21 @@ test('button states use shared styles and structural markers', () => {
     disabled: true
   }), { columns: 20, rows: 1 }, { focusPath: ['none'] });
 
-  assert.equal(renderFramePlain(focusedFrame).trimEnd(), '[›Focus ]');
-  assert.equal(renderFramePlain(pendingFrame).trimEnd(), '[ i Sync ]');
-  assert.equal(renderFramePlain(destructiveFrame).trimEnd(), '[›× Delete ]');
-  assert.equal(renderFramePlain(pressedFrame).trimEnd(), '[›● Pinned ]');
-  assert.equal(renderFramePlain(disabledFrame).trimEnd(), '[ - Disabled ]');
+  assert.equal(renderFramePlain(focusedFrame).trimEnd(), '› Focus');
+  assert.equal(renderFramePlain(pendingFrame).trimEnd(), 'i Sync');
+  assert.equal(renderFramePlain(destructiveFrame).trimEnd(), '× Delete');
+  assert.equal(renderFramePlain(pressedFrame).trimEnd(), '● Pinned');
+  assert.equal(renderFramePlain(disabledFrame).trimEnd(), '  Disabled');
   assert.equal(styleFor(pendingFrame, 'S')?.fg?.token, 'status.pending');
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
   assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'selection.background');
   assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.disabled');
-  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'frame.focus');
-  assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'frame.open');
-  assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.description, 'state.marker');
-  assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.description, 'state.marker');
-  assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.description, 'state.marker');
-  assert.equal(disabledFrame.cells.find((cell) => cell.text === '-')?.source?.description, 'state.marker');
+  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'padding.leading');
+  assert.equal(focusedFrame.cells.some((cell) => cell.source?.description === 'frame.open'), false);
+  assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.description, 'padding.leading');
+  assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.description, 'padding.leading');
+  assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.description, 'padding.leading');
+  assert.equal(disabledFrame.cells.find((cell) => cell.source?.description === 'padding.leading')?.text, ' ');
   assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'label.text');
 });
 
@@ -229,7 +230,7 @@ test('text entry frames use shared border, focus, and error styles', () => {
     }
 }), { columns: 16, rows: 2 });
 
-  assert.equal(renderFramePlain(inputFrame).trimEnd(), '›[ abc ]');
+  assert.equal(renderFramePlain(inputFrame).trimEnd(), '› abc');
   assert.equal(styleFor(inputFrame, '›')?.fg?.token, 'status.success');
   assert.equal(renderFramePlain(areaFrame).split('\n')[0], '× details');
   assert.equal(styleFor(areaFrame, '×')?.fg?.token, 'status.error');
@@ -556,7 +557,7 @@ test('layout surfaces do not inherit component focus state', () => {
   const focusedFrame = renderElementFrame(surface(textInput({ id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
     appearance: 'bar'
-  }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'] });
+  }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'], theme: modernTheme });
   const customFrame = renderElementFrame(surface(textInput({ id: 'custom-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'custom-focus-surface',
     appearance: 'bar',
@@ -565,10 +566,11 @@ test('layout surfaces do not inherit component focus state', () => {
             states: { focused: { bg: { kind: 'theme', token: 'status.warning' } } }
         }
     }
-}), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'] });
+}), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'], theme: modernTheme });
 
-  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.bar.background');
-  assert.equal(styleForCell(customFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.bar.background');
+  assert.equal(styleFor(focusedFrame, 'P')?.bg?.token, 'control.background');
+  assert.equal(styleFor(customFrame, 'P')?.bg?.token, 'control.background');
+  assert.equal(customFrame.cells.some((cell) => cell.style?.bg?.token === 'status.warning'), false);
 });
 
 test('overflow priority preserves important row content before decorative content', () => {
@@ -756,10 +758,11 @@ test('choice and picker controls use shared form visual styles and source metada
   }), { columns: 30, rows: 8 });
 
   assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.description === 'value.on')?.bg?.token, 'control.toggle.on.background');
-  assert.equal(toggleFrame.cells.find((cell) => cell.source?.description === 'value.off')?.style?.fg?.token, 'input.placeholder');
+  assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.description === 'switch.track')?.bg?.token, 'control.toggle.on.background');
+  assert.equal(toggleFrame.cells.some((cell) => cell.source?.description === 'value.off'), false);
   assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.description === 'track.handle')?.bg?.token, 'control.track.filled');
   assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.description === 'track.filled')?.fg?.token, 'control.track.filled');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'x')?.source?.description, 'option.a.marker.checked');
+  assert.equal(checkboxFrame.cells.find((cell) => cell.text === '☑')?.source?.description, 'option.a.marker.checked');
   assert.equal(styleForCell(colorFrame, (cell) => cell.source?.description === 'summary.swatch')?.bg?.token, 'control.primary.background');
   assert.equal(colorFrame.cells.find((cell) => cell.source?.description === 'option.green.swatch')?.text, '■');
   assert.equal(dateFrame.cells.find((cell) => cell.source?.description === 'weekday.0')?.style?.fg?.token, 'text.disabled');

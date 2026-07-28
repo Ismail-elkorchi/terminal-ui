@@ -7,6 +7,7 @@ element contracts; changing a theme does not reflow the application.
 
 The built-in presets are:
 
+- `defaultTheme`, which preserves the terminal's foreground and background
 - `minimalTheme`
 - `modernTheme`
 - `highContrastTheme`
@@ -17,13 +18,20 @@ Night, Solarized, Gruvbox, Dracula, and Monochrome. They are ordinary
 `TerminalTheme` values; applications choose them explicitly instead of the
 runtime hardwiring a product identity.
 
+The runtime uses `defaultTheme` when an application does not choose a theme.
+It applies semantic ANSI accents but leaves ordinary text and blank cells to
+the terminal palette. Fixed themes such as `modernTheme` define
+`app.background`; the renderer then paints the complete terminal canvas and
+lets components override that inherited foreground or background.
+
 Use `defineTheme()` to start from a preset-like shape and override only the
 tokens your UI needs through the `tokens` field. Built-in components use core
 semantic color tokens such as
 `text.default`, `accent.primary`, `status.error`, `selection.background`,
 `table.header`, and `chart.series.1`. Applications may add custom namespaced
 tokens; missing custom tokens fall back through `text.default` when styles are
-resolved.
+resolved and that fallback exists. Otherwise the terminal's current color is
+preserved.
 
 ```ts
 import { defineTheme } from '@ismail-elkorchi/terminal-ui/theme';

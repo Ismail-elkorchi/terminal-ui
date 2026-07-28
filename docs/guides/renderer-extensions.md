@@ -57,6 +57,10 @@ visual treatment. Its accessibility hook receives the exact `focused`
 boolean, so ancestor visuals do not become accessibility focus. When a custom
 renderer has several focus targets, both hooks also receive
 `focusedTargetId`, identifying the target that currently owns focus.
+Render, accessibility, focus-target, and hit-target inputs include `viewport`,
+the terminal rectangle currently visible through any enclosing `viewport()`.
+Use it to window large custom content. The framework clips returned focus and
+pointer bounds to the same rectangle.
 
 Interactive custom renderers must expose accessibility. Pure decoration may
 opt into `meta: { accessibility: { decorative: true } }`, but decorative output

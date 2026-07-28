@@ -4,13 +4,13 @@ import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
 import { renderNodeInteractionDisabled } from './render-node-interaction.ts';
 import { pointerInteractionHitTargets } from './pointer-interaction.ts';
 import {
-  emptyRect, hasKeyboardOrInputMap, sameRect
+  emptyRect, hasKeyboardOrInputMap
 } from './renderers/support/common.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import type { RenderNodeFocusTarget, RenderNodeLayoutTarget } from './focus.ts';
+import type { RenderNodeLayoutTarget } from './focus.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { Measurement } from './measurement.ts';
 import type { FocusTarget, HitTarget, RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
@@ -154,11 +154,18 @@ export function accessibilityForRenderNode(
 export function focusTargetsForRenderNode(
   renderNode: RenderNode,
   bounds: Rect,
+  viewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly FocusTarget[] {
   if (renderNodeInteractionDisabled(renderNode)) return [];
-  const explicit = rendererForRenderNode(renderNode).focusTargets?.({ renderNode: renderNode, bounds, theme, widthProfile }) ?? [];
+  const explicit = rendererForRenderNode(renderNode).focusTargets?.({
+    renderNode: renderNode,
+    bounds,
+    viewport,
+    theme,
+    widthProfile
+  }) ?? [];
   const targets = explicit.length > 0 || !hasKeyboardOrInputMap(renderNode)
     ? explicit
     : [{ id: 'self', bounds }];
@@ -180,17 +187,6 @@ export function focusTargetsForRenderNode(
 
 export function focusScopeForRenderNode(renderNode: RenderNode): ElementFocusScope | undefined {
   return renderNode.focus?.scope;
-}
-
-export function cursorForRenderNode(
-  renderNode: RenderNode,
-  target: RenderNodeFocusTarget<unknown>,
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile
-): { readonly row: number; readonly column: number } | undefined {
-  return target.cursor
-    ?? focusTargetsForRenderNode(renderNode, target.bounds, theme, widthProfile)
-      .find((item) => sameRect(item.bounds, target.bounds))?.cursor;
 }
 
 export function hitTargetsForRenderNode<TMessage>(

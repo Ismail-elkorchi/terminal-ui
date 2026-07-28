@@ -88,6 +88,7 @@ export interface RenderNodeFocusInput<
 > {
   readonly renderNode: RendererNode<TMessage, TKind>;
   readonly bounds: Rect;
+  readonly viewport: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
 }

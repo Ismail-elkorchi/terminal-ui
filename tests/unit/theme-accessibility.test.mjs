@@ -8,8 +8,11 @@ import {
 } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { defaultThemes,
+  defaultTheme,
   defineTheme,
   mergeThemes,
+  modernTheme,
+  resolveThemeColor,
   resolveTerminalStyle } from '../../dist/theme/index.js';
 import { renderDiffAnsi,
   renderAccessibleSnapshot,
@@ -64,11 +67,34 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   assert.deepEqual(merged.tokens.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
   assert.deepEqual(
     resolveTerminalStyle({ fg: { kind: 'theme', token: 'missing.custom' } }, theme),
-    { fg: theme.tokens.colors['text.default'] }
+    undefined
   );
   assert.match(renderDiffAnsi(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
   assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[Hbad');
   assert.equal(defaultThemes.noColor.name, 'noColor');
+  assert.equal(resolveThemeColor(defaultTheme, 'app.background'), undefined);
+  assert.equal(resolveThemeColor(defaultTheme, 'text.default'), undefined);
+  assert.deepEqual(resolveThemeColor(defaultTheme, 'accent.primary'), { kind: 'ansi', value: 14 });
+});
+
+test('fixed themes paint a complete app canvas while the default preserves terminal colors', () => {
+  const adaptive = renderElementFrame(richText({
+    id: 'adaptive',
+    segments: [{ kind: 'text', text: 'A' }]
+  }), { columns: 3, rows: 2 }, { theme: defaultTheme });
+  const fixed = renderElementFrame(richText({
+    id: 'fixed',
+    segments: [{ kind: 'text', text: 'A' }]
+  }), { columns: 3, rows: 2 }, { theme: modernTheme });
+
+  assert.equal(adaptive.cells.length, 1);
+  assert.equal(fixed.cells.length, 6);
+  assert.equal(fixed.cells.every((cell) => cell.style?.bg?.token === 'app.background'), true);
+  assert.equal(
+    fixed.cells.filter((cell) => cell.text === ' ').every((cell) => cell.style?.fg?.token === 'app.foreground'),
+    true
+  );
+  assert.equal(fixed.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'text.default');
 });
 
 test('theme fingerprints are stable for equivalent themes and change with theme content', () => {

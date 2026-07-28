@@ -19,10 +19,11 @@ import type { Rect } from '../model/layout.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
-import { clipRenderSpans, measureRenderSpans } from '../../visual/render.ts';
+import { clipRenderSpans, measureRenderSpans, padRenderLine } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import { placeAnchoredSurface } from '../../interaction/anchored-surface.ts';
 import { terminalTextWidth } from '../../text/index.ts';
+import { oneCellGlyph } from '../../text/index.ts';
 import type { LayoutNode } from '../model/layout.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 
@@ -46,10 +47,11 @@ export function commandInputBlock(
   renderNode: CommandInputNode,
   bounds: Pick<Rect, 'width' | 'height'>,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  focused = false
 ): RenderBlock {
   const display = commandInputDisplay(renderNode);
-  const lines: RenderLine[] = [inputLine(renderNode, bounds.width, widthProfile)];
+  const lines: RenderLine[] = [inputLine(renderNode, bounds.width, theme, widthProfile, focused)];
   const validation = validationProp(renderNode);
   if (bounds.height > lines.length && validation !== undefined) lines.push(validationLine(renderNode, validation, theme));
   if (display === 'expanded') {
@@ -116,7 +118,10 @@ export function commandInputCursor(renderNode: CommandInputNode, bounds: Rect, w
   const model = commandInputModel(renderNode, bounds.width, widthProfile);
   return {
     row: bounds.row,
-    column: bounds.column + Math.max(0, Math.min(bounds.width - 1, model.promptCells + model.cursorColumn)),
+    column: bounds.column + Math.max(
+      0,
+      Math.min(bounds.width - 1, model.frameCells + model.promptCells + model.cursorColumn)
+    ),
     style: inputCursorStyle(),
     source: commandSource(renderNode, 'cursor', { role: 'cursor', partType: 'cursor' })
   };
@@ -130,7 +135,7 @@ export function commandInputPointerOffset(
 ): number | undefined {
   if (pointer.localColumn === undefined) return undefined;
   const model = commandInputModel(renderNode, bounds.width, widthProfile);
-  const contentColumn = pointer.localColumn - 1 - model.promptCells;
+  const contentColumn = pointer.localColumn - 1 - model.frameCells - model.promptCells;
   return textOffsetAtVisualColumn(
     model.value,
     model.offsetCells + Math.max(0, contentColumn),
@@ -225,11 +230,34 @@ export function commandInputUsesPopup(renderNode: CommandInputNode): boolean {
   return commandInputDisplay(renderNode) === 'popup' && commandInputSuggestions(renderNode).length > 0;
 }
 
-function inputLine(renderNode: CommandInputNode, width: number, widthProfile: TextWidthProfile): RenderLine {
+function inputLine(
+  renderNode: CommandInputNode,
+  width: number,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  focused: boolean
+): RenderLine {
   const model = commandInputModel(renderNode, width, widthProfile);
   const placeholder = placeholderText(renderNode);
   const completion = completionText(renderNode);
-  const spans: RenderSpan[] = [
+  const fieldStyle = resolveRenderNodeStyle(renderNode, {
+    part: 'value',
+    base: {
+      fg: { kind: 'theme', token: 'control.foreground' },
+      bg: { kind: 'theme', token: 'control.background' }
+    },
+    ...(focused ? { state: 'focused' } : {})
+  });
+  const marker = oneCellGlyph(
+    focused ? theme.tokens.symbols.pointer : theme.tokens.symbols.borderSingle.vertical,
+    focused ? '>' : '|',
+    { widthProfile }
+  );
+  const spans: RenderSpan[] = [{
+    text: `${marker} `,
+    ...(fieldStyle === undefined ? {} : { style: fieldStyle }),
+    source: commandSource(renderNode, 'window', { role: 'decoration', partType: 'marker' })
+  },
     styledSpan(model.prompt, commandPromptStyle(renderNode), commandSource(renderNode, 'prompt', { role: 'decoration', partType: 'prompt' })),
     ...(model.value.length === 0 && placeholder.length > 0
       ? clipRenderSpans([styledSpan(placeholder, renderNodeStyle(renderNode, 'placeholder'), commandSource(renderNode, 'placeholder', { partType: 'placeholder' }))], model.contentWidth, { widthProfile })
@@ -253,9 +281,21 @@ function inputLine(renderNode: CommandInputNode, width: number, widthProfile: Te
       commandSource(renderNode, 'history', { partType: 'history' })
     ));
   }
-  return {
-    spans
-  };
+  const styled = spans.map((current): RenderSpan => {
+    const style = mergeStyles(fieldStyle, current.style);
+    return {
+      ...current,
+      ...(style === undefined ? {} : { style })
+    };
+  });
+  return padRenderLine({ spans: styled }, Math.max(0, width), {
+    widthProfile,
+    fill: {
+      text: ' ',
+      ...(fieldStyle === undefined ? {} : { style: fieldStyle }),
+      source: commandSource(renderNode, 'window', { role: 'decoration', partType: 'window' })
+    }
+  });
 }
 
 function commandPromptStyle(renderNode: CommandInputNode): ReturnType<typeof renderNodeStyle> {
@@ -269,6 +309,7 @@ interface CommandInputModel {
   readonly contentWidth: number;
   readonly offsetCells: number;
   readonly cursorColumn: number;
+  readonly frameCells: number;
   readonly window: ReturnType<typeof visibleLineWindow>;
 }
 
@@ -276,7 +317,8 @@ function commandInputModel(renderNode: CommandInputNode, width: number, widthPro
   const prompt = promptText(renderNode);
   const value = valueText(renderNode);
   const promptCells = singleLineCursorColumn(prompt, prompt.length, { widthProfile });
-  const contentWidth = Math.max(0, Math.floor(width) - promptCells);
+  const frameCells = Math.min(2, Math.max(0, Math.floor(width)));
+  const contentWidth = Math.max(0, Math.floor(width) - frameCells - promptCells);
   const cursorCells = singleLineCursorColumn(value, numberProp(renderNode, 'cursor'), { widthProfile });
   const offsetCells = Math.max(0, cursorCells - Math.max(0, contentWidth - 1));
   const window = visibleLineWindow(value, offsetCells, contentWidth, { widthProfile });
@@ -287,6 +329,7 @@ function commandInputModel(renderNode: CommandInputNode, width: number, widthPro
     contentWidth,
     offsetCells,
     cursorColumn: Math.max(0, cursorCells - offsetCells),
+    frameCells,
     window
   };
 }

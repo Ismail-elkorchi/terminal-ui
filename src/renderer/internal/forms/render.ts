@@ -1,6 +1,7 @@
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../../model/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
+import { oneCellGlyph } from '../../../text/index.ts';
 
 type FormNode = RenderNodeOfKind<unknown, 'form'>;
 type FieldNode = RenderNodeOfKind<unknown, 'field'>;
@@ -24,7 +25,6 @@ import {
   controlPrefixSpans,
   formControlState,
   formMarkerStyle,
-  formPlaceholderStyle,
   formSpan,
   formValueStyle,
   labelSpans,
@@ -130,7 +130,11 @@ export function buttonBlock(
   widthProfile: TextWidthProfile
 ): RenderBlock {
   const label = clean(stringify(renderNode.props.label)) || 'Button';
-  return block([clippedFormLine(buttonSpans(renderNode, label, focused, theme), bounds.width, widthProfile)]);
+  return block([clippedFormLine(
+    buttonSpans(renderNode, label, focused, theme, widthProfile),
+    bounds.width,
+    widthProfile
+  )]);
 }
 
 export function checkboxBlock(
@@ -167,6 +171,7 @@ export function checkboxBlock(
 export function toggleSwitchBlock(
   renderNode: ToggleSwitchNode,
   bounds: Rect,
+  theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focused = false
 ): RenderBlock {
@@ -178,28 +183,29 @@ export function toggleSwitchBlock(
     disabled: renderNode.props.disabled === true,
     focused
   });
+  const thumb = oneCellGlyph(theme.tokens.symbols.radioChecked, '*', { widthProfile });
+  const track = oneCellGlyph(theme.tokens.symbols.scrollbarHorizontalThumb, '-', { widthProfile });
+  const value = checked ? onLabel : offLabel;
   const lines = [
     clippedFormLine([
       ...controlPrefixSpans(renderNode, label, state),
-      ...(checked
-        ? [
-            formSpan(renderNode, 'frame', 'value.on.open', '[', formMarkerStyle(renderNode, state), state),
-            separatorSpan(renderNode),
-            formSpan(renderNode, 'value', 'value.on', onLabel, mergeStyles(toggleValueStyle(renderNode, true), renderNodeStyle(renderNode, 'value', state)), state),
-            separatorSpan(renderNode),
-            formSpan(renderNode, 'frame', 'value.on.close', ']', formMarkerStyle(renderNode, state), state),
-            separatorSpan(renderNode),
-            formSpan(renderNode, 'placeholder', 'value.off', offLabel, formPlaceholderStyle(renderNode))
-          ]
-        : [
-            formSpan(renderNode, 'placeholder', 'value.on', onLabel, formPlaceholderStyle(renderNode)),
-            separatorSpan(renderNode),
-            formSpan(renderNode, 'frame', 'value.off.open', '[', formMarkerStyle(renderNode, state), state),
-            separatorSpan(renderNode),
-            formSpan(renderNode, 'value', 'value.off', offLabel, mergeStyles(toggleValueStyle(renderNode, false), renderNodeStyle(renderNode, 'value', state)), state),
-            separatorSpan(renderNode),
-            formSpan(renderNode, 'frame', 'value.off.close', ']', formMarkerStyle(renderNode, state), state)
-          ])
+      formSpan(
+        renderNode,
+        'handle',
+        'switch.track',
+        checked ? `${track}${thumb}` : `${thumb}${track}`,
+        mergeStyles(toggleValueStyle(renderNode, checked), formMarkerStyle(renderNode, state)),
+        state
+      ),
+      separatorSpan(renderNode),
+      formSpan(
+        renderNode,
+        'value',
+        checked ? 'value.on' : 'value.off',
+        value,
+        mergeStyles(toggleValueStyle(renderNode, checked), renderNodeStyle(renderNode, 'value', state)),
+        state
+      )
     ], bounds.width, widthProfile),
     ...errorLines(renderNode, bounds.width, widthProfile)
   ];
@@ -414,9 +420,9 @@ export function numberInputBlock(
   if (layout === undefined) return controlInputBlock(numberInputValue(renderNode), renderNode, bounds, focused, theme, widthProfile);
   const controls = [
     separatorSpan(renderNode),
-    formSpan(renderNode, 'handle', 'step.decrement', '[-]', formMarkerStyle(renderNode)),
+    formSpan(renderNode, 'handle', 'step.decrement', ' − ', formMarkerStyle(renderNode)),
     separatorSpan(renderNode),
-    formSpan(renderNode, 'handle', 'step.increment', '[+]', formMarkerStyle(renderNode))
+    formSpan(renderNode, 'handle', 'step.increment', ' + ', formMarkerStyle(renderNode))
   ];
   const input = controlInputBlock(numberInputValue(renderNode), renderNode, layout.input, focused, theme, widthProfile);
   const first = input.lines[0];

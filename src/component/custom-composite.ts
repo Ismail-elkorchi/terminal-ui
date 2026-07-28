@@ -21,6 +21,7 @@ import type { TextWidthProfile } from '../text/index.ts';
 export interface CustomCompositeInput<TState> {
   readonly state: TState;
   readonly bounds: Rect;
+  readonly viewport: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
 }
@@ -31,7 +32,6 @@ export interface CustomCompositeMeasureInput<TState> extends CustomCompositeInpu
 }
 
 export interface CustomCompositeLayoutInput<TState> extends CustomCompositeInput<TState> {
-  readonly viewport: Rect;
   readonly childCount: number;
   readonly measureChild: (index: number) => Measurement;
 }
@@ -138,7 +138,15 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
   const hitTargets = renderer.hitTargets;
   return {
     measure: ({ bounds, theme, widthProfile, childCount: measuredChildCount, measureChild }) =>
-      renderer.measure?.({ state, bounds, theme, widthProfile, childCount: measuredChildCount, measureChild })
+      renderer.measure?.({
+        state,
+        bounds,
+        viewport: bounds,
+        theme,
+        widthProfile,
+        childCount: measuredChildCount,
+        measureChild
+      })
         ?? zeroMeasurement(),
     layout: ({ bounds, viewport, theme, widthProfile, childCount: measuredChildCount, measureChild }) => normalizeChildBounds(
       renderer.layout({ state, bounds, viewport, theme, widthProfile, childCount: measuredChildCount, measureChild }),
@@ -149,6 +157,7 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
       render?.({
         state,
         bounds: layoutNode.bounds,
+        viewport: layoutNode.viewport,
         target: buffer,
         theme,
         widthProfile,
@@ -160,6 +169,7 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
     accessibility: ({ layoutNode, id, focused, focusedTargetId, children, theme, widthProfile }) => renderer.accessibility({
       state,
       bounds: layoutNode.bounds,
+      viewport: layoutNode.viewport,
       id,
       focused,
       ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
@@ -168,10 +178,22 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
       widthProfile
     }),
     ...(focusTargets === undefined ? {} : {
-      focusTargets: ({ bounds, theme, widthProfile }) => focusTargets({ state, bounds, theme, widthProfile })
+      focusTargets: ({ bounds, viewport, theme, widthProfile }) => focusTargets({
+        state,
+        bounds,
+        viewport,
+        theme,
+        widthProfile
+      })
     }),
     ...(hitTargets === undefined ? {} : {
-      hitTargets: ({ bounds, theme, widthProfile }) => hitTargets({ state, bounds, theme, widthProfile })
+      hitTargets: ({ bounds, layoutNode, theme, widthProfile }) => hitTargets({
+        state,
+        bounds,
+        viewport: layoutNode.viewport,
+        theme,
+        widthProfile
+      })
     })
   };
 }

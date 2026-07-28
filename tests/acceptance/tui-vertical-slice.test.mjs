@@ -74,7 +74,7 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
   const rendered = renderFramePlain(frame);
   assert.match(rendered, /Terminal workbench/u);
   assert.match(rendered, /Left pane/u);
-  assert.match(rendered, /Press en…/u);
+  assert.match(rendered, /Press enter/u);
 
   const submittedFrame = renderElementFrame(dashboardElement({ submitted: true }), terminalSize, {
     focusPath: frame.focusPath

@@ -17,7 +17,8 @@ import { custom, customComposite } from '../../dist/component/index.js';
 import {
   splitPane,
   column,
-  row
+  row,
+  viewport
 } from '../../dist/layout/index.js';
 
 test('custom renderers render through required renderer contract', () => {
@@ -376,6 +377,69 @@ test('custom renderer hit targets resolve explicitly declared focus targets', ()
   const frame = renderElementFrame(custom({ id: 'focusable', renderer }), { columns: 12, rows: 1 });
 
   assert.deepEqual(frame.hitTargets?.[0]?.focus, { kind: 'focus', path: ['focusable', 'control'] });
+});
+
+test('viewport bounds custom rendering, focus, pointer, and accessibility to one visible window', () => {
+  const observedViewports = [];
+  const renderer = {
+    render({ state, bounds, viewport: visible, target }) {
+      observedViewports.push(visible);
+      for (let index = 0; index < state.rows.length; index += 1) {
+        target.write(bounds.row + index, bounds.column, [{ text: state.rows[index] }]);
+      }
+    },
+    accessibility({ state, bounds, viewport: visible, id }) {
+      observedViewports.push(visible);
+      const start = Math.max(0, visible.row - bounds.row);
+      return {
+        id,
+        role: 'listbox',
+        label: 'Rows',
+        children: state.rows.slice(start, start + visible.height).map((label, index) => ({
+          id: `row-${String(start + index)}`,
+          role: 'option',
+          label
+        }))
+      };
+    },
+    focusTargets({ state, bounds, viewport: visible }) {
+      observedViewports.push(visible);
+      return state.rows.map((_label, index) => ({
+        id: `row-${String(index)}`,
+        bounds: { row: bounds.row + index, column: bounds.column, width: bounds.width, height: 1 }
+      }));
+    },
+    hitTargets({ state, bounds, viewport: visible }) {
+      observedViewports.push(visible);
+      return state.rows.map((_label, index) => ({
+        id: `row-${String(index)}:hit`,
+        bounds: { row: bounds.row + index, column: bounds.column, width: bounds.width, height: 1 },
+        message: () => index
+      }));
+    }
+  };
+  const frame = renderElementFrame(viewport(custom({
+    id: 'rows',
+    state: { rows: ['zero', 'one', 'two', 'three', 'four'] },
+    renderer
+  }), {
+    id: 'rows-window',
+    scrollRow: 2,
+    contentRows: 5,
+    contentColumns: 8
+  }), { columns: 8, rows: 2 });
+
+  assert.match(renderFramePlain(frame), /^two↑\nthree$/u);
+  assert.deepEqual(frame.accessibility.root.children?.[0]?.children?.map((node) => node.id), ['row-2', 'row-3']);
+  assert.deepEqual(frame.hitTargets?.map((target) => [target.id, target.bounds]), [
+    ['row-2:hit', { row: 1, column: 1, width: 8, height: 1 }],
+    ['row-3:hit', { row: 2, column: 1, width: 8, height: 1 }]
+  ]);
+  assert.deepEqual(frame.focusPath, ['rows-window', 'rows', 'row-2']);
+  assert.deepEqual(
+    observedViewports,
+    observedViewports.map(() => ({ row: 1, column: 1, width: 8, height: 2 }))
+  );
 });
 
 test('custom renderer hit targets reject unavailable focus targets', () => {

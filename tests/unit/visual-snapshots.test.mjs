@@ -20,7 +20,7 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
   const second = createVisualSnapshot({ frame, previousFrame: frame });
 
   assert.deepEqual(second, first);
-  assert.equal(first.plainTextFrame, '[›Run ]');
+  assert.equal(first.plainTextFrame, '› Run');
   assert.match(first.ansiFrame, /\\x1b\[H/u);
   assert.doesNotMatch(first.ansiFrame, /\u001B/u);
   assert.match(first.accessibleText, /- button: Run/u);
@@ -50,7 +50,7 @@ test('element snapshots render opaque elements through the testing facade', () =
     previousFrame: first.frame
   });
 
-  assert.equal(first.plainTextFrame, '[›Save ]');
+  assert.equal(first.plainTextFrame, '› Save');
   assert.match(first.accessibleText, /- button: Save/u);
   assert.equal(second.diff.operations.length, 0);
 });

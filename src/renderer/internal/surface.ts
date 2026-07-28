@@ -6,6 +6,7 @@ import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../model/layout.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle } from './render-node-style.ts';
+import { resolveThemeColor } from '../../theme/index.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { renderBorderTitle } from './border-title.ts';
@@ -60,17 +61,23 @@ export function drawSurfaceFrame(
 ): void {
   const border = surfaceFocusedBorder(surfaceBorderWithinBounds(options.border, bounds), focused);
   if (options.appearance !== undefined) {
-    fillSurfaceBackground(
-      buffer,
-      bounds,
-      surfaceBackgroundStyle(renderNode, options.appearance, focused, border),
-      renderNodeFrameSource(renderNode, {
-        rendererFamily: 'surface',
-        cellRole: 'decoration',
-        partName: 'background',
-        description: 'background'
-      })
-    );
+    const style = surfaceBackgroundStyle(renderNode, options.appearance, focused, border);
+    if (style.bg !== undefined && (
+      style.bg.kind !== 'theme'
+      || resolveThemeColor(theme, style.bg.token) !== undefined
+    )) {
+      fillSurfaceBackground(
+        buffer,
+        bounds,
+        style,
+        renderNodeFrameSource(renderNode, {
+          rendererFamily: 'surface',
+          cellRole: 'decoration',
+          partName: 'background',
+          description: 'background'
+        })
+      );
+    }
   }
   if (options.shadow === true) {
     drawSurfaceShadow(buffer, bounds, renderNodeFrameSource(renderNode, {

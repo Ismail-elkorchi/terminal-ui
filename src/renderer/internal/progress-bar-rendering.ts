@@ -108,9 +108,7 @@ function progressSpans(
   return [
     ...progressStatusSpans(renderNode, model, theme),
     ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(renderNode, `${model.label} `, 'progressBar', 'label')] : []),
-    feedbackStructureSpan(renderNode, '[', 'progressBar', 'frame.open', statusStyle('idle')),
     ...progressBarSpans(renderNode, model, theme, barWidth, widthProfile),
-    feedbackStructureSpan(renderNode, ']', 'progressBar', 'frame.close', statusStyle('idle')),
     ...progressMetricSpans(renderNode, model, parts),
     ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(renderNode, ` ${model.label}`, 'progressBar', 'label')] : [])
   ];
@@ -128,8 +126,6 @@ function fittedBarWidth(
   const withoutBar = [
     ...progressStatusSpans(renderNode, model, theme),
     ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(renderNode, `${model.label} `, 'progressBar', 'label')] : []),
-    feedbackStructureSpan(renderNode, '[', 'progressBar', 'frame.open', statusStyle('idle')),
-    feedbackStructureSpan(renderNode, ']', 'progressBar', 'frame.close', statusStyle('idle')),
     ...progressMetricSpans(renderNode, model, parts),
     ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(renderNode, ` ${model.label}`, 'progressBar', 'label')] : [])
   ];

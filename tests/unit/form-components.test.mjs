@@ -87,11 +87,11 @@ test('form components render settings and setup-wizard shapes with scoped state'
   assert.match(output, /Name \*/u);
   assert.match(output, /Shown in reports/u);
   assert.match(output, /Name is required/u);
-  assert.match(output, /\[x\] Send diagnostics/u);
-  assert.match(output, /\(\*\) Safe/u);
+  assert.match(output, /☑ Send diagnostics/u);
+  assert.match(output, /◉ Safe/u);
   assert.match(output, /Region: Europe/u);
   assert.match(output, /4/u);
-  assert.match(output, /\[ Continue \]/u);
+  assert.match(output, /Continue\s+Cancel/u);
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });
 

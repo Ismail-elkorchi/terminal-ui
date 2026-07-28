@@ -19,7 +19,8 @@ import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutRenderNode } from './layout.ts';
 import { accessibleNode, withControlLabelRelationships } from './render-accessibility.ts';
 import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
-import { renderRenderNode, cursorForRenderNode, hitTargetsForRenderNode } from './render-node-behavior.ts';
+import { intersectRects } from './rect.ts';
+import { renderRenderNode, hitTargetsForRenderNode } from './render-node-behavior.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -164,9 +165,11 @@ export function renderElementInternal<TMessage>(
     kind: 'hit_target_candidates',
     count: regions.reduce((total, region) => total + region.hitTargets.length, 0)
   });
-  const buffer = measureRenderStage(options.instrumentation, 'composition', () =>
-    compositeRegions(terminalSize, regions, widthProfile)
-  );
+  const buffer = measureRenderStage(options.instrumentation, 'composition', () => {
+    const composed = compositeRegions(terminalSize, regions, widthProfile);
+    applyThemeCanvas(composed, theme);
+    return composed;
+  });
   recordRenderWork(options.instrumentation, {
     kind: 'composed_cells',
     count: regions.reduce((total, region) => total + region.cells.length, 0)
@@ -175,7 +178,7 @@ export function renderElementInternal<TMessage>(
     applyFramePasses(buffer, framePassesForOptions(options), { theme, terminalSize, widthProfile });
   });
   const cursor = measureRenderStage(options.instrumentation, 'cursor', () => {
-    const next = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath, theme, widthProfile);
+    const next = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath);
     applyCursorStyle(buffer, next);
     return next;
   });
@@ -274,9 +277,16 @@ function frameHitTargets<TMessage>(
 ): readonly RenderRegionHitTarget<TMessage>[] {
   return targets
     .flatMap((target): RenderRegionHitTarget<TMessage>[] =>
-      hitTargetsForRenderNode(target.renderNode, target, theme, widthProfile).map((hitTarget) =>
-        toRegionHitTarget(hitTarget, region, resolveHitTargetFocus(hitTarget, target))
-      )
+      hitTargetsForRenderNode(target.renderNode, target, theme, widthProfile).flatMap((hitTarget) => {
+        const bounds = intersectRects(hitTarget.bounds, target.layoutNode.viewport);
+        return bounds === undefined
+          ? []
+          : [toRegionHitTarget(
+              { ...hitTarget, bounds },
+              region,
+              resolveHitTargetFocus(hitTarget, target)
+            )];
+      })
     );
 }
 
@@ -473,6 +483,32 @@ export function compositeRegions(
   return buffer;
 }
 
+function applyThemeCanvas(buffer: FrameBuffer, theme: TerminalTheme): void {
+  if (theme.tokens.colors['app.background'] === undefined) return;
+  const canvasStyle = {
+    ...(theme.tokens.colors['app.foreground'] === undefined
+      ? {}
+      : { fg: { kind: 'theme' as const, token: 'app.foreground' as const } }),
+    bg: { kind: 'theme' as const, token: 'app.background' as const }
+  };
+  for (const cell of buffer.snapshot().cells) {
+    if (cell.continuation === true) continue;
+    blitFrameCell(buffer, {
+      ...cell,
+      style: {
+        ...canvasStyle,
+        ...cell.style
+      }
+    });
+  }
+  for (let row = 1; row <= buffer.height; row += 1) {
+    for (let column = 1; column <= buffer.width; column += 1) {
+      if (buffer.readCell(row, column) !== undefined) continue;
+      buffer.write(row, column, [{ text: ' ', style: canvasStyle }]);
+    }
+  }
+}
+
 function withInheritedBackground(cell: FrameCell, lower: FrameCell | undefined): FrameCell {
   const background = lower?.style?.bg;
   if (background === undefined || cell.style?.bg !== undefined) return cell;
@@ -488,12 +524,9 @@ function withInheritedBackground(cell: FrameCell, lower: FrameCell | undefined):
 function cursorForFocusedRenderNode(
   renderNode: RenderNode,
   layout: LayoutNode,
-  focusPath: FocusPath | undefined,
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  focusPath: FocusPath | undefined
 ): { readonly row: number; readonly column: number } | undefined {
   const target = findRenderNodeFocusTarget(renderNode, layout, focusPath);
   if (target === undefined) return undefined;
-  return cursorForRenderNode(target.renderNode, target, theme, widthProfile)
-    ?? { row: target.bounds.row, column: target.bounds.column };
+  return target.cursor ?? { row: target.bounds.row, column: target.bounds.column };
 }

@@ -130,7 +130,7 @@ void test('number input renders controlled text validity and pointer step contro
   const regions = renderElementRegions(element, { columns: 18, rows: 1 });
 
   assert.match(renderFramePlain(frame), /-\./u);
-  assert.match(renderFramePlain(frame), /\[-\].*\[\+\]/u);
+  assert.match(renderFramePlain(frame), /−\s+\+/u);
   assert.match(frame.accessibility.root.description ?? '', /incomplete/u);
   const increment = regions.flatMap((region) => region.hitTargets)
     .find((target) => target.id === 'workers:step:increment');

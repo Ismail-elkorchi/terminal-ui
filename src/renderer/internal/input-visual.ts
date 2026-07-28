@@ -1,6 +1,6 @@
 import { clipTextCells, sanitizeTerminalText, terminalTextWidth } from '../../text/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
-import { block, line, span } from './frame.ts';
+import { block, line, padRenderLine, span } from './frame.ts';
 import { formSource, type FormVisualKind } from './form-visual.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
@@ -68,7 +68,7 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
       selectedSource: inputSource(input.renderNode, 'selection')
     }
   );
-  return block([line([
+  const inputLine = line([
     styledSpan(model.prefix, model.frameStyle, inputSource(input.renderNode, 'frame', 'frame.prefix')),
     ...clipSpans(
       contentSpans,
@@ -76,7 +76,15 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
       input.widthProfile
     ),
     styledSpan(model.suffix, model.frameStyle, inputSource(input.renderNode, 'frame', 'frame.suffix'))
-  ])]);
+  ]);
+  return block([padRenderLine(inputLine, input.bounds.width, {
+    widthProfile: input.widthProfile,
+    fill: {
+      text: ' ',
+      ...(model.contentStyle === undefined ? {} : { style: model.contentStyle }),
+      source: inputSource(input.renderNode, 'value', 'value.padding')
+    }
+  })]);
 }
 
 export function singleLineInputCursor(input: SingleLineInputBlockInput): CursorPosition {
@@ -212,8 +220,8 @@ function singleLineInputModel(input: SingleLineInputBlockInput): {
   const value = cleanInputText(input.value);
   const placeholder = cleanInputText(input.placeholder ?? '');
   const usesPlaceholder = value.length === 0 && placeholder.length > 0;
-  const prefix = `${inputStateMarker(input.renderNode, input.theme, input.focused === true)}[ `;
-  const suffix = ' ]';
+  const prefix = `${inputStateMarker(input.renderNode, input.theme, input.focused === true)} `;
+  const suffix = '';
   return {
     display: usesPlaceholder ? placeholder : value,
     usesPlaceholder,
@@ -269,7 +277,7 @@ function textAreaLineMarker(renderNode: TextAreaNode, theme: TerminalTheme, focu
 }
 
 function inputStateMarker(renderNode: InputNode, theme: TerminalTheme, focused: boolean): string {
-  if (renderNode.props.disabled === true) return '-';
+  if (renderNode.props.disabled === true) return ' ';
   if (typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0) return theme.tokens.symbols.statusError;
   return focused ? theme.tokens.symbols.pointer : theme.tokens.symbols.borderSingle.vertical;
 }
@@ -282,7 +290,10 @@ function inputBorderStyle(renderNode: InputNode, focused: boolean): TerminalStyl
       : undefined;
   return mergeStyles(resolveRenderNodeStyle(renderNode, {
     part: 'border',
-    base: { fg: { kind: 'theme', token: 'control.border' } },
+    base: {
+      fg: { kind: 'theme', token: 'control.border' },
+      bg: { kind: 'theme', token: 'control.background' }
+    },
     ...(state === undefined ? {} : { state })
   }), inputValidationStyle(renderNode));
 }
@@ -344,8 +355,15 @@ function textAreaLineNumberStyle(renderNode: TextAreaNode, active: boolean): Ter
 }
 
 function inputContentStyle(renderNode: InputNode, focused: boolean, active = false): TerminalStyle | undefined {
-  if (renderNode.props.disabled === true) return renderNodeStyle(renderNode, 'value', 'disabled');
+  const base: TerminalStyle = {
+    fg: { kind: 'theme', token: 'control.foreground' },
+    bg: { kind: 'theme', token: 'control.background' }
+  };
+  if (renderNode.props.disabled === true) {
+    return mergeStyles(base, renderNodeStyle(renderNode, 'value', 'disabled'));
+  }
   return mergeStyles(
+    base,
     renderNodeStyle(renderNode, 'value'),
     focused ? renderNode.styles?.states?.focused : undefined,
     active && renderNode.kind === 'textArea' ? textAreaActiveLineTextStyle(renderNode) : undefined,

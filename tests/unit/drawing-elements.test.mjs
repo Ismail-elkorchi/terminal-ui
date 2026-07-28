@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { noColorTheme } from '../../dist/theme/index.js';
+import { modernTheme, noColorTheme } from '../../dist/theme/index.js';
 import { blockSpan,
   layoutElement,
   renderFramePlain,
@@ -175,7 +175,7 @@ test('surface appearance draws background border and shadow', () => {
     border: { kind: 'dashed' },
     shadow: true
   });
-  const frame = renderElementFrame(element, { columns: 14, rows: 4 });
+  const frame = renderElementFrame(element, { columns: 14, rows: 4 }, { theme: modernTheme });
   const output = renderFramePlain(frame);
   const backgroundCell = frame.cells.find((cell) => cell.source?.elementKind === 'surface' && cell.source.cellRole === 'decoration' && cell.style?.bg !== undefined);
   const borderCell = frame.cells.find((cell) => cell.source?.cellRole === 'border');
@@ -234,11 +234,11 @@ test('surface appearances reserve border content space while plain surfaces stay
   const neutral = renderElementFrame(surface(text('neutral', { id: 'neutral-inner' }), {
     id: 'neutral',
     appearance: 'neutral'
-  }), { columns: 10, rows: 2 });
+  }), { columns: 10, rows: 2 }, { theme: modernTheme });
   const visualLayout = renderElementFrame(surface(text('inner', { id: 'inner' }), {
     id: 'visual',
     appearance: 'raised'
-  }), { columns: 10, rows: 3 });
+  }), { columns: 10, rows: 3 }, { theme: modernTheme });
   const transparent = renderElementFrame(surface(text('flush', { id: 'flush' }), {
     id: 'plain'
   }), { columns: 10, rows: 3 });

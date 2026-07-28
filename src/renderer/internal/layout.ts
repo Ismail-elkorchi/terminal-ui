@@ -18,6 +18,7 @@ import {
   placeRenderNode
 } from './render-node-behavior.ts';
 import type { RenderMeasurementContext } from './render-node-behavior.ts';
+import { cellInsideRect, intersectRects } from './rect.ts';
 
 export type { Layer, LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 
@@ -82,15 +83,24 @@ function layoutNode(
     };
   }
   const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements);
-  const focusTargets = focusTargetsForRenderNode(renderNode, placedBounds, theme, widthProfile).map((target): LayoutFocusRegion => ({
-    id: target.id,
-    bounds: target.bounds,
-    ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
-    disabled: target.disabled === true,
-    ...(target.order === undefined ? {} : { order: target.order }),
-    ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
-  }));
+  const focusTargets = focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile)
+    .map((target): LayoutFocusRegion => {
+      const clippedBounds = intersectRects(target.bounds, viewport) ?? emptyRect(target.bounds);
+      return {
+        id: target.id,
+        bounds: clippedBounds,
+        ...(target.cursor === undefined || !cellInsideRect(target.cursor, clippedBounds)
+          ? {}
+          : { cursor: target.cursor }),
+        disabled: target.disabled === true,
+        ...(target.order === undefined ? {} : { order: target.order }),
+        ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
+      };
+    });
   const focusScope = focusScopeForRenderNode(renderNode);
+  const childViewport = renderNode.kind === 'viewport'
+    ? intersectRects(placedBounds, viewport) ?? emptyRect(placedBounds)
+    : viewport;
   return {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
     identity,
@@ -106,7 +116,7 @@ function layoutNode(
       .map((child, index) => layoutNode(
         child,
         childBounds[index] ?? emptyRect(placedBounds),
-        viewport,
+        childViewport,
         theme,
         widthProfile,
         measurements,

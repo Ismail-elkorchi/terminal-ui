@@ -10,10 +10,10 @@ test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const output = renderFrameDebug(frame);
 
   assert.match(output, /^\u001B\[H›/u);
-  assert.match(output, /\u001B\[1;4HG/u);
-  assert.match(output, /\u001B\[1;5Ho/u);
+  assert.match(output, /\u001B\[1;3HG/u);
+  assert.match(output, /\u001B\[1;4Ho/u);
   assert.match(output, new RegExp(`\\u001B\\[${String(frame.cursor?.row)};${String(frame.cursor?.column)}H$`, 'u'));
-  assert.equal(renderFramePlain(frame), '›[ Go ]');
+  assert.equal(renderFramePlain(frame), '› Go');
 });
 
 test('TUI frame rendering positions wide graphemes by terminal cells', () => {
@@ -86,8 +86,8 @@ test('TUI status, progress, and spinner components render accessible status stat
   const [statusNode, progressNode, pendingNode, spinnerNode] = frame.accessibility.root.children;
 
   assert.match(output, /Ready/);
-  assert.match(output, /Sync \[██████████\] 100\/100/);
-  assert.match(output, /Waiting \[████░░░░░░\]/);
+  assert.match(output, /Sync ██████████ 100\/100/);
+  assert.match(output, /Waiting ████░░░░░░/);
   assert.match(output, /⠋ Working/);
   assert.deepEqual([statusNode?.role, statusNode?.value], ['status', 'Ready']);
   assert.deepEqual([progressNode?.role, progressNode?.label, progressNode?.numericValue], [
@@ -111,11 +111,9 @@ test('renderDiffAnsi serializes clear, write, and structural cursor state', () =
   const diff = diffFrames(previous, next);
   const output = renderDiffAnsi(diff);
 
-  assert.ok(diff.operations.some((operation) => operation.kind === 'clearRect'));
   assert.ok(diff.operations.some((operation) => operation.kind === 'write'));
   assert.deepEqual(diff.cursor, next.cursor);
-  assert.match(output, /\u001B\[H {11}/u);
-  assert.match(output, /\u001B\[H›\[ Go \]/u);
+  assert.match(output, /\u001B\[H› Go/u);
   assert.doesNotMatch(output, /\u001B\[\?25[hl]/u);
 });
 

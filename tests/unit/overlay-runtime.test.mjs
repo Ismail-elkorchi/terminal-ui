@@ -190,7 +190,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
   const frame = renderElementFrame(element, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
 
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
-  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 4 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 3 });
   assert.deepEqual(frame.cursor?.source, {
     elementId: 'upper-input',
     elementKind: 'textInput',
@@ -310,7 +310,7 @@ test('dropdownMenu renders above table content in a higher region', () => {
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 15, 35]);
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'N'), true);
   assert.equal(regions[2]?.cells.some((cell) => cell.text === 'L'), true);
-  assert.match(firstLine, /^Theme: \[Dark ▾\]/u);
+  assert.match(firstLine, /^Theme: › Dark ▾/u);
   assert.doesNotMatch(firstLine, /^Name/u);
   assert.match(output, /Light/u);
 });

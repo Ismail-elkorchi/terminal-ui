@@ -124,9 +124,9 @@ function paginatorLayout(renderNode: PaginatorNode, widthProfile: TextWidthProfi
   }
   if (renderNode.props.toActionMessage !== undefined) {
     const atFirst = parts.pageNumber <= 1;
-    appendControl('[«]', 'First page', { kind: 'first' }, atFirst);
+    appendControl(' « ', 'First page', { kind: 'first' }, atFirst);
     append(' ', 'control.gap.first');
-    appendControl('[‹]', 'Previous page', { kind: 'previous' }, atFirst);
+    appendControl(' ‹ ', 'Previous page', { kind: 'previous' }, atFirst);
     append(' ', 'control.gap.previous');
   }
   append('Page ', 'page.label');
@@ -136,9 +136,9 @@ function paginatorLayout(renderNode: PaginatorNode, widthProfile: TextWidthProfi
   if (renderNode.props.toActionMessage !== undefined) {
     const atLast = parts.pageNumber >= parts.pageCount;
     append(' ', 'control.gap.next');
-    appendControl('[›]', 'Next page', { kind: 'next' }, atLast);
+    appendControl(' › ', 'Next page', { kind: 'next' }, atLast);
     append(' ', 'control.gap.last');
-    appendControl('[»]', 'Last page', { kind: 'last' }, atLast);
+    appendControl(' » ', 'Last page', { kind: 'last' }, atLast);
   }
   return { spans, controls };
 }

@@ -138,10 +138,11 @@ export const formRenderers = {
   },
   toggleSwitch: {
     measure: formMeasurements.toggleSwitch,
-    render: ({ renderNode, layoutNode, buffer, focus, widthProfile }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
       writeRenderBlock(buffer, layoutNode.bounds, toggleSwitchBlock(
         renderNode,
         layoutNode.bounds,
+        theme,
         widthProfile,
         focus === 'self'
       ));

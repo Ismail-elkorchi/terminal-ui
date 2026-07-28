@@ -132,11 +132,11 @@ export const menuRenderers = {
     measure: menuMeasurements.commandInput,
     layout: ({ renderNode, bounds, viewport, widthProfile }) =>
       commandInputPopupBounds(renderNode, bounds, viewport, widthProfile),
-    render: ({ renderNode, layoutNode, buffer, theme, widthProfile, renderChildren }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile, focus, renderChildren }) => {
       writeRenderBlock(
         buffer,
         layoutNode.bounds,
-        commandInputBlock(renderNode, layoutNode.bounds, theme, widthProfile)
+        commandInputBlock(renderNode, layoutNode.bounds, theme, widthProfile, focus === 'self')
       );
       renderChildren();
     },

@@ -154,7 +154,7 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
   assert.match(text, /\/op/u);
   assert.match(text, /open · Open item/u);
   assert.match(text, /›/u);
-  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 4 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 6 });
   assert.equal(frame.accessibility.root.role, 'combobox');
   assert.equal(frame.accessibility.root.value, 'op');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
@@ -302,7 +302,7 @@ test('commandInput renders completion preview validation footer match styles and
   assert.match(output, /\?a🙂bc/u);
   assert.match(output, /Choose a value/u);
   assert.match(output, /enter accepts/u);
-  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 5 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 7 });
   assert.equal(previewCell?.style?.fg?.token, 'input.placeholder');
   assert.equal(selectedCell?.style?.bg?.token, 'selection.background');
   assert.equal(validationCell?.style?.fg?.token, 'status.warning');
@@ -352,7 +352,7 @@ test('commandInput windows long input around the cursor', () => {
     .map((cell) => cell.text)
     .join('');
 
-  assert.match(firstRow, /^>‹/u);
+  assert.match(firstRow, /^› >‹/u);
   assert.match(firstRow, /file\.txt/u);
   assert.doesNotMatch(firstRow, /\/very\/long/u);
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 18 });
@@ -378,7 +378,7 @@ test('commandInput maps pointer positions through the cursor-relative input wind
 
   assert.deepEqual(message?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 4 }
+    action: { kind: 'placeCaret', offset: 5 }
   });
 });
 

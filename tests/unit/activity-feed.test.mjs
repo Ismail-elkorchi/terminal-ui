@@ -51,14 +51,14 @@ test('structuredBlock renders collapsed and expanded block data', () => {
   const collapsed = renderElementFrame(structuredBlock(blocks[0]), { columns: 32, rows: 6 });
   const expanded = renderElementFrame(structuredBlock(blocks[1]), { columns: 32, rows: 8 });
 
-  assert.equal(renderFramePlain(collapsed), '[+] [pending] Queued task\nWaiting for a worker\nowner: scheduler');
+  assert.equal(renderFramePlain(collapsed), '▸ [pending] Queued task\nWaiting for a worker\nowner: scheduler');
   assert.equal(
     renderFramePlain(expanded),
-    '[-] [running] Running task\nStreaming output\nattempt: 2\nline one\nline two\nDetails: extra diagnostics'
+    '▾ [running] Running task\nStreaming output\nattempt: 2\nline one\nline two\nDetails: extra diagnostics'
   );
   assert.equal(collapsed.accessibility.root.description, 'result pending, collapsed, 1 fields');
   assert.equal(expanded.accessibility.root.description, 'result running, expanded, 1 fields');
-  assert.equal(collapsed.cells.find((cell) => cell.text === '+')?.source?.description, 'toggle.collapsed');
+  assert.equal(collapsed.cells.find((cell) => cell.text === '▸')?.source?.description, 'toggle.collapsed');
   assert.equal(collapsed.cells.find((cell) => cell.text === 'p')?.source?.description, 'result.pending');
   assert.equal(collapsed.cells.find((cell) => cell.text === 'Q')?.source?.description, 'title');
   assert.ok(collapsed.cells.some((cell) => cell.source?.description === 'field.owner.label' && cell.text === 'o'));
@@ -80,7 +80,7 @@ test('structuredBlock sanitizes terminal control sequences', () => {
     body: 'Body \u001B[32mgreen\u001B[0m'
   }), { columns: 40, rows: 4 });
 
-  assert.equal(renderFramePlain(frame), '[-] Title red\nBody green');
+  assert.equal(renderFramePlain(frame), '▾ Title red\nBody green');
   assert.equal(frame.accessibility.root.label, 'Title red');
 });
 
@@ -125,7 +125,7 @@ test('structuredBlock aligns fields and wraps long body text predictably', () =>
 
   assert.equal(
     renderFramePlain(frame),
-    '[-] Details\nshort       : one\nlonger-label: two\nabcdefghijklmnopqr\nst'
+    '▾ Details\nshort       : one\nlonger-label: two\nabcdefghijklmnopqr\nst'
   );
 });
 
@@ -144,7 +144,7 @@ test('structuredBlock aligns and wraps by terminal cells under wide profiles', (
     .filter((cell) => cell.text === ':' && cell.source?.description?.startsWith('field.') === true)
     .map((cell) => cell.column);
 
-  assert.equal(renderFramePlain(frame), '[-] Wide\n界: wide\nab: ascii\nDetails: ·\n··');
+  assert.equal(renderFramePlain(frame), '▾ Wide\n界: wide\nab: ascii\nDetails: ·\n··');
   assert.deepEqual(separators, [3, 3]);
 });
 
@@ -161,7 +161,7 @@ test('structuredBlock middle-clips compact summaries and fields', () => {
 
   assert.equal(
     renderFramePlain(frame),
-    '[-] Selected file\n/home/ismail-el-k…lity/snapshot.ts\npath: /home/ismai…lity/snapshot.ts\nbody text still wraps normally'
+    '▾ Selected file\n/home/ismail-el-k…lity/snapshot.ts\npath: /home/ismai…lity/snapshot.ts\nbody text still wraps normally'
   );
 });
 
@@ -173,7 +173,7 @@ test('activityFeed renders selected visible blocks and accessible options', () =
   }), { columns: 36, rows: 10 });
   const output = renderFramePlain(frame);
 
-  assert.match(output, /› \[-\] \[running\] Running task/u);
+  assert.match(output, /› ▾ \[running\] Running task/u);
   assert.match(output, /Streaming output/u);
   assert.match(output, /Details: extra diagnostics/u);
   assert.equal(frame.accessibility.root.role, 'listbox');
@@ -266,7 +266,7 @@ test('activityFeed renders caller-controlled reducer expansion state', () => {
   }), { columns: 40, rows: 6 });
 
   assert.match(renderFramePlain(frame), /body from reducer/u);
-  assert.equal(frame.cells.find((cell) => cell.source?.description === 'toggle.expanded' && cell.text === '-')?.text, '-');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'toggle.expanded' && cell.text === '▾')?.text, '▾');
   assert.equal(reducerBlocks[0]?.collapsed, true);
 });
 

@@ -26,6 +26,7 @@ import { renderNodeInteraction } from '../renderer/model/metadata.ts';
 export interface CustomRendererInput<TState> {
   readonly state: TState;
   readonly bounds: Rect;
+  readonly viewport: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
 }
@@ -142,7 +143,13 @@ function adaptCustomRenderer<TState, TMessage>(
   const focusTargets = renderer.focusTargets?.bind(renderer);
   const hitTargets = renderer.hitTargets?.bind(renderer);
   return {
-    measure: ({ bounds, theme, widthProfile }) => renderer.measure?.({ state, bounds, theme, widthProfile }) ?? {
+    measure: ({ bounds, theme, widthProfile }) => renderer.measure?.({
+      state,
+      bounds,
+      viewport: bounds,
+      theme,
+      widthProfile
+    }) ?? {
         minWidth: 0,
         minHeight: 0,
         preferredWidth: 0,
@@ -152,6 +159,7 @@ function adaptCustomRenderer<TState, TMessage>(
       renderer.render({
         state,
         bounds: layoutNode.bounds,
+        viewport: layoutNode.viewport,
         target: buffer,
         theme,
         widthProfile,
@@ -163,6 +171,7 @@ function adaptCustomRenderer<TState, TMessage>(
       accessibility: ({ layoutNode, id, focused, focusedTargetId, theme, widthProfile }) => accessibility({
         state,
         bounds: layoutNode.bounds,
+        viewport: layoutNode.viewport,
         id,
         focused,
         ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
@@ -171,10 +180,22 @@ function adaptCustomRenderer<TState, TMessage>(
       })
     }),
     ...(focusTargets === undefined ? {} : {
-      focusTargets: ({ bounds, theme, widthProfile }) => focusTargets({ state, bounds, theme, widthProfile })
+      focusTargets: ({ bounds, viewport, theme, widthProfile }) => focusTargets({
+        state,
+        bounds,
+        viewport,
+        theme,
+        widthProfile
+      })
     }),
     ...(hitTargets === undefined ? {} : {
-      hitTargets: ({ bounds, theme, widthProfile }) => hitTargets({ state, bounds, theme, widthProfile })
+      hitTargets: ({ bounds, layoutNode, theme, widthProfile }) => hitTargets({
+        state,
+        bounds,
+        viewport: layoutNode.viewport,
+        theme,
+        widthProfile
+      })
     })
   };
 }

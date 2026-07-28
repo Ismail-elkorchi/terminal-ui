@@ -83,6 +83,8 @@ Use `text()` with the `metadata` text role for generic metadata.
 Command-input validation uses `level: 'info' | 'warning' | 'error'`.
 Buttons, menu actions, notifications, and tooltips each expose their own
 narrow tone values; those contracts are not interchangeable.
+Buttons use the graphical control shape by default and accept
+`density: 'compact' | 'regular'` when a toolbar needs tighter spacing.
 
 Components that expose interactive scrollbars use controlled variants. A
 visible scrollbar requires caller-controlled scroll state and a semantic action or

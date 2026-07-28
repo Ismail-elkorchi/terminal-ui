@@ -52,8 +52,8 @@ export const formMeasurements = {
     checkboxBlock(renderNode, constrainedMeasureBounds(bounds), theme, widthProfile),
     { widthProfile }
   ),
-  toggleSwitch: ({ renderNode, bounds, widthProfile }) => measureBlock(
-    toggleSwitchBlock(renderNode, constrainedMeasureBounds(bounds), widthProfile),
+  toggleSwitch: ({ renderNode, bounds, theme, widthProfile }) => measureBlock(
+    toggleSwitchBlock(renderNode, constrainedMeasureBounds(bounds), theme, widthProfile),
     { widthProfile }
   ),
   slider: ({ renderNode, bounds, widthProfile }) => measureBlock(

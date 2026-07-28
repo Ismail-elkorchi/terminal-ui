@@ -6,6 +6,7 @@ import type { RenderNode } from '../model/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { LayoutNode } from '../model/layout.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
+import { intersectRects } from './rect.ts';
 
 export function accessibleNode(
   renderNode: RenderNode,
@@ -13,7 +14,8 @@ export function accessibleNode(
   parentPath: FocusPath,
   focusPath: FocusPath | undefined,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  clippedByViewport = false
 ): AccessibleNode {
   if (!node.visible) {
     return {
@@ -28,7 +30,15 @@ export function accessibleNode(
     assertDecorativeRenderNodeIsNotInteractive(renderNode, node, theme, widthProfile);
     return decorativeRootNode(id, renderNode.accessibility);
   }
-  const renderedChildren = accessibleChildren(renderNode, node, path, focusPath, theme, widthProfile) ?? [];
+  const renderedChildren = accessibleChildren(
+    renderNode,
+    node,
+    path,
+    focusPath,
+    theme,
+    widthProfile,
+    clippedByViewport
+  ) ?? [];
   const base = accessibilityForRenderNode(
     renderNode,
     node,
@@ -115,17 +125,20 @@ function accessibleChildren(
   path: FocusPath,
   focusPath: FocusPath | undefined,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  clippedByViewport: boolean
 ): readonly AccessibleNode[] | undefined {
   const children = renderNode.children ?? [];
   if (children.length === 0) return undefined;
+  const clipsDescendants = clippedByViewport || renderNode.kind === 'viewport';
   const rendered = orderedAccessibleChildren(renderNode, node).flatMap(({ child, childNode }) => {
     if (!childNode.visible) return [];
+    if (clipsDescendants && intersectRects(childNode.bounds, childNode.viewport) === undefined) return [];
     if (isDecorative(child.accessibility)) {
       assertDecorativeRenderNodeIsNotInteractive(child, childNode, theme, widthProfile);
       return [];
     }
-    return [accessibleNode(child, childNode, path, focusPath, theme, widthProfile)];
+    return [accessibleNode(child, childNode, path, focusPath, theme, widthProfile, clipsDescendants)];
   });
   return rendered.length === 0 ? undefined : rendered;
 }
@@ -219,7 +232,7 @@ function assertDecorativeRenderNodeIsNotInteractive(
   }
   if (
     renderNode.custom?.renderer.hitTargets !== undefined
-    || focusTargetsForRenderNode(renderNode, node.bounds, theme, widthProfile).some((target) => !target.disabled)
+    || focusTargetsForRenderNode(renderNode, node.bounds, node.viewport, theme, widthProfile).some((target) => !target.disabled)
   ) {
     throw new Error(`Decorative renderNode "${renderNode.id ?? renderNode.kind}" cannot expose focus or hit targets.`);
   }

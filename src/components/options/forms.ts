@@ -10,6 +10,7 @@ import type {
   NumericRange,
   SliderStepEvent
 } from '../../ui-model/forms.ts';
+import type { ComponentDensity } from '../../ui-model/contracts.ts';
 import type { NumberInputControlAction, NumberInputPresentation } from '../../ui-model/number-input.ts';
 import type { TextInputAction, TextInputPresentation } from '../../ui-model/text-input.ts';
 import type { CalendarAction, CalendarDay } from '../../ui-model/calendar.ts';
@@ -61,6 +62,7 @@ export interface ButtonOptions<TMessage = never> extends InteractiveElementOptio
   readonly state?: ButtonState;
   readonly disabled?: boolean;
   readonly tone?: ButtonTone;
+  readonly density?: ComponentDensity;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 

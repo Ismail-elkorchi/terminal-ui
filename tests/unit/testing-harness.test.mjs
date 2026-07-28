@@ -228,7 +228,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
 
   assert.equal(exit.status, 'completed');
   assert.equal(harness.frames()[1]?.width, 12);
-  assert.match(renderFramePlain(harness.frames()[1]), /column…/u);
+  assert.match(renderFramePlain(harness.frames()[1]), /columns:12/u);
   assert.equal(harness.frames()[1]?.accessibility.root.value, 'columns:12');
   assert.deepEqual(
     harness.transcript.snapshot().steps

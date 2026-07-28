@@ -43,7 +43,7 @@ test('feedback status components preserve state in high contrast and no color ou
     'Enter run',
     '! Indexing (warning)',
     '+ Done (success)',
-    'x Deploy [##--] 2/4 50%'
+    'x Deploy ##-- 2/4 50%'
   ].join('\n'));
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);

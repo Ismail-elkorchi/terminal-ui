@@ -14,6 +14,8 @@ import {
   renderNodePointerVisualState
 } from '../../pointer-interaction.ts';
 import { renderInlineContent } from '../../inline-content.ts';
+import { oneCellGlyph } from '../../../../text/index.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 
 type ButtonNode = RenderNodeOfKind<unknown, 'button'>;
 
@@ -21,23 +23,23 @@ export function buttonSpans(
   renderNode: ButtonNode,
   label: string,
   focused: boolean,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const spans: RenderSpan[] = [];
   const visualState = buttonState(renderNode, focused);
   const style = buttonStyle(renderNode, focused);
   const frameStyle = buttonFrameStyle(renderNode, focused);
-  if (focused && renderNode.props.disabled !== true) {
-    spans.push(formSpan(renderNode, 'frame', 'frame.open', '[', frameStyle, visualState));
-    spans.push(formSpan(renderNode, 'frame', 'frame.focus', theme.tokens.symbols.pointer, frameStyle, visualState));
-  } else {
-    spans.push(formSpan(renderNode, 'frame', 'frame.open', '[ ', frameStyle, visualState));
-  }
-  const state = buttonStateMarker(renderNode, theme);
-  if (state.length > 0) {
-    spans.push(formSpan(renderNode, 'state', 'state.marker', state, style, visualState));
-    spans.push(separatorSpan(renderNode));
-  }
+  const compact = renderNode.props.density === 'compact';
+  const marker = buttonStateMarker(renderNode, theme, focused, widthProfile);
+  spans.push(formSpan(
+    renderNode,
+    'frame',
+    'padding.leading',
+    compact ? marker : `${marker} `,
+    frameStyle,
+    visualState
+  ));
   if (renderNode.props.leading !== undefined) {
     spans.push(...renderInlineContent(renderNode.props.leading, {
       theme,
@@ -55,7 +57,14 @@ export function buttonSpans(
       source: (_segment, index) => formSource(renderNode, 'trailing', `trailing.${String(index)}`, visualState)
     }));
   }
-  spans.push(formSpan(renderNode, 'frame', 'frame.close', ' ]', frameStyle, visualState));
+  spans.push(formSpan(
+    renderNode,
+    'frame',
+    'padding.trailing',
+    compact ? ' ' : '  ',
+    frameStyle,
+    visualState
+  ));
   return spans;
 }
 
@@ -76,11 +85,22 @@ export function buttonDescription(renderNode: ButtonNode): string {
   ].filter((part) => part.length > 0).join(' ');
 }
 
-function buttonStateMarker(renderNode: ButtonNode, theme: TerminalTheme): string {
-  if (renderNode.props.disabled === true) return '-';
-  if (renderNode.props.state === 'pending') return theme.tokens.symbols.statusInfo;
-  if (renderNodePointerVisualState(renderNode, buttonTargetId(renderNode)) === 'pressed') return theme.tokens.symbols.selected;
-  return buttonTone(renderNode) === 'destructive' ? theme.tokens.symbols.statusError : '';
+function buttonStateMarker(
+  renderNode: ButtonNode,
+  theme: TerminalTheme,
+  focused: boolean,
+  widthProfile: TextWidthProfile
+): string {
+  const value = renderNode.props.state === 'pending'
+    ? theme.tokens.symbols.statusInfo
+    : renderNodePointerVisualState(renderNode, buttonTargetId(renderNode)) === 'pressed'
+      ? theme.tokens.symbols.selected
+      : buttonTone(renderNode) === 'destructive'
+        ? theme.tokens.symbols.statusError
+        : focused && renderNode.props.disabled !== true
+          ? theme.tokens.symbols.pointer
+          : ' ';
+  return oneCellGlyph(value, ' ', { widthProfile });
 }
 
 function buttonStyle(renderNode: ButtonNode, focused: boolean): TerminalStyle | undefined {

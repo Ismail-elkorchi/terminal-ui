@@ -935,7 +935,7 @@ test('runTui re-renders when the host emits resize signals', async () => {
   assert.equal(exit.status, 'completed');
   assert.equal(harness.frames()[1].width, 12);
   assert.equal(harness.diffs()[1].fullRewrite, true);
-  assert.match(renderFramePlain(harness.frames()[1]), /column…/);
+  assert.match(renderFramePlain(harness.frames()[1]), /columns:12/);
   assert.equal(harness.frames()[1].accessibility.root.value, 'columns:12');
   assert.equal(harness.restores().length, 1);
 });

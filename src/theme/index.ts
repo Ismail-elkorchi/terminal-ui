@@ -1,4 +1,4 @@
-import { highContrastColors, modernColors } from './palettes.ts';
+import { adaptiveColors, highContrastColors, modernColors } from './palettes.ts';
 import { catppuccinThemeDefinition } from './packs/catppuccin.ts';
 import { draculaThemeDefinition } from './packs/dracula.ts';
 import { gruvboxThemeDefinition } from './packs/gruvbox.ts';
@@ -73,7 +73,13 @@ export const noColorTheme: TerminalTheme = createTheme({
   }
 });
 
-export const defaultTheme: TerminalTheme = modernTheme;
+export const defaultTheme: TerminalTheme = createTheme({
+  name: 'default',
+  tokens: {
+    colors: adaptiveColors,
+    symbols: unicodeSymbols
+  }
+});
 
 export const defaultThemes = {
   minimal: minimalTheme,
