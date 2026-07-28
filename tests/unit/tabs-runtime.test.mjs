@@ -98,7 +98,7 @@ test('tabs paint a complete strip and raise the selected tab', () => {
     selected: 'second',
     tabs: [
       { id: 'first', label: 'First', panel: text('First panel') },
-      { id: 'second', label: 'Second', panel: text('Second panel') }
+      { id: 'second', label: 'Second', closable: true, panel: text('Second panel') }
     ]
   }), { columns: 24, rows: 3 }, { theme: defaultTheme });
   const header = frame.cells.filter((cell) => cell.row === 1);
@@ -116,4 +116,8 @@ test('tabs paint a complete strip and raise the selected tab', () => {
   ), true);
   assert.equal(fill.length > 0, true);
   assert.equal(fill.every((cell) => cell.style?.bg?.token === 'surface.background'), true);
+  assert.equal(
+    header.find((cell) => cell.source?.itemId === 'second' && cell.source?.partName === 'close')?.style?.bg?.token,
+    'surface.raised.background'
+  );
 });

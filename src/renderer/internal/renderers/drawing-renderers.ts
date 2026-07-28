@@ -4,6 +4,7 @@ import {
   canvasAccessibleBase,
   overlayAccessibleBase,
   overlayChildBounds,
+  placeSurface,
   renderCanvas,
   surfaceAccessibleBase,
   surfaceChildBounds
@@ -28,6 +29,7 @@ export const drawingRenderers = {
   },
   surface: {
     measure: drawingMeasurements.surface,
+    place: ({ renderNode, bounds }) => placeSurface(renderNode, bounds),
     layout: ({ renderNode, bounds }) => surfaceChildBounds(renderNode, bounds),
     render: (input) => {
       drawSurface(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme);

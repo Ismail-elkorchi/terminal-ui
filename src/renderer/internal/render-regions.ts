@@ -1,4 +1,4 @@
-import { createFrameBuffer } from './frame-buffer.ts';
+import { createCompositingFrameBuffer } from './frame-buffer.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -91,7 +91,7 @@ export function createDraftRenderRegion(
 }
 
 function createRegionFrameBuffer(terminalSize: TerminalSize, bounds: Rect, widthProfile: TextWidthProfile): FrameBuffer {
-  const local = createFrameBuffer(bounds.width, bounds.height, { widthProfile });
+  const local = createCompositingFrameBuffer(bounds.width, bounds.height, { widthProfile });
   return {
     width: terminalSize.columns,
     height: terminalSize.rows,

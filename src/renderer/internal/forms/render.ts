@@ -28,7 +28,6 @@ import {
   formSpan,
   formValueStyle,
   labelSpans,
-  optionControlState,
   separatorSpan
 } from '../form-visual.ts';
 import { mergeStyles, renderNodeStyle, themeStyle } from '../render-node-style.ts';
@@ -40,7 +39,6 @@ import {
 } from './support/button.ts';
 import {
   formOptions,
-  optionStyle,
   selectedId,
   selectedIds,
   selectedOption
@@ -76,7 +74,7 @@ import {
 } from './support/shared.ts';
 import { numberInputLayout } from './support/number-input.ts';
 import { interactionVisualState } from '../pointer-interaction.ts';
-import { controlTargetId } from './hit-targets.ts';
+import { controlTargetId, optionTargetId } from './hit-targets.ts';
 
 export function formContentBounds(renderNode: FormNode, bounds: Rect): Rect {
   const titleRows = formTitle(renderNode).length === 0 ? 0 : 1;
@@ -130,11 +128,11 @@ export function buttonBlock(
   widthProfile: TextWidthProfile
 ): RenderBlock {
   const label = clean(stringify(renderNode.props.label)) || 'Button';
-  return block([clippedFormLine(
+  return block([padInteractiveLine(clippedFormLine(
     buttonSpans(renderNode, label, focused, theme, widthProfile),
     bounds.width,
     widthProfile
-  )]);
+  ), bounds.width, widthProfile)]);
 }
 
 export function checkboxBlock(
@@ -151,7 +149,7 @@ export function checkboxBlock(
     focused
   });
   const lines = [
-    clippedFormLine([
+    padInteractiveLine(clippedFormLine([
       formSpan(
         renderNode,
         'marker',
@@ -162,7 +160,7 @@ export function checkboxBlock(
       ),
       separatorSpan(renderNode),
       ...labelSpans(renderNode, 'label', clean(stringify(renderNode.props.label)), state, renderNode.props.required === true)
-    ], bounds.width, widthProfile),
+    ], bounds.width, widthProfile), bounds.width, widthProfile),
     ...errorLines(renderNode, bounds.width, widthProfile)
   ];
   return block(lines.slice(0, Math.max(0, bounds.height)));
@@ -187,7 +185,7 @@ export function toggleSwitchBlock(
   const track = oneCellGlyph(theme.tokens.symbols.scrollbarHorizontalThumb, '-', { widthProfile });
   const value = checked ? onLabel : offLabel;
   const lines = [
-    clippedFormLine([
+    padInteractiveLine(clippedFormLine([
       ...controlPrefixSpans(renderNode, label, state),
       formSpan(
         renderNode,
@@ -206,7 +204,7 @@ export function toggleSwitchBlock(
         mergeStyles(toggleValueStyle(renderNode, checked), renderNodeStyle(renderNode, 'value', state)),
         state
       )
-    ], bounds.width, widthProfile),
+    ], bounds.width, widthProfile), bounds.width, widthProfile),
     ...errorLines(renderNode, bounds.width, widthProfile)
   ];
   return block(lines.slice(0, Math.max(0, bounds.height)));
@@ -262,15 +260,16 @@ export function checkboxGroupBlock(
   const selected = selectedIds(renderNode);
   for (const option of formOptions(renderNode)) {
     const symbol = selected.has(option.id) ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
-    const state = optionControlState(renderNode, {
+    const state = interactionVisualState(renderNode, optionTargetId(renderNode, option.id), {
       selected: selected.has(option.id),
-      ...(option.disabled === undefined ? {} : { disabled: option.disabled })
+      disabled: option.disabled === true || renderNode.props.disabled === true,
+      focused: renderNode.props.focused === option.id
     });
-    lines.push(clippedFormLine([
+    lines.push(padInteractiveLine(clippedFormLine([
       formSpan(renderNode, 'marker', selected.has(option.id) ? `option.${option.id}.marker.checked` : `option.${option.id}.marker.unchecked`, symbol, formMarkerStyle(renderNode, state)),
       separatorSpan(renderNode),
-      formSpan(renderNode, 'option', `option.${option.id}.label`, option.label, optionStyle(option, renderNode))
-    ], bounds.width, widthProfile));
+      formSpan(renderNode, 'option', `option.${option.id}.label`, option.label, renderNodeStyle(renderNode, 'option', state), state)
+    ], bounds.width, widthProfile), bounds.width, widthProfile));
   }
   lines.push(...errorLines(renderNode, bounds.width, widthProfile));
   return block(lines.slice(0, Math.max(0, bounds.height)));
@@ -292,15 +291,16 @@ export function radioGroupBlock(
   const selected = selectedId(renderNode);
   for (const option of formOptions(renderNode)) {
     const symbol = option.id === selected ? theme.tokens.symbols.radioChecked : theme.tokens.symbols.radioUnchecked;
-    const state = optionControlState(renderNode, {
+    const state = interactionVisualState(renderNode, optionTargetId(renderNode, option.id), {
       selected: option.id === selected,
-      ...(option.disabled === undefined ? {} : { disabled: option.disabled })
+      disabled: option.disabled === true || renderNode.props.disabled === true,
+      focused: renderNode.props.focused === option.id
     });
-    lines.push(clippedFormLine([
+    lines.push(padInteractiveLine(clippedFormLine([
       formSpan(renderNode, 'marker', option.id === selected ? `option.${option.id}.marker.selected` : `option.${option.id}.marker`, symbol, formMarkerStyle(renderNode, state)),
       separatorSpan(renderNode),
-      formSpan(renderNode, 'option', `option.${option.id}.label`, option.label, optionStyle(option, renderNode))
-    ], bounds.width, widthProfile));
+      formSpan(renderNode, 'option', `option.${option.id}.label`, option.label, renderNodeStyle(renderNode, 'option', state), state)
+    ], bounds.width, widthProfile), bounds.width, widthProfile));
   }
   lines.push(...errorLines(renderNode, bounds.width, widthProfile));
   return block(lines.slice(0, Math.max(0, bounds.height)));
@@ -376,7 +376,7 @@ export function selectBlock(
       ? renderNodeStyle(renderNode, 'description')
       : renderNodeStyle(renderNode, 'option');
   const rows = [
-    clippedFormLine([
+    padInteractiveLine(clippedFormLine([
       ...controlPrefixSpans(renderNode, label, formControlState(renderNode), {
         required: renderNode.props.required === true
       }),
@@ -391,7 +391,7 @@ export function selectBlock(
           : theme.tokens.symbols.treeCollapsed,
         renderNodeStyle(renderNode, 'marker')
       )
-    ], bounds.width, widthProfile),
+    ], bounds.width, widthProfile), bounds.width, widthProfile),
     ...errorLines(renderNode, bounds.width, widthProfile)
   ];
   return block(rows.slice(0, Math.max(0, bounds.height)));
@@ -430,4 +430,24 @@ export function numberInputBlock(
     line([...(first === undefined ? [] : padRenderLine(first, layout.input.width, { widthProfile }).spans), ...controls]),
     ...input.lines.slice(1)
   ]);
+}
+
+function padInteractiveLine(
+  renderLine: RenderLine,
+  width: number,
+  widthProfile: TextWidthProfile
+): RenderLine {
+  const trailing = renderLine.spans.at(-1);
+  return padRenderLine(renderLine, width, {
+    widthProfile,
+    ...(trailing === undefined
+      ? {}
+      : {
+          fill: {
+            text: ' ',
+            ...(trailing.style === undefined ? {} : { style: trailing.style }),
+            ...(trailing.source === undefined ? {} : { source: trailing.source })
+          }
+        })
+  });
 }

@@ -72,6 +72,11 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[Hbad');
   assert.equal(defaultThemes.noColor.name, 'noColor');
   assert.deepEqual(resolveThemeColor(defaultTheme, 'app.background'), { kind: 'rgb', r: 7, g: 12, b: 12 });
+  assert.deepEqual(resolveThemeColor(defaultTheme, 'surface.background'), { kind: 'rgb', r: 14, g: 22, b: 22 });
+  assert.deepEqual(resolveThemeColor(defaultTheme, 'surface.bar.background'), { kind: 'rgb', r: 21, g: 31, b: 31 });
+  assert.deepEqual(resolveThemeColor(defaultTheme, 'surface.raised.background'), { kind: 'rgb', r: 28, g: 40, b: 39 });
+  assert.deepEqual(resolveThemeColor(defaultTheme, 'surface.inset.background'), { kind: 'rgb', r: 4, g: 8, b: 9 });
+  assert.deepEqual(resolveThemeColor(defaultTheme, 'status.success'), { kind: 'rgb', r: 118, g: 205, b: 112 });
   assert.deepEqual(resolveThemeColor(defaultTheme, 'text.default'), { kind: 'rgb', r: 218, g: 225, b: 220 });
   assert.deepEqual(resolveThemeColor(defaultThemes.minimal, 'accent.primary'), { kind: 'ansi', value: 14 });
   assert.equal(resolveThemeColor(defaultThemes.minimal, 'app.background'), undefined);

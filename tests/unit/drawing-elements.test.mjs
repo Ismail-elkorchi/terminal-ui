@@ -185,7 +185,24 @@ test('surface appearance draws background border and shadow', () => {
   assert.match(output, /inside/u);
   assert.deepEqual(backgroundCell?.style?.bg, { kind: 'theme', token: 'surface.raised.background' });
   assert.deepEqual(borderCell?.style?.fg, { kind: 'theme', token: 'surface.raised.border' });
-  assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
+  assert.deepEqual(shadowCell?.style?.bg, { kind: 'theme', token: 'surface.shadow' });
+  assert.equal(shadowCell?.text, ' ');
+  assert.deepEqual(
+    frame.cells.find((cell) => cell.text === 'i' && cell.source?.elementId === 'surface-content')?.style?.bg,
+    { kind: 'theme', token: 'surface.raised.background' }
+  );
+});
+
+test('surface backgrounds remain behind wide child glyphs', () => {
+  const frame = renderElementFrame(surface(text('界', { id: 'wide-surface-text' }), {
+    id: 'wide-surface',
+    appearance: 'inset'
+  }), { columns: 8, rows: 3 });
+  const glyph = frame.cells.find((cell) => cell.text === '界');
+  const continuation = frame.cells.find((cell) => cell.continuation === true);
+
+  assert.deepEqual(glyph?.style?.bg, { kind: 'theme', token: 'surface.inset.background' });
+  assert.deepEqual(continuation?.style?.bg, { kind: 'theme', token: 'surface.inset.background' });
 });
 
 test('surface titles preserve caller-supplied inline styles with renderer-produced source metadata', () => {

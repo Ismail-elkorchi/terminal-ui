@@ -57,7 +57,14 @@ function layoutNode(
   parentZIndex: number,
   parentIdentity: readonly string[]
 ): LayoutNode {
-  const placedBounds = placeRenderNode(renderNode, bounds, viewport, theme, widthProfile);
+  const placedBounds = placeRenderNode(
+    renderNode,
+    bounds,
+    viewport,
+    theme,
+    widthProfile,
+    () => measurements.measure(renderNode, bounds)
+  );
   const visible = renderNode.layer?.visible !== false;
   const zIndex = parentZIndex + zIndexForRenderNode(renderNode);
   const identity = renderNode.id ?? `${renderNode.kind}:${String(ordinal)}`;

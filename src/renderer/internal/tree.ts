@@ -16,7 +16,7 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { TreeControlAction, TreeNode } from '../../ui-model/tree.ts';
 import type { Rect } from '../model/layout.ts';
-import { clipRenderSpans } from '../../visual/render.ts';
+import { clipRenderSpans, padRenderLine } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
@@ -147,11 +147,12 @@ function treeLine(
   const isSelected = row.node.id === selected;
   const rowState = treeRowVisualState(renderNode, row, isSelected, focused);
   const disclosureState = treeDisclosureVisualState(renderNode, row, isSelected, focused);
+  const disclosureRowState = treeNodeCanDisclose(row.node) ? disclosureState : rowState;
   const branch = branchSymbol(row.node, row.lazyPlaceholder === true, theme);
   const icon = row.node.icon === undefined ? '' : `${row.node.icon} `;
   const label = row.node.label;
   const labelStyle = treeLabelStyle(renderNode, row, rowState);
-  const disclosureStyle = treeDisclosureStyle(renderNode, row, disclosureState);
+  const disclosureStyle = treeDisclosureStyle(renderNode, row, disclosureRowState);
   const indentStyle = treeIndentStyle(renderNode, row, rowState);
   const iconStyle = treeIconStyle(renderNode, row, rowState);
   const markerStyle = treeMarkerStyle(renderNode, row, rowState);
@@ -181,13 +182,17 @@ function treeLine(
       itemId: nodeSourceId,
       partType: 'disclosure',
       role: 'decoration',
-      ...treeSourceState(treeDisclosureSourceState(row, disclosureState))
+      ...treeSourceState(treeNodeCanDisclose(row.node)
+        ? treeDisclosureSourceState(row, disclosureState)
+        : treeRowSourceState(row, rowState))
     })),
     dataSpan(' ', disclosureStyle, treeSource(renderNode, `node.${row.node.id}.disclosure.gap`, {
       itemId: nodeSourceId,
       partType: 'gap',
       role: 'decoration',
-      ...treeSourceState(treeDisclosureSourceState(row, disclosureState))
+      ...treeSourceState(treeNodeCanDisclose(row.node)
+        ? treeDisclosureSourceState(row, disclosureState)
+        : treeRowSourceState(row, rowState))
     })),
     ...(icon.length === 0 ? [] : [dataSpan(icon, iconStyle, treeSource(renderNode, `node.${row.node.id}.icon`, {
       itemId: nodeSourceId,
@@ -208,9 +213,21 @@ function treeLine(
       ...(matchStyle === undefined ? {} : { matchStyle })
     })
   ];
-  return {
+  return padRenderLine({
     spans: clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…', widthProfile })
-  };
+  }, Math.max(0, width), {
+    widthProfile,
+    fill: {
+      text: ' ',
+      ...(labelStyle === undefined ? {} : { style: labelStyle }),
+      source: treeSource(renderNode, `node.${row.node.id}.padding`, {
+        itemId: nodeSourceId,
+        partType: 'padding',
+        role: 'decoration',
+        ...treeSourceState(treeRowSourceState(row, rowState))
+      })
+    }
+  });
 }
 
 function branchSymbol(node: TreeNode, lazyPlaceholder: boolean, theme: TerminalTheme): string {

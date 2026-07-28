@@ -3,10 +3,12 @@ import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.t
 import { dividerPreferredSize } from '../divider.ts';
 import {
   combineMeasurementsOverlay,
+  measurement,
   measureSize,
   measureText,
   zeroMeasurement
 } from '../measurement.ts';
+import { layoutInsetSize } from '../layout-geometry.ts';
 import { numberProp, stringify } from '../render-node-props.ts';
 import { tooltipPreferredSize } from '../tooltip.ts';
 import { childMeasurements } from './measurement-support.ts';
@@ -21,12 +23,44 @@ export const drawingMeasurements = {
     const content = combineMeasurementsOverlay(childMeasurements(childCount, measureChild));
     const explicit = borderStyleFromValue(renderNode.props.border);
     const border = explicit ?? (
-      renderNode.props.appearance === undefined || renderNode.props.appearance === 'neutral'
+      renderNode.props.appearance === undefined
+      || renderNode.props.appearance === 'neutral'
+      || renderNode.props.appearance === 'bar'
         ? { kind: 'none' as const }
         : { kind: 'single' as const }
     );
     const insetCells = border.kind === 'none' ? 0 : 2;
-    return measureSize(content.preferredWidth + insetCells, content.preferredHeight + insetCells);
+    const padding = layoutInsetSize(renderNode.props.padding);
+    const margin = layoutInsetSize(renderNode.props.margin);
+    const shadow = renderNode.props.shadow === true ? 1 : 0;
+    const minWidth = Math.max(
+      content.minWidth + padding.width + insetCells + shadow,
+      finiteNonNegativeIntegerOrZero(renderNode.props.minWidth)
+    );
+    const minHeight = Math.max(
+      content.minHeight + padding.height + insetCells + shadow,
+      finiteNonNegativeIntegerOrZero(renderNode.props.minHeight)
+    );
+    const maxWidth = renderNode.props.maxWidth === undefined
+      ? undefined
+      : Math.max(minWidth, finiteNonNegativeIntegerOrZero(renderNode.props.maxWidth));
+    const maxHeight = renderNode.props.maxHeight === undefined
+      ? undefined
+      : Math.max(minHeight, finiteNonNegativeIntegerOrZero(renderNode.props.maxHeight));
+    return measurement({
+      minWidth: minWidth + margin.width,
+      minHeight: minHeight + margin.height,
+      preferredWidth: Math.max(
+        minWidth,
+        content.preferredWidth + padding.width + insetCells + shadow
+      ) + margin.width,
+      preferredHeight: Math.max(
+        minHeight,
+        content.preferredHeight + padding.height + insetCells + shadow
+      ) + margin.height,
+      ...(maxWidth === undefined ? {} : { maxWidth: maxWidth + margin.width }),
+      ...(maxHeight === undefined ? {} : { maxHeight: maxHeight + margin.height })
+    });
   },
   absolute: ({ renderNode, measureChild }) => {
     const content = measureChild(0);

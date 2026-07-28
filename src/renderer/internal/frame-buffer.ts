@@ -56,7 +56,15 @@ export interface FrameBuffer extends RenderTarget {
 }
 
 export function createFrameBuffer(width: number, height: number, options: FrameBufferOptions = {}): FrameBuffer {
-  return new CellFrameBuffer(width, height, options.widthProfile ?? defaultTextWidthProfile);
+  return new CellFrameBuffer(width, height, options.widthProfile ?? defaultTextWidthProfile, false);
+}
+
+export function createCompositingFrameBuffer(
+  width: number,
+  height: number,
+  options: FrameBufferOptions = {}
+): FrameBuffer {
+  return new CellFrameBuffer(width, height, options.widthProfile ?? defaultTextWidthProfile, true);
 }
 
 export function blitFrameCell(buffer: RenderTarget, cell: FrameCell): void {
@@ -81,14 +89,21 @@ class CellFrameBuffer implements FrameBuffer {
   readonly widthProfile: TextWidthProfile;
 
   private readonly cells: (FrameCell | undefined)[];
+  private readonly inheritBackground: boolean;
   private readonly mergeableCellIndexes = new Set<number>();
   private readonly writtenCoverage = new DirtyCoverageAccumulator();
   private readonly clearedCoverage = new DirtyCoverageAccumulator();
 
-  constructor(width: number, height: number, widthProfile: TextWidthProfile) {
+  constructor(
+    width: number,
+    height: number,
+    widthProfile: TextWidthProfile,
+    inheritBackground: boolean
+  ) {
     this.width = Math.max(0, Math.floor(width));
     this.height = Math.max(0, Math.floor(height));
     this.widthProfile = widthProfile;
+    this.inheritBackground = inheritBackground;
     this.cells = Array.from({ length: this.width * this.height });
   }
 
@@ -256,6 +271,9 @@ class CellFrameBuffer implements FrameBuffer {
     column: number,
     cell: Omit<FrameCell, 'row' | 'column'>
   ): void {
+    const existingBackground = this.inheritBackground && cell.style?.bg === undefined
+      ? this.cellAt(row, column)?.style?.bg
+      : undefined;
     const firstIndex = this.index(row, column);
     for (let offset = 0; offset < cell.width; offset += 1) {
       if (this.cells[firstIndex + offset] !== undefined) {
@@ -263,12 +281,15 @@ class CellFrameBuffer implements FrameBuffer {
       }
     }
     this.writtenCoverage.addSpan(row, column, Math.max(1, cell.width));
+    const style = existingBackground === undefined
+      ? cell.style
+      : { ...cell.style, bg: existingBackground };
     const mainCell: FrameCell = {
       row,
       column,
       text: cell.text,
       width: cell.width,
-      ...(cell.style === undefined ? {} : { style: cell.style }),
+      ...(style === undefined ? {} : { style }),
       ...(cell.link === undefined ? {} : { link: cell.link }),
       ...(cell.source === undefined ? {} : { source: cell.source })
     };
@@ -279,7 +300,7 @@ class CellFrameBuffer implements FrameBuffer {
         column: column + offset,
         text: '',
         width: 0,
-        ...(cell.style === undefined ? {} : { style: cell.style }),
+        ...(style === undefined ? {} : { style }),
         ...(cell.link === undefined ? {} : { link: cell.link }),
         ...(cell.source === undefined ? {} : { source: cell.source }),
         continuation: true

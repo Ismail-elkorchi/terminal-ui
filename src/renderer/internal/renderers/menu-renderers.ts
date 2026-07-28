@@ -178,9 +178,15 @@ export const menuRenderers = {
   },
   searchPicker: {
     measure: menuMeasurements.searchPicker,
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => searchPickerScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, searchPickerBlock(renderNode, scrollbars.contentBounds.height, theme));
+      writeRenderBlock(buffer, scrollbars.contentBounds, searchPickerBlock(
+        renderNode,
+        scrollbars.contentBounds.height,
+        theme,
+        scrollbars.contentBounds.width,
+        widthProfile
+      ));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({

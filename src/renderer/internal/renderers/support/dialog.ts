@@ -1,36 +1,47 @@
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import { finiteNonNegativeIntegerOrZero } from '../../../../foundation/validation.ts';
-import type { RenderNode, RenderNodeOfKind } from '../../../model/index.ts';
+import type { RenderNodeOfKind } from '../../../model/index.ts';
 import type { BorderStyle } from '../../border.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
 import { frameCellSource } from '../../../../visual/source.ts';
 import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { Measurement } from '../../measurement.ts';
 import type { TerminalStyle } from '../../../../visual/render.ts';
-import { numberProp } from '../../render-node-props.ts';
+import { layoutMarginBounds, layoutPaddingBounds } from '../../layout-geometry.ts';
 import { borderContentBounds } from './border.ts';
+import { surfaceFrameBounds } from '../../surface.ts';
 import { clampRect } from './common.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import { oneCellGlyph } from '../../../../text/index.ts';
 
-export function dialogBounds(renderNode: RenderNode, bounds: Rect): Rect {
-  const width = Math.min(bounds.width, Math.max(4, Math.floor(numberProp(renderNode, 'width') ?? Math.min(bounds.width, 60))));
-  const height = Math.min(bounds.height, Math.max(3, Math.floor(numberProp(renderNode, 'height') ?? Math.min(bounds.height, 20))));
+type DialogNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dialog'>;
+
+export function placeDialog(
+  renderNode: DialogNode,
+  bounds: Rect,
+  measurement: Measurement
+): Rect {
+  const available = layoutMarginBounds(bounds, renderNode.props.margin);
+  const width = Math.min(available.width, measurement.preferredWidth);
+  const height = Math.min(available.height, measurement.preferredHeight);
   return clampRect({
-    row: bounds.row + Math.max(0, Math.floor((bounds.height - height) / 2)),
-    column: bounds.column + Math.max(0, Math.floor((bounds.width - width) / 2)),
+    row: available.row + Math.max(0, Math.floor((available.height - height) / 2)),
+    column: available.column + Math.max(0, Math.floor((available.width - width) / 2)),
     width,
     height
   });
 }
 
 export function dialogChildBounds(
-  renderNode: RenderNode,
+  renderNode: DialogNode,
   bounds: Rect,
   border: BorderStyle,
   measureChild: (index: number) => Measurement
 ): readonly Rect[] {
-  const contentBounds = borderContentBounds(dialogBounds(renderNode, bounds), border);
+  const contentBounds = layoutPaddingBounds(
+    borderContentBounds(surfaceFrameBounds(bounds, true), border),
+    renderNode.props.padding
+  );
   if (!dialogHasActions(renderNode)) return [contentBounds];
   const actionHeight = dialogActionHeight(contentBounds.height, measureChild(1));
   const separatorHeight = contentBounds.height > actionHeight ? 1 : 0;
@@ -52,12 +63,13 @@ export function dialogChildBounds(
 }
 
 export function dialogOutsideHitTargets<TMessage>(
-  renderNode: RenderNodeOfKind<TMessage, 'dialog'>,
-  bounds: Rect
+  renderNode: DialogNode<TMessage>,
+  bounds: Rect,
+  viewport: Rect
 ): readonly HitTarget<TMessage>[] {
   const toDismissMessage = renderNode.props.toDismissMessage;
   if (!renderNode.props.dismissOnOutsidePress || toDismissMessage === undefined) return [];
-  return outsideRects(bounds, dialogBounds(renderNode, bounds)).map((targetBounds, index) => ({
+  return outsideRects(viewport, bounds).map((targetBounds, index) => ({
     id: `${renderNode.id ?? 'dialog'}:outside:${String(index)}`,
     bounds: targetBounds,
     accepts: ['click'],
@@ -104,7 +116,7 @@ function dialogActionSeparatorBounds(node: LayoutNode): Rect | undefined {
   };
 }
 
-function dialogHasActions(renderNode: RenderNode): boolean {
+function dialogHasActions(renderNode: DialogNode): boolean {
   return (renderNode.children?.length ?? 0) > 1;
 }
 

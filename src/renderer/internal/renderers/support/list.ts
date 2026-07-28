@@ -11,6 +11,7 @@ import { stringify } from '../../render-node-props.ts';
 import { resolveRenderNodeStyle, themeStyle } from '../../render-node-style.ts';
 import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
+import { padRenderLine } from '../../../../visual/render.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import type { ListControlAction } from '../../../../ui-model/list.ts';
 import type { PreparedListView } from '../../../../ui-model/list.ts';
@@ -47,7 +48,14 @@ export function listScrollbarState(renderNode: ListNode, bounds: Rect): ScrollSt
   });
 }
 
-export function listBlock(renderNode: ListNode, height: number, theme: TerminalTheme, focused = false): RenderBlock {
+export function listBlock(
+  renderNode: ListNode,
+  height: number,
+  theme: TerminalTheme,
+  focused = false,
+  width?: number,
+  widthProfile?: TextWidthProfile
+): RenderBlock {
   const view = renderNode.props.view;
   const selectedId = stringify(renderNode.props.selectedId);
   const selected = selectedVisibleIndex(view, selectedId);
@@ -83,7 +91,7 @@ export function listBlock(renderNode: ListNode, height: number, theme: TerminalT
         themeStyle('menu.match', { underline: true }),
         renderNode.styles?.parts?.['match']
       );
-      return {
+      const line: RenderLine = {
         spans: [
           ...selectionMarkerSpans(
             renderNode,
@@ -117,6 +125,20 @@ export function listBlock(renderNode: ListNode, height: number, theme: TerminalT
           )])
         ]
       };
+      if (width === undefined || widthProfile === undefined) return line;
+      return padRenderLine(line, width, {
+        widthProfile,
+        fill: {
+          text: ' ',
+          ...(style === undefined ? {} : { style }),
+          source: dataSource(renderNode, `item.${entry.id}.padding`, {
+            itemId: entry.id,
+            itemIndex,
+            role: 'decoration',
+            ...(state === undefined ? {} : { state })
+          })
+        }
+      });
     })
   };
 }

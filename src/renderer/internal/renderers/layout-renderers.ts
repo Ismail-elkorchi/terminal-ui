@@ -29,7 +29,7 @@ import {
   viewportChildBounds,
   viewportIndicatorCellKey
 } from './support/viewport.ts';
-import { dialogBounds, dialogChildBounds, dialogOutsideHitTargets, drawDialogActionSeparator } from './support/dialog.ts';
+import { dialogChildBounds, dialogOutsideHitTargets, drawDialogActionSeparator, placeDialog } from './support/dialog.ts';
 import { drawSurfaceFrame } from '../surface.ts';
 import type { RendererMap } from './types.ts';
 import { layoutMeasurements } from './layout-measurements.ts';
@@ -150,12 +150,12 @@ export const layoutRenderers = {
   },
   dialog: {
     measure: layoutMeasurements.dialog,
+    place: ({ renderNode, bounds, measurement }) => placeDialog(renderNode, bounds, measurement()),
     layout: ({ renderNode, bounds, measureChild }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), measureChild),
     render: (input) => {
       const focused = input.focus !== 'none';
       const border = borderForDialog(input.renderNode, input.theme);
-      const childBounds = dialogBounds(input.renderNode, input.layoutNode.bounds);
-      drawSurfaceFrame(input.buffer, childBounds, input.renderNode, input.theme, focused, {
+      drawSurfaceFrame(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme, focused, {
         appearance: 'raised',
         border,
         shadow: true
@@ -177,6 +177,10 @@ export const layoutRenderers = {
           }
         : {})
     }),
-    hitTargets: ({ renderNode, bounds }) => dialogOutsideHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, bounds, layoutNode }) => dialogOutsideHitTargets(
+      renderNode,
+      bounds,
+      layoutNode.viewport
+    )
   }
 } satisfies RendererMap<'column' | 'row' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;

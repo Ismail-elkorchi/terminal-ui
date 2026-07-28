@@ -12,7 +12,9 @@ import type { SearchEntry } from '../../ui-model/contracts.ts';
 import { searchPickerWindow } from '../../behavior/search-picker.ts';
 import type { SearchPickerWindow, SearchPickerWindowInput } from '../../behavior/search-picker.ts';
 import type { Rect } from '../model/layout.ts';
+import { clipRenderLine, padRenderLine } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 
@@ -31,7 +33,13 @@ interface SearchPickerRenderModel {
   readonly availableEntries: number;
 }
 
-export function searchPickerBlock(renderNode: SearchPickerNode, height: number, theme: TerminalTheme): RenderBlock {
+export function searchPickerBlock(
+  renderNode: SearchPickerNode,
+  height: number,
+  theme: TerminalTheme,
+  width?: number,
+  widthProfile?: TextWidthProfile
+): RenderBlock {
   const model = searchPickerRenderModel(renderNode, height);
   const lines: RenderLine[] = [
     {
@@ -70,7 +78,9 @@ export function searchPickerBlock(renderNode: SearchPickerNode, height: number, 
       index === model.window.selectedIndex,
       model.window.startIndex + index,
       model.query,
-      theme
+      theme,
+      width,
+      widthProfile
     )));
   }
   if (model.selectedPreview !== undefined && model.selectedPreview.length > 0 && lines.length < height) {
@@ -136,7 +146,9 @@ function entryLine<TValue>(
   selected: boolean,
   itemIndex: number,
   query: string,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  width: number | undefined,
+  widthProfile: TextWidthProfile | undefined
 ): RenderLine {
   const state = interactionVisualState(renderNode, searchPickerEntryTargetId(renderNode, entry.id), {
     disabled: entry.disabled === true,
@@ -158,7 +170,16 @@ function entryLine<TValue>(
       searchPickerSource(renderNode, `entry.${entry.id}.description`, 'text', entry.id, itemIndex, state)
     ));
   }
-  return { spans };
+  const line = { spans };
+  if (width === undefined || widthProfile === undefined) return line;
+  return padRenderLine(clipRenderLine(line, width, { ellipsis: '…', widthProfile }), width, {
+    widthProfile,
+    fill: styledSpan(
+      ' ',
+      rowStyle,
+      searchPickerSource(renderNode, `entry.${entry.id}.padding`, 'decoration', entry.id, itemIndex, state)
+    )
+  });
 }
 
 function searchPickerRenderModel(renderNode: SearchPickerNode, height: number): SearchPickerRenderModel {

@@ -164,6 +164,29 @@ export function layoutContentBounds(bounds: Rect, options: LayoutFlowOptions = {
   return constrainRect(insetRect(insetRect(bounds, normalizeInsets(options.margin)), normalizeInsets(options.padding)), options);
 }
 
+export function layoutBoxBounds(bounds: Rect, options: LayoutFlowOptions = {}): Rect {
+  return constrainRect(insetRect(bounds, normalizeInsets(options.margin)), options);
+}
+
+export function layoutPaddingBounds(bounds: Rect, padding: LayoutInsetInput | undefined): Rect {
+  return insetRect(bounds, normalizeInsets(padding));
+}
+
+export function layoutMarginBounds(bounds: Rect, margin: LayoutInsetInput | undefined): Rect {
+  return insetRect(bounds, normalizeInsets(margin));
+}
+
+export function layoutInsetSize(input: LayoutInsetInput | undefined): {
+  readonly width: number;
+  readonly height: number;
+} {
+  const inset = normalizeInsets(input);
+  return {
+    width: inset.left + inset.right,
+    height: inset.top + inset.bottom
+  };
+}
+
 function insetRect(bounds: Rect, inset: LayoutInsets): Rect {
   return clampRect({
     row: bounds.row + inset.top,

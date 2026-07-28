@@ -2,7 +2,7 @@ import type { RenderNode } from '../model/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { MenuActionTone } from '../../ui-model/menu.ts';
 import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
-import { clipRenderSpans, span } from '../../visual/render.ts';
+import { clipRenderSpans, padRenderLine, span } from '../../visual/render.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
@@ -102,7 +102,17 @@ export function dropdownMenuControlLine(input: {
     menuSpan(input.renderNode, ` ${marker}`, controlStyle, { label: 'dropdownMenu-marker', state }),
     menuSpan(input.renderNode, '  ', controlStyle, { label: 'dropdownMenu-padding', state })
   ];
-  return { spans: clipSpans(spans, input.width, input.widthProfile) };
+  return padRenderLine(
+    { spans: clipSpans(spans, input.width, input.widthProfile) },
+    input.width,
+    {
+      widthProfile: input.widthProfile,
+      fill: menuSpan(input.renderNode, ' ', controlStyle, {
+        label: 'dropdownMenu-padding',
+        state
+      })
+    }
+  );
 }
 
 export function menuItemLine(
@@ -119,9 +129,16 @@ export function menuItemLine(
     selected,
     focused: focused && selected
   });
-  return {
+  return padRenderLine({
     spans: clipSpans(menuItemSpans(renderNode, item, selected, state, theme), width, widthProfile)
-  };
+  }, width, {
+    widthProfile,
+    fill: menuSpan(renderNode, ' ', menuLabelStyle(renderNode, item, state), {
+      itemId: item.id,
+      label: 'padding',
+      state
+    })
+  });
 }
 
 function menuBarItemSpans(

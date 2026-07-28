@@ -69,7 +69,7 @@ export function optionHitTargets<TMessage>(renderNode: OptionControlNode<TMessag
   return formOptions(renderNode).flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
     return [{
-      id: `${renderNode.id ?? renderNode.kind}:${option.id}`,
+      id: optionTargetId(renderNode, option.id),
       bounds: {
         row: bounds.row + labelOffset + index,
         column: bounds.column,
@@ -89,7 +89,7 @@ export function checkboxGroupHitTargets<TMessage>(renderNode: CheckboxGroupNode<
   return formOptions(renderNode).flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
     return [{
-      id: `${renderNode.id ?? renderNode.kind}:${option.id}`,
+      id: optionTargetId(renderNode, option.id),
       bounds: {
         row: bounds.row + labelOffset + index,
         column: bounds.column,
@@ -100,6 +100,13 @@ export function checkboxGroupHitTargets<TMessage>(renderNode: CheckboxGroupNode<
       cursor: 'pointer'
     }];
   });
+}
+
+export function optionTargetId(
+  renderNode: OptionControlNode<unknown> | CheckboxGroupNode<unknown>,
+  optionId: string
+): string {
+  return `${renderNode.id ?? renderNode.kind}:${optionId}`;
 }
 
 export function sliderHitTargets<TMessage>(

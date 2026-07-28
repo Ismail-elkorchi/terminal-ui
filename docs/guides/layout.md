@@ -37,6 +37,10 @@ min/max dimensions, alignment, justification, overflow, z-index, visibility,
 and focus scope. Tiny terminal sizes should produce clipped or empty regions,
 not crashes.
 
+For `surface()`, margin is outside the painted surface, min/max dimensions and
+alignment size the surface itself, and padding is inside its border. A shadow
+uses the final row and column of the surface's visual bounds.
+
 Without explicit sizes, `column()` stacks children at their measured heights;
 use a fill track only for content that should consume remaining rows.
 

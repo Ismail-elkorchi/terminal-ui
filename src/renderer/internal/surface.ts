@@ -10,7 +10,6 @@ import { resolveThemeColor } from '../../theme/index.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { renderBorderTitle } from './border-title.ts';
-import { oneCellGlyph } from '../../text/index.ts';
 
 export type { SurfaceAppearance } from '../../visual/surface.ts';
 
@@ -25,14 +24,15 @@ type DialogNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dialog'>;
 type SurfaceFrameNode<TMessage = unknown> = DialogNode<TMessage> | SurfaceNode<TMessage>;
 
 export function surfaceChildContentBounds(renderNode: SurfaceNode, bounds: Rect): Rect {
-  const border = surfaceBorderForBounds(renderNode, bounds);
+  const frameBounds = surfaceFrameBounds(bounds, renderNode.props.shadow === true);
+  const border = surfaceBorderForBounds(renderNode, frameBounds);
   return border === undefined || border.kind === 'none'
-    ? bounds
+    ? frameBounds
     : {
-        row: bounds.row + 1,
-        column: bounds.column + 1,
-        width: Math.max(0, bounds.width - 2),
-        height: Math.max(0, bounds.height - 2)
+        row: frameBounds.row + 1,
+        column: frameBounds.column + 1,
+        width: Math.max(0, frameBounds.width - 2),
+        height: Math.max(0, frameBounds.height - 2)
       };
 }
 
@@ -43,7 +43,8 @@ export function drawSurface(
   theme: TerminalTheme
 ): void {
   const appearance = renderNode.props.appearance;
-  const border = surfaceBorderForBounds(renderNode, bounds, appearance, theme);
+  const frameBounds = surfaceFrameBounds(bounds, renderNode.props.shadow === true);
+  const border = surfaceBorderForBounds(renderNode, frameBounds, appearance, theme);
   drawSurfaceFrame(buffer, bounds, renderNode, theme, false, {
     ...(appearance === undefined ? {} : { appearance }),
     ...(border === undefined ? {} : { border }),
@@ -59,7 +60,8 @@ export function drawSurfaceFrame(
   focused: boolean,
   options: SurfaceFrameOptions
 ): void {
-  const border = surfaceFocusedBorder(surfaceBorderWithinBounds(options.border, bounds), focused);
+  const frameBounds = surfaceFrameBounds(bounds, options.shadow === true);
+  const border = surfaceFocusedBorder(surfaceBorderWithinBounds(options.border, frameBounds), focused);
   if (options.appearance !== undefined) {
     const style = surfaceBackgroundStyle(renderNode, options.appearance, focused, border);
     if (style.bg !== undefined && (
@@ -68,7 +70,7 @@ export function drawSurfaceFrame(
     )) {
       fillSurfaceBackground(
         buffer,
-        bounds,
+        frameBounds,
         style,
         renderNodeFrameSource(renderNode, {
           rendererFamily: 'surface',
@@ -80,14 +82,14 @@ export function drawSurfaceFrame(
     }
   }
   if (options.shadow === true) {
-    drawSurfaceShadow(buffer, bounds, renderNodeFrameSource(renderNode, {
+    drawSurfaceShadow(buffer, bounds, frameBounds, renderNodeFrameSource(renderNode, {
       rendererFamily: 'surface',
       cellRole: 'decoration',
       partName: 'shadow',
       description: 'shadow'
     }));
   }
-  if (border !== undefined) drawBorder(buffer, bounds, border, theme);
+  if (border !== undefined) drawBorder(buffer, frameBounds, border, theme);
 }
 
 function surfaceBorder(
@@ -232,25 +234,35 @@ export function fillSurfaceBackground(
 export function drawSurfaceShadow(
   buffer: RenderTarget,
   bounds: Rect,
+  frameBounds: Rect,
   source: FrameCellSource
 ): void {
-  if (bounds.width <= 3 || bounds.height <= 3) return;
-  const style: TerminalStyle = { fg: { kind: 'theme', token: 'surface.shadow' }, dim: true };
-  const glyph = oneCellGlyph('░', '.', { widthProfile: buffer.widthProfile });
-  const rightColumn = bounds.column + bounds.width - 2;
-  const bottomRow = bounds.row + bounds.height - 2;
-  for (let row = bounds.row + 1; row <= bottomRow; row += 1) {
+  if (frameBounds === bounds) return;
+  const style: TerminalStyle = { bg: { kind: 'theme', token: 'surface.shadow' } };
+  const rightColumn = frameBounds.column + frameBounds.width;
+  const bottomRow = frameBounds.row + frameBounds.height;
+  for (let row = frameBounds.row + 1; row < bottomRow; row += 1) {
     buffer.write(row, rightColumn, [{
-      text: glyph,
+      text: ' ',
       style,
       source
     }]);
   }
-  buffer.write(bottomRow, bounds.column + 1, [{
-    text: glyph.repeat(Math.max(0, bounds.width - 2)),
+  buffer.write(bottomRow, frameBounds.column + 1, [{
+    text: ' '.repeat(Math.max(0, frameBounds.width)),
     style,
     source
   }]);
+}
+
+export function surfaceFrameBounds(bounds: Rect, shadow: boolean): Rect {
+  if (!shadow || bounds.width < 4 || bounds.height < 4) return bounds;
+  return {
+    row: bounds.row,
+    column: bounds.column,
+    width: bounds.width - 1,
+    height: bounds.height - 1
+  };
 }
 
 function surfaceBackgroundToken(appearance: SurfaceAppearance): ThemeColorToken {

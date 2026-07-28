@@ -388,7 +388,25 @@ test('layout flow options align, justify, and bound content regions', () => {
 
   const layout = layoutElement(element, { columns: 10, rows: 4 });
 
+  assert.deepEqual(layout.bounds, { row: 4, column: 4, width: 4, height: 1 });
   assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 4, width: 4, height: 1 });
+});
+
+test('surface margin sizes the outer box while border and padding inset content', () => {
+  const layout = layoutElement(surface(text('inside', { id: 'box-content' }), {
+    id: 'box-surface',
+    appearance: 'raised',
+    shadow: true,
+    margin: 1,
+    padding: 1,
+    maxWidth: 10,
+    maxHeight: 6,
+    align: 'center',
+    justify: 'center'
+  }), { columns: 20, rows: 8 });
+
+  assert.deepEqual(layout.bounds, { row: 2, column: 6, width: 10, height: 6 });
+  assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 8, width: 5, height: 1 });
 });
 
 test('layout overflow controls whether min sizes can exceed parent bounds', () => {

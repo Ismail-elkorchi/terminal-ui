@@ -36,6 +36,7 @@ type CommandPartKind =
   | 'label'
   | 'marker'
   | 'match'
+  | 'padding'
   | 'placeholder'
   | 'prompt'
   | 'selection'
@@ -64,7 +65,9 @@ export function commandInputBlock(
       index,
       index === selected,
       matchQuery(renderNode),
-      theme
+      theme,
+      bounds.width,
+      widthProfile
     )));
     const footer = footerText(renderNode);
     if (bounds.height > lines.length && footer.length > 0) lines.push(mutedLine(renderNode, footer, theme));
@@ -349,7 +352,9 @@ function suggestionLine(
   index: number,
   selected: boolean,
   query: string,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  width: number,
+  widthProfile: TextWidthProfile
 ): RenderLine {
   const label = suggestion.label ?? suggestion.value;
   const description = suggestion.description;
@@ -373,9 +378,20 @@ function suggestionLine(
       commandSource(renderNode, `suggestion.${String(index)}.description`, commandSourceOptions('description', state))
     ));
   }
-  return {
-    spans
-  };
+  return padRenderLine({
+    spans: clipRenderSpans(spans, width, { ellipsis: '…', widthProfile })
+  }, width, {
+    widthProfile,
+    fill: styledSpan(
+      ' ',
+      rowStyle,
+      commandSource(
+        renderNode,
+        `suggestion.${String(index)}.padding`,
+        commandSourceOptions('padding', state, 'decoration')
+      )
+    )
+  });
 }
 
 function commandSuggestionTargetId(renderNode: CommandInputNode, index: number): string {

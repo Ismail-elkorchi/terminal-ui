@@ -426,7 +426,11 @@ function searchPickerLayer(state: WorkspaceState) {
     appearance: 'raised',
     shadow: true,
     padding: 1,
-    margin: { top: 4, left: 18, right: 18, bottom: 6 },
+    margin: 2,
+    maxWidth: 72,
+    maxHeight: 18,
+    align: 'center',
+    justify: 'center',
     meta: { layer: { zIndex: 20 }, focus: { scope: { kind: 'contain' } } }
   });
 }

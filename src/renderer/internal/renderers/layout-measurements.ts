@@ -4,10 +4,12 @@ import {
   combineMeasurementsHorizontally,
   combineMeasurementsOverlay,
   combineMeasurementsVertically,
+  measurement,
   measureSize,
   measureText,
   zeroMeasurement
 } from '../measurement.ts';
+import { layoutInsetSize } from '../layout-geometry.ts';
 import { numberProp } from '../render-node-props.ts';
 import { tabsHeaderText } from './support/tabs.ts';
 import { childMeasurements } from './measurement-support.ts';
@@ -42,9 +44,6 @@ export const layoutMeasurements = {
   dialog: ({ renderNode, childCount, measureChild }) => {
     const explicitWidth = numberProp(renderNode, 'width');
     const explicitHeight = numberProp(renderNode, 'height');
-    if (explicitWidth !== undefined && explicitHeight !== undefined) {
-      return measureSize(explicitWidth, explicitHeight, Math.min(4, explicitWidth), Math.min(3, explicitHeight));
-    }
     const measures = childMeasurements(childCount, measureChild);
     const body = measures[0] ?? zeroMeasurement();
     const actions = measures[1];
@@ -52,9 +51,35 @@ export const layoutMeasurements = {
     const contentHeight = body.preferredHeight + (actions === undefined ? 0 : actions.preferredHeight + 1);
     const border = borderStyleFromValue(renderNode.props.border) ?? { kind: 'single' as const };
     const insetCells = border.kind === 'none' ? 0 : 2;
-    return measureSize(
-      explicitWidth ?? Math.max(4, contentWidth + insetCells),
-      explicitHeight ?? Math.max(3, contentHeight + insetCells)
+    const padding = layoutInsetSize(renderNode.props.padding);
+    const shadowCells = 1;
+    const minWidth = Math.max(
+      5,
+      finiteNonNegativeIntegerOrZero(renderNode.props.minWidth)
     );
+    const minHeight = Math.max(
+      4,
+      finiteNonNegativeIntegerOrZero(renderNode.props.minHeight)
+    );
+    const maxWidth = renderNode.props.maxWidth === undefined
+      ? undefined
+      : Math.max(minWidth, finiteNonNegativeIntegerOrZero(renderNode.props.maxWidth));
+    const maxHeight = renderNode.props.maxHeight === undefined
+      ? undefined
+      : Math.max(minHeight, finiteNonNegativeIntegerOrZero(renderNode.props.maxHeight));
+    return measurement({
+      minWidth,
+      minHeight,
+      preferredWidth: explicitWidth ?? Math.max(
+        minWidth,
+        contentWidth + padding.width + insetCells + shadowCells
+      ),
+      preferredHeight: explicitHeight ?? Math.max(
+        minHeight,
+        contentHeight + padding.height + insetCells + shadowCells
+      ),
+      ...(maxWidth === undefined ? {} : { maxWidth }),
+      ...(maxHeight === undefined ? {} : { maxHeight })
+    });
   }
 } satisfies RendererMeasurementMap<'row' | 'column' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;

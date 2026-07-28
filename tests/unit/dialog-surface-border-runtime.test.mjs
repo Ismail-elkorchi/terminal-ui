@@ -17,7 +17,8 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
   });
   const layout = layoutElement(element, { columns: 30, rows: 9 });
 
-  assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 11, width: 10, height: 3 });
+  assert.deepEqual(layout.bounds, { row: 3, column: 10, width: 12, height: 5 });
+  assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 11, width: 9, height: 2 });
   const frame = renderElementFrame(element, { columns: 30, rows: 9 });
   const rendered = frame.cells.map((cell) => cell.text).join('');
   assert.equal(frame.accessibility.root.label, 'Confirm');
@@ -74,13 +75,13 @@ test('dialog reserves a structurally separated action area without color', () =>
   });
   const layout = layoutElement(element, { columns: 30, rows: 9 }, noColorTheme);
 
-  assert.deepEqual(layout.children[0]?.bounds, { row: 3, column: 7, width: 18, height: 3 });
-  assert.deepEqual(layout.children[1]?.bounds, { row: 7, column: 7, width: 18, height: 1 });
+  assert.deepEqual(layout.children[0]?.bounds, { row: 3, column: 7, width: 17, height: 2 });
+  assert.deepEqual(layout.children[1]?.bounds, { row: 6, column: 7, width: 17, height: 1 });
 
   const frame = renderElementFrame(element, { columns: 30, rows: 9 }, { theme: noColorTheme });
   const separatorCells = frame.cells.filter((cell) => cell.source?.elementKind === 'dialog' && cell.source.description === 'action-separator');
 
-  assert.equal(separatorCells.length, 18);
+  assert.equal(separatorCells.length, 17);
   assert.deepEqual([...new Set(separatorCells.map((cell) => cell.text))], ['-']);
   assert.match(renderFramePlain(frame), /Dialog body/u);
   assert.match(renderFramePlain(frame), /Cancel/u);
@@ -99,8 +100,22 @@ test('dialog action separators preserve one-cell geometry under ambiguous-wide p
   });
   const separators = frame.cells.filter((cell) => cell.source?.description === 'action-separator');
 
-  assert.equal(separators.length, 14);
+  assert.equal(separators.length, 13);
   assert.ok(separators.every((cell) => cell.text === '-' && cell.width === 1));
+});
+
+test('dialog uses measured content size and applies padding inside its border', () => {
+  const element = dialog(text('Body', { id: 'intrinsic-body' }), {
+    id: 'intrinsic-dialog',
+    title: 'Measured',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
+    padding: 1
+  });
+  const layout = layoutElement(element, { columns: 30, rows: 10 });
+
+  assert.deepEqual(layout.bounds, { row: 3, column: 11, width: 9, height: 6 });
+  assert.deepEqual(layout.children[0]?.bounds, { row: 5, column: 13, width: 4, height: 1 });
 });
 
 test('dialog exposes outside-press dismissal only outside its painted bounds', () => {

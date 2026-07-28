@@ -81,6 +81,17 @@ test('FrameBuffer preserves style, links, and source metadata per visible cell',
   });
 });
 
+test('public FrameBuffer writes replace earlier backgrounds', () => {
+  const buffer = createFrameBuffer(2, 1);
+  buffer.write(1, 1, [{
+    text: ' ',
+    style: { bg: { kind: 'theme', token: 'surface.background' } }
+  }]);
+  buffer.write(1, 1, [{ text: 'A' }]);
+
+  assert.equal(buffer.readCell(1, 1)?.style?.bg, undefined);
+});
+
 test('FrameCellSource sanitizes stable structured metadata before entering frames', () => {
   const sanitized = sanitizeFrameCellSource({
     elementId: 'owner\u001B[31m',

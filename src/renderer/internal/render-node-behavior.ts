@@ -50,9 +50,17 @@ export function placeRenderNode(
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  measurement: () => Measurement
 ): Rect {
-  return rendererForRenderNode(renderNode).place?.({ renderNode: renderNode, bounds, viewport, theme, widthProfile }) ?? bounds;
+  return rendererForRenderNode(renderNode).place?.({
+    renderNode: renderNode,
+    bounds,
+    viewport,
+    theme,
+    measurement,
+    widthProfile
+  }) ?? bounds;
 }
 
 export interface RenderMeasurementContext {

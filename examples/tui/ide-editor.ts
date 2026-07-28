@@ -600,7 +600,6 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
     focusPolicy: { initialFocus: { kind: 'element', elementId: 'path-chooser-input' }, returnFocus: 'restore' },
     dismissal: { escape: true, outsidePress: true, onDismiss: (): EditorMessage => ({ kind: 'dismissChooser' }) },
     width: 72,
-    height: 7,
     padding: 1
   });
 }

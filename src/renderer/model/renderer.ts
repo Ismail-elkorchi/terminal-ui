@@ -49,6 +49,7 @@ export interface RenderNodePlaceInput<
   readonly bounds: Rect;
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
+  readonly measurement: () => Measurement;
   readonly widthProfile: TextWidthProfile;
 }
 

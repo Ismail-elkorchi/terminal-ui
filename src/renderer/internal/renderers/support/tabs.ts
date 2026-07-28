@@ -418,9 +418,7 @@ function tabHeaderSpans(
     focused: focused && selected
   });
   const closeState = interactionVisualState(renderNode, tabCloseTargetId(renderNode, tab.id), {
-    disabled,
-    selected,
-    focused: focused && selected
+    disabled
   });
   const style = tabHeaderStyle(renderNode, state, selected);
   const markerStyle = selected ? tabIndicatorStyle(renderNode, state) : style;

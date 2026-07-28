@@ -4,7 +4,7 @@ import type { RenderNodeOfKind } from '../model/index.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RenderNodeRenderInput } from '../model/renderer.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
-import { layoutContentBounds } from './layout-geometry.ts';
+import { layoutBoxBounds, layoutPaddingBounds } from './layout-geometry.ts';
 import { layoutFlowOptions } from './renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
 
@@ -22,8 +22,15 @@ export function renderCanvas(input: RenderNodeRenderInput<unknown, 'canvas'>): v
 }
 
 export function surfaceChildBounds(renderNode: SurfaceNode, bounds: Rect): readonly Rect[] {
-  const contentBounds = layoutContentBounds(surfaceChildContentBounds(renderNode, bounds), layoutFlowOptions(renderNode));
+  const contentBounds = layoutPaddingBounds(
+    surfaceChildContentBounds(renderNode, bounds),
+    renderNode.props.padding
+  );
   return (renderNode.children ?? []).map(() => contentBounds);
+}
+
+export function placeSurface(renderNode: SurfaceNode, bounds: Rect): Rect {
+  return layoutBoxBounds(bounds, layoutFlowOptions(renderNode));
 }
 
 export function absoluteChildBounds(renderNode: AbsoluteNode, bounds: Rect): readonly Rect[] {

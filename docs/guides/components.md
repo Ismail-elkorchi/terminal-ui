@@ -110,7 +110,8 @@ keyboard, text-input, focus, or pointer interaction.
 `meta.focus` can disable focus traversal, set focus order, or contain focus
 inside a subtree. A modal `dialog()` requires an explicit `focusPolicy` for its
 initial target and focus-return behavior; a non-modal dialog does not create a
-focus scope.
+focus scope. Without an explicit width or height, a dialog uses its measured
+content size and remains centered. Padding is inside its border.
 
 `meta.layer` controls visibility, z-index, lower-layer handling, and overflow
 priority. Its `underlay` field clears lower cells with `clear`, leaves them in

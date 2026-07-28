@@ -109,9 +109,16 @@ export const dataRenderers = {
   },
   list: {
     measure: dataMeasurements.list,
-    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => listScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(renderNode, scrollbars.contentBounds.height, theme, focus === 'self'));
+      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(
+        renderNode,
+        scrollbars.contentBounds.height,
+        theme,
+        focus === 'self',
+        scrollbars.contentBounds.width,
+        widthProfile
+      ));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
