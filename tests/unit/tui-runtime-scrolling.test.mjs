@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { applyScrollEvent, createScrollState, treeReducer } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { custom } from '../../dist/component/index.js';
+import { custom, customComposite } from '../../dist/component/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { contextMenu, text, textArea, tree } from '../../dist/components/index.js';
 import { column, overlay, viewport } from '../../dist/layout/index.js';
@@ -411,6 +411,94 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
   assert.equal(runtime.state().scroll.offsetRow, 9);
   assert.equal(harness.frames().length, 2);
   assert.match(renderFramePlain(runtime.frame()), /line 10/u);
+});
+
+test('viewport wheel bursts and thumb dragging keep scrolled composite children valid', async () => {
+  const children = Array.from({ length: 40 }, (_value, index) =>
+    text(`composite line ${String(index + 1).padStart(2, '0')}`, { id: `composite-line-${String(index)}` })
+  );
+  const app = defineTui({
+    id: 'composite-viewport-scroll-tui',
+    init: () => ({ scroll: createScrollState({ contentRows: children.length, viewportRows: 1 }) }),
+    update: (state, message) => ({
+      state: { scroll: applyScrollEvent(state.scroll, message.event) }
+    }),
+    view: (state) => viewport(customComposite({
+      id: 'scrolling-composite',
+      children,
+      renderer: {
+        layout({ bounds }) {
+          return children.map((_child, index) => ({
+            row: bounds.row + index,
+            column: bounds.column,
+            width: bounds.width,
+            height: 1
+          }));
+        },
+        accessibility({ id, children: accessibleChildren }) {
+          return { id, role: 'group', label: 'Scrolling composite', children: accessibleChildren };
+        }
+      }
+    }), {
+      id: 'composite-viewport',
+      scrollRow: state.scroll.offsetRow,
+      contentRows: children.length,
+      contentColumns: 24,
+      scrollbar: { visible: 'always', axis: 'vertical' },
+      onScroll: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 6 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const content = targetById(runtime, 'composite-viewport:scroll:content');
+  const wheelDown = `\u001B[<65;${String(content.bounds.column)};${String(content.bounds.row)}M`;
+  await runtime.handleInputChunk({ data: wheelDown.repeat(3) });
+  await runtime.flushInput();
+  const offsetAfterWheel = runtime.state().scroll.offsetRow;
+  const thumb = targetById(runtime, 'composite-viewport:scrollbar:vertical:thumb');
+  const press = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'press',
+    button: 'left',
+    row: thumb.bounds.row,
+    column: thumb.bounds.column,
+    rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+  const drag = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'drag',
+    button: 'left',
+    row: Math.min(thumb.bounds.row + 3, 6),
+    column: thumb.bounds.column,
+    rawCode: 32,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+  await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'release',
+    button: 'left',
+    row: Math.min(thumb.bounds.row + 3, 6),
+    column: thumb.bounds.column,
+    rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(offsetAfterWheel, 9);
+  assert.equal(press.handled, true);
+  assert.equal(drag.handled, true);
+  assert.equal(runtime.state().scroll.offsetRow > offsetAfterWheel, true);
+  assert.match(renderFramePlain(runtime.frame()), /composite line/u);
+  assert.deepEqual(runtime.diagnostics(), []);
+  await runtime.dispose();
 });
 
 test('TUI runtime coalesces compatible wheel packets across terminal reads', async () => {

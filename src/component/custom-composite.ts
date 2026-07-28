@@ -214,16 +214,20 @@ function normalizeChildBounds(values: readonly Rect[], parent: Rect, childCount:
     throw new RangeError(`Custom composite layout returned ${String(values.length)} bounds for ${String(childCount)} children.`);
   }
   return Object.freeze(values.map((value, index) => {
-    if (!rectIsFiniteInteger(value) || !rectFits(value, parent)) {
+    if (!rectHasValidCoordinates(value) || !rectFits(value, parent)) {
       throw new RangeError(`Custom composite child ${String(index)} returned bounds outside its parent.`);
     }
     return Object.freeze({ ...value });
   }));
 }
 
-function rectIsFiniteInteger(value: Rect): boolean {
-  return [value.row, value.column, value.width, value.height]
-    .every((item) => Number.isSafeInteger(item) && item >= 0);
+function rectHasValidCoordinates(value: Rect): boolean {
+  return Number.isSafeInteger(value.row)
+    && Number.isSafeInteger(value.column)
+    && Number.isSafeInteger(value.width)
+    && value.width >= 0
+    && Number.isSafeInteger(value.height)
+    && value.height >= 0;
 }
 
 function rectFits(value: Rect, parent: Rect): boolean {

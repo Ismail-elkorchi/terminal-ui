@@ -96,7 +96,10 @@ return them as part of its own semantic structure.
 
 Composite extensions cannot inspect private render nodes, write to a terminal
 host, retain hidden state, omit child bounds, or place child bounds outside the
-container. Caller state remains an explicit input.
+container. Rows and columns are absolute terminal coordinates and may be
+negative when an enclosing viewport scrolls content beyond the visible
+terminal; containment is evaluated relative to the parent. Widths and heights
+must remain non-negative. Caller state remains an explicit input.
 
 ## Evidence To Test
 

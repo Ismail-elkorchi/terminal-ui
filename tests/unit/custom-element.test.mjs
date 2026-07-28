@@ -293,6 +293,62 @@ test('custom composites derive intrinsic size from opaque children under the act
   assert.equal(layout.children[0]?.bounds.width, 4);
 });
 
+test('custom composites accept clipped child coordinates inside a scrolled parent', () => {
+  const composite = customComposite({
+    id: 'scrolled-composite',
+    children: [
+      text('offscreen', { id: 'offscreen-child' }),
+      text('visible', { id: 'visible-child' })
+    ],
+    renderer: {
+      layout({ bounds }) {
+        return [
+          { ...bounds, height: 1 },
+          { ...bounds, row: bounds.row + 8, height: 1 }
+        ];
+      },
+      accessibility({ id, children }) {
+        return { id, role: 'group', label: 'Scrolled composite', children };
+      }
+    }
+  });
+  const frame = renderElementFrame(viewport(composite, {
+    id: 'scrolled-composite-viewport',
+    scrollRow: 8,
+    contentRows: 12,
+    contentColumns: 12
+  }), { columns: 12, rows: 3 });
+
+  assert.match(renderFramePlain(frame), /visible/u);
+  assert.doesNotMatch(renderFramePlain(frame), /offscreen/u);
+});
+
+test('custom composites still reject invalid sizes and relative overflow', () => {
+  const composite = (layout) => customComposite({
+    id: 'invalid-composite',
+    children: [text('child')],
+    renderer: {
+      layout,
+      accessibility({ id }) {
+        return { id, role: 'group', label: 'Invalid composite' };
+      }
+    }
+  });
+
+  assert.throws(
+    () => renderElementFrame(composite(({ bounds }) => [{ ...bounds, width: -1 }]), { columns: 8, rows: 2 }),
+    /returned bounds outside its parent/u
+  );
+  assert.throws(
+    () => renderElementFrame(composite(({ bounds }) => [{ ...bounds, row: bounds.row - 1 }]), { columns: 8, rows: 2 }),
+    /returned bounds outside its parent/u
+  );
+  assert.throws(
+    () => renderElementFrame(composite(({ bounds }) => [{ ...bounds, column: bounds.column + 0.5 }]), { columns: 8, rows: 2 }),
+    /returned bounds outside its parent/u
+  );
+});
+
 test('malformed custom renderers fail as programmer errors', () => {
   assert.throws(
     () => custom({ id: 'bad-renderer', renderer: undefined }),
