@@ -186,7 +186,9 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
         presentation: { kind: 'closed', active: 'help' },
         onAction: (action) => action
       })
-    ])
+    ], {
+      sizes: [{ kind: 'fill' }, { kind: 'fill' }]
+    })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 40, rows: 8 } }) });
 

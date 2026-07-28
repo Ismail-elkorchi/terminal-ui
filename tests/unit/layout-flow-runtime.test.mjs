@@ -189,6 +189,33 @@ test('searchPicker content tracks use the active text-width profile', () => {
   assert.equal(wide.children[0]?.bounds.width, 22);
 });
 
+test('column children use their measured height unless a fill track is explicit', () => {
+  const compact = column([
+    text('Title', { id: 'compact-title' }),
+    text('Description', { id: 'compact-description' }),
+    button({ id: 'compact-action', label: 'Continue' })
+  ], { gap: 1 });
+  const expanded = column([
+    text('Title', { id: 'expanded-title' }),
+    text('Body', { id: 'expanded-body' })
+  ], {
+    sizes: [{ kind: 'content' }, { kind: 'fill' }]
+  });
+
+  const compactLayout = layoutElement(compact, { columns: 30, rows: 20 });
+  const expandedLayout = layoutElement(expanded, { columns: 30, rows: 20 });
+
+  assert.deepEqual(compactLayout.children.map((child) => child.bounds), [
+    { row: 1, column: 1, width: 30, height: 1 },
+    { row: 3, column: 1, width: 30, height: 1 },
+    { row: 5, column: 1, width: 30, height: 1 }
+  ]);
+  assert.deepEqual(expandedLayout.children.map((child) => child.bounds), [
+    { row: 1, column: 1, width: 30, height: 1 },
+    { row: 2, column: 1, width: 30, height: 19 }
+  ]);
+});
+
 test('column explicit sizes keep fixed header and footer tracks around fill content', () => {
   const element = column([
     text('Header', { id: 'header' }),

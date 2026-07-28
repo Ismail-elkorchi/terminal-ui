@@ -37,6 +37,9 @@ min/max dimensions, alignment, justification, overflow, z-index, visibility,
 and focus scope. Tiny terminal sizes should produce clipped or empty regions,
 not crashes.
 
+Without explicit sizes, `column()` stacks children at their measured heights;
+use a fill track only for content that should consume remaining rows.
+
 Rendering starts after layout. Renderers emit styled spans into a `FrameBuffer`;
 the buffer handles clipping, wide glyphs, overwrite behavior, and source
 metadata. Diffs and ANSI serialization operate on frames rather than on element

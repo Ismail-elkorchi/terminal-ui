@@ -180,14 +180,14 @@ export function layoutSizes(value: unknown): readonly LayoutSize[] {
     : [];
 }
 
-export function fillLayoutSizes(count: number): readonly LayoutSize[] {
-  return Array.from({ length: Math.max(0, count) }, () => ({ kind: 'fill' }));
+function contentLayoutSizes(count: number): readonly LayoutSize[] {
+  return Array.from({ length: Math.max(0, count) }, () => ({ kind: 'content' }));
 }
 
 export function childLayoutSizes(renderNode: SizedFlowNode, fallback?: readonly LayoutSize[]): readonly LayoutSize[] {
   const children = renderNode.children ?? [];
   const explicit = layoutSizes(renderNode.props.sizes);
-  return explicit.length === children.length ? explicit : fallback ?? fillLayoutSizes(children.length);
+  return explicit.length === children.length ? explicit : fallback ?? contentLayoutSizes(children.length);
 }
 
 export function priorityFillLayoutSizes(children: readonly RenderNode[]): readonly LayoutSize[] {

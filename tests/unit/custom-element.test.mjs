@@ -407,6 +407,14 @@ test('custom renderer hit targets reject unavailable focus targets', () => {
 
 test('custom renderers must provide accessibility unless explicitly decorative', () => {
   const visualRenderer = {
+    measure() {
+      return {
+        minWidth: 1,
+        minHeight: 1,
+        preferredWidth: 5,
+        preferredHeight: 1
+      };
+    },
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'decor' }]);
     }

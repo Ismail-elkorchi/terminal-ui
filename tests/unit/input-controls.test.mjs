@@ -235,13 +235,13 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
   assert.ok(frame.hitTargets?.some((target) => target.id === 'colors:blue'));
   assert.ok(frame.hitTargets?.some((target) => target.id === 'dates:2026-06-10'));
   assert.deepEqual(frame.hitTargets?.find((target) => target.id === 'colors:blue')?.bounds, {
-    row: 9,
+    row: 7,
     column: 13,
     width: 12,
     height: 1
   });
   assert.deepEqual(frame.hitTargets?.find((target) => target.id === 'dates:2026-06-10')?.bounds, {
-    row: 17,
+    row: 13,
     column: 9,
     width: 4,
     height: 1

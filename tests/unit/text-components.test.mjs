@@ -359,7 +359,7 @@ test('editable text controls remain readable in high contrast and no-color rende
       validation: { level: 'warning', message: 'Waiting' }
     })
   ]);
-  const frame = renderElementFrame(element, { columns: 28, rows: 3 }, {
+  const frame = renderElementFrame(element, { columns: 28, rows: 4 }, {
     theme: highContrastTheme,
     focusPath: ['contrast-input']
   });

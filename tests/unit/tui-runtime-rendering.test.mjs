@@ -125,7 +125,9 @@ test('TUI rendering windows large list and table components to visible height', 
   const frame = renderElementFrame(column([
     list({ id: 'many-items', items: manyItems, projectItem: (item) => ({ id: item, label: item }), selectedId: 'Item 990' }),
     table({ id: 'many-rows', rows: manyItems.map((item) => [item, 'value']), getRowId: (_row, index) => String(index) })
-  ]), { columns: 24, rows: 8 });
+  ], {
+    sizes: [{ kind: 'fill' }, { kind: 'fill' }]
+  }), { columns: 24, rows: 8 });
   const output = renderFramePlain(frame);
   const listNode = frame.accessibility.root.children[0];
   const tableNode = frame.accessibility.root.children[1];
