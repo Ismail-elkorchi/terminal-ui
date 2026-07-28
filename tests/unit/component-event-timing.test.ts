@@ -13,6 +13,7 @@ import {
   textArea,
   textInput
 } from '../../dist/components/index.js';
+import { custom } from '../../dist/component/index.js';
 import type { TabAction } from '../../dist/components/index.js';
 import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
@@ -128,6 +129,61 @@ void test('tabs route delete to the selected close action without selecting twic
   await runtime.handleInput({ kind: 'key', key: 'delete', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.deepEqual(messages, [{ kind: 'tabs', action: { kind: 'close', id: 'second' } }]);
+  await runtime.dispose();
+});
+
+void test('tabs do not consume keys handled by the selected panel', async () => {
+  type Message =
+    | { readonly kind: 'panel' }
+    | { readonly kind: 'tabs'; readonly action: TabAction };
+  const messages: Message[] = [];
+  const app = defineTui<undefined, Message>({
+    id: 'tabs-panel-keys',
+    init: () => undefined,
+    update: (state, message) => {
+      messages.push(message);
+      return { state };
+    },
+    view: () => tabs({
+      id: 'tabs',
+      selected: 'current',
+      tabs: [{
+        id: 'current',
+        label: 'Current',
+        panel: custom({
+          id: 'panel',
+          renderer: {
+            render() {},
+            accessibility: ({ id }) => ({ id, role: 'document', label: 'Panel' }),
+            focusTargets: ({ bounds }) => [{ id: 'action', bounds }]
+          }
+        })
+      }],
+      onAction: (action) => ({ kind: 'tabs', action })
+    }),
+    inputBindings: [{
+      id: 'panel-enter',
+      phase: 'afterFocus',
+      triggers: [{ kind: 'key', key: 'enter' }],
+      message: { kind: 'panel' }
+    }]
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 4 } }),
+    initialFocus: { kind: 'elementTarget', elementId: 'panel', targetId: 'action' }
+  });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'enter',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.deepEqual(messages, [{ kind: 'panel' }]);
   await runtime.dispose();
 });
 

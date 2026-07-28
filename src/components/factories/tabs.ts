@@ -2,7 +2,7 @@ import { mergeKeyBindings } from '../../element/metadata-normalization.ts';
 import { requiredRenderNodeId } from '../../renderer/model/element.ts';
 import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import type { Element } from '../../element/index.ts';
-import type { ElementKeyBindings } from '../../element/metadata.ts';
+import type { ElementKeyBindings, ElementKeyHandler } from '../../element/metadata.ts';
 import { componentElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
 import type { RenderTabItem } from '../../renderer/model/props/tabs.ts';
@@ -10,8 +10,10 @@ import type { TabAction } from '../../ui-model/tabs.ts';
 import type { TabsOptions } from '../options/tabs.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
 
 export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage> {
+  const identity = requiredRenderNodeId(options.id, 'tabs');
   const tabs: readonly RenderTabItem[] = options.tabs.map((tab) => ({
     id: tab.id,
     label: tab.label,
@@ -23,20 +25,26 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
   }));
   const onAction = options.onAction;
   const selected = options.selected ?? options.tabs.find((tab) => tab.disabled !== true)?.id;
+  const whenTabListFocused = (
+    action: () => MessageResolution<TMessage>
+  ): ElementKeyHandler<TMessage> => (event) =>
+    event.focusPath.at(-1) === identity.id ? action() : ignoreMessage();
   const generated = onAction === undefined ? undefined : {
-    arrowLeft: () => onAction({ kind: 'move', delta: -1 }),
-    arrowRight: () => onAction({ kind: 'move', delta: 1 }),
-    home: () => onAction({ kind: 'first' }),
-    end: () => onAction({ kind: 'last' }),
-    delete: () => {
+    arrowLeft: whenTabListFocused(() => onAction({ kind: 'move', delta: -1 })),
+    arrowRight: whenTabListFocused(() => onAction({ kind: 'move', delta: 1 })),
+    home: whenTabListFocused(() => onAction({ kind: 'first' })),
+    end: whenTabListFocused(() => onAction({ kind: 'last' })),
+    delete: whenTabListFocused(() => {
       const selectedTab = options.tabs.find((tab) => tab.id === selected);
       return selectedTab?.closable === true ? onAction({ kind: 'close', id: selectedTab.id }) : ignoreMessage();
-    },
-    enter: () => selected === undefined ? ignoreMessage() : onAction({ kind: 'select', id: selected })
+    }),
+    enter: whenTabListFocused(() =>
+      selected === undefined ? ignoreMessage() : onAction({ kind: 'select', id: selected })
+    )
   } satisfies ElementKeyBindings<TMessage>;
   const keys = mergeKeyBindings(generated, options.keys);
   return componentElementFromRenderNode<'tabs', TMessage>({
-    ...requiredRenderNodeId(options.id, 'tabs'),
+    ...identity,
     kind: 'tabs',
     props: {
       tabs,
