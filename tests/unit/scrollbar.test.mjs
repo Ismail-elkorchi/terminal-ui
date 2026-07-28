@@ -389,4 +389,35 @@ test('viewport scrollbar clips child rendering to content bounds', () => {
   assert.equal(track.source?.partType, 'track');
   assert.equal(track.style?.fg?.token, 'scrollbar.track');
   assert.equal(track.style?.dim, true);
+  assert.equal(
+    frame.cells.some((cell) =>
+      cell.source?.elementKind === 'viewport'
+      && (cell.source.description === 'clip-left' || cell.source.description === 'clip-right')
+    ),
+    false
+  );
+});
+
+test('viewport scrollbar replaces redundant clipped-edge indicators', () => {
+  const frame = renderElementFrame(viewport(text('one\ntwo\nthree\nfour'), {
+    id: 'scrollbar-affordance',
+    scrollRow: 0,
+    scrollColumn: 0,
+    contentRows: 4,
+    contentColumns: 8,
+    scrollbar: { axis: 'vertical' },
+    onScroll: () => undefined
+  }), { columns: 8, rows: 2 });
+
+  assert.equal(
+    frame.cells.some((cell) =>
+      cell.source?.elementKind === 'viewport'
+      && (cell.source.description === 'clip-top' || cell.source.description === 'clip-bottom')
+    ),
+    false
+  );
+  assert.ok(frame.cells.some((cell) =>
+    cell.source?.elementKind === 'viewport'
+    && cell.source?.partType === 'thumb'
+  ));
 });

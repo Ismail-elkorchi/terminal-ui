@@ -1,5 +1,5 @@
 import { numberProp } from '../../render-node-props.ts';
-import { finiteNonNegativeIntegerOrZero } from '../../../../foundation/validation.ts';
+import { finiteNonNegativeIntegerOrZero, isNonArrayObject } from '../../../../foundation/validation.ts';
 import { normalizeScrollState } from '../../../../behavior/scroll.ts';
 import { renderNodeStyle } from '../../render-node-style.ts';
 import { renderNodeFrameSource } from '../../../../visual/source.ts';
@@ -82,18 +82,30 @@ export function drawViewportIndicators(
     writeViewportIndicator(buffer, renderNode, centered(bounds), theme.tokens.symbols.viewportEmpty, 'empty', style, occupiedCells);
     return;
   }
-  if (state.clippedTop) {
+  const verticalScrollbar = hasScrollbarForAxis(renderNode, 'vertical');
+  const horizontalScrollbar = hasScrollbarForAxis(renderNode, 'horizontal');
+  if (state.clippedTop && !verticalScrollbar) {
     writeViewportIndicator(buffer, renderNode, { row: bounds.row, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipTop, 'clip-top', style, occupiedCells);
   }
-  if (state.clippedBottom) {
+  if (state.clippedBottom && !verticalScrollbar) {
     writeViewportIndicator(buffer, renderNode, { row: bounds.row + bounds.height - 1, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipBottom, 'clip-bottom', style, occupiedCells);
   }
-  if (state.clippedLeft) {
+  if (state.clippedLeft && !horizontalScrollbar) {
     writeViewportIndicator(buffer, renderNode, { row: midpoint(bounds.row, bounds.height), column: bounds.column }, theme.tokens.symbols.viewportClipLeft, 'clip-left', style, occupiedCells);
   }
-  if (state.clippedRight) {
+  if (state.clippedRight && !horizontalScrollbar) {
     writeViewportIndicator(buffer, renderNode, { row: midpoint(bounds.row, bounds.height), column: bounds.column + bounds.width - 1 }, theme.tokens.symbols.viewportClipRight, 'clip-right', style, occupiedCells);
   }
+}
+
+function hasScrollbarForAxis(
+  renderNode: ViewportNode,
+  axis: 'vertical' | 'horizontal'
+): boolean {
+  const options = renderNode.props.scrollbar;
+  if (!isNonArrayObject(options) || options['visible'] === 'never') return false;
+  const configuredAxis = options['axis'];
+  return configuredAxis === undefined || configuredAxis === 'both' || configuredAxis === axis;
 }
 
 function writeViewportIndicator(
