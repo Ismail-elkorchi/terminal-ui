@@ -168,7 +168,8 @@ export const dataRenderers = {
         scrollbars.contentBounds,
         theme,
         widthProfile,
-        focus === 'self'
+        focus === 'self',
+        true
       ));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },

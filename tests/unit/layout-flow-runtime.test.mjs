@@ -120,6 +120,34 @@ test('splitPane content tracks use measured child width', () => {
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
 });
 
+test('interactive row fills do not inflate intrinsic content tracks', () => {
+  const element = row([
+    button({ id: 'back', label: 'Back' }),
+    button({ id: 'forward', label: 'Forward' }),
+    surface(commandInput({
+      id: 'address',
+      presentation: { value: 'example.test', cursor: 12, suggestions: [] }
+    }), { appearance: 'inset' }),
+    button({ id: 'menu', label: 'Menu' })
+  ], {
+    id: 'browser-toolbar-shape',
+    gap: 1,
+    sizes: [
+      { kind: 'content' },
+      { kind: 'content' },
+      { kind: 'fill' },
+      { kind: 'content' }
+    ]
+  });
+
+  const layout = layoutElement(element, { columns: 80, rows: 1 });
+
+  assert.ok((layout.children[0]?.bounds.width ?? 80) < 12);
+  assert.ok((layout.children[1]?.bounds.width ?? 80) < 12);
+  assert.ok((layout.children[2]?.bounds.width ?? 0) > 40);
+  assert.ok((layout.children[3]?.bounds.width ?? 80) < 12);
+});
+
 test('form content tracks include field labels and control gaps', () => {
   const element = column([
     form([

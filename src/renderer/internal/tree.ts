@@ -45,7 +45,8 @@ export function treeBlock(
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focused = false
+  focused = false,
+  fillWidth = false
 ): RenderBlock {
   const { totalRows, selected, window } = treeRenderModel(renderNode, bounds.height);
   if (totalRows === 0 && bounds.height > 0) {
@@ -59,7 +60,16 @@ export function treeBlock(
     };
   }
   return {
-    lines: window.rows.map((row) => treeLine(renderNode, row, selected, bounds.width, theme, widthProfile, focused))
+    lines: window.rows.map((row) => treeLine(
+      renderNode,
+      row,
+      selected,
+      bounds.width,
+      theme,
+      widthProfile,
+      focused,
+      fillWidth
+    ))
   };
 }
 
@@ -142,7 +152,8 @@ function treeLine(
   width: number,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focused: boolean
+  focused: boolean,
+  fillWidth: boolean
 ): RenderLine {
   const isSelected = row.node.id === selected;
   const rowState = treeRowVisualState(renderNode, row, isSelected, focused);
@@ -213,9 +224,11 @@ function treeLine(
       ...(matchStyle === undefined ? {} : { matchStyle })
     })
   ];
-  return padRenderLine({
+  const line = {
     spans: clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…', widthProfile })
-  }, Math.max(0, width), {
+  };
+  if (!fillWidth) return line;
+  return padRenderLine(line, Math.max(0, width), {
     widthProfile,
     fill: {
       text: ' ',

@@ -78,6 +78,7 @@ export function dropdownMenuControlLine(input: {
   readonly width: number;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly fillWidth?: boolean;
 }): RenderLine {
   const stateStyle = input.placeholder
     ? renderNodeStyle(input.renderNode, 'placeholder')
@@ -102,8 +103,10 @@ export function dropdownMenuControlLine(input: {
     menuSpan(input.renderNode, ` ${marker}`, controlStyle, { label: 'dropdownMenu-marker', state }),
     menuSpan(input.renderNode, '  ', controlStyle, { label: 'dropdownMenu-padding', state })
   ];
+  const line = { spans: clipSpans(spans, input.width, input.widthProfile) };
+  if (input.fillWidth !== true) return line;
   return padRenderLine(
-    { spans: clipSpans(spans, input.width, input.widthProfile) },
+    line,
     input.width,
     {
       widthProfile: input.widthProfile,
@@ -122,16 +125,19 @@ export function menuItemLine(
   width: number,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focused = false
+  focused = false,
+  fillWidth = false
 ): RenderLine {
   const state = interactionVisualState(renderNode, menuItemTargetId(renderNode, item.id), {
     disabled: item.disabled === true,
     selected,
     focused: focused && selected
   });
-  return padRenderLine({
+  const line = {
     spans: clipSpans(menuItemSpans(renderNode, item, selected, state, theme), width, widthProfile)
-  }, width, {
+  };
+  if (!fillWidth) return line;
+  return padRenderLine(line, width, {
     widthProfile,
     fill: menuSpan(renderNode, ' ', menuLabelStyle(renderNode, item, state), {
       itemId: item.id,

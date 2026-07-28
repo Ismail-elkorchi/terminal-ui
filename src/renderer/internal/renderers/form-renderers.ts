@@ -114,7 +114,8 @@ export const formRenderers = {
         layoutNode.bounds,
         focus === 'self',
         theme,
-        widthProfile
+        widthProfile,
+        true
       ));
     },
     accessibility: ({ renderNode, id, focused }) => buttonAccessibleBase(renderNode, id, focused),
@@ -129,7 +130,8 @@ export const formRenderers = {
         layoutNode.bounds,
         theme,
         widthProfile,
-        focus === 'self'
+        focus === 'self',
+        true
       ));
     },
     accessibility: ({ renderNode, id, focused }) => checkboxAccessibleBase(renderNode, id, focused),
@@ -144,7 +146,8 @@ export const formRenderers = {
         layoutNode.bounds,
         theme,
         widthProfile,
-        focus === 'self'
+        focus === 'self',
+        true
       ));
     },
     accessibility: ({ renderNode, id, focused }) => toggleSwitchAccessibleBase(renderNode, id, focused),
@@ -176,7 +179,8 @@ export const formRenderers = {
         renderNode,
         layoutNode.bounds,
         theme,
-        widthProfile
+        widthProfile,
+        true
       ));
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -193,7 +197,8 @@ export const formRenderers = {
         renderNode,
         layoutNode.bounds,
         theme,
-        widthProfile
+        widthProfile,
+        true
       ));
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -215,7 +220,7 @@ export const formRenderers = {
       writeRenderBlock(
         input.buffer,
         input.layoutNode.bounds,
-        selectBlock(input.renderNode, input.layoutNode.bounds, input.theme, input.widthProfile)
+        selectBlock(input.renderNode, input.layoutNode.bounds, input.theme, input.widthProfile, true)
       );
       input.renderChildren();
     },

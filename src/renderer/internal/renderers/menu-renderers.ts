@@ -49,7 +49,14 @@ export const menuRenderers = {
     measure: menuMeasurements.menu,
     render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, widthProfile, focus === 'self'));
+      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(
+        renderNode,
+        scrollbars.contentBounds,
+        theme,
+        widthProfile,
+        focus === 'self',
+        true
+      ));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -113,7 +120,8 @@ export const menuRenderers = {
         input.layoutNode.bounds,
         input.theme,
         input.widthProfile,
-        input.focus === 'self'
+        input.focus === 'self',
+        true
       ));
       input.renderChildren();
     },

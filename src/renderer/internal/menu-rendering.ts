@@ -50,14 +50,26 @@ export function menuBlock(
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focused = false
+  focused = false,
+  fillWidth = false
 ): RenderBlock {
   const rows = menuRows(renderNode, bounds);
   if (rows.length === 0 && bounds.height > 0) {
     return { lines: [menuEmptyLine(renderNode, emptyText(renderNode), bounds.width, widthProfile)] };
   }
   const active = menuActiveId(renderNode);
-  return { lines: rows.map((row) => menuItemLine(renderNode, row.item, row.item.id === active, bounds.width, theme, widthProfile, focused)) };
+  return {
+    lines: rows.map((row) => menuItemLine(
+      renderNode,
+      row.item,
+      row.item.id === active,
+      bounds.width,
+      theme,
+      widthProfile,
+      focused,
+      fillWidth
+    ))
+  };
 }
 
 export function menuBarBlock(
@@ -77,7 +89,8 @@ export function dropdownMenuBlock(
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focused = false
+  focused = false,
+  fillWidth = false
 ): RenderBlock {
   const active = dropdownActiveItem(renderNode);
   const placeholder = clean(stringify(renderNode.props.placeholder)) || 'Choose action…';
@@ -91,7 +104,8 @@ export function dropdownMenuBlock(
       focused,
       width: bounds.width,
       theme,
-      widthProfile
+      widthProfile,
+      fillWidth
     })]
   };
 }

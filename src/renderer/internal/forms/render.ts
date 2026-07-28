@@ -125,14 +125,15 @@ export function buttonBlock(
   bounds: Rect,
   focused: boolean,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  fillWidth = false
 ): RenderBlock {
   const label = clean(stringify(renderNode.props.label)) || 'Button';
-  return block([padInteractiveLine(clippedFormLine(
+  return block([interactiveLine(clippedFormLine(
     buttonSpans(renderNode, label, focused, theme, widthProfile),
     bounds.width,
     widthProfile
-  ), bounds.width, widthProfile)]);
+  ), bounds.width, widthProfile, fillWidth)]);
 }
 
 export function checkboxBlock(
@@ -140,7 +141,8 @@ export function checkboxBlock(
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focused = false
+  focused = false,
+  fillWidth = false
 ): RenderBlock {
   const checked = renderNode.props.checked;
   const symbol = checked ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
@@ -149,7 +151,7 @@ export function checkboxBlock(
     focused
   });
   const lines = [
-    padInteractiveLine(clippedFormLine([
+    interactiveLine(clippedFormLine([
       formSpan(
         renderNode,
         'marker',
@@ -160,7 +162,7 @@ export function checkboxBlock(
       ),
       separatorSpan(renderNode),
       ...labelSpans(renderNode, 'label', clean(stringify(renderNode.props.label)), state, renderNode.props.required === true)
-    ], bounds.width, widthProfile), bounds.width, widthProfile),
+    ], bounds.width, widthProfile), bounds.width, widthProfile, fillWidth),
     ...errorLines(renderNode, bounds.width, widthProfile)
   ];
   return block(lines.slice(0, Math.max(0, bounds.height)));
@@ -171,7 +173,8 @@ export function toggleSwitchBlock(
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focused = false
+  focused = false,
+  fillWidth = false
 ): RenderBlock {
   const checked = renderNode.props.checked;
   const label = clean(stringify(renderNode.props.label));
@@ -185,7 +188,7 @@ export function toggleSwitchBlock(
   const track = oneCellGlyph(theme.tokens.symbols.scrollbarHorizontalThumb, '-', { widthProfile });
   const value = checked ? onLabel : offLabel;
   const lines = [
-    padInteractiveLine(clippedFormLine([
+    interactiveLine(clippedFormLine([
       ...controlPrefixSpans(renderNode, label, state),
       formSpan(
         renderNode,
@@ -204,7 +207,7 @@ export function toggleSwitchBlock(
         mergeStyles(toggleValueStyle(renderNode, checked), renderNodeStyle(renderNode, 'value', state)),
         state
       )
-    ], bounds.width, widthProfile), bounds.width, widthProfile),
+    ], bounds.width, widthProfile), bounds.width, widthProfile, fillWidth),
     ...errorLines(renderNode, bounds.width, widthProfile)
   ];
   return block(lines.slice(0, Math.max(0, bounds.height)));
@@ -248,7 +251,8 @@ export function checkboxGroupBlock(
   renderNode: CheckboxGroupNode,
   bounds: Rect,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  fillWidth = false
 ): RenderBlock {
   const lines: RenderLine[] = [];
   const label = clean(stringify(renderNode.props.label));
@@ -265,11 +269,11 @@ export function checkboxGroupBlock(
       disabled: option.disabled === true || renderNode.props.disabled === true,
       focused: renderNode.props.focused === option.id
     });
-    lines.push(padInteractiveLine(clippedFormLine([
+    lines.push(interactiveLine(clippedFormLine([
       formSpan(renderNode, 'marker', selected.has(option.id) ? `option.${option.id}.marker.checked` : `option.${option.id}.marker.unchecked`, symbol, formMarkerStyle(renderNode, state)),
       separatorSpan(renderNode),
       formSpan(renderNode, 'option', `option.${option.id}.label`, option.label, renderNodeStyle(renderNode, 'option', state), state)
-    ], bounds.width, widthProfile), bounds.width, widthProfile));
+    ], bounds.width, widthProfile), bounds.width, widthProfile, fillWidth));
   }
   lines.push(...errorLines(renderNode, bounds.width, widthProfile));
   return block(lines.slice(0, Math.max(0, bounds.height)));
@@ -279,7 +283,8 @@ export function radioGroupBlock(
   renderNode: RadioGroupNode,
   bounds: Rect,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  fillWidth = false
 ): RenderBlock {
   const lines: RenderLine[] = [];
   const label = clean(stringify(renderNode.props.label));
@@ -296,11 +301,11 @@ export function radioGroupBlock(
       disabled: option.disabled === true || renderNode.props.disabled === true,
       focused: renderNode.props.focused === option.id
     });
-    lines.push(padInteractiveLine(clippedFormLine([
+    lines.push(interactiveLine(clippedFormLine([
       formSpan(renderNode, 'marker', option.id === selected ? `option.${option.id}.marker.selected` : `option.${option.id}.marker`, symbol, formMarkerStyle(renderNode, state)),
       separatorSpan(renderNode),
       formSpan(renderNode, 'option', `option.${option.id}.label`, option.label, renderNodeStyle(renderNode, 'option', state), state)
-    ], bounds.width, widthProfile), bounds.width, widthProfile));
+    ], bounds.width, widthProfile), bounds.width, widthProfile, fillWidth));
   }
   lines.push(...errorLines(renderNode, bounds.width, widthProfile));
   return block(lines.slice(0, Math.max(0, bounds.height)));
@@ -364,7 +369,8 @@ export function selectBlock(
   renderNode: SelectNode,
   bounds: Rect,
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  fillWidth = false
 ): RenderBlock {
   const selected = selectedOption(renderNode);
   const label = clean(stringify(renderNode.props.label));
@@ -376,7 +382,7 @@ export function selectBlock(
       ? renderNodeStyle(renderNode, 'description')
       : renderNodeStyle(renderNode, 'option');
   const rows = [
-    padInteractiveLine(clippedFormLine([
+    interactiveLine(clippedFormLine([
       ...controlPrefixSpans(renderNode, label, formControlState(renderNode), {
         required: renderNode.props.required === true
       }),
@@ -391,7 +397,7 @@ export function selectBlock(
           : theme.tokens.symbols.treeCollapsed,
         renderNodeStyle(renderNode, 'marker')
       )
-    ], bounds.width, widthProfile), bounds.width, widthProfile),
+    ], bounds.width, widthProfile), bounds.width, widthProfile, fillWidth),
     ...errorLines(renderNode, bounds.width, widthProfile)
   ];
   return block(rows.slice(0, Math.max(0, bounds.height)));
@@ -432,11 +438,13 @@ export function numberInputBlock(
   ]);
 }
 
-function padInteractiveLine(
+function interactiveLine(
   renderLine: RenderLine,
   width: number,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  fillWidth: boolean
 ): RenderLine {
+  if (!fillWidth) return renderLine;
   const trailing = renderLine.spans.at(-1);
   return padRenderLine(renderLine, width, {
     widthProfile,
