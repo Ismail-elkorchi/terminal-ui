@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
-import { commandInput, searchPicker, text, textArea } from '../../dist/components/index.js';
+import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
 import { column, grid, row, splitPane, surface } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
@@ -118,6 +118,26 @@ test('splitPane content tracks use measured child width', () => {
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 3 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
+});
+
+test('form content tracks include field labels and control gaps', () => {
+  const element = column([
+    form([
+      field([
+        textInput({ id: 'name', presentation: { value: '', cursor: 0 } })
+      ], { id: 'name-field', label: 'Name' }),
+      button({ id: 'submit', label: 'Submit' })
+    ], { id: 'profile-form', gap: 1 }),
+    text('remaining')
+  ], {
+    sizes: [{ kind: 'content' }, { kind: 'fill' }]
+  });
+
+  const layout = layoutElement(element, { columns: 30, rows: 8 });
+
+  assert.equal(layout.children[0]?.bounds.height, 4);
+  assert.equal(layout.children[0]?.children[0]?.bounds.height, 2);
+  assert.equal(layout.children[0]?.children[0]?.children[0]?.bounds.height, 1);
 });
 
 test('wrapped text-area content tracks retain intrinsic width', () => {

@@ -4,6 +4,8 @@ import {
   checkboxGroupBlock,
   colorSwatchPickerBlock,
   calendarBlock,
+  fieldBlock,
+  formBlock,
   labelBlock,
   numberInputBlock,
   radioGroupBlock,
@@ -20,13 +22,23 @@ import { childMeasurements, constrainedMeasureBounds } from './measurement-suppo
 import type { RendererMeasurementMap } from './types.ts';
 
 export const formMeasurements = {
-  form: ({ renderNode, childCount, measureChild }) => combineMeasurementsVertically(
-    childMeasurements(childCount, measureChild),
-    finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
+  form: ({ renderNode, bounds, widthProfile, childCount, measureChild }) => combineMeasurementsVertically(
+    [
+      measureBlock(formBlock(renderNode, constrainedMeasureBounds(bounds), widthProfile), { widthProfile }),
+      combineMeasurementsVertically(
+        childMeasurements(childCount, measureChild),
+        finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
+      )
+    ]
   ),
-  field: ({ renderNode, childCount, measureChild }) => combineMeasurementsVertically(
-    childMeasurements(childCount, measureChild),
-    finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
+  field: ({ renderNode, bounds, widthProfile, childCount, measureChild }) => combineMeasurementsVertically(
+    [
+      measureBlock(fieldBlock(renderNode, constrainedMeasureBounds(bounds), widthProfile), { widthProfile }),
+      combineMeasurementsVertically(
+        childMeasurements(childCount, measureChild),
+        finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
+      )
+    ]
   ),
   label: ({ renderNode, bounds, widthProfile }) => measureBlock(
     labelBlock(renderNode, constrainedMeasureBounds(bounds), widthProfile),

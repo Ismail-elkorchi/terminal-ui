@@ -56,18 +56,19 @@ import { textPointerHitTargets } from '../text-pointer.ts';
 import { stringify } from '../render-node-props.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { focusHitTargets, focusTarget } from './support/common.ts';
-import { fillLayoutSizes, layoutFlowOptions } from './support/layout.ts';
+import { layoutFlowOptions } from './support/layout.ts';
 import { formMeasurements } from './form-measurements.ts';
 import type { RendererMap } from './types.ts';
 
 export const formRenderers = {
   form: {
     measure: formMeasurements.form,
-    layout: ({ renderNode, bounds }) => splitTracks(
+    layout: ({ renderNode, bounds, measureChild }) => splitTracks(
       formContentBounds(renderNode, bounds),
       'vertical',
-      fillLayoutSizes(renderNode.children?.length ?? 0),
-      layoutFlowOptions(renderNode)
+      Array.from({ length: renderNode.children?.length ?? 0 }, () => ({ kind: 'content' as const })),
+      layoutFlowOptions(renderNode),
+      (renderNode.children ?? []).map((_child, index) => measureChild(index).preferredHeight)
     ),
     render: (input) => {
       writeRenderBlock(input.buffer, input.layoutNode.bounds, formBlock(
@@ -81,11 +82,12 @@ export const formRenderers = {
   },
   field: {
     measure: formMeasurements.field,
-    layout: ({ renderNode, bounds }) => splitTracks(
+    layout: ({ renderNode, bounds, measureChild }) => splitTracks(
       fieldContentBounds(renderNode, bounds),
       'vertical',
-      fillLayoutSizes(renderNode.children?.length ?? 0),
-      layoutFlowOptions(renderNode)
+      Array.from({ length: renderNode.children?.length ?? 0 }, () => ({ kind: 'content' as const })),
+      layoutFlowOptions(renderNode),
+      (renderNode.children ?? []).map((_child, index) => measureChild(index).preferredHeight)
     ),
     render: (input) => {
       writeRenderBlock(input.buffer, input.layoutNode.bounds, fieldBlock(
