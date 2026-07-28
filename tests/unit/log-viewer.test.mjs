@@ -96,7 +96,11 @@ test('log viewer renders timestamp, metadata, and entry styles through visible r
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.status.value')?.text, 'o');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.status.value')?.source?.itemId, 'meta-1');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.status.value')?.source?.itemIndex, 0);
-  assert.deepEqual(styledCell?.style, { fg: { kind: 'theme', token: 'status.success' }, bold: true });
+  assert.deepEqual(styledCell?.style, {
+    fg: { kind: 'theme', token: 'status.success' },
+    bg: { kind: 'theme', token: 'app.background' },
+    bold: true
+  });
   assert.equal(styledCell?.source?.description, 'body');
   assert.equal(styledCell?.source?.itemId, 'meta-1');
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');

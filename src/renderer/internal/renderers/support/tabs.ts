@@ -2,7 +2,7 @@ import type { AccessibleNode } from '../../../../accessibility/index.ts';
 import type { RenderNode, RenderNodeOfKind } from '../../../model/index.ts';
 import { isFrameCellInteractionState, renderNodeFrameSource } from '../../../../visual/source.ts';
 import { stringify } from '../../render-node-props.ts';
-import { clipRenderSpans, measureRenderSpans } from '../../../../visual/render.ts';
+import { clipRenderSpans, measureRenderSpans, padRenderLine } from '../../../../visual/render.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../../render-node-style.ts';
 import { clampRect, emptyRect } from './common.ts';
@@ -81,9 +81,20 @@ export function tabsHeaderBlock(
   if (bounds.height <= 0 || bounds.width <= 0) return { lines: [] };
   const layout = tabHeaderLayout(renderNode, bounds.width, focused, theme, widthProfile);
   return {
-    lines: [{
-      spans: layout.spans
-    }]
+    lines: [padRenderLine({ spans: layout.spans }, bounds.width, {
+      widthProfile,
+      fill: {
+        text: ' ',
+        style: tabStripStyle(renderNode),
+        source: renderNodeFrameSource(renderNode, {
+          rendererFamily: 'layout',
+          cellRole: 'decoration',
+          partName: 'header.background',
+          partType: 'background',
+          description: 'header.background'
+        })
+      }
+    })]
   };
 }
 
@@ -293,7 +304,14 @@ function tabHeaderLayout(
   for (let index = start; index <= end; index += 1) {
     const entry = tabHeaderEntry(entries, index);
     if (index > start) {
-      spans.push(tabSpan(renderNode, ' ', renderNodeStyle(renderNode, 'label', 'disabled'), entry.tab.id, 'separator', 'separator'));
+      spans.push(tabSpan(
+        renderNode,
+        ' ',
+        mergeStyles(tabStripStyle(renderNode), renderNodeStyle(renderNode, 'label', 'disabled')),
+        entry.tab.id,
+        'separator',
+        'separator'
+      ));
       offset += 1;
     }
     visibleTabs.push({ ...entry, offset });
@@ -335,8 +353,10 @@ function selectedTabIndex(renderNode: TabsNode, tabs: readonly { readonly id: st
 }
 
 function tabHeaderStyle(renderNode: TabsNode, state: ElementVisualState | undefined, selected: boolean): TerminalStyle | undefined {
+  const surface = selected ? selectedTabSurfaceStyle() : tabStripStyle(renderNode);
   if (selected && state === 'selected') {
     return mergeStyles(
+      surface,
       themeStyle('tab.active.foreground', { underline: true }),
       renderNode.styles?.parts?.['label'],
       renderNode.styles?.states?.selected
@@ -344,7 +364,10 @@ function tabHeaderStyle(renderNode: TabsNode, state: ElementVisualState | undefi
   }
   return resolveRenderNodeStyle(renderNode, {
     part: 'label',
-    base: selected ? themeStyle('tab.active.foreground', { underline: true }) : themeStyle('tab.inactive.foreground'),
+    base: mergeStyles(
+      surface,
+      selected ? themeStyle('tab.active.foreground', { underline: true }) : themeStyle('tab.inactive.foreground')
+    ) ?? surface,
     ...(state === undefined ? {} : { state })
   });
 }
@@ -361,8 +384,13 @@ function tabBadgeStyle(renderNode: TabsNode, state: ElementVisualState | undefin
   );
 }
 
-function tabCloseStyle(renderNode: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+function tabCloseStyle(
+  renderNode: TabsNode,
+  state: ElementVisualState | undefined,
+  selected: boolean
+): TerminalStyle | undefined {
   return mergeStyles(
+    selected ? selectedTabSurfaceStyle() : tabStripStyle(renderNode),
     renderNodeStyle(renderNode, 'close'),
     state === undefined ? undefined : renderNodeStyle(renderNode, 'close', state)
   );
@@ -396,7 +424,7 @@ function tabHeaderSpans(
   });
   const style = tabHeaderStyle(renderNode, state, selected);
   const markerStyle = selected ? tabIndicatorStyle(renderNode, state) : style;
-  const closeStyle = tabCloseStyle(renderNode, closeState);
+  const closeStyle = tabCloseStyle(renderNode, closeState, selected);
   const badge = tab.badge;
   const baseSpans = [
     tabSpan(renderNode, selected ? '▏' : ' ', markerStyle, tab.id, 'indicator', 'decoration', 'indicator', state),
@@ -462,6 +490,7 @@ function tabLeadingSpans(
 
 function tabIndicatorStyle(renderNode: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
+    selectedTabSurfaceStyle(),
     themeStyle('tab.indicator', { bold: true }),
     renderNode.styles?.parts?.['indicator'],
     state === undefined || state === 'default' ? undefined : renderNode.styles?.states?.[state]
@@ -502,7 +531,7 @@ function tabCloseTargetId(renderNode: TabsNode, tabId: string): string {
 }
 
 function tabOverflowSpan(renderNode: TabsNode, text: string, part: 'overflow.leading' | 'overflow.trailing'): RenderSpan {
-  const style = renderNodeStyle(renderNode, 'overflow');
+  const style = mergeStyles(tabStripStyle(renderNode), renderNodeStyle(renderNode, 'overflow'));
   return {
     text,
     ...(style === undefined ? {} : { style }),
@@ -513,5 +542,18 @@ function tabOverflowSpan(renderNode: TabsNode, text: string, part: 'overflow.lea
       partType: 'overflow',
       description: part
     })
+  };
+}
+
+function tabStripStyle(renderNode: TabsNode): TerminalStyle {
+  return {
+    bg: { kind: 'theme', token: 'surface.background' },
+    ...renderNode.styles?.root
+  };
+}
+
+function selectedTabSurfaceStyle(): TerminalStyle {
+  return {
+    bg: { kind: 'theme', token: 'surface.raised.background' }
   };
 }

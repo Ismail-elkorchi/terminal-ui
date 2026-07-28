@@ -651,5 +651,8 @@ test('table controlled scroll presentation drives the vertical window and scroll
   assert.match(output, /delta/u);
   assert.doesNotMatch(output, /echo/u);
   assert.equal(frame.accessibility.root.description, 'Showing 4-5 of 6 rows.');
-  assert.equal(frame.cells.filter((cell) => cell.column === 16).length, 2);
+  assert.equal(frame.cells.filter((cell) =>
+    cell.column === 16
+    && cell.source?.elementId === 'selected-cell-window'
+  ).length, 2);
 });

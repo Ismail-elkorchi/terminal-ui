@@ -130,7 +130,11 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
   assert.equal(renderFramePlain(frame), '  State\n› pass-…');
   assert.deepEqual(
     frame.cells
-      .filter((cell) => cell.row === 2 && cell.column >= 3)
+      .filter((cell) =>
+        cell.row === 2
+        && cell.column >= 3
+        && cell.source?.elementId === 'styled-table'
+      )
       .map((cell) => [cell.text, cell.style]),
     [
       ['p', selectedRed],
@@ -165,7 +169,9 @@ test('table horizontal scrolling keeps span styles after clipped cells are shift
 
   assert.equal(renderFramePlain(frame), 'rig…');
   assert.deepEqual(
-    frame.cells.map((cell) => [cell.text, cell.style]),
+    frame.cells
+      .filter((cell) => cell.source?.elementId === 'scrolled-styled-table')
+      .map((cell) => [cell.text, cell.style]),
     [
       ['r', selectedBlue],
       ['i', selectedBlue],

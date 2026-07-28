@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
-import { noColorTheme } from '../../dist/theme/index.js';
+import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import { tabs, text, textInput } from '../../dist/components/index.js';
 
 test('tabs render only the selected panel as focusable content', () => {
@@ -90,4 +90,30 @@ test('tabs keep the selected tab visible when headers overflow', () => {
     role: 'button',
     label: 'Close Gamma'
   }]);
+});
+
+test('tabs paint a complete strip and raise the selected tab', () => {
+  const frame = renderElementFrame(tabs({
+    id: 'painted-tabs',
+    selected: 'second',
+    tabs: [
+      { id: 'first', label: 'First', panel: text('First panel') },
+      { id: 'second', label: 'Second', panel: text('Second panel') }
+    ]
+  }), { columns: 24, rows: 3 }, { theme: defaultTheme });
+  const header = frame.cells.filter((cell) => cell.row === 1);
+  const selected = header.filter((cell) =>
+    cell.source?.itemId === 'second'
+    && cell.source?.partName !== 'separator'
+  );
+  const fill = header.filter((cell) => cell.source?.partName === 'header.background');
+
+  assert.equal(header.length, 24);
+  assert.equal(selected.length > 0, true);
+  assert.equal(selected.every((cell) =>
+    cell.source?.partName === 'badge'
+      || cell.style?.bg?.token === 'surface.raised.background'
+  ), true);
+  assert.equal(fill.length > 0, true);
+  assert.equal(fill.every((cell) => cell.style?.bg?.token === 'surface.background'), true);
 });

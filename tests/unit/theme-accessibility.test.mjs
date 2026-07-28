@@ -11,7 +11,6 @@ import { defaultThemes,
   defaultTheme,
   defineTheme,
   mergeThemes,
-  modernTheme,
   resolveThemeColor,
   resolveTerminalStyle } from '../../dist/theme/index.js';
 import { renderDiffAnsi,
@@ -67,34 +66,35 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   assert.deepEqual(merged.tokens.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
   assert.deepEqual(
     resolveTerminalStyle({ fg: { kind: 'theme', token: 'missing.custom' } }, theme),
-    undefined
+    { fg: { kind: 'rgb', r: 218, g: 225, b: 220 } }
   );
   assert.match(renderDiffAnsi(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
   assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[Hbad');
   assert.equal(defaultThemes.noColor.name, 'noColor');
-  assert.equal(resolveThemeColor(defaultTheme, 'app.background'), undefined);
-  assert.equal(resolveThemeColor(defaultTheme, 'text.default'), undefined);
-  assert.deepEqual(resolveThemeColor(defaultTheme, 'accent.primary'), { kind: 'ansi', value: 14 });
+  assert.deepEqual(resolveThemeColor(defaultTheme, 'app.background'), { kind: 'rgb', r: 7, g: 12, b: 12 });
+  assert.deepEqual(resolveThemeColor(defaultTheme, 'text.default'), { kind: 'rgb', r: 218, g: 225, b: 220 });
+  assert.deepEqual(resolveThemeColor(defaultThemes.minimal, 'accent.primary'), { kind: 'ansi', value: 14 });
+  assert.equal(resolveThemeColor(defaultThemes.minimal, 'app.background'), undefined);
 });
 
-test('fixed themes paint a complete app canvas while the default preserves terminal colors', () => {
-  const adaptive = renderElementFrame(richText({
-    id: 'adaptive',
+test('the graphical default paints a complete canvas while minimal preserves terminal colors', () => {
+  const graphical = renderElementFrame(richText({
+    id: 'graphical',
     segments: [{ kind: 'text', text: 'A' }]
   }), { columns: 3, rows: 2 }, { theme: defaultTheme });
-  const fixed = renderElementFrame(richText({
-    id: 'fixed',
+  const minimal = renderElementFrame(richText({
+    id: 'minimal',
     segments: [{ kind: 'text', text: 'A' }]
-  }), { columns: 3, rows: 2 }, { theme: modernTheme });
+  }), { columns: 3, rows: 2 }, { theme: defaultThemes.minimal });
 
-  assert.equal(adaptive.cells.length, 1);
-  assert.equal(fixed.cells.length, 6);
-  assert.equal(fixed.cells.every((cell) => cell.style?.bg?.token === 'app.background'), true);
+  assert.equal(graphical.cells.length, 6);
+  assert.equal(minimal.cells.length, 1);
+  assert.equal(graphical.cells.every((cell) => cell.style?.bg?.token === 'app.background'), true);
   assert.equal(
-    fixed.cells.filter((cell) => cell.text === ' ').every((cell) => cell.style?.fg?.token === 'app.foreground'),
+    graphical.cells.filter((cell) => cell.text === ' ').every((cell) => cell.style?.fg?.token === 'app.foreground'),
     true
   );
-  assert.equal(fixed.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'text.default');
+  assert.equal(graphical.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'text.default');
 });
 
 test('theme fingerprints are stable for equivalent themes and change with theme content', () => {

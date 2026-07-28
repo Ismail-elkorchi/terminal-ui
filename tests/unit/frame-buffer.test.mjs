@@ -279,8 +279,15 @@ test('richText emits styled cells through render spans', () => {
   }), { columns: 20, rows: 2 });
 
   assert.equal(renderFramePlain(frame), 'Error muted');
-  assert.deepEqual(frame.cells[0]?.style, { fg: { kind: 'theme', token: 'status.error' }, bold: true });
-  assert.deepEqual(frame.cells[5]?.style, { fg: { kind: 'theme', token: 'text.muted' } });
+  assert.deepEqual(frame.cells[0]?.style, {
+    fg: { kind: 'theme', token: 'status.error' },
+    bg: { kind: 'theme', token: 'app.background' },
+    bold: true
+  });
+  assert.deepEqual(frame.cells[5]?.style, {
+    fg: { kind: 'theme', token: 'text.muted' },
+    bg: { kind: 'theme', token: 'app.background' }
+  });
 });
 
 test('diffFrames emits changed span runs instead of whole-line text operations', () => {

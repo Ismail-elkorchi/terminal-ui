@@ -257,8 +257,8 @@ test('runTui accepts a state-derived theme', async () => {
   });
 
   assert.equal(exit.status, 'completed');
-  assert.match(host.output(), /\u001B\[31m/u);
-  assert.match(host.output(), /\u001B\[32m/u);
+  assert.match(host.output(), /\u001B\[31;40m/u);
+  assert.match(host.output(), /\u001B\[32;40m/u);
 });
 
 test('TUI runtime restores a serialized focus path when it still exists', async () => {

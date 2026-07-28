@@ -59,7 +59,7 @@ test('tooltip visibility and anchor determine painted geometry', () => {
     placement: 'below'
   }), { columns: 20, rows: 6 });
 
-  assert.equal(hidden.cells.length, 0);
+  assert.equal(hidden.cells.some((cell) => cell.source?.elementId === 'hidden-tip'), false);
   assert.match(renderFramePlain(visible), /Visible/u);
   assert.equal(visible.cells.every((cell) => cell.row >= 1 && cell.row <= 6 && cell.column >= 1 && cell.column <= 20), true);
 });

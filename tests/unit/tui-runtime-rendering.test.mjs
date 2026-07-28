@@ -48,11 +48,15 @@ test('one width profile governs nested buffers and incompatible profiles force a
   assert.deepEqual(narrow.widthProfile, { ambiguous: 'narrow', emoji: 'wide' });
   assert.deepEqual(wide.widthProfile, { ambiguous: 'wide', emoji: 'wide' });
   assert.deepEqual(
-    narrow.cells.filter((cell) => cell.continuation !== true).map((cell) => [cell.column, cell.text, cell.width]),
+    narrow.cells
+      .filter((cell) => cell.source?.elementId === 'profile-text' && cell.continuation !== true)
+      .map((cell) => [cell.column, cell.text, cell.width]),
     [[1, '·', 1], [2, '🙂', 2], [4, 'x', 1]]
   );
   assert.deepEqual(
-    wide.cells.filter((cell) => cell.continuation !== true).map((cell) => [cell.column, cell.text, cell.width]),
+    wide.cells
+      .filter((cell) => cell.source?.elementId === 'profile-text' && cell.continuation !== true)
+      .map((cell) => [cell.column, cell.text, cell.width]),
     [[1, '·', 2], [3, '🙂', 2], [5, 'x', 1]]
   );
   assert.equal(diffFrames(narrow, wide).fullRewrite, true);

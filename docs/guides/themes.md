@@ -7,8 +7,8 @@ element contracts; changing a theme does not reflow the application.
 
 The built-in presets are:
 
-- `defaultTheme`, which preserves the terminal's foreground and background
-- `minimalTheme`
+- `defaultTheme`, the complete graphical default
+- `minimalTheme`, which preserves the terminal's foreground and background
 - `modernTheme`
 - `highContrastTheme`
 - `noColorTheme`
@@ -19,10 +19,10 @@ Night, Solarized, Gruvbox, Dracula, and Monochrome. They are ordinary
 runtime hardwiring a product identity.
 
 The runtime uses `defaultTheme` when an application does not choose a theme.
-It applies semantic ANSI accents but leaves ordinary text and blank cells to
-the terminal palette. Fixed themes such as `modernTheme` define
-`app.background`; the renderer then paints the complete terminal canvas and
-lets components override that inherited foreground or background.
+It paints the complete terminal canvas and gives surfaces, controls, inputs,
+and status regions distinct semantic colors. Use `minimalTheme` to retain the
+terminal palette with semantic ANSI accents, or `noColorTheme` for output that
+does not depend on color.
 
 Use `defineTheme()` to start from a preset-like shape and override only the
 tokens your UI needs through the `tokens` field. Built-in components use core

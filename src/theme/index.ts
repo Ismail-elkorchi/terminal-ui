@@ -44,7 +44,7 @@ export { contrastColor, deriveSurface, ensureContrast } from './contrast.ts';
 export const minimalTheme: TerminalTheme = createTheme({
   name: 'minimal',
   tokens: {
-    colors: {},
+    colors: adaptiveColors,
     symbols: asciiSymbols
   }
 });
@@ -76,7 +76,7 @@ export const noColorTheme: TerminalTheme = createTheme({
 export const defaultTheme: TerminalTheme = createTheme({
   name: 'default',
   tokens: {
-    colors: adaptiveColors,
+    colors: modernColors,
     symbols: unicodeSymbols
   }
 });

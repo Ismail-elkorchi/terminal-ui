@@ -141,8 +141,14 @@ test('text rendering keeps bidirectional content in stable logical order', () =>
   const content = 'abc אבג 123';
   const frame = renderElementFrame(text(content, { id: 'bidi-fallback' }), { columns: 20, rows: 2 });
 
-  assert.equal(renderFramePlain(frame), content);
-  assert.equal(frame.cells.map((cell) => cell.text).join(''), content);
+  assert.equal(renderFramePlain(frame).trimEnd(), content);
+  assert.equal(
+    frame.cells
+      .filter((cell) => cell.source?.elementId === 'bidi-fallback')
+      .map((cell) => cell.text)
+      .join(''),
+    content
+  );
 });
 
 test('text clipping preserves graphemes, sanitizes controls, and stays within the cell budget', () => {

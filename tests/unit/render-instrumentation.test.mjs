@@ -39,7 +39,7 @@ test('render instrumentation records each stage only when requested', () => {
     composed_cells: 8,
     snapshot_rows: 3,
     snapshot_cells: 60,
-    emitted_cells: 8
+    emitted_cells: 60
   });
 });
 
