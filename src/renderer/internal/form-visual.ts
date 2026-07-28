@@ -170,8 +170,8 @@ export function optionControlState(
   return input.selected ? 'selected' : undefined;
 }
 
-export function separatorSpan(renderNode: RenderNode, text = ' '): RenderSpan {
-  return formSpan(renderNode, 'separator', 'separator', text);
+export function separatorSpan(renderNode: RenderNode, text = ' ', style?: TerminalStyle): RenderSpan {
+  return formSpan(renderNode, 'separator', 'separator', text, style);
 }
 
 export function controlLabelSpans(

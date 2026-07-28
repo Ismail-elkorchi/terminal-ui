@@ -3,7 +3,7 @@ import type { RenderNode, RenderNodeOfKind } from '../../../model/index.ts';
 import { isFrameCellInteractionState, renderNodeFrameSource } from '../../../../visual/source.ts';
 import { stringify } from '../../render-node-props.ts';
 import { clipRenderSpans, measureRenderSpans, padRenderLine } from '../../../../visual/render.ts';
-import type { RenderBlock, RenderSpan, TerminalStyle } from '../../../../visual/render.ts';
+import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../../render-node-style.ts';
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../../model/layout.ts';
@@ -49,13 +49,19 @@ interface TabHeaderLayout {
 export function tabsChildBounds(renderNode: TabsNode, bounds: Rect): readonly Rect[] {
   const tabs = tabItems(renderNode);
   const selected = selectedTabIndex(renderNode, tabs);
+  const headerRows = Math.min(tabsHeaderRows(renderNode), bounds.height);
   const panelBounds = clampRect({
-    row: bounds.row + 1,
+    row: bounds.row + headerRows,
     column: bounds.column,
     width: bounds.width,
-    height: bounds.height - 1
+    height: bounds.height - headerRows
   });
   return (renderNode.children ?? []).map((_child, index) => index === selected ? panelBounds : emptyRect(bounds));
+}
+
+export function tabsHeaderRows(renderNode: TabsNode): number {
+  const rows = renderNode.props.tabBarRows;
+  return typeof rows === 'number' && Number.isSafeInteger(rows) && rows > 0 ? rows : 1;
 }
 
 export function tabsHeaderText(renderNode: TabsNode, theme: TerminalTheme, widthProfile: TextWidthProfile): string {
@@ -80,21 +86,17 @@ export function tabsHeaderBlock(
 ): RenderBlock {
   if (bounds.height <= 0 || bounds.width <= 0) return { lines: [] };
   const layout = tabHeaderLayout(renderNode, bounds.width, focused, theme, widthProfile);
+  const contentLine = paddedTabHeaderLine(renderNode, layout.spans, bounds.width, widthProfile);
+  const paddingLine = paddedTabHeaderLine(
+    renderNode,
+    tabHeaderPaddingSpans(layout.spans, widthProfile),
+    bounds.width,
+    widthProfile
+  );
+  const rows = Math.min(tabsHeaderRows(renderNode), bounds.height);
   return {
-    lines: [padRenderLine({ spans: layout.spans }, bounds.width, {
-      widthProfile,
-      fill: {
-        text: ' ',
-        style: tabStripStyle(renderNode),
-        source: renderNodeFrameSource(renderNode, {
-          rendererFamily: 'layout',
-          cellRole: 'decoration',
-          partName: 'header.background',
-          partType: 'background',
-          description: 'header.background'
-        })
-      }
-    })]
+    lines: Array.from({ length: rows }, (_value, index) =>
+      index === rows - 1 ? contentLine : paddingLine)
   };
 }
 
@@ -174,24 +176,26 @@ export function tabsHitTargets<TMessage>(
   const toMessage = tabActionMessageFactory(renderNode);
   if (toMessage === undefined) return [];
   const layout = tabHeaderLayout(renderNode, bounds.width, false, theme, widthProfile);
+  const targetHeight = Math.min(tabsHeaderRows(renderNode), bounds.height);
   const targets: HitTarget<TMessage>[] = [];
   for (const metrics of layout.visibleTabs) {
     const tab = metrics.tab;
     const column = bounds.column + metrics.offset;
     if (tab.disabled !== true) {
       const width = Math.min(metrics.bodyWidth, Math.max(0, bounds.column + bounds.width - column));
-      if (width <= 0) continue;
-      targets.push({
-        id: tabTargetId(renderNode, tab.id),
-        bounds: {
-          row: bounds.row,
-          column,
-          width,
-          height: 1
-        },
-        message: () => toMessage({ kind: 'select', id: tab.id }),
-        cursor: 'pointer'
-      });
+      if (width > 0) {
+        targets.push({
+          id: tabTargetId(renderNode, tab.id),
+          bounds: {
+            row: bounds.row,
+            column,
+            width,
+            height: targetHeight
+          },
+          message: () => toMessage({ kind: 'select', id: tab.id }),
+          cursor: 'pointer'
+        });
+      }
     }
     if (tab.disabled !== true && tab.closable === true && metrics.closeOffset !== undefined) {
       const closeColumn = column + metrics.closeOffset;
@@ -203,7 +207,7 @@ export function tabsHitTargets<TMessage>(
           row: bounds.row,
           column: closeColumn,
           width,
-          height: 1
+          height: targetHeight
         },
         message: () => toMessage({ kind: 'close', id: tab.id }),
         cursor: 'pointer'
@@ -211,6 +215,55 @@ export function tabsHitTargets<TMessage>(
     }
   }
   return targets;
+}
+
+function paddedTabHeaderLine(
+  renderNode: TabsNode,
+  spans: readonly RenderSpan[],
+  width: number,
+  widthProfile: TextWidthProfile
+): RenderLine {
+  return padRenderLine({ spans }, width, {
+    widthProfile,
+    fill: {
+      text: ' ',
+      style: tabStripStyle(renderNode),
+      source: renderNodeFrameSource(renderNode, {
+        rendererFamily: 'layout',
+        cellRole: 'decoration',
+        partName: 'header.background',
+        partType: 'background',
+        description: 'header.background'
+      })
+    }
+  });
+}
+
+function tabHeaderPaddingSpans(
+  spans: readonly RenderSpan[],
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
+  return spans.map((span): RenderSpan => {
+    if (span.source?.partType === 'indicator') return span;
+    const width = measureRenderSpans([span], { widthProfile });
+    const partName = span.source?.partName === undefined
+      ? 'header.padding'
+      : `${span.source.partName}.padding`;
+    const source: FrameCellSource | undefined = span.source === undefined
+      ? undefined
+      : {
+          ...span.source,
+          cellRole: 'decoration',
+          partName,
+          partType: 'background',
+          description: partName
+        };
+    return {
+      ...span,
+      text: ' '.repeat(width),
+      ...(source === undefined ? {} : { source })
+    };
+  });
 }
 
 function tabItems(renderNode: TabsNode): readonly TabItemView[] {
@@ -357,7 +410,7 @@ function tabHeaderStyle(renderNode: TabsNode, state: ElementVisualState | undefi
   if (selected && state === 'selected') {
     return mergeStyles(
       surface,
-      themeStyle('tab.active.foreground', { underline: true }),
+      themeStyle('tab.active.foreground', { bold: true }),
       renderNode.styles?.parts?.['label'],
       renderNode.styles?.states?.selected
     );
@@ -366,7 +419,7 @@ function tabHeaderStyle(renderNode: TabsNode, state: ElementVisualState | undefi
     part: 'label',
     base: mergeStyles(
       surface,
-      selected ? themeStyle('tab.active.foreground', { underline: true }) : themeStyle('tab.inactive.foreground')
+      selected ? themeStyle('tab.active.foreground', { bold: true }) : themeStyle('tab.inactive.foreground')
     ) ?? surface,
     ...(state === undefined ? {} : { state })
   });
@@ -391,6 +444,7 @@ function tabCloseStyle(
 ): TerminalStyle | undefined {
   return mergeStyles(
     selected ? selectedTabSurfaceStyle() : tabStripStyle(renderNode),
+    themeStyle(selected ? 'tab.active.foreground' : 'tab.inactive.foreground', selected ? {} : { dim: true }),
     renderNodeStyle(renderNode, 'close'),
     state === undefined ? undefined : renderNodeStyle(renderNode, 'close', state)
   );
@@ -424,8 +478,10 @@ function tabHeaderSpans(
   const markerStyle = selected ? tabIndicatorStyle(renderNode, state) : style;
   const closeStyle = tabCloseStyle(renderNode, closeState, selected);
   const badge = tab.badge;
-  const baseSpans = [
-    tabSpan(renderNode, selected ? '▏' : ' ', markerStyle, tab.id, 'indicator', 'decoration', 'indicator', state),
+  const indicatorSpans = [
+    tabSpan(renderNode, selected ? '▏' : ' ', markerStyle, tab.id, 'indicator', 'decoration', 'indicator', state)
+  ];
+  const bodySpans = [
     ...tabLeadingSpans(renderNode, tab, state, style, theme),
     ...(tab.leading === undefined ? [] : [tabSpan(renderNode, ' ', style, tab.id, 'leading.separator', 'separator', 'leading', state)]),
     tabSpan(renderNode, tab.label, style, tab.id, 'label', 'text', 'label', state),
@@ -435,27 +491,72 @@ function tabHeaderSpans(
           tabSpan(renderNode, ' ', style, tab.id, 'badge.separator', 'separator', 'separator', state),
           tabSpan(renderNode, badge, tabBadgeStyle(renderNode, state), tab.id, 'badge', 'text', 'badge', state)
         ]),
-    ...(tab.closable !== true
-      ? []
-      : [
-          tabSpan(renderNode, ' ', closeStyle, tab.id, 'close.separator', 'separator', 'separator', closeState)
-        ])
   ];
-  const closeOffset = tab.closable !== true ? undefined : measureRenderSpans(baseSpans, { widthProfile });
+  const closeSeparatorSpans = tab.closable !== true
+    ? []
+    : [tabSpan(renderNode, ' ', closeStyle, tab.id, 'close.separator', 'separator', 'separator', closeState)];
   const closeSpans = tab.closable !== true
     ? []
     : [
         tabSpan(renderNode, '×', closeStyle, tab.id, 'close', 'text', 'close', closeState)
       ];
   const endSpans = [tabSpan(renderNode, ' ', style, tab.id, 'padding.trailing', 'separator', 'separator', state)];
-  const spans = [...baseSpans, ...closeSpans, ...endSpans];
+  const naturalSpans = [...indicatorSpans, ...bodySpans, ...closeSeparatorSpans, ...closeSpans, ...endSpans];
+  const maxTabWidth = typeof renderNode.props.maxTabWidth === 'number'
+    ? Math.max(1, Math.floor(renderNode.props.maxTabWidth))
+    : undefined;
+  const spans = maxTabWidth === undefined
+    ? naturalSpans
+    : constrainedTabSpans({
+        indicatorSpans,
+        bodySpans,
+        closeSeparatorSpans,
+        closeSpans,
+        endSpans,
+        maxWidth: maxTabWidth,
+        widthProfile
+      });
   const width = measureRenderSpans(spans, { widthProfile });
+  const closeIndex = spans.findIndex((current) => current.source?.partName === 'close');
+  const closeOffset = closeIndex === -1
+    ? undefined
+    : measureRenderSpans(spans.slice(0, closeIndex), { widthProfile });
   return {
     spans,
     width,
     bodyWidth: closeOffset ?? width,
     ...(closeOffset === undefined ? {} : { closeOffset })
   };
+}
+
+function constrainedTabSpans(input: {
+  readonly indicatorSpans: readonly RenderSpan[];
+  readonly bodySpans: readonly RenderSpan[];
+  readonly closeSeparatorSpans: readonly RenderSpan[];
+  readonly closeSpans: readonly RenderSpan[];
+  readonly endSpans: readonly RenderSpan[];
+  readonly maxWidth: number;
+  readonly widthProfile: TextWidthProfile;
+}): readonly RenderSpan[] {
+  const close = clipRenderSpans(input.closeSpans, input.maxWidth, {
+    widthProfile: input.widthProfile
+  });
+  let remaining = input.maxWidth - measureRenderSpans(close, { widthProfile: input.widthProfile });
+  const indicator = clipRenderSpans(input.indicatorSpans, Math.max(0, remaining), {
+    widthProfile: input.widthProfile
+  });
+  remaining -= measureRenderSpans(indicator, { widthProfile: input.widthProfile });
+  const trailing = remaining > 0 ? input.endSpans : [];
+  if (trailing.length > 0) remaining -= measureRenderSpans(trailing, { widthProfile: input.widthProfile });
+  const closeSeparator = close.length > 0 && remaining > 0 ? input.closeSeparatorSpans : [];
+  if (closeSeparator.length > 0) {
+    remaining -= measureRenderSpans(closeSeparator, { widthProfile: input.widthProfile });
+  }
+  const body = clipRenderSpans(input.bodySpans, Math.max(0, remaining), {
+    ellipsis: '…',
+    widthProfile: input.widthProfile
+  });
+  return [...indicator, ...body, ...closeSeparator, ...close, ...trailing];
 }
 
 function tabLeadingSpans(

@@ -87,7 +87,11 @@ test('table component renders constrained columns and selected rows', () => {
 
   const output = renderFramePlain(frame);
   assert.match(output, /Name   Val…/u);
-  assert.match(output, /› bravo  200/u);
+  assert.match(output, /  bravo  200/u);
+  assert.equal(
+    frame.cells.find((cell) => cell.text === 'b' && cell.row === 3)?.style?.bg?.token,
+    'selection.background'
+  );
   assert.deepEqual(frame.accessibility.root.window, {
     startIndex: 0,
     endIndexExclusive: 2,
@@ -346,7 +350,9 @@ test('table source metadata describes headers rows cells separators and empty st
 
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.description, 'header.0.label');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'header.0.resize')?.source?.cellRole, 'decoration');
-  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.description, 'row.1.marker');
+  const marker = frame.cells.find((cell) => cell.source?.description === 'row.1.marker');
+  assert.equal(marker?.text, ' ');
+  assert.equal(marker?.style?.bg?.token, 'selection.background');
   assert.equal(frame.cells.find((cell) => cell.text === 'P')?.source?.description, 'row.1.cell.0');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'column.separator')?.source?.cellRole, 'separator');
   assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N' && cell.row === 2)?.source?.description, 'empty');
@@ -371,7 +377,7 @@ test('table compact metric semantics tighten spacing and expose metric metadata'
   const metadataCell = frame.cells.find((cell) => cell.text === '1' && cell.source?.description === 'row.0.cell.0');
   const markerCell = frame.cells.find((cell) => cell.source?.description === 'row.0.marker');
 
-  assert.equal(renderFramePlain(frame), '  PID Name     Mem  CPU\n› 18  node    188M  4.2');
+  assert.equal(renderFramePlain(frame), '  PID Name     Mem  CPU\n  18  node    188M  4.2');
   assert.equal(markerCell?.source?.partType, 'marker');
   assert.equal(markerCell?.source?.interactionState, 'selected');
   assert.equal(metadataCell?.source?.partType, 'metadata');
@@ -400,7 +406,7 @@ test('table compact fill columns keep marker width aligned with cell hit targets
     onAction: (action) => ({ kind: 'cell', action })
   }), { columns: 14, rows: 2 });
 
-  assert.equal(renderFramePlain(frame), '  PID Na…  CPU\n› 18  no…  4.2');
+  assert.equal(renderFramePlain(frame), '  PID Na…  CPU\n  18  no…  4.2');
   assert.deepEqual(frame.hitTargets.map((target) => target.bounds), [
     { row: 2, column: 3, width: 3, height: 1 },
     { row: 2, column: 7, width: 3, height: 1 },

@@ -5,8 +5,7 @@ import type { RenderTarget } from '../model/render-target.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../model/layout.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
-import { mergeStyles, resolveRenderNodeStyle } from './render-node-style.ts';
-import { resolveThemeColor } from '../../theme/index.ts';
+import { mergeStyles, resolveRenderNodeStyle, styleHasBackground } from './render-node-style.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { renderBorderTitle } from './border-title.ts';
@@ -64,10 +63,7 @@ export function drawSurfaceFrame(
   const border = surfaceFocusedBorder(surfaceBorderWithinBounds(options.border, frameBounds), focused);
   if (options.appearance !== undefined) {
     const style = surfaceBackgroundStyle(renderNode, options.appearance, focused, border);
-    if (style.bg !== undefined && (
-      style.bg.kind !== 'theme'
-      || resolveThemeColor(theme, style.bg.token) !== undefined
-    )) {
+    if (styleHasBackground(style, theme)) {
       fillSurfaceBackground(
         buffer,
         frameBounds,
@@ -82,12 +78,18 @@ export function drawSurfaceFrame(
     }
   }
   if (options.shadow === true) {
-    drawSurfaceShadow(buffer, bounds, frameBounds, renderNodeFrameSource(renderNode, {
-      rendererFamily: 'surface',
-      cellRole: 'decoration',
-      partName: 'shadow',
-      description: 'shadow'
-    }));
+    drawSurfaceShadow(
+      buffer,
+      bounds,
+      frameBounds,
+      theme,
+      renderNodeFrameSource(renderNode, {
+        rendererFamily: 'surface',
+        cellRole: 'decoration',
+        partName: 'shadow',
+        description: 'shadow'
+      })
+    );
   }
   if (border !== undefined) drawBorder(buffer, frameBounds, border, theme);
 }
@@ -97,16 +99,15 @@ function surfaceBorder(
   appearance = renderNode.props.appearance,
   theme?: TerminalTheme
 ): BorderStyle | undefined {
+  const resolved = surfaceBorderForLayout(renderNode);
+  if (resolved === undefined) return undefined;
+  return surfaceBorderStyle(renderNode, surfaceTitledBorder(renderNode, resolved, theme), appearance);
+}
+
+export function surfaceBorderForLayout(renderNode: SurfaceNode): BorderStyle | undefined {
   const explicit = borderStyleFromValue(renderNode.props.border);
-  if (explicit !== undefined) {
-    return surfaceBorderStyle(renderNode, surfaceTitledBorder(renderNode, explicit, theme), appearance);
-  }
-  if (appearance === undefined || appearance === 'neutral' || appearance === 'bar') return undefined;
-  return surfaceBorderStyle(
-    renderNode,
-    surfaceTitledBorder(renderNode, { kind: 'single' }, theme),
-    appearance
-  );
+  if (explicit !== undefined) return explicit;
+  return renderNode.props.title === undefined ? undefined : { kind: 'single' };
 }
 
 function surfaceBorderForBounds(
@@ -235,21 +236,26 @@ export function drawSurfaceShadow(
   buffer: RenderTarget,
   bounds: Rect,
   frameBounds: Rect,
+  theme: TerminalTheme,
   source: FrameCellSource
 ): void {
   if (frameBounds === bounds) return;
-  const style: TerminalStyle = { bg: { kind: 'theme', token: 'surface.shadow' } };
+  const style: TerminalStyle = {
+    fg: { kind: 'theme', token: 'surface.shadow' },
+    dim: true
+  };
+  const glyph = theme.tokens.symbols.mode === 'unicode' ? '░' : '.';
   const rightColumn = frameBounds.column + frameBounds.width;
   const bottomRow = frameBounds.row + frameBounds.height;
   for (let row = frameBounds.row + 1; row < bottomRow; row += 1) {
     buffer.write(row, rightColumn, [{
-      text: ' ',
+      text: glyph,
       style,
       source
     }]);
   }
   buffer.write(bottomRow, frameBounds.column + 1, [{
-    text: ' '.repeat(Math.max(0, frameBounds.width)),
+    text: glyph.repeat(Math.max(0, frameBounds.width)),
     style,
     source
   }]);

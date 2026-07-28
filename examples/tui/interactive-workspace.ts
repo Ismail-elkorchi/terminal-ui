@@ -8,11 +8,12 @@ import {
   commandInput,
   createTerminalHost,
   defineTui,
-  grid,
+  dialog,
   helpBar,
   overlay,
   runTui,
   searchPicker,
+  splitPane,
   statusBar,
   structuredBlock,
   surface,
@@ -270,34 +271,37 @@ function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
 }
 
 function workspaceView(state: WorkspaceState) {
-  const base = grid({
-    id: 'workspace-grid',
-    areas: `
-      header header header
-      nav main inspector
-      status status status
-      command command command
-    `,
-    rows: [
-      { kind: 'fixed', cells: 2 },
-      { kind: 'fill' },
-      { kind: 'fixed', cells: 1 },
-      { kind: 'fixed', cells: commandExpanded(state) ? 5 : 2 }
-    ],
-    columns: [
+  const body = splitPane([
+    navigationPane(state),
+    mainPane(state),
+    inspectorPane(state)
+  ], {
+    id: 'workspace-panes',
+    direction: 'horizontal',
+    sizes: [
       { kind: 'fixed', cells: 24 },
       { kind: 'fill' },
       { kind: 'fixed', cells: 30 }
     ],
-    gap: 1,
-    children: {
-      header: surface(text('Interactive Workspace', { textRole: 'title' }), { id: 'workspace-header', appearance: 'bar', padding: { left: 1 } }),
-      nav: navigationPane(state),
-      main: mainPane(state),
-      inspector: inspectorPane(state),
-      status: workspaceStatus(state),
-      command: commandPane(state)
-    }
+    gap: 1
+  });
+  const base = column([
+    surface(text('Interactive Workspace', { textRole: 'title' }), {
+      id: 'workspace-header',
+      appearance: 'bar',
+      padding: { left: 1, right: 1 }
+    }),
+    body,
+    commandPane(state),
+    workspaceStatus(state)
+  ], {
+    id: 'workspace-grid',
+    sizes: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fill' },
+      { kind: 'fixed', cells: 3 },
+      { kind: 'fixed', cells: 1 }
+    ]
   });
   return overlay([base, ...(state.searchPicker.open ? [searchPickerLayer(state)] : [])], { id: 'workspace-root' });
 }
@@ -314,13 +318,14 @@ function navigationPane(state: WorkspaceState) {
   ], { sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 1 }] }), {
     id: 'workspace-navigation',
     appearance: 'inset',
-    padding: 1
+    padding: { left: 1, right: 1 }
   });
 }
 
 function mainPane(state: WorkspaceState) {
   return tabs({
     id: 'workspace-tabs',
+    maxTabWidth: 28,
     selected: state.tab,
     tabs: [
       { id: 'issues', label: 'Issues', panel: issuesPanel(state) },
@@ -374,7 +379,11 @@ function inspectorPane(state: WorkspaceState) {
       ]
     }),
     button({ id: 'resolve-button', label: 'Resolve selected', tone: 'primary', onPress: (): WorkspaceMessage => ({ kind: 'resolve' }) })
-  ], { gap: 1 }), { id: 'workspace-inspector', appearance: 'inset', padding: 1 });
+  ], { gap: 1 }), {
+    id: 'workspace-inspector',
+    appearance: 'inset',
+    padding: { left: 1, right: 1 }
+  });
 }
 
 function workspaceStatus(state: WorkspaceState) {
@@ -388,8 +397,8 @@ function workspaceStatus(state: WorkspaceState) {
 }
 
 function commandPane(state: WorkspaceState) {
-  const expanded = commandExpanded(state);
   const presentation = commandInputPresentation(state.command);
+  const showSuggestions = state.command.input.text.length > 0;
   return surface(commandInput<
     WorkspaceMessage,
     WorkspaceMessage,
@@ -399,19 +408,19 @@ function commandPane(state: WorkspaceState) {
     id: 'workspace-command',
     prompt: '› ',
     placeholder: 'Type /command',
-    presentation: { ...presentation, suggestions: expanded ? presentation.suggestions : [] },
-    display: expanded ? 'expanded' : 'compact',
-    ...(expanded ? { footer: 'Enter run · Tab complete · Ctrl+Q exit' } : {}),
+    presentation: { ...presentation, suggestions: showSuggestions ? presentation.suggestions : [] },
+    display: 'popup',
+    placement: 'above',
+    maxVisibleSuggestions: 6,
     onAction: (action): WorkspaceMessage => ({ kind: 'command', action }),
     onSubmit: (value): WorkspaceMessage => ({ kind: 'submit', value }),
     keys: { escape: (): WorkspaceMessage => ({ kind: 'command', action: { kind: 'setValue', value: '' } }) }
-  }), { id: 'workspace-command-surface', appearance: 'raised', padding: { left: 1, right: 1 } });
+  }), { id: 'workspace-command-surface', appearance: 'bar', padding: 1 });
 }
 
 function searchPickerLayer(state: WorkspaceState) {
-  return surface(searchPicker({
+  return dialog(searchPicker({
     id: 'workspace-search-picker',
-    title: 'Commands',
     searchPickerIndex: workspaceSearchPickerIndex,
     query: state.searchPicker.query,
     selectedIndex: state.searchPicker.selectedIndex,
@@ -422,21 +431,23 @@ function searchPickerLayer(state: WorkspaceState) {
       escape: (): WorkspaceMessage => ({ kind: 'closeSearchPicker' })
     }
   }), {
-    id: 'workspace-search-picker-surface',
-    appearance: 'raised',
-    shadow: true,
-    padding: 1,
+    id: 'workspace-search-picker-dialog',
+    title: 'Commands',
+    modal: true,
+    focusPolicy: {
+      initialFocus: { kind: 'element', elementId: 'workspace-search-picker' },
+      returnFocus: 'restore'
+    },
+    dismissal: {
+      escape: true,
+      outsidePress: true,
+      onDismiss: (): WorkspaceMessage => ({ kind: 'closeSearchPicker' })
+    },
+    padding: { left: 1, right: 1 },
     margin: 2,
     maxWidth: 72,
-    maxHeight: 18,
-    align: 'center',
-    justify: 'center',
-    meta: { layer: { zIndex: 20 }, focus: { scope: { kind: 'contain' } } }
+    maxHeight: 18
   });
-}
-
-function commandExpanded(state: WorkspaceState): boolean {
-  return state.command.input.text.length > 0;
 }
 
 function queueFromSelection(selection: string | undefined): Ticket['queue'] | undefined {

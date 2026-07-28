@@ -24,6 +24,7 @@ export interface RenderRegion<TMessage = unknown> {
   readonly order: number;
   readonly bounds: Rect;
   readonly underlay: LayerUnderlay;
+  readonly backdropBounds?: Rect;
   readonly cells: readonly FrameCell[];
   readonly metadata: FrameBufferSnapshotMetadata;
   readonly hitTargets: readonly RenderRegionHitTarget<TMessage>[];
@@ -57,6 +58,7 @@ export interface DraftRenderRegion {
   readonly order: number;
   readonly bounds: Rect;
   readonly underlay: LayerUnderlay;
+  readonly backdropBounds?: Rect;
   readonly buffer: FrameBuffer;
 }
 
@@ -75,10 +77,11 @@ export function createDraftRenderRegion(
     readonly terminalSize: TerminalSize;
     readonly bounds: Rect;
     readonly underlay: LayerUnderlay;
+    readonly backdropBounds?: Rect;
     readonly widthProfile: TextWidthProfile;
   }
 ): DraftRenderRegion {
-  const { id, zIndex, order, terminalSize, bounds, underlay, widthProfile } = input;
+  const { id, zIndex, order, terminalSize, bounds, underlay, backdropBounds, widthProfile } = input;
   const regionBounds = normalizeRegionBounds(terminalSize, bounds);
   return {
     id,
@@ -86,6 +89,7 @@ export function createDraftRenderRegion(
     order,
     bounds: regionBounds,
     underlay,
+    ...(backdropBounds === undefined ? {} : { backdropBounds }),
     buffer: createRegionFrameBuffer(terminalSize, regionBounds, widthProfile)
   };
 }

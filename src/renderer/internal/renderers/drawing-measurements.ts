@@ -1,4 +1,3 @@
-import { borderStyleFromValue } from '../border.ts';
 import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
 import { dividerPreferredSize } from '../divider.ts';
 import {
@@ -11,6 +10,7 @@ import {
 import { layoutInsetSize } from '../layout-geometry.ts';
 import { numberProp, stringify } from '../render-node-props.ts';
 import { tooltipPreferredSize } from '../tooltip.ts';
+import { surfaceBorderForLayout } from '../surface.ts';
 import { childMeasurements } from './measurement-support.ts';
 import type { RendererMeasurementMap } from './types.ts';
 
@@ -21,15 +21,8 @@ export const drawingMeasurements = {
   },
   surface: ({ renderNode, childCount, measureChild }) => {
     const content = combineMeasurementsOverlay(childMeasurements(childCount, measureChild));
-    const explicit = borderStyleFromValue(renderNode.props.border);
-    const border = explicit ?? (
-      renderNode.props.appearance === undefined
-      || renderNode.props.appearance === 'neutral'
-      || renderNode.props.appearance === 'bar'
-        ? { kind: 'none' as const }
-        : { kind: 'single' as const }
-    );
-    const insetCells = border.kind === 'none' ? 0 : 2;
+    const border = surfaceBorderForLayout(renderNode);
+    const insetCells = border === undefined || border.kind === 'none' ? 0 : 2;
     const padding = layoutInsetSize(renderNode.props.padding);
     const margin = layoutInsetSize(renderNode.props.margin);
     const shadow = renderNode.props.shadow === true ? 1 : 0;

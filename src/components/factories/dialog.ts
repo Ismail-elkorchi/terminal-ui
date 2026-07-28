@@ -37,7 +37,12 @@ export function dialog<TMessage>(child: Element<TMessage>, options: DialogOption
 }
 
 function dialogMeta<TMessage>(options: DialogOptions<TMessage>) {
-  const base = withMetaDefaults(options.meta, { layer: { underlay: 'clear' } });
+  const base = withMetaDefaults(options.meta, {
+    layer: {
+      ...(options.modal ? { zIndex: 20 } : {}),
+      underlay: 'clear'
+    }
+  });
   const callerFocus = {
     ...(base.focus?.disabled === undefined ? {} : { disabled: base.focus.disabled }),
     ...(base.focus?.order === undefined ? {} : { order: base.focus.order })

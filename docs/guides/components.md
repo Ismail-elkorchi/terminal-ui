@@ -85,6 +85,13 @@ Buttons, menu actions, notifications, and tooltips each expose their own
 narrow tone values; those contracts are not interchangeable.
 Buttons use the graphical control shape by default and accept
 `density: 'compact' | 'regular'` when a toolbar needs tighter spacing.
+Use the `ghost` button tone for toolbar actions that should inherit the bar
+until focused, hovered, or pressed.
+
+Tabs accept `maxTabWidth` when document names must not let one tab consume the
+strip. The visible label is clipped, while its full accessible name and close
+action remain intact. Set `tabBarRows` when a terminal application needs a
+taller clickable tab strip; labels remain on the row next to the selected panel.
 
 Components that expose interactive scrollbars use controlled variants. A
 visible scrollbar requires caller-controlled scroll state and a semantic action or
@@ -111,7 +118,9 @@ keyboard, text-input, focus, or pointer interaction.
 inside a subtree. A modal `dialog()` requires an explicit `focusPolicy` for its
 initial target and focus-return behavior; a non-modal dialog does not create a
 focus scope. Without an explicit width or height, a dialog uses its measured
-content size and remains centered. Padding is inside its border.
+content size and remains centered. Padding is inside its border. Modal dialogs
+create their own layer and dim the lower canvas; callers do not need to build a
+separate backdrop.
 
 `meta.layer` controls visibility, z-index, lower-layer handling, and overflow
 priority. Its `underlay` field clears lower cells with `clear`, leaves them in

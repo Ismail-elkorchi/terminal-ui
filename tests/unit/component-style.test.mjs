@@ -41,8 +41,8 @@ import {
   toggleSwitch,
   tree
 } from '../../dist/components/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
-import { modernTheme } from '../../dist/theme/index.js';
+import { prepareTextDocument, terminalTextWidth, textCaretAt } from '../../dist/text/index.js';
+import { modernTheme, noColorTheme } from '../../dist/theme/index.js';
 import {
   row,
   column,
@@ -139,6 +139,40 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'label.text');
   assert.equal(focusedFrame.cells.find((cell) => cell.row === 1 && cell.column === 16)?.style?.bg?.token, 'control.background');
   assert.equal(focusedFrame.cells.find((cell) => cell.row === 1 && cell.column === 16)?.source?.elementId, 'focus');
+});
+
+test('ghost buttons inherit their surface until interaction makes them visible', () => {
+  const idle = renderElementFrame(surface(button({
+    id: 'ghost-idle',
+    label: 'History',
+    tone: 'ghost',
+    meta: { focus: { disabled: true } }
+  }), {
+    id: 'ghost-idle-surface',
+    appearance: 'bar'
+  }), { columns: 14, rows: 1 }, { focusPath: ['none'] });
+  const hovered = renderElementFrame(surface(button({
+    id: 'ghost-hovered',
+    label: 'History',
+    tone: 'ghost',
+    pointer: { state: { hoveredTargetId: 'ghost-hovered:control' } },
+    meta: { focus: { disabled: true } }
+  }), {
+    id: 'ghost-hovered-surface',
+    appearance: 'bar'
+  }), { columns: 14, rows: 1 }, { focusPath: ['none'] });
+  const focused = renderElementFrame(surface(button({
+    id: 'ghost-focused',
+    label: 'History',
+    tone: 'ghost'
+  }), {
+    id: 'ghost-focused-surface',
+    appearance: 'bar'
+  }), { columns: 14, rows: 1 }, { focusPath: ['ghost-focused-surface', 'ghost-focused'] });
+
+  assert.equal(idle.cells.find((cell) => cell.text === 'H')?.style?.bg?.token, 'surface.bar.background');
+  assert.equal(hovered.cells.find((cell) => cell.text === 'H')?.style?.bg?.token, 'focus.background');
+  assert.equal(focused.cells.find((cell) => cell.text === 'H')?.style?.bg?.token, 'focus.background');
 });
 
 test('controlled pointer interaction resolves styles and source state across component families', () => {
@@ -344,7 +378,7 @@ test('list table and tree share data navigation selection and match styles', () 
   assert.equal(styleForCell(tableFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
   assert.equal(styleForCell(activeTableFrame, (cell) => cell.text === 'A')?.fg?.token, 'selection.foreground');
   assert.equal(styleForCell(activeTableFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
-  assert.equal(styleForCell(treeFrame, (cell) => cell.text === '▾')?.fg?.token, 'tree.branch');
+  assert.equal(styleForCell(treeFrame, (cell) => cell.text === '▼')?.fg?.token, 'tree.branch');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === 'A')?.fg?.token, 'menu.match');
   assert.equal(listFrame.cells.find((cell) => cell.text === 'A')?.source?.description, 'item.Atlas.match');
   assert.equal(tableFrame.cells.find((cell) => cell.text === 'A')?.source?.description, 'row.0.cell.0');
@@ -477,7 +511,7 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
         }
     }
 }), { columns: 24, rows: 2 });
-  const disclosure = frame.cells.find((cell) => cell.text === '▾');
+  const disclosure = frame.cells.find((cell) => cell.text === '▼');
   const icon = frame.cells.find((cell) => cell.text === '◆');
   const label = frame.cells.find((cell) => cell.text === 'R');
   const indent = frame.cells.find((cell) => cell.source?.partType === 'indent');
@@ -485,11 +519,49 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
   assert.equal(disclosure?.style?.fg?.token, 'status.warning');
   assert.equal(disclosure?.source?.partType, 'disclosure');
   assert.equal(disclosure?.source?.interactionState, undefined);
+  assert.equal(terminalTextWidth(disclosure?.text ?? ''), 1);
   assert.equal(icon?.style?.fg?.token, 'status.info');
   assert.equal(icon?.source?.partType, 'icon');
   assert.equal(label?.style?.fg?.token, 'status.success');
   assert.equal(label?.source?.partType, 'label');
   assert.equal(indent?.style?.fg?.token, 'status.warning');
+});
+
+test('data selections rely on graphical backgrounds and retain a monochrome marker', () => {
+  const elements = [
+    list({
+      id: 'selection-list',
+      items: ['Atlas'],
+      projectItem: (item) => ({ id: item, label: item }),
+      selectedId: 'Atlas'
+    }),
+    table({
+      id: 'selection-table',
+      rows: [['Atlas']],
+      columns: [{ id: 'name', header: 'Name', value: (row) => row[0] }],
+      getRowId: () => 'atlas',
+      presentation: { selectedRowId: 'atlas' }
+    }),
+    tree({
+      id: 'selection-tree',
+      selected: 'atlas',
+      nodes: [{ id: 'atlas', label: 'Atlas', kind: 'leaf' }]
+    })
+  ];
+  const markerDescriptions = ['item.Atlas.marker', 'row.atlas.marker', 'node.atlas.marker'];
+
+  for (const [index, element] of elements.entries()) {
+    const markerDescription = markerDescriptions[index];
+    const graphical = renderElementFrame(element, { columns: 18, rows: 2 }, { theme: modernTheme });
+    const monochrome = renderElementFrame(element, { columns: 18, rows: 2 }, { theme: noColorTheme });
+    const graphicalMarker = graphical.cells.find((cell) => cell.source?.description === markerDescription);
+    const monochromeMarker = monochrome.cells.find((cell) => cell.source?.description === markerDescription);
+
+    assert.equal(graphicalMarker?.text, ' ');
+    assert.equal(graphicalMarker?.style?.bg?.token, 'selection.background');
+    assert.equal(monochromeMarker?.text, '*');
+    assert.equal(monochromeMarker?.style?.bg?.token, 'selection.background');
+  }
 });
 
 test('tabs use shared selected disabled and value styles', () => {

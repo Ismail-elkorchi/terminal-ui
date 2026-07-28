@@ -19,6 +19,7 @@ import type {
 } from '../../ui-model/menu.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type { DividerStylePart, MenuStylePart, TooltipStylePart } from '../../ui-model/style-parts.ts';
+import type { ComponentDensity } from '../../ui-model/contracts.ts';
 
 export interface MenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
   readonly presentation: MenuPresentation;
@@ -56,6 +57,7 @@ export interface DropdownMenuOptions<TMessage = never> extends InteractiveElemen
   readonly items: readonly MenuItem[];
   readonly presentation: DropdownMenuPresentation;
   readonly placeholder?: string;
+  readonly density?: ComponentDensity;
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleItems?: number;
   readonly scrollbar?: ScrollbarOptions;

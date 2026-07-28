@@ -16,6 +16,8 @@ export interface TabItem<TMessage = never> extends ItemBase {
 export interface TabsOptions<TMessage = never> extends InteractiveElementOptions<TabsStylePart, TMessage>, LayoutFlowOptions {
   readonly tabs: readonly TabItem<TMessage>[];
   readonly selected?: string;
+  readonly maxTabWidth?: number;
+  readonly tabBarRows?: number;
   readonly onAction?: (action: TabAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }

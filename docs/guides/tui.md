@@ -260,8 +260,9 @@ surface(column([
 
 Use `surface()` for visual grouping and elevation, not for app-frame policy.
 `appearance: 'bar'` is the lightest app-bar treatment and is borderless by
-default. `neutral` is an unframed content background. `raised` and `inset` are
-framed visual constructions.
+default. `neutral`, `raised`, and `inset` select fills and elevation; add
+`border` when the grouping also needs a visible frame. A title implies a
+single border unless `border` is set explicitly.
 When a framed surface is too small to leave an interior, the border is skipped
 for that frame so child content remains visible. A surface does not carry
 selection, result, disabled, or focus-within state. Put those meanings on the

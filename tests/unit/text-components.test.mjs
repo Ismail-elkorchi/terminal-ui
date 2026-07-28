@@ -13,7 +13,9 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
-  highContrastTheme } from '../../dist/theme/index.js';
+  highContrastTheme,
+  noColorTheme
+} from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { statusIndicator,
@@ -207,7 +209,7 @@ test('text components map Unicode cursor positions through the shared text contr
 
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 6 });
   assert.deepEqual(cursorPosition(secondaryInputFrame.cursor), { row: 1, column: 7 });
-  assert.deepEqual(cursorPosition(commandFrame.cursor), { row: 1, column: 8 });
+  assert.deepEqual(cursorPosition(commandFrame.cursor), { row: 1, column: 6 });
   assert.deepEqual(textInputFrame.cursor?.source, formSource('unicode-input', 'textInput', 'cursor'));
   assert.deepEqual(secondaryInputFrame.cursor?.source, formSource('unicode-field', 'textInput', 'cursor'));
   assert.deepEqual(commandFrame.cursor?.source, {
@@ -226,7 +228,7 @@ test('text components map Unicode cursor positions through the shared text contr
   assert.equal(commandFrame.cells.find((cell) => cell.column === commandFrame.cursor?.column)?.style?.inverse, true);
   assert.equal(renderFramePlain(textInputFrame), '› a🙂界b');
   assert.equal(renderFramePlain(secondaryInputFrame), '› go🙂');
-  assert.equal(renderFramePlain(commandFrame), '› > a🙂界b');
+  assert.equal(renderFramePlain(commandFrame), '> a🙂界b');
   assert.equal(textInputFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
   assert.equal(commandFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
 });
@@ -387,12 +389,34 @@ test('editable text controls remain readable in high contrast and no-color rende
   });
 
   assert.match(highContrast.plainTextFrame, /x alpha/u);
-  assert.match(highContrast.plainTextFrame, /\| \/command/u);
+  assert.match(highContrast.plainTextFrame, /^\/command$/mu);
   assert.match(highContrast.ansiFrame, /\\x1b\[/u);
   assert.match(highContrast.frameJson, /"description": "selection"/u);
   assert.match(highContrast.frameJson, /"description": "validation"/u);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
+});
+
+test('editable text controls remain identifiable when the theme has no field fill', () => {
+  const frame = renderElementFrame(column([
+    textInput({
+      id: 'no-color-input',
+      presentation: { value: 'alpha', cursor: 0 },
+      meta: { focus: { disabled: true } }
+    }),
+    commandInput({
+      id: 'no-color-command',
+      prompt: '› ',
+      presentation: { value: '', cursor: 0, suggestions: [] },
+      placeholder: '/open',
+      meta: { focus: { disabled: true } }
+    })
+  ]), { columns: 20, rows: 2 }, {
+    theme: noColorTheme
+  });
+
+  assert.match(renderFramePlain(frame), /^\| alpha/mu);
+  assert.match(renderFramePlain(frame), /^› \/open/mu);
 });
 
 test('disabled textInput exposes no mouse hit target', () => {

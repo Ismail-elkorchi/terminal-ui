@@ -279,7 +279,10 @@ function textAreaLineMarker(renderNode: TextAreaNode, theme: TerminalTheme, focu
 function inputStateMarker(renderNode: InputNode, theme: TerminalTheme, focused: boolean): string {
   if (renderNode.props.disabled === true) return ' ';
   if (typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0) return theme.tokens.symbols.statusError;
-  return focused ? theme.tokens.symbols.pointer : theme.tokens.symbols.borderSingle.vertical;
+  if (focused) return theme.tokens.symbols.pointer;
+  return theme.tokens.colors['control.background'] === undefined
+    ? theme.tokens.symbols.borderSingle.vertical
+    : ' ';
 }
 
 function inputBorderStyle(renderNode: InputNode, focused: boolean): TerminalStyle | undefined {

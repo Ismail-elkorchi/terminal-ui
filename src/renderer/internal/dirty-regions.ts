@@ -6,6 +6,7 @@ interface DirtyRegionSource {
   readonly order: number;
   readonly bounds: Rect;
   readonly underlay: string;
+  readonly backdropBounds?: Rect;
   readonly metadata: {
     readonly fingerprint: string;
     readonly rowFingerprints: readonly { readonly row: number; readonly fingerprint: string }[];
@@ -37,7 +38,7 @@ export function dirtyRegionsForRegionChanges(
   for (const previousRegion of previous) {
     const nextRegion = nextById.get(previousRegion.id);
     if (nextRegion === undefined) {
-      dirty = dirty.add(previousRegion.bounds);
+      dirty = dirty.add(effectiveRegionBounds(previousRegion));
       continue;
     }
     dirty = dirty.union(dirtyRegionsForChangedRegion(previousRegion, nextRegion));
@@ -45,7 +46,7 @@ export function dirtyRegionsForRegionChanges(
   for (const nextRegion of next) {
     const previousRegion = previousById.get(nextRegion.id);
     if (previousRegion === undefined) {
-      dirty = dirty.add(nextRegion.bounds);
+      dirty = dirty.add(effectiveRegionBounds(nextRegion));
     }
   }
 
@@ -54,7 +55,7 @@ export function dirtyRegionsForRegionChanges(
 
 function dirtyRegionsForChangedRegion(previous: DirtyRegionSource, next: DirtyRegionSource): DirtyRegionSet {
   if (!sameRegionSurface(previous, next)) {
-    return createDirtyRegionSet([previous.bounds, next.bounds]);
+    return createDirtyRegionSet([effectiveRegionBounds(previous), effectiveRegionBounds(next)]);
   }
   if (previous.metadata.fingerprint === next.metadata.fingerprint) return createDirtyRegionSet();
 
@@ -138,7 +139,17 @@ function sameRegionSurface(left: DirtyRegionSource, right: DirtyRegionSource): b
   return left.zIndex === right.zIndex
     && left.order === right.order
     && left.underlay === right.underlay
+    && sameOptionalRect(left.backdropBounds, right.backdropBounds)
     && sameRect(left.bounds, right.bounds);
+}
+
+function effectiveRegionBounds(region: DirtyRegionSource): Rect {
+  return region.backdropBounds ?? region.bounds;
+}
+
+function sameOptionalRect(left: Rect | undefined, right: Rect | undefined): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return sameRect(left, right);
 }
 
 function changedRowRects(previous: DirtyRegionSource, next: DirtyRegionSource): DirtyRegionSet {

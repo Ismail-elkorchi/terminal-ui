@@ -29,9 +29,13 @@ void test('tree component renders expanded visible nodes and accessible selectio
   }), { columns: 32, rows: 4 });
 
   const output = renderFramePlain(frame);
-  assert.match(output, /▾ Root/u);
-  assert.match(output, /› {5}Child/u);
+  assert.match(output, /▼ Root/u);
+  assert.match(output, / {6}Child/u);
   assert.doesNotMatch(output, /Hidden$/u);
+  assert.deepEqual(
+    frame.cells.find((cell) => cell.text === 'C')?.style?.bg,
+    { kind: 'theme', token: 'selection.background' }
+  );
   assert.equal(frame.accessibility.root.role, 'tree');
   const children = frame.accessibility.root.children;
   assert.ok(children !== undefined);

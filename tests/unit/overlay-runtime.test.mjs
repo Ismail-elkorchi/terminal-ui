@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { canvas, contextMenu, dialog, dropdownMenu, table, text, textInput } from '../../dist/components/index.js';
+import { canvas, contextMenu, dialog, dropdownMenu, richText, table, text, textInput } from '../../dist/components/index.js';
 import { absolute, overlay, surface } from '../../dist/layout/index.js';
 
 test('absolute clips child bounds without leaking outside its parent', () => {
@@ -250,6 +250,38 @@ test('dialog clear underlay removes lower cells throughout its region', () => {
   assert.deepEqual(leakedBackdropCells, []);
   assert.match(output, /Dialog/u);
   assert.match(output, /front/u);
+});
+
+test('modal dialogs create their own layer and dim the complete lower canvas', () => {
+  const element = overlay([
+    richText({
+      id: 'linked-backdrop',
+      segments: [{
+        kind: 'text',
+        text: 'linked page',
+        link: { href: 'https://example.test/' }
+      }]
+    }),
+    dialog(text('front', { id: 'automatic-modal-content' }), {
+      id: 'automatic-modal',
+      title: 'Confirm',
+      modal: true,
+      focusPolicy: { returnFocus: 'restore' },
+      width: 12,
+      height: 5
+    })
+  ], { id: 'automatic-modal-root' });
+
+  const regions = renderElementRegions(element, { columns: 24, rows: 7 });
+  const frame = renderElementFrame(element, { columns: 24, rows: 7 });
+  const backdropCell = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
+
+  assert.deepEqual(regions.map((region) => region.zIndex), [0, 20]);
+  assert.deepEqual(regions[1]?.backdropBounds, { row: 1, column: 1, width: 24, height: 7 });
+  assert.equal(backdropCell?.text, 'l');
+  assert.equal(backdropCell?.link, undefined);
+  assert.deepEqual(backdropCell?.style?.bg, { kind: 'theme', token: 'surface.backdrop' });
+  assert.equal(backdropCell?.style?.dim, true);
 });
 
 test('dropdownMenu renders above table content in a higher region', () => {

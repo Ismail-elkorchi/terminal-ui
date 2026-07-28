@@ -11,7 +11,7 @@ import {
 } from '../measurement.ts';
 import { layoutInsetSize } from '../layout-geometry.ts';
 import { numberProp } from '../render-node-props.ts';
-import { tabsHeaderText } from './support/tabs.ts';
+import { tabsHeaderRows, tabsHeaderText } from './support/tabs.ts';
 import { childMeasurements } from './measurement-support.ts';
 import type { RendererMeasurementMap } from './types.ts';
 
@@ -38,7 +38,7 @@ export const layoutMeasurements = {
     const panel = combineMeasurementsOverlay(childMeasurements(childCount, measureChild));
     return measureSize(
       Math.max(header.preferredWidth, panel.preferredWidth),
-      header.preferredHeight + panel.preferredHeight
+      tabsHeaderRows(renderNode) + panel.preferredHeight
     );
   },
   dialog: ({ renderNode, childCount, measureChild }) => {

@@ -4,7 +4,7 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type { HelpGroup, ProcessStatus } from '../../ui-model/contracts.ts';
 import type { StatusBarItem, StatusBarSection } from '../../ui-model/feedback.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
-import { block, clipRenderSpans, line, measureRenderSpans, span } from '../../visual/render.ts';
+import { block, clipRenderSpans, line, measureRenderSpans, padRenderLine, span } from '../../visual/render.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { FrameCellRole } from './frame-passes/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
@@ -86,7 +86,7 @@ function statusBarSectionSpans(
             kind: 'statusBar',
             label: `${part}.marker`,
             sourceId: item.id,
-            style: statusStyle(item.status),
+            style: mergeStyles(feedbackBarValueStyle(renderNode), statusStyle(item.status)),
           }),
           feedbackSpan(renderNode, ' ', {
             kind: 'statusBar',
@@ -99,7 +99,7 @@ function statusBarSectionSpans(
             kind: 'statusBar',
             label: `${part}.value`,
             sourceId: item.id,
-            style: statusStyle(item.status),
+            style: mergeStyles(feedbackBarValueStyle(renderNode), statusStyle(item.status)),
           })
         ]
       : [feedbackSpan(renderNode, item.text, {
@@ -212,7 +212,18 @@ function statusBarFill(renderNode: StatusBarNode, cells: number): RenderSpan {
 
 export function helpBarBlock(renderNode: HelpBarNode, widthProfile: TextWidthProfile, maxCells?: number): RenderBlock {
   const spans = fitHelpGroupSpans(renderNode, helpGroups(renderNode), maxCells, widthProfile);
-  return block([line(spans)]);
+  const value = line(spans);
+  return block([maxCells === undefined
+    ? value
+    : padRenderLine(value, maxCells, {
+        widthProfile,
+        fill: feedbackSpan(renderNode, ' ', {
+          kind: 'helpBar',
+          label: 'fill',
+          role: 'decoration',
+          style: feedbackBarValueStyle(renderNode)
+        })
+      })]);
 }
 
 function fitHelpGroupSpans(
@@ -271,7 +282,7 @@ function helpGroupPrefixSpans(
         kind: 'helpBar',
         label: `group.${group.id}.label`,
         sourceId: group.id,
-        style: renderNodeStyle(renderNode, 'label')
+        style: mergeStyles(feedbackBarValueStyle(renderNode), renderNodeStyle(renderNode, 'label'))
       }),
       feedbackSpan(renderNode, ' ', {
         kind: 'helpBar',
@@ -355,7 +366,7 @@ function appendHelpOverflow(
     kind: 'helpBar',
     label: 'overflow',
     role: 'decoration',
-    style: renderNodeStyle(renderNode, 'marker')
+    style: mergeStyles(feedbackBarValueStyle(renderNode), renderNodeStyle(renderNode, 'marker'))
   });
   const separatedMarker = fitted.length === 0
     ? [marker]

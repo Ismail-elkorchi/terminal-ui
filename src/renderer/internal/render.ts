@@ -27,7 +27,7 @@ import type { TextWidthProfile } from '../../text/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FramePass } from './frame-passes/index.ts';
-import type { LayoutNode } from '../model/layout.ts';
+import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 import type { RenderTarget } from '../model/render-target.ts';
 import type { RenderWorkInstrumentation, RenderWorkMeasurement } from '../model/instrumentation.ts';
@@ -265,7 +265,16 @@ function renderLayoutRegions<TMessage>(
 ): readonly RenderRegion<TMessage>[] {
   const composer = createRegionComposer<TMessage>(terminalSize, widthProfile);
   const path = nodePath(layout, []);
-  renderRenderNodeToRegion(renderNode, layout, [], composer.regionFor(layout, path), composer, theme, widthProfile, focusPath);
+  renderRenderNodeToRegion(
+    renderNode,
+    layout,
+    [],
+    composer.regionFor(renderNode, layout, path),
+    composer,
+    theme,
+    widthProfile,
+    focusPath
+  );
   return composer.snapshot(createRegionTargetIndex(renderNode, layout), theme, widthProfile);
 }
 
@@ -359,7 +368,7 @@ function renderRenderNodeChildrenToRegions<TMessage>(
     }
     const childRegion = childNode.layer.zIndex === region.zIndex
       ? region
-      : composer.regionFor(childNode, [...path, childNode.identity]);
+      : composer.regionFor(child, childNode, [...path, childNode.identity]);
     renderRenderNodeToRegion(child, childNode, path, childRegion, composer, theme, widthProfile, focusPath);
   }
 }
@@ -408,7 +417,7 @@ function orderedChildren(
 }
 
 interface RegionComposer<TMessage> {
-  regionFor(node: LayoutNode, path: FocusPath): DraftRenderRegion;
+  regionFor(renderNode: RenderNode, node: LayoutNode, path: FocusPath): DraftRenderRegion;
   snapshot(
     index: RegionTargetIndex<TMessage>,
     theme: TerminalTheme,
@@ -420,7 +429,10 @@ function createRegionComposer<TMessage>(terminalSize: TerminalSize, widthProfile
   const regions: DraftRenderRegion[] = [];
   let regionOrder = 0;
   return {
-    regionFor(node, path) {
+    regionFor(renderNode, node, path) {
+      const backdropBounds = renderNode.kind === 'dialog' && renderNode.props.modal
+        ? { row: 1, column: 1, width: terminalSize.columns, height: terminalSize.rows }
+        : undefined;
       const region = createDraftRenderRegion({
         id: regionIdForLayoutNode(node, path),
         zIndex: node.layer.zIndex,
@@ -428,6 +440,7 @@ function createRegionComposer<TMessage>(terminalSize: TerminalSize, widthProfile
         terminalSize,
         bounds: node.layer.bounds,
         underlay: node.layer.underlay,
+        ...(backdropBounds === undefined ? {} : { backdropBounds }),
         widthProfile
       });
       regionOrder += 1;
@@ -445,6 +458,7 @@ function createRegionComposer<TMessage>(terminalSize: TerminalSize, widthProfile
             order: region.order,
             bounds: region.bounds,
             underlay: region.underlay,
+            ...(region.backdropBounds === undefined ? {} : { backdropBounds: region.backdropBounds }),
             cells: snapshot.cells,
             metadata: snapshot.metadata,
             hitTargets: frameHitTargets(
@@ -467,6 +481,7 @@ export function compositeRegions(
 ): FrameBuffer {
   const buffer = createFrameBuffer(terminalSize.columns, terminalSize.rows, { widthProfile });
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
+    if (region.backdropBounds !== undefined) applyModalBackdrop(buffer, region.backdropBounds);
     if (region.underlay === 'clear') {
       buffer.clear(region.bounds);
       for (const cell of region.cells) blitFrameCell(buffer, cell);
@@ -481,6 +496,35 @@ export function compositeRegions(
     for (const cell of region.cells) blitFrameCell(buffer, cell);
   }
   return buffer;
+}
+
+function applyModalBackdrop(buffer: FrameBuffer, bounds: Rect): void {
+  for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
+    for (let column = bounds.column; column < bounds.column + bounds.width; column += 1) {
+      const cell = buffer.readCell(row, column);
+      if (cell?.continuation === true) continue;
+      if (cell === undefined) {
+        buffer.write(row, column, [{
+          text: ' ',
+          style: {
+            bg: { kind: 'theme', token: 'surface.backdrop' },
+            dim: true
+          }
+        }]);
+        continue;
+      }
+      const unlinked = { ...cell };
+      Reflect.deleteProperty(unlinked, 'link');
+      blitFrameCell(buffer, {
+        ...unlinked,
+        style: {
+          ...cell.style,
+          bg: { kind: 'theme', token: 'surface.backdrop' },
+          dim: true
+        }
+      });
+    }
+  }
 }
 
 function applyThemeCanvas(buffer: FrameBuffer, theme: TerminalTheme): void {

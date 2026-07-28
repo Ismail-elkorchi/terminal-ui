@@ -46,11 +46,11 @@ export function buttonSpans(
       ...inlineBaseStyle(renderNode, 'leading', style),
       source: (_segment, index) => formSource(renderNode, 'leading', `leading.${String(index)}`, visualState)
     }));
-    spans.push(separatorSpan(renderNode));
+    spans.push(separatorSpan(renderNode, ' ', frameStyle));
   }
   spans.push(formSpan(renderNode, 'label', 'label.text', label, style, visualState));
   if (renderNode.props.trailing !== undefined) {
-    spans.push(separatorSpan(renderNode));
+    spans.push(separatorSpan(renderNode, ' ', frameStyle));
     spans.push(...renderInlineContent(renderNode.props.trailing, {
       theme,
       ...inlineBaseStyle(renderNode, 'trailing', style),
@@ -105,7 +105,7 @@ function buttonStateMarker(
 
 function buttonStyle(renderNode: ButtonNode, focused: boolean): TerminalStyle | undefined {
   const state = buttonState(renderNode, focused);
-  const base = buttonBaseStyle(renderNode);
+  const base = mergeStyles(buttonBaseStyle(renderNode), ghostFocusStyle(renderNode, state));
   return resolveRenderNodeStyle(renderNode, {
     part: 'label',
     ...(base === undefined ? {} : { base }),
@@ -115,12 +115,18 @@ function buttonStyle(renderNode: ButtonNode, focused: boolean): TerminalStyle | 
 
 function buttonFrameStyle(renderNode: ButtonNode, focused: boolean): TerminalStyle | undefined {
   const state = buttonState(renderNode, focused);
-  const base = buttonFrameBaseStyle(renderNode);
+  const base = mergeStyles(buttonFrameBaseStyle(renderNode), ghostFocusStyle(renderNode, state));
   return resolveRenderNodeStyle(renderNode, {
     part: 'frame',
     ...(base === undefined ? {} : { base }),
     ...(state === undefined ? {} : { state })
   });
+}
+
+function ghostFocusStyle(renderNode: ButtonNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+  return buttonTone(renderNode) === 'ghost' && state === 'focused'
+    ? { bg: { kind: 'theme', token: 'focus.background' } }
+    : undefined;
 }
 
 function buttonBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
@@ -132,6 +138,8 @@ function buttonBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
       return controlToneStyle('primary');
     case 'secondary':
       return controlToneStyle('secondary');
+    case 'ghost':
+      return themeStyle('control.foreground');
     case 'destructive':
       return themeStyle('status.error', { bold: true });
   }
@@ -146,6 +154,8 @@ function buttonFrameBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined
       return controlToneBorderStyle('primary');
     case 'secondary':
       return controlToneBorderStyle('secondary');
+    case 'ghost':
+      return themeStyle('control.foreground');
     case 'destructive':
       return themeStyle('status.error', { bold: true });
   }
@@ -209,6 +219,7 @@ function buttonTone(renderNode: ButtonNode): ButtonTone {
   switch (renderNode.props.tone) {
     case 'primary':
     case 'secondary':
+    case 'ghost':
     case 'destructive':
       return renderNode.props.tone;
     default:

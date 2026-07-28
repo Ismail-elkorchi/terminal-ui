@@ -12,6 +12,7 @@ import type { InlineContent, InlineContentSegment } from '../../visual/inline-co
 import type { TextWidthProfile } from '../../text/index.ts';
 
 export interface MenuVisualItem {
+  readonly kind: 'action' | 'check' | 'submenu';
   readonly id: string;
   readonly label: string;
   readonly leading?: InlineContent;
@@ -78,13 +79,14 @@ export function dropdownMenuControlLine(input: {
   readonly width: number;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly compact?: boolean;
   readonly fillWidth?: boolean;
 }): RenderLine {
   const stateStyle = input.placeholder
     ? renderNodeStyle(input.renderNode, 'placeholder')
     : resolveRenderNodeStyle(input.renderNode, { part: 'label', base: themeStyle('text.default') });
   const baseControlStyle = renderNodeStyle(input.renderNode, 'control');
-  const marker = input.open ? input.theme.tokens.symbols.treeExpanded : input.theme.tokens.symbols.treeCollapsed;
+  const marker = input.open ? input.theme.tokens.symbols.expanded : input.theme.tokens.symbols.collapsed;
   const state = interactionVisualState(input.renderNode, renderNodeTargetId(input.renderNode, 'control'), {
     selected: input.open,
     focused: input.focused === true
@@ -92,16 +94,22 @@ export function dropdownMenuControlLine(input: {
   const controlStyle = state === undefined
     ? baseControlStyle
     : resolveRenderNodeStyle(input.renderNode, { part: 'control', state });
+  const prefix = input.compact === true
+    ? input.focused === true ? input.theme.tokens.symbols.pointer : ' '
+    : input.focused === true ? `${input.theme.tokens.symbols.pointer} ` : '  ';
+  const disclosure = input.compact === true ? marker : ` ${marker}`;
   const spans: RenderSpan[] = [
     ...(input.label.length === 0
       ? []
       : [
           menuSpan(input.renderNode, `${input.label}: `, renderNodeStyle(input.renderNode, 'label'), { label: 'label' })
         ]),
-    menuSpan(input.renderNode, input.focused === true ? `${input.theme.tokens.symbols.pointer} ` : '  ', controlStyle, { label: 'dropdownMenu-focus', state }),
+    menuSpan(input.renderNode, prefix, controlStyle, { label: 'dropdownMenu-focus', state }),
     menuSpan(input.renderNode, input.value, mergeStyles(stateStyle, controlStyle), { label: 'dropdownMenu-value', state }),
-    menuSpan(input.renderNode, ` ${marker}`, controlStyle, { label: 'dropdownMenu-marker', state }),
-    menuSpan(input.renderNode, '  ', controlStyle, { label: 'dropdownMenu-padding', state })
+    menuSpan(input.renderNode, disclosure, controlStyle, { label: 'dropdownMenu-marker', state }),
+    ...(input.compact === true
+      ? []
+      : [menuSpan(input.renderNode, '  ', controlStyle, { label: 'dropdownMenu-padding', state })])
   ];
   const line = { spans: clipSpans(spans, input.width, input.widthProfile) };
   if (input.fillWidth !== true) return line;
@@ -126,7 +134,8 @@ export function menuItemLine(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focused = false,
-  fillWidth = false
+  fillWidth = false,
+  columns: { readonly check: boolean; readonly branch: boolean } = { check: true, branch: true }
 ): RenderLine {
   const state = interactionVisualState(renderNode, menuItemTargetId(renderNode, item.id), {
     disabled: item.disabled === true,
@@ -134,7 +143,7 @@ export function menuItemLine(
     focused: focused && selected
   });
   const line = {
-    spans: clipSpans(menuItemSpans(renderNode, item, selected, state, theme), width, widthProfile)
+    spans: clipSpans(menuItemSpans(renderNode, item, selected, state, theme, columns), width, widthProfile)
   };
   if (!fillWidth) return line;
   return padRenderLine(line, width, {
@@ -177,7 +186,8 @@ function menuItemSpans(
   item: MenuVisualItem,
   selected: boolean,
   state: ElementVisualState | undefined,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  columns: { readonly check: boolean; readonly branch: boolean }
 ): readonly RenderSpan[] {
   const labelStyle = menuLabelStyle(renderNode, item, state);
   const marker = item.disabled === true
@@ -187,16 +197,28 @@ function menuItemSpans(
       : item.tone === 'destructive'
         ? theme.tokens.symbols.statusError
         : theme.tokens.symbols.unselected;
-  const checked = item.checked === true ? theme.tokens.symbols.checkboxChecked : '   ';
-  const branch = item.hasChildren ? item.expanded === true ? theme.tokens.symbols.treeExpanded : theme.tokens.symbols.treeCollapsed : theme.tokens.symbols.unselected;
+  const checked = item.kind === 'check'
+    ? item.checked === true ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked
+    : '   ';
+  const branch = item.hasChildren
+    ? item.expanded === true ? theme.tokens.symbols.expanded : theme.tokens.symbols.collapsed
+    : theme.tokens.symbols.unselected;
   const indent = '  '.repeat(Math.max(0, item.depth));
   return [
     menuSpan(renderNode, `${marker} `, menuMarkerStyle(renderNode, item, state), { itemId: item.id, label: 'marker', state }),
     ...(indent.length === 0 ? [] : [menuSpan(renderNode, indent, menuMutedStyle(renderNode, state), { itemId: item.id, label: 'indent', state })]),
-    menuSpan(renderNode, checked, item.checked === true ? menuCheckedStyle(renderNode, state) : menuMutedStyle(renderNode, state), { itemId: item.id, label: 'checked', state }),
-    menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'gap', state }),
-    menuSpan(renderNode, branch, item.hasChildren ? menuBranchStyle(renderNode, state) : menuMutedStyle(renderNode, state), { itemId: item.id, label: 'branch', state }),
-    menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'gap', state }),
+    ...(columns.check
+      ? [
+          menuSpan(renderNode, checked, item.checked === true ? menuCheckedStyle(renderNode, state) : menuMutedStyle(renderNode, state), { itemId: item.id, label: 'checked', state }),
+          menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'check-gap', state })
+        ]
+      : []),
+    ...(columns.branch
+      ? [
+          menuSpan(renderNode, branch, item.hasChildren ? menuBranchStyle(renderNode, state) : menuMutedStyle(renderNode, state), { itemId: item.id, label: 'branch', state }),
+          menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'branch-gap', state })
+        ]
+      : []),
     ...menuInlineSpans(renderNode, item.leading, 'leading', item, state, theme),
     ...(item.leading === undefined ? [] : [menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'leading-gap', state })]),
     menuSpan(renderNode, item.label, labelStyle, { itemId: item.id, label: 'label', state }),

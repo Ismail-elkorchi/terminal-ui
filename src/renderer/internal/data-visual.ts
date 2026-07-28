@@ -1,6 +1,6 @@
 import { highlightRenderSpans } from './text-highlight.ts';
 import { frameSourcePart, isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
-import { themeStyle, renderNodeStyle } from './render-node-style.ts';
+import { themeStyle, renderNodeStyle, styleHasBackground } from './render-node-style.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -25,8 +25,11 @@ export function selectionMarkerSpans(
     ...(source?.partName === undefined ? {} : { partName: `${source.partName}.gap` }),
     ...(source?.description === undefined ? {} : { description: `${source.description}.gap` })
   });
+  const marker = selected && !styleHasBackground(markerStyle, theme)
+    ? theme.tokens.symbols.selected
+    : theme.tokens.symbols.unselected;
   return [
-    dataSpan(selected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected, markerStyle, source),
+    dataSpan(marker, markerStyle, source),
     dataSpan(' ', markerStyle, gapSource)
   ];
 }

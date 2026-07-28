@@ -58,6 +58,10 @@ export function menuBlock(
     return { lines: [menuEmptyLine(renderNode, emptyText(renderNode), bounds.width, widthProfile)] };
   }
   const active = menuActiveId(renderNode);
+  const columns = {
+    check: rows.some((row) => row.item.kind === 'check'),
+    branch: rows.some((row) => row.item.hasChildren)
+  };
   return {
     lines: rows.map((row) => menuItemLine(
       renderNode,
@@ -67,7 +71,8 @@ export function menuBlock(
       theme,
       widthProfile,
       focused,
-      fillWidth
+      fillWidth,
+      columns
     ))
   };
 }
@@ -105,6 +110,7 @@ export function dropdownMenuBlock(
       width: bounds.width,
       theme,
       widthProfile,
+      compact: renderNode.props.density === 'compact',
       fillWidth
     })]
   };
@@ -224,9 +230,16 @@ export function menuPopupContentSize(
   widthProfile: TextWidthProfile
 ): { readonly width: number; readonly height: number } {
   const visible = visibleMenuItems(items);
+  const columns = {
+    check: visible.some((item) => item.kind === 'check'),
+    branch: visible.some((item) => item.hasChildren)
+  };
   const contentRows = Math.min(Math.max(1, visible.length), maxVisibleItems);
   const titleWidth = title === undefined ? 0 : terminalTextWidth(clean(title), { widthProfile });
-  const itemWidth = visible.reduce((width, item) => Math.max(width, menuItemContentWidth(item, widthProfile)), 0);
+  const itemWidth = visible.reduce(
+    (width, item) => Math.max(width, menuItemContentWidth(item, columns, widthProfile)),
+    0
+  );
   return { width: Math.max(8, titleWidth + 4, itemWidth + 4), height: contentRows + 2 };
 }
 
@@ -338,9 +351,15 @@ function menuBarItemWidth(item: VisibleMenuItem, selected: boolean, widthProfile
   return terminalTextWidth(item.label, { widthProfile }) + (selected || item.disabled === true ? 2 : 0);
 }
 
-function menuItemContentWidth(item: VisibleMenuItem, widthProfile: TextWidthProfile): number {
-  return 8
+function menuItemContentWidth(
+  item: VisibleMenuItem,
+  columns: { readonly check: boolean; readonly branch: boolean },
+  widthProfile: TextWidthProfile
+): number {
+  return 2
     + item.depth * 2
+    + (columns.check ? 4 : 0)
+    + (columns.branch ? 2 : 0)
     + terminalTextWidth(item.label, { widthProfile })
     + (item.description === undefined ? 0 : terminalTextWidth(item.description, { widthProfile }) + 2)
     + (item.shortcut === undefined ? 0 : terminalTextWidth(item.shortcut, { widthProfile }) + 2);

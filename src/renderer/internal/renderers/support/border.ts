@@ -17,7 +17,7 @@ export function borderForDialog(
 ): BorderStyle {
   const border = defaultBorderStyle(
     renderNode,
-    borderStyleFromValue(renderNode.props.border) ?? { kind: 'single' },
+    borderStyleFromValue(renderNode.props.border) ?? { kind: 'rounded' },
     dialogBorderStyle(renderNode)
   );
   if (border.title !== undefined || border.kind === 'none' || theme === undefined) {

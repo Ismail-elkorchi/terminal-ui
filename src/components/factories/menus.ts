@@ -186,6 +186,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
       ...(options.label === undefined ? {} : { label: options.label }),
       presentation: options.presentation,
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
+      ...(options.density === undefined ? {} : { density: options.density }),
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       maxVisibleItems: positiveInteger(options.maxVisibleItems, 12, 'dropdownMenu maxVisibleItems'),
       ...(onAction === undefined ? {} : { toDropdownMenuActionMessage: onAction })

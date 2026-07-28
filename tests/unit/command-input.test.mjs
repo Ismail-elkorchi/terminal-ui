@@ -5,7 +5,8 @@ import { commandInputPresentation, commandInputReducer } from '../../dist/behavi
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
-  renderElementFrame
+  renderElementFrame,
+  renderFramePlain
 } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { button, commandInput } from '../../dist/components/index.js';
@@ -151,10 +152,16 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
   );
 
   const text = frame.cells.map((cell) => cell.text).join('');
+  const input = frame.cells
+    .filter((cell) => cell.row === 1)
+    .sort((left, right) => left.column - right.column)
+    .map((cell) => cell.text)
+    .join('');
+  assert.match(input, /^\/op/u);
   assert.match(text, /\/op/u);
   assert.match(text, /open · Open item/u);
   assert.match(text, /›/u);
-  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 6 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 4 });
   assert.equal(frame.accessibility.root.role, 'combobox');
   assert.equal(frame.accessibility.root.value, 'op');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
@@ -302,7 +309,7 @@ test('commandInput renders completion preview validation footer match styles and
   assert.match(output, /\?a🙂bc/u);
   assert.match(output, /Choose a value/u);
   assert.match(output, /enter accepts/u);
-  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 7 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 5 });
   assert.equal(previewCell?.style?.fg?.token, 'input.placeholder');
   assert.equal(selectedCell?.style?.bg?.token, 'selection.background');
   assert.equal(validationCell?.style?.fg?.token, 'status.warning');
@@ -352,7 +359,7 @@ test('commandInput windows long input around the cursor', () => {
     .map((cell) => cell.text)
     .join('');
 
-  assert.match(firstRow, /^› >‹/u);
+  assert.match(firstRow, /^>‹/u);
   assert.match(firstRow, /file\.txt/u);
   assert.doesNotMatch(firstRow, /\/very\/long/u);
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 18 });
@@ -378,8 +385,25 @@ test('commandInput maps pointer positions through the cursor-relative input wind
 
   assert.deepEqual(message?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 5 }
+    action: { kind: 'placeCaret', offset: 4 }
   });
+});
+
+test('commandInput renders one prompt without a separate focus marker', () => {
+  const explicit = renderElementFrame(commandInput({
+    id: 'explicit-prompt',
+    prompt: '› ',
+    presentation: { value: 'open', cursor: 4, suggestions: [] }
+  }), { columns: 16, rows: 1 }, { focusPath: ['explicit-prompt'] });
+  const defaultPrompt = renderElementFrame(commandInput({
+    id: 'default-prompt',
+    presentation: { value: 'open', cursor: 4, suggestions: [] }
+  }), { columns: 16, rows: 1 }, { focusPath: ['default-prompt'] });
+
+  assert.equal(renderFramePlain(explicit), '› open');
+  assert.equal(renderFramePlain(defaultPrompt), '> open');
+  assert.deepEqual(cursorPosition(explicit.cursor), { row: 1, column: 7 });
+  assert.deepEqual(cursorPosition(defaultPrompt.cursor), { row: 1, column: 7 });
 });
 
 function cursorPosition(cursor) {

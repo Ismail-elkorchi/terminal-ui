@@ -393,8 +393,8 @@ export function selectBlock(
         'marker',
         'value.disclosure',
         renderNode.props.presentation.kind === 'open'
-          ? theme.tokens.symbols.treeExpanded
-          : theme.tokens.symbols.treeCollapsed,
+          ? theme.tokens.symbols.expanded
+          : theme.tokens.symbols.collapsed,
         renderNodeStyle(renderNode, 'marker')
       )
     ], bounds.width, widthProfile), bounds.width, widthProfile, fillWidth),

@@ -71,6 +71,10 @@ test('theme packs are exported as optional named TerminalTheme values', () => {
     assert.equal(typeof theme.tokens.colors['surface.raised.background'], 'object');
     assert.equal(typeof theme.tokens.colors['surface.warning.border'], 'object');
     assert.equal(typeof theme.tokens.colors['surface.shadow'], 'object');
+    assert.equal(typeof theme.tokens.colors['surface.backdrop'], 'object');
+    assert.equal(typeof theme.tokens.colors['control.background'], 'object');
+    assert.equal(typeof theme.tokens.colors['tab.active.foreground'], 'object');
+    assert.equal(typeof theme.tokens.colors['scrollbar.thumb'], 'object');
   }
 });
 

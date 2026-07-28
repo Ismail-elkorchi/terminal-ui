@@ -88,6 +88,21 @@ test('menu component renders nested checked disabled items with menu accessibili
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
+test('simple action menus omit unused checkbox and submenu columns', () => {
+  const simpleItems = [
+    { kind: 'action', id: 'alpha', label: 'Alpha' },
+    { kind: 'action', id: 'beta', label: 'Beta' }
+  ];
+  const frame = renderElementFrame(menu({
+    id: 'compact-actions',
+    presentation: menuPresentation(simpleItems, { activePath: ['alpha'] })
+  }), { columns: 20, rows: 2 });
+
+  assert.equal(renderFramePlain(frame), '› Alpha\n  Beta');
+  assert.equal(frame.cells.some((cell) => cell.source?.partName === 'checked'), false);
+  assert.equal(frame.cells.some((cell) => cell.source?.partName === 'branch'), false);
+});
+
 test('menu models reject duplicate identities across nested branches', () => {
   assert.throws(() => menuPresentation([
     {

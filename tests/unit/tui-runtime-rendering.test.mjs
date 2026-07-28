@@ -75,7 +75,11 @@ test('TUI frame cursor follows the selected visible list item', () => {
 
   assert.deepEqual(frame.focusPath, ['cursor-list']);
   assert.deepEqual(frame.cursor, { row: 3, column: 1 });
-  assert.match(output, /› Item 6/);
+  assert.match(output, /  Item 6/);
+  assert.equal(
+    frame.cells.find((cell) => cell.text === 'I' && cell.row === 3)?.style?.bg?.token,
+    'selection.background'
+  );
   assert.match(addressed, /\u001B\[3H$/u);
 });
 

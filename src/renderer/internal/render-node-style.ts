@@ -1,5 +1,6 @@
 import type { ElementTextRole, ElementVisualState } from '../../element/metadata.ts';
-import type { ThemeColorToken } from '../../theme/index.ts';
+import { resolveThemeColor } from '../../theme/index.ts';
+import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 
@@ -119,4 +120,10 @@ export function inputCursorStyle(): TerminalStyle {
 export function mergeStyles(...styles: readonly (TerminalStyle | undefined)[]): TerminalStyle | undefined {
   const merged = styles.reduce<TerminalStyle>((current, style) => style === undefined ? current : { ...current, ...style }, {});
   return Object.keys(merged).length === 0 ? undefined : merged;
+}
+
+export function styleHasBackground(style: TerminalStyle | undefined, theme: TerminalTheme): boolean {
+  const background = style?.bg;
+  return background !== undefined
+    && (background.kind !== 'theme' || resolveThemeColor(theme, background.token) !== undefined);
 }

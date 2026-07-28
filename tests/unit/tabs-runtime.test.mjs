@@ -120,4 +120,92 @@ test('tabs paint a complete strip and raise the selected tab', () => {
     header.find((cell) => cell.source?.itemId === 'second' && cell.source?.partName === 'close')?.style?.bg?.token,
     'surface.raised.background'
   );
+  assert.equal(
+    header.find((cell) => cell.source?.itemId === 'second' && cell.source?.partName === 'label')?.style?.underline,
+    undefined
+  );
+});
+
+test('tabs bound individual labels without losing close actions or accessible names', () => {
+  const frame = renderElementFrame(tabs({
+    id: 'bounded-tabs',
+    selected: 'long',
+    maxTabWidth: 12,
+    tabs: [
+      {
+        id: 'long',
+        label: 'A very long document name',
+        closable: true,
+        panel: text('Long panel')
+      },
+      { id: 'short', label: 'Short', panel: text('Short panel') }
+    ],
+    onAction: (action) => ({ kind: 'tabs', action })
+  }), { columns: 30, rows: 3 });
+  const selectedCells = frame.cells.filter((cell) => cell.row === 1 && cell.source?.itemId === 'long');
+  const selectedColumns = selectedCells.map((cell) => cell.column);
+
+  assert.equal(Math.max(...selectedColumns) - Math.min(...selectedColumns) + 1, 12);
+  assert.equal(selectedCells.some((cell) => cell.text === '…'), true);
+  assert.equal(selectedCells.some((cell) => cell.source?.partName === 'close' && cell.text === '×'), true);
+  assert.equal(frame.hitTargets?.some((target) => target.id === 'bounded-tabs:tab:long:close'), true);
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.label, 'A very long document name');
+});
+
+test('a one-cell tab limit prioritizes the close action over decoration', () => {
+  const frame = renderElementFrame(tabs({
+    id: 'minimal-tab',
+    selected: 'only',
+    maxTabWidth: 1,
+    tabs: [{ id: 'only', label: 'Only', closable: true, panel: text('Panel') }],
+    onAction: (action) => ({ kind: 'tabs', action })
+  }), { columns: 8, rows: 2 });
+
+  assert.equal(renderFramePlain(frame).split('\n')[0], '×');
+  assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['minimal-tab:tab:only:close']);
+});
+
+test('tabs use every configured tab-bar row for painting layout and interaction', () => {
+  const element = tabs({
+    id: 'tall-tabs',
+    selected: 'second',
+    tabBarRows: 2,
+    tabs: [
+      { id: 'first', label: 'First', panel: text('First panel') },
+      { id: 'second', label: 'Second', closable: true, panel: text('Second panel') }
+    ],
+    onAction: (action) => ({ kind: 'tabs', action })
+  });
+  const layout = layoutElement(element, { columns: 24, rows: 5 });
+  const frame = renderElementFrame(element, { columns: 24, rows: 5 }, { theme: defaultTheme });
+  const selectedTop = frame.cells.filter((cell) =>
+    cell.row === 1
+    && cell.source?.itemId === 'second'
+    && cell.source?.partName !== 'separator.padding'
+  );
+  const labelCells = frame.cells.filter((cell) =>
+    cell.source?.itemId === 'second'
+    && cell.source?.partName === 'label'
+  );
+  const tabTarget = frame.hitTargets?.find((target) => target.id === 'tall-tabs:tab:second');
+  const closeTarget = frame.hitTargets?.find((target) => target.id === 'tall-tabs:tab:second:close');
+
+  assert.deepEqual(layout.children[1]?.bounds, { row: 3, column: 1, width: 24, height: 3 });
+  assert.equal(selectedTop.length > 0, true);
+  assert.equal(selectedTop.every((cell) => cell.style?.bg?.token === 'surface.raised.background'), true);
+  assert.equal(labelCells.length > 0, true);
+  assert.equal(labelCells.every((cell) => cell.row === 2), true);
+  assert.deepEqual(tabTarget?.bounds, { row: 1, column: 9, width: 8, height: 2 });
+  assert.deepEqual(closeTarget?.bounds, { row: 1, column: 17, width: 2, height: 2 });
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.label, 'Second');
+});
+
+test('tabs reject invalid tab-bar row counts', () => {
+  for (const tabBarRows of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => tabs({
+      id: 'invalid-tab-rows',
+      tabBarRows,
+      tabs: [{ id: 'only', label: 'Only', panel: text('Panel') }]
+    }), RangeError);
+  }
 });

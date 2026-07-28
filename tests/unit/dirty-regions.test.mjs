@@ -252,6 +252,30 @@ test('region ids stay stable when dialog content changes', () => {
   assert.equal(beforeDialog?.id, afterDialog?.id);
 });
 
+test('adding a modal dirties the complete backdrop instead of only the dialog bounds', () => {
+  const terminalSize = { columns: 20, rows: 7 };
+  const before = text('background', { id: 'modal-dirty-background' });
+  const after = overlay([
+    before,
+    dialog(text('front', { id: 'modal-dirty-content' }), {
+      id: 'modal-dirty-dialog',
+      title: 'Dialog',
+      modal: true,
+      focusPolicy: { returnFocus: 'restore' },
+      width: 12,
+      height: 5
+    })
+  ], { id: 'modal-dirty-overlay' });
+  const dirty = dirtyRegionsForRegionChanges(
+    renderElementRegions(before, terminalSize),
+    renderElementRegions(after, terminalSize)
+  );
+
+  assert.deepEqual(dirty?.rects, [
+    { row: 1, column: 1, width: terminalSize.columns, height: terminalSize.rows }
+  ]);
+});
+
 function movingOverlay(row, column) {
   return surface(
     overlay([

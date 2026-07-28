@@ -185,8 +185,9 @@ test('surface appearance draws background border and shadow', () => {
   assert.match(output, /inside/u);
   assert.deepEqual(backgroundCell?.style?.bg, { kind: 'theme', token: 'surface.raised.background' });
   assert.deepEqual(borderCell?.style?.fg, { kind: 'theme', token: 'surface.raised.border' });
-  assert.deepEqual(shadowCell?.style?.bg, { kind: 'theme', token: 'surface.shadow' });
-  assert.equal(shadowCell?.text, ' ');
+  assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
+  assert.equal(shadowCell?.style?.dim, true);
+  assert.equal(shadowCell?.text, '░');
   assert.deepEqual(
     frame.cells.find((cell) => cell.text === 'i' && cell.source?.elementId === 'surface-content')?.style?.bg,
     { kind: 'theme', token: 'surface.raised.background' }
@@ -247,21 +248,27 @@ test('surface title slots render start center and end zones in the border line',
   assert.equal(frame.cells.find((cell) => cell.text === 'B')?.style?.fg?.token, 'chart.value');
 });
 
-test('surface appearances reserve border content space while plain surfaces stay transparent', () => {
+test('surface appearance controls fill independently from an explicit frame', () => {
   const neutral = renderElementFrame(surface(text('neutral', { id: 'neutral-inner' }), {
     id: 'neutral',
     appearance: 'neutral'
   }), { columns: 10, rows: 2 }, { theme: modernTheme });
-  const visualLayout = renderElementFrame(surface(text('inner', { id: 'inner' }), {
-    id: 'visual',
+  const unframed = renderElementFrame(surface(text('inner', { id: 'unframed-inner' }), {
+    id: 'unframed',
     appearance: 'raised'
+  }), { columns: 10, rows: 3 }, { theme: modernTheme });
+  const framed = renderElementFrame(surface(text('inner', { id: 'framed-inner' }), {
+    id: 'framed',
+    appearance: 'raised',
+    border: { kind: 'single' }
   }), { columns: 10, rows: 3 }, { theme: modernTheme });
   const transparent = renderElementFrame(surface(text('flush', { id: 'flush' }), {
     id: 'plain'
   }), { columns: 10, rows: 3 });
 
   assert.deepEqual(neutral.cells.find((cell) => cell.source?.elementKind === 'surface')?.style?.bg, { kind: 'theme', token: 'surface.background' });
-  assert.match(renderFramePlain(visualLayout).split('\n')[1] ?? '', /^│inner/u);
+  assert.match(renderFramePlain(unframed).split('\n')[0] ?? '', /^inner/u);
+  assert.match(renderFramePlain(framed).split('\n')[1] ?? '', /^│inner/u);
   assert.equal(renderFramePlain(transparent), 'flush');
 });
 

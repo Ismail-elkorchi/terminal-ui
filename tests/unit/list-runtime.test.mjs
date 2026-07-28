@@ -80,7 +80,9 @@ test('list component exposes source-aware row values matches and empty filter st
     filterQuery: 'missing'
   }), { columns: 24, rows: 2 });
 
-  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.description, 'item.Atlas.marker');
+  const marker = frame.cells.find((cell) => cell.source?.description === 'item.Atlas.marker');
+  assert.equal(marker?.text, ' ');
+  assert.equal(marker?.style?.bg?.token, 'selection.background');
   assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.description, 'item.Atlas.match');
   assert.equal(frame.cells.find((cell) => cell.text === 'l')?.source?.description, 'item.Atlas.value');
   assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.description, 'filter.empty');

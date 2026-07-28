@@ -127,7 +127,7 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
     })]
   }), { columns: 10, rows: 2 });
 
-  assert.equal(renderFramePlain(frame), '  State\n› pass-…');
+  assert.equal(renderFramePlain(frame), '  State\n  pass-…');
   assert.deepEqual(
     frame.cells
       .filter((cell) =>

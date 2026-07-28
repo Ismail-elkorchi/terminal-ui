@@ -424,6 +424,7 @@ test('surface margin sizes the outer box while border and padding inset content'
   const layout = layoutElement(surface(text('inside', { id: 'box-content' }), {
     id: 'box-surface',
     appearance: 'raised',
+    border: { kind: 'single' },
     shadow: true,
     margin: 1,
     padding: 1,

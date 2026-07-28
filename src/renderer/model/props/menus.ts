@@ -13,6 +13,7 @@ import type {
   TooltipPresentation,
   TooltipTone
 } from '../../../ui-model/menu.ts';
+import type { ComponentDensity } from '../../../ui-model/contracts.ts';
 import type {
   ContextMenuPresentation,
   DropdownMenuPresentation,
@@ -60,6 +61,7 @@ export interface DropdownMenuRenderProps<TMessage> {
   readonly label?: string;
   readonly presentation: DropdownMenuPresentation;
   readonly placeholder?: string;
+  readonly density?: ComponentDensity;
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleItems: number;
   readonly toDropdownMenuActionMessage?: (action: DropdownMenuAction) => TMessage;

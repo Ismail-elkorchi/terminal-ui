@@ -19,6 +19,7 @@ export const coreColorTokens = [
   'surface.danger.border',
   'surface.success.background',
   'surface.success.border',
+  'surface.backdrop',
   'surface.shadow',
   'text.default',
   'text.muted',

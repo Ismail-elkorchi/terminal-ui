@@ -15,6 +15,7 @@ import {
   menuBar,
   overlay,
   runTui,
+  splitPane,
   statusBar,
   structuredBlock,
   surface,
@@ -434,7 +435,6 @@ async function readDirectoryTree(root: string, signal: AbortSignal): Promise<rea
           id: entryPath,
           kind: 'branch',
           label: entry.name,
-          icon: '▸',
           expanded: depth < 1,
           children,
           metadata: { path: entryPath, entryKind: 'directory' }
@@ -455,16 +455,14 @@ async function readDirectoryTree(root: string, signal: AbortSignal): Promise<rea
 }
 
 function editorView(state: EditorState): Element<EditorMessage> {
-  const main = grid({
-    id: 'editor-main-grid',
-    areas: 'explorer editor details',
-    children: {
-      explorer: explorerPane(state),
-      editor: editorPane(state),
-      details: detailsPane(state)
-    },
-    columns: [{ kind: 'fixed', cells: 28 }, { kind: 'fill' }, { kind: 'fixed', cells: 28 }],
-    rows: [{ kind: 'fill' }],
+  const main = splitPane([
+    explorerPane(state),
+    editorPane(state),
+    detailsPane(state)
+  ], {
+    id: 'editor-main-split',
+    direction: 'horizontal',
+    sizes: [{ kind: 'fixed', cells: 28 }, { kind: 'fill' }, { kind: 'fixed', cells: 28 }],
     gap: 1
   });
   const base = grid({
@@ -483,7 +481,7 @@ function editorView(state: EditorState): Element<EditorMessage> {
     },
     columns: [{ kind: 'fill' }],
     rows: [
-      { kind: 'fixed', cells: 2 },
+      { kind: 'fixed', cells: 1 },
       { kind: 'fill' },
       { kind: 'fixed', cells: 3 },
       { kind: 'fixed', cells: 1 }
@@ -515,7 +513,7 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
   ], {
     id: 'explorer-layout',
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
-  }), { id: 'explorer', appearance: 'inset', padding: 1 });
+  }), { id: 'explorer', appearance: 'inset', padding: { left: 1, right: 1 } });
 }
 
 function editorPane(state: EditorState): Element<EditorMessage> {
@@ -527,6 +525,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
   }
   return tabs({
     id: 'editor-tabs',
+    maxTabWidth: 28,
     tabs: state.buffers.map((buffer) => ({
       id: buffer.path,
       label: `${buffer.label}${textDocumentText(buffer.editor.document) === buffer.savedText ? '' : ' •'}`,
@@ -559,7 +558,7 @@ function detailsPane(state: EditorState): Element<EditorMessage> {
       { label: 'dirty', value: String(state.buffers.filter(isDirty).length) },
       { label: 'operation', value: operation }
     ]
-  }), { id: 'editor-details', appearance: 'inset', padding: 1 });
+  }), { id: 'editor-details', appearance: 'inset', padding: { left: 1, right: 1 } });
 }
 
 function commandPane(state: EditorState): Element<EditorMessage> {
@@ -568,10 +567,12 @@ function commandPane(state: EditorState): Element<EditorMessage> {
     prompt: '› ',
     placeholder: '/open README.md, /folder src, /save, /close',
     presentation: commandInputPresentation(state.command),
-    display: state.command.input.text.length === 0 ? 'compact' : 'expanded',
+    display: 'popup',
+    placement: 'above',
+    maxVisibleSuggestions: 6,
     onAction: (action): EditorMessage => ({ kind: 'command', action }),
     onSubmit: (value): EditorMessage => ({ kind: 'submitCommand', value })
-  }), { id: 'editor-command-surface', appearance: 'raised', padding: { left: 1, right: 1 } });
+  }), { id: 'editor-command-surface', appearance: 'bar', padding: 1 });
 }
 
 function editorStatus(state: EditorState) {
@@ -600,7 +601,7 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
     focusPolicy: { initialFocus: { kind: 'element', elementId: 'path-chooser-input' }, returnFocus: 'restore' },
     dismissal: { escape: true, outsidePress: true, onDismiss: (): EditorMessage => ({ kind: 'dismissChooser' }) },
     width: 72,
-    padding: 1
+    padding: { left: 1, right: 1 }
   });
 }
 
