@@ -373,6 +373,23 @@ test('form controls keep state visible in high contrast and no-color rendering m
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
 });
 
+test('controls clipped to an empty layout region expose no pointer targets', () => {
+  const frame = renderElementFrame(column([
+    checkbox({ id: 'visible', label: 'Visible', checked: false }),
+    select({
+      id: 'clipped-select',
+      label: 'Clipped',
+      presentation: { kind: 'closed' },
+      options: [{ id: 'one', label: 'One', value: 'one' }],
+      onAction: (action) => action
+    })
+  ], {
+    sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }]
+  }), { columns: 24, rows: 1 });
+
+  assert.equal(frame.hitTargets?.some((target) => target.id.startsWith('clipped-select:')) ?? false, false);
+});
+
 function colorCapabilities() {
   return resolveTerminalCapabilities({
     host: {

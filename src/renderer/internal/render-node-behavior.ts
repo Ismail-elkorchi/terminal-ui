@@ -199,6 +199,7 @@ export function hitTargetsForRenderNode<TMessage>(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
+  if (target.bounds.width <= 0 || target.bounds.height <= 0) return [];
   if (renderNodeInteractionDisabled(renderNode)) return [];
   const targets = rendererForRenderNode(renderNode).hitTargets?.({
     renderNode: renderNode,
