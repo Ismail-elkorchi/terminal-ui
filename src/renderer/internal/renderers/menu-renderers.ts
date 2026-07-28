@@ -172,7 +172,9 @@ export const menuRenderers = {
       ...commandInputPopupHitTargets(renderNode, layoutNode),
       ...textPointerHitTargets({
         id: `${renderNode.id ?? renderNode.kind}:text`,
-        bounds: { ...bounds, height: Math.min(1, bounds.height) },
+        bounds: renderNode.props.display === 'expanded'
+          ? { ...bounds, height: Math.min(1, bounds.height) }
+          : bounds,
         focusTargetId: 'self',
         toMessage: renderNode.props.toActionMessage === undefined
           ? undefined

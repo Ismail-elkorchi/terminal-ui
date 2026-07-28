@@ -5,12 +5,13 @@ import { commandInputPresentation, commandInputReducer } from '../../dist/behavi
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
+  layoutElement,
   renderElementFrame,
   renderFramePlain
 } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { button, commandInput } from '../../dist/components/index.js';
-import { row } from '../../dist/layout/index.js';
+import { column, row } from '../../dist/layout/index.js';
 
 test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
   const initial = {
@@ -169,7 +170,7 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
 });
 
 test('commandInput popup anchors suggestions without increasing the input height', () => {
-  const frame = renderElementFrame(commandInput({
+  const command = commandInput({
     id: 'omnibox',
     prompt: '',
     presentation: {
@@ -185,16 +186,65 @@ test('commandInput popup anchors suggestions without increasing the input height
     maxVisibleSuggestions: 2,
     onAction: (action) => action,
     onSubmit: (value) => ({ value })
+  });
+  const frame = renderElementFrame(column([command, button({
+    id: 'content',
+    label: 'Content',
+    meta: { focus: { disabled: true } }
+  })], {
+    sizes: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }]
   }), { columns: 36, rows: 6 });
 
   const output = frame.cells.map((cell) => cell.text).join('');
+  const accessibleInput = frame.accessibility.root.children?.[0];
   assert.match(output, /exa/u);
   assert.match(output, /Example/u);
   assert.match(output, /History/u);
-  assert.equal(frame.accessibility.root.role, 'combobox');
-  assert.equal(frame.accessibility.root.expanded, true);
-  assert.equal(frame.accessibility.root.controls, 'omnibox:suggestions');
-  assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
+  assert.equal(accessibleInput?.role, 'combobox');
+  assert.equal(accessibleInput?.expanded, true);
+  assert.equal(accessibleInput?.controls, 'omnibox:suggestions');
+  assert.equal(accessibleInput?.children?.[0]?.role, 'listbox');
+});
+
+test('commandInput fills tall bounds while preserving its one-row natural size', () => {
+  const element = commandInput({
+    id: 'tall-command',
+    prompt: '› ',
+    presentation: { value: 'open', cursor: 4, suggestions: [] },
+    display: 'popup',
+    onAction: (action) => ({ action })
+  });
+  const layout = layoutElement(column([element, button({
+    id: 'remaining-content',
+    label: 'Content',
+    meta: { focus: { disabled: true } }
+  })], {
+    sizes: [{ kind: 'content' }, { kind: 'fill' }]
+  }), { columns: 20, rows: 3 });
+  const frame = renderElementFrame(element, { columns: 20, rows: 3 }, { focusPath: ['tall-command'] });
+  const regions = renderElementRegions(element, { columns: 20, rows: 3 });
+  const target = targetById(regions, 'tall-command:text');
+  const paddingRows = frame.cells.filter((cell) =>
+    cell.source?.elementId === 'tall-command'
+    && cell.source?.partName === 'padding'
+  );
+  const message = target.message(pointerEvent({
+    row: 3,
+    column: 7,
+    localRow: 3,
+    localColumn: 7
+  }));
+
+  assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 20, height: 1 });
+  assert.equal(paddingRows.length, 40);
+  assert.deepEqual([...new Set(paddingRows.map((cell) => cell.row))], [1, 3]);
+  assert.equal(paddingRows.every((cell) => cell.style?.bg?.token === 'control.background'), true);
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 2, column: 7 });
+  assert.deepEqual(target.bounds, { row: 1, column: 1, width: 20, height: 3 });
+  assert.deepEqual(message?.action, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 4 }
+  });
 });
 
 test('commandInput generated keys navigate and submit the selected suggestion', async () => {
@@ -354,7 +404,7 @@ test('commandInput windows long input around the cursor', () => {
   );
 
   const firstRow = frame.cells
-    .filter((cell) => cell.row === 1)
+    .filter((cell) => cell.row === 2)
     .sort((left, right) => left.column - right.column)
     .map((cell) => cell.text)
     .join('');
@@ -362,7 +412,7 @@ test('commandInput windows long input around the cursor', () => {
   assert.match(firstRow, /^>‹/u);
   assert.match(firstRow, /file\.txt/u);
   assert.doesNotMatch(firstRow, /\/very\/long/u);
-  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 18 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 2, column: 18 });
 });
 
 test('commandInput maps pointer positions through the cursor-relative input window', () => {

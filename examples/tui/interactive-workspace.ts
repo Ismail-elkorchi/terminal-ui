@@ -415,7 +415,11 @@ function commandPane(state: WorkspaceState) {
     onAction: (action): WorkspaceMessage => ({ kind: 'command', action }),
     onSubmit: (value): WorkspaceMessage => ({ kind: 'submit', value }),
     keys: { escape: (): WorkspaceMessage => ({ kind: 'command', action: { kind: 'setValue', value: '' } }) }
-  }), { id: 'workspace-command-surface', appearance: 'bar', padding: 1 });
+  }), {
+    id: 'workspace-command-surface',
+    appearance: 'bar',
+    padding: { left: 1, right: 1 }
+  });
 }
 
 function searchPickerLayer(state: WorkspaceState) {

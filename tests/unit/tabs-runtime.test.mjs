@@ -165,47 +165,33 @@ test('a one-cell tab limit prioritizes the close action over decoration', () => 
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['minimal-tab:tab:only:close']);
 });
 
-test('tabs use every configured tab-bar row for painting layout and interaction', () => {
+test('tab controls preserve one-cell geometry under ambiguous-wide profiles', () => {
   const element = tabs({
-    id: 'tall-tabs',
+    id: 'fixed-cell-tabs',
     selected: 'second',
-    tabBarRows: 2,
     tabs: [
       { id: 'first', label: 'First', panel: text('First panel') },
       { id: 'second', label: 'Second', closable: true, panel: text('Second panel') }
     ],
     onAction: (action) => ({ kind: 'tabs', action })
   });
-  const layout = layoutElement(element, { columns: 24, rows: 5 });
-  const frame = renderElementFrame(element, { columns: 24, rows: 5 }, { theme: defaultTheme });
-  const selectedTop = frame.cells.filter((cell) =>
-    cell.row === 1
-    && cell.source?.itemId === 'second'
-    && cell.source?.partName !== 'separator.padding'
+  const frame = renderElementFrame(element, { columns: 24, rows: 4 }, { theme: defaultTheme });
+  const wideFrame = renderElementFrame(element, { columns: 24, rows: 4 }, {
+    theme: defaultTheme,
+    widthProfile: { emoji: 'wide', ambiguous: 'wide' }
+  });
+  const normalTargets = frame.hitTargets?.map((target) => target.bounds);
+  const wideTargets = wideFrame.hitTargets?.map((target) => target.bounds);
+  const wideIndicator = wideFrame.cells.find((cell) =>
+    cell.source?.itemId === 'second' && cell.source?.partName === 'indicator'
   );
-  const labelCells = frame.cells.filter((cell) =>
-    cell.source?.itemId === 'second'
-    && cell.source?.partName === 'label'
+  const wideClose = wideFrame.cells.find((cell) =>
+    cell.source?.itemId === 'second' && cell.source?.partName === 'close'
   );
-  const tabTarget = frame.hitTargets?.find((target) => target.id === 'tall-tabs:tab:second');
-  const closeTarget = frame.hitTargets?.find((target) => target.id === 'tall-tabs:tab:second:close');
 
-  assert.deepEqual(layout.children[1]?.bounds, { row: 3, column: 1, width: 24, height: 3 });
-  assert.equal(selectedTop.length > 0, true);
-  assert.equal(selectedTop.every((cell) => cell.style?.bg?.token === 'surface.raised.background'), true);
-  assert.equal(labelCells.length > 0, true);
-  assert.equal(labelCells.every((cell) => cell.row === 2), true);
-  assert.deepEqual(tabTarget?.bounds, { row: 1, column: 9, width: 8, height: 2 });
-  assert.deepEqual(closeTarget?.bounds, { row: 1, column: 17, width: 2, height: 2 });
-  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.label, 'Second');
-});
-
-test('tabs reject invalid tab-bar row counts', () => {
-  for (const tabBarRows of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
-    assert.throws(() => tabs({
-      id: 'invalid-tab-rows',
-      tabBarRows,
-      tabs: [{ id: 'only', label: 'Only', panel: text('Panel') }]
-    }), RangeError);
-  }
+  assert.deepEqual(wideTargets, normalTargets);
+  assert.equal(wideIndicator?.text, '|');
+  assert.equal(wideIndicator?.width, 1);
+  assert.equal(wideClose?.text, 'x');
+  assert.equal(wideClose?.width, 1);
 });

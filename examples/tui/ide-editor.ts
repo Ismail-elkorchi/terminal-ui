@@ -572,7 +572,11 @@ function commandPane(state: EditorState): Element<EditorMessage> {
     maxVisibleSuggestions: 6,
     onAction: (action): EditorMessage => ({ kind: 'command', action }),
     onSubmit: (value): EditorMessage => ({ kind: 'submitCommand', value })
-  }), { id: 'editor-command-surface', appearance: 'bar', padding: 1 });
+  }), {
+    id: 'editor-command-surface',
+    appearance: 'bar',
+    padding: { left: 1, right: 1 }
+  });
 }
 
 function editorStatus(state: EditorState) {

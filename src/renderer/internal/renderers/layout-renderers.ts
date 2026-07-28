@@ -16,7 +16,7 @@ import {
   splitPaneAccessibleNode,
   splitPaneHitTargets
 } from '../split-pane.ts';
-import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderBlock, tabsHeaderRows, tabsHitTargets } from './support/tabs.ts';
+import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderBlock, tabsHitTargets } from './support/tabs.ts';
 import {
   drawScrollbars,
   scrollbarHitTargetsForRenderNode,
@@ -123,7 +123,7 @@ export const layoutRenderers = {
     render: (input) => {
       writeRenderBlock(input.buffer, {
         ...input.layoutNode.bounds,
-        height: Math.min(tabsHeaderRows(input.renderNode), input.layoutNode.bounds.height)
+        height: Math.min(1, input.layoutNode.bounds.height)
       }, tabsHeaderBlock(
         input.renderNode,
         input.layoutNode.bounds,

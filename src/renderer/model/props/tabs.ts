@@ -15,6 +15,5 @@ export type TabsRenderProps<TMessage> = RenderNodeLayoutProps & {
   readonly tabs: readonly RenderTabItem[];
   readonly selected?: string;
   readonly maxTabWidth?: number;
-  readonly tabBarRows?: number;
   readonly toActionMessage?: (action: import('../../../ui-model/tabs.ts').TabAction) => TMessage;
 };

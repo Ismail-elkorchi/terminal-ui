@@ -1,4 +1,4 @@
-import { commandInputBlock } from '../command-input.ts';
+import { commandInputMeasurementBlock } from '../command-input.ts';
 import { dropdownMenuBlock, menuBarBlock, menuBlock } from '../menu-rendering.ts';
 import { measureBlock, zeroMeasurement } from '../measurement.ts';
 import { searchPickerBlock } from '../search-picker.ts';
@@ -20,7 +20,7 @@ export const menuMeasurements = {
     { widthProfile }
   ),
   commandInput: ({ renderNode, bounds, theme, widthProfile }) => measureBlock(
-    commandInputBlock(renderNode, constrainedMeasureBounds(bounds), theme, widthProfile),
+    commandInputMeasurementBlock(renderNode, constrainedMeasureBounds(bounds), theme, widthProfile),
     { widthProfile }
   ),
   searchPicker: ({ renderNode, bounds, theme, widthProfile }) => measureBlock(

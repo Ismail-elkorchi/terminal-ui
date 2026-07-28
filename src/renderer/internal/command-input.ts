@@ -50,6 +50,32 @@ export function commandInputBlock(
   widthProfile: TextWidthProfile,
   focused = false
 ): RenderBlock {
+  const content = commandInputContentBlock(renderNode, bounds, theme, widthProfile, focused);
+  if (commandInputDisplay(renderNode) === 'expanded' || content.lines.length >= bounds.height) return content;
+  const offset = commandInputContentRowOffset(renderNode, bounds.height);
+  const padding = inputPaddingLine(renderNode, bounds.width, widthProfile, focused);
+  return {
+    lines: Array.from({ length: Math.max(0, Math.floor(bounds.height)) }, (_value, index) =>
+      content.lines[index - offset] ?? padding)
+  };
+}
+
+export function commandInputMeasurementBlock(
+  renderNode: CommandInputNode,
+  bounds: Pick<Rect, 'width' | 'height'>,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
+  return commandInputContentBlock(renderNode, bounds, theme, widthProfile, false);
+}
+
+function commandInputContentBlock(
+  renderNode: CommandInputNode,
+  bounds: Pick<Rect, 'width' | 'height'>,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  focused: boolean
+): RenderBlock {
   const display = commandInputDisplay(renderNode);
   const lines: RenderLine[] = [inputLine(renderNode, bounds.width, widthProfile, focused)];
   const validation = validationProp(renderNode);
@@ -119,7 +145,7 @@ export function commandInputAccessibleChildren(renderNode: CommandInputNode): re
 export function commandInputCursor(renderNode: CommandInputNode, bounds: Rect, widthProfile: TextWidthProfile): CursorPosition {
   const model = commandInputModel(renderNode, bounds.width, widthProfile);
   return {
-    row: bounds.row,
+    row: bounds.row + commandInputContentRowOffset(renderNode, bounds.height),
     column: bounds.column + Math.max(
       0,
       Math.min(bounds.width - 1, model.promptCells + model.cursorColumn)
@@ -192,7 +218,7 @@ export function commandInputPopupBounds(
     viewport,
     anchor: {
       kind: 'target',
-      bounds: { row: bounds.row, column: bounds.column, width: bounds.width, height: 1 }
+      bounds
     },
     size: {
       width: Math.max(bounds.width, contentWidth + 4),
@@ -241,14 +267,7 @@ function inputLine(
   const model = commandInputModel(renderNode, width, widthProfile);
   const placeholder = placeholderText(renderNode);
   const completion = completionText(renderNode);
-  const fieldStyle = resolveRenderNodeStyle(renderNode, {
-    part: 'value',
-    base: {
-      fg: { kind: 'theme', token: 'control.foreground' },
-      bg: { kind: 'theme', token: 'control.background' }
-    },
-    ...(focused ? { state: 'focused' } : {})
-  });
+  const fieldStyle = commandInputFieldStyle(renderNode, focused);
   const spans: RenderSpan[] = [
     styledSpan(model.prompt, commandPromptStyle(renderNode), commandSource(renderNode, 'prompt', { role: 'decoration', partType: 'prompt' })),
     ...(model.value.length === 0 && placeholder.length > 0
@@ -288,6 +307,43 @@ function inputLine(
       source: commandSource(renderNode, 'window', { role: 'decoration', partType: 'window' })
     }
   });
+}
+
+function inputPaddingLine(
+  renderNode: CommandInputNode,
+  width: number,
+  widthProfile: TextWidthProfile,
+  focused: boolean
+): RenderLine {
+  const fieldStyle = commandInputFieldStyle(renderNode, focused);
+  return padRenderLine({ spans: [] }, Math.max(0, width), {
+    widthProfile,
+    fill: {
+      text: ' ',
+      ...(fieldStyle === undefined ? {} : { style: fieldStyle }),
+      source: commandSource(renderNode, 'padding', { role: 'decoration', partType: 'padding' })
+    }
+  });
+}
+
+function commandInputFieldStyle(
+  renderNode: CommandInputNode,
+  focused: boolean
+): ReturnType<typeof resolveRenderNodeStyle> {
+  return resolveRenderNodeStyle(renderNode, {
+    part: 'value',
+    base: {
+      fg: { kind: 'theme', token: 'control.foreground' },
+      bg: { kind: 'theme', token: 'control.background' }
+    },
+    ...(focused ? { state: 'focused' } : {})
+  });
+}
+
+function commandInputContentRowOffset(renderNode: CommandInputNode, height: number): number {
+  if (commandInputDisplay(renderNode) === 'expanded') return 0;
+  const contentHeight = 1 + (validationProp(renderNode) === undefined ? 0 : 1);
+  return Math.floor(Math.max(0, Math.floor(height) - contentHeight) / 2);
 }
 
 function commandPromptStyle(renderNode: CommandInputNode): ReturnType<typeof renderNodeStyle> {

@@ -16,9 +16,6 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
   if (options.maxTabWidth !== undefined && (!Number.isInteger(options.maxTabWidth) || options.maxTabWidth <= 0)) {
     throw new RangeError('tabs maxTabWidth must be a positive integer.');
   }
-  if (options.tabBarRows !== undefined && (!Number.isSafeInteger(options.tabBarRows) || options.tabBarRows <= 0)) {
-    throw new RangeError('tabs tabBarRows must be a positive safe integer.');
-  }
   const identity = requiredRenderNodeId(options.id, 'tabs');
   const tabs: readonly RenderTabItem[] = options.tabs.map((tab) => ({
     id: tab.id,
@@ -56,7 +53,6 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
       tabs,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.maxTabWidth === undefined ? {} : { maxTabWidth: options.maxTabWidth }),
-      ...(options.tabBarRows === undefined ? {} : { tabBarRows: options.tabBarRows }),
       ...(onAction === undefined ? {} : { toActionMessage: (action: TabAction) => onAction(action) }),
       ...renderNodeLayoutProps(options)
     },

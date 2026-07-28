@@ -90,8 +90,7 @@ until focused, hovered, or pressed.
 
 Tabs accept `maxTabWidth` when document names must not let one tab consume the
 strip. The visible label is clipped, while its full accessible name and close
-action remain intact. Set `tabBarRows` when a terminal application needs a
-taller clickable tab strip; labels remain on the row next to the selected panel.
+action remain intact.
 
 Components that expose interactive scrollbars use controlled variants. A
 visible scrollbar requires caller-controlled scroll state and a semantic action or
