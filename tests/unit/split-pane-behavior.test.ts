@@ -11,6 +11,7 @@ import { text } from '../../dist/components/index.js';
 import { splitPane } from '../../dist/layout/index.js';
 import type { SplitPaneAction } from '../../dist/layout/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
+import { renderElementFrame } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
@@ -125,6 +126,34 @@ void test('vertical split pane divider exposes complete pointer lifecycle action
     row: 7,
     column: 1
   })), { kind: 'endResize', dividerIndex: 0 });
+});
+
+void test('passive split pane dividers remain structural instead of active', () => {
+  const passive = renderElementFrame(splitPane([
+    text('left'),
+    text('right')
+  ], {
+    id: 'passive-split',
+    direction: 'horizontal',
+    gap: 1,
+    sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 5 }]
+  }), { columns: 12, rows: 2 });
+  const interactive = renderElementFrame(splitPane([
+    text('left'),
+    text('right')
+  ], {
+    id: 'interactive-split',
+    direction: 'horizontal',
+    sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
+    onAction: (action) => action
+  }), { columns: 12, rows: 2 });
+  const passiveDivider = passive.cells.find((cell) => cell.source?.elementId === 'passive-split');
+  const activeDivider = interactive.cells.find((cell) => cell.source?.elementId === 'interactive-split');
+
+  assert.equal(passiveDivider?.source?.partName, 'divider');
+  assert.deepEqual(passiveDivider.style?.fg, { kind: 'theme', token: 'surface.border' });
+  assert.equal(activeDivider?.source?.partName, 'divider.active');
+  assert.deepEqual(activeDivider.style?.fg, { kind: 'theme', token: 'accent.primary' });
 });
 
 void test('resizable split pane rejects geometry that cannot expose dividers', () => {

@@ -25,7 +25,7 @@ export function renderSplitPaneDividers<TMessage>(
 ): void {
   const selected = selectedDivider(renderNode, layoutNode.children.length);
   splitPaneDividerBounds(layoutNode, renderNode.props.direction).forEach((bounds, dividerIndex) => {
-    const active = dividerIndex === selected;
+    const active = renderNode.props.toActionMessage !== undefined && dividerIndex === selected;
     const style = splitPaneDividerStyle(renderNode, active, focused);
     const source = renderNodeFrameSource(renderNode, {
       rendererFamily: 'layout',
