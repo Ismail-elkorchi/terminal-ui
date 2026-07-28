@@ -8,7 +8,8 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { commandInput } from '../../dist/components/index.js';
+import { button, commandInput } from '../../dist/components/index.js';
+import { row } from '../../dist/layout/index.js';
 
 test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
   const initial = {
@@ -243,6 +244,36 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
   });
 
   assert.equal(runtime.state().submitted, 'https://one.example');
+  await runtime.dispose();
+});
+
+test('commandInput leaves Tab available for focus traversal without suggestions', async () => {
+  const app = defineTui({
+    id: 'command-tab-traversal',
+    init: () => ({ actions: [] }),
+    update: (state, action) => ({ state: { actions: [...state.actions, action] } }),
+    view: () => row([
+      commandInput({
+        id: 'command',
+        presentation: { value: '', cursor: 0, suggestions: [] },
+        onAction: (action) => ({ kind: 'command', action })
+      }),
+      button({ id: 'next', label: 'Next', onPress: () => ({ kind: 'button' }) })
+    ])
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'tab',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.equal(runtime.frame().focusPath?.at(-1), 'next');
+  assert.deepEqual(runtime.state().actions, []);
   await runtime.dispose();
 });
 

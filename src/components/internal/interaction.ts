@@ -195,7 +195,7 @@ export function commandInputKeyBindings<TMessage>(
     arrowDown: () => onAction(hasSuggestions ? { kind: 'moveSuggestion', delta: 1 } : { kind: 'historyNext' }),
     home: () => edit({ kind: 'moveHome' }),
     end: () => edit({ kind: 'moveEnd' }),
-    tab: () => onAction({ kind: 'acceptSuggestion' })
+    ...(hasSuggestions ? { tab: () => onAction({ kind: 'acceptSuggestion' }) } : {})
   };
 }
 
