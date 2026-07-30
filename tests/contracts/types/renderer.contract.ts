@@ -1,7 +1,14 @@
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 import {
   custom,
-  type CustomRendererRenderInput
+  customComposite,
+  type CustomCompositeInput,
+  type CustomCompositeMeasureInput,
+  type CustomRendererInput,
+  type CustomRendererMeasureInput,
+  type CustomRendererRenderInput,
+  type DecorativeCustomCompositeRenderer,
+  type DecorativeCustomRenderer
 } from '@ismail-elkorchi/terminal-ui/component';
 import {
   renderElementFrame,
@@ -71,6 +78,66 @@ custom({
 
 declare const customRenderInput: CustomRendererRenderInput<undefined>;
 customRenderInput.target.write(1, 1, [{ text: 'ok' }]);
+declare const customMeasureInput: CustomRendererMeasureInput<undefined>;
+// @ts-expect-error measurement occurs before viewport resolution
+const customMeasureViewport = customMeasureInput.viewport;
+declare const compositeMeasureInput: CustomCompositeMeasureInput<undefined>;
+// @ts-expect-error composite measurement occurs before viewport resolution
+const compositeMeasureViewport = compositeMeasureInput.viewport;
+customComposite({
+  id: 'decorative-composite-contract',
+  children: [text('Decoration')],
+  renderer: {
+    layout: ({ bounds }) => [bounds]
+  },
+  meta: { accessibility: { decorative: true } }
+});
+const interactiveDecorativeRenderer: DecorativeCustomRenderer = {
+  render() {
+    return;
+  },
+  // @ts-expect-error decorative custom renderers cannot expose focus targets
+  focusTargets: ({ bounds }: CustomRendererInput<undefined>) => [{ id: 'self', bounds }]
+};
+// @ts-expect-error decorative custom elements cannot define key bindings
+custom({
+  id: 'keyed-decorative-custom',
+  renderer: {
+    render() {
+      return;
+    }
+  },
+  keys: {
+    enter: () => ({ kind: 'press' })
+  },
+  meta: { accessibility: { decorative: true } }
+});
+const interactiveDecorativeCompositeRenderer: DecorativeCustomCompositeRenderer = {
+  layout: ({ bounds }) => [bounds],
+  // @ts-expect-error decorative custom composites cannot expose hit targets
+  hitTargets: ({ bounds }: CustomCompositeInput<undefined>) => [{
+    id: 'hit',
+    bounds,
+    message: () => ({ kind: 'press' })
+  }]
+};
+// @ts-expect-error semantic custom renderers require an accessibility hook
+custom({
+  id: 'missing-custom-accessibility',
+  renderer: {
+    render() {
+      return;
+    }
+  }
+});
+// @ts-expect-error semantic custom composites require an accessibility hook
+customComposite({
+  id: 'missing-composite-accessibility',
+  children: [text('Semantic content')],
+  renderer: {
+    layout: ({ bounds }) => [bounds]
+  }
+});
 declare const framePassContext: FramePassContext;
 const framePassColumns = framePassContext.terminalSize.columns;
 
@@ -90,4 +157,8 @@ void validInteractionState;
 void privateRenderNode;
 void privateRegions;
 void customRenderInput;
+void customMeasureViewport;
+void compositeMeasureViewport;
+void interactiveDecorativeRenderer;
+void interactiveDecorativeCompositeRenderer;
 void framePassColumns;

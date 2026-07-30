@@ -5,7 +5,9 @@ export type {
   CustomRenderer,
   CustomRendererAccessibilityInput,
   CustomRendererInput,
+  CustomRendererMeasureInput,
   CustomRendererRenderInput,
+  DecorativeCustomRenderer,
   StatefulCustomElementOptions,
   StatelessCustomElementOptions
 } from './custom.ts';
@@ -16,6 +18,7 @@ export type {
   CustomCompositeMeasureInput,
   CustomCompositeRenderer,
   CustomCompositeRenderInput,
+  DecorativeCustomCompositeRenderer,
   StatefulCustomCompositeOptions,
   StatelessCustomCompositeOptions
 } from './custom-composite.ts';

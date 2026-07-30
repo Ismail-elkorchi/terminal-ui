@@ -55,7 +55,7 @@ export function menu(options: MenuOptions<unknown>): Element<unknown> {
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function menuBar<
@@ -100,7 +100,7 @@ export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
         ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } } })
         : options.meta
     })
-  });
+  }, true);
 }
 
 export function contextMenu<
@@ -146,7 +146,7 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
     ...(popup === undefined ? {} : { children: [popup] }),
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta })
-  });
+  }, true);
 }
 
 export function dropdownMenu<
@@ -194,7 +194,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
     ...(popup === undefined ? {} : { children: [popup] }),
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta })
-  });
+  }, true);
 }
 
 export function divider(options: DividerOptions = {}): Element {
@@ -208,7 +208,7 @@ export function divider(options: DividerOptions = {}): Element {
       ...(options.labelAlign === undefined ? {} : { labelAlign: options.labelAlign })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function tooltip(options: TooltipOptions): Element {
@@ -232,7 +232,7 @@ export function tooltip(options: TooltipOptions): Element {
       ...meta,
       layer: { ...meta.layer, visible }
     })
-  });
+  }, false);
 }
 
 function positiveInteger(value: number | undefined, fallback: number, name: string): number {

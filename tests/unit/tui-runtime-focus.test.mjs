@@ -330,13 +330,34 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
 });
 
 test('ambiguous initial element focus is diagnosed instead of selecting an arbitrary match', async () => {
+  const renderer = {
+    measure: () => ({
+      minWidth: 1,
+      minHeight: 1,
+      preferredWidth: 1,
+      preferredHeight: 1
+    }),
+    render() {},
+    focusTargets: ({ bounds }) => [
+      { id: 'first', bounds },
+      { id: 'second', bounds }
+    ],
+    accessibility: ({ id, focusedTargetId }) => ({
+      id,
+      role: 'group',
+      label: id,
+      children: [
+        { id: 'first', role: 'button', label: 'First', ...(focusedTargetId === 'first' ? { focused: true } : {}) },
+        { id: 'second', role: 'button', label: 'Second', ...(focusedTargetId === 'second' ? { focused: true } : {}) }
+      ]
+    })
+  };
   const app = defineTui({
     id: 'ambiguous-initial-focus',
-    init: () => ({ active: 'idle' }),
-    update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => column([
-      textInput({ id: 'duplicate', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      textInput({ id: 'duplicate', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+    init: () => ({}),
+    update: (state) => ({ state }),
+    view: () => column([
+      custom({ id: 'duplicate', renderer })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -351,7 +372,7 @@ test('ambiguous initial element focus is diagnosed instead of selecting an arbit
   assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_FOCUS_SELECTION_INVALID'
     && item.data?.reason === 'ambiguous'
     && item.data.paths.length === 2), true);
-  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'duplicate']);
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'duplicate', 'first']);
   await runtime.dispose();
 });
 
@@ -512,7 +533,7 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
       ...(state.open
         ? [dialog(column([
             surface(textInput({ id: 'nested-dialog-field', presentation: { value: '', cursor: 0 } }), {
-              id: 'preferred-dialog-field'
+              id: 'nested-dialog-surface'
             }),
             textInput({ id: 'first-dialog-field', presentation: { value: '', cursor: 0 } }),
             textInput({ id: 'preferred-dialog-field', presentation: { value: '', cursor: 0 } })
@@ -796,7 +817,8 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
   const tableNode = snapshot.root.children[2];
 
   assert.equal(snapshot.source, 'tui');
-  assert.deepEqual(snapshot.focusPath, ['column:0', 'choices']);
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'choices']);
+  assert.deepEqual(snapshot.focusPath, ['column-1-1', 'choices']);
   assert.equal(first?.label, 'First field');
   assert.equal(first?.description, 'Primary input');
   assert.equal(first?.focused, undefined);

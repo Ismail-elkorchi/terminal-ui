@@ -27,12 +27,8 @@ export function renderNodeInteraction<TMessage, TPart extends string = never>(op
   const keyMap = normalizedKeyBindings(options.keys);
   const inputMap = renderNodeInputMap(options);
   const pointer = options.pointer;
-  const meta: ElementMeta<TPart> = {
-    ...(options.meta ?? {}),
-    focus: options.meta?.focus ?? {}
-  };
   return {
-    ...renderNodeMeta(meta),
+    ...renderNodeMeta(options.meta),
     ...(keyMap === undefined ? {} : { keyMap }),
     ...(inputMap === undefined ? {} : { inputMap }),
     ...(pointer === undefined ? {} : {

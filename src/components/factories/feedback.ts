@@ -108,7 +108,7 @@ export function notificationStack(rawOptions: object): Element<unknown> {
         : { toActionMessage: (action: NotificationStackAction) => onAction(action) })
     },
     ...interactionProps({ keys: keyMap, pointer: options.pointer, meta })
-  });
+  }, keyMap !== undefined);
 }
 
 export function statusBar(options: StatusBarOptions): Element {
@@ -121,7 +121,7 @@ export function statusBar(options: StatusBarOptions): Element {
     kind: 'statusBar',
     props: { leading, center, trailing },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 function normalizedStatusItems(
@@ -146,7 +146,7 @@ export function helpBar(options: HelpBarOptions): Element {
     kind: 'helpBar',
     props: { groups: options.groups },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
@@ -159,7 +159,7 @@ export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
       ...(options.status === undefined ? {} : { status: options.status })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function progressBar(options: ProgressBarOptions): Element {
@@ -189,7 +189,7 @@ export function progressBar(options: ProgressBarOptions): Element {
       ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 function assertProgressBarMode(mode: ProgressBarOptions['mode']): void {
@@ -237,7 +237,7 @@ export function sparkline(options: SparklineOptions): Element {
       ...(options.errorText === undefined ? {} : { errorText: options.errorText })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function barChart<
@@ -266,6 +266,7 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
       ? undefined
       : onAction({ kind: 'activate', id: options.items[selectedIndex]?.id ?? '', itemIndex: selectedIndex })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
+  const keyMap = mergeKeyBindings(generated, options.keys);
   return componentElementFromRenderNode<'barChart', unknown>({
     ...requiredRenderNodeId(options.id, 'barChart'),
     kind: 'barChart',
@@ -279,8 +280,8 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
       ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
       ...(onAction === undefined ? {} : { toActionMessage: (action: BarChartAction) => onAction(action) })
     },
-    ...interactionProps({ ...options, keys: mergeKeyBindings(generated, options.keys) })
-  });
+    ...interactionProps({ ...options, keys: keyMap })
+  }, keyMap !== undefined);
 }
 
 export function chart<const TMessage = never>(options: ChartOptions<TMessage>): Element<TMessage> {
@@ -300,6 +301,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
       ? ignoreMessage()
       : onAction({ kind: 'select', series: selected.series, pointIndex: selected.pointIndex })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
+  const keyMap = mergeKeyBindings(generated, options.keys);
   return componentElementFromRenderNode<'chart', TMessage>({
     ...requiredRenderNodeId(options.id, 'chart'),
     kind: 'chart',
@@ -324,8 +326,8 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
         toActionMessage: (action: ChartAction) => onAction(action)
       })
     },
-    ...interactionProps({ ...options, keys: mergeKeyBindings(generated, options.keys) })
-  });
+    ...interactionProps({ ...options, keys: keyMap })
+  }, keyMap !== undefined);
 }
 
 export function meter(options: MeterOptions): Element {
@@ -343,7 +345,7 @@ export function meter(options: MeterOptions): Element {
       ...(options.result === undefined ? {} : { result: options.result })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<TValue, TMessage>): Element<TMessage> {
@@ -367,6 +369,7 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
           columnIndex: selected.columnIndex
         })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
+  const keyMap = mergeKeyBindings(generated, options.keys);
   return componentElementFromRenderNode<'heatmap', TMessage>({
     ...requiredRenderNodeId(options.id, 'heatmap'),
     kind: 'heatmap',
@@ -386,8 +389,8 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
         toActionMessage: (action: HeatmapAction) => onAction(action)
       })
     },
-    ...interactionProps({ ...options, keys: mergeKeyBindings(generated, options.keys) })
-  });
+    ...interactionProps({ ...options, keys: keyMap })
+  }, keyMap !== undefined);
 }
 
 export function spinner(options: SpinnerOptions = {}): Element {
@@ -402,7 +405,7 @@ export function spinner(options: SpinnerOptions = {}): Element {
       ...(options.status === undefined ? {} : { status: options.status })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 function normalizeNotificationPresentation(

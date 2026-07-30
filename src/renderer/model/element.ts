@@ -2,6 +2,7 @@ import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, 
 import type { ElementInspection } from '../../element/inspection.ts';
 import { renderNodeId } from '../../foundation/identity.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
+import { renderNodeFocusDisabled } from './interaction.ts';
 
 const renderNodes = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
@@ -10,22 +11,31 @@ const renderNodeInspections = new WeakMap<object, ElementInspection>();
 export function componentElementFromRenderNode<
   const TKind extends RenderNodeKind,
   TMessage = never
->(node: RenderNodeOfKind<TMessage, TKind>): Element<TMessage> {
-  return elementFromRenderNode(node, 'component');
+>(
+  node: RenderNodeOfKind<TMessage, TKind>,
+  focusTarget: boolean
+): Element<TMessage> {
+  return elementFromRenderNode(node, 'component', focusTarget);
 }
 
 export function layoutElementFromRenderNode<
   const TKind extends RenderNodeKind,
   TMessage = never
->(node: RenderNodeOfKind<TMessage, TKind>): Element<TMessage> {
-  return elementFromRenderNode(node, 'layout');
+>(
+  node: RenderNodeOfKind<TMessage, TKind>,
+  focusTarget: boolean
+): Element<TMessage> {
+  return elementFromRenderNode(node, 'layout', focusTarget);
 }
 
 export function extensionElementFromRenderNode<
   const TKind extends RenderNodeKind,
   TMessage = never
->(node: RenderNodeOfKind<TMessage, TKind>): Element<TMessage> {
-  return elementFromRenderNode(node, 'extension');
+>(
+  node: RenderNodeOfKind<TMessage, TKind>,
+  focusTarget: boolean
+): Element<TMessage> {
+  return elementFromRenderNode(node, 'extension', focusTarget);
 }
 
 function elementFromRenderNode<
@@ -33,10 +43,11 @@ function elementFromRenderNode<
   TMessage
 >(
   node: RenderNodeOfKind<TMessage, TKind>,
-  category: ElementInspection['category']
+  category: ElementInspection['category'],
+  focusTarget: boolean
 ): Element<TMessage> {
   const element = Object.freeze({}) as Element<TMessage>;
-  const inspection = inspectRenderNode(node, category);
+  const inspection = inspectRenderNode(node, category, focusTarget);
   renderNodes.set(element, node);
   renderNodeInspections.set(node, inspection);
   inspections.set(element, inspection);
@@ -92,7 +103,8 @@ function isObject(value: unknown): value is object {
 
 function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   node: RenderNodeOfKind<TMessage, TKind>,
-  category: ElementInspection['category']
+  category: ElementInspection['category'],
+  focusTarget: boolean
 ): ElementInspection {
   const styleParts = Object.keys(node.styles?.parts ?? {}).sort();
   const styleStates = Object.keys(node.styles?.states ?? {}).sort();
@@ -105,7 +117,7 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
       keyboard,
       text: node.inputMap?.text !== undefined,
       paste: node.inputMap?.paste !== undefined,
-      focus: focusCapability(node)
+      focus: focusCapability(node, focusTarget)
     }),
     meta: Object.freeze({
       accessibility: node.accessibility !== undefined,
@@ -123,8 +135,10 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
 }
 
 function focusCapability<TMessage, TKind extends RenderNodeKind>(
-  node: RenderNodeOfKind<TMessage, TKind>
+  node: RenderNodeOfKind<TMessage, TKind>,
+  focusTarget: boolean
 ): ElementInspection['inputs']['focus'] {
-  if (node.focus === undefined || node.focus.disabled === true) return 'none';
-  return node.focus.scope?.kind === 'contain' ? 'scope' : 'item';
+  if (renderNodeFocusDisabled(node)) return 'none';
+  if (node.focus?.scope?.kind === 'contain') return 'scope';
+  return focusTarget ? 'item' : 'none';
 }

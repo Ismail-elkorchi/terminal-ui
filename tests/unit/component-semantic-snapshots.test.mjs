@@ -6,6 +6,7 @@ import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import { builtinRenderNodeRenderers } from '../../dist/renderer/internal/renderers/index.js';
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { defineTheme,
@@ -44,6 +45,7 @@ import {
   meter,
   helpBar,
   heatmap,
+  inspectElement,
   textInput,
   tabs,
   label,
@@ -53,6 +55,7 @@ import {
   notificationStack,
   numberInput,
   paginator,
+  passwordInput,
   searchPicker,
   progressBar,
   radioGroup,
@@ -377,6 +380,15 @@ const cases = [
     expectFocus: true
   },
   {
+    name: 'passwordInput',
+    element: () => passwordInput({
+      id: 'password-input',
+      presentation: { value: 'secret', cursor: 6 }
+    }),
+    expectText: /••••••/u,
+    expectFocus: true
+  },
+  {
     name: 'numberInput',
     element: () => numberInput({
       id: 'number-input',
@@ -658,71 +670,21 @@ const cases = [
 
 test('semantic element snapshots cover every built-in public element factory', () => {
   const names = cases.map((item) => item.name).sort();
-  assert.deepEqual(names, [
-    'absolute',
-    'activityFeed',
-    'barChart',
-    'button',
-    'calendar',
-    'canvas',
-    'chart',
-    'checkbox',
-    'checkboxGroup',
-    'colorSwatchPicker',
-    'column',
-    'commandInput',
-    'contextMenu',
-    'dialog',
-    'divider',
-    'dropdownMenu',
-    'field',
-    'form',
-    'grid',
-    'heatmap',
-    'helpBar',
-    'label',
-    'list',
-    'logViewer',
-    'menu',
-    'menuBar',
-    'meter',
-    'notificationStack',
-    'numberInput',
-    'overlay',
-    'paginator',
-    'progressBar',
-    'radioGroup',
-    'rangeSlider',
-    'richText',
-    'row',
-    'searchPicker',
-    'select',
-    'slider',
-    'sparkline',
-    'spinner',
-    'splitPane',
-    'statusBar',
-    'statusIndicator',
-    'structuredBlock',
-    'surface',
-    'table',
-    'tabs',
-    'text',
-    'textArea',
-    'textInput',
-    'toggleSwitch',
-    'tooltip',
-    'tree',
-    'viewport'
-  ]);
+  assert.deepEqual(names, Object.keys(builtinRenderNodeRenderers).sort());
 });
 
 for (const current of cases) {
   test(`${current.name} semantic snapshots expose frame ANSI accessibility sizing sanitization and theme behavior`, () => {
-    const frame = renderElementFrame(current.element(), terminalSizeNormal);
+    const element = current.element();
+    const frame = renderElementFrame(element, terminalSizeNormal);
     const plain = renderFramePlain(frame);
     const snapshot = createVisualSnapshot({ frame });
     const accessibilityJson = JSON.stringify(frame.accessibility);
+    assert.equal(
+      inspectionCanFocus(inspectElement(element)),
+      frame.focusPath !== undefined,
+      `${current.name} inspection focus capability`
+    );
 
     assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v2');
     assert.equal(frame.width, terminalSizeNormal.columns);
@@ -834,6 +796,10 @@ function assertCellsAreInsideFrame(frame) {
     assert.equal(Number.isInteger(cell.width), true);
     assert.equal(cell.width >= 0, true);
   }
+}
+
+function inspectionCanFocus(inspection) {
+  return inspection.inputs.focus !== 'none' || inspection.children.some(inspectionCanFocus);
 }
 
 function renderSpan(text, options = {}) {

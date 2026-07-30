@@ -38,7 +38,7 @@ export function surface<const TChild extends Element<unknown>>(
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function absolute<const TChild extends Element<unknown>>(
@@ -65,7 +65,7 @@ export function absolute<const TChild extends Element<unknown>>(
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function overlay<const TChildren extends ElementChildren>(
@@ -83,5 +83,5 @@ export function overlay<const TChildren extends ElementChildren>(
     props: {},
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }

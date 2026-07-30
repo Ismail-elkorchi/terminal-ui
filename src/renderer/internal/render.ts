@@ -21,6 +21,12 @@ import { accessibleNode, withControlLabelRelationships } from './render-accessib
 import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
 import { intersectRects } from './rect.ts';
 import { renderRenderNode, hitTargetsForRenderNode } from './render-node-behavior.ts';
+import { assertValidRendererAccessibility } from './extension-output.ts';
+import { createScopedRenderTarget } from './scoped-render-target.ts';
+import {
+  assertDecorativeNodeHasNoHitTargets,
+  decorativeSubtreeNodes
+} from './decorative.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -133,13 +139,22 @@ export function renderElementInternal<TMessage>(
   const layout = measureRenderStage(options.instrumentation, 'layout', () =>
     layoutRenderNode(renderNode, terminalSize, theme, widthProfile)
   );
+  const decorativeNodes = decorativeSubtreeNodes(renderNode, layout);
   recordRenderWork(options.instrumentation, { kind: 'measured_nodes', count: layoutNodeCount(layout) });
   recordRenderWork(options.instrumentation, { kind: 'rendered_nodes', count: visibleLayoutNodeCount(layout) });
   const resolvedFocusPath = measureRenderStage(options.instrumentation, 'focus', () =>
     resolveFocusPath(layout, options.focusPath)
   );
   const regions = measureRenderStage(options.instrumentation, 'regions', () =>
-    renderLayoutRegions(renderNode, layout, terminalSize, theme, widthProfile, resolvedFocusPath)
+    renderLayoutRegions(
+      renderNode,
+      layout,
+      terminalSize,
+      theme,
+      widthProfile,
+      resolvedFocusPath,
+      decorativeNodes
+    )
   );
   recordRenderWork(options.instrumentation, {
     kind: 'hit_target_candidates',
@@ -165,14 +180,17 @@ export function renderElementInternal<TMessage>(
   const hitTargets = measureRenderStage(options.instrumentation, 'hit_targets', () =>
     regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion))
   );
-  const accessibility = measureRenderStage(options.instrumentation, 'accessibility', () => toAccessibleSnapshot({
-    source: 'renderer',
-    root: withControlLabelRelationships(
-      accessibleNode(renderNode, layout, [], resolvedFocusPath, theme, widthProfile),
-      renderNode
-    ),
-    ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
-  }));
+  const accessibility = measureRenderStage(options.instrumentation, 'accessibility', () => {
+    const snapshot = toAccessibleSnapshot({
+      source: 'renderer',
+      root: withControlLabelRelationships(
+        accessibleNode(renderNode, layout, [], resolvedFocusPath, theme, widthProfile),
+        renderNode
+      )
+    });
+    assertValidRendererAccessibility(snapshot);
+    return snapshot;
+  });
   const frame = measureRenderStage(options.instrumentation, 'snapshot', () => buffer.snapshot({
       accessibility,
       ...(hitTargets.length === 0 ? {} : { hitTargets }),
@@ -241,9 +259,10 @@ function renderLayoutRegions<TMessage>(
   terminalSize: TerminalSize,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focusPath: FocusPath | undefined
+  focusPath: FocusPath | undefined,
+  decorativeNodes: ReadonlySet<RenderNode>
 ): readonly RenderRegion<TMessage>[] {
-  const composer = createRegionComposer<TMessage>(terminalSize, widthProfile);
+  const composer = createRegionComposer<TMessage>(terminalSize, widthProfile, decorativeNodes);
   const path = nodePath(layout, []);
   renderRenderNodeToRegion(
     renderNode,
@@ -262,12 +281,20 @@ function frameHitTargets<TMessage>(
   targets: readonly import('./focus.ts').RenderNodeLayoutTarget<TMessage>[],
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  region: DraftRenderRegion
+  region: DraftRenderRegion,
+  decorativeNodes: ReadonlySet<RenderNode>
 ): readonly RenderRegionHitTarget<TMessage>[] {
   return targets
-    .flatMap((target): RenderRegionHitTarget<TMessage>[] =>
-      hitTargetsForRenderNode(target.renderNode, target, theme, widthProfile).flatMap((hitTarget) => {
-        const bounds = intersectRects(hitTarget.bounds, target.layoutNode.viewport);
+    .flatMap((target): RenderRegionHitTarget<TMessage>[] => {
+      const hitTargets = hitTargetsForRenderNode(target.renderNode, target, theme, widthProfile);
+      assertDecorativeNodeHasNoHitTargets(target.renderNode, hitTargets, decorativeNodes);
+      return hitTargets.flatMap((hitTarget) => {
+        const elementBounds = target.renderNode.kind === 'custom'
+          ? intersectRects(hitTarget.bounds, target.layoutNode.bounds)
+          : hitTarget.bounds;
+        const bounds = elementBounds === undefined
+          ? undefined
+          : intersectRects(elementBounds, target.layoutNode.viewport);
         return bounds === undefined
           ? []
           : [toRegionHitTarget(
@@ -275,8 +302,8 @@ function frameHitTargets<TMessage>(
               region,
               resolveHitTargetFocus(hitTarget, target)
             )];
-      })
-    );
+      });
+    });
 }
 
 function resolveHitTargetFocus<TMessage>(
@@ -316,9 +343,10 @@ function renderRenderNodeToRegion<TMessage>(
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
+  const renderTarget = targetForRenderNode(renderNode, node, region.buffer);
   renderRenderNode(renderNode, {
     layoutNode: node,
-    buffer: region.buffer,
+    buffer: renderTarget,
     theme,
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
@@ -365,9 +393,10 @@ function renderRenderNodeToBuffer<TMessage>(
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
+  const renderTarget = targetForRenderNode(renderNode, node, buffer);
   renderRenderNode(renderNode, {
     layoutNode: node,
-    buffer,
+    buffer: renderTarget,
     theme,
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
@@ -378,6 +407,16 @@ function renderRenderNodeToBuffer<TMessage>(
       }
     }
   });
+}
+
+function targetForRenderNode(
+  renderNode: RenderNode,
+  node: LayoutNode,
+  target: RenderTarget
+): RenderTarget {
+  return renderNode.kind === 'custom'
+    ? createScopedRenderTarget(target, node.bounds, node.viewport)
+    : target;
 }
 
 function nodePath(node: LayoutNode, parentPath: FocusPath): FocusPath {
@@ -405,7 +444,11 @@ interface RegionComposer<TMessage> {
   ): readonly RenderRegion<TMessage>[];
 }
 
-function createRegionComposer<TMessage>(terminalSize: TerminalSize, widthProfile: TextWidthProfile): RegionComposer<TMessage> {
+function createRegionComposer<TMessage>(
+  terminalSize: TerminalSize,
+  widthProfile: TextWidthProfile,
+  decorativeNodes: ReadonlySet<RenderNode>
+): RegionComposer<TMessage> {
   const regions: DraftRenderRegion[] = [];
   let regionOrder = 0;
   return {
@@ -445,7 +488,8 @@ function createRegionComposer<TMessage>(terminalSize: TerminalSize, widthProfile
               index.layoutTargetsForRegion(region.zIndex, region.bounds),
               theme,
               snapshotWidthProfile,
-              region
+              region,
+              decorativeNodes
             ),
             focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds)
           };

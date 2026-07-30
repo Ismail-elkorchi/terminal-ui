@@ -154,7 +154,12 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
           id: 'panel',
           renderer: {
             render() {},
-            accessibility: ({ id }) => ({ id, role: 'document', label: 'Panel' }),
+            accessibility: ({ id, focusedTargetId }) => ({
+              id,
+              role: 'document',
+              label: 'Panel',
+              ...(focusedTargetId === 'action' ? { focused: true } : {})
+            }),
             focusTargets: ({ bounds }) => [{ id: 'action', bounds }]
           }
         })

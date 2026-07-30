@@ -58,5 +58,5 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
     },
     children: options.tabs.map((tab) => toRenderNode(tab.panel)),
     ...interactionProps({ keys, pointer: options.pointer, meta: options.meta })
-  });
+  }, keys !== undefined);
 }

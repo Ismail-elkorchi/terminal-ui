@@ -88,7 +88,7 @@ export function logViewer(options: LogViewerOptions<unknown>): Element<unknown> 
       ...(options.selection === undefined ? {} : { selection: options.selection })
     },
     ...interactionProps(options)
-  });
+  }, onAction !== undefined || (options.keys !== undefined && Object.keys(options.keys).length > 0));
 }
 
 function isScrollableLogViewerOptions<TMessage>(
@@ -125,7 +125,7 @@ export function structuredBlock(options: StructuredBlockOptions): Element {
       ...(block.collapsed === undefined ? {} : { collapsed: block.collapsed })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function activityFeed<const TMessage = never>(options: ActivityFeedOptions<TMessage>): Element<TMessage> {
@@ -152,7 +152,7 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, keyMap !== undefined);
 }
 
 export function commandInput<
@@ -233,7 +233,7 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
       pointer: options.pointer,
       meta: options.meta
     })
-  });
+  }, true);
 }
 
 function commandInputVisibleSuggestionLimit(value: number | undefined): number {
@@ -312,7 +312,7 @@ export function searchPicker<TValue>(options: SearchPickerOptions<TValue, unknow
       pointer: options.pointer,
       meta: options.meta
     })
-  });
+  }, true);
 }
 
 function normalizeStructuredBlock(value: StructuredBlock): StructuredBlock {

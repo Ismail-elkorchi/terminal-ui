@@ -26,7 +26,7 @@ export function column<const TChildren extends ElementChildren>(
     },
     children: childList,
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function row<const TChildren extends ElementChildren>(
@@ -49,5 +49,5 @@ export function row<const TChildren extends ElementChildren>(
     },
     children: childList,
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }

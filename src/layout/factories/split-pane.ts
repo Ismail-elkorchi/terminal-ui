@@ -29,7 +29,7 @@ export function splitPane<
       },
       children: renderChildren,
       ...interactionProps({ meta: options.meta })
-    });
+    }, false);
   }
 
   const keys = mergeKeyBindings(splitPaneKeyBindings(options), options.keys);
@@ -45,7 +45,7 @@ export function splitPane<
     },
     children: renderChildren,
     ...interactionProps({ keys, meta: options.meta })
-  });
+  }, true);
 }
 
 function splitPaneKeyBindings<TMessage>(

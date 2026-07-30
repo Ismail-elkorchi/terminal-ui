@@ -83,7 +83,7 @@ export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unk
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 function isScrollableListOptions<TValue, TMessage>(
@@ -154,7 +154,7 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, keyMap !== undefined);
 }
 
 function isScrollableTableOptions<TRow, TMessage>(
@@ -219,7 +219,7 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 function isScrollableTreeOptions<
@@ -254,5 +254,5 @@ export function paginator(options: PaginatorOptions<unknown>): Element<unknown> 
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, keyMap !== undefined);
 }

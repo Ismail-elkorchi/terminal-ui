@@ -1,5 +1,9 @@
-import { focusPathIncludes, focusedTargetIdForLayoutNode } from './focus.ts';
-import { accessibilityForRenderNode, focusTargetsForRenderNode } from './render-node-behavior.ts';
+import {
+  focusPathIncludes,
+  focusedTargetIdForLayoutNode,
+  renderFocusRelation
+} from './focus.ts';
+import { accessibilityForRenderNode } from './render-node-behavior.ts';
 import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
@@ -7,6 +11,8 @@ import type { FocusPath } from './focus.ts';
 import type { LayoutNode } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { intersectRects } from './rect.ts';
+import { isDecorativeAccessibility } from './decorative.ts';
+import { assertCustomAccessibilityFocus } from './extension-output.ts';
 
 export function accessibleNode(
   renderNode: RenderNode,
@@ -26,8 +32,7 @@ export function accessibleNode(
   }
   const path = [...parentPath, node.identity];
   const id = renderNode.id ?? `${renderNode.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`;
-  if (isDecorative(renderNode.accessibility)) {
-    assertDecorativeRenderNodeIsNotInteractive(renderNode, node, theme, widthProfile);
+  if (isDecorativeAccessibility(renderNode.accessibility)) {
     return decorativeRootNode(id, renderNode.accessibility);
   }
   const renderedChildren = accessibleChildren(
@@ -39,18 +44,28 @@ export function accessibleNode(
     widthProfile,
     clippedByViewport
   ) ?? [];
+  const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
   const base = accessibilityForRenderNode(
     renderNode,
     node,
     id,
     focusPathIncludes(focusPath, path),
-    focusedTargetIdForLayoutNode(node, path, focusPath),
+    focusedTargetId,
     renderedChildren,
     theme,
     widthProfile
   );
   const children = base.children ?? (renderedChildren.length === 0 ? undefined : renderedChildren);
-  return mergeAccessibleNode(withScope(base, renderNode), renderNode.accessibility, children);
+  const result = mergeAccessibleNode(withScope(base, renderNode), renderNode.accessibility, children);
+  if (renderNode.kind === 'custom') {
+    assertCustomAccessibilityFocus(result, {
+      runtimeFocused: renderFocusRelation(focusPath, path) !== 'none',
+      focusedTargetId,
+      focusTargetIds: node.focusTargets.map((target) => target.id),
+      owner: id
+    });
+  }
+  return result;
 }
 
 export function withControlLabelRelationships(
@@ -134,10 +149,7 @@ function accessibleChildren(
   const rendered = orderedAccessibleChildren(renderNode, node).flatMap(({ child, childNode }) => {
     if (!childNode.visible) return [];
     if (clipsDescendants && intersectRects(childNode.bounds, childNode.viewport) === undefined) return [];
-    if (isDecorative(child.accessibility)) {
-      assertDecorativeRenderNodeIsNotInteractive(child, childNode, theme, widthProfile);
-      return [];
-    }
+    if (isDecorativeAccessibility(child.accessibility)) return [];
     return [accessibleNode(child, childNode, path, focusPath, theme, widthProfile, clipsDescendants)];
   });
   return rendered.length === 0 ? undefined : rendered;
@@ -176,12 +188,6 @@ function mergeAccessibleNode(
   };
 }
 
-function isDecorative(value: AccessibilityOptions | AccessibleNode | undefined): value is AccessibilityOptions & {
-  readonly decorative: true;
-} {
-  return accessibilityOptions(value)?.decorative === true;
-}
-
 function accessibilityOptions(value: AccessibilityOptions | AccessibleNode | undefined): AccessibilityOptions | undefined {
   if (value === undefined || isAccessibleNode(value)) return undefined;
   return value;
@@ -216,26 +222,6 @@ function withScope(base: AccessibleNode, renderNode: RenderNode): AccessibleNode
     };
   }
   return base;
-}
-
-function assertDecorativeRenderNodeIsNotInteractive(
-  renderNode: RenderNode,
-  node: LayoutNode,
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile
-): void {
-  if (renderNode.keyMap !== undefined && Object.keys(renderNode.keyMap).length > 0) {
-    throw new Error(`Decorative renderNode "${renderNode.id ?? renderNode.kind}" cannot define keyboard messages.`);
-  }
-  if (renderNode.inputMap?.text !== undefined || renderNode.inputMap?.paste !== undefined) {
-    throw new Error(`Decorative renderNode "${renderNode.id ?? renderNode.kind}" cannot define text input messages.`);
-  }
-  if (
-    renderNode.custom?.renderer.hitTargets !== undefined
-    || focusTargetsForRenderNode(renderNode, node.bounds, node.viewport, theme, widthProfile).some((target) => !target.disabled)
-  ) {
-    throw new Error(`Decorative renderNode "${renderNode.id ?? renderNode.kind}" cannot expose focus or hit targets.`);
-  }
 }
 
 function decorativeRootNode(id: string, options: AccessibilityOptions): AccessibleNode {

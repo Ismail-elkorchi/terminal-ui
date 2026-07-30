@@ -8,7 +8,7 @@ const sourceFiles = await collectTypeScript(root);
 const knownSourceFiles = new Set(sourceFiles);
 const publicEntrypointFiles = await loadPublicEntrypoints();
 const compilerConfig = loadCompilerConfig();
-const publicDeclarationSurface = createPublicDeclarationSurface(compilerConfig);
+const publicDeclarationSurface = createPublicDeclarationSurface(compilerConfig, publicEntrypointFiles);
 const dependencyGraph = new Map();
 const failures = [];
 const deterministicGlobalLayers = new Set([
@@ -303,33 +303,7 @@ function loadCompilerConfig() {
   return parsed;
 }
 
-function createPublicDeclarationSurface(configuration) {
-  const declarationFiles = new Map();
-  const emitOptions = {
-    ...configuration.options,
-    declaration: true,
-    declarationMap: false,
-    emitDeclarationOnly: true,
-    noEmit: false,
-    sourceMap: false
-  };
-  const sourceProgram = ts.createProgram({
-    rootNames: configuration.fileNames,
-    options: emitOptions
-  });
-  const emitted = sourceProgram.emit(
-    undefined,
-    (fileName, text) => {
-      if (fileName.endsWith('.d.ts')) declarationFiles.set(path.resolve(fileName), text);
-    },
-    undefined,
-    true
-  );
-  if (emitted.emitSkipped) {
-    throw new Error(emitted.diagnostics.map((item) =>
-      ts.flattenDiagnosticMessageText(item.messageText, '\n')).join('\n'));
-  }
-
+function createPublicDeclarationSurface(configuration, entrypointFiles) {
   const declarationOptions = {
     ...configuration.options,
     declaration: false,
@@ -337,31 +311,25 @@ function createPublicDeclarationSurface(configuration) {
     noEmit: true,
     sourceMap: false
   };
-  const host = ts.createCompilerHost(declarationOptions);
-  const fileExists = host.fileExists.bind(host);
-  const readFile = host.readFile.bind(host);
-  host.fileExists = (fileName) => declarationFiles.has(path.resolve(fileName)) || fileExists(fileName);
-  host.readFile = (fileName) => declarationFiles.get(path.resolve(fileName)) ?? readFile(fileName);
-  host.getSourceFile = (fileName, languageVersion) => {
-    const text = host.readFile(fileName);
-    return text === undefined
-      ? undefined
-      : ts.createSourceFile(fileName, text, languageVersion, true, ts.ScriptKind.TS);
-  };
   const program = ts.createProgram({
-    rootNames: [...declarationFiles.keys()],
-    options: declarationOptions,
-    host
+    rootNames: [...entrypointFiles],
+    options: declarationOptions
   });
   const declarationDiagnostics = ts.getPreEmitDiagnostics(program);
   if (declarationDiagnostics.length > 0) {
     throw new Error(declarationDiagnostics.map((item) =>
       ts.flattenDiagnosticMessageText(item.messageText, '\n')).join('\n'));
   }
+  const declarationRoot = path.resolve(configuration.options.outDir);
+  const declarationFiles = new Set(program.getSourceFiles()
+    .map((sourceFile) => path.resolve(sourceFile.fileName))
+    .filter((fileName) =>
+      fileName.endsWith('.d.ts')
+      && fileName.startsWith(`${declarationRoot}${path.sep}`)));
   return {
     program,
-    declarationFiles: new Set(declarationFiles.keys()),
-    declarationRoot: path.resolve(configuration.options.outDir)
+    declarationFiles,
+    declarationRoot
   };
 }
 

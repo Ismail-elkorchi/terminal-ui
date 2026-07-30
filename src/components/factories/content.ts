@@ -32,7 +32,7 @@ export function text(content: string, options: TextOptions = {}): Element {
       ...(options.textRole === undefined ? {} : { textRole: options.textRole })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function richText(options: RichTextOptions): Element {
@@ -44,7 +44,7 @@ export function richText(options: RichTextOptions): Element {
       ...(options.wrap === undefined ? {} : { wrap: options.wrap })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 /* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
@@ -118,7 +118,7 @@ export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
       pointer: options.pointer,
       meta: options.meta
     })
-  });
+  }, true);
 }
 
 function isScrollableTextAreaOptions<TMessage>(

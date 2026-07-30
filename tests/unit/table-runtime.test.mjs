@@ -595,6 +595,7 @@ test('table renders a styled empty state', () => {
 
   assert.match(renderFramePlain(frame), /No data/u);
   assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === 'N')?.style?.fg?.token, 'text.muted');
+  assert.deepEqual(frame.accessibility.root.position, { rowCount: 1, columnCount: 1 });
 });
 
 test('table uses shared horizontal scroll state', () => {

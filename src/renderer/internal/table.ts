@@ -127,7 +127,12 @@ export function tableAccessibleBase(
   focused: boolean,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
-  const { totalRows, columns, window } = tableLayout(renderNode, bounds, widthProfile);
+  const { totalRows, columns, hasHeader, window } = tableLayout(renderNode, bounds, widthProfile);
+  const rowCount = totalRows + (hasHeader ? 1 : 0);
+  const position = {
+    ...(rowCount === 0 ? {} : { rowCount }),
+    ...(columns.length === 0 ? {} : { columnCount: columns.length })
+  };
   return {
     id,
     role: 'grid',
@@ -140,10 +145,7 @@ export function tableAccessibleBase(
       omittedBefore: window.omittedBefore,
       omittedAfter: window.omittedAfter
     },
-    position: {
-      rowCount: totalRows,
-      columnCount: columns.length
-    },
+    ...(rowCount === 0 && columns.length === 0 ? {} : { position }),
     ...(focused ? { focused } : {})
   };
 }
@@ -196,7 +198,7 @@ export function tableAccessibleChildren(
         setSize: totalRows,
         rowIndex: hasHeader ? rowIndex + 2 : rowIndex + 1,
         rowCount: hasHeader ? totalRows + 1 : totalRows,
-        columnCount: columns.length
+        ...(columns.length === 0 ? {} : { columnCount: columns.length })
       },
       children: columns.map((column, columnIndex) => {
         const value = column.value(record.row, rowIndex);

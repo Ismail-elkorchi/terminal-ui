@@ -27,5 +27,5 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
     },
     children: [childNode] as readonly RenderNode<Message>[],
     ...interactionProps(options)
-  });
+  }, options.keys !== undefined && Object.keys(options.keys).length > 0);
 }

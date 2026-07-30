@@ -27,8 +27,7 @@ test('TUI wheel routing skips non-scroll child targets and reaches the scroll ta
             kind: 'scroll',
             targetId: event.targetId,
             localColumn: event.localColumn
-          }),
-          cursor: 'grab'
+          })
         },
         {
           id: 'child-button',

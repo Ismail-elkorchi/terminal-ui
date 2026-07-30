@@ -182,7 +182,11 @@ identity, whether the element came from the component, layout, or renderer
 extension API, input capabilities, focus policy, visual state, and child
 structure; it does not expose renderer props, callback values, or render-node
 hooks. The category describes the factory entrypoint only and does not
-participate in render dispatch.
+participate in render dispatch. Focus inspection applies the same logical
+disablement policy as rendering, including disabled and pending control state.
+It describes whether an element can produce a focus item or scope before
+terminal geometry is known; zero-sized or clipped layout can still leave no
+focus path in a particular frame.
 
 ## Invariants
 

@@ -16,5 +16,5 @@ export function canvas(options: CanvasOptions): Element {
       ...(options.label === undefined ? {} : { label: options.label })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }

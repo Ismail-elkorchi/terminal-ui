@@ -75,7 +75,7 @@ export function form<const TChildren extends ElementChildren>(
     },
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function field<const TChildren extends ElementChildren>(
@@ -96,7 +96,7 @@ export function field<const TChildren extends ElementChildren>(
     },
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function label(options: LabelOptions): Element {
@@ -113,7 +113,7 @@ export function label(options: LabelOptions): Element {
       ...(options.disabled === undefined ? {} : { disabled: options.disabled })
     },
     ...componentMetaProps(options.meta)
-  });
+  }, false);
 }
 
 export function button<
@@ -148,7 +148,7 @@ export function button(options: ButtonOptions<unknown>): Element<unknown> {
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessage>): Element<TMessage> {
@@ -170,7 +170,7 @@ export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessa
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOptions<TMessage>): Element<TMessage> {
@@ -193,7 +193,7 @@ export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOption
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function slider<const TMessage = never>(options: SliderOptions<TMessage>): Element<TMessage> {
@@ -216,7 +216,7 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<TMessage>): Element<TMessage> {
@@ -246,7 +246,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxGroupOptions<TValue, TMessage>): Element<TMessage> {
@@ -271,7 +271,7 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOptions<TValue, TMessage>): Element<TMessage> {
@@ -296,7 +296,7 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function colorSwatchPicker<TValue, const TMessage = never>(options: ColorSwatchPickerOptions<TValue, TMessage>): Element<TMessage> {
@@ -321,7 +321,7 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function calendar<
@@ -356,7 +356,7 @@ export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 export function select<TValue, const TMessage = never>(options: SelectOptions<TValue, TMessage>): Element<TMessage> {
@@ -391,7 +391,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
     ...(popup === undefined ? {} : { children: [popup] }),
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }
 
 function selectVisibleOptionLimit(value: number | undefined): number {
@@ -438,7 +438,7 @@ export function textInput(options: TextInputOptions<unknown>): Element<unknown> 
       pointer: options.pointer,
       meta: options.meta
     })
-  });
+  }, true);
 }
 
 export function passwordInput<
@@ -487,7 +487,7 @@ export function passwordInput(options: PasswordInputOptions<unknown>): Element<u
       pointer: options.pointer,
       meta: options.meta
     })
-  });
+  }, true);
 }
 
 function passwordMask(value: string | undefined): string {
@@ -575,5 +575,5 @@ export function numberInput(options: NumberInputOptions<unknown>): Element<unkno
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ ...editHandlers, pointer: options.pointer, meta: options.meta })
-  });
+  }, true);
 }

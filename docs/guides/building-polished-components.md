@@ -88,8 +88,9 @@ elements. Use `canvas()` for bounded drawing through `Canvas2D`.
 
 Both paths draw through the same sanitized frame pipeline; neither path writes
 raw terminal output. Interactive custom renderers must provide accessibility.
-Decorative output must opt into `meta: { accessibility: { decorative: true } }`
-and cannot expose keyboard, text-input, focus, or pointer interaction.
+Decorative output must opt into `meta: { accessibility: { decorative: true } }`.
+The decorative element and its descendants cannot expose keyboard, text-input,
+focus, or pointer interaction.
 
 ## Regression Evidence
 

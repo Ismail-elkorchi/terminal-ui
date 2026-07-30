@@ -1,7 +1,10 @@
 import type { ElementFocusScope } from '../../element/metadata.ts';
 import { builtinRenderNodeRenderers } from './renderers/index.ts';
 import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
-import { renderNodeInteractionDisabled } from './render-node-interaction.ts';
+import {
+  renderNodeFocusDisabled,
+  renderNodeInteractionDisabled
+} from '../model/interaction.ts';
 import { pointerInteractionHitTargets } from './pointer-interaction.ts';
 import {
   emptyRect, hasKeyboardOrInputMap
@@ -14,6 +17,12 @@ import type { RenderNodeLayoutTarget } from './focus.ts';
 import type { LayoutNode, Rect } from '../contracts.ts';
 import type { FocusTarget, HitTarget, Measurement } from '../contracts.ts';
 import type { RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
+import {
+  assertValidCustomFocusTargets,
+  assertValidCustomHitTargets,
+  assertValidCustomMeasurement
+} from './extension-output.ts';
+import { intersectRects } from './rect.ts';
 
 export function rendererForRenderNode<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
   if (renderNode.kind === 'custom') return renderNode.custom.renderer;
@@ -98,14 +107,18 @@ function measureRenderNode(
 ): Measurement {
   const renderer = rendererForRenderNode(renderNode);
   const children = renderNode.children ?? [];
-  return normalizeMeasurement(renderer.measure({
+  const measurement = renderer.measure({
     renderNode: renderNode,
     bounds,
     theme: context.theme,
     childCount: children.length,
     measureChild: childMeasurer(children, bounds, context),
     widthProfile: context.widthProfile
-  }));
+  });
+  if (renderNode.kind === 'custom') {
+    assertValidCustomMeasurement(measurement, renderNode.id ?? renderNode.kind);
+  }
+  return normalizeMeasurement(measurement);
 }
 
 function childMeasurer(
@@ -174,8 +187,17 @@ export function focusTargetsForRenderNode(
     theme,
     widthProfile
   }) ?? [];
-  const targets = explicit.length > 0 || !hasKeyboardOrInputMap(renderNode)
-    ? explicit
+  if (renderNode.kind === 'custom') {
+    assertValidCustomFocusTargets(explicit, renderNode.id ?? renderNode.kind);
+  }
+  const bounded = renderNode.kind === 'custom'
+    ? explicit.map((target) => ({
+        ...target,
+        bounds: intersectRects(target.bounds, bounds) ?? emptyRect(target.bounds)
+      }))
+    : explicit;
+  const targets = bounded.length > 0 || !hasKeyboardOrInputMap(renderNode)
+    ? bounded
     : [{ id: 'self', bounds }];
   return targets.map((target): FocusTarget => {
     if (target.id.trim() === '') {
@@ -186,7 +208,7 @@ export function focusTargetsForRenderNode(
       id: target.id,
       bounds: target.bounds,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
-      disabled: target.disabled === true || renderNode.focus?.disabled === true,
+      disabled: renderNodeFocusDisabled(renderNode, target.disabled === true),
       ...(order === undefined ? {} : { order }),
       ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
     };
@@ -212,6 +234,9 @@ export function hitTargetsForRenderNode<TMessage>(
     theme,
     widthProfile
   }) ?? [];
+  if (renderNode.kind === 'custom') {
+    assertValidCustomHitTargets(targets, renderNode.id ?? renderNode.kind);
+  }
   const interactionTargets = pointerInteractionHitTargets(renderNode, target.bounds, targets);
   if (renderNode.kind === 'custom' || target.layoutNode.focusTargets.length !== 1) return interactionTargets;
   const focusTarget = target.layoutNode.focusTargets[0];
