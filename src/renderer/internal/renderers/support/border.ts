@@ -2,7 +2,7 @@ import type { RenderNodeOfKind } from '../../../model/index.ts';
 import { borderStyleFromValue } from '../../border.ts';
 import { mergeStyles, renderNodeStyle } from '../../render-node-style.ts';
 import type { BorderStyle } from '../../border.ts';
-import type { Rect } from '../../../model/layout.ts';
+import type { Rect } from '../../../contracts.ts';
 import type { TerminalStyle } from '../../../../visual/render.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import { borderTitleAccessibleText } from '../../../../visual/border.ts';

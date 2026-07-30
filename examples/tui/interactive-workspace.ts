@@ -584,10 +584,15 @@ const isMain = process.argv[1] !== undefined
 
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY && !process.argv.includes('--scripted')) {
-    const exit = await runTui(interactiveWorkspaceApp, createTerminalHost({ runtime: 'node' }), {
-      initialFocus: { kind: 'path', path: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command'] }
-    });
-    if (exit.status !== 'completed') process.exitCode = 1;
+    const host = createTerminalHost({ runtime: 'node' });
+    try {
+      const exit = await runTui(interactiveWorkspaceApp, host, {
+        initialFocus: { kind: 'path', path: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command'] }
+      });
+      if (exit.status !== 'completed') process.exitCode = 1;
+    } finally {
+      await host.dispose();
+    }
   } else {
     console.log(JSON.stringify(await runScriptedWorkspace()));
   }

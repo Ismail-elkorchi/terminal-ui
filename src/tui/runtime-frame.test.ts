@@ -28,7 +28,14 @@ void test('frame commits use an independent bounded context for synchronized-out
     return committedTerminalWrite();
   };
 
-  const committing = commitFrame(host, undefined, frame, defineTheme(), { signal: controller.signal });
+  const committing = commitFrame(
+    host,
+    undefined,
+    frame,
+    defineTheme(),
+    await host.getCapabilities(),
+    { signal: controller.signal }
+  );
   await started.promise;
   controller.abort(new Error('runtime disposed'));
 
@@ -53,7 +60,7 @@ void test('unchanged frame commits record the diff without entering the host wri
     return originalWrite(output, context);
   };
 
-  const diff = await commitFrame(host, frame, frame, defineTheme());
+  const diff = await commitFrame(host, frame, frame, defineTheme(), await host.getCapabilities());
 
   assert.equal(diff.operations.length, 0);
   assert.equal(writes, 0);

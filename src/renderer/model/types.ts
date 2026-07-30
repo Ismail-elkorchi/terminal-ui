@@ -11,6 +11,9 @@ import type {
   PointerInteractionAction,
   PointerInteractionState
 } from '../../interaction/pointer-interaction.ts';
+import type { RenderNodeKind } from '../contracts.ts';
+
+export type { RenderNodeKind } from '../contracts.ts';
 
 export interface RenderNodePointerInteraction<TMessage> {
   readonly state?: PointerInteractionState;
@@ -47,65 +50,6 @@ export type RenderNode<TMessage = unknown> = {
 export type RenderNodesOfKind<TMessage, TKind extends RenderNodeKind> = {
   readonly [TCurrentKind in TKind]: RenderNodeOfKind<TMessage, TCurrentKind>;
 }[TKind];
-
-export type RenderNodeKind =
-  | 'text'
-  | 'richText'
-  | 'column'
-  | 'row'
-  | 'list'
-  | 'table'
-  | 'tree'
-  | 'paginator'
-  | 'textArea'
-  | 'form'
-  | 'field'
-  | 'label'
-  | 'button'
-  | 'checkbox'
-  | 'toggleSwitch'
-  | 'slider'
-  | 'rangeSlider'
-  | 'checkboxGroup'
-  | 'colorSwatchPicker'
-  | 'calendar'
-  | 'radioGroup'
-  | 'select'
-  | 'textInput'
-  | 'passwordInput'
-  | 'numberInput'
-  | 'menu'
-  | 'menuBar'
-  | 'contextMenu'
-  | 'dropdownMenu'
-  | 'divider'
-  | 'tooltip'
-  | 'notificationStack'
-  | 'canvas'
-  | 'surface'
-  | 'absolute'
-  | 'overlay'
-  | 'statusBar'
-  | 'helpBar'
-  | 'statusIndicator'
-  | 'progressBar'
-  | 'spinner'
-  | 'sparkline'
-  | 'barChart'
-  | 'chart'
-  | 'meter'
-  | 'heatmap'
-  | 'viewport'
-  | 'logViewer'
-  | 'structuredBlock'
-  | 'activityFeed'
-  | 'commandInput'
-  | 'searchPicker'
-  | 'grid'
-  | 'splitPane'
-  | 'tabs'
-  | 'dialog'
-  | 'custom';
 
 export type RenderNodeChildren<TMessage> = readonly RenderNode<TMessage>[] | RenderNode<TMessage>;
 export interface RenderNodeInputMap<TMessage> {

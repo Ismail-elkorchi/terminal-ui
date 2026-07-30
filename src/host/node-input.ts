@@ -9,6 +9,7 @@ export class NodeInput implements TerminalInput {
   #rawMode: boolean;
   #rawModeSet = false;
   #activeReader: ClosableNodeInputIterator | undefined;
+  #release: Promise<void> | undefined;
   #disposal: Promise<void> | undefined;
   #disposed = false;
   readonly #stream: NodeReadableTerminalStream;
@@ -27,6 +28,26 @@ export class NodeInput implements TerminalInput {
   dispose(): Promise<void> {
     this.#disposal ??= this.disposeOnce();
     return this.#disposal;
+  }
+
+  release(): Promise<void> {
+    if (this.#disposed) return this.#disposal ?? Promise.resolve();
+    return this.startRelease();
+  }
+
+  private startRelease(): Promise<void> {
+    if (this.#release !== undefined) return this.#release;
+    const reader = this.#activeReader;
+    if (reader === undefined) return Promise.resolve();
+    const release = Promise.resolve()
+      .then(async () => reader.close())
+      .then(() => {
+        if (this.#activeReader === reader) this.#activeReader = undefined;
+        if (!this.#disposed && this.#release === release) this.#release = undefined;
+      });
+    this.#release = release;
+    void release.catch(() => undefined);
+    return release;
   }
 
   setRawMode(enabled: boolean): void {
@@ -48,7 +69,7 @@ export class NodeInput implements TerminalInput {
   private async disposeOnce(): Promise<void> {
     this.#disposed = true;
     try {
-      await this.#activeReader?.close();
+      await this.startRelease();
     } finally {
       this.#stream.pause?.();
       this.#stream.unref?.();
@@ -57,6 +78,9 @@ export class NodeInput implements TerminalInput {
 
   private createIterator(signal: AbortSignal | undefined): ClosableNodeInputIterator {
     if (this.#disposed) return closedIterator();
+    if (this.#release !== undefined) {
+      throw new Error('Node terminal input is being released.');
+    }
     if (this.#activeReader !== undefined) {
       throw new Error('Node terminal input already has an active reader.');
     }
@@ -200,41 +224,37 @@ class EventNodeInputIterator implements ClosableNodeInputIterator {
 
 class IterableNodeInputIterator implements ClosableNodeInputIterator {
   readonly #closeListeners: (() => void)[] = [];
-  readonly #closeRequested: Promise<void>;
-  readonly #resolveCloseRequested: () => void;
   readonly #source: AsyncIterator<string | Uint8Array>;
   #closePromise: Promise<void> | undefined;
   #closed = false;
   #readPending = false;
+  #sourceRead: Promise<IteratorResult<string | Uint8Array>> | undefined;
 
   constructor(source: AsyncIterator<string | Uint8Array>) {
     this.#source = source;
-    const { promise, resolve } = Promise.withResolvers<undefined>();
-    this.#closeRequested = promise;
-    this.#resolveCloseRequested = () => { resolve(undefined); };
   }
 
   async next(): Promise<IteratorResult<TerminalInputChunk>> {
     if (this.#closed || this.#closePromise !== undefined) return { done: true, value: undefined };
     if (this.#readPending) throw new Error('Node terminal input already has a pending read.');
     this.#readPending = true;
-    const sourceRead = this.#source.next().then(
-      (result) => ({ kind: 'source' as const, result }),
-      (cause: unknown) => {
-        throw inputError(cause);
+    const sourceRead = Promise.resolve().then(async () => this.#source.next());
+    this.#sourceRead = sourceRead;
+    void sourceRead.then(
+      () => {
+        if (this.#sourceRead === sourceRead) this.#sourceRead = undefined;
+      },
+      () => {
+        if (this.#sourceRead === sourceRead) this.#sourceRead = undefined;
       }
     );
     try {
-      const outcome = await Promise.race([
-        sourceRead,
-        this.#closeRequested.then(() => ({ kind: 'closed' as const }))
-      ]);
-      if (outcome.kind === 'closed') return { done: true, value: undefined };
-      if (outcome.result.done === true) {
-        this.finish();
+      const result = await sourceRead;
+      if (result.done === true) {
+        if (!this.isClosing()) this.finish();
         return { done: true, value: undefined };
       }
-      return { done: false, value: { data: outcome.result.value } };
+      return { done: false, value: { data: result.value } };
     } catch (cause) {
       if (this.isClosing()) return { done: true, value: undefined };
       this.finish();
@@ -253,14 +273,19 @@ class IterableNodeInputIterator implements ClosableNodeInputIterator {
   close(): Promise<void> {
     if (this.#closed) return this.#closePromise ?? Promise.resolve();
     if (this.#closePromise !== undefined) return this.#closePromise;
-    this.#resolveCloseRequested();
-    this.#closePromise = Promise.resolve()
+    const sourceRead = this.#sourceRead;
+    const sourceClose = Promise.resolve()
       .then(async () => this.#source.return?.())
-      .then(() => undefined)
-      .finally(() => {
-        this.#closed = true;
-        this.notifyClosed();
-      });
+      .then(() => undefined);
+    this.#closePromise = Promise.allSettled([
+      sourceRead ?? Promise.resolve(),
+      sourceClose
+    ]).then((results) => {
+      this.#closed = true;
+      const closeResult = results[1];
+      if (closeResult.status === 'rejected') throw closeResult.reason;
+      this.notifyClosed();
+    });
     return this.#closePromise;
   }
 
@@ -272,7 +297,6 @@ class IterableNodeInputIterator implements ClosableNodeInputIterator {
   private finish(): void {
     if (this.#closed) return;
     this.#closed = true;
-    this.#resolveCloseRequested();
     this.notifyClosed();
   }
 

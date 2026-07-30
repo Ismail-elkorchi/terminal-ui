@@ -11,11 +11,11 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type { SearchEntry } from '../../ui-model/contracts.ts';
 import { searchPickerWindow } from '../../behavior/search-picker.ts';
 import type { SearchPickerWindow, SearchPickerWindowInput } from '../../behavior/search-picker.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 import { clipRenderLine, padRenderLine } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { HitTarget } from '../contracts.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 
 const renderModelCache = new WeakMap<object, {

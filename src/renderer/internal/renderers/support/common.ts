@@ -1,9 +1,9 @@
 import type { AccessibleNode } from '../../../../accessibility/index.ts';
 import type { RenderNode, RenderNodesOfKind } from '../../../model/index.ts';
-import type { CursorPosition } from '../../../model/cursor.ts';
+import type { CursorPosition } from '../../../contracts.ts';
 import type { FrameCell } from '../../frame.ts';
-import type { Rect } from '../../../model/layout.ts';
-import type { FocusTarget, HitTarget } from '../../../model/renderer.ts';
+import type { Rect } from '../../../contracts.ts';
+import type { FocusTarget, HitTarget } from '../../../contracts.ts';
 import { ignoreMessage } from '../../../../interaction/message.ts';
 
 export function hasKeyboardOrInputMap(renderNode: RenderNode): boolean {

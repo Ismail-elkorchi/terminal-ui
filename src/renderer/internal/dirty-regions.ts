@@ -1,4 +1,4 @@
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 
 interface DirtyRegionSource {
   readonly id: string;

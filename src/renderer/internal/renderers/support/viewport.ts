@@ -3,8 +3,8 @@ import { finiteNonNegativeIntegerOrZero, isNonArrayObject } from '../../../../fo
 import { normalizeScrollState } from '../../../../behavior/scroll.ts';
 import { renderNodeStyle } from '../../render-node-style.ts';
 import { renderNodeFrameSource } from '../../../../visual/source.ts';
-import type { RenderTarget } from '../../../model/render-target.ts';
-import type { LayoutNode, Rect } from '../../../model/layout.ts';
+import type { RenderTarget } from '../../../contracts.ts';
+import type { LayoutNode, Rect } from '../../../contracts.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import { oneCellGlyph } from '../../../../text/index.ts';

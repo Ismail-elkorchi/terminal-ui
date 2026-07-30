@@ -1,11 +1,17 @@
 import {
   button,
+  canvas,
   table,
   text,
+  type CanvasPainter,
   type Element,
   type ElementMessage
 } from '@ismail-elkorchi/terminal-ui/components';
 
+const paint: CanvasPainter = ({ canvas: drawing }) => {
+  drawing.point(0, 0, { text: '*' });
+};
+const drawing = canvas({ painter: paint, label: 'drawing' });
 const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
 const rows = table({
   id: 'rows',
@@ -25,6 +31,7 @@ const message: SaveMessage = { kind: 'save' };
 button({ label: 'Invalid', onPress: () => ({ kind: 'invalid' } as const) });
 
 void rows;
+void drawing;
 void passive;
 void clearUnderlay;
 void preserveUnderlay;

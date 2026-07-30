@@ -23,7 +23,7 @@ export class TerminalInputAuthority implements TerminalInput {
   #pending: Promise<IteratorResult<TerminalInputChunk>> | undefined;
   #release: Promise<void> | undefined;
   #disposal: Promise<void> | undefined;
-  #readerActive = false;
+  #activeReader: object | undefined;
   #disposed = false;
 
   constructor(source: TerminalInput, disposeSource?: () => void | Promise<void>) {
@@ -38,12 +38,12 @@ export class TerminalInputAuthority implements TerminalInput {
   }
 
   async probeKittyKeyboard(signal: AbortSignal): Promise<KittyKeyboardProbeResult> {
-    this.#acquireReader();
+    const owner = this.#acquireReader();
     const buffered: Uint8Array[] = [];
     let byteCount = 0;
     try {
       while (!signal.aborted && byteCount <= MAX_PROBE_BYTES) {
-        const result = await this.#next(signal);
+        const result = await this.#next(signal, owner);
         if (result.done) break;
         const bytes = bytesFromChunk(result.value);
         buffered.push(bytes);
@@ -59,70 +59,29 @@ export class TerminalInputAuthority implements TerminalInput {
       this.#replayBytes(concatenateBytes(buffered, byteCount));
       return { status: 'inconclusive' };
     } finally {
-      this.#readerActive = false;
+      this.#releaseReader(owner);
     }
   }
 
   dispose(): Promise<void> {
     if (this.#disposal !== undefined) return this.#disposal;
     this.#disposed = true;
-    this.#sourceController.abort('terminal_input_disposed');
-    const iterator = this.#iterator;
-    const pending = this.#pending;
-    const iteratorClose = Promise.resolve()
-      .then(async () => iterator?.return?.())
-      .then(() => undefined);
-    void iteratorClose.catch(() => undefined);
+    const retirement = this.#startRelease('terminal_input_disposed');
+    const sourceDisposal = Promise.resolve().then(async () => this.#disposeSource?.());
+    void sourceDisposal.catch(() => undefined);
     this.#disposal = settleResourceDisposal([
-      async () => {
-        await pending;
-      },
-      async () => {
-        await iteratorClose;
-      },
-      async () => {
-        await this.#disposeSource?.();
-      }
+      async () => retirement,
+      async () => sourceDisposal
     ]).finally(() => {
-      if (this.#pending === pending) this.#pending = undefined;
-      this.#readerActive = false;
+      this.#activeReader = undefined;
       this.#replay.length = 0;
     });
     return this.#disposal;
   }
 
   release(): Promise<void> {
-    if (this.#disposed) return Promise.resolve();
-    if (this.#readerActive) {
-      return Promise.reject(new Error('Terminal input cannot be released while a reader is active.'));
-    }
-    if (this.#release !== undefined) return this.#release;
-    const iterator = this.#iterator;
-    const pending = this.#pending;
-    if (iterator === undefined) return Promise.resolve();
-    const sourceController = this.#sourceController;
-    sourceController.abort('terminal_input_released');
-    const iteratorClose = Promise.resolve()
-      .then(async () => iterator.return?.())
-      .then(() => undefined);
-    this.#release = Promise.allSettled([
-      pending ?? Promise.resolve(),
-      iteratorClose
-    ]).then((results) => {
-      const failures: unknown[] = [];
-      for (const result of results) {
-        if (result.status === 'rejected') failures.push(result.reason);
-      }
-      if (failures.length > 0) throw new AggregateError(failures, 'Terminal input release failed.');
-    }).finally(() => {
-      if (this.#iterator === iterator) this.#iterator = undefined;
-      if (this.#pending === pending) this.#pending = undefined;
-      if (!this.#disposed && this.#sourceController === sourceController) {
-        this.#sourceController = new AbortController();
-      }
-      this.#release = undefined;
-    });
-    return this.#release;
+    if (this.#disposed) return this.#disposal ?? Promise.resolve();
+    return this.#startRelease('terminal_input_released');
   }
 
   setRawMode(enabled: boolean): Promise<void> | void {
@@ -144,19 +103,19 @@ export class TerminalInputAuthority implements TerminalInput {
         return: () => Promise.resolve({ done: true, value: undefined })
       };
     }
-    this.#acquireReader();
+    const owner = this.#acquireReader();
     let closed = false;
     const close = (): Promise<IteratorResult<TerminalInputChunk>> => {
       if (!closed) {
         closed = true;
-        this.#readerActive = false;
+        this.#releaseReader(owner);
       }
       return Promise.resolve({ done: true, value: undefined });
     };
     return {
       next: async () => {
-        if (closed) return { done: true, value: undefined };
-        const result = await this.#next(signal);
+        if (closed || this.#activeReader !== owner) return { done: true, value: undefined };
+        const result = await this.#next(signal, owner);
         if (result.done) await close();
         return result;
       },
@@ -164,20 +123,69 @@ export class TerminalInputAuthority implements TerminalInput {
     };
   }
 
-  #acquireReader(): void {
+  #acquireReader(): object {
     if (this.#disposed) throw new Error('Terminal input is disposed.');
-    if (this.#readerActive) throw new Error('Terminal input already has an active reader.');
-    this.#readerActive = true;
+    if (this.#release !== undefined) throw new Error('Terminal input is being released.');
+    if (this.#activeReader !== undefined) throw new Error('Terminal input already has an active reader.');
+    const owner = {};
+    this.#activeReader = owner;
+    return owner;
   }
 
-  async #next(signal: AbortSignal | undefined): Promise<IteratorResult<TerminalInputChunk>> {
+  #releaseReader(owner: object): void {
+    if (this.#activeReader === owner) this.#activeReader = undefined;
+  }
+
+  #startRelease(reason: string): Promise<void> {
+    if (this.#release !== undefined) return this.#release;
+    const sourceController = this.#sourceController;
+    const iterator = this.#iterator;
+    const pending = this.#pending;
+    sourceController.abort(reason);
+    let strandedChunk: TerminalInputChunk | undefined;
+    const pendingCompletion = Promise.resolve(pending).then((result) => {
+      if (result?.done === false) strandedChunk = cloneInputChunk(result.value);
+    });
+    const iteratorClose = Promise.resolve()
+      .then(async () => iterator?.return?.())
+      .then(() => undefined);
+    const sourceRelease = Promise.resolve()
+      .then(async () => this.#source.release?.())
+      .then(() => undefined);
+    void iteratorClose.catch(() => undefined);
+    void sourceRelease.catch(() => undefined);
+    const release = settleResourceDisposal([
+      async () => pendingCompletion,
+      async () => iteratorClose,
+      async () => sourceRelease
+    ]).then(() => {
+      if (this.#iterator === iterator) this.#iterator = undefined;
+      if (this.#pending === pending) this.#pending = undefined;
+      this.#activeReader = undefined;
+      if (!this.#disposed && this.#sourceController === sourceController) {
+        this.#sourceController = new AbortController();
+        if (strandedChunk !== undefined) this.#replay.push(strandedChunk);
+      }
+      if (this.#release === release) this.#release = undefined;
+    });
+    this.#release = release;
+    void release.catch(() => undefined);
+    return release;
+  }
+
+  async #next(
+    signal: AbortSignal | undefined,
+    owner: object
+  ): Promise<IteratorResult<TerminalInputChunk>> {
+    if (this.#activeReader !== owner) return { done: true, value: undefined };
     const replay = this.#replay.shift();
     if (replay !== undefined) return { done: false, value: replay };
     if (signal?.aborted === true) return { done: true, value: undefined };
-    this.#iterator ??= this.#source.read({ signal: this.#sourceController.signal })[Symbol.asyncIterator]();
+    const sourceSignal = this.#sourceController.signal;
+    this.#iterator ??= this.#source.read({ signal: sourceSignal })[Symbol.asyncIterator]();
     this.#pending ??= this.#iterator.next();
     const pending = this.#pending;
-    const result = await waitForReader(pending, signal);
+    const result = await waitForReader(pending, signal, sourceSignal);
     if (result === undefined) return { done: true, value: undefined };
     if (this.#pending === pending) this.#pending = undefined;
     return result;
@@ -231,6 +239,10 @@ function bytesFromChunk(chunk: TerminalInputChunk): Uint8Array {
   return typeof chunk.data === 'string' ? new TextEncoder().encode(chunk.data) : chunk.data;
 }
 
+function cloneInputChunk(chunk: TerminalInputChunk): TerminalInputChunk {
+  return { data: typeof chunk.data === 'string' ? chunk.data : chunk.data.slice() };
+}
+
 function concatenateBytes(chunks: readonly Uint8Array[], byteCount: number): Uint8Array {
   if (byteCount === 0) return new Uint8Array();
   const only = chunks.length === 1 ? chunks[0] : undefined;
@@ -246,23 +258,27 @@ function concatenateBytes(chunks: readonly Uint8Array[], byteCount: number): Uin
 
 async function waitForReader(
   pending: Promise<IteratorResult<TerminalInputChunk>>,
-  signal: AbortSignal | undefined
+  ...candidateSignals: readonly (AbortSignal | undefined)[]
 ): Promise<IteratorResult<TerminalInputChunk> | undefined> {
-  if (signal === undefined) return pending;
-  if (signal.aborted) return undefined;
+  const signals = [...new Set(candidateSignals.filter((signal): signal is AbortSignal => signal !== undefined))];
+  if (signals.length === 0) return pending;
+  if (signals.some((signal) => signal.aborted)) return undefined;
   return new Promise((resolve, reject) => {
     const abort = (): void => {
-      signal.removeEventListener('abort', abort);
+      detach();
       resolve(undefined);
     };
-    signal.addEventListener('abort', abort, { once: true });
+    const detach = (): void => {
+      for (const signal of signals) signal.removeEventListener('abort', abort);
+    };
+    for (const signal of signals) signal.addEventListener('abort', abort, { once: true });
     void pending.then(
       (result) => {
-        signal.removeEventListener('abort', abort);
+        detach();
         resolve(result);
       },
       (cause: unknown) => {
-        signal.removeEventListener('abort', abort);
+        detach();
         reject(cause instanceof Error ? cause : new Error('Terminal input read failed.', { cause }));
       }
     );

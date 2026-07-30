@@ -192,7 +192,6 @@ function updateMonitor(
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
   }
-  throw new Error('Unsupported monitor message');
 }
 
 function monitorView(state: MonitorState, context: TuiContext) {
@@ -700,11 +699,16 @@ const isMain = process.argv[1] !== undefined
 
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY && !process.argv.includes('--scripted')) {
-    const exit = await runTui(btopMonitorApp, createTerminalHost({ runtime: 'node' }), {
-      initialFocus: { kind: 'path', path: commandFocusPath }
-    });
-    if (exit.status !== 'completed') {
-      process.exitCode = 1;
+    const host = createTerminalHost({ runtime: 'node' });
+    try {
+      const exit = await runTui(btopMonitorApp, host, {
+        initialFocus: { kind: 'path', path: commandFocusPath }
+      });
+      if (exit.status !== 'completed') {
+        process.exitCode = 1;
+      }
+    } finally {
+      await host.dispose();
     }
   } else {
     const result = await runScriptedBtopMonitor();

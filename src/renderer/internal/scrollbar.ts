@@ -1,8 +1,8 @@
 import { span } from './frame.ts';
 import { frameCellSource } from '../../visual/source.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { RenderTarget } from '../model/render-target.ts';
-import type { Rect } from '../model/layout.ts';
+import type { RenderTarget } from '../contracts.ts';
+import type { Rect } from '../contracts.ts';
 import type { FrameCellSource } from '../../visual/render.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import type {

@@ -1,17 +1,13 @@
-import { createInputAmbiguityDeadline, createInputPipeline, matchesInputTrigger } from '../input/index.ts';
+import { createInputAmbiguityDeadline, createInputPipeline } from '../input/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { TerminalUiError, errorFromUnknown } from '../errors.ts';
-import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { createTuiEffectManager } from './effects.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import {
-  findRenderNodeFocusTarget,
-  renderNodeKeyChainForFocus
+  findRenderNodeFocusTarget
 } from '../renderer/internal/focus.ts';
-import { resolveTuiInputBinding } from './input-bindings.ts';
 import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
-import { tuiSnapshot } from './lifecycle.ts';
 import { recordTuiCommit } from './transcript.ts';
 import { createPointerRouter } from '../renderer/internal/pointer-router.ts';
 import {
@@ -21,18 +17,24 @@ import {
 import { createRuntimeChangeChannel } from './runtime-change-channel.ts';
 import { createRuntimeCommitCoordinator } from './runtime-commit-coordinator.ts';
 import { createRuntimeDiagnostics } from './runtime-diagnostics.ts';
+import { createRuntimeContextFactory } from './runtime-context.ts';
+import {
+  inputEventContainsSensitiveText,
+  redactSensitiveInputEvent,
+  resolveRuntimeInputMessage
+} from './runtime-input.ts';
 import { createRuntimeStore } from './runtime-store.ts';
 import { createTuiSubscriptionManager } from './subscriptions.ts';
 import { createWheelInputCoordinator } from './wheel-input-coordinator.ts';
 import { createResizeCoordinator } from './resize-coordinator.ts';
 import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
 import type { PointerMotionEvent } from './pointer-motion-coordinator.ts';
+import type { TerminalCapabilityProfile } from '../host/index.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../input/index.ts';
-import { ignoreMessage, isIgnoredMessage } from '../interaction/message.ts';
-import type { MessageResolution } from '../interaction/message.ts';
-import type { RenderNode } from '../renderer/model/index.ts';
-import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
+import { isIgnoredMessage } from '../interaction/message.ts';
+import { focusPathsEqual } from '../interaction/focus.ts';
 import type { FocusPath } from '../interaction/focus.ts';
+import type { Frame, RenderDiff } from '../renderer/contracts.ts';
 import type { PointerRouteResult } from '../renderer/internal/pointer-router.ts';
 import type { PendingTuiMessage, RuntimeReduction } from './runtime-store.ts';
 import type {
@@ -56,6 +58,20 @@ type MutableTuiRuntimeMetrics = {
 export function createTuiRuntime<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>
 ): TuiRuntime<TState, TMessage> {
+  return createRuntime(options);
+}
+
+export function createTuiRuntimeWithCapabilitySnapshot<TState, TMessage>(
+  options: TuiRuntimeOptions<TState, TMessage>,
+  capabilities: TerminalCapabilityProfile
+): TuiRuntime<TState, TMessage> {
+  return createRuntime(options, capabilities);
+}
+
+function createRuntime<TState, TMessage>(
+  options: TuiRuntimeOptions<TState, TMessage>,
+  capabilities?: TerminalCapabilityProfile
+): TuiRuntime<TState, TMessage> {
   let terminalExit: TuiExit<TState> | undefined;
   const inputPipeline = createInputPipeline(options.input);
   const inputAmbiguity = createInputAmbiguityDeadline<readonly TuiInputResult<TState>[]>(
@@ -67,7 +83,6 @@ export function createTuiRuntime<TState, TMessage>(
     decodedInputEvents: 0,
     wheelPackets: 0,
     dispatchedMessages: 0,
-    stateUpdates: 0,
     frameCommits: 0
   };
   const dispatchQueue = createSerializedDispatchQueue();
@@ -76,6 +91,7 @@ export function createTuiRuntime<TState, TMessage>(
     metrics.dispatchedMessages += 1;
   });
   const commits = createRuntimeCommitCoordinator(options, lifecycle.signal);
+  const runtimeContext = createRuntimeContextFactory(options.host, capabilities);
   const changes = createRuntimeChangeChannel<TState>();
   const diagnostics = createRuntimeDiagnostics({
     owner: options.app.id,
@@ -140,8 +156,6 @@ export function createTuiRuntime<TState, TMessage>(
   });
 
   const runtime: TuiRuntime<TState, TMessage> = {
-    app: options.app,
-    host: options.host,
     start() {
       return lifecycle.start(() => dispatchQueue.run(startInternal));
     },
@@ -263,11 +277,11 @@ export function createTuiRuntime<TState, TMessage>(
       return dispatchQueue.run(() => handleMouseInputInternal(event));
     }
     lifecycle.assertOperational();
-    const redactInput = focusedInputIsSensitive() && eventContainsSensitiveText(event);
+    const redactInput = focusedInputIsSensitive() && inputEventContainsSensitiveText(event);
     if (event.kind !== 'resize') {
       options.transcript?.record({
         kind: 'input',
-        event: redactInput ? redactedInputEvent(event) : event
+        event: redactInput ? redactSensitiveInputEvent(event) : event
       });
     }
     const state = store.state();
@@ -279,7 +293,7 @@ export function createTuiRuntime<TState, TMessage>(
     const message = messageForInput(state, event);
     if (isIgnoredMessage(message)) {
       if (event.kind === 'key' && event.key === 'tab') {
-        const next = await moveFocus(state, event.modifiers.shift ? 'previous' : 'next');
+        const next = await moveFocus(event.modifiers.shift ? 'previous' : 'next');
         return { handled: true, state, frame: next };
       }
       return { handled: false, state, frame };
@@ -309,7 +323,6 @@ export function createTuiRuntime<TState, TMessage>(
         stateVersion: result.render.stateVersion,
         frame: result.render.frame
       });
-      if (terminalExit !== undefined) changes.publish({ kind: 'exit', exit: terminalExit });
       return result.render.frame;
     } catch (cause) {
       lifecycle.fail();
@@ -354,8 +367,7 @@ export function createTuiRuntime<TState, TMessage>(
   async function createRuntimeContext(
     terminalSize: ReturnType<typeof commits.terminalSize> = commits.terminalSize()
   ): Promise<TuiContext> {
-    const context = await createTuiContext(options.host, diagnostics.values());
-    return { ...context, terminalSize };
+    return runtimeContext(terminalSize, diagnostics.values());
   }
 
   async function commitRuntimeTransition(input: {
@@ -370,15 +382,15 @@ export function createTuiRuntime<TState, TMessage>(
     const terminalSize = commits.terminalSize();
     const terminalSizeChanged = input.terminalSize.columns !== terminalSize.columns
       || input.terminalSize.rows !== terminalSize.rows;
-    const focusChanged = !sameFocusPath(input.requestedFocusPath, commits.focusPath());
+    const focusChanged = !focusPathsEqual(input.requestedFocusPath, commits.focusPath());
     const requiresFrame = input.forceFrame === true
-      || reduction.stateUpdates > 0
+      || reduction.stateVersion !== store.version()
       || terminalSizeChanged
       || focusChanged
       || reduction.focus !== undefined;
     if (!requiresFrame) {
       recordReductionMessages(reduction);
-      const exit = completeReduction(reduction, commits.renderOrUndefined()?.frame);
+      const exit = completeReduction(reduction, commits.frame());
       if (exit !== undefined) changes.publish({ kind: 'exit', exit });
       if (reduction.exitReason === undefined) {
         effects.cancelIds(reduction.cancelEffects);
@@ -400,7 +412,6 @@ export function createTuiRuntime<TState, TMessage>(
       reduction.focus
     );
     store.commit(reduction);
-    metrics.stateUpdates += reduction.stateUpdates;
     metrics.frameCommits += 1;
     recordReductionMessages(reduction);
     recordCommittedRender(result.render, result.diff);
@@ -440,7 +451,7 @@ export function createTuiRuntime<TState, TMessage>(
 
   function completeReduction(
     reduction: RuntimeReduction<TState, TMessage>,
-    frame: Frame | undefined
+    frame: Frame
   ): TuiExit<TState> | undefined {
     if (reduction.exitReason === undefined) return undefined;
     lifecycle.beginExit();
@@ -449,7 +460,7 @@ export function createTuiRuntime<TState, TMessage>(
     terminalExit = {
       ...completedExitFromSnapshot(
         reduction.state,
-        frame?.accessibility ?? commits.renderOrUndefined()?.frame.accessibility ?? tuiSnapshot(options.app.id),
+        frame.accessibility,
         reduction.exitReason === '' ? undefined : reduction.exitReason
       ),
       diagnostics: diagnostics.values()
@@ -516,7 +527,7 @@ export function createTuiRuntime<TState, TMessage>(
     lifecycle.assertOperational();
     const state = store.state();
     const frame = commits.frame();
-    const messages = messagesForMouse(state, batch.event);
+    const messages = messagesForMouse(batch.event);
     if (messages.length === 0) {
       return [{ handled: false, state, frame }];
     }
@@ -531,7 +542,7 @@ export function createTuiRuntime<TState, TMessage>(
     lifecycle.assertOperational();
     const routed = pointerRouter.route(commits.render().regions, event);
     const requestedFocusPath = pointerFocusPath(event, routed);
-    const focusChanged = !sameFocusPath(requestedFocusPath, commits.focusPath());
+    const focusChanged = !focusPathsEqual(requestedFocusPath, commits.focusPath());
     const messages = routed.flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
     if (messages.length > 0 || focusChanged) {
       await commitRuntimeTransition({
@@ -626,11 +637,7 @@ export function createTuiRuntime<TState, TMessage>(
     });
   }
 
-  function ensureRender(): ReturnType<typeof commits.render> {
-    return commits.render();
-  }
-
-  async function moveFocus(_state: TState, direction: 'next' | 'previous'): Promise<Frame> {
+  async function moveFocus(direction: 'next' | 'previous'): Promise<Frame> {
     const requestedFocusPath = commits.adjacentFocusPath(direction);
     await commitRuntimeTransition({
       messages: [],
@@ -640,63 +647,20 @@ export function createTuiRuntime<TState, TMessage>(
     return commits.frame();
   }
 
-  function messageForInput(_state: TState, event: InputEvent): MessageResolution<TMessage> {
-    const committedText = committedTextInputEvent(event);
-    const appBinding = (
-      phase: 'beforeFocus' | 'afterFocus',
-      input: InputEvent
-    ): MessageResolution<TMessage> => resolveTuiInputBinding({
+  function messageForInput(state: TState, event: InputEvent) {
+    const current = commits.render();
+    return resolveRuntimeInputMessage({
+      state,
+      event,
       bindings: options.app.definition.inputBindings,
-      phase,
-      state: _state,
-      event: input,
-      focusPath: commits.focusPath()
+      focusPath: commits.focusPath(),
+      renderNode: current.node,
+      layout: current.layout
     });
-    const beforeFocus = appBinding('beforeFocus', event);
-    if (!isIgnoredMessage(beforeFocus)) return beforeFocus;
-    if (committedText !== undefined) {
-      const beforeFocusText = appBinding('beforeFocus', committedText);
-      if (!isIgnoredMessage(beforeFocusText)) return beforeFocusText;
-    }
-    const current = ensureRender();
-    const focusPath = commits.focusPath();
-    const focused = findRenderNodeFocusTarget(current.node, current.layout, focusPath);
-    const focusedTextMessage = (input: Extract<InputEvent, { readonly kind: 'text' }>): MessageResolution<TMessage> => {
-      const handler = focused?.renderNode.inputMap?.text;
-      if (handler !== undefined) return handler(input.text);
-      for (const renderNode of renderNodeKeyChainForFocus(current.node, current.layout, focusPath)) {
-        const message = componentKeyMessage(renderNode.keyMap, input, focusPath);
-        if (!isIgnoredMessage(message)) return message;
-      }
-      return ignoreMessage();
-    };
-    if (event.kind === 'text') {
-      const message = focusedTextMessage(event);
-      if (!isIgnoredMessage(message)) return message;
-    }
-    if (event.kind === 'paste') {
-      const handler = focused?.renderNode.inputMap?.paste;
-      if (handler !== undefined) return handler(event.text);
-    }
-    for (const renderNode of renderNodeKeyChainForFocus(current.node, current.layout, focusPath)) {
-      const focusedMessage = componentKeyMessage(renderNode.keyMap, event, focusPath);
-      if (!isIgnoredMessage(focusedMessage)) return focusedMessage;
-    }
-    if (committedText !== undefined) {
-      const message = focusedTextMessage(committedText);
-      if (!isIgnoredMessage(message)) return message;
-    }
-    const afterFocus = appBinding('afterFocus', event);
-    if (!isIgnoredMessage(afterFocus)) return afterFocus;
-    if (committedText !== undefined) {
-      const afterFocusText = appBinding('afterFocus', committedText);
-      if (!isIgnoredMessage(afterFocusText)) return afterFocusText;
-    }
-    return ignoreMessage();
   }
 
-  function messagesForMouse(_state: TState, event: TerminalMouseEvent): readonly TMessage[] {
-    const current = ensureRender();
+  function messagesForMouse(event: TerminalMouseEvent): readonly TMessage[] {
+    const current = commits.render();
     return pointerRouter.route(current.regions, event)
       .flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
   }
@@ -713,31 +677,6 @@ export function createTuiRuntime<TState, TMessage>(
   }
 }
 
-function committedTextInputEvent(
-  event: InputEvent
-): Extract<InputEvent, { readonly kind: 'text' }> | undefined {
-  return event.kind === 'key'
-    && event.eventType !== 'release'
-    && event.committedText !== undefined
-    ? { kind: 'text', text: event.committedText, paste: false }
-    : undefined;
-}
-
-function eventContainsSensitiveText(event: InputEvent): boolean {
-  if (event.kind === 'text' || event.kind === 'paste') return event.text.length > 0;
-  if (event.kind !== 'key' || event.eventType === 'release') return false;
-  if (event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta) return false;
-  return event.committedText !== undefined
-    || event.keyCodePoint !== undefined
-    || /^[a-z0-9]$/u.test(event.key)
-    || event.key === 'space';
-}
-
-function redactedInputEvent(event: InputEvent): InputEvent {
-  if (event.kind === 'paste') return { ...event, text: '[redacted]' };
-  return { kind: 'text', text: '[redacted]', paste: false };
-}
-
 function runtimeDisposalTimeout(value: number | undefined): number {
   const timeoutMs = value ?? defaultTuiLifecyclePolicy.runtimeDisposalTimeoutMs;
   if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
@@ -746,40 +685,12 @@ function runtimeDisposalTimeout(value: number | undefined): number {
   return timeoutMs;
 }
 
-function componentKeyMessage<TMessage>(
-  keyMap: RenderNode<TMessage>['keyMap'] | undefined,
-  event: InputEvent,
-  focusPath: FocusPath | undefined
-): MessageResolution<TMessage> {
-  const handler = event.kind === 'key' && event.key !== 'unknown'
-    ? keyMap?.triggers?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
-      ?? (hasNoKeyModifiers(event) ? keyMap?.[event.key] : undefined)
-    : event.kind === 'text'
-      ? keyMap?.text?.[event.text]
-      : undefined;
-  return handler === undefined
-    ? ignoreMessage()
-    : handler({ input: event, focusPath: focusPath ?? [] });
+function isWheelInputEvent(event: InputEvent): event is MouseWheelEvent {
+  return event.kind === 'mouse' && event.action === 'wheel';
 }
 
-function hasNoKeyModifiers(event: Extract<InputEvent, { readonly kind: 'key' }>): boolean {
-  return !event.modifiers.ctrl
-    && !event.modifiers.alt
-    && !event.modifiers.shift
-    && !event.modifiers.meta;
-}
-
-function isWheelInputEvent(event: InputEvent | undefined): event is MouseWheelEvent {
-  return event?.kind === 'mouse' && event.action === 'wheel';
-}
-
-function isPointerMotionEvent(event: InputEvent | undefined): event is PointerMotionEvent {
-  return event?.kind === 'mouse' && (event.action === 'drag' || event.action === 'move');
-}
-
-function sameFocusPath(left: FocusPath | undefined, right: FocusPath | undefined): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  return left.length === right.length && left.every((segment, index) => segment === right[index]);
+function isPointerMotionEvent(event: InputEvent): event is PointerMotionEvent {
+  return event.kind === 'mouse' && (event.action === 'drag' || event.action === 'move');
 }
 
 function combinePendingInput<TState>(

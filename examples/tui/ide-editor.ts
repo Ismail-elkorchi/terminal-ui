@@ -782,18 +782,22 @@ const isMain = process.argv[1] !== undefined
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY) {
     const host = createTerminalHost();
-    const exit = await runTui(ideEditorApp, host, {
-      sessionPolicy: {
-        alternateScreen: 'required',
-        rawInput: 'required',
-        bracketedPaste: 'optional',
-        focusReporting: 'optional',
-        keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
-        cursorVisibility: { state: 'hide', requirement: 'optional' },
-        mouseReporting: { mode: 'drag', requirement: 'optional' }
-      }
-    });
-    process.exitCode = exit.status === 'error' ? 1 : 0;
+    try {
+      const exit = await runTui(ideEditorApp, host, {
+        sessionPolicy: {
+          alternateScreen: 'required',
+          rawInput: 'required',
+          bracketedPaste: 'optional',
+          focusReporting: 'optional',
+          keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
+          cursorVisibility: { state: 'hide', requirement: 'optional' },
+          mouseReporting: { mode: 'drag', requirement: 'optional' }
+        }
+      });
+      process.exitCode = exit.status === 'error' ? 1 : 0;
+    } finally {
+      await host.dispose();
+    }
   } else {
     process.stdout.write(`${JSON.stringify(await runScriptedIdeEditor(), null, 2)}\n`);
   }

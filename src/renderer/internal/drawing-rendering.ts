@@ -1,7 +1,7 @@
 import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 import type { RenderNodeRenderInput } from '../model/renderer.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
 import { layoutBoxBounds, layoutPaddingBounds } from './layout-geometry.ts';

@@ -1,14 +1,15 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
+import type {
+  FocusTarget,
+  HitTarget,
+  LayoutNode,
+  Measurement,
+  RenderFocusRelation,
+  RenderTarget
+} from '../contracts.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { Rect } from '../../geometry/types.ts';
-import type { CursorPosition } from './cursor.ts';
-import type { LayoutNode } from './layout.ts';
-import type { Measurement } from './measurement.ts';
-import type { RenderTarget } from './render-target.ts';
-import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
-import type { PointerFocusIntent } from '../../interaction/focus.ts';
-import type { MessageResolution } from '../../interaction/message.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 type RendererNode<TMessage, TKind extends RenderNodeKind> =
@@ -67,8 +68,6 @@ export interface RenderNodeRenderInput<
   readonly renderChildren: (target?: RenderTarget) => void;
 }
 
-export type RenderFocusRelation = 'none' | 'self' | 'descendant';
-
 export interface RenderNodeAccessibilityInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
@@ -94,15 +93,6 @@ export interface RenderNodeFocusInput<
   readonly widthProfile: TextWidthProfile;
 }
 
-export interface FocusTarget {
-  readonly id: string;
-  readonly bounds: Rect;
-  readonly cursor?: CursorPosition;
-  readonly disabled?: boolean;
-  readonly order?: number;
-  readonly scopeId?: string;
-}
-
 export interface RenderNodeHitInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
@@ -112,16 +102,6 @@ export interface RenderNodeHitInput<
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
-}
-
-export interface HitTarget<TMessage = unknown> {
-  readonly id: string;
-  readonly bounds: Rect;
-  readonly accepts?: readonly PointerEventKind[];
-  readonly focus?: PointerFocusIntent;
-  message(event: RoutedPointerEvent): MessageResolution<TMessage>;
-  readonly cursor?: 'pointer' | 'text' | 'default';
-  readonly zIndex?: number;
 }
 
 export interface RenderNodeRenderer<

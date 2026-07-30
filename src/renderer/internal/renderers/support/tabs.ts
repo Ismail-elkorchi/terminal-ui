@@ -6,8 +6,8 @@ import { clipRenderSpans, measureRenderSpans, padRenderLine } from '../../../../
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../../render-node-style.ts';
 import { clampRect, emptyRect } from './common.ts';
-import type { Rect } from '../../../model/layout.ts';
-import type { HitTarget } from '../../../model/renderer.ts';
+import type { Rect } from '../../../contracts.ts';
+import type { HitTarget } from '../../../contracts.ts';
 import type { TabAction } from '../../../../ui-model/tabs.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import { oneCellGlyph } from '../../../../text/index.ts';

@@ -1,6 +1,6 @@
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
-import type { RenderDiff, RenderOperation } from '../model/diff.ts';
+import type { RenderDiff, RenderOperation } from '../contracts.ts';
 import { serializeRenderSpans } from './ansi.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import type { RenderSerializeOptions } from './ansi.ts';

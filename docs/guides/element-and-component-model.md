@@ -138,7 +138,7 @@ foundation and neutral contracts
   -> shared private node construction and callback adaptation
   -> component and layout factories
 
-foundation, neutral contracts, behavior, and private renderer model
+foundation, neutral contracts, behavior, public renderer contracts, and private renderer model
   -> renderer implementation
   -> TUI runtime
   -> testing

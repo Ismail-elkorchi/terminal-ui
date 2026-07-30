@@ -107,6 +107,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'custom-composite'
   ].map((name) => readFile(new URL(`../../dist/component/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
+  const rendererContractsDeclaration = await readFile(new URL('../../dist/renderer/contracts.d.ts', import.meta.url), 'utf8');
   const tuiDeclaration = await readFile(new URL('../../dist/tui/index.d.ts', import.meta.url), 'utf8');
   const tuiTypesDeclaration = await readFile(new URL('../../dist/tui/types.d.ts', import.meta.url), 'utf8');
 
@@ -192,14 +193,17 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'Frame',
     'FrameBuffer',
     'FrameCellSource',
+    'Layer',
     'Measurement',
     'LayoutNode',
     'Rect',
     'RenderDiff',
+    'RenderInstrumentation',
     'RenderSpan'
   ]) {
     assert.match(rendererDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `renderer:${typeName}`);
   }
+  assert.doesNotMatch(rendererContractsDeclaration, /(?:^|from )['"].*\/model\//mu);
   for (const typeName of [
     'CustomRenderer',
     'CustomCompositeRenderer',

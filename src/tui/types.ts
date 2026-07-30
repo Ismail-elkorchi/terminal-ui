@@ -5,7 +5,7 @@ import type { InputDecodeOptions, InputEvent, InputPipelineOptions, InputTrigger
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript, TranscriptPolicy, TranscriptRecorder } from '../transcript/index.ts';
 import type { Element } from '../element/index.ts';
-import type { Frame } from '../renderer/internal/frame.ts';
+import type { Frame } from '../renderer/contracts.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
 import type { MessageResolution, TuiMessageSource } from '../interaction/message.ts';
@@ -219,8 +219,6 @@ export interface TuiLifecyclePolicy {
 }
 
 export interface TuiRuntime<TState, TMessage> {
-  readonly app: TuiApp<TState, TMessage>;
-  readonly host: TerminalHost;
   start(): Promise<Frame>;
   dispatch(message: TMessage): Promise<TState>;
   resize(terminalSize: TerminalSize): Promise<Frame>;
@@ -253,7 +251,6 @@ export interface TuiRuntimeMetrics {
   readonly decodedInputEvents: number;
   readonly wheelPackets: number;
   readonly dispatchedMessages: number;
-  readonly stateUpdates: number;
   readonly frameCommits: number;
   readonly effects: {
     readonly active: number;

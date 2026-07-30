@@ -25,6 +25,7 @@ The principal dependency flow is:
 
 ```text
 geometry, interaction, text, visual, and UI model
+  -> public renderer contracts
   -> private renderer model
   -> built-in component, layout, and component-extension factories
   -> renderer implementation
@@ -44,6 +45,18 @@ constructors because they ship with the renderer; the public `component`
 facade adapts third-party measure, layout, render, accessibility, focus, and
 pointer strategies without exposing those nodes. This is one extension seam,
 not a parallel component model or a second dispatcher.
+
+Frames, measurements, layout results, render targets, focus targets, hit
+targets, canvas drawing, and render instrumentation are owned by the public
+renderer-contract module. Component options and the private renderer model both
+consume those contracts; neither defines public renderer facade types.
+The renderer entrypoint is the facade. It names each public symbol it promotes
+from renderer internals, so information hiding is enforced at the declaration
+boundary. Architecture checks emit the package declarations in memory, resolve
+the actual exports of every entrypoint declared in `package.json`, and follow
+the referenced declaration graph. Any public declaration path reaching
+`renderer/model` fails regardless of source filenames, type syntax, or
+re-export depth.
 
 ## Element Factories And Rendering
 
@@ -72,7 +85,16 @@ and state-dependent accessibility descriptions.
 
 Input batching, subscriptions, and effects remain independent coordinators.
 This separation keeps transaction order explicit without creating a second
-runtime dispatch path.
+runtime dispatch path. A reducer result with a different state identity advances
+the state version and produces a render candidate. Returning the current state
+identity skips rendering unless the transition also requests focus, terminal
+geometry changed, or the caller explicitly requests `redraw()`. Effects,
+cancellation, exit, and message recording still run for an identity no-op.
+Reducers borrow the committed state and must not mutate it; a changed transition
+returns a new state identity. This semantic reducer contract keeps generic state
+types intact while letting the runtime publish state and frame atomically.
+Terminal capabilities are resolved once per runtime and the same snapshot is
+used by application context, layout, and output planning.
 
 ## Schemas And Versions
 

@@ -43,6 +43,7 @@ export interface TerminalCapabilityDetectionOptions {
 
 export interface TerminalInput {
   read(options?: TerminalInputReadOptions): AsyncIterable<TerminalInputChunk>;
+  /** Settles only when the previous reader can no longer consume input. */
   release?(): Promise<void>;
   setRawMode?(enabled: boolean): Promise<void> | void;
   isRawModeEnabled?(): boolean;
@@ -107,6 +108,7 @@ export interface TerminalHost {
   getCapabilities(options?: TerminalCapabilityDetectionOptions): Promise<TerminalCapabilityProfile>;
   beginSession(options?: TerminalSessionOptions): Promise<TerminalSession>;
   restoreTerminalState(reason: TerminalRestoreReason, options?: TerminalRestoreOptions): Promise<TerminalRestoreResult>;
+  recoverTerminalState(reason: TerminalRestoreReason, options?: TerminalRestoreOptions): Promise<TerminalRestoreResult>;
   write(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
   writeRecovery(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
   flush(context?: TerminalOperationContext): Promise<void>;

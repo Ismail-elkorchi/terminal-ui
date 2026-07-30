@@ -9,7 +9,7 @@ import { defaultTheme, defineTheme, isTerminalTheme } from '../../theme/index.ts
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import { defaultTextWidthProfile } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import type { LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
+import type { LayoutFocusRegion, LayoutNode } from '../contracts.ts';
 import {
   focusScopeForRenderNode,
   focusTargetsForRenderNode,
@@ -19,8 +19,6 @@ import {
 } from './render-node-behavior.ts';
 import type { RenderMeasurementContext } from './render-node-behavior.ts';
 import { cellInsideRect, intersectRects } from './rect.ts';
-
-export type { Layer, LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 
 export function layoutElement(
   element: Element,

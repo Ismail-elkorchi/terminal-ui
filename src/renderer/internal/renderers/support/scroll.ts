@@ -11,8 +11,8 @@ import { createScrollState, normalizeScrollState } from '../../../../behavior/sc
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { logViewerWindow } from '../../log-viewer.ts';
 import { viewportVisualState } from './viewport.ts';
-import type { RenderTarget } from '../../../model/render-target.ts';
-import type { LayoutNode, Rect } from '../../../model/layout.ts';
+import type { RenderTarget } from '../../../contracts.ts';
+import type { LayoutNode, Rect } from '../../../contracts.ts';
 import type { RoutedPointerEvent } from '../../../../input/pointer.ts';
 import { ignoreMessage } from '../../../../interaction/message.ts';
 import type { MessageResolution } from '../../../../interaction/message.ts';
@@ -30,7 +30,7 @@ import type {
   ScrollbarTrack,
   ScrollbarVisualState
 } from '../../scrollbar.ts';
-import type { HitTarget } from '../../../model/renderer.ts';
+import type { HitTarget } from '../../../contracts.ts';
 import { collectionRecordById } from '../../../../ui-model/collection.ts';
 import { textAreaRenderModel } from '../../text-area/render-model.ts';
 

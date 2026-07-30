@@ -1,9 +1,9 @@
 import { createFrameBuffer } from './frame-buffer.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
 import { sameFrameCell } from './frame.ts';
-import type { RenderDiff } from '../model/diff.ts';
-import type { CursorPosition } from '../model/cursor.ts';
-import type { Frame, FrameCell } from '../model/frame.ts';
+import type { RenderDiff } from '../contracts.ts';
+import type { CursorPosition } from '../contracts.ts';
+import type { Frame, FrameCell } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 export interface RenderDiffProjection {

@@ -8,10 +8,10 @@ import {
   chartStateDescription,
   chartTextFromBlock
 } from '../chart-visual.ts';
-import type { LayoutNode, Rect } from '../../model/layout.ts';
+import type { LayoutNode, Rect } from '../../contracts.ts';
 import { numberProp } from '../render-node-props.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../../visual/render.ts';
-import type { HitTarget } from '../../model/renderer.ts';
+import type { HitTarget } from '../../contracts.ts';
 import { normalizeValueScale } from '../value-scale.ts';
 import { visibleWindow } from '../visible-window.ts';
 import {

@@ -23,6 +23,39 @@ export type {
   TerminalLink,
   TerminalStyle
 } from '../visual/render.ts';
+export type {
+  Canvas2D,
+  CanvasPainter,
+  CanvasPainterInput,
+  CanvasPoint,
+  CanvasTransform,
+  CanvasTransformInput,
+  CursorPosition,
+  FocusTarget,
+  Frame,
+  FrameCell,
+  FrameHitTarget,
+  FrameRowDiff,
+  HitTarget,
+  Layer,
+  LayoutFocusRegion,
+  LayoutNode,
+  Measurement,
+  MeasurementInput,
+  RenderDiff,
+  RenderFocusRelation,
+  RenderInstrumentation,
+  RenderNodeKind,
+  RenderOperation,
+  RenderStage,
+  RenderStageMeasurement,
+  RenderTarget,
+  RenderTargetCell,
+  RenderWorkInstrumentation,
+  RenderWorkKind,
+  RenderWorkMeasurement,
+  StrokeFillOptions
+} from './contracts.ts';
 export {
   blockGlyph,
   blockSpan,
@@ -58,15 +91,10 @@ export type {
   BarSeriesOptions,
   BlockGlyph,
   BrailleCellMapping,
-  Canvas2D,
-  CanvasPoint,
-  CanvasTransform,
-  CanvasTransformInput,
   ChartAxesOptions,
   ChartPoint,
   ChartScale,
   SeriesOptions,
-  StrokeFillOptions,
   TooltipLine
 } from './internal/canvas2d/index.ts';
 export { drawBorder } from './internal/border.ts';
@@ -79,22 +107,14 @@ export {
 } from './internal/frame-buffer.ts';
 export type {
   AnsiStyleState,
-  CursorPosition,
   DiffFramesOptions,
-  Frame,
   FrameBuffer,
   FrameBufferSnapshot,
   FrameBufferSnapshotMetadata,
   FrameBufferSnapshotOptions,
-  FrameCell,
-  FrameHitTarget,
-  FrameRowDiff,
   FrameRowFingerprint,
-  RenderDiff,
-  RenderOperation,
   RenderSerializeOptions
 } from './internal/frame.ts';
-export type { RenderFocusRelation } from './model/renderer.ts';
 export {
   boxDrawingJoinPass
 } from './internal/frame-passes/index.ts';
@@ -125,10 +145,6 @@ export {
   normalizeMeasurement,
   zeroMeasurement
 } from './internal/measurement.ts';
-export type {
-  Measurement,
-  MeasurementInput
-} from './internal/measurement.ts';
 export {
   highlightRenderSpans
 } from './internal/text-highlight.ts';
@@ -152,10 +168,7 @@ export {
   sameTerminalStyle
 } from './internal/render.ts';
 export type {
-  RenderElementOptions,
-  RenderInstrumentation,
-  RenderStage,
-  RenderStageMeasurement
+  RenderElementOptions
 } from './internal/render.ts';
 export {
   layoutElement
@@ -177,13 +190,4 @@ export {
   gridCellRects,
   splitTracks
 } from './internal/layout-geometry.ts';
-export type {
-  Layer,
-  LayoutNode
-} from './internal/layout.ts';
 export type { Rect } from '../geometry/types.ts';
-export type {
-  FocusTarget,
-  HitTarget
-} from './model/renderer.ts';
-export type { RenderTarget, RenderTargetCell } from './model/render-target.ts';

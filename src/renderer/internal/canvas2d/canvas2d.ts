@@ -13,20 +13,18 @@ import {
   transformCanvasPoint,
   transformCanvasRect
 } from './transform.ts';
-import type { RenderTarget } from '../../model/render-target.ts';
-import type { Rect } from '../../model/layout.ts';
-import type { RenderSpan, TerminalStyle } from '../../../visual/render.ts';
 import type {
   Canvas2D,
   CanvasPoint,
   CanvasTransform,
   CanvasTransformInput,
+  RenderTarget,
   StrokeFillOptions
-} from '../../model/canvas2d.ts';
+} from '../../contracts.ts';
+import type { Rect } from '../../contracts.ts';
+import type { RenderSpan, TerminalStyle } from '../../../visual/render.ts';
 import { clipRenderSpans } from '../../../visual/render.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
-
-export type { Canvas2D, StrokeFillOptions } from '../../model/canvas2d.ts';
 
 export function createCanvas2D(buffer: RenderTarget, bounds: Rect): Canvas2D {
   assertCanvasBounds(buffer, bounds);

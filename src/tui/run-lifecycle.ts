@@ -3,7 +3,12 @@ import { diagnostic } from '../diagnostics.ts';
 import { recordTuiRestore } from './transcript.ts';
 import { lifecyclePhaseResult, runTuiLifecyclePhase } from './lifecycle-phase.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalHost, TerminalRestoreReason, TerminalSession } from '../host/index.ts';
+import type {
+  TerminalHost,
+  TerminalRestoreReason,
+  TerminalRestoreResult,
+  TerminalSession
+} from '../host/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
 import type {
   TuiLifecyclePhase,
@@ -30,6 +35,7 @@ export interface TuiRunFinalization {
 export class TuiRunLifecycleOwner<TState, TMessage> {
   readonly #app: TuiApp<TState, TMessage>;
   readonly #host: TerminalHost;
+  readonly #ownsHost: boolean;
   readonly #options: NormalizedTuiRunOptions<TState>;
   readonly #transcript: TranscriptRecorder | undefined;
   #phase: TuiRunPhase = 'prepared';
@@ -43,11 +49,13 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
   constructor(
     app: TuiApp<TState, TMessage>,
     host: TerminalHost,
+    ownsHost: boolean,
     options: NormalizedTuiRunOptions<TState>,
     transcript: TranscriptRecorder | undefined
   ) {
     this.#app = app;
     this.#host = host;
+    this.#ownsHost = ownsHost;
     this.#options = options;
     this.#transcript = transcript;
   }
@@ -146,21 +154,20 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
     if (session !== undefined) {
       const restoreReason = phases.some(isPhaseFailure) ? 'error' : reason;
       const restoration = await this.runPhase('restore', this.#options.lifecycle.restorationTimeoutMs, async (signal) => {
-        const restoration = await restoreTuiSession(session, restoreReason, { operationSignal: signal });
-        recordTuiRestore(this.#transcript, restoration);
-        if (restoration.status !== 'restored') {
-          restorationDiagnostics.push(...restoration.diagnostics);
-          if (restoration.diagnostics.length === 0) {
-            restorationDiagnostics.push(diagnostic(
-              'HOST_RESTORE_FAILED',
-              `Terminal session restoration completed with status ${restoration.status}.`,
-              { target: session.id, data: { status: restoration.status } }
-            ));
-          }
-          throw new Error(`Terminal session restoration completed with status ${restoration.status}.`);
-        }
+        const result = await restoreTuiSession(session, restoreReason, { operationSignal: signal });
+        this.requireRestored(result, session.id, restorationDiagnostics);
       });
       phases.push(lifecyclePhaseResult(restoration));
+      if (restoration.status !== 'settled') {
+        phases.push(lifecyclePhaseResult(await this.runPhase(
+          'recovery',
+          this.#options.lifecycle.restorationTimeoutMs,
+          async (signal) => {
+            const result = await this.#host.recoverTerminalState('error', { operationSignal: signal });
+            this.requireRestored(result, this.#host.id, restorationDiagnostics);
+          }
+        )));
+      }
     }
 
     phases.push(lifecyclePhaseResult(await this.runPhase(
@@ -168,11 +175,13 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
       this.#options.lifecycle.outputFlushTimeoutMs,
       async (signal) => this.#host.flush({ signal })
     )));
-    phases.push(lifecyclePhaseResult(await this.runPhase(
-      'host',
-      this.#options.lifecycle.hostDisposalTimeoutMs,
-      async (signal) => this.#host.dispose({ signal })
-    )));
+    if (this.#ownsHost) {
+      phases.push(lifecyclePhaseResult(await this.runPhase(
+        'host',
+        this.#options.lifecycle.hostDisposalTimeoutMs,
+        async (signal) => this.#host.dispose({ signal })
+      )));
+    }
 
     this.#phase = 'ended';
     return {
@@ -197,6 +206,24 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
       timeoutMs,
       operation
     });
+  }
+
+  private requireRestored(
+    result: TerminalRestoreResult,
+    target: string,
+    diagnostics: TerminalDiagnostic[]
+  ): void {
+    recordTuiRestore(this.#transcript, result);
+    if (result.status === 'restored') return;
+    diagnostics.push(...result.diagnostics);
+    if (result.diagnostics.length === 0) {
+      diagnostics.push(diagnostic(
+        'HOST_RESTORE_FAILED',
+        `Terminal restoration completed with status ${result.status}.`,
+        { target, data: { status: result.status } }
+      ));
+    }
+    throw new Error(`Terminal restoration completed with status ${result.status}.`);
   }
 
   private expectPhase(expected: TuiRunPhase): void {

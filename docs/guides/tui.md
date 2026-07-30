@@ -26,10 +26,19 @@ them, or request other mouse reporting modes without changing component code.
 Restoration still runs through the same session path and restores only state
 that was actually changed.
 
-`runTui(app)` creates the runtime host for the current platform. Passing a host
-is useful for adapters and tests, but `runTui()` still consumes that host for
-the run and disposes it after terminal restoration. Use `createTuiRuntime()`
-when a custom event loop needs a longer-lived, externally coordinated host.
+`runTui(app)` creates and disposes a runtime host for the current platform.
+Passing a host is useful for adapters and tests; the caller retains ownership
+of that host after the runtime releases its input lease and restores the
+terminal session. The caller must dispose the host when it is no longer needed.
+Use `createTuiRuntime()` when a custom event loop needs a longer-lived,
+externally coordinated host.
+
+If restoring a session times out or fails, the runtime makes one bounded
+host-level recovery attempt through an emergency authority that does not wait
+behind the failed restoration queue. This applies to both borrowed and
+runtime-owned hosts; an owned host proceeds to normal disposal after recovery.
+The original failure diagnostics are preserved. If recovery of a borrowed host
+also fails, the caller must explicitly recover or dispose it before reuse.
 
 Setup diagnostics are app-facing data. `runTui()` passes session setup
 diagnostics into `TuiContext.diagnostics`; `TuiContext.terminalSize` contains
@@ -94,12 +103,28 @@ failures as diagnostics, and may map failures back to a message through
 `onError`. Promises therefore stay outside the serialized state-transition
 critical section.
 
+Reducers borrow the committed state and must not mutate it or any nested
+collection. Return the same state identity for a no-op and a new top-level
+identity for every change. The generic API preserves the application's exact
+state type rather than applying a shallow `Readonly<TState>` that cannot express
+this invariant for arrays, maps, or nested objects. Applications that want
+compile-time mutation checks should declare their own state fields and
+collections readonly.
+
+An identity no-op does not advance `stateVersion`, render, publish a frame
+change, or restart subscriptions. Its effects, cancellation, exit request, and
+transcript message are still processed. Use `runtime.redraw()` for an explicit
+state-independent refresh.
+
 An effect that must temporarily hand the terminal to a child process can run
 that operation through `context.withTerminalSuspended()`. `runTui()` pauses
 input ownership, restores the active terminal session, runs the operation,
 then starts a fresh session and performs a full repaint. This is intended for
 interactive programs such as an external editor, not ordinary background
-work. The terminal host remains private to the runtime.
+work. While suspended, input acquired by the external operation remains owned
+by that operation if the TUI exits. If the effect is cancelled, a late
+operation completion cannot open a replacement terminal session. The terminal
+host remains private to the runtime.
 
 Effects and subscriptions receive an abort signal and app-facing context, but
 not the terminal host. Cancellation revokes producer authority before queued

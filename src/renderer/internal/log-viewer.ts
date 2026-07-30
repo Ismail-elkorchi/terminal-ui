@@ -46,7 +46,7 @@ import type {
 } from '../../ui-model/log-history.ts';
 import type { LogViewerBodyAnchor, LogViewerSelection } from '../../ui-model/log-viewer.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
-import type { LayoutNode } from '../model/layout.ts';
+import type { LayoutNode } from '../contracts.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 
 interface LogViewerTextSegment extends RenderSpan {

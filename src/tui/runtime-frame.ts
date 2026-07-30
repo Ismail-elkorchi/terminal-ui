@@ -7,12 +7,17 @@ import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-pla
 import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalHost, TerminalOperationContext, TerminalSize } from '../host/index.ts';
+import type {
+  TerminalCapabilityProfile,
+  TerminalHost,
+  TerminalOperationContext,
+  TerminalSize
+} from '../host/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
-import type { LayoutNode } from '../renderer/internal/layout.ts';
+import type { LayoutNode } from '../renderer/contracts.ts';
 import type { RenderRegion } from '../renderer/internal/render.ts';
 import type { TuiApp, TuiContext, TuiTheme } from './types.ts';
 
@@ -64,11 +69,11 @@ export async function commitFrame(
   previousFrame: Frame | undefined,
   frame: Frame,
   theme: TerminalTheme,
+  capabilities: TerminalCapabilityProfile,
   options: { readonly dirtyRegions?: DirtyRegionSet; readonly signal?: AbortSignal } = {}
 ): Promise<RenderDiff> {
   options.signal?.throwIfAborted();
   const diff = diffFrames(previousFrame, frame, options);
-  const capabilities = await host.getCapabilities();
   options.signal?.throwIfAborted();
   const output = planTerminalFrameOutput(previousFrame, frame, diff, {
     capabilities,

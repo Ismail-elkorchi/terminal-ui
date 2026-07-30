@@ -5,8 +5,8 @@ import { createMemoryTerminalHost, indeterminateTerminalWrite } from '../../dist
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { text } from '../../dist/components/index.js';
-import { surface } from '../../dist/layout/index.js';
+import { text, textInput } from '../../dist/components/index.js';
+import { column, surface } from '../../dist/layout/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 test('TUI runtime dispatch updates state and records incremental render diffs', async () => {
@@ -70,6 +70,45 @@ test('TUI runtime discards a candidate when output fails before publication', as
   assert.equal(commits[0]?.commit.id, initialChange.commitId);
   assert.equal(commits[0]?.commit.stateVersion, initialChange.stateVersion);
   harness.host.write = write;
+  await runtime.dispose();
+});
+
+test('TUI runtime preserves unchanged same-reference state when a focus render candidate fails', async () => {
+  const initialState = { count: 0 };
+  const app = defineTui({
+    id: 'failed-same-reference-candidate',
+    init: () => initialState,
+    update: (state) => ({
+      state,
+      focus: { kind: 'element', elementId: 'second-same-reference-field' }
+    }),
+    view: () => column([
+      textInput({
+        id: 'first-same-reference-field',
+        presentation: { value: 'first', cursor: 0 }
+      }),
+      textInput({
+        id: 'second-same-reference-field',
+        presentation: { value: 'second', cursor: 0 }
+      })
+    ])
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  const initialFrame = await runtime.start();
+  harness.host.write = async () => {
+    throw new Error('same-reference candidate output failed');
+  };
+
+  await assert.rejects(
+    () => runtime.dispatch({ kind: 'refresh' }),
+    /same-reference candidate output failed/u
+  );
+
+  assert.equal(runtime.state(), initialState);
+  assert.equal(runtime.state().count, 0);
+  assert.equal(runtime.frame(), initialFrame);
+  assert.equal(runtime.metrics().frameCommits, 1);
   await runtime.dispose();
 });
 
@@ -837,14 +876,19 @@ test('TUI runtime coalesces unobserved frame changes', async () => {
   assert.match(renderFramePlain(next.frame), /Count 3/u);
 });
 
-test('TUI runtime does not publish frames for identity no-op updates', async () => {
+test('TUI runtime does not render or advance state version for identity no-op messages', async () => {
+  const initialState = { count: 0 };
+  let viewCalls = 0;
   const app = defineTui({
     id: 'identity-noop-frame-changes',
-    init: () => ({ count: 0 }),
+    init: () => initialState,
     update: (state, message) => message.kind === 'noop'
       ? { state }
       : { state: { count: state.count + 1 } },
-    view: (state) => text(`Count ${String(state.count)}`, { id: 'count' })
+    view: (state) => {
+      viewCalls += 1;
+      return text(`Count ${String(state.count)}`, { id: 'count' });
+    }
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -857,14 +901,22 @@ test('TUI runtime does not publish frames for identity no-op updates', async () 
     resolved = true;
     return change;
   });
-  await runtime.dispatch({ kind: 'noop' });
+  for (let index = 0; index < 100; index += 1) {
+    await runtime.dispatch({ kind: 'noop' });
+  }
   await Promise.resolve();
   assert.equal(resolved, false);
+  assert.equal(viewCalls, 1);
+  assert.equal(runtime.metrics().frameCommits, 1);
 
   await runtime.dispatch({ kind: 'increment' });
   const change = await pending;
   assert.equal(change.kind, 'frame');
+  assert.equal(change.stateVersion, 1);
+  assert.equal(viewCalls, 2);
+  assert.equal(runtime.metrics().frameCommits, 2);
   assert.match(renderFramePlain(change.frame), /Count 1/u);
+  await runtime.dispose();
 });
 
 test('TUI runtime reports effect failures and can map them to application messages', async () => {

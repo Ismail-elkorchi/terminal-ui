@@ -1,7 +1,7 @@
 import { placeAnchoredSurface } from '../../interaction/anchored-surface.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
-import type { LayoutNode, Rect } from '../model/layout.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { LayoutNode, Rect } from '../contracts.ts';
+import type { HitTarget } from '../contracts.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import {
   menuBarItemBounds,

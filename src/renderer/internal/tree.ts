@@ -15,12 +15,12 @@ import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { TreeControlAction, TreeNode } from '../../ui-model/tree.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 import { clipRenderSpans, padRenderLine } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { HitTarget } from '../contracts.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 
 interface TreeWindow {

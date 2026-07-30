@@ -6,6 +6,9 @@ import { globFiles } from './glob-files.mjs';
 const root = path.resolve(import.meta.dirname, '../src');
 const sourceFiles = await collectTypeScript(root);
 const knownSourceFiles = new Set(sourceFiles);
+const publicEntrypointFiles = await loadPublicEntrypoints();
+const compilerConfig = loadCompilerConfig();
+const publicDeclarationSurface = createPublicDeclarationSurface(compilerConfig);
 const dependencyGraph = new Map();
 const failures = [];
 const deterministicGlobalLayers = new Set([
@@ -19,7 +22,6 @@ const deterministicGlobalLayers = new Set([
 ]);
 const timerRestrictedLayers = new Set([...deterministicGlobalLayers, 'tui']);
 const runtimeGlobalNames = new Set(['Bun', 'Deno', 'globalThis', 'process']);
-
 const foundationDependencies = new Map([
   ['diagnostic-identity.ts', new Set()],
   ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'foundation', 'text'])],
@@ -55,9 +57,12 @@ for (const filePath of sourceFiles) {
   inspectDeterministicGlobals(sourceFile, sourceLayer, filePath);
   inspectCentralRenderDispatch(sourceFile, filePath);
   inspectElementFactoryCategory(sourceFile, filePath);
+  inspectPublicBoundary(sourceFile, filePath);
   inspectTestingEntrypoint(sourceFile, filePath);
   inspectTuiContext(sourceFile, filePath);
 }
+
+inspectPublicExportGraph(publicDeclarationSurface, publicEntrypointFiles);
 
 for (const component of stronglyConnectedComponents(dependencyGraph)) {
   if (component.length <= 1) continue;
@@ -67,20 +72,6 @@ for (const component of stronglyConnectedComponents(dependencyGraph)) {
     && component.every((filePath) => sourceRelative(filePath).startsWith('renderer/model/'));
   if (!modelOnly) {
     failures.push(`dependency cycle crosses architecture boundaries: ${component.map(relative).sort().join(', ')}`);
-  }
-}
-
-const rendererIndex = await fs.readFile(path.join(root, 'renderer/index.ts'), 'utf8');
-for (const privateModule of [
-  'dirty-regions',
-  'notifications',
-  'pointer-router',
-  'render-regions',
-  'scrollbar',
-  'text-pointer'
-]) {
-  if (rendererIndex.includes(`/internal/${privateModule}`) || rendererIndex.includes(`./internal/${privateModule}`)) {
-    failures.push(`renderer/index.ts exposes package-private ${privateModule} implementation`);
   }
 }
 
@@ -174,6 +165,219 @@ function inspectElementFactoryCategory(sourceFile, filePath) {
       failures.push(`${relative(filePath)} uses ${constructor}; expected ${expected}`);
     }
   }
+}
+
+function inspectPublicBoundary(sourceFile, filePath) {
+  const sourcePath = sourceRelative(filePath);
+  if (sourcePath === 'renderer/index.ts') {
+    for (const statement of sourceFile.statements) {
+      if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
+      const specifier = statement.moduleSpecifier;
+      if (specifier === undefined || !ts.isStringLiteral(specifier)) continue;
+      if (specifier.text.startsWith('./model/')) {
+        failures.push(`src/renderer/index.ts exposes private model module ${specifier.text}`);
+      }
+      if (specifier.text.startsWith('./internal/') && (
+        ts.isImportDeclaration(statement)
+        || statement.exportClause === undefined
+        || !ts.isNamedExports(statement.exportClause)
+      )) {
+        failures.push(`src/renderer/index.ts must name every public symbol exported from ${specifier.text}`);
+      }
+    }
+    return;
+  }
+
+  const isEntrypoint = sourcePath === 'index.ts'
+    || (sourcePath.endsWith('/index.ts') && sourcePath.split('/').length === 2);
+  if (!isEntrypoint) return;
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
+    const specifier = statement.moduleSpecifier;
+    if (specifier === undefined || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
+    const targetPath = sourceRelative(path.resolve(path.dirname(filePath), specifier.text));
+    if (targetPath.includes('/internal/') || targetPath.includes('/model/')) {
+      failures.push(`${relative(filePath)} exposes package-private dependency ${targetPath}`);
+    }
+  }
+}
+
+function inspectPublicExportGraph(surface, entrypointFiles) {
+  const { program, declarationFiles, declarationRoot } = surface;
+  const checker = program.getTypeChecker();
+  const entrypoints = program.getSourceFiles().filter((sourceFile) =>
+    entrypointFiles.has(path.resolve(sourceFile.fileName)));
+
+  for (const entrypoint of entrypointFiles) {
+    if (!declarationFiles.has(entrypoint)) {
+      failures.push(`public declaration entrypoint was not emitted: ${path.relative(path.dirname(root), entrypoint)}`);
+    }
+  }
+  for (const entrypoint of entrypoints) {
+    const moduleSymbol = checker.getSymbolAtLocation(entrypoint);
+    if (moduleSymbol === undefined) continue;
+    for (const exported of checker.getExportsOfModule(moduleSymbol)) {
+      const target = resolveAlias(exported, checker);
+      const dependency = [...privateModelDependencies(
+        target,
+        checker,
+        declarationFiles,
+        declarationRoot
+      )].sort()[0];
+      if (dependency !== undefined) {
+        failures.push(
+          `${path.relative(path.dirname(root), entrypoint.fileName)} public export ${exported.name} exposes private renderer model declaration ${dependency}`
+        );
+      }
+    }
+  }
+}
+
+function privateModelDependencies(rootSymbol, checker, declarationFiles, declarationRoot) {
+  const dependencies = new Set();
+  const seenSymbols = new Set();
+
+  visitSymbol(rootSymbol);
+  return dependencies;
+
+  function visitSymbol(symbol) {
+    const target = resolveAlias(symbol, checker);
+    if (seenSymbols.has(target)) return;
+    seenSymbols.add(target);
+    const declarations = (target.getDeclarations() ?? []).filter((declaration) =>
+      declarationFiles.has(path.resolve(declaration.getSourceFile().fileName)));
+    for (const declaration of declarations) recordPrivateDeclaration(declaration);
+    if ((target.flags & ts.SymbolFlags.Module) !== 0) {
+      for (const exported of checker.getExportsOfModule(target)) visitSymbol(exported);
+      return;
+    }
+    for (const declaration of declarations) visitDeclaration(declaration);
+  }
+
+  function visitDeclaration(node) {
+    if (ts.isIdentifier(node) && !isNamespaceQualifier(node)) {
+      const referenced = checker.getSymbolAtLocation(node);
+      if (referenced !== undefined) visitSymbol(referenced);
+    }
+    ts.forEachChild(node, visitDeclaration);
+  }
+
+  function recordPrivateDeclaration(declaration) {
+    const declarationPath = path.relative(
+      declarationRoot,
+      path.resolve(declaration.getSourceFile().fileName)
+    ).split(path.sep).join('/');
+    if (declarationPath.startsWith('renderer/model/')) {
+      dependencies.add(`dist/${declarationPath}`);
+    }
+  }
+}
+
+function isNamespaceQualifier(node) {
+  return ts.isQualifiedName(node.parent) && node.parent.left === node;
+}
+
+function resolveAlias(symbol, checker) {
+  let current = symbol;
+  const seen = new Set();
+  while ((current.flags & ts.SymbolFlags.Alias) !== 0 && !seen.has(current)) {
+    seen.add(current);
+    const resolved = checker.getAliasedSymbol(current);
+    if (resolved === current) break;
+    current = resolved;
+  }
+  return current;
+}
+
+function loadCompilerConfig() {
+  const configPath = path.resolve(import.meta.dirname, '../tsconfig.json');
+  const loaded = ts.readConfigFile(configPath, ts.sys.readFile);
+  if (loaded.error !== undefined) {
+    throw new Error(ts.flattenDiagnosticMessageText(loaded.error.messageText, '\n'));
+  }
+  const parsed = ts.parseJsonConfigFileContent(loaded.config, ts.sys, path.dirname(configPath), {}, configPath);
+  if (parsed.errors.length > 0) {
+    throw new Error(parsed.errors.map((error) =>
+      ts.flattenDiagnosticMessageText(error.messageText, '\n')).join('\n'));
+  }
+  return parsed;
+}
+
+function createPublicDeclarationSurface(configuration) {
+  const declarationFiles = new Map();
+  const emitOptions = {
+    ...configuration.options,
+    declaration: true,
+    declarationMap: false,
+    emitDeclarationOnly: true,
+    noEmit: false,
+    sourceMap: false
+  };
+  const sourceProgram = ts.createProgram({
+    rootNames: configuration.fileNames,
+    options: emitOptions
+  });
+  const emitted = sourceProgram.emit(
+    undefined,
+    (fileName, text) => {
+      if (fileName.endsWith('.d.ts')) declarationFiles.set(path.resolve(fileName), text);
+    },
+    undefined,
+    true
+  );
+  if (emitted.emitSkipped) {
+    throw new Error(emitted.diagnostics.map((item) =>
+      ts.flattenDiagnosticMessageText(item.messageText, '\n')).join('\n'));
+  }
+
+  const declarationOptions = {
+    ...configuration.options,
+    declaration: false,
+    declarationMap: false,
+    noEmit: true,
+    sourceMap: false
+  };
+  const host = ts.createCompilerHost(declarationOptions);
+  const fileExists = host.fileExists.bind(host);
+  const readFile = host.readFile.bind(host);
+  host.fileExists = (fileName) => declarationFiles.has(path.resolve(fileName)) || fileExists(fileName);
+  host.readFile = (fileName) => declarationFiles.get(path.resolve(fileName)) ?? readFile(fileName);
+  host.getSourceFile = (fileName, languageVersion) => {
+    const text = host.readFile(fileName);
+    return text === undefined
+      ? undefined
+      : ts.createSourceFile(fileName, text, languageVersion, true, ts.ScriptKind.TS);
+  };
+  const program = ts.createProgram({
+    rootNames: [...declarationFiles.keys()],
+    options: declarationOptions,
+    host
+  });
+  const declarationDiagnostics = ts.getPreEmitDiagnostics(program);
+  if (declarationDiagnostics.length > 0) {
+    throw new Error(declarationDiagnostics.map((item) =>
+      ts.flattenDiagnosticMessageText(item.messageText, '\n')).join('\n'));
+  }
+  return {
+    program,
+    declarationFiles: new Set(declarationFiles.keys()),
+    declarationRoot: path.resolve(configuration.options.outDir)
+  };
+}
+
+async function loadPublicEntrypoints() {
+  const manifestPath = path.resolve(import.meta.dirname, '../package.json');
+  const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+  const entrypoints = new Set();
+  for (const configuration of Object.values(manifest.exports ?? {})) {
+    const declarationPath = configuration?.types;
+    if (typeof declarationPath !== 'string' || declarationPath.includes('*')) continue;
+    if (!declarationPath.startsWith('./dist/') || !declarationPath.endsWith('.d.ts')) {
+      throw new Error(`Unsupported public declaration entrypoint ${declarationPath}.`);
+    }
+    entrypoints.add(path.resolve(path.dirname(manifestPath), declarationPath));
+  }
+  return entrypoints;
 }
 
 function inspectTestingEntrypoint(sourceFile, filePath) {

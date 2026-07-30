@@ -2,7 +2,7 @@ import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { Rect } from '../../../geometry/types.ts';
 import type { BarChartAction } from '../../../ui-model/visualization.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
-import type { HitTarget } from '../../model/renderer.ts';
+import type { HitTarget } from '../../contracts.ts';
 import { fillTextCells, measureTextCells, sanitizeTerminalText } from '../../../text/index.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
@@ -17,7 +17,7 @@ import {
   chartTextFromBlock,
   chartValueStyle
 } from '../chart-visual.ts';
-import type { LayoutNode } from '../../model/layout.ts';
+import type { LayoutNode } from '../../contracts.ts';
 import { numberProp } from '../render-node-props.ts';
 import type { RenderBlock } from '../../../visual/render.ts';
 import { visibleWindow } from '../visible-window.ts';

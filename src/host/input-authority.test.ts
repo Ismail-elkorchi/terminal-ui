@@ -6,6 +6,7 @@ import {
   RuntimeInput,
   runtimeInputSourceFromAsyncIterable
 } from './runtime-streams.ts';
+import type { TerminalInputChunk } from './types.ts';
 
 void test('caller abort stops waiting while the shared async source remains owned', async () => {
   const read = Promise.withResolvers<IteratorResult<Uint8Array>>();
@@ -72,6 +73,50 @@ void test('input disposal starts iterator return before awaiting its pending rea
 
   await authority.dispose();
   assert.deepEqual(await pending, { done: true, value: undefined });
+});
+
+void test('input release preserves a chunk consumed by a shared iterator before handoff', async () => {
+  const firstRead = Promise.withResolvers<IteratorResult<TerminalInputChunk>>();
+  const close = Promise.withResolvers<IteratorResult<TerminalInputChunk>>();
+  let returnStarted = false;
+  const sharedIterator: AsyncIterator<TerminalInputChunk> = {
+    next: () => firstRead.promise,
+    return: () => {
+      returnStarted = true;
+      return close.promise;
+    }
+  };
+  const source: import('./types.ts').TerminalInput = {
+    read: () => ({
+      [Symbol.asyncIterator]: () => sharedIterator
+    }),
+    isTty: () => true
+  };
+  const authority = new TerminalInputAuthority(source);
+  const firstReader = authority.read()[Symbol.asyncIterator]();
+  const pending = firstReader.next();
+
+  const releasing = authority.release();
+  let released = false;
+  void releasing.then(() => { released = true; });
+  await Promise.resolve();
+
+  assert.equal(returnStarted, true);
+  assert.deepEqual(await pending, { done: true, value: undefined });
+  assert.equal(released, false);
+  assert.throws(
+    () => authority.read()[Symbol.asyncIterator](),
+    /being released/u
+  );
+  firstRead.resolve({ done: false, value: { data: 'preserved' } });
+  close.resolve({ done: true, value: undefined });
+  await releasing;
+  const replacement = authority.read()[Symbol.asyncIterator]();
+  const replacementResult = await replacement.next();
+  assert.equal(replacementResult.done, false);
+  assert.equal(replacementResult.value.data, 'preserved');
+  await replacement.return?.();
+  await authority.dispose();
 });
 
 function authorityFor(source: AsyncIterable<Uint8Array>): TerminalInputAuthority {

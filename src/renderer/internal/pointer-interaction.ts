@@ -1,7 +1,7 @@
 import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { RenderNode } from '../model/index.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { HitTarget } from '../contracts.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
 

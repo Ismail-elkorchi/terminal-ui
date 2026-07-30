@@ -3,9 +3,7 @@ import { finiteNonNegativeIntegerOrZero } from '../../foundation/validation.ts';
 import { measureRenderBlock as renderBlockSize, measureRenderLine } from '../../visual/render.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import type { TextMeasurementOptions } from '../../text/index.ts';
-import type { Measurement, MeasurementInput } from '../model/measurement.ts';
-
-export type { Measurement, MeasurementInput } from '../model/measurement.ts';
+import type { Measurement, MeasurementInput } from '../contracts.ts';
 
 export function measurement(input: MeasurementInput): Measurement {
   return normalizeMeasurement({

@@ -1,7 +1,7 @@
 import { clipRenderSpans } from '../../../../visual/render.ts';
 import type { RenderBlock, RenderLine } from '../../frame.ts';
-import type { RenderTarget } from '../../../model/render-target.ts';
-import type { Rect } from '../../../model/layout.ts';
+import type { RenderTarget } from '../../../contracts.ts';
+import type { Rect } from '../../../contracts.ts';
 
 export function writeBlock(buffer: RenderTarget, bounds: Rect, text: string): void {
   writeRenderBlock(buffer, bounds, {

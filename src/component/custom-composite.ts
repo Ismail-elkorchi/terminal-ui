@@ -13,9 +13,14 @@ import type {
 } from '../element/index.ts';
 import type { Rect } from '../geometry/types.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Measurement } from '../renderer/model/measurement.ts';
-import type { FocusTarget, HitTarget, RenderFocusRelation, RenderNodeRenderer } from '../renderer/model/renderer.ts';
-import type { RenderTarget } from '../renderer/model/render-target.ts';
+import type {
+  FocusTarget,
+  HitTarget,
+  Measurement,
+  RenderFocusRelation,
+  RenderTarget
+} from '../renderer/contracts.ts';
+import type { RenderNodeRenderer } from '../renderer/model/renderer.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 
 export interface CustomCompositeInput<TState> {

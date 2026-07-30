@@ -33,7 +33,7 @@ import {
 import { mergeStyles, renderNodeStyle, themeStyle } from '../render-node-style.ts';
 import { stringify } from '../render-node-props.ts';
 import type { RenderBlock, RenderLine } from '../frame.ts';
-import type { Rect } from '../../model/layout.ts';
+import type { Rect } from '../../contracts.ts';
 import {
   buttonSpans,
 } from './support/button.ts';

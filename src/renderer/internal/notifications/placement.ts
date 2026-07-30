@@ -1,5 +1,5 @@
 import type { NotificationPlacement } from '../../../ui-model/feedback.ts';
-import type { Rect } from '../../model/layout.ts';
+import type { Rect } from '../../contracts.ts';
 
 export interface NotificationStackSize {
   readonly width: number;

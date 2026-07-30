@@ -1,6 +1,6 @@
 import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 
 interface ColumnInterval {
   start: number;

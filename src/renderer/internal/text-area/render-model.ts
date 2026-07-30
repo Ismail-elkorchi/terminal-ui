@@ -9,7 +9,7 @@ import { textAreaCursorInLayout } from './layout.ts';
 import type { TextDocument, TextWidthProfile } from '../../../text/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
-import type { Rect } from '../../model/layout.ts';
+import type { Rect } from '../../contracts.ts';
 import { textAreaInputContentBounds } from '../input-visual.ts';
 import { layoutTextAreaDocument } from './layout.ts';
 import type { TextAreaDocumentLayout } from './layout.ts';

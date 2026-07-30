@@ -69,7 +69,7 @@ test('TUI non-TTY last_frame mode writes readable text without control sequences
   assert.doesNotMatch(host.output(), /\u001B\[/u);
 });
 
-test('TUI non-TTY run reports initialization failures precisely and disposes the host', async () => {
+test('TUI non-TTY run reports initialization failures without disposing an injected host', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
   let disposed = false;
   const dispose = host.dispose.bind(host);
@@ -89,5 +89,25 @@ test('TUI non-TTY run reports initialization failures precisely and disposes the
 
   assert.equal(result.status, 'error');
   assert.equal(result.diagnostics[0]?.code, 'TUI_INITIALIZATION_FAILED');
-  assert.equal(disposed, true);
+  assert.equal(disposed, false);
+});
+
+test('TUI non-TTY render failures preserve an initialized undefined state', async () => {
+  const host = createMemoryTerminalHost({ isTty: false });
+  const app = defineTui({
+    id: 'non-tty-undefined-state-failure',
+    init: () => undefined,
+    update: () => ({ state: undefined }),
+    view: () => {
+      throw new Error('render failed');
+    },
+    nonTty: { mode: 'transcript_only' }
+  });
+
+  const result = await runTui(app, host);
+
+  assert.equal(result.status, 'error');
+  assert.equal(result.diagnostics[0]?.code, 'TUI_RENDER_FAILED');
+  assert.equal(Object.hasOwn(result, 'state'), true);
+  assert.equal(result.state, undefined);
 });

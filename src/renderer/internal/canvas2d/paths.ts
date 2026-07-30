@@ -1,6 +1,6 @@
-import type { CanvasPoint } from '../../model/canvas2d.ts';
+import type { CanvasPoint } from '../../contracts.ts';
 
-export type { CanvasPoint } from '../../model/canvas2d.ts';
+export type { CanvasPoint } from '../../contracts.ts';
 
 export function linePoints(x1: number, y1: number, x2: number, y2: number): readonly CanvasPoint[] {
   const start = integerPoint(x1, y1);

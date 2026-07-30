@@ -1,5 +1,5 @@
 import type { MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../../input/index.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerClickCount } from '../../input/pointer.ts';
 import type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';

@@ -14,10 +14,10 @@ import {
 } from '../chart-visual.ts';
 import { createCanvas2D, drawAreaSeries, drawLineSeries } from '../canvas2d/index.ts';
 import { createFrameBuffer } from '../frame-buffer.ts';
-import type { LayoutNode, Rect } from '../../model/layout.ts';
+import type { LayoutNode, Rect } from '../../contracts.ts';
 import { numberProp } from '../render-node-props.ts';
 import type { RenderBlock } from '../../../visual/render.ts';
-import type { HitTarget } from '../../model/renderer.ts';
+import type { HitTarget } from '../../contracts.ts';
 import { oneCellGlyph } from '../../../text/index.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
 import { normalizeValueScale } from '../value-scale.ts';

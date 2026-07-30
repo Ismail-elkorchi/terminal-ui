@@ -1,6 +1,6 @@
 import type { RenderNode } from '../../model/index.ts';
-import type { LayoutNode, Rect } from '../../model/layout.ts';
-import type { Measurement } from '../../model/measurement.ts';
+import type { LayoutNode, Rect } from '../../contracts.ts';
+import type { Measurement } from '../../contracts.ts';
 
 export function childMeasurements(
   childCount: number,

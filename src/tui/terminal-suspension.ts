@@ -56,6 +56,7 @@ export function createTerminalSuspension<TState, TMessage>(
       let recoveryFailure: unknown;
       try {
         if (terminalRestored) {
+          signal.throwIfAborted();
           const session = await options.host.beginSession({
             id: `${options.appId}:resume:${String(resumeSequence)}`
           });

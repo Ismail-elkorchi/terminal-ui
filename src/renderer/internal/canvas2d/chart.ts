@@ -1,6 +1,6 @@
 import { frameCellSource } from '../../../visual/source.ts';
 import type { RenderSpan } from '../../../visual/render.ts';
-import type { Canvas2D } from './canvas2d.ts';
+import type { Canvas2D } from '../../contracts.ts';
 import { oneCellGlyph } from '../../../text/index.ts';
 
 export interface ChartScale {

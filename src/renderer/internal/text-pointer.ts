@@ -3,9 +3,9 @@ import type { TextMeasurementOptions, TextSelection } from '../../text/index.ts'
 import type { PointerSelectionAction, TextPointerAction } from '../../interaction/text-pointer.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { HitTarget } from '../contracts.ts';
 
 export type { TextPointerAction } from '../../interaction/text-pointer.ts';
 

@@ -1,4 +1,4 @@
-import type { CursorPosition } from '../model/cursor.ts';
+import type { CursorPosition } from '../contracts.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import type { FrameCell, TerminalStyle } from './frame.ts';
 

@@ -8,18 +8,35 @@ import {
   renderFramePlain,
   span,
   type Canvas2D,
+  type CanvasPainterInput,
   type FramePassContext,
   type FrameCellSource,
   type Frame,
+  type LayoutNode,
   type Rect,
+  type RenderInstrumentation,
   type RenderStage,
-  type RenderSpan
+  type RenderSpan,
+  type RenderWorkMeasurement
 } from '@ismail-elkorchi/terminal-ui/renderer';
 
 const renderSpan: RenderSpan = span('ready', { style: { bold: true } });
 const frame: Frame = renderElementFrame(text('Ready'), { columns: 20, rows: 2 });
 const plain = renderFramePlain(frame);
 const renderStage: RenderStage = 'resolve_element';
+const instrumentation: RenderInstrumentation = {
+  now: () => 0,
+  record: (measurement) => {
+    const stage: RenderStage = measurement.stage;
+    void stage;
+  },
+  recordWork: (measurement: RenderWorkMeasurement) => {
+    const count: number = measurement.count;
+    void count;
+  }
+};
+declare const layoutNode: LayoutNode;
+const layoutLayerId: string = layoutNode.layer.id;
 
 // @ts-expect-error render bounds use terminal cell numbers
 renderElementFrame(text('Invalid'), { columns: '20', rows: 2 });
@@ -31,7 +48,9 @@ const invalidInteractionState: FrameCellSource = {
 const validInteractionState: FrameCellSource = { interactionState: 'focused' };
 
 declare const drawing: Canvas2D;
+declare const painterInput: CanvasPainterInput;
 drawing.brailleSubcell(0, 0);
+painterInput.canvas.point(0, 0, { text: '*' });
 const absoluteRect: Rect = { row: 1, column: 1, width: 2, height: 2 };
 // @ts-expect-error absolute frame rectangles are not local Canvas2D rectangles
 drawing.rect(absoluteRect, { fill: { text: '*' } });
@@ -61,6 +80,9 @@ const privateRenderNode = frame.node;
 const privateRegions = frame.regions;
 
 void renderSpan;
+void instrumentation;
+void layoutLayerId;
+void painterInput;
 void renderStage;
 void plain;
 void invalidInteractionState;

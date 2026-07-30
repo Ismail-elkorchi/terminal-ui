@@ -16,6 +16,7 @@ import {
 import { diffFrames } from '../renderer/internal/frame.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
+import { focusPathsEqual } from '../interaction/focus.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { RenderCommitCandidate } from './runtime-frame.ts';
@@ -65,7 +66,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         stateVersion,
         candidateCommitId()
       );
-      const diff = await write(undefined, resolution.render, theme);
+      const diff = await write(undefined, resolution.render, theme, context);
       accept(resolution, currentTerminalSize);
       pendingInitialFocus = undefined;
       return { render: resolution.render, diff, diagnostics: resolution.diagnostics };
@@ -90,7 +91,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         stateVersion,
         candidateCommitId()
       );
-      const diff = await write(previousFrame, resolution.render, theme);
+      const diff = await write(previousFrame, resolution.render, theme, context);
       accept(resolution, terminalSize);
       return { render: resolution.render, diff, diagnostics: resolution.diagnostics };
     },
@@ -111,14 +112,15 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
   async function write(
     previousFrame: Frame | undefined,
     render: RenderCommitCandidate<TMessage>,
-    theme: RenderCommitCandidate<TMessage>['theme']
+    theme: RenderCommitCandidate<TMessage>['theme'],
+    context: TuiContext
   ): Promise<RenderDiff> {
     if (outputSuspended) return diffFrames(previousFrame, render.frame);
     try {
       const dirtyRegions = previousFrame === undefined
         ? undefined
         : dirtyRegionsForRenderCommit(currentRender, render);
-      const diff = await commitFrame(options.host, previousFrame, render.frame, theme, {
+      const diff = await commitFrame(options.host, previousFrame, render.frame, theme, context.capabilities, {
         ...(dirtyRegions === undefined ? {} : { dirtyRegions }),
         signal
       });
@@ -171,7 +173,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     );
     if (initialFocus !== undefined) {
       const resolution = resolveInitialFocusSelector(render.layout, initialFocus);
-      if (resolution.kind === 'matched' && !sameFocusPath(resolution.path, render.frame.focusPath)) {
+      if (resolution.kind === 'matched' && !focusPathsEqual(resolution.path, render.frame.focusPath)) {
         desiredFocusPath = resolution.path;
         render = renderCurrentFrame(
           options.app,
@@ -208,7 +210,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     if (
       focusReturnPath !== undefined
       && desiredFocusPath !== undefined
-      && !sameFocusPath(render.frame.focusPath, desiredFocusPath)
+      && !focusPathsEqual(render.frame.focusPath, desiredFocusPath)
     ) {
       const recovered = renderCurrentFrame(
         options.app,
@@ -219,19 +221,19 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         stateVersion,
         commitId
       );
-      if (sameFocusPath(recovered.frame.focusPath, focusReturnPath)) render = recovered;
+      if (focusPathsEqual(recovered.frame.focusPath, focusReturnPath)) render = recovered;
     }
     if (
       desiredFocusPath !== undefined
       && render.frame.focusPath !== undefined
-      && !sameFocusPath(render.frame.focusPath, desiredFocusPath)
+      && !focusPathsEqual(render.frame.focusPath, desiredFocusPath)
       && findAnyLayoutFocusTarget(render.layout, desiredFocusPath) !== undefined
       && activeFocusScopeRestores(render.layout)
-      && !nextReturnPaths.some((path) => sameFocusPath(path, desiredFocusPath))
+      && !nextReturnPaths.some((path) => focusPathsEqual(path, desiredFocusPath))
     ) {
       nextReturnPaths.push([...desiredFocusPath]);
     }
-    if (nextReturnPaths.length > 0 && sameFocusPath(render.frame.focusPath, nextReturnPaths.at(-1))) {
+    if (nextReturnPaths.length > 0 && focusPathsEqual(render.frame.focusPath, nextReturnPaths.at(-1))) {
       nextReturnPaths = nextReturnPaths.slice(0, -1);
     }
     return {
@@ -248,9 +250,4 @@ interface RuntimeRenderResolution<TMessage> {
   readonly focusPath?: FocusPath;
   readonly focusReturnPaths: readonly FocusPath[];
   readonly diagnostics: readonly TerminalDiagnostic[];
-}
-
-function sameFocusPath(left: FocusPath | undefined, right: FocusPath | undefined): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

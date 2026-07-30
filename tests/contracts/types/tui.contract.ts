@@ -37,5 +37,13 @@ const invalidApp: TuiApp<State, Message> = defineTui<State, { readonly kind: 'ot
   view: (state) => text(String(state.count))
 });
 
+const arrayStateApp = defineTui<string[], IncrementMessage>({
+  id: 'array-state',
+  init: () => [],
+  update: (state) => ({ state }),
+  view: (state) => text(state.join(','))
+});
+
 void app;
 void invalidApp;
+void arrayStateApp;

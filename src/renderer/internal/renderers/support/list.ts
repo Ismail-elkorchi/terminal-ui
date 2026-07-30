@@ -9,15 +9,15 @@ import type { ScrollState } from '../../../../interaction/scroll.ts';
 import { windowDescription } from '../../visible-window.ts';
 import { stringify } from '../../render-node-props.ts';
 import { resolveRenderNodeStyle, themeStyle } from '../../render-node-style.ts';
-import type { LayoutNode, Rect } from '../../../model/layout.ts';
+import type { LayoutNode, Rect } from '../../../contracts.ts';
 import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
 import { padRenderLine } from '../../../../visual/render.ts';
-import type { HitTarget } from '../../../model/renderer.ts';
+import type { HitTarget } from '../../../contracts.ts';
 import type { ListControlAction } from '../../../../ui-model/list.ts';
 import type { PreparedListView } from '../../../../ui-model/list.ts';
 import { interactionVisualState, renderNodeTargetId } from '../../pointer-interaction.ts';
 import { measureBlock } from '../../measurement.ts';
-import type { Measurement } from '../../../model/measurement.ts';
+import type { Measurement } from '../../../contracts.ts';
 
 type ListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'list'>;
 

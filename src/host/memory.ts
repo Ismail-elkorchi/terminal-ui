@@ -336,6 +336,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     beginSession: (sessionOptions) =>
       terminalState.beginLease(sessionOptions?.id ?? 'memory-session', detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
+    recoverTerminalState: (reason, options) => terminalState.recoverAll(reason, options),
     write: output.write,
     writeRecovery: output.writeRecovery,
     flush: output.flush,

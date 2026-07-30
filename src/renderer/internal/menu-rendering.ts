@@ -7,8 +7,8 @@ import { isInlineContent } from '../../visual/inline-content.ts';
 import type { RenderBlock } from '../../visual/render.ts';
 import { terminalTextWidth } from '../../text/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
-import type { Rect } from '../model/layout.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { Rect } from '../contracts.ts';
+import type { HitTarget } from '../contracts.ts';
 import {
   dropdownMenuControlLine,
   menuBarLine,

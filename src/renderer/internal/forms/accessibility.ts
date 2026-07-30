@@ -2,7 +2,7 @@ import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../../model/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import { stringify, numberProp } from '../render-node-props.ts';
-import type { CursorPosition } from '../../model/cursor.ts';
+import type { CursorPosition } from '../../contracts.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
 
 type FormNode = RenderNodeOfKind<unknown, 'form'>;
@@ -20,7 +20,7 @@ type CalendarNode = RenderNodeOfKind<unknown, 'calendar'>;
 type SelectNode = RenderNodeOfKind<unknown, 'select'>;
 type TextInputNode = RenderNodesOfKind<unknown, 'textInput' | 'passwordInput'>;
 type NumberInputNode = RenderNodeOfKind<unknown, 'numberInput'>;
-import type { Rect } from '../../model/layout.ts';
+import type { Rect } from '../../contracts.ts';
 import {
   buttonDescription,
 } from './support/button.ts';

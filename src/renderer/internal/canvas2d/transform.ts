@@ -1,6 +1,6 @@
-import type { CanvasPoint, CanvasTransform, CanvasTransformInput } from '../../model/canvas2d.ts';
+import type { CanvasPoint, CanvasTransform, CanvasTransformInput } from '../../contracts.ts';
 
-export type { CanvasTransform, CanvasTransformInput } from '../../model/canvas2d.ts';
+export type { CanvasTransform, CanvasTransformInput } from '../../contracts.ts';
 
 export const identityCanvasTransform: CanvasTransform = Object.freeze({
   translateX: 0,

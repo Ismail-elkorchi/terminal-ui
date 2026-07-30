@@ -12,13 +12,13 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type { TableColumnAlignment, TableColumnSemantic } from '../../ui-model/content.ts';
 import type { TableCollection, TableCollectionRecord, TableControlAction } from '../../ui-model/table.ts';
 import { collectionRecordById } from '../../ui-model/collection.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 import { clipRenderSpans } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { InlineContent, InlineContentSegment } from '../../visual/inline-content.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { HitTarget } from '../contracts.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import {
   displayTableValue,

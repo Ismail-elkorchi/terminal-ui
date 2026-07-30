@@ -1,4 +1,4 @@
-import type { Rect } from '../../../model/layout.ts';
+import type { Rect } from '../../../contracts.ts';
 
 const STEPPER_WIDTH = 8;
 const BUTTON_WIDTH = 3;

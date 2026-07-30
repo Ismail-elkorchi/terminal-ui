@@ -1,4 +1,4 @@
-import type { Frame, FrameCell } from '../model/frame.ts';
+import type { Frame, FrameCell } from '../contracts.ts';
 
 export interface FrameRowIndex {
   readonly cells: ReadonlyMap<number, FrameCell>;

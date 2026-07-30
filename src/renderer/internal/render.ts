@@ -27,10 +27,15 @@ import type { TextWidthProfile } from '../../text/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FramePass } from './frame-passes/index.ts';
-import type { LayoutNode, Rect } from '../model/layout.ts';
+import type {
+  LayoutNode,
+  Rect,
+  RenderInstrumentation,
+  RenderStage,
+  RenderTarget,
+  RenderWorkMeasurement
+} from '../contracts.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
-import type { RenderTarget } from '../model/render-target.ts';
-import type { RenderWorkInstrumentation, RenderWorkMeasurement } from '../model/instrumentation.ts';
 
 export {
   alignRenderLine,
@@ -93,31 +98,6 @@ export interface RenderElementOptions {
   readonly disableFramePasses?: boolean;
   readonly instrumentation?: RenderInstrumentation;
 }
-
-export type RenderStage =
-  | 'resolve_element'
-  | 'layout'
-  | 'focus'
-  | 'regions'
-  | 'composition'
-  | 'frame_passes'
-  | 'cursor'
-  | 'hit_targets'
-  | 'accessibility'
-  | 'snapshot';
-
-export interface RenderStageMeasurement {
-  readonly stage: RenderStage;
-  readonly durationMs: number;
-}
-
-export interface RenderInstrumentation {
-  readonly now: () => number;
-  record(measurement: RenderStageMeasurement): void;
-  readonly recordWork?: RenderWorkInstrumentation['recordWork'];
-}
-
-export type { RenderWorkInstrumentation, RenderWorkKind, RenderWorkMeasurement } from '../model/instrumentation.ts';
 
 export interface InternalRenderResult<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
@@ -300,7 +280,7 @@ function frameHitTargets<TMessage>(
 }
 
 function resolveHitTargetFocus<TMessage>(
-  hitTarget: import('../model/renderer.ts').HitTarget<TMessage>,
+  hitTarget: import('../contracts.ts').HitTarget<TMessage>,
   target: import('./focus.ts').RenderNodeLayoutTarget<TMessage>
 ): import('../../interaction/focus.ts').ResolvedPointerFocusIntent | undefined {
   if (hitTarget.focus === undefined) return undefined;

@@ -4,7 +4,7 @@ import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/i
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { FocusPath } from './focus.ts';
-import type { LayoutNode } from '../model/layout.ts';
+import type { LayoutNode } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { intersectRects } from './rect.ts';
 

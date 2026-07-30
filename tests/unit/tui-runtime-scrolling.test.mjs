@@ -532,7 +532,6 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     decodedInputEvents: 3,
     wheelPackets: 3,
     dispatchedMessages: 0,
-    stateUpdates: 0,
     frameCommits: 1,
     effects: { active: 0, queued: 0, rejected: 0 }
   });
@@ -547,7 +546,6 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     decodedInputEvents: 3,
     wheelPackets: 3,
     dispatchedMessages: 1,
-    stateUpdates: 1,
     frameCommits: 2,
     effects: { active: 0, queued: 0, rejected: 0 }
   });
@@ -592,7 +590,6 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
     decodedInputEvents: 2,
     wheelPackets: 1,
     dispatchedMessages: 2,
-    stateUpdates: 2,
     frameCommits: 3,
     effects: { active: 0, queued: 0, rejected: 0 }
   });

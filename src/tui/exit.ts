@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { Frame } from '../renderer/internal/frame.ts';
+import type { Frame } from '../renderer/contracts.ts';
 import type { TuiExit } from './types.ts';
 
 export function completedExit<TState>(state: TState, frame: Frame, reason?: string): TuiExit<TState> {

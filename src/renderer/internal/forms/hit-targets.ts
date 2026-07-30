@@ -2,8 +2,8 @@ import type { RenderNodeOfKind, RenderNodesOfKind } from '../../model/index.ts';
 import { terminalTextWidth } from '../../../text/index.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
 import { stringify } from '../render-node-props.ts';
-import type { Rect } from '../../model/layout.ts';
-import type { HitTarget } from '../../model/renderer.ts';
+import type { Rect } from '../../contracts.ts';
+import type { HitTarget } from '../../contracts.ts';
 
 type ActivationControlNode<TMessage> = RenderNodesOfKind<TMessage, 'button' | 'checkbox' | 'toggleSwitch'>;
 type OptionControlNode<TMessage> = RenderNodeOfKind<TMessage, 'radioGroup'>;

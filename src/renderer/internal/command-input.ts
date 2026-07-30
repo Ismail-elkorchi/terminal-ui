@@ -14,16 +14,16 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
 import type { SuggestionItem } from '../../ui-model/contracts.ts';
 import type { CommandInputDisplay, CommandInputValidation } from '../../ui-model/documents.ts';
-import type { CursorPosition } from '../model/cursor.ts';
-import type { Rect } from '../model/layout.ts';
+import type { CursorPosition } from '../contracts.ts';
+import type { Rect } from '../contracts.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { HitTarget } from '../contracts.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 import { clipRenderSpans, measureRenderSpans, padRenderLine } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import { placeAnchoredSurface } from '../../interaction/anchored-surface.ts';
 import { terminalTextWidth } from '../../text/index.ts';
-import type { LayoutNode } from '../model/layout.ts';
+import type { LayoutNode } from '../contracts.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 
 type CommandPartKind =

@@ -12,3 +12,11 @@ export type PointerFocusIntent =
 export type ResolvedPointerFocusIntent =
   | { readonly kind: 'focus'; readonly path: FocusPath }
   | { readonly kind: 'preserve' };
+
+export function focusPathsEqual(
+  left: FocusPath | undefined,
+  right: FocusPath | undefined
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((segment, index) => segment === right[index]);
+}

@@ -10,7 +10,7 @@ import {
   applyTerminalRowMovement,
   planTerminalFrameOutput
 } from './terminal-frame-planner.ts';
-import type { Frame } from '../model/frame.ts';
+import type { Frame } from '../contracts.ts';
 
 void test('terminal frame planning uses an explicitly supported scrolling region when it wins', () => {
   const previous = rowsFrame(['header', 'alpha', 'bravo', 'charlie', 'delta']);

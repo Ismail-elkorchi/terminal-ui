@@ -6,11 +6,11 @@ import type { AccessibleSnapshot } from '../../accessibility/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
 import type { FocusPath } from './focus.ts';
-import type { CursorPosition } from '../model/cursor.ts';
-import type { Frame, FrameCell, FrameHitTarget } from '../model/frame.ts';
-import type { Rect } from '../model/layout.ts';
+import type { CursorPosition } from '../contracts.ts';
+import type { Frame, FrameCell, FrameHitTarget } from '../contracts.ts';
+import type { Rect } from '../contracts.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render.ts';
-import type { RenderTarget } from '../model/render-target.ts';
+import type { RenderTarget } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { defaultTextWidthProfile } from '../../text/index.ts';
 

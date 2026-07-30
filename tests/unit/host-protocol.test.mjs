@@ -542,6 +542,36 @@ test('nested terminal leases restore to the outer lease state', async () => {
   assert.deepEqual(host.restores().map((item) => item.status), ['failed', 'restored', 'restored']);
 });
 
+test('emergency recovery completes the recovered session lease', async () => {
+  const host = createMemoryTerminalHost();
+  const session = await host.beginSession({ id: 'emergency-recovery-session' });
+  await session.hideCursor();
+  const restoreStarted = Promise.withResolvers();
+  const writeRecovery = host.writeRecovery.bind(host);
+  let recoveryWrites = 0;
+  host.writeRecovery = (output, context) => {
+    recoveryWrites += 1;
+    if (recoveryWrites === 1) {
+      restoreStarted.resolve();
+      return new Promise(() => undefined);
+    }
+    return writeRecovery(output, context);
+  };
+  const blockedRestore = session.restore('success');
+  void blockedRestore.catch(() => undefined);
+  await restoreStarted.promise;
+
+  const recovered = await host.recoverTerminalState('error');
+  const repeated = await session.restore('success');
+
+  assert.equal(recoveryWrites, 2);
+  assert.equal(recovered.status, 'restored');
+  assert.equal(repeated.status, 'restored');
+  assert.equal(repeated.reason, 'error');
+  assert.deepEqual(repeated.diagnostics, []);
+  await host.dispose();
+});
+
 test('explicit initial terminal facts retain explicit provenance', async () => {
   const host = createMemoryTerminalHost({
     initialState: { alternateScreen: true, cursorVisible: false }

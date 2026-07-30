@@ -9,14 +9,16 @@ import { renderCurrentFrame, resolveTuiTheme } from './runtime-frame.ts';
 import { recordTuiCommit } from './transcript.ts';
 import type { DiagnosticOccurrence, DiagnosticOccurrenceReporter, TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile, TerminalHost } from '../host/index.ts';
+import type { Frame } from '../renderer/contracts.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
 import type { NormalizedTuiRunOptions } from './run-configuration.ts';
 import type { NormalizedTuiLifecyclePolicy } from './run-configuration.ts';
-import type { TuiApp, TuiContext, TuiExit, TuiRuntimeOptions } from './types.ts';
+import type { TuiApp, TuiContext, TuiExit } from './types.ts';
 
 export async function runTuiNonTty<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   host: TerminalHost,
+  ownsHost: boolean,
   transcript: TranscriptRecorder | undefined,
   options: NormalizedTuiRunOptions<TState>,
   capabilities: TerminalCapabilityProfile
@@ -30,30 +32,43 @@ export async function runTuiNonTty<TState, TMessage>(
       ...(policy.diagnosticHint === undefined ? {} : { hint: policy.diagnosticHint }),
       data: { runtime: capabilities.runtime, isTty: false }
     })];
-    return finalizeRejectedHost(app, host, reporter, diagnostics, options.lifecycle);
+    return finalizeNonTtyFailureWithoutState(
+      app.id,
+      host,
+      ownsHost,
+      reporter,
+      diagnostics,
+      options.lifecycle
+    );
   }
 
+  const context = nonTtyContext(host, capabilities);
   let state: TState;
   try {
-    state = app.definition.init(nonTtyContext(host, capabilities));
+    state = app.definition.init(context);
   } catch (cause) {
-    return finalizeFailedNonTtyRun(app, host, reporter, undefined, [diagnostic(
-      'TUI_INITIALIZATION_FAILED',
-      'Non-TTY TUI initialization failed.',
-      { target: app.id, cause }
-    )], options.lifecycle);
+    return finalizeNonTtyFailureWithoutState(
+      app.id,
+      host,
+      ownsHost,
+      reporter,
+      [diagnostic(
+        'TUI_INITIALIZATION_FAILED',
+        'Non-TTY TUI initialization failed.',
+        { target: app.id, cause }
+      )],
+      options.lifecycle
+    );
   }
 
-  let frame;
+  let frame: Frame;
   try {
-    const context = nonTtyContext(host, capabilities);
-    const runtime = runtimeOptions(app, host, transcript);
     frame = renderCurrentFrame(
       app,
       state,
       context,
       undefined,
-      resolveTuiTheme(runtime.theme, state),
+      resolveTuiTheme(options.theme, state),
       0,
       `${app.id}:commit:1`
     ).frame;
@@ -66,11 +81,19 @@ export async function runTuiNonTty<TState, TMessage>(
       diff: diffFrames(undefined, frame)
     });
   } catch (cause) {
-    return finalizeFailedNonTtyRun(app, host, reporter, state, [diagnostic(
-      'TUI_RENDER_FAILED',
-      'Non-TTY TUI rendering failed.',
-      { target: app.id, cause }
-    )], options.lifecycle);
+    return finalizeFailedNonTtyRun(
+      app.id,
+      host,
+      ownsHost,
+      reporter,
+      state,
+      [diagnostic(
+        'TUI_RENDER_FAILED',
+        'Non-TTY TUI rendering failed.',
+        { target: app.id, cause }
+      )],
+      options.lifecycle
+    );
   }
 
   const diagnostics: TerminalDiagnostic[] = [];
@@ -82,10 +105,10 @@ export async function runTuiNonTty<TState, TMessage>(
       phase: 'output',
       timeoutMs: options.lifecycle.outputFlushTimeoutMs,
       operation: async (signal) => {
-      requireCommittedTerminalWrite(await host.write(
-        { text: `${projection.accessibleText}\n\n${projection.plainTextFrame}\n` },
-        { signal }
-      ));
+        requireCommittedTerminalWrite(await host.write(
+          { text: `${projection.accessibleText}\n\n${projection.plainTextFrame}\n` },
+          { signal }
+        ));
       }
     });
     if (output.status !== 'settled') diagnostics.push(diagnostic(
@@ -117,7 +140,7 @@ export async function runTuiNonTty<TState, TMessage>(
       }
     ));
   }
-  diagnostics.push(...await finalizeNonTtyHost(app.id, host, options.lifecycle));
+  diagnostics.push(...await finalizeNonTtyHost(app.id, host, ownsHost, options.lifecycle));
 
   const occurrences = reportDiagnostics(reporter, diagnostics);
   return diagnostics.some(isFailure)
@@ -142,67 +165,64 @@ function nonTtyContext(host: TerminalHost, capabilities: TerminalCapabilityProfi
   };
 }
 
-function runtimeOptions<TState, TMessage>(
-  app: TuiApp<TState, TMessage>,
+async function finalizeNonTtyFailureWithoutState<TState>(
+  target: string,
   host: TerminalHost,
-  transcript: TranscriptRecorder | undefined
-): TuiRuntimeOptions<TState, TMessage> {
-  return {
-    app,
-    host,
-    ...(transcript === undefined ? {} : { transcript })
-  };
-}
-
-async function finalizeRejectedHost<TState, TMessage>(
-  app: TuiApp<TState, TMessage>,
-  host: TerminalHost,
+  ownsHost: boolean,
   reporter: DiagnosticOccurrenceReporter,
   initial: readonly TerminalDiagnostic[],
   lifecycle: NormalizedTuiLifecyclePolicy
 ): Promise<TuiExit<TState>> {
-  const diagnostics = reportDiagnostics(reporter, [...initial, ...await finalizeNonTtyHost(app.id, host, lifecycle)]);
-  return { status: 'error', diagnostics, snapshot: tuiSnapshot(app.id) };
+  const diagnostics = reportDiagnostics(
+    reporter,
+    [...initial, ...await finalizeNonTtyHost(target, host, ownsHost, lifecycle)]
+  );
+  return { status: 'error', diagnostics, snapshot: tuiSnapshot(target) };
 }
 
-async function finalizeFailedNonTtyRun<TState, TMessage>(
-  app: TuiApp<TState, TMessage>,
+async function finalizeFailedNonTtyRun<TState>(
+  target: string,
   host: TerminalHost,
+  ownsHost: boolean,
   reporter: DiagnosticOccurrenceReporter,
-  state: TState | undefined,
+  state: TState,
   initial: readonly TerminalDiagnostic[],
   lifecycle: NormalizedTuiLifecyclePolicy
 ): Promise<TuiExit<TState>> {
-  const diagnostics = reportDiagnostics(reporter, [...initial, ...await finalizeNonTtyHost(app.id, host, lifecycle)]);
+  const diagnostics = reportDiagnostics(
+    reporter,
+    [...initial, ...await finalizeNonTtyHost(target, host, ownsHost, lifecycle)]
+  );
   return {
     status: 'error',
-    ...(state === undefined ? {} : { state }),
+    state,
     diagnostics,
-    snapshot: tuiSnapshot(app.id)
+    snapshot: tuiSnapshot(target)
   };
 }
 
 async function finalizeNonTtyHost(
   target: string,
   host: TerminalHost,
+  ownsHost: boolean,
   lifecycle: NormalizedTuiLifecyclePolicy
 ): Promise<readonly TerminalDiagnostic[]> {
-  const phases = [
-    await runTuiLifecyclePhase({
-      clock: host.clock,
-      target,
-      phase: 'flush',
-      timeoutMs: lifecycle.outputFlushTimeoutMs,
-      operation: async (signal) => host.flush({ signal })
-    }),
-    await runTuiLifecyclePhase({
+  const phases = [await runTuiLifecyclePhase({
+    clock: host.clock,
+    target,
+    phase: 'flush',
+    timeoutMs: lifecycle.outputFlushTimeoutMs,
+    operation: async (signal) => host.flush({ signal })
+  })];
+  if (ownsHost) {
+    phases.push(await runTuiLifecyclePhase({
       clock: host.clock,
       target,
       phase: 'host',
       timeoutMs: lifecycle.hostDisposalTimeoutMs,
       operation: async (signal) => host.dispose({ signal })
-    })
-  ];
+    }));
+  }
   return phases.flatMap((phase) => phase.status === 'settled' ? [] : [phase.diagnostic]);
 }
 

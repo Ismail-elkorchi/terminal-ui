@@ -117,6 +117,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     beginSession: (sessionOptions) =>
       terminalState.beginLease(sessionOptions?.id ?? `${options.id ?? 'pty'}-session`, detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
+    recoverTerminalState: (reason, options) => terminalState.recoverAll(reason, options),
     write: output.write,
     writeRecovery: output.writeRecovery,
     flush: output.flush,

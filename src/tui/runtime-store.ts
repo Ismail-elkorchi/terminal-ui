@@ -11,7 +11,6 @@ export interface PendingTuiMessage<TMessage> {
 export interface RuntimeReduction<TState, TMessage> {
   readonly state: TState;
   readonly stateVersion: number;
-  readonly stateUpdates: number;
   readonly messages: readonly PendingTuiMessage<TMessage>[];
   readonly cancelEffects: readonly string[];
   readonly effects: readonly TuiEffect<TMessage>[];
@@ -36,7 +35,6 @@ export function createRuntimeStore<TState, TMessage>(
     reduce(messages: readonly PendingTuiMessage<TMessage>[], context: TuiContext) {
       let state = committedState();
       let nextStateVersion = stateVersion;
-      let stateUpdates = 0;
       let exitReason: string | undefined;
       let focus: InitialFocusSelector | undefined;
       const applied: PendingTuiMessage<TMessage>[] = [];
@@ -50,17 +48,13 @@ export function createRuntimeStore<TState, TMessage>(
         for (const id of result.cancelEffects ?? []) cancelEffects.add(id);
         effects.push(...(result.effects ?? []));
         if (result.focus !== undefined) focus = result.focus;
-        if (result.state !== state) {
-          nextStateVersion += 1;
-          stateUpdates += 1;
-        }
+        if (!Object.is(result.state, state)) nextStateVersion += 1;
         state = result.state;
         if (result.exit !== undefined) exitReason = result.exit.reason ?? '';
       }
       return {
         state,
         stateVersion: nextStateVersion,
-        stateUpdates,
         messages: applied,
         cancelEffects: [...cancelEffects],
         effects,

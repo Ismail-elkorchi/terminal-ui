@@ -3,9 +3,15 @@ import { createDirtyRegionSet } from './dirty-regions.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import { planTerminalOutput } from './output-planner.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { FrameRowDiff, RenderDiff, RenderOperation } from '../model/diff.ts';
-import type { Rect } from '../model/layout.ts';
-import type { Frame, FrameCell } from '../model/frame.ts';
+import type {
+  Frame,
+  FrameCell,
+  FrameRowDiff,
+  RenderDiff,
+  RenderOperation,
+  RenderWorkInstrumentation
+} from '../contracts.ts';
+import type { Rect } from '../contracts.ts';
 import type {
   RenderSpan
 } from '../../visual/render.ts';
@@ -14,10 +20,8 @@ import type { RenderSerializeOptions } from './ansi.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
 import { frameIndex } from './frame-index.ts';
 import type { FrameIndex } from './frame-index.ts';
-import type { RenderWorkInstrumentation } from '../model/instrumentation.ts';
 
-export type { CursorPosition } from '../model/cursor.ts';
-export type { Frame, FrameCell, FrameHitTarget } from '../model/frame.ts';
+export type { CursorPosition, Frame, FrameCell, FrameHitTarget } from '../contracts.ts';
 
 export type { FocusPath } from './focus.ts';
 
@@ -30,7 +34,7 @@ export interface RenderDiffAnsiOptions extends RenderSerializeOptions {
   readonly instrumentation?: RenderWorkInstrumentation;
 }
 
-export type { FrameRowDiff, RenderDiff, RenderOperation } from '../model/diff.ts';
+export type { FrameRowDiff, RenderDiff, RenderOperation } from '../contracts.ts';
 
 export type { AnsiStyleState, RenderSerializeOptions } from './ansi.ts';
 

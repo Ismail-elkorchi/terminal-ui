@@ -1,17 +1,14 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2024",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "rootDir": ".",
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "types": ["node"],
-    "skipLibCheck": false
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
   },
-  "include": ["examples/**/*.ts", "examples/**/*.mjs"]
+  "include": ["examples/**/*.ts", "examples/**/*.mjs"],
+  "exclude": []
 }

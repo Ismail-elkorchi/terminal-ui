@@ -10,11 +10,11 @@ import type { RenderNodeInputMap } from '../renderer/model/index.ts';
 import type {
   FocusTarget,
   HitTarget,
+  Measurement,
   RenderFocusRelation,
-  RenderNodeRenderer
-} from '../renderer/model/renderer.ts';
-import type { RenderTarget } from '../renderer/model/render-target.ts';
-import type { Measurement } from '../renderer/model/measurement.ts';
+  RenderTarget
+} from '../renderer/contracts.ts';
+import type { RenderNodeRenderer } from '../renderer/model/renderer.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { Rect } from '../geometry/types.ts';
 import type { TerminalTheme } from '../theme/index.ts';

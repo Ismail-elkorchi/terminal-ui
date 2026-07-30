@@ -4,13 +4,13 @@ import type { TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions } from './frame-buffer.ts';
-import type { FrameCell, FrameHitTarget } from '../model/frame.ts';
+import type { FrameCell, FrameHitTarget } from '../contracts.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
 import type { ResolvedPointerFocusIntent } from '../../interaction/focus.ts';
 import type { LayerUnderlay } from '../../element/metadata.ts';
-import type { LayoutNode, Rect } from '../model/layout.ts';
+import type { LayoutNode, Rect } from '../contracts.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { HitTarget } from '../contracts.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 
 export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget {

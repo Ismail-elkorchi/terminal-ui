@@ -51,5 +51,17 @@ cleanup bounds.
 `restoreTerminalState(host)` restores the host's currently active terminal
 sessions in reverse open order. If no session is active it returns a successful
 empty restore result instead of opening a new no-op session.
+`host.recoverTerminalState()` is the emergency path: it supersedes the normal
+terminal-state queue, fences stale queued work, and uses recovery output so a
+non-cooperative restore cannot block terminal recovery behind itself. It is for
+bounded failure handling, not ordinary session closure.
 Built-in host `dispose()` methods also restore active sessions with the
 `disposed` reason before releasing host-owned state.
+
+Input `release()` settles only after the current source read and iterator
+closure can no longer consume bytes. A chunk received during that handoff is
+retained for the next reader. Until the adapter confirms safe release, the host
+rejects replacement readers; a non-cooperative iterator therefore leaves input
+unavailable instead of risking data loss. Reader-wrapper cleanup and source
+release are started independently so a wrapper with a hanging `return()` cannot
+prevent a cooperative input authority from releasing its source.

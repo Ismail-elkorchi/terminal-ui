@@ -11,9 +11,9 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { RenderNodeLayoutTarget } from './focus.ts';
-import type { LayoutNode, Rect } from '../model/layout.ts';
-import type { Measurement } from './measurement.ts';
-import type { FocusTarget, HitTarget, RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
+import type { LayoutNode, Rect } from '../contracts.ts';
+import type { FocusTarget, HitTarget, Measurement } from '../contracts.ts';
+import type { RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
 
 export function rendererForRenderNode<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
   if (renderNode.kind === 'custom') return renderNode.custom.renderer;

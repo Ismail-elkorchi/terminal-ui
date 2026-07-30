@@ -1,8 +1,9 @@
 import type { RenderNode } from '../model/index.ts';
+import { focusPathsEqual } from '../../interaction/focus.ts';
 import type { FocusPath, InitialFocusSelector } from '../../interaction/focus.ts';
-import type { CursorPosition } from '../model/cursor.ts';
-import type { RenderFocusRelation } from '../model/renderer.ts';
-import type { Layer, LayoutNode, Rect } from '../model/layout.ts';
+import type { CursorPosition } from '../contracts.ts';
+import type { RenderFocusRelation } from '../contracts.ts';
+import type { Layer, LayoutNode, Rect } from '../contracts.ts';
 
 export type { FocusPath } from '../../interaction/focus.ts';
 
@@ -50,7 +51,7 @@ export function collectRenderNodeLayoutTargets<TMessage>(
 export function resolveFocusPath(layout: LayoutNode, requested: FocusPath | undefined): FocusPath | undefined {
   const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout));
   if (targets.length === 0) return undefined;
-  if (requested !== undefined && targets.some((target) => samePath(target.path, requested))) {
+  if (requested !== undefined && targets.some((target) => focusPathsEqual(target.path, requested))) {
     return requested;
   }
   return targets[0]?.path;
@@ -76,7 +77,7 @@ export function nextFocusPath(layout: LayoutNode, current: FocusPath | undefined
   const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout));
   if (targets.length === 0) return undefined;
   if (current === undefined) return targets[0]?.path;
-  const index = targets.findIndex((target) => samePath(target.path, current));
+  const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
   return targets[(index + 1 + targets.length) % targets.length]?.path;
 }
 
@@ -84,7 +85,7 @@ export function previousFocusPath(layout: LayoutNode, current: FocusPath | undef
   const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout));
   if (targets.length === 0) return undefined;
   if (current === undefined) return targets.at(-1)?.path;
-  const index = targets.findIndex((target) => samePath(target.path, current));
+  const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
   return targets[(index - 1 + targets.length) % targets.length]?.path;
 }
 
@@ -93,7 +94,8 @@ export function findLayoutFocusTarget(
   path: FocusPath | undefined
 ): LayoutFocusTarget | undefined {
   if (path === undefined) return undefined;
-  return scopedFocusTargets(layout, collectLayoutFocusTargets(layout)).find((target) => samePath(target.path, path));
+  return scopedFocusTargets(layout, collectLayoutFocusTargets(layout))
+    .find((target) => focusPathsEqual(target.path, path));
 }
 
 export function findAnyLayoutFocusTarget(
@@ -101,7 +103,8 @@ export function findAnyLayoutFocusTarget(
   path: FocusPath | undefined
 ): LayoutFocusTarget | undefined {
   if (path === undefined) return undefined;
-  return collectLayoutFocusTargets(layout).find((target) => target.focusable && samePath(target.path, path));
+  return collectLayoutFocusTargets(layout)
+    .find((target) => target.focusable && focusPathsEqual(target.path, path));
 }
 
 export function findRenderNodeFocusTarget<TMessage>(
@@ -110,7 +113,8 @@ export function findRenderNodeFocusTarget<TMessage>(
   path: FocusPath | undefined
 ): RenderNodeFocusTarget<TMessage> | undefined {
   if (path === undefined) return undefined;
-  return scopedFocusTargets(layout, collectRenderNodeFocusTargets(renderNode, layout)).find((target) => samePath(target.path, path));
+  return scopedFocusTargets(layout, collectRenderNodeFocusTargets(renderNode, layout))
+    .find((target) => focusPathsEqual(target.path, path));
 }
 
 export function renderNodeKeyChainForFocus<TMessage>(
@@ -128,7 +132,7 @@ export function renderNodeKeyChainForFocus<TMessage>(
 }
 
 export function focusPathIncludes(left: FocusPath | undefined, right: FocusPath): boolean {
-  return left !== undefined && samePath(left, right);
+  return left !== undefined && focusPathsEqual(left, right);
 }
 
 export function renderFocusRelation(
@@ -136,7 +140,7 @@ export function renderFocusRelation(
   renderNodePath: FocusPath
 ): RenderFocusRelation {
   if (activePath === undefined || !pathStartsWith(activePath, renderNodePath)) return 'none';
-  return samePath(activePath, renderNodePath) ? 'self' : 'descendant';
+  return focusPathsEqual(activePath, renderNodePath) ? 'self' : 'descendant';
 }
 
 export function focusedTargetIdForLayoutNode(
@@ -146,7 +150,7 @@ export function focusedTargetIdForLayoutNode(
 ): string | undefined {
   if (activePath === undefined) return undefined;
   return layout.focusTargets.find((target, index) =>
-    samePath(activePath, targetPath(renderNodePath, target.id, index, layout.focusTargets.length))
+    focusPathsEqual(activePath, targetPath(renderNodePath, target.id, index, layout.focusTargets.length))
   )?.id;
 }
 
@@ -340,7 +344,7 @@ function collectFocusScopes(layout: LayoutNode, parentPath: FocusPath = [], sequ
 }
 
 function matchesInitialFocus(target: LayoutFocusTarget, selector: InitialFocusSelector): boolean {
-  if (selector.kind === 'path') return samePath(target.path, selector.path);
+  if (selector.kind === 'path') return focusPathsEqual(target.path, selector.path);
   if (selector.kind === 'element') return target.elementId === selector.elementId;
   return target.elementId === selector.elementId && target.targetId === selector.targetId;
 }
@@ -364,10 +368,6 @@ function focusOrder(target: LayoutFocusTarget, sequence: number): number {
 
 function pathStartsWith(path: FocusPath, prefix: FocusPath): boolean {
   return path.length >= prefix.length && prefix.every((segment, index) => path[index] === segment);
-}
-
-function samePath(left: FocusPath, right: FocusPath): boolean {
-  return left.length === right.length && left.every((segment, index) => segment === right[index]);
 }
 
 function uniqueRenderNodes<TMessage>(nodes: readonly RenderNode<TMessage>[]): readonly RenderNode<TMessage>[] {

@@ -1,9 +1,9 @@
 import { borderStyleFromValue, drawBorder } from './border.ts';
 import type { BorderStyle, BorderTitle } from './border.ts';
 import type { SurfaceAppearance } from '../../visual/surface.ts';
-import type { RenderTarget } from '../model/render-target.ts';
+import type { RenderTarget } from '../contracts.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, styleHasBackground } from './render-node-style.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';

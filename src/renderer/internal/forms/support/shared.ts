@@ -3,7 +3,7 @@ import type { RenderNodeOfKind, RenderNodesOfKind } from '../../../model/index.t
 import { clipTextCells, sanitizeTerminalText } from '../../../../text/index.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import type { TextWidthProfile } from '../../../../text/index.ts';
-import type { CursorPosition } from '../../../model/cursor.ts';
+import type { CursorPosition } from '../../../contracts.ts';
 import { block, clipRenderSpans } from '../../frame.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../frame.ts';
 import {
@@ -14,7 +14,7 @@ import {
   labelSpans
 } from '../../form-visual.ts';
 import { singleLineInputBlock, singleLineInputCursor } from '../../input-visual.ts';
-import type { Rect } from '../../../model/layout.ts';
+import type { Rect } from '../../../contracts.ts';
 import { numberProp, stringify } from '../../render-node-props.ts';
 import { selectionFromUnknown } from '../../text-display.ts';
 

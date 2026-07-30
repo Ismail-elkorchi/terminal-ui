@@ -1,7 +1,7 @@
 import type { RoutedPointerEvent } from '../../../../input/pointer.ts';
 import type { RangeSliderAction, RangeSliderHandle } from '../../../../ui-model/range-slider.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
-import type { Rect } from '../../../model/layout.ts';
+import type { Rect } from '../../../contracts.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import { formSpan } from '../../form-visual.ts';
 import { renderNodeStyle, resolveRenderNodeStyle } from '../../render-node-style.ts';

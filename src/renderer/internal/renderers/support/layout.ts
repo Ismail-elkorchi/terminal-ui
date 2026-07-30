@@ -3,7 +3,7 @@ import { isNonArrayObject } from '../../../../foundation/validation.ts';
 import type { RenderNode, RenderNodeOfKind, RenderNodesOfKind } from '../../../model/index.ts';
 import { layoutContentBounds, splitTracks } from '../../layout-geometry.ts';
 import { emptyRect } from './common.ts';
-import type { Rect } from '../../../model/layout.ts';
+import type { Rect } from '../../../contracts.ts';
 import type {
   GridLayoutOptions,
   LayoutAlignment,
@@ -13,7 +13,7 @@ import type {
   LayoutOverflow,
   LayoutSize
 } from '../../../../geometry/types.ts';
-import type { Measurement } from '../../measurement.ts';
+import type { Measurement } from '../../../contracts.ts';
 
 type GridNode = RenderNodeOfKind<unknown, 'grid'>;
 type SplitPaneNode = RenderNodeOfKind<unknown, 'splitPane'>;

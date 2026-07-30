@@ -1,7 +1,7 @@
 import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { Frame, FrameCell } from '../model/frame.ts';
-import type { RenderDiff } from '../model/diff.ts';
+import type { Frame, FrameCell } from '../contracts.ts';
+import type { RenderDiff } from '../contracts.ts';
 import { diffFrames, sameFrameCell } from './frame.ts';
 import { frameIndex } from './frame-index.ts';
 import { planTerminalOutput } from './output-planner.ts';

@@ -15,6 +15,7 @@ export type TuiLifecyclePhase =
   | 'runtime'
   | 'onExit'
   | 'restore'
+  | 'recovery'
   | 'flush'
   | 'host';
 

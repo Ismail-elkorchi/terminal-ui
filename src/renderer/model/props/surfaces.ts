@@ -1,4 +1,4 @@
-import type { CanvasPainter } from '../canvas.ts';
+import type { CanvasPainter } from '../../contracts.ts';
 import type { BorderOptions, BorderTitle } from '../../../visual/border.ts';
 import type { SurfaceAppearance } from '../../../visual/surface.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';

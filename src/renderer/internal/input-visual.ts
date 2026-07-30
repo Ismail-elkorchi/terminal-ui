@@ -9,9 +9,9 @@ import type { TextAreaHighlight } from '../../ui-model/content.ts';
 import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../model/index.ts';
-import type { CursorPosition } from '../model/cursor.ts';
+import type { CursorPosition } from '../contracts.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
-import type { Rect } from '../model/layout.ts';
+import type { Rect } from '../contracts.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 
 type SingleLineInputNode = RenderNodesOfKind<unknown, 'numberInput' | 'textInput' | 'passwordInput'>;

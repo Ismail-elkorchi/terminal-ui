@@ -54,6 +54,13 @@ export class TerminalStateAuthorityBinding {
     return this.authority().restoreAll(reason, options);
   }
 
+  recoverAll(
+    reason: TerminalRestoreReason,
+    options: TerminalRestoreOptions = {}
+  ): Promise<TerminalRestoreResult> {
+    return this.authority().recoverAll(reason, options);
+  }
+
   async restoreAllConfirmed(
     reason: TerminalRestoreReason,
     context: TerminalOperationContext = {}
@@ -79,6 +86,7 @@ export class TerminalStateAuthority {
   readonly #leases: TerminalSessionLease[] = [];
   readonly #uncertain = new Set<TerminalStateKey>();
   #current: TerminalStateSnapshot;
+  #generation = 0;
   #tail: Promise<void> | undefined;
 
   constructor(host: TerminalHost, options: TerminalStateAuthorityOptions) {
@@ -115,7 +123,7 @@ export class TerminalStateAuthority {
     context: TerminalOperationContext = {},
     equal: (current: TerminalStateSnapshot[K], next: TerminalStateSnapshot[K]) => boolean = Object.is
   ): Promise<TerminalOperationOutcome> {
-    return this.runExclusive(async () => {
+    return this.runExclusive(async (generation) => {
       const inactive = this.inactiveLeaseDiagnostic(lease);
       if (inactive !== undefined) return terminalOperationRejected(inactive);
       const change = { kind, enabled } as TerminalStateChange;
@@ -128,12 +136,18 @@ export class TerminalStateAuthority {
       try {
         await apply(context);
       } catch (cause) {
+        if (!this.isCurrentGeneration(generation)) {
+          return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
+        }
         if (cause instanceof TerminalWriteError && cause.receipt.status === 'failed_before_write') {
           this.#uncertain.delete(kind);
           return terminalOperationRejected(cause.receipt.diagnostic);
         }
         this.markIndeterminate(kind);
         return terminalOperationIndeterminate(change, indeterminateOperationDiagnostic(lease, change, cause));
+      }
+      if (!this.isCurrentGeneration(generation)) {
+        return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
       }
       this.setKnown(kind, enabled, knowledgeAfterMutation(kind, this.#host));
       return terminalOperationApplied(change);
@@ -145,7 +159,7 @@ export class TerminalStateAuthority {
     profile: TerminalKeyboardProfile,
     context: TerminalOperationContext = {}
   ): Promise<TerminalOperationOutcome> {
-    return this.runExclusive(async () => {
+    return this.runExclusive(async (generation) => {
       const inactive = this.inactiveLeaseDiagnostic(lease);
       if (inactive !== undefined) return terminalOperationRejected(inactive);
       const normalized = normalizeKeyboardProfile(profile);
@@ -167,6 +181,9 @@ export class TerminalStateAuthority {
           throw new Error(`Keyboard frame state is indeterminate: ${lease.keyboardFrameState}.`);
         }
       } catch (cause) {
+        if (!this.isCurrentGeneration(generation)) {
+          return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
+        }
         if (cause instanceof TerminalWriteError && cause.receipt.status === 'failed_before_write') {
           this.#uncertain.delete('keyboardProfile');
           lease.cancelKeyboardFramePush();
@@ -174,6 +191,9 @@ export class TerminalStateAuthority {
         }
         this.markIndeterminate('keyboardProfile');
         return terminalOperationIndeterminate(change, indeterminateOperationDiagnostic(lease, change, cause));
+      }
+      if (!this.isCurrentGeneration(generation)) {
+        return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
       }
       this.setKnown('keyboardProfile', normalized, 'library_known');
       return terminalOperationApplied(change);
@@ -185,66 +205,7 @@ export class TerminalStateAuthority {
     reason: TerminalRestoreReason,
     context: TerminalOperationContext = {}
   ): Promise<TerminalRestoreResult> {
-    return this.runExclusive(async () => {
-      const inactive = this.inactiveLeaseDiagnostic(lease);
-      if (inactive !== undefined) {
-        return this.recordRestore(failedRestore(lease.initialState, reason, this.snapshot(), [inactive]));
-      }
-      if (restoreWasCancelled(context)) {
-        const result = cancelledRestore(lease, reason, this.snapshot(), context.signal);
-        return this.recordRestore(result);
-      }
-      const attempted: TerminalStateChange[] = [];
-      const confirmed: TerminalStateChange[] = [];
-      const diagnostics: TerminalDiagnostic[] = [];
-      for (const operation of createTerminalRestorePlan(lease.initialState).operations) {
-        if (restoreWasCancelled(context)) {
-          diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
-          break;
-        }
-        const stateMatches = operation.kind === 'keyboardProfile'
-          ? keyboardProfilesEqual(this.#current.keyboardProfile, operation.enabled)
-          : Object.is(this.#current[operation.kind], operation.enabled);
-        const hasKeyboardFrame = operation.kind === 'keyboardProfile'
-          && lease.keyboardFrameState !== 'none';
-        if (stateMatches && !hasKeyboardFrame && !this.#uncertain.has(operation.kind)) continue;
-        attempted.push(operation);
-        try {
-          await this.applyRestoreOperation(lease, operation, context);
-          this.setKnown(operation.kind, operation.enabled, knowledgeAfterMutation(operation.kind, this.#host));
-          confirmed.push(operation);
-          if (restoreWasCancelled(context)) {
-            diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
-            break;
-          }
-        } catch (cause) {
-          this.markIndeterminate(operation.kind);
-          if (restoreWasCancelled(context)) {
-            diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind, cause));
-            break;
-          }
-          diagnostics.push(diagnostic('HOST_RESTORE_FAILED', `Failed to restore terminal state: ${operation.kind}.`, {
-            severity: 'error',
-            target: lease.id,
-            cause,
-            data: { operation: operation.kind }
-          }));
-        }
-      }
-      const resultingState = this.snapshot();
-      const status = diagnostics.length === 0 ? 'restored' : confirmed.length === 0 ? 'failed' : 'partial';
-      const result: TerminalRestoreResult = {
-        status,
-        reason,
-        requested: lease.initialState,
-        attempted,
-        confirmed,
-        resultingState,
-        diagnostics
-      };
-      if (status === 'restored') this.removeActiveLease(lease);
-      return this.recordRestore(result);
-    });
+    return this.runExclusive((generation) => this.restoreLease(lease, reason, context, generation));
   }
 
   async restoreAll(
@@ -265,20 +226,138 @@ export class TerminalStateAuthority {
         status: 'restored', reason, requested: snapshot, attempted: [], confirmed: [], resultingState: snapshot, diagnostics: []
       };
     }
-    const first = results[0];
-    const last = results.at(-1);
-    if (first === undefined || last === undefined) throw new Error('Terminal restore aggregation invariant failed.');
-    const diagnostics = results.flatMap((item) => item.diagnostics);
-    const confirmed = results.flatMap((item) => item.confirmed);
-    return {
-      status: diagnostics.length === 0 ? 'restored' : confirmed.length === 0 ? 'failed' : 'partial',
+    return aggregateRestoreResults(results, reason);
+  }
+
+  recoverAll(
+    reason: TerminalRestoreReason,
+    options: TerminalRestoreOptions = {}
+  ): Promise<TerminalRestoreResult> {
+    const generation = this.#generation + 1;
+    this.#generation = generation;
+    const operationContext = options.operationSignal === undefined
+      ? {}
+      : { signal: options.operationSignal };
+    const recovery = this.restoreAllDirect(reason, operationContext, generation);
+    const settled = recovery.then(() => undefined, () => undefined);
+    this.#tail = settled;
+    void settled.then(() => {
+      if (this.#tail === settled) this.#tail = undefined;
+    });
+    const waitContext = options.waitSignal === undefined ? {} : { signal: options.waitSignal };
+    return waitForTerminalOperation(recovery, waitContext);
+  }
+
+  private async restoreAllDirect(
+    reason: TerminalRestoreReason,
+    context: TerminalOperationContext,
+    generation: number
+  ): Promise<TerminalRestoreResult> {
+    const results: TerminalRestoreResult[] = [];
+    while (this.isCurrentGeneration(generation) && this.#leases.length > 0) {
+      const lease = this.#leases.at(-1);
+      if (lease === undefined) break;
+      const result = await this.restoreLease(lease, reason, context, generation);
+      results.push(result);
+      if (result.status !== 'restored') break;
+    }
+    if (results.length === 0) {
+      const snapshot = this.snapshot();
+      return {
+        status: 'restored',
+        reason,
+        requested: snapshot,
+        attempted: [],
+        confirmed: [],
+        resultingState: snapshot,
+        diagnostics: []
+      };
+    }
+    return aggregateRestoreResults(results, reason);
+  }
+
+  private async restoreLease(
+    lease: TerminalSessionLease,
+    reason: TerminalRestoreReason,
+    context: TerminalOperationContext,
+    generation: number
+  ): Promise<TerminalRestoreResult> {
+    const inactive = this.inactiveLeaseDiagnostic(lease);
+    if (inactive !== undefined) {
+      return this.recordRestore(failedRestore(lease.initialState, reason, this.snapshot(), [inactive]));
+    }
+    if (!this.isCurrentGeneration(generation)) {
+      return this.recordRestore(supersededRestore(lease, reason, this.snapshot()));
+    }
+    if (restoreWasCancelled(context)) {
+      const result = cancelledRestore(lease, reason, this.snapshot(), context.signal);
+      return this.recordRestore(result);
+    }
+    const attempted: TerminalStateChange[] = [];
+    const confirmed: TerminalStateChange[] = [];
+    const diagnostics: TerminalDiagnostic[] = [];
+    for (const operation of createTerminalRestorePlan(lease.initialState).operations) {
+      if (!this.isCurrentGeneration(generation)) {
+        diagnostics.push(supersededRestoreDiagnostic(lease));
+        break;
+      }
+      if (restoreWasCancelled(context)) {
+        diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
+        break;
+      }
+      const stateMatches = operation.kind === 'keyboardProfile'
+        ? keyboardProfilesEqual(this.#current.keyboardProfile, operation.enabled)
+        : Object.is(this.#current[operation.kind], operation.enabled);
+      const hasKeyboardFrame = operation.kind === 'keyboardProfile'
+        && lease.keyboardFrameState !== 'none';
+      if (stateMatches && !hasKeyboardFrame && !this.#uncertain.has(operation.kind)) continue;
+      attempted.push(operation);
+      try {
+        await this.applyRestoreOperation(lease, operation, context);
+        if (!this.isCurrentGeneration(generation)) {
+          diagnostics.push(supersededRestoreDiagnostic(lease, operation.kind));
+          break;
+        }
+        this.setKnown(operation.kind, operation.enabled, knowledgeAfterMutation(operation.kind, this.#host));
+        confirmed.push(operation);
+        if (restoreWasCancelled(context)) {
+          diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
+          break;
+        }
+      } catch (cause) {
+        if (!this.isCurrentGeneration(generation)) {
+          diagnostics.push(supersededRestoreDiagnostic(lease, operation.kind, cause));
+          break;
+        }
+        this.markIndeterminate(operation.kind);
+        if (restoreWasCancelled(context)) {
+          diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind, cause));
+          break;
+        }
+        diagnostics.push(diagnostic('HOST_RESTORE_FAILED', `Failed to restore terminal state: ${operation.kind}.`, {
+          severity: 'error',
+          target: lease.id,
+          cause,
+          data: { operation: operation.kind }
+        }));
+      }
+    }
+    const resultingState = this.snapshot();
+    const status = diagnostics.length === 0 ? 'restored' : confirmed.length === 0 ? 'failed' : 'partial';
+    const result: TerminalRestoreResult = {
+      status,
       reason,
-      requested: last.requested,
-      attempted: results.flatMap((item) => item.attempted),
+      requested: lease.initialState,
+      attempted,
       confirmed,
-      resultingState: last.resultingState,
+      resultingState,
       diagnostics
     };
+    if (status === 'restored') {
+      this.removeActiveLease(lease);
+      lease.completeRestore(result);
+    }
+    return this.recordRestore(result);
   }
 
   private async applyRestoreOperation(
@@ -356,14 +435,25 @@ export class TerminalStateAuthority {
     this.#leases.pop();
   }
 
-  private runExclusive<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.#tail === undefined ? operation() : this.#tail.then(operation, operation);
+  private runExclusive<T>(operation: (generation: number) => Promise<T>): Promise<T> {
+    const generation = this.#generation;
+    const run = (): Promise<T> => {
+      if (!this.isCurrentGeneration(generation)) {
+        return Promise.reject(new Error('Terminal state operation was superseded by emergency recovery.'));
+      }
+      return operation(generation);
+    };
+    const result = this.#tail === undefined ? run() : this.#tail.then(run, run);
     const settled = result.then(() => undefined, () => undefined);
     this.#tail = settled;
     void settled.then(() => {
       if (this.#tail === settled) this.#tail = undefined;
     });
     return result;
+  }
+
+  private isCurrentGeneration(generation: number): boolean {
+    return generation === this.#generation;
   }
 
   private protocol(context: TerminalOperationContext): ReturnType<typeof createProtocolWriter> {
@@ -495,7 +585,6 @@ class TerminalSessionLease implements TerminalSession {
     const restoring = this.#authority.restore(this, reason, operationContext);
     const completion = restoring.then((result) => {
       if (this.#restoreAttempt?.promise === completion) this.#restoreAttempt = undefined;
-      if (result.status === 'restored') this.#completedRestore = completion;
       return result;
     }, (cause: unknown) => {
       if (this.#restoreAttempt?.promise === completion) this.#restoreAttempt = undefined;
@@ -503,6 +592,13 @@ class TerminalSessionLease implements TerminalSession {
     });
     this.#restoreAttempt = { promise: completion };
     return waitForTerminalOperation(completion, waitContext);
+  }
+
+  completeRestore(result: TerminalRestoreResult): void {
+    if (result.status !== 'restored') {
+      throw new Error('Only a successful terminal restoration can complete a session lease.');
+    }
+    this.#completedRestore = Promise.resolve(result);
   }
 
   private mutate<K extends TerminalStateKey>(
@@ -622,6 +718,17 @@ function indeterminateOperationDiagnostic(
   });
 }
 
+function supersededOperationDiagnostic(
+  lease: TerminalSessionLease,
+  change: TerminalStateChange
+): TerminalDiagnostic {
+  return indeterminateOperationDiagnostic(
+    lease,
+    change,
+    new Error('Terminal operation was superseded by emergency recovery.')
+  );
+}
+
 function keyboardProfilesEqual(left: TerminalKeyboardProfile, right: TerminalKeyboardProfile): boolean {
   return left.kind === right.kind
     && (left.kind === 'legacy' || (right.kind === 'kitty' && left.flags === right.flags));
@@ -634,6 +741,34 @@ function failedRestore(
   diagnostics: readonly TerminalDiagnostic[]
 ): TerminalRestoreResult {
   return { status: 'failed', reason, requested, attempted: [], confirmed: [], resultingState, diagnostics };
+}
+
+function supersededRestore(
+  lease: TerminalSessionLease,
+  reason: TerminalRestoreReason,
+  resultingState: TerminalStateSnapshot
+): TerminalRestoreResult {
+  return failedRestore(lease.initialState, reason, resultingState, [
+    supersededRestoreDiagnostic(lease)
+  ]);
+}
+
+function supersededRestoreDiagnostic(
+  lease: TerminalSessionLease,
+  operation?: TerminalStateKey,
+  cause?: unknown
+): TerminalDiagnostic {
+  return diagnostic('HOST_RESTORE_FAILED', operation === undefined
+    ? 'Terminal restoration was superseded by emergency recovery.'
+    : `Terminal restoration was superseded while restoring terminal state: ${operation}.`, {
+    severity: 'error',
+    target: lease.id,
+    ...(cause === undefined ? {} : { cause }),
+    data: {
+      superseded: true,
+      ...(operation === undefined ? {} : { operation })
+    }
+  });
 }
 
 function cancelledRestore(
@@ -668,4 +803,24 @@ function restoreCancellationDiagnostic(
 
 function restoreWasCancelled(context: TerminalOperationContext): context is { readonly signal: AbortSignal } {
   return context.signal?.aborted === true;
+}
+
+function aggregateRestoreResults(
+  results: readonly TerminalRestoreResult[],
+  reason: TerminalRestoreReason
+): TerminalRestoreResult {
+  const first = results[0];
+  const last = results.at(-1);
+  if (first === undefined || last === undefined) throw new Error('Terminal restore aggregation invariant failed.');
+  const diagnostics = results.flatMap((item) => item.diagnostics);
+  const confirmed = results.flatMap((item) => item.confirmed);
+  return {
+    status: diagnostics.length === 0 ? 'restored' : confirmed.length === 0 ? 'failed' : 'partial',
+    reason,
+    requested: last.requested,
+    attempted: results.flatMap((item) => item.attempted),
+    confirmed,
+    resultingState: last.resultingState,
+    diagnostics
+  };
 }

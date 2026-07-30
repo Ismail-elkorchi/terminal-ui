@@ -1,7 +1,13 @@
 import { diagnostic } from '../diagnostics.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { completedExit, exitWithStatus } from './exit.ts';
-import type { TerminalInputChunk, TerminalSignal, Unsubscribe } from '../host/index.ts';
+import type {
+  TerminalHost,
+  TerminalInput,
+  TerminalInputChunk,
+  TerminalSignal,
+  Unsubscribe
+} from '../host/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
 import type {
   TuiExit,
@@ -17,24 +23,32 @@ import type {
 
 export async function runTuiInputLoop<TState, TMessage>(
   runtime: TuiRuntime<TState, TMessage>,
+  host: TerminalHost,
+  appId: string,
   transcript: TranscriptRecorder | undefined,
   retireInput: (retirement: Promise<void>) => void,
   suspension?: TuiInputSuspensionController
 ): Promise<TuiExit<TState>> {
   const changeController = new AbortController();
   let inputController = new AbortController();
-  let input = runtime.host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
-  const signals = createSignalQueue(runtime.host.signals.subscribe.bind(runtime.host.signals));
-  let inputNext: Promise<IteratorResult<TerminalInputChunk>> | undefined = input.next();
-  let signalNext = signals.next();
-  let runtimeChangeNext = runtime.nextChange(changeController.signal);
+  let input: AsyncIterator<TerminalInputChunk> | undefined;
+  let signals: SignalQueue | undefined;
+  let inputNext: Promise<IteratorResult<TerminalInputChunk>> | undefined;
+  let signalNext: Promise<TerminalSignal>;
+  let runtimeChangeNext: Promise<TuiRuntimeChange<TState>>;
   let inputWorkNext: Promise<InputWorkOutcome<TState>> | undefined;
   let inputBatchNext: Promise<readonly TuiInputResult<TState>[]> | undefined;
   let resizeQueued = false;
   let resizeNext: Promise<Settled<unknown>> | undefined;
-  let suspensionNext = suspension?.next();
+  let suspensionNext: Promise<InputSuspensionRequest> | undefined;
   let suspendedRequest: InputSuspensionRequest | undefined;
   try {
+    input = host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
+    signals = createSignalQueue(host.signals.subscribe.bind(host.signals));
+    inputNext = input.next();
+    signalNext = signals.next();
+    runtimeChangeNext = runtime.nextChange(changeController.signal);
+    suspensionNext = suspension?.next();
     for (;;) {
       const resumeRequest = suspendedRequest;
       const candidates: Promise<InputLoopEvent<TState>>[] = [
@@ -65,22 +79,29 @@ export async function runTuiInputLoop<TState, TMessage>(
       const event = await Promise.race(candidates);
       if (event.kind === 'suspend') {
         suspensionNext = undefined;
+        let inputReleaseStarted = false;
         try {
           const exit = await settleInputWork();
           if (exit !== undefined) return exit;
-          inputController.abort('terminal_input_suspended');
-          inputNext = undefined;
-          await input.return?.();
-          if (runtime.host.stdin.release === undefined) {
+          const releaseInput = host.stdin.release?.bind(host.stdin);
+          if (releaseInput === undefined) {
             throw new Error('Terminal host input cannot be released for an external operation.');
           }
-          await runtime.host.stdin.release();
+          const suspendingInput = input;
+          if (suspendingInput === undefined) {
+            throw new Error('Terminal input is unavailable during suspension.');
+          }
+          inputReleaseStarted = true;
+          inputController.abort('terminal_input_suspended');
+          inputNext = undefined;
+          await releaseTerminalInput(suspendingInput, releaseInput);
+          input = undefined;
           runtime.resetInput();
           suspendedRequest = event.request;
           event.request.paused();
         } catch (cause) {
           event.request.pauseFailed(cause);
-          openInput();
+          if (inputReleaseStarted) throw cause;
           suspensionNext = suspension?.next();
         }
         continue;
@@ -109,7 +130,11 @@ export async function runTuiInputLoop<TState, TMessage>(
         if (exit !== undefined) return exit;
         inputBatchNext = batch.pending;
         if (event.outcome.endAfter) break;
-        inputNext = input.next();
+        const activeInput = input;
+        if (activeInput === undefined) {
+          throw new Error('Terminal input is unavailable while processing input.');
+        }
+        inputNext = activeInput.next();
         continue;
       }
       if (event.kind === 'inputBatch') {
@@ -124,7 +149,7 @@ export async function runTuiInputLoop<TState, TMessage>(
         if (!event.outcome.ok) throw event.outcome.cause;
         if (resizeQueued) {
           resizeQueued = false;
-          resizeNext = settle(runtime.resize(runtime.host.getTerminalSize()));
+          resizeNext = settle(runtime.resize(host.getTerminalSize()));
         }
         continue;
       }
@@ -136,42 +161,48 @@ export async function runTuiInputLoop<TState, TMessage>(
       signalNext = signals.next();
       transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });
       if (event.signal === 'resize') {
-        if (resizeNext === undefined) resizeNext = settle(runtime.resize(runtime.host.getTerminalSize()));
+        if (resizeNext === undefined) resizeNext = settle(runtime.resize(host.getTerminalSize()));
         else resizeQueued = true;
         continue;
       }
-      return handleTuiSignal(runtime, event.signal);
+      return handleTuiSignal(runtime, appId, event.signal);
     }
   } finally {
     inputController.abort();
     changeController.abort();
-    signals.dispose();
-    suspendedRequest?.resumed();
-    suspension?.close();
-    retireInput(Promise.resolve().then(async () => { await input.return?.(); }));
+    const retirement = input === undefined
+      ? Promise.resolve()
+      : retireTerminalInput(input, host.stdin);
+    try {
+      signals?.dispose();
+    } finally {
+      suspendedRequest?.resumed();
+      suspension?.close();
+      retireInput(retirement);
+    }
   }
   const explicitExit = runtime.exit();
   if (explicitExit !== undefined) return explicitExit;
-  const state = runtime.state();
   const frame = runtime.frame();
-  if (state !== undefined && frame !== undefined) {
-    return { ...completedExit(state, frame), diagnostics: runtime.diagnostics() };
+  if (frame !== undefined) {
+    return { ...completedExit(runtime.state(), frame), diagnostics: runtime.diagnostics() };
   }
   return {
     status: 'error',
     diagnostics: [
       ...runtime.diagnostics(),
       runtime.reportDiagnostic(diagnostic('TUI_RUN_FAILED', 'TUI input loop ended before the runtime produced a frame.', {
-        target: runtime.app.id
+        target: appId
       }))
     ],
-    snapshot: tuiSnapshot(runtime.app.id)
+    snapshot: tuiSnapshot(appId)
   };
 
   function openInput(): void {
     inputController = new AbortController();
-    input = runtime.host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
-    inputNext = input.next();
+    const nextInput = host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
+    input = nextInput;
+    inputNext = nextInput.next();
   }
 
   async function settleInputWork(): Promise<TuiExit<TState> | undefined> {
@@ -194,24 +225,49 @@ export async function runTuiInputLoop<TState, TMessage>(
   }
 }
 
+async function retireTerminalInput(
+  reader: AsyncIterator<TerminalInputChunk>,
+  input: TerminalInput
+): Promise<void> {
+  const results = await Promise.allSettled([
+    Promise.resolve().then(async () => reader.return?.()),
+    Promise.resolve().then(async () => input.release?.())
+  ]);
+  const failures: unknown[] = [];
+  for (const result of results) {
+    if (result.status === 'rejected') failures.push(result.reason);
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, 'TUI input retirement failed.');
+}
+
+async function releaseTerminalInput(
+  reader: AsyncIterator<TerminalInputChunk>,
+  releaseInput: () => Promise<void>
+): Promise<void> {
+  const readerReturn = Promise.resolve().then(async () => reader.return?.());
+  void readerReturn.catch(() => undefined);
+  await Promise.resolve().then(releaseInput);
+}
+
 function handleTuiSignal<TState, TMessage>(
   runtime: TuiRuntime<TState, TMessage>,
+  appId: string,
   signal: Exclude<TerminalSignal, 'resize'>
 ): TuiExit<TState> {
-  const state = runtime.state();
   const frame = runtime.frame();
-  if (state === undefined || frame === undefined) {
+  if (frame === undefined) {
     return {
       status: 'interrupted',
       diagnostics: [
         runtime.reportDiagnostic(diagnostic('INPUT_INTERRUPTED', `Received ${signal} before the TUI runtime produced a frame.`, {
-          target: runtime.app.id
+          target: appId
         }))
       ],
-      snapshot: tuiSnapshot(runtime.app.id)
+      snapshot: tuiSnapshot(appId)
     };
   }
-  return { ...exitWithStatus('interrupted', state, frame), diagnostics: runtime.diagnostics() };
+  return { ...exitWithStatus('interrupted', runtime.state(), frame), diagnostics: runtime.diagnostics() };
 }
 
 type Settled<TValue> =

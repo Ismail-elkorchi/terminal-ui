@@ -41,13 +41,11 @@ export type { AccessibleNode } from '../accessibility/index.ts';
 export type { Rect } from '../geometry/types.ts';
 export type { TerminalTheme } from '../theme/index.ts';
 export type { TextWidthProfile } from '../text/index.ts';
-export type { Measurement } from '../renderer/model/measurement.ts';
 export type {
   FocusTarget,
   HitTarget,
-  RenderFocusRelation
-} from '../renderer/model/renderer.ts';
-export type {
+  Measurement,
+  RenderFocusRelation,
   RenderTarget,
   RenderTargetCell
-} from '../renderer/model/render-target.ts';
+} from '../renderer/contracts.ts';

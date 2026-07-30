@@ -1,7 +1,7 @@
 import type { ChartSeries } from '../../../../ui-model/feedback.ts';
 import type { ChartAction } from '../../../../ui-model/visualization.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
-import type { Rect } from '../../../model/layout.ts';
+import type { Rect } from '../../../contracts.ts';
 import { chartLayout } from './labels.ts';
 import {
   type ProjectedChartPoint,

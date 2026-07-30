@@ -10,9 +10,9 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { FieldItem } from '../../ui-model/contracts.ts';
 import type { StructuredBlock } from '../../ui-model/documents.ts';
-import type { LayoutNode } from '../model/layout.ts';
-import type { Rect } from '../model/layout.ts';
-import type { HitTarget } from '../model/renderer.ts';
+import type { LayoutNode } from '../contracts.ts';
+import type { Rect } from '../contracts.ts';
+import type { HitTarget } from '../contracts.ts';
 import { clipRenderLine, clipRenderSpans } from '../../visual/render.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 

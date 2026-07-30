@@ -5,8 +5,8 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type { BorderKind } from '../../visual/border.ts';
 import { frameCellSource } from '../../visual/source.ts';
 import type { TerminalStyle } from './frame.ts';
-import type { RenderTarget } from '../model/render-target.ts';
-import type { Rect } from '../model/layout.ts';
+import type { RenderTarget } from '../contracts.ts';
+import type { Rect } from '../contracts.ts';
 import { clipRenderSpans, measureRenderSpans, span } from '../../visual/render.ts';
 import type { RenderSpan } from '../../visual/render.ts';
 

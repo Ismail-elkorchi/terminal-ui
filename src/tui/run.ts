@@ -7,7 +7,7 @@ import {
 } from './lifecycle.ts';
 import { createTerminalHost } from '../host/index.ts';
 import { runTuiNonTty } from './non-tty.ts';
-import { createTuiRuntime } from './runtime.ts';
+import { createTuiRuntimeWithCapabilitySnapshot } from './runtime.ts';
 import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
 import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
 import { TuiInputSuspensionController } from './input-suspension.ts';
@@ -19,7 +19,7 @@ import type {
   DiagnosticOccurrenceReporter,
   TerminalDiagnostic
 } from '../diagnostics.ts';
-import type { TerminalHost, TerminalSession } from '../host/index.ts';
+import type { TerminalHost } from '../host/index.ts';
 import type { TuiLifecyclePhase } from './lifecycle-phase.ts';
 import type { NormalizedTuiRunOptions } from './run-configuration.ts';
 import { LEGACY_KEYBOARD_PROFILE } from '../protocol/index.ts';
@@ -44,9 +44,9 @@ export async function runTui<TState, TMessage>(
       })
     ])), transcript);
   }
+  const ownsHost = host === undefined;
   const terminalHost = host ?? createTerminalHost();
-  let session: TerminalSession | undefined;
-  const lifecycle = new TuiRunLifecycleOwner(app, terminalHost, normalized, transcript);
+  const lifecycle = new TuiRunLifecycleOwner(app, terminalHost, ownsHost, normalized, transcript);
   const inputSuspension = new TuiInputSuspensionController();
   const withTerminalSuspended = createTerminalSuspension({
     appId: app.id,
@@ -66,7 +66,6 @@ export async function runTui<TState, TMessage>(
     },
     replaceSession: (nextSession) => {
       lifecycle.replaceSession(nextSession);
-      session = nextSession;
     }
   });
   let exit: TuiExit<TState> | undefined;
@@ -83,10 +82,16 @@ export async function runTui<TState, TMessage>(
         : [],
       signal
     }));
-    const nonTtyExit = await runTuiNonTty(app, terminalHost, transcript, normalized, capabilities);
+    const nonTtyExit = await runTuiNonTty(
+      app,
+      terminalHost,
+      ownsHost,
+      transcript,
+      normalized,
+      capabilities
+    );
     if (nonTtyExit !== undefined) return withTuiTranscript(nonTtyExit, transcript);
     const openedSession = await startupPhase('session', async () => terminalHost.beginSession({ id: app.id }));
-    session = openedSession;
     lifecycle.openSession(openedSession);
     const setup = await startupPhase('setup', async (signal) =>
       setupTuiSession(openedSession, normalized.sessionPolicy, { signal }));
@@ -105,14 +110,14 @@ export async function runTui<TState, TMessage>(
         }
       );
     } else {
-      const runtime = createTuiRuntime({
+      const runtime = createTuiRuntimeWithCapabilitySnapshot({
         app,
         host: terminalHost,
         ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),
         ...(normalized.theme === undefined ? {} : { theme: normalized.theme }),
         withTerminalSuspended,
         input: {
-          capabilities: session.capabilities,
+          capabilities: openedSession.capabilities,
           bracketedPaste: setup.applied.some((item) => item.kind === 'bracketedPaste' && item.enabled),
           keyboard: setup.applied.find((item) => item.kind === 'keyboardProfile')?.enabled
             ?? LEGACY_KEYBOARD_PROFILE,
@@ -120,10 +125,10 @@ export async function runTui<TState, TMessage>(
         },
         diagnostics: setupDiagnostics,
         ...(transcript === undefined ? {} : { transcript })
-      });
+      }, openedSession.capabilities);
       lifecycle.activateRuntime(runtime);
       await startupPhase('runtime_start', async () => runtime.start());
-      exit = await runTuiInputLoop(runtime, transcript, (retirement) => {
+      exit = await runTuiInputLoop(runtime, terminalHost, app.id, transcript, (retirement) => {
         lifecycle.retireInput(retirement);
       }, inputSuspension);
       lifecycle.complete(exit);

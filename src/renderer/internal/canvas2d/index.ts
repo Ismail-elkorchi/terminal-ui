@@ -22,8 +22,5 @@ export {
 export type { BlockGlyph } from './block.ts';
 export type { BrailleCellMapping } from './braille.ts';
 export type { AreaSeriesOptions, BarDatum, BarSeriesOptions, ChartAxesOptions, ChartPoint, ChartScale, SeriesOptions } from './chart.ts';
-export type { Canvas2D, StrokeFillOptions } from '../../model/canvas2d.ts';
 export type { AxisLine } from './axes.ts';
-export type { CanvasPoint } from '../../model/canvas2d.ts';
 export type { TooltipLine } from './tooltip.ts';
-export type { CanvasTransform, CanvasTransformInput } from '../../model/canvas2d.ts';
