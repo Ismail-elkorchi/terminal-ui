@@ -1,8 +1,11 @@
 import { validateAccessibleSnapshot } from '../../accessibility/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
+import { isThemeColorToken } from '../../visual/color.ts';
 import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/index.ts';
 import type { PointerEventKind } from '../../input/index.ts';
-import type { FocusTarget, HitTarget, Measurement, Rect } from '../contracts.ts';
+import type { TerminalColor, TerminalStyle } from '../../visual/render.ts';
+import type { FrameCellSource } from '../../visual/source.ts';
+import type { CursorPosition, FocusTarget, HitTarget, Measurement, Rect } from '../contracts.ts';
 
 const pointerEventKinds = new Set<PointerEventKind>([
   'pointerDown',
@@ -17,6 +20,27 @@ const pointerEventKinds = new Set<PointerEventKind>([
   'enter',
   'leave'
 ]);
+
+const terminalStyleFlagFields = [
+  'bold',
+  'dim',
+  'italic',
+  'underline',
+  'strikethrough',
+  'inverse',
+  'hidden'
+] as const satisfies readonly (keyof TerminalStyle)[];
+
+const terminalStyleFields = new Set<string>([
+  'fg',
+  'bg',
+  ...terminalStyleFlagFields
+]);
+const ansiColorFields = new Set(['kind', 'value']);
+const rgbColorFields = new Set(['kind', 'r', 'g', 'b']);
+const themeColorFields = new Set(['kind', 'token']);
+
+type TerminalStyleFlagField = typeof terminalStyleFlagFields[number];
 
 export function assertValidCustomMeasurement(value: unknown, owner: string): asserts value is Measurement {
   if (!isNonArrayObject(value)) {
@@ -36,14 +60,15 @@ export function assertValidCustomMeasurement(value: unknown, owner: string): ass
   assertMeasurementAxis(value, owner, 'Height');
 }
 
-export function assertValidCustomFocusTargets(
+export function normalizeCustomFocusTargets(
   value: unknown,
   owner: string
-): asserts value is readonly FocusTarget[] {
+): readonly FocusTarget[] {
   if (!Array.isArray(value)) {
     throw new TypeError(`Custom renderer "${owner}" focusTargets must return an array.`);
   }
   const ids = new Set<string>();
+  const normalized: FocusTarget[] = [];
   for (const [index, target] of value.entries()) {
     if (!isNonArrayObject(target)) {
       throw new TypeError(`Custom renderer "${owner}" focus target ${String(index)} must be an object.`);
@@ -52,23 +77,53 @@ export function assertValidCustomFocusTargets(
     assertUniqueId(id, ids, `Custom renderer "${owner}" focus target`);
     assertValidRect(target['bounds'], `Custom renderer "${owner}" focus target "${id}"`);
     const cursor = target['cursor'];
-    if (cursor !== undefined) {
-      if (!isNonArrayObject(cursor)
-        || !Number.isSafeInteger(cursor['row'])
-        || !Number.isSafeInteger(cursor['column'])) {
-        throw new TypeError(`Custom renderer "${owner}" focus target "${id}" cursor must have safe-integer coordinates.`);
-      }
-    }
-    if (target['disabled'] !== undefined && typeof target['disabled'] !== 'boolean') {
+    const disabled = target['disabled'];
+    if (disabled !== undefined && typeof disabled !== 'boolean') {
       throw new TypeError(`Custom renderer "${owner}" focus target "${id}" disabled must be a boolean.`);
     }
-    if (target['order'] !== undefined && !Number.isSafeInteger(target['order'])) {
+    const order = target['order'];
+    if (order !== undefined && !isSafeInteger(order)) {
       throw new TypeError(`Custom renderer "${owner}" focus target "${id}" order must be a safe integer.`);
     }
-    if (target['scopeId'] !== undefined && !isNonEmptyString(target['scopeId'])) {
+    const scopeId = target['scopeId'];
+    if (scopeId !== undefined && !isNonEmptyString(scopeId)) {
       throw new TypeError(`Custom renderer "${owner}" focus target "${id}" scopeId must be a non-empty string.`);
     }
+    normalized.push({
+      id,
+      bounds: target['bounds'],
+      ...(cursor === undefined
+        ? {}
+        : { cursor: normalizeCustomCursor(cursor, `Custom renderer "${owner}" focus target "${id}" cursor`) }),
+      ...(disabled === undefined ? {} : { disabled }),
+      ...(order === undefined ? {} : { order }),
+      ...(scopeId === undefined ? {} : { scopeId })
+    });
   }
+  return normalized;
+}
+
+export function normalizeCustomTerminalStyle(value: unknown, subject: string): TerminalStyle {
+  if (!isNonArrayObject(value)) {
+    throw new TypeError(`${subject} must be an object.`);
+  }
+  assertSupportedFields(value, terminalStyleFields, subject);
+  const fg = ownValue(value, 'fg');
+  const bg = ownValue(value, 'bg');
+  const flags: Partial<Record<TerminalStyleFlagField, boolean>> = {};
+  for (const field of terminalStyleFlagFields) {
+    const flag = ownValue(value, field);
+    if (flag === undefined) continue;
+    if (typeof flag !== 'boolean') {
+      throw new TypeError(`${subject}.${field} must be a boolean.`);
+    }
+    flags[field] = flag;
+  }
+  return {
+    ...(fg === undefined ? {} : { fg: normalizeCustomTerminalColor(fg, `${subject}.fg`) }),
+    ...(bg === undefined ? {} : { bg: normalizeCustomTerminalColor(bg, `${subject}.bg`) }),
+    ...flags
+  };
 }
 
 export function assertValidCustomHitTargets<TMessage>(
@@ -166,6 +221,83 @@ function collectAccessibleNodes(root: AccessibleNode): readonly AccessibleNode[]
     nodes.push(node);
     for (const child of node.children ?? []) visit(child);
   }
+}
+
+function normalizeCustomCursor(value: unknown, subject: string): CursorPosition {
+  if (!isNonArrayObject(value)
+    || !isSafeInteger(value['row'])
+    || !isSafeInteger(value['column'])) {
+    throw new TypeError(`${subject} must have safe-integer coordinates.`);
+  }
+  const style = ownValue(value, 'style');
+  const source = ownValue(value, 'source');
+  return {
+    row: value['row'],
+    column: value['column'],
+    ...(style === undefined ? {} : { style: normalizeCustomTerminalStyle(style, `${subject} style`) }),
+    ...(source === undefined ? {} : { source: source as FrameCellSource })
+  };
+}
+
+function normalizeCustomTerminalColor(value: unknown, subject: string): TerminalColor {
+  if (!isNonArrayObject(value)) {
+    throw new TypeError(`${subject} must be an object.`);
+  }
+  const kind = ownValue(value, 'kind');
+  switch (kind) {
+    case 'ansi': {
+      assertSupportedFields(value, ansiColorFields, subject);
+      const index = ownValue(value, 'value');
+      if (!isColorChannel(index)) {
+        throw new RangeError(`${subject}.value must be an integer from 0 through 255.`);
+      }
+      return { kind, value: index };
+    }
+    case 'rgb': {
+      assertSupportedFields(value, rgbColorFields, subject);
+      const r = ownValue(value, 'r');
+      const g = ownValue(value, 'g');
+      const b = ownValue(value, 'b');
+      if (!isColorChannel(r)) throw new RangeError(`${subject}.r must be an integer from 0 through 255.`);
+      if (!isColorChannel(g)) throw new RangeError(`${subject}.g must be an integer from 0 through 255.`);
+      if (!isColorChannel(b)) throw new RangeError(`${subject}.b must be an integer from 0 through 255.`);
+      return { kind, r, g, b };
+    }
+    case 'theme': {
+      assertSupportedFields(value, themeColorFields, subject);
+      const token = ownValue(value, 'token');
+      if (typeof token !== 'string' || !isThemeColorToken(token)) {
+        throw new TypeError(`${subject}.token must be a supported theme color token.`);
+      }
+      return { kind, token };
+    }
+    default:
+      throw new TypeError(`${subject}.kind must be "ansi", "rgb", or "theme".`);
+  }
+}
+
+function assertSupportedFields(
+  value: Readonly<Record<string, unknown>>,
+  supported: ReadonlySet<string>,
+  subject: string
+): void {
+  for (const field of Object.keys(value)) {
+    if (!supported.has(field)) {
+      throw new TypeError(`${subject} contains unsupported field "${field}".`);
+    }
+  }
+}
+
+function ownValue(value: Readonly<Record<string, unknown>>, field: string): unknown {
+  return Object.hasOwn(value, field) ? value[field] : undefined;
+}
+
+function isColorChannel(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255;
+}
+
+function isSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value);
 }
 
 function assertMeasurementAxis(

@@ -114,11 +114,11 @@ negative when an enclosing viewport scrolls content beyond the visible
 terminal; containment is evaluated relative to the parent. Widths and heights
 must remain non-negative. Caller state remains an explicit input.
 
-Extension measurements, child layouts, focus targets, hit targets, and
-accessibility trees are validated before a frame is published. Invalid
-identifiers, duplicate targets, malformed geometry, unsupported event kinds,
-unresolvable focus references, and invalid accessibility structures fail the
-render as programmer errors.
+Extension measurements, child layouts, render-span and focus-cursor styles,
+focus targets, hit targets, and accessibility trees are validated before a
+frame is published. Invalid identifiers, duplicate targets, malformed geometry,
+unsupported styles or event kinds, unresolvable focus references, and invalid
+accessibility structures fail the render as programmer errors.
 
 ## Evidence To Test
 

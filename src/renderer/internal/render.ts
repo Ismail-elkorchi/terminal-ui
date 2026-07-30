@@ -415,7 +415,7 @@ function targetForRenderNode(
   target: RenderTarget
 ): RenderTarget {
   return renderNode.kind === 'custom'
-    ? createScopedRenderTarget(target, node.bounds, node.viewport)
+    ? createScopedRenderTarget(target, node.bounds, node.viewport, renderNode.id ?? renderNode.kind)
     : target;
 }
 

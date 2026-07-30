@@ -309,6 +309,108 @@ test('custom extension accessibility and interaction outputs are validated befor
   );
 });
 
+test('custom extension styles reject values outside the public frame contract', () => {
+  const invalidStyles = [
+    { fg: { kind: 'invalid-color-kind' } },
+    { fg: { kind: 'rgb', r: Number.NaN, g: 0, b: 0 } },
+    { fg: { kind: 'rgb', r: 0, g: Number.POSITIVE_INFINITY, b: 0 } },
+    { fg: { kind: 'ansi', value: -1 } },
+    { fg: { kind: 'ansi', value: 256 } },
+    { fg: { kind: 'ansi', value: 1.5 } },
+    { bold: 'yes' },
+    { blink: true },
+    { fg: { kind: 'rgb', r: 0, g: 0, b: 0, alpha: 1 } }
+  ];
+
+  for (const [index, style] of invalidStyles.entries()) {
+    const id = `invalid-extension-style-${String(index)}`;
+    assert.throws(
+      () => renderElementFrame(custom({
+        id: `${id}-drawing`,
+        renderer: {
+          render({ bounds, target }) {
+            target.write(bounds.row, bounds.column, [{ text: 'X', style }]);
+          },
+          accessibility: ({ id: elementId }) => ({ id: elementId, role: 'text', label: elementId })
+        }
+      }), { columns: 4, rows: 1 }),
+      /Custom renderer ".*" render span style/u
+    );
+
+    assert.throws(
+      () => renderElementFrame(custom({
+        id: `${id}-cursor`,
+        renderer: {
+          render() {},
+          accessibility: ({ id: elementId, focused }) => ({
+            id: elementId,
+            role: 'button',
+            label: elementId,
+            ...(focused ? { focused: true } : {})
+          }),
+          focusTargets: ({ bounds }) => [{
+            id: 'self',
+            bounds,
+            cursor: { row: bounds.row, column: bounds.column, style }
+          }]
+        }
+      }), { columns: 4, rows: 1 }, { focusPath: [`${id}-cursor`] }),
+      /Custom renderer ".*" focus target "self" cursor style/u
+    );
+  }
+});
+
+test('custom extension styles are admitted as canonical copies', () => {
+  const drawingStyle = {
+    fg: { kind: 'rgb', r: 1, g: 2, b: 3 },
+    bold: true
+  };
+  const cursorStyle = {
+    fg: { kind: 'ansi', value: 4 },
+    inverse: true
+  };
+  const element = custom({
+    id: 'canonical-extension-styles',
+    renderer: {
+      render({ bounds, target }) {
+        target.write(bounds.row, bounds.column, [{ text: 'XY', style: drawingStyle }]);
+        drawingStyle.fg.r = Number.NaN;
+        drawingStyle.bold = 'invalid';
+        cursorStyle.fg.value = 999;
+        cursorStyle.inverse = 'invalid';
+      },
+      accessibility: ({ id, focused }) => ({
+        id,
+        role: 'button',
+        label: id,
+        ...(focused ? { focused: true } : {})
+      }),
+      focusTargets: ({ bounds }) => [{
+        id: 'self',
+        bounds,
+        cursor: {
+          row: bounds.row,
+          column: bounds.column + 1,
+          style: cursorStyle
+        }
+      }]
+    }
+  });
+
+  const frame = renderElementFrame(
+    element,
+    { columns: 4, rows: 1 },
+    { focusPath: ['canonical-extension-styles'] }
+  );
+  const drawingCell = frame.cells.find((cell) => cell.column === 1);
+  assert.deepEqual(drawingCell?.style?.fg, { kind: 'rgb', r: 1, g: 2, b: 3 });
+  assert.equal(drawingCell?.style?.bold, true);
+  assert.deepEqual(frame.cursor?.style, {
+    fg: { kind: 'ansi', value: 4 },
+    inverse: true
+  });
+});
+
 test('custom focus and hit targets cannot claim sibling bounds', () => {
   const extension = custom({
     id: 'bounded-interaction',

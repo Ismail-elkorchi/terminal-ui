@@ -18,9 +18,9 @@ import type { LayoutNode, Rect } from '../contracts.ts';
 import type { FocusTarget, HitTarget, Measurement } from '../contracts.ts';
 import type { RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
 import {
-  assertValidCustomFocusTargets,
   assertValidCustomHitTargets,
-  assertValidCustomMeasurement
+  assertValidCustomMeasurement,
+  normalizeCustomFocusTargets
 } from './extension-output.ts';
 import { intersectRects } from './rect.ts';
 
@@ -180,16 +180,16 @@ export function focusTargetsForRenderNode(
   widthProfile: TextWidthProfile
 ): readonly FocusTarget[] {
   if (renderNodeInteractionDisabled(renderNode)) return [];
-  const explicit = rendererForRenderNode(renderNode).focusTargets?.({
+  const produced = rendererForRenderNode(renderNode).focusTargets?.({
     renderNode: renderNode,
     bounds,
     viewport,
     theme,
     widthProfile
   }) ?? [];
-  if (renderNode.kind === 'custom') {
-    assertValidCustomFocusTargets(explicit, renderNode.id ?? renderNode.kind);
-  }
+  const explicit = renderNode.kind === 'custom'
+    ? normalizeCustomFocusTargets(produced, renderNode.id ?? renderNode.kind)
+    : produced;
   const bounded = renderNode.kind === 'custom'
     ? explicit.map((target) => ({
         ...target,

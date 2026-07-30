@@ -2,17 +2,19 @@ import { measureTextCells } from '../../text/index.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import type { RenderTarget, RenderTargetCell } from '../contracts.ts';
+import { normalizeCustomTerminalStyle } from './extension-output.ts';
 import { intersectRects } from './rect.ts';
 
 export function createScopedRenderTarget(
   target: RenderTarget,
   bounds: Rect,
-  viewport: Rect
+  viewport: Rect,
+  owner: string
 ): RenderTarget {
   const writableBounds = intersectRects(bounds, viewport);
   const write = (row: number, column: number, spans: readonly RenderSpan[]): void => {
     if (writableBounds === undefined || !rowInside(row, writableBounds)) return;
-    writeClippedSpans(target, writableBounds, row, column, spans);
+    writeClippedSpans(target, writableBounds, row, column, spans, owner);
   };
   return Object.freeze({
     width: target.width,
@@ -21,14 +23,14 @@ export function createScopedRenderTarget(
     write,
     writeLine(row: number, column: number, line: RenderLine): void {
       if (writableBounds === undefined || !rowInside(row, writableBounds)) return;
-      writeClippedSpans(target, writableBounds, row, column, line.spans);
+      writeClippedSpans(target, writableBounds, row, column, line.spans, owner);
     },
     writeBlock(row: number, column: number, block: RenderBlock): void {
       if (writableBounds === undefined) return;
       for (const [offset, line] of block.lines.entries()) {
         const targetRow = row + offset;
         if (rowInside(targetRow, writableBounds)) {
-          writeClippedSpans(target, writableBounds, targetRow, column, line.spans);
+          writeClippedSpans(target, writableBounds, targetRow, column, line.spans, owner);
         }
       }
     },
@@ -56,14 +58,18 @@ function writeClippedSpans(
   bounds: Rect,
   row: number,
   column: number,
-  spans: readonly RenderSpan[]
+  spans: readonly RenderSpan[],
+  owner: string
 ): void {
   let nextColumn = Math.floor(column);
   const right = bounds.column + bounds.width;
   for (const span of spans) {
     const measured = measureTextCells(span.text, { widthProfile: target.widthProfile });
+    const style = span.style === undefined
+      ? undefined
+      : normalizeCustomTerminalStyle(span.style, `Custom renderer "${owner}" render span style`);
     const metadata = {
-      ...(span.style === undefined ? {} : { style: span.style }),
+      ...(style === undefined ? {} : { style }),
       ...(span.link === undefined ? {} : { link: span.link }),
       ...(span.source === undefined ? {} : { source: span.source })
     };
