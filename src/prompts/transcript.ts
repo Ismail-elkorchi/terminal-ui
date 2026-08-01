@@ -12,7 +12,7 @@ export function transcriptEvent<TChoice>(prompt: PromptDefinition<TChoice>, even
 }
 
 export function createPromptTranscript<TChoice>(prompt: PromptDefinition<TChoice>): TranscriptRecorder | undefined {
-  if (prompt.transcript?.enabled !== true) return undefined;
+  if (prompt.transcript !== true) return undefined;
   return createPromptTranscriptRecorder(prompt);
 }
 

@@ -29,7 +29,6 @@
     "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true,
     "types": ["node"],
-    "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": false
   },

@@ -79,7 +79,6 @@ function capabilities(depth, hyperlinks = false) {
     ? { support: 'supported', availability: 'available', facts: [], diagnostics: [], requiresSessionOperation: false }
     : { support: 'unsupported', availability: 'available', facts: [], diagnostics: [], requiresSessionOperation: false };
   return {
-    schemaVersion: 'terminal-ui.terminal-capabilities.v1',
     runtime: 'node',
     isTty: true,
     color: {

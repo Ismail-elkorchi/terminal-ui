@@ -219,7 +219,7 @@ test('runPrompt preserves successful choice data source diagnostics in results a
   });
   const running = runPrompt(select({
     label: 'Package',
-    transcript: { enabled: true },
+    transcript: true,
     choices: async () => ({
       choices: [{ label: 'Core', value: 'core' }],
       diagnostics: [sourceDiagnostic]
@@ -235,7 +235,7 @@ test('runPrompt preserves successful choice data source diagnostics in results a
   assert.equal(result.value, 'core');
   assert.deepEqual(result.diagnostics, [sourceDiagnostic]);
   const transcriptDiagnostic = result.transcript?.diagnostics[0];
-  assert.equal(transcriptDiagnostic?.fingerprint, sourceDiagnostic.fingerprint);
+  assert.equal(transcriptDiagnostic?.diagnostic.fingerprint, sourceDiagnostic.fingerprint);
   assert.equal(transcriptDiagnostic?.owner, 'prompt-select:transcript');
   assert.equal(transcriptDiagnostic?.sequence, 1);
   assert.ok(result.transcript?.steps.some((step) => step.kind === 'diagnostic'));

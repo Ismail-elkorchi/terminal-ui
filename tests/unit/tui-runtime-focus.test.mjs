@@ -375,9 +375,9 @@ test('ambiguous initial element focus is diagnosed instead of selecting an arbit
 
   await runtime.start();
 
-  assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_FOCUS_SELECTION_INVALID'
-    && item.data?.reason === 'ambiguous'
-    && item.data.paths.length === 2), true);
+  assert.equal(runtime.diagnostics().some((item) => item.diagnostic.code === 'TUI_FOCUS_SELECTION_INVALID'
+    && item.diagnostic.data?.reason === 'ambiguous'
+    && item.diagnostic.data.paths.length === 2), true);
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'duplicate', 'first']);
   await runtime.dispose();
 });
@@ -848,7 +848,6 @@ test('TUI runtime uses app-level accessibility descriptions for frames and exits
     view: (state) => focusInput({ id: 'custom-field', presentation: { value: state.label, cursor: 0 }, onSubmit: () => ({ done: true }) }),
     accessibility: {
       describe: (state) => ({
-        schemaVersion: 'terminal-ui.accessible-snapshot.v1',
         source: 'tui',
         title: 'Custom \u001B[31maccessibility\u001B[0m',
         root: {
@@ -889,7 +888,6 @@ test('TUI runtime falls back when app-level accessibility is structurally invali
     view: (state) => focusInput({ id: 'safe-field', presentation: { value: state.label, cursor: 0 } }),
     accessibility: {
       describe: () => ({
-        schemaVersion: 'terminal-ui.accessible-snapshot.v1',
         source: 'tui',
         root: { id: 'custom-root', role: 'application', label: 'Custom root' },
         focusPath: ['missing-root'],

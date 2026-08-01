@@ -7,6 +7,7 @@ import {
   validateAccessibleSnapshot
 } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagnostics.js';
 import { defaultThemes,
   defaultTheme,
   defineTheme,
@@ -45,7 +46,6 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
     }
   });
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 4,
     height: 1,
     fullRewrite: false,
@@ -314,7 +314,6 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
 
   for (const root of validRoots) {
     assert.equal(validateAccessibleSnapshot({
-      schemaVersion: 'terminal-ui.accessible-snapshot.v1',
       source: 'renderer',
       root,
       focusPath: [],
@@ -390,7 +389,6 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
 
   for (const root of invalidRoots) {
     const result = validateAccessibleSnapshot({
-      schemaVersion: 'terminal-ui.accessible-snapshot.v1',
       source: 'renderer',
       root,
       focusPath: [],
@@ -402,20 +400,17 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
 
 test('accessible snapshot validation returns diagnostics for malformed public payloads', () => {
   const underShaped = validateAccessibleSnapshot({
-    schemaVersion: 'terminal-ui.accessible-snapshot.v1',
     source: 'tui',
     root: { role: 'text' },
     focusPath: [],
     diagnostics: []
   });
   const invalidDiagnostic = validateAccessibleSnapshot({
-    schemaVersion: 'terminal-ui.accessible-snapshot.v1',
     source: 'tui',
     root: { id: 'root', role: 'application' },
     focusPath: [],
     diagnostics: [
       {
-        schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
         fingerprint: 'diagnostic:unknown',
         code: 'UNKNOWN_DIAGNOSTIC',
         severity: 'error',
@@ -424,19 +419,75 @@ test('accessible snapshot validation returns diagnostics for malformed public pa
     ]
   });
   const invalidState = validateAccessibleSnapshot({
-    schemaVersion: 'terminal-ui.accessible-snapshot.v1',
     source: 'tui',
     root: { id: 'root', role: 'application', selected: 'yes' },
     focusPath: [],
     diagnostics: []
   });
-
   assert.equal(underShaped.ok, false);
   assert.match(underShaped.error.message, /id/u);
   assert.equal(invalidDiagnostic.ok, false);
   assert.match(invalidDiagnostic.error.message, /unsupported diagnostic code/u);
   assert.equal(invalidState.ok, false);
   assert.match(invalidState.error.message, /selected/u);
+});
+
+test('accessible snapshots accept diagnostic content, not occurrence metadata', () => {
+  const occurrence = createDiagnosticOccurrenceReporter('accessibility-test')
+    .report(diagnostic('INPUT_TIMEOUT', 'Timed out.'));
+  const snapshot = {
+    source: 'tui',
+    root: { id: 'root', role: 'application' },
+    focusPath: []
+  };
+
+  assert.equal(validateAccessibleSnapshot({
+    ...snapshot,
+    diagnostics: [occurrence.diagnostic]
+  }).ok, true);
+  const invalid = validateAccessibleSnapshot({
+    ...snapshot,
+    diagnostics: [occurrence]
+  });
+  assert.equal(invalid.ok, false);
+  assert.match(invalid.error.message, /unsupported field: id/u);
+});
+
+test('accessible snapshot validation rejects unknown fields throughout its object graph', () => {
+  const roots = [
+    { id: 'root', role: 'application', extra: true },
+    {
+      id: 'root',
+      role: 'progressbar',
+      numericValue: { current: 1, minimum: 0, maximum: 2, extra: true }
+    },
+    {
+      id: 'root',
+      role: 'application',
+      scope: { kind: 'document', extra: true }
+    },
+    {
+      id: 'root',
+      role: 'list',
+      window: { startIndex: 0, endIndexExclusive: 0, totalCount: 0, extra: true }
+    },
+    {
+      id: 'root',
+      role: 'option',
+      position: { positionInSet: 1, setSize: 1, extra: true }
+    }
+  ];
+
+  for (const root of roots) {
+    const result = validateAccessibleSnapshot({
+      source: 'renderer',
+      root,
+      focusPath: [],
+      diagnostics: []
+    });
+    assert.equal(result.ok, false, root.id);
+    assert.match(result.error.message, /unsupported/u);
+  }
 });
 
 test('accessible snapshots sanitize exported text and validation rejects raw control sequences', () => {
@@ -462,7 +513,6 @@ test('accessible snapshots sanitize exported text and validation rejects raw con
   assert.equal(validateAccessibleSnapshot(snapshot).ok, true);
 
   const raw = validateAccessibleSnapshot({
-    schemaVersion: 'terminal-ui.accessible-snapshot.v1',
     source: 'prompt',
     focusPath: [],
     diagnostics: [],

@@ -78,7 +78,7 @@ function mouseEvent(options: {
     sequence: options.sequence,
     encoding: options.encoding,
     action,
-    button,
+    button: pointerButton(button),
     row: options.row,
     column: options.column,
     rawCode: options.rawCode,
@@ -100,6 +100,18 @@ function wheelButton(button: MouseButton): Extract<MouseEvent, { readonly action
     case 'wheelDown':
     case 'wheelLeft':
     case 'wheelRight':
+      return button;
+    default:
+      return 'unknown';
+  }
+}
+
+function pointerButton(button: MouseButton): Extract<MouseEvent, { readonly action: Exclude<MouseAction, 'wheel'> }>['button'] {
+  switch (button) {
+    case 'left':
+    case 'middle':
+    case 'right':
+    case 'none':
       return button;
     default:
       return 'unknown';

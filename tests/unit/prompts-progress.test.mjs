@@ -67,7 +67,7 @@ test('runPrompt renders progress task updates and submits completion', async () 
   const result = await runPrompt(progress({
     label: 'Build',
     progress: { kind: 'determinate', value: 0, max: 2 },
-    transcript: { enabled: true },
+    transcript: true,
     task: async (controller) => {
       await controller.update({ kind: 'determinate', value: 1, max: 2, status: 'Compiling' });
       await controller.update({ kind: 'determinate', value: 2, max: 2, status: 'Done' });

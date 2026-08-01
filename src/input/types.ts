@@ -36,8 +36,11 @@ export interface KeyModifiers {
   readonly meta: boolean;
 }
 
-export type KeyEventType = 'press' | 'repeat' | 'release';
-export type KeyLocation = 'standard' | 'numpad' | 'unknown';
+export const keyEventTypes = ['press', 'repeat', 'release'] as const;
+export type KeyEventType = typeof keyEventTypes[number];
+
+export const keyLocations = ['standard', 'numpad', 'unknown'] as const;
+export type KeyLocation = typeof keyLocations[number];
 
 export interface TextInputEvent {
   readonly kind: 'text';
@@ -51,11 +54,11 @@ export interface PasteEvent {
   readonly bracketed: boolean;
 }
 
-interface MouseEventBase {
+interface MouseEventBase<TButton extends MouseButton> {
   readonly kind: 'mouse';
   readonly sequence: string;
   readonly encoding: MouseEncoding;
-  readonly button: MouseButton;
+  readonly button: TButton;
   readonly row: number;
   readonly column: number;
   readonly rawCode: number;
@@ -64,29 +67,40 @@ interface MouseEventBase {
 
 export type MouseEvent = MousePointerEvent | MouseWheelEvent;
 
-export interface MousePointerEvent extends MouseEventBase {
+export interface MousePointerEvent extends MouseEventBase<MousePointerButton> {
   readonly action: Exclude<MouseAction, 'wheel'>;
 }
 
-export interface MouseWheelEvent extends MouseEventBase {
+export interface MouseWheelEvent extends MouseEventBase<MouseWheelButton> {
   readonly action: 'wheel';
-  readonly button: 'wheelUp' | 'wheelDown' | 'wheelLeft' | 'wheelRight' | 'unknown';
   readonly deltaRows: number;
   readonly deltaColumns: number;
 }
 
-export type MouseEncoding = 'sgr' | 'x10';
-export type MouseAction = 'press' | 'release' | 'drag' | 'move' | 'wheel';
-export type MouseButton =
-  | 'left'
-  | 'middle'
-  | 'right'
-  | 'wheelUp'
-  | 'wheelDown'
-  | 'wheelLeft'
-  | 'wheelRight'
-  | 'none'
-  | 'unknown';
+export const mouseEncodings = ['sgr', 'x10'] as const;
+export type MouseEncoding = typeof mouseEncodings[number];
+
+export const mouseActions = ['press', 'release', 'drag', 'move', 'wheel'] as const;
+export type MouseAction = typeof mouseActions[number];
+
+export const mousePointerButtons = ['left', 'middle', 'right', 'none', 'unknown'] as const;
+export type MousePointerButton = typeof mousePointerButtons[number];
+
+export const mouseWheelButtons = ['wheelUp', 'wheelDown', 'wheelLeft', 'wheelRight', 'unknown'] as const;
+export type MouseWheelButton = typeof mouseWheelButtons[number];
+
+export const mouseButtons = [
+  'left',
+  'middle',
+  'right',
+  'wheelUp',
+  'wheelDown',
+  'wheelLeft',
+  'wheelRight',
+  'none',
+  'unknown'
+] as const;
+export type MouseButton = typeof mouseButtons[number];
 
 export interface MouseModifiers {
   readonly shift: boolean;
@@ -118,42 +132,53 @@ export interface UnknownInputEvent {
   readonly sequence: string;
 }
 
-export type KeyName = LetterKeyName | DigitKeyName | FunctionKeyName | SpecialKeyName;
+export const letterKeyNames = [
+  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+] as const;
+export type LetterKeyName = typeof letterKeyNames[number];
 
-export type LetterKeyName =
-  | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i'
-  | 'j' | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r'
-  | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z';
+export const digitKeyNames = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] as const;
+export type DigitKeyName = typeof digitKeyNames[number];
 
-export type DigitKeyName = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+export const functionKeyNames = [
+  'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12'
+] as const;
+export type FunctionKeyName = typeof functionKeyNames[number];
 
-export type FunctionKeyName =
-  | 'f1' | 'f2' | 'f3' | 'f4' | 'f5' | 'f6'
-  | 'f7' | 'f8' | 'f9' | 'f10' | 'f11' | 'f12';
+export const specialKeyNames = [
+  'enter',
+  'escape',
+  'tab',
+  'backspace',
+  'delete',
+  'arrowUp',
+  'arrowDown',
+  'arrowLeft',
+  'arrowRight',
+  'pageUp',
+  'pageDown',
+  'home',
+  'end',
+  'insert',
+  'space',
+  'add',
+  'subtract',
+  'multiply',
+  'divide',
+  'decimal',
+  'equal',
+  'unknown'
+] as const;
+export type SpecialKeyName = typeof specialKeyNames[number];
 
-export type SpecialKeyName =
-  | 'enter'
-  | 'escape'
-  | 'tab'
-  | 'backspace'
-  | 'delete'
-  | 'arrowUp'
-  | 'arrowDown'
-  | 'arrowLeft'
-  | 'arrowRight'
-  | 'pageUp'
-  | 'pageDown'
-  | 'home'
-  | 'end'
-  | 'insert'
-  | 'space'
-  | 'add'
-  | 'subtract'
-  | 'multiply'
-  | 'divide'
-  | 'decimal'
-  | 'equal'
-  | 'unknown';
+export const keyNames = [
+  ...letterKeyNames,
+  ...digitKeyNames,
+  ...functionKeyNames,
+  ...specialKeyNames
+] as const;
+export type KeyName = typeof keyNames[number];
 
 export type BindableKeyName = Exclude<KeyName, 'unknown'>;
 

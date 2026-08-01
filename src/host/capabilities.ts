@@ -168,7 +168,6 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
   } satisfies Record<TerminalCapabilityName, CapabilitySupport>;
 
   return {
-    schemaVersion: 'terminal-ui.terminal-capabilities.v1',
     runtime: input.host.runtime,
     isTty: interactive,
     color: resolveColor(input),

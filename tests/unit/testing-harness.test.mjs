@@ -66,10 +66,10 @@ test('interaction script assertion failures return typed diagnostics instead of 
     steps: [{ kind: 'assertOutput', includes: 'missing' }]
   });
 
-  assert.equal(result.diagnostics[0]?.code, 'INTERACTION_SCRIPT_FAILED');
-  assert.equal(result.diagnostics[0]?.target, 'steps[0]');
-  assert.equal(result.diagnostics[0]?.data?.scriptId, 'script-failure');
-  assert.equal(result.diagnostics[0]?.data?.stepKind, 'assertOutput');
+  assert.equal(result.diagnostics[0]?.diagnostic.code, 'INTERACTION_SCRIPT_FAILED');
+  assert.equal(result.diagnostics[0]?.diagnostic.target, 'steps[0]');
+  assert.equal(result.diagnostics[0]?.diagnostic.data?.scriptId, 'script-failure');
+  assert.equal(result.diagnostics[0]?.diagnostic.data?.stepKind, 'assertOutput');
   assert.equal(result.transcript.diagnostics[0], result.diagnostics[0]);
   assert.equal(result.output, 'ready');
 });
@@ -130,7 +130,7 @@ test('terminal harness replay delivers transcript input events back to the memor
   const harness = createTerminalHarness();
 
   await replayTranscript(harness, {
-    schemaVersion: 'terminal-ui.interaction-transcript.v4',
+    formatVersion: 1,
     id: 'replay-input',
     source: 'replay',
     startedAt: new Date(0).toISOString(),

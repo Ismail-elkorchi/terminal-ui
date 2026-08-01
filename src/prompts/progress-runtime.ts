@@ -215,7 +215,6 @@ function progressSnapshot(progress: ProgressState): AccessibleSnapshot {
 
 function rejectedProgress(prompt: ProgressPromptDefinition): PromptResult<ProgressResult> {
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason: 'non_tty_denied',
     diagnostics: [
@@ -239,7 +238,6 @@ function abortedProgress(
   snapshot: AccessibleSnapshot
 ): PromptResult<ProgressResult> {
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason,
     diagnostics: [diagnostic(code, message)],
@@ -253,7 +251,6 @@ function failedProgress(
   cause: unknown
 ): PromptResult<ProgressResult> {
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason: 'host_error',
     diagnostics: [

@@ -3,7 +3,7 @@ import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts
 import type { TerminalCapabilityProfile, TerminalClock, TerminalHost, TerminalInputChunk, TerminalSize } from '../host/index.ts';
 import type { InputDecodeOptions, InputEvent, InputPipelineOptions, InputTrigger } from '../input/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
-import type { InteractionTranscript, TranscriptPolicy, TranscriptRecorder } from '../transcript/index.ts';
+import type { InteractionTranscript, TranscriptRecorder } from '../transcript/index.ts';
 import type { Element } from '../element/index.ts';
 import type { Frame } from '../renderer/contracts.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
@@ -18,7 +18,7 @@ export interface TuiDefinition<TState, TMessage> {
   readonly inputBindings?: readonly TuiInputBinding<TState, TMessage>[];
   readonly subscriptions?: TuiSubscriptions<TState, TMessage>;
   readonly onExit?: TuiExitHandler<TState>;
-  readonly transcript?: TranscriptPolicy;
+  readonly transcript?: boolean;
   readonly accessibility?: TuiAccessibilityOptions<TState>;
   readonly nonTty?: TuiNonTtyPolicy;
 }

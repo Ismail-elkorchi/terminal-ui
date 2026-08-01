@@ -434,11 +434,10 @@ function createRuntime<TState, TMessage>(
 
   function recordReductionMessages(reduction: RuntimeReduction<TState, TMessage>): void {
     for (const item of reduction.messages) {
-      options.transcript?.record({
-        kind: 'message',
-        source: item.source,
-        message: item.redacted === true ? '[redacted]' : item.message
-      });
+      options.transcript?.recordMessage(
+        item.source,
+        item.redacted === true ? '[redacted]' : item.message
+      );
     }
   }
 

@@ -57,11 +57,11 @@ renderer family, cell role, visual part name and type, optional item identity or
 zero-based item index, interaction state, and a human-readable description when
 that information is available.
 
-Source metadata is JSON-serializable, sanitized before it enters a frame,
-included in frame equality and fingerprinting, and exposed in frame schemas.
+Source metadata is JSON-serializable, sanitized before it enters a frame, and
+included in frame equality and fingerprinting.
 Its optional interaction state is limited to focused, hovered, pressed,
-selected, disabled, and active; cleanup, transcript validation, and the frame
-and diff schemas reject other values.
+selected, disabled, and active; cleanup and transcript validation reject other
+values.
 Use `renderNodeFrameSource()` for cells produced from a render node,
 `frameCellSource()` for cells produced by the renderer without a render node, and `frameSourcePart()` when
 deriving a more specific part from an existing source.

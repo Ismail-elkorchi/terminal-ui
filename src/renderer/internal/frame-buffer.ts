@@ -184,7 +184,6 @@ class CellFrameBuffer implements FrameBuffer {
         : { source: sanitizeFrameCellSource(options.cursor.source) })
     };
     const frame: FrameBufferSnapshot = {
-      schemaVersion: 'terminal-ui.tui-frame.v2',
       width: this.width,
       height: this.height,
       widthProfile: this.widthProfile,

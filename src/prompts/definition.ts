@@ -87,6 +87,9 @@ export function progress(options: ProgressPromptOptions): ProgressPromptDefiniti
 function promptDefinition<TValue>(
   options: BasePromptOptions<TValue>
 ): Omit<BasePromptOptions<TValue>, 'id'> & { readonly id?: string } {
+  if (options.transcript !== undefined && typeof options.transcript !== 'boolean') {
+    throw new TypeError('Prompt transcript must be a boolean when provided.');
+  }
   return {
     ...(options.id === undefined ? {} : { id: options.id }),
     label: options.label,

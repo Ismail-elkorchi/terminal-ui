@@ -114,7 +114,6 @@ function editorAbort(
   reason: 'cancelled' | 'interrupted' | 'host_error' = 'host_error'
 ): PromptResult<string> {
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason,
     diagnostics: [

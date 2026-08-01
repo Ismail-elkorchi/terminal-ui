@@ -46,7 +46,8 @@ the current terminal row and column dimensions. `createTuiRuntime()` accepts
 the same diagnostics explicitly for custom loops and tests. Apps that care about
 optional terminal features, such as drag-capable mouse reporting, can render a
 small warning from `context.diagnostics` instead of parsing terminal protocol
-state. Subscriptions receive the same diagnostics through their subscription
+state. Each occurrence keeps reporting identity separate from its `diagnostic`
+content. Subscriptions receive the same occurrences through their subscription
 context.
 
 Input bytes are decoded through an input pipeline selected from the active
@@ -70,7 +71,7 @@ Apps may opt into `transcript_only` or `last_frame`; these paths do not enter
 full-screen terminal protocols or emit control sequences. Prompt line input is
 owned by the prompt runtime and is not a TUI execution mode.
 
-TUI transcript capture is opt-in with `transcript: { enabled: true }` on the
+TUI transcript capture is opt-in with `transcript: true` on the
 TUI definition. Enabled transcripts record normalized input events, frames,
 render diffs, restore checkpoints, final diagnostics, and the final accessible
 snapshot on the returned `TuiExit`.

@@ -22,7 +22,7 @@ function textInput(options) {
 test('runTui emits deterministic transcripts when enabled', async () => {
   const app = defineTui({
     id: 'transcript-tui',
-    transcript: { enabled: true },
+    transcript: true,
     init: () => ({ submitted: false }),
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
     view: (state) => textInput({
@@ -48,7 +48,7 @@ test('runTui emits deterministic transcripts when enabled', async () => {
 test('runTui fails and records final diagnostics when terminal restoration is unsuccessful', async () => {
   const app = defineTui({
     id: 'failed-restoration',
-    transcript: { enabled: true },
+    transcript: true,
     init: () => ({ done: false }),
     update: () => ({ state: { done: true }, exit: {} }),
     view: () => textInput({
@@ -68,10 +68,10 @@ test('runTui fails and records final diagnostics when terminal restoration is un
   const exit = await runTui(app, host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'HOST_RESTORE_FAILED'), true);
-  assert.equal(exit.transcript?.diagnostics.some((item) => item.code === 'HOST_RESTORE_FAILED'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'HOST_RESTORE_FAILED'), true);
+  assert.equal(exit.transcript?.diagnostics.some((item) => item.diagnostic.code === 'HOST_RESTORE_FAILED'), true);
   assert.equal(exit.transcript?.steps.some((step) => step.kind === 'diagnostic'
-    && step.diagnostic.code === 'HOST_RESTORE_FAILED'), true);
+    && step.occurrence.diagnostic.code === 'HOST_RESTORE_FAILED'), true);
   assert.equal(exit.transcript?.steps.some((step) => step.kind === 'restore'
     && step.result.status !== 'restored'), true);
 });
@@ -287,7 +287,7 @@ test('runTui retires partially acquired input resources when initial next throws
   const exit = await runTui(app, host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_RUN_FAILED'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_RUN_FAILED'), true);
   assert.equal(returnCalls, 1);
   assert.equal(releaseCalls, 1);
   assert.equal(unsubscribeCalls, 1);
@@ -348,7 +348,7 @@ test('runTui reserves restoration time after a hanging exit handler', async () =
 
   assert.equal(exit.status, 'error');
   assert.deepEqual(exit.state, { done: true });
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_TIMEOUT'), true);
   assert.equal(host.restores()[0]?.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
@@ -395,8 +395,8 @@ test('runTui bounds an input iterator whose return operation never settles', asy
   const exit = await running;
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
-    && item.data?.phase === 'input'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.diagnostic.data?.phase === 'input'), true);
   assert.equal(host.restores()[0]?.status, 'restored');
   assert.equal(releaseCalls, 1);
   host.stdin.read = originalRead;
@@ -437,9 +437,9 @@ test('runTui recovery bypasses a borrowed host restore blocked inside its state 
   const exit = await running;
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
-    && item.data?.phase === 'restore'), true);
-  assert.equal(exit.diagnostics.some((item) => item.data?.phase === 'recovery'), false);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.diagnostic.data?.phase === 'restore'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.data?.phase === 'recovery'), false);
   assert.equal(host.restores().length, 1);
   assert.equal(host.stdin.isRawModeEnabled(), false);
   const nextSession = await host.beginSession({ id: 'after-emergency-recovery' });
@@ -472,8 +472,8 @@ test('runTui bounds an output flush that ignores cancellation', async () => {
   const exit = await running;
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
-    && item.data?.phase === 'flush'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.diagnostic.data?.phase === 'flush'), true);
   assert.equal(host.restores()[0]?.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
@@ -515,8 +515,8 @@ test('runTui restores after non-cooperative effect cleanup times out', async () 
   const exit = await running;
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
-    && item.data?.phase === 'runtime'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.diagnostic.data?.phase === 'runtime'), true);
   assert.equal(host.restores()[0]?.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
@@ -555,8 +555,8 @@ test('runTui restores after non-cooperative source cleanup times out', async () 
   const exit = await running;
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
-    && item.data?.phase === 'runtime'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.diagnostic.data?.phase === 'runtime'), true);
   assert.equal(host.restores()[0]?.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
@@ -582,7 +582,7 @@ test('runTui reports capability and session acquisition failures as typed exits'
 
   for (const exit of [capabilityExit, sessionExit]) {
     assert.equal(exit.status, 'error');
-    assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_STARTUP_FAILED'), true);
+    assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_STARTUP_FAILED'), true);
   }
   assert.equal(capabilityHost.restores().length, 0);
   assert.equal(sessionHost.restores().length, 0);
@@ -605,8 +605,8 @@ test('runTui restores earlier and uncertain mutations after partial setup failur
   const exit = await runTui(app, host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'HOST_OUTPUT_INDETERMINATE'
-    && item.data?.operation === 'rawInput'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'HOST_OUTPUT_INDETERMINATE'
+    && item.diagnostic.data?.operation === 'rawInput'), true);
   assert.equal(host.stdin.isRawModeEnabled(), false);
   assert.equal(host.restores().length, 1);
   assert.match(host.output(), /\u001B\[\?1049h/u);
@@ -648,8 +648,8 @@ test('runTui bounds a hanging source disposer and reports restoration truthfully
   const exit = await running;
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
-    && item.data?.phase === 'runtime'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.diagnostic.data?.phase === 'runtime'), true);
   assert.equal(host.restores()[0]?.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
@@ -698,8 +698,8 @@ test('interrupts preempt a hanging dispatch and report unconfirmed restoration w
   const exit = await running;
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
-    && item.data?.phase === 'runtime'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.diagnostic.data?.phase === 'runtime'), true);
   assert.equal(host.restores()[0]?.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), false);
   const framesAfterExit = committedFrames;
@@ -720,7 +720,7 @@ test('runTui rejects non-TTY hosts deterministically before opening fullscreen p
   const exit = await runTui(app, host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics[0]?.code, 'HOST_CAPABILITY_UNAVAILABLE');
+  assert.equal(exit.diagnostics[0]?.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
   assert.equal(exit.snapshot.source, 'tui');
   assert.equal(exit.snapshot.root.id, 'non-tty-tui');
   assert.equal(host.output(), '');
@@ -748,7 +748,7 @@ test('runTui leaves an injected terminal host under caller ownership', async () 
   const exit = await runTui(app, host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics[0]?.code, 'HOST_CAPABILITY_UNAVAILABLE');
+  assert.equal(exit.diagnostics[0]?.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
   assert.equal(disposeCalls, 0);
   assert.equal((await host.getCapabilities()).isTty, false);
 });
@@ -799,7 +799,7 @@ test('TUI runtime exposes diagnostics to app views', async () => {
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
     view: (_state, context) => {
-      const item = context.diagnostics[0];
+      const item = context.diagnostics[0]?.diagnostic;
       return text(`${item?.code ?? 'none'}:${item?.data?.operation ?? 'none'}:${item?.data?.target ?? 'none'}`);
     }
   });
@@ -829,7 +829,7 @@ test('TUI runtime exposes diagnostics to subscription sources', async () => {
       generation: 0,
       delivery: 'sequential',
       async *messages(context) {
-        observed = `${context.diagnostics[0]?.code ?? 'none'}:${context.diagnostics[0]?.data?.operation ?? 'none'}`;
+        observed = `${context.diagnostics[0]?.diagnostic.code ?? 'none'}:${context.diagnostics[0]?.diagnostic.data?.operation ?? 'none'}`;
         yield { label: observed };
       }
     }],
@@ -852,7 +852,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
     view: (_state, context) => {
-      const item = context.diagnostics[0];
+      const item = context.diagnostics[0]?.diagnostic;
       return text(`${item?.code ?? 'none'}:${item?.data?.operation ?? 'none'}:${item?.data?.target ?? 'none'}`);
     }
   });
@@ -876,7 +876,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
   const exit = await running;
 
   assert.equal(exit.status, 'completed');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'HOST_PROTOCOL_SKIPPED'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'HOST_PROTOCOL_SKIPPED'), true);
 });
 
 test('runTui decodes legacy input when optional Kitty setup was not applied', async () => {
@@ -917,7 +917,7 @@ test('runTui decodes legacy input when optional Kitty setup was not applied', as
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { decodedAsKitty: false });
-  assert.equal(exit.diagnostics.some((item) => item.data?.operation === 'keyboardProfile'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.data?.operation === 'keyboardProfile'), true);
 });
 
 test('runTui restores terminal protocols on successful exit', async () => {
@@ -973,8 +973,6 @@ test('runTui processes host input chunks until the app exits', async () => {
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { submitted: true });
   assert.equal(harness.frames().length, 2);
-  assert.equal(harness.frames()[0].schemaVersion, 'terminal-ui.tui-frame.v2');
-  assert.equal(harness.diffs()[0].schemaVersion, 'terminal-ui.render-diff.v3');
   assert.equal(harness.diffs()[0].fullRewrite, true);
   assert.equal(harness.diffs()[1].fullRewrite, false);
   assert.match(renderFramePlain(harness.frames()[1]), /submitted/);
@@ -1362,7 +1360,7 @@ test('runTui restores terminal protocols after initialization failure', async ()
   const exit = await runTui(app, harness.host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_STARTUP_FAILED'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_STARTUP_FAILED'), true);
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
   assert.equal(harness.restores().length, 1);
   assert.match(harness.output(), /\u001B\[\?1049h/);
@@ -1577,7 +1575,7 @@ test('runTui restores terminal state after runtime and exit-handler cleanup fail
 
   assert.equal(exit.status, 'error');
   assert.deepEqual(exit.state, { done: true });
-  assert.equal(exit.diagnostics.filter((item) => item.code === 'TUI_CLEANUP_FAILED').length, 2);
+  assert.equal(exit.diagnostics.filter((item) => item.diagnostic.code === 'TUI_CLEANUP_FAILED').length, 2);
   assert.equal(harness.restores().length, 1);
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
 });

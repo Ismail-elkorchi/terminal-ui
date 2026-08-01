@@ -30,7 +30,6 @@ import { confirm, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
 import { createTranscriptRecorder, validateTranscript } from '@ismail-elkorchi/terminal-ui/transcript';
 import { createTerminalHarness, renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
-import { schemaArtifacts } from '@ismail-elkorchi/terminal-ui/schemas';
 
 type Message =
   | { readonly kind: 'increment' }
@@ -272,6 +271,5 @@ if (protocolWrites[0] !== '\u001B[?2004h' || promptResult.status !== 'submitted'
 if (!validateAccessibleSnapshot(accessible).ok || !validateTranscript(transcript).ok) {
   throw new Error('The packed accessibility or transcript entrypoint failed.');
 }
-if (schemaArtifacts.length < 7) throw new Error('The packed schema catalog is incomplete.');
 
 console.log('terminal-ui packed consumer passed');

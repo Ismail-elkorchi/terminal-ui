@@ -3,21 +3,24 @@ import type { TextWidthProfile } from '../text/index.ts';
 
 export type RuntimeTarget = 'node' | 'deno' | 'bun' | 'memory';
 
-export type TerminalCapabilityName =
-  | 'rawInput'
-  | 'resize'
-  | 'hyperlinks'
-  | 'keyboardProtocol'
-  | 'bracketedPaste'
-  | 'mouseReporting'
-  | 'alternateScreen'
-  | 'focusReporting'
-  | 'cursorVisibility'
-  | 'synchronizedOutput'
-  | 'scrollRegion'
-  | 'title'
-  | 'bell'
-  | 'clipboard';
+export const terminalCapabilityNames = [
+  'rawInput',
+  'resize',
+  'hyperlinks',
+  'keyboardProtocol',
+  'bracketedPaste',
+  'mouseReporting',
+  'alternateScreen',
+  'focusReporting',
+  'cursorVisibility',
+  'synchronizedOutput',
+  'scrollRegion',
+  'title',
+  'bell',
+  'clipboard'
+] as const;
+
+export type TerminalCapabilityName = typeof terminalCapabilityNames[number];
 
 export type TerminalFeatureSupport = 'supported' | 'unsupported' | 'unknown';
 export type HostFeatureAvailability = 'available' | 'unavailable';
@@ -50,25 +53,10 @@ export interface TerminalUnicodeCapability {
   readonly bidi: 'full' | 'stable-fallback';
 }
 
-export interface TerminalCapabilityProfile {
-  readonly schemaVersion: 'terminal-ui.terminal-capabilities.v1';
+export type TerminalCapabilityProfile = {
   readonly runtime: RuntimeTarget;
   readonly isTty: boolean;
   readonly color: TerminalColorCapability;
   readonly unicode: TerminalUnicodeCapability;
-  readonly rawInput: CapabilitySupport;
-  readonly resize: CapabilitySupport;
-  readonly hyperlinks: CapabilitySupport;
-  readonly keyboardProtocol: CapabilitySupport;
-  readonly bracketedPaste: CapabilitySupport;
-  readonly mouseReporting: CapabilitySupport;
-  readonly alternateScreen: CapabilitySupport;
-  readonly focusReporting: CapabilitySupport;
-  readonly cursorVisibility: CapabilitySupport;
-  readonly synchronizedOutput: CapabilitySupport;
-  readonly scrollRegion: CapabilitySupport;
-  readonly title: CapabilitySupport;
-  readonly bell: CapabilitySupport;
-  readonly clipboard: CapabilitySupport;
   readonly diagnostics: readonly TerminalDiagnostic[];
-}
+} & Readonly<Record<TerminalCapabilityName, CapabilitySupport>>;

@@ -4,6 +4,9 @@ import type { TuiApp, TuiDefinition } from './types.ts';
 export function defineTui<TState, TMessage>(
   definition: TuiDefinition<TState, TMessage>
 ): TuiApp<TState, TMessage> {
+  if (definition.transcript !== undefined && typeof definition.transcript !== 'boolean') {
+    throw new TypeError('TUI transcript must be a boolean when provided.');
+  }
   validateInputBindings(definition.inputBindings);
   return {
     id: definition.id ?? 'tui-app',

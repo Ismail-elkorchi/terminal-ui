@@ -84,7 +84,6 @@ function multilinePasteFailure<TChoice>(
 ): PromptResult<string> {
   completePromptState(state);
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason: 'validation_failed',
     diagnostics: [

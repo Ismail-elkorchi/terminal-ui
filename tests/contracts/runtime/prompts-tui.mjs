@@ -17,7 +17,7 @@ invariant(result.status === 'submitted' && result.value === true, 'non-TTY promp
 invariant(app.id === 'portable-app', 'TUI definition failed');
 invariant(
   tuiResult.status === 'error'
-    && tuiResult.diagnostics[0]?.code === 'HOST_CAPABILITY_UNAVAILABLE',
+    && tuiResult.diagnostics[0]?.diagnostic.code === 'HOST_CAPABILITY_UNAVAILABLE',
   'default-host non-TTY TUI handling failed'
 );
 

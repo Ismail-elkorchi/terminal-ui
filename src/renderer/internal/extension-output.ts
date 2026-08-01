@@ -1,46 +1,12 @@
 import { validateAccessibleSnapshot } from '../../accessibility/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
-import { isThemeColorToken } from '../../visual/color.ts';
+import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
+import { pointerEventKinds } from '../../input/pointer.ts';
 import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/index.ts';
-import type { PointerEventKind } from '../../input/index.ts';
-import type { TerminalColor, TerminalStyle } from '../../visual/render.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
 import type { CursorPosition, FocusTarget, HitTarget, Rect } from '../contracts.ts';
 
-const pointerEventKinds = new Set<PointerEventKind>([
-  'pointerDown',
-  'pointerUp',
-  'click',
-  'contextMenu',
-  'scroll',
-  'dragStart',
-  'drag',
-  'dragEnd',
-  'hover',
-  'enter',
-  'leave'
-]);
-
-const terminalStyleFlagFields = [
-  'bold',
-  'dim',
-  'italic',
-  'underline',
-  'strikethrough',
-  'inverse',
-  'hidden'
-] as const satisfies readonly (keyof TerminalStyle)[];
-
-const terminalStyleFields = new Set<string>([
-  'fg',
-  'bg',
-  ...terminalStyleFlagFields
-]);
-const ansiColorFields = new Set(['kind', 'value']);
-const rgbColorFields = new Set(['kind', 'r', 'g', 'b']);
-const themeColorFields = new Set(['kind', 'token']);
-
-type TerminalStyleFlagField = typeof terminalStyleFlagFields[number];
+const pointerEventKindSet = new Set<string>(pointerEventKinds);
 
 export function normalizeCustomFocusTargets(
   value: unknown,
@@ -85,29 +51,6 @@ export function normalizeCustomFocusTargets(
   return normalized;
 }
 
-export function normalizeCustomTerminalStyle(value: unknown, subject: string): TerminalStyle {
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`${subject} must be an object.`);
-  }
-  assertSupportedFields(value, terminalStyleFields, subject);
-  const fg = ownValue(value, 'fg');
-  const bg = ownValue(value, 'bg');
-  const flags: Partial<Record<TerminalStyleFlagField, boolean>> = {};
-  for (const field of terminalStyleFlagFields) {
-    const flag = ownValue(value, field);
-    if (flag === undefined) continue;
-    if (typeof flag !== 'boolean') {
-      throw new TypeError(`${subject}.${field} must be a boolean.`);
-    }
-    flags[field] = flag;
-  }
-  return {
-    ...(fg === undefined ? {} : { fg: normalizeCustomTerminalColor(fg, `${subject}.fg`) }),
-    ...(bg === undefined ? {} : { bg: normalizeCustomTerminalColor(bg, `${subject}.bg`) }),
-    ...flags
-  };
-}
-
 export function assertValidCustomHitTargets<TMessage>(
   value: unknown,
   owner: string
@@ -129,7 +72,7 @@ export function assertValidCustomHitTargets<TMessage>(
     const accepts = target['accepts'];
     if (accepts !== undefined) {
       if (!Array.isArray(accepts)
-        || accepts.some((kind) => typeof kind !== 'string' || !pointerEventKinds.has(kind as PointerEventKind))
+        || accepts.some((kind) => typeof kind !== 'string' || !pointerEventKindSet.has(kind))
         || new Set(accepts).size !== accepts.length) {
         throw new TypeError(`Custom renderer "${owner}" hit target "${id}" accepts contains invalid or duplicate event kinds.`);
       }
@@ -216,66 +159,13 @@ function normalizeCustomCursor(value: unknown, subject: string): CursorPosition 
   return {
     row: value['row'],
     column: value['column'],
-    ...(style === undefined ? {} : { style: normalizeCustomTerminalStyle(style, `${subject} style`) }),
+    ...(style === undefined ? {} : { style: normalizeTerminalStyle(style, `${subject} style`) }),
     ...(source === undefined ? {} : { source: source as FrameCellSource })
   };
 }
 
-function normalizeCustomTerminalColor(value: unknown, subject: string): TerminalColor {
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`${subject} must be an object.`);
-  }
-  const kind = ownValue(value, 'kind');
-  switch (kind) {
-    case 'ansi': {
-      assertSupportedFields(value, ansiColorFields, subject);
-      const index = ownValue(value, 'value');
-      if (!isColorChannel(index)) {
-        throw new RangeError(`${subject}.value must be an integer from 0 through 255.`);
-      }
-      return { kind, value: index };
-    }
-    case 'rgb': {
-      assertSupportedFields(value, rgbColorFields, subject);
-      const r = ownValue(value, 'r');
-      const g = ownValue(value, 'g');
-      const b = ownValue(value, 'b');
-      if (!isColorChannel(r)) throw new RangeError(`${subject}.r must be an integer from 0 through 255.`);
-      if (!isColorChannel(g)) throw new RangeError(`${subject}.g must be an integer from 0 through 255.`);
-      if (!isColorChannel(b)) throw new RangeError(`${subject}.b must be an integer from 0 through 255.`);
-      return { kind, r, g, b };
-    }
-    case 'theme': {
-      assertSupportedFields(value, themeColorFields, subject);
-      const token = ownValue(value, 'token');
-      if (typeof token !== 'string' || !isThemeColorToken(token)) {
-        throw new TypeError(`${subject}.token must be a supported theme color token.`);
-      }
-      return { kind, token };
-    }
-    default:
-      throw new TypeError(`${subject}.kind must be "ansi", "rgb", or "theme".`);
-  }
-}
-
-function assertSupportedFields(
-  value: Readonly<Record<string, unknown>>,
-  supported: ReadonlySet<string>,
-  subject: string
-): void {
-  for (const field of Object.keys(value)) {
-    if (!supported.has(field)) {
-      throw new TypeError(`${subject} contains unsupported field "${field}".`);
-    }
-  }
-}
-
 function ownValue(value: Readonly<Record<string, unknown>>, field: string): unknown {
   return Object.hasOwn(value, field) ? value[field] : undefined;
-}
-
-function isColorChannel(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255;
 }
 
 function isSafeInteger(value: unknown): value is number {

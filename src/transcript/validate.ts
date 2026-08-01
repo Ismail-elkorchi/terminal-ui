@@ -1,6 +1,13 @@
 import { validateAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic, diagnosticOccurrenceIssue, terminalDiagnosticIssue } from '../diagnostics.ts';
-import { isNonArrayObject, isNonEmptyString, isStringMember } from '../foundation/validation.ts';
+import { snapshotJsonValue } from '../foundation/json.ts';
+import {
+  findUnsupportedField,
+  isNonArrayObject,
+  isNonEmptyString,
+  isStringMember
+} from '../foundation/validation.ts';
+import { tuiMessageSources } from '../interaction/message.ts';
 import { err, ok } from '../result.ts';
 import { defineTextWidthProfile, measureTextCells } from '../text/index.ts';
 import { isFrameCellInteractionState, isFrameCellRole } from '../visual/source.ts';
@@ -10,57 +17,25 @@ import {
 } from '../renderer/internal/diff-interpreter.ts';
 import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalSize } from '../host/index.ts';
 import { normalizeKeyboardProfile } from '../protocol/index.ts';
-import type { KeyName, MouseAction, MouseButton, MouseEncoding } from '../input/index.ts';
+import {
+  keyEventTypes,
+  keyLocations,
+  keyNames,
+  mouseActions,
+  mouseButtons,
+  mouseEncodings,
+  mousePointerButtons,
+  mouseWheelButtons
+} from '../input/types.ts';
+import { pointerEventKinds } from '../input/pointer.ts';
 import type { Result } from '../result.ts';
 import type { CursorPosition, Frame, RenderDiff } from '../renderer/index.ts';
 import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter.ts';
 import type { TextWidthProfile } from '../text/index.ts';
-import type { TuiMessageSource } from '../interaction/message.ts';
-import type { InteractionTranscript, TranscriptSource } from './types.ts';
+import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
+import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
+import type { InteractionTranscript } from './types.ts';
 
-const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const satisfies readonly TranscriptSource[];
-const messageSources = ['input', 'signal', 'timer', 'external', 'effect'] as const satisfies readonly TuiMessageSource[];
-const keyNames = [
-  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-  'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12',
-  'enter',
-  'escape',
-  'tab',
-  'backspace',
-  'delete',
-  'arrowUp',
-  'arrowDown',
-  'arrowLeft',
-  'arrowRight',
-  'pageUp',
-  'pageDown',
-  'home',
-  'end',
-  'insert',
-  'space',
-  'add',
-  'subtract',
-  'multiply',
-  'divide',
-  'decimal',
-  'equal',
-  'unknown'
-] as const satisfies readonly KeyName[];
-const mouseEncodings = ['sgr', 'x10'] as const satisfies readonly MouseEncoding[];
-const mouseActions = ['press', 'release', 'drag', 'move', 'wheel'] as const satisfies readonly MouseAction[];
-const mouseButtons = [
-  'left',
-  'middle',
-  'right',
-  'wheelUp',
-  'wheelDown',
-  'wheelLeft',
-  'wheelRight',
-  'none',
-  'unknown'
-] as const satisfies readonly MouseButton[];
 const frameCellSourceFields = new Set([
   'elementId',
   'elementKind',
@@ -73,23 +48,168 @@ const frameCellSourceFields = new Set([
   'interactionState',
   'description'
 ]);
+const transcriptFrameFields = new Set([
+  'width',
+  'height',
+  'widthProfile',
+  'cells',
+  'hitTargets',
+  'cursor',
+  'focusPath',
+  'accessibility'
+]);
+const transcriptFields = new Set([
+  'formatVersion',
+  'id',
+  'source',
+  'startedAt',
+  'steps',
+  'diagnostics',
+  'redactions'
+]);
+const transcriptStepFields: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
+  input: new Set(['kind', 'event']),
+  message: new Set(['kind', 'source', 'message']),
+  commit: new Set(['kind', 'commit']),
+  snapshot: new Set(['kind', 'snapshot']),
+  diagnostic: new Set(['kind', 'occurrence']),
+  restore: new Set(['kind', 'result'])
+});
+const commitFields = new Set([
+  'id',
+  'stateVersion',
+  'terminalSize',
+  'focusPath',
+  'frame',
+  'diff'
+]);
+const terminalSizeFields = new Set(['columns', 'rows']);
+const redactionFields = new Set(['path', 'reason']);
+const keyEventFields = new Set([
+  'kind',
+  'key',
+  'keyCodePoint',
+  'sequence',
+  'modifiers',
+  'eventType',
+  'location',
+  'alternateCodePoints',
+  'committedText'
+]);
+const keyModifierFields = new Set(['ctrl', 'alt', 'shift', 'meta']);
+const alternateCodePointFields = new Set(['shifted', 'baseLayout']);
+const textEventFields = new Set(['kind', 'text', 'paste']);
+const pasteEventFields = new Set(['kind', 'text', 'bracketed']);
+const resizeEventFields = new Set(['kind', 'terminalSize']);
+const focusEventFields = new Set(['kind', 'focused']);
+const signalEventFields = new Set(['kind', 'signal']);
+const endEventFields = new Set(['kind']);
+const unknownEventFields = new Set(['kind', 'sequence']);
+const mouseEventFields = new Set([
+  'kind',
+  'sequence',
+  'encoding',
+  'action',
+  'button',
+  'row',
+  'column',
+  'rawCode',
+  'modifiers'
+]);
+const mouseWheelEventFields = new Set([
+  ...mouseEventFields,
+  'deltaRows',
+  'deltaColumns'
+]);
+const mouseModifierFields = new Set(['shift', 'alt', 'ctrl']);
+const frameCellFields = new Set([
+  'row',
+  'column',
+  'text',
+  'width',
+  'style',
+  'link',
+  'source',
+  'continuation'
+]);
+const cursorFields = new Set(['row', 'column', 'style', 'source']);
+const renderDiffFields = new Set([
+  'width',
+  'height',
+  'widthProfile',
+  'operations',
+  'cursor',
+  'fullRewrite',
+  'dirtyRegions'
+]);
+const textWidthProfileFields = new Set(['emoji', 'ambiguous']);
+const writeOperationFields = new Set(['kind', 'row', 'column', 'spans']);
+const clearRectOperationFields = new Set(['kind', 'bounds']);
+const renderSpanFields = new Set(['text', 'style', 'link', 'source']);
+const terminalLinkFields = new Set(['href', 'id']);
+const frameHitTargetFields = new Set([
+  'id',
+  'bounds',
+  'accepts',
+  'focus',
+  'cursor',
+  'zIndex'
+]);
+const resolvedFocusFields = new Set(['kind', 'path']);
+const preservedFocusFields = new Set(['kind']);
+const rectFields = new Set(['row', 'column', 'width', 'height']);
+const restoreResultFields = new Set([
+  'status',
+  'reason',
+  'requested',
+  'attempted',
+  'confirmed',
+  'resultingState',
+  'diagnostics'
+]);
+const terminalStateFields = new Set([
+  'rawInput',
+  'alternateScreen',
+  'bracketedPaste',
+  'mouseReporting',
+  'focusReporting',
+  'keyboardProfile',
+  'cursorVisible',
+  'provenance'
+]);
+const terminalStateProvenanceFields = new Set([
+  'rawInput',
+  'alternateScreen',
+  'bracketedPaste',
+  'mouseReporting',
+  'focusReporting',
+  'keyboardProfile',
+  'cursorVisible'
+]);
+const terminalStateChangeFields = new Set(['kind', 'enabled']);
+const legacyKeyboardProfileFields = new Set(['kind']);
+const kittyKeyboardProfileFields = new Set(['kind', 'flags']);
 
 export function validateTranscript(transcript: unknown): Result<InteractionTranscript> {
-  const issue = transcriptIssue(transcript);
+  let decoded: unknown;
+  try {
+    decoded = snapshotJsonValue(transcript, 'Interaction transcript');
+  } catch (cause) {
+    return transcriptFailure(errorMessage(cause));
+  }
+  const issue = transcriptIssue(decoded);
   if (issue !== undefined) return transcriptFailure(issue);
-  return isInteractionTranscript(transcript)
-    ? ok(transcript)
-    : transcriptFailure('Interaction transcript failed type narrowing after validation.');
-}
-
-function isInteractionTranscript(value: unknown): value is InteractionTranscript {
-  return transcriptIssue(value) === undefined;
+  return ok(decoded as InteractionTranscript);
 }
 
 function transcriptIssue(transcript: unknown): string | undefined {
   if (!isNonArrayObject(transcript)) return 'Interaction transcript must be an object.';
-  if (transcript['schemaVersion'] !== 'terminal-ui.interaction-transcript.v4') {
-    return 'Unsupported interaction transcript schema version.';
+  const unknownField = findUnsupportedField(transcript, transcriptFields);
+  if (unknownField !== undefined) {
+    return `Interaction transcript contains unsupported field: ${unknownField}.`;
+  }
+  if (transcript['formatVersion'] !== interactionTranscriptFormatVersion) {
+    return 'Unsupported interaction transcript format version.';
   }
   if (!isNonEmptyString(transcript['id'])) {
     return 'Interaction transcript id must not be empty.';
@@ -118,13 +238,62 @@ function transcriptIssue(transcript: unknown): string | undefined {
     const issue = diagnosticOccurrenceIssue(item);
     if (issue !== undefined) return `Invalid transcript diagnostic at index ${String(index)}: ${issue}`;
   }
+  const occurrenceIssue = transcriptDiagnosticOccurrenceIssue(
+    transcript['steps'],
+    transcript['diagnostics']
+  );
+  if (occurrenceIssue !== undefined) return occurrenceIssue;
   for (const [index, item] of transcript['redactions'].entries()) {
-    if (!isNonArrayObject(item) || typeof item['path'] !== 'string' || typeof item['reason'] !== 'string') {
+    if (!isNonArrayObject(item) || typeof item['path'] !== 'string' || item['reason'] !== 'secret') {
       return `Invalid transcript redaction at index ${String(index)}.`;
+    }
+    const unknownField = findUnsupportedField(item, redactionFields);
+    if (unknownField !== undefined) {
+      return `Invalid transcript redaction at index ${String(index)}: unsupported field ${unknownField}.`;
     }
   }
 
   return undefined;
+}
+
+function transcriptDiagnosticOccurrenceIssue(
+  steps: readonly unknown[],
+  diagnostics: readonly unknown[]
+): string | undefined {
+  const stepOccurrences = new Map<string, string>();
+  for (const step of steps) {
+    if (!isNonArrayObject(step) || step['kind'] !== 'diagnostic') continue;
+    const identity = diagnosticOccurrenceIdentity(step['occurrence']);
+    if (identity === undefined) continue;
+    if (stepOccurrences.has(identity.id)) {
+      return `Transcript diagnostic occurrence id ${identity.id} is duplicated in steps.`;
+    }
+    stepOccurrences.set(identity.id, identity.fingerprint);
+  }
+
+  const topLevelOccurrences = new Set<string>();
+  for (const occurrence of diagnostics) {
+    const identity = diagnosticOccurrenceIdentity(occurrence);
+    if (identity === undefined) continue;
+    if (topLevelOccurrences.has(identity.id)) {
+      return `Transcript diagnostic occurrence id ${identity.id} is duplicated in top-level diagnostics.`;
+    }
+    topLevelOccurrences.add(identity.id);
+    const stepFingerprint = stepOccurrences.get(identity.id);
+    if (stepFingerprint !== undefined && stepFingerprint !== identity.fingerprint) {
+      return `Transcript diagnostic occurrence id ${identity.id} has conflicting content between steps and top-level diagnostics.`;
+    }
+  }
+  return undefined;
+}
+
+function diagnosticOccurrenceIdentity(
+  occurrence: unknown
+): { readonly id: string; readonly fingerprint: string } | undefined {
+  if (!isNonArrayObject(occurrence) || typeof occurrence['id'] !== 'string') return undefined;
+  const item = occurrence['diagnostic'];
+  if (!isNonArrayObject(item) || typeof item['fingerprint'] !== 'string') return undefined;
+  return { id: occurrence['id'], fingerprint: item['fingerprint'] };
 }
 
 function transcriptOrderingIssue(steps: readonly unknown[]): string | undefined {
@@ -183,6 +352,15 @@ function errorMessage(cause: unknown): string {
 
 function stepIssue(step: unknown): string | undefined {
   if (!isNonArrayObject(step)) return 'step must be an object.';
+  const fields = typeof step['kind'] === 'string'
+    ? transcriptStepFields[step['kind']]
+    : undefined;
+  if (fields !== undefined) {
+    const unknownField = findUnsupportedField(step, fields);
+    if (unknownField !== undefined) {
+      return `step contains unsupported field: ${unknownField}.`;
+    }
+  }
   switch (step['kind']) {
     case 'input':
       return inputEventIssue(step['event']);
@@ -193,7 +371,7 @@ function stepIssue(step: unknown): string | undefined {
     case 'snapshot':
       return snapshotIssue(step['snapshot']);
     case 'diagnostic':
-      return diagnosticOccurrenceIssue(step['diagnostic']);
+      return diagnosticOccurrenceIssue(step['occurrence']);
     case 'restore':
       return restoreResultIssue(step['result']);
     default:
@@ -203,6 +381,8 @@ function stepIssue(step: unknown): string | undefined {
 
 function commitIssue(value: unknown): string | undefined {
   if (!isNonArrayObject(value)) return 'commit must be an object.';
+  const unknownField = findUnsupportedField(value, commitFields);
+  if (unknownField !== undefined) return `commit contains unsupported field: ${unknownField}.`;
   if (!isNonEmptyString(value['id'])) return 'commit id must not be empty.';
   if (!isIntegerAtLeast(value['stateVersion'], 0)) return 'commit stateVersion must be a non-negative integer.';
   const terminalSize = terminalSizeIssue(value['terminalSize']);
@@ -246,37 +426,67 @@ function sameOptionalStringArray(left: unknown, right: unknown): boolean {
 }
 
 function messageStepIssue(step: Record<string, unknown>): string | undefined {
-  if (!isStringMember(step['source'], messageSources)) return `unsupported message source: ${String(step['source'])}.`;
+  if (!isStringMember(step['source'], tuiMessageSources)) return `unsupported message source: ${String(step['source'])}.`;
   return Object.hasOwn(step, 'message') ? undefined : 'message step requires message.';
 }
 
 function inputEventIssue(event: unknown): string | undefined {
   if (!isNonArrayObject(event)) return 'input event must be an object.';
   switch (event['kind']) {
-    case 'key':
+    case 'key': {
+      const fieldIssue = eventFieldsIssue(event, keyEventFields);
+      if (fieldIssue !== undefined) return fieldIssue;
       return keyEventIssue(event);
-    case 'text':
+    }
+    case 'text': {
+      const fieldIssue = eventFieldsIssue(event, textEventFields);
+      if (fieldIssue !== undefined) return fieldIssue;
       return typeof event['text'] === 'string' && event['paste'] === false
         ? undefined
         : 'text event requires text and paste:false.';
-    case 'paste':
+    }
+    case 'paste': {
+      const fieldIssue = eventFieldsIssue(event, pasteEventFields);
+      if (fieldIssue !== undefined) return fieldIssue;
       return typeof event['text'] === 'string' && typeof event['bracketed'] === 'boolean'
         ? undefined
         : 'paste event requires text and bracketed.';
-    case 'mouse':
+    }
+    case 'mouse': {
+      const fieldIssue = eventFieldsIssue(
+        event,
+        event['action'] === 'wheel' ? mouseWheelEventFields : mouseEventFields
+      );
+      if (fieldIssue !== undefined) return fieldIssue;
       return mouseEventIssue(event);
-    case 'resize':
+    }
+    case 'resize': {
+      const fieldIssue = eventFieldsIssue(event, resizeEventFields);
+      if (fieldIssue !== undefined) return fieldIssue;
       return terminalSizeIssue(event['terminalSize']);
-    case 'focus':
+    }
+    case 'focus': {
+      const fieldIssue = eventFieldsIssue(event, focusEventFields);
+      if (fieldIssue !== undefined) return fieldIssue;
       return typeof event['focused'] === 'boolean' ? undefined : 'focus event requires focused.';
-    case 'signal':
+    }
+    case 'signal': {
+      const fieldIssue = eventFieldsIssue(event, signalEventFields);
+      if (fieldIssue !== undefined) return fieldIssue;
       return typeof event['signal'] === 'string' && event['signal'].length > 0
         ? undefined
         : 'signal event requires signal.';
-    case 'end':
+    }
+    case 'end': {
+      const fieldIssue = eventFieldsIssue(event, endEventFields);
+      if (fieldIssue !== undefined) return fieldIssue;
       return undefined;
-    case 'unknown':
+    }
+    case 'unknown': {
+      const fieldIssue = eventFieldsIssue(event, unknownEventFields);
+      if (fieldIssue !== undefined) return fieldIssue;
       return typeof event['sequence'] === 'string' ? undefined : 'unknown event requires sequence.';
+    }
     default:
       return `unsupported input event kind: ${String(event['kind'])}.`;
   }
@@ -285,6 +495,8 @@ function inputEventIssue(event: unknown): string | undefined {
 function keyEventIssue(event: Record<string, unknown>): string | undefined {
   if (!isStringMember(event['key'], keyNames)) return `unsupported key name: ${String(event['key'])}.`;
   if (!isNonArrayObject(event['modifiers'])) return 'key event requires modifiers.';
+  const modifierField = findUnsupportedField(event['modifiers'], keyModifierFields);
+  if (modifierField !== undefined) return `key modifiers contain unsupported field: ${modifierField}.`;
   for (const modifier of ['ctrl', 'alt', 'shift', 'meta'] as const) {
     if (typeof event['modifiers'][modifier] !== 'boolean') return `key modifiers require ${modifier}.`;
   }
@@ -299,13 +511,17 @@ function keyEventIssue(event: Record<string, unknown>): string | undefined {
     const issue = alternateCodePointsIssue(event['alternateCodePoints']);
     if (issue !== undefined) return issue;
   }
-  if (!isStringMember(event['eventType'], ['press', 'repeat', 'release'] as const)) return 'key event requires eventType.';
-  if (!isStringMember(event['location'], ['standard', 'numpad', 'unknown'] as const)) return 'key event requires location.';
+  if (!isStringMember(event['eventType'], keyEventTypes)) return 'key event requires eventType.';
+  if (!isStringMember(event['location'], keyLocations)) return 'key event requires location.';
   return undefined;
 }
 
 function alternateCodePointsIssue(value: unknown): string | undefined {
   if (!isNonArrayObject(value)) return 'key alternateCodePoints must be an object.';
+  const unknownField = findUnsupportedField(value, alternateCodePointFields);
+  if (unknownField !== undefined) {
+    return `key alternateCodePoints contains unsupported field: ${unknownField}.`;
+  }
   const shifted = value['shifted'];
   const baseLayout = value['baseLayout'];
   if (shifted === undefined && baseLayout === undefined) {
@@ -333,15 +549,28 @@ function mouseEventIssue(event: Record<string, unknown>): string | undefined {
   }
   if (!Number.isInteger(event['rawCode'])) return 'mouse event rawCode must be an integer.';
   if (!isNonArrayObject(event['modifiers'])) return 'mouse event requires modifiers.';
+  const modifierField = findUnsupportedField(event['modifiers'], mouseModifierFields);
+  if (modifierField !== undefined) return `mouse modifiers contain unsupported field: ${modifierField}.`;
   for (const modifier of ['shift', 'alt', 'ctrl'] as const) {
     if (typeof event['modifiers'][modifier] !== 'boolean') return `mouse modifiers require ${modifier}.`;
+  }
+  if (event['action'] === 'wheel') {
+    if (!isStringMember(event['button'], mouseWheelButtons)) {
+      return 'wheel event requires a wheel-compatible button.';
+    }
+    if (!isFiniteNumber(event['deltaRows']) || !isFiniteNumber(event['deltaColumns'])) {
+      return 'wheel event requires finite deltaRows and deltaColumns.';
+    }
+  } else if (!isStringMember(event['button'], mousePointerButtons)) {
+    return 'pointer event requires a pointer-compatible button.';
   }
   return undefined;
 }
 
 function frameIssue(frame: unknown): string | undefined {
   if (!isNonArrayObject(frame)) return 'frame must be an object.';
-  if (frame['schemaVersion'] !== 'terminal-ui.tui-frame.v2') return 'frame schemaVersion is invalid.';
+  const unknownField = findUnsupportedField(frame, transcriptFrameFields);
+  if (unknownField !== undefined) return `frame contains unsupported field: ${unknownField}.`;
   if (!isIntegerAtLeast(frame['width'], 0) || !isIntegerAtLeast(frame['height'], 0)) {
     return 'frame width and height must be non-negative integers.';
   }
@@ -356,6 +585,13 @@ function frameIssue(frame: unknown): string | undefined {
     const issue = cursorIssue(frame['cursor']);
     if (issue !== undefined) return issue;
   }
+  if (frame['hitTargets'] !== undefined) {
+    if (!Array.isArray(frame['hitTargets'])) return 'frame hitTargets must be an array.';
+    for (const [index, target] of frame['hitTargets'].entries()) {
+      const issue = frameHitTargetIssue(target, Number(frame['width']), Number(frame['height']));
+      if (issue !== undefined) return `frame hit target ${String(index)}: ${issue}`;
+    }
+  }
   if (frame['focusPath'] !== undefined && !isStringArray(frame['focusPath'])) {
     return 'frame focusPath must be a string array.';
   }
@@ -365,6 +601,8 @@ function frameIssue(frame: unknown): string | undefined {
 
 function frameCellIssue(cell: unknown): string | undefined {
   if (!isNonArrayObject(cell)) return 'cell must be an object.';
+  const unknownField = findUnsupportedField(cell, frameCellFields);
+  if (unknownField !== undefined) return `cell contains unsupported field: ${unknownField}.`;
   if (!isIntegerAtLeast(cell['row'], 1) || !isIntegerAtLeast(cell['column'], 1)) {
     return 'row and column must be positive integers.';
   }
@@ -373,6 +611,10 @@ function frameCellIssue(cell: unknown): string | undefined {
   if (cell['continuation'] !== undefined && typeof cell['continuation'] !== 'boolean') {
     return 'continuation must be a boolean.';
   }
+  const style = terminalStyleIssue(cell['style'], 'cell style');
+  if (style !== undefined) return style;
+  const link = terminalLinkIssue(cell['link']);
+  if (link !== undefined) return `link: ${link}`;
   const sourceIssue = frameCellSourceIssue(cell['source']);
   if (sourceIssue !== undefined) return `source: ${sourceIssue}`;
   return undefined;
@@ -380,17 +622,22 @@ function frameCellIssue(cell: unknown): string | undefined {
 
 function cursorIssue(cursor: unknown): string | undefined {
   if (!isNonArrayObject(cursor)) return 'frame cursor must be an object.';
+  const unknownField = findUnsupportedField(cursor, cursorFields);
+  if (unknownField !== undefined) return `cursor contains unsupported field: ${unknownField}.`;
   const typed = cursor as Partial<CursorPosition>;
   if (!isIntegerAtLeast(typed.row, 1) || !isIntegerAtLeast(typed.column, 1)) {
     return 'frame cursor row and column must be positive integers.';
   }
+  const style = terminalStyleIssue(cursor['style'], 'cursor style');
+  if (style !== undefined) return style;
   const sourceIssue = frameCellSourceIssue(cursor['source']);
   return sourceIssue === undefined ? undefined : `frame cursor source: ${sourceIssue}`;
 }
 
 function renderDiffIssue(diff: unknown): string | undefined {
   if (!isNonArrayObject(diff)) return 'diff must be an object.';
-  if (diff['schemaVersion'] !== 'terminal-ui.render-diff.v3') return 'diff schemaVersion is invalid.';
+  const unknownField = findUnsupportedField(diff, renderDiffFields);
+  if (unknownField !== undefined) return `diff contains unsupported field: ${unknownField}.`;
   if (!isIntegerAtLeast(diff['width'], 0) || !isIntegerAtLeast(diff['height'], 0)) {
     return 'diff width and height must be non-negative integers.';
   }
@@ -424,6 +671,8 @@ function renderDiffIssue(diff: unknown): string | undefined {
 
 function textWidthProfileIssue(value: unknown): string | undefined {
   if (!isNonArrayObject(value)) return 'must be an object.';
+  const unknownField = findUnsupportedField(value, textWidthProfileFields);
+  if (unknownField !== undefined) return `contains unsupported field: ${unknownField}.`;
   if (value['emoji'] !== 'narrow' && value['emoji'] !== 'wide') {
     return 'emoji must be "narrow" or "wide".';
   }
@@ -442,6 +691,10 @@ function renderOperationIssue(
   if (!isNonArrayObject(operation)) return 'operation must be an object.';
   switch (operation['kind']) {
     case 'write': {
+      const unknownField = findUnsupportedField(operation, writeOperationFields);
+      if (unknownField !== undefined) {
+        return `write contains unsupported field: ${unknownField}.`;
+      }
       if (!isIntegerAtLeast(operation['row'], 1) || !isIntegerAtLeast(operation['column'], 1)) {
         return 'write requires positive integer row and column.';
       }
@@ -455,6 +708,14 @@ function renderOperationIssue(
         if (!isNonArrayObject(item) || typeof item['text'] !== 'string') {
           return 'write spans must contain text.';
         }
+        const unknownField = findUnsupportedField(item, renderSpanFields);
+        if (unknownField !== undefined) {
+          return `write span contains unsupported field: ${unknownField}.`;
+        }
+        const style = terminalStyleIssue(item['style'], 'write span style');
+        if (style !== undefined) return style;
+        const link = terminalLinkIssue(item['link']);
+        if (link !== undefined) return `write span link: ${link}`;
         const sourceIssue = frameCellSourceIssue(item['source']);
         if (sourceIssue !== undefined) return `write span source: ${sourceIssue}`;
         columns += measureTextCells(item['text'], { widthProfile }).cells;
@@ -465,8 +726,13 @@ function renderOperationIssue(
       }
       return undefined;
     }
-    case 'clearRect':
+    case 'clearRect': {
+      const unknownField = findUnsupportedField(operation, clearRectOperationFields);
+      if (unknownField !== undefined) {
+        return `clearRect contains unsupported field: ${unknownField}.`;
+      }
       return boundedRectIssue(operation['bounds'], width, height);
+    }
     default:
       return `unsupported diff operation kind: ${String(operation['kind'])}.`;
   }
@@ -475,8 +741,24 @@ function renderOperationIssue(
 function frameCellSourceIssue(source: unknown): string | undefined {
   if (source === undefined) return undefined;
   if (!isNonArrayObject(source)) return 'must be an object.';
-  const unknownField = Object.keys(source).find((field) => !frameCellSourceFields.has(field));
+  const unknownField = findUnsupportedField(source, frameCellSourceFields);
   if (unknownField !== undefined) return `unsupported field: ${unknownField}.`;
+  for (const field of [
+    'elementId',
+    'elementKind',
+    'rendererFamily',
+    'partName',
+    'partType',
+    'itemId',
+    'description'
+  ] as const) {
+    if (source[field] !== undefined && typeof source[field] !== 'string') {
+      return `${field} must be a string.`;
+    }
+  }
+  if (source['itemIndex'] !== undefined && !isIntegerAtLeast(source['itemIndex'], 0)) {
+    return 'itemIndex must be a non-negative integer.';
+  }
   if (source['cellRole'] !== undefined && !isFrameCellRole(source['cellRole'])) {
     return 'cellRole must identify a supported frame-cell role.';
   }
@@ -489,8 +771,90 @@ function frameCellSourceIssue(source: unknown): string | undefined {
   return undefined;
 }
 
+function terminalStyleIssue(style: unknown, subject: string): string | undefined {
+  if (style === undefined) return undefined;
+  try {
+    normalizeTerminalStyle(style, subject);
+    return undefined;
+  } catch (cause) {
+    return errorMessage(cause);
+  }
+}
+
+function terminalLinkIssue(link: unknown): string | undefined {
+  if (link === undefined) return undefined;
+  if (!isNonArrayObject(link)) return 'must be an object.';
+  const unknownField = findUnsupportedField(link, terminalLinkFields);
+  if (unknownField !== undefined) return `unsupported field: ${unknownField}.`;
+  if (typeof link['href'] !== 'string') return 'href must be a string.';
+  if (link['id'] !== undefined && typeof link['id'] !== 'string') return 'id must be a string.';
+  return undefined;
+}
+
+function frameHitTargetIssue(target: unknown, width: number, height: number): string | undefined {
+  if (!isNonArrayObject(target)) return 'must be an object.';
+  const unknownField = findUnsupportedField(target, frameHitTargetFields);
+  if (unknownField !== undefined) return `contains unsupported field: ${unknownField}.`;
+  if (!isNonEmptyString(target['id'])) return 'id must be a non-empty string.';
+  const bounds = frameRectIssue(target['bounds'], width, height);
+  if (bounds !== undefined) return `bounds: ${bounds}`;
+  if (target['accepts'] !== undefined) {
+    if (!Array.isArray(target['accepts'])
+      || target['accepts'].some((kind) => !isStringMember(kind, pointerEventKinds))
+      || new Set(target['accepts']).size !== target['accepts'].length) {
+      return 'accepts must contain unique supported pointer event kinds.';
+    }
+  }
+  const focus = target['focus'];
+  if (focus !== undefined) {
+    if (!isNonArrayObject(focus)) return 'focus must be an object.';
+    if (focus['kind'] === 'focus') {
+      const unknownField = findUnsupportedField(focus, resolvedFocusFields);
+      if (unknownField !== undefined) {
+        return `focus contains unsupported field: ${unknownField}.`;
+      }
+      if (!isStringArray(focus['path']) || focus['path'].length === 0) {
+        return 'focus path must be a non-empty string array.';
+      }
+    } else if (focus['kind'] === 'preserve') {
+      const unknownField = findUnsupportedField(focus, preservedFocusFields);
+      if (unknownField !== undefined) {
+        return `focus contains unsupported field: ${unknownField}.`;
+      }
+    } else {
+      return 'focus must be a resolved focus or preserve intent.';
+    }
+  }
+  if (target['cursor'] !== undefined
+    && !isStringMember(target['cursor'], ['pointer', 'text', 'default'] as const)) {
+    return 'cursor must be pointer, text, or default.';
+  }
+  if (target['zIndex'] !== undefined && !Number.isSafeInteger(target['zIndex'])) {
+    return 'zIndex must be a safe integer.';
+  }
+  return undefined;
+}
+
+function frameRectIssue(rect: unknown, width: number, height: number): string | undefined {
+  if (!isNonArrayObject(rect)) return 'must be an object.';
+  const unknownField = findUnsupportedField(rect, rectFields);
+  if (unknownField !== undefined) return `contains unsupported field: ${unknownField}.`;
+  if (!isIntegerAtLeast(rect['row'], 1)
+    || !isIntegerAtLeast(rect['column'], 1)
+    || !isIntegerAtLeast(rect['width'], 0)
+    || !isIntegerAtLeast(rect['height'], 0)) {
+    return 'must contain positive integer coordinates and non-negative integer dimensions.';
+  }
+  return Number(rect['row']) + Number(rect['height']) - 1 <= height
+    && Number(rect['column']) + Number(rect['width']) - 1 <= width
+    ? undefined
+    : 'must fit within the declared frame.';
+}
+
 function rectIssue(rect: unknown): string | undefined {
   if (!isNonArrayObject(rect)) return 'clearRect bounds must be an object.';
+  const unknownField = findUnsupportedField(rect, rectFields);
+  if (unknownField !== undefined) return `bounds contain unsupported field: ${unknownField}.`;
   return isIntegerAtLeast(rect['row'], 1)
     && isIntegerAtLeast(rect['column'], 1)
     && isIntegerAtLeast(rect['width'], 1)
@@ -524,6 +888,10 @@ function snapshotIssue(snapshot: unknown): string | undefined {
 
 function restoreResultIssue(result: unknown): string | undefined {
   if (!isNonArrayObject(result)) return 'restore result must be an object.';
+  const unknownField = findUnsupportedField(result, restoreResultFields);
+  if (unknownField !== undefined) {
+    return `restore result contains unsupported field: ${unknownField}.`;
+  }
   const typed = result as Partial<TerminalRestoreResult>;
   if (!isStringMember(typed.status, ['restored', 'partial', 'failed'] as const)) return 'restore result requires status.';
   if (!isStringMember(typed.reason, ['success', 'cancelled', 'interrupted', 'timeout', 'error', 'disposed'] as const)) {
@@ -588,6 +956,8 @@ function terminalStateChangesEqual(left: TerminalStateChange, right: TerminalSta
 
 function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
   if (!isNonArrayObject(checkpoint)) return 'terminal state must be an object.';
+  const unknownField = findUnsupportedField(checkpoint, terminalStateFields);
+  if (unknownField !== undefined) return `terminal state contains unsupported field: ${unknownField}.`;
   const typed = checkpoint as Partial<TerminalStateSnapshot>;
   if (typeof typed.rawInput !== 'boolean') return 'terminal state requires rawInput.';
   if (typeof typed.alternateScreen !== 'boolean') return 'terminal state requires alternateScreen.';
@@ -596,13 +966,14 @@ function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
     return 'terminal state requires mouseReporting.';
   }
   if (typeof typed.focusReporting !== 'boolean') return 'terminal state requires focusReporting.';
-  try {
-    normalizeKeyboardProfile(typed.keyboardProfile);
-  } catch {
-    return 'terminal state requires a valid keyboardProfile.';
-  }
+  const keyboardProfileIssue = terminalKeyboardProfileIssue(typed.keyboardProfile);
+  if (keyboardProfileIssue !== undefined) return `terminal state keyboardProfile: ${keyboardProfileIssue}`;
   if (typeof typed.cursorVisible !== 'boolean') return 'terminal state requires cursorVisible.';
   if (!isNonArrayObject(typed.provenance)) return 'terminal state requires provenance.';
+  const provenanceField = findUnsupportedField(typed.provenance, terminalStateProvenanceFields);
+  if (provenanceField !== undefined) {
+    return `terminal state provenance contains unsupported field: ${provenanceField}.`;
+  }
   for (const key of ['rawInput', 'alternateScreen', 'bracketedPaste', 'mouseReporting', 'focusReporting', 'keyboardProfile', 'cursorVisible'] as const) {
     if (!isStringMember(typed.provenance[key], ['observed', 'explicit', 'library_known', 'assumed', 'indeterminate'] as const)) {
       return `terminal state provenance requires ${key}.`;
@@ -613,6 +984,10 @@ function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
 
 function terminalStateChangeIssue(operation: unknown): string | undefined {
   if (!isNonArrayObject(operation)) return 'terminal state change must be an object.';
+  const unknownField = findUnsupportedField(operation, terminalStateChangeFields);
+  if (unknownField !== undefined) {
+    return `terminal state change contains unsupported field: ${unknownField}.`;
+  }
   const typed = operation as Partial<TerminalStateChange>;
   switch (typed.kind) {
     case 'rawInput':
@@ -626,12 +1001,7 @@ function terminalStateChangeIssue(operation: unknown): string | undefined {
         ? undefined
         : 'mouseReporting requires a valid mode.';
     case 'keyboardProfile':
-      try {
-        normalizeKeyboardProfile(typed.enabled);
-        return undefined;
-      } catch {
-        return 'keyboardProfile requires a valid profile.';
-      }
+      return terminalKeyboardProfileIssue(typed.enabled);
     default:
       return 'terminal state change requires a valid kind.';
   }
@@ -639,10 +1009,29 @@ function terminalStateChangeIssue(operation: unknown): string | undefined {
 
 function terminalSizeIssue(terminalSize: unknown): string | undefined {
   if (!isNonArrayObject(terminalSize)) return 'terminal size must be an object.';
+  const unknownField = findUnsupportedField(terminalSize, terminalSizeFields);
+  if (unknownField !== undefined) return `terminal size contains unsupported field: ${unknownField}.`;
   const typed = terminalSize as Partial<TerminalSize>;
   return isIntegerAtLeast(typed.columns, 1) && isIntegerAtLeast(typed.rows, 1)
     ? undefined
     : 'terminal size columns and rows must be positive integers.';
+}
+
+function terminalKeyboardProfileIssue(profile: unknown): string | undefined {
+  if (!isNonArrayObject(profile)) return 'keyboardProfile must be an object.';
+  const allowedFields = profile['kind'] === 'kitty'
+    ? kittyKeyboardProfileFields
+    : legacyKeyboardProfileFields;
+  const unknownField = findUnsupportedField(profile, allowedFields);
+  if (unknownField !== undefined) {
+    return `keyboardProfile contains unsupported field: ${unknownField}.`;
+  }
+  try {
+    normalizeKeyboardProfile(profile);
+    return undefined;
+  } catch {
+    return 'keyboardProfile must be a valid legacy or Kitty profile.';
+  }
 }
 
 function transcriptFailure(message: string): Result<never> {
@@ -655,4 +1044,18 @@ function isStringArray(value: unknown): value is readonly string[] {
 
 function isIntegerAtLeast(value: unknown, min: number): boolean {
   return Number.isInteger(value) && Number(value) >= min;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function eventFieldsIssue(
+  event: Record<string, unknown>,
+  fields: ReadonlySet<string>
+): string | undefined {
+  const unknownField = findUnsupportedField(event, fields);
+  return unknownField === undefined
+    ? undefined
+    : `input event contains unsupported field: ${unknownField}.`;
 }

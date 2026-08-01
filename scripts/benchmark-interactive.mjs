@@ -59,7 +59,7 @@ const [{ btopMonitorApp }, { ideEditorApp }, { interactiveWorkspaceApp }] = awai
   import('../examples/tui/interactive-workspace.ts')
 ]);
 const metadata = Object.freeze({
-  schemaVersion: 'terminal-ui.performance-evidence.v2',
+  formatVersion: 2,
   runtime: 'node',
   runtimeVersion: process.version,
   platform: process.platform,

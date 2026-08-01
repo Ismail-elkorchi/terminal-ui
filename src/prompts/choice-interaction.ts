@@ -219,7 +219,6 @@ function multiSelectValidationFailure<TValue>(
 ): PromptResult<readonly TValue[]> {
   completePromptState(state);
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason: 'validation_failed',
     diagnostics: [diagnostic('PROMPT_VALIDATION_FAILED', message)],

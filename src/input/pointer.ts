@@ -1,17 +1,20 @@
 import type { MouseButton, MouseEvent as TerminalMouseEvent, MouseModifiers } from './types.ts';
 
-export type PointerEventKind =
-  | 'pointerDown'
-  | 'pointerUp'
-  | 'click'
-  | 'contextMenu'
-  | 'scroll'
-  | 'dragStart'
-  | 'drag'
-  | 'dragEnd'
-  | 'hover'
-  | 'enter'
-  | 'leave';
+export const pointerEventKinds = [
+  'pointerDown',
+  'pointerUp',
+  'click',
+  'contextMenu',
+  'scroll',
+  'dragStart',
+  'drag',
+  'dragEnd',
+  'hover',
+  'enter',
+  'leave'
+] as const;
+
+export type PointerEventKind = typeof pointerEventKinds[number];
 
 export type PointerClickCount = 0 | 1 | 2;
 

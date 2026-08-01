@@ -10,6 +10,7 @@ export type {
   TerminalFeatureSupport,
   TerminalUnicodeCapability
 } from './capability-types.ts';
+export { terminalCapabilityNames } from './capability-types.ts';
 export type {
   BunTerminalHostOptions,
   CreateTerminalHostOptions,

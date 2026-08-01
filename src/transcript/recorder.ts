@@ -5,8 +5,11 @@ import type {
   TranscriptRecorder,
   TranscriptRecorderOptions
 } from './types.ts';
+import { interactionTranscriptFormatVersion } from './types.ts';
 import { createDiagnosticOccurrenceReporter } from '../diagnostics.ts';
+import { snapshotJsonValue, snapshotUnknownJsonValue } from '../foundation/json.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
+import type { Frame } from '../renderer/index.ts';
 
 export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}): TranscriptRecorder {
   const id = options.id ?? 'transcript';
@@ -17,7 +20,10 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
   const redactions: TranscriptRedaction[] = [];
   return {
     record(step) {
-      steps.push(step);
+      steps.push(recordedTranscriptStep(step));
+    },
+    recordMessage(source, message) {
+      steps.push({ kind: 'message', source, message: snapshotUnknownJsonValue(message) });
     },
     reportDiagnostic(item) {
       const occurrence = reporter.report(item);
@@ -32,7 +38,7 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
     },
     snapshot(): InteractionTranscript {
       return {
-        schemaVersion: 'terminal-ui.interaction-transcript.v4',
+        formatVersion: interactionTranscriptFormatVersion,
         id,
         source: options.source ?? 'test',
         startedAt: options.startedAt ?? new Date(0).toISOString(),
@@ -47,6 +53,50 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
     if (diagnosticIds.has(item.id)) return;
     diagnosticIds.add(item.id);
     diagnostics.push(item);
-    steps.push({ kind: 'diagnostic', diagnostic: item });
+    steps.push({ kind: 'diagnostic', occurrence: item });
   }
+}
+
+function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTranscriptStep {
+  switch (step.kind) {
+    case 'commit':
+      return {
+        kind: 'commit',
+        commit: {
+          id: step.commit.id,
+          stateVersion: step.commit.stateVersion,
+          terminalSize: step.commit.terminalSize,
+          ...(step.commit.focusPath === undefined ? {} : { focusPath: step.commit.focusPath }),
+          frame: transcriptFrame(step.commit.frame),
+          diff: step.commit.diff
+        }
+      };
+    case 'input':
+      return step;
+    case 'message':
+      return {
+        kind: 'message',
+        source: step.source,
+        message: snapshotJsonValue(step.message, 'Transcript message')
+      };
+    case 'snapshot':
+      return step;
+    case 'diagnostic':
+      return step;
+    case 'restore':
+      return step;
+  }
+}
+
+function transcriptFrame(frame: Frame): Frame {
+  return {
+    width: frame.width,
+    height: frame.height,
+    widthProfile: frame.widthProfile,
+    cells: frame.cells,
+    ...(frame.hitTargets === undefined ? {} : { hitTargets: frame.hitTargets }),
+    ...(frame.cursor === undefined ? {} : { cursor: frame.cursor }),
+    ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
+    accessibility: frame.accessibility
+  };
 }

@@ -48,7 +48,7 @@ import type {
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import type { SearchEntry, TableColumn, TreeNode } from '@ismail-elkorchi/terminal-ui';
-import type { InputEvent, KeyEvent, MouseEvent } from '@ismail-elkorchi/terminal-ui/input';
+import type { InputEvent, KeyEvent, MousePointerEvent } from '@ismail-elkorchi/terminal-ui/input';
 
 interface Ticket {
   readonly id: string;
@@ -562,7 +562,7 @@ function mouseEvent(
   action: 'press' | 'release',
   row: number,
   column: number,
-  button: MouseEvent['button']
+  button: MousePointerEvent['button']
 ): InputEvent {
   return {
     kind: 'mouse',

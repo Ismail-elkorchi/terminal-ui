@@ -64,7 +64,6 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
   assert.equal(layout.children[0]?.children[1]?.children[1]?.id, 'action-field');
 
   const frame = renderElementFrame(initialElement, terminalSize);
-  assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v2');
   assert.equal(frame.width, 30);
   assert.equal(frame.height, 6);
   assert.equal(frame.accessibility.source, 'renderer');
@@ -80,7 +79,6 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
     focusPath: frame.focusPath
   });
   const diff = diffFrames(frame, submittedFrame);
-  assert.equal(diff.schemaVersion, 'terminal-ui.render-diff.v3');
   assert.equal(diff.fullRewrite, false);
   assert.ok(diff.operations.every((operation) => operation.kind === 'write' || operation.kind === 'clearRect'));
   assert.ok(diff.operations.some((operation) =>

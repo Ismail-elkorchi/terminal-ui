@@ -1,5 +1,6 @@
 import { createFrameBuffer } from './frame-buffer.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
+import { sameFrameCellSource, sameTerminalStyle } from '../../visual/render.ts';
 import { sameFrameCell } from './frame.ts';
 import type { RenderDiff } from '../contracts.ts';
 import type { CursorPosition } from '../contracts.ts';
@@ -82,5 +83,8 @@ export function renderDiffProjectionMatchesFrame(
 function sameCursor(left: CursorPosition | undefined, right: CursorPosition | undefined): boolean {
   return left === undefined || right === undefined
     ? left === right
-    : left.row === right.row && left.column === right.column;
+    : left.row === right.row
+      && left.column === right.column
+      && sameTerminalStyle(left.style, right.style)
+      && sameFrameCellSource(left.source, right.source);
 }

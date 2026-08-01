@@ -22,8 +22,8 @@ test('TUI non-TTY reject mode returns a typed diagnostic without control sequenc
   const result = await runTui(app, host);
 
   assert.equal(result.status, 'error');
-  assert.equal(result.diagnostics[0]?.code, 'HOST_CAPABILITY_UNAVAILABLE');
-  assert.equal(result.diagnostics[0]?.hint, 'Use last_frame for CI.');
+  assert.equal(result.diagnostics[0]?.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
+  assert.equal(result.diagnostics[0]?.diagnostic.hint, 'Use last_frame for CI.');
   assert.equal(host.output(), '');
   assert.equal(host.restores().length, 0);
 });
@@ -32,7 +32,7 @@ test('TUI non-TTY transcript_only mode renders a snapshot without terminal outpu
   const host = createMemoryTerminalHost({ isTty: false });
   const app = defineTui({
     id: 'non-tty-transcript',
-    transcript: { enabled: true },
+    transcript: true,
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state }),
     view: (state) => statusBar({ id: 'status', leading: [{ id: 'state', kind: 'text', text: state.label }] }),
@@ -88,7 +88,7 @@ test('TUI non-TTY run reports initialization failures without disposing an injec
   const result = await runTui(app, host);
 
   assert.equal(result.status, 'error');
-  assert.equal(result.diagnostics[0]?.code, 'TUI_INITIALIZATION_FAILED');
+  assert.equal(result.diagnostics[0]?.diagnostic.code, 'TUI_INITIALIZATION_FAILED');
   assert.equal(disposed, false);
 });
 
@@ -107,7 +107,7 @@ test('TUI non-TTY render failures preserve an initialized undefined state', asyn
   const result = await runTui(app, host);
 
   assert.equal(result.status, 'error');
-  assert.equal(result.diagnostics[0]?.code, 'TUI_RENDER_FAILED');
+  assert.equal(result.diagnostics[0]?.diagnostic.code, 'TUI_RENDER_FAILED');
   assert.equal(Object.hasOwn(result, 'state'), true);
   assert.equal(result.state, undefined);
 });

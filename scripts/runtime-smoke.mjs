@@ -14,10 +14,17 @@ assertFunction(promptsModule.runPrompt, `${runtime}:runPrompt`);
 
 const host = root.createTerminalHost({ runtime: 'memory', id: `${runtime}-smoke` });
 assertEqual(host.runtime, 'memory', `${runtime}:memoryHostRuntime`);
-assertEqual((await host.getCapabilities()).schemaVersion, 'terminal-ui.terminal-capabilities.v1', `${runtime}:capabilitiesSchema`);
 
 const defaultHost = root.createTerminalHost();
 assertEqual(defaultHost.runtime, runtime, `${runtime}:defaultHostRuntime`);
+
+let deepCause = { leaf: true };
+for (let depth = 0; depth < 2_000; depth += 1) deepCause = { next: deepCause };
+assertEqual(
+  root.diagnostic('TUI_RUN_FAILED', 'deep cause', { cause: deepCause }).fingerprint,
+  'diagnostic:sha256:a7728c5f5f4103e767e19d8831f25d08f7ff0e004c05c320c7b65cce88b069d0',
+  `${runtime}:boundedDiagnosticFingerprint`
+);
 
 console.log(`terminal-ui runtime smoke passed: ${runtime}`);
 

@@ -33,7 +33,6 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/accessibility`
 - `@ismail-elkorchi/terminal-ui/transcript`
 - `@ismail-elkorchi/terminal-ui/testing`
-- `@ismail-elkorchi/terminal-ui/schemas`
 
 All public results use typed data for ordinary cancellation, validation
 failure, non-TTY denial, transcript replay mismatch, and terminal capability

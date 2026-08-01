@@ -216,7 +216,7 @@ test('runPrompt aborts editor adapters on timeout', async () => {
 
 test('runPrompt reads interactive input from a terminal host', async () => {
   const harness = createTerminalHarness();
-  const running = runPrompt(input({ label: 'Name', transcript: { enabled: true } }), harness.host);
+  const running = runPrompt(input({ label: 'Name', transcript: true }), harness.host);
 
   harness.host.input('Ada\r');
   harness.host.endInput();
@@ -271,7 +271,7 @@ test('runPrompt applies prompt theme symbols and terminal styling safely', async
 
 test('runPrompt enforces required interactive text input', async () => {
   const harness = createTerminalHarness();
-  const running = runPrompt(input({ label: 'Name', required: true, transcript: { enabled: true } }), harness.host);
+  const running = runPrompt(input({ label: 'Name', required: true, transcript: true }), harness.host);
 
   await waitUntil(() => /Prompt value is required\./u.test(harness.output()));
   harness.host.input('\r');
@@ -282,7 +282,7 @@ test('runPrompt enforces required interactive text input', async () => {
   assert.equal(result.reason, 'validation_failed');
   assert.equal(result.diagnostics[0]?.message, 'Prompt value is required.');
   assert.equal(result.diagnostics[0]?.data?.validationCode, 'required');
-  assert.equal(result.transcript?.diagnostics[0]?.message, 'Prompt value is required.');
+  assert.equal(result.transcript?.diagnostics[0]?.diagnostic.message, 'Prompt value is required.');
   assert.equal(result.transcript?.steps.some((step) => step.kind === 'snapshot'), true);
 });
 
@@ -318,7 +318,7 @@ test('completed interactive prompts release their input reader', async () => {
 test('runPrompt times out interactive prompts through the terminal clock', async () => {
   const harness = createTerminalHarness();
 
-  const running = runPrompt(input({ label: 'Name', timeoutMs: 10, transcript: { enabled: true } }), harness.host);
+  const running = runPrompt(input({ label: 'Name', timeoutMs: 10, transcript: true }), harness.host);
   await flushAsync();
   harness.clock.advance(10);
   const result = await running;
@@ -326,7 +326,7 @@ test('runPrompt times out interactive prompts through the terminal clock', async
   assert.equal(result.status, 'aborted');
   assert.equal(result.reason, 'timeout');
   assert.equal(result.diagnostics[0]?.code, 'INPUT_TIMEOUT');
-  assert.equal(result.transcript?.diagnostics[0]?.code, 'INPUT_TIMEOUT');
+  assert.equal(result.transcript?.diagnostics[0]?.diagnostic.code, 'INPUT_TIMEOUT');
   assert.equal(result.transcript?.steps.some((step) => step.kind === 'snapshot'), true);
 });
 
@@ -385,7 +385,7 @@ test('runPrompt uses non-TTY line fallback for input prompts', async () => {
   host.input('Ada\n');
   host.endInput();
 
-  const result = await runPrompt(input({ label: 'Name', transcript: { enabled: true } }), host);
+  const result = await runPrompt(input({ label: 'Name', transcript: true }), host);
 
   assert.equal(result.status, 'submitted');
   assert.equal(result.value, 'Ada');
@@ -458,7 +458,7 @@ test('runPrompt supports interactive confirm answers', async () => {
 
 test('runPrompt records interactive cancellation diagnostics in transcripts', async () => {
   const harness = createTerminalHarness();
-  const running = runPrompt(confirm({ label: 'Continue?', transcript: { enabled: true } }), harness.host);
+  const running = runPrompt(confirm({ label: 'Continue?', transcript: true }), harness.host);
 
   harness.host.input('\u001B');
   harness.host.endInput();
@@ -467,14 +467,14 @@ test('runPrompt records interactive cancellation diagnostics in transcripts', as
   assert.equal(result.status, 'aborted');
   assert.equal(result.reason, 'cancelled');
   assert.equal(result.diagnostics[0]?.code, 'INPUT_CANCELLED');
-  assert.equal(result.transcript?.diagnostics[0]?.code, 'INPUT_CANCELLED');
+  assert.equal(result.transcript?.diagnostics[0]?.diagnostic.code, 'INPUT_CANCELLED');
   assert.equal(result.transcript?.steps.some((step) => step.kind === 'diagnostic'), true);
   assert.equal(result.transcript?.steps.some((step) => step.kind === 'snapshot'), true);
 });
 
 test('runPrompt masks password rendering and redacts password transcripts', async () => {
   const harness = createTerminalHarness();
-  const running = runPrompt(password({ label: 'Token', mask: '•', transcript: { enabled: true } }), harness.host);
+  const running = runPrompt(password({ label: 'Token', mask: '•', transcript: true }), harness.host);
 
   harness.host.input('s🙂\r');
   harness.host.endInput();

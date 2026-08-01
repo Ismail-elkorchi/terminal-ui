@@ -19,20 +19,11 @@
     "./renderer": "./src/renderer/index.ts",
     "./accessibility": "./src/accessibility/index.ts",
     "./transcript": "./src/transcript/index.ts",
-    "./testing": "./src/testing/index.ts",
-    "./schemas": "./src/schemas/index.ts",
-    "./schemas/accessible-snapshot.schema.json": "./schemas/accessible-snapshot.schema.json",
-    "./schemas/interaction-transcript.schema.json": "./schemas/interaction-transcript.schema.json",
-    "./schemas/prompt-result.schema.json": "./schemas/prompt-result.schema.json",
-    "./schemas/render-diff.schema.json": "./schemas/render-diff.schema.json",
-    "./schemas/terminal-capabilities.schema.json": "./schemas/terminal-capabilities.schema.json",
-    "./schemas/terminal-diagnostic.schema.json": "./schemas/terminal-diagnostic.schema.json",
-    "./schemas/tui-frame.schema.json": "./schemas/tui-frame.schema.json"
+    "./testing": "./src/testing/index.ts"
   },
   "publish": {
     "include": [
       "src",
-      "schemas",
       "README.md",
       "LICENSE"
     ],

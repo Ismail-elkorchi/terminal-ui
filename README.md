@@ -140,7 +140,7 @@ const result = await runInteractionScript(harness, {
 });
 
 if (result.diagnostics.length > 0) {
-  throw new Error(result.diagnostics[0]?.message ?? 'Interaction failed');
+  throw new Error(result.diagnostics[0]?.diagnostic.message ?? 'Interaction failed');
 }
 ```
 

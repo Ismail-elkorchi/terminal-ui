@@ -2,7 +2,7 @@ import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type { TerminalThemeDefinition } from '../theme/index.ts';
-import type { InteractionTranscript, TranscriptPolicy } from '../transcript/index.ts';
+import type { InteractionTranscript } from '../transcript/index.ts';
 
 interface PromptDefinitionBase<TValue> {
   readonly id?: string;
@@ -13,7 +13,7 @@ interface PromptDefinitionBase<TValue> {
   readonly theme?: TerminalThemeDefinition;
   readonly timeoutMs?: number;
   readonly nonTty?: NonTtyPromptPolicy<TValue>;
-  readonly transcript?: TranscriptPolicy;
+  readonly transcript?: boolean;
   readonly validate?: PromptValidator<TValue>;
   readonly render?: PromptRenderer;
   readonly accessibility?: PromptAccessibilityOptions;
@@ -88,15 +88,7 @@ export type InteractivePromptDefinition<TChoice = never> =
 export type PromptValue<TPrompt> =
   TPrompt extends PromptDefinitionBase<infer TValue> ? TValue : never;
 
-export type PromptKind =
-  | 'confirm'
-  | 'input'
-  | 'password'
-  | 'select'
-  | 'multiselect'
-  | 'autocomplete'
-  | 'editor'
-  | 'progress';
+export type PromptKind = PromptDefinition<unknown>['kind'];
 
 export interface PromptValueContract<TValue> {
   readonly kind: PromptKind;
@@ -121,7 +113,6 @@ export type PromptValidationResult =
 export type PromptResult<TValue> = PromptSubmitResult<TValue> | PromptAbortResult;
 
 export interface PromptSubmitResult<TValue> {
-  readonly schemaVersion: 'terminal-ui.prompt-result.v1';
   readonly status: 'submitted';
   readonly value: TValue;
   readonly diagnostics: readonly TerminalDiagnostic[];
@@ -130,7 +121,6 @@ export interface PromptSubmitResult<TValue> {
 }
 
 export interface PromptAbortResult {
-  readonly schemaVersion: 'terminal-ui.prompt-result.v1';
   readonly status: 'aborted';
   readonly reason: PromptAbortReason;
   readonly diagnostics: readonly TerminalDiagnostic[];
@@ -204,7 +194,7 @@ export interface BasePromptOptions<TValue> {
   readonly theme?: TerminalThemeDefinition;
   readonly timeoutMs?: number;
   readonly nonTty?: NonTtyPromptPolicy<TValue>;
-  readonly transcript?: TranscriptPolicy;
+  readonly transcript?: boolean;
   readonly validate?: PromptValidator<TValue>;
   readonly render?: PromptRenderer;
   readonly accessibility?: PromptAccessibilityOptions;

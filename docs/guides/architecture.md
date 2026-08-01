@@ -96,16 +96,15 @@ types intact while letting the runtime publish state and frame atomically.
 Terminal capabilities are resolved once per runtime and the same snapshot is
 used by application context, layout, and output planning.
 
-## Schemas And Versions
+## Static And Runtime Contracts
 
-Schema versions belong to persisted or exchanged formats: accessible
-snapshots, terminal capabilities, diagnostics, prompt results, frames, render
-diffs, and interaction transcripts. Internal inspection records, rendering
-results, and visual-snapshot helper objects are ordinary in-memory values and
-do not carry format versions.
+TypeScript definitions are the canonical contracts for values created inside
+an application. Runtime validation remains only at trust boundaries where
+types cannot establish truth, such as deserialized transcripts, custom-renderer
+output, terminal adapters, and JavaScript callers.
 
-The interaction transcript schema refers to the canonical frame, diff, and
-accessibility schemas. Consumers validate transcripts by registering the
-published schema artifacts as one linked schema set. This keeps each
-serialized contract authoritative without copying its definitions into other
-schema files.
+Interaction transcripts are the persisted format. They carry one top-level
+`formatVersion`; nested frames, diffs, snapshots, diagnostics, and prompt
+results are ordinary typed values and do not coordinate independent versions.
+`validateTranscript()` checks both structure and replay semantics before a
+transcript is used.

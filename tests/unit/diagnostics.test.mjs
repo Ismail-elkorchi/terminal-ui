@@ -33,8 +33,55 @@ test('diagnostic fingerprints distinguish structurally different contents', () =
 test('diagnostic fingerprints implement canonical SHA-256 content identity', () => {
   assert.equal(
     diagnostic('TUI_RUN_FAILED', 'known vector').fingerprint,
-    'diagnostic:sha256:4e3f5bf7abc346108725e70b4ed0dcee3f180fc43e0198741a1fc35567a2e0fa'
+    'diagnostic:sha256:5912de36bb468cc2b6c180de6de9b55f51934cd027fd854c41a04dca51a39d52'
   );
+});
+
+test('diagnostic normalization has deterministic depth and node budgets', () => {
+  let cause = { leaf: true };
+  for (let depth = 0; depth < 2_000; depth += 1) cause = { next: cause };
+
+  const first = diagnostic('TUI_RUN_FAILED', 'deep cause', { cause });
+  const second = diagnostic('TUI_RUN_FAILED', 'deep cause', { cause });
+
+  assert.deepEqual(first.cause, { next: { next: { next: '[object Object]' } } });
+  assert.equal(first.fingerprint, second.fingerprint);
+
+  const ascending = { a: 1, b: 2, c: 3 };
+  const descending = { c: 3, b: 2, a: 1 };
+  assert.equal(
+    diagnostic('TUI_RUN_FAILED', 'wide data', { data: ascending }).fingerprint,
+    diagnostic('TUI_RUN_FAILED', 'wide data', { data: descending }).fingerprint
+  );
+
+  const entries = Array.from(
+    { length: 1_200 },
+    (_value, index) => [`k${String(index).padStart(4, '0')}`, index]
+  );
+  const ascendingOverflow = diagnostic('TUI_RUN_FAILED', 'overflow', {
+    data: Object.fromEntries(entries)
+  });
+  const descendingOverflow = diagnostic('TUI_RUN_FAILED', 'overflow', {
+    data: Object.fromEntries(entries.toReversed())
+  });
+  assert.deepEqual(ascendingOverflow.data, { value: '[Truncated]' });
+  assert.deepEqual(descendingOverflow.data, { value: '[Truncated]' });
+  assert.equal(ascendingOverflow.fingerprint, descendingOverflow.fingerprint);
+
+  let reads = 0;
+  const wide = {};
+  for (let index = 0; index < 5_000; index += 1) {
+    Object.defineProperty(wide, `field-${String(index)}`, {
+      enumerable: true,
+      get() {
+        reads += 1;
+        return index;
+      }
+    });
+  }
+  const bounded = diagnostic('TUI_RUN_FAILED', 'bounded wide data', { data: wide });
+  assert.ok(reads <= 1_000, `read ${String(reads)} properties beyond the node budget`);
+  assert.deepEqual(bounded.data, { value: '[Truncated]' });
 });
 
 test('diagnostic occurrences preserve repeated equal content', () => {
@@ -43,18 +90,66 @@ test('diagnostic occurrences preserve repeated equal content', () => {
   const first = reporter.report(content);
   const second = reporter.report(content);
 
-  assert.equal(first.fingerprint, second.fingerprint);
+  assert.notEqual(first.diagnostic, content);
+  assert.notEqual(second.diagnostic, content);
+  assert.deepEqual(first.diagnostic, content);
+  assert.deepEqual(second.diagnostic, content);
+  assert.equal(first.diagnostic.fingerprint, second.diagnostic.fingerprint);
   assert.notEqual(first.id, second.id);
   assert.deepEqual([first.sequence, second.sequence], [1, 2]);
   assert.equal(first.owner, 'test-owner');
-  assert.equal(terminalDiagnosticIssue(first), undefined);
+  assert.match(terminalDiagnosticIssue(first) ?? '', /unsupported field: id/u);
   assert.equal(diagnosticOccurrenceIssue(first), undefined);
+  assert.match(
+    diagnosticOccurrenceIssue({ ...first, extra: true }) ?? '',
+    /unsupported field: extra/u
+  );
   assert.match(
     diagnosticOccurrenceIssue({ ...first, id: 'wrong' }) ?? '',
     /must match its owner and sequence/u
   );
   assert.match(
+    diagnosticOccurrenceIssue({
+      ...first,
+      diagnostic: { ...content, message: 'Changed after fingerprinting.' }
+    }) ?? '',
+    /fingerprint does not match/u
+  );
+  assert.match(
     terminalDiagnosticIssue({ ...content, message: 'Changed after fingerprinting.' }) ?? '',
     /fingerprint does not match/u
   );
+});
+
+test('diagnostic content is detached and deeply immutable across reporting boundaries', () => {
+  const cause = { nested: { values: ['original-cause'] } };
+  const data = { nested: { values: ['original-data'] } };
+  const content = diagnostic('TUI_RUN_FAILED', 'Original message.', { cause, data });
+
+  cause.nested.values[0] = 'mutated-cause';
+  data.nested.values[0] = 'mutated-data';
+  assert.deepEqual(content.cause, { nested: { values: ['original-cause'] } });
+  assert.deepEqual(content.data, { nested: { values: ['original-data'] } });
+  assert.equal(Object.isFrozen(content), true);
+  assert.equal(Object.isFrozen(content.cause), true);
+  assert.equal(Object.isFrozen(content.cause.nested), true);
+  assert.equal(Object.isFrozen(content.cause.nested.values), true);
+  assert.equal(Object.isFrozen(content.data), true);
+  assert.equal(Object.isFrozen(content.data.nested.values), true);
+
+  const supplied = JSON.parse(JSON.stringify(content));
+  const occurrence = createDiagnosticOccurrenceReporter('immutable-test').report(supplied);
+  supplied.message = 'Mutated message.';
+  supplied.cause.nested.values[0] = 'mutated-reported-cause';
+  supplied.data.nested.values[0] = 'mutated-reported-data';
+
+  assert.notEqual(occurrence.diagnostic, supplied);
+  assert.equal(occurrence.diagnostic.message, 'Original message.');
+  assert.deepEqual(occurrence.diagnostic.cause, { nested: { values: ['original-cause'] } });
+  assert.deepEqual(occurrence.diagnostic.data, { nested: { values: ['original-data'] } });
+  assert.equal(Object.isFrozen(occurrence.diagnostic.cause.nested.values), true);
+  assert.equal(diagnosticOccurrenceIssue(occurrence), undefined);
+  assert.throws(() => {
+    occurrence.diagnostic.data.nested.values[0] = 'forbidden';
+  }, TypeError);
 });

@@ -149,7 +149,6 @@ async function runTranscriptOnlyPrompt<TChoice>(
   const result = await submitDefaultValue(prompt, snapshot, host);
   if (result !== undefined) return withPromptTranscript(result, transcript.snapshot());
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason: 'non_tty_denied',
     diagnostics: [
@@ -237,7 +236,6 @@ function nonTtyDenied<TChoice>(
   snapshot: AccessibleSnapshot
 ): PromptAbortResult {
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason: 'non_tty_denied',
     diagnostics: [
@@ -286,7 +284,6 @@ async function runInteractivePrompt<TChoice>(
   } catch (cause) {
     restoreReason = 'error';
     result = {
-      schemaVersion: 'terminal-ui.prompt-result.v1',
       status: 'aborted',
       reason: 'host_error',
       diagnostics: [
@@ -316,7 +313,6 @@ async function runPromptLoop<TChoice>(
     : { ok: true as const, choices: [], diagnostics: [], hasMore: false };
   if (!choices.ok) {
     return {
-      schemaVersion: 'terminal-ui.prompt-result.v1',
       status: 'aborted',
       reason: 'host_error',
       diagnostics: choices.diagnostics,
@@ -332,7 +328,6 @@ async function runPromptLoop<TChoice>(
       if (next.kind === 'timeout') {
         completePromptState(state);
         return {
-          schemaVersion: 'terminal-ui.prompt-result.v1',
           status: 'aborted',
           reason: 'timeout',
           diagnostics: [
@@ -352,7 +347,6 @@ async function runPromptLoop<TChoice>(
     }
     completePromptState(state);
     return {
-      schemaVersion: 'terminal-ui.prompt-result.v1',
       status: 'aborted',
       reason: 'host_error',
       diagnostics: [diagnostic('HOST_STREAM_CLOSED', 'Prompt input ended before submission.')],
@@ -437,7 +431,6 @@ function terminalInputAbort<TChoice>(
   if (abort === undefined) return undefined;
   completePromptState(state);
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason: abort.reason,
     diagnostics: [diagnostic(abort.code, abort.message)],

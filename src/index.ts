@@ -13,6 +13,7 @@ export type {
   TerminalDiagnosticValue,
   TerminalSeverity
 } from './diagnostics.ts';
+export type { JsonPrimitive, JsonValue } from './foundation/json.ts';
 export { TerminalUiError } from './errors.ts';
 export { err, ok } from './result.ts';
 export type { Result } from './result.ts';

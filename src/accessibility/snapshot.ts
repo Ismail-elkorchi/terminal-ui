@@ -9,7 +9,6 @@ import type {
 export function toAccessibleSnapshot(input: AccessibleSnapshotInput): AccessibleSnapshot {
   const root = sanitizeAccessibleNode(input.root);
   return {
-    schemaVersion: 'terminal-ui.accessible-snapshot.v1',
     source: input.source,
     ...(input.title === undefined ? {} : { title: sanitizeAccessibleText(input.title) }),
     root,

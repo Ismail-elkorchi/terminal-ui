@@ -6,6 +6,7 @@ import {
 } from '@ismail-elkorchi/terminal-ui/prompts';
 
 const confirmation = confirm({ label: 'Continue?', defaultValue: true });
+confirm({ label: 'Recorded?', transcript: true });
 const choice = select({
   label: 'Environment',
   choices: [{ label: 'Production', value: { kind: 'production' } as const }],

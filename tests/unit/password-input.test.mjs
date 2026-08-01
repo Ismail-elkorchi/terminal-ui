@@ -52,7 +52,7 @@ test('passwordInput redacts typed secrets from TUI transcripts', async () => {
       presentation: { value: state.buffer.text, cursor: state.buffer.cursor },
       onAction: (action) => action
     }),
-    transcript: { enabled: true }
+    transcript: true
   });
   const runtime = createTuiRuntime({
     app,

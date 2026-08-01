@@ -8,7 +8,7 @@ test('interactive benchmark emits reproducible structural evidence', async () =>
   assert.equal(result.code, 0, result.stderr);
   const report = JSON.parse(result.stdout.trim());
 
-  assert.equal(report.metadata.schemaVersion, 'terminal-ui.performance-evidence.v2');
+  assert.equal(report.metadata.formatVersion, 2);
   assert.equal(report.metadata.quick, true);
   assert.equal(report.metadata.warmupCount, 1);
   assert.ok(report.scenarios.length >= 10);

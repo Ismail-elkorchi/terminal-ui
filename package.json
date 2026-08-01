@@ -75,13 +75,6 @@
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
-    },
-    "./schemas": {
-      "types": "./dist/schemas/index.d.ts",
-      "default": "./dist/schemas/index.js"
-    },
-    "./schemas/*.json": {
-      "default": "./dist/schemas/*.json"
     }
   },
   "files": [
@@ -92,7 +85,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node scripts/clean.mjs && tsc -p tsconfig.json && node scripts/copy-schemas.mjs",
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.json",
     "clean": "node scripts/clean.mjs",
     "lint": "eslint \"src/**/*.ts\" \"examples/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"tests/**/*.{ts,mjs}\"",
     "check:architecture": "npm run build && node scripts/check-architecture.mjs",
@@ -134,7 +127,6 @@
     "@types/node": "^24.13.3",
     "@typescript-eslint/eslint-plugin": "^8.62.0",
     "@typescript-eslint/parser": "^8.62.0",
-    "ajv": "^8.20.0",
     "eslint": "^10.5.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.0"

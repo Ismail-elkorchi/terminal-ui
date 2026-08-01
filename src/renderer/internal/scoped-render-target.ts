@@ -5,8 +5,8 @@ import {
   sanitizeFrameCellSource
 } from '../../visual/source.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
+import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { RenderTarget, RenderTargetCell } from '../contracts.ts';
-import { normalizeCustomTerminalStyle } from './extension-output.ts';
 import { intersectRects } from './rect.ts';
 
 export function createScopedRenderTarget(
@@ -107,7 +107,7 @@ function writeClippedSpans(
     const measured = measureTextCells(span.text, { widthProfile: target.widthProfile });
     const style = span.style === undefined || owner === undefined
       ? span.style
-      : normalizeCustomTerminalStyle(
+      : normalizeTerminalStyle(
           span.style,
           `Custom renderer "${owner.name}" render span style`
         );

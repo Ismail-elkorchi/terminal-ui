@@ -12,7 +12,7 @@ export async function submitPrompt<TValue>(
 ): Promise<PromptSubmitResult<TValue> | PromptAbortResult> {
   const validation = await validatePromptValue({ prompt, value, ...(host === undefined ? {} : { host }) });
   if (!validation.ok) return validationFailure(snapshot, validation.diagnostic);
-  return { schemaVersion: 'terminal-ui.prompt-result.v1', status: 'submitted', value, diagnostics: [], snapshot };
+  return { status: 'submitted', value, diagnostics: [], snapshot };
 }
 
 function validationFailure(
@@ -20,7 +20,6 @@ function validationFailure(
   validationDiagnostic: TerminalDiagnostic
 ): PromptAbortResult {
   return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
     reason: 'validation_failed',
     diagnostics: [validationDiagnostic],

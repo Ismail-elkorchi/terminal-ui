@@ -5,9 +5,14 @@ import type { FocusPath } from '../interaction/focus.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../interaction/message.ts';
+import type { JsonValue } from '../foundation/json.ts';
+
+export const interactionTranscriptFormatVersion = 1 as const;
+
+export const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const;
 
 export interface InteractionTranscript {
-  readonly schemaVersion: 'terminal-ui.interaction-transcript.v4';
+  readonly formatVersion: typeof interactionTranscriptFormatVersion;
   readonly id: string;
   readonly source: TranscriptSource;
   readonly startedAt?: string;
@@ -16,14 +21,14 @@ export interface InteractionTranscript {
   readonly redactions: readonly TranscriptRedaction[];
 }
 
-export type TranscriptSource = 'prompt' | 'tui' | 'test' | 'replay';
+export type TranscriptSource = typeof transcriptSources[number];
 
 export type InteractionTranscriptStep =
   | { readonly kind: 'input'; readonly event: InputEvent }
-  | { readonly kind: 'message'; readonly source: TuiMessageSource; readonly message: unknown }
+  | { readonly kind: 'message'; readonly source: TuiMessageSource; readonly message: JsonValue }
   | { readonly kind: 'commit'; readonly commit: TranscriptRuntimeCommit }
   | { readonly kind: 'snapshot'; readonly snapshot: AccessibleSnapshot }
-  | { readonly kind: 'diagnostic'; readonly diagnostic: DiagnosticOccurrence }
+  | { readonly kind: 'diagnostic'; readonly occurrence: DiagnosticOccurrence }
   | { readonly kind: 'restore'; readonly result: TerminalRestoreResult };
 
 export interface TranscriptRuntimeCommit {
@@ -37,7 +42,7 @@ export interface TranscriptRuntimeCommit {
 
 export interface TranscriptRedaction {
   readonly path: string;
-  readonly reason: string;
+  readonly reason: 'secret';
 }
 
 export interface TranscriptRecorderOptions {
@@ -46,14 +51,11 @@ export interface TranscriptRecorderOptions {
   readonly startedAt?: string;
 }
 
-export interface TranscriptPolicy {
-  readonly enabled: boolean;
-}
-
 export interface TranscriptRecorder {
   record(step: InteractionTranscriptStep): void;
+  recordMessage(source: TuiMessageSource, message: unknown): void;
   reportDiagnostic(diagnostic: TerminalDiagnostic): DiagnosticOccurrence;
-  recordDiagnostic(diagnostic: DiagnosticOccurrence): void;
+  recordDiagnostic(occurrence: DiagnosticOccurrence): void;
   recordRedaction(redaction: TranscriptRedaction): void;
   snapshot(): InteractionTranscript;
 }

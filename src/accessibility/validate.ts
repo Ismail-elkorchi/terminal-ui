@@ -1,5 +1,9 @@
 import { diagnostic, terminalDiagnosticIssue } from '../diagnostics.ts';
-import { isNonArrayObject, isNonEmptyString } from '../foundation/validation.ts';
+import {
+  findUnsupportedField,
+  isNonArrayObject,
+  isNonEmptyString
+} from '../foundation/validation.ts';
 import { err, ok } from '../result.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import { collectFocusPath, nodePath } from './snapshot.ts';
@@ -11,15 +15,14 @@ import type { AccessibleNode, AccessibleSnapshot } from './types.ts';
 export function validateAccessibleSnapshot(snapshot: unknown): Result<AccessibleSnapshot> {
   const failure = firstSnapshotIssue(snapshot);
   if (failure !== undefined) return err(failure);
-  return isAccessibleSnapshot(snapshot)
-    ? ok(snapshot)
-    : err(accessibilityFailure('Accessible snapshot failed type narrowing after validation.'));
+  return ok(snapshot as AccessibleSnapshot);
 }
 
 function firstSnapshotIssue(snapshot: unknown): TerminalDiagnostic | undefined {
   if (!isNonArrayObject(snapshot)) return accessibilityFailure('Accessible snapshot must be an object.');
-  if (snapshot['schemaVersion'] !== 'terminal-ui.accessible-snapshot.v1') {
-    return accessibilityFailure('Unsupported accessible snapshot schema version.');
+  const unknownField = findUnsupportedField(snapshot, accessibleSnapshotFields);
+  if (unknownField !== undefined) {
+    return accessibilityFailure(`Accessible snapshot contains unsupported field: ${unknownField}.`);
   }
   if (!isAccessibleSource(snapshot['source'])) {
     return accessibilityFailure(`Unsupported accessible snapshot source: ${String(snapshot['source'])}.`);
@@ -39,30 +42,21 @@ function firstSnapshotIssue(snapshot: unknown): TerminalDiagnostic | undefined {
   }
   const nodeIssue = firstNodeIssue(snapshot['root'], new Set());
   if (nodeIssue !== undefined) return nodeIssue;
-  if (!isAccessibleNode(snapshot['root'])) {
-    return accessibilityFailure('Accessible snapshot root failed type narrowing after validation.');
-  }
+  const root = snapshot['root'] as AccessibleNode;
+  const focusPath = snapshot['focusPath'] as readonly string[];
   const focusIssue = firstFocusIssue({
-    root: snapshot['root'],
-    focusPath: snapshot['focusPath']
+    root,
+    focusPath
   });
   if (focusIssue !== undefined) return focusIssue;
-  const relationshipIssue = firstRelationshipIssue(snapshot['root']);
+  const relationshipIssue = firstRelationshipIssue(root);
   if (relationshipIssue !== undefined) return relationshipIssue;
   return undefined;
 }
 
-function isAccessibleSnapshot(value: unknown): value is AccessibleSnapshot {
-  return firstSnapshotIssue(value) === undefined;
-}
-
-function isAccessibleNode(value: unknown): value is AccessibleNode {
-  return firstNodeIssue(value, new Set()) === undefined;
-}
-
 function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | undefined {
   if (!isNonArrayObject(node)) return accessibilityFailure('Accessible node must be an object.');
-  const unknownField = firstUnknownField(node, accessibleNodeFields);
+  const unknownField = findUnsupportedField(node, accessibleNodeFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node field is unsupported: ${unknownField}.`);
   }
@@ -142,6 +136,14 @@ const accessibleNodeFields = new Set([
   'children'
 ]);
 
+const accessibleSnapshotFields = new Set([
+  'source',
+  'title',
+  'root',
+  'focusPath',
+  'diagnostics'
+]);
+
 function liveIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   return node['live'] === undefined || (typeof node['live'] === 'string' && ['off', 'polite', 'assertive'].includes(node['live']))
     ? undefined
@@ -152,7 +154,7 @@ function scopeIssueForNode(node: Record<string, unknown>, id: string): TerminalD
   const scope = node['scope'];
   if (scope === undefined) return undefined;
   if (!isNonArrayObject(scope)) return accessibilityFailure('Accessible node scope must be an object.', id);
-  const unknownField = firstUnknownField(scope, scopeFields);
+  const unknownField = findUnsupportedField(scope, scopeFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node scope field is unsupported: ${unknownField}.`, id);
   }
@@ -173,7 +175,7 @@ function windowIssueForNode(node: Record<string, unknown>, id: string): Terminal
   const window = node['window'];
   if (window === undefined) return undefined;
   if (!isNonArrayObject(window)) return accessibilityFailure('Accessible node window must be an object.', id);
-  const unknownField = firstUnknownField(window, windowFields);
+  const unknownField = findUnsupportedField(window, windowFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node window field is unsupported: ${unknownField}.`, id);
   }
@@ -206,7 +208,7 @@ function positionIssueForNode(node: Record<string, unknown>, id: string): Termin
   const position = node['position'];
   if (position === undefined) return undefined;
   if (!isNonArrayObject(position)) return accessibilityFailure('Accessible node position must be an object.', id);
-  const unknownField = firstUnknownField(position, positionFields);
+  const unknownField = findUnsupportedField(position, positionFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node position field is unsupported: ${unknownField}.`, id);
   }
@@ -347,7 +349,7 @@ function numericValueIssueForNode(node: Record<string, unknown>, id: string): Te
     return accessibilityFailure('Accessible numericValue is only valid on progressbar, meter, slider, or spinbutton nodes.', id);
   }
   if (!isNonArrayObject(numericValue)) return accessibilityFailure('Accessible numericValue must be an object.', id);
-  const unknownField = firstUnknownField(numericValue, numericValueFields);
+  const unknownField = findUnsupportedField(numericValue, numericValueFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible numericValue field is unsupported: ${unknownField}.`, id);
   }
@@ -457,13 +459,6 @@ function isPositiveInteger(value: unknown): boolean {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
-}
-
-function firstUnknownField(
-  value: Record<string, unknown>,
-  allowedFields: ReadonlySet<string>
-): string | undefined {
-  return Object.keys(value).find((field) => !allowedFields.has(field));
 }
 
 function samePath(left: readonly string[], right: readonly string[]): boolean {

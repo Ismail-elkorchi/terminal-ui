@@ -306,7 +306,6 @@ export interface HitTarget<TMessage = unknown> {
 }
 
 export interface Frame {
-  readonly schemaVersion: 'terminal-ui.tui-frame.v2';
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
@@ -338,7 +337,6 @@ export interface FrameHitTarget {
 }
 
 export interface RenderDiff {
-  readonly schemaVersion: 'terminal-ui.render-diff.v3';
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;

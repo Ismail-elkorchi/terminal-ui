@@ -196,7 +196,6 @@ test('TUI runtime start returns the committed initial frame', async () => {
 
   const frame = await runtime.start();
 
-  assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v2');
   assert.equal(frame.accessibility.root.id, 'start-label');
   assert.equal(runtime.exit(), undefined);
   assert.deepEqual(runtime.frame(), frame);
@@ -257,13 +256,13 @@ test('TUI runtime records subscription source failures and stops the failed sour
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await waitUntil(() => runtime.diagnostics().some((item) => item.code === 'TUI_SOURCE_FAILED'));
+  await waitUntil(() => runtime.diagnostics().some((item) => item.diagnostic.code === 'TUI_SOURCE_FAILED'));
   await waitUntil(() => runtime.state()?.status === 'failed');
   await runtime.dispatch({ kind: 'increment', delta: 1 });
 
   assert.equal(starts, 1);
   assert.match(
-    runtime.diagnostics().find((item) => item.code === 'TUI_SOURCE_FAILED')?.message ?? '',
+    runtime.diagnostics().find((item) => item.diagnostic.code === 'TUI_SOURCE_FAILED')?.diagnostic.message ?? '',
     /failed-source/u
   );
 });
@@ -350,7 +349,7 @@ test('duplicate subscription ids fail startup before publishing runtime state', 
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await assert.rejects(() => runtime.start(), /Duplicate TUI event source id/u);
-  assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_SOURCE_DUPLICATE_ID'), true);
+  assert.equal(runtime.diagnostics().some((item) => item.diagnostic.code === 'TUI_SOURCE_DUPLICATE_ID'), true);
   assert.throws(() => runtime.state(), /does not have state/u);
   assert.equal(runtime.frame(), undefined);
   await runtime.dispose();
@@ -566,8 +565,8 @@ test('replaced effect output and recovery output already queued behind replaceme
   await flushAsync();
 
   assert.deepEqual(runtime.state(), { phase: 'replaced', staleOutput: false, staleRecovery: false });
-  assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_EFFECT_FAILED'
-    && item.target === 'replace-error'), false);
+  assert.equal(runtime.diagnostics().some((item) => item.diagnostic.code === 'TUI_EFFECT_FAILED'
+    && item.diagnostic.target === 'replace-error'), false);
   await runtime.dispose();
 });
 
@@ -786,13 +785,17 @@ test('TUI runtime records external dispatch messages in transcripts', async () =
   const runtime = createTuiRuntime({ app, host: harness.host, transcript });
 
   await runtime.start();
-  await runtime.dispatch({ delta: 4 });
+  await runtime.dispatch({ delta: 4, callback: () => undefined, invalidNumber: Number.NaN });
   const snapshot = transcript.snapshot();
+  const serialized = JSON.parse(JSON.stringify(snapshot));
 
   assert.equal(validateTranscript(snapshot).ok, true);
+  assert.equal(validateTranscript(serialized).ok, true);
   assert.ok(snapshot.steps.some((step) => step.kind === 'message'
     && step.source === 'external'
-    && step.message.delta === 4));
+    && step.message.delta === 4
+    && step.message.callback === '[object Function]'
+    && step.message.invalidNumber === 'NaN'));
   const messageIndex = snapshot.steps.findIndex((step) => step.kind === 'message' && step.source === 'external');
   const committedIndex = snapshot.steps.findIndex((step, index) => index > messageIndex
     && step.kind === 'commit'
@@ -953,7 +956,7 @@ test('TUI runtime reports effect failures and can map them to application messag
   await runtime.dispatch({ kind: 'start' });
   await waitUntil(() => runtime.state()?.status === 'failed');
 
-  assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_EFFECT_FAILED'), true);
+  assert.equal(runtime.diagnostics().some((item) => item.diagnostic.code === 'TUI_EFFECT_FAILED'), true);
   assert.match(renderFramePlain(runtime.frame()), /failed/u);
 });
 

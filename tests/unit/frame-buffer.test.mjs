@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -131,31 +130,17 @@ test('FrameCellSource sanitizes stable structured metadata before entering frame
   assert.deepEqual(buffer.snapshot().cells[0]?.source, { elementId: 'cell', itemIndex: 0 });
 });
 
-test('FrameCellSource rejects item indexes that its schemas reject', () => {
+test('FrameCellSource rejects invalid item indexes', () => {
   for (const itemIndex of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(
       () => sanitizeFrameCellSource({ elementId: 'invalid', itemIndex }),
       /Frame cell source itemIndex must be a non-negative integer/u
     );
   }
-
-  for (const filename of [
-    'tui-frame.schema.json',
-    'render-diff.schema.json'
-  ]) {
-    const schema = JSON.parse(readFileSync(
-      new URL(`../../schemas/${filename}`, import.meta.url),
-      'utf8'
-    ));
-    const itemIndex = schema.$defs.frameCellSource.properties.itemIndex;
-    assert.equal(itemIndex.type, 'integer', filename);
-    assert.equal(itemIndex.minimum, 0, filename);
-  }
 });
 
-test('FrameCellSource interaction states agree across cleanup, frames, and schemas', () => {
+test('FrameCellSource preserves supported interaction states and roles', () => {
   const states = ['focused', 'hovered', 'pressed', 'selected', 'disabled', 'active'];
-  const roles = ['text', 'border', 'separator', 'scrollbar', 'cursor', 'decoration', 'chart', 'custom'];
   const buffer = createFrameBuffer(states.length, 1);
 
   for (const [index, state] of states.entries()) {
@@ -165,20 +150,6 @@ test('FrameCellSource interaction states agree across cleanup, frames, and schem
     }]);
   }
   assert.deepEqual(buffer.snapshot().cells.map((cell) => cell.source?.interactionState), states);
-
-  const schemaStates = [
-    ['tui-frame.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum],
-    ['render-diff.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum]
-  ];
-  for (const [filename, getStates] of schemaStates) {
-    const schema = JSON.parse(readFileSync(
-      new URL(`../../schemas/${filename}`, import.meta.url),
-      'utf8'
-    ));
-    assert.deepEqual(getStates(schema), states, filename);
-    const frameCellSource = schema.$defs.frameCellSource;
-    assert.deepEqual(frameCellSource.properties.cellRole.enum, roles, filename);
-  }
 });
 
 test('FrameCellSource rejects unknown interaction values at every frame-buffer entry point', () => {
@@ -399,7 +370,6 @@ test('renderFrameAnsi serializes full frames as row runs instead of per-cell cur
 
 test('renderDiffAnsi serializes styled spans according to terminal color capability', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 6,
     height: 1,
     fullRewrite: false,
@@ -422,7 +392,6 @@ test('renderDiffAnsi serializes styled spans according to terminal color capabil
 
 test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 4,
     height: 1,
     fullRewrite: false,
@@ -443,7 +412,6 @@ test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
 
 test('renderDiffAnsi chooses shorter cursor and tail-clear encodings without exceeding the baseline', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 20,
     height: 4,
     fullRewrite: false,
@@ -463,7 +431,6 @@ test('renderDiffAnsi chooses shorter cursor and tail-clear encodings without exc
 
 test('renderDiffAnsi emits the structural final cursor without session visibility commands', () => {
   const output = renderDiffAnsi({
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 8,
     height: 3,
     fullRewrite: false,
@@ -477,7 +444,6 @@ test('renderDiffAnsi emits the structural final cursor without session visibilit
 
 test('renderDiffAnsi wraps non-empty output when synchronized output is explicitly supported', () => {
   const output = renderDiffAnsi({
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 4,
     height: 1,
     fullRewrite: false,
@@ -492,7 +458,6 @@ function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
     ? { support: 'supported', availability: 'available', facts: [], diagnostics: [], requiresSessionOperation: false }
     : { support: 'unsupported', availability: 'available', facts: [], diagnostics: [], requiresSessionOperation: false };
   return {
-    schemaVersion: 'terminal-ui.terminal-capabilities.v1',
     runtime: 'node',
     isTty: true,
     color: {

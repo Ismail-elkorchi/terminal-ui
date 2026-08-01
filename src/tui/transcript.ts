@@ -7,7 +7,7 @@ import type { TuiApp, TuiExit } from './types.ts';
 export function createTuiTranscript<TState, TMessage>(
   app: TuiApp<TState, TMessage>
 ): TranscriptRecorder | undefined {
-  if (app.definition.transcript?.enabled !== true) return undefined;
+  if (app.definition.transcript !== true) return undefined;
   return createTranscriptRecorder({ id: `${app.id}-transcript`, source: 'tui' });
 }
 

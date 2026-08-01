@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagnostics.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { validateTranscript } from '../../dist/transcript/index.js';
 
@@ -10,23 +11,92 @@ const mouseModifiers = { shift: false, alt: false, ctrl: false };
 test('transcript validation rejects malformed top-level and step discriminants', () => {
   const cases = [
     [null, /must be an object/u],
-    [{}, /schema version/u],
+    [{}, /format version/u],
+    [transcript({ formatVersion: 2 }), /format version/u],
     [transcript(), /id must not be empty/u],
     [transcript({ id: 'valid', source: 'other' }), /source/u],
     [transcript({ id: 'valid', startedAt: 1 }), /startedAt/u],
     [transcript({ id: 'valid', steps: null }), /steps must be an array/u],
     [transcript({ id: 'valid', diagnostics: null }), /diagnostics must be an array/u],
     [transcript({ id: 'valid', redactions: null }), /redactions must be an array/u],
+    [transcript({ id: 'valid', extra: true }), /unsupported field: extra/u],
     [transcript({ id: 'valid', steps: [null] }), /step must be an object/u],
     [transcript({ id: 'valid', steps: [{ kind: 'other' }] }), /unsupported step kind/u],
+    [transcript({ id: 'valid', steps: [{ kind: 'input', event: { kind: 'end' }, extra: true }] }), /step contains unsupported field/u],
     [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'other', message: {} }] }), /message source/u],
     [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input' }] }), /requires message/u],
-    [transcript({ id: 'valid', redactions: [{ path: 1, reason: 'secret' }] }), /redaction/u]
+    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input', message: Number.NaN }] }), /JSON-safe/u],
+    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input', message: () => undefined }] }), /JSON-safe/u],
+    [transcript({ id: 'valid', redactions: [{ path: 1, reason: 'secret' }] }), /redaction/u],
+    [transcript({ id: 'valid', redactions: [{ path: '$.steps', reason: 'other' }] }), /redaction/u],
+    [transcript({ id: 'valid', redactions: [{ path: '$.steps', reason: 'secret', extra: true }] }), /unsupported field/u]
   ];
 
   for (const [value, pattern] of cases) {
     assertInvalid(value, pattern);
   }
+});
+
+test('transcript validation returns a detached canonical value', () => {
+  const source = transcript({
+    id: 'detached',
+    steps: [{ kind: 'input', event: { kind: 'focus', focused: true } }]
+  });
+
+  const result = validateTranscript(source);
+
+  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+  assert.notEqual(result.value, source);
+  assert.notEqual(result.value.steps, source.steps);
+  assert.notEqual(result.value.steps[0].event, source.steps[0].event);
+  source.steps[0].event.focused = false;
+  assert.equal(result.value.steps[0].event.focused, true);
+});
+
+test('transcript validation rejects duplicate and conflicting diagnostic occurrence identities', () => {
+  const reporter = createDiagnosticOccurrenceReporter('occurrence-identity');
+  const first = reporter.report(diagnostic('HOST_STREAM_CLOSED', 'First failure.'));
+  const conflicting = {
+    ...first,
+    diagnostic: diagnostic('HOST_STREAM_CLOSED', 'Conflicting failure.')
+  };
+
+  assertInvalid(transcript({
+    id: 'duplicate-step-occurrence',
+    steps: [
+      { kind: 'diagnostic', occurrence: first },
+      { kind: 'diagnostic', occurrence: conflicting }
+    ]
+  }), /duplicated in steps/u);
+  assertInvalid(transcript({
+    id: 'duplicate-top-level-occurrence',
+    diagnostics: [first, conflicting]
+  }), /duplicated in top-level diagnostics/u);
+  assertInvalid(transcript({
+    id: 'conflicting-cross-collection-occurrence',
+    steps: [{ kind: 'diagnostic', occurrence: first }],
+    diagnostics: [conflicting]
+  }), /conflicting content/u);
+
+  const valid = validateTranscript(transcript({
+    id: 'consistent-cross-collection-occurrence',
+    steps: [{ kind: 'diagnostic', occurrence: first }],
+    diagnostics: [first]
+  }));
+  assert.equal(valid.ok, true, valid.ok ? undefined : valid.error.message);
+});
+
+test('transcript validation rejects over-nested JSON messages without overflowing the runtime stack', () => {
+  let message = { value: null };
+  for (let depth = 0; depth < 20_000; depth += 1) message = { next: message };
+
+  const result = validateTranscript(transcript({
+    id: 'over-nested-message',
+    steps: [{ kind: 'message', source: 'external', message }]
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.error.message, /nesting limit/u);
 });
 
 test('transcript validation rejects malformed input-event variants', () => {
@@ -48,6 +118,13 @@ test('transcript validation rejects malformed input-event variants', () => {
     rawCode: 0,
     modifiers: mouseModifiers
   };
+  const validWheel = {
+    ...validMouse,
+    action: 'wheel',
+    button: 'wheelUp',
+    deltaRows: -1,
+    deltaColumns: 0
+  };
   const events = [
     [null, /input event must be an object/u],
     [{ kind: 'text', text: 1, paste: false }, /text event/u],
@@ -55,6 +132,8 @@ test('transcript validation rejects malformed input-event variants', () => {
     [{ ...validKey, key: 'other' }, /key name/u],
     [{ ...validKey, modifiers: null }, /requires modifiers/u],
     [{ ...validKey, modifiers: { ...modifiers, ctrl: 1 } }, /require ctrl/u],
+    [{ ...validKey, modifiers: { ...modifiers, extra: true } }, /unsupported field/u],
+    [{ ...validKey, extra: true }, /input event contains unsupported field/u],
     [{ ...validKey, sequence: 1 }, /sequence/u],
     [{ ...validKey, committedText: 1 }, /committedText/u],
     [{ ...validKey, keyCodePoint: 0xd800 }, /code point/u],
@@ -68,8 +147,13 @@ test('transcript validation rejects malformed input-event variants', () => {
     [{ ...validMouse, row: 0 }, /positive integers/u],
     [{ ...validMouse, rawCode: 0.5 }, /rawCode/u],
     [{ ...validMouse, modifiers: { ...mouseModifiers, alt: 1 } }, /require alt/u],
+    [withoutFields(validWheel, 'deltaRows', 'deltaColumns'), /finite deltaRows and deltaColumns/u],
+    [{ ...validWheel, deltaRows: Number.NaN }, /numbers must be finite/u],
+    [{ ...validWheel, deltaColumns: Number.POSITIVE_INFINITY }, /numbers must be finite/u],
+    [{ ...validWheel, button: 'left' }, /wheel-compatible button/u],
+    [{ ...validMouse, button: 'wheelDown' }, /pointer-compatible button/u],
     [{ kind: 'resize', terminalSize: { columns: 0, rows: 1 } }, /terminal size/u],
-    [{ kind: 'resize', viewport: { columns: 1, rows: 1 } }, /terminal size/u],
+    [{ kind: 'resize', viewport: { columns: 1, rows: 1 } }, /unsupported field/u],
     [{ kind: 'focus', focused: 'yes' }, /focus event/u],
     [{ kind: 'signal', signal: '' }, /signal event/u],
     [{ kind: 'unknown', sequence: 1 }, /unknown event/u],
@@ -79,12 +163,15 @@ test('transcript validation rejects malformed input-event variants', () => {
   for (const [event, pattern] of events) {
     assertInvalid(transcript({ id: 'invalid-input', steps: [{ kind: 'input', event }] }), pattern);
   }
+  assert.equal(validateTranscript(transcript({
+    id: 'valid-wheel-input',
+    steps: [{ kind: 'input', event: validWheel }]
+  })).ok, true);
 });
 
 test('transcript validation rejects malformed frame and render-diff payloads', () => {
   const snapshot = createTerminalHarness().snapshot();
   const validFrame = {
-    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 2,
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
@@ -92,7 +179,6 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     accessibility: snapshot
   };
   const validDiff = {
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 2,
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
@@ -106,8 +192,14 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     [{ ...validFrame, cells: [{ row: 0, column: 1, text: 'x', width: 1 }] }, /positive integers/u],
     [{ ...validFrame, cells: [{ row: 1, column: 1, text: 1, width: 1 }] }, /text must be a string/u],
     [{ ...validFrame, cells: [{ row: 1, column: 1, text: 'x', width: -1 }] }, /width must be/u],
+    [{ ...validFrame, cells: [{ row: 1, column: 1, text: 'x', width: 1, style: { bold: 'yes' } }] }, /bold must be a boolean/u],
+    [{ ...validFrame, cells: [{ row: 1, column: 1, text: 'x', width: 1, link: { href: 1 } }] }, /href must be a string/u],
+    [{ ...validFrame, cells: [{ row: 1, column: 1, text: 'x', width: 1, source: { itemIndex: -1 } }] }, /itemIndex/u],
     [{ ...validFrame, cursor: { row: 0, column: 1 } }, /frame cursor/u],
+    [{ ...validFrame, cursor: { row: 1, column: 1, style: { fg: { kind: 'ansi', value: 256 } } } }, /integer from 0 through 255/u],
+    [{ ...validFrame, hitTargets: [{ id: 'row', bounds: { row: 1, column: 1, width: 1, height: 1 }, accepts: ['other'] }] }, /pointer event kinds/u],
     [{ ...validFrame, focusPath: [1] }, /focusPath/u],
+    [{ ...validFrame, metadata: { arbitrary: true } }, /unsupported field: metadata/u],
     [{ ...validFrame, accessibility: null }, /accessibility/u]
   ];
   const diffs = [
@@ -120,6 +212,8 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     [{ ...validDiff, operations: [null] }, /operation must be an object/u],
     [{ ...validDiff, operations: [{ kind: 'write', row: 1, column: 1, spans: [] }] }, /at least one span/u],
     [{ ...validDiff, operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: '' }] }] }, /at least one terminal cell/u],
+    [{ ...validDiff, operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x', style: { fg: { kind: 'rgb', r: 0, g: Number.NaN, b: 0 } } }] }] }, /numbers must be finite/u],
+    [{ ...validDiff, operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x', link: { href: 'x', extra: true } }] }] }, /unsupported field/u],
     [{ ...validDiff, operations: [{ kind: 'write', row: 1, column: 2, spans: [{ text: 'xx' }] }] }, /must fit/u],
     [{ ...validDiff, operations: [{ kind: 'clearRect', bounds: { row: 0, column: 1, width: 1, height: 1 } }] }, /clearRect bounds/u],
     [{ ...validDiff, operations: [{ kind: 'other' }] }, /unsupported diff operation/u]
@@ -138,11 +232,64 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
   }
 });
 
+test('transcript validation rejects unknown fields at every nested persisted boundary', () => {
+  const snapshot = createTerminalHarness().snapshot();
+  const cell = { row: 1, column: 1, text: 'x', width: 1 };
+  const frame = {
+    width: 2,
+    height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
+    cells: [cell],
+    accessibility: snapshot
+  };
+  const write = { kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] };
+  const diff = {
+    width: 2,
+    height: 1,
+    widthProfile: frame.widthProfile,
+    fullRewrite: true,
+    operations: [write]
+  };
+  const commit = runtimeCommit(frame, diff);
+  const target = {
+    id: 'target',
+    bounds: { row: 1, column: 1, width: 1, height: 1 },
+    focus: { kind: 'focus', path: ['target'] }
+  };
+  const commitCases = [
+    { ...commit, extra: true },
+    { ...commit, terminalSize: { ...commit.terminalSize, extra: true } },
+    { ...commit, frame: { ...frame, cells: [{ ...cell, extra: true }] } },
+    { ...commit, frame: { ...frame, cells: [{ ...cell, link: { href: 'https://example.test', extra: true } }] } },
+    { ...commit, frame: { ...frame, cells: [{ ...cell, source: { elementId: 'cell', extra: true } }] } },
+    { ...commit, frame: { ...frame, cells: [{ ...cell, style: { bold: true, extra: true } }] } },
+    { ...commit, frame: { ...frame, widthProfile: { ...frame.widthProfile, extra: true } } },
+    { ...commit, frame: { ...frame, cursor: { row: 1, column: 1, extra: true } } },
+    { ...commit, frame: { ...frame, hitTargets: [{ ...target, extra: true }] } },
+    { ...commit, frame: { ...frame, hitTargets: [{ ...target, bounds: { ...target.bounds, extra: true } }] } },
+    { ...commit, frame: { ...frame, hitTargets: [{ ...target, focus: { ...target.focus, extra: true } }] } },
+    { ...commit, diff: { ...diff, widthProfile: { ...diff.widthProfile, extra: true } } },
+    { ...commit, diff: { ...diff, cursor: { row: 1, column: 1, extra: true } } },
+    { ...commit, diff: { ...diff, dirtyRegions: [{ row: 1, column: 1, width: 1, height: 1, extra: true }] } },
+    { ...commit, diff: { ...diff, operations: [{ ...write, extra: true }] } },
+    { ...commit, diff: { ...diff, operations: [{ ...write, spans: [{ text: 'x', extra: true }] }] } },
+    { ...commit, diff: { ...diff, operations: [{ kind: 'clearRect', bounds: { row: 1, column: 1, width: 1, height: 1 }, extra: true }] } },
+    { ...commit, diff: { ...diff, operations: [{ kind: 'clearRect', bounds: { row: 1, column: 1, width: 1, height: 1, extra: true } }] } }
+  ];
+
+  for (const [index, invalidCommit] of commitCases.entries()) {
+    assertInvalid(transcript({
+      id: `unknown-commit-field-${String(index)}`,
+      steps: [{ kind: 'commit', commit: invalidCommit }]
+    }), /unsupported field/u);
+  }
+
+});
+
 test('transcript validation measures writes with the diff width profile', () => {
   const snapshot = createTerminalHarness().snapshot();
   const widthProfile = { emoji: 'narrow', ambiguous: 'narrow' };
   const frame = {
-    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 1,
     height: 1,
     widthProfile,
@@ -150,7 +297,6 @@ test('transcript validation measures writes with the diff width profile', () => 
     accessibility: snapshot
   };
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 1,
     height: 1,
     widthProfile,
@@ -175,7 +321,6 @@ test('transcript validation requires a replayable diff chain matching bundled fr
   const snapshot = createTerminalHarness().snapshot();
   const widthProfile = { emoji: 'wide', ambiguous: 'narrow' };
   const frame = (text) => ({
-    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 1,
     height: 1,
     widthProfile,
@@ -183,7 +328,6 @@ test('transcript validation requires a replayable diff chain matching bundled fr
     accessibility: snapshot
   });
   const diff = (text, fullRewrite) => ({
-    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 1,
     height: 1,
     widthProfile,
@@ -205,6 +349,30 @@ test('transcript validation requires a replayable diff chain matching bundled fr
   assertInvalid(transcript({
     id: 'contradictory-commit',
     steps: [{ kind: 'commit', commit: commit('commit:1', 0, frame('x'), diff('y', true)) }]
+  }), /does not reproduce its frame/u);
+  assertInvalid(transcript({
+    id: 'contradictory-cursor-style',
+    steps: [{
+      kind: 'commit',
+      commit: commit(
+        'commit:1',
+        0,
+        { ...frame('x'), cursor: { row: 1, column: 1, style: { bold: true } } },
+        { ...diff('x', true), cursor: { row: 1, column: 1, style: { italic: true } } }
+      )
+    }]
+  }), /does not reproduce its frame/u);
+  assertInvalid(transcript({
+    id: 'contradictory-cursor-source',
+    steps: [{
+      kind: 'commit',
+      commit: commit(
+        'commit:1',
+        0,
+        { ...frame('x'), cursor: { row: 1, column: 1, source: { elementId: 'frame' } } },
+        { ...diff('x', true), cursor: { row: 1, column: 1, source: { elementId: 'diff' } } }
+      )
+    }]
   }), /does not reproduce its frame/u);
 
   const valid = validateTranscript(transcript({
@@ -235,6 +403,9 @@ test('transcript validation rejects malformed structured restore results', () =>
   const state = restore.requested;
   const cases = [
     [null, /must be an object/u],
+    [{ ...restore, requested: { ...state, provenance: { ...state.provenance, extra: true } } }, /unsupported field/u],
+    [{ ...restore, requested: { ...state, keyboardProfile: { ...state.keyboardProfile, extra: true } } }, /unsupported field/u],
+    [{ ...restore, attempted: [{ kind: 'rawInput', enabled: false, extra: true }] }, /unsupported field/u],
     [{ ...restore, requested: { ...state, rawInput: 'no' } }, /rawInput/u],
     [{ ...restore, requested: { ...state, alternateScreen: 'no' } }, /alternateScreen/u],
     [{ ...restore, requested: { ...state, bracketedPaste: 'no' } }, /bracketedPaste/u],
@@ -271,7 +442,7 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    schemaVersion: 'terminal-ui.interaction-transcript.v4',
+    formatVersion: 1,
     id: '',
     source: 'test',
     steps: [],
@@ -295,6 +466,12 @@ function runtimeCommit(frame, diff) {
     frame,
     diff
   };
+}
+
+function withoutFields(value, ...fields) {
+  const copy = { ...value };
+  for (const field of fields) delete copy[field];
+  return copy;
 }
 
 function validRestoreResult() {

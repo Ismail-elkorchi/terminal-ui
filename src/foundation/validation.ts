@@ -13,6 +13,16 @@ export function isStringMember<TValue extends string>(
   return typeof value === 'string' && (values as readonly string[]).includes(value);
 }
 
+export function findUnsupportedField(
+  value: Readonly<Record<string, unknown>>,
+  allowedFields: ReadonlySet<string>
+): string | undefined {
+  for (const field in value) {
+    if (Object.hasOwn(value, field) && !allowedFields.has(field)) return field;
+  }
+  return undefined;
+}
+
 export function assertOptionalEnum<TValue extends string>(
   value: unknown,
   values: readonly TValue[],

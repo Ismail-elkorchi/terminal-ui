@@ -2,7 +2,6 @@ export type {
   InteractionTranscript,
   InteractionTranscriptStep,
   InteractionResult,
-  TranscriptPolicy,
   RedactionPolicy,
   TranscriptRecorder,
   TranscriptRecorderOptions,
@@ -11,6 +10,8 @@ export type {
   TranscriptRedaction,
   TranscriptSource
 } from './types.ts';
+export { interactionTranscriptFormatVersion } from './types.ts';
+export type { JsonValue } from '../foundation/json.ts';
 export { createTranscriptRecorder } from './recorder.ts';
 export { redactTranscript } from './redact.ts';
 export { replayTranscript } from './replay.ts';

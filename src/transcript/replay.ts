@@ -3,13 +3,14 @@ import type { InteractionResult, InteractionTranscript, TranscriptReplayTarget }
 
 export async function replayTranscript(
   target: TranscriptReplayTarget,
-  transcript: InteractionTranscript
+  value: unknown
 ): Promise<InteractionResult> {
-  const valid = validateTranscript(transcript);
+  const valid = validateTranscript(value);
   if (!valid.ok) {
     target.transcript.reportDiagnostic(valid.error);
     return currentResult(target);
   }
+  const transcript = valid.value;
 
   for (const step of transcript.steps) {
     switch (step.kind) {
@@ -23,7 +24,7 @@ export async function replayTranscript(
         target.transcript.record(step);
         break;
       case 'diagnostic':
-        target.transcript.recordDiagnostic(step.diagnostic);
+        target.transcript.recordDiagnostic(step.occurrence);
         break;
       case 'restore':
         target.recordRestore(step.result);
@@ -41,7 +42,7 @@ function recordTopLevelDiagnostics(
   transcript: InteractionTranscript
 ): void {
   const stepDiagnostics = new Set(
-    transcript.steps.flatMap((step) => step.kind === 'diagnostic' ? [step.diagnostic.id] : [])
+    transcript.steps.flatMap((step) => step.kind === 'diagnostic' ? [step.occurrence.id] : [])
   );
   for (const item of transcript.diagnostics) {
     if (!stepDiagnostics.has(item.id)) target.transcript.recordDiagnostic(item);

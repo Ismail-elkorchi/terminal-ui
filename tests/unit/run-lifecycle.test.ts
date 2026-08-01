@@ -13,7 +13,7 @@ void test('invalid run configuration is rejected before terminal mutation', asyn
   });
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_RUN_FAILED'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_RUN_FAILED'), true);
   assert.equal(host.output(), '');
   assert.equal(host.stdin.isRawModeEnabled(), false);
   assert.equal(host.restores().length, 0);
@@ -31,7 +31,7 @@ void test('startup clock failure prevents terminal mutation', async () => {
   const exit = await runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_FAILED'), true);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_FAILED'), true);
   const restorations = host.restores();
   assert.equal(restorations.length, 0);
   assert.equal(host.stdin.isRawModeEnabled(), false);
@@ -61,7 +61,7 @@ void test('intentional finalization timer cancellation is not a clock failure', 
   const exit = await runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
 
   assert.equal(exit.status, 'completed');
-  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_FAILED'), false);
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_FAILED'), false);
 });
 
 function exitOnSubmitApp(id: string) {

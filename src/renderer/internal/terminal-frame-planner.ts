@@ -100,7 +100,6 @@ export function applyTerminalRowMovement(frame: Frame, movement: TerminalRowMove
     cells.push({ ...cell, row });
   }
   return Object.freeze({
-    schemaVersion: frame.schemaVersion,
     width: frame.width,
     height: frame.height,
     widthProfile: frame.widthProfile,

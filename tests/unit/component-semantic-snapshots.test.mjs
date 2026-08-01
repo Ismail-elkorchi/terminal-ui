@@ -770,7 +770,6 @@ for (const current of cases) {
       `${current.name} inspection focus capability`
     );
 
-    assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v2');
     assert.equal(frame.width, terminalSizeNormal.columns);
     assert.equal(frame.height, terminalSizeNormal.rows);
     assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
@@ -833,7 +832,6 @@ function assertElementVisualSnapshot(snapshot, current, terminalSize, label) {
   assert.doesNotMatch(snapshot.ansiFrame, /\u001B/u, `${label}: raw ANSI leaked into normalized ANSI artifact`);
   assert.doesNotMatch(snapshot.frameJson, /\u001B/u, `${label}: raw ANSI leaked into frame JSON`);
   assert.doesNotMatch(snapshot.accessibilityJson, /\u001B/u, `${label}: raw ANSI leaked into accessibility JSON`);
-  assert.equal(frameJson.schemaVersion, 'terminal-ui.tui-frame.v2', `${label}: frame schema`);
   assert.equal(frameJson.width, terminalSize.columns, `${label}: frame width`);
   assert.equal(frameJson.height, terminalSize.rows, `${label}: frame height`);
   assert.equal(Array.isArray(frameJson.cells), true, `${label}: frame cells`);

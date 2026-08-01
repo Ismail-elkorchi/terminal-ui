@@ -1,7 +1,6 @@
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 
 export interface AccessibleSnapshot {
-  readonly schemaVersion: 'terminal-ui.accessible-snapshot.v1';
   readonly source: AccessibleSnapshotSource;
   readonly title?: string;
   readonly root: AccessibleNode;
@@ -9,7 +8,7 @@ export interface AccessibleSnapshot {
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
-export type AccessibleSnapshotSource = 'prompt' | 'tui' | 'renderer' | 'progress' | 'test_harness';
+export type AccessibleSnapshotSource = typeof accessibleSources[number];
 
 export interface AccessibleNode {
   readonly id: string;
@@ -77,54 +76,7 @@ export interface AccessiblePosition {
   readonly group?: string;
 }
 
-export type AccessibleRole =
-  | 'application'
-  | 'document'
-  | 'dialog'
-  | 'form'
-  | 'group'
-  | 'heading'
-  | 'link'
-  | 'navigation'
-  | 'toolbar'
-  | 'search'
-  | 'complementary'
-  | 'status'
-  | 'progressbar'
-  | 'meter'
-  | 'textbox'
-  | 'button'
-  | 'checkbox'
-  | 'switch'
-  | 'radio'
-  | 'radiogroup'
-  | 'slider'
-  | 'spinbutton'
-  | 'combobox'
-  | 'listbox'
-  | 'option'
-  | 'menu'
-  | 'menubar'
-  | 'menuitem'
-  | 'menuitemcheckbox'
-  | 'menuitemradio'
-  | 'tablist'
-  | 'tab'
-  | 'tabpanel'
-  | 'list'
-  | 'listitem'
-  | 'table'
-  | 'grid'
-  | 'rowgroup'
-  | 'row'
-  | 'cell'
-  | 'gridcell'
-  | 'columnheader'
-  | 'rowheader'
-  | 'tree'
-  | 'treeitem'
-  | 'image'
-  | 'text';
+export type AccessibleRole = typeof accessibleRoles[number];
 
 export interface AccessibleSnapshotInput {
   readonly source: AccessibleSnapshotSource;
@@ -182,7 +134,7 @@ export const accessibleRoles = [
   'treeitem',
   'image',
   'text'
-] as const satisfies readonly AccessibleRole[];
+] as const;
 
 export const accessibleSources = [
   'prompt',
@@ -190,4 +142,4 @@ export const accessibleSources = [
   'renderer',
   'progress',
   'test_harness'
-] as const satisfies readonly AccessibleSnapshotSource[];
+] as const;
