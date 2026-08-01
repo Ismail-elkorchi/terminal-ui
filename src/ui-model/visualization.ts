@@ -1,5 +1,5 @@
 export type ChartAction =
-  | { readonly kind: 'select'; readonly series: string; readonly pointIndex: number }
+  | { readonly kind: 'select'; readonly seriesId: string; readonly pointId: string }
   | { readonly kind: 'movePoint'; readonly delta: number }
   | { readonly kind: 'pagePoints'; readonly delta: number }
   | { readonly kind: 'moveSeries'; readonly delta: number }
@@ -14,7 +14,7 @@ export type BarChartAction =
   | { readonly kind: 'activate'; readonly id: string; readonly itemIndex: number };
 
 export type HeatmapAction =
-  | { readonly kind: 'select'; readonly rowIndex: number; readonly columnIndex: number }
+  | { readonly kind: 'select'; readonly id: string }
   | { readonly kind: 'move'; readonly rows: number; readonly columns: number }
   | { readonly kind: 'pageRows'; readonly delta: number }
   | { readonly kind: 'first' }

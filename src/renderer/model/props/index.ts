@@ -1,5 +1,6 @@
 import type {
   ListRenderProps,
+  DisclosureRenderProps,
   PaginatorRenderProps,
   RichTextRenderProps,
   TableRenderProps,
@@ -8,24 +9,22 @@ import type {
   TreeRenderProps
 } from './content.ts';
 import type {
-  ActivityFeedRenderProps,
   CommandInputRenderProps,
   SearchPickerRenderProps,
   LogViewerRenderProps,
-  StructuredBlockRenderProps,
   ViewportRenderProps
 } from './documents.ts';
 import type {
-  StatusIndicatorRenderProps,
+  ActivityIndicatorRenderProps,
   BarChartRenderProps,
   ChartRenderProps,
   MeterRenderProps,
   HeatmapRenderProps,
   HelpBarRenderProps,
-  NotificationStackRenderProps,
+  NotificationHistoryRenderProps,
+  NotificationRegionRenderProps,
   ProgressBarRenderProps,
   SparklineRenderProps,
-  SpinnerRenderProps,
   StatusBarRenderProps
 } from './feedback.ts';
 import type {
@@ -48,6 +47,8 @@ import type {
 import type {
   GridRenderProps,
   ColumnRenderProps,
+  FlowRenderProps,
+  MeasuredColumnRenderProps,
   SplitPaneRenderProps
 } from './layout.ts';
 import type { DialogRenderProps } from './dialog.ts';
@@ -62,6 +63,7 @@ import type {
 } from './menus.ts';
 import type {
   AbsoluteRenderProps,
+  AnchoredRenderProps,
   CanvasRenderProps,
   SurfaceRenderProps
 } from './surfaces.ts';
@@ -69,8 +71,11 @@ import type {
 export interface RenderNodePropsByKind<TMessage> {
   readonly text: TextRenderProps;
   readonly richText: RichTextRenderProps;
+  readonly disclosure: DisclosureRenderProps<TMessage>;
   readonly column: ColumnRenderProps;
   readonly row: ColumnRenderProps;
+  readonly flow: FlowRenderProps;
+  readonly measuredColumn: MeasuredColumnRenderProps;
   readonly list: ListRenderProps<TMessage>;
   readonly table: TableRenderProps<TMessage>;
   readonly tree: TreeRenderProps<TMessage>;
@@ -98,16 +103,17 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly dropdownMenu: DropdownMenuRenderProps<TMessage>;
   readonly divider: DividerRenderProps;
   readonly tooltip: TooltipRenderProps;
-  readonly notificationStack: NotificationStackRenderProps<TMessage>;
+  readonly notificationRegion: NotificationRegionRenderProps<TMessage>;
+  readonly notificationHistory: NotificationHistoryRenderProps<TMessage>;
   readonly canvas: CanvasRenderProps;
   readonly surface: SurfaceRenderProps;
   readonly absolute: AbsoluteRenderProps;
+  readonly anchored: AnchoredRenderProps;
   readonly overlay: Record<never, never>;
   readonly statusBar: StatusBarRenderProps;
   readonly helpBar: HelpBarRenderProps;
-  readonly statusIndicator: StatusIndicatorRenderProps;
+  readonly activityIndicator: ActivityIndicatorRenderProps;
   readonly progressBar: ProgressBarRenderProps;
-  readonly spinner: SpinnerRenderProps;
   readonly sparkline: SparklineRenderProps;
   readonly barChart: BarChartRenderProps<TMessage>;
   readonly chart: ChartRenderProps<TMessage>;
@@ -115,8 +121,6 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly heatmap: HeatmapRenderProps<TMessage>;
   readonly viewport: ViewportRenderProps<TMessage>;
   readonly logViewer: LogViewerRenderProps<TMessage>;
-  readonly structuredBlock: StructuredBlockRenderProps;
-  readonly activityFeed: ActivityFeedRenderProps<TMessage>;
   readonly commandInput: CommandInputRenderProps<TMessage>;
   readonly searchPicker: SearchPickerRenderProps<TMessage>;
   readonly grid: GridRenderProps;

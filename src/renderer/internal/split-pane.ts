@@ -12,7 +12,7 @@ import type { LayoutNode } from '../contracts.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { oneCellGlyph } from '../../text/index.ts';
-import { mergeStyles, renderNodeStyle, themeStyle } from './render-node-style.ts';
+import { mergeStyles, renderNodeStyle, themeStyle } from '../style-resolution.ts';
 
 type SplitPaneNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'splitPane'>;
 

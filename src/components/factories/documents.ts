@@ -1,26 +1,21 @@
 import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
-  ActivityFeedOptions,
   CommandInputOptions,
-  PassiveSearchPickerOptions,
   PassiveLogViewerOptions,
   SearchPickerOptions,
-  ScrollableSearchPickerOptions,
   ScrollableLogViewerOptions,
-  LogViewerOptions,
-  StructuredBlockOptions
+  LogViewerOptions
 } from '../options/documents.ts';
 import {
   commandInputKeyBindings,
-  componentMetaProps,
   interactionProps,
   mergeKeyBindings,
+  requireComponentHandler,
   searchPickerKeyBindings
 } from '../internal/interaction.ts';
-import { optionalRenderNodeId, requiredRenderNodeId } from '../../renderer/model/element.ts';
+import { requiredRenderNodeId } from '../../renderer/model/element.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
-import { searchSelectionHandler } from '../internal/domain.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
@@ -29,10 +24,14 @@ import type {
 import type { LogViewerAction, LogViewerControlAction } from '../../ui-model/log-viewer.ts';
 import { assertLogHistory } from '../../ui-model/log-history.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
-import { isRecordResult, isValidationLevel } from '../../ui-model/status.ts';
-import type { FieldItem, LogLevel } from '../../ui-model/contracts.ts';
-import type { CommandInputValidation, StructuredBlock } from '../../ui-model/documents.ts';
+import { isValidationLevel } from '../../ui-model/status.ts';
+import type { CommandInputValidation } from '../../ui-model/documents.ts';
 import { commandInputPopupRenderNode } from '../internal/command-input-popup.ts';
+import { searchPickerWindow } from '../../behavior/search-picker.ts';
+import type { SearchPickerAction } from '../../ui-model/search-picker.ts';
+import type {
+  PointerInteractionOptions
+} from '../../interaction/pointer-interaction.ts';
 
 /* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
 export function logViewer<
@@ -88,71 +87,13 @@ export function logViewer(options: LogViewerOptions<unknown>): Element<unknown> 
       ...(options.selection === undefined ? {} : { selection: options.selection })
     },
     ...interactionProps(options)
-  }, onAction !== undefined || (options.keys !== undefined && Object.keys(options.keys).length > 0));
+  });
 }
 
 function isScrollableLogViewerOptions<TMessage>(
   options: LogViewerOptions<TMessage>
 ): options is ScrollableLogViewerOptions<TMessage> {
   return options.scroll !== undefined;
-}
-
-export function structuredBlock(options: StructuredBlockOptions): Element {
-  const block = normalizeStructuredBlock({
-    id: options.id ?? 'structured-block',
-    title: options.title,
-    ...(options.summary === undefined ? {} : { summary: options.summary }),
-    ...(options.style === undefined ? {} : { style: options.style }),
-    ...(options.result === undefined ? {} : { result: options.result }),
-    ...(options.level === undefined ? {} : { level: options.level }),
-    ...(options.fields === undefined ? {} : { fields: options.fields }),
-    ...(options.body === undefined ? {} : { body: options.body }),
-    ...(options.details === undefined ? {} : { details: options.details }),
-    ...(options.collapsed === undefined ? {} : { collapsed: options.collapsed })
-  });
-  return componentElementFromRenderNode<'structuredBlock'>({
-    ...optionalRenderNodeId(options.id),
-    kind: 'structuredBlock',
-    props: {
-      title: block.title,
-      ...(block.summary === undefined ? {} : { summary: block.summary }),
-      ...(block.style === undefined ? {} : { style: block.style }),
-      ...(block.result === undefined ? {} : { result: block.result }),
-      ...(block.level === undefined ? {} : { level: block.level }),
-      ...(block.fields === undefined ? {} : { fields: block.fields }),
-      ...(block.body === undefined ? {} : { body: block.body }),
-      ...(block.details === undefined ? {} : { details: block.details }),
-      ...(block.collapsed === undefined ? {} : { collapsed: block.collapsed })
-    },
-    ...componentMetaProps(options.meta)
-  }, false);
-}
-
-export function activityFeed<const TMessage = never>(options: ActivityFeedOptions<TMessage>): Element<TMessage> {
-  const blocks = Object.freeze(options.blocks.map(normalizeStructuredBlock));
-  const onAction = options.onAction;
-  const selectedBlock = options.selectedId === undefined
-    ? undefined
-    : blocks.find((block) => block.id === options.selectedId);
-  const generatedKeys = onAction === undefined ? undefined : {
-    arrowUp: () => onAction({ kind: 'selectPrevious' }),
-    arrowDown: () => onAction({ kind: 'selectNext' }),
-    home: () => onAction({ kind: 'selectFirst' }),
-    end: () => onAction({ kind: 'selectLast' }),
-    enter: () => selectedBlock === undefined ? ignoreMessage() : onAction({ kind: 'toggleBlock', id: selectedBlock.id })
-  } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
-  const keyMap = mergeKeyBindings(generatedKeys, options.keys);
-  return componentElementFromRenderNode<'activityFeed', TMessage>({
-    ...requiredRenderNodeId(options.id, 'activityFeed'),
-    kind: 'activityFeed',
-    props: {
-      blocks,
-      ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
-      ...(onAction === undefined ? {} : { toActionMessage: onAction })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, keyMap !== undefined);
 }
 
 export function commandInput<
@@ -173,19 +114,17 @@ export function commandInput<
 ): Element<TActionMessage | TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function commandInput(options: CommandInputOptions<unknown>): Element<unknown> {
   const action = options.onAction;
-  const generatedKeys = action === undefined
-    ? undefined
-    : commandInputKeyBindings(action, options.presentation);
   const onSubmit = options.onSubmit;
+  requireComponentHandler('commandInput', 'onAction', action);
+  requireComponentHandler('commandInput', 'onSubmit', onSubmit);
+  const generatedKeys = commandInputKeyBindings(action, options.presentation);
   const selectedSuggestion = options.presentation.selectedSuggestionIndex === undefined
     ? undefined
     : options.presentation.suggestions[options.presentation.selectedSuggestionIndex];
   const submittedValue = selectedSuggestion?.disabled === true
     ? options.presentation.value
     : selectedSuggestion?.value ?? options.presentation.value;
-  const submitKeys = onSubmit === undefined
-    ? undefined
-    : { enter: () => onSubmit(submittedValue) };
+  const submitKeys = { enter: () => onSubmit(submittedValue) };
   const keyMap = mergeKeyBindings(mergeKeyBindings(generatedKeys, submitKeys), options.keys);
   const presentation = options.presentation;
   const validation = normalizeCommandInputValidation(options.validation);
@@ -198,8 +137,8 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
           ? {}
           : { selectedSuggestionIndex: presentation.selectedSuggestionIndex }),
         maxVisibleSuggestions,
-        ...(action === undefined ? {} : { toActionMessage: action }),
-        ...(onSubmit === undefined ? {} : { toSubmitMessage: onSubmit })
+        toActionMessage: action,
+        toSubmitMessage: onSubmit
       })
     : undefined;
   return componentElementFromRenderNode<'commandInput', unknown>({
@@ -221,19 +160,17 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
       ...(options.display === undefined ? {} : { display: options.display }),
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       maxVisibleSuggestions,
-      ...(action === undefined ? {} : { toActionMessage: action })
+      toActionMessage: action
     },
     ...(popup === undefined ? {} : { children: [popup] }),
     ...interactionProps({
-      ...(action === undefined ? {} : {
-        onInput: (text) => action({ kind: 'edit', operation: { kind: 'insert', text } }),
-        onPaste: (text) => action({ kind: 'edit', operation: { kind: 'insert', text } })
-      }),
+      onInput: (text) => action({ kind: 'edit', operation: { kind: 'insert', text } }),
+      onPaste: (text) => action({ kind: 'edit', operation: { kind: 'insert', text } }),
       ...(keyMap === undefined ? {} : { keys: keyMap }),
       pointer: options.pointer,
       meta: options.meta
     })
-  }, true);
+  });
 }
 
 function commandInputVisibleSuggestionLimit(value: number | undefined): number {
@@ -246,45 +183,52 @@ function commandInputVisibleSuggestionLimit(value: number | undefined): number {
 
 export function searchPicker<
   TValue,
-  const TSelectMessage = never,
-  const TScrollMessage = unknown,
-  const TActionMessage = never,
+  const TActionMessage,
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    ScrollableSearchPickerOptions<TValue>,
-    {
-      readonly onSelect: TSelectMessage;
-      readonly onScroll: TScrollMessage;
-      readonly onAction: TActionMessage;
-    },
-    TKeys,
-    TPointerMessage
-  >
-): Element<TSelectMessage | TScrollMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function searchPicker<
+>(options: SearchPickerFactoryOptions<
   TValue,
-  const TSelectMessage = never,
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    PassiveSearchPickerOptions<TValue>,
-    {
-      readonly onSelect: TSelectMessage;
-      readonly onAction: TActionMessage;
-    },
-    TKeys,
-    TPointerMessage
-  >
-): Element<TSelectMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function searchPicker<TValue>(options: SearchPickerOptions<TValue, unknown>): Element<unknown> {
+  TActionMessage,
+  TPointerMessage,
+  TKeys
+>): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+export function searchPicker(options: unknown): Element<unknown> {
+  return searchPickerElement(
+    options as SearchPickerOptions<unknown, unknown>
+  );
+}
+
+type SearchPickerFactoryOptions<
+  TValue,
+  TActionMessage,
+  TPointerMessage,
+  TKeys extends InferredElementKeyBindings | undefined
+> =
+  & Omit<SearchPickerOptions<TValue>, 'onAction' | 'keys' | 'pointer'>
+  & {
+    readonly onAction: (action: SearchPickerAction<TValue>) => TActionMessage;
+    readonly keys?: TKeys;
+    readonly pointer?: PointerInteractionOptions<TPointerMessage>;
+  };
+
+function searchPickerElement(
+  options: SearchPickerOptions<unknown, unknown>
+): Element<unknown> {
+  requireComponentHandler('searchPicker', 'onAction', options.onAction);
   const action = options.onAction;
-  const generatedKeys = action === undefined ? undefined : searchPickerKeyBindings(action);
-  const keyMap = mergeKeyBindings(generatedKeys, options.keys);
-  const toMessage = searchSelectionHandler(options.onSelect);
+  const selectedEntry = searchPickerWindow({
+    searchPickerIndex: options.searchPickerIndex,
+    ...(options.query === undefined ? {} : { query: options.query }),
+    ...(options.selectedId === undefined
+      ? {}
+      : { selectedId: options.selectedId }),
+    ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
+    ...(options.maxVisible === undefined ? {} : { limit: options.maxVisible })
+  }).selectedEntry;
+  const keyMap = mergeKeyBindings(
+    searchPickerKeyBindings(action, selectedEntry),
+    options.keys
+  );
   return componentElementFromRenderNode<'searchPicker', unknown>({
     ...requiredRenderNodeId(options.id, 'searchPicker'),
     kind: 'searchPicker',
@@ -292,52 +236,22 @@ export function searchPicker<TValue>(options: SearchPickerOptions<TValue, unknow
       searchPickerIndex: options.searchPickerIndex,
       ...(options.title === undefined ? {} : { title: options.title }),
       ...(options.query === undefined ? {} : { query: options.query }),
-      ...(toMessage === undefined ? {} : { toMessage }),
-      ...(options.selectedIndex === undefined ? {} : { selectedIndex: options.selectedIndex }),
       ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
       ...(options.maxVisible === undefined ? {} : { maxVisible: options.maxVisible }),
       ...(options.helpText === undefined ? {} : { helpText: options.helpText }),
-      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText })
+      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
+      toActionMessage: (next: SearchPickerAction<unknown>) => action(next)
     },
     ...interactionProps({
-      ...(action === undefined ? {} : {
-        onInput: (text) => action({ kind: 'insertQuery', text }),
-        onPaste: (text) => action({ kind: 'insertQuery', text })
-      }),
-      ...(keyMap === undefined ? {} : { keys: keyMap }),
+      onInput: (text) => action({ kind: 'insertQuery', text }),
+      onPaste: (text) => action({ kind: 'insertQuery', text }),
+      keys: keyMap,
       pointer: options.pointer,
       meta: options.meta
     })
-  }, true);
-}
-
-function normalizeStructuredBlock(value: StructuredBlock): StructuredBlock {
-  if (value.id.trim().length === 0) throw new TypeError('Structured block id must not be empty.');
-  if (value.result !== undefined && !isRecordResult(value.result)) {
-    throw new TypeError('Structured block result is invalid.');
-  }
-  if (value.level !== undefined && !isLogLevel(value.level)) {
-    throw new TypeError('Structured block level must be info, warning, or error.');
-  }
-  const fields = value.fields?.map((field): FieldItem => Object.freeze({
-    label: cleanLine(field.label),
-    value: cleanLine(field.value)
-  }));
-  return Object.freeze({
-    id: cleanLine(value.id),
-    title: cleanLine(value.title),
-    ...(value.summary === undefined ? {} : { summary: cleanLine(value.summary) }),
-    ...(value.style === undefined ? {} : { style: value.style }),
-    ...(value.result === undefined ? {} : { result: value.result }),
-    ...(value.level === undefined ? {} : { level: value.level }),
-    ...(fields === undefined ? {} : { fields: Object.freeze(fields) }),
-    ...(value.body === undefined ? {} : { body: cleanText(value.body) }),
-    ...(value.details === undefined ? {} : { details: cleanText(value.details) }),
-    ...(value.collapsed === undefined ? {} : { collapsed: value.collapsed })
   });
 }
 
@@ -354,10 +268,6 @@ function normalizeCommandInputValidation(
     message,
     ...(value.level === undefined ? {} : { level: value.level })
   });
-}
-
-function isLogLevel(value: unknown): value is LogLevel {
-  return value === 'info' || value === 'warning' || value === 'error';
 }
 
 function cleanLine(value: string): string {

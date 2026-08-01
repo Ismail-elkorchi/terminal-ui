@@ -18,14 +18,6 @@ import {
 } from '../charts/index.ts';
 import { paginatorAccessibleBase, paginatorBlock, paginatorHitTargets } from '../data-rendering.ts';
 import {
-  activityFeedAccessibleBase,
-  activityFeedAccessibleChildren,
-  activityFeedBlock,
-  activityFeedHitTargets,
-  structuredBlockAccessibleBase,
-  structuredBlockBlock
-} from '../structured-block.ts';
-import {
   logViewerAccessibleBase,
   logViewerAccessibleChildren,
   logViewerBlock,
@@ -81,8 +73,8 @@ export const dataRenderers = {
     render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
       writeRenderBlock(buffer, layoutNode.bounds, chartBlock(renderNode, layoutNode, theme, widthProfile));
     },
-    accessibility: ({ renderNode, id }) => ({
-      ...chartAccessibleBase(renderNode, id),
+    accessibility: ({ renderNode, id, focused }) => ({
+      ...chartAccessibleBase(renderNode, id, focused),
       children: chartAccessibleChildren(renderNode)
     }),
     focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
@@ -125,7 +117,9 @@ export const dataRenderers = {
       ...listAccessibleNode(renderNode, layoutNode, id, focused),
       children: listAccessibleChildren(renderNode, layoutNode)
     }),
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, listCursor(renderNode, bounds))],
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode)
+      ? [focusTarget(bounds, listCursor(renderNode, bounds))]
+      : [],
     hitTargets: ({ renderNode, bounds }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => listScrollbarState(renderNode, contentBounds), 'vertical');
       return [
@@ -151,6 +145,9 @@ export const dataRenderers = {
       ...tableAccessibleBase(renderNode, layoutNode.bounds, id, focused, widthProfile),
       children: tableAccessibleChildren(renderNode, layoutNode.bounds, widthProfile)
     }),
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode)
+      ? [focusTarget(bounds)]
+      : [],
     hitTargets: ({ renderNode, bounds, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => tableScrollbarState(renderNode, contentBounds), 'both');
       return [
@@ -177,7 +174,9 @@ export const dataRenderers = {
       ...treeAccessibleBase(renderNode, layoutNode.bounds, id, focused),
       children: treeAccessibleChildren(renderNode, layoutNode.bounds)
     }),
-    focusTargets: ({ bounds }) => [focusTarget(bounds)],
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode)
+      ? [focusTarget(bounds)]
+      : [],
     hitTargets: ({ renderNode, bounds }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => treeScrollbarState(renderNode, contentBounds), 'vertical');
       return [
@@ -243,39 +242,5 @@ export const dataRenderers = {
         ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];
     }
-  },
-  structuredBlock: {
-    measure: dataMeasurements.structuredBlock,
-    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, structuredBlockBlock(
-        renderNode,
-        layoutNode,
-        theme,
-        widthProfile
-      ));
-    },
-    accessibility: ({ renderNode, id }) => structuredBlockAccessibleBase(renderNode, id)
-  },
-  activityFeed: {
-    measure: dataMeasurements.activityFeed,
-    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, activityFeedBlock(
-        renderNode,
-        layoutNode,
-        theme,
-        widthProfile
-      ));
-    },
-    accessibility: ({ renderNode, layoutNode, id, focused, theme, widthProfile }) => ({
-      ...activityFeedAccessibleBase(renderNode, layoutNode, id, focused, theme, widthProfile),
-      children: activityFeedAccessibleChildren(renderNode, layoutNode, theme, widthProfile)
-    }),
-    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
-    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => activityFeedHitTargets(
-      renderNode,
-      bounds,
-      theme,
-      widthProfile
-    )
   }
-} satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'meter' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'logViewer' | 'structuredBlock' | 'activityFeed'>;
+} satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'meter' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'logViewer'>;

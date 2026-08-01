@@ -71,20 +71,20 @@ layers and receive pointer hits first. Modal or popover-like compositions can
 use focus containment without a special runtime mode.
 
 Transient feedback should be bounded by composition, not app roles. For
-example, mount a live `notificationStack()` inside an overlay child whose
+example, mount a live `notificationRegion()` inside an overlay child whose
 layout bounds are the area where notifications may appear. Live presentation
-is a passive accessibility region and may expose pointer dismissal for
-dismissible items. Use history presentation only when the application needs a
-focusable, selected, keyboard-navigable notification collection. The stack
+uses live accessibility and may expose focusable dismissal for dismissible
+items. Use `notificationHistory()` only when the application needs a focusable,
+selected, keyboard-navigable notification collection. The region
 places cards within its bounds and skips cards that cannot fit a minimum useful
 shape.
 
 ## Renderer Extensions
 
-Use `custom()` for a custom renderer for one element, including measurement,
-rendering, accessibility, focus targets, and hit targets. Use
-`customComposite()` when it must additionally measure and arrange child
-elements. Use `canvas()` for bounded drawing through `Canvas2D`.
+Use `custom()` for renderer extensions, including measurement, rendering,
+accessibility, focus targets, and hit targets. A `leaf` renderer paints one
+element; a `composite` renderer additionally measures and arranges children.
+Use `canvas()` for bounded drawing through `Canvas2D`.
 
 Both paths draw through the same sanitized frame pipeline; neither path writes
 raw terminal output. Interactive custom renderers must provide accessibility.

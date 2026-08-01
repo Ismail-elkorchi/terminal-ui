@@ -1,8 +1,8 @@
-import type { ElementTextRole, ElementVisualState } from '../../element/metadata.ts';
-import { resolveThemeColor } from '../../theme/index.ts';
-import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
-import type { RenderNode } from '../model/index.ts';
-import type { TerminalStyle } from '../../visual/render.ts';
+import type { ElementTextRole, ElementVisualState } from '../element/metadata.ts';
+import { resolveThemeColor } from '../theme/index.ts';
+import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
+import type { RenderNode } from './model/index.ts';
+import type { TerminalStyle } from '../visual/render.ts';
 
 export interface RenderNodeStyleInput {
   readonly part: string;

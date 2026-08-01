@@ -1,25 +1,22 @@
 import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
-  StatusIndicatorOptions,
+  ActivityIndicatorOptions,
   BarChartOptions,
   ChartOptions,
   MeterOptions,
   HeatmapOptions,
   HelpBarOptions,
-  LiveNotificationStackOptions,
   NotificationHistoryOptions,
-  NotificationStackOptions,
+  NotificationRegionOptions,
   ProgressBarOptions,
   SparklineOptions,
-  SpinnerOptions,
   StatusBarOptions
 } from '../options/feedback.ts';
 import {
   componentMetaProps,
   interactionProps,
-  mergeKeyBindings,
-  withMetaDefaults
+  mergeKeyBindings
 } from '../internal/interaction.ts';
 import { optionalRenderNodeId, requiredRenderNodeId } from '../../renderer/model/element.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
@@ -29,11 +26,11 @@ import type {
   InferredElementKeyBindings
 } from '../internal/messages.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
+import type { NotificationHistoryAction } from '../../ui-model/notification.ts';
 import type {
-  NotificationStackAction,
-  NotificationStackPresentation
-} from '../../ui-model/notification-stack.ts';
-import type { NotificationItem, StatusBarItem } from '../../ui-model/feedback.ts';
+  NotificationItem,
+  StatusBarItem
+} from '../../ui-model/feedback.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 import { resolveStableIds } from '../../ui-model/identity.ts';
 import {
@@ -42,73 +39,93 @@ import {
   isStatusBarStatus
 } from '../../ui-model/status.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
-import { assertOptionalEnum, assertOptionalFiniteNumber } from '../../foundation/validation.ts';
+import {
+  assertFiniteNumber,
+  assertOptionalEnum,
+  assertOptionalFiniteNumber,
+  isNonArrayObject
+} from '../../foundation/validation.ts';
+import { isThemeColorToken } from '../../visual/color.ts';
 
-export function notificationStack<
-  const TDismissMessage = never,
-  const TPointerMessage = never,
->(
-  options: IndependentInteractionOptions<
-    LiveNotificationStackOptions,
-    { readonly onDismiss: TDismissMessage },
-    undefined,
-    TPointerMessage
-  >
-): Element<TDismissMessage | TPointerMessage>;
-export function notificationStack<
-  const TActionMessage,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    NotificationHistoryOptions,
-    { readonly onAction: TActionMessage },
-    TKeys,
-    TPointerMessage
-  > & {
-    readonly onAction: (action: NotificationStackAction) => TActionMessage;
+export function notificationRegion<const TMessage = never>(
+  options: NotificationRegionOptions<TMessage>
+): Element<TMessage> {
+  const items = Object.freeze(options.items.map(normalizeNotificationItem));
+  assertNotificationLayout(options, 'notificationRegion');
+  resolveStableIds(items, (item) => item.id, 'notificationRegion');
+  return componentElementFromRenderNode<'notificationRegion', TMessage>({
+    ...requiredRenderNodeId(options.id, 'notificationRegion'),
+    kind: 'notificationRegion',
+    props: {
+      items,
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
+      ...(options.onDismiss === undefined
+        ? {}
+        : { toDismissMessage: options.onDismiss })
+    },
+    ...(options.onDismiss !== undefined
+      && items.some((item) => item.dismissible !== false)
+      ? { focusable: true }
+      : {}),
+    ...interactionProps({
+      pointer: options.pointer,
+      meta: options.meta
+    })
+  });
+}
+
+export function notificationHistory<const TMessage = never>(
+  options: NotificationHistoryOptions<TMessage>
+): Element<TMessage> {
+  if (typeof options.onAction !== 'function') {
+    throw new TypeError('notificationHistory requires an onAction function.');
   }
-): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function notificationStack(rawOptions: object): Element<unknown> {
-  const options = rawOptions as NotificationStackOptions<unknown>;
-  const presentation = normalizeNotificationPresentation(options.presentation);
+  const items = Object.freeze(options.items.map(normalizeNotificationItem));
+  assertNotificationLayout(options, 'notificationHistory');
+  resolveStableIds(items, (item) => item.id, 'notificationHistory');
+  const generated = {
+    arrowUp: () => options.onAction({ kind: 'move', delta: -1 }),
+    arrowDown: () => options.onAction({ kind: 'move', delta: 1 }),
+    home: () => options.onAction({ kind: 'first' }),
+    end: () => options.onAction({ kind: 'last' }),
+    delete: () => options.selectedId === undefined
+      ? ignoreMessage()
+      : options.onAction({ kind: 'remove', id: options.selectedId })
+  } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
+  const keyMap = mergeKeyBindings(generated, options.keys);
+  return componentElementFromRenderNode<'notificationHistory', TMessage>({
+    ...requiredRenderNodeId(options.id, 'notificationHistory'),
+    kind: 'notificationHistory',
+    props: {
+      items,
+      ...(options.selectedId === undefined
+        ? {}
+        : { selectedId: options.selectedId }),
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
+      toActionMessage: (action: NotificationHistoryAction) =>
+        options.onAction(action)
+    },
+    focusable: true,
+    ...interactionProps({
+      keys: keyMap,
+      pointer: options.pointer,
+      meta: options.meta
+    })
+  });
+}
+
+function assertNotificationLayout(
+  options: Pick<NotificationRegionOptions<unknown>, 'placement' | 'maxWidth'>,
+  name: string
+): void {
   assertOptionalEnum(
     options.placement,
     ['top-right', 'bottom-right', 'centered-stack'],
-    'notificationStack placement'
+    `${name} placement`
   );
-  assertOptionalFiniteNumber(options.maxWidth, 'notificationStack maxWidth');
-  const onAction = 'onAction' in options ? options.onAction : undefined;
-  const onDismiss = 'onDismiss' in options ? options.onDismiss : undefined;
-  const keys = 'keys' in options ? options.keys : undefined;
-  const meta = withMetaDefaults(options.meta, {
-    focus: { disabled: presentation.kind === 'live' }
-  });
-  const generated = onAction === undefined || presentation.kind !== 'history' ? undefined : {
-    arrowUp: () => onAction({ kind: 'move', delta: -1 }),
-    arrowDown: () => onAction({ kind: 'move', delta: 1 }),
-    delete: () => presentation.selected === undefined
-      ? undefined
-      : onAction({ kind: 'dismiss', id: presentation.selected })
-  } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
-  const keyMap = onAction === undefined
-    ? undefined
-    : mergeKeyBindings(generated, keys);
-  resolveStableIds(presentation.items, (item) => item.id, 'notificationStack');
-  return componentElementFromRenderNode<'notificationStack', unknown>({
-    ...requiredRenderNodeId(options.id, 'notificationStack'),
-    kind: 'notificationStack',
-    props: {
-      presentation,
-      ...(options.placement === undefined ? {} : { placement: options.placement }),
-      ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
-      ...(onDismiss === undefined ? {} : { toDismissMessage: onDismiss }),
-      ...(onAction === undefined
-        ? {}
-        : { toActionMessage: (action: NotificationStackAction) => onAction(action) })
-    },
-    ...interactionProps({ keys: keyMap, pointer: options.pointer, meta })
-  }, keyMap !== undefined);
+  assertOptionalFiniteNumber(options.maxWidth, `${name} maxWidth`);
 }
 
 export function statusBar(options: StatusBarOptions): Element {
@@ -121,7 +138,7 @@ export function statusBar(options: StatusBarOptions): Element {
     kind: 'statusBar',
     props: { leading, center, trailing },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 function normalizedStatusItems(
@@ -142,28 +159,39 @@ function normalizedStatusItems(
 export function helpBar(options: HelpBarOptions): Element {
   resolveStableIds(options.groups, (group) => group.id, 'helpBar');
   return componentElementFromRenderNode<'helpBar'>({
-    ...optionalRenderNodeId(options.id),
+    ...requiredRenderNodeId(options.id, 'helpBar'),
     kind: 'helpBar',
     props: { groups: options.groups },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
-export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
-  assertProcessStatus(options.status, 'statusIndicator');
-  return componentElementFromRenderNode<'statusIndicator'>({
+export function activityIndicator(options: ActivityIndicatorOptions): Element {
+  assertProcessStatus(options.status, 'activityIndicator');
+  if (typeof options.label !== 'string' || options.label.trim() === '') {
+    throw new TypeError('activityIndicator requires a non-empty label.');
+  }
+  return componentElementFromRenderNode<'activityIndicator'>({
     ...optionalRenderNodeId(options.id),
-    kind: 'statusIndicator',
+    kind: 'activityIndicator',
     props: {
-      ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.status === undefined ? {} : { status: options.status })
+      label: options.label,
+      status: options.status,
+      ...(options.status !== 'running' || options.frames === undefined
+        ? {}
+        : { frames: options.frames }),
+      ...(options.status !== 'running' || options.frameIndex === undefined
+        ? {}
+        : { frameIndex: options.frameIndex })
     },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function progressBar(options: ProgressBarOptions): Element {
+  assertAccessibleLabel(options.label, 'progressBar');
   assertProgressBarMode(options.mode);
+  assertValueScale(options.valueScale, 'progressBar');
   assertProcessStatus(options.status, 'progressBar');
   assertOptionalEnum(
     options.display,
@@ -178,7 +206,7 @@ export function progressBar(options: ProgressBarOptions): Element {
     ...optionalRenderNodeId(options.id),
     kind: 'progressBar',
     props: {
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       mode: options.mode,
       ...(barWidth === undefined ? {} : { barWidth }),
       ...(options.display === undefined ? {} : { display: options.display }),
@@ -189,7 +217,7 @@ export function progressBar(options: ProgressBarOptions): Element {
       ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale })
     },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 function assertProgressBarMode(mode: ProgressBarOptions['mode']): void {
@@ -222,11 +250,16 @@ function normalizedDuration(value: unknown, label: string): number | undefined {
 }
 
 export function sparkline(options: SparklineOptions): Element {
+  assertAccessibleLabel(options.label, 'sparkline');
   assertChartDataState(options.dataState, 'sparkline');
+  assertFiniteValues(options.values, 'sparkline values');
+  assertNumericDomain(options.min, options.max, 'sparkline');
+  assertValueScale(options.valueScale, 'sparkline');
   return componentElementFromRenderNode<'sparkline'>({
     ...optionalRenderNodeId(options.id),
     kind: 'sparkline',
     props: {
+      label: options.label,
       values: options.values,
       ...(options.min === undefined ? {} : { min: options.min }),
       ...(options.max === undefined ? {} : { max: options.max }),
@@ -237,7 +270,7 @@ export function sparkline(options: SparklineOptions): Element {
       ...(options.errorText === undefined ? {} : { errorText: options.errorText })
     },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function barChart<
@@ -253,7 +286,13 @@ export function barChart<
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
+  assertAccessibleLabel(options.label, 'barChart');
   assertChartDataState(options.dataState, 'barChart');
+  assertOptionalFiniteNumber(options.max, 'barChart max');
+  assertArrayValue(options.items, 'barChart items');
+  for (const item of options.items) {
+    assertStableItem(item, 'barChart item');
+  }
   resolveStableIds(options.items, (item) => item.id, 'barChart');
   const onAction = options.onAction;
   const selectedIndex = options.items.findIndex((item) => item.id === options.selectedId);
@@ -271,6 +310,7 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
     ...requiredRenderNodeId(options.id, 'barChart'),
     kind: 'barChart',
     props: {
+      label: options.label,
       items: options.items,
       ...(options.max === undefined ? {} : { max: options.max }),
       ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
@@ -281,11 +321,42 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
       ...(onAction === undefined ? {} : { toActionMessage: (action: BarChartAction) => onAction(action) })
     },
     ...interactionProps({ ...options, keys: keyMap })
-  }, keyMap !== undefined);
+  });
 }
 
 export function chart<const TMessage = never>(options: ChartOptions<TMessage>): Element<TMessage> {
+  assertAccessibleLabel(options.label, 'chart');
   assertChartDataState(options.dataState, 'chart');
+  assertNumericDomain(options.min, options.max, 'chart');
+  assertValueScale(options.valueScale, 'chart');
+  assertOptionalEnum(options.sampleMode, ['one-per-column', 'fit', 'window'], 'chart sampleMode');
+  assertOptionalEnum(options.sampleAlign, ['start', 'end'], 'chart sampleAlign');
+  assertOptionalEnum(options.interpolation, ['nearest', 'linear'], 'chart interpolation');
+  assertArrayValue(options.series, 'chart series');
+  for (const series of options.series) {
+    assertStableLabel(series.id, series.label, 'chart series');
+    assertOptionalEnum(series.kind, ['line', 'scatter', 'area', 'bar'], `chart series "${series.id}" kind`);
+    assertOptionalEnum(
+      series.sampleMode,
+      ['one-per-column', 'fit', 'window'],
+      `chart series "${series.id}" sampleMode`
+    );
+    assertOptionalEnum(series.sampleAlign, ['start', 'end'], `chart series "${series.id}" sampleAlign`);
+    assertOptionalEnum(
+      series.interpolation,
+      ['nearest', 'linear'],
+      `chart series "${series.id}" interpolation`
+    );
+    assertValueScale(series.valueScale, `chart series "${series.id}"`);
+    assertArrayValue(series.points, `chart series "${series.id}" points`);
+    for (const point of series.points) {
+      assertStableItem(point, `chart series "${series.id}" point`);
+    }
+  }
+  resolveStableIds(options.series, (series) => series.id, 'chart series');
+  for (const series of options.series) {
+    resolveStableIds(series.points, (point) => point.id, `chart series "${series.id}" points`);
+  }
   const onAction = options.onAction;
   const selected = options.selected;
   const generated = onAction === undefined ? undefined : {
@@ -299,13 +370,18 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
     end: () => onAction({ kind: 'lastPoint' }),
     enter: () => selected === undefined
       ? ignoreMessage()
-      : onAction({ kind: 'select', series: selected.series, pointIndex: selected.pointIndex })
+      : onAction({
+          kind: 'select',
+          seriesId: selected.seriesId,
+          pointId: selected.pointId
+        })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   const keyMap = mergeKeyBindings(generated, options.keys);
   return componentElementFromRenderNode<'chart', TMessage>({
     ...requiredRenderNodeId(options.id, 'chart'),
     kind: 'chart',
     props: {
+      label: options.label,
       series: options.series,
       ...(options.min === undefined ? {} : { min: options.min }),
       ...(options.max === undefined ? {} : { max: options.max }),
@@ -327,16 +403,20 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
       })
     },
     ...interactionProps({ ...options, keys: keyMap })
-  }, keyMap !== undefined);
+  });
 }
 
 export function meter(options: MeterOptions): Element {
+  assertAccessibleLabel(options.label, 'meter');
   assertMeterResult(options.result);
+  assertFiniteNumber(options.value, 'meter value');
+  assertNumericDomain(options.min, options.max, 'meter');
+  assertPositiveSafeInteger(options.width, 'meter width');
   return componentElementFromRenderNode<'meter'>({
     ...optionalRenderNodeId(options.id),
     kind: 'meter',
     props: {
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       value: options.value,
       ...(options.min === undefined ? {} : { min: options.min }),
       ...(options.max === undefined ? {} : { max: options.max }),
@@ -345,11 +425,22 @@ export function meter(options: MeterOptions): Element {
       ...(options.result === undefined ? {} : { result: options.result })
     },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<TValue, TMessage>): Element<TMessage> {
+  assertAccessibleLabel(options.label, 'heatmap');
   assertChartDataState(options.dataState, 'heatmap');
+  assertNumericDomain(options.min, options.max, 'heatmap');
+  assertPositiveSafeInteger(options.cellWidth, 'heatmap cellWidth');
+  assertNonNegativeSafeInteger(options.gap, 'heatmap gap');
+  assertValueScale(options.valueScale, 'heatmap');
+  assertArrayValue(options.rows, 'heatmap rows');
+  for (const row of options.rows) {
+    assertArrayValue(row, 'heatmap row');
+    for (const cell of row) assertStableItem(cell, 'heatmap cell');
+  }
+  resolveStableIds(options.rows.flat(), (cell) => cell.id, 'heatmap cells');
   const onAction = options.onAction;
   const selected = options.selected;
   const generated = onAction === undefined ? undefined : {
@@ -363,17 +454,14 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
     end: () => onAction({ kind: 'last' }),
     enter: () => selected === undefined
       ? ignoreMessage()
-      : onAction({
-          kind: 'select',
-          rowIndex: selected.rowIndex,
-          columnIndex: selected.columnIndex
-        })
+      : onAction({ kind: 'select', id: selected.id })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   const keyMap = mergeKeyBindings(generated, options.keys);
   return componentElementFromRenderNode<'heatmap', TMessage>({
     ...requiredRenderNodeId(options.id, 'heatmap'),
     kind: 'heatmap',
     props: {
+      label: options.label,
       rows: options.rows,
       ...(options.min === undefined ? {} : { min: options.min }),
       ...(options.max === undefined ? {} : { max: options.max }),
@@ -390,39 +478,95 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
       })
     },
     ...interactionProps({ ...options, keys: keyMap })
-  }, keyMap !== undefined);
-}
-
-export function spinner(options: SpinnerOptions = {}): Element {
-  assertProcessStatus(options.status, 'spinner');
-  return componentElementFromRenderNode<'spinner'>({
-    ...optionalRenderNodeId(options.id),
-    kind: 'spinner',
-    props: {
-      ...(options.frames === undefined ? {} : { frames: options.frames }),
-      ...(options.frameIndex === undefined ? {} : { frameIndex: options.frameIndex }),
-      ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.status === undefined ? {} : { status: options.status })
-    },
-    ...componentMetaProps(options.meta)
-  }, false);
-}
-
-function normalizeNotificationPresentation(
-  value: NotificationStackPresentation
-): NotificationStackPresentation {
-  const items = Object.freeze(value.items.map(normalizeNotificationItem));
-  const kind: unknown = value.kind;
-  if (kind === 'live') return Object.freeze({ kind: 'live', items });
-  if (kind !== 'history') {
-    throw new TypeError('notificationStack presentation kind must be live or history.');
-  }
-  const history = value as Extract<NotificationStackPresentation, { readonly kind: 'history' }>;
-  return Object.freeze({
-    kind: 'history',
-    items,
-    ...(history.selected === undefined ? {} : { selected: sanitizeLine(history.selected) })
   });
+}
+
+function assertAccessibleLabel(value: unknown, component: string): asserts value is string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new TypeError(`${component} requires a non-empty label.`);
+  }
+}
+
+function assertStableItem(
+  value: { readonly id: unknown; readonly label: unknown; readonly value: unknown },
+  subject: string
+): void {
+  assertStableLabel(value.id, value.label, subject);
+  assertFiniteNumber(value.value, `${subject} value`);
+}
+
+function assertStableLabel(id: unknown, label: unknown, subject: string): void {
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new TypeError(`${subject} id must be a non-empty string.`);
+  }
+  if (typeof label !== 'string' || label.trim().length === 0) {
+    throw new TypeError(`${subject} label must be a non-empty string.`);
+  }
+}
+
+function assertFiniteValues(values: readonly number[], subject: string): void {
+  assertArrayValue(values, subject);
+  for (const value of values) assertFiniteNumber(value, `${subject} item`);
+}
+
+function assertArrayValue(value: unknown, subject: string): void {
+  if (!Array.isArray(value)) throw new TypeError(`${subject} must be an array.`);
+}
+
+function assertNumericDomain(
+  minimum: unknown,
+  maximum: unknown,
+  component: string
+): void {
+  assertOptionalFiniteNumber(minimum, `${component} min`);
+  assertOptionalFiniteNumber(maximum, `${component} max`);
+  if (
+    typeof minimum === 'number'
+    && typeof maximum === 'number'
+    && maximum < minimum
+  ) {
+    throw new RangeError(`${component} max must be greater than or equal to min.`);
+  }
+}
+
+function assertPositiveSafeInteger(value: unknown, subject: string): void {
+  if (value === undefined) return;
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+    throw new RangeError(`${subject} must be a positive safe integer.`);
+  }
+}
+
+function assertNonNegativeSafeInteger(value: unknown, subject: string): void {
+  if (value === undefined) return;
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(`${subject} must be a non-negative safe integer.`);
+  }
+}
+
+function assertValueScale(
+  value: import('../../ui-model/feedback.ts').ValueScale | undefined,
+  component: string
+): void {
+  if (value === undefined) return;
+  assertArrayValue(value, `${component} valueScale`);
+  if (value.length > 32) throw new RangeError(`${component} valueScale cannot contain more than 32 stops.`);
+  for (const stop of value as readonly unknown[]) {
+    if (!isNonArrayObject(stop)) {
+      throw new TypeError(`${component} valueScale stops must be objects.`);
+    }
+    const at = stop['at'];
+    const token = stop['token'];
+    const label = stop['label'];
+    if (typeof at !== 'number' || !Number.isFinite(at) || at < 0 || at > 1) {
+      throw new RangeError(`${component} valueScale stop positions must be finite values from 0 through 1.`);
+    }
+    if (typeof token !== 'string' || !isThemeColorToken(token)) {
+      throw new TypeError(`${component} valueScale stop tokens must be valid theme color tokens.`);
+    }
+    if (label !== undefined && (typeof label !== 'string' || label.trim().length === 0)) {
+      throw new TypeError(`${component} valueScale stop labels must be non-empty strings.`);
+    }
+  }
 }
 
 function normalizeNotificationItem(value: NotificationItem): NotificationItem {

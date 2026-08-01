@@ -1,7 +1,10 @@
-import { notificationStackPreferredSize } from '../notifications.ts';
+import { notificationPreferredSize } from '../notifications.ts';
 import { progressText } from '../progress-bar-rendering.ts';
 import { statusBarText } from '../feedback-visual.ts';
-import { helpBarText, spinnerBlock } from '../text-rendering.ts';
+import {
+  activityIndicatorBlock,
+  helpBarText
+} from '../text-rendering.ts';
 import { measureBlock, measureSize, measureText } from '../measurement.ts';
 import type { RendererMeasurementMap } from './types.ts';
 
@@ -11,13 +14,20 @@ export const feedbackMeasurements = {
     { widthProfile }
   ),
   helpBar: ({ renderNode, widthProfile }) => measureText(helpBarText(renderNode, widthProfile), { widthProfile }),
-  spinner: ({ renderNode, theme, widthProfile }) => measureBlock(spinnerBlock(renderNode, theme), { widthProfile }),
+  activityIndicator: ({ renderNode, theme, widthProfile }) => measureBlock(
+    activityIndicatorBlock(renderNode, theme),
+    { widthProfile }
+  ),
   progressBar: ({ renderNode, theme, widthProfile }) => measureText(
     progressText(renderNode, theme, widthProfile),
     { widthProfile }
   ),
-  notificationStack: ({ renderNode, widthProfile }) => {
-    const preferred = notificationStackPreferredSize(renderNode, widthProfile);
+  notificationRegion: ({ renderNode, widthProfile }) => {
+    const preferred = notificationPreferredSize(renderNode, widthProfile);
+    return measureSize(preferred.width, preferred.height);
+  },
+  notificationHistory: ({ renderNode, widthProfile }) => {
+    const preferred = notificationPreferredSize(renderNode, widthProfile);
     return measureSize(preferred.width, preferred.height);
   }
-} satisfies RendererMeasurementMap<'statusBar' | 'helpBar' | 'spinner' | 'progressBar' | 'notificationStack'>;
+} satisfies RendererMeasurementMap<'statusBar' | 'helpBar' | 'activityIndicator' | 'progressBar' | 'notificationRegion' | 'notificationHistory'>;

@@ -1,5 +1,15 @@
 import type { Rect } from '../geometry/types.ts';
-import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
+import {
+  assertFiniteNumber,
+  assertOptionalEnum,
+  assertOptionalFiniteNumber,
+  finiteNonNegativeIntegerOrZero,
+  isNonArrayObject,
+  isStringMember
+} from '../foundation/validation.ts';
+
+const anchoredSurfaceSides = ['above', 'below', 'left', 'right'] as const;
+const anchoredSurfacePlacements = [...anchoredSurfaceSides, 'auto', 'cursor'] as const;
 
 export type AnchoredSurfaceSide = 'above' | 'below' | 'left' | 'right';
 
@@ -30,6 +40,9 @@ export interface PlaceAnchoredSurfaceInput {
 }
 
 export function placeAnchoredSurface(input: PlaceAnchoredSurfaceInput): Rect {
+  assertAnchoredSurfaceOptions(input, 'placeAnchoredSurface()');
+  assertRect(input.viewport, 'placeAnchoredSurface() viewport');
+  assertSize(input.size, 'placeAnchoredSurface() size');
   const viewport = normalizeRect(input.viewport);
   const size = boundedSize(input.size, viewport);
   const margin = finiteNonNegativeIntegerOrZero(input.margin ?? 1);
@@ -43,6 +56,28 @@ export function placeAnchoredSurface(input: PlaceAnchoredSurfaceInput): Rect {
   }
 
   return clampRect(rectForSide(anchor, size, candidates[0] ?? 'below', margin), viewport);
+}
+
+export function assertAnchoredSurfaceOptions(
+  input: {
+    readonly anchor: unknown;
+    readonly placement?: unknown;
+    readonly fallback?: unknown;
+    readonly margin?: unknown;
+  },
+  label: string
+): void {
+  assertAnchor(input.anchor, `${label} anchor`);
+  assertOptionalEnum(input.placement, anchoredSurfacePlacements, `${label} placement`);
+  if (input.fallback !== undefined
+    && (!Array.isArray(input.fallback)
+      || input.fallback.some((side) => !isStringMember(side, anchoredSurfaceSides)))) {
+    throw new TypeError(`${label} fallback must contain only above, below, left, or right.`);
+  }
+  assertOptionalFiniteNumber(input.margin, `${label} margin`);
+  if (typeof input.margin === 'number' && input.margin < 0) {
+    throw new RangeError(`${label} margin must be non-negative.`);
+  }
 }
 
 function candidateOrder(
@@ -140,4 +175,40 @@ function normalizeRect(rect: Rect): Rect {
     width: finiteNonNegativeIntegerOrZero(rect.width),
     height: finiteNonNegativeIntegerOrZero(rect.height)
   };
+}
+
+function assertAnchor(value: unknown, label: string): void {
+  if (!isNonArrayObject(value)) {
+    throw new TypeError(`${label} must be a target or cursor anchor.`);
+  }
+  if (value['kind'] === 'target') {
+    assertRect(value['bounds'], `${label} bounds`);
+    return;
+  }
+  if (value['kind'] === 'cursor') {
+    assertFiniteNumber(value['row'], `${label} row`);
+    assertFiniteNumber(value['column'], `${label} column`);
+    return;
+  }
+  throw new TypeError(`${label} kind must be target or cursor.`);
+}
+
+function assertRect(value: unknown, label: string): void {
+  if (!isNonArrayObject(value)) throw new TypeError(`${label} must be a rectangle.`);
+  assertFiniteNumber(value['row'], `${label} row`);
+  assertFiniteNumber(value['column'], `${label} column`);
+  assertFiniteNumber(value['width'], `${label} width`);
+  assertFiniteNumber(value['height'], `${label} height`);
+  if (value['width'] < 0 || value['height'] < 0) {
+    throw new RangeError(`${label} width and height must be non-negative.`);
+  }
+}
+
+function assertSize(value: unknown, label: string): void {
+  if (!isNonArrayObject(value)) throw new TypeError(`${label} must be an object.`);
+  assertFiniteNumber(value['width'], `${label} width`);
+  assertFiniteNumber(value['height'], `${label} height`);
+  if (value['width'] < 0 || value['height'] < 0) {
+    throw new RangeError(`${label} width and height must be non-negative.`);
+  }
 }

@@ -22,33 +22,30 @@ import type {
   ValueScale
 } from '../../ui-model/feedback.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
-import type {
-  NotificationStackAction,
-  NotificationStackPresentation
-} from '../../ui-model/notification-stack.ts';
+import type { NotificationHistoryAction } from '../../ui-model/notification.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../../ui-model/style-parts.ts';
 
-interface NotificationStackBaseOptions<TMessage> extends InteractiveElementOptions<NotificationStylePart, TMessage> {
-  readonly presentation: NotificationStackPresentation;
+interface NotificationOptionsBase<TMessage>
+  extends InteractiveElementOptions<NotificationStylePart, TMessage> {
   readonly placement?: NotificationPlacement;
   readonly maxWidth?: number;
 }
 
-export interface LiveNotificationStackOptions<TMessage = never> extends NotificationStackBaseOptions<TMessage> {
-  readonly presentation: Extract<NotificationStackPresentation, { readonly kind: 'live' }>;
+export interface NotificationRegionOptions<TMessage = never>
+  extends NotificationOptionsBase<TMessage> {
+  readonly items: readonly import('../../ui-model/feedback.ts').NotificationItem[];
   readonly onDismiss?: (id: string) => TMessage;
+  readonly keys?: never;
 }
 
-export interface NotificationHistoryOptions<TMessage = never> extends NotificationStackBaseOptions<TMessage> {
-  readonly presentation: Extract<NotificationStackPresentation, { readonly kind: 'history' }>;
-  readonly onAction: (action: NotificationStackAction) => TMessage;
+export interface NotificationHistoryOptions<TMessage = never>
+  extends NotificationOptionsBase<TMessage> {
+  readonly items: readonly import('../../ui-model/feedback.ts').NotificationItem[];
+  readonly selectedId?: string;
+  readonly onAction: (action: NotificationHistoryAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
-
-export type NotificationStackOptions<TMessage = never> =
-  | LiveNotificationStackOptions<TMessage>
-  | NotificationHistoryOptions<TMessage>;
 
 export interface StatusBarOptions extends ElementOptions<StatusStylePart> {
   readonly id: string;
@@ -58,16 +55,34 @@ export interface StatusBarOptions extends ElementOptions<StatusStylePart> {
 }
 
 export interface HelpBarOptions extends ElementOptions<StatusStylePart> {
+  readonly id: string;
   readonly groups: readonly HelpGroup[];
 }
 
-export interface StatusIndicatorOptions extends ElementOptions<StatusStylePart> {
-  readonly label?: string;
-  readonly status?: ProcessStatus;
+interface ActivityIndicatorOptionsBase extends ElementOptions<StatusStylePart> {
+  readonly label: string;
 }
 
+export interface RunningActivityIndicatorOptions
+  extends ActivityIndicatorOptionsBase {
+  readonly status: 'running';
+  readonly frames?: readonly string[];
+  readonly frameIndex?: number;
+}
+
+export interface SettledActivityIndicatorOptions
+  extends ActivityIndicatorOptionsBase {
+  readonly status: Exclude<ProcessStatus, 'running'>;
+  readonly frames?: never;
+  readonly frameIndex?: never;
+}
+
+export type ActivityIndicatorOptions =
+  | RunningActivityIndicatorOptions
+  | SettledActivityIndicatorOptions;
+
 export interface ProgressBarOptions extends ElementOptions<StatusStylePart> {
-  readonly label?: string;
+  readonly label: string;
   readonly mode: ProgressBarMode;
   readonly barWidth?: number;
   readonly display?: ProgressBarDisplay;
@@ -79,6 +94,7 @@ export interface ProgressBarOptions extends ElementOptions<StatusStylePart> {
 }
 
 export interface SparklineOptions extends ElementOptions<ChartStylePart> {
+  readonly label: string;
   readonly values: readonly number[];
   readonly min?: number;
   readonly max?: number;
@@ -90,6 +106,7 @@ export interface SparklineOptions extends ElementOptions<ChartStylePart> {
 }
 
 export interface BarChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart, TMessage> {
+  readonly label: string;
   readonly items: readonly BarChartItem[];
   readonly max?: number;
   readonly selectedId?: string;
@@ -102,6 +119,7 @@ export interface BarChartOptions<TMessage = never> extends InteractiveElementOpt
 }
 
 export interface ChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart, TMessage> {
+  readonly label: string;
   readonly series: readonly ChartSeries[];
   readonly min?: number;
   readonly max?: number;
@@ -123,7 +141,7 @@ export interface ChartOptions<TMessage = never> extends InteractiveElementOption
 }
 
 export interface MeterOptions extends ElementOptions<StatusStylePart> {
-  readonly label?: string;
+  readonly label: string;
   readonly value: number;
   readonly min?: number;
   readonly max?: number;
@@ -133,6 +151,7 @@ export interface MeterOptions extends ElementOptions<StatusStylePart> {
 }
 
 export interface HeatmapOptions<TValue = unknown, TMessage = never> extends InteractiveElementOptions<ChartStylePart, TMessage> {
+  readonly label: string;
   readonly rows: readonly (readonly HeatmapCell<TValue>[])[];
   readonly min?: number;
   readonly max?: number;
@@ -148,17 +167,11 @@ export interface HeatmapOptions<TValue = unknown, TMessage = never> extends Inte
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface SpinnerOptions extends ElementOptions<StatusStylePart> {
-  readonly frames?: readonly string[];
-  readonly frameIndex?: number;
-  readonly label?: string;
-  readonly status?: ProcessStatus;
-}
-
 export type {
   BarChartItem,
   ChartDataState,
   ChartInterpolation,
+  ChartPoint,
   ChartPointSelection,
   ChartSampleAlign,
   ChartSampleMode,
@@ -177,4 +190,6 @@ export type {
   ValueScale,
   ValueScaleStop
 } from '../../ui-model/feedback.ts';
-export type { NotificationStackPresentation } from '../../ui-model/notification-stack.ts';
+export type {
+  NotificationHistoryAction
+} from '../../ui-model/notification.ts';

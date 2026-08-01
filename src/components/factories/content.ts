@@ -1,6 +1,7 @@
 import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
+  DisclosureOptions,
   RichTextOptions,
   PassiveTextAreaOptions,
   ScrollableTextAreaOptions,
@@ -17,6 +18,11 @@ import {
 } from '../internal/interaction.ts';
 import { optionalRenderNodeId, requiredRenderNodeId } from '../../renderer/model/element.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
+import {
+  activationKeyBindings
+} from '../internal/interaction.ts';
+import { toRenderNode } from '../../renderer/model/element.ts';
+import type { ElementMessage } from '../../element/index.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
@@ -32,7 +38,7 @@ export function text(content: string, options: TextOptions = {}): Element {
       ...(options.textRole === undefined ? {} : { textRole: options.textRole })
     },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function richText(options: RichTextOptions): Element {
@@ -44,7 +50,46 @@ export function richText(options: RichTextOptions): Element {
       ...(options.wrap === undefined ? {} : { wrap: options.wrap })
     },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
+}
+
+export function disclosure<
+  const TChild extends Element<unknown>,
+  const TMessage = never
+>(
+  child: TChild,
+  options: DisclosureOptions<TMessage>
+): Element<ElementMessage<TChild> | TMessage> {
+  if (options.disabled !== true && typeof options.onAction !== 'function') {
+    throw new TypeError('Enabled disclosure requires an onAction function.');
+  }
+  const onAction = options.disabled === true ? undefined : options.onAction;
+  const keys = activationKeyBindings(
+    onAction === undefined ? undefined : () => onAction({ kind: 'toggle' }),
+    options.keys
+  );
+  return componentElementFromRenderNode<
+    'disclosure',
+    ElementMessage<TChild> | TMessage
+  >({
+    ...requiredRenderNodeId(options.id, 'disclosure'),
+    kind: 'disclosure',
+    props: {
+      label: options.label,
+      ...(options.summary === undefined
+        ? {}
+        : { summary: normalizeInlineContent(options.summary) }),
+      expanded: options.expanded,
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(onAction === undefined ? {} : { toActionMessage: onAction })
+    },
+    children: [toRenderNode(child)],
+    ...(keys === undefined ? {} : { keyMap: keys }),
+    ...interactionProps({
+      pointer: options.pointer,
+      meta: options.meta
+    })
+  });
 }
 
 /* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
@@ -118,7 +163,7 @@ export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
       pointer: options.pointer,
       meta: options.meta
     })
-  }, true);
+  });
 }
 
 function isScrollableTextAreaOptions<TMessage>(

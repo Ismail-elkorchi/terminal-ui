@@ -1,27 +1,22 @@
 export { custom } from './custom.ts';
-export { customComposite } from './custom-composite.ts';
 export type {
+  CustomCompositeRenderer,
   CustomElementOptions,
+  CustomLeafRenderer,
   CustomRenderer,
   CustomRendererAccessibilityInput,
   CustomRendererInput,
+  CustomRendererLayoutInput,
   CustomRendererMeasureInput,
   CustomRendererRenderInput,
+  CustomSourceInput,
+  CustomStyleInput,
+  DecorativeCustomCompositeRenderer,
+  DecorativeCustomLeafRenderer,
   DecorativeCustomRenderer,
   StatefulCustomElementOptions,
   StatelessCustomElementOptions
 } from './custom.ts';
-export type {
-  CustomCompositeAccessibilityInput,
-  CustomCompositeInput,
-  CustomCompositeLayoutInput,
-  CustomCompositeMeasureInput,
-  CustomCompositeRenderer,
-  CustomCompositeRenderInput,
-  DecorativeCustomCompositeRenderer,
-  StatefulCustomCompositeOptions,
-  StatelessCustomCompositeOptions
-} from './custom-composite.ts';
 export type {
   Element,
   ElementChildren,

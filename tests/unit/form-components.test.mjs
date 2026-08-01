@@ -17,6 +17,7 @@ import {
   form,
   label,
   numberInput,
+  passwordInput,
   radioGroup,
   select,
   textInput
@@ -26,11 +27,23 @@ import { row } from '../../dist/layout/index.js';
 const enter = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 const tab = { kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
+test('text controls reject every malformed provided handler', () => {
+  for (const control of [textInput, passwordInput]) {
+    assert.throws(() => control({
+      id: 'malformed-handler',
+      presentation: { value: '', cursor: 0 },
+      onAction: (action) => action,
+      onSubmit: 'not-a-function'
+    }), /onSubmit must be a function when provided/u);
+  }
+});
+
 test('form components render settings and setup-wizard shapes with scoped state', () => {
   const element = form([
     field(textInput({
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
+      onAction: (action) => action,
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
@@ -69,7 +82,8 @@ test('form components render settings and setup-wizard shapes with scoped state'
     }),
     numberInput({
       id: 'workers',
-      presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4, min: 1, max: 8 }
+      presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4, min: 1, max: 8 },
+      onAction: (action) => action
     }),
     row([
       button({ id: 'submit', label: 'Continue', onPress: () => ({ kind: 'submit' }) }),
@@ -150,6 +164,7 @@ test('form fields expose label required description and validation source anatom
     field(textInput({
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
+      onAction: (action) => action,
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
@@ -164,6 +179,7 @@ test('form fields expose label required description and validation source anatom
       id: 'terms',
       label: 'Accept terms',
       checked: false,
+      onChange: (checked) => checked,
       required: true,
       error: 'Required before submit'
     })
@@ -187,6 +203,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
     field(textInput({
       id: 'email',
       presentation: { value: 'user@example.test', cursor: 0 },
+      onAction: (action) => action,
       required: true
     }), {
       id: 'email-field',
@@ -208,7 +225,8 @@ test('form accessibility exposes labels, values, validation, required, disabled,
       options: [
         { id: 'free', label: 'Free', value: 'free' },
         { id: 'pro', label: 'Pro', value: 'pro', disabled: true }
-      ]
+      ],
+      onAction: (action) => action
     })
   ], {
     id: 'account-form',
@@ -238,7 +256,8 @@ test('control labels create a structural accessible-name relationship', () => {
     label({ id: 'email-label', forId: 'email-input', text: 'Email', required: true }),
     textInput({
       id: 'email-input',
-      presentation: { value: 'user@example.test', cursor: 0 }
+      presentation: { value: 'user@example.test', cursor: 0 },
+      onAction: (action) => action
     })
   ], {
     id: 'labelled-form',

@@ -4,6 +4,7 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { pointerInteractionReducer } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { custom } from '../../dist/component/index.js';
+import { leafRendererDefinition } from '../helpers/custom-renderer.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, tree } from '../../dist/components/index.js';
 import { overlay } from '../../dist/layout/index.js';
@@ -113,15 +114,10 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
     id: 'disabled-pointer-interaction',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: (state) => button({
+    view: () => button({
       id: 'disabled-button',
       label: 'Disabled',
-      disabled: true,
-      onPress: () => ({ kind: 'activate' }),
-      pointer: {
-        state: {},
-        onAction: (action) => ({ kind: 'pointer', action, count: state.events.length })
-      }
+      disabled: true
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
@@ -136,6 +132,7 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
 
 test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'pointer lifecycle' }]);
     },
@@ -195,6 +192,7 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
 
 test('TUI pointer click counts use clock, stable target identity, and cross-target reset', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'left right' }]);
     },
@@ -256,6 +254,7 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
 
 test('TUI pointer hover emits enter leave and hover when crossing targets', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'left  right' }]);
     },
@@ -321,6 +320,7 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
 
 test('TUI pointer targets receive event-aware messages and horizontal wheel deltas', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'pointer target' }]);
     },
@@ -372,6 +372,7 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
 
 test('TUI pointer drag routes to the captured origin target', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'drag target' }]);
     },
@@ -420,6 +421,7 @@ test('TUI pointer drag routes to the captured origin target', async () => {
 
 test('TUI pointer motion drops stale drag samples before routing release', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ state, bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: `events ${String(state)}` }]);
     },

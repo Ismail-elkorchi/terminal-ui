@@ -4,7 +4,7 @@ import type { RenderNodeOfKind } from '../../../model/index.ts';
 import type { Rect } from '../../../contracts.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import { formSpan } from '../../form-visual.ts';
-import { renderNodeStyle, resolveRenderNodeStyle } from '../../render-node-style.ts';
+import { renderNodeStyle, resolveRenderNodeStyle } from '../../../style-resolution.ts';
 import { clampNumber, finiteNumber } from './shared.ts';
 import { oneCellGlyph } from '../../../../text/index.ts';
 import type { TextWidthProfile } from '../../../../text/index.ts';

@@ -69,8 +69,8 @@ test('dialog reserves a structurally separated action area without color', () =>
     width: 20,
     height: 7,
     actions: row([
-      button({ id: 'cancel', label: 'Cancel' }),
-      button({ id: 'confirm', label: 'OK' })
+      button({ id: 'cancel', label: 'Cancel', onPress: () => undefined }),
+      button({ id: 'confirm', label: 'OK', onPress: () => undefined })
     ], { gap: 1 })
   });
   const layout = layoutElement(element, { columns: 30, rows: 9 }, noColorTheme);
@@ -94,7 +94,7 @@ test('dialog action separators preserve one-cell geometry under ambiguous-wide p
     title: 'Confirm',
     width: 16,
     height: 7,
-    actions: button({ id: 'confirm', label: 'OK' })
+    actions: button({ id: 'confirm', label: 'OK', onPress: () => undefined })
   }), { columns: 24, rows: 9 }, {
     widthProfile: { emoji: 'wide', ambiguous: 'wide' }
   });

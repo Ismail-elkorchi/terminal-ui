@@ -13,12 +13,15 @@ scroll or resize action that changes geometry.
 | --- | --- | --- |
 | `column()` | Vertical tracks with shared flow options. | A visual panel or semantic control group by itself. |
 | `row()` | Horizontal tracks with shared flow options. | A toolbar, menu, or command model. |
+| `flow()` | Multi-line horizontal or vertical flow from measured child sizes. | A virtualized data collection or semantic list. |
+| `measuredColumn()` | A variable-height visible window projected into child elements with stable identities. | Item storage, filtering, selection policy, or a domain-specific feed. |
 | `grid()` | Row/column tracks and named areas for spatial composition. | An accessible data grid or breakpoint policy engine. |
 | `splitPane()` | Static pane tracks or caller-controlled divider resizing. | Retaining pane content, persistence, or a window manager. |
 | `surface()` | Single-child visual containment, border and title geometry, and background construction. | Multi-child flow; compose children before wrapping. |
 | `overlay()` | Multiple children sharing the same bounds and layer order. | Modal behavior or product overlay lifecycle. |
 | `absolute()` | One child placed at a relative rectangle. | A layout solver or drag/drop framework. |
-| `viewport()` | Clipping and caller-controlled scrolling over one child. | A semantic list, table, editor, or transcript component. |
+| `anchored()` | One child placed from a cursor or target anchor with fallback sides. | Popover lifecycle, focus policy, or open state. |
+| `viewport()` | Clipping and caller-controlled offsets over a self-measured child. | A semantic list, table, editor, or transcript component. |
 
 Interactive `tabs()` and `dialog()` surfaces are components. Their renderers
 participate in ordinary layout, but `tabs()` owns selection actions and the

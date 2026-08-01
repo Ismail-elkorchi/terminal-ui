@@ -33,6 +33,8 @@ import { dialogChildBounds, dialogOutsideHitTargets, drawDialogActionSeparator, 
 import { drawSurfaceFrame } from '../surface.ts';
 import type { RendererMap } from './types.ts';
 import { layoutMeasurements } from './layout-measurements.ts';
+import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
+import { flowChildBounds } from './support/flow.ts';
 
 export const layoutRenderers = {
   row: {
@@ -69,15 +71,55 @@ export const layoutRenderers = {
     },
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
+  flow: {
+    measure: layoutMeasurements.flow,
+    layout: ({ renderNode, bounds, childCount, measureChild }) => flowChildBounds(
+      bounds,
+      renderNode.props.direction,
+      finiteNonNegativeIntegerOrZero(renderNode.props.gap),
+      finiteNonNegativeIntegerOrZero(renderNode.props.lineGap),
+      Array.from({ length: childCount }, (_, index) => measureChild(index))
+    ),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
+  },
+  measuredColumn: {
+    clipChildren: true,
+    measure: layoutMeasurements.measuredColumn,
+    layout: ({ renderNode, bounds }) => renderNode.props.entries.map((entry) => ({
+      row: bounds.row + entry.rowOffset - entry.clippedRowsBefore,
+      column: bounds.column,
+      width: bounds.width,
+      height: entry.rows
+    })),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
+  },
   viewport: {
+    clipChildren: true,
     measure: layoutMeasurements.viewport,
-    layout: ({ renderNode, bounds }) => [viewportChildBounds(renderNode, bounds)],
+    layout: ({ renderNode, bounds, measureChild }) => [
+      viewportChildBounds(renderNode, bounds, measureChild(0))
+    ],
     render: (input) => {
       const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height, {
         widthProfile: input.buffer.widthProfile
       });
       input.renderChildren(viewportBuffer);
-      const scrollbars = scrollbarsForRenderNode(input.renderNode, input.layoutNode.bounds, (contentBounds) => viewportScrollbarState(input.renderNode, contentBounds), 'both');
+      const scrollbars = scrollbarsForRenderNode(
+        input.renderNode,
+        input.layoutNode.bounds,
+        (contentBounds) => viewportScrollbarState(
+          input.renderNode,
+          contentBounds,
+          input.layoutNode
+        ),
+        'both'
+      );
       const occupiedCells = new Set<string>();
       for (const cell of viewportBuffer.snapshot().cells) {
         if (cellInside(cell, scrollbars.contentBounds)) {
@@ -85,7 +127,14 @@ export const layoutRenderers = {
           occupiedCells.add(viewportIndicatorCellKey(cell.row, cell.column));
         }
       }
-      drawViewportIndicators(input.buffer, input.renderNode, scrollbars.contentBounds, input.theme, occupiedCells);
+      drawViewportIndicators(
+        input.buffer,
+        input.renderNode,
+        input.layoutNode,
+        scrollbars.contentBounds,
+        input.theme,
+        occupiedCells
+      );
       drawScrollbars(input.buffer, input.renderNode, scrollbars, input.theme);
     },
     accessibility: ({ renderNode, layoutNode, id }) => ({
@@ -94,8 +143,17 @@ export const layoutRenderers = {
       label: id,
       description: viewportAccessibleDescription(renderNode, layoutNode)
     }),
-    hitTargets: ({ renderNode, bounds }) => {
-      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => viewportScrollbarState(renderNode, contentBounds), 'both');
+    hitTargets: ({ renderNode, bounds, layoutNode }) => {
+      const scrollbars = scrollbarsForRenderNode(
+        renderNode,
+        bounds,
+        (contentBounds) => viewportScrollbarState(
+          renderNode,
+          contentBounds,
+          layoutNode
+        ),
+        'both'
+      );
       return scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state);
     }
   },
@@ -183,4 +241,4 @@ export const layoutRenderers = {
       layoutNode.viewport
     )
   }
-} satisfies RendererMap<'column' | 'row' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;
+} satisfies RendererMap<'column' | 'row' | 'flow' | 'measuredColumn' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;

@@ -8,37 +8,35 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
-  statusIndicator,
+  activityIndicator,
   barChart,
-  button,
+  button as createButton,
   chart,
-  checkbox,
-  checkboxGroup,
-  colorSwatchPicker,
-  commandInput,
-  calendar,
+  checkbox as createCheckbox,
+  checkboxGroup as createCheckboxGroup,
+  colorSwatchPicker as createColorSwatchPicker,
+  commandInput as createCommandInput,
+  calendar as createCalendar,
   dialog,
-  dropdownMenu,
+  dropdownMenu as createDropdownMenu,
   helpBar,
   heatmap,
   list,
-  menu,
-  menuBar,
-  notificationStack,
-  searchPicker,
+  menu as createMenu,
+  menuBar as createMenuBar,
+  notificationRegion,
+  searchPicker as createSearchPicker,
   paginator,
   progressBar,
   logViewer,
-  slider,
-  spinner,
+  slider as createSlider,
   statusBar,
-  structuredBlock,
   table,
-  tabs,
+  tabs as createTabs,
   text,
   textArea,
-  textInput,
-  toggleSwitch,
+  textInput as createTextInput,
+  toggleSwitch as createToggleSwitch,
   tree
 } from '../../dist/components/index.js';
 import { prepareTextDocument, terminalTextWidth, textCaretAt } from '../../dist/text/index.js';
@@ -48,6 +46,86 @@ import {
   column,
   surface
 } from '../../dist/layout/index.js';
+
+const noMessage = () => undefined;
+
+function button(options) {
+  return createButton(
+    options.disabled === true || options.state === 'pending'
+      ? options
+      : { onPress: noMessage, ...options }
+  );
+}
+
+function textInput(options) {
+  return createTextInput(
+    options.disabled === true ? options : { onAction: noMessage, ...options }
+  );
+}
+
+function checkbox(options) {
+  return createCheckbox(
+    options.disabled === true ? options : { onChange: noMessage, ...options }
+  );
+}
+
+function toggleSwitch(options) {
+  return createToggleSwitch(
+    options.disabled === true ? options : { onChange: noMessage, ...options }
+  );
+}
+
+function slider(options) {
+  return createSlider(
+    options.disabled === true ? options : { onChange: noMessage, ...options }
+  );
+}
+
+function checkboxGroup(options) {
+  return createCheckboxGroup(
+    options.disabled === true ? options : { onAction: noMessage, ...options }
+  );
+}
+
+function colorSwatchPicker(options) {
+  return createColorSwatchPicker(
+    options.disabled === true ? options : { onAction: noMessage, ...options }
+  );
+}
+
+function calendar(options) {
+  return createCalendar(
+    options.disabled === true ? options : { onAction: noMessage, ...options }
+  );
+}
+
+function menu(options) {
+  return createMenu({ onAction: noMessage, ...options });
+}
+
+function menuBar(options) {
+  return createMenuBar({ onAction: noMessage, ...options });
+}
+
+function dropdownMenu(options) {
+  return createDropdownMenu({ onAction: noMessage, ...options });
+}
+
+function tabs(options) {
+  return createTabs({ onAction: noMessage, ...options });
+}
+
+function searchPicker(options) {
+  return createSearchPicker({ onAction: noMessage, ...options });
+}
+
+function commandInput(options) {
+  return createCommandInput({
+    onAction: noMessage,
+    onSubmit: noMessage,
+    ...options
+  });
+}
 
 function styleFor(frame, textValue) {
   return frame.cells.find((cell) => cell.text === textValue)?.style;
@@ -213,6 +291,8 @@ test('controlled pointer interaction resolves styles and source state across com
     id: 'command',
     presentation: { value: '/o', cursor: 0, suggestions: [{ value: '/open', label: 'Open' }, { value: '/save', label: 'Save' }], selectedSuggestionIndex: 0 },
     display: 'expanded',
+    onAction: (action) => action,
+    onSubmit: (value) => value,
     pointer: { state: { hoveredTargetId: 'command:suggestion:1' } }
   }), { columns: 24, rows: 3 });
   const paginatorFrame = renderElementFrame(paginator({
@@ -222,9 +302,9 @@ test('controlled pointer interaction resolves styles and source state across com
     onAction: () => undefined,
     pointer: { state: { pressedTargetId: 'pages:next' } }
   }), { columns: 40, rows: 1 });
-  const notificationFrame = renderElementFrame(notificationStack({
+  const notificationFrame = renderElementFrame(notificationRegion({
     id: 'notices',
-    presentation: { kind: 'live', items: [{ id: 'ready', title: 'Ready', tone: 'info' }] },
+    items: [{ id: 'ready', title: 'Ready', tone: 'info' }],
     pointer: { state: { hoveredTargetId: 'notices:notification:ready' } }
   }), { columns: 30, rows: 6 });
 
@@ -265,6 +345,7 @@ test('text entry frames use shared border, focus, and error styles', () => {
   const areaFrame = renderElementFrame(textArea({
     id: 'body',
     presentation: { document: prepareTextDocument('details'), caret: textCaretAt(0 )},
+    onAction: noMessage,
     error: 'Required',
     meta: {
         styles: {
@@ -297,6 +378,7 @@ test('menu searchPicker table and tree use selected placeholder and title slots'
     id: 'styled-searchPicker',
     title: 'Commands',
     searchPickerIndex: prepareSearchPickerIndex([]),
+    onAction: (action) => action,
     meta: {
         styles: {
             parts: {
@@ -432,11 +514,12 @@ test('default interactive component anatomy uses theme tokens instead of termina
   const searchPickerFrame = renderElementFrame(searchPicker({
     id: 'searchPicker',
     query: 'o',
-    selectedIndex: 1,
+    selectedId: 'toggle',
     searchPickerIndex: prepareSearchPickerIndex([
       { id: 'open', label: 'Open file' },
       { id: 'toggle', label: 'Toggle theme' }
-    ])
+    ]),
+    onAction: (action) => action
   }), { columns: 36, rows: 5 });
   const tabsFrame = renderElementFrame(tabs({
     id: 'tabs',
@@ -464,9 +547,9 @@ test('default interactive component anatomy uses theme tokens instead of termina
       children: [{ id: 'api', label: 'API', kind: 'leaf' }]
     }]
   }), { columns: 24, rows: 2 });
-  const noticeFrame = renderElementFrame(notificationStack({
+  const noticeFrame = renderElementFrame(notificationRegion({
     id: 'notices',
-    presentation: { kind: 'live', items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }] },
+    items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
     maxWidth: 24
   }), { columns: 32, rows: 6 });
 
@@ -711,13 +794,13 @@ test('feedback components use shared status styles and source metadata', () => {
         }
     }
 }), { columns: 32, rows: 1 });
-  const activityFrame = renderElementFrame(statusIndicator({
+  const activityFrame = renderElementFrame(activityIndicator({
     id: 'activity',
     label: 'Indexing',
     status: 'warning'
   }), { columns: 32, rows: 1 });
-  const spinnerFrame = renderElementFrame(spinner({
-    id: 'spinner',
+  const settledActivityFrame = renderElementFrame(activityIndicator({
+    id: 'settled-activity',
     label: 'Loaded',
     status: 'success'
   }), { columns: 32, rows: 1 });
@@ -739,46 +822,31 @@ test('feedback components use shared status styles and source metadata', () => {
   assert.equal(styleFor(activityFrame, '!')?.fg?.token, 'status.warning');
   assert.equal(activityFrame.cells.find((cell) => cell.text === '!')?.source?.description, 'status.marker');
   assert.equal(activityFrame.cells.find((cell) => cell.text === 'I')?.style?.fg?.token, 'text.default');
-  assert.equal(styleFor(spinnerFrame, '✓')?.fg?.token, 'status.success');
-  assert.equal(spinnerFrame.cells.find((cell) => cell.text === '✓')?.source?.description, 'status.marker');
-  assert.equal(spinnerFrame.cells.find((cell) => cell.text === 'L')?.style?.fg?.token, 'text.default');
+  assert.equal(styleFor(settledActivityFrame, '✓')?.fg?.token, 'status.success');
+  assert.equal(settledActivityFrame.cells.find((cell) => cell.text === '✓')?.source?.description, 'status.marker');
+  assert.equal(settledActivityFrame.cells.find((cell) => cell.text === 'L')?.style?.fg?.token, 'text.default');
   assert.equal(styleFor(progressFrame, '█')?.fg?.token, 'status.error');
   assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.description, 'filled');
 });
 
-test('record results and notification tones retain their component-specific styling', () => {
-  const failedBlockFrame = renderElementFrame(structuredBlock({
-    id: 'failed-block',
-    title: 'Import',
-    result: 'failed',
-    meta: { styles: { parts: { result: tokenStyle('status.error') } } }
-  }), { columns: 32, rows: 2 });
-  const skippedBlockFrame = renderElementFrame(structuredBlock({
-    id: 'skipped-block',
-    title: 'Import',
-    result: 'skipped',
-    meta: { styles: { parts: { level: tokenStyle('status.success') } } },
-    level: 'warning'
-  }), { columns: 32, rows: 2 });
-  const notificationFrame = renderElementFrame(notificationStack({
+test('notification tones retain component-specific styling', () => {
+  const notificationFrame = renderElementFrame(notificationRegion({
     id: 'notices',
-    presentation: { kind: 'live', items: [{
+    items: [{
       id: 'sync',
       title: 'Sync',
       tone: 'progress',
       progress: 50
-    }] }
+    }]
   }), { columns: 42, rows: 6 });
 
-  assert.equal(styleFor(failedBlockFrame, 'f')?.fg?.token, 'status.error');
-  assert.equal(styleFor(skippedBlockFrame, 's')?.fg?.token, 'status.warning');
-  assert.equal(styleFor(skippedBlockFrame, 'w')?.fg?.token, 'status.success');
   assert.equal(styleFor(notificationFrame, '█')?.fg?.token, 'status.running');
 });
 
 test('chart components apply their styles and source metadata', () => {
   const barFrame = renderElementFrame(barChart({
     id: 'bars',
+    label: 'Builds',
     selectedId: 'atlas',
     items: [{ id: 'atlas', label: 'Atlas', value: 5 }],
     meta: {
@@ -790,12 +858,15 @@ test('chart components apply their styles and source metadata', () => {
 }), { columns: 24, rows: 1 });
   const chartFrame = renderElementFrame(chart({
     id: 'chart',
+    label: 'Requests',
+    series: [],
     dataState: 'error',
     errorText: 'Unavailable'
   }), { columns: 24, rows: 1 });
   const heatmapFrame = renderElementFrame(heatmap({
     id: 'heatmap',
-    rows: [[{ id: 'a', value: 3 }]],
+    label: 'Load',
+    rows: [[{ id: 'a', label: 'Atlas', value: 3 }]],
     min: 0,
     max: 3,
     meta: {
@@ -810,7 +881,7 @@ test('chart components apply their styles and source metadata', () => {
   assert.equal(styleFor(chartFrame, 'U')?.fg?.token, 'status.error');
   assert.equal(chartFrame.cells.find((cell) => cell.text === 'U')?.source?.description, 'state.error.message');
   assert.equal(styleFor(heatmapFrame, '█')?.fg?.token, 'status.warning');
-  assert.equal(heatmapFrame.cells.find((cell) => cell.text === '█')?.source?.description, 'cell.0.0.value');
+  assert.equal(heatmapFrame.cells.find((cell) => cell.text === '█')?.source?.description, 'cell.a.value');
 });
 
 test('choice and picker controls use shared form visual styles and source metadata', () => {

@@ -4,6 +4,23 @@ import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
 export type ColumnRenderProps = RenderNodeLayoutProps & { readonly sizes?: readonly LayoutSize[] };
 
+export interface FlowRenderProps {
+  readonly direction: 'horizontal' | 'vertical';
+  readonly gap?: number;
+  readonly lineGap?: number;
+}
+
+export interface MeasuredColumnRenderEntry {
+  readonly rowOffset: number;
+  readonly clippedRowsBefore: number;
+  readonly rows: number;
+}
+
+export interface MeasuredColumnRenderProps {
+  readonly entries: readonly MeasuredColumnRenderEntry[];
+  readonly viewportRows: number;
+}
+
 export interface GridRenderProps extends RenderNodeLayoutProps {
   readonly rows: readonly LayoutSize[];
   readonly columns: readonly LayoutSize[];

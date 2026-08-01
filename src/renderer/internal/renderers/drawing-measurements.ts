@@ -3,22 +3,17 @@ import { dividerPreferredSize } from '../divider.ts';
 import {
   combineMeasurementsOverlay,
   measurement,
-  measureSize,
-  measureText,
-  zeroMeasurement
+  measureSize
 } from '../measurement.ts';
 import { layoutInsetSize } from '../layout-geometry.ts';
-import { numberProp, stringify } from '../render-node-props.ts';
+import { numberProp } from '../render-node-props.ts';
 import { tooltipPreferredSize } from '../tooltip.ts';
 import { surfaceBorderForLayout } from '../surface.ts';
 import { childMeasurements } from './measurement-support.ts';
 import type { RendererMeasurementMap } from './types.ts';
 
 export const drawingMeasurements = {
-  canvas: ({ renderNode, widthProfile }) => {
-    const label = stringify(renderNode.props.label);
-    return label.length === 0 ? zeroMeasurement() : measureText(label, { widthProfile });
-  },
+  canvas: ({ renderNode }) => renderNode.props.measurement,
   surface: ({ renderNode, childCount, measureChild }) => {
     const content = combineMeasurementsOverlay(childMeasurements(childCount, measureChild));
     const border = surfaceBorderForLayout(renderNode);
@@ -61,6 +56,7 @@ export const drawingMeasurements = {
     const height = finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'height'));
     return measureSize(width || content.preferredWidth, height || content.preferredHeight);
   },
+  anchored: ({ measureChild }) => measureChild(0),
   overlay: ({ childCount, measureChild }) => combineMeasurementsOverlay(
     childMeasurements(childCount, measureChild)
   ),
@@ -72,4 +68,4 @@ export const drawingMeasurements = {
     const preferred = tooltipPreferredSize(renderNode, widthProfile);
     return measureSize(preferred.width, preferred.height);
   }
-} satisfies RendererMeasurementMap<'canvas' | 'surface' | 'absolute' | 'overlay' | 'divider' | 'tooltip'>;
+} satisfies RendererMeasurementMap<'canvas' | 'surface' | 'absolute' | 'anchored' | 'overlay' | 'divider' | 'tooltip'>;

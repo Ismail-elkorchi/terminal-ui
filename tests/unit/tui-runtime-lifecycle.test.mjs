@@ -8,8 +8,16 @@ import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
 import { assertTerminalRestored, createTerminalHarness, runInteractionScript } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { text, textInput } from '../../dist/components/index.js';
+import { text, textInput as createTextInput } from '../../dist/components/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
+
+function textInput(options) {
+  return createTextInput(
+    options.onAction !== undefined || options.onSubmit !== undefined
+      ? options
+      : { onSubmit: () => undefined, ...options }
+  );
+}
 
 test('runTui emits deterministic transcripts when enabled', async () => {
   const app = defineTui({

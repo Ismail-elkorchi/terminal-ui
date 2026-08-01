@@ -3,10 +3,13 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import type { Rect } from '../contracts.ts';
 import type { RenderNodeRenderInput } from '../model/renderer.ts';
-import { createCanvas2D } from './canvas2d/index.ts';
+import { createClippedCanvas2D } from './canvas2d/canvas2d.ts';
 import { layoutBoxBounds, layoutPaddingBounds } from './layout-geometry.ts';
 import { layoutFlowOptions } from './renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
+import { resolveRenderNodeStyle } from '../style-resolution.ts';
+import { renderNodeFrameSource } from '../../visual/source.ts';
+import { createScopedRenderTarget } from './scoped-render-target.ts';
 
 type CanvasNode = RenderNodeOfKind<unknown, 'canvas'>;
 type SurfaceNode = RenderNodeOfKind<unknown, 'surface'>;
@@ -14,10 +17,26 @@ type AbsoluteNode = RenderNodeOfKind<unknown, 'absolute'>;
 type OverlayNode = RenderNodeOfKind<unknown, 'overlay'>;
 
 export function renderCanvas(input: RenderNodeRenderInput<unknown, 'canvas'>): void {
+  const owner = {
+    ...(input.renderNode.id === undefined ? {} : { id: input.renderNode.id }),
+    name: input.renderNode.kind,
+    rendererFamily: 'canvas'
+  };
   input.renderNode.props.painter({
-    canvas: createCanvas2D(input.buffer, input.layoutNode.bounds),
+    canvas: createClippedCanvas2D(createScopedRenderTarget(
+      input.buffer,
+      input.layoutNode.bounds,
+      input.layoutNode.viewport,
+      owner
+    ), input.layoutNode.bounds),
     bounds: input.layoutNode.bounds,
-    theme: input.theme
+    theme: input.theme,
+    style: (styleInput) => resolveRenderNodeStyle(input.renderNode, styleInput),
+    source: (sourceInput = {}) => renderNodeFrameSource(input.renderNode, {
+      rendererFamily: 'canvas',
+      cellRole: 'custom',
+      ...sourceInput
+    })
   });
 }
 

@@ -52,7 +52,8 @@ void test('intentional finalization timer cancellation is not a clock failure', 
     update: (state) => ({ state }),
     view: () => textInput({
       id: 'abort-rejecting-clock-output',
-      presentation: { value: 'ready', cursor: 0 }
+      presentation: { value: 'ready', cursor: 0 },
+      onAction: () => ({})
     }),
     nonTty: { mode: 'last_frame' }
   });
@@ -71,7 +72,8 @@ function exitOnSubmitApp(id: string) {
     view: () => textInput({
       id: `${id}-input`,
       presentation: { value: '', cursor: 0 },
-      onSubmit: () => ({ kind: 'exit' })
+      onAction: () => ({ kind: 'exit' as const }),
+      onSubmit: () => ({ kind: 'exit' as const })
     })
   });
 }

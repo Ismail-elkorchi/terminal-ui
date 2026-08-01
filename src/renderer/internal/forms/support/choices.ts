@@ -2,7 +2,7 @@ import type { ChoiceItem } from '../../../../ui-model/contracts.ts';
 import { isNonArrayObject } from '../../../../foundation/validation.ts';
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../../../model/index.ts';
 import type { TerminalStyle } from '../../frame.ts';
-import { resolveRenderNodeStyle } from '../../render-node-style.ts';
+import { resolveRenderNodeStyle } from '../../../style-resolution.ts';
 import { clean } from './shared.ts';
 
 type CheckboxGroupNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'checkboxGroup'>;

@@ -46,10 +46,10 @@ function normalizeFiniteNumber(value: number, fallback: number): number {
 }
 
 function normalizeFrame(frame: number, width: number): number {
-  const index = Number.isFinite(frame) ? Math.floor(frame) : 0;
-  return ((index % width) + width) % width;
+  return cyclicIndex(frame, width);
 }
 
 function wrappedDistance(index: number, start: number, width: number): number {
   return (index - start + width) % width;
 }
+import { cyclicIndex } from '../foundation/cyclic-index.ts';

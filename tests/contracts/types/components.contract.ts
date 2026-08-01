@@ -11,7 +11,11 @@ import {
 const paint: CanvasPainter = ({ canvas: drawing }) => {
   drawing.point(0, 0, { text: '*' });
 };
-const drawing = canvas({ painter: paint, label: 'drawing' });
+const drawing = canvas({
+  painter: paint,
+  label: 'drawing',
+  measurement: { minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }
+});
 const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
 const rows = table({
   id: 'rows',

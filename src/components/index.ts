@@ -1,6 +1,5 @@
 export {
-  activityFeed,
-  statusIndicator,
+  activityIndicator,
   barChart,
   button,
   canvas,
@@ -13,6 +12,7 @@ export {
   calendar,
   dialog,
   divider,
+  disclosure,
   dropdownMenu,
   field,
   form,
@@ -23,7 +23,8 @@ export {
   list,
   menu,
   menuBar,
-  notificationStack,
+  notificationHistory,
+  notificationRegion,
   numberInput,
   passwordInput,
   searchPicker,
@@ -35,9 +36,7 @@ export {
   logViewer,
   select,
   sparkline,
-  spinner,
   statusBar,
-  structuredBlock,
   slider,
   table,
   tabs,
@@ -60,8 +59,7 @@ export type { CommandInputAction, CommandInputPresentation } from '../ui-model/c
 export type {
   CommandInputDisplay,
   CommandInputValidation,
-  LogEntry,
-  StructuredBlock
+  LogEntry
 } from '../ui-model/documents.ts';
 export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
 export type {
@@ -107,7 +105,7 @@ export type {
 } from '../ui-model/tree.ts';
 export type { NumberInputAction, NumberInputControlAction, NumberInputValidity } from '../ui-model/number-input.ts';
 export type { PaginatorAction } from '../ui-model/paginator.ts';
-export type { NotificationStackAction } from '../ui-model/notification-stack.ts';
+export type { NotificationHistoryAction } from '../ui-model/notification.ts';
 export type { DialogDismissReason, DialogDismissal, DialogFocusPolicy } from '../ui-model/dialog.ts';
 export type {
   CalendarDate,
@@ -128,7 +126,6 @@ export type {
   TooltipPresentation
 } from '../ui-model/menu.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
-export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 export type {
   LogViewerAction,
   LogViewerBodyAnchor,
@@ -136,6 +133,7 @@ export type {
   LogViewerSelection
 } from '../ui-model/log-viewer.ts';
 export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
+export type { DisclosureAction } from '../ui-model/disclosure.ts';
 export type {
   CheckboxGroupAction,
   ColorSwatchPickerAction,
@@ -155,7 +153,6 @@ export type * from './options/index.ts';
 export {
   isNotificationTone,
   isProcessStatus,
-  isRecordResult,
   isStatusBarStatus,
   isValidationLevel
 } from '../ui-model/status.ts';

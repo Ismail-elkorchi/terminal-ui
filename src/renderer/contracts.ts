@@ -1,5 +1,9 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { ElementFocusScope, LayerUnderlay } from '../element/metadata.ts';
+import type {
+  ElementFocusScope,
+  ElementVisualState,
+  LayerUnderlay
+} from '../element/metadata.ts';
 import type { Rect } from '../geometry/types.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../input/index.ts';
 import type {
@@ -12,6 +16,7 @@ import type { TextWidthProfile } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type {
   FrameCellSource,
+  RenderNodeFrameSourceOptions,
   RenderBlock,
   RenderLine,
   RenderSpan,
@@ -66,6 +71,24 @@ export interface RenderTarget {
   clear(rect?: Rect): void;
 }
 
+export interface RenderStyleInput<TPart extends string> {
+  readonly part: 'root' | TPart;
+  readonly state?: ElementVisualState;
+  readonly base?: TerminalStyle;
+}
+
+export type RenderSourceInput = Omit<
+  RenderNodeFrameSourceOptions,
+  'rendererFamily'
+>;
+
+export interface RenderExtensionContext<TPart extends string> {
+  readonly style: (
+    input: RenderStyleInput<TPart>
+  ) => TerminalStyle | undefined;
+  readonly source: (input?: RenderSourceInput) => FrameCellSource;
+}
+
 export interface CanvasPoint {
   readonly x: number;
   readonly y: number;
@@ -116,6 +139,8 @@ export interface CanvasPainterInput {
   readonly canvas: Canvas2D;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly style: RenderExtensionContext<'content'>['style'];
+  readonly source: RenderExtensionContext<'content'>['source'];
 }
 
 export type CanvasPainter = (input: CanvasPainterInput) => void;
@@ -123,8 +148,12 @@ export type CanvasPainter = (input: CanvasPainterInput) => void;
 export type RenderNodeKind =
   | 'text'
   | 'richText'
+  | 'disclosure'
   | 'column'
   | 'row'
+  | 'flow'
+  | 'anchored'
+  | 'measuredColumn'
   | 'list'
   | 'table'
   | 'tree'
@@ -152,16 +181,16 @@ export type RenderNodeKind =
   | 'dropdownMenu'
   | 'divider'
   | 'tooltip'
-  | 'notificationStack'
+  | 'notificationRegion'
+  | 'notificationHistory'
   | 'canvas'
   | 'surface'
   | 'absolute'
   | 'overlay'
   | 'statusBar'
   | 'helpBar'
-  | 'statusIndicator'
+  | 'activityIndicator'
   | 'progressBar'
-  | 'spinner'
   | 'sparkline'
   | 'barChart'
   | 'chart'
@@ -169,8 +198,6 @@ export type RenderNodeKind =
   | 'heatmap'
   | 'viewport'
   | 'logViewer'
-  | 'structuredBlock'
-  | 'activityFeed'
   | 'commandInput'
   | 'searchPicker'
   | 'grid'

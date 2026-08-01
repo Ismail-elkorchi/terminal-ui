@@ -122,6 +122,30 @@ test('anchored placement recomputes fallback and bounds after viewport resize', 
   assert.deepEqual(narrow, { row: 6, column: 11, width: 10, height: 4 });
 });
 
+test('anchored placement rejects malformed public runtime input', () => {
+  const base = {
+    viewport: { row: 1, column: 1, width: 20, height: 10 },
+    anchor: { kind: 'cursor', row: 1, column: 1 },
+    size: { width: 5, height: 2 }
+  };
+
+  assert.throws(
+    () => placeAnchoredSurface({ ...base, fallback: ['diagonal'] }),
+    /fallback must contain only/u
+  );
+  assert.throws(
+    () => placeAnchoredSurface({ ...base, margin: Number.POSITIVE_INFINITY }),
+    /margin must be finite/u
+  );
+  assert.throws(
+    () => placeAnchoredSurface({
+      ...base,
+      viewport: { ...base.viewport, width: Number.NaN }
+    }),
+    /viewport width must be finite/u
+  );
+});
+
 function colorCapabilities() {
   return resolveTerminalCapabilities({
     host: {

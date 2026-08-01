@@ -1,6 +1,6 @@
 import type { ElementStyles } from '../../element/metadata.ts';
-import { renderNodeId } from '../../foundation/identity.ts';
 import type { RenderNode, RenderNodeOfKind } from '../../renderer/model/index.ts';
+import { renderNodeId } from '../../foundation/identity.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { ChoiceItem } from '../../ui-model/contracts.ts';
 import type { SelectAction } from '../../ui-model/choice-controls.ts';
@@ -9,6 +9,7 @@ import type { ListCollectionRecord } from '../../ui-model/list.ts';
 import type { SelectPresentation } from '../../ui-model/choice-controls.ts';
 import { completeCollection } from '../../ui-model/collection.ts';
 import { prepareListView } from '../../ui-model/list-view.ts';
+import { popupSurfaceRenderNode } from './popup-surface.ts';
 
 export interface SelectPopupInput<TMessage> {
   readonly parentElementId: string;
@@ -16,23 +17,14 @@ export interface SelectPopupInput<TMessage> {
   readonly presentation: Extract<SelectPresentation, { readonly kind: 'open' }>;
   readonly scrollbar?: ScrollbarOptions;
   readonly styles?: ElementStyles;
-  readonly toActionMessage?: (action: SelectAction) => TMessage;
+  readonly toActionMessage: (action: SelectAction) => TMessage;
 }
 
 export function selectPopupRenderNode<TMessage>(input: SelectPopupInput<TMessage>): RenderNode<TMessage> {
-  const list = selectPopupList(input);
-  return {
-    id: renderNodeId(`${input.parentElementId}:popup`, 'select popup'),
-    kind: 'surface',
-    props: {
-      appearance: 'raised',
-      border: { kind: 'rounded' },
-      padding: 0
-    },
-    children: [list],
-    layer: { zIndex: 20, underlay: 'clear' },
-    focus: { disabled: true }
-  };
+  return popupSurfaceRenderNode({
+    parentElementId: input.parentElementId,
+    child: selectPopupList(input)
+  });
 }
 
 function selectPopupList<TMessage>(input: SelectPopupInput<TMessage>): RenderNodeOfKind<TMessage, 'list'> {
@@ -56,12 +48,10 @@ function selectPopupList<TMessage>(input: SelectPopupInput<TMessage>): RenderNod
       ...(input.presentation.highlighted === undefined ? {} : { selectedId: input.presentation.highlighted }),
       ...(input.presentation.scroll === undefined ? {} : { scroll: input.presentation.scroll }),
       ...(input.scrollbar === undefined ? {} : { scrollbar: input.scrollbar }),
-      ...(toActionMessage === undefined ? {} : {
-        ...(input.presentation.scroll === undefined ? {} : {
-          toScrollMessage: (event) => toActionMessage({ kind: 'scroll', event })
-        }),
-        toActionMessage: (action) => toActionMessage(selectActionForList(action))
-      })
+      ...(input.presentation.scroll === undefined ? {} : {
+        toScrollMessage: (event) => toActionMessage({ kind: 'scroll', event })
+      }),
+      toActionMessage: (action) => toActionMessage(selectActionForList(action))
     },
     focus: { disabled: true },
     ...stylesProperty(input.styles)

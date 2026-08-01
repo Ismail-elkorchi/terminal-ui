@@ -3,13 +3,12 @@ import test from 'node:test';
 
 import {
   isProcessStatus,
-  isRecordResult,
   isStatusBarStatus,
   isValidationLevel,
   isNotificationTone
 } from '../../dist/components/index.js';
 
-void test('process status validation keeps process semantics distinct from record results', () => {
+void test('process status validation stays within process lifecycle semantics', () => {
   assert.equal(isProcessStatus('running'), true);
   assert.equal(isProcessStatus('pending'), false);
 });
@@ -17,12 +16,6 @@ void test('process status validation keeps process semantics distinct from recor
 void test('status-bar status accepts informational labels without widening process state', () => {
   assert.equal(isStatusBarStatus('info'), true);
   assert.equal(isProcessStatus('info'), false);
-});
-
-void test('record result validation accepts lifecycle outcomes without severity levels', () => {
-  assert.equal(isRecordResult('failed'), true);
-  assert.equal(isRecordResult('skipped'), true);
-  assert.equal(isRecordResult('error'), false);
 });
 
 void test('validation levels remain narrow', () => {

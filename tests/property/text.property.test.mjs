@@ -96,20 +96,17 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
       textInput({
         id: 'first',
         presentation: { value: state.active, cursor: 0 },
-        keys: { enter: () => ({ kind: 'first' }) }
+        onSubmit: () => ({ kind: 'first' })
       }),
       textInput({
-    id: 'disabled',
-    presentation: { value: state.active, cursor: 0 },
-    keys: { enter: () => ({ kind: 'disabled' }) },
-    meta: {
-        focus: { disabled: true }
-    }
-}),
+        id: 'disabled',
+        presentation: { value: state.active, cursor: 0 },
+        disabled: true
+      }),
       textInput({
         id: 'second',
         presentation: { value: state.active, cursor: 0 },
-        keys: { enter: () => ({ kind: 'second' }) }
+        onSubmit: () => ({ kind: 'second' })
       })
     ], { id: 'focus-root' })
   });

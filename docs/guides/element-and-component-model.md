@@ -44,16 +44,23 @@ import { button } from '@ismail-elkorchi/terminal-ui/components';
 type Message = { readonly kind: 'save' };
 const state = { saving: false };
 
-button({
+const saveButtonOptions = {
   id: 'save',
   label: 'Save',
-  state: state.saving ? 'pending' : 'idle',
-  onPress: (): Message => ({ kind: 'save' }),
   meta: {
     accessibility: { description: 'Save the current document' },
     styles: { states: { focused: { bold: true } } }
   }
-}) satisfies import('@ismail-elkorchi/terminal-ui/components').Element<Message>;
+} as const;
+
+const saveButton = state.saving
+  ? button({ ...saveButtonOptions, state: 'pending' })
+  : button({
+      ...saveButtonOptions,
+      onPress: (): Message => ({ kind: 'save' })
+    });
+
+saveButton satisfies import('@ismail-elkorchi/terminal-ui/components').Element<Message>;
 ```
 
 Rules:

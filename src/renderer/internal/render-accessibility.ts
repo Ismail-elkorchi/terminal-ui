@@ -3,7 +3,10 @@ import {
   focusedTargetIdForLayoutNode,
   renderFocusRelation
 } from './focus.ts';
-import { accessibilityForRenderNode } from './render-node-behavior.ts';
+import {
+  accessibilityForRenderNode,
+  renderNodeClipsChildren
+} from './render-node-behavior.ts';
 import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
@@ -145,7 +148,7 @@ function accessibleChildren(
 ): readonly AccessibleNode[] | undefined {
   const children = renderNode.children ?? [];
   if (children.length === 0) return undefined;
-  const clipsDescendants = clippedByViewport || renderNode.kind === 'viewport';
+  const clipsDescendants = clippedByViewport || renderNodeClipsChildren(renderNode);
   const rendered = orderedAccessibleChildren(renderNode, node).flatMap(({ child, childNode }) => {
     if (!childNode.visible) return [];
     if (clipsDescendants && intersectRects(childNode.bounds, childNode.viewport) === undefined) return [];

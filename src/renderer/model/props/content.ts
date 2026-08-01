@@ -20,6 +20,7 @@ import type { PreparedTreeView, TreeControlAction } from '../../../ui-model/tree
 import type { InlineContent } from '../../../visual/inline-content.ts';
 import type { InlineContentSegment } from '../../../visual/inline-content.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
+import type { DisclosureAction } from '../../../ui-model/disclosure.ts';
 
 export interface TextRenderProps {
   readonly textRole?: ElementTextRole;
@@ -29,6 +30,14 @@ export interface TextRenderProps {
 export interface RichTextRenderProps {
   readonly segments: InlineContent;
   readonly wrap?: boolean;
+}
+
+export interface DisclosureRenderProps<TMessage> {
+  readonly label: string;
+  readonly summary?: InlineContent;
+  readonly expanded: boolean;
+  readonly disabled?: boolean;
+  readonly toActionMessage?: (action: DisclosureAction) => TMessage;
 }
 
 export interface TextAreaRenderProps<TMessage> {

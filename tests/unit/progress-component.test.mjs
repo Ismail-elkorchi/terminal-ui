@@ -59,6 +59,7 @@ test('progressBar treats bar width as terminal cells under ambiguous-wide profil
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
   const frame = renderElementFrame(progressBar({
     id: 'wide-progress',
+    label: 'Progress',
     labelPosition: 'none',
     mode: { kind: 'determinate', value: 1, max: 1 },
     barWidth: 4,
@@ -75,6 +76,7 @@ test('progressBar treats bar width as terminal cells under ambiguous-wide profil
 test('progressBar valueScale renders segmented fill tokens', () => {
   const frame = renderElementFrame(progressBar({
     id: 'scaled-progress',
+    label: 'Progress',
     mode: { kind: 'determinate', value: 8, max: 10 },
     barWidth: 5,
     display: 'bar',
@@ -196,15 +198,15 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
 
 test('progressBar rejects invalid caller-supplied progress modes', () => {
   assert.throws(
-    () => progressBar({ id: 'nan-value', mode: { kind: 'determinate', value: Number.NaN } }),
+    () => progressBar({ id: 'nan-value', label: 'Progress', mode: { kind: 'determinate', value: Number.NaN } }),
     /value must be finite/u
   );
   assert.throws(
-    () => progressBar({ id: 'zero-max', mode: { kind: 'determinate', value: 1, max: 0 } }),
+    () => progressBar({ id: 'zero-max', label: 'Progress', mode: { kind: 'determinate', value: 1, max: 0 } }),
     /max must be finite and greater than zero/u
   );
   assert.throws(
-    () => progressBar({ id: 'nan-frame', mode: { kind: 'indeterminate', frame: Number.NaN } }),
+    () => progressBar({ id: 'nan-frame', label: 'Progress', mode: { kind: 'indeterminate', frame: Number.NaN } }),
     /frame must be finite/u
   );
 });
@@ -212,6 +214,7 @@ test('progressBar rejects invalid caller-supplied progress modes', () => {
 test('progressBar clamps 0 percent 100 percent and overflow values visibly', () => {
   const empty = renderElementFrame(progressBar({
     id: 'empty',
+    label: 'Progress',
     labelPosition: 'none',
     mode: { kind: 'determinate', value: 0, max: 10 },
     barWidth: 4,
@@ -219,6 +222,7 @@ test('progressBar clamps 0 percent 100 percent and overflow values visibly', () 
   }), { columns: 12, rows: 1 });
   const complete = renderElementFrame(progressBar({
     id: 'complete',
+    label: 'Progress',
     labelPosition: 'none',
     mode: { kind: 'determinate', value: 10, max: 10 },
     barWidth: 4,
@@ -226,6 +230,7 @@ test('progressBar clamps 0 percent 100 percent and overflow values visibly', () 
   }), { columns: 12, rows: 1 });
   const overflow = renderElementFrame(progressBar({
     id: 'overflow',
+    label: 'Progress',
     labelPosition: 'none',
     mode: { kind: 'determinate', value: 25, max: 10 },
     barWidth: 4,

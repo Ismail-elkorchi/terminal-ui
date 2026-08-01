@@ -78,26 +78,8 @@ test('documentation local links resolve', async () => {
 test('renderer layer has no command, clipboard, or raw ANSI side effects', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/renderer/internal/charts/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/renderer/internal/canvas2d/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/renderer/internal/frame-passes/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/renderer/internal/forms/', import.meta.url)),
-    ...await namedRendererSourceFiles([
-      'border.ts',
-      'command-input.ts',
-      'data-rendering.ts',
-      'drawing-rendering.ts',
-      'menu-rendering.ts',
-      'search-picker.ts',
-      'log-viewer.ts',
-      'structured-block.ts',
-      'table.ts',
-      'text-rendering.ts',
-      'tree.ts',
-      'render-node-behavior.ts',
-      '../model/renderer.ts'
-    ])
-  ];
+    ...await sourceFiles(new URL('../../src/renderer/', import.meta.url))
+  ].filter((file) => !file.pathname.endsWith('/src/renderer/internal/serialization-policy.ts'));
   const forbiddenPatterns = [
     /\bnode:child_process\b/u,
     /\bchild_process\b/u,
@@ -184,10 +166,6 @@ async function exampleSourceFiles() {
     ...await sourceFiles(new URL('../../examples/', import.meta.url), '.ts'),
     ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs')
   ].sort((left, right) => left.pathname.localeCompare(right.pathname));
-}
-
-async function namedRendererSourceFiles(names) {
-  return names.map((name) => new URL(`../../src/renderer/internal/${name}`, import.meta.url));
 }
 
 function markdownLinks(source) {

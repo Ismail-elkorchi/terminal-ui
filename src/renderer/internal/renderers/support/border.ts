@@ -1,6 +1,6 @@
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import { borderStyleFromValue } from '../../border.ts';
-import { mergeStyles, renderNodeStyle } from '../../render-node-style.ts';
+import { mergeStyles, renderNodeStyle } from '../../../style-resolution.ts';
 import type { BorderStyle } from '../../border.ts';
 import type { Rect } from '../../../contracts.ts';
 import type { TerminalStyle } from '../../../../visual/render.ts';

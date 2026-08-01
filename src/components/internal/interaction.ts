@@ -23,6 +23,7 @@ import type {
 } from '../../ui-model/menu.ts';
 import type { CommandInputAction } from '../../ui-model/command-input.ts';
 import type { SearchPickerAction } from '../../ui-model/search-picker.ts';
+import type { SearchEntry } from '../../ui-model/contracts.ts';
 import type { TextEditOperation } from '../../text/index.ts';
 import type { RenderMenuItem } from '../../renderer/model/props/menus.ts';
 import { mergeKeyBindings } from '../../element/metadata-normalization.ts';
@@ -137,7 +138,6 @@ export function paginatorKeyBindings<TMessage>(
   options: PaginatorOptions<TMessage>
 ): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
-  if (onAction === undefined) return options.keys;
   const generated = {
     home: () => onAction({ kind: 'first' }),
     arrowLeft: () => onAction({ kind: 'previous' }),
@@ -199,13 +199,17 @@ export function commandInputKeyBindings<TMessage>(
   };
 }
 
-export function searchPickerKeyBindings<TMessage>(
-  onAction: (action: SearchPickerAction) => TMessage
+export function searchPickerKeyBindings<TValue, TMessage>(
+  onAction: (action: SearchPickerAction<TValue>) => TMessage,
+  selectedEntry: SearchEntry<TValue> | undefined
 ): ElementKeyBindings<TMessage> {
   return {
     backspace: () => onAction({ kind: 'deleteQueryBackward' }),
     arrowUp: () => onAction({ kind: 'moveSelection', delta: -1 }),
-    arrowDown: () => onAction({ kind: 'moveSelection', delta: 1 })
+    arrowDown: () => onAction({ kind: 'moveSelection', delta: 1 }),
+    ...(selectedEntry === undefined || selectedEntry.disabled === true
+      ? {}
+      : { enter: () => onAction({ kind: 'activate', entry: selectedEntry }) })
   };
 }
 
@@ -263,6 +267,16 @@ export function textEditInputHandlers<TMessage>(
       };
 }
 
+export function requireComponentHandler(
+  component: string,
+  handler: string,
+  value: unknown
+): asserts value is (...arguments_: never[]) => unknown {
+  if (typeof value !== 'function') {
+    throw new TypeError(`${component} requires ${handler}.`);
+  }
+}
+
 export function numberInputKeyBindings<TMessage>(
   onAction: ((action: NumberInputControlAction) => TMessage) | undefined,
   explicit: ElementKeyBindings<TMessage> | undefined
@@ -282,18 +296,13 @@ export function sliderKeyBindings<TMessage>(
   const step = options.step ?? 1;
   const min = options.min ?? 0;
   const max = options.max ?? 100;
-  const onStep = options.onStep;
   const onChange = options.onChange;
-  const decrement = onStep !== undefined
-    ? () => onStep({ direction: 'decrement' })
-    : onChange !== undefined
-      ? () => onChange(Math.max(min, options.value - step))
-      : undefined;
-  const increment = onStep !== undefined
-    ? () => onStep({ direction: 'increment' })
-    : onChange !== undefined
-      ? () => onChange(Math.min(max, options.value + step))
-      : undefined;
+  const decrement = onChange === undefined
+    ? undefined
+    : () => onChange(Math.max(min, options.value - step));
+  const increment = onChange === undefined
+    ? undefined
+    : () => onChange(Math.min(max, options.value + step));
   return mergeKeyBindings({
     ...(decrement === undefined ? {} : { arrowLeft: decrement, arrowDown: decrement }),
     ...(increment === undefined ? {} : { arrowRight: increment, arrowUp: increment })

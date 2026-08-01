@@ -6,8 +6,8 @@ import type { RenderNode, RenderNodeOfKind } from '../../renderer/model/index.ts
 import type { MenuAction } from '../../ui-model/menu.ts';
 import type { MenuStylePart } from '../../ui-model/style-parts.ts';
 import type { MenuPresentation } from '../../ui-model/menu.ts';
-import { normalizeBorderTitle } from '../../visual/border.ts';
 import { menuItemsForRenderer } from './interaction.ts';
+import { popupSurfaceRenderNode } from './popup-surface.ts';
 
 export interface MenuPopupInput<TMessage> {
   readonly parentElementId: string;
@@ -17,23 +17,15 @@ export interface MenuPopupInput<TMessage> {
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly styles?: ElementStyles<MenuStylePart>;
-  readonly toActionMessage?: (action: MenuAction) => TMessage;
+  readonly toActionMessage: (action: MenuAction) => TMessage;
 }
 
 export function menuPopupRenderNode<TMessage>(input: MenuPopupInput<TMessage>): RenderNode<TMessage> {
-  return {
-    id: renderNodeId(`${input.parentElementId}:popup`, 'menu popup'),
-    kind: 'surface',
-    props: {
-      appearance: 'raised',
-      border: { kind: 'rounded' },
-      padding: 0,
-      ...(input.title === undefined ? {} : { title: normalizeBorderTitle(input.title) })
-    },
-    children: [menuPopupCollection(input)],
-    layer: { zIndex: 20, underlay: 'clear' },
-    focus: { disabled: true }
-  };
+  return popupSurfaceRenderNode({
+    parentElementId: input.parentElementId,
+    child: menuPopupCollection(input),
+    ...(input.title === undefined ? {} : { title: input.title })
+  });
 }
 
 function menuPopupCollection<TMessage>(input: MenuPopupInput<TMessage>): RenderNodeOfKind<TMessage, 'menu'> {
@@ -47,10 +39,8 @@ function menuPopupCollection<TMessage>(input: MenuPopupInput<TMessage>): RenderN
       ...(input.emptyText === undefined ? {} : { emptyText: input.emptyText }),
       ...(input.scrollbar === undefined ? {} : { scrollbar: input.scrollbar }),
       ...(input.scrollPolicy === undefined ? {} : { scrollPolicy: input.scrollPolicy }),
-      ...(toActionMessage === undefined ? {} : {
-        toActionMessage,
-        toScrollMessage: (event) => toActionMessage({ kind: 'scroll', event })
-      })
+      toActionMessage,
+      toScrollMessage: (event) => toActionMessage({ kind: 'scroll', event })
     },
     ...(input.styles === undefined ? {} : { styles: input.styles }),
     focus: { disabled: true }

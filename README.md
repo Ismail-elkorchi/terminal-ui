@@ -87,12 +87,25 @@ import {
   custom,
   type Element
 } from '@ismail-elkorchi/terminal-ui/component';
+import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
 
 export function badge(label: string): Element {
   return custom({
     id: 'badge',
     state: label,
     renderer: {
+      kind: 'leaf',
+      name: 'badge',
+      parts: [],
+      measure: ({ state, widthProfile }) => {
+        const width = Math.max(1, measureTextCells(state, { widthProfile }).cells);
+        return {
+          minWidth: 1,
+          minHeight: 1,
+          preferredWidth: width,
+          preferredHeight: 1
+        };
+      },
       render({ state, bounds, target }) {
         target.write(bounds.row, bounds.column, [{ text: state }]);
       },
@@ -106,8 +119,8 @@ export function badge(label: string): Element {
 }
 ```
 
-Use `customComposite()` when the component must also measure or arrange child
-elements.
+Set the renderer `kind` to `composite` when the extension must measure and
+arrange child elements.
 
 ## Test Deterministically
 

@@ -6,10 +6,9 @@ import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import {
-  statusIndicator,
+  activityIndicator,
   helpBar,
   progressBar,
-  spinner,
   statusBar
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
@@ -18,8 +17,8 @@ test('feedback status components preserve state in high contrast and no color ou
   const frame = renderElementFrame(column([
     statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
     helpBar({ id: 'help', groups: [{ id: 'primary', bindings: [{ key: 'Enter', label: 'run' }] }] }),
-    statusIndicator({ id: 'activity', label: 'Indexing', status: 'warning' }),
-    spinner({ id: 'spinner', label: 'Done', status: 'success' }),
+    activityIndicator({ id: 'activity', label: 'Indexing', status: 'warning' }),
+    activityIndicator({ id: 'settled-activity', label: 'Done', status: 'success' }),
     progressBar({
       id: 'progress',
       label: 'Deploy',
@@ -48,14 +47,14 @@ test('feedback status components preserve state in high contrast and no color ou
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'activity' && cell.text === '!')?.source?.description, 'status.marker');
-  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'spinner' && cell.text === '+')?.source?.description, 'status.marker');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'settled-activity' && cell.text === '+')?.source?.description, 'status.marker');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'progress' && cell.text === 'x')?.source?.description, 'status.marker');
 });
 
 test('feedback factories reject invalid caller-supplied status values', () => {
-  assert.throws(() => statusIndicator({ status: 'finished' }), TypeError);
-  assert.throws(() => spinner({ status: 'pending' }), TypeError);
+  assert.throws(() => activityIndicator({ label: 'Invalid', status: 'finished' }), TypeError);
   assert.throws(() => progressBar({
+    label: 'Invalid',
     mode: { kind: 'determinate', value: 1 },
     status: 'progress'
   }), TypeError);

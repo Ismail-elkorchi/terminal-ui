@@ -67,7 +67,8 @@ const items = [
 test('menu component renders nested checked disabled items with menu accessibility', () => {
   const frame = renderElementFrame(menu({
     id: 'file-menu',
-    presentation: menuPresentation(items, { activePath: ['open', 'recent'] })
+    presentation: menuPresentation(items, { activePath: ['open', 'recent'] }),
+    onAction: (action) => action
   }), { columns: 40, rows: 8 });
   const output = renderFramePlain(frame);
 
@@ -95,7 +96,8 @@ test('simple action menus omit unused checkbox and submenu columns', () => {
   ];
   const frame = renderElementFrame(menu({
     id: 'compact-actions',
-    presentation: menuPresentation(simpleItems, { activePath: ['alpha'] })
+    presentation: menuPresentation(simpleItems, { activePath: ['alpha'] }),
+    onAction: (action) => action
   }), { columns: 20, rows: 2 });
 
   assert.equal(renderFramePlain(frame), '› Alpha\n  Beta');
@@ -135,7 +137,8 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
       presentation: menuBarPresentation([
         { kind: 'action', id: 'file', label: 'File' },
         { kind: 'action', id: 'edit', label: 'Edit', disabled: true }
-      ], { kind: 'closed', active: 'file' })
+      ], { kind: 'closed', active: 'file' }),
+      onAction: (action) => action
     }),
     { columns: 44, rows: 3 }
   );
@@ -147,7 +150,8 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
         kind: 'open',
         anchor: { kind: 'cursor', row: 3, column: 1 },
         menu: { activePath: ['autosave'] }
-      })
+      }),
+      onAction: (action) => action
     }),
     { columns: 44, rows: 13 }
   );
@@ -162,7 +166,8 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
       presentation: dropdownMenuPresentation([
         { kind: 'action', id: 'light', label: 'Light' },
         { kind: 'action', id: 'dark', label: 'Dark' }
-      ], { kind: 'open', active: 'dark', menu: { activePath: ['dark'] } })
+      ], { kind: 'open', active: 'dark', menu: { activePath: ['dark'] } }),
+      onAction: (action) => action
     }),
     { columns: 44, rows: 8 }
   );

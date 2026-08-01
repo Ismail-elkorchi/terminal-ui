@@ -4,12 +4,12 @@ Renderer extensions are the advanced escape hatch for visuals that cannot be
 expressed with the built-in component set. They are not the default application
 component model.
 
-`terminal-ui` exposes two levels of extension:
+`terminal-ui` exposes two extension surfaces:
 
 - `canvas()` from the built-in component catalog for bounded drawing through
   `Canvas2D`;
-- `custom()` and `customComposite()` from the component-library entrypoint for
-  reusable renderer extensions.
+- `custom()` from the component-library entrypoint for reusable leaf and
+  composite renderer extensions.
 
 ## Canvas Component
 
@@ -94,15 +94,17 @@ component event props such as `onPress`, `onAction`, and `onScroll`. Editable
 controls expose pointer caret and selection gestures through their typed
 `onAction` union rather than a renderer-level pointer callback.
 
-## Custom Composite Renderer
+## Composite Custom Renderer
 
-Use `customComposite()` when a new container needs an application-defined
-measurement or child arrangement. Its measurement and layout hooks receive
+Use `custom()` with `renderer.kind: 'composite'` when a new container needs an
+application-defined measurement or child arrangement. Its measurement and
+layout hooks receive
 opaque child measurements and the active text-width profile. Layout returns one
 bounded rectangle per child. The framework renders those
 children and preserves their accessibility, focus, pointer targets, clipping,
-layers, source metadata, and message union. The optional render hook paints the
-container before its children through the bounded `RenderTarget`.
+layers, source metadata, and message union. The optional rendering hooks paint
+the container through the bounded `RenderTarget`: `renderBeforeChildren` paints
+before child rendering and `renderAfterChildren` paints afterward.
 For semantic composites, the accessibility hook receives the visible child
 accessibility nodes and may return them as part of its own semantic structure.
 Decorative composites omit that unreachable hook.

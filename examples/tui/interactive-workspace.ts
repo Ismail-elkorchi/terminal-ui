@@ -15,7 +15,6 @@ import {
   searchPicker,
   splitPane,
   statusBar,
-  structuredBlock,
   surface,
   table,
   tabs,
@@ -31,7 +30,6 @@ import {
   createScrollState,
   searchPickerReducer,
   prepareSearchPickerIndex,
-  selectedSearchPickerEntry,
   tableReducer,
   tableScrollablePresentation,
   tabsReducer,
@@ -88,7 +86,6 @@ type WorkspaceMessage =
   | { readonly kind: 'openSearchPicker' }
   | { readonly kind: 'closeSearchPicker' }
   | { readonly kind: 'searchPicker'; readonly action: SearchPickerAction }
-  | { readonly kind: 'acceptSearchPicker'; readonly source: 'keyboard' | 'pointer'; readonly value?: string }
   | { readonly kind: 'resolve' }
   | { readonly kind: 'exit' };
 
@@ -150,7 +147,7 @@ function initialState(): WorkspaceState {
       history: [],
       suggestions
     },
-    searchPicker: { open: false, used: false, query: '', selectedIndex: 0 },
+    searchPicker: { open: false, used: false, query: '', selectedId: 'issues' },
     resolved: new Set<string>(),
     activity: ['Workspace started.', 'Loaded six controlled ticket records.'],
     pointer: { tree: false, table: false, searchPicker: false }
@@ -223,18 +220,16 @@ function updateWorkspace(
     case 'closeSearchPicker':
       return updateResult({ ...state, searchPicker: { ...state.searchPicker, open: false, query: '' } });
     case 'searchPicker':
+      if (message.action.kind === 'activate') {
+        return updateResult(applyCommand({
+          ...state,
+          searchPicker: { ...state.searchPicker, open: false, used: true }
+        }, message.action.entry.value));
+      }
       return updateResult({
         ...state,
         searchPicker: { ...state.searchPicker, ...searchPickerReducer(state.searchPicker, message.action, { searchPickerIndex: workspaceSearchPickerIndex }) }
       });
-    case 'acceptSearchPicker': {
-      const selected = message.value ?? selectedSearchPickerEntry({ searchPickerIndex: workspaceSearchPickerIndex, state: state.searchPicker })?.value;
-      return updateResult(selected === undefined ? state : applyCommand({
-        ...state,
-        searchPicker: { ...state.searchPicker, open: false, used: true },
-        pointer: { ...state.pointer, searchPicker: message.source === 'pointer' || state.pointer.searchPicker }
-      }, selected));
-    }
     case 'resolve': {
       const ticket = selectedTicket(state);
       const resolved = new Set(state.resolved);
@@ -367,17 +362,15 @@ function notesPanel() {
 function inspectorPane(state: WorkspaceState) {
   const ticket = selectedTicket(state);
   return surface(column([
-    structuredBlock({
-      id: 'ticket-inspector',
-      title: ticket.title,
-      summary: ticket.id,
-      result: state.resolved.has(ticket.id) ? 'success' : ticket.status,
-      fields: [
-        { label: 'Owner', value: ticket.owner },
-        { label: 'Queue', value: ticket.queue },
-        { label: 'Severity', value: ticket.severity }
-      ]
-    }),
+    column([
+      text(ticket.title, { textRole: 'heading' }),
+      text(`${ticket.id} · ${state.resolved.has(ticket.id) ? 'resolved' : ticket.status}`, {
+        textRole: 'metadata'
+      }),
+      text(`Owner     ${ticket.owner}`),
+      text(`Queue     ${ticket.queue}`),
+      text(`Severity  ${ticket.severity}`)
+    ], { id: 'ticket-inspector', gap: 1 }),
     button({ id: 'resolve-button', label: 'Resolve selected', tone: 'primary', onPress: (): WorkspaceMessage => ({ kind: 'resolve' }) })
   ], { gap: 1 }), {
     id: 'workspace-inspector',
@@ -423,15 +416,20 @@ function commandPane(state: WorkspaceState) {
 }
 
 function searchPickerLayer(state: WorkspaceState) {
-  return dialog(searchPicker({
+  return dialog(searchPicker<
+    string,
+    WorkspaceMessage,
+    never,
+    { readonly escape: () => WorkspaceMessage }
+  >({
     id: 'workspace-search-picker',
     searchPickerIndex: workspaceSearchPickerIndex,
     query: state.searchPicker.query,
-    selectedIndex: state.searchPicker.selectedIndex,
+    ...(state.searchPicker.selectedId === undefined
+      ? {}
+      : { selectedId: state.searchPicker.selectedId }),
     onAction: (action): WorkspaceMessage => ({ kind: 'searchPicker', action }),
-    onSelect: (entry): WorkspaceMessage => ({ kind: 'acceptSearchPicker', source: 'pointer', value: entry.value }),
     keys: {
-      enter: (): WorkspaceMessage => ({ kind: 'acceptSearchPicker', source: 'keyboard' }),
       escape: (): WorkspaceMessage => ({ kind: 'closeSearchPicker' })
     }
   }), {

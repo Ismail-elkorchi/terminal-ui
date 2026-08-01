@@ -17,6 +17,6 @@ export interface TabsOptions<TMessage = never> extends InteractiveElementOptions
   readonly tabs: readonly TabItem<TMessage>[];
   readonly selected?: string;
   readonly maxTabWidth?: number;
-  readonly onAction?: (action: TabAction) => TMessage;
+  readonly onAction: (action: TabAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }

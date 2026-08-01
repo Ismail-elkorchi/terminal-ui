@@ -92,7 +92,7 @@ export function barChartAccessibleBase(renderNode: BarChartNode, node: LayoutNod
   return {
     id,
     role: 'listbox',
-    label: id,
+    label: cleanLabel(renderNode.props.label),
     description: `${String(items.length)} bars. Showing ${String(window.start + 1)}-${String(window.end)}.`,
     ...(focused ? { focused } : {})
   };

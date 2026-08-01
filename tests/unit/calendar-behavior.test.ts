@@ -103,6 +103,7 @@ void test('date picker component routes keyboard and pointer through CalendarAct
     update: (state, action) => ({ state: calendarReducer(state, action, policy) }),
     view: (state) => calendar({
       id: 'calendar',
+      label: 'Deployment date',
       ...calendarPresentation(state, policy),
       onAction: (action) => action
     })

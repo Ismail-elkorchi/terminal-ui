@@ -5,7 +5,7 @@ import {
   defaultStyleForPart,
   defaultStyleForState,
   defaultStyleForTextRole
-} from '../../dist/renderer/internal/render-node-style.js';
+} from '../../dist/renderer/style-resolution.js';
 import {
   statusMarker,
   statusStyle,

@@ -3,7 +3,11 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { applyScrollEvent, createScrollState, treeReducer } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { custom, customComposite } from '../../dist/component/index.js';
+import { custom } from '../../dist/component/index.js';
+import {
+  compositeRendererDefinition,
+  leafRendererDefinition
+} from '../helpers/custom-renderer.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { contextMenu, text, textArea, tree } from '../../dist/components/index.js';
 import { column, overlay, viewport } from '../../dist/layout/index.js';
@@ -11,6 +15,7 @@ import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 test('TUI wheel routing skips non-scroll child targets and reaches the scroll target', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'child inside scroll target' }]);
     },
@@ -146,8 +151,10 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
       }),
       viewport(foregroundContent, {
         id: 'foreground-scroll',
-        contentRows: 20,
-        scroll: state.foreground,
+        offset: {
+          row: state.foreground.offsetRow,
+          column: state.foreground.offsetColumn
+        },
         onScroll: (event) => ({ scrollTarget: 'foreground', event })
       })
     ], { id: 'scroll-layer-root' })
@@ -422,10 +429,11 @@ test('viewport wheel bursts and thumb dragging keep scrolled composite children 
     update: (state, message) => ({
       state: { scroll: applyScrollEvent(state.scroll, message.event) }
     }),
-    view: (state) => viewport(customComposite({
+    view: (state) => viewport(custom({
       id: 'scrolling-composite',
       children,
       renderer: {
+        ...compositeRendererDefinition,
         layout({ bounds }) {
           return children.map((_child, index) => ({
             row: bounds.row + index,
@@ -440,9 +448,7 @@ test('viewport wheel bursts and thumb dragging keep scrolled composite children 
       }
     }), {
       id: 'composite-viewport',
-      scrollRow: state.scroll.offsetRow,
-      contentRows: children.length,
-      contentColumns: 24,
+      offset: { row: state.scroll.offsetRow },
       scrollbar: { visible: 'always', axis: 'vertical' },
       onScroll: (event) => ({ event })
     })

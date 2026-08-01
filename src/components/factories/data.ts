@@ -23,6 +23,7 @@ import {
   interactionProps,
   listKeyBindings,
   paginatorKeyBindings,
+  requireComponentHandler,
   tableKeyBindings,
   treeKeyBindings
 } from '../internal/interaction.ts';
@@ -83,7 +84,7 @@ export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unk
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 function isScrollableListOptions<TValue, TMessage>(
@@ -154,7 +155,7 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, keyMap !== undefined);
+  });
 }
 
 function isScrollableTableOptions<TRow, TMessage>(
@@ -219,7 +220,7 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 function isScrollableTreeOptions<
@@ -242,6 +243,7 @@ export function paginator<
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function paginator(options: PaginatorOptions<unknown>): Element<unknown> {
+  requireComponentHandler('paginator', 'onAction', options.onAction);
   const keyMap = paginatorKeyBindings(options);
   return componentElementFromRenderNode<'paginator', unknown>({
     ...requiredRenderNodeId(options.id, 'paginator'),
@@ -250,9 +252,9 @@ export function paginator(options: PaginatorOptions<unknown>): Element<unknown> 
       pageNumber: options.pageNumber,
       pageCount: options.pageCount,
       ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
+      toActionMessage: options.onAction
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, keyMap !== undefined);
+  });
 }

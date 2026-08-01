@@ -11,7 +11,12 @@ import {
   type TextAreaAction,
   type TreeInteractionAction
 } from '@ismail-elkorchi/terminal-ui/components';
-import { createScrollState, prepareSearchPickerIndex, prepareLogHistory } from '@ismail-elkorchi/terminal-ui/behavior';
+import {
+  createScrollState,
+  prepareLogHistory,
+  prepareSearchPickerIndex,
+  searchPickerReducer
+} from '@ismail-elkorchi/terminal-ui/behavior';
 import { viewport } from '@ismail-elkorchi/terminal-ui/layout';
 import type { ScrollEvent } from '@ismail-elkorchi/terminal-ui/interaction';
 import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
@@ -57,14 +62,22 @@ const controlledSearchPicker = searchPicker({
   searchPickerIndex: prepareSearchPickerIndex([{ id: 'one', label: 'One', value: 1 }]),
   scroll,
   scrollbar: { visible: 'auto' },
-  onScroll: (event) => ({ kind: 'searchPickerScroll' as const, event })
+  onAction: (action) => ({ kind: 'searchPicker' as const, action })
 });
+const numericSearchPickerIndex = prepareSearchPickerIndex([
+  { id: 'one', label: 'One', value: 1 }
+]);
+searchPickerReducer(
+  { query: '', selectedId: 'one' },
+  {
+    kind: 'activate',
+    entry: { id: 'one', label: 'One', value: 1 }
+  },
+  { searchPickerIndex: numericSearchPickerIndex }
+);
 const controlledViewport = viewport(text('content'), {
   id: 'viewport',
-  scrollRow: 0,
-  scrollColumn: 0,
-  contentRows: 20,
-  contentColumns: 40,
+  offset: { row: 0, column: 0 },
   scrollbar: { visible: 'auto' },
   onScroll: (event) => ({ kind: 'viewportScroll' as const, event })
 });
@@ -87,7 +100,10 @@ export type _Log = Assert<Equal<
 >>;
 export type _SearchPicker = Assert<Equal<
   MessageOf<typeof controlledSearchPicker>,
-  { readonly kind: 'searchPickerScroll'; readonly event: ScrollEvent }
+  {
+    readonly kind: 'searchPicker';
+    readonly action: import('@ismail-elkorchi/terminal-ui/components').SearchPickerAction<number>;
+  }
 >>;
 export type _Viewport = Assert<Equal<
   MessageOf<typeof controlledViewport>,
@@ -102,7 +118,7 @@ tree({ id: 'inert-tree', nodes: [], scrollbar: { visible: 'auto' } });
 textArea({ id: 'inert-editor', presentation: { document: prepareTextDocument(''), caret: textCaretAt(0 )}, scrollbar: { visible: 'auto' } });
 // @ts-expect-error logViewer scrollbar requires controlled scroll state and action routing
 logViewer({ id: 'inert-log', history: prepareLogHistory([]), scrollbar: { visible: 'auto' } });
-// @ts-expect-error searchPicker scrollbar requires controlled scroll state and event routing
+// @ts-expect-error searchPicker requires one action route
 searchPicker({ id: 'inert-searchPicker', searchPickerIndex: prepareSearchPickerIndex([]), scrollbar: { visible: 'auto' } });
-// @ts-expect-error viewport scrollbar requires complete metrics and event routing
-viewport(text('content'), { id: 'inert-viewport', contentRows: 20, scrollbar: { visible: 'auto' } });
+// @ts-expect-error viewport scrollbar requires event routing
+viewport(text('content'), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });

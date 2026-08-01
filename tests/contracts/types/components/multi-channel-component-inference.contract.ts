@@ -48,8 +48,10 @@ const commands = commandInput({
 const search = searchPicker({
   id: 'search',
   searchPickerIndex: prepareSearchPickerIndex([{ id: 'open', label: 'Open', value: 1 }]),
-  onSelect: (entry) => ({ kind: 'selectEntry' as const, value: entry.value }),
-  onAction: (action: SearchPickerAction) => ({ kind: 'searchPicker' as const, action }),
+  onAction: (action: SearchPickerAction<number>) => ({
+    kind: 'searchPicker' as const,
+    action
+  }),
   keys: {
     enter: () => ({ kind: 'acceptSearchPicker' as const }),
     escape: () => ({ kind: 'closeSearchPicker' as const })
@@ -66,8 +68,7 @@ export type CommandMessage =
   | { readonly kind: 'history'; readonly delta: -1 }
   | { readonly kind: 'close' };
 export type SearchPickerMessage =
-  | { readonly kind: 'selectEntry'; readonly value: number }
-  | { readonly kind: 'searchPicker'; readonly action: SearchPickerAction }
+  | { readonly kind: 'searchPicker'; readonly action: SearchPickerAction<number> }
   | { readonly kind: 'acceptSearchPicker' }
   | { readonly kind: 'closeSearchPicker' };
 

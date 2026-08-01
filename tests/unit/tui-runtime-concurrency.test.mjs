@@ -5,9 +5,17 @@ import { createMemoryTerminalHost, indeterminateTerminalWrite } from '../../dist
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { text, textInput } from '../../dist/components/index.js';
+import { text, textInput as createTextInput } from '../../dist/components/index.js';
 import { column, surface } from '../../dist/layout/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
+
+function textInput(options) {
+  return createTextInput(
+    options.onAction !== undefined || options.onSubmit !== undefined
+      ? options
+      : { onSubmit: () => undefined, ...options }
+  );
+}
 
 test('TUI runtime dispatch updates state and records incremental render diffs', async () => {
   const app = defineTui({

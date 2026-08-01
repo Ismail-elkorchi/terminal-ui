@@ -12,7 +12,6 @@ Use behavior helpers when component interaction has reusable rules:
 - search-picker query, selection, preview, and grouping;
 - command-input editing, history, and suggestion navigation;
 - notification history, expiry, pause, resume, and dismissal;
-- activity-feed expansion and selection;
 - menu hierarchy, dropdown-menu highlighting, and tab navigation;
 - checkbox-group, radio-group, select, and color-swatch-picker navigation;
 - log-viewer search, folds, follow-tail, and scroll behavior;
@@ -120,7 +119,7 @@ function searchPickerView(state: SearchPickerState) {
     id: 'commands',
     searchPickerIndex,
     query: state.query,
-    selectedIndex: state.selectedIndex,
+    ...(state.selectedId === undefined ? {} : { selectedId: state.selectedId }),
     onAction: (action): SearchPickerMessage => ({ kind: 'searchPicker', action }),
     keys: {
       enter: (): SearchPickerMessage => ({ kind: 'acceptSearchPicker' }),

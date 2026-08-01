@@ -1,4 +1,5 @@
 import type { ElementTextRole } from '../../element/metadata.ts';
+import type { HelpGroup } from '../../ui-model/contracts.ts';
 import {
   defaultTextWidthProfile,
   normalizeTextDocumentOffset,
@@ -12,7 +13,9 @@ import { inlineContentAccessibleText } from '../../visual/inline-content.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { textAreaInputCursor, textAreaInputLine } from './input-visual.ts';
 import {
-  statusIndicatorText as feedbackStatusIndicatorText, helpBarText as feedbackHelpBarText, spinnerBlock as feedbackSpinnerBlock, spinnerText as feedbackSpinnerText
+  activityIndicatorBlock as feedbackActivityIndicatorBlock,
+  activityIndicatorText as feedbackActivityIndicatorText,
+  helpBarText as feedbackHelpBarText
 } from './feedback-visual.ts';
 import { textAreaRenderModel } from './text-area/render-model.ts';
 import {
@@ -20,7 +23,7 @@ import {
   textAreaOffsetInLayout,
   textAreaVisibleText
 } from './text-area/layout.ts';
-import { defaultStyleForTextRole, resolveRenderNodeStyle } from './render-node-style.ts';
+import { defaultStyleForTextRole, resolveRenderNodeStyle } from '../style-resolution.ts';
 import { renderInlineContent } from './inline-content.ts';
 import { stringify } from './render-node-props.ts';
 import { defaultTheme } from '../../theme/index.ts';
@@ -37,8 +40,7 @@ type TextNode = RenderNodeOfKind<unknown, 'text'>;
 type RichTextNode = RenderNodeOfKind<unknown, 'richText'>;
 type TextAreaNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'textArea'>;
 type HelpBarNode = RenderNodeOfKind<unknown, 'helpBar'>;
-type StatusIndicatorNode = RenderNodeOfKind<unknown, 'statusIndicator'>;
-type SpinnerNode = RenderNodeOfKind<unknown, 'spinner'>;
+type ActivityIndicatorNode = RenderNodeOfKind<unknown, 'activityIndicator'>;
 
 export function textBlock(renderNode: TextNode): RenderBlock {
   const content = sanitizeTerminalText(stringify(renderNode.props.content)).text;
@@ -188,41 +190,48 @@ export function helpBarText(renderNode: HelpBarNode, widthProfile: TextWidthProf
   return feedbackHelpBarText(renderNode, widthProfile);
 }
 
-export function helpBarAccessibleBase(renderNode: HelpBarNode, id: string, widthProfile: TextWidthProfile): AccessibleNode {
+export function helpBarAccessibleBase(renderNode: HelpBarNode, id: string): AccessibleNode {
+  const groups: readonly HelpGroup[] = Array.isArray(renderNode.props.groups)
+    ? renderNode.props.groups
+    : [];
   return {
     id,
-    role: 'status',
-    label: id,
-    value: helpBarText(renderNode, widthProfile),
-    live: 'polite'
+    role: 'group',
+    label: 'Keyboard shortcuts',
+    children: groups.map((group) => ({
+      id: `${id}:${group.id}`,
+      role: 'group',
+      label: group.label ?? group.id,
+      children: group.bindings.map((binding, index) => ({
+        id: `${id}:${group.id}:${String(index)}`,
+        role: 'text',
+        label: binding.key,
+        value: binding.label
+      }))
+    }))
   };
 }
 
-export function statusIndicatorText(renderNode: StatusIndicatorNode, theme: TerminalTheme): string {
-  return feedbackStatusIndicatorText(renderNode, theme);
+export function activityIndicatorBlock(
+  renderNode: ActivityIndicatorNode,
+  theme: TerminalTheme
+): RenderBlock {
+  return feedbackActivityIndicatorBlock(renderNode, theme);
 }
 
-export function statusIndicatorAccessibleBase(renderNode: StatusIndicatorNode, id: string): AccessibleNode {
-  return {
-    id,
-    role: 'status',
-    label: id,
-    value: statusIndicatorText(renderNode, defaultTheme),
-    live: 'polite'
-  };
+export function activityIndicatorText(
+  renderNode: ActivityIndicatorNode,
+  theme: TerminalTheme
+): string {
+  return feedbackActivityIndicatorText(renderNode, theme);
 }
 
-export function spinnerBlock(renderNode: SpinnerNode, theme: TerminalTheme): RenderBlock {
-  return feedbackSpinnerBlock(renderNode, theme);
-}
-
-export function spinnerText(renderNode: SpinnerNode, theme: TerminalTheme): string {
-  return feedbackSpinnerText(renderNode, theme);
-}
-
-export function spinnerAccessibleBase(renderNode: SpinnerNode, id: string): AccessibleNode {
-  const status = renderNode.props.status ?? 'running';
-  const label = stringify(renderNode.props.label) || 'Loading';
+export function activityIndicatorAccessibleBase(
+  renderNode: ActivityIndicatorNode,
+  id: string
+): AccessibleNode {
+  const status = renderNode.props.status;
+  const label = renderNode.props.label;
   return {
     id,
     role: 'status',

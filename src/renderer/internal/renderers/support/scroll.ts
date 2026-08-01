@@ -173,6 +173,10 @@ function scrollMessageFactory<TMessage>(
     const raw = renderNode.props.toActionMessage;
     return raw === undefined ? undefined : (event) => raw({ kind: 'scroll', event });
   }
+  if (renderNode.kind === 'searchPicker') {
+    const raw = renderNode.props.toActionMessage;
+    return (event) => raw({ kind: 'scroll', event });
+  }
   const raw = renderNode.props.toScrollMessage;
   return typeof raw === 'function'
     ? (event) => (raw)(event)
@@ -449,8 +453,12 @@ export function treeScrollbarState(renderNode: TreeNode, bounds: Rect): ScrollSt
   return scroll;
 }
 
-export function viewportScrollbarState(renderNode: ViewportNode, bounds: Rect): ScrollState {
-  const state = viewportVisualState(renderNode, bounds);
+export function viewportScrollbarState(
+  renderNode: ViewportNode,
+  bounds: Rect,
+  node: Pick<LayoutNode, 'children'>
+): ScrollState {
+  const state = viewportVisualState(renderNode, bounds, node);
   return normalizeScrollState({
     offsetRow: state.offsetRow,
     offsetColumn: state.offsetColumn,

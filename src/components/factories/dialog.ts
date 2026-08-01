@@ -33,7 +33,7 @@ export function dialog<TMessage>(child: Element<TMessage>, options: DialogOption
     },
     children: actionsNode === undefined ? [toRenderNode(child)] : [toRenderNode(child), actionsNode],
     ...interactionProps({ ...options, keys, meta })
-  }, keys !== undefined);
+  });
 }
 
 function dialogMeta<TMessage>(options: DialogOptions<TMessage>) {

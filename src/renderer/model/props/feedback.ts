@@ -11,6 +11,7 @@ import type {
   MeterVariant,
   HeatmapCell,
   HeatmapSelection,
+  NotificationItem,
   NotificationPlacement,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
@@ -18,20 +19,23 @@ import type {
   StatusBarItem,
   ValueScale
 } from '../../../ui-model/feedback.ts';
-import type {
-  NotificationStackAction,
-  NotificationStackPresentation
-} from '../../../ui-model/notification-stack.ts';
+import type { NotificationHistoryAction } from '../../../ui-model/notification.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../../ui-model/visualization.ts';
 
-export interface NotificationStackRenderProps<TMessage> {
-  readonly presentation: NotificationStackPresentation;
+export interface NotificationRegionRenderProps<TMessage> {
+  readonly items: readonly import('../../../ui-model/feedback.ts').NotificationItem[];
   readonly placement?: NotificationPlacement;
   readonly maxWidth?: number;
-  readonly toActionMessage?: (action: NotificationStackAction) => TMessage;
   readonly toDismissMessage?: (id: string) => TMessage;
 }
 
+export interface NotificationHistoryRenderProps<TMessage> {
+  readonly items: readonly NotificationItem[];
+  readonly selectedId?: string;
+  readonly placement?: NotificationPlacement;
+  readonly maxWidth?: number;
+  readonly toActionMessage: (action: NotificationHistoryAction) => TMessage;
+}
 export interface StatusBarRenderProps {
   readonly leading: readonly StatusBarItem[];
   readonly center: readonly StatusBarItem[];
@@ -42,13 +46,15 @@ export interface HelpBarRenderProps {
   readonly groups: readonly HelpGroup[];
 }
 
-export interface StatusIndicatorRenderProps {
-  readonly label?: string;
-  readonly status?: ProcessStatus;
+export interface ActivityIndicatorRenderProps {
+  readonly label: string;
+  readonly status: ProcessStatus;
+  readonly frames?: readonly string[];
+  readonly frameIndex?: number;
 }
 
 export interface ProgressBarRenderProps {
-  readonly label?: string;
+  readonly label: string;
   readonly mode: ProgressBarMode;
   readonly barWidth?: number;
   readonly display?: ProgressBarDisplay;
@@ -60,6 +66,7 @@ export interface ProgressBarRenderProps {
 }
 
 export interface SparklineRenderProps {
+  readonly label: string;
   readonly values: readonly number[];
   readonly min?: number;
   readonly max?: number;
@@ -71,6 +78,7 @@ export interface SparklineRenderProps {
 }
 
 export interface BarChartRenderProps<TMessage> {
+  readonly label: string;
   readonly items: readonly BarChartItem[];
   readonly max?: number;
   readonly selectedId?: string;
@@ -82,6 +90,7 @@ export interface BarChartRenderProps<TMessage> {
 }
 
 export interface ChartRenderProps<TMessage> {
+  readonly label: string;
   readonly series: readonly ChartSeries[];
   readonly min?: number;
   readonly max?: number;
@@ -102,7 +111,7 @@ export interface ChartRenderProps<TMessage> {
 }
 
 export interface MeterRenderProps {
-  readonly label?: string;
+  readonly label: string;
   readonly value: number;
   readonly min?: number;
   readonly max?: number;
@@ -112,6 +121,7 @@ export interface MeterRenderProps {
 }
 
 export interface HeatmapRenderProps<TMessage> {
+  readonly label: string;
   readonly rows: readonly (readonly HeatmapCell[])[];
   readonly min?: number;
   readonly max?: number;
@@ -124,11 +134,4 @@ export interface HeatmapRenderProps<TMessage> {
   readonly loadingText?: string;
   readonly errorText?: string;
   readonly toActionMessage?: (action: HeatmapAction) => TMessage;
-}
-
-export interface SpinnerRenderProps {
-  readonly frames?: readonly string[];
-  readonly frameIndex?: number;
-  readonly label?: string;
-  readonly status?: ProcessStatus;
 }

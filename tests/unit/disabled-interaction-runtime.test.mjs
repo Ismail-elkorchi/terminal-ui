@@ -28,7 +28,6 @@ import {
 } from '../../dist/components/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
-const message = { kind: 'activate' };
 const formOptions = [
   { id: 'alpha', label: 'Alpha', value: 'alpha' },
   { id: 'beta', label: 'Beta', value: 'beta' }
@@ -37,19 +36,19 @@ const formOptions = [
 const disabledElementCases = [
   {
     name: 'button',
-    element: () => button({ id: 'disabled-button', label: 'Submit', onPress: () => message, disabled: true })
+    element: () => button({ id: 'disabled-button', label: 'Submit', disabled: true })
   },
   {
     name: 'checkbox',
-    element: () => checkbox({ id: 'disabled-checkbox', label: 'Accept', checked: false, onChange: () => message, disabled: true })
+    element: () => checkbox({ id: 'disabled-checkbox', label: 'Accept', checked: false, disabled: true })
   },
   {
     name: 'toggleSwitch',
-    element: () => toggleSwitch({ id: 'disabled-switch', label: 'Live', checked: true, onChange: () => message, disabled: true })
+    element: () => toggleSwitch({ id: 'disabled-switch', label: 'Live', checked: true, disabled: true })
   },
   {
     name: 'slider',
-    element: () => slider({ id: 'disabled-slider', label: 'Volume', value: 4, onChange: () => message, disabled: true })
+    element: () => slider({ id: 'disabled-slider', label: 'Volume', value: 4, disabled: true })
   },
   {
     name: 'rangeSlider',
@@ -57,7 +56,6 @@ const disabledElementCases = [
       id: 'disabled-range',
       label: 'Window',
       state: { value: { start: 2, end: 8 }, activeHandle: 'start' },
-      onAction: () => message,
       disabled: true
     })
   },
@@ -67,7 +65,6 @@ const disabledElementCases = [
       id: 'disabled-checkbox-list',
       label: 'Channels',
       options: formOptions,
-      onAction: () => message,
       disabled: true
     })
   },
@@ -77,7 +74,6 @@ const disabledElementCases = [
       id: 'disabled-radio',
       label: 'Tier',
       options: formOptions,
-      onAction: () => message,
       disabled: true
     })
   },
@@ -88,7 +84,6 @@ const disabledElementCases = [
       label: 'Tier',
       options: formOptions,
       presentation: { kind: 'closed' },
-      onAction: () => message,
       disabled: true
     })
   },
@@ -98,7 +93,6 @@ const disabledElementCases = [
       id: 'disabled-colors',
       label: 'Accent',
       options: formOptions,
-      onChange: () => message,
       disabled: true
     })
   },
@@ -108,13 +102,12 @@ const disabledElementCases = [
       id: 'disabled-date',
       label: 'Date',
       ...calendarFixture(),
-      onAction: () => message,
       disabled: true
     })
   },
   {
     name: 'textInput',
-    element: () => textInput({ id: 'disabled-text-input', presentation: { value: 'locked', cursor: 0 }, onSubmit: () => message, disabled: true })
+    element: () => textInput({ id: 'disabled-text-input', presentation: { value: 'locked', cursor: 0 }, disabled: true })
   },
   {
     name: 'numberInput',
@@ -140,7 +133,7 @@ for (const current of disabledElementCases) {
   });
 }
 
-test('disabled component props block generated keyboard and mouse dispatch', async () => {
+test('disabled components expose no keyboard or mouse dispatch', async () => {
   const app = defineTui({
     id: 'disabled-interaction-runtime',
     init: () => ({ active: 'idle' }),
@@ -148,8 +141,6 @@ test('disabled component props block generated keyboard and mouse dispatch', asy
     view: (state) => button({
       id: 'disabled-action',
       label: state.active,
-      onPress: () => ({ active: 'mouse' }),
-      keys: { enter: () => ({ active: 'key' }) },
       disabled: true
     })
   });
@@ -165,6 +156,38 @@ test('disabled component props block generated keyboard and mouse dispatch', asy
   assert.deepEqual(runtime.state(), { active: 'idle' });
 });
 
+test('disabled controls reject unreachable interaction hooks at the JavaScript boundary', () => {
+  assert.throws(
+    () => button({
+      id: 'invalid-disabled-button',
+      label: 'Disabled',
+      disabled: true,
+      onPress: () => ({ kind: 'press' })
+    }),
+    /cannot define onPress while disabled or pending/u
+  );
+  assert.throws(
+    () => textInput({
+      id: 'invalid-disabled-input',
+      presentation: { value: '', cursor: 0 },
+      disabled: true,
+      onAction: () => ({ kind: 'edit' })
+    }),
+    /cannot define onAction while disabled or pending/u
+  );
+  assert.throws(
+    () => select({
+      id: 'invalid-disabled-select',
+      label: 'Choice',
+      options: formOptions,
+      presentation: { kind: 'closed' },
+      disabled: true,
+      onAction: () => ({ kind: 'select' })
+    }),
+    /cannot define onAction while disabled or pending/u
+  );
+});
+
 test('commandInput preserves disabled suggestion semantics', () => {
   const frame = renderElementFrame(
     commandInput({
@@ -174,7 +197,9 @@ test('commandInput preserves disabled suggestion semantics', () => {
         { value: 'deploy', label: 'Deploy', description: 'Unavailable', disabled: true }
       ], selectedSuggestionIndex: 0 },
       matchQuery: 'de',
-      display: 'expanded'
+      display: 'expanded',
+      onAction: () => undefined,
+      onSubmit: () => undefined
     }),
     { columns: 40, rows: 3 }
   );

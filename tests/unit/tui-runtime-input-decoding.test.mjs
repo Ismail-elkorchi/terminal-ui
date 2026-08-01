@@ -3,7 +3,15 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { textInput } from '../../dist/components/index.js';
+import { textInput as createTextInput } from '../../dist/components/index.js';
+
+function textInput(options) {
+  return createTextInput(
+    options.onAction !== undefined || options.onSubmit !== undefined
+      ? options
+      : { onSubmit: () => undefined, ...options }
+  );
+}
 
 test('TUI runtime does not reserve escape or ctrlC key events', async () => {
   const app = defineTui({

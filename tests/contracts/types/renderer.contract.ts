@@ -1,9 +1,7 @@
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 import {
   custom,
-  customComposite,
-  type CustomCompositeInput,
-  type CustomCompositeMeasureInput,
+  type CustomLeafRenderer,
   type CustomRendererInput,
   type CustomRendererMeasureInput,
   type CustomRendererRenderInput,
@@ -66,6 +64,15 @@ drawing.rect({ x: 0, y: 0, width: 2, height: 2 }, { fill: { text: '*' } });
 custom({
   id: 'write-only-custom-renderer',
   renderer: {
+    kind: 'leaf',
+    name: 'writeOnly',
+    parts: [],
+    measure: () => ({
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: 2,
+      preferredHeight: 1
+    }),
     render({ target }) {
       target.write(1, 1, [{ text: 'ok' }]);
       // @ts-expect-error public custom render targets do not expose private frame-buffer reads
@@ -75,24 +82,45 @@ custom({
     accessibility: ({ id }) => ({ id, role: 'text', label: 'write only' })
   }
 });
+const rendererWithUnsupportedPlacement: CustomLeafRenderer = {
+  kind: 'leaf',
+  name: 'placedLeaf',
+  parts: [],
+  measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
+  render() {
+    return;
+  },
+  accessibility: ({ id }) => ({ id, role: 'text', label: id }),
+  // @ts-expect-error public custom renderers cannot take ownership of layout placement
+  place: ({ bounds }: { readonly bounds: Rect }) => bounds
+};
+void rendererWithUnsupportedPlacement;
 
 declare const customRenderInput: CustomRendererRenderInput<undefined>;
 customRenderInput.target.write(1, 1, [{ text: 'ok' }]);
 declare const customMeasureInput: CustomRendererMeasureInput<undefined>;
 // @ts-expect-error measurement occurs before viewport resolution
 const customMeasureViewport = customMeasureInput.viewport;
-declare const compositeMeasureInput: CustomCompositeMeasureInput<undefined>;
+declare const compositeMeasureInput: CustomRendererMeasureInput<undefined>;
 // @ts-expect-error composite measurement occurs before viewport resolution
 const compositeMeasureViewport = compositeMeasureInput.viewport;
-customComposite({
+custom({
   id: 'decorative-composite-contract',
   children: [text('Decoration')],
   renderer: {
+    kind: 'composite',
+    name: 'decorativeStack',
+    parts: [],
+    measure: ({ measureChild }) => measureChild(0),
     layout: ({ bounds }) => [bounds]
   },
   meta: { accessibility: { decorative: true } }
 });
 const interactiveDecorativeRenderer: DecorativeCustomRenderer = {
+  kind: 'leaf',
+  name: 'interactiveDecoration',
+  parts: [],
+  measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
   render() {
     return;
   },
@@ -103,6 +131,10 @@ const interactiveDecorativeRenderer: DecorativeCustomRenderer = {
 custom({
   id: 'keyed-decorative-custom',
   renderer: {
+    kind: 'leaf',
+    name: 'keyedDecoration',
+    parts: [],
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
     render() {
       return;
     }
@@ -113,9 +145,13 @@ custom({
   meta: { accessibility: { decorative: true } }
 });
 const interactiveDecorativeCompositeRenderer: DecorativeCustomCompositeRenderer = {
+  kind: 'composite',
+  name: 'interactiveDecorativeComposite',
+  parts: [],
+  measure: ({ measureChild }) => measureChild(0),
   layout: ({ bounds }) => [bounds],
   // @ts-expect-error decorative custom composites cannot expose hit targets
-  hitTargets: ({ bounds }: CustomCompositeInput<undefined>) => [{
+  hitTargets: ({ bounds }: CustomRendererInput<undefined>) => [{
     id: 'hit',
     bounds,
     message: () => ({ kind: 'press' })
@@ -125,16 +161,24 @@ const interactiveDecorativeCompositeRenderer: DecorativeCustomCompositeRenderer 
 custom({
   id: 'missing-custom-accessibility',
   renderer: {
+    kind: 'leaf',
+    name: 'missingAccessibility',
+    parts: [],
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
     render() {
       return;
     }
   }
 });
 // @ts-expect-error semantic custom composites require an accessibility hook
-customComposite({
+custom({
   id: 'missing-composite-accessibility',
   children: [text('Semantic content')],
   renderer: {
+    kind: 'composite',
+    name: 'missingCompositeAccessibility',
+    parts: [],
+    measure: ({ measureChild }) => measureChild(0),
     layout: ({ bounds }) => [bounds]
   }
 });

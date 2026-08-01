@@ -273,7 +273,7 @@ const bindings = [{ key: 'Enter', label: 'Open' }];
 surface(column([
   text('Explorer', { textRole: 'heading' }),
   tree({ id: 'explorer-tree', nodes }),
-  helpBar({ groups: [{ id: 'explorer', bindings }] })
+  helpBar({ id: 'explorer-help', groups: [{ id: 'explorer', bindings }] })
 ], {
   sizes: [
     { kind: 'fixed', cells: 1 },

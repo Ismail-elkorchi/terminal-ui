@@ -108,6 +108,7 @@ export interface RenderNodeRenderer<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
+  readonly clipChildren?: boolean;
   place?(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
   measure(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;
   layout?(input: RenderNodeLayoutInput<TMessage, TKind>): readonly Rect[];

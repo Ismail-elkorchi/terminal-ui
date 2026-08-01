@@ -30,7 +30,7 @@ import {
   labelSpans,
   separatorSpan
 } from '../form-visual.ts';
-import { mergeStyles, renderNodeStyle, themeStyle } from '../render-node-style.ts';
+import { mergeStyles, renderNodeStyle, themeStyle } from '../../style-resolution.ts';
 import { stringify } from '../render-node-props.ts';
 import type { RenderBlock, RenderLine } from '../frame.ts';
 import type { Rect } from '../../contracts.ts';

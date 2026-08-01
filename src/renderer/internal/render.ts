@@ -20,9 +20,16 @@ import { layoutRenderNode } from './layout.ts';
 import { accessibleNode, withControlLabelRelationships } from './render-accessibility.ts';
 import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
 import { intersectRects } from './rect.ts';
-import { renderRenderNode, hitTargetsForRenderNode } from './render-node-behavior.ts';
+import {
+  hitTargetsForRenderNode,
+  renderNodeClipsChildren,
+  renderRenderNode
+} from './render-node-behavior.ts';
 import { assertValidRendererAccessibility } from './extension-output.ts';
-import { createScopedRenderTarget } from './scoped-render-target.ts';
+import {
+  createClippedRenderTarget,
+  createScopedRenderTarget
+} from './scoped-render-target.ts';
 import {
   assertDecorativeNodeHasNoHitTargets,
   decorativeSubtreeNodes
@@ -338,12 +345,16 @@ function renderRenderNodeToRegion<TMessage>(
   composer: RegionComposer<TMessage>,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focusPath: FocusPath | undefined
+  focusPath: FocusPath | undefined,
+  target: RenderTarget = region.buffer
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
-  const renderTarget = targetForRenderNode(renderNode, node, region.buffer);
+  const renderTarget = targetForRenderNode(renderNode, node, target);
+  const childrenTarget = renderNodeClipsChildren(renderNode)
+    ? createClippedRenderTarget(target, node.bounds, node.viewport)
+    : target;
   renderRenderNode(renderNode, {
     layoutNode: node,
     buffer: renderTarget,
@@ -351,8 +362,19 @@ function renderRenderNodeToRegion<TMessage>(
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
     ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
-    renderChildren(target = region.buffer) {
-      renderRenderNodeChildrenToRegions(renderNode, node, path, target, region, composer, theme, widthProfile, focusPath);
+    renderChildren(requestedTarget = childrenTarget) {
+      renderRenderNodeChildrenToRegions(
+        renderNode,
+        node,
+        path,
+        requestedTarget,
+        requestedTarget === childrenTarget,
+        region,
+        composer,
+        theme,
+        widthProfile,
+        focusPath
+      );
     }
   });
 }
@@ -362,6 +384,7 @@ function renderRenderNodeChildrenToRegions<TMessage>(
   node: LayoutNode,
   path: FocusPath,
   buffer: RenderTarget,
+  composeRegions: boolean,
   region: DraftRenderRegion,
   composer: RegionComposer<TMessage>,
   theme: TerminalTheme,
@@ -370,14 +393,32 @@ function renderRenderNodeChildrenToRegions<TMessage>(
 ): void {
   const children = renderNode.children ?? [];
   for (const { child, childNode } of orderedChildren(children, node)) {
-    if (buffer !== region.buffer) {
-      renderRenderNodeToBuffer(child, childNode, path, buffer, theme, widthProfile, focusPath);
+    if (!composeRegions) {
+      renderRenderNodeToBuffer(
+        child,
+        childNode,
+        path,
+        buffer,
+        theme,
+        widthProfile,
+        focusPath
+      );
       continue;
     }
     const childRegion = childNode.layer.zIndex === region.zIndex
       ? region
       : composer.regionFor(child, childNode, [...path, childNode.identity]);
-    renderRenderNodeToRegion(child, childNode, path, childRegion, composer, theme, widthProfile, focusPath);
+    renderRenderNodeToRegion(
+      child,
+      childNode,
+      path,
+      childRegion,
+      composer,
+      theme,
+      widthProfile,
+      focusPath,
+      childRegion === region ? buffer : childRegion.buffer
+    );
   }
 }
 
@@ -402,8 +443,19 @@ function renderRenderNodeToBuffer<TMessage>(
     focus: renderFocusRelation(focusPath, path),
     ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
     renderChildren(target = buffer) {
+      const childTarget = renderNodeClipsChildren(renderNode)
+        ? createClippedRenderTarget(target, node.bounds, node.viewport)
+        : target;
       for (const { child, childNode } of orderedChildren(renderNode.children ?? [], node)) {
-        renderRenderNodeToBuffer(child, childNode, path, target, theme, widthProfile, focusPath);
+        renderRenderNodeToBuffer(
+          child,
+          childNode,
+          path,
+          childTarget,
+          theme,
+          widthProfile,
+          focusPath
+        );
       }
     }
   });
@@ -415,7 +467,10 @@ function targetForRenderNode(
   target: RenderTarget
 ): RenderTarget {
   return renderNode.kind === 'custom'
-    ? createScopedRenderTarget(target, node.bounds, node.viewport, renderNode.id ?? renderNode.kind)
+    ? createScopedRenderTarget(target, node.bounds, node.viewport, {
+        ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
+        name: renderNode.custom.name
+      })
     : target;
 }
 
@@ -461,7 +516,12 @@ function createRegionComposer<TMessage>(
         zIndex: node.layer.zIndex,
         order: regionOrder,
         terminalSize,
-        bounds: node.layer.bounds,
+        bounds: intersectRects(node.layer.bounds, node.viewport) ?? {
+          row: node.viewport.row,
+          column: node.viewport.column,
+          width: 0,
+          height: 0
+        },
         underlay: node.layer.underlay,
         ...(backdropBounds === undefined ? {} : { backdropBounds }),
         widthProfile

@@ -13,6 +13,14 @@ import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { button, commandInput } from '../../dist/components/index.js';
 import { column, row } from '../../dist/layout/index.js';
 
+function testCommandInput(options) {
+  return commandInput({
+    onAction: () => undefined,
+    onSubmit: () => undefined,
+    ...options
+  });
+}
+
 test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
   const initial = {
     input: { text: '', cursor: 0 },
@@ -96,7 +104,7 @@ test('commandInput projects controlled state and emits semantic actions', async 
     id: 'command-actions',
     init: () => ({ command, messages: [] }),
     update: (state, message) => ({ state: { ...state, messages: [...state.messages, message] } }),
-    view: (state) => commandInput({
+    view: (state) => testCommandInput({
       id: 'command',
       presentation: commandInputPresentation(state.command),
       onAction: (action) => ({ kind: 'action', action }),
@@ -140,7 +148,7 @@ test('commandInput projects controlled state and emits semantic actions', async 
 
 test('commandInput component renders prompt, suggestions, cursor, and accessibility', () => {
   const frame = renderElementFrame(
-    commandInput({
+    testCommandInput({
       id: 'command',
       prompt: '/',
       presentation: { value: 'op', cursor: 2, suggestions: [
@@ -170,7 +178,7 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
 });
 
 test('commandInput popup anchors suggestions without increasing the input height', () => {
-  const command = commandInput({
+  const command = testCommandInput({
     id: 'omnibox',
     prompt: '',
     presentation: {
@@ -190,7 +198,7 @@ test('commandInput popup anchors suggestions without increasing the input height
   const frame = renderElementFrame(column([command, button({
     id: 'content',
     label: 'Content',
-    meta: { focus: { disabled: true } }
+    disabled: true
   })], {
     sizes: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }]
   }), { columns: 36, rows: 6 });
@@ -207,7 +215,7 @@ test('commandInput popup anchors suggestions without increasing the input height
 });
 
 test('commandInput fills tall bounds while preserving its one-row natural size', () => {
-  const element = commandInput({
+  const element = testCommandInput({
     id: 'tall-command',
     prompt: '› ',
     presentation: { value: 'open', cursor: 4, suggestions: [] },
@@ -217,7 +225,7 @@ test('commandInput fills tall bounds while preserving its one-row natural size',
   const layout = layoutElement(column([element, button({
     id: 'remaining-content',
     label: 'Content',
-    meta: { focus: { disabled: true } }
+    disabled: true
   })], {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   }), { columns: 20, rows: 3 });
@@ -274,7 +282,7 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
           }
         }
       : { state: { ...state, submitted: message.value } },
-    view: (state) => commandInput({
+    view: (state) => testCommandInput({
       id: 'generated-command',
       presentation: state.presentation,
       display: 'popup',
@@ -310,7 +318,7 @@ test('commandInput leaves Tab available for focus traversal without suggestions'
     init: () => ({ actions: [] }),
     update: (state, action) => ({ state: { actions: [...state.actions, action] } }),
     view: () => row([
-      commandInput({
+      testCommandInput({
         id: 'command',
         presentation: { value: '', cursor: 0, suggestions: [] },
         onAction: (action) => ({ kind: 'command', action })
@@ -336,7 +344,7 @@ test('commandInput leaves Tab available for focus traversal without suggestions'
 
 test('commandInput renders completion preview validation footer match styles and wide cursor position', () => {
   const frame = renderElementFrame(
-    commandInput({
+    testCommandInput({
       id: 'launcher',
       prompt: '?',
       presentation: { value: 'a🙂', cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: [
@@ -373,7 +381,7 @@ test('commandInput renders completion preview validation footer match styles and
 
 test('commandInput stays compact by default even when suggestions are provided', () => {
   const frame = renderElementFrame(
-    commandInput({
+    testCommandInput({
       id: 'compact-command',
       prompt: '/',
       presentation: { value: '', cursor: 0, suggestions: [
@@ -395,7 +403,7 @@ test('commandInput stays compact by default even when suggestions are provided',
 test('commandInput windows long input around the cursor', () => {
   const value = '/open /very/long/path/to/file.txt';
   const frame = renderElementFrame(
-    commandInput({
+    testCommandInput({
       id: 'long-command',
       prompt: '>',
       presentation: { value, cursor: value.length, suggestions: [] }
@@ -417,7 +425,7 @@ test('commandInput windows long input around the cursor', () => {
 
 test('commandInput maps pointer positions through the cursor-relative input window', () => {
   const regions = renderElementRegions(
-    commandInput({
+    testCommandInput({
       id: 'windowed-command',
       prompt: '>',
       presentation: { value: 'abcdef', cursor: 6, suggestions: [] },
@@ -440,12 +448,12 @@ test('commandInput maps pointer positions through the cursor-relative input wind
 });
 
 test('commandInput renders one prompt without a separate focus marker', () => {
-  const explicit = renderElementFrame(commandInput({
+  const explicit = renderElementFrame(testCommandInput({
     id: 'explicit-prompt',
     prompt: '› ',
     presentation: { value: 'open', cursor: 4, suggestions: [] }
   }), { columns: 16, rows: 1 }, { focusPath: ['explicit-prompt'] });
-  const defaultPrompt = renderElementFrame(commandInput({
+  const defaultPrompt = renderElementFrame(testCommandInput({
     id: 'default-prompt',
     presentation: { value: 'open', cursor: 4, suggestions: [] }
   }), { columns: 16, rows: 1 }, { focusPath: ['default-prompt'] });
@@ -500,7 +508,7 @@ function pointerEvent({
 
 test('commandInput exposes prompt value selection suggestion validation and footer source metadata', () => {
   const frame = renderElementFrame(
-    commandInput({
+    testCommandInput({
       id: 'cmd-source',
       prompt: ':',
       presentation: { value: 'open file', cursor: 0, selection: { startOffset: 5, endOffsetExclusive: 9 }, suggestions: [
@@ -534,7 +542,7 @@ test('commandInput exposes prompt value selection suggestion validation and foot
 });
 
 test('commandInput rejects invalid validation levels at its factory boundary', () => {
-  assert.throws(() => commandInput({
+  assert.throws(() => testCommandInput({
     id: 'invalid-validation-level',
     presentation: { value: '', cursor: 0, suggestions: [] },
     validation: { message: 'Invalid', level: 'success' }

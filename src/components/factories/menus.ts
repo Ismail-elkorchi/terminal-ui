@@ -16,6 +16,7 @@ import {
   menuBarKeyBindings,
   menuItemsForRenderer,
   menuKeyBindings,
+  requireComponentHandler,
   withMetaDefaults
 } from '../internal/interaction.ts';
 import { menuPopupRenderNode } from '../internal/menu-popup.ts';
@@ -38,6 +39,7 @@ export function menu<
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function menu(options: MenuOptions<unknown>): Element<unknown> {
   const onAction = options.onAction;
+  requireComponentHandler('menu', 'onAction', onAction);
   const keyMap = menuKeyBindings(options.presentation, onAction, options.keys);
   return componentElementFromRenderNode<'menu', unknown>({
     ...requiredRenderNodeId(options.id, 'menu'),
@@ -48,14 +50,13 @@ export function menu(options: MenuOptions<unknown>): Element<unknown> {
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(onAction === undefined ? {} : {
-        toScrollMessage: (event: import('../../interaction/scroll.ts').ScrollEvent) => onAction({ kind: 'scroll', event })
-      }),
-      ...(onAction === undefined ? {} : { toActionMessage: onAction })
+      toScrollMessage: (event: import('../../interaction/scroll.ts').ScrollEvent) =>
+        onAction({ kind: 'scroll', event }),
+      toActionMessage: onAction
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function menuBar<
@@ -70,6 +71,7 @@ export function menuBar<
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
   const onAction = options.onAction;
+  requireComponentHandler('menuBar', 'onAction', onAction);
   const keyMap = menuBarKeyBindings(options.presentation, onAction, options.keys);
   const popup = options.presentation.kind === 'open'
     ? menuPopupRenderNode({
@@ -78,9 +80,7 @@ export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
         ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
         ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
         ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
-        ...(onAction === undefined ? {} : {
-          toActionMessage: (action) => onAction({ kind: 'menu', action })
-        })
+        toActionMessage: (action) => onAction({ kind: 'menu', action })
       })
     : undefined;
   return componentElementFromRenderNode<'menuBar', unknown>({
@@ -90,7 +90,7 @@ export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
       items: menuItemsForRenderer(options.items),
       presentation: options.presentation,
       maxVisibleItems: positiveInteger(options.maxVisibleItems, 12, 'menuBar maxVisibleItems'),
-      ...(onAction === undefined ? {} : { toActionMessage: onAction })
+      toActionMessage: onAction
     },
     ...(popup === undefined ? {} : { children: [popup] }),
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -100,7 +100,7 @@ export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
         ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } } })
         : options.meta
     })
-  }, true);
+  });
 }
 
 export function contextMenu<
@@ -115,6 +115,7 @@ export function contextMenu<
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function contextMenu(options: ContextMenuOptions<unknown>): Element<unknown> {
   const onAction = options.onAction;
+  requireComponentHandler('contextMenu', 'onAction', onAction);
   const keyMap = contextMenuKeyBindings(options.presentation, onAction, options.keys);
   const popup = options.presentation.kind === 'open'
     ? menuPopupRenderNode({
@@ -125,9 +126,7 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
         ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
         ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
         ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
-        ...(onAction === undefined ? {} : {
-          toActionMessage: (action) => onAction({ kind: 'menu', action })
-        })
+        toActionMessage: (action) => onAction({ kind: 'menu', action })
       })
     : undefined;
   const meta = options.presentation.kind === 'open'
@@ -141,12 +140,12 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
       ...(options.title === undefined ? {} : { title: options.title }),
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       maxVisibleItems: positiveInteger(options.maxVisibleItems, 12, 'contextMenu maxVisibleItems'),
-      ...(onAction === undefined ? {} : { toActionMessage: onAction })
+      toActionMessage: onAction
     },
     ...(popup === undefined ? {} : { children: [popup] }),
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta })
-  }, true);
+  });
 }
 
 export function dropdownMenu<
@@ -162,6 +161,7 @@ export function dropdownMenu<
 export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unknown> {
   const open = options.presentation.kind === 'open';
   const onAction = options.onAction;
+  requireComponentHandler('dropdownMenu', 'onAction', onAction);
   const keyMap = dropdownMenuKeyBindings(options.presentation, onAction, options.keys);
   const popup = open
     ? menuPopupRenderNode({
@@ -170,9 +170,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
         ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
         ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
         ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
-        ...(onAction === undefined ? {} : {
-          toActionMessage: (action) => onAction({ kind: 'menu', action })
-        })
+        toActionMessage: (action) => onAction({ kind: 'menu', action })
       })
     : undefined;
   const meta = open
@@ -189,12 +187,12 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
       ...(options.density === undefined ? {} : { density: options.density }),
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       maxVisibleItems: positiveInteger(options.maxVisibleItems, 12, 'dropdownMenu maxVisibleItems'),
-      ...(onAction === undefined ? {} : { toDropdownMenuActionMessage: onAction })
+      toDropdownMenuActionMessage: onAction
     },
     ...(popup === undefined ? {} : { children: [popup] }),
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta })
-  }, true);
+  });
 }
 
 export function divider(options: DividerOptions = {}): Element {
@@ -208,7 +206,7 @@ export function divider(options: DividerOptions = {}): Element {
       ...(options.labelAlign === undefined ? {} : { labelAlign: options.labelAlign })
     },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function tooltip(options: TooltipOptions): Element {
@@ -232,7 +230,7 @@ export function tooltip(options: TooltipOptions): Element {
       ...meta,
       layer: { ...meta.layer, visible }
     })
-  }, false);
+  });
 }
 
 function positiveInteger(value: number | undefined, fallback: number, name: string): number {

@@ -2,7 +2,7 @@ import { sanitizeTerminalText } from '../../text/index.ts';
 import { isThemeColorToken } from '../../theme/index.ts';
 import type { ValueScaleStop } from '../../ui-model/feedback.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
-import { mergeStyles } from './render-node-style.ts';
+import { mergeStyles } from '../style-resolution.ts';
 
 interface ValueDomain {
   readonly min: number;

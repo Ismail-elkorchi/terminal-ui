@@ -16,6 +16,7 @@ import type { ScrollState } from '../interaction/scroll.ts';
 import { collectionRecordById, completeCollection, windowedCollection } from '../ui-model/collection.ts';
 import type { CollectionWindow } from '../ui-model/collection.ts';
 import { assertUniqueRecursiveIds } from '../ui-model/identity.ts';
+import { cyclicIndex } from '../foundation/cyclic-index.ts';
 
 interface TreeStateBase<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
@@ -181,7 +182,7 @@ export function nextTreeRowId(
     return (delta < 0 ? selectable.at(-1) : selectable[0])?.node.id;
   }
   const current = selectedIndex;
-  return selectable[wrapIndex(current + delta, selectable.length)]?.node.id;
+  return selectable[cyclicIndex(current + delta, selectable.length)]?.node.id;
 }
 
 export function treeDisclosureAction<TMetadata extends Readonly<Record<string, unknown>>>(
@@ -226,7 +227,7 @@ function moveTreeSelection<TMetadata extends Readonly<Record<string, unknown>>>(
   const current = state.selected === undefined ? undefined : selection.positions.get(state.selected);
   const next = current === undefined
     ? (delta < 0 ? selection.records.at(-1) : selection.records[0])
-    : selection.records[wrapIndex(current + delta, selection.records.length)];
+    : selection.records[cyclicIndex(current + delta, selection.records.length)];
   return selectTreeNode(state, next?.id, records);
 }
 
@@ -445,8 +446,4 @@ function treeStateWithout<TMetadata extends Readonly<Record<string, unknown>>>(
     ...(field === 'rename' || state.rename === undefined ? {} : { rename: state.rename }),
     ...(state.scroll === undefined ? {} : { scroll: state.scroll })
   };
-}
-
-function wrapIndex(index: number, length: number): number {
-  return ((index % length) + length) % length;
 }

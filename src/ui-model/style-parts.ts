@@ -1,4 +1,5 @@
 export type TextStylePart = 'content' | 'link';
+export type DisclosureStylePart = 'marker' | 'label' | 'summary';
 export type DataListStylePart = 'marker' | 'item' | 'description' | 'match' | 'empty' | 'scrollbar';
 export type TableStylePart =
   | 'header'
@@ -85,20 +86,6 @@ export type SurfaceStylePart = 'background' | 'border' | 'title' | 'shadow';
 export type SplitPaneStylePart = 'divider' | 'dividerActive';
 export type TabsStylePart = 'leading' | 'label' | 'indicator' | 'badge' | 'close' | 'overflow';
 export type DialogStylePart = 'background' | 'border' | 'title' | 'actionSeparator';
-export type DocumentStylePart =
-  | 'title'
-  | 'summary'
-  | 'field'
-  | 'body'
-  | 'details'
-  | 'metadata'
-  | 'marker'
-  | 'result'
-  | 'level'
-  | 'empty'
-  | 'timestamp'
-  | 'separator'
-  | 'scrollbar';
 export type CommandInputStylePart =
   | TextEntryStylePart
   | 'prompt'

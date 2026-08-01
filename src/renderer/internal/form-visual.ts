@@ -3,7 +3,7 @@ import { span } from './frame.ts';
 import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import type { FrameCellSource, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import { line } from '../../visual/render.ts';
-import { mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
+import { mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from '../style-resolution.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
 
 export type FormVisualKind =

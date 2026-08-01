@@ -54,14 +54,20 @@ export interface BarChartItem {
 
 export interface ChartSeries {
   readonly id: string;
-  readonly label?: string;
-  readonly points: readonly number[];
+  readonly label: string;
+  readonly points: readonly ChartPoint[];
   readonly kind?: ChartSeriesKind;
   readonly glyph?: string;
   readonly valueScale?: ValueScale;
   readonly sampleMode?: ChartSampleMode;
   readonly sampleAlign?: ChartSampleAlign;
   readonly interpolation?: ChartInterpolation;
+}
+
+export interface ChartPoint {
+  readonly id: string;
+  readonly label: string;
+  readonly value: number;
 }
 
 export type ChartSeriesKind = 'line' | 'scatter' | 'area' | 'bar';
@@ -71,8 +77,8 @@ export type ChartInterpolation = 'nearest' | 'linear';
 export type ChartDataState = 'loading' | 'error';
 
 export interface ChartPointSelection {
-  readonly series: string;
-  readonly pointIndex: number;
+  readonly seriesId: string;
+  readonly pointId: string;
 }
 
 export type MeterVariant = 'linear' | 'dial';
@@ -80,13 +86,12 @@ export type MeterResult = 'success' | 'warning' | 'error';
 
 export interface HeatmapCell<TValue = unknown> {
   readonly id: string;
-  readonly label?: string;
+  readonly label: string;
   readonly value: number;
   readonly payload?: TValue;
   readonly disabled?: boolean;
 }
 
 export interface HeatmapSelection {
-  readonly rowIndex: number;
-  readonly columnIndex: number;
+  readonly id: string;
 }

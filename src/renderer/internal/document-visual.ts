@@ -1,29 +1,20 @@
 import type { RenderNode } from '../model/index.ts';
-import { padTextCells } from '../../text/index.ts';
-import type { TextWidthProfile } from '../../text/index.ts';
 import { highlightRenderSpans } from './text-highlight.ts';
-import type { FieldItem, LogLevel, RecordResult } from '../../ui-model/contracts.ts';
+import type { LogLevel } from '../../ui-model/contracts.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { span } from '../../visual/render.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import { mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts';
+import { mergeStyles, themeStyle, renderNodeStyle } from '../style-resolution.ts';
 
-export type DocumentSurfaceKind = 'logViewer' | 'structuredBlock' | 'activityFeed';
+export type DocumentSurfaceKind = 'logViewer';
 export type DocumentVisualKind =
   | 'body'
   | 'delimiter'
-  | 'detail'
   | 'empty'
-  | 'field'
   | 'match'
   | 'metadata'
-  | 'marker'
   | 'omission'
-  | 'level'
-  | 'result'
-  | 'separator'
-  | 'summary'
-  | 'title';
+  | 'separator';
 
 export interface DocumentHighlightSpan extends RenderSpan {
   readonly matched?: boolean;
@@ -53,7 +44,7 @@ export function documentSpan(
 export function documentHighlightSpans(input: {
   readonly renderNode: RenderNode;
   readonly kind: DocumentSurfaceKind;
-  readonly visual: Extract<DocumentVisualKind, 'body' | 'metadata' | 'summary' | 'title' | 'detail'>;
+  readonly visual: Extract<DocumentVisualKind, 'body' | 'metadata'>;
   readonly label: string;
   readonly text: string;
   readonly query: string;
@@ -94,55 +85,6 @@ export function documentSource(
   });
 }
 
-export function documentResultStyle(renderNode: RenderNode, result: RecordResult): TerminalStyle {
-  const token = (() => {
-    switch (result) {
-      case 'pending':
-        return 'status.pending';
-      case 'running':
-        return 'status.running';
-      case 'success':
-        return 'status.success';
-      case 'failed':
-        return 'status.error';
-      case 'cancelled':
-      case 'skipped':
-        return 'status.warning';
-    }
-  })();
-  return mergeStyles(themeStyle(token, { bold: true }), renderNode.styles?.parts?.['result']) ?? {};
-}
-
-export function documentRecordLevelStyle(renderNode: RenderNode, level: LogLevel): TerminalStyle {
-  return mergeStyles(
-    logViewerLogLevelStyle(level),
-    { bold: true },
-    renderNode.styles?.parts?.['level']
-  ) ?? { bold: true };
-}
-
-export function documentMarkerStyle(renderNode: RenderNode, selected = false): TerminalStyle | undefined {
-  return renderNodeStyle(renderNode, 'marker', selected ? 'selected' : undefined);
-}
-
-export function documentTitleStyle(
-  renderNode: RenderNode,
-  baseStyle: TerminalStyle | undefined,
-  selected = false
-): TerminalStyle | undefined {
-  return mergeStyles(
-    renderNodeStyle(renderNode, 'title'),
-    baseStyle,
-    selected ? renderNodeStyle(renderNode, 'title', 'selected') : undefined
-  );
-}
-
-export function documentSummaryStyle(renderNode: RenderNode, selected = false): TerminalStyle | undefined {
-  return selected
-    ? renderNodeStyle(renderNode, 'summary', 'selected')
-    : renderNodeStyle(renderNode, 'summary');
-}
-
 export function documentBodyStyle(
   renderNode: RenderNode,
   baseStyle: TerminalStyle | undefined,
@@ -153,52 +95,6 @@ export function documentBodyStyle(
     baseStyle,
     selected ? renderNodeStyle(renderNode, 'body', 'selected') : undefined
   );
-}
-
-export function documentDetailStyle(
-  renderNode: RenderNode,
-  baseStyle: TerminalStyle | undefined,
-  selected = false
-): TerminalStyle | undefined {
-  return mergeStyles(
-    renderNodeStyle(renderNode, 'details'),
-    baseStyle,
-    selected ? renderNodeStyle(renderNode, 'details', 'selected') : undefined
-  );
-}
-
-export function documentFieldSpans(
-  renderNode: RenderNode,
-  field: FieldItem,
-  labelWidth: number,
-  widthProfile: TextWidthProfile,
-  selected = false,
-  kind: DocumentSurfaceKind = 'structuredBlock',
-  sourceOptions: DocumentSourceOptions = {}
-): readonly RenderSpan[] {
-  const labelStyle = mergeStyles(
-    renderNodeStyle(renderNode, 'field', selected ? 'selected' : undefined)
-  );
-  const valueStyle = selected
-    ? renderNodeStyle(renderNode, 'field', 'selected')
-    : renderNodeStyle(renderNode, 'field');
-  const separatorStyle = selected
-    ? renderNodeStyle(renderNode, 'separator', 'selected')
-    : renderNodeStyle(renderNode, 'separator');
-  const key = sourceToken(field.label);
-  return [
-    documentSpan(
-      renderNode,
-      kind,
-      'field',
-      `field.${key}.label`,
-      padTextCells(field.label, labelWidth, { widthProfile }),
-      labelStyle,
-      sourceOptions
-    ),
-    documentSpan(renderNode, kind, 'separator', `field.${key}.separator`, ': ', separatorStyle, sourceOptions),
-    documentSpan(renderNode, kind, 'field', `field.${key}.value`, field.value, valueStyle, sourceOptions)
-  ];
 }
 
 export function logViewerTimestampStyle(renderNode: RenderNode): TerminalStyle | undefined {
@@ -260,20 +156,13 @@ function roleForVisual(visual: DocumentVisualKind): NonNullable<FrameCellSource[
   switch (visual) {
     case 'delimiter':
     case 'empty':
-    case 'marker':
     case 'omission':
       return 'decoration';
     case 'separator':
       return 'separator';
     case 'body':
-    case 'detail':
-    case 'field':
     case 'match':
     case 'metadata':
-    case 'level':
-    case 'result':
-    case 'summary':
-    case 'title':
       return 'text';
   }
 }

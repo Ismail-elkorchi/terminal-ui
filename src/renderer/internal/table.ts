@@ -6,7 +6,7 @@ import type { TextWidthProfile } from '../../text/index.ts';
 import { dataSource, dataSpan, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
 import { projectedRowWindow, scrollStateFromUnknown } from '../../behavior/data-window.ts';
 import { stringify } from './render-node-props.ts';
-import { mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-style.ts';
+import { mergeStyles, resolveRenderNodeStyle, themeStyle } from '../style-resolution.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { TableColumnAlignment, TableColumnSemantic } from '../../ui-model/content.ts';

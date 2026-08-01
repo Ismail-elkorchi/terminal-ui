@@ -1,17 +1,4 @@
 export {
-  activityBlockCollapsed,
-  activityFeedPresentation,
-  activityFeedReducer,
-  copyActivityFeedVisibleText,
-  visibleActivityFeedBlocks
-} from './activity-feed.ts';
-export type {
-  ActivityFeedReducerOptions,
-  ActivityFeedPresentation,
-  ActivityFeedState,
-  ActivityFeedVisibleBlock
-} from './activity-feed.ts';
-export {
   addDays,
   addMonths,
   calendarDateId,
@@ -146,8 +133,9 @@ export type { PaginatorAction } from '../ui-model/paginator.ts';
 export {
   createNotificationState,
   nextNotificationExpiry,
-  notificationActionFromStack,
-  notificationPresentation,
+  activeNotificationItems,
+  notificationHistoryAction,
+  notificationHistoryItems,
   notificationReducer,
 } from './notifications.ts';
 export type {
@@ -155,11 +143,8 @@ export type {
   NotificationConflictPolicy,
   NotificationHistoryEntry,
   NotificationHistoryReason,
-  NotificationHistoryPresentationOptions,
   NotificationInput,
-  LiveNotificationPresentationOptions,
   NotificationPolicy,
-  NotificationPresentationOptions,
   NotificationRecord,
   NotificationState
 } from './notifications.ts';
@@ -207,7 +192,6 @@ export type {
 export { tabsReducer } from './tabs.ts';
 export type { TabsState } from './tabs.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
-export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 export type {
   LogViewerAction,
   LogViewerBodyAnchor,
@@ -317,16 +301,6 @@ export type {
   NavigationBoundary,
   NavigationPolicy
 } from './navigation.ts';
-export {
-  nextSpinnerFrameIndex,
-  normalizeSpinnerFrameIndex,
-  spinnerReducer
-} from './spinner.ts';
-export type {
-  SpinnerAction,
-  SpinnerReducerOptions,
-  SpinnerState
-} from './spinner.ts';
 export {
   createSplitPaneState,
   splitPanePresentation,

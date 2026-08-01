@@ -52,7 +52,7 @@ export function chartBlock(
   widthProfile: TextWidthProfile
 ): RenderBlock {
   const series = chartSeries(renderNode.props.series);
-  const points = series.flatMap((item) => item.points);
+  const points = series.flatMap((item) => item.points.map((point) => point.value));
   const state = chartStateBlock(renderNode, 'chart', theme, {
     empty: points.length === 0,
     emptyText: chartStateDescription(renderNode, 'No chart data'),
@@ -124,14 +124,20 @@ export function chartBlock(
   }
   const selected = selectedChartPoint(renderNode, series);
   if (selected !== undefined) {
-    const position = chartPointPosition(renderNode, node.bounds, selected.series, selected.pointIndex, range);
+    const position = chartPointPosition(
+      renderNode,
+      node.bounds,
+      selected.seriesId,
+      selected.pointId,
+      range
+    );
     if (position !== undefined) {
       buffer.write(position.row, position.column, [
         chartSpan(
           renderNode,
           'chart',
           'selected',
-          `selection.${selected.series}.${String(selected.pointIndex)}`,
+          `selection.${selected.seriesId}.${selected.pointId}`,
           oneCellGlyph('◆', '*', { widthProfile }),
           chartSelectedStyle(renderNode)
         )
@@ -230,27 +236,38 @@ export function chartText(
   return chartTextFromBlock(chartBlock(renderNode, node, theme, widthProfile));
 }
 
-export function chartAccessibleBase(renderNode: ChartNode, id: string): AccessibleNode {
+export function chartAccessibleBase(
+  renderNode: ChartNode,
+  id: string,
+  focused: boolean
+): AccessibleNode {
   const series = chartSeries(renderNode.props.series);
   return {
     id,
-    role: 'text',
-    label: id,
-    description: `${String(series.length)} chart series.`
+    role: 'listbox',
+    label: cleanLabel(renderNode.props.label),
+    description: `${String(series.length)} chart series.`,
+    ...(focused ? { focused } : {})
   };
 }
 
-export function chartAccessibleChildren(renderNode: ChartNode): readonly AccessibleNode[] {
+export function chartAccessibleChildren(
+  renderNode: ChartNode
+): readonly AccessibleNode[] {
   const series = chartSeries(renderNode.props.series);
   const selected = selectedChartPoint(renderNode, series);
   return series.map((item) => ({
     id: `${renderNode.id ?? 'chart'}:${item.id}`,
-    role: 'text',
-    label: item.label ?? item.id,
-    value: `${String(item.points.length)} points`,
-    ...(selected?.series === item.id
-      ? { description: `Selected point ${String(selected.pointIndex + 1)} of ${String(item.points.length)}.` }
-      : {})
+    role: 'group',
+    label: item.label,
+    description: `${String(item.points.length)} points.`,
+    children: item.points.map((point) => ({
+      id: `${renderNode.id ?? 'chart'}:${item.id}:${point.id}`,
+      role: 'option' as const,
+      label: point.label,
+      value: point.value,
+      selected: selected?.seriesId === item.id && selected.pointId === point.id
+    }))
   }));
 }
 
@@ -258,7 +275,7 @@ export function chartHitTargets<TMessage>(renderNode: ChartNode<TMessage>, bound
   const toMessage = chartMessageFactory(renderNode);
   if (toMessage === undefined) return [];
   const series = chartSeries(renderNode.props.series);
-  const points = series.flatMap((item) => item.points);
+  const points = series.flatMap((item) => item.points.map((point) => point.value));
   if (points.length === 0) return [];
   const range = rangeFor(points, numberProp(renderNode, 'min'), numberProp(renderNode, 'max'));
   const layout = chartLayout(renderNode, bounds);
@@ -271,8 +288,8 @@ export function chartHitTargets<TMessage>(renderNode: ChartNode<TMessage>, bound
       bounds: { row, column, width: 1, height: 1 },
       message: () => toMessage({
         kind: 'select',
-        series: item.id,
-        pointIndex: projected.point
+        seriesId: item.id,
+        pointId: projected.pointId
       }),
       cursor: 'pointer'
     }];

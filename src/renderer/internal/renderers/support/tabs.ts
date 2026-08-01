@@ -4,7 +4,7 @@ import { isFrameCellInteractionState, renderNodeFrameSource } from '../../../../
 import { stringify } from '../../render-node-props.ts';
 import { clipRenderSpans, measureRenderSpans, padRenderLine } from '../../../../visual/render.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../../../visual/render.ts';
-import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../../render-node-style.ts';
+import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../../../style-resolution.ts';
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../../contracts.ts';
 import type { HitTarget } from '../../../contracts.ts';

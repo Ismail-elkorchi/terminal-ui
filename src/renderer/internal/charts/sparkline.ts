@@ -47,7 +47,7 @@ export function sparklineAccessibleBase(renderNode: SparklineNode, id: string): 
   return {
     id,
     role: 'text',
-    label: id,
+    label: cleanLabel(renderNode.props.label),
     ...(values.length === 0 ? {} : { value: `${String(values.length)} points` }),
     description: `${String(values.length)} sparkline points.`
   };

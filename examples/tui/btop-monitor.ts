@@ -287,7 +287,13 @@ function cpuPanel(state: MonitorState) {
         text('i7-4770HQ                                             2.5 GHz', { id: 'cpu-caption', textRole: 'metadata' }),
         chart({
           id: 'cpu-chart',
-          series: [{ id: 'cpu', label: 'CPU', points: cpuValues, kind: 'area' }],
+          label: 'CPU history',
+          series: [{
+            id: 'cpu',
+            label: 'CPU',
+            points: chartPoints('cpu', cpuValues),
+            kind: 'area'
+          }],
           min: 0,
           max: 100,
           sampleMode: 'fit',
@@ -343,7 +349,14 @@ function corePanel(state: MonitorState) {
 function coreList(cores: readonly CoreSample[], id: string) {
   return column(cores.map((core) => row([
     text(core.core, { id: `${id}-${core.core}-label`, textRole: 'metadata' }),
-    sparkline({ id: `${id}-${core.core}-spark`, values: coreSpark(core.load), min: 0, max: 100, valueScale: monitorScale }),
+    sparkline({
+      id: `${id}-${core.core}-spark`,
+      label: `${core.core} load history`,
+      values: coreSpark(core.load),
+      min: 0,
+      max: 100,
+      valueScale: monitorScale
+    }),
     text(`${String(core.load).padStart(2, ' ')}% ${String(core.temp)}°C`, { id: `${id}-${core.core}-value`, textRole: 'metric' })
   ], {
     id: `${id}-${core.core}`,
@@ -380,6 +393,7 @@ function memoryRow(
     ], { id: `${label}-header`, sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     progressBar({
       id: `${label}-bar`,
+      label,
       mode: { kind: 'determinate', value: percent, max: 100 },
       display: 'bar+percent',
       labelPosition: 'none',
@@ -445,9 +459,10 @@ function networkPanel(state: MonitorState) {
     children: {
       graph: chart({
         id: 'net-chart',
+        label: 'Network throughput',
         series: [
-          { id: 'download', label: 'download', points: download, kind: 'bar', glyph: '█' },
-          { id: 'upload', label: 'upload', points: upload, kind: 'bar', glyph: '█' }
+          { id: 'download', label: 'download', points: chartPoints('download', download), kind: 'bar', glyph: '█' },
+          { id: 'upload', label: 'upload', points: chartPoints('upload', upload), kind: 'bar', glyph: '█' }
         ],
         signedDomain: true,
         min: -50,
@@ -549,6 +564,14 @@ function processValueForColumn(row: ProcessRow, column: string): unknown {
 
 function rotate(values: readonly number[], offset: number): readonly number[] {
   return values.map((_, index) => values[(index + offset) % values.length] ?? 0);
+}
+
+function chartPoints(prefix: string, values: readonly number[]) {
+  return values.map((value, index) => ({
+    id: `${prefix}-${String(index)}`,
+    label: `${prefix} sample ${String(index + 1)}`,
+    value
+  }));
 }
 
 function coreSpark(load: number): readonly number[] {

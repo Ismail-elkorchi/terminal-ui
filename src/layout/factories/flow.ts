@@ -1,10 +1,14 @@
 import { layoutElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
-import type { ColumnOptions, RowOptions } from '../options.ts';
+import type { ColumnOptions, FlowOptions, RowOptions } from '../options.ts';
 import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
 import { optionalRenderNodeId, renderNodeChildren } from '../../renderer/model/element.ts';
 import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import { assertTrackCount } from './internals.ts';
+import {
+  assertOptionalFiniteNumber,
+  isStringMember
+} from '../../foundation/validation.ts';
 
 export function column<const TChildren extends ElementChildren>(
   children: TChildren,
@@ -26,7 +30,7 @@ export function column<const TChildren extends ElementChildren>(
     },
     children: childList,
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function row<const TChildren extends ElementChildren>(
@@ -49,5 +53,32 @@ export function row<const TChildren extends ElementChildren>(
     },
     children: childList,
     ...componentMetaProps(options.meta)
-  }, false);
+  });
+}
+
+export function flow<const TChildren extends ElementChildren>(
+  children: TChildren,
+  options: FlowOptions
+): Element<ElementChildrenMessage<TChildren>> {
+  if (!isStringMember(options.direction, ['horizontal', 'vertical'])) {
+    throw new TypeError('flow() direction must be horizontal or vertical.');
+  }
+  assertOptionalFiniteNumber(options.gap, 'flow() gap');
+  assertOptionalFiniteNumber(options.lineGap, 'flow() lineGap');
+  if ((options.gap ?? 0) < 0 || (options.lineGap ?? 0) < 0) {
+    throw new RangeError('flow() gaps must be non-negative.');
+  }
+  const childList = renderNodeChildren(children);
+  type Message = ElementChildrenMessage<TChildren>;
+  return layoutElementFromRenderNode<'flow', Message>({
+    ...optionalRenderNodeId(options.id),
+    kind: 'flow',
+    props: {
+      direction: options.direction,
+      ...(options.gap === undefined ? {} : { gap: options.gap }),
+      ...(options.lineGap === undefined ? {} : { lineGap: options.lineGap })
+    },
+    children: childList,
+    ...componentMetaProps(options.meta)
+  });
 }

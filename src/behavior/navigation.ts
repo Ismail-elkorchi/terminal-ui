@@ -22,7 +22,7 @@ export function adjacentItemId(
   if (currentIndex < 0) return ids[initialIndex(ids.length, delta, policy.initial)];
   const candidate = currentIndex + Math.trunc(delta);
   const index = policy.boundary === 'wrap'
-    ? ((candidate % ids.length) + ids.length) % ids.length
+    ? cyclicIndex(candidate, ids.length)
     : Math.max(0, Math.min(ids.length - 1, candidate));
   return ids[index];
 }
@@ -32,3 +32,4 @@ function initialIndex(count: number, delta: number, policy: InitialNavigation): 
   if (policy === 'last') return count - 1;
   return delta < 0 ? count - 1 : 0;
 }
+import { cyclicIndex } from '../foundation/cyclic-index.ts';

@@ -173,8 +173,16 @@ test('prepared log history pays source normalization once and rendering does not
 });
 
 test('small local frame updates produce bounded render diffs', () => {
-  const previous = renderElementFrame(textInput({ id: 'field', presentation: { value: 'alpha', cursor: 0 } }), { columns: 24, rows: 3 });
-  const next = renderElementFrame(textInput({ id: 'field', presentation: { value: 'alpha!', cursor: 0 } }), { columns: 24, rows: 3 });
+  const previous = renderElementFrame(textInput({
+    id: 'field',
+    presentation: { value: 'alpha', cursor: 0 },
+    onSubmit: () => undefined
+  }), { columns: 24, rows: 3 });
+  const next = renderElementFrame(textInput({
+    id: 'field',
+    presentation: { value: 'alpha!', cursor: 0 },
+    onSubmit: () => undefined
+  }), { columns: 24, rows: 3 });
   const diff = diffFrames(previous, next);
 
   assert.equal(diff.fullRewrite, false);
@@ -219,6 +227,8 @@ test('full frame render stays bounded by terminal size for mixed element trees',
         { value: 'file', label: 'file' },
         { value: 'filter', label: 'filter' }
       ], selectedSuggestionIndex: 0 },
+      onAction: (action) => action,
+      onSubmit: (value) => value
     }),
     table({
     getRowId: (_row, index) => String(index),
@@ -402,12 +412,26 @@ test('large sparse canvas retained damage is narrowed to touched cells', () => {
   const terminalSize = { columns: 120, rows: 40 };
   const previousElement = canvas({
     id: 'sparse-canvas-damage',
+    label: 'Sparse canvas',
+    measurement: {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: terminalSize.columns,
+      preferredHeight: terminalSize.rows
+    },
     painter({ canvas }) {
       canvas.text(59, 19, [{ text: 'A' }]);
     }
   });
   const nextElement = canvas({
     id: 'sparse-canvas-damage',
+    label: 'Sparse canvas',
+    measurement: {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: terminalSize.columns,
+      preferredHeight: terminalSize.rows
+    },
     painter({ canvas }) {
       canvas.text(59, 19, [{ text: 'B' }]);
     }
@@ -492,7 +516,8 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
     query: '19999',
     selectedId: 'entry-19999',
     maxVisible: 5,
-    searchPickerIndex: prepareSearchPickerIndex(entries)
+    searchPickerIndex: prepareSearchPickerIndex(entries),
+    onAction: (action) => action
   }), { columns: 48, rows: 8 });
 
   assert.match(renderFramePlain(frame), /Entry 19999/u);
@@ -509,7 +534,7 @@ test('form navigation over many controls records one bounded frame per input', a
       ...Array.from({ length: 25 }, (_value, index) => textInput({
         id: `field-${index}`,
         presentation: { value: state.active, cursor: 0 },
-        keys: { enter: () => ({ kind: `field-${index}` }) }
+        onSubmit: () => ({ kind: `field-${index}` })
       })),
       button({ id: 'done', label: 'Done', onPress: () => ({ kind: 'done' }) })
     ], { id: 'many-fields', title: 'Many fields' })
@@ -529,6 +554,13 @@ test('form navigation over many controls records one bounded frame per input', a
 test('custom canvas render stays bounded even when painters write outside the terminal size', () => {
   const frame = renderElementFrame(canvas({
     id: 'stress-canvas',
+    measurement: {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: 32,
+      preferredHeight: 8
+    },
+    meta: { accessibility: { decorative: true } },
     painter({ canvas, bounds }) {
       for (let row = -20; row < bounds.height + 20; row += 1) {
         canvas.line(-20, row, bounds.width + 180, row, { text: 'x' });

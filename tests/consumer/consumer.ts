@@ -18,7 +18,7 @@ import {
   type TextInputAction,
   type TreeAction
 } from '@ismail-elkorchi/terminal-ui';
-import { custom, customComposite } from '@ismail-elkorchi/terminal-ui/component';
+import { custom } from '@ismail-elkorchi/terminal-ui/component';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { createInputDecoder } from '@ismail-elkorchi/terminal-ui/input';
@@ -152,21 +152,53 @@ const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } }
 const extension = custom({
   id: 'packed-extension',
   renderer: {
+    kind: 'leaf',
+    name: 'packedExtension',
+    parts: [],
+    measure: () => ({
+      minWidth: 1,
+      minHeight: 1,
+      preferredWidth: 9,
+      preferredHeight: 1
+    }),
     render({ target, bounds }) {
       target.write(bounds.row, bounds.column, [{ text: 'Extension' }]);
     },
     accessibility: ({ id }) => ({ id, role: 'text', label: 'Extension' })
   }
 });
-const extensionPanel = customComposite({
+const extensionPanel = custom({
   id: 'packed-extension-panel',
   children: [extension, text('Child')] as const,
   renderer: {
+    kind: 'composite',
+    name: 'packedExtensionPanel',
+    parts: [],
+    measure: ({ childCount, measureChild }) => {
+      const children = Array.from(
+        { length: childCount },
+        (_unused, index) => measureChild(index)
+      );
+      return {
+        minWidth: Math.max(0, ...children.map((child) => child.minWidth)),
+        minHeight: children.reduce((height, child) => height + child.minHeight, 0),
+        preferredWidth: Math.max(0, ...children.map((child) => child.preferredWidth)),
+        preferredHeight: children.reduce(
+          (height, child) => height + child.preferredHeight,
+          0
+        )
+      };
+    },
     layout: ({ bounds }) => [
       { ...bounds, height: 1 },
       { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
     ],
-    accessibility: ({ id }) => ({ id, role: 'group', label: 'Extension panel' })
+    accessibility: ({ id, children }) => ({
+      id,
+      role: 'group',
+      label: 'Extension panel',
+      children
+    })
   }
 });
 const extensionSnapshot = renderElementSnapshot({

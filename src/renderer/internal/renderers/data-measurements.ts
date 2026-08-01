@@ -3,7 +3,6 @@ import { isNonArrayObject } from '../../../foundation/validation.ts';
 import { barChartText, chartText, meterText, heatmapText, sparklineText } from '../charts/index.ts';
 import { paginatorText } from '../data-rendering.ts';
 import { measureBlock, measureSize, measureText } from '../measurement.ts';
-import { activityFeedBlock, structuredBlockBlock } from '../structured-block.ts';
 import { treeBlock } from '../tree.ts';
 import { tableIntrinsicSize } from '../table/columns.ts';
 import { listIntrinsicMeasurement } from './support/list.ts';
@@ -44,25 +43,7 @@ export const dataMeasurements = {
     { widthProfile }
   ),
   paginator: ({ renderNode, widthProfile }) => measureText(paginatorText(renderNode, widthProfile), { widthProfile }),
-  logViewer: ({ renderNode, widthProfile }) => measureText(logViewerMeasureText(renderNode), { widthProfile }),
-  structuredBlock: ({ renderNode, bounds, theme, widthProfile }) => measureBlock(
-    structuredBlockBlock(
-      renderNode,
-      measurementLayoutNode(renderNode, constrainedMeasureBounds(bounds)),
-      theme,
-      widthProfile
-    ),
-    { widthProfile }
-  ),
-  activityFeed: ({ renderNode, bounds, theme, widthProfile }) => measureBlock(
-    activityFeedBlock(
-      renderNode,
-      measurementLayoutNode(renderNode, constrainedMeasureBounds(bounds)),
-      theme,
-      widthProfile
-    ),
-    { widthProfile }
-  )
+  logViewer: ({ renderNode, widthProfile }) => measureText(logViewerMeasureText(renderNode), { widthProfile })
 } satisfies RendererMeasurementMap<
   | 'sparkline'
   | 'barChart'
@@ -74,8 +55,6 @@ export const dataMeasurements = {
   | 'tree'
   | 'paginator'
   | 'logViewer'
-  | 'structuredBlock'
-  | 'activityFeed'
 >;
 
 function logViewerMeasureText(renderNode: RenderNodeOfKind<unknown, 'logViewer'>): string {

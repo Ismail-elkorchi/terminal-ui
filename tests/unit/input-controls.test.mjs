@@ -75,20 +75,20 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
 
 test('slider controls reject invalid caller-supplied numeric contracts consistently', () => {
   const validRangeState = { value: { start: 10, end: 20 }, activeHandle: 'start' };
-  assert.throws(() => slider({ id: 'nan-slider', value: Number.NaN }), /value must be finite/u);
-  assert.throws(() => slider({ id: 'bounds-slider', value: 1, min: 2, max: 1 }), /finite ordered bounds/u);
-  assert.throws(() => slider({ id: 'step-slider', value: 1, step: 0 }), /step must be finite and greater than zero/u);
-  assert.throws(() => slider({ id: 'width-slider', value: 1, width: 1.5 }), /width must be a positive safe integer/u);
+  assert.throws(() => slider({ id: 'nan-slider', value: Number.NaN, onChange: () => undefined }), /value must be finite/u);
+  assert.throws(() => slider({ id: 'bounds-slider', value: 1, min: 2, max: 1, onChange: () => undefined }), /finite ordered bounds/u);
+  assert.throws(() => slider({ id: 'step-slider', value: 1, step: 0, onChange: () => undefined }), /step must be finite and greater than zero/u);
+  assert.throws(() => slider({ id: 'width-slider', value: 1, width: 1.5, onChange: () => undefined }), /width must be a positive safe integer/u);
   assert.throws(
-    () => rangeSlider({ id: 'nan-range', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' } }),
+    () => rangeSlider({ id: 'nan-range', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' }, onAction: () => undefined }),
     /value must be finite/u
   );
   assert.throws(
-    () => rangeSlider({ id: 'ordered-range', state: { value: { start: 20, end: 10 }, activeHandle: 'start' } }),
+    () => rangeSlider({ id: 'ordered-range', state: { value: { start: 20, end: 10 }, activeHandle: 'start' }, onAction: () => undefined }),
     /start value must be less than or equal/u
   );
   assert.throws(
-    () => rangeSlider({ id: 'width-range', state: validRangeState, width: 0 }),
+    () => rangeSlider({ id: 'width-range', state: validRangeState, width: 0, onAction: () => undefined }),
     /width must be a positive safe integer/u
   );
 });
@@ -275,13 +275,15 @@ test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
   const colorFrame = renderElementFrame(colorSwatchPicker({
     id: 'wide-colors',
     columns: 1,
-    options: [{ id: 'dots', label: '··', value: 'dots', swatch: 'x' }]
+    options: [{ id: 'dots', label: '··', value: 'dots', swatch: 'x' }],
+    onAction: () => undefined
   }), { columns: 20, rows: 2 }, { widthProfile });
   const calendarFrame = renderElementFrame(calendar({
     id: 'wide-calendar',
     monthLabel: 'Month',
     weekdays: ['··', '··', '··', '··', '··', '··', '··'],
-    days: []
+    days: [],
+    onAction: () => undefined
   }), { columns: 32, rows: 3 }, { widthProfile });
 
   assert.equal(
@@ -326,7 +328,8 @@ test('form controls keep state visible in high contrast and no-color rendering m
       id: 'agree',
       label: 'Agree',
       checked: true,
-      required: true
+      required: true,
+      onChange: () => undefined
     }),
     slider({
       id: 'volume',
@@ -334,21 +337,24 @@ test('form controls keep state visible in high contrast and no-color rendering m
       value: 50,
       min: 0,
       max: 100,
-      width: 5
+      width: 5,
+      onChange: () => undefined
     }),
     select({
       id: 'region',
       label: 'Region',
       placeholder: 'Select region',
       presentation: { kind: 'closed' },
-      options: [{ id: 'eu', label: 'Europe', value: 'eu' }]
+      options: [{ id: 'eu', label: 'Europe', value: 'eu' }],
+      onAction: () => undefined
     }),
     calendar({
       id: 'calendar',
       ...calendarFixture({
         selected: { year: 2026, month: 6, day: 2 },
         today: { year: 2026, month: 6, day: 2 }
-      })
+      }),
+      onAction: () => undefined
     })
   ], { gap: 1 });
   const frame = renderElementFrame(element, { columns: 32, rows: 14 }, { theme: highContrastTheme });
@@ -375,7 +381,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
 
 test('controls clipped to an empty layout region expose no pointer targets', () => {
   const frame = renderElementFrame(column([
-    checkbox({ id: 'visible', label: 'Visible', checked: false }),
+    checkbox({ id: 'visible', label: 'Visible', checked: false, onChange: () => undefined }),
     select({
       id: 'clipped-select',
       label: 'Clipped',

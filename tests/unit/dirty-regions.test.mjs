@@ -18,10 +18,10 @@ import {
   surface
 } from '../../dist/layout/index.js';
 import {
-  canvas,
   dialog,
   text
 } from '../../dist/components/index.js';
+import { testCanvas as canvas } from '../helpers/canvas.mjs';
 
 test('DirtyRegionSet adds unions intersects and normalizes rectangles', () => {
   const first = createDirtyRegionSet([{ row: 2, column: 2, width: 3, height: 1 }]);

@@ -2,11 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { diffFrames, renderDiffAnsi, renderElementFrame, renderFrameDebug, renderFramePlain } from '../../dist/renderer/index.js';
-import { list, progressBar, spinner, statusBar, table, text, textInput } from '../../dist/components/index.js';
+import { activityIndicator, canvas, list, progressBar, statusBar, table, text, textInput } from '../../dist/components/index.js';
 import { column, row, viewport } from '../../dist/layout/index.js';
 
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
-  const frame = renderElementFrame(textInput({ id: 'addressed-field', presentation: { value: 'Go', cursor: 0 } }), { columns: 8, rows: 2 });
+  const frame = renderElementFrame(textInput({
+    id: 'addressed-field',
+    presentation: { value: 'Go', cursor: 0 },
+    onAction: () => undefined
+  }), { columns: 8, rows: 2 });
   const output = renderFrameDebug(frame);
 
   assert.match(output, /^\u001B\[H›/u);
@@ -34,9 +38,7 @@ test('TUI frame rendering positions wide graphemes by terminal cells', () => {
 
 test('one width profile governs nested buffers and incompatible profiles force a full redraw', () => {
   const element = viewport(text('·🙂x', { id: 'profile-text' }), {
-    id: 'profile-viewport',
-    contentRows: 1,
-    contentColumns: 8
+    id: 'profile-viewport'
   });
   const narrow = renderElementFrame(element, { columns: 8, rows: 1 }, {
     widthProfile: { ambiguous: 'narrow', emoji: 'wide' }
@@ -68,7 +70,8 @@ test('TUI frame cursor follows the selected visible list item', () => {
     id: 'cursor-list',
     items,
     projectItem: (item) => ({ id: item, label: item }),
-    selectedId: 'Item 6'
+    selectedId: 'Item 6',
+    onAction: (action) => action
   }), { columns: 16, rows: 5 });
   const output = renderFramePlain(frame);
   const addressed = renderFrameDebug(frame);
@@ -83,12 +86,12 @@ test('TUI frame cursor follows the selected visible list item', () => {
   assert.match(addressed, /\u001B\[3H$/u);
 });
 
-test('TUI status, progress, and spinner components render accessible status state', () => {
+test('TUI status, progress, and activity components render accessible status state', () => {
   const frame = renderElementFrame(column([
     statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
     progressBar({ id: 'progress', label: 'Sync', mode: { kind: 'determinate', value: 150, max: 100 } }),
     progressBar({ id: 'pending', label: 'Waiting', mode: { kind: 'indeterminate' } }),
-    spinner({ id: 'spinner', label: 'Working' })
+    activityIndicator({ id: 'activity', label: 'Working', status: 'running' })
   ]), { columns: 32, rows: 8 });
   const output = renderFramePlain(frame);
   const [statusNode, progressNode, pendingNode, spinnerNode] = frame.accessibility.root.children;
@@ -115,7 +118,11 @@ test('TUI status, progress, and spinner components render accessible status stat
 
 test('renderDiffAnsi serializes clear, write, and structural cursor state', () => {
   const previous = renderElementFrame(text('Longer text', { id: 'before' }), { columns: 16, rows: 2 });
-  const next = renderElementFrame(textInput({ id: 'after', presentation: { value: 'Go', cursor: 0 } }), { columns: 16, rows: 2 });
+  const next = renderElementFrame(textInput({
+    id: 'after',
+    presentation: { value: 'Go', cursor: 0 },
+    onAction: () => undefined
+  }), { columns: 16, rows: 2 });
   const diff = diffFrames(previous, next);
   const output = renderDiffAnsi(diff);
 
@@ -149,20 +156,17 @@ test('TUI rendering windows large list and table components to visible height', 
 
 test('viewport layouts render a clipped scrolled window into child content', () => {
   const frame = renderElementFrame(viewport(
-    text('row-0\nrow-1\nrow-2\nrow-3', { id: 'viewport-text' }),
+    text('xxrow-0x\nxxrow-1x\nxxrow-2x\nxxrow-3x', { id: 'viewport-text' }),
     {
       id: 'viewport',
-      scrollRow: 1,
-      scrollColumn: 2,
-      contentRows: 4,
-      contentColumns: 8
+      offset: { row: 1, column: 2 }
     }
   ), { columns: 5, rows: 2 });
   const output = renderFramePlain(frame);
   const rightMarker = frame.cells.find((cell) => cell.source?.elementKind === 'viewport' && cell.source.description === 'clip-right');
 
-  assert.equal(output, 'w-1 →\nw-2');
-  assert.equal(rightMarker?.text, '→');
+  assert.equal(output, 'row-1\nrow-2');
+  assert.equal(rightMarker, undefined);
   assert.equal(
     frame.accessibility.root.description,
     'Showing rows 2-3 of 4, columns 3-7 of 8.'
@@ -173,7 +177,7 @@ test('viewport layouts keep offscreen content from leaking into neighboring layo
   const frame = renderElementFrame(row([
     viewport(
       text('left-0\nleft-1\nleft-2', { id: 'left-content' }),
-      { id: 'left-window', scrollRow: 2, contentRows: 3 }
+      { id: 'left-window', offset: { row: 2 } }
     ),
     text('right', { id: 'right-content' })
   ]), { columns: 12, rows: 1 });
@@ -183,28 +187,33 @@ test('viewport layouts keep offscreen content from leaking into neighboring layo
   assert.doesNotMatch(output, /left-0|left-1/u);
 });
 
-test('viewport layouts expose empty virtual content without rendering child content', () => {
+test('viewport layouts clamp offsets from measured child content', () => {
   const frame = renderElementFrame(viewport(
-    text('hidden child', { id: 'empty-content' }),
-    { id: 'empty-window', contentRows: 0, contentColumns: 8 }
+    text('visible child', { id: 'measured-content' }),
+    { id: 'measured-window', offset: { row: 99, column: 99 } }
   ), { columns: 5, rows: 3 });
   const output = renderFramePlain(frame);
-  const emptyMarker = frame.cells.find((cell) => cell.source?.elementKind === 'viewport' && cell.source.description === 'empty');
 
-  assert.doesNotMatch(output, /hidden child/u);
-  assert.equal(emptyMarker?.text, '∅');
-  assert.equal(frame.accessibility.root.description, 'Empty viewport content.');
+  assert.match(output, /child/u);
+  assert.equal(frame.accessibility.root.description, 'Showing rows 1-3 of 3, columns 9-13 of 13.');
 });
 
 test('viewport clipped-edge indicators do not overwrite visible content cells', () => {
   const frame = renderElementFrame(viewport(
-    text('\n\n\n', { id: 'blank-content' }),
+    canvas({
+      id: 'clipped-content',
+      label: 'Clipped content',
+      measurement: {
+        minWidth: 0,
+        minHeight: 0,
+        preferredWidth: 5,
+        preferredHeight: 5
+      },
+      painter() {}
+    }),
     {
       id: 'blank-window',
-      scrollRow: 1,
-      scrollColumn: 1,
-      contentRows: 5,
-      contentColumns: 5
+      offset: { row: 1, column: 1 }
     }
   ), { columns: 3, rows: 3 });
   const labels = new Set(frame.cells
@@ -219,12 +228,20 @@ test('viewport clipped-edge indicators do not overwrite visible content cells', 
 
 test('viewport edge indicators preserve fixed-cell geometry under ambiguous-wide profiles', () => {
   const frame = renderElementFrame(viewport(
-    text('\n\n\n', { id: 'wide-blank-content' }),
+    canvas({
+      id: 'wide-clipped-content',
+      label: 'Wide clipped content',
+      measurement: {
+        minWidth: 0,
+        minHeight: 0,
+        preferredWidth: 3,
+        preferredHeight: 5
+      },
+      painter() {}
+    }),
     {
       id: 'wide-blank-window',
-      scrollRow: 1,
-      contentRows: 5,
-      contentColumns: 3
+      offset: { row: 1 }
     }
   ), { columns: 3, rows: 3 }, {
     widthProfile: { emoji: 'wide', ambiguous: 'wide' }

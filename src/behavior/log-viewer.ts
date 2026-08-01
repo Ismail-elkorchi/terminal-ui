@@ -9,6 +9,7 @@ import type {
   LogViewerControlAction,
   LogViewerSelection
 } from '../ui-model/log-viewer.ts';
+import { cyclicIndex } from '../foundation/cyclic-index.ts';
 
 interface LogViewerStateBase {
   readonly searchQuery?: string;
@@ -115,12 +116,6 @@ export function followTailScrollState(input: {
   }), { kind: 'bottom' });
 }
 
-function wrapIndex(index: number, count: number): number {
-  const size = Math.max(0, Math.floor(count));
-  if (size === 0) return 0;
-  return ((Math.floor(index) % size) + size) % size;
-}
-
 function withoutSearch(state: LogViewerState): LogViewerState {
   if (state.searchQuery === undefined && state.selectedMatch === undefined) return state;
   return {
@@ -202,5 +197,5 @@ function adjacentMatch(
   const selectedIndex = selectedId === undefined
     ? direction > 0 ? -1 : 0
     : matches.findIndex((match) => match.id === selectedId);
-  return matches[wrapIndex(selectedIndex + direction, matches.length)];
+  return matches[cyclicIndex(selectedIndex + direction, matches.length)];
 }

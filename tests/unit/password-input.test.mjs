@@ -13,7 +13,8 @@ test('passwordInput masks graphemes and omits its value from accessibility', () 
   const secret = 'a🙂e\u0301';
   const frame = renderElementFrame(passwordInput({
     id: 'secret',
-    presentation: { value: secret, cursor: secret.length }
+    presentation: { value: secret, cursor: secret.length },
+    onAction: (action) => action
   }), { columns: 16, rows: 1 });
 
   assert.equal(renderFramePlain(frame), '› •••');

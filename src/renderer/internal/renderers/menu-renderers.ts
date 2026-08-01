@@ -201,9 +201,11 @@ export const menuRenderers = {
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
       id,
-      role: 'listbox',
+      role: 'combobox',
       label: stringify(renderNode.props.title) || id,
       value: stringify(renderNode.props.query),
+      expanded: true,
+      controls: `${id}:results`,
       ...(focused ? { focused } : {}),
       children: searchPickerAccessibleChildren(renderNode, layoutNode.bounds.height)
     }),

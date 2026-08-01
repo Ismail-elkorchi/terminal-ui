@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { canvas, contextMenu, dialog, dropdownMenu, richText, table, text, textInput } from '../../dist/components/index.js';
+import { contextMenu, dialog, dropdownMenu, richText, table, text, textInput } from '../../dist/components/index.js';
+import { testCanvas as canvas } from '../helpers/canvas.mjs';
 import { absolute, overlay, surface } from '../../dist/layout/index.js';
+
+function focusInput(options) {
+  return textInput({ onAction: () => undefined, ...options });
+}
 
 test('absolute clips child bounds without leaking outside its parent', () => {
   const element = absolute(text('OVERFLOW', { id: 'absolute-text' }), {
@@ -91,8 +96,8 @@ test('overlay preserves declaration order within one layer and z-order across la
 
 test('overlay accessibility and initial focus follow topmost visual order', () => {
   const element = overlay([
-    textInput({ id: 'lower-field', presentation: { value: 'lower', cursor: 0 } }),
-    textInput({ id: 'upper-field', presentation: { value: 'upper', cursor: 0 } })
+    focusInput({ id: 'lower-field', presentation: { value: 'lower', cursor: 0 } }),
+    focusInput({ id: 'upper-field', presentation: { value: 'upper', cursor: 0 } })
   ], { id: 'focus-overlay' });
   const zElement = overlay([
     text('LOW', {
@@ -167,7 +172,7 @@ test('layers render top z-index content last and hide invisible elements', () =>
 
 test('focus is scoped to the topmost visible focus layer', () => {
   const element = overlay([
-    textInput({
+    focusInput({
     id: 'lower-input', presentation: { value: 'lower', cursor: 0 },
     meta: {
         layer: {
@@ -175,7 +180,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
         }
     }
 }),
-    textInput({
+    focusInput({
     id: 'upper-input', presentation: { value: 'upper', cursor: 0 },
     meta: {
         layer: {

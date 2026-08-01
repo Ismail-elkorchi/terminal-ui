@@ -7,7 +7,7 @@ import { block, line, span } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { stringify } from './render-node-props.ts';
-import { mergeStyles, themeStyle } from './render-node-style.ts';
+import { mergeStyles, themeStyle } from '../style-resolution.ts';
 
 export type ChartSurfaceKind = 'sparkline' | 'barChart' | 'chart' | 'meter' | 'heatmap';
 export type ChartStateKind = 'empty' | 'loading' | 'error';

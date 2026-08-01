@@ -10,7 +10,7 @@ import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerS
 import { isFrameCellInteractionState } from '../../visual/source.ts';
 import { projectedRowWindow, scrollStateFromUnknown } from '../../behavior/data-window.ts';
 import { stringify } from './render-node-props.ts';
-import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
+import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../style-resolution.ts';
 import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';

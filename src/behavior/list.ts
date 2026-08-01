@@ -19,6 +19,7 @@ import {
 import { completeCollection, windowedCollection } from '../ui-model/collection.ts';
 import type { CollectionWindow } from '../ui-model/collection.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
+import { cyclicIndex } from '../foundation/cyclic-index.ts';
 
 interface ListStateBase {
   readonly selectedId?: string;
@@ -148,7 +149,7 @@ function selectedIdForAction<TValue>(
     : action.delta;
   const currentPosition = current === undefined ? undefined : listViewSelectablePosition(view, current);
   if (currentPosition === undefined) return delta < 0 ? selectable.at(-1)?.item.id : selectable[0]?.item.id;
-  return selectable[wrapIndex(currentPosition + delta, selectable.length)]?.item.id;
+  return selectable[cyclicIndex(currentPosition + delta, selectable.length)]?.item.id;
 }
 
 export function prepareListViewForOptions<TValue>(options: ListReducerOptions<TValue>): PreparedListView<TValue> {
@@ -159,8 +160,4 @@ export function prepareListViewForOptions<TValue>(options: ListReducerOptions<TV
 
 function withoutSelection(state: ListState): ListState {
   return state.selectedId === undefined ? state : state.scroll === undefined ? {} : { scroll: state.scroll };
-}
-
-function wrapIndex(index: number, length: number): number {
-  return ((index % length) + length) % length;
 }

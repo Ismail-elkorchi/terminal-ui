@@ -124,6 +124,7 @@ test('theme matrix snapshots cover core components with packs high contrast and 
       progressBar({ id: `progress-${theme.name}`, mode: { kind: 'determinate', value: 64 }, label: 'readable' }),
       barChart({
         id: `chart-${theme.name}`,
+        label: 'Values',
         items: [
           { id: 'a', label: 'a', value: 20 },
           { id: 'b', label: 'b', value: 45 },
@@ -162,18 +163,22 @@ test('default theme specimen composes surface control text command log and data 
       tabs: [
         { id: 'one', label: 'tab one', badge: '3', panel: text('First panel') },
         { id: 'two', label: 'tab two', panel: text('Second panel') }
-      ]
+      ],
+      onAction: (action) => action
     }),
     button({
       id: 'specimen-button',
       label: 'Primary',
       tone: 'primary',
+      onPress: () => undefined,
       pointer: { state: { pressedTargetId: 'specimen-button:control' } }
     }),
     commandInput({
       id: 'specimen-command',
       presentation: { value: '/open readme', cursor: 0, suggestions: [{ value: '/open', label: 'Open File' }], selectedSuggestionIndex: 0 },
-      display: 'expanded'
+      display: 'expanded',
+      onAction: (action) => action,
+      onSubmit: (value) => value
     }),
     logViewer({
       id: 'specimen-log',
@@ -182,17 +187,37 @@ test('default theme specimen composes surface control text command log and data 
         { id: 'warn', level: 'warning', text: 'High memory' },
         { id: 'err', level: 'error', text: 'Failed request' }
       ]),
-      scroll: { offsetRow: 0, offsetColumn: 0, contentRows: 3, viewportRows: 4 }
+      scroll: { offsetRow: 0, offsetColumn: 0, contentRows: 3, viewportRows: 4 },
+      onAction: (action) => action
     }),
     progressBar({ id: 'specimen-progress', mode: { kind: 'determinate', value: 72 }, label: 'coverage' }),
     chart({
       id: 'specimen-chart',
+      label: 'System load',
       legend: true,
       xLabel: 'time',
       yLabel: 'load',
       series: [
-        { id: 'cpu', label: 'CPU', points: [1, 3, 2, 4], glyph: '+' },
-        { id: 'io', label: 'IO', points: [3, 1, 4, 2], glyph: 'o' }
+        {
+          id: 'cpu',
+          label: 'CPU',
+          points: [1, 3, 2, 4].map((value, index) => ({
+            id: `cpu-${String(index)}`,
+            label: `CPU ${String(index + 1)}`,
+            value
+          })),
+          glyph: '+'
+        },
+        {
+          id: 'io',
+          label: 'IO',
+          points: [3, 1, 4, 2].map((value, index) => ({
+            id: `io-${String(index)}`,
+            label: `IO ${String(index + 1)}`,
+            value
+          })),
+          glyph: 'o'
+        }
       ]
     }),
     table({

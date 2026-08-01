@@ -15,27 +15,34 @@ type ChartNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'chart'>;
 export function selectedChartPoint(
   renderNode: ChartNode,
   series: readonly ChartSeries[]
-): { readonly series: string; readonly pointIndex: number } | undefined {
+): {
+  readonly seriesId: string;
+  readonly pointId: string;
+  readonly pointIndex: number;
+} | undefined {
   const selected = renderNode.props.selected;
   if (selected === undefined) return undefined;
-  const item = series.find((current) => current.id === selected.series);
+  const item = series.find((current) => current.id === selected.seriesId);
   if (item === undefined) return undefined;
-  const pointIndex = Math.max(0, Math.floor(selected.pointIndex));
-  return pointIndex < item.points.length ? { series: selected.series, pointIndex } : undefined;
+  const pointIndex = item.points.findIndex((point) => point.id === selected.pointId);
+  return pointIndex < 0
+    ? undefined
+    : { seriesId: selected.seriesId, pointId: selected.pointId, pointIndex };
 }
 
 export function chartPointPosition(
   renderNode: ChartNode,
   bounds: Rect,
   seriesId: string,
-  point: number,
+  pointId: string,
   range: { readonly min: number; readonly max: number }
 ): { readonly row: number; readonly column: number } | undefined {
   const series = chartSeries(renderNode.props.series).find((item) => item.id === seriesId);
   if (series === undefined) return undefined;
-  const value = series.points[point];
+  const point = series.points.findIndex((item) => item.id === pointId);
+  const value = series.points[point]?.value;
   const layout = chartLayout(renderNode, bounds);
-  if (value === undefined || layout.plotHeight <= 0 || layout.plotWidth <= 0) return undefined;
+  if (point < 0 || value === undefined || layout.plotHeight <= 0 || layout.plotWidth <= 0) return undefined;
   const projected = selectedProjectedPoint(renderNode, series, layout.plotWidth, point);
   if (projected === undefined) return undefined;
   return {

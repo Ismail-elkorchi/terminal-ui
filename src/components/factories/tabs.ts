@@ -11,11 +11,13 @@ import type { TabsOptions } from '../options/tabs.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import { requireComponentHandler } from '../internal/interaction.ts';
 
 export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage> {
   if (options.maxTabWidth !== undefined && (!Number.isInteger(options.maxTabWidth) || options.maxTabWidth <= 0)) {
     throw new RangeError('tabs maxTabWidth must be a positive integer.');
   }
+  requireComponentHandler('tabs', 'onAction', options.onAction);
   const identity = requiredRenderNodeId(options.id, 'tabs');
   const tabs: readonly RenderTabItem[] = options.tabs.map((tab) => ({
     id: tab.id,
@@ -32,7 +34,7 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
     action: () => MessageResolution<TMessage>
   ): ElementKeyHandler<TMessage> => (event) =>
     event.focusPath.at(-1) === identity.id ? action() : ignoreMessage();
-  const generated = onAction === undefined ? undefined : {
+  const generated = {
     arrowLeft: whenTabListFocused(() => onAction({ kind: 'move', delta: -1 })),
     arrowRight: whenTabListFocused(() => onAction({ kind: 'move', delta: 1 })),
     home: whenTabListFocused(() => onAction({ kind: 'first' })),
@@ -53,10 +55,10 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
       tabs,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.maxTabWidth === undefined ? {} : { maxTabWidth: options.maxTabWidth }),
-      ...(onAction === undefined ? {} : { toActionMessage: (action: TabAction) => onAction(action) }),
+      toActionMessage: (action: TabAction) => onAction(action),
       ...renderNodeLayoutProps(options)
     },
     children: options.tabs.map((tab) => toRenderNode(tab.panel)),
     ...interactionProps({ keys, pointer: options.pointer, meta: options.meta })
-  }, keys !== undefined);
+  });
 }

@@ -11,6 +11,13 @@ test('Canvas2D primitives clip out-of-bounds drawing to the viewport', () => {
     const offset = index - 32;
     const frame = renderElementFrame(canvas({
       id: `canvas-property-${String(index)}`,
+      measurement: {
+        minWidth: 0,
+        minHeight: 0,
+        preferredWidth: width,
+        preferredHeight: height
+      },
+      meta: { accessibility: { decorative: true } },
       painter({ canvas: drawing }) {
         drawing.withTransform({ translateX: offset, translateY: -offset, scaleX: 1 + (index % 3), scaleY: 1 + (index % 2) }, (current) => {
           current.circle({ x: 2, y: 2 }, 4 + (index % 4), { stroke: { text: 'o' } });

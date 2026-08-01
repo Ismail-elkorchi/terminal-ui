@@ -1,35 +1,28 @@
-import { renderNodeId } from '../../foundation/identity.ts';
 import type { RenderNode, RenderNodeOfKind } from '../../renderer/model/index.ts';
+import { renderNodeId } from '../../foundation/identity.ts';
 import type { CommandInputAction } from '../../ui-model/command-input.ts';
 import { windowedCollection } from '../../ui-model/collection.ts';
 import type { SuggestionItem } from '../../ui-model/contracts.ts';
 import type { ListAction, ListCollectionRecord } from '../../ui-model/list.ts';
 import { prepareListView } from '../../ui-model/list-view.ts';
+import { popupSurfaceRenderNode } from './popup-surface.ts';
 
 export interface CommandInputPopupInput<TMessage> {
   readonly parentElementId: string;
   readonly suggestions: readonly SuggestionItem[];
   readonly selectedSuggestionIndex?: number;
   readonly maxVisibleSuggestions: number;
-  readonly toActionMessage?: (action: CommandInputAction) => TMessage;
-  readonly toSubmitMessage?: (value: string) => TMessage;
+  readonly toActionMessage: (action: CommandInputAction) => TMessage;
+  readonly toSubmitMessage: (value: string) => TMessage;
 }
 
 export function commandInputPopupRenderNode<TMessage>(
   input: CommandInputPopupInput<TMessage>
 ): RenderNode<TMessage> {
-  return {
-    id: renderNodeId(`${input.parentElementId}:popup`, 'command input popup'),
-    kind: 'surface',
-    props: {
-      appearance: 'raised',
-      border: { kind: 'rounded' },
-      padding: 0
-    },
-    children: [popupList(input)],
-    layer: { zIndex: 20, underlay: 'clear' },
-    focus: { disabled: true }
-  };
+  return popupSurfaceRenderNode({
+    parentElementId: input.parentElementId,
+    child: popupList(input)
+  });
 }
 
 function popupList<TMessage>(
@@ -72,14 +65,12 @@ function popupList<TMessage>(
       ...(input.selectedSuggestionIndex === undefined
         ? {}
         : { selectedId: suggestionId(input.selectedSuggestionIndex) }),
-      ...((toActionMessage === undefined && toSubmitMessage === undefined) ? {} : {
-        toActionMessage: (action: ListAction) => messageForListAction(
-          input.suggestions,
-          action,
-          toActionMessage,
-          toSubmitMessage
-        )
-      })
+      toActionMessage: (action: ListAction) => messageForListAction(
+        input.suggestions,
+        action,
+        toActionMessage,
+        toSubmitMessage
+      )
     },
     focus: { disabled: true }
   };
@@ -88,28 +79,24 @@ function popupList<TMessage>(
 function messageForListAction<TMessage>(
   suggestions: readonly SuggestionItem[],
   action: ListAction,
-  toActionMessage: ((action: CommandInputAction) => TMessage) | undefined,
-  toSubmitMessage: ((value: string) => TMessage) | undefined
+  toActionMessage: (action: CommandInputAction) => TMessage,
+  toSubmitMessage: (value: string) => TMessage
 ): TMessage {
   if (action.kind === 'activate') {
     const suggestion = suggestions[action.itemIndex];
-    if (suggestion !== undefined && suggestion.disabled !== true && toSubmitMessage !== undefined) {
+    if (suggestion !== undefined && suggestion.disabled !== true) {
       return toSubmitMessage(suggestion.value);
     }
   }
   if (action.kind === 'select' || action.kind === 'activate') {
-    if (toActionMessage !== undefined) {
-      return toActionMessage({ kind: 'selectSuggestion', suggestionIndex: action.itemIndex });
-    }
+    return toActionMessage({ kind: 'selectSuggestion', suggestionIndex: action.itemIndex });
   }
-  if (toActionMessage !== undefined) {
-    if (action.kind === 'move') return toActionMessage({ kind: 'moveSuggestion', delta: action.delta < 0 ? -1 : 1 });
-    if (action.kind === 'first') return toActionMessage({ kind: 'selectSuggestion', suggestionIndex: 0 });
-    if (action.kind === 'last') return toActionMessage({
-      kind: 'selectSuggestion',
-      suggestionIndex: Math.max(0, suggestions.length - 1)
-    });
-  }
+  if (action.kind === 'move') return toActionMessage({ kind: 'moveSuggestion', delta: action.delta < 0 ? -1 : 1 });
+  if (action.kind === 'first') return toActionMessage({ kind: 'selectSuggestion', suggestionIndex: 0 });
+  if (action.kind === 'last') return toActionMessage({
+    kind: 'selectSuggestion',
+    suggestionIndex: Math.max(0, suggestions.length - 1)
+  });
   throw new Error('Command input popup action does not have a matching message handler.');
 }
 

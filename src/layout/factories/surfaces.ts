@@ -1,7 +1,11 @@
 import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import type { RenderNode } from '../../renderer/model/index.ts';
 import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementOptions } from '../../element/index.ts';
-import type { AbsoluteOptions, SurfaceOptions } from '../options.ts';
+import type {
+  AbsoluteOptions,
+  AnchoredOptions,
+  SurfaceOptions
+} from '../options.ts';
 import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
 import {
   optionalRenderNodeId,
@@ -14,6 +18,7 @@ import {
   assertOptionalEnum,
   assertOptionalFiniteNumber
 } from '../../foundation/validation.ts';
+import { assertAnchoredSurfaceOptions } from '../../interaction/anchored-surface.ts';
 
 export function surface<const TChild extends Element<unknown>>(
   child: TChild,
@@ -38,7 +43,7 @@ export function surface<const TChild extends Element<unknown>>(
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function absolute<const TChild extends Element<unknown>>(
@@ -65,7 +70,7 @@ export function absolute<const TChild extends Element<unknown>>(
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function overlay<const TChildren extends ElementChildren>(
@@ -83,5 +88,25 @@ export function overlay<const TChildren extends ElementChildren>(
     props: {},
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
-  }, false);
+  });
+}
+
+export function anchored<const TChild extends Element<unknown>>(
+  child: TChild,
+  options: AnchoredOptions
+): Element<ElementMessage<TChild>> {
+  assertAnchoredSurfaceOptions(options, 'anchored()');
+  type Message = ElementMessage<TChild>;
+  return layoutElementFromRenderNode<'anchored', Message>({
+    ...optionalRenderNodeId(options.id),
+    kind: 'anchored',
+    props: {
+      anchor: options.anchor,
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      ...(options.fallback === undefined ? {} : { fallback: options.fallback }),
+      ...(options.margin === undefined ? {} : { margin: options.margin })
+    },
+    children: [toRenderNode(child)],
+    ...componentMetaProps(options.meta)
+  });
 }

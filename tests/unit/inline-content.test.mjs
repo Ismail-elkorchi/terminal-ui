@@ -98,6 +98,7 @@ test('inline adornments use component part styles and source anatomy', () => {
     renderElementFrame(button({
       id: 'save',
       label: 'Save',
+      onPress: () => undefined,
       leading: [symbol],
       trailing: [{ kind: 'text', text: 'S' }],
       meta: {
@@ -111,6 +112,7 @@ test('inline adornments use component part styles and source anatomy', () => {
         activePath: ['open'],
         items: [{ kind: 'action', id: 'open', label: 'Open', leading: [symbol], trailing: [{ kind: 'text', text: 'O' }] }]
       },
+      onAction: (action) => action,
       meta: {
         focus: { disabled: true },
         styles: { parts: { leading: leadingStyle, trailing: trailingStyle } }
@@ -120,6 +122,7 @@ test('inline adornments use component part styles and source anatomy', () => {
       id: 'views',
       selected: 'main',
       tabs: [{ id: 'main', label: 'Main', leading: [symbol], panel: text('Panel') }],
+      onAction: (action) => action,
       meta: {
         focus: { disabled: true },
         styles: { parts: { leading: leadingStyle } }

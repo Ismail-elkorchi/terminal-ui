@@ -1,7 +1,4 @@
-import type {
-  NotificationStackAction,
-  NotificationStackPresentation
-} from '../ui-model/notification-stack.ts';
+import type { NotificationHistoryAction } from '../ui-model/notification.ts';
 import type { NotificationItem, NotificationTone } from '../ui-model/feedback.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 
@@ -26,7 +23,11 @@ export interface NotificationRecord {
   readonly dedupeKey: string | null;
 }
 
-export type NotificationHistoryReason = 'dismissed' | 'expired' | 'replaced' | 'capacity';
+export type NotificationHistoryReason =
+  | 'dismissed'
+  | 'expired'
+  | 'replaced'
+  | 'capacity';
 
 export interface NotificationHistoryEntry {
   readonly notification: NotificationRecord;
@@ -38,7 +39,7 @@ export interface NotificationState {
   readonly active: readonly NotificationRecord[];
   readonly queued: readonly NotificationRecord[];
   readonly history: readonly NotificationHistoryEntry[];
-  readonly selected?: string;
+  readonly selectedHistoryId?: string;
 }
 
 export type NotificationConflictPolicy = 'keep-existing' | 'replace-existing';
@@ -63,12 +64,14 @@ export type NotificationAction =
       readonly now: number;
     }
   | { readonly kind: 'dismiss'; readonly id: string; readonly now: number }
-  | { readonly kind: 'dismissSelected'; readonly now: number }
   | { readonly kind: 'pause'; readonly id: string; readonly now: number }
   | { readonly kind: 'resume'; readonly id: string; readonly now: number }
   | { readonly kind: 'expire'; readonly now: number }
-  | { readonly kind: 'select'; readonly id: string; readonly now: number }
-  | { readonly kind: 'moveSelection'; readonly delta: -1 | 1; readonly now: number }
+  | { readonly kind: 'selectHistory'; readonly id: string; readonly now: number }
+  | { readonly kind: 'moveHistorySelection'; readonly delta: -1 | 1; readonly now: number }
+  | { readonly kind: 'firstHistory'; readonly now: number }
+  | { readonly kind: 'lastHistory'; readonly now: number }
+  | { readonly kind: 'removeHistory'; readonly id: string; readonly now: number }
   | { readonly kind: 'clear'; readonly now: number }
   | { readonly kind: 'clearHistory'; readonly now: number };
 
@@ -86,22 +89,6 @@ export interface NotificationPolicy {
   readonly maxQueued?: number;
   readonly maxHistory?: number;
 }
-
-interface NotificationPresentationOptionsBase {
-  readonly now?: number;
-}
-
-export interface LiveNotificationPresentationOptions extends NotificationPresentationOptionsBase {
-  readonly mode: 'live';
-}
-
-export interface NotificationHistoryPresentationOptions extends NotificationPresentationOptionsBase {
-  readonly mode: 'history';
-}
-
-export type NotificationPresentationOptions =
-  | LiveNotificationPresentationOptions
-  | NotificationHistoryPresentationOptions;
 
 export function createNotificationState(): NotificationState {
   return { active: [], queued: [], history: [] };
@@ -122,56 +109,64 @@ export function notificationReducer(
       return update(normalized, action.id, action.changes, action.now);
     case 'dismiss':
       return dismiss(normalized, action.id, action.now, policy);
-    case 'dismissSelected':
-      return normalized.selected === undefined
-        ? normalized
-        : dismiss(normalized, normalized.selected, action.now, policy);
     case 'pause':
       return mapNotification(normalized, action.id, (record) => pause(record, action.now));
     case 'resume':
       return mapNotification(normalized, action.id, (record) => resume(record, action.now));
     case 'expire':
       return expire(normalized, action.now, policy);
-    case 'select':
-      return normalized.active.some((record) => record.id === action.id)
-        ? { ...normalized, selected: action.id }
+    case 'selectHistory':
+      return normalized.history.some((entry) => entry.notification.id === action.id)
+        ? { ...normalized, selectedHistoryId: action.id }
         : normalized;
-    case 'moveSelection':
-      return moveSelection(normalized, action.delta);
+    case 'moveHistorySelection':
+      return moveHistorySelection(normalized, action.delta);
+    case 'firstHistory':
+      return withHistorySelection(
+        normalized,
+        normalized.history[0]?.notification.id
+      );
+    case 'lastHistory':
+      return withHistorySelection(
+        normalized,
+        normalized.history.at(-1)?.notification.id
+      );
+    case 'removeHistory':
+      return removeHistory(normalized, action.id);
     case 'clear':
       return clear(normalized, action.now, policy);
     case 'clearHistory':
-      return { ...normalized, history: [] };
+      return withHistorySelection({ ...normalized, history: [] }, undefined);
   }
 }
 
-export function notificationActionFromStack(
-  action: NotificationStackAction,
+export function notificationHistoryAction(
+  action: NotificationHistoryAction,
   now: number
 ): NotificationAction {
   switch (action.kind) {
     case 'select':
-      return { ...action, now: finiteTime(now) };
+      return { kind: 'selectHistory', id: action.id, now: finiteTime(now) };
     case 'move':
-      return { kind: 'moveSelection', delta: action.delta, now: finiteTime(now) };
-    case 'dismiss':
-      return { ...action, now: finiteTime(now) };
+      return {
+        kind: 'moveHistorySelection',
+        delta: action.delta,
+        now: finiteTime(now)
+      };
+    case 'first':
+      return { kind: 'firstHistory', now: finiteTime(now) };
+    case 'last':
+      return { kind: 'lastHistory', now: finiteTime(now) };
+    case 'remove':
+      return { kind: 'removeHistory', id: action.id, now: finiteTime(now) };
   }
 }
 
-export function notificationPresentation(
+export function activeNotificationItems(
   state: NotificationState,
-  options: LiveNotificationPresentationOptions
-): Extract<NotificationStackPresentation, { readonly kind: 'live' }>;
-export function notificationPresentation(
-  state: NotificationState,
-  options: NotificationHistoryPresentationOptions
-): Extract<NotificationStackPresentation, { readonly kind: 'history' }>;
-export function notificationPresentation(
-  state: NotificationState,
-  options: NotificationPresentationOptions
-): NotificationStackPresentation {
-  const items = state.active.map((record): NotificationItem => ({
+  options: { readonly now?: number } = {}
+): readonly NotificationItem[] {
+  return state.active.map((record): NotificationItem => ({
     id: record.id,
     title: record.title,
     ...(record.message === null ? {} : { message: record.message }),
@@ -180,13 +175,23 @@ export function notificationPresentation(
     dismissible: record.dismissible,
     ...notificationDetail(record, options.now)
   }));
-  return options.mode === 'live'
-    ? { kind: 'live', items }
-    : {
-        kind: 'history',
-        items,
-        ...(state.selected === undefined ? {} : { selected: state.selected })
-      };
+}
+
+export function notificationHistoryItems(
+  state: NotificationState
+): readonly NotificationItem[] {
+  return state.history.map((entry) => ({
+    id: entry.notification.id,
+    title: entry.notification.title,
+    ...(entry.notification.message === null
+      ? {}
+      : { message: entry.notification.message }),
+    tone: entry.notification.tone,
+    ...(entry.notification.progress === null
+      ? {}
+      : { progress: entry.notification.progress }),
+    dismissible: true
+  }));
 }
 
 export function nextNotificationExpiry(state: NotificationState): number | undefined {
@@ -270,7 +275,7 @@ function insert(
 ): NotificationState {
   if (state.active.length < maxVisible(policy)) {
     const active = [activate(record, now), ...state.active];
-    return ensureSelection({ ...state, active });
+    return ensureHistorySelection({ ...state, active });
   }
   const queued = [...state.queued, record];
   const overflow = queued.length > maxQueued(policy) ? queued.shift() : undefined;
@@ -305,7 +310,7 @@ function expire(state: NotificationState, now: number, policy: NotificationPolic
 }
 
 function clear(state: NotificationState, now: number, policy: NotificationPolicy): NotificationState {
-  let next: NotificationState = withSelection({ ...state, active: [], queued: [] }, undefined);
+  let next: NotificationState = withHistorySelection({ ...state, active: [], queued: [] }, undefined);
   for (const record of [...state.active, ...state.queued]) {
     next = appendHistory(next, record, 'dismissed', now, policy);
   }
@@ -319,12 +324,12 @@ function promote(state: NotificationState, now: number, policy: NotificationPoli
     const record = queued.shift();
     if (record !== undefined) active.push(activate(record, now));
   }
-  return ensureSelection({ ...state, active, queued });
+  return ensureHistorySelection({ ...state, active, queued });
 }
 
 function normalizeCapacity(state: NotificationState, policy: NotificationPolicy, now: number): NotificationState {
   const limit = maxVisible(policy);
-  if (state.active.length <= limit && state.queued.length <= maxQueued(policy)) return ensureSelection(state);
+  if (state.active.length <= limit && state.queued.length <= maxQueued(policy)) return ensureHistorySelection(state);
   const active = state.active.slice(0, limit);
   const queued = [...state.active.slice(limit).map(deactivate), ...state.queued];
   let next: NotificationState = { ...state, active, queued };
@@ -333,7 +338,7 @@ function normalizeCapacity(state: NotificationState, policy: NotificationPolicy,
     if (record === undefined) break;
     next = appendHistory({ ...next, queued }, record, 'capacity', now, policy);
   }
-  return ensureSelection({ ...next, queued });
+  return ensureHistorySelection({ ...next, queued });
 }
 
 function appendHistory(
@@ -343,32 +348,65 @@ function appendHistory(
   endedAt: number,
   policy: NotificationPolicy
 ): NotificationState {
-  return {
+  return ensureHistorySelection({
     ...state,
     history: [{ notification, reason, endedAt }, ...state.history].slice(0, maxHistory(policy))
-  };
+  });
 }
 
-function moveSelection(state: NotificationState, delta: -1 | 1): NotificationState {
-  if (state.active.length === 0) return withSelection(state, undefined);
-  const index = Math.max(0, state.active.findIndex((record) => record.id === state.selected));
-  const next = Math.max(0, Math.min(state.active.length - 1, index + delta));
-  return withSelection(state, state.active[next]?.id);
+function moveHistorySelection(state: NotificationState, delta: -1 | 1): NotificationState {
+  if (state.history.length === 0) {
+    return withHistorySelection(state, undefined);
+  }
+  const index = Math.max(
+    0,
+    state.history.findIndex(
+      (entry) => entry.notification.id === state.selectedHistoryId
+    )
+  );
+  const next = Math.max(0, Math.min(state.history.length - 1, index + delta));
+  return withHistorySelection(
+    state,
+    state.history[next]?.notification.id
+  );
 }
 
-function ensureSelection(state: NotificationState): NotificationState {
-  if (state.active.length === 0) return state.selected === undefined ? state : withSelection(state, undefined);
-  if (state.selected !== undefined && state.active.some((record) => record.id === state.selected)) return state;
-  return withSelection(state, state.active[0]?.id);
+function ensureHistorySelection(state: NotificationState): NotificationState {
+  if (state.history.length === 0) {
+    return state.selectedHistoryId === undefined
+      ? state
+      : withHistorySelection(state, undefined);
+  }
+  if (state.selectedHistoryId !== undefined
+    && state.history.some(
+      (entry) => entry.notification.id === state.selectedHistoryId
+    )) {
+    return state;
+  }
+  return withHistorySelection(state, state.history[0]?.notification.id);
 }
 
-function withSelection(state: NotificationState, selected: string | undefined): NotificationState {
+function withHistorySelection(
+  state: NotificationState,
+  selectedHistoryId: string | undefined
+): NotificationState {
   return {
     active: state.active,
     queued: state.queued,
     history: state.history,
-    ...(selected === undefined ? {} : { selected })
+    ...(selectedHistoryId === undefined ? {} : { selectedHistoryId })
   };
+}
+
+function removeHistory(
+  state: NotificationState,
+  id: string
+): NotificationState {
+  if (!state.history.some((entry) => entry.notification.id === id)) return state;
+  return ensureHistorySelection({
+    ...state,
+    history: state.history.filter((entry) => entry.notification.id !== id)
+  });
 }
 
 function mapNotification(

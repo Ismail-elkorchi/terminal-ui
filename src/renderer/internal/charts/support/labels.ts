@@ -97,7 +97,7 @@ function chartHeaderBlock(renderNode: ChartNode, width: number, widthProfile: Te
           ' ',
           chartPlaceholderStyle(renderNode)
         ),
-        chartSpan(renderNode, 'chart', 'legend', `legend.${item.id}.label`, item.label ?? item.id, chartLabelStyle(renderNode))
+        chartSpan(renderNode, 'chart', 'legend', `legend.${item.id}.label`, item.label, chartLabelStyle(renderNode))
       ]), width, widthProfile)
     });
   }

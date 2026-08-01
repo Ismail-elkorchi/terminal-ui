@@ -5,8 +5,16 @@ import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { ignoreMessage } from '../../dist/interaction/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { textInput } from '../../dist/components/index.js';
+import { textInput as createTextInput } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
+
+function textInput(options) {
+  return createTextInput(
+    options.onAction !== undefined || options.onSubmit !== undefined
+      ? options
+      : { onSubmit: () => undefined, ...options }
+  );
+}
 
 test('defineTui rejects duplicate binding identities and duplicate triggers within one binding', () => {
   const trigger = { kind: 'key', key: 'enter' };

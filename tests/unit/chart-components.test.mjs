@@ -16,18 +16,56 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
-  barChart,
-  chart,
-  meter,
-  heatmap,
+  barChart as createBarChart,
+  chart as createChart,
+  meter as createMeter,
+  heatmap as createHeatmap,
   progressBar,
-  sparkline
+  sparkline as createSparkline
 } from '../../dist/components/index.js';
 import {
   row,
   column,
   surface
 } from '../../dist/layout/index.js';
+
+function sparkline(options) {
+  return createSparkline({ label: options.id ?? 'Sparkline', ...options });
+}
+
+function barChart(options) {
+  return createBarChart({ label: options.id ?? 'Bar chart', ...options });
+}
+
+function chart(options) {
+  return createChart({ label: options.id ?? 'Chart', ...options });
+}
+
+function meter(options) {
+  return createMeter({ label: options.id ?? 'Meter', ...options });
+}
+
+function heatmap(options) {
+  return createHeatmap({ label: options.id ?? 'Heatmap', ...options });
+}
+
+function chartSeries(id, values, options = {}) {
+  const label = options.label ?? id;
+  return {
+    id,
+    label,
+    points: values.map((value, index) => ({
+      id: `${id}:${String(index)}`,
+      label: `${label} ${String(index + 1)}`,
+      value
+    })),
+    ...options
+  };
+}
+
+function heatmapCell(id, value, label = id) {
+  return { id, label, value };
+}
 
 test('sparkline component renders bounded numeric points', () => {
   const frame = renderElementFrame(sparkline({
@@ -134,10 +172,57 @@ test('chart and meter reject values outside their component-specific state contr
   );
 });
 
+test('visualization factories reject malformed semantic data before rendering', () => {
+  assert.throws(
+    () => sparkline({ label: 'Trend', values: [1, Number.NaN] }),
+    /sparkline values item must be finite/u
+  );
+  assert.throws(
+    () => barChart({
+      id: 'invalid-bars',
+      label: 'Bars',
+      items: [{ id: 'one', label: '', value: 1 }]
+    }),
+    /label must be a non-empty string/u
+  );
+  assert.throws(
+    () => chart({
+      id: 'invalid-chart',
+      label: 'Chart',
+      series: [{
+        id: 'series',
+        label: 'Series',
+        points: [{ id: 'point', label: 'Point', value: Number.POSITIVE_INFINITY }]
+      }]
+    }),
+    /point value must be finite/u
+  );
+  assert.throws(
+    () => heatmap({
+      id: 'invalid-heatmap',
+      label: 'Heatmap',
+      rows: [[{ id: 'cell', label: 'Cell', value: Number.NaN }]]
+    }),
+    /cell value must be finite/u
+  );
+  assert.throws(
+    () => meter({ label: 'Load', value: Number.NaN }),
+    /meter value must be finite/u
+  );
+  assert.throws(
+    () => sparkline({
+      label: 'Scaled trend',
+      values: [1],
+      valueScale: [{ at: 0.5, token: 'invalid-token' }]
+    }),
+    /valid theme color tokens/u
+  );
+});
+
 test('chart plots series into a bounded text canvas', () => {
   const frame = renderElementFrame(chart({
     id: 'chart',
-    series: [{ id: 'one', points: [0, 2, 1, 3] }]
+    series: [chartSeries('one', [0, 2, 1, 3])]
   }), { columns: 4, rows: 4 });
 
   assert.match(renderFramePlain(frame), /\*/u);
@@ -152,7 +237,7 @@ test('chart fit sample mode fills the available plot width', () => {
     min: 0,
     max: 100,
     sampleMode: 'fit',
-    series: [{ id: 'load', points: [0, 35, 70, 100], kind: 'area' }]
+    series: [chartSeries('load', [0, 35, 70, 100], { kind: 'area' })]
   }), { columns: 12, rows: 4 });
   const areaColumns = frame.cells
     .filter((cell) => cell.source?.description === 'series.load.area')
@@ -167,20 +252,20 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
     id: 'fit-selected-first',
     min: 0,
     max: 10,
-    selected: { series: 'load', pointIndex: 0 },
+    selected: { seriesId: 'load', pointId: 'load:0' },
     sampleMode: 'fit',
-    series: [{ id: 'load', points: [0, 10], kind: 'scatter' }]
+    series: [chartSeries('load', [0, 10], { kind: 'scatter' })]
   }), { columns: 10, rows: 3 });
   const lastFrame = renderElementFrame(chart({
     id: 'fit-selected-last',
     min: 0,
     max: 10,
-    selected: { series: 'load', pointIndex: 1 },
+    selected: { seriesId: 'load', pointId: 'load:1' },
     sampleMode: 'fit',
-    series: [{ id: 'load', points: [0, 10], kind: 'scatter' }]
+    series: [chartSeries('load', [0, 10], { kind: 'scatter' })]
   }), { columns: 10, rows: 3 });
-  const firstSelection = firstFrame.cells.find((cell) => cell.source?.description === 'selection.load.0');
-  const lastSelection = lastFrame.cells.find((cell) => cell.source?.description === 'selection.load.1');
+  const firstSelection = firstFrame.cells.find((cell) => cell.source?.description === 'selection.load.load:0');
+  const lastSelection = lastFrame.cells.find((cell) => cell.source?.description === 'selection.load.load:1');
 
   assert.equal(firstSelection?.column, 1);
   assert.equal(lastSelection?.column, 10);
@@ -191,7 +276,11 @@ test('chart window sample mode renders a raw aligned window', () => {
     id: 'window-chart',
     min: 0,
     max: 50,
-    series: [{ id: 'load', points: [10, 20, 30, 40, 50], kind: 'scatter', sampleMode: 'window', sampleAlign: 'end' }],
+    series: [chartSeries('load', [10, 20, 30, 40, 50], {
+      kind: 'scatter',
+      sampleMode: 'window',
+      sampleAlign: 'end'
+    })],
     onAction: (action) => ({ kind: 'chart', action })
   }), { columns: 3, rows: 3 });
   const firstTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:0');
@@ -207,7 +296,7 @@ test('chart signedDomain renders zero baseline and polarity source metadata', ()
     signedDomain: true,
     min: -4,
     max: 4,
-    series: [{ id: 'net', points: [-4, -2, 0, 2, 4], glyph: '*' }]
+    series: [chartSeries('net', [-4, -2, 0, 2, 4], { glyph: '*' })]
   }), { columns: 12, rows: 5 });
   const baselineCell = frame.cells.find((cell) => cell.source?.description === 'baseline.zero');
   const positiveCell = frame.cells.find((cell) => cell.source?.description === 'series.net.positive.line');
@@ -227,8 +316,8 @@ test('chart renders area and bar series with signed baseline semantics', () => {
     min: -4,
     max: 4,
     series: [
-      { id: 'cpu', points: [0, 2, 4], kind: 'area' },
-      { id: 'net', points: [0, -2, -4], kind: 'bar' }
+      chartSeries('cpu', [0, 2, 4], { kind: 'area' }),
+      chartSeries('net', [0, -2, -4], { kind: 'bar' })
     ]
   }), { columns: 8, rows: 5 });
   const areaCell = frame.cells.find((cell) => cell.source?.description === 'series.cpu.positive.area');
@@ -245,7 +334,7 @@ test('heatmap cell width is measured in terminal cells under wide profiles', () 
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
   const frame = renderElementFrame(heatmap({
     id: 'wide-heatmap',
-    rows: [[{ id: 'hot', value: 1 }]],
+    rows: [[heatmapCell('hot', 1)]],
     cellWidth: 3,
     min: 0,
     max: 1
@@ -260,8 +349,8 @@ test('selected heatmap cells and fixed-grid chart glyphs remain one cell under a
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
   const heatmapFrame = renderElementFrame(heatmap({
     id: 'selected-wide-heatmap',
-    rows: [[{ id: 'first', value: 1 }, { id: 'second', value: 0 }]],
-    selected: { rowIndex: 0, columnIndex: 0 },
+    rows: [[heatmapCell('first', 1), heatmapCell('second', 0)]],
+    selected: { id: 'first' },
     cellWidth: 1,
     gap: 0,
     min: 0,
@@ -269,11 +358,11 @@ test('selected heatmap cells and fixed-grid chart glyphs remain one cell under a
   }), { columns: 2, rows: 1 }, { widthProfile });
   const chartFrame = renderElementFrame(chart({
     id: 'wide-grid-chart',
-    selected: { series: 'load', pointIndex: 1 },
-    series: [{ id: 'load', kind: 'area', points: [1, 2] }]
+    selected: { seriesId: 'load', pointId: 'load:1' },
+    series: [chartSeries('load', [1, 2], { kind: 'area' })]
   }), { columns: 2, rows: 2 }, { widthProfile });
 
-  assert.equal(heatmapFrame.cells.find((cell) => cell.source?.description === 'cell.0.0.selected')?.text, '*');
+  assert.equal(heatmapFrame.cells.find((cell) => cell.source?.description === 'cell.first.selected')?.text, '*');
   assert.ok(heatmapFrame.cells.some((cell) => cell.column === 2));
   assert.ok(chartFrame.cells.every((cell) => cell.width === 1));
   assert.equal(chartFrame.cells.find((cell) => cell.source?.partType === 'selected')?.text, '*');
@@ -284,7 +373,7 @@ test('chart valueScale styles area series values without local renderer code', (
     id: 'scaled-area',
     min: 0,
     max: 100,
-    series: [{ id: 'load', points: [10, 60, 95], kind: 'area' }],
+    series: [chartSeries('load', [10, 60, 95], { kind: 'area' })],
     valueScale: [
       { at: 0, token: 'scale.low' },
       { at: 0.5, token: 'scale.high' },
@@ -303,10 +392,18 @@ test('chart renders scatter points legends axis labels and selectable point hit 
     legend: true,
     xLabel: 'watch cycle',
     yLabel: 'signal',
-    selected: { series: 'scatter', pointIndex: 2 },
+    selected: { seriesId: 'scatter', pointId: 'scatter:2' },
     series: [
-      { id: 'line', label: 'Line', points: [1, 3, 2, 4], kind: 'line', glyph: '+' },
-      { id: 'scatter', label: 'Scatter', points: [4, 1, 3, 2], kind: 'scatter', glyph: 'o' }
+      chartSeries('line', [1, 3, 2, 4], {
+        label: 'Line',
+        kind: 'line',
+        glyph: '+'
+      }),
+      chartSeries('scatter', [4, 1, 3, 2], {
+        label: 'Scatter',
+        kind: 'scatter',
+        glyph: 'o'
+      })
     ],
     keys: { enter: () => ({ kind: 'chart-enter' }) },
     onAction: (action) => ({ kind: 'chart', action })
@@ -319,9 +416,10 @@ test('chart renders scatter points legends axis labels and selectable point hit 
   assert.match(output, /◆/u);
   assert.equal(frame.hitTargets.some((target) => target.id === 'scatter-chart:scatter:2'), true);
   assert.equal(frame.accessibility.root.children?.some((child) =>
-    child.label === 'Scatter' && /Selected point 3 of 4/u.test(child.description ?? '')
+    child.label === 'Scatter'
+    && child.children?.some((point) => point.label === 'Scatter 3' && point.selected === true)
   ), true);
-  assert.equal(frame.cells.find((cell) => cell.text === '◆')?.source?.description, 'selection.scatter.2');
+  assert.equal(frame.cells.find((cell) => cell.text === '◆')?.source?.description, 'selection.scatter.scatter:2');
   assert.equal(frame.cells.find((cell) => cell.text === '+')?.source?.description, 'legend.line.glyph');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'legend.line.glyph')?.style?.fg?.token, 'chart.series.1');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'legend.scatter.glyph')?.style?.fg?.token, 'chart.series.2');
@@ -335,7 +433,7 @@ test('chart renders error state without anonymous text cells', () => {
     id: 'error-chart',
     dataState: 'error',
     errorText: 'Chart unavailable',
-    series: [{ id: 'one', points: [1, 2, 3] }]
+    series: [chartSeries('one', [1, 2, 3])]
   }), { columns: 24, rows: 1 });
 
   assert.match(renderFramePlain(frame), /Chart unavailable/u);
@@ -347,8 +445,12 @@ test('chart intrinsic measurement remains bounded inside content layout', () => 
   const layout = layoutElement(column([
     row([
       surface(column([
-        progressBar({ id: 'progress', mode: { kind: 'determinate', value: 48, max: 100 } }),
-        chart({ id: 'chart', series: [{ id: 'live', points: [2, 4, 3, 5, 6, 8] }] })
+        progressBar({
+          id: 'progress',
+          label: 'Progress',
+          mode: { kind: 'determinate', value: 48, max: 100 }
+        }),
+        chart({ id: 'chart', series: [chartSeries('live', [2, 4, 3, 5, 6, 8])] })
       ]), { id: 'motion', title: 'Motion', border: { kind: 'single' } })
     ])
   ]), { columns: 84, rows: 18 });
@@ -389,12 +491,13 @@ test('meter width is a terminal-cell budget under wide profiles', () => {
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
   const frame = renderElementFrame(meter({
     id: 'wide-meter',
+    label: 'Load',
     value: 100,
     width: 4
-  }), { columns: 12, rows: 1 }, { widthProfile });
+  }), { columns: 20, rows: 1 }, { widthProfile });
 
-  assert.equal(renderFramePlain(frame), '[██] 100%');
-  assert.equal(frame.cells.find((cell) => cell.source?.description === 'metric.value')?.column, 8);
+  assert.equal(renderFramePlain(frame), 'Load [██] 100%');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'metric.value')?.column, 13);
 });
 
 test('meter dial variant renders distinct tested dial anatomy', () => {
@@ -419,13 +522,17 @@ test('meter dial variant renders distinct tested dial anatomy', () => {
 test('heatmap intensity uses muted normal and emphasized visual levels', () => {
   const frame = renderElementFrame(heatmap({
     id: 'intensity-heatmap',
-    rows: [[{ id: 'empty', value: 0 }, { id: 'mid', value: 2 }, { id: 'hot', value: 4 }]],
+    rows: [[
+      heatmapCell('empty', 0),
+      heatmapCell('mid', 2),
+      heatmapCell('hot', 4)
+    ]],
     min: 0,
     max: 4
   }), { columns: 12, rows: 1 });
-  const empty = frame.cells.find((cell) => cell.source?.description === 'cell.0.0.value');
-  const mid = frame.cells.find((cell) => cell.source?.description === 'cell.0.1.value');
-  const hot = frame.cells.find((cell) => cell.source?.description === 'cell.0.2.value');
+  const empty = frame.cells.find((cell) => cell.source?.description === 'cell.empty.value');
+  const mid = frame.cells.find((cell) => cell.source?.description === 'cell.mid.value');
+  const hot = frame.cells.find((cell) => cell.source?.description === 'cell.hot.value');
 
   assert.equal(empty?.style?.fg?.token, 'chart.muted');
   assert.equal(empty?.style?.dim, true);
@@ -438,7 +545,7 @@ test('heatmap intensity uses muted normal and emphasized visual levels', () => {
 test('heatmap valueScale can override intensity color while preserving glyph intensity', () => {
   const frame = renderElementFrame(heatmap({
     id: 'scaled-heatmap',
-    rows: [[{ id: 'cool', value: 1 }, { id: 'hot', value: 9 }]],
+    rows: [[heatmapCell('cool', 1), heatmapCell('hot', 9)]],
     min: 0,
     max: 10,
     valueScale: [
@@ -447,8 +554,8 @@ test('heatmap valueScale can override intensity color while preserving glyph int
     ]
   }), { columns: 8, rows: 1 });
 
-  assert.equal(frame.cells.find((cell) => cell.source?.description === 'cell.0.0.value')?.style?.fg?.token, 'scale.low');
-  assert.equal(frame.cells.find((cell) => cell.source?.description === 'cell.0.1.value')?.style?.fg?.token, 'scale.critical');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'cell.cool.value')?.style?.fg?.token, 'scale.low');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'cell.hot.value')?.style?.fg?.token, 'scale.critical');
 });
 
 test('heatmap renders selectable cells with accessibility and hit targets', () => {
@@ -460,7 +567,7 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     ],
     min: 0,
     max: 5,
-    selected: { rowIndex: 0, columnIndex: 1 },
+    selected: { id: 'b' },
     keys: { enter: () => ({ kind: 'select-current' }) },
     onAction: (action) => ({ kind: 'heatmap', action })
   }), { columns: 12, rows: 3 });
@@ -482,11 +589,11 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     columnIndex: 2,
     columnCount: 2
   });
-  assert.equal(frame.hitTargets.some((target) => target.id === 'heatmap:0:1' && target.cursor === 'pointer'), true);
+  assert.equal(frame.hitTargets.some((target) => target.id === 'heatmap:b' && target.cursor === 'pointer'), true);
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.elementKind, 'heatmap');
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.description, 'cell.0.1.selected.open');
-  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.description, 'cell.0.1.value');
-  assert.equal(frame.cells.find((cell) => cell.text === ']')?.source?.description, 'cell.0.1.selected.close');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.description, 'cell.b.selected.open');
+  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.description, 'cell.b.value');
+  assert.equal(frame.cells.find((cell) => cell.text === ']')?.source?.description, 'cell.b.selected.close');
 });
 
 test('heatmap renders empty state through chart state contract', () => {
@@ -505,22 +612,22 @@ test('chart components preserve visualization meaning in high contrast and no co
   const highContrast = renderElementFrame(chart({
     id: 'contrast-chart',
     legend: true,
-    selected: { series: 'alpha', pointIndex: 1 },
-    series: [{ id: 'alpha', label: 'Alpha', points: [1, 3, 2], glyph: '+' }]
+    selected: { seriesId: 'alpha', pointId: 'alpha:1' },
+    series: [chartSeries('alpha', [1, 3, 2], { label: 'Alpha', glyph: '+' })]
   }), { columns: 18, rows: 5 }, { theme: highContrastTheme });
   const noColor = renderElementFrame(heatmap({
     id: 'mono-heatmap',
-    rows: [[{ id: 'a', value: 1 }, { id: 'b', value: 4 }]],
-    selected: { rowIndex: 0, columnIndex: 1 },
+    rows: [[heatmapCell('a', 1), heatmapCell('b', 4)]],
+    selected: { id: 'b' },
     min: 0,
     max: 4
   }), { columns: 10, rows: 1 }, { theme: noColorTheme });
 
   assert.match(renderFramePlain(highContrast), /Alpha/u);
-  assert.equal(highContrast.cells.find((cell) => cell.source?.description === 'selection.alpha.1')?.style?.bg?.token, 'selection.background');
+  assert.equal(highContrast.cells.find((cell) => cell.source?.description === 'selection.alpha.alpha:1')?.style?.bg?.token, 'selection.background');
   assert.match(renderFramePlain(noColor), /\[█\]/u);
-  assert.equal(noColor.cells.find((cell) => cell.source?.description === 'cell.0.1.selected.open')?.text, '[');
-  assert.equal(noColor.cells.find((cell) => cell.source?.description === 'cell.0.1.value')?.source?.cellRole, 'chart');
+  assert.equal(noColor.cells.find((cell) => cell.source?.description === 'cell.b.selected.open')?.text, '[');
+  assert.equal(noColor.cells.find((cell) => cell.source?.description === 'cell.b.value')?.source?.cellRole, 'chart');
 });
 
 test('Canvas2D chart helpers draw axes line area series and bars', () => {

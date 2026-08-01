@@ -26,12 +26,11 @@ arranging, and rendering it. The `tui` source directory contains application and
 terminal-session lifecycle rather than frame, layout, or render-node rendering.
 
 The renderer package exposes frame construction, frame/diff serialization, and
-output projection. Component extensions use `custom()` and
-`customComposite()` from the component entrypoint, which exposes bounded
-`RenderTarget`, geometry, measurement, accessibility, focus, and hit-target
-contracts. `Canvas2D` remains available through the canvas component and
-renderer drawing APIs. Private render nodes and region target indexes remain
-implementation details.
+output projection. Leaf and composite component extensions use `custom()` from
+the component entrypoint, which exposes bounded `RenderTarget`, geometry,
+measurement, accessibility, focus, and hit-target contracts. `Canvas2D`
+remains available through the canvas component and renderer drawing APIs.
+Private render nodes and region target indexes remain implementation details.
 
 The ordinary public render function returns only a frame. Focus regions,
 pointer regions, private render nodes, and region target indexes are produced

@@ -17,7 +17,6 @@ import {
   runTui,
   splitPane,
   statusBar,
-  structuredBlock,
   surface,
   tabs,
   text,
@@ -547,18 +546,18 @@ function editorPane(state: EditorState): Element<EditorMessage> {
 function detailsPane(state: EditorState): Element<EditorMessage> {
   const buffer = activeBuffer(state);
   const operation = state.operation.kind === 'idle' ? 'ready' : state.operation.kind;
-  return surface(structuredBlock({
-    id: 'editor-details-block',
-    title: buffer?.label ?? 'No file selected',
-    result: state.operation.kind === 'failed' ? 'failed' : state.operation.kind === 'pending' ? 'running' : 'success',
-    summary: state.notice,
-    fields: [
-      { label: 'workspace', value: state.root ?? 'none' },
-      { label: 'buffers', value: String(state.buffers.length) },
-      { label: 'dirty', value: String(state.buffers.filter(isDirty).length) },
-      { label: 'operation', value: operation }
-    ]
-  }), { id: 'editor-details', appearance: 'inset', padding: { left: 1, right: 1 } });
+  return surface(column([
+    text(buffer?.label ?? 'No file selected', { textRole: 'heading' }),
+    text(state.notice, { textRole: 'body' }),
+    text(`workspace  ${state.root ?? 'none'}`, { textRole: 'metadata' }),
+    text(`buffers    ${String(state.buffers.length)}`, { textRole: 'metadata' }),
+    text(`dirty      ${String(state.buffers.filter(isDirty).length)}`, { textRole: 'metadata' }),
+    text(`operation  ${operation}`, { textRole: 'metadata' })
+  ], { gap: 1 }), {
+    id: 'editor-details',
+    appearance: 'inset',
+    padding: { left: 1, right: 1 }
+  });
 }
 
 function commandPane(state: EditorState): Element<EditorMessage> {

@@ -2,11 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  nextSpinnerFrameIndex,
-  normalizeSpinnerFrameIndex,
-  spinnerReducer
-} from '../../dist/behavior/index.js';
-import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
   renderFramePlain,
@@ -18,15 +13,15 @@ import {
 } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { statusIndicator,
-  commandInput,
+import { activityIndicator,
+  commandInput as createCommandInput,
+  disclosure,
   helpBar,
-  numberInput,
+  numberInput as createNumberInput,
   richText,
-  spinner,
   text,
-  textArea,
-  textInput
+  textArea as createTextArea,
+  textInput as createTextInput
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import {
@@ -34,6 +29,46 @@ import {
   textCaretAt,
   textDocumentSelectionBetween
 } from '../../dist/text/index.js';
+
+test('enabled disclosure requires its action boundary during construction', () => {
+  assert.throws(() => disclosure(text('Details'), {
+    id: 'dead-disclosure',
+    label: 'Details',
+    expanded: false
+  }), /requires an onAction function/u);
+});
+
+function textInput(options) {
+  return createTextInput(
+    options.disabled === true
+      ? options
+      : { onAction: (action) => action, ...options }
+  );
+}
+
+function numberInput(options) {
+  return createNumberInput(
+    options.disabled === true
+      ? options
+      : { onAction: (action) => action, ...options }
+  );
+}
+
+function textArea(options) {
+  return createTextArea(
+    options.disabled === true
+      ? options
+      : { onAction: (action) => action, ...options }
+  );
+}
+
+function commandInput(options) {
+  return createCommandInput({
+    onAction: (action) => action,
+    onSubmit: (value) => value,
+    ...options
+  });
+}
 
 test('richText component renders sanitized styled segments as plain frame text', () => {
   const frame = renderElementFrame(richText({
@@ -423,8 +458,7 @@ test('disabled textInput exposes no mouse hit target', () => {
   const frame = renderElementFrame(textInput({
     id: 'disabled-input',
     presentation: { value: 'locked', cursor: 0 },
-    disabled: true,
-    onSubmit: () => ({ kind: 'submit' })
+    disabled: true
   }), { columns: 16, rows: 1 });
 
   assert.deepEqual(frame.hitTargets ?? [], []);
@@ -451,12 +485,11 @@ test('textInput maps pointer positions to text offsets when opted in', () => {
   });
 });
 
-test('disabled textInput suppresses opted-in text pointer targets', () => {
+test('disabled textInput exposes no editable pointer targets', () => {
   const frame = renderElementFrame(textInput({
     id: 'disabled-editable-input',
     presentation: { value: 'locked', cursor: 0 },
-    disabled: true,
-    onAction: (action) => ({ action })
+    disabled: true
   }), { columns: 16, rows: 1 });
 
   assert.deepEqual(frame.hitTargets ?? [], []);
@@ -626,7 +659,7 @@ function noColorCapabilities() {
   };
 }
 
-test('helpBar and statusIndicator provide reusable application status displays', () => {
+test('helpBar and activityIndicator provide reusable application status displays', () => {
   const helpFrame = renderElementFrame(helpBar({
     id: 'help',
     groups: [{
@@ -637,16 +670,16 @@ test('helpBar and statusIndicator provide reusable application status displays',
       ]
     }]
   }), { columns: 32, rows: 1 });
-  const activityFrame = renderElementFrame(statusIndicator({
+  const activityFrame = renderElementFrame(activityIndicator({
     id: 'activity',
     label: 'Indexing',
     status: 'running'
   }), { columns: 32, rows: 1 });
 
   assert.equal(renderFramePlain(helpFrame), 'Enter open  Esc close');
-  assert.equal(helpFrame.accessibility.root.role, 'status');
-  assert.equal(renderFramePlain(activityFrame), 'i Indexing (running)');
-  assert.equal(activityFrame.accessibility.root.value, 'i Indexing (running)');
+  assert.equal(helpFrame.accessibility.root.role, 'group');
+  assert.equal(renderFramePlain(activityFrame), '⠋ Indexing');
+  assert.equal(activityFrame.accessibility.root.value, 'Indexing (running)');
 });
 
 test('helpBar keeps compact bindings whole instead of clipping partial labels', () => {
@@ -666,35 +699,22 @@ test('helpBar keeps compact bindings whole instead of clipping partial labels', 
   assert.doesNotMatch(renderFramePlain(frame), /dis/u);
 });
 
-test('spinner renders state-driven frames, terminal status, and accessibility state', () => {
-  const runningFrame = renderElementFrame(spinner({
-    id: 'spinner-running',
+test('activityIndicator renders caller-driven frames and terminal status', () => {
+  const runningFrame = renderElementFrame(activityIndicator({
+    id: 'activity-running',
     label: 'Loading',
+    status: 'running',
     frames: ['a', 'b'],
     frameIndex: 3
   }), { columns: 32, rows: 1 });
-  const successFrame = renderElementFrame(spinner({
-    id: 'spinner-success',
+  const successFrame = renderElementFrame(activityIndicator({
+    id: 'activity-success',
     label: 'Loaded',
-    status: 'success',
-    frameIndex: 1
+    status: 'success'
   }), { columns: 32, rows: 1 });
 
   assert.equal(renderFramePlain(runningFrame), 'b Loading');
   assert.equal(runningFrame.accessibility.root.value, 'Loading (running)');
   assert.equal(renderFramePlain(successFrame), '✓ Loaded (success)');
   assert.equal(successFrame.accessibility.root.value, 'Loaded (success)');
-});
-
-test('spinner reducer advances frame state without hidden timers', () => {
-  assert.equal(normalizeSpinnerFrameIndex(-1, 4), 3);
-  assert.equal(nextSpinnerFrameIndex(3, 4), 0);
-  assert.deepEqual(
-    spinnerReducer({ frameIndex: 0, status: 'running' }, { kind: 'advance' }, { frameCount: 4 }),
-    { frameIndex: 1, status: 'running' }
-  );
-  assert.deepEqual(
-    spinnerReducer({ frameIndex: 3, status: 'running' }, { kind: 'reset', frameIndex: -1, status: 'idle' }, { frameCount: 4 }),
-    { frameIndex: 3, status: 'idle' }
-  );
 });

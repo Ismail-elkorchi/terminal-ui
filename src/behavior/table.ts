@@ -15,6 +15,7 @@ import {
   windowedCollection
 } from '../ui-model/collection.ts';
 import type { CollectionWindow } from '../ui-model/collection.ts';
+import { cyclicIndex } from '../foundation/cyclic-index.ts';
 
 interface TableStateBase {
   readonly selectedRowId?: string;
@@ -218,7 +219,7 @@ function selectRowAtOffset(
   if (rowIds.length === 0) return withoutRowSelection(state);
   const current = rowIds.indexOf(state.selectedRowId ?? '');
   if (current < 0) return selectRow(state, delta < 0 ? rowIds.at(-1) : rowIds[0], collection);
-  const index = ((current + delta) % rowIds.length + rowIds.length) % rowIds.length;
+  const index = cyclicIndex(current + delta, rowIds.length);
   return selectRow(state, rowIds[index], collection);
 }
 

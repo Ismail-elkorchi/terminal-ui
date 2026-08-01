@@ -133,10 +133,7 @@ function inspectElementFactoryCategory(sourceFile, filePath) {
     expected = sourcePath.endsWith('/index.ts') || sourcePath.endsWith('/internals.ts')
       ? undefined
       : 'layoutElementFromRenderNode';
-  } else if (new Set([
-    'component/custom-composite.ts',
-    'component/custom.ts'
-  ]).has(sourcePath)) {
+  } else if (sourcePath === 'component/custom.ts') {
     expected = 'extensionElementFromRenderNode';
   }
 

@@ -9,6 +9,7 @@ richText({ segments: content });
 button({
   id: 'open',
   label: 'Open',
+  onPress: () => undefined,
   leading: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
   meta: { styles: { parts: { label: { fg: { kind: 'theme', token: 'custom.brand' } } } } }
 });
@@ -28,6 +29,7 @@ surface(text('invalid title source'), {
 button({
   id: 'invalid-token',
   label: 'Invalid',
+  onPress: () => undefined,
   meta: {
     styles: {
       // @ts-expect-error custom color tokens require the custom.* namespace

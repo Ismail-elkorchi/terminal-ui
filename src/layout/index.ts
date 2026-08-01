@@ -1,7 +1,10 @@
 export {
   absolute,
+  anchored,
   column,
+  flow,
   grid,
+  measuredColumn,
   overlay,
   row,
   splitPane,
@@ -10,7 +13,9 @@ export {
 } from './factories/index.ts';
 export type {
   AbsoluteOptions,
+  AnchoredOptions,
   ColumnOptions,
+  FlowOptions,
   GridAreasOptions,
   GridOptions,
   RowOptions,

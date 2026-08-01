@@ -103,8 +103,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
   const componentExtensionDeclaration = (await Promise.all([
     'index',
-    'custom',
-    'custom-composite'
+    'custom'
   ].map((name) => readFile(new URL(`../../dist/component/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
   const rendererContractsDeclaration = await readFile(new URL('../../dist/renderer/contracts.d.ts', import.meta.url), 'utf8');
@@ -130,7 +129,6 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'ChoiceItem',
     'StatusBarStatus',
     'ProcessStatus',
-    'RecordResult',
     'LogLevel',
     'ValidationLevel'
   ]) {
@@ -182,7 +180,6 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'NotificationAction',
     'SearchPickerAction',
     'ScrollAction',
-    'SpinnerAction',
     'TableAction',
     'TreeAction'
   ]) {
@@ -265,7 +262,8 @@ test('public renderer helpers accept component elements', () => {
 
     const panels = tabs({
       id: 'tabs',
-      tabs: [{ id: 'main', label: 'Main', panel: text('x', { id: 'x' }) }]
+      tabs: [{ id: 'main', label: 'Main', panel: text('x', { id: 'x' }) }],
+      onAction: () => undefined
     });
     const element = column([
       dialog(panels, {
@@ -287,7 +285,6 @@ test('component packages can define and test reusable extensions through focused
   assertNoTypeDiagnostics(`
     import {
       custom,
-      customComposite,
       type Element
     } from '@ismail-elkorchi/terminal-ui/component';
     import { button } from '@ismail-elkorchi/terminal-ui/components';
@@ -300,6 +297,15 @@ test('component packages can define and test reusable extensions through focused
         id: 'meter',
         state: value,
         renderer: {
+          kind: 'leaf',
+          name: 'meter',
+          parts: [],
+          measure: () => ({
+            minWidth: 1,
+            minHeight: 1,
+            preferredWidth: 3,
+            preferredHeight: 1
+          }),
           render({ state, bounds, target }) {
             target.write(bounds.row, bounds.column, [{ text: String(state) }]);
           },
@@ -318,15 +324,38 @@ test('component packages can define and test reusable extensions through focused
       label: 'Activate',
       onPress: (): Message => ({ kind: 'activate' })
     });
-    const element = customComposite({
+    const element = custom({
       id: 'panel',
       children: [meter(42), action] as const,
       renderer: {
+        kind: 'composite',
+        name: 'extensionPanel',
+        parts: [],
+        measure: ({ childCount, measureChild }) => {
+          const children = Array.from(
+            { length: childCount },
+            (_unused, index) => measureChild(index)
+          );
+          return {
+            minWidth: Math.max(0, ...children.map((child) => child.minWidth)),
+            minHeight: children.reduce((height, child) => height + child.minHeight, 0),
+            preferredWidth: Math.max(0, ...children.map((child) => child.preferredWidth)),
+            preferredHeight: children.reduce(
+              (height, child) => height + child.preferredHeight,
+              0
+            )
+          };
+        },
         layout: ({ bounds }) => [
           { ...bounds, height: 1 },
           { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
         ],
-        accessibility: ({ id }) => ({ id, role: 'group', label: 'Panel' })
+        accessibility: ({ id, children }) => ({
+          id,
+          role: 'group',
+          label: 'Panel',
+          children
+        })
       }
     });
     const snapshot = renderElementSnapshot({

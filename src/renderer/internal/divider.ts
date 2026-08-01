@@ -9,7 +9,7 @@ import type { Rect } from '../contracts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { stringify } from './render-node-props.ts';
-import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
+import { mergeStyles, renderNodeStyle } from '../style-resolution.ts';
 
 interface DividerGlyphs {
   readonly horizontal: string;

@@ -35,6 +35,7 @@ void test('bar chart behavior keeps stable selection through reorder and deletio
 void test('bar chart pointer targets emit stable item actions', () => {
   const regions = renderElementRegions(barChart({
     id: 'bar-actions',
+    label: 'Resource usage',
     selectedId: 'memory',
     items: [
       { id: 'cpu', label: 'CPU', value: 40 },
@@ -49,53 +50,97 @@ void test('bar chart pointer targets emit stable item actions', () => {
 
 void test('chart behavior navigates series, points, and pages without owning data', () => {
   const series = [
-    { id: 'cpu', points: [1, 2, 3, 4, 5, 6] },
-    { id: 'memory', points: [2, 4, 6] }
+    {
+      id: 'cpu',
+      label: 'CPU',
+      points: [1, 2, 3, 4, 5, 6].map((value) => ({
+        id: `cpu-${String(value)}`,
+        label: `CPU ${String(value)}`,
+        value
+      }))
+    },
+    {
+      id: 'memory',
+      label: 'Memory',
+      points: [2, 4, 6].map((value) => ({
+        id: `memory-${String(value)}`,
+        label: `Memory ${String(value)}`,
+        value
+      }))
+    }
   ];
-  const paged = chartReducer({ selected: { series: 'cpu', pointIndex: 1 } }, { kind: 'pagePoints', delta: 1 }, series, { pageSize: 3 });
+  const paged = chartReducer(
+    { selected: { seriesId: 'cpu', pointId: 'cpu-2' } },
+    { kind: 'pagePoints', delta: 1 },
+    series,
+    { pageSize: 3 }
+  );
   const moved = chartReducer(paged, { kind: 'moveSeries', delta: 1 }, series);
 
-  assert.deepEqual(paged, { selected: { series: 'cpu', pointIndex: 4 } });
-  assert.deepEqual(moved, { selected: { series: 'memory', pointIndex: 2 } });
+  assert.deepEqual(paged, { selected: { seriesId: 'cpu', pointId: 'cpu-5' } });
+  assert.deepEqual(moved, { selected: { seriesId: 'memory', pointId: 'memory-6' } });
 });
 
 void test('window charts keep keyboard selection inside the projected viewport', () => {
   const frame = renderElementFrame(chart({
     id: 'windowed',
-    series: [{ id: 'cpu', points: [1, 2, 3, 4, 5, 6], sampleMode: 'window' }],
-    selected: { series: 'cpu', pointIndex: 4 }
+    label: 'CPU trend',
+    series: [{
+      id: 'cpu',
+      label: 'CPU',
+      points: [1, 2, 3, 4, 5, 6].map((value) => ({
+        id: `point-${String(value)}`,
+        label: `Point ${String(value)}`,
+        value
+      })),
+      sampleMode: 'window'
+    }],
+    selected: { seriesId: 'cpu', pointId: 'point-5' }
   }), { columns: 3, rows: 3 });
 
-  assert.equal(frame.cells.some((cell) => cell.source?.description === 'selection.cpu.4'), true);
+  assert.equal(frame.cells.some((cell) => cell.source?.description === 'selection.cpu.point-5'), true);
 });
 
 void test('heatmap behavior navigates selectable cells by row and page', () => {
   const rows = [
-    [{ id: 'a', value: 1 }, { id: 'b', value: 2 }],
-    [{ id: 'c', value: 3, disabled: true }, { id: 'd', value: 4 }],
-    [{ id: 'e', value: 5 }, { id: 'f', value: 6 }]
+    [{ id: 'a', label: 'A', value: 1 }, { id: 'b', label: 'B', value: 2 }],
+    [{ id: 'c', label: 'C', value: 3, disabled: true }, { id: 'd', label: 'D', value: 4 }],
+    [{ id: 'e', label: 'E', value: 5 }, { id: 'f', label: 'F', value: 6 }]
   ];
-  const moved = heatmapReducer({ selected: { rowIndex: 0, columnIndex: 0 } }, { kind: 'move', rows: 1, columns: 0 }, rows);
+  const moved = heatmapReducer({ selected: { id: 'a' } }, { kind: 'move', rows: 1, columns: 0 }, rows);
   const paged = heatmapReducer(moved, { kind: 'pageRows', delta: 1 }, rows, { pageRows: 2 });
 
-  assert.deepEqual(moved, { selected: { rowIndex: 1, columnIndex: 1 } });
-  assert.deepEqual(paged, { selected: { rowIndex: 2, columnIndex: 1 } });
+  assert.deepEqual(moved, { selected: { id: 'd' } });
+  assert.deepEqual(paged, { selected: { id: 'f' } });
 });
 
 void test('chart and heatmap pointer targets emit semantic select actions', () => {
   const chartRegions = renderElementRegions(chart({
     id: 'chart-actions',
-    series: [{ id: 'cpu', points: [1, 2] }],
+    label: 'CPU trend',
+    series: [{
+      id: 'cpu',
+      label: 'CPU',
+      points: [
+        { id: 'first', label: 'First', value: 1 },
+        { id: 'second', label: 'Second', value: 2 }
+      ]
+    }],
     onAction: (action) => action
   }), { columns: 4, rows: 2 });
   const heatmapRegions = renderElementRegions(heatmap({
     id: 'heatmap-actions',
-    rows: [[{ id: 'one', value: 1 }]],
+    label: 'Utilization',
+    rows: [[{ id: 'one', label: 'One', value: 1 }]],
     onAction: (action) => action
   }), { columns: 4, rows: 1 });
 
   const chartTarget = chartRegions.flatMap((region) => region.hitTargets)[0];
   const heatmapTarget = heatmapRegions.flatMap((region) => region.hitTargets)[0];
-  assert.deepEqual(chartTarget?.message(routedPointerEvent()), { kind: 'select', series: 'cpu', pointIndex: 0 });
-  assert.deepEqual(heatmapTarget?.message(routedPointerEvent()), { kind: 'select', rowIndex: 0, columnIndex: 0 });
+  assert.deepEqual(chartTarget?.message(routedPointerEvent()), {
+    kind: 'select',
+    seriesId: 'cpu',
+    pointId: 'first'
+  });
+  assert.deepEqual(heatmapTarget?.message(routedPointerEvent()), { kind: 'select', id: 'one' });
 });

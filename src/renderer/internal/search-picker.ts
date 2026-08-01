@@ -5,7 +5,7 @@ import {
 } from './command-visual.ts';
 import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import { stringify } from './render-node-props.ts';
-import { resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
+import { resolveRenderNodeStyle, renderNodeStyle, themeStyle } from '../style-resolution.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { SearchEntry } from '../../ui-model/contracts.ts';
@@ -104,7 +104,6 @@ export function searchPickerBlock(
 
 export function searchPickerHitTargets<TMessage>(renderNode: SearchPickerNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = searchPickerMessageFactory(renderNode);
-  if (toMessage === undefined) return [];
   const model = searchPickerRenderModel(renderNode, bounds.height);
   return model.window.entries.slice(0, model.availableEntries).flatMap((entry, index): readonly HitTarget<TMessage>[] => {
     if (entry.disabled === true) return [];
@@ -116,28 +115,58 @@ export function searchPickerHitTargets<TMessage>(renderNode: SearchPickerNode<TM
         width: bounds.width,
         height: 1
       },
-      message: () => toMessage(entry),
+      message: () => toMessage({ kind: 'activate', entry }),
       cursor: 'pointer'
     }];
   });
 }
 
-export function searchPickerAccessibleChildren(renderNode: SearchPickerNode, height: number): readonly AccessibleNode[] {
+export function searchPickerAccessibleChildren(
+  renderNode: SearchPickerNode,
+  height: number
+): readonly AccessibleNode[] {
   const { window } = searchPickerRenderModel(renderNode, height);
-  return window.entries.map((entry, index) => ({
-    id: `${renderNode.id ?? 'searchPicker'}:${entry.id}`,
-    role: 'option',
-    label: entry.label,
-    ...(entry.description === undefined ? {} : { description: entry.description }),
-    ...(entry.preview === undefined ? {} : { value: entry.preview }),
-    position: {
-      positionInSet: window.startIndex + index + 1,
-      setSize: window.totalCount,
-      ...(entry.group === undefined ? {} : { group: entry.group })
+  const id = renderNode.id ?? 'searchPicker';
+  return [
+    {
+      id: `${id}:results`,
+      role: 'listbox',
+      label: `${stringify(renderNode.props.title) || 'Search'} results`,
+      window: {
+        startIndex: window.startIndex,
+        endIndexExclusive: window.endIndexExclusive,
+        totalCount: window.totalCount,
+        omittedBefore: window.omittedBefore,
+        omittedAfter: window.omittedAfter
+      },
+      children: window.entries.map((entry, index) => ({
+        id: `${id}:${entry.id}`,
+        role: 'option' as const,
+        label: entry.label,
+        ...(entry.description === undefined
+          ? {}
+          : { description: entry.description }),
+        ...(entry.preview === undefined ? {} : { value: entry.preview }),
+        position: {
+          positionInSet: window.startIndex + index + 1,
+          setSize: window.totalCount,
+          ...(entry.group === undefined ? {} : { group: entry.group })
+        },
+        selected: index === window.selectedIndex,
+        disabled: entry.disabled === true
+      }))
     },
-    selected: index === window.selectedIndex,
-    disabled: entry.disabled === true
-  }));
+    {
+      id: `${id}:status`,
+      role: 'status',
+      label: searchPickerResultSummary(
+        window.totalCount,
+        renderNode.props.searchPickerIndex.size,
+        queryText(renderNode)
+      ),
+      live: 'polite'
+    }
+  ];
 }
 
 function entryLine<TValue>(
@@ -213,17 +242,17 @@ function searchPickerRenderModel(renderNode: SearchPickerNode, height: number): 
   return model;
 }
 
-function selectedInput(renderNode: SearchPickerNode): Partial<Pick<SearchPickerWindowInput<unknown>, 'selectedIndex' | 'selectedId'>> {
-  const selectedIndex = renderNode.props.selectedIndex;
+function selectedInput(renderNode: SearchPickerNode): Partial<Pick<SearchPickerWindowInput<unknown>, 'selectedId'>> {
   const selectedId = selectedIdText(renderNode);
   return {
-    ...(selectedIndex === undefined ? {} : { selectedIndex }),
     ...(selectedId.length === 0 ? {} : { selectedId })
   };
 }
 
-function searchPickerMessageFactory<TMessage>(renderNode: SearchPickerNode<TMessage>): ((entry: SearchEntry<unknown>) => TMessage) | undefined {
-  return renderNode.props.toMessage;
+function searchPickerMessageFactory<TMessage>(
+  renderNode: SearchPickerNode<TMessage>
+): ((action: import('../../ui-model/search-picker.ts').SearchPickerAction<unknown>) => TMessage) {
+  return renderNode.props.toActionMessage;
 }
 
 function scrollInput(renderNode: SearchPickerNode): Partial<Pick<SearchPickerWindowInput<unknown>, 'scroll'>> {

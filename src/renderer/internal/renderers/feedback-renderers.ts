@@ -1,20 +1,21 @@
 import {
+  activityIndicatorAccessibleBase,
   helpBarAccessibleBase,
-  spinnerAccessibleBase,
 } from '../text-rendering.ts';
 import {
+  activityIndicatorBlock,
   helpBarBlock,
-  statusBarBlock,
-  spinnerBlock
+  statusBarBlock
 } from '../feedback-visual.ts';
 import {
   progressAccessibleBase,
   progressBlock
 } from '../progress-bar-rendering.ts';
 import {
-  notificationStackAccessibleBase,
-  notificationStackHitTargets,
-  renderNotificationStack
+  notificationAccessibleBase,
+  notificationFocusTargets,
+  notificationHitTargets,
+  renderNotifications
 } from '../notifications.ts';
 import { statusBarAccessibleText } from '../feedback-visual.ts';
 import { writeRenderBlock } from './support/block.ts';
@@ -40,14 +41,19 @@ export const feedbackRenderers = {
     render: ({ renderNode, layoutNode, buffer, widthProfile }) => {
       writeRenderBlock(buffer, layoutNode.bounds, helpBarBlock(renderNode, widthProfile, layoutNode.bounds.width));
     },
-    accessibility: ({ renderNode, id, widthProfile }) => helpBarAccessibleBase(renderNode, id, widthProfile)
+    accessibility: ({ renderNode, id }) => helpBarAccessibleBase(renderNode, id)
   },
-  spinner: {
-    measure: feedbackMeasurements.spinner,
+  activityIndicator: {
+    measure: feedbackMeasurements.activityIndicator,
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, spinnerBlock(renderNode, theme));
+      writeRenderBlock(
+        buffer,
+        layoutNode.bounds,
+        activityIndicatorBlock(renderNode, theme)
+      );
     },
-    accessibility: ({ renderNode, id }) => spinnerAccessibleBase(renderNode, id)
+    accessibility: ({ renderNode, id }) =>
+      activityIndicatorAccessibleBase(renderNode, id)
   },
   progressBar: {
     measure: feedbackMeasurements.progressBar,
@@ -56,12 +62,27 @@ export const feedbackRenderers = {
     },
     accessibility: ({ renderNode, id }) => progressAccessibleBase(renderNode, id)
   },
-  notificationStack: {
-    measure: feedbackMeasurements.notificationStack,
+  notificationRegion: {
+    measure: feedbackMeasurements.notificationRegion,
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      renderNotificationStack(renderNode, buffer, layoutNode.bounds, theme);
+      renderNotifications(renderNode, buffer, layoutNode.bounds, theme);
     },
-    accessibility: ({ renderNode, id, focused }) => notificationStackAccessibleBase(renderNode, id, focused),
-    hitTargets: ({ renderNode, bounds, widthProfile }) => notificationStackHitTargets(renderNode, bounds, widthProfile)
+    accessibility: ({ renderNode, id, focused, focusedTargetId }) =>
+      notificationAccessibleBase(renderNode, id, focused, focusedTargetId),
+    focusTargets: ({ renderNode, bounds, widthProfile }) =>
+      notificationFocusTargets(renderNode, bounds, widthProfile),
+    hitTargets: ({ renderNode, bounds, widthProfile }) => notificationHitTargets(renderNode, bounds, widthProfile)
+  },
+  notificationHistory: {
+    measure: feedbackMeasurements.notificationHistory,
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      renderNotifications(renderNode, buffer, layoutNode.bounds, theme);
+    },
+    accessibility: ({ renderNode, id, focused, focusedTargetId }) =>
+      notificationAccessibleBase(renderNode, id, focused, focusedTargetId),
+    focusTargets: ({ renderNode, bounds, widthProfile }) =>
+      notificationFocusTargets(renderNode, bounds, widthProfile),
+    hitTargets: ({ renderNode, bounds, widthProfile }) =>
+      notificationHitTargets(renderNode, bounds, widthProfile)
   }
-} satisfies RendererMap<'statusBar' | 'helpBar' | 'spinner' | 'progressBar' | 'notificationStack'>;
+} satisfies RendererMap<'statusBar' | 'helpBar' | 'activityIndicator' | 'progressBar' | 'notificationRegion' | 'notificationHistory'>;

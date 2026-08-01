@@ -15,13 +15,14 @@ import {
   focusTargetsForRenderNode,
   createRenderMeasurementContext,
   layoutChildBounds,
-  placeRenderNode
+  placeRenderNode,
+  renderNodeClipsChildren
 } from './render-node-behavior.ts';
 import type { RenderMeasurementContext } from './render-node-behavior.ts';
 import { cellInsideRect, intersectRects } from './rect.ts';
 
 export function layoutElement(
-  element: Element,
+  element: Element<unknown>,
   terminalSizeOrBounds: TerminalSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition,
   widthProfile: TextWidthProfile = defaultTextWidthProfile
@@ -103,7 +104,7 @@ function layoutNode(
       };
     });
   const focusScope = focusScopeForRenderNode(renderNode);
-  const childViewport = renderNode.kind === 'viewport'
+  const childViewport = renderNodeClipsChildren(renderNode)
     ? intersectRects(placedBounds, viewport) ?? emptyRect(placedBounds)
     : viewport;
   return {

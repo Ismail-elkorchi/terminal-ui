@@ -19,14 +19,19 @@ import type { FocusTarget, HitTarget, Measurement } from '../contracts.ts';
 import type { RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
 import {
   assertValidCustomHitTargets,
-  assertValidCustomMeasurement,
   normalizeCustomFocusTargets
 } from './extension-output.ts';
+import { assertValidMeasurement } from '../measurement-validation.ts';
 import { intersectRects } from './rect.ts';
+import { scopedFrameSource } from './scoped-render-target.ts';
 
 export function rendererForRenderNode<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
   if (renderNode.kind === 'custom') return renderNode.custom.renderer;
   return builtinRenderNodeRenderers[renderNode.kind] as RenderNodeRenderer<TMessage>;
+}
+
+export function renderNodeClipsChildren(renderNode: RenderNode): boolean {
+  return rendererForRenderNode(renderNode).clipChildren === true;
 }
 
 export function layoutChildBounds(
@@ -116,7 +121,10 @@ function measureRenderNode(
     widthProfile: context.widthProfile
   });
   if (renderNode.kind === 'custom') {
-    assertValidCustomMeasurement(measurement, renderNode.id ?? renderNode.kind);
+    assertValidMeasurement(
+      measurement,
+      `Custom renderer "${renderNode.id ?? renderNode.kind}"`
+    );
   }
   return normalizeMeasurement(measurement);
 }
@@ -188,7 +196,21 @@ export function focusTargetsForRenderNode(
     widthProfile
   }) ?? [];
   const explicit = renderNode.kind === 'custom'
-    ? normalizeCustomFocusTargets(produced, renderNode.id ?? renderNode.kind)
+    ? normalizeCustomFocusTargets(produced, renderNode.id ?? renderNode.custom.name)
+      .map((target): FocusTarget => ({
+        ...target,
+        ...(target.cursor === undefined
+          ? {}
+          : {
+              cursor: {
+                ...target.cursor,
+                source: scopedFrameSource({
+                  ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
+                  name: renderNode.custom.name
+                }, target.cursor.source)
+              }
+            })
+      }))
     : produced;
   const bounded = renderNode.kind === 'custom'
     ? explicit.map((target) => ({
@@ -237,11 +259,25 @@ export function hitTargetsForRenderNode<TMessage>(
   if (renderNode.kind === 'custom') {
     assertValidCustomHitTargets(targets, renderNode.id ?? renderNode.kind);
   }
-  const interactionTargets = pointerInteractionHitTargets(renderNode, target.bounds, targets);
+  const interactionTargets = pointerInteractionHitTargets(renderNode, target.bounds, targets)
+    .map((hitTarget) => withoutDisabledTargetFocus(hitTarget, target.layoutNode.focusTargets));
   if (renderNode.kind === 'custom' || target.layoutNode.focusTargets.length !== 1) return interactionTargets;
   const focusTarget = target.layoutNode.focusTargets[0];
   if (focusTarget === undefined || focusTarget.disabled) return interactionTargets;
   return interactionTargets.map((hitTarget): HitTarget<TMessage> => hitTarget.focus === undefined
     ? { ...hitTarget, focus: { kind: 'target', targetId: focusTarget.id } }
     : hitTarget);
+}
+
+function withoutDisabledTargetFocus<TMessage>(
+  hitTarget: HitTarget<TMessage>,
+  focusTargets: readonly FocusTarget[]
+): HitTarget<TMessage> {
+  const focus = hitTarget.focus;
+  if (focus?.kind !== 'target') return hitTarget;
+  const target = focusTargets.find((candidate) => candidate.id === focus.targetId);
+  if (target?.disabled !== true) return hitTarget;
+  const { focus: disabledFocus, ...withoutFocus } = hitTarget;
+  void disabledFocus;
+  return withoutFocus;
 }

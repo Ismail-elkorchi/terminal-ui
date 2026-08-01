@@ -4,7 +4,7 @@ import type { MenuActionTone } from '../../ui-model/menu.ts';
 import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import { clipRenderSpans, padRenderLine, span } from '../../visual/render.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
+import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../style-resolution.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 import { renderInlineContent } from './inline-content.ts';

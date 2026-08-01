@@ -1,4 +1,5 @@
 import type { TabAction } from '../ui-model/tabs.ts';
+import { cyclicIndex } from '../foundation/cyclic-index.ts';
 
 export interface TabBehaviorItem {
   readonly id: string;
@@ -34,10 +35,6 @@ export function tabsReducer(
 function adjacentTab(state: TabsState, tabs: readonly TabBehaviorItem[], delta: number): TabsState {
   if (tabs.length === 0) return state;
   const current = Math.max(0, tabs.findIndex((tab) => tab.id === state.selected));
-  const tab = tabs[wrapIndex(current + delta, tabs.length)];
+  const tab = tabs[cyclicIndex(current + delta, tabs.length)];
   return tab === undefined ? state : { selected: tab.id };
-}
-
-function wrapIndex(index: number, count: number): number {
-  return ((index % count) + count) % count;
 }

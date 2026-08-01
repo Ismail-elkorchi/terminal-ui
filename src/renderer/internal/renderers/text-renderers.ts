@@ -1,5 +1,4 @@
 import {
-  statusIndicatorAccessibleBase,
   richTextAccessibleBase,
   richTextBlock,
   textAccessibleBase,
@@ -9,9 +8,8 @@ import {
   textAreaPointerOffset,
   textBlock,
 } from '../text-rendering.ts';
-import { statusIndicatorBlock } from '../feedback-visual.ts';
 import { writeRenderBlock } from './support/block.ts';
-import { focusTarget } from './support/common.ts';
+import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import {
   drawScrollbars,
   scrollbarHitTargetsForRenderNode,
@@ -21,6 +19,12 @@ import {
 import { textPointerHitTargets } from '../text-pointer.ts';
 import { textMeasurements } from './text-measurements.ts';
 import type { RendererMap } from './types.ts';
+import {
+  disclosureAccessibleNode,
+  disclosureBlock,
+  disclosureChildBounds,
+  disclosureHitTargets
+} from '../disclosure.ts';
 
 export const textRenderers = {
   text: {
@@ -36,6 +40,43 @@ export const textRenderers = {
       writeRenderBlock(buffer, layoutNode.bounds, richTextBlock(renderNode, layoutNode.bounds, theme, widthProfile));
     },
     accessibility: ({ renderNode, id }) => richTextAccessibleBase(renderNode, id)
+  },
+  disclosure: {
+    measure: textMeasurements.disclosure,
+    layout: ({ renderNode, bounds }) => disclosureChildBounds(renderNode, bounds),
+    render: ({ renderNode, layoutNode, buffer, theme, renderChildren }) => {
+      writeRenderBlock(
+        buffer,
+        {
+          ...layoutNode.bounds,
+          height: Math.min(1, layoutNode.bounds.height)
+        },
+        disclosureBlock(renderNode, renderNode.props.expanded, theme)
+      );
+      if (renderNode.props.expanded) renderChildren();
+    },
+    accessibility: ({
+      renderNode,
+      id,
+      focusedTargetId,
+      children
+    }) => disclosureAccessibleNode(
+      renderNode,
+      id,
+      focusedTargetId === 'toggle',
+      children
+    ),
+    focusTargets: ({ renderNode, bounds }) =>
+      renderNode.props.toActionMessage === undefined
+        || renderNode.props.disabled === true
+        ? []
+        : [{
+            id: 'toggle',
+            bounds: { ...bounds, height: Math.min(1, bounds.height) },
+            disabled: false
+          }],
+    hitTargets: ({ renderNode, bounds }) =>
+      disclosureHitTargets(renderNode, bounds)
   },
   textArea: {
     measure: textMeasurements.textArea,
@@ -61,9 +102,10 @@ export const textRenderers = {
       theme,
       widthProfile
     ),
-    focusTargets: ({ renderNode, bounds, theme, widthProfile }) => [
-      focusTarget(bounds, textAreaCursor(renderNode, bounds, theme, widthProfile))
-    ],
+    focusTargets: ({ renderNode, bounds, theme, widthProfile }) =>
+      renderNode.props.disabled === true || !hasKeyboardOrInputMap(renderNode)
+        ? []
+        : [focusTarget(bounds, textAreaCursor(renderNode, bounds, theme, widthProfile))],
     hitTargets: ({ renderNode, bounds, theme, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
@@ -93,11 +135,4 @@ export const textRenderers = {
       ];
     }
   },
-  statusIndicator: {
-    measure: textMeasurements.statusIndicator,
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, statusIndicatorBlock(renderNode, theme));
-    },
-    accessibility: ({ renderNode, id }) => statusIndicatorAccessibleBase(renderNode, id)
-  }
-} satisfies RendererMap<'text' | 'richText' | 'textArea' | 'statusIndicator'>;
+} satisfies RendererMap<'text' | 'richText' | 'disclosure' | 'textArea'>;

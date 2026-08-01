@@ -4,6 +4,7 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { custom } from '../../dist/component/index.js';
+import { leafRendererDefinition } from '../helpers/custom-renderer.mjs';
 import { button, tabs, text, textArea, textInput } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
@@ -147,6 +148,7 @@ test('TUI runtime routes mouse input through the committed render cache', async 
 test('TUI runtime uses committed hit targets without recomputing renderer hit targets', async () => {
   let hitTargetCalls = 0;
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'cached hit' }]);
     },

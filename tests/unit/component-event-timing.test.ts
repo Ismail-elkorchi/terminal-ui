@@ -30,11 +30,16 @@ void test('component construction and rendering do not execute event handlers', 
   };
   const elements = [
     checkbox({ id: 'check', label: 'Check', checked: false, onChange: message }),
-    slider({ id: 'slider', value: 4, onChange: message }),
+    slider({ id: 'slider', label: 'Value', value: 4, onChange: message }),
     list({ id: 'list', items: ['a'], projectItem: (item) => ({ id: item, label: item }), selectedId: 'a', onAction: message }),
     table({ id: 'table', rows: ['a'], getRowId: (row) => row, presentation: { selectedRowId: 'a' }, onAction: message }),
     textArea({ id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
-    commandInput({ id: 'command', presentation: { value: 'a', cursor: 0, suggestions: [] }, onAction: message }),
+    commandInput({
+      id: 'command',
+      presentation: { value: 'a', cursor: 0, suggestions: [] },
+      onAction: message,
+      onSubmit: message
+    }),
     searchPicker({ id: 'searchPicker', searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onAction: message })
   ];
 
@@ -62,12 +67,13 @@ void test('component key handlers run at dispatch time with the normalized event
       };
       return textInput<
         never,
-        never,
+        Message,
         never,
         { readonly enter: typeof onEnter }
       >({
         id: 'field',
         presentation: { value: state.value, cursor: 0 },
+        onAction: () => ({ value: state.value }),
         keys: { enter: onEnter }
       });
     }
@@ -153,6 +159,15 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
         panel: custom({
           id: 'panel',
           renderer: {
+            kind: 'leaf',
+            name: 'focusPanel',
+            parts: [],
+            measure: () => ({
+              minWidth: 0,
+              minHeight: 0,
+              preferredWidth: 1,
+              preferredHeight: 1
+            }),
             render() {},
             accessibility: ({ id, focusedTargetId }) => ({
               id,

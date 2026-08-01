@@ -1,4 +1,4 @@
-import type { ChoiceItem, SearchEntry } from '../../ui-model/contracts.ts';
+import type { ChoiceItem } from '../../ui-model/contracts.ts';
 import type {
   TableColumn,
 } from '../options/content.ts';
@@ -184,10 +184,4 @@ export function colorOptionsForRenderer<TValue>(
 ): readonly ColorSwatchPickerOption<unknown>[] {
   resolveStableIds(options, (option) => option.id, 'colorSwatchPicker');
   return options;
-}
-
-export function searchSelectionHandler<TValue, TMessage>(
-  handler: ((entry: SearchEntry<TValue>) => TMessage) | undefined
-): ((entry: SearchEntry<unknown>) => TMessage) | undefined {
-  return handler === undefined ? undefined : (entry) => handler(entry as SearchEntry<TValue>);
 }

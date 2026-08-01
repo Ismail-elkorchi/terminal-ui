@@ -8,7 +8,7 @@ import {
   mergeStyles,
   resolveRenderNodeStyle,
   themeStyle
-} from '../../render-node-style.ts';
+} from '../../../style-resolution.ts';
 import {
   interactionVisualState,
   renderNodePointerVisualState

@@ -39,12 +39,14 @@ import type {
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions, ElementTextRole } from '../../element/metadata.ts';
 import type {
   DataListStylePart,
+  DisclosureStylePart,
   PaginatorStylePart,
   TableStylePart,
   TextAreaStylePart,
   TextStylePart,
   TreeStylePart
 } from '../../ui-model/style-parts.ts';
+import type { DisclosureAction } from '../../ui-model/disclosure.ts';
 
 export interface TextOptions extends ElementOptions<TextStylePart> {
   readonly textRole?: ElementTextRole;
@@ -54,6 +56,32 @@ export interface RichTextOptions extends ElementOptions<TextStylePart> {
   readonly segments: InlineContent;
   readonly wrap?: boolean;
 }
+
+interface DisclosureOptionsBase<TMessage>
+  extends InteractiveElementOptions<DisclosureStylePart, TMessage> {
+  readonly label: string;
+  readonly summary?: InlineContent;
+  readonly expanded: boolean;
+}
+
+export interface ActiveDisclosureOptions<TMessage>
+  extends DisclosureOptionsBase<TMessage> {
+  readonly disabled?: false;
+  readonly onAction: (action: DisclosureAction) => TMessage;
+  readonly keys?: ElementKeyBindings<TMessage>;
+}
+
+export interface DisabledDisclosureOptions
+  extends DisclosureOptionsBase<never> {
+  readonly disabled: true;
+  readonly onAction?: never;
+  readonly keys?: never;
+  readonly pointer?: never;
+}
+
+export type DisclosureOptions<TMessage = never> =
+  | ActiveDisclosureOptions<TMessage>
+  | DisabledDisclosureOptions;
 
 interface ListCommonOptions<TMessage> extends InteractiveElementOptions<DataListStylePart, TMessage> {
   readonly selectedId?: string;
@@ -192,7 +220,7 @@ export interface PaginatorOptions<TMessage = never> extends InteractiveElementOp
   readonly pageNumber: number;
   readonly pageCount: number;
   readonly label?: string;
-  readonly onAction?: (action: PaginatorAction) => TMessage;
+  readonly onAction: (action: PaginatorAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 

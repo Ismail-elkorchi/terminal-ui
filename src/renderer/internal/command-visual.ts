@@ -1,5 +1,5 @@
 import { highlightRenderSpans } from './text-highlight.ts';
-import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
+import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../style-resolution.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';

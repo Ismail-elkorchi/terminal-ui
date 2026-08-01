@@ -9,21 +9,38 @@ test('tabs render only the selected panel as focusable content', () => {
     id: 'tabs',
     selected: 'second',
     tabs: [
-      { id: 'first', label: 'First', panel: textInput({ id: 'first-input', presentation: { value: 'hidden', cursor: 0 } }) },
+      {
+        id: 'first',
+        label: 'First',
+        panel: textInput({
+          id: 'first-input',
+          presentation: { value: 'hidden', cursor: 0 },
+          onAction: (action) => action
+        })
+      },
       {
         id: 'second',
         label: 'Second',
         description: 'Visible editor panel',
-        panel: textInput({ id: 'second-input', presentation: { value: 'visible', cursor: 0 } })
+        panel: textInput({
+          id: 'second-input',
+          presentation: { value: 'visible', cursor: 0 },
+          onAction: (action) => action
+        })
       }
-    ]
+    ],
+    onAction: (action) => action
   });
 
   const layout = layoutElement(element, { columns: 32, rows: 5 });
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 0, height: 0 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 2, column: 1, width: 32, height: 4 });
 
-  const frame = renderElementFrame(element, { columns: 32, rows: 5 });
+  const frame = renderElementFrame(
+    element,
+    { columns: 32, rows: 5 },
+    { focusPath: ['tabs', 'second-input'] }
+  );
   assert.ok(frame.focusPath?.includes('second-input'));
   assert.ok(!frame.focusPath?.includes('first-input'));
   assert.match(frame.cells.map((cell) => cell.text).join(''), /▏Second/u);
@@ -99,7 +116,8 @@ test('tabs paint a complete strip and raise the selected tab', () => {
     tabs: [
       { id: 'first', label: 'First', panel: text('First panel') },
       { id: 'second', label: 'Second', closable: true, panel: text('Second panel') }
-    ]
+    ],
+    onAction: (action) => action
   }), { columns: 24, rows: 3 }, { theme: defaultTheme });
   const header = frame.cells.filter((cell) => cell.row === 1);
   const selected = header.filter((cell) =>

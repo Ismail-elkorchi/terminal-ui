@@ -46,7 +46,7 @@ export function heatmapBlock(
   const cellWidth = heatmapCellWidth(renderNode);
   const gap = heatmapGap(renderNode);
   const range = heatmapRange(rows, numberProp(renderNode, 'min'), numberProp(renderNode, 'max'));
-  const selected = heatmapSelected(renderNode);
+  const selected = heatmapSelected(renderNode, rows);
   const scale = normalizeValueScale(renderNode.props.valueScale);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.rowIndex ?? 0);
   return {
@@ -56,7 +56,7 @@ export function heatmapBlock(
         ...(columnIndex === 0 ? [] : [
           chartSpan(renderNode, 'heatmap', 'separator', `cell.${String(rowIndex)}.${String(columnIndex)}.gap`, ' '.repeat(gap), chartPlaceholderStyle(renderNode))
         ]),
-        ...heatmapCellSpans(renderNode, rowIndex, columnIndex, {
+        ...heatmapCellSpans(renderNode, cell.id, {
           cellWidth,
           value: cell.value,
           range,
@@ -82,12 +82,12 @@ export function heatmapText(
 
 export function heatmapAccessibleBase(renderNode: HeatmapNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const rows = heatmapRows(renderNode.props.rows);
-  const selected = heatmapSelected(renderNode);
+  const selected = heatmapSelected(renderNode, rows);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.rowIndex ?? 0);
   return {
     id,
     role: 'grid',
-    label: id,
+    label: cleanLabel(renderNode.props.label),
     description: `${String(rows.length)} heatmap rows. Showing ${String(rowWindow.start + 1)}-${String(rowWindow.end)}.`,
     ...(focused ? { focused } : {})
   };
@@ -95,7 +95,7 @@ export function heatmapAccessibleBase(renderNode: HeatmapNode, node: LayoutNode,
 
 export function heatmapAccessibleChildren(renderNode: HeatmapNode, node: LayoutNode): readonly AccessibleNode[] {
   const rows = heatmapRows(renderNode.props.rows);
-  const selected = heatmapSelected(renderNode);
+  const selected = heatmapSelected(renderNode, rows);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.rowIndex ?? 0);
   return rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset): AccessibleNode => {
     const rowIndex = rowWindow.start + rowOffset;
@@ -104,9 +104,9 @@ export function heatmapAccessibleChildren(renderNode: HeatmapNode, node: LayoutN
       role: 'row',
       position: { rowIndex: rowIndex + 1, rowCount: rows.length, columnCount: row.length },
       children: row.map((cell, columnIndex) => ({
-        id: `${renderNode.id ?? 'heatmap'}:${String(rowIndex)}:${String(columnIndex)}`,
+        id: `${renderNode.id ?? 'heatmap'}:${cell.id}`,
         role: 'gridcell' as const,
-        label: cell.label ?? cell.id,
+        label: cell.label,
         value: cell.value,
         selected: selected?.rowIndex === rowIndex && selected.columnIndex === columnIndex,
         position: {
@@ -124,25 +124,24 @@ export function heatmapHitTargets<TMessage>(renderNode: HeatmapNode<TMessage>, b
   const toMessage = heatmapMessageFactory(renderNode);
   if (toMessage === undefined) return [];
   const rows = heatmapRows(renderNode.props.rows);
-  const selected = heatmapSelected(renderNode);
+  const selected = heatmapSelected(renderNode, rows);
   const rowWindow = visibleWindow(rows.length, bounds.height, selected?.rowIndex ?? 0);
   const cellWidth = heatmapCellWidth(renderNode);
   const gap = heatmapGap(renderNode);
   return rows.slice(rowWindow.start, rowWindow.end).flatMap((row, rowOffset): HitTarget<TMessage>[] => {
-    const rowIndex = rowWindow.start + rowOffset;
     return row.flatMap((cell, columnIndex): HitTarget<TMessage>[] => {
       if (cell.disabled === true) return [];
       const column = bounds.column + columnIndex * (cellWidth + gap);
       if (column > bounds.column + bounds.width - 1) return [];
       return [{
-        id: `${renderNode.id ?? 'heatmap'}:${String(rowIndex)}:${String(columnIndex)}`,
+        id: `${renderNode.id ?? 'heatmap'}:${cell.id}`,
         bounds: {
           row: bounds.row + rowOffset,
           column,
           width: Math.min(cellWidth, bounds.column + bounds.width - column),
           height: 1
         },
-        message: () => toMessage({ kind: 'select', rowIndex, columnIndex }),
+        message: () => toMessage({ kind: 'select', id: cell.id }),
         cursor: 'pointer'
       }];
     });

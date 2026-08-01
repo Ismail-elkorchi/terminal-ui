@@ -2,7 +2,6 @@ import type { NotificationTone } from './feedback.ts';
 import { isStringMember } from '../foundation/validation.ts';
 import type {
   ProcessStatus,
-  RecordResult,
   StatusBarStatus,
   ValidationLevel
 } from './contracts.ts';
@@ -25,15 +24,6 @@ const processStatuses = [
   'error'
 ] as const satisfies readonly ProcessStatus[];
 
-const recordResults = [
-  'pending',
-  'running',
-  'success',
-  'failed',
-  'cancelled',
-  'skipped'
-] as const satisfies readonly RecordResult[];
-
 const validationLevels = [
   'info',
   'warning',
@@ -54,10 +44,6 @@ export function isStatusBarStatus(value: unknown): value is StatusBarStatus {
 
 export function isProcessStatus(value: unknown): value is ProcessStatus {
   return isStringMember(value, processStatuses);
-}
-
-export function isRecordResult(value: unknown): value is RecordResult {
-  return isStringMember(value, recordResults);
 }
 
 export function isValidationLevel(value: unknown): value is ValidationLevel {

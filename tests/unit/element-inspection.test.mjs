@@ -1,9 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { barChart, button, inspectElement, select, text, textInput } from '../../dist/components/index.js';
+import {
+  barChart,
+  button,
+  inspectElement,
+  notificationHistory,
+  notificationRegion,
+  select,
+  text,
+  textInput
+} from '../../dist/components/index.js';
 import { column, surface, viewport } from '../../dist/layout/index.js';
-import { custom, customComposite } from '../../dist/component/index.js';
+import { custom } from '../../dist/component/index.js';
+import {
+  compositeRendererDefinition,
+  leafRendererDefinition
+} from '../helpers/custom-renderer.mjs';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 
 test('element inspection exposes an immutable factory description without renderer payloads', () => {
@@ -90,6 +103,7 @@ test('element inspection identifies custom renderer elements without changing di
   const element = custom({
     id: 'plug-in',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       accessibility: ({ id }) => ({ id, role: 'text', label: 'Plug-in' })
     }
@@ -97,7 +111,7 @@ test('element inspection identifies custom renderer elements without changing di
 
   const inspection = inspectElement(element);
 
-  assert.equal(inspection.kind, 'custom');
+  assert.equal(inspection.kind, 'testLeaf');
   assert.equal(inspection.category, 'extension');
   assert.equal(inspection.id, 'plug-in');
   assert.equal('renderer' in inspection, false);
@@ -107,31 +121,41 @@ test('element inspection reports factory-declared focus capability instead of ge
   const passiveCustom = custom({
     id: 'passive-custom',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       accessibility: ({ id }) => ({ id, role: 'text', label: id })
     }
   });
-  const passiveComposite = customComposite({
+  const passiveComposite = custom({
     id: 'passive-composite',
     children: [],
     renderer: {
+      ...compositeRendererDefinition,
       layout: () => [],
       accessibility: ({ id }) => ({ id, role: 'group', label: id })
     }
   });
   const passiveChart = barChart({
     id: 'passive-chart',
+    label: 'Passive chart',
     items: [{ id: 'one', label: 'One', value: 1 }]
   });
   const passiveViewport = viewport(text('content'), {
     id: 'passive-viewport',
-    scrollRow: 0,
-    scrollColumn: 0,
-    contentRows: 1,
-    contentColumns: 7
+    offset: { row: 0, column: 0 }
+  });
+  const passiveNotifications = notificationRegion({
+    id: 'passive-notifications',
+    items: [{ id: 'one', title: 'One' }]
   });
 
-  for (const element of [passiveCustom, passiveComposite, passiveChart, passiveViewport]) {
+  for (const element of [
+    passiveCustom,
+    passiveComposite,
+    passiveChart,
+    passiveViewport,
+    passiveNotifications
+  ]) {
     assert.equal(inspectElement(element).inputs.focus, 'none');
     assert.equal(renderElementFrame(element, { columns: 12, rows: 2 }).focusPath, undefined);
   }
@@ -147,6 +171,7 @@ test('element inspection reports factory-declared focus capability instead of ge
   const focusableCustom = custom({
     id: 'focusable-custom-inspection',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       accessibility: ({ id, focused }) => ({
         id,
@@ -159,10 +184,24 @@ test('element inspection reports factory-declared focus capability instead of ge
   });
   assert.equal(inspectElement(focusableCustom).inputs.focus, 'item');
 
-  const focusScope = customComposite({
+  const dismissibleNotifications = notificationRegion({
+    id: 'dismissible-notifications',
+    items: [{ id: 'one', title: 'One' }],
+    onDismiss: (id) => id
+  });
+  const notificationArchive = notificationHistory({
+    id: 'notification-archive',
+    items: [],
+    onAction: (action) => action
+  });
+  assert.equal(inspectElement(dismissibleNotifications).inputs.focus, 'item');
+  assert.equal(inspectElement(notificationArchive).inputs.focus, 'item');
+
+  const focusScope = custom({
     id: 'custom-scope-inspection',
     children: [button({ id: 'scoped-button', label: 'Scoped', onPress: () => undefined })],
     renderer: {
+      ...compositeRendererDefinition,
       layout: ({ bounds }) => [bounds],
       accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
     },
@@ -175,7 +214,8 @@ test('element inspection omits private renderer children that have no public fac
   const inspection = inspectElement(select({
     id: 'choice',
     options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
-    presentation: { kind: 'open', selected: 'alpha', highlighted: 'alpha' }
+    presentation: { kind: 'open', selected: 'alpha', highlighted: 'alpha' },
+    onAction: () => undefined
   }));
 
   assert.deepEqual(inspection.children, []);

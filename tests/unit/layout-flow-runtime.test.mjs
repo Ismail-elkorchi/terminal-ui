@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
-import { column, grid, row, splitPane, surface } from '../../dist/layout/index.js';
+import { anchored, column, flow, grid, measuredColumn, row, splitPane, surface } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
-import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
+import { measuredWindow, prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
   assert.deepEqual(
@@ -88,7 +88,12 @@ test('grid and splitPane layouts arrange common app frames', () => {
       sizes: [{ kind: 'fixed', cells: 10 }, { kind: 'fill' }, { kind: 'fixed', cells: 8 }]
     }),
     text('status', { id: 'status' }),
-    commandInput({ id: 'command', presentation: { value: '/help', cursor: 0, suggestions: [] } })
+    commandInput({
+      id: 'command',
+      presentation: { value: '/help', cursor: 0, suggestions: [] },
+      onAction: (action) => action,
+      onSubmit: (value) => value
+    })
   ], {
     id: 'workspace-frame',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],
@@ -120,15 +125,92 @@ test('splitPane content tracks use measured child width', () => {
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
 });
 
+test('flow content measurement uses the same wrapped geometry as placement', () => {
+  const element = column([
+    flow([
+      text('aaaa', { id: 'flow-first' }),
+      text('bbbb', { id: 'flow-second' }),
+      text('cccc', { id: 'flow-third' })
+    ], { id: 'wrapped-flow', direction: 'horizontal' }),
+    text('after', { id: 'after-flow' })
+  ], {
+    id: 'flow-container',
+    sizes: [{ kind: 'content' }, { kind: 'content' }]
+  });
+
+  const layout = layoutElement(element, { columns: 5, rows: 4 });
+  const frame = renderElementFrame(element, { columns: 5, rows: 4 });
+
+  assert.equal(layout.children[0]?.bounds.height, 3);
+  assert.equal(layout.children[1]?.bounds.row, 4);
+  assert.equal(renderFramePlain(frame), 'aaaa\nbbbb\ncccc\nafter');
+});
+
+test('flow and anchored layouts reject invalid runtime geometry options', () => {
+  assert.throws(
+    () => flow([text('value')], { direction: 'diagonal' }),
+    /flow\(\) direction/u
+  );
+  assert.throws(
+    () => flow([text('value')], {}),
+    /flow\(\) direction/u
+  );
+  assert.throws(
+    () => flow([text('value')], { direction: 'horizontal', gap: Number.NaN }),
+    /flow\(\) gap must be finite/u
+  );
+  assert.throws(
+    () => anchored(text('value'), {
+      anchor: { kind: 'cursor', row: Number.NaN, column: 1 }
+    }),
+    /anchor row must be finite/u
+  );
+  assert.throws(
+    () => anchored(text('value'), {
+      anchor: { kind: 'cursor', row: 1, column: 1 },
+      placement: 'diagonal'
+    }),
+    /placement must be one of/u
+  );
+});
+
+test('measuredColumn remains a semantic-neutral windowing layout', () => {
+  const window = measuredWindow({
+    items: [
+      { id: 'one', value: 'one', rows: 1 },
+      { id: 'two', value: 'two', rows: 1 },
+      { id: 'three', value: 'three', rows: 1 },
+      { id: 'four', value: 'four', rows: 1 }
+    ],
+    viewportRows: 2,
+    offsetRow: 2
+  });
+  const frame = renderElementFrame(measuredColumn(
+    window,
+    (entry) => text(entry.item.value, { id: entry.item.id }),
+    { id: 'measured-window' }
+  ), { columns: 8, rows: 2 });
+
+  assert.equal(renderFramePlain(frame), 'three\nfour');
+  assert.equal(frame.accessibility.root.role, 'text');
+  assert.deepEqual(
+    frame.accessibility.root.children?.map((child) => child.id),
+    ['three', 'four']
+  );
+  assert.equal(frame.accessibility.root.children?.some((child) => child.role === 'listitem'), false);
+});
+
 test('interactive row fills do not inflate intrinsic content tracks', () => {
   const element = row([
-    button({ id: 'back', label: 'Back' }),
-    button({ id: 'forward', label: 'Forward' }),
+    button({ id: 'back', label: 'Back', onPress: () => undefined }),
+    button({ id: 'forward', label: 'Forward', onPress: () => undefined }),
     surface(commandInput({
       id: 'address',
-      presentation: { value: 'example.test', cursor: 12, suggestions: [] }
+      presentation: { value: 'example.test', cursor: 12, suggestions: [] },
+      onAction: (action) => action,
+      onSubmit: (value) => value
     }), { appearance: 'inset' }),
-    button({ id: 'menu', label: 'Menu' })
+    button({ id: 'menu', label: 'Menu', onPress: () => undefined })
   ], {
     id: 'browser-toolbar-shape',
     gap: 1,
@@ -152,9 +234,13 @@ test('form content tracks include field labels and control gaps', () => {
   const element = column([
     form([
       field([
-        textInput({ id: 'name', presentation: { value: '', cursor: 0 } })
+        textInput({
+          id: 'name',
+          presentation: { value: '', cursor: 0 },
+          onAction: (action) => action
+        })
       ], { id: 'name-field', label: 'Name' }),
-      button({ id: 'submit', label: 'Submit' })
+      button({ id: 'submit', label: 'Submit', onPress: () => undefined })
     ], { id: 'profile-form', gap: 1 }),
     text('remaining')
   ], {
@@ -193,7 +279,7 @@ test('searchPicker content tracks use the active text-width profile', () => {
       id: 'profiled-searchPicker',
       searchPickerIndex: prepareSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
       query: '',
-      onSelect: (entry) => entry.value
+      onAction: (action) => action
     }),
     text('remaining', { id: 'profiled-searchPicker-sibling' })
   ], {
@@ -221,7 +307,7 @@ test('column children use their measured height unless a fill track is explicit'
   const compact = column([
     text('Title', { id: 'compact-title' }),
     text('Description', { id: 'compact-description' }),
-    button({ id: 'compact-action', label: 'Continue' })
+    button({ id: 'compact-action', label: 'Continue', onPress: () => undefined })
   ], { gap: 1 });
   const expanded = column([
     text('Title', { id: 'expanded-title' }),

@@ -16,9 +16,9 @@ import {
 } from '../../dist/layout/index.js';
 import {
   button,
-  canvas,
   text
 } from '../../dist/components/index.js';
+import { testCanvas as canvas } from '../helpers/canvas.mjs';
 
 test('canvas component writes styled spans through safe Canvas2D APIs', () => {
   const frame = renderElementFrame(canvas({
@@ -71,6 +71,7 @@ test('canvas painters can provide source metadata without becoming pseudo-contro
   assert.equal(frame.accessibility.root.focused, undefined);
   assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.description, 'node.label');
   assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.cellRole, 'custom');
+  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.rendererFamily, 'canvas');
 });
 
 test('Canvas2D draws curves polygons and transformed paths through the frame buffer', () => {

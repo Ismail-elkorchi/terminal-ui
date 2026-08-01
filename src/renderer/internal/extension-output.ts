@@ -5,7 +5,7 @@ import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/ind
 import type { PointerEventKind } from '../../input/index.ts';
 import type { TerminalColor, TerminalStyle } from '../../visual/render.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
-import type { CursorPosition, FocusTarget, HitTarget, Measurement, Rect } from '../contracts.ts';
+import type { CursorPosition, FocusTarget, HitTarget, Rect } from '../contracts.ts';
 
 const pointerEventKinds = new Set<PointerEventKind>([
   'pointerDown',
@@ -41,24 +41,6 @@ const rgbColorFields = new Set(['kind', 'r', 'g', 'b']);
 const themeColorFields = new Set(['kind', 'token']);
 
 type TerminalStyleFlagField = typeof terminalStyleFlagFields[number];
-
-export function assertValidCustomMeasurement(value: unknown, owner: string): asserts value is Measurement {
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Custom renderer "${owner}" measurement must be an object.`);
-  }
-  for (const field of ['minWidth', 'minHeight', 'preferredWidth', 'preferredHeight'] as const) {
-    if (!isNonNegativeSafeInteger(value[field])) {
-      throw new TypeError(`Custom renderer "${owner}" measurement ${field} must be a non-negative safe integer.`);
-    }
-  }
-  for (const field of ['maxWidth', 'maxHeight'] as const) {
-    if (value[field] !== undefined && !isNonNegativeSafeInteger(value[field])) {
-      throw new TypeError(`Custom renderer "${owner}" measurement ${field} must be a non-negative safe integer.`);
-    }
-  }
-  assertMeasurementAxis(value, owner, 'Width');
-  assertMeasurementAxis(value, owner, 'Height');
-}
 
 export function normalizeCustomFocusTargets(
   value: unknown,
@@ -298,22 +280,6 @@ function isColorChannel(value: unknown): value is number {
 
 function isSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value);
-}
-
-function assertMeasurementAxis(
-  value: Record<string, unknown>,
-  owner: string,
-  suffix: 'Width' | 'Height'
-): void {
-  const min = value[`min${suffix}`] as number;
-  const preferred = value[`preferred${suffix}`] as number;
-  const max = value[`max${suffix}`] as number | undefined;
-  if (preferred < min) {
-    throw new RangeError(`Custom renderer "${owner}" preferred${suffix} must not be less than min${suffix}.`);
-  }
-  if (max !== undefined && (max < min || preferred > max)) {
-    throw new RangeError(`Custom renderer "${owner}" ${suffix.toLowerCase()} measurement must satisfy min <= preferred <= max.`);
-  }
 }
 
 function assertPointerFocusIntent(value: unknown, owner: string, id: string): void {

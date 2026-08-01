@@ -13,6 +13,7 @@ import { layoutInsetSize } from '../layout-geometry.ts';
 import { numberProp } from '../render-node-props.ts';
 import { tabsHeaderText } from './support/tabs.ts';
 import { childMeasurements } from './measurement-support.ts';
+import { flowGeometry } from './support/flow.ts';
 import type { RendererMeasurementMap } from './types.ts';
 
 export const layoutMeasurements = {
@@ -24,13 +25,32 @@ export const layoutMeasurements = {
     childMeasurements(childCount, measureChild),
     finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap'))
   ),
-  viewport: ({ renderNode, childCount, measureChild }) => {
-    const content = combineMeasurementsOverlay(childMeasurements(childCount, measureChild));
+  flow: ({ renderNode, bounds, childCount, measureChild }) => {
+    const children = childMeasurements(childCount, measureChild);
+    const geometry = flowGeometry(
+      renderNode.props.direction,
+      renderNode.props.direction === 'horizontal' ? bounds.width : bounds.height,
+      finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'gap')),
+      finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'lineGap')),
+      children
+    );
     return measureSize(
-      Math.max(content.preferredWidth, finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'contentColumns'))),
-      Math.max(content.preferredHeight, finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'contentRows')))
+      geometry.width,
+      geometry.height,
+      children.reduce((maximum, child) => Math.max(maximum, child.minWidth), 0),
+      children.reduce((maximum, child) => Math.max(maximum, child.minHeight), 0)
     );
   },
+  measuredColumn: ({ renderNode, childCount, measureChild }) => {
+    const children = childMeasurements(childCount, measureChild);
+    const preferredWidth = children.reduce(
+      (largest, child) => Math.max(largest, child.preferredWidth),
+      0
+    );
+    return measureSize(preferredWidth, renderNode.props.viewportRows);
+  },
+  viewport: ({ childCount, measureChild }) =>
+    combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),
   grid: ({ childCount, measureChild }) => combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),
   splitPane: ({ childCount, measureChild }) => combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),
   tabs: ({ renderNode, theme, widthProfile, childCount, measureChild }) => {
@@ -82,4 +102,4 @@ export const layoutMeasurements = {
       ...(maxHeight === undefined ? {} : { maxHeight })
     });
   }
-} satisfies RendererMeasurementMap<'row' | 'column' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;
+} satisfies RendererMeasurementMap<'row' | 'column' | 'flow' | 'measuredColumn' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;

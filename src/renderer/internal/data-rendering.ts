@@ -4,7 +4,7 @@ import type { RenderNodeOfKind } from '../model/index.ts';
 import { terminalTextWidth } from '../../text/index.ts';
 import { dataSource, dataSpan } from './data-visual.ts';
 import { numberProp, stringify } from './render-node-props.ts';
-import { resolveRenderNodeStyle } from './render-node-style.ts';
+import { resolveRenderNodeStyle } from '../style-resolution.ts';
 import type { Rect } from '../contracts.ts';
 import type { HitTarget } from '../contracts.ts';
 import type { RenderBlock, RenderSpan } from '../../visual/render.ts';

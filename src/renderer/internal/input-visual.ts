@@ -4,7 +4,7 @@ import { block, line, padRenderLine, span } from './frame.ts';
 import { formSource, type FormVisualKind } from './form-visual.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
-import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
+import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from '../style-resolution.ts';
 import type { TextAreaHighlight } from '../../ui-model/content.ts';
 import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';

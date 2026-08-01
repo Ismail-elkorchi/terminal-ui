@@ -534,20 +534,22 @@ test('table and paginator compose explicitly over a bounded page', () => {
       presentation: { selectedRowId: '0' },
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
-      rows: rows.slice(page.startIndex, page.endIndexExclusive)
+      rows: rows.slice(page.startIndex, page.endIndexExclusive),
+      onAction: (action) => action
     }),
     paginator({
       id: 'fleet-pages-paginator',
       label: 'Fleet',
       pageNumber: page.pageNumber,
-      pageCount: page.pageCount
+      pageCount: page.pageCount,
+      onAction: (action) => action
     })
-  ]), { columns: 24, rows: 5 });
+  ]), { columns: 40, rows: 5 });
 
   const output = renderFramePlain(frame);
   assert.match(output, /Pulse/u);
   assert.doesNotMatch(output, /Aster/u);
-  assert.match(output, /Fleet Page 2 of 3/u);
+  assert.match(output, /Fleet.*Page 2 of 3/u);
   assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.description, 'label');
   assert.equal(frame.cells.find((cell) => cell.text === '2')?.source?.description, 'page.value');
   assert.equal(frame.cells.find((cell) => cell.text === '3')?.source?.description, 'page.count');

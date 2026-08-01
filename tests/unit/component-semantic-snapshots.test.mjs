@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
+import {
+  measuredWindow,
+  prepareSearchPickerIndex,
+  prepareLogHistory
+} from '../../dist/behavior/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 import {
@@ -16,7 +20,10 @@ import { renderFramePlain,
 } from '../../dist/renderer/index.js';
 import {
   absolute,
+  anchored,
+  flow,
   grid,
+  measuredColumn,
   overlay,
   row,
   splitPane,
@@ -25,8 +32,7 @@ import {
   viewport
 } from '../../dist/layout/index.js';
 import {
-  activityFeed,
-  statusIndicator,
+  activityIndicator,
   barChart,
   button,
   canvas,
@@ -38,6 +44,7 @@ import {
   colorSwatchPicker,
   calendar,
   dialog,
+  disclosure,
   divider,
   dropdownMenu,
   field,
@@ -52,7 +59,8 @@ import {
   list,
   menu,
   menuBar,
-  notificationStack,
+  notificationRegion,
+  notificationHistory,
   numberInput,
   paginator,
   passwordInput,
@@ -64,9 +72,7 @@ import {
   logViewer,
   select,
   sparkline,
-  spinner,
   statusBar,
-  structuredBlock,
   slider,
   table,
   text,
@@ -127,25 +133,6 @@ const treeNodes = [
   }
 ];
 
-const blocks = [
-  {
-    id: 'queued',
-    title: unsafe,
-    result: 'pending',
-    summary: 'Waiting',
-    fields: [{ label: 'owner', value: 'scheduler' }],
-    body: 'Body'
-  },
-  {
-    id: 'running',
-    title: 'Running',
-    result: 'running',
-    summary: 'Working',
-    fields: [{ label: 'worker', value: 'one' }],
-    body: 'Details'
-  }
-];
-
 const cases = [
   {
     name: 'text',
@@ -180,12 +167,36 @@ const cases = [
     expectText: /Unsafe red text/u
   },
   {
+    name: 'flow',
+    element: () => flow([
+      text(unsafe, { id: 'flow-one' }),
+      text('Second', { id: 'flow-two' })
+    ], { id: 'flow', direction: 'horizontal', gap: 1 }),
+    expectText: /Second/u
+  },
+  {
+    name: 'measuredColumn',
+    element: () => measuredColumn(
+      measuredWindow({
+        items: [
+          { id: 'first', value: unsafe, rows: 1 },
+          { id: 'second', value: 'Second', rows: 1 }
+        ],
+        viewportRows: 2
+      }),
+      (entry) => text(entry.item.value, { id: `measured-${entry.item.id}` }),
+      { id: 'measured-column' }
+    ),
+    expectText: /Second/u
+  },
+  {
     name: 'list',
     element: () => list({
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'list',
       items: [unsafe, 'Second', 'Third'],
-      selectedId: 'Second'
+      selectedId: 'Second',
+      onAction: (action) => action
     }),
     expectText: /Second/u,
     expectFocus: true
@@ -199,7 +210,8 @@ const cases = [
       presentation: { selectedRowId: '1' },
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }, {
-        id: 'status-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Status' }]
+        id: 'status-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Status' }],
+      onAction: (action) => action
     }),
     expectText: /Name/u
   },
@@ -217,19 +229,48 @@ const cases = [
   },
   {
     name: 'paginator',
-    element: () => paginator({ id: 'pages', label: unsafe, pageNumber: 2, pageCount: 3 }),
+    element: () => paginator({
+      id: 'pages',
+      label: unsafe,
+      pageNumber: 2,
+      pageCount: 3,
+      onAction: (action) => action
+    }),
     expectText: /Page 2 of 3/u
   },
   {
     name: 'textArea',
-    element: () => textArea({ id: 'text-area', presentation: { document: prepareTextDocument(`${unsafe}\nSecond`), caret: textCaretAt(3 )}, }),
+    element: () => textArea({
+      id: 'text-area',
+      presentation: { document: prepareTextDocument(`${unsafe}\nSecond`), caret: textCaretAt(3 )},
+      onAction: (action) => action
+    }),
     expectText: /Second/u,
     expectFocus: true
   },
   {
+    name: 'disclosure',
+    element: () => disclosure(
+      text('Details', { id: 'disclosure-panel' }),
+      {
+        id: 'disclosure',
+        label: unsafe,
+        expanded: true,
+        onAction: (action) => action
+      }
+    ),
+    expectText: /Details/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
     name: 'form',
     element: () => form([
-      field(textInput({ id: 'form-input', presentation: { value: unsafe, cursor: 0 } }), { id: 'form-field', label: 'Name' }),
+      field(textInput({
+        id: 'form-input',
+        presentation: { value: unsafe, cursor: 0 },
+        onAction: (action) => action
+      }), { id: 'form-field', label: 'Name' }),
       button({ id: 'form-submit', label: 'Submit', onPress: () => ({ kind: 'submit' }) })
     ], { id: 'form', title: unsafe }),
     expectText: /Submit/u,
@@ -238,7 +279,11 @@ const cases = [
   },
   {
     name: 'field',
-    element: () => field(textInput({ id: 'field-input', presentation: { value: unsafe, cursor: 0 } }), {
+    element: () => field(textInput({
+      id: 'field-input',
+      presentation: { value: unsafe, cursor: 0 },
+      onAction: (action) => action
+    }), {
       id: 'field',
       label: unsafe,
       description: 'Description',
@@ -251,7 +296,11 @@ const cases = [
     name: 'label',
     element: () => form([
       label({ id: 'label', forId: 'label-target', text: unsafe, required: true }),
-      textInput({ id: 'label-target', presentation: { value: '', cursor: 0 } })
+      textInput({
+        id: 'label-target',
+        presentation: { value: '', cursor: 0 },
+        onAction: (action) => action
+      })
     ], { id: 'label-form' }),
     expectText: /Unsafe red text/u,
     expectFocus: true
@@ -375,7 +424,11 @@ const cases = [
   },
   {
     name: 'textInput',
-    element: () => textInput({ id: 'text-input', presentation: { value: unsafe, cursor: 2 }, }),
+    element: () => textInput({
+      id: 'text-input',
+      presentation: { value: unsafe, cursor: 2 },
+      onAction: (action) => action
+    }),
     expectText: /Unsafe red text/u,
     expectFocus: true
   },
@@ -383,7 +436,8 @@ const cases = [
     name: 'passwordInput',
     element: () => passwordInput({
       id: 'password-input',
-      presentation: { value: 'secret', cursor: 6 }
+      presentation: { value: 'secret', cursor: 6 },
+      onAction: (action) => action
     }),
     expectText: /••••••/u,
     expectFocus: true
@@ -392,7 +446,8 @@ const cases = [
     name: 'numberInput',
     element: () => numberInput({
       id: 'number-input',
-      presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42, min: 1, max: 99 }
+      presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42, min: 1, max: 99 },
+      onAction: (action) => action
     }),
     expectText: /42/u,
     expectFocus: true
@@ -448,6 +503,7 @@ const cases = [
     element: () => canvas({
       id: 'canvas',
       label: unsafe,
+      measurement: { minWidth: 0, minHeight: 0, preferredWidth: 16, preferredHeight: 1 },
       painter({ canvas }) {
         canvas.text(0, 0, [renderSpan(unsafe, { style: { fg: { kind: 'theme', token: 'accent.primary' } } })]);
       }
@@ -495,8 +551,8 @@ const cases = [
     expectText: /Unsafe red text/u
   },
   {
-    name: 'statusIndicator',
-    element: () => statusIndicator({ id: 'activity-indicator', label: unsafe, status: 'running' }),
+    name: 'activityIndicator',
+    element: () => activityIndicator({ id: 'activity-indicator', label: unsafe, status: 'running' }),
     expectText: /Unsafe red text/u
   },
   {
@@ -505,26 +561,42 @@ const cases = [
     expectText: /Unsafe red text/u
   },
   {
-    name: 'notificationStack',
-    element: () => notificationStack({
+    name: 'notificationRegion',
+    element: () => notificationRegion({
       id: 'notifications',
-      presentation: { kind: 'live', items: [
+      items: [
         { id: 'warning', title: unsafe, message: 'Check route', tone: 'warning' }
-      ] },
+      ],
       maxWidth: 32
     }),
     expectText: /Unsafe red text/u,
     expectStyledCells: true
   },
   {
+    name: 'notificationHistory',
+    element: () => notificationHistory({
+      id: 'notification-history',
+      items: [{
+        id: 'completed',
+        title: unsafe
+      }],
+      selectedId: 'completed',
+      onAction: (action) => action
+    }),
+    expectText: /Unsafe red text/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
     name: 'sparkline',
-    element: () => sparkline({ id: 'sparkline', values: [0, 1, 2, 3] }),
+    element: () => sparkline({ id: 'sparkline', label: 'Trend', values: [0, 1, 2, 3] }),
     expectText: /[▁#]/u
   },
   {
     name: 'barChart',
     element: () => barChart({
       id: 'bar-chart',
+      label: 'Bars',
       selectedId: 'second',
       items: [{ id: 'unsafe', label: unsafe, value: 2 }, { id: 'second', label: 'Second', value: 4 }]
     }),
@@ -532,7 +604,19 @@ const cases = [
   },
   {
     name: 'chart',
-    element: () => chart({ id: 'chart', series: [{ id: 'series', label: unsafe, points: [0, 2, 1, 3] }] }),
+    element: () => chart({
+      id: 'chart',
+      label: 'Chart',
+      series: [{
+        id: 'series',
+        label: unsafe,
+        points: [0, 2, 1, 3].map((value, index) => ({
+          id: `point-${String(index)}`,
+          label: `Point ${String(index + 1)}`,
+          value
+        }))
+      }]
+    }),
     expectText: /\*/u
   },
   {
@@ -544,11 +628,12 @@ const cases = [
     name: 'heatmap',
     element: () => heatmap({
       id: 'heatmap',
+      label: 'Heatmap',
       rows: [
         [{ id: 'a', label: unsafe, value: 1 }, { id: 'b', label: 'Beta', value: 3 }],
         [{ id: 'c', label: 'Gamma', value: 5 }]
       ],
-      selected: { rowIndex: 0, columnIndex: 1 },
+      selected: { id: 'b' },
       keys: { enter: () => ({ kind: 'heatmap-enter' }) },
       onAction: (action) => ({ kind: 'heatmap', action })
     }),
@@ -557,16 +642,10 @@ const cases = [
     expectHitTargets: true
   },
   {
-    name: 'spinner',
-    element: () => spinner({ id: 'spinner', label: unsafe }),
-    expectText: /Unsafe red text/u
-  },
-  {
     name: 'viewport',
     element: () => viewport(text(`${unsafe}\nSecond`, { id: 'viewport-child' }), {
       id: 'viewport',
-      scrollRow: 1,
-      contentRows: 2
+      offset: { row: 1 }
     }),
     expectText: /Second/u
   },
@@ -583,21 +662,13 @@ const cases = [
     expectText: /Second/u
   },
   {
-    name: 'structuredBlock',
-    element: () => structuredBlock(blocks[0]),
-    expectText: /scheduler/u
-  },
-  {
-    name: 'activityFeed',
-    element: () => activityFeed({ id: 'activity-feed', blocks, selectedId: 'running' }),
-    expectText: /Running/u
-  },
-  {
     name: 'commandInput',
     element: () => commandInput({
       id: 'command-input',
       presentation: { value: unsafe, cursor: 0, suggestions: [{ value: 'open', label: unsafe, description: 'Open action' }], selectedSuggestionIndex: 0 },
       prompt: '>',
+      onAction: (action) => action,
+      onSubmit: (value) => value
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true
@@ -611,7 +682,8 @@ const cases = [
         { id: 'alpha', label: unsafe, value: 'alpha', preview: 'Preview' },
         { id: 'beta', label: 'Beta', value: 'beta', disabled: true }
       ]),
-      selectedId: 'alpha'
+      selectedId: 'alpha',
+      onAction: (action) => action
     }),
     expectText: /Preview/u,
     expectFocus: true
@@ -626,6 +698,17 @@ const cases = [
       rows: [{ kind: 'fr', value: 1 }],
       columns: [{ kind: 'fr', value: 1 }, { kind: 'fr', value: 1 }]
     }),
+    expectText: /Unsafe red text/u
+  },
+  {
+    name: 'anchored',
+    element: () => anchored(
+      text(unsafe, { id: 'anchored-child' }),
+      {
+        id: 'anchored',
+        anchor: { kind: 'cursor', row: 1, column: 1 }
+      }
+    ),
     expectText: /Unsafe red text/u
   },
   {
@@ -648,7 +731,8 @@ const cases = [
       tabs: [
         { id: 'first', label: unsafe, panel: text('Panel one', { id: 'panel-one' }) },
         { id: 'second', label: 'Second', panel: text('Panel two', { id: 'panel-two' }), disabled: true }
-      ]
+      ],
+      onAction: (action) => action
     }),
     expectText: /Panel one/u
   },

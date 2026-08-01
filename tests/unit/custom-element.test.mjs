@@ -11,19 +11,62 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { button, text } from '../../dist/components/index.js';
-import { custom, customComposite } from '../../dist/component/index.js';
+import { custom } from '../../dist/component/index.js';
+import {
+  compositeRendererDefinition,
+  leafRendererDefinition
+} from '../helpers/custom-renderer.mjs';
 import {
   splitPane,
   column,
+  overlay,
   row,
   viewport
 } from '../../dist/layout/index.js';
 
+test('clipped custom composites preserve descendant layers and interaction', () => {
+  const clipped = custom({
+    id: 'clipped-composite',
+    children: [button({
+      id: 'elevated-action',
+      label: 'TOP',
+      onPress: () => ({ kind: 'activate' }),
+      meta: { layer: { zIndex: 20 } }
+    })],
+    renderer: {
+      ...compositeRendererDefinition,
+      clipChildren: true,
+      layout: ({ bounds }) => [bounds],
+      accessibility: ({ id, children }) => ({
+        id,
+        role: 'group',
+        label: 'Clipped composite',
+        children
+      })
+    }
+  });
+  const element = overlay([
+    clipped,
+    text('LOWER', { id: 'lower-layer', meta: { layer: { zIndex: 10 } } })
+  ]);
+
+  const regions = renderElementRegions(element, { columns: 8, rows: 1 });
+  const frame = renderElementFrame(element, { columns: 8, rows: 1 });
+  const elevated = regions.find((region) => region.zIndex === 20);
+
+  assert.deepEqual(regions.map((region) => region.zIndex), [0, 10, 20]);
+  assert.equal(frame.cells.some((cell) => cell.source?.elementId === 'elevated-action'), true);
+  assert.equal(elevated?.focusTargets.some((target) => target.elementId === 'elevated-action'), true);
+  assert.equal(elevated?.hitTargets.some((target) => target.id === 'elevated-action:control'), true);
+});
+
 test('custom renderers render through required renderer contract', () => {
   let observedFocus;
   const renderer = {
+    ...leafRendererDefinition,
     render({ state, bounds, target, focus }) {
       observedFocus = focus;
       target.write(bounds.row, bounds.column, [{
@@ -54,7 +97,16 @@ test('custom renderers render through required renderer contract', () => {
 
   assert.equal(renderFramePlain(frame), 'XO');
   assert.match(addressed, /\u001B\[H/u);
-  assert.deepEqual(frame.cursor, { row: 1, column: 2 });
+  assert.deepEqual(frame.cursor, {
+    row: 1,
+    column: 2,
+    source: {
+      elementId: 'custom-board',
+      elementKind: 'testLeaf',
+      rendererFamily: 'extension',
+      cellRole: 'custom'
+    }
+  });
   assert.equal(frame.accessibility.root.role, 'button');
   assert.equal(frame.accessibility.root.label, 'XO');
   assert.equal(frame.accessibility.root.focused, true);
@@ -65,6 +117,7 @@ test('custom accessibility focus must agree with resolved frame focus', () => {
   const focusedWithoutAccessibleFocus = custom({
     id: 'focus-without-accessible-focus',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       accessibility: ({ id }) => ({ id, role: 'button', label: id }),
       focusTargets: ({ bounds }) => [{ id: 'self', bounds }]
@@ -78,6 +131,7 @@ test('custom accessibility focus must agree with resolved frame focus', () => {
   const passiveWithAccessibleFocus = custom({
     id: 'passive-with-accessible-focus',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       accessibility: ({ id }) => ({
         id,
@@ -101,6 +155,7 @@ test('target-shaped custom accessibility must identify the resolved focus target
   const wrongTarget = custom({
     id: 'wrong-target-focus',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       focusTargets,
       accessibility: ({ id }) => ({
@@ -126,6 +181,7 @@ test('target-shaped custom accessibility must identify the resolved focus target
   const matchingTarget = custom({
     id: 'matching-target-focus',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       focusTargets,
       accessibility: ({ id, focusedTargetId }) => ({
@@ -154,6 +210,7 @@ test('target-shaped custom accessibility must identify the resolved focus target
   const flattened = custom({
     id: 'flattened-target-focus',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       focusTargets,
       accessibility: ({ id, focusedTargetId }) => ({
@@ -177,6 +234,7 @@ test('target-shaped custom accessibility must identify the resolved focus target
 
 test('custom renderer output preserves metadata and sanitizes terminal controls', () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{
         text: '\u001B[31mUnsafe\u001B[0m red \u0007text',
@@ -206,9 +264,9 @@ test('custom renderer output preserves metadata and sanitizes terminal controls'
   assert.equal(renderFramePlain(frame), 'Unsafe red text');
   assert.deepEqual(first?.link, { href: 'https://example.test/red', id: 'link' });
   assert.deepEqual(first?.source, {
-    elementId: 'custom-source',
-    elementKind: 'custom-renderer',
-    rendererFamily: 'custom',
+    elementId: 'sanitized-custom',
+    elementKind: 'testLeaf',
+    rendererFamily: 'extension',
     cellRole: 'custom',
     description: 'unsafe-source'
   });
@@ -220,20 +278,28 @@ test('custom renderer output preserves metadata and sanitizes terminal controls'
 test('custom render targets are frozen write-only capabilities clipped to element bounds', () => {
   const observedTargets = [];
   const extension = (kind) => {
-    const renderer = {
+    const draw = ({ bounds, target }) => {
+      observedTargets.push(target);
+      const { clear, write, writeCell } = target;
+      clear({ row: bounds.row, column: 1, width: 4, height: 1 });
+      write(bounds.row, 1, [{ text: 'OVERWRITE' }]);
+      writeCell({ row: bounds.row, column: bounds.column, text: 'X', width: 1 });
+      write(bounds.row, bounds.column, [{ text: 'RIGHT' }]);
+    };
+    const renderer = kind === 'composite' ? {
+      ...compositeRendererDefinition,
+      layout: () => [],
+      renderBeforeChildren: draw,
+      accessibility: ({ id }) => ({ id, role: 'text', label: kind })
+    } : {
+      ...leafRendererDefinition,
       render({ bounds, target }) {
-        observedTargets.push(target);
-        const { clear, write, writeCell } = target;
-        clear({ row: bounds.row, column: 1, width: 4, height: 1 });
-        write(bounds.row, 1, [{ text: 'OVERWRITE' }]);
-        writeCell({ row: bounds.row, column: bounds.column, text: 'X', width: 1 });
-        write(bounds.row, bounds.column, [{ text: 'RIGHT' }]);
+        draw({ bounds, target });
       },
-      accessibility: ({ id }) => ({ id, role: 'text', label: kind }),
-      ...(kind === 'composite' ? { layout: () => [] } : {})
+      accessibility: ({ id }) => ({ id, role: 'text', label: kind })
     };
     return kind === 'composite'
-      ? customComposite({ id: kind, children: [], renderer })
+      ? custom({ id: kind, children: [], renderer })
       : custom({ id: kind, renderer });
   };
 
@@ -270,6 +336,7 @@ test('custom extension accessibility and interaction outputs are validated befor
     () => renderElementFrame(custom({
       id: 'invalid-accessibility',
       renderer: {
+        ...leafRendererDefinition,
         render() {},
         accessibility: () => ({ id: '', role: 'invalid' })
       }
@@ -281,6 +348,7 @@ test('custom extension accessibility and interaction outputs are validated befor
     () => renderElementFrame(custom({
       id: 'invalid-hit-bounds',
       renderer: {
+      ...leafRendererDefinition,
         render() {},
         accessibility: ({ id }) => ({ id, role: 'button', label: id }),
         hitTargets: () => [{
@@ -297,6 +365,7 @@ test('custom extension accessibility and interaction outputs are validated befor
     () => renderElementFrame(custom({
       id: 'duplicate-focus',
       renderer: {
+      ...leafRendererDefinition,
         render() {},
         accessibility: ({ id }) => ({ id, role: 'group', label: id }),
         focusTargets: ({ bounds }) => [
@@ -328,6 +397,7 @@ test('custom extension styles reject values outside the public frame contract', 
       () => renderElementFrame(custom({
         id: `${id}-drawing`,
         renderer: {
+      ...leafRendererDefinition,
           render({ bounds, target }) {
             target.write(bounds.row, bounds.column, [{ text: 'X', style }]);
           },
@@ -341,6 +411,7 @@ test('custom extension styles reject values outside the public frame contract', 
       () => renderElementFrame(custom({
         id: `${id}-cursor`,
         renderer: {
+      ...leafRendererDefinition,
           render() {},
           accessibility: ({ id: elementId, focused }) => ({
             id: elementId,
@@ -372,6 +443,7 @@ test('custom extension styles are admitted as canonical copies', () => {
   const element = custom({
     id: 'canonical-extension-styles',
     renderer: {
+      ...leafRendererDefinition,
       render({ bounds, target }) {
         target.write(bounds.row, bounds.column, [{ text: 'XY', style: drawingStyle }]);
         drawingStyle.fg.r = Number.NaN;
@@ -415,6 +487,7 @@ test('custom focus and hit targets cannot claim sibling bounds', () => {
   const extension = custom({
     id: 'bounded-interaction',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       accessibility: ({ id }) => ({ id, role: 'button', label: id }),
       focusTargets: () => [{
@@ -441,6 +514,7 @@ test('custom focus and hit targets cannot claim sibling bounds', () => {
 
 test('custom renderer hit targets route mouse messages', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'hit' }]);
     },
@@ -484,6 +558,7 @@ test('custom renderer measurement participates in content track layout', () => {
   const measured = custom({
     id: 'measured-custom',
     renderer: {
+      ...leafRendererDefinition,
       measure() {
         return {
           minWidth: 3,
@@ -522,6 +597,7 @@ test('layout measures children only for content-sized tracks', () => {
   const measured = custom({
     id: 'demand-measured-custom',
     renderer: {
+      ...leafRendererDefinition,
       measure() {
         measurementCalls += 1;
         return {
@@ -566,6 +642,7 @@ test('custom measurements are cached by complete bounds rather than dimensions a
   const positioned = custom({
     id: 'position-measured-custom',
     renderer: {
+      ...leafRendererDefinition,
       measure({ bounds }) {
         measuredColumns.push(bounds.column);
         return {
@@ -600,10 +677,11 @@ test('custom measurements are cached by complete bounds rather than dimensions a
 test('custom composites derive intrinsic size from opaque children under the active width profile', () => {
   let measuredProfile;
   let measuredChildren = 0;
-  const composite = customComposite({
+  const composite = custom({
     id: 'measured-composite',
     children: [text('··', { id: 'ambiguous-child' })],
     renderer: {
+      ...compositeRendererDefinition,
       measure({ childCount, measureChild, widthProfile }) {
         measuredProfile = widthProfile;
         measuredChildren = childCount;
@@ -634,6 +712,7 @@ test('custom extension hooks have the same receiver-independent invocation contr
   const plain = custom({
     id: 'receiver-free-custom',
     renderer: {
+      ...leafRendererDefinition,
       render() {
         receivers.push(this);
       },
@@ -643,15 +722,16 @@ test('custom extension hooks have the same receiver-independent invocation contr
       }
     }
   });
-  const composite = customComposite({
+  const composite = custom({
     id: 'receiver-free-composite',
     children: [text('child')],
     renderer: {
+      ...compositeRendererDefinition,
       layout({ bounds }) {
         receivers.push(this);
         return [bounds];
       },
-      render() {
+      renderBeforeChildren() {
         receivers.push(this);
       },
       accessibility({ id }) {
@@ -672,6 +752,7 @@ test('invalid custom measurements are rejected instead of silently normalized', 
   const element = custom({
     id: 'invalid-measurement',
     renderer: {
+      ...leafRendererDefinition,
       measure: () => ({
         minWidth: 4,
         minHeight: 1,
@@ -690,13 +771,22 @@ test('invalid custom measurements are rejected instead of silently normalized', 
 });
 
 test('custom composites accept clipped child coordinates inside a scrolled parent', () => {
-  const composite = customComposite({
+  const composite = custom({
     id: 'scrolled-composite',
     children: [
       text('offscreen', { id: 'offscreen-child' }),
       text('visible', { id: 'visible-child' })
     ],
     renderer: {
+      ...compositeRendererDefinition,
+      measure() {
+        return {
+          minWidth: 1,
+          minHeight: 1,
+          preferredWidth: 12,
+          preferredHeight: 9
+        };
+      },
       layout({ bounds }) {
         return [
           { ...bounds, height: 1 },
@@ -710,9 +800,7 @@ test('custom composites accept clipped child coordinates inside a scrolled paren
   });
   const frame = renderElementFrame(viewport(composite, {
     id: 'scrolled-composite-viewport',
-    scrollRow: 8,
-    contentRows: 12,
-    contentColumns: 12
+    offset: { row: 8 }
   }), { columns: 12, rows: 3 });
 
   assert.match(renderFramePlain(frame), /visible/u);
@@ -720,10 +808,11 @@ test('custom composites accept clipped child coordinates inside a scrolled paren
 });
 
 test('custom composites still reject invalid sizes and relative overflow', () => {
-  const composite = (layout) => customComposite({
+  const composite = (layout) => custom({
     id: 'invalid-composite',
     children: [text('child')],
     renderer: {
+      ...compositeRendererDefinition,
       layout,
       accessibility({ id }) {
         return { id, role: 'group', label: 'Invalid composite' };
@@ -751,21 +840,73 @@ test('custom composites still reject invalid sizes and relative overflow', () =>
 
 test('malformed custom renderers fail as programmer errors', () => {
   assert.throws(
+    () => custom({
+      id: 'unsupported-placement',
+      renderer: {
+        ...leafRendererDefinition,
+        place: ({ bounds }) => bounds,
+        render() {},
+        accessibility: ({ id }) => ({ id, role: 'text', label: id })
+      }
+    }),
+    /must omit the unsupported place field/u
+  );
+  assert.throws(
     () => custom({ id: 'bad-renderer', renderer: undefined }),
-    /Custom renderer must be an object/u
+    /Custom renderer kind must be "leaf" or "composite"/u
   );
   assert.throws(
     () => custom({ id: 'array-renderer', renderer: [] }),
-    /Custom renderer must be an object/u
+    /Custom renderer kind must be "leaf" or "composite"/u
   );
   assert.throws(
-    () => customComposite({ id: 'array-composite-renderer', renderer: [], children: [] }),
-    /Custom composite renderer must be an object/u
+    () => custom({ id: 'array-composite-renderer', renderer: [], children: [] }),
+    /Custom renderer kind must be "leaf" or "composite"/u
+  );
+  assert.throws(
+    () => custom({
+      id: 'obsolete-composite-render',
+      children: [text('child')],
+      renderer: {
+        ...compositeRendererDefinition,
+        layout: ({ bounds }) => [bounds],
+        render() {},
+        accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
+      }
+    }),
+    /must omit the leaf-only render field/u
+  );
+  assert.throws(
+    () => custom({
+      id: 'composite-hook-on-leaf',
+      renderer: {
+        ...leafRendererDefinition,
+        render() {},
+        renderAfterChildren() {},
+        accessibility: ({ id }) => ({ id, role: 'group', label: id })
+      }
+    }),
+    /must omit the composite-only renderAfterChildren field/u
+  );
+  assert.throws(
+    () => custom({
+      id: 'unsafe-name',
+      renderer: {
+        ...leafRendererDefinition,
+        name: 'unsafe\u001B[31m',
+        render() {},
+        accessibility({ id }) {
+          return { id, role: 'group', label: 'Unsafe' };
+        }
+      }
+    }),
+    /name must start with an ASCII letter/u
   );
   assert.throws(
     () => custom({
       id: 'bad-accessibility-hook',
       renderer: {
+        ...leafRendererDefinition,
         render() {},
         accessibility: 'not-a-function'
       }
@@ -778,6 +919,7 @@ test('custom renderer hook results are not replaced with renderer fallbacks', ()
   const element = custom({
     id: 'missing-accessibility-result',
     renderer: {
+      ...leafRendererDefinition,
       render() {},
       accessibility() {
         return undefined;
@@ -792,6 +934,7 @@ test('custom renderer hook results are not replaced with renderer fallbacks', ()
 
 test('custom renderer focus targets require stable ids', () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'focus' }]);
     },
@@ -811,6 +954,7 @@ test('custom renderer focus targets require stable ids', () => {
 
 test('custom renderer hit targets resolve explicitly declared focus targets', () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'focusable' }]);
     },
@@ -848,6 +992,15 @@ test('custom renderer hit targets resolve explicitly declared focus targets', ()
 test('viewport bounds custom rendering, focus, pointer, and accessibility to one visible window', () => {
   const observedViewports = [];
   const renderer = {
+    ...leafRendererDefinition,
+    measure({ state }) {
+      return {
+        minWidth: 1,
+        minHeight: 1,
+        preferredWidth: Math.max(...state.rows.map((line) => line.length)),
+        preferredHeight: state.rows.length
+      };
+    },
     render({ state, bounds, viewport: visible, target }) {
       observedViewports.push(visible);
       for (let index = 0; index < state.rows.length; index += 1) {
@@ -894,9 +1047,7 @@ test('viewport bounds custom rendering, focus, pointer, and accessibility to one
     renderer
   }), {
     id: 'rows-window',
-    scrollRow: 2,
-    contentRows: 5,
-    contentColumns: 8
+    offset: { row: 2 }
   }), { columns: 8, rows: 2 });
 
   assert.match(renderFramePlain(frame), /^two↑\nthree$/u);
@@ -914,6 +1065,7 @@ test('viewport bounds custom rendering, focus, pointer, and accessibility to one
 
 test('custom renderer hit targets reject unavailable focus targets', () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'invalid' }]);
     },
@@ -941,6 +1093,7 @@ test('custom renderer hit targets reject unavailable focus targets', () => {
 
 test('custom renderers must provide accessibility unless explicitly decorative', () => {
   const visualRenderer = {
+    ...leafRendererDefinition,
     measure() {
       return {
         minWidth: 1,
@@ -976,6 +1129,7 @@ test('decorative custom extensions reject unreachable accessibility hooks', () =
     () => custom({
       id: 'decorative-custom-dead-accessibility',
       renderer: {
+      ...leafRendererDefinition,
         render() {},
         accessibility: ({ id }) => {
           accessibilityCalls += 1;
@@ -987,10 +1141,11 @@ test('decorative custom extensions reject unreachable accessibility hooks', () =
     /marked decorative must omit the accessibility hook/u
   );
   assert.throws(
-    () => customComposite({
+    () => custom({
       id: 'decorative-composite-dead-accessibility',
       children: [text('ornament')],
       renderer: {
+      ...compositeRendererDefinition,
         layout: ({ bounds }) => [bounds],
         accessibility: ({ id }) => {
           accessibilityCalls += 1;
@@ -1006,6 +1161,7 @@ test('decorative custom extensions reject unreachable accessibility hooks', () =
 
 test('decorative custom renderers cannot expose interaction targets', () => {
   const interactiveRenderer = {
+    ...leafRendererDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'button' }]);
     },
@@ -1038,7 +1194,7 @@ test('decorative elements reject interaction throughout their subtree', () => {
   assert.throws(
     () => renderElementFrame(custom({
       id: 'decorative-pointer',
-      renderer: { render() {} },
+      renderer: { ...leafRendererDefinition, render() {} },
       pointer: { onAction: () => ({ kind: 'pointer' }) },
       meta: { accessibility: { decorative: true } }
     }), { columns: 12, rows: 1 }),
@@ -1047,10 +1203,11 @@ test('decorative elements reject interaction throughout their subtree', () => {
 });
 
 test('decorative custom composites do not require an unreachable accessibility hook', () => {
-  const frame = renderElementFrame(customComposite({
+  const frame = renderElementFrame(custom({
     id: 'decorative-composite',
     children: [text('ornament', { id: 'ornament' })],
     renderer: {
+      ...compositeRendererDefinition,
       layout: ({ bounds }) => [bounds]
     },
     meta: { accessibility: { decorative: true } }
@@ -1067,7 +1224,7 @@ test('custom composites arrange opaque children while preserving interaction and
     id: 'custom-composite-tui',
     init: () => ({ selected: 'none' }),
     update: (_state, message) => ({ state: { selected: message.kind } }),
-    view: (state) => customComposite({
+    view: (state) => custom({
       id: 'custom-actions',
       state,
       children: [
@@ -1083,6 +1240,7 @@ test('custom composites arrange opaque children while preserving interaction and
         })
       ],
       renderer: {
+        ...compositeRendererDefinition,
         layout({ bounds }) {
           return [
             { ...bounds, width: Math.floor(bounds.width / 2) },
@@ -1093,7 +1251,7 @@ test('custom composites arrange opaque children while preserving interaction and
             }
           ];
         },
-        render({ bounds, target }) {
+        renderAfterChildren({ bounds, target }) {
           target.write(bounds.row + 1, bounds.column, [{ text: `selected:${state.selected}` }]);
         },
         accessibility({ id, children }) {

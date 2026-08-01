@@ -19,8 +19,8 @@ export function heatmapRows(value: unknown): readonly (readonly HeatmapCell[])[]
   if (!Array.isArray(value)) return [];
   return value.map((row) => Array.isArray(row)
     ? row.filter(isHeatmapCell).map((cell) => ({
-        id: sanitizeTerminalText(cell.id).text,
-        ...(cell.label === undefined ? {} : { label: sanitizeTerminalText(cell.label).text }),
+      id: sanitizeTerminalText(cell.id).text,
+        label: sanitizeTerminalText(cell.label).text,
         value: cell.value,
         ...(cell.payload === undefined ? {} : { payload: cell.payload }),
         ...(cell.disabled === undefined ? {} : { disabled: cell.disabled })
@@ -31,8 +31,7 @@ export function heatmapRows(value: unknown): readonly (readonly HeatmapCell[])[]
 
 export function heatmapCellSpans(
   renderNode: HeatmapNode,
-  rowIndex: number,
-  columnIndex: number,
+  cellId: string,
   options: {
     readonly cellWidth: number;
     readonly value: number;
@@ -44,7 +43,7 @@ export function heatmapCellSpans(
   }
 ): readonly RenderSpan[] {
   const glyph = heatmapGlyphs[options.intensity] ?? heatmapGlyphs[0];
-  const id = `cell.${String(rowIndex)}.${String(columnIndex)}`;
+  const id = `cell.${cellId}`;
   const cellStyle = valueScaleStyle(
     options.value,
     options.range,
@@ -110,14 +109,16 @@ export function heatmapRange(
 }
 
 export function heatmapSelected(
-  renderNode: HeatmapNode
-): { readonly rowIndex: number; readonly columnIndex: number } | undefined {
+  renderNode: HeatmapNode,
+  rows: readonly (readonly HeatmapCell[])[] = heatmapRows(renderNode.props.rows)
+): { readonly id: string; readonly rowIndex: number; readonly columnIndex: number } | undefined {
   const selected = renderNode.props.selected;
   if (selected === undefined) return undefined;
-  return {
-    rowIndex: Math.max(0, Math.floor(selected.rowIndex)),
-    columnIndex: Math.max(0, Math.floor(selected.columnIndex))
-  };
+  for (const [rowIndex, row] of rows.entries()) {
+    const columnIndex = row.findIndex((cell) => cell.id === selected.id);
+    if (columnIndex >= 0) return { id: selected.id, rowIndex, columnIndex };
+  }
+  return undefined;
 }
 
 export function heatmapCellWidth(renderNode: HeatmapNode): number {
@@ -139,7 +140,8 @@ export { normalizedIndex };
 function isHeatmapCell(value: unknown): value is HeatmapCell {
   return typeof value === 'object'
     && value !== null
-    && typeof (value as { readonly id?: unknown }).id === 'string'
+      && typeof (value as { readonly id?: unknown }).id === 'string'
+    && typeof (value as { readonly label?: unknown }).label === 'string'
     && typeof (value as { readonly value?: unknown }).value === 'number'
     && Number.isFinite((value as { readonly value: number }).value);
 }

@@ -9,7 +9,7 @@ import {
   createTerminalHarness } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import {
-  activityFeed,
+  activityIndicator,
   commandInput,
   searchPicker,
   logViewer,
@@ -18,6 +18,7 @@ import {
   text
 } from '../../dist/components/index.js';
 import {
+  column,
   grid,
   splitPane
 } from '../../dist/layout/index.js';
@@ -47,19 +48,21 @@ function workspaceView(state) {
             { id: 'open', label: 'Open', value: 'open' },
             { id: 'quit', label: 'Quit', value: 'quit' }
           ]),
-          selectedIndex: 0
+          selectedId: 'open',
+          onAction: () => ({ type: 'component' })
         })
       }
-    ]
+    ],
+    onAction: () => ({ type: 'component' })
   });
 
   return grid([
     text('Workspace', { id: 'header' }),
     splitPane([
-      activityFeed({
-        id: 'activity',
-        blocks: [{ id: 'run', title: 'Run', result: 'running', summary: 'Streaming' }]
-      }),
+      column([
+        activityIndicator({ id: 'run', label: 'Run', status: 'running' }),
+        text('Streaming', { id: 'run-detail' })
+      ], { id: 'activity' }),
       mainPanel
     ], {
       id: 'body',
@@ -67,7 +70,13 @@ function workspaceView(state) {
       sizes: [{ kind: 'fixed', cells: 20 }, { kind: 'fill' }]
     }),
     statusBar({ id: 'status', leading: [{ id: 'view', kind: 'text', text: state.searchPicker ? 'searchPicker' : 'log' }] }),
-    commandInput({ id: 'command', prompt: '/', presentation: { value: state.query, cursor: 0, suggestions: [] } })
+    commandInput({
+      id: 'command',
+      prompt: '/',
+      presentation: { value: state.query, cursor: 0, suggestions: [] },
+      onAction: () => ({ type: 'component' }),
+      onSubmit: () => ({ type: 'component' })
+    })
   ], {
     id: 'workspace',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],

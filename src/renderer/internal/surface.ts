@@ -5,7 +5,7 @@ import type { RenderTarget } from '../contracts.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../contracts.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
-import { mergeStyles, resolveRenderNodeStyle, styleHasBackground } from './render-node-style.ts';
+import { mergeStyles, resolveRenderNodeStyle, styleHasBackground } from '../style-resolution.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { renderBorderTitle } from './border-title.ts';

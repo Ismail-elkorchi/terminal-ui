@@ -14,7 +14,7 @@ import {
   optionControlState,
   separatorSpan
 } from '../../form-visual.ts';
-import { renderNodeStyle, resolveRenderNodeStyle } from '../../render-node-style.ts';
+import { renderNodeStyle, resolveRenderNodeStyle } from '../../../style-resolution.ts';
 import { selectedId } from './choices.ts';
 import {
   clean,

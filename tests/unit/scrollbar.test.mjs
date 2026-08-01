@@ -233,7 +233,8 @@ test('log viewer scrollbar is opt-in and preserves scoped visible-window accessi
     id: 'log',
     history: prepareLogHistory(items),
     scroll: createScrollState({ offsetRow: 0, contentRows: 8, viewportRows: 3 }),
-    scrollbar: {}
+    scrollbar: {},
+    onAction: () => undefined
   }), { columns: 12, rows: 3 });
 
   assert.equal(frame.cells.filter((cell) => cell.column === 12).length, 3);
@@ -320,7 +321,8 @@ test('menu scrollbar windows menu rows instead of drawing a fixed decoration onl
       ],
       scroll: createScrollState({ offsetRow: 2, contentRows: 4, viewportRows: 2 })
     },
-    scrollbar: {}
+    scrollbar: {},
+    onAction: () => undefined
   }), { columns: 14, rows: 2 });
 
   const output = renderFramePlain(frame);
@@ -361,7 +363,8 @@ test('searchPicker scrollbar renders beside the filtered result window', () => {
       { id: 'four', label: 'Four', value: 'four' }
     ]),
     scroll: createScrollState({ offsetRow: 1, contentRows: 4, viewportRows: 4 }),
-    scrollbar: { visible: 'always' }
+    scrollbar: { visible: 'always' },
+    onAction: () => undefined
   }), { columns: 18, rows: 4 });
 
   assert.match(renderFramePlain(frame), /Actions/u);
@@ -371,8 +374,9 @@ test('searchPicker scrollbar renders beside the filtered result window', () => {
 test('viewport scrollbar clips child rendering to content bounds', () => {
   const frame = renderElementFrame(viewport(text('abcdef'), {
     id: 'clipped-viewport',
-    contentColumns: 6,
-    scrollbar: { axis: 'horizontal' }
+    offset: { column: 0 },
+    scrollbar: { axis: 'horizontal' },
+    onScroll: () => undefined
   }), { columns: 4, rows: 2 });
 
   const output = renderFramePlain(frame);
@@ -401,10 +405,7 @@ test('viewport scrollbar clips child rendering to content bounds', () => {
 test('viewport scrollbar replaces redundant clipped-edge indicators', () => {
   const frame = renderElementFrame(viewport(text('one\ntwo\nthree\nfour'), {
     id: 'scrollbar-affordance',
-    scrollRow: 0,
-    scrollColumn: 0,
-    contentRows: 4,
-    contentColumns: 8,
+    offset: { row: 0, column: 0 },
     scrollbar: { axis: 'vertical' },
     onScroll: () => undefined
   }), { columns: 8, rows: 2 });

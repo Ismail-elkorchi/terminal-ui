@@ -9,8 +9,8 @@ import type { RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render
 import type { FrameCellRole } from './frame-passes/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { numberProp, stringify } from './render-node-props.ts';
-import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
-import { normalizeSpinnerFrameIndex } from '../../behavior/spinner.ts';
+import { mergeStyles, renderNodeStyle } from '../style-resolution.ts';
+import { cyclicIndex } from '../../foundation/cyclic-index.ts';
 import { inlineContentAccessibleText } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import { renderInlineContent } from './inline-content.ts';
@@ -19,19 +19,17 @@ import type { TextWidthProfile } from '../../text/index.ts';
 export type FeedbackVisualKind =
   | 'statusBar'
   | 'helpBar'
-  | 'statusIndicator'
-  | 'spinner'
+  | 'activityIndicator'
   | 'progressBar'
   | 'notification';
 
 type FeedbackNode = RenderNodesOfKind<
   unknown,
-  'statusIndicator' | 'helpBar' | 'notificationStack' | 'progressBar' | 'spinner' | 'statusBar'
+  'activityIndicator' | 'helpBar' | 'notificationRegion' | 'notificationHistory' | 'progressBar' | 'statusBar'
 >;
 type StatusBarNode = RenderNodeOfKind<unknown, 'statusBar'>;
 type HelpBarNode = RenderNodeOfKind<unknown, 'helpBar'>;
-type StatusIndicatorNode = RenderNodeOfKind<unknown, 'statusIndicator'>;
-type SpinnerNode = RenderNodeOfKind<unknown, 'spinner'>;
+type ActivityIndicatorNode = RenderNodeOfKind<unknown, 'activityIndicator'>;
 
 export interface FeedbackSpanOptions {
   readonly kind: FeedbackVisualKind;
@@ -390,36 +388,26 @@ export function helpBarText(renderNode: HelpBarNode, widthProfile: TextWidthProf
   return blockText(helpBarBlock(renderNode, widthProfile));
 }
 
-export function statusIndicatorBlock(renderNode: StatusIndicatorNode, theme: TerminalTheme): RenderBlock {
-  const label = stringify(renderNode.props.label) || 'Activity';
-  const status = renderNode.props.status ?? 'idle';
+export function activityIndicatorBlock(
+  renderNode: ActivityIndicatorNode,
+  theme: TerminalTheme
+): RenderBlock {
+  const status = renderNode.props.status;
+  const label = stringify(renderNode.props.label);
   return block([line(statusLineSpans(renderNode, {
-    kind: 'statusIndicator',
+    kind: 'activityIndicator',
     label,
     status,
-    marker: statusMarker(status, theme),
-    showRunningStatus: true
-  }))]);
-}
-
-export function statusIndicatorText(renderNode: StatusIndicatorNode, theme: TerminalTheme): string {
-  return blockText(statusIndicatorBlock(renderNode, theme));
-}
-
-export function spinnerBlock(renderNode: SpinnerNode, theme: TerminalTheme): RenderBlock {
-  const status = renderNode.props.status ?? 'running';
-  const label = stringify(renderNode.props.label) || 'Loading';
-  return block([line(statusLineSpans(renderNode, {
-    kind: 'spinner',
-    label,
-    status,
-    marker: spinnerMarker(renderNode, theme, status),
+    marker: activityIndicatorMarker(renderNode, theme),
     showRunningStatus: false
   }))]);
 }
 
-export function spinnerText(renderNode: SpinnerNode, theme: TerminalTheme): string {
-  return blockText(spinnerBlock(renderNode, theme));
+export function activityIndicatorText(
+  renderNode: ActivityIndicatorNode,
+  theme: TerminalTheme
+): string {
+  return blockText(activityIndicatorBlock(renderNode, theme));
 }
 
 export function feedbackStatusMarkerSpan(
@@ -508,14 +496,23 @@ function statusSuffixSpans(
   ];
 }
 
-function spinnerMarker(renderNode: SpinnerNode, theme: TerminalTheme, status: ProcessStatus): string {
-  if (status !== 'running') return statusMarker(status, theme);
-  const frames = spinnerFrames(renderNode, theme);
+function activityIndicatorMarker(
+  renderNode: ActivityIndicatorNode,
+  theme: TerminalTheme
+): string {
+  if (renderNode.props.status !== 'running') {
+    return statusMarker(renderNode.props.status, theme);
+  }
+  const frames = activityIndicatorFrames(renderNode, theme);
   const frameIndex = numberProp(renderNode, 'frameIndex') ?? 0;
-  return frames[normalizeSpinnerFrameIndex(frameIndex, frames.length)] ?? theme.tokens.symbols.statusInfo;
+  return frames[cyclicIndex(frameIndex, frames.length)]
+    ?? theme.tokens.symbols.statusInfo;
 }
 
-function spinnerFrames(renderNode: SpinnerNode, theme: TerminalTheme): readonly string[] {
+function activityIndicatorFrames(
+  renderNode: ActivityIndicatorNode,
+  theme: TerminalTheme
+): readonly string[] {
   const frames = renderNode.props.frames;
   if (!Array.isArray(frames)) return theme.tokens.symbols.spinnerFrames;
   const cleaned = frames.filter((frame): frame is string => typeof frame === 'string')

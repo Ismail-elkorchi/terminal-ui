@@ -303,7 +303,8 @@ function renderScenarios(realApps) {
           id: 'commands',
           searchPickerIndex,
           query: String(entries.length - 1 - index),
-          maxVisible: 8
+          maxVisible: 8,
+          onAction: (action) => action
         });
       }
     },
@@ -325,6 +326,13 @@ function renderScenarios(realApps) {
         return column([
           canvas({
             id: 'dense-canvas',
+            measurement: {
+              minWidth: 0,
+              minHeight: 0,
+              preferredWidth: terminalSize.columns,
+              preferredHeight: terminalSize.rows - 1
+            },
+            meta: { accessibility: { decorative: true } },
             painter({ canvas: target, bounds }) {
               for (let row = 0; row < bounds.height; row += 1) {
                 target.line(0, row, bounds.width - 1, row, { text: String(index % 10) });

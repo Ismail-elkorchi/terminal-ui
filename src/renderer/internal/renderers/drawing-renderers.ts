@@ -45,6 +45,34 @@ export const drawingRenderers = {
     },
     accessibility: ({ id, focused }) => absoluteAccessibleBase(id, focused)
   },
+  anchored: {
+    measure: drawingMeasurements.anchored,
+    place: ({ renderNode, viewport, measurement }) => {
+      const content = measurement();
+      return placeAnchoredSurface({
+        viewport,
+        anchor: renderNode.props.anchor,
+        size: {
+          width: content.preferredWidth,
+          height: content.preferredHeight
+        },
+        ...(renderNode.props.placement === undefined
+          ? {}
+          : { placement: renderNode.props.placement }),
+        ...(renderNode.props.fallback === undefined
+          ? {}
+          : { fallback: renderNode.props.fallback }),
+        ...(renderNode.props.margin === undefined
+          ? {}
+          : { margin: renderNode.props.margin })
+      });
+    },
+    layout: ({ bounds }) => [bounds],
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => absoluteAccessibleBase(id, focused)
+  },
   overlay: {
     measure: drawingMeasurements.overlay,
     layout: ({ renderNode, bounds }) => overlayChildBounds(renderNode, bounds),
@@ -77,4 +105,4 @@ export const drawingRenderers = {
     },
     accessibility: ({ renderNode, id, focused }) => tooltipAccessibleBase(renderNode, id, focused)
   }
-} satisfies RendererMap<'canvas' | 'surface' | 'absolute' | 'overlay' | 'divider' | 'tooltip'>;
+} satisfies RendererMap<'canvas' | 'surface' | 'absolute' | 'anchored' | 'overlay' | 'divider' | 'tooltip'>;

@@ -25,7 +25,7 @@ layering, or geometry-only interaction are documented in
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
 | `tabs()` | Tab header plus selected-panel layout with semantic select, close, and navigation actions. | Navigation routing, persistence, or hidden panel state. |
 | `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. | A general overlay system, route, or storage for open/closed state. |
-| `canvas()` | Safe drawing component for custom diagrams and visualizations. | Raw ANSI output or an imperative terminal API. |
+| `canvas()` | Safe drawing component with explicit measurement and semantic label or decorative metadata. | Raw ANSI output or an imperative terminal API. |
 | `form()` | Semantic grouping of related controls with the form accessibility role. | Retaining values, performing validation, or submitting by itself. |
 | `field()` | Label/help/error wrapper around field content. | A value control by itself. |
 | `label()` | Visible control label linked to a target control by ID. | Generic metadata or key/value text; use `text()` for that content. |
@@ -50,14 +50,13 @@ layering, or geometry-only interaction are documented in
 | `tree()` | Expandable hierarchy with selection, filtering, lazy placeholders, and pointer targets. | A filesystem API or storage of expansion state. |
 | `paginator()` | Page navigation control paired with caller-controlled paging state. | Data loading or page storage. |
 | `logViewer()` | Append-heavy structured log viewer with severity, timestamps, metadata, search, folding, selection, and follow-tail actions. | Terminal scrollback, a command input, or a session transcript. |
-| `structuredBlock()` | One titled record with fields, summary, body, and details. Its `result` is a lifecycle outcome; its independent `level` is informational severity. | A generic layout surface or arbitrary markdown block. |
-| `activityFeed()` | Variable-height structured records projected through one measured window with stable-ID selection and expansion actions. | Filtering policy, durable history storage, or job orchestration. |
+| `disclosure()` | One caller-controlled expandable section composed from an arbitrary child element. | Durable expansion storage, heterogeneous feed policy, or data loading. |
 | `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. | A command bar, menu bar, or interactive layout frame. |
 | `helpBar()` | Grouped keybinding hints with deterministic constrained-width projection. | Keybinding registration or command routing. |
-| `statusIndicator()` | Small activity state display. | Progress measurement or task scheduling. |
+| `activityIndicator()` | Compact caller-driven running or settled process state. | Scheduling, hidden timers, or progress measurement. |
 | `progressBar()` | Determinate or indeterminate progress display. | Editable range input or status record. |
-| `spinner()` | Animated process indicator driven by caller-controlled frame state. | A scheduler or hidden runtime timer. |
-| `notificationStack()` | Bounded passive live notifications or a controlled navigable notification history. | A global toast manager, durable notification store, or overlay placement policy. |
+| `notificationRegion()` | Bounded live notifications with optional explicit dismissal actions. | A global toast manager, durable notification storage, or expiry policy. |
+| `notificationHistory()` | Controlled navigable history of completed notifications. | Durable history storage or notification lifecycle policy. |
 | `tooltip()` | Small contextual explanation with placement hints. | A focus manager, popover controller, or overlay lifecycle system. |
 | `divider()` | Visual separation and section rhythm. | Layout spacing by itself. |
 | `sparkline()` | Tiny trend visualization. | Full chart with axes, legend, or interaction. |

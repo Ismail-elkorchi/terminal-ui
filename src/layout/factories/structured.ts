@@ -40,7 +40,7 @@ export function grid(
       },
       children: renderNodeChildren(childrenOrOptions as ElementChildren),
       ...componentMetaProps(options.meta)
-    }, false);
+    });
   }
 
   const areaOptions = childrenOrOptions as GridAreasOptions;
@@ -72,5 +72,5 @@ export function grid(
         .filter((child): child is ElementValue => child !== undefined)
     ),
     ...componentMetaProps(areaOptions.meta)
-  }, false);
+  });
 }

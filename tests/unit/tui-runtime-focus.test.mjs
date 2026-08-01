@@ -5,10 +5,15 @@ import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { custom } from '../../dist/component/index.js';
+import { leafRendererDefinition } from '../helpers/custom-renderer.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { button, contextMenu, dialog, dropdownMenu, list, notificationStack, richText, table, textInput } from '../../dist/components/index.js';
+import { button, contextMenu, dialog, dropdownMenu, list, notificationRegion, richText, table, textInput } from '../../dist/components/index.js';
 import { column, overlay, surface } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.ts';
+
+function focusInput(options) {
+  return textInput({ onAction: () => undefined, ...options });
+}
 
 test('TUI runtime keeps command focus when contained overlays close under passive notifications', async () => {
   const app = defineTui({
@@ -34,7 +39,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
     },
     view: (state) => overlay([
       column([
-        textInput({
+        focusInput({
           id: 'command',
           presentation: { value: state.command, cursor: 0 },
           keys: { enter: () => ({ kind: 'open' }) },
@@ -61,9 +66,9 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
 })
           ]
         : []),
-      notificationStack({
+      notificationRegion({
     id: 'notices',
-    presentation: { kind: 'live', items: state.notifications },
+    items: state.notifications,
     meta: {
         layer: {
             zIndex: 30
@@ -109,7 +114,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
     },
     view: (state) => overlay([
       column([
-        textInput({
+        focusInput({
           id: 'command',
           presentation: { value: state.command, cursor: 0 },
           keys: { enter: () => ({ kind: 'openA' }) },
@@ -188,8 +193,8 @@ test('anonymous container focus identity survives terminal resize', async () => 
     init: () => ({ value: '' }),
     update: (state) => ({ state }),
     view: (state) => column([
-      textInput({ id: 'first', presentation: { value: state.value, cursor: 0 } }),
-      textInput({ id: 'second', presentation: { value: state.value, cursor: 0 } })
+      focusInput({ id: 'first', presentation: { value: state.value, cursor: 0 } }),
+      focusInput({ id: 'second', presentation: { value: state.value, cursor: 0 } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 40, rows: 6 } });
@@ -217,8 +222,8 @@ test('runTui accepts an initial focus path', async () => {
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
     view: (state) => column([
-      textInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      focusInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 4 } });
@@ -267,8 +272,8 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      focusInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const firstHarness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -304,8 +309,8 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      focusInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -331,6 +336,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
 
 test('ambiguous initial element focus is diagnosed instead of selecting an arbitrary match', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     measure: () => ({
       minWidth: 1,
       minHeight: 1,
@@ -382,8 +388,8 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      focusInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -407,7 +413,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({
+      focusInput({
     id: 'disabled',
     presentation: { value: state.active, cursor: 0 },
     keys: { enter: () => ({ active: 'disabled' }) },
@@ -415,7 +421,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
         focus: { disabled: true, order: 0 }
     }
 }),
-      textInput({
+      focusInput({
     id: 'later',
     presentation: { value: state.active, cursor: 0 },
     keys: { enter: () => ({ active: 'later' }) },
@@ -423,7 +429,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
         focus: { order: 2 }
     }
 }),
-      textInput({
+      focusInput({
     id: 'first',
     presentation: { value: state.active, cursor: 0 },
     keys: { enter: () => ({ active: 'first' }) },
@@ -454,8 +460,8 @@ test('TUI runtime traps focus inside modal and scoped popover elements', async (
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({ id: 'background', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'background' }) } }),
-      dialog(textInput({ id: 'dialog-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'dialog' }) } }), {
+      focusInput({ id: 'background', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'background' }) } }),
+      dialog(focusInput({ id: 'dialog-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'dialog' }) } }), {
         id: 'dialog',
         modal: true,
         focusPolicy: { returnFocus: 'restore' },
@@ -486,8 +492,8 @@ test('TUI runtime traps focus inside modal and scoped popover elements', async (
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
-      surface(textInput({ id: 'popover-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'popover' }) } }), {
+      focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
+      surface(focusInput({ id: 'popover-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'popover' }) } }), {
     id: 'popover',
     meta: {
         layer: {
@@ -525,18 +531,18 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
       return { state };
     },
     view: (state) => column([
-      textInput({
+      focusInput({
         id: 'dialog-launcher',
         presentation: { value: '', cursor: 0 },
         keys: { enter: () => ({ kind: 'open' }) }
       }),
       ...(state.open
         ? [dialog(column([
-            surface(textInput({ id: 'nested-dialog-field', presentation: { value: '', cursor: 0 } }), {
+            surface(focusInput({ id: 'nested-dialog-field', presentation: { value: '', cursor: 0 } }), {
               id: 'nested-dialog-surface'
             }),
-            textInput({ id: 'first-dialog-field', presentation: { value: '', cursor: 0 } }),
-            textInput({ id: 'preferred-dialog-field', presentation: { value: '', cursor: 0 } })
+            focusInput({ id: 'first-dialog-field', presentation: { value: '', cursor: 0 } }),
+            focusInput({ id: 'preferred-dialog-field', presentation: { value: '', cursor: 0 } })
           ]), {
             id: 'lifecycle-dialog',
             modal: true,
@@ -579,7 +585,7 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
-      textInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
+      focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
       contextMenu({
     id: 'actions-menu',
     title: 'Actions',
@@ -626,7 +632,7 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
-      textInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
+      focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
       dropdownMenu({
     id: 'theme-dropdownMenu',
     label: 'Theme',
@@ -677,6 +683,7 @@ test('TUI runtime traverses multiple custom focus targets within one element', a
   const renderedTargets = [];
   const accessibleTargets = [];
   const renderer = {
+    ...leafRendererDefinition,
     render({ target, bounds, focusedTargetId }) {
       renderedTargets.push(focusedTargetId);
       target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
@@ -732,6 +739,7 @@ test('TUI runtime traverses multiple custom focus targets within one element', a
 
 test('TUI updates can focus a specific custom target after rendering new state', async () => {
   const renderer = {
+    ...leafRendererDefinition,
     render({ target, bounds }) {
       target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
     },
@@ -783,7 +791,7 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({
+      focusInput({
     id: 'first-field',
     presentation: { value: state.active, cursor: 0 },
     onSubmit: () => ({ active: 'first' }),
@@ -837,7 +845,7 @@ test('TUI runtime uses app-level accessibility descriptions for frames and exits
     id: 'custom-a11y',
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state, exit: {} }),
-    view: (state) => textInput({ id: 'custom-field', presentation: { value: state.label, cursor: 0 }, onSubmit: () => ({ done: true }) }),
+    view: (state) => focusInput({ id: 'custom-field', presentation: { value: state.label, cursor: 0 }, onSubmit: () => ({ done: true }) }),
     accessibility: {
       describe: (state) => ({
         schemaVersion: 'terminal-ui.accessible-snapshot.v1',
@@ -878,7 +886,7 @@ test('TUI runtime falls back when app-level accessibility is structurally invali
     id: 'invalid-custom-a11y',
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state }),
-    view: (state) => textInput({ id: 'safe-field', presentation: { value: state.label, cursor: 0 } }),
+    view: (state) => focusInput({ id: 'safe-field', presentation: { value: state.label, cursor: 0 } }),
     accessibility: {
       describe: () => ({
         schemaVersion: 'terminal-ui.accessible-snapshot.v1',

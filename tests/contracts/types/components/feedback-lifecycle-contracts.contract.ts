@@ -1,10 +1,12 @@
 import {
+  activeNotificationItems,
   createNotificationState,
-  notificationPresentation
+  notificationHistoryItems
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import {
   dialog,
-  notificationStack,
+  notificationHistory,
+  notificationRegion,
   progressBar,
   statusBar,
   text
@@ -12,16 +14,21 @@ import {
 
 statusBar({ id: 'status' });
 const notifications = createNotificationState();
-notificationStack({
+notificationRegion({
   id: 'live',
-  presentation: notificationPresentation(notifications, { mode: 'live' }),
+  items: activeNotificationItems(notifications),
   onDismiss: (id) => ({ kind: 'dismiss' as const, id })
 });
-notificationStack({
+notificationHistory({
   id: 'history',
-  presentation: notificationPresentation(notifications, { mode: 'history' }),
+  items: notificationHistoryItems(notifications),
   onAction: (action) => ({ kind: 'notification' as const, action }),
-  keys: { home: () => ({ kind: 'home' as const }) }
+  keys: {
+    home: () => ({
+      kind: 'notification' as const,
+      action: { kind: 'first' as const }
+    })
+  }
 });
 dialog(text('Body'), {
   id: 'dialog',
@@ -35,23 +42,25 @@ dialog(text('Body'), {
 });
 progressBar({
   id: 'determinate',
+  label: 'Progress',
   mode: { kind: 'determinate', value: 2, max: 4 }
 });
 progressBar({
   id: 'indeterminate',
+  label: 'Progress',
   mode: { kind: 'indeterminate', frame: 2 }
 });
 
 // @ts-expect-error status bars require stable identity
 statusBar({});
-// @ts-expect-error passive live regions do not own local keyboard bindings
-notificationStack({
+notificationRegion({
   id: 'invalid-live',
-  presentation: { kind: 'live', items: [] },
+  items: [],
+  // @ts-expect-error passive live regions do not own local keyboard bindings
   keys: { escape: () => ({ kind: 'invalid' as const }) }
 });
 // @ts-expect-error navigable history requires an action handler
-notificationStack({ id: 'invalid-history', presentation: { kind: 'history', items: [] } });
+notificationHistory({ id: 'invalid-history', items: [] });
 // @ts-expect-error dialog modal policy is required
 dialog(text('Body'), { id: 'implicit-dialog' });
 progressBar({
@@ -60,4 +69,4 @@ progressBar({
   mode: { kind: 'indeterminate', value: 2 }
 });
 // @ts-expect-error progress mode is required
-progressBar({ id: 'implicit-progress', value: 2, max: 4 });
+progressBar({ id: 'implicit-progress', label: 'Progress', value: 2, max: 4 });

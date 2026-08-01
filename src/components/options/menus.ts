@@ -26,7 +26,7 @@ export interface MenuOptions<TMessage = never> extends InteractiveElementOptions
   readonly emptyText?: string;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction?: (action: MenuAction) => TMessage;
+  readonly onAction: (action: MenuAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -36,7 +36,7 @@ export interface MenuBarOptions<TMessage = never> extends InteractiveElementOpti
   readonly maxVisibleItems?: number;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction?: (action: MenuBarAction) => TMessage;
+  readonly onAction: (action: MenuBarAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -48,7 +48,7 @@ export interface ContextMenuOptions<TMessage = never> extends InteractiveElement
   readonly scrollPolicy?: ScrollPolicy;
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleItems?: number;
-  readonly onAction?: (action: ContextMenuAction) => TMessage;
+  readonly onAction: (action: ContextMenuAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -62,7 +62,7 @@ export interface DropdownMenuOptions<TMessage = never> extends InteractiveElemen
   readonly maxVisibleItems?: number;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction?: (action: DropdownMenuAction) => TMessage;
+  readonly onAction: (action: DropdownMenuAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 

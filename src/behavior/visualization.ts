@@ -6,6 +6,7 @@ import type {
   HeatmapCell,
   HeatmapSelection
 } from '../ui-model/feedback.ts';
+import { cyclicIndex } from '../foundation/cyclic-index.ts';
 
 export interface BarChartState {
   readonly selectedId?: string;
@@ -25,7 +26,7 @@ export function barChartReducer(
   if (action.kind === 'last') return barSelection(items.at(-1)?.id);
   const current = items.findIndex((item) => item.id === state.selectedId);
   if (current < 0) return barSelection(action.delta < 0 ? items.at(-1)?.id : items[0]?.id);
-  return barSelection(items[wrapIndex(current + action.delta, items.length)]?.id);
+  return barSelection(items[cyclicIndex(current + action.delta, items.length)]?.id);
 }
 
 function barSelection(selectedId: string | undefined): BarChartState {
@@ -48,31 +49,39 @@ export function chartReducer(
 ): ChartState {
   const selectable = series.filter((item) => item.points.length > 0);
   if (selectable.length === 0) return state;
-  const currentSeriesIndex = Math.max(0, selectable.findIndex((item) => item.id === state.selected?.series));
+  const currentSeriesIndex = Math.max(
+    0,
+    selectable.findIndex((item) => item.id === state.selected?.seriesId)
+  );
   const currentSeries = selectable[currentSeriesIndex] ?? selectable[0];
   if (currentSeries === undefined) return state;
+  const currentPointIndex = selectedPointIndex(currentSeries, state.selected);
   switch (action.kind) {
     case 'select':
-      return selectedChartPoint(selectable, action.series, action.pointIndex, state);
+      return selectedChartPoint(selectable, action.seriesId, action.pointId, state);
     case 'movePoint':
-      return { selected: { series: currentSeries.id, pointIndex: bounded(action.delta + (state.selected?.pointIndex ?? 0), currentSeries.points.length) } };
+      return chartSelection(
+        currentSeries,
+        bounded(currentPointIndex + action.delta, currentSeries.points.length)
+      );
     case 'pagePoints':
-      return {
-        selected: {
-          series: currentSeries.id,
-          pointIndex: bounded((state.selected?.pointIndex ?? 0) + action.delta * normalizedPageSize(options.pageSize), currentSeries.points.length)
-        }
-      };
+      return chartSelection(
+        currentSeries,
+        bounded(
+          currentPointIndex + action.delta * normalizedPageSize(options.pageSize),
+          currentSeries.points.length
+        )
+      );
     case 'moveSeries': {
-      const next = selectable[wrapIndex(currentSeriesIndex + action.delta, selectable.length)];
+      const next = selectable[cyclicIndex(currentSeriesIndex + action.delta, selectable.length)];
       return next === undefined
         ? state
-        : { selected: { series: next.id, pointIndex: bounded(state.selected?.pointIndex ?? 0, next.points.length) } };
+        : chartSelection(next, bounded(currentPointIndex, next.points.length));
     }
     case 'firstPoint':
-      return { selected: { series: currentSeries.id, pointIndex: 0 } };
+      return chartSelection(currentSeries, 0);
     case 'lastPoint':
-      return { selected: { series: currentSeries.id, pointIndex: Math.max(0, currentSeries.points.length - 1) } };
+      return chartSelection(currentSeries, currentSeries.points.length - 1);
   }
 }
 
@@ -94,8 +103,8 @@ export function heatmapReducer<TValue>(
   if (cells.length === 0) return state;
   switch (action.kind) {
     case 'select':
-      return cells.some((cell) => cell.rowIndex === action.rowIndex && cell.columnIndex === action.columnIndex)
-        ? { selected: { rowIndex: action.rowIndex, columnIndex: action.columnIndex } }
+      return cells.some((cell) => cell.id === action.id)
+        ? { selected: { id: action.id } }
         : state;
     case 'move': {
       const current = selectedHeatmapIndex(cells, state.selected);
@@ -103,7 +112,7 @@ export function heatmapReducer<TValue>(
         rowIndex: current.rowIndex + action.rows,
         columnIndex: current.columnIndex + action.columns
       });
-      return candidate === undefined ? state : { selected: candidate };
+      return candidate === undefined ? state : { selected: { id: candidate.id } };
     }
     case 'pageRows': {
       const current = selectedHeatmapIndex(cells, state.selected);
@@ -111,66 +120,90 @@ export function heatmapReducer<TValue>(
         rowIndex: current.rowIndex + action.delta * normalizedPageSize(options.pageRows),
         columnIndex: current.columnIndex
       });
-      return candidate === undefined ? state : { selected: candidate };
+      return candidate === undefined ? state : { selected: { id: candidate.id } };
     }
     case 'first': {
       const first = cells[0];
-      return first === undefined ? state : { selected: { rowIndex: first.rowIndex, columnIndex: first.columnIndex } };
+      return first === undefined ? state : { selected: { id: first.id } };
     }
     case 'last': {
       const last = cells.at(-1);
-      return last === undefined ? state : { selected: { rowIndex: last.rowIndex, columnIndex: last.columnIndex } };
+      return last === undefined ? state : { selected: { id: last.id } };
     }
   }
 }
 
 function selectedChartPoint(
   series: readonly ChartSeries[],
-  id: string,
-  pointIndex: number,
+  seriesId: string,
+  pointId: string,
   fallback: ChartState
 ): ChartState {
-  const selected = series.find((item) => item.id === id);
-  return selected === undefined
+  const selectedSeries = series.find((item) => item.id === seriesId);
+  const selectedPoint = selectedSeries?.points.find((point) => point.id === pointId);
+  return selectedSeries === undefined || selectedPoint === undefined
     ? fallback
-    : {
-        selected: {
-          series: selected.id,
-          pointIndex: bounded(pointIndex, selected.points.length)
-        }
-      };
+    : { selected: { seriesId: selectedSeries.id, pointId: selectedPoint.id } };
 }
 
-function selectableHeatmapCells<TValue>(rows: readonly (readonly HeatmapCell<TValue>[])[]): readonly HeatmapSelection[] {
-  return rows.flatMap((row, rowIndex) => row.flatMap((cell, columnIndex): readonly HeatmapSelection[] =>
-    cell.disabled === true ? [] : [{ rowIndex: rowIndex, columnIndex: columnIndex }]
+function chartSelection(series: ChartSeries, pointIndex: number): ChartState {
+  const point = series.points[bounded(pointIndex, series.points.length)];
+  return point === undefined
+    ? {}
+    : { selected: { seriesId: series.id, pointId: point.id } };
+}
+
+function selectedPointIndex(
+  series: ChartSeries,
+  selected: ChartPointSelection | undefined
+): number {
+  const pointIndex = selected?.seriesId === series.id
+    ? series.points.findIndex((point) => point.id === selected.pointId)
+    : -1;
+  return pointIndex < 0 ? 0 : pointIndex;
+}
+
+interface HeatmapLocation {
+  readonly id: string;
+  readonly rowIndex: number;
+  readonly columnIndex: number;
+}
+
+function selectableHeatmapCells<TValue>(
+  rows: readonly (readonly HeatmapCell<TValue>[])[]
+): readonly HeatmapLocation[] {
+  return rows.flatMap((row, rowIndex) => row.flatMap((cell, columnIndex): readonly HeatmapLocation[] =>
+    cell.disabled === true ? [] : [{ id: cell.id, rowIndex, columnIndex }]
   ));
 }
 
-function selectedHeatmapIndex(cells: readonly HeatmapSelection[], selected: HeatmapSelection | undefined): HeatmapSelection {
+function selectedHeatmapIndex(
+  cells: readonly HeatmapLocation[],
+  selected: HeatmapSelection | undefined
+): HeatmapLocation {
   return (selected === undefined
     ? undefined
-    : cells.find((cell) => cell.rowIndex === selected.rowIndex && cell.columnIndex === selected.columnIndex))
+    : cells.find((cell) => cell.id === selected.id))
     ?? cells[0]
-    ?? { rowIndex: 0, columnIndex: 0 };
+    ?? { id: '', rowIndex: 0, columnIndex: 0 };
 }
 
 function directionalHeatmapCell(
-  cells: readonly HeatmapSelection[],
-  current: HeatmapSelection,
-  target: HeatmapSelection
-): HeatmapSelection | undefined {
+  cells: readonly HeatmapLocation[],
+  current: HeatmapLocation,
+  target: Pick<HeatmapLocation, 'rowIndex' | 'columnIndex'>
+): HeatmapLocation | undefined {
   const candidates = cells.filter((cell) => followsDirection(cell, current, target));
-  return candidates.reduce<HeatmapSelection | undefined>((nearest, cell) => {
+  return candidates.reduce<HeatmapLocation | undefined>((nearest, cell) => {
     if (nearest === undefined) return cell;
     return compareDirectionalCells(cell, nearest, current, target) < 0 ? cell : nearest;
   }, undefined);
 }
 
 function followsDirection(
-  cell: HeatmapSelection,
-  current: HeatmapSelection,
-  target: HeatmapSelection
+  cell: HeatmapLocation,
+  current: HeatmapLocation,
+  target: Pick<HeatmapLocation, 'rowIndex' | 'columnIndex'>
 ): boolean {
   const rowDirection = Math.sign(target.rowIndex - current.rowIndex);
   const columnDirection = Math.sign(target.columnIndex - current.columnIndex);
@@ -179,10 +212,10 @@ function followsDirection(
 }
 
 function compareDirectionalCells(
-  left: HeatmapSelection,
-  right: HeatmapSelection,
-  current: HeatmapSelection,
-  target: HeatmapSelection
+  left: HeatmapLocation,
+  right: HeatmapLocation,
+  current: HeatmapLocation,
+  target: Pick<HeatmapLocation, 'rowIndex' | 'columnIndex'>
 ): number {
   const rowMovement = target.rowIndex !== current.rowIndex;
   const columnMovement = target.columnIndex !== current.columnIndex;
@@ -196,8 +229,8 @@ function compareDirectionalCells(
 }
 
 function navigationDistance(
-  cell: HeatmapSelection,
-  target: HeatmapSelection,
+  cell: HeatmapLocation,
+  target: Pick<HeatmapLocation, 'rowIndex' | 'columnIndex'>,
   rowMovement: boolean,
   columnMovement: boolean
 ): readonly number[] {
@@ -210,10 +243,6 @@ function navigationDistance(
 
 function bounded(index: number, count: number): number {
   return Math.max(0, Math.min(Math.max(0, count - 1), Math.floor(Number.isFinite(index) ? index : 0)));
-}
-
-function wrapIndex(index: number, count: number): number {
-  return ((index % count) + count) % count;
 }
 
 function normalizedPageSize(value: number | undefined): number {

@@ -32,6 +32,7 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly inputMap?: RenderNodeInputMap<TMessage>;
   readonly pointer?: RenderNodePointerInteraction<TMessage>;
   readonly accessibility?: ElementAccessibility;
+  readonly focusable?: true;
 }
 
 export type RenderNodeOfKind<
@@ -58,5 +59,6 @@ export interface RenderNodeInputMap<TMessage> {
 }
 
 export interface CustomRenderNodeRuntime<TMessage = unknown> {
+  readonly name: string;
   readonly renderer: RenderNodeRenderer<TMessage, 'custom'>;
 }

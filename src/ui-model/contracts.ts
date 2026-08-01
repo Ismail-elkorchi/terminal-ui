@@ -11,13 +11,6 @@ export type StatusBarStatus =
   | 'info';
 
 export type ProcessStatus = 'idle' | 'running' | 'success' | 'warning' | 'error';
-export type RecordResult =
-  | 'pending'
-  | 'running'
-  | 'success'
-  | 'failed'
-  | 'cancelled'
-  | 'skipped';
 export type LogLevel = 'info' | 'warning' | 'error';
 
 export interface ItemBase {
@@ -52,11 +45,6 @@ export interface SearchEntry<TValue = string> extends ChoiceItem<TValue> {
   readonly group?: string;
   readonly keywords?: readonly string[];
   readonly preview?: string;
-}
-
-export interface FieldItem {
-  readonly label: string;
-  readonly value: string;
 }
 
 export interface HelpBinding {

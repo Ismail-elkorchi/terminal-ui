@@ -9,7 +9,7 @@ import type {
 } from '../../visual/inline-content.ts';
 import { span } from '../../visual/render.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import { mergeStyles, themeStyle } from './render-node-style.ts';
+import { mergeStyles, themeStyle } from '../style-resolution.ts';
 
 export interface InlineContentRenderOptions {
   readonly theme: TerminalTheme;

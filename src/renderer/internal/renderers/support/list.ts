@@ -8,7 +8,7 @@ import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerS
 import type { ScrollState } from '../../../../interaction/scroll.ts';
 import { windowDescription } from '../../visible-window.ts';
 import { stringify } from '../../render-node-props.ts';
-import { resolveRenderNodeStyle, themeStyle } from '../../render-node-style.ts';
+import { resolveRenderNodeStyle, themeStyle } from '../../../style-resolution.ts';
 import type { LayoutNode, Rect } from '../../../contracts.ts';
 import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
 import { padRenderLine } from '../../../../visual/render.ts';

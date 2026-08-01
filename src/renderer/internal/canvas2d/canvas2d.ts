@@ -31,6 +31,14 @@ export function createCanvas2D(buffer: RenderTarget, bounds: Rect): Canvas2D {
   return new FrameBufferCanvas2D(buffer, bounds);
 }
 
+export function createClippedCanvas2D(
+  buffer: RenderTarget,
+  bounds: Rect
+): Canvas2D {
+  assertLogicalCanvasBounds(bounds);
+  return new FrameBufferCanvas2D(buffer, bounds);
+}
+
 class FrameBufferCanvas2D implements Canvas2D {
   readonly bounds: Rect;
   readonly #buffer: RenderTarget;
@@ -250,19 +258,29 @@ class FrameBufferCanvas2D implements Canvas2D {
 
 function assertCanvasBounds(buffer: RenderTarget, bounds: Rect): void {
   if (
-    !Number.isInteger(bounds.row)
-    || !Number.isInteger(bounds.column)
-    || !Number.isInteger(bounds.width)
-    || !Number.isInteger(bounds.height)
+    !validLogicalCanvasBounds(bounds)
     || bounds.row < 1
     || bounds.column < 1
-    || bounds.width < 0
-    || bounds.height < 0
     || bounds.row + bounds.height - 1 > buffer.height
     || bounds.column + bounds.width - 1 > buffer.width
   ) {
     throw new RangeError('Canvas2D bounds must be an integer rectangle inside the drawing target.');
   }
+}
+
+function assertLogicalCanvasBounds(bounds: Rect): void {
+  if (!validLogicalCanvasBounds(bounds)) {
+    throw new RangeError('Canvas2D bounds must be a safe-integer rectangle with non-negative size.');
+  }
+}
+
+function validLogicalCanvasBounds(bounds: Rect): boolean {
+  return Number.isSafeInteger(bounds.row)
+    && Number.isSafeInteger(bounds.column)
+    && Number.isSafeInteger(bounds.width)
+    && Number.isSafeInteger(bounds.height)
+    && bounds.width >= 0
+    && bounds.height >= 0;
 }
 
 function assertIntegerCoordinates(operation: string, ...values: readonly number[]): void {

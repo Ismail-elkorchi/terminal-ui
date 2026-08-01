@@ -1,10 +1,12 @@
 import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type {
+  ActiveTextInputOptions,
   ButtonOptions,
   CheckboxGroupOptions,
   CheckboxOptions,
   ColorSwatchPickerOptions,
+  DisabledTextInputOptions,
   CalendarOptions,
   FieldOptions,
   FormOptions,
@@ -75,7 +77,7 @@ export function form<const TChildren extends ElementChildren>(
     },
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function field<const TChildren extends ElementChildren>(
@@ -96,7 +98,7 @@ export function field<const TChildren extends ElementChildren>(
     },
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function label(options: LabelOptions): Element {
@@ -113,7 +115,7 @@ export function label(options: LabelOptions): Element {
       ...(options.disabled === undefined ? {} : { disabled: options.disabled })
     },
     ...componentMetaProps(options.meta)
-  }, false);
+  });
 }
 
 export function button<
@@ -126,11 +128,21 @@ export function button<
   TKeys,
   TPointerMessage
 >): Element<TPressMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function button(options: ButtonOptions<unknown>): Element<unknown> {
+export function button(options: unknown): Element<unknown> {
+  return buttonElement(options as ButtonOptions<unknown>);
+}
+
+function buttonElement(options: ButtonOptions<unknown>): Element<unknown> {
   const state = options.state ?? 'idle';
+  assertControlContract(
+    'button',
+    options,
+    options.disabled === true || state === 'pending',
+    ['onPress']
+  );
   const onPress = options.onPress;
   const keyMap = activationKeyBindings(
-    onPress === undefined || options.disabled === true || state === 'pending' ? undefined : () => onPress(),
+    onPress === undefined ? undefined : () => onPress(),
     options.keys
   );
   return componentElementFromRenderNode<'button', unknown>({
@@ -148,10 +160,11 @@ export function button(options: ButtonOptions<unknown>): Element<unknown> {
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessage>): Element<TMessage> {
+  assertControlContract('checkbox', options, options.disabled === true, ['onChange']);
   const toMessage = options.onChange;
   const keyMap = activationKeyBindings(
     toMessage === undefined ? undefined : () => toMessage(!options.checked),
@@ -170,10 +183,11 @@ export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessa
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOptions<TMessage>): Element<TMessage> {
+  assertControlContract('toggleSwitch', options, options.disabled === true, ['onChange']);
   const toMessage = options.onChange;
   const keyMap = activationKeyBindings(
     toMessage === undefined ? undefined : () => toMessage(!options.checked),
@@ -193,10 +207,11 @@ export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOption
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function slider<const TMessage = never>(options: SliderOptions<TMessage>): Element<TMessage> {
+  assertControlContract('slider', options, options.disabled === true, ['onChange']);
   const range = validatedNumericControlRange('slider', options);
   assertNumericControlValue('slider', options.value, range);
   const keyMap = sliderKeyBindings(options);
@@ -204,7 +219,7 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
     ...requiredRenderNodeId(options.id, 'slider'),
     kind: 'slider',
     props: {
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       value: options.value,
       ...(options.min === undefined ? {} : { min: options.min }),
       ...(options.max === undefined ? {} : { max: options.max }),
@@ -216,10 +231,11 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<TMessage>): Element<TMessage> {
+  assertControlContract('rangeSlider', options, options.disabled === true, ['onAction']);
   const range = validatedNumericControlRange('rangeSlider', {
     ...(options.range === undefined ? {} : { min: options.range.min, max: options.range.max }),
     ...(options.step === undefined ? {} : { step: options.step }),
@@ -235,7 +251,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
     ...requiredRenderNodeId(options.id, 'rangeSlider'),
     kind: 'rangeSlider',
     props: {
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       state: options.state,
       ...(options.range === undefined ? {} : { range: options.range }),
       ...(options.step === undefined ? {} : { step: options.step }),
@@ -246,10 +262,11 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxGroupOptions<TValue, TMessage>): Element<TMessage> {
+  assertControlContract('checkboxGroup', options, options.disabled === true, ['onAction']);
   const normalizedOptions = choiceItemsForRenderer(options.options);
   const presentation = normalizeCheckboxGroupState({
     selected: options.selected ?? [],
@@ -261,7 +278,7 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
     kind: 'checkboxGroup',
     props: {
       options: normalizedOptions,
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       ...(presentation.selected.length === 0 ? {} : { selected: presentation.selected }),
       ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
@@ -271,10 +288,11 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOptions<TValue, TMessage>): Element<TMessage> {
+  assertControlContract('radioGroup', options, options.disabled === true, ['onAction']);
   const normalizedOptions = choiceItemsForRenderer(options.options);
   const presentation = normalizeRadioGroupState({
     ...(options.selected === undefined ? {} : { selected: options.selected }),
@@ -286,7 +304,7 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
     kind: 'radioGroup',
     props: {
       options: normalizedOptions,
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       ...(presentation.selected === undefined ? {} : { selected: presentation.selected }),
       ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
@@ -296,10 +314,11 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function colorSwatchPicker<TValue, const TMessage = never>(options: ColorSwatchPickerOptions<TValue, TMessage>): Element<TMessage> {
+  assertControlContract('colorSwatchPicker', options, options.disabled === true, ['onAction']);
   const normalizedOptions = colorOptionsForRenderer(options.options);
   const presentation = normalizeColorSwatchPickerState({
     ...(options.selected === undefined ? {} : { selected: options.selected }),
@@ -311,7 +330,7 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
     kind: 'colorSwatchPicker',
     props: {
       options: normalizedOptions,
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       ...(presentation.selected === undefined ? {} : { selected: presentation.selected }),
       ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.columns === undefined ? {} : { columns: options.columns }),
@@ -321,7 +340,7 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function calendar<
@@ -334,7 +353,12 @@ export function calendar<
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
+export function calendar(options: unknown): Element<unknown> {
+  return calendarElement(options as CalendarOptions<unknown>);
+}
+
+function calendarElement(options: CalendarOptions<unknown>): Element<unknown> {
+  assertControlContract('calendar', options, options.disabled === true, ['onAction']);
   const keyMap = calendarKeyBindings(options);
   const onAction = options.onAction;
   return componentElementFromRenderNode<'calendar', unknown>({
@@ -344,7 +368,7 @@ export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
       days: options.days,
       monthLabel: options.monthLabel,
       weekdays: options.weekdays,
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.focused === undefined ? {} : { focused: options.focused }),
       ...(onAction === undefined ? {} : {
@@ -356,21 +380,35 @@ export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 export function select<TValue, const TMessage = never>(options: SelectOptions<TValue, TMessage>): Element<TMessage> {
+  assertControlContract('select', options, options.disabled === true, ['onAction']);
+  const rawOptions = options as unknown as Readonly<Record<string, unknown>>;
+  const rawPresentation = rawOptions['presentation'];
+  if (
+    rawOptions['disabled'] === true
+    && typeof rawPresentation === 'object'
+    && rawPresentation !== null
+    && (rawPresentation as { readonly kind?: unknown }).kind === 'open'
+  ) {
+    throw new TypeError('select cannot be open while disabled.');
+  }
   const keyMap = selectKeyBindings(options);
   const normalizedOptions = choiceItemsForRenderer(options.options);
   const presentation = normalizeSelectState(options.presentation, options.options);
+  const onAction = options.onAction;
   const popup = presentation.kind === 'open'
-    ? selectPopupRenderNode({
+    ? onAction === undefined
+      ? undefined
+      : selectPopupRenderNode({
         parentElementId: options.id,
         options: normalizedOptions,
         presentation,
         ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
         ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
-        ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
+        toActionMessage: onAction
       })
     : undefined;
   return componentElementFromRenderNode<'select', TMessage>({
@@ -378,12 +416,12 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
     kind: 'select',
     props: {
       options: normalizedOptions,
-      ...(options.label === undefined ? {} : { label: options.label }),
+      label: options.label,
       presentation,
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       maxVisibleOptions: selectVisibleOptionLimit(options.maxVisibleOptions),
-      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
+      ...(onAction === undefined ? {} : { toActionMessage: onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
@@ -391,7 +429,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
     ...(popup === undefined ? {} : { children: [popup] }),
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
 }
 
 function selectVisibleOptionLimit(value: number | undefined): number {
@@ -402,13 +440,23 @@ function selectVisibleOptionLimit(value: number | undefined): number {
   return Math.max(1, Math.floor(value));
 }
 
+type ActionTextInputOptions = Extract<
+  ActiveTextInputOptions<unknown>,
+  { readonly onAction: unknown }
+>;
+
+type SubmitTextInputOptions = Extract<
+  ActiveTextInputOptions<unknown>,
+  { readonly onAction?: never }
+>;
+
 export function textInput<
   const TSubmitMessage = never,
   const TActionMessage = never,
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
-  TextInputOptions,
+  ActionTextInputOptions,
   {
     readonly onAction: TActionMessage;
     readonly onSubmit: TSubmitMessage;
@@ -416,7 +464,30 @@ export function textInput<
   TKeys,
   TPointerMessage
 >): Element<TSubmitMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function textInput(options: TextInputOptions<unknown>): Element<unknown> {
+export function textInput<
+  const TSubmitMessage = never,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  SubmitTextInputOptions,
+  { readonly onSubmit: TSubmitMessage },
+  TKeys,
+  TPointerMessage
+>): Element<TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+export function textInput(options: DisabledTextInputOptions): Element;
+export function textInput(options: unknown): Element<unknown> {
+  return textInputElement(options as TextInputOptions<unknown>);
+}
+
+function textInputElement(options: TextInputOptions<unknown>): Element<unknown> {
+  assertControlContract(
+    'textInput',
+    options,
+    options.disabled === true,
+    [],
+    ['onAction', 'onSubmit'],
+    ['onAction', 'onSubmit']
+  );
   const presentation = options.presentation;
   const keyMap = textInputKeyBindings(options.onAction, options.onSubmit, presentation.value, options.keys);
   return componentElementFromRenderNode<'textInput', unknown>({
@@ -438,8 +509,20 @@ export function textInput(options: TextInputOptions<unknown>): Element<unknown> 
       pointer: options.pointer,
       meta: options.meta
     })
-  }, true);
+  });
 }
+
+type ActionPasswordInputOptions = ActionTextInputOptions & {
+  readonly mask?: string;
+};
+
+type SubmitPasswordInputOptions = SubmitTextInputOptions & {
+  readonly mask?: string;
+};
+
+type DisabledPasswordInputOptions = DisabledTextInputOptions & {
+  readonly mask?: string;
+};
 
 export function passwordInput<
   const TSubmitMessage = never,
@@ -447,7 +530,7 @@ export function passwordInput<
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
-  PasswordInputOptions,
+  ActionPasswordInputOptions,
   {
     readonly onAction: TActionMessage;
     readonly onSubmit: TSubmitMessage;
@@ -455,7 +538,30 @@ export function passwordInput<
   TKeys,
   TPointerMessage
 >): Element<TSubmitMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function passwordInput(options: PasswordInputOptions<unknown>): Element<unknown> {
+export function passwordInput<
+  const TSubmitMessage = never,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  SubmitPasswordInputOptions,
+  { readonly onSubmit: TSubmitMessage },
+  TKeys,
+  TPointerMessage
+>): Element<TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+export function passwordInput(options: DisabledPasswordInputOptions): Element;
+export function passwordInput(options: unknown): Element<unknown> {
+  return passwordInputElement(options as PasswordInputOptions<unknown>);
+}
+
+function passwordInputElement(options: PasswordInputOptions<unknown>): Element<unknown> {
+  assertControlContract(
+    'passwordInput',
+    options,
+    options.disabled === true,
+    [],
+    ['onAction', 'onSubmit'],
+    ['onAction', 'onSubmit']
+  );
   const mask = passwordMask(options.mask);
   const sourceValue = options.presentation.value;
   const masked = maskedPasswordPresentation(options.presentation, mask);
@@ -487,7 +593,7 @@ export function passwordInput(options: PasswordInputOptions<unknown>): Element<u
       pointer: options.pointer,
       meta: options.meta
     })
-  }, true);
+  });
 }
 
 function passwordMask(value: string | undefined): string {
@@ -555,12 +661,17 @@ export function numberInput<
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function numberInput(options: NumberInputOptions<unknown>): Element<unknown> {
+export function numberInput(options: unknown): Element<unknown> {
+  return numberInputElement(options as NumberInputOptions<unknown>);
+}
+
+function numberInputElement(options: NumberInputOptions<unknown>): Element<unknown> {
+  assertControlContract('numberInput', options, options.disabled === true, ['onAction']);
   const keyMap = numberInputKeyBindings(options.onAction, options.keys);
   const editHandlers = textEditInputHandlers(
     options.onAction === undefined
       ? undefined
-      : (operation) => options.onAction?.({ kind: 'edit', operation })
+      : (operation) => options.onAction({ kind: 'edit', operation })
   );
   return componentElementFromRenderNode<'numberInput', unknown>({
     ...requiredRenderNodeId(options.id, 'numberInput'),
@@ -575,5 +686,47 @@ export function numberInput(options: NumberInputOptions<unknown>): Element<unkno
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ ...editHandlers, pointer: options.pointer, meta: options.meta })
-  }, true);
+  });
+}
+
+function assertControlContract(
+  component: string,
+  value: object,
+  inactive: boolean,
+  requiredHandlers: readonly string[],
+  optionalHandlers: readonly string[] = [],
+  requiredAlternatives: readonly string[] = []
+): void {
+  const options = value as Readonly<Record<string, unknown>>;
+  const handlerNames = new Set([
+    ...requiredHandlers,
+    ...optionalHandlers,
+    ...requiredAlternatives
+  ]);
+  for (const handler of handlerNames) {
+    if (options[handler] !== undefined && typeof options[handler] !== 'function') {
+      throw new TypeError(`${component} ${handler} must be a function when provided.`);
+    }
+  }
+  if (!inactive) {
+    for (const handler of requiredHandlers) {
+      if (typeof options[handler] !== 'function') {
+        throw new TypeError(`${component} requires ${handler} when enabled.`);
+      }
+    }
+    if (
+      requiredAlternatives.length > 0
+      && !requiredAlternatives.some((handler) => typeof options[handler] === 'function')
+    ) {
+      throw new TypeError(
+        `${component} requires ${requiredAlternatives.join(' or ')} when enabled.`
+      );
+    }
+    return;
+  }
+  for (const hook of [...handlerNames, 'keys', 'pointer']) {
+    if (options[hook] !== undefined) {
+      throw new TypeError(`${component} cannot define ${hook} while disabled or pending.`);
+    }
+  }
 }

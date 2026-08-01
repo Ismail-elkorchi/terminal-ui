@@ -18,6 +18,9 @@ const objectMessage = button({ id: 'object', label: 'Object', onPress: () => ({ 
 const modified = textInput({
   id: 'modified',
   presentation: { value: '', cursor: 0 },
+  onAction: () => {
+    throw new Error('type-only contract');
+  },
   keys: {
     enter: () => ignoreMessage(),
     triggers: [{

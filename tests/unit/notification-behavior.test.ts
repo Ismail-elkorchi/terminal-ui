@@ -4,8 +4,9 @@ import test from 'node:test';
 import {
   createNotificationState,
   nextNotificationExpiry,
-  notificationActionFromStack,
-  notificationPresentation,
+  activeNotificationItems,
+  notificationHistoryAction,
+  notificationHistoryItems,
   notificationReducer
 } from '../../dist/behavior/index.js';
 import type { NotificationAction } from '../../dist/behavior/index.js';
@@ -19,7 +20,7 @@ void test('notification controller keeps visible capacity, queue order, conflict
 
   assert.deepEqual(state.active.map((item) => item.id), ['b', 'a']);
   assert.deepEqual(state.queued.map((item) => item.id), ['c']);
-  assert.equal(state.selected, 'a');
+  assert.equal(state.selectedHistoryId, undefined);
 
   const ignored = notificationReducer(state, enqueue('a', 'Ignored', 4), policy);
   assert.equal(ignored, state);
@@ -55,7 +56,7 @@ void test('notification controller pauses deadlines, resumes them, expires recor
   assert.equal(state.active[0]?.paused, true);
   assert.equal(state.active[0].remainingMs, 6_000);
   assert.equal(nextNotificationExpiry(state), undefined);
-  assert.equal(notificationPresentation(state, { mode: 'live', now: 20_000 }).items[0]?.detail, 'paused · ttl 6s');
+  assert.equal(activeNotificationItems(state, { now: 20_000 })[0]?.detail, 'paused · ttl 6s');
 
   state = notificationReducer(state, { kind: 'expire', now: 20_000 }, policy);
   assert.equal(state.active[0]?.id, 'a');
@@ -68,14 +69,14 @@ void test('notification controller pauses deadlines, resumes them, expires recor
   assert.equal(state.history[0]?.reason, 'expired');
 });
 
-void test('notification component actions convert to controller actions with explicit time', () => {
-  assert.deepEqual(notificationActionFromStack({ kind: 'move', delta: 1 }, 50), {
-    kind: 'moveSelection',
+void test('notification history actions convert to controller actions with explicit time', () => {
+  assert.deepEqual(notificationHistoryAction({ kind: 'move', delta: 1 }, 50), {
+    kind: 'moveHistorySelection',
     delta: 1,
     now: 50
   });
-  assert.deepEqual(notificationActionFromStack({ kind: 'dismiss', id: 'a' }, 50), {
-    kind: 'dismiss',
+  assert.deepEqual(notificationHistoryAction({ kind: 'remove', id: 'a' }, 50), {
+    kind: 'removeHistory',
     id: 'a',
     now: 50
   });
@@ -91,6 +92,19 @@ void test('notification capacity records each dropped item exactly once with the
   assert.deepEqual(state.queued.map((item) => item.id), ['c']);
   assert.deepEqual(state.history.map((entry) => entry.notification.id), ['b']);
   assert.equal(state.history[0]?.endedAt, 3);
+  assert.deepEqual(notificationHistoryItems(state).map((item) => item.id), ['b']);
+});
+
+void test('notification history keeps completion data in behavior state and projects render items', () => {
+  let state = notificationReducer(createNotificationState(), enqueue('a', 'Alpha', 1));
+  state = notificationReducer(state, { kind: 'dismiss', id: 'a', now: 1e300 });
+
+  const item = notificationHistoryItems(state)[0];
+  assert.equal(state.history[0]?.reason, 'dismissed');
+  assert.equal(state.history[0].endedAt, 1e300);
+  assert.equal('reason' in (item ?? {}), false);
+  assert.equal('endedAt' in (item ?? {}), false);
+  assert.equal(item?.detail, undefined);
 });
 
 function enqueue(
