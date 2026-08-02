@@ -56,11 +56,11 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
 
   const terminalSize = { columns: 30, rows: 6 };
   const layout = layoutElement(initialElement, terminalSize);
-  assert.equal(layout.kind, 'surface');
+  assert.equal(layout.factoryName, 'surface');
   assert.equal(layout.id, 'root-surface');
   assert.deepEqual(layout.bounds, { row: 1, column: 1, width: 30, height: 6 });
-  assert.equal(layout.children[0]?.kind, 'column');
-  assert.equal(layout.children[0]?.children[1]?.kind, 'row');
+  assert.equal(layout.children[0]?.factoryName, 'column');
+  assert.equal(layout.children[0]?.children[1]?.factoryName, 'row');
   assert.equal(layout.children[0]?.children[1]?.children[1]?.id, 'action-field');
 
   const frame = renderElementFrame(initialElement, terminalSize);

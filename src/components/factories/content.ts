@@ -3,10 +3,11 @@ import type { Element } from '../../element/index.ts';
 import type {
   DisclosureOptions,
   RichTextOptions,
-  PassiveTextAreaOptions,
+  DisabledTextAreaOptions,
   ScrollableTextAreaOptions,
   TextAreaOptions,
-  TextOptions
+  TextOptions,
+  UnscrolledTextAreaOptions
 } from '../options/content.ts';
 import { assertTextDocument } from '../../text/index.ts';
 import type { TextAreaAction, TextAreaControlAction } from '../../ui-model/text-area.ts';
@@ -28,6 +29,7 @@ import type {
   IndependentInteractionOptions,
   InferredElementKeyBindings
 } from '../internal/messages.ts';
+import { assertControlContract } from '../internal/control-contract.ts';
 
 export function text(content: string, options: TextOptions = {}): Element {
   return componentElementFromRenderNode<'text'>({
@@ -60,9 +62,7 @@ export function disclosure<
   child: TChild,
   options: DisclosureOptions<TMessage>
 ): Element<ElementMessage<TChild> | TMessage> {
-  if (options.disabled !== true && typeof options.onAction !== 'function') {
-    throw new TypeError('Enabled disclosure requires an onAction function.');
-  }
+  assertControlContract('disclosure', options, options.disabled === true, ['onAction']);
   const onAction = options.disabled === true ? undefined : options.onAction;
   const keys = activationKeyBindings(
     onAction === undefined ? undefined : () => onAction({ kind: 'toggle' }),
@@ -74,6 +74,7 @@ export function disclosure<
   >({
     ...requiredRenderNodeId(options.id, 'disclosure'),
     kind: 'disclosure',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       label: options.label,
       ...(options.summary === undefined
@@ -115,7 +116,7 @@ export function textArea<
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    PassiveTextAreaOptions,
+    UnscrolledTextAreaOptions,
     { readonly onAction: TActionMessage },
     TKeys,
     TPointerMessage
@@ -125,8 +126,14 @@ export function textArea<
   | TPointerMessage
   | ComponentKeyBindingMessages<TKeys>
 >;
+export function textArea(options: DisabledTextAreaOptions): Element;
 /* eslint-enable @typescript-eslint/unified-signatures */
-export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
+export function textArea(options: unknown): Element<unknown> {
+  return textAreaElement(options as TextAreaOptions<unknown>);
+}
+
+function textAreaElement(options: TextAreaOptions<unknown>): Element<unknown> {
+  assertControlContract('textArea', options, options.disabled === true, [], ['onAction']);
   const toControlMessage: ((action: TextAreaControlAction) => unknown) | undefined = options.onAction;
   const toActionMessage: ((action: TextAreaAction) => unknown) | undefined = options.onAction === undefined
     ? undefined
@@ -139,6 +146,11 @@ export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
   return componentElementFromRenderNode<'textArea', unknown>({
     ...requiredRenderNodeId(options.id, 'textArea'),
     kind: 'textArea',
+    availability: options.disabled === true
+      ? 'disabled'
+      : options.onAction === undefined && options.keys === undefined && options.pointer === undefined
+        ? 'passive'
+        : 'active',
     props: {
       document: presentation.document,
       caret: presentation.caret,

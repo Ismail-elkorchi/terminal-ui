@@ -1,48 +1,48 @@
 import { validateAccessibleSnapshot } from '../../accessibility/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
 import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
+import { normalizeUntrustedFrameCellSource } from '../../visual/source.ts';
 import { pointerEventKinds } from '../../input/pointer.ts';
 import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/index.ts';
-import type { FrameCellSource } from '../../visual/source.ts';
 import type { CursorPosition, FocusTarget, HitTarget, Rect } from '../contracts.ts';
 
 const pointerEventKindSet = new Set<string>(pointerEventKinds);
 
-export function normalizeCustomFocusTargets(
+export function normalizeComponentFocusTargets(
   value: unknown,
   owner: string
 ): readonly FocusTarget[] {
   if (!Array.isArray(value)) {
-    throw new TypeError(`Custom renderer "${owner}" focusTargets must return an array.`);
+    throw new TypeError(`Component "${owner}" focusTargets must return an array.`);
   }
   const ids = new Set<string>();
   const normalized: FocusTarget[] = [];
   for (const [index, target] of value.entries()) {
     if (!isNonArrayObject(target)) {
-      throw new TypeError(`Custom renderer "${owner}" focus target ${String(index)} must be an object.`);
+      throw new TypeError(`Component "${owner}" focus target ${String(index)} must be an object.`);
     }
     const id = target['id'];
-    assertUniqueId(id, ids, `Custom renderer "${owner}" focus target`);
-    assertValidRect(target['bounds'], `Custom renderer "${owner}" focus target "${id}"`);
+    assertUniqueId(id, ids, `Component "${owner}" focus target`);
+    assertValidRect(target['bounds'], `Component "${owner}" focus target "${id}"`);
     const cursor = target['cursor'];
     const disabled = target['disabled'];
     if (disabled !== undefined && typeof disabled !== 'boolean') {
-      throw new TypeError(`Custom renderer "${owner}" focus target "${id}" disabled must be a boolean.`);
+      throw new TypeError(`Component "${owner}" focus target "${id}" disabled must be a boolean.`);
     }
     const order = target['order'];
     if (order !== undefined && !isSafeInteger(order)) {
-      throw new TypeError(`Custom renderer "${owner}" focus target "${id}" order must be a safe integer.`);
+      throw new TypeError(`Component "${owner}" focus target "${id}" order must be a safe integer.`);
     }
     const scopeId = target['scopeId'];
     if (scopeId !== undefined && !isNonEmptyString(scopeId)) {
-      throw new TypeError(`Custom renderer "${owner}" focus target "${id}" scopeId must be a non-empty string.`);
+      throw new TypeError(`Component "${owner}" focus target "${id}" scopeId must be a non-empty string.`);
     }
     normalized.push({
       id,
       bounds: target['bounds'],
       ...(cursor === undefined
         ? {}
-        : { cursor: normalizeCustomCursor(cursor, `Custom renderer "${owner}" focus target "${id}" cursor`) }),
+        : { cursor: normalizeComponentCursor(cursor, `Component "${owner}" focus target "${id}" cursor`) }),
       ...(disabled === undefined ? {} : { disabled }),
       ...(order === undefined ? {} : { order }),
       ...(scopeId === undefined ? {} : { scopeId })
@@ -51,65 +51,74 @@ export function normalizeCustomFocusTargets(
   return normalized;
 }
 
-export function assertValidCustomHitTargets<TMessage>(
+export function assertValidComponentHitTargets<TMessage>(
   value: unknown,
   owner: string
 ): asserts value is readonly HitTarget<TMessage>[] {
   if (!Array.isArray(value)) {
-    throw new TypeError(`Custom renderer "${owner}" hitTargets must return an array.`);
+    throw new TypeError(`Component "${owner}" hitTargets must return an array.`);
   }
   const ids = new Set<string>();
   for (const [index, target] of value.entries()) {
     if (!isNonArrayObject(target)) {
-      throw new TypeError(`Custom renderer "${owner}" hit target ${String(index)} must be an object.`);
+      throw new TypeError(`Component "${owner}" hit target ${String(index)} must be an object.`);
     }
     const id = target['id'];
-    assertUniqueId(id, ids, `Custom renderer "${owner}" hit target`);
-    assertValidRect(target['bounds'], `Custom renderer "${owner}" hit target "${id}"`);
+    assertUniqueId(id, ids, `Component "${owner}" hit target`);
+    assertValidRect(target['bounds'], `Component "${owner}" hit target "${id}"`);
     if (typeof target['message'] !== 'function') {
-      throw new TypeError(`Custom renderer "${owner}" hit target "${id}" must provide a message function.`);
+      throw new TypeError(`Component "${owner}" hit target "${id}" must provide a message function.`);
     }
     const accepts = target['accepts'];
     if (accepts !== undefined) {
       if (!Array.isArray(accepts)
         || accepts.some((kind) => typeof kind !== 'string' || !pointerEventKindSet.has(kind))
         || new Set(accepts).size !== accepts.length) {
-        throw new TypeError(`Custom renderer "${owner}" hit target "${id}" accepts contains invalid or duplicate event kinds.`);
+        throw new TypeError(`Component "${owner}" hit target "${id}" accepts contains invalid or duplicate event kinds.`);
       }
     }
     assertPointerFocusIntent(target['focus'], owner, id);
     const cursor = target['cursor'];
     if (cursor !== undefined && (typeof cursor !== 'string' || !['pointer', 'text', 'default'].includes(cursor))) {
-      throw new TypeError(`Custom renderer "${owner}" hit target "${id}" cursor is invalid.`);
+      throw new TypeError(`Component "${owner}" hit target "${id}" cursor is invalid.`);
     }
     if (target['zIndex'] !== undefined && !Number.isSafeInteger(target['zIndex'])) {
-      throw new TypeError(`Custom renderer "${owner}" hit target "${id}" zIndex must be a safe integer.`);
+      throw new TypeError(`Component "${owner}" hit target "${id}" zIndex must be a safe integer.`);
     }
   }
 }
 
-export function assertValidRendererAccessibility(snapshot: AccessibleSnapshot): void {
+export function assertValidRenderedAccessibility(
+  snapshot: AccessibleSnapshot,
+  frameFocused: boolean
+): void {
   const result = validateAccessibleSnapshot(snapshot);
   if (!result.ok) {
-    throw new TypeError(`Renderer produced invalid accessibility: ${result.error.message}`);
+    throw new TypeError(`Renderer returned invalid accessibility: ${result.error.message}`);
+  }
+  if ((snapshot.focusPath.length > 0) !== frameFocused) {
+    throw new TypeError(
+      'Rendered accessibility focus must agree with the resolved frame focus.'
+    );
   }
 }
 
-export function assertCustomAccessibilityFocus(
+export function assertComponentAccessibilityFocus(
   node: AccessibleNode,
   options: {
     readonly runtimeFocused: boolean;
     readonly focusedTargetId: string | undefined;
     readonly focusTargetIds: readonly string[];
+    readonly excludedSubtreeIds: ReadonlySet<string>;
     readonly owner: string;
   }
 ): void {
-  const nodes = collectAccessibleNodes(node);
+  const nodes = collectAccessibleNodes(node, options.excludedSubtreeIds);
   const focusedNodes = nodes.filter((candidate) => candidate.focused === true);
   const accessibilityFocused = focusedNodes.length > 0;
   if (options.runtimeFocused !== accessibilityFocused) {
     throw new TypeError(
-      `Custom renderer "${options.owner}" accessibility focus must agree with the resolved frame focus: ${
+      `Component "${options.owner}" accessibility focus must agree with the resolved frame focus: ${
         options.runtimeFocused
           ? 'no accessible node reported the resolved focus.'
           : 'an accessible node reported focus without a resolved frame target.'
@@ -127,28 +136,32 @@ export function assertCustomAccessibilityFocus(
   );
   if (focusedTargetNode?.focused !== true) {
     throw new TypeError(
-      `Custom renderer "${options.owner}" accessibility must mark resolved focus target "${options.focusedTargetId}" as focused.`
+      `Component "${options.owner}" accessibility must mark resolved focus target "${options.focusedTargetId}" as focused.`
     );
   }
   if (focusedNodes.some((candidate) => candidate !== focusedTargetNode)) {
     throw new TypeError(
-      `Custom renderer "${options.owner}" accessibility reports focus outside resolved target "${options.focusedTargetId}".`
+      `Component "${options.owner}" accessibility reports focus outside resolved target "${options.focusedTargetId}".`
     );
   }
 }
 
-function collectAccessibleNodes(root: AccessibleNode): readonly AccessibleNode[] {
+function collectAccessibleNodes(
+  root: AccessibleNode,
+  excludedSubtreeIds: ReadonlySet<string>
+): readonly AccessibleNode[] {
   const nodes: AccessibleNode[] = [];
-  visit(root);
+  visit(root, true);
   return nodes;
 
-  function visit(node: AccessibleNode): void {
+  function visit(node: AccessibleNode, isRoot = false): void {
+    if (!isRoot && excludedSubtreeIds.has(node.id)) return;
     nodes.push(node);
     for (const child of node.children ?? []) visit(child);
   }
 }
 
-function normalizeCustomCursor(value: unknown, subject: string): CursorPosition {
+function normalizeComponentCursor(value: unknown, subject: string): CursorPosition {
   if (!isNonArrayObject(value)
     || !isSafeInteger(value['row'])
     || !isSafeInteger(value['column'])) {
@@ -160,7 +173,7 @@ function normalizeCustomCursor(value: unknown, subject: string): CursorPosition 
     row: value['row'],
     column: value['column'],
     ...(style === undefined ? {} : { style: normalizeTerminalStyle(style, `${subject} style`) }),
-    ...(source === undefined ? {} : { source: source as FrameCellSource })
+    ...(source === undefined ? {} : { source: normalizeUntrustedFrameCellSource(source) })
   };
 }
 
@@ -175,11 +188,11 @@ function isSafeInteger(value: unknown): value is number {
 function assertPointerFocusIntent(value: unknown, owner: string, id: string): void {
   if (value === undefined) return;
   if (!isNonArrayObject(value)) {
-    throw new TypeError(`Custom renderer "${owner}" hit target "${id}" focus must be an object.`);
+    throw new TypeError(`Component "${owner}" hit target "${id}" focus must be an object.`);
   }
   if (value['kind'] === 'preserve') return;
   if (value['kind'] === 'target' && isNonEmptyString(value['targetId'])) return;
-  throw new TypeError(`Custom renderer "${owner}" hit target "${id}" focus intent is invalid.`);
+  throw new TypeError(`Component "${owner}" hit target "${id}" focus intent is invalid.`);
 }
 
 function assertUniqueId(value: unknown, ids: Set<string>, subject: string): asserts value is string {

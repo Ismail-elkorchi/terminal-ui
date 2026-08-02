@@ -224,35 +224,67 @@ export interface PaginatorOptions<TMessage = never> extends InteractiveElementOp
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-interface TextAreaBaseOptions<TMessage> extends InteractiveElementOptions<TextAreaStylePart, TMessage> {
+interface TextAreaBaseOptions extends ElementOptions<TextAreaStylePart> {
+  readonly id: string;
   readonly highlights?: readonly TextAreaHighlight[];
   readonly placeholder?: string;
   readonly lineNumbers?: boolean | TextAreaLineNumberOptions;
   readonly activeLine?: boolean;
   readonly wrap?: boolean | TextAreaWrapOptions;
   readonly required?: boolean;
-  readonly disabled?: boolean;
   readonly error?: string;
+}
+
+interface ActiveTextAreaInteraction<TMessage>
+  extends InteractiveElementOptions<TextAreaStylePart, TMessage> {
+  readonly disabled?: false;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
+interface DisabledTextAreaInteraction {
+  readonly disabled: true;
+  readonly onAction?: never;
+  readonly keys?: never;
+  readonly pointer?: never;
+}
+
 export type TextAreaOptions<TMessage = never> =
-  | PassiveTextAreaOptions<TMessage>
-  | ScrollableTextAreaOptions<TMessage>;
+  | UnscrolledTextAreaOptions<TMessage>
+  | ScrollableTextAreaOptions<TMessage>
+  | DisabledTextAreaOptions;
 
-export interface PassiveTextAreaOptions<TMessage = never> extends TextAreaBaseOptions<TMessage> {
-  readonly presentation: Omit<TextAreaPresentation, 'scroll'> & { readonly scroll?: never };
-  readonly scrollbar?: never;
-  readonly scrollPolicy?: never;
-  readonly onAction?: (action: TextAreaControlAction) => TMessage;
-}
+export type UnscrolledTextAreaOptions<TMessage = never> =
+  & TextAreaBaseOptions
+  & ActiveTextAreaInteraction<TMessage>
+  & {
+    readonly presentation: Omit<TextAreaPresentation, 'scroll'> & { readonly scroll?: never };
+    readonly scrollbar?: never;
+    readonly scrollPolicy?: never;
+    readonly onAction?: (action: TextAreaControlAction) => TMessage;
+  };
 
-export interface ScrollableTextAreaOptions<TMessage = never> extends TextAreaBaseOptions<TMessage> {
-  readonly presentation: TextAreaScrollablePresentation;
-  readonly scrollbar?: ScrollbarOptions;
-  readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction: (action: TextAreaAction) => TMessage;
-}
+export type ScrollableTextAreaOptions<TMessage = never> =
+  & TextAreaBaseOptions
+  & ActiveTextAreaInteraction<TMessage>
+  & {
+    readonly presentation: TextAreaScrollablePresentation;
+    readonly scrollbar?: ScrollbarOptions;
+    readonly scrollPolicy?: ScrollPolicy;
+    readonly onAction: (action: TextAreaAction) => TMessage;
+  };
+
+export type DisabledTextAreaOptions = TextAreaBaseOptions & DisabledTextAreaInteraction & (
+  | {
+      readonly presentation: Omit<TextAreaPresentation, 'scroll'> & { readonly scroll?: never };
+      readonly scrollbar?: never;
+      readonly scrollPolicy?: never;
+    }
+  | {
+      readonly presentation: TextAreaScrollablePresentation;
+      readonly scrollbar?: ScrollbarOptions;
+      readonly scrollPolicy?: ScrollPolicy;
+    }
+);
 
 export type {
   TableCellRenderInput,

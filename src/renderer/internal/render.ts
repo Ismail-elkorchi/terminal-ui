@@ -25,7 +25,8 @@ import {
   renderNodeClipsChildren,
   renderRenderNode
 } from './render-node-behavior.ts';
-import { assertValidRendererAccessibility } from './extension-output.ts';
+import { assertValidRenderedAccessibility } from './component-output.ts';
+import { renderNodeFactoryName } from '../model/node.ts';
 import {
   createClippedRenderTarget,
   createScopedRenderTarget
@@ -195,7 +196,7 @@ export function renderElementInternal<TMessage>(
         renderNode
       )
     });
-    assertValidRendererAccessibility(snapshot);
+    assertValidRenderedAccessibility(snapshot, resolvedFocusPath !== undefined);
     return snapshot;
   });
   const frame = measureRenderStage(options.instrumentation, 'snapshot', () => buffer.snapshot({
@@ -296,7 +297,7 @@ function frameHitTargets<TMessage>(
       const hitTargets = hitTargetsForRenderNode(target.renderNode, target, theme, widthProfile);
       assertDecorativeNodeHasNoHitTargets(target.renderNode, hitTargets, decorativeNodes);
       return hitTargets.flatMap((hitTarget) => {
-        const elementBounds = target.renderNode.kind === 'custom'
+        const elementBounds = target.renderNode.kind === 'component'
           ? intersectRects(hitTarget.bounds, target.layoutNode.bounds)
           : hitTarget.bounds;
         const bounds = elementBounds === undefined
@@ -466,10 +467,11 @@ function targetForRenderNode(
   node: LayoutNode,
   target: RenderTarget
 ): RenderTarget {
-  return renderNode.kind === 'custom'
+  return renderNode.kind === 'component'
     ? createScopedRenderTarget(target, node.bounds, node.viewport, {
         ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
-        name: renderNode.custom.name
+        name: renderNodeFactoryName(renderNode),
+        rendererFamily: 'component'
       })
     : target;
 }

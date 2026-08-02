@@ -88,8 +88,8 @@ export function scopedFrameSource(
     ...source,
     ...(owner.id === undefined ? {} : { elementId: owner.id }),
     elementKind: owner.name,
-    rendererFamily: owner.rendererFamily ?? 'extension',
-    cellRole: source?.cellRole ?? 'custom'
+    rendererFamily: owner.rendererFamily ?? 'component',
+    cellRole: source?.cellRole ?? 'content'
   });
 }
 
@@ -109,7 +109,7 @@ function writeClippedSpans(
       ? span.style
       : normalizeTerminalStyle(
           span.style,
-          `Custom renderer "${owner.name}" render span style`
+          `Component "${owner.name}" render span style`
         );
     const metadata = {
       ...(style === undefined ? {} : { style }),

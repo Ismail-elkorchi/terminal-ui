@@ -62,6 +62,7 @@ import {
 } from '../../behavior/choice-controls.ts';
 import { segmentGraphemes, terminalTextWidth } from '../../text/index.ts';
 import type { TextPointerAction } from '../../interaction/text-pointer.ts';
+import { assertControlContract } from '../internal/control-contract.ts';
 
 export function form<const TChildren extends ElementChildren>(
   children: TChildren,
@@ -148,6 +149,7 @@ function buttonElement(options: ButtonOptions<unknown>): Element<unknown> {
   return componentElementFromRenderNode<'button', unknown>({
     ...requiredRenderNodeId(options.id, 'button'),
     kind: 'button',
+    availability: options.disabled === true ? 'disabled' : state === 'pending' ? 'pending' : 'active',
     props: {
       label: options.label,
       ...(options.leading === undefined ? {} : { leading: normalizeInlineContent(options.leading) }),
@@ -173,6 +175,7 @@ export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessa
   return componentElementFromRenderNode<'checkbox', TMessage>({
     ...requiredRenderNodeId(options.id, 'checkbox'),
     kind: 'checkbox',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       label: options.label,
       checked: options.checked,
@@ -196,6 +199,7 @@ export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOption
   return componentElementFromRenderNode<'toggleSwitch', TMessage>({
     ...requiredRenderNodeId(options.id, 'toggleSwitch'),
     kind: 'toggleSwitch',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       label: options.label,
       checked: options.checked,
@@ -218,6 +222,7 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
   return componentElementFromRenderNode<'slider', TMessage>({
     ...requiredRenderNodeId(options.id, 'slider'),
     kind: 'slider',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       label: options.label,
       value: options.value,
@@ -250,6 +255,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
   return componentElementFromRenderNode<'rangeSlider', TMessage>({
     ...requiredRenderNodeId(options.id, 'rangeSlider'),
     kind: 'rangeSlider',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       label: options.label,
       state: options.state,
@@ -276,6 +282,7 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
   return componentElementFromRenderNode<'checkboxGroup', TMessage>({
     ...requiredRenderNodeId(options.id, 'checkboxGroup'),
     kind: 'checkboxGroup',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       options: normalizedOptions,
       label: options.label,
@@ -302,6 +309,7 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
   return componentElementFromRenderNode<'radioGroup', TMessage>({
     ...requiredRenderNodeId(options.id, 'radioGroup'),
     kind: 'radioGroup',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       options: normalizedOptions,
       label: options.label,
@@ -328,6 +336,7 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
   return componentElementFromRenderNode<'colorSwatchPicker', TMessage>({
     ...requiredRenderNodeId(options.id, 'colorSwatchPicker'),
     kind: 'colorSwatchPicker',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       options: normalizedOptions,
       label: options.label,
@@ -364,6 +373,7 @@ function calendarElement(options: CalendarOptions<unknown>): Element<unknown> {
   return componentElementFromRenderNode<'calendar', unknown>({
     ...requiredRenderNodeId(options.id, 'calendar'),
     kind: 'calendar',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       days: options.days,
       monthLabel: options.monthLabel,
@@ -414,6 +424,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
   return componentElementFromRenderNode<'select', TMessage>({
     ...requiredRenderNodeId(options.id, 'select'),
     kind: 'select',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       options: normalizedOptions,
       label: options.label,
@@ -493,6 +504,7 @@ function textInputElement(options: TextInputOptions<unknown>): Element<unknown> 
   return componentElementFromRenderNode<'textInput', unknown>({
     ...requiredRenderNodeId(options.id, 'textInput'),
     kind: 'textInput',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       value: presentation.value,
       cursor: presentation.cursor,
@@ -577,6 +589,7 @@ function passwordInputElement(options: PasswordInputOptions<unknown>): Element<u
   return componentElementFromRenderNode<'passwordInput', unknown>({
     ...requiredRenderNodeId(options.id, 'passwordInput'),
     kind: 'passwordInput',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       value: masked.value,
       cursor: masked.cursor,
@@ -676,6 +689,7 @@ function numberInputElement(options: NumberInputOptions<unknown>): Element<unkno
   return componentElementFromRenderNode<'numberInput', unknown>({
     ...requiredRenderNodeId(options.id, 'numberInput'),
     kind: 'numberInput',
+    availability: options.disabled === true ? 'disabled' : 'active',
     props: {
       presentation: options.presentation,
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
@@ -687,46 +701,4 @@ function numberInputElement(options: NumberInputOptions<unknown>): Element<unkno
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ ...editHandlers, pointer: options.pointer, meta: options.meta })
   });
-}
-
-function assertControlContract(
-  component: string,
-  value: object,
-  inactive: boolean,
-  requiredHandlers: readonly string[],
-  optionalHandlers: readonly string[] = [],
-  requiredAlternatives: readonly string[] = []
-): void {
-  const options = value as Readonly<Record<string, unknown>>;
-  const handlerNames = new Set([
-    ...requiredHandlers,
-    ...optionalHandlers,
-    ...requiredAlternatives
-  ]);
-  for (const handler of handlerNames) {
-    if (options[handler] !== undefined && typeof options[handler] !== 'function') {
-      throw new TypeError(`${component} ${handler} must be a function when provided.`);
-    }
-  }
-  if (!inactive) {
-    for (const handler of requiredHandlers) {
-      if (typeof options[handler] !== 'function') {
-        throw new TypeError(`${component} requires ${handler} when enabled.`);
-      }
-    }
-    if (
-      requiredAlternatives.length > 0
-      && !requiredAlternatives.some((handler) => typeof options[handler] === 'function')
-    ) {
-      throw new TypeError(
-        `${component} requires ${requiredAlternatives.join(' or ')} when enabled.`
-      );
-    }
-    return;
-  }
-  for (const hook of [...handlerNames, 'keys', 'pointer']) {
-    if (options[hook] !== undefined) {
-      throw new TypeError(`${component} cannot define ${hook} while disabled or pending.`);
-    }
-  }
 }

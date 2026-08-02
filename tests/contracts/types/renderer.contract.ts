@@ -1,13 +1,13 @@
-import { text } from '@ismail-elkorchi/terminal-ui/components';
 import {
-  custom,
-  type CustomLeafRenderer,
-  type CustomRendererInput,
-  type CustomRendererMeasureInput,
-  type CustomRendererRenderInput,
-  type DecorativeCustomCompositeRenderer,
-  type DecorativeCustomRenderer
-} from '@ismail-elkorchi/terminal-ui/component';
+  defineComponent,
+  text,
+  type ComponentInput,
+  type ComponentLayoutInput,
+  type ComponentMeasureInput,
+  type ComponentRenderInput,
+  type DecorativeLeafComponentDefinition,
+  type SemanticLeafComponentDefinition
+} from '@ismail-elkorchi/terminal-ui/components';
 import {
   renderElementFrame,
   renderFramePlain,
@@ -42,6 +42,7 @@ const instrumentation: RenderInstrumentation = {
 };
 declare const layoutNode: LayoutNode;
 const layoutLayerId: string = layoutNode.layer.id;
+const layoutFactoryName: string = layoutNode.factoryName;
 
 // @ts-expect-error render bounds use terminal cell numbers
 renderElementFrame(text('Invalid'), { columns: '20', rows: 2 });
@@ -61,127 +62,105 @@ const absoluteRect: Rect = { row: 1, column: 1, width: 2, height: 2 };
 drawing.rect(absoluteRect, { fill: { text: '*' } });
 drawing.rect({ x: 0, y: 0, width: 2, height: 2 }, { fill: { text: '*' } });
 
-custom({
-  id: 'write-only-custom-renderer',
-  renderer: {
-    kind: 'leaf',
-    name: 'writeOnly',
-    parts: [],
-    measure: () => ({
-      minWidth: 0,
-      minHeight: 0,
-      preferredWidth: 2,
-      preferredHeight: 1
-    }),
-    render({ target }) {
-      target.write(1, 1, [{ text: 'ok' }]);
-      // @ts-expect-error public custom render targets do not expose private frame-buffer reads
-      const readCell = target.readCell;
-      void readCell;
-    },
-    accessibility: ({ id }) => ({ id, role: 'text', label: 'write only' })
-  }
+const writeOnly = defineComponent({
+  structure: 'leaf',
+  semantics: 'semantic',
+  name: 'writeOnly',
+  measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 2, preferredHeight: 1 }),
+  render({ target }) {
+    target.write(1, 1, [{ text: 'ok' }]);
+    // @ts-expect-error component render targets do not expose private frame-buffer reads
+    const readCell = target.readCell;
+    void readCell;
+  },
+  accessibility: ({ id }) => ({ id, role: 'text', label: 'write only' })
 });
-const rendererWithUnsupportedPlacement: CustomLeafRenderer = {
-  kind: 'leaf',
+writeOnly({ id: 'write-only-component' });
+writeOnly({ id: 'passive-component', availability: 'passive' });
+// @ts-expect-error passive components cannot define interaction handlers
+writeOnly({
+  id: 'invalid-passive-component',
+  availability: 'passive',
+  keys: { enter: () => undefined }
+});
+
+const rendererWithUnsupportedPlacement: SemanticLeafComponentDefinition = {
+  structure: 'leaf',
+  semantics: 'semantic',
   name: 'placedLeaf',
   parts: [],
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
-  render() {
-    return;
-  },
+  render: () => undefined,
   accessibility: ({ id }) => ({ id, role: 'text', label: id }),
-  // @ts-expect-error public custom renderers cannot take ownership of layout placement
+  // @ts-expect-error components cannot take ownership of layout placement
   place: ({ bounds }: { readonly bounds: Rect }) => bounds
 };
 void rendererWithUnsupportedPlacement;
 
-declare const customRenderInput: CustomRendererRenderInput<undefined>;
-customRenderInput.target.write(1, 1, [{ text: 'ok' }]);
-declare const customMeasureInput: CustomRendererMeasureInput<undefined>;
+declare const componentRenderInput: ComponentRenderInput<undefined>;
+componentRenderInput.target.write(1, 1, [{ text: 'ok' }]);
+declare const componentMeasureInput: ComponentMeasureInput<undefined>;
 // @ts-expect-error measurement occurs before viewport resolution
-const customMeasureViewport = customMeasureInput.viewport;
-declare const compositeMeasureInput: CustomRendererMeasureInput<undefined>;
-// @ts-expect-error composite measurement occurs before viewport resolution
-const compositeMeasureViewport = compositeMeasureInput.viewport;
-custom({
-  id: 'decorative-composite-contract',
-  children: [text('Decoration')],
-  renderer: {
-    kind: 'composite',
-    name: 'decorativeStack',
-    parts: [],
-    measure: ({ measureChild }) => measureChild(0),
-    layout: ({ bounds }) => [bounds]
-  },
-  meta: { accessibility: { decorative: true } }
+const componentMeasureViewport = componentMeasureInput.viewport;
+
+const decorativeComposite = defineComponent({
+  structure: 'composite',
+  // @ts-expect-error decorative component definitions must be leaves
+  semantics: 'decorative',
+  name: 'decorativeStack',
+  measure: ({ measureChild }: ComponentMeasureInput<undefined>) => measureChild(0),
+  layout: ({ bounds }: ComponentLayoutInput<undefined>) => [bounds]
 });
-const interactiveDecorativeRenderer: DecorativeCustomRenderer = {
-  kind: 'leaf',
+void decorativeComposite;
+
+const interactiveDecoration: DecorativeLeafComponentDefinition = {
+  structure: 'leaf',
+  semantics: 'decorative',
   name: 'interactiveDecoration',
   parts: [],
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
-  render() {
-    return;
-  },
-  // @ts-expect-error decorative custom renderers cannot expose focus targets
-  focusTargets: ({ bounds }: CustomRendererInput<undefined>) => [{ id: 'self', bounds }]
+  render: () => undefined,
+  // @ts-expect-error decorative components cannot expose focus targets
+  focusTargets: ({ bounds }: ComponentInput<undefined>) => [{ id: 'self', bounds }]
 };
-// @ts-expect-error decorative custom elements cannot define key bindings
-custom({
-  id: 'keyed-decorative-custom',
-  renderer: {
-    kind: 'leaf',
-    name: 'keyedDecoration',
-    parts: [],
-    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
-    render() {
-      return;
-    }
-  },
-  keys: {
-    enter: () => ({ kind: 'press' })
-  },
-  meta: { accessibility: { decorative: true } }
+void interactiveDecoration;
+
+const decoration = defineComponent({
+  structure: 'leaf',
+  semantics: 'decorative',
+  name: 'decoration',
+  parts: [],
+  measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
+  render: () => undefined
 });
-const interactiveDecorativeCompositeRenderer: DecorativeCustomCompositeRenderer = {
-  kind: 'composite',
-  name: 'interactiveDecorativeComposite',
+decoration({
+  id: 'keyed-decoration',
+  // @ts-expect-error decorative component instances cannot define key bindings
+  keys: { enter: () => ({ kind: 'press' }) }
+});
+
+// @ts-expect-error semantic leaf components require an accessibility hook
+const missingAccessibility: SemanticLeafComponentDefinition = {
+  structure: 'leaf',
+  semantics: 'semantic',
+  name: 'missingAccessibility',
+  parts: [],
+  measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
+  render: () => undefined
+};
+void missingAccessibility;
+
+// @ts-expect-error semantic composite components require an accessibility hook
+const missingCompositeAccessibility: import('@ismail-elkorchi/terminal-ui/components').SemanticCompositeComponentDefinition = {
+  structure: 'composite',
+  semantics: 'semantic',
+  name: 'missingCompositeAccessibility',
   parts: [],
   measure: ({ measureChild }) => measureChild(0),
-  layout: ({ bounds }) => [bounds],
-  // @ts-expect-error decorative custom composites cannot expose hit targets
-  hitTargets: ({ bounds }: CustomRendererInput<undefined>) => [{
-    id: 'hit',
-    bounds,
-    message: () => ({ kind: 'press' })
-  }]
+  layout: ({ bounds }) => [bounds]
 };
-// @ts-expect-error semantic custom renderers require an accessibility hook
-custom({
-  id: 'missing-custom-accessibility',
-  renderer: {
-    kind: 'leaf',
-    name: 'missingAccessibility',
-    parts: [],
-    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
-    render() {
-      return;
-    }
-  }
-});
-// @ts-expect-error semantic custom composites require an accessibility hook
-custom({
-  id: 'missing-composite-accessibility',
-  children: [text('Semantic content')],
-  renderer: {
-    kind: 'composite',
-    name: 'missingCompositeAccessibility',
-    parts: [],
-    measure: ({ measureChild }) => measureChild(0),
-    layout: ({ bounds }) => [bounds]
-  }
-});
+void missingCompositeAccessibility;
+
 declare const framePassContext: FramePassContext;
 const framePassColumns = framePassContext.terminalSize.columns;
 
@@ -193,6 +172,7 @@ const privateRegions = frame.regions;
 void renderSpan;
 void instrumentation;
 void layoutLayerId;
+void layoutFactoryName;
 void painterInput;
 void renderStage;
 void plain;
@@ -200,9 +180,6 @@ void invalidInteractionState;
 void validInteractionState;
 void privateRenderNode;
 void privateRegions;
-void customRenderInput;
-void customMeasureViewport;
-void compositeMeasureViewport;
-void interactiveDecorativeRenderer;
-void interactiveDecorativeCompositeRenderer;
+void componentRenderInput;
+void componentMeasureViewport;
 void framePassColumns;

@@ -3,11 +3,11 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { applyScrollEvent, createScrollState, treeReducer } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { custom } from '../../dist/component/index.js';
 import {
-  compositeRendererDefinition,
-  leafRendererDefinition
-} from '../helpers/custom-renderer.mjs';
+  componentElement,
+  compositeComponentDefinition,
+  leafComponentDefinition
+} from '../helpers/component-definition.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { contextMenu, text, textArea, tree } from '../../dist/components/index.js';
 import { column, overlay, viewport } from '../../dist/layout/index.js';
@@ -15,7 +15,7 @@ import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 test('TUI wheel routing skips non-scroll child targets and reaches the scroll target', async () => {
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'child inside scroll target' }]);
     },
@@ -49,7 +49,7 @@ test('TUI wheel routing skips non-scroll child targets and reaches the scroll ta
     id: 'wheel-scroll-target-tui',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: () => custom({ id: 'wheel-scroll-target', renderer })
+    view: () => componentElement({ id: 'wheel-scroll-target', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 28, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -429,11 +429,11 @@ test('viewport wheel bursts and thumb dragging keep scrolled composite children 
     update: (state, message) => ({
       state: { scroll: applyScrollEvent(state.scroll, message.event) }
     }),
-    view: (state) => viewport(custom({
+    view: (state) => viewport(componentElement({
       id: 'scrolling-composite',
       children,
-      renderer: {
-        ...compositeRendererDefinition,
+      definition: {
+        ...compositeComponentDefinition,
         layout({ bounds }) {
           return children.map((_child, index) => ({
             row: bounds.row + index,

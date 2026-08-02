@@ -1,5 +1,6 @@
 import type {
   ElementAccessibility,
+  ElementAvailability,
   ElementFocus,
   ElementKeyBindings,
   ElementLayer,
@@ -33,15 +34,16 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly pointer?: RenderNodePointerInteraction<TMessage>;
   readonly accessibility?: ElementAccessibility;
   readonly focusable?: true;
+  readonly availability?: ElementAvailability;
 }
 
 export type RenderNodeOfKind<
   TMessage,
   TKind extends RenderNodeKind
 > = RenderNodeBase<TMessage, TKind> & (
-  TKind extends 'custom'
-    ? { readonly custom: CustomRenderNodeRuntime<TMessage> }
-    : { readonly custom?: never }
+  TKind extends 'component'
+    ? { readonly definition: RuntimeComponentDefinition<TMessage> }
+    : { readonly definition?: never }
 );
 
 export type RenderNode<TMessage = unknown> = {
@@ -58,7 +60,7 @@ export interface RenderNodeInputMap<TMessage> {
   readonly paste?: (text: string) => TMessage;
 }
 
-export interface CustomRenderNodeRuntime<TMessage = unknown> {
+export interface RuntimeComponentDefinition<TMessage = unknown> {
   readonly name: string;
-  readonly renderer: RenderNodeRenderer<TMessage, 'custom'>;
+  readonly renderer: RenderNodeRenderer<TMessage, 'component'>;
 }

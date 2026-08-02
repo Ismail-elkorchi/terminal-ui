@@ -14,7 +14,6 @@ export function pointerInteractionHitTargets<TMessage>(
 ): readonly HitTarget<TMessage>[] {
   const toActionMessage = renderNode.pointer?.toActionMessage;
   if (toActionMessage === undefined) return targets;
-  if (targets.length === 0 && renderNodeDisabled(renderNode)) return targets;
   const interactionTargets = targets.length > 0
     ? targets
     : [{
@@ -95,8 +94,4 @@ function mergeKinds(
   additions: readonly PointerEventKind[]
 ): readonly PointerEventKind[] {
   return [...new Set([...current, ...additions])];
-}
-
-function renderNodeDisabled(renderNode: RenderNode): boolean {
-  return 'disabled' in renderNode.props && renderNode.props.disabled;
 }

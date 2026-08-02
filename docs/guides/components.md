@@ -166,9 +166,10 @@ tokens must use the `custom.*` namespace.
 
 `dialog()` titles accept caller-supplied inline content. A `BorderTitleSlots` object
 places title content in its `start`, `center`, and `end` slots. Its `border`
-option owns geometry only: border kind and title alignment. Renderer spans,
-frame source metadata, and border styles remain renderer-extension concerns.
+option owns geometry only: border kind and title alignment. Render spans,
+frame source metadata, and border styles remain component implementation
+concerns.
 
 For app structure and controlled state, see [Building terminal apps](./building-terminal-apps.md).
-For reusable reducers, see [Behavior helpers](./behavior.md). For custom
-renderer escape hatches, see [Renderer extensions](./renderer-extensions.md).
+For reusable reducers, see [Behavior helpers](./behavior.md). For reusable
+component authoring, see [Component definitions](./component-definitions.md).

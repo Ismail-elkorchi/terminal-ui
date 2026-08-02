@@ -257,6 +257,7 @@ export function logViewerAccessibleBase(
   renderNode: LogViewerNode,
   node: LayoutNode,
   id: string,
+  focused: boolean,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
   const window = logViewerWindow(renderNode, node, widthProfile);
@@ -264,7 +265,8 @@ export function logViewerAccessibleBase(
     id,
     role: 'text',
     label: id,
-    description: logViewerDescription(renderNode, window)
+    description: logViewerDescription(renderNode, window),
+    ...(focused ? { focused: true } : {})
   };
 }
 

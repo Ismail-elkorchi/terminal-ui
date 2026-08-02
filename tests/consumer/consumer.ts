@@ -4,6 +4,7 @@ import {
   commandInput,
   column,
   createTerminalHost,
+  defineComponent,
   defineTui,
   ok,
   passwordInput,
@@ -18,7 +19,6 @@ import {
   type TextInputAction,
   type TreeAction
 } from '@ismail-elkorchi/terminal-ui';
-import { custom } from '@ismail-elkorchi/terminal-ui/component';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { createInputDecoder } from '@ismail-elkorchi/terminal-ui/input';
@@ -148,60 +148,56 @@ const selected = resolveSelectedText({
   sources: [{ id: 'consumer-source', text: 'selected text', selection: { startOffset: 0, endOffsetExclusive: 8 } }]
 });
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
-const extension = custom({
-  id: 'packed-extension',
-  renderer: {
-    kind: 'leaf',
-    name: 'packedExtension',
-    parts: [],
-    measure: () => ({
-      minWidth: 1,
-      minHeight: 1,
-      preferredWidth: 9,
-      preferredHeight: 1
-    }),
-    render({ target, bounds }) {
-      target.write(bounds.row, bounds.column, [{ text: 'Extension' }]);
-    },
-    accessibility: ({ id }) => ({ id, role: 'text', label: 'Extension' })
-  }
+const packedComponent = defineComponent({
+  name: 'packedComponent',
+  structure: 'leaf',
+  semantics: 'semantic',
+  measure: () => ({
+    minWidth: 1,
+    minHeight: 1,
+    preferredWidth: 9,
+    preferredHeight: 1
+  }),
+  render({ target, bounds }) {
+    target.write(bounds.row, bounds.column, [{ text: 'Defined' }]);
+  },
+  accessibility: ({ id }) => ({ id, role: 'text', label: 'Defined' })
 });
-const extensionPanel = custom({
-  id: 'packed-extension-panel',
-  children: [extension, text('Child')] as const,
-  renderer: {
-    kind: 'composite',
-    name: 'packedExtensionPanel',
-    parts: [],
-    measure: ({ childCount, measureChild }) => {
-      const children = Array.from(
-        { length: childCount },
-        (_unused, index) => measureChild(index)
-      );
-      return {
-        minWidth: Math.max(0, ...children.map((child) => child.minWidth)),
-        minHeight: children.reduce((height, child) => height + child.minHeight, 0),
-        preferredWidth: Math.max(0, ...children.map((child) => child.preferredWidth)),
-        preferredHeight: children.reduce(
-          (height, child) => height + child.preferredHeight,
-          0
-        )
-      };
-    },
-    layout: ({ bounds }) => [
-      { ...bounds, height: 1 },
-      { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
-    ],
-    accessibility: ({ id, children }) => ({
-      id,
-      role: 'group',
-      label: 'Extension panel',
-      children
-    })
-  }
+const packedPanel = defineComponent({
+  name: 'packedPanel',
+  structure: 'composite',
+  semantics: 'semantic',
+  measure: ({ childCount, measureChild }) => {
+    const children = Array.from(
+      { length: childCount },
+      (_unused, index) => measureChild(index)
+    );
+    return {
+      minWidth: Math.max(0, ...children.map((child) => child.minWidth)),
+      minHeight: children.reduce((height, child) => height + child.minHeight, 0),
+      preferredWidth: Math.max(0, ...children.map((child) => child.preferredWidth)),
+      preferredHeight: children.reduce(
+        (height, child) => height + child.preferredHeight,
+        0
+      )
+    };
+  },
+  layout: ({ bounds }) => [
+    { ...bounds, height: 1 },
+    { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
+  ],
+  accessibility: ({ id, children }) => ({
+    id,
+    role: 'group',
+    label: 'Defined panel',
+    children
+  })
 });
-const extensionSnapshot = renderElementSnapshot({
-  element: extensionPanel,
+const componentSnapshot = renderElementSnapshot({
+  element: packedPanel({
+    id: 'packed-panel',
+    children: [packedComponent({ id: 'packed-component' }), text('Child')] as const
+  }),
   terminalSize: { columns: 20, rows: 3 }
 });
 const result = ok('root-entrypoint');
@@ -248,8 +244,8 @@ if (harness.host.runtime !== 'memory') throw new Error('The testing entrypoint d
 if (harness.snapshot().source !== 'test_harness' || harness.snapshot().root.role !== 'group') {
   throw new Error('The packed testing entrypoint returned an invalid empty harness snapshot.');
 }
-if (!extensionSnapshot.plainTextFrame.includes('Extension') || !extensionSnapshot.plainTextFrame.includes('Child')) {
-  throw new Error('The packed component and testing facades did not render a reusable extension.');
+if (!componentSnapshot.plainTextFrame.includes('Defined') || !componentSnapshot.plainTextFrame.includes('Child')) {
+  throw new Error('The packed components and testing facades did not render a defined component.');
 }
 if (renderedView.accessibility.source !== 'renderer') {
   throw new Error('The packed renderer entrypoint returned an invalid snapshot source.');

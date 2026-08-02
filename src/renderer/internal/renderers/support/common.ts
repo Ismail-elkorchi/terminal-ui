@@ -18,7 +18,7 @@ export function focusHitTargets<TMessage>(
   suffix: string
 ): readonly HitTarget<TMessage>[] {
   if (bounds.width <= 0 || bounds.height <= 0) return [];
-  if (renderNode.props.disabled === true || renderNode.focus?.disabled === true) return [];
+  if (renderNode.focus?.disabled === true) return [];
   return [{
     id: `${renderNode.id ?? renderNode.kind}:${suffix}`,
     bounds,

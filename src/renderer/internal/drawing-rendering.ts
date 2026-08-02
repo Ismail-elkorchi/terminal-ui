@@ -34,7 +34,7 @@ export function renderCanvas(input: RenderNodeRenderInput<unknown, 'canvas'>): v
     style: (styleInput) => resolveRenderNodeStyle(input.renderNode, styleInput),
     source: (sourceInput = {}) => renderNodeFrameSource(input.renderNode, {
       rendererFamily: 'canvas',
-      cellRole: 'custom',
+      cellRole: 'content',
       ...sourceInput
     })
   });

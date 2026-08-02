@@ -1,3 +1,5 @@
+import { defineComponent } from '../../dist/components/index.js';
+
 const unitMeasurement = Object.freeze({
   minWidth: 0,
   minHeight: 0,
@@ -5,15 +7,15 @@ const unitMeasurement = Object.freeze({
   preferredHeight: 1
 });
 
-export const leafRendererDefinition = Object.freeze({
-  kind: 'leaf',
+export const leafComponentDefinition = Object.freeze({
+  structure: 'leaf',
   name: 'testLeaf',
   parts: Object.freeze([]),
   measure: () => unitMeasurement
 });
 
-export const compositeRendererDefinition = Object.freeze({
-  kind: 'composite',
+export const compositeComponentDefinition = Object.freeze({
+  structure: 'composite',
   name: 'testComposite',
   parts: Object.freeze([]),
   measure: ({ childCount, measureChild }) => {
@@ -34,3 +36,10 @@ export const compositeRendererDefinition = Object.freeze({
     };
   }
 });
+
+export function componentElement({ definition, ...options }) {
+  return defineComponent({
+    semantics: 'semantic',
+    ...definition
+  })(options);
+}

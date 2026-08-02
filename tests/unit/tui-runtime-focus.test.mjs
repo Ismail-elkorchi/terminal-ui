@@ -4,8 +4,10 @@ import { createTuiRuntime, defineTui, runTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { custom } from '../../dist/component/index.js';
-import { leafRendererDefinition } from '../helpers/custom-renderer.mjs';
+import {
+  componentElement,
+  leafComponentDefinition
+} from '../helpers/component-definition.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, contextMenu, dialog, dropdownMenu, list, notificationRegion, richText, table, textInput } from '../../dist/components/index.js';
 import { column, overlay, surface } from '../../dist/layout/index.js';
@@ -336,7 +338,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
 
 test('ambiguous initial element focus is diagnosed instead of selecting an arbitrary match', async () => {
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     measure: () => ({
       minWidth: 1,
       minHeight: 1,
@@ -363,7 +365,7 @@ test('ambiguous initial element focus is diagnosed instead of selecting an arbit
     init: () => ({}),
     update: (state) => ({ state }),
     view: () => column([
-      custom({ id: 'duplicate', renderer })
+      componentElement({ id: 'duplicate', definition: renderer })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -679,11 +681,11 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   assert.deepEqual(dropdownMenuRuntime.state(), { active: 'dropdownMenu' });
 });
 
-test('TUI runtime traverses multiple custom focus targets within one element', async () => {
+test('TUI runtime traverses multiple defined focus targets within one element', async () => {
   const renderedTargets = [];
   const accessibleTargets = [];
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     render({ target, bounds, focusedTargetId }) {
       renderedTargets.push(focusedTargetId);
       target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
@@ -718,28 +720,28 @@ test('TUI runtime traverses multiple custom focus targets within one element', a
     }
   };
   const app = defineTui({
-    id: 'custom-focus-targets',
+    id: 'defined-focus-targets',
     init: () => ({}),
     update: (state) => ({ state }),
-    view: () => custom({ id: 'custom-board', renderer })
+    view: () => componentElement({ id: 'component-board', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 10, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'right']);
+  assert.deepEqual(runtime.frame().focusPath, ['component-board', 'right']);
   assert.equal(renderedTargets.at(-1), 'right');
   assert.equal(accessibleTargets.at(-1), 'right');
 
   await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
-  assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'left']);
+  assert.deepEqual(runtime.frame().focusPath, ['component-board', 'left']);
   assert.equal(renderedTargets.at(-1), 'left');
   assert.equal(accessibleTargets.at(-1), 'left');
 });
 
-test('TUI updates can focus a specific custom target after rendering new state', async () => {
+test('TUI updates can focus a specific component target after rendering new state', async () => {
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     render({ target, bounds }) {
       target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
     },
@@ -763,17 +765,17 @@ test('TUI updates can focus a specific custom target after rendering new state',
     }
   };
   const app = defineTui({
-    id: 'programmatic-custom-focus',
+    id: 'programmatic-defined-focus',
     init: () => ({ active: 'left' }),
     update: (_state, message) => ({
       state: { active: message.targetId },
       focus: {
         kind: 'elementTarget',
-        elementId: 'custom-board',
+        elementId: 'component-board',
         targetId: message.targetId
       }
     }),
-    view: () => custom({ id: 'custom-board', renderer })
+    view: () => componentElement({ id: 'component-board', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 10, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -781,7 +783,7 @@ test('TUI updates can focus a specific custom target after rendering new state',
   await runtime.start();
   await runtime.dispatch({ targetId: 'right' });
 
-  assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'right']);
+  assert.deepEqual(runtime.frame().focusPath, ['component-board', 'right']);
   assert.equal(runtime.frame().accessibility.root.children?.[1]?.focused, true);
 });
 

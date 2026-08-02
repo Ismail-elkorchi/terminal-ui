@@ -1,8 +1,8 @@
 import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementValue } from '../../element/index.ts';
-import type { ElementInspection } from '../../element/inspection.ts';
+import type { ElementFactoryCategory, ElementInspection } from '../../element/inspection.ts';
 import { renderNodeId } from '../../foundation/identity.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
-import { renderNodeFocusDisabled } from './interaction.ts';
+import { renderNodeFocusUnavailable } from './node.ts';
 
 const renderNodes = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
@@ -26,21 +26,12 @@ export function layoutElementFromRenderNode<
   return elementFromRenderNode(node, 'layout');
 }
 
-export function extensionElementFromRenderNode<
-  const TKind extends RenderNodeKind,
-  TMessage = never
->(
-  node: RenderNodeOfKind<TMessage, TKind>
-): Element<TMessage> {
-  return elementFromRenderNode(node, 'extension');
-}
-
 function elementFromRenderNode<
   const TKind extends RenderNodeKind,
   TMessage
 >(
   node: RenderNodeOfKind<TMessage, TKind>,
-  category: ElementInspection['category']
+  category: ElementFactoryCategory
 ): Element<TMessage> {
   const element = Object.freeze({}) as Element<TMessage>;
   const inspection = inspectRenderNode(node, category);
@@ -53,7 +44,7 @@ function elementFromRenderNode<
 export function inspectElementInternal(element: ElementValue): ElementInspection {
   const inspection = isObject(element) ? inspections.get(element) : undefined;
   if (inspection === undefined) {
-    throw new TypeError('Expected an Element created by a terminal-ui component, layout, or renderer-extension factory.');
+    throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
   }
   return inspection;
 }
@@ -61,7 +52,7 @@ export function inspectElementInternal(element: ElementValue): ElementInspection
 export function toRenderNode<TElement extends ElementValue>(element: TElement): RenderNode<ElementMessage<TElement>> {
   const node = isObject(element) ? renderNodes.get(element) : undefined;
   if (node === undefined) {
-    throw new TypeError('Expected an Element created by a terminal-ui component, layout, or renderer-extension factory.');
+    throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
   }
   return node as RenderNode<ElementMessage<TElement>>;
 }
@@ -99,16 +90,16 @@ function isObject(value: unknown): value is object {
 
 function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   node: RenderNodeOfKind<TMessage, TKind>,
-  category: ElementInspection['category']
+  category: ElementFactoryCategory
 ): ElementInspection {
   const styleParts = Object.keys(node.styles?.parts ?? {}).sort();
   const styleStates = Object.keys(node.styles?.states ?? {}).sort();
   const keyboard = node.keyMap !== undefined && Object.keys(node.keyMap).length > 0;
   const inspection: ElementInspection = {
-    kind: node.kind === 'custom' && node.custom !== undefined
-      ? node.custom.name
-      : node.kind,
     category,
+    kind: node.kind === 'component' && node.definition !== undefined
+      ? node.definition.name
+      : node.kind,
     ...(node.id === undefined ? {} : { id: node.id }),
     inputs: Object.freeze({
       keyboard,
@@ -134,11 +125,11 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
 function focusCapability<TMessage, TKind extends RenderNodeKind>(
   node: RenderNodeOfKind<TMessage, TKind>
 ): ElementInspection['inputs']['focus'] {
-  if (renderNodeFocusDisabled(node)) return 'none';
+  if (renderNodeFocusUnavailable(node)) return 'none';
   if (node.focus?.scope?.kind === 'contain') return 'scope';
   const hasKeyboard = node.keyMap !== undefined && Object.keys(node.keyMap).length > 0;
   const hasInput = node.inputMap?.text !== undefined || node.inputMap?.paste !== undefined;
   const hasDeclaredTargets = node.focusable === true
-    || node.kind === 'custom' && node.custom?.renderer.focusTargets !== undefined;
+    || node.kind === 'component' && node.definition?.renderer.focusTargets !== undefined;
   return hasKeyboard || hasInput || hasDeclaredTargets ? 'item' : 'none';
 }

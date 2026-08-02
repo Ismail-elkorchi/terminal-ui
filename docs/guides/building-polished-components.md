@@ -7,9 +7,9 @@ into bounded layout, styled cells, interaction targets, and snapshots.
 
 ## Component Checklist
 
-For each component or renderer extension:
+For each component:
 
-- define stable input data and keep application state outside the renderer;
+- define stable input data and keep application state outside the definition;
 - measure minimum and preferred size without reading terminal globals;
 - render through the framework-provided drawing target;
 - use `RenderSpan` values so style survives clipping and wrapping;
@@ -58,8 +58,8 @@ handlers, focus metadata, and renderer focus targets. Pointer behavior comes
 from hit targets. The runtime routes input after rendering; renderers describe
 target geometry, accepted pointer event kinds, focus intent, and how a routed
 pointer event maps to a caller-controlled message. Built-in focusable controls bind
-their pointer targets to their single declared focus target. Custom renderers
-must declare that relationship explicitly.
+their pointer targets to their single declared focus target. Defined components
+declare that relationship explicitly.
 
 Renderer visual focus is a relation: `none`, `self`, or `descendant`.
 Accessibility remains exact and marks only the active target as focused.
@@ -79,18 +79,17 @@ selected, keyboard-navigable notification collection. The region
 places cards within its bounds and skips cards that cannot fit a minimum useful
 shape.
 
-## Renderer Extensions
+## Component Definitions
 
-Use `custom()` for renderer extensions, including measurement, rendering,
-accessibility, focus targets, and hit targets. A `leaf` renderer paints one
-element; a `composite` renderer additionally measures and arranges children.
+Use `defineComponent()` for reusable measurement, drawing, accessibility,
+focus targets, and hit targets. A leaf definition draws one element; a
+composite definition additionally measures and arranges children.
 Use `canvas()` for bounded drawing through `Canvas2D`.
 
 Both paths draw through the same sanitized frame pipeline; neither path writes
-raw terminal output. Interactive custom renderers must provide accessibility.
-Decorative output must opt into `meta: { accessibility: { decorative: true } }`.
-The decorative element and its descendants cannot expose keyboard, text-input,
-focus, or pointer interaction.
+raw terminal output. Semantic definitions provide accessibility. Decorative
+definitions use `semantics: 'decorative'`; their types and runtime checks reject
+interaction hooks and interactive descendants.
 
 ## Regression Evidence
 

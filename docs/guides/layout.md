@@ -30,10 +30,11 @@ semantics, dismissal, modal focus containment, initial focus, and focus
 restoration. Those responsibilities, not their child content, keep them in the
 component API.
 
-`inspectElement()` reports `layout` for every factory in the table and
-`component` for `tabs()` and `dialog()`. This category is private inspection
-information; rendering still dispatches by the existing private render-node
-kind.
+`inspectElement()` reports `layout` as the factory category for every entry in
+the table and `component` for `tabs()` and `dialog()`. It also reports the
+stable factory name, input capabilities, metadata, and public child structure.
+The category records which public API created the element; it does not expose
+the private node kind or renderer data.
 
 Layout options include gap, padding, margin, fixed/percent/fill/content sizing,
 min/max dimensions, alignment, justification, overflow, z-index, visibility,

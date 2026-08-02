@@ -119,12 +119,7 @@ export const formRenderers = {
       ));
     },
     accessibility: ({ renderNode, id, focused }) => buttonAccessibleBase(renderNode, id, focused),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true
-      && renderNode.props.state !== 'pending'
-      && renderNode.props.toPressMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   checkbox: {
@@ -140,10 +135,7 @@ export const formRenderers = {
       ));
     },
     accessibility: ({ renderNode, id, focused }) => checkboxAccessibleBase(renderNode, id, focused),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   toggleSwitch: {
@@ -159,10 +151,7 @@ export const formRenderers = {
       ));
     },
     accessibility: ({ renderNode, id, focused }) => toggleSwitchAccessibleBase(renderNode, id, focused),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   slider: {
@@ -171,10 +160,7 @@ export const formRenderers = {
       writeRenderBlock(buffer, layoutNode.bounds, sliderBlock(renderNode, layoutNode.bounds, widthProfile));
     },
     accessibility: ({ renderNode, id, focused }) => sliderAccessibleBase(renderNode, id, focused),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds, widthProfile }) => sliderHitTargets(renderNode, bounds, widthProfile)
   },
   rangeSlider: {
@@ -183,10 +169,7 @@ export const formRenderers = {
       writeRenderBlock(buffer, layoutNode.bounds, rangeSliderBlock(renderNode, layoutNode.bounds, widthProfile));
     },
     accessibility: ({ renderNode, id, focused }) => rangeSliderAccessibleBase(renderNode, id, focused),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toActionMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds, widthProfile }) => rangeSliderHitTargets(renderNode, bounds, widthProfile)
   },
   checkboxGroup: {
@@ -204,10 +187,7 @@ export const formRenderers = {
       ...checkboxGroupAccessibleBase(renderNode, id, focused),
       children: checkboxGroupAccessibleChildren(renderNode)
     }),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toActionMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => checkboxGroupHitTargets(renderNode, bounds)
   },
   radioGroup: {
@@ -225,10 +205,7 @@ export const formRenderers = {
       ...radioGroupAccessibleBase(renderNode, id, focused),
       children: radioGroupAccessibleChildren(renderNode)
     }),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toActionMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => optionHitTargets(renderNode, bounds)
   },
   select: {
@@ -251,10 +228,7 @@ export const formRenderers = {
       ...selectAccessibleBase(renderNode, id, focused),
       children: selectAccessibleChildren(renderNode)
     }),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toActionMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, layoutNode }) => selectHitTargets(renderNode, layoutNode)
   },
   colorSwatchPicker: {
@@ -270,10 +244,7 @@ export const formRenderers = {
       ...colorSwatchPickerAccessibleBase(renderNode, id, focused),
       children: colorSwatchPickerAccessibleChildren(renderNode)
     }),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toActionMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => pickerHitTargets(renderNode, bounds)
   },
   calendar: {
@@ -285,10 +256,7 @@ export const formRenderers = {
       ...calendarAccessibleBase(renderNode, id, focused),
       children: calendarAccessibleChildren(renderNode)
     }),
-    focusTargets: ({ renderNode, bounds }) =>
-      renderNode.props.disabled !== true && renderNode.props.toActionMessage !== undefined
-        ? [focusTarget(bounds)]
-        : [],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds, widthProfile }) => [
       ...calendarNavigationHitTargets(renderNode, bounds, widthProfile),
       ...pickerHitTargets(renderNode, bounds)
@@ -305,21 +273,18 @@ export const formRenderers = {
     },
     accessibility: ({ renderNode, id, focused }) => textInputAccessibleBase(renderNode, id, focused),
     focusTargets: ({ renderNode, bounds, theme, widthProfile }) =>
-      renderNode.props.disabled !== true
-      && (renderNode.props.toActionMessage !== undefined || renderNode.keyMap !== undefined)
-        ? [focusTarget(bounds, textInputCursor(renderNode, bounds, theme, widthProfile))]
-        : [],
-    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => [
-      ...focusHitTargets(renderNode, bounds, 'input'),
-      ...(renderNode.props.disabled === true
-        ? []
-        : textPointerHitTargets({
+      [focusTarget(bounds, textInputCursor(renderNode, bounds, theme, widthProfile))],
+    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => {
+      const toActionMessage = renderNode.props.toActionMessage;
+      return [
+        ...focusHitTargets(renderNode, bounds, 'input'),
+        ...textPointerHitTargets({
             id: `${renderNode.id ?? renderNode.kind}:text`,
             bounds,
             focusTargetId: 'self',
-            toMessage: renderNode.props.toActionMessage === undefined
+            toMessage: toActionMessage === undefined
               ? undefined
-              : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
+              : (action) => toActionMessage({ kind: 'pointer', action }),
             offsetAt: (event) => singleLineInputPointerOffset({
               renderNode: renderNode,
               bounds,
@@ -328,8 +293,9 @@ export const formRenderers = {
               value: stringify(renderNode.props.value),
               placeholder: stringify(renderNode.props.placeholder)
             }, event)
-          }))
-    ]
+          })
+      ];
+    }
   },
   passwordInput: {
     measure: formMeasurements.passwordInput,
@@ -342,21 +308,18 @@ export const formRenderers = {
     },
     accessibility: ({ renderNode, id, focused }) => passwordInputAccessibleBase(renderNode, id, focused),
     focusTargets: ({ renderNode, bounds, theme, widthProfile }) =>
-      renderNode.props.disabled !== true
-      && (renderNode.props.toActionMessage !== undefined || renderNode.keyMap !== undefined)
-        ? [focusTarget(bounds, textInputCursor(renderNode, bounds, theme, widthProfile))]
-        : [],
-    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => [
-      ...focusHitTargets(renderNode, bounds, 'input'),
-      ...(renderNode.props.disabled === true
-        ? []
-        : textPointerHitTargets({
+      [focusTarget(bounds, textInputCursor(renderNode, bounds, theme, widthProfile))],
+    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => {
+      const toActionMessage = renderNode.props.toActionMessage;
+      return [
+        ...focusHitTargets(renderNode, bounds, 'input'),
+        ...textPointerHitTargets({
             id: `${renderNode.id ?? renderNode.kind}:text`,
             bounds,
             focusTargetId: 'self',
-            toMessage: renderNode.props.toActionMessage === undefined
+            toMessage: toActionMessage === undefined
               ? undefined
-              : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
+              : (action) => toActionMessage({ kind: 'pointer', action }),
             offsetAt: (event) => singleLineInputPointerOffset({
               renderNode,
               bounds,
@@ -365,8 +328,9 @@ export const formRenderers = {
               value: stringify(renderNode.props.value),
               placeholder: stringify(renderNode.props.placeholder)
             }, event)
-          }))
-    ]
+          })
+      ];
+    }
   },
   numberInput: {
     measure: formMeasurements.numberInput,
@@ -379,9 +343,7 @@ export const formRenderers = {
     },
     accessibility: ({ renderNode, id, focused }) => numberInputAccessibleBase(renderNode, id, focused),
     focusTargets: ({ renderNode, bounds, theme, widthProfile }) =>
-      renderNode.props.disabled !== true && renderNode.props.toActionMessage !== undefined
-        ? [focusTarget(bounds, numberInputCursor(renderNode, bounds, theme, widthProfile))]
-        : [],
+      [focusTarget(bounds, numberInputCursor(renderNode, bounds, theme, widthProfile))],
     hitTargets: ({ renderNode, bounds }) => numberInputHitTargets(renderNode, bounds)
   }
 } satisfies RendererMap<

@@ -1,4 +1,5 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 
 export type FrameCellRole =
   | 'text'
@@ -8,7 +9,7 @@ export type FrameCellRole =
   | 'cursor'
   | 'decoration'
   | 'chart'
-  | 'custom';
+  | 'content';
 
 const frameCellRoles = [
   'text',
@@ -18,7 +19,7 @@ const frameCellRoles = [
   'cursor',
   'decoration',
   'chart',
-  'custom'
+  'content'
 ] as const satisfies readonly FrameCellRole[];
 
 export interface FrameCellSource {
@@ -45,7 +46,7 @@ export interface RenderNodeFrameSourceOptions {
   readonly description?: string;
 }
 
-const sanitizedFrameSources = new WeakSet<FrameCellSource>();
+const sanitizedFrameSources = new WeakMap<object, FrameCellSource>();
 const frameSourceInternLimit = 8192;
 const internedFrameSources = new Map<string, FrameCellSource>();
 
@@ -76,24 +77,32 @@ export function frameSourcePart(
 }
 
 export function sanitizeFrameCellSource(source: FrameCellSource): FrameCellSource {
-  if (sanitizedFrameSources.has(source)) return source;
+  return normalizeUntrustedFrameCellSource(source);
+}
+
+export function normalizeUntrustedFrameCellSource(source: unknown): FrameCellSource {
+  if (!isNonArrayObject(source)) {
+    throw new TypeError('Frame cell source must be an object.');
+  }
+  const existing = sanitizedFrameSources.get(source);
+  if (existing !== undefined) return existing;
   const normalized: FrameCellSource = {
-    ...optionalTextField('elementId', source.elementId),
-    ...optionalTextField('elementKind', source.elementKind),
-    ...optionalTextField('rendererFamily', source.rendererFamily),
-    ...optionalCellRole(source.cellRole),
-    ...optionalTextField('partName', source.partName),
-    ...optionalTextField('partType', source.partType),
-    ...optionalTextField('itemId', source.itemId),
-    ...optionalIndex(source.itemIndex),
-    ...optionalInteractionState(source.interactionState),
-    ...optionalTextField('description', source.description)
+    ...optionalTextField('elementId', source['elementId']),
+    ...optionalTextField('elementKind', source['elementKind']),
+    ...optionalTextField('rendererFamily', source['rendererFamily']),
+    ...optionalCellRole(source['cellRole']),
+    ...optionalTextField('partName', source['partName']),
+    ...optionalTextField('partType', source['partType']),
+    ...optionalTextField('itemId', source['itemId']),
+    ...optionalIndex(source['itemIndex']),
+    ...optionalInteractionState(source['interactionState']),
+    ...optionalTextField('description', source['description'])
   };
   const key = frameSourceInternKey(normalized);
   const interned = internedFrameSources.get(key);
   if (interned !== undefined) return interned;
   const sanitized = Object.freeze(normalized);
-  sanitizedFrameSources.add(sanitized);
+  sanitizedFrameSources.set(sanitized, sanitized);
   internedFrameSources.set(key, sanitized);
   trimInternedFrameSources();
   return sanitized;
@@ -113,13 +122,22 @@ export function sameFrameCellSource(left: FrameCellSource | undefined, right: Fr
     && left.description === right.description;
 }
 
-function optionalTextField<Key extends keyof FrameCellSource>(
-  key: Key,
-  value: FrameCellSource[Key]
+function optionalTextField(
+  key: 'elementId' | 'elementKind' | 'rendererFamily' | 'partName' | 'partType' | 'itemId' | 'description',
+  value: unknown
 ): Partial<FrameCellSource> {
   if (typeof value !== 'string') return {};
   const text = sanitizeTerminalText(value).text;
-  return text.length === 0 ? {} : { [key]: text };
+  if (text.length === 0) return {};
+  switch (key) {
+    case 'elementId': return { elementId: text };
+    case 'elementKind': return { elementKind: text };
+    case 'rendererFamily': return { rendererFamily: text };
+    case 'partName': return { partName: text };
+    case 'partType': return { partType: text };
+    case 'itemId': return { itemId: text };
+    case 'description': return { description: text };
+  }
 }
 
 function optionalIndex(value: unknown): Pick<FrameCellSource, 'itemIndex'> {

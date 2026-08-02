@@ -1,5 +1,6 @@
 import type { RenderNode } from '../../model/index.ts';
 import type { LayoutNode, Rect } from '../../contracts.ts';
+import { renderNodeFactoryName } from '../../model/node.ts';
 import type { Measurement } from '../../contracts.ts';
 
 export function childMeasurements(
@@ -35,7 +36,7 @@ export function boundedMeasureSize(value: number, minimum: number, maximum: numb
 export function measurementLayoutNode(renderNode: RenderNode, bounds: Rect): LayoutNode {
   return {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
-    kind: renderNode.kind,
+    factoryName: renderNodeFactoryName(renderNode),
     bounds,
     viewport: bounds,
     identity: renderNode.id ?? `${renderNode.kind}:0`,

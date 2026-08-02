@@ -82,13 +82,6 @@ export type RenderSourceInput = Omit<
   'rendererFamily'
 >;
 
-export interface RenderExtensionContext<TPart extends string> {
-  readonly style: (
-    input: RenderStyleInput<TPart>
-  ) => TerminalStyle | undefined;
-  readonly source: (input?: RenderSourceInput) => FrameCellSource;
-}
-
 export interface CanvasPoint {
   readonly x: number;
   readonly y: number;
@@ -139,8 +132,8 @@ export interface CanvasPainterInput {
   readonly canvas: Canvas2D;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
-  readonly style: RenderExtensionContext<'content'>['style'];
-  readonly source: RenderExtensionContext<'content'>['source'];
+  readonly style: (input: RenderStyleInput<'content'>) => TerminalStyle | undefined;
+  readonly source: (input?: RenderSourceInput) => FrameCellSource;
 }
 
 export type CanvasPainter = (input: CanvasPainterInput) => void;
@@ -204,7 +197,7 @@ export type RenderNodeKind =
   | 'splitPane'
   | 'tabs'
   | 'dialog'
-  | 'custom';
+  | 'component';
 
 export interface Layer {
   readonly id: string;
@@ -225,7 +218,7 @@ export interface LayoutFocusRegion {
 export interface LayoutNode {
   readonly id?: string;
   readonly identity: string;
-  readonly kind: RenderNodeKind;
+  readonly factoryName: string;
   readonly bounds: Rect;
   readonly viewport: Rect;
   readonly layer: Layer;

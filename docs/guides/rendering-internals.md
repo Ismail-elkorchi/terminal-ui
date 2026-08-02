@@ -25,11 +25,11 @@ renderer resolves each opaque element to its private node before measuring,
 arranging, and rendering it. The `tui` source directory contains application and
 terminal-session lifecycle rather than frame, layout, or render-node rendering.
 
-The renderer package exposes frame construction, frame/diff serialization, and
-output projection. Leaf and composite component extensions use `custom()` from
-the component entrypoint, which exposes bounded `RenderTarget`, geometry,
-measurement, accessibility, focus, and hit-target contracts. `Canvas2D`
-remains available through the canvas component and renderer drawing APIs.
+The renderer package exposes frame construction and frame/diff serialization.
+Leaf and composite definitions use `defineComponent()` from the components
+entrypoint, which exposes bounded `RenderTarget`, geometry, measurement,
+accessibility, focus, and hit-target contracts. `Canvas2D` remains available
+through the canvas component and renderer drawing APIs.
 Private render nodes and region target indexes remain implementation details.
 
 The ordinary public render function returns only a frame. Focus regions,
@@ -96,12 +96,11 @@ accessibility, or application messages.
 
 `FrameBuffer` owns clipping, overwrite behavior, wide-cell topology,
 sanitization, style preservation, source metadata, and final frame creation.
-Built-in renderers and custom renderers receive its write-only `RenderTarget`
-contract; frame snapshotting remains inside the renderer kernel.
+Built-in and application-defined components receive its write-only
+`RenderTarget` contract; frame snapshotting remains inside the renderer kernel.
 
-Built-in renderers, `custom()` renderers, and `canvas()` painters all use that
-same buffer path. They must not write to terminal hosts, emit raw ANSI, or
-bypass the frame.
+Built-ins, defined components, and `canvas()` painters all use that buffer path.
+They must not write to terminal hosts, emit raw ANSI, or bypass the frame.
 
 ## Diff And ANSI Serialization
 
@@ -142,8 +141,8 @@ terminal input during render.
 
 Rendering produces an accessible snapshot beside the visual frame. Built-in
 components expose roles, labels, values, state, progress, selected rows, and
-focused nodes. Custom renderers must expose accessibility or explicitly
-declare decorative output.
+focused nodes. Defined components must expose accessibility or be declared as
+decorative leaves.
 
 The testing harness records frames, diffs, focus targets, hit targets, ANSI,
 plain text, accessibility JSON, and deterministic preview artifacts. Use these

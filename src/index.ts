@@ -54,6 +54,7 @@ export type {
 } from './interaction/index.ts';
 
 export * from './components/factories.ts';
+export { defineComponent } from './components/definition.ts';
 export { tableColumn } from './ui-model/content.ts';
 export type * from './components/index.ts';
 export * from './layout/index.ts';

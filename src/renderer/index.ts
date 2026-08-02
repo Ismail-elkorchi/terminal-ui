@@ -45,7 +45,6 @@ export type {
   RenderDiff,
   RenderFocusRelation,
   RenderInstrumentation,
-  RenderNodeKind,
   RenderOperation,
   RenderStage,
   RenderStageMeasurement,

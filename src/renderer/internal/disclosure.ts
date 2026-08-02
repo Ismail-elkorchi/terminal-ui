@@ -119,7 +119,7 @@ export function disclosureHitTargets<TMessage>(
   bounds: Rect
 ): readonly HitTarget<TMessage>[] {
   const toMessage = renderNode.props.toActionMessage;
-  if (toMessage === undefined || renderNode.props.disabled === true) return [];
+  if (toMessage === undefined) return [];
   return [{
     id: `${renderNode.id ?? renderNode.kind}:toggle`,
     bounds: {

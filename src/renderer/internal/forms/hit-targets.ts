@@ -38,7 +38,6 @@ import { renderNodeTargetId } from '../pointer-interaction.ts';
 import { ignoreMessage } from '../../../interaction/message.ts';
 
 export function controlHitTargets<TMessage>(renderNode: ActivationControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  if (renderNode.props.disabled === true) return [];
   const handler = renderNode.kind === 'button'
     ? renderNode.props.toPressMessage
     : checkboxMessageHandler(renderNode);
@@ -137,7 +136,7 @@ export function rangeSliderHitTargets<TMessage>(
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   const toMessage = rangeSliderActionMessageFactory(renderNode);
-  if (toMessage === undefined || renderNode.props.disabled === true) return [];
+  if (toMessage === undefined) return [];
   const model = rangeSliderModel(renderNode);
   const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(renderNode.props.label))), { widthProfile });
   const trackBounds = {
@@ -165,7 +164,7 @@ export function numberInputHitTargets<TMessage>(
 ): readonly HitTarget<TMessage>[] {
   const onAction = renderNode.props.toActionMessage;
   const layout = numberInputLayout(bounds);
-  if (onAction === undefined || renderNode.props.disabled === true || layout === undefined) return [];
+  if (onAction === undefined || layout === undefined) return [];
   return [
     {
       id: `${renderNode.id ?? renderNode.kind}:step:decrement`,
@@ -210,7 +209,7 @@ export function calendarNavigationHitTargets<TMessage>(
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   const onAction = renderNode.props.toActionMessage;
-  if (onAction === undefined || renderNode.props.disabled === true || bounds.height <= 0) return [];
+  if (onAction === undefined || bounds.height <= 0) return [];
   const labelOffset = clean(stringify(renderNode.props.label)).length > 0 ? 1 : 0;
   const monthLabelWidth = terminalTextWidth(clean(stringify(renderNode.props.monthLabel)), { widthProfile });
   const row = bounds.row + labelOffset;

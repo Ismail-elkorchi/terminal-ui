@@ -8,8 +8,8 @@ A directory remains useful when it establishes a stable dependency boundary:
 - `ui-model` contains component-domain data and prepared views shared by
   components, behavior, and rendering.
 - `element` contains opaque public element and metadata contracts.
-- `component` adapts safe third-party renderer strategies to private renderer
-  data without exposing render nodes.
+- `components` owns built-in factories and the public `defineComponent()`
+  authoring contract.
 - `renderer/model` contains the private typed representation consumed by the
   renderer implementation.
 
@@ -27,7 +27,7 @@ The principal dependency flow is:
 geometry, interaction, text, visual, and UI model
   -> public renderer contracts
   -> private renderer model
-  -> built-in component, layout, and component-extension factories
+  -> component definitions, built-in component factories, and layout factories
   -> renderer implementation
   -> TUI runtime
   -> public testing harness
@@ -39,12 +39,11 @@ enforce these directions, prohibit dependency cycles across layers, keep
 render-node dispatch in the renderer registry, and prevent the testing
 entrypoint from re-exporting package-private modules.
 
-Built-in and third-party components meet at the same opaque `Element` boundary
-and enter the same render dispatch. Built-ins use package-private node
-constructors because they ship with the renderer; the public `component`
-facade adapts third-party measure, layout, render, accessibility, focus, and
-pointer strategies without exposing those nodes. This is one extension seam,
-not a parallel component model or a second dispatcher.
+Built-in and application-defined components meet at the same opaque `Element`
+boundary and enter the same render dispatch. `defineComponent()` accepts safe
+measurement, layout, drawing, accessibility, focus, and pointer strategies
+without exposing private nodes. Built-ins may use package-private layout
+capabilities, but they do not create a second public component model.
 
 Frames, measurements, layout results, render targets, focus targets, hit
 targets, canvas drawing, and render instrumentation are owned by the public
@@ -67,8 +66,8 @@ creating a private render node. The renderer can then rely on the private
 node's TypeScript contract instead of silently dropping or replacing invalid
 caller-supplied values.
 
-Runtime checks remain where TypeScript cannot establish truth: custom-renderer
-outputs, terminal host results, input and protocol decoding, serialized data,
+Runtime checks remain where TypeScript cannot establish truth: component hook
+output, terminal host results, input and protocol decoding, serialized data,
 and state-dependent accessibility descriptions.
 
 ## TUI Runtime
@@ -100,7 +99,7 @@ used by application context, layout, and output planning.
 
 TypeScript definitions are the canonical contracts for values created inside
 an application. Runtime validation remains only at trust boundaries where
-types cannot establish truth, such as deserialized transcripts, custom-renderer
+types cannot establish truth, such as deserialized transcripts, component hook
 output, terminal adapters, and JavaScript callers.
 
 Interaction transcripts are the persisted format. They carry one top-level

@@ -61,7 +61,7 @@ test('canvas painters can provide source metadata without becoming pseudo-contro
     painter({ canvas }) {
       canvas.text(0, 0, [{
         text: 'node',
-        source: { elementId: 'node-a', elementKind: 'diagram', cellRole: 'custom', description: 'node.label' }
+        source: { elementId: 'node-a', elementKind: 'diagram', cellRole: 'content', description: 'node.label' }
       }]);
     }
   }), { columns: 12, rows: 2 });
@@ -70,7 +70,7 @@ test('canvas painters can provide source metadata without becoming pseudo-contro
   assert.equal(frame.focusPath, undefined);
   assert.equal(frame.accessibility.root.focused, undefined);
   assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.description, 'node.label');
-  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.cellRole, 'custom');
+  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.cellRole, 'content');
   assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.rendererFamily, 'canvas');
 });
 

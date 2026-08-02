@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   checkbox,
   commandInput,
+  defineComponent,
   list,
   searchPicker,
   slider,
@@ -13,7 +14,6 @@ import {
   textArea,
   textInput
 } from '../../dist/components/index.js';
-import { custom } from '../../dist/component/index.js';
 import type { TabAction } from '../../dist/components/index.js';
 import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
@@ -143,6 +143,26 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
     | { readonly kind: 'panel' }
     | { readonly kind: 'tabs'; readonly action: TabAction };
   const messages: Message[] = [];
+  const focusPanel = defineComponent({
+    structure: 'leaf',
+    semantics: 'semantic',
+    name: 'focusPanel',
+    parts: [],
+    measure: () => ({
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: 1,
+      preferredHeight: 1
+    }),
+    render() {},
+    accessibility: ({ id, focusedTargetId }) => ({
+      id,
+      role: 'document',
+      label: 'Panel',
+      ...(focusedTargetId === 'action' ? { focused: true } : {})
+    }),
+    focusTargets: ({ bounds }) => [{ id: 'action', bounds }]
+  });
   const app = defineTui<undefined, Message>({
     id: 'tabs-panel-keys',
     init: () => undefined,
@@ -156,28 +176,7 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
       tabs: [{
         id: 'current',
         label: 'Current',
-        panel: custom({
-          id: 'panel',
-          renderer: {
-            kind: 'leaf',
-            name: 'focusPanel',
-            parts: [],
-            measure: () => ({
-              minWidth: 0,
-              minHeight: 0,
-              preferredWidth: 1,
-              preferredHeight: 1
-            }),
-            render() {},
-            accessibility: ({ id, focusedTargetId }) => ({
-              id,
-              role: 'document',
-              label: 'Panel',
-              ...(focusedTargetId === 'action' ? { focused: true } : {})
-            }),
-            focusTargets: ({ bounds }) => [{ id: 'action', bounds }]
-          }
-        })
+        panel: focusPanel({ id: 'panel' })
       }],
       onAction: (action) => ({ kind: 'tabs', action })
     }),

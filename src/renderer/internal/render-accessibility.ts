@@ -7,6 +7,7 @@ import {
   accessibilityForRenderNode,
   renderNodeClipsChildren
 } from './render-node-behavior.ts';
+import { renderNodeFactoryName } from '../model/node.ts';
 import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
@@ -15,7 +16,7 @@ import type { LayoutNode } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { intersectRects } from './rect.ts';
 import { isDecorativeAccessibility } from './decorative.ts';
-import { assertCustomAccessibilityFocus } from './extension-output.ts';
+import { assertComponentAccessibilityFocus } from './component-output.ts';
 
 export function accessibleNode(
   renderNode: RenderNode,
@@ -60,12 +61,14 @@ export function accessibleNode(
   );
   const children = base.children ?? (renderedChildren.length === 0 ? undefined : renderedChildren);
   const result = mergeAccessibleNode(withScope(base, renderNode), renderNode.accessibility, children);
-  if (renderNode.kind === 'custom') {
-    assertCustomAccessibilityFocus(result, {
-      runtimeFocused: renderFocusRelation(focusPath, path) !== 'none',
+  if (renderNode.kind === 'component') {
+    const focusRelation = renderFocusRelation(focusPath, path);
+    assertComponentAccessibilityFocus(result, {
+      runtimeFocused: focusRelation === 'self' || focusedTargetId !== undefined,
       focusedTargetId,
       focusTargetIds: node.focusTargets.map((target) => target.id),
-      owner: id
+      excludedSubtreeIds: new Set(renderedChildren.map((child) => child.id)),
+      owner: renderNode.id ?? renderNodeFactoryName(renderNode)
     });
   }
   return result;

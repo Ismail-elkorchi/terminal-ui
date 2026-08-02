@@ -47,6 +47,21 @@ export {
   tree,
   toggleSwitch
 } from './factories.ts';
+export { defineComponent } from './definition.ts';
+export type {
+  ComponentAccessibilityInput,
+  ComponentAvailability,
+  ComponentDefinition,
+  ComponentInput,
+  ComponentLayoutInput,
+  ComponentMeasureInput,
+  ComponentRenderInput,
+  ComponentSourceInput,
+  ComponentStyleInput,
+  DecorativeLeafComponentDefinition,
+  SemanticCompositeComponentDefinition,
+  SemanticLeafComponentDefinition
+} from './definition.ts';
 export type * from '../ui-model/contracts.ts';
 export { tableColumn } from '../ui-model/content.ts';
 export type {
@@ -143,6 +158,7 @@ export type {
 export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../element/index.ts';
 export { inspectElement } from './inspection.ts';
 export type {
+  ElementFactoryCategory,
   ElementFocusCapability,
   ElementInputInspection,
   ElementInspection,

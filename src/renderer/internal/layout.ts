@@ -20,6 +20,8 @@ import {
 } from './render-node-behavior.ts';
 import type { RenderMeasurementContext } from './render-node-behavior.ts';
 import { cellInsideRect, intersectRects } from './rect.ts';
+import { markPaintOrderedFocusChildren } from './focus.ts';
+import { renderNodeFactoryName } from '../model/node.ts';
 
 export function layoutElement(
   element: Element<unknown>,
@@ -75,10 +77,10 @@ function layoutNode(
     underlay: underlayForRenderNode(renderNode)
   };
   if (!visible) {
-    return {
+    const layout: LayoutNode = {
       ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
       identity,
-      kind: renderNode.kind,
+      factoryName: renderNodeFactoryName(renderNode),
       bounds: placedBounds,
       viewport,
       layer,
@@ -87,6 +89,9 @@ function layoutNode(
       focusTargets: [],
       children: []
     };
+    return renderNode.kind === 'overlay'
+      ? markPaintOrderedFocusChildren(layout)
+      : layout;
   }
   const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements);
   const focusTargets = focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile)
@@ -107,10 +112,10 @@ function layoutNode(
   const childViewport = renderNodeClipsChildren(renderNode)
     ? intersectRects(placedBounds, viewport) ?? emptyRect(placedBounds)
     : viewport;
-  return {
+  const layout: LayoutNode = {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
     identity,
-    kind: renderNode.kind,
+    factoryName: renderNodeFactoryName(renderNode),
     bounds: placedBounds,
     viewport,
     layer,
@@ -131,6 +136,9 @@ function layoutNode(
         identityPath
       ))
   };
+  return renderNode.kind === 'overlay'
+    ? markPaintOrderedFocusChildren(layout)
+    : layout;
 }
 
 function boundsForChildren(

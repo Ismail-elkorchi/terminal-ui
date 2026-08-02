@@ -68,7 +68,6 @@ export const textRenderers = {
     ),
     focusTargets: ({ renderNode, bounds }) =>
       renderNode.props.toActionMessage === undefined
-        || renderNode.props.disabled === true
         ? []
         : [{
             id: 'toggle',
@@ -103,10 +102,11 @@ export const textRenderers = {
       widthProfile
     ),
     focusTargets: ({ renderNode, bounds, theme, widthProfile }) =>
-      renderNode.props.disabled === true || !hasKeyboardOrInputMap(renderNode)
+      !hasKeyboardOrInputMap(renderNode)
         ? []
         : [focusTarget(bounds, textAreaCursor(renderNode, bounds, theme, widthProfile))],
     hitTargets: ({ renderNode, bounds, theme, widthProfile }) => {
+      const toActionMessage = renderNode.props.toActionMessage;
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
         bounds,
@@ -114,15 +114,13 @@ export const textRenderers = {
         'both'
       );
       return [
-        ...(renderNode.props.disabled === true
-          ? []
-          : textPointerHitTargets({
+        ...textPointerHitTargets({
               id: `${renderNode.id ?? renderNode.kind}:text`,
               bounds: scrollbars.contentBounds,
               focusTargetId: 'self',
-              toMessage: renderNode.props.toActionMessage === undefined
+              toMessage: toActionMessage === undefined
                 ? undefined
-                : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
+                : (action) => toActionMessage({ kind: 'pointer', action }),
               offsetAt: (event) => textAreaPointerOffset(
                 renderNode,
                 scrollbars.contentBounds,
@@ -130,7 +128,7 @@ export const textRenderers = {
                 event,
                 widthProfile
               )
-            })),
+            }),
         ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];
     }

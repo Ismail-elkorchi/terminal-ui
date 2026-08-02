@@ -7,21 +7,16 @@ import type {
   RenderFocusRelation,
   RenderTarget
 } from '../contracts.ts';
-import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './index.ts';
+import type { RenderNodeKind, RenderNodeOfKind } from './index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-
-type RendererNode<TMessage, TKind extends RenderNodeKind> =
-  RenderNodeKind extends TKind
-    ? RenderNode<TMessage>
-    : RenderNodeOfKind<TMessage, TKind>;
 
 export interface RenderNodeMeasureInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
-  readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly childCount: number;
@@ -33,7 +28,7 @@ export interface RenderNodeLayoutInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
-  readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
   readonly bounds: Rect;
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
@@ -46,7 +41,7 @@ export interface RenderNodePlaceInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
-  readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
   readonly bounds: Rect;
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
@@ -58,7 +53,7 @@ export interface RenderNodeRenderInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
-  readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
   readonly layoutNode: LayoutNode;
   readonly buffer: RenderTarget;
   readonly theme: TerminalTheme;
@@ -72,7 +67,7 @@ export interface RenderNodeAccessibilityInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
-  readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
   readonly layoutNode: LayoutNode;
   readonly id: string;
   readonly focused: boolean;
@@ -86,7 +81,7 @@ export interface RenderNodeFocusInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
-  readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
   readonly bounds: Rect;
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
@@ -97,7 +92,7 @@ export interface RenderNodeHitInput<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
-  readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
   readonly layoutNode: LayoutNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;

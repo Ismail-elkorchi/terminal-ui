@@ -1,5 +1,5 @@
 export type {
-  CustomRenderNodeRuntime,
+  RuntimeComponentDefinition,
   RenderNode,
   RenderNodeOfKind,
   RenderNodesOfKind,

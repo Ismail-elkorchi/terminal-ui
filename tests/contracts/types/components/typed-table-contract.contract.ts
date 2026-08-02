@@ -75,7 +75,7 @@ void accepted;
 const invalidColumn: TableColumn<ProcessRow> = {
   id: 'invalid-renderer',
   value: (row) => row.pid,
-  // @ts-expect-error custom renderers must use tableColumn() to preserve the value type
+  // @ts-expect-error custom cell functions must use tableColumn() to preserve the value type
   render: ({ value }: TableCellRenderInput<ProcessRow, number>) => String(value)
 };
 void invalidColumn;

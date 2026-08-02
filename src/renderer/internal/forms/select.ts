@@ -44,7 +44,7 @@ export function selectHitTargets<TMessage>(
   layout: LayoutNode
 ): readonly HitTarget<TMessage>[] {
   const toMessage = renderNode.props.toActionMessage;
-  if (toMessage === undefined || renderNode.props.disabled === true) return [];
+  if (toMessage === undefined) return [];
   const triggerBounds = {
     row: layout.bounds.row,
     column: layout.bounds.column,

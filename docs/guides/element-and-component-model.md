@@ -15,7 +15,7 @@ mechanisms out of ordinary application code.
 | App API | `defineTui`, init/update/view, subscriptions, and runtime lifecycle. | Renderer packets, component prop bags, and frame internals. |
 | Element API | Typed layout and component factories returning opaque elements. | Measurement, hit-target construction, accessibility tree construction, and renderer props. |
 | Behavior API | Pure reducers and state helpers for controlled components. | Rendering and runtime side effects. |
-| Renderer extension API | Custom renderer hooks, measurement, layout, frames, focus targets, hit targets, and accessibility. | Private render nodes, product-specific concepts, and application state. |
+| Component definition API | Reusable measurement, drawing, child layout, focus, pointer, and accessibility behavior. | Private render nodes, terminal hosts, and hidden application state. |
 
 The core flow is:
 
@@ -84,7 +84,6 @@ Public event props describe user intent and return caller-controlled messages:
 | --- | --- |
 | `onPress` | Direct activation for buttons and other single-action controls. |
 | `onSubmit` | Text controls that commit their current value. |
-| `onSelect` | `searchPicker()` entry selection where the selected domain value is the event payload. |
 | `onChange` | Scalar controls such as checkboxes, switches, and sliders whose next value is computed by the component. |
 | `onStep` | Step controls where the caller handles a structured step action. |
 | `onAction` | Structured controlled-component actions for editable controls, navigation surfaces, multi-choice controls, lists, tables, trees, documents, charts, notifications, command inputs, and search pickers. Editable-control actions include text edits, pointer caret/selection gestures, and scrolling where applicable. |
@@ -101,8 +100,7 @@ node. Those mechanisms are not public component state.
 
 | Entrypoint | Contract |
 | --- | --- |
-| `./components` | Typed component factories, `Element`, and shared component data contracts. |
-| `./component` | Safe contracts for reusable third-party component extensions. |
+| `./components` | Built-in factories, `defineComponent()`, `Element`, and shared component data contracts. |
 | `./layout` | Layout and composition factories plus responsive view selection. |
 | `./behavior` | Pure reducers and controlled-state helpers. |
 | `./renderer` | Frame construction, diffing, serialization, and drawing primitives. |
@@ -128,13 +126,13 @@ layer and focus metadata
 typed root, part, and visual-state styles
 key and input maps
 accessibility definitions
-custom renderer state
+defined-component model
 ```
 
 Each built-in render-node kind has explicit normalized render props. Public
 factories validate JavaScript and dynamic caller-supplied values, sanitize terminal
 text, and normalize private renderer inputs once. Renderer code validates
-extension outputs and serialized or host-provided data, but does not silently
+component hook output and serialized or host-provided data, but does not silently
 repair invalid values in its typed private prop model.
 
 The physical dependency direction is enforced by package tests:
@@ -160,16 +158,16 @@ of the private renderer model. The renderer implementation does not import
 component factories, layout factories, private element conversion helpers, or the
 TUI runtime. The TUI directory contains application/runtime lifecycle only.
 
-## Canvas And Custom Rendering
+## Canvas And Defined Components
 
 `canvas()` remains a public drawing component. Its painter receives `Canvas2D`,
 bounds, theme data, source metadata, and caller-controlled state. It does not receive
 direct frame-buffer or terminal-host access.
 
-`custom()` lives under `./component`. It exposes bounded measurement, rendering,
-accessibility, focus-target, and hit-target inputs without exposing private
-render-node fields; it is an advanced extension point, not part of the default
-component vocabulary.
+`defineComponent()` lives with the built-in factories under `./components`.
+It creates an immutable factory from bounded measurement, drawing,
+accessibility, focus-target, and hit-target hooks without exposing private node
+fields. Composite definitions can also measure and arrange opaque children.
 
 ## Testing
 
@@ -185,11 +183,9 @@ They do not inspect private render-node fields through caller-supplied elements.
 
 Use `inspectElement(element)` when component tools or diagnostics need a stable,
 read-only description before rendering. The inspection includes caller-supplied
-identity, whether the element came from the component, layout, or renderer
-extension API, input capabilities, focus policy, visual state, and child
-structure; it does not expose renderer props, callback values, or render-node
-hooks. The category describes the factory entrypoint only and does not
-participate in render dispatch. Focus inspection applies the same logical
+identity, factory category, component name, input capabilities, focus policy,
+style metadata, and child structure; it does not expose private props, callback
+values, or drawing hooks. Focus inspection applies the same logical
 disablement policy as rendering, including disabled and pending control state.
 It describes whether an element can produce a focus item or scope before
 terminal geometry is known; zero-sized or clipped layout can still leave no
@@ -201,9 +197,9 @@ focus path in a particular frame.
   `Element<TMessage>` handles.
 - Public declarations do not expose `RenderNode` or `props` through components
   and layout.
-- Private render nodes are not exported by any public entrypoint. The component
-  extension entrypoint exposes a bounded write-only render target,
-  custom-renderer hooks, focus targets, and hit targets.
+- Private render nodes are not exported by any public entrypoint. Component
+  definitions receive a bounded write-only target, focus targets, and hit
+  targets through public contracts.
 - Component option and event names describe caller intent, not renderer
   machinery.
 - Component state remains caller-controlled and message types remain generic.

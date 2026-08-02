@@ -101,10 +101,10 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     : readFile(new URL(`../../dist/components/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
-  const componentExtensionDeclaration = (await Promise.all([
-    'index',
-    'custom'
-  ].map((name) => readFile(new URL(`../../dist/component/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
+  const componentDefinitionDeclaration = await readFile(
+    new URL('../../dist/components/definition.d.ts', import.meta.url),
+    'utf8'
+  );
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
   const rendererContractsDeclaration = await readFile(new URL('../../dist/renderer/contracts.d.ts', import.meta.url), 'utf8');
   const tuiDeclaration = await readFile(new URL('../../dist/tui/index.d.ts', import.meta.url), 'utf8');
@@ -202,12 +202,12 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   }
   assert.doesNotMatch(rendererContractsDeclaration, /(?:^|from )['"].*\/model\//mu);
   for (const typeName of [
-    'CustomRenderer',
-    'CustomCompositeRenderer',
+    'ComponentDefinition',
+    'ComponentRenderInput',
     'Element',
     'RenderTarget'
   ]) {
-    assert.match(componentExtensionDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `component:${typeName}`);
+    assert.match(componentDefinitionDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `component:${typeName}`);
   }
   for (const typeName of [
     'TuiContext',
@@ -220,36 +220,40 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   }
   assert.doesNotMatch(tuiDeclaration, /\bFrameBuffer\b/u);
 
-  assert.doesNotMatch(componentExtensionDeclaration, /\bRenderNode\b/u);
+  assert.doesNotMatch(componentDefinitionDeclaration, /\bRenderNode\b/u);
   assert.doesNotMatch(componentElementDeclaration, /\bRenderNode\b/u);
   assert.doesNotMatch(componentElementDeclaration, /\b(?:elementFromRenderNode|toRenderNode|toRenderNodes)\b/u);
   assert.doesNotMatch(componentElementDeclaration, /readonly \[key: string\]: unknown;/u);
 
 });
 
-test('component extension focus targets and border title slots expose usable structural contracts', () => {
+test('component definitions and border title slots expose usable structural contracts', () => {
   assertNoTypeDiagnostics(`
-    import { text } from '@ismail-elkorchi/terminal-ui/components';
+    import {
+      defineComponent,
+      text,
+      type ComponentInput
+    } from '@ismail-elkorchi/terminal-ui/components';
     import { surface } from '@ismail-elkorchi/terminal-ui/layout';
-    import type {
-      FocusTarget,
-      RenderFocusRelation
-    } from '@ismail-elkorchi/terminal-ui/component';
 
-    const relation: RenderFocusRelation = 'descendant';
-    const target: FocusTarget = {
-      id: 'field',
-      bounds: { row: 0, column: 0, width: 8, height: 1 },
-      disabled: false,
-      order: 1,
-      scopeId: 'form'
-    };
+    const focusTarget = ({ bounds }: ComponentInput<undefined>) => [{
+      id: 'field', bounds, disabled: false, order: 1, scopeId: 'form'
+    }];
+    const marker = defineComponent({
+      name: 'marker',
+      structure: 'leaf',
+      semantics: 'semantic',
+      measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+      render: () => undefined,
+      accessibility: ({ id, focused }) => ({ id, role: 'button', label: id, ...(focused ? { focused } : {}) }),
+      focusTargets: focusTarget
+    });
     const element = surface(text('Title'), {
       title: { start: 'Start', center: 'Center', end: 'End' },
       border: { kind: 'single', titleAlign: 'center' }
     });
 
-    void target;
+    void marker({ id: 'marker' });
     void element;
   `);
 });
@@ -281,42 +285,40 @@ test('public renderer helpers accept component elements', () => {
   `);
 });
 
-test('component packages can define and test reusable extensions through focused facades', () => {
+test('component packages can define and test reusable components through the components facade', () => {
   assertNoTypeDiagnostics(`
     import {
-      custom,
+      defineComponent,
       type Element
-    } from '@ismail-elkorchi/terminal-ui/component';
+    } from '@ismail-elkorchi/terminal-ui/components';
     import { button } from '@ismail-elkorchi/terminal-ui/components';
     import { renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
 
     type Message = { readonly kind: 'activate' };
 
+    const meterComponent = defineComponent<number>({
+      name: 'meter',
+      structure: 'leaf',
+      semantics: 'semantic',
+      measure: () => ({
+        minWidth: 1,
+        minHeight: 1,
+        preferredWidth: 3,
+        preferredHeight: 1
+      }),
+      render({ model, bounds, target }) {
+        target.write(bounds.row, bounds.column, [{ text: String(model) }]);
+      },
+      accessibility: ({ id, model }) => ({
+        id,
+        role: 'meter',
+        label: 'Usage',
+        numericValue: { current: model, minimum: 0, maximum: 100 }
+      })
+    });
+
     function meter(value: number): Element {
-      return custom({
-        id: 'meter',
-        state: value,
-        renderer: {
-          kind: 'leaf',
-          name: 'meter',
-          parts: [],
-          measure: () => ({
-            minWidth: 1,
-            minHeight: 1,
-            preferredWidth: 3,
-            preferredHeight: 1
-          }),
-          render({ state, bounds, target }) {
-            target.write(bounds.row, bounds.column, [{ text: String(state) }]);
-          },
-          accessibility: ({ id, state }) => ({
-            id,
-            role: 'meter',
-            label: 'Usage',
-            numericValue: { current: state, minimum: 0, maximum: 100 }
-          })
-        }
-      });
+      return meterComponent({ id: 'meter', model: value });
     }
 
     const action = button({
@@ -324,39 +326,39 @@ test('component packages can define and test reusable extensions through focused
       label: 'Activate',
       onPress: (): Message => ({ kind: 'activate' })
     });
-    const element = custom({
+    const panelComponent = defineComponent({
+      name: 'componentPanel',
+      structure: 'composite',
+      semantics: 'semantic',
+      measure: ({ childCount, measureChild }) => {
+        const children = Array.from(
+          { length: childCount },
+          (_unused, index) => measureChild(index)
+        );
+        return {
+          minWidth: Math.max(0, ...children.map((child) => child.minWidth)),
+          minHeight: children.reduce((height, child) => height + child.minHeight, 0),
+          preferredWidth: Math.max(0, ...children.map((child) => child.preferredWidth)),
+          preferredHeight: children.reduce(
+            (height, child) => height + child.preferredHeight,
+            0
+          )
+        };
+      },
+      layout: ({ bounds }) => [
+        { ...bounds, height: 1 },
+        { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
+      ],
+      accessibility: ({ id, children }) => ({
+        id,
+        role: 'group',
+        label: 'Panel',
+        children
+      })
+    });
+    const element = panelComponent({
       id: 'panel',
-      children: [meter(42), action] as const,
-      renderer: {
-        kind: 'composite',
-        name: 'extensionPanel',
-        parts: [],
-        measure: ({ childCount, measureChild }) => {
-          const children = Array.from(
-            { length: childCount },
-            (_unused, index) => measureChild(index)
-          );
-          return {
-            minWidth: Math.max(0, ...children.map((child) => child.minWidth)),
-            minHeight: children.reduce((height, child) => height + child.minHeight, 0),
-            preferredWidth: Math.max(0, ...children.map((child) => child.preferredWidth)),
-            preferredHeight: children.reduce(
-              (height, child) => height + child.preferredHeight,
-              0
-            )
-          };
-        },
-        layout: ({ bounds }) => [
-          { ...bounds, height: 1 },
-          { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
-        ],
-        accessibility: ({ id, children }) => ({
-          id,
-          role: 'group',
-          label: 'Panel',
-          children
-        })
-      }
+      children: [meter(42), action] as const
     });
     const snapshot = renderElementSnapshot({
       element,
@@ -397,11 +399,11 @@ test('renderer and layout boundaries reject objects not created by element facto
 
   assert.throws(
     () => renderElementFrame(invalid, { columns: 10, rows: 3 }),
-    /Expected an Element created by a terminal-ui component, layout, or renderer-extension factory/u
+    /Expected an Element created by a terminal-ui component or layout factory/u
   );
   assert.throws(
     () => column([invalid]),
-    /Expected an Element created by a terminal-ui component, layout, or renderer-extension factory/u
+    /Expected an Element created by a terminal-ui component or layout factory/u
   );
 });
 

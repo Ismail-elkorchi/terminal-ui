@@ -8,7 +8,7 @@ The root entrypoint exposes the main vertical path:
   subscriptions
 - typed component factories such as `textInput()`, `button()`,
   `table()`, `tabs()`, and `commandInput()`
-- `tableColumn()` when a table column needs a typed custom renderer
+- `tableColumn()` when a table column needs typed cell content
 - layout factories such as `column()`, `row()`, `grid()`, `surface()`,
   and `viewport()`
 - the `behavior` namespace for controlled-state reducers and prepared views
@@ -26,7 +26,6 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/prompts`
 - `@ismail-elkorchi/terminal-ui/tui`
 - `@ismail-elkorchi/terminal-ui/components`
-- `@ismail-elkorchi/terminal-ui/component`
 - `@ismail-elkorchi/terminal-ui/layout`
 - `@ismail-elkorchi/terminal-ui/behavior`
 - `@ismail-elkorchi/terminal-ui/renderer`
@@ -54,5 +53,5 @@ fit together.
 
 Application and component APIs are described in [Building terminal apps](../guides/building-terminal-apps.md),
 [Components](../guides/components.md), and
-[Behavior helpers](../guides/behavior.md). Renderer escape hatches are
-described in [Renderer extensions](../guides/renderer-extensions.md).
+[Behavior helpers](../guides/behavior.md). Reusable component authoring is
+described in [Component definitions](../guides/component-definitions.md).

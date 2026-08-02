@@ -168,23 +168,26 @@ export const menuRenderers = {
     focusTargets: ({ renderNode, bounds, widthProfile }) => [
       focusTarget(bounds, commandInputCursor(renderNode, bounds, widthProfile))
     ],
-    hitTargets: ({ renderNode, bounds, layoutNode, widthProfile }) => [
-      ...commandInputPopupHitTargets(renderNode, layoutNode),
-      ...textPointerHitTargets({
+    hitTargets: ({ renderNode, bounds, layoutNode, widthProfile }) => {
+      const toActionMessage = renderNode.props.toActionMessage;
+      return [
+        ...commandInputPopupHitTargets(renderNode, layoutNode),
+        ...textPointerHitTargets({
         id: `${renderNode.id ?? renderNode.kind}:text`,
         bounds: renderNode.props.display === 'expanded'
           ? { ...bounds, height: Math.min(1, bounds.height) }
           : bounds,
         focusTargetId: 'self',
-        toMessage: renderNode.props.toActionMessage === undefined
+        toMessage: toActionMessage === undefined
           ? undefined
-          : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
+          : (action) => toActionMessage({ kind: 'pointer', action }),
         offsetAt: (event) => commandInputPointerOffset(renderNode, bounds, event, widthProfile)
       }).map((target) => renderNode.props.display === 'popup'
         ? { ...target, zIndex: 21 }
         : target),
-      ...commandInputSuggestionHitTargets(renderNode, bounds)
-    ]
+        ...commandInputSuggestionHitTargets(renderNode, bounds)
+      ];
+    }
   },
   searchPicker: {
     measure: menuMeasurements.searchPicker,

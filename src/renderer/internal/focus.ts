@@ -7,13 +7,20 @@ import type { Layer, LayoutNode, Rect } from '../contracts.ts';
 
 export type { FocusPath } from '../../interaction/focus.ts';
 
+const paintOrderedFocusLayouts = new WeakSet<LayoutNode>();
+
+export function markPaintOrderedFocusChildren(layout: LayoutNode): LayoutNode {
+  paintOrderedFocusLayouts.add(layout);
+  return layout;
+}
+
 export interface LayoutFocusTarget {
   readonly path: FocusPath;
   readonly elementId?: string;
   readonly targetId: string;
   readonly bounds: Rect;
   readonly layer: Layer;
-  readonly kind: LayoutNode['kind'];
+  readonly factoryName: LayoutNode['factoryName'];
   readonly focusable: boolean;
   readonly disabled: boolean;
   readonly order?: number;
@@ -176,7 +183,7 @@ function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readon
       targetId: target.id,
       bounds: target.bounds,
       layer: layout.layer,
-      kind: layout.kind,
+      factoryName: layout.factoryName,
       focusable,
       disabled: target.disabled,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
@@ -205,7 +212,7 @@ function collectRenderNodeFocusRegionTargets<TMessage>(
       targetId: target.id,
       bounds: target.bounds,
       layer: layout.layer,
-      kind: layout.kind,
+      factoryName: layout.factoryName,
       focusable,
       disabled: target.disabled,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
@@ -236,7 +243,7 @@ function collectRenderNodeLayoutTargetsRecursive<TMessage>(
     targetId: 'self',
     bounds: layout.bounds,
     layer: layout.layer,
-    kind: layout.kind,
+    factoryName: layout.factoryName,
     focusable: layout.focusable,
     disabled: false,
     renderNode,
@@ -253,7 +260,7 @@ function collectRenderNodeLayoutTargetsRecursive<TMessage>(
 }
 
 function orderedFocusChildren(layout: LayoutNode): readonly LayoutNode[] {
-  if (layout.kind !== 'overlay') return layout.children;
+  if (!paintOrderedFocusLayouts.has(layout)) return layout.children;
   return layout.children
     .map((child, index) => ({ child, index }))
     .toSorted((left, right) =>
@@ -272,7 +279,7 @@ function orderedRenderNodeFocusChildren<TMessage>(
     .filter((item): item is { readonly child: RenderNode<TMessage>; readonly childLayout: LayoutNode; readonly index: number } =>
       item.childLayout !== undefined
     );
-  if (layout.kind !== 'overlay') return pairs;
+  if (!paintOrderedFocusLayouts.has(layout)) return pairs;
   return pairs.toSorted((left, right) =>
     right.childLayout.layer.zIndex - left.childLayout.layer.zIndex
     || right.index - left.index

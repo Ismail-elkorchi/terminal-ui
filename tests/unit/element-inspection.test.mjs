@@ -11,15 +11,15 @@ import {
   text,
   textInput
 } from '../../dist/components/index.js';
-import { column, surface, viewport } from '../../dist/layout/index.js';
-import { custom } from '../../dist/component/index.js';
+import { column, row, surface, viewport } from '../../dist/layout/index.js';
 import {
-  compositeRendererDefinition,
-  leafRendererDefinition
-} from '../helpers/custom-renderer.mjs';
+  componentElement,
+  compositeComponentDefinition,
+  leafComponentDefinition
+} from '../helpers/component-definition.mjs';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 
-test('element inspection exposes an immutable factory description without renderer payloads', () => {
+test('element inspection exposes an immutable factory description without implementation payloads', () => {
   const element = surface(column([
     textInput({
       id: 'query',
@@ -38,8 +38,8 @@ test('element inspection exposes an immutable factory description without render
   const inspection = inspectElement(element);
 
   assert.deepEqual(inspection, {
-    kind: 'surface',
     category: 'layout',
+    kind: 'surface',
     id: 'panel',
     inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
     meta: {
@@ -50,8 +50,8 @@ test('element inspection exposes an immutable factory description without render
       layered: false
     },
     children: [{
-      kind: 'column',
       category: 'layout',
+      kind: 'column',
       id: 'controls',
       inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
       meta: {
@@ -63,8 +63,8 @@ test('element inspection exposes an immutable factory description without render
       },
       children: [
         {
-          kind: 'textInput',
           category: 'component',
+          kind: 'textInput',
           id: 'query',
           inputs: { keyboard: true, text: true, paste: true, focus: 'item' },
           meta: {
@@ -77,8 +77,8 @@ test('element inspection exposes an immutable factory description without render
           children: []
         },
         {
-          kind: 'button',
           category: 'component',
+          kind: 'button',
           id: 'submit',
           inputs: { keyboard: true, text: false, paste: false, focus: 'item' },
           meta: {
@@ -96,14 +96,14 @@ test('element inspection exposes an immutable factory description without render
   assert.equal(Object.isFrozen(inspection), true);
   assert.equal(Object.isFrozen(inspection.children), true);
   assert.equal('props' in inspection, false);
-  assert.equal('renderer' in inspection, false);
+  assert.equal('definition' in inspection, false);
 });
 
-test('element inspection identifies custom renderer elements without changing dispatch', () => {
-  const element = custom({
+test('element inspection identifies defined components without exposing their definition', () => {
+  const element = componentElement({
     id: 'plug-in',
-    renderer: {
-      ...leafRendererDefinition,
+    definition: {
+      ...leafComponentDefinition,
       render() {},
       accessibility: ({ id }) => ({ id, role: 'text', label: 'Plug-in' })
     }
@@ -112,25 +112,48 @@ test('element inspection identifies custom renderer elements without changing di
   const inspection = inspectElement(element);
 
   assert.equal(inspection.kind, 'testLeaf');
-  assert.equal(inspection.category, 'extension');
+  assert.equal(inspection.category, 'component');
   assert.equal(inspection.id, 'plug-in');
-  assert.equal('renderer' in inspection, false);
+  assert.equal('definition' in inspection, false);
+});
+
+test('element inspection keeps factory origin independent from public names', () => {
+  const namedRow = componentElement({
+    id: 'same',
+    children: [],
+    definition: {
+      ...compositeComponentDefinition,
+      name: 'row',
+      layout: () => [],
+      accessibility: ({ id }) => ({ id, role: 'group', label: id })
+    }
+  });
+  const layoutRow = row([], { id: 'same' });
+
+  const componentInspection = inspectElement(namedRow);
+  const layoutInspection = inspectElement(layoutRow);
+  const { category: componentCategory, ...componentDetails } = componentInspection;
+  const { category: layoutCategory, ...layoutDetails } = layoutInspection;
+
+  assert.deepEqual(componentDetails, layoutDetails);
+  assert.equal(componentCategory, 'component');
+  assert.equal(layoutCategory, 'layout');
 });
 
 test('element inspection reports factory-declared focus capability instead of generic metadata', () => {
-  const passiveCustom = custom({
-    id: 'passive-custom',
-    renderer: {
-      ...leafRendererDefinition,
+  const passiveComponent = componentElement({
+    id: 'passive-component',
+    definition: {
+      ...leafComponentDefinition,
       render() {},
       accessibility: ({ id }) => ({ id, role: 'text', label: id })
     }
   });
-  const passiveComposite = custom({
+  const passiveComposite = componentElement({
     id: 'passive-composite',
     children: [],
-    renderer: {
-      ...compositeRendererDefinition,
+    definition: {
+      ...compositeComponentDefinition,
       layout: () => [],
       accessibility: ({ id }) => ({ id, role: 'group', label: id })
     }
@@ -150,7 +173,7 @@ test('element inspection reports factory-declared focus capability instead of ge
   });
 
   for (const element of [
-    passiveCustom,
+    passiveComponent,
     passiveComposite,
     passiveChart,
     passiveViewport,
@@ -168,10 +191,10 @@ test('element inspection reports factory-declared focus capability instead of ge
     assert.equal(renderElementFrame(element, { columns: 12, rows: 1 }).focusPath, undefined);
   }
 
-  const focusableCustom = custom({
-    id: 'focusable-custom-inspection',
-    renderer: {
-      ...leafRendererDefinition,
+  const focusableComponent = componentElement({
+    id: 'focusable-component-inspection',
+    definition: {
+      ...leafComponentDefinition,
       render() {},
       accessibility: ({ id, focused }) => ({
         id,
@@ -182,7 +205,7 @@ test('element inspection reports factory-declared focus capability instead of ge
       focusTargets: ({ bounds }) => [{ id: 'self', bounds }]
     }
   });
-  assert.equal(inspectElement(focusableCustom).inputs.focus, 'item');
+  assert.equal(inspectElement(focusableComponent).inputs.focus, 'item');
 
   const dismissibleNotifications = notificationRegion({
     id: 'dismissible-notifications',
@@ -197,11 +220,11 @@ test('element inspection reports factory-declared focus capability instead of ge
   assert.equal(inspectElement(dismissibleNotifications).inputs.focus, 'item');
   assert.equal(inspectElement(notificationArchive).inputs.focus, 'item');
 
-  const focusScope = custom({
-    id: 'custom-scope-inspection',
+  const focusScope = componentElement({
+    id: 'component-scope-inspection',
     children: [button({ id: 'scoped-button', label: 'Scoped', onPress: () => undefined })],
-    renderer: {
-      ...compositeRendererDefinition,
+    definition: {
+      ...compositeComponentDefinition,
       layout: ({ bounds }) => [bounds],
       accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
     },
@@ -210,7 +233,7 @@ test('element inspection reports factory-declared focus capability instead of ge
   assert.equal(inspectElement(focusScope).inputs.focus, 'scope');
 });
 
-test('element inspection omits private renderer children that have no public factory category', () => {
+test('element inspection omits private implementation children with no public factory', () => {
   const inspection = inspectElement(select({
     id: 'choice',
     options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
@@ -224,6 +247,6 @@ test('element inspection omits private renderer children that have no public fac
 test('element inspection rejects objects outside the element factory boundary', () => {
   assert.throws(
     () => inspectElement({}),
-    /component, layout, or renderer-extension factory/u
+    /component or layout factory/u
   );
 });

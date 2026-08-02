@@ -186,6 +186,15 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
     }),
     /cannot define onAction while disabled or pending/u
   );
+  assert.throws(
+    () => textArea({
+      id: 'invalid-disabled-editor',
+      presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) },
+      disabled: true,
+      onAction: () => ({ kind: 'edit' })
+    }),
+    /cannot define onAction while disabled or pending/u
+  );
 });
 
 test('commandInput preserves disabled suggestion semantics', () => {

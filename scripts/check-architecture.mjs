@@ -13,7 +13,6 @@ const dependencyGraph = new Map();
 const failures = [];
 const deterministicGlobalLayers = new Set([
   'behavior',
-  'component',
   'components',
   'layout',
   'renderer',
@@ -56,7 +55,7 @@ for (const filePath of sourceFiles) {
   dependencyGraph.set(filePath, dependencies);
   inspectDeterministicGlobals(sourceFile, sourceLayer, filePath);
   inspectCentralRenderDispatch(sourceFile, filePath);
-  inspectElementFactoryCategory(sourceFile, filePath);
+  inspectElementConstructionBoundary(sourceFile, filePath);
   inspectPublicBoundary(sourceFile, filePath);
   inspectTestingEntrypoint(sourceFile, filePath);
   inspectTuiContext(sourceFile, filePath);
@@ -119,22 +118,21 @@ function containsKindProperty(node) {
   return found;
 }
 
-function inspectElementFactoryCategory(sourceFile, filePath) {
+function inspectElementConstructionBoundary(sourceFile, filePath) {
   const sourcePath = sourceRelative(filePath);
   const constructors = new Set([
     'componentElementFromRenderNode',
-    'layoutElementFromRenderNode',
-    'extensionElementFromRenderNode'
+    'layoutElementFromRenderNode'
   ]);
   let expected;
   if (sourcePath.startsWith('components/factories/')) {
     expected = sourcePath.endsWith('/index.ts') ? undefined : 'componentElementFromRenderNode';
+  } else if (sourcePath === 'components/definition.ts') {
+    expected = 'componentElementFromRenderNode';
   } else if (sourcePath.startsWith('layout/factories/')) {
     expected = sourcePath.endsWith('/index.ts') || sourcePath.endsWith('/internals.ts')
       ? undefined
       : 'layoutElementFromRenderNode';
-  } else if (sourcePath === 'component/custom.ts') {
-    expected = 'extensionElementFromRenderNode';
   }
 
   const calls = [];
@@ -385,16 +383,13 @@ function forbiddenDependency(sourceFile, sourceLayer, targetLayer, targetFile) {
   if (sourceRelative(sourceFile).startsWith('renderer/model/')
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
   if (neutral.has(sourceLayer) && upper.has(targetLayer)) return true;
-  if (sourceLayer === 'component' && new Set(['components', 'layout', 'tui']).has(targetLayer)) return true;
-  if (sourceLayer === 'component' && targetLayer === 'renderer'
-    && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
   if (sourceLayer === 'components' && new Set(['layout', 'tui']).has(targetLayer)) return true;
   if (sourceLayer === 'components' && targetLayer === 'renderer'
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
   if (sourceLayer === 'layout' && new Set(['components', 'tui']).has(targetLayer)) return true;
   if (sourceLayer === 'layout' && targetLayer === 'renderer'
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
-  if (sourceLayer === 'renderer' && new Set(['component', 'components', 'layout', 'tui']).has(targetLayer)) return true;
+  if (sourceLayer === 'renderer' && new Set(['components', 'layout', 'tui']).has(targetLayer)) return true;
   if (sourceLayer === 'transcript' && targetLayer === 'tui') return true;
   if (sourceLayer === 'visual' && targetLayer === 'theme') return true;
   if (sourceLayer === 'theme' && new Set(['renderer', 'tui']).has(targetLayer)) return true;

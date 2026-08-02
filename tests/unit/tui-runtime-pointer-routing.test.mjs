@@ -3,8 +3,10 @@ import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { pointerInteractionReducer } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { custom } from '../../dist/component/index.js';
-import { leafRendererDefinition } from '../helpers/custom-renderer.mjs';
+import {
+  componentElement,
+  leafComponentDefinition
+} from '../helpers/component-definition.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, tree } from '../../dist/components/index.js';
 import { overlay } from '../../dist/layout/index.js';
@@ -132,7 +134,7 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
 
 test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'pointer lifecycle' }]);
     },
@@ -159,7 +161,7 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
     id: 'pointer-lifecycle-tui',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: () => custom({ id: 'pointer-lifecycle', renderer })
+    view: () => componentElement({ id: 'pointer-lifecycle', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -192,7 +194,7 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
 
 test('TUI pointer click counts use clock, stable target identity, and cross-target reset', async () => {
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'left right' }]);
     },
@@ -220,7 +222,7 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
     id: 'pointer-click-counts',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: () => custom({ id: 'pointer-click-count-targets', renderer })
+    view: () => componentElement({ id: 'pointer-click-count-targets', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 2 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -254,7 +256,7 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
 
 test('TUI pointer hover emits enter leave and hover when crossing targets', async () => {
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'left  right' }]);
     },
@@ -293,7 +295,7 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
     id: 'hover-lifecycle-tui',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: () => custom({ id: 'hover-lifecycle', renderer })
+    view: () => componentElement({ id: 'hover-lifecycle', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -320,7 +322,7 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
 
 test('TUI pointer targets receive event-aware messages and horizontal wheel deltas', async () => {
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'pointer target' }]);
     },
@@ -348,7 +350,7 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
     id: 'event-aware-pointer-tui',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: () => custom({ id: 'event-aware-pointer', renderer })
+    view: () => componentElement({ id: 'event-aware-pointer', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -372,7 +374,7 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
 
 test('TUI pointer drag routes to the captured origin target', async () => {
   const renderer = {
-    ...leafRendererDefinition,
+    ...leafComponentDefinition,
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'drag target' }]);
     },
@@ -398,7 +400,7 @@ test('TUI pointer drag routes to the captured origin target', async () => {
     id: 'drag-pointer-tui',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: () => custom({ id: 'drag-pointer', renderer })
+    view: () => componentElement({ id: 'drag-pointer', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -421,9 +423,9 @@ test('TUI pointer drag routes to the captured origin target', async () => {
 
 test('TUI pointer motion drops stale drag samples before routing release', async () => {
   const renderer = {
-    ...leafRendererDefinition,
-    render({ state, bounds, target }) {
-      target.write(bounds.row, bounds.column, [{ text: `events ${String(state)}` }]);
+    ...leafComponentDefinition,
+    render({ model, bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: `events ${String(model)}` }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'coalesced drag target' };
@@ -442,7 +444,11 @@ test('TUI pointer motion drops stale drag samples before routing release', async
     id: 'coalesced-drag-tui',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: (state) => custom({ id: 'coalesced-drag', renderer, state: state.events.length })
+    view: (state) => componentElement({
+      id: 'coalesced-drag',
+      definition: renderer,
+      model: state.events.length
+    })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });

@@ -27,6 +27,7 @@ import { tableAccessibleBase, tableAccessibleChildren, tableBlock, tableHitTarge
 import { treeAccessibleBase, treeAccessibleChildren, treeBlock, treeHitTargets } from '../tree.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { pointerSelectionHitTargets } from '../text-pointer.ts';
+import type { PointerSelectionAction } from '../../../interaction/text-pointer.ts';
 import type { LogViewerBodyAnchor } from '../../../ui-model/log-viewer.ts';
 import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import {
@@ -210,14 +211,15 @@ export const dataRenderers = {
       ));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ renderNode, layoutNode, id, widthProfile }) => ({
-      ...logViewerAccessibleBase(renderNode, layoutNode, id, widthProfile),
+    accessibility: ({ renderNode, layoutNode, id, focused, widthProfile }) => ({
+      ...logViewerAccessibleBase(renderNode, layoutNode, id, focused, widthProfile),
       children: logViewerAccessibleChildren(renderNode, layoutNode, widthProfile)
     }),
     focusTargets: ({ renderNode, bounds }) => renderNode.props.toActionMessage === undefined
       ? []
       : [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds, widthProfile }) => {
+      const toActionMessage = renderNode.props.toActionMessage;
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
         bounds,
@@ -225,13 +227,14 @@ export const dataRenderers = {
         'vertical'
       );
       return [
-        ...pointerSelectionHitTargets<LogViewerBodyAnchor, unknown>({
+        ...pointerSelectionHitTargets({
           id: `${renderNode.id ?? renderNode.kind}:text`,
           bounds: scrollbars.contentBounds,
           focusTargetId: 'self',
-          toMessage: renderNode.props.toActionMessage === undefined
+          toMessage: toActionMessage === undefined
             ? undefined
-            : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
+            : (action: PointerSelectionAction<LogViewerBodyAnchor>) =>
+                toActionMessage({ kind: 'pointer', action }),
           positionAt: (event) => logViewerPointerAnchor(
             renderNode,
             { bounds: scrollbars.contentBounds },

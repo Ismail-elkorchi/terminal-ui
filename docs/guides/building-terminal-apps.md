@@ -10,7 +10,8 @@ Normal application code should think in layers:
 - layout: `column()`, `row()`, `grid()`, `splitPane()`, and `overlay()`;
 - components: `dialog()`, `tabs()`, controls, data views, text surfaces, feedback, and visualization;
 - behavior: pure reducers and state helpers for controlled components;
-- component extensions: leaf and composite renderers through `custom()`;
+- component definitions: reusable leaf and composite factories through
+  `defineComponent()`;
 - renderer APIs: frame construction, diffing, and serialization.
 
 The caller-supplied value is `Element<TMessage>`. It is intentionally opaque:
@@ -109,12 +110,13 @@ Use the testing façade for element snapshots:
 - `createTerminalHarness()`;
 - `runInteractionScript()`.
 
-Use `custom()` from the component entrypoint when a reusable leaf or composite
-component needs bounded rendering, measurement, accessibility, focus, or
-pointer targets. Use the renderer entrypoint for direct frame construction,
-diffing, and serialization.
+Use `defineComponent()` from the components entrypoint when a reusable leaf or
+composite needs bounded drawing, measurement, accessibility, focus, or pointer
+targets. Define it once outside `view()` and pass current data through `model`.
+Use the renderer entrypoint for direct frame construction, diffing, and
+serialization.
 
-See [Renderer extensions](./renderer-extensions.md) and
+See [Component definitions](./component-definitions.md) and
 [Rendering internals](./rendering-internals.md).
 
 Executable examples:

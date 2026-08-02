@@ -45,7 +45,7 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 - [Rendering internals](./guides/rendering-internals.md)
 - [Building polished components](./guides/building-polished-components.md)
 - [Themes](./guides/themes.md)
-- [Renderer extensions](./guides/renderer-extensions.md)
+- [Component definitions](./guides/component-definitions.md)
 - [Layout](./guides/layout.md)
 - [Host adapters](./guides/host-adapters.md)
 - [Accessibility](./accessibility.md)

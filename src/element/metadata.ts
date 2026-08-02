@@ -5,6 +5,9 @@ import type { PointerInteractionOptions } from '../interaction/pointer-interacti
 import type { MessageResolution } from '../interaction/message.ts';
 import type { TerminalStyle } from '../visual/render.ts';
 
+export const elementAvailabilities = ['active', 'passive', 'disabled', 'pending'] as const;
+export type ElementAvailability = typeof elementAvailabilities[number];
+
 export interface ElementKeyEvent {
   readonly input: InputEvent;
   readonly focusPath: FocusPath;

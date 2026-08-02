@@ -77,50 +77,48 @@ await runTui(app);
 The root entrypoint contains the normal application path. Its `behavior`
 namespace provides reducers for editing, selection, navigation, and scrolling.
 
-## Publish a Component
+## Define a Component
 
-Component packages use `@ismail-elkorchi/terminal-ui/component`. They return the
-same opaque `Element` type as built-in components.
+Application and package components use the same `components` entrypoint as the
+built-ins. A definition is immutable and can create any number of elements.
 
 ```ts
 import {
-  custom,
+  defineComponent,
   type Element
-} from '@ismail-elkorchi/terminal-ui/component';
+} from '@ismail-elkorchi/terminal-ui/components';
 import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
 
-export function badge(label: string): Element {
-  return custom({
-    id: 'badge',
-    state: label,
-    renderer: {
-      kind: 'leaf',
-      name: 'badge',
-      parts: [],
-      measure: ({ state, widthProfile }) => {
-        const width = Math.max(1, measureTextCells(state, { widthProfile }).cells);
-        return {
-          minWidth: 1,
-          minHeight: 1,
-          preferredWidth: width,
-          preferredHeight: 1
-        };
-      },
-      render({ state, bounds, target }) {
-        target.write(bounds.row, bounds.column, [{ text: state }]);
-      },
-      accessibility: ({ id, state }) => ({
-        id,
-        role: 'status',
-        label: state
-      })
-    }
-  });
+const badgeComponent = defineComponent<string>({
+  name: 'badge',
+  structure: 'leaf',
+  semantics: 'semantic',
+  measure: ({ model, widthProfile }) => {
+    const width = Math.max(1, measureTextCells(model, { widthProfile }).cells);
+    return {
+      minWidth: 1,
+      minHeight: 1,
+      preferredWidth: width,
+      preferredHeight: 1
+    };
+  },
+  render({ model, bounds, target }) {
+    target.write(bounds.row, bounds.column, [{ text: model }]);
+  },
+  accessibility: ({ id, model }) => ({
+    id,
+    role: 'status',
+    label: model
+  })
+});
+
+export function badge(id: string, label: string): Element {
+  return badgeComponent({ id, model: label });
 }
 ```
 
-Set the renderer `kind` to `composite` when the extension must measure and
-arrange child elements.
+Use `structure: 'composite'` when a component must measure and arrange child
+elements.
 
 ## Test Deterministically
 
@@ -152,7 +150,7 @@ harnesses.
 
 - [Prompts](./docs/guides/prompts.md)
 - [Building terminal apps](./docs/guides/building-terminal-apps.md)
-- [Reusable renderer extensions](./docs/guides/renderer-extensions.md)
+- [Reusable component definitions](./docs/guides/component-definitions.md)
 - [Testing harness](./docs/guides/testing-harness.md)
 - [API entrypoints and all guides](./docs/index.md)
 

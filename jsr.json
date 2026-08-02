@@ -13,7 +13,6 @@
     "./prompts": "./src/prompts/index.ts",
     "./tui": "./src/tui/index.ts",
     "./components": "./src/components/index.ts",
-    "./component": "./src/component/index.ts",
     "./layout": "./src/layout/index.ts",
     "./behavior": "./src/behavior/index.ts",
     "./renderer": "./src/renderer/index.ts",

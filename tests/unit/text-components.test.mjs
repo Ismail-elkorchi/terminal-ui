@@ -35,7 +35,7 @@ test('enabled disclosure requires its action boundary during construction', () =
     id: 'dead-disclosure',
     label: 'Details',
     expanded: false
-  }), /requires an onAction function/u);
+  }), /requires onAction when enabled/u);
 });
 
 function textInput(options) {
