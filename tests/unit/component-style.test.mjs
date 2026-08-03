@@ -51,7 +51,7 @@ const noMessage = () => undefined;
 
 function button(options) {
   return createButton(
-    options.disabled === true || options.state === 'pending'
+    options.disabled === true
       ? options
       : { onPress: noMessage, ...options }
   );
@@ -181,7 +181,8 @@ test('button states use shared styles and structural markers', () => {
   const pendingFrame = renderElementFrame(button({
     id: 'pending',
     label: 'Sync',
-    state: 'pending'
+    busy: true,
+    onPress: () => undefined
   }), { columns: 16, rows: 1 });
   const destructiveFrame = renderElementFrame(button({
     id: 'destructive',

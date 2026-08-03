@@ -1,5 +1,12 @@
 export type ElementFocusCapability = 'none' | 'item' | 'scope';
 export type ElementFactoryCategory = 'component' | 'layout';
+export type ElementFactoryOrigin = 'builtin' | 'defined';
+
+export interface ElementFactoryIdentity {
+  readonly category: ElementFactoryCategory;
+  readonly origin: ElementFactoryOrigin;
+  readonly name: string;
+}
 
 export interface ElementInputInspection {
   readonly keyboard: boolean;
@@ -17,8 +24,7 @@ export interface ElementMetaInspection {
 }
 
 export interface ElementInspection {
-  readonly category: ElementFactoryCategory;
-  readonly kind: string;
+  readonly factory: ElementFactoryIdentity;
   readonly id?: string;
   readonly inputs: ElementInputInspection;
   readonly meta: ElementMetaInspection;

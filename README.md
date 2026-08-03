@@ -79,22 +79,34 @@ namespace provides reducers for editing, selection, navigation, and scrolling.
 
 ## Define a Component
 
-Application and package components use the same `components` entrypoint as the
-built-ins. A definition is immutable and can create any number of elements.
+Application and package components use the narrow `component` entrypoint. A
+definition is immutable and can create any number of elements.
 
 ```ts
 import {
   defineComponent,
   type Element
-} from '@ismail-elkorchi/terminal-ui/components';
+} from '@ismail-elkorchi/terminal-ui/component';
 import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
 
-const badgeComponent = defineComponent<string>({
-  name: 'badge',
+interface BadgeOptions {
+  readonly label: string;
+}
+
+const badgeComponent = defineComponent<BadgeOptions>({
+  name: 'example-app/components/badge',
   structure: 'leaf',
   semantics: 'semantic',
-  measure: ({ model, widthProfile }) => {
-    const width = Math.max(1, measureTextCells(model, { widthProfile }).cells);
+  decodeOptions(value) {
+    if (typeof value !== 'object' || value === null || !('label' in value)
+      || typeof value.label !== 'string'
+      || Object.keys(value).some((field) => field !== 'label')) {
+      throw new TypeError('badge requires only a string label');
+    }
+    return { label: value.label };
+  },
+  measure: ({ options, widthProfile }) => {
+    const width = Math.max(1, measureTextCells(options.label, { widthProfile }).cells);
     return {
       minWidth: 1,
       minHeight: 1,
@@ -102,18 +114,18 @@ const badgeComponent = defineComponent<string>({
       preferredHeight: 1
     };
   },
-  render({ model, bounds, target }) {
-    target.write(bounds.row, bounds.column, [{ text: model }]);
+  render({ options, bounds, target }) {
+    target.write(bounds.row, bounds.column, [{ text: options.label }]);
   },
-  accessibility: ({ id, model }) => ({
+  accessibility: ({ id, options }) => ({
     id,
     role: 'status',
-    label: model
+    label: options.label
   })
 });
 
 export function badge(id: string, label: string): Element {
-  return badgeComponent({ id, model: label });
+  return badgeComponent({ id, label });
 }
 ```
 

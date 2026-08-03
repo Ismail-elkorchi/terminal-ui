@@ -200,6 +200,22 @@ test('measuredColumn remains a semantic-neutral windowing layout', () => {
   assert.equal(frame.accessibility.root.children?.some((child) => child.role === 'listitem'), false);
 });
 
+test('measuredColumn rejects row metadata that disagrees with child measurement', () => {
+  const window = measuredWindow({
+    items: [{ id: 'mismatch', value: 'one row', rows: 2 }],
+    viewportRows: 2,
+    offsetRow: 0
+  });
+
+  assert.throws(
+    () => renderElementFrame(measuredColumn(
+      window,
+      (entry) => text(entry.item.value, { id: entry.item.id })
+    ), { columns: 12, rows: 2 }),
+    /declares 2 rows but its element measures 1/u
+  );
+});
+
 test('interactive row fills do not inflate intrinsic content tracks', () => {
   const element = row([
     button({ id: 'back', label: 'Back', onPress: () => undefined }),

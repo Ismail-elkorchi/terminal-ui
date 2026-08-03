@@ -26,7 +26,8 @@ export function accessibleNode(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   clippedByViewport = false
-): AccessibleNode {
+): AccessibleNode | undefined {
+  if (node.inert) return undefined;
   if (!node.visible) {
     return {
       id: renderNode.id ?? `${renderNode.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`,
@@ -76,13 +77,17 @@ export function accessibleNode(
 
 export function withControlLabelRelationships(
   root: AccessibleNode,
-  renderNode: RenderNode
+  renderNode: RenderNode,
+  layoutNode: LayoutNode
 ): AccessibleNode {
   const accessibleNodes = new Map<string, AccessibleNode>();
   collectAccessibleNodes(root, accessibleNodes);
   const labels = collectControlLabels(renderNode);
+  if (labels.length === 0) return root;
+  const inertIds = collectInertElementIds(renderNode, layoutNode);
   const labelsByTarget = new Map<string, string>();
   for (const { labelId, targetId } of labels) {
+    if (inertIds.has(labelId) || inertIds.has(targetId)) continue;
     if (!accessibleNodes.has(labelId)) {
       throw new Error(`Control label "${labelId}" is not present in the accessibility tree.`);
     }
@@ -107,6 +112,13 @@ export function withControlLabelRelationships(
   return applyControlLabels(root, labelsByTarget);
 }
 
+export function inertAccessibleRoot(): AccessibleNode {
+  return {
+    id: 'terminal-ui:inert-root',
+    role: 'group'
+  };
+}
+
 function collectControlLabels(
   renderNode: RenderNode
 ): readonly { readonly labelId: string; readonly targetId: string }[] {
@@ -120,6 +132,27 @@ function collectControlLabels(
     ...labels,
     ...(renderNode.children ?? []).flatMap(collectControlLabels)
   ];
+}
+
+function collectInertElementIds(
+  renderNode: RenderNode,
+  layoutNode: LayoutNode,
+  ids = new Set<string>()
+): ReadonlySet<string> {
+  if (layoutNode.inert) {
+    collectRenderNodeIds(renderNode, ids);
+    return ids;
+  }
+  for (const [index, child] of (renderNode.children ?? []).entries()) {
+    const childLayout = layoutNode.children[index];
+    if (childLayout !== undefined) collectInertElementIds(child, childLayout, ids);
+  }
+  return ids;
+}
+
+function collectRenderNodeIds(renderNode: RenderNode, ids: Set<string>): void {
+  if (renderNode.id !== undefined) ids.add(renderNode.id);
+  for (const child of renderNode.children ?? []) collectRenderNodeIds(child, ids);
 }
 
 function collectAccessibleNodes(node: AccessibleNode, nodes: Map<string, AccessibleNode>): void {
@@ -156,7 +189,16 @@ function accessibleChildren(
     if (!childNode.visible) return [];
     if (clipsDescendants && intersectRects(childNode.bounds, childNode.viewport) === undefined) return [];
     if (isDecorativeAccessibility(child.accessibility)) return [];
-    return [accessibleNode(child, childNode, path, focusPath, theme, widthProfile, clipsDescendants)];
+    const accessible = accessibleNode(
+      child,
+      childNode,
+      path,
+      focusPath,
+      theme,
+      widthProfile,
+      clipsDescendants
+    );
+    return accessible === undefined ? [] : [accessible];
   });
   return rendered.length === 0 ? undefined : rendered;
 }

@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagnostics.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { validateTranscript } from '../../dist/transcript/index.js';
+import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 
 const modifiers = { ctrl: false, alt: false, shift: false, meta: false };
 const mouseModifiers = { shift: false, alt: false, ctrl: false };
@@ -12,10 +12,12 @@ test('transcript validation rejects malformed top-level and step discriminants',
   const cases = [
     [null, /must be an object/u],
     [{}, /format version/u],
-    [transcript({ formatVersion: 2 }), /format version/u],
+    [transcript({ formatVersion: 1 }), /format version/u],
     [transcript(), /id must not be empty/u],
     [transcript({ id: 'valid', source: 'other' }), /source/u],
     [transcript({ id: 'valid', startedAt: 1 }), /startedAt/u],
+    [transcript({ id: 'valid', startedAt: '2024-01-02T03:04:05Z' }), /startedAt/u],
+    [transcript({ id: 'valid', startedAt: 'not-a-date' }), /startedAt/u],
     [transcript({ id: 'valid', steps: null }), /steps must be an array/u],
     [transcript({ id: 'valid', diagnostics: null }), /diagnostics must be an array/u],
     [transcript({ id: 'valid', redactions: null }), /redactions must be an array/u],
@@ -23,10 +25,11 @@ test('transcript validation rejects malformed top-level and step discriminants',
     [transcript({ id: 'valid', steps: [null] }), /step must be an object/u],
     [transcript({ id: 'valid', steps: [{ kind: 'other' }] }), /unsupported step kind/u],
     [transcript({ id: 'valid', steps: [{ kind: 'input', event: { kind: 'end' }, extra: true }] }), /step contains unsupported field/u],
-    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'other', message: {} }] }), /message source/u],
-    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input' }] }), /requires message/u],
-    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input', message: Number.NaN }] }), /JSON-safe/u],
-    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input', message: () => undefined }] }), /JSON-safe/u],
+    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'other', fidelity: 'exact', message: {} }] }), /message source/u],
+    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input', fidelity: 'other', message: {} }] }), /message step fidelity/u],
+    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input', fidelity: 'exact' }] }), /requires message/u],
+    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input', fidelity: 'exact', message: Number.NaN }] }), /JSON-safe/u],
+    [transcript({ id: 'valid', steps: [{ kind: 'message', source: 'input', fidelity: 'exact', message: () => undefined }] }), /JSON-safe/u],
     [transcript({ id: 'valid', redactions: [{ path: 1, reason: 'secret' }] }), /redaction/u],
     [transcript({ id: 'valid', redactions: [{ path: '$.steps', reason: 'other' }] }), /redaction/u],
     [transcript({ id: 'valid', redactions: [{ path: '$.steps', reason: 'secret', extra: true }] }), /unsupported field/u]
@@ -92,11 +95,71 @@ test('transcript validation rejects over-nested JSON messages without overflowin
 
   const result = validateTranscript(transcript({
     id: 'over-nested-message',
-    steps: [{ kind: 'message', source: 'external', message }]
+    steps: [{ kind: 'message', source: 'external', fidelity: 'exact', message }]
   }));
 
   assert.equal(result.ok, false);
   assert.match(result.error.message, /nesting limit/u);
+});
+
+test('transcript validation enforces caller-selected aggregate resource limits', () => {
+  const twoInputSteps = transcript({
+    id: 'bounded-steps',
+    steps: [
+      { kind: 'input', event: { kind: 'focus', focused: true } },
+      { kind: 'input', event: { kind: 'focus', focused: false } }
+    ]
+  });
+  assertInvalidWithLimits(twoInputSteps, { maxSteps: 1 }, /1-step limit/u);
+
+  const oversizedCommit = transcript({
+    id: 'bounded-render-data',
+    steps: [{
+      kind: 'commit',
+      commit: {
+        frame: { cells: [{}, {}] },
+        diff: { operations: [{}, {}] }
+      }
+    }]
+  });
+  assertInvalidWithLimits(oversizedCommit, { maxFrameCells: 1 }, /1-frame-cell limit/u);
+  assertInvalidWithLimits(oversizedCommit, { maxDiffOperations: 1 }, /1-diff-operation limit/u);
+
+  assertInvalidWithLimits(
+    transcript({ id: 'bounded-diagnostics', diagnostics: [{}, {}] }),
+    { maxDiagnostics: 1 },
+    /1-diagnostic limit/u
+  );
+  assertInvalidWithLimits(
+    transcript({ id: 'bounded-redactions', redactions: [{}, {}] }),
+    { maxRedactions: 1 },
+    /1-redaction limit/u
+  );
+  assertInvalidWithLimits(
+    transcript({ id: 'identifier-that-exceeds-the-selected-limit' }),
+    { maxStringCodeUnits: 20 },
+    /20-string-code-unit limit/u
+  );
+  assertInvalidWithLimits(transcript({ id: 'invalid-limit' }), { maxSteps: 0 }, /positive safe integer/u);
+
+  const recorder = createTranscriptRecorder({ id: 'bounded-recorder' });
+  recorder.reportDiagnostic(diagnostic('INPUT_TIMEOUT', 'Timed out.'));
+  assert.equal(validateTranscript(recorder.snapshot(), { maxDiagnostics: 1 }).ok, true);
+
+  const largeString = 'x'.repeat(600_000);
+  assertInvalidWithLimits(
+    transcript({
+      id: 'aggregate-strings',
+      steps: [{
+        kind: 'message',
+        source: 'input',
+        fidelity: 'exact',
+        message: { first: largeString, second: largeString }
+      }]
+    }),
+    { maxStringCodeUnits: 1_000_000 },
+    /1000000-string-code-unit limit/u
+  );
 });
 
 test('transcript validation rejects malformed input-event variants', () => {
@@ -390,8 +453,8 @@ test('transcript validation accepts an ordered terminal restore sequence', () =>
   const result = validateTranscript(transcript({
     id: 'ordered-restores',
     steps: [
-      { kind: 'restore', result: restore },
-      { kind: 'restore', result: restore }
+      { kind: 'restore', phase: 'checkpoint', result: restore },
+      { kind: 'restore', phase: 'shutdown', result: restore }
     ]
   }));
 
@@ -436,13 +499,16 @@ test('transcript validation rejects malformed structured restore results', () =>
   ];
 
   for (const [value, pattern] of cases) {
-    assertInvalid(transcript({ id: 'invalid-restore', steps: [{ kind: 'restore', result: value }] }), pattern);
+    assertInvalid(transcript({
+      id: 'invalid-restore',
+      steps: [{ kind: 'restore', phase: 'shutdown', result: value }]
+    }), pattern);
   }
 });
 
 function transcript(overrides = {}) {
   return {
-    formatVersion: 1,
+    formatVersion: 2,
     id: '',
     source: 'test',
     steps: [],
@@ -454,6 +520,12 @@ function transcript(overrides = {}) {
 
 function assertInvalid(value, pattern) {
   const result = validateTranscript(value);
+  assert.equal(result.ok, false);
+  assert.match(result.error.message, pattern);
+}
+
+function assertInvalidWithLimits(value, limits, pattern) {
+  const result = validateTranscript(value, limits);
   assert.equal(result.ok, false);
   assert.match(result.error.message, pattern);
 }

@@ -6,6 +6,13 @@ export function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
+export function isCanonicalDateTime(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return false;
+  return new Date(timestamp).toISOString() === value;
+}
+
 export function isStringMember<TValue extends string>(
   value: unknown,
   values: readonly TValue[]

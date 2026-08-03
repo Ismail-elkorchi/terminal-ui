@@ -434,7 +434,7 @@ function createRuntime<TState, TMessage>(
 
   function recordReductionMessages(reduction: RuntimeReduction<TState, TMessage>): void {
     for (const item of reduction.messages) {
-      options.transcript?.recordMessage(
+      options.transcript?.recordNormalizedMessage(
         item.source,
         item.redacted === true ? '[redacted]' : item.message
       );

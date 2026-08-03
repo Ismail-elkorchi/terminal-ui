@@ -37,5 +37,5 @@ test('public acceptance path covers prompt, TUI, and testing surfaces', async ()
     steps: [{ kind: 'assertSnapshot', assertion: { role: 'text' } }]
   });
   assert.equal(scriptResult.snapshot.root.role, 'text');
-  assert.equal(scriptResult.transcript.formatVersion, 1);
+  assert.equal(scriptResult.transcript.formatVersion, 2);
 });

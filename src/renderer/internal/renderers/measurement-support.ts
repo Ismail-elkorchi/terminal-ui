@@ -47,6 +47,7 @@ export function measurementLayoutNode(renderNode: RenderNode, bounds: Rect): Lay
       underlay: renderNode.layer?.underlay ?? 'preserve'
     },
     visible: true,
+    inert: false,
     focusable: false,
     focusTargets: [],
     children: []

@@ -223,6 +223,7 @@ export interface LayoutNode {
   readonly viewport: Rect;
   readonly layer: Layer;
   readonly visible: boolean;
+  readonly inert: boolean;
   readonly focusable: boolean;
   readonly focusScope?: ElementFocusScope;
   readonly focusTargets: readonly LayoutFocusRegion[];

@@ -54,7 +54,11 @@ const saveButtonOptions = {
 } as const;
 
 const saveButton = state.saving
-  ? button({ ...saveButtonOptions, state: 'pending' })
+  ? button({
+      ...saveButtonOptions,
+      busy: true,
+      onPress: (): Message => ({ kind: 'save' })
+    })
   : button({
       ...saveButtonOptions,
       onPress: (): Message => ({ kind: 'save' })
@@ -67,7 +71,7 @@ Rules:
 
 - `id` remains top-level because it is caller-supplied identity for focus, tests,
   accessibility, state association, and event routing.
-- Semantic state such as button `state`, selection, required state, and validation errors
+- Semantic state such as button `busy`, selection, required state, and validation errors
   belongs to the component.
 - Accessibility overrides, focus policy, layering, and typed local style anatomy live
   under `meta`.
@@ -101,6 +105,7 @@ node. Those mechanisms are not public component state.
 | Entrypoint | Contract |
 | --- | --- |
 | `./components` | Built-in factories, `defineComponent()`, `Element`, and shared component data contracts. |
+| `./component` | Narrow authoring contract for reusable component packages. |
 | `./layout` | Layout and composition factories plus responsive view selection. |
 | `./behavior` | Pure reducers and controlled-state helpers. |
 | `./renderer` | Frame construction, diffing, serialization, and drawing primitives. |
@@ -126,7 +131,7 @@ layer and focus metadata
 typed root, part, and visual-state styles
 key and input maps
 accessibility definitions
-defined-component model
+defined-component options and action mapping
 ```
 
 Each built-in render-node kind has explicit normalized render props. Public
@@ -164,7 +169,8 @@ TUI runtime. The TUI directory contains application/runtime lifecycle only.
 bounds, theme data, source metadata, and caller-controlled state. It does not receive
 direct frame-buffer or terminal-host access.
 
-`defineComponent()` lives with the built-in factories under `./components`.
+`defineComponent()` is available through the narrow `./component` entrypoint
+and the built-in catalog under `./components`.
 It creates an immutable factory from bounded measurement, drawing,
 accessibility, focus-target, and hit-target hooks without exposing private node
 fields. Composite definitions can also measure and arrange opaque children.
@@ -183,10 +189,11 @@ They do not inspect private render-node fields through caller-supplied elements.
 
 Use `inspectElement(element)` when component tools or diagnostics need a stable,
 read-only description before rendering. The inspection includes caller-supplied
-identity, factory category, component name, input capabilities, focus policy,
+identity, factory category, factory origin and name, input capabilities, focus policy,
 style metadata, and child structure; it does not expose private props, callback
 values, or drawing hooks. Focus inspection applies the same logical
-disablement policy as rendering, including disabled and pending control state.
+disablement policy as rendering, including disabled controls and inert subtrees.
+Busy and read-only controls remain focusable unless separately disabled.
 It describes whether an element can produce a focus item or scope before
 terminal geometry is known; zero-sized or clipped layout can still leave no
 focus path in a particular frame.

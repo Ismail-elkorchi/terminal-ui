@@ -146,7 +146,7 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
   const focusPanel = defineComponent({
     structure: 'leaf',
     semantics: 'semantic',
-    name: 'focusPanel',
+    name: 'terminal-ui-tests/components/focusPanel',
     parts: [],
     measure: () => ({
       minWidth: 0,

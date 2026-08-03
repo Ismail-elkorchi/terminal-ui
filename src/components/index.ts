@@ -50,14 +50,18 @@ export {
 export { defineComponent } from './definition.ts';
 export type {
   ComponentAccessibilityInput,
-  ComponentAvailability,
+  ComponentMeasureConstraints,
+  ComponentDefinitionName,
   ComponentDefinition,
   ComponentInput,
   ComponentLayoutInput,
   ComponentMeasureInput,
   ComponentRenderInput,
   ComponentSourceInput,
+  ComponentState,
   ComponentStyleInput,
+  ComponentTextActionInput,
+  ComponentPointerActions,
   DecorativeLeafComponentDefinition,
   SemanticCompositeComponentDefinition,
   SemanticLeafComponentDefinition
@@ -159,6 +163,8 @@ export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage }
 export { inspectElement } from './inspection.ts';
 export type {
   ElementFactoryCategory,
+  ElementFactoryIdentity,
+  ElementFactoryOrigin,
   ElementFocusCapability,
   ElementInputInspection,
   ElementInspection,

@@ -12,6 +12,7 @@
     "./theme": "./src/theme/index.ts",
     "./prompts": "./src/prompts/index.ts",
     "./tui": "./src/tui/index.ts",
+    "./component": "./src/component/index.ts",
     "./components": "./src/components/index.ts",
     "./layout": "./src/layout/index.ts",
     "./behavior": "./src/behavior/index.ts",

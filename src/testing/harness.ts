@@ -16,6 +16,7 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
   const diffs: RenderDiff[] = [];
   let pendingFrame: Frame | undefined;
   let commitSequence = 1;
+  let replayRestorePhase: 'checkpoint' | 'shutdown' | undefined;
   const host = createMemoryTerminalHost({
     ...(options.terminalSize === undefined ? {} : { terminalSize: options.terminalSize }),
     observer: {
@@ -36,7 +37,11 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
         }
       },
       recordRestore(checkpoint) {
-        transcript.record({ kind: 'restore', result: checkpoint });
+        transcript.record({
+          kind: 'restore',
+          phase: replayRestorePhase ?? 'checkpoint',
+          result: checkpoint
+        });
       }
     }
   });
@@ -76,7 +81,14 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
       diffs.push(commit.diff);
       transcript.record({ kind: 'commit', commit });
     },
-    recordRestore: (result) => { host.observer?.recordRestore?.(result); },
+    recordRestore(result, phase) {
+      replayRestorePhase = phase;
+      try {
+        host.observer?.recordRestore?.(result);
+      } finally {
+        replayRestorePhase = undefined;
+      }
+    },
     output: () => host.output()
   };
 }

@@ -172,7 +172,7 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
       },
       recordRestore(result) {
         restores.push(result);
-        transcript.record({ kind: 'restore', result });
+        transcript.record({ kind: 'restore', phase: 'checkpoint', result });
       }
     }
   });
@@ -210,8 +210,9 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
       diffs.push(commit.diff);
       transcript.record({ kind: 'commit', commit });
     },
-    recordRestore(result) {
-      host.observer?.recordRestore?.(result);
+    recordRestore(result, phase) {
+      restores.push(result);
+      transcript.record({ kind: 'restore', phase, result });
     },
     async dispose() {
       input.close();

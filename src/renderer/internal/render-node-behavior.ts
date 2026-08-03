@@ -11,6 +11,7 @@ import {
   emptyRect, hasKeyboardOrInputMap
 } from './renderers/support/common.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
+import { accessibleRoleSupportsReadOnly } from '../../accessibility/types.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -101,12 +102,17 @@ export function createRenderMeasurementContext(
     theme,
     widthProfile,
     measure(renderNode, bounds) {
-      const key = `${String(bounds.row)}:${String(bounds.column)}:${String(bounds.width)}:${String(bounds.height)}`;
+      const key = `${String(bounds.width)}:${String(bounds.height)}`;
       const byConstraint = cache.get(renderNode) ?? new Map<string, Measurement>();
       cache.set(renderNode, byConstraint);
       const cached = byConstraint.get(key);
       if (cached !== undefined) return cached;
-      const measurement = measureRenderNode(renderNode, bounds, context);
+      const measurement = measureRenderNode(renderNode, {
+        row: 1,
+        column: 1,
+        width: bounds.width,
+        height: bounds.height
+      }, context);
       byConstraint.set(key, measurement);
       return measurement;
     }
@@ -174,7 +180,7 @@ export function accessibilityForRenderNode(
   if (renderer.accessibility === undefined) {
     throw new Error(`RenderNode "${id}" must provide accessibility or be marked decorative.`);
   }
-  return renderer.accessibility({
+  const accessible = renderer.accessibility({
     renderNode: renderNode,
     layoutNode: node,
     id,
@@ -184,6 +190,17 @@ export function accessibilityForRenderNode(
     theme,
     widthProfile
   });
+  if (renderNode.state?.readOnly === true && !accessibleRoleSupportsReadOnly(accessible.role)) {
+    throw new Error(
+      `RenderNode "${id}" cannot apply readOnly state to accessibility role "${accessible.role}".`
+    );
+  }
+  return {
+    ...accessible,
+    ...(renderNode.state?.disabled === true ? { disabled: true } : {}),
+    ...(renderNode.state?.busy === true ? { busy: true } : {}),
+    ...(renderNode.state?.readOnly === true ? { readOnly: true } : {})
+  };
 }
 
 export function focusTargetsForRenderNode(
@@ -256,6 +273,7 @@ export function hitTargetsForRenderNode<TMessage>(
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   if (target.bounds.width <= 0 || target.bounds.height <= 0) return [];
+  if (target.layoutNode.inert) return [];
   if (renderNodeInteractionUnavailable(renderNode)) return [];
   const targets = rendererForRenderNode(renderNode).hitTargets?.({
     renderNode: renderNode,

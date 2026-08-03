@@ -17,7 +17,11 @@ import { blitFrameCell } from './frame-buffer.ts';
 import { applyCursorStyle } from './cursor-style.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutRenderNode } from './layout.ts';
-import { accessibleNode, withControlLabelRelationships } from './render-accessibility.ts';
+import {
+  accessibleNode,
+  inertAccessibleRoot,
+  withControlLabelRelationships
+} from './render-accessibility.ts';
 import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
 import { intersectRects } from './rect.ts';
 import {
@@ -189,12 +193,19 @@ export function renderElementInternal<TMessage>(
     regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion))
   );
   const accessibility = measureRenderStage(options.instrumentation, 'accessibility', () => {
+    const accessibleRoot = accessibleNode(
+      renderNode,
+      layout,
+      [],
+      resolvedFocusPath,
+      theme,
+      widthProfile
+    );
     const snapshot = toAccessibleSnapshot({
       source: 'renderer',
-      root: withControlLabelRelationships(
-        accessibleNode(renderNode, layout, [], resolvedFocusPath, theme, widthProfile),
-        renderNode
-      )
+      root: accessibleRoot === undefined
+        ? inertAccessibleRoot()
+        : withControlLabelRelationships(accessibleRoot, renderNode, layout)
     });
     assertValidRenderedAccessibility(snapshot, resolvedFocusPath !== undefined);
     return snapshot;

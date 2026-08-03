@@ -27,7 +27,7 @@ export async function replayTranscript(
         target.transcript.recordDiagnostic(step.occurrence);
         break;
       case 'restore':
-        target.recordRestore(step.result);
+        target.recordRestore(step.result, step.phase);
         break;
     }
   }

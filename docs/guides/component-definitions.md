@@ -5,19 +5,38 @@ need. Defined and built-in components return the same opaque `Element` values,
 compose with the same layouts, and use the same focus, pointer, accessibility,
 and frame pipeline.
 
+That shared pipeline does not grant definitions private layout authority.
+Definitions draw only inside their allocation and may arrange their declared
+children there. Renderer-owned popup construction and hidden implementation
+nodes remain available only to built-ins. Package components compose public
+layouts such as `overlay()` and `anchored()` when those bounds are known by the
+application.
+
 Keep the definition outside `view()`. It is immutable behavior; each call to
-the returned factory supplies the current model and interaction handlers.
+the returned factory supplies current options, shared state, and an action mapper.
 
 ```ts
-import { defineComponent } from '@ismail-elkorchi/terminal-ui/components';
+import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
 import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
 
-const badge = defineComponent<string>({
-  name: 'badge',
+interface BadgeOptions {
+  readonly label: string;
+}
+
+const badge = defineComponent<BadgeOptions>({
+  name: 'example-app/components/badge',
   structure: 'leaf',
   semantics: 'semantic',
-  measure: ({ model, widthProfile }) => {
-    const width = measureTextCells(model, { widthProfile }).cells;
+  decodeOptions(value) {
+    if (typeof value !== 'object' || value === null || !('label' in value)
+      || typeof value.label !== 'string'
+      || Object.keys(value).some((field) => field !== 'label')) {
+      throw new TypeError('badge requires only a string label');
+    }
+    return { label: value.label };
+  },
+  measure: ({ options, widthProfile }) => {
+    const width = measureTextCells(options.label, { widthProfile }).cells;
     return {
       minWidth: 1,
       minHeight: 1,
@@ -25,17 +44,17 @@ const badge = defineComponent<string>({
       preferredHeight: 1
     };
   },
-  render: ({ model, bounds, target }) => {
-    target.write(bounds.row, bounds.column, [{ text: model }]);
+  render: ({ options, bounds, target }) => {
+    target.write(bounds.row, bounds.column, [{ text: options.label }]);
   },
-  accessibility: ({ id, model }) => ({
+  accessibility: ({ id, options }) => ({
     id,
     role: 'status',
-    label: model
+    label: options.label
   })
 });
 
-const ready = badge({ id: 'build-status', model: 'Ready' });
+const ready = badge({ id: 'build-status', label: 'Ready' });
 ```
 
 The optional `parts` array declares stable local style slots. `style()` rejects
@@ -49,10 +68,10 @@ opaque child measurements and returns one rectangle per child. It may draw
 before or after its children.
 
 ```ts
-import { defineComponent } from '@ismail-elkorchi/terminal-ui/components';
+import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
 
 const stack = defineComponent({
-  name: 'stack',
+  name: 'example-app/components/stack',
   structure: 'composite',
   semantics: 'semantic',
   measure: ({ childCount, measureChild }) => {
@@ -115,24 +134,32 @@ viewport so large content can be windowed.
 Semantic definitions require an accessibility hook. Decorative definitions are
 leaf components for non-semantic drawing. They use `semantics: 'decorative'`
 and cannot define accessibility, children, focus targets, hit targets, keys,
-text handlers, pointer behavior, availability, or focus metadata. Compose
+text handlers, pointer behavior, state, or focus metadata. Compose
 several decorative leaves with a layout factory. The same rules are checked
 for JavaScript callers at runtime.
 
-A semantic instance has one of four availability states:
+Semantic definitions declare keyboard, text, paste, pointer, and hit-target
+behavior in terms of one reusable action type. Each instance supplies
+`onAction`, which maps that action into its application's message type. Return
+`ignoreMessage()` from the same `/component` entrypoint when an action is
+intentionally ignored; returning `undefined` is rejected.
 
-- `active` is the default and permits interaction;
-- `passive` keeps semantics and drawing but suppresses interaction;
-- `disabled` suppresses interaction and passes that state to every hook;
-- `pending` does the same while work is in progress.
+Shared state uses independent boolean capabilities rather than one overloaded
+status value:
 
-Unavailable instances cannot supply keys, text handlers, paste handlers, or
-pointer behavior.
+- `disabled` suppresses interaction owned by the component;
+- `busy` exposes in-progress semantics without disabling cancellation;
+- `readOnly` keeps focus and selection available for roles that support immutable values;
+- `inert` removes a composite subtree from interaction and accessibility output.
 
-The returned element's message type is inferred from definition hit targets,
-instance handlers, and composite children. These sources remain independent,
-so an instance may add application messages even when its definition emits
-none.
+Disabled, busy, and read-only state is added to accessibility output by the
+framework. Definition hooks should not duplicate it. Decorative definitions
+cannot accept state or actions.
+
+Component-specific options are top-level instance fields. A definition with
+custom options supplies `decodeOptions()`, which is the runtime boundary for
+JavaScript and other dynamic callers. It should reject unknown fields and
+return the canonical options consumed by every hook.
 
 Focus targets and hit targets use stable IDs and bounded rectangles. A hit
 target that should transfer keyboard focus names one of the component's focus

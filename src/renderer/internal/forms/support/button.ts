@@ -79,7 +79,7 @@ function inlineBaseStyle(
 
 export function buttonDescription(renderNode: ButtonNode): string {
   return [
-    renderNode.props.state === 'pending' ? 'Pending.' : '',
+    renderNode.state?.busy === true ? 'Busy.' : '',
     renderNodePointerVisualState(renderNode, buttonTargetId(renderNode)) === 'pressed' ? 'Pressed.' : '',
     buttonTone(renderNode) === 'destructive' ? 'Destructive action.' : ''
   ].filter((part) => part.length > 0).join(' ');
@@ -91,13 +91,13 @@ function buttonStateMarker(
   focused: boolean,
   widthProfile: TextWidthProfile
 ): string {
-  const value = renderNode.props.state === 'pending'
+  const value = renderNode.state?.busy === true
     ? theme.tokens.symbols.statusInfo
     : renderNodePointerVisualState(renderNode, buttonTargetId(renderNode)) === 'pressed'
       ? theme.tokens.symbols.selected
       : buttonTone(renderNode) === 'destructive'
         ? theme.tokens.symbols.statusError
-        : focused && renderNode.props.disabled !== true
+        : focused && renderNode.state?.disabled !== true
           ? theme.tokens.symbols.pointer
           : ' ';
   return oneCellGlyph(value, ' ', { widthProfile });
@@ -130,7 +130,7 @@ function ghostFocusStyle(renderNode: ButtonNode, state: ElementVisualState | und
 }
 
 function buttonBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
-  if (renderNode.props.state === 'pending') return themeStyle('status.pending', { bold: true });
+  if (renderNode.state?.busy === true) return themeStyle('status.pending', { bold: true });
   switch (buttonTone(renderNode)) {
     case 'default':
       return controlToneStyle('default');
@@ -146,7 +146,7 @@ function buttonBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
 }
 
 function buttonFrameBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
-  if (renderNode.props.state === 'pending') return themeStyle('status.pending', { bold: true });
+  if (renderNode.state?.busy === true) return themeStyle('status.pending', { bold: true });
   switch (buttonTone(renderNode)) {
     case 'default':
       return controlToneBorderStyle('default');
@@ -204,9 +204,8 @@ function controlToneBorderStyle(tone: 'default' | 'primary' | 'secondary'): Term
 }
 
 function buttonState(renderNode: ButtonNode, focused: boolean): ElementVisualState | undefined {
-  if (renderNode.props.state === 'pending') return undefined;
   return interactionVisualState(renderNode, buttonTargetId(renderNode), {
-    disabled: renderNode.props.disabled === true,
+    disabled: renderNode.state?.disabled === true,
     focused
   });
 }

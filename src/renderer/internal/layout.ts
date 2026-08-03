@@ -44,7 +44,7 @@ export function layoutRenderNode(
     : terminalSizeOrBounds;
   const viewportBounds = clampRect(bounds);
   const measurements = createRenderMeasurementContext(theme, widthProfile);
-  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, 0, 0, []);
+  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, 0, 0, [], false);
 }
 
 function layoutNode(
@@ -56,7 +56,8 @@ function layoutNode(
   measurements: RenderMeasurementContext,
   ordinal: number,
   parentZIndex: number,
-  parentIdentity: readonly string[]
+  parentIdentity: readonly string[],
+  ancestorInert: boolean
 ): LayoutNode {
   const placedBounds = placeRenderNode(
     renderNode,
@@ -70,6 +71,7 @@ function layoutNode(
   const zIndex = parentZIndex + zIndexForRenderNode(renderNode);
   const identity = renderNode.id ?? `${renderNode.kind}:${String(ordinal)}`;
   const identityPath = [...parentIdentity, identity];
+  const inert = ancestorInert || renderNode.state?.inert === true;
   const layer = {
     id: identityPath.join('/'),
     zIndex,
@@ -85,6 +87,7 @@ function layoutNode(
       viewport,
       layer,
       visible: false,
+      inert,
       focusable: false,
       focusTargets: [],
       children: []
@@ -94,7 +97,9 @@ function layoutNode(
       : layout;
   }
   const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements);
-  const focusTargets = focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile)
+  const focusTargets = (inert
+    ? []
+    : focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile))
     .map((target): LayoutFocusRegion => {
       const clippedBounds = intersectRects(target.bounds, viewport) ?? emptyRect(target.bounds);
       return {
@@ -120,6 +125,7 @@ function layoutNode(
     viewport,
     layer,
     visible,
+    inert,
     focusable: focusTargets.some((target) => !target.disabled && target.bounds.width > 0 && target.bounds.height > 0),
     ...(focusScope === undefined ? {} : { focusScope }),
     focusTargets,
@@ -133,7 +139,8 @@ function layoutNode(
         measurements,
         index,
         zIndex,
-        identityPath
+        identityPath,
+        inert
       ))
   };
   return renderNode.kind === 'overlay'

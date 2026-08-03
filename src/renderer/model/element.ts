@@ -1,5 +1,9 @@
 import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementValue } from '../../element/index.ts';
-import type { ElementFactoryCategory, ElementInspection } from '../../element/inspection.ts';
+import type {
+  ElementFactoryCategory,
+  ElementFactoryIdentity,
+  ElementInspection
+} from '../../element/inspection.ts';
 import { renderNodeId } from '../../foundation/identity.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 import { renderNodeFocusUnavailable } from './node.ts';
@@ -34,7 +38,7 @@ function elementFromRenderNode<
   category: ElementFactoryCategory
 ): Element<TMessage> {
   const element = Object.freeze({}) as Element<TMessage>;
-  const inspection = inspectRenderNode(node, category);
+  const inspection = inspectRenderNode(node, factoryIdentity(node, category));
   renderNodes.set(element, node);
   renderNodeInspections.set(node, inspection);
   inspections.set(element, inspection);
@@ -90,16 +94,13 @@ function isObject(value: unknown): value is object {
 
 function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   node: RenderNodeOfKind<TMessage, TKind>,
-  category: ElementFactoryCategory
+  factory: ElementFactoryIdentity
 ): ElementInspection {
   const styleParts = Object.keys(node.styles?.parts ?? {}).sort();
   const styleStates = Object.keys(node.styles?.states ?? {}).sort();
   const keyboard = node.keyMap !== undefined && Object.keys(node.keyMap).length > 0;
   const inspection: ElementInspection = {
-    category,
-    kind: node.kind === 'component' && node.definition !== undefined
-      ? node.definition.name
-      : node.kind,
+    factory,
     ...(node.id === undefined ? {} : { id: node.id }),
     inputs: Object.freeze({
       keyboard,
@@ -120,6 +121,27 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
     }))
   };
   return Object.freeze(inspection);
+}
+
+function factoryIdentity<TMessage, TKind extends RenderNodeKind>(
+  node: RenderNodeOfKind<TMessage, TKind>,
+  category: ElementFactoryCategory
+): ElementFactoryIdentity {
+  return Object.freeze({
+    category,
+    origin: node.kind === 'component' ? 'defined' : 'builtin',
+    name: inspectedFactoryName(node)
+  });
+}
+
+function inspectedFactoryName<TMessage, TKind extends RenderNodeKind>(
+  node: RenderNodeOfKind<TMessage, TKind>
+): string {
+  if (node.kind !== 'component') return node.kind;
+  if (node.definition === undefined) {
+    throw new TypeError('A defined component render node must include its definition.');
+  }
+  return node.definition.name;
 }
 
 function focusCapability<TMessage, TKind extends RenderNodeKind>(

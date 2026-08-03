@@ -41,7 +41,7 @@ export function createTerminalSuspension<TState, TMessage>(
         signal.throwIfAborted();
         await options.host.flush({ signal });
         const restoration = await options.session().restore('success', { operationSignal: signal });
-        recordTuiRestore(options.transcript, restoration);
+        recordTuiRestore(options.transcript, restoration, 'checkpoint');
         if (restoration.status !== 'restored') {
           throw new Error(`Terminal suspension restoration completed with status ${restoration.status}.`);
         }

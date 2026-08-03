@@ -23,10 +23,22 @@ The transcript carries one numeric `formatVersion` for the complete persisted
 record. Pass parsed data directly to `validateTranscript()` or
 `replayTranscript()`; both treat it as untrusted input, and replay proceeds only
 after structural and semantic validation succeeds. Recorded application
-messages that are already JSON-safe are copied exactly. Other application
-message values receive one deterministic, bounded JSON snapshot at the recorder
-boundary. Parsed transcripts are never normalized: values outside the exact
-persisted contract are rejected.
+messages carry an explicit `fidelity` value. `record()` accepts only JSON-safe
+`exact` messages. `recordNormalizedMessage()` takes one deterministic, bounded
+snapshot and marks it `normalized`; that step documents that replay cannot
+reconstruct the original application value exactly. Parsed transcripts are
+never normalized: values outside the exact persisted contract are rejected.
+
+`startedAt`, when present, is a canonical UTC ISO date-time. Restore steps also
+name their lifecycle phase. A `checkpoint` records suspension or intermediate
+cleanup and may be followed by more interaction. A `shutdown` ends input,
+message, and commit activity for that transcript.
+
+Validation accepts caller-selected limits for nesting, JSON nodes, total string
+code units, steps, frame cells, diff operations, unique diagnostic occurrences,
+and redactions. The defaults are exported as
+`defaultTranscriptValidationLimits`; select tighter limits when accepting data
+from a boundary with a smaller expected workload.
 
 Diagnostics separate immutable content from reported occurrences. A
 `TerminalDiagnostic.fingerprint` identifies equal sanitized content. A

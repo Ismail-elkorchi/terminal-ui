@@ -88,12 +88,20 @@ export const layoutRenderers = {
   measuredColumn: {
     clipChildren: true,
     measure: layoutMeasurements.measuredColumn,
-    layout: ({ renderNode, bounds }) => renderNode.props.entries.map((entry) => ({
-      row: bounds.row + entry.rowOffset - entry.clippedRowsBefore,
-      column: bounds.column,
-      width: bounds.width,
-      height: entry.rows
-    })),
+    layout: ({ renderNode, bounds, measureChild }) => renderNode.props.entries.map((entry, index) => {
+      const measuredRows = measureChild(index).preferredHeight;
+      if (measuredRows !== entry.rows) {
+        throw new RangeError(
+          `measuredColumn() entry ${String(index)} declares ${String(entry.rows)} rows but its element measures ${String(measuredRows)}.`
+        );
+      }
+      return {
+        row: bounds.row + entry.rowOffset - entry.clippedRowsBefore,
+        column: bounds.column,
+        width: bounds.width,
+        height: measuredRows
+      };
+    }),
     render: (input) => {
       input.renderChildren();
     },

@@ -62,7 +62,7 @@ export function tooltipAccessibleBase(renderNode: TooltipNode, id: string, focus
   const content = tooltipContentLines(renderNode).join(' ');
   return {
     id,
-    role: 'text',
+    role: 'tooltip',
     label: title.length === 0 ? content || id : title,
     ...(content.length === 0 || content === title ? {} : { description: content }),
     live: 'polite',

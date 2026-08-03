@@ -5,8 +5,22 @@ import type { PointerInteractionOptions } from '../interaction/pointer-interacti
 import type { MessageResolution } from '../interaction/message.ts';
 import type { TerminalStyle } from '../visual/render.ts';
 
-export const elementAvailabilities = ['active', 'passive', 'disabled', 'pending'] as const;
-export type ElementAvailability = typeof elementAvailabilities[number];
+export const elementStateFields = ['disabled', 'busy', 'readOnly', 'inert'] as const;
+
+/**
+ * Independent state carried by a component render node.
+ *
+ * `disabled` suppresses the node's own interaction, while `inert` removes the
+ * complete subtree from interaction and accessibility output. `busy` and
+ * `readOnly` are semantic state; component behavior decides which actions
+ * remain meaningful.
+ */
+export interface ElementState {
+  readonly disabled?: boolean;
+  readonly busy?: boolean;
+  readonly readOnly?: boolean;
+  readonly inert?: boolean;
+}
 
 export interface ElementKeyEvent {
   readonly input: InputEvent;

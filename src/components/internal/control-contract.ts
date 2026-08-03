@@ -35,7 +35,7 @@ export function assertControlContract(
   }
   for (const hook of [...handlerNames, 'keys', 'pointer']) {
     if (options[hook] !== undefined) {
-      throw new TypeError(`${component} cannot define ${hook} while disabled or pending.`);
+      throw new TypeError(`${component} cannot define ${hook} while disabled.`);
     }
   }
 }

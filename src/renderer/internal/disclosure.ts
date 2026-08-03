@@ -95,7 +95,7 @@ export function disclosureAccessibleNode(
         role: 'button',
         label: renderNode.props.label,
         expanded: renderNode.props.expanded,
-        disabled: renderNode.props.disabled === true,
+        disabled: renderNode.state?.disabled === true,
         ...(renderNode.props.expanded ? { controls: `${id}:content` } : {}),
         ...(summary === undefined || summary.length === 0
           ? {}

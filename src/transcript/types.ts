@@ -7,7 +7,7 @@ import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../interaction/message.ts';
 import type { JsonValue } from '../foundation/json.ts';
 
-export const interactionTranscriptFormatVersion = 1 as const;
+export const interactionTranscriptFormatVersion = 2 as const;
 
 export const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const;
 
@@ -25,11 +25,20 @@ export type TranscriptSource = typeof transcriptSources[number];
 
 export type InteractionTranscriptStep =
   | { readonly kind: 'input'; readonly event: InputEvent }
-  | { readonly kind: 'message'; readonly source: TuiMessageSource; readonly message: JsonValue }
+  | {
+      readonly kind: 'message';
+      readonly source: TuiMessageSource;
+      readonly fidelity: 'exact' | 'normalized';
+      readonly message: JsonValue;
+    }
   | { readonly kind: 'commit'; readonly commit: TranscriptRuntimeCommit }
   | { readonly kind: 'snapshot'; readonly snapshot: AccessibleSnapshot }
   | { readonly kind: 'diagnostic'; readonly occurrence: DiagnosticOccurrence }
-  | { readonly kind: 'restore'; readonly result: TerminalRestoreResult };
+  | {
+      readonly kind: 'restore';
+      readonly phase: 'checkpoint' | 'shutdown';
+      readonly result: TerminalRestoreResult;
+    };
 
 export interface TranscriptRuntimeCommit {
   readonly id: string;
@@ -51,9 +60,20 @@ export interface TranscriptRecorderOptions {
   readonly startedAt?: string;
 }
 
+export interface TranscriptValidationLimits {
+  readonly maxDepth?: number;
+  readonly maxJsonNodes?: number;
+  readonly maxStringCodeUnits?: number;
+  readonly maxSteps?: number;
+  readonly maxFrameCells?: number;
+  readonly maxDiffOperations?: number;
+  readonly maxDiagnostics?: number;
+  readonly maxRedactions?: number;
+}
+
 export interface TranscriptRecorder {
   record(step: InteractionTranscriptStep): void;
-  recordMessage(source: TuiMessageSource, message: unknown): void;
+  recordNormalizedMessage(source: TuiMessageSource, message: unknown): void;
   reportDiagnostic(diagnostic: TerminalDiagnostic): DiagnosticOccurrence;
   recordDiagnostic(occurrence: DiagnosticOccurrence): void;
   recordRedaction(redaction: TranscriptRedaction): void;
@@ -78,5 +98,5 @@ export interface TranscriptReplayTarget {
   snapshot(): AccessibleSnapshot;
   output(): string;
   recordCommit(commit: TranscriptRuntimeCommit): void;
-  recordRestore(result: TerminalRestoreResult): void;
+  recordRestore(result: TerminalRestoreResult, phase: 'checkpoint' | 'shutdown'): void;
 }

@@ -4,7 +4,6 @@ import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surfac
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { ChoiceItem } from '../../ui-model/contracts.ts';
 import type {
-  ButtonState,
   ButtonTone,
   ColorSwatchPickerOption,
   NumericRange
@@ -40,17 +39,12 @@ export interface FormOptions extends ElementOptions<FormGroupStylePart>, LayoutF
 export interface FieldOptions extends ElementOptions<FormGroupStylePart>, LayoutFlowOptions {
   readonly label: string;
   readonly description?: string;
-  readonly error?: string;
-  readonly required?: boolean;
-  readonly disabled?: boolean;
 }
 
 export interface LabelOptions extends ElementOptions<FormGroupStylePart> {
   readonly id: string;
   readonly text: string;
   readonly forId: string;
-  readonly required?: boolean;
-  readonly disabled?: boolean;
 }
 
 interface ButtonOptionsBase extends ElementOptions<ButtonStylePart> {
@@ -60,6 +54,7 @@ interface ButtonOptionsBase extends ElementOptions<ButtonStylePart> {
   readonly trailing?: InlineContent;
   readonly tone?: ButtonTone;
   readonly density?: ComponentDensity;
+  readonly busy?: boolean;
 }
 
 export type ButtonOptions<TMessage = never> =
@@ -69,27 +64,16 @@ export type ButtonOptions<TMessage = never> =
 export interface ActiveButtonOptions<TMessage>
   extends ButtonOptionsBase, InteractiveElementOptions<ButtonStylePart, TMessage> {
   readonly onPress: () => TMessage;
-  readonly state?: 'idle';
   readonly disabled?: false;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export type InactiveButtonOptions = ButtonOptionsBase & (
-  | {
-      readonly onPress?: never;
-      readonly state?: ButtonState;
-      readonly disabled: true;
-      readonly keys?: never;
-      readonly pointer?: never;
-    }
-  | {
-      readonly onPress?: never;
-      readonly state: 'pending';
-      readonly disabled?: false;
-      readonly keys?: never;
-      readonly pointer?: never;
-    }
-);
+export type InactiveButtonOptions = ButtonOptionsBase & {
+  readonly onPress?: never;
+  readonly disabled: true;
+  readonly keys?: never;
+  readonly pointer?: never;
+};
 
 interface CheckboxOptionsBase extends ElementOptions<ChoiceStylePart> {
   readonly id: string;
@@ -414,7 +398,6 @@ export type DisabledNumberInputOptions = NumberInputOptionsBase & {
 };
 
 export type {
-  ButtonState,
   ButtonTone,
   ColorSwatchPickerOption,
   NumericRange,

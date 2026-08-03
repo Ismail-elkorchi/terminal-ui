@@ -9,15 +9,17 @@ const unitMeasurement = Object.freeze({
 
 export const leafComponentDefinition = Object.freeze({
   structure: 'leaf',
-  name: 'testLeaf',
+  name: 'terminal-ui-tests/components/testLeaf',
   parts: Object.freeze([]),
+  decodeOptions: (value) => value,
   measure: () => unitMeasurement
 });
 
 export const compositeComponentDefinition = Object.freeze({
   structure: 'composite',
-  name: 'testComposite',
+  name: 'terminal-ui-tests/components/testComposite',
   parts: Object.freeze([]),
+  decodeOptions: (value) => value,
   measure: ({ childCount, measureChild }) => {
     const children = Array.from({ length: childCount }, (_unused, index) =>
       measureChild(index)
@@ -38,8 +40,17 @@ export const compositeComponentDefinition = Object.freeze({
 });
 
 export function componentElement({ definition, ...options }) {
-  return defineComponent({
+  const normalized = {
     semantics: 'semantic',
     ...definition
-  })(options);
+  };
+  const emitsActions = normalized.hitTargets !== undefined
+    || normalized.keys !== undefined
+    || normalized.onInput !== undefined
+    || normalized.onPaste !== undefined
+    || normalized.pointer !== undefined;
+  return defineComponent(normalized)({
+    ...options,
+    ...(emitsActions ? { onAction: (action) => action } : {})
+  });
 }

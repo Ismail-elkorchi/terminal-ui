@@ -5,6 +5,7 @@ export type {
   RedactionPolicy,
   TranscriptRecorder,
   TranscriptRecorderOptions,
+  TranscriptValidationLimits,
   TranscriptRuntimeCommit,
   TranscriptReplayTarget,
   TranscriptRedaction,
@@ -15,4 +16,4 @@ export type { JsonValue } from '../foundation/json.ts';
 export { createTranscriptRecorder } from './recorder.ts';
 export { redactTranscript } from './redact.ts';
 export { replayTranscript } from './replay.ts';
-export { validateTranscript } from './validate.ts';
+export { defaultTranscriptValidationLimits, validateTranscript } from './validate.ts';

@@ -77,7 +77,7 @@ export function pickerOptionRowOffset(renderNode: PickerNode, columns: number): 
 
 export function calendarMonthHeaderSpans(renderNode: CalendarNode): readonly RenderSpan[] {
   const label = clean(renderNode.props.monthLabel);
-  if (renderNode.props.toActionMessage === undefined || renderNode.props.disabled === true) {
+  if (renderNode.props.toActionMessage === undefined || renderNode.state?.disabled === true) {
     return [formSpan(renderNode, 'title', 'month.label', label, formLabelStyle(renderNode))];
   }
   return [
@@ -94,7 +94,7 @@ export function colorSwatchPickerSummarySpans(
   renderNode: ColorSwatchPickerNode,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  const disabled = option.disabled === true || renderNode.props.disabled === true;
+  const disabled = option.disabled === true || renderNode.state?.disabled === true;
   const style = disabled
     ? renderNodeStyle(renderNode, 'summary', 'disabled')
     : option.style ?? colorSwatchStyle(renderNode);
@@ -113,7 +113,7 @@ export function colorSwatchPickerSpans(
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const selected = option.id === selectedId(renderNode);
-  const disabled = option.disabled === true || renderNode.props.disabled === true;
+  const disabled = option.disabled === true || renderNode.state?.disabled === true;
   const label = padTextCells(clip(option.label, 8, widthProfile), 8, { widthProfile });
   const state = optionControlState(renderNode, { selected, disabled });
   const style = disabled
@@ -230,7 +230,7 @@ function colorOptionStyle(
   option: ColorSwatchPickerOption<unknown>,
   renderNode: ColorSwatchPickerNode
 ): TerminalStyle | undefined {
-  if (option.disabled === true || renderNode.props.disabled === true) {
+  if (option.disabled === true || renderNode.state?.disabled === true) {
     return renderNodeStyle(renderNode, 'option', 'disabled');
   }
   return renderNodeStyle(renderNode, 'option', option.id === selectedId(renderNode) ? 'selected' : undefined);
@@ -240,7 +240,7 @@ function calendarDayStyle(
   day: CalendarDay,
   renderNode: CalendarNode
 ): TerminalStyle | undefined {
-  if (day.disabled === true || renderNode.props.disabled === true) {
+  if (day.disabled === true || renderNode.state?.disabled === true) {
     return renderNodeStyle(renderNode, 'option', 'disabled');
   }
   if (day.id === selectedId(renderNode)) return renderNodeStyle(renderNode, 'option', 'selected');
@@ -253,7 +253,7 @@ function calendarDayState(
   day: CalendarDay,
   renderNode: CalendarNode
 ): 'selected' | 'disabled' | 'focused' | undefined {
-  if (day.disabled === true || renderNode.props.disabled === true) return 'disabled';
+  if (day.disabled === true || renderNode.state?.disabled === true) return 'disabled';
   if (day.id === selectedId(renderNode)) return 'selected';
   if (day.id === renderNode.props.focused) return 'focused';
   return day.today === true ? 'focused' : undefined;

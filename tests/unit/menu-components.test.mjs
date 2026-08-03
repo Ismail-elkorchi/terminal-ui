@@ -7,6 +7,7 @@ import {
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime } from '../../dist/tui/index.js';
 import {
+  layoutElement,
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
@@ -185,6 +186,28 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
   assert.equal(dropdownFrame.accessibility.root.expanded, true);
 });
 
+test('internal popup nodes expose layout names without claiming public factory provenance', () => {
+  const element = dropdownMenu({
+    id: 'layout-dropdown',
+    label: 'Layout',
+    items: [
+      { kind: 'action', id: 'one', label: 'One' },
+      { kind: 'action', id: 'two', label: 'Two' }
+    ],
+    presentation: dropdownMenuPresentation([
+      { kind: 'action', id: 'one', label: 'One' },
+      { kind: 'action', id: 'two', label: 'Two' }
+    ], { kind: 'open', active: 'one', menu: { activePath: ['one'] } }),
+    onAction: (action) => action
+  });
+  const layout = layoutElement(element, { columns: 24, rows: 6 });
+  const nodes = collectLayoutNodes(layout);
+
+  assert.equal(nodes.find((node) => node.id === 'layout-dropdown:popup')?.factoryName, 'surface');
+  assert.equal(nodes.find((node) => node.id === 'layout-dropdown:popup:menu')?.factoryName, 'menu');
+  assert.equal(nodes.some((node) => Object.hasOwn(node, 'factory')), false);
+});
+
 test('menus route keyboard and mouse interaction through generic focus and hit targets', async () => {
   const app = defineTui({
     id: 'menu-flow',
@@ -222,3 +245,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
   assert.ok(mousePressResult.frame.focusPath?.includes('bar'));
   assert.equal(mouseReleaseResult.state.action, 'help');
 });
+
+function collectLayoutNodes(root) {
+  return [root, ...root.children.flatMap(collectLayoutNodes)];
+}

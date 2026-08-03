@@ -65,7 +65,7 @@ drawing.rect({ x: 0, y: 0, width: 2, height: 2 }, { fill: { text: '*' } });
 const writeOnly = defineComponent({
   structure: 'leaf',
   semantics: 'semantic',
-  name: 'writeOnly',
+  name: 'terminal-ui-tests/components/writeOnly',
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 2, preferredHeight: 1 }),
   render({ target }) {
     target.write(1, 1, [{ text: 'ok' }]);
@@ -76,18 +76,17 @@ const writeOnly = defineComponent({
   accessibility: ({ id }) => ({ id, role: 'text', label: 'write only' })
 });
 writeOnly({ id: 'write-only-component' });
-writeOnly({ id: 'passive-component', availability: 'passive' });
-// @ts-expect-error passive components cannot define interaction handlers
+writeOnly({ id: 'inert-component', state: { inert: true } });
 writeOnly({
-  id: 'invalid-passive-component',
-  availability: 'passive',
-  keys: { enter: () => undefined }
+  id: 'invalid-action-mapper',
+  // @ts-expect-error action-free components cannot accept an action mapper
+  onAction: () => undefined
 });
 
 const rendererWithUnsupportedPlacement: SemanticLeafComponentDefinition = {
   structure: 'leaf',
   semantics: 'semantic',
-  name: 'placedLeaf',
+  name: 'terminal-ui-tests/components/placedLeaf',
   parts: [],
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined,
@@ -97,9 +96,9 @@ const rendererWithUnsupportedPlacement: SemanticLeafComponentDefinition = {
 };
 void rendererWithUnsupportedPlacement;
 
-declare const componentRenderInput: ComponentRenderInput<undefined>;
+declare const componentRenderInput: ComponentRenderInput<Record<never, never>>;
 componentRenderInput.target.write(1, 1, [{ text: 'ok' }]);
-declare const componentMeasureInput: ComponentMeasureInput<undefined>;
+declare const componentMeasureInput: ComponentMeasureInput<Record<never, never>>;
 // @ts-expect-error measurement occurs before viewport resolution
 const componentMeasureViewport = componentMeasureInput.viewport;
 
@@ -107,43 +106,43 @@ const decorativeComposite = defineComponent({
   structure: 'composite',
   // @ts-expect-error decorative component definitions must be leaves
   semantics: 'decorative',
-  name: 'decorativeStack',
-  measure: ({ measureChild }: ComponentMeasureInput<undefined>) => measureChild(0),
-  layout: ({ bounds }: ComponentLayoutInput<undefined>) => [bounds]
+  name: 'terminal-ui-tests/components/decorativeStack',
+  measure: ({ measureChild }: ComponentMeasureInput<Record<never, never>>) => measureChild(0),
+  layout: ({ bounds }: ComponentLayoutInput<Record<never, never>>) => [bounds]
 });
 void decorativeComposite;
 
 const interactiveDecoration: DecorativeLeafComponentDefinition = {
   structure: 'leaf',
   semantics: 'decorative',
-  name: 'interactiveDecoration',
+  name: 'terminal-ui-tests/components/interactiveDecoration',
   parts: [],
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined,
   // @ts-expect-error decorative components cannot expose focus targets
-  focusTargets: ({ bounds }: ComponentInput<undefined>) => [{ id: 'self', bounds }]
+  focusTargets: ({ bounds }: ComponentInput<Record<never, never>>) => [{ id: 'self', bounds }]
 };
 void interactiveDecoration;
 
 const decoration = defineComponent({
   structure: 'leaf',
   semantics: 'decorative',
-  name: 'decoration',
+  name: 'terminal-ui-tests/components/decoration',
   parts: [],
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined
 });
 decoration({
   id: 'keyed-decoration',
-  // @ts-expect-error decorative component instances cannot define key bindings
-  keys: { enter: () => ({ kind: 'press' }) }
+  // @ts-expect-error decorative component instances cannot map actions
+  onAction: () => ({ kind: 'press' })
 });
 
 // @ts-expect-error semantic leaf components require an accessibility hook
 const missingAccessibility: SemanticLeafComponentDefinition = {
   structure: 'leaf',
   semantics: 'semantic',
-  name: 'missingAccessibility',
+  name: 'terminal-ui-tests/components/missingAccessibility',
   parts: [],
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined
@@ -154,7 +153,7 @@ void missingAccessibility;
 const missingCompositeAccessibility: import('@ismail-elkorchi/terminal-ui/components').SemanticCompositeComponentDefinition = {
   structure: 'composite',
   semantics: 'semantic',
-  name: 'missingCompositeAccessibility',
+  name: 'terminal-ui-tests/components/missingCompositeAccessibility',
   parts: [],
   measure: ({ measureChild }) => measureChild(0),
   layout: ({ bounds }) => [bounds]

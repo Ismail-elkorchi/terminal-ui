@@ -18,6 +18,8 @@ export interface AccessibleNode {
   readonly focused?: boolean;
   readonly selected?: boolean;
   readonly disabled?: boolean;
+  readonly busy?: boolean;
+  readonly readOnly?: boolean;
   readonly expanded?: boolean;
   readonly checked?: boolean | 'mixed';
   readonly numericValue?: AccessibleNumericValue;
@@ -90,6 +92,7 @@ export const accessibleRoles = [
   'application',
   'document',
   'dialog',
+  'tooltip',
   'form',
   'group',
   'heading',
@@ -135,6 +138,25 @@ export const accessibleRoles = [
   'image',
   'text'
 ] as const;
+
+const accessibleReadOnlyRoles = new Set<AccessibleRole>([
+  'checkbox',
+  'columnheader',
+  'combobox',
+  'grid',
+  'gridcell',
+  'listbox',
+  'radiogroup',
+  'rowheader',
+  'slider',
+  'spinbutton',
+  'switch',
+  'textbox'
+]);
+
+export function accessibleRoleSupportsReadOnly(role: AccessibleRole): boolean {
+  return accessibleReadOnlyRoles.has(role);
+}
 
 export const accessibleSources = [
   'prompt',

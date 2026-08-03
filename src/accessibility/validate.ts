@@ -7,7 +7,11 @@ import {
 import { err, ok } from '../result.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import { collectFocusPath, nodePath } from './snapshot.ts';
-import { accessibleRoles, accessibleSources } from './types.ts';
+import {
+  accessibleRoles,
+  accessibleRoleSupportsReadOnly,
+  accessibleSources
+} from './types.ts';
 import type { Result } from '../result.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { AccessibleNode, AccessibleSnapshot } from './types.ts';
@@ -83,7 +87,7 @@ function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | u
   if (typeof node['value'] === 'string' && sanitizeTerminalText(node['value']).changed) {
     return accessibilityFailure('Accessible node value must not contain terminal control sequences.', id);
   }
-  for (const field of ['focused', 'selected', 'disabled', 'expanded'] as const) {
+  for (const field of ['focused', 'selected', 'disabled', 'busy', 'readOnly', 'expanded'] as const) {
     if (node[field] !== undefined && typeof node[field] !== 'boolean') {
       return accessibilityFailure(`Accessible node ${field} must be a boolean.`, id);
     }
@@ -123,6 +127,8 @@ const accessibleNodeFields = new Set([
   'focused',
   'selected',
   'disabled',
+  'busy',
+  'readOnly',
   'expanded',
   'checked',
   'numericValue',
@@ -338,7 +344,7 @@ function isAccessibleSource(value: unknown): boolean {
   return typeof value === 'string' && (accessibleSources as readonly string[]).includes(value);
 }
 
-function isAccessibleRole(value: unknown): boolean {
+function isAccessibleRole(value: unknown): value is AccessibleNode['role'] {
   return typeof value === 'string' && (accessibleRoles as readonly string[]).includes(value);
 }
 
@@ -394,6 +400,13 @@ function roleStateIssue(node: Record<string, unknown>, id: string): TerminalDiag
   }
   if (node['expanded'] !== undefined && !expandedRoles.has(role)) {
     return accessibilityFailure(`Accessible expanded state is not valid on ${role} nodes.`, id);
+  }
+  if (
+    node['readOnly'] !== undefined
+    && isAccessibleRole(role)
+    && !accessibleRoleSupportsReadOnly(role)
+  ) {
+    return accessibilityFailure(`Accessible readOnly state is not valid on ${role} nodes.`, id);
   }
   return undefined;
 }

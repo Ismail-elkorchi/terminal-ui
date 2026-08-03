@@ -64,13 +64,12 @@ export function formAccessibleBase(renderNode: FormNode, id: string, focused: bo
 }
 
 export function fieldAccessibleBase(renderNode: FieldNode, id: string, focused: boolean): AccessibleNode {
-  const description = fieldDescription(renderNode);
+  const description = clean(stringify(renderNode.props.description));
   return {
     id,
     role: 'group',
-    label: labelWithRequired(clean(stringify(renderNode.props.label)), renderNode.props.required === true) || id,
+    label: clean(stringify(renderNode.props.label)) || id,
     ...(description.length === 0 ? {} : { description }),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -79,8 +78,7 @@ export function labelAccessibleBase(renderNode: LabelNode, id: string): Accessib
   return {
     id,
     role: 'text',
-    label: labelText(renderNode) || id,
-    ...(renderNode.props.disabled === true ? { disabled: true } : {})
+    label: labelText(renderNode) || id
   };
 }
 
@@ -90,9 +88,7 @@ export function buttonAccessibleBase(renderNode: ButtonNode, id: string, focused
     id,
     role: 'button',
     label: clean(stringify(renderNode.props.label)) || id,
-    ...(renderNode.props.state === 'pending' ? { value: 'pending' } : {}),
     ...(description.length === 0 ? {} : { description }),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -105,7 +101,6 @@ export function checkboxAccessibleBase(renderNode: CheckboxNode, id: string, foc
     label: labelWithRequired(clean(stringify(renderNode.props.label)), renderNode.props.required === true) || id,
     checked: renderNode.props.checked,
     ...(description.length === 0 ? {} : { description }),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -120,7 +115,6 @@ export function toggleSwitchAccessibleBase(renderNode: ToggleSwitchNode, id: str
     label: clean(stringify(renderNode.props.label)) || id,
     value: checked ? onLabel : offLabel,
     checked,
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -133,7 +127,6 @@ export function sliderAccessibleBase(renderNode: SliderNode, id: string, focused
     label: clean(stringify(renderNode.props.label)) || id,
     value: formatNumber(model.value),
     numericValue: { current: model.value, minimum: model.min, maximum: model.max },
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -146,7 +139,6 @@ export function rangeSliderAccessibleBase(renderNode: RangeSliderNode, id: strin
     role: 'group',
     label,
     value: `${formatNumber(model.start)}-${formatNumber(model.end)}`,
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {}),
     children: (['start', 'end'] as const).map((handle) => ({
       id: `${id}:${handle}`,
@@ -158,7 +150,7 @@ export function rangeSliderAccessibleBase(renderNode: RangeSliderNode, id: strin
         minimum: model.min,
         maximum: model.max
       },
-      ...(renderNode.props.disabled === true ? { disabled: true } : {}),
+      ...(renderNode.state?.disabled === true ? { disabled: true } : {}),
       ...(focused && model.activeHandle === handle ? { focused: true } : {})
     }))
   };
@@ -171,7 +163,6 @@ export function checkboxGroupAccessibleBase(renderNode: CheckboxGroupNode, id: s
     role: 'group',
     label: labelWithRequired(clean(stringify(renderNode.props.label)), renderNode.props.required === true) || id,
     value: `${String(selected.size)} selected`,
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -184,7 +175,7 @@ export function checkboxGroupAccessibleChildren(renderNode: CheckboxGroupNode): 
     label: option.label,
     checked: selected.has(option.id),
     ...(option.description === undefined ? {} : { description: option.description }),
-    ...(option.disabled === true || renderNode.props.disabled === true ? { disabled: true } : {})
+    ...(option.disabled === true || renderNode.state?.disabled === true ? { disabled: true } : {})
   }));
 }
 
@@ -197,7 +188,6 @@ export function radioGroupAccessibleBase(renderNode: RadioGroupNode, id: string,
     label: labelWithRequired(clean(stringify(renderNode.props.label)), renderNode.props.required === true) || id,
     ...(selected === undefined ? {} : { value: selected.label }),
     ...(description.length === 0 ? {} : { description }),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -210,7 +200,7 @@ export function radioGroupAccessibleChildren(renderNode: RadioGroupNode): readon
     label: option.label,
     checked: option.id === selected,
     ...(option.description === undefined ? {} : { description: option.description }),
-    ...(option.disabled === true || renderNode.props.disabled === true ? { disabled: true } : {})
+    ...(option.disabled === true || renderNode.state?.disabled === true ? { disabled: true } : {})
   }));
 }
 
@@ -221,7 +211,6 @@ export function colorSwatchPickerAccessibleBase(renderNode: ColorSwatchPickerNod
     role: 'listbox',
     label: clean(stringify(renderNode.props.label)) || id,
     ...(selected === undefined ? {} : { value: selected.label }),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -234,7 +223,7 @@ export function colorSwatchPickerAccessibleChildren(renderNode: ColorSwatchPicke
     label: option.label,
     selected: option.id === selected,
     ...(option.description === undefined ? {} : { description: option.description }),
-    ...(option.disabled === true || renderNode.props.disabled === true ? { disabled: true } : {})
+    ...(option.disabled === true || renderNode.state?.disabled === true ? { disabled: true } : {})
   }));
 }
 
@@ -245,7 +234,6 @@ export function calendarAccessibleBase(renderNode: CalendarNode, id: string, foc
     role: 'grid',
     label: clean(stringify(renderNode.props.label)) || clean(stringify(renderNode.props.monthLabel)) || id,
     ...(selected === undefined ? {} : { value: selected.id }),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -266,7 +254,7 @@ export function calendarAccessibleChildren(renderNode: CalendarNode): readonly A
         label: day.id,
         selected: day.id === selected,
         position: { rowIndex, columnIndex: columnIndex + 1, columnCount: 7 },
-        ...(day.disabled === true || renderNode.props.disabled === true ? { disabled: true } : {})
+        ...(day.disabled === true || renderNode.state?.disabled === true ? { disabled: true } : {})
       }))
     });
   }
@@ -283,7 +271,6 @@ export function selectAccessibleBase(renderNode: SelectNode, id: string, focused
     expanded: renderNode.props.presentation.kind === 'open',
     ...(selected === undefined ? {} : { value: selected.label }),
     ...(description.length === 0 ? {} : { description }),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -304,7 +291,7 @@ export function selectAccessibleChildren(renderNode: SelectNode): readonly Acces
       selected: option.id === selected,
       ...(option.id === highlighted ? { focused: true } : {}),
       ...(option.description === undefined ? {} : { description: option.description }),
-      ...(option.disabled === true || renderNode.props.disabled === true ? { disabled: true } : {})
+      ...(option.disabled === true || renderNode.state?.disabled === true ? { disabled: true } : {})
     }))
   }];
 }
@@ -366,7 +353,7 @@ export function numberInputCursor(
   widthProfile: TextWidthProfile
 ): CursorPosition {
   const layout = numberInputLayout(bounds);
-  const inputBounds = renderNode.props.toActionMessage === undefined || renderNode.props.disabled === true || layout === undefined
+  const inputBounds = renderNode.props.toActionMessage === undefined || renderNode.state?.disabled === true || layout === undefined
     ? bounds
     : layout.input;
   return singleLineCursor(renderNode, numberInputValue(renderNode), renderNode.props.presentation.cursor, inputBounds, theme, widthProfile);

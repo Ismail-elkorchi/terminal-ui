@@ -1,9 +1,9 @@
 import type {
   ElementAccessibility,
-  ElementAvailability,
   ElementFocus,
   ElementKeyBindings,
   ElementLayer,
+  ElementState,
   ElementStyles
 } from '../../element/metadata.ts';
 import type { RenderNodeRenderer } from './renderer.ts';
@@ -34,7 +34,7 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly pointer?: RenderNodePointerInteraction<TMessage>;
   readonly accessibility?: ElementAccessibility;
   readonly focusable?: true;
-  readonly availability?: ElementAvailability;
+  readonly state?: ElementState;
 }
 
 export type RenderNodeOfKind<

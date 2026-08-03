@@ -145,7 +145,7 @@ export function formErrorStyle(renderNode: RenderNode): TerminalStyle | undefine
 }
 
 export function formControlState(renderNode: FormStateNode, selected = false): ElementVisualState | undefined {
-  if (renderNode.props.disabled === true) return 'disabled';
+  if (renderNode.state?.disabled === true) return 'disabled';
   return selected ? 'selected' : undefined;
 }
 
@@ -165,7 +165,7 @@ export function optionControlState(
     readonly active?: boolean;
   }
 ): ElementVisualState | undefined {
-  if (input.disabled === true || renderNode.props.disabled === true) return 'disabled';
+  if (input.disabled === true || renderNode.state?.disabled === true) return 'disabled';
   if (input.active === true) return 'focused';
   return input.selected ? 'selected' : undefined;
 }

@@ -16,8 +16,9 @@ const accent = resolveThemeColor(defaultTheme, 'accent.primary');
 const inspection = inspectElement(element);
 
 invariant(
-  inspection.kind === 'surface' &&
-    inspection.category === 'layout' &&
+  inspection.factory.name === 'surface' &&
+    inspection.factory.category === 'layout' &&
+    inspection.factory.origin === 'builtin' &&
     inspection.children.length === 1,
   'layout composition failed'
 );

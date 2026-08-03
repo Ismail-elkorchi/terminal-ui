@@ -115,8 +115,7 @@ export function labelBlock(renderNode: LabelNode, bounds: Rect, widthProfile: Te
     renderNode,
     'label',
     clean(stringify(renderNode.props.text)),
-    renderNode.props.disabled === true ? 'disabled' : undefined,
-    renderNode.props.required === true
+    undefined
   ), bounds.width, widthProfile)]);
 }
 
@@ -147,7 +146,7 @@ export function checkboxBlock(
   const checked = renderNode.props.checked;
   const symbol = checked ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
   const state = interactionVisualState(renderNode, controlTargetId(renderNode), {
-    disabled: renderNode.props.disabled === true,
+    disabled: renderNode.state?.disabled === true,
     focused
   });
   const lines = [
@@ -181,7 +180,7 @@ export function toggleSwitchBlock(
   const onLabel = clean(stringify(renderNode.props.onLabel)) || 'On';
   const offLabel = clean(stringify(renderNode.props.offLabel)) || 'Off';
   const state = interactionVisualState(renderNode, controlTargetId(renderNode), {
-    disabled: renderNode.props.disabled === true,
+    disabled: renderNode.state?.disabled === true,
     focused
   });
   const thumb = oneCellGlyph(theme.tokens.symbols.radioChecked, '*', { widthProfile });
@@ -266,7 +265,7 @@ export function checkboxGroupBlock(
     const symbol = selected.has(option.id) ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
     const state = interactionVisualState(renderNode, optionTargetId(renderNode, option.id), {
       selected: selected.has(option.id),
-      disabled: option.disabled === true || renderNode.props.disabled === true,
+      disabled: option.disabled === true || renderNode.state?.disabled === true,
       focused: renderNode.props.focused === option.id
     });
     lines.push(interactiveLine(clippedFormLine([
@@ -298,7 +297,7 @@ export function radioGroupBlock(
     const symbol = option.id === selected ? theme.tokens.symbols.radioChecked : theme.tokens.symbols.radioUnchecked;
     const state = interactionVisualState(renderNode, optionTargetId(renderNode, option.id), {
       selected: option.id === selected,
-      disabled: option.disabled === true || renderNode.props.disabled === true,
+      disabled: option.disabled === true || renderNode.state?.disabled === true,
       focused: renderNode.props.focused === option.id
     });
     lines.push(interactiveLine(clippedFormLine([
@@ -376,7 +375,7 @@ export function selectBlock(
   const label = clean(stringify(renderNode.props.label));
   const placeholder = clean(stringify(renderNode.props.placeholder)) || 'Select…';
   const value = selected?.label ?? placeholder;
-  const style = renderNode.props.disabled === true
+  const style = renderNode.state?.disabled === true
     ? renderNodeStyle(renderNode, 'option', 'disabled')
     : selected === undefined
       ? renderNodeStyle(renderNode, 'description')
@@ -420,7 +419,7 @@ export function numberInputBlock(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): RenderBlock {
-  const layout = renderNode.props.toActionMessage === undefined || renderNode.props.disabled === true
+  const layout = renderNode.props.toActionMessage === undefined || renderNode.state?.disabled === true
     ? undefined
     : numberInputLayout(bounds);
   if (layout === undefined) return controlInputBlock(numberInputValue(renderNode), renderNode, bounds, focused, theme, widthProfile);

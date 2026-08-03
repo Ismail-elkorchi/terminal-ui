@@ -55,7 +55,6 @@ type Message = { readonly kind: 'save' };
 button({
   id: 'save',
   label: 'Save',
-  state: 'idle',
   onPress: (): Message => ({ kind: 'save' }),
   meta: {
     accessibility: { description: 'Persist the current document' },
@@ -110,9 +109,10 @@ Use the testing façade for element snapshots:
 - `createTerminalHarness()`;
 - `runInteractionScript()`.
 
-Use `defineComponent()` from the components entrypoint when a reusable leaf or
+Use `defineComponent()` from the component entrypoint when a reusable leaf or
 composite needs bounded drawing, measurement, accessibility, focus, or pointer
-targets. Define it once outside `view()` and pass current data through `model`.
+targets. Define it once outside `view()` and pass current data through its
+declared options.
 Use the renderer entrypoint for direct frame construction, diffing, and
 serialization.
 

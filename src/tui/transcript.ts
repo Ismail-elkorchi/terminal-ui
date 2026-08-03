@@ -20,9 +20,10 @@ export function recordTuiCommit(
 
 export function recordTuiRestore(
   transcript: TranscriptRecorder | undefined,
-  result: TerminalRestoreResult
+  result: TerminalRestoreResult,
+  phase: 'checkpoint' | 'shutdown'
 ): void {
-  transcript?.record({ kind: 'restore', result });
+  transcript?.record({ kind: 'restore', phase, result });
 }
 
 export function withTuiTranscript<TState>(

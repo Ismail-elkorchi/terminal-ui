@@ -33,8 +33,9 @@ component API.
 `inspectElement()` reports `layout` as the factory category for every entry in
 the table and `component` for `tabs()` and `dialog()`. It also reports the
 stable factory name, input capabilities, metadata, and public child structure.
-The category records which public API created the element; it does not expose
-the private node kind or renderer data.
+The category records which public API created the element, while `origin`
+distinguishes built-ins from package-defined components. Neither exposes the
+private node kind or renderer data.
 
 Layout options include gap, padding, margin, fixed/percent/fill/content sizing,
 min/max dimensions, alignment, justification, overflow, z-index, visibility,

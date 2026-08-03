@@ -38,8 +38,7 @@ test('element inspection exposes an immutable factory description without implem
   const inspection = inspectElement(element);
 
   assert.deepEqual(inspection, {
-    category: 'layout',
-    kind: 'surface',
+    factory: { category: 'layout', origin: 'builtin', name: 'surface' },
     id: 'panel',
     inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
     meta: {
@@ -50,8 +49,7 @@ test('element inspection exposes an immutable factory description without implem
       layered: false
     },
     children: [{
-      category: 'layout',
-      kind: 'column',
+      factory: { category: 'layout', origin: 'builtin', name: 'column' },
       id: 'controls',
       inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
       meta: {
@@ -63,8 +61,7 @@ test('element inspection exposes an immutable factory description without implem
       },
       children: [
         {
-          category: 'component',
-          kind: 'textInput',
+          factory: { category: 'component', origin: 'builtin', name: 'textInput' },
           id: 'query',
           inputs: { keyboard: true, text: true, paste: true, focus: 'item' },
           meta: {
@@ -77,8 +74,7 @@ test('element inspection exposes an immutable factory description without implem
           children: []
         },
         {
-          category: 'component',
-          kind: 'button',
+          factory: { category: 'component', origin: 'builtin', name: 'button' },
           id: 'submit',
           inputs: { keyboard: true, text: false, paste: false, focus: 'item' },
           meta: {
@@ -111,8 +107,11 @@ test('element inspection identifies defined components without exposing their de
 
   const inspection = inspectElement(element);
 
-  assert.equal(inspection.kind, 'testLeaf');
-  assert.equal(inspection.category, 'component');
+  assert.deepEqual(inspection.factory, {
+    category: 'component',
+    origin: 'defined',
+    name: 'terminal-ui-tests/components/testLeaf'
+  });
   assert.equal(inspection.id, 'plug-in');
   assert.equal('definition' in inspection, false);
 });
@@ -123,7 +122,7 @@ test('element inspection keeps factory origin independent from public names', ()
     children: [],
     definition: {
       ...compositeComponentDefinition,
-      name: 'row',
+      name: 'terminal-ui-tests/components/row',
       layout: () => [],
       accessibility: ({ id }) => ({ id, role: 'group', label: id })
     }
@@ -132,12 +131,16 @@ test('element inspection keeps factory origin independent from public names', ()
 
   const componentInspection = inspectElement(namedRow);
   const layoutInspection = inspectElement(layoutRow);
-  const { category: componentCategory, ...componentDetails } = componentInspection;
-  const { category: layoutCategory, ...layoutDetails } = layoutInspection;
-
-  assert.deepEqual(componentDetails, layoutDetails);
-  assert.equal(componentCategory, 'component');
-  assert.equal(layoutCategory, 'layout');
+  assert.deepEqual(componentInspection.factory, {
+    category: 'component',
+    origin: 'defined',
+    name: 'terminal-ui-tests/components/row'
+  });
+  assert.deepEqual(layoutInspection.factory, {
+    category: 'layout',
+    origin: 'builtin',
+    name: 'row'
+  });
 });
 
 test('element inspection reports factory-declared focus capability instead of generic metadata', () => {
@@ -183,13 +186,25 @@ test('element inspection reports factory-declared focus capability instead of ge
     assert.equal(renderElementFrame(element, { columns: 12, rows: 2 }).focusPath, undefined);
   }
 
-  for (const element of [
-    button({ id: 'disabled-button-inspection', label: 'Disabled', disabled: true }),
-    button({ id: 'pending-button-inspection', label: 'Pending', state: 'pending' })
-  ]) {
-    assert.equal(inspectElement(element).inputs.focus, 'none');
-    assert.equal(renderElementFrame(element, { columns: 12, rows: 1 }).focusPath, undefined);
-  }
+  const disabledButton = button({
+    id: 'disabled-button-inspection',
+    label: 'Disabled',
+    disabled: true
+  });
+  assert.equal(inspectElement(disabledButton).inputs.focus, 'none');
+  assert.equal(renderElementFrame(disabledButton, { columns: 12, rows: 1 }).focusPath, undefined);
+
+  const busyButton = button({
+    id: 'busy-button-inspection',
+    label: 'Busy',
+    busy: true,
+    onPress: () => undefined
+  });
+  assert.equal(inspectElement(busyButton).inputs.focus, 'item');
+  assert.deepEqual(
+    renderElementFrame(busyButton, { columns: 12, rows: 1 }).focusPath,
+    ['busy-button-inspection']
+  );
 
   const focusableComponent = componentElement({
     id: 'focusable-component-inspection',

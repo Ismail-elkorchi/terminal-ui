@@ -20,7 +20,6 @@ export interface LayoutFocusTarget {
   readonly targetId: string;
   readonly bounds: Rect;
   readonly layer: Layer;
-  readonly factoryName: LayoutNode['factoryName'];
   readonly focusable: boolean;
   readonly disabled: boolean;
   readonly order?: number;
@@ -183,7 +182,6 @@ function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readon
       targetId: target.id,
       bounds: target.bounds,
       layer: layout.layer,
-      factoryName: layout.factoryName,
       focusable,
       disabled: target.disabled,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
@@ -212,7 +210,6 @@ function collectRenderNodeFocusRegionTargets<TMessage>(
       targetId: target.id,
       bounds: target.bounds,
       layer: layout.layer,
-      factoryName: layout.factoryName,
       focusable,
       disabled: target.disabled,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
@@ -243,7 +240,6 @@ function collectRenderNodeLayoutTargetsRecursive<TMessage>(
     targetId: 'self',
     bounds: layout.bounds,
     layer: layout.layer,
-    factoryName: layout.factoryName,
     focusable: layout.focusable,
     disabled: false,
     renderNode,

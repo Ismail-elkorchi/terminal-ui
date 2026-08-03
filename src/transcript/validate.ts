@@ -3,6 +3,7 @@ import { diagnostic, diagnosticOccurrenceIssue, terminalDiagnosticIssue } from '
 import { snapshotJsonValue } from '../foundation/json.ts';
 import {
   findUnsupportedField,
+  isCanonicalDateTime,
   isNonArrayObject,
   isNonEmptyString,
   isStringMember
@@ -34,7 +35,7 @@ import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter
 import type { TextWidthProfile } from '../text/index.ts';
 import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
 import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
-import type { InteractionTranscript } from './types.ts';
+import type { InteractionTranscript, TranscriptValidationLimits } from './types.ts';
 
 const frameCellSourceFields = new Set([
   'elementId',
@@ -69,11 +70,11 @@ const transcriptFields = new Set([
 ]);
 const transcriptStepFields: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
   input: new Set(['kind', 'event']),
-  message: new Set(['kind', 'source', 'message']),
+  message: new Set(['kind', 'source', 'fidelity', 'message']),
   commit: new Set(['kind', 'commit']),
   snapshot: new Set(['kind', 'snapshot']),
   diagnostic: new Set(['kind', 'occurrence']),
-  restore: new Set(['kind', 'result'])
+  restore: new Set(['kind', 'phase', 'result'])
 });
 const commitFields = new Set([
   'id',
@@ -190,16 +191,162 @@ const terminalStateChangeFields = new Set(['kind', 'enabled']);
 const legacyKeyboardProfileFields = new Set(['kind']);
 const kittyKeyboardProfileFields = new Set(['kind', 'flags']);
 
-export function validateTranscript(transcript: unknown): Result<InteractionTranscript> {
+type NormalizedTranscriptValidationLimits = Readonly<Required<TranscriptValidationLimits>>;
+
+export const defaultTranscriptValidationLimits: Readonly<Required<TranscriptValidationLimits>> = Object.freeze({
+  maxDepth: 128,
+  maxJsonNodes: 1_000_000,
+  maxStringCodeUnits: 1_000_000,
+  maxSteps: 100_000,
+  maxFrameCells: 1_000_000,
+  maxDiffOperations: 1_000_000,
+  maxDiagnostics: 100_000,
+  maxRedactions: 100_000
+});
+
+export function validateTranscript(
+  transcript: unknown,
+  limits: TranscriptValidationLimits = {}
+): Result<InteractionTranscript> {
   let decoded: unknown;
   try {
-    decoded = snapshotJsonValue(transcript, 'Interaction transcript');
+    const normalizedLimits = normalizeTranscriptValidationLimits(limits);
+    const resourceIssue = transcriptResourceIssue(transcript, normalizedLimits);
+    if (resourceIssue !== undefined) return transcriptFailure(resourceIssue);
+    decoded = snapshotJsonValue(transcript, 'Interaction transcript', {
+      maxDepth: normalizedLimits.maxDepth,
+      maxNodes: normalizedLimits.maxJsonNodes,
+      maxStringCodeUnits: normalizedLimits.maxStringCodeUnits
+    });
   } catch (cause) {
     return transcriptFailure(errorMessage(cause));
   }
   const issue = transcriptIssue(decoded);
   if (issue !== undefined) return transcriptFailure(issue);
   return ok(decoded as InteractionTranscript);
+}
+
+function normalizeTranscriptValidationLimits(
+  limits: TranscriptValidationLimits
+): NormalizedTranscriptValidationLimits {
+  if (!isNonArrayObject(limits)) {
+    throw new TypeError('Transcript validation limits must be an object.');
+  }
+  const unsupported = findUnsupportedField(limits, transcriptValidationLimitFields);
+  if (unsupported !== undefined) {
+    throw new TypeError(`Transcript validation limits contain unsupported field: ${unsupported}.`);
+  }
+  return Object.freeze({
+    maxDepth: transcriptLimit(limits['maxDepth'], defaultTranscriptValidationLimits.maxDepth, 'maxDepth'),
+    maxJsonNodes: transcriptLimit(
+      limits['maxJsonNodes'],
+      defaultTranscriptValidationLimits.maxJsonNodes,
+      'maxJsonNodes'
+    ),
+    maxStringCodeUnits: transcriptLimit(
+      limits['maxStringCodeUnits'],
+      defaultTranscriptValidationLimits.maxStringCodeUnits,
+      'maxStringCodeUnits'
+    ),
+    maxSteps: transcriptLimit(limits['maxSteps'], defaultTranscriptValidationLimits.maxSteps, 'maxSteps'),
+    maxFrameCells: transcriptLimit(
+      limits['maxFrameCells'],
+      defaultTranscriptValidationLimits.maxFrameCells,
+      'maxFrameCells'
+    ),
+    maxDiffOperations: transcriptLimit(
+      limits['maxDiffOperations'],
+      defaultTranscriptValidationLimits.maxDiffOperations,
+      'maxDiffOperations'
+    ),
+    maxDiagnostics: transcriptLimit(
+      limits['maxDiagnostics'],
+      defaultTranscriptValidationLimits.maxDiagnostics,
+      'maxDiagnostics'
+    ),
+    maxRedactions: transcriptLimit(
+      limits['maxRedactions'],
+      defaultTranscriptValidationLimits.maxRedactions,
+      'maxRedactions'
+    )
+  });
+}
+
+const transcriptValidationLimitFields = new Set([
+  'maxDepth',
+  'maxJsonNodes',
+  'maxStringCodeUnits',
+  'maxSteps',
+  'maxFrameCells',
+  'maxDiffOperations',
+  'maxDiagnostics',
+  'maxRedactions'
+]);
+
+function transcriptLimit(value: unknown, fallback: number, field: string): number {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+    throw new RangeError(`Transcript validation ${field} must be a positive safe integer.`);
+  }
+  return value;
+}
+
+function transcriptResourceIssue(
+  value: unknown,
+  limits: NormalizedTranscriptValidationLimits
+): string | undefined {
+  if (!isNonArrayObject(value)) return undefined;
+  const steps = value['steps'];
+  const diagnostics = value['diagnostics'];
+  const redactions = value['redactions'];
+  if (Array.isArray(steps) && steps.length > limits.maxSteps) {
+    return `Interaction transcript exceeds the ${String(limits.maxSteps)}-step limit.`;
+  }
+  if (Array.isArray(redactions) && redactions.length > limits.maxRedactions) {
+    return `Interaction transcript exceeds the ${String(limits.maxRedactions)}-redaction limit.`;
+  }
+  if (!Array.isArray(steps)) return undefined;
+  let frameCells = 0;
+  let diffOperations = 0;
+  const diagnosticIds = new Set<string>();
+  let unidentifiedDiagnostics = 0;
+  for (const occurrence of Array.isArray(diagnostics) ? diagnostics : []) {
+    const id = isNonArrayObject(occurrence) ? occurrence['id'] : undefined;
+    if (typeof id === 'string') diagnosticIds.add(id);
+    else unidentifiedDiagnostics += 1;
+  }
+  for (const step of steps) {
+    if (!isNonArrayObject(step)) continue;
+    if (step['kind'] === 'diagnostic') {
+      const occurrence = step['occurrence'];
+      const id = isNonArrayObject(occurrence) ? occurrence['id'] : undefined;
+      if (typeof id === 'string') diagnosticIds.add(id);
+      else unidentifiedDiagnostics += 1;
+      if (diagnosticIds.size + unidentifiedDiagnostics > limits.maxDiagnostics) {
+        return `Interaction transcript exceeds the ${String(limits.maxDiagnostics)}-diagnostic limit.`;
+      }
+      continue;
+    }
+    if (step['kind'] !== 'commit' || !isNonArrayObject(step['commit'])) continue;
+    const frame = step['commit']['frame'];
+    if (isNonArrayObject(frame) && Array.isArray(frame['cells'])) {
+      frameCells += frame['cells'].length;
+      if (frameCells > limits.maxFrameCells) {
+        return `Interaction transcript exceeds the ${String(limits.maxFrameCells)}-frame-cell limit.`;
+      }
+    }
+    const diff = step['commit']['diff'];
+    if (isNonArrayObject(diff) && Array.isArray(diff['operations'])) {
+      diffOperations += diff['operations'].length;
+      if (diffOperations > limits.maxDiffOperations) {
+        return `Interaction transcript exceeds the ${String(limits.maxDiffOperations)}-diff-operation limit.`;
+      }
+    }
+  }
+  if (diagnosticIds.size + unidentifiedDiagnostics > limits.maxDiagnostics) {
+    return `Interaction transcript exceeds the ${String(limits.maxDiagnostics)}-diagnostic limit.`;
+  }
+  return undefined;
 }
 
 function transcriptIssue(transcript: unknown): string | undefined {
@@ -217,8 +364,8 @@ function transcriptIssue(transcript: unknown): string | undefined {
   if (!isStringMember(transcript['source'], transcriptSources)) {
     return `Unsupported interaction transcript source: ${String(transcript['source'])}.`;
   }
-  if (transcript['startedAt'] !== undefined && typeof transcript['startedAt'] !== 'string') {
-    return 'Interaction transcript startedAt must be a string when present.';
+  if (transcript['startedAt'] !== undefined && !isCanonicalDateTime(transcript['startedAt'])) {
+    return 'Interaction transcript startedAt must be a canonical ISO 8601 date-time when present.';
   }
   if (!Array.isArray(transcript['steps'])) return 'Interaction transcript steps must be an array.';
   if (!Array.isArray(transcript['diagnostics'])) {
@@ -303,12 +450,14 @@ function transcriptOrderingIssue(steps: readonly unknown[]): string | undefined 
   let previousProjection: RenderDiffProjection | undefined;
   for (const [index, step] of steps.entries()) {
     if (!isNonArrayObject(step)) continue;
-    if (step['kind'] === 'restore') {
+    if (step['kind'] === 'restore' && step['phase'] === 'shutdown') {
       restorationSeen = true;
       continue;
     }
+    if (restorationSeen && (step['kind'] === 'commit' || step['kind'] === 'input' || step['kind'] === 'message')) {
+      return `Transcript ${step['kind']} step at index ${String(index)} occurs after shutdown restoration.`;
+    }
     if (step['kind'] !== 'commit' || !isNonArrayObject(step['commit'])) continue;
-    if (restorationSeen) return `Transcript commit at index ${String(index)} occurs after restoration.`;
     const id = step['commit']['id'];
     const stateVersion = step['commit']['stateVersion'];
     if (typeof id === 'string') {
@@ -373,7 +522,9 @@ function stepIssue(step: unknown): string | undefined {
     case 'diagnostic':
       return diagnosticOccurrenceIssue(step['occurrence']);
     case 'restore':
-      return restoreResultIssue(step['result']);
+      return step['phase'] === 'checkpoint' || step['phase'] === 'shutdown'
+        ? restoreResultIssue(step['result'])
+        : 'restore step phase must be "checkpoint" or "shutdown".';
     default:
       return `unsupported step kind: ${String(step['kind'])}.`;
   }
@@ -427,6 +578,9 @@ function sameOptionalStringArray(left: unknown, right: unknown): boolean {
 
 function messageStepIssue(step: Record<string, unknown>): string | undefined {
   if (!isStringMember(step['source'], tuiMessageSources)) return `unsupported message source: ${String(step['source'])}.`;
+  if (step['fidelity'] !== 'exact' && step['fidelity'] !== 'normalized') {
+    return 'message step fidelity must be "exact" or "normalized".';
+  }
   return Object.hasOwn(step, 'message') ? undefined : 'message step requires message.';
 }
 

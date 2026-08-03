@@ -92,9 +92,6 @@ export function field<const TChildren extends ElementChildren>(
     props: {
       label: options.label,
       ...(options.description === undefined ? {} : { description: options.description }),
-      ...(options.error === undefined ? {} : { error: options.error }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...renderNodeLayoutProps(options)
     },
     children: renderNodeChildren(children),
@@ -111,9 +108,7 @@ export function label(options: LabelOptions): Element {
     kind: 'label',
     props: {
       text: options.text,
-      forId: options.forId,
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled })
+      forId: options.forId
     },
     ...componentMetaProps(options.meta)
   });
@@ -134,11 +129,10 @@ export function button(options: unknown): Element<unknown> {
 }
 
 function buttonElement(options: ButtonOptions<unknown>): Element<unknown> {
-  const state = options.state ?? 'idle';
   assertControlContract(
     'button',
     options,
-    options.disabled === true || state === 'pending',
+    options.disabled === true,
     ['onPress']
   );
   const onPress = options.onPress;
@@ -149,14 +143,17 @@ function buttonElement(options: ButtonOptions<unknown>): Element<unknown> {
   return componentElementFromRenderNode<'button', unknown>({
     ...requiredRenderNodeId(options.id, 'button'),
     kind: 'button',
-    availability: options.disabled === true ? 'disabled' : state === 'pending' ? 'pending' : 'active',
+    ...(options.disabled === true || options.busy === true
+      ? { state: {
+          ...(options.disabled === true ? { disabled: true } : {}),
+          ...(options.busy === true ? { busy: true } : {})
+        } }
+      : {}),
     props: {
       label: options.label,
       ...(options.leading === undefined ? {} : { leading: normalizeInlineContent(options.leading) }),
       ...(options.trailing === undefined ? {} : { trailing: normalizeInlineContent(options.trailing) }),
       ...(onPress === undefined ? {} : { toPressMessage: onPress }),
-      state,
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.tone === undefined ? {} : { tone: options.tone }),
       ...(options.density === undefined ? {} : { density: options.density })
     },
@@ -175,13 +172,12 @@ export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessa
   return componentElementFromRenderNode<'checkbox', TMessage>({
     ...requiredRenderNodeId(options.id, 'checkbox'),
     kind: 'checkbox',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       label: options.label,
       checked: options.checked,
       ...(toMessage === undefined ? {} : { toMessage }),
       ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -199,14 +195,13 @@ export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOption
   return componentElementFromRenderNode<'toggleSwitch', TMessage>({
     ...requiredRenderNodeId(options.id, 'toggleSwitch'),
     kind: 'toggleSwitch',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       label: options.label,
       checked: options.checked,
       ...(options.onLabel === undefined ? {} : { onLabel: options.onLabel }),
       ...(options.offLabel === undefined ? {} : { offLabel: options.offLabel }),
       ...(toMessage === undefined ? {} : { toMessage }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -222,7 +217,7 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
   return componentElementFromRenderNode<'slider', TMessage>({
     ...requiredRenderNodeId(options.id, 'slider'),
     kind: 'slider',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       label: options.label,
       value: options.value,
@@ -231,7 +226,6 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
       ...(options.step === undefined ? {} : { step: options.step }),
       ...(options.width === undefined ? {} : { width: options.width }),
       ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -255,7 +249,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
   return componentElementFromRenderNode<'rangeSlider', TMessage>({
     ...requiredRenderNodeId(options.id, 'rangeSlider'),
     kind: 'rangeSlider',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       label: options.label,
       state: options.state,
@@ -263,7 +257,6 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
       ...(options.step === undefined ? {} : { step: options.step }),
       ...(options.width === undefined ? {} : { width: options.width }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -282,7 +275,7 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
   return componentElementFromRenderNode<'checkboxGroup', TMessage>({
     ...requiredRenderNodeId(options.id, 'checkboxGroup'),
     kind: 'checkboxGroup',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       options: normalizedOptions,
       label: options.label,
@@ -290,7 +283,6 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
       ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -309,7 +301,7 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
   return componentElementFromRenderNode<'radioGroup', TMessage>({
     ...requiredRenderNodeId(options.id, 'radioGroup'),
     kind: 'radioGroup',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       options: normalizedOptions,
       label: options.label,
@@ -317,7 +309,6 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
       ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -336,7 +327,7 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
   return componentElementFromRenderNode<'colorSwatchPicker', TMessage>({
     ...requiredRenderNodeId(options.id, 'colorSwatchPicker'),
     kind: 'colorSwatchPicker',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       options: normalizedOptions,
       label: options.label,
@@ -344,7 +335,6 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
       ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.columns === undefined ? {} : { columns: options.columns }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -373,7 +363,7 @@ function calendarElement(options: CalendarOptions<unknown>): Element<unknown> {
   return componentElementFromRenderNode<'calendar', unknown>({
     ...requiredRenderNodeId(options.id, 'calendar'),
     kind: 'calendar',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       days: options.days,
       monthLabel: options.monthLabel,
@@ -385,7 +375,6 @@ function calendarElement(options: CalendarOptions<unknown>): Element<unknown> {
         toMessage: (day) => onAction({ kind: 'select', date: day.date }),
         toActionMessage: onAction
       }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -424,7 +413,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
   return componentElementFromRenderNode<'select', TMessage>({
     ...requiredRenderNodeId(options.id, 'select'),
     kind: 'select',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       options: normalizedOptions,
       label: options.label,
@@ -434,7 +423,6 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
       maxVisibleOptions: selectVisibleOptionLimit(options.maxVisibleOptions),
       ...(onAction === undefined ? {} : { toActionMessage: onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(popup === undefined ? {} : { children: [popup] }),
@@ -504,7 +492,7 @@ function textInputElement(options: TextInputOptions<unknown>): Element<unknown> 
   return componentElementFromRenderNode<'textInput', unknown>({
     ...requiredRenderNodeId(options.id, 'textInput'),
     kind: 'textInput',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       value: presentation.value,
       cursor: presentation.cursor,
@@ -512,7 +500,6 @@ function textInputElement(options: TextInputOptions<unknown>): Element<unknown> 
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -589,7 +576,7 @@ function passwordInputElement(options: PasswordInputOptions<unknown>): Element<u
   return componentElementFromRenderNode<'passwordInput', unknown>({
     ...requiredRenderNodeId(options.id, 'passwordInput'),
     kind: 'passwordInput',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       value: masked.value,
       cursor: masked.cursor,
@@ -597,7 +584,6 @@ function passwordInputElement(options: PasswordInputOptions<unknown>): Element<u
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(adaptedAction === undefined ? {} : { toActionMessage: adaptedAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -689,12 +675,11 @@ function numberInputElement(options: NumberInputOptions<unknown>): Element<unkno
   return componentElementFromRenderNode<'numberInput', unknown>({
     ...requiredRenderNodeId(options.id, 'numberInput'),
     kind: 'numberInput',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       presentation: options.presentation,
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
     },

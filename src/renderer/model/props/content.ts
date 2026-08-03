@@ -36,7 +36,6 @@ export interface DisclosureRenderProps<TMessage> {
   readonly label: string;
   readonly summary?: InlineContent;
   readonly expanded: boolean;
-  readonly disabled?: boolean;
   readonly toActionMessage?: (action: DisclosureAction) => TMessage;
 }
 
@@ -54,7 +53,6 @@ export interface TextAreaRenderProps<TMessage> {
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly required?: boolean;
-  readonly disabled?: boolean;
   readonly error?: string;
   readonly toActionMessage?: (action: TextAreaAction) => TMessage;
 }

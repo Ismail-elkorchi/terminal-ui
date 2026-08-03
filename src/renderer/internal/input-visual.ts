@@ -277,7 +277,7 @@ function textAreaLineMarker(renderNode: TextAreaNode, theme: TerminalTheme, focu
 }
 
 function inputStateMarker(renderNode: InputNode, theme: TerminalTheme, focused: boolean): string {
-  if (renderNode.props.disabled === true) return ' ';
+  if (renderNode.state?.disabled === true) return ' ';
   if (typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0) return theme.tokens.symbols.statusError;
   if (focused) return theme.tokens.symbols.pointer;
   return theme.tokens.colors['control.background'] === undefined
@@ -286,7 +286,7 @@ function inputStateMarker(renderNode: InputNode, theme: TerminalTheme, focused: 
 }
 
 function inputBorderStyle(renderNode: InputNode, focused: boolean): TerminalStyle | undefined {
-  const state = renderNode.props.disabled === true
+  const state = renderNode.state?.disabled === true
     ? 'disabled'
     : focused
       ? 'focused'
@@ -362,7 +362,7 @@ function inputContentStyle(renderNode: InputNode, focused: boolean, active = fal
     fg: { kind: 'theme', token: 'control.foreground' },
     bg: { kind: 'theme', token: 'control.background' }
   };
-  if (renderNode.props.disabled === true) {
+  if (renderNode.state?.disabled === true) {
     return mergeStyles(base, renderNodeStyle(renderNode, 'value', 'disabled'));
   }
   return mergeStyles(

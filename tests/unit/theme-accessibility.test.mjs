@@ -335,6 +335,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     { id: 'mixed-switch', role: 'switch', checked: 'mixed' },
     { id: 'selected', role: 'text', selected: true },
     { id: 'expanded', role: 'status', expanded: true },
+    { id: 'readonly-button', role: 'button', readOnly: true },
     { id: 'position', role: 'option', position: { positionInSet: 0, setSize: 1 } },
     { id: 'position-range', role: 'option', position: { positionInSet: 2, setSize: 1 } },
     { id: 'level', role: 'treeitem', position: { level: 0 } },

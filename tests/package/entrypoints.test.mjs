@@ -46,7 +46,7 @@ test('transcript entrypoint exposes replay against a structural harness target',
   const harness = createTerminalHarness();
 
   const result = await replayTranscript(harness, {
-    formatVersion: 1,
+    formatVersion: 2,
     id: 'entrypoint-replay',
     source: 'test',
     steps: [{ kind: 'input', event: { kind: 'text', text: 'x', paste: false } }],
@@ -236,11 +236,11 @@ test('component definitions and border title slots expose usable structural cont
     } from '@ismail-elkorchi/terminal-ui/components';
     import { surface } from '@ismail-elkorchi/terminal-ui/layout';
 
-    const focusTarget = ({ bounds }: ComponentInput<undefined>) => [{
+    const focusTarget = ({ bounds }: ComponentInput<Record<never, never>>) => [{
       id: 'field', bounds, disabled: false, order: 1, scopeId: 'form'
     }];
     const marker = defineComponent({
-      name: 'marker',
+      name: 'terminal-ui-tests/components/marker',
       structure: 'leaf',
       semantics: 'semantic',
       measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
@@ -285,40 +285,50 @@ test('public renderer helpers accept component elements', () => {
   `);
 });
 
-test('component packages can define and test reusable components through the components facade', () => {
+test('component packages can use the narrow authoring entrypoint', () => {
   assertNoTypeDiagnostics(`
     import {
       defineComponent,
+      ignoreMessage,
+      type IgnoredMessage,
       type Element
-    } from '@ismail-elkorchi/terminal-ui/components';
+    } from '@ismail-elkorchi/terminal-ui/component';
     import { button } from '@ismail-elkorchi/terminal-ui/components';
     import { renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
 
     type Message = { readonly kind: 'activate' };
+    const ignored: IgnoredMessage = ignoreMessage();
+    void ignored;
 
-    const meterComponent = defineComponent<number>({
-      name: 'meter',
+    const meterComponent = defineComponent<{ readonly value: number }>({
+      name: 'terminal-ui-tests/components/meter',
       structure: 'leaf',
       semantics: 'semantic',
+      decodeOptions(value) {
+        if (typeof value !== 'object' || value === null || !('value' in value) || typeof value.value !== 'number') {
+          throw new TypeError('meter requires a numeric value');
+        }
+        return { value: value.value };
+      },
       measure: () => ({
         minWidth: 1,
         minHeight: 1,
         preferredWidth: 3,
         preferredHeight: 1
       }),
-      render({ model, bounds, target }) {
-        target.write(bounds.row, bounds.column, [{ text: String(model) }]);
+      render({ options, bounds, target }) {
+        target.write(bounds.row, bounds.column, [{ text: String(options.value) }]);
       },
-      accessibility: ({ id, model }) => ({
+      accessibility: ({ id, options }) => ({
         id,
         role: 'meter',
         label: 'Usage',
-        numericValue: { current: model, minimum: 0, maximum: 100 }
+        numericValue: { current: options.value, minimum: 0, maximum: 100 }
       })
     });
 
     function meter(value: number): Element {
-      return meterComponent({ id: 'meter', model: value });
+      return meterComponent({ id: 'meter', value });
     }
 
     const action = button({
@@ -327,7 +337,7 @@ test('component packages can define and test reusable components through the com
       onPress: (): Message => ({ kind: 'activate' })
     });
     const panelComponent = defineComponent({
-      name: 'componentPanel',
+      name: 'terminal-ui-tests/components/componentPanel',
       structure: 'composite',
       semantics: 'semantic',
       measure: ({ childCount, measureChild }) => {

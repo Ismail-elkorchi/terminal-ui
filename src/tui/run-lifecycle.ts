@@ -213,7 +213,7 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
     target: string,
     diagnostics: TerminalDiagnostic[]
   ): void {
-    recordTuiRestore(this.#transcript, result);
+    recordTuiRestore(this.#transcript, result, 'shutdown');
     if (result.status === 'restored') return;
     diagnostics.push(...result.diagnostics);
     if (result.diagnostics.length === 0) {

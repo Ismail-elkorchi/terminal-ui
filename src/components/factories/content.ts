@@ -74,14 +74,13 @@ export function disclosure<
   >({
     ...requiredRenderNodeId(options.id, 'disclosure'),
     kind: 'disclosure',
-    availability: options.disabled === true ? 'disabled' : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       label: options.label,
       ...(options.summary === undefined
         ? {}
         : { summary: normalizeInlineContent(options.summary) }),
       expanded: options.expanded,
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
     children: [toRenderNode(child)],
@@ -146,11 +145,7 @@ function textAreaElement(options: TextAreaOptions<unknown>): Element<unknown> {
   return componentElementFromRenderNode<'textArea', unknown>({
     ...requiredRenderNodeId(options.id, 'textArea'),
     kind: 'textArea',
-    availability: options.disabled === true
-      ? 'disabled'
-      : options.onAction === undefined && options.keys === undefined && options.pointer === undefined
-        ? 'passive'
-        : 'active',
+    ...(options.disabled === true ? { state: { disabled: true } } : {}),
     props: {
       document: presentation.document,
       caret: presentation.caret,
@@ -165,7 +160,6 @@ function textAreaElement(options: TextAreaOptions<unknown>): Element<unknown> {
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
       ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error }),
       ...(toActionMessage === undefined ? {} : { toActionMessage })
     },

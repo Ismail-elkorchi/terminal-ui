@@ -424,8 +424,8 @@ test('TUI pointer drag routes to the captured origin target', async () => {
 test('TUI pointer motion drops stale drag samples before routing release', async () => {
   const renderer = {
     ...leafComponentDefinition,
-    render({ model, bounds, target }) {
-      target.write(bounds.row, bounds.column, [{ text: `events ${String(model)}` }]);
+    render({ options, bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: `events ${String(options.eventCount)}` }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'coalesced drag target' };
@@ -447,7 +447,7 @@ test('TUI pointer motion drops stale drag samples before routing release', async
     view: (state) => componentElement({
       id: 'coalesced-drag',
       definition: renderer,
-      model: state.events.length
+      eventCount: state.events.length
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });

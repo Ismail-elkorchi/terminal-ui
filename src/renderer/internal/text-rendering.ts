@@ -136,7 +136,6 @@ export function textAreaAccessibleBase(
     label: id,
     value,
     description: textAreaDescription(renderNode, bounds, theme, widthProfile),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }

@@ -10,8 +10,12 @@ import { createDiagnosticOccurrenceReporter } from '../diagnostics.ts';
 import { snapshotJsonValue, snapshotUnknownJsonValue } from '../foundation/json.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type { Frame } from '../renderer/index.ts';
+import { isCanonicalDateTime } from '../foundation/validation.ts';
 
 export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}): TranscriptRecorder {
+  if (options.startedAt !== undefined && !isCanonicalDateTime(options.startedAt)) {
+    throw new TypeError('Transcript startedAt must be a canonical ISO 8601 date-time.');
+  }
   const id = options.id ?? 'transcript';
   const steps: InteractionTranscriptStep[] = [];
   const diagnostics: DiagnosticOccurrence[] = [];
@@ -22,8 +26,13 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
     record(step) {
       steps.push(recordedTranscriptStep(step));
     },
-    recordMessage(source, message) {
-      steps.push({ kind: 'message', source, message: snapshotUnknownJsonValue(message) });
+    recordNormalizedMessage(source, message) {
+      steps.push({
+        kind: 'message',
+        source,
+        fidelity: 'normalized',
+        message: snapshotUnknownJsonValue(message)
+      });
     },
     reportDiagnostic(item) {
       const occurrence = reporter.report(item);
@@ -77,6 +86,7 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
       return {
         kind: 'message',
         source: step.source,
+        fidelity: step.fidelity,
         message: snapshotJsonValue(step.message, 'Transcript message')
       };
     case 'snapshot':

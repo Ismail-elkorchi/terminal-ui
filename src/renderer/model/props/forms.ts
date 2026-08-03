@@ -2,7 +2,6 @@ import type { TextSelection } from '../../../text/index.ts';
 import type { AnchoredSurfacePlacement } from '../../../interaction/anchored-surface.ts';
 import type { ChoiceItem, ComponentDensity } from '../../../ui-model/contracts.ts';
 import type {
-  ButtonState,
   ButtonTone,
   ColorSwatchPickerOption,
   NumericRange
@@ -28,16 +27,11 @@ export interface FormRenderProps extends RenderNodeLayoutProps {
 export interface FieldRenderProps extends RenderNodeLayoutProps {
   readonly label: string;
   readonly description?: string;
-  readonly error?: string;
-  readonly required?: boolean;
-  readonly disabled?: boolean;
 }
 
 export interface LabelRenderProps {
   readonly text: string;
   readonly forId: string;
-  readonly required?: boolean;
-  readonly disabled?: boolean;
 }
 
 export interface ButtonRenderProps<TMessage> {
@@ -45,8 +39,6 @@ export interface ButtonRenderProps<TMessage> {
   readonly leading?: InlineContent;
   readonly trailing?: InlineContent;
   readonly toPressMessage?: () => TMessage;
-  readonly state?: ButtonState;
-  readonly disabled?: boolean;
   readonly tone?: ButtonTone;
   readonly density?: ComponentDensity;
 }
@@ -56,7 +48,6 @@ export interface CheckboxRenderProps<TMessage> {
   readonly checked: boolean;
   readonly toMessage?: (checked: boolean) => TMessage;
   readonly required?: boolean;
-  readonly disabled?: boolean;
   readonly error?: string;
 }
 
@@ -66,7 +57,6 @@ export interface ToggleSwitchRenderProps<TMessage> {
   readonly onLabel?: string;
   readonly offLabel?: string;
   readonly toMessage?: (checked: boolean) => TMessage;
-  readonly disabled?: boolean;
   readonly error?: string;
 }
 
@@ -78,7 +68,6 @@ export interface SliderRenderProps<TMessage> {
   readonly step?: number;
   readonly width?: number;
   readonly toMessage?: (value: number) => TMessage;
-  readonly disabled?: boolean;
   readonly error?: string;
 }
 
@@ -89,7 +78,6 @@ export interface RangeSliderRenderProps<TMessage> {
   readonly step?: number;
   readonly width?: number;
   readonly toActionMessage?: (action: RangeSliderAction) => TMessage;
-  readonly disabled?: boolean;
   readonly error?: string;
 }
 
@@ -98,7 +86,6 @@ interface ChoiceControlRenderProps {
   readonly options: readonly ChoiceItem<unknown>[];
   readonly placeholder?: string;
   readonly required?: boolean;
-  readonly disabled?: boolean;
   readonly error?: string;
 }
 
@@ -127,7 +114,6 @@ export interface ColorSwatchPickerRenderProps<TMessage> {
   readonly selected?: string;
   readonly focused?: string;
   readonly columns?: number;
-  readonly disabled?: boolean;
   readonly error?: string;
   readonly toActionMessage?: (action: ColorSwatchPickerAction) => TMessage;
 }
@@ -139,7 +125,6 @@ export interface CalendarRenderProps<TMessage> {
   readonly days: readonly CalendarDay[];
   readonly selected?: string;
   readonly focused?: string;
-  readonly disabled?: boolean;
   readonly error?: string;
   readonly toMessage?: (day: CalendarDay) => TMessage;
   readonly toActionMessage?: (action: CalendarAction) => TMessage;
@@ -152,7 +137,6 @@ export interface TextInputRenderProps<TMessage> {
   readonly placeholder?: string;
   readonly toActionMessage?: (action: TextInputAction) => TMessage;
   readonly required?: boolean;
-  readonly disabled?: boolean;
   readonly error?: string;
 }
 
@@ -160,7 +144,6 @@ export interface NumberInputRenderProps<TMessage> {
   readonly presentation: NumberInputPresentation;
   readonly placeholder?: string;
   readonly required?: boolean;
-  readonly disabled?: boolean;
   readonly error?: string;
   readonly toActionMessage?: (action: NumberInputControlAction) => TMessage;
 }

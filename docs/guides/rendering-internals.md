@@ -26,7 +26,7 @@ arranging, and rendering it. The `tui` source directory contains application and
 terminal-session lifecycle rather than frame, layout, or render-node rendering.
 
 The renderer package exposes frame construction and frame/diff serialization.
-Leaf and composite definitions use `defineComponent()` from the components
+Leaf and composite definitions use `defineComponent()` from the component
 entrypoint, which exposes bounded `RenderTarget`, geometry, measurement,
 accessibility, focus, and hit-target contracts. `Canvas2D` remains available
 through the canvas component and renderer drawing APIs.

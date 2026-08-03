@@ -2,7 +2,7 @@
 
 Every prompt, caller-supplied element tree, and TUI frame has an accessible snapshot path.
 Snapshots are machine-readable data with roles, labels, values, focus state,
-selection state, disabled state, expanded state, checked state, progress state,
+selection state, disabled, busy, and read-only state, expanded state, checked state, progress state,
 diagnostics, and source metadata where the surface can provide them.
 
 Form controls, switches, sliders, numeric inputs, grids, trees, grouped
@@ -13,7 +13,7 @@ Snapshot validation rejects unknown fields, fields that are invalid for a
 role, and invalid direct-child roles.
 
 Document surfaces can expose `document`, `heading`, `link`, `list`, and
-`listitem` nodes.
+`listitem` nodes. Contextual explanations use the `tooltip` role.
 Headings use a positive, one-based `level` where the source has a heading
 level, and links expose their accessible label and focus state.
 

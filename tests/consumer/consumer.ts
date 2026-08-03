@@ -149,7 +149,7 @@ const selected = resolveSelectedText({
 });
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const packedComponent = defineComponent({
-  name: 'packedComponent',
+  name: 'terminal-ui-consumer/components/packedComponent',
   structure: 'leaf',
   semantics: 'semantic',
   measure: () => ({
@@ -164,7 +164,7 @@ const packedComponent = defineComponent({
   accessibility: ({ id }) => ({ id, role: 'text', label: 'Defined' })
 });
 const packedPanel = defineComponent({
-  name: 'packedPanel',
+  name: 'terminal-ui-consumer/components/packedPanel',
   structure: 'composite',
   semantics: 'semantic',
   measure: ({ childCount, measureChild }) => {

@@ -27,7 +27,7 @@ layering, or geometry-only interaction are documented in
 | `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. | A general overlay system, route, or storage for open/closed state. |
 | `canvas()` | Safe drawing component with explicit measurement and semantic label or decorative metadata. | Raw ANSI output or an imperative terminal API. |
 | `form()` | Semantic grouping of related controls with the form accessibility role. | Retaining values, performing validation, or submitting by itself. |
-| `field()` | Label/help/error wrapper around field content. | A value control by itself. |
+| `field()` | Label and help grouping around field content. | A second authority for required, validation, or disabled state. |
 | `label()` | Visible control label linked to a target control by ID. | Generic metadata or key/value text; use `text()` for that content. |
 | `button()` | Discrete action trigger with visual state and caller-provided message. | A toggle, menu item, or navigation link. |
 | `checkbox()` | Boolean checked/unchecked control. | Multi-choice selection or a switch animation. |
@@ -73,6 +73,11 @@ Every component accepts top-level `id` and optional `meta`.
 accessibility role. It does not retain control values, perform validation, or
 submit anything by itself. Application values and every validation or
 submission action remain caller-controlled.
+
+`field()` owns only its group label, description, and child layout. Required,
+validation, disabled, and other interaction state belongs to the child control.
+`label()` owns only the visible `labelledBy` relationship; it does not restate
+the target control's state.
 
 `label({ id, forId, text })` requires a stable ID for both ends of the
 relationship. Rendered accessibility marks the target control with

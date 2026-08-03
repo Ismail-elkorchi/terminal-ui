@@ -164,7 +164,7 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
       disabled: true,
       onPress: () => ({ kind: 'press' })
     }),
-    /cannot define onPress while disabled or pending/u
+    /cannot define onPress while disabled/u
   );
   assert.throws(
     () => textInput({
@@ -173,7 +173,7 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
       disabled: true,
       onAction: () => ({ kind: 'edit' })
     }),
-    /cannot define onAction while disabled or pending/u
+    /cannot define onAction while disabled/u
   );
   assert.throws(
     () => select({
@@ -184,7 +184,7 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
       disabled: true,
       onAction: () => ({ kind: 'select' })
     }),
-    /cannot define onAction while disabled or pending/u
+    /cannot define onAction while disabled/u
   );
   assert.throws(
     () => textArea({
@@ -193,7 +193,7 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
       disabled: true,
       onAction: () => ({ kind: 'edit' })
     }),
-    /cannot define onAction while disabled or pending/u
+    /cannot define onAction while disabled/u
   );
 });
 

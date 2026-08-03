@@ -9,6 +9,8 @@ export function inspectElement(element: Element<unknown>): ElementInspection {
 
 export type {
   ElementFactoryCategory,
+  ElementFactoryIdentity,
+  ElementFactoryOrigin,
   ElementFocusCapability,
   ElementInputInspection,
   ElementInspection,

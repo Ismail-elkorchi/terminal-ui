@@ -46,7 +46,7 @@ export function optionStyle(
   option: ChoiceItem<unknown>,
   renderNode: OptionStateNode
 ): TerminalStyle | undefined {
-  if (option.disabled === true || renderNode.props.disabled === true) {
+  if (option.disabled === true || renderNode.state?.disabled === true) {
     return resolveRenderNodeStyle(renderNode, { part: 'option', state: 'disabled' });
   }
   return resolveRenderNodeStyle(renderNode, {

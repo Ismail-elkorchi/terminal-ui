@@ -10,6 +10,7 @@ A directory remains useful when it establishes a stable dependency boundary:
 - `element` contains opaque public element and metadata contracts.
 - `components` owns built-in factories and the public `defineComponent()`
   authoring contract.
+- `component` is the narrow package entrypoint for that authoring contract.
 - `renderer/model` contains the private typed representation consumed by the
   renderer implementation.
 

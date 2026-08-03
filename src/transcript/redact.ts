@@ -72,12 +72,17 @@ export function redactTranscript(
     context.redactedPaths.add(path);
   }
 
+  const redactedStartedAt = transcript.startedAt === undefined
+    ? undefined
+    : redactString(transcript.startedAt, '$.startedAt', context);
+
   return {
-    ...transcript,
+    formatVersion: transcript.formatVersion,
     id: redactIdentifier(transcript.id, '$.id', context),
-    ...(transcript.startedAt === undefined
-      ? {}
-      : { startedAt: redactString(transcript.startedAt, '$.startedAt', context) }),
+    source: transcript.source,
+    ...(transcript.startedAt !== undefined && redactedStartedAt === transcript.startedAt
+      ? { startedAt: redactedStartedAt }
+      : {}),
     steps: transcript.steps.map((step, index) =>
       redactStep(step, `$.steps[${String(index)}]`, context)),
     diagnostics: transcript.diagnostics.map((occurrence, index) =>

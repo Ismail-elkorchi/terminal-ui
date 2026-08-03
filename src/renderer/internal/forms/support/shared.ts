@@ -30,7 +30,6 @@ type ErrorControlNode = RenderNodesOfKind<
   | 'checkboxGroup'
   | 'colorSwatchPicker'
   | 'calendar'
-  | 'field'
   | 'numberInput'
   | 'radioGroup'
   | 'rangeSlider'
@@ -42,7 +41,7 @@ type ErrorControlNode = RenderNodesOfKind<
 >;
 type DescribedControlNode = RenderNodesOfKind<
   unknown,
-  'checkbox' | 'field' | 'numberInput' | 'radioGroup' | 'select' | 'textInput' | 'passwordInput'
+  'checkbox' | 'numberInput' | 'radioGroup' | 'select' | 'textInput' | 'passwordInput'
 >;
 
 export function controlInputBlock(
@@ -89,7 +88,6 @@ export function inputAccessibleBase(
     label: id,
     value,
     ...(description.length === 0 ? {} : { description }),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -97,22 +95,16 @@ export function inputAccessibleBase(
 export function fieldHeaderLines(renderNode: FieldNode): readonly (readonly RenderSpan[])[] {
   const rows: (readonly RenderSpan[])[] = [];
   const label = clean(stringify(renderNode.props.label));
-  if (label.length > 0 || renderNode.props.required === true) {
+  if (label.length > 0) {
     rows.push(labelSpans(
       renderNode,
       'field.label',
-      label,
-      renderNode.props.disabled === true ? 'disabled' : undefined,
-      renderNode.props.required === true
+      label
     ));
   }
   const description = clean(stringify(renderNode.props.description));
   if (description.length > 0) {
     rows.push([formSpan(renderNode, 'description', 'field.description', description, formValueStyle(renderNode, 'disabled'))]);
-  }
-  const error = clean(stringify(renderNode.props.error));
-  if (error.length > 0) {
-    rows.push([formSpan(renderNode, 'error', 'validation.error', error, formErrorStyle(renderNode))]);
   }
   return rows;
 }
@@ -155,7 +147,7 @@ export function formTitle(renderNode: FormNode): string {
 }
 
 export function labelText(renderNode: LabelNode): string {
-  return labelWithRequired(clean(stringify(renderNode.props.text)), renderNode.props.required === true);
+  return clean(stringify(renderNode.props.text));
 }
 
 export function labelWithRequired(label: string, required: boolean): string {

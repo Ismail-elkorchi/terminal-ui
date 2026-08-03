@@ -286,16 +286,15 @@ const cases = [
     }), {
       id: 'field',
       label: unsafe,
-      description: 'Description',
-      error: 'Required'
+      description: 'Description'
     }),
-    expectText: /Required/u,
+    expectText: /Description/u,
     expectFocus: true
   },
   {
     name: 'label',
     element: () => form([
-      label({ id: 'label', forId: 'label-target', text: unsafe, required: true }),
+      label({ id: 'label', forId: 'label-target', text: unsafe }),
       textInput({
         id: 'label-target',
         presentation: { value: '', cursor: 0 },

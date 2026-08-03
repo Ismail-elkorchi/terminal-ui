@@ -50,9 +50,7 @@ test('form components render settings and setup-wizard shapes with scoped state'
     }), {
       id: 'name-field',
       label: 'Name',
-      description: 'Shown in reports',
-      required: true,
-      error: 'Name is required'
+      description: 'Shown in reports'
     }),
     checkbox({
       id: 'telemetry',
@@ -98,7 +96,7 @@ test('form components render settings and setup-wizard shapes with scoped state'
   const output = renderFramePlain(frame);
 
   assert.match(output, /Setup/u);
-  assert.match(output, /Name \*/u);
+  assert.match(output, /Name/u);
   assert.match(output, /Shown in reports/u);
   assert.match(output, /Name is required/u);
   assert.match(output, /☑ Send diagnostics/u);
@@ -171,9 +169,7 @@ test('form fields expose label required description and validation source anatom
     }), {
       id: 'name-field',
       label: 'Name',
-      description: 'Shown in reports',
-      required: true,
-      error: 'Name is required'
+      description: 'Shown in reports'
     }),
     checkbox({
       id: 'terms',
@@ -191,9 +187,8 @@ test('form fields expose label required description and validation source anatom
 
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'setup-form' && cell.text === 'S')?.source?.description, 'form.title');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === 'N')?.source?.description, 'field.label.text');
-  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === '*')?.source?.description, 'field.label.required');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === 'S')?.source?.description, 'field.description');
-  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === 'N' && cell.source.description === 'validation.error')?.style?.fg?.token, 'status.error');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-input' && cell.text === 'N' && cell.source.description === 'validation.error')?.style?.fg?.token, 'status.error');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'terms' && cell.text === '*')?.source?.description, 'label.required');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'terms' && cell.text === 'R')?.source?.description, 'validation.error');
 });
@@ -207,8 +202,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
       required: true
     }), {
       id: 'email-field',
-      label: 'Email',
-      required: true
+      label: 'Email'
     }),
     checkbox({
       id: 'terms',
@@ -240,7 +234,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
 
   assert.equal(frame.accessibility.root.role, 'form');
   assert.equal(frame.accessibility.root.label, 'Account');
-  assert.equal(emailField?.label, 'Email *');
+  assert.equal(emailField?.label, 'Email');
   assert.equal(emailField?.children?.[0]?.role, 'textbox');
   assert.equal(emailField?.children?.[0]?.value, 'user@example.test');
   assert.equal(terms?.role, 'checkbox');
@@ -253,7 +247,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
 
 test('control labels create a structural accessible-name relationship', () => {
   const frame = renderElementFrame(form([
-    label({ id: 'email-label', forId: 'email-input', text: 'Email', required: true }),
+    label({ id: 'email-label', forId: 'email-input', text: 'Email' }),
     textInput({
       id: 'email-input',
       presentation: { value: 'user@example.test', cursor: 0 },
@@ -266,7 +260,7 @@ test('control labels create a structural accessible-name relationship', () => {
   const [labelNode, inputNode] = frame.accessibility.root.children;
 
   assert.equal(labelNode?.role, 'text');
-  assert.equal(labelNode?.label, 'Email *');
+  assert.equal(labelNode?.label, 'Email');
   assert.equal(labelNode?.description, undefined);
   assert.equal(inputNode?.role, 'textbox');
   assert.equal(inputNode?.labelledBy, 'email-label');

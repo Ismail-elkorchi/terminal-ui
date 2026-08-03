@@ -131,7 +131,8 @@ export interface RenderNodePropsByKind<TMessage> {
 }
 
 export interface DefinedComponentRenderProps {
-  readonly model: unknown;
+  readonly options: Readonly<Record<string, unknown>>;
+  readonly toActionMessage?: (action: unknown) => unknown;
 }
 
 export type * from './content.ts';

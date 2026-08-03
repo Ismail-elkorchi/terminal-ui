@@ -68,7 +68,7 @@ export function sliderTrackSpans(
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const position = sliderPosition(model, model.value);
-  const disabled = renderNode.props.disabled === true;
+  const disabled = renderNode.state?.disabled === true;
   return Array.from({ length: model.width }, (_, index): RenderSpan => {
     const current = index === position
       ? { text: oneCellGlyph('●', 'o', { widthProfile }), label: 'track.handle', selected: true }
@@ -92,7 +92,7 @@ export function rangeSliderTrackSpans(
 ): readonly RenderSpan[] {
   const start = sliderPosition(model, model.start);
   const end = sliderPosition(model, model.end);
-  const disabled = renderNode.props.disabled === true;
+  const disabled = renderNode.state?.disabled === true;
   return Array.from({ length: model.width }, (_, index): RenderSpan => {
     const current = index === start || index === end
       ? {
@@ -150,7 +150,7 @@ export function toggleValueStyle(
   renderNode: ToggleSwitchNode,
   checked: boolean
 ): TerminalStyle | undefined {
-  if (renderNode.props.disabled === true) return renderNodeStyle(renderNode, checked ? 'onLabel' : 'offLabel', 'disabled');
+  if (renderNode.state?.disabled === true) return renderNodeStyle(renderNode, checked ? 'onLabel' : 'offLabel', 'disabled');
   return resolveRenderNodeStyle(renderNode, {
     part: checked ? 'onLabel' : 'offLabel',
     base: {
