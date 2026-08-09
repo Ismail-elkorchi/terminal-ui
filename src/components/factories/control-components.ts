@@ -7,6 +7,7 @@ import {
   span,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentInput,
   ComponentMeasureInput,
   ComponentPointerActions,
@@ -82,12 +83,12 @@ interface SliderModel extends PointerModel {
   readonly error: string;
 }
 
-type SliderFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type SliderFactory = <const TMessage extends ComponentMessage = never>(
   options: SliderOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateSlider = defineComponent<
-  Omit<SliderOptions<unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<SliderOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
   SliderModel,
   SliderAction,
   SliderStylePart,
@@ -154,12 +155,12 @@ interface RangeModel extends Omit<SliderModel, 'value'> {
   readonly activeHandle: RangeSliderHandle;
 }
 
-type RangeSliderFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type RangeSliderFactory = <const TMessage extends ComponentMessage = never>(
   options: RangeSliderOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateRangeSlider = defineComponent<
-  Omit<RangeSliderOptions<unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<RangeSliderOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
   RangeModel,
   RangeSliderAction,
   SliderStylePart,
@@ -251,12 +252,12 @@ interface PreparedChoice {
   readonly disabled: boolean;
 }
 
-type CheckboxGroupFactory = <TValue, const TMessage extends NonNullable<unknown> | null = never>(
+type CheckboxGroupFactory = <TValue, const TMessage extends ComponentMessage = never>(
   options: CheckboxGroupOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
 const instantiateCheckboxGroup = defineComponent<
-  Omit<CheckboxGroupOptions<unknown, unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<CheckboxGroupOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
   ChoiceModel,
   CheckboxGroupAction,
   ChoiceStylePart,
@@ -286,12 +287,12 @@ const instantiateCheckboxGroup = defineComponent<
 
 export const checkboxGroup: CheckboxGroupFactory = (options) => instantiateCheckboxGroup(options);
 
-type RadioGroupFactory = <TValue, const TMessage extends NonNullable<unknown> | null = never>(
+type RadioGroupFactory = <TValue, const TMessage extends ComponentMessage = never>(
   options: RadioGroupOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
 const instantiateRadioGroup = defineComponent<
-  Omit<RadioGroupOptions<unknown, unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<RadioGroupOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
   ChoiceModel,
   RadioGroupAction,
   ChoiceStylePart,
@@ -337,13 +338,13 @@ interface PreparedSwatch extends PreparedChoice {
 
 type ColorSwatchPickerFactory = <
   TValue,
-  const TMessage extends NonNullable<unknown> | null = never,
+  const TMessage extends ComponentMessage = never,
 >(
   options: ColorSwatchPickerOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
 const instantiateColorSwatchPicker = defineComponent<
-  Omit<ColorSwatchPickerOptions<unknown, unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<ColorSwatchPickerOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
   SwatchModel,
   ColorSwatchPickerAction,
   PickerStylePart,
@@ -431,12 +432,12 @@ interface PreparedDay extends CalendarDay {
   readonly hidden: boolean;
 }
 
-type CalendarFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type CalendarFactory = <const TMessage extends ComponentMessage = never>(
   options: CalendarOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateCalendar = defineComponent<
-  Omit<CalendarOptions<unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
   CalendarModel,
   CalendarAction,
   PickerStylePart,
@@ -526,7 +527,7 @@ interface TextEntryModel extends PointerModel {
 }
 
 const textInputDefinition = textEntryDefinition<
-  Omit<TextInputOptions<unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>
+  Omit<TextInputOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>
 >('text-input', false, {
   presentation: null,
   placeholder: null,
@@ -535,7 +536,7 @@ const textInputDefinition = textEntryDefinition<
   pointerState: null,
 });
 const passwordInputDefinition = textEntryDefinition<
-  Omit<PasswordInputOptions<unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>
+  Omit<PasswordInputOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>
 >('password-input', true, {
   presentation: null,
   placeholder: null,
@@ -545,13 +546,13 @@ const passwordInputDefinition = textEntryDefinition<
   mask: null,
 });
 
-export function textInput<const TMessage extends NonNullable<unknown> | null = never>(
+export function textInput<const TMessage extends ComponentMessage = never>(
   options: TextInputOptions<TMessage>,
 ): Element<TMessage> {
   return textInputDefinition(options);
 }
 
-export function passwordInput<const TMessage extends NonNullable<unknown> | null = never>(
+export function passwordInput<const TMessage extends ComponentMessage = never>(
   options: PasswordInputOptions<TMessage>,
 ): Element<TMessage> {
   return passwordInputDefinition(options);
@@ -564,12 +565,12 @@ interface NumberModel extends PointerModel {
   readonly error: string;
 }
 
-type NumberInputFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type NumberInputFactory = <const TMessage extends ComponentMessage = never>(
   options: NumberInputOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateNumberInput = defineComponent<
-  Omit<NumberInputOptions<unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
   NumberModel,
   NumberInputControlAction,
   NumberInputStylePart,

@@ -1,4 +1,5 @@
 import type { Element, ElementMeta } from '../../element/index.ts';
+import type { ComponentMessage } from '../../component/index.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
@@ -7,14 +8,14 @@ import type { TabAction } from '../../ui-model/tabs.ts';
 import type { TabsStylePart } from '../../ui-model/style-parts.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 
-export interface TabItem<TMessage = never> extends ItemBase {
+export interface TabItem<TMessage extends ComponentMessage = never> extends ItemBase {
   readonly leading?: InlineContent;
   readonly badge?: string;
   readonly closable?: boolean;
   readonly panel: Element<TMessage>;
 }
 
-export interface TabsOptions<TMessage = never> extends LayoutFlowOptions {
+export interface TabsOptions<TMessage extends ComponentMessage = never> extends LayoutFlowOptions {
   readonly id: string;
   readonly tabs: readonly TabItem<TMessage>[];
   readonly selected?: string;

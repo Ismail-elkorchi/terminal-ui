@@ -1,5 +1,5 @@
 import { defineComponent, measureRenderSpans, span } from '../../component/index.ts';
-import type { SemanticLeafComponentFactory } from '../../component/index.ts';
+import type { ComponentMessage, SemanticLeafComponentFactory } from '../../component/index.ts';
 import type { PaginatorOptions } from '../options/content.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
@@ -30,14 +30,14 @@ interface PaginatorVisual {
 }
 
 export const paginator: SemanticLeafComponentFactory<
-  Pick<PaginatorOptions<unknown>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
+  Pick<PaginatorOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
   PaginatorAction,
   PaginatorStylePart,
   readonly [],
   'required',
   readonly ['focus', 'layer', 'styles']
 > = defineComponent<
-  Pick<PaginatorOptions<unknown>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
+  Pick<PaginatorOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
   PaginatorModel,
   PaginatorAction,
   PaginatorStylePart,

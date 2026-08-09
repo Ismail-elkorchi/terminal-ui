@@ -12,7 +12,7 @@ import type { SearchPickerIndex } from '../../ui-model/search-picker-index.ts';
 import type { LogViewerAction, LogViewerControlAction } from '../../ui-model/log-viewer.ts';
 import type { LogViewerSelection } from '../../ui-model/log-viewer.ts';
 import type { LogSearchMatch } from '../../ui-model/log-history.ts';
-import type { ComponentMetadataOptions } from '../../component/index.ts';
+import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type {
@@ -33,18 +33,18 @@ interface LogViewerBaseOptions {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], LogViewerStylePart>;
 }
 
-export type LogViewerOptions<TMessage = never> =
+export type LogViewerOptions<TMessage extends ComponentMessage = never> =
   | PassiveLogViewerOptions<TMessage>
   | ScrollableLogViewerOptions<TMessage>;
 
-export interface PassiveLogViewerOptions<TMessage = never> extends LogViewerBaseOptions {
+export interface PassiveLogViewerOptions<TMessage extends ComponentMessage = never> extends LogViewerBaseOptions {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
   readonly onAction?: (action: LogViewerControlAction) => MessageResolution<TMessage>;
 }
 
-export interface ScrollableLogViewerOptions<TMessage = never> extends LogViewerBaseOptions {
+export interface ScrollableLogViewerOptions<TMessage extends ComponentMessage = never> extends LogViewerBaseOptions {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
@@ -68,7 +68,7 @@ interface CommandInputOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], CommandInputStylePart>;
 }
 
-export type CommandInputOptions<TMessage = never> = CommandInputOptionsBase & (
+export type CommandInputOptions<TMessage extends ComponentMessage = never> = CommandInputOptionsBase & (
   | { readonly disabled: true; readonly onAction?: never }
   | { readonly disabled?: false; readonly onAction: (action: CommandInputAction) => MessageResolution<TMessage> }
 );
@@ -89,7 +89,10 @@ interface SearchPickerOptionsBase<TValue> {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], SearchPickerStylePart>;
 }
 
-export type SearchPickerOptions<TValue = string, TMessage = never> = SearchPickerOptionsBase<TValue> & (
+export type SearchPickerOptions<
+  TValue = string,
+  TMessage extends ComponentMessage = never
+> = SearchPickerOptionsBase<TValue> & (
   | { readonly disabled: true; readonly onAction?: never }
   | { readonly disabled?: false; readonly onAction: (action: SearchPickerAction<TValue>) => MessageResolution<TMessage> }
 );

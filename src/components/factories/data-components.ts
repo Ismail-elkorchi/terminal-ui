@@ -13,6 +13,7 @@ import {
   span,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentInput,
   ComponentMeasureInput,
   ComponentRenderInput,
@@ -115,6 +116,12 @@ interface PreparedTableSource {
 }
 
 const tableSources = new WeakMap<object, PreparedTableSource>();
+const tableCollectionSources = new WeakMap<object, TableSource>();
+
+interface TablePreparation {
+  readonly columns: readonly PreparedTableColumn[];
+  readonly source: Readonly<Record<string, never>>;
+}
 
 interface DynamicTableOptions {
   readonly rows?: unknown;
@@ -188,7 +195,7 @@ const activeTable = defineComponent<
 >({
   ...tableBase,
   keys: ({ model }) => {
-    const selected = selectedTableRow(model);
+    const selected = selectedTablePosition(model);
     const column = model.columns[model.selectedCell?.columnIndex ?? 0];
     return {
       arrowUp: () => ({ kind: 'moveRow', delta: -1 }),
@@ -241,19 +248,20 @@ const activeTable = defineComponent<
   hitTargets: tableHitTargets,
 });
 
-export function table<TRow, const TMessage extends NonNullable<unknown> | null = never>(
+export function table<TRow, const TMessage extends ComponentMessage = never>(
   options: ScrollableTableOptions<TRow, TMessage>,
 ): Element<TMessage>;
 // The passive overload intentionally exposes TableControlAction instead of the scroll-capable TableAction.
-export function table<TRow, const TMessage extends NonNullable<unknown> | null = never>(
+export function table<TRow, const TMessage extends ComponentMessage = never>(
   // eslint-disable-next-line @typescript-eslint/unified-signatures
   options: PassiveTableOptions<TRow, TMessage>,
 ): Element<TMessage>;
-export function table<TRow, const TMessage extends NonNullable<unknown> | null = never>(
+export function table<TRow, const TMessage extends ComponentMessage = never>(
   options: TableOptions<TRow, TMessage>,
 ): Element<TMessage> {
-  const own = dynamicTableOptions(options);
-  if (options.onAction === undefined) {
+  const own = snapshotTableOptions(options);
+  const onAction = options.onAction;
+  if (onAction === undefined) {
     return passiveTable({
       ...own,
       id: options.id,
@@ -266,7 +274,7 @@ export function table<TRow, const TMessage extends NonNullable<unknown> | null =
       id: options.id,
       ...(options.meta === undefined ? {} : { meta: options.meta }),
       onAction: (action) =>
-        action.kind === 'scroll' ? ignoreMessage() : options.onAction?.(action) ?? ignoreMessage(),
+        action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
   return activeTable({
@@ -277,41 +285,23 @@ export function table<TRow, const TMessage extends NonNullable<unknown> | null =
   });
 }
 
-function isScrollableTable<TRow, TMessage>(
+function isScrollableTable<TRow, TMessage extends ComponentMessage>(
   options: TableOptions<TRow, TMessage>,
 ): options is ScrollableTableOptions<TRow, TMessage> {
-  return options.presentation !== undefined && 'scroll' in options.presentation;
+  return isNonArrayObject(options.presentation) && 'scroll' in options.presentation;
 }
 
-function dynamicTableOptions<TRow>(options: TableOptions<TRow, unknown>): DynamicTableOptions {
-  return {
-    ...(options.rows === undefined ? {} : { rows: options.rows }),
-    ...(options.getRowId === undefined ? {} : { getRowId: options.getRowId }),
-    ...(options.collection === undefined ? {} : { collection: options.collection }),
-    ...(options.columns === undefined ? {} : { columns: options.columns }),
-    ...(options.presentation === undefined ? {} : { presentation: options.presentation }),
-    ...(options.density === undefined ? {} : { density: options.density }),
-    ...(options.stickyHeader === undefined ? {} : { stickyHeader: options.stickyHeader }),
-    ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-    ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-    ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-  };
+function snapshotTableOptions<TRow>(
+  options: TableOptions<TRow, ComponentMessage>,
+): DynamicTableOptions {
+  return { ...options };
 }
 
 function prepareTable(value: unknown): TableModel {
   if (!isNonArrayObject(value)) throw new TypeError('table options must be an object.');
   const source = tableSource(value);
-  const preparedColumns = prepareTableColumns(value['columns'], source.rows);
-  const columns = preparedColumns.models;
-  const sourceToken = Object.freeze({});
-  tableSources.set(sourceToken, {
-    rows: source.rows,
-    ids: source.ids,
-    indexes: new Map(source.ids.map((id, index) => [id, source.startIndex + index])),
-    columns: preparedColumns.inputs,
-    preparedRows: new Map(),
-  });
+  const preparation = prepareTableStructure(value['columns'], source);
+  const columns = preparation.columns;
   const presentation = prepareTablePresentation(value['presentation']);
   const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'table scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value['scrollPolicy'], 'table scrollPolicy');
@@ -326,7 +316,7 @@ function prepareTable(value: unknown): TableModel {
   return {
     columns,
     hasHeader: columns.some((column) => column.header.length > 0),
-    source: sourceToken,
+    source: preparation.source,
     startIndex: source.startIndex,
     totalCount: source.totalCount,
     ...(presentation.selectedRowId === undefined
@@ -352,6 +342,22 @@ interface TableSource {
   readonly ids: readonly string[];
   readonly startIndex: number;
   readonly totalCount: number;
+  readonly indexes?: ReadonlyMap<string, number>;
+}
+
+function prepareTableStructure(columns: unknown, source: TableSource): TablePreparation {
+  const preparedColumns = prepareTableColumns(columns, source.rows);
+  const sourceToken = Object.freeze({});
+  tableSources.set(sourceToken, {
+    rows: source.rows,
+    ids: source.ids,
+    indexes: source.indexes ?? new Map(
+      source.ids.map((id, index) => [id, source.startIndex + index]),
+    ),
+    columns: preparedColumns.inputs,
+    preparedRows: new Map(),
+  });
+  return Object.freeze({ columns: preparedColumns.models, source: sourceToken });
 }
 
 function tableSource(value: Readonly<Record<string, unknown>>): TableSource {
@@ -363,15 +369,21 @@ function tableSource(value: Readonly<Record<string, unknown>>): TableSource {
     if (!isCollectionProjection(collection)) {
       throw new TypeError('table collection must be prepared with prepareTableCollection().');
     }
-    const rows = collection.records.map((record, index) =>
+    const cached = tableCollectionSources.get(collection);
+    if (cached !== undefined) return cached;
+    const rows = Object.freeze(collection.records.map((record, index) =>
       collectionRow(record, `table collection records[${String(index)}]`)
-    );
-    return {
+    ));
+    const ids = Object.freeze(collection.records.map((record) => record.id));
+    const prepared = Object.freeze({
       rows,
-      ids: collection.records.map((record) => record.id),
+      ids,
       startIndex: collection.startIndex,
       totalCount: collection.totalCount,
-    };
+      indexes: new Map(ids.map((id, index) => [id, collection.startIndex + index])),
+    });
+    tableCollectionSources.set(collection, prepared);
+    return prepared;
   }
   if (!Array.isArray(value['rows']) || !isUnknownCallback(value['getRowId'])) {
     throw new TypeError('table requires rows and getRowId, or collection.');
@@ -539,10 +551,9 @@ function tableCell(
   if (column === undefined || !isUnknownCallback(column['value'])) {
     return { content: Object.freeze([]), text: '' };
   }
-  const value = column['value'](row, rowIndex);
   const rendered = isUnknownCallback(column['renderCell'])
     ? column['renderCell'](row, rowIndex, columnIndex)
-    : value;
+    : column['value'](row, rowIndex);
   let content: InlineContent;
   if (typeof rendered === 'string') {
     content = normalizeInlineContent([{ kind: 'text', text: rendered }]);
@@ -835,7 +846,7 @@ function tablePlan(input: ComponentInput<TableModel>): TablePlan {
     });
   }
   const bodyHeight = geometry.contentBounds.height;
-  const selectedIndex = selectedTableRow(input.model)?.rowIndex;
+  const selectedIndex = selectedTablePosition(input.model)?.rowIndex;
   const requested = dataWindow({
     totalRows: input.model.totalCount,
     viewportRows: bodyHeight,
@@ -1523,12 +1534,14 @@ function tableFrameSource(
   });
 }
 
-function selectedTableRow(model: TableModel): PreparedTableRow | undefined {
+function selectedTablePosition(
+  model: TableModel,
+): { readonly id: string; readonly rowIndex: number } | undefined {
   const selectedId = model.selectedCell?.rowId ?? model.selectedRowId;
   if (selectedId === undefined) return undefined;
   const source = tableSourceFor(model);
   const rowIndex = source.indexes.get(selectedId);
-  return rowIndex === undefined ? undefined : preparedTableRow(model, rowIndex - model.startIndex);
+  return rowIndex === undefined ? undefined : { id: selectedId, rowIndex };
 }
 
 function tableSourceFor(model: TableModel): PreparedTableSource {
@@ -1691,51 +1704,42 @@ const activeTree = defineComponent<
 
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
-  const TMessage extends NonNullable<unknown> | null = never,
+  const TMessage extends ComponentMessage = never,
 >(options: ScrollableTreeOptions<TMetadata, TMessage>): Element<TMessage>;
 // The passive overload intentionally excludes scroll actions.
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
-  const TMessage extends NonNullable<unknown> | null = never,
+  const TMessage extends ComponentMessage = never,
 >(
   // eslint-disable-next-line @typescript-eslint/unified-signatures
   options: PassiveTreeOptions<TMetadata, TMessage>
 ): Element<TMessage>;
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
-  const TMessage extends NonNullable<unknown> | null = never,
+  const TMessage extends ComponentMessage = never,
 >(options: TreeOptions<TMetadata, TMessage>): Element<TMessage> {
-  const own = dynamicTreeOptions(options);
+  const own = snapshotTreeOptions(options);
   const shared = {
     ...own,
     id: options.id,
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (options.onAction === undefined) return passiveTree(shared);
+  const onAction = options.onAction;
+  if (onAction === undefined) return passiveTree(shared);
   if (options.scroll === undefined) {
     return activeTree({
       ...shared,
       onAction: (action) =>
-        action.kind === 'scroll' ? ignoreMessage() : options.onAction?.(action) ?? ignoreMessage(),
+        action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
   return activeTree({ ...shared, onAction: options.onAction });
 }
 
-function dynamicTreeOptions<TMetadata extends Readonly<Record<string, unknown>>>(
-  options: TreeOptions<TMetadata, unknown>,
+function snapshotTreeOptions<TMetadata extends Readonly<Record<string, unknown>>>(
+  options: TreeOptions<TMetadata, ComponentMessage>,
 ): DynamicTreeOptions {
-  return {
-    ...(options.nodes === undefined ? {} : { nodes: options.nodes }),
-    ...(options.collection === undefined ? {} : { collection: options.collection }),
-    ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
-    ...(options.selected === undefined ? {} : { selected: options.selected }),
-    ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-    ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-    ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-    ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-  };
+  return { ...options };
 }
 
 function prepareTree(value: unknown): TreeModel {

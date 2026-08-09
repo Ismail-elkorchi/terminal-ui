@@ -86,6 +86,7 @@ export function componentElement({ definition, children, ...options }) {
 }
 
 export function testKeyInput(options) {
+  const onAction = options.onAction;
   const definition = defineComponent({
     name: 'terminal-ui-tests/components/key-input',
     identity: 'required',
@@ -107,14 +108,12 @@ export function testKeyInput(options) {
     }),
     render: ({ target, model }) => target.write(0, 0, [span(model.value)]),
     keys: () => options.keys ?? {},
-    onInput: ({ text }) => options.onAction?.({
-      kind: 'edit',
-      operation: { kind: 'insert', text }
-    }) ?? ignoreMessage(),
-    onPaste: ({ text }) => options.onAction?.({
-      kind: 'edit',
-      operation: { kind: 'insert', text }
-    }) ?? ignoreMessage(),
+    onInput: ({ text }) => onAction === undefined
+      ? ignoreMessage()
+      : onAction({ kind: 'edit', operation: { kind: 'insert', text } }),
+    onPaste: ({ text }) => onAction === undefined
+      ? ignoreMessage()
+      : onAction({ kind: 'edit', operation: { kind: 'insert', text } }),
     focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
     accessibility: ({ id, model, focused }) => ({
       id,
@@ -128,6 +127,6 @@ export function testKeyInput(options) {
     id: options.id,
     value: options.presentation?.value ?? '',
     ...(options.meta === undefined ? {} : { meta: options.meta }),
-    onAction: (action) => action ?? ignoreMessage()
+    onAction: (action) => action
   });
 }

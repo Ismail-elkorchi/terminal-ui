@@ -1,4 +1,5 @@
 import type { InlineContent } from '../../visual/inline-content.ts';
+import type { ComponentMessage } from '../../component/index.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -42,7 +43,9 @@ export interface FormOptions extends LayoutFlowOptions {
   readonly title?: string;
 }
 
-export interface FieldOptions<TChild extends import('../../element/index.ts').Element<unknown>> extends LayoutFlowOptions {
+export interface FieldOptions<
+  TChild extends import('../../element/index.ts').Element<ComponentMessage>
+> extends LayoutFlowOptions {
   readonly id?: string;
   readonly label: string;
   readonly description?: string;
@@ -69,7 +72,7 @@ interface ButtonOptionsBase extends ElementOptions<ButtonStylePart> {
   readonly pointerState?: PointerInteractionState;
 }
 
-export type ButtonOptions<TMessage = never> = ButtonOptionsBase & (
+export type ButtonOptions<TMessage extends ComponentMessage = never> = ButtonOptionsBase & (
   | {
       readonly disabled: true;
       readonly onAction?: never;
@@ -90,11 +93,11 @@ interface CheckboxOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChoiceStylePart>;
 }
 
-export type CheckboxOptions<TMessage = never> =
+export type CheckboxOptions<TMessage extends ComponentMessage = never> =
   | ActiveCheckboxOptions<TMessage>
   | DisabledCheckboxOptions;
 
-export interface ActiveCheckboxOptions<TMessage> extends CheckboxOptionsBase {
+export interface ActiveCheckboxOptions<TMessage extends ComponentMessage> extends CheckboxOptionsBase {
   readonly onAction: (action: CheckboxAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
@@ -116,11 +119,11 @@ interface ToggleSwitchOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ToggleStylePart>;
 }
 
-export type ToggleSwitchOptions<TMessage = never> =
+export type ToggleSwitchOptions<TMessage extends ComponentMessage = never> =
   | ActiveToggleSwitchOptions<TMessage>
   | DisabledToggleSwitchOptions;
 
-export interface ActiveToggleSwitchOptions<TMessage> extends ToggleSwitchOptionsBase {
+export interface ActiveToggleSwitchOptions<TMessage extends ComponentMessage> extends ToggleSwitchOptionsBase {
   readonly onAction: (action: ToggleSwitchAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
@@ -144,11 +147,11 @@ interface SliderOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], SliderStylePart>;
 }
 
-export type SliderOptions<TMessage = never> =
+export type SliderOptions<TMessage extends ComponentMessage = never> =
   | ActiveSliderOptions<TMessage>
   | DisabledSliderOptions;
 
-export interface ActiveSliderOptions<TMessage> extends SliderOptionsBase {
+export interface ActiveSliderOptions<TMessage extends ComponentMessage> extends SliderOptionsBase {
   readonly onAction: (action: import('../../ui-model/forms.ts').SliderAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
@@ -171,11 +174,11 @@ interface RangeSliderOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], SliderStylePart>;
 }
 
-export type RangeSliderOptions<TMessage = never> =
+export type RangeSliderOptions<TMessage extends ComponentMessage = never> =
   | ActiveRangeSliderOptions<TMessage>
   | DisabledRangeSliderOptions;
 
-export interface ActiveRangeSliderOptions<TMessage> extends RangeSliderOptionsBase {
+export interface ActiveRangeSliderOptions<TMessage extends ComponentMessage> extends RangeSliderOptionsBase {
   readonly onAction: (action: RangeSliderAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
@@ -198,11 +201,12 @@ interface CheckboxGroupOptionsBase<TValue> {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChoiceStylePart>;
 }
 
-export type CheckboxGroupOptions<TValue = string, TMessage = never> =
+export type CheckboxGroupOptions<TValue = string, TMessage extends ComponentMessage = never> =
   | ActiveCheckboxGroupOptions<TValue, TMessage>
   | DisabledCheckboxGroupOptions<TValue>;
 
-export interface ActiveCheckboxGroupOptions<TValue, TMessage> extends CheckboxGroupOptionsBase<TValue> {
+export interface ActiveCheckboxGroupOptions<TValue, TMessage extends ComponentMessage>
+  extends CheckboxGroupOptionsBase<TValue> {
   readonly onAction: (action: CheckboxGroupAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
@@ -225,11 +229,12 @@ interface ColorSwatchPickerOptionsBase<TValue> {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], PickerStylePart>;
 }
 
-export type ColorSwatchPickerOptions<TValue = string, TMessage = never> =
+export type ColorSwatchPickerOptions<TValue = string, TMessage extends ComponentMessage = never> =
   | ActiveColorSwatchPickerOptions<TValue, TMessage>
   | DisabledColorSwatchPickerOptions<TValue>;
 
-export interface ActiveColorSwatchPickerOptions<TValue, TMessage> extends ColorSwatchPickerOptionsBase<TValue> {
+export interface ActiveColorSwatchPickerOptions<TValue, TMessage extends ComponentMessage>
+  extends ColorSwatchPickerOptionsBase<TValue> {
   readonly onAction: (action: ColorSwatchPickerAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
@@ -253,11 +258,11 @@ interface CalendarOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], PickerStylePart>;
 }
 
-export type CalendarOptions<TMessage = never> =
+export type CalendarOptions<TMessage extends ComponentMessage = never> =
   | ActiveCalendarOptions<TMessage>
   | DisabledCalendarOptions;
 
-export interface ActiveCalendarOptions<TMessage> extends CalendarOptionsBase {
+export interface ActiveCalendarOptions<TMessage extends ComponentMessage> extends CalendarOptionsBase {
   readonly onAction: (action: CalendarAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
@@ -280,11 +285,12 @@ interface RadioGroupOptionsBase<TValue> {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChoiceStylePart>;
 }
 
-export type RadioGroupOptions<TValue = string, TMessage = never> =
+export type RadioGroupOptions<TValue = string, TMessage extends ComponentMessage = never> =
   | ActiveRadioGroupOptions<TValue, TMessage>
   | DisabledRadioGroupOptions<TValue>;
 
-export interface ActiveRadioGroupOptions<TValue, TMessage> extends RadioGroupOptionsBase<TValue> {
+export interface ActiveRadioGroupOptions<TValue, TMessage extends ComponentMessage>
+  extends RadioGroupOptionsBase<TValue> {
   readonly onAction: (action: RadioGroupAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
@@ -309,11 +315,11 @@ interface SelectOptionsBase<TValue> {
   readonly meta?: Pick<ElementMeta<ChoiceStylePart>, 'focus' | 'layer' | 'styles'>;
 }
 
-export type SelectOptions<TValue = string, TMessage = never> =
+export type SelectOptions<TValue = string, TMessage extends ComponentMessage = never> =
   | ActiveSelectOptions<TValue, TMessage>
   | DisabledSelectOptions<TValue>;
 
-export interface ActiveSelectOptions<TValue, TMessage>
+export interface ActiveSelectOptions<TValue, TMessage extends ComponentMessage>
   extends SelectOptionsBase<TValue> {
   readonly presentation: SelectPresentation;
   readonly onAction: (action: SelectAction) => MessageResolution<TMessage>;
@@ -336,11 +342,11 @@ interface TextInputOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], TextEntryStylePart>;
 }
 
-export type TextInputOptions<TMessage = never> =
+export type TextInputOptions<TMessage extends ComponentMessage = never> =
   | ActiveTextInputOptions<TMessage>
   | DisabledTextInputOptions;
 
-export type ActiveTextInputOptions<TMessage> = TextInputOptionsBase & {
+export type ActiveTextInputOptions<TMessage extends ComponentMessage> = TextInputOptionsBase & {
   readonly disabled?: false;
   readonly onAction: (action: TextInputAction) => MessageResolution<TMessage>;
 };
@@ -351,7 +357,7 @@ export type DisabledTextInputOptions = TextInputOptionsBase & {
   readonly pointerState?: never;
 };
 
-export type PasswordInputOptions<TMessage = never> =
+export type PasswordInputOptions<TMessage extends ComponentMessage = never> =
   (ActiveTextInputOptions<TMessage> | DisabledTextInputOptions) & { readonly mask?: string };
 
 interface NumberInputOptionsBase {
@@ -364,11 +370,11 @@ interface NumberInputOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], NumberInputStylePart>;
 }
 
-export type NumberInputOptions<TMessage = never> =
+export type NumberInputOptions<TMessage extends ComponentMessage = never> =
   | ActiveNumberInputOptions<TMessage>
   | DisabledNumberInputOptions;
 
-export interface ActiveNumberInputOptions<TMessage> extends NumberInputOptionsBase {
+export interface ActiveNumberInputOptions<TMessage extends ComponentMessage> extends NumberInputOptionsBase {
   readonly onAction: (action: NumberInputControlAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }

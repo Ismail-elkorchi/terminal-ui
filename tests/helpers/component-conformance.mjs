@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { ignoreMessage } from '../../dist/component/index.js';
+import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { renderElementSnapshot } from '../../dist/testing/index.js';
+import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 export function runButtonConformance(name, createButton) {
   test(`${name}: exact decoding, sanitization, Unicode, styles, source, focus, and determinism`, () => {
@@ -52,4 +55,51 @@ export function runButtonConformance(name, createButton) {
       misspelled: true
     }), /unknown field/u);
   });
+}
+
+export function runMessageRoutingConformance(name, createButton) {
+  test(`${name}: message routing distinguishes values, ignored actions, and invalid absence`, async () => {
+    const ordinary = await runButtonAction(name, createButton, () => ({ kind: 'ordinary' }));
+    assert.deepEqual(ordinary.messages, [{ kind: 'ordinary' }]);
+
+    const ignored = await runButtonAction(name, createButton, () => ignoreMessage());
+    assert.deepEqual(ignored.messages, []);
+
+    for (const absent of [undefined, null]) {
+      await assert.rejects(
+        runButtonAction(name, createButton, () => absent),
+        /onAction returned null or undefined.*ignoreMessage/u
+      );
+    }
+  });
+}
+
+async function runButtonAction(name, createButton, onAction) {
+  const app = defineTui({
+    id: `${name}-message-routing`,
+    init: () => ({ messages: [] }),
+    update: (state, message) => ({ state: { messages: [...state.messages, message] } }),
+    view: () => createButton({
+      id: `${name}-message-button`,
+      label: 'Action',
+      onAction
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 12, rows: 1 } })
+  });
+  try {
+    await runtime.start();
+    await runtime.handleInput({
+      kind: 'key',
+      key: 'enter',
+      modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+      eventType: 'press',
+      location: 'standard'
+    });
+    return runtime.state();
+  } finally {
+    await runtime.dispose();
+  }
 }

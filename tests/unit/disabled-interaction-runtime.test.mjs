@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
 
+import { ignoreMessage } from '../../dist/component/index.js';
 import { defineTui } from '../../dist/tui/index.js';
 import {
   createTerminalHarness } from '../../dist/testing/index.js';
@@ -207,7 +208,7 @@ test('commandInput preserves disabled suggestion semantics', () => {
       ], selectedSuggestionIndex: 0 },
       matchQuery: 'de',
       display: 'expanded',
-      onAction: () => null
+      onAction: () => ignoreMessage()
     }),
     { columns: 40, rows: 3 }
   );

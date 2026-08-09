@@ -150,7 +150,8 @@ Semantic definitions declare keyboard, text, paste, pointer, and hit-target
 behavior in terms of one reusable action type. Each instance supplies
 `onAction`, which maps that action into its application's message type. Return
 `ignoreMessage()` from the same `/component` entrypoint when an action is
-intentionally ignored; returning `undefined` is rejected.
+intentionally ignored. Component messages are non-null values; returning
+`undefined` or `null` is rejected so ignored actions are always explicit.
 
 A pointer declaration without `state` always emits its declared pointer
 actions. When `state` is provided, returning `undefined` disables that optional
@@ -186,6 +187,29 @@ target that should transfer keyboard focus names one of the component's focus
 targets explicitly. The runtime resolves that ID to the committed focus path.
 Accessibility focus must agree with the resolved target; when accessible node
 IDs match focus-target IDs, the matching accessible node must be focused.
+
+## Publishing A Component Package
+
+Elements are opaque capabilities owned by one installed terminal-ui instance.
+A component package must share the application's instance rather than bundling
+or installing a private copy:
+
+```json
+{
+  "peerDependencies": {
+    "@ismail-elkorchi/terminal-ui": "^0.1.0"
+  },
+  "devDependencies": {
+    "@ismail-elkorchi/terminal-ui": "^0.1.0"
+  }
+}
+```
+
+Mark `@ismail-elkorchi/terminal-ui` as external in the package bundler. The
+peer dependency supplies the runtime copy; the development dependency supplies
+types and tests while authoring the package. Passing an element between two
+installed copies is rejected with a package-instance diagnostic; renderer
+internals are never shared through a global registry.
 
 ## What To Test
 

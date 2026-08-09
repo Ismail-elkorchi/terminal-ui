@@ -1,0 +1,22 @@
+{
+  "name": "terminal-ui-peer-component-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "peerDependencies": {
+    "@ismail-elkorchi/terminal-ui": "^0.1.0"
+  },
+  "devDependencies": {
+    "@ismail-elkorchi/terminal-ui": "^0.1.0"
+  }
+}

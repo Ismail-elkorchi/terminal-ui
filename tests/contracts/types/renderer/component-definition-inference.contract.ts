@@ -310,3 +310,10 @@ interactive({ id: 'undefined-action', onAction: () => undefined });
 
 const componentMessage: ComponentMessage = 'valid';
 void componentMessage;
+// @ts-expect-error null is reserved from component messages
+const nullComponentMessage: ComponentMessage = null;
+void nullComponentMessage;
+
+declare const nullMessageElement: Element<null>;
+// @ts-expect-error component slots cannot reintroduce the reserved null message
+actionRow({ id: 'null-child', slots: { actions: [nullMessageElement] } });

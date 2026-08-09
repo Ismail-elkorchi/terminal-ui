@@ -2,6 +2,7 @@ import type {
   HelpGroup,
   ProcessStatus
 } from '../../ui-model/contracts.ts';
+import type { ComponentMessage } from '../../component/index.ts';
 import type {
   BarChartItem,
   ChartDataState,
@@ -41,7 +42,7 @@ interface NotificationRegionOptionsBase extends NotificationOptionsBase {
   readonly items: readonly import('../../ui-model/feedback.ts').NotificationItem[];
 }
 
-export type NotificationRegionOptions<TMessage = never> =
+export type NotificationRegionOptions<TMessage extends ComponentMessage = never> =
   | (NotificationRegionOptionsBase & {
       readonly onAction: (action: NotificationRegionAction) => MessageResolution<TMessage>;
     })
@@ -50,7 +51,7 @@ export type NotificationRegionOptions<TMessage = never> =
       readonly pointerState?: never;
     });
 
-export interface NotificationHistoryOptions<TMessage = never>
+export interface NotificationHistoryOptions<TMessage extends ComponentMessage = never>
   extends NotificationOptionsBase {
   readonly items: readonly import('../../ui-model/feedback.ts').NotificationItem[];
   readonly selectedId?: string;
@@ -136,7 +137,7 @@ interface BarChartOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
 }
 
-export type BarChartOptions<TMessage = never> = BarChartOptionsBase & (
+export type BarChartOptions<TMessage extends ComponentMessage = never> = BarChartOptionsBase & (
   | { readonly onAction?: never; readonly pointerState?: never }
   | { readonly onAction: (action: BarChartAction) => MessageResolution<TMessage>; readonly disabled?: false }
   | { readonly onAction?: never; readonly disabled: true; readonly pointerState?: never }
@@ -165,7 +166,7 @@ interface ChartOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
 }
 
-export type ChartOptions<TMessage = never> = ChartOptionsBase & (
+export type ChartOptions<TMessage extends ComponentMessage = never> = ChartOptionsBase & (
   | { readonly onAction?: never; readonly pointerState?: never }
   | { readonly onAction: (action: ChartAction) => MessageResolution<TMessage>; readonly disabled?: false }
   | { readonly onAction?: never; readonly disabled: true; readonly pointerState?: never }
@@ -201,7 +202,10 @@ interface HeatmapOptionsBase<TValue> {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
 }
 
-export type HeatmapOptions<TValue = unknown, TMessage = never> = HeatmapOptionsBase<TValue> & (
+export type HeatmapOptions<
+  TValue = unknown,
+  TMessage extends ComponentMessage = never
+> = HeatmapOptionsBase<TValue> & (
   | { readonly onAction?: never; readonly pointerState?: never }
   | { readonly onAction: (action: HeatmapAction) => MessageResolution<TMessage>; readonly disabled?: false }
   | { readonly onAction?: never; readonly disabled: true; readonly pointerState?: never }

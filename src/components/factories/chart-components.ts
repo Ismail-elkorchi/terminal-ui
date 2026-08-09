@@ -1,5 +1,6 @@
 import { defineComponent, ignoreMessage, span } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentMeasureInput,
@@ -145,15 +146,14 @@ const activeBarChart = defineComponent<
   },
 });
 
-export function barChart<const TMessage extends NonNullable<unknown> | null = never>(
+export function barChart<const TMessage extends ComponentMessage = never>(
   options: BarChartOptions<TMessage>,
 ): Element<TMessage> {
-  const own = dynamicBarOptions(options);
+  const own = snapshotBarOptions(options);
   if (options.onAction === undefined) {
     return passiveBarChart({
       ...own,
       id: options.id,
-      ...disabledState(options),
       ...(options.meta === undefined ? {} : { meta: options.meta }),
     });
   }
@@ -165,18 +165,8 @@ export function barChart<const TMessage extends NonNullable<unknown> | null = ne
   });
 }
 
-function dynamicBarOptions(options: BarChartOptions<unknown>): DynamicBarChartOptions {
-  return {
-    label: options.label,
-    items: options.items,
-    ...(options.max === undefined ? {} : { max: options.max }),
-    ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
-    ...(options.dataState === undefined ? {} : { dataState: options.dataState }),
-    ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-    ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
-    ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-  };
+function snapshotBarOptions(options: BarChartOptions<ComponentMessage>): DynamicBarChartOptions {
+  return { ...options };
 }
 
 function prepareBarChart(value: unknown): BarChartModel {
@@ -476,15 +466,14 @@ const activeChart = defineComponent<
   hitTargets: chartHitTargets,
 });
 
-export function chart<const TMessage extends NonNullable<unknown> | null = never>(
+export function chart<const TMessage extends ComponentMessage = never>(
   options: ChartOptions<TMessage>,
 ): Element<TMessage> {
-  const own = dynamicChartOptions(options);
+  const own = snapshotChartOptions(options);
   if (options.onAction === undefined) {
     return passiveChart({
       ...own,
       id: options.id,
-      ...disabledState(options),
       ...(options.meta === undefined ? {} : { meta: options.meta }),
     });
   }
@@ -496,27 +485,8 @@ export function chart<const TMessage extends NonNullable<unknown> | null = never
   });
 }
 
-function dynamicChartOptions(options: ChartOptions<unknown>): DynamicChartOptions {
-  return {
-    label: options.label,
-    series: options.series,
-    ...(options.min === undefined ? {} : { min: options.min }),
-    ...(options.max === undefined ? {} : { max: options.max }),
-    ...(options.selected === undefined ? {} : { selected: options.selected }),
-    ...(options.legend === undefined ? {} : { legend: options.legend }),
-    ...(options.signedDomain === undefined ? {} : { signedDomain: options.signedDomain }),
-    ...(options.xLabel === undefined ? {} : { xLabel: options.xLabel }),
-    ...(options.yLabel === undefined ? {} : { yLabel: options.yLabel }),
-    ...(options.dataState === undefined ? {} : { dataState: options.dataState }),
-    ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale }),
-    ...(options.sampleMode === undefined ? {} : { sampleMode: options.sampleMode }),
-    ...(options.sampleAlign === undefined ? {} : { sampleAlign: options.sampleAlign }),
-    ...(options.interpolation === undefined ? {} : { interpolation: options.interpolation }),
-    ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-    ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
-    ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-  };
+function snapshotChartOptions(options: ChartOptions<ComponentMessage>): DynamicChartOptions {
+  return { ...options };
 }
 
 function prepareChart(value: unknown): ChartModel {
@@ -1241,15 +1211,14 @@ const activeHeatmap = defineComponent<
   },
 });
 
-export function heatmap<TValue, const TMessage extends NonNullable<unknown> | null = never>(
+export function heatmap<TValue, const TMessage extends ComponentMessage = never>(
   options: HeatmapOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const own = dynamicHeatmapOptions(options);
+  const own = snapshotHeatmapOptions(options);
   if (options.onAction === undefined) {
     return passiveHeatmap({
       ...own,
       id: options.id,
-      ...disabledState(options),
       ...(options.meta === undefined ? {} : { meta: options.meta }),
     });
   }
@@ -1261,24 +1230,10 @@ export function heatmap<TValue, const TMessage extends NonNullable<unknown> | nu
   });
 }
 
-function dynamicHeatmapOptions<TValue>(
-  options: HeatmapOptions<TValue, unknown>,
+function snapshotHeatmapOptions<TValue>(
+  options: HeatmapOptions<TValue, ComponentMessage>,
 ): DynamicHeatmapOptions {
-  return {
-    label: options.label,
-    rows: options.rows,
-    ...(options.min === undefined ? {} : { min: options.min }),
-    ...(options.max === undefined ? {} : { max: options.max }),
-    ...(options.selected === undefined ? {} : { selected: options.selected }),
-    ...(options.cellWidth === undefined ? {} : { cellWidth: options.cellWidth }),
-    ...(options.gap === undefined ? {} : { gap: options.gap }),
-    ...(options.dataState === undefined ? {} : { dataState: options.dataState }),
-    ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale }),
-    ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-    ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
-    ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-  };
+  return { ...options };
 }
 
 function prepareHeatmap(value: unknown): HeatmapModel {
@@ -1788,8 +1743,4 @@ function exact(
   if (unsupported !== undefined) {
     throw new TypeError(`${owner} contains unknown field "${unsupported}".`);
   }
-}
-
-function disabledState(value: object): { readonly disabled?: true } {
-  return 'disabled' in value && value.disabled === true ? { disabled: true } : {};
 }

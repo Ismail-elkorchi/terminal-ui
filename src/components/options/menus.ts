@@ -1,4 +1,5 @@
 import type { BorderOptions } from '../../visual/border.ts';
+import type { ComponentMessage } from '../../component/index.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import type { ScrollPolicy } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -30,7 +31,7 @@ interface InteractiveMenuOptions {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], MenuStylePart>;
 }
 
-export interface MenuOptions<TMessage = never> extends InteractiveMenuOptions {
+export interface MenuOptions<TMessage extends ComponentMessage = never> extends InteractiveMenuOptions {
   readonly presentation: MenuPresentation;
   readonly emptyText?: string;
   readonly scrollbar?: ScrollbarOptions;
@@ -38,7 +39,7 @@ export interface MenuOptions<TMessage = never> extends InteractiveMenuOptions {
   readonly onAction: (action: MenuAction) => MessageResolution<TMessage>;
 }
 
-export interface MenuBarOptions<TMessage = never> extends InteractiveMenuOptions {
+export interface MenuBarOptions<TMessage extends ComponentMessage = never> extends InteractiveMenuOptions {
   readonly items: readonly MenuItem[];
   readonly presentation: MenuBarPresentation;
   readonly maxVisibleItems?: number;
@@ -47,7 +48,7 @@ export interface MenuBarOptions<TMessage = never> extends InteractiveMenuOptions
   readonly onAction: (action: MenuBarAction) => MessageResolution<TMessage>;
 }
 
-export interface ContextMenuOptions<TMessage = never> extends InteractiveMenuOptions {
+export interface ContextMenuOptions<TMessage extends ComponentMessage = never> extends InteractiveMenuOptions {
   readonly presentation: ContextMenuPresentation;
   readonly title?: string;
   readonly emptyText?: string;
@@ -58,7 +59,7 @@ export interface ContextMenuOptions<TMessage = never> extends InteractiveMenuOpt
   readonly onAction: (action: ContextMenuAction) => MessageResolution<TMessage>;
 }
 
-export interface DropdownMenuOptions<TMessage = never> extends InteractiveMenuOptions {
+export interface DropdownMenuOptions<TMessage extends ComponentMessage = never> extends InteractiveMenuOptions {
   readonly label?: string;
   readonly items: readonly MenuItem[];
   readonly presentation: DropdownMenuPresentation;

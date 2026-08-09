@@ -114,12 +114,22 @@ test('prepared list collections retain item preparation across renders and actio
 
   assert.equal(projectorCalls, values.length);
   projectorCalls = 0;
-  renderElementFrame(list({ id: 'retained-list', collection, selectedId: '25000' }), { columns: 32, rows: 10 });
-  renderElementFrame(list({ id: 'retained-list', collection, selectedId: '25001' }), { columns: 40, rows: 12 });
+  let recordReads = 0;
+  const retained = new Proxy(collection, {
+    get(target, property, receiver) {
+      if (property === 'records') recordReads += 1;
+      return Reflect.get(target, property, receiver);
+    }
+  });
+  renderElementFrame(list({ id: 'retained-list', collection: retained, selectedId: '25000' }), { columns: 32, rows: 10 });
+  const readsAfterFirstConstruction = recordReads;
+  renderElementFrame(list({ id: 'retained-list', collection: retained, selectedId: '25001' }), { columns: 40, rows: 12 });
   const state = listReducer({ selectedId: '25000' }, { kind: 'move', delta: 1 }, { collection });
 
   assert.equal(state.selectedId, '25001');
   assert.equal(projectorCalls, 0);
+  assert.ok(readsAfterFirstConstruction > 0);
+  assert.equal(recordReads, readsAfterFirstConstruction);
 });
 
 test('windowed list collections project only supplied rows while preserving global scope', () => {
@@ -313,13 +323,23 @@ test('prepared table collections retain row identity across renders and reducer 
 
   assert.equal(rowIdCalls, rows.length);
   rowIdCalls = 0;
+  let recordReads = 0;
+  const retained = new Proxy(collection, {
+    get(target, property, receiver) {
+      if (property === 'records') recordReads += 1;
+      return Reflect.get(target, property, receiver);
+    }
+  });
   const columns = [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }];
-  renderElementFrame(table({ id: 'retained-table', collection, columns, presentation: { selectedRowId: '50000' } }), { columns: 48, rows: 12 });
-  renderElementFrame(table({ id: 'retained-table', collection, columns, presentation: { selectedRowId: '50001' } }), { columns: 64, rows: 16 });
+  renderElementFrame(table({ id: 'retained-table', collection: retained, columns, presentation: { selectedRowId: '50000' } }), { columns: 48, rows: 12 });
+  const readsAfterFirstConstruction = recordReads;
+  renderElementFrame(table({ id: 'retained-table', collection: retained, columns, presentation: { selectedRowId: '50001' } }), { columns: 64, rows: 16 });
   const state = tableReducer({ selectedRowId: '50000' }, { kind: 'moveRow', delta: 1 }, { collection, columnCount: 1 });
 
   assert.equal(state.selectedRowId, '50001');
   assert.equal(rowIdCalls, 0);
+  assert.ok(readsAfterFirstConstruction > 0);
+  assert.equal(recordReads, readsAfterFirstConstruction);
 });
 
 test('windowed table collections identify only supplied records and keep global row positions', () => {
@@ -343,7 +363,7 @@ test('windowed table collections identify only supplied records and keep global 
   assert.equal(frame.accessibility.root.children?.[1]?.position?.rowIndex, 70_004);
 });
 
-test('fill-width tables do not scan offscreen row values for intrinsic measurement', () => {
+test('fill-width tables evaluate each visible row once without scanning offscreen values', () => {
   let valueReads = 0;
   const rows = Array.from({ length: 20_000 }, (_value, index) => ({ name: `Row ${String(index)}` }));
   const frame = renderElementFrame(table({
@@ -362,7 +382,7 @@ test('fill-width tables do not scan offscreen row values for intrinsic measureme
   }), { columns: 80, rows: 20 });
 
   assert.match(renderFramePlain(frame), /Row 10000/u);
-  assert.ok(valueReads <= 40, `expected terminal-size-bounded value reads, received ${String(valueReads)}`);
+  assert.equal(valueReads, 20);
 });
 
 test('large table retained damage is narrowed to changed visible rows', () => {

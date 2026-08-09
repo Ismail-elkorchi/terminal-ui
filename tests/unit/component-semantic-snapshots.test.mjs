@@ -630,7 +630,6 @@ const cases = [
         [{ id: 'c', label: 'Gamma', value: 5 }]
       ],
       selected: { id: 'b' },
-      keys: { enter: () => ({ kind: 'heatmap-enter' }) },
       onAction: (action) => ({ kind: 'heatmap', action })
     }),
     expectText: /[░▒▓█◆]/u,

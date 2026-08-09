@@ -225,7 +225,7 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
       presentation: { value: 'example.test', cursor: 12, suggestions: [] },
       onAction: (action) => action
     }), { appearance: 'inset' }),
-    button({ id: 'menu', label: 'Menu', onAction: () => null })
+    button({ id: 'menu', label: 'Menu', onAction: () => ignoreMessage() })
   ], {
     id: 'browser-toolbar-shape',
     gap: 1,

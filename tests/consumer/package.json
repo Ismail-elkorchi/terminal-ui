@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@ismail-elkorchi/terminal-ui": "file:__TERMINAL_UI_TARBALL__"
+    "@ismail-elkorchi/terminal-ui": "file:__TERMINAL_UI_TARBALL__",
+    "terminal-ui-peer-component-fixture": "file:__EXTERNAL_COMPONENT_TARBALL__"
   }
 }

@@ -75,10 +75,10 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
 
 test('slider controls reject invalid caller-supplied numeric contracts consistently', () => {
   const validRangeState = { value: { start: 10, end: 20 }, activeHandle: 'start' };
-  assert.throws(() => slider({ id: 'nan-slider', label: '', value: Number.NaN, onAction: () => null }), /value must be finite/u);
-  assert.throws(() => slider({ id: 'bounds-slider', label: '', value: 1, min: 2, max: 1, onAction: () => null }), /finite ordered bounds/u);
-  assert.throws(() => slider({ id: 'step-slider', label: '', value: 1, step: 0, onAction: () => null }), /step must be finite and greater than zero/u);
-  assert.throws(() => slider({ id: 'width-slider', label: '', value: 1, width: 1.5, onAction: () => null }), /width must be a positive safe integer/u);
+  assert.throws(() => slider({ id: 'nan-slider', label: '', value: Number.NaN, onAction: () => ignoreMessage() }), /value must be finite/u);
+  assert.throws(() => slider({ id: 'bounds-slider', label: '', value: 1, min: 2, max: 1, onAction: () => ignoreMessage() }), /finite ordered bounds/u);
+  assert.throws(() => slider({ id: 'step-slider', label: '', value: 1, step: 0, onAction: () => ignoreMessage() }), /step must be finite and greater than zero/u);
+  assert.throws(() => slider({ id: 'width-slider', label: '', value: 1, width: 1.5, onAction: () => ignoreMessage() }), /width must be a positive safe integer/u);
   assert.throws(
     () => rangeSlider({ id: 'nan-range', label: '', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
     /value must be finite/u
@@ -343,7 +343,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
       min: 0,
       max: 100,
       width: 5,
-      onAction: () => null
+      onAction: () => ignoreMessage()
     }),
     select({
       id: 'region',

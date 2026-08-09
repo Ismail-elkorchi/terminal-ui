@@ -11,7 +11,13 @@ import {
   prepareComponentScrollPolicy,
   prepareComponentScrollState,
 } from '../../component/index.ts';
-import { createScrollState, normalizeScrollState, scrollReducer } from '../../behavior/index.ts';
+import type { ComponentMessage } from '../../component/index.ts';
+import {
+  createScrollState,
+  isCollectionProjection,
+  normalizeScrollState,
+  scrollReducer,
+} from '../../behavior/index.ts';
 import type { Element } from '../../element/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
@@ -163,19 +169,20 @@ const interactiveList = defineComponent<
   },
 });
 
-export function list<TValue, const TMessage extends NonNullable<unknown> | null = never>(
+export function list<TValue, const TMessage extends ComponentMessage = never>(
   options: ScrollableListOptions<TValue, TMessage>,
 ): Element<TMessage>;
 // The passive overload intentionally exposes ListControlAction instead of the scroll-capable ListAction.
-export function list<TValue, const TMessage extends NonNullable<unknown> | null = never>(
+export function list<TValue, const TMessage extends ComponentMessage = never>(
   // eslint-disable-next-line @typescript-eslint/unified-signatures
   options: PassiveListOptions<TValue, TMessage>,
 ): Element<TMessage>;
-export function list<TValue, const TMessage extends NonNullable<unknown> | null = never>(
+export function list<TValue, const TMessage extends ComponentMessage = never>(
   options: ListOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const dynamic = dynamicListOptions(options);
-  if (options.onAction === undefined) {
+  const dynamic = snapshotListOptions(options);
+  const onAction = options.onAction;
+  if (onAction === undefined) {
     return passiveList({
       ...dynamic,
       id: options.id,
@@ -188,7 +195,7 @@ export function list<TValue, const TMessage extends NonNullable<unknown> | null 
       id: options.id,
       ...(options.meta === undefined ? {} : { meta: options.meta }),
       onAction: (action) =>
-        action.kind === 'scroll' ? ignoreMessage() : options.onAction?.(action) ?? ignoreMessage(),
+        action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
   return interactiveList({
@@ -199,19 +206,10 @@ export function list<TValue, const TMessage extends NonNullable<unknown> | null 
   });
 }
 
-function dynamicListOptions<TValue>(options: ListOptions<TValue, unknown>): DynamicListOptions {
-  return {
-    ...options,
-    ...(options.items === undefined ? {} : { items: options.items }),
-    ...(options.projectItem === undefined ? {} : { projectItem: options.projectItem }),
-    ...(options.collection === undefined ? {} : { collection: options.collection }),
-    ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
-    ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
-    ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-    ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-    ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-  };
+function snapshotListOptions<TValue>(
+  options: ListOptions<TValue, ComponentMessage>,
+): DynamicListOptions {
+  return { ...options };
 }
 
 function prepareList(value: unknown): PreparedList {
@@ -235,19 +233,7 @@ function prepareList(value: unknown): PreparedList {
     throw new TypeError('Windowed list collections own their filter query.');
   }
   const query = projected.windowed ? projected.query : normalizedQuery(requestedQuery ?? '');
-  const visible = projected.windowed || query.length === 0
-    ? projected.entries
-    : projected.entries.filter((entry) => entry.searchText.includes(query));
-  const entries = visible.map((entry, position): PreparedListEntry =>
-    Object.freeze({
-      id: entry.id,
-      itemIndex: entry.itemIndex,
-      position: projected.windowed ? entry.itemIndex : position,
-      label: entry.label,
-      ...(entry.description === undefined ? {} : { description: entry.description }),
-      disabled: entry.disabled,
-    })
-  );
+  const entries = preparedListEntries(projected, query);
   const selectedId = optionalCleanString(value['selectedId'], 'list selectedId');
   const scroll = prepareComponentScrollState(value['scroll'], 'list scroll');
   const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'list scrollbar');
@@ -279,6 +265,35 @@ interface ProjectedListData {
   readonly query: string;
 }
 
+const preparedListCollections = new WeakMap<object, ProjectedListData>();
+const preparedListEntryViews = new WeakMap<
+  object,
+  { readonly query: string; readonly entries: readonly PreparedListEntry[] }
+>();
+
+function preparedListEntries(
+  projected: ProjectedListData,
+  query: string,
+): readonly PreparedListEntry[] {
+  const cached = preparedListEntryViews.get(projected);
+  if (cached?.query === query) return cached.entries;
+  const visible = projected.windowed || query.length === 0
+    ? projected.entries
+    : projected.entries.filter((entry) => entry.searchText.includes(query));
+  const entries = Object.freeze(visible.map((entry, position): PreparedListEntry =>
+    Object.freeze({
+      id: entry.id,
+      itemIndex: entry.itemIndex,
+      position: projected.windowed ? entry.itemIndex : position,
+      label: entry.label,
+      ...(entry.description === undefined ? {} : { description: entry.description }),
+      disabled: entry.disabled,
+    })
+  ));
+  preparedListEntryViews.set(projected, Object.freeze({ query, entries }));
+  return entries;
+}
+
 function prepareProjectedItems(items: unknown, projector: unknown): ProjectedListData {
   if (!Array.isArray(items) || !isListProjector(projector)) {
     throw new TypeError('list items must be an array and projectItem must be a function.');
@@ -304,11 +319,12 @@ function isListProjector(value: unknown): value is (item: unknown, index: number
 }
 
 function prepareProjectedCollection(value: unknown): ProjectedListData {
-  if (!isNonArrayObject(value)) throw new TypeError('list collection must be an object.');
-  const kind = value['kind'];
-  if (kind !== 'complete' && kind !== 'window') {
-    throw new TypeError('list collection kind is invalid.');
+  if (!isCollectionProjection(value)) {
+    throw new TypeError('list collection must be prepared with prepareListCollection().');
   }
+  const cached = preparedListCollections.get(value);
+  if (cached !== undefined) return cached;
+  const kind = value.kind;
   const supported = kind === 'complete'
     ? new Set(['kind', 'records', 'startIndex', 'totalCount'])
     : new Set(['kind', 'records', 'startIndex', 'totalCount', 'domain']);
@@ -316,28 +332,27 @@ function prepareProjectedCollection(value: unknown): ProjectedListData {
   if (unsupported !== undefined) {
     throw new TypeError(`list collection contains unknown field "${unsupported}".`);
   }
-  if (!Array.isArray(value['records'])) {
-    throw new TypeError('list collection records must be an array.');
-  }
-  const startIndex = nonNegativeSafeInteger(value['startIndex'], 'list collection startIndex');
-  const totalCount = nonNegativeSafeInteger(value['totalCount'], 'list collection totalCount');
-  if (kind === 'complete' && (startIndex !== 0 || totalCount !== value['records'].length)) {
+  const startIndex = nonNegativeSafeInteger(value.startIndex, 'list collection startIndex');
+  const totalCount = nonNegativeSafeInteger(value.totalCount, 'list collection totalCount');
+  if (kind === 'complete' && (startIndex !== 0 || totalCount !== value.records.length)) {
     throw new RangeError('Complete list collection indexes are inconsistent.');
   }
   if (
     kind === 'window' &&
-    (startIndex > totalCount || value['records'].length > totalCount - startIndex)
+    (startIndex > totalCount || value.records.length > totalCount - startIndex)
   ) {
     throw new RangeError('Windowed list collection records exceed its declared range.');
   }
-  const query = kind === 'window' ? prepareCollectionDomain(value['domain']) : '';
-  return {
-    entries: prepareEntries(value['records']),
+  const query = kind === 'window' ? prepareCollectionDomain(value.domain) : '';
+  const prepared = Object.freeze({
+    entries: prepareEntries(value.records),
     windowed: kind === 'window',
     startIndex,
     totalCount,
     query,
-  };
+  });
+  preparedListCollections.set(value, prepared);
+  return prepared;
 }
 
 function prepareCollectionDomain(value: unknown): string {
@@ -386,7 +401,7 @@ function prepareEntries(
   records: readonly unknown[],
 ): readonly (Omit<PreparedListEntry, 'position'> & { readonly searchText: string })[] {
   const ids = new Set<string>();
-  return records.map((record, offset) => {
+  return Object.freeze(records.map((record, offset) => {
     if (!isNonArrayObject(record)) {
       throw new TypeError(`list record ${String(offset)} must be an object.`);
     }
@@ -412,7 +427,7 @@ function prepareEntries(
       disabled: item.disabled,
       searchText: item.searchText,
     });
-  });
+  }));
 }
 
 function prepareListItem(value: unknown): {

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
@@ -8,6 +8,7 @@ import { globFiles } from './glob-files.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const fixtureRoot = join(projectRoot, 'tests', 'consumer');
+const externalComponentRoot = join(projectRoot, 'tests', 'fixtures', 'packed-external-component');
 const contractRuntimeRoot = join(projectRoot, 'tests', 'contracts', 'runtime');
 const temporaryRoot = await mkdtemp(join(tmpdir(), 'terminal-ui-packed-consumer-'));
 const packRoot = join(temporaryRoot, 'package');
@@ -29,6 +30,18 @@ try {
   if (typeof filename !== 'string' || filename.length === 0) {
     throw new Error(`npm pack did not report a tarball filename.\n${packed.stdout}`);
   }
+  const externalPacked = await run('npm', [
+    'pack',
+    '--ignore-scripts',
+    '--json',
+    '--pack-destination',
+    packRoot
+  ], externalComponentRoot);
+  const externalPackResult = JSON.parse(externalPacked.stdout);
+  const externalFilename = externalPackResult[0]?.filename;
+  if (typeof externalFilename !== 'string' || externalFilename.length === 0) {
+    throw new Error(`External component npm pack did not report a tarball filename.\n${externalPacked.stdout}`);
+  }
 
   await cp(fixtureRoot, consumerRoot, { recursive: true });
   await cp(contractRuntimeRoot, join(consumerRoot, 'contracts-runtime'), { recursive: true });
@@ -36,11 +49,14 @@ try {
   const packageSource = await readFile(packagePath, 'utf8');
   await writeFile(
     packagePath,
-    packageSource.replace('__TERMINAL_UI_TARBALL__', join(packRoot, filename)),
+    packageSource
+      .replace('__TERMINAL_UI_TARBALL__', join(packRoot, filename))
+      .replace('__EXTERNAL_COMPONENT_TARBALL__', join(packRoot, externalFilename)),
     'utf8'
   );
 
   await run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], consumerRoot);
+  await assertPeerComponentInstallation(consumerRoot);
   await run(process.execPath, [
     join(projectRoot, 'node_modules', 'typescript', 'bin', 'tsc'),
     '--project',
@@ -69,6 +85,22 @@ try {
   }
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
+}
+
+async function assertPeerComponentInstallation(consumerRoot) {
+  const packageRoot = join(consumerRoot, 'node_modules', 'terminal-ui-peer-component-fixture');
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  if (manifest.peerDependencies?.['@ismail-elkorchi/terminal-ui'] !== '^0.1.0') {
+    throw new Error('External component fixture must declare terminal-ui as a peer dependency.');
+  }
+  const nested = join(packageRoot, 'node_modules', '@ismail-elkorchi', 'terminal-ui');
+  try {
+    await stat(nested);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  throw new Error('External component fixture installed a private terminal-ui copy instead of its peer.');
 }
 
 function runtimeArgs(runtime, scenario) {

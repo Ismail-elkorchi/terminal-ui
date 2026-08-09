@@ -6,6 +6,7 @@ import {
   measureRenderSpans,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentLayoutInput,
@@ -85,7 +86,7 @@ const tabsSlots = {
   panels: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
 } as const;
 
-type TabsFactory = <TMessage extends NonNullable<unknown> | null>(
+type TabsFactory = <TMessage extends ComponentMessage>(
   options: TabsOptions<TMessage>,
 ) => Element<TMessage>;
 

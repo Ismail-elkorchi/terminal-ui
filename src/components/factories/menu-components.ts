@@ -14,6 +14,7 @@ import {
   span,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentMeasureInput,
@@ -100,7 +101,7 @@ interface MenuOwnOptions {
   readonly pointerState?: PointerInteractionState;
 }
 
-type MenuFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type MenuFactory = <const TMessage extends ComponentMessage = never>(
   options: MenuOptions<TMessage>,
 ) => Element<TMessage>;
 
@@ -186,7 +187,7 @@ interface MenuBarOwnOptions {
   readonly pointerState?: PointerInteractionState;
 }
 
-type MenuBarFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type MenuBarFactory = <const TMessage extends ComponentMessage = never>(
   options: MenuBarOptions<TMessage>,
 ) => Element<TMessage>;
 
@@ -295,9 +296,9 @@ interface ContextMenuModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-type ContextOwnOptions = Omit<ContextMenuOptions<unknown>, 'id' | 'onAction' | 'keys' | 'meta'>;
+type ContextOwnOptions = Omit<ContextMenuOptions<ComponentMessage>, 'id' | 'onAction' | 'keys' | 'meta'>;
 
-type ContextMenuFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type ContextMenuFactory = <const TMessage extends ComponentMessage = never>(
   options: ContextMenuOptions<TMessage>,
 ) => Element<TMessage>;
 
@@ -401,9 +402,9 @@ interface DropdownModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-type DropdownOwnOptions = Omit<DropdownMenuOptions<unknown>, 'id' | 'onAction' | 'keys' | 'meta'>;
+type DropdownOwnOptions = Omit<DropdownMenuOptions<ComponentMessage>, 'id' | 'onAction' | 'keys' | 'meta'>;
 
-type DropdownMenuFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type DropdownMenuFactory = <const TMessage extends ComponentMessage = never>(
   options: DropdownMenuOptions<TMessage>,
 ) => Element<TMessage>;
 
@@ -1060,12 +1061,12 @@ function menuPopup(
   maxVisibleItems: number,
   emit: (
     action: MenuAction,
-  ) => import('../../interaction/index.ts').MessageResolution<NonNullable<unknown> | null>,
+  ) => import('../../interaction/index.ts').MessageResolution<ComponentMessage>,
   scrollbar?: ScrollbarOptions,
   scrollPolicy?: ScrollPolicy,
   styles?: import('../../element/metadata.ts').ElementStyles<MenuStylePart>,
   placement: AnchoredSurfacePlacement = 'auto',
-): Element<unknown> {
+): Element<ComponentMessage> {
   const popupMenu = menu({
     id: `${id ?? 'menu'}:popup:menu`,
     presentation: publicMenuPresentation(presentation),

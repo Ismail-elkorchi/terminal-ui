@@ -14,6 +14,7 @@ const dependencyGraph = new Map();
 const failures = [];
 const deterministicGlobalLayers = new Set([
   'behavior',
+  'component',
   'components',
   'layout',
   'renderer',
@@ -21,6 +22,17 @@ const deterministicGlobalLayers = new Set([
   'visual'
 ]);
 const timerRestrictedLayers = new Set([...deterministicGlobalLayers, 'tui']);
+const componentForbiddenLayers = new Set([
+  'components',
+  'host',
+  'protocol',
+  'testing',
+  'transcript',
+  'tui'
+]);
+const componentDefinitionPrivateRendererDependencies = new Set([
+  'renderer/model/component-node.ts'
+]);
 const runtimeGlobalNames = new Set(['Bun', 'Deno', 'globalThis', 'process']);
 const foundationDependencies = new Map([
   ['diagnostic-identity.ts', new Set()],
@@ -439,6 +451,16 @@ function forbiddenDependency(sourceFile, sourceLayer, targetLayer, targetFile) {
   if (sourceRelative(sourceFile).startsWith('renderer/model/')
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
   if (neutral.has(sourceLayer) && upper.has(targetLayer)) return true;
+  if (sourceLayer === 'component') {
+    if (componentForbiddenLayers.has(targetLayer)) return true;
+    if (targetLayer === 'renderer') {
+      const sourcePath = sourceRelative(sourceFile);
+      const targetPath = sourceRelative(targetFile);
+      if (targetPath === 'renderer/contracts.ts') return false;
+      if (sourcePath !== 'component/definition.ts') return true;
+      return !componentDefinitionPrivateRendererDependencies.has(targetPath);
+    }
+  }
   if (sourceLayer === 'components' && targetLayer === 'tui') return true;
   if (sourceLayer === 'components' && targetLayer === 'renderer'
     && (sourceRelative(targetFile).startsWith('renderer/internal/')

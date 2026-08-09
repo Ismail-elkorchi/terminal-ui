@@ -7,7 +7,10 @@ import { layoutElement, renderElementFrame } from '../../dist/renderer/index.js'
 import { renderElementSnapshot } from '../../dist/testing/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { runButtonConformance } from '../helpers/component-conformance.mjs';
+import {
+  runButtonConformance,
+  runMessageRoutingConformance
+} from '../helpers/component-conformance.mjs';
 import {
   externalButton,
   externalChart,
@@ -21,6 +24,8 @@ import {
 
 runButtonConformance('built-in', button);
 runButtonConformance('external', externalButton);
+runMessageRoutingConformance('built-in', button);
+runMessageRoutingConformance('external', externalButton);
 
 test('external painted controls share keyboard, text, pointer, cursor, and action routing', async () => {
   const messages = [];

@@ -257,3 +257,32 @@ test('list pointer selection and double-click activation match keyboard semantic
     { kind: 'activate', id: 'alpha', itemIndex: 0 }
   ]);
 });
+
+test('list preserves the component runtime rejection of null application messages', async () => {
+  const app = defineTui({
+    id: 'list-null-message',
+    init: () => undefined,
+    update: (state) => ({ state }),
+    view: () => list({
+      id: 'null-list',
+      items: ['alpha'],
+      projectItem: (item) => ({ id: item, label: item }),
+      onAction: () => null
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } })
+  });
+
+  try {
+    await runtime.start();
+    await runtime.handleInput(mousePress(1, 1));
+    await assert.rejects(
+      runtime.handleInput(mouseRelease(1, 1)),
+      /onAction returned null or undefined.*ignoreMessage/u
+    );
+  } finally {
+    await runtime.dispose();
+  }
+});

@@ -7,6 +7,7 @@ import {
   span,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentMeasureInput,
@@ -153,10 +154,10 @@ const history = defineComponent<
   accessibility: (input) => accessibleNotifications(input, 'history', true),
 });
 
-export function notificationRegion<const TMessage extends NonNullable<unknown> | null = never>(
+export function notificationRegion<const TMessage extends ComponentMessage = never>(
   options: NotificationRegionOptions<TMessage>,
 ): Element<TMessage> {
-  const own = ownOptions(options);
+  const own = snapshotNotificationOptions(options);
   return options.onAction === undefined
     ? passiveRegion({
       ...own,
@@ -171,11 +172,11 @@ export function notificationRegion<const TMessage extends NonNullable<unknown> |
     });
 }
 
-export function notificationHistory<const TMessage extends NonNullable<unknown> | null = never>(
+export function notificationHistory<const TMessage extends ComponentMessage = never>(
   options: NotificationHistoryOptions<TMessage>,
 ): Element<TMessage> {
   return history({
-    ...ownOptions(options),
+    ...snapshotNotificationOptions(options),
     id: options.id,
     ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
@@ -183,15 +184,10 @@ export function notificationHistory<const TMessage extends NonNullable<unknown> 
   });
 }
 
-function ownOptions(
+function snapshotNotificationOptions(
   options: Pick<NotificationOwnOptions, 'items' | 'placement' | 'maxWidth' | 'pointerState'>,
 ): Omit<NotificationOwnOptions, 'selectedId'> {
-  return {
-    items: options.items,
-    ...(options.placement === undefined ? {} : { placement: options.placement }),
-    ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-  };
+  return { ...options };
 }
 
 function prepareNotifications(

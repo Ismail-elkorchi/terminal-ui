@@ -29,6 +29,7 @@ import { confirm, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
 import { createTranscriptRecorder, validateTranscript } from '@ismail-elkorchi/terminal-ui/transcript';
 import { createTerminalHarness, renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
+import { peerBadge } from 'terminal-ui-peer-component-fixture';
 
 type Message =
   | { readonly kind: 'increment' }
@@ -211,6 +212,10 @@ const componentSnapshot = renderElementSnapshot({
   }),
   terminalSize: { columns: 20, rows: 3 }
 });
+const peerComponentSnapshot = renderElementSnapshot({
+  element: peerBadge({ id: 'peer-badge', label: 'Shared package instance' }),
+  terminalSize: { columns: 24, rows: 1 }
+});
 const result = ok('root-entrypoint');
 const protocolWrites: string[] = [];
 const protocol = createProtocolWriter({
@@ -257,6 +262,9 @@ if (harness.snapshot().source !== 'test_harness' || harness.snapshot().root.role
 }
 if (!componentSnapshot.plainTextFrame.includes('Defined') || !componentSnapshot.plainTextFrame.includes('Child')) {
   throw new Error('The packed components and testing facades did not render a defined component.');
+}
+if (!peerComponentSnapshot.plainTextFrame.includes('Shared package instance')) {
+  throw new Error('The peer component package did not share the application terminal-ui instance.');
 }
 if (renderedView.accessibility.source !== 'renderer') {
   throw new Error('The packed renderer entrypoint returned an invalid snapshot source.');

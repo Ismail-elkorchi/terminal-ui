@@ -5,7 +5,7 @@ import {
   span,
   wrapRenderSpans,
 } from '../../component/index.ts';
-import type { SemanticLeafComponentFactory } from '../../component/index.ts';
+import type { ComponentMessage, SemanticLeafComponentFactory } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { DisclosureOptions, RichTextOptions, TextOptions } from '../options/content.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
@@ -276,8 +276,8 @@ const disclosureSlots = {
 } as const;
 
 type DisclosureFactory = <
-  TChild extends Element<unknown>,
-  TMessage extends NonNullable<unknown> | null = never,
+  TChild extends Element<ComponentMessage>,
+  TMessage extends ComponentMessage = never,
 >(
   options: DisclosureOptions<TMessage, TChild>,
 ) => Element<TMessage | ElementMessage<TChild>>;

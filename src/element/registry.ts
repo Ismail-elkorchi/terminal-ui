@@ -17,7 +17,7 @@ export function registerElement<TMessage>(
 export function internalElementValue(element: ElementValue): unknown {
   const internal = isObject(element) ? internals.get(element) : undefined;
   if (internal === undefined) {
-    throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
+    throw invalidElementError();
   }
   return internal;
 }
@@ -25,11 +25,20 @@ export function internalElementValue(element: ElementValue): unknown {
 export function inspectRegisteredElement(element: ElementValue): ElementInspection {
   const inspection = isObject(element) ? inspections.get(element) : undefined;
   if (inspection === undefined) {
-    throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
+    throw invalidElementError();
   }
   return inspection;
 }
 
 function isObject(value: unknown): value is object {
   return typeof value === 'object' && value !== null;
+}
+
+function invalidElementError(): TypeError {
+  return new TypeError(
+    'Expected an Element created by a terminal-ui component or layout factory ' +
+    'in this package instance. ' +
+    'If it came from an external component package, declare @ismail-elkorchi/terminal-ui ' +
+    'as a peer dependency and externalize it when bundling.'
+  );
 }

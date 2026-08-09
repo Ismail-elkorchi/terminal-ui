@@ -1,4 +1,5 @@
 import type { InlineContent } from '../../visual/inline-content.ts';
+import type { ComponentMessage } from '../../component/index.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -70,28 +71,31 @@ interface DisclosureOptionsBase<TChild extends Element<unknown>> {
   readonly slots: { readonly content: TChild };
 }
 
-export interface ActiveDisclosureOptions<TMessage, TChild extends Element<unknown>>
+export interface ActiveDisclosureOptions<
+  TMessage extends ComponentMessage,
+  TChild extends Element<ComponentMessage>
+>
   extends DisclosureOptionsBase<TChild> {
   readonly disabled?: false;
   readonly onAction: (action: DisclosureAction) => MessageResolution<TMessage>;
 }
 
-export interface DisabledDisclosureOptions<TChild extends Element<unknown>>
+export interface DisabledDisclosureOptions<TChild extends Element<ComponentMessage>>
   extends DisclosureOptionsBase<TChild> {
   readonly disabled: true;
   readonly onAction?: never;
 }
 
 export type DisclosureOptions<
-  TMessage = never,
-  TChild extends Element<unknown> = Element
+  TMessage extends ComponentMessage = never,
+  TChild extends Element<ComponentMessage> = Element
 > =
   | ActiveDisclosureOptions<TMessage, TChild>
   | DisabledDisclosureOptions<TChild>;
 
 export type DisclosureMessage<
-  TMessage,
-  TChild extends Element<unknown>
+  TMessage extends ComponentMessage,
+  TChild extends Element<ComponentMessage>
 > = TMessage | ElementMessage<TChild>;
 
 type ListCommonOptions<TValue> = ElementOptions<DataListStylePart> & ListDataOptions<TValue> & {
@@ -120,18 +124,18 @@ type ListDataOptions<TValue> =
       readonly filterQuery?: never;
     };
 
-export type ListOptions<TValue, TMessage = never> =
+export type ListOptions<TValue, TMessage extends ComponentMessage = never> =
   | PassiveListOptions<TValue, TMessage>
   | ScrollableListOptions<TValue, TMessage>;
 
-export type PassiveListOptions<TValue, TMessage = never> = ListCommonOptions<TValue> & {
+export type PassiveListOptions<TValue, TMessage extends ComponentMessage = never> = ListCommonOptions<TValue> & {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
   readonly onAction?: (action: ListControlAction) => MessageResolution<TMessage>;
 };
 
-export type ScrollableListOptions<TValue, TMessage = never> = ListCommonOptions<TValue> & {
+export type ScrollableListOptions<TValue, TMessage extends ComponentMessage = never> = ListCommonOptions<TValue> & {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
@@ -162,12 +166,12 @@ type TreeBaseOptions<TMetadata extends Readonly<Record<string, unknown>>> = Tree
 
 export type TreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-  TMessage = never
+  TMessage extends ComponentMessage = never
 > = PassiveTreeOptions<TMetadata, TMessage> | ScrollableTreeOptions<TMetadata, TMessage>;
 
 export type PassiveTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-  TMessage = never
+  TMessage extends ComponentMessage = never
 > = TreeBaseOptions<TMetadata> & {
   readonly scroll?: never;
   readonly scrollbar?: never;
@@ -177,7 +181,7 @@ export type PassiveTreeOptions<
 
 export type ScrollableTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-  TMessage = never
+  TMessage extends ComponentMessage = never
 > = TreeBaseOptions<TMetadata> & {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
@@ -209,25 +213,25 @@ type TableDataOptions<TRow> =
 
 type TableBaseOptions<TRow> = TableCommonOptions<TRow> & TableDataOptions<TRow>;
 
-export type TableOptions<TRow, TMessage = never> =
+export type TableOptions<TRow, TMessage extends ComponentMessage = never> =
   | PassiveTableOptions<TRow, TMessage>
   | ScrollableTableOptions<TRow, TMessage>;
 
-export type PassiveTableOptions<TRow, TMessage = never> = TableBaseOptions<TRow> & {
+export type PassiveTableOptions<TRow, TMessage extends ComponentMessage = never> = TableBaseOptions<TRow> & {
   readonly presentation?: TablePresentation;
   readonly onAction?: (action: TableControlAction) => MessageResolution<TMessage>;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 };
 
-export type ScrollableTableOptions<TRow, TMessage = never> = TableBaseOptions<TRow> & {
+export type ScrollableTableOptions<TRow, TMessage extends ComponentMessage = never> = TableBaseOptions<TRow> & {
   readonly presentation: TableScrollablePresentation;
   readonly onAction: (action: TableAction) => MessageResolution<TMessage>;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 };
 
-export interface PaginatorOptions<TMessage = never> {
+export interface PaginatorOptions<TMessage extends ComponentMessage = never> {
   readonly id: string;
   readonly pageNumber: number;
   readonly pageCount: number;
@@ -250,12 +254,12 @@ interface TextAreaBaseOptions {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], TextAreaStylePart>;
 }
 
-export type TextAreaOptions<TMessage = never> =
+export type TextAreaOptions<TMessage extends ComponentMessage = never> =
   | UnscrolledTextAreaOptions<TMessage>
   | ScrollableTextAreaOptions<TMessage>
   | DisabledTextAreaOptions;
 
-export type UnscrolledTextAreaOptions<TMessage = never> =
+export type UnscrolledTextAreaOptions<TMessage extends ComponentMessage = never> =
   & TextAreaBaseOptions
   & {
     readonly disabled?: false;
@@ -265,7 +269,7 @@ export type UnscrolledTextAreaOptions<TMessage = never> =
     readonly onAction: (action: TextAreaControlAction) => MessageResolution<TMessage>;
   };
 
-export type ScrollableTextAreaOptions<TMessage = never> =
+export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never> =
   & TextAreaBaseOptions
   & {
     readonly disabled?: false;

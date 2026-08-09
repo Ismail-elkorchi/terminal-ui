@@ -1,4 +1,5 @@
 import type { Element } from '../../element/index.ts';
+import type { ComponentMessage } from '../../component/index.ts';
 import type {
   ElementFocus,
   ElementLayer,
@@ -21,8 +22,8 @@ interface DialogBaseOptions extends LayoutFlowOptions {
   readonly width?: number;
   readonly height?: number;
   readonly slots: {
-    readonly content: Element<unknown>;
-    readonly actions?: Element<unknown>;
+    readonly content: Element<ComponentMessage>;
+    readonly actions?: Element<ComponentMessage>;
   };
   readonly meta?: {
     readonly focus?: Pick<ElementFocus, 'disabled' | 'order'>;
@@ -46,12 +47,12 @@ interface PassiveDialog {
   readonly onAction?: never;
 }
 
-interface DismissibleDialog<TMessage> {
+interface DismissibleDialog<TMessage extends ComponentMessage> {
   readonly dismissal: DialogDismissal;
   readonly onAction: (action: DialogAction) => MessageResolution<TMessage>;
 }
 
-export type DialogOptions<TMessage = never> = DialogBaseOptions
+export type DialogOptions<TMessage extends ComponentMessage = never> = DialogBaseOptions
   & DialogModality
   & (PassiveDialog | DismissibleDialog<TMessage>);
 

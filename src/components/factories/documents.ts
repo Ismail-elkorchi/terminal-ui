@@ -11,6 +11,7 @@ import {
   span,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentInput,
   ComponentRenderInput,
   Element,
@@ -82,7 +83,7 @@ const commandSlots = {
   suggestions: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
 } as const;
 
-type CommandInputFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type CommandInputFactory = <const TMessage extends ComponentMessage = never>(
   options: CommandInputOptions<TMessage>,
 ) => Element<TMessage>;
 
@@ -832,7 +833,7 @@ interface DynamicSearchPickerOptions {
   readonly pointerState?: unknown;
 }
 
-type SearchPickerFactory = <TValue, const TMessage extends NonNullable<unknown> | null = never>(
+type SearchPickerFactory = <TValue, const TMessage extends ComponentMessage = never>(
   options: SearchPickerOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
@@ -1081,7 +1082,7 @@ function searchPickerPlan(input: ComponentInput<SearchPickerModel>) {
   });
 }
 
-function mapSearchPickerAction<TValue, TMessage>(
+function mapSearchPickerAction<TValue, TMessage extends ComponentMessage>(
   action: SearchPickerInternalAction,
   options: SearchPickerOptions<TValue, TMessage> & { readonly disabled?: false },
 ): import('../../interaction/index.ts').MessageResolution<TMessage> {

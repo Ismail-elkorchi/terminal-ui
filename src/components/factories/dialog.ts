@@ -1,4 +1,5 @@
 import { defineComponent, ignoreMessage } from '../../component/index.ts';
+import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { ElementStyles } from '../../element/metadata.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
@@ -35,7 +36,7 @@ const dialogSlots = {
 } as const;
 
 const instantiateDialog = defineComponent<
-  Omit<DialogOptions<unknown>, 'id' | 'slots' | 'meta' | 'onAction'>,
+  Omit<DialogOptions<ComponentMessage>, 'id' | 'slots' | 'meta' | 'onAction'>,
   PreparedDialog,
   DialogAction,
   DialogStylePart,
@@ -200,9 +201,9 @@ const instantiateDialog = defineComponent<
 });
 
 export function dialog<
-  const TContent extends Element<unknown>,
-  const TActions extends Element<unknown> | undefined = undefined,
-  const TMessage extends NonNullable<unknown> | null = never,
+  const TContent extends Element<ComponentMessage>,
+  const TActions extends Element<ComponentMessage> | undefined = undefined,
+  const TMessage extends ComponentMessage = never,
 >(
   options: Omit<DialogOptions<TMessage>, 'slots'> & {
     readonly slots: { readonly content: TContent; readonly actions?: TActions };

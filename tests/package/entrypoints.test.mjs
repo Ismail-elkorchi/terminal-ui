@@ -438,6 +438,23 @@ test('renderer and layout boundaries reject objects not created by element facto
     () => column([invalid]),
     /Expected an Element created by a terminal-ui component or layout factory/u
   );
+
+  let trapCalls = 0;
+  const hostile = new Proxy({}, {
+    has() {
+      trapCalls += 1;
+      throw new Error('has trap must not run');
+    },
+    get() {
+      trapCalls += 1;
+      throw new Error('get trap must not run');
+    }
+  });
+  assert.throws(
+    () => renderElementFrame(hostile, { columns: 10, rows: 3 }),
+    /peer dependency.*externalize/u
+  );
+  assert.equal(trapCalls, 0);
 });
 
 function declaredValueExports(declaration) {

@@ -20,6 +20,7 @@ import {
   wrapRenderSpans,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentInteractionInput,
@@ -207,17 +208,18 @@ const activeLogViewer = defineComponent<
   hitTargets: logViewerHitTargets,
 });
 
-export function logViewer<const TMessage extends NonNullable<unknown> | null = never>(
+export function logViewer<const TMessage extends ComponentMessage = never>(
   options: ScrollableLogViewerOptions<TMessage>,
 ): Element<TMessage>;
-export function logViewer<const TMessage extends NonNullable<unknown> | null = never>(
+export function logViewer<const TMessage extends ComponentMessage = never>(
   options: PassiveLogViewerOptions<TMessage>,
 ): Element<TMessage>;
-export function logViewer<const TMessage extends NonNullable<unknown> | null = never>(
+export function logViewer<const TMessage extends ComponentMessage = never>(
   options: LogViewerOptions<TMessage>,
 ): Element<TMessage> {
-  const own = dynamicOptions(options);
-  if (options.onAction === undefined) {
+  const own = snapshotLogViewerOptions(options);
+  const onAction = options.onAction;
+  if (onAction === undefined) {
     return passiveLogViewer({
       ...own,
       id: options.id,
@@ -230,7 +232,7 @@ export function logViewer<const TMessage extends NonNullable<unknown> | null = n
       id: options.id,
       ...(options.meta === undefined ? {} : { meta: options.meta }),
       onAction: (action) =>
-        action.kind === 'scroll' ? ignoreMessage() : options.onAction?.(action) ?? ignoreMessage(),
+        action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
   return activeLogViewer({
@@ -241,19 +243,10 @@ export function logViewer<const TMessage extends NonNullable<unknown> | null = n
   });
 }
 
-function dynamicOptions(options: LogViewerOptions<unknown>): DynamicLogViewerOptions {
-  return {
-    history: options.history,
-    ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
-    ...(options.searchQuery === undefined ? {} : { searchQuery: options.searchQuery }),
-    ...(options.selectedMatch === undefined ? {} : { selectedMatch: options.selectedMatch }),
-    ...(options.foldedIds === undefined ? {} : { foldedIds: options.foldedIds }),
-    ...(options.selection === undefined ? {} : { selection: options.selection }),
-    ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-    ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-    ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-  };
+function snapshotLogViewerOptions(
+  options: LogViewerOptions<ComponentMessage>,
+): DynamicLogViewerOptions {
+  return { ...options };
 }
 
 function prepareLogViewer(value: unknown): LogViewerModel {

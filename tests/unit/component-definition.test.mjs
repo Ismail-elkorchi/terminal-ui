@@ -13,7 +13,17 @@ import {
 } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { button, text } from '../../dist/components/index.js';
+import {
+  barChart,
+  button,
+  list,
+  logViewer,
+  notificationRegion,
+  table,
+  text,
+  textArea,
+  tree
+} from '../../dist/components/index.js';
 import { ComponentExecutionError, defineComponent, ignoreMessage } from '../../dist/component/index.js';
 import {
   componentElement as component,
@@ -1695,6 +1705,100 @@ test('composed component accessibility uses declared slot names and optional slo
   assert.deepEqual(received.body.map((node) => node.id), ['composed-body']);
   assert.deepEqual(received.note, []);
   assert.equal('content' in received, false);
+});
+
+test('prepared immutable models are verified once per retained identity', () => {
+  let ownKeyReads = 0;
+  const retained = new Proxy({ entries: Object.freeze([Object.freeze({ id: 'one' })]) }, {
+    ownKeys(target) {
+      ownKeyReads += 1;
+      return Reflect.ownKeys(target);
+    }
+  });
+  Object.freeze(retained);
+  ownKeyReads = 0;
+
+  const retainedModel = defineComponent({
+    name: 'terminal-ui-tests/components/retained-model',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    optionFields: { model: null },
+    prepare: (value) => value.model,
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render: () => undefined,
+    accessibility: ({ id }) => ({ id, role: 'group', label: id })
+  });
+
+  retainedModel({ id: 'first', model: retained });
+  const readsAfterFirstVerification = ownKeyReads;
+  retainedModel({ id: 'second', model: retained });
+
+  assert.ok(readsAfterFirstVerification > 0);
+  assert.equal(ownKeyReads, readsAfterFirstVerification);
+});
+
+test('prepared immutable models snapshot accessor values during preparation', () => {
+  let label = 'first';
+  let reads = 0;
+  const supplied = {};
+  Object.defineProperty(supplied, 'label', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      return label;
+    }
+  });
+  Object.freeze(supplied);
+
+  const accessorModel = defineComponent({
+    name: 'terminal-ui-tests/components/accessor-model',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    optionFields: { model: null },
+    prepare: (value) => value.model,
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render: () => undefined,
+    accessibility: ({ id, model }) => ({ id, role: 'group', label: model.label })
+  });
+
+  const element = accessorModel({ id: 'accessor', model: supplied });
+  label = 'second';
+  const frame = renderElementFrame(element, { columns: 1, rows: 1 });
+
+  assert.equal(frame.accessibility.root.label, 'first');
+  assert.equal(reads, 1);
+});
+
+test('built-in adapters preserve unknown options for the canonical decoder', () => {
+  const factories = [
+    () => barChart({ id: 'chart', typo: true }),
+    () => list({ id: 'list', typo: true }),
+    () => logViewer({ id: 'log', typo: true }),
+    () => notificationRegion({ id: 'notifications', typo: true }),
+    () => table({ id: 'table', typo: true }),
+    () => tree({ id: 'tree', typo: true })
+  ];
+
+  for (const create of factories) {
+    assert.throws(create, /options contain unknown field "typo"/u);
+  }
+});
+
+test('built-in adapters leave malformed nested options to structured preparation errors', () => {
+  assert.throws(() => table({
+    id: 'table',
+    rows: [],
+    getRowId: () => 'row',
+    presentation: null,
+    onAction: (action) => action
+  }), componentCause(/table presentation/u));
+  assert.throws(() => textArea({
+    id: 'editor',
+    presentation: null,
+    onAction: (action) => action
+  }), componentCause(/textArea presentation/u));
 });
 
 function assertNoTerminalControls(value) {

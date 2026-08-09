@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createScrollState, paginationWindow, tableReducer } from '../../dist/behavior/index.js';
+import {
+  createScrollState,
+  paginationWindow,
+  prepareTableCollection,
+  tableReducer
+} from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { list, paginator, table, tableColumn } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
@@ -119,6 +124,57 @@ test('table component renders constrained columns and selected rows', () => {
     columnCount: 2
   });
   assert.equal(frame.accessibility.root.children?.[2]?.selected, true);
+});
+
+test('table recomputes cell content for each component instance', () => {
+  const collection = prepareTableCollection(
+    [{ id: 'row', label: 'Row' }],
+    (row) => row.id
+  );
+  let suffix = 'one';
+  const columns = [{
+    id: 'label',
+    value: (row) => `${row.label}-${suffix}`,
+    width: { kind: 'fill' }
+  }];
+  const render = () => renderFramePlain(renderElementFrame(table({
+    id: 'dynamic-table',
+    collection,
+    columns
+  }), { columns: 20, rows: 1 }));
+
+  assert.match(render(), /Row-one/u);
+  suffix = 'two';
+  const updated = render();
+  assert.match(updated, /Row-two/u);
+  assert.doesNotMatch(updated, /Row-one/u);
+});
+
+test('table evaluates each cell once and shares it across frame outputs', () => {
+  let valueCalls = 0;
+  let renderCalls = 0;
+  const frame = renderElementFrame(table({
+    id: 'consistent-table',
+    rows: [{ id: 'row' }],
+    getRowId: (row) => row.id,
+    columns: [tableColumn({
+      id: 'value',
+      value: () => {
+        valueCalls += 1;
+        return `v${String(valueCalls)}`;
+      },
+      render: ({ value }) => {
+        renderCalls += 1;
+        return value;
+      }
+    })],
+    onAction: (action) => action
+  }), { columns: 10, rows: 1 });
+
+  assert.equal(valueCalls, 1);
+  assert.equal(renderCalls, 1);
+  assert.match(renderFramePlain(frame), /v1/u);
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.value, 'v1');
 });
 
 test('table exposes row hit targets and routes row messages', async () => {

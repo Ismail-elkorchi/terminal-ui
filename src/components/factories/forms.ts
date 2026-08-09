@@ -6,6 +6,7 @@ import {
   span,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentAccessibilityInput,
   ComponentLayoutInput,
   ComponentMeasureInput,
@@ -208,7 +209,7 @@ const fieldSlots = {
   content: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
 } as const;
 
-type FieldFactory = <TChild extends Element<unknown>>(
+type FieldFactory = <TChild extends Element<ComponentMessage>>(
   options: FieldOptions<TChild>,
 ) => Element<import('../../element/index.ts').ElementMessage<TChild>>;
 
@@ -436,7 +437,7 @@ interface ButtonModel {
 }
 
 type ButtonOwnOptions = Pick<
-  ButtonOptions<unknown>,
+  ButtonOptions<ComponentMessage>,
   'label' | 'leading' | 'trailing' | 'tone' | 'density' | 'pointerState'
 >;
 
@@ -791,14 +792,14 @@ interface CheckboxModel {
 }
 
 export const checkbox: SemanticLeafComponentFactory<
-  Pick<CheckboxOptions<unknown>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
+  Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
   CheckboxAction,
   ChoiceStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 > = defineComponent<
-  Pick<CheckboxOptions<unknown>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
+  Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
   CheckboxModel,
   CheckboxAction,
   ChoiceStylePart,
@@ -887,7 +888,7 @@ interface ToggleModel {
 
 export const toggleSwitch: SemanticLeafComponentFactory<
   Pick<
-    ToggleSwitchOptions<unknown>,
+    ToggleSwitchOptions<ComponentMessage>,
     'label' | 'checked' | 'onLabel' | 'offLabel' | 'error' | 'pointerState'
   >,
   ToggleSwitchAction,
@@ -897,7 +898,7 @@ export const toggleSwitch: SemanticLeafComponentFactory<
   readonly ['focus', 'layer', 'styles']
 > = defineComponent<
   Pick<
-    ToggleSwitchOptions<unknown>,
+    ToggleSwitchOptions<ComponentMessage>,
     'label' | 'checked' | 'onLabel' | 'offLabel' | 'error' | 'pointerState'
   >,
   ToggleModel,
@@ -1239,7 +1240,7 @@ const selectSlots = {
   popup: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
 } as const;
 
-type SelectFactory = <TValue, const TMessage extends NonNullable<unknown> | null = never>(
+type SelectFactory = <TValue, const TMessage extends ComponentMessage = never>(
   options: SelectOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
@@ -1289,11 +1290,11 @@ const instantiateSelect = defineComponent<
       },
     };
     const popupList = input.model.presentation.scroll === undefined
-      ? list<SelectOptionModel, NonNullable<unknown> | null>({
+      ? list<SelectOptionModel, ComponentMessage>({
         ...common,
         onAction: (action) => input.emit(selectActionForList(action)),
       })
-      : list<SelectOptionModel, NonNullable<unknown> | null>({
+      : list<SelectOptionModel, ComponentMessage>({
         ...common,
         scroll: input.model.presentation.scroll,
         ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),

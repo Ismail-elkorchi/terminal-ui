@@ -1,0 +1,26 @@
+import type { MessageResolution } from '../interaction/message.ts';
+import { isIgnoredMessage } from '../interaction/message.ts';
+
+export type ComponentMessage = NonNullable<unknown>;
+
+export function mapComponentAction(
+  action: unknown,
+  mapper: ((value: unknown) => unknown) | undefined,
+): MessageResolution<ComponentMessage> {
+  if (action === undefined) {
+    throw new TypeError(
+      'Component action hook returned undefined. Return ignoreMessage() to ignore an event.',
+    );
+  }
+  if (isIgnoredMessage(action)) return action;
+  if (mapper === undefined) {
+    throw new TypeError('Component action cannot be emitted without an onAction mapper.');
+  }
+  const message = mapper(action);
+  if (message === undefined || message === null) {
+    throw new TypeError(
+      'Component onAction returned null or undefined. Return ignoreMessage() to ignore an action.',
+    );
+  }
+  return message;
+}

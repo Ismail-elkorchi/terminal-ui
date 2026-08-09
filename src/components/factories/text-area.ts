@@ -11,6 +11,7 @@ import {
   span,
 } from '../../component/index.ts';
 import type {
+  ComponentMessage,
   ComponentInput,
   ComponentMeasureInput,
   ComponentRenderInput,
@@ -74,12 +75,12 @@ interface PreparedTextAreaHighlight extends TextAreaHighlight {
   readonly label: string;
 }
 
-type TextAreaFactory = <const TMessage extends NonNullable<unknown> | null = never>(
+type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
   options: TextAreaOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateTextArea = defineComponent<
-  Omit<TextAreaOptions<unknown>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
   TextAreaModel,
   TextAreaAction,
   TextAreaStylePart,
@@ -264,10 +265,14 @@ export const textArea: TextAreaFactory = (options) => {
   return instantiateTextArea(options);
 };
 
-function isScrollableTextArea<TMessage>(
+function isScrollableTextArea<TMessage extends ComponentMessage>(
   options: Exclude<TextAreaOptions<TMessage>, { readonly disabled: true }>,
 ): options is ScrollableTextAreaOptions<TMessage> {
-  return options.presentation.scroll !== undefined;
+  return hasScrollState(options.presentation);
+}
+
+function hasScrollState(value: unknown): boolean {
+  return isNonArrayObject(value) && Reflect.get(value, 'scroll') !== undefined;
 }
 
 function prepareTextArea(value: unknown): TextAreaModel {

@@ -21,34 +21,27 @@ import {
 } from '../foundation/validation.ts';
 import type { Rect } from '../geometry/types.ts';
 import type {
-  BindableKeyName,
-  InputTrigger,
-  KeyName,
-  KeyModifierTrigger
-} from '../input/types.ts';
-import {
-  keyEventTypes,
-  keyLocations,
-  keyNames
-} from '../input/types.ts';
-import type {
   MessageResolution,
   PointerInteractionAction,
   PointerInteractionOptions,
   PointerInteractionState
 } from '../interaction/index.ts';
-import { isIgnoredMessage } from '../interaction/index.ts';
 import {
   componentElementFromRenderNode,
   markImplementationStructure,
   mapElementMessages,
+  resolveRenderNodeStyle,
+  renderNodeInteraction,
   toRenderNode,
   toMappedRenderNodes,
   toRenderNodes
-} from '../renderer/model/element.ts';
-import { renderNodeInteraction } from '../renderer/model/metadata.ts';
-import type { RenderNodeRenderer } from '../renderer/model/renderer.ts';
-import type { RuntimeComponentDefinition } from '../renderer/model/types.ts';
+} from '../renderer/model/component-node.ts';
+import type {
+  RenderNode,
+  RenderNodeOfKind,
+  RenderNodeRenderer,
+  RuntimeComponentDefinition
+} from '../renderer/model/component-node.ts';
 import type {
   FocusTarget,
   HitTarget,
@@ -58,61 +51,37 @@ import type {
   RenderStyleInput,
   RenderTarget
 } from '../renderer/contracts.ts';
-import { resolveRenderNodeStyle } from '../renderer/style-resolution.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import type { TerminalStyle } from '../visual/render.ts';
 import type { FrameCellSource } from '../visual/source.ts';
 import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
 import { renderNodeFrameSource } from '../visual/source.ts';
+import {
+  executeComponentPhase,
+  type ComponentDefinitionName
+} from './execution-error.ts';
+import { immutablePreparedModel } from './prepared-model.ts';
+import { mapComponentAction, type ComponentMessage } from './message.ts';
+import {
+  actionMapper,
+  assertPointerDefinition,
+  mapHitTargets,
+  mappedKeyBindings,
+  normalizedPointerState
+} from './action-routing.ts';
+
+export {
+  ComponentExecutionError,
+  type ComponentDefinitionName,
+  type ComponentExecutionPhase
+} from './execution-error.ts';
+export type { ComponentMessage } from './message.ts';
 
 export type ComponentStyleInput<TPart extends string> = RenderStyleInput<TPart>;
 export type ComponentSourceInput = RenderSourceInput;
-export type ComponentDefinitionName = `${string}/${string}`;
-export type ComponentMessage = NonNullable<unknown> | null;
 export type ComponentStateCapability = keyof ElementState;
 export type ComponentIdentity = 'required' | 'optional';
-export type ComponentExecutionPhase =
-  | 'prepare'
-  | 'compose'
-  | 'measure'
-  | 'layout'
-  | 'paint'
-  | 'accessibility'
-  | 'focus'
-  | 'action'
-  | 'pointer'
-  | 'keyboard'
-  | 'input'
-  | 'paste'
-  | 'metadata';
-
-export class ComponentExecutionError extends Error {
-  override readonly name = 'ComponentExecutionError';
-  readonly component: ComponentDefinitionName;
-  readonly instanceId: string | undefined;
-  readonly phase: ComponentExecutionPhase;
-
-  constructor(input: {
-    readonly component: ComponentDefinitionName;
-    readonly instanceId?: string;
-    readonly phase: ComponentExecutionPhase;
-    readonly cause: unknown;
-  }) {
-    const detail = input.cause instanceof Error && input.cause.message.length > 0
-      ? ` ${input.cause.message}`
-      : '';
-    super(
-      `Component "${input.component}" failed during ${input.phase}${
-        input.instanceId === undefined ? '' : ` for instance "${input.instanceId}"`
-      }.${detail}`,
-      { cause: input.cause }
-    );
-    this.component = input.component;
-    this.instanceId = input.instanceId;
-    this.phase = input.phase;
-  }
-}
 
 export interface ComponentMeasureConstraints {
   readonly width: number;
@@ -509,7 +478,7 @@ export type SemanticComposedComponentDefinition<
     readonly compose: (
       this: undefined,
       input: ComponentCompositionInput<TPrepared, TSlots, TAction, TPart>
-    ) => Element<unknown>;
+    ) => Element<ComponentMessage>;
     readonly clipChildren?: boolean;
   };
 
@@ -546,7 +515,7 @@ type ComponentOwnOptions<TOptions extends object> =
     : never;
 
 type SlotElement<TSlot extends ComponentSlotBase> =
-  TSlot['messages'] extends 'none' ? Element : Element<unknown>;
+  TSlot['messages'] extends 'none' ? Element : Element<ComponentMessage>;
 
 type SlotValue<TSlot extends ComponentSlotBase> =
   TSlot['cardinality'] extends 'many'
@@ -828,7 +797,7 @@ export function defineComponent(
     const children = normalized.structure === 'composite' || normalized.structure === 'composed'
       ? slotContent.children
       : undefined;
-    const renderNode: import('../renderer/model/types.ts').RenderNodeOfKind<unknown, 'component'> = {
+    const renderNode: RenderNodeOfKind<unknown, 'component'> = {
       ...(value.id === undefined ? {} : { id: renderNodeId(value.id, normalized.name) }),
       kind: 'component',
       props: {
@@ -857,7 +826,7 @@ export function defineComponent(
           : undefined,
         onInput: normalized.semantics === 'semantic' && normalized.onInput !== undefined
           ? (text: string) => executeComponentPhase(normalized.name, value.id, 'input', () =>
-              mapActionResolution(
+              mapComponentAction(
                 normalized.onInput?.call(undefined, { ...behavior, text }),
                 toActionMessage
               )
@@ -865,7 +834,7 @@ export function defineComponent(
           : undefined,
         onPaste: normalized.semantics === 'semantic' && normalized.onPaste !== undefined
           ? (text: string) => executeComponentPhase(normalized.name, value.id, 'paste', () =>
-              mapActionResolution(
+              mapComponentAction(
                 normalized.onPaste?.call(undefined, { ...behavior, text }),
                 toActionMessage
               )
@@ -896,8 +865,8 @@ interface ComponentInstanceOptions extends Record<string, unknown> {
 }
 
 interface PreparedSlotContent {
-  readonly children: readonly import('../renderer/model/types.ts').RenderNode[];
-  readonly inspectionChildren: readonly import('../renderer/model/types.ts').RenderNode[];
+  readonly children: readonly RenderNode[];
+  readonly inspectionChildren: readonly RenderNode[];
   readonly ranges: readonly ComponentSlotRange[];
 }
 
@@ -1040,7 +1009,7 @@ type NormalizedDefinition =
           ComponentSlotsDefinition,
           unknown
         >
-      ) => Element<unknown>;
+      ) => Element<ComponentMessage>;
     });
 
 const emptyComponentState: Readonly<ElementState> = Object.freeze({});
@@ -1461,8 +1430,8 @@ function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<u
 
 function accessibleSlotValues(
   ranges: readonly ComponentSlotRange[],
-  roots: readonly import('../renderer/model/types.ts').RenderNode[],
-  accessibleNodes: ReadonlyMap<import('../renderer/model/types.ts').RenderNode, AccessibleNode>
+  roots: readonly RenderNode[],
+  accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>
 ): ComponentAccessibleSlotValues<ComponentSlotShape> {
   return Object.freeze(Object.fromEntries(ranges.map((range) => [
     range.name,
@@ -1475,11 +1444,11 @@ function accessibleSlotValues(
 }
 
 function renderNodeAtPath(
-  roots: readonly import('../renderer/model/types.ts').RenderNode[],
+  roots: readonly RenderNode[],
   path: readonly number[]
-): import('../renderer/model/types.ts').RenderNode | undefined {
+): RenderNode | undefined {
   let nodes = roots;
-  let current: import('../renderer/model/types.ts').RenderNode | undefined;
+  let current: RenderNode | undefined;
   for (const index of path) {
     current = nodes[index];
     if (current === undefined) return undefined;
@@ -1647,7 +1616,7 @@ function componentSlotChildren(
       definition.compose.call(undefined, {
         ...behavior,
         slots: mapped,
-        emit: (action) => mapActionResolution(action, toActionMessage),
+        emit: (action) => mapComponentAction(action, toActionMessage),
         ...(styles === undefined ? {} : { styles }),
         ...(layer === undefined ? {} : { layer })
       })
@@ -1692,7 +1661,7 @@ function componentSlotChildren(
         definition.implementationSlots?.call(undefined, {
           ...behavior,
           slots: Object.freeze({ ...(supplied ?? {}) }),
-          emit: (action) => mapActionResolution(action, toActionMessage),
+          emit: (action) => mapComponentAction(action, toActionMessage),
           ...(styles === undefined ? {} : { styles }),
           ...(layer === undefined ? {} : { layer })
         })
@@ -1709,8 +1678,8 @@ function componentSlotChildren(
       throw new TypeError(`Component "${definition.name}" produced unknown caller-owned slot "${unsupported}".`);
     }
   }
-  const children: import('../renderer/model/types.ts').RenderNode[] = [];
-  const inspectionChildren: import('../renderer/model/types.ts').RenderNode[] = [];
+  const children: RenderNode[] = [];
+  const inspectionChildren: RenderNode[] = [];
   const ranges: ComponentSlotRange[] = [];
   for (const slot of definition.slots) {
     const content = slot.owner === 'caller'
@@ -1726,7 +1695,7 @@ function componentSlotChildren(
               `Component "${definition.name}" slot "${slot.name}" forbids child messages.`
             );
           }
-          return executeComponentPhase(definition.name, value.id, 'action', () => mapActionResolution(
+          return executeComponentPhase(definition.name, value.id, 'action', () => mapComponentAction(
             definition.capture?.call(undefined, { ...behavior, slot: slot.name, message }),
             toActionMessage
           ));
@@ -1751,12 +1720,12 @@ function componentSlotChildren(
 }
 
 function renderNodePaths(
-  roots: readonly import('../renderer/model/types.ts').RenderNode[],
+  roots: readonly RenderNode[],
   targets: ReadonlySet<object>
 ): readonly (readonly number[])[] {
   const paths: (readonly number[])[] = [];
   const visit = (
-    nodes: readonly import('../renderer/model/types.ts').RenderNode[],
+    nodes: readonly RenderNode[],
     parent: readonly number[]
   ): void => {
     nodes.forEach((node, index) => {
@@ -1803,7 +1772,7 @@ function mappedComposedSlotValue(
         if (slot.messages === 'none') {
           throw new TypeError(`Component "${definition.name}" slot "${slot.name}" forbids child messages.`);
         }
-        return executeComponentPhase(definition.name, instanceId, 'action', () => mapActionResolution(
+        return executeComponentPhase(definition.name, instanceId, 'action', () => mapComponentAction(
           definition.capture?.call(undefined, { ...behavior, slot: slot.name, message }),
           toActionMessage
         ));
@@ -1952,7 +1921,7 @@ function componentPointerInteraction(
       definition.name,
       instanceId,
       'pointer',
-      () => mapActionResolution(
+      () => mapComponentAction(
         definition.pointer?.onAction.call(undefined, action, behavior),
         toActionMessage
       )
@@ -2235,73 +2204,6 @@ function normalizeStyleMap(
   ])));
 }
 
-function immutablePreparedModel(
-  value: Readonly<Record<string, unknown>>,
-  component: string
-): Readonly<Record<string, unknown>> {
-  const seen = new WeakMap<object, unknown>();
-  const clone = (current: unknown, path: string): unknown => {
-    if (current === null || typeof current !== 'object') return current;
-    const cached = seen.get(current);
-    if (cached !== undefined) return cached;
-    if (Object.isFrozen(current) && Reflect.ownKeys(current).length === 0) return current;
-    if (Array.isArray(current)) {
-      const target: unknown[] = [];
-      seen.set(current, target);
-      let unchanged = Object.isFrozen(current);
-      for (const [index, entry] of current.entries()) {
-        const prepared = clone(entry, `${path}[${String(index)}]`);
-        target.push(prepared);
-        unchanged &&= prepared === entry;
-      }
-      if (unchanged) {
-        seen.set(current, current);
-        return current;
-      }
-      return Object.freeze(target);
-    }
-    const prototype = Reflect.getPrototypeOf(current);
-    if (prototype !== Object.prototype && prototype !== null) {
-      throw new TypeError(
-        `Component "${component}" prepared model ${path} must contain only immutable plain objects and arrays.`
-      );
-    }
-    const target: Record<string, unknown> = {};
-    seen.set(current, target);
-    let unchanged = Object.isFrozen(current);
-    for (const [field, entry] of Object.entries(current)) {
-      const prepared = clone(entry, `${path}.${field}`);
-      target[field] = prepared;
-      unchanged &&= prepared === entry;
-    }
-    if (unchanged) {
-      seen.set(current, current);
-      return current;
-    }
-    return Object.freeze(target);
-  };
-  return clone(value, '$') as Readonly<Record<string, unknown>>;
-}
-
-function executeComponentPhase<TValue>(
-  component: ComponentDefinitionName,
-  instanceId: string | undefined,
-  phase: ComponentExecutionPhase,
-  operation: () => TValue
-): TValue {
-  try {
-    return operation();
-  } catch (cause) {
-    if (cause instanceof ComponentExecutionError) throw cause;
-    throw new ComponentExecutionError({
-      component,
-      ...(instanceId === undefined ? {} : { instanceId }),
-      phase,
-      cause
-    });
-  }
-}
-
 function assertUniqueStringMembers(
   value: unknown,
   allowedValues: readonly string[],
@@ -2313,220 +2215,6 @@ function assertUniqueStringMembers(
     || new Set(value).size !== value.length) {
     throw new TypeError(`${subject} must contain unique supported values.`);
   }
-}
-
-function mappedKeyBindings(
-  bindings: ElementKeyBindings<unknown> | undefined,
-  mapper: ((action: unknown) => unknown) | undefined,
-  component: ComponentDefinitionName,
-  instanceId: string | undefined
-): ElementKeyBindings<unknown> | undefined {
-  if (bindings === undefined) return undefined;
-  assertKeyBindings(bindings, 'Component definition keys');
-  const named: Partial<Record<BindableKeyName, NonNullable<ElementKeyBindings<unknown>[BindableKeyName]>>> = {};
-  for (const key of keyNames) {
-    if (!isBindableKeyName(key)) continue;
-    const handler = bindings[key];
-    if (handler === undefined) continue;
-    named[key] = (event) => executeComponentPhase(component, instanceId, 'keyboard', () =>
-      mapActionResolution(handler(event), mapper)
-    );
-  }
-  const mapped: ElementKeyBindings<unknown> = {
-    ...named,
-    ...(bindings.triggers === undefined ? {} : {
-      triggers: bindings.triggers.map((binding) => ({
-        trigger: binding.trigger,
-        onKey: (event) => executeComponentPhase(component, instanceId, 'keyboard', () =>
-          mapActionResolution(binding.onKey(event), mapper)
-        )
-      }))
-    }),
-    ...(bindings.text === undefined ? {} : {
-      text: Object.fromEntries(Object.entries(bindings.text).map(([text, handler]) => [
-        text,
-        (event: Parameters<typeof handler>[0]) => executeComponentPhase(component, instanceId, 'keyboard', () =>
-          mapActionResolution(handler(event), mapper)
-        )
-      ]))
-    })
-  };
-  return Object.freeze(mapped);
-}
-
-function mapHitTargets(
-  targets: readonly HitTarget[],
-  mapper: ((action: unknown) => unknown) | undefined,
-  component: ComponentDefinitionName,
-  instanceId: string | undefined
-): readonly HitTarget[] {
-  return targets.map((target) => ({
-    ...target,
-    message: (event) => executeComponentPhase(component, instanceId, 'pointer', () =>
-      mapActionResolution(target.message(event), mapper)
-    )
-  }));
-}
-
-function mapActionResolution(
-  action: unknown,
-  mapper: ((value: unknown) => unknown) | undefined
-): MessageResolution<ComponentMessage> {
-  if (action === undefined) {
-    throw new TypeError('Component action hook returned undefined. Return ignoreMessage() to ignore an event.');
-  }
-  if (isIgnoredMessage(action)) return action;
-  if (mapper === undefined) {
-    throw new TypeError('Component action cannot be emitted without an onAction mapper.');
-  }
-  const message = mapper(action);
-  if (!isComponentMessage(message)) {
-    throw new TypeError('Component onAction returned undefined. Return ignoreMessage() to ignore an action.');
-  }
-  return message;
-}
-
-function isComponentMessage(value: unknown): value is ComponentMessage {
-  return value !== undefined;
-}
-
-function actionMapper(
-  renderNode: { readonly props: { readonly toActionMessage?: (action: unknown) => unknown } }
-): ((action: unknown) => unknown) | undefined {
-  return renderNode.props.toActionMessage;
-}
-
-function assertKeyBindings(value: unknown, subject: string): asserts value is ElementKeyBindings<unknown> {
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
-  const bindable = new Set<string>(keyNames.filter((name) => name !== 'unknown'));
-  for (const [key, handler] of Object.entries(value)) {
-    if (key === 'triggers') {
-      if (!Array.isArray(handler)) throw new TypeError(`${subject}.triggers must be an array.`);
-      for (const [index, binding] of handler.entries()) {
-        if (!isNonArrayObject(binding)) {
-          throw new TypeError(`${subject}.triggers[${String(index)}] must be an object.`);
-        }
-        const unsupported = findUnsupportedField(binding, triggerBindingFields);
-        if (unsupported !== undefined) {
-          throw new TypeError(`${subject}.triggers[${String(index)}] contains unknown field "${unsupported}".`);
-        }
-        assertKeyInputTrigger(binding['trigger'], `${subject}.triggers[${String(index)}].trigger`);
-        if (typeof binding['onKey'] !== 'function') {
-          throw new TypeError(`${subject}.triggers[${String(index)}].onKey must be a function.`);
-        }
-      }
-      continue;
-    }
-    if (key === 'text') {
-      if (!isNonArrayObject(handler)) throw new TypeError(`${subject}.text must be an object.`);
-      for (const [text, textHandler] of Object.entries(handler)) {
-        if (typeof textHandler !== 'function') {
-          throw new TypeError(`${subject}.text[${JSON.stringify(text)}] must be a function.`);
-        }
-      }
-      continue;
-    }
-    if (!bindable.has(key)) throw new TypeError(`${subject} contains unknown binding "${key}".`);
-    if (typeof handler !== 'function') throw new TypeError(`${subject}.${key} must be a function.`);
-  }
-}
-
-const triggerBindingFields = new Set(['trigger', 'onKey']);
-const keyTriggerFields = new Set(['kind', 'key', 'modifiers', 'eventType', 'location']);
-const codePointTriggerFields = new Set(['kind', 'codePoint', 'source', 'modifiers', 'eventType', 'location']);
-const physicalKeyTriggerFields = new Set(['kind', 'codePoint', 'modifiers', 'eventType', 'location']);
-const modifierFields = new Set(['kind', 'ctrl', 'alt', 'shift', 'meta']);
-
-function assertKeyInputTrigger(value: unknown, subject: string): asserts value is Extract<
-  InputTrigger,
-  { readonly kind: 'key' | 'codePoint' | 'physicalKey' }
-> {
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
-  const kind = value['kind'];
-  const fields = kind === 'key'
-    ? keyTriggerFields
-    : kind === 'codePoint'
-      ? codePointTriggerFields
-      : kind === 'physicalKey'
-        ? physicalKeyTriggerFields
-        : undefined;
-  if (fields === undefined) {
-    throw new TypeError(`${subject}.kind must be "key", "codePoint", or "physicalKey".`);
-  }
-  const unsupported = findUnsupportedField(value, fields);
-  if (unsupported !== undefined) throw new TypeError(`${subject} contains unknown field "${unsupported}".`);
-  if (kind === 'key') {
-    if (!isStringMember(value['key'], keyNames) || value['key'] === 'unknown') {
-      throw new TypeError(`${subject}.key must be a bindable key name.`);
-    }
-  } else if (!isUnicodeScalar(value['codePoint'])) {
-    throw new TypeError(`${subject}.codePoint must be a Unicode scalar value.`);
-  }
-  if (kind === 'codePoint' && value['source'] !== undefined
-    && value['source'] !== 'primary' && value['source'] !== 'shifted') {
-    throw new TypeError(`${subject}.source must be "primary" or "shifted".`);
-  }
-  if (value['eventType'] !== undefined && !isStringMember(value['eventType'], keyEventTypes)) {
-    throw new TypeError(`${subject}.eventType is unsupported.`);
-  }
-  if (value['location'] !== undefined && !isStringMember(value['location'], keyLocations)) {
-    throw new TypeError(`${subject}.location is unsupported.`);
-  }
-  assertModifierTrigger(value['modifiers'], subject);
-}
-
-function assertModifierTrigger(value: unknown, subject: string): asserts value is KeyModifierTrigger | undefined {
-  if (value === undefined) return;
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject}.modifiers must be an object.`);
-  const unsupported = findUnsupportedField(value, modifierFields);
-  if (unsupported !== undefined) {
-    throw new TypeError(`${subject}.modifiers contains unknown field "${unsupported}".`);
-  }
-  if (value['kind'] !== undefined && value['kind'] !== 'any' && value['kind'] !== 'exact') {
-    throw new TypeError(`${subject}.modifiers.kind must be "any" or "exact".`);
-  }
-  if (value['kind'] === 'any' && Object.keys(value).some((field) => field !== 'kind')) {
-    throw new TypeError(`${subject}.modifiers kind "any" cannot define modifier flags.`);
-  }
-  for (const field of ['ctrl', 'alt', 'shift', 'meta'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'boolean') {
-      throw new TypeError(`${subject}.modifiers.${field} must be a boolean.`);
-    }
-  }
-}
-
-function assertPointerDefinition(value: unknown): void {
-  if (value === undefined) return;
-  if (!isNonArrayObject(value)) throw new TypeError('Component definition pointer must be an object.');
-  const unsupported = findUnsupportedField(value, new Set(['state', 'onAction']));
-  if (unsupported !== undefined) {
-    throw new TypeError(`Component definition pointer contains unknown field "${unsupported}".`);
-  }
-  if (value['state'] !== undefined && typeof value['state'] !== 'function') {
-    throw new TypeError('Component definition pointer.state must be a function when provided.');
-  }
-  if (typeof value['onAction'] !== 'function') {
-    throw new TypeError('Component definition pointer requires onAction().');
-  }
-}
-
-function normalizedPointerState(value: unknown, component: string): PointerInteractionState {
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Component "${component}" pointer state must be an object.`);
-  }
-  const unsupported = findUnsupportedField(value, new Set(['hoveredTargetId', 'pressedTargetId']));
-  if (unsupported !== undefined) {
-    throw new TypeError(`Component "${component}" pointer state contains unknown field "${unsupported}".`);
-  }
-  for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      throw new TypeError(`Component "${component}" pointer state.${field} must be a string.`);
-    }
-  }
-  return Object.freeze({
-    ...(typeof value['hoveredTargetId'] === 'string' ? { hoveredTargetId: value['hoveredTargetId'] } : {}),
-    ...(typeof value['pressedTargetId'] === 'string' ? { pressedTargetId: value['pressedTargetId'] } : {})
-  });
 }
 
 function normalizeChildBounds(values: unknown, parent: Rect, childCount: number): readonly Rect[] {
@@ -2657,15 +2345,4 @@ function rectFits(value: Rect, parent: Rect): boolean {
 
 function isQualifiedComponentName(value: string): boolean {
   return /^(?:@[A-Za-z][A-Za-z0-9_.-]*\/[A-Za-z][A-Za-z0-9_.-]*|[A-Za-z][A-Za-z0-9_.-]*)(?:\/[A-Za-z][A-Za-z0-9_.-]*)+$/u.test(value);
-}
-
-function isBindableKeyName(value: KeyName): value is BindableKeyName {
-  return value !== 'unknown';
-}
-
-function isUnicodeScalar(value: unknown): boolean {
-  return Number.isSafeInteger(value)
-    && Number(value) >= 0
-    && Number(value) <= 0x10ffff
-    && !(Number(value) >= 0xd800 && Number(value) <= 0xdfff);
 }
