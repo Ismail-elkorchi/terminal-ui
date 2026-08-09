@@ -8,9 +8,10 @@ import type {
   LetterKeyName
 } from './types.ts';
 
-const modifiedNavigationFinalPattern = new RegExp(String.raw`^\u001B\[1;(\d+)([ABCDFH])`, 'u');
+const modifiedNavigationFinalPattern = new RegExp(String.raw`^\u001B\[1;(\d+)([ABCDFHPQRS])`, 'u');
 const modifiedTildePattern = new RegExp(String.raw`^\u001B\[(\d+);(\d+)~`, 'u');
-const altLetterPattern = new RegExp(String.raw`^\u001B([A-Za-z])`, 'u');
+const altPrintablePattern = new RegExp(String.raw`^\u001B([ -~])`, 'u');
+const terminalControlIntroducers = new Set(['[', 'O', ']', 'P', 'X', '^', '_']);
 
 interface KeySequence {
   readonly key: KeyName;
@@ -29,6 +30,10 @@ export const keySequences: ReadonlyMap<string, KeySequence> = new Map([
   ['\u001B[D', { key: 'arrowLeft' }],
   ['\u001B[H', { key: 'home' }],
   ['\u001B[F', { key: 'end' }],
+  ['\u001BOA', { key: 'arrowUp' }],
+  ['\u001BOB', { key: 'arrowDown' }],
+  ['\u001BOC', { key: 'arrowRight' }],
+  ['\u001BOD', { key: 'arrowLeft' }],
   ['\u001BOH', { key: 'home' }],
   ['\u001BOF', { key: 'end' }],
   ['\u001B[1~', { key: 'home' }],
@@ -45,6 +50,14 @@ export const keySequences: ReadonlyMap<string, KeySequence> = new Map([
   ['\u001B[21~', { key: 'f10' }],
   ['\u001B[23~', { key: 'f11' }],
   ['\u001B[24~', { key: 'f12' }],
+  ['\u001B[25~', { key: 'f13' }],
+  ['\u001B[26~', { key: 'f14' }],
+  ['\u001B[28~', { key: 'f15' }],
+  ['\u001B[29~', { key: 'f16' }],
+  ['\u001B[31~', { key: 'f17' }],
+  ['\u001B[32~', { key: 'f18' }],
+  ['\u001B[33~', { key: 'f19' }],
+  ['\u001B[34~', { key: 'f20' }],
   ['\u001BOp', { key: '0', location: 'numpad' }],
   ['\u001BOq', { key: '1', location: 'numpad' }],
   ['\u001BOr', { key: '2', location: 'numpad' }],
@@ -71,14 +84,17 @@ export const keySequences: ReadonlyMap<string, KeySequence> = new Map([
 
 const finalNavigationKeys: ReadonlyMap<string, KeyName> = new Map([
   ['A', 'arrowUp'], ['B', 'arrowDown'], ['C', 'arrowRight'],
-  ['D', 'arrowLeft'], ['H', 'home'], ['F', 'end']
+  ['D', 'arrowLeft'], ['H', 'home'], ['F', 'end'],
+  ['P', 'f1'], ['Q', 'f2'], ['R', 'f3'], ['S', 'f4']
 ]);
 
 const tildeKeys: ReadonlyMap<string, KeyName> = new Map([
   ['1', 'home'], ['2', 'insert'], ['3', 'delete'], ['4', 'end'],
   ['5', 'pageUp'], ['6', 'pageDown'], ['15', 'f5'], ['17', 'f6'],
   ['18', 'f7'], ['19', 'f8'], ['20', 'f9'], ['21', 'f10'],
-  ['23', 'f11'], ['24', 'f12']
+  ['23', 'f11'], ['24', 'f12'], ['25', 'f13'], ['26', 'f14'],
+  ['28', 'f15'], ['29', 'f16'],
+  ['31', 'f17'], ['32', 'f18'], ['33', 'f19'], ['34', 'f20']
 ]);
 
 export function normalizeKeyEvent(event: KeyEventLike): KeyEvent {
@@ -147,11 +163,26 @@ export function keyFromPrefix(value: string): KeyEvent | undefined {
   for (const [sequence, descriptor] of keySequences) {
     if (value.startsWith(sequence)) return keyEvent(descriptor.key, sequence, descriptor);
   }
-  const altLetter = altLetterPattern.exec(value);
-  if (altLetter?.[0] !== undefined && altLetter[1] !== undefined) {
-    const letter = altLetter[1].toLowerCase() as LetterKeyName;
-    return normalizeKeyEvent({ key: letter, sequence: altLetter[0], modifiers: { alt: true, shift: altLetter[1] !== letter } });
+  const altPrintable = altPrintablePattern.exec(value);
+  if (
+    altPrintable?.[0] !== undefined
+    && altPrintable[1] !== undefined
+    && !terminalControlIntroducers.has(altPrintable[1])
+  ) {
+    const character = altPrintable[1];
+    const codePoint = character.codePointAt(0);
+    if (codePoint !== undefined) {
+      const key = printableKeyName(character);
+      return normalizeKeyEvent({
+        key,
+        keyCodePoint: codePoint,
+        sequence: altPrintable[0],
+        modifiers: { alt: true, shift: key !== 'unknown' && character !== character.toLowerCase() }
+      });
+    }
   }
+  const altControl = altControlKeyFromPrefix(value);
+  if (altControl !== undefined) return altControl;
   const control = controlKeyFromPrefix(value);
   if (control !== undefined) return control;
   if (value === '\u001B') return normalizeKeyEvent({ key: 'escape', sequence: value });
@@ -168,13 +199,42 @@ export function keyEvent(
 
 function controlKeyFromPrefix(value: string): KeyEvent | undefined {
   const code = value.codePointAt(0);
-  if (code === undefined || code < 0 || code > 26) return undefined;
+  if (code === undefined || code < 0 || code > 31) return undefined;
   const sequence = value[0];
   if (sequence === undefined) return undefined;
   if (code === 0) return normalizeKeyEvent({ key: 'space', sequence, modifiers: { ctrl: true } });
   if (code === 9 || code === 10 || code === 13 || code === 27 || code === 8) return undefined;
+  if (code >= 28 && code <= 31) {
+    const keyCodePoint = [92, 93, 94, 95][code - 28];
+    if (keyCodePoint === undefined) return undefined;
+    return normalizeKeyEvent({
+      key: 'unknown',
+      keyCodePoint,
+      sequence,
+      modifiers: { ctrl: true }
+    });
+  }
   const key = String.fromCharCode(96 + code) as LetterKeyName;
   return normalizeKeyEvent({ key, sequence, modifiers: { ctrl: true } });
+}
+
+function altControlKeyFromPrefix(value: string): KeyEvent | undefined {
+  if (!value.startsWith('\u001B') || value.length < 2) return undefined;
+  const nested = controlKeyFromPrefix(value.slice(1));
+  return nested === undefined ? undefined : normalizeKeyEvent({
+    ...nested,
+    sequence: value.slice(0, 2),
+    modifiers: { ...nested.modifiers, alt: true }
+  });
+}
+
+function printableKeyName(value: string): KeyName {
+  const lower = value.toLowerCase();
+  if (lower >= 'a' && lower <= 'z') return lower as LetterKeyName;
+  if (value >= '0' && value <= '9') return value as KeyName;
+  if (value === ' ') return 'space';
+  if (value === '=') return 'equal';
+  return 'unknown';
 }
 
 function modifiedKeyFromPrefix(value: string): KeyEvent | undefined {
@@ -212,6 +272,10 @@ function normalizeModifiers(modifiers: Partial<KeyModifiers> | undefined): KeyMo
     ctrl: modifiers?.ctrl ?? false,
     alt: modifiers?.alt ?? false,
     shift: modifiers?.shift ?? false,
-    meta: modifiers?.meta ?? false
+    meta: modifiers?.meta ?? false,
+    ...(modifiers?.super === true ? { super: true as const } : {}),
+    ...(modifiers?.hyper === true ? { hyper: true as const } : {}),
+    ...(modifiers?.capsLock === true ? { capsLock: true as const } : {}),
+    ...(modifiers?.numLock === true ? { numLock: true as const } : {})
   };
 }

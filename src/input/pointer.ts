@@ -3,6 +3,7 @@ import type { MouseButton, MouseEvent as TerminalMouseEvent, MouseModifiers } fr
 export const pointerEventKinds = [
   'pointerDown',
   'pointerUp',
+  'pointerCancel',
   'click',
   'contextMenu',
   'scroll',

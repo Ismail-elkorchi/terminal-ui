@@ -219,6 +219,7 @@ test('transcript validation rejects malformed input-event variants', () => {
     [{ kind: 'resize', viewport: { columns: 1, rows: 1 } }, /unsupported field/u],
     [{ kind: 'focus', focused: 'yes' }, /focus event/u],
     [{ kind: 'signal', signal: '' }, /signal event/u],
+    [{ kind: 'signal', signal: 'SIGUSR1' }, /signal event/u],
     [{ kind: 'unknown', sequence: 1 }, /unknown event/u],
     [{ kind: 'other' }, /unsupported input event/u]
   ];

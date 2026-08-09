@@ -52,6 +52,7 @@ import type { TextAreaHighlight } from '../../ui-model/content.ts';
 import type { TextAreaStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ScrollableTextAreaOptions, TextAreaOptions } from '../options/content.ts';
+import { textEditingTriggers } from '../internal/text-key-bindings.ts';
 
 interface TextAreaModel {
   readonly document: TextDocument;
@@ -80,7 +81,7 @@ type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateTextArea = defineComponent<
-  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>,
   TextAreaModel,
   TextAreaAction,
   TextAreaStylePart,
@@ -124,9 +125,13 @@ const instantiateTextArea = defineComponent<
   prepare: prepareTextArea,
   measure: measureTextArea,
   render: paintTextArea,
-  keys: () => ({
-    backspace: () => edit('deleteBackward'),
-    delete: () => edit('deleteForward'),
+  keys: ({ readOnly }) => ({
+    triggers: textEditingTriggers(readOnly, true),
+    ...(readOnly ? {} : {
+      backspace: () => edit('deleteBackward'),
+      delete: () => edit('deleteForward'),
+      enter: () => ({ kind: 'edit' as const, operation: { kind: 'insert' as const, text: '\n' } }),
+    }),
     arrowLeft: () => edit('moveLeft'),
     arrowRight: () => edit('moveRight'),
     arrowUp: () => edit('moveLineUp'),
@@ -135,10 +140,11 @@ const instantiateTextArea = defineComponent<
     pageDown: () => edit('movePageDown'),
     home: () => edit('moveHome'),
     end: () => edit('moveEnd'),
-    enter: () => ({ kind: 'edit', operation: { kind: 'insert', text: '\n' } }),
   }),
-  onInput: ({ text }) => ({ kind: 'edit', operation: { kind: 'insert', text } }),
-  onPaste: ({ text }) => ({ kind: 'edit', operation: { kind: 'insert', text } }),
+  onInput: ({ text, readOnly }) =>
+    readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
+  onPaste: ({ text, readOnly }) =>
+    readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
   focusTargets(input) {
     const geometry = textAreaGeometry(input);

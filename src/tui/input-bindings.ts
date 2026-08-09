@@ -30,8 +30,18 @@ export function resolveTuiInputBinding<TState, TMessage>(
     const enabled = typeof binding.enabled === 'function'
       ? binding.enabled(context)
       : binding.enabled;
+    if (enabled !== undefined && typeof enabled !== 'boolean') {
+      throw new TypeError(
+        `TUI input binding ${JSON.stringify(binding.id)} enabled predicate must return a boolean.`
+      );
+    }
     if (enabled === false) continue;
     const message = 'toMessage' in binding ? binding.toMessage(context) : binding.message;
+    if (message === undefined || message === null) {
+      throw new TypeError(
+        `TUI input binding ${JSON.stringify(binding.id)} returned null or undefined. Return ignoreMessage() to ignore input.`
+      );
+    }
     if (!isIgnoredMessage(message)) return message;
   }
   return ignoreMessage();

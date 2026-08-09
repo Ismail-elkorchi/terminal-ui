@@ -9,7 +9,7 @@ import type {
   TerminalRestoreResult,
   TerminalSize
 } from '../host/index.ts';
-import type { InputEvent } from '../input/index.ts';
+import type { InputEvent, RecordedInputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { ThemeColorToken } from '../theme/index.ts';
 import type {
@@ -26,7 +26,7 @@ export interface TerminalHarness extends TranscriptReplayTarget {
   readonly host: MemoryTerminalHost;
   readonly clock: ControlledTerminalClock;
   readonly transcript: TranscriptRecorder;
-  input(event: InputEvent | string): Promise<void>;
+  input(event: RecordedInputEvent | string): Promise<void>;
   resize(terminalSize: TerminalSize): Promise<void>;
   run<T>(operation: (host: TerminalHost) => Promise<T>): Promise<T>;
   snapshot(): AccessibleSnapshot;
@@ -50,7 +50,7 @@ export interface PtyTerminalHarness extends TranscriptReplayTarget {
   readonly host: PtyTerminalHost;
   readonly clock: TerminalClock;
   readonly transcript: TranscriptRecorder;
-  input(event: InputEvent | string): Promise<void>;
+  input(event: RecordedInputEvent | string): Promise<void>;
   resize(terminalSize: TerminalSize): Promise<void>;
   closeInput(): void;
   snapshot(): AccessibleSnapshot;

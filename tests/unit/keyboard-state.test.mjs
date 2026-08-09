@@ -64,7 +64,7 @@ test('unsupported Kitty functional keys retain distinct pressed identities', () 
 });
 
 test('focus loss clears all pressed-key state', () => {
-  const press = decode('\u001B[97;1:1u');
+  const press = decode('\u001B[97;1:1;97u');
   const pressed = reduceKeyboardState(createKeyboardState(), { kind: 'key', event: press });
   const cleared = reduceKeyboardState(pressed, {
     kind: 'focus',

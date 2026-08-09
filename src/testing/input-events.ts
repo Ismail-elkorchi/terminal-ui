@@ -27,7 +27,15 @@ const keySequences = new Map<string, string>([
   ['f9', '\u001B[20~'],
   ['f10', '\u001B[21~'],
   ['f11', '\u001B[23~'],
-  ['f12', '\u001B[24~']
+  ['f12', '\u001B[24~'],
+  ['f13', '\u001B[25~'],
+  ['f14', '\u001B[26~'],
+  ['f15', '\u001B[28~'],
+  ['f16', '\u001B[29~'],
+  ['f17', '\u001B[31~'],
+  ['f18', '\u001B[32~'],
+  ['f19', '\u001B[33~'],
+  ['f20', '\u001B[34~']
 ]);
 
 const shiftedKeySequences = new Map<string, string>([
@@ -42,7 +50,7 @@ const shiftedKeySequences = new Map<string, string>([
   ['end', '\u001B[1;2F']
 ]);
 
-export function encodeHarnessInputEvent(event: InputEvent): string | undefined {
+export function encodeHarnessInputEvent(event: InputEvent): string {
   switch (event.kind) {
     case 'text':
       return event.text;
@@ -55,28 +63,47 @@ export function encodeHarnessInputEvent(event: InputEvent): string | undefined {
       return event.sequence;
     case 'focus':
       return event.focused ? '\u001B[I' : '\u001B[O';
-    case 'resize':
-    case 'signal':
-    case 'end':
-      return undefined;
   }
 }
 
-function encodeKeyEvent(event: KeyEvent): string | undefined {
+function encodeKeyEvent(event: KeyEvent): string {
   if (event.sequence !== undefined) return event.sequence;
+  if (event.eventType !== 'press') {
+    throw new TypeError(`Testing harness cannot encode a ${event.eventType} key without an explicit sequence.`);
+  }
   const control = controlSequence(event);
   if (control !== undefined) return control;
-  if (event.modifiers.alt && /^[a-z]$/u.test(event.key)) {
+  if (onlyModifiers(event, { alt: true, shift: event.modifiers.shift }) && /^[a-z]$/u.test(event.key)) {
     return `\u001B${event.modifiers.shift ? event.key.toUpperCase() : event.key}`;
   }
-  if (event.modifiers.shift) {
+  if (onlyModifiers(event, { shift: true })) {
     const shifted = shiftedKeySequences.get(event.key);
     if (shifted !== undefined) return shifted;
   }
-  return keySequences.get(event.key);
+  if (onlyModifiers(event, {})) {
+    const encoded = keySequences.get(event.key);
+    if (encoded !== undefined) return encoded;
+  }
+  throw new TypeError(
+    `Testing harness cannot encode key "${event.key}" with this legacy profile; provide its terminal sequence.`,
+  );
 }
 
 function controlSequence(event: KeyEvent): string | undefined {
-  if (!event.modifiers.ctrl || !/^[a-z]$/u.test(event.key)) return undefined;
+  if (!onlyModifiers(event, { ctrl: true }) || !/^[a-z]$/u.test(event.key)) return undefined;
   return String.fromCharCode(event.key.charCodeAt(0) - 96);
+}
+
+function onlyModifiers(
+  event: KeyEvent,
+  expected: { readonly ctrl?: boolean; readonly alt?: boolean; readonly shift?: boolean },
+): boolean {
+  return event.modifiers.ctrl === (expected.ctrl ?? false)
+    && event.modifiers.alt === (expected.alt ?? false)
+    && event.modifiers.shift === (expected.shift ?? false)
+    && !event.modifiers.meta
+    && event.modifiers.super !== true
+    && event.modifiers.hyper !== true
+    && event.modifiers.capsLock !== true
+    && event.modifiers.numLock !== true;
 }

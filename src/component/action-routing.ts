@@ -2,16 +2,16 @@ import type { ElementKeyBindings } from '../element/metadata.ts';
 import {
   findUnsupportedField,
   isNonArrayObject,
-  isStringMember,
 } from '../foundation/validation.ts';
 import type {
   BindableKeyName,
   InputTrigger,
-  KeyModifierTrigger,
 } from '../input/types.ts';
-import { keyEventTypes, keyLocations, keyNames } from '../input/types.ts';
+import { keyNames } from '../input/types.ts';
+import { normalizeInputTrigger } from '../input/triggers.ts';
 import type { PointerInteractionState } from '../interaction/pointer-interaction.ts';
 import type { HitTarget } from '../renderer/contracts.ts';
+import { segmentGraphemes } from '../text/index.ts';
 import { executeComponentPhase, type ComponentDefinitionName } from './execution-error.ts';
 import { mapComponentAction } from './message.ts';
 
@@ -36,19 +36,23 @@ export function mappedKeyBindings(
   const mapped: ElementKeyBindings<unknown> = {
     ...named,
     ...(bindings.triggers === undefined ? {} : {
-      triggers: bindings.triggers.map((binding) => ({
-        trigger: binding.trigger,
-        onKey: (event) => executeComponentPhase(component, instanceId, 'keyboard', () =>
+      triggers: Object.freeze(bindings.triggers.map((binding, index) => Object.freeze({
+        trigger: normalizeComponentKeyTrigger(
+          binding.trigger,
+          `Component definition keys.triggers[${String(index)}].trigger`,
+        ),
+        onKey: (event: Parameters<typeof binding.onKey>[0]) =>
+          executeComponentPhase(component, instanceId, 'keyboard', () =>
           mapComponentAction(binding.onKey(event), mapper)),
-      })),
+      }))),
     }),
     ...(bindings.text === undefined ? {} : {
-      text: Object.fromEntries(Object.entries(bindings.text).map(([text, handler]) => [
+      text: Object.freeze(Object.fromEntries(Object.entries(bindings.text).map(([text, handler]) => [
         text,
         (event: Parameters<typeof handler>[0]) =>
           executeComponentPhase(component, instanceId, 'keyboard', () =>
             mapComponentAction(handler(event), mapper)),
-      ])),
+      ]))),
     }),
   };
   return Object.freeze(mapped);
@@ -92,7 +96,8 @@ export function assertKeyBindings(
             `${subject}.triggers[${String(index)}] contains unknown field "${unsupported}".`,
           );
         }
-        assertKeyInputTrigger(binding['trigger'], `${subject}.triggers[${String(index)}].trigger`);
+        const triggerSubject = `${subject}.triggers[${String(index)}].trigger`;
+        normalizeComponentKeyTrigger(binding['trigger'], triggerSubject);
         if (typeof binding['onKey'] !== 'function') {
           throw new TypeError(`${subject}.triggers[${String(index)}].onKey must be a function.`);
         }
@@ -102,6 +107,9 @@ export function assertKeyBindings(
     if (key === 'text') {
       if (!isNonArrayObject(handler)) throw new TypeError(`${subject}.text must be an object.`);
       for (const [text, textHandler] of Object.entries(handler)) {
+        if (segmentGraphemes(text).length !== 1) {
+          throw new TypeError(`${subject}.text binding ${JSON.stringify(text)} must contain exactly one grapheme.`);
+        }
         if (typeof textHandler !== 'function') {
           throw new TypeError(`${subject}.text[${JSON.stringify(text)}] must be a function.`);
         }
@@ -164,93 +172,20 @@ export function normalizedPointerState(
 }
 
 const triggerBindingFields = new Set(['trigger', 'onKey']);
-const keyTriggerFields = new Set(['kind', 'key', 'modifiers', 'eventType', 'location']);
-const codePointTriggerFields = new Set([
-  'kind',
-  'codePoint',
-  'source',
-  'modifiers',
-  'eventType',
-  'location',
-]);
-const physicalKeyTriggerFields = new Set([
-  'kind',
-  'codePoint',
-  'modifiers',
-  'eventType',
-  'location',
-]);
-const modifierFields = new Set(['kind', 'ctrl', 'alt', 'shift', 'meta']);
 
-function assertKeyInputTrigger(
+function normalizeComponentKeyTrigger(
   value: unknown,
   subject: string,
-): asserts value is Extract<
-  InputTrigger,
-  { readonly kind: 'key' | 'codePoint' | 'physicalKey' }
-> {
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
-  const kind = value['kind'];
-  const fields = kind === 'key'
-    ? keyTriggerFields
-    : kind === 'codePoint'
-      ? codePointTriggerFields
-      : kind === 'physicalKey'
-        ? physicalKeyTriggerFields
-        : undefined;
-  if (fields === undefined) {
-    throw new TypeError(`${subject}.kind must be "key", "codePoint", or "physicalKey".`);
+): Extract<InputTrigger, { readonly kind: 'key' | 'codePoint' | 'physicalKey' }> {
+  let trigger: InputTrigger;
+  try {
+    trigger = normalizeInputTrigger(value);
+  } catch (cause) {
+    const detail = cause instanceof Error ? ` ${cause.message}` : '';
+    throw new TypeError(`${subject} is invalid.${detail}`, { cause });
   }
-  const unsupported = findUnsupportedField(value, fields);
-  if (unsupported !== undefined) {
-    throw new TypeError(`${subject} contains unknown field "${unsupported}".`);
+  if (trigger.kind === 'text' || trigger.kind === 'focus') {
+    throw new TypeError(`${subject} must be a key, codePoint, or physicalKey trigger.`);
   }
-  if (kind === 'key') {
-    if (!isStringMember(value['key'], keyNames) || value['key'] === 'unknown') {
-      throw new TypeError(`${subject}.key must be a bindable key name.`);
-    }
-  } else if (!isUnicodeScalar(value['codePoint'])) {
-    throw new TypeError(`${subject}.codePoint must be a Unicode scalar value.`);
-  }
-  if (
-    kind === 'codePoint' && value['source'] !== undefined &&
-    value['source'] !== 'primary' && value['source'] !== 'shifted'
-  ) {
-    throw new TypeError(`${subject}.source must be "primary" or "shifted".`);
-  }
-  if (value['eventType'] !== undefined && !isStringMember(value['eventType'], keyEventTypes)) {
-    throw new TypeError(`${subject}.eventType is unsupported.`);
-  }
-  if (value['location'] !== undefined && !isStringMember(value['location'], keyLocations)) {
-    throw new TypeError(`${subject}.location is unsupported.`);
-  }
-  assertModifierTrigger(value['modifiers'], subject);
-}
-
-function assertModifierTrigger(
-  value: unknown,
-  subject: string,
-): asserts value is KeyModifierTrigger | undefined {
-  if (value === undefined) return;
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject}.modifiers must be an object.`);
-  const unsupported = findUnsupportedField(value, modifierFields);
-  if (unsupported !== undefined) {
-    throw new TypeError(`${subject}.modifiers contains unknown field "${unsupported}".`);
-  }
-  if (value['kind'] !== undefined && value['kind'] !== 'any' && value['kind'] !== 'exact') {
-    throw new TypeError(`${subject}.modifiers.kind must be "any" or "exact".`);
-  }
-  if (value['kind'] === 'any' && Object.keys(value).some((field) => field !== 'kind')) {
-    throw new TypeError(`${subject}.modifiers kind "any" cannot define modifier flags.`);
-  }
-  for (const field of ['ctrl', 'alt', 'shift', 'meta'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'boolean') {
-      throw new TypeError(`${subject}.modifiers.${field} must be a boolean.`);
-    }
-  }
-}
-
-function isUnicodeScalar(value: unknown): boolean {
-  return Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= 0x10ffff &&
-    !(Number(value) >= 0xd800 && Number(value) <= 0xdfff);
+  return trigger;
 }

@@ -5,9 +5,11 @@ import { runTui } from '../../dist/tui/index.js';
 import {
   input,
   runPrompt } from '../../dist/prompts/index.js';
-import { createTerminalHarness,
+import { createPtyTerminalHarness,
+  createTerminalHarness,
   replayTranscript,
   runInteractionScript } from '../../dist/testing/index.js';
+import { validateTranscript } from '../../dist/transcript/index.js';
 import { defineTui } from '../../dist/tui/index.js';
 import { diffFrames, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import {
@@ -166,6 +168,29 @@ test('terminal harness input events update resize, signal, and end-of-input host
   assert.deepEqual(chunks, []);
 });
 
+test('testing harnesses reject invalid events before delivery or transcript recording', async () => {
+  const memory = createTerminalHarness();
+  assert.throws(
+    () => memory.input({ kind: 'signal', signal: 'SIGUSR1' }),
+    /supported terminal signal/u
+  );
+  assert.equal(memory.transcript.snapshot().steps.length, 0);
+  assert.equal(validateTranscript(memory.transcript.snapshot()).ok, true);
+
+  const ptyResult = createPtyTerminalHarness();
+  if (!ptyResult.ok) return;
+  try {
+    assert.throws(
+      () => ptyResult.harness.input({ kind: 'signal', signal: 'SIGUSR1' }),
+      /supported terminal signal/u
+    );
+    assert.equal(ptyResult.harness.transcript.snapshot().steps.length, 0);
+    assert.equal(validateTranscript(ptyResult.harness.transcript.snapshot()).ok, true);
+  } finally {
+    await ptyResult.harness.dispose();
+  }
+});
+
 test('terminal harness encodes normalized text key pointer paste and focus events', async () => {
   const harness = createTerminalHarness();
   const key = (keyName, modifiers, sequence) => ({
@@ -182,6 +207,11 @@ test('terminal harness encodes normalized text key pointer paste and focus event
   await harness.input(key('c', { ctrl: true }));
   await harness.input(key('q', { alt: true, shift: true }));
   await harness.input(key('arrowUp', { shift: true }));
+  await harness.input(key('f20', {}));
+  assert.throws(
+    () => harness.input(key('f21', {})),
+    /cannot encode key "f21"/u
+  );
   await harness.input(key('unknown', {}, '\u001B[99~'));
   await harness.input({
     kind: 'mouse',
@@ -203,7 +233,7 @@ test('terminal harness encodes normalized text key pointer paste and focus event
   for await (const chunk of harness.host.stdin.read()) chunks.push(chunk);
   assert.equal(
     chunks.map((chunk) => chunk.data).join(''),
-    'x\u001B[200~clip\u001B[201~\u0003\u001BQ\u001B[1;2A\u001B[99~\u001B[<0;2;3M\u001B[?999z\u001B[I\u001B[O'
+    'x\u001B[200~clip\u001B[201~\u0003\u001BQ\u001B[1;2A\u001B[34~\u001B[99~\u001B[<0;2;3M\u001B[?999z\u001B[I\u001B[O'
   );
 });
 

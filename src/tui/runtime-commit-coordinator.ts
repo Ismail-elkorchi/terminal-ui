@@ -67,6 +67,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         candidateCommitId()
       );
       const diff = await write(undefined, resolution.render, theme, context);
+      signal.throwIfAborted();
       accept(resolution, currentTerminalSize);
       pendingInitialFocus = undefined;
       return { render: resolution.render, diff, diagnostics: resolution.diagnostics };
@@ -92,6 +93,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         candidateCommitId()
       );
       const diff = await write(previousFrame, resolution.render, theme, context);
+      signal.throwIfAborted();
       accept(resolution, terminalSize);
       return { render: resolution.render, diff, diagnostics: resolution.diagnostics };
     },

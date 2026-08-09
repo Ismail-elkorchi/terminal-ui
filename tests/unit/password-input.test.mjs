@@ -62,10 +62,21 @@ test('passwordInput redacts typed secrets from TUI transcripts', async () => {
 
   await runtime.start();
   await runtime.handleInput({ kind: 'text', text: 'hunter2', paste: false });
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'unknown',
+    keyCodePoint: 233,
+    sequence: '\u001B[233;3;233u',
+    modifiers: { ctrl: false, alt: true, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard',
+    committedText: 'é'
+  });
   const recorded = JSON.stringify(transcript.snapshot());
 
-  assert.equal(runtime.state().buffer.text, 'hunter2');
+  assert.equal(runtime.state().buffer.text, 'hunter2é');
   assert.doesNotMatch(recorded, /hunter2/u);
+  assert.doesNotMatch(recorded, /é/u);
   assert.match(recorded, /\[redacted\]/u);
   await runtime.dispose();
 });

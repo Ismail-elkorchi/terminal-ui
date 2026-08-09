@@ -501,6 +501,22 @@ test('runPrompt rejects multiline paste in single-line prompts', async () => {
   assert.equal(result.diagnostics[0]?.code, 'PROMPT_VALIDATION_FAILED');
 });
 
+test('runPrompt keeps a slow bracketed paste open past the Escape delay', async () => {
+  const harness = createTerminalHarness();
+  const running = runPrompt(input({ label: 'Name' }), harness.host);
+
+  await waitUntil(() => harness.output().includes('Name:'));
+  harness.host.input('\u001B[200~Ada');
+  await flushAsync();
+  harness.clock.advance(25);
+  await flushAsync();
+  harness.host.input('\u001B[201~\r');
+  const result = await running;
+
+  assert.equal(result.status, 'submitted');
+  assert.equal(result.value, 'Ada');
+});
+
 test('runPrompt suppresses stale interactive validation results', async () => {
   const harness = createTerminalHarness();
   const requests = [];

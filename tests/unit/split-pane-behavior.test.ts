@@ -76,7 +76,11 @@ void test('resizable split pane routes keyboard and captured pointer drag action
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({
+    app,
+    host: harness.host,
+    input: { mouseReporting: 'drag' }
+  });
 
   await runtime.start();
   await runtime.handleInput({ kind: 'key', key: 'arrowRight', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });

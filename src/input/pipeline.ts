@@ -1,17 +1,29 @@
 import { diagnostic } from '../diagnostics.ts';
 import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/index.ts';
-import { createInputDecoder, decodeInputChunk } from './decoder.ts';
+import {
+  createInputDecoder,
+  decodeInputChunk,
+  normalizeInputDecodeLimits
+} from './decoder.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
+import type { MouseReportingMode, TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/index.ts';
-import type { InputDecodeLimits, InputDecodeOptions, InputDecoderBatch, InputEvent } from './types.ts';
+import type {
+  InputDecodeLimits,
+  InputDecodeOptions,
+  InputDecoderBatch,
+  InputEvent,
+  InputPendingState
+} from './types.ts';
 
-export type KeyboardInputProfileRequest = 'auto' | TerminalKeyboardProfile;
+export type KeyboardInputProfileRequest = TerminalKeyboardProfile;
 
 export interface InputPipelineOptions {
   readonly capabilities?: TerminalCapabilityProfile;
   readonly keyboard?: KeyboardInputProfileRequest;
   readonly bracketedPaste?: boolean;
+  readonly focusReporting?: boolean;
+  readonly mouseReporting?: MouseReportingMode;
   readonly escapeDelayMs?: number;
   readonly limits?: Partial<InputDecodeLimits>;
 }
@@ -22,43 +34,115 @@ export interface InputPipelineProfile {
     readonly requested: KeyboardInputProfileRequest;
   };
   readonly bracketedPaste: boolean;
+  readonly focusReporting: boolean;
+  readonly mouseReporting: MouseReportingMode;
   readonly escapeDelayMs: number;
+  readonly limits: InputDecodeLimits;
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
 export interface InputPipeline {
   readonly profile: InputPipelineProfile;
-  decode(chunk: TerminalInputChunk, options?: InputDecodeOptions): InputDecoderBatch;
+  decode(chunk: TerminalInputChunk): InputDecoderBatch;
   decodeOnce(chunk: TerminalInputChunk, options?: InputDecodeOptions): readonly InputEvent[];
   flush(): InputDecoderBatch;
+  pending(): InputPendingState;
   reset(): void;
 }
 
 export function createInputPipeline(options: InputPipelineOptions = {}): InputPipeline {
   const profile = resolveInputPipelineProfile(options);
-  const decoder = createInputDecoder(pipelineDecodeOptions(profile, options.limits));
+  const decoder = createInputDecoder(decodeOptions(profile));
+  let pending: InputPendingState = noPendingInput;
   return {
     profile,
-    decode: (chunk, override) => override === undefined
-      ? decoder.decode(chunk)
-      : { events: decodeInputChunk(chunk, pipelineDecodeOptions(profile, options.limits, override)), pending: { kind: 'none' } },
-    decodeOnce: (chunk, override) => decodeInputChunk(chunk, pipelineDecodeOptions(profile, options.limits, override)),
-    flush: () => decoder.flush(),
-    reset: () => { decoder.reset(); }
+    decode(chunk) {
+      try {
+        const batch = decoder.decode(chunk);
+        pending = immutablePendingState(batch.pending);
+        return { events: batch.events, pending };
+      } catch (cause) {
+        pending = noPendingInput;
+        throw cause;
+      }
+    },
+    decodeOnce: (chunk, override) => decodeInputChunk(chunk, pipelineDecodeOptions(profile, override)),
+    flush() {
+      try {
+        const batch = decoder.flush();
+        pending = immutablePendingState(batch.pending);
+        return { events: batch.events, pending };
+      } catch (cause) {
+        pending = noPendingInput;
+        throw cause;
+      }
+    },
+    pending: () => pending,
+    reset() {
+      decoder.reset();
+      pending = noPendingInput;
+    }
   };
 }
 
 export function resolveInputPipelineProfile(options: InputPipelineOptions = {}): InputPipelineProfile {
-  const requested = options.keyboard ?? 'auto';
-  const requestedProfile = requested === 'auto' ? LEGACY_KEYBOARD_PROFILE : normalizeKeyboardProfile(requested);
+  assertPipelineOptions(options);
+  const requested = normalizeKeyboardProfile(options.keyboard ?? LEGACY_KEYBOARD_PROFILE);
+  const requestedProfile = requested;
   const available = requestedProfile.kind === 'legacy' || capabilityUsable(options.capabilities?.keyboardProtocol);
   const active = available ? requestedProfile : LEGACY_KEYBOARD_PROFILE;
-  return {
-    keyboard: { active, requested },
-    bracketedPaste: options.bracketedPaste ?? capabilityUsable(options.capabilities?.bracketedPaste, true),
+  return Object.freeze({
+    keyboard: Object.freeze({ active, requested }),
+    bracketedPaste: options.bracketedPaste ?? false,
+    focusReporting: options.focusReporting ?? false,
+    mouseReporting: options.mouseReporting ?? 'none',
     escapeDelayMs: escapeDelay(options.escapeDelayMs),
-    diagnostics: available ? [] : [unsupportedKeyboardDiagnostic(requestedProfile, options.capabilities)]
-  };
+    limits: normalizeInputDecodeLimits(options.limits),
+    diagnostics: Object.freeze(available
+      ? []
+      : [unsupportedKeyboardDiagnostic(requestedProfile, options.capabilities)])
+  });
+}
+
+function assertPipelineOptions(value: InputPipelineOptions): void {
+  const candidate: unknown = value;
+  assertNonArrayRecord(candidate, 'Input pipeline options');
+  const record = candidate;
+  const supported = new Set([
+    'capabilities',
+    'keyboard',
+    'bracketedPaste',
+    'focusReporting',
+    'mouseReporting',
+    'escapeDelayMs',
+    'limits'
+  ]);
+  const unknown = Object.keys(record).find((field) => !supported.has(field));
+  if (unknown !== undefined) throw new TypeError(`Input pipeline options contain unknown field "${unknown}".`);
+  for (const field of ['bracketedPaste', 'focusReporting'] as const) {
+    if (record[field] !== undefined && typeof record[field] !== 'boolean') {
+      throw new TypeError(`Input pipeline option ${field} must be boolean.`);
+    }
+  }
+  const mouse = record['mouseReporting'];
+  if (mouse !== undefined && mouse !== 'none' && mouse !== 'click' && mouse !== 'drag' && mouse !== 'all') {
+    throw new TypeError('Input pipeline mouseReporting is unsupported.');
+  }
+  for (const field of ['capabilities', 'limits'] as const) {
+    const nested = record[field];
+    if (nested !== undefined && (typeof nested !== 'object' || nested === null || Array.isArray(nested))) {
+      throw new TypeError(`Input pipeline ${field} must be an object.`);
+    }
+  }
+}
+
+function assertNonArrayRecord(
+  value: unknown,
+  subject: string
+): asserts value is Readonly<Record<string, unknown>> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${subject} must be an object.`);
+  }
 }
 
 function escapeDelay(value: number | undefined): number {
@@ -70,29 +154,34 @@ function escapeDelay(value: number | undefined): number {
 }
 
 function decodeOptions(profile: InputPipelineProfile): InputDecodeOptions {
-  return { bracketedPaste: profile.bracketedPaste, keyboard: profile.keyboard.active };
+  return {
+    bracketedPaste: profile.bracketedPaste,
+    focusReporting: profile.focusReporting,
+    mouseReporting: profile.mouseReporting,
+    keyboard: profile.keyboard.active,
+    limits: profile.limits
+  };
 }
 
 function pipelineDecodeOptions(
   profile: InputPipelineProfile,
-  configuredLimits: Partial<InputDecodeLimits> | undefined,
   override: InputDecodeOptions = {}
 ): InputDecodeOptions {
-  const limits = configuredLimits === undefined && override.limits === undefined
-    ? undefined
-    : { ...configuredLimits, ...override.limits };
   return {
     ...decodeOptions(profile),
     ...override,
-    ...(limits === undefined ? {} : { limits })
+    limits: { ...profile.limits, ...override.limits }
   };
 }
 
-function capabilityUsable(
-  capability: TerminalCapabilityProfile['keyboardProtocol'] | undefined,
-  missingDefault = false
-): boolean {
-  if (capability === undefined) return missingDefault;
+const noPendingInput: InputPendingState = Object.freeze({ kind: 'none' });
+
+function immutablePendingState(value: InputPendingState): InputPendingState {
+  return value.kind === 'none' ? noPendingInput : Object.freeze({ kind: value.kind });
+}
+
+function capabilityUsable(capability: TerminalCapabilityProfile['keyboardProtocol'] | undefined): boolean {
+  if (capability === undefined) return false;
   return capability.support === 'supported' && capability.availability === 'available';
 }
 

@@ -4,10 +4,14 @@ export const BRACKETED_PASTE_START = '\u001B[200~';
 export const BRACKETED_PASTE_END = '\u001B[201~';
 
 export function bracketedPasteFromPrefix(
-  value: string
+  value: string,
+  searchFrom = BRACKETED_PASTE_START.length
 ): { readonly event: PasteEvent; readonly length: number } | undefined {
   if (!value.startsWith(BRACKETED_PASTE_START)) return undefined;
-  const endIndex = value.indexOf(BRACKETED_PASTE_END, BRACKETED_PASTE_START.length);
+  const endIndex = value.indexOf(
+    BRACKETED_PASTE_END,
+    Math.max(BRACKETED_PASTE_START.length, searchFrom)
+  );
   if (endIndex === -1) return undefined;
   const text = value.slice(BRACKETED_PASTE_START.length, endIndex);
   return {
@@ -20,13 +24,11 @@ export function isIncompleteBracketedPaste(value: string): boolean {
   if (!value.startsWith('\u001B')) return false;
   if (value === '\u001B') return false;
   if (BRACKETED_PASTE_START.startsWith(value) && value.length < BRACKETED_PASTE_START.length) return true;
-  return value.startsWith(BRACKETED_PASTE_START)
-    && !value.includes(BRACKETED_PASTE_END, BRACKETED_PASTE_START.length);
+  return value.startsWith(BRACKETED_PASTE_START);
 }
 
 export function incompleteBracketedPastePayloadLength(value: string): number | undefined {
   if (!value.startsWith(BRACKETED_PASTE_START)) return undefined;
-  if (value.includes(BRACKETED_PASTE_END, BRACKETED_PASTE_START.length)) return undefined;
   const pendingPayload = value.slice(BRACKETED_PASTE_START.length);
   return pendingPayload.length - trailingMarkerPrefixLength(pendingPayload, BRACKETED_PASTE_END);
 }

@@ -9,7 +9,7 @@ import type {
 } from '../diagnostics.ts';
 import type { JsonValue } from '../foundation/json.ts';
 import type { TerminalRestoreResult } from '../host/index.ts';
-import type { InputEvent } from '../input/index.ts';
+import type { RecordedInputEvent } from '../input/index.ts';
 import type {
   CursorPosition,
   Frame,
@@ -131,10 +131,10 @@ function redactStep(
 }
 
 function redactInputEvent(
-  event: InputEvent,
+  event: RecordedInputEvent,
   path: string,
   context: RedactionContext
-): InputEvent {
+): RecordedInputEvent {
   switch (event.kind) {
     case 'key':
       return {
@@ -169,10 +169,6 @@ function redactInputEvent(
         sequence: redactString(event.sequence, `${path}.sequence`, context)
       };
     case 'signal':
-      return {
-        ...event,
-        signal: redactString(event.signal, `${path}.signal`, context)
-      };
     case 'resize':
     case 'focus':
     case 'end':

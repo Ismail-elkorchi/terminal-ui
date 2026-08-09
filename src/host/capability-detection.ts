@@ -89,7 +89,10 @@ export class TerminalCapabilityDetector {
         this.#recordKeyboardProbe('unknown');
         return;
       }
-      const result = await this.#options.input.probeKittyKeyboard(operationController.signal);
+      const result = await this.#options.input.probeKittyKeyboard(
+        operationController.signal,
+        this.#options.clock
+      );
       this.#recordKeyboardProbe(result.status === 'supported' ? 'supported' : 'unknown');
     } finally {
       timerController.abort(PROBE_TIMER_CLOSED);

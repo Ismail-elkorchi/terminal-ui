@@ -10,6 +10,8 @@ export interface PromptRuntimeState<TChoice = never> {
   focusedChoiceIndex: number;
   selectedChoiceIndexes: Set<number>;
   choiceRangeAnchorIndex?: number;
+  choiceSearchText: string;
+  choiceSearchAt: number;
   choiceLoading: boolean;
   choiceLoadVersion: number;
   choiceDiagnostics: readonly TerminalDiagnostic[];
@@ -82,6 +84,8 @@ function basePromptState<TChoice>(
     focusedChoiceIndex,
     selectedChoiceIndexes,
     ...(choiceRangeAnchorIndex === undefined ? {} : { choiceRangeAnchorIndex }),
+    choiceSearchText: '',
+    choiceSearchAt: Number.NEGATIVE_INFINITY,
     choiceLoading: false,
     choiceLoadVersion: 0,
     choiceDiagnostics: resolution.ok ? resolution.diagnostics : resolution.diagnostics,

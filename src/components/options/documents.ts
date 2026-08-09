@@ -64,13 +64,21 @@ interface CommandInputOptionsBase {
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleSuggestions?: number;
   readonly pointerState?: PointerInteractionState;
-  readonly readOnly?: boolean;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], CommandInputStylePart>;
 }
 
 export type CommandInputOptions<TMessage extends ComponentMessage = never> = CommandInputOptionsBase & (
-  | { readonly disabled: true; readonly onAction?: never }
-  | { readonly disabled?: false; readonly onAction: (action: CommandInputAction) => MessageResolution<TMessage> }
+  | {
+      readonly disabled: true;
+      readonly readOnly?: never;
+      readonly pointerState?: never;
+      readonly onAction?: never;
+    }
+  | {
+      readonly disabled?: false;
+      readonly readOnly?: boolean;
+      readonly onAction: (action: CommandInputAction) => MessageResolution<TMessage>;
+    }
 );
 
 interface SearchPickerOptionsBase<TValue> {

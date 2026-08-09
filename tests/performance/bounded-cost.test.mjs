@@ -78,7 +78,7 @@ test('repeated word editing remains bounded on a ten-thousand-unit buffer', { ti
 });
 
 test('paste bursts decode as one paste event instead of per-character key churn', () => {
-  const decoder = createInputDecoder();
+  const decoder = createInputDecoder({ bracketedPaste: true });
   const payload = `${'\u001B[200~'}${'x'.repeat(10_000)}${'\u001B[201~'}`;
   const { events } = decoder.decode({ data: payload });
 

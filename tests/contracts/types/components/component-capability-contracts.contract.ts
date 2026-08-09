@@ -28,6 +28,13 @@ commandInput({
     ? ({ kind: 'submit' as const, value: action.value })
     : ({ kind: 'command' as const, action })
 });
+// @ts-expect-error disabled editable controls cannot also declare read-only state
+commandInput({
+  id: 'invalid-disabled-read-only-command',
+  presentation: { value: '', cursor: 0, suggestions: [] },
+  disabled: true,
+  readOnly: true
+});
 textInput({
   id: 'query',
   presentation: { value: 'term', cursor: 0 },

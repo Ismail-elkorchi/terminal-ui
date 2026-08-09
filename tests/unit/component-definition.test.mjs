@@ -703,7 +703,11 @@ test('component definition hit targets route mouse messages', async () => {
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({
+    app,
+    host: harness.host,
+    input: { mouseReporting: 'drag' }
+  });
 
   await runtime.start();
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
@@ -889,8 +893,73 @@ test('component definition key triggers are fully validated at construction', ()
 
   assert.throws(
     () => control({ id: 'invalid-trigger', onAction: (action) => action }),
-    /trigger\.key must be a bindable key name/u
+    /bindable key name/u
   );
+
+  const sequenceControl = defineComponent({
+    name: 'terminal-ui-tests/components/invalid-text-sequence',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+    render() {},
+    accessibility: ({ id }) => ({ id, role: 'button', label: id }),
+    keys: () => ({ text: { quit: () => ({ kind: 'activate' }) } })
+  });
+
+  assert.throws(
+    () => sequenceControl({ id: 'invalid-text-sequence', onAction: (action) => action }),
+    /exactly one grapheme/u
+  );
+});
+
+test('component definitions retain normalized trigger snapshots', async () => {
+  const trigger = { kind: 'codePoint', codePoint: 97 };
+  const control = defineComponent({
+    name: 'terminal-ui-tests/components/owned-trigger',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+    render() {},
+    accessibility: ({ id, focused }) => ({
+      id,
+      role: 'button',
+      label: id,
+      ...(focused ? { focused: true } : {})
+    }),
+    keys: () => ({
+      triggers: [{
+        trigger,
+        onKey: () => ({ kind: 'activate' })
+      }]
+    })
+  });
+  const element = control({
+    id: 'owned-trigger',
+    onAction: (action) => action
+  });
+  trigger.codePoint = 98;
+  const app = defineTui({
+    id: 'owned-component-trigger',
+    init: () => ({ activations: 0 }),
+    update: (state) => ({ state: { activations: state.activations + 1 } }),
+    view: () => element
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 8, rows: 1 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'a',
+    keyCodePoint: 97,
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.equal(runtime.state().activations, 1);
 });
 
 test('component definition measurement participates in content track layout', () => {

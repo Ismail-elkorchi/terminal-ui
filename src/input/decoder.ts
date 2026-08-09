@@ -1,15 +1,18 @@
 import { focusFromPrefix } from './focus.ts';
 import { InputDecodeError } from './decode-error.ts';
 import { enhancedKeyFromPrefix } from './enhanced-keyboard.ts';
-import { keyEvent, keyFromPrefix, keySequences } from './keys.ts';
+import { keyFromPrefix } from './keys.ts';
 import { mouseFromPrefix } from './mouse.ts';
 import {
+  BRACKETED_PASTE_START,
+  BRACKETED_PASTE_END,
   bracketedPasteFromPrefix,
   incompleteBracketedPastePayloadLength,
   isIncompleteBracketedPaste
 } from './paste.ts';
 import { createUtf8StreamDecoder, decodeUtf8Chunk } from './utf8-stream.ts';
 import type { TerminalInputChunk } from '../host/index.ts';
+import { normalizeKeyboardProfile } from '../protocol/index.ts';
 import type {
   InputDecodeLimits,
   InputDecodeOptions,
@@ -19,45 +22,60 @@ import type {
   InputPendingState
 } from './types.ts';
 
-const csiPattern = new RegExp(String.raw`^\u001B\[[0-?]*[ -/]*[@-~]`, 'u');
-const completeSgrMousePattern = new RegExp(String.raw`^\u001B\[<\d+;\d+;\d+[Mm]`, 'u');
-
 export const defaultInputDecodeLimits: InputDecodeLimits = Object.freeze({
-  maxPendingSequenceCodeUnits: 16_384,
-  maxPasteCodeUnits: 1_048_576
+  maxHostChunkBytes: 1_048_576,
+  maxProtocolCodeUnits: 16_384,
+  maxTextEventCodeUnits: 65_536,
+  maxEventsPerBatch: 4_096,
+  maxPasteCodeUnits: 1_048_576,
+  maxKittyAssociatedTextCodePoints: 4_096,
+  maxMouseFieldDigits: 9
 });
 
 export function decodeInputChunk(
   chunk: TerminalInputChunk,
   options: InputDecodeOptions = {}
 ): readonly InputEvent[] {
+  const normalized = normalizeDecodeOptions(options);
+  const limits = normalizeInputDecodeLimits(normalized.limits);
+  assertHostChunkWithinLimit(chunk, limits);
   const text = decodeUtf8Chunk(chunk);
   if (text.length === 0) return [];
-  if (text === ' ') return [{ ...keyEvent('space', text), committedText: ' ' }];
-  const limits = normalizeLimits(options.limits);
-  return decodeTerminalText(text, options, true, limits).events;
+  return decodeTerminalText(text, normalized, true, limits, BRACKETED_PASTE_START.length).events;
 }
 
 export function createInputDecoder(options: InputDecodeOptions = {}): InputDecoder {
+  const normalized = normalizeDecodeOptions(options);
   let pending = '';
+  let pasteSearchFrom = BRACKETED_PASTE_START.length;
+  let protocolSearchFrom = 0;
   const utf8 = createUtf8StreamDecoder();
-  const limits = normalizeLimits(options.limits);
+  const limits = normalizeInputDecodeLimits(normalized.limits);
 
   return {
     decode(chunk) {
       try {
+        assertHostChunkWithinLimit(chunk, limits);
         const text = utf8.decode(chunk);
         if (text.length === 0) return batch([], pendingState(pending));
-        if (pending.length === 0 && text === ' ') {
-          return batch([{ ...keyEvent('space', text), committedText: ' ' }], { kind: 'none' });
-        }
         pending += text;
-        const result = decodeTerminalText(pending, options, false, limits);
+        const result = decodeTerminalText(
+          pending,
+          normalized,
+          false,
+          limits,
+          pasteSearchFrom,
+          protocolSearchFrom
+        );
         pending = result.remainder;
-        assertPendingSequenceWithinLimit(pending, limits);
+        pasteSearchFrom = result.pasteSearchFrom;
+        protocolSearchFrom = result.protocolSearchFrom;
+        assertProtocolWithinLimit(pending, limits);
         return batch(result.events, pendingState(pending));
       } catch (cause) {
         pending = '';
+        pasteSearchFrom = BRACKETED_PASTE_START.length;
+        protocolSearchFrom = 0;
         utf8.reset();
         throw cause;
       }
@@ -66,17 +84,30 @@ export function createInputDecoder(options: InputDecodeOptions = {}): InputDecod
       try {
         pending += utf8.flush();
         if (pending.length === 0) return batch([], { kind: 'none' });
-        const result = decodeTerminalText(pending, options, true, limits);
+        const result = decodeTerminalText(
+          pending,
+          normalized,
+          true,
+          limits,
+          pasteSearchFrom,
+          protocolSearchFrom
+        );
         pending = '';
+        pasteSearchFrom = BRACKETED_PASTE_START.length;
+        protocolSearchFrom = 0;
         return batch(result.events, { kind: 'none' });
       } catch (cause) {
         pending = '';
+        pasteSearchFrom = BRACKETED_PASTE_START.length;
+        protocolSearchFrom = 0;
         utf8.reset();
         throw cause;
       }
     },
     reset() {
       pending = '';
+      pasteSearchFrom = BRACKETED_PASTE_START.length;
+      protocolSearchFrom = 0;
       utf8.reset();
     }
   };
@@ -86,16 +117,32 @@ function decodeTerminalText(
   text: string,
   options: InputDecodeOptions,
   final: boolean,
-  limits: InputDecodeLimits
-): { readonly events: readonly InputEvent[]; readonly remainder: string } {
+  limits: InputDecodeLimits,
+  pasteSearchFrom: number,
+  protocolSearchFrom = 0
+): {
+  readonly events: readonly InputEvent[];
+  readonly remainder: string;
+  readonly pasteSearchFrom: number;
+  readonly protocolSearchFrom: number;
+} {
   const events: InputEvent[] = [];
   let buffer = '';
   let index = 0;
 
   const flushText = (): void => {
     if (buffer.length === 0) return;
-    events.push({ kind: 'text', text: buffer, paste: false });
+    for (const textEvent of boundedTextEvents(buffer, limits.maxTextEventCodeUnits)) {
+      pushEvent({ kind: 'text', text: textEvent, paste: false });
+    }
     buffer = '';
+  };
+  const pushEvent = (event: InputEvent): void => {
+    const received = events.length + 1;
+    if (received > limits.maxEventsPerBatch) {
+      throw new InputDecodeError('event_batch_limit_exceeded', limits.maxEventsPerBatch, received);
+    }
+    events.push(event);
   };
 
   while (index < text.length) {
@@ -107,54 +154,72 @@ function decodeTerminalText(
     }
 
     const remaining = text.slice(index);
-    if (options.bracketedPaste !== false) {
-      const paste = bracketedPasteFromPrefix(remaining);
+    if (options.bracketedPaste === true) {
+      const paste = bracketedPasteFromPrefix(
+        remaining,
+        index === 0 ? pasteSearchFrom : BRACKETED_PASTE_START.length
+      );
       if (paste !== undefined) {
         assertPastePayloadWithinLimit(paste.event.text.length, limits);
         flushText();
-        events.push(paste.event);
+        pushEvent(paste.event);
         index += paste.length;
         continue;
       }
       if (isIncompleteBracketedPaste(remaining)) {
         assertIncompletePasteWithinLimit(remaining, limits);
         if (!final) break;
+        flushText();
+        pushEvent({ kind: 'unknown', sequence: remaining });
+        index = text.length;
+        continue;
       }
     }
 
-    const focus = focusFromPrefix(remaining);
+    const frame = terminalControlFrame(remaining, index === 0 ? protocolSearchFrom : 0);
+    if (frame.kind === 'complete' && !remaining.startsWith(BRACKETED_PASTE_START)) {
+      assertProtocolLength(frame.length, limits);
+    }
+    if (!final && frame.kind === 'pending') break;
+
+    const focus = options.focusReporting === true ? focusFromPrefix(normalizedControlPrefix(remaining)) : undefined;
     if (focus !== undefined) {
       flushText();
-      events.push(focus.event);
-      index += focus.length;
+      pushEvent(focus.event);
+      index += controlPrefixLength(remaining, focus.length);
       continue;
     }
-    if (!final && isIncompleteEscapeSequence(remaining)) {
-      break;
-    }
 
-    const mouse = mouseFromPrefix(remaining);
+    const mouse = options.mouseReporting !== undefined && options.mouseReporting !== 'none'
+      ? mouseFromPrefix(
+          normalizedControlPrefix(remaining),
+          limits.maxMouseFieldDigits,
+          options.mouseReporting
+        )
+      : undefined;
     if (mouse !== undefined) {
       flushText();
-      events.push(mouse.event);
-      index += mouse.length;
+      pushEvent(mouse.event);
+      index += controlPrefixLength(remaining, mouse.length);
       continue;
     }
 
+    const normalizedRemaining = normalizedControlPrefix(remaining);
     const key = options.keyboard?.kind === 'kitty'
-      ? enhancedKeyFromPrefix(remaining, options.keyboard) ?? keyFromPrefix(remaining)
-      : keyFromPrefix(remaining);
+      ? enhancedKeyFromPrefix(normalizedRemaining, options.keyboard, limits.maxKittyAssociatedTextCodePoints)
+        ?? keyFromPrefix(normalizedRemaining)
+      : keyFromPrefix(normalizedRemaining);
     if (key !== undefined) {
       flushText();
-      events.push(key);
-      index += key.sequence?.length ?? 0;
+      pushEvent(key);
+      index += controlPrefixLength(remaining, key.sequence?.length ?? 0);
       continue;
     }
 
-    const unknown = unknownEscapeFromPrefix(remaining);
+    const unknown = unknownTerminalControlFromPrefix(remaining, final);
     if (unknown !== undefined) {
       flushText();
-      events.push({ kind: 'unknown', sequence: unknown });
+      pushEvent({ kind: 'unknown', sequence: unknown });
       index += unknown.length;
       continue;
     }
@@ -162,7 +227,7 @@ function decodeTerminalText(
     const control = unknownControlFromPrefix(remaining);
     if (control !== undefined) {
       flushText();
-      events.push({ kind: 'unknown', sequence: control });
+      pushEvent({ kind: 'unknown', sequence: control });
       index += control.length;
       continue;
     }
@@ -174,7 +239,18 @@ function decodeTerminalText(
   }
 
   flushText();
-  return { events, remainder: text.slice(index) };
+  const remainder = text.slice(index);
+  return {
+    events,
+    remainder,
+    pasteSearchFrom: remainder.startsWith(BRACKETED_PASTE_START)
+      ? Math.max(
+          BRACKETED_PASTE_START.length,
+          remainder.length - BRACKETED_PASTE_END.length + 1
+        )
+      : BRACKETED_PASTE_START.length,
+    protocolSearchFrom: remainder.length === 0 ? 0 : Math.max(0, remainder.length - 1)
+  };
 }
 
 function plainTextRunEnd(value: string, start: number): number {
@@ -195,19 +271,9 @@ function unknownControlFromPrefix(value: string): string | undefined {
     : undefined;
 }
 
-function isIncompleteEscapeSequence(value: string): boolean {
-  if (!value.startsWith('\u001B')) return false;
-  if (value === '\u001B') return true;
-  for (const sequence of keySequences.keys()) {
-    if (sequence.startsWith(value) && value.length < sequence.length) return true;
-  }
-  if (value.startsWith('\u001B[M') && value.length < 6) return true;
-  if (value.startsWith('\u001B[<') && !completeSgrMousePattern.test(value)) return true;
-  return value.startsWith('\u001B[') && !csiPattern.test(value);
-}
-
 function pendingState(value: string): InputPendingState {
   if (value.length === 0) return { kind: 'none' };
+  if (value.startsWith(BRACKETED_PASTE_START)) return { kind: 'paste' };
   return value === '\u001B' ? { kind: 'escape' } : { kind: 'sequence' };
 }
 
@@ -215,44 +281,222 @@ function batch(events: readonly InputEvent[], pending: InputPendingState): Input
   return { events, pending };
 }
 
-function unknownEscapeFromPrefix(value: string): string | undefined {
-  if (!value.startsWith('\u001B')) return undefined;
-  if (value.length === 1) return value;
-  const csi = csiPattern.exec(value);
-  if (csi?.[0] !== undefined) return csi[0];
-  return value.slice(0, 1);
+type TerminalControlFrame =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'complete'; readonly length: number };
+
+function terminalControlFrame(value: string, searchFrom = 0): TerminalControlFrame {
+  const first = value.codePointAt(0);
+  if (first === undefined) return { kind: 'none' };
+  if (first === 0x1b) {
+    if (value.length === 1) return { kind: 'pending' };
+    const second = value.codePointAt(1);
+    if (second === 0x5b) return parameterizedControlFrame(value, 2, searchFrom);
+    if (second === 0x4f) return parameterizedControlFrame(value, 2, searchFrom);
+    if (second === 0x5d) return stringControlFrame(value, 2, true, searchFrom);
+    if (second === 0x50 || second === 0x58 || second === 0x5e || second === 0x5f) {
+      return stringControlFrame(value, 2, false, searchFrom);
+    }
+    const character = Array.from(value.slice(1))[0];
+    return character === undefined ? { kind: 'pending' } : { kind: 'complete', length: 1 + character.length };
+  }
+  if (first === 0x9b || first === 0x8f) return parameterizedControlFrame(value, 1, searchFrom);
+  if (first === 0x9d) return stringControlFrame(value, 1, true, searchFrom);
+  if (first === 0x90 || first === 0x98 || first === 0x9e || first === 0x9f) {
+    return stringControlFrame(value, 1, false, searchFrom);
+  }
+  if (first >= 0x80 && first <= 0x9f) return { kind: 'complete', length: 1 };
+  return { kind: 'none' };
 }
 
-function normalizeLimits(value: InputDecodeOptions['limits']): InputDecodeLimits {
-  return {
-    maxPendingSequenceCodeUnits: positiveInteger(
-      value?.maxPendingSequenceCodeUnits,
-      defaultInputDecodeLimits.maxPendingSequenceCodeUnits,
-      'maxPendingSequenceCodeUnits'
+function parameterizedControlFrame(value: string, start: number, searchFrom: number): TerminalControlFrame {
+  for (let index = Math.max(start, searchFrom); index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0x40 && code <= 0x7e) return { kind: 'complete', length: index + 1 };
+    if (code < 0x20 || code > 0x3f) return { kind: 'complete', length: index + 1 };
+  }
+  return { kind: 'pending' };
+}
+
+function stringControlFrame(
+  value: string,
+  start: number,
+  bellTerminates: boolean,
+  searchFrom: number
+): TerminalControlFrame {
+  for (let index = Math.max(start, searchFrom); index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (bellTerminates && code === 0x07) return { kind: 'complete', length: index + 1 };
+    if (code === 0x9c) return { kind: 'complete', length: index + 1 };
+    if (code === 0x1b && value.charCodeAt(index + 1) === 0x5c) {
+      return { kind: 'complete', length: index + 2 };
+    }
+  }
+  return { kind: 'pending' };
+}
+
+function unknownTerminalControlFromPrefix(value: string, final: boolean): string | undefined {
+  const frame = terminalControlFrame(value);
+  if (frame.kind === 'complete') return value.slice(0, frame.length);
+  if (frame.kind === 'pending' && final) return value;
+  return undefined;
+}
+
+function normalizedControlPrefix(value: string): string {
+  const first = value.codePointAt(0);
+  if (first === 0x9b) return `\u001B[${value.slice(1)}`;
+  if (first === 0x8f) return `\u001BO${value.slice(1)}`;
+  return value;
+}
+
+function controlPrefixLength(original: string, normalizedLength: number): number {
+  const first = original.codePointAt(0);
+  return first === 0x9b || first === 0x8f ? normalizedLength - 1 : normalizedLength;
+}
+
+export function normalizeInputDecodeLimits(value: unknown): InputDecodeLimits {
+  let record: Readonly<Record<string, unknown>> = {};
+  if (value !== undefined) {
+    assertNonArrayRecord(value, 'Input decode limits');
+    record = value;
+    const supported = new Set([
+      'maxHostChunkBytes',
+      'maxProtocolCodeUnits',
+      'maxTextEventCodeUnits',
+      'maxEventsPerBatch',
+      'maxPasteCodeUnits',
+      'maxKittyAssociatedTextCodePoints',
+      'maxMouseFieldDigits'
+    ]);
+    const unknown = Object.keys(value).find((field) => !supported.has(field));
+    if (unknown !== undefined) throw new TypeError(`Input decode limits contain unknown field "${unknown}".`);
+  }
+  return Object.freeze({
+    maxHostChunkBytes: positiveInteger(
+      record['maxHostChunkBytes'],
+      defaultInputDecodeLimits.maxHostChunkBytes,
+      'maxHostChunkBytes'
+    ),
+    maxProtocolCodeUnits: positiveInteger(
+      record['maxProtocolCodeUnits'],
+      defaultInputDecodeLimits.maxProtocolCodeUnits,
+      'maxProtocolCodeUnits'
+    ),
+    maxTextEventCodeUnits: positiveInteger(
+      record['maxTextEventCodeUnits'],
+      defaultInputDecodeLimits.maxTextEventCodeUnits,
+      'maxTextEventCodeUnits'
+    ),
+    maxEventsPerBatch: positiveInteger(
+      record['maxEventsPerBatch'],
+      defaultInputDecodeLimits.maxEventsPerBatch,
+      'maxEventsPerBatch'
     ),
     maxPasteCodeUnits: positiveInteger(
-      value?.maxPasteCodeUnits,
+      record['maxPasteCodeUnits'],
       defaultInputDecodeLimits.maxPasteCodeUnits,
       'maxPasteCodeUnits'
+    ),
+    maxKittyAssociatedTextCodePoints: positiveInteger(
+      record['maxKittyAssociatedTextCodePoints'],
+      defaultInputDecodeLimits.maxKittyAssociatedTextCodePoints,
+      'maxKittyAssociatedTextCodePoints'
+    ),
+    maxMouseFieldDigits: positiveInteger(
+      record['maxMouseFieldDigits'],
+      defaultInputDecodeLimits.maxMouseFieldDigits,
+      'maxMouseFieldDigits'
     )
-  };
+  });
 }
 
-function positiveInteger(value: number | undefined, fallback: number, name: string): number {
+function normalizeDecodeOptions(value: InputDecodeOptions): InputDecodeOptions {
+  const candidate: unknown = value;
+  assertNonArrayRecord(candidate, 'Input decode options');
+  const record = candidate;
+  const supported = new Set([
+    'keyboard', 'bracketedPaste', 'focusReporting', 'mouseReporting', 'limits'
+  ]);
+  const unknown = Object.keys(record).find((field) => !supported.has(field));
+  if (unknown !== undefined) throw new TypeError(`Input decode options contain unknown field "${unknown}".`);
+  const bracketedPaste = record['bracketedPaste'];
+  if (bracketedPaste !== undefined && typeof bracketedPaste !== 'boolean') {
+    throw new TypeError('Input decode option bracketedPaste must be boolean.');
+  }
+  const focusReporting = record['focusReporting'];
+  if (focusReporting !== undefined && typeof focusReporting !== 'boolean') {
+    throw new TypeError('Input decode option focusReporting must be boolean.');
+  }
+  const mouseReporting = record['mouseReporting'];
+  if (
+    mouseReporting !== undefined
+    && mouseReporting !== 'none'
+    && mouseReporting !== 'click'
+    && mouseReporting !== 'drag'
+    && mouseReporting !== 'all'
+  ) {
+    throw new TypeError('Input decode option mouseReporting is unsupported.');
+  }
+  const limits = record['limits'] === undefined
+    ? undefined
+    : normalizeInputDecodeLimits(record['limits']);
+  const keyboard = record['keyboard'] === undefined
+    ? undefined
+    : normalizeKeyboardProfile(record['keyboard']);
+  return Object.freeze({
+    ...(keyboard === undefined ? {} : { keyboard }),
+    ...(bracketedPaste === undefined ? {} : { bracketedPaste }),
+    ...(focusReporting === undefined ? {} : { focusReporting }),
+    ...(mouseReporting === undefined ? {} : { mouseReporting }),
+    ...(limits === undefined ? {} : { limits })
+  });
+}
+
+function assertNonArrayRecord(
+  value: unknown,
+  subject: string
+): asserts value is Readonly<Record<string, unknown>> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${subject} must be an object.`);
+  }
+}
+
+function positiveInteger(value: unknown, fallback: number, name: string): number {
   const resolved = value ?? fallback;
-  if (!Number.isSafeInteger(resolved) || resolved <= 0) {
+  if (typeof resolved !== 'number' || !Number.isSafeInteger(resolved) || resolved <= 0) {
     throw new RangeError(`Input decode limit ${name} must be a positive safe integer.`);
   }
   return resolved;
 }
 
-function assertPendingSequenceWithinLimit(value: string, limits: InputDecodeLimits): void {
-  if (!isIncompleteBracketedPaste(value) && value.length > limits.maxPendingSequenceCodeUnits) {
-    throw new InputDecodeError(
-      'pending_sequence_limit_exceeded',
-      limits.maxPendingSequenceCodeUnits,
-      value.length
-    );
+function assertHostChunkWithinLimit(chunk: TerminalInputChunk, limits: InputDecodeLimits): void {
+  const candidate: unknown = chunk;
+  assertNonArrayRecord(candidate, 'Terminal input chunk');
+  const fields = Object.keys(candidate);
+  if (fields.length !== 1 || fields[0] !== 'data') {
+    throw new TypeError('Terminal input chunk must contain only data.');
+  }
+  const data = candidate['data'];
+  if (typeof data !== 'string' && !(data instanceof Uint8Array)) {
+    throw new TypeError('Terminal input chunk data must be a string or Uint8Array.');
+  }
+  if (typeof data === 'string' && data.length > limits.maxHostChunkBytes) {
+    throw new InputDecodeError('host_chunk_limit_exceeded', limits.maxHostChunkBytes, data.length);
+  }
+  const bytes = typeof data === 'string' ? new TextEncoder().encode(data).byteLength : data.byteLength;
+  if (bytes > limits.maxHostChunkBytes) {
+    throw new InputDecodeError('host_chunk_limit_exceeded', limits.maxHostChunkBytes, bytes);
+  }
+}
+
+function assertProtocolWithinLimit(value: string, limits: InputDecodeLimits): void {
+  if (!isIncompleteBracketedPaste(value)) assertProtocolLength(value.length, limits);
+}
+
+function assertProtocolLength(length: number, limits: InputDecodeLimits): void {
+  if (length > limits.maxProtocolCodeUnits) {
+    throw new InputDecodeError('protocol_token_limit_exceeded', limits.maxProtocolCodeUnits, length);
   }
 }
 
@@ -264,4 +508,21 @@ function assertIncompletePasteWithinLimit(value: string, limits: InputDecodeLimi
 function assertPastePayloadWithinLimit(payloadLength: number, limits: InputDecodeLimits): void {
   if (payloadLength <= limits.maxPasteCodeUnits) return;
   throw new InputDecodeError('paste_limit_exceeded', limits.maxPasteCodeUnits, payloadLength);
+}
+
+function boundedTextEvents(value: string, maximum: number): readonly string[] {
+  if (value.length <= maximum) return [value];
+  const result: string[] = [];
+  let start = 0;
+  while (start < value.length) {
+    let end = Math.min(value.length, start + maximum);
+    const last = value.charCodeAt(end - 1);
+    if (last >= 0xd800 && last <= 0xdbff && end < value.length) end -= 1;
+    if (end === start) {
+      throw new InputDecodeError('text_event_limit_exceeded', maximum, value.length);
+    }
+    result.push(value.slice(start, end));
+    start = end;
+  }
+  return result;
 }

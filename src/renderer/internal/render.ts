@@ -23,7 +23,12 @@ import {
   inertAccessibleRoot,
   withControlLabelRelationships
 } from './render-accessibility.ts';
-import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
+import {
+  createDraftRenderRegion,
+  hitTargetOwnerIdentity,
+  regionIdForLayoutNode,
+  toRegionHitTarget
+} from './render-regions.ts';
 import { intersectRects } from './rect.ts';
 import {
   hitTargetsForRenderNode,
@@ -320,6 +325,7 @@ function frameHitTargets<TMessage>(
           : [toRegionHitTarget(
               { ...hitTarget, bounds },
               region,
+              hitTargetOwnerIdentity(target.path, target.layoutNode.identity),
               resolveHitTargetFocus(hitTarget, target)
             )];
       });

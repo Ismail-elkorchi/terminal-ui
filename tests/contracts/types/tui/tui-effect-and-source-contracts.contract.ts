@@ -34,7 +34,7 @@ defineTui<{ readonly value: string }, Message>({
   view: (state) => text({ content: state.value })
 });
 
-defineTui<{ readonly value: string }, unknown>({
+defineTui<{ readonly value: string }, { readonly kind: 'noop' }>({
   // @ts-expect-error initialization is a synchronous state transition
   init: async () => ({ value: '' }),
   update: (state) => ({ state }),

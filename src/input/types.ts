@@ -1,4 +1,9 @@
-import type { TerminalInputChunk, TerminalSize } from '../host/index.ts';
+import type {
+  MouseReportingMode,
+  TerminalInputChunk,
+  TerminalSignal,
+  TerminalSize
+} from '../host/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/index.ts';
 
 export type InputEvent =
@@ -6,11 +11,10 @@ export type InputEvent =
   | TextInputEvent
   | PasteEvent
   | MouseEvent
-  | ResizeEvent
   | FocusEvent
-  | SignalEvent
-  | EndOfInputEvent
   | UnknownInputEvent;
+
+export type RecordedInputEvent = InputEvent | ResizeEvent | SignalEvent | EndOfInputEvent;
 
 export interface KeyEvent {
   readonly kind: 'key';
@@ -34,6 +38,10 @@ export interface KeyModifiers {
   readonly alt: boolean;
   readonly shift: boolean;
   readonly meta: boolean;
+  readonly super?: true;
+  readonly hyper?: true;
+  readonly capsLock?: true;
+  readonly numLock?: true;
 }
 
 export const keyEventTypes = ['press', 'repeat', 'release'] as const;
@@ -77,7 +85,7 @@ export interface MouseWheelEvent extends MouseEventBase<MouseWheelButton> {
   readonly deltaColumns: number;
 }
 
-export const mouseEncodings = ['sgr', 'x10'] as const;
+export const mouseEncodings = ['sgr'] as const;
 export type MouseEncoding = typeof mouseEncodings[number];
 
 export const mouseActions = ['press', 'release', 'drag', 'move', 'wheel'] as const;
@@ -120,7 +128,7 @@ export interface FocusEvent {
 
 export interface SignalEvent {
   readonly kind: 'signal';
-  readonly signal: string;
+  readonly signal: TerminalSignal;
 }
 
 export interface EndOfInputEvent {
@@ -142,7 +150,9 @@ export const digitKeyNames = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'] 
 export type DigitKeyName = typeof digitKeyNames[number];
 
 export const functionKeyNames = [
-  'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12'
+  'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12',
+  'f13', 'f14', 'f15', 'f16', 'f17', 'f18', 'f19', 'f20', 'f21', 'f22', 'f23', 'f24',
+  'f25', 'f26', 'f27', 'f28', 'f29', 'f30', 'f31', 'f32', 'f33', 'f34', 'f35'
 ] as const;
 export type FunctionKeyName = typeof functionKeyNames[number];
 
@@ -217,13 +227,20 @@ export type InputTrigger =
 
 export interface InputDecodeOptions {
   readonly bracketedPaste?: boolean;
+  readonly focusReporting?: boolean;
+  readonly mouseReporting?: MouseReportingMode;
   readonly keyboard?: TerminalKeyboardProfile;
   readonly limits?: Partial<InputDecodeLimits>;
 }
 
 export interface InputDecodeLimits {
-  readonly maxPendingSequenceCodeUnits: number;
+  readonly maxHostChunkBytes: number;
+  readonly maxProtocolCodeUnits: number;
+  readonly maxTextEventCodeUnits: number;
+  readonly maxEventsPerBatch: number;
   readonly maxPasteCodeUnits: number;
+  readonly maxKittyAssociatedTextCodePoints: number;
+  readonly maxMouseFieldDigits: number;
 }
 
 export type KeyModifierTrigger =
@@ -234,6 +251,10 @@ export type KeyModifierTrigger =
       readonly alt?: boolean;
       readonly shift?: boolean;
       readonly meta?: boolean;
+      readonly super?: boolean;
+      readonly hyper?: boolean;
+      readonly capsLock?: boolean;
+      readonly numLock?: boolean;
     };
 
 export interface KeyEventLike {
@@ -261,4 +282,5 @@ export interface InputDecoderBatch {
 export type InputPendingState =
   | { readonly kind: 'none' }
   | { readonly kind: 'escape' }
-  | { readonly kind: 'sequence' };
+  | { readonly kind: 'sequence' }
+  | { readonly kind: 'paste' };

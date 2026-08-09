@@ -2,15 +2,19 @@ import { errorFromUnknown } from '../errors.ts';
 import type { MousePointerEvent } from '../input/index.ts';
 
 export type PointerMotionEvent = MousePointerEvent & { readonly action: 'drag' | 'move' };
+export interface PointerMotionSample {
+  readonly event: PointerMotionEvent;
+  readonly occurredAt: number;
+}
 
 export interface PointerMotionCoordinatorOptions<TResult> {
-  readonly execute: (event: PointerMotionEvent) => Promise<TResult>;
+  readonly execute: (sample: PointerMotionSample) => Promise<TResult>;
   readonly reportFailure: (cause: unknown) => void;
   readonly stop: (result: TResult) => boolean;
 }
 
 export interface PointerMotionCoordinator<TResult> {
-  enqueue(event: PointerMotionEvent): void;
+  enqueue(sample: PointerMotionSample): void;
   flush(): Promise<readonly TResult[]>;
   pending(): Promise<readonly TResult[]> | undefined;
   reset(): void;
@@ -26,7 +30,7 @@ interface MotionCycle<TResult> {
 export function createPointerMotionCoordinator<TResult>(
   options: PointerMotionCoordinatorOptions<TResult>
 ): PointerMotionCoordinator<TResult> {
-  let latest: PointerMotionEvent | undefined;
+  let latest: PointerMotionSample | undefined;
   let cycle: MotionCycle<TResult> | undefined;
   let disposedCause: unknown;
 
@@ -60,9 +64,9 @@ export function createPointerMotionCoordinator<TResult>(
     const results: TResult[] = [];
     try {
       while (latest !== undefined && disposedCause === undefined) {
-        const event = latest;
+        const sample = latest;
         latest = undefined;
-        const result = await options.execute(event);
+        const result = await options.execute(sample);
         results.push(result);
         if (options.stop(result)) {
           latest = undefined;

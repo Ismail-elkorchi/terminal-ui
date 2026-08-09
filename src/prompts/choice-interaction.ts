@@ -1,6 +1,7 @@
 import { diagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type { InputEvent, KeyEvent } from '../input/index.ts';
+import { segmentGraphemes } from '../text/index.ts';
 import { editPromptBufferForEvent } from './buffer-edit.ts';
 import { maybeLoadNextChoicePage, scheduleAutocompleteChoiceRefresh } from './choice-loading.ts';
 import {
@@ -40,11 +41,15 @@ export async function applySelectEvent<TValue>(
   }
   if (await maybeLoadNextChoicePage(prompt, host, state, event, hooks)) return undefined;
   if (event.kind === 'text') {
-    const match = findChoiceBySearch(state.choices, event.text, state.focusedChoiceIndex + 1);
-    if (match !== undefined) {
-      state.focusedChoiceIndex = match;
-      await hooks.render(host, prompt, state);
+    let changed = false;
+    for (const grapheme of segmentGraphemes(event.text)) {
+      const match = advanceChoiceSearch(state, grapheme.text, host.clock.monotonicNow());
+      if (match !== undefined && match !== state.focusedChoiceIndex) {
+        state.focusedChoiceIndex = match;
+        changed = true;
+      }
     }
+    if (changed) await hooks.render(host, prompt, state);
   }
   return undefined;
 }
@@ -71,6 +76,7 @@ export async function applyMultiSelectEvent<TValue>(
     );
   }
   if (event.kind === 'key' && event.key === 'space') {
+    clearChoiceSearch(state);
     toggleFocusedChoice(prompt, state);
     await hooks.render(host, prompt, state);
     return undefined;
@@ -91,12 +97,22 @@ export async function applyMultiSelectEvent<TValue>(
   }
   if (await maybeLoadNextChoicePage(prompt, host, state, event, hooks)) return undefined;
   if (event.kind === 'text') {
-    const match = findChoiceBySearch(state.choices, event.text, state.focusedChoiceIndex + 1);
-    if (match !== undefined) {
-      state.focusedChoiceIndex = match;
-      state.choiceRangeAnchorIndex = match;
-      await hooks.render(host, prompt, state);
+    let changed = false;
+    for (const grapheme of segmentGraphemes(event.text)) {
+      if (grapheme.text === ' ') {
+        clearChoiceSearch(state);
+        toggleFocusedChoice(prompt, state);
+        changed = true;
+        continue;
+      }
+      const match = advanceChoiceSearch(state, grapheme.text, host.clock.monotonicNow());
+      if (match !== undefined) {
+        state.focusedChoiceIndex = match;
+        state.choiceRangeAnchorIndex = match;
+        changed = true;
+      }
     }
+    if (changed) await hooks.render(host, prompt, state);
   }
   return undefined;
 }
@@ -137,8 +153,39 @@ function moveChoiceFocusFromEvent<TValue>(state: PromptRuntimeState<TValue>, eve
   if (event.kind !== 'key') return false;
   const nextIndex = nextChoiceFocusIndexFromEvent(state, event);
   if (nextIndex === undefined || nextIndex === state.focusedChoiceIndex) return false;
+  clearChoiceSearch(state);
   state.focusedChoiceIndex = nextIndex;
   return true;
+}
+
+const choiceSearchTimeoutMs = 500;
+
+function advanceChoiceSearch<TValue>(
+  state: PromptRuntimeState<TValue>,
+  text: string,
+  now: number
+): number | undefined {
+  const continues = now - state.choiceSearchAt >= 0
+    && now - state.choiceSearchAt <= choiceSearchTimeoutMs;
+  const query = continues ? state.choiceSearchText + text : text;
+  let match = findChoiceBySearch(
+    state.choices,
+    query,
+    continues ? state.focusedChoiceIndex : state.focusedChoiceIndex + 1
+  );
+  if (match === undefined && query !== text) {
+    state.choiceSearchText = text;
+    match = findChoiceBySearch(state.choices, text, state.focusedChoiceIndex + 1);
+  } else {
+    state.choiceSearchText = query;
+  }
+  state.choiceSearchAt = now;
+  return match;
+}
+
+function clearChoiceSearch<TValue>(state: PromptRuntimeState<TValue>): void {
+  state.choiceSearchText = '';
+  state.choiceSearchAt = Number.NEGATIVE_INFINITY;
 }
 
 function nextChoiceFocusIndexFromEvent<TValue>(state: PromptRuntimeState<TValue>, event: KeyEvent): number | undefined {

@@ -1,7 +1,7 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile, TerminalClock, TerminalHost, TerminalInputChunk, TerminalSize } from '../host/index.ts';
-import type { InputDecodeOptions, InputEvent, InputPipelineOptions, InputTrigger } from '../input/index.ts';
+import type { InputEvent, InputPipelineOptions, InputTrigger } from '../input/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript, TranscriptRecorder } from '../transcript/index.ts';
 import type { Element } from '../element/index.ts';
@@ -223,11 +223,9 @@ export interface TuiRuntime<TState, TMessage> {
   dispatch(message: TMessage): Promise<TState>;
   resize(terminalSize: TerminalSize): Promise<Frame>;
   handleInput(event: InputEvent): Promise<TuiInputResult<TState>>;
-  handleInputChunk(
-    chunk: TerminalInputChunk,
-    decodeOptions?: InputDecodeOptions
-  ): Promise<TuiInputBatchResult<TState>>;
+  handleInputChunk(chunk: TerminalInputChunk): Promise<TuiInputBatchResult<TState>>;
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
+  replaceInputProfile(options: InputPipelineOptions): void;
   resetInput(): void;
   suspendOutput(): void;
   resumeOutput(): void;

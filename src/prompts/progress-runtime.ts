@@ -55,11 +55,19 @@ export async function runProgressPrompt(
     ? createPromptTranscript(prompt)
     : createTranscriptOnlyPromptTranscript(prompt);
   const session = interactive ? await host.beginSession({ id: prompt.id ?? 'prompt-progress' }) : undefined;
-  const setupDiagnostics = session === undefined ? [] : await setupPromptSession(session);
+  const setup = session === undefined
+    ? { diagnostics: [], bracketedPaste: false }
+    : await setupPromptSession(session);
   const abortController = new AbortController();
   let restoreReason: TerminalRestoreReason;
   let result: PromptResult<ProgressResult> | undefined;
-  const progressRuntime = createProgressRuntime(prompt, host, transcript, abortController.signal);
+  const progressRuntime = createProgressRuntime(
+    prompt,
+    host,
+    transcript,
+    abortController.signal,
+    setup.bracketedPaste
+  );
 
   try {
     await progressRuntime.publish();
@@ -74,7 +82,7 @@ export async function runProgressPrompt(
   }
 
   const restore = session === undefined ? { diagnostics: [] } : await session.restore(restoreReason);
-  const finalResult = withPromptDiagnostics(result, [...setupDiagnostics, ...restore.diagnostics]);
+  const finalResult = withPromptDiagnostics(result, [...setup.diagnostics, ...restore.diagnostics]);
   recordPromptResult(transcript, finalResult);
   return withPromptTranscript(finalResult, transcript?.snapshot());
 }
@@ -83,7 +91,8 @@ function createProgressRuntime(
   prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
   transcript: TranscriptRecorder | undefined,
-  signal: AbortSignal
+  signal: AbortSignal,
+  bracketedPaste: boolean
 ): {
   current(): ProgressState;
   publish(): Promise<void>;
@@ -127,7 +136,7 @@ function createProgressRuntime(
     },
     async run() {
       const task = progressTaskOutcome(prompt, controller);
-      const input = progressInputOutcome(prompt, host, transcript, signal);
+      const input = progressInputOutcome(prompt, host, transcript, signal, bracketedPaste);
       const timeout = progressTimeoutOutcome(prompt, host, signal);
       const outcome = await Promise.race([task, input, timeout]);
       closed = true;
@@ -156,10 +165,11 @@ async function progressInputOutcome(
   prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
   transcript: TranscriptRecorder | undefined,
-  signal: AbortSignal
+  signal: AbortSignal,
+  bracketedPaste: boolean
 ): Promise<ProgressOutcome> {
   if (host?.stdin.isTty() !== true) return never();
-  for await (const event of promptInputEvents(host, signal)) {
+  for await (const event of promptInputEvents(host, signal, { bracketedPaste })) {
     transcript?.record({ kind: 'input', event: transcriptEvent(prompt, event) });
     const outcome = outcomeFromInputEvent(event);
     if (outcome !== undefined) return outcome;

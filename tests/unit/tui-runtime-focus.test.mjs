@@ -90,7 +90,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
   });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'text', text: 'a' });
+  await runtime.handleInput({ kind: 'text', text: 'a', paste: false });
   await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['root', 'searchPicker-surface', 'accept']);
 
@@ -98,7 +98,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
   assert.equal(runtime.state()?.notifications.length, 1);
   assert.notDeepEqual(runtime.frame().focusPath, ['root', 'notices']);
 
-  await runtime.handleInput({ kind: 'text', text: 'b' });
+  await runtime.handleInput({ kind: 'text', text: 'b', paste: false });
 
   assert.equal(runtime.state()?.command, 'ab');
 });
@@ -187,7 +187,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
   await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['root', 'base', 'command']);
 
-  await runtime.handleInput({ kind: 'text', text: 'z' });
+  await runtime.handleInput({ kind: 'text', text: 'z', paste: false });
   assert.equal(runtime.state()?.command, 'z');
 });
 

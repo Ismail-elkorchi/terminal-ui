@@ -163,7 +163,9 @@ status value:
 
 - `disabled` suppresses interaction owned by the component;
 - `busy` exposes in-progress semantics without disabling cancellation;
-- `readOnly` keeps focus and selection available for roles that support immutable values;
+- `readOnly` keeps focus, caret movement, selection, and scrolling available,
+  while editable components reject insertion, deletion, replacement, history
+  replacement, completion acceptance, and other value-changing actions;
 - `inert` removes a composite subtree from interaction and accessibility output.
 
 Disabled, busy, and read-only state is added to accessibility output by the

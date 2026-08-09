@@ -5,8 +5,10 @@ import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { textInput as createTextInput } from '../../dist/components/index.js';
+import { button, textInput as createTextInput } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
+import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
+import { InputDecodeError } from '../../dist/input/index.js';
 import { testKeyInput } from '../helpers/component-definition.mjs';
 
 function textInput(options) {
@@ -35,6 +37,173 @@ test('defineTui rejects duplicate binding identities and duplicate triggers with
     view: () => textInput({ presentation: { value: '', cursor: 0 } }),
     inputBindings: [{ id: 'submit', triggers: [trigger, trigger], message: 'submit' }]
   }), /duplicate trigger/u);
+});
+
+test('defineTui decodes exact immutable input bindings at the public boundary', async () => {
+  const trigger = { kind: 'key', key: 'enter' };
+  const bindings = [{ id: 'submit', triggers: [trigger], message: 'submitted' }];
+  const definition = {
+    id: 'exact-bindings',
+    init: () => 'idle',
+    update: (_state, message) => ({ state: message }),
+    view: () => createTextInput({
+      id: 'exact-field',
+      presentation: { value: '', cursor: 0 },
+      onAction: () => ignoreMessage()
+    }),
+    inputBindings: bindings
+  };
+  const app = defineTui(definition);
+
+  trigger.key = 'escape';
+  bindings.push({ id: 'late', triggers: [{ kind: 'key', key: 'escape' }], message: 'late' });
+  assert.deepEqual(app.definition.inputBindings, [{
+    id: 'submit',
+    triggers: [{ kind: 'key', key: 'enter' }],
+    message: 'submitted'
+  }]);
+  assert.equal(Object.isFrozen(app.definition), true);
+  assert.equal(Object.isFrozen(app.definition.inputBindings), true);
+  assert.equal(Object.isFrozen(app.definition.inputBindings[0]?.triggers[0]), true);
+
+  assert.throws(() => defineTui({ ...definition, unsupported: true }), /unknown field/u);
+  assert.throws(() => defineTui({
+    ...definition,
+    inputBindings: [{ ...bindings[0], typo: true }]
+  }), /unknown field/u);
+  assert.throws(() => defineTui({
+    ...definition,
+    inputBindings: [{ ...bindings[0], phase: 'capture' }]
+  }), /phase/u);
+  assert.throws(() => defineTui({
+    ...definition,
+    inputBindings: [{ ...bindings[0], toMessage: () => 'other' }]
+  }), /exactly one/u);
+
+  const invalidPredicate = defineTui({
+    ...definition,
+    inputBindings: [{
+      ...bindings[0],
+      triggers: [{ kind: 'key', key: 'enter' }],
+      enabled: () => 'yes'
+    }]
+  });
+  const runtime = createTuiRuntime({
+    app: invalidPredicate,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 12, rows: 1 } })
+  });
+  await runtime.start();
+  await assert.rejects(
+    runtime.handleInput({
+      kind: 'key',
+      key: 'enter',
+      modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+      eventType: 'press',
+      location: 'standard'
+    }),
+    /enabled predicate must return a boolean/u
+  );
+});
+
+test('Kitty release and repeat events cannot activate controls or traverse focus', async () => {
+  const app = defineTui({
+    id: 'kitty-event-types',
+    init: () => ({ activations: [] }),
+    update: (state, message) => ({
+      state: { activations: [...state.activations, message.id] }
+    }),
+    view: () => column([
+      button({ id: 'first', label: 'First', onAction: () => ({ id: 'first' }) }),
+      button({ id: 'second', label: 'Second', onAction: () => ({ id: 'second' }) })
+    ])
+  });
+  const host = createMemoryTerminalHost({
+    terminalSize: { columns: 20, rows: 4 },
+    capabilities: { probes: { keyboardProtocol: 'supported' } }
+  });
+  const capabilities = await host.getCapabilities();
+  const runtime = createTuiRuntime({
+    app,
+    host,
+    input: { capabilities, keyboard: kittyKeyboardProfile(3) }
+  });
+
+  await runtime.start();
+  const initialFocus = runtime.frame().focusPath;
+  const enterRepeat = await runtime.handleInputChunk({ data: '\u001B[13;1:2u' });
+  const enterRelease = await runtime.handleInputChunk({ data: '\u001B[13;1:3u' });
+  const tabRepeat = await runtime.handleInputChunk({ data: '\u001B[9;1:2u' });
+  const tabRelease = await runtime.handleInputChunk({ data: '\u001B[9;1:3u' });
+
+  assert.equal(enterRepeat.results[0]?.handled, false);
+  assert.equal(enterRelease.results[0]?.handled, false);
+  assert.equal(tabRepeat.results[0]?.handled, false);
+  assert.equal(tabRelease.results[0]?.handled, false);
+  assert.deepEqual(runtime.state(), { activations: [] });
+  assert.deepEqual(runtime.frame().focusPath, initialFocus);
+
+  const enterPress = await runtime.handleInputChunk({ data: '\u001B[13;1:1u' });
+  const tabPress = await runtime.handleInputChunk({ data: '\u001B[9;1:1u' });
+  assert.equal(enterPress.results[0]?.handled, true);
+  assert.equal(tabPress.results[0]?.handled, true);
+  assert.deepEqual(runtime.state(), { activations: ['first'] });
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'second']);
+});
+
+test('editable controls opt cursor movement into Kitty key repeat', async () => {
+  const app = defineTui({
+    id: 'kitty-repeat-editing',
+    init: () => ({ actions: [] }),
+    update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
+    view: () => createTextInput({
+      id: 'editor',
+      presentation: { value: 'ab', cursor: 1 },
+      onAction: (action) => action
+    })
+  });
+  const host = createMemoryTerminalHost({
+    terminalSize: { columns: 20, rows: 2 },
+    capabilities: { probes: { keyboardProtocol: 'supported' } }
+  });
+  const capabilities = await host.getCapabilities();
+  const runtime = createTuiRuntime({
+    app,
+    host,
+    input: { capabilities, keyboard: kittyKeyboardProfile(3) }
+  });
+
+  await runtime.start();
+  const repeated = await runtime.handleInputChunk({ data: '\u001B[1;1:2C' });
+
+  assert.equal(repeated.results[0]?.handled, true);
+  assert.deepEqual(runtime.state().actions, [
+    { kind: 'edit', operation: { kind: 'moveRight' } }
+  ]);
+});
+
+test('TUI runtime exposes input-profile fallback diagnostics', async () => {
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 12, rows: 1 } });
+  const app = defineTui({
+    id: 'input-profile-diagnostic',
+    init: () => 'ready',
+    update: (state) => ({ state }),
+    view: () => createTextInput({
+      id: 'profile-field',
+      presentation: { value: 'ready', cursor: 0 },
+      onAction: () => ignoreMessage()
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host,
+    input: { keyboard: kittyKeyboardProfile(3) }
+  });
+
+  await runtime.start();
+  assert.equal(
+    runtime.diagnostics().some((item) => item.diagnostic.code === 'INPUT_PROFILE_UNSUPPORTED'),
+    true
+  );
 });
 
 test('TUI runtime routes key events through focused element keymaps', async () => {
@@ -193,7 +362,7 @@ test('TUI runtime does not steal printable text for default app bindings', async
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'text', text: 'q' });
+  await runtime.handleInput({ kind: 'text', text: 'q', paste: false });
 
   assert.deepEqual(runtime.state(), { value: 'q' });
   assert.match(renderFramePlain(runtime.frame()), /q/);
@@ -414,8 +583,8 @@ test('TUI runtime routes focused text and paste through one edit-operation chann
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const typed = await runtime.handleInput({ kind: 'text', text: 'a' });
-  const pasted = await runtime.handleInput({ kind: 'paste', text: 'bc' });
+  const typed = await runtime.handleInput({ kind: 'text', text: 'a', paste: false });
+  const pasted = await runtime.handleInput({ kind: 'paste', text: 'bc', bracketed: false });
 
   assert.equal(typed.handled, true);
   assert.equal(pasted.handled, true);
@@ -497,4 +666,126 @@ test('TUI runtime decodes input chunks through the configured input pipeline', a
   assert.equal(results.results.some((result) => result.handled), true);
   assert.deepEqual(runtime.state(), { value: 'pastedtext' });
   assert.match(renderFramePlain(runtime.frame()), /pastedtext/);
+});
+
+test('character bindings isolate bound graphemes and retain unmatched text runs', async () => {
+  const app = defineTui({
+    id: 'bounded-character-routing',
+    init: () => ({ actions: [] }),
+    inputBindings: [{
+      id: 'quit',
+      phase: 'beforeFocus',
+      triggers: [{ kind: 'text', text: 'q' }],
+      message: { kind: 'shortcut', text: 'q' }
+    }],
+    update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
+    view: () => textInput({
+      id: 'field',
+      presentation: { value: '', cursor: 0 },
+      onAction: (action) =>
+        action.kind === 'edit' && action.operation.kind === 'insert'
+          ? { kind: 'insert', text: action.operation.text }
+          : ignoreMessage()
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } })
+  });
+
+  await runtime.start();
+  const batch = await runtime.handleInputChunk({ data: 'abqcd' });
+
+  assert.equal(batch.results.length, 3);
+  assert.deepEqual(runtime.state().actions, [
+    { kind: 'insert', text: 'ab' },
+    { kind: 'shortcut', text: 'q' },
+    { kind: 'insert', text: 'cd' }
+  ]);
+});
+
+test('character routing applies the decode event budget before dispatch', async () => {
+  const app = defineTui({
+    id: 'character-routing-budget',
+    init: () => ({ actions: [] }),
+    inputBindings: [{
+      id: 'quit',
+      triggers: [{ kind: 'text', text: 'q' }],
+      message: { kind: 'shortcut' }
+    }],
+    update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
+    view: () => textInput({
+      id: 'field',
+      presentation: { value: '', cursor: 0 },
+      onAction: (action) =>
+        action.kind === 'edit' && action.operation.kind === 'insert'
+          ? { kind: 'insert', text: action.operation.text }
+          : ignoreMessage()
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } }),
+    input: { limits: { maxEventsPerBatch: 2 } }
+  });
+
+  await runtime.start();
+  await assert.rejects(
+    runtime.handleInputChunk({ data: 'aqb' }),
+    (cause) => cause instanceof InputDecodeError && cause.code === 'event_batch_limit_exceeded'
+  );
+  assert.deepEqual(runtime.state(), { actions: [] });
+  assert.equal(runtime.metrics().frameCommits, 1);
+});
+
+test('component code-point and physical-key triggers match unnamed keys', async () => {
+  const app = defineTui({
+    id: 'unnamed-component-key-triggers',
+    init: () => ({ actions: [] }),
+    update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
+    view: () => testKeyInput({
+      id: 'field',
+      presentation: { value: '', cursor: 0 },
+      keys: {
+        triggers: [
+          {
+            trigger: { kind: 'codePoint', codePoint: 92, modifiers: { ctrl: true } },
+            onKey: () => ({ kind: 'codePoint' })
+          },
+          {
+            trigger: { kind: 'physicalKey', codePoint: 113 },
+            onKey: () => ({ kind: 'physicalKey' })
+          }
+        ]
+      }
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } })
+  });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'unknown',
+    keyCodePoint: 92,
+    modifiers: { ctrl: true, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'unknown',
+    keyCodePoint: 120,
+    alternateCodePoints: { baseLayout: 113 },
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.deepEqual(runtime.state().actions, [
+    { kind: 'codePoint' },
+    { kind: 'physicalKey' }
+  ]);
 });

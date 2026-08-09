@@ -44,6 +44,14 @@ const arrayStateApp = defineTui<string[], IncrementMessage>({
   view: (state) => text({ content: state.join(',') })
 });
 
+// @ts-expect-error null is not an application message; ignoreMessage is the no-message sentinel
+const nullMessageApp = defineTui<State, null>({
+  init: () => ({ count: 0 }),
+  update: (state) => ({ state }),
+  view: (state) => text({ content: String(state.count) })
+});
+
 void app;
 void invalidApp;
 void arrayStateApp;
+void nullMessageApp;

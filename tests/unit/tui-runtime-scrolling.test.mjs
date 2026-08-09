@@ -52,7 +52,7 @@ test('TUI wheel routing skips non-scroll child targets and reaches the scroll ta
     view: () => componentElement({ id: 'wheel-scroll-target', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 28, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const wheel = await runtime.handleInputChunk({ data: '\u001B[<65;3;1M' });
@@ -97,7 +97,7 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 4 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'scrolling-text-pointer:scroll:content');
@@ -160,7 +160,7 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
     ], { id: 'scroll-layer-root' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 5 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const backgroundTrack = targetById(runtime, 'background-scroll:scrollbar:vertical:track');
@@ -206,7 +206,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'scroll-editor:scroll:content');
@@ -298,7 +298,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 10 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const thumbTarget = targetById(runtime, 'thumb-editor:scrollbar:vertical:thumb');
@@ -362,7 +362,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
 })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 10 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const thumbTarget = targetById(runtime, 'elevated-thumb-editor:scrollbar:vertical:thumb');
@@ -402,7 +402,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'scroll-editor:scroll:content');
@@ -454,7 +454,7 @@ test('viewport wheel bursts and thumb dragging keep scrolled composite children 
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 6 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const content = targetById(runtime, 'composite-viewport:scroll:content');
@@ -520,7 +520,7 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'cross-read-editor:scroll:content');
@@ -578,7 +578,7 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'barrier-editor:scroll:content');
@@ -625,7 +625,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 22, rows: 6 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'scroll-editor:scroll:content');
@@ -688,7 +688,7 @@ test('TUI routed horizontal text area scroll uses the editable viewport after gu
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 14, rows: 4 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'horizontal-gutter-editor:scroll:content');
@@ -734,7 +734,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'scroll-editor:scroll:content');
@@ -783,7 +783,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'tree-scroll:scroll:content');
@@ -840,7 +840,7 @@ test('TUI routed context menu scroll events use a fixed title row and shared scr
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'context-scroll:popup:menu:scroll:content');

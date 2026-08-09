@@ -44,7 +44,7 @@ export type LogViewerStylePart =
   | 'selection'
   | 'highlight'
   | 'scrollbar';
-export type NumberInputStylePart = TextEntryStylePart | 'stepper';
+export type NumberInputStylePart = Exclude<TextEntryStylePart, 'label'> | 'stepper';
 export type FormGroupStylePart = 'title' | 'label' | 'description' | 'error';
 export type ButtonStylePart = 'frame' | 'marker' | 'leading' | 'label' | 'trailing';
 export type ToggleStylePart = 'label' | 'track' | 'handle' | 'onLabel' | 'offLabel' | 'error';

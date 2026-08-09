@@ -338,6 +338,7 @@ interface TextInputOptionsBase {
   readonly placeholder?: string;
   readonly required?: boolean;
   readonly error?: string;
+  readonly readOnly?: boolean;
   readonly pointerState?: PointerInteractionState;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], TextEntryStylePart>;
 }
@@ -354,6 +355,7 @@ export type ActiveTextInputOptions<TMessage extends ComponentMessage> = TextInpu
 export type DisabledTextInputOptions = TextInputOptionsBase & {
   readonly onAction?: never;
   readonly disabled: true;
+  readonly readOnly?: never;
   readonly pointerState?: never;
 };
 
@@ -377,11 +379,13 @@ export type NumberInputOptions<TMessage extends ComponentMessage = never> =
 export interface ActiveNumberInputOptions<TMessage extends ComponentMessage> extends NumberInputOptionsBase {
   readonly onAction: (action: NumberInputControlAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
+  readonly readOnly?: boolean;
 }
 
 export type DisabledNumberInputOptions = NumberInputOptionsBase & {
   readonly onAction?: never;
   readonly disabled: true;
+  readonly readOnly?: never;
   readonly pointerState?: never;
 };
 

@@ -16,6 +16,7 @@ import type {
   IgnoredMessage,
   SemanticLeafComponentFactory,
 } from '../../component/index.ts';
+import { textEditingTriggers } from '../internal/text-key-bindings.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
@@ -527,7 +528,7 @@ interface TextEntryModel extends PointerModel {
 }
 
 const textInputDefinition = textEntryDefinition<
-  Omit<TextInputOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>
+  Omit<TextInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>
 >('text-input', false, {
   presentation: null,
   placeholder: null,
@@ -536,7 +537,7 @@ const textInputDefinition = textEntryDefinition<
   pointerState: null,
 });
 const passwordInputDefinition = textEntryDefinition<
-  Omit<PasswordInputOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>
+  Omit<PasswordInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>
 >('password-input', true, {
   presentation: null,
   placeholder: null,
@@ -570,11 +571,11 @@ type NumberInputFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateNumberInput = defineComponent<
-  Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>,
   NumberModel,
   NumberInputControlAction,
   NumberInputStylePart,
-  readonly ['disabled'],
+  readonly ['disabled', 'readOnly'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
@@ -589,30 +590,35 @@ const instantiateNumberInput = defineComponent<
     error: null,
     pointerState: null,
   },
-  states: ['disabled'],
+  states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
-  parts: ['value', 'placeholder', 'stepper', 'error'],
+  parts: ['border', 'value', 'placeholder', 'selection', 'cursor', 'stepper', 'error'],
   prepare: prepareNumberInput,
   measure: measureNumberInput,
   render: paintNumberInput,
-  keys: () => ({
-    backspace: () => edit('deleteBackward'),
-    delete: () => edit('deleteForward'),
+  keys: ({ readOnly }) => ({
+    triggers: textEditingTriggers(readOnly, false),
+    ...(readOnly ? {} : {
+      backspace: () => edit('deleteBackward'),
+      delete: () => edit('deleteForward'),
+      arrowUp: () => ({ kind: 'step' as const, direction: 'increment' as const }),
+      arrowDown: () => ({ kind: 'step' as const, direction: 'decrement' as const }),
+      enter: () => ({ kind: 'commit' as const }),
+    }),
     arrowLeft: () => edit('moveLeft'),
     arrowRight: () => edit('moveRight'),
     home: () => edit('moveHome'),
     end: () => edit('moveEnd'),
-    arrowUp: () => ({ kind: 'step', direction: 'increment' }),
-    arrowDown: () => ({ kind: 'step', direction: 'decrement' }),
-    enter: () => ({ kind: 'commit' }),
   }),
-  onInput: ({ text }) => ({ kind: 'edit', operation: { kind: 'insert', text } }),
-  onPaste: ({ text }) => ({ kind: 'edit', operation: { kind: 'insert', text } }),
+  onInput: ({ text, readOnly }) =>
+    readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
+  onPaste: ({ text, readOnly }) =>
+    readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   pointer: passivePointerPolicy(),
   focusTargets: (input) => {
-    const bounds = numberInputGeometry(input.bounds, input.disabled)?.input ?? input.bounds;
+    const bounds = numberInputGeometry(input.bounds, input.disabled || input.readOnly)?.input ?? input.bounds;
     const cursorStyle = input.style({
-      part: 'value',
+      part: 'cursor',
       state: 'focused',
       base: { fg: { kind: 'theme', token: 'input.cursor' }, bold: true, inverse: true },
     });
@@ -644,7 +650,7 @@ const instantiateNumberInput = defineComponent<
     }];
   },
   hitTargets: numberInputHitTargets,
-  accessibility: ({ id, model, focused, disabled }) => {
+  accessibility: ({ id, model, focused, disabled, readOnly }) => {
     const description = [
       model.required ? 'Required.' : '',
       model.error,
@@ -670,6 +676,7 @@ const instantiateNumberInput = defineComponent<
       description,
       ...(focused ? { focused: true } : {}),
       ...(disabled ? { disabled: true } : {}),
+      ...(readOnly ? { readOnly: true } : {}),
     };
   },
 });
@@ -1621,7 +1628,7 @@ type TextEntryFactory<TOptions extends object> = SemanticLeafComponentFactory<
   TOptions,
   TextInputAction,
   TextEntryStylePart,
-  readonly ['disabled'],
+  readonly ['disabled', 'readOnly'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >;
@@ -1636,7 +1643,7 @@ function textEntryDefinition<TOptions extends object>(
     TextEntryModel,
     TextInputAction,
     TextEntryStylePart,
-    readonly ['disabled'],
+    readonly ['disabled', 'readOnly'],
     'required',
     readonly ['focus', 'layer', 'styles']
   >({
@@ -1645,7 +1652,7 @@ function textEntryDefinition<TOptions extends object>(
     structure: 'leaf',
     semantics: 'semantic',
     optionFields,
-    states: ['disabled'],
+    states: ['disabled', 'readOnly'],
     metadata: ['focus', 'layer', 'styles'],
     parts: ['border', 'label', 'value', 'placeholder', 'selection', 'cursor', 'error'],
     sensitiveInput: password,
@@ -1662,17 +1669,22 @@ function textEntryDefinition<TOptions extends object>(
       };
     },
     render: paintTextEntry,
-    keys: ({ model }) => ({
-      backspace: () => edit('deleteBackward'),
-      delete: () => edit('deleteForward'),
+    keys: ({ model, readOnly }) => ({
+      triggers: textEditingTriggers(readOnly, false),
+      ...(readOnly ? {} : {
+        backspace: () => edit('deleteBackward'),
+        delete: () => edit('deleteForward'),
+      }),
       arrowLeft: () => edit('moveLeft'),
       arrowRight: () => edit('moveRight'),
       home: () => edit('moveHome'),
       end: () => edit('moveEnd'),
       enter: () => ({ kind: 'submit', value: model.sourceValue }),
     }),
-    onInput: ({ text }) => ({ kind: 'edit', operation: { kind: 'insert', text } }),
-    onPaste: ({ text }) => ({ kind: 'edit', operation: { kind: 'insert', text } }),
+    onInput: ({ text, readOnly }) =>
+      readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
+    onPaste: ({ text, readOnly }) =>
+      readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
     pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
     focusTargets: (input) => {
       const cursorStyle = input.style({
@@ -1745,7 +1757,7 @@ function textEntryDefinition<TOptions extends object>(
         },
       }];
     },
-    accessibility: ({ id, model, focused, disabled }) => ({
+    accessibility: ({ id, model, focused, disabled, readOnly }) => ({
       id,
       role: 'textbox',
       label: id,
@@ -1763,6 +1775,7 @@ function textEntryDefinition<TOptions extends object>(
       ),
       ...(focused ? { focused: true } : {}),
       ...(disabled ? { disabled: true } : {}),
+      ...(readOnly ? { readOnly: true } : {}),
     }),
   });
 }
@@ -1822,27 +1835,32 @@ function prepareTextPresentation(
   const raw = cleanString(value['value'], `${owner} value`);
   const cursor = nonNegativeInteger(value['cursor'], `${owner} cursor`);
   if (cursor > raw.length) throw new RangeError(`${owner} cursor exceeds value length.`);
-  let selection: TextSelection | undefined;
-  if (value['selection'] !== undefined) {
-    const candidate = value['selection'];
-    if (
-      !isNonArrayObject(candidate) ||
-      Object.keys(candidate).some((field) =>
-        field !== 'startOffset' && field !== 'endOffsetExclusive'
-      ) ||
-      typeof candidate['startOffset'] !== 'number' ||
-      typeof candidate['endOffsetExclusive'] !== 'number' ||
-      !Number.isSafeInteger(candidate['startOffset']) ||
-      !Number.isSafeInteger(candidate['endOffsetExclusive'])
-    ) {
-      throw new TypeError(`${owner} selection is invalid.`);
-    }
-    selection = normalizeTextSelection(raw, {
-      startOffset: candidate['startOffset'],
-      endOffsetExclusive: candidate['endOffsetExclusive'],
-    });
-  }
+  const selection = prepareTextSelection(value['selection'], raw, owner);
   return { value: raw, cursor, ...(selection === undefined ? {} : { selection }) };
+}
+
+function prepareTextSelection(
+  value: unknown,
+  text: string,
+  owner: string,
+): TextSelection | undefined {
+  if (value === undefined) return undefined;
+  if (
+    !isNonArrayObject(value) ||
+    Object.keys(value).some((field) =>
+      field !== 'startOffset' && field !== 'endOffsetExclusive'
+    ) ||
+    typeof value['startOffset'] !== 'number' ||
+    typeof value['endOffsetExclusive'] !== 'number' ||
+    !Number.isSafeInteger(value['startOffset']) ||
+    !Number.isSafeInteger(value['endOffsetExclusive'])
+  ) {
+    throw new TypeError(`${owner} selection is invalid.`);
+  }
+  return normalizeTextSelection(text, {
+    startOffset: value['startOffset'],
+    endOffsetExclusive: value['endOffsetExclusive'],
+  });
 }
 
 function paintTextEntry(input: ComponentRenderInput<TextEntryModel, TextEntryStylePart>): void {
@@ -1993,9 +2011,18 @@ function prepareNumberInput(value: unknown): NumberModel {
     throw new TypeError('numberInput presentation must be an object.');
   }
   const raw = value['presentation'];
+  const unsupported = Object.keys(raw).find((field) =>
+    field !== 'value' && field !== 'cursor' && field !== 'selection' &&
+    field !== 'validity' && field !== 'parsedValue' && field !== 'committedValue' &&
+    field !== 'min' && field !== 'max' && field !== 'step'
+  );
+  if (unsupported !== undefined) {
+    throw new TypeError(`numberInput presentation contains unknown field "${unsupported}".`);
+  }
   const text = cleanString(raw['value'], 'numberInput value');
   const cursor = nonNegativeInteger(raw['cursor'], 'numberInput cursor');
   if (cursor > text.length) throw new RangeError('numberInput cursor exceeds value length.');
+  const selection = prepareTextSelection(raw['selection'], text, 'numberInput');
   const validity = raw['validity'];
   if (
     validity !== 'empty' && validity !== 'incomplete' && validity !== 'invalid' &&
@@ -2005,9 +2032,12 @@ function prepareNumberInput(value: unknown): NumberModel {
   const min = optionalFinite(raw['min'], 'numberInput min');
   const max = optionalFinite(raw['max'], 'numberInput max');
   const step = optionalFinite(raw['step'], 'numberInput step');
+  const committedValue = optionalFinite(raw['committedValue'], 'numberInput committedValue');
   const common = {
     value: text,
     cursor,
+    ...(selection === undefined ? {} : { selection }),
+    ...(committedValue === undefined ? {} : { committedValue }),
     ...(min === undefined ? {} : { min }),
     ...(max === undefined ? {} : { max }),
     ...(step === undefined ? {} : { step }),
@@ -2042,14 +2072,14 @@ function measureNumberInput(input: ComponentMeasureInput<NumberModel>): Measurem
     minHeight: 1,
     preferredWidth: 2 +
       measureTextCells(shown, { widthProfile: input.widthProfile }).cells +
-      (input.disabled ? 0 : numberStepperWidth),
+      (input.disabled || input.readOnly ? 0 : numberStepperWidth),
     preferredHeight: 1 + (input.model.error === '' ? 0 : 1),
   };
 }
 
 function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputStylePart>): void {
   if (input.bounds.width === 0 || input.bounds.height === 0) return;
-  const geometry = numberInputGeometry(input.bounds, input.disabled);
+  const geometry = numberInputGeometry(input.bounds, input.disabled || input.readOnly);
   const inputBounds = geometry?.input ?? input.bounds;
   const usesPlaceholder = input.model.presentation.value === '' && input.model.placeholder !== '';
   const shown = usesPlaceholder ? input.model.placeholder : input.model.presentation.value;
@@ -2062,6 +2092,18 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
     : input.theme.tokens.colors['control.background'] === undefined
     ? input.theme.tokens.symbols.borderSingle.vertical
     : ' ';
+  const borderStyle = input.style({
+    part: 'border',
+    base: {
+      fg: { kind: 'theme', token: input.model.error === '' ? 'control.border' : 'status.error' },
+      bg: { kind: 'theme', token: 'control.background' },
+    },
+    ...(input.disabled
+      ? { state: 'disabled' as const }
+      : input.focus === 'self'
+      ? { state: 'focused' as const }
+      : {}),
+  });
   const valueStyle = input.style({
     part: usesPlaceholder ? 'placeholder' : 'value',
     base: {
@@ -2071,26 +2113,59 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
     },
     ...(input.disabled ? { state: 'disabled' as const } : {}),
   });
+  const selectionStyle = input.style({
+    part: 'selection',
+    base: {
+      fg: { kind: 'theme', token: 'selection.foreground' },
+      bg: { kind: 'theme', token: 'selection.background' },
+    },
+    state: 'selected',
+  });
+  const contentSpans: RenderSpan[] = [];
+  const selection = usesPlaceholder ? undefined : input.model.presentation.selection;
+  if (selection === undefined) {
+    contentSpans.push(span(shown, {
+      ...(valueStyle === undefined ? {} : { style: valueStyle }),
+      source: input.source({
+        cellRole: 'text',
+        partName: usesPlaceholder ? 'placeholder' : 'value',
+        partType: usesPlaceholder ? 'placeholder' : 'value',
+        description: usesPlaceholder ? 'placeholder' : 'value',
+      }),
+    }));
+  } else {
+    for (const range of [
+      { start: 0, end: selection.startOffset, selected: false },
+      { start: selection.startOffset, end: selection.endOffsetExclusive, selected: true },
+      { start: selection.endOffsetExclusive, end: shown.length, selected: false },
+    ]) {
+      const text = shown.slice(range.start, range.end);
+      if (text === '') continue;
+      contentSpans.push(span(text, {
+        ...(range.selected
+          ? selectionStyle === undefined ? {} : { style: selectionStyle }
+          : valueStyle === undefined ? {} : { style: valueStyle }),
+        source: input.source({
+          cellRole: 'text',
+          partName: range.selected ? 'selection' : 'value',
+          partType: range.selected ? 'selection' : 'value',
+          description: range.selected ? 'selection' : 'value',
+        }),
+      }));
+    }
+  }
   const valueSpans = clipRenderSpans(
     [
       span(`${marker} `, {
-        ...(valueStyle === undefined ? {} : { style: valueStyle }),
+        ...(borderStyle === undefined ? {} : { style: borderStyle }),
         source: input.source({
           cellRole: 'decoration',
-          partName: 'value',
+          partName: 'border',
           partType: 'frame',
           description: 'frame.prefix',
         }),
       }),
-      span(shown, {
-        ...(valueStyle === undefined ? {} : { style: valueStyle }),
-        source: input.source({
-          cellRole: 'text',
-          partName: usesPlaceholder ? 'placeholder' : 'value',
-          partType: usesPlaceholder ? 'placeholder' : 'value',
-          description: usesPlaceholder ? 'placeholder' : 'value',
-        }),
-      }),
+      ...contentSpans,
     ],
     inputBounds.width,
     { widthProfile: input.widthProfile },
@@ -2186,7 +2261,7 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
 function numberInputHitTargets(
   input: ComponentInput<NumberModel>,
 ): readonly HitTarget<NumberInputControlAction>[] {
-  const geometry = numberInputGeometry(input.bounds, input.disabled);
+  const geometry = numberInputGeometry(input.bounds, input.disabled || input.readOnly);
   const inputBounds = geometry?.input ?? input.bounds;
   const focusTarget = {
     id: `${input.id ?? 'number-input'}:input`,

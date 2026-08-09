@@ -1,6 +1,7 @@
 import { diagnostic } from '../diagnostics.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { completedExit, exitWithStatus } from './exit.ts';
+import { retireTuiRuntimeInput } from './runtime.ts';
 import type {
   TerminalHost,
   TerminalInput,
@@ -165,6 +166,9 @@ export async function runTuiInputLoop<TState, TMessage>(
         else resizeQueued = true;
         continue;
       }
+      inputController.abort(`terminal_signal:${event.signal}`);
+      inputNext = undefined;
+      retireTuiRuntimeInput(runtime);
       return handleTuiSignal(runtime, appId, event.signal);
     }
   } finally {

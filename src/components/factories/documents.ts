@@ -45,6 +45,7 @@ import {
 } from '../../ui-model/search-picker-index.ts';
 import type { CommandInputStylePart, SearchPickerStylePart } from '../../ui-model/style-parts.ts';
 import type { CommandInputOptions, SearchPickerOptions } from '../options/documents.ts';
+import { textEditingTriggers } from '../internal/text-key-bindings.ts';
 
 interface CommandInputModel {
   readonly value: string;
@@ -148,8 +149,10 @@ export const commandInput: CommandInputFactory = defineComponent<
       onAction: (action) =>
         action.kind === 'select'
           ? input.emit({ kind: 'selectSuggestion', suggestionIndex: action.itemIndex })
-          : action.kind === 'activate'
-          ? input.emit({ kind: 'acceptSuggestion' })
+        : action.kind === 'activate'
+          ? input.readOnly
+            ? ignoreMessage()
+            : input.emit({ kind: 'acceptSuggestion' })
           : ignoreMessage(),
       meta: { focus: { disabled: true } },
     });
@@ -228,29 +231,30 @@ export const commandInput: CommandInputFactory = defineComponent<
     const selected = selectedSuggestion(model);
     const submitted = selected?.disabled === true ? model.value : selected?.value ?? model.value;
     return {
+      triggers: textEditingTriggers(readOnly, false),
       ...(readOnly ? {} : {
         backspace: () => ({
           kind: 'edit' as const,
           operation: { kind: 'deleteBackward' as const },
         }),
         delete: () => ({ kind: 'edit' as const, operation: { kind: 'deleteForward' as const } }),
-        arrowLeft: () => ({ kind: 'edit' as const, operation: { kind: 'moveLeft' as const } }),
-        arrowRight: () => ({ kind: 'edit' as const, operation: { kind: 'moveRight' as const } }),
-        home: () => ({ kind: 'edit' as const, operation: { kind: 'moveHome' as const } }),
-        end: () => ({ kind: 'edit' as const, operation: { kind: 'moveEnd' as const } }),
       }),
+      arrowLeft: () => ({ kind: 'edit' as const, operation: { kind: 'moveLeft' as const } }),
+      arrowRight: () => ({ kind: 'edit' as const, operation: { kind: 'moveRight' as const } }),
+      home: () => ({ kind: 'edit' as const, operation: { kind: 'moveHome' as const } }),
+      end: () => ({ kind: 'edit' as const, operation: { kind: 'moveEnd' as const } }),
       arrowUp: () =>
         model.suggestions.length === 0
-          ? { kind: 'historyPrevious' as const }
+          ? readOnly ? ignoreMessage() : { kind: 'historyPrevious' as const }
           : { kind: 'moveSuggestion' as const, delta: -1 as const },
       arrowDown: () =>
         model.suggestions.length === 0
-          ? { kind: 'historyNext' as const }
+          ? readOnly ? ignoreMessage() : { kind: 'historyNext' as const }
           : { kind: 'moveSuggestion' as const, delta: 1 as const },
-      ...(model.suggestions.length === 0
+      ...(readOnly || model.suggestions.length === 0
         ? {}
         : { tab: () => ({ kind: 'acceptSuggestion' as const }) }),
-      enter: () => ({ kind: 'submit', value: submitted }),
+      ...(readOnly ? {} : { enter: () => ({ kind: 'submit' as const, value: submitted }) }),
     };
   },
   onInput: ({ text, readOnly }) =>

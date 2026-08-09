@@ -146,7 +146,11 @@ test('disabled components expose no keyboard or mouse dispatch', async () => {
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({
+    app,
+    host: harness.host,
+    input: { mouseReporting: 'click' }
+  });
 
   await runtime.start();
   const key = await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });

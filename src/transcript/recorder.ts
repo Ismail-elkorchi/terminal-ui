@@ -11,6 +11,7 @@ import { snapshotJsonValue, snapshotUnknownJsonValue } from '../foundation/json.
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type { Frame } from '../renderer/index.ts';
 import { isCanonicalDateTime } from '../foundation/validation.ts';
+import { snapshotInputEvent } from '../input/index.ts';
 
 export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}): TranscriptRecorder {
   if (options.startedAt !== undefined && !isCanonicalDateTime(options.startedAt)) {
@@ -81,7 +82,7 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
         }
       };
     case 'input':
-      return step;
+      return { kind: 'input', event: snapshotInputEvent(step.event) };
     case 'message':
       return {
         kind: 'message',

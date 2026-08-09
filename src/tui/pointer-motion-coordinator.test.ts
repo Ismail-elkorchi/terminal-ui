@@ -2,20 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
-import type { PointerMotionEvent } from './pointer-motion-coordinator.ts';
+import type { PointerMotionEvent, PointerMotionSample } from './pointer-motion-coordinator.ts';
 
 void test('pointer motion retains only the latest queued sample while a dispatch is active', async () => {
   const firstStarted = deferred<boolean>();
   const firstRelease = deferred<boolean>();
   const executed: number[] = [];
   const coordinator = createPointerMotionCoordinator<number>({
-    async execute(event) {
-      executed.push(event.column);
+    async execute(sample) {
+      executed.push(sample.event.column);
       if (executed.length === 1) {
         firstStarted.resolve(true);
         await firstRelease.promise;
       }
-      return event.column;
+      return sample.event.column;
     },
     reportFailure(cause) {
       throw cause;
@@ -23,10 +23,10 @@ void test('pointer motion retains only the latest queued sample while a dispatch
     stop: () => false
   });
 
-  coordinator.enqueue(motion(1));
+  coordinator.enqueue(sample(1));
   await firstStarted.promise;
-  coordinator.enqueue(motion(2));
-  coordinator.enqueue(motion(3));
+  coordinator.enqueue(sample(2));
+  coordinator.enqueue(sample(3));
   firstRelease.resolve(true);
 
   assert.deepEqual(await coordinator.flush(), [1, 3]);
@@ -37,10 +37,10 @@ void test('pointer motion stops before dispatching a stale queued sample', async
   const firstStarted = deferred<boolean>();
   const firstRelease = deferred<boolean>();
   const coordinator = createPointerMotionCoordinator<number>({
-    async execute(event) {
+    async execute(sample) {
       firstStarted.resolve(true);
       await firstRelease.promise;
-      return event.column;
+      return sample.event.column;
     },
     reportFailure(cause) {
       throw cause;
@@ -48,9 +48,9 @@ void test('pointer motion stops before dispatching a stale queued sample', async
     stop: (result) => result === 1
   });
 
-  coordinator.enqueue(motion(1));
+  coordinator.enqueue(sample(1));
   await firstStarted.promise;
-  coordinator.enqueue(motion(2));
+  coordinator.enqueue(sample(2));
   firstRelease.resolve(true);
 
   assert.deepEqual(await coordinator.flush(), [1]);
@@ -68,6 +68,10 @@ function motion(column: number): PointerMotionEvent {
     rawCode: 32,
     modifiers: { ctrl: false, alt: false, shift: false }
   };
+}
+
+function sample(column: number): PointerMotionSample {
+  return { event: motion(column), occurredAt: column };
 }
 
 function deferred<T>(): {

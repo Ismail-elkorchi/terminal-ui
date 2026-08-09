@@ -275,11 +275,11 @@ async function runInteractivePrompt<TChoice>(
 ): Promise<PromptResult<InteractivePromptValue<TChoice>>> {
   const session = await host.beginSession({ id: prompt.id ?? `prompt-${prompt.kind}` });
   const transcript = createPromptTranscript(prompt);
-  const setupDiagnostics = await setupPromptSession(session);
+  const setup = await setupPromptSession(session);
   let result: PromptResult<InteractivePromptValue<TChoice>>;
   let restoreReason: TerminalRestoreReason;
   try {
-    result = await runPromptLoop(prompt, host, transcript);
+    result = await runPromptLoop(prompt, host, transcript, setup.bracketedPaste);
     restoreReason = restoreReasonForPrompt(result);
   } catch (cause) {
     restoreReason = 'error';
@@ -296,7 +296,7 @@ async function runInteractivePrompt<TChoice>(
     };
   }
   const restore = await session.restore(restoreReason);
-  const finalResult = withPromptDiagnostics(result, [...setupDiagnostics, ...restore.diagnostics]);
+  const finalResult = withPromptDiagnostics(result, [...setup.diagnostics, ...restore.diagnostics]);
   recordPromptResult(transcript, finalResult);
   return withPromptTranscript(finalResult, transcript?.snapshot());
 }
@@ -304,10 +304,11 @@ async function runInteractivePrompt<TChoice>(
 async function runPromptLoop<TChoice>(
   prompt: InteractivePromptDefinition<TChoice>,
   host: TerminalHost,
-  transcript: TranscriptRecorder | undefined
+  transcript: TranscriptRecorder | undefined,
+  bracketedPaste: boolean
 ): Promise<PromptResult<InteractivePromptValue<TChoice>>> {
   const inputController = new AbortController();
-  const input = promptInputEvents(host, inputController.signal)[Symbol.asyncIterator]();
+  const input = promptInputEvents(host, inputController.signal, { bracketedPaste })[Symbol.asyncIterator]();
   const choices = isChoicePrompt(prompt)
     ? await resolvePromptChoices(prompt)
     : { ok: true as const, choices: [], diagnostics: [], hasMore: false };

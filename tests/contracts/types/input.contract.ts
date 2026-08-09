@@ -2,16 +2,17 @@ import {
   createInputDecoder,
   matchesInputTrigger,
   type InputEvent,
+  type RecordedInputEvent,
   type InputTrigger
 } from '@ismail-elkorchi/terminal-ui/input';
 
 const decoder = createInputDecoder();
-const event: InputEvent = decoder.decode({ data: '\r' }).events[0] ?? { kind: 'end' };
+const event: InputEvent = decoder.decode({ data: '\r' }).events[0] ?? { kind: 'unknown', sequence: '' };
 const trigger: InputTrigger = { kind: 'key', key: 'enter' };
 const matches = matchesInputTrigger(trigger, event);
 const codePointTrigger: InputTrigger = { kind: 'codePoint', codePoint: 97, source: 'shifted' };
 const physicalTrigger: InputTrigger = { kind: 'physicalKey', codePoint: 113, location: 'standard' };
-const resizeEvent: InputEvent = { kind: 'resize', terminalSize: { columns: 80, rows: 24 } };
+const resizeEvent: RecordedInputEvent = { kind: 'resize', terminalSize: { columns: 80, rows: 24 } };
 const wheelEvent: InputEvent = {
   kind: 'mouse',
   sequence: '',

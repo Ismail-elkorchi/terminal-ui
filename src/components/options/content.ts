@@ -250,6 +250,7 @@ interface TextAreaBaseOptions {
   readonly wrap?: boolean | TextAreaWrapOptions;
   readonly required?: boolean;
   readonly error?: string;
+  readonly readOnly?: boolean;
   readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], TextAreaStylePart>;
 }
@@ -279,7 +280,7 @@ export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never>
     readonly onAction: (action: TextAreaAction) => MessageResolution<TMessage>;
   };
 
-export type DisabledTextAreaOptions = TextAreaBaseOptions & { readonly disabled: true; readonly onAction?: never; readonly pointerState?: never } & (
+export type DisabledTextAreaOptions = TextAreaBaseOptions & { readonly disabled: true; readonly readOnly?: never; readonly onAction?: never; readonly pointerState?: never } & (
   | {
       readonly presentation: Omit<TextAreaPresentation, 'scroll'> & { readonly scroll?: never };
       readonly scrollbar?: never;

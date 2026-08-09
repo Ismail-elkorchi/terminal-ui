@@ -1,7 +1,7 @@
 import { diagnostic } from '../diagnostics.ts';
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { createPtyTerminalHost } from '../host/index.ts';
-import { decodeInputChunk } from '../input/index.ts';
+import { decodeInputChunk, decodeRecordedInputEvent } from '../input/index.ts';
 import { createTranscriptRecorder } from '../transcript/index.ts';
 import { encodeHarnessInputEvent } from './input-events.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
@@ -12,7 +12,7 @@ import type {
   RuntimeInputSource,
   TerminalInputReadOptions,
 } from '../host/index.ts';
-import type { InputEvent } from '../input/index.ts';
+import type { RecordedInputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/index.ts';
 import type { PtyTerminalHarness, PtyTerminalHarnessOptions, PtyTerminalHarnessResult } from './types.ts';
@@ -187,13 +187,16 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
         for (const decoded of decodeInputChunk({ data: event })) transcript.record({ kind: 'input', event: decoded });
         return Promise.resolve();
       }
-      deliverPtyHarnessInput(input, signals, event);
-      transcript.record({ kind: 'input', event });
+      const admitted = decodeRecordedInputEvent(event);
+      deliverPtyHarnessInput(input, signals, admitted);
+      transcript.record({ kind: 'input', event: admitted });
       return Promise.resolve();
     },
     async resize(terminalSize) {
-      await host.terminalSizeControl.setTerminalSize(terminalSize);
-      transcript.record({ kind: 'input', event: { kind: 'resize', terminalSize } });
+      const admitted = decodeRecordedInputEvent({ kind: 'resize', terminalSize });
+      if (admitted.kind !== 'resize') throw new Error('Expected a decoded resize event.');
+      await host.terminalSizeControl.setTerminalSize(admitted.terminalSize);
+      transcript.record({ kind: 'input', event: admitted });
     },
     closeInput() {
       input.close();
@@ -222,13 +225,13 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
   return harness;
 }
 
-function deliverPtyHarnessInput(input: QueuedPtyInput, signals: PtySignalBus, event: InputEvent): void {
+function deliverPtyHarnessInput(input: QueuedPtyInput, signals: PtySignalBus, event: RecordedInputEvent): void {
   if (event.kind === 'resize') {
     signals.emit('resize');
     return;
   }
   if (event.kind === 'signal') {
-    if (isTerminalSignal(event.signal)) signals.emit(event.signal);
+    signals.emit(event.signal);
     return;
   }
   if (event.kind === 'end') {
@@ -236,11 +239,7 @@ function deliverPtyHarnessInput(input: QueuedPtyInput, signals: PtySignalBus, ev
     return;
   }
   const encoded = encodeHarnessInputEvent(event);
-  if (encoded !== undefined) input.push(encoded);
-}
-
-function isTerminalSignal(signal: string): signal is TerminalSignal {
-  return signal === 'SIGINT' || signal === 'SIGTERM' || signal === 'SIGHUP' || signal === 'resize';
+  input.push(encoded);
 }
 
 function chunkText(chunk: string | Uint8Array): string {

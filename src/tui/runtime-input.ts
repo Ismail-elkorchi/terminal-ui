@@ -46,8 +46,8 @@ export function resolveRuntimeInputMessage<TState, TMessage>(
   const focusedTextMessage = (
     event: Extract<InputEvent, { readonly kind: 'text' }>
   ): MessageResolution<TMessage> => {
-    for (const renderNode of renderNodeKeyChainForFocus(input.renderNode, input.layout, input.focusPath)) {
-      const message = componentKeyMessage(renderNode, event, input.focusPath);
+    if (focused !== undefined) {
+      const message = componentKeyMessage(focused.renderNode, event, input.focusPath);
       if (!isIgnoredMessage(message)) return message;
     }
     const handler = focused?.renderNode.inputMap?.text;
@@ -66,9 +66,11 @@ export function resolveRuntimeInputMessage<TState, TMessage>(
       return resolveRenderNodeMessage(focused.renderNode, handler(input.event.text)) as MessageResolution<TMessage>;
     }
   }
-  for (const renderNode of renderNodeKeyChainForFocus(input.renderNode, input.layout, input.focusPath)) {
-    const focusedMessage = componentKeyMessage(renderNode, input.event, input.focusPath);
-    if (!isIgnoredMessage(focusedMessage)) return focusedMessage;
+  if (input.event.kind === 'key') {
+    for (const renderNode of renderNodeKeyChainForFocus(input.renderNode, input.layout, input.focusPath)) {
+      const focusedMessage = componentKeyMessage(renderNode, input.event, input.focusPath);
+      if (!isIgnoredMessage(focusedMessage)) return focusedMessage;
+    }
   }
   if (committedText !== undefined) {
     const message = focusedTextMessage(committedText);
@@ -86,9 +88,15 @@ export function resolveRuntimeInputMessage<TState, TMessage>(
 export function inputEventContainsSensitiveText(event: InputEvent): boolean {
   if (event.kind === 'text' || event.kind === 'paste') return event.text.length > 0;
   if (event.kind !== 'key' || event.eventType === 'release') return false;
-  if (event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta) return false;
-  return event.committedText !== undefined
-    || event.keyCodePoint !== undefined
+  if (event.committedText?.length) return true;
+  if (
+    event.modifiers.ctrl
+    || event.modifiers.alt
+    || event.modifiers.meta
+    || event.modifiers.super === true
+    || event.modifiers.hyper === true
+  ) return false;
+  return event.keyCodePoint !== undefined
     || /^[a-z0-9]$/u.test(event.key)
     || event.key === 'space';
 }
@@ -113,11 +121,16 @@ function componentKeyMessage<TMessage>(
   event: InputEvent,
   focusPath: FocusPath | undefined
 ): MessageResolution<TMessage> {
-  const handler = event.kind === 'key' && event.key !== 'unknown'
+  const handler = event.kind === 'key'
     ? renderNode.keyMap?.triggers?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
-      ?? (hasNoKeyModifiers(event) ? renderNode.keyMap?.[event.key] : undefined)
+      ?? (
+        event.key !== 'unknown' && event.eventType === 'press' && hasNoKeyModifiers(event)
+          ? renderNode.keyMap?.[event.key]
+          : undefined
+      )
     : event.kind === 'text'
       ? renderNode.keyMap?.text?.[event.text]
+        ?? (event.text === ' ' ? renderNode.keyMap?.space : undefined)
       : undefined;
   return handler === undefined
     ? ignoreMessage()
@@ -131,5 +144,7 @@ function hasNoKeyModifiers(event: Extract<InputEvent, { readonly kind: 'key' }>)
   return !event.modifiers.ctrl
     && !event.modifiers.alt
     && !event.modifiers.shift
-    && !event.modifiers.meta;
+    && !event.modifiers.meta
+    && event.modifiers.super !== true
+    && event.modifiers.hyper !== true;
 }

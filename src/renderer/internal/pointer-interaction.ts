@@ -5,7 +5,7 @@ import type { HitTarget } from '../contracts.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
 
-const interactionKinds = ['enter', 'leave', 'pointerDown', 'pointerUp'] as const;
+const interactionKinds = ['enter', 'leave', 'pointerDown', 'pointerUp', 'pointerCancel'] as const;
 
 export function pointerInteractionHitTargets<TMessage>(
   renderNode: RenderNode<TMessage>,
@@ -84,6 +84,7 @@ function pointerAction<TMessage>(
     case 'pointerDown':
       return event.button === 'left' ? toMessage({ kind: 'press', targetId }) : ignoreMessage();
     case 'pointerUp':
+    case 'pointerCancel':
       return event.button === 'left' ? toMessage({ kind: 'release', targetId }) : ignoreMessage();
     default:
       return ignoreMessage();

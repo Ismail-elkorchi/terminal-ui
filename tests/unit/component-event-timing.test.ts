@@ -242,7 +242,7 @@ void test('checkbox keyboard and pointer activation evaluate the same handler at
     })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host });
+  const runtime = createTuiRuntime({ app, host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   assert.deepEqual(actionKinds, []);

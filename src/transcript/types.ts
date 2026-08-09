@@ -2,7 +2,7 @@ import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalRestoreResult, TerminalSize } from '../host/index.ts';
 import type { FocusPath } from '../interaction/focus.ts';
-import type { InputEvent } from '../input/index.ts';
+import type { RecordedInputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../interaction/message.ts';
 import type { JsonValue } from '../foundation/json.ts';
@@ -24,7 +24,7 @@ export interface InteractionTranscript {
 export type TranscriptSource = typeof transcriptSources[number];
 
 export type InteractionTranscriptStep =
-  | { readonly kind: 'input'; readonly event: InputEvent }
+  | { readonly kind: 'input'; readonly event: RecordedInputEvent }
   | {
       readonly kind: 'message';
       readonly source: TuiMessageSource;
@@ -94,7 +94,7 @@ export interface InteractionResult {
 
 export interface TranscriptReplayTarget {
   readonly transcript: TranscriptRecorder;
-  input(event: InputEvent | string): Promise<void>;
+  input(event: RecordedInputEvent | string): Promise<void>;
   snapshot(): AccessibleSnapshot;
   output(): string;
   recordCommit(commit: TranscriptRuntimeCommit): void;

@@ -1,50 +1,54 @@
+import type { MouseReportingMode } from '../host/index.ts';
 import type { MouseAction, MouseButton, MouseEncoding, MouseEvent } from './types.ts';
+import { InputDecodeError } from './decode-error.ts';
 
 const sgrMousePattern = new RegExp(String.raw`^\u001B\[<(\d+);(\d+);(\d+)([Mm])`, 'u');
 
 export function mouseFromPrefix(
-  value: string
+  value: string,
+  maxFieldDigits: number,
+  reportingMode: Exclude<MouseReportingMode, 'none'>
 ): { readonly event: MouseEvent; readonly length: number } | undefined {
   const sgr = sgrMousePattern.exec(value);
   if (sgr?.[0] !== undefined) {
-    const rawCode = Number.parseInt(sgr[1] ?? '', 10);
-    const column = Number.parseInt(sgr[2] ?? '', 10);
-    const row = Number.parseInt(sgr[3] ?? '', 10);
+    const fields = [sgr[1] ?? '', sgr[2] ?? '', sgr[3] ?? ''];
+    const oversized = fields.find((field) => field.length > maxFieldDigits);
+    if (oversized !== undefined) {
+      throw new InputDecodeError('mouse_field_limit_exceeded', maxFieldDigits, oversized.length);
+    }
+    const rawCode = Number.parseInt(fields[0] ?? '', 10);
+    const column = Number.parseInt(fields[1] ?? '', 10);
+    const row = Number.parseInt(fields[2] ?? '', 10);
     const final = sgr[4];
-    if (Number.isFinite(rawCode) && Number.isFinite(column) && Number.isFinite(row)) {
-      return {
-        event: mouseEvent({
+    if (
+      Number.isSafeInteger(rawCode)
+      && Number.isSafeInteger(column)
+      && Number.isSafeInteger(row)
+      && rawCode >= 0
+      && rawCode <= 255
+      && column > 0
+      && row > 0
+    ) {
+      const event = mouseEvent({
           sequence: sgr[0],
           encoding: 'sgr',
           rawCode,
           column,
           row,
           released: final === 'm'
-        }),
-        length: sgr[0].length
-      };
-    }
-  }
-  if (value.startsWith('\u001B[M') && value.length >= 6) {
-    const sequence = value.slice(0, 6);
-    const rawCode = sequence.codePointAt(3);
-    const columnCode = sequence.codePointAt(4);
-    const rowCode = sequence.codePointAt(5);
-    if (rawCode !== undefined && columnCode !== undefined && rowCode !== undefined) {
-      return {
-        event: mouseEvent({
-          sequence,
-          encoding: 'x10',
-          rawCode: rawCode - 32,
-          column: columnCode - 32,
-          row: rowCode - 32,
-          released: rawCode - 32 === 3
-        }),
-        length: sequence.length
-      };
+        });
+      return modeAllowsEvent(reportingMode, event.action)
+        ? { event, length: sgr[0].length }
+        : undefined;
     }
   }
   return undefined;
+}
+
+function modeAllowsEvent(mode: Exclude<MouseReportingMode, 'none'>, action: MouseAction): boolean {
+  if (action === 'move') return mode === 'all';
+  if (action === 'drag') return mode === 'drag' || mode === 'all';
+  return true;
 }
 
 function mouseEvent(options: {

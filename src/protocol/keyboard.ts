@@ -40,9 +40,23 @@ export function kittyKeyboardProfile(flags: number): TerminalKeyboardProfile {
 
 export function normalizeKeyboardProfile(profile: unknown): TerminalKeyboardProfile {
   if (!isNonArrayObject(profile)) throw new TypeError('Terminal keyboard profile must be an object.');
-  if (profile['kind'] === 'legacy') return LEGACY_KEYBOARD_PROFILE;
-  if (profile['kind'] === 'kitty' && typeof profile['flags'] === 'number') return kittyKeyboardProfile(profile['flags']);
+  if (profile['kind'] === 'legacy') {
+    assertExactProfileFields(profile, ['kind']);
+    return LEGACY_KEYBOARD_PROFILE;
+  }
+  if (profile['kind'] === 'kitty' && typeof profile['flags'] === 'number') {
+    assertExactProfileFields(profile, ['kind', 'flags']);
+    return kittyKeyboardProfile(profile['flags']);
+  }
   throw new TypeError('Terminal keyboard profile kind must be legacy or kitty.');
+}
+
+function assertExactProfileFields(
+  value: Readonly<Record<string, unknown>>,
+  supported: readonly string[]
+): void {
+  const unknown = Object.keys(value).find((field) => !supported.includes(field));
+  if (unknown !== undefined) throw new TypeError(`Terminal keyboard profile contains unknown field "${unknown}".`);
 }
 
 import { isNonArrayObject } from '../foundation/validation.ts';

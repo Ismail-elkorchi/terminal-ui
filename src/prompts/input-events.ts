@@ -1,6 +1,6 @@
 import { createInputAmbiguityDeadline, createInputPipeline } from '../input/index.ts';
 import type { TerminalHost, TerminalInputChunk } from '../host/index.ts';
-import type { InputEvent } from '../input/index.ts';
+import type { InputEvent, InputPendingState } from '../input/index.ts';
 
 type InputRead =
   | { readonly kind: 'input'; readonly value: IteratorResult<TerminalInputChunk> }
@@ -8,20 +8,21 @@ type InputRead =
 
 export async function* promptInputEvents(
   host: TerminalHost,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: { readonly bracketedPaste: boolean } = { bracketedPaste: false }
 ): AsyncIterable<InputEvent> {
   const lifetime = linkedAbortController(signal);
   const input = host.stdin.read({ signal: lifetime.controller.signal })[Symbol.asyncIterator]();
-  const pipeline = createInputPipeline();
+  const pipeline = createInputPipeline({ bracketedPaste: options.bracketedPaste });
   const ambiguity = createInputAmbiguityDeadline<InputRead>(host.clock, pipeline.profile.escapeDelayMs);
   let pendingRead: Promise<IteratorResult<TerminalInputChunk>> | undefined;
-  let escapePending = false;
+  let pending: InputPendingState = { kind: 'none' };
 
   try {
     for (;;) {
       pendingRead ??= input.next();
       const read = pendingRead.then((value): InputRead => ({ kind: 'input', value }));
-      const next = escapePending
+      const next = isAmbiguous(pending)
         ? await Promise.race([
             read,
             ambiguity.schedule(() => Promise.resolve({ kind: 'ambiguity' } as const))
@@ -32,7 +33,7 @@ export async function* promptInputEvents(
       if (next === undefined) continue;
       if (next.kind === 'ambiguity') {
         for (const event of pipeline.flush().events) yield event;
-        escapePending = false;
+        pending = { kind: 'none' };
         continue;
       }
 
@@ -43,9 +44,9 @@ export async function* promptInputEvents(
         return;
       }
       const batch = pipeline.decode(next.value.value);
-      escapePending = batch.pending.kind === 'escape';
+      pending = batch.pending;
       for (const event of batch.events) yield event;
-      if (!escapePending) ambiguity.cancel();
+      if (!isAmbiguous(pending)) ambiguity.cancel();
     }
   } finally {
     ambiguity.cancel();
@@ -53,6 +54,10 @@ export async function* promptInputEvents(
     lifetime.detach();
     await input.return?.();
   }
+}
+
+function isAmbiguous(pending: InputPendingState): boolean {
+  return pending.kind === 'escape' || pending.kind === 'sequence';
 }
 
 function linkedAbortController(signal: AbortSignal | undefined): {

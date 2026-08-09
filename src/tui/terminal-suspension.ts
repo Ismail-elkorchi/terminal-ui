@@ -6,6 +6,7 @@ import type { TuiRuntime } from './types.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
 import type { TuiInputSuspensionController } from './input-suspension.ts';
 import { recordTuiRestore } from './transcript.ts';
+import { LEGACY_KEYBOARD_PROFILE } from '../protocol/index.ts';
 
 interface TerminalSuspensionOptions<TState, TMessage> {
   readonly appId: string;
@@ -66,6 +67,16 @@ export function createTerminalSuspension<TState, TMessage>(
           if (!setup.ok) {
             throw new Error('Terminal session could not be reconfigured after suspension.');
           }
+          runtime.replaceInputProfile({
+            capabilities: session.capabilities,
+            bracketedPaste: setup.applied.some((item) =>
+              item.kind === 'bracketedPaste' && item.enabled),
+            focusReporting: setup.applied.some((item) =>
+              item.kind === 'focusReporting' && item.enabled),
+            mouseReporting: setup.applied.find((item) => item.kind === 'mouseReporting')?.enabled ?? 'none',
+            keyboard: setup.applied.find((item) => item.kind === 'keyboardProfile')?.enabled
+              ?? LEGACY_KEYBOARD_PROFILE
+          });
         }
         runtime.resumeOutput();
         await runtime.redraw();

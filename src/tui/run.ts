@@ -119,6 +119,8 @@ export async function runTui<TState, TMessage>(
         input: {
           capabilities: openedSession.capabilities,
           bracketedPaste: setup.applied.some((item) => item.kind === 'bracketedPaste' && item.enabled),
+          focusReporting: setup.applied.some((item) => item.kind === 'focusReporting' && item.enabled),
+          mouseReporting: setup.applied.find((item) => item.kind === 'mouseReporting')?.enabled ?? 'none',
           keyboard: setup.applied.find((item) => item.kind === 'keyboardProfile')?.enabled
             ?? LEGACY_KEYBOARD_PROFILE,
           escapeDelayMs: normalized.input.escapeDelayMs

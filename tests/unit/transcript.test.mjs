@@ -7,6 +7,34 @@ import { createTerminalHarness, replayTranscript } from '../../dist/testing/inde
 import { createTranscriptRecorder, redactTranscript, validateTranscript } from '../../dist/transcript/index.js';
 import { createFrameBuffer } from '../../dist/renderer/index.js';
 
+test('transcript recording detaches and freezes input evidence before dispatch', () => {
+  const recorder = createTranscriptRecorder({ id: 'input-snapshot', source: 'tui' });
+  const event = {
+    kind: 'key',
+    key: 'a',
+    keyCodePoint: 97,
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  };
+
+  recorder.record({ kind: 'input', event });
+  event.key = 'b';
+  event.modifiers.ctrl = true;
+
+  const recorded = recorder.snapshot().steps[0]?.event;
+  assert.deepEqual(recorded, {
+    kind: 'key',
+    key: 'a',
+    keyCodePoint: 97,
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+  assert.equal(Object.isFrozen(recorded), true);
+  assert.equal(Object.isFrozen(recorded?.modifiers), true);
+});
+
 test('transcript replay preserves frames, diffs, snapshots, diagnostics, and restore outcomes', async () => {
   const harness = createTerminalHarness();
   const snapshot = harness.snapshot();
@@ -511,13 +539,13 @@ test('transcript redaction records concrete paths for redacted strings', () => {
   assert.deepEqual(redacted.redactions, [{ path: '$.steps[0].event.text', reason: 'secret' }]);
 });
 
-test('transcript redaction covers signal payloads and existing audit paths', () => {
+test('transcript redaction covers existing audit paths without changing structural signals', () => {
   const redacted = redactTranscript({
     formatVersion: 2,
     id: 'signal-redaction',
     source: 'test',
     steps: [
-      { kind: 'input', event: { kind: 'signal', signal: 'private-marker' } }
+      { kind: 'input', event: { kind: 'signal', signal: 'SIGINT' } }
     ],
     diagnostics: [],
     redactions: [{ path: '$["private-marker"]', reason: 'secret' }]
@@ -525,10 +553,9 @@ test('transcript redaction covers signal payloads and existing audit paths', () 
     secrets: ['private-marker']
   });
 
-  assert.equal(redacted.steps[0]?.event.signal, '[redacted]');
+  assert.equal(redacted.steps[0]?.event.signal, 'SIGINT');
   assert.deepEqual(redacted.redactions, [
-    { path: '$["[redacted]"]', reason: 'secret' },
-    { path: '$.steps[0].event.signal', reason: 'secret' }
+    { path: '$["[redacted]"]', reason: 'secret' }
   ]);
   assert.equal(JSON.stringify(redacted).includes('private-marker'), false);
   const validation = validateTranscript(redacted);

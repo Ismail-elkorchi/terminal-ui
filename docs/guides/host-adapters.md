@@ -40,7 +40,10 @@ enable the Kitty keyboard protocol may request the bounded
 terminal session, consumes only the documented `CSI ? flags u` response, and
 replays unrelated input in its original order. `runTui()` requests this probe
 only when its session policy asks for a Kitty profile and existing evidence is
-still unknown.
+still unknown. If probing is cancelled while a source read is outstanding, its
+generation is transferred to the next reader. A bounded filter removes a late
+probe response and replays any surrounding user input, so a non-cooperative
+iterator cannot leave capability detection holding the input authority.
 Output writes are asynchronous and ordered. A resolved write has crossed the
 adapter's native backpressure boundary; `flush()` settles every write accepted
 before it. Node adapters wait for write callbacks and `drain`, Web Stream

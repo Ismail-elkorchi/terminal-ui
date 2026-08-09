@@ -14,6 +14,7 @@ import type { HitTarget } from '../contracts.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 
 export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget {
+  readonly ownerIdentity: string;
   readonly accepts?: readonly PointerEventKind[];
   message(event: RoutedPointerEvent): MessageResolution<TMessage>;
 }
@@ -34,10 +35,12 @@ export interface RenderRegion<TMessage = unknown> {
 export function toRegionHitTarget<TMessage>(
   hitTarget: HitTarget<TMessage>,
   region: { readonly zIndex: number },
+  ownerIdentity: string,
   focus: ResolvedPointerFocusIntent | undefined
 ): RenderRegionHitTarget<TMessage> {
   return {
     id: hitTarget.id,
+    ownerIdentity,
     bounds: hitTarget.bounds,
     ...(hitTarget.accepts === undefined ? {} : { accepts: hitTarget.accepts }),
     ...(focus === undefined ? {} : { focus }),
@@ -45,6 +48,10 @@ export function toRegionHitTarget<TMessage>(
     ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
     zIndex: hitTarget.zIndex ?? region.zIndex
   };
+}
+
+export function hitTargetOwnerIdentity(path: FocusPath, nodeIdentity: string): string {
+  return [...path, nodeIdentity].map((segment) => `${String(segment.length)}:${segment}`).join('');
 }
 
 export function regionIdForLayoutNode(node: LayoutNode, path: FocusPath): string {

@@ -54,11 +54,37 @@ Input bytes are decoded through an input pipeline selected from the active
 terminal capability profile and session setup result. The keyboard profile is
 either legacy input or an exact Kitty flag set. Kitty setup, decoding, and
 restoration use the same flags; associated text is accepted only with the
-report-all-keys flag required by the protocol. A lone Escape prefix remains
-pending for the configured ambiguity delay so split escape sequences decode
-the same way as contiguous input. Bracketed paste parsing follows the protocol
-operation actually enabled for the session, so a skipped or disabled setup
-cannot turn ordinary input bytes into a paste event.
+report-all-keys flag required by the protocol. Report-all-keys is also valid
+without associated text; that profile deliberately reports key identity without
+committed text. Even when associated text is enabled, shortcuts such as Ctrl+A
+need not carry text. Optional fields that were not negotiated remain one
+unknown event rather than being downgraded into a press or a partial key event.
+Ambiguous Escape, CSI, mouse, Kitty, and control-string prefixes remain pending
+for the configured ambiguity delay. Once the bracketed-paste opener is complete,
+the token is framed rather than ambiguous and remains open until its closing
+marker or payload bound. OSC, DCS, SOS, PM, APC, SS3, and CSI framing is
+recognized even when the token has no semantic decoder, so unsupported payloads
+remain one unknown event and never become typed text. Bracketed paste, focus,
+and mouse decoding follow the protocol operations actually enabled for the
+session; skipped or failed setup cannot promote matching bytes into those
+semantic events.
+
+`InputPipeline` is one stream with one immutable profile. `decode()` retains
+incomplete UTF-8 and terminal tokens; it has no per-call override.
+`decodeOnce()` is the separate stateless operation. A custom event loop may use
+`replaceInputProfile()` only between complete tokens after it has changed the
+host protocol state. Low-level pipelines default to legacy keyboard decoding
+with paste, focus, and mouse protocols disabled. Their explicit protocol
+options are authority supplied by the host adapter, not capability guesses.
+
+Decoded work has independent bounds for host chunks, framed tokens, text
+events, event batches, paste payloads, Kitty associated text, and mouse numeric
+fields. Key releases never activate ordinary component bindings or move focus.
+Named bindings are press-only; editing movement and deletion opt into repeat
+where repetition is meaningful. Character bindings match individual graphemes
+across host chunk boundaries while adjacent unbound graphemes remain one
+insertion event. The same event budget is enforced after this routing step,
+before any message is dispatched.
 
 Capability entries distinguish terminal protocol `support` from host-adapter
 `availability`. An unknown protocol is not treated as supported, and a

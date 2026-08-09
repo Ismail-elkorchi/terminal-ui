@@ -9,7 +9,7 @@ import {
 } from '../helpers/component-definition.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, tree } from '../../dist/components/index.js';
-import { overlay } from '../../dist/layout/index.js';
+import { overlay, row } from '../../dist/layout/index.js';
 
 test('TUI runtime routes mouse events to elements under the pointer', async () => {
   const app = defineTui({
@@ -23,7 +23,7 @@ test('TUI runtime routes mouse events to elements under the pointer', async () =
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets?.[0], {
@@ -55,7 +55,7 @@ test('TUI pointer click activates once on left release and ignores right click o
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const leftPress = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
@@ -89,7 +89,7 @@ test('built-in controls expose controlled pointer interaction without duplicate 
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'all' } });
 
   await runtime.start();
   await handleInputChunkAndSettle(runtime, '\u001B[<35;2;1M');
@@ -123,7 +123,7 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets ?? [], []);
@@ -164,7 +164,7 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
     view: () => componentElement({ id: 'pointer-lifecycle', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;2;1M' });
@@ -225,7 +225,7 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
     view: () => componentElement({ id: 'pointer-click-count-targets', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 2 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
   const click = async (column) => {
     await runtime.handleInput({
       kind: 'mouse', sequence: '', encoding: 'sgr', action: 'press', button: 'left',
@@ -298,7 +298,7 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
     view: () => componentElement({ id: 'hover-lifecycle', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'all' } });
 
   await runtime.start();
   const moveLeft = await handleInputChunkAndSettle(runtime, '\u001B[<35;2;1M');
@@ -353,7 +353,7 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
     view: () => componentElement({ id: 'event-aware-pointer', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const rightPress = await runtime.handleInputChunk({ data: '\u001B[<2;2;1M' });
@@ -403,7 +403,7 @@ test('TUI pointer drag routes to the captured origin target', async () => {
     view: () => componentElement({ id: 'drag-pointer', definition: renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
@@ -451,7 +451,7 @@ test('TUI pointer motion drops stale drag samples before routing release', async
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
   await runtime.start();
   await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
 
@@ -485,6 +485,213 @@ test('TUI pointer motion drops stale drag samples before routing release', async
   await runtime.dispose();
 });
 
+test('pointer capture resolves the latest target callback after a render', async () => {
+  const definition = {
+    ...leafComponentDefinition,
+    render({ model, target }) {
+      target.write(0, 0, [{ text: `v${String(model.version)}` }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'button', label: 'versioned pointer' };
+    },
+    hitTargets({ bounds, model }) {
+      return [{
+        id: 'control',
+        bounds,
+        accepts: ['pointerDown', 'pointerUp', 'click'],
+        message: (event) => ({ kind: event.kind, version: model.version })
+      }];
+    }
+  };
+  const app = defineTui({
+    id: 'latest-pointer-target',
+    init: () => ({ version: 0, events: [] }),
+    update: (state, message) => ({
+      state: {
+        version: message.kind === 'pointerDown' ? state.version + 1 : state.version,
+        events: [...state.events, message]
+      }
+    }),
+    view: (state) => componentElement({
+      id: 'versioned',
+      definition,
+      version: state.version
+    })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 8, rows: 1 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
+
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
+
+  assert.deepEqual(runtime.state().events, [
+    { kind: 'pointerDown', version: 0 },
+    { kind: 'pointerUp', version: 1 },
+    { kind: 'click', version: 1 }
+  ]);
+});
+
+test('pointer identity includes the owning element when local target ids collide', async () => {
+  const definition = {
+    ...leafComponentDefinition,
+    render({ model, target }) {
+      target.write(0, 0, [{ text: model.label }]);
+    },
+    accessibility({ id, model }) {
+      return { id, role: 'button', label: model.label };
+    },
+    hitTargets({ bounds, model }) {
+      return [{
+        id: 'control',
+        bounds,
+        accepts: ['click'],
+        message: () => ({ clicked: model.label })
+      }];
+    }
+  };
+  const app = defineTui({
+    id: 'qualified-pointer-targets',
+    init: () => ({ clicks: [] }),
+    update: (state, message) => ({ state: { clicks: [...state.clicks, message.clicked] } }),
+    view: () => row([
+      componentElement({ id: 'left', definition, label: 'L' }),
+      componentElement({ id: 'right', definition, label: 'R' })
+    ])
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 2, rows: 1 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
+
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  await runtime.handleInputChunk({ data: '\u001B[<0;2;1m' });
+
+  assert.deepEqual(runtime.state(), { clicks: [] });
+});
+
+test('wheel batches retain their ingestion target across intervening renders', async () => {
+  const definition = {
+    ...leafComponentDefinition,
+    render({ model, target }) {
+      target.write(0, 0, [{ text: model.owner }]);
+    },
+    accessibility({ id, model }) {
+      return { id, role: 'group', label: model.owner };
+    },
+    hitTargets({ bounds, model }) {
+      return [{
+        id: 'scroll',
+        bounds,
+        accepts: ['scroll'],
+        message: () => ({ kind: 'scroll', owner: model.owner })
+      }];
+    }
+  };
+  const app = defineTui({
+    id: 'wheel-ingestion-target',
+    init: () => ({ owner: 'old', events: [] }),
+    update: (state, message) => message.kind === 'replace'
+      ? { state: { ...state, owner: 'new' } }
+      : { state: { ...state, events: [...state.events, message.owner] } },
+    view: (state) => componentElement({
+      id: state.owner,
+      definition,
+      owner: state.owner
+    })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 8, rows: 1 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
+
+  await runtime.start();
+  const wheel = await runtime.handleInputChunk({ data: '\u001B[<64;1;1M' });
+  assert.notEqual(wheel.pending, undefined);
+  await runtime.dispatch({ kind: 'replace' });
+  const settled = await runtime.flushInput();
+
+  assert.equal(settled[0]?.handled, false);
+  assert.deepEqual(runtime.state(), { owner: 'new', events: [] });
+});
+
+test('terminal focus loss cancels pressed and hovered pointer state', async () => {
+  const app = defineTui({
+    id: 'pointer-focus-loss',
+    init: () => ({ pointer: {} }),
+    update: (state, message) => ({
+      state: { pointer: pointerInteractionReducer(state.pointer, message.action) }
+    }),
+    view: (state) => button({
+      id: 'focus-loss-button',
+      label: 'Button',
+      pointerState: state.pointer,
+      onAction: (action) => action.kind === 'pointer'
+        ? { action: action.action }
+        : { action: { kind: 'release', targetId: 'focus-loss-button:control' } }
+    })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 1 } });
+  const runtime = createTuiRuntime({
+    app,
+    host: harness.host,
+    input: { focusReporting: true, mouseReporting: 'all' }
+  });
+
+  await runtime.start();
+  await handleInputChunkAndSettle(runtime, '\u001B[<35;1;1M');
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  assert.deepEqual(runtime.state().pointer, {
+    hoveredTargetId: 'focus-loss-button:control',
+    pressedTargetId: 'focus-loss-button:control'
+  });
+
+  await runtime.handleInputChunk({ data: '\u001B[O' });
+  assert.deepEqual(runtime.state().pointer, {});
+});
+
+test('an abandoned second click clears the previous double-click candidate', async () => {
+  const definition = {
+    ...leafComponentDefinition,
+    render({ target }) {
+      target.write(0, 0, [{ text: 'click' }]);
+    },
+    accessibility: ({ id }) => ({ id, role: 'button', label: 'click' }),
+    hitTargets: ({ bounds }) => [{
+      id: 'control',
+      bounds: { ...bounds, width: 1 },
+      accepts: ['click'],
+      message: (event) => event.clickCount
+    }]
+  };
+  const app = defineTui({
+    id: 'failed-double-click',
+    init: () => ({ counts: [] }),
+    update: (state, count) => ({ state: { counts: [...state.counts, count] } }),
+    view: () => componentElement({ id: 'click', definition })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 3, rows: 1 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
+  const pointer = (action, column) => runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action,
+    button: action === 'release' ? 'none' : 'left',
+    row: 1,
+    column,
+    rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  await runtime.start();
+  await pointer('press', 1);
+  await pointer('release', 1);
+  await pointer('press', 1);
+  await pointer('release', 2);
+  await pointer('press', 1);
+  await pointer('release', 1);
+
+  assert.deepEqual(runtime.state().counts, [1, 1]);
+});
+
 test('TUI runtime routes tree row hit targets to node messages', async () => {
   const app = defineTui({
     id: 'tree-mouse-routing',
@@ -500,7 +707,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;2M' });
@@ -527,7 +734,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   await runtime.handleInputChunk({ data: '\u001B[<0;3;1M' });
@@ -576,7 +783,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets?.map((target) => [target.id, target.zIndex]), [
@@ -610,7 +817,7 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
     ], { id: 'same-layer-overlay' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets?.map((target) => target.id), [

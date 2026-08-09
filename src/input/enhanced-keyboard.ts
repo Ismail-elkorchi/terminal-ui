@@ -7,8 +7,10 @@ import type {
   KeyName,
   LetterKeyName
 } from './types.ts';
+import { functionKeyNames } from './types.ts';
 import { KITTY_KEYBOARD_FLAGS } from '../protocol/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/index.ts';
+import { InputDecodeError } from './decode-error.ts';
 
 const csiUnicodeKeyPattern = new RegExp(String.raw`^\u001B\[(\d+)(?::(\d+)?(?::(\d+))?)?(?:;(\d+)(?::([123]))?)?(?:;([\d:]+))?u`, 'u');
 const csiFinalKeyPattern = new RegExp(String.raw`^\u001B\[1(?:;(\d+)(?::([123]))?)?([ABCDEFHPQRS])`, 'u');
@@ -79,15 +81,20 @@ const keypadKeys: Readonly<Record<number, KeyName>> = Object.freeze({
   57426: 'delete'
 });
 
-export function enhancedKeyFromPrefix(value: string, profile: TerminalKeyboardProfile): KeyEvent | undefined {
+export function enhancedKeyFromPrefix(
+  value: string,
+  profile: TerminalKeyboardProfile,
+  maxAssociatedTextCodePoints: number
+): KeyEvent | undefined {
   const unicode = csiUnicodeKeyPattern.exec(value);
   if (unicode?.[0] !== undefined) {
+    if (!acceptsEventType(unicode[5], profile)) return undefined;
     const codePoint = integer(unicode[1]);
     if (codePoint === undefined || !isUnicodeScalar(codePoint)) return undefined;
     const key = keyFromCodePoint(codePoint);
     const alternateCodePoints = alternateKeys(unicode[2], unicode[3], profile);
     if (alternateCodePoints === null) return undefined;
-    const committedText = associatedText(unicode[6], profile);
+    const committedText = associatedText(unicode[6], profile, maxAssociatedTextCodePoints);
     if (committedText === null) return undefined;
     return event(
       key,
@@ -103,11 +110,13 @@ export function enhancedKeyFromPrefix(value: string, profile: TerminalKeyboardPr
 
   const final = csiFinalKeyPattern.exec(value);
   if (final?.[0] !== undefined) {
+    if (!acceptsEventType(final[2], profile)) return undefined;
     return event(finalKeys[final[3] ?? ''] ?? 'unknown', final[0], final[1], final[2]);
   }
 
   const tilde = csiTildeKeyPattern.exec(value);
   if (tilde?.[0] !== undefined) {
+    if (!acceptsEventType(tilde[3], profile)) return undefined;
     return event(tildeKeys[tilde[1] ?? ''] ?? 'unknown', tilde[0], tilde[2], tilde[3]);
   }
   return undefined;
@@ -135,6 +144,14 @@ function event(
   });
 }
 
+function acceptsEventType(
+  value: string | undefined,
+  profile: TerminalKeyboardProfile
+): boolean {
+  return value === undefined
+    || (profile.kind === 'kitty' && (profile.flags & KITTY_KEYBOARD_FLAGS.reportEventTypes) !== 0);
+}
+
 function alternateKeys(
   shiftedValue: string | undefined,
   baseLayoutValue: string | undefined,
@@ -142,7 +159,7 @@ function alternateKeys(
 ): KeyEvent['alternateCodePoints'] | null | undefined {
   if (shiftedValue === undefined && baseLayoutValue === undefined) return undefined;
   if (profile.kind !== 'kitty' || (profile.flags & KITTY_KEYBOARD_FLAGS.reportAlternateKeys) === 0) {
-    return undefined;
+    return null;
   }
   const shifted = shiftedValue === undefined || shiftedValue.length === 0 ? undefined : integer(shiftedValue);
   const baseLayout = baseLayoutValue === undefined || baseLayoutValue.length === 0 ? undefined : integer(baseLayoutValue);
@@ -157,15 +174,34 @@ function alternateKeys(
   };
 }
 
-function associatedText(value: string | undefined, profile: TerminalKeyboardProfile): string | null | undefined {
+function associatedText(
+  value: string | undefined,
+  profile: TerminalKeyboardProfile,
+  maximumCodePoints: number
+): string | null | undefined {
   if (value === undefined) return undefined;
   if (
     profile.kind !== 'kitty'
     || (profile.flags & KITTY_KEYBOARD_FLAGS.reportAssociatedText) === 0
-  ) return undefined;
-  const points = value.split(':').map(integer);
-  if (points.some((point) => point === undefined || !isTextScalar(point))) return null;
-  return String.fromCodePoint(...points as number[]);
+  ) return null;
+  let text = '';
+  let start = 0;
+  let count = 0;
+  for (;;) {
+    count += 1;
+    if (count > maximumCodePoints) {
+      throw new InputDecodeError('kitty_text_limit_exceeded', maximumCodePoints, count);
+    }
+    const separator = value.indexOf(':', start);
+    const end = separator === -1 ? value.length : separator;
+    const field = value.slice(start, end);
+    const point = integer(field);
+    if (point === undefined || !isTextScalar(point)) return null;
+    text += String.fromCodePoint(point);
+    if (separator === -1) break;
+    start = separator + 1;
+  }
+  return text;
 }
 
 function isTextScalar(value: number): boolean {
@@ -185,6 +221,9 @@ function keyFromCodePoint(codePoint: number): KeyName {
   if (codePoint >= 65 && codePoint <= 90) return String.fromCodePoint(codePoint + 32) as LetterKeyName;
   if (codePoint >= 97 && codePoint <= 122) return String.fromCodePoint(codePoint) as LetterKeyName;
   if (codePoint >= 48 && codePoint <= 57) return String.fromCodePoint(codePoint) as KeyName;
+  if (codePoint >= 57376 && codePoint <= 57398) {
+    return functionKeyNames[codePoint - 57364] ?? 'unknown';
+  }
   if (codePoint === 9) return 'tab';
   if (codePoint === 13) return 'enter';
   if (codePoint === 27) return 'escape';
@@ -201,7 +240,11 @@ function decodeModifiers(value: string | undefined): Partial<KeyModifiers> {
     shift: (flags & 1) !== 0,
     alt: (flags & 2) !== 0,
     ctrl: (flags & 4) !== 0,
-    meta: (flags & (8 | 16 | 32)) !== 0
+    meta: (flags & 32) !== 0,
+    ...((flags & 8) === 0 ? {} : { super: true as const }),
+    ...((flags & 16) === 0 ? {} : { hyper: true as const }),
+    ...((flags & 64) === 0 ? {} : { capsLock: true as const }),
+    ...((flags & 128) === 0 ? {} : { numLock: true as const })
   };
 }
 

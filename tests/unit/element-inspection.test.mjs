@@ -67,7 +67,7 @@ test('element inspection exposes an immutable factory description without implem
             identity: 'required',
             structure: 'leaf',
             semantics: 'semantic',
-            states: ['disabled'],
+            states: ['disabled', 'readOnly'],
             actions: ['keyboard', 'input', 'paste', 'pointer']
           },
           id: 'query',

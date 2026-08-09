@@ -19,15 +19,8 @@ import {
 import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalSize } from '../host/index.ts';
 import { normalizeKeyboardProfile } from '../protocol/index.ts';
 import {
-  keyEventTypes,
-  keyLocations,
-  keyNames,
-  mouseActions,
-  mouseButtons,
-  mouseEncodings,
-  mousePointerButtons,
-  mouseWheelButtons
-} from '../input/types.ts';
+  decodeRecordedInputEvent
+} from '../input/index.ts';
 import { pointerEventKinds } from '../input/pointer.ts';
 import type { Result } from '../result.ts';
 import type { CursorPosition, Frame, RenderDiff } from '../renderer/index.ts';
@@ -86,43 +79,6 @@ const commitFields = new Set([
 ]);
 const terminalSizeFields = new Set(['columns', 'rows']);
 const redactionFields = new Set(['path', 'reason']);
-const keyEventFields = new Set([
-  'kind',
-  'key',
-  'keyCodePoint',
-  'sequence',
-  'modifiers',
-  'eventType',
-  'location',
-  'alternateCodePoints',
-  'committedText'
-]);
-const keyModifierFields = new Set(['ctrl', 'alt', 'shift', 'meta']);
-const alternateCodePointFields = new Set(['shifted', 'baseLayout']);
-const textEventFields = new Set(['kind', 'text', 'paste']);
-const pasteEventFields = new Set(['kind', 'text', 'bracketed']);
-const resizeEventFields = new Set(['kind', 'terminalSize']);
-const focusEventFields = new Set(['kind', 'focused']);
-const signalEventFields = new Set(['kind', 'signal']);
-const endEventFields = new Set(['kind']);
-const unknownEventFields = new Set(['kind', 'sequence']);
-const mouseEventFields = new Set([
-  'kind',
-  'sequence',
-  'encoding',
-  'action',
-  'button',
-  'row',
-  'column',
-  'rawCode',
-  'modifiers'
-]);
-const mouseWheelEventFields = new Set([
-  ...mouseEventFields,
-  'deltaRows',
-  'deltaColumns'
-]);
-const mouseModifierFields = new Set(['shift', 'alt', 'ctrl']);
 const frameCellFields = new Set([
   'row',
   'column',
@@ -585,140 +541,12 @@ function messageStepIssue(step: Record<string, unknown>): string | undefined {
 }
 
 function inputEventIssue(event: unknown): string | undefined {
-  if (!isNonArrayObject(event)) return 'input event must be an object.';
-  switch (event['kind']) {
-    case 'key': {
-      const fieldIssue = eventFieldsIssue(event, keyEventFields);
-      if (fieldIssue !== undefined) return fieldIssue;
-      return keyEventIssue(event);
-    }
-    case 'text': {
-      const fieldIssue = eventFieldsIssue(event, textEventFields);
-      if (fieldIssue !== undefined) return fieldIssue;
-      return typeof event['text'] === 'string' && event['paste'] === false
-        ? undefined
-        : 'text event requires text and paste:false.';
-    }
-    case 'paste': {
-      const fieldIssue = eventFieldsIssue(event, pasteEventFields);
-      if (fieldIssue !== undefined) return fieldIssue;
-      return typeof event['text'] === 'string' && typeof event['bracketed'] === 'boolean'
-        ? undefined
-        : 'paste event requires text and bracketed.';
-    }
-    case 'mouse': {
-      const fieldIssue = eventFieldsIssue(
-        event,
-        event['action'] === 'wheel' ? mouseWheelEventFields : mouseEventFields
-      );
-      if (fieldIssue !== undefined) return fieldIssue;
-      return mouseEventIssue(event);
-    }
-    case 'resize': {
-      const fieldIssue = eventFieldsIssue(event, resizeEventFields);
-      if (fieldIssue !== undefined) return fieldIssue;
-      return terminalSizeIssue(event['terminalSize']);
-    }
-    case 'focus': {
-      const fieldIssue = eventFieldsIssue(event, focusEventFields);
-      if (fieldIssue !== undefined) return fieldIssue;
-      return typeof event['focused'] === 'boolean' ? undefined : 'focus event requires focused.';
-    }
-    case 'signal': {
-      const fieldIssue = eventFieldsIssue(event, signalEventFields);
-      if (fieldIssue !== undefined) return fieldIssue;
-      return typeof event['signal'] === 'string' && event['signal'].length > 0
-        ? undefined
-        : 'signal event requires signal.';
-    }
-    case 'end': {
-      const fieldIssue = eventFieldsIssue(event, endEventFields);
-      if (fieldIssue !== undefined) return fieldIssue;
-      return undefined;
-    }
-    case 'unknown': {
-      const fieldIssue = eventFieldsIssue(event, unknownEventFields);
-      if (fieldIssue !== undefined) return fieldIssue;
-      return typeof event['sequence'] === 'string' ? undefined : 'unknown event requires sequence.';
-    }
-    default:
-      return `unsupported input event kind: ${String(event['kind'])}.`;
+  try {
+    decodeRecordedInputEvent(event);
+    return undefined;
+  } catch (cause) {
+    return errorMessage(cause);
   }
-}
-
-function keyEventIssue(event: Record<string, unknown>): string | undefined {
-  if (!isStringMember(event['key'], keyNames)) return `unsupported key name: ${String(event['key'])}.`;
-  if (!isNonArrayObject(event['modifiers'])) return 'key event requires modifiers.';
-  const modifierField = findUnsupportedField(event['modifiers'], keyModifierFields);
-  if (modifierField !== undefined) return `key modifiers contain unsupported field: ${modifierField}.`;
-  for (const modifier of ['ctrl', 'alt', 'shift', 'meta'] as const) {
-    if (typeof event['modifiers'][modifier] !== 'boolean') return `key modifiers require ${modifier}.`;
-  }
-  if (event['sequence'] !== undefined && typeof event['sequence'] !== 'string') return 'key sequence must be a string.';
-  if (event['keyCodePoint'] !== undefined && !isUnicodeScalar(event['keyCodePoint'])) {
-    return 'key code point is invalid.';
-  }
-  if (event['committedText'] !== undefined && typeof event['committedText'] !== 'string') {
-    return 'key committedText must be a string.';
-  }
-  if (event['alternateCodePoints'] !== undefined) {
-    const issue = alternateCodePointsIssue(event['alternateCodePoints']);
-    if (issue !== undefined) return issue;
-  }
-  if (!isStringMember(event['eventType'], keyEventTypes)) return 'key event requires eventType.';
-  if (!isStringMember(event['location'], keyLocations)) return 'key event requires location.';
-  return undefined;
-}
-
-function alternateCodePointsIssue(value: unknown): string | undefined {
-  if (!isNonArrayObject(value)) return 'key alternateCodePoints must be an object.';
-  const unknownField = findUnsupportedField(value, alternateCodePointFields);
-  if (unknownField !== undefined) {
-    return `key alternateCodePoints contains unsupported field: ${unknownField}.`;
-  }
-  const shifted = value['shifted'];
-  const baseLayout = value['baseLayout'];
-  if (shifted === undefined && baseLayout === undefined) {
-    return 'key alternateCodePoints requires shifted or baseLayout.';
-  }
-  if (shifted !== undefined && !isUnicodeScalar(shifted)) return 'key shifted alternate code point is invalid.';
-  if (baseLayout !== undefined && !isUnicodeScalar(baseLayout)) return 'key base-layout alternate code point is invalid.';
-  return undefined;
-}
-
-function isUnicodeScalar(value: unknown): boolean {
-  return Number.isSafeInteger(value)
-    && Number(value) >= 0
-    && Number(value) <= 0x10ffff
-    && !(Number(value) >= 0xd800 && Number(value) <= 0xdfff);
-}
-
-function mouseEventIssue(event: Record<string, unknown>): string | undefined {
-  if (typeof event['sequence'] !== 'string') return 'mouse event requires sequence.';
-  if (!isStringMember(event['encoding'], mouseEncodings)) return `unsupported mouse encoding: ${String(event['encoding'])}.`;
-  if (!isStringMember(event['action'], mouseActions)) return `unsupported mouse action: ${String(event['action'])}.`;
-  if (!isStringMember(event['button'], mouseButtons)) return `unsupported mouse button: ${String(event['button'])}.`;
-  if (!isIntegerAtLeast(event['row'], 1) || !isIntegerAtLeast(event['column'], 1)) {
-    return 'mouse event row and column must be positive integers.';
-  }
-  if (!Number.isInteger(event['rawCode'])) return 'mouse event rawCode must be an integer.';
-  if (!isNonArrayObject(event['modifiers'])) return 'mouse event requires modifiers.';
-  const modifierField = findUnsupportedField(event['modifiers'], mouseModifierFields);
-  if (modifierField !== undefined) return `mouse modifiers contain unsupported field: ${modifierField}.`;
-  for (const modifier of ['shift', 'alt', 'ctrl'] as const) {
-    if (typeof event['modifiers'][modifier] !== 'boolean') return `mouse modifiers require ${modifier}.`;
-  }
-  if (event['action'] === 'wheel') {
-    if (!isStringMember(event['button'], mouseWheelButtons)) {
-      return 'wheel event requires a wheel-compatible button.';
-    }
-    if (!isFiniteNumber(event['deltaRows']) || !isFiniteNumber(event['deltaColumns'])) {
-      return 'wheel event requires finite deltaRows and deltaColumns.';
-    }
-  } else if (!isStringMember(event['button'], mousePointerButtons)) {
-    return 'pointer event requires a pointer-compatible button.';
-  }
-  return undefined;
 }
 
 function frameIssue(frame: unknown): string | undefined {
@@ -1198,18 +1026,4 @@ function isStringArray(value: unknown): value is readonly string[] {
 
 function isIntegerAtLeast(value: unknown, min: number): boolean {
   return Number.isInteger(value) && Number(value) >= min;
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-function eventFieldsIssue(
-  event: Record<string, unknown>,
-  fields: ReadonlySet<string>
-): string | undefined {
-  const unknownField = findUnsupportedField(event, fields);
-  return unknownField === undefined
-    ? undefined
-    : `input event contains unsupported field: ${unknownField}.`;
 }

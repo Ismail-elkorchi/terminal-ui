@@ -206,6 +206,28 @@ test('commandInput popup anchors suggestions without increasing the input height
   assert.equal(accessibleInput?.children?.[0]?.role, 'listbox');
 });
 
+test('read-only command input rejects pointer suggestion activation', () => {
+  const target = targetById(renderElementRegions(commandInput({
+    id: 'read-only-command',
+    presentation: {
+      value: 'a',
+      cursor: 1,
+      suggestions: [{ value: 'alpha', label: 'Alpha' }],
+      selectedSuggestionIndex: 0
+    },
+    display: 'popup',
+    readOnly: true,
+    onAction: (action) => action
+  }), { columns: 24, rows: 4 }), 'read-only-command:suggestions:list:option:0');
+  const event = {
+    ...pointerEvent({ row: 2, column: 1, localRow: 1, localColumn: 1 }),
+    kind: 'click',
+    clickCount: 2
+  };
+
+  assert.equal(target.message(event), ignoreMessage());
+});
+
 test('commandInput fills tall bounds while preserving its one-row natural size', () => {
   const element = testCommandInput({
     id: 'tall-command',

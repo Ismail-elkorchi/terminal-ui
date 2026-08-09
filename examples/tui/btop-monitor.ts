@@ -611,7 +611,12 @@ function inlineText(
 
 export async function runScriptedBtopMonitor() {
   const host = createMemoryTerminalHost({ terminalSize: { columns: 160, rows: 42 } });
-  const runtime = createTuiRuntime({ app: btopMonitorApp, host, initialFocus: { kind: 'path', path: commandFocusPath } });
+  const runtime = createTuiRuntime({
+    app: btopMonitorApp,
+    host,
+    initialFocus: { kind: 'path', path: commandFocusPath },
+    input: { mouseReporting: 'drag' }
+  });
   try {
     await runtime.start();
     await runtime.dispatch({ kind: 'tick', tick: 3 });

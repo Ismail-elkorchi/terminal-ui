@@ -1,11 +1,11 @@
 import { toAccessibleSnapshot as createAccessibleSnapshot } from '../accessibility/index.ts';
 import { createMemoryTerminalHost } from '../host/index.ts';
-import { decodeInputChunk } from '../input/index.ts';
+import { decodeInputChunk, decodeRecordedInputEvent } from '../input/index.ts';
 import { createTranscriptRecorder } from '../transcript/index.ts';
 import { encodeHarnessInputEvent } from './input-events.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { MemoryTerminalHost, TerminalSignal } from '../host/index.ts';
-import type { InputEvent } from '../input/index.ts';
+import type { MemoryTerminalHost } from '../host/index.ts';
+import type { RecordedInputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/index.ts';
 import type { TerminalHarness, TerminalHarnessOptions } from './types.ts';
@@ -55,16 +55,16 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
         for (const decoded of decodeInputChunk({ data: event })) transcript.record({ kind: 'input', event: decoded });
         return Promise.resolve();
       }
-      deliverHarnessInputEvent(host, event);
-      transcript.record({ kind: 'input', event });
+      const admitted = decodeRecordedInputEvent(event);
+      deliverHarnessInputEvent(host, admitted);
+      transcript.record({ kind: 'input', event: admitted });
       return Promise.resolve();
     },
     resize(terminalSize) {
-      deliverHarnessResize(host, terminalSize);
-      transcript.record({
-        kind: 'input',
-        event: { kind: 'resize', terminalSize }
-      });
+      const admitted = decodeRecordedInputEvent({ kind: 'resize', terminalSize });
+      if (admitted.kind !== 'resize') throw new Error('Expected a decoded resize event.');
+      deliverHarnessResize(host, admitted.terminalSize);
+      transcript.record({ kind: 'input', event: admitted });
       return Promise.resolve();
     },
     async run(operation) {
@@ -93,13 +93,13 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
   };
 }
 
-function deliverHarnessInputEvent(host: MemoryTerminalHost, event: InputEvent): void {
+function deliverHarnessInputEvent(host: MemoryTerminalHost, event: RecordedInputEvent): void {
   if (event.kind === 'resize') {
     deliverHarnessResize(host, event.terminalSize);
     return;
   }
   if (event.kind === 'signal') {
-    if (isTerminalSignal(event.signal)) host.signals.emit(event.signal);
+    host.signals.emit(event.signal);
     return;
   }
   if (event.kind === 'end') {
@@ -107,16 +107,12 @@ function deliverHarnessInputEvent(host: MemoryTerminalHost, event: InputEvent): 
     return;
   }
   const encoded = encodeHarnessInputEvent(event);
-  if (encoded !== undefined) host.input(encoded);
+  host.input(encoded);
 }
 
 function deliverHarnessResize(host: MemoryTerminalHost, terminalSize: { readonly columns: number; readonly rows: number }): void {
   void host.terminalSizeControl?.setTerminalSize(terminalSize);
   host.signals.emit('resize');
-}
-
-function isTerminalSignal(signal: string): signal is TerminalSignal {
-  return signal === 'SIGINT' || signal === 'SIGTERM' || signal === 'SIGHUP' || signal === 'resize';
 }
 
 export function toAccessibleSnapshotFromHarness(harness: TerminalHarness): AccessibleSnapshot {
