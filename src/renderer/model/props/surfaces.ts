@@ -1,18 +1,12 @@
-import type { CanvasPainter, Measurement } from '../../contracts.ts';
 import type { BorderOptions, BorderTitle } from '../../../visual/border.ts';
 import type { SurfaceAppearance } from '../../../visual/surface.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type {
   AnchoredSurfaceAnchor,
+  AnchoredSurfaceFit,
   AnchoredSurfacePlacement,
   AnchoredSurfaceSide
 } from '../../../interaction/anchored-surface.ts';
-
-export interface CanvasRenderProps {
-  readonly painter: CanvasPainter;
-  readonly measurement: Measurement;
-  readonly label?: string;
-}
 
 export interface SurfaceRenderProps extends RenderNodeLayoutProps {
   readonly title?: BorderTitle;
@@ -33,4 +27,14 @@ export interface AnchoredRenderProps {
   readonly placement?: AnchoredSurfacePlacement;
   readonly fallback?: readonly AnchoredSurfaceSide[];
   readonly margin?: number;
+  readonly fit?: AnchoredSurfaceFit;
+}
+
+export interface PortalRenderProps<TMessage = unknown> {
+  readonly anchor: AnchoredSurfaceAnchor | { readonly kind: 'allocation' };
+  readonly placement?: AnchoredSurfacePlacement | 'center';
+  readonly fallback?: readonly AnchoredSurfaceSide[];
+  readonly margin?: number;
+  readonly fit?: AnchoredSurfaceFit;
+  readonly toOutsideMessage?: () => TMessage;
 }

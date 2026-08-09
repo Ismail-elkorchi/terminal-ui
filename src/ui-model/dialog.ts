@@ -1,9 +1,12 @@
 export type DialogDismissReason = 'escape' | 'outsidePress';
 
-export interface DialogDismissal<TMessage> {
-  readonly escape: boolean;
-  readonly outsidePress: boolean;
-  readonly onDismiss: (reason: DialogDismissReason) => TMessage;
+export type DialogDismissal =
+  | { readonly escape: true; readonly outsidePress: boolean }
+  | { readonly escape: false; readonly outsidePress: true };
+
+export interface DialogAction {
+  readonly kind: 'dismiss';
+  readonly reason: DialogDismissReason;
 }
 
 export interface DialogFocusPolicy {

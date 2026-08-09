@@ -17,9 +17,10 @@ The rendering path is:
    `renderDiffAnsi()` serialize the chosen frame representation.
 
 The renderer contains its private node model and implementation kernel.
-Component and layout factories construct private render nodes through shared
-element conversion and metadata helpers; they convert callbacks into internal
-input handlers. Renderer implementation modules never import those factories
+The component authoring core is the single private construction boundary for
+generic component nodes. The built-in catalog consumes that public authoring
+contract exactly like a package component. Layout factories retain a separate
+structural construction boundary. Renderer implementation modules never import those factories
 or the TUI runtime. The
 renderer resolves each opaque element to its private node before measuring,
 arranging, and rendering it. The `tui` source directory contains application and
@@ -96,10 +97,10 @@ accessibility, or application messages.
 
 `FrameBuffer` owns clipping, overwrite behavior, wide-cell topology,
 sanitization, style preservation, source metadata, and final frame creation.
-Built-in and application-defined components receive its write-only
+All component definitions receive its write-only
 `RenderTarget` contract; frame snapshotting remains inside the renderer kernel.
 
-Built-ins, defined components, and `canvas()` painters all use that buffer path.
+Every component definition and `canvas()` painter uses that buffer path.
 They must not write to terminal hosts, emit raw ANSI, or bypass the frame.
 
 ## Diff And ANSI Serialization
@@ -128,21 +129,21 @@ Themes resolve semantic tokens to terminal styles. Theme symbols provide
 terminal glyph choices for borders, progress, status, and scrollbars.
 Components may accept typed root, part, and visual-state styles through
 `meta.styles`; each component contract defines its available part names.
-Scrollbar renderers use one shared grammar: track cells, thumb cells,
+Scrollbar helpers use one shared grammar: track cells, thumb cells,
 axis, producing element, and interaction state are source-marked in the frame,
 while the theme supplies only the generic track/thumb symbols and tokens.
 
 Layout assigns bounds before rendering. Focus targets and hit targets are
-renderer-produced data derived from those bounds. The runtime routes keyboard
-and mouse input through these targets after rendering; renderers do not inspect
+definition- or layout-produced data derived from those bounds. The runtime routes keyboard
+and mouse input through these targets after rendering; component hooks do not inspect
 terminal input during render.
 
 ## Accessibility And Snapshots
 
-Rendering produces an accessible snapshot beside the visual frame. Built-in
+Rendering produces an accessible snapshot beside the visual frame. Semantic
 components expose roles, labels, values, state, progress, selected rows, and
-focused nodes. Defined components must expose accessibility or be declared as
-decorative leaves.
+focused nodes. Decorative components are noninteractive leaves and do not enter
+the accessibility tree.
 
 The testing harness records frames, diffs, focus targets, hit targets, ANSI,
 plain text, accessibility JSON, and deterministic preview artifacts. Use these

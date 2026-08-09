@@ -1,32 +1,123 @@
-import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
+import { defineComponent } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { CanvasOptions } from '../options/drawing.ts';
-import { componentMetaProps } from '../internal/interaction.ts';
-import { optionalRenderNodeId } from '../../renderer/model/element.ts';
-import { assertValidMeasurement } from '../../renderer/measurement-validation.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
+import { assertValidMeasurement, createLocalCanvas2D } from '../../renderer/index.ts';
+import type { CanvasPainter, Measurement } from '../../renderer/index.ts';
+import { sanitizeTerminalText } from '../../text/index.ts';
+import type { CanvasStylePart } from '../../ui-model/style-parts.ts';
+
+interface CanvasModel {
+  readonly painter: CanvasPainter;
+  readonly measurement: Measurement;
+  readonly label?: string;
+}
+
+type CanvasOwnOptions = Pick<CanvasOptions, 'painter' | 'measurement' | 'label' | 'decorative'>;
+
+const semanticCanvas = defineComponent<
+  CanvasOwnOptions,
+  CanvasModel,
+  never,
+  CanvasStylePart,
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer']
+>({
+  name: 'terminal-ui/components/canvas',
+  identity: 'optional',
+  structure: 'leaf',
+  semantics: 'semantic',
+  optionFields: { painter: null, measurement: null, label: null, decorative: null },
+  metadata: ['styles', 'layer'],
+  parts: ['content'],
+  prepare(value) {
+    const model = prepareCanvas(value);
+    if (
+      !isNonArrayObject(value) || value['decorative'] !== undefined && value['decorative'] !== false
+    ) {
+      throw new TypeError('semantic canvas decorative must be false or absent.');
+    }
+    if (model.label === undefined) {
+      throw new TypeError('semantic canvas requires a non-empty label.');
+    }
+    return model;
+  },
+  measure: ({ model }) => model.measurement,
+  render: paintCanvas,
+  accessibility({ id, model, focused }) {
+    return {
+      id,
+      role: 'image',
+      label: model.label ?? id,
+      scope: { kind: 'document' },
+      ...(focused ? { focused: true } : {}),
+    };
+  },
+});
+
+const decorativeCanvas = defineComponent<
+  Pick<CanvasOwnOptions, 'painter' | 'measurement' | 'decorative'>,
+  CanvasModel,
+  CanvasStylePart,
+  'optional',
+  readonly ['styles', 'layer']
+>({
+  name: 'terminal-ui/components/decorative-canvas',
+  identity: 'optional',
+  structure: 'leaf',
+  semantics: 'decorative',
+  optionFields: { painter: null, measurement: null, decorative: null },
+  metadata: ['styles', 'layer'],
+  parts: ['content'],
+  prepare(value) {
+    if (!isNonArrayObject(value) || value['decorative'] !== true) {
+      throw new TypeError('decorative canvas requires decorative: true.');
+    }
+    return prepareCanvas(value);
+  },
+  measure: ({ model }) => model.measurement,
+  render: paintCanvas,
+});
 
 export function canvas(options: CanvasOptions): Element {
-  if (typeof options.painter !== 'function') {
-    throw new TypeError('canvas() painter must be a function.');
+  if (!isNonArrayObject(options)) throw new TypeError('canvas options must be an object.');
+  return options.decorative === true ? decorativeCanvas(options) : semanticCanvas(options);
+}
+
+function prepareCanvas(value: unknown): CanvasModel {
+  if (!isNonArrayObject(value)) throw new TypeError('canvas options must be an object.');
+  const painter = value['painter'];
+  if (!isCanvasPainter(painter)) throw new TypeError('canvas painter must be a function.');
+  const measurement = value['measurement'];
+  assertValidMeasurement(measurement, 'canvas');
+  const label = value['label'];
+  if (label !== undefined && typeof label !== 'string') {
+    throw new TypeError('canvas label must be a string.');
   }
-  assertValidMeasurement(options.measurement, `canvas()${options.id === undefined ? '' : ` "${options.id}"`}`);
-  const decorative = isNonArrayObject(options.meta?.accessibility)
-    && options.meta.accessibility['decorative'] === true;
-  if (!decorative && (typeof options.label !== 'string' || options.label.trim() === '')) {
-    throw new TypeError('canvas() requires a non-empty accessible label.');
+  const normalizedLabel = label === undefined ? undefined : sanitizeTerminalText(label).text.trim();
+  if (label !== undefined && normalizedLabel?.length === 0) {
+    throw new TypeError('canvas label must be non-empty.');
   }
-  if (decorative && options.label !== undefined) {
-    throw new TypeError('Decorative canvas() must omit its accessible label.');
-  }
-  return componentElementFromRenderNode<'canvas'>({
-    ...optionalRenderNodeId(options.id),
-    kind: 'canvas',
-    props: {
-      painter: options.painter,
-      measurement: options.measurement,
-      ...(options.label === undefined ? {} : { label: options.label })
-    },
-    ...componentMetaProps(options.meta)
+  return {
+    painter,
+    measurement,
+    ...(normalizedLabel === undefined ? {} : { label: normalizedLabel }),
+  };
+}
+
+function isCanvasPainter(value: unknown): value is CanvasPainter {
+  return typeof value === 'function';
+}
+
+function paintCanvas(
+  input: import('../../component/index.ts').ComponentRenderInput<CanvasModel, CanvasStylePart>,
+): void {
+  input.model.painter({
+    canvas: createLocalCanvas2D(input.target, input.bounds),
+    bounds: input.bounds,
+    theme: input.theme,
+    style: input.style,
+    source: input.source,
   });
 }

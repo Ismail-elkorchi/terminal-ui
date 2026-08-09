@@ -13,7 +13,7 @@ void test('frame commits use an independent bounded context for synchronized-out
   const host = createMemoryTerminalHost({
     capabilities: { overrides: { synchronizedOutput: true } }
   });
-  const frame = renderElementFrame(text('pending frame'), { columns: 20, rows: 1 });
+  const frame = renderElementFrame(text({ content: 'pending frame' }), { columns: 20, rows: 1 });
   const controller = new AbortController();
   const started = deferred<boolean>();
   const observedCalls: { readonly text: string; readonly signal: AbortSignal | undefined; readonly aborted: boolean }[] = [];
@@ -52,7 +52,7 @@ void test('frame commits use an independent bounded context for synchronized-out
 
 void test('unchanged frame commits record the diff without entering the host write queue', async () => {
   const host = createMemoryTerminalHost();
-  const frame = renderElementFrame(text('stable frame'), { columns: 20, rows: 1 });
+  const frame = renderElementFrame(text({ content: 'stable frame' }), { columns: 20, rows: 1 });
   let writes = 0;
   const originalWrite = host.write.bind(host);
   host.write = async (output, context) => {

@@ -67,7 +67,9 @@ layering, or geometry-only interaction are documented in
 
 ## Shared Contracts
 
-Every component accepts top-level `id` and optional `meta`.
+Each definition declares whether top-level `id` is required or optional and
+which `meta` capabilities it permits. Built-ins expose only the focus, layer,
+and typed style metadata that their definitions declare.
 
 `form()` groups related controls and exposes that grouping with the `form`
 accessibility role. It does not retain control values, perform validation, or
@@ -97,8 +99,8 @@ strip. The visible label is clipped, while its full accessible name and close
 action remain intact.
 
 Components that expose interactive scrollbars use controlled variants. A
-visible scrollbar requires caller-controlled scroll state and a semantic action or
-scroll handler. Passive variants may project a fixed window, but cannot expose
+visible scrollbar requires caller-controlled scroll state and a semantic scroll
+action through `onAction`. Passive variants may project a fixed window, but cannot expose
 an inert scrollbar.
 
 `list()`, `table()`, and `tree()` accept either raw local data or a prepared
@@ -112,10 +114,10 @@ on every `view()` call.
 with `appendLogHistory()` so sanitation, identity, offsets, wrapping,
 and search data remain reusable across frames.
 
-`meta.accessibility` can provide a full accessible node override or lightweight
-options such as `label`, `description`, and `decorative`. Decorative elements
-are excluded from their parent's accessibility tree and must not expose
-keyboard, text-input, focus, or pointer interaction.
+Component definitions own their accessibility contract. Callers supply domain
+labels and descriptions through declared component fields; they cannot replace
+required roles, relationships, or state through metadata. A decorative
+definition is statically and dynamically barred from interaction.
 
 `meta.focus` can disable focus traversal, set focus order, or contain focus
 inside a subtree. A modal `dialog()` requires an explicit `focusPolicy` for its
@@ -160,7 +162,7 @@ button({
     ascii: '+',
     accessibleText: 'confirm'
   }],
-  onPress: () => ({ kind: 'save' })
+  onAction: () => ({ kind: 'save' })
 });
 ```
 

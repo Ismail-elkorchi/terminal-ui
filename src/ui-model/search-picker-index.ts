@@ -109,6 +109,12 @@ export function querySearchPickerIndex<TValue>(
   return result;
 }
 
+export function assertSearchPickerIndex(value: unknown): asserts value is SearchPickerIndex<unknown> {
+  if (typeof value !== 'object' || value === null || !indexData.has(value)) {
+    throw new TypeError('Search picker indexes must be created with prepareSearchPickerIndex().');
+  }
+}
+
 export function searchPickerIndexStatistics(index: SearchPickerIndex<unknown>): {
   readonly entries: number;
   readonly cachedQueries: number;

@@ -4,10 +4,12 @@ import { createFrameBuffer, drawBorder, layoutElement, renderElementFrame, rende
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { defaultTheme, modernTheme, noColorTheme } from '../../dist/theme/index.js';
 import { button, dialog, text } from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { row, surface } from '../../dist/layout/index.js';
 
 test('dialog centers a bounded dialog and lays out child content inside the border', () => {
-  const element = dialog(text('inside', { id: 'inside' }), {
+  const element = dialog({
+    slots: { content: text({ content: 'inside', id: 'inside' }) },
     id: 'dialog',
     title: 'Confirm',
     modal: true,
@@ -16,9 +18,11 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
     height: 5
   });
   const layout = layoutElement(element, { columns: 30, rows: 9 });
+  const panel = findLayoutNode(layout, 'dialog:surface');
+  const content = findLayoutNode(layout, 'inside');
 
-  assert.deepEqual(layout.bounds, { row: 3, column: 10, width: 12, height: 5 });
-  assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 11, width: 9, height: 2 });
+  assert.deepEqual(panel?.bounds, { row: 3, column: 10, width: 12, height: 5 });
+  assert.deepEqual(content?.bounds, { row: 4, column: 11, width: 9, height: 2 });
   const frame = renderElementFrame(element, { columns: 30, rows: 9 });
   const rendered = frame.cells.map((cell) => cell.text).join('');
   assert.equal(frame.accessibility.root.label, 'Confirm');
@@ -27,13 +31,14 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
 
 test('surface rejects unknown appearances at its factory boundary', () => {
   assert.throws(
-    () => surface(text('content'), { appearance: 'floating' }),
+    () => surface(text({ content: 'content' }), { appearance: 'floating' }),
     TypeError
   );
 });
 
 test('dialog accessibility label derives from structured caller-supplied titles', () => {
-  const spanTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
+  const spanTitleFrame = renderElementFrame(dialog({
+    slots: { content: text({ content: 'inside', id: 'inside' }) },
     id: 'span-dialog',
     modal: true,
     focusPolicy: { returnFocus: 'restore' },
@@ -42,7 +47,8 @@ test('dialog accessibility label derives from structured caller-supplied titles'
     width: 18,
     height: 5
   }), { columns: 30, rows: 9 });
-  const slottedTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
+  const slottedTitleFrame = renderElementFrame(dialog({
+    slots: { content: text({ content: 'inside', id: 'inside' }) },
     id: 'slotted-dialog',
     modal: true,
     focusPolicy: { returnFocus: 'restore' },
@@ -61,25 +67,29 @@ test('dialog accessibility label derives from structured caller-supplied titles'
 });
 
 test('dialog reserves a structurally separated action area without color', () => {
-  const element = dialog(text('Dialog body', { id: 'body' }), {
+  const element = dialog({
+    slots: {
+      content: text({ content: 'Dialog body', id: 'body' }),
+      actions: row([
+        button({ id: 'cancel', label: 'Cancel', onAction: () => ignoreMessage() }),
+        button({ id: 'confirm', label: 'OK', onAction: () => ignoreMessage() })
+      ], { gap: 1 })
+    },
     id: 'dialog',
     title: 'Confirm',
     modal: true,
     focusPolicy: { returnFocus: 'restore' },
     width: 20,
-    height: 7,
-    actions: row([
-      button({ id: 'cancel', label: 'Cancel', onPress: () => undefined }),
-      button({ id: 'confirm', label: 'OK', onPress: () => undefined })
-    ], { gap: 1 })
+    height: 7
   });
   const layout = layoutElement(element, { columns: 30, rows: 9 }, noColorTheme);
+  const content = findLayoutNode(layout, 'dialog:content');
 
-  assert.deepEqual(layout.children[0]?.bounds, { row: 3, column: 7, width: 17, height: 2 });
-  assert.deepEqual(layout.children[1]?.bounds, { row: 6, column: 7, width: 17, height: 1 });
+  assert.deepEqual(content?.children[0]?.bounds, { row: 3, column: 7, width: 17, height: 2 });
+  assert.deepEqual(content?.children[2]?.bounds, { row: 6, column: 7, width: 17, height: 1 });
 
   const frame = renderElementFrame(element, { columns: 30, rows: 9 }, { theme: noColorTheme });
-  const separatorCells = frame.cells.filter((cell) => cell.source?.elementKind === 'dialog' && cell.source.description === 'action-separator');
+  const separatorCells = frame.cells.filter((cell) => cell.source?.elementKind === 'terminal-ui/components/divider' && cell.source.partName === 'line');
 
   assert.equal(separatorCells.length, 17);
   assert.deepEqual([...new Set(separatorCells.map((cell) => cell.text))], ['-']);
@@ -89,23 +99,31 @@ test('dialog reserves a structurally separated action area without color', () =>
 });
 
 test('dialog action separators preserve one-cell geometry under ambiguous-wide profiles', () => {
-  const frame = renderElementFrame(dialog(text('Body'), {
+  const frame = renderElementFrame(dialog({
+    slots: {
+      content: text({ content: 'Body' }),
+      actions: button({ id: 'confirm', label: 'OK', onAction: () => ignoreMessage() })
+    },
     id: 'wide-dialog',
     title: 'Confirm',
     width: 16,
     height: 7,
-    actions: button({ id: 'confirm', label: 'OK', onPress: () => undefined })
+    modal: false
   }), { columns: 24, rows: 9 }, {
     widthProfile: { emoji: 'wide', ambiguous: 'wide' }
   });
-  const separators = frame.cells.filter((cell) => cell.source?.description === 'action-separator');
+  const separators = frame.cells.filter((cell) =>
+    cell.source?.elementId === 'wide-dialog:action-separator'
+      && cell.source.partName === 'line'
+  );
 
   assert.equal(separators.length, 13);
   assert.ok(separators.every((cell) => cell.text === '-' && cell.width === 1));
 });
 
 test('dialog uses measured content size and applies padding inside its border', () => {
-  const element = dialog(text('Body', { id: 'intrinsic-body' }), {
+  const element = dialog({
+    slots: { content: text({ content: 'Body', id: 'intrinsic-body' }) },
     id: 'intrinsic-dialog',
     title: 'Measured',
     modal: true,
@@ -113,28 +131,31 @@ test('dialog uses measured content size and applies padding inside its border', 
     padding: 1
   });
   const layout = layoutElement(element, { columns: 30, rows: 10 });
+  const panel = findLayoutNode(layout, 'intrinsic-dialog:surface');
+  const content = findLayoutNode(layout, 'intrinsic-body');
 
-  assert.deepEqual(layout.bounds, { row: 3, column: 11, width: 9, height: 6 });
-  assert.deepEqual(layout.children[0]?.bounds, { row: 5, column: 13, width: 4, height: 1 });
+  assert.deepEqual(panel?.bounds, { row: 3, column: 9, width: 13, height: 6 });
+  assert.deepEqual(content?.bounds, { row: 5, column: 11, width: 8, height: 1 });
 });
 
 test('dialog exposes outside-press dismissal only outside its painted bounds', () => {
-  const element = dialog(text('Dialog body', { id: 'body' }), {
+  const element = dialog({
+    slots: { content: text({ content: 'Dialog body', id: 'body' }) },
     id: 'dismissible-dialog',
     title: 'Dismissible',
     modal: true,
     focusPolicy: { returnFocus: 'restore' },
     dismissal: {
       escape: false,
-      outsidePress: true,
-      onDismiss: (reason) => ({ kind: 'dismiss', reason })
+      outsidePress: true
     },
+    onAction: (action) => action,
     width: 12,
     height: 5
   });
   const targets = renderElementRegions(element, { columns: 30, rows: 9 }).flatMap((region) => region.hitTargets);
   const dialogRect = { row: 3, column: 10, width: 12, height: 5 };
-  const outside = targets.filter((target) => target.id.startsWith('dismissible-dialog:outside:'));
+  const outside = targets.filter((target) => target.id.startsWith('dismissible-dialog:portal:outside:'));
 
   assert.equal(outside.length, 4);
   assert.equal(outside.every((target) => !rectanglesOverlap(target.bounds, dialogRect)), true);
@@ -147,7 +168,7 @@ test('dialog exposes outside-press dismissal only outside its painted bounds', (
 });
 
 test('border model supports styled element borders and borderless layout', () => {
-  const doubleFrame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
+  const doubleFrame = renderElementFrame(surface(text({ content: 'inside', id: 'inside' }), {
     id: 'panel',
     title: 'Panel',
     border: { kind: 'double' }
@@ -159,7 +180,7 @@ test('border model supports styled element borders and borderless layout', () =>
   assert.match(doubleOutput, /║/u);
   assert.match(doubleOutput, /╚/u);
 
-  const borderless = surface(text('flush', { id: 'flush' }), {
+  const borderless = surface(text({ content: 'flush', id: 'flush' }), {
     id: 'plain',
     border: { kind: 'none' }
   });
@@ -171,7 +192,7 @@ test('border model supports styled element borders and borderless layout', () =>
 });
 
 test('surface bar appearance renders one-line bars without borders', () => {
-  const frame = renderElementFrame(surface(text('Menu', { id: 'menu-label' }), {
+  const frame = renderElementFrame(surface(text({ content: 'Menu', id: 'menu-label' }), {
     id: 'app-bar',
     appearance: 'bar',
     padding: { left: 1, right: 1 }
@@ -189,7 +210,7 @@ test('surface bar appearance renders one-line bars without borders', () => {
 });
 
 test('surface borders degrade in tiny regions to preserve child content', () => {
-  const element = surface(text('Menu', { id: 'menu-label' }), {
+  const element = surface(text({ content: 'Menu', id: 'menu-label' }), {
     id: 'tiny-raised',
     appearance: 'raised'
   });
@@ -247,4 +268,13 @@ function rectanglesOverlap(left, right) {
     && left.column + left.width > right.column
     && left.row < right.row + right.height
     && left.row + left.height > right.row;
+}
+
+function findLayoutNode(node, id) {
+  if (node.id === id) return node;
+  for (const child of node.children) {
+    const found = findLayoutNode(child, id);
+    if (found !== undefined) return found;
+  }
+  return undefined;
 }

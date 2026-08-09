@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 import { createScrollState, prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
 import {
@@ -234,7 +235,7 @@ test('log viewer scrollbar is opt-in and preserves scoped visible-window accessi
     history: prepareLogHistory(items),
     scroll: createScrollState({ offsetRow: 0, contentRows: 8, viewportRows: 3 }),
     scrollbar: {},
-    onAction: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 12, rows: 3 });
 
   assert.equal(frame.cells.filter((cell) => cell.column === 12).length, 3);
@@ -246,7 +247,8 @@ test('textArea scrollbar follows explicit text scroll state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
     presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
-    scrollbar: {}
+    scrollbar: {},
+    onAction: (action) => action
   }), { columns: 10, rows: 2 });
 
   const output = renderFramePlain(frame);
@@ -260,14 +262,15 @@ test('component scrollbars expose producing-element metadata and visual state', 
   const frame = renderElementFrame(textArea({
     id: 'body',
     presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
-    scrollbar: { visible: 'always', visualState: 'hover' }
+    scrollbar: { visible: 'always', visualState: 'hover' },
+    onAction: (action) => action
   }), { columns: 10, rows: 2 });
 
   const thumbCell = frame.cells.find((cell) => cell.text === defaultTheme.tokens.symbols.scrollbarVerticalThumb);
 
   assert.equal(thumbCell?.source?.elementId, 'body');
-  assert.equal(thumbCell?.source?.elementKind, 'textArea');
-  assert.equal(thumbCell?.source?.rendererFamily, 'scroll');
+  assert.equal(thumbCell?.source?.elementKind, 'terminal-ui/components/text-area');
+  assert.equal(thumbCell?.source?.rendererFamily, 'component');
   assert.equal(thumbCell?.source?.cellRole, 'scrollbar');
   assert.equal(thumbCell?.source?.partType, 'thumb');
   assert.equal(thumbCell?.source?.interactionState, 'hovered');
@@ -304,7 +307,7 @@ test('table scrollbar can expose vertical and horizontal scroll scope together',
     onAction: (action) => action
   }), { columns: 14, rows: 3 });
 
-  assert.ok(frame.cells.some((cell) => cell.column === 14 && cell.style?.fg?.token === 'scrollbar.track'));
+  assert.ok(frame.cells.some((cell) => cell.column === 14 && cell.source?.cellRole === 'scrollbar'));
   assert.ok(frame.cells.some((cell) => cell.row === 3 && cell.style?.fg?.token === 'scrollbar.track'));
 });
 
@@ -322,7 +325,7 @@ test('menu scrollbar windows menu rows instead of drawing a fixed decoration onl
       scroll: createScrollState({ offsetRow: 2, contentRows: 4, viewportRows: 2 })
     },
     scrollbar: {},
-    onAction: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 14, rows: 2 });
 
   const output = renderFramePlain(frame);
@@ -364,7 +367,7 @@ test('searchPicker scrollbar renders beside the filtered result window', () => {
     ]),
     scroll: createScrollState({ offsetRow: 1, contentRows: 4, viewportRows: 4 }),
     scrollbar: { visible: 'always' },
-    onAction: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 18, rows: 4 });
 
   assert.match(renderFramePlain(frame), /Actions/u);
@@ -372,7 +375,7 @@ test('searchPicker scrollbar renders beside the filtered result window', () => {
 });
 
 test('viewport scrollbar clips child rendering to content bounds', () => {
-  const frame = renderElementFrame(viewport(text('abcdef'), {
+  const frame = renderElementFrame(viewport(text({ content: 'abcdef' }), {
     id: 'clipped-viewport',
     offset: { column: 0 },
     scrollbar: { axis: 'horizontal' },
@@ -403,7 +406,7 @@ test('viewport scrollbar clips child rendering to content bounds', () => {
 });
 
 test('viewport scrollbar replaces redundant clipped-edge indicators', () => {
-  const frame = renderElementFrame(viewport(text('one\ntwo\nthree\nfour'), {
+  const frame = renderElementFrame(viewport(text({ content: 'one\ntwo\nthree\nfour' }), {
     id: 'scrollbar-affordance',
     offset: { row: 0, column: 0 },
     scrollbar: { axis: 'vertical' },

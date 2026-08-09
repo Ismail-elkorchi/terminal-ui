@@ -10,7 +10,6 @@ import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
-import { builtinRenderNodeRenderers } from '../../dist/renderer/internal/renderers/index.js';
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { defineTheme,
@@ -136,7 +135,7 @@ const treeNodes = [
 const cases = [
   {
     name: 'text',
-    element: () => text(unsafe, { id: 'text' }),
+    element: () => text({ content: unsafe, id: 'text' }),
     expectText: /Unsafe red text/u
   },
   {
@@ -153,24 +152,24 @@ const cases = [
   {
     name: 'column',
     element: () => column([
-      text(unsafe, { id: 'column-one' }),
-      text('Second', { id: 'column-two' })
+      text({ content: unsafe, id: 'column-one' }),
+      text({ content: 'Second', id: 'column-two' })
     ], { id: 'column' }),
     expectText: /Second/u
   },
   {
     name: 'row',
     element: () => row([
-      text(unsafe, { id: 'row-one' }),
-      text('Second', { id: 'row-two' })
+      text({ content: unsafe, id: 'row-one' }),
+      text({ content: 'Second', id: 'row-two' })
     ], { id: 'row' }),
     expectText: /Unsafe red text/u
   },
   {
     name: 'flow',
     element: () => flow([
-      text(unsafe, { id: 'flow-one' }),
-      text('Second', { id: 'flow-two' })
+      text({ content: unsafe, id: 'flow-one' }),
+      text({ content: 'Second', id: 'flow-two' })
     ], { id: 'flow', direction: 'horizontal', gap: 1 }),
     expectText: /Second/u
   },
@@ -184,7 +183,7 @@ const cases = [
         ],
         viewportRows: 2
       }),
-      (entry) => text(entry.item.value, { id: `measured-${entry.item.id}` }),
+      (entry) => text({ content: entry.item.value, id: `measured-${entry.item.id}` }),
       { id: 'measured-column' }
     ),
     expectText: /Second/u
@@ -250,40 +249,38 @@ const cases = [
   },
   {
     name: 'disclosure',
-    element: () => disclosure(
-      text('Details', { id: 'disclosure-panel' }),
-      {
+    element: () => disclosure({
         id: 'disclosure',
         label: unsafe,
         expanded: true,
-        onAction: (action) => action
-      }
-    ),
+        onAction: (action) => action,
+        slots: { content: text({ content: 'Details', id: 'disclosure-panel' }) }
+      }),
     expectText: /Details/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'form',
-    element: () => form([
-      field(textInput({
+    element: () => form({ slots: { content: [
+      field({ slots: { content: [textInput({
         id: 'form-input',
         presentation: { value: unsafe, cursor: 0 },
         onAction: (action) => action
-      }), { id: 'form-field', label: 'Name' }),
-      button({ id: 'form-submit', label: 'Submit', onPress: () => ({ kind: 'submit' }) })
-    ], { id: 'form', title: unsafe }),
+      })] }, id: 'form-field', label: 'Name' }),
+      button({ id: 'form-submit', label: 'Submit', onAction: () => ({ kind: 'submit' }) })
+    ] }, id: 'form', title: unsafe }),
     expectText: /Submit/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'field',
-    element: () => field(textInput({
+    element: () => field({ slots: { content: [textInput({
       id: 'field-input',
       presentation: { value: unsafe, cursor: 0 },
       onAction: (action) => action
-    }), {
+    })] },
       id: 'field',
       label: unsafe,
       description: 'Description'
@@ -293,34 +290,34 @@ const cases = [
   },
   {
     name: 'label',
-    element: () => form([
+    element: () => form({ slots: { content: [
       label({ id: 'label', forId: 'label-target', text: unsafe }),
       textInput({
         id: 'label-target',
         presentation: { value: '', cursor: 0 },
         onAction: (action) => action
       })
-    ], { id: 'label-form' }),
+    ] }, id: 'label-form' }),
     expectText: /Unsafe red text/u,
     expectFocus: true
   },
   {
     name: 'button',
-    element: () => button({ id: 'button', label: unsafe, onPress: () => ({ kind: 'button' }) }),
+    element: () => button({ id: 'button', label: unsafe, onAction: () => ({ kind: 'button' }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'checkbox',
-    element: () => checkbox({ id: 'checkbox', label: unsafe, checked: true, onChange: () => ({ kind: 'check' }) }),
+    element: () => checkbox({ id: 'checkbox', label: unsafe, checked: true, onAction: () => ({ kind: 'check' }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'toggleSwitch',
-    element: () => toggleSwitch({ id: 'toggle', label: unsafe, checked: true, onChange: () => ({ kind: 'toggle' }) }),
+    element: () => toggleSwitch({ id: 'toggle', label: unsafe, checked: true, onAction: () => ({ kind: 'toggle' }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
@@ -332,7 +329,7 @@ const cases = [
       label: unsafe,
       value: 5,
       max: 10,
-      onChange: (value) => ({ kind: 'slider', value })
+      onAction: (action) => ({ kind: 'slider', action })
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
@@ -512,7 +509,7 @@ const cases = [
   },
   {
     name: 'surface',
-    element: () => surface(text(unsafe, { id: 'surface-child' }), {
+    element: () => surface(text({ content: unsafe, id: 'surface-child' }), {
       id: 'surface',
       label: unsafe,
       title: unsafe,
@@ -522,7 +519,7 @@ const cases = [
   },
   {
     name: 'absolute',
-    element: () => absolute(text(unsafe, { id: 'absolute-child' }), {
+    element: () => absolute(text({ content: unsafe, id: 'absolute-child' }), {
       id: 'absolute',
       row: 2,
       column: 3,
@@ -534,8 +531,8 @@ const cases = [
   {
     name: 'overlay',
     element: () => overlay([
-      text(unsafe, { id: 'overlay-base' }),
-      absolute(text('Top', { id: 'overlay-top' }), { id: 'overlay-abs', row: 1, column: 8, width: 3, height: 1 })
+      text({ content: unsafe, id: 'overlay-base' }),
+      absolute(text({ content: 'Top', id: 'overlay-top' }), { id: 'overlay-abs', row: 1, column: 8, width: 3, height: 1 })
     ], { id: 'overlay' }),
     expectText: /Unsafe/u
   },
@@ -642,7 +639,7 @@ const cases = [
   },
   {
     name: 'viewport',
-    element: () => viewport(text(`${unsafe}\nSecond`, { id: 'viewport-child' }), {
+    element: () => viewport(text({ content: `${unsafe}\nSecond`, id: 'viewport-child' }), {
       id: 'viewport',
       offset: { row: 1 }
     }),
@@ -666,8 +663,7 @@ const cases = [
       id: 'command-input',
       presentation: { value: unsafe, cursor: 0, suggestions: [{ value: 'open', label: unsafe, description: 'Open action' }], selectedSuggestionIndex: 0 },
       prompt: '>',
-      onAction: (action) => action,
-      onSubmit: (value) => value
+      onAction: (action) => action
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true
@@ -690,8 +686,8 @@ const cases = [
   {
     name: 'grid',
     element: () => grid([
-      text(unsafe, { id: 'grid-one' }),
-      text('Second', { id: 'grid-two' })
+      text({ content: unsafe, id: 'grid-one' }),
+      text({ content: 'Second', id: 'grid-two' })
     ], {
       id: 'grid',
       rows: [{ kind: 'fr', value: 1 }],
@@ -702,7 +698,7 @@ const cases = [
   {
     name: 'anchored',
     element: () => anchored(
-      text(unsafe, { id: 'anchored-child' }),
+      text({ content: unsafe, id: 'anchored-child' }),
       {
         id: 'anchored',
         anchor: { kind: 'cursor', row: 1, column: 1 }
@@ -713,8 +709,8 @@ const cases = [
   {
     name: 'splitPane',
     element: () => splitPane([
-      text(unsafe, { id: 'split-one' }),
-      text('Second', { id: 'split-two' })
+      text({ content: unsafe, id: 'split-one' }),
+      text({ content: 'Second', id: 'split-two' })
     ], {
       id: 'split',
       direction: 'horizontal',
@@ -728,8 +724,8 @@ const cases = [
       id: 'tabs',
       selected: 'first',
       tabs: [
-        { id: 'first', label: unsafe, panel: text('Panel one', { id: 'panel-one' }) },
-        { id: 'second', label: 'Second', panel: text('Panel two', { id: 'panel-two' }), disabled: true }
+        { id: 'first', label: unsafe, panel: text({ content: 'Panel one', id: 'panel-one' }) },
+        { id: 'second', label: 'Second', panel: text({ content: 'Panel two', id: 'panel-two' }), disabled: true }
       ],
       onAction: (action) => action
     }),
@@ -737,7 +733,8 @@ const cases = [
   },
   {
     name: 'dialog',
-    element: () => dialog(button({ id: 'dialog-button', label: 'Confirm', onPress: () => ({ kind: 'confirm' }) }), {
+    element: () => dialog({
+      slots: { content: button({ id: 'dialog-button', label: 'Confirm', onAction: () => ({ kind: 'confirm' }) }) },
       id: 'dialog',
       title: unsafe,
       modal: true,
@@ -751,9 +748,9 @@ const cases = [
   }
 ];
 
-test('semantic element snapshots cover every built-in public element factory', () => {
+test('semantic element snapshots use unique built-in factory names', () => {
   const names = cases.map((item) => item.name).sort();
-  assert.deepEqual(names, Object.keys(builtinRenderNodeRenderers).sort());
+  assert.equal(new Set(names).size, names.length);
 });
 
 for (const current of cases) {

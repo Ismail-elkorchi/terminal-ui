@@ -4,6 +4,7 @@ import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, 
 import type {
   AbsoluteOptions,
   AnchoredOptions,
+  PortalOptions,
   SurfaceOptions
 } from '../options.ts';
 import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
@@ -104,9 +105,65 @@ export function anchored<const TChild extends Element<unknown>>(
       anchor: options.anchor,
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       ...(options.fallback === undefined ? {} : { fallback: options.fallback }),
-      ...(options.margin === undefined ? {} : { margin: options.margin })
+      ...(options.margin === undefined ? {} : { margin: options.margin }),
+      ...(options.fit === undefined ? {} : { fit: options.fit })
     },
     children: [toRenderNode(child)],
     ...componentMetaProps(options.meta)
   });
+}
+
+/**
+ * Places a child in a separate layout region without contributing its size to
+ * the parent's intrinsic measurement. The child remains bounded by the
+ * terminal viewport and participates in normal layering and interaction.
+ */
+export function portal<
+  const TChild extends Element<unknown>,
+  const TOutsideMessage = never
+>(
+  child: TChild,
+  options: PortalOptions<TOutsideMessage>
+): Element<ElementMessage<TChild> | TOutsideMessage> {
+  if (options.onOutsidePress !== undefined && typeof options.onOutsidePress !== 'function') {
+    throw new TypeError('portal() onOutsidePress must be a function when provided.');
+  }
+  if (options.anchor.kind !== 'allocation') {
+    assertAnchoredSurfaceOptions(options, 'portal()');
+  } else {
+    assertPortalPlacement(options);
+  }
+  type Message = ElementMessage<TChild> | TOutsideMessage;
+  return layoutElementFromRenderNode<'portal', Message>({
+    ...optionalRenderNodeId(options.id),
+    kind: 'portal',
+    props: {
+      anchor: options.anchor,
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      ...(options.fallback === undefined ? {} : { fallback: options.fallback }),
+      ...(options.margin === undefined ? {} : { margin: options.margin }),
+      ...(options.fit === undefined ? {} : { fit: options.fit }),
+      ...(options.onOutsidePress === undefined ? {} : { toOutsideMessage: options.onOutsidePress })
+    },
+    children: [toRenderNode(child)],
+    ...componentMetaProps(options.meta)
+  });
+}
+
+function assertPortalPlacement(options: PortalOptions<unknown>): void {
+  if (options.placement === 'center') {
+    if (options.fallback !== undefined) {
+      throw new TypeError('portal() fallback is not supported for centered placement.');
+    }
+    assertOptionalFiniteNumber(options.margin, 'portal() margin');
+    return;
+  }
+  const probe = {
+    anchor: { kind: 'target' as const, bounds: { row: 0, column: 0, width: 0, height: 0 } },
+    ...(options.placement === undefined ? {} : { placement: options.placement }),
+    ...(options.fallback === undefined ? {} : { fallback: options.fallback }),
+    ...(options.margin === undefined ? {} : { margin: options.margin }),
+    ...(options.fit === undefined ? {} : { fit: options.fit })
+  };
+  assertAnchoredSurfaceOptions(probe, 'portal()');
 }

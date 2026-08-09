@@ -6,15 +6,18 @@ import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   componentElement,
-  leafComponentDefinition
+  leafComponentDefinition,
+  testKeyInput
 } from '../helpers/component-definition.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, contextMenu, dialog, dropdownMenu, list, notificationRegion, richText, table, textInput } from '../../dist/components/index.js';
 import { column, overlay, surface } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.ts';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 function focusInput(options) {
-  return textInput({ onAction: () => undefined, ...options });
+  if (options.keys !== undefined) return testKeyInput(options);
+  return textInput({ onAction: () => ignoreMessage(), ...options });
 }
 
 test('TUI runtime keeps command focus when contained overlays close under passive notifications', async () => {
@@ -56,7 +59,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
             surface(button({
               id: 'accept',
               label: 'Accept',
-              onPress: () => ({ kind: 'accept' })
+              onAction: () => ({ kind: 'accept' })
             }), {
     id: 'searchPicker-surface',
     meta: {
@@ -129,8 +132,8 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
       ...(state.modal === 'a' || state.modal === 'b'
         ? [
             surface(column([
-              button({ id: 'open-b', label: 'Open B', onPress: () => ({ kind: 'openB' }) }),
-              button({ id: 'close-a', label: 'Close A', onPress: () => ({ kind: 'closeA' }) })
+              button({ id: 'open-b', label: 'Open B', onAction: () => ({ kind: 'openB' }) }),
+              button({ id: 'close-a', label: 'Close A', onAction: () => ({ kind: 'closeA' }) })
             ], { id: 'modal-a-actions' }), {
     id: 'modal-a',
     meta: {
@@ -147,7 +150,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
             surface(button({
               id: 'close-b',
               label: 'Close B',
-              onPress: () => ({ kind: 'closeB' })
+              onAction: () => ({ kind: 'closeB' })
             }), {
     id: 'modal-b',
     meta: {
@@ -463,7 +466,8 @@ test('TUI runtime traps focus inside modal and scoped popover elements', async (
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
       focusInput({ id: 'background', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'background' }) } }),
-      dialog(focusInput({ id: 'dialog-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'dialog' }) } }), {
+      dialog({
+        slots: { content: focusInput({ id: 'dialog-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'dialog' }) } }) },
         id: 'dialog',
         modal: true,
         focusPolicy: { returnFocus: 'restore' },
@@ -539,13 +543,16 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
         keys: { enter: () => ({ kind: 'open' }) }
       }),
       ...(state.open
-        ? [dialog(column([
-            surface(focusInput({ id: 'nested-dialog-field', presentation: { value: '', cursor: 0 } }), {
-              id: 'nested-dialog-surface'
-            }),
-            focusInput({ id: 'first-dialog-field', presentation: { value: '', cursor: 0 } }),
-            focusInput({ id: 'preferred-dialog-field', presentation: { value: '', cursor: 0 } })
-          ]), {
+        ? [dialog({
+            slots: {
+              content: column([
+                surface(focusInput({ id: 'nested-dialog-field', presentation: { value: '', cursor: 0 } }), {
+                  id: 'nested-dialog-surface'
+                }),
+                focusInput({ id: 'first-dialog-field', presentation: { value: '', cursor: 0 } }),
+                focusInput({ id: 'preferred-dialog-field', presentation: { value: '', cursor: 0 } })
+              ])
+            },
             id: 'lifecycle-dialog',
             modal: true,
             focusPolicy: {
@@ -554,9 +561,9 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
             },
             dismissal: {
               escape: true,
-              outsidePress: true,
-              onDismiss: (reason) => ({ kind: 'dismiss', reason })
+              outsidePress: true
             },
+            onAction: (action) => action,
             width: 24,
             height: 6
           })]
@@ -626,7 +633,11 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   const contextResult = await contextMenuRuntime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(contextResult.handled, true);
-  assert.deepEqual(contextMenuRuntime.frame().focusPath, ['context-menu-root', 'actions-menu']);
+  assert.deepEqual(contextMenuRuntime.frame().focusPath, [
+    'context-menu-root',
+    'actions-menu',
+    'actions-menu:popup:menu'
+  ]);
   assert.deepEqual(contextMenuRuntime.state(), { active: 'context-menu' });
 
   const dropdownMenuApp = defineTui({
@@ -677,7 +688,11 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   const dropdownMenuResult = await dropdownMenuRuntime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(dropdownMenuResult.handled, true);
-  assert.deepEqual(dropdownMenuRuntime.frame().focusPath, ['dropdownMenu-root', 'theme-dropdownMenu']);
+  assert.deepEqual(dropdownMenuRuntime.frame().focusPath, [
+    'dropdownMenu-root',
+    'theme-dropdownMenu',
+    'theme-dropdownMenu:popup:menu'
+  ]);
   assert.deepEqual(dropdownMenuRuntime.state(), { active: 'dropdownMenu' });
 });
 
@@ -793,19 +808,23 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      focusInput({
-    id: 'first-field',
-    presentation: { value: state.active, cursor: 0 },
-    onSubmit: () => ({ active: 'first' }),
-    meta: {
-        accessibility: {
-            id: 'first-field',
+      componentElement({
+        id: 'first-field',
+        label: state.active,
+        definition: {
+          ...leafComponentDefinition,
+          render: ({ target, model }) => target.write(0, 0, [{ text: model.label }]),
+          focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+          accessibility: ({ id, model, focused }) => ({
+            id,
             role: 'textbox',
             label: 'First field',
-            description: 'Primary input'
+            description: 'Primary input',
+            value: model.label,
+            ...(focused ? { focused: true } : {})
+          })
         }
-    }
-}),
+      }),
       list({
         projectItem: (item) => ({ id: String(item), label: String(item) }),
         id: 'choices',
@@ -847,7 +866,7 @@ test('TUI runtime uses app-level accessibility descriptions for frames and exits
     id: 'custom-a11y',
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state, exit: {} }),
-    view: (state) => focusInput({ id: 'custom-field', presentation: { value: state.label, cursor: 0 }, onSubmit: () => ({ done: true }) }),
+    view: (state) => focusInput({ id: 'custom-field', presentation: { value: state.label, cursor: 0 }, onAction: (action) => action.kind === 'submit' ? { done: true } : ignoreMessage() }),
     accessibility: {
       describe: (state) => ({
         source: 'tui',

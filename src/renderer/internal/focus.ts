@@ -1,5 +1,6 @@
 import type { RenderNode } from '../model/index.ts';
 import { focusPathsEqual } from '../../interaction/focus.ts';
+import { hasTransparentFocusIdentity } from './focus-identity.ts';
 import type { FocusPath, InitialFocusSelector } from '../../interaction/focus.ts';
 import type { CursorPosition } from '../contracts.ts';
 import type { RenderFocusRelation } from '../contracts.ts';
@@ -173,7 +174,7 @@ export function focusPathForLayoutTarget(
 
 function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readonly LayoutFocusTarget[] {
   if (!layout.visible) return [];
-  const path = [...parentPath, focusSegment(layout)];
+  const path = layoutFocusPath(parentPath, layout);
   const current = layout.focusTargets.map((target, index): LayoutFocusTarget => {
     const focusable = !target.disabled && target.bounds.width > 0 && target.bounds.height > 0;
     return {
@@ -201,7 +202,7 @@ function collectRenderNodeFocusRegionTargets<TMessage>(
   parentPath: FocusPath
 ): readonly RenderNodeFocusTarget<TMessage>[] {
   if (!layout.visible) return [];
-  const path = [...parentPath, focusSegment(layout)];
+  const path = layoutFocusPath(parentPath, layout);
   const current = layout.focusTargets.map((target, index): RenderNodeFocusTarget<TMessage> => {
     const focusable = !target.disabled && target.bounds.width > 0 && target.bounds.height > 0;
     return {
@@ -233,7 +234,7 @@ function collectRenderNodeLayoutTargetsRecursive<TMessage>(
   parentPath: FocusPath
 ): readonly RenderNodeLayoutTarget<TMessage>[] {
   if (!layout.visible) return [];
-  const path = [...parentPath, focusSegment(layout)];
+  const path = layoutFocusPath(parentPath, layout);
   const current: RenderNodeLayoutTarget<TMessage> = {
     path,
     ...(layout.id === undefined ? {} : { elementId: layout.id }),
@@ -282,8 +283,10 @@ function orderedRenderNodeFocusChildren<TMessage>(
   );
 }
 
-function focusSegment(layout: LayoutNode): string {
-  return layout.identity;
+export function layoutFocusPath(parentPath: FocusPath, layout: LayoutNode): FocusPath {
+  return hasTransparentFocusIdentity(layout)
+    ? parentPath
+    : [...parentPath, layout.identity];
 }
 
 function targetPath(basePath: FocusPath, id: string, index: number, count: number): FocusPath {
@@ -311,7 +314,7 @@ function scopedFocusTargets<TTarget extends LayoutFocusTarget>(
     ? enabled
     : enabled.filter((target) => pathStartsWith(target.path, activeScope.path));
   if (scoped.length === 0) return [];
-  const activeLayer = activeScope?.layer.zIndex ?? Math.max(...scoped.map((target) => target.layer.zIndex));
+  const activeLayer = Math.max(...scoped.map((target) => target.layer.zIndex));
   const layered = scoped.filter((target) => target.layer.zIndex === activeLayer);
   const ordered = orderedFocusTargets(layered);
   const initialFocus = activeScope?.initialFocus;
@@ -329,7 +332,7 @@ export function activeFocusScopeRestores(layout: LayoutNode): boolean {
 
 function collectFocusScopes(layout: LayoutNode, parentPath: FocusPath = [], sequence = { value: 0 }): readonly FocusScope[] {
   if (!layout.visible) return [];
-  const path = [...parentPath, focusSegment(layout)];
+  const path = layoutFocusPath(parentPath, layout);
   const current = layout.focusScope?.kind === 'contain'
     ? [{
         path,

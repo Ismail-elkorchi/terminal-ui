@@ -90,6 +90,15 @@ export function isWindowedCollection<TRecord extends CollectionRecord>(
   return projection.kind === 'window';
 }
 
+export function isCollectionProjection(
+  value: unknown
+): value is CollectionProjection<CollectionRecord> {
+  return typeof value === 'object'
+    && value !== null
+    && collectionProjectionBrand in value
+    && value[collectionProjectionBrand] === true;
+}
+
 export function collectionIds<TRecord extends CollectionRecord>(
   projection: CollectionProjection<TRecord>
 ): readonly string[] {

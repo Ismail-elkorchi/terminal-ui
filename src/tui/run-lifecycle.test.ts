@@ -12,7 +12,7 @@ void test('owned host recovery bypasses a hung restore before host disposal', as
     id: 'owned-host-emergency-recovery',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
-    view: () => text('ready')
+    view: () => text({ content: 'ready' })
   });
   const host = createMemoryTerminalHost();
   const dispose = host.dispose.bind(host);

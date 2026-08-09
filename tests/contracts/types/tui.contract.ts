@@ -25,7 +25,7 @@ const app: TuiApp<State, Message> = defineTui<State, Message>({
     : { state: { count: 0 } },
   view: (state, context): Element<Message> => {
     const columns = context.terminalSize.columns;
-    return text(`${String(state.count)}/${String(columns)}`);
+    return text({ content: `${String(state.count)}/${String(columns)}` });
   }
 });
 
@@ -34,14 +34,14 @@ const invalidApp: TuiApp<State, Message> = defineTui<State, { readonly kind: 'ot
   id: 'invalid',
   init: () => ({ count: 0 }),
   update: (state) => ({ state }),
-  view: (state) => text(String(state.count))
+  view: (state) => text({ content: String(state.count) })
 });
 
 const arrayStateApp = defineTui<string[], IncrementMessage>({
   id: 'array-state',
   init: () => [],
   update: (state) => ({ state }),
-  view: (state) => text(state.join(','))
+  view: (state) => text({ content: state.join(',') })
 });
 
 void app;

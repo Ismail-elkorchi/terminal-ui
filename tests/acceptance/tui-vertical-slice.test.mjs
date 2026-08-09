@@ -24,17 +24,20 @@ import {
   text,
   textInput
 } from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 function dashboardElement(state) {
   return surface(
     column([
-      text('Terminal workbench', { id: 'title' }),
+      text({ content: 'Terminal workbench', id: 'title' }),
       row([
-        text('Left pane', { id: 'left-pane' }),
+        text({ content: 'Left pane', id: 'left-pane' }),
         textInput({
           id: 'action-field',
           presentation: { value: state.submitted ? 'Submitted' : 'Press enter', cursor: 0 },
-          onSubmit: () => ({ type: 'submit' })
+          onAction: (action) => action.kind === 'submit'
+            ? { type: 'submit' }
+            : ignoreMessage()
         })
       ], { id: 'panes' }),
       statusBar({

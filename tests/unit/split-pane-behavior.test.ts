@@ -66,8 +66,8 @@ void test('resizable split pane routes keyboard and captured pointer drag action
       state: { split: splitPaneReducer(state.split, message.action) }
     }),
     view: (state) => splitPane([
-      text('left', { id: 'left' }),
-      text('right', { id: 'right' })
+      text({ content: 'left', id: 'left' }),
+      text({ content: 'right', id: 'right' })
     ], {
       id: 'workspace-split',
       direction: 'horizontal',
@@ -98,8 +98,8 @@ void test('resizable split pane routes keyboard and captured pointer drag action
 
 void test('vertical split pane divider exposes complete pointer lifecycle actions', () => {
   const regions = renderElementRegions(splitPane([
-    text('top'),
-    text('bottom')
+    text({ content: 'top' }),
+    text({ content: 'bottom' })
   ], {
     id: 'vertical-split',
     direction: 'vertical',
@@ -130,8 +130,8 @@ void test('vertical split pane divider exposes complete pointer lifecycle action
 
 void test('passive split pane dividers remain structural instead of active', () => {
   const passive = renderElementFrame(splitPane([
-    text('left'),
-    text('right')
+    text({ content: 'left' }),
+    text({ content: 'right' })
   ], {
     id: 'passive-split',
     direction: 'horizontal',
@@ -139,8 +139,8 @@ void test('passive split pane dividers remain structural instead of active', () 
     sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 5 }]
   }), { columns: 12, rows: 2 });
   const interactive = renderElementFrame(splitPane([
-    text('left'),
-    text('right')
+    text({ content: 'left' }),
+    text({ content: 'right' })
   ], {
     id: 'interactive-split',
     direction: 'horizontal',
@@ -158,7 +158,7 @@ void test('passive split pane dividers remain structural instead of active', () 
 
 void test('resizable split pane rejects geometry that cannot expose dividers', () => {
   assert.throws(
-    () => splitPane([text('only')], {
+    () => splitPane([text({ content: 'only' })], {
       id: 'invalid-one-pane',
       direction: 'horizontal',
       sizes: [{ kind: 'percent', value: 100 }],
@@ -167,7 +167,7 @@ void test('resizable split pane rejects geometry that cannot expose dividers', (
     /requires at least two children/u
   );
   assert.throws(
-    () => splitPane([text('left'), text('right')], {
+    () => splitPane([text({ content: 'left' }), text({ content: 'right' })], {
       id: 'invalid-gap',
       direction: 'horizontal',
       sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],

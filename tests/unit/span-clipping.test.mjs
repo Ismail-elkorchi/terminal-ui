@@ -153,7 +153,7 @@ test('table horizontal scrolling keeps span styles after clipped cells are shift
     id: 'scrolled-styled-table',
     presentation: {
       selectedRowId: '0',
-      scroll: createScrollState({ offsetColumn: 6, contentRows: 1, viewportRows: 1, contentColumns: 12, viewportColumns: 6 })
+      scroll: createScrollState({ offsetColumn: 4, contentRows: 1, viewportRows: 1, contentColumns: 10, viewportColumns: 6 })
     },
     rows: [{ value: 'unused' }],
     onAction: (action) => action,
@@ -167,12 +167,14 @@ test('table horizontal scrolling keeps span styles after clipped cells are shift
     })]
   }), { columns: 6, rows: 1 });
 
-  assert.equal(renderFramePlain(frame), 'rig…');
+  assert.equal(renderFramePlain(frame), 'ftrig…');
   assert.deepEqual(
     frame.cells
       .filter((cell) => cell.source?.elementId === 'scrolled-styled-table')
       .map((cell) => [cell.text, cell.style]),
     [
+      ['f', selectedRed],
+      ['t', selectedRed],
       ['r', selectedBlue],
       ['i', selectedBlue],
       ['g', selectedBlue],

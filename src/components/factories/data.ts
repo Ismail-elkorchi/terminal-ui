@@ -1,260 +1,235 @@
-import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
-import type { Element } from '../../element/index.ts';
-import type {
-  ListOptions,
-  PassiveListOptions,
-  ScrollableListOptions,
-  PaginatorOptions,
-  PassiveTableOptions,
-  ScrollableTableOptions,
-  TableOptions,
-  PassiveTreeOptions,
-  ScrollableTreeOptions,
-  TreeOptions
-} from '../options/content.ts';
-import type { ScrollEvent } from '../../interaction/scroll.ts';
-import { prepareListViewForOptions } from '../../behavior/list.ts';
-import { prepareTableCollection } from '../../behavior/table.ts';
-import { prepareTreeCollection } from '../../behavior/tree.ts';
-import { prepareTreeView } from '../../ui-model/tree-view.ts';
-import type { ListControlAction } from '../../ui-model/list.ts';
-import type { TableControlAction } from '../../ui-model/table.ts';
-import {
-  interactionProps,
-  listKeyBindings,
-  paginatorKeyBindings,
-  requireComponentHandler,
-  tableKeyBindings,
-  treeKeyBindings
-} from '../internal/interaction.ts';
-import { tableColumnsForRenderer, tablePresentationForRenderer } from '../internal/domain.ts';
-import { requiredRenderNodeId } from '../../renderer/model/element.ts';
-import type {
-  ComponentKeyBindingMessages,
-  IndependentInteractionOptions,
-  InferredElementKeyBindings
-} from '../internal/messages.ts';
+import { defineComponent, measureRenderSpans, span } from '../../component/index.ts';
+import type { SemanticLeafComponentFactory } from '../../component/index.ts';
+import type { PaginatorOptions } from '../options/content.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
+import { pointerVisualState } from '../../interaction/index.ts';
+import type { PointerInteractionState } from '../../interaction/index.ts';
+import { sanitizeTerminalText } from '../../text/index.ts';
+import type { PaginatorAction } from '../../ui-model/paginator.ts';
+import type { PaginatorStylePart } from '../../ui-model/style-parts.ts';
+import type { RenderSpan } from '../../visual/render.ts';
 
-/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
-export function list<
-  TValue,
-  const TActionMessage = unknown,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    ScrollableListOptions<TValue>,
-    { readonly onAction: TActionMessage },
-    TKeys,
-    TPointerMessage
-  >
-): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function list<
-  TValue,
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    PassiveListOptions<TValue>,
-    { readonly onAction: TActionMessage },
-    TKeys,
-    TPointerMessage
-  >
-): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-/* eslint-enable @typescript-eslint/unified-signatures */
-export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
-  const view = prepareListViewForOptions(options);
-  const keyMap = listKeyBindings(options, view.source);
-  const toActionMessage: ((action: ListControlAction) => unknown) | undefined = options.onAction;
-  const toScrollActionMessage = isScrollableListOptions(options) ? options.onAction : undefined;
-  return componentElementFromRenderNode<'list', unknown>({
-    ...requiredRenderNodeId(options.id, 'list'),
-    kind: 'list',
-    props: {
-      view,
-      ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
-      ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(toScrollActionMessage === undefined ? {} : {
-        toScrollMessage: (event: ScrollEvent) => toScrollActionMessage({ kind: 'scroll', event })
-      }),
-      ...(toActionMessage === undefined ? {} : { toActionMessage })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+interface PaginatorModel {
+  readonly pageNumber: number;
+  readonly pageCount: number;
+  readonly label: string;
+  readonly pointerState?: PointerInteractionState;
 }
 
-function isScrollableListOptions<TValue, TMessage>(
-  options: ListOptions<TValue, TMessage>
-): options is ScrollableListOptions<TValue, TMessage> {
-  return options.scroll !== undefined;
+interface PaginatorControl {
+  readonly label: string;
+  readonly action: PaginatorAction;
+  readonly offset: number;
+  readonly width: number;
+  readonly disabled: boolean;
 }
 
-/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
-export function table<
-  TRow,
-  const TActionMessage = unknown,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options:
-    IndependentInteractionOptions<
-      ScrollableTableOptions<TRow>,
-      { readonly onAction: TActionMessage },
-      TKeys,
-      TPointerMessage
-    >
-): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function table<
-  TRow,
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    PassiveTableOptions<TRow>,
-    { readonly onAction: TActionMessage },
-    TKeys,
-    TPointerMessage
-  >
-): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-/* eslint-enable @typescript-eslint/unified-signatures */
-export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unknown> {
-  const collection = options.collection ?? prepareTableCollection(options.rows, options.getRowId);
-  const keyMap = tableKeyBindings(options, collection);
-  const columns = tableColumnsForRenderer(options.columns);
-  const toActionMessage = options.onAction;
-  const toScrollActionMessage = isScrollableTableOptions(options) ? options.onAction : undefined;
-  const presentation = tablePresentationForRenderer(options.presentation);
-  const scroll = isScrollableTableOptions(options) ? options.presentation.scroll : undefined;
-  return componentElementFromRenderNode<'table', unknown>({
-    ...requiredRenderNodeId(options.id, 'table'),
-    kind: 'table',
-    props: {
-      collection,
-      ...(columns === undefined ? {} : { columns }),
-      ...(presentation?.selectedRowId === undefined ? {} : { selectedRowId: presentation.selectedRowId }),
-      ...(presentation?.selectedCell === undefined ? {} : { selectedCell: presentation.selectedCell }),
-      ...(presentation?.sort === undefined ? {} : { sort: presentation.sort }),
-      ...(presentation?.columnWidths === undefined ? {} : { columnWidths: presentation.columnWidths }),
-      ...(options.density === undefined ? {} : { density: options.density }),
-      ...(scroll === undefined ? {} : { scroll }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(toActionMessage === undefined ? {} : {
-        ...(toScrollActionMessage === undefined ? {} : {
-          toScrollMessage: (event: ScrollEvent) => toScrollActionMessage({ kind: 'scroll', event })
-        }),
-        toActionMessage: (action: TableControlAction) => toActionMessage(action)
-      }),
-      ...(options.stickyHeader === undefined ? {} : { stickyHeader: options.stickyHeader }),
-      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+interface PaginatorVisual {
+  readonly spans: readonly RenderSpan[];
+  readonly controls: readonly PaginatorControl[];
 }
 
-function isScrollableTableOptions<TRow, TMessage>(
-  options: TableOptions<TRow, TMessage>
-): options is ScrollableTableOptions<TRow, TMessage> {
-  return options.presentation !== undefined && 'scroll' in options.presentation;
+export const paginator: SemanticLeafComponentFactory<
+  Pick<PaginatorOptions<unknown>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
+  PaginatorAction,
+  PaginatorStylePart,
+  readonly [],
+  'required',
+  readonly ['focus', 'layer', 'styles']
+> = defineComponent<
+  Pick<PaginatorOptions<unknown>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
+  PaginatorModel,
+  PaginatorAction,
+  PaginatorStylePart,
+  readonly [],
+  'required',
+  readonly ['focus', 'layer', 'styles']
+>({
+  name: 'terminal-ui/components/paginator',
+  identity: 'required',
+  structure: 'leaf',
+  semantics: 'semantic',
+  optionFields: { pageNumber: null, pageCount: null, label: null, pointerState: null },
+  metadata: ['focus', 'layer', 'styles'],
+  parts: ['control', 'label', 'value', 'separator'],
+  prepare(value) {
+    if (!isNonArrayObject(value)) throw new TypeError('paginator options must be an object.');
+    const pageNumber = value['pageNumber'];
+    const pageCount = value['pageCount'];
+    const label = value['label'];
+    const pointerState = value['pointerState'];
+    if (typeof pageNumber !== 'number' || !Number.isFinite(pageNumber)) {
+      throw new TypeError('paginator pageNumber must be finite.');
+    }
+    if (typeof pageCount !== 'number' || !Number.isFinite(pageCount)) {
+      throw new TypeError('paginator pageCount must be finite.');
+    }
+    if (label !== undefined && typeof label !== 'string') {
+      throw new TypeError('paginator label must be a string.');
+    }
+    assertPointerState(pointerState, 'paginator');
+    const normalizedCount = Math.max(1, Math.floor(pageCount));
+    return {
+      pageNumber: Math.max(1, Math.min(normalizedCount, Math.floor(pageNumber))),
+      pageCount: normalizedCount,
+      label: label === undefined ? '' : sanitizeTerminalText(label).text,
+      ...(pointerState === undefined ? {} : { pointerState }),
+    };
+  },
+  measure(input) {
+    const visual = paginatorVisual(input.model, input.widthProfile, input.id);
+    return {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: measureRenderSpans(visual.spans, { widthProfile: input.widthProfile }),
+      preferredHeight: 1,
+    };
+  },
+  render(input) {
+    input.target.write(
+      0,
+      0,
+      paginatorVisual(
+        input.model,
+        input.widthProfile,
+        input.id,
+        (text, partName, part, state) => {
+          const style = input.style({ part, ...(state === undefined ? {} : { state }) });
+          return span(text, {
+            ...(style === undefined ? {} : { style }),
+            source: input.source({
+              partName,
+              ...(state === undefined ? {} : { interactionState: state }),
+            }),
+          });
+        },
+      ).spans,
+    );
+  },
+  keys() {
+    return {
+      home: () => ({ kind: 'first' }),
+      arrowLeft: () => ({ kind: 'previous' }),
+      arrowUp: () => ({ kind: 'previous' }),
+      pageUp: () => ({ kind: 'previous' }),
+      arrowRight: () => ({ kind: 'next' }),
+      arrowDown: () => ({ kind: 'next' }),
+      pageDown: () => ({ kind: 'next' }),
+      end: () => ({ kind: 'last' }),
+    };
+  },
+  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+  hitTargets(input) {
+    if (input.bounds.height === 0) return [];
+    return paginatorVisual(input.model, input.widthProfile, input.id).controls
+      .flatMap((control) =>
+        control.disabled ? [] : [{
+          id: `${input.id ?? 'paginator'}:${control.action.kind}`,
+          bounds: {
+            row: 0,
+            column: control.offset,
+            width: Math.min(control.width, Math.max(0, input.bounds.width - control.offset)),
+            height: 1,
+          },
+          message: () => control.action,
+          cursor: 'pointer',
+        }]
+      );
+  },
+  accessibility(input) {
+    const controls = paginatorVisual(input.model, input.widthProfile, input.id).controls;
+    return {
+      id: input.id,
+      role: 'navigation',
+      label: input.model.label || input.id,
+      value: `Page ${String(input.model.pageNumber)} of ${String(input.model.pageCount)}`,
+      ...(input.focused ? { focused: true } : {}),
+      children: controls.map((control) => ({
+        id: `${input.id}:${control.action.kind}`,
+        role: 'button' as const,
+        label: control.label,
+        ...(control.disabled ? { disabled: true } : {}),
+      })),
+    };
+  },
+});
+
+type PaginatorInteractionState = Exclude<
+  import('../../element/metadata.ts').ElementVisualState,
+  'default'
+>;
+
+function paginatorVisual(
+  model: PaginatorModel,
+  widthProfile: import('../../text/index.ts').TextWidthProfile,
+  id: string | undefined,
+  decorate: (
+    text: string,
+    partName: string,
+    part: PaginatorStylePart,
+    state: PaginatorInteractionState | undefined,
+  ) => RenderSpan = (text) => span(text),
+): PaginatorVisual {
+  const spans: RenderSpan[] = [];
+  const controls: PaginatorControl[] = [];
+  let offset = 0;
+  const append = (
+    text: string,
+    partName: string,
+    part: PaginatorStylePart,
+    state?: PaginatorInteractionState,
+  ): void => {
+    spans.push(decorate(text, partName, part, state));
+    offset += measureRenderSpans([span(text)], { widthProfile });
+  };
+  const appendControl = (
+    text: string,
+    label: string,
+    action: PaginatorAction,
+    disabled: boolean,
+  ): void => {
+    const width = measureRenderSpans([span(text)], { widthProfile });
+    controls.push({ label, action, offset, width, disabled });
+    const targetId = `${id ?? 'paginator'}:${action.kind}`;
+    const state = disabled ? 'disabled' : pointerVisualState(model.pointerState, targetId);
+    append(text, `control.${action.kind}`, 'control', state);
+  };
+  if (model.label.length > 0) {
+    append(model.label, 'label', 'label');
+    append(' ', 'label.gap', 'label');
+  }
+  const atFirst = model.pageNumber <= 1;
+  appendControl(' « ', 'First page', { kind: 'first' }, atFirst);
+  append(' ', 'control.gap.first', 'control');
+  appendControl(' ‹ ', 'Previous page', { kind: 'previous' }, atFirst);
+  append(' ', 'control.gap.previous', 'control');
+  append('Page ', 'page.label', 'label');
+  append(String(model.pageNumber), 'page.value', 'value');
+  append(' of ', 'page.separator', 'separator');
+  append(String(model.pageCount), 'page.count', 'value');
+  const atLast = model.pageNumber >= model.pageCount;
+  append(' ', 'control.gap.next', 'control');
+  appendControl(' › ', 'Next page', { kind: 'next' }, atLast);
+  append(' ', 'control.gap.last', 'control');
+  appendControl(' » ', 'Last page', { kind: 'last' }, atLast);
+  return { spans, controls };
 }
 
-/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
-export function tree<
-  TMetadata extends Readonly<Record<string, unknown>>,
-  const TActionMessage = unknown,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    ScrollableTreeOptions<TMetadata>,
-    { readonly onAction: TActionMessage },
-    TKeys,
-    TPointerMessage
-  >
-): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function tree<
-  TMetadata extends Readonly<Record<string, unknown>>,
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    PassiveTreeOptions<TMetadata>,
-    { readonly onAction: TActionMessage },
-    TKeys,
-    TPointerMessage
-  >
-): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-/* eslint-enable @typescript-eslint/unified-signatures */
-export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
-  options: TreeOptions<TMetadata, unknown>
-): Element<unknown> {
-  const onAction = options.onAction;
-  const onScrollAction = isScrollableTreeOptions(options) ? options.onAction : undefined;
-  const keyMap = treeKeyBindings(options);
-  const collection = options.collection ?? prepareTreeCollection(
-    options.nodes,
-    options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }
+function assertPointerState(
+  value: unknown,
+  owner: string,
+): asserts value is PointerInteractionState | undefined {
+  if (value === undefined) return;
+  if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
+  const unknown = Object.keys(value).find((key) =>
+    key !== 'hoveredTargetId' && key !== 'pressedTargetId'
   );
-  const view = prepareTreeView(collection, options.filterQuery);
-  return componentElementFromRenderNode<'tree', unknown>({
-    ...requiredRenderNodeId(options.id, 'tree'),
-    kind: 'tree',
-    props: {
-      view,
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(onScrollAction === undefined ? {} : {
-        toScrollMessage: (event: ScrollEvent) => onScrollAction({ kind: 'scroll', event })
-      }),
-      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-      ...(onAction === undefined ? {} : { toActionMessage: onAction })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-function isScrollableTreeOptions<
-  TMetadata extends Readonly<Record<string, unknown>>,
-  TMessage
->(
-  options: TreeOptions<TMetadata, TMessage>
-): options is ScrollableTreeOptions<TMetadata, TMessage> {
-  return options.scroll !== undefined;
-}
-
-export function paginator<
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(options: IndependentInteractionOptions<
-  PaginatorOptions,
-  { readonly onAction: TActionMessage },
-  TKeys,
-  TPointerMessage
->): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function paginator(options: PaginatorOptions<unknown>): Element<unknown> {
-  requireComponentHandler('paginator', 'onAction', options.onAction);
-  const keyMap = paginatorKeyBindings(options);
-  return componentElementFromRenderNode<'paginator', unknown>({
-    ...requiredRenderNodeId(options.id, 'paginator'),
-    kind: 'paginator',
-    props: {
-      pageNumber: options.pageNumber,
-      pageCount: options.pageCount,
-      ...(options.label === undefined ? {} : { label: options.label }),
-      toActionMessage: options.onAction
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
+  if (unknown !== undefined) {
+    throw new TypeError(`${owner} pointerState contains unknown field "${unknown}".`);
+  }
+  for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'string') {
+      throw new TypeError(`${owner} pointerState.${field} must be a string.`);
+    }
+  }
 }

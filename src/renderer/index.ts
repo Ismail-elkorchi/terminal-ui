@@ -83,6 +83,7 @@ export {
   transformCanvasRect,
   verticalAxis
 } from './internal/canvas2d/index.ts';
+export { createClippedCanvas2D as createLocalCanvas2D } from './internal/canvas2d/canvas2d.ts';
 export type {
   AreaSeriesOptions,
   AxisLine,
@@ -144,6 +145,7 @@ export {
   normalizeMeasurement,
   zeroMeasurement
 } from './internal/measurement.ts';
+export { assertValidMeasurement } from './measurement-validation.ts';
 export {
   highlightRenderSpans
 } from './internal/text-highlight.ts';
@@ -151,7 +153,6 @@ export type {
   HighlightRenderSpan,
   HighlightRenderSpansOptions
 } from './internal/text-highlight.ts';
-export type { TooltipSize } from './internal/tooltip.ts';
 export {
   compositeRegions,
   diffFrames,
@@ -188,5 +189,5 @@ export type {
 export {
   gridCellRects,
   splitTracks
-} from './internal/layout-geometry.ts';
+} from '../geometry/layout.ts';
 export type { Rect } from '../geometry/types.ts';

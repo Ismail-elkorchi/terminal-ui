@@ -125,7 +125,7 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
 test('TUI wheel routing keeps scroll content hits in their overlay region layer', async () => {
   const backgroundValue = Array.from({ length: 20 }, (_, index) => `background ${String(index + 1)}`).join('\n');
   const foregroundContent = column(
-    Array.from({ length: 20 }, (_, index) => text(`foreground ${String(index + 1)}`, { id: `foreground-${String(index)}` })),
+    Array.from({ length: 20 }, (_, index) => text({ content: `foreground ${String(index + 1)}`, id: `foreground-${String(index)}` })),
     { id: 'foreground-column' }
   );
   const app = defineTui({
@@ -421,7 +421,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
 
 test('viewport wheel bursts and thumb dragging keep scrolled composite children valid', async () => {
   const children = Array.from({ length: 40 }, (_value, index) =>
-    text(`composite line ${String(index + 1).padStart(2, '0')}`, { id: `composite-line-${String(index)}` })
+    text({ content: `composite line ${String(index + 1).padStart(2, '0')}`, id: `composite-line-${String(index)}` })
   );
   const app = defineTui({
     id: 'composite-viewport-scroll-tui',
@@ -692,7 +692,7 @@ test('TUI routed horizontal text area scroll uses the editable viewport after gu
 
   await runtime.start();
   const contentTarget = targetById(runtime, 'horizontal-gutter-editor:scroll:content');
-  const editableViewportColumns = contentTarget.bounds.width - 5;
+  const editableViewportColumns = contentTarget.bounds.width;
   for (let index = 0; index < 20; index += 1) {
     await runtime.handleInput({
       kind: 'mouse',

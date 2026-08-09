@@ -4,7 +4,6 @@ import {
   commandInput,
   column,
   createTerminalHost,
-  defineComponent,
   defineTui,
   ok,
   passwordInput,
@@ -14,11 +13,11 @@ import {
   text,
   tree,
   type CommandInputAction,
-  type Element,
   type TableAction,
   type TextInputAction,
   type TreeAction
 } from '@ismail-elkorchi/terminal-ui';
+import { defineComponent, type Element } from '@ismail-elkorchi/terminal-ui/component';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { createInputDecoder } from '@ismail-elkorchi/terminal-ui/input';
@@ -47,7 +46,7 @@ function view(state: State): Element<Message> {
   const increment: Element<{ readonly kind: 'increment' }> = button({
     id: 'increment',
     label: 'Increment',
-    onPress: () => ({ kind: 'increment' }) as const
+    onAction: () => ({ kind: 'increment' }) as const
   });
   const processes: Element<{ readonly kind: 'selectRow'; readonly action: TableAction }> = table({
     getRowId: (row) => String(row.id),
@@ -77,8 +76,9 @@ function view(state: State): Element<Message> {
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 4,
-    onAction: (action) => ({ kind: 'command' as const, action }),
-    onSubmit: () => ({ kind: 'submit' as const })
+    onAction: (action) => action.kind === 'submit'
+      ? { kind: 'submit' as const }
+      : { kind: 'command' as const, action }
   });
   const secret: Element<{ readonly kind: 'secret'; readonly action: TextInputAction }> = passwordInput({
     id: 'secret',
@@ -86,7 +86,7 @@ function view(state: State): Element<Message> {
     onAction: (action) => ({ kind: 'secret', action })
   });
   const content: Element<Message> = column([
-    text(`Count: ${String(state.count)}`, { id: 'count', textRole: 'metric' }),
+    text({ content: `Count: ${String(state.count)}`, id: 'count', textRole: 'metric' }),
     increment,
     processes,
     files,
@@ -128,7 +128,7 @@ const split = behavior.splitPaneReducer(behavior.createSplitPaneState(2), {
   kind: 'resizeBy',
   deltaShare: 0.1
 });
-const panes = splitPane([text('Left'), text('Right')], {
+const panes = splitPane([text({ content: 'Left' }), text({ content: 'Right' })], {
   id: 'consumer-panes',
   direction: 'horizontal',
   ...behavior.splitPanePresentation(split),
@@ -150,6 +150,7 @@ const selected = resolveSelectedText({
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const packedComponent = defineComponent({
   name: 'terminal-ui-consumer/components/packedComponent',
+  identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
   measure: () => ({
@@ -158,15 +159,19 @@ const packedComponent = defineComponent({
     preferredWidth: 9,
     preferredHeight: 1
   }),
-  render({ target, bounds }) {
-    target.write(bounds.row, bounds.column, [{ text: 'Defined' }]);
+  render({ target }) {
+    target.write(0, 0, [{ text: 'Defined' }]);
   },
   accessibility: ({ id }) => ({ id, role: 'text', label: 'Defined' })
 });
 const packedPanel = defineComponent({
   name: 'terminal-ui-consumer/components/packedPanel',
+  identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  slots: {
+    content: { cardinality: 'many', owner: 'caller', messages: 'bubble' }
+  } as const,
   measure: ({ childCount, measureChild }) => {
     const children = Array.from(
       { length: childCount },
@@ -182,10 +187,14 @@ const packedPanel = defineComponent({
       )
     };
   },
-  layout: ({ bounds }) => [
-    { ...bounds, height: 1 },
-    { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
-  ],
+  layout: ({ bounds, slots }) => ({
+    content: Array.from({ length: slots.count('content') }, (_unused, index) => ({
+      row: index,
+      column: 0,
+      width: bounds.width,
+      height: index < bounds.height ? 1 : 0
+    }))
+  }),
   accessibility: ({ id, children }) => ({
     id,
     role: 'group',
@@ -196,7 +205,9 @@ const packedPanel = defineComponent({
 const componentSnapshot = renderElementSnapshot({
   element: packedPanel({
     id: 'packed-panel',
-    children: [packedComponent({ id: 'packed-component' }), text('Child')] as const
+    slots: {
+      content: [packedComponent({ id: 'packed-component' }), text({ content: 'Child' })] as const
+    }
   }),
   terminalSize: { columns: 20, rows: 3 }
 });

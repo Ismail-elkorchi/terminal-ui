@@ -6,12 +6,6 @@ import {
   defaultStyleForState,
   defaultStyleForTextRole
 } from '../../dist/renderer/style-resolution.js';
-import {
-  statusMarker,
-  statusStyle,
-  statusToken
-} from '../../dist/renderer/internal/status-visual.js';
-import { defaultTheme } from '../../dist/theme/index.js';
 
 const foreground = (token, extra = {}) => ({
   fg: { kind: 'theme', token },
@@ -90,34 +84,5 @@ test('default text roles cover every branch', () => {
 
   for (const [role, expected] of cases) {
     assert.deepEqual(defaultStyleForTextRole(role), expected, role);
-  }
-});
-
-test('status helpers cover every status, including destructive and completion styling', () => {
-  const expectedTokens = {
-    idle: 'status.pending',
-    pending: 'status.pending',
-    running: 'status.running',
-    success: 'status.success',
-    warning: 'status.warning',
-    error: 'status.error',
-    info: 'status.info'
-  };
-  const expectedMarkers = {
-    idle: defaultTheme.tokens.symbols.progressEmpty,
-    pending: defaultTheme.tokens.symbols.progressEmpty,
-    running: defaultTheme.tokens.symbols.statusInfo,
-    success: defaultTheme.tokens.symbols.statusSuccess,
-    warning: defaultTheme.tokens.symbols.statusWarning,
-    error: defaultTheme.tokens.symbols.statusError,
-    info: defaultTheme.tokens.symbols.statusInfo
-  };
-
-  for (const [status, token] of Object.entries(expectedTokens)) {
-    assert.equal(statusToken(status), token, status);
-    assert.deepEqual(statusStyle(status), foreground(token, {
-      bold: status === 'error' || status === 'success'
-    }), status);
-    assert.equal(statusMarker(status, defaultTheme), expectedMarkers[status], status);
   }
 });

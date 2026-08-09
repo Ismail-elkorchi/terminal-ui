@@ -444,8 +444,8 @@ function createRuntime<TState, TMessage>(
   function focusedInputIsSensitive(): boolean {
     const current = commits.renderOrUndefined();
     if (current === undefined) return false;
-    return findRenderNodeFocusTarget(current.node, current.layout, commits.focusPath())
-      ?.renderNode.kind === 'passwordInput';
+    const focused = findRenderNodeFocusTarget(current.node, current.layout, commits.focusPath())?.renderNode;
+    return focused?.kind === 'component' && focused.definition.sensitiveInput;
   }
 
   function completeReduction(

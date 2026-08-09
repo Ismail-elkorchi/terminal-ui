@@ -61,9 +61,9 @@ test('tabs keep active markers disabled targets and overflow visible without col
     id: 'tabs',
     selected: 'alpha',
     tabs: [
-      { id: 'alpha', label: 'Alpha', panel: text('Alpha panel') },
-      { id: 'beta', label: 'Beta', disabled: true, panel: text('Beta panel') },
-      { id: 'gamma', label: 'Gamma', panel: text('Gamma panel') }
+      { id: 'alpha', label: 'Alpha', panel: text({ content: 'Alpha panel' }) },
+      { id: 'beta', label: 'Beta', disabled: true, panel: text({ content: 'Beta panel' }) },
+      { id: 'gamma', label: 'Gamma', panel: text({ content: 'Gamma panel' }) }
     ],
     onAction: (action) => ({ kind: 'tabs', action })
   }), { columns: 14, rows: 3 }, { theme: noColorTheme });
@@ -80,16 +80,16 @@ test('tabs keep the selected tab visible when headers overflow', () => {
     id: 'tabs',
     selected: 'gamma',
     tabs: [
-      { id: 'alpha', label: 'Alpha', panel: text('Alpha panel') },
-      { id: 'beta', label: 'Beta', panel: text('Beta panel') },
+      { id: 'alpha', label: 'Alpha', panel: text({ content: 'Alpha panel' }) },
+      { id: 'beta', label: 'Beta', panel: text({ content: 'Beta panel' }) },
       {
         id: 'gamma',
         label: 'Gamma',
         badge: '2',
         closable: true,
-        panel: text('Gamma panel')
+        panel: text({ content: 'Gamma panel' })
       },
-      { id: 'delta', label: 'Delta', panel: text('Delta panel') }
+      { id: 'delta', label: 'Delta', panel: text({ content: 'Delta panel' }) }
     ],
     onAction: (action) => ({ kind: 'tabs', action })
   }), { columns: 15, rows: 3 }, { theme: noColorTheme });
@@ -114,8 +114,8 @@ test('tabs paint a complete strip and raise the selected tab', () => {
     id: 'painted-tabs',
     selected: 'second',
     tabs: [
-      { id: 'first', label: 'First', panel: text('First panel') },
-      { id: 'second', label: 'Second', closable: true, panel: text('Second panel') }
+      { id: 'first', label: 'First', panel: text({ content: 'First panel' }) },
+      { id: 'second', label: 'Second', closable: true, panel: text({ content: 'Second panel' }) }
     ],
     onAction: (action) => action
   }), { columns: 24, rows: 3 }, { theme: defaultTheme });
@@ -154,9 +154,9 @@ test('tabs bound individual labels without losing close actions or accessible na
         id: 'long',
         label: 'A very long document name',
         closable: true,
-        panel: text('Long panel')
+        panel: text({ content: 'Long panel' })
       },
-      { id: 'short', label: 'Short', panel: text('Short panel') }
+      { id: 'short', label: 'Short', panel: text({ content: 'Short panel' }) }
     ],
     onAction: (action) => ({ kind: 'tabs', action })
   }), { columns: 30, rows: 3 });
@@ -175,7 +175,7 @@ test('a one-cell tab limit prioritizes the close action over decoration', () => 
     id: 'minimal-tab',
     selected: 'only',
     maxTabWidth: 1,
-    tabs: [{ id: 'only', label: 'Only', closable: true, panel: text('Panel') }],
+    tabs: [{ id: 'only', label: 'Only', closable: true, panel: text({ content: 'Panel' }) }],
     onAction: (action) => ({ kind: 'tabs', action })
   }), { columns: 8, rows: 2 });
 
@@ -188,8 +188,8 @@ test('tab controls preserve one-cell geometry under ambiguous-wide profiles', ()
     id: 'fixed-cell-tabs',
     selected: 'second',
     tabs: [
-      { id: 'first', label: 'First', panel: text('First panel') },
-      { id: 'second', label: 'Second', closable: true, panel: text('Second panel') }
+      { id: 'first', label: 'First', panel: text({ content: 'First panel' }) },
+      { id: 'second', label: 'Second', closable: true, panel: text({ content: 'Second panel' }) }
     ],
     onAction: (action) => ({ kind: 'tabs', action })
   });

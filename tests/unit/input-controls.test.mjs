@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { rangeSliderReducer } from '../../dist/behavior/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
@@ -29,7 +30,7 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
       id: 'switch',
       label: 'Live updates',
       checked: true,
-      onChange: () => ({ kind: 'toggle' })
+      onAction: () => ({ kind: 'toggle' })
     }),
     slider({
       id: 'slider',
@@ -38,8 +39,7 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
       min: 0,
       max: 100,
       width: 11,
-      onStep: ({ direction }) => ({ kind: direction === 'decrement' ? 'volumeDown' : 'volumeUp' }),
-      onChange: (value) => ({ kind: 'volume', value })
+      onAction: (action) => ({ kind: 'volume', action })
     }),
     rangeSlider({
       id: 'range',
@@ -66,7 +66,7 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.role, 'slider');
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.selected, undefined);
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.numericValue?.current, 20);
-  assert.equal(frame.cells.find((cell) => cell.source?.description === 'switch.track')?.source?.elementKind, 'toggleSwitch');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'switch.track')?.source?.elementKind, 'terminal-ui/components/toggle-switch');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'switch.track')?.text, '━');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'slider' && cell.text === '●')?.source?.description, 'track.handle');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'range' && cell.source?.description === 'track.startHandle')?.text, '●');
@@ -75,20 +75,20 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
 
 test('slider controls reject invalid caller-supplied numeric contracts consistently', () => {
   const validRangeState = { value: { start: 10, end: 20 }, activeHandle: 'start' };
-  assert.throws(() => slider({ id: 'nan-slider', value: Number.NaN, onChange: () => undefined }), /value must be finite/u);
-  assert.throws(() => slider({ id: 'bounds-slider', value: 1, min: 2, max: 1, onChange: () => undefined }), /finite ordered bounds/u);
-  assert.throws(() => slider({ id: 'step-slider', value: 1, step: 0, onChange: () => undefined }), /step must be finite and greater than zero/u);
-  assert.throws(() => slider({ id: 'width-slider', value: 1, width: 1.5, onChange: () => undefined }), /width must be a positive safe integer/u);
+  assert.throws(() => slider({ id: 'nan-slider', label: '', value: Number.NaN, onAction: () => null }), /value must be finite/u);
+  assert.throws(() => slider({ id: 'bounds-slider', label: '', value: 1, min: 2, max: 1, onAction: () => null }), /finite ordered bounds/u);
+  assert.throws(() => slider({ id: 'step-slider', label: '', value: 1, step: 0, onAction: () => null }), /step must be finite and greater than zero/u);
+  assert.throws(() => slider({ id: 'width-slider', label: '', value: 1, width: 1.5, onAction: () => null }), /width must be a positive safe integer/u);
   assert.throws(
-    () => rangeSlider({ id: 'nan-range', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' }, onAction: () => undefined }),
+    () => rangeSlider({ id: 'nan-range', label: '', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
     /value must be finite/u
   );
   assert.throws(
-    () => rangeSlider({ id: 'ordered-range', state: { value: { start: 20, end: 10 }, activeHandle: 'start' }, onAction: () => undefined }),
+    () => rangeSlider({ id: 'ordered-range', label: '', state: { value: { start: 20, end: 10 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
     /start value must be less than or equal/u
   );
   assert.throws(
-    () => rangeSlider({ id: 'width-range', state: validRangeState, width: 0, onAction: () => undefined }),
+    () => rangeSlider({ id: 'width-range', label: '', state: validRangeState, width: 0, onAction: () => ignoreMessage() }),
     /width must be a positive safe integer/u
   );
 });
@@ -100,10 +100,11 @@ test('slider generated bindings use normalized arrow-key identities', async () =
     update: (_state, message) => ({ state: { value: message.value } }),
     view: (state) => slider({
       id: 'volume',
+      label: '',
       value: state.value,
       min: 0,
       max: 10,
-      onChange: (value) => ({ value })
+      onAction: (action) => ({ value: action.kind === 'change' ? action.value : state.value })
     })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
@@ -141,6 +142,7 @@ test('rangeSlider pointer capture preserves the pressed handle and arrow keys us
     }),
     view: (state) => rangeSlider({
       id: 'window',
+      label: '',
       state: state.range,
       range: options.range,
       step: options.step,
@@ -274,16 +276,18 @@ test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
   const colorFrame = renderElementFrame(colorSwatchPicker({
     id: 'wide-colors',
+    label: '',
     columns: 1,
     options: [{ id: 'dots', label: '··', value: 'dots', swatch: 'x' }],
-    onAction: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 20, rows: 2 }, { widthProfile });
   const calendarFrame = renderElementFrame(calendar({
     id: 'wide-calendar',
+    label: '',
     monthLabel: 'Month',
     weekdays: ['··', '··', '··', '··', '··', '··', '··'],
     days: [],
-    onAction: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 32, rows: 3 }, { widthProfile });
 
   assert.equal(
@@ -304,6 +308,7 @@ test('picker swatches remain inside their fixed cell budget under ambiguous-wide
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
   const frame = renderElementFrame(colorSwatchPicker({
     id: 'wide-swatch',
+    label: '',
     columns: 2,
     options: [
       { id: 'first', label: 'First', value: 1, swatch: '■' },
@@ -329,7 +334,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
       label: 'Agree',
       checked: true,
       required: true,
-      onChange: () => undefined
+      onAction: () => ignoreMessage()
     }),
     slider({
       id: 'volume',
@@ -338,7 +343,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
       min: 0,
       max: 100,
       width: 5,
-      onChange: () => undefined
+      onAction: () => null
     }),
     select({
       id: 'region',
@@ -346,15 +351,16 @@ test('form controls keep state visible in high contrast and no-color rendering m
       placeholder: 'Select region',
       presentation: { kind: 'closed' },
       options: [{ id: 'eu', label: 'Europe', value: 'eu' }],
-      onAction: () => undefined
+      onAction: () => ignoreMessage()
     }),
     calendar({
       id: 'calendar',
+      label: '',
       ...calendarFixture({
         selected: { year: 2026, month: 6, day: 2 },
         today: { year: 2026, month: 6, day: 2 }
       }),
-      onAction: () => undefined
+      onAction: () => ignoreMessage()
     })
   ], { gap: 1 });
   const frame = renderElementFrame(element, { columns: 32, rows: 14 }, { theme: highContrastTheme });
@@ -381,7 +387,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
 
 test('controls clipped to an empty layout region expose no pointer targets', () => {
   const frame = renderElementFrame(column([
-    checkbox({ id: 'visible', label: 'Visible', checked: false, onChange: () => undefined }),
+    checkbox({ id: 'visible', label: 'Visible', checked: false, onAction: () => ignoreMessage() }),
     select({
       id: 'clipped-select',
       label: 'Clipped',

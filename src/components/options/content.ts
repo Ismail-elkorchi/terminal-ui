@@ -1,5 +1,6 @@
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type {
   CompleteListCollection,
@@ -36,7 +37,7 @@ import type {
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../../ui-model/content.ts';
-import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions, ElementTextRole } from '../../element/metadata.ts';
+import type { ElementOptions, ElementTextRole } from '../../element/metadata.ts';
 import type {
   DataListStylePart,
   DisclosureStylePart,
@@ -47,8 +48,11 @@ import type {
   TreeStylePart
 } from '../../ui-model/style-parts.ts';
 import type { DisclosureAction } from '../../ui-model/disclosure.ts';
+import type { ComponentMetadataOptions } from '../../component/index.ts';
+import type { Element, ElementMessage } from '../../element/index.ts';
 
 export interface TextOptions extends ElementOptions<TextStylePart> {
+  readonly content: string;
   readonly textRole?: ElementTextRole;
 }
 
@@ -57,36 +61,44 @@ export interface RichTextOptions extends ElementOptions<TextStylePart> {
   readonly wrap?: boolean;
 }
 
-interface DisclosureOptionsBase<TMessage>
-  extends InteractiveElementOptions<DisclosureStylePart, TMessage> {
+interface DisclosureOptionsBase<TChild extends Element<unknown>> {
+  readonly id: string;
   readonly label: string;
   readonly summary?: InlineContent;
   readonly expanded: boolean;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], DisclosureStylePart>;
+  readonly slots: { readonly content: TChild };
 }
 
-export interface ActiveDisclosureOptions<TMessage>
-  extends DisclosureOptionsBase<TMessage> {
+export interface ActiveDisclosureOptions<TMessage, TChild extends Element<unknown>>
+  extends DisclosureOptionsBase<TChild> {
   readonly disabled?: false;
-  readonly onAction: (action: DisclosureAction) => TMessage;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly onAction: (action: DisclosureAction) => MessageResolution<TMessage>;
 }
 
-export interface DisabledDisclosureOptions
-  extends DisclosureOptionsBase<never> {
+export interface DisabledDisclosureOptions<TChild extends Element<unknown>>
+  extends DisclosureOptionsBase<TChild> {
   readonly disabled: true;
   readonly onAction?: never;
-  readonly keys?: never;
-  readonly pointer?: never;
 }
 
-export type DisclosureOptions<TMessage = never> =
-  | ActiveDisclosureOptions<TMessage>
-  | DisabledDisclosureOptions;
+export type DisclosureOptions<
+  TMessage = never,
+  TChild extends Element<unknown> = Element
+> =
+  | ActiveDisclosureOptions<TMessage, TChild>
+  | DisabledDisclosureOptions<TChild>;
 
-interface ListCommonOptions<TMessage> extends InteractiveElementOptions<DataListStylePart, TMessage> {
+export type DisclosureMessage<
+  TMessage,
+  TChild extends Element<unknown>
+> = TMessage | ElementMessage<TChild>;
+
+type ListCommonOptions<TValue> = ElementOptions<DataListStylePart> & ListDataOptions<TValue> & {
+  readonly id: string;
   readonly selectedId?: string;
-  readonly keys?: ElementKeyBindings<TMessage>;
-}
+  readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
+};
 
 type ListDataOptions<TValue> =
   | {
@@ -108,30 +120,30 @@ type ListDataOptions<TValue> =
       readonly filterQuery?: never;
     };
 
-type ListBaseOptions<TValue, TMessage> = ListCommonOptions<TMessage> & ListDataOptions<TValue>;
-
 export type ListOptions<TValue, TMessage = never> =
   | PassiveListOptions<TValue, TMessage>
   | ScrollableListOptions<TValue, TMessage>;
 
-export type PassiveListOptions<TValue, TMessage = never> = ListBaseOptions<TValue, TMessage> & {
+export type PassiveListOptions<TValue, TMessage = never> = ListCommonOptions<TValue> & {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
-  readonly onAction?: (action: ListControlAction) => TMessage;
+  readonly onAction?: (action: ListControlAction) => MessageResolution<TMessage>;
 };
 
-export type ScrollableListOptions<TValue, TMessage = never> = ListBaseOptions<TValue, TMessage> & {
+export type ScrollableListOptions<TValue, TMessage = never> = ListCommonOptions<TValue> & {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction: (action: ListAction) => TMessage;
+  readonly onAction: (action: ListAction) => MessageResolution<TMessage>;
 };
 
-interface TreeCommonOptions<TMessage> extends InteractiveElementOptions<TreeStylePart, TMessage> {
+interface TreeCommonOptions {
+  readonly id: string;
   readonly selected?: string;
   readonly emptyText?: string;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], TreeStylePart>;
 }
 
 type TreeDataOptions<TMetadata extends Readonly<Record<string, unknown>>> =
@@ -146,10 +158,7 @@ type TreeDataOptions<TMetadata extends Readonly<Record<string, unknown>>> =
       readonly filterQuery?: never;
     };
 
-type TreeBaseOptions<
-  TMetadata extends Readonly<Record<string, unknown>>,
-  TMessage
-> = TreeCommonOptions<TMessage> & TreeDataOptions<TMetadata>;
+type TreeBaseOptions<TMetadata extends Readonly<Record<string, unknown>>> = TreeCommonOptions & TreeDataOptions<TMetadata>;
 
 export type TreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
@@ -159,29 +168,31 @@ export type TreeOptions<
 export type PassiveTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
   TMessage = never
-> = TreeBaseOptions<TMetadata, TMessage> & {
+> = TreeBaseOptions<TMetadata> & {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
-  readonly onAction?: (action: TreeControlAction) => TMessage;
+  readonly onAction?: (action: TreeControlAction) => MessageResolution<TMessage>;
 };
 
 export type ScrollableTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
   TMessage = never
-> = TreeBaseOptions<TMetadata, TMessage> & {
+> = TreeBaseOptions<TMetadata> & {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction: (action: TreeInteractionAction) => TMessage;
+  readonly onAction: (action: TreeInteractionAction) => MessageResolution<TMessage>;
 };
 
-interface TableCommonOptions<TRow, TMessage> extends InteractiveElementOptions<TableStylePart, TMessage> {
+interface TableCommonOptions<TRow> {
+  readonly id: string;
   readonly columns?: readonly TableColumn<TRow>[];
   readonly density?: ComponentDensity;
   readonly stickyHeader?: boolean;
   readonly emptyText?: string;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], TableStylePart>;
 }
 
 type TableDataOptions<TRow> =
@@ -196,35 +207,37 @@ type TableDataOptions<TRow> =
       readonly getRowId?: never;
     };
 
-type TableBaseOptions<TRow, TMessage> = TableCommonOptions<TRow, TMessage> & TableDataOptions<TRow>;
+type TableBaseOptions<TRow> = TableCommonOptions<TRow> & TableDataOptions<TRow>;
 
 export type TableOptions<TRow, TMessage = never> =
   | PassiveTableOptions<TRow, TMessage>
   | ScrollableTableOptions<TRow, TMessage>;
 
-export type PassiveTableOptions<TRow, TMessage = never> = TableBaseOptions<TRow, TMessage> & {
+export type PassiveTableOptions<TRow, TMessage = never> = TableBaseOptions<TRow> & {
   readonly presentation?: TablePresentation;
-  readonly onAction?: (action: TableControlAction) => TMessage;
+  readonly onAction?: (action: TableControlAction) => MessageResolution<TMessage>;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 };
 
-export type ScrollableTableOptions<TRow, TMessage = never> = TableBaseOptions<TRow, TMessage> & {
+export type ScrollableTableOptions<TRow, TMessage = never> = TableBaseOptions<TRow> & {
   readonly presentation: TableScrollablePresentation;
-  readonly onAction: (action: TableAction) => TMessage;
+  readonly onAction: (action: TableAction) => MessageResolution<TMessage>;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 };
 
-export interface PaginatorOptions<TMessage = never> extends InteractiveElementOptions<PaginatorStylePart, TMessage> {
+export interface PaginatorOptions<TMessage = never> {
+  readonly id: string;
   readonly pageNumber: number;
   readonly pageCount: number;
   readonly label?: string;
-  readonly onAction: (action: PaginatorAction) => TMessage;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly onAction: (action: PaginatorAction) => MessageResolution<TMessage>;
+  readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], PaginatorStylePart>;
 }
 
-interface TextAreaBaseOptions extends ElementOptions<TextAreaStylePart> {
+interface TextAreaBaseOptions {
   readonly id: string;
   readonly highlights?: readonly TextAreaHighlight[];
   readonly placeholder?: string;
@@ -233,19 +246,8 @@ interface TextAreaBaseOptions extends ElementOptions<TextAreaStylePart> {
   readonly wrap?: boolean | TextAreaWrapOptions;
   readonly required?: boolean;
   readonly error?: string;
-}
-
-interface ActiveTextAreaInteraction<TMessage>
-  extends InteractiveElementOptions<TextAreaStylePart, TMessage> {
-  readonly disabled?: false;
-  readonly keys?: ElementKeyBindings<TMessage>;
-}
-
-interface DisabledTextAreaInteraction {
-  readonly disabled: true;
-  readonly onAction?: never;
-  readonly keys?: never;
-  readonly pointer?: never;
+  readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], TextAreaStylePart>;
 }
 
 export type TextAreaOptions<TMessage = never> =
@@ -255,25 +257,25 @@ export type TextAreaOptions<TMessage = never> =
 
 export type UnscrolledTextAreaOptions<TMessage = never> =
   & TextAreaBaseOptions
-  & ActiveTextAreaInteraction<TMessage>
   & {
+    readonly disabled?: false;
     readonly presentation: Omit<TextAreaPresentation, 'scroll'> & { readonly scroll?: never };
     readonly scrollbar?: never;
     readonly scrollPolicy?: never;
-    readonly onAction?: (action: TextAreaControlAction) => TMessage;
+    readonly onAction: (action: TextAreaControlAction) => MessageResolution<TMessage>;
   };
 
 export type ScrollableTextAreaOptions<TMessage = never> =
   & TextAreaBaseOptions
-  & ActiveTextAreaInteraction<TMessage>
   & {
+    readonly disabled?: false;
     readonly presentation: TextAreaScrollablePresentation;
     readonly scrollbar?: ScrollbarOptions;
     readonly scrollPolicy?: ScrollPolicy;
-    readonly onAction: (action: TextAreaAction) => TMessage;
+    readonly onAction: (action: TextAreaAction) => MessageResolution<TMessage>;
   };
 
-export type DisabledTextAreaOptions = TextAreaBaseOptions & DisabledTextAreaInteraction & (
+export type DisabledTextAreaOptions = TextAreaBaseOptions & { readonly disabled: true; readonly onAction?: never; readonly pointerState?: never } & (
   | {
       readonly presentation: Omit<TextAreaPresentation, 'scroll'> & { readonly scroll?: never };
       readonly scrollbar?: never;

@@ -7,16 +7,16 @@ import {
   createVisualSnapshot
 } from '../../dist/testing/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { logViewerSearchStatistics } from '../../dist/renderer/internal/log-viewer/prepared-data.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
-  appendLogHistory,
   createScrollState,
+  appendLogHistory,
   extractLogViewerSelectionText,
   prepareLogHistory,
   logHistoryEntryAt,
   logViewerSearchMatches
 } from '../../dist/behavior/index.js';
+import { searchLogViewerHistory } from '../../dist/components/factories/log-viewer-data.js';
 import {
   renderFramePlain,
   renderElementFrame
@@ -69,6 +69,29 @@ test('log viewer sanitizes terminal control sequences before rendering and acces
 
   assert.equal(output, 'safe red text');
   assert.equal(frame.accessibility.root.children?.[0]?.value, 'safe red text');
+});
+
+test('log viewer search reuses retained segment results and invalidates only appended segments', () => {
+  const history = prepareLogHistory(Array.from(
+    { length: 100 },
+    (_value, index) => entry(index, `record ${index} searchable`)
+  ));
+  const first = searchLogViewerHistory(history, 'searchable', new Set());
+  const second = searchLogViewerHistory(history, 'searchable', new Set());
+
+  assert.equal(second.matches.length, 100);
+  second.matches.forEach((match, index) => {
+    assert.equal(match, first.matches[index]);
+  });
+
+  const appended = appendLogHistory(history, [{ id: 'new-record', text: 'searchable append' }]);
+  const afterAppend = searchLogViewerHistory(appended, 'searchable', new Set());
+
+  assert.equal(afterAppend.matches.length, 101);
+  first.matches.forEach((match, index) => {
+    assert.equal(afterAppend.matches[index], match);
+  });
+  assert.equal(afterAppend.matches.at(-1)?.entryId, 'new-record');
 });
 
 test('log viewer renders timestamp, metadata, and entry styles through visible rows', () => {
@@ -273,31 +296,6 @@ test('log viewer search rejects code-unit substrings inside one grapheme', () =>
     frame.accessibility.root.description,
     'Showing 1-1 of 1 log rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: 👨. Matching entries: 0.'
   );
-});
-
-test('log viewer search reuses retained segment indexes and invalidates only appended segments', () => {
-  const history = prepareLogHistory(Array.from(
-    { length: 100 },
-    (_value, index) => entry(index, `record ${index} searchable`)
-  ));
-  const searched = logViewer({ id: 'retained-search', history, searchQuery: 'searchable' });
-
-  renderElementFrame(searched, { columns: 40, rows: 5 });
-  const afterFirst = logViewerSearchStatistics(history);
-  renderElementFrame(searched, { columns: 40, rows: 5 });
-  const afterSecond = logViewerSearchStatistics(history);
-
-  assert.deepEqual(afterSecond, afterFirst);
-
-  const appended = appendLogHistory(history, [{ id: 'new-record', text: 'searchable append' }]);
-  renderElementFrame(
-    logViewer({ id: 'retained-search-appended', history: appended, searchQuery: 'searchable' }),
-    { columns: 40, rows: 5 }
-  );
-  const afterAppend = logViewerSearchStatistics(appended);
-
-  assert.equal(afterAppend.queryEvaluations - afterSecond.queryEvaluations, 1);
-  assert.equal(afterAppend.recordEvaluations - afterSecond.recordEvaluations, 1);
 });
 
 test('log viewer renders empty and selected text states in high contrast and no color output', () => {

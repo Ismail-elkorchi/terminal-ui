@@ -36,6 +36,10 @@ async function clickAt(runtime, row, column) {
 }
 
 test('list and table reject empty or duplicate stable ids in their factories', () => {
+  const componentTypeError = (error) => error.name === 'ComponentExecutionError'
+    && error.cause instanceof TypeError;
+  const componentRangeError = (error) => error.name === 'ComponentExecutionError'
+    && error.cause instanceof RangeError;
   assert.throws(() => list({
     id: 'duplicate-list',
     items: ['alpha', 'alpha'],
@@ -46,26 +50,26 @@ test('list and table reject empty or duplicate stable ids in their factories', (
     rows: [['alpha']],
     getRowId: () => '',
     columns: [{ id: 'value', header: 'Value', value: (row) => row[0] }]
-  }), /ids must not be empty/u);
+  }), (error) => componentTypeError(error) && /id must be non-empty/u.test(error.cause.message));
   assert.throws(() => table({
     id: 'invalid-column',
     rows: [['alpha']],
     getRowId: () => 'alpha',
     columns: [{ id: 'value', value: (row) => row[0], align: 'left' }]
-  }), TypeError);
+  }), componentTypeError);
   assert.throws(() => table({
     id: 'invalid-width',
     rows: [['alpha']],
     getRowId: () => 'alpha',
     columns: [{ id: 'value', value: (row) => row[0], width: Number.NaN }]
-  }), RangeError);
+  }), componentRangeError);
   assert.throws(() => table({
     id: 'invalid-cell-selection',
     rows: [['alpha']],
     getRowId: () => 'alpha',
     columns: [{ id: 'value', value: (row) => row[0] }],
     presentation: { selectedCell: { rowId: 'alpha', columnIndex: 0.5 } }
-  }), TypeError);
+  }), componentRangeError);
 });
 
 test('table component renders constrained columns and selected rows', () => {
@@ -315,7 +319,7 @@ test('table supports scroll state column sizing styled renderers sort markers em
   assert.match(output, /charlie/u);
   assert.equal(styledScore?.style?.fg?.token, 'status.success');
   assert.equal(styledScore?.source?.description, 'row.1.cell.2');
-  assert.equal(styledScore?.source?.elementKind, 'table');
+  assert.equal(styledScore?.source?.elementKind, 'terminal-ui/components/table');
   assert.equal(sortMarker?.source?.description, 'header.1.sort');
   assert.equal(selectedScore?.style?.bg?.token, 'selection.background');
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.value, 'Name');
@@ -658,7 +662,7 @@ test('table controlled scroll presentation drives the vertical window and scroll
 
   assert.doesNotMatch(output, /alpha/u);
   assert.match(output, /delta/u);
-  assert.doesNotMatch(output, /echo/u);
+  assert.match(output, /echo/u);
   assert.equal(frame.accessibility.root.description, 'Showing 4-5 of 6 rows.');
   assert.equal(frame.cells.filter((cell) =>
     cell.column === 16

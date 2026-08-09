@@ -284,7 +284,7 @@ function cpuPanel(state: MonitorState) {
     gap: 2,
     children: {
       graph: column([
-        text('i7-4770HQ                                             2.5 GHz', { id: 'cpu-caption', textRole: 'metadata' }),
+        text({ content: 'i7-4770HQ                                             2.5 GHz', id: 'cpu-caption', textRole: 'metadata' }),
         chart({
           id: 'cpu-chart',
           label: 'CPU history',
@@ -348,7 +348,7 @@ function corePanel(state: MonitorState) {
 
 function coreList(cores: readonly CoreSample[], id: string) {
   return column(cores.map((core) => row([
-    text(core.core, { id: `${id}-${core.core}-label`, textRole: 'metadata' }),
+    text({ content: core.core, id: `${id}-${core.core}-label`, textRole: 'metadata' }),
     sparkline({
       id: `${id}-${core.core}-spark`,
       label: `${core.core} load history`,
@@ -357,7 +357,7 @@ function coreList(cores: readonly CoreSample[], id: string) {
       max: 100,
       valueScale: monitorScale
     }),
-    text(`${String(core.load).padStart(2, ' ')}% ${String(core.temp)}°C`, { id: `${id}-${core.core}-value`, textRole: 'metric' })
+    text({ content: `${String(core.load).padStart(2, ' ')}% ${String(core.temp)}°C`, id: `${id}-${core.core}-value`, textRole: 'metric' })
   ], {
     id: `${id}-${core.core}`,
     sizes: [{ kind: 'fixed', cells: 3 }, { kind: 'fixed', cells: 9 }, { kind: 'fill' }],
@@ -388,8 +388,8 @@ function memoryRow(
 ) {
   return column([
     row([
-      text(`${label}:`, { id: `${label}-label`, textRole: 'metadata' }),
-      text(`${String(value)} ${unit}`, { id: `${label}-value`, textRole: 'metric' })
+      text({ content: `${label}:`, id: `${label}-label`, textRole: 'metadata' }),
+      text({ content: `${String(value)} ${unit}`, id: `${label}-value`, textRole: 'metric' })
     ], { id: `${label}-header`, sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     progressBar({
       id: `${label}-bar`,
@@ -420,8 +420,8 @@ function disksPanel() {
 function storageRow(name: string, used: number, usedText: string, freeText: string) {
   return column([
     row([
-      text(name, { id: `${name}-name`, textRole: 'metadata' }),
-      text(`${usedText} used`, { id: `${name}-used`, textRole: 'metric' })
+      text({ content: name, id: `${name}-name`, textRole: 'metadata' }),
+      text({ content: `${usedText} used`, id: `${name}-used`, textRole: 'metric' })
     ], { id: `${name}-heading`, sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     progressBar({
       id: `${name}-used-row`,
@@ -441,7 +441,7 @@ function storageRow(name: string, used: number, usedText: string, freeText: stri
       valueScale: monitorScale,
       status: 'running'
     }),
-    text(`free: ${freeText}`, { id: `${name}-free-text`, textRole: 'metadata' })
+    text({ content: `free: ${freeText}`, id: `${name}-free-text`, textRole: 'metadata' })
   ], { id: `${name}-storage`, gap: 0 });
 }
 
@@ -476,8 +476,8 @@ function networkPanel(state: MonitorState) {
       stats: column([
         structuredLine('download', '▼ 474 Byte/s', 'Top: 717 Kibps'),
         structuredLine('upload', '▲ 2.64 KiB/s', 'Top: 54.8 Kibps'),
-        text('Total: 1.51 GiB', { id: 'net-total-down', textRole: 'metadata' }),
-        text('Total: 530 MiB', { id: 'net-total-up', textRole: 'metadata' })
+        text({ content: 'Total: 1.51 GiB', id: 'net-total-down', textRole: 'metadata' }),
+        text({ content: 'Total: 530 MiB', id: 'net-total-up', textRole: 'metadata' })
       ], { id: 'net-stats', gap: 1 })
     }
   }), {
@@ -490,9 +490,9 @@ function networkPanel(state: MonitorState) {
 
 function structuredLine(label: string, first: string, second: string) {
   return column([
-    text(label, { id: `${label}-label`, textRole: 'heading' }),
-    text(first, { id: `${label}-first`, textRole: 'metric' }),
-    text(second, { id: `${label}-second`, textRole: 'metadata' })
+    text({ content: label, id: `${label}-label`, textRole: 'heading' }),
+    text({ content: first, id: `${label}-first`, textRole: 'metric' }),
+    text({ content: second, id: `${label}-second`, textRole: 'metadata' })
   ], { id: `${label}-stats`, gap: 0 });
 }
 

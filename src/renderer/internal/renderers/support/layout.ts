@@ -1,7 +1,7 @@
 import type { ElementOverflowPriority } from '../../../../element/metadata.ts';
 import { isNonArrayObject } from '../../../../foundation/validation.ts';
 import type { RenderNode, RenderNodeOfKind, RenderNodesOfKind } from '../../../model/index.ts';
-import { layoutContentBounds, splitTracks } from '../../layout-geometry.ts';
+import { layoutContentBounds, splitTracks } from '../../../../geometry/layout.ts';
 import { emptyRect } from './common.ts';
 import type { Rect } from '../../../contracts.ts';
 import type {
@@ -20,7 +20,7 @@ type SplitPaneNode = RenderNodeOfKind<unknown, 'splitPane'>;
 type SizedFlowNode = RenderNodesOfKind<unknown, 'column' | 'row'>;
 type LayoutFlowNode = RenderNodesOfKind<
   unknown,
-  'column' | 'dialog' | 'field' | 'form' | 'grid' | 'row' | 'splitPane' | 'surface' | 'tabs' | 'viewport'
+  'column' | 'grid' | 'row' | 'splitPane' | 'surface' | 'viewport'
 >;
 
 type MeasureChild = (index: number) => Measurement;

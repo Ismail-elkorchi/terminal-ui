@@ -9,4 +9,5 @@ export interface TextInputPresentation {
 
 export type TextInputAction =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }
-  | { readonly kind: 'pointer'; readonly action: TextPointerAction };
+  | { readonly kind: 'pointer'; readonly action: TextPointerAction }
+  | { readonly kind: 'submit'; readonly value: string };

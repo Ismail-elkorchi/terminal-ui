@@ -18,6 +18,7 @@ import {
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.ts';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 test('testing harness records input and output deterministically', async () => {
   const harness = createTerminalHarness();
@@ -106,7 +107,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
     view: (state) => textInput({
       id: 'submit',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onSubmit: () => ({ submitted: true })
+      onAction: (action) => action.kind === 'submit' ? { submitted: true } : ignoreMessage()
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -214,7 +215,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     view: (_state, context) => textInput({
       id: 'resize-field',
       presentation: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
-      onSubmit: () => ({ done: true })
+      onAction: (action) => action.kind === 'submit' ? { done: true } : ignoreMessage()
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -248,7 +249,6 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     tree({
       id: 'tree',
       selected: 'child',
-      keys: { enter: () => ({ kind: 'confirm' }) },
       nodes: [
         {
           id: 'root',
@@ -263,7 +263,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     button({
       id: 'confirm',
       label: 'Confirm',
-      onPress: () => ({ kind: 'confirm' })
+      onAction: () => ({ kind: 'confirm' })
     })
   ]), { columns: 24, rows: 9 });
   harness.recordCommit({

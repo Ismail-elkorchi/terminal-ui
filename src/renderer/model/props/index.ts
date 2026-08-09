@@ -1,49 +1,6 @@
 import type {
-  ListRenderProps,
-  DisclosureRenderProps,
-  PaginatorRenderProps,
-  RichTextRenderProps,
-  TableRenderProps,
-  TextAreaRenderProps,
-  TextRenderProps,
-  TreeRenderProps
-} from './content.ts';
-import type {
-  CommandInputRenderProps,
-  SearchPickerRenderProps,
-  LogViewerRenderProps,
   ViewportRenderProps
 } from './documents.ts';
-import type {
-  ActivityIndicatorRenderProps,
-  BarChartRenderProps,
-  ChartRenderProps,
-  MeterRenderProps,
-  HeatmapRenderProps,
-  HelpBarRenderProps,
-  NotificationHistoryRenderProps,
-  NotificationRegionRenderProps,
-  ProgressBarRenderProps,
-  SparklineRenderProps,
-  StatusBarRenderProps
-} from './feedback.ts';
-import type {
-  ButtonRenderProps,
-  CheckboxGroupRenderProps,
-  CheckboxRenderProps,
-  ColorSwatchPickerRenderProps,
-  CalendarRenderProps,
-  FieldRenderProps,
-  FormRenderProps,
-  LabelRenderProps,
-  NumberInputRenderProps,
-  RadioGroupRenderProps,
-  RangeSliderRenderProps,
-  SelectRenderProps,
-  SliderRenderProps,
-  TextInputRenderProps,
-  ToggleSwitchRenderProps
-} from './forms.ts';
 import type {
   GridRenderProps,
   ColumnRenderProps,
@@ -51,96 +8,40 @@ import type {
   MeasuredColumnRenderProps,
   SplitPaneRenderProps
 } from './layout.ts';
-import type { DialogRenderProps } from './dialog.ts';
-import type { TabsRenderProps } from './tabs.ts';
-import type {
-  ContextMenuRenderProps,
-  DividerRenderProps,
-  DropdownMenuRenderProps,
-  MenuBarRenderProps,
-  MenuRenderProps,
-  TooltipRenderProps
-} from './menus.ts';
 import type {
   AbsoluteRenderProps,
   AnchoredRenderProps,
-  CanvasRenderProps,
+  PortalRenderProps,
   SurfaceRenderProps
 } from './surfaces.ts';
 
 export interface RenderNodePropsByKind<TMessage> {
-  readonly text: TextRenderProps;
-  readonly richText: RichTextRenderProps;
-  readonly disclosure: DisclosureRenderProps<TMessage>;
   readonly column: ColumnRenderProps;
   readonly row: ColumnRenderProps;
   readonly flow: FlowRenderProps;
   readonly measuredColumn: MeasuredColumnRenderProps;
-  readonly list: ListRenderProps<TMessage>;
-  readonly table: TableRenderProps<TMessage>;
-  readonly tree: TreeRenderProps<TMessage>;
-  readonly paginator: PaginatorRenderProps<TMessage>;
-  readonly textArea: TextAreaRenderProps<TMessage>;
-  readonly form: FormRenderProps;
-  readonly field: FieldRenderProps;
-  readonly label: LabelRenderProps;
-  readonly button: ButtonRenderProps<TMessage>;
-  readonly checkbox: CheckboxRenderProps<TMessage>;
-  readonly toggleSwitch: ToggleSwitchRenderProps<TMessage>;
-  readonly slider: SliderRenderProps<TMessage>;
-  readonly rangeSlider: RangeSliderRenderProps<TMessage>;
-  readonly checkboxGroup: CheckboxGroupRenderProps<TMessage>;
-  readonly colorSwatchPicker: ColorSwatchPickerRenderProps<TMessage>;
-  readonly calendar: CalendarRenderProps<TMessage>;
-  readonly radioGroup: RadioGroupRenderProps<TMessage>;
-  readonly select: SelectRenderProps<TMessage>;
-  readonly textInput: TextInputRenderProps<TMessage>;
-  readonly passwordInput: TextInputRenderProps<TMessage>;
-  readonly numberInput: NumberInputRenderProps<TMessage>;
-  readonly menu: MenuRenderProps<TMessage>;
-  readonly menuBar: MenuBarRenderProps<TMessage>;
-  readonly contextMenu: ContextMenuRenderProps<TMessage>;
-  readonly dropdownMenu: DropdownMenuRenderProps<TMessage>;
-  readonly divider: DividerRenderProps;
-  readonly tooltip: TooltipRenderProps;
-  readonly notificationRegion: NotificationRegionRenderProps<TMessage>;
-  readonly notificationHistory: NotificationHistoryRenderProps<TMessage>;
-  readonly canvas: CanvasRenderProps;
   readonly surface: SurfaceRenderProps;
   readonly absolute: AbsoluteRenderProps;
   readonly anchored: AnchoredRenderProps;
+  readonly portal: PortalRenderProps<TMessage>;
   readonly overlay: Record<never, never>;
-  readonly statusBar: StatusBarRenderProps;
-  readonly helpBar: HelpBarRenderProps;
-  readonly activityIndicator: ActivityIndicatorRenderProps;
-  readonly progressBar: ProgressBarRenderProps;
-  readonly sparkline: SparklineRenderProps;
-  readonly barChart: BarChartRenderProps<TMessage>;
-  readonly chart: ChartRenderProps<TMessage>;
-  readonly meter: MeterRenderProps;
-  readonly heatmap: HeatmapRenderProps<TMessage>;
   readonly viewport: ViewportRenderProps<TMessage>;
-  readonly logViewer: LogViewerRenderProps<TMessage>;
-  readonly commandInput: CommandInputRenderProps<TMessage>;
-  readonly searchPicker: SearchPickerRenderProps<TMessage>;
   readonly grid: GridRenderProps;
   readonly splitPane: SplitPaneRenderProps<TMessage>;
-  readonly tabs: TabsRenderProps<TMessage>;
-  readonly dialog: DialogRenderProps<TMessage>;
-  readonly component: DefinedComponentRenderProps;
+  readonly component: ComponentRenderProps;
 }
 
-export interface DefinedComponentRenderProps {
+export interface ComponentRenderProps {
   readonly options: Readonly<Record<string, unknown>>;
+  readonly slots: readonly {
+    readonly name: string;
+    readonly start: number;
+    readonly count: number;
+    readonly accessiblePaths: readonly (readonly number[])[];
+  }[];
   readonly toActionMessage?: (action: unknown) => unknown;
 }
 
-export type * from './content.ts';
-export type * from './dialog.ts';
 export type * from './documents.ts';
-export type * from './feedback.ts';
-export type * from './forms.ts';
 export type * from './layout.ts';
-export type * from './menus.ts';
 export type * from './surfaces.ts';
-export type * from './tabs.ts';

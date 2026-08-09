@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
 import { prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
   renderFramePlain,
@@ -50,10 +51,15 @@ import {
 const noMessage = () => undefined;
 
 function button(options) {
+  const { pointer, ...componentOptions } = options;
   return createButton(
     options.disabled === true
-      ? options
-      : { onPress: noMessage, ...options }
+      ? componentOptions
+      : {
+          onAction: noMessage,
+          ...componentOptions,
+          ...(pointer?.state === undefined ? {} : { pointerState: pointer.state })
+        }
   );
 }
 
@@ -65,19 +71,19 @@ function textInput(options) {
 
 function checkbox(options) {
   return createCheckbox(
-    options.disabled === true ? options : { onChange: noMessage, ...options }
+    options.disabled === true ? options : { onAction: noMessage, ...options }
   );
 }
 
 function toggleSwitch(options) {
   return createToggleSwitch(
-    options.disabled === true ? options : { onChange: noMessage, ...options }
+    options.disabled === true ? options : { onAction: noMessage, ...options }
   );
 }
 
 function slider(options) {
   return createSlider(
-    options.disabled === true ? options : { onChange: noMessage, ...options }
+    options.disabled === true ? options : { onAction: noMessage, ...options }
   );
 }
 
@@ -122,7 +128,6 @@ function searchPicker(options) {
 function commandInput(options) {
   return createCommandInput({
     onAction: noMessage,
-    onSubmit: noMessage,
     ...options
   });
 }
@@ -182,7 +187,7 @@ test('button states use shared styles and structural markers', () => {
     id: 'pending',
     label: 'Sync',
     busy: true,
-    onPress: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 16, rows: 1 });
   const destructiveFrame = renderElementFrame(button({
     id: 'destructive',
@@ -192,7 +197,7 @@ test('button states use shared styles and structural markers', () => {
   const pressedFrame = renderElementFrame(button({
     id: 'pressed',
     label: 'Pinned',
-    pointer: { state: { pressedTargetId: 'pressed:control' } }
+    pointerState: { pressedTargetId: 'pressed:control' }
   }), { columns: 18, rows: 1 });
   const disabledFrame = renderElementFrame(button({
     id: 'disabled',
@@ -234,7 +239,7 @@ test('ghost buttons inherit their surface until interaction makes them visible',
     id: 'ghost-hovered',
     label: 'History',
     tone: 'ghost',
-    pointer: { state: { hoveredTargetId: 'ghost-hovered:control' } },
+    pointerState: { hoveredTargetId: 'ghost-hovered:control' },
     meta: { focus: { disabled: true } }
   }), {
     id: 'ghost-hovered-surface',
@@ -260,22 +265,22 @@ test('controlled pointer interaction resolves styles and source state across com
     label: 'Enabled',
     checked: false,
     meta: { focus: { disabled: true } },
-    pointer: { state: { hoveredTargetId: 'check:control' } }
+    pointerState: { hoveredTargetId: 'check:control' }
   }), { columns: 20, rows: 1 });
   const listFrame = renderElementFrame(list({
     id: 'items',
     items: ['Alpha', 'Beta'],
     projectItem: (item) => ({ id: item, label: item }),
-    pointer: { state: { hoveredTargetId: 'items:option:Beta' } }
+    pointerState: { hoveredTargetId: 'items:option:Beta' }
   }), { columns: 20, rows: 2 });
   const tabFrame = renderElementFrame(tabs({
     id: 'views',
     selected: 'one',
     tabs: [
-      { id: 'one', label: 'One', panel: text('One') },
-      { id: 'two', label: 'Two', panel: text('Two') }
+      { id: 'one', label: 'One', panel: text({ content: 'One' }) },
+      { id: 'two', label: 'Two', panel: text({ content: 'Two' }) }
     ],
-    pointer: { state: { pressedTargetId: 'views:tab:two' } }
+    pointerState: { pressedTargetId: 'views:tab:two' }
   }), { columns: 24, rows: 2 });
   const menuFrame = renderElementFrame(menu({
     id: 'actions',
@@ -286,27 +291,26 @@ test('controlled pointer interaction resolves styles and source state across com
         { kind: 'action', id: 'save', label: 'Save' }
       ]
     },
-    pointer: { state: { hoveredTargetId: 'actions:save' } }
+    pointerState: { hoveredTargetId: 'actions:item:save' }
   }), { columns: 20, rows: 2 });
   const commandFrame = renderElementFrame(commandInput({
     id: 'command',
     presentation: { value: '/o', cursor: 0, suggestions: [{ value: '/open', label: 'Open' }, { value: '/save', label: 'Save' }], selectedSuggestionIndex: 0 },
     display: 'expanded',
     onAction: (action) => action,
-    onSubmit: (value) => value,
-    pointer: { state: { hoveredTargetId: 'command:suggestion:1' } }
+    pointerState: { hoveredTargetId: 'command:suggestion:1' }
   }), { columns: 24, rows: 3 });
   const paginatorFrame = renderElementFrame(paginator({
     id: 'pages',
     pageNumber: 2,
     pageCount: 4,
-    onAction: () => undefined,
-    pointer: { state: { pressedTargetId: 'pages:next' } }
+    onAction: () => ignoreMessage(),
+    pointerState: { pressedTargetId: 'pages:next' }
   }), { columns: 40, rows: 1 });
   const notificationFrame = renderElementFrame(notificationRegion({
     id: 'notices',
     items: [{ id: 'ready', title: 'Ready', tone: 'info' }],
-    pointer: { state: { hoveredTargetId: 'notices:notification:ready' } }
+    pointerState: { hoveredTargetId: 'notices:notification:ready' }
   }), { columns: 30, rows: 6 });
 
   assert.equal(styleFor(checkboxFrame, 'E')?.bg?.token, 'focus.background');
@@ -526,8 +530,8 @@ test('default interactive component anatomy uses theme tokens instead of termina
     id: 'tabs',
     selected: 'one',
     tabs: [
-      { id: 'one', label: 'One', panel: text('One') },
-      { id: 'two', label: 'Two', panel: text('Two') }
+      { id: 'one', label: 'One', panel: text({ content: 'One' }) },
+      { id: 'two', label: 'Two', panel: text({ content: 'Two' }) }
     ]
   }), { columns: 28, rows: 2 });
   const tableFrame = renderElementFrame(table({
@@ -555,11 +559,11 @@ test('default interactive component anatomy uses theme tokens instead of termina
   }), { columns: 32, rows: 6 });
 
   assert.equal(styleForSource(buttonFrame, (source) => source.description === 'label.text')?.fg?.token, 'control.primary.foreground');
-  assert.equal(styleForSource(inputFrame, (source) => source.partName === 'value')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(inputFrame, (source) => source.partName === 'value')?.fg?.token, 'control.foreground');
   assert.equal(styleForSource(commandFrame, (source) => source.partName === 'prompt')?.fg?.token, 'command.prompt');
   assert.equal(styleForSource(commandFrame, (source) => source.partName === 'suggestion.0.label')?.bg?.token, 'selection.background');
-  assert.equal(styleForSource(menuFrame, (source) => source.partName === 'label' && source.itemId === 'open')?.bg?.token, 'selection.background');
-  assert.equal(styleForSource(dropdownMenuFrame, (source) => source.partName === 'dropdownMenu-value')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(menuFrame, (source) => source.partType === 'label' && source.itemId === 'open')?.bg?.token, 'selection.background');
+  assert.equal(styleForSource(dropdownMenuFrame, (source) => source.partName === 'value')?.fg?.token, 'text.strong');
   assert.equal(styleForSource(searchPickerFrame, (source) => source.partName === 'entry.open.label')?.fg?.token, 'text.default');
   assert.equal(searchPickerFrame.cells.find((cell) => cell.row === 4 && cell.column === 36)?.style?.bg?.token, 'selection.background');
   assert.equal(styleForSource(tabsFrame, (source) => source.partName === 'label' && source.itemId === 'one')?.fg?.token, 'tab.active.foreground');
@@ -652,11 +656,10 @@ test('tabs use shared selected disabled and value styles', () => {
   const frame = renderElementFrame(tabs({
     id: 'tabs',
     selected: 'data',
-    keys: { enter: () => ({ kind: 'activate-tabs' }) },
     tabs: [
-      { id: 'dash', label: 'Dash', panel: text('Dashboard') },
-      { id: 'data', label: 'Data', panel: text('Data view') },
-      { id: 'audit', label: 'Audit', disabled: true, panel: text('Audit view') }
+      { id: 'dash', label: 'Dash', panel: text({ content: 'Dashboard' }) },
+      { id: 'data', label: 'Data', panel: text({ content: 'Data view' }) },
+      { id: 'audit', label: 'Audit', disabled: true, panel: text({ content: 'Audit view' }) }
     ],
     meta: {
       styles: {
@@ -687,34 +690,34 @@ test('log viewer omissions and dialog borders use their direct style slots', () 
         }
     }
 }), { columns: 36, rows: 2 });
-  const modalFrame = renderElementFrame(dialog(
-    text('Body'),
-    {
+  const modalFrame = renderElementFrame(dialog({
+    slots: {
+      content: text({ content: 'Body' }),
+      actions: row([button({ id: 'dialog-ok', label: 'OK', onAction: () => ({ kind: 'ok' }) })])
+    },
     id: 'styled-dialog',
     title: 'Panel',
     modal: true,
     focusPolicy: { returnFocus: 'restore' },
     width: 14,
     height: 6,
-    actions: row([button({ id: 'dialog-ok', label: 'OK' })]),
     meta: {
         styles: {
             parts: { border: tokenStyle('status.error') }
         }
     }
-}
-  ), { columns: 16, rows: 5 });
+}), { columns: 16, rows: 5 });
 
   assert.equal(styleFor(logViewerFrame, '.')?.fg?.token, 'status.warning');
   assert.equal(styleFor(modalFrame, '┌')?.fg?.token, 'status.error');
-  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.elementKind === 'dialog' && cell.source.description === 'action-separator')?.fg?.token, 'status.error');
+  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.elementKind === 'terminal-ui/components/divider' && cell.source.partName === 'line')?.fg?.token, 'status.error');
 });
 
 test('structural text roles use shared visual grammar', () => {
   const textFrame = renderElementFrame(column([
-    text('42', { textRole: 'metric' }),
-    text('quiet', { textRole: 'caption' }),
-    text('badge', { textRole: 'badge' })
+    text({ content: '42', textRole: 'metric' }),
+    text({ content: 'quiet', textRole: 'caption' }),
+    text({ content: 'badge', textRole: 'badge' })
   ]), { columns: 16, rows: 4 });
 
   assert.equal(styleFor(textFrame, '4')?.fg?.token, 'accent.primary');
@@ -744,27 +747,21 @@ test('layout surfaces do not inherit component focus state', () => {
 
 test('overflow priority preserves important row content before decorative content', () => {
   const frame = renderElementFrame(row([
-    text('REQUIRED', {
-    meta: {
+    text({ content: 'REQUIRED', meta: {
         layer: {
             overflowPriority: 'required'
         }
-    }
-}),
-    text('secondary', {
-    meta: {
+    } }),
+    text({ content: 'secondary', meta: {
         layer: {
             overflowPriority: 'secondary'
         }
-    }
-}),
-    text('decorative', {
-    meta: {
+    } }),
+    text({ content: 'decorative', meta: {
         layer: {
             overflowPriority: 'decorative'
         }
-    }
-})
+    } })
   ], { gap: 0 }), { columns: 11, rows: 1 });
 
   assert.equal(renderFramePlain(frame).trimEnd(), 'REQUIREDsed');
@@ -816,7 +813,7 @@ test('feedback components use shared status styles and source metadata', () => {
 
   assert.equal(styleFor(statusFrame, 'R')?.fg?.token, 'status.success');
   assert.equal(styleFor(statusFrame, 'R')?.bg?.token, 'surface.bar.background');
-  assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.elementKind, 'statusBar');
+  assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.elementKind, 'terminal-ui/components/status-bar');
   assert.equal(styleFor(helpFrame, 'E')?.fg?.token, 'accent.primary');
   assert.equal(styleFor(helpFrame, 'o')?.bg?.token, 'surface.bar.background');
   assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.description, 'group.primary.binding.0.key');
@@ -878,7 +875,10 @@ test('chart components apply their styles and source metadata', () => {
 }), { columns: 8, rows: 1 });
 
   assert.equal(styleFor(barFrame, 'A')?.fg?.token, 'status.success');
-  assert.equal(barFrame.cells.find((cell) => cell.text === 'A')?.source?.elementKind, 'barChart');
+  assert.equal(
+    barFrame.cells.find((cell) => cell.text === 'A')?.source?.elementKind,
+    'terminal-ui/components/bar-chart'
+  );
   assert.equal(styleFor(chartFrame, 'U')?.fg?.token, 'status.error');
   assert.equal(chartFrame.cells.find((cell) => cell.text === 'U')?.source?.description, 'state.error.message');
   assert.equal(styleFor(heatmapFrame, '█')?.fg?.token, 'status.warning');
@@ -901,20 +901,23 @@ test('choice and picker controls use shared form visual styles and source metada
   }), { columns: 24, rows: 1 });
   const checkboxFrame = renderElementFrame(checkboxGroup({
     id: 'checks',
+    label: 'Checks',
     selected: ['a'],
     options: [
       { id: 'a', label: 'Alpha', value: 'a' },
       { id: 'b', label: 'Beta', value: 'b' }
     ],
-    pointer: { state: { hoveredTargetId: 'checks:b' } }
-  }), { columns: 24, rows: 2 });
+    pointerState: { hoveredTargetId: 'checks:b' }
+  }), { columns: 24, rows: 3 });
   const colorFrame = renderElementFrame(colorSwatchPicker({
     id: 'colors',
+    label: 'Colors',
     selected: 'green',
     options: [{ id: 'green', label: 'Green', value: 'green', swatch: '■' }]
-  }), { columns: 24, rows: 2 });
+  }), { columns: 24, rows: 3 });
   const dateFrame = renderElementFrame(calendar({
     id: 'dates',
+    label: 'Dates',
     ...calendarFixture({ selected: { year: 2026, month: 6, day: 2 } })
   }), { columns: 30, rows: 8 });
 
@@ -924,8 +927,8 @@ test('choice and picker controls use shared form visual styles and source metada
   assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.description === 'track.handle')?.bg?.token, 'control.track.filled');
   assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.description === 'track.filled')?.fg?.token, 'control.track.filled');
   assert.equal(checkboxFrame.cells.find((cell) => cell.text === '☑')?.source?.description, 'option.a.marker.checked');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.row === 2 && cell.column === 24)?.style?.bg?.token, 'focus.background');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.row === 2 && cell.column === 24)?.source?.interactionState, 'hovered');
+  assert.equal(checkboxFrame.cells.find((cell) => cell.row === 3 && cell.column === 24)?.style?.bg?.token, 'focus.background');
+  assert.equal(checkboxFrame.cells.find((cell) => cell.row === 3 && cell.column === 24)?.source?.interactionState, 'hovered');
   assert.equal(styleForCell(colorFrame, (cell) => cell.source?.description === 'summary.swatch')?.bg?.token, 'control.primary.background');
   assert.equal(colorFrame.cells.find((cell) => cell.source?.description === 'option.green.swatch')?.text, '■');
   assert.equal(dateFrame.cells.find((cell) => cell.source?.description === 'weekday.0')?.style?.fg?.token, 'text.disabled');

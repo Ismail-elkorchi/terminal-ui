@@ -9,7 +9,7 @@ const app = defineTui({
   id: 'portable-app',
   init: () => ({ count: 0 }),
   update: (state) => ({ state }),
-  view: (state) => text(`Count ${String(state.count)}`)
+  view: (state) => text({ content: `Count ${String(state.count)}` })
 });
 const tuiResult = await runTui(app);
 

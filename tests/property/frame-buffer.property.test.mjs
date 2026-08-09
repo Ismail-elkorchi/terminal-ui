@@ -18,10 +18,10 @@ test('layout and clipping properties keep rendered cells inside the terminal siz
   for (const { index, seed, value } of generatedTexts(64)) {
     const terminalSize = terminalSizeFor(value);
     const element = column([
-      text(value, { id: 'top' }),
+      text({ content: value, id: 'top' }),
       row([
-        text(`${value} left`, { id: 'left' }),
-        text(`${value} right`, { id: 'right' })
+        text({ content: `${value} left`, id: 'left' }),
+        text({ content: `${value} right`, id: 'right' })
       ], { id: 'row', gap: 1 })
     ], {
       id: 'root',

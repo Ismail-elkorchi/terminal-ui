@@ -1,4 +1,5 @@
 import { button, table, type ComponentDensity } from '@ismail-elkorchi/terminal-ui/components';
+import { ignoreMessage } from '@ismail-elkorchi/terminal-ui/component';
 
 const compact: ComponentDensity = 'compact';
 const regular: ComponentDensity = 'regular';
@@ -14,5 +15,5 @@ table({
   getRowId: (row) => row.id,
   density: regular
 });
-button({ id: 'compact-action', label: 'Save', density: compact, onPress: () => undefined });
-button({ id: 'regular-action', label: 'Save', density: regular, onPress: () => undefined });
+button({ id: 'compact-action', label: 'Save', density: compact, onAction: ignoreMessage });
+button({ id: 'regular-action', label: 'Save', density: regular, onAction: ignoreMessage });

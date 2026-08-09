@@ -1,32 +1,20 @@
 import {
   absoluteAccessibleBase,
   absoluteChildBounds,
-  canvasAccessibleBase,
   overlayAccessibleBase,
   overlayChildBounds,
   placeSurface,
-  renderCanvas,
   surfaceAccessibleBase,
   surfaceChildBounds
 } from '../drawing-rendering.ts';
-import { dividerAccessibleBase, renderDivider } from '../divider.ts';
 import { drawSurface } from '../surface.ts';
-import { renderTooltip, tooltipAccessibleBase } from '../tooltip.ts';
 import { placeAnchoredSurface } from '../../../interaction/anchored-surface.ts';
-import { tooltipPreferredSize } from '../tooltip.ts';
-import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import { drawingMeasurements } from './drawing-measurements.ts';
-import type { RendererMap } from './types.ts';
+import type { StructuralRendererMap } from './types.ts';
+import type { Rect } from '../../../geometry/types.ts';
+import type { HitTarget } from '../../contracts.ts';
 
 export const drawingRenderers = {
-  canvas: {
-    measure: drawingMeasurements.canvas,
-    render: (input) => {
-      renderCanvas(input);
-    },
-    accessibility: ({ renderNode, id, focused }) => canvasAccessibleBase(renderNode, id, focused),
-    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : []
-  },
   surface: {
     measure: drawingMeasurements.surface,
     place: ({ renderNode, bounds }) => placeSurface(renderNode, bounds),
@@ -64,7 +52,8 @@ export const drawingRenderers = {
           : { fallback: renderNode.props.fallback }),
         ...(renderNode.props.margin === undefined
           ? {}
-          : { margin: renderNode.props.margin })
+          : { margin: renderNode.props.margin }),
+        ...(renderNode.props.fit === undefined ? {} : { fit: renderNode.props.fit })
       });
     },
     layout: ({ bounds }) => [bounds],
@@ -72,6 +61,56 @@ export const drawingRenderers = {
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => absoluteAccessibleBase(id, focused)
+  },
+  portal: {
+    measure: drawingMeasurements.portal,
+    place: ({ renderNode, bounds, viewport, measureChild }) => {
+      const content = measureChild(0);
+      if (renderNode.props.placement === 'center') {
+        const margin = Math.max(0, Math.floor(renderNode.props.margin ?? 0));
+        const available = {
+          row: viewport.row + margin,
+          column: viewport.column + margin,
+          width: Math.max(0, viewport.width - margin * 2),
+          height: Math.max(0, viewport.height - margin * 2)
+        };
+        const width = Math.min(available.width, content.preferredWidth);
+        const height = Math.min(available.height, content.preferredHeight);
+        return {
+          row: available.row + Math.floor((available.height - height) / 2),
+          column: available.column + Math.floor((available.width - width) / 2),
+          width,
+          height
+        };
+      }
+      return placeAnchoredSurface({
+        viewport,
+        anchor: renderNode.props.anchor.kind === 'allocation'
+          ? { kind: 'target', bounds }
+          : renderNode.props.anchor,
+        size: {
+          width: content.preferredWidth,
+          height: content.preferredHeight
+        },
+        ...(renderNode.props.placement === undefined ? {} : { placement: renderNode.props.placement }),
+        ...(renderNode.props.fallback === undefined ? {} : { fallback: renderNode.props.fallback }),
+        ...(renderNode.props.margin === undefined ? {} : { margin: renderNode.props.margin }),
+        ...(renderNode.props.fit === undefined ? {} : { fit: renderNode.props.fit })
+      });
+    },
+    layout: ({ bounds }) => [bounds],
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => absoluteAccessibleBase(id, focused),
+    hitTargets: ({ renderNode, layoutNode }) => renderNode.props.toOutsideMessage === undefined
+      ? []
+      : outsidePortalTargets(
+          renderNode.id ?? 'portal',
+          layoutNode.viewport,
+          layoutNode.bounds,
+          renderNode.props.toOutsideMessage
+        )
   },
   overlay: {
     measure: drawingMeasurements.overlay,
@@ -81,28 +120,63 @@ export const drawingRenderers = {
     },
     accessibility: ({ id, focused }) => overlayAccessibleBase(id, focused)
   },
-  divider: {
-    measure: drawingMeasurements.divider,
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      renderDivider(renderNode, buffer, layoutNode.bounds, theme);
-    },
-    accessibility: ({ renderNode, id, focused }) => dividerAccessibleBase(renderNode, id, focused)
-  },
-  tooltip: {
-    measure: drawingMeasurements.tooltip,
-    place: ({ renderNode, viewport, widthProfile }) => renderNode.props.presentation.kind === 'hidden'
-      ? { row: viewport.row, column: viewport.column, width: 0, height: 0 }
-      : placeAnchoredSurface({
-          viewport,
-          anchor: renderNode.props.presentation.anchor,
-          size: tooltipPreferredSize(renderNode, widthProfile),
-          ...(renderNode.props.placement === undefined ? {} : { placement: renderNode.props.placement })
-        }),
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      if (renderNode.props.presentation.kind === 'visible') {
-        renderTooltip(renderNode, buffer, layoutNode.bounds, theme);
+} satisfies StructuralRendererMap<'surface' | 'absolute' | 'anchored' | 'portal' | 'overlay'>;
+
+function outsidePortalTargets<TMessage>(
+  id: string,
+  viewport: Rect,
+  content: Rect,
+  message: () => TMessage
+): readonly HitTarget<TMessage>[] {
+  const viewportEndRow = viewport.row + viewport.height;
+  const viewportEndColumn = viewport.column + viewport.width;
+  const contentEndRow = content.row + content.height;
+  const contentEndColumn = content.column + content.width;
+  const candidates = [
+    {
+      name: 'top',
+      bounds: {
+        row: viewport.row,
+        column: viewport.column,
+        width: viewport.width,
+        height: Math.max(0, content.row - viewport.row)
       }
     },
-    accessibility: ({ renderNode, id, focused }) => tooltipAccessibleBase(renderNode, id, focused)
-  }
-} satisfies RendererMap<'canvas' | 'surface' | 'absolute' | 'anchored' | 'overlay' | 'divider' | 'tooltip'>;
+    {
+      name: 'bottom',
+      bounds: {
+        row: contentEndRow,
+        column: viewport.column,
+        width: viewport.width,
+        height: Math.max(0, viewportEndRow - contentEndRow)
+      }
+    },
+    {
+      name: 'left',
+      bounds: {
+        row: content.row,
+        column: viewport.column,
+        width: Math.max(0, content.column - viewport.column),
+        height: content.height
+      }
+    },
+    {
+      name: 'right',
+      bounds: {
+        row: content.row,
+        column: contentEndColumn,
+        width: Math.max(0, viewportEndColumn - contentEndColumn),
+        height: content.height
+      }
+    }
+  ] as const;
+  return candidates.flatMap((candidate) => candidate.bounds.width === 0 || candidate.bounds.height === 0
+    ? []
+    : [{
+        id: `${id}:outside:${candidate.name}`,
+        bounds: candidate.bounds,
+        accepts: ['click'] as const,
+        message,
+        zIndex: -2
+      }]);
+}

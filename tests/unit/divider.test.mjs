@@ -21,11 +21,11 @@ test('divider renders labelled horizontal separators with semantic source roles'
     }
 }), { columns: 24, rows: 1 });
   const separatorCells = frame.cells.filter((cell) => cell.source?.cellRole === 'separator');
-  const labelCells = frame.cells.filter((cell) => cell.source?.elementKind === 'divider' && cell.source.partName === 'label');
+  const labelCells = frame.cells.filter((cell) => cell.source?.elementKind === 'terminal-ui/components/divider' && cell.source.partName === 'label');
 
   assert.equal(renderFramePlain(frame), '┄┄┄┄┄┄ Operations ┄┄┄┄┄┄');
   assert.equal(separatorCells.length > 0, true);
-  assert.equal(separatorCells.every((cell) => cell.source?.elementKind === 'divider'), true);
+  assert.equal(separatorCells.every((cell) => cell.source?.elementKind === 'terminal-ui/components/divider'), true);
   assert.equal(separatorCells.some((cell) => cell.source?.partName === 'separator.before'), true);
   assert.equal(separatorCells.some((cell) => cell.source?.partName === 'separator.after'), true);
   assert.equal(labelCells.map((cell) => cell.text).join(''), ' Operations ');

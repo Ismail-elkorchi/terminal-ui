@@ -178,12 +178,28 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
   assert.match(output, /Actions/u);
   assert.match(output, /Theme: › Dark ▾/u);
   assert.match(output, /Light/u);
-  assert.equal(menuBarFrame.cells.find((cell) => cell.text === 'F')?.source?.elementKind, 'menuBar');
+  assert.equal(menuBarFrame.cells.find((cell) => cell.text === 'F')?.source?.elementKind, 'terminal-ui/components/menu-bar');
   assert.equal(contextFrame.accessibility.root.role, 'menu');
-  assert.equal(dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.elementKind, 'dropdownMenu');
-  assert.equal(dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'dropdownMenu-value');
+  assert.equal(contextFrame.accessibility.root.children?.every((node) => node.role.startsWith('menuitem')), true);
+  assert.equal(
+    dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.elementKind,
+    'terminal-ui/components/dropdown-menu'
+  );
+  assert.equal(dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'value');
   assert.equal(menuBarFrame.accessibility.root.role, 'menubar');
-  assert.equal(dropdownFrame.accessibility.root.expanded, true);
+  assert.equal(dropdownFrame.accessibility.root.children?.[0]?.expanded, true);
+});
+
+test('closed context menus do not publish focus or implementation accessibility scaffolding', () => {
+  const frame = renderElementFrame(contextMenu({
+    id: 'closed-context',
+    presentation: contextMenuPresentation(items, { kind: 'closed' }),
+    onAction: (action) => action
+  }), { columns: 24, rows: 4 });
+
+  assert.equal(frame.focusPath, undefined);
+  assert.equal(frame.accessibility.root.focused, undefined);
+  assert.deepEqual(frame.accessibility.root.children, []);
 });
 
 test('internal popup nodes expose layout names without claiming public factory provenance', () => {
@@ -204,7 +220,10 @@ test('internal popup nodes expose layout names without claiming public factory p
   const nodes = collectLayoutNodes(layout);
 
   assert.equal(nodes.find((node) => node.id === 'layout-dropdown:popup')?.factoryName, 'surface');
-  assert.equal(nodes.find((node) => node.id === 'layout-dropdown:popup:menu')?.factoryName, 'menu');
+  assert.equal(
+    nodes.find((node) => node.id === 'layout-dropdown:popup:menu')?.factoryName,
+    'terminal-ui/components/menu'
+  );
   assert.equal(nodes.some((node) => Object.hasOwn(node, 'factory')), false);
 });
 

@@ -2,7 +2,7 @@ import { toAccessibleSnapshot, validateAccessibleSnapshot } from '@ismail-elkorc
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 
-const frame = renderElementFrame(text('Portable renderer'), { columns: 24, rows: 2 });
+const frame = renderElementFrame(text({ content: 'Portable renderer' }), { columns: 24, rows: 2 });
 const plain = renderFramePlain(frame);
 const snapshot = toAccessibleSnapshot({
   source: 'renderer',

@@ -10,6 +10,7 @@ import {
   textInput,
   text
 } from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { waitUntil } from '../helpers/async.ts';
 
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
@@ -30,7 +31,9 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
     view: (state) => textInput({
       id: 'submit',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onSubmit: () => ({ submitted: true })
+      onAction: (action) => action.kind === 'submit'
+        ? { submitted: true }
+        : ignoreMessage()
     })
   });
 
@@ -66,7 +69,7 @@ test('PTY harness restores full-screen protocols on interrupt signals', async ()
     id: 'pty-interrupt',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
-    view: () => text('waiting', { id: 'waiting' })
+    view: () => text({ content: 'waiting', id: 'waiting' })
   });
 
   const running = runTui(app, harness.host);

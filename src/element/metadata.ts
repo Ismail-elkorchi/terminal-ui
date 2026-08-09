@@ -46,6 +46,8 @@ export interface ElementLayer {
   readonly zIndex?: number;
   readonly visible?: boolean;
   readonly underlay?: LayerUnderlay;
+  /** Dims the complete terminal viewport behind this layer. */
+  readonly backdrop?: 'viewport';
   readonly overflowPriority?: ElementOverflowPriority;
 }
 

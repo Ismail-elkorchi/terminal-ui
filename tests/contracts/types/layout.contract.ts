@@ -7,13 +7,13 @@ import {
 } from '@ismail-elkorchi/terminal-ui/layout';
 
 const fixed: LayoutSize = { kind: 'fixed', cells: 1 };
-const content = column([text('A'), text('B')], { sizes: [fixed, { kind: 'fill', weight: 1 }] });
+const content = column([text({ content: 'A' }), text({ content: 'B' })], { sizes: [fixed, { kind: 'fill', weight: 1 }] });
 const cells = grid([content], { columns: [fixed], rows: [{ kind: 'fill', weight: 1 }] });
 const selected = responsive({ columns: 100, rows: 30 }, {
   narrow: { maxColumns: 79 },
   wide: { minColumns: 80 }
 }, {
-  narrow: () => text('Narrow'),
+  narrow: () => text({ content: 'Narrow' }),
   wide: () => cells
 });
 

@@ -1,4 +1,5 @@
 import { button, richText, text, type InlineContent } from '@ismail-elkorchi/terminal-ui/components';
+import { ignoreMessage } from '@ismail-elkorchi/terminal-ui/component';
 import { surface } from '@ismail-elkorchi/terminal-ui/layout';
 
 const content: InlineContent = [
@@ -9,11 +10,11 @@ richText({ segments: content });
 button({
   id: 'open',
   label: 'Open',
-  onPress: () => undefined,
+  onAction: ignoreMessage,
   leading: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
   meta: { styles: { parts: { label: { fg: { kind: 'theme', token: 'custom.brand' } } } } }
 });
-surface(text('body'), {
+surface(text({ content: 'body' }), {
   title: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
   border: { kind: 'single' }
 });
@@ -22,14 +23,14 @@ surface(text('body'), {
 richText({ segments: [{ kind: 'text', text: 'unsafe', source: { elementId: 'caller' } }] });
 // @ts-expect-error symbolic content requires accessible text
 richText({ segments: [{ kind: 'symbol', unicode: '→', ascii: '->' }] });
-surface(text('invalid title source'), {
+surface(text({ content: 'invalid title source' }), {
   // @ts-expect-error surface titles cannot supply renderer source metadata
   title: [{ kind: 'text', text: 'Title', source: { elementId: 'caller' } }]
 });
 button({
   id: 'invalid-token',
   label: 'Invalid',
-  onPress: () => undefined,
+  onAction: ignoreMessage,
   meta: {
     styles: {
       // @ts-expect-error custom color tokens require the custom.* namespace

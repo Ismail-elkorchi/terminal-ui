@@ -13,7 +13,7 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
   const frame = renderElementFrame(button({
     id: 'run',
     label: 'Run',
-    onPress: () => ({ kind: 'run' })
+    onAction: () => ({ kind: 'run' })
   }), { columns: 12, rows: 2 });
 
   const first = createVisualSnapshot({ frame, previousFrame: frame });
@@ -35,7 +35,7 @@ test('element snapshots render opaque elements through the testing facade', () =
   const element = button({
     id: 'save',
     label: 'Save',
-    onPress: () => ({ kind: 'save' })
+    onAction: () => ({ kind: 'save' })
   });
 
   const first = renderElementSnapshot({
@@ -67,7 +67,7 @@ test('visual snapshots fail on uncontrolled style changes through structured fra
 });
 
 test('visual snapshots preserve wide Unicode deterministically and keep raw control sequences out of plain artifacts', () => {
-  const frame = renderElementFrame(text('A界🙂é \u001B[31mred'), { columns: 16, rows: 2 });
+  const frame = renderElementFrame(text({ content: 'A界🙂é \u001B[31mred' }), { columns: 16, rows: 2 });
   const snapshot = createVisualSnapshot({ frame });
 
   assert.match(snapshot.plainTextFrame, /A界🙂é red/u);

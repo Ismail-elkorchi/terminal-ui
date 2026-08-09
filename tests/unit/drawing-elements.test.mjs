@@ -71,7 +71,7 @@ test('canvas painters can provide source metadata without becoming pseudo-contro
   assert.equal(frame.accessibility.root.focused, undefined);
   assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.description, 'node.label');
   assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.cellRole, 'content');
-  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.rendererFamily, 'canvas');
+  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.rendererFamily, 'component');
 });
 
 test('Canvas2D draws curves polygons and transformed paths through the frame buffer', () => {
@@ -113,7 +113,7 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
           canvas.text(0, 1, [{ text: 'wide界tail' }]);
         }
       }),
-      absolute(text('TOP', { id: 'top-text' }), {
+      absolute(text({ content: 'TOP', id: 'top-text' }), {
         id: 'absolute-top',
         row: 1,
         column: 6,
@@ -147,13 +147,13 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
 
 test('surface is a single-child visual wrapper, not a layout container', () => {
   assert.throws(
-    () => surface([text('one'), text('two')]),
+    () => surface([text({ content: 'one' }), text({ content: 'two' })]),
     /surface\(\) expects exactly one non-surface child/u
   );
 
   const element = surface(column([
-    text('one'),
-    text('two')
+    text({ content: 'one' }),
+    text({ content: 'two' })
   ], {
     gap: 1
   }), {
@@ -169,7 +169,7 @@ test('surface is a single-child visual wrapper, not a layout container', () => {
 });
 
 test('surface appearance draws background border and shadow', () => {
-  const element = surface(text('inside', { id: 'surface-content' }), {
+  const element = surface(text({ content: 'inside', id: 'surface-content' }), {
     id: 'visual-surface',
     appearance: 'raised',
     title: 'Alert',
@@ -196,7 +196,7 @@ test('surface appearance draws background border and shadow', () => {
 });
 
 test('surface backgrounds remain behind wide child glyphs', () => {
-  const frame = renderElementFrame(surface(text('界', { id: 'wide-surface-text' }), {
+  const frame = renderElementFrame(surface(text({ content: '界', id: 'wide-surface-text' }), {
     id: 'wide-surface',
     appearance: 'inset'
   }), { columns: 8, rows: 3 });
@@ -208,7 +208,7 @@ test('surface backgrounds remain behind wide child glyphs', () => {
 });
 
 test('surface titles preserve caller-supplied inline styles with renderer-produced source metadata', () => {
-  const frame = renderElementFrame(surface(text('body', { id: 'body' }), {
+  const frame = renderElementFrame(surface(text({ content: 'body', id: 'body' }), {
     id: 'metric-panel',
     title: [
       { kind: 'text', text: 'cpu', style: { fg: { kind: 'theme', token: 'chart.label' } } },
@@ -229,7 +229,7 @@ test('surface titles preserve caller-supplied inline styles with renderer-produc
 });
 
 test('surface title slots render start center and end zones in the border line', () => {
-  const frame = renderElementFrame(surface(text('body', { id: 'slot-body' }), {
+  const frame = renderElementFrame(surface(text({ content: 'body', id: 'slot-body' }), {
     id: 'slot-surface',
     title: {
       start: [{ kind: 'text', text: 'cpu', style: { fg: { kind: 'theme', token: 'surface.title' } } }],
@@ -250,20 +250,20 @@ test('surface title slots render start center and end zones in the border line',
 });
 
 test('surface appearance controls fill independently from an explicit frame', () => {
-  const neutral = renderElementFrame(surface(text('neutral', { id: 'neutral-inner' }), {
+  const neutral = renderElementFrame(surface(text({ content: 'neutral', id: 'neutral-inner' }), {
     id: 'neutral',
     appearance: 'neutral'
   }), { columns: 10, rows: 2 }, { theme: modernTheme });
-  const unframed = renderElementFrame(surface(text('inner', { id: 'unframed-inner' }), {
+  const unframed = renderElementFrame(surface(text({ content: 'inner', id: 'unframed-inner' }), {
     id: 'unframed',
     appearance: 'raised'
   }), { columns: 10, rows: 3 }, { theme: modernTheme });
-  const framed = renderElementFrame(surface(text('inner', { id: 'framed-inner' }), {
+  const framed = renderElementFrame(surface(text({ content: 'inner', id: 'framed-inner' }), {
     id: 'framed',
     appearance: 'raised',
     border: { kind: 'single' }
   }), { columns: 10, rows: 3 }, { theme: modernTheme });
-  const transparent = renderElementFrame(surface(text('flush', { id: 'flush' }), {
+  const transparent = renderElementFrame(surface(text({ content: 'flush', id: 'flush' }), {
     id: 'plain'
   }), { columns: 10, rows: 3 });
 
@@ -274,7 +274,7 @@ test('surface appearance controls fill independently from an explicit frame', ()
 });
 
 test('surface appearance remains structural across theme capabilities', () => {
-  const noColor = renderElementFrame(surface(text('plain', { id: 'plain-body' }), {
+  const noColor = renderElementFrame(surface(text({ content: 'plain', id: 'plain-body' }), {
     id: 'plain-surface',
     title: 'Plain',
     appearance: 'raised'
@@ -286,22 +286,18 @@ test('surface appearance remains structural across theme capabilities', () => {
 test('preserve underlay leaves unwritten lower cells in the composed frame', () => {
   const element = surface(
     overlay([
-      text('lower!', {
-    id: 'lower',
+      text({ content: 'lower!', id: 'lower',
     meta: {
         layer: {
             zIndex: 0
         }
-    }
-}),
-      text('UPPER', {
-    id: 'upper',
+    } }),
+      text({ content: 'UPPER', id: 'upper',
     meta: {
         layer: {
             zIndex: 10
         }
-    }
-})
+    } })
     ], { id: 'layer-overlay' }),
     { id: 'layer-surface' }
   );
@@ -328,7 +324,7 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
         }
       }),
       absolute(button({
-    id: 'region-button', label: 'Launch', onPress: () => ({ kind: 'launch' }),
+    id: 'region-button', label: 'Launch', onAction: () => ({ kind: 'launch' }),
     meta: {
         layer: {
             zIndex: 10
@@ -362,6 +358,6 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
 test('canvas rejects missing painters as programmer errors', () => {
   assert.throws(
     () => canvas({ id: 'bad-canvas-factory', painter: undefined }),
-    TypeError
+    (error) => error.name === 'ComponentExecutionError' && error.cause instanceof TypeError
   );
 });

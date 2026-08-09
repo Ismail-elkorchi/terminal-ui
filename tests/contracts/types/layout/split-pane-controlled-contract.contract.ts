@@ -6,7 +6,7 @@ import {
   splitPaneReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
-const passive = splitPane([text('A'), text('B')], {
+const passive = splitPane([text({ content: 'A' }), text({ content: 'B' })], {
   direction: 'horizontal',
   sizes: [{ kind: 'fixed', cells: 4 }, { kind: 'fill' }]
 });
@@ -14,7 +14,7 @@ const state = splitPaneReducer(
   createSplitPaneState(2),
   { kind: 'resizeBy', deltaShare: 0.05 }
 );
-const interactive = splitPane([text('A'), text('B')], {
+const interactive = splitPane([text({ content: 'A' }), text({ content: 'B' })], {
   id: 'panes',
   direction: 'horizontal',
   ...splitPanePresentation(state),
@@ -29,7 +29,7 @@ const acceptedInteractive: Element<{
 void [acceptedPassive, acceptedInteractive];
 
 // @ts-expect-error resizable panes require a stable component id
-splitPane([text('A'), text('B')], {
+splitPane([text({ content: 'A' }), text({ content: 'B' })], {
   direction: 'horizontal',
   sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
   onAction: (_action: SplitPaneAction) => ({ kind: 'split' as const })

@@ -15,7 +15,7 @@ test('TUI non-TTY reject mode returns a typed diagnostic without control sequenc
     id: 'non-tty-reject',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
-    view: () => text('ready'),
+    view: () => text({ content: 'ready' }),
     nonTty: { mode: 'reject', diagnosticHint: 'Use last_frame for CI.' }
   });
 
@@ -81,7 +81,7 @@ test('TUI non-TTY run reports initialization failures without disposing an injec
     id: 'non-tty-init-failure',
     init: () => { throw new Error('initialization failed'); },
     update: (state) => ({ state }),
-    view: () => text('unreachable'),
+    view: () => text({ content: 'unreachable' }),
     nonTty: { mode: 'transcript_only' }
   });
 

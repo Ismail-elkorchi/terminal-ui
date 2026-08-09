@@ -39,7 +39,7 @@ test('security lane proves terminal sessions restore after TUI failures', async 
       throw new Error('boom');
     },
     update: (state) => ({ state }),
-    view: () => text('unreachable')
+    view: () => text({ content: 'unreachable' })
   });
 
   const result = await runTui(app, host);

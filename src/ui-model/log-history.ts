@@ -6,6 +6,7 @@ import {
   prepareTextSearchQuery
 } from '../text/search-index.ts';
 import type { PreparedTextSearchIndex, PreparedTextSearchQuery } from '../text/search-index.ts';
+import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
 
 export interface LogEntry {
   readonly id: string;
@@ -217,7 +218,9 @@ function normalizeEntry(
     id,
     text: bodyText,
     ...(entry.level === undefined ? {} : { level: entry.level }),
-    ...(entry.style === undefined ? {} : { style: entry.style }),
+    ...(entry.style === undefined
+      ? {}
+      : { style: Object.freeze(normalizeTerminalStyle(entry.style, 'log entry style')) }),
     ...(timestamp === undefined ? {} : { timestamp }),
     ...(metadataEntries.length === 0 ? {} : { metadata: Object.freeze(Object.fromEntries(metadataEntries)) })
   });
@@ -243,19 +246,19 @@ function searchFieldsForEntry(
   return [
     ...(entry.timestamp === undefined
       ? []
-      : [{ kind: 'timestamp' as const, text: entry.timestamp }]),
+      : [Object.freeze({ kind: 'timestamp' as const, text: entry.timestamp })]),
     ...metadataEntries.flatMap(([key, value]): readonly LogSearchField[] => [
-      { kind: 'metadataKey', key, text: key },
-      { kind: 'metadataValue', key, text: value }
+      Object.freeze({ kind: 'metadataKey', key, text: key }),
+      Object.freeze({ kind: 'metadataValue', key, text: value })
     ]),
-    { kind: 'body', text: bodyText }
+    Object.freeze({ kind: 'body', text: bodyText })
   ];
 }
 
 function normalizedMetadataEntries(
   metadata: Readonly<Record<string, string>> | undefined
 ): readonly (readonly [string, string])[] {
-  if (metadata === undefined) return [];
+  if (metadata === undefined) return Object.freeze([]);
   return Object.freeze(Object.entries(metadata)
     .map(([key, value]) => [sanitizeTerminalText(key).text, sanitizeTerminalText(value).text] as const)
     .toSorted(([left], [right]) => compareCodePoints(left, right))

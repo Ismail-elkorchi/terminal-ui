@@ -4,12 +4,13 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { textInput as createTextInput } from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 function textInput(options) {
   return createTextInput(
-    options.onAction !== undefined || options.onSubmit !== undefined
+    options.onAction !== undefined
       ? options
-      : { onSubmit: () => undefined, ...options }
+      : { onAction: () => ignoreMessage(), ...options }
   );
 }
 
@@ -56,7 +57,7 @@ test('TUI runtime decodes input chunks before routing them', async () => {
     view: (state) => textInput({
       id: 'commit-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onSubmit: () => ({ committed: true })
+      onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -79,7 +80,7 @@ test('TUI runtime buffers split input chunks before routing them', async () => {
     view: (state) => textInput({
       id: 'split-commit-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onSubmit: () => ({ committed: true })
+      onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -105,7 +106,7 @@ test('TUI runtime ignores non-command paste, focus, and mouse events without cor
     view: (state) => textInput({
       id: 'protocol-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onSubmit: () => ({ committed: true })
+      onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });

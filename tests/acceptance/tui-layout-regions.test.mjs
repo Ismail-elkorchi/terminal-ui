@@ -57,11 +57,11 @@ function workspaceView(state) {
   });
 
   return grid([
-    text('Workspace', { id: 'header' }),
+    text({ content: 'Workspace', id: 'header' }),
     splitPane([
       column([
         activityIndicator({ id: 'run', label: 'Run', status: 'running' }),
-        text('Streaming', { id: 'run-detail' })
+        text({ content: 'Streaming', id: 'run-detail' })
       ], { id: 'activity' }),
       mainPanel
     ], {
@@ -74,8 +74,7 @@ function workspaceView(state) {
       id: 'command',
       prompt: '/',
       presentation: { value: state.query, cursor: 0, suggestions: [] },
-      onAction: () => ({ type: 'component' }),
-      onSubmit: () => ({ type: 'component' })
+      onAction: () => ({ type: 'component' })
     })
   ], {
     id: 'workspace',

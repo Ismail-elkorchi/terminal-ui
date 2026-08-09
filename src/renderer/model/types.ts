@@ -29,12 +29,17 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly focus?: ElementFocus;
   readonly styles?: ElementStyles;
   readonly children?: readonly RenderNode<TMessage>[];
+  /** Children visible to public element inspection. */
+  readonly inspectionChildren?: readonly RenderNode<TMessage>[];
   readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
   readonly pointer?: RenderNodePointerInteraction<TMessage>;
+  readonly messageMap?: (message: unknown) => unknown;
   readonly accessibility?: ElementAccessibility;
   readonly focusable?: true;
   readonly state?: ElementState;
+  /** Internal marker for structural nodes owned by a component implementation. */
+  readonly transparentFocusIdentity?: true;
 }
 
 export type RenderNodeOfKind<
@@ -62,5 +67,7 @@ export interface RenderNodeInputMap<TMessage> {
 
 export interface RuntimeComponentDefinition<TMessage = unknown> {
   readonly name: string;
+  readonly sensitiveInput: boolean;
+  readonly inspection: import('../../element/inspection.ts').ComponentCapabilityInspection;
   readonly renderer: RenderNodeRenderer<TMessage, 'component'>;
 }

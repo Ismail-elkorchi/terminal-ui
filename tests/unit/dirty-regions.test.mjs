@@ -75,7 +75,7 @@ test('dirty diff for moved regions round-trips to the full next frame', () => {
 test('incremental diff projections reject width-profile changes', () => {
   const wide = { emoji: 'wide', ambiguous: 'narrow' };
   const narrow = { emoji: 'narrow', ambiguous: 'narrow' };
-  const previous = renderElementFrame(text('🙂'), { columns: 4, rows: 1 }, { widthProfile: wide });
+  const previous = renderElementFrame(text({ content: '🙂' }), { columns: 4, rows: 1 }, { widthProfile: wide });
   const incompatible = {
     ...diffFrames(previous, previous),
     widthProfile: narrow
@@ -86,13 +86,13 @@ test('incremental diff projections reject width-profile changes', () => {
     /width profile/u
   );
 
-  const rewritten = renderElementFrame(text('🙂'), { columns: 4, rows: 1 }, { widthProfile: narrow });
+  const rewritten = renderElementFrame(text({ content: '🙂' }), { columns: 4, rows: 1 }, { widthProfile: narrow });
   const projection = applyRenderDiff(undefined, diffFrames(undefined, rewritten));
   assert.deepEqual(projection.widthProfile, narrow);
 });
 
 test('region fingerprints skip unchanged regions', () => {
-  const regions = renderElementRegions(text('same', { id: 'fingerprint-same' }), { columns: 12, rows: 3 });
+  const regions = renderElementRegions(text({ content: 'same', id: 'fingerprint-same' }), { columns: 12, rows: 3 });
   const dirty = dirtyRegionsForRegionChanges(regions, regions);
 
   assert.deepEqual(dirty?.rects, []);
@@ -160,15 +160,13 @@ test('write coverage narrows retained damage columns when row fingerprints chang
 
 test('region ids stay stable when a sibling overlay is inserted', () => {
   const before = overlay([
-    text('background', { id: 'stable-background' }),
-    absolute(text('HUD', {
-    id: 'stable-hud',
+    text({ content: 'background', id: 'stable-background' }),
+    absolute(text({ content: 'HUD', id: 'stable-hud',
     meta: {
         layer: {
             zIndex: 10
         }
-    }
-}), {
+    } }), {
       id: 'stable-hud-position',
       row: 2,
       column: 2,
@@ -177,29 +175,25 @@ test('region ids stay stable when a sibling overlay is inserted', () => {
     })
   ], { id: 'stable-overlay-root' });
   const after = overlay([
-    text('background', { id: 'stable-background' }),
-    absolute(text('TIP', {
-    id: 'inserted-tip',
+    text({ content: 'background', id: 'stable-background' }),
+    absolute(text({ content: 'TIP', id: 'inserted-tip',
     meta: {
         layer: {
             zIndex: 5
         }
-    }
-}), {
+    } }), {
       id: 'inserted-tip-position',
       row: 1,
       column: 8,
       width: 3,
       height: 1
     }),
-    absolute(text('HUD', {
-    id: 'stable-hud',
+    absolute(text({ content: 'HUD', id: 'stable-hud',
     meta: {
         layer: {
             zIndex: 10
         }
-    }
-}), {
+    } }), {
       id: 'stable-hud-position',
       row: 2,
       column: 2,
@@ -215,8 +209,9 @@ test('region ids stay stable when a sibling overlay is inserted', () => {
 
 test('region ids stay stable when dialog content changes', () => {
   const before = overlay([
-    text('backdrop', { id: 'dialog-backdrop' }),
-    dialog(text('front', { id: 'dialog-content' }), {
+    text({ content: 'backdrop', id: 'dialog-backdrop' }),
+    dialog({
+    slots: { content: text({ content: 'front', id: 'dialog-content' }) },
     id: 'stable-dialog',
     title: 'Dialog',
     modal: true,
@@ -231,8 +226,9 @@ test('region ids stay stable when dialog content changes', () => {
 })
   ], { id: 'dialog-region-root' });
   const after = overlay([
-    text('backdrop', { id: 'dialog-backdrop' }),
-    dialog(text('changed', { id: 'dialog-content' }), {
+    text({ content: 'backdrop', id: 'dialog-backdrop' }),
+    dialog({
+    slots: { content: text({ content: 'changed', id: 'dialog-content' }) },
     id: 'stable-dialog',
     title: 'Dialog',
     modal: true,
@@ -254,10 +250,11 @@ test('region ids stay stable when dialog content changes', () => {
 
 test('adding a modal dirties the complete backdrop instead of only the dialog bounds', () => {
   const terminalSize = { columns: 20, rows: 7 };
-  const before = text('background', { id: 'modal-dirty-background' });
+  const before = text({ content: 'background', id: 'modal-dirty-background' });
   const after = overlay([
     before,
-    dialog(text('front', { id: 'modal-dirty-content' }), {
+    dialog({
+      slots: { content: text({ content: 'front', id: 'modal-dirty-content' }) },
       id: 'modal-dirty-dialog',
       title: 'Dialog',
       modal: true,
@@ -279,15 +276,13 @@ test('adding a modal dirties the complete backdrop instead of only the dialog bo
 function movingOverlay(row, column) {
   return surface(
     overlay([
-      text('background', { id: 'background' }),
-      absolute(text('HUD', {
-    id: 'hud',
+      text({ content: 'background', id: 'background' }),
+      absolute(text({ content: 'HUD', id: 'hud',
     meta: {
         layer: {
             zIndex: 10
         }
-    }
-}), {
+    } }), {
         id: 'hud-position',
         row,
         column,

@@ -14,6 +14,7 @@ const anchoredSurfacePlacements = [...anchoredSurfaceSides, 'auto', 'cursor'] as
 export type AnchoredSurfaceSide = 'above' | 'below' | 'left' | 'right';
 
 export type AnchoredSurfacePlacement = AnchoredSurfaceSide | 'auto' | 'cursor';
+export type AnchoredSurfaceFit = 'viewport' | 'available';
 
 export type AnchoredSurfaceAnchor =
   | { readonly kind: 'target'; readonly bounds: Rect }
@@ -37,6 +38,7 @@ export interface PlaceAnchoredSurfaceInput {
   readonly placement?: AnchoredSurfacePlacement;
   readonly fallback?: readonly AnchoredSurfaceSide[];
   readonly margin?: number;
+  readonly fit?: AnchoredSurfaceFit;
 }
 
 export function placeAnchoredSurface(input: PlaceAnchoredSurfaceInput): Rect {
@@ -55,6 +57,13 @@ export function placeAnchoredSurface(input: PlaceAnchoredSurfaceInput): Rect {
     if (containsRect(viewport, rect)) return rect;
   }
 
+  if (input.fit === 'available') {
+    for (const candidate of candidates) {
+      const rect = availableRectForSide(viewport, anchor, size, candidate, margin);
+      if (rect.width > 0 && rect.height > 0) return rect;
+    }
+  }
+
   return clampRect(rectForSide(anchor, size, candidates[0] ?? 'below', margin), viewport);
 }
 
@@ -64,11 +73,13 @@ export function assertAnchoredSurfaceOptions(
     readonly placement?: unknown;
     readonly fallback?: unknown;
     readonly margin?: unknown;
+    readonly fit?: unknown;
   },
   label: string
 ): void {
   assertAnchor(input.anchor, `${label} anchor`);
   assertOptionalEnum(input.placement, anchoredSurfacePlacements, `${label} placement`);
+  assertOptionalEnum(input.fit, ['viewport', 'available'], `${label} fit`);
   if (input.fallback !== undefined
     && (!Array.isArray(input.fallback)
       || input.fallback.some((side) => !isStringMember(side, anchoredSurfaceSides)))) {
@@ -78,6 +89,57 @@ export function assertAnchoredSurfaceOptions(
   if (typeof input.margin === 'number' && input.margin < 0) {
     throw new RangeError(`${label} margin must be non-negative.`);
   }
+}
+
+function availableRectForSide(
+  viewport: Rect,
+  target: Rect,
+  size: AnchoredSurfaceSize,
+  side: AnchoredSurfaceSide,
+  margin: number
+): Rect {
+  const viewportBottom = viewport.row + viewport.height;
+  const viewportRight = viewport.column + viewport.width;
+  if (side === 'below') {
+    const row = target.row + target.height + margin;
+    return {
+      row,
+      column: clampStart(target.column, size.width, viewport.column, viewportRight),
+      width: size.width,
+      height: Math.min(size.height, Math.max(0, viewportBottom - row))
+    };
+  }
+  if (side === 'above') {
+    const bottom = target.row - margin;
+    const height = Math.min(size.height, Math.max(0, bottom - viewport.row));
+    return {
+      row: bottom - height,
+      column: clampStart(target.column, size.width, viewport.column, viewportRight),
+      width: size.width,
+      height
+    };
+  }
+  if (side === 'right') {
+    const column = target.column + target.width + margin;
+    return {
+      row: clampStart(target.row, size.height, viewport.row, viewportBottom),
+      column,
+      width: Math.min(size.width, Math.max(0, viewportRight - column)),
+      height: size.height
+    };
+  }
+  const right = target.column - margin;
+  const width = Math.min(size.width, Math.max(0, right - viewport.column));
+  return {
+    row: clampStart(target.row, size.height, viewport.row, viewportBottom),
+    column: right - width,
+    width,
+    height: size.height
+  };
+}
+
+function clampStart(value: number, extent: number, minimum: number, end: number): number {
+  return Math.min(Math.max(value, minimum), end - extent);
 }
 
 function candidateOrder(

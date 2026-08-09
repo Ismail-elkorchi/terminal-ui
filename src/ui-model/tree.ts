@@ -60,14 +60,6 @@ export type WindowedTreeCollection<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
 > = WindowedCollectionProjection<TreeCollectionRecord<TMetadata>>;
 
-export interface PreparedTreeView<
-  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
-> {
-  readonly kind: 'tree-view';
-  readonly collection: TreeCollection<TMetadata>;
-  readonly query: string;
-}
-
 export function treeNodeChildren<TMetadata extends Readonly<Record<string, unknown>>>(
   node: TreeNode<TMetadata>
 ): readonly TreeNode<TMetadata>[] {

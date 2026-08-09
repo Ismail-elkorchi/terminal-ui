@@ -9,7 +9,7 @@ test('render instrumentation records each stage only when requested', () => {
   const samples = [];
   const work = [];
   let tick = 0;
-  const frame = renderElementFrame(text('measured'), { columns: 20, rows: 3 }, {
+  const frame = renderElementFrame(text({ content: 'measured' }), { columns: 20, rows: 3 }, {
     instrumentation: {
       now: () => tick++,
       record: (sample) => { samples.push(sample); },
@@ -45,7 +45,7 @@ test('render instrumentation records each stage only when requested', () => {
 
 test('diff and serialization instrumentation record structural work', async () => {
   const work = [];
-  const frame = renderElementFrame(text('measured'), { columns: 20, rows: 3 });
+  const frame = renderElementFrame(text({ content: 'measured' }), { columns: 20, rows: 3 });
   const instrumentation = { recordWork: (sample) => { work.push(sample); } };
   const diff = diffFrames(undefined, frame, { instrumentation });
   const host = createMemoryTerminalHost();

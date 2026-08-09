@@ -2,7 +2,7 @@
 
 Polished terminal components are predictable under small viewports, wide
 Unicode, themes, focus, pointer input, accessibility, and tests. Public
-component factories return opaque elements; renderers translate those elements
+component factories return opaque elements; the runtime translates those elements
 into bounded layout, styled cells, interaction targets, and snapshots.
 
 ## Component Checklist
@@ -29,7 +29,7 @@ and `placeholder` remain separate from those states.
 
 Theme defaults should make ordinary components readable. Local `meta.styles`
 overrides should affect only the component that receives them and the stable
-slots that renderer uses. There is no global style cascade.
+slots that the definition declares. There is no global style cascade.
 
 Selected and pressed content uses selection colors; focus and active states
 add emphasis; hovered content uses the focus background; and disabled content
@@ -39,7 +39,7 @@ focus, and disabled states do not inherit destructive styling.
 
 ## Layout And Bounds
 
-Every renderer receives bounds from layout. Do not infer screen size from
+Every component hook receives bounds from layout. Do not infer screen size from
 process state. If a component needs virtual content, use explicit scroll state,
 content dimensions, selected item ids, or caller-controlled offsets.
 
@@ -53,13 +53,13 @@ When content is larger than the bounds:
 
 ## Interaction
 
-Keyboard behavior comes from component event props, `keys`, editable-text
-handlers, focus metadata, and renderer focus targets. Pointer behavior comes
-from hit targets. The runtime routes input after rendering; renderers describe
-target geometry, accepted pointer event kinds, focus intent, and how a routed
-pointer event maps to a caller-controlled message. Built-in focusable controls bind
-their pointer targets to their single declared focus target. Defined components
-declare that relationship explicitly.
+Definitions turn keyboard, text, paste, and pointer input into one typed action
+union. Each instance maps that union through `onAction`; `ignoreMessage()` is
+the explicit no-message result. Pointer behavior comes from hit targets. The
+runtime routes input after rendering; definitions describe target geometry,
+accepted pointer event kinds, focus intent, and how a routed pointer event maps
+to an action. Every focusable control binds pointer targets to a declared focus
+target through the same public contract.
 
 Renderer visual focus is a relation: `none`, `self`, or `descendant`.
 Accessibility remains exact and marks only the active target as focused.
@@ -82,8 +82,10 @@ shape.
 ## Component Definitions
 
 Use `defineComponent()` for reusable measurement, drawing, accessibility,
-focus targets, and hit targets. A leaf definition draws one element; a
-composite definition additionally measures and arranges children.
+focus targets, and hit targets. A leaf definition paints one element. A
+composite definition measures and arranges typed named slots. A composed
+definition returns an ordinary element tree made from public component and
+layout factories.
 Use `canvas()` for bounded drawing through `Canvas2D`.
 
 Both paths draw through the same sanitized frame pipeline; neither path writes

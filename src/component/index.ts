@@ -1,22 +1,44 @@
-export { defineComponent } from '../components/definition.ts';
+export { ComponentExecutionError, defineComponent } from './definition.ts';
 export type {
   ComponentAccessibilityInput,
+  ComponentCapturedMessageInput,
+  ComponentCompositionInput,
   ComponentDefinition,
   ComponentDefinitionName,
+  ComponentExecutionPhase,
+  ComponentIdentity,
   ComponentInput,
+  ComponentInteractionInput,
   ComponentLayoutInput,
   ComponentMeasureConstraints,
   ComponentMeasureInput,
+  ComponentMessage,
   ComponentPointerActions,
+  ComponentPreparationContext,
   ComponentRenderInput,
+  ComponentSlotCardinality,
+  ComponentSlotDefinition,
+  ComponentSlotLayout,
+  ComponentSlotMessagePolicy,
+  ComponentSlotOwner,
+  ComponentSlotShape,
+  ComponentSlotsDefinition,
+  ComponentCallerSlotValues,
+  ComponentImplementationSlotValues,
   ComponentSourceInput,
-  ComponentState,
+  ComponentMetadataCapability,
+  ComponentMetadataOptions,
+  ComponentStateCapability,
   ComponentStyleInput,
   ComponentTextActionInput,
+  DecorativeLeafComponentFactory,
   DecorativeLeafComponentDefinition,
+  SemanticCompositeComponentFactory,
   SemanticCompositeComponentDefinition,
+  SemanticComposedComponentDefinition,
+  SemanticLeafComponentFactory,
   SemanticLeafComponentDefinition
-} from '../components/definition.ts';
+} from './definition.ts';
 export type {
   Element,
   ElementChildren,
@@ -25,3 +47,29 @@ export type {
 } from '../element/index.ts';
 export { ignoreMessage } from '../interaction/message.ts';
 export type { IgnoredMessage, MessageResolution } from '../interaction/message.ts';
+export {
+  clipRenderLine,
+  clipRenderSpans,
+  line,
+  measureRenderSpans,
+  padRenderLine,
+  span,
+  wrapRenderSpans
+} from '../visual/render.ts';
+export type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../visual/render.ts';
+export type { HitTarget } from '../renderer/contracts.ts';
+export { normalizeTerminalStyle as prepareTerminalStyle } from '../visual/terminal-style.ts';
+export {
+  componentScrollbarHitTargets,
+  paintComponentScrollbar,
+  prepareComponentScrollbar,
+  prepareComponentScrollbarOptions,
+  prepareComponentScrollPolicy,
+  prepareComponentScrollState
+} from './scrollbar.ts';
+export type {
+  ComponentScrollbarLayout,
+  ComponentScrollbarPlan,
+  ComponentScrollbarThumb,
+  ComponentScrollbarTrack
+} from './scrollbar.ts';

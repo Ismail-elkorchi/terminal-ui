@@ -22,10 +22,10 @@ test('grid lays out named rectangular areas without adaptive policy', () => {
     rows,
     columns,
     children: {
-      top: text('Header'),
-      nav: text('Nav'),
-      main: text('Main'),
-      bottom: text('Footer')
+      top: text({ content: 'Header' }),
+      nav: text({ content: 'Nav' }),
+      main: text({ content: 'Main' }),
+      bottom: text({ content: 'Footer' })
     }
   }), { columns: 30, rows: 6 });
   const plain = renderFramePlain(frame);
@@ -43,21 +43,21 @@ test('grid rejects invalid, missing, unused, and non-rectangular area contracts'
     areas: 'top top',
     rows: [],
     columns,
-    children: { top: text('x') }
+    children: { top: text({ content: 'x' }) }
   }), /rows length/u);
 
   assert.throws(() => grid({
     areas: 'top main',
     rows: [{ kind: 'fill' }],
     columns,
-    children: { top: text('x') }
+    children: { top: text({ content: 'x' }) }
   }), /missing child/u);
 
   assert.throws(() => grid({
     areas: 'top',
     rows: [{ kind: 'fill' }],
     columns: [{ kind: 'fill' }],
-    children: { top: text('x'), other: text('unused') }
+    children: { top: text({ content: 'x' }), other: text({ content: 'unused' }) }
   }), /not used/u);
 
   assert.throws(() => grid({
@@ -67,6 +67,6 @@ test('grid rejects invalid, missing, unused, and non-rectangular area contracts'
     `,
     rows: [{ kind: 'fill' }, { kind: 'fill' }],
     columns,
-    children: { a: text('a'), b: text('b') }
+    children: { a: text({ content: 'a' }), b: text({ content: 'b' }) }
   }), /rectangular/u);
 });

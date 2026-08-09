@@ -17,30 +17,37 @@ import type {
   TooltipPresentation,
   TooltipTone
 } from '../../ui-model/menu.ts';
-import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
+import type { ElementOptions } from '../../element/metadata.ts';
+import type { PointerInteractionState } from '../../interaction/index.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
 import type { DividerStylePart, MenuStylePart, TooltipStylePart } from '../../ui-model/style-parts.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
+import type { ComponentMetadataOptions } from '../../component/index.ts';
 
-export interface MenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
+interface InteractiveMenuOptions {
+  readonly id: string;
+  readonly pointerState?: PointerInteractionState;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], MenuStylePart>;
+}
+
+export interface MenuOptions<TMessage = never> extends InteractiveMenuOptions {
   readonly presentation: MenuPresentation;
   readonly emptyText?: string;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction: (action: MenuAction) => TMessage;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly onAction: (action: MenuAction) => MessageResolution<TMessage>;
 }
 
-export interface MenuBarOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
+export interface MenuBarOptions<TMessage = never> extends InteractiveMenuOptions {
   readonly items: readonly MenuItem[];
   readonly presentation: MenuBarPresentation;
   readonly maxVisibleItems?: number;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction: (action: MenuBarAction) => TMessage;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly onAction: (action: MenuBarAction) => MessageResolution<TMessage>;
 }
 
-export interface ContextMenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
+export interface ContextMenuOptions<TMessage = never> extends InteractiveMenuOptions {
   readonly presentation: ContextMenuPresentation;
   readonly title?: string;
   readonly emptyText?: string;
@@ -48,11 +55,10 @@ export interface ContextMenuOptions<TMessage = never> extends InteractiveElement
   readonly scrollPolicy?: ScrollPolicy;
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleItems?: number;
-  readonly onAction: (action: ContextMenuAction) => TMessage;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly onAction: (action: ContextMenuAction) => MessageResolution<TMessage>;
 }
 
-export interface DropdownMenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
+export interface DropdownMenuOptions<TMessage = never> extends InteractiveMenuOptions {
   readonly label?: string;
   readonly items: readonly MenuItem[];
   readonly presentation: DropdownMenuPresentation;
@@ -62,8 +68,7 @@ export interface DropdownMenuOptions<TMessage = never> extends InteractiveElemen
   readonly maxVisibleItems?: number;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction: (action: DropdownMenuAction) => TMessage;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly onAction: (action: DropdownMenuAction) => MessageResolution<TMessage>;
 }
 
 export interface DividerOptions extends ElementOptions<DividerStylePart> {
@@ -73,7 +78,8 @@ export interface DividerOptions extends ElementOptions<DividerStylePart> {
   readonly labelAlign?: 'start' | 'center' | 'end';
 }
 
-export interface TooltipOptions extends ElementOptions<TooltipStylePart> {
+export interface TooltipOptions {
+  readonly id?: string;
   readonly content: string | readonly string[];
   readonly presentation: TooltipPresentation;
   readonly title?: string;
@@ -81,6 +87,7 @@ export interface TooltipOptions extends ElementOptions<TooltipStylePart> {
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxWidth?: number;
   readonly border?: BorderOptions;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles'], TooltipStylePart>;
 }
 
 export type {

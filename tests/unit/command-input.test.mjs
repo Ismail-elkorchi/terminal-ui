@@ -11,12 +11,12 @@ import {
 } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { button, commandInput } from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { column, row } from '../../dist/layout/index.js';
 
 function testCommandInput(options) {
   return commandInput({
-    onAction: () => undefined,
-    onSubmit: () => undefined,
+    onAction: () => ignoreMessage(),
     ...options
   });
 }
@@ -92,7 +92,7 @@ test('commandInputReducer ignores accept when every suggestion is disabled', () 
   assert.deepEqual(accepted.input, { text: 'd', cursor: 1 });
 });
 
-test('commandInput projects controlled state and emits semantic actions', async () => {
+test('commandInput projects controlled state and emits all semantics through onAction', async () => {
   const command = {
     input: { text: 'te', cursor: 2, selection: { startOffset: 0, endOffsetExclusive: 1 } },
     history: ['build'],
@@ -107,13 +107,7 @@ test('commandInput projects controlled state and emits semantic actions', async 
     view: (state) => testCommandInput({
       id: 'command',
       presentation: commandInputPresentation(state.command),
-      onAction: (action) => ({ kind: 'action', action }),
-      onSubmit: () => ({ kind: 'submit' }),
-      keys: {
-        arrowUp: () => ({ kind: 'history' }),
-        tab: () => ({ kind: 'suggestion' }),
-        escape: () => ({ kind: 'escape' })
-      }
+      onAction: (action) => ({ kind: 'action', action })
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
@@ -139,10 +133,9 @@ test('commandInput projects controlled state and emits semantic actions', async 
     { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'x' } } },
     { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'clip' } } },
     { kind: 'action', action: { kind: 'edit', operation: { kind: 'deleteBackward' } } },
-    { kind: 'history' },
-    { kind: 'suggestion' },
-    { kind: 'submit' },
-    { kind: 'escape' }
+    { kind: 'action', action: { kind: 'moveSuggestion', delta: -1 } },
+    { kind: 'action', action: { kind: 'acceptSuggestion' } },
+    { kind: 'action', action: { kind: 'submit', value: 'test' } }
   ]);
 });
 
@@ -192,8 +185,7 @@ test('commandInput popup anchors suggestions without increasing the input height
     },
     display: 'popup',
     maxVisibleSuggestions: 2,
-    onAction: (action) => action,
-    onSubmit: (value) => ({ value })
+    onAction: (action) => action
   });
   const frame = renderElementFrame(column([command, button({
     id: 'content',
@@ -286,8 +278,9 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
       id: 'generated-command',
       presentation: state.presentation,
       display: 'popup',
-      onAction: (action) => ({ kind: 'action', action }),
-      onSubmit: (value) => ({ kind: 'submit', value })
+      onAction: (action) => action.kind === 'submit'
+        ? { kind: 'submit', value: action.value }
+        : { kind: 'action', action }
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
@@ -323,7 +316,7 @@ test('commandInput leaves Tab available for focus traversal without suggestions'
         presentation: { value: '', cursor: 0, suggestions: [] },
         onAction: (action) => ({ kind: 'command', action })
       }),
-      button({ id: 'next', label: 'Next', onPress: () => ({ kind: 'button' }) })
+      button({ id: 'next', label: 'Next', onAction: () => ({ kind: 'button' }) })
     ])
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });

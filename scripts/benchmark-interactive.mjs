@@ -36,7 +36,6 @@ import {
 } from '../dist/text/index.js';
 import { defaultTheme } from '../dist/theme/index.js';
 import { createTuiRuntime, defineTui } from '../dist/tui/index.js';
-import { logViewerSearchStatistics } from '../dist/renderer/internal/log-viewer/prepared-data.js';
 import { searchPickerIndexStatistics } from '../dist/ui-model/search-picker-index.js';
 import { summarizeSamples } from './benchmark-statistics.mjs';
 
@@ -144,7 +143,7 @@ function renderScenarios(realApps) {
             })
           },
           lineNumbers: true,
-          onAction: () => undefined
+          onAction: (action) => action
         });
       }
     },
@@ -161,7 +160,7 @@ function renderScenarios(realApps) {
             contentRows: history.entryCount,
             viewportRows: terminalSize.rows
           }),
-          onAction: () => undefined
+          onAction: (action) => action
         });
       }
     },
@@ -181,7 +180,7 @@ function renderScenarios(realApps) {
               viewportRows: terminalSize.rows - 1
             })
           },
-          onAction: () => undefined
+          onAction: (action) => action
         });
       }
     },
@@ -198,7 +197,7 @@ function renderScenarios(realApps) {
             contentRows: treeCollection.records.length,
             viewportRows: terminalSize.rows
           }),
-          onAction: () => undefined
+          onAction: (action) => action
         });
       }
     },
@@ -278,10 +277,6 @@ function renderScenarios(realApps) {
       name: 'long-log-viewer-search',
       scale: history.entryCount,
       setupWork: { normalized_records: history.entryCount },
-      workSnapshot() {
-        const statistics = logViewerSearchStatistics(history);
-        return { query_candidates: statistics.recordEvaluations };
-      },
       createElement(index) {
         return logViewer({
           id: 'searched-log',
@@ -313,9 +308,9 @@ function renderScenarios(realApps) {
       scale: 3,
       createElement(index) {
         return overlay([
-          text(`base ${String(index)}`, { id: 'base' }),
-          text(`overlay ${String(index)}`, { id: 'overlay', meta: { layer: { zIndex: 2 } } }),
-          text(`top ${String(index)}`, { id: 'top', meta: { layer: { zIndex: 3 } } })
+          text({ id: 'base', content: `base ${String(index)}` }),
+          text({ id: 'overlay', content: `overlay ${String(index)}`, meta: { layer: { zIndex: 2 } } }),
+          text({ id: 'top', content: `top ${String(index)}`, meta: { layer: { zIndex: 3 } } })
         ]);
       }
     },
@@ -326,20 +321,20 @@ function renderScenarios(realApps) {
         return column([
           canvas({
             id: 'dense-canvas',
+            decorative: true,
             measurement: {
               minWidth: 0,
               minHeight: 0,
               preferredWidth: terminalSize.columns,
               preferredHeight: terminalSize.rows - 1
             },
-            meta: { accessibility: { decorative: true } },
             painter({ canvas: target, bounds }) {
               for (let row = 0; row < bounds.height; row += 1) {
                 target.line(0, row, bounds.width - 1, row, { text: String(index % 10) });
               }
             }
           }),
-          text(`frame ${String(index)}`)
+          text({ content: `frame ${String(index)}` })
         ]);
       }
     },
@@ -521,7 +516,7 @@ async function runResizeStormScenario() {
     id: 'benchmark-resize-storm',
     init: () => ({ label: 'resize' }),
     update: (state) => ({ state }),
-    view: (state) => text(state.label)
+    view: (state) => text({ content: state.label })
   });
   const host = createMemoryTerminalHost({ terminalSize });
   const runtime = createTuiRuntime({ app, host });

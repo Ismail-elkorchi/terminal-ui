@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
 import { anchored, column, flow, grid, measuredColumn, row, splitPane, surface } from '../../dist/layout/index.js';
@@ -77,22 +78,21 @@ test('track helpers split fixed, percent, and fill regions deterministically', (
 
 test('grid and splitPane layouts arrange common app frames', () => {
   const element = grid([
-    text('header', { id: 'header' }),
+    text({ content: 'header', id: 'header' }),
     splitPane([
-      text('left', { id: 'left' }),
-      text('main', { id: 'main' }),
-      text('right', { id: 'right' })
+      text({ content: 'left', id: 'left' }),
+      text({ content: 'main', id: 'main' }),
+      text({ content: 'right', id: 'right' })
     ], {
       id: 'body',
       direction: 'horizontal',
       sizes: [{ kind: 'fixed', cells: 10 }, { kind: 'fill' }, { kind: 'fixed', cells: 8 }]
     }),
-    text('status', { id: 'status' }),
+    text({ content: 'status', id: 'status' }),
     commandInput({
       id: 'command',
       presentation: { value: '/help', cursor: 0, suggestions: [] },
-      onAction: (action) => action,
-      onSubmit: (value) => value
+      onAction: (action) => action
     })
   ], {
     id: 'workspace-frame',
@@ -111,8 +111,8 @@ test('grid and splitPane layouts arrange common app frames', () => {
 
 test('splitPane content tracks use measured child width', () => {
   const element = splitPane([
-    text('measured', { id: 'measured' }),
-    text('remaining', { id: 'remaining' })
+    text({ content: 'measured', id: 'measured' }),
+    text({ content: 'remaining', id: 'remaining' })
   ], {
     id: 'measured-pane',
     direction: 'horizontal',
@@ -128,11 +128,11 @@ test('splitPane content tracks use measured child width', () => {
 test('flow content measurement uses the same wrapped geometry as placement', () => {
   const element = column([
     flow([
-      text('aaaa', { id: 'flow-first' }),
-      text('bbbb', { id: 'flow-second' }),
-      text('cccc', { id: 'flow-third' })
+      text({ content: 'aaaa', id: 'flow-first' }),
+      text({ content: 'bbbb', id: 'flow-second' }),
+      text({ content: 'cccc', id: 'flow-third' })
     ], { id: 'wrapped-flow', direction: 'horizontal' }),
-    text('after', { id: 'after-flow' })
+    text({ content: 'after', id: 'after-flow' })
   ], {
     id: 'flow-container',
     sizes: [{ kind: 'content' }, { kind: 'content' }]
@@ -148,25 +148,25 @@ test('flow content measurement uses the same wrapped geometry as placement', () 
 
 test('flow and anchored layouts reject invalid runtime geometry options', () => {
   assert.throws(
-    () => flow([text('value')], { direction: 'diagonal' }),
+    () => flow([text({ content: 'value' })], { direction: 'diagonal' }),
     /flow\(\) direction/u
   );
   assert.throws(
-    () => flow([text('value')], {}),
+    () => flow([text({ content: 'value' })], {}),
     /flow\(\) direction/u
   );
   assert.throws(
-    () => flow([text('value')], { direction: 'horizontal', gap: Number.NaN }),
+    () => flow([text({ content: 'value' })], { direction: 'horizontal', gap: Number.NaN }),
     /flow\(\) gap must be finite/u
   );
   assert.throws(
-    () => anchored(text('value'), {
+    () => anchored(text({ content: 'value' }), {
       anchor: { kind: 'cursor', row: Number.NaN, column: 1 }
     }),
     /anchor row must be finite/u
   );
   assert.throws(
-    () => anchored(text('value'), {
+    () => anchored(text({ content: 'value' }), {
       anchor: { kind: 'cursor', row: 1, column: 1 },
       placement: 'diagonal'
     }),
@@ -187,7 +187,7 @@ test('measuredColumn remains a semantic-neutral windowing layout', () => {
   });
   const frame = renderElementFrame(measuredColumn(
     window,
-    (entry) => text(entry.item.value, { id: entry.item.id }),
+    (entry) => text({ content: entry.item.value, id: entry.item.id }),
     { id: 'measured-window' }
   ), { columns: 8, rows: 2 });
 
@@ -210,7 +210,7 @@ test('measuredColumn rejects row metadata that disagrees with child measurement'
   assert.throws(
     () => renderElementFrame(measuredColumn(
       window,
-      (entry) => text(entry.item.value, { id: entry.item.id })
+      (entry) => text({ content: entry.item.value, id: entry.item.id })
     ), { columns: 12, rows: 2 }),
     /declares 2 rows but its element measures 1/u
   );
@@ -218,15 +218,14 @@ test('measuredColumn rejects row metadata that disagrees with child measurement'
 
 test('interactive row fills do not inflate intrinsic content tracks', () => {
   const element = row([
-    button({ id: 'back', label: 'Back', onPress: () => undefined }),
-    button({ id: 'forward', label: 'Forward', onPress: () => undefined }),
+    button({ id: 'back', label: 'Back', onAction: () => ignoreMessage() }),
+    button({ id: 'forward', label: 'Forward', onAction: () => ignoreMessage() }),
     surface(commandInput({
       id: 'address',
       presentation: { value: 'example.test', cursor: 12, suggestions: [] },
-      onAction: (action) => action,
-      onSubmit: (value) => value
+      onAction: (action) => action
     }), { appearance: 'inset' }),
-    button({ id: 'menu', label: 'Menu', onPress: () => undefined })
+    button({ id: 'menu', label: 'Menu', onAction: () => null })
   ], {
     id: 'browser-toolbar-shape',
     gap: 1,
@@ -248,17 +247,17 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
 
 test('form content tracks include field labels and control gaps', () => {
   const element = column([
-    form([
-      field([
+    form({ slots: { content: [
+      field({ slots: { content: [
         textInput({
           id: 'name',
           presentation: { value: '', cursor: 0 },
           onAction: (action) => action
         })
-      ], { id: 'name-field', label: 'Name' }),
-      button({ id: 'submit', label: 'Submit', onPress: () => undefined })
-    ], { id: 'profile-form', gap: 1 }),
-    text('remaining')
+      ] }, id: 'name-field', label: 'Name' }),
+      button({ id: 'submit', label: 'Submit', onAction: () => ignoreMessage() })
+    ] }, id: 'profile-form', gap: 1 }),
+    text({ content: 'remaining' })
   ], {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
@@ -277,7 +276,7 @@ test('wrapped text-area content tracks retain intrinsic width', () => {
       presentation: { document: prepareTextDocument('x'), caret: textCaretAt(0 )},
       wrap: true
     }),
-    text('remaining', { id: 'wrapped-content-sibling' })
+    text({ content: 'remaining', id: 'wrapped-content-sibling' })
   ], {
     id: 'wrapped-content-row',
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
@@ -297,7 +296,7 @@ test('searchPicker content tracks use the active text-width profile', () => {
       query: '',
       onAction: (action) => action
     }),
-    text('remaining', { id: 'profiled-searchPicker-sibling' })
+    text({ content: 'remaining', id: 'profiled-searchPicker-sibling' })
   ], {
     id: 'profiled-searchPicker-row',
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
@@ -321,13 +320,13 @@ test('searchPicker content tracks use the active text-width profile', () => {
 
 test('column children use their measured height unless a fill track is explicit', () => {
   const compact = column([
-    text('Title', { id: 'compact-title' }),
-    text('Description', { id: 'compact-description' }),
-    button({ id: 'compact-action', label: 'Continue', onPress: () => undefined })
+    text({ content: 'Title', id: 'compact-title' }),
+    text({ content: 'Description', id: 'compact-description' }),
+    button({ id: 'compact-action', label: 'Continue', onAction: () => ignoreMessage() })
   ], { gap: 1 });
   const expanded = column([
-    text('Title', { id: 'expanded-title' }),
-    text('Body', { id: 'expanded-body' })
+    text({ content: 'Title', id: 'expanded-title' }),
+    text({ content: 'Body', id: 'expanded-body' })
   ], {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
@@ -348,9 +347,9 @@ test('column children use their measured height unless a fill track is explicit'
 
 test('column explicit sizes keep fixed header and footer tracks around fill content', () => {
   const element = column([
-    text('Header', { id: 'header' }),
-    text('Body', { id: 'body' }),
-    text('Footer', { id: 'footer' })
+    text({ content: 'Header', id: 'header' }),
+    text({ content: 'Body', id: 'body' }),
+    text({ content: 'Footer', id: 'footer' })
   ], {
     id: 'vertical-workspace-frame',
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
@@ -370,9 +369,9 @@ test('column explicit sizes keep fixed header and footer tracks around fill cont
 
 test('row explicit sizes keep fixed sidebars around fill content', () => {
   const element = row([
-    text('Nav', { id: 'nav' }),
-    text('Main', { id: 'main' }),
-    text('Tools', { id: 'tools' })
+    text({ content: 'Nav', id: 'nav' }),
+    text({ content: 'Main', id: 'main' }),
+    text({ content: 'Tools', id: 'tools' })
   ], {
     id: 'horizontal-workspace-frame',
     sizes: [{ kind: 'fixed', cells: 4 }, { kind: 'fill' }, { kind: 'content' }]
@@ -389,20 +388,20 @@ test('row explicit sizes keep fixed sidebars around fill content', () => {
 
 test('column and row reject size tracks that do not match child count', () => {
   assert.throws(
-    () => column([text('A'), text('B')], { sizes: [{ kind: 'fill' }] }),
+    () => column([text({ content: 'A' }), text({ content: 'B' })], { sizes: [{ kind: 'fill' }] }),
     /column sizes length 1 must match child count 2/u
   );
   assert.throws(
-    () => row([text('A'), text('B')], { sizes: [{ kind: 'fill' }] }),
+    () => row([text({ content: 'A' }), text({ content: 'B' })], { sizes: [{ kind: 'fill' }] }),
     /row sizes length 1 must match child count 2/u
   );
 });
 
 test('splitPane pressure keeps pane order and collapses gaps before clipping content', () => {
   const element = splitPane([
-    text('left', { id: 'left' }),
-    text('middle', { id: 'middle' }),
-    text('right', { id: 'right' })
+    text({ content: 'left', id: 'left' }),
+    text({ content: 'middle', id: 'middle' }),
+    text({ content: 'right', id: 'right' })
   ], {
     id: 'tight-panes',
     direction: 'horizontal',
@@ -426,30 +425,24 @@ test('splitPane pressure keeps pane order and collapses gaps before clipping con
 
 test('row pressure uses overflow priority without rewarding decorative tail content', () => {
   const element = row([
-    text('REQUIRED', {
-    id: 'required',
+    text({ content: 'REQUIRED', id: 'required',
     meta: {
         layer: {
             overflowPriority: 'required'
         }
-    }
-}),
-    text('secondary', {
-    id: 'secondary',
+    } }),
+    text({ content: 'secondary', id: 'secondary',
     meta: {
         layer: {
             overflowPriority: 'secondary'
         }
-    }
-}),
-    text('decorative', {
-    id: 'decorative',
+    } }),
+    text({ content: 'decorative', id: 'decorative',
     meta: {
         layer: {
             overflowPriority: 'decorative'
         }
-    }
-})
+    } })
   ], { gap: 0 });
 
   const layout = layoutElement(element, { columns: 5, rows: 1 });
@@ -465,10 +458,10 @@ test('row pressure uses overflow priority without rewarding decorative tail cont
 
 test('grid content rows and columns use measured child dimensions', () => {
   const element = grid([
-    text('wide-label', { id: 'wide-label' }),
-    text('two\nrows', { id: 'two-rows' }),
-    text('x', { id: 'x' }),
-    text('y', { id: 'y' })
+    text({ content: 'wide-label', id: 'wide-label' }),
+    text({ content: 'two\nrows', id: 'two-rows' }),
+    text({ content: 'x', id: 'x' }),
+    text({ content: 'y', id: 'y' })
   ], {
     id: 'measured-grid',
     rows: [{ kind: 'content' }, { kind: 'fill' }],
@@ -493,8 +486,8 @@ test('named-area grid content tracks use measured area children', () => {
     columns: [{ kind: 'content' }, { kind: 'fill' }],
     columnGap: 1,
     children: {
-      left: text('wide-label', { id: 'left' }),
-      right: text('right', { id: 'right' })
+      left: text({ content: 'wide-label', id: 'left' }),
+      right: text({ content: 'right', id: 'right' })
     }
   });
 
@@ -507,7 +500,7 @@ test('named-area grid content tracks use measured area children', () => {
 });
 
 test('layout flow options align, justify, and bound content regions', () => {
-  const element = surface(text('centered', { id: 'centered' }), {
+  const element = surface(text({ content: 'centered', id: 'centered' }), {
     id: 'aligned-surface',
     border: { kind: 'none' },
     maxWidth: 4,
@@ -523,7 +516,7 @@ test('layout flow options align, justify, and bound content regions', () => {
 });
 
 test('surface margin sizes the outer box while border and padding inset content', () => {
-  const layout = layoutElement(surface(text('inside', { id: 'box-content' }), {
+  const layout = layoutElement(surface(text({ content: 'inside', id: 'box-content' }), {
     id: 'box-surface',
     appearance: 'raised',
     border: { kind: 'single' },
@@ -541,11 +534,11 @@ test('surface margin sizes the outer box while border and padding inset content'
 });
 
 test('layout overflow controls whether min sizes can exceed parent bounds', () => {
-  const clipped = layoutElement(surface(text('clip', { id: 'clip' }), {
+  const clipped = layoutElement(surface(text({ content: 'clip', id: 'clip' }), {
     border: { kind: 'none' },
     minWidth: 8
   }), { columns: 4, rows: 2 });
-  const visible = layoutElement(surface(text('visible', { id: 'visible' }), {
+  const visible = layoutElement(surface(text({ content: 'visible', id: 'visible' }), {
     border: { kind: 'none' },
     minWidth: 8,
     overflow: 'visible'

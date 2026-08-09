@@ -28,6 +28,7 @@ import {
   tree
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import {
   appendLogHistory,
   listReducer,
@@ -176,12 +177,12 @@ test('small local frame updates produce bounded render diffs', () => {
   const previous = renderElementFrame(textInput({
     id: 'field',
     presentation: { value: 'alpha', cursor: 0 },
-    onSubmit: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
   const next = renderElementFrame(textInput({
     id: 'field',
     presentation: { value: 'alpha!', cursor: 0 },
-    onSubmit: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
   const diff = diffFrames(previous, next);
 
@@ -226,8 +227,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
         { value: 'file', label: 'file' },
         { value: 'filter', label: 'filter' }
       ], selectedSuggestionIndex: 0 },
-      onAction: (action) => action,
-      onSubmit: (value) => value
+      onAction: (action) => action
     }),
     table({
     getRowId: (_row, index) => String(index),
@@ -529,14 +529,16 @@ test('form navigation over many controls records one bounded frame per input', a
     id: 'large-form-navigation',
     init: () => ({ active: 'editing' }),
     update: (state, message) => ({ state: { ...state, active: message.kind } }),
-    view: (state) => form([
+    view: (state) => form({ slots: { content: [
       ...Array.from({ length: 25 }, (_value, index) => textInput({
         id: `field-${index}`,
         presentation: { value: state.active, cursor: 0 },
-        onSubmit: () => ({ kind: `field-${index}` })
+        onAction: (action) => action.kind === 'submit'
+          ? { kind: `field-${index}` }
+          : ignoreMessage()
       })),
-      button({ id: 'done', label: 'Done', onPress: () => ({ kind: 'done' }) })
-    ], { id: 'many-fields', title: 'Many fields' })
+      button({ id: 'done', label: 'Done', onAction: () => ({ kind: 'done' }) })
+    ] }, id: 'many-fields', title: 'Many fields' })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 32, rows: 12 } });
   const runtime = createTuiRuntime({ app, host });
@@ -559,7 +561,7 @@ test('custom canvas render stays bounded even when painters write outside the te
       preferredWidth: 32,
       preferredHeight: 8
     },
-    meta: { accessibility: { decorative: true } },
+    decorative: true,
     painter({ canvas, bounds }) {
       for (let row = -20; row < bounds.height + 20; row += 1) {
         canvas.line(-20, row, bounds.width + 180, row, { text: 'x' });
@@ -576,7 +578,7 @@ test('resize storms skip unchanged terminal sizes and commit each distinct seque
     id: 'resize-bounds',
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state }),
-    view: (state) => text(state.label, { id: 'status' })
+    view: (state) => text({ content: state.label, id: 'status' })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host });

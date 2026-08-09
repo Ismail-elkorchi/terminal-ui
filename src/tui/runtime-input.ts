@@ -9,6 +9,7 @@ import {
 } from '../renderer/internal/focus.ts';
 import type { LayoutNode } from '../renderer/contracts.ts';
 import type { RenderNode } from '../renderer/model/types.ts';
+import { resolveRenderNodeMessage } from '../renderer/model/node.ts';
 import { resolveTuiInputBinding } from './input-bindings.ts';
 import type { TuiInputBinding } from './types.ts';
 
@@ -45,11 +46,13 @@ export function resolveRuntimeInputMessage<TState, TMessage>(
   const focusedTextMessage = (
     event: Extract<InputEvent, { readonly kind: 'text' }>
   ): MessageResolution<TMessage> => {
-    const handler = focused?.renderNode.inputMap?.text;
-    if (handler !== undefined) return handler(event.text);
     for (const renderNode of renderNodeKeyChainForFocus(input.renderNode, input.layout, input.focusPath)) {
-      const message = componentKeyMessage(renderNode.keyMap, event, input.focusPath);
+      const message = componentKeyMessage(renderNode, event, input.focusPath);
       if (!isIgnoredMessage(message)) return message;
+    }
+    const handler = focused?.renderNode.inputMap?.text;
+    if (handler !== undefined && focused !== undefined) {
+      return resolveRenderNodeMessage(focused.renderNode, handler(event.text)) as MessageResolution<TMessage>;
     }
     return ignoreMessage();
   };
@@ -59,10 +62,12 @@ export function resolveRuntimeInputMessage<TState, TMessage>(
   }
   if (input.event.kind === 'paste') {
     const handler = focused?.renderNode.inputMap?.paste;
-    if (handler !== undefined) return handler(input.event.text);
+    if (handler !== undefined && focused !== undefined) {
+      return resolveRenderNodeMessage(focused.renderNode, handler(input.event.text)) as MessageResolution<TMessage>;
+    }
   }
   for (const renderNode of renderNodeKeyChainForFocus(input.renderNode, input.layout, input.focusPath)) {
-    const focusedMessage = componentKeyMessage(renderNode.keyMap, input.event, input.focusPath);
+    const focusedMessage = componentKeyMessage(renderNode, input.event, input.focusPath);
     if (!isIgnoredMessage(focusedMessage)) return focusedMessage;
   }
   if (committedText !== undefined) {
@@ -104,19 +109,22 @@ function committedTextInputEvent(
 }
 
 function componentKeyMessage<TMessage>(
-  keyMap: RenderNode<TMessage>['keyMap'] | undefined,
+  renderNode: RenderNode<TMessage>,
   event: InputEvent,
   focusPath: FocusPath | undefined
 ): MessageResolution<TMessage> {
   const handler = event.kind === 'key' && event.key !== 'unknown'
-    ? keyMap?.triggers?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
-      ?? (hasNoKeyModifiers(event) ? keyMap?.[event.key] : undefined)
+    ? renderNode.keyMap?.triggers?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
+      ?? (hasNoKeyModifiers(event) ? renderNode.keyMap?.[event.key] : undefined)
     : event.kind === 'text'
-      ? keyMap?.text?.[event.text]
+      ? renderNode.keyMap?.text?.[event.text]
       : undefined;
   return handler === undefined
     ? ignoreMessage()
-    : handler({ input: event, focusPath: focusPath ?? [] });
+    : resolveRenderNodeMessage(
+        renderNode,
+        handler({ input: event, focusPath: focusPath ?? [] })
+      ) as MessageResolution<TMessage>;
 }
 
 function hasNoKeyModifiers(event: Extract<InputEvent, { readonly kind: 'key' }>): boolean {

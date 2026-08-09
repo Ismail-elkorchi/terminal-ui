@@ -20,8 +20,8 @@ test('TUI tabs expose clickable tab hit targets', async () => {
       id: 'click-tabs',
       selected: state.selected,
       tabs: [
-        { id: 'left', label: 'Left', panel: text('left panel') },
-        { id: 'right', label: 'Right', panel: text('right panel') }
+        { id: 'left', label: 'Left', panel: text({ content: 'left panel' }) },
+        { id: 'right', label: 'Right', panel: text({ content: 'right panel' }) }
       ],
       onAction: (action) => action.kind === 'select' ? { selected: action.id } : { selected: state.selected }
     })
@@ -128,7 +128,7 @@ test('TUI runtime routes mouse input through the committed render cache', async 
     update: (state) => ({ state: { count: state.count + 1 } }),
     view: (state) => {
       viewCalls += 1;
-      return button({ id: 'cached-button', label: `Count ${state.count}`, onPress: () => ({ kind: 'click' }) });
+      return button({ id: 'cached-button', label: `Count ${state.count}`, onAction: () => ({ kind: 'click' }) });
     }
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });

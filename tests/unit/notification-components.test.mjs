@@ -14,7 +14,6 @@ import {
   renderFramePlain
 } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { placeNotificationStack } from '../../dist/renderer/internal/notifications.js';
 import { grid } from '../../dist/layout/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
@@ -31,7 +30,7 @@ test('notificationRegion is a live region with focusable explicit dismiss action
       tone: 'success',
       dismissible: true
     }],
-    onDismiss: (id) => ({ kind: 'dismiss', id })
+    onAction: (action) => ({ kind: 'notification', action })
   });
   const frame = renderElementFrame(element, { columns: 40, rows: 8 });
   const targets = renderElementRegions(element, { columns: 40, rows: 8 })
@@ -45,7 +44,7 @@ test('notificationRegion is a live region with focusable explicit dismiss action
   ]);
   assert.deepEqual(
     targets[0]?.message(routedPointerEvent()),
-    { kind: 'dismiss', id: 'build' }
+    { kind: 'notification', action: { kind: 'dismiss', id: 'build' } }
   );
 });
 
@@ -88,11 +87,11 @@ test('notification components reject invalid tone and progress values', () => {
   assert.throws(() => notificationRegion({
     id: 'invalid-tone',
     items: [{ id: 'broken', title: 'Broken', tone: 'fatal' }]
-  }), TypeError);
+  }), (error) => error.name === 'ComponentExecutionError' && error.cause instanceof TypeError);
   assert.throws(() => notificationRegion({
     id: 'invalid-progress',
     items: [{ id: 'broken', title: 'Broken', progress: Number.NaN }]
-  }), RangeError);
+  }), (error) => error.name === 'ComponentExecutionError' && error.cause instanceof RangeError);
 });
 
 test('passive notifications do not paint an inert dismissal affordance', () => {
@@ -154,27 +153,30 @@ test('notification cards middle-clip compact title and message lines', () => {
 });
 
 test('notification placement supports top, bottom, and centered presets', () => {
-  const viewport = { row: 1, column: 1, width: 80, height: 24 };
-  const size = { width: 20, height: 6 };
+  const item = { id: 'notice', title: 'Notice' };
+  const frames = ['top-right', 'bottom-right', 'centered-stack'].map((placement) =>
+    renderElementFrame(notificationRegion({
+      id: `notices-${placement}`,
+      items: [item],
+      placement
+    }), { columns: 80, rows: 24 })
+  );
+  const bounds = frames.map((frame) => {
+    const cells = frame.cells.filter((cell) => cell.source?.itemId === 'notice');
+    return {
+      top: Math.min(...cells.map((cell) => cell.row)),
+      left: Math.min(...cells.map((cell) => cell.column)),
+      bottom: Math.max(...cells.map((cell) => cell.row)),
+      right: Math.max(...cells.map((cell) => cell.column))
+    };
+  });
 
-  assert.deepEqual(placeNotificationStack({ viewport, size, placement: 'top-right' }), {
-    row: 2,
-    column: 60,
-    width: 20,
-    height: 6
-  });
-  assert.deepEqual(placeNotificationStack({ viewport, size, placement: 'bottom-right' }), {
-    row: 18,
-    column: 60,
-    width: 20,
-    height: 6
-  });
-  assert.deepEqual(placeNotificationStack({ viewport, size, placement: 'centered-stack' }), {
-    row: 10,
-    column: 31,
-    width: 20,
-    height: 6
-  });
+  assert.equal(bounds[0]?.top, 2);
+  assert.equal(bounds[0]?.right, 79);
+  assert.equal(bounds[1]?.bottom, 23);
+  assert.equal(bounds[1]?.right, 79);
+  assert.equal(bounds[2]?.top, 11);
+  assert.equal(bounds[2]?.left, 31);
 });
 
 test('notification regions remain constrained by allocated layout bounds', () => {
@@ -185,7 +187,7 @@ test('notification regions remain constrained by allocated layout bounds', () =>
     columns: [{ kind: 'fill' }, { kind: 'fixed', cells: 24 }],
     rows: [{ kind: 'fill' }],
     children: {
-      main: text('Main content'),
+      main: text({ content: 'Main content' }),
       notices: notificationRegion({
         id: 'bounded-notices',
         items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
@@ -194,7 +196,7 @@ test('notification regions remain constrained by allocated layout bounds', () =>
     }
   }), { columns: 60, rows: 12 });
   const notificationCells = frame.cells.filter((cell) =>
-    cell.source?.elementKind === 'notificationRegion'
+    cell.source?.elementKind === 'terminal-ui/components/notification-region'
   );
 
   assert.ok(notificationCells.length > 0);
@@ -210,7 +212,7 @@ test('notification regions omit cards from undersized bounds', () => {
   }), { columns: 28, rows: 2 });
 
   assert.equal(frame.cells.some((cell) =>
-    cell.source?.elementKind === 'notificationRegion'
+    cell.source?.elementKind === 'terminal-ui/components/notification-region'
   ), false);
   assert.doesNotMatch(renderFramePlain(frame), /Saved/u);
 });
@@ -250,7 +252,7 @@ test('notificationHistory rejects invalid runtime contracts during construction'
   assert.throws(() => notificationHistory({
     id: 'missing-handler',
     items: []
-  }), /requires an onAction function/u);
+  }), /requires onAction to map its semantic actions/u);
 });
 
 function colorCapabilities() {

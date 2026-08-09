@@ -37,7 +37,8 @@ export {
   mergeDesignTokens,
   mergeThemes,
   resolveTerminalStyle,
-  resolveThemeColor
+  resolveThemeColor,
+  terminalStyleHasBackground
 } from './theme.ts';
 export { contrastColor, deriveSurface, ensureContrast } from './contrast.ts';
 

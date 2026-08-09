@@ -17,15 +17,16 @@ button({
   id: 'save',
   label: 'Save',
   tone: 'primary',
-  onPress: () => ({ kind: 'save' as const })
+  onAction: () => ({ kind: 'save' as const })
 });
 label({ id: 'query-label', forId: 'query', text: 'Query' });
 commandInput({
   id: 'command',
   presentation: { value: '', cursor: 0, suggestions: [] },
   validation: { message: 'Choose a command', level: validationLevel },
-  onAction: (action) => ({ kind: 'command' as const, action }),
-  onSubmit: (value) => ({ kind: 'submit' as const, value })
+  onAction: (action) => action.kind === 'submit'
+    ? ({ kind: 'submit' as const, value: action.value })
+    : ({ kind: 'command' as const, action })
 });
 textInput({
   id: 'query',
@@ -58,15 +59,15 @@ const invalidDisabledEditor: TextAreaOptions = {
   onAction: () => ({ kind: 'edit' })
 };
 void invalidDisabledEditor;
+// @ts-expect-error disabled editors cannot expose unreachable handlers
 textArea({
   id: 'invalid-disabled-editor',
   presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) },
   disabled: true,
-  // @ts-expect-error disabled editors cannot expose unreachable handlers
   onAction: () => ({ kind: 'edit' })
 });
 // @ts-expect-error passive text cannot own local input bindings
-text('Passive', { keys: { enter: () => ({ kind: 'invalid' }) } });
+text({ content: 'Passive', keys: { enter: () => ({ kind: 'invalid' }) } });
 textInput({
   id: 'invalid-style',
   presentation: { value: '', cursor: 0 },

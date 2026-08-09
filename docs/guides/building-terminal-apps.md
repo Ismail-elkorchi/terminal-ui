@@ -34,9 +34,9 @@ const app = defineTui<State, Message>({
     return { state, exit: { reason: 'quit' } };
   },
   view: (state) => column([
-    text(state.saved ? 'Saved' : 'Unsaved'),
-    button({ id: 'save', label: 'Save', onPress: (): Message => ({ kind: 'save' }) }),
-    button({ id: 'quit', label: 'Quit', onPress: (): Message => ({ kind: 'quit' }) })
+    text({ content: state.saved ? 'Saved' : 'Unsaved' }),
+    button({ id: 'save', label: 'Save', onAction: (): Message => ({ kind: 'save' }) }),
+    button({ id: 'quit', label: 'Quit', onAction: (): Message => ({ kind: 'quit' }) })
   ])
 });
 
@@ -55,9 +55,8 @@ type Message = { readonly kind: 'save' };
 button({
   id: 'save',
   label: 'Save',
-  onPress: (): Message => ({ kind: 'save' }),
+  onAction: (): Message => ({ kind: 'save' }),
   meta: {
-    accessibility: { description: 'Persist the current document' },
     focus: { order: 10 },
     layer: { overflowPriority: 'important' },
     styles: {
@@ -71,13 +70,10 @@ Rules:
 
 - keep `id` top-level; it is caller-supplied identity for focus, tests,
   accessibility, state association, routing, and examples;
-- keep semantic component state such as button `state`, selection, validation errors,
-  `required`, and values on the component itself;
+- keep declared capabilities such as `disabled`, `busy`, `readOnly`, and
+  `inert`, plus domain values, on the component itself;
 - put cross-cutting system metadata under `meta`;
-- use direct event props for scalar values and structured `onAction` contracts
-  for navigation, data, document, and interactive visualization components;
-- use `keys` only for component-local keyboard behavior that cannot be
-  expressed by semantic event props;
+- route every component's semantic events through its typed `onAction` channel;
 - keep state caller-controlled.
 
 ## Controlled Components
@@ -100,8 +96,8 @@ See [Components](./components.md) for component roles and
 
 ## Rendering Boundary
 
-The renderer sees normalized `RenderNode<TMessage>` values. That shape is not
-part of the public element contract.
+The renderer resolves opaque elements through one private construction
+boundary. Its runtime node shape is not part of the public element contract.
 
 Use the testing façade for element snapshots:
 

@@ -1,179 +1,473 @@
-import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
+import {
+  defineComponent,
+  line,
+  measureRenderSpans,
+  span,
+  wrapRenderSpans,
+} from '../../component/index.ts';
+import type { SemanticLeafComponentFactory } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
-import type {
-  DisclosureOptions,
-  RichTextOptions,
-  DisabledTextAreaOptions,
-  ScrollableTextAreaOptions,
-  TextAreaOptions,
-  TextOptions,
-  UnscrolledTextAreaOptions
-} from '../options/content.ts';
-import { assertTextDocument } from '../../text/index.ts';
-import type { TextAreaAction, TextAreaControlAction } from '../../ui-model/text-area.ts';
+import type { DisclosureOptions, RichTextOptions, TextOptions } from '../options/content.ts';
+import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
+import type { ElementTextRole } from '../../element/metadata.ts';
+import type { TerminalStyle } from '../../visual/render.ts';
+import type { TextStylePart } from '../../ui-model/style-parts.ts';
 import {
-  componentMetaProps,
-  interactionProps,
-  textAreaKeyBindings,
-  textActionInputHandlers
-} from '../internal/interaction.ts';
-import { optionalRenderNodeId, requiredRenderNodeId } from '../../renderer/model/element.ts';
-import { normalizeInlineContent } from '../../visual/inline-content.ts';
-import {
-  activationKeyBindings
-} from '../internal/interaction.ts';
-import { toRenderNode } from '../../renderer/model/element.ts';
+  inlineContentAccessibleText,
+  inlineSegmentText,
+  isInlineContent,
+  normalizeInlineContent,
+} from '../../visual/inline-content.ts';
+import type { InlineContent } from '../../visual/inline-content.ts';
+import type { RenderSpan } from '../../visual/render.ts';
 import type { ElementMessage } from '../../element/index.ts';
-import type {
-  ComponentKeyBindingMessages,
-  IndependentInteractionOptions,
-  InferredElementKeyBindings
-} from '../internal/messages.ts';
-import { assertControlContract } from '../internal/control-contract.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 
-export function text(content: string, options: TextOptions = {}): Element {
-  return componentElementFromRenderNode<'text'>({
-    ...optionalRenderNodeId(options.id),
-    kind: 'text',
-    props: {
-      content,
-      ...(options.textRole === undefined ? {} : { textRole: options.textRole })
-    },
-    ...componentMetaProps(options.meta)
+interface PreparedText {
+  readonly content: string;
+  readonly textRole: ElementTextRole;
+}
+
+export const text: SemanticLeafComponentFactory<
+  Pick<TextOptions, 'content' | 'textRole'>,
+  never,
+  TextStylePart,
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer']
+> = defineComponent<
+  Pick<TextOptions, 'content' | 'textRole'>,
+  PreparedText,
+  never,
+  TextStylePart,
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer']
+>({
+  name: 'terminal-ui/components/text',
+  identity: 'optional',
+  structure: 'leaf',
+  semantics: 'semantic',
+  optionFields: { content: null, textRole: null },
+  metadata: ['styles', 'layer'],
+  parts: ['content', 'link'],
+  prepare(value) {
+    if (!isNonArrayObject(value)) {
+      throw new TypeError('text options must be an object.');
+    }
+    const content = value['content'];
+    const textRole = value['textRole'];
+    if (typeof content !== 'string') throw new TypeError('text content must be a string.');
+    if (textRole !== undefined && !isTextRole(textRole)) {
+      throw new TypeError('text textRole is invalid.');
+    }
+    return {
+      content: sanitizeTerminalText(content).text,
+      textRole: textRole ?? 'body',
+    };
+  },
+  measure({ model, widthProfile }) {
+    const lines = model.content.split('\n');
+    return {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: lines.reduce(
+        (width, line) => Math.max(width, measureTextCells(line, { widthProfile }).cells),
+        0,
+      ),
+      preferredHeight: lines.length,
+    };
+  },
+  render({ model, target, style, source }) {
+    const contentStyle = style({
+      part: 'root',
+      base: textRoleStyle(model.textRole),
+    });
+    target.writeBlock(0, 0, {
+      lines: model.content.split('\n').map((line) => ({
+        spans: [{
+          text: line,
+          ...(contentStyle === undefined ? {} : { style: contentStyle }),
+          source: source({
+            cellRole: 'text',
+            partName: `role.${model.textRole}`,
+            partType: 'text',
+            description: `role.${model.textRole}`,
+          }),
+        }],
+      })),
+    });
+  },
+  accessibility({ id, model }) {
+    return { id, role: 'text', label: id, value: model.content };
+  },
+});
+
+function isTextRole(value: unknown): value is ElementTextRole {
+  return value === 'title' ||
+    value === 'heading' ||
+    value === 'body' ||
+    value === 'caption' ||
+    value === 'metadata' ||
+    value === 'metric' ||
+    value === 'badge';
+}
+
+function textRoleStyle(role: ElementTextRole): TerminalStyle {
+  switch (role) {
+    case 'title':
+      return { fg: { kind: 'theme', token: 'surface.title' }, bold: true };
+    case 'heading':
+      return { fg: { kind: 'theme', token: 'text.strong' }, bold: true };
+    case 'caption':
+    case 'metadata':
+      return { fg: { kind: 'theme', token: 'text.muted' }, dim: true };
+    case 'metric':
+      return { fg: { kind: 'theme', token: 'accent.primary' }, bold: true };
+    case 'badge':
+      return {
+        fg: { kind: 'theme', token: 'badge.foreground' },
+        bg: { kind: 'theme', token: 'badge.background' },
+        bold: true,
+      };
+    case 'body':
+      return { fg: { kind: 'theme', token: 'text.default' } };
+  }
+}
+
+interface PreparedRichText {
+  readonly segments: InlineContent;
+  readonly wrap: boolean;
+}
+
+export const richText: SemanticLeafComponentFactory<
+  Pick<RichTextOptions, 'segments' | 'wrap'>,
+  never,
+  TextStylePart,
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer']
+> = defineComponent<
+  Pick<RichTextOptions, 'segments' | 'wrap'>,
+  PreparedRichText,
+  never,
+  TextStylePart,
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer']
+>({
+  name: 'terminal-ui/components/rich-text',
+  identity: 'optional',
+  structure: 'leaf',
+  semantics: 'semantic',
+  optionFields: { segments: null, wrap: null },
+  metadata: ['styles', 'layer'],
+  parts: ['content', 'link'],
+  prepare(value) {
+    if (!isNonArrayObject(value)) {
+      throw new TypeError('richText options must be an object.');
+    }
+    const segments = value['segments'];
+    const wrap = value['wrap'];
+    if (!isInlineContent(segments)) {
+      throw new TypeError('richText segments must be inline content.');
+    }
+    if (wrap !== undefined && typeof wrap !== 'boolean') {
+      throw new TypeError('richText wrap must be a boolean.');
+    }
+    return { segments: normalizeInlineContent(segments), wrap: wrap === true };
+  },
+  measure(input) {
+    const spans = richTextMeasureSpans(input.model, input.theme);
+    if (input.model.wrap && input.constraints.width > 0) {
+      const lines = wrapRenderSpans(spans, input.constraints.width, {
+        widthProfile: input.widthProfile,
+      });
+      return {
+        minWidth: 0,
+        minHeight: 0,
+        preferredWidth: Math.min(
+          input.constraints.width,
+          Math.max(
+            0,
+            ...lines.map((current) =>
+              measureRenderSpans(current.spans, {
+                widthProfile: input.widthProfile,
+              })
+            ),
+          ),
+        ),
+        preferredHeight: lines.length,
+      };
+    }
+    return {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: measureRenderSpans(spans, { widthProfile: input.widthProfile }),
+      preferredHeight: 1,
+    };
+  },
+  render(input) {
+    if (input.bounds.width === 0 || input.bounds.height === 0) return;
+    const spans = richTextSpans(input);
+    const lines = input.model.wrap
+      ? wrapRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile })
+      : [line(spans)];
+    input.target.writeBlock(0, 0, { lines: lines.slice(0, input.bounds.height) });
+  },
+  accessibility({ id, model }) {
+    return { id, role: 'text', label: id, value: inlineContentAccessibleText(model.segments) };
+  },
+});
+
+function richTextSpans(input: {
+  readonly model: PreparedRichText;
+  readonly theme: import('../../theme/index.ts').TerminalTheme;
+  readonly style: (
+    input: { readonly part: TextStylePart; readonly base?: TerminalStyle },
+  ) => TerminalStyle | undefined;
+  readonly source: (
+    input?: import('../../component/index.ts').ComponentSourceInput,
+  ) => import('../../visual/source.ts').FrameCellSource;
+}): readonly RenderSpan[] {
+  return input.model.segments.map((segment, index) => {
+    const linkBase: TerminalStyle | undefined = segment.link === undefined
+      ? undefined
+      : { fg: { kind: 'theme', token: 'link.foreground' }, underline: true };
+    const style = input.style({
+      part: segment.link === undefined ? 'content' : 'link',
+      base: {
+        ...linkBase,
+        ...segment.style,
+      },
+    });
+    return span(inlineSegmentText(segment, input.theme.tokens.symbols.mode), {
+      ...(style === undefined ? {} : { style }),
+      ...(segment.link === undefined ? {} : { link: segment.link }),
+      source: input.source({
+        cellRole: 'text',
+        partName: 'segment',
+        itemIndex: index,
+        description: `segment.${String(index)}`,
+      }),
+    });
   });
 }
 
-export function richText(options: RichTextOptions): Element {
-  return componentElementFromRenderNode<'richText'>({
-    ...optionalRenderNodeId(options.id),
-    kind: 'richText',
-    props: {
-      segments: normalizeInlineContent(options.segments),
-      ...(options.wrap === undefined ? {} : { wrap: options.wrap })
-    },
-    ...componentMetaProps(options.meta)
-  });
-}
-
-export function disclosure<
-  const TChild extends Element<unknown>,
-  const TMessage = never
->(
-  child: TChild,
-  options: DisclosureOptions<TMessage>
-): Element<ElementMessage<TChild> | TMessage> {
-  assertControlContract('disclosure', options, options.disabled === true, ['onAction']);
-  const onAction = options.disabled === true ? undefined : options.onAction;
-  const keys = activationKeyBindings(
-    onAction === undefined ? undefined : () => onAction({ kind: 'toggle' }),
-    options.keys
+function richTextMeasureSpans(
+  model: PreparedRichText,
+  theme: import('../../theme/index.ts').TerminalTheme,
+): readonly RenderSpan[] {
+  return model.segments.map((segment) =>
+    span(
+      inlineSegmentText(segment, theme.tokens.symbols.mode),
+    )
   );
-  return componentElementFromRenderNode<
-    'disclosure',
-    ElementMessage<TChild> | TMessage
-  >({
-    ...requiredRenderNodeId(options.id, 'disclosure'),
-    kind: 'disclosure',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      label: options.label,
-      ...(options.summary === undefined
-        ? {}
-        : { summary: normalizeInlineContent(options.summary) }),
-      expanded: options.expanded,
-      ...(onAction === undefined ? {} : { toActionMessage: onAction })
-    },
-    children: [toRenderNode(child)],
-    ...(keys === undefined ? {} : { keyMap: keys }),
-    ...interactionProps({
-      pointer: options.pointer,
-      meta: options.meta
-    })
-  });
 }
 
-/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
-export function textArea<
-  const TActionMessage = unknown,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
+interface DisclosureModel {
+  readonly label: string;
+  readonly summary?: InlineContent;
+  readonly expanded: boolean;
+}
+
+const disclosureSlots = {
+  content: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
+} as const;
+
+type DisclosureFactory = <
+  TChild extends Element<unknown>,
+  TMessage extends NonNullable<unknown> | null = never,
 >(
-  options: IndependentInteractionOptions<
-    ScrollableTextAreaOptions,
-    { readonly onAction: TActionMessage },
-    TKeys,
-    TPointerMessage
-  >
-): Element<
-  | TActionMessage
-  | TPointerMessage
-  | ComponentKeyBindingMessages<TKeys>
->;
-export function textArea<
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    UnscrolledTextAreaOptions,
-    { readonly onAction: TActionMessage },
-    TKeys,
-    TPointerMessage
-  >
-): Element<
-  | TActionMessage
-  | TPointerMessage
-  | ComponentKeyBindingMessages<TKeys>
->;
-export function textArea(options: DisabledTextAreaOptions): Element;
-/* eslint-enable @typescript-eslint/unified-signatures */
-export function textArea(options: unknown): Element<unknown> {
-  return textAreaElement(options as TextAreaOptions<unknown>);
+  options: DisclosureOptions<TMessage, TChild>,
+) => Element<TMessage | ElementMessage<TChild>>;
+
+export const disclosure: DisclosureFactory = defineComponent<
+  { readonly label: string; readonly summary?: InlineContent; readonly expanded: boolean },
+  DisclosureModel,
+  import('../../ui-model/disclosure.ts').DisclosureAction,
+  import('../../ui-model/style-parts.ts').DisclosureStylePart,
+  readonly ['disabled'],
+  'required',
+  readonly ['focus', 'layer', 'styles'],
+  typeof disclosureSlots
+>({
+  name: 'terminal-ui/components/disclosure',
+  identity: 'required',
+  structure: 'composite',
+  semantics: 'semantic',
+  slots: disclosureSlots,
+  states: ['disabled'],
+  metadata: ['focus', 'layer', 'styles'],
+  parts: ['marker', 'label', 'summary'],
+  optionFields: { label: null, summary: null, expanded: null },
+  prepare(value) {
+    if (!isNonArrayObject(value)) {
+      throw new TypeError('disclosure options must be an object.');
+    }
+    const label = value['label'];
+    const summary = value['summary'];
+    const expanded = value['expanded'];
+    if (typeof label !== 'string') throw new TypeError('disclosure label must be a string.');
+    if (summary !== undefined && !isInlineContent(summary)) {
+      throw new TypeError('disclosure summary must be inline content.');
+    }
+    if (typeof expanded !== 'boolean') {
+      throw new TypeError('disclosure expanded must be a boolean.');
+    }
+    return {
+      label: sanitizeTerminalText(label).text,
+      ...(summary === undefined ? {} : { summary: normalizeInlineContent(summary) }),
+      expanded,
+    };
+  },
+  measure(input) {
+    const header = disclosureMeasureHeader(input.model, input.theme);
+    const content = input.model.expanded ? input.slots.measure('content') : undefined;
+    return {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: Math.max(
+        measureRenderSpans(header, { widthProfile: input.widthProfile }),
+        content?.preferredWidth ?? 0,
+      ),
+      preferredHeight: 1 + (content?.preferredHeight ?? 0),
+    };
+  },
+  layout({ bounds, model }) {
+    return {
+      content: model.expanded
+        ? {
+          row: Math.min(1, bounds.height),
+          column: 0,
+          width: bounds.width,
+          height: Math.max(0, bounds.height - 1),
+        }
+        : { row: Math.min(1, bounds.height), column: 0, width: 0, height: 0 },
+    };
+  },
+  renderBeforeChildren(input) {
+    if (input.bounds.width === 0 || input.bounds.height === 0) return;
+    input.target.write(0, 0, disclosureHeader(input));
+  },
+  keys() {
+    return {
+      enter: () => ({ kind: 'toggle' }),
+      space: () => ({ kind: 'toggle' }),
+    };
+  },
+  focusTargets({ bounds }) {
+    return [{
+      id: 'toggle',
+      bounds: { row: 0, column: 0, width: bounds.width, height: Math.min(1, bounds.height) },
+      disabled: false,
+    }];
+  },
+  hitTargets({ id, bounds }) {
+    return [{
+      id: `${id ?? 'disclosure'}:toggle`,
+      bounds: { row: 0, column: 0, width: bounds.width, height: Math.min(1, bounds.height) },
+      accepts: ['click'],
+      cursor: 'pointer',
+      focus: { kind: 'target', targetId: 'toggle' },
+      message: () => ({ kind: 'toggle' }),
+    }];
+  },
+  accessibility({ id, model, focusedTargetId, slots, disabled }) {
+    const toggleId = `${id}:toggle`;
+    const summary = model.summary === undefined
+      ? undefined
+      : inlineContentAccessibleText(model.summary);
+    return {
+      id,
+      role: 'group',
+      label: model.label,
+      children: [
+        {
+          id: toggleId,
+          role: 'button',
+          label: model.label,
+          expanded: model.expanded,
+          disabled,
+          ...(model.expanded ? { controls: `${id}:content` } : {}),
+          ...(summary === undefined || summary.length === 0 ? {} : { description: summary }),
+          ...(focusedTargetId === 'toggle' ? { focused: true } : {}),
+        },
+        ...(model.expanded
+          ? [{
+            id: `${id}:content`,
+            role: 'group' as const,
+            label: `${model.label} content`,
+            children: slots.content,
+          }]
+          : []),
+      ],
+    };
+  },
+});
+
+function disclosureMeasureHeader(
+  model: DisclosureModel,
+  theme: import('../../theme/index.ts').TerminalTheme,
+): readonly RenderSpan[] {
+  const marker = model.expanded ? theme.tokens.symbols.expanded : theme.tokens.symbols.collapsed;
+  return [
+    span(marker),
+    span(` ${model.label}`),
+    ...(model.summary === undefined || model.summary.length === 0 ? [] : [
+      span(' '),
+      ...model.summary.map((segment) =>
+        span(inlineSegmentText(segment, theme.tokens.symbols.mode))
+      ),
+    ]),
+  ];
 }
 
-function textAreaElement(options: TextAreaOptions<unknown>): Element<unknown> {
-  assertControlContract('textArea', options, options.disabled === true, [], ['onAction']);
-  const toControlMessage: ((action: TextAreaControlAction) => unknown) | undefined = options.onAction;
-  const toActionMessage: ((action: TextAreaAction) => unknown) | undefined = options.onAction === undefined
-    ? undefined
-    : isScrollableTextAreaOptions(options)
-      ? options.onAction
-      : (action) => action.kind === 'scroll' ? undefined : toControlMessage?.(action);
-  const keys = textAreaKeyBindings(toControlMessage, options.keys);
-  const presentation = options.presentation;
-  assertTextDocument(presentation.document);
-  return componentElementFromRenderNode<'textArea', unknown>({
-    ...requiredRenderNodeId(options.id, 'textArea'),
-    kind: 'textArea',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      document: presentation.document,
-      caret: presentation.caret,
-      ...(presentation.selection === undefined ? {} : { selection: presentation.selection }),
-      ...(presentation.revealCaret === undefined ? {} : { revealCaret: presentation.revealCaret }),
-      ...(options.highlights === undefined ? {} : { highlights: options.highlights }),
-      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(options.lineNumbers === undefined ? {} : { lineNumbers: options.lineNumbers }),
-      ...(options.activeLine === undefined ? {} : { activeLine: options.activeLine }),
-      ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
-      ...(presentation.scroll === undefined ? {} : { scroll: presentation.scroll }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.error === undefined ? {} : { error: options.error }),
-      ...(toActionMessage === undefined ? {} : { toActionMessage })
+function disclosureHeader(input: {
+  readonly model: DisclosureModel;
+  readonly theme: import('../../theme/index.ts').TerminalTheme;
+  readonly style: (
+    input: {
+      readonly part: import('../../ui-model/style-parts.ts').DisclosureStylePart;
+      readonly base?: TerminalStyle;
     },
-    ...interactionProps({
-      ...textActionInputHandlers(toControlMessage),
-      keys,
-      pointer: options.pointer,
-      meta: options.meta
-    })
-  });
+  ) => TerminalStyle | undefined;
+  readonly source: (
+    input?: import('../../component/index.ts').ComponentSourceInput,
+  ) => import('../../visual/source.ts').FrameCellSource;
+}): readonly RenderSpan[] {
+  const marker = input.model.expanded
+    ? input.theme.tokens.symbols.expanded
+    : input.theme.tokens.symbols.collapsed;
+  const segments: RenderSpan[] = [
+    span(marker, disclosureSpanOptions(input, 'marker', 'decoration')),
+    span(` ${input.model.label}`, disclosureSpanOptions(input, 'label', 'text')),
+  ];
+  if (input.model.summary !== undefined && input.model.summary.length > 0) {
+    segments.push(span(' '));
+    input.model.summary.forEach((segment, index) => {
+      const style = input.style({
+        part: 'summary',
+        ...(segment.style === undefined ? {} : { base: segment.style }),
+      });
+      segments.push(span(inlineSegmentText(segment, input.theme.tokens.symbols.mode), {
+        ...(style === undefined ? {} : { style }),
+        ...(segment.link === undefined ? {} : { link: segment.link }),
+        source: input.source({ cellRole: 'text', partName: 'summary', itemIndex: index }),
+      }));
+    });
+  }
+  return segments;
 }
 
-function isScrollableTextAreaOptions<TMessage>(
-  options: TextAreaOptions<TMessage>
-): options is ScrollableTextAreaOptions<TMessage> {
-  return options.presentation.scroll !== undefined;
+function disclosureSpanOptions(
+  input: Parameters<typeof disclosureHeader>[0],
+  part: 'marker' | 'label',
+  cellRole: 'decoration' | 'text',
+): Omit<RenderSpan, 'text'> {
+  const style = input.style({ part });
+  return {
+    ...(style === undefined ? {} : { style }),
+    source: input.source({ cellRole, partName: part }),
+  };
 }

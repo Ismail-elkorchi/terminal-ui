@@ -500,8 +500,8 @@ function topMenu(state: EditorState): Element<EditorMessage> {
 
 function explorerPane(state: EditorState): Element<EditorMessage> {
   return surface(column([
-    text('Explorer', { id: 'explorer-heading', textRole: 'heading' }),
-    text(state.root === undefined ? 'No folder open' : path.basename(state.root), { id: 'explorer-root', textRole: 'metadata' }),
+    text({ content: 'Explorer', id: 'explorer-heading', textRole: 'heading' }),
+    text({ content: state.root === undefined ? 'No folder open' : path.basename(state.root), id: 'explorer-root', textRole: 'metadata' }),
     tree({
       id: 'editor-tree',
       ...state.tree,
@@ -518,8 +518,8 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
 function editorPane(state: EditorState): Element<EditorMessage> {
   if (state.buffers.length === 0) {
     return surface(column([
-      text('Open a folder or file to start editing.', { id: 'empty-title', textRole: 'heading' }),
-      text('/open <path> and /folder <path> run asynchronously.', { id: 'empty-help', textRole: 'body' })
+      text({ content: 'Open a folder or file to start editing.', id: 'empty-title', textRole: 'heading' }),
+      text({ content: '/open <path> and /folder <path> run asynchronously.', id: 'empty-help', textRole: 'body' })
     ], { id: 'empty-editor', gap: 1 }), { id: 'editor-empty', appearance: 'neutral', padding: 1 });
   }
   return tabs({
@@ -535,11 +535,11 @@ function editorPane(state: EditorState): Element<EditorMessage> {
         lineNumbers: true,
         activeLine: true,
         scrollbar: { visible: 'auto' },
-        onAction: (action): EditorMessage => ({ kind: 'edit', path: buffer.path, action })
+        onAction: (action: TextAreaAction): EditorMessage => ({ kind: 'edit', path: buffer.path, action })
       })
     })),
     ...(state.activePath === undefined ? {} : { selected: state.activePath }),
-    onAction: (action): EditorMessage => ({ kind: 'tabs', action })
+    onAction: (action: TabAction): EditorMessage => ({ kind: 'tabs', action })
   });
 }
 
@@ -547,12 +547,12 @@ function detailsPane(state: EditorState): Element<EditorMessage> {
   const buffer = activeBuffer(state);
   const operation = state.operation.kind === 'idle' ? 'ready' : state.operation.kind;
   return surface(column([
-    text(buffer?.label ?? 'No file selected', { textRole: 'heading' }),
-    text(state.notice, { textRole: 'body' }),
-    text(`workspace  ${state.root ?? 'none'}`, { textRole: 'metadata' }),
-    text(`buffers    ${String(state.buffers.length)}`, { textRole: 'metadata' }),
-    text(`dirty      ${String(state.buffers.filter(isDirty).length)}`, { textRole: 'metadata' }),
-    text(`operation  ${operation}`, { textRole: 'metadata' })
+    text({ content: buffer?.label ?? 'No file selected', textRole: 'heading' }),
+    text({ content: state.notice, textRole: 'body' }),
+    text({ content: `workspace  ${state.root ?? 'none'}`, textRole: 'metadata' }),
+    text({ content: `buffers    ${String(state.buffers.length)}`, textRole: 'metadata' }),
+    text({ content: `dirty      ${String(state.buffers.filter(isDirty).length)}`, textRole: 'metadata' }),
+    text({ content: `operation  ${operation}`, textRole: 'metadata' })
   ], { gap: 1 }), {
     id: 'editor-details',
     appearance: 'inset',
@@ -569,8 +569,9 @@ function commandPane(state: EditorState): Element<EditorMessage> {
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 6,
-    onAction: (action): EditorMessage => ({ kind: 'command', action }),
-    onSubmit: (value): EditorMessage => ({ kind: 'submitCommand', value })
+    onAction: (action): EditorMessage => action.kind === 'submit'
+      ? { kind: 'submitCommand', value: action.value }
+      : { kind: 'command', action }
   }), {
     id: 'editor-command-surface',
     appearance: 'bar',
@@ -589,20 +590,25 @@ function editorStatus(state: EditorState) {
 }
 
 function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
-  return dialog(commandInput({
-    id: 'path-chooser-input',
-    prompt: 'Path › ',
-    placeholder: chooser.mode === 'folder' ? '/path/to/folder' : '/path/to/file',
-    presentation: commandInputPresentation(chooser.command),
-    display: 'compact',
-    onAction: (action): EditorMessage => ({ kind: 'chooser', action }),
-    onSubmit: (value): EditorMessage => ({ kind: 'submitChooser', value })
-  }), {
+  return dialog({
+    slots: {
+      content: commandInput({
+        id: 'path-chooser-input',
+        prompt: 'Path › ',
+        placeholder: chooser.mode === 'folder' ? '/path/to/folder' : '/path/to/file',
+        presentation: commandInputPresentation(chooser.command),
+        display: 'compact',
+        onAction: (action): EditorMessage => action.kind === 'submit'
+          ? { kind: 'submitChooser', value: action.value }
+          : { kind: 'chooser', action }
+      })
+    },
     id: 'path-chooser',
     title: chooser.mode === 'folder' ? 'Open Folder' : 'Open File',
     modal: true,
     focusPolicy: { initialFocus: { kind: 'element', elementId: 'path-chooser-input' }, returnFocus: 'restore' },
-    dismissal: { escape: true, outsidePress: true, onDismiss: (): EditorMessage => ({ kind: 'dismissChooser' }) },
+    dismissal: { escape: true, outsidePress: true },
+    onAction: (): EditorMessage => ({ kind: 'dismissChooser' }),
     width: 72,
     padding: { left: 1, right: 1 }
   });

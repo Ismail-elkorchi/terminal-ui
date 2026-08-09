@@ -139,7 +139,7 @@ test('text measurement returns stable immutable metrics for repeated labels', ()
 
 test('text rendering keeps bidirectional content in stable logical order', () => {
   const content = 'abc אבג 123';
-  const frame = renderElementFrame(text(content, { id: 'bidi-fallback' }), { columns: 20, rows: 2 });
+  const frame = renderElementFrame(text({ content: content, id: 'bidi-fallback' }), { columns: 20, rows: 2 });
 
   assert.equal(renderFramePlain(frame).trimEnd(), content);
   assert.equal(

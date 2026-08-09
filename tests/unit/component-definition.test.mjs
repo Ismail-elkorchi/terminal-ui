@@ -13,7 +13,8 @@ import {
 } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { button, defineComponent, text } from '../../dist/components/index.js';
+import { button, text } from '../../dist/components/index.js';
+import { ComponentExecutionError, defineComponent, ignoreMessage } from '../../dist/component/index.js';
 import {
   componentElement as component,
   compositeComponentDefinition,
@@ -27,13 +28,19 @@ import {
   viewport
 } from '../../dist/layout/index.js';
 
+function componentCause(pattern) {
+  return (error) => error instanceof ComponentExecutionError
+    && error.cause instanceof Error
+    && pattern.test(error.cause.message);
+}
+
 test('clipped component composites preserve descendant layers and interaction', () => {
   const clipped = component({
     id: 'clipped-composite',
     children: [button({
       id: 'elevated-action',
       label: 'TOP',
-      onPress: () => ({ kind: 'activate' }),
+      onAction: () => ({ kind: 'activate' }),
       meta: { layer: { zIndex: 20 } }
     })],
     definition: {
@@ -50,7 +57,7 @@ test('clipped component composites preserve descendant layers and interaction', 
   });
   const element = overlay([
     clipped,
-    text('LOWER', { id: 'lower-layer', meta: { layer: { zIndex: 10 } } })
+    text({ content: 'LOWER', id: 'lower-layer', meta: { layer: { zIndex: 10 } } })
   ]);
 
   const regions = renderElementRegions(element, { columns: 8, rows: 1 });
@@ -63,12 +70,76 @@ test('clipped component composites preserve descendant layers and interaction', 
   assert.equal(elevated?.hitTargets.some((target) => target.id === 'elevated-action:control'), true);
 });
 
+test('named slots enforce cardinality, ownership, and child-message policy', () => {
+  const captureSlots = {
+    content: { cardinality: 'one', owner: 'caller', messages: 'capture' }
+  };
+  const capturing = defineComponent({
+    name: 'terminal-ui-tests/components/capturing-slot',
+    identity: 'required',
+    structure: 'composite',
+    semantics: 'semantic',
+    slots: captureSlots,
+    capture: ({ message }) => ({ kind: 'captured', message }),
+    measure: ({ slots }) => slots.measure('content'),
+    layout: ({ bounds }) => ({ content: bounds }),
+    accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
+  });
+  const action = button({
+    id: 'captured-action',
+    label: 'Run',
+    onAction: () => ({ kind: 'child' })
+  });
+  const element = capturing({
+    id: 'capture-owner',
+    slots: { content: action },
+    onAction: (captured) => ({ kind: 'outer', captured })
+  });
+  const target = renderElementRegions(element, { columns: 8, rows: 1 })
+    .flatMap((region) => region.hitTargets)
+    .find((candidate) => candidate.id === 'captured-action:control');
+
+  assert.deepEqual(target?.message({ kind: 'click' }), {
+    kind: 'outer',
+    captured: { kind: 'captured', message: { kind: 'child' } }
+  });
+  assert.throws(
+    () => capturing({
+      id: 'wrong-cardinality',
+      slots: { content: [text({ content: 'one' }), text({ content: 'two' })] },
+      onAction: (captured) => captured
+    }),
+    /slot "content" accepts one element/u
+  );
+
+  const implementationOwned = defineComponent({
+    name: 'terminal-ui-tests/components/implementation-slot',
+    identity: 'required',
+    structure: 'composite',
+    semantics: 'semantic',
+    slots: {
+      ornament: { cardinality: 'one', owner: 'implementation', messages: 'bubble' }
+    },
+    implementationSlots: () => ({ ornament: text({ content: 'internal' }) }),
+    measure: ({ slots }) => slots.measure('ornament'),
+    layout: ({ bounds }) => ({ ornament: bounds }),
+    accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
+  });
+  assert.throws(
+    () => implementationOwned({
+      id: 'implementation-owner',
+      slots: { ornament: text({ content: 'caller override' }) }
+    }),
+    /unknown or implementation-owned slot "ornament"/u
+  );
+});
+
 test('component names do not select private focus traversal policies', () => {
   const stack = (name) => component({
     id: 'named-stack',
     children: [
-      button({ id: 'first-action', label: 'First', onPress: () => undefined }),
-      button({ id: 'second-action', label: 'Second', onPress: () => undefined })
+      button({ id: 'first-action', label: 'First', onAction: () => ignoreMessage() }),
+      button({ id: 'second-action', label: 'Second', onAction: () => ignoreMessage() })
     ],
     definition: {
       ...compositeComponentDefinition,
@@ -104,18 +175,18 @@ test('component definitions render through required definition contract', () => 
   let observedFocus;
   const definition = {
     ...leafComponentDefinition,
-    render({ options, bounds, target, focus }) {
+    render({ model, bounds, target, focus }) {
       observedFocus = focus;
       target.write(bounds.row, bounds.column, [{
-        text: options.label,
+        text: model.label,
         style: { bold: true }
       }]);
     },
-    accessibility({ options, id, focused }) {
+    accessibility({ model, id, focused }) {
       return {
         id,
         role: 'button',
-        label: options.label,
+        label: model.label,
         ...(focused ? { focused } : {})
       };
     },
@@ -137,12 +208,15 @@ test('component definitions render through required definition contract', () => 
   assert.deepEqual(frame.cursor, {
     row: 1,
     column: 2,
-    source: {
-      elementId: 'component-board',
-      elementKind: 'terminal-ui-tests/components/testLeaf',
-      rendererFamily: 'component',
-      cellRole: 'content'
-    }
+      source: {
+        elementId: 'component-board',
+        elementKind: 'terminal-ui-tests/components/testLeaf',
+        rendererFamily: 'component',
+        cellRole: 'cursor',
+        partName: 'cursor',
+        partType: 'cursor',
+        description: 'cursor'
+      }
   });
   assert.equal(frame.accessibility.root.role, 'button');
   assert.equal(frame.accessibility.root.label, 'XO');
@@ -273,7 +347,7 @@ test('component accessibility validates owned focus once and final focus across 
   const composite = defineComponent({
     ...compositeComponentDefinition,
     semantics: 'semantic',
-    layout: ({ bounds }) => [bounds],
+    layout: ({ bounds }) => ({ content: [bounds] }),
     accessibility: ({ id }) => ({
       id,
       role: 'group',
@@ -283,11 +357,13 @@ test('component accessibility validates owned focus once and final focus across 
   });
   const element = composite({
     id: 'actions',
-    children: [button({
-      id: 'child-action',
-      label: 'Run',
-      onPress: () => undefined
-    })]
+    slots: {
+      content: [button({
+        id: 'child-action',
+        label: 'Run',
+        onAction: () => ignoreMessage()
+      })]
+    }
   });
 
   assert.throws(
@@ -348,6 +424,7 @@ test('component render targets are frozen write-only capabilities clipped to ele
       clear({ row: bounds.row, column: 1, width: 4, height: 1 });
       write(bounds.row, 1, [{ text: 'OVERWRITE' }]);
       writeCell({ row: bounds.row, column: bounds.column, text: 'X', width: 1 });
+      clear();
       write(bounds.row, bounds.column, [{ text: 'RIGHT' }]);
     };
     const definition = kind === 'composite' ? {
@@ -369,7 +446,7 @@ test('component render targets are frozen write-only capabilities clipped to ele
 
   for (const kind of ['component', 'composite']) {
     const frame = renderElementFrame(row([
-      text('LEFT', { id: `${kind}-left` }),
+      text({ content: 'LEFT', id: `${kind}-left` }),
       defined(kind)
     ], {
       sizes: [{ kind: 'fixed', cells: 5 }, { kind: 'fill' }]
@@ -485,7 +562,7 @@ test('component styles reject values outside the public frame contract', () => {
           accessibility: ({ id: elementId }) => ({ id: elementId, role: 'text', label: elementId })
         }
       }), { columns: 4, rows: 1 }),
-      /Component ".*" render span style/u
+      componentCause(/Component ".*" render span style/u)
     );
 
     assert.throws(
@@ -583,7 +660,7 @@ test('component focus and hit targets cannot claim sibling bounds', () => {
     }
   });
   const frame = renderElementFrame(row([
-    text('LEFT', { id: 'interaction-sibling' }),
+    text({ content: 'LEFT', id: 'interaction-sibling' }),
     defined
   ], {
     sizes: [{ kind: 'fixed', cells: 5 }, { kind: 'fill' }]
@@ -637,6 +714,7 @@ test('component definition hit targets route mouse messages', async () => {
 test('component definitions map keyboard text and paste through one action boundary', async () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/action-input',
+    identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
@@ -688,6 +766,8 @@ test('component definitions map keyboard text and paste through one action bound
 test('component state governs interaction and accessibility without hook duplication', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/stateful-control',
+    identity: 'required',
+    states: ['disabled', 'busy', 'readOnly'],
     structure: 'leaf',
     semantics: 'semantic',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
@@ -703,14 +783,15 @@ test('component state governs interaction and accessibility without hook duplica
 
   const disabled = renderElementFrame(control({
     id: 'disabled-defined-control',
-    state: { disabled: true }
+    disabled: true
   }), { columns: 8, rows: 1 });
   assert.equal(disabled.focusPath, undefined);
   assert.equal(disabled.accessibility.root.disabled, true);
 
   const busyReadOnly = renderElementFrame(control({
     id: 'busy-read-only-defined-control',
-    state: { busy: true, readOnly: true }
+    busy: true,
+    readOnly: true
   }), { columns: 8, rows: 1 });
   assert.deepEqual(busyReadOnly.focusPath, ['busy-read-only-defined-control']);
   assert.equal(busyReadOnly.accessibility.root.busy, true);
@@ -718,6 +799,8 @@ test('component state governs interaction and accessibility without hook duplica
 
   const action = defineComponent({
     name: 'terminal-ui-tests/components/read-only-action',
+    identity: 'required',
+    states: ['readOnly'],
     structure: 'leaf',
     semantics: 'semantic',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
@@ -727,7 +810,7 @@ test('component state governs interaction and accessibility without hook duplica
   assert.throws(
     () => renderElementFrame(action({
       id: 'read-only-action',
-      state: { readOnly: true }
+      readOnly: true
     }), { columns: 8, rows: 1 }),
     /cannot apply readOnly state to accessibility role "button"/u
   );
@@ -737,6 +820,7 @@ test('inert component subtrees are absent from interaction and accessibility out
   let childAccessibilityCalls = 0;
   const child = defineComponent({
     name: 'terminal-ui-tests/components/inert-child',
+    identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
@@ -749,17 +833,22 @@ test('inert component subtrees are absent from interaction and accessibility out
   });
   const container = defineComponent({
     name: 'terminal-ui-tests/components/inert-container',
+    identity: 'required',
+    states: ['inert'],
     structure: 'composite',
     semantics: 'semantic',
-    measure: ({ measureChild }) => measureChild(0),
-    layout: ({ bounds }) => [bounds],
+    slots: {
+      content: { cardinality: 'one', owner: 'caller', messages: 'bubble' }
+    },
+    measure: ({ slots }) => slots.measure('content'),
+    layout: ({ bounds }) => ({ content: bounds }),
     accessibility: ({ id, children }) => ({ id, role: 'group', children })
   });
 
   const frame = renderElementFrame(container({
     id: 'inert-container',
-    state: { inert: true },
-    children: [child({ id: 'inert-child' })]
+    inert: true,
+    slots: { content: child({ id: 'inert-child' }) }
   }), { columns: 8, rows: 1 });
 
   assert.equal(frame.focusPath, undefined);
@@ -774,6 +863,7 @@ test('inert component subtrees are absent from interaction and accessibility out
 test('component definition key triggers are fully validated at construction', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/invalid-trigger',
+    identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
@@ -816,7 +906,7 @@ test('component definition measurement participates in content track layout', ()
   });
   const element = splitPane([
     measured,
-    text('remaining', { id: 'remaining' })
+    text({ content: 'remaining', id: 'remaining' })
   ], {
     id: 'component-measured-pane',
     direction: 'horizontal',
@@ -857,7 +947,7 @@ test('layout measures children only for content-sized tracks', () => {
 
   const fixedAndFill = row([
     measured,
-    text('remaining', { id: 'demand-remaining' })
+    text({ content: 'remaining', id: 'demand-remaining' })
   ], {
     sizes: [{ kind: 'fixed', cells: 7 }, { kind: 'fill' }]
   });
@@ -866,7 +956,7 @@ test('layout measures children only for content-sized tracks', () => {
 
   const contentAndFill = row([
     measured,
-    text('remaining', { id: 'demand-content-remaining' })
+    text({ content: 'remaining', id: 'demand-content-remaining' })
   ], {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
@@ -899,7 +989,7 @@ test('component measurements are intrinsic and cached by constraints', () => {
       }
     }
   });
-  const branch = row([positioned, text('fill')], {
+  const branch = row([positioned, text({ content: 'fill' })], {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
   const element = row([branch, branch], {
@@ -918,7 +1008,7 @@ test('component composites derive intrinsic size from opaque children under the 
   let measuredChildren = 0;
   const composite = component({
     id: 'measured-composite',
-    children: [text('··', { id: 'ambiguous-child' })],
+    children: [text({ content: '··', id: 'ambiguous-child' })],
     definition: {
       ...compositeComponentDefinition,
       measure({ childCount, measureChild, widthProfile }) {
@@ -934,7 +1024,7 @@ test('component composites derive intrinsic size from opaque children under the 
       }
     }
   });
-  const element = row([composite, text('fill')], {
+  const element = row([composite, text({ content: 'fill' })], {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
@@ -963,7 +1053,7 @@ test('component hooks have the same receiver-independent invocation contract', (
   });
   const composite = component({
     id: 'receiver-free-composite',
-    children: [text('child')],
+    children: [text({ content: 'child' })],
     definition: {
       ...compositeComponentDefinition,
       layout({ bounds }) {
@@ -1013,8 +1103,8 @@ test('component composites accept clipped child coordinates inside a scrolled pa
   const composite = component({
     id: 'scrolled-composite',
     children: [
-      text('offscreen', { id: 'offscreen-child' }),
-      text('visible', { id: 'visible-child' })
+      text({ content: 'offscreen', id: 'offscreen-child' }),
+      text({ content: 'visible', id: 'visible-child' })
     ],
     definition: {
       ...compositeComponentDefinition,
@@ -1049,7 +1139,7 @@ test('component composites accept clipped child coordinates inside a scrolled pa
 test('component composites still reject invalid sizes and relative overflow', () => {
   const composite = (layout) => component({
     id: 'invalid-composite',
-    children: [text('child')],
+    children: [text({ content: 'child' })],
     definition: {
       ...compositeComponentDefinition,
       layout,
@@ -1061,19 +1151,19 @@ test('component composites still reject invalid sizes and relative overflow', ()
 
   assert.throws(
     () => renderElementFrame(composite(({ bounds }) => [{ ...bounds, width: -1 }]), { columns: 8, rows: 2 }),
-    /returned bounds outside its parent/u
+    componentCause(/returned bounds outside its parent/u)
   );
   assert.throws(
     () => renderElementFrame(composite(({ bounds }) => [{ ...bounds, row: bounds.row - 1 }]), { columns: 8, rows: 2 }),
-    /returned bounds outside its parent/u
+    componentCause(/returned bounds outside its parent/u)
   );
   assert.throws(
     () => renderElementFrame(composite(({ bounds }) => [{ ...bounds, column: bounds.column + 0.5 }]), { columns: 8, rows: 2 }),
-    /returned bounds outside its parent/u
+    componentCause(/returned bounds outside its parent/u)
   );
   assert.throws(
     () => renderElementFrame(composite(() => undefined), { columns: 8, rows: 2 }),
-    /layout must return an array/u
+    componentCause(/slot "content" returned invalid bounds/u)
   );
 });
 
@@ -1105,7 +1195,7 @@ test('malformed component definitions fail as programmer errors', () => {
   assert.throws(
     () => component({
       id: 'obsolete-composite-render',
-      children: [text('child')],
+      children: [text({ content: 'child' })],
       definition: {
         ...compositeComponentDefinition,
         layout: ({ bounds }) => [bounds],
@@ -1157,6 +1247,8 @@ test('malformed component definitions fail as programmer errors', () => {
 test('component instances decode custom options and reject malformed shared state', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/validated-control',
+    identity: 'required',
+    states: ['disabled'],
     structure: 'leaf',
     semantics: 'semantic',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
@@ -1165,9 +1257,8 @@ test('component instances decode custom options and reject malformed shared stat
   });
   const invalidOptions = [
     [{ availablity: 'disabled' }, /options contain unknown field "availablity"/u],
-    [{ state: 'disabled' }, /state must be an object/u],
-    [{ state: { busy: 'yes' } }, /state\.busy must be a boolean/u],
-    [{ state: { unavailable: true } }, /state contains unknown field "unavailable"/u],
+    [{ disabled: 'yes' }, /disabled must be a boolean/u],
+    [{ busy: true }, /does not declare the busy capability/u],
     [{ onInput: () => undefined }, /onInput behavior must be declared by the definition/u]
   ];
 
@@ -1254,28 +1345,28 @@ test('viewport bounds component rendering, focus, pointer, and accessibility to 
   const observedViewports = [];
   const definition = {
     ...leafComponentDefinition,
-    measure({ options }) {
+    measure({ model }) {
       return {
         minWidth: 1,
         minHeight: 1,
-        preferredWidth: Math.max(...options.rows.map((line) => line.length)),
-        preferredHeight: options.rows.length
+        preferredWidth: Math.max(...model.rows.map((line) => line.length)),
+        preferredHeight: model.rows.length
       };
     },
-    render({ options, bounds, viewport: visible, target }) {
+    render({ model, bounds, viewport: visible, target }) {
       observedViewports.push(visible);
-      for (let index = 0; index < options.rows.length; index += 1) {
-        target.write(bounds.row + index, bounds.column, [{ text: options.rows[index] }]);
+      for (let index = 0; index < model.rows.length; index += 1) {
+        target.write(bounds.row + index, bounds.column, [{ text: model.rows[index] }]);
       }
     },
-    accessibility({ options, bounds, viewport: visible, id, focusedTargetId }) {
+    accessibility({ model, bounds, viewport: visible, id, focusedTargetId }) {
       observedViewports.push(visible);
       const start = Math.max(0, visible.row - bounds.row);
       return {
         id,
         role: 'listbox',
         label: 'Rows',
-        children: options.rows.slice(start, start + visible.height).map((label, index) => {
+        children: model.rows.slice(start, start + visible.height).map((label, index) => {
           const rowId = `row-${String(start + index)}`;
           return {
             id: rowId,
@@ -1286,16 +1377,16 @@ test('viewport bounds component rendering, focus, pointer, and accessibility to 
         })
       };
     },
-    focusTargets({ options, bounds, viewport: visible }) {
+    focusTargets({ model, bounds, viewport: visible }) {
       observedViewports.push(visible);
-      return options.rows.map((_label, index) => ({
+      return model.rows.map((_label, index) => ({
         id: `row-${String(index)}`,
         bounds: { row: bounds.row + index, column: bounds.column, width: bounds.width, height: 1 }
       }));
     },
-    hitTargets({ options, bounds, viewport: visible }) {
+    hitTargets({ model, bounds, viewport: visible }) {
       observedViewports.push(visible);
-      return options.rows.map((_label, index) => ({
+      return model.rows.map((_label, index) => ({
         id: `row-${String(index)}:hit`,
         bounds: { row: bounds.row + index, column: bounds.column, width: bounds.width, height: 1 },
         message: () => index
@@ -1320,7 +1411,7 @@ test('viewport bounds component rendering, focus, pointer, and accessibility to 
   assert.deepEqual(frame.focusPath, ['rows-window', 'rows', 'row-2']);
   assert.deepEqual(
     observedViewports,
-    observedViewports.map(() => ({ row: 1, column: 1, width: 8, height: 2 }))
+    observedViewports.map(() => ({ row: 2, column: 0, width: 8, height: 2 }))
   );
 });
 
@@ -1372,7 +1463,7 @@ test('component definitions must provide accessibility unless explicitly decorat
       id: 'decorative-component',
       definition: { ...visualComponent, semantics: 'decorative' }
     }),
-    text('label', { id: 'label' })
+    text({ content: 'label', id: 'label' })
   ]), { columns: 20, rows: 3 });
 
   assert.equal(renderFramePlain(accessibleFrame), 'decor\nlabel');
@@ -1427,7 +1518,7 @@ test('decorative component definitions cannot expose interaction targets', () =>
 test('decorative elements reject interaction throughout their subtree', () => {
   assert.throws(
     () => renderElementFrame(column([
-      button({ id: 'decorative-child-button', label: 'Press', onPress: () => ({ kind: 'press' }) })
+      button({ id: 'decorative-child-button', label: 'Press', onAction: () => ({ kind: 'press' }) })
     ], {
       id: 'decorative-parent',
       meta: { accessibility: { decorative: true } }
@@ -1449,7 +1540,7 @@ test('decorative component definitions cannot erase child semantics', () => {
   assert.throws(
     () => component({
       id: 'decorative-composite',
-      children: [text('ornament', { id: 'ornament' })],
+      children: [text({ content: 'ornament', id: 'ornament' })],
       definition: {
         ...compositeComponentDefinition,
         semantics: 'decorative',
@@ -1473,12 +1564,12 @@ test('component composites arrange opaque children while preserving interaction 
         button({
           id: 'save',
           label: 'Save',
-          onPress: () => ({ kind: 'save' })
+          onAction: () => ({ kind: 'save' })
         }),
         button({
           id: 'cancel',
           label: 'Cancel',
-          onPress: () => ({ kind: 'cancel' })
+          onAction: () => ({ kind: 'cancel' })
         })
       ],
       definition: {
@@ -1493,8 +1584,8 @@ test('component composites arrange opaque children while preserving interaction 
             }
           ];
         },
-        renderAfterChildren({ options, bounds, target }) {
-          target.write(bounds.row + 1, bounds.column, [{ text: `selected:${options.selected}` }]);
+        renderAfterChildren({ model, bounds, target }) {
+          target.write(bounds.row + 1, bounds.column, [{ text: `selected:${model.selected}` }]);
         },
         accessibility({ id, children }) {
           accessibleChildIds = children.map((child) => child.id);
@@ -1521,6 +1612,89 @@ test('component composites arrange opaque children while preserving interaction 
   assert.match(renderFramePlain(runtime.frame()), /Save.*Cancel/u);
   assert.match(renderFramePlain(runtime.frame()), /selected:save/u);
   await runtime.dispose();
+});
+
+test('component accessibility slots follow their render roots after inaccessible children are filtered', () => {
+  const ornament = defineComponent({
+    name: 'terminal-ui-tests/components/slot-ornament',
+    identity: 'optional',
+    structure: 'leaf',
+    semantics: 'decorative',
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render() {}
+  });
+  let received;
+  const slotted = defineComponent({
+    name: 'terminal-ui-tests/components/accessibility-slots',
+    identity: 'required',
+    structure: 'composite',
+    semantics: 'semantic',
+    slots: {
+      ornament: { cardinality: 'optional', owner: 'caller', messages: 'none' },
+      body: { cardinality: 'one', owner: 'caller', messages: 'bubble' }
+    },
+    measure: ({ slots }) => slots.measure('body'),
+    layout: ({ bounds }) => ({ ornament: bounds, body: bounds }),
+    accessibility: ({ id, slots }) => {
+      received = slots;
+      return { id, role: 'group', children: slots.body };
+    }
+  });
+
+  renderElementFrame(slotted({
+    id: 'slot-owner',
+    slots: {
+      ornament: ornament({}),
+      body: text({ id: 'body', content: 'Body' })
+    }
+  }), { columns: 8, rows: 1 });
+
+  assert.deepEqual(received.ornament, []);
+  assert.deepEqual(received.body.map((node) => node.id), ['body']);
+});
+
+test('composed component accessibility uses declared slot names and optional slots need no empty object', () => {
+  let received;
+  const composed = defineComponent({
+    name: 'terminal-ui-tests/components/composed-named-slots',
+    identity: 'required',
+    structure: 'composed',
+    semantics: 'semantic',
+    slots: {
+      body: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
+      note: { cardinality: 'optional', owner: 'caller', messages: 'bubble' }
+    },
+    compose: ({ slots }) => column([
+      slots.body,
+      ...(slots.note === undefined ? [] : [slots.note])
+    ]),
+    accessibility: ({ id, slots }) => {
+      received = slots;
+      return { id, role: 'group', children: [...slots.body, ...slots.note] };
+    }
+  });
+  const optionalOnly = defineComponent({
+    name: 'terminal-ui-tests/components/optional-only-slot',
+    identity: 'required',
+    structure: 'composed',
+    semantics: 'semantic',
+    slots: {
+      note: { cardinality: 'optional', owner: 'caller', messages: 'bubble' }
+    },
+    compose: ({ slots }) => slots.note ?? text({ content: '' }),
+    accessibility: ({ id, slots }) => ({ id, role: 'group', children: slots.note })
+  });
+
+  renderElementFrame(composed({
+    id: 'composed-owner',
+    slots: { body: text({ id: 'composed-body', content: 'Body' }) }
+  }), { columns: 8, rows: 1 });
+  renderElementFrame(optionalOnly({ id: 'optional-owner' }), { columns: 8, rows: 1 });
+
+  assert.deepEqual(Object.keys(received).sort(), ['body', 'note']);
+  assert.deepEqual(received.body.map((node) => node.id), ['composed-body']);
+  assert.deepEqual(received.note, []);
+  assert.equal('content' in received, false);
 });
 
 function assertNoTerminalControls(value) {

@@ -21,16 +21,14 @@ import {
 
 function view(state) {
   return surface(column([
-    column(state.items.map((item) => disclosure(
-      text(item.detail, { id: `${item.id}:detail` }),
-      {
+    column(state.items.map((item) => disclosure({
         id: item.id,
         label: item.label,
         summary: [{ kind: 'text', text: item.status }],
         expanded: state.expandedId === item.id,
-        onAction: () => ({ kind: 'select', id: item.id })
-      }
-    )), { id: 'activity' }),
+        onAction: () => ({ kind: 'select', id: item.id }),
+        slots: { content: text({ content: item.detail, id: `${item.id}:detail` }) }
+      })), { id: 'activity' }),
     statusBar({
       id: 'status',
       leading: [{

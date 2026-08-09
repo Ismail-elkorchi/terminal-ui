@@ -31,11 +31,12 @@ import {
 } from '../../dist/text/index.js';
 
 test('enabled disclosure requires its action boundary during construction', () => {
-  assert.throws(() => disclosure(text('Details'), {
+  assert.throws(() => disclosure({
     id: 'dead-disclosure',
     label: 'Details',
-    expanded: false
-  }), /requires onAction when enabled/u);
+    expanded: false,
+    slots: { content: text({ content: 'Details' }) }
+  }), /requires onAction to map its semantic actions/u);
 });
 
 function textInput(options) {
@@ -65,7 +66,6 @@ function textArea(options) {
 function commandInput(options) {
   return createCommandInput({
     onAction: (action) => action,
-    onSubmit: (value) => value,
     ...options
   });
 }
@@ -88,15 +88,13 @@ test('richText component renders sanitized styled segments as plain frame text',
 });
 
 test('text renders through shared role styles and source metadata', () => {
-  const frame = renderElementFrame(text('Badge', {
-    id: 'badge-text',
+  const frame = renderElementFrame(text({ content: 'Badge', id: 'badge-text',
     textRole: 'badge',
     meta: {
         styles: {
             root: { underline: true }
         }
-    }
-}), { columns: 12, rows: 1 });
+    } }), { columns: 12, rows: 1 });
   const first = frame.cells.find((cell) => cell.text === 'B');
 
   assert.deepEqual(first?.style, {
@@ -105,7 +103,7 @@ test('text renders through shared role styles and source metadata', () => {
     bold: true,
     underline: true
   });
-  assert.deepEqual(first?.source, textSource('badge-text', 'text', 'role.badge', { partName: 'role.badge' }));
+  assert.deepEqual(first?.source, textSource('badge-text', 'text', 'role.badge', { partName: 'role.badge', partType: 'text' }));
   assert.equal(frame.accessibility.root.value, 'Badge');
 });
 
@@ -222,7 +220,7 @@ test('editable text controls expose source metadata for frame, value, placeholde
   assert.equal(inputFrame.cells.some((cell) => cell.source?.description === 'value.padding'), true);
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.elementId, 'email');
   assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'E')?.source?.description, 'placeholder');
-  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.elementKind, 'numberInput');
+  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.elementKind, 'terminal-ui/components/number-input');
   assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.description, 'value');
 });
 
@@ -249,8 +247,8 @@ test('text components map Unicode cursor positions through the shared text contr
   assert.deepEqual(secondaryInputFrame.cursor?.source, formSource('unicode-field', 'textInput', 'cursor'));
   assert.deepEqual(commandFrame.cursor?.source, {
     elementId: 'unicode-command',
-    elementKind: 'commandInput',
-    rendererFamily: 'command',
+    elementKind: 'terminal-ui/components/command-input',
+    rendererFamily: 'component',
     cellRole: 'cursor',
     partName: 'cursor',
     partType: 'cursor',
@@ -382,13 +380,13 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
 test('wrapped textArea exposes scrollbar scope over visual rows', () => {
   const frame = renderElementFrame(textArea({
     id: 'wrapped-scroll',
-    presentation: { document: prepareTextDocument('alpha beta gamma delta'), caret: textCaretAt(0), scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 } },
+    presentation: { document: prepareTextDocument('alpha beta gamma delta'), caret: textCaretAt(0), scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0, followTail: false } },
     wrap: true,
     scrollbar: { visible: 'always', axis: 'vertical' }
   }), { columns: 9, rows: 2 });
 
   assert.equal(renderFramePlain(frame), '› beta g┃\n│ amma d│');
-  assert.equal(frame.cells.find((cell) => cell.text === '┃')?.source?.elementKind, 'textArea');
+  assert.equal(frame.cells.find((cell) => cell.text === '┃')?.source?.elementKind, 'terminal-ui/components/text-area');
   assert.equal(
     frame.accessibility.root.description,
     '1 lines. Showing 2-3 of 4 rows. Omitted before: 1. Omitted after: 1. Horizontal offset: 0.'
@@ -550,7 +548,7 @@ test('textArea maps pointer positions through gutters visual rows and selection 
 test('textArea horizontal windows use visual cells without splitting graphemes', () => {
   const frame = renderElementFrame(textArea({
     id: 'unicode-area',
-    presentation: { document: prepareTextDocument('a🙂界b\nplain'), caret: textCaretAt('a🙂界'.length), scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 } },
+    presentation: { document: prepareTextDocument('a🙂界b\nplain'), caret: textCaretAt('a🙂界'.length), scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0, followTail: false } },
   }), { columns: 5, rows: 2 }, { focusPath: ['unicode-area'] });
 
   assert.equal(renderFramePlain(frame), '› 界b\n│ in');
@@ -616,8 +614,8 @@ function pointerEvent({
 function textSource(elementId, elementKind, label, extra = {}) {
   return {
     elementId,
-    elementKind,
-    rendererFamily: 'text',
+    elementKind: `terminal-ui/components/${elementKind === 'richText' ? 'rich-text' : elementKind}`,
+    rendererFamily: 'component',
     cellRole: 'text',
     description: label,
     ...extra
@@ -627,8 +625,8 @@ function textSource(elementId, elementKind, label, extra = {}) {
 function formSource(elementId, elementKind, label) {
   return {
     elementId,
-    elementKind,
-    rendererFamily: 'form',
+    elementKind: `terminal-ui/components/${elementKind === 'textInput' ? 'text-input' : elementKind === 'textArea' ? 'text-area' : elementKind}`,
+    rendererFamily: 'component',
     cellRole: 'cursor',
     partName: label,
     partType: 'cursor',

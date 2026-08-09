@@ -8,7 +8,7 @@ import { text } from '@ismail-elkorchi/terminal-ui';
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const emptySnapshot = harness.snapshot();
 const rendered = renderElementSnapshot({
-  element: text('Harness ready', { id: 'ready' }),
+  element: text({ content: 'Harness ready', id: 'ready' }),
   terminalSize: { columns: 20, rows: 4 }
 });
 const frame = rendered.frame;

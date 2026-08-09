@@ -44,6 +44,8 @@ export function commandInputReducer(state: CommandInputState, action: CommandInp
         suggestions: [],
         ...(state.historyIndex === undefined ? {} : { historyIndex: state.historyIndex })
       };
+    case 'submit':
+      return state;
   }
 }
 

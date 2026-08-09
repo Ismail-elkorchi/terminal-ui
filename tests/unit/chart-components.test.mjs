@@ -67,6 +67,12 @@ function heatmapCell(id, value, label = id) {
   return { id, label, value };
 }
 
+function hasCauseMessage(pattern) {
+  return (error) => error instanceof Error
+    && error.cause instanceof Error
+    && pattern.test(error.cause.message);
+}
+
 test('sparkline component renders bounded numeric points', () => {
   const frame = renderElementFrame(sparkline({
     id: 'spark',
@@ -75,7 +81,7 @@ test('sparkline component renders bounded numeric points', () => {
 
   assert.equal(renderFramePlain(frame), '▁▃▆█');
   assert.equal(frame.accessibility.root.description, '4 sparkline points.');
-  assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.elementKind, 'sparkline');
+  assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.elementKind, 'terminal-ui/components/sparkline');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.description, 'point.0');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.cellRole, 'chart');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.style?.fg?.token, 'chart.series.1');
@@ -108,7 +114,7 @@ test('sparkline renders an empty state with chart source metadata', () => {
   }), { columns: 20, rows: 1 });
 
   assert.match(renderFramePlain(frame), /No signal/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.elementKind, 'sparkline');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.elementKind, 'terminal-ui/components/sparkline');
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.description, 'state.empty.message');
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.cellRole, 'text');
 });
@@ -128,7 +134,7 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
   assert.match(output, /B/u);
   assert.match(output, /› C/u);
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
-  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.elementKind, 'barChart');
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.elementKind, 'terminal-ui/components/bar-chart');
   assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.description, 'bar.c.label');
   assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.description, 'bar.b.fill');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'bar.b.fill')?.style?.fg?.token, 'chart.series.2');
@@ -157,25 +163,25 @@ test('barChart renders its loading data state', () => {
   }), { columns: 24, rows: 1 });
 
   assert.match(renderFramePlain(frame), /Loading bars/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.elementKind, 'barChart');
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.elementKind, 'terminal-ui/components/bar-chart');
   assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.description, 'state.loading.message');
 });
 
 test('chart and meter reject values outside their component-specific state contracts', () => {
   assert.throws(
     () => chart({ id: 'invalid-chart', series: [], dataState: 'success' }),
-    /chart dataState must be loading or error/u
+    hasCauseMessage(/chart dataState must be loading or error/u)
   );
   assert.throws(
     () => meter({ id: 'invalid-meter', value: 10, result: 'running' }),
-    /meter result must be success, warning, or error/u
+    hasCauseMessage(/meter result must be success, warning, or error/u)
   );
 });
 
 test('visualization factories reject malformed semantic data before rendering', () => {
   assert.throws(
     () => sparkline({ label: 'Trend', values: [1, Number.NaN] }),
-    /sparkline values item must be finite/u
+    hasCauseMessage(/sparkline values item must be finite/u)
   );
   assert.throws(
     () => barChart({
@@ -183,7 +189,7 @@ test('visualization factories reject malformed semantic data before rendering', 
       label: 'Bars',
       items: [{ id: 'one', label: '', value: 1 }]
     }),
-    /label must be a non-empty string/u
+    hasCauseMessage(/label must be a non-empty string/u)
   );
   assert.throws(
     () => chart({
@@ -195,7 +201,7 @@ test('visualization factories reject malformed semantic data before rendering', 
         points: [{ id: 'point', label: 'Point', value: Number.POSITIVE_INFINITY }]
       }]
     }),
-    /point value must be finite/u
+    hasCauseMessage(/point value must be finite/u)
   );
   assert.throws(
     () => heatmap({
@@ -203,11 +209,11 @@ test('visualization factories reject malformed semantic data before rendering', 
       label: 'Heatmap',
       rows: [[{ id: 'cell', label: 'Cell', value: Number.NaN }]]
     }),
-    /cell value must be finite/u
+    hasCauseMessage(/cell value must be finite/u)
   );
   assert.throws(
     () => meter({ label: 'Load', value: Number.NaN }),
-    /meter value must be finite/u
+    hasCauseMessage(/meter value must be finite/u)
   );
   assert.throws(
     () => sparkline({
@@ -215,7 +221,7 @@ test('visualization factories reject malformed semantic data before rendering', 
       values: [1],
       valueScale: [{ at: 0.5, token: 'invalid-token' }]
     }),
-    /valid theme color tokens/u
+    hasCauseMessage(/valid theme color tokens/u)
   );
 });
 
@@ -228,7 +234,7 @@ test('chart plots series into a bounded text canvas', () => {
   assert.match(renderFramePlain(frame), /\*/u);
   assert.equal(frame.accessibility.root.description, '1 chart series.');
   assert.ok(frame.cells.length <= 16);
-  assert.equal(frame.cells.find((cell) => cell.text === '*')?.source?.elementKind, 'chart');
+  assert.equal(frame.cells.find((cell) => cell.text === '*')?.source?.elementKind, 'terminal-ui/components/chart');
 });
 
 test('chart fit sample mode fills the available plot width', () => {
@@ -405,7 +411,6 @@ test('chart renders scatter points legends axis labels and selectable point hit 
         glyph: 'o'
       })
     ],
-    keys: { enter: () => ({ kind: 'chart-enter' }) },
     onAction: (action) => ({ kind: 'chart', action })
   }), { columns: 32, rows: 7 });
 
@@ -437,7 +442,7 @@ test('chart renders error state without anonymous text cells', () => {
   }), { columns: 24, rows: 1 });
 
   assert.match(renderFramePlain(frame), /Chart unavailable/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.elementKind, 'chart');
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.elementKind, 'terminal-ui/components/chart');
   assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.description, 'state.error.message');
 });
 
@@ -481,7 +486,7 @@ test('meter renders a labeled bounded meter with progress accessibility', () => 
     minimum: 0,
     maximum: 100
   });
-  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.elementKind, 'meter');
+  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.elementKind, 'terminal-ui/components/meter');
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.description, 'metric.label');
   assert.equal(frame.cells.find((cell) => cell.text === '7')?.source?.description, 'metric.value');
   assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.description, 'result.value');
@@ -568,7 +573,6 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     min: 0,
     max: 5,
     selected: { id: 'b' },
-    keys: { enter: () => ({ kind: 'select-current' }) },
     onAction: (action) => ({ kind: 'heatmap', action })
   }), { columns: 12, rows: 3 });
 
@@ -590,7 +594,7 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     columnCount: 2
   });
   assert.equal(frame.hitTargets.some((target) => target.id === 'heatmap:b' && target.cursor === 'pointer'), true);
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.elementKind, 'heatmap');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.elementKind, 'terminal-ui/components/heatmap');
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.description, 'cell.b.selected.open');
   assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.description, 'cell.b.value');
   assert.equal(frame.cells.find((cell) => cell.text === ']')?.source?.description, 'cell.b.selected.close');
@@ -604,7 +608,7 @@ test('heatmap renders empty state through chart state contract', () => {
   }), { columns: 24, rows: 1 });
 
   assert.match(renderFramePlain(frame), /No heatmap data/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.elementKind, 'heatmap');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.elementKind, 'terminal-ui/components/heatmap');
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.description, 'state.empty.message');
 });
 

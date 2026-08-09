@@ -7,6 +7,7 @@ import {
   findRenderNodeFocusTarget,
   focusedTargetIdForLayoutNode,
   focusPathForLayoutTarget,
+  layoutFocusPath,
   renderFocusRelation,
   resolveFocusPath
 } from './focus.ts';
@@ -33,7 +34,7 @@ import { assertValidRenderedAccessibility } from './component-output.ts';
 import { renderNodeFactoryName } from '../model/node.ts';
 import {
   createClippedRenderTarget,
-  createScopedRenderTarget
+  createLocalComponentRenderTarget
 } from './scoped-render-target.ts';
 import {
   assertDecorativeNodeHasNoHitTargets,
@@ -205,7 +206,7 @@ export function renderElementInternal<TMessage>(
       source: 'renderer',
       root: accessibleRoot === undefined
         ? inertAccessibleRoot()
-        : withControlLabelRelationships(accessibleRoot, renderNode, layout)
+        : withControlLabelRelationships(accessibleRoot)
     });
     assertValidRenderedAccessibility(snapshot, resolvedFocusPath !== undefined);
     return snapshot;
@@ -419,7 +420,7 @@ function renderRenderNodeChildrenToRegions<TMessage>(
     }
     const childRegion = childNode.layer.zIndex === region.zIndex
       ? region
-      : composer.regionFor(child, childNode, [...path, childNode.identity]);
+      : composer.regionFor(child, childNode, nodePath(childNode, path));
     renderRenderNodeToRegion(
       child,
       childNode,
@@ -479,7 +480,7 @@ function targetForRenderNode(
   target: RenderTarget
 ): RenderTarget {
   return renderNode.kind === 'component'
-    ? createScopedRenderTarget(target, node.bounds, node.viewport, {
+    ? createLocalComponentRenderTarget(target, node.bounds, node.viewport, {
         ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
         name: renderNodeFactoryName(renderNode),
         rendererFamily: 'component'
@@ -488,7 +489,7 @@ function targetForRenderNode(
 }
 
 function nodePath(node: LayoutNode, parentPath: FocusPath): FocusPath {
-  return [...parentPath, node.identity];
+  return layoutFocusPath(parentPath, node);
 }
 
 function orderedChildren(
@@ -521,7 +522,7 @@ function createRegionComposer<TMessage>(
   let regionOrder = 0;
   return {
     regionFor(renderNode, node, path) {
-      const backdropBounds = renderNode.kind === 'dialog' && renderNode.props.modal
+      const backdropBounds = renderNode.layer?.backdrop === 'viewport'
         ? { row: 1, column: 1, width: terminalSize.columns, height: terminalSize.rows }
         : undefined;
       const region = createDraftRenderRegion({

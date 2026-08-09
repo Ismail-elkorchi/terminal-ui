@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { prepareLogHistory } from '../../dist/behavior/index.js';
+import { createScrollState, prepareLogHistory } from '../../dist/behavior/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
@@ -115,7 +116,7 @@ test('theme matrix snapshots cover core components with packs high contrast and 
   const themes = [...packedThemes, highContrastTheme, noColorTheme];
   for (const theme of themes) {
     const frame = renderElementFrame(column([
-      surface(text(`Theme ${theme.name}`, { id: `title-${theme.name}` }), {
+      surface(text({ content: `Theme ${theme.name}`, id: `title-${theme.name}` }), {
         id: `surface-${theme.name}`,
         title: theme.name,
         border: { kind: 'rounded' },
@@ -161,8 +162,8 @@ test('default theme specimen composes surface control text command log and data 
       id: 'specimen-tabs',
       selected: 'one',
       tabs: [
-        { id: 'one', label: 'tab one', badge: '3', panel: text('First panel') },
-        { id: 'two', label: 'tab two', panel: text('Second panel') }
+        { id: 'one', label: 'tab one', badge: '3', panel: text({ content: 'First panel' }) },
+        { id: 'two', label: 'tab two', panel: text({ content: 'Second panel' }) }
       ],
       onAction: (action) => action
     }),
@@ -170,15 +171,14 @@ test('default theme specimen composes surface control text command log and data 
       id: 'specimen-button',
       label: 'Primary',
       tone: 'primary',
-      onPress: () => undefined,
-      pointer: { state: { pressedTargetId: 'specimen-button:control' } }
+      onAction: () => ignoreMessage(),
+      pointerState: { pressedTargetId: 'specimen-button:control' }
     }),
     commandInput({
       id: 'specimen-command',
       presentation: { value: '/open readme', cursor: 0, suggestions: [{ value: '/open', label: 'Open File' }], selectedSuggestionIndex: 0 },
       display: 'expanded',
-      onAction: (action) => action,
-      onSubmit: (value) => value
+      onAction: (action) => action
     }),
     logViewer({
       id: 'specimen-log',
@@ -187,7 +187,7 @@ test('default theme specimen composes surface control text command log and data 
         { id: 'warn', level: 'warning', text: 'High memory' },
         { id: 'err', level: 'error', text: 'Failed request' }
       ]),
-      scroll: { offsetRow: 0, offsetColumn: 0, contentRows: 3, viewportRows: 4 },
+      scroll: createScrollState({ offsetRow: 0, contentRows: 3, viewportRows: 4 }),
       onAction: (action) => action
     }),
     progressBar({ id: 'specimen-progress', mode: { kind: 'determinate', value: 72 }, label: 'coverage' }),

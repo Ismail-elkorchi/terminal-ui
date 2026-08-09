@@ -48,7 +48,6 @@ const saveButtonOptions = {
   id: 'save',
   label: 'Save',
   meta: {
-    accessibility: { description: 'Save the current document' },
     styles: { states: { focused: { bold: true } } }
   }
 } as const;
@@ -57,11 +56,11 @@ const saveButton = state.saving
   ? button({
       ...saveButtonOptions,
       busy: true,
-      onPress: (): Message => ({ kind: 'save' })
+      onAction: (): Message => ({ kind: 'save' })
     })
   : button({
       ...saveButtonOptions,
-      onPress: (): Message => ({ kind: 'save' })
+      onAction: (): Message => ({ kind: 'save' })
     });
 
 saveButton satisfies import('@ismail-elkorchi/terminal-ui/components').Element<Message>;
@@ -73,39 +72,31 @@ Rules:
   accessibility, state association, and event routing.
 - Semantic state such as button `busy`, selection, required state, and validation errors
   belongs to the component.
-- Accessibility overrides, focus policy, layering, and typed local style anatomy live
-  under `meta`.
+- Permitted focus policy, layering, and typed local style anatomy live under
+  `meta`. Definitions own required semantics and do not let callers replace them.
 - Controlled state remains caller-controlled.
-- Component-local `keys` are an escape hatch, not the primary interaction API.
 - There are no mutable component instances, global style cascade, product
   composites, or app-shell recipes.
 
 ## Event Vocabulary
 
-Public event props describe user intent and return caller-controlled messages:
+Each component defines one typed action union. Its single `onAction(action)`
+property maps semantic actions to caller-controlled messages:
 
-| Event prop | Use |
+| Contract | Use |
 | --- | --- |
-| `onPress` | Direct activation for buttons and other single-action controls. |
-| `onSubmit` | Text controls that commit their current value. |
-| `onChange` | Scalar controls such as checkboxes, switches, and sliders whose next value is computed by the component. |
-| `onStep` | Step controls where the caller handles a structured step action. |
-| `onAction` | Structured controlled-component actions for editable controls, navigation surfaces, multi-choice controls, lists, tables, trees, documents, charts, notifications, command inputs, and search pickers. Editable-control actions include text edits, pointer caret/selection gestures, and scrolling where applicable. |
-| `onScroll` | Structured scrolling for layout viewports and `searchPicker()` instances that retain a direct scroll contract. |
-| `onContextMenu` | Context-menu activation. |
-| `keys` | Component-local key bindings not covered by semantic events. |
+| `onAction` | Activation, editing, submission, selection, navigation, scrolling, dismissal, context menus, and visualization interaction. The action union states exactly what a component can emit. |
+| `ignoreMessage()` | Explicitly declines a handled action without weakening message types or using `undefined`. |
 
-Handlers may return `undefined` when a conditional interaction is declined.
-Internally, factories convert caller-supplied callbacks into key maps and input maps,
-then the renderer derives focus targets and hit targets from the private render
-node. Those mechanisms are not public component state.
+Factories compile definition-owned keyboard, text, pointer, focus, and hit-target
+strategies once. Instance handlers only map the resulting semantic action.
 
 ## Entry Points
 
 | Entrypoint | Contract |
 | --- | --- |
-| `./components` | Built-in factories, `defineComponent()`, `Element`, and shared component data contracts. |
-| `./component` | Narrow authoring contract for reusable component packages. |
+| `./component` | `defineComponent()`, opaque elements, authoring contracts, bounded painting helpers, and component interaction helpers. |
+| `./components` | Built-in catalog and component-domain public data contracts. It consumes `./component`. |
 | `./layout` | Layout and composition factories plus responsive view selection. |
 | `./behavior` | Pure reducers and controlled-state helpers. |
 | `./renderer` | Frame construction, diffing, serialization, and drawing primitives. |
@@ -117,36 +108,34 @@ not expose renderer internals as ordinary component APIs.
 
 ## Internal Representation
 
-Component factories construct private `RenderNode<TMessage>` values and return
-opaque element handles through one internal construction path. Layout,
-rendering, and runtime code resolve handles only at the renderer boundary.
+Every definition is compiled once. Each factory call validates exact fields,
+prepares one immutable model, and creates the same generic component runtime
+node through one private construction path. Layout, rendering, and runtime code
+resolve opaque handles only at the renderer boundary.
 
 A render node can contain:
 
 ```text
-kind
-props
-children
+compiled definition
+prepared model and named slots
 layer and focus metadata
 typed root, part, and visual-state styles
 key and input maps
-accessibility definitions
-defined-component options and action mapping
+action mapping
 ```
 
-Each built-in render-node kind has explicit normalized render props. Public
-factories validate JavaScript and dynamic caller-supplied values, sanitize terminal
-text, and normalize private renderer inputs once. Renderer code validates
-component hook output and serialized or host-provided data, but does not silently
-repair invalid values in its typed private prop model.
+Public factories validate JavaScript and dynamic caller-supplied values,
+sanitize terminal text, and normalize component input once. Renderer code
+applies the same geometry, style, source, interaction, and accessibility checks
+to every component hook output, regardless of where its definition ships.
 
 The physical dependency direction is enforced by package tests:
 
 ```text
 foundation and neutral contracts
-  -> private renderer model
-  -> shared private node construction and callback adaptation
-  -> component and layout factories
+  -> public component and layout contracts
+  -> component definitions and layout factories
+  -> one private node construction boundary
 
 foundation, neutral contracts, behavior, public renderer contracts, and private renderer model
   -> renderer implementation
@@ -156,12 +145,14 @@ foundation, neutral contracts, behavior, public renderer contracts, and private 
 
 The runtime entrypoint is a facade over lifecycle, state reduction, frame
 commit, diagnostics, and change-publication collaborators. There is still one
-serialized dispatch path and one renderer dispatch registry.
+serialized dispatch path. Component behavior dispatches directly through the
+compiled definition attached to its generic runtime node; there is no
+component-name registry.
 
-Component/layout factories and renderer implementation are sibling consumers
-of the private renderer model. The renderer implementation does not import
-component factories, layout factories, private element conversion helpers, or the
-TUI runtime. The TUI directory contains application/runtime lifecycle only.
+The authoring core alone owns private component-node construction. The built-in
+catalog consumes its public contract and cannot import the private renderer
+model or implementation. Layout keeps a separate structural boundary. The TUI
+directory contains application/runtime lifecycle only.
 
 ## Canvas And Defined Components
 
@@ -169,11 +160,12 @@ TUI runtime. The TUI directory contains application/runtime lifecycle only.
 bounds, theme data, source metadata, and caller-controlled state. It does not receive
 direct frame-buffer or terminal-host access.
 
-`defineComponent()` is available through the narrow `./component` entrypoint
-and the built-in catalog under `./components`.
-It creates an immutable factory from bounded measurement, drawing,
-accessibility, focus-target, and hit-target hooks without exposing private node
-fields. Composite definitions can also measure and arrange opaque children.
+`defineComponent()` is owned and exported only by the narrow `./component`
+entrypoint. It creates an immutable factory from bounded preparation,
+measurement, painting or composition, accessibility, focus-target, and
+hit-target hooks without exposing private node fields. Composite definitions
+arrange typed named slots; composed definitions build ordinary element trees
+from public component and layout factories.
 
 ## Testing
 
@@ -189,7 +181,7 @@ They do not inspect private render-node fields through caller-supplied elements.
 
 Use `inspectElement(element)` when component tools or diagnostics need a stable,
 read-only description before rendering. The inspection includes caller-supplied
-identity, factory category, factory origin and name, input capabilities, focus policy,
+identity, factory category and name, declared capabilities, focus policy,
 style metadata, and child structure; it does not expose private props, callback
 values, or drawing hooks. Focus inspection applies the same logical
 disablement policy as rendering, including disabled controls and inert subtrees.
@@ -210,6 +202,6 @@ focus path in a particular frame.
 - Component option and event names describe caller intent, not renderer
   machinery.
 - Component state remains caller-controlled and message types remain generic.
-- Factories infer a union across independent callbacks, direct messages, local
-  key bindings, and child elements; ordinary heterogeneous composition does
-  not require a factory message type argument.
+- Factories infer application messages from `onAction` and bubbled named slots;
+  ordinary typed wrappers can adapt the canonical factory while preserving
+  per-invocation domain inference.

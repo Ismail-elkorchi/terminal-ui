@@ -1,21 +1,37 @@
 import type { Element } from '../../element/index.ts';
-import type { ElementKeyBindings, InteractiveElementOptions } from '../../element/metadata.ts';
+import type {
+  ElementFocus,
+  ElementLayer,
+  ElementStyles
+} from '../../element/metadata.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { DialogStylePart } from '../../ui-model/style-parts.ts';
 import type { BorderOptions, BorderTitle } from '../../visual/border.ts';
-import type { DialogDismissal, DialogFocusPolicy } from '../../ui-model/dialog.ts';
+import type {
+  DialogAction,
+  DialogDismissal,
+  DialogFocusPolicy
+} from '../../ui-model/dialog.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
 
-interface DialogBaseOptions<TMessage> extends InteractiveElementOptions<DialogStylePart, TMessage>, LayoutFlowOptions {
+interface DialogBaseOptions extends LayoutFlowOptions {
+  readonly id: string;
   readonly title?: BorderTitle;
   readonly border?: BorderOptions;
   readonly width?: number;
   readonly height?: number;
-  readonly actions?: Element<TMessage>;
-  readonly dismissal?: DialogDismissal<TMessage>;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly slots: {
+    readonly content: Element<unknown>;
+    readonly actions?: Element<unknown>;
+  };
+  readonly meta?: {
+    readonly focus?: Pick<ElementFocus, 'disabled' | 'order'>;
+    readonly layer?: ElementLayer;
+    readonly styles?: ElementStyles<DialogStylePart>;
+  };
 }
 
-export type DialogOptions<TMessage = never> = DialogBaseOptions<TMessage> & (
+type DialogModality =
   | {
       readonly modal: true;
       readonly focusPolicy: DialogFocusPolicy;
@@ -23,7 +39,25 @@ export type DialogOptions<TMessage = never> = DialogBaseOptions<TMessage> & (
   | {
       readonly modal: false;
       readonly focusPolicy?: never;
-    }
-);
+    };
 
-export type { DialogDismissReason, DialogDismissal, DialogFocusPolicy } from '../../ui-model/dialog.ts';
+interface PassiveDialog {
+  readonly dismissal?: never;
+  readonly onAction?: never;
+}
+
+interface DismissibleDialog<TMessage> {
+  readonly dismissal: DialogDismissal;
+  readonly onAction: (action: DialogAction) => MessageResolution<TMessage>;
+}
+
+export type DialogOptions<TMessage = never> = DialogBaseOptions
+  & DialogModality
+  & (PassiveDialog | DismissibleDialog<TMessage>);
+
+export type {
+  DialogAction,
+  DialogDismissReason,
+  DialogDismissal,
+  DialogFocusPolicy
+} from '../../ui-model/dialog.ts';

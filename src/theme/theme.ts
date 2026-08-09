@@ -72,6 +72,15 @@ export function resolveTerminalStyle(
   return Object.keys(resolved).length === 0 ? undefined : resolved;
 }
 
+export function terminalStyleHasBackground(
+  style: TerminalStyle | undefined,
+  theme: TerminalTheme
+): boolean {
+  const background = style?.bg;
+  return background !== undefined
+    && (background.kind !== 'theme' || resolveThemeColor(theme, background.token) !== undefined);
+}
+
 export function isTerminalTheme(theme: TerminalTheme | TerminalThemeDefinition): theme is TerminalTheme {
   return theme.name !== undefined
     && 'fingerprint' in theme

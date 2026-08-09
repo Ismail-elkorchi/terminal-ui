@@ -35,9 +35,9 @@ const colorCapabilities = resolveTerminalCapabilities({
 
 test('render diff property checks keep unchanged frames empty and local changes incremental', () => {
   for (const value of textSamples) {
-    const before = renderElementFrame(text(value), { columns: 20, rows: 3 });
+    const before = renderElementFrame(text({ content: value }), { columns: 20, rows: 3 });
     const same = diffFrames(before, before);
-    const after = renderElementFrame(text(`${value} changed`), { columns: 20, rows: 3 });
+    const after = renderElementFrame(text({ content: `${value} changed` }), { columns: 20, rows: 3 });
     const changed = diffFrames(before, after);
     const detail = `value=${JSON.stringify(value)}`;
 
@@ -51,8 +51,8 @@ test('render diff property checks keep unchanged frames empty and local changes 
 
 test('diff round-trips reproduce the next frame text and keep ANSI serialization safe', () => {
   for (const { index, seed, value } of generatedTexts(32)) {
-    const before = renderElementFrame(text(value), { columns: 18, rows: 4 });
-    const next = renderElementFrame(text(`unsafe ${index} ${value} \u001B[31mred`), { columns: 18, rows: 4 });
+    const before = renderElementFrame(text({ content: value }), { columns: 18, rows: 4 });
+    const next = renderElementFrame(text({ content: `unsafe ${index} ${value} \u001B[31mred` }), { columns: 18, rows: 4 });
     const diff = diffFrames(before, next);
     const applied = applyRenderDiff(before, diff);
     const serialized = renderDiffAnsi(diff, { capabilities: colorCapabilities });

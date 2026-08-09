@@ -19,7 +19,7 @@ test('renderElementFrame applies frame passes after composition and before snaps
     }
   };
 
-  const frame = renderElementFrame(text('abc'), { columns: 3, rows: 1 }, { framePasses: [pass] });
+  const frame = renderElementFrame(text({ content: 'abc' }), { columns: 3, rows: 1 }, { framePasses: [pass] });
 
   assert.equal(renderFramePlain(frame), 'Zbc');
   assert.deepEqual(frame.cells[0]?.source, { elementId: 'marker', cellRole: 'content' });
@@ -33,7 +33,7 @@ test('renderElementFrame can disable configured frame passes for debug and tests
     }
   };
 
-  const frame = renderElementFrame(text('abc'), { columns: 3, rows: 1 }, {
+  const frame = renderElementFrame(text({ content: 'abc' }), { columns: 3, rows: 1 }, {
     framePasses: [pass],
     disableFramePasses: true
   });

@@ -32,22 +32,22 @@ test('text controls reject every malformed provided handler', () => {
     assert.throws(() => control({
       id: 'malformed-handler',
       presentation: { value: '', cursor: 0 },
-      onAction: (action) => action,
-      onSubmit: 'not-a-function'
-    }), /onSubmit must be a function when provided/u);
+      onAction: 'not-a-function'
+    }), /onAction must be a function when provided/u);
   }
 });
 
 test('form components render settings and setup-wizard shapes with scoped state', () => {
-  const element = form([
-    field(textInput({
+  const element = form({ slots: { content: [
+    field({
+      slots: { content: [textInput({
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
       onAction: (action) => action,
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
-    }), {
+      })] },
       id: 'name-field',
       label: 'Name',
       description: 'Shown in reports'
@@ -56,7 +56,7 @@ test('form components render settings and setup-wizard shapes with scoped state'
       id: 'telemetry',
       label: 'Send diagnostics',
       checked: true,
-      onChange: () => ({ kind: 'toggleTelemetry' })
+      onAction: () => ({ kind: 'toggleTelemetry' })
     }),
     radioGroup({
       id: 'mode',
@@ -84,10 +84,10 @@ test('form components render settings and setup-wizard shapes with scoped state'
       onAction: (action) => action
     }),
     row([
-      button({ id: 'submit', label: 'Continue', onPress: () => ({ kind: 'submit' }) }),
-      button({ id: 'cancel', label: 'Cancel', onPress: () => ({ kind: 'cancel' }) })
+      button({ id: 'submit', label: 'Continue', onAction: () => ({ kind: 'submit' }) }),
+      button({ id: 'cancel', label: 'Cancel', onAction: () => ({ kind: 'cancel' }) })
     ])
-  ], {
+  ] },
     id: 'setup-form',
     title: 'Setup'
   });
@@ -125,9 +125,9 @@ test('open select renders a bounded popup with painted option targets only', () 
   assert.match(output, /Region: Europe/u);
   assert.match(output, /United States/u);
   assert.deepEqual(targetIds, [
-    'region:outside',
-    'region:popup',
     'region:trigger',
+    'region:popup:outside:top',
+    'region:popup:outside:right',
     'region:popup:list:option:eu',
     'region:popup:list:option:us'
   ]);
@@ -158,15 +158,16 @@ test('closed select renders only its trigger and hides popup accessibility child
 });
 
 test('form fields expose label required description and validation source anatomy', () => {
-  const element = form([
-    field(textInput({
+  const element = form({ slots: { content: [
+    field({
+      slots: { content: [textInput({
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
       onAction: (action) => action,
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
-    }), {
+      })] },
       id: 'name-field',
       label: 'Name',
       description: 'Shown in reports'
@@ -175,11 +176,11 @@ test('form fields expose label required description and validation source anatom
       id: 'terms',
       label: 'Accept terms',
       checked: false,
-      onChange: (checked) => checked,
+      onAction: ({ checked }) => checked,
       required: true,
       error: 'Required before submit'
     })
-  ], {
+  ] },
     id: 'setup-form',
     title: 'Setup'
   });
@@ -194,13 +195,14 @@ test('form fields expose label required description and validation source anatom
 });
 
 test('form accessibility exposes labels, values, validation, required, disabled, and focus state', () => {
-  const element = form([
-    field(textInput({
+  const element = form({ slots: { content: [
+    field({
+      slots: { content: [textInput({
       id: 'email',
       presentation: { value: 'user@example.test', cursor: 0 },
       onAction: (action) => action,
       required: true
-    }), {
+      })] },
       id: 'email-field',
       label: 'Email'
     }),
@@ -210,7 +212,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
       checked: false,
       required: true,
       error: 'Required before submit',
-      onChange: () => ({ kind: 'toggleTerms' })
+      onAction: () => ({ kind: 'toggleTerms' })
     }),
     radioGroup({
       id: 'tier',
@@ -222,7 +224,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
       ],
       onAction: (action) => action
     })
-  ], {
+  ] },
     id: 'account-form',
     title: 'Account'
   });
@@ -246,14 +248,14 @@ test('form accessibility exposes labels, values, validation, required, disabled,
 });
 
 test('control labels create a structural accessible-name relationship', () => {
-  const frame = renderElementFrame(form([
+  const frame = renderElementFrame(form({ slots: { content: [
     label({ id: 'email-label', forId: 'email-input', text: 'Email' }),
     textInput({
       id: 'email-input',
       presentation: { value: 'user@example.test', cursor: 0 },
       onAction: (action) => action
     })
-  ], {
+  ] },
     id: 'labelled-form',
     title: 'Account'
   }), { columns: 32, rows: 4 });
@@ -283,7 +285,7 @@ test('form controls emit submit and cancel messages while app state owns values'
     id: 'form-flow',
     init: () => ({ result: 'editing' }),
     update: (state, message) => ({ state: { ...state, result: message.kind }, exit: {} }),
-    view: (state) => form([
+    view: (state) => form({ slots: { content: [
       textInput({
         id: 'query',
         presentation: { value: state.result, cursor: 0 },
@@ -294,10 +296,10 @@ test('form controls emit submit and cancel messages while app state owns values'
         })
       }),
       row([
-        button({ id: 'submit', label: 'Submit', onPress: () => ({ kind: 'submit' }) }),
-        button({ id: 'cancel', label: 'Cancel', onPress: () => ({ kind: 'cancel' }) })
+        button({ id: 'submit', label: 'Submit', onAction: () => ({ kind: 'submit' }) }),
+        button({ id: 'cancel', label: 'Cancel', onAction: () => ({ kind: 'cancel' }) })
       ])
-    ], {
+    ] },
       id: 'flow-form',
       title: 'Flow'
     })

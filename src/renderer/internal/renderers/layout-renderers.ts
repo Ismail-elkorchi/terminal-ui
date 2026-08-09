@@ -1,8 +1,6 @@
 import { createFrameBuffer } from '../frame.ts';
 import { blitFrameCell } from '../frame-buffer.ts';
-import { splitTracks } from '../layout-geometry.ts';
-import { writeRenderBlock } from './support/block.ts';
-import { borderForDialog, dialogLabel } from './support/border.ts';
+import { splitTracks } from '../../../geometry/layout.ts';
 import { cellInside, groupAccessibleNode } from './support/common.ts';
 import {
   childLayoutSizes,
@@ -16,7 +14,6 @@ import {
   splitPaneAccessibleNode,
   splitPaneHitTargets
 } from '../split-pane.ts';
-import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderBlock, tabsHitTargets } from './support/tabs.ts';
 import {
   drawScrollbars,
   scrollbarHitTargetsForRenderNode,
@@ -29,9 +26,7 @@ import {
   viewportChildBounds,
   viewportIndicatorCellKey
 } from './support/viewport.ts';
-import { dialogChildBounds, dialogOutsideHitTargets, drawDialogActionSeparator, placeDialog } from './support/dialog.ts';
-import { drawSurfaceFrame } from '../surface.ts';
-import type { RendererMap } from './types.ts';
+import type { StructuralRendererMap } from './types.ts';
 import { layoutMeasurements } from './layout-measurements.ts';
 import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
 import { flowChildBounds } from './support/flow.ts';
@@ -183,70 +178,4 @@ export const layoutRenderers = {
     accessibility: ({ renderNode, id, focused }) => splitPaneAccessibleNode(renderNode, id, focused),
     hitTargets: ({ renderNode, layoutNode }) => splitPaneHitTargets(renderNode, layoutNode)
   },
-  tabs: {
-    measure: layoutMeasurements.tabs,
-    layout: ({ renderNode, bounds }) => tabsChildBounds(renderNode, bounds),
-    render: (input) => {
-      writeRenderBlock(input.buffer, {
-        ...input.layoutNode.bounds,
-        height: Math.min(1, input.layoutNode.bounds.height)
-      }, tabsHeaderBlock(
-        input.renderNode,
-        input.layoutNode.bounds,
-        input.focus === 'self',
-        input.theme,
-        input.widthProfile
-      ));
-      input.renderChildren();
-    },
-    accessibility: ({ renderNode, id, focused, children }) => ({
-      id,
-      role: 'group',
-      label: id,
-      ...(typeof renderNode.props.selected === 'string' ? { value: renderNode.props.selected } : {}),
-      ...(focused ? { focused } : {}),
-      children: tabsAccessibleChildren(renderNode, children)
-    }),
-    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => tabsHitTargets(
-      renderNode,
-      bounds,
-      theme,
-      widthProfile
-    )
-  },
-  dialog: {
-    measure: layoutMeasurements.dialog,
-    place: ({ renderNode, bounds, measurement }) => placeDialog(renderNode, bounds, measurement()),
-    layout: ({ renderNode, bounds, measureChild }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), measureChild),
-    render: (input) => {
-      const focused = input.focus !== 'none';
-      const border = borderForDialog(input.renderNode, input.theme);
-      drawSurfaceFrame(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme, focused, {
-        appearance: 'raised',
-        border,
-        shadow: true
-      });
-      drawDialogActionSeparator(input.buffer, input.layoutNode, input.theme, border.style);
-      input.renderChildren();
-    },
-    accessibility: ({ renderNode, id }) => ({
-      id,
-      role: 'dialog',
-      label: dialogLabel(renderNode) || id,
-      ...(renderNode.props.modal
-        ? {
-            scope: {
-              kind: 'modal' as const,
-              trapsFocus: true,
-              obscuresBackground: true
-            }
-          }
-        : {})
-    }),
-    hitTargets: ({ renderNode, bounds, layoutNode }) => dialogOutsideHitTargets(
-      renderNode,
-      bounds,
-      layoutNode.viewport
-    )
-  }
-} satisfies RendererMap<'column' | 'row' | 'flow' | 'measuredColumn' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;
+} satisfies StructuralRendererMap<'column' | 'row' | 'flow' | 'measuredColumn' | 'viewport' | 'grid' | 'splitPane'>;

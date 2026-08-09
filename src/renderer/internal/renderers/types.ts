@@ -11,9 +11,9 @@ import type {
   RenderNodeRenderInput
 } from '../../model/renderer.ts';
 
-export type BuiltinRenderNodeKind = Exclude<RenderNodeKind, 'component'>;
+export type StructuralRenderNodeKind = Exclude<RenderNodeKind, 'component'>;
 
-export interface BuiltinRenderNodeRenderer<TKind extends BuiltinRenderNodeKind> {
+export interface StructuralNodeRenderer<TKind extends StructuralRenderNodeKind> {
   readonly clipChildren?: boolean;
   place?<TMessage>(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
   measure<TMessage>(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;
@@ -24,10 +24,10 @@ export interface BuiltinRenderNodeRenderer<TKind extends BuiltinRenderNodeKind> 
   hitTargets?<TMessage>(input: RenderNodeHitInput<TMessage, TKind>): readonly HitTarget<TMessage>[];
 }
 
-export type RendererMap<K extends BuiltinRenderNodeKind> = Readonly<{
-  readonly [TKind in K]: BuiltinRenderNodeRenderer<TKind>;
+export type StructuralRendererMap<K extends StructuralRenderNodeKind> = Readonly<{
+  readonly [TKind in K]: StructuralNodeRenderer<TKind>;
 }>;
 
-export type RendererMeasurementMap<K extends BuiltinRenderNodeKind> = Readonly<{
-  readonly [TKind in K]: BuiltinRenderNodeRenderer<TKind>['measure'];
+export type StructuralMeasurementMap<K extends StructuralRenderNodeKind> = Readonly<{
+  readonly [TKind in K]: StructuralNodeRenderer<TKind>['measure'];
 }>;

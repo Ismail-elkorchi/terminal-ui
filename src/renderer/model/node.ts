@@ -1,4 +1,5 @@
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
+import { isIgnoredMessage } from '../../interaction/message.ts';
 
 export function renderNodeFactoryName(renderNode: RenderNode): string {
   return renderNode.kind === 'component' ? renderNode.definition.name : renderNode.kind;
@@ -17,4 +18,13 @@ export function renderNodeFocusUnavailable<TMessage, TKind extends RenderNodeKin
   return targetDisabled
     || renderNode.focus?.disabled === true
     || renderNodeInteractionUnavailable(renderNode);
+}
+
+export function resolveRenderNodeMessage<TMessage>(
+  renderNode: RenderNode<TMessage>,
+  message: unknown
+): unknown {
+  return isIgnoredMessage(message) || renderNode.messageMap === undefined
+    ? message
+    : renderNode.messageMap(message);
 }

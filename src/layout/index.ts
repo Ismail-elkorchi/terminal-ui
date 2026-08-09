@@ -6,6 +6,7 @@ export {
   grid,
   measuredColumn,
   overlay,
+  portal,
   row,
   splitPane,
   surface,
@@ -19,6 +20,7 @@ export type {
   GridAreasOptions,
   GridOptions,
   RowOptions,
+  PortalOptions,
   SplitPaneOptions,
   SurfaceOptions,
   ViewportOptions
@@ -45,3 +47,13 @@ export type {
   LayoutOverflow,
   LayoutSize
 } from '../geometry/types.ts';
+export {
+  gridCellRects,
+  layoutBoxBounds,
+  layoutContentBounds,
+  layoutInsetSize,
+  layoutMarginBounds,
+  layoutPaddingBounds,
+  splitTracks
+} from '../geometry/layout.ts';
+export { prepareLayoutFlowOptions } from './prepare.ts';

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { contextMenu, dialog, dropdownMenu, richText, table, text, textInput } from '../../dist/components/index.js';
@@ -7,11 +8,11 @@ import { testCanvas as canvas } from '../helpers/canvas.mjs';
 import { absolute, overlay, surface } from '../../dist/layout/index.js';
 
 function focusInput(options) {
-  return textInput({ onAction: () => undefined, ...options });
+  return textInput({ onAction: () => ignoreMessage(), ...options });
 }
 
 test('absolute clips child bounds without leaking outside its parent', () => {
-  const element = absolute(text('OVERFLOW', { id: 'absolute-text' }), {
+  const element = absolute(text({ content: 'OVERFLOW', id: 'absolute-text' }), {
     id: 'absolute-clip',
     row: 1,
     column: 4,
@@ -29,14 +30,14 @@ test('absolute clips child bounds without leaking outside its parent', () => {
 });
 
 test('absolute clips top-left and fully outside placements to parent bounds', () => {
-  const partial = absolute(text('FLOAT', { id: 'partial-text' }), {
+  const partial = absolute(text({ content: 'FLOAT', id: 'partial-text' }), {
     id: 'absolute-partial',
     row: 0,
     column: 0,
     width: 5,
     height: 2
   });
-  const hidden = absolute(text('HIDDEN', { id: 'hidden-text' }), {
+  const hidden = absolute(text({ content: 'HIDDEN', id: 'hidden-text' }), {
     id: 'absolute-hidden',
     row: -2,
     column: 1,
@@ -58,34 +59,28 @@ test('absolute clips top-left and fully outside placements to parent bounds', ()
 
 test('overlay preserves declaration order within one layer and z-order across layers', () => {
   const sameLayer = overlay([
-    text('ONE', { id: 'one' }),
-    text('TWO', { id: 'two' })
+    text({ content: 'ONE', id: 'one' }),
+    text({ content: 'TWO', id: 'two' })
   ], { id: 'same-layer' });
   const layered = overlay([
-    text('LOW', {
-    id: 'low',
+    text({ content: 'LOW', id: 'low',
     meta: {
         layer: {
             zIndex: 2
         }
-    }
-}),
-    text('MID', {
-    id: 'mid',
+    } }),
+    text({ content: 'MID', id: 'mid',
     meta: {
         layer: {
             zIndex: 1
         }
-    }
-}),
-    text('TOP', {
-    id: 'top',
+    } }),
+    text({ content: 'TOP', id: 'top',
     meta: {
         layer: {
             zIndex: 3
         }
-    }
-})
+    } })
   ], { id: 'layered' });
   const regions = renderElementRegions(layered, { columns: 3, rows: 1 });
 
@@ -100,22 +95,18 @@ test('overlay accessibility and initial focus follow topmost visual order', () =
     focusInput({ id: 'upper-field', presentation: { value: 'upper', cursor: 0 } })
   ], { id: 'focus-overlay' });
   const zElement = overlay([
-    text('LOW', {
-    id: 'low-layer',
+    text({ content: 'LOW', id: 'low-layer',
     meta: {
         layer: {
             zIndex: 0
         }
-    }
-}),
-    text('TOP', {
-    id: 'top-layer',
+    } }),
+    text({ content: 'TOP', id: 'top-layer',
     meta: {
         layer: {
             zIndex: 10
         }
-    }
-})
+    } })
   ], { id: 'accessibility-overlay' });
 
   const frame = renderElementFrame(element, { columns: 12, rows: 2 });
@@ -129,31 +120,25 @@ test('overlay accessibility and initial focus follow topmost visual order', () =
 
 test('layers render top z-index content last and hide invisible elements', () => {
   const element = overlay([
-    text('lower', {
-    id: 'lower',
+    text({ content: 'lower', id: 'lower',
     meta: {
         layer: {
             zIndex: 0
         }
-    }
-}),
-    text('UPPER', {
-    id: 'upper',
+    } }),
+    text({ content: 'UPPER', id: 'upper',
     meta: {
         layer: {
             zIndex: 5
         }
-    }
-}),
-    text('hidden', {
-    id: 'hidden',
+    } }),
+    text({ content: 'hidden', id: 'hidden',
     meta: {
         layer: {
             zIndex: 10,
             visible: false
         }
-    }
-})
+    } })
   ], {
     id: 'layer-root'
   });
@@ -198,8 +183,8 @@ test('focus is scoped to the topmost visible focus layer', () => {
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 3 });
   assert.deepEqual(frame.cursor?.source, {
     elementId: 'upper-input',
-    elementKind: 'textInput',
-    rendererFamily: 'form',
+    elementKind: 'terminal-ui/components/text-input',
+    rendererFamily: 'component',
     cellRole: 'cursor',
     partName: 'cursor',
     partType: 'cursor',
@@ -222,7 +207,8 @@ test('dialog clear underlay removes lower cells throughout its region', () => {
         }
     }
 }),
-    dialog(text('front', { id: 'front' }), {
+    dialog({
+    slots: { content: text({ content: 'front', id: 'front' }) },
     id: 'dialog-layer',
     title: 'Dialog',
     modal: true,
@@ -267,7 +253,8 @@ test('modal dialogs create their own layer and dim the complete lower canvas', (
         link: { href: 'https://example.test/' }
       }]
     }),
-    dialog(text('front', { id: 'automatic-modal-content' }), {
+    dialog({
+      slots: { content: text({ content: 'front', id: 'automatic-modal-content' }) },
       id: 'automatic-modal',
       title: 'Confirm',
       modal: true,

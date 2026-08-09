@@ -22,7 +22,8 @@ export type SelectAction =
   | { readonly kind: 'last' }
   | { readonly kind: 'commit'; readonly id: string }
   | { readonly kind: 'dismiss'; readonly reason: AnchoredSurfaceDismissReason }
-  | { readonly kind: 'scroll'; readonly event: ScrollEvent };
+  | { readonly kind: 'scroll'; readonly event: ScrollEvent }
+  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
 
 export type ColorSwatchPickerAction =
   | { readonly kind: 'focus'; readonly id: string }
@@ -31,6 +32,7 @@ export type ColorSwatchPickerAction =
   | { readonly kind: 'last' }
   | { readonly kind: 'select'; readonly id: string };
 import type { AnchoredSurfaceDismissReason } from '../interaction/anchored-surface.ts';
+import type { PointerInteractionAction } from '../interaction/pointer-interaction.ts';
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
 
 export type SelectPresentation =

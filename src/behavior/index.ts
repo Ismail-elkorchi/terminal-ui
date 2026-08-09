@@ -19,6 +19,11 @@ export type {
   CalendarDay
 } from '../ui-model/calendar.ts';
 export { dataWindow, rowWindow } from './data-window.ts';
+export { isCollectionProjection } from '../ui-model/collection.ts';
+export type {
+  CollectionProjection,
+  CollectionRecord
+} from '../ui-model/collection.ts';
 export { measuredWindow } from './measured-window.ts';
 export type {
   MeasuredWindow,

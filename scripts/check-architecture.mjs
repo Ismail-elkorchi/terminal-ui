@@ -6,6 +6,7 @@ import { globFiles } from './glob-files.mjs';
 const root = path.resolve(import.meta.dirname, '../src');
 const sourceFiles = await collectTypeScript(root);
 const knownSourceFiles = new Set(sourceFiles);
+const componentCatalogModules = await loadComponentCatalogModules(knownSourceFiles);
 const publicEntrypointFiles = await loadPublicEntrypoints();
 const compilerConfig = loadCompilerConfig();
 const publicDeclarationSurface = createPublicDeclarationSurface(compilerConfig, publicEntrypointFiles);
@@ -25,7 +26,7 @@ const foundationDependencies = new Map([
   ['diagnostic-identity.ts', new Set()],
   ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'foundation', 'text'])],
   ['foundation', new Set()],
-  ['geometry', new Set()],
+  ['geometry', new Set(['foundation'])],
   ['text', new Set()]
 ]);
 
@@ -39,7 +40,7 @@ for (const filePath of sourceFiles) {
     const specifier = statement.moduleSpecifier;
     if (specifier === undefined || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
     const target = path.resolve(path.dirname(filePath), specifier.text);
-    if (knownSourceFiles.has(target)) dependencies.push(target);
+    if (knownSourceFiles.has(target) && !isTypeOnlyDependency(statement)) dependencies.push(target);
     const targetLayer = firstSegment(target);
     const allowedFoundationDependencies = foundationDependencies.get(sourceLayer);
     if (allowedFoundationDependencies !== undefined
@@ -56,6 +57,7 @@ for (const filePath of sourceFiles) {
   inspectDeterministicGlobals(sourceFile, sourceLayer, filePath);
   inspectCentralRenderDispatch(sourceFile, filePath);
   inspectElementConstructionBoundary(sourceFile, filePath);
+  inspectComponentCatalog(sourceFile, filePath);
   inspectPublicBoundary(sourceFile, filePath);
   inspectTestingEntrypoint(sourceFile, filePath);
   inspectTuiContext(sourceFile, filePath);
@@ -124,16 +126,13 @@ function inspectElementConstructionBoundary(sourceFile, filePath) {
     'componentElementFromRenderNode',
     'layoutElementFromRenderNode'
   ]);
-  let expected;
-  if (sourcePath.startsWith('components/factories/')) {
-    expected = sourcePath.endsWith('/index.ts') ? undefined : 'componentElementFromRenderNode';
-  } else if (sourcePath === 'components/definition.ts') {
-    expected = 'componentElementFromRenderNode';
-  } else if (sourcePath.startsWith('layout/factories/')) {
-    expected = sourcePath.endsWith('/index.ts') || sourcePath.endsWith('/internals.ts')
-      ? undefined
-      : 'layoutElementFromRenderNode';
-  }
+  const expected = sourcePath === 'component/definition.ts'
+    ? 'componentElementFromRenderNode'
+    : sourcePath.startsWith('layout/factories/')
+      && !sourcePath.endsWith('/index.ts')
+      && !sourcePath.endsWith('/internals.ts')
+      ? 'layoutElementFromRenderNode'
+      : undefined;
 
   const calls = [];
   const visit = (node) => {
@@ -160,6 +159,63 @@ function inspectElementConstructionBoundary(sourceFile, filePath) {
       failures.push(`${relative(filePath)} uses ${constructor}; expected ${expected}`);
     }
   }
+}
+
+function inspectComponentCatalog(sourceFile, filePath) {
+  if (!componentCatalogModules.has(filePath)) return;
+  let definesComponent = false;
+  const visit = (node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+      && node.expression.text === 'defineComponent') {
+      definesComponent = true;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  if (!definesComponent) {
+    failures.push(`${relative(filePath)} does not author its catalog entries through defineComponent`);
+  }
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
+    const specifier = statement.moduleSpecifier;
+    if (specifier === undefined || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
+    const targetPath = sourceRelative(path.resolve(path.dirname(filePath), specifier.text));
+    if (targetPath.startsWith('renderer/internal/') || targetPath.startsWith('renderer/model/')) {
+      failures.push(`${relative(filePath)} imports renderer-private module ${targetPath}`);
+    }
+  }
+}
+
+async function loadComponentCatalogModules(knownFiles) {
+  const entrypoint = path.resolve(root, 'components/factories.ts');
+  const sourceText = await fs.readFile(entrypoint, 'utf8');
+  const sourceFile = ts.createSourceFile(
+    entrypoint,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  );
+  const modules = new Set();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isExportDeclaration(statement)) continue;
+    const specifier = statement.moduleSpecifier;
+    if (specifier === undefined || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
+    const target = path.resolve(path.dirname(entrypoint), specifier.text);
+    if (knownFiles.has(target)) modules.add(target);
+  }
+  return modules;
+}
+
+function isTypeOnlyDependency(statement) {
+  if (statement.isTypeOnly === true) return true;
+  if (!ts.isImportDeclaration(statement)) return false;
+  const clause = statement.importClause;
+  if (clause?.isTypeOnly === true) return true;
+  if (clause?.name !== undefined || clause?.namedBindings === undefined
+    || !ts.isNamedImports(clause.namedBindings)) return false;
+  return clause.namedBindings.elements.length > 0
+    && clause.namedBindings.elements.every((element) => element.isTypeOnly);
 }
 
 function inspectPublicBoundary(sourceFile, filePath) {
@@ -383,9 +439,10 @@ function forbiddenDependency(sourceFile, sourceLayer, targetLayer, targetFile) {
   if (sourceRelative(sourceFile).startsWith('renderer/model/')
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
   if (neutral.has(sourceLayer) && upper.has(targetLayer)) return true;
-  if (sourceLayer === 'components' && new Set(['layout', 'tui']).has(targetLayer)) return true;
+  if (sourceLayer === 'components' && targetLayer === 'tui') return true;
   if (sourceLayer === 'components' && targetLayer === 'renderer'
-    && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;
+    && (sourceRelative(targetFile).startsWith('renderer/internal/')
+      || sourceRelative(targetFile).startsWith('renderer/model/'))) return true;
   if (sourceLayer === 'layout' && new Set(['components', 'tui']).has(targetLayer)) return true;
   if (sourceLayer === 'layout' && targetLayer === 'renderer'
     && sourceRelative(targetFile).startsWith('renderer/internal/')) return true;

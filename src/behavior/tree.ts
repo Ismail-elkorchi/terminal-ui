@@ -157,11 +157,43 @@ export function prepareTreeRows<TMetadata extends Readonly<Record<string, unknow
   const records = rows.map((row, offset): TreeCollectionRecord<TMetadata> => ({
     id: row.node.id,
     itemIndex: startIndex + offset,
-    row: Object.freeze({ ...row, path: Object.freeze([...row.path]) })
+    row: Object.freeze({
+      ...row,
+      node: snapshotVisibleTreeNode(row.node),
+      path: Object.freeze([...row.path])
+    })
   }));
   return window === undefined
     ? completeCollection(records)
     : windowedCollection({ records, window });
+}
+
+function snapshotVisibleTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
+  node: TreeNode<TMetadata>
+): TreeNode<TMetadata> {
+  const shared = {
+    id: node.id,
+    label: node.label,
+    ...(node.description === undefined ? {} : { description: node.description }),
+    ...(node.disabled === undefined ? {} : { disabled: node.disabled }),
+    ...(node.icon === undefined ? {} : { icon: node.icon }),
+    ...(node.metadata === undefined ? {} : { metadata: Object.freeze({ ...node.metadata }) })
+  };
+  if (node.kind === 'leaf') return Object.freeze({ ...shared, kind: node.kind });
+  if (node.kind === 'branch') {
+    return Object.freeze({
+      ...shared,
+      kind: node.kind,
+      expanded: node.expanded,
+      children: Object.freeze([...node.children])
+    });
+  }
+  return Object.freeze({
+    ...shared,
+    kind: node.kind,
+    expanded: node.expanded,
+    loading: Object.freeze({ ...node.loading })
+  });
 }
 
 export function selectableTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(

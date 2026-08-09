@@ -25,7 +25,7 @@ void test('intervalSource emits deterministic ticks through the terminal clock',
     init: () => ({ ticks: [] }),
     update: (state, message) => ({ state: { ticks: [...state.ticks, message.tick] } }),
     subscriptions: () => [intervalSource('interval', 10, (tick) => ({ tick }))],
-    view: (state) => text(state.ticks.join(','), { id: 'ticks' })
+    view: (state) => text({ content: state.ticks.join(','), id: 'ticks' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -54,7 +54,7 @@ void test('timeoutSource emits once after the configured clock delay', async () 
     init: () => ({ ready: false, count: 0 }),
     update: (state) => ({ state: { ready: true, count: state.count + 1 } }),
     subscriptions: () => [timeoutSource('timeout', 5, { ready: true })],
-    view: (state) => text(state.ready ? 'ready' : 'waiting', { id: 'ready-state' })
+    view: (state) => text({ content: state.ready ? 'ready' : 'waiting', id: 'ready-state' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -84,7 +84,7 @@ void test('animationSource maps frames from fps to clock-driven intervals', asyn
     init: () => ({ frames: [] }),
     update: (state, message) => ({ state: { frames: [...state.frames, message.frame] } }),
     subscriptions: () => [animationSource('animation', 20, (frame) => ({ frame }))],
-    view: (state) => text(state.frames.map((frame) => frame.frameIndex).join(','), { id: 'frames' })
+    view: (state) => text({ content: state.frames.map((frame) => frame.frameIndex).join(','), id: 'frames' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -118,7 +118,7 @@ void test('animationSource coalesces overruns to the latest due frame', async ()
     init: () => ({ frames: [] }),
     update: (state, message) => ({ state: { frames: [...state.frames, message.frame] } }),
     subscriptions: () => [animationSource('animation', 20, (frame) => ({ frame }))],
-    view: (state) => text(String(state.frames.length), { id: 'frame-count' })
+    view: (state) => text({ content: String(state.frames.length), id: 'frame-count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });

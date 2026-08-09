@@ -31,21 +31,21 @@ defineTui<{ readonly value: string }, Message>({
       yield { kind: 'loaded' as const, value: 'fresh' };
     }
   }],
-  view: (state) => text(state.value)
+  view: (state) => text({ content: state.value })
 });
 
 defineTui<{ readonly value: string }, unknown>({
   // @ts-expect-error initialization is a synchronous state transition
   init: async () => ({ value: '' }),
   update: (state) => ({ state }),
-  view: (state) => text(state.value)
+  view: (state) => text({ content: state.value })
 });
 
 defineTui({
   init: () => ({ value: '' }),
   // @ts-expect-error updates cannot hold the serialized transition queue with a promise
   update: async (state: { readonly value: string }) => ({ state }),
-  view: (state) => text(state.value)
+  view: (state) => text({ content: state.value })
 });
 
 defineTui({
@@ -59,5 +59,5 @@ defineTui({
       yield { kind: 'loaded' as const, value: 'fresh' };
     }
   }],
-  view: (state) => text(state.value)
+  view: (state) => text({ content: state.value })
 });

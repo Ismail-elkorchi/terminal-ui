@@ -29,6 +29,8 @@ export function tabsReducer(
       const tab = enabled.at(-1);
       return tab === undefined ? state : { selected: tab.id };
     }
+    case 'pointer':
+      return state;
   }
 }
 

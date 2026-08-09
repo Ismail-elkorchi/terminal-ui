@@ -2,17 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { ignoreMessage } from '../../dist/interaction/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { textInput as createTextInput } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
+import { testKeyInput } from '../helpers/component-definition.mjs';
 
 function textInput(options) {
+  if (options.keys !== undefined) return testKeyInput(options);
   return createTextInput(
-    options.onAction !== undefined || options.onSubmit !== undefined
+    options.onAction !== undefined
       ? options
-      : { onSubmit: () => undefined, ...options }
+      : { onAction: () => ignoreMessage(), ...options }
   );
 }
 
@@ -180,7 +182,11 @@ test('TUI runtime does not steal printable text for default app bindings', async
     view: (state) => textInput({
       id: 'field',
           presentation: { value: state.value, cursor: 0 },
-          onAction: ({ operation }) => ({ value: operation.kind === 'insert' ? operation.text : '' })
+          onAction: (action) => ({
+            value: action.kind === 'edit' && action.operation.kind === 'insert'
+              ? action.operation.text
+              : ''
+          })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
@@ -206,7 +212,11 @@ test('TUI runtime routes committed text before after-focus app bindings', async 
     view: (state) => textInput({
       id: 'field',
       presentation: { value: state.value, cursor: state.value.length },
-      onAction: ({ operation }) => ({ value: operation.kind === 'insert' ? operation.text : '' })
+      onAction: (action) => ({
+        value: action.kind === 'edit' && action.operation.kind === 'insert'
+          ? action.operation.text
+          : ''
+      })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
@@ -264,7 +274,7 @@ test('TUI runtime routes committed text through component text key bindings', as
     id: 'committed-text-component-binding',
     init: () => ({ value: 'idle' }),
     update: (_state, message) => ({ state: message }),
-    view: (state) => textInput({
+    view: (state) => testKeyInput({
       id: 'field',
       presentation: { value: state.value, cursor: 0 },
       keys: { text: { q: () => ({ value: 'component' }) } }
@@ -395,7 +405,9 @@ test('TUI runtime routes focused text and paste through one edit-operation chann
     view: (state) => textInput({
       id: 'field',
       presentation: { value: state.value, cursor: 0 },
-      onAction: ({ operation }) => ({ operation })
+      onAction: (action) => action.kind === 'edit'
+        ? { operation: action.operation }
+        : ignoreMessage()
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
@@ -419,7 +431,7 @@ test('TUI runtime routes single-space input chunks as text for editable focused 
     view: (state) => textInput({
       id: 'field',
       presentation: { value: state.value, cursor: 0 },
-      onAction: ({ operation }) => ({ text: operation.kind === 'insert' ? operation.text : '' })
+      onAction: (action) => ({ text: action.kind === 'edit' && action.operation.kind === 'insert' ? action.operation.text : '' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
@@ -444,7 +456,7 @@ test('TUI runtime lets focused space key bindings override text insertion', asyn
       id: 'field',
       presentation: { value: state.value, cursor: 0 },
       keys: { space: () => ({ text: 'space-key' }) },
-      onAction: ({ operation }) => ({ text: operation.kind === 'insert' ? operation.text : '' })
+      onAction: (action) => ({ text: action.kind === 'edit' && action.operation.kind === 'insert' ? action.operation.text : '' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
@@ -465,7 +477,11 @@ test('TUI runtime decodes input chunks through the configured input pipeline', a
     view: (state) => textInput({
       id: 'pipeline-field',
       presentation: { value: state.value, cursor: 0 },
-      onAction: ({ operation }) => ({ text: operation.kind === 'insert' ? operation.text : '' })
+      onAction: (action) => ({
+        text: action.kind === 'edit' && action.operation.kind === 'insert'
+          ? action.operation.text
+          : ''
+      })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });

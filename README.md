@@ -57,16 +57,16 @@ const app = defineTui<{ readonly count: number }, Message>({
     ? { state, exit: { reason: 'quit' } }
     : { state: { count: state.count + 1 } },
   view: (state) => column([
-    text(`Count: ${String(state.count)}`),
+    text({ content: `Count: ${String(state.count)}` }),
     button({
       id: 'increment',
       label: 'Increment',
-      onPress: () => 'increment'
+      onAction: () => 'increment'
     }),
     button({
       id: 'quit',
       label: 'Quit',
-      onPress: () => 'quit'
+      onAction: () => 'quit'
     })
   ])
 });
@@ -93,20 +93,21 @@ interface BadgeOptions {
   readonly label: string;
 }
 
-const badgeComponent = defineComponent<BadgeOptions>({
+const badgeComponent = defineComponent<BadgeOptions, BadgeOptions>({
   name: 'example-app/components/badge',
+  identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  decodeOptions(value) {
+  optionFields: { label: null },
+  prepare(value) {
     if (typeof value !== 'object' || value === null || !('label' in value)
-      || typeof value.label !== 'string'
-      || Object.keys(value).some((field) => field !== 'label')) {
+      || typeof value.label !== 'string') {
       throw new TypeError('badge requires only a string label');
     }
     return { label: value.label };
   },
-  measure: ({ options, widthProfile }) => {
-    const width = Math.max(1, measureTextCells(options.label, { widthProfile }).cells);
+  measure: ({ model, widthProfile }) => {
+    const width = Math.max(1, measureTextCells(model.label, { widthProfile }).cells);
     return {
       minWidth: 1,
       minHeight: 1,
@@ -114,18 +115,18 @@ const badgeComponent = defineComponent<BadgeOptions>({
       preferredHeight: 1
     };
   },
-  render({ options, bounds, target }) {
-    target.write(bounds.row, bounds.column, [{ text: options.label }]);
+  render({ model, target }) {
+    target.write(0, 0, [{ text: model.label }]);
   },
-  accessibility: ({ id, options }) => ({
+  accessibility: ({ id, model }) => ({
     id,
     role: 'status',
-    label: options.label
+    label: model.label
   })
 });
 
-export function badge(id: string, label: string): Element {
-  return badgeComponent({ id, label });
+export function badge(options: BadgeOptions & { readonly id: string }): Element {
+  return badgeComponent(options);
 }
 ```
 

@@ -118,11 +118,15 @@ test('progressBar rejects invalid caller-supplied display and geometry values', 
     label: 'Sync',
     mode: { kind: 'determinate', value: 1, max: 2 }
   };
-  assert.throws(() => progressBar({ ...base, elapsedMs: -1 }), RangeError);
-  assert.throws(() => progressBar({ ...base, remainingMs: Number.NaN }), RangeError);
-  assert.throws(() => progressBar({ ...base, barWidth: 0 }), RangeError);
-  assert.throws(() => progressBar({ ...base, display: 'value' }), TypeError);
-  assert.throws(() => progressBar({ ...base, labelPosition: 'middle' }), TypeError);
+  const componentRangeError = (error) => error.name === 'ComponentExecutionError'
+    && error.cause instanceof RangeError;
+  const componentTypeError = (error) => error.name === 'ComponentExecutionError'
+    && error.cause instanceof TypeError;
+  assert.throws(() => progressBar({ ...base, elapsedMs: -1 }), componentRangeError);
+  assert.throws(() => progressBar({ ...base, remainingMs: Number.NaN }), componentRangeError);
+  assert.throws(() => progressBar({ ...base, barWidth: 0 }), componentRangeError);
+  assert.throws(() => progressBar({ ...base, display: 'value' }), componentTypeError);
+  assert.throws(() => progressBar({ ...base, labelPosition: 'middle' }), componentTypeError);
 });
 
 test('progressBar supports label-free percentage and tiny viewport clipping', () => {

@@ -1,6 +1,7 @@
 import {
   focusPathIncludes,
   focusedTargetIdForLayoutNode,
+  layoutFocusPath,
   renderFocusRelation
 } from './focus.ts';
 import {
@@ -25,20 +26,25 @@ export function accessibleNode(
   focusPath: FocusPath | undefined,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  clippedByViewport = false
+  clippedByViewport = false,
+  accessibleNodes = new Map<RenderNode, AccessibleNode>()
 ): AccessibleNode | undefined {
   if (node.inert) return undefined;
   if (!node.visible) {
-    return {
+    const result = {
       id: renderNode.id ?? `${renderNode.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`,
-      role: 'text',
+      role: 'text' as const,
       label: renderNode.id ?? renderNode.kind
     };
+    accessibleNodes.set(renderNode, result);
+    return result;
   }
-  const path = [...parentPath, node.identity];
+  const path = layoutFocusPath(parentPath, node);
   const id = renderNode.id ?? `${renderNode.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`;
   if (isDecorativeAccessibility(renderNode.accessibility)) {
-    return decorativeRootNode(id, renderNode.accessibility);
+    const result = decorativeRootNode(id, renderNode.accessibility);
+    accessibleNodes.set(renderNode, result);
+    return result;
   }
   const renderedChildren = accessibleChildren(
     renderNode,
@@ -47,47 +53,57 @@ export function accessibleNode(
     focusPath,
     theme,
     widthProfile,
-    clippedByViewport
+    clippedByViewport,
+    accessibleNodes
   ) ?? [];
+  const focus = renderFocusRelation(focusPath, path);
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
   const base = accessibilityForRenderNode(
     renderNode,
     node,
     id,
     focusPathIncludes(focusPath, path),
+    focus,
     focusedTargetId,
     renderedChildren,
+    accessibleNodes,
     theme,
     widthProfile
   );
   const children = base.children ?? (renderedChildren.length === 0 ? undefined : renderedChildren);
   const result = mergeAccessibleNode(withScope(base, renderNode), renderNode.accessibility, children);
   if (renderNode.kind === 'component') {
-    const focusRelation = renderFocusRelation(focusPath, path);
     assertComponentAccessibilityFocus(result, {
-      runtimeFocused: focusRelation === 'self' || focusedTargetId !== undefined,
+      runtimeFocused: focus === 'self' || focusedTargetId !== undefined,
       focusedTargetId,
       focusTargetIds: node.focusTargets.map((target) => target.id),
-      excludedSubtreeIds: new Set(renderedChildren.map((child) => child.id)),
+      excludedSubtreeIds: accessibleDescendantIds(renderedChildren),
       owner: renderNode.id ?? renderNodeFactoryName(renderNode)
     });
   }
+  accessibleNodes.set(renderNode, result);
   return result;
 }
 
+function accessibleDescendantIds(children: readonly AccessibleNode[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  const visit = (node: AccessibleNode): void => {
+    ids.add(node.id);
+    for (const child of node.children ?? []) visit(child);
+  };
+  for (const child of children) visit(child);
+  return ids;
+}
+
 export function withControlLabelRelationships(
-  root: AccessibleNode,
-  renderNode: RenderNode,
-  layoutNode: LayoutNode
+  root: AccessibleNode
 ): AccessibleNode {
   const accessibleNodes = new Map<string, AccessibleNode>();
   collectAccessibleNodes(root, accessibleNodes);
-  const labels = collectControlLabels(renderNode);
+  const labels = collectControlLabels(root);
   if (labels.length === 0) return root;
-  const inertIds = collectInertElementIds(renderNode, layoutNode);
   const labelsByTarget = new Map<string, string>();
   for (const { labelId, targetId } of labels) {
-    if (inertIds.has(labelId) || inertIds.has(targetId)) continue;
     if (!accessibleNodes.has(labelId)) {
       throw new Error(`Control label "${labelId}" is not present in the accessibility tree.`);
     }
@@ -120,39 +136,18 @@ export function inertAccessibleRoot(): AccessibleNode {
 }
 
 function collectControlLabels(
-  renderNode: RenderNode
+  node: AccessibleNode
 ): readonly { readonly labelId: string; readonly targetId: string }[] {
-  const labels = renderNode.kind === 'label'
+  const labels = node.role === 'text' && node.controls !== undefined
     ? [{
-        labelId: renderNode.id ?? '',
-        targetId: typeof renderNode.props.forId === 'string' ? renderNode.props.forId : ''
+        labelId: node.id,
+        targetId: node.controls
       }]
     : [];
   return [
     ...labels,
-    ...(renderNode.children ?? []).flatMap(collectControlLabels)
+    ...(node.children ?? []).flatMap(collectControlLabels)
   ];
-}
-
-function collectInertElementIds(
-  renderNode: RenderNode,
-  layoutNode: LayoutNode,
-  ids = new Set<string>()
-): ReadonlySet<string> {
-  if (layoutNode.inert) {
-    collectRenderNodeIds(renderNode, ids);
-    return ids;
-  }
-  for (const [index, child] of (renderNode.children ?? []).entries()) {
-    const childLayout = layoutNode.children[index];
-    if (childLayout !== undefined) collectInertElementIds(child, childLayout, ids);
-  }
-  return ids;
-}
-
-function collectRenderNodeIds(renderNode: RenderNode, ids: Set<string>): void {
-  if (renderNode.id !== undefined) ids.add(renderNode.id);
-  for (const child of renderNode.children ?? []) collectRenderNodeIds(child, ids);
 }
 
 function collectAccessibleNodes(node: AccessibleNode, nodes: Map<string, AccessibleNode>): void {
@@ -180,7 +175,8 @@ function accessibleChildren(
   focusPath: FocusPath | undefined,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  clippedByViewport: boolean
+  clippedByViewport: boolean,
+  accessibleNodes: Map<RenderNode, AccessibleNode>
 ): readonly AccessibleNode[] | undefined {
   const children = renderNode.children ?? [];
   if (children.length === 0) return undefined;
@@ -196,7 +192,8 @@ function accessibleChildren(
       focusPath,
       theme,
       widthProfile,
-      clipsDescendants
+      clipsDescendants,
+      accessibleNodes
     );
     return accessible === undefined ? [] : [accessible];
   });

@@ -7,7 +7,7 @@ import {
   type Element,
   type SearchPickerAction,
   type TextAreaAction,
-  type TreeAction
+  type TreeInteractionAction
 } from '@ismail-elkorchi/terminal-ui/components';
 import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
 import { prepareSearchPickerIndex } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -21,11 +21,10 @@ export type Assert<TValue extends true> = TValue;
 const explorer = tree({
   id: 'explorer',
   nodes: [{ id: 'src', label: 'src', kind: 'leaf' }],
-  onAction: (action: TreeAction) => ({
+  onAction: (action: TreeInteractionAction) => ({
     kind: 'tree' as const,
     action
-  }),
-  keys: { enter: () => ({ kind: 'activate' as const }) }
+  })
 });
 
 const editor = textArea({
@@ -37,12 +36,7 @@ const editor = textArea({
 const commands = commandInput({
   id: 'commands',
   presentation: { value: '', cursor: 0, suggestions: [] },
-  onAction: (action: CommandInputAction) => ({ kind: 'command' as const, action }),
-  onSubmit: () => ({ kind: 'submit' as const }),
-  keys: {
-    arrowUp: () => ({ kind: 'history' as const, delta: -1 as const }),
-    escape: () => ({ kind: 'close' as const })
-  }
+  onAction: (action: CommandInputAction) => ({ kind: 'command' as const, action })
 });
 
 const search = searchPicker({
@@ -51,26 +45,16 @@ const search = searchPicker({
   onAction: (action: SearchPickerAction<number>) => ({
     kind: 'searchPicker' as const,
     action
-  }),
-  keys: {
-    enter: () => ({ kind: 'acceptSearchPicker' as const }),
-    escape: () => ({ kind: 'closeSearchPicker' as const })
-  }
+  })
 });
 
 export type TreeMessage =
-  | { readonly kind: 'tree'; readonly action: TreeAction }
-  | { readonly kind: 'activate' };
+  { readonly kind: 'tree'; readonly action: TreeInteractionAction };
 export interface EditorMessage { readonly kind: 'editor'; readonly action: TextAreaAction }
 export type CommandMessage =
-  | { readonly kind: 'command'; readonly action: CommandInputAction }
-  | { readonly kind: 'submit' }
-  | { readonly kind: 'history'; readonly delta: -1 }
-  | { readonly kind: 'close' };
+  { readonly kind: 'command'; readonly action: CommandInputAction };
 export type SearchPickerMessage =
-  | { readonly kind: 'searchPicker'; readonly action: SearchPickerAction<number> }
-  | { readonly kind: 'acceptSearchPicker' }
-  | { readonly kind: 'closeSearchPicker' };
+  { readonly kind: 'searchPicker'; readonly action: SearchPickerAction<number> };
 
 export type _TreeActual = Assert<MessageOf<typeof explorer> extends TreeMessage ? true : false>;
 export type _TreeExpected = Assert<TreeMessage extends MessageOf<typeof explorer> ? true : false>;

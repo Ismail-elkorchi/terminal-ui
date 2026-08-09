@@ -52,16 +52,18 @@ test('feedback status components preserve state in high contrast and no color ou
 });
 
 test('feedback factories reject invalid caller-supplied status values', () => {
-  assert.throws(() => activityIndicator({ label: 'Invalid', status: 'finished' }), TypeError);
+  const componentTypeError = (error) => error.name === 'ComponentExecutionError'
+    && error.cause instanceof TypeError;
+  assert.throws(() => activityIndicator({ label: 'Invalid', status: 'finished' }), componentTypeError);
   assert.throws(() => progressBar({
     label: 'Invalid',
     mode: { kind: 'determinate', value: 1 },
     status: 'progress'
-  }), TypeError);
+  }), componentTypeError);
   assert.throws(() => statusBar({
     id: 'invalid-status',
     leading: [{ id: 'item', kind: 'status', text: 'Broken', status: 'finished' }]
-  }), TypeError);
+  }), componentTypeError);
 });
 
 function colorCapabilities() {

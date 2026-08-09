@@ -17,28 +17,23 @@ const notifications = createNotificationState();
 notificationRegion({
   id: 'live',
   items: activeNotificationItems(notifications),
-  onDismiss: (id) => ({ kind: 'dismiss' as const, id })
+  onAction: (action) => ({ kind: 'dismiss' as const, id: action.id })
 });
 notificationHistory({
   id: 'history',
   items: notificationHistoryItems(notifications),
-  onAction: (action) => ({ kind: 'notification' as const, action }),
-  keys: {
-    home: () => ({
-      kind: 'notification' as const,
-      action: { kind: 'first' as const }
-    })
-  }
+  onAction: (action) => ({ kind: 'notification' as const, action })
 });
-dialog(text('Body'), {
+dialog({
+  slots: { content: text({ content: 'Body' }) },
   id: 'dialog',
   modal: true,
   focusPolicy: { initialFocus: { kind: 'element', elementId: 'confirm' }, returnFocus: 'restore' },
   dismissal: {
     escape: true,
-    outsidePress: false,
-    onDismiss: (reason) => ({ kind: 'dismiss' as const, reason })
-  }
+    outsidePress: false
+  },
+  onAction: (action) => ({ kind: 'dismiss' as const, action })
 });
 progressBar({
   id: 'determinate',
@@ -53,16 +48,10 @@ progressBar({
 
 // @ts-expect-error status bars require stable identity
 statusBar({});
-notificationRegion({
-  id: 'invalid-live',
-  items: [],
-  // @ts-expect-error passive live regions do not own local keyboard bindings
-  keys: { escape: () => ({ kind: 'invalid' as const }) }
-});
 // @ts-expect-error navigable history requires an action handler
 notificationHistory({ id: 'invalid-history', items: [] });
 // @ts-expect-error dialog modal policy is required
-dialog(text('Body'), { id: 'implicit-dialog' });
+dialog({ slots: { content: text({ content: 'Body' }) }, id: 'implicit-dialog' });
 progressBar({
   id: 'contradictory-progress',
   // @ts-expect-error indeterminate progress cannot carry determinate values

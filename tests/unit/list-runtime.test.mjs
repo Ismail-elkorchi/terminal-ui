@@ -123,7 +123,19 @@ test('list cursor and mouse hit targets use the filtered visible rows', async ()
     onAction: (action) => ({ kind: 'chosen', action })
   }), { columns: 24, rows: 2 });
 
-  assert.deepEqual(frame.cursor, { row: 1, column: 1 });
+  assert.deepEqual(frame.cursor, {
+    row: 1,
+    column: 1,
+    source: {
+      elementId: 'clickable-list',
+      elementKind: 'terminal-ui/components/list',
+      rendererFamily: 'component',
+      cellRole: 'cursor',
+      partName: 'cursor',
+      partType: 'cursor',
+      description: 'cursor'
+    }
+  });
   assert.deepEqual(
     frame.hitTargets?.filter((target) => target.id.includes(':option:')).map((target) => target.id),
     ['clickable-list:option:bravo']

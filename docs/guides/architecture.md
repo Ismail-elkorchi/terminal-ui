@@ -8,9 +8,10 @@ A directory remains useful when it establishes a stable dependency boundary:
 - `ui-model` contains component-domain data and prepared views shared by
   components, behavior, and rendering.
 - `element` contains opaque public element and metadata contracts.
-- `components` owns built-in factories and the public `defineComponent()`
-  authoring contract.
-- `component` is the narrow package entrypoint for that authoring contract.
+- `component` owns `defineComponent()`, the component-authoring contracts, and
+  bounded helpers shared by built-in and package components.
+- `components` is the built-in catalog and component-domain contracts. It is an
+  ordinary consumer of `component`.
 - `renderer/model` contains the private typed representation consumed by the
   renderer implementation.
 
@@ -26,9 +27,9 @@ The principal dependency flow is:
 
 ```text
 geometry, interaction, text, visual, and UI model
-  -> public renderer contracts
-  -> private renderer model
-  -> component definitions, built-in component factories, and layout factories
+  -> public component, renderer, and layout contracts
+  -> component definitions and layout factories
+  -> one private node construction boundary and private renderer model
   -> renderer implementation
   -> TUI runtime
   -> public testing harness
@@ -37,14 +38,14 @@ geometry, interaction, text, visual, and UI model
 Components and layouts do not import renderer implementation modules.
 Renderers do not import component or layout factories. Architecture checks
 enforce these directions, prohibit dependency cycles across layers, keep
-render-node dispatch in the renderer registry, and prevent the testing
+structural renderer dispatch centralized, and prevent the testing
 entrypoint from re-exporting package-private modules.
 
-Built-in and application-defined components meet at the same opaque `Element`
-boundary and enter the same render dispatch. `defineComponent()` accepts safe
+Built-in and package-defined components are authored at the same public
+boundary and enter the same generic component lifecycle. `defineComponent()` accepts safe
 measurement, layout, drawing, accessibility, focus, and pointer strategies
-without exposing private nodes. Built-ins may use package-private layout
-capabilities, but they do not create a second public component model.
+without exposing private nodes. Shipping inside the package grants no extra
+component or layout capability.
 
 Frames, measurements, layout results, render targets, focus targets, hit
 targets, canvas drawing, and render instrumentation are owned by the public

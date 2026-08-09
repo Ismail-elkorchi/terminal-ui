@@ -272,7 +272,7 @@ const nodes: readonly TreeNode[] = [
 const bindings = [{ key: 'Enter', label: 'Open' }];
 
 surface(column([
-  text('Explorer', { textRole: 'heading' }),
+  text({ content: 'Explorer', textRole: 'heading' }),
   tree({ id: 'explorer-tree', nodes }),
   helpBar({ id: 'explorer-help', groups: [{ id: 'explorer', bindings }] })
 ], {

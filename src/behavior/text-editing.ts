@@ -61,9 +61,9 @@ export function textInputPresentation(state: TextEditBuffer): TextInputPresentat
 }
 
 export function textInputReducer(state: TextEditBuffer, action: TextInputAction): TextEditBuffer {
-  return action.kind === 'edit'
-    ? editTextBuffer(state, action.operation)
-    : applyTextPointerAction(state, action.action);
+  if (action.kind === 'edit') return editTextBuffer(state, action.operation);
+  if (action.kind === 'pointer') return applyTextPointerAction(state, action.action);
+  return state;
 }
 
 export function textAreaReducer(state: TextAreaState, action: TextAreaAction): TextAreaState {

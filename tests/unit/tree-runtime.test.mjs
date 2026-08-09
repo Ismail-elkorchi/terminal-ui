@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { treeReducer } from '../../dist/behavior/index.js';
+import { prepareTreeRows, treeReducer } from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { tree } from '../../dist/components/index.js';
 
@@ -64,6 +64,19 @@ test('tree factory rejects duplicate identities across nested branches', () => {
       { id: 'duplicate', label: 'Top level', kind: 'leaf' }
     ]
   }), /tree item ids must be unique; duplicate id: duplicate/u);
+});
+
+test('tree validates every prepared collection row during construction', () => {
+  const collection = prepareTreeRows([{
+    node: { id: 'invalid', label: 42, kind: 'leaf' },
+    depth: 0,
+    path: ['invalid']
+  }]);
+
+  assert.throws(
+    () => tree({ id: 'invalid-tree', collection }),
+    /tree collection row\.node\.label must be a string/u
+  );
 });
 
 test('tree pointer selection and double-click activation match keyboard semantics', async () => {

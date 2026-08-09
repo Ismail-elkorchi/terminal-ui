@@ -25,7 +25,7 @@ test('public acceptance path covers prompt, TUI, and testing surfaces', async ()
     id: 'acceptance',
     init: () => ({ count: 0 }),
     update: (state) => ({ state }),
-    view: () => text('accepted', { id: 'accepted-text' })
+    view: () => text({ content: 'accepted', id: 'accepted-text' })
   });
   harness.host.endInput();
   const tuiResult = await runTui(app, harness.host);

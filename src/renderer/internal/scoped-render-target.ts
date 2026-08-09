@@ -18,6 +18,36 @@ export function createScopedRenderTarget(
   return createBoundedRenderTarget(target, bounds, viewport, owner);
 }
 
+/** Creates the bounded, write-only target exposed to component definitions. */
+export function createLocalComponentRenderTarget(
+  target: RenderTarget,
+  bounds: Rect,
+  viewport: Rect,
+  owner: ScopedRenderOwner
+): RenderTarget {
+  const absolute = createBoundedRenderTarget(target, bounds, viewport, owner);
+  const toAbsoluteRect = (rect: Rect): Rect => ({
+    row: bounds.row + rect.row,
+    column: bounds.column + rect.column,
+    width: rect.width,
+    height: rect.height
+  });
+  return Object.freeze({
+    width: bounds.width,
+    height: bounds.height,
+    widthProfile: target.widthProfile,
+    write: (row, column, spans) => { absolute.write(bounds.row + row, bounds.column + column, spans); },
+    writeLine: (row, column, line) => { absolute.writeLine(bounds.row + row, bounds.column + column, line); },
+    writeBlock: (row, column, block) => { absolute.writeBlock(bounds.row + row, bounds.column + column, block); },
+    writeCell: (cell) => { absolute.writeCell({
+      ...cell,
+      row: bounds.row + cell.row,
+      column: bounds.column + cell.column
+    }); },
+    clear: (rect) => { absolute.clear(rect === undefined ? undefined : toAbsoluteRect(rect)); }
+  } satisfies RenderTarget);
+}
+
 export function createClippedRenderTarget(
   target: RenderTarget,
   bounds: Rect,

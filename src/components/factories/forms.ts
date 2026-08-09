@@ -1,689 +1,1765 @@
-import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
-import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
+import {
+  clipRenderSpans,
+  defineComponent,
+  ignoreMessage,
+  measureRenderSpans,
+  span,
+} from '../../component/index.ts';
 import type {
-  ActiveTextInputOptions,
+  ComponentAccessibilityInput,
+  ComponentLayoutInput,
+  ComponentMeasureInput,
+  ComponentRenderInput,
+  SemanticCompositeComponentFactory,
+  SemanticLeafComponentFactory,
+} from '../../component/index.ts';
+import type { Element } from '../../element/index.ts';
+import type {
   ButtonOptions,
-  CheckboxGroupOptions,
   CheckboxOptions,
-  ColorSwatchPickerOptions,
-  DisabledTextInputOptions,
-  CalendarOptions,
   FieldOptions,
   FormOptions,
   LabelOptions,
-  NumberInputOptions,
-  PasswordInputOptions,
-  RadioGroupOptions,
-  RangeSliderOptions,
   SelectOptions,
-  SliderOptions,
-  TextInputOptions,
-  ToggleSwitchOptions
+  ToggleSwitchOptions,
 } from '../options/forms.ts';
-import type {
-  ComponentKeyBindingMessages,
-  IndependentInteractionOptions,
-  InferredElementKeyBindings
-} from '../internal/messages.ts';
-import {
-  activationKeyBindings,
-  checkboxGroupKeyBindings,
-  colorSwatchPickerKeyBindings,
-  componentMetaProps,
-  calendarKeyBindings,
-  interactionProps,
-  numberInputKeyBindings,
-  radioGroupKeyBindings,
-  rangeSliderKeyBindings,
-  sliderKeyBindings,
-  selectKeyBindings,
-  textEditInputHandlers,
-  textActionInputHandlers,
-  textInputKeyBindings
-} from '../internal/interaction.ts';
-import {
-  optionalRenderNodeId,
-  requiredRenderNodeId,
-  renderNodeChildren
-} from '../../renderer/model/element.ts';
-import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
-import { choiceItemsForRenderer, colorOptionsForRenderer } from '../internal/domain.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
-import { selectPopupRenderNode } from '../internal/select-popup.ts';
+import { inlineSegmentText, isInlineContent } from '../../visual/inline-content.ts';
+import type { InlineContent } from '../../visual/inline-content.ts';
+import { normalizeSelectState } from '../../behavior/choice-controls.ts';
+import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
+import type {
+  ButtonAction,
+  ButtonTone,
+  CheckboxAction,
+  ToggleSwitchAction,
+} from '../../ui-model/forms.ts';
+import type { ButtonStylePart } from '../../ui-model/style-parts.ts';
+import type { ChoiceStylePart } from '../../ui-model/style-parts.ts';
+import type { ComponentDensity } from '../../ui-model/contracts.ts';
+import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
+import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
+import type { ElementVisualState } from '../../element/metadata.ts';
+import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
-  assertNumericControlValue,
-  validatedNumericControlRange
-} from '../internal/numeric-controls.ts';
-import {
-  normalizeCheckboxGroupState,
-  normalizeColorSwatchPickerState,
-  normalizeRadioGroupState,
-  normalizeSelectState
-} from '../../behavior/choice-controls.ts';
-import { segmentGraphemes, terminalTextWidth } from '../../text/index.ts';
-import type { TextPointerAction } from '../../interaction/text-pointer.ts';
-import { assertControlContract } from '../internal/control-contract.ts';
+  layoutContentBounds,
+  layoutInsetSize,
+  prepareLayoutFlowOptions,
+  splitTracks,
+} from '../../layout/index.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
+import type { ChoiceItem } from '../../ui-model/contracts.ts';
+import type { SelectAction, SelectPresentation } from '../../ui-model/choice-controls.ts';
+import type { ListAction } from '../../ui-model/list.ts';
+import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
+import type { ScrollState } from '../../interaction/scroll.ts';
+import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
+import { portal, surface } from '../../layout/index.ts';
+import { list } from './list.ts';
 
-export function form<const TChildren extends ElementChildren>(
-  children: TChildren,
-  options: FormOptions = {}
-): Element<ElementChildrenMessage<TChildren>> {
-  type Message = ElementChildrenMessage<TChildren>;
-  return componentElementFromRenderNode<'form', Message>({
-    ...optionalRenderNodeId(options.id),
-    kind: 'form',
-    props: {
-      ...(options.title === undefined ? {} : { title: options.title }),
-      ...renderNodeLayoutProps(options)
-    },
-    children: renderNodeChildren(children),
-    ...componentMetaProps(options.meta)
-  });
+interface FormModel {
+  readonly title: string;
+  readonly layout: LayoutFlowOptions;
 }
 
-export function field<const TChildren extends ElementChildren>(
-  children: TChildren,
-  options: FieldOptions
-): Element<ElementChildrenMessage<TChildren>> {
-  type Message = ElementChildrenMessage<TChildren>;
-  return componentElementFromRenderNode<'field', Message>({
-    ...optionalRenderNodeId(options.id),
-    kind: 'field',
-    props: {
-      label: options.label,
-      ...(options.description === undefined ? {} : { description: options.description }),
-      ...renderNodeLayoutProps(options)
-    },
-    children: renderNodeChildren(children),
-    ...componentMetaProps(options.meta)
-  });
-}
+const formSlots = {
+  content: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
+} as const;
 
-export function label(options: LabelOptions): Element {
-  if (options.forId.length === 0) {
-    throw new Error('label() requires a non-empty target control id.');
-  }
-  return componentElementFromRenderNode<'label'>({
-    ...requiredRenderNodeId(options.id, 'label'),
-    kind: 'label',
-    props: {
-      text: options.text,
-      forId: options.forId
-    },
-    ...componentMetaProps(options.meta)
-  });
-}
-
-export function button<
-  const TPressMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(options: IndependentInteractionOptions<
-  ButtonOptions,
-  { readonly onPress: TPressMessage },
-  TKeys,
-  TPointerMessage
->): Element<TPressMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function button(options: unknown): Element<unknown> {
-  return buttonElement(options as ButtonOptions<unknown>);
-}
-
-function buttonElement(options: ButtonOptions<unknown>): Element<unknown> {
-  assertControlContract(
-    'button',
-    options,
-    options.disabled === true,
-    ['onPress']
-  );
-  const onPress = options.onPress;
-  const keyMap = activationKeyBindings(
-    onPress === undefined ? undefined : () => onPress(),
-    options.keys
-  );
-  return componentElementFromRenderNode<'button', unknown>({
-    ...requiredRenderNodeId(options.id, 'button'),
-    kind: 'button',
-    ...(options.disabled === true || options.busy === true
-      ? { state: {
-          ...(options.disabled === true ? { disabled: true } : {}),
-          ...(options.busy === true ? { busy: true } : {})
-        } }
-      : {}),
-    props: {
-      label: options.label,
-      ...(options.leading === undefined ? {} : { leading: normalizeInlineContent(options.leading) }),
-      ...(options.trailing === undefined ? {} : { trailing: normalizeInlineContent(options.trailing) }),
-      ...(onPress === undefined ? {} : { toPressMessage: onPress }),
-      ...(options.tone === undefined ? {} : { tone: options.tone }),
-      ...(options.density === undefined ? {} : { density: options.density })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessage>): Element<TMessage> {
-  assertControlContract('checkbox', options, options.disabled === true, ['onChange']);
-  const toMessage = options.onChange;
-  const keyMap = activationKeyBindings(
-    toMessage === undefined ? undefined : () => toMessage(!options.checked),
-    options.keys
-  );
-  return componentElementFromRenderNode<'checkbox', TMessage>({
-    ...requiredRenderNodeId(options.id, 'checkbox'),
-    kind: 'checkbox',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      label: options.label,
-      checked: options.checked,
-      ...(toMessage === undefined ? {} : { toMessage }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOptions<TMessage>): Element<TMessage> {
-  assertControlContract('toggleSwitch', options, options.disabled === true, ['onChange']);
-  const toMessage = options.onChange;
-  const keyMap = activationKeyBindings(
-    toMessage === undefined ? undefined : () => toMessage(!options.checked),
-    options.keys
-  );
-  return componentElementFromRenderNode<'toggleSwitch', TMessage>({
-    ...requiredRenderNodeId(options.id, 'toggleSwitch'),
-    kind: 'toggleSwitch',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      label: options.label,
-      checked: options.checked,
-      ...(options.onLabel === undefined ? {} : { onLabel: options.onLabel }),
-      ...(options.offLabel === undefined ? {} : { offLabel: options.offLabel }),
-      ...(toMessage === undefined ? {} : { toMessage }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-export function slider<const TMessage = never>(options: SliderOptions<TMessage>): Element<TMessage> {
-  assertControlContract('slider', options, options.disabled === true, ['onChange']);
-  const range = validatedNumericControlRange('slider', options);
-  assertNumericControlValue('slider', options.value, range);
-  const keyMap = sliderKeyBindings(options);
-  return componentElementFromRenderNode<'slider', TMessage>({
-    ...requiredRenderNodeId(options.id, 'slider'),
-    kind: 'slider',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      label: options.label,
-      value: options.value,
-      ...(options.min === undefined ? {} : { min: options.min }),
-      ...(options.max === undefined ? {} : { max: options.max }),
-      ...(options.step === undefined ? {} : { step: options.step }),
-      ...(options.width === undefined ? {} : { width: options.width }),
-      ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<TMessage>): Element<TMessage> {
-  assertControlContract('rangeSlider', options, options.disabled === true, ['onAction']);
-  const range = validatedNumericControlRange('rangeSlider', {
-    ...(options.range === undefined ? {} : { min: options.range.min, max: options.range.max }),
-    ...(options.step === undefined ? {} : { step: options.step }),
-    ...(options.width === undefined ? {} : { width: options.width })
-  });
-  assertNumericControlValue('rangeSlider', options.state.value.start, range);
-  assertNumericControlValue('rangeSlider', options.state.value.end, range);
-  if (options.state.value.start > options.state.value.end) {
-    throw new RangeError('rangeSlider start value must be less than or equal to end value.');
-  }
-  const keyMap = rangeSliderKeyBindings(options);
-  return componentElementFromRenderNode<'rangeSlider', TMessage>({
-    ...requiredRenderNodeId(options.id, 'rangeSlider'),
-    kind: 'rangeSlider',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      label: options.label,
-      state: options.state,
-      ...(options.range === undefined ? {} : { range: options.range }),
-      ...(options.step === undefined ? {} : { step: options.step }),
-      ...(options.width === undefined ? {} : { width: options.width }),
-      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxGroupOptions<TValue, TMessage>): Element<TMessage> {
-  assertControlContract('checkboxGroup', options, options.disabled === true, ['onAction']);
-  const normalizedOptions = choiceItemsForRenderer(options.options);
-  const presentation = normalizeCheckboxGroupState({
-    selected: options.selected ?? [],
-    ...(options.focused === undefined ? {} : { focused: options.focused })
-  }, options.options);
-  const keyMap = checkboxGroupKeyBindings(options);
-  return componentElementFromRenderNode<'checkboxGroup', TMessage>({
-    ...requiredRenderNodeId(options.id, 'checkboxGroup'),
-    kind: 'checkboxGroup',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      options: normalizedOptions,
-      label: options.label,
-      ...(presentation.selected.length === 0 ? {} : { selected: presentation.selected }),
-      ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
-      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOptions<TValue, TMessage>): Element<TMessage> {
-  assertControlContract('radioGroup', options, options.disabled === true, ['onAction']);
-  const normalizedOptions = choiceItemsForRenderer(options.options);
-  const presentation = normalizeRadioGroupState({
-    ...(options.selected === undefined ? {} : { selected: options.selected }),
-    ...(options.focused === undefined ? {} : { focused: options.focused })
-  }, options.options);
-  const keyMap = radioGroupKeyBindings(options);
-  return componentElementFromRenderNode<'radioGroup', TMessage>({
-    ...requiredRenderNodeId(options.id, 'radioGroup'),
-    kind: 'radioGroup',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      options: normalizedOptions,
-      label: options.label,
-      ...(presentation.selected === undefined ? {} : { selected: presentation.selected }),
-      ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
-      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-export function colorSwatchPicker<TValue, const TMessage = never>(options: ColorSwatchPickerOptions<TValue, TMessage>): Element<TMessage> {
-  assertControlContract('colorSwatchPicker', options, options.disabled === true, ['onAction']);
-  const normalizedOptions = colorOptionsForRenderer(options.options);
-  const presentation = normalizeColorSwatchPickerState({
-    ...(options.selected === undefined ? {} : { selected: options.selected }),
-    ...(options.focused === undefined ? {} : { focused: options.focused })
-  }, options.options);
-  const keyMap = colorSwatchPickerKeyBindings(options);
-  return componentElementFromRenderNode<'colorSwatchPicker', TMessage>({
-    ...requiredRenderNodeId(options.id, 'colorSwatchPicker'),
-    kind: 'colorSwatchPicker',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      options: normalizedOptions,
-      label: options.label,
-      ...(presentation.selected === undefined ? {} : { selected: presentation.selected }),
-      ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
-      ...(options.columns === undefined ? {} : { columns: options.columns }),
-      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-export function calendar<
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(options: IndependentInteractionOptions<
-  CalendarOptions,
-  { readonly onAction: TActionMessage },
-  TKeys,
-  TPointerMessage
->): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function calendar(options: unknown): Element<unknown> {
-  return calendarElement(options as CalendarOptions<unknown>);
-}
-
-function calendarElement(options: CalendarOptions<unknown>): Element<unknown> {
-  assertControlContract('calendar', options, options.disabled === true, ['onAction']);
-  const keyMap = calendarKeyBindings(options);
-  const onAction = options.onAction;
-  return componentElementFromRenderNode<'calendar', unknown>({
-    ...requiredRenderNodeId(options.id, 'calendar'),
-    kind: 'calendar',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      days: options.days,
-      monthLabel: options.monthLabel,
-      weekdays: options.weekdays,
-      label: options.label,
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.focused === undefined ? {} : { focused: options.focused }),
-      ...(onAction === undefined ? {} : {
-        toMessage: (day) => onAction({ kind: 'select', date: day.date }),
-        toActionMessage: onAction
+export const form: SemanticCompositeComponentFactory<
+  FormOptions,
+  never,
+  'title',
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer'],
+  typeof formSlots
+> = defineComponent<
+  FormOptions,
+  FormModel,
+  never,
+  'title',
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer'],
+  typeof formSlots
+>({
+  name: 'terminal-ui/components/form',
+  identity: 'optional',
+  structure: 'composite',
+  semantics: 'semantic',
+  slots: formSlots,
+  optionFields: {
+    title: null,
+    gap: null,
+    padding: null,
+    margin: null,
+    minWidth: null,
+    minHeight: null,
+    maxWidth: null,
+    maxHeight: null,
+    align: null,
+    justify: null,
+    overflow: null,
+  },
+  metadata: ['styles', 'layer'],
+  parts: ['title'],
+  prepare: prepareForm,
+  measure(input) {
+    const titleWidth =
+      measureTextCells(input.model.title, { widthProfile: input.widthProfile }).cells;
+    const count = input.slots.count('content');
+    const measurements = Array.from(
+      { length: count },
+      (_unused, index) => input.slots.measure('content', index),
+    );
+    const gap = input.model.layout.gap ?? 0;
+    const padding = layoutInsetSize(input.model.layout.padding);
+    const margin = layoutInsetSize(input.model.layout.margin);
+    const titleRows = input.model.title.length === 0 ? 0 : 1;
+    return {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: Math.max(titleWidth, ...measurements.map((item) => item.preferredWidth), 0) +
+        padding.width + margin.width,
+      preferredHeight: titleRows +
+        measurements.reduce((height, item) => height + item.preferredHeight, 0) +
+        Math.max(0, count - 1) * gap +
+        padding.height + margin.height,
+    };
+  },
+  layout(input) {
+    const content = formContentBounds(input);
+    const count = input.slots.count('content');
+    return {
+      content: splitTracks(
+        content,
+        'vertical',
+        Array.from({ length: count }, () => ({ kind: 'content' as const })),
+        input.model.layout.gap === undefined ? {} : { gap: input.model.layout.gap },
+        Array.from(
+          { length: count },
+          (_unused, index) => input.slots.measure('content', index).preferredHeight,
+        ),
+      ),
+    };
+  },
+  renderBeforeChildren(input) {
+    if (input.model.title.length === 0) return;
+    const content = layoutContentBounds(input.bounds, input.model.layout);
+    const style = input.style({
+      part: 'title',
+      base: { fg: { kind: 'theme', token: 'text.strong' }, bold: true },
+    });
+    input.target.write(content.row, content.column, [{
+      text: input.model.title,
+      ...(style === undefined ? {} : { style }),
+      source: input.source({
+        partName: 'title',
+        partType: 'title',
+        cellRole: 'content',
+        description: 'form.title',
       }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
+    }]);
+  },
+  accessibility(input) {
+    return {
+      id: input.id,
+      role: 'form',
+      label: input.model.title || input.id,
+      ...(input.focused ? { focused: true } : {}),
+      children: input.slots.content,
+    };
+  },
+});
+
+function formContentBounds(input: ComponentLayoutInput<FormModel, typeof formSlots>): Rect {
+  const content = layoutContentBounds(input.bounds, input.model.layout);
+  const titleRows = input.model.title.length === 0 ? 0 : 1;
+  return {
+    row: content.row + titleRows,
+    column: content.column,
+    width: content.width,
+    height: Math.max(0, content.height - titleRows),
+  };
+}
+
+function prepareForm(value: unknown): FormModel {
+  if (!isNonArrayObject(value)) throw new TypeError('form options must be an object.');
+  const title = value['title'];
+  if (title !== undefined && typeof title !== 'string') {
+    throw new TypeError('form title must be a string when provided.');
+  }
+  return {
+    title: title === undefined ? '' : sanitizeTerminalText(title).text,
+    layout: prepareLayoutFlowOptions(value, 'form'),
+  };
+}
+
+interface FieldModel {
+  readonly label: string;
+  readonly description: string;
+  readonly layout: LayoutFlowOptions;
+}
+
+const fieldSlots = {
+  content: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
+} as const;
+
+type FieldFactory = <TChild extends Element<unknown>>(
+  options: FieldOptions<TChild>,
+) => Element<import('../../element/index.ts').ElementMessage<TChild>>;
+
+export const field: FieldFactory = defineComponent<
+  { readonly label: string; readonly description?: string } & LayoutFlowOptions,
+  FieldModel,
+  never,
+  import('../../ui-model/style-parts.ts').FormGroupStylePart,
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer'],
+  typeof fieldSlots
+>({
+  name: 'terminal-ui/components/field',
+  identity: 'optional',
+  structure: 'composite',
+  semantics: 'semantic',
+  slots: fieldSlots,
+  optionFields: {
+    label: null,
+    description: null,
+    gap: null,
+    padding: null,
+    margin: null,
+    minWidth: null,
+    minHeight: null,
+    maxWidth: null,
+    maxHeight: null,
+    align: null,
+    justify: null,
+    overflow: null,
+  },
+  metadata: ['styles', 'layer'],
+  parts: ['label', 'description'],
+  prepare(value) {
+    if (!isNonArrayObject(value)) throw new TypeError('field options must be an object.');
+    const label = value['label'];
+    const description = value['description'];
+    if (typeof label !== 'string') throw new TypeError('field label must be a string.');
+    if (description !== undefined && typeof description !== 'string') {
+      throw new TypeError('field description must be a string.');
+    }
+    return {
+      label: sanitizeTerminalText(label).text,
+      description: description === undefined ? '' : sanitizeTerminalText(description).text,
+      layout: prepareLayoutFlowOptions(value, 'field'),
+    };
+  },
+  measure(input) {
+    const header = fieldHeader(input.model);
+    const width = Math.max(
+      ...header.map((entry) => measureTextCells(entry, { widthProfile: input.widthProfile }).cells),
+      ...Array.from(
+        { length: input.slots.count('content') },
+        (_unused, index) => input.slots.measure('content', index).preferredWidth,
+      ),
+      0,
+    );
+    const height = header.length +
+      Array.from(
+        { length: input.slots.count('content') },
+        (_unused, index) => input.slots.measure('content', index).preferredHeight,
+      )
+        .reduce((sum, current) => sum + current, 0) +
+      Math.max(0, input.slots.count('content') - 1) * (input.model.layout.gap ?? 0);
+    const inset = layoutInsetSize(input.model.layout.padding);
+    const margin = layoutInsetSize(input.model.layout.margin);
+    return {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: width + inset.width + margin.width,
+      preferredHeight: height + inset.height + margin.height,
+    };
+  },
+  layout(input) {
+    const content = layoutContentBounds(input.bounds, input.model.layout);
+    const headerRows = fieldHeader(input.model).length;
+    const childBounds = {
+      row: content.row + Math.min(headerRows, content.height),
+      column: content.column,
+      width: content.width,
+      height: Math.max(0, content.height - headerRows),
+    };
+    const count = input.slots.count('content');
+    return {
+      content: splitTracks(
+        childBounds,
+        'vertical',
+        Array.from({ length: count }, () => ({ kind: 'content' as const })),
+        input.model.layout.gap === undefined ? {} : { gap: input.model.layout.gap },
+        Array.from(
+          { length: count },
+          (_unused, index) => input.slots.measure('content', index).preferredHeight,
+        ),
+      ),
+    };
+  },
+  renderBeforeChildren(input) {
+    const content = layoutContentBounds(input.bounds, input.model.layout);
+    fieldHeader(input.model).slice(0, content.height).forEach((textValue, row) => {
+      const part = row === 0 && input.model.label.length > 0
+        ? 'label' as const
+        : 'description' as const;
+      const style = input.style({
+        part,
+        ...(part === 'description'
+          ? { base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true } }
+          : {}),
+      });
+      input.target.write(
+        content.row + row,
+        content.column,
+        clipRenderSpans(
+          [
+            span(textValue, {
+              ...(style === undefined ? {} : { style }),
+              source: input.source({
+                partName: `field.${part}`,
+                cellRole: 'text',
+                description: part === 'label' ? 'field.label.text' : 'field.description',
+              }),
+            }),
+          ],
+          content.width,
+          { widthProfile: input.widthProfile },
+        ),
+      );
+    });
+  },
+  accessibility(input) {
+    return {
+      id: input.id,
+      role: 'group',
+      label: input.model.label || input.id,
+      ...(input.model.description.length === 0 ? {} : { description: input.model.description }),
+      ...(input.focused ? { focused: true } : {}),
+      children: input.slots.content,
+    };
+  },
+});
+
+function fieldHeader(model: FieldModel): readonly string[] {
+  return [
+    ...(model.label.length === 0 ? [] : [model.label]),
+    ...(model.description.length === 0 ? [] : [model.description]),
+  ];
+}
+
+interface LabelModel {
+  readonly text: string;
+  readonly forId: string;
+}
+
+export const label: SemanticLeafComponentFactory<
+  Pick<LabelOptions, 'text' | 'forId'>,
+  never,
+  import('../../ui-model/style-parts.ts').FormGroupStylePart,
+  readonly [],
+  'required',
+  readonly ['styles', 'layer']
+> = defineComponent<
+  Pick<LabelOptions, 'text' | 'forId'>,
+  LabelModel,
+  never,
+  import('../../ui-model/style-parts.ts').FormGroupStylePart,
+  readonly [],
+  'required',
+  readonly ['styles', 'layer']
+>({
+  name: 'terminal-ui/components/label',
+  identity: 'required',
+  structure: 'leaf',
+  semantics: 'semantic',
+  optionFields: { text: null, forId: null },
+  metadata: ['styles', 'layer'],
+  parts: ['label', 'description'],
+  prepare(value) {
+    if (!isNonArrayObject(value)) throw new TypeError('label options must be an object.');
+    const textValue = value['text'];
+    const forId = value['forId'];
+    if (typeof textValue !== 'string') throw new TypeError('label text must be a string.');
+    if (typeof forId !== 'string' || forId.trim().length === 0) {
+      throw new TypeError('label forId must be a non-empty string.');
+    }
+    return {
+      text: sanitizeTerminalText(textValue).text,
+      forId: sanitizeTerminalText(forId).text,
+    };
+  },
+  measure({ model, widthProfile }) {
+    return {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: measureTextCells(model.text, { widthProfile }).cells,
+      preferredHeight: 1,
+    };
+  },
+  render(input) {
+    const style = input.style({ part: 'label' });
+    input.target.write(
+      0,
+      0,
+      clipRenderSpans(
+        [span(input.model.text, {
+          ...(style === undefined ? {} : { style }),
+          source: input.source({ partName: 'label.text', cellRole: 'text' }),
+        })],
+        input.bounds.width,
+        { widthProfile: input.widthProfile },
+      ),
+    );
+  },
+  accessibility({ id, model }) {
+    return { id, role: 'text', label: model.text || id, controls: model.forId };
+  },
+});
+
+interface ButtonModel {
+  readonly label: string;
+  readonly leading?: InlineContent;
+  readonly trailing?: InlineContent;
+  readonly tone: ButtonTone;
+  readonly density: ComponentDensity;
+  readonly pointerState?: PointerInteractionState;
+}
+
+type ButtonOwnOptions = Pick<
+  ButtonOptions<unknown>,
+  'label' | 'leading' | 'trailing' | 'tone' | 'density' | 'pointerState'
+>;
+
+export const button: SemanticLeafComponentFactory<
+  ButtonOwnOptions,
+  ButtonAction,
+  ButtonStylePart,
+  readonly ['disabled', 'busy'],
+  'required',
+  readonly ['styles', 'layer', 'focus']
+> = defineComponent<
+  ButtonOwnOptions,
+  ButtonModel,
+  ButtonAction,
+  ButtonStylePart,
+  readonly ['disabled', 'busy'],
+  'required',
+  readonly ['styles', 'layer', 'focus']
+>({
+  name: 'terminal-ui/components/button',
+  identity: 'required',
+  structure: 'leaf',
+  semantics: 'semantic',
+  optionFields: {
+    label: null,
+    leading: null,
+    trailing: null,
+    tone: null,
+    density: null,
+    pointerState: null,
+  },
+  states: ['disabled', 'busy'],
+  metadata: ['styles', 'layer', 'focus'],
+  parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
+  prepare(value) {
+    if (!isNonArrayObject(value)) {
+      throw new TypeError('button options must be an object.');
+    }
+    const label = value['label'];
+    const leading = value['leading'];
+    const trailing = value['trailing'];
+    const tone = value['tone'];
+    const density = value['density'];
+    const pointerState = value['pointerState'];
+    if (typeof label !== 'string') throw new TypeError('button label must be a string.');
+    if (tone !== undefined && !isButtonTone(tone)) throw new TypeError('button tone is invalid.');
+    if (density !== undefined && density !== 'compact' && density !== 'regular') {
+      throw new TypeError('button density is invalid.');
+    }
+    assertPointerState(pointerState);
+    return {
+      label: sanitizeTerminalText(label).text,
+      ...(leading === undefined
+        ? {}
+        : { leading: normalizeInlineContent(assertInlineContent(leading, 'leading')) }),
+      ...(trailing === undefined
+        ? {}
+        : { trailing: normalizeInlineContent(assertInlineContent(trailing, 'trailing')) }),
+      tone: tone ?? 'default',
+      density: density ?? 'regular',
+      ...(pointerState === undefined ? {} : { pointerState }),
+    };
+  },
+  measure(input) {
+    const spans = buttonSpans(input, false);
+    return {
+      minWidth: 1,
+      minHeight: 1,
+      preferredWidth: measureSpans(spans, input.widthProfile),
+      preferredHeight: 1,
+    };
+  },
+  render(input) {
+    const spans = buttonSpans(input, input.focus === 'self');
+    const used = measureSpans(spans, input.widthProfile);
+    const visualState = buttonVisualState(input, input.focus === 'self');
+    const frameStyle = input.style({
+      part: 'frame',
+      ...(visualState === undefined ? {} : { state: visualState }),
+      base: buttonToneStyle(input.model.tone, true, input.busy),
+    });
+    input.target.write(0, 0, [
+      ...spans,
+      ...(used >= input.target.width ? [] : [{
+        text: ' '.repeat(input.target.width - used),
+        ...(frameStyle === undefined ? {} : { style: frameStyle }),
+        source: input.source({ partName: 'frame.fill', partType: 'frame', cellRole: 'content' }),
+      }]),
+    ]);
+  },
+  keys: () => ({
+    enter: () => ({ kind: 'press' }),
+    space: () => ({ kind: 'press' }),
+  }),
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointer', action }),
+  },
+  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+  hitTargets: ({ id, bounds }) => [{
+    id: `${id ?? 'button'}:control`,
+    bounds,
+    focus: { kind: 'target', targetId: 'self' },
+    accepts: ['click'],
+    message: (event) => event.kind === 'click' ? { kind: 'press' } : ignoreMessage(),
+    cursor: 'pointer',
+  }],
+  accessibility({ id, model, focused, busy }) {
+    return {
+      id,
+      role: 'button',
+      label: model.label || id,
+      ...(busy ? { description: 'Busy.' } : {}),
+      ...(focused ? { focused: true } : {}),
+    };
+  },
+});
+
+type ButtonVisualInput =
+  | ComponentMeasureInput<ButtonModel>
+  | ComponentRenderInput<ButtonModel, ButtonStylePart>;
+
+function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly RenderSpan[] {
+  const state = buttonVisualState(input, focused);
+  const frameStyle = resolveButtonStyle(
+    input,
+    'frame',
+    buttonToneStyle(input.model.tone, true, input.busy),
+    state,
+  );
+  const labelStyle = resolveButtonStyle(
+    input,
+    'label',
+    buttonToneStyle(input.model.tone, false, input.busy),
+    state,
+  );
+  const compact = input.model.density === 'compact';
+  const targetId = `${input.id ?? 'button'}:control`;
+  const pointerState = pointerVisualState(input.model.pointerState, targetId);
+  const marker = oneCellGlyph(
+    input.busy
+      ? input.theme.tokens.symbols.statusInfo
+      : pointerState === 'pressed'
+      ? input.theme.tokens.symbols.selected
+      : input.model.tone === 'destructive'
+      ? input.theme.tokens.symbols.statusError
+      : focused && !input.disabled
+      ? input.theme.tokens.symbols.pointer
+      : ' ',
+    ' ',
+    { widthProfile: input.widthProfile },
+  );
+  const spans: RenderSpan[] = [componentSpan(
+    input,
+    compact ? marker : `${marker} `,
+    'frame',
+    'padding.leading',
+    frameStyle,
+    state,
+  )];
+  if (input.model.leading !== undefined) {
+    spans.push(...buttonInlineSpans(input, input.model.leading, 'leading', labelStyle, state));
+    spans.push(componentSpan(input, ' ', 'frame', 'separator.leading', frameStyle, state));
+  }
+  spans.push(
+    componentSpan(input, input.model.label || 'Button', 'label', 'label.text', labelStyle, state),
+  );
+  if (input.model.trailing !== undefined) {
+    spans.push(componentSpan(input, ' ', 'frame', 'separator.trailing', frameStyle, state));
+    spans.push(...buttonInlineSpans(input, input.model.trailing, 'trailing', labelStyle, state));
+  }
+  spans.push(
+    componentSpan(input, compact ? ' ' : '  ', 'frame', 'padding.trailing', frameStyle, state),
+  );
+  return spans;
+}
+
+function buttonInlineSpans(
+  input: ButtonVisualInput,
+  content: InlineContent,
+  part: 'leading' | 'trailing',
+  base: TerminalStyle | undefined,
+  state: ElementVisualState | undefined,
+): readonly RenderSpan[] {
+  return content.map((segment, index) => {
+    const style = resolveButtonStyle(
+      input,
+      part,
+      mergeStyles(
+        base,
+        segment.link === undefined
+          ? undefined
+          : { fg: { kind: 'theme', token: 'link.foreground' }, underline: true },
+        segment.style,
+      ),
+      state,
+    );
+    return {
+      text: inlineSegmentText(segment, input.theme.tokens.symbols.mode),
+      ...(style === undefined ? {} : { style }),
+      ...(segment.link === undefined ? {} : { link: segment.link }),
+      ...componentSource(input, part, `${part}.${String(index)}`, state),
+    };
   });
 }
 
-export function select<TValue, const TMessage = never>(options: SelectOptions<TValue, TMessage>): Element<TMessage> {
-  assertControlContract('select', options, options.disabled === true, ['onAction']);
-  const rawOptions = options as unknown as Readonly<Record<string, unknown>>;
-  const rawPresentation = rawOptions['presentation'];
-  if (
-    rawOptions['disabled'] === true
-    && typeof rawPresentation === 'object'
-    && rawPresentation !== null
-    && (rawPresentation as { readonly kind?: unknown }).kind === 'open'
-  ) {
+function componentSpan(
+  input: ButtonVisualInput,
+  text: string,
+  part: ButtonStylePart,
+  partName: string,
+  style: TerminalStyle | undefined,
+  state: ElementVisualState | undefined,
+): RenderSpan {
+  return {
+    text,
+    ...(style === undefined ? {} : { style }),
+    ...componentSource(input, part, partName, state),
+  };
+}
+
+function componentSource(
+  input: ButtonVisualInput,
+  part: ButtonStylePart,
+  partName: string,
+  state: ElementVisualState | undefined,
+): Pick<RenderSpan, 'source'> {
+  if (!('source' in input)) return {};
+  return {
+    source: input.source({
+      cellRole: part === 'leading' || part === 'label' || part === 'trailing'
+        ? 'text'
+        : 'decoration',
+      partName,
+      partType: part,
+      description: partName,
+      ...(state === undefined || state === 'default' ? {} : { interactionState: state }),
+    }),
+  };
+}
+
+function resolveButtonStyle(
+  input: ButtonVisualInput,
+  part: ButtonStylePart,
+  base: TerminalStyle | undefined,
+  state: ElementVisualState | undefined,
+): TerminalStyle | undefined {
+  const resolvedBase = mergeStyles(
+    base,
+    input.model.tone === 'ghost' &&
+      (state === 'focused' || state === 'hovered' || state === 'pressed')
+      ? { bg: { kind: 'theme', token: 'focus.background' } }
+      : undefined,
+  );
+  return 'style' in input
+    ? input.style({
+      part,
+      ...(resolvedBase === undefined ? {} : { base: resolvedBase }),
+      ...(state === undefined ? {} : { state }),
+    })
+    : resolvedBase;
+}
+
+function buttonVisualState(
+  input: ButtonVisualInput,
+  focused: boolean,
+): ElementVisualState | undefined {
+  if (input.disabled) return 'disabled';
+  const pointer = pointerVisualState(input.model.pointerState, `${input.id ?? 'button'}:control`);
+  if (pointer === 'pressed') return 'pressed';
+  if (focused) return 'focused';
+  return pointer;
+}
+
+function buttonToneStyle(tone: ButtonTone, frame: boolean, busy: boolean): TerminalStyle {
+  if (busy) return { fg: { kind: 'theme', token: 'status.pending' }, bold: true };
+  if (tone === 'destructive') return { fg: { kind: 'theme', token: 'status.error' }, bold: true };
+  if (tone === 'ghost') return { fg: { kind: 'theme', token: 'control.foreground' } };
+  if (tone === 'primary') {
+    return {
+      fg: { kind: 'theme', token: frame ? 'control.primary.border' : 'control.primary.foreground' },
+      bg: { kind: 'theme', token: 'control.primary.background' },
+      bold: true,
+    };
+  }
+  if (tone === 'secondary') {
+    return {
+      fg: {
+        kind: 'theme',
+        token: frame ? 'control.secondary.border' : 'control.secondary.foreground',
+      },
+      bg: { kind: 'theme', token: 'control.secondary.background' },
+    };
+  }
+  return {
+    fg: { kind: 'theme', token: frame ? 'control.border' : 'control.foreground' },
+    bg: { kind: 'theme', token: 'control.background' },
+  };
+}
+
+function mergeStyles(...values: readonly (TerminalStyle | undefined)[]): TerminalStyle | undefined {
+  let result: TerminalStyle = {};
+  for (const value of values) {
+    if (value !== undefined) result = { ...result, ...value };
+  }
+  return Object.keys(result).length === 0 ? undefined : result;
+}
+
+function measureSpans(spans: readonly RenderSpan[], widthProfile: TextWidthProfile): number {
+  return spans.reduce(
+    (width, span) => width + measureTextCells(span.text, { widthProfile }).cells,
+    0,
+  );
+}
+
+function assertInlineContent(value: unknown, field: string): InlineContent {
+  if (!isInlineContent(value)) throw new TypeError(`button ${field} must be inline content.`);
+  return value;
+}
+
+function assertPointerState(value: unknown): asserts value is PointerInteractionState | undefined {
+  if (value === undefined) return;
+  if (!isNonArrayObject(value)) {
+    throw new TypeError('button pointerState must be an object.');
+  }
+  const fields = Object.keys(value);
+  if (fields.some((field) => field !== 'hoveredTargetId' && field !== 'pressedTargetId')) {
+    throw new TypeError('button pointerState contains an unknown field.');
+  }
+  for (const field of ['hoveredTargetId', 'pressedTargetId']) {
+    const member = value[field];
+    if (member !== undefined && typeof member !== 'string') {
+      throw new TypeError(`button pointerState.${field} must be a string.`);
+    }
+  }
+}
+
+function isButtonTone(value: unknown): value is ButtonTone {
+  return value === 'default' ||
+    value === 'primary' ||
+    value === 'secondary' ||
+    value === 'ghost' ||
+    value === 'destructive';
+}
+
+interface CheckboxModel {
+  readonly label: string;
+  readonly checked: boolean;
+  readonly required: boolean;
+  readonly error: string;
+  readonly pointerState?: PointerInteractionState;
+}
+
+export const checkbox: SemanticLeafComponentFactory<
+  Pick<CheckboxOptions<unknown>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
+  CheckboxAction,
+  ChoiceStylePart,
+  readonly ['disabled'],
+  'required',
+  readonly ['focus', 'layer', 'styles']
+> = defineComponent<
+  Pick<CheckboxOptions<unknown>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
+  CheckboxModel,
+  CheckboxAction,
+  ChoiceStylePart,
+  readonly ['disabled'],
+  'required',
+  readonly ['focus', 'layer', 'styles']
+>({
+  name: 'terminal-ui/components/checkbox',
+  identity: 'required',
+  structure: 'leaf',
+  semantics: 'semantic',
+  optionFields: { label: null, checked: null, required: null, error: null, pointerState: null },
+  states: ['disabled'],
+  metadata: ['focus', 'layer', 'styles'],
+  parts: ['label', 'marker', 'option', 'description', 'error'],
+  prepare(value) {
+    if (!isNonArrayObject(value)) throw new TypeError('checkbox options must be an object.');
+    const label = value['label'];
+    const checked = value['checked'];
+    const required = value['required'];
+    const error = value['error'];
+    const pointerState = value['pointerState'];
+    if (typeof label !== 'string') throw new TypeError('checkbox label must be a string.');
+    if (typeof checked !== 'boolean') throw new TypeError('checkbox checked must be a boolean.');
+    if (required !== undefined && typeof required !== 'boolean') {
+      throw new TypeError('checkbox required must be a boolean.');
+    }
+    if (error !== undefined && typeof error !== 'string') {
+      throw new TypeError('checkbox error must be a string.');
+    }
+    assertPointerStateFor('checkbox', pointerState);
+    return {
+      label: sanitizeTerminalText(label).text,
+      checked,
+      required: required === true,
+      error: error === undefined ? '' : sanitizeTerminalText(error).text,
+      ...(pointerState === undefined ? {} : { pointerState }),
+    };
+  },
+  measure(input) {
+    const lines = checkboxLines(input, false);
+    return controlMeasurement(lines, input.widthProfile);
+  },
+  render(input) {
+    writeControlLines(input, checkboxLines(input, true));
+  },
+  keys: ({ model }) => ({
+    enter: () => ({ kind: 'change', checked: !model.checked }),
+    space: () => ({ kind: 'change', checked: !model.checked }),
+  }),
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointer', action }),
+  },
+  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+  hitTargets: ({ id, model, bounds }) => [{
+    id: `${id ?? 'checkbox'}:control`,
+    bounds,
+    cursor: 'pointer',
+    focus: { kind: 'target', targetId: 'self' },
+    message: () => ({ kind: 'change', checked: !model.checked }),
+  }],
+  accessibility({ id, model, focused, disabled }) {
+    const description = [model.required ? 'Required.' : '', model.error]
+      .filter((value) => value.length > 0).join(' ');
+    return {
+      id,
+      role: 'checkbox',
+      label: model.required ? `${model.label} *` : model.label || id,
+      checked: model.checked,
+      ...(description.length === 0 ? {} : { description }),
+      ...(focused ? { focused: true } : {}),
+      ...(disabled ? { disabled: true } : {}),
+    };
+  },
+});
+
+interface ToggleModel {
+  readonly label: string;
+  readonly checked: boolean;
+  readonly onLabel: string;
+  readonly offLabel: string;
+  readonly error: string;
+  readonly pointerState?: PointerInteractionState;
+}
+
+export const toggleSwitch: SemanticLeafComponentFactory<
+  Pick<
+    ToggleSwitchOptions<unknown>,
+    'label' | 'checked' | 'onLabel' | 'offLabel' | 'error' | 'pointerState'
+  >,
+  ToggleSwitchAction,
+  import('../../ui-model/style-parts.ts').ToggleStylePart,
+  readonly ['disabled'],
+  'required',
+  readonly ['focus', 'layer', 'styles']
+> = defineComponent<
+  Pick<
+    ToggleSwitchOptions<unknown>,
+    'label' | 'checked' | 'onLabel' | 'offLabel' | 'error' | 'pointerState'
+  >,
+  ToggleModel,
+  ToggleSwitchAction,
+  import('../../ui-model/style-parts.ts').ToggleStylePart,
+  readonly ['disabled'],
+  'required',
+  readonly ['focus', 'layer', 'styles']
+>({
+  name: 'terminal-ui/components/toggle-switch',
+  identity: 'required',
+  structure: 'leaf',
+  semantics: 'semantic',
+  optionFields: {
+    label: null,
+    checked: null,
+    onLabel: null,
+    offLabel: null,
+    error: null,
+    pointerState: null,
+  },
+  states: ['disabled'],
+  metadata: ['focus', 'layer', 'styles'],
+  parts: ['label', 'track', 'handle', 'onLabel', 'offLabel', 'error'],
+  prepare(value) {
+    if (!isNonArrayObject(value)) throw new TypeError('toggleSwitch options must be an object.');
+    const label = value['label'];
+    const checked = value['checked'];
+    const onLabel = value['onLabel'];
+    const offLabel = value['offLabel'];
+    const error = value['error'];
+    const pointerState = value['pointerState'];
+    if (typeof label !== 'string') throw new TypeError('toggleSwitch label must be a string.');
+    if (typeof checked !== 'boolean') {
+      throw new TypeError('toggleSwitch checked must be a boolean.');
+    }
+    if (onLabel !== undefined && typeof onLabel !== 'string') {
+      throw new TypeError('toggleSwitch onLabel must be a string.');
+    }
+    if (offLabel !== undefined && typeof offLabel !== 'string') {
+      throw new TypeError('toggleSwitch offLabel must be a string.');
+    }
+    if (error !== undefined && typeof error !== 'string') {
+      throw new TypeError('toggleSwitch error must be a string.');
+    }
+    assertPointerStateFor('toggleSwitch', pointerState);
+    return {
+      label: sanitizeTerminalText(label).text,
+      checked,
+      onLabel: onLabel === undefined ? 'On' : sanitizeTerminalText(onLabel).text,
+      offLabel: offLabel === undefined ? 'Off' : sanitizeTerminalText(offLabel).text,
+      error: error === undefined ? '' : sanitizeTerminalText(error).text,
+      ...(pointerState === undefined ? {} : { pointerState }),
+    };
+  },
+  measure(input) {
+    return controlMeasurement(toggleLines(input, false), input.widthProfile);
+  },
+  render(input) {
+    writeControlLines(input, toggleLines(input, true));
+  },
+  keys: ({ model }) => ({
+    enter: () => ({ kind: 'change', checked: !model.checked }),
+    space: () => ({ kind: 'change', checked: !model.checked }),
+  }),
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointer', action }),
+  },
+  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+  hitTargets: ({ id, model, bounds }) => [{
+    id: `${id ?? 'toggleSwitch'}:control`,
+    bounds,
+    cursor: 'pointer',
+    focus: { kind: 'target', targetId: 'self' },
+    message: () => ({ kind: 'change', checked: !model.checked }),
+  }],
+  accessibility({ id, model, focused, disabled }) {
+    return {
+      id,
+      role: 'switch',
+      label: model.label || id,
+      value: model.checked ? model.onLabel : model.offLabel,
+      checked: model.checked,
+      ...(model.error.length === 0 ? {} : { description: model.error }),
+      ...(focused ? { focused: true } : {}),
+      ...(disabled ? { disabled: true } : {}),
+    };
+  },
+});
+
+interface ControlVisualInput<TModel extends object, TPart extends string> {
+  readonly id?: string;
+  readonly model: TModel;
+  readonly disabled: boolean;
+  readonly theme: import('../../theme/index.ts').TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  readonly focus?: import('../../renderer/index.ts').RenderFocusRelation;
+  readonly style?: (
+    input: import('../../component/index.ts').ComponentStyleInput<TPart>,
+  ) => TerminalStyle | undefined;
+  readonly source?: (
+    input?: import('../../component/index.ts').ComponentSourceInput,
+  ) => import('../../visual/source.ts').FrameCellSource;
+}
+
+function checkboxLines(
+  input: ControlVisualInput<CheckboxModel, ChoiceStylePart>,
+  decorated: boolean,
+): readonly (readonly RenderSpan[])[] {
+  const state = controlVisualState(input, `${input.id ?? 'checkbox'}:control`);
+  const marker = input.model.checked
+    ? input.theme.tokens.symbols.checkboxChecked
+    : input.theme.tokens.symbols.checkboxUnchecked;
+  const label = input.model.required ? `${input.model.label} *` : input.model.label;
+  return [[
+    controlVisualSpan(
+      input,
+      marker,
+      'marker',
+      'marker',
+      state,
+      decorated,
+      input.model.checked
+        ? { fg: { kind: 'theme', token: 'accent.primary' }, bold: true }
+        : undefined,
+    ),
+    controlVisualSpan(input, ' ', 'option', 'separator', state, decorated),
+    controlVisualSpan(
+      input,
+      label,
+      'label',
+      input.model.required ? 'label.required' : 'label.text',
+      state,
+      decorated,
+    ),
+  ], ...controlErrorLine(input, input.model.error, 'error', state, decorated)];
+}
+
+function toggleLines(
+  input: ControlVisualInput<ToggleModel, import('../../ui-model/style-parts.ts').ToggleStylePart>,
+  decorated: boolean,
+): readonly (readonly RenderSpan[])[] {
+  const state = controlVisualState(input, `${input.id ?? 'toggleSwitch'}:control`);
+  const thumb = oneCellGlyph(input.theme.tokens.symbols.radioChecked, '*', {
+    widthProfile: input.widthProfile,
+  });
+  const track = oneCellGlyph(input.theme.tokens.symbols.scrollbarHorizontalThumb, '-', {
+    widthProfile: input.widthProfile,
+  });
+  const trackStyle: TerminalStyle = input.model.checked
+    ? {
+      fg: { kind: 'theme', token: 'control.primary.foreground' },
+      bg: { kind: 'theme', token: 'control.toggle.on.background' },
+      bold: true,
+    }
+    : {
+      fg: { kind: 'theme', token: 'control.foreground' },
+      bg: { kind: 'theme', token: 'control.toggle.off.background' },
+    };
+  const valuePart = input.model.checked ? 'onLabel' as const : 'offLabel' as const;
+  return [[
+    ...(input.model.label.length === 0 ? [] : [
+      controlVisualSpan(input, `${input.model.label}: `, 'label', 'label.text', state, decorated),
+    ]),
+    controlVisualSpan(
+      input,
+      input.model.checked ? `${track}${thumb}` : `${thumb}${track}`,
+      'track',
+      'switch.track',
+      state,
+      decorated,
+      trackStyle,
+    ),
+    controlVisualSpan(input, ' ', 'track', 'separator', state, decorated),
+    controlVisualSpan(
+      input,
+      input.model.checked ? input.model.onLabel : input.model.offLabel,
+      valuePart,
+      input.model.checked ? 'value.on' : 'value.off',
+      state,
+      decorated,
+      trackStyle,
+    ),
+  ], ...controlErrorLine(input, input.model.error, 'error', state, decorated)];
+}
+
+function controlErrorLine<TModel extends object, TPart extends string>(
+  input: ControlVisualInput<TModel, TPart>,
+  error: string,
+  part: TPart,
+  state: Exclude<ElementVisualState, 'default'> | undefined,
+  decorated: boolean,
+): readonly (readonly RenderSpan[])[] {
+  return error.length === 0 ? [] : [[controlVisualSpan(
+    input,
+    error,
+    part,
+    'validation.error',
+    state,
+    decorated,
+    { fg: { kind: 'theme', token: 'status.error' }, bold: true },
+  )]];
+}
+
+function controlVisualSpan<TModel extends object, TPart extends string>(
+  input: ControlVisualInput<TModel, TPart>,
+  textValue: string,
+  part: TPart,
+  partName: string,
+  state: Exclude<ElementVisualState, 'default'> | undefined,
+  decorated: boolean,
+  base?: TerminalStyle,
+): RenderSpan {
+  if (!decorated || input.style === undefined || input.source === undefined) {
+    return { text: textValue };
+  }
+  const style = input.style({
+    part,
+    ...(base === undefined ? {} : { base }),
+    ...(state === undefined ? {} : { state }),
+  });
+  return {
+    text: textValue,
+    ...(style === undefined ? {} : { style }),
+    source: input.source({
+      partName,
+      partType: part,
+      description: partName,
+      cellRole: part === 'marker' || part === 'track' ? 'decoration' : 'text',
+      ...(state === undefined ? {} : { interactionState: state }),
+    }),
+  };
+}
+
+function controlVisualState<TModel extends { readonly pointerState?: PointerInteractionState }>(
+  input: Pick<ControlVisualInput<TModel, string>, 'id' | 'model' | 'disabled' | 'focus'>,
+  targetId: string,
+): Exclude<ElementVisualState, 'default'> | undefined {
+  if (input.disabled) return 'disabled';
+  if (input.focus === 'self') return 'focused';
+  return pointerVisualState(input.model.pointerState, targetId);
+}
+
+function controlMeasurement(
+  lines: readonly (readonly RenderSpan[])[],
+  widthProfile: TextWidthProfile,
+): import('../../renderer/index.ts').Measurement {
+  return {
+    minWidth: 0,
+    minHeight: 0,
+    preferredWidth: Math.max(0, ...lines.map((current) => measureSpans(current, widthProfile))),
+    preferredHeight: lines.length,
+  };
+}
+
+function writeControlLines<TModel extends object, TPart extends string>(
+  input: import('../../component/index.ts').ComponentRenderInput<TModel, TPart>,
+  lines: readonly (readonly RenderSpan[])[],
+): void {
+  lines.slice(0, input.bounds.height).forEach((current, row) => {
+    const clipped = clipRenderSpans(current, input.bounds.width, {
+      widthProfile: input.widthProfile,
+    });
+    input.target.write(row, 0, clipped);
+    const used = measureRenderSpans(clipped, { widthProfile: input.widthProfile });
+    const fill = clipped.at(-1);
+    if (used < input.bounds.width && fill !== undefined) {
+      input.target.write(row, used, [{
+        text: ' '.repeat(input.bounds.width - used),
+        ...(fill.style === undefined ? {} : { style: fill.style }),
+        ...(fill.source === undefined ? {} : {
+          source: {
+            ...fill.source,
+            cellRole: 'decoration',
+            partName: 'padding',
+            partType: 'spacing',
+            description: 'padding',
+          },
+        }),
+      }]);
+    }
+  });
+}
+
+function assertPointerStateFor(
+  owner: string,
+  value: unknown,
+): asserts value is PointerInteractionState | undefined {
+  if (value === undefined) return;
+  if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
+  const unsupported = Object.keys(value).find((field) =>
+    field !== 'hoveredTargetId' && field !== 'pressedTargetId'
+  );
+  if (unsupported !== undefined) {
+    throw new TypeError(`${owner} pointerState contains unknown field "${unsupported}".`);
+  }
+  for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'string') {
+      throw new TypeError(`${owner} pointerState.${field} must be a string.`);
+    }
+  }
+}
+
+interface SelectOptionModel {
+  readonly id: string;
+  readonly label: string;
+  readonly description?: string;
+  readonly disabled: boolean;
+}
+
+interface SelectModel {
+  readonly label: string;
+  readonly options: readonly SelectOptionModel[];
+  readonly presentation: SelectPresentation;
+  readonly placeholder: string;
+  readonly placement: AnchoredSurfacePlacement;
+  readonly maxVisibleOptions: number;
+  readonly scrollbar?: ScrollbarOptions;
+  readonly required: boolean;
+  readonly error?: string;
+  readonly pointerState?: PointerInteractionState;
+}
+
+interface SelectOwnOptions {
+  readonly label: string;
+  readonly options: readonly ChoiceItem<unknown>[];
+  readonly presentation: SelectPresentation;
+  readonly placeholder?: string;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleOptions?: number;
+  readonly scrollbar?: ScrollbarOptions;
+  readonly required?: boolean;
+  readonly error?: string;
+  readonly pointerState?: PointerInteractionState;
+}
+
+const selectSlots = {
+  popup: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
+} as const;
+
+type SelectFactory = <TValue, const TMessage extends NonNullable<unknown> | null = never>(
+  options: SelectOptions<TValue, TMessage>,
+) => Element<TMessage>;
+
+const instantiateSelect = defineComponent<
+  SelectOwnOptions,
+  SelectModel,
+  SelectAction,
+  ChoiceStylePart,
+  readonly ['disabled'],
+  'required',
+  readonly ['focus', 'layer', 'styles'],
+  typeof selectSlots
+>({
+  name: 'terminal-ui/components/select',
+  identity: 'required',
+  structure: 'composite',
+  semantics: 'semantic',
+  slots: selectSlots,
+  optionFields: {
+    label: null,
+    options: null,
+    presentation: null,
+    placeholder: null,
+    placement: null,
+    maxVisibleOptions: null,
+    scrollbar: null,
+    required: null,
+    error: null,
+    pointerState: null,
+  },
+  states: ['disabled'],
+  metadata: ['focus', 'layer', 'styles'],
+  parts: ['label', 'marker', 'option', 'description', 'error'],
+  prepare: prepareSelect,
+  implementationSlots(input) {
+    if (input.model.presentation.kind === 'closed') return { popup: undefined };
+    const id = input.id ?? 'select';
+    const highlighted = input.model.presentation.highlighted;
+    const common = {
+      id: `${id}:popup:list`,
+      items: input.model.options,
+      projectItem: (option: SelectOptionModel) => option,
+      ...(highlighted === undefined ? {} : { selectedId: highlighted }),
+      meta: {
+        focus: { disabled: true },
+        ...(input.styles === undefined ? {} : { styles: selectPopupStyles(input.styles) }),
+      },
+    };
+    const popupList = input.model.presentation.scroll === undefined
+      ? list<SelectOptionModel, NonNullable<unknown> | null>({
+        ...common,
+        onAction: (action) => input.emit(selectActionForList(action)),
+      })
+      : list<SelectOptionModel, NonNullable<unknown> | null>({
+        ...common,
+        scroll: input.model.presentation.scroll,
+        ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),
+        onAction: (action) => input.emit(selectActionForList(action)),
+      });
+    return {
+      popup: portal(
+        surface(popupList, {
+          id: `${id}:popup:surface`,
+          appearance: 'raised',
+          border: { kind: 'single' },
+          maxHeight: input.model.maxVisibleOptions + 2,
+        }),
+        {
+          id: `${id}:popup`,
+          anchor: { kind: 'allocation' },
+          placement: input.model.placement,
+          margin: 0,
+          onOutsidePress: () => input.emit({ kind: 'dismiss', reason: 'outsidePress' }),
+          meta: { layer: { zIndex: 20, underlay: 'clear' } },
+        },
+      ),
+    };
+  },
+  measure(input) {
+    const selected = selectedSelectOption(input.model);
+    const value = selected?.label ?? input.model.placeholder;
+    const label = input.model.required ? `${input.model.label} *` : input.model.label;
+    return {
+      minWidth: 1,
+      minHeight: 1,
+      preferredWidth:
+        measureTextCells(`${label}: ${value}  `, { widthProfile: input.widthProfile }).cells,
+      preferredHeight: input.model.error === undefined ? 1 : 2,
+    };
+  },
+  layout({ bounds }) {
+    return { popup: bounds };
+  },
+  renderBeforeChildren(input) {
+    renderSelect(input);
+  },
+  keys({ id, model }) {
+    const whenSelf =
+      (action: import('../../interaction/index.ts').MessageResolution<SelectAction>) =>
+      (event: { readonly focusPath: readonly string[] }) =>
+        event.focusPath.at(-1) === id ? action : ignoreMessage();
+    const highlighted = model.presentation.kind === 'open'
+      ? model.presentation.highlighted
+      : undefined;
+    return {
+      arrowDown: whenSelf({ kind: 'move', delta: 1 }),
+      arrowUp: whenSelf({ kind: 'move', delta: -1 }),
+      home: whenSelf({ kind: 'first' }),
+      end: whenSelf({ kind: 'last' }),
+      space: whenSelf({ kind: 'toggle' }),
+      enter: whenSelf(
+        model.presentation.kind === 'closed'
+          ? { kind: 'open' }
+          : highlighted === undefined
+          ? ignoreMessage()
+          : { kind: 'commit', id: highlighted },
+      ),
+      escape: whenSelf(
+        model.presentation.kind === 'open'
+          ? { kind: 'dismiss', reason: 'escape' }
+          : ignoreMessage(),
+      ),
+    };
+  },
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointer', action }),
+  },
+  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+  hitTargets: ({ id, bounds, model }) => [{
+    id: `${id ?? 'select'}:trigger`,
+    bounds: { ...bounds, height: Math.min(1, bounds.height) },
+    accepts: ['click'],
+    focus: { kind: 'target', targetId: 'self' },
+    message: () => ({ kind: 'toggle' }),
+    cursor: 'pointer',
+    ...(model.presentation.kind === 'open' ? { zIndex: 21 } : {}),
+  }],
+  accessibility(input) {
+    return selectAccessibility(input);
+  },
+});
+
+export const select: SelectFactory = (options) => instantiateSelect(options);
+
+function selectedSelectOption(model: SelectModel): SelectOptionModel | undefined {
+  return model.options.find((option) => option.id === model.presentation.selected);
+}
+
+function renderSelect(input: ComponentRenderInput<SelectModel, ChoiceStylePart>): void {
+  const selected = selectedSelectOption(input.model);
+  const value = selected?.label ?? input.model.placeholder;
+  const state = input.disabled
+    ? 'disabled' as const
+    : pointerVisualState(input.model.pointerState, `${input.id ?? 'select'}:trigger`) ??
+      (input.focus === 'self' ? 'focused' as const : undefined);
+  const label = input.model.required ? `${input.model.label} *` : input.model.label;
+  const labelStyle = input.style({
+    part: 'label',
+    ...(state === undefined ? {} : { state }),
+    base: { fg: { kind: 'theme', token: 'text.strong' }, bold: true },
+  });
+  const valuePart: ChoiceStylePart = selected === undefined ? 'description' : 'option';
+  const valueStyle = input.style({
+    part: valuePart,
+    ...(state === undefined ? {} : { state }),
+    base: selected === undefined
+      ? { fg: { kind: 'theme', token: 'input.placeholder' }, dim: true }
+      : { fg: { kind: 'theme', token: 'text.default' } },
+  });
+  const markerStyle = input.style({
+    part: 'marker',
+    ...(state === undefined ? {} : { state }),
+    base: { fg: { kind: 'theme', token: 'control.foreground' } },
+  });
+  input.target.write(0, 0, [
+    selectSpan(input, label, 'label', 'label', labelStyle),
+    selectSpan(input, ': ', 'label', 'label.separator', labelStyle),
+    selectSpan(
+      input,
+      value,
+      valuePart,
+      selected === undefined ? 'value.placeholder' : 'value.selected',
+      valueStyle,
+    ),
+    selectSpan(input, ' ', 'marker', 'value.separator', markerStyle),
+    selectSpan(
+      input,
+      input.model.presentation.kind === 'open'
+        ? input.theme.tokens.symbols.expanded
+        : input.theme.tokens.symbols.collapsed,
+      'marker',
+      'value.disclosure',
+      markerStyle,
+    ),
+  ]);
+  if (input.model.error !== undefined && input.bounds.height > 1) {
+    const errorStyle = input.style({
+      part: 'error',
+      base: { fg: { kind: 'theme', token: 'status.error' } },
+    });
+    input.target.write(1, 0, [
+      selectSpan(input, input.model.error, 'error', 'validation.error', errorStyle),
+    ]);
+  }
+}
+
+function selectSpan(
+  input: ComponentRenderInput<SelectModel, ChoiceStylePart>,
+  text: string,
+  part: ChoiceStylePart,
+  partName: string,
+  style: TerminalStyle | undefined,
+): RenderSpan {
+  return {
+    text,
+    ...(style === undefined ? {} : { style }),
+    source: input.source({ partName, partType: part, cellRole: 'text', description: partName }),
+  };
+}
+
+function selectAccessibility(
+  input: ComponentAccessibilityInput<SelectModel, typeof selectSlots>,
+): import('../../accessibility/index.ts').AccessibleNode {
+  const selected = selectedSelectOption(input.model);
+  const description = [input.model.required ? 'Required.' : '', input.model.error ?? '']
+    .filter((part) => part.length > 0)
+    .join(' ');
+  const open = input.model.presentation.kind === 'open' ? input.model.presentation : undefined;
+  return {
+    id: input.id,
+    role: 'combobox',
+    label: input.model.required ? `${input.model.label} *` : input.model.label,
+    expanded: input.model.presentation.kind === 'open',
+    ...(selected === undefined ? {} : { value: selected.label }),
+    ...(description.length === 0 ? {} : { description }),
+    ...(input.focused ? { focused: true } : {}),
+    ...(open === undefined ? { children: [] } : {
+      children: [{
+        id: `${input.id}:options`,
+        role: 'listbox' as const,
+        label: `${input.model.label || input.id} options`,
+        children: input.model.options.map((option) => ({
+          id: `${input.id}:${option.id}`,
+          role: 'option' as const,
+          label: option.label,
+          selected: option.id === open.selected,
+          ...(option.id === open.highlighted ? { focused: true } : {}),
+          ...(option.description === undefined ? {} : { description: option.description }),
+          ...(option.disabled ? { disabled: true } : {}),
+        })),
+      }],
+    }),
+  };
+}
+
+function selectActionForList(action: ListAction): SelectAction {
+  switch (action.kind) {
+    case 'select':
+    case 'activate':
+      return { kind: 'commit', id: action.id };
+    case 'move':
+      return action;
+    case 'page':
+      return { kind: 'move', delta: action.delta };
+    case 'first':
+      return action;
+    case 'last':
+      return action;
+    case 'scroll':
+      return action;
+  }
+}
+
+function selectPopupStyles(
+  styles: import('../../element/index.ts').ElementStyles<ChoiceStylePart>,
+): import('../../element/index.ts').ElementStyles<
+  import('../../ui-model/style-parts.ts').DataListStylePart
+> {
+  return {
+    ...(styles.root === undefined ? {} : { root: styles.root }),
+    ...(styles.parts === undefined ? {} : {
+      parts: {
+        ...(styles.parts.marker === undefined ? {} : { marker: styles.parts.marker }),
+        ...(styles.parts.option === undefined ? {} : { item: styles.parts.option }),
+        ...(styles.parts.description === undefined
+          ? {}
+          : { description: styles.parts.description }),
+      },
+    }),
+    ...(styles.states === undefined ? {} : { states: styles.states }),
+  };
+}
+
+function prepareSelect(
+  value: unknown,
+  context: import('../../component/index.ts').ComponentPreparationContext,
+): SelectModel {
+  if (!isNonArrayObject(value)) throw new TypeError('select options must be an object.');
+  const label = value['label'];
+  if (typeof label !== 'string') throw new TypeError('select label must be a string.');
+  const rawOptions = value['options'];
+  if (!Array.isArray(rawOptions)) throw new TypeError('select options must be an array.');
+  const ids = new Set<string>();
+  const options = rawOptions.map((raw, index): SelectOptionModel => {
+    if (!isNonArrayObject(raw)) {
+      throw new TypeError(`select options[${String(index)}] must be an object.`);
+    }
+    const unsupported = Object.keys(raw).find((field) =>
+      field !== 'id' && field !== 'label' && field !== 'value' && field !== 'description' &&
+      field !== 'disabled'
+    );
+    if (unsupported !== undefined) {
+      throw new TypeError(
+        `select options[${String(index)}] contains unknown field "${unsupported}".`,
+      );
+    }
+    const id = raw['id'];
+    const optionLabel = raw['label'];
+    if (typeof id !== 'string' || id.trim() === '') {
+      throw new TypeError('select option id must be non-empty.');
+    }
+    if (ids.has(id)) throw new TypeError(`select contains duplicate option id "${id}".`);
+    ids.add(id);
+    if (typeof optionLabel !== 'string') {
+      throw new TypeError('select option label must be a string.');
+    }
+    if (raw['description'] !== undefined && typeof raw['description'] !== 'string') {
+      throw new TypeError('select option description must be a string.');
+    }
+    if (raw['disabled'] !== undefined && typeof raw['disabled'] !== 'boolean') {
+      throw new TypeError('select option disabled must be a boolean.');
+    }
+    return {
+      id,
+      label: sanitizeTerminalText(optionLabel).text,
+      ...(raw['description'] === undefined
+        ? {}
+        : { description: sanitizeTerminalText(raw['description']).text }),
+      disabled: raw['disabled'] === true,
+    };
+  });
+  const presentation = prepareSelectPresentation(value['presentation']);
+  if (context.disabled && presentation.kind === 'open') {
     throw new TypeError('select cannot be open while disabled.');
   }
-  const keyMap = selectKeyBindings(options);
-  const normalizedOptions = choiceItemsForRenderer(options.options);
-  const presentation = normalizeSelectState(options.presentation, options.options);
-  const onAction = options.onAction;
-  const popup = presentation.kind === 'open'
-    ? onAction === undefined
-      ? undefined
-      : selectPopupRenderNode({
-        parentElementId: options.id,
-        options: normalizedOptions,
-        presentation,
-        ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-        ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
-        toActionMessage: onAction
-      })
-    : undefined;
-  return componentElementFromRenderNode<'select', TMessage>({
-    ...requiredRenderNodeId(options.id, 'select'),
-    kind: 'select',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      options: normalizedOptions,
-      label: options.label,
-      presentation,
-      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(options.placement === undefined ? {} : { placement: options.placement }),
-      maxVisibleOptions: selectVisibleOptionLimit(options.maxVisibleOptions),
-      ...(onAction === undefined ? {} : { toActionMessage: onAction }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(popup === undefined ? {} : { children: [popup] }),
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ pointer: options.pointer, meta: options.meta })
-  });
-}
-
-function selectVisibleOptionLimit(value: number | undefined): number {
-  if (value === undefined) return 8;
-  if (!Number.isFinite(value) || value < 1) {
-    throw new RangeError('select maxVisibleOptions must be a positive finite number.');
+  const choiceOptions = options.map((option): ChoiceItem => ({ ...option, value: option.id }));
+  const normalized = normalizeSelectState(presentation, choiceOptions);
+  const placeholder = value['placeholder'];
+  if (placeholder !== undefined && typeof placeholder !== 'string') {
+    throw new TypeError('select placeholder must be a string.');
   }
-  return Math.max(1, Math.floor(value));
-}
-
-type ActionTextInputOptions = Extract<
-  ActiveTextInputOptions<unknown>,
-  { readonly onAction: unknown }
->;
-
-type SubmitTextInputOptions = Extract<
-  ActiveTextInputOptions<unknown>,
-  { readonly onAction?: never }
->;
-
-export function textInput<
-  const TSubmitMessage = never,
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(options: IndependentInteractionOptions<
-  ActionTextInputOptions,
-  {
-    readonly onAction: TActionMessage;
-    readonly onSubmit: TSubmitMessage;
-  },
-  TKeys,
-  TPointerMessage
->): Element<TSubmitMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function textInput<
-  const TSubmitMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(options: IndependentInteractionOptions<
-  SubmitTextInputOptions,
-  { readonly onSubmit: TSubmitMessage },
-  TKeys,
-  TPointerMessage
->): Element<TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function textInput(options: DisabledTextInputOptions): Element;
-export function textInput(options: unknown): Element<unknown> {
-  return textInputElement(options as TextInputOptions<unknown>);
-}
-
-function textInputElement(options: TextInputOptions<unknown>): Element<unknown> {
-  assertControlContract(
-    'textInput',
-    options,
-    options.disabled === true,
-    [],
-    ['onAction', 'onSubmit'],
-    ['onAction', 'onSubmit']
-  );
-  const presentation = options.presentation;
-  const keyMap = textInputKeyBindings(options.onAction, options.onSubmit, presentation.value, options.keys);
-  return componentElementFromRenderNode<'textInput', unknown>({
-    ...requiredRenderNodeId(options.id, 'textInput'),
-    kind: 'textInput',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      value: presentation.value,
-      cursor: presentation.cursor,
-      ...(presentation.selection === undefined ? {} : { selection: presentation.selection }),
-      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({
-      ...textActionInputHandlers(options.onAction),
-      pointer: options.pointer,
-      meta: options.meta
-    })
-  });
-}
-
-type ActionPasswordInputOptions = ActionTextInputOptions & {
-  readonly mask?: string;
-};
-
-type SubmitPasswordInputOptions = SubmitTextInputOptions & {
-  readonly mask?: string;
-};
-
-type DisabledPasswordInputOptions = DisabledTextInputOptions & {
-  readonly mask?: string;
-};
-
-export function passwordInput<
-  const TSubmitMessage = never,
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(options: IndependentInteractionOptions<
-  ActionPasswordInputOptions,
-  {
-    readonly onAction: TActionMessage;
-    readonly onSubmit: TSubmitMessage;
-  },
-  TKeys,
-  TPointerMessage
->): Element<TSubmitMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function passwordInput<
-  const TSubmitMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(options: IndependentInteractionOptions<
-  SubmitPasswordInputOptions,
-  { readonly onSubmit: TSubmitMessage },
-  TKeys,
-  TPointerMessage
->): Element<TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function passwordInput(options: DisabledPasswordInputOptions): Element;
-export function passwordInput(options: unknown): Element<unknown> {
-  return passwordInputElement(options as PasswordInputOptions<unknown>);
-}
-
-function passwordInputElement(options: PasswordInputOptions<unknown>): Element<unknown> {
-  assertControlContract(
-    'passwordInput',
-    options,
-    options.disabled === true,
-    [],
-    ['onAction', 'onSubmit'],
-    ['onAction', 'onSubmit']
-  );
-  const mask = passwordMask(options.mask);
-  const sourceValue = options.presentation.value;
-  const masked = maskedPasswordPresentation(options.presentation, mask);
-  const onAction = options.onAction;
-  const adaptedAction = onAction === undefined
-    ? undefined
-    : (action: import('../../ui-model/text-input.ts').TextInputAction) => onAction(
-        action.kind === 'pointer'
-          ? { kind: 'pointer', action: sourcePointerAction(sourceValue, action.action, mask.length) }
-          : action
-      );
-  const keyMap = textInputKeyBindings(adaptedAction, options.onSubmit, sourceValue, options.keys);
-  return componentElementFromRenderNode<'passwordInput', unknown>({
-    ...requiredRenderNodeId(options.id, 'passwordInput'),
-    kind: 'passwordInput',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      value: masked.value,
-      cursor: masked.cursor,
-      ...(masked.selection === undefined ? {} : { selection: masked.selection }),
-      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(adaptedAction === undefined ? {} : { toActionMessage: adaptedAction }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.error === undefined ? {} : { error: options.error })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({
-      ...textActionInputHandlers(adaptedAction),
-      pointer: options.pointer,
-      meta: options.meta
-    })
-  });
-}
-
-function passwordMask(value: string | undefined): string {
-  const mask = value ?? '•';
-  if (segmentGraphemes(mask).length !== 1 || terminalTextWidth(mask) !== 1) {
-    throw new RangeError('passwordInput mask must be one printable one-cell grapheme.');
+  const placement = value['placement'];
+  if (
+    placement !== undefined &&
+    placement !== 'above' &&
+    placement !== 'below' &&
+    placement !== 'left' &&
+    placement !== 'right' &&
+    placement !== 'auto' &&
+    placement !== 'cursor'
+  ) {
+    throw new TypeError('select placement is invalid.');
   }
-  return mask;
-}
-
-function maskedPasswordPresentation(
-  presentation: import('../../ui-model/text-input.ts').TextInputPresentation,
-  mask: string
-): import('../../ui-model/text-input.ts').TextInputPresentation {
-  const segments = segmentGraphemes(presentation.value);
+  const maxVisibleOptions = value['maxVisibleOptions'];
+  if (
+    maxVisibleOptions !== undefined &&
+    (typeof maxVisibleOptions !== 'number' ||
+      !Number.isSafeInteger(maxVisibleOptions) ||
+      maxVisibleOptions < 1)
+  ) {
+    throw new RangeError('select maxVisibleOptions must be a positive safe integer.');
+  }
+  for (const field of ['required'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'boolean') {
+      throw new TypeError(`select ${field} must be a boolean.`);
+    }
+  }
+  const error = value['error'];
+  if (error !== undefined && typeof error !== 'string') {
+    throw new TypeError('select error must be a string.');
+  }
+  const pointerState = value['pointerState'];
+  if (pointerState !== undefined) assertPointerState(pointerState);
+  const scrollbar = prepareScrollbar(value['scrollbar']);
   return {
-    value: mask.repeat(segments.length),
-    cursor: maskedPasswordOffset(segments, presentation.cursor, mask.length),
-    ...(presentation.selection === undefined ? {} : {
-      selection: {
-        startOffset: maskedPasswordOffset(segments, presentation.selection.startOffset, mask.length),
-        endOffsetExclusive: maskedPasswordOffset(segments, presentation.selection.endOffsetExclusive, mask.length)
-      }
-    })
+    label: sanitizeTerminalText(label).text,
+    options,
+    presentation: normalized,
+    placeholder: sanitizeTerminalText(placeholder ?? 'Select…').text,
+    placement: placement ?? 'auto',
+    maxVisibleOptions: maxVisibleOptions ?? 8,
+    ...(scrollbar === undefined ? {} : { scrollbar }),
+    required: value['required'] === true,
+    ...(error === undefined ? {} : { error: sanitizeTerminalText(error).text }),
+    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
-function maskedPasswordOffset(
-  segments: ReturnType<typeof segmentGraphemes>,
-  sourceOffset: number,
-  maskCodeUnits: number
-): number {
-  return segments.filter((segment) => segment.endOffsetExclusive <= sourceOffset).length * maskCodeUnits;
-}
-
-function sourcePasswordOffset(value: string, maskedOffset: number, maskCodeUnits: number): number {
-  const segments = segmentGraphemes(value);
-  const graphemeIndex = Math.max(0, Math.min(segments.length, Math.floor(maskedOffset / maskCodeUnits)));
-  return graphemeIndex >= segments.length
-    ? value.length
-    : segments[graphemeIndex]?.startOffset ?? value.length;
-}
-
-function sourcePointerAction(
-  value: string,
-  action: TextPointerAction,
-  maskCodeUnits: number
-): TextPointerAction {
-  const offset = sourcePasswordOffset(value, action.offset, maskCodeUnits);
-  if (action.kind === 'placeCaret') return { kind: 'placeCaret', offset };
+function prepareSelectPresentation(value: unknown): SelectPresentation {
+  if (!isNonArrayObject(value) || (value['kind'] !== 'open' && value['kind'] !== 'closed')) {
+    throw new TypeError('select presentation is invalid.');
+  }
+  const allowed = value['kind'] === 'open'
+    ? new Set(['kind', 'selected', 'highlighted', 'scroll'])
+    : new Set(['kind', 'selected']);
+  const unsupported = Object.keys(value).find((field) => !allowed.has(field));
+  if (unsupported !== undefined) {
+    throw new TypeError(`select presentation contains unknown field "${unsupported}".`);
+  }
+  for (const field of ['selected', 'highlighted'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'string') {
+      throw new TypeError(`select presentation ${field} must be a string.`);
+    }
+  }
+  const selected = value['selected'];
+  if (value['kind'] === 'closed') {
+    return { kind: 'closed', ...(typeof selected === 'string' ? { selected } : {}) };
+  }
+  const highlighted = value['highlighted'];
+  const scroll = prepareScrollState(value['scroll'], 'select presentation scroll');
   return {
-    kind: action.kind,
-    anchor: sourcePasswordOffset(value, action.anchor, maskCodeUnits),
-    offset
+    kind: 'open',
+    ...(typeof selected === 'string' ? { selected } : {}),
+    ...(typeof highlighted === 'string' ? { highlighted } : {}),
+    ...(scroll === undefined ? {} : { scroll }),
   };
 }
 
-export function numberInput<
-  const TActionMessage = never,
-  const TPointerMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(options: IndependentInteractionOptions<
-  NumberInputOptions,
-  { readonly onAction: TActionMessage },
-  TKeys,
-  TPointerMessage
->): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function numberInput(options: unknown): Element<unknown> {
-  return numberInputElement(options as NumberInputOptions<unknown>);
+function prepareScrollState(value: unknown, label: string): ScrollState | undefined {
+  if (value === undefined) return undefined;
+  if (!isNonArrayObject(value)) throw new TypeError(`${label} must be an object.`);
+  const required = [
+    'offsetRow',
+    'offsetColumn',
+    'contentRows',
+    'contentColumns',
+    'viewportRows',
+    'viewportColumns',
+  ] as const;
+  const allowed = new Set([...required, 'followTail', 'selectedIndex']);
+  const unsupported = Object.keys(value).find((field) => !allowed.has(field));
+  if (unsupported !== undefined) {
+    throw new TypeError(`${label} contains unknown field "${unsupported}".`);
+  }
+  for (const field of required) {
+    const member = value[field];
+    if (typeof member !== 'number' || !Number.isSafeInteger(member) || member < 0) {
+      throw new RangeError(`${label}.${field} must be a non-negative safe integer.`);
+    }
+  }
+  if (typeof value['followTail'] !== 'boolean') {
+    throw new TypeError(`${label}.followTail must be a boolean.`);
+  }
+  const selectedIndex = value['selectedIndex'];
+  if (
+    selectedIndex !== undefined &&
+    (typeof selectedIndex !== 'number' || !Number.isSafeInteger(selectedIndex) || selectedIndex < 0)
+  ) {
+    throw new RangeError(`${label}.selectedIndex must be a non-negative safe integer.`);
+  }
+  const offsetRow = value['offsetRow'];
+  const offsetColumn = value['offsetColumn'];
+  const contentRows = value['contentRows'];
+  const contentColumns = value['contentColumns'];
+  const viewportRows = value['viewportRows'];
+  const viewportColumns = value['viewportColumns'];
+  if (
+    typeof offsetRow !== 'number' ||
+    typeof offsetColumn !== 'number' ||
+    typeof contentRows !== 'number' ||
+    typeof contentColumns !== 'number' ||
+    typeof viewportRows !== 'number' ||
+    typeof viewportColumns !== 'number'
+  ) {
+    throw new TypeError(`${label} is invalid.`);
+  }
+  return {
+    offsetRow,
+    offsetColumn,
+    contentRows,
+    contentColumns,
+    viewportRows,
+    viewportColumns,
+    followTail: value['followTail'],
+    ...(typeof selectedIndex === 'number' ? { selectedIndex } : {}),
+  };
 }
 
-function numberInputElement(options: NumberInputOptions<unknown>): Element<unknown> {
-  assertControlContract('numberInput', options, options.disabled === true, ['onAction']);
-  const keyMap = numberInputKeyBindings(options.onAction, options.keys);
-  const editHandlers = textEditInputHandlers(
-    options.onAction === undefined
-      ? undefined
-      : (operation) => options.onAction({ kind: 'edit', operation })
+function prepareScrollbar(value: unknown): ScrollbarOptions | undefined {
+  if (value === undefined) return undefined;
+  if (!isNonArrayObject(value)) throw new TypeError('select scrollbar must be an object.');
+  const unsupported = Object.keys(value).find((field) =>
+    field !== 'visible' && field !== 'axis' && field !== 'visualState'
   );
-  return componentElementFromRenderNode<'numberInput', unknown>({
-    ...requiredRenderNodeId(options.id, 'numberInput'),
-    kind: 'numberInput',
-    ...(options.disabled === true ? { state: { disabled: true } } : {}),
-    props: {
-      presentation: options.presentation,
-      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(options.required === undefined ? {} : { required: options.required }),
-      ...(options.error === undefined ? {} : { error: options.error }),
-      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ ...editHandlers, pointer: options.pointer, meta: options.meta })
-  });
+  if (unsupported !== undefined) {
+    throw new TypeError(`select scrollbar contains unknown field "${unsupported}".`);
+  }
+  const visible = value['visible'];
+  const axis = value['axis'];
+  const visualState = value['visualState'];
+  if (visible !== undefined && visible !== 'auto' && visible !== 'always' && visible !== 'never') {
+    throw new TypeError('select scrollbar visible is invalid.');
+  }
+  if (axis !== undefined && axis !== 'vertical' && axis !== 'horizontal' && axis !== 'both') {
+    throw new TypeError('select scrollbar axis is invalid.');
+  }
+  if (
+    visualState !== undefined &&
+    visualState !== 'idle' &&
+    visualState !== 'active' &&
+    visualState !== 'hover' &&
+    visualState !== 'disabled' &&
+    visualState !== 'inactive'
+  ) {
+    throw new TypeError('select scrollbar visualState is invalid.');
+  }
+  return {
+    ...(visible === undefined ? {} : { visible }),
+    ...(axis === undefined ? {} : { axis }),
+    ...(visualState === undefined ? {} : { visualState }),
+  };
 }

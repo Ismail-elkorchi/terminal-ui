@@ -14,6 +14,7 @@ import type { SplitPaneStylePart } from '../ui-model/style-parts.ts';
 import type { SplitPaneAction } from '../ui-model/split-pane.ts';
 import type {
   AnchoredSurfaceAnchor,
+  AnchoredSurfaceFit,
   AnchoredSurfacePlacement,
   AnchoredSurfaceSide
 } from '../interaction/anchored-surface.ts';
@@ -116,4 +117,14 @@ export interface AnchoredOptions extends ElementOptions {
   readonly placement?: AnchoredSurfacePlacement;
   readonly fallback?: readonly AnchoredSurfaceSide[];
   readonly margin?: number;
+  readonly fit?: AnchoredSurfaceFit;
+}
+
+export interface PortalOptions<TMessage = never> extends ElementOptions {
+  readonly anchor: AnchoredSurfaceAnchor | { readonly kind: 'allocation' };
+  readonly placement?: AnchoredSurfacePlacement | 'center';
+  readonly fallback?: readonly AnchoredSurfaceSide[];
+  readonly margin?: number;
+  readonly fit?: AnchoredSurfaceFit;
+  readonly onOutsidePress?: () => TMessage;
 }

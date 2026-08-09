@@ -6,14 +6,14 @@ compose with the same layouts, and use the same focus, pointer, accessibility,
 and frame pipeline.
 
 That shared pipeline does not grant definitions private layout authority.
-Definitions draw only inside their allocation and may arrange their declared
-children there. Renderer-owned popup construction and hidden implementation
-nodes remain available only to built-ins. Package components compose public
-layouts such as `overlay()` and `anchored()` when those bounds are known by the
-application.
+Definitions draw only inside their allocation and may arrange declared slots
+there. Painted and composed definitions can use the same public layout,
+portal, anchor, clipping, scrolling, and focus-scope primitives as the built-in
+catalog. Neither path can construct private renderer nodes.
 
 Keep the definition outside `view()`. It is immutable behavior; each call to
-the returned factory supplies current options, shared state, and an action mapper.
+the returned factory supplies current input, declared state capabilities, and
+an action mapper.
 
 ```ts
 import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
@@ -23,20 +23,21 @@ interface BadgeOptions {
   readonly label: string;
 }
 
-const badge = defineComponent<BadgeOptions>({
+const badge = defineComponent<BadgeOptions, BadgeOptions>({
   name: 'example-app/components/badge',
+  identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  decodeOptions(value) {
+  optionFields: { label: null },
+  prepare(value) {
     if (typeof value !== 'object' || value === null || !('label' in value)
-      || typeof value.label !== 'string'
-      || Object.keys(value).some((field) => field !== 'label')) {
+      || typeof value.label !== 'string') {
       throw new TypeError('badge requires only a string label');
     }
     return { label: value.label };
   },
-  measure: ({ options, widthProfile }) => {
-    const width = measureTextCells(options.label, { widthProfile }).cells;
+  measure: ({ model, widthProfile }) => {
+    const width = measureTextCells(model.label, { widthProfile }).cells;
     return {
       minWidth: 1,
       minHeight: 1,
@@ -44,13 +45,13 @@ const badge = defineComponent<BadgeOptions>({
       preferredHeight: 1
     };
   },
-  render: ({ options, bounds, target }) => {
-    target.write(bounds.row, bounds.column, [{ text: options.label }]);
+  render: ({ model, target }) => {
+    target.write(0, 0, [{ text: model.label }]);
   },
-  accessibility: ({ id, options }) => ({
+  accessibility: ({ id, model }) => ({
     id,
     role: 'status',
-    label: options.label
+    label: model.label
   })
 });
 
@@ -72,12 +73,16 @@ import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
 
 const stack = defineComponent({
   name: 'example-app/components/stack',
+  identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
-  measure: ({ childCount, measureChild }) => {
+  slots: {
+    content: { cardinality: 'many', owner: 'caller', messages: 'bubble' }
+  },
+  measure: ({ slots }) => {
     const children = Array.from(
-      { length: childCount },
-      (_unused, index) => measureChild(index)
+      { length: slots.count('content') },
+      (_unused, index) => slots.measure('content', index)
     );
     return {
       minWidth: Math.max(0, ...children.map((child) => child.minWidth)),
@@ -86,18 +91,20 @@ const stack = defineComponent({
       preferredHeight: children.reduce((sum, child) => sum + child.preferredHeight, 0)
     };
   },
-  layout: ({ bounds, childCount }) => Array.from(
-    { length: childCount },
-    (_unused, index) => {
-      const offset = Math.min(index, bounds.height);
-      return {
-        row: bounds.row + offset,
-        column: bounds.column,
-        width: bounds.width,
-        height: index < bounds.height ? 1 : 0
-      };
-    }
-  ),
+  layout: ({ bounds, slots }) => ({
+    content: Array.from(
+      { length: slots.count('content') },
+      (_unused, index) => {
+        const offset = Math.min(index, bounds.height);
+        return {
+          row: offset,
+          column: 0,
+          width: bounds.width,
+          height: index < bounds.height ? 1 : 0
+        };
+      }
+    )
+  }),
   accessibility: ({ id, children }) => ({
     id,
     role: 'group',
@@ -108,7 +115,7 @@ const stack = defineComponent({
 ```
 
 Child rectangles must stay inside the allocated component rectangle. Use
-`overlay()`, `anchored()`, `dialog()`, or another layout primitive for content
+`overlay()`, `anchored()`, `portal()`, or another layout primitive for content
 that intentionally escapes normal flow. That authority belongs to layout, not
 to application components.
 
@@ -121,8 +128,9 @@ is published. The target cannot read frames, emit terminal commands, inspect
 private nodes, or move its allocation.
 
 Use `canvas()` instead when you only need bounded drawing through `Canvas2D`.
-Canvas coordinates are local and zero-based; `RenderTarget` coordinates are
-absolute terminal cells supplied through `bounds`.
+Canvas and `RenderTarget` coordinates are local and zero-based. The runtime
+translates them into the component allocation, clips them to active viewports,
+and validates styles and source metadata before publication.
 
 Measurement runs before viewport resolution. It receives constraints, theme,
 the text-width profile, and child measurements, but not `viewport`. Layout,
@@ -144,6 +152,11 @@ behavior in terms of one reusable action type. Each instance supplies
 `ignoreMessage()` from the same `/component` entrypoint when an action is
 intentionally ignored; returning `undefined` is rejected.
 
+A pointer declaration without `state` always emits its declared pointer
+actions. When `state` is provided, returning `undefined` disables that optional
+controlled channel for the instance; returning a pointer state enables the
+hover and press lifecycle on its clickable targets.
+
 Shared state uses independent boolean capabilities rather than one overloaded
 status value:
 
@@ -156,10 +169,17 @@ Disabled, busy, and read-only state is added to accessibility output by the
 framework. Definition hooks should not duplicate it. Decorative definitions
 cannot accept state or actions.
 
-Component-specific options are top-level instance fields. A definition with
-custom options supplies `decodeOptions()`, which is the runtime boundary for
-JavaScript and other dynamic callers. It should reject unknown fields and
-return the canonical options consumed by every hook.
+Component-specific inputs are top-level instance fields. A definition declares
+their exact names with `optionFields` and supplies `prepare()`, which is the
+single runtime boundary for JavaScript and other dynamic callers. Unknown
+fields are rejected before preparation. The hook validates and normalizes once,
+then returns the immutable model consumed by every later phase.
+
+TypeScript erases interface keys at runtime, so `optionFields` is the minimal
+runtime key set used for exact decoding. Its mapped type requires every
+`TOptions` key and rejects extra keys in object literals; the `null` values carry
+no data. `prepare()` validates values and cross-field rules, not the field list
+again.
 
 Focus targets and hit targets use stable IDs and bounded rectangles. A hit
 target that should transfer keyboard focus names one of the component's focus

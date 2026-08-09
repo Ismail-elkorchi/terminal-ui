@@ -1,31 +1,14 @@
 import type { AccessibleNode } from '../../../../accessibility/index.ts';
-import type { RenderNode, RenderNodesOfKind } from '../../../model/index.ts';
+import type { RenderNode } from '../../../model/index.ts';
 import type { CursorPosition } from '../../../contracts.ts';
 import type { FrameCell } from '../../frame.ts';
 import type { Rect } from '../../../contracts.ts';
-import type { FocusTarget, HitTarget } from '../../../contracts.ts';
-import { ignoreMessage } from '../../../../interaction/message.ts';
+import type { FocusTarget } from '../../../contracts.ts';
 
 export function hasKeyboardOrInputMap(renderNode: RenderNode): boolean {
   return (renderNode.keyMap !== undefined && Object.keys(renderNode.keyMap).length > 0)
     || renderNode.inputMap?.text !== undefined
     || renderNode.inputMap?.paste !== undefined;
-}
-
-export function focusHitTargets<TMessage>(
-  renderNode: RenderNodesOfKind<TMessage, 'textInput' | 'passwordInput'>,
-  bounds: Rect,
-  suffix: string
-): readonly HitTarget<TMessage>[] {
-  if (bounds.width <= 0 || bounds.height <= 0) return [];
-  if (renderNode.focus?.disabled === true) return [];
-  return [{
-    id: `${renderNode.id ?? renderNode.kind}:${suffix}`,
-    bounds,
-    focus: { kind: 'target', targetId: 'self' },
-    message: ignoreMessage,
-    cursor: 'pointer'
-  }];
 }
 
 export function groupAccessibleNode(id: string, focused: boolean): AccessibleNode {

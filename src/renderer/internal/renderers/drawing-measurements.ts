@@ -1,26 +1,28 @@
 import { finiteNonNegativeIntegerOrZero } from '../../../foundation/validation.ts';
-import { dividerPreferredSize } from '../divider.ts';
 import {
   combineMeasurementsOverlay,
   measurement,
   measureSize
 } from '../measurement.ts';
-import { layoutInsetSize } from '../layout-geometry.ts';
+import { layoutInsetSize } from '../../../geometry/layout.ts';
 import { numberProp } from '../render-node-props.ts';
-import { tooltipPreferredSize } from '../tooltip.ts';
 import { surfaceBorderForLayout } from '../surface.ts';
 import { childMeasurements } from './measurement-support.ts';
-import type { RendererMeasurementMap } from './types.ts';
+import { measureTextCells } from '../../../text/index.ts';
+import { borderTitleAccessibleText } from '../../../visual/border.ts';
+import type { StructuralMeasurementMap } from './types.ts';
 
 export const drawingMeasurements = {
-  canvas: ({ renderNode }) => renderNode.props.measurement,
-  surface: ({ renderNode, childCount, measureChild }) => {
+  surface: ({ renderNode, childCount, measureChild, widthProfile }) => {
     const content = combineMeasurementsOverlay(childMeasurements(childCount, measureChild));
     const border = surfaceBorderForLayout(renderNode);
     const insetCells = border === undefined || border.kind === 'none' ? 0 : 2;
     const padding = layoutInsetSize(renderNode.props.padding);
     const margin = layoutInsetSize(renderNode.props.margin);
     const shadow = renderNode.props.shadow === true ? 1 : 0;
+    const titleWidth = border === undefined || border.kind === 'none'
+      ? 0
+      : measureTextCells(borderTitleAccessibleText(renderNode.props.title), { widthProfile }).cells + 4;
     const minWidth = Math.max(
       content.minWidth + padding.width + insetCells + shadow,
       finiteNonNegativeIntegerOrZero(renderNode.props.minWidth)
@@ -40,7 +42,8 @@ export const drawingMeasurements = {
       minHeight: minHeight + margin.height,
       preferredWidth: Math.max(
         minWidth,
-        content.preferredWidth + padding.width + insetCells + shadow
+        content.preferredWidth + padding.width + insetCells + shadow,
+        titleWidth + shadow
       ) + margin.width,
       preferredHeight: Math.max(
         minHeight,
@@ -57,15 +60,8 @@ export const drawingMeasurements = {
     return measureSize(width || content.preferredWidth, height || content.preferredHeight);
   },
   anchored: ({ measureChild }) => measureChild(0),
+  portal: () => measureSize(0, 0),
   overlay: ({ childCount, measureChild }) => combineMeasurementsOverlay(
     childMeasurements(childCount, measureChild)
   ),
-  divider: ({ renderNode, widthProfile }) => {
-    const preferred = dividerPreferredSize(renderNode, widthProfile);
-    return measureSize(preferred.width, preferred.height);
-  },
-  tooltip: ({ renderNode, widthProfile }) => {
-    const preferred = tooltipPreferredSize(renderNode, widthProfile);
-    return measureSize(preferred.width, preferred.height);
-  }
-} satisfies RendererMeasurementMap<'canvas' | 'surface' | 'absolute' | 'anchored' | 'overlay' | 'divider' | 'tooltip'>;
+} satisfies StructuralMeasurementMap<'surface' | 'absolute' | 'anchored' | 'portal' | 'overlay'>;

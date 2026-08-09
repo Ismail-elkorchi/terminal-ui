@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
   button,
@@ -81,8 +82,8 @@ test('rich text projects symbol mode and accessible text while the renderer prod
     unicode.cells.find((cell) => cell.text === '→')?.source,
     {
       elementId: 'inline',
-      elementKind: 'richText',
-      rendererFamily: 'text',
+      elementKind: 'terminal-ui/components/rich-text',
+      rendererFamily: 'component',
       cellRole: 'text',
       partName: 'segment',
       itemIndex: 1,
@@ -98,7 +99,7 @@ test('inline adornments use component part styles and source anatomy', () => {
     renderElementFrame(button({
       id: 'save',
       label: 'Save',
-      onPress: () => undefined,
+      onAction: () => ignoreMessage(),
       leading: [symbol],
       trailing: [{ kind: 'text', text: 'S' }],
       meta: {
@@ -121,7 +122,7 @@ test('inline adornments use component part styles and source anatomy', () => {
     renderElementFrame(tabs({
       id: 'views',
       selected: 'main',
-      tabs: [{ id: 'main', label: 'Main', leading: [symbol], panel: text('Panel') }],
+      tabs: [{ id: 'main', label: 'Main', leading: [symbol], panel: text({ content: 'Panel' }) }],
       onAction: (action) => action,
       meta: {
         focus: { disabled: true },
@@ -172,6 +173,6 @@ test('table inline cell content preserves caller style while replacing injected 
 
   assert.equal(cell?.style?.fg?.token, 'status.success');
   assert.equal(cell?.source?.elementId, 'results');
-  assert.equal(cell?.source?.elementKind, 'table');
+  assert.equal(cell?.source?.elementKind, 'terminal-ui/components/table');
   assert.equal(cell?.source?.partName, 'row.one.cell.0');
 });

@@ -34,6 +34,16 @@ export type TextEntryStylePart =
   | 'error';
 export type TextAreaStylePart = TextEntryStylePart |
   'gutter' | 'lineNumber' | 'activeLine' | 'highlight' | 'scrollbar';
+export type LogViewerStylePart =
+  | 'body'
+  | 'timestamp'
+  | 'metadata'
+  | 'separator'
+  | 'marker'
+  | 'empty'
+  | 'selection'
+  | 'highlight'
+  | 'scrollbar';
 export type NumberInputStylePart = TextEntryStylePart | 'stepper';
 export type FormGroupStylePart = 'title' | 'label' | 'description' | 'error';
 export type ButtonStylePart = 'frame' | 'marker' | 'leading' | 'label' | 'trailing';
@@ -87,7 +97,10 @@ export type SplitPaneStylePart = 'divider' | 'dividerActive';
 export type TabsStylePart = 'leading' | 'label' | 'indicator' | 'badge' | 'close' | 'overflow';
 export type DialogStylePart = 'background' | 'border' | 'title' | 'actionSeparator';
 export type CommandInputStylePart =
-  | TextEntryStylePart
+  | 'value'
+  | 'placeholder'
+  | 'selection'
+  | 'cursor'
   | 'prompt'
   | 'completion'
   | 'suggestion'

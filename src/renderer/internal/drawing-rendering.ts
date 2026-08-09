@@ -1,44 +1,12 @@
-import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import type { Rect } from '../contracts.ts';
-import type { RenderNodeRenderInput } from '../model/renderer.ts';
-import { createClippedCanvas2D } from './canvas2d/canvas2d.ts';
-import { layoutBoxBounds, layoutPaddingBounds } from './layout-geometry.ts';
+import { layoutBoxBounds, layoutPaddingBounds } from '../../geometry/layout.ts';
 import { layoutFlowOptions } from './renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
-import { resolveRenderNodeStyle } from '../style-resolution.ts';
-import { renderNodeFrameSource } from '../../visual/source.ts';
-import { createScopedRenderTarget } from './scoped-render-target.ts';
-
-type CanvasNode = RenderNodeOfKind<unknown, 'canvas'>;
 type SurfaceNode = RenderNodeOfKind<unknown, 'surface'>;
 type AbsoluteNode = RenderNodeOfKind<unknown, 'absolute'>;
 type OverlayNode = RenderNodeOfKind<unknown, 'overlay'>;
-
-export function renderCanvas(input: RenderNodeRenderInput<unknown, 'canvas'>): void {
-  const owner = {
-    ...(input.renderNode.id === undefined ? {} : { id: input.renderNode.id }),
-    name: input.renderNode.kind,
-    rendererFamily: 'canvas'
-  };
-  input.renderNode.props.painter({
-    canvas: createClippedCanvas2D(createScopedRenderTarget(
-      input.buffer,
-      input.layoutNode.bounds,
-      input.layoutNode.viewport,
-      owner
-    ), input.layoutNode.bounds),
-    bounds: input.layoutNode.bounds,
-    theme: input.theme,
-    style: (styleInput) => resolveRenderNodeStyle(input.renderNode, styleInput),
-    source: (sourceInput = {}) => renderNodeFrameSource(input.renderNode, {
-      rendererFamily: 'canvas',
-      cellRole: 'content',
-      ...sourceInput
-    })
-  });
-}
 
 export function surfaceChildBounds(renderNode: SurfaceNode, bounds: Rect): readonly Rect[] {
   const contentBounds = layoutPaddingBounds(
@@ -71,16 +39,6 @@ export function absoluteChildBounds(renderNode: AbsoluteNode, bounds: Rect): rea
 
 export function overlayChildBounds(renderNode: OverlayNode, bounds: Rect): readonly Rect[] {
   return (renderNode.children ?? []).map(() => bounds);
-}
-
-export function canvasAccessibleBase(renderNode: CanvasNode, id: string, focused: boolean): AccessibleNode {
-  return {
-    id,
-    role: 'image',
-    label: stringify(renderNode.props.label) || id,
-    scope: { kind: 'document' },
-    ...(focused ? { focused } : {})
-  };
 }
 
 export function surfaceAccessibleBase(id: string, focused: boolean): AccessibleNode {

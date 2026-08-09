@@ -283,11 +283,7 @@ test('searchPicker emits compact controlled actions while acceptance remains cal
       id: 'commands',
       query: '',
       searchPickerIndex: index,
-      onAction: (action) => ({ kind: 'action', action }),
-      keys: {
-        enter: () => ({ kind: 'accept' }),
-        escape: () => ({ kind: 'close' })
-      }
+      onAction: (action) => ({ kind: 'action', action })
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
@@ -305,7 +301,6 @@ test('searchPicker emits compact controlled actions while acceptance remains cal
     { kind: 'action', action: { kind: 'insertQuery', text: 'pen' } },
     { kind: 'action', action: { kind: 'deleteQueryBackward' } },
     { kind: 'action', action: { kind: 'moveSelection', delta: 1 } },
-    { kind: 'accept' },
-    { kind: 'close' }
+    { kind: 'action', action: { kind: 'activate', entry: entries[0] } }
   ]);
 });

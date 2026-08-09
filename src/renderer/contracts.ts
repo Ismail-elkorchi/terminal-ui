@@ -74,6 +74,8 @@ export interface RenderTarget {
 export interface RenderStyleInput<TPart extends string> {
   readonly part: 'root' | TPart;
   readonly state?: ElementVisualState;
+  /** Omits the framework's generic state style while retaining caller state overrides. */
+  readonly defaultState?: boolean;
   readonly base?: TerminalStyle;
 }
 
@@ -139,64 +141,18 @@ export interface CanvasPainterInput {
 export type CanvasPainter = (input: CanvasPainterInput) => void;
 
 export type RenderNodeKind =
-  | 'text'
-  | 'richText'
-  | 'disclosure'
   | 'column'
   | 'row'
   | 'flow'
   | 'anchored'
+  | 'portal'
   | 'measuredColumn'
-  | 'list'
-  | 'table'
-  | 'tree'
-  | 'paginator'
-  | 'textArea'
-  | 'form'
-  | 'field'
-  | 'label'
-  | 'button'
-  | 'checkbox'
-  | 'toggleSwitch'
-  | 'slider'
-  | 'rangeSlider'
-  | 'checkboxGroup'
-  | 'colorSwatchPicker'
-  | 'calendar'
-  | 'radioGroup'
-  | 'select'
-  | 'textInput'
-  | 'passwordInput'
-  | 'numberInput'
-  | 'menu'
-  | 'menuBar'
-  | 'contextMenu'
-  | 'dropdownMenu'
-  | 'divider'
-  | 'tooltip'
-  | 'notificationRegion'
-  | 'notificationHistory'
-  | 'canvas'
   | 'surface'
   | 'absolute'
   | 'overlay'
-  | 'statusBar'
-  | 'helpBar'
-  | 'activityIndicator'
-  | 'progressBar'
-  | 'sparkline'
-  | 'barChart'
-  | 'chart'
-  | 'meter'
-  | 'heatmap'
   | 'viewport'
-  | 'logViewer'
-  | 'commandInput'
-  | 'searchPicker'
   | 'grid'
   | 'splitPane'
-  | 'tabs'
-  | 'dialog'
   | 'component';
 
 export interface Layer {

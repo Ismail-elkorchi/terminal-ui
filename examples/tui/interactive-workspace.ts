@@ -281,7 +281,7 @@ function workspaceView(state: WorkspaceState) {
     gap: 1
   });
   const base = column([
-    surface(text('Interactive Workspace', { textRole: 'title' }), {
+    surface(text({ content: 'Interactive Workspace', textRole: 'title' }), {
       id: 'workspace-header',
       appearance: 'bar',
       padding: { left: 1, right: 1 }
@@ -346,16 +346,13 @@ function issuesPanel(state: WorkspaceState) {
 }
 
 function activityPanel(state: WorkspaceState) {
-  return surface(column(state.activity.map((entry, index) => text(
-    `${String(index + 1).padStart(2, '0')} ${entry}`,
-    { id: `activity-${String(index)}` }
-  ))), { id: 'activity-panel', appearance: 'neutral', padding: 1 });
+  return surface(column(state.activity.map((entry, index) => text({ content: `${String(index + 1).padStart(2, '0')} ${entry}`, id: `activity-${String(index)}` }))), { id: 'activity-panel', appearance: 'neutral', padding: 1 });
 }
 
 function notesPanel() {
   return surface(column([
-    text('This hand-written app composes controlled generic components.'),
-    text('Commands: /palette, /issues, /activity, /notes, /resolve.')
+    text({ content: 'This hand-written app composes controlled generic components.' }),
+    text({ content: 'Commands: /palette, /issues, /activity, /notes, /resolve.' })
   ], { gap: 1 }), { id: 'notes-panel', appearance: 'neutral', padding: 1 });
 }
 
@@ -363,15 +360,13 @@ function inspectorPane(state: WorkspaceState) {
   const ticket = selectedTicket(state);
   return surface(column([
     column([
-      text(ticket.title, { textRole: 'heading' }),
-      text(`${ticket.id} · ${state.resolved.has(ticket.id) ? 'resolved' : ticket.status}`, {
-        textRole: 'metadata'
-      }),
-      text(`Owner     ${ticket.owner}`),
-      text(`Queue     ${ticket.queue}`),
-      text(`Severity  ${ticket.severity}`)
+      text({ content: ticket.title, textRole: 'heading' }),
+      text({ content: `${ticket.id} · ${state.resolved.has(ticket.id) ? 'resolved' : ticket.status}`, textRole: 'metadata' }),
+      text({ content: `Owner     ${ticket.owner}` }),
+      text({ content: `Queue     ${ticket.queue}` }),
+      text({ content: `Severity  ${ticket.severity}` })
     ], { id: 'ticket-inspector', gap: 1 }),
-    button({ id: 'resolve-button', label: 'Resolve selected', tone: 'primary', onPress: (): WorkspaceMessage => ({ kind: 'resolve' }) })
+    button({ id: 'resolve-button', label: 'Resolve selected', tone: 'primary', onAction: (): WorkspaceMessage => ({ kind: 'resolve' }) })
   ], { gap: 1 }), {
     id: 'workspace-inspector',
     appearance: 'inset',
@@ -392,12 +387,7 @@ function workspaceStatus(state: WorkspaceState) {
 function commandPane(state: WorkspaceState) {
   const presentation = commandInputPresentation(state.command);
   const showSuggestions = state.command.input.text.length > 0;
-  return surface(commandInput<
-    WorkspaceMessage,
-    WorkspaceMessage,
-    never,
-    { readonly escape: () => WorkspaceMessage }
-  >({
+  return surface(commandInput({
     id: 'workspace-command',
     prompt: '› ',
     placeholder: 'Type /command',
@@ -405,9 +395,9 @@ function commandPane(state: WorkspaceState) {
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 6,
-    onAction: (action): WorkspaceMessage => ({ kind: 'command', action }),
-    onSubmit: (value): WorkspaceMessage => ({ kind: 'submit', value }),
-    keys: { escape: (): WorkspaceMessage => ({ kind: 'command', action: { kind: 'setValue', value: '' } }) }
+    onAction: (action): WorkspaceMessage => action.kind === 'submit'
+      ? { kind: 'submit', value: action.value }
+      : { kind: 'command', action }
   }), {
     id: 'workspace-command-surface',
     appearance: 'bar',
@@ -416,23 +406,18 @@ function commandPane(state: WorkspaceState) {
 }
 
 function searchPickerLayer(state: WorkspaceState) {
-  return dialog(searchPicker<
-    string,
-    WorkspaceMessage,
-    never,
-    { readonly escape: () => WorkspaceMessage }
-  >({
-    id: 'workspace-search-picker',
-    searchPickerIndex: workspaceSearchPickerIndex,
-    query: state.searchPicker.query,
-    ...(state.searchPicker.selectedId === undefined
-      ? {}
-      : { selectedId: state.searchPicker.selectedId }),
-    onAction: (action): WorkspaceMessage => ({ kind: 'searchPicker', action }),
-    keys: {
-      escape: (): WorkspaceMessage => ({ kind: 'closeSearchPicker' })
-    }
-  }), {
+  return dialog({
+    slots: {
+      content: searchPicker({
+        id: 'workspace-search-picker',
+        searchPickerIndex: workspaceSearchPickerIndex,
+        query: state.searchPicker.query,
+        ...(state.searchPicker.selectedId === undefined
+          ? {}
+          : { selectedId: state.searchPicker.selectedId }),
+        onAction: (action): WorkspaceMessage => ({ kind: 'searchPicker', action })
+      })
+    },
     id: 'workspace-search-picker-dialog',
     title: 'Commands',
     modal: true,
@@ -442,9 +427,9 @@ function searchPickerLayer(state: WorkspaceState) {
     },
     dismissal: {
       escape: true,
-      outsidePress: true,
-      onDismiss: (): WorkspaceMessage => ({ kind: 'closeSearchPicker' })
+      outsidePress: true
     },
+    onAction: (): WorkspaceMessage => ({ kind: 'closeSearchPicker' }),
     padding: { left: 1, right: 1 },
     margin: 2,
     maxWidth: 72,

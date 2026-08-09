@@ -1,4 +1,4 @@
-import { defineComponent } from '../../dist/components/index.js';
+import { defineComponent, ignoreMessage, span } from '../../dist/component/index.js';
 
 const unitMeasurement = Object.freeze({
   minWidth: 0,
@@ -9,17 +9,28 @@ const unitMeasurement = Object.freeze({
 
 export const leafComponentDefinition = Object.freeze({
   structure: 'leaf',
+  identity: 'required',
   name: 'terminal-ui-tests/components/testLeaf',
   parts: Object.freeze([]),
-  decodeOptions: (value) => value,
+  optionFields: { label: null },
+  prepare: (value) => value,
   measure: () => unitMeasurement
 });
 
 export const compositeComponentDefinition = Object.freeze({
   structure: 'composite',
+  identity: 'required',
   name: 'terminal-ui-tests/components/testComposite',
   parts: Object.freeze([]),
-  decodeOptions: (value) => value,
+  slots: Object.freeze({
+    content: Object.freeze({
+      cardinality: 'many',
+      owner: 'caller',
+      messages: 'bubble'
+    })
+  }),
+  optionFields: { label: null },
+  prepare: (value) => value,
   measure: ({ childCount, measureChild }) => {
     const children = Array.from({ length: childCount }, (_unused, index) =>
       measureChild(index)
@@ -39,10 +50,26 @@ export const compositeComponentDefinition = Object.freeze({
   }
 });
 
-export function componentElement({ definition, ...options }) {
+export function componentElement({ definition, children, ...options }) {
+  const reserved = new Set([
+    'id', 'children', 'slots', 'disabled', 'busy', 'readOnly', 'inert', 'onAction', 'meta',
+    'keys', 'onInput', 'onPaste', 'pointer'
+  ]);
+  const optionFields = Object.fromEntries([...new Set([
+    ...Object.keys(definition.optionFields ?? {}),
+    ...Object.keys(options).filter((field) => !reserved.has(field))
+  ])].map((field) => [field, null]));
   const normalized = {
     semantics: 'semantic',
-    ...definition
+    ...definition,
+    optionFields,
+    ...(definition.structure === 'composite'
+      ? {
+          layout: (input) => ({
+            content: definition.layout.call(undefined, input)
+          })
+        }
+      : {})
   };
   const emitsActions = normalized.hitTargets !== undefined
     || normalized.keys !== undefined
@@ -51,6 +78,56 @@ export function componentElement({ definition, ...options }) {
     || normalized.pointer !== undefined;
   return defineComponent(normalized)({
     ...options,
+    ...(definition.structure === 'composite'
+      ? { slots: { content: children ?? [] } }
+      : {}),
     ...(emitsActions ? { onAction: (action) => action } : {})
+  });
+}
+
+export function testKeyInput(options) {
+  const definition = defineComponent({
+    name: 'terminal-ui-tests/components/key-input',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    optionFields: { value: null },
+    metadata: ['focus', 'layer', 'styles'],
+    prepare(value) {
+      if (typeof value !== 'object' || value === null || typeof value.value !== 'string') {
+        throw new TypeError('test key input value must be a string.');
+      }
+      return { value: value.value };
+    },
+    measure: ({ model }) => ({
+      minWidth: 1,
+      minHeight: 1,
+      preferredWidth: Math.max(1, model.value.length),
+      preferredHeight: 1
+    }),
+    render: ({ target, model }) => target.write(0, 0, [span(model.value)]),
+    keys: () => options.keys ?? {},
+    onInput: ({ text }) => options.onAction?.({
+      kind: 'edit',
+      operation: { kind: 'insert', text }
+    }) ?? ignoreMessage(),
+    onPaste: ({ text }) => options.onAction?.({
+      kind: 'edit',
+      operation: { kind: 'insert', text }
+    }) ?? ignoreMessage(),
+    focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+    accessibility: ({ id, model, focused }) => ({
+      id,
+      role: 'textbox',
+      label: id,
+      value: model.value,
+      ...(focused ? { focused: true } : {})
+    })
+  });
+  return definition({
+    id: options.id,
+    value: options.presentation?.value ?? '',
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+    onAction: (action) => action ?? ignoreMessage()
   });
 }

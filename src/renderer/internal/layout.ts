@@ -21,6 +21,7 @@ import {
 import type { RenderMeasurementContext } from './render-node-behavior.ts';
 import { cellInsideRect, intersectRects } from './rect.ts';
 import { markPaintOrderedFocusChildren } from './focus.ts';
+import { markTransparentFocusLayout } from './focus-identity.ts';
 import { renderNodeFactoryName } from '../model/node.ts';
 
 export function layoutElement(
@@ -59,13 +60,22 @@ function layoutNode(
   parentIdentity: readonly string[],
   ancestorInert: boolean
 ): LayoutNode {
+  const children = renderNode.children ?? [];
+  const measureChild = (index: number): import('../contracts.ts').Measurement => {
+    const child = children[index];
+    return child === undefined
+      ? { minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }
+      : measurements.measure(child, bounds);
+  };
   const placedBounds = placeRenderNode(
     renderNode,
     bounds,
     viewport,
     theme,
     widthProfile,
-    () => measurements.measure(renderNode, bounds)
+    () => measurements.measure(renderNode, bounds),
+    children.length,
+    measureChild
   );
   const visible = renderNode.layer?.visible !== false;
   const zIndex = parentZIndex + zIndexForRenderNode(renderNode);
@@ -92,9 +102,12 @@ function layoutNode(
       focusTargets: [],
       children: []
     };
-    return renderNode.kind === 'overlay'
-      ? markPaintOrderedFocusChildren(layout)
+    const identified = renderNode.transparentFocusIdentity === true
+      ? markTransparentFocusLayout(layout)
       : layout;
+    return renderNode.kind === 'overlay'
+      ? markPaintOrderedFocusChildren(identified)
+      : identified;
   }
   const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements);
   const focusTargets = (inert
@@ -143,9 +156,12 @@ function layoutNode(
         inert
       ))
   };
-  return renderNode.kind === 'overlay'
-    ? markPaintOrderedFocusChildren(layout)
+  const identified = renderNode.transparentFocusIdentity === true
+    ? markTransparentFocusLayout(layout)
     : layout;
+  return renderNode.kind === 'overlay'
+    ? markPaintOrderedFocusChildren(identified)
+    : identified;
 }
 
 function boundsForChildren(

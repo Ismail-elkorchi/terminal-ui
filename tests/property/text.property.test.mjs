@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
   createTuiRuntime,
@@ -96,7 +97,7 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
       textInput({
         id: 'first',
         presentation: { value: state.active, cursor: 0 },
-        onSubmit: () => ({ kind: 'first' })
+        onAction: (action) => action.kind === 'submit' ? { kind: 'first' } : ignoreMessage()
       }),
       textInput({
         id: 'disabled',
@@ -106,7 +107,7 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
       textInput({
         id: 'second',
         presentation: { value: state.active, cursor: 0 },
-        onSubmit: () => ({ kind: 'second' })
+        onAction: (action) => action.kind === 'submit' ? { kind: 'second' } : ignoreMessage()
       })
     ], { id: 'focus-root' })
   });

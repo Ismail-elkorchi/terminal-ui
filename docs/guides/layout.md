@@ -23,7 +23,7 @@ scroll or resize action that changes geometry.
 | `anchored()` | One child placed from a cursor or target anchor with fallback sides. | Popover lifecycle, focus policy, or open state. |
 | `viewport()` | Clipping and caller-controlled offsets over a self-measured child. | A semantic list, table, editor, or transcript component. |
 
-Interactive `tabs()` and `dialog()` surfaces are components. Their renderers
+Interactive `tabs()` and `dialog()` surfaces are components. Their definitions
 participate in ordinary layout, but `tabs()` owns selection actions and the
 tablist/tab/tabpanel accessibility relationships. `dialog()` owns dialog
 semantics, dismissal, modal focus containment, initial focus, and focus
@@ -33,9 +33,9 @@ component API.
 `inspectElement()` reports `layout` as the factory category for every entry in
 the table and `component` for `tabs()` and `dialog()`. It also reports the
 stable factory name, input capabilities, metadata, and public child structure.
-The category records which public API created the element, while `origin`
-distinguishes built-ins from package-defined components. Neither exposes the
-private node kind or renderer data.
+The category records which public API created the element. Component names are
+diagnostic identifiers and never select renderer behavior. Inspection exposes
+neither package origin nor private node data.
 
 Layout options include gap, padding, margin, fixed/percent/fill/content sizing,
 min/max dimensions, alignment, justification, overflow, z-index, visibility,

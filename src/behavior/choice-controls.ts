@@ -135,6 +135,7 @@ export function selectReducer<TValue>(
     case 'scroll': return normalized.kind === 'open' && normalized.scroll !== undefined
       ? { ...normalized, scroll: applyScrollEvent(normalized.scroll, action.event) }
       : normalized;
+    case 'pointer': return normalized;
   }
 }
 

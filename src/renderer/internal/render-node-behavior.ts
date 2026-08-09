@@ -1,10 +1,11 @@
 import type { ElementFocusScope } from '../../element/metadata.ts';
-import { builtinRenderNodeRenderers } from './renderers/index.ts';
+import { structuralNodeRenderers } from './renderers/index.ts';
 import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
 import {
   renderNodeFactoryName,
   renderNodeFocusUnavailable,
-  renderNodeInteractionUnavailable
+  renderNodeInteractionUnavailable,
+  resolveRenderNodeMessage
 } from '../model/node.ts';
 import { pointerInteractionHitTargets } from './pointer-interaction.ts';
 import {
@@ -16,11 +17,11 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { RenderNodeLayoutTarget } from './focus.ts';
-import type { LayoutNode, Rect } from '../contracts.ts';
+import type { LayoutNode, Rect, RenderFocusRelation } from '../contracts.ts';
 import type { FocusTarget, HitTarget, Measurement } from '../contracts.ts';
 import type { RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
 import type { RenderNodeOfKind } from '../model/types.ts';
-import type { BuiltinRenderNodeKind } from './renderers/types.ts';
+import type { StructuralRenderNodeKind } from './renderers/types.ts';
 import {
   assertValidComponentHitTargets,
   normalizeComponentFocusTargets
@@ -31,13 +32,13 @@ import { scopedFrameSource } from './scoped-render-target.ts';
 
 function rendererForRenderNode<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
   if (renderNode.kind === 'component') return renderNode.definition.renderer;
-  return rendererForBuiltinRenderNode(renderNode);
+  return rendererForStructuralNode(renderNode);
 }
 
-function rendererForBuiltinRenderNode<TMessage, TKind extends BuiltinRenderNodeKind>(
+function rendererForStructuralNode<TMessage, TKind extends StructuralRenderNodeKind>(
   renderNode: RenderNodeOfKind<TMessage, TKind>
 ): RenderNodeRenderer<TMessage, TKind> {
-  return builtinRenderNodeRenderers[renderNode.kind];
+  return structuralNodeRenderers[renderNode.kind];
 }
 
 export function renderNodeClipsChildren(renderNode: RenderNode): boolean {
@@ -75,7 +76,9 @@ export function placeRenderNode(
   viewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  measurement: () => Measurement
+  measurement: () => Measurement,
+  childCount: number,
+  measureChild: (index: number) => Measurement
 ): Rect {
   return rendererForRenderNode(renderNode).place?.({
     renderNode: renderNode,
@@ -83,6 +86,8 @@ export function placeRenderNode(
     viewport,
     theme,
     measurement,
+    childCount,
+    measureChild,
     widthProfile
   }) ?? bounds;
 }
@@ -171,8 +176,10 @@ export function accessibilityForRenderNode(
   node: LayoutNode,
   id: string,
   focused: boolean,
+  focus: RenderFocusRelation,
   focusedTargetId: string | undefined,
   children: readonly AccessibleNode[],
+  accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
@@ -185,8 +192,10 @@ export function accessibilityForRenderNode(
     layoutNode: node,
     id,
     focused,
+    focus,
     ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
     children,
+    accessibleNodes,
     theme,
     widthProfile
   });
@@ -233,7 +242,13 @@ export function focusTargetsForRenderNode(
                 ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
                 name: factoryName,
                 rendererFamily: 'component'
-              }, target.cursor.source)
+              }, {
+                ...target.cursor.source,
+                cellRole: 'cursor',
+                partName: target.cursor.source?.partName ?? 'cursor',
+                partType: target.cursor.source?.partType ?? 'cursor',
+                description: target.cursor.source?.description ?? 'cursor'
+              })
             }
           })
     }));
@@ -286,7 +301,10 @@ export function hitTargetsForRenderNode<TMessage>(
     assertValidComponentHitTargets(targets, renderNode.id ?? renderNodeFactoryName(renderNode));
   }
   const interactionTargets = pointerInteractionHitTargets(renderNode, target.bounds, targets)
-    .map((hitTarget) => withoutDisabledTargetFocus(hitTarget, target.layoutNode.focusTargets));
+    .map((hitTarget) => withoutDisabledTargetFocus({
+      ...hitTarget,
+      message: (event) => resolveRenderNodeMessage(renderNode, hitTarget.message(event)) as TMessage
+    }, target.layoutNode.focusTargets));
   if (renderNode.kind === 'component' || target.layoutNode.focusTargets.length !== 1) {
     return interactionTargets;
   }

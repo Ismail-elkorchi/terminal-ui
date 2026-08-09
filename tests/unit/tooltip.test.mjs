@@ -39,7 +39,14 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   assert.match(output, /Use Enter/u);
   assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'surface.selected.border' });
   assert.deepEqual(content?.style?.fg, { kind: 'theme', token: 'text.default' });
-  assert.deepEqual(content?.source, tooltipSource('tip', 'text', 'content.0', 'content'));
+  assert.deepEqual(content?.source, {
+    elementKind: 'terminal-ui/components/text',
+    rendererFamily: 'component',
+    cellRole: 'text',
+    partName: 'role.body',
+    partType: 'text',
+    description: 'role.body'
+  });
   assert.match(noColor.plainTextFrame, /Hint/u);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   assert.equal(frame.accessibility.root.scope?.kind, 'popover');
@@ -63,18 +70,6 @@ test('tooltip visibility and anchor determine painted geometry', () => {
   assert.match(renderFramePlain(visible), /Visible/u);
   assert.equal(visible.cells.every((cell) => cell.row >= 1 && cell.row <= 6 && cell.column >= 1 && cell.column <= 20), true);
 });
-
-function tooltipSource(elementId, role, label, partType = label) {
-  return {
-    elementId,
-    elementKind: 'tooltip',
-    rendererFamily: 'drawing',
-    cellRole: role,
-    partName: label,
-    partType,
-    description: label
-  };
-}
 
 test('tooltip placement flips and clamps inside viewport', () => {
   const viewport = { row: 1, column: 1, width: 30, height: 10 };

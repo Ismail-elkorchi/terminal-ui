@@ -16,7 +16,7 @@ const drawing = canvas({
   label: 'drawing',
   measurement: { minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }
 });
-const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
+const save = button({ id: 'save', label: 'Save', onAction: () => ({ kind: 'save' } as const) });
 const rows = table({
   id: 'rows',
   rows: [{ id: 1, name: 'one' }],
@@ -24,15 +24,15 @@ const rows = table({
   columns: [{ id: 'name', value: (row) => row.name }],
   onAction: (action) => ({ kind: 'table' as const, action })
 });
-const passive: Element = text('Ready');
-const clearUnderlay = text('Clear', { meta: { layer: { underlay: 'clear' } } });
-const preserveUnderlay = text('Preserve', { meta: { layer: { underlay: 'preserve' } } });
-const inheritedBackground = text('Inherit', { meta: { layer: { underlay: 'inheritBackground' } } });
+const passive: Element = text({ content: 'Ready' });
+const clearUnderlay = text({ content: 'Clear', meta: { layer: { underlay: 'clear' } } });
+const preserveUnderlay = text({ content: 'Preserve', meta: { layer: { underlay: 'preserve' } } });
+const inheritedBackground = text({ content: 'Inherit', meta: { layer: { underlay: 'inheritBackground' } } });
 type SaveMessage = ElementMessage<typeof save>;
 const message: SaveMessage = { kind: 'save' };
 
 // @ts-expect-error interactive components require stable identity
-button({ label: 'Invalid', onPress: () => ({ kind: 'invalid' } as const) });
+button({ label: 'Invalid', onAction: () => ({ kind: 'invalid' } as const) });
 
 void rows;
 void drawing;

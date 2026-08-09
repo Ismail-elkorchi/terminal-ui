@@ -74,7 +74,7 @@ test('testing harness exposes captured output, clocks, and PTY input closure', (
     declare const pty: PtyTerminalHarness;
     pty.closeInput();
     const snapshot = renderElementSnapshot({
-      element: text('Ready'),
+      element: text({ content: 'Ready' }),
       terminalSize: { columns: 20, rows: 2 }
     });
 
@@ -102,7 +102,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
   const componentDefinitionDeclaration = await readFile(
-    new URL('../../dist/components/definition.d.ts', import.meta.url),
+    new URL('../../dist/component/definition.d.ts', import.meta.url),
     'utf8'
   );
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
@@ -167,7 +167,15 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   }
   assert.doesNotMatch(layoutDeclaration, /\bNavigationStack\b/u);
   assert.doesNotMatch(layoutDeclaration, /\b(?:Layer|LayoutNode|Rect)\b/u);
-  assert.doesNotMatch(layoutDeclaration, /\b(?:gridCellRects|splitTracks)\b/u);
+  for (const helper of [
+    'gridCellRects',
+    'layoutBoxBounds',
+    'layoutContentBounds',
+    'layoutInsetSize',
+    'splitTracks'
+  ]) {
+    assert.match(layoutDeclaration, new RegExp(`\\b${helper}\\b`, 'u'), `layout:${helper}`);
+  }
 
   for (const typeName of [
     'CommandInputAction',
@@ -231,9 +239,9 @@ test('component definitions and border title slots expose usable structural cont
   assertNoTypeDiagnostics(`
     import {
       defineComponent,
-      text,
       type ComponentInput
-    } from '@ismail-elkorchi/terminal-ui/components';
+    } from '@ismail-elkorchi/terminal-ui/component';
+    import { text } from '@ismail-elkorchi/terminal-ui/components';
     import { surface } from '@ismail-elkorchi/terminal-ui/layout';
 
     const focusTarget = ({ bounds }: ComponentInput<Record<never, never>>) => [{
@@ -241,6 +249,7 @@ test('component definitions and border title slots expose usable structural cont
     }];
     const marker = defineComponent({
       name: 'terminal-ui-tests/components/marker',
+      identity: 'required',
       structure: 'leaf',
       semantics: 'semantic',
       measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
@@ -248,7 +257,7 @@ test('component definitions and border title slots expose usable structural cont
       accessibility: ({ id, focused }) => ({ id, role: 'button', label: id, ...(focused ? { focused } : {}) }),
       focusTargets: focusTarget
     });
-    const element = surface(text('Title'), {
+    const element = surface(text({ content: 'Title' }), {
       title: { start: 'Start', center: 'Center', end: 'End' },
       border: { kind: 'single', titleAlign: 'center' }
     });
@@ -266,11 +275,12 @@ test('public renderer helpers accept component elements', () => {
 
     const panels = tabs({
       id: 'tabs',
-      tabs: [{ id: 'main', label: 'Main', panel: text('x', { id: 'x' }) }],
-      onAction: () => undefined
+      tabs: [{ id: 'main', label: 'Main', panel: text({ content: 'x', id: 'x' }) }],
+      onAction: (action) => action
     });
     const element = column([
-      dialog(panels, {
+      dialog({
+        slots: { content: panels },
         id: 'dialog',
         title: 'Example',
         modal: true,
@@ -300,11 +310,16 @@ test('component packages can use the narrow authoring entrypoint', () => {
     const ignored: IgnoredMessage = ignoreMessage();
     void ignored;
 
-    const meterComponent = defineComponent<{ readonly value: number }>({
+    const meterComponent = defineComponent<
+      { readonly value: number },
+      { readonly value: number }
+    >({
       name: 'terminal-ui-tests/components/meter',
+      identity: 'required',
       structure: 'leaf',
       semantics: 'semantic',
-      decodeOptions(value) {
+      optionFields: { value: null },
+      prepare(value) {
         if (typeof value !== 'object' || value === null || !('value' in value) || typeof value.value !== 'number') {
           throw new TypeError('meter requires a numeric value');
         }
@@ -316,14 +331,14 @@ test('component packages can use the narrow authoring entrypoint', () => {
         preferredWidth: 3,
         preferredHeight: 1
       }),
-      render({ options, bounds, target }) {
-        target.write(bounds.row, bounds.column, [{ text: String(options.value) }]);
+      render({ model, target }) {
+        target.write(0, 0, [{ text: String(model.value) }]);
       },
-      accessibility: ({ id, options }) => ({
+      accessibility: ({ id, model }) => ({
         id,
         role: 'meter',
         label: 'Usage',
-        numericValue: { current: options.value, minimum: 0, maximum: 100 }
+        numericValue: { current: model.value, minimum: 0, maximum: 100 }
       })
     });
 
@@ -334,12 +349,16 @@ test('component packages can use the narrow authoring entrypoint', () => {
     const action = button({
       id: 'activate',
       label: 'Activate',
-      onPress: (): Message => ({ kind: 'activate' })
+      onAction: (): Message => ({ kind: 'activate' })
     });
     const panelComponent = defineComponent({
       name: 'terminal-ui-tests/components/componentPanel',
+      identity: 'required',
       structure: 'composite',
       semantics: 'semantic',
+      slots: {
+        content: { cardinality: 'many', owner: 'caller', messages: 'bubble' }
+      } as const,
       measure: ({ childCount, measureChild }) => {
         const children = Array.from(
           { length: childCount },
@@ -355,10 +374,14 @@ test('component packages can use the narrow authoring entrypoint', () => {
           )
         };
       },
-      layout: ({ bounds }) => [
-        { ...bounds, height: 1 },
-        { ...bounds, row: bounds.row + 1, height: Math.max(0, bounds.height - 1) }
-      ],
+      layout: ({ bounds, slots }) => ({
+        content: Array.from({ length: slots.count('content') }, (_unused, index) => ({
+          row: index,
+          column: 0,
+          width: bounds.width,
+          height: index < bounds.height ? 1 : 0
+        }))
+      }),
       accessibility: ({ id, children }) => ({
         id,
         role: 'group',
@@ -368,7 +391,7 @@ test('component packages can use the narrow authoring entrypoint', () => {
     });
     const element = panelComponent({
       id: 'panel',
-      children: [meter(42), action] as const
+      slots: { content: [meter(42), action] as const }
     });
     const snapshot = renderElementSnapshot({
       element,
@@ -399,7 +422,7 @@ test('renderer and layout boundaries reject objects not created by element facto
   const { column } = await import('@ismail-elkorchi/terminal-ui/layout');
   const { renderElementFrame, renderFramePlain } = await import('@ismail-elkorchi/terminal-ui/renderer');
   const invalid = { kind: 'text', props: { content: 'plain object' } };
-  const element = text('valid element');
+  const element = text({ content: 'valid element' });
 
   assert.equal(Object.isFrozen(element), true);
   assert.deepEqual(Reflect.ownKeys(element), []);

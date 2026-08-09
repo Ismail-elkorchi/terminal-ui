@@ -19,7 +19,7 @@ test('TUI runtime routes mouse events to elements under the pointer', async () =
     view: (state) => button({
       id: 'mouse-field',
       label: state.clicked ? 'clicked' : 'idle',
-      onPress: () => ({ clicked: true })
+      onAction: () => ({ clicked: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -29,6 +29,7 @@ test('TUI runtime routes mouse events to elements under the pointer', async () =
   assert.deepEqual(runtime.frame().hitTargets?.[0], {
     id: 'mouse-field:control',
     bounds: { row: 1, column: 1, width: 20, height: 3 },
+    accepts: ['click'],
     focus: { kind: 'focus', path: ['mouse-field'] },
     cursor: 'pointer',
     zIndex: 0
@@ -50,7 +51,7 @@ test('TUI pointer click activates once on left release and ignores right click o
     view: (state) => button({
       id: 'pointer-field',
       label: `clicks ${state.clicks}`,
-      onPress: () => ({ clicks: 1 })
+      onAction: () => ({ clicks: 1 })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -81,11 +82,10 @@ test('built-in controls expose controlled pointer interaction without duplicate 
     view: (state) => button({
       id: 'controlled-button',
       label: 'Run',
-      onPress: () => ({ kind: 'activate' }),
-      pointer: {
-        state: state.pointer,
-        onAction: (action) => ({ kind: 'pointer', action })
-      }
+      pointerState: state.pointer,
+      onAction: (action) => action.kind === 'pointer'
+        ? ({ kind: 'pointer', action: action.action })
+        : ({ kind: 'activate' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
@@ -424,8 +424,8 @@ test('TUI pointer drag routes to the captured origin target', async () => {
 test('TUI pointer motion drops stale drag samples before routing release', async () => {
   const renderer = {
     ...leafComponentDefinition,
-    render({ options, bounds, target }) {
-      target.write(bounds.row, bounds.column, [{ text: `events ${String(options.eventCount)}` }]);
+    render({ model, target }) {
+      target.write(0, 0, [{ text: `events ${String(model.eventCount)}` }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'coalesced drag target' };
@@ -554,7 +554,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
       button({
     id: 'lower-mouse-field',
     label: 'lower',
-    onPress: () => ({ clicked: 'lower' }),
+    onAction: () => ({ clicked: 'lower' }),
     meta: {
         layer: {
             zIndex: 0
@@ -564,7 +564,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
       button({
     id: 'upper-mouse-field',
     label: 'upper',
-    onPress: () => ({ clicked: 'upper' }),
+    onAction: () => ({ clicked: 'upper' }),
     meta: {
         layer: {
             zIndex: 20
@@ -600,12 +600,12 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
       button({
         id: 'lower-overlay-field',
         label: 'lower',
-        onPress: () => ({ clicked: 'lower' })
+        onAction: () => ({ clicked: 'lower' })
       }),
       button({
         id: 'upper-overlay-field',
         label: 'upper',
-        onPress: () => ({ clicked: 'upper' })
+        onAction: () => ({ clicked: 'upper' })
       })
     ], { id: 'same-layer-overlay' })
   });

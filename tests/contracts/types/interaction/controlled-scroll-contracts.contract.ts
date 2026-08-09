@@ -48,7 +48,7 @@ const controlledEditor = textArea({
   id: 'editor',
   presentation: { document: prepareTextDocument('value'), caret: textCaretAt(0), scroll },
   scrollbar: { visible: 'auto' },
-  onAction: (action) => ({ kind: 'editor' as const, action })
+  onAction: (action: TextAreaAction) => ({ kind: 'editor' as const, action })
 });
 const controlledLog = logViewer({
   id: 'log',
@@ -75,7 +75,7 @@ searchPickerReducer(
   },
   { searchPickerIndex: numericSearchPickerIndex }
 );
-const controlledViewport = viewport(text('content'), {
+const controlledViewport = viewport(text({ content: 'content' }), {
   id: 'viewport',
   offset: { row: 0, column: 0 },
   scrollbar: { visible: 'auto' },
@@ -90,10 +90,9 @@ export type _Tree = Assert<Equal<
   MessageOf<typeof controlledTree>,
   { readonly kind: 'tree'; readonly action: TreeInteractionAction }
 >>;
-export type _Editor = Assert<Equal<
-  MessageOf<typeof controlledEditor>,
-  { readonly kind: 'editor'; readonly action: TextAreaAction }
->>;
+type EditorMessage = { readonly kind: 'editor'; readonly action: TextAreaAction };
+export type _EditorActual = Assert<MessageOf<typeof controlledEditor> extends EditorMessage ? true : false>;
+export type _EditorExpected = Assert<EditorMessage extends MessageOf<typeof controlledEditor> ? true : false>;
 export type _Log = Assert<Equal<
   MessageOf<typeof controlledLog>,
   { readonly kind: 'log'; readonly action: LogViewerAction }
@@ -121,4 +120,4 @@ logViewer({ id: 'inert-log', history: prepareLogHistory([]), scrollbar: { visibl
 // @ts-expect-error searchPicker requires one action route
 searchPicker({ id: 'inert-searchPicker', searchPickerIndex: prepareSearchPickerIndex([]), scrollbar: { visible: 'auto' } });
 // @ts-expect-error viewport scrollbar requires event routing
-viewport(text('content'), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });
+viewport(text({ content: 'content' }), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });

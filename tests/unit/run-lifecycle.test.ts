@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { textInput } from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { defineTui, runTui } from '../../dist/tui/index.js';
 
 void test('invalid run configuration is rejected before terminal mutation', async () => {
@@ -72,8 +73,9 @@ function exitOnSubmitApp(id: string) {
     view: () => textInput({
       id: `${id}-input`,
       presentation: { value: '', cursor: 0 },
-      onAction: () => ({ kind: 'exit' as const }),
-      onSubmit: () => ({ kind: 'exit' as const })
+      onAction: (action) => action.kind === 'submit'
+        ? { kind: 'exit' as const }
+        : ignoreMessage()
     })
   });
 }

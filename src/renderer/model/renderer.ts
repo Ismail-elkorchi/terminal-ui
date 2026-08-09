@@ -7,7 +7,7 @@ import type {
   RenderFocusRelation,
   RenderTarget
 } from '../contracts.ts';
-import type { RenderNodeKind, RenderNodeOfKind } from './index.ts';
+import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -46,6 +46,8 @@ export interface RenderNodePlaceInput<
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
   readonly measurement: () => Measurement;
+  readonly childCount: number;
+  readonly measureChild: (index: number) => Measurement;
   readonly widthProfile: TextWidthProfile;
 }
 
@@ -71,8 +73,11 @@ export interface RenderNodeAccessibilityInput<
   readonly layoutNode: LayoutNode;
   readonly id: string;
   readonly focused: boolean;
+  readonly focus: RenderFocusRelation;
   readonly focusedTargetId?: string;
   readonly children: readonly AccessibleNode[];
+  /** Accessible output keyed by the private render node that produced it. */
+  readonly accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
 }

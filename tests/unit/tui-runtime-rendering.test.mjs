@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { diffFrames, renderDiffAnsi, renderElementFrame, renderFrameDebug, renderFramePlain } from '../../dist/renderer/index.js';
 import { activityIndicator, canvas, list, progressBar, statusBar, table, text, textInput } from '../../dist/components/index.js';
@@ -9,7 +10,7 @@ test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const frame = renderElementFrame(textInput({
     id: 'addressed-field',
     presentation: { value: 'Go', cursor: 0 },
-    onAction: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 8, rows: 2 });
   const output = renderFrameDebug(frame);
 
@@ -21,7 +22,7 @@ test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
 });
 
 test('TUI frame rendering positions wide graphemes by terminal cells', () => {
-  const frame = renderElementFrame(text('A🙂B', { id: 'wide-text' }), { columns: 8, rows: 2 });
+  const frame = renderElementFrame(text({ content: 'A🙂B', id: 'wide-text' }), { columns: 8, rows: 2 });
   const output = renderFramePlain(frame);
   const addressed = renderFrameDebug(frame);
 
@@ -37,7 +38,7 @@ test('TUI frame rendering positions wide graphemes by terminal cells', () => {
 });
 
 test('one width profile governs nested buffers and incompatible profiles force a full redraw', () => {
-  const element = viewport(text('·🙂x', { id: 'profile-text' }), {
+  const element = viewport(text({ content: '·🙂x', id: 'profile-text' }), {
     id: 'profile-viewport'
   });
   const narrow = renderElementFrame(element, { columns: 8, rows: 1 }, {
@@ -77,7 +78,19 @@ test('TUI frame cursor follows the selected visible list item', () => {
   const addressed = renderFrameDebug(frame);
 
   assert.deepEqual(frame.focusPath, ['cursor-list']);
-  assert.deepEqual(frame.cursor, { row: 3, column: 1 });
+  assert.deepEqual(frame.cursor, {
+    row: 3,
+    column: 1,
+    source: {
+      elementId: 'cursor-list',
+      elementKind: 'terminal-ui/components/list',
+      rendererFamily: 'component',
+      cellRole: 'cursor',
+      partName: 'cursor',
+      partType: 'cursor',
+      description: 'cursor'
+    }
+  });
   assert.match(output, /  Item 6/);
   assert.equal(
     frame.cells.find((cell) => cell.text === 'I' && cell.row === 3)?.style?.bg?.token,
@@ -117,11 +130,11 @@ test('TUI status, progress, and activity components render accessible status sta
 });
 
 test('renderDiffAnsi serializes clear, write, and structural cursor state', () => {
-  const previous = renderElementFrame(text('Longer text', { id: 'before' }), { columns: 16, rows: 2 });
+  const previous = renderElementFrame(text({ content: 'Longer text', id: 'before' }), { columns: 16, rows: 2 });
   const next = renderElementFrame(textInput({
     id: 'after',
     presentation: { value: 'Go', cursor: 0 },
-    onAction: () => undefined
+    onAction: () => ignoreMessage()
   }), { columns: 16, rows: 2 });
   const diff = diffFrames(previous, next);
   const output = renderDiffAnsi(diff);
@@ -156,7 +169,7 @@ test('TUI rendering windows large list and table components to visible height', 
 
 test('viewport layouts render a clipped scrolled window into child content', () => {
   const frame = renderElementFrame(viewport(
-    text('xxrow-0x\nxxrow-1x\nxxrow-2x\nxxrow-3x', { id: 'viewport-text' }),
+    text({ content: 'xxrow-0x\nxxrow-1x\nxxrow-2x\nxxrow-3x', id: 'viewport-text' }),
     {
       id: 'viewport',
       offset: { row: 1, column: 2 }
@@ -176,10 +189,10 @@ test('viewport layouts render a clipped scrolled window into child content', () 
 test('viewport layouts keep offscreen content from leaking into neighboring layout', () => {
   const frame = renderElementFrame(row([
     viewport(
-      text('left-0\nleft-1\nleft-2', { id: 'left-content' }),
+      text({ content: 'left-0\nleft-1\nleft-2', id: 'left-content' }),
       { id: 'left-window', offset: { row: 2 } }
     ),
-    text('right', { id: 'right-content' })
+    text({ content: 'right', id: 'right-content' })
   ]), { columns: 12, rows: 1 });
   const output = renderFramePlain(frame);
 
@@ -189,7 +202,7 @@ test('viewport layouts keep offscreen content from leaking into neighboring layo
 
 test('viewport layouts clamp offsets from measured child content', () => {
   const frame = renderElementFrame(viewport(
-    text('visible child', { id: 'measured-content' }),
+    text({ content: 'visible child', id: 'measured-content' }),
     { id: 'measured-window', offset: { row: 99, column: 99 } }
   ), { columns: 5, rows: 3 });
   const output = renderFramePlain(frame);

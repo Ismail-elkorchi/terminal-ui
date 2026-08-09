@@ -64,8 +64,9 @@ function decoratePointerTarget<TMessage>(
     ...target,
     accepts: mergeKinds(accepted, interactionKinds),
     message: (event) => {
+      if (event.kind === 'click') return target.message(event);
       const interaction = pointerAction(event, target.id, toActionMessage);
-      return isIgnoredMessage(interaction) ? target.message(event) : interaction;
+      return isIgnoredMessage(interaction) ? ignoreMessage() : interaction;
     }
   };
 }

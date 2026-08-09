@@ -28,10 +28,12 @@ The pattern is:
 
 ## State and renderer input
 
-Reducer state is application data stored by the caller. Component options stay
-as direct fields when a few values are independent. A component uses a grouped
-`state` object when several fields must describe one valid combination.
-`presentation` is reserved for normalized data already shaped for rendering.
+Reducer state is application data stored by the caller. Component inputs stay
+as direct fields when a few values are independent. Declared framework
+capabilities such as `disabled`, `busy`, `readOnly`, and `inert` are independent
+top-level fields. Domain models may group values when several fields describe
+one valid combination. `presentation` is reserved for normalized data already
+shaped for rendering.
 Computed wrapping, rows, carets, selection geometry, and similar coordinates
 are layout. Retained search and collection indexes use `prepare...` names.
 
@@ -61,16 +63,14 @@ import {
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputAction } from '@ismail-elkorchi/terminal-ui/components';
 
-type Message =
-  | { kind: 'command'; action: CommandInputAction }
-  | { kind: 'submit' };
+type Message = { kind: 'command'; action: CommandInputAction };
 
 interface State {
   readonly command: CommandInputState;
 }
 
 function update(state: State, message: Message): State {
-  if (message.kind === 'submit') return state;
+  if (message.action.kind === 'submit') return state;
   return { ...state, command: commandInputReducer(state.command, message.action) };
 }
 
@@ -78,8 +78,7 @@ function view(state: State) {
   return commandInput({
     id: 'command',
     presentation: commandInputPresentation(state.command),
-    onAction: (action): Message => ({ kind: 'command', action }),
-    onSubmit: (): Message => ({ kind: 'submit' })
+    onAction: (action): Message => ({ kind: 'command', action })
   });
 }
 ```
@@ -105,10 +104,7 @@ const entries = [
 ] satisfies readonly SearchEntry<string>[];
 const searchPickerIndex = prepareSearchPickerIndex(entries);
 
-type SearchPickerMessage =
-  | { kind: 'searchPicker'; action: SearchPickerAction }
-  | { kind: 'acceptSearchPicker' }
-  | { kind: 'closeSearchPicker' };
+type SearchPickerMessage = { kind: 'searchPicker'; action: SearchPickerAction };
 
 function updateSearchPicker(state: SearchPickerState, action: SearchPickerAction): SearchPickerState {
   return searchPickerReducer(state, action, { searchPickerIndex });
@@ -120,18 +116,14 @@ function searchPickerView(state: SearchPickerState) {
     searchPickerIndex,
     query: state.query,
     ...(state.selectedId === undefined ? {} : { selectedId: state.selectedId }),
-    onAction: (action): SearchPickerMessage => ({ kind: 'searchPicker', action }),
-    keys: {
-      enter: (): SearchPickerMessage => ({ kind: 'acceptSearchPicker' }),
-      escape: (): SearchPickerMessage => ({ kind: 'closeSearchPicker' })
-    }
+    onAction: (action): SearchPickerMessage => ({ kind: 'searchPicker', action })
   });
 }
 ```
 
-Text editing and selection movement produce `SearchPickerAction` messages. Accept
-and close remain application decisions because they change application state,
-not search-picker state.
+Text editing, selection movement, scrolling, and activation produce
+`SearchPickerAction` messages. Closing a surrounding dialog remains an
+application decision because it changes application state outside the picker.
 
 Hierarchical data uses the same controlled shape without moving application
 effects into the component:

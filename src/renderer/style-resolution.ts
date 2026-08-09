@@ -1,12 +1,12 @@
 import type { ElementTextRole, ElementVisualState } from '../element/metadata.ts';
-import { resolveThemeColor } from '../theme/index.ts';
-import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
+import type { ThemeColorToken } from '../theme/index.ts';
 import type { RenderNode } from './model/index.ts';
 import type { TerminalStyle } from '../visual/render.ts';
 
 export interface RenderNodeStyleInput {
   readonly part: string;
   readonly state?: ElementVisualState;
+  readonly defaultState?: boolean;
   readonly base?: TerminalStyle;
 }
 
@@ -14,8 +14,10 @@ export function resolveRenderNodeStyle(renderNode: RenderNode, input: RenderNode
   return mergeStyles(
     defaultStyleForPart(input.part),
     input.base,
+    input.defaultState === false || input.state === undefined || input.state === 'default'
+      ? undefined
+      : defaultStyleForState(input.state),
     input.part === 'root' ? renderNode.styles?.root : renderNode.styles?.parts?.[input.part],
-    input.state === undefined || input.state === 'default' ? undefined : defaultStyleForState(input.state),
     input.state === undefined || input.state === 'default' ? undefined : renderNode.styles?.states?.[input.state]
   );
 }
@@ -120,10 +122,4 @@ export function inputCursorStyle(): TerminalStyle {
 export function mergeStyles(...styles: readonly (TerminalStyle | undefined)[]): TerminalStyle | undefined {
   const merged = styles.reduce<TerminalStyle>((current, style) => style === undefined ? current : { ...current, ...style }, {});
   return Object.keys(merged).length === 0 ? undefined : merged;
-}
-
-export function styleHasBackground(style: TerminalStyle | undefined, theme: TerminalTheme): boolean {
-  const background = style?.bg;
-  return background !== undefined
-    && (background.kind !== 'theme' || resolveThemeColor(theme, background.token) !== undefined);
 }

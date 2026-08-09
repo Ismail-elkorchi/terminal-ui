@@ -162,9 +162,9 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
       id: 'invalid-disabled-button',
       label: 'Disabled',
       disabled: true,
-      onPress: () => ({ kind: 'press' })
+      onAction: () => ({ kind: 'press' })
     }),
-    /cannot define onPress while disabled/u
+    /cannot accept onAction/u
   );
   assert.throws(
     () => textInput({
@@ -173,7 +173,7 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
       disabled: true,
       onAction: () => ({ kind: 'edit' })
     }),
-    /cannot define onAction while disabled/u
+    /cannot accept onAction/u
   );
   assert.throws(
     () => select({
@@ -184,7 +184,7 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
       disabled: true,
       onAction: () => ({ kind: 'select' })
     }),
-    /cannot define onAction while disabled/u
+    /cannot accept onAction/u
   );
   assert.throws(
     () => textArea({
@@ -193,7 +193,7 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
       disabled: true,
       onAction: () => ({ kind: 'edit' })
     }),
-    /cannot define onAction while disabled/u
+    /cannot accept onAction/u
   );
 });
 
@@ -207,8 +207,7 @@ test('commandInput preserves disabled suggestion semantics', () => {
       ], selectedSuggestionIndex: 0 },
       matchQuery: 'de',
       display: 'expanded',
-      onAction: () => undefined,
-      onSubmit: () => undefined
+      onAction: () => null
     }),
     { columns: 40, rows: 3 }
   );

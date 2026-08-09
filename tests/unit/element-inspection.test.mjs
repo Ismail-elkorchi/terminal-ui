@@ -12,6 +12,7 @@ import {
   textInput
 } from '../../dist/components/index.js';
 import { column, row, surface, viewport } from '../../dist/layout/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import {
   componentElement,
   compositeComponentDefinition,
@@ -32,13 +33,13 @@ test('element inspection exposes an immutable factory description without implem
         }
       }
     }),
-    button({ id: 'submit', label: 'Search', onPress: () => ({ kind: 'submit' }) })
+    button({ id: 'submit', label: 'Search', onAction: () => ({ kind: 'submit' }) })
   ], { id: 'controls' }), { id: 'panel', appearance: 'raised' });
 
   const inspection = inspectElement(element);
 
   assert.deepEqual(inspection, {
-    factory: { category: 'layout', origin: 'builtin', name: 'surface' },
+    factory: { category: 'layout', name: 'surface' },
     id: 'panel',
     inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
     meta: {
@@ -49,7 +50,7 @@ test('element inspection exposes an immutable factory description without implem
       layered: false
     },
     children: [{
-      factory: { category: 'layout', origin: 'builtin', name: 'column' },
+      factory: { category: 'layout', name: 'column' },
       id: 'controls',
       inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
       meta: {
@@ -61,7 +62,14 @@ test('element inspection exposes an immutable factory description without implem
       },
       children: [
         {
-          factory: { category: 'component', origin: 'builtin', name: 'textInput' },
+          factory: { category: 'component', name: 'terminal-ui/components/text-input' },
+          component: {
+            identity: 'required',
+            structure: 'leaf',
+            semantics: 'semantic',
+            states: ['disabled'],
+            actions: ['keyboard', 'input', 'paste', 'pointer']
+          },
           id: 'query',
           inputs: { keyboard: true, text: true, paste: true, focus: 'item' },
           meta: {
@@ -74,7 +82,14 @@ test('element inspection exposes an immutable factory description without implem
           children: []
         },
         {
-          factory: { category: 'component', origin: 'builtin', name: 'button' },
+          factory: { category: 'component', name: 'terminal-ui/components/button' },
+          component: {
+            identity: 'required',
+            structure: 'leaf',
+            semantics: 'semantic',
+            states: ['disabled', 'busy'],
+            actions: ['keyboard', 'pointer']
+          },
           id: 'submit',
           inputs: { keyboard: true, text: false, paste: false, focus: 'item' },
           meta: {
@@ -109,14 +124,13 @@ test('element inspection identifies defined components without exposing their de
 
   assert.deepEqual(inspection.factory, {
     category: 'component',
-    origin: 'defined',
     name: 'terminal-ui-tests/components/testLeaf'
   });
   assert.equal(inspection.id, 'plug-in');
   assert.equal('definition' in inspection, false);
 });
 
-test('element inspection keeps factory origin independent from public names', () => {
+test('element inspection keeps factory category independent from diagnostic names', () => {
   const namedRow = componentElement({
     id: 'same',
     children: [],
@@ -133,12 +147,10 @@ test('element inspection keeps factory origin independent from public names', ()
   const layoutInspection = inspectElement(layoutRow);
   assert.deepEqual(componentInspection.factory, {
     category: 'component',
-    origin: 'defined',
     name: 'terminal-ui-tests/components/row'
   });
   assert.deepEqual(layoutInspection.factory, {
     category: 'layout',
-    origin: 'builtin',
     name: 'row'
   });
 });
@@ -166,7 +178,7 @@ test('element inspection reports factory-declared focus capability instead of ge
     label: 'Passive chart',
     items: [{ id: 'one', label: 'One', value: 1 }]
   });
-  const passiveViewport = viewport(text('content'), {
+  const passiveViewport = viewport(text({ content: 'content' }), {
     id: 'passive-viewport',
     offset: { row: 0, column: 0 }
   });
@@ -198,7 +210,7 @@ test('element inspection reports factory-declared focus capability instead of ge
     id: 'busy-button-inspection',
     label: 'Busy',
     busy: true,
-    onPress: () => undefined
+    onAction: () => ignoreMessage()
   });
   assert.equal(inspectElement(busyButton).inputs.focus, 'item');
   assert.deepEqual(
@@ -225,7 +237,7 @@ test('element inspection reports factory-declared focus capability instead of ge
   const dismissibleNotifications = notificationRegion({
     id: 'dismissible-notifications',
     items: [{ id: 'one', title: 'One' }],
-    onDismiss: (id) => id
+    onAction: (action) => action
   });
   const notificationArchive = notificationHistory({
     id: 'notification-archive',
@@ -237,13 +249,13 @@ test('element inspection reports factory-declared focus capability instead of ge
 
   const focusScope = componentElement({
     id: 'component-scope-inspection',
-    children: [button({ id: 'scoped-button', label: 'Scoped', onPress: () => undefined })],
+    children: [button({ id: 'scoped-button', label: 'Scoped', onAction: () => ignoreMessage() })],
     definition: {
       ...compositeComponentDefinition,
       layout: ({ bounds }) => [bounds],
+      focusScope: () => ({ kind: 'contain' }),
       accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
-    },
-    meta: { focus: { scope: { kind: 'contain' } } }
+    }
   });
   assert.equal(inspectElement(focusScope).inputs.focus, 'scope');
 });
@@ -251,9 +263,10 @@ test('element inspection reports factory-declared focus capability instead of ge
 test('element inspection omits private implementation children with no public factory', () => {
   const inspection = inspectElement(select({
     id: 'choice',
+    label: 'Choice',
     options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
     presentation: { kind: 'open', selected: 'alpha', highlighted: 'alpha' },
-    onAction: () => undefined
+    onAction: () => ignoreMessage()
   }));
 
   assert.deepEqual(inspection.children, []);

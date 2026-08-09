@@ -5,7 +5,8 @@ import type { RenderTarget } from '../contracts.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../contracts.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
-import { mergeStyles, resolveRenderNodeStyle, styleHasBackground } from '../style-resolution.ts';
+import { mergeStyles, resolveRenderNodeStyle } from '../style-resolution.ts';
+import { terminalStyleHasBackground } from '../../theme/index.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { renderBorderTitle } from './border-title.ts';
@@ -19,8 +20,6 @@ export interface SurfaceFrameOptions {
 }
 
 type SurfaceNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'surface'>;
-type DialogNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dialog'>;
-type SurfaceFrameNode<TMessage = unknown> = DialogNode<TMessage> | SurfaceNode<TMessage>;
 
 export function surfaceChildContentBounds(renderNode: SurfaceNode, bounds: Rect): Rect {
   const frameBounds = surfaceFrameBounds(bounds, renderNode.props.shadow === true);
@@ -54,7 +53,7 @@ export function drawSurface(
 export function drawSurfaceFrame(
   buffer: RenderTarget,
   bounds: Rect,
-  renderNode: SurfaceFrameNode,
+  renderNode: SurfaceNode,
   theme: TerminalTheme,
   focused: boolean,
   options: SurfaceFrameOptions
@@ -63,7 +62,7 @@ export function drawSurfaceFrame(
   const border = surfaceFocusedBorder(surfaceBorderWithinBounds(options.border, frameBounds), focused);
   if (options.appearance !== undefined) {
     const style = surfaceBackgroundStyle(renderNode, options.appearance, focused, border);
-    if (styleHasBackground(style, theme)) {
+    if (terminalStyleHasBackground(style, theme)) {
       fillSurfaceBackground(
         buffer,
         frameBounds,
@@ -155,7 +154,7 @@ function surfaceBorderStyle(
 }
 
 export function surfaceBackgroundStyle(
-  renderNode: SurfaceFrameNode,
+  renderNode: SurfaceNode,
   appearance: SurfaceAppearance,
   focused = false,
   border?: BorderStyle

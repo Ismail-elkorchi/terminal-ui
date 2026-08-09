@@ -6,14 +6,15 @@ import { createTerminalHarness } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { text, textInput as createTextInput } from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { column, surface } from '../../dist/layout/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 function textInput(options) {
   return createTextInput(
-    options.onAction !== undefined || options.onSubmit !== undefined
+    options.onAction !== undefined
       ? options
-      : { onSubmit: () => undefined, ...options }
+      : { onAction: () => ignoreMessage(), ...options }
   );
 }
 
@@ -22,7 +23,7 @@ test('TUI runtime dispatch updates state and records incremental render diffs', 
     id: 'counter',
     init: () => ({ count: 0 }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
-    view: (state) => surface(text(`Count ${state.count}`, { id: 'count' }), { id: 'counter-surface' })
+    view: (state) => surface(text({ content: `Count ${state.count}`, id: 'count' }), { id: 'counter-surface' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -53,7 +54,7 @@ test('TUI runtime discards a candidate when output fails before publication', as
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
       }
     }],
-    view: (state) => text(`Count ${String(state.count)}`, { id: 'failed-candidate-count' })
+    view: (state) => text({ content: `Count ${String(state.count)}`, id: 'failed-candidate-count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host, transcript });
@@ -125,7 +126,7 @@ test('TUI runtime establishes a full baseline after an indeterminate frame write
     id: 'indeterminate-frame-baseline',
     init: () => ({ count: 0 }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
-    view: (state) => text(`Count ${String(state.count)}`, { id: 'indeterminate-count' })
+    view: (state) => text({ content: `Count ${String(state.count)}`, id: 'indeterminate-count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -151,7 +152,7 @@ test('direct runtime resize coalesces an active request and retains only the lat
     id: 'direct-resize-coalescing',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
-    view: (_state, context) => text(`columns:${String(context.terminalSize.columns)}`, { id: 'resize-width' })
+    view: (_state, context) => text({ content: `columns:${String(context.terminalSize.columns)}`, id: 'resize-width' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -189,7 +190,7 @@ test('TUI runtime start returns the committed initial frame', async () => {
     id: 'start-frame',
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state }),
-    view: (state) => text(state.label, { id: 'start-label' })
+    view: (state) => text({ content: state.label, id: 'start-label' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -217,7 +218,7 @@ test('TUI runtime consumes async subscription sources without duplicate restarts
         yield { delta: 1 };
       }
     }],
-    view: (state) => text(`Count ${state.count}`, { id: 'subscription-count' })
+    view: (state) => text({ content: `Count ${state.count}`, id: 'subscription-count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -250,7 +251,7 @@ test('TUI runtime records subscription source failures and stops the failed sour
       },
       onLifecycle: (event) => event.kind === 'failed' ? { kind: 'failed' } : undefined
     }],
-    view: (state) => text(`Count ${state.count}`, { id: 'subscription-count' })
+    view: (state) => text({ content: `Count ${state.count}`, id: 'subscription-count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -280,7 +281,7 @@ test('latest subscription delivery keeps one replaceable pending message', async
         for (let value = 1; value <= 100; value += 1) yield { value };
       }
     }],
-    view: (state) => text(state.values.join(','), { id: 'latest-values' })
+    view: (state) => text({ content: state.values.join(','), id: 'latest-values' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -315,7 +316,7 @@ test('subscription generations replace completed and failed executions without d
         disposals.push(state.generation);
       }
     }],
-    view: (state) => text(state.values.join(','), { id: 'subscription-generations-value' })
+    view: (state) => text({ content: state.values.join(','), id: 'subscription-generations-value' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -343,7 +344,7 @@ test('duplicate subscription ids fail startup before publishing runtime state', 
       delivery: 'sequential',
       async *messages() {}
     })),
-    view: () => text('ready', { id: 'duplicate-subscriptions-view' })
+    view: () => text({ content: 'ready', id: 'duplicate-subscriptions-view' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -376,7 +377,7 @@ test('TUI runtime cancels subscription sources when they leave the definition', 
           }
         }]
       : [],
-    view: (state) => text(state.enabled ? 'enabled' : 'disabled', { id: 'subscription-state' })
+    view: (state) => text({ content: state.enabled ? 'enabled' : 'disabled', id: 'subscription-state' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -413,7 +414,7 @@ test('retired subscription output already queued behind its retirement is ignore
         yield { kind: 'stale-source-output' };
       }
     }] : [],
-    view: (state) => text(`${state.phase}:${String(state.staleMessages)}`, { id: 'source-admission-state' })
+    view: (state) => text({ content: `${state.phase}:${String(state.staleMessages)}`, id: 'source-admission-state' })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host });
@@ -469,7 +470,7 @@ test('TUI effects do not block later input or external dispatches', async () => 
       if (message.kind === 'finish') return { state: { ...state, phase: 'done' } };
       return { state: { ...state, count: state.count + 1 } };
     },
-    view: (state) => text(`${state.phase}:${String(state.count)}`, { id: 'effect-state' })
+    view: (state) => text({ content: `${state.phase}:${String(state.count)}`, id: 'effect-state' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -533,10 +534,7 @@ test('replaced effect output and recovery output already queued behind replaceme
       if (message.kind === 'stale-recovery') return { state: { ...state, staleRecovery: true } };
       return { state: { ...state, phase: 'blocking' } };
     },
-    view: (state) => text(
-      `${state.phase}:${String(state.staleOutput)}:${String(state.staleRecovery)}`,
-      { id: 'effect-admission-state' }
-    )
+    view: (state) => text({ content: `${state.phase}:${String(state.staleOutput)}:${String(state.staleRecovery)}`, id: 'effect-admission-state' })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 32, rows: 3 } });
   const runtime = createTuiRuntime({ app, host });
@@ -595,7 +593,7 @@ test('multi-message effect output commits one atomic state transition', async ()
           }]
         }
       : { state: { count: state.count + 1 } },
-    view: (state) => text(`Count ${state.count}`, { id: 'effect-message-batch-count' })
+    view: (state) => text({ content: `Count ${state.count}`, id: 'effect-message-batch-count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -666,7 +664,7 @@ test('TUI updates cancel one effect id without cancelling unrelated or later eff
       }
       return { state };
     },
-    view: (state) => text(state.phase, { id: 'selective-effect-state' })
+    view: (state) => text({ content: state.phase, id: 'selective-effect-state' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -714,7 +712,7 @@ test('TUI effects may dispatch terminal exit without deadlocking disposal', asyn
       }
       return { state };
     },
-    view: (state) => text(state.phase, { id: 'effect-exit-state' })
+    view: (state) => text({ content: state.phase, id: 'effect-exit-state' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -757,7 +755,7 @@ test('TUI subscriptions may dispatch terminal exit without deadlocking disposal'
         await sourceCompletion;
       }
     }],
-    view: (state) => text(state.phase, { id: 'subscription-exit-state' })
+    view: (state) => text({ content: state.phase, id: 'subscription-exit-state' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -779,7 +777,7 @@ test('TUI runtime records external dispatch messages in transcripts', async () =
     id: 'external-message',
     init: () => ({ count: 0 }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
-    view: (state) => text(`Count ${state.count}`, { id: 'external-count' })
+    view: (state) => text({ content: `Count ${state.count}`, id: 'external-count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host, transcript });
@@ -810,7 +808,7 @@ test('TUI runtime records resize input before the frame commit it causes', async
     id: 'resize-order',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
-    view: () => text('ready', { id: 'resize-order-content' })
+    view: () => text({ content: 'ready', id: 'resize-order-content' })
   });
   const runtime = createTuiRuntime({
     app,
@@ -837,7 +835,7 @@ test('TUI runtime publishes a terminal transition frame before its exit', async 
     id: 'frame-before-exit',
     init: () => ({ status: 'waiting' }),
     update: () => ({ state: { status: 'finished' }, exit: { reason: 'done' } }),
-    view: (state) => text(state.status, { id: 'terminal-status' })
+    view: (state) => text({ content: state.status, id: 'terminal-status' })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
   await runtime.start();
@@ -860,7 +858,7 @@ test('TUI runtime coalesces unobserved frame changes', async () => {
     id: 'coalesced-frame-changes',
     init: () => ({ count: 0 }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
-    view: (state) => text(`Count ${String(state.count)}`, { id: 'count' })
+    view: (state) => text({ content: `Count ${String(state.count)}`, id: 'count' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -898,7 +896,7 @@ test('TUI runtime does not render or advance state version for identity no-op me
       : { state: { count: state.count + 1 } },
     view: (state) => {
       viewCalls += 1;
-      return text(`Count ${String(state.count)}`, { id: 'count' });
+      return text({ content: `Count ${String(state.count)}`, id: 'count' });
     }
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -947,7 +945,7 @@ test('TUI runtime reports effect failures and can map them to application messag
           }]
         }
       : { state: { ...state, status: 'failed' } },
-    view: (state) => text(state.status, { id: 'effect-status' })
+    view: (state) => text({ content: state.status, id: 'effect-status' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -965,7 +963,7 @@ test('TUI runtime resize re-renders against the memory host terminal size', asyn
     id: 'resizable',
     init: () => ({ label: 'Wide label' }),
     update: (state) => ({ state }),
-    view: (state) => surface(text(state.label, { id: 'label' }), { id: 'surface' })
+    view: (state) => surface(text({ content: state.label, id: 'label' }), { id: 'surface' })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });

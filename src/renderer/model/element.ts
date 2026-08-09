@@ -1,4 +1,9 @@
 import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementValue } from '../../element/index.ts';
+import {
+  inspectRegisteredElement,
+  internalElementValue,
+  registerElement
+} from '../../element/registry.ts';
 import type {
   ElementFactoryCategory,
   ElementFactoryIdentity,
@@ -8,8 +13,6 @@ import { renderNodeId } from '../../foundation/identity.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 import { renderNodeFocusUnavailable } from './node.ts';
 
-const renderNodes = new WeakMap<object, unknown>();
-const inspections = new WeakMap<object, ElementInspection>();
 const renderNodeInspections = new WeakMap<object, ElementInspection>();
 
 export function componentElementFromRenderNode<
@@ -37,28 +40,13 @@ function elementFromRenderNode<
   node: RenderNodeOfKind<TMessage, TKind>,
   category: ElementFactoryCategory
 ): Element<TMessage> {
-  const element = Object.freeze({}) as Element<TMessage>;
   const inspection = inspectRenderNode(node, factoryIdentity(node, category));
-  renderNodes.set(element, node);
   renderNodeInspections.set(node, inspection);
-  inspections.set(element, inspection);
-  return element;
-}
-
-export function inspectElementInternal(element: ElementValue): ElementInspection {
-  const inspection = isObject(element) ? inspections.get(element) : undefined;
-  if (inspection === undefined) {
-    throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
-  }
-  return inspection;
+  return registerElement<TMessage>(node, inspection);
 }
 
 export function toRenderNode<TElement extends ElementValue>(element: TElement): RenderNode<ElementMessage<TElement>> {
-  const node = isObject(element) ? renderNodes.get(element) : undefined;
-  if (node === undefined) {
-    throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
-  }
-  return node as RenderNode<ElementMessage<TElement>>;
+  return internalElementValue(element) as RenderNode<ElementMessage<TElement>>;
 }
 
 export function toRenderNodes<const TChildren extends ElementChildren>(
@@ -68,6 +56,69 @@ export function toRenderNodes<const TChildren extends ElementChildren>(
     ? children
     : [children];
   return values.map((element) => toRenderNode(element));
+}
+
+/**
+ * Marks layout nodes created by a component implementation as transparent to
+ * focus identity. Caller-owned slot roots and nested component roots remain
+ * stable identity boundaries.
+ */
+export function markImplementationStructure<TMessage>(
+  node: RenderNode<TMessage>,
+  callerOwnedRoots: ReadonlySet<object> = new Set()
+): RenderNode<TMessage> {
+  if (callerOwnedRoots.has(node) || node.kind === 'component') return node;
+  const marked = {
+    ...node,
+    transparentFocusIdentity: true as const,
+    ...(node.children === undefined
+      ? {}
+      : {
+          children: node.children.map((child) =>
+            markImplementationStructure(child, callerOwnedRoots)
+          )
+        })
+  } as RenderNode<TMessage>;
+  const inspection = renderNodeInspections.get(node);
+  if (inspection !== undefined) renderNodeInspections.set(marked, inspection);
+  return marked;
+}
+
+export function toMappedRenderNodes(
+  children: ElementChildren,
+  mapper: (message: unknown) => unknown
+): readonly RenderNode[] {
+  return toRenderNodes(children).map((node) => mapRenderNodeMessages(node, mapper));
+}
+
+export function mapElementMessages(
+  element: ElementValue,
+  mapper: (message: unknown) => unknown
+): Element<unknown> {
+  const node = toRenderNode(element);
+  const mapped = mapRenderNodeMessages(node, mapper);
+  const inspection = inspectRegisteredElement(element);
+  renderNodeInspections.set(mapped, inspection);
+  return registerElement(mapped, inspection);
+}
+
+function mapRenderNodeMessages<TMessage>(
+  node: RenderNode<TMessage>,
+  mapper: (message: unknown) => unknown
+): RenderNode {
+  const inherited = node.messageMap;
+  const mapped = {
+    ...node,
+    messageMap: inherited === undefined
+      ? mapper
+      : (message) => mapper(inherited(message)),
+    ...(node.children === undefined
+      ? {}
+      : { children: node.children.map((child) => mapRenderNodeMessages(child, mapper)) })
+  } as RenderNode;
+  const inspection = renderNodeInspections.get(node);
+  if (inspection !== undefined) renderNodeInspections.set(mapped, inspection);
+  return mapped;
 }
 
 export function renderNodeChildren<const TChildren extends ElementChildren>(
@@ -88,10 +139,6 @@ export function requiredRenderNodeId(
   return { id: renderNodeId(id, component) };
 }
 
-function isObject(value: unknown): value is object {
-  return typeof value === 'object' && value !== null;
-}
-
 function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   node: RenderNodeOfKind<TMessage, TKind>,
   factory: ElementFactoryIdentity
@@ -101,6 +148,9 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   const keyboard = node.keyMap !== undefined && Object.keys(node.keyMap).length > 0;
   const inspection: ElementInspection = {
     factory,
+    ...(node.kind === 'component' && node.definition !== undefined
+      ? { component: node.definition.inspection }
+      : {}),
     ...(node.id === undefined ? {} : { id: node.id }),
     inputs: Object.freeze({
       keyboard,
@@ -115,7 +165,7 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
       styleStates: Object.freeze(styleStates),
       layered: node.layer !== undefined
     }),
-    children: Object.freeze((node.children ?? []).flatMap((child) => {
+    children: Object.freeze((node.inspectionChildren ?? node.children ?? []).flatMap((child) => {
       const childInspection = renderNodeInspections.get(child);
       return childInspection === undefined ? [] : [childInspection];
     }))
@@ -129,7 +179,6 @@ function factoryIdentity<TMessage, TKind extends RenderNodeKind>(
 ): ElementFactoryIdentity {
   return Object.freeze({
     category,
-    origin: node.kind === 'component' ? 'defined' : 'builtin',
     name: inspectedFactoryName(node)
   });
 }
