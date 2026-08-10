@@ -111,7 +111,10 @@ changes should produce small diff operations.
 
 ANSI serialization is stateful. `renderFrameAnsi()` and `renderDiffAnsi()`
 open style and hyperlink state only when needed, close state at safe output
-boundaries, and honor terminal color and hyperlink capabilities. Plain and
+boundaries, and honor terminal color, text-attribute, and hyperlink capabilities.
+Zero color depth does not suppress basic attributes, while depth `1` does not
+pretend to provide the sixteen-color palette. Bold and dim are transitioned as
+one SGR intensity group because reset `22` clears both. Plain and
 debug serialization remain separate entrypoints so production output,
 snapshot text, and diagnostic control-sequence views do not share hidden flags.
 
@@ -120,8 +123,12 @@ output planner. The planner compares absolute and relative cursor movement and
 safe line-clear encodings by UTF-8 byte size, then writes one selected payload.
 Synchronized output is conservative: it is used only when a host probe or
 explicit capability override reports support. A failed synchronized write
-causes the runtime to attempt the matching end sequence before surfacing the
-write failure. Render diffs and transcripts remain terminal-neutral.
+that may have committed bytes causes the runtime to use recovery output for a
+frame-local cleanup suffix. The suffix closes only state that the selected plan
+could have opened: synchronization, a scrolling region, OSC 8, or SGR. A write
+reported as failed before starting does not emit cleanup. The terminal baseline
+remains untrusted after an indeterminate write and the next successful commit is
+a full rewrite. Render diffs and transcripts remain terminal-neutral.
 
 ## Themes, Symbols, Layout, Focus, And Hit Targets
 

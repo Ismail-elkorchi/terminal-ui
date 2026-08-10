@@ -87,6 +87,7 @@ function normalizeSessionPolicy(policy: unknown): SessionProtocolPolicy {
     rawInput: protocolRequirement(value['rawInput'], 'rawInput'),
     bracketedPaste: protocolRequirement(value['bracketedPaste'], 'bracketedPaste'),
     focusReporting: protocolRequirement(value['focusReporting'], 'focusReporting'),
+    unicodeGraphemeMode: protocolRequirement(value['unicodeGraphemeMode'], 'unicodeGraphemeMode'),
     keyboard: Object.freeze({
       profile: normalizeKeyboardProfile(keyboard['profile']),
       requirement: protocolRequirement(keyboard['requirement'], 'keyboard.requirement')

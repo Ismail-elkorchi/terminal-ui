@@ -5,16 +5,34 @@ import type {
   TerminalInputReadOptions
 } from './types.ts';
 import { settleResourceDisposal } from './dispose.ts';
+import {
+  csiBody,
+  findTerminalResponse,
+  incompleteTerminalResponseStart
+} from './terminal-response.ts';
+import type { TerminalResponseClassification, TerminalResponseProtocol } from './terminal-response.ts';
 
-const KITTY_QUERY_PREFIX = Uint8Array.of(0x1b, 0x5b, 0x3f);
-const KITTY_QUERY_TERMINATOR = 0x75;
 const MAX_KITTY_FLAG_DIGITS = String(Number.MAX_SAFE_INTEGER).length;
 const MAX_PROBE_BYTES = 64 * 1024;
 const LATE_PROBE_AMBIGUITY_MS = 25;
 
 export interface KittyKeyboardProbeResult {
-  readonly status: 'supported' | 'inconclusive';
+  readonly status: 'supported' | 'unsupported' | 'inconclusive';
   readonly flags?: number;
+}
+
+export type TerminalResponseTransactionResult<TValue> =
+  | { readonly status: 'matched'; readonly value: TValue }
+  | { readonly status: 'unsupported' }
+  | { readonly status: 'inconclusive' }
+  | { readonly status: 'cancelled' }
+  | { readonly status: 'failed'; readonly cause: unknown };
+
+export interface TerminalResponseTransaction<TValue> {
+  readonly signal: AbortSignal;
+  readonly clock: TerminalClock;
+  readonly protocol: TerminalResponseProtocol<TValue>;
+  readonly send: () => Promise<void>;
 }
 
 export class TerminalInputAuthority implements TerminalInput {
@@ -24,7 +42,8 @@ export class TerminalInputAuthority implements TerminalInput {
   readonly #replay: TerminalInputChunk[] = [];
   #iterator: AsyncIterator<TerminalInputChunk> | undefined;
   #pending: Promise<IteratorResult<TerminalInputChunk>> | undefined;
-  #lateProbeFilter: LateKittyResponseFilter | undefined;
+  #lateResponseFilter: LateTerminalResponseFilter | undefined;
+  #queryQueue: Promise<void> | undefined;
   #release: Promise<void> | undefined;
   #disposal: Promise<void> | undefined;
   #activeReader: object | undefined;
@@ -43,47 +62,97 @@ export class TerminalInputAuthority implements TerminalInput {
 
   async probeKittyKeyboard(
     signal: AbortSignal,
-    clock: TerminalClock
+    clock: TerminalClock,
+    send: () => Promise<void> = () => Promise.resolve()
   ): Promise<KittyKeyboardProbeResult> {
+    const result = await this.queryTerminal({
+      signal,
+      clock,
+      protocol: kittyKeyboardResponseProtocol,
+      send
+    });
+    if (result.status === 'matched') return { status: 'supported', flags: result.value };
+    if (result.status === 'unsupported') return { status: 'unsupported' };
+    return { status: 'inconclusive' };
+  }
+
+  queryTerminal<TValue>(
+    transaction: TerminalResponseTransaction<TValue>
+  ): Promise<TerminalResponseTransactionResult<TValue>> {
+    const run = (): Promise<TerminalResponseTransactionResult<TValue>> =>
+      this.#runTerminalQuery(transaction);
+    const operation = this.#queryQueue === undefined
+      ? run()
+      : this.#queryQueue.then(run, run);
+    const settled = operation.then(() => undefined, () => undefined);
+    this.#queryQueue = settled;
+    void settled.then(() => {
+      if (this.#queryQueue === settled) this.#queryQueue = undefined;
+    });
+    return operation;
+  }
+
+  async #runTerminalQuery<TValue>(
+    transaction: TerminalResponseTransaction<TValue>
+  ): Promise<TerminalResponseTransactionResult<TValue>> {
+    if (transaction.signal.aborted) return { status: 'cancelled' };
     const owner = this.#acquireReader();
     const buffered = new Uint8Array(MAX_PROBE_BYTES);
     let byteCount = 0;
     let searchStart = 0;
     let overflow: Uint8Array | undefined;
-    let bufferedInputHandled = false;
+    const cleanupState = { bufferedInputHandled: false };
+    const consumed: ByteRange[] = [];
     try {
-      while (!signal.aborted && byteCount < MAX_PROBE_BYTES) {
-        const result = await this.#next(signal, owner);
+      const sending = transaction.send();
+      let nextRead = this.#next(transaction.signal, owner);
+      await sending;
+      while (!signalAborted(transaction.signal) && byteCount < MAX_PROBE_BYTES) {
+        const result = await nextRead;
         if (result.done) break;
         const bytes = bytesFromChunk(result.value);
         const retainedLength = Math.min(bytes.byteLength, MAX_PROBE_BYTES - byteCount);
         buffered.set(bytes.subarray(0, retainedLength), byteCount);
         byteCount += retainedLength;
         const retained = buffered.subarray(0, byteCount);
-        const search = findKittyKeyboardResponse(retained, searchStart);
-        if (search.match !== undefined) {
-          this.#replayBytes(retained.subarray(0, search.match.start));
-          this.#replayBytes(retained.subarray(search.match.end));
-          this.#replayBytes(bytes.subarray(retainedLength));
-          bufferedInputHandled = true;
-          return { status: 'supported', flags: search.match.flags };
+        for (;;) {
+          const search = findTerminalResponse(retained, searchStart, transaction.protocol);
+          if (search.kind === 'consume') {
+            consumed.push({ start: search.start, end: search.end });
+            searchStart = search.nextStart;
+            continue;
+          }
+          if (search.kind === 'matched' || search.kind === 'fence') {
+            consumed.push({ start: search.start, end: search.end });
+            for (const part of bytePartsExcluding(retained, consumed)) this.#replayBytes(part);
+            this.#replayBytes(bytes.subarray(retainedLength));
+            cleanupState.bufferedInputHandled = true;
+            return search.kind === 'matched'
+              ? { status: 'matched', value: search.value }
+              : { status: 'unsupported' };
+          }
+          searchStart = search.nextStart;
+          break;
         }
-        searchStart = search.nextStart;
         if (retainedLength < bytes.byteLength) overflow = bytes.subarray(retainedLength).slice();
+        nextRead = this.#next(transaction.signal, owner);
       }
-      if (signal.aborted) return { status: 'inconclusive' };
-      this.#replayBytes(buffered.subarray(0, byteCount));
+      if (signalAborted(transaction.signal)) return { status: 'cancelled' };
+      this.#replayBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed));
       if (overflow !== undefined) this.#replayBytes(overflow);
-      bufferedInputHandled = true;
+      cleanupState.bufferedInputHandled = true;
       return { status: 'inconclusive' };
+    } catch (cause) {
+      if (signalAborted(transaction.signal)) return { status: 'cancelled' };
+      return { status: 'failed', cause };
     } finally {
-      if (!bufferedInputHandled) {
-        if (signal.aborted) {
-          this.#startLateProbeFilter(clock);
-          this.#replayFilteredProbeBytes(buffered.subarray(0, byteCount));
+      if (!cleanupState.bufferedInputHandled) {
+        if (signalAborted(transaction.signal)) {
+          this.#startLateProbeFilter(transaction.clock, transaction.protocol);
+          this.#replayFilteredProbeBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed));
           if (overflow !== undefined) this.#replayFilteredProbeBytes(overflow);
         } else {
-          this.#replayBytes(buffered.subarray(0, byteCount));
+          this.#replayBytes(bytesExcluding(buffered.subarray(0, byteCount), consumed));
           if (overflow !== undefined) this.#replayBytes(overflow);
         }
       }
@@ -220,7 +289,7 @@ export class TerminalInputAuthority implements TerminalInput {
       const pending = this.#pending;
       const outcome = await waitForReaderOrProbeFilter(
         pending,
-        this.#lateProbeFilter?.wake.promise,
+        this.#lateResponseFilter?.wake.promise,
         signal,
         sourceSignal
       );
@@ -248,36 +317,42 @@ export class TerminalInputAuthority implements TerminalInput {
   }
 
   #filterProbeChunk(chunk: TerminalInputChunk): TerminalInputChunk | undefined {
-    if (this.#lateProbeFilter === undefined) return cloneInputChunk(chunk);
+    if (this.#lateResponseFilter === undefined) return cloneInputChunk(chunk);
     const filtered = this.#filterProbeBytes(bytesFromChunk(chunk));
     return filtered.byteLength === 0 ? undefined : { data: filtered };
   }
 
   #filterProbeBytes(bytes: Uint8Array): Uint8Array {
-    const filter = this.#lateProbeFilter;
+    const filter = this.#lateResponseFilter;
     if (filter === undefined) return bytes.slice();
     const remaining = Math.max(0, MAX_PROBE_BYTES - filter.inspected);
     const retainedLength = Math.min(bytes.byteLength, remaining);
-    const candidate = concatenateBytes(filter.held, bytes.subarray(0, retainedLength));
+    let candidate = concatenateBytes(filter.held, bytes.subarray(0, retainedLength));
     const overflow = bytes.subarray(retainedLength);
     filter.inspected += retainedLength;
-    const match = findKittyKeyboardResponse(candidate, 0).match;
-    if (match !== undefined) {
-      const output = concatenateBytes(
-        candidate.subarray(0, match.start),
-        candidate.subarray(match.end),
-        overflow
-      );
-      filter.held = new Uint8Array();
-      this.#finishLateProbeFilter(false);
-      return output;
+    for (;;) {
+      const match = findTerminalResponse(candidate, 0, filter.protocol);
+      if (match.kind === 'consume') {
+        candidate = bytesExcluding(candidate, [{ start: match.start, end: match.end }]);
+        continue;
+      }
+      if (match.kind === 'matched' || match.kind === 'fence') {
+        const output = concatenateBytes(
+          bytesExcluding(candidate, [{ start: match.start, end: match.end }]),
+          overflow
+        );
+        filter.held = new Uint8Array();
+        this.#finishLateProbeFilter(false);
+        return output;
+      }
+      break;
     }
     if (filter.inspected >= MAX_PROBE_BYTES) {
       filter.held = new Uint8Array();
       this.#finishLateProbeFilter(false);
       return concatenateBytes(candidate, overflow);
     }
-    const prefixStart = incompleteKittyResponseStart(candidate);
+    const prefixStart = incompleteTerminalResponseStart(candidate);
     if (prefixStart === undefined) {
       filter.held = new Uint8Array();
       this.#cancelLateProbeDeadline(filter);
@@ -288,17 +363,18 @@ export class TerminalInputAuthority implements TerminalInput {
     return candidate.subarray(0, prefixStart).slice();
   }
 
-  #startLateProbeFilter(clock: TerminalClock): void {
+  #startLateProbeFilter(clock: TerminalClock, protocol: TerminalResponseProtocol<unknown>): void {
     this.#finishLateProbeFilter(true);
-    this.#lateProbeFilter = {
+    this.#lateResponseFilter = {
       clock,
+      protocol,
       inspected: 0,
       held: new Uint8Array(),
       wake: Promise.withResolvers<undefined>()
     };
   }
 
-  #scheduleLateProbeDeadline(filter: LateKittyResponseFilter): void {
+  #scheduleLateProbeDeadline(filter: LateTerminalResponseFilter): void {
     this.#cancelLateProbeDeadline(filter);
     const controller = new AbortController();
     filter.deadline = controller;
@@ -312,82 +388,80 @@ export class TerminalInputAuthority implements TerminalInput {
     );
   }
 
-  #cancelLateProbeDeadline(filter: LateKittyResponseFilter): void {
+  #cancelLateProbeDeadline(filter: LateTerminalResponseFilter): void {
     filter.deadline?.abort('terminal_input_probe_prefix_resolved');
     delete filter.deadline;
   }
 
-  #expireLateProbeFilter(filter: LateKittyResponseFilter, controller: AbortController): void {
-    if (this.#lateProbeFilter !== filter || filter.deadline !== controller) return;
+  #expireLateProbeFilter(filter: LateTerminalResponseFilter, controller: AbortController): void {
+    if (this.#lateResponseFilter !== filter || filter.deadline !== controller) return;
     this.#finishLateProbeFilter(true);
   }
 
   #finishLateProbeFilter(replayHeld: boolean): void {
-    const filter = this.#lateProbeFilter;
+    const filter = this.#lateResponseFilter;
     if (filter === undefined) return;
     const held = filter.held;
     filter.held = new Uint8Array();
     this.#cancelLateProbeDeadline(filter);
-    this.#lateProbeFilter = undefined;
+    this.#lateResponseFilter = undefined;
     if (replayHeld && held.byteLength > 0) this.#replayBytes(held);
     filter.wake.resolve(undefined);
   }
 }
 
-interface LateKittyResponseFilter {
+function signalAborted(signal: AbortSignal): boolean {
+  return signal.aborted;
+}
+
+interface LateTerminalResponseFilter {
   readonly clock: TerminalClock;
+  readonly protocol: TerminalResponseProtocol<unknown>;
   readonly wake: PromiseWithResolvers<undefined>;
   inspected: number;
   held: Uint8Array;
   deadline?: AbortController;
 }
 
-interface KittyKeyboardResponse {
+interface ByteRange {
   readonly start: number;
   readonly end: number;
-  readonly flags: number;
 }
 
-function findKittyKeyboardResponse(
-  bytes: Uint8Array,
-  startAt: number
-): { readonly match?: KittyKeyboardResponse; readonly nextStart: number } {
-  for (let start = startAt; start <= bytes.byteLength - KITTY_QUERY_PREFIX.byteLength; start += 1) {
-    if (!matchesAt(bytes, KITTY_QUERY_PREFIX, start)) continue;
-    let cursor = start + KITTY_QUERY_PREFIX.byteLength;
-    const digitStart = cursor;
-    while (cursor < bytes.byteLength) {
-      const byte = bytes[cursor];
-      if (byte === undefined || byte < 0x30 || byte > 0x39) break;
-      cursor += 1;
-      if (cursor - digitStart > MAX_KITTY_FLAG_DIGITS) break;
+const kittyKeyboardResponseProtocol: TerminalResponseProtocol<number> = Object.freeze({
+  classify(control: Uint8Array): TerminalResponseClassification<number> | undefined {
+    const body = csiBody(control);
+    if (body === undefined || body.length < 3 || body[0] !== questionMark) return undefined;
+    const final = body.at(-1);
+    if (final === lowercaseU) {
+      const digits = body.subarray(1, body.length - 1);
+      if (
+        digits.length === 0
+        || digits.length > MAX_KITTY_FLAG_DIGITS
+        || !digits.every(isDecimalDigit)
+      ) return undefined;
+      const flags = decimalBytes(digits);
+      return flags === undefined ? undefined : { kind: 'matched', value: flags };
     }
-    if (cursor - digitStart > MAX_KITTY_FLAG_DIGITS) continue;
-    if (cursor >= bytes.byteLength) return { nextStart: start };
-    if (cursor === digitStart || bytes[cursor] !== KITTY_QUERY_TERMINATOR) continue;
-    const flags = decimalBytes(bytes.subarray(digitStart, cursor));
-    if (flags !== undefined) return { match: { start, end: cursor + 1, flags }, nextStart: cursor + 1 };
+    if (final === lowercaseC && validPrimaryDeviceAttributes(body.subarray(1, body.length - 1))) {
+      return { kind: 'fence' };
+    }
+    return undefined;
   }
-  return { nextStart: Math.max(startAt, bytes.byteLength - KITTY_QUERY_PREFIX.byteLength + 1) };
+});
+
+const questionMark = 0x3f;
+const semicolon = 0x3b;
+const lowercaseC = 0x63;
+const lowercaseU = 0x75;
+
+function validPrimaryDeviceAttributes(parameters: Uint8Array): boolean {
+  return parameters.length > 0
+    && parameters.every((byte) => isDecimalDigit(byte) || byte === semicolon);
 }
 
-function incompleteKittyResponseStart(bytes: Uint8Array): number | undefined {
-  const maximumPrefixLength = KITTY_QUERY_PREFIX.byteLength + MAX_KITTY_FLAG_DIGITS;
-  const firstCandidate = Math.max(0, bytes.byteLength - maximumPrefixLength);
-  for (let start = firstCandidate; start < bytes.byteLength; start += 1) {
-    const length = bytes.byteLength - start;
-    if (length <= KITTY_QUERY_PREFIX.byteLength) {
-      if (matchesPrefix(bytes.subarray(start), KITTY_QUERY_PREFIX)) return start;
-      continue;
-    }
-    if (!matchesAt(bytes, KITTY_QUERY_PREFIX, start)) continue;
-    const digits = bytes.subarray(start + KITTY_QUERY_PREFIX.byteLength);
-    if (
-      digits.byteLength <= MAX_KITTY_FLAG_DIGITS
-      && digits.every((byte) => byte >= 0x30 && byte <= 0x39)
-    ) return start;
-  }
-  return undefined;
+function isDecimalDigit(byte: number): boolean {
+  return byte >= 0x30 && byte <= 0x39;
 }
 
 function concatenateBytes(...parts: readonly Uint8Array[]): Uint8Array {
@@ -403,19 +477,23 @@ function concatenateBytes(...parts: readonly Uint8Array[]): Uint8Array {
   return result;
 }
 
-function matchesAt(bytes: Uint8Array, expected: Uint8Array, start: number): boolean {
-  for (let index = 0; index < expected.byteLength; index += 1) {
-    if (bytes[start + index] !== expected[index]) return false;
-  }
-  return true;
+function bytesExcluding(bytes: Uint8Array, ranges: readonly ByteRange[]): Uint8Array {
+  return concatenateBytes(...bytePartsExcluding(bytes, ranges));
 }
 
-function matchesPrefix(actual: Uint8Array, expected: Uint8Array): boolean {
-  if (actual.byteLength > expected.byteLength) return false;
-  for (let index = 0; index < actual.byteLength; index += 1) {
-    if (actual[index] !== expected[index]) return false;
+function bytePartsExcluding(bytes: Uint8Array, ranges: readonly ByteRange[]): readonly Uint8Array[] {
+  if (ranges.length === 0) return [bytes.slice()];
+  const ordered = ranges.toSorted((left, right) => left.start - right.start);
+  const parts: Uint8Array[] = [];
+  let cursor = 0;
+  for (const range of ordered) {
+    const start = Math.max(cursor, Math.min(bytes.byteLength, range.start));
+    const end = Math.max(start, Math.min(bytes.byteLength, range.end));
+    if (start > cursor) parts.push(bytes.subarray(cursor, start));
+    cursor = end;
   }
-  return true;
+  if (cursor < bytes.byteLength) parts.push(bytes.subarray(cursor));
+  return parts;
 }
 
 function decimalBytes(bytes: Uint8Array): number | undefined {

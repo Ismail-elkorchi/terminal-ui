@@ -68,11 +68,18 @@ type MutableTuiRuntimeMetrics = {
 };
 
 const inputRetirement = new WeakMap<object, () => void>();
+const terminalFailure = new WeakMap<object, (cause: unknown) => void>();
 
 export function retireTuiRuntimeInput(runtime: object): void {
   const retire = inputRetirement.get(runtime);
   if (retire === undefined) throw new Error('Expected a terminal-ui TUI runtime.');
   retire();
+}
+
+export function failTuiRuntimeTerminalOwnership(runtime: object, cause: unknown): void {
+  const fail = terminalFailure.get(runtime);
+  if (fail === undefined) throw new Error('Expected a terminal-ui TUI runtime.');
+  fail(cause);
 }
 
 export function createTuiRuntime<TState, TMessage>(
@@ -202,7 +209,7 @@ function createRuntime<TState, TMessage>(
     async flushInput() {
       return inputQueue.run(flushInputInternal);
     },
-    replaceInputProfile(nextOptions) {
+    replaceTerminalProfile(nextOptions) {
       lifecycle.assertOperational();
       if (inputPipeline.pending().kind !== 'none' || pendingCharacterText.length > 0) {
         throw new Error('Cannot replace the input profile while an input token is incomplete.');
@@ -215,6 +222,7 @@ function createRuntime<TState, TMessage>(
         ...(limits === undefined ? {} : { limits })
       };
       inputPipeline = createInputPipeline(inputOptions);
+      runtimeContext.replace(nextOptions.capabilities);
       inputAmbiguity = createInputAmbiguityDeadline<readonly TuiInputResult<TState>[]>(
         options.host.clock,
         inputPipeline.profile.escapeDelayMs
@@ -275,6 +283,28 @@ function createRuntime<TState, TMessage>(
       return { ...metrics, effects: effects.metrics() };
     }
   };
+  terminalFailure.set(runtime, (cause) => {
+    diagnostics.record(diagnostic(
+      'TUI_TERMINAL_OWNERSHIP_FAILED',
+      'Terminal ownership could not be re-established.',
+      { severity: 'fatal', target: options.app.id, cause }
+    ));
+    lifecycle.fail();
+    subscriptions.cancel();
+    effects.cancel();
+    const render = commits.renderOrUndefined();
+    if (store.hasState() && render !== undefined) {
+      terminalExit = {
+        status: 'error',
+        state: store.state(),
+        diagnostics: diagnostics.values(),
+        snapshot: render.frame.accessibility
+      };
+      changes.publish({ kind: 'exit', exit: terminalExit });
+    } else {
+      changes.close(new TerminalUiError('Terminal ownership could not be re-established.'));
+    }
+  });
   inputRetirement.set(runtime, () => {
     inputAmbiguity.cancel();
     inputPipeline.reset();
@@ -459,7 +489,7 @@ function createRuntime<TState, TMessage>(
   async function createRuntimeContext(
     terminalSize: ReturnType<typeof commits.terminalSize> = commits.terminalSize()
   ): Promise<TuiContext> {
-    return runtimeContext(terminalSize, diagnostics.values());
+    return runtimeContext.create(terminalSize, diagnostics.values());
   }
 
   async function commitRuntimeTransition(input: {

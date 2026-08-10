@@ -20,7 +20,7 @@ guidance, see [Building terminal apps](./building-terminal-apps.md) and
 Full-screen TUI runs enter terminal protocols through the session manager and a
 `SessionProtocolPolicy`. The default policy requires alternate screen and raw
 input, requests bracketed paste, drag mouse reporting, focus reporting, and a
-hidden cursor as optional protocol operations, and records diagnostics for
+hidden cursor and Unicode grapheme mode as optional protocol operations, and records diagnostics for
 skipped or failed setup. Callers can explicitly disable protocols, require
 them, or request other mouse reporting modes without changing component code.
 Restoration still runs through the same session path and restores only state
@@ -53,7 +53,9 @@ context.
 Input bytes are decoded through an input pipeline selected from the active
 terminal capability profile and session setup result. The keyboard profile is
 either legacy input or an exact Kitty flag set. Kitty setup, decoding, and
-restoration use the same flags; associated text is accepted only with the
+restoration use the same verified flags. Base CSI-u code-point packets are
+recognized without enabling optional Kitty fields; event types, alternate keys,
+and associated text require their negotiated flags. Associated text is accepted only with the
 report-all-keys flag required by the protocol. Report-all-keys is also valid
 without associated text; that profile deliberately reports key identity without
 committed text. Even when associated text is enabled, shortcuts such as Ctrl+A
@@ -65,14 +67,15 @@ the token is framed rather than ambiguous and remains open until its closing
 marker or payload bound. OSC, DCS, SOS, PM, APC, SS3, and CSI framing is
 recognized even when the token has no semantic decoder, so unsupported payloads
 remain one unknown event and never become typed text. Bracketed paste, focus,
-and mouse decoding follow the protocol operations actually enabled for the
-session; skipped or failed setup cannot promote matching bytes into those
-semantic events.
+mouse, and keyboard decoding follow the resulting session state, including
+protocols inherited from an outer terminal owner. An active mouse encoding that
+the decoder cannot consume makes setup fail instead of silently producing
+unusable input.
 
 `InputPipeline` is one stream with one immutable profile. `decode()` retains
 incomplete UTF-8 and terminal tokens; it has no per-call override.
 `decodeOnce()` is the separate stateless operation. A custom event loop may use
-`replaceInputProfile()` only between complete tokens after it has changed the
+`replaceTerminalProfile()` only between complete tokens after it has changed the
 host protocol state. Low-level pipelines default to legacy keyboard decoding
 with paste, focus, and mouse protocols disabled. Their explicit protocol
 options are authority supplied by the host adapter, not capability guesses.
@@ -91,6 +94,16 @@ Capability entries distinguish terminal protocol `support` from host-adapter
 supported protocol is not operable when the host lacks the required input,
 output, resize, or session hook. Each entry retains its source facts and
 diagnostics so applications can explain why an optional operation was skipped.
+Mode observation records the prior terminal state before the application lease.
+When a suspended runtime resumes against a changed host or PTY, input decoding,
+application context, and output planning receive one replacement capability
+snapshot before the full redraw.
+
+The default drag mouse mode covers click, wheel, and captured drag input. Passive
+hover, enter, and leave require `mouseReporting: { mode: 'all', ... }`, which is
+opt-in because all-motion reporting can be high volume. Legacy numpad location
+is opportunistic and depends on an outer application-keypad mode; negotiated
+Kitty input is the reliable source of keypad identity.
 
 Non-TTY behavior is explicit on the TUI definition. The default is `reject`.
 Apps may opt into `transcript_only` or `last_frame`; these paths do not enter
@@ -152,6 +165,15 @@ work. While suspended, input acquired by the external operation remains owned
 by that operation if the TUI exits. If the effect is cancelled, a late
 operation completion cannot open a replacement terminal session. The terminal
 host remains private to the runtime.
+Failure to restore terminal ownership or establish the replacement session is
+fatal to the run; input is not resumed against suspended output. Unix job-control
+signals are not synthesized into this portable mechanism. Applications that
+launch a stopping child should use the suspension boundary around that process.
+
+Raw input does not turn Ctrl+C into `SIGINT`. The full-screen runtime deliberately
+does not reserve Ctrl+C or Escape: applications declare those bindings when they
+want interruption, while host-delivered SIGINT, SIGTERM, and SIGHUP retain the
+runtime-wide restoration path from before setup through final cleanup.
 
 Effects and subscriptions receive an abort signal and app-facing context, but
 not the terminal host. Cancellation revokes producer authority before queued
@@ -264,7 +286,10 @@ press, drag, and release gestures to stable anchor/current text offsets. Use
 `resolveSelectedText()` to turn explicit selectable text
 sources and ranges into copyable text, or `copySelectedTextToClipboard()` to
 run that selected text through the capability- and policy-gated OSC 52
-clipboard protocol. Terminal-native selection remains a separate mode: the app
+clipboard protocol. Explicit authorization permits a bounded write attempt when
+terminal support is unknown; the successful result says `sent` and does not
+claim that the clipboard contents were observed. Clipboard reading is not
+exposed by terminal-ui. Terminal-native selection remains a separate mode: the app
 can delegate to it, but the runtime does not invent selected text from terminal
 emulator state.
 

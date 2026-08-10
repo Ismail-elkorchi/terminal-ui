@@ -1,7 +1,7 @@
-import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
+import { measureTextCells, sanitizeTerminalCellText } from '../../text/index.ts';
 import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
 import type { RenderDiff, RenderOperation } from '../contracts.ts';
-import { serializeRenderSpans } from './ansi.ts';
+import { serializeRenderSpansWithProtocols } from './ansi.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import type { RenderSerializeOptions } from './ansi.ts';
 
@@ -12,7 +12,15 @@ export interface TerminalOutputPlan {
   readonly baselinePayloadBytes: number;
   readonly strategy: 'baseline' | 'optimized';
   readonly synchronized: boolean;
+  readonly protocols: FrameProtocolUsage;
   readonly failureCleanup?: string;
+}
+
+export interface FrameProtocolUsage {
+  readonly synchronized: boolean;
+  readonly scrollingRegion: boolean;
+  readonly style: boolean;
+  readonly hyperlink: boolean;
 }
 
 interface CursorState {
@@ -33,6 +41,8 @@ type PreparedOutputOperation =
       readonly text: string;
       readonly columns: number;
       readonly bytes: number;
+      readonly usesStyle: boolean;
+      readonly usesHyperlink: boolean;
     }
   | Extract<RenderOperation, { readonly kind: 'clearRect' }>;
 
@@ -54,6 +64,13 @@ export function planTerminalOutput(
   const begin = synchronized ? policy.beginSynchronizedOutput() : '';
   const end = synchronized ? policy.endSynchronizedOutput() : '';
   const text = `${begin}${selected}${end}`;
+  const protocols = Object.freeze({
+    synchronized,
+    scrollingRegion: false,
+    style: operations.some((operation) => operation.kind === 'write' && operation.usesStyle),
+    hyperlink: operations.some((operation) => operation.kind === 'write' && operation.usesHyperlink)
+  });
+  const failureCleanup = payloadBytes === 0 ? undefined : frameRecoverySuffix(policy, protocols);
   return Object.freeze({
     text,
     bytes: payloadBytes + asciiBytes(begin) + asciiBytes(end),
@@ -61,8 +78,22 @@ export function planTerminalOutput(
     baselinePayloadBytes,
     strategy,
     synchronized,
-    ...(synchronized ? { failureCleanup: end } : {})
+    protocols,
+    ...(failureCleanup === undefined ? {} : { failureCleanup })
   });
+}
+
+export function frameRecoverySuffix(
+  policy: ReturnType<typeof createTerminalSerializationPolicy>,
+  protocols: FrameProtocolUsage
+): string | undefined {
+  const suffix = [
+    ...(protocols.synchronized ? [policy.endSynchronizedOutput()] : []),
+    ...(protocols.scrollingRegion ? [policy.resetScrollingRegion()] : []),
+    ...(protocols.hyperlink ? [policy.closeHyperlink()] : []),
+    ...(protocols.style ? [policy.resetStyle()] : [])
+  ].join('');
+  return suffix.length === 0 ? undefined : suffix;
 }
 
 function evaluateOperations(
@@ -214,15 +245,17 @@ function prepareOperations(
 ): readonly PreparedOutputOperation[] {
   return Object.freeze(operations.map((operation): PreparedOutputOperation => {
     if (operation.kind !== 'write') return operation;
-    const text = serializeRenderSpans(operation.spans, options);
+    const serialized = serializeRenderSpansWithProtocols(operation.spans, options);
     return Object.freeze({
       kind: 'write',
       row: operation.row,
       column: operation.column,
-      text,
-      bytes: utf8Bytes(text),
+      text: serialized.text,
+      bytes: utf8Bytes(serialized.text),
+      usesStyle: serialized.usesStyle,
+      usesHyperlink: serialized.usesHyperlink,
       columns: operation.spans.reduce((total, current) => {
-        const text = sanitizeTerminalText(current.text).text;
+        const text = sanitizeTerminalCellText(current.text).text;
         return total + measureTextCells(text, { widthProfile: capabilities.unicode.widthProfile }).cells;
       }, 0)
     });

@@ -126,6 +126,12 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
   let pendingFrame: Frame | undefined;
   let commitSequence = 1;
   const transcript = createTranscriptRecorder({ source: 'test' });
+  const writeTerminalOutput = (chunk: string | Uint8Array): void => {
+    const text = chunkText(chunk);
+    output.push(text);
+    const response = ptyProtocolResponse(text);
+    if (response.length > 0) input.push(response);
+  };
   const host = createPtyTerminalHost({
     id: options.id ?? 'pty-harness',
     env: { TERM: 'xterm-256color' },
@@ -138,7 +144,7 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
     },
     stdout: {
       isTty: true,
-      write: (chunk) => { output.push(chunkText(chunk)); },
+      write: writeTerminalOutput,
       recoveryWrite: (chunk) => { output.push(chunkText(chunk)); }
     },
     stderr: {
@@ -223,6 +229,19 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
     }
   };
   return harness;
+}
+
+const privateModeQueryPattern = new RegExp(String.raw`\u001B\[\?(\d+)\$p`, 'gu');
+
+function ptyProtocolResponse(output: string): string {
+  const responses: string[] = [];
+  for (const match of output.matchAll(privateModeQueryPattern)) {
+    const mode = match[1];
+    if (mode === undefined) continue;
+    responses.push(`\u001B[?${mode};${mode === '25' ? '1' : '2'}$y`);
+  }
+  if (output.includes('\u001B[c')) responses.push('\u001B[?1;2c');
+  return responses.join('');
 }
 
 function deliverPtyHarnessInput(input: QueuedPtyInput, signals: PtySignalBus, event: RecordedInputEvent): void {

@@ -40,6 +40,6 @@ export class TerminalWriteError extends TerminalUiError {
   }
 }
 
-export function terminalWriteWasIndeterminate(cause: unknown): boolean {
-  return cause instanceof TerminalWriteError && cause.receipt.status === 'indeterminate';
+export function terminalWriteMayHaveCommitted(cause: unknown): boolean {
+  return !(cause instanceof TerminalWriteError) || cause.receipt.status === 'indeterminate';
 }

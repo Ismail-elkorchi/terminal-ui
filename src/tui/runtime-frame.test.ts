@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { text } from '../components/index.ts';
 import { createMemoryTerminalHost } from '../host/memory.ts';
-import { committedTerminalWrite } from '../host/write-receipt.ts';
+import { committedTerminalWrite, failedTerminalWrite } from '../host/write-receipt.ts';
 import { renderElementFrame } from '../renderer/index.ts';
 import { defineTheme } from '../theme/index.ts';
 import { commitFrame } from './runtime-frame.ts';
@@ -27,6 +27,10 @@ void test('frame commits use an independent bounded context for synchronized-out
     }
     return committedTerminalWrite();
   };
+  host.writeRecovery = async (output, context: TerminalOperationContext = {}) => {
+    observedCalls.push({ text: output.text ?? '', signal: context.signal, aborted: context.signal?.aborted ?? false });
+    return committedTerminalWrite();
+  };
 
   const committing = commitFrame(
     host,
@@ -45,9 +49,28 @@ void test('frame commits use an independent bounded context for synchronized-out
   assert.ok(frameCall);
   assert.ok(cleanupCall);
   assert.equal(frameCall.signal, controller.signal);
-  assert.equal(cleanupCall.text, '\u001B[?2026l');
+  assert.equal(cleanupCall.text, '\u001B[?2026l\u001B[0m');
   assert.notEqual(cleanupCall.signal, controller.signal);
   assert.equal(cleanupCall.aborted, false);
+});
+
+void test('frame commits do not mutate terminal state after a failed-before-write receipt', async () => {
+  const host = createMemoryTerminalHost({
+    capabilities: { overrides: { synchronizedOutput: true } }
+  });
+  const frame = renderElementFrame(text({ content: 'rejected frame' }), { columns: 20, rows: 1 });
+  let recoveryWrites = 0;
+  host.write = async () => failedTerminalWrite('rejected-frame', new Error('closed'));
+  host.writeRecovery = async () => {
+    recoveryWrites += 1;
+    return committedTerminalWrite();
+  };
+
+  await assert.rejects(
+    commitFrame(host, undefined, frame, defineTheme(), await host.getCapabilities()),
+    /failed before the write started/u
+  );
+  assert.equal(recoveryWrites, 0);
 });
 
 void test('unchanged frame commits record the diff without entering the host write queue', async () => {

@@ -3,9 +3,10 @@ import type { TerminalOperationOutcome, TerminalStateChange } from './types.ts';
 
 export function terminalOperationApplied(
   change: TerminalStateChange,
+  assurance: Extract<TerminalOperationOutcome, { readonly status: 'applied' }>['assurance'],
   diagnostics: readonly TerminalDiagnostic[] = []
 ): TerminalOperationOutcome {
-  return { status: 'applied', change, diagnostics };
+  return { status: 'applied', assurance, change, diagnostics };
 }
 
 export function terminalOperationRejected(

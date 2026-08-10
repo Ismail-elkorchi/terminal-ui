@@ -77,6 +77,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     clock,
     resolverInput,
     beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
+    observeModes: (reports) => terminalState.observeModes(reports),
     write: (chunk, signal) => output.write(chunk, { signal })
   });
   const host: TerminalHost = {
@@ -107,6 +108,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
   };
   terminalState.bind(host, {
     rawInputKnowledge: options.stdin?.isRawModeEnabled === undefined ? 'library_known' : 'observed',
+    verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;

@@ -60,6 +60,7 @@ export async function restoreTuiSession(
           bracketedPaste: 'indeterminate',
           mouseReporting: 'indeterminate',
           focusReporting: 'indeterminate',
+          unicodeGraphemeMode: 'indeterminate',
           keyboardProfile: 'indeterminate',
           cursorVisible: 'indeterminate'
         }

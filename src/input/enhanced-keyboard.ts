@@ -108,6 +108,8 @@ export function enhancedKeyFromPrefix(
     );
   }
 
+  if (profile.kind === 'legacy') return undefined;
+
   const final = csiFinalKeyPattern.exec(value);
   if (final?.[0] !== undefined) {
     if (!acceptsEventType(final[2], profile)) return undefined;

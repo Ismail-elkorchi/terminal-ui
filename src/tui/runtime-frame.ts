@@ -5,7 +5,10 @@ import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions
 import { diffFrames, renderElementInternal } from '../renderer/internal/render.ts';
 import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-planner.ts';
 import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
-import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
+import {
+  requireCommittedTerminalWrite,
+  terminalWriteMayHaveCommitted
+} from '../host/write-receipt.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type {
   TerminalCapabilityProfile,
@@ -102,6 +105,7 @@ async function attemptOutputCleanup(
   cleanup: string | undefined,
   writeError: unknown
 ): Promise<never> {
+  if (!terminalWriteMayHaveCommitted(writeError)) throw writeError;
   if (cleanup === undefined) throw writeError;
   const controller = new AbortController();
   const timer = Promise.resolve()
@@ -112,11 +116,11 @@ async function attemptOutputCleanup(
       if (!controller.signal.aborted) controller.abort(cause);
     });
   try {
-    requireCommittedTerminalWrite(await host.write({ text: cleanup }, { signal: controller.signal }));
+    requireCommittedTerminalWrite(await host.writeRecovery({ text: cleanup }, { signal: controller.signal }));
   } catch (cleanupError) {
     throw new AggregateError(
       [writeError, cleanupError],
-      'Terminal frame write failed and synchronized-output cleanup also failed.',
+      'Terminal frame write failed and terminal-state cleanup also failed.',
       { cause: cleanupError }
     );
   } finally {

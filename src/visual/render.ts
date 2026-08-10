@@ -1,4 +1,10 @@
-import { clipTextCells, fillTextCells, measureTextCells } from '../text/index.ts';
+import {
+  clipTextCells,
+  fillTextCells,
+  measureTextCells,
+  sanitizeTerminalCellText
+} from '../text/index.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 import type { ThemeColorToken } from './color.ts';
 import { sameFrameCellSource } from './source.ts';
 import type { FrameCellSource } from './source.ts';
@@ -24,6 +30,36 @@ export type TerminalColor =
 export interface TerminalLink {
   readonly href: string;
   readonly id?: string;
+}
+
+const maximumTerminalLinkHrefCodeUnits = 4096;
+const maximumTerminalLinkIdCodeUnits = 128;
+const terminalLinkIdPattern = /^[A-Za-z0-9._~-]+$/u;
+
+export function normalizeTerminalLink(value: unknown): TerminalLink {
+  if (!isNonArrayObject(value)) throw new TypeError('Terminal link must be an object.');
+  const unknown = Object.keys(value).find((field) => field !== 'href' && field !== 'id');
+  if (unknown !== undefined) throw new TypeError(`Terminal link contains unsupported field "${unknown}".`);
+  if (typeof value['href'] !== 'string') throw new TypeError('Terminal link href must be a string.');
+  const href = sanitizeTerminalCellText(value['href']).text;
+  if (href.length === 0 || href.length > maximumTerminalLinkHrefCodeUnits) {
+    throw new TypeError(
+      `Terminal link href must contain 1-${String(maximumTerminalLinkHrefCodeUnits)} safe code units.`
+    );
+  }
+  if (value['id'] === undefined) return Object.freeze({ href });
+  if (typeof value['id'] !== 'string') throw new TypeError('Terminal link id must be a string when provided.');
+  const id = sanitizeTerminalCellText(value['id']).text;
+  if (
+    id.length === 0
+    || id.length > maximumTerminalLinkIdCodeUnits
+    || !terminalLinkIdPattern.test(id)
+  ) {
+    throw new TypeError(
+      `Terminal link id must contain 1-${String(maximumTerminalLinkIdCodeUnits)} ASCII identifier characters.`
+    );
+  }
+  return Object.freeze({ href, id });
 }
 
 export interface RenderSpan {

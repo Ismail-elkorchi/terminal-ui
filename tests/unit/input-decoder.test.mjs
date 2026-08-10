@@ -267,6 +267,19 @@ test('Kitty report-all profiles accept key events that do not produce associated
   }]);
 });
 
+test('legacy decoding accepts the base CSI-u grammar without unnegotiated extensions', () => {
+  const ctrlA = '\u001B[97;5u';
+  assert.deepEqual(decodeInputChunk({ data: ctrlA }), [{
+    ...expectedKey('a', ctrlA, { ctrl: true }),
+    keyCodePoint: 97
+  }]);
+
+  const eventType = '\u001B[97;5:2u';
+  assert.deepEqual(decodeInputChunk({ data: eventType }), [
+    { kind: 'unknown', sequence: eventType }
+  ]);
+});
+
 test('input triggers match normalized, code-point, and base-layout physical key identities', () => {
   const [event] = decodeInputChunk({ data: '\u001B[97:65:113;2:2;65u' }, { keyboard: kittyFull });
   assert.equal(matchesInputTrigger({ kind: 'key', key: 'a', eventType: 'repeat', modifiers: { shift: true } }, event), true);

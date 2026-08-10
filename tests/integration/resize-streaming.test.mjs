@@ -78,5 +78,5 @@ test('PTY harness handles resize while async stream messages are rendering', asy
   assert.match(harness.output(), /cols:52/u);
   assert.match(harness.output(), /stream item/u);
   assert.equal(harness.host.stdin.isRawModeEnabled?.(), false);
-  assert.equal(harness.restores().length, 1);
+  assert.equal(harness.restores().length, 2);
 });

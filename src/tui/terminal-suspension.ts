@@ -5,8 +5,9 @@ import type { TranscriptRecorder } from '../transcript/index.ts';
 import type { TuiRuntime } from './types.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
 import type { TuiInputSuspensionController } from './input-suspension.ts';
+import { inputProfileForSession } from './session-policy.ts';
 import { recordTuiRestore } from './transcript.ts';
-import { LEGACY_KEYBOARD_PROFILE } from '../protocol/index.ts';
+import { failTuiRuntimeTerminalOwnership } from './runtime.ts';
 
 interface TerminalSuspensionOptions<TState, TMessage> {
   readonly appId: string;
@@ -58,6 +59,14 @@ export function createTerminalSuspension<TState, TMessage>(
       try {
         if (terminalRestored) {
           signal.throwIfAborted();
+          await options.host.getCapabilities({
+            activeProbes: [
+              ...(options.host.runtime === 'memory' ? [] : ['terminalModes'] as const),
+              ...(options.policy.keyboard.profile.kind === 'kitty' ? ['keyboardProtocol'] as const : [])
+            ],
+            refresh: true,
+            signal
+          });
           const session = await options.host.beginSession({
             id: `${options.appId}:resume:${String(resumeSequence)}`
           });
@@ -67,21 +76,16 @@ export function createTerminalSuspension<TState, TMessage>(
           if (!setup.ok) {
             throw new Error('Terminal session could not be reconfigured after suspension.');
           }
-          runtime.replaceInputProfile({
+          runtime.replaceTerminalProfile({
             capabilities: session.capabilities,
-            bracketedPaste: setup.applied.some((item) =>
-              item.kind === 'bracketedPaste' && item.enabled),
-            focusReporting: setup.applied.some((item) =>
-              item.kind === 'focusReporting' && item.enabled),
-            mouseReporting: setup.applied.find((item) => item.kind === 'mouseReporting')?.enabled ?? 'none',
-            keyboard: setup.applied.find((item) => item.kind === 'keyboardProfile')?.enabled
-              ?? LEGACY_KEYBOARD_PROFILE
+            ...inputProfileForSession(setup)
           });
         }
         runtime.resumeOutput();
         await runtime.redraw();
       } catch (cause) {
         recoveryFailure = cause;
+        failTuiRuntimeTerminalOwnership(runtime, cause);
       } finally {
         if (inputPaused) await input.resume();
         else void input.resume();

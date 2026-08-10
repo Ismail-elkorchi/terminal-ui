@@ -250,6 +250,31 @@ void test('a capability response split across timeout is removed as one token', 
   await authority.dispose();
 });
 
+void test('a primary device-attributes fence establishes unsupported Kitty input', async () => {
+  const source: import('./types.ts').TerminalInput = {
+    read: () => ({
+      async *[Symbol.asyncIterator]() {
+        yield { data: 'before\u001B[?' };
+        yield { data: '1;2cafter' };
+      }
+    }),
+    isTty: () => true
+  };
+  const authority = new TerminalInputAuthority(source);
+
+  assert.deepEqual(
+    await authority.probeKittyKeyboard(new AbortController().signal, probeClock),
+    { status: 'unsupported' }
+  );
+  const replacement = authority.read()[Symbol.asyncIterator]();
+  const first = await replacement.next();
+  const second = await replacement.next();
+  if (first.done || second.done) assert.fail('Expected input surrounding the response fence.');
+  assert.equal(inputText(first.value.data) + inputText(second.value.data), 'beforeafter');
+  await replacement.return?.();
+  await authority.dispose();
+});
+
 void test('user input before a late split capability response is replayed without disabling filtering', async () => {
   const reads: PromiseWithResolvers<IteratorResult<TerminalInputChunk>>[] = [];
   const source: import('./types.ts').TerminalInput = {

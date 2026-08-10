@@ -11,6 +11,7 @@ import {
   measureTextCells,
   oneCellGlyph,
   padTextCells,
+  sanitizeTerminalCellText,
   sanitizeTerminalText,
   segmentGraphemes,
   selectedText,
@@ -36,6 +37,17 @@ test('text measurement sanitizes control sequences and measures visible cells', 
   assert.equal(Object.isFrozen(sanitized), true);
   assert.equal(Object.isFrozen(sanitized.removedControlSequences), true);
   assert.equal(measureTextCells('a🙂').cells, 3);
+});
+
+test('terminal cell sanitization rejects cursor-moving text controls without changing multiline text policy', () => {
+  const value = 'a\tb\nc\rd';
+
+  assert.equal(sanitizeTerminalText(value).text, value);
+  assert.equal(sanitizeTerminalCellText(value).text, 'abcd');
+  assert.throws(
+    () => sanitizeTerminalCellText('safe', { replacement: '\n' }),
+    /replacement must not contain control characters or terminal sequences/u
+  );
 });
 
 test('oneCellGlyph preserves fixed-cell geometry across width profiles', () => {

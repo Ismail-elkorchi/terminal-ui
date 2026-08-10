@@ -6,6 +6,7 @@ export type RuntimeTarget = 'node' | 'deno' | 'bun' | 'memory';
 export const terminalCapabilityNames = [
   'rawInput',
   'resize',
+  'textAttributes',
   'hyperlinks',
   'keyboardProtocol',
   'bracketedPaste',
@@ -13,11 +14,12 @@ export const terminalCapabilityNames = [
   'alternateScreen',
   'focusReporting',
   'cursorVisibility',
+  'unicodeGraphemeMode',
   'synchronizedOutput',
   'scrollRegion',
   'title',
   'bell',
-  'clipboard'
+  'clipboardWrite'
 ] as const;
 
 export type TerminalCapabilityName = typeof terminalCapabilityNames[number];

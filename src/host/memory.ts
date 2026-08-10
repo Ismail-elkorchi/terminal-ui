@@ -6,6 +6,7 @@ import { throwIfTerminalOperationAborted } from './operation.ts';
 import { committedTerminalWrite, failedTerminalWrite } from './write-receipt.ts';
 import { TerminalInputAuthority } from './input-authority.ts';
 import { TerminalCapabilityDetector } from './capability-detection.ts';
+import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
 import type {
   ControlledTerminalClock,
   MemoryTerminalHostOptions,
@@ -256,6 +257,7 @@ export interface MemoryTerminalHost extends TerminalHost {
 }
 
 export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}): MemoryTerminalHost {
+  assertMemoryTerminalHostOptions(options);
   let terminalSize: TerminalSize = options.terminalSize ?? { columns: 80, rows: 24 };
   const isTty = options.isTty ?? true;
   const inputSource = new QueueInput(isTty);
@@ -281,12 +283,12 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
     ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile }),
     ...(
-      options.clipboard === undefined && options.capabilities?.overrides === undefined
+      options.clipboardWrite === undefined && options.capabilities?.overrides === undefined
         ? {}
         : {
             overrides: {
               ...(options.capabilities?.overrides ?? {}),
-              ...(options.clipboard === undefined ? {} : { clipboard: options.clipboard })
+              ...(options.clipboardWrite === undefined ? {} : { clipboardWrite: options.clipboardWrite })
             }
           }
     )
@@ -301,6 +303,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     clock,
     resolverInput,
     beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
+    observeModes: (reports) => terminalState.observeModes(reports),
     write: (chunk, signal) => output.write(chunk, { signal })
   });
   const host = {
@@ -359,4 +362,26 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;
+}
+
+const memoryTerminalHostOptionFields = new Set([
+  'id',
+  'terminalSize',
+  'isTty',
+  'clipboardWrite',
+  'env',
+  'observer',
+  'capabilities',
+  'initialState'
+]);
+
+function assertMemoryTerminalHostOptions(value: unknown): asserts value is MemoryTerminalHostOptions {
+  if (!isNonArrayObject(value)) throw new TypeError('Memory terminal host options must be an object.');
+  const unsupported = findUnsupportedField(value, memoryTerminalHostOptionFields);
+  if (unsupported !== undefined) {
+    throw new TypeError(`Memory terminal host options contain unknown field "${unsupported}".`);
+  }
+  if (value['clipboardWrite'] !== undefined && typeof value['clipboardWrite'] !== 'boolean') {
+    throw new TypeError('Memory terminal host clipboardWrite must be a boolean when provided.');
+  }
 }

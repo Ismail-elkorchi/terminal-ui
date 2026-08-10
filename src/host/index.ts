@@ -18,6 +18,8 @@ export type {
   DenoTerminalHostOptions,
   MemoryTerminalHostOptions,
   MouseReportingMode,
+  MouseReportingEncoding,
+  MouseReportingState,
   NodeProcessLike,
   NodeReadableTerminalStream,
   NodeTerminalHostOptions,
@@ -39,6 +41,7 @@ export type {
   TerminalInitialState,
   TerminalOutput,
   TerminalOutputChunk,
+  TerminalOperationAssurance,
   TerminalOperationContext,
   TerminalOperationOutcome,
   TerminalRestoreOptions,
@@ -94,13 +97,31 @@ export function createTerminalHost(options?: CreateTerminalHostOptions): Termina
   if (options === undefined) return createDefaultTerminalHost();
   validateTerminalHostSelector(options);
   if ('adapter' in options) {
-    return createPtyTerminalHost(options);
+    const { adapter, ...hostOptions } = options;
+    void adapter;
+    return createPtyTerminalHost(hostOptions);
   }
   switch (options.runtime) {
-    case 'node': return createNodeTerminalHost(options);
-    case 'deno': return createDenoTerminalHost(options);
-    case 'bun': return createBunTerminalHost(options);
-    case 'memory': return createMemoryTerminalHost(options);
+    case 'node': {
+      const { runtime, ...hostOptions } = options;
+      void runtime;
+      return createNodeTerminalHost(hostOptions);
+    }
+    case 'deno': {
+      const { runtime, ...hostOptions } = options;
+      void runtime;
+      return createDenoTerminalHost(hostOptions);
+    }
+    case 'bun': {
+      const { runtime, ...hostOptions } = options;
+      void runtime;
+      return createBunTerminalHost(hostOptions);
+    }
+    case 'memory': {
+      const { runtime, ...hostOptions } = options;
+      void runtime;
+      return createMemoryTerminalHost(hostOptions);
+    }
   }
 }
 

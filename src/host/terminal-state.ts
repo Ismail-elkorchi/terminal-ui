@@ -1,5 +1,5 @@
 import { diagnostic } from '../diagnostics.ts';
-import { createProtocolWriter } from '../protocol/index.ts';
+import { createProtocolWriter, normalizeMouseReportingState } from '../protocol/index.ts';
 import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/keyboard.ts';
 import {
   terminalOperationApplied,
@@ -9,6 +9,8 @@ import {
 import { requireCommittedTerminalWrite, TerminalWriteError } from './write-receipt.ts';
 import { createTerminalRestorePlan } from './session-restore.ts';
 import { waitForTerminalOperation } from './operation.ts';
+import { modeIsSet } from './terminal-mode-query.ts';
+import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 import type { TerminalCapabilityName, TerminalCapabilityProfile } from './capability-types.ts';
@@ -33,6 +35,10 @@ type TerminalStateKey = keyof Omit<TerminalStateSnapshot, 'provenance'>;
 export interface TerminalStateAuthorityOptions {
   readonly rawInputKnowledge: TerminalStateKnowledge;
   readonly initialState?: TerminalInitialState;
+  readonly verifyKeyboardProfile?: (
+    flags: number,
+    context: TerminalOperationContext
+  ) => Promise<'verified' | 'unsupported' | 'inconclusive'>;
 }
 
 export class TerminalStateAuthorityBinding {
@@ -45,6 +51,10 @@ export class TerminalStateAuthorityBinding {
 
   beginLease(id: string, capabilities: TerminalCapabilityProfile): Promise<TerminalSession> {
     return this.authority().beginLease(id, capabilities);
+  }
+
+  observeModes(reports: TerminalModeReports): Promise<void> {
+    return this.authority().observeModes(reports);
   }
 
   restoreAll(
@@ -83,8 +93,10 @@ export class TerminalStateAuthorityBinding {
 export class TerminalStateAuthority {
   readonly #host: TerminalHost;
   readonly #rawInputKnowledge: TerminalStateKnowledge;
+  readonly #verifyKeyboardProfile: TerminalStateAuthorityOptions['verifyKeyboardProfile'];
   readonly #leases: TerminalSessionLease[] = [];
   readonly #uncertain = new Set<TerminalStateKey>();
+  #modeReports: TerminalModeReports = Object.freeze({});
   #current: TerminalStateSnapshot;
   #generation = 0;
   #tail: Promise<void> | undefined;
@@ -92,6 +104,7 @@ export class TerminalStateAuthority {
   constructor(host: TerminalHost, options: TerminalStateAuthorityOptions) {
     this.#host = host;
     this.#rawInputKnowledge = options.rawInputKnowledge;
+    this.#verifyKeyboardProfile = options.verifyKeyboardProfile;
     this.#current = initialTerminalState(host, options);
   }
 
@@ -107,8 +120,32 @@ export class TerminalStateAuthority {
     });
   }
 
+  observeModes(reports: TerminalModeReports): Promise<void> {
+    return this.runExclusive(() => {
+      if (this.#leases.length > 0) {
+        throw new Error('Terminal modes cannot be observed while a terminal session is active.');
+      }
+      this.#modeReports = Object.freeze({ ...this.#modeReports, ...reports });
+      this.observeBooleanMode('cursorVisible', reports[25]);
+      this.observeBooleanMode('focusReporting', reports[1004]);
+      this.observeBooleanMode('alternateScreen', reports[1049]);
+      this.observeBooleanMode('bracketedPaste', reports[2004]);
+      this.observeBooleanMode('unicodeGraphemeMode', reports[2027]);
+      this.observeMouseModes(reports);
+      return Promise.resolve();
+    });
+  }
+
   snapshot(): TerminalStateSnapshot {
     return cloneTerminalState(this.#current, this.#uncertain);
+  }
+
+  currentState(lease: TerminalSessionLease): Promise<TerminalStateSnapshot> {
+    return this.runExclusive(() => {
+      const inactive = this.inactiveLeaseDiagnostic(lease);
+      if (inactive !== undefined) throw new Error(inactive.message);
+      return Promise.resolve(this.snapshot());
+    });
   }
 
   isActive(lease: TerminalSessionLease): boolean {
@@ -130,8 +167,12 @@ export class TerminalStateAuthority {
       const cancellation = cancelledOperationDiagnostic(lease, context);
       if (cancellation !== undefined) return terminalOperationRejected(cancellation);
       if (equal(this.#current[kind], enabled) && !this.#uncertain.has(kind)) {
-        return terminalOperationApplied(change);
+        return terminalOperationApplied(change, assuranceForKnowledge(this.#current.provenance[kind]));
       }
+      const fixedMode = permanentModeTransitionDiagnostic(lease, change, this.#modeReports);
+      if (fixedMode !== undefined) return terminalOperationRejected(fixedMode);
+      const unavailable = unavailableCapabilityOutcome(lease, capabilityForState(kind));
+      if (unavailable !== undefined) return unavailable;
       this.#uncertain.add(kind);
       try {
         await apply(context);
@@ -149,8 +190,16 @@ export class TerminalStateAuthority {
       if (!this.isCurrentGeneration(generation)) {
         return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
       }
-      this.setKnown(kind, enabled, knowledgeAfterMutation(kind, this.#host));
-      return terminalOperationApplied(change);
+      if (kind === 'rawInput' && this.#rawInputKnowledge === 'observed') {
+        const observed = this.#host.stdin.isRawModeEnabled?.();
+        if (observed !== undefined && !Object.is(observed, enabled)) {
+          this.setKnown('rawInput', observed, 'observed');
+          return terminalOperationRejected(rawInputObservationMismatchDiagnostic(lease, observed));
+        }
+      }
+      const knowledge = knowledgeAfterMutation(kind, this.#rawInputKnowledge);
+      this.setKnown(kind, enabled, knowledge);
+      return terminalOperationApplied(change, knowledge === 'observed' ? 'observed' : 'sent');
     });
   }
 
@@ -167,24 +216,69 @@ export class TerminalStateAuthority {
       const cancellation = cancelledOperationDiagnostic(lease, context);
       if (cancellation !== undefined) return terminalOperationRejected(cancellation);
       if (keyboardProfilesEqual(this.#current.keyboardProfile, normalized) && !this.#uncertain.has('keyboardProfile')) {
-        return terminalOperationApplied(change);
+        return terminalOperationApplied(
+          change,
+          assuranceForKnowledge(this.#current.provenance.keyboardProfile)
+        );
       }
+      const previousProfile = this.#current.keyboardProfile;
       this.#uncertain.add('keyboardProfile');
+      let assurance: 'observed' | 'sent' = 'sent';
+      let terminalMayHaveChanged = false;
       try {
         if (lease.keyboardFrameState === 'none') {
           lease.beginKeyboardFramePush();
           await this.protocol(context).pushKeyboardProfile(normalized);
+          terminalMayHaveChanged = true;
           lease.confirmKeyboardFramePush();
         } else if (lease.keyboardFrameState === 'owned') {
           await this.protocol(context).setKeyboardProfile(normalized);
+          terminalMayHaveChanged = true;
         } else {
           throw new Error(`Keyboard frame state is indeterminate: ${lease.keyboardFrameState}.`);
+        }
+        if (normalized.kind === 'kitty' && this.#verifyKeyboardProfile !== undefined) {
+          const verification = await this.#verifyKeyboardProfile(normalized.flags, context);
+          if (verification !== 'verified') {
+            if (!this.isCurrentGeneration(generation)) {
+              return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
+            }
+            try {
+              await this.protocol(context).setKeyboardProfile(previousProfile);
+            } catch (cause) {
+              this.markIndeterminate('keyboardProfile');
+              return terminalOperationIndeterminate(
+                change,
+                indeterminateOperationDiagnostic(lease, change, cause)
+              );
+            }
+            if (!this.isCurrentGeneration(generation)) {
+              return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
+            }
+            this.setKnown('keyboardProfile', previousProfile, 'library_known');
+            return terminalOperationRejected(diagnostic(
+              verification === 'unsupported' ? 'HOST_PROTOCOL_UNSUPPORTED' : 'HOST_CAPABILITY_UNAVAILABLE',
+              verification === 'unsupported'
+                ? 'The terminal rejected the requested Kitty keyboard profile.'
+                : 'The terminal did not verify the requested Kitty keyboard flags.',
+              {
+                severity: 'warning',
+                target: lease.id,
+                data: { requestedFlags: normalized.flags, verification }
+              }
+            ));
+          }
+          assurance = 'observed';
         }
       } catch (cause) {
         if (!this.isCurrentGeneration(generation)) {
           return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
         }
-        if (cause instanceof TerminalWriteError && cause.receipt.status === 'failed_before_write') {
+        if (
+          !terminalMayHaveChanged
+          && cause instanceof TerminalWriteError
+          && cause.receipt.status === 'failed_before_write'
+        ) {
           this.#uncertain.delete('keyboardProfile');
           lease.cancelKeyboardFramePush();
           return terminalOperationRejected(cause.receipt.diagnostic);
@@ -195,8 +289,12 @@ export class TerminalStateAuthority {
       if (!this.isCurrentGeneration(generation)) {
         return terminalOperationIndeterminate(change, supersededOperationDiagnostic(lease, change));
       }
-      this.setKnown('keyboardProfile', normalized, 'library_known');
-      return terminalOperationApplied(change);
+      this.setKnown(
+        'keyboardProfile',
+        normalized,
+        assurance === 'observed' ? 'observed' : 'library_known'
+      );
+      return terminalOperationApplied(change, assurance);
     });
   }
 
@@ -307,6 +405,8 @@ export class TerminalStateAuthority {
       }
       const stateMatches = operation.kind === 'keyboardProfile'
         ? keyboardProfilesEqual(this.#current.keyboardProfile, operation.enabled)
+        : operation.kind === 'mouseReporting'
+          ? sameMouseReportingState(this.#current.mouseReporting, operation.enabled)
         : Object.is(this.#current[operation.kind], operation.enabled);
       const hasKeyboardFrame = operation.kind === 'keyboardProfile'
         && lease.keyboardFrameState !== 'none';
@@ -318,7 +418,19 @@ export class TerminalStateAuthority {
           diagnostics.push(supersededRestoreDiagnostic(lease, operation.kind));
           break;
         }
-        this.setKnown(operation.kind, operation.enabled, knowledgeAfterMutation(operation.kind, this.#host));
+        if (operation.kind === 'rawInput' && this.#rawInputKnowledge === 'observed') {
+          const observed = this.#host.stdin.isRawModeEnabled?.();
+          if (observed !== undefined && observed !== operation.enabled) {
+            this.setKnown('rawInput', observed, 'observed');
+            diagnostics.push(rawInputObservationMismatchDiagnostic(lease, observed));
+            continue;
+          }
+        }
+        this.setKnown(
+          operation.kind,
+          operation.enabled,
+          knowledgeAfterMutation(operation.kind, this.#rawInputKnowledge)
+        );
         confirmed.push(operation);
         if (restoreWasCancelled(context)) {
           diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
@@ -373,13 +485,14 @@ export class TerminalStateAuthority {
       case 'focusReporting':
         await (operation.enabled ? protocol.enableFocusReporting() : protocol.disableFocusReporting());
         break;
+      case 'unicodeGraphemeMode':
+        await (operation.enabled ? protocol.enableUnicodeGraphemeMode() : protocol.disableUnicodeGraphemeMode());
+        break;
       case 'keyboardProfile':
         await lease.restoreKeyboardFrame(protocol);
         break;
       case 'mouseReporting':
-        await (operation.enabled === 'none'
-          ? protocol.disableMouseReporting()
-          : protocol.enableMouseReporting(operation.enabled));
+        await protocol.setMouseReporting(operation.enabled);
         break;
       case 'bracketedPaste':
         await (operation.enabled ? protocol.enableBracketedPaste() : protocol.disableBracketedPaste());
@@ -404,6 +517,38 @@ export class TerminalStateAuthority {
       provenance: { ...this.#current.provenance, [kind]: knowledge }
     };
     this.#uncertain.delete(kind);
+  }
+
+  private observeBooleanMode(
+    kind: Extract<TerminalStateKey, 'alternateScreen' | 'bracketedPaste' | 'cursorVisible' | 'focusReporting' | 'unicodeGraphemeMode'>,
+    report: TerminalModeReportState | undefined
+  ): void {
+    const enabled = modeIsSet(report);
+    if (enabled !== undefined && this.#current.provenance[kind] !== 'explicit') {
+      this.setKnown(kind, enabled, 'observed');
+    }
+  }
+
+  private observeMouseModes(reports: TerminalModeReports): void {
+    if (this.#current.provenance.mouseReporting === 'explicit') return;
+    const all = modeIsSet(reports[1003]);
+    const drag = modeIsSet(reports[1002]);
+    const click = modeIsSet(reports[1000]);
+    const encoding = modeIsSet(reports[1006]);
+    const tracking = all === true
+      ? 'all'
+      : drag === true
+        ? 'drag'
+        : click === true
+          ? 'click'
+          : all === false && drag === false && click === false
+            ? 'none'
+            : undefined;
+    if (tracking === undefined || encoding === undefined) return;
+    this.setKnown('mouseReporting', {
+      tracking,
+      encoding: encoding ? 'sgr' : 'default'
+    }, 'observed');
   }
 
   private markIndeterminate(kind: TerminalStateKey): void {
@@ -497,6 +642,10 @@ class TerminalSessionLease implements TerminalSession {
     this.initialState = initialState;
   }
 
+  currentState(): Promise<TerminalStateSnapshot> {
+    return this.#authority.currentState(this);
+  }
+
   enableRawInput(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
     return this.mutate('rawInput', true, () => this.host.stdin.setRawMode?.(true), context);
   }
@@ -515,13 +664,24 @@ class TerminalSessionLease implements TerminalSession {
     mode: MouseReportingMode = 'click',
     context: TerminalOperationContext = {}
   ): Promise<TerminalOperationOutcome> {
-    return this.mutate('mouseReporting', mode, (operationContext) =>
-      this.protocol(operationContext).enableMouseReporting(mode), context);
+    const state = Object.freeze({ tracking: mode, encoding: 'sgr' as const });
+    return this.mutate(
+      'mouseReporting',
+      state,
+      (operationContext) => this.protocol(operationContext).setMouseReporting(state),
+      context,
+      sameMouseReportingState
+    );
   }
 
   enableFocusReporting(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
     return this.mutate('focusReporting', true, (operationContext) =>
       this.protocol(operationContext).enableFocusReporting(), context);
+  }
+
+  enableUnicodeGraphemeMode(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('unicodeGraphemeMode', true, (operationContext) =>
+      this.protocol(operationContext).enableUnicodeGraphemeMode(), context);
   }
 
   async enableKeyboardProfile(
@@ -605,27 +765,14 @@ class TerminalSessionLease implements TerminalSession {
     kind: K,
     enabled: TerminalStateSnapshot[K],
     apply: (context: TerminalOperationContext) => void | Promise<void>,
-    context: TerminalOperationContext
+    context: TerminalOperationContext,
+    equal: (current: TerminalStateSnapshot[K], next: TerminalStateSnapshot[K]) => boolean = Object.is
   ): Promise<TerminalOperationOutcome> {
-    const capability = capabilityForState(kind);
-    const support = this.requireCapability(capability);
-    if (support !== undefined) return Promise.resolve(support);
-    return this.#authority.mutate(this, kind, enabled, apply, context);
+    return this.#authority.mutate(this, kind, enabled, apply, context, equal);
   }
 
   private requireCapability(kind: TerminalCapabilityName): TerminalOperationOutcome | undefined {
-    const capability = this.capabilities[kind];
-    if (capability.support === 'supported' && capability.availability === 'available') return undefined;
-    return terminalOperationRejected(diagnostic('HOST_PROTOCOL_UNSUPPORTED', `Terminal protocol is unavailable: ${kind}.`, {
-      severity: 'warning',
-      target: this.id,
-      data: {
-        capability: kind,
-        support: capability.support,
-        availability: capability.availability,
-        diagnostics: capability.diagnostics.map((item) => item.message)
-      }
-    }));
+    return unavailableCapabilityOutcome(this, kind);
   }
 
   private protocol(context: TerminalOperationContext): ReturnType<typeof createProtocolWriter> {
@@ -647,26 +794,80 @@ function initialTerminalState(
   host: TerminalHost,
   options: TerminalStateAuthorityOptions
 ): TerminalStateSnapshot {
-  const explicit = options.initialState ?? {};
+  const explicit = normalizeInitialState(options.initialState);
   const rawInput = explicit.rawInput ?? host.stdin.isRawModeEnabled?.() ?? false;
   const values = {
     rawInput,
     alternateScreen: explicit.alternateScreen ?? false,
     bracketedPaste: explicit.bracketedPaste ?? false,
-    mouseReporting: explicit.mouseReporting ?? 'none',
+    mouseReporting: explicit.mouseReporting ?? Object.freeze({ tracking: 'none', encoding: 'default' }),
     focusReporting: explicit.focusReporting ?? false,
+    unicodeGraphemeMode: explicit.unicodeGraphemeMode ?? false,
     keyboardProfile: explicit.keyboardProfile === undefined
       ? LEGACY_KEYBOARD_PROFILE
       : normalizeKeyboardProfile(explicit.keyboardProfile),
     cursorVisible: explicit.cursorVisible ?? true
   } satisfies Omit<TerminalStateSnapshot, 'provenance'>;
-  const provenance = Object.fromEntries(
-    (Object.keys(values) as TerminalStateKey[]).map((key) => [
-      key,
-      key in explicit ? 'explicit' : key === 'rawInput' ? options.rawInputKnowledge : 'assumed'
-    ])
-  ) as unknown as TerminalStateProvenanceSnapshot;
+  const provenance: TerminalStateProvenanceSnapshot = {
+    rawInput: Object.hasOwn(explicit, 'rawInput') ? 'explicit' : options.rawInputKnowledge,
+    alternateScreen: initialKnowledge(explicit, 'alternateScreen'),
+    bracketedPaste: initialKnowledge(explicit, 'bracketedPaste'),
+    mouseReporting: initialKnowledge(explicit, 'mouseReporting'),
+    focusReporting: initialKnowledge(explicit, 'focusReporting'),
+    unicodeGraphemeMode: initialKnowledge(explicit, 'unicodeGraphemeMode'),
+    keyboardProfile: initialKnowledge(explicit, 'keyboardProfile'),
+    cursorVisible: initialKnowledge(explicit, 'cursorVisible')
+  };
   return { ...values, provenance };
+}
+
+function initialKnowledge(
+  state: TerminalInitialState,
+  kind: Exclude<TerminalStateKey, 'rawInput'>
+): TerminalStateKnowledge {
+  return Object.hasOwn(state, kind) ? 'explicit' : 'assumed';
+}
+
+function normalizeInitialState(initial: unknown): TerminalInitialState {
+  if (initial === undefined) return {};
+  if (typeof initial !== 'object' || initial === null || Array.isArray(initial)) {
+    throw new TypeError('Terminal initial state must be an object.');
+  }
+  const typed = initial as TerminalInitialState;
+  const supported = new Set([
+    'rawInput',
+    'alternateScreen',
+    'bracketedPaste',
+    'mouseReporting',
+    'focusReporting',
+    'unicodeGraphemeMode',
+    'keyboardProfile',
+    'cursorVisible'
+  ]);
+  const unknown = Object.keys(typed).find((field) => !supported.has(field));
+  if (unknown !== undefined) throw new TypeError(`Terminal initial state contains unknown field "${unknown}".`);
+  const booleanFields = [
+    'rawInput',
+    'alternateScreen',
+    'bracketedPaste',
+    'focusReporting',
+    'unicodeGraphemeMode',
+    'cursorVisible'
+  ] as const;
+  for (const field of booleanFields) {
+    if (Object.hasOwn(typed, field) && typeof typed[field] !== 'boolean') {
+      throw new TypeError(`Terminal initial state ${field} must be a boolean.`);
+    }
+  }
+  return Object.freeze({
+    ...typed,
+    ...(typed.mouseReporting === undefined
+      ? {}
+      : { mouseReporting: normalizeMouseReportingState(typed.mouseReporting) }),
+    ...(typed.keyboardProfile === undefined
+      ? {}
+      : { keyboardProfile: normalizeKeyboardProfile(typed.keyboardProfile) })
+  });
 }
 
 function cloneTerminalState(
@@ -675,11 +876,101 @@ function cloneTerminalState(
 ): TerminalStateSnapshot {
   const provenance = { ...state.provenance };
   for (const key of uncertain) provenance[key] = 'indeterminate';
-  return { ...state, keyboardProfile: { ...state.keyboardProfile }, provenance };
+  return {
+    ...state,
+    mouseReporting: { ...state.mouseReporting },
+    keyboardProfile: { ...state.keyboardProfile },
+    provenance
+  };
 }
 
-function knowledgeAfterMutation(kind: TerminalStateKey, host: TerminalHost): TerminalStateKnowledge {
-  return kind === 'rawInput' && host.stdin.isRawModeEnabled !== undefined ? 'observed' : 'library_known';
+function knowledgeAfterMutation(
+  kind: TerminalStateKey,
+  rawInputKnowledge: TerminalStateKnowledge
+): TerminalStateKnowledge {
+  return kind === 'rawInput' && rawInputKnowledge === 'observed' ? 'observed' : 'library_known';
+}
+
+function unavailableCapabilityOutcome(
+  lease: TerminalSessionLease,
+  kind: TerminalCapabilityName
+): TerminalOperationOutcome | undefined {
+  const capability = lease.capabilities[kind];
+  if (capability.support === 'supported' && capability.availability === 'available') return undefined;
+  return terminalOperationRejected(diagnostic(
+    'HOST_PROTOCOL_UNSUPPORTED',
+    `Terminal protocol is unavailable: ${kind}.`,
+    {
+      severity: 'warning',
+      target: lease.id,
+      data: {
+        capability: kind,
+        support: capability.support,
+        availability: capability.availability,
+        diagnostics: capability.diagnostics.map((item) => item.message)
+      }
+    }
+  ));
+}
+
+function permanentModeTransitionDiagnostic(
+  lease: TerminalSessionLease,
+  change: TerminalStateChange,
+  reports: TerminalModeReports
+): TerminalDiagnostic | undefined {
+  const requestedModes = requestedPrivateModes(change);
+  for (const [mode, requested] of requestedModes) {
+    const fixed = permanentModeValue(reports[mode]);
+    if (fixed === undefined || fixed === requested) continue;
+    return diagnostic(
+      'HOST_PROTOCOL_UNSUPPORTED',
+      `Terminal mode ${String(mode)} is permanent and cannot reach the requested ${change.kind} state.`,
+      {
+        severity: 'warning',
+        target: lease.id,
+        data: { operation: change.kind, mode, fixed, requested }
+      }
+    );
+  }
+  return undefined;
+}
+
+function requestedPrivateModes(
+  change: TerminalStateChange
+): readonly (readonly [keyof TerminalModeReports, boolean])[] {
+  switch (change.kind) {
+    case 'alternateScreen': return [[1049, change.enabled]];
+    case 'bracketedPaste': return [[2004, change.enabled]];
+    case 'cursorVisible': return [[25, change.enabled]];
+    case 'focusReporting': return [[1004, change.enabled]];
+    case 'unicodeGraphemeMode': return [[2027, change.enabled]];
+    case 'mouseReporting': {
+      const mouse = change.enabled;
+      return [
+        [1000, mouse.tracking === 'click'],
+        [1002, mouse.tracking === 'drag'],
+        [1003, mouse.tracking === 'all'],
+        [1006, mouse.encoding === 'sgr']
+      ];
+    }
+    case 'rawInput':
+    case 'keyboardProfile':
+      return [];
+  }
+}
+
+function permanentModeValue(report: TerminalModeReportState | undefined): boolean | undefined {
+  if (report === 'permanently_set') return true;
+  if (report === 'permanently_reset') return false;
+  return undefined;
+}
+
+function assuranceForKnowledge(
+  knowledge: TerminalStateKnowledge
+): Extract<TerminalOperationOutcome, { readonly status: 'applied' }>['assurance'] {
+  if (knowledge === 'observed') return 'observed';
+  if (knowledge === 'library_known') return 'sent';
+  return 'assumed';
 }
 
 function capabilityForState(kind: TerminalStateKey): TerminalCapabilityName {
@@ -689,6 +980,7 @@ function capabilityForState(kind: TerminalStateKey): TerminalCapabilityName {
     case 'bracketedPaste': return 'bracketedPaste';
     case 'mouseReporting': return 'mouseReporting';
     case 'focusReporting': return 'focusReporting';
+    case 'unicodeGraphemeMode': return 'unicodeGraphemeMode';
     case 'keyboardProfile': return 'keyboardProtocol';
     case 'cursorVisible': return 'cursorVisibility';
   }
@@ -729,9 +1021,31 @@ function supersededOperationDiagnostic(
   );
 }
 
+function rawInputObservationMismatchDiagnostic(
+  lease: TerminalSessionLease,
+  observed: boolean
+): TerminalDiagnostic {
+  return diagnostic(
+    'HOST_PROTOCOL_UNSUPPORTED',
+    'The terminal input adapter did not reach the requested raw-input state.',
+    {
+      severity: 'error',
+      target: lease.id,
+      data: { operation: 'rawInput', observed }
+    }
+  );
+}
+
 function keyboardProfilesEqual(left: TerminalKeyboardProfile, right: TerminalKeyboardProfile): boolean {
   return left.kind === right.kind
     && (left.kind === 'legacy' || (right.kind === 'kitty' && left.flags === right.flags));
+}
+
+function sameMouseReportingState(
+  left: TerminalStateSnapshot['mouseReporting'],
+  right: TerminalStateSnapshot['mouseReporting']
+): boolean {
+  return left.tracking === right.tracking && left.encoding === right.encoding;
 }
 
 function failedRestore(

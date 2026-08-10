@@ -128,6 +128,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     clock,
     resolverInput,
     beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
+    observeModes: (reports) => terminalState.observeModes(reports),
     write: (chunk, signal) => output.write(chunk, { signal })
   });
   const host: TerminalHost = {
@@ -157,7 +158,8 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     }
   };
   terminalState.bind(host, {
-    rawInputKnowledge: 'observed',
+    rawInputKnowledge: typeof inputStream.isRaw === 'boolean' ? 'observed' : 'library_known',
+    verifyKeyboardProfile: (flags, context) => detector.verifyKeyboardProfile(flags, context.signal),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;

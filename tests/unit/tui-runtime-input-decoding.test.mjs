@@ -136,7 +136,11 @@ test('decoded input resolves earlier raw input before it is admitted', async () 
       .map((step) => step.event.kind),
     ['unknown', 'text']
   );
-  assert.doesNotThrow(() => runtime.replaceInputProfile({ bracketedPaste: false }));
+  const capabilities = await harness.host.getCapabilities();
+  assert.doesNotThrow(() => runtime.replaceTerminalProfile({
+    capabilities,
+    bracketedPaste: false
+  }));
   assert.deepEqual(await rawBatch.pending, []);
   await runtime.dispose();
 });

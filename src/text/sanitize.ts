@@ -2,13 +2,18 @@ import type { RemovedControlSequence, SanitizedTerminalText, SanitizeTerminalTex
 
 const escape = '\u001B';
 const stringTerminator = String.raw`(?:\u001B\\|\u009C)`;
-const unsafeTerminalSequence = new RegExp([
+const unsafeTerminalSequenceParts = [
   String.raw`(?:\u001B\]|\u009D)[\s\S]*?(?:\u0007|${stringTerminator})`,
   String.raw`(?:\u001BP|\u0090)[\s\S]*?${stringTerminator}`,
   String.raw`(?:\u001B[X^_]|\u0098|\u009E|\u009F)[\s\S]*?${stringTerminator}`,
   String.raw`(?:\u001B\[|\u009B)[0-?]*[ -/]*[@-~]`,
   String.raw`\u001B[ -/]*[0-~]`,
   String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]`
+];
+const unsafeTerminalSequence = new RegExp(unsafeTerminalSequenceParts.join('|'), 'gu');
+const unsafeTerminalCellSequence = new RegExp([
+  ...unsafeTerminalSequenceParts,
+  String.raw`[\u0009\u000A\u000D]`
 ].join('|'), 'gu');
 const sanitizeCacheLimit = 8192;
 const sanitizeCacheMaxTextLength = 4096;
@@ -18,16 +23,38 @@ export function sanitizeTerminalText(
   text: string,
   options: SanitizeTerminalTextOptions = {}
 ): SanitizedTerminalText {
+  return sanitize(text, options, false);
+}
+
+/**
+ * Sanitizes text that will occupy cells on one terminal row.
+ *
+ * Unlike general application text, cell text cannot contain tab, line-feed,
+ * or carriage-return because terminals interpret them as cursor movement.
+ */
+export function sanitizeTerminalCellText(
+  text: string,
+  options: SanitizeTerminalTextOptions = {}
+): SanitizedTerminalText {
+  return sanitize(text, options, true);
+}
+
+function sanitize(
+  text: string,
+  options: SanitizeTerminalTextOptions,
+  cellText: boolean
+): SanitizedTerminalText {
   const replacement = options.replacement ?? '';
-  if (hasUnsafeTerminalText(replacement)) {
+  const isUnsafe = cellText ? hasUnsafeTerminalCellText : hasUnsafeTerminalText;
+  if (isUnsafe(replacement)) {
     throw new TypeError('Terminal text replacement must not contain control characters or terminal sequences.');
   }
-  const cacheKey = sanitizeCacheKey(text, replacement);
+  const cacheKey = sanitizeCacheKey(text, replacement, cellText);
   if (cacheKey !== undefined) {
     const cached = sanitizeCache.get(cacheKey);
     if (cached !== undefined) return cached;
   }
-  if (!hasUnsafeTerminalText(text)) {
+  if (!isUnsafe(text)) {
     const result = Object.freeze({
       text,
       changed: false,
@@ -40,7 +67,8 @@ export function sanitizeTerminalText(
     return result;
   }
   const removedControlSequences: RemovedControlSequence[] = [];
-  const sanitized = text.replace(unsafeTerminalSequence, (sequence: string, codeUnitOffset: number) => {
+  const pattern = cellText ? unsafeTerminalCellSequence : unsafeTerminalSequence;
+  const sanitized = text.replace(pattern, (sequence: string, codeUnitOffset: number) => {
     removedControlSequences.push({
       sequence,
       codeUnitOffset,
@@ -58,6 +86,10 @@ export function sanitizeTerminalText(
     trimSanitizeCache();
   }
   return result;
+}
+
+function hasUnsafeTerminalCellText(text: string): boolean {
+  return hasUnsafeTerminalText(text) || /[\t\n\r]/u.test(text);
 }
 
 function hasUnsafeTerminalText(text: string): boolean {
@@ -87,9 +119,9 @@ function isTerminalEscape(sequence: string): boolean {
     || code === 0x9f;
 }
 
-function sanitizeCacheKey(text: string, replacement: string): string | undefined {
+function sanitizeCacheKey(text: string, replacement: string, cellText: boolean): string | undefined {
   if (text.length > sanitizeCacheMaxTextLength || replacement.length > 16) return undefined;
-  return `${String(replacement.length)}:${replacement}${String(text.length)}:${text}`;
+  return `${cellText ? 'c' : 't'}:${String(replacement.length)}:${replacement}${String(text.length)}:${text}`;
 }
 
 function trimSanitizeCache(): void {

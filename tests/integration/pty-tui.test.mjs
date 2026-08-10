@@ -45,7 +45,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
   assert.equal(exit.status, 'completed');
   assert.equal(exit.reason, 'submitted');
   assert.equal(harness.host.stdin.isRawModeEnabled?.(), false);
-  assert.equal(harness.restores().length, 1);
+  assert.equal(harness.restores().length, 2);
   assert.ok(harness.frames().length >= 2);
   assert.ok(harness.diffs().length >= 2);
   assert.equal(harness.snapshot().source, 'tui');
@@ -79,7 +79,7 @@ test('PTY harness restores full-screen protocols on interrupt signals', async ()
 
   assert.equal(exit.status, 'interrupted');
   assert.equal(harness.host.stdin.isRawModeEnabled?.(), false);
-  assert.equal(harness.restores().length, 1);
+  assert.equal(harness.restores().length, 2);
   assert.match(harness.output(), /\u001B\[\?1049l/u);
   assert.match(harness.output(), /\u001B\[\?25h/u);
 });

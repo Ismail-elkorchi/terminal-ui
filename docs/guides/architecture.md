@@ -94,8 +94,9 @@ cancellation, exit, and message recording still run for an identity no-op.
 Reducers borrow the committed state and must not mutate it; a changed transition
 returns a new state identity. This semantic reducer contract keeps generic state
 types intact while letting the runtime publish state and frame atomically.
-Terminal capabilities are resolved once per runtime and the same snapshot is
-used by application context, layout, and output planning.
+Terminal capabilities form one runtime snapshot used by application context,
+layout, input decoding, and output planning. A terminal suspension may replace
+that snapshot atomically after re-observing a changed host or PTY.
 
 ## Static And Runtime Contracts
 

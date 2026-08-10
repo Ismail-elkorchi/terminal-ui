@@ -26,6 +26,7 @@ void test('terminal frame planning uses an explicitly supported scrolling region
   assert.deepEqual(plan.rowMovement, { top: 2, bottom: 5, rows: 1 });
   assert.ok(plan.payloadBytes < plan.baselinePayloadBytes);
   assert.match(plan.text, /\u001B\[2;5r\u001B\[2H\u001B\[S\u001B\[r/u);
+  assert.equal(plan.failureCleanup, '\u001B[r');
 });
 
 void test('terminal frame planning keeps canonical writes without scrolling-region authorization', () => {
@@ -39,6 +40,7 @@ void test('terminal frame planning keeps canonical writes without scrolling-regi
 
   assert.equal(plan.strategy, 'diff');
   assert.equal(plan.rowMovement, undefined);
+  assert.equal(plan.failureCleanup, undefined);
 });
 
 void test('row movement plus its canonical repair reproduces each deterministic shifted frame', () => {

@@ -225,7 +225,7 @@ export interface TuiRuntime<TState, TMessage> {
   handleInput(event: InputEvent): Promise<TuiInputResult<TState>>;
   handleInputChunk(chunk: TerminalInputChunk): Promise<TuiInputBatchResult<TState>>;
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
-  replaceInputProfile(options: InputPipelineOptions): void;
+  replaceTerminalProfile(options: InputPipelineOptions & { readonly capabilities: TerminalCapabilityProfile }): void;
   resetInput(): void;
   suspendOutput(): void;
   resumeOutput(): void;

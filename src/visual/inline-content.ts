@@ -1,4 +1,5 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { normalizeTerminalLink } from './render.ts';
 import type { TerminalLink, TerminalStyle } from './render.ts';
 
 interface InlineSegmentBase {
@@ -84,11 +85,6 @@ function normalizedSymbol(value: string, name: string): string {
 function normalizedDecoration(segment: InlineSegmentBase): Pick<InlineSegmentBase, 'style' | 'link'> {
   return {
     ...(segment.style === undefined ? {} : { style: { ...segment.style } }),
-    ...(segment.link === undefined ? {} : {
-      link: {
-        href: sanitizeTerminalText(segment.link.href).text,
-        ...(segment.link.id === undefined ? {} : { id: sanitizeTerminalText(segment.link.id).text })
-      }
-    })
+    ...(segment.link === undefined ? {} : { link: normalizeTerminalLink(segment.link) })
   };
 }

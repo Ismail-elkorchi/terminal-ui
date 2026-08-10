@@ -1,5 +1,5 @@
 import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
-import { runTuiInputLoop } from './input-loop.ts';
+import { createTuiSignalQueue, runTuiInputLoop } from './input-loop.ts';
 import {
   restoreReasonForExit,
   setupTuiSession,
@@ -13,6 +13,7 @@ import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
 import { TuiInputSuspensionController } from './input-suspension.ts';
 import { createTerminalSuspension } from './terminal-suspension.ts';
 import { normalizeTuiRunOptions } from './run-configuration.ts';
+import { inputProfileForSession } from './session-policy.ts';
 import { createTuiTranscript, withTuiTranscript } from './transcript.ts';
 import type {
   DiagnosticOccurrence,
@@ -22,7 +23,6 @@ import type {
 import type { TerminalHost } from '../host/index.ts';
 import type { TuiLifecyclePhase } from './lifecycle-phase.ts';
 import type { NormalizedTuiRunOptions } from './run-configuration.ts';
-import { LEGACY_KEYBOARD_PROFILE } from '../protocol/index.ts';
 import type { TuiApp, TuiExit, TuiRunOptions, TuiRuntime } from './types.ts';
 
 export async function runTui<TState, TMessage>(
@@ -46,6 +46,7 @@ export async function runTui<TState, TMessage>(
   }
   const ownsHost = host === undefined;
   const terminalHost = host ?? createTerminalHost();
+  const signals = createTuiSignalQueue(terminalHost.signals.subscribe.bind(terminalHost.signals));
   const lifecycle = new TuiRunLifecycleOwner(app, terminalHost, ownsHost, normalized, transcript);
   const inputSuspension = new TuiInputSuspensionController();
   const withTerminalSuspended = createTerminalSuspension({
@@ -77,9 +78,10 @@ export async function runTui<TState, TMessage>(
 
   try {
     const capabilities = await startupPhase('capabilities', async (signal) => terminalHost.getCapabilities({
-      activeProbes: normalized.sessionPolicy.keyboard.profile.kind === 'kitty'
-        ? ['keyboardProtocol']
-        : [],
+      activeProbes: [
+        ...(terminalHost.runtime === 'memory' ? [] : ['terminalModes'] as const),
+        ...(normalized.sessionPolicy.keyboard.profile.kind === 'kitty' ? ['keyboardProtocol'] as const : [])
+      ],
       signal
     }));
     const nonTtyExit = await runTuiNonTty(
@@ -90,7 +92,10 @@ export async function runTui<TState, TMessage>(
       normalized,
       capabilities
     );
-    if (nonTtyExit !== undefined) return withTuiTranscript(nonTtyExit, transcript);
+    if (nonTtyExit !== undefined) {
+      signals.dispose();
+      return withTuiTranscript(nonTtyExit, transcript);
+    }
     const openedSession = await startupPhase('session', async () => terminalHost.beginSession({ id: app.id }));
     lifecycle.openSession(openedSession);
     const setup = await startupPhase('setup', async (signal) =>
@@ -118,11 +123,7 @@ export async function runTui<TState, TMessage>(
         withTerminalSuspended,
         input: {
           capabilities: openedSession.capabilities,
-          bracketedPaste: setup.applied.some((item) => item.kind === 'bracketedPaste' && item.enabled),
-          focusReporting: setup.applied.some((item) => item.kind === 'focusReporting' && item.enabled),
-          mouseReporting: setup.applied.find((item) => item.kind === 'mouseReporting')?.enabled ?? 'none',
-          keyboard: setup.applied.find((item) => item.kind === 'keyboardProfile')?.enabled
-            ?? LEGACY_KEYBOARD_PROFILE,
+          ...inputProfileForSession(setup),
           escapeDelayMs: normalized.input.escapeDelayMs
         },
         diagnostics: setupDiagnostics,
@@ -132,7 +133,7 @@ export async function runTui<TState, TMessage>(
       await startupPhase('runtime_start', async () => runtime.start());
       exit = await runTuiInputLoop(runtime, terminalHost, app.id, transcript, (retirement) => {
         lifecycle.retireInput(retirement);
-      }, inputSuspension);
+      }, inputSuspension, signals);
       lifecycle.complete(exit);
     }
   } catch (cause) {
@@ -144,6 +145,7 @@ export async function runTui<TState, TMessage>(
       ? restoreReasonForExit(exit.status)
       : 'error'
   );
+  signals.dispose();
 
   if (setupFailed || failure !== undefined || exit === undefined || hasFailure(finalization.diagnostics)) {
     const preRuntimeDiagnostics = lifecycle.runtime === undefined
@@ -180,7 +182,7 @@ export async function runTui<TState, TMessage>(
       target: app.id,
       phase,
       timeoutMs: normalized.lifecycle.startupTimeoutMs,
-      operation
+      operation: (signal) => operation(AbortSignal.any([signal, signals.interruption]))
     });
     if (outcome.status === 'settled') return outcome.value;
     startupDiagnostics.push(outcome.diagnostic);

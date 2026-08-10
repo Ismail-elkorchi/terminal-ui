@@ -23,6 +23,7 @@ export interface TerminalSerializationPolicy {
   clearRect(bounds: Rect): string;
   showCursor(visible: boolean): string;
   resetStyle(): string;
+  effectiveStyle(style: TerminalStyle | undefined): TerminalStyle | undefined;
   styleTransition(previous: TerminalStyle | undefined, next: TerminalStyle | undefined): string;
   openHyperlink(link: TerminalLink): string;
   closeHyperlink(): string;
@@ -70,6 +71,9 @@ export function createTerminalSerializationPolicy(
     resetStyle() {
       return sgr(['0']);
     },
+    effectiveStyle(style) {
+      return serializedStyle(style, capabilities, input.forceColor);
+    },
     styleTransition(previous, next) {
       if (previous === undefined) return styleOpen(next, capabilities, input.forceColor);
       const codes = styleTransitionCodes(previous, next, capabilities, input.forceColor);
@@ -89,6 +93,39 @@ export function createTerminalSerializationPolicy(
       return csi('?2026l');
     }
   };
+}
+
+function serializedStyle(
+  style: TerminalStyle | undefined,
+  capabilities: TerminalOutputCapabilityProfile,
+  forceColor: boolean | undefined
+): TerminalStyle | undefined {
+  if (style === undefined) return undefined;
+  const attributes = textAttributesAvailable(capabilities);
+  const fg = serializedColor(style.fg, capabilities, forceColor);
+  const bg = serializedColor(style.bg, capabilities, forceColor);
+  const effective = {
+    ...(fg === undefined ? {} : { fg }),
+    ...(bg === undefined ? {} : { bg }),
+    ...(attributes && style.bold === true ? { bold: true } : {}),
+    ...(attributes && style.dim === true ? { dim: true } : {}),
+    ...(attributes && style.italic === true ? { italic: true } : {}),
+    ...(attributes && style.underline === true ? { underline: true } : {}),
+    ...(attributes && style.inverse === true ? { inverse: true } : {}),
+    ...(attributes && style.hidden === true ? { hidden: true } : {}),
+    ...(attributes && style.strikethrough === true ? { strikethrough: true } : {})
+  } satisfies TerminalStyle;
+  return Object.keys(effective).length === 0 ? undefined : Object.freeze(effective);
+}
+
+function serializedColor(
+  color: TerminalColor | undefined,
+  capabilities: TerminalOutputCapabilityProfile,
+  forceColor: boolean | undefined
+): TerminalColor | undefined {
+  return color === undefined || color.kind === 'theme' || !colorsAvailable(capabilities, forceColor)
+    ? undefined
+    : color;
 }
 
 const escapeSequence = '\u001B';
@@ -154,20 +191,38 @@ function styleTransitionCodes(
   capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
-  if (forceColor !== true && capabilities.color.depth === 0) return [];
+  const attributes = textAttributesAvailable(capabilities);
   const attributeCodes = uniqueCodes([
-    ...flagTransition(previous.bold, next?.bold, '1', '22'),
-    ...flagTransition(previous.dim, next?.dim, '2', '22'),
-    ...flagTransition(previous.italic, next?.italic, '3', '23'),
-    ...flagTransition(previous.underline, next?.underline, '4', '24'),
-    ...flagTransition(previous.inverse, next?.inverse, '7', '27'),
-    ...flagTransition(previous.hidden, next?.hidden, '8', '28'),
-    ...flagTransition(previous.strikethrough, next?.strikethrough, '9', '29')
+    ...(attributes ? intensityTransition(previous, next) : []),
+    ...(attributes ? flagTransition(previous.italic, next?.italic, '3', '23') : []),
+    ...(attributes ? flagTransition(previous.underline, next?.underline, '4', '24') : []),
+    ...(attributes ? flagTransition(previous.inverse, next?.inverse, '7', '27') : []),
+    ...(attributes ? flagTransition(previous.hidden, next?.hidden, '8', '28') : []),
+    ...(attributes ? flagTransition(previous.strikethrough, next?.strikethrough, '9', '29') : [])
   ]);
   return [
     ...attributeCodes,
     ...colorTransitionCodes('fg', previous.fg, next?.fg, capabilities, forceColor),
     ...colorTransitionCodes('bg', previous.bg, next?.bg, capabilities, forceColor)
+  ];
+}
+
+function intensityTransition(previous: TerminalStyle, next: TerminalStyle | undefined): readonly string[] {
+  const previousBold = previous.bold === true;
+  const previousDim = previous.dim === true;
+  const nextBold = next?.bold === true;
+  const nextDim = next?.dim === true;
+  if (previousBold === nextBold && previousDim === nextDim) return [];
+  if (!previousBold && !previousDim) {
+    return [
+      ...(nextBold ? ['1'] : []),
+      ...(nextDim ? ['2'] : [])
+    ];
+  }
+  return [
+    '22',
+    ...(nextBold ? ['1'] : []),
+    ...(nextDim ? ['2'] : [])
   ];
 }
 
@@ -191,15 +246,14 @@ function styleCodes(
   capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
-  if (forceColor !== true && capabilities.color.depth === 0) return [];
   const codes: string[] = [
-    ...(style.bold === true ? ['1'] : []),
-    ...(style.dim === true ? ['2'] : []),
-    ...(style.italic === true ? ['3'] : []),
-    ...(style.underline === true ? ['4'] : []),
-    ...(style.inverse === true ? ['7'] : []),
-    ...(style.hidden === true ? ['8'] : []),
-    ...(style.strikethrough === true ? ['9'] : [])
+    ...(textAttributesAvailable(capabilities) && style.bold === true ? ['1'] : []),
+    ...(textAttributesAvailable(capabilities) && style.dim === true ? ['2'] : []),
+    ...(textAttributesAvailable(capabilities) && style.italic === true ? ['3'] : []),
+    ...(textAttributesAvailable(capabilities) && style.underline === true ? ['4'] : []),
+    ...(textAttributesAvailable(capabilities) && style.inverse === true ? ['7'] : []),
+    ...(textAttributesAvailable(capabilities) && style.hidden === true ? ['8'] : []),
+    ...(textAttributesAvailable(capabilities) && style.strikethrough === true ? ['9'] : [])
   ];
   codes.push(...colorCodes('fg', style.fg, capabilities, forceColor));
   codes.push(...colorCodes('bg', style.bg, capabilities, forceColor));
@@ -213,6 +267,7 @@ function colorTransitionCodes(
   capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
+  if (!colorsAvailable(capabilities, forceColor)) return [];
   if (sameTerminalColor(previous, next)) return [];
   if (next === undefined) return [target === 'fg' ? '39' : '49'];
   return colorCodes(target, next, capabilities, forceColor);
@@ -226,7 +281,7 @@ function colorCodes(
 ): readonly string[] {
   if (color === undefined || color.kind === 'theme') return [];
   const depth = forceColor === true ? Math.max(capabilities.color.depth, 8) : capabilities.color.depth;
-  if (depth === 0) return [];
+  if (depth < 4) return [];
   if (color.kind === 'ansi') return ansiColorCodes(target, color.value, depth);
   return rgbColorCodes(target, color, depth);
 }
@@ -248,8 +303,20 @@ function rgbColorCodes(
   const b = clampByte(color.b);
   if (depth === 24) return [target === 'fg' ? '38' : '48', '2', String(r), String(g), String(b)];
   if (depth >= 8) return [target === 'fg' ? '38' : '48', '5', String(rgbToAnsi256(r, g, b))];
-  if (depth >= 1) return [String(basicAnsiCode(target, rgbToBasicAnsi(r, g, b)))];
+  if (depth >= 4) return [String(basicAnsiCode(target, rgbToBasicAnsi(r, g, b)))];
   return [];
+}
+
+function textAttributesAvailable(capabilities: TerminalOutputCapabilityProfile): boolean {
+  return capabilities.textAttributes.support === 'supported'
+    && capabilities.textAttributes.availability === 'available';
+}
+
+function colorsAvailable(
+  capabilities: TerminalOutputCapabilityProfile,
+  forceColor: boolean | undefined
+): boolean {
+  return forceColor === true || capabilities.color.depth >= 4;
 }
 
 function basicAnsiCode(target: 'fg' | 'bg', value: number): number {

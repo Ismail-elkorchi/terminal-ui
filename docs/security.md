@@ -24,7 +24,10 @@ recorded as diagnostics.
 
 Clipboard mutation is not a component side effect. Selection helpers return text,
 and OSC 52 clipboard writes are exposed through explicit protocol helpers that
-require caller policy and host capability support before emitting a sequence.
+require caller policy and an output-capable host before emitting a bounded
+sequence. Unknown terminal support permits an authorized attempt; its result
+reports only that bytes were sent. Explicitly unsupported terminals are rejected,
+and clipboard reading is not exposed by the protocol API.
 `resolveSelectedText()` works only from caller-controlled selectable sources and
 does not infer selection from terminal-native emulator state. Use terminal
 native selection when the application should not own or copy the selected text.

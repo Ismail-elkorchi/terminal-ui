@@ -42,12 +42,21 @@ test('stateful ANSI serialization keeps hyperlink state open across adjacent mat
   assert.equal(output, '\u001B]8;id=doc;https://example.test\u0007doc\u001B]8;;\u0007');
 });
 
-test('stateful ANSI serialization omits SGR and OSC when capabilities disable them', () => {
+test('stateful ANSI serialization keeps text attributes independent from color and hyperlinks', () => {
   const output = serializeRenderSpansStateful([
     { text: 'plain', style: { bold: true, fg: { kind: 'rgb', r: 1, g: 2, b: 3 } }, link: { href: 'https://example.test' } }
   ], { capabilities: capabilities(0, false), hyperlinks: true });
 
-  assert.equal(output, 'plain');
+  assert.equal(output, '\u001B[1mplain\u001B[0m');
+});
+
+test('unsupported attributes do not erase effective serialized color state', () => {
+  const output = serializeRenderSpansStateful([
+    { text: 'A', style: { bold: true, fg: { kind: 'ansi', value: 1 } } },
+    { text: 'B', style: { fg: { kind: 'ansi', value: 1 } } }
+  ], { capabilities: capabilities(4, false, false) });
+
+  assert.equal(output, '\u001B[31mAB\u001B[0m');
 });
 
 test('stateful ANSI serialization maps rgb colors through truecolor 256 color and 16 color capabilities', () => {
@@ -55,7 +64,17 @@ test('stateful ANSI serialization maps rgb colors through truecolor 256 color an
 
   assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(24) }), '\u001B[38;2;255;0;0mR\u001B[0m');
   assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(8) }), '\u001B[38;5;196mR\u001B[0m');
-  assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(1) }), '\u001B[91mR\u001B[0m');
+  assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(1) }), 'R');
+});
+
+test('stateful ANSI serialization reapplies the retained intensity after SGR 22', () => {
+  const output = serializeRenderSpansStateful([
+    { text: 'A', style: { bold: true, dim: true } },
+    { text: 'B', style: { bold: true } },
+    { text: 'C', style: { dim: true } }
+  ], { capabilities: capabilities(0) });
+
+  assert.equal(output, '\u001B[1;2mA\u001B[22;1mB\u001B[22;2mC\u001B[0m');
 });
 
 test('stateful ANSI serialization preserves ordered foreground and background color tuples during transitions', () => {
@@ -74,7 +93,7 @@ test('stateful ANSI serialization preserves ordered foreground and background co
   );
 });
 
-function capabilities(depth, hyperlinks = false) {
+function capabilities(depth, hyperlinks = false, textAttributes = true) {
   const support = (supported) => supported
     ? { support: 'supported', availability: 'available', facts: [], diagnostics: [], requiresSessionOperation: false }
     : { support: 'unsupported', availability: 'available', facts: [], diagnostics: [], requiresSessionOperation: false };
@@ -83,7 +102,7 @@ function capabilities(depth, hyperlinks = false) {
     isTty: true,
     color: {
       depth,
-      hasBasicColors: depth >= 1,
+      hasBasicColors: depth >= 4,
       has256Colors: depth >= 8,
       hasTrueColor: depth === 24
     },
@@ -94,6 +113,7 @@ function capabilities(depth, hyperlinks = false) {
     },
     rawInput: support(true),
     resize: support(true),
+    textAttributes: support(textAttributes),
     hyperlinks: support(hyperlinks),
     keyboardProtocol: support(false),
     bracketedPaste: support(true),
@@ -105,7 +125,7 @@ function capabilities(depth, hyperlinks = false) {
     scrollRegion: support(false),
     title: support(true),
     bell: support(true),
-    clipboard: support(false),
+    clipboardWrite: support(false),
     diagnostics: []
   };
 }

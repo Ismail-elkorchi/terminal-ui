@@ -794,6 +794,7 @@ if (isMain) {
           rawInput: 'required',
           bracketedPaste: 'optional',
           focusReporting: 'optional',
+          unicodeGraphemeMode: 'optional',
           keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
           cursorVisibility: { state: 'hide', requirement: 'optional' },
           mouseReporting: { mode: 'drag', requirement: 'optional' }

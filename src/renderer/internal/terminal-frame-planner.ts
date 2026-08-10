@@ -4,7 +4,8 @@ import type { Frame, FrameCell } from '../contracts.ts';
 import type { RenderDiff } from '../contracts.ts';
 import { diffFrames, sameFrameCell } from './frame.ts';
 import { frameIndex } from './frame-index.ts';
-import { planTerminalOutput } from './output-planner.ts';
+import { frameRecoverySuffix, planTerminalOutput } from './output-planner.ts';
+import type { FrameProtocolUsage } from './output-planner.ts';
 import type { RenderSerializeOptions } from './ansi.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 
@@ -21,6 +22,7 @@ export interface TerminalFrameOutputPlan {
   readonly baselinePayloadBytes: number;
   readonly strategy: 'diff' | 'scroll_rows';
   readonly synchronized: boolean;
+  readonly protocols: FrameProtocolUsage;
   readonly failureCleanup?: string;
   readonly rowMovement?: TerminalRowMovement;
 }
@@ -73,6 +75,13 @@ export function planTerminalFrameOutput(
     const begin = synchronized ? outerPolicy.beginSynchronizedOutput() : '';
     const end = synchronized ? outerPolicy.endSynchronizedOutput() : '';
     const text = `${begin}${movementText}${repairPlan.text}${end}`;
+    const protocols = Object.freeze({
+      synchronized,
+      scrollingRegion: true,
+      style: repairPlan.protocols.style,
+      hyperlink: repairPlan.protocols.hyperlink
+    });
+    const failureCleanup = frameRecoverySuffix(outerPolicy, protocols);
     const candidate: TerminalFrameOutputPlan = {
       text,
       bytes: utf8Bytes(text),
@@ -80,7 +89,8 @@ export function planTerminalFrameOutput(
       baselinePayloadBytes: baseline.payloadBytes,
       strategy: 'scroll_rows',
       synchronized,
-      ...(synchronized ? { failureCleanup: end } : {}),
+      protocols,
+      ...(failureCleanup === undefined ? {} : { failureCleanup }),
       rowMovement: movement
     };
     if (selected === undefined || candidate.payloadBytes < selected.payloadBytes) selected = candidate;
@@ -160,6 +170,7 @@ function baselineFramePlan(plan: ReturnType<typeof planTerminalOutput>): Termina
     baselinePayloadBytes: plan.baselinePayloadBytes,
     strategy: 'diff',
     synchronized: plan.synchronized,
+    protocols: plan.protocols,
     ...(plan.failureCleanup === undefined ? {} : { failureCleanup: plan.failureCleanup })
   };
 }

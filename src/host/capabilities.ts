@@ -83,6 +83,12 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       unavailable: 'Host adapter cannot report resize events.',
       facts: [hostFact('resizeEvents', input.host.resizeEvents), hostFact('outputIsTty', input.host.outputIsTty)]
     }),
+    textAttributes: resolveCapability(input, 'textAttributes', protocolBasis(
+      controlSupport(input, 'textAttributes'),
+      outputAvailability,
+      'Host output cannot emit terminal text attributes.',
+      input
+    )),
     hyperlinks: resolveCapability(input, 'hyperlinks', {
       support: hyperlinkSupport(input),
       availability: outputAvailability,
@@ -133,6 +139,14 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       input,
       true
     )),
+    unicodeGraphemeMode: resolveCapability(input, 'unicodeGraphemeMode', {
+      support: 'unknown',
+      availability: outputAvailability,
+      unavailable: 'Host output cannot establish terminal grapheme mode.',
+      unknown: 'Terminal grapheme mode support has not been established.',
+      requiresSessionOperation: true,
+      facts: [hostFact('terminalProtocols', input.host.terminalProtocols)]
+    }),
     synchronizedOutput: resolveCapability(input, 'synchronizedOutput', {
       support: 'unknown',
       availability: outputAvailability,
@@ -158,11 +172,11 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       'Host cannot emit the terminal bell.',
       input
     )),
-    clipboard: resolveCapability(input, 'clipboard', {
+    clipboardWrite: resolveCapability(input, 'clipboardWrite', {
       support: 'unknown',
       availability: outputAvailability,
-      unavailable: 'Host output cannot emit clipboard protocol.',
-      unknown: 'Clipboard support requires explicit policy or evidence.',
+      unavailable: 'Host output cannot emit clipboard-write protocol.',
+      unknown: 'Clipboard-write support requires explicit policy or evidence.',
       facts: [hostFact('terminalProtocols', input.host.terminalProtocols)]
     })
   } satisfies Record<TerminalCapabilityName, CapabilitySupport>;

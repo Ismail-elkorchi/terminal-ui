@@ -1,5 +1,5 @@
 import { diagnostic } from '../diagnostics.ts';
-import { terminalWriteWasIndeterminate } from '../host/write-receipt.ts';
+import { terminalWriteMayHaveCommitted } from '../host/write-receipt.ts';
 import {
   activeFocusScopeRestores,
   findAnyLayoutFocusTarget,
@@ -129,7 +129,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       outputBaselineKnown = true;
       return diff;
     } catch (cause) {
-      if (terminalWriteWasIndeterminate(cause)) outputBaselineKnown = false;
+      if (terminalWriteMayHaveCommitted(cause)) outputBaselineKnown = false;
       throw cause;
     }
   }

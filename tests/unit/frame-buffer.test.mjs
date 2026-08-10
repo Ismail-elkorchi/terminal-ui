@@ -31,6 +31,15 @@ test('FrameBuffer records ASCII, Unicode width, emoji, CJK, and combining marks 
   ]);
 });
 
+test('FrameBuffer excludes terminal movement controls from cell text and geometry', () => {
+  const buffer = createFrameBuffer(8, 1);
+  buffer.write(1, 1, [{ text: 'a\tb\nc\rd' }]);
+  const frame = buffer.snapshot();
+
+  assert.equal(renderFramePlain(frame), 'abcd');
+  assert.deepEqual(frame.cells.map((cell) => cell.text), ['a', 'b', 'c', 'd']);
+});
+
 test('FrameBuffer clips writes to bounds without leaking partial wide glyphs', () => {
   const buffer = createFrameBuffer(4, 1);
   buffer.write(1, 3, [{ text: 'ABCD' }]);
@@ -387,7 +396,7 @@ test('renderDiffAnsi serializes styled spans according to terminal color capabil
 
   assert.match(trueColor, /\u001B\[1;38;2;12;34;56mHi\u001B\[0m/u);
   assert.match(color256, /\u001B\[1;38;5;\d+mHi\u001B\[0m/u);
-  assert.equal(noColor, '\u001B[HHi');
+  assert.equal(noColor, '\u001B[H\u001B[1mHi\u001B[0m');
 });
 
 test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
@@ -462,7 +471,7 @@ function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
     isTty: true,
     color: {
       depth,
-      hasBasicColors: depth >= 1,
+      hasBasicColors: depth >= 4,
       has256Colors: depth >= 8,
       hasTrueColor: depth === 24
     },
@@ -473,6 +482,7 @@ function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
     },
     rawInput: support(true),
     resize: support(true),
+    textAttributes: support(true),
     hyperlinks: support(hyperlinks),
     keyboardProtocol: support(false),
     bracketedPaste: support(true),
@@ -484,7 +494,7 @@ function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
     scrollRegion: support(false),
     title: support(true),
     bell: support(true),
-    clipboard: support(false),
+    clipboardWrite: support(false),
     diagnostics: []
   };
 }

@@ -5,8 +5,10 @@ import type {
   TerminalOperationContext,
   TerminalOperationOutcome,
   TerminalSession,
-  TerminalStateChange
+  TerminalStateChange,
+  TerminalStateSnapshot
 } from '../host/index.ts';
+import type { InputPipelineOptions } from '../input/index.ts';
 import { LEGACY_KEYBOARD_PROFILE } from '../protocol/keyboard.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
@@ -18,6 +20,7 @@ export interface SessionProtocolPolicy {
   readonly rawInput: ProtocolRequirement;
   readonly bracketedPaste: ProtocolRequirement;
   readonly focusReporting: ProtocolRequirement;
+  readonly unicodeGraphemeMode: ProtocolRequirement;
   readonly keyboard: {
     readonly profile: TerminalKeyboardProfile;
     readonly requirement: ProtocolRequirement;
@@ -51,7 +54,7 @@ export type SessionProtocolOperation =
     };
 
 interface BooleanSessionProtocolOperation {
-  readonly kind: 'alternateScreen' | 'rawInput' | 'bracketedPaste' | 'focusReporting';
+  readonly kind: 'alternateScreen' | 'rawInput' | 'bracketedPaste' | 'focusReporting' | 'unicodeGraphemeMode';
   readonly requirement: ProtocolRequirement;
   readonly target: true;
 }
@@ -64,6 +67,7 @@ export interface SessionProtocolSetupResult {
   readonly planned: readonly SessionProtocolOperation[];
   readonly applied: readonly TerminalStateChange[];
   readonly skipped: readonly SessionProtocolOperation[];
+  readonly resultingState: TerminalStateSnapshot;
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
@@ -72,6 +76,7 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = {
   rawInput: 'required',
   bracketedPaste: 'optional',
   focusReporting: 'optional',
+  unicodeGraphemeMode: 'optional',
   keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
   cursorVisibility: { state: 'hide', requirement: 'optional' },
   mouseReporting: { mode: 'drag', requirement: 'optional' }
@@ -84,6 +89,7 @@ export function createSessionProtocolPlan(
     { kind: 'alternateScreen', requirement: policy.alternateScreen, target: true },
     { kind: 'bracketedPaste', requirement: policy.bracketedPaste, target: true },
     { kind: 'rawInput', requirement: policy.rawInput, target: true },
+    { kind: 'unicodeGraphemeMode', requirement: policy.unicodeGraphemeMode, target: true },
     { kind: 'keyboardProfile', requirement: policy.keyboard.requirement, target: policy.keyboard.profile },
     { kind: 'mouseReporting', requirement: policy.mouseReporting.requirement, target: policy.mouseReporting.mode },
     { kind: 'focusReporting', requirement: policy.focusReporting, target: true },
@@ -120,9 +126,42 @@ export async function applySessionProtocolPolicy(
     }
     diagnostics.push(operationFailureDiagnostic(session, item, result.diagnostic), ...result.diagnostics);
     skipped.push(item);
-    if (item.requirement === 'required') ok = false;
+    if (item.requirement === 'required' || result.status === 'indeterminate') ok = false;
   }
-  return { ok, policy, planned, applied, skipped, diagnostics };
+  const resultingState = await session.currentState();
+  if (
+    resultingState.mouseReporting.tracking !== 'none'
+    && resultingState.mouseReporting.encoding !== 'sgr'
+  ) {
+    ok = false;
+    diagnostics.push(diagnostic(
+      'HOST_PROTOCOL_UNSUPPORTED',
+      'The active terminal mouse encoding is not supported by the input decoder.',
+      {
+        target: session.id,
+        data: {
+          operation: 'mouseReporting',
+          tracking: resultingState.mouseReporting.tracking,
+          encoding: resultingState.mouseReporting.encoding
+        }
+      }
+    ));
+  }
+  return { ok, policy, planned, applied, skipped, resultingState, diagnostics };
+}
+
+export function inputProfileForSession(
+  setup: SessionProtocolSetupResult
+): Pick<InputPipelineOptions, 'bracketedPaste' | 'focusReporting' | 'mouseReporting' | 'keyboard'> {
+  const state = setup.resultingState;
+  return Object.freeze({
+    bracketedPaste: state.bracketedPaste,
+    focusReporting: state.focusReporting,
+    mouseReporting: state.mouseReporting.encoding === 'sgr'
+      ? state.mouseReporting.tracking
+      : 'none',
+    keyboard: state.keyboardProfile
+  });
 }
 
 async function applyOperation(
@@ -139,6 +178,8 @@ async function applyOperation(
       return session.enableBracketedPaste(context);
     case 'focusReporting':
       return session.enableFocusReporting(context);
+    case 'unicodeGraphemeMode':
+      return session.enableUnicodeGraphemeMode(context);
     case 'keyboardProfile':
       return session.enableKeyboardProfile(item.target, context);
     case 'cursorVisibility':

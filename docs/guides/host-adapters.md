@@ -34,16 +34,29 @@ current row and column dimensions; test and PTY hosts expose
 `terminalSizeControl.setTerminalSize()` for deterministic resize delivery.
 Capability facts supplied through host options use explicit
 `supported`/`unsupported`/`unknown` evidence. `getCapabilities()` normally
-returns that resolved profile without terminal I/O. A caller that intends to
-enable the Kitty keyboard protocol may request the bounded
-`keyboardProtocol` active probe. The host temporarily owns raw input through a
-terminal session, consumes only the documented `CSI ? flags u` response, and
-replays unrelated input in its original order. `runTui()` requests this probe
-only when its session policy asks for a Kitty profile and existing evidence is
-still unknown. If probing is cancelled while a source read is outstanding, its
-generation is transferred to the next reader. A bounded filter removes a late
-probe response and replays any surrounding user input, so a non-cooperative
-iterator cannot leave capability detection holding the input authority.
+returns that resolved profile without terminal I/O. Full-screen startup uses one
+bounded host-owned response transaction to query relevant DEC modes, followed
+by primary device attributes as a fence. The observed state supplies the outer
+session snapshot for cursor visibility, alternate screen, paste, mouse tracking
+and encoding, focus reporting, synchronized output, and Unicode grapheme mode.
+Unrelated input is replayed in its original order.
+
+A caller that intends to enable the Kitty keyboard protocol may also request the
+`keyboardProtocol` active probe. The request is followed by the same device-
+attributes fence, so the result distinguishes support, unsupported, and an
+inconclusive timeout. After a profile is pushed, stream hosts query the flags
+again and restore the session's previous profile unless the exact requested
+profile is observed. A failed restoration makes the keyboard state
+indeterminate and aborts session setup. If probing is cancelled while a source
+read is outstanding, its
+generation is transferred to the next reader. A bounded incremental filter
+removes a late split response and replays surrounding user input.
+
+The built-in protocol dialect is the modern DEC/xterm sequence profile. Broad
+environment families are evidence, not a substitute for observed mode state;
+in particular GNU Screen does not establish alternate-screen support by name.
+Custom hosts may provide explicit capability facts when their transport or
+terminal dialect has stronger knowledge.
 Output writes are asynchronous and ordered. A resolved write has crossed the
 adapter's native backpressure boundary; `flush()` settles every write accepted
 before it. Node adapters wait for write callbacks and `drain`, Web Stream
@@ -51,6 +64,12 @@ adapters retain one writer and await each write, and memory/PTY adapters expose
 the same completion semantics. Runtime scheduling uses the host's monotonic
 clock; wall-clock changes do not affect pointer timing, animation deadlines, or
 cleanup bounds.
+An `applied` terminal operation also reports assurance: `sent` means the
+transport committed its sequence, `observed` means the host subsequently
+confirmed the state, and `assumed` describes an unchanged outer-state fact.
+Transport completion never claims that an unqueried terminal accepted a mode.
+Raw-input adapters that expose an observation hook are read again after each
+mutation; a setter that does not reach the requested state is rejected.
 `restoreTerminalState(host)` restores the host's currently active terminal
 sessions in reverse open order. If no session is active it returns a successful
 empty restore result instead of opening a new no-op session.

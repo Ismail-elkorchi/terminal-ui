@@ -40,7 +40,9 @@ problems.
 Clipboard sequence and sink helpers live under the protocol entrypoint and are
 gated by explicit caller policy; they do not import or inspect terminal hosts.
 TUI selection helpers resolve selected text from caller-controlled source state,
-verify the host clipboard capability, and then delegate the protocol write.
+reject explicitly unavailable clipboard output, and then delegate an authorized
+bounded protocol write. A successful write reports transport submission, not
+clipboard observation. Clipboard reading is not exposed by the protocol API.
 Components never write to the clipboard directly.
 
 Rendering APIs live under the renderer entrypoint and expose the current frame

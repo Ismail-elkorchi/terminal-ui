@@ -62,6 +62,16 @@ test('inline content normalization sanitizes caller-supplied data and validates 
     ascii: '->',
     accessibleText: '   '
   }]), /non-empty accessibleText/u);
+  assert.throws(() => normalizeInlineContent([{
+    kind: 'text',
+    text: 'link',
+    link: { href: 'https://example.test/', id: 'bad id' }
+  }]), /ASCII identifier characters/u);
+  assert.throws(() => normalizeInlineContent([{
+    kind: 'text',
+    text: 'link',
+    link: { href: 'https://example.test/', extra: true }
+  }]), /unsupported field/u);
 });
 
 test('rich text projects symbol mode and accessible text while the renderer produces source metadata', () => {

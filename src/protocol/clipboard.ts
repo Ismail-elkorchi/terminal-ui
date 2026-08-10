@@ -12,6 +12,7 @@ export interface ClipboardWritePolicy {
 export type ClipboardWriteResult =
   | {
       readonly ok: true;
+      readonly assurance: 'sent';
       readonly sequence: string;
       readonly byteLength: number;
     }
@@ -40,6 +41,7 @@ export function createClipboardWriteSequence(
   }
   return {
     ok: true,
+    assurance: 'sent',
     sequence: `\u001B]52;c;${base64(bytes)}\u0007`,
     byteLength: bytes.byteLength
   };

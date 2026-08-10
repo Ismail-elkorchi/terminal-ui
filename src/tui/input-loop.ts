@@ -28,12 +28,12 @@ export async function runTuiInputLoop<TState, TMessage>(
   appId: string,
   transcript: TranscriptRecorder | undefined,
   retireInput: (retirement: Promise<void>) => void,
-  suspension?: TuiInputSuspensionController
+  suspension: TuiInputSuspensionController | undefined,
+  signals: TuiSignalQueue
 ): Promise<TuiExit<TState>> {
   const changeController = new AbortController();
   let inputController = new AbortController();
   let input: AsyncIterator<TerminalInputChunk> | undefined;
-  let signals: SignalQueue | undefined;
   let inputNext: Promise<IteratorResult<TerminalInputChunk>> | undefined;
   let signalNext: Promise<TerminalSignal>;
   let runtimeChangeNext: Promise<TuiRuntimeChange<TState>>;
@@ -45,7 +45,6 @@ export async function runTuiInputLoop<TState, TMessage>(
   let suspendedRequest: InputSuspensionRequest | undefined;
   try {
     input = host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
-    signals = createSignalQueue(host.signals.subscribe.bind(host.signals));
     inputNext = input.next();
     signalNext = signals.next();
     runtimeChangeNext = runtime.nextChange(changeController.signal);
@@ -177,13 +176,9 @@ export async function runTuiInputLoop<TState, TMessage>(
     const retirement = input === undefined
       ? Promise.resolve()
       : retireTerminalInput(input, host.stdin);
-    try {
-      signals?.dispose();
-    } finally {
-      suspendedRequest?.resumed();
-      suspension?.close();
-      retireInput(retirement);
-    }
+    suspendedRequest?.resumed();
+    suspension?.close();
+    retireInput(retirement);
   }
   const explicitExit = runtime.exit();
   if (explicitExit !== undefined) return explicitExit;
@@ -306,16 +301,21 @@ function normalizeInputWork<TState>(
   return 'results' in work ? work : { results: work };
 }
 
-interface SignalQueue {
+export interface TuiSignalQueue {
+  readonly interruption: AbortSignal;
   next(): Promise<TerminalSignal>;
   dispose(): void;
 }
 
-function createSignalQueue(subscribe: (listener: (signal: TerminalSignal) => void) => Unsubscribe): SignalQueue {
+export function createTuiSignalQueue(
+  subscribe: (listener: (signal: TerminalSignal) => void) => Unsubscribe
+): TuiSignalQueue {
   const queued: TerminalSignal[] = [];
   const waiters: ((signal: TerminalSignal) => void)[] = [];
+  const interruption = new AbortController();
   let resizeQueued = false;
   const unsubscribe = subscribe((signal) => {
+    if (signal !== 'resize' && !interruption.signal.aborted) interruption.abort(signal);
     const waiter = waiters.shift();
     if (waiter === undefined) {
       if (signal === 'resize' && resizeQueued) return;
@@ -326,6 +326,7 @@ function createSignalQueue(subscribe: (listener: (signal: TerminalSignal) => voi
     waiter(signal);
   });
   return {
+    interruption: interruption.signal,
     next() {
       const queuedSignal = queued.shift();
       if (queuedSignal !== undefined) {

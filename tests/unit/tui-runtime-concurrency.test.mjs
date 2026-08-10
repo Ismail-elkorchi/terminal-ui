@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { createMemoryTerminalHost, indeterminateTerminalWrite } from '../../dist/host/index.js';
+import {
+  createMemoryTerminalHost,
+  failedTerminalWrite,
+  indeterminateTerminalWrite
+} from '../../dist/host/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
@@ -144,6 +148,32 @@ test('TUI runtime establishes a full baseline after an indeterminate frame write
   assert.deepEqual(runtime.state(), { count: 2 });
   assert.equal(harness.diffs().length, 2);
   assert.equal(harness.diffs()[1].fullRewrite, true);
+  await runtime.dispose();
+});
+
+test('a failed-before-write frame keeps the committed terminal baseline', async () => {
+  const app = defineTui({
+    id: 'rejected-frame-baseline',
+    init: () => ({ count: 0 }),
+    update: (state, message) => ({ state: { count: state.count + message.delta } }),
+    view: (state) => text({ content: `Count ${String(state.count)}`, id: 'rejected-count' })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  await runtime.start();
+  const write = harness.host.write.bind(harness.host);
+  harness.host.write = async () => failedTerminalWrite(
+    'rejected-frame-test',
+    new Error('frame did not start')
+  );
+
+  await assert.rejects(() => runtime.dispatch({ delta: 1 }), /failed before the write started/u);
+  harness.host.write = write;
+  await runtime.dispatch({ delta: 2 });
+
+  assert.deepEqual(runtime.state(), { count: 2 });
+  assert.equal(harness.diffs().length, 2);
+  assert.equal(harness.diffs()[1].fullRewrite, false);
   await runtime.dispose();
 });
 

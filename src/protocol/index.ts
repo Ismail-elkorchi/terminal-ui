@@ -1,4 +1,4 @@
-import { sanitizeTerminalText } from '../text/index.ts';
+import { sanitizeTerminalCellText } from '../text/index.ts';
 export type { ClipboardWritePolicy, ClipboardWriteResult } from './clipboard.ts';
 export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
 export type { TerminalProtocolSink } from './types.ts';
@@ -19,10 +19,11 @@ export interface TerminalProtocolWriter {
   disableAlternateScreen(): Promise<void>;
   enableBracketedPaste(): Promise<void>;
   disableBracketedPaste(): Promise<void>;
-  enableMouseReporting(mode: MouseReportingMode): Promise<void>;
-  disableMouseReporting(): Promise<void>;
+  setMouseReporting(state: MouseReportingState): Promise<void>;
   enableFocusReporting(): Promise<void>;
   disableFocusReporting(): Promise<void>;
+  enableUnicodeGraphemeMode(): Promise<void>;
+  disableUnicodeGraphemeMode(): Promise<void>;
   pushKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void>;
   setKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void>;
   popKeyboardProfile(): Promise<void>;
@@ -36,6 +37,12 @@ export interface TerminalProtocolWriter {
 }
 
 export type MouseReportingMode = 'none' | 'click' | 'drag' | 'all';
+export type MouseReportingEncoding = 'default' | 'sgr';
+
+export interface MouseReportingState {
+  readonly tracking: MouseReportingMode;
+  readonly encoding: MouseReportingEncoding;
+}
 
 export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtocolWriter {
   return {
@@ -43,10 +50,11 @@ export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtoc
     disableAlternateScreen: async () => sink.write('\u001B[?1049l'),
     enableBracketedPaste: async () => sink.write('\u001B[?2004h'),
     disableBracketedPaste: async () => sink.write('\u001B[?2004l'),
-    enableMouseReporting: async (mode) => sink.write(mouseReportingEnableSequence(assertMouseReportingMode(mode))),
-    disableMouseReporting: async () => sink.write(mouseReportingDisableSequence()),
+    setMouseReporting: async (state) => sink.write(mouseReportingSequence(normalizeMouseReportingState(state))),
     enableFocusReporting: async () => sink.write('\u001B[?1004h'),
     disableFocusReporting: async () => sink.write('\u001B[?1004l'),
+    enableUnicodeGraphemeMode: async () => sink.write('\u001B[?2027h'),
+    disableUnicodeGraphemeMode: async () => sink.write('\u001B[?2027l'),
     pushKeyboardProfile: async (profile) => {
       const normalized = normalizeKeyboardProfile(profile);
       const flags = normalized.kind === 'kitty' ? normalized.flags : 0;
@@ -63,7 +71,7 @@ export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtoc
     moveCursor: async (row, column) => sink.write(cursorMoveSequence(row, column)),
     clearScreen: async () => sink.write('\u001B[2J'),
     clearLine: async () => sink.write('\u001B[2K'),
-    setTitle: async (title) => sink.write(`\u001B]0;${sanitizeControlSequence(title)}\u0007`),
+    setTitle: async (title) => sink.write(`\u001B]0;${terminalTitle(title)}\u0007`),
     bell: async () => sink.write('\u0007')
   };
 }
@@ -72,22 +80,40 @@ function cursorMoveSequence(row: number, column: number): string {
   return `\u001B[${String(positiveInteger(row, 'row'))};${String(positiveInteger(column, 'column'))}H`;
 }
 
-function mouseReportingEnableSequence(mode: MouseReportingMode): string {
-  if (mode === 'none') return mouseReportingDisableSequence();
-  const baseMode = mode === 'click'
+function mouseReportingSequence(state: MouseReportingState): string {
+  const resetTracking = '\u001B[?1003l\u001B[?1002l\u001B[?1000l';
+  const encoding = state.encoding === 'sgr' ? '\u001B[?1006h' : '\u001B[?1006l';
+  if (state.tracking === 'none') return `${resetTracking}${encoding}`;
+  const tracking = state.tracking === 'click'
     ? '1000'
-    : mode === 'drag'
+    : state.tracking === 'drag'
       ? '1002'
       : '1003';
-  return `\u001B[?1006h\u001B[?${baseMode}h`;
+  return `${resetTracking}${encoding}\u001B[?${tracking}h`;
 }
 
-function mouseReportingDisableSequence(): string {
-  return '\u001B[?1003l\u001B[?1002l\u001B[?1000l\u001B[?1006l';
+export function normalizeMouseReportingState(state: unknown): MouseReportingState {
+  if (typeof state !== 'object' || state === null || Array.isArray(state)) {
+    throw new TypeError('mouse reporting state must be an object.');
+  }
+  const value = state as Readonly<Record<string, unknown>>;
+  const fields = Object.keys(value);
+  if (fields.length !== 2 || !fields.includes('tracking') || !fields.includes('encoding')) {
+    throw new TypeError('mouse reporting state must contain exactly tracking and encoding.');
+  }
+  const tracking = assertMouseReportingMode(value['tracking']);
+  const encoding = value['encoding'];
+  if (encoding !== 'default' && encoding !== 'sgr') {
+    throw new RangeError('mouse reporting encoding must be default or sgr.');
+  }
+  return Object.freeze({ tracking, encoding });
 }
 
-export function sanitizeControlSequence(sequence: string): string {
-  return sanitizeTerminalText(sequence).text;
+function terminalTitle(value: string): string {
+  if (typeof value !== 'string') throw new TypeError('Terminal title must be a string.');
+  const title = sanitizeTerminalCellText(value).text;
+  if (title.length > 4096) throw new RangeError('Terminal title must not exceed 4096 code units.');
+  return title;
 }
 
 function positiveInteger(value: number, name: string): number {

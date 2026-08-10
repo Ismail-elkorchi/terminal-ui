@@ -10,6 +10,7 @@ import { createTranscriptRecorder, validateTranscript } from '../../dist/transcr
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { text, textInput as createTextInput } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
+import { textInputReducer } from '../../dist/behavior/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 function textInput(options) {
@@ -177,6 +178,11 @@ test('TUI runtime attempts synchronized-output cleanup after a failed frame writ
     if (writes.length === 1) throw new Error('synchronized frame write failed');
     return write(output);
   };
+  const writeRecovery = host.writeRecovery.bind(host);
+  host.writeRecovery = async (output, context) => {
+    writes.push(output.text ?? '');
+    return writeRecovery(output, context);
+  };
   const app = defineTui({
     id: 'failed-synchronized-frame',
     init: () => ({ ready: true }),
@@ -187,7 +193,7 @@ test('TUI runtime attempts synchronized-output cleanup after a failed frame writ
 
   await assert.rejects(() => runtime.start(), /synchronized frame write failed/u);
   assert.equal(writes[0]?.startsWith('\u001B[?2026h'), true);
-  assert.equal(writes[1], '\u001B[?2026l');
+  assert.equal(writes[1], '\u001B[?2026l\u001B[0m');
   assert.equal(runtime.frame(), undefined);
   await runtime.dispose();
 });
@@ -620,6 +626,42 @@ test('runTui restores earlier and uncertain mutations after partial setup failur
   assert.match(host.output(), /\u001B\[\?2004l/u);
 });
 
+test('termination signals own setup before the first terminal mutation settles', async () => {
+  const app = defineTui({
+    id: 'signal-during-terminal-setup',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: () => text({ content: 'ready' })
+  });
+  const host = createMemoryTerminalHost();
+  const write = host.write.bind(host);
+  const mutationStarted = deferred();
+  host.write = async (output, context = {}) => {
+    await write(output, context);
+    if (output.text !== '\u001B[?1049h') return;
+    mutationStarted.release();
+    await new Promise((_resolve, reject) => {
+      if (context.signal?.aborted === true) {
+        reject(new Error('setup interrupted'));
+        return;
+      }
+      context.signal?.addEventListener('abort', () => {
+        reject(new Error('setup interrupted'));
+      }, { once: true });
+    });
+  };
+
+  const running = runTui(app, host);
+  await mutationStarted.promise;
+  host.signals.emit('SIGTERM');
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.equal(host.restores().at(-1)?.status, 'restored');
+  assert.match(host.output(), /\u001B\[\?1049h.*\u001B\[\?1049l/u);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+});
+
 test('runTui bounds a hanging source disposer and reports restoration truthfully', async () => {
   let disposerStarted = false;
   const app = defineTui({
@@ -868,6 +910,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
       rawInput: 'disabled',
       bracketedPaste: 'disabled',
       focusReporting: 'disabled',
+      unicodeGraphemeMode: 'disabled',
       keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
       cursorVisibility: { state: 'hide', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
@@ -882,6 +925,40 @@ test('runTui exposes setup diagnostics to app views', async () => {
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'HOST_PROTOCOL_SKIPPED'), true);
+});
+
+test('runTui decodes input protocols inherited from the outer terminal session', async () => {
+  const app = defineTui({
+    id: 'inherited-input-protocols',
+    init: () => ({ text: '', cursor: 0 }),
+    update: (state, action) => ({ state: textInputReducer(state, action) }),
+    view: (state) => textInput({
+      id: 'inherited-paste-field',
+      presentation: { value: state.text, cursor: state.cursor },
+      onAction: (action) => action
+    })
+  });
+  const host = createMemoryTerminalHost({
+    initialState: { bracketedPaste: true }
+  });
+  host.input('\u001B[200~inherited\u001B[201~');
+  host.endInput();
+
+  const exit = await runTui(app, host, {
+    sessionPolicy: {
+      alternateScreen: 'disabled',
+      rawInput: 'disabled',
+      bracketedPaste: 'disabled',
+      focusReporting: 'disabled',
+      unicodeGraphemeMode: 'disabled',
+      keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
+      cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
+      mouseReporting: { mode: 'none', requirement: 'disabled' }
+    }
+  });
+
+  assert.equal(exit.status, 'completed');
+  assert.equal(exit.state.text, 'inherited');
 });
 
 test('runTui decodes legacy input when optional Kitty setup was not applied', async () => {
@@ -902,10 +979,10 @@ test('runTui decodes legacy input when optional Kitty setup was not applied', as
   });
   const write = harness.host.write.bind(harness.host);
   harness.host.write = async (output) => {
-    if (output.text === '\u001B[>1u') throw new Error('keyboard setup unavailable');
+    if (output.text === '\u001B[>3u') throw new Error('keyboard setup unavailable');
     return write(output);
   };
-  harness.host.input('\u001B[97u');
+  harness.host.input('\u001B[97;1:1u');
   harness.host.endInput();
 
   const exit = await runTui(app, harness.host, {
@@ -914,7 +991,8 @@ test('runTui decodes legacy input when optional Kitty setup was not applied', as
       rawInput: 'disabled',
       bracketedPaste: 'disabled',
       focusReporting: 'disabled',
-      keyboard: { profile: kittyKeyboardProfile(1), requirement: 'optional' },
+      unicodeGraphemeMode: 'disabled',
+      keyboard: { profile: kittyKeyboardProfile(3), requirement: 'optional' },
       cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
     }
@@ -1052,6 +1130,49 @@ test('TUI effects can suspend the terminal for an external operation and resume 
   assert.equal(harness.restores().length, 2);
   assert.equal(harness.frames().at(-1)?.width, 24);
   assert.ok(harness.frames().length >= 3);
+});
+
+test('failure to reacquire terminal ownership after suspension terminates the runtime', async () => {
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } });
+  const beginSession = host.beginSession.bind(host);
+  let sessionCount = 0;
+  host.beginSession = async (options) => {
+    sessionCount += 1;
+    if (sessionCount > 1) throw new Error('replacement terminal unavailable');
+    return beginSession(options);
+  };
+  const app = defineTui({
+    id: 'terminal-suspension-recovery-failure',
+    init: () => ({ phase: 'idle' }),
+    update: (state, message) => message.kind !== 'start'
+      ? { state }
+      : {
+          state: { phase: 'suspending' },
+          effects: [{
+            id: 'failing-terminal-resume',
+            concurrency: 'keep-first',
+            async run(context) {
+              await context.withTerminalSuspended(async () => undefined);
+              return { kind: 'none' };
+            }
+          }]
+        },
+    view: (state) => textInput({
+      id: 'terminal-suspension-recovery-failure-field',
+      presentation: { value: state.phase, cursor: 0 },
+      onAction: submitMessage({ kind: 'start' })
+    })
+  });
+
+  host.input('\r');
+  const exit = await runTui(app, host);
+
+  assert.equal(exit.status, 'error');
+  assert.equal(
+    exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_TERMINAL_OWNERSHIP_FAILED'),
+    true
+  );
+  assert.equal(host.stdin.isRawModeEnabled(), false);
 });
 
 test('exiting during terminal suspension preserves input acquired by the external operation', async () => {

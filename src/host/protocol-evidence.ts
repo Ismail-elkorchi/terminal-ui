@@ -10,10 +10,11 @@ export interface TerminalProtocolEvidence {
 
 type InferredControlCapability = Extract<
   TerminalCapabilityName,
-  'alternateScreen' | 'bell' | 'bracketedPaste' | 'cursorVisibility' | 'focusReporting' | 'mouseReporting' | 'scrollRegion' | 'title'
+  'alternateScreen' | 'bell' | 'bracketedPaste' | 'cursorVisibility' | 'focusReporting' | 'mouseReporting' | 'scrollRegion' | 'textAttributes' | 'title'
 >;
 
 const xtermLikeTerms = /^(?:xterm|screen|tmux|rxvt|alacritty|kitty|wezterm|foot|contour|ghostty|st)(?:[-.]|$)/u;
+const screenTerms = /^screen(?:[-.]|$)/u;
 const basicVtTerms = /^(?:linux|vt\d+)(?:[-.]|$)/u;
 const recognizedPrograms = new Set([
   'apple_terminal',
@@ -44,15 +45,19 @@ export function inferControlCapability(
 
   switch (capability) {
     case 'alternateScreen':
+      if (term !== undefined && screenTerms.test(term)) return 'unknown';
+      return xtermLike || knownProgram || (term !== undefined && basicVtTerms.test(term)) ? 'supported' : 'unknown';
     case 'bell':
     case 'cursorVisibility':
+    case 'textAttributes':
       return xtermLike || knownProgram || (term !== undefined && basicVtTerms.test(term)) ? 'supported' : 'unknown';
     case 'bracketedPaste':
     case 'focusReporting':
     case 'mouseReporting':
-    case 'scrollRegion':
     case 'title':
       return xtermLike || knownProgram ? 'supported' : 'unknown';
+    case 'scrollRegion':
+      return 'unknown';
   }
 }
 

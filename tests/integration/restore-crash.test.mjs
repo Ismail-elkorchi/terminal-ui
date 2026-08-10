@@ -25,7 +25,7 @@ test('PTY harness restores terminal protocols when a TUI throws during rendering
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_STARTUP_FAILED'), true);
   assert.equal(harness.host.stdin.isRawModeEnabled?.(), false);
-  assert.equal(harness.restores().length, 1);
+  assert.equal(harness.restores().length, 2);
   assert.match(harness.output(), /\u001B\[\?1049h/u);
   assert.match(harness.output(), /\u001B\[\?1049l/u);
   assert.match(harness.output(), /\u001B\[\?2004l/u);

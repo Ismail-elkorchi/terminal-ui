@@ -130,6 +130,7 @@ const terminalStateFields = new Set([
   'bracketedPaste',
   'mouseReporting',
   'focusReporting',
+  'unicodeGraphemeMode',
   'keyboardProfile',
   'cursorVisible',
   'provenance'
@@ -140,10 +141,12 @@ const terminalStateProvenanceFields = new Set([
   'bracketedPaste',
   'mouseReporting',
   'focusReporting',
+  'unicodeGraphemeMode',
   'keyboardProfile',
   'cursorVisible'
 ]);
 const terminalStateChangeFields = new Set(['kind', 'enabled']);
+const mouseReportingStateFields = new Set(['tracking', 'encoding']);
 const legacyKeyboardProfileFields = new Set(['kind']);
 const kittyKeyboardProfileFields = new Set(['kind', 'flags']);
 
@@ -933,6 +936,10 @@ function terminalStateChangesEqual(left: TerminalStateChange, right: TerminalSta
       && (leftProfile.kind === 'legacy'
         || (rightProfile.kind === 'kitty' && leftProfile.flags === rightProfile.flags));
   }
+  if (left.kind === 'mouseReporting' && right.kind === 'mouseReporting') {
+    return left.enabled.tracking === right.enabled.tracking
+      && left.enabled.encoding === right.enabled.encoding;
+  }
   return left.enabled === right.enabled;
 }
 
@@ -944,10 +951,11 @@ function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
   if (typeof typed.rawInput !== 'boolean') return 'terminal state requires rawInput.';
   if (typeof typed.alternateScreen !== 'boolean') return 'terminal state requires alternateScreen.';
   if (typeof typed.bracketedPaste !== 'boolean') return 'terminal state requires bracketedPaste.';
-  if (!isStringMember(typed.mouseReporting, ['none', 'click', 'drag', 'all'] as const)) {
+  if (mouseReportingStateIssue(typed.mouseReporting) !== undefined) {
     return 'terminal state requires mouseReporting.';
   }
   if (typeof typed.focusReporting !== 'boolean') return 'terminal state requires focusReporting.';
+  if (typeof typed.unicodeGraphemeMode !== 'boolean') return 'terminal state requires unicodeGraphemeMode.';
   const keyboardProfileIssue = terminalKeyboardProfileIssue(typed.keyboardProfile);
   if (keyboardProfileIssue !== undefined) return `terminal state keyboardProfile: ${keyboardProfileIssue}`;
   if (typeof typed.cursorVisible !== 'boolean') return 'terminal state requires cursorVisible.';
@@ -956,7 +964,7 @@ function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
   if (provenanceField !== undefined) {
     return `terminal state provenance contains unsupported field: ${provenanceField}.`;
   }
-  for (const key of ['rawInput', 'alternateScreen', 'bracketedPaste', 'mouseReporting', 'focusReporting', 'keyboardProfile', 'cursorVisible'] as const) {
+  for (const key of ['rawInput', 'alternateScreen', 'bracketedPaste', 'mouseReporting', 'focusReporting', 'unicodeGraphemeMode', 'keyboardProfile', 'cursorVisible'] as const) {
     if (!isStringMember(typed.provenance[key], ['observed', 'explicit', 'library_known', 'assumed', 'indeterminate'] as const)) {
       return `terminal state provenance requires ${key}.`;
     }
@@ -976,17 +984,28 @@ function terminalStateChangeIssue(operation: unknown): string | undefined {
     case 'alternateScreen':
     case 'bracketedPaste':
     case 'focusReporting':
+    case 'unicodeGraphemeMode':
     case 'cursorVisible':
       return typeof typed.enabled === 'boolean' ? undefined : `${typed.kind} requires a boolean value.`;
     case 'mouseReporting':
-      return isStringMember(typed.enabled, ['none', 'click', 'drag', 'all'] as const)
-        ? undefined
-        : 'mouseReporting requires a valid mode.';
+      return mouseReportingStateIssue(typed.enabled);
     case 'keyboardProfile':
       return terminalKeyboardProfileIssue(typed.enabled);
     default:
       return 'terminal state change requires a valid kind.';
   }
+}
+
+function mouseReportingStateIssue(state: unknown): string | undefined {
+  if (!isNonArrayObject(state)) return 'mouseReporting requires an object.';
+  const unknown = findUnsupportedField(state, mouseReportingStateFields);
+  if (unknown !== undefined) return `mouseReporting contains unsupported field: ${unknown}.`;
+  if (!isStringMember(state['tracking'], ['none', 'click', 'drag', 'all'] as const)) {
+    return 'mouseReporting requires a valid tracking mode.';
+  }
+  return isStringMember(state['encoding'], ['default', 'sgr'] as const)
+    ? undefined
+    : 'mouseReporting requires a valid encoding.';
 }
 
 function terminalSizeIssue(terminalSize: unknown): string | undefined {

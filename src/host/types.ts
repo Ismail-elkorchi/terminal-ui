@@ -4,10 +4,11 @@ import type { TerminalCapabilityProfile } from './capability-types.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
-import type { MouseReportingMode } from '../protocol/index.ts';
+import type { MouseReportingMode, MouseReportingState } from '../protocol/index.ts';
 
 export type { TerminalSize } from '../geometry/types.ts';
 export type { MouseReportingMode } from '../protocol/index.ts';
+export type { MouseReportingEncoding, MouseReportingState } from '../protocol/index.ts';
 
 export interface TerminalOutputChunk {
   readonly text?: string;
@@ -33,10 +34,11 @@ export interface TerminalRestoreOptions {
   readonly operationSignal?: AbortSignal;
 }
 
-export type TerminalActiveCapabilityProbe = 'keyboardProtocol';
+export type TerminalActiveCapabilityProbe = 'keyboardProtocol' | 'terminalModes';
 
 export interface TerminalCapabilityDetectionOptions {
   readonly activeProbes?: readonly TerminalActiveCapabilityProbe[];
+  readonly refresh?: boolean;
   readonly probeTimeoutMs?: number;
   readonly signal?: AbortSignal;
 }
@@ -130,11 +132,13 @@ export interface TerminalSession {
   readonly initialState: TerminalStateSnapshot;
   readonly capabilities: TerminalCapabilityProfile;
 
+  currentState(): Promise<TerminalStateSnapshot>;
   enableRawInput(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableAlternateScreen(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableBracketedPaste(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableMouseReporting(mode?: MouseReportingMode, context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableFocusReporting(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  enableUnicodeGraphemeMode(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   enableKeyboardProfile(
     profile: TerminalKeyboardProfile,
     context?: TerminalOperationContext
@@ -147,6 +151,8 @@ export interface TerminalSession {
 export type TerminalOperationOutcome =
   | {
       readonly status: 'applied';
+      /** Evidence for the resulting terminal state, independent of transport completion. */
+      readonly assurance: TerminalOperationAssurance;
       readonly change: TerminalStateChange;
       readonly diagnostics: readonly TerminalDiagnostic[];
     }
@@ -162,12 +168,15 @@ export type TerminalOperationOutcome =
       readonly diagnostics: readonly TerminalDiagnostic[];
     };
 
+export type TerminalOperationAssurance = 'observed' | 'sent' | 'assumed';
+
 export interface TerminalStateSnapshot {
   readonly rawInput: boolean;
   readonly alternateScreen: boolean;
   readonly bracketedPaste: boolean;
-  readonly mouseReporting: MouseReportingMode;
+  readonly mouseReporting: MouseReportingState;
   readonly focusReporting: boolean;
+  readonly unicodeGraphemeMode: boolean;
   readonly keyboardProfile: TerminalKeyboardProfile;
   readonly cursorVisible: boolean;
   readonly provenance: TerminalStateProvenanceSnapshot;
@@ -186,6 +195,7 @@ export interface TerminalStateProvenanceSnapshot {
   readonly bracketedPaste: TerminalStateKnowledge;
   readonly mouseReporting: TerminalStateKnowledge;
   readonly focusReporting: TerminalStateKnowledge;
+  readonly unicodeGraphemeMode: TerminalStateKnowledge;
   readonly keyboardProfile: TerminalStateKnowledge;
   readonly cursorVisible: TerminalStateKnowledge;
 }
@@ -196,8 +206,9 @@ export type TerminalStateChange =
   | { readonly kind: 'rawInput'; readonly enabled: boolean }
   | { readonly kind: 'alternateScreen'; readonly enabled: boolean }
   | { readonly kind: 'bracketedPaste'; readonly enabled: boolean }
-  | { readonly kind: 'mouseReporting'; readonly enabled: MouseReportingMode }
+  | { readonly kind: 'mouseReporting'; readonly enabled: MouseReportingState }
   | { readonly kind: 'focusReporting'; readonly enabled: boolean }
+  | { readonly kind: 'unicodeGraphemeMode'; readonly enabled: boolean }
   | { readonly kind: 'keyboardProfile'; readonly enabled: TerminalKeyboardProfile }
   | { readonly kind: 'cursorVisible'; readonly enabled: boolean };
 
@@ -268,7 +279,7 @@ export interface MemoryTerminalHostOptions {
   readonly id?: string;
   readonly terminalSize?: TerminalSize;
   readonly isTty?: boolean;
-  readonly clipboard?: boolean;
+  readonly clipboardWrite?: boolean;
   readonly env?: Record<string, string>;
   readonly observer?: TerminalHostObserver;
   readonly capabilities?: TerminalCapabilityConfiguration;

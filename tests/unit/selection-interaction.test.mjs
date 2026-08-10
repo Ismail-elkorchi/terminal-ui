@@ -76,7 +76,7 @@ test('selection interaction returns a typed diagnostic when no source has select
 });
 
 test('selection interaction writes clipboard text only through explicit policy and host capability', async () => {
-  const host = createMemoryTerminalHost({ clipboard: true });
+  const host = createMemoryTerminalHost({ clipboardWrite: true });
   const result = await copySelectedTextToClipboard({
     host,
     policy: { allow: true },
@@ -89,8 +89,21 @@ test('selection interaction writes clipboard text only through explicit policy a
   assert.equal(host.output().includes('\u001B]52;c;Y29weQ==\u0007'), true);
 });
 
-test('selection interaction rejects clipboard writes when the host capability is unavailable', async () => {
+test('selection interaction permits an explicitly authorized bounded attempt when support is unknown', async () => {
   const host = createMemoryTerminalHost();
+  const result = await copySelectedTextToClipboard({
+    host,
+    policy: { allow: true },
+    sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.ok ? result.clipboard.assurance : undefined, 'sent');
+  assert.equal(host.output().includes('\u001B]52;c;Y29weQ==\u0007'), true);
+});
+
+test('selection interaction rejects clipboard writes when terminal support is explicitly absent', async () => {
+  const host = createMemoryTerminalHost({ clipboardWrite: false });
   const result = await copySelectedTextToClipboard({
     host,
     policy: { allow: true },
@@ -103,7 +116,7 @@ test('selection interaction rejects clipboard writes when the host capability is
 });
 
 test('selection interaction does not write clipboard output when selection is missing', async () => {
-  const host = createMemoryTerminalHost({ clipboard: true });
+  const host = createMemoryTerminalHost({ clipboardWrite: true });
   const result = await copySelectedTextToClipboard({
     host,
     policy: { allow: true },

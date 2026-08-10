@@ -1,11 +1,11 @@
-import { sanitizeTerminalText } from '../../text/index.ts';
+import { sanitizeTerminalCellText } from '../../text/index.ts';
 import { defaultTheme, defineTheme, isTerminalTheme, resolveTerminalStyle } from '../../theme/index.ts';
 import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import type { TerminalSerializationPolicy } from './serialization-policy.ts';
 import type { RenderSpan, TerminalLink, TerminalStyle } from '../../visual/render.ts';
-import { sameTerminalLink, sameTerminalStyle } from '../../visual/render.ts';
+import { normalizeTerminalLink, sameTerminalLink, sameTerminalStyle } from '../../visual/render.ts';
 
 export interface RenderSerializeOptions {
   readonly capabilities: TerminalOutputCapabilityProfile;
@@ -19,6 +19,12 @@ export interface AnsiStyleState {
   readonly link?: TerminalLink;
 }
 
+export interface SerializedRenderSpans {
+  readonly text: string;
+  readonly usesStyle: boolean;
+  readonly usesHyperlink: boolean;
+}
+
 export function serializeRenderSpans(
   spans: readonly RenderSpan[],
   options?: RenderSerializeOptions
@@ -30,14 +36,25 @@ export function serializeRenderSpansStateful(
   spans: readonly RenderSpan[],
   options?: RenderSerializeOptions
 ): string {
+  return serializeRenderSpansWithProtocols(spans, options).text;
+}
+
+export function serializeRenderSpansWithProtocols(
+  spans: readonly RenderSpan[],
+  options?: RenderSerializeOptions
+): SerializedRenderSpans {
   let output = '';
   let state: AnsiStyleState = {};
+  let usesStyle = false;
+  let usesHyperlink = false;
   const policy = createTerminalSerializationPolicy(options);
   for (const currentSpan of spans) {
-    const text = sanitizeTerminalText(currentSpan.text).text;
+    const text = sanitizeTerminalCellText(currentSpan.text).text;
     if (text.length === 0) continue;
     const nextLink = effectiveLink(currentSpan, options);
-    const nextStyle = effectiveStyle(currentSpan.style, options);
+    const nextStyle = policy.effectiveStyle(resolvedStyle(currentSpan.style, options));
+    if (nextLink !== undefined) usesHyperlink = true;
+    if (nextStyle !== undefined) usesStyle = true;
     if (!sameTerminalLink(state.link, nextLink)) {
       output += closeLink(state, policy);
       output += openLink(nextLink, policy);
@@ -46,16 +63,16 @@ export function serializeRenderSpansStateful(
     if (!sameTerminalStyle(state.style, nextStyle)) {
       const transition = policy.styleTransition(state.style, nextStyle);
       output += transition;
-      state = transition.length === 0 || nextStyle === undefined ? withoutStyle(state) : { ...state, style: nextStyle };
+      state = nextStyle === undefined ? withoutStyle(state) : { ...state, style: nextStyle };
     }
     output += text;
   }
   output += closeStyle(state, policy);
   output += closeLink(state, policy);
-  return output;
+  return Object.freeze({ text: output, usesStyle, usesHyperlink });
 }
 
-function effectiveStyle(style: TerminalStyle | undefined, options: RenderSerializeOptions | undefined): TerminalStyle | undefined {
+function resolvedStyle(style: TerminalStyle | undefined, options: RenderSerializeOptions | undefined): TerminalStyle | undefined {
   const theme = themeForOptions(options);
   return resolveTerminalStyle(style, theme);
 }
@@ -85,10 +102,7 @@ function effectiveLink(span: RenderSpan, options: RenderSerializeOptions | undef
     || options.capabilities.hyperlinks.support !== 'supported'
     || options.capabilities.hyperlinks.availability !== 'available'
   ) return undefined;
-  const href = sanitizeTerminalText(span.link.href).text;
-  if (href.length === 0) return undefined;
-  if (span.link.id === undefined) return { href };
-  return { href, id: sanitizeTerminalText(span.link.id).text };
+  return normalizeTerminalLink(span.link);
 }
 
 function openLink(link: TerminalLink | undefined, policy: TerminalSerializationPolicy): string {

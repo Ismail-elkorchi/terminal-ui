@@ -12,7 +12,7 @@ import {
 } from './paste.ts';
 import { createUtf8StreamDecoder, decodeUtf8Chunk } from './utf8-stream.ts';
 import type { TerminalInputChunk } from '../host/index.ts';
-import { normalizeKeyboardProfile } from '../protocol/index.ts';
+import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/index.ts';
 import type {
   InputDecodeLimits,
   InputDecodeOptions,
@@ -205,10 +205,11 @@ function decodeTerminalText(
     }
 
     const normalizedRemaining = normalizedControlPrefix(remaining);
-    const key = options.keyboard?.kind === 'kitty'
-      ? enhancedKeyFromPrefix(normalizedRemaining, options.keyboard, limits.maxKittyAssociatedTextCodePoints)
-        ?? keyFromPrefix(normalizedRemaining)
-      : keyFromPrefix(normalizedRemaining);
+    const key = enhancedKeyFromPrefix(
+      normalizedRemaining,
+      options.keyboard ?? LEGACY_KEYBOARD_PROFILE,
+      limits.maxKittyAssociatedTextCodePoints
+    ) ?? keyFromPrefix(normalizedRemaining);
     if (key !== undefined) {
       flushText();
       pushEvent(key);

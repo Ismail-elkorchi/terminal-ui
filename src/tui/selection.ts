@@ -31,7 +31,10 @@ export async function copySelectedTextToClipboard(input: CopySelectedTextInput):
   const selection = resolveSelectedText(input);
   if (!selection.ok) return { ok: false, selection, diagnostic: selection.diagnostic };
   const capabilities = await input.host.getCapabilities();
-  if (capabilities.clipboard.support !== 'supported' || capabilities.clipboard.availability !== 'available') {
+  if (
+    capabilities.clipboardWrite.support === 'unsupported'
+    || capabilities.clipboardWrite.availability !== 'available'
+  ) {
     return {
       ok: false,
       selection,
@@ -39,9 +42,9 @@ export async function copySelectedTextToClipboard(input: CopySelectedTextInput):
         severity: 'warning',
         target: 'clipboard',
         data: {
-          support: capabilities.clipboard.support,
-          availability: capabilities.clipboard.availability,
-          diagnostics: capabilities.clipboard.diagnostics.map((item) => item.message)
+          support: capabilities.clipboardWrite.support,
+          availability: capabilities.clipboardWrite.availability,
+          diagnostics: capabilities.clipboardWrite.diagnostics.map((item) => item.message)
         }
       })
     };

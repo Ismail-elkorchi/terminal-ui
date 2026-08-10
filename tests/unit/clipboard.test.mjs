@@ -22,6 +22,7 @@ test('clipboard OSC 52 sequence is gated by explicit policy', () => {
   assert.equal(denied.ok, false);
   assert.equal(denied.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
   assert.equal(allowed.ok, true);
+  assert.equal(allowed.assurance, 'sent');
   assert.equal(allowed.sequence, '\u001B]52;c;Y29weSBtZQ==\u0007');
   assert.equal(oversized.ok, false);
   assert.equal(oversized.diagnostic.data?.maxBytes, 2);

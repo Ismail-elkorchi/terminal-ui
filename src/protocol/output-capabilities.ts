@@ -13,6 +13,7 @@ export interface TerminalOutputCapabilityProfile {
   readonly unicode: {
     readonly widthProfile: TextWidthProfile;
   };
+  readonly textAttributes: TerminalOutputFeatureSupport;
   readonly hyperlinks: TerminalOutputFeatureSupport;
   readonly synchronizedOutput: TerminalOutputFeatureSupport;
 }
@@ -23,6 +24,7 @@ export const defaultTerminalOutputCapabilities: TerminalOutputCapabilityProfile 
   unicode: Object.freeze({
     widthProfile: Object.freeze({ emoji: 'wide', ambiguous: 'narrow' })
   }),
+  textAttributes: Object.freeze({ support: 'unknown', availability: 'unavailable' }),
   hyperlinks: Object.freeze({ support: 'unknown', availability: 'unavailable' }),
   synchronizedOutput: Object.freeze({ support: 'unknown', availability: 'unavailable' })
 });

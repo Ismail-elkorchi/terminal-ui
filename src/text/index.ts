@@ -26,7 +26,7 @@ export {
 export type { TextDocument, TextDocumentChange, TextDocumentLine } from './document.ts';
 export { segmentGraphemes } from './graphemes.ts';
 export { measureTextCells } from './measure.ts';
-export { sanitizeTerminalText } from './sanitize.ts';
+export { sanitizeTerminalCellText, sanitizeTerminalText } from './sanitize.ts';
 export { findTextHighlightMatches } from './search-highlight.ts';
 export {
   clampTextOffset,

@@ -1,4 +1,4 @@
-import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
+import { measureTextCells, sanitizeTerminalCellText } from '../../text/index.ts';
 import { toAccessibleSnapshot } from '../../accessibility/index.ts';
 import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
 import { sanitizeFrameCellSource } from '../../visual/source.ts';
@@ -9,6 +9,7 @@ import type { FocusPath } from './focus.ts';
 import type { CursorPosition } from '../contracts.ts';
 import type { Frame, FrameCell, FrameHitTarget } from '../contracts.ts';
 import type { Rect } from '../contracts.ts';
+import { normalizeTerminalLink } from '../../visual/render.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render.ts';
 import type { RenderTarget } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -111,9 +112,10 @@ class CellFrameBuffer implements FrameBuffer {
     if (!this.containsRow(row)) return;
     let nextColumn = Math.floor(column);
     for (const currentSpan of spans) {
-      const measured = measureTextCells(currentSpan.text, { widthProfile: this.widthProfile });
+      const text = sanitizeTerminalCellText(currentSpan.text).text;
+      const measured = measureTextCells(text, { widthProfile: this.widthProfile });
       const style = currentSpan.style;
-      const link = currentSpan.link === undefined ? undefined : sanitizeTerminalLink(currentSpan.link);
+      const link = currentSpan.link === undefined ? undefined : normalizeTerminalLink(currentSpan.link);
       const source = currentSpan.source === undefined ? undefined : sanitizeFrameCellSource(currentSpan.source);
       for (const segment of measured.graphemes) {
         if (segment.cells === 0) {
@@ -205,8 +207,12 @@ class CellFrameBuffer implements FrameBuffer {
   [blitCell](cell: FrameCell): void {
     if (cell.continuation === true || !this.containsCell(cell.row, cell.column)) return;
     if (cell.width < 1 || cell.column + cell.width - 1 > this.width) return;
+    const text = sanitizeTerminalCellText(cell.text).text;
+    if (text.length === 0) return;
+    const measured = measureTextCells(text, { widthProfile: this.widthProfile });
+    if (measured.graphemes.length !== 1 || measured.cells !== cell.width) return;
     this.writeGrapheme(cell.row, cell.column, {
-      text: cell.text,
+      text,
       width: cell.width,
       ...(cell.style === undefined ? {} : { style: cell.style }),
       ...(cell.link === undefined ? {} : { link: cell.link }),
@@ -392,13 +398,6 @@ function isMergeableFrameCell(cell: FrameCell): boolean {
   return cell.continuation !== true
     && cell.width === 1
     && (cell.source?.cellRole === 'border' || cell.source?.cellRole === 'separator');
-}
-
-function sanitizeTerminalLink(link: TerminalLink): TerminalLink {
-  return {
-    href: sanitizeTerminalText(link.href).text,
-    ...(link.id === undefined ? {} : { id: sanitizeTerminalText(link.id).text })
-  };
 }
 
 function bufferFingerprint(rows: readonly FrameRowFingerprint[]): string {

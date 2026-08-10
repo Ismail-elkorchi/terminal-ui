@@ -7,7 +7,6 @@ import type {
 
 export class NodeInput implements TerminalInput {
   #rawMode: boolean;
-  #rawModeSet = false;
   #activeReader: ClosableNodeInputIterator | undefined;
   #release: Promise<void> | undefined;
   #disposal: Promise<void> | undefined;
@@ -54,12 +53,11 @@ export class NodeInput implements TerminalInput {
     if (typeof this.#stream.setRawMode === 'function' && this.#stream.isTTY === true) {
       this.#stream.setRawMode(enabled);
       this.#rawMode = enabled;
-      this.#rawModeSet = true;
     }
   }
 
   isRawModeEnabled(): boolean {
-    return this.#rawModeSet ? this.#rawMode : this.#stream.isRaw ?? this.#rawMode;
+    return this.#stream.isRaw ?? this.#rawMode;
   }
 
   isTty(): boolean {

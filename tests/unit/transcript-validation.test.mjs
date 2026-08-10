@@ -509,7 +509,7 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    formatVersion: 2,
+    formatVersion: 3,
     id: '',
     source: 'test',
     steps: [],
@@ -552,8 +552,9 @@ function validRestoreResult() {
     rawInput: false,
     alternateScreen: false,
     bracketedPaste: false,
-    mouseReporting: 'none',
+    mouseReporting: { tracking: 'none', encoding: 'default' },
     focusReporting: false,
+    unicodeGraphemeMode: false,
     keyboardProfile: { kind: 'legacy' },
     cursorVisible: true,
     provenance: {
@@ -562,6 +563,7 @@ function validRestoreResult() {
       bracketedPaste: 'assumed',
       mouseReporting: 'assumed',
       focusReporting: 'assumed',
+      unicodeGraphemeMode: 'assumed',
       keyboardProfile: 'assumed',
       cursorVisible: 'assumed'
     }

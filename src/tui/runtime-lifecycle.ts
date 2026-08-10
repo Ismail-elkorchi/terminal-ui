@@ -57,6 +57,7 @@ export function createRuntimeLifecycle<TFrame>() {
     },
     fail() {
       currentPhase = 'failed';
+      if (!lifetime.signal.aborted) lifetime.abort('tui_runtime_failed');
     },
     dispose(operation: () => Promise<void>): Promise<void> {
       if (disposal !== undefined) return disposal;
