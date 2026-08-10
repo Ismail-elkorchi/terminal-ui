@@ -10,10 +10,12 @@ import type { CursorPosition } from '../contracts.ts';
 import type { Frame, FrameCell, FrameHitTarget } from '../contracts.ts';
 import type { Rect } from '../contracts.ts';
 import { normalizeTerminalLink } from '../../visual/render.ts';
+import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render.ts';
 import type { RenderTarget } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import { defaultTextWidthProfile } from '../../text/index.ts';
+import { defaultTextWidthProfile, defineTextWidthProfile } from '../../text/index.ts';
+import { assertFrameDimensions } from './frame-limits.ts';
 
 export interface FrameBufferOptions {
   readonly widthProfile?: TextWidthProfile;
@@ -57,7 +59,12 @@ export interface FrameBuffer extends RenderTarget {
 }
 
 export function createFrameBuffer(width: number, height: number, options: FrameBufferOptions = {}): FrameBuffer {
-  return new CellFrameBuffer(width, height, options.widthProfile ?? defaultTextWidthProfile, false);
+  return new CellFrameBuffer(
+    width,
+    height,
+    defineTextWidthProfile(options.widthProfile ?? defaultTextWidthProfile),
+    false
+  );
 }
 
 export function createCompositingFrameBuffer(
@@ -65,7 +72,12 @@ export function createCompositingFrameBuffer(
   height: number,
   options: FrameBufferOptions = {}
 ): FrameBuffer {
-  return new CellFrameBuffer(width, height, options.widthProfile ?? defaultTextWidthProfile, true);
+  return new CellFrameBuffer(
+    width,
+    height,
+    defineTextWidthProfile(options.widthProfile ?? defaultTextWidthProfile),
+    true
+  );
 }
 
 export function blitFrameCell(buffer: RenderTarget, cell: FrameCell): void {
@@ -101,8 +113,9 @@ class CellFrameBuffer implements FrameBuffer {
     widthProfile: TextWidthProfile,
     inheritBackground: boolean
   ) {
-    this.width = Math.max(0, Math.floor(width));
-    this.height = Math.max(0, Math.floor(height));
+    assertFrameDimensions(width, height);
+    this.width = width;
+    this.height = height;
     this.widthProfile = widthProfile;
     this.inheritBackground = inheritBackground;
     this.cells = Array.from({ length: this.width * this.height });
@@ -174,34 +187,37 @@ class CellFrameBuffer implements FrameBuffer {
   }
 
   snapshot(options: FrameBufferSnapshotOptions = {}): FrameBufferSnapshot {
-    const accessibility = options.accessibility ?? toAccessibleSnapshot({
+    const accessibility = toAccessibleSnapshot(options.accessibility ?? {
       source: 'renderer',
       root: { id: 'frame', role: 'text', label: 'frame' }
     });
     const { cells, rowFingerprints } = this.snapshotCellsAndFingerprints();
-    const cursor = options.cursor === undefined ? undefined : {
+    const cursor = options.cursor === undefined ? undefined : Object.freeze({
       ...options.cursor,
+      ...(options.cursor.style === undefined
+        ? {}
+        : { style: normalizeTerminalStyle(options.cursor.style, 'Frame cursor style') }),
       ...(options.cursor.source === undefined
         ? {}
         : { source: sanitizeFrameCellSource(options.cursor.source) })
-    };
+    });
     const frame: FrameBufferSnapshot = {
       width: this.width,
       height: this.height,
       widthProfile: this.widthProfile,
       cells,
       accessibility,
-      metadata: {
+      metadata: Object.freeze({
         writtenBounds: this.writtenCoverage.toDirtyRegionSet(),
         clearedBounds: this.clearedCoverage.toDirtyRegionSet(),
         rowFingerprints,
         fingerprint: bufferFingerprint(rowFingerprints)
-      },
-      ...(options.hitTargets === undefined ? {} : { hitTargets: options.hitTargets }),
+      }),
+      ...(options.hitTargets === undefined ? {} : { hitTargets: immutableHitTargets(options.hitTargets) }),
       ...(cursor === undefined ? {} : { cursor }),
-      ...(options.focusPath === undefined ? {} : { focusPath: options.focusPath })
+      ...(options.focusPath === undefined ? {} : { focusPath: Object.freeze([...options.focusPath]) })
     };
-    return frame;
+    return Object.freeze(frame);
   }
 
   [blitCell](cell: FrameCell): void {
@@ -263,7 +279,7 @@ class CellFrameBuffer implements FrameBuffer {
           rowHash = hashFrameCell(rowHash, cell);
         }
       }
-      rowFingerprints.push({ row, fingerprint: hashToString(rowHash) });
+      rowFingerprints.push(Object.freeze({ row, fingerprint: hashToString(rowHash) }));
     }
     return {
       cells: Object.freeze(output),
@@ -370,8 +386,9 @@ class CellFrameBuffer implements FrameBuffer {
   }
 
   private setCellAtIndex(index: number, cell: FrameCell): void {
-    this.cells[index] = cell;
-    if (isMergeableFrameCell(cell)) this.mergeableCellIndexes.add(index);
+    const immutable = immutableFrameCell(cell);
+    this.cells[index] = immutable;
+    if (isMergeableFrameCell(immutable)) this.mergeableCellIndexes.add(index);
     else this.mergeableCellIndexes.delete(index);
   }
 
@@ -392,6 +409,32 @@ class CellFrameBuffer implements FrameBuffer {
     const end = Math.min(this.width + 1, column + width);
     if (end > start) this.writtenCoverage.addSpan(row, start, end - start);
   }
+}
+
+function immutableFrameCell(cell: FrameCell): FrameCell {
+  return Object.freeze({
+    ...cell,
+    ...(cell.style === undefined
+      ? {}
+      : { style: normalizeTerminalStyle(cell.style, 'Frame cell style') }),
+    ...(cell.link === undefined ? {} : { link: normalizeTerminalLink(cell.link) }),
+    ...(cell.source === undefined ? {} : { source: sanitizeFrameCellSource(cell.source) })
+  });
+}
+
+function immutableHitTargets(hitTargets: readonly FrameHitTarget[]): readonly FrameHitTarget[] {
+  return Object.freeze(hitTargets.map((target) => Object.freeze({
+    ...target,
+    bounds: Object.freeze({ ...target.bounds }),
+    ...(target.accepts === undefined ? {} : { accepts: Object.freeze([...target.accepts]) }),
+    ...(target.focus === undefined
+      ? {}
+      : {
+          focus: Object.freeze(target.focus.kind === 'preserve'
+            ? { kind: 'preserve' as const }
+            : { kind: 'focus' as const, path: Object.freeze([...target.focus.path]) })
+        })
+  })));
 }
 
 function isMergeableFrameCell(cell: FrameCell): boolean {

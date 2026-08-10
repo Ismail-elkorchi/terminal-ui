@@ -470,6 +470,11 @@ test('transcript validation rejects malformed structured restore results', () =>
     [{ ...restore, requested: { ...state, provenance: { ...state.provenance, extra: true } } }, /unsupported field/u],
     [{ ...restore, requested: { ...state, keyboardProfile: { ...state.keyboardProfile, extra: true } } }, /unsupported field/u],
     [{ ...restore, attempted: [{ kind: 'rawInput', enabled: false, extra: true }] }, /unsupported field/u],
+    [{
+      ...restore,
+      attempted: [{ kind: 'rawInput', enabled: false }],
+      completed: [{ kind: 'rawInput', enabled: false, assurance: 'assumed' }]
+    }, /requires assurance/u],
     [{ ...restore, requested: { ...state, rawInput: 'no' } }, /rawInput/u],
     [{ ...restore, requested: { ...state, alternateScreen: 'no' } }, /alternateScreen/u],
     [{ ...restore, requested: { ...state, bracketedPaste: 'no' } }, /bracketedPaste/u],
@@ -479,24 +484,24 @@ test('transcript validation rejects malformed structured restore results', () =>
     [{ ...restore, requested: { ...state, cursorVisible: 'yes' } }, /cursorVisible/u],
     [{
       ...restore,
-      confirmed: [{ kind: 'rawInput', enabled: false }]
-    }, /confirmed operations must be an ordered subset of attempted operations/u],
+      completed: [{ kind: 'rawInput', enabled: false, assurance: 'sent' }]
+    }, /completed operations must be an ordered subset of attempted operations/u],
     [{
       ...restore,
       attempted: [{ kind: 'rawInput', enabled: false }],
-      confirmed: [{ kind: 'rawInput', enabled: true }]
-    }, /confirmed operations must be an ordered subset of attempted operations/u],
+      completed: [{ kind: 'rawInput', enabled: true, assurance: 'sent' }]
+    }, /completed operations must be an ordered subset of attempted operations/u],
     [{
       ...restore,
       attempted: [
         { kind: 'rawInput', enabled: false },
         { kind: 'cursorVisible', enabled: true }
       ],
-      confirmed: [
-        { kind: 'cursorVisible', enabled: true },
-        { kind: 'rawInput', enabled: false }
+      completed: [
+        { kind: 'cursorVisible', enabled: true, assurance: 'sent' },
+        { kind: 'rawInput', enabled: false, assurance: 'observed' }
       ]
-    }, /confirmed operations must be an ordered subset of attempted operations/u]
+    }, /completed operations must be an ordered subset of attempted operations/u]
   ];
 
   for (const [value, pattern] of cases) {
@@ -509,7 +514,7 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    formatVersion: 3,
+    formatVersion: 4,
     id: '',
     source: 'test',
     steps: [],
@@ -573,7 +578,7 @@ function validRestoreResult() {
     reason: 'success',
     requested: state,
     attempted: [],
-    confirmed: [],
+    completed: [],
     resultingState: state,
     diagnostics: []
   };

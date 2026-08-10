@@ -57,13 +57,13 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     reason: 'success',
     requested: terminalState(),
     attempted: [],
-    confirmed: [],
+    completed: [],
     resultingState: terminalState(),
     diagnostics: []
   };
 
   const result = await replayTranscript(harness, {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'replay-all',
     source: 'test',
     steps: [
@@ -223,7 +223,7 @@ test('transcript replay is isolated from mutations after validation', async () =
     recordRestore() {}
   };
   const source = {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'mutable-source',
     source: 'test',
     steps: [
@@ -269,7 +269,7 @@ function terminalState() {
 test('transcript replay returns a typed diagnostic for invalid transcripts', async () => {
   const harness = createTerminalHarness();
   const result = await replayTranscript(harness, {
-    formatVersion: 3,
+    formatVersion: 4,
     id: '',
     source: 'test',
     steps: [],
@@ -290,7 +290,7 @@ test('transcript replay preserves top-level diagnostics and redaction metadata',
   const stepDiagnostic = report.report(diagnostic('INPUT_CANCELLED', 'Cancelled.'));
 
   const result = await replayTranscript(harness, {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'top-level-metadata',
     source: 'test',
     steps: [
@@ -341,7 +341,7 @@ test('transcript replay preserves partial restoration without upgrading its outc
     reason: 'error',
     requested: terminalState(),
     attempted: [{ kind: 'rawInput', enabled: false }],
-    confirmed: [],
+    completed: [],
     resultingState: {
       ...terminalState(),
       rawInput: true,
@@ -350,7 +350,7 @@ test('transcript replay preserves partial restoration without upgrading its outc
     diagnostics: [diagnostic('HOST_RESTORE_FAILED', 'Raw input restoration was not confirmed.')]
   };
   const transcript = {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'partial-restore',
     source: 'test',
     steps: [{ kind: 'restore', phase: 'shutdown', result: partial }],
@@ -373,7 +373,7 @@ test('transcript validation rejects duplicate, decreasing, and post-restore comm
   const diff = validDiff(2, 1);
   const commit = runtimeCommit(frame, diff);
   const base = {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'commit-order',
     source: 'test',
     diagnostics: [],
@@ -388,7 +388,7 @@ test('transcript validation rejects duplicate, decreasing, and post-restore comm
     { kind: 'commit', commit: { ...commit, id: 'commit:3', stateVersion: 1 } }
   ] });
   const restored = {
-    status: 'restored', reason: 'success', requested: terminalState(), attempted: [], confirmed: [],
+    status: 'restored', reason: 'success', requested: terminalState(), attempted: [], completed: [],
     resultingState: terminalState(), diagnostics: []
   };
   const postRestore = validateTranscript({ ...base, steps: [
@@ -405,7 +405,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
   const harness = createTerminalHarness();
   const snapshot = harness.snapshot();
   const invalidFrame = validateTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'invalid-frame',
     source: 'test',
     steps: [
@@ -428,7 +428,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
   assert.match(invalidFrame.error.message, /frame cells must be an array/u);
 
   const invalidDiff = validateTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'invalid-diff',
     source: 'test',
     steps: [
@@ -457,7 +457,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
   const baseFrame = validFrame(2, 1, snapshot);
   const baseDiff = validDiff(2, 1);
   const base = {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'invalid-frame-source-state',
     source: 'test',
     diagnostics: [],
@@ -525,7 +525,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
 
 test('transcript redaction records concrete paths for redacted strings', () => {
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'redaction',
     source: 'test',
     steps: [
@@ -543,7 +543,7 @@ test('transcript redaction records concrete paths for redacted strings', () => {
 
 test('transcript redaction covers existing audit paths without changing structural signals', () => {
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'signal-redaction',
     source: 'test',
     steps: [
@@ -566,7 +566,7 @@ test('transcript redaction covers existing audit paths without changing structur
 
 test('transcript redaction derives a safe effective replacement', () => {
   const transcript = {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'safe-replacement',
     source: 'test',
     steps: [
@@ -600,7 +600,7 @@ test('transcript redaction derives a safe effective replacement', () => {
 
 test('transcript redaction handles message arrays at the transcript node limit', () => {
   const transcript = {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'large-redaction',
     source: 'test',
     steps: [{
@@ -621,7 +621,7 @@ test('transcript redaction handles message arrays at the transcript node limit',
 
 test('transcript redaction uses unambiguous paths for arbitrary JSON keys', () => {
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'key-path-redaction',
     source: 'test',
     steps: [{
@@ -655,7 +655,7 @@ test('transcript redaction projects JSON keys without collisions or audit-path l
     }
   }));
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'json-key-redaction',
     source: 'test',
     startedAt: '2024-01-02T03:04:05.000Z',
@@ -699,7 +699,7 @@ test('transcript redaction projects JSON keys without collisions or audit-path l
 
 test('transcript redaction preserves transcript and input discriminants that collide with secrets', () => {
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'test-transcript',
     source: 'test',
     steps: [
@@ -729,7 +729,7 @@ test('transcript redaction preserves transcript and input discriminants that col
 
 test('transcript redaction keeps accessibility identifiers unique and references aligned', () => {
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'identifier-redaction',
     source: 'test',
     steps: [{
@@ -799,7 +799,7 @@ test('transcript redaction preserves frame geometry and the render-diff chain', 
     operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'secret value', source }] }]
   };
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'render-redaction',
     source: 'test',
     steps: [{ kind: 'commit', commit: runtimeCommit(frame, diff) }],
@@ -828,7 +828,7 @@ test('transcript redaction does not audit unchanged diagnostic occurrence gramma
   const reporter = createDiagnosticOccurrenceReporter('audit-owner');
   const reported = reporter.report(diagnostic('HOST_STREAM_CLOSED', 'Plain failure.'));
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'audit',
     source: 'test',
     steps: [{ kind: 'diagnostic', occurrence: reported }],
@@ -854,7 +854,7 @@ test('transcript redaction rebuilds diagnostic fingerprints before validation an
     data: { detail: 'secret-value-data' }
   }));
   const redacted = redactTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'diagnostic-redaction',
     source: 'test',
     steps: [{ kind: 'diagnostic', occurrence: reported }],
@@ -890,7 +890,7 @@ test('diagnostics normalize causes into JSON-safe transcript data', () => {
   });
   const reported = occurrence('diagnostic-cause', 1, item);
   const transcript = {
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'diagnostic-cause',
     source: 'test',
     steps: [{ kind: 'diagnostic', occurrence: reported }],
@@ -931,7 +931,7 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
   assert.equal(encoded.includes('visible-credential'), false);
   assert.match(encoded, /\[redacted\]/u);
   assert.equal(validateTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'redacted-diagnostic',
     source: 'test',
     steps: [{ kind: 'diagnostic', occurrence: reported }],
@@ -942,7 +942,7 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
 
 test('transcript validation rejects unknown diagnostic codes', () => {
   const invalid = validateTranscript({
-    formatVersion: 3,
+    formatVersion: 4,
     id: 'unknown-diagnostic',
     source: 'test',
     steps: [

@@ -70,7 +70,7 @@ function dirtyRegionsForChangedRegion(previous: DirtyRegionSource, next: DirtyRe
 
 function dirtyRegionSetFromRects(input: readonly Rect[]): DirtyRegionSet {
   const rects = normalizeRects(input);
-  return Object.defineProperties({ rects }, {
+  return Object.freeze(Object.defineProperties({ rects }, {
     add: {
       enumerable: false,
       value(rect: Rect): DirtyRegionSet {
@@ -92,7 +92,7 @@ function dirtyRegionSetFromRects(input: readonly Rect[]): DirtyRegionSet {
         }));
       }
     }
-  }) as DirtyRegionSet;
+  }) as DirtyRegionSet);
 }
 
 function normalizeRects(input: readonly Rect[]): readonly Rect[] {
@@ -114,7 +114,7 @@ function normalizeRects(input: readonly Rect[]): readonly Rect[] {
     }
     merged.push(rect);
   }
-  return Object.freeze(merged);
+  return Object.freeze(merged.map((rect) => Object.freeze(rect)));
 }
 
 function normalizeRect(rect: Rect): Rect | undefined {

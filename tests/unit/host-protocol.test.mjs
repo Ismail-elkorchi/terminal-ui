@@ -248,6 +248,45 @@ test('active Kitty discovery consumes only its split response and replays unrela
   assert.equal(host.restores().at(-1)?.status, 'restored');
 });
 
+test('Kitty discovery records inherited flags and a legacy session establishes its own frame', async () => {
+  const host = createMemoryTerminalHost();
+  host.input('\u001B[?3u');
+
+  await host.getCapabilities({ activeProbes: ['keyboardProtocol'] });
+  const session = await host.beginSession({ id: 'nested-legacy-keyboard' });
+  assert.deepEqual(session.initialState.keyboardProfile, kittyEvents);
+  assert.equal(session.initialState.provenance.keyboardProfile, 'observed');
+
+  const applied = await session.enableKeyboardProfile(LEGACY_KEYBOARD_PROFILE);
+  assert.equal(applied.status, 'applied');
+  assert.deepEqual((await session.currentState()).keyboardProfile, LEGACY_KEYBOARD_PROFILE);
+  const restored = await session.restore('success');
+
+  assert.equal(restored.status, 'restored');
+  assert.match(host.output(), /\u001B\[>0u\u001B\[<u$/u);
+  assert.deepEqual(restored.resultingState.keyboardProfile, kittyEvents);
+});
+
+test('an assumed legacy keyboard profile is established inside an owned stack frame', async () => {
+  const host = createMemoryTerminalHost();
+  const session = await host.beginSession({ id: 'assumed-legacy-keyboard' });
+
+  const applied = await session.enableKeyboardProfile(LEGACY_KEYBOARD_PROFILE);
+  const restored = await session.restore('success');
+
+  assert.equal(applied.status, 'applied');
+  assert.equal(applied.assurance, 'sent');
+  assert.equal(host.output(), '\u001B[>0u\u001B[<u');
+  assert.equal(Object.isFrozen(restored), true);
+  assert.equal(Object.isFrozen(restored.completed), true);
+  assert.equal(Object.isFrozen(restored.completed[0]), true);
+  assert.deepEqual(restored.completed, [{
+    kind: 'keyboardProfile',
+    enabled: LEGACY_KEYBOARD_PROFILE,
+    assurance: 'sent'
+  }]);
+});
+
 test('active Kitty discovery uses primary device attributes as an unsupported fence', async () => {
   const host = createMemoryTerminalHost();
   host.input('before\u001B[?1;2cafter');
@@ -273,8 +312,10 @@ test('active Kitty discovery is bounded and replays buffered user input after ti
     activeProbes: ['keyboardProtocol'],
     probeTimeoutMs: 25
   });
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let attempt = 0; attempt < 50 && !host.output().includes('\u001B[?u'); attempt += 1) {
+    await Promise.resolve();
+  }
+  assert.equal(host.output().includes('\u001B[?u'), true);
   host.clock.advance(25);
 
   const capabilities = await detection;
@@ -286,6 +327,49 @@ test('active Kitty discovery is bounded and replays buffered user input after ti
   assert.equal(capabilities.keyboardProtocol.facts.at(-1)?.kind, 'probe');
   assert.equal(inputText(replayed.value?.data), 'typed while probing');
   assert.equal(host.restores().at(-1)?.status, 'restored');
+});
+
+test('a refreshed Kitty probe receives a full timeout budget after response quarantine', async () => {
+  const host = createMemoryTerminalHost();
+  const firstDetection = host.getCapabilities({
+    activeProbes: ['keyboardProtocol'],
+    probeTimeoutMs: 25
+  });
+  for (
+    let attempt = 0;
+    attempt < 50 && (host.output().match(/\u001B\[\?u/gu)?.length ?? 0) < 1;
+    attempt += 1
+  ) {
+    await Promise.resolve();
+  }
+  assert.equal(host.output().match(/\u001B\[\?u/gu)?.length, 1);
+  host.clock.advance(25);
+  const first = await firstDetection;
+  assert.equal(first.keyboardProtocol.support, 'unknown');
+
+  const refreshedDetection = host.getCapabilities({
+    activeProbes: ['keyboardProtocol'],
+    probeTimeoutMs: 25,
+    refresh: true
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  host.clock.advance(100);
+  for (
+    let attempt = 0;
+    attempt < 50 && (host.output().match(/\u001B\[\?u/gu)?.length ?? 0) < 2;
+    attempt += 1
+  ) {
+    await Promise.resolve();
+  }
+  assert.equal(host.output().match(/\u001B\[\?u/gu)?.length, 2);
+  host.input('\u001B[?3u');
+  const refreshed = await refreshedDetection;
+
+  assert.equal(refreshed.keyboardProtocol.support, 'supported');
+  const session = await host.beginSession({ id: 'refreshed-kitty-probe' });
+  assert.deepEqual(session.initialState.keyboardProfile, kittyEvents);
+  await session.restore('success');
 });
 
 test('terminal mode discovery observes outer state and enables only safely owned features', async () => {
@@ -328,6 +412,25 @@ test('terminal mode discovery observes outer state and enables only safely owned
   await session.restore('success');
 });
 
+test('a refreshed mode observation replaces omitted values from the previous terminal', async () => {
+  const host = createMemoryTerminalHost();
+  host.input('\u001B[?2027;1$y\u001B[?1;2c');
+  const first = await host.getCapabilities({ activeProbes: ['terminalModes'] });
+  assert.equal(first.unicodeGraphemeMode.support, 'supported');
+
+  host.input('\u001B[?1;2c');
+  const refreshed = await host.getCapabilities({
+    activeProbes: ['terminalModes'],
+    refresh: true
+  });
+  const session = await host.beginSession({ id: 'refreshed-terminal-modes' });
+
+  assert.equal(refreshed.unicodeGraphemeMode.support, 'unknown');
+  assert.equal(session.initialState.unicodeGraphemeMode, false);
+  assert.equal(session.initialState.provenance.unicodeGraphemeMode, 'assumed');
+  await session.restore('success');
+});
+
 test('active terminal capability probes own their complete temporary sessions', async () => {
   const host = createMemoryTerminalHost();
   host.input([
@@ -354,6 +457,31 @@ test('active terminal capability probes own their complete temporary sessions', 
   assert.equal((await host.getCapabilities()).keyboardProtocol.support, 'supported');
   assert.equal(host.restores().length, 2);
   assert.equal(host.restores().every((restore) => restore.status === 'restored'), true);
+});
+
+test('cancelling the creator of a capability probe retires its terminal operation', async () => {
+  const host = createMemoryTerminalHost();
+  const controller = new globalThis.AbortController();
+  const detection = host.getCapabilities({
+    activeProbes: ['terminalModes'],
+    probeTimeoutMs: 10_000,
+    signal: controller.signal
+  });
+  for (let attempt = 0; attempt < 10 && !host.stdin.isRawModeEnabled(); attempt += 1) {
+    await Promise.resolve();
+  }
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+
+  controller.abort(new Error('startup cancelled'));
+  await assert.rejects(detection, /startup cancelled/u);
+  for (let attempt = 0; attempt < 20 && host.restores().length === 0; attempt += 1) {
+    await Promise.resolve();
+  }
+
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assert.equal(host.restores().at(-1)?.status, 'restored');
+  const session = await host.beginSession({ id: 'after-cancelled-capability-probe' });
+  await session.restore('success');
 });
 
 for (const [report, initial, acceptedOperation, rejectedOperation] of [
@@ -536,7 +664,11 @@ test('terminal sessions restore state in protocol-safe order', async () => {
   const result = await session.restore('success');
 
   assert.equal(result.status, 'restored');
-  assert.deepEqual(result.confirmed.map((operation) => operation.kind), expectedOperations);
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.attempted), true);
+  assert.equal(Object.isFrozen(result.completed), true);
+  assert.equal(result.completed.every((operation) => operation.assurance === 'sent'), true);
+  assert.deepEqual(result.completed.map((operation) => operation.kind), expectedOperations);
   assert.deepEqual(withoutProvenance(host.restores()[0]?.requested), snapshot);
 });
 
@@ -679,7 +811,7 @@ test('terminal sessions preserve raw input state that existed before the session
 
   assert.equal(result.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), true);
-  assert.equal(result.confirmed.some((operation) => operation.kind === 'rawInput'), false);
+  assert.equal(result.completed.some((operation) => operation.kind === 'rawInput'), false);
   host.stdin.setRawMode(false);
 });
 
@@ -737,6 +869,39 @@ test('Node sessions preserve raw input state observed from the native stream', a
   await host.dispose();
 });
 
+test('restoration reports observed assurance only for adapter-confirmed raw input', async () => {
+  const stdin = Object.assign(runtimeInput([]), {
+    isTTY: true,
+    isRaw: false,
+    setRawMode(enabled) {
+      this.isRaw = enabled;
+    }
+  });
+  const output = {
+    isTTY: true,
+    columns: 80,
+    rows: 24,
+    write(_chunk, callback) {
+      callback();
+      return true;
+    },
+    once() {},
+    off() {}
+  };
+  const host = createNodeTerminalHost({ stdin, stdout: output, stderr: output });
+  const session = await host.beginSession({ id: 'observed-raw-restoration' });
+
+  await session.enableRawInput();
+  const restored = await session.restore('success');
+
+  assert.deepEqual(restored.completed, [{
+    kind: 'rawInput',
+    enabled: false,
+    assurance: 'observed'
+  }]);
+  await host.dispose();
+});
+
 test('Node sessions reject a native raw-mode setter that does not change observed state', async () => {
   const changes = [];
   const stdin = Object.assign(runtimeInput([]), {
@@ -790,13 +955,13 @@ test('nested terminal leases restore to the outer lease state', async () => {
   const innerRestore = await inner.restore('success');
 
   assert.equal(innerRestore.status, 'restored');
-  assert.deepEqual(innerRestore.confirmed.map((item) => item.kind), ['bracketedPaste']);
+  assert.deepEqual(innerRestore.completed.map((item) => item.kind), ['bracketedPaste']);
   assert.equal(innerRestore.resultingState.alternateScreen, true);
   assert.equal(innerRestore.resultingState.cursorVisible, false);
 
   const outerRestore = await outer.restore('success');
   assert.equal(outerRestore.status, 'restored');
-  assert.deepEqual(outerRestore.confirmed.map((item) => item.kind), ['cursorVisible', 'alternateScreen']);
+  assert.deepEqual(outerRestore.completed.map((item) => item.kind), ['cursorVisible', 'alternateScreen']);
   assert.deepEqual(host.restores().map((item) => item.status), ['failed', 'restored', 'restored']);
 });
 
@@ -840,6 +1005,11 @@ test('explicit initial terminal facts retain explicit provenance', async () => {
   assert.equal(session.initialState.cursorVisible, false);
   assert.equal(session.initialState.provenance.alternateScreen, 'explicit');
   assert.equal(session.initialState.provenance.cursorVisible, 'explicit');
+  assert.equal(Object.isFrozen(session.initialState), true);
+  assert.equal(Object.isFrozen(session.initialState.mouseReporting), true);
+  assert.equal(Object.isFrozen(session.initialState.keyboardProfile), true);
+  assert.equal(Object.isFrozen(session.initialState.provenance), true);
+  assert.throws(() => { session.initialState.cursorVisible = true; }, TypeError);
   await session.restore('success');
 });
 
@@ -887,7 +1057,11 @@ test('session policy enables and restores a supported Kitty keyboard profile', a
 
   const restored = await session.restore('success');
   assert.equal(restored.status, 'restored');
-  assert.deepEqual(restored.confirmed, [{ kind: 'keyboardProfile', enabled: LEGACY_KEYBOARD_PROFILE }]);
+  assert.deepEqual(restored.completed, [{
+    kind: 'keyboardProfile',
+    enabled: LEGACY_KEYBOARD_PROFILE,
+    assurance: 'sent'
+  }]);
   assert.match(host.output(), /\u001B\[>3u\u001B\[<u/u);
 });
 
@@ -1014,7 +1188,11 @@ test('terminal sessions update one Kitty profile without growing the terminal st
 
   assert.equal(restored.status, 'restored');
   assert.equal(host.output(), '\u001B[>3u\u001B[=7u\u001B[<u');
-  assert.deepEqual(restored.confirmed, [{ kind: 'keyboardProfile', enabled: LEGACY_KEYBOARD_PROFILE }]);
+  assert.deepEqual(restored.completed, [{
+    kind: 'keyboardProfile',
+    enabled: LEGACY_KEYBOARD_PROFILE,
+    assurance: 'sent'
+  }]);
 });
 
 test('terminal sessions pop their frame when restoring an explicit Kitty profile', async () => {
@@ -1048,7 +1226,11 @@ test('terminal sessions apply legacy input inside an owned Kitty stack frame', a
 
   assert.equal(restored.status, 'restored');
   assert.equal(host.output(), '\u001B[>3u\u001B[=0u\u001B[<u');
-  assert.deepEqual(restored.confirmed, [{ kind: 'keyboardProfile', enabled: LEGACY_KEYBOARD_PROFILE }]);
+  assert.deepEqual(restored.completed, [{
+    kind: 'keyboardProfile',
+    enabled: LEGACY_KEYBOARD_PROFILE,
+    assurance: 'sent'
+  }]);
 });
 
 test('terminal sessions continue restoring later state after one restore operation fails', async () => {
@@ -1067,7 +1249,7 @@ test('terminal sessions continue restoring later state after one restore operati
   assert.notEqual(result.status, 'restored');
   assert.equal(result.diagnostics[0]?.code, 'HOST_RESTORE_FAILED');
   assert.equal(result.diagnostics[0]?.data?.operation, 'alternateScreen');
-  assert.deepEqual(result.confirmed.map((operation) => operation.kind), ['rawInput']);
+  assert.deepEqual(result.completed.map((operation) => operation.kind), ['rawInput']);
   assert.equal(host.stdin.isRawModeEnabled(), false);
   assert.equal(host.restores()[0]?.resultingState.alternateScreen, true);
   assert.equal(host.restores()[0]?.resultingState.rawInput, false);
@@ -1094,7 +1276,7 @@ test('terminal sessions retry restoration after an unsuccessful completed attemp
 
   assert.equal(first.status, 'partial');
   assert.equal(second.status, 'restored');
-  assert.deepEqual(second.confirmed.map((operation) => operation.kind), ['alternateScreen']);
+  assert.deepEqual(second.completed.map((operation) => operation.kind), ['alternateScreen']);
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
 
@@ -1114,7 +1296,7 @@ test('terminal restoration checks cancellation between protocol operations and r
   const cancelled = await session.restore('error', { operationSignal: controller.signal });
 
   assert.equal(cancelled.status, 'partial');
-  assert.deepEqual(cancelled.confirmed.map((operation) => operation.kind), ['cursorVisible']);
+  assert.deepEqual(cancelled.completed.map((operation) => operation.kind), ['cursorVisible']);
   assert.equal(cancelled.diagnostics[0]?.data?.cancelled, true);
   assert.equal(cancelled.diagnostics[0]?.data?.operation, 'cursorVisible');
   assert.doesNotMatch(host.output(), /\u001B\[\?1049l/u);
@@ -1122,7 +1304,7 @@ test('terminal restoration checks cancellation between protocol operations and r
   host.writeRecovery = write;
   const retried = await session.restore('error');
   assert.equal(retried.status, 'restored');
-  assert.deepEqual(retried.confirmed.map((operation) => operation.kind), ['alternateScreen']);
+  assert.deepEqual(retried.completed.map((operation) => operation.kind), ['alternateScreen']);
 });
 
 test('concurrent terminal session restores share one authority operation across caller contexts', async () => {
@@ -1169,7 +1351,7 @@ test('terminal sessions restore protocol mutations whose writes apply and then r
   const restored = await session.restore('error');
 
   assert.equal(restored.status, 'restored');
-  assert.deepEqual(restored.confirmed.map((operation) => operation.kind), ['alternateScreen']);
+  assert.deepEqual(restored.completed.map((operation) => operation.kind), ['alternateScreen']);
   assert.match(host.output(), /\u001B\[\?1049h\u001B\[\?1049l/u);
 });
 
@@ -1209,7 +1391,7 @@ test('terminal sessions conservatively restore every uncertain protocol mutation
     const restored = await session.restore('error');
 
     assert.equal(restored.status, 'restored', item.id);
-    assert.deepEqual(restored.confirmed.map((operation) => operation.kind), [item.kind], item.id);
+    assert.deepEqual(restored.completed.map((operation) => operation.kind), [item.kind], item.id);
     if (item.kind === 'keyboardProfile') {
       assert.equal(host.output(), '\u001B[>3u\u001B[<u');
     }
@@ -1232,7 +1414,7 @@ test('terminal sessions restore uncertain raw mode after the host mutates and re
 
   assert.equal(restored.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), false);
-  assert.deepEqual(restored.confirmed.map((operation) => operation.kind), ['rawInput']);
+  assert.deepEqual(restored.completed.map((operation) => operation.kind), ['rawInput']);
 });
 
 test('restoreTerminalState restores active sessions instead of opening a fresh no-op session', async () => {
@@ -1248,7 +1430,7 @@ test('restoreTerminalState restores active sessions instead of opening a fresh n
 
   assert.equal(result.status, 'restored');
   assert.equal(result.reason, 'disposed');
-  assert.deepEqual(result.confirmed.map((operation) => operation.kind), [
+  assert.deepEqual(result.completed.map((operation) => operation.kind), [
     'cursorVisible',
     'bracketedPaste',
     'alternateScreen',
@@ -1262,7 +1444,7 @@ test('restoreTerminalState restores active sessions instead of opening a fresh n
   assert.match(host.output(), /\u001B\[\?25l/u);
   assert.match(host.output(), /\u001B\[\?25h/u);
   assert.equal(second.status, 'restored');
-  assert.deepEqual(second.confirmed, []);
+  assert.deepEqual(second.completed, []);
 });
 
 test('shared terminal restoration is independent from each caller cancellation context', async () => {
@@ -1296,7 +1478,7 @@ test('shared terminal restoration is independent from each caller cancellation c
   const restored = await second;
 
   assert.equal(restored.status, 'restored');
-  assert.deepEqual(restored.confirmed.map((operation) => operation.kind), ['alternateScreen']);
+  assert.deepEqual(restored.completed.map((operation) => operation.kind), ['alternateScreen']);
   assert.match(host.output(), /\u001B\[\?1049h\u001B\[\?1049l/u);
 });
 
@@ -1354,7 +1536,7 @@ test('memory host disposal restores active terminal sessions before closing inpu
   assert.match(host.output(), /\u001B\[\?25l/u);
   assert.match(host.output(), /\u001B\[\?25h/u);
   assert.equal(host.restores().at(-1)?.resultingState.rawInput, false);
-  assert.deepEqual(afterDisposeRestore.confirmed, []);
+  assert.deepEqual(afterDisposeRestore.completed, []);
   assert.deepEqual(chunks, []);
 });
 
@@ -1399,7 +1581,7 @@ test('stream host disposal restores active terminal sessions', async () => {
   assert.match(output.join(''), /\u001B\[\?2004l/u);
   assert.match(output.join(''), /\u001B\[\?25l/u);
   assert.match(output.join(''), /\u001B\[\?25h/u);
-  assert.deepEqual(afterDisposeRestore.confirmed, []);
+  assert.deepEqual(afterDisposeRestore.completed, []);
 });
 
 test('stream host restoration uses recovery output while normal output is blocked', async () => {

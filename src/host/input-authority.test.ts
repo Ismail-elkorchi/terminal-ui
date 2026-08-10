@@ -313,6 +313,50 @@ void test('user input before a late split capability response is replayed withou
   await authority.dispose();
 });
 
+void test('a retry waits out the previous response quarantine before accepting its own reply', async () => {
+  const reads: PromiseWithResolvers<IteratorResult<TerminalInputChunk>>[] = [];
+  const clock = controlledClock();
+  const source: import('./types.ts').TerminalInput = {
+    read: () => ({
+      [Symbol.asyncIterator]: () => ({
+        next: () => {
+          const read = Promise.withResolvers<IteratorResult<TerminalInputChunk>>();
+          reads.push(read);
+          return read.promise;
+        }
+      })
+    }),
+    isTty: () => true
+  };
+  const authority = new TerminalInputAuthority(source);
+  const firstController = new AbortController();
+  const first = authority.probeKittyKeyboard(firstController.signal, clock);
+  await waitForReadCount(reads, 1);
+  firstController.abort();
+  assert.deepEqual(await first, { status: 'inconclusive' });
+
+  let retrySent = false;
+  const retry = authority.probeKittyKeyboard(
+    new AbortController().signal,
+    clock,
+    () => {
+      retrySent = true;
+      return Promise.resolve();
+    }
+  );
+  await Promise.resolve();
+  assert.equal(retrySent, false);
+
+  clock.advance(100);
+  const wasRetrySent = (): boolean => retrySent;
+  for (let attempt = 0; attempt < 10 && !wasRetrySent(); attempt += 1) await Promise.resolve();
+  assert.equal(retrySent, true);
+  reads[0]?.resolve({ done: false, value: { data: '\u001B[?7u' } });
+
+  assert.deepEqual(await retry, { status: 'supported', flags: 7 });
+  await authority.dispose();
+});
+
 function authorityFor(source: AsyncIterable<Uint8Array>): TerminalInputAuthority {
   return new TerminalInputAuthority(new RuntimeInput({
     source: runtimeInputSourceFromAsyncIterable(source)
@@ -337,4 +381,35 @@ async function waitForReadCount(
     await Promise.resolve();
   }
   assert.equal(reads.length, expected);
+}
+
+function controlledClock(): TerminalClock & { advance(ms: number): void } {
+  let now = 0;
+  const sleeps: {
+    readonly target: number;
+    readonly signal?: AbortSignal;
+    readonly resolve: () => void;
+  }[] = [];
+  return {
+    monotonicNow: () => now,
+    sleep(ms, signal) {
+      if (signal?.aborted === true) return Promise.resolve();
+      return new Promise((resolve) => {
+        const sleep = { target: now + ms, ...(signal === undefined ? {} : { signal }), resolve };
+        sleeps.push(sleep);
+        signal?.addEventListener('abort', () => {
+          resolve();
+        }, { once: true });
+      });
+    },
+    advance(ms) {
+      now += ms;
+      for (let index = sleeps.length - 1; index >= 0; index -= 1) {
+        const sleep = sleeps[index];
+        if (sleep === undefined || (sleep.target > now && sleep.signal?.aborted !== true)) continue;
+        sleeps.splice(index, 1);
+        sleep.resolve();
+      }
+    }
+  };
 }

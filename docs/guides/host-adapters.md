@@ -51,6 +51,11 @@ indeterminate and aborts session setup. If probing is cancelled while a source
 read is outstanding, its
 generation is transferred to the next reader. A bounded incremental filter
 removes a late split response and replays surrounding user input.
+That filter has a finite quarantine lifetime; an identical retry waits for the
+quarantine to retire so the previous transaction cannot consume the retry's
+reply. Cancelling the caller that created an active probe also cancels the
+host-owned probe operation, while callers sharing an existing probe cancel
+only their own wait.
 
 The built-in protocol dialect is the modern DEC/xterm sequence profile. Broad
 environment families are evidence, not a substitute for observed mode state;
@@ -70,6 +75,11 @@ confirmed the state, and `assumed` describes an unchanged outer-state fact.
 Transport completion never claims that an unqueried terminal accepted a mode.
 Raw-input adapters that expose an observation hook are read again after each
 mutation; a setter that does not reach the requested state is rejected.
+Restore results report `completed` changes with `sent` or `observed` assurance.
+DEC-mode restoration is normally `sent`; raw input is `observed` only when the
+adapter supplies and confirms an observation hook. A refresh replaces the
+previous fenced mode-observation generation rather than retaining omitted
+facts from an earlier terminal endpoint.
 `restoreTerminalState(host)` restores the host's currently active terminal
 sessions in reverse open order. If no session is active it returns a successful
 empty restore result instead of opening a new no-op session.

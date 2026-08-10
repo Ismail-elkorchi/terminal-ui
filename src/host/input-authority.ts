@@ -15,6 +15,7 @@ import type { TerminalResponseClassification, TerminalResponseProtocol } from '.
 const MAX_KITTY_FLAG_DIGITS = String(Number.MAX_SAFE_INTEGER).length;
 const MAX_PROBE_BYTES = 64 * 1024;
 const LATE_PROBE_AMBIGUITY_MS = 25;
+const LATE_PROBE_QUARANTINE_MS = 100;
 
 export interface KittyKeyboardProbeResult {
   readonly status: 'supported' | 'unsupported' | 'inconclusive';
@@ -79,8 +80,18 @@ export class TerminalInputAuthority implements TerminalInput {
   queryTerminal<TValue>(
     transaction: TerminalResponseTransaction<TValue>
   ): Promise<TerminalResponseTransactionResult<TValue>> {
-    const run = (): Promise<TerminalResponseTransactionResult<TValue>> =>
-      this.#runTerminalQuery(transaction);
+    return this.#enqueueQueryOperation(() => this.#runTerminalQuery(transaction));
+  }
+
+  settleResponseQuarantine(signal?: AbortSignal): Promise<void> {
+    return this.#enqueueQueryOperation(async () => {
+      if (this.#lateResponseFilter !== undefined) {
+        await this.#settleLateResponseFilter(signal);
+      }
+    });
+  }
+
+  #enqueueQueryOperation<TResult>(run: () => Promise<TResult>): Promise<TResult> {
     const operation = this.#queryQueue === undefined
       ? run()
       : this.#queryQueue.then(run, run);
@@ -95,7 +106,11 @@ export class TerminalInputAuthority implements TerminalInput {
   async #runTerminalQuery<TValue>(
     transaction: TerminalResponseTransaction<TValue>
   ): Promise<TerminalResponseTransactionResult<TValue>> {
-    if (transaction.signal.aborted) return { status: 'cancelled' };
+    if (signalAborted(transaction.signal)) return { status: 'cancelled' };
+    if (this.#lateResponseFilter !== undefined) {
+      await this.#settleLateResponseFilter(transaction.signal);
+    }
+    if (signalAborted(transaction.signal)) return { status: 'cancelled' };
     const owner = this.#acquireReader();
     const buffered = new Uint8Array(MAX_PROBE_BYTES);
     let byteCount = 0;
@@ -365,19 +380,30 @@ export class TerminalInputAuthority implements TerminalInput {
 
   #startLateProbeFilter(clock: TerminalClock, protocol: TerminalResponseProtocol<unknown>): void {
     this.#finishLateProbeFilter(true);
-    this.#lateResponseFilter = {
+    const controller = new AbortController();
+    const filter: LateTerminalResponseFilter = {
       clock,
       protocol,
       inspected: 0,
       held: new Uint8Array(),
-      wake: Promise.withResolvers<undefined>()
+      wake: Promise.withResolvers<undefined>(),
+      quarantineDeadline: controller
     };
+    this.#lateResponseFilter = filter;
+    void clock.sleep(LATE_PROBE_QUARANTINE_MS, controller.signal).then(
+      () => {
+        this.#expireLateProbeQuarantine(filter, controller);
+      },
+      () => {
+        if (!controller.signal.aborted) this.#expireLateProbeQuarantine(filter, controller);
+      }
+    );
   }
 
   #scheduleLateProbeDeadline(filter: LateTerminalResponseFilter): void {
     this.#cancelLateProbeDeadline(filter);
     const controller = new AbortController();
-    filter.deadline = controller;
+    filter.prefixDeadline = controller;
     void filter.clock.sleep(LATE_PROBE_AMBIGUITY_MS, controller.signal).then(
       () => {
         this.#expireLateProbeFilter(filter, controller);
@@ -389,12 +415,17 @@ export class TerminalInputAuthority implements TerminalInput {
   }
 
   #cancelLateProbeDeadline(filter: LateTerminalResponseFilter): void {
-    filter.deadline?.abort('terminal_input_probe_prefix_resolved');
-    delete filter.deadline;
+    filter.prefixDeadline?.abort('terminal_input_probe_prefix_resolved');
+    delete filter.prefixDeadline;
   }
 
   #expireLateProbeFilter(filter: LateTerminalResponseFilter, controller: AbortController): void {
-    if (this.#lateResponseFilter !== filter || filter.deadline !== controller) return;
+    if (this.#lateResponseFilter !== filter || filter.prefixDeadline !== controller) return;
+    this.#finishLateProbeFilter(true);
+  }
+
+  #expireLateProbeQuarantine(filter: LateTerminalResponseFilter, controller: AbortController): void {
+    if (this.#lateResponseFilter !== filter || filter.quarantineDeadline !== controller) return;
     this.#finishLateProbeFilter(true);
   }
 
@@ -404,14 +435,48 @@ export class TerminalInputAuthority implements TerminalInput {
     const held = filter.held;
     filter.held = new Uint8Array();
     this.#cancelLateProbeDeadline(filter);
+    filter.quarantineDeadline.abort('terminal_input_probe_quarantine_completed');
     this.#lateResponseFilter = undefined;
     if (replayHeld && held.byteLength > 0) this.#replayBytes(held);
     filter.wake.resolve(undefined);
   }
+
+  async #settleLateResponseFilter(signal?: AbortSignal): Promise<void> {
+    const filter = this.#lateResponseFilter;
+    if (filter === undefined || signalAborted(signal)) return;
+    const owner = this.#acquireReader();
+    try {
+      while (this.#lateResponseFilter === filter && !signalAborted(signal)) {
+        const sourceSignal = this.#sourceController.signal;
+        this.#iterator ??= this.#source.read({ signal: sourceSignal })[Symbol.asyncIterator]();
+        this.#pending ??= this.#iterator.next();
+        const pending = this.#pending;
+        const outcome = await waitForReaderOrProbeFilter(
+          pending,
+          filter.wake.promise,
+          signal,
+          sourceSignal
+        );
+        if (outcome.kind === 'filter') continue;
+        const result = outcome.result;
+        if (result === undefined) return;
+        if (this.#activeReader !== owner) return;
+        if (this.#pending === pending) this.#pending = undefined;
+        if (result.done === true) {
+          this.#finishLateProbeFilter(true);
+          return;
+        }
+        const replay = this.#filterProbeChunk(result.value);
+        if (replay !== undefined) this.#replay.push(replay);
+      }
+    } finally {
+      this.#releaseReader(owner);
+    }
+  }
 }
 
-function signalAborted(signal: AbortSignal): boolean {
-  return signal.aborted;
+function signalAborted(signal?: AbortSignal): boolean {
+  return signal?.aborted === true;
 }
 
 interface LateTerminalResponseFilter {
@@ -420,7 +485,8 @@ interface LateTerminalResponseFilter {
   readonly wake: PromiseWithResolvers<undefined>;
   inspected: number;
   held: Uint8Array;
-  deadline?: AbortController;
+  prefixDeadline?: AbortController;
+  quarantineDeadline: AbortController;
 }
 
 interface ByteRange {

@@ -112,7 +112,6 @@ export async function applySessionProtocolPolicy(
       item.requirement === 'disabled'
       || item.target === 'unchanged'
       || item.target === 'none'
-      || (typeof item.target === 'object' && item.target.kind === 'legacy')
     ) {
       skipped.push(item);
       diagnostics.push(skippedDiagnostic(session, item));

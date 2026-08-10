@@ -34,6 +34,7 @@ export function createTerminalSuspension<TState, TMessage>(
       runtime.suspendOutput();
       let inputPaused = false;
       let terminalRestored = false;
+      let terminalReacquired = false;
       let value: TValue | undefined;
       let operationCompleted = false;
       let failure: unknown;
@@ -57,41 +58,44 @@ export function createTerminalSuspension<TState, TMessage>(
 
       let recoveryFailure: unknown;
       try {
-        if (terminalRestored) {
-          signal.throwIfAborted();
-          await options.host.getCapabilities({
-            activeProbes: [
-              ...(options.host.runtime === 'memory' ? [] : ['terminalModes'] as const),
-              ...(options.policy.keyboard.profile.kind === 'kitty' ? ['keyboardProtocol'] as const : [])
-            ],
-            refresh: true,
-            signal
-          });
-          const session = await options.host.beginSession({
-            id: `${options.appId}:resume:${String(resumeSequence)}`
-          });
-          resumeSequence += 1;
-          options.replaceSession(session);
-          const setup = await setupTuiSession(session, options.policy);
-          if (!setup.ok) {
-            throw new Error('Terminal session could not be reconfigured after suspension.');
-          }
-          runtime.replaceTerminalProfile({
-            capabilities: session.capabilities,
-            ...inputProfileForSession(setup)
-          });
+        if (!terminalRestored) {
+          throw errorFromUnknown(failure ?? new Error('Terminal ownership was not released for suspension.'));
         }
+        signal.throwIfAborted();
+        await options.host.getCapabilities({
+          activeProbes: options.host.runtime === 'memory'
+            ? []
+            : ['terminalModes', 'keyboardProtocol'],
+          refresh: true,
+          signal
+        });
+        const session = await options.host.beginSession({
+          id: `${options.appId}:resume:${String(resumeSequence)}`
+        });
+        resumeSequence += 1;
+        options.replaceSession(session);
+        const setup = await setupTuiSession(session, options.policy);
+        if (!setup.ok) {
+          throw new Error('Terminal session could not be reconfigured after suspension.');
+        }
+        runtime.replaceTerminalProfile({
+          capabilities: session.capabilities,
+          ...inputProfileForSession(setup)
+        });
         runtime.resumeOutput();
         await runtime.redraw();
+        terminalReacquired = true;
       } catch (cause) {
         recoveryFailure = cause;
         failTuiRuntimeTerminalOwnership(runtime, cause);
       } finally {
-        if (inputPaused) await input.resume();
-        else void input.resume();
+        if (terminalReacquired) {
+          if (inputPaused) await input.resume();
+          else void input.resume();
+        }
       }
 
-      if (failure !== undefined && recoveryFailure !== undefined) {
+      if (failure !== undefined && recoveryFailure !== undefined && failure !== recoveryFailure) {
         throw new AggregateError([failure, recoveryFailure], 'External operation and terminal recovery both failed.');
       }
       if (recoveryFailure !== undefined) throw errorFromUnknown(recoveryFailure);

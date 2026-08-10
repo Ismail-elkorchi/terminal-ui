@@ -21,6 +21,7 @@ import type {
   TerminalOperationContext,
   TerminalOperationOutcome,
   TerminalRestoreOptions,
+  TerminalRestoreCompletion,
   TerminalRestoreReason,
   TerminalRestoreResult,
   TerminalSession,
@@ -55,6 +56,10 @@ export class TerminalStateAuthorityBinding {
 
   observeModes(reports: TerminalModeReports): Promise<void> {
     return this.authority().observeModes(reports);
+  }
+
+  observeKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void> {
+    return this.authority().observeKeyboardProfile(profile);
   }
 
   restoreAll(
@@ -96,6 +101,7 @@ export class TerminalStateAuthority {
   readonly #verifyKeyboardProfile: TerminalStateAuthorityOptions['verifyKeyboardProfile'];
   readonly #leases: TerminalSessionLease[] = [];
   readonly #uncertain = new Set<TerminalStateKey>();
+  readonly #initial: TerminalStateSnapshot;
   #modeReports: TerminalModeReports = Object.freeze({});
   #current: TerminalStateSnapshot;
   #generation = 0;
@@ -105,7 +111,8 @@ export class TerminalStateAuthority {
     this.#host = host;
     this.#rawInputKnowledge = options.rawInputKnowledge;
     this.#verifyKeyboardProfile = options.verifyKeyboardProfile;
-    this.#current = initialTerminalState(host, options);
+    this.#initial = initialTerminalState(host, options);
+    this.#current = this.#initial;
   }
 
   beginLease(id: string, capabilities: TerminalCapabilityProfile): Promise<TerminalSession> {
@@ -125,13 +132,26 @@ export class TerminalStateAuthority {
       if (this.#leases.length > 0) {
         throw new Error('Terminal modes cannot be observed while a terminal session is active.');
       }
-      this.#modeReports = Object.freeze({ ...this.#modeReports, ...reports });
+      this.resetObservedModes();
+      this.#modeReports = Object.freeze({ ...reports });
       this.observeBooleanMode('cursorVisible', reports[25]);
       this.observeBooleanMode('focusReporting', reports[1004]);
       this.observeBooleanMode('alternateScreen', reports[1049]);
       this.observeBooleanMode('bracketedPaste', reports[2004]);
       this.observeBooleanMode('unicodeGraphemeMode', reports[2027]);
       this.observeMouseModes(reports);
+      return Promise.resolve();
+    });
+  }
+
+  observeKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void> {
+    return this.runExclusive(() => {
+      if (this.#leases.length > 0) {
+        throw new Error('Terminal keyboard state cannot be observed while a terminal session is active.');
+      }
+      if (this.#current.provenance.keyboardProfile !== 'explicit') {
+        this.setKnown('keyboardProfile', normalizeKeyboardProfile(profile), 'observed');
+      }
       return Promise.resolve();
     });
   }
@@ -215,7 +235,11 @@ export class TerminalStateAuthority {
       const change = { kind: 'keyboardProfile', enabled: normalized } as const;
       const cancellation = cancelledOperationDiagnostic(lease, context);
       if (cancellation !== undefined) return terminalOperationRejected(cancellation);
-      if (keyboardProfilesEqual(this.#current.keyboardProfile, normalized) && !this.#uncertain.has('keyboardProfile')) {
+      if (
+        keyboardProfilesEqual(this.#current.keyboardProfile, normalized)
+        && !this.#uncertain.has('keyboardProfile')
+        && this.#current.provenance.keyboardProfile !== 'assumed'
+      ) {
         return terminalOperationApplied(
           change,
           assuranceForKnowledge(this.#current.provenance.keyboardProfile)
@@ -320,9 +344,9 @@ export class TerminalStateAuthority {
     }
     if (results.length === 0) {
       const snapshot = this.snapshot();
-      return {
-        status: 'restored', reason, requested: snapshot, attempted: [], confirmed: [], resultingState: snapshot, diagnostics: []
-      };
+      return freezeRestoreResult({
+        status: 'restored', reason, requested: snapshot, attempted: [], completed: [], resultingState: snapshot, diagnostics: []
+      });
     }
     return aggregateRestoreResults(results, reason);
   }
@@ -361,15 +385,15 @@ export class TerminalStateAuthority {
     }
     if (results.length === 0) {
       const snapshot = this.snapshot();
-      return {
+      return freezeRestoreResult({
         status: 'restored',
         reason,
         requested: snapshot,
         attempted: [],
-        confirmed: [],
+        completed: [],
         resultingState: snapshot,
         diagnostics: []
-      };
+      });
     }
     return aggregateRestoreResults(results, reason);
   }
@@ -392,7 +416,7 @@ export class TerminalStateAuthority {
       return this.recordRestore(result);
     }
     const attempted: TerminalStateChange[] = [];
-    const confirmed: TerminalStateChange[] = [];
+    const completed: TerminalRestoreCompletion[] = [];
     const diagnostics: TerminalDiagnostic[] = [];
     for (const operation of createTerminalRestorePlan(lease.initialState).operations) {
       if (!this.isCurrentGeneration(generation)) {
@@ -431,7 +455,12 @@ export class TerminalStateAuthority {
           operation.enabled,
           knowledgeAfterMutation(operation.kind, this.#rawInputKnowledge)
         );
-        confirmed.push(operation);
+        completed.push(Object.freeze({
+          ...operation,
+          assurance: operation.kind === 'rawInput' && this.#rawInputKnowledge === 'observed'
+            ? 'observed'
+            : 'sent'
+        }));
         if (restoreWasCancelled(context)) {
           diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
           break;
@@ -455,13 +484,13 @@ export class TerminalStateAuthority {
       }
     }
     const resultingState = this.snapshot();
-    const status = diagnostics.length === 0 ? 'restored' : confirmed.length === 0 ? 'failed' : 'partial';
+    const status = diagnostics.length === 0 ? 'restored' : completed.length === 0 ? 'failed' : 'partial';
     const result: TerminalRestoreResult = {
       status,
       reason,
       requested: lease.initialState,
       attempted,
-      confirmed,
+      completed,
       resultingState,
       diagnostics
     };
@@ -511,11 +540,11 @@ export class TerminalStateAuthority {
     value: TerminalStateSnapshot[K],
     knowledge: TerminalStateKnowledge
   ): void {
-    this.#current = {
+    this.#current = freezeTerminalState({
       ...this.#current,
       [kind]: value,
       provenance: { ...this.#current.provenance, [kind]: knowledge }
-    };
+    });
     this.#uncertain.delete(kind);
   }
 
@@ -551,12 +580,27 @@ export class TerminalStateAuthority {
     }, 'observed');
   }
 
+  private resetObservedModes(): void {
+    const modeKinds = [
+      'alternateScreen',
+      'bracketedPaste',
+      'mouseReporting',
+      'focusReporting',
+      'unicodeGraphemeMode',
+      'cursorVisible'
+    ] as const;
+    for (const kind of modeKinds) {
+      if (this.#current.provenance[kind] === 'explicit') continue;
+      this.setKnown(kind, this.#initial[kind], this.#initial.provenance[kind]);
+    }
+  }
+
   private markIndeterminate(kind: TerminalStateKey): void {
     this.#uncertain.add(kind);
-    this.#current = {
+    this.#current = freezeTerminalState({
       ...this.#current,
       provenance: { ...this.#current.provenance, [kind]: 'indeterminate' }
-    };
+    });
   }
 
   private inactiveLeaseDiagnostic(lease: TerminalSessionLease): TerminalDiagnostic | undefined {
@@ -568,8 +612,9 @@ export class TerminalStateAuthority {
   }
 
   private recordRestore(result: TerminalRestoreResult): TerminalRestoreResult {
-    this.#host.observer?.recordRestore?.(result);
-    return result;
+    const immutable = freezeRestoreResult(result);
+    this.#host.observer?.recordRestore?.(immutable);
+    return immutable;
   }
 
   private removeActiveLease(lease: TerminalSessionLease): void {
@@ -818,7 +863,7 @@ function initialTerminalState(
     keyboardProfile: initialKnowledge(explicit, 'keyboardProfile'),
     cursorVisible: initialKnowledge(explicit, 'cursorVisible')
   };
-  return { ...values, provenance };
+  return freezeTerminalState({ ...values, provenance });
 }
 
 function initialKnowledge(
@@ -876,12 +921,21 @@ function cloneTerminalState(
 ): TerminalStateSnapshot {
   const provenance = { ...state.provenance };
   for (const key of uncertain) provenance[key] = 'indeterminate';
-  return {
+  return freezeTerminalState({
     ...state,
     mouseReporting: { ...state.mouseReporting },
     keyboardProfile: { ...state.keyboardProfile },
     provenance
-  };
+  });
+}
+
+function freezeTerminalState(state: TerminalStateSnapshot): TerminalStateSnapshot {
+  return Object.freeze({
+    ...state,
+    mouseReporting: Object.freeze({ ...state.mouseReporting }),
+    keyboardProfile: normalizeKeyboardProfile(state.keyboardProfile),
+    provenance: Object.freeze({ ...state.provenance })
+  });
 }
 
 function knowledgeAfterMutation(
@@ -1054,7 +1108,7 @@ function failedRestore(
   resultingState: TerminalStateSnapshot,
   diagnostics: readonly TerminalDiagnostic[]
 ): TerminalRestoreResult {
-  return { status: 'failed', reason, requested, attempted: [], confirmed: [], resultingState, diagnostics };
+  return { status: 'failed', reason, requested, attempted: [], completed: [], resultingState, diagnostics };
 }
 
 function supersededRestore(
@@ -1127,14 +1181,36 @@ function aggregateRestoreResults(
   const last = results.at(-1);
   if (first === undefined || last === undefined) throw new Error('Terminal restore aggregation invariant failed.');
   const diagnostics = results.flatMap((item) => item.diagnostics);
-  const confirmed = results.flatMap((item) => item.confirmed);
-  return {
-    status: diagnostics.length === 0 ? 'restored' : confirmed.length === 0 ? 'failed' : 'partial',
+  const completed = results.flatMap((item) => item.completed);
+  return freezeRestoreResult({
+    status: diagnostics.length === 0 ? 'restored' : completed.length === 0 ? 'failed' : 'partial',
     reason,
     requested: last.requested,
     attempted: results.flatMap((item) => item.attempted),
-    confirmed,
+    completed,
     resultingState: last.resultingState,
     diagnostics
-  };
+  });
+}
+
+function freezeRestoreResult(result: TerminalRestoreResult): TerminalRestoreResult {
+  return Object.freeze({
+    ...result,
+    attempted: Object.freeze(result.attempted.map(freezeTerminalStateChange)),
+    completed: Object.freeze(result.completed.map((item) => Object.freeze({
+      ...freezeTerminalStateChange(item),
+      assurance: item.assurance
+    }))),
+    diagnostics: Object.freeze([...result.diagnostics])
+  });
+}
+
+function freezeTerminalStateChange(change: TerminalStateChange): TerminalStateChange {
+  if (change.kind === 'mouseReporting') {
+    return Object.freeze({ ...change, enabled: normalizeMouseReportingState(change.enabled) });
+  }
+  if (change.kind === 'keyboardProfile') {
+    return Object.freeze({ ...change, enabled: normalizeKeyboardProfile(change.enabled) });
+  }
+  return Object.freeze({ ...change });
 }

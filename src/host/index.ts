@@ -45,6 +45,7 @@ export type {
   TerminalOperationContext,
   TerminalOperationOutcome,
   TerminalRestoreOptions,
+  TerminalRestoreCompletion,
   TerminalRestoreReason,
   TerminalRestoreResult,
   TerminalSession,

@@ -18,9 +18,12 @@ const rgbColorFields = new Set(['kind', 'r', 'g', 'b']);
 const themeColorFields = new Set(['kind', 'token']);
 
 type TerminalStyleFlagField = typeof terminalStyleFlagFields[number];
+const normalizedTerminalStyles = new WeakMap<object, TerminalStyle>();
 
 export function normalizeTerminalStyle(value: unknown, subject: string): TerminalStyle {
   if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
+  const existing = normalizedTerminalStyles.get(value);
+  if (existing !== undefined) return existing;
   assertSupportedFields(value, terminalStyleFields, subject);
   const fg = ownValue(value, 'fg');
   const bg = ownValue(value, 'bg');
@@ -31,11 +34,14 @@ export function normalizeTerminalStyle(value: unknown, subject: string): Termina
     if (typeof flag !== 'boolean') throw new TypeError(`${subject}.${field} must be a boolean.`);
     flags[field] = flag;
   }
-  return {
+  const normalized = Object.freeze({
     ...(fg === undefined ? {} : { fg: normalizeTerminalColor(fg, `${subject}.fg`) }),
     ...(bg === undefined ? {} : { bg: normalizeTerminalColor(bg, `${subject}.bg`) }),
     ...flags
-  };
+  });
+  normalizedTerminalStyles.set(normalized, normalized);
+  if (Object.isFrozen(value)) normalizedTerminalStyles.set(value, normalized);
+  return normalized;
 }
 
 function normalizeTerminalColor(value: unknown, subject: string): TerminalColor {
@@ -48,7 +54,7 @@ function normalizeTerminalColor(value: unknown, subject: string): TerminalColor 
       if (!isColorChannel(index)) {
         throw new RangeError(`${subject}.value must be an integer from 0 through 255.`);
       }
-      return { kind, value: index };
+      return Object.freeze({ kind, value: index });
     }
     case 'rgb': {
       assertSupportedFields(value, rgbColorFields, subject);
@@ -58,7 +64,7 @@ function normalizeTerminalColor(value: unknown, subject: string): TerminalColor 
       if (!isColorChannel(r)) throw new RangeError(`${subject}.r must be an integer from 0 through 255.`);
       if (!isColorChannel(g)) throw new RangeError(`${subject}.g must be an integer from 0 through 255.`);
       if (!isColorChannel(b)) throw new RangeError(`${subject}.b must be an integer from 0 through 255.`);
-      return { kind, r, g, b };
+      return Object.freeze({ kind, r, g, b });
     }
     case 'theme': {
       assertSupportedFields(value, themeColorFields, subject);
@@ -66,7 +72,7 @@ function normalizeTerminalColor(value: unknown, subject: string): TerminalColor 
       if (typeof token !== 'string' || !isThemeColorToken(token)) {
         throw new TypeError(`${subject}.token must be a supported theme color token.`);
       }
-      return { kind, token };
+      return Object.freeze({ kind, token });
     }
     default:
       throw new TypeError(`${subject}.kind must be "ansi", "rgb", or "theme".`);

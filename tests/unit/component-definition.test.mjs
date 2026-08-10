@@ -1807,16 +1807,11 @@ test('prepared immutable models are verified once per retained identity', () => 
   assert.equal(ownKeyReads, readsAfterFirstVerification);
 });
 
-test('prepared immutable models snapshot accessor values during preparation', () => {
-  let label = 'first';
-  let reads = 0;
+test('prepared immutable models reject accessors and frozen mutable exotic objects', () => {
   const supplied = {};
   Object.defineProperty(supplied, 'label', {
     enumerable: true,
-    get() {
-      reads += 1;
-      return label;
-    }
+    get: () => 'dynamic'
   });
   Object.freeze(supplied);
 
@@ -1832,12 +1827,39 @@ test('prepared immutable models snapshot accessor values during preparation', ()
     accessibility: ({ id, model }) => ({ id, role: 'group', label: model.label })
   });
 
-  const element = accessorModel({ id: 'accessor', model: supplied });
-  label = 'second';
-  const frame = renderElementFrame(element, { columns: 1, rows: 1 });
+  assert.throws(
+    () => accessorModel({ id: 'accessor', model: supplied }),
+    /plain objects and arrays with enumerable data fields/u
+  );
+  assert.throws(
+    () => accessorModel({ id: 'map', model: Object.freeze(new Map()) }),
+    /plain objects and arrays with enumerable data fields/u
+  );
+  assert.throws(
+    () => accessorModel({ id: 'date', model: Object.freeze(new Date(0)) }),
+    /plain objects and arrays with enumerable data fields/u
+  );
+});
 
-  assert.equal(frame.accessibility.root.label, 'first');
-  assert.equal(reads, 1);
+test('prepared immutable models reject excessive nesting before exhausting the call stack', () => {
+  const boundedModel = defineComponent({
+    name: 'terminal-ui-tests/components/bounded-model',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    optionFields: { model: null },
+    prepare: (value) => value.model,
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render: () => undefined,
+    accessibility: ({ id }) => ({ id, role: 'group', label: id })
+  });
+  let model = {};
+  for (let depth = 0; depth < 300; depth += 1) model = { child: model };
+
+  assert.throws(
+    () => boundedModel({ id: 'deep', model }),
+    /exceeds 256 nested levels/u
+  );
 });
 
 test('built-in adapters preserve unknown options for the canonical decoder', () => {

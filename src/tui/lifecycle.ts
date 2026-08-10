@@ -46,27 +46,28 @@ export async function restoreTuiSession(
     return await session.restore(reason, options);
   } catch (cause) {
     const failure = diagnostic('HOST_RESTORE_FAILED', 'Terminal session restore failed.', { cause, target: session.id });
-    return {
+    const provenance = Object.freeze({
+      rawInput: 'indeterminate' as const,
+      alternateScreen: 'indeterminate' as const,
+      bracketedPaste: 'indeterminate' as const,
+      mouseReporting: 'indeterminate' as const,
+      focusReporting: 'indeterminate' as const,
+      unicodeGraphemeMode: 'indeterminate' as const,
+      keyboardProfile: 'indeterminate' as const,
+      cursorVisible: 'indeterminate' as const
+    });
+    return Object.freeze({
       status: 'failed',
       reason,
       requested: session.initialState,
-      attempted: [],
-      confirmed: [],
-      resultingState: {
+      attempted: Object.freeze([]),
+      completed: Object.freeze([]),
+      resultingState: Object.freeze({
         ...session.initialState,
-        provenance: {
-          rawInput: 'indeterminate',
-          alternateScreen: 'indeterminate',
-          bracketedPaste: 'indeterminate',
-          mouseReporting: 'indeterminate',
-          focusReporting: 'indeterminate',
-          unicodeGraphemeMode: 'indeterminate',
-          keyboardProfile: 'indeterminate',
-          cursorVisible: 'indeterminate'
-        }
-      },
-      diagnostics: [failure]
-    };
+        provenance
+      }),
+      diagnostics: Object.freeze([failure])
+    });
   }
 }
 

@@ -6,15 +6,21 @@ import type {
   AccessibleSnapshotInput
 } from './types.ts';
 
+const sanitizedAccessibleSnapshots = new WeakMap<object, AccessibleSnapshot>();
+
 export function toAccessibleSnapshot(input: AccessibleSnapshotInput): AccessibleSnapshot {
+  const existing = sanitizedAccessibleSnapshots.get(input);
+  if (existing !== undefined) return existing;
   const root = sanitizeAccessibleNode(input.root);
-  return {
+  const snapshot = Object.freeze({
     source: input.source,
     ...(input.title === undefined ? {} : { title: sanitizeAccessibleText(input.title) }),
     root,
-    focusPath: input.focusPath ?? collectFocusPath(root),
-    diagnostics: input.diagnostics ?? []
-  };
+    focusPath: Object.freeze([...(input.focusPath ?? collectFocusPath(root))]),
+    diagnostics: Object.freeze([...(input.diagnostics ?? [])])
+  });
+  sanitizedAccessibleSnapshots.set(snapshot, snapshot);
+  return snapshot;
 }
 
 export function findAccessibleNode(snapshot: AccessibleSnapshot, id: string): AccessibleNode | undefined {
@@ -54,24 +60,29 @@ export function nodePath(root: AccessibleNode, path: readonly string[]): readonl
 }
 
 function sanitizeAccessibleNode(node: AccessibleNode): AccessibleNode {
-  return {
+  return Object.freeze({
     ...node,
     ...(node.label === undefined ? {} : { label: sanitizeAccessibleText(node.label) }),
     ...(node.description === undefined ? {} : { description: sanitizeAccessibleText(node.description) }),
     ...(node.controls === undefined ? {} : { controls: sanitizeAccessibleText(node.controls) }),
     ...(node.labelledBy === undefined ? {} : { labelledBy: sanitizeAccessibleText(node.labelledBy) }),
     ...(node.value === undefined ? {} : { value: sanitizeAccessibleValue(node.value) }),
+    ...(node.numericValue === undefined ? {} : { numericValue: Object.freeze({ ...node.numericValue }) }),
+    ...(node.scope === undefined ? {} : { scope: Object.freeze({ ...node.scope }) }),
+    ...(node.window === undefined ? {} : { window: Object.freeze({ ...node.window }) }),
     ...(node.position === undefined ? {} : { position: sanitizePosition(node.position) }),
-    ...(node.children === undefined ? {} : { children: node.children.map(sanitizeAccessibleNode) })
-  };
+    ...(node.children === undefined
+      ? {}
+      : { children: Object.freeze(node.children.map(sanitizeAccessibleNode)) })
+  });
 }
 
 function sanitizePosition(position: NonNullable<AccessibleNode['position']>): NonNullable<AccessibleNode['position']> {
-  return {
+  return Object.freeze({
     ...position,
     ...(position.columnLabel === undefined ? {} : { columnLabel: sanitizeAccessibleText(position.columnLabel) }),
     ...(position.group === undefined ? {} : { group: sanitizeAccessibleText(position.group) })
-  };
+  });
 }
 
 function sanitizeAccessibleValue(value: AccessibleValue): AccessibleValue {

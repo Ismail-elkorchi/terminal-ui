@@ -1175,6 +1175,71 @@ test('failure to reacquire terminal ownership after suspension terminates the ru
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
 
+test('failed suspension restoration terminates without redrawing or resuming input', async () => {
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } });
+  const beginSession = host.beginSession.bind(host);
+  let failedRestore = false;
+  let framesAtFailure = 0;
+  let operationRan = false;
+  host.beginSession = async (options) => {
+    const session = await beginSession(options);
+    const restore = session.restore.bind(session);
+    session.restore = async (reason, restoreOptions) => {
+      if (!failedRestore) {
+        failedRestore = true;
+        framesAtFailure = host.frames().length;
+        return {
+          status: 'failed',
+          reason: reason ?? 'success',
+          requested: session.initialState,
+          attempted: [],
+          completed: [],
+          resultingState: await session.currentState(),
+          diagnostics: [diagnostic('HOST_RESTORE_FAILED', 'Injected suspension restoration failure.')]
+        };
+      }
+      return restore(reason, restoreOptions);
+    };
+    return session;
+  };
+  const app = defineTui({
+    id: 'terminal-suspension-initial-restore-failure',
+    init: () => ({ phase: 'idle' }),
+    update: (state, message) => message.kind !== 'start'
+      ? { state }
+      : {
+          state: { phase: 'suspending' },
+          effects: [{
+            id: 'failed-suspension-restore',
+            concurrency: 'keep-first',
+            async run(context) {
+              await context.withTerminalSuspended(async () => {
+                operationRan = true;
+              });
+              return { kind: 'none' };
+            }
+          }]
+        },
+    view: (state) => textInput({
+      id: 'terminal-suspension-initial-restore-failure-field',
+      presentation: { value: state.phase, cursor: 0 },
+      onAction: submitMessage({ kind: 'start' })
+    })
+  });
+
+  host.input('\r');
+  const exit = await runTui(app, host);
+
+  assert.equal(exit.status, 'error');
+  assert.equal(operationRan, false);
+  assert.equal(host.frames().length, framesAtFailure);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assert.equal(
+    exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_TERMINAL_OWNERSHIP_FAILED'),
+    true
+  );
+});
+
 test('exiting during terminal suspension preserves input acquired by the external operation', async () => {
   const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } });
   const operationStarted = deferred();

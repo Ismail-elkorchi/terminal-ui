@@ -79,8 +79,9 @@ export async function runTui<TState, TMessage>(
   try {
     const capabilities = await startupPhase('capabilities', async (signal) => terminalHost.getCapabilities({
       activeProbes: [
-        ...(terminalHost.runtime === 'memory' ? [] : ['terminalModes'] as const),
-        ...(normalized.sessionPolicy.keyboard.profile.kind === 'kitty' ? ['keyboardProtocol'] as const : [])
+        ...(terminalHost.runtime === 'memory'
+          ? []
+          : ['terminalModes', 'keyboardProtocol'] as const)
       ],
       signal
     }));

@@ -194,6 +194,34 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
   assert.equal(invalidProgress.error.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
 });
 
+test('accessible snapshots detach and freeze nested semantic state', () => {
+  const numericValue = { current: 1, minimum: 0, maximum: 2 };
+  const scope = { kind: 'modal', trapsFocus: true };
+  const window = { startIndex: 0, endIndexExclusive: 1, totalCount: 2 };
+  const snapshot = toAccessibleSnapshot({
+    source: 'renderer',
+    root: {
+      id: 'progress',
+      role: 'progressbar',
+      numericValue,
+      scope,
+      window
+    }
+  });
+
+  assert.equal(Object.isFrozen(snapshot), true);
+  assert.equal(Object.isFrozen(snapshot.root), true);
+  assert.equal(Object.isFrozen(snapshot.root.numericValue), true);
+  assert.equal(Object.isFrozen(snapshot.root.scope), true);
+  assert.equal(Object.isFrozen(snapshot.root.window), true);
+  numericValue.current = 2;
+  scope.trapsFocus = false;
+  window.totalCount = 3;
+  assert.equal(snapshot.root.numericValue.current, 1);
+  assert.equal(snapshot.root.scope.trapsFocus, true);
+  assert.equal(snapshot.root.window.totalCount, 2);
+});
+
 test('accessible snapshots enforce role fields, direct-child roles, numeric values, and index bases', () => {
   const validRoots = [
     {

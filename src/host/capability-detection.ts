@@ -14,12 +14,14 @@ import type {
   TerminalWriteReceipt
 } from './types.ts';
 import { requireCommittedTerminalWrite } from './write-receipt.ts';
+import { LEGACY_KEYBOARD_PROFILE, kittyKeyboardProfile } from '../protocol/keyboard.ts';
 import {
   createTerminalModeResponseProtocol,
   modeIsMutable,
   terminalModeQueryRequest
 } from './terminal-mode-query.ts';
 import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
 const KITTY_KEYBOARD_QUERY = '\u001B[?u\u001B[c';
 const DEFAULT_PROBE_TIMEOUT_MS = 100;
@@ -31,6 +33,7 @@ export interface TerminalCapabilityDetectorOptions {
   readonly resolverInput: TerminalCapabilityResolverInput;
   readonly beginSession: (id: string, capabilities: TerminalCapabilityProfile) => Promise<TerminalSession>;
   readonly observeModes: (reports: TerminalModeReports) => Promise<void>;
+  readonly observeKeyboardProfile: (profile: TerminalKeyboardProfile) => Promise<void>;
   readonly write: (output: TerminalOutputChunk, signal: AbortSignal) => Promise<TerminalWriteReceipt>;
 }
 
@@ -62,6 +65,8 @@ export class TerminalCapabilityDetector {
     signal?: AbortSignal,
     timeoutMs = DEFAULT_PROBE_TIMEOUT_MS
   ): Promise<KeyboardProfileVerification> {
+    await this.#options.input.settleResponseQuarantine(signal);
+    signal?.throwIfAborted();
     const timeout = probeController(timeoutMs, this.#options.clock);
     const operationSignal = signal === undefined
       ? timeout.signal
@@ -87,18 +92,26 @@ export class TerminalCapabilityDetector {
   }
 
   async detect(options: TerminalCapabilityDetectionOptions = {}): Promise<TerminalCapabilityProfile> {
-    if (options.refresh === true) this.#resetObservedProbes();
+    options.signal?.throwIfAborted();
+    if (options.refresh === true) {
+      await this.#settleActiveProbes(options.signal);
+      this.#resetObservedProbes();
+    }
     if (
       options.activeProbes?.includes('terminalModes') === true
       && this.#profile.isTty
       && !this.#modesObserved
     ) {
-      this.#modeProbe ??= this.#runProbeExclusive(
-        () => this.#probeModes(options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS)
-      )
-        .finally(() => {
+      if (this.#modeProbe === undefined) {
+        this.#modeProbe = this.#runProbeExclusive(
+          () => this.#probeModes(
+            options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS,
+            options.signal
+          )
+        ).finally(() => {
           this.#modeProbe = undefined;
         });
+      }
       await waitForTerminalOperation(
         this.#modeProbe,
         options.signal === undefined ? {} : { signal: options.signal }
@@ -109,12 +122,17 @@ export class TerminalCapabilityDetector {
       && this.#profile.keyboardProtocol.support === 'unknown'
       && this.#profile.keyboardProtocol.availability === 'available'
     ) {
-      this.#keyboardProbe ??= this.#runProbeExclusive(
-        () => this.#probeKeyboard(options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS)
-      )
-        .finally(() => {
+      options.signal?.throwIfAborted();
+      if (this.#keyboardProbe === undefined) {
+        this.#keyboardProbe = this.#runProbeExclusive(
+          () => this.#probeKeyboard(
+            options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS,
+            options.signal
+          )
+        ).finally(() => {
           this.#keyboardProbe = undefined;
         });
+      }
       await waitForTerminalOperation(
         this.#keyboardProbe,
         options.signal === undefined ? {} : { signal: options.signal }
@@ -129,8 +147,10 @@ export class TerminalCapabilityDetector {
     this.#profile = this.#resolve();
   }
 
-  async #probeModes(timeoutMs: number): Promise<void> {
-    const operationController = probeController(timeoutMs, this.#options.clock);
+  async #probeModes(timeoutMs: number, ownerSignal?: AbortSignal): Promise<void> {
+    await this.#options.input.settleResponseQuarantine(ownerSignal);
+    ownerSignal?.throwIfAborted();
+    const operationController = probeController(timeoutMs, this.#options.clock, ownerSignal);
     let reports: TerminalModeReports | undefined;
     let failure: unknown;
     const session = await this.#options.beginSession('terminal-mode-probe', this.#profile);
@@ -170,9 +190,12 @@ export class TerminalCapabilityDetector {
     this.#modesObserved = true;
   }
 
-  async #probeKeyboard(timeoutMs: number): Promise<void> {
-    const operationController = probeController(timeoutMs, this.#options.clock);
+  async #probeKeyboard(timeoutMs: number, ownerSignal?: AbortSignal): Promise<void> {
+    await this.#options.input.settleResponseQuarantine(ownerSignal);
+    ownerSignal?.throwIfAborted();
+    const operationController = probeController(timeoutMs, this.#options.clock, ownerSignal);
     let failure: unknown;
+    let observedProfile: TerminalKeyboardProfile | undefined;
     const session = await this.#options.beginSession('terminal-capability-probe', this.#profile);
     try {
       const raw = await session.enableRawInput({ signal: operationController.signal });
@@ -190,6 +213,16 @@ export class TerminalCapabilityDetector {
           }
         );
         this.#recordKeyboardProbe(result.status === 'inconclusive' ? 'unknown' : result.status);
+        if (result.status === 'unsupported') observedProfile = LEGACY_KEYBOARD_PROFILE;
+        else if (result.status === 'supported' && result.flags !== undefined) {
+          try {
+            observedProfile = result.flags === 0
+              ? LEGACY_KEYBOARD_PROFILE
+              : kittyKeyboardProfile(result.flags);
+          } catch {
+            observedProfile = undefined;
+          }
+        }
       }
     } catch (cause) {
       failure = cause;
@@ -205,6 +238,9 @@ export class TerminalCapabilityDetector {
       }
     }
     if (failure !== undefined) throw terminalProbeError(failure);
+    if (observedProfile !== undefined) {
+      await this.#options.observeKeyboardProfile(observedProfile);
+    }
   }
 
   #recordModeProbe(reports: TerminalModeReports): void {
@@ -244,6 +280,16 @@ export class TerminalCapabilityDetector {
     });
     return result;
   }
+
+  async #settleActiveProbes(signal?: AbortSignal): Promise<void> {
+    const probes = [this.#modeProbe, this.#keyboardProbe]
+      .filter((probe): probe is Promise<void> => probe !== undefined);
+    if (probes.length === 0) return;
+    await waitForTerminalOperation(
+      Promise.allSettled(probes).then(() => undefined),
+      signal === undefined ? {} : { signal }
+    );
+  }
 }
 
 interface ProbeController {
@@ -251,7 +297,11 @@ interface ProbeController {
   close(): void;
 }
 
-function probeController(timeoutMs: number, clock: TerminalClock): ProbeController {
+function probeController(
+  timeoutMs: number,
+  clock: TerminalClock,
+  ownerSignal?: AbortSignal
+): ProbeController {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new RangeError('Capability probe timeout must be a positive finite number.');
   }
@@ -266,7 +316,9 @@ function probeController(timeoutMs: number, clock: TerminalClock): ProbeControll
     }
   ).catch(() => undefined);
   return {
-    signal: operation.signal,
+    signal: ownerSignal === undefined
+      ? operation.signal
+      : AbortSignal.any([ownerSignal, operation.signal]),
     close: () => {
       timer.abort(PROBE_TIMER_CLOSED);
     }

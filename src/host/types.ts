@@ -212,12 +212,17 @@ export type TerminalStateChange =
   | { readonly kind: 'keyboardProfile'; readonly enabled: TerminalKeyboardProfile }
   | { readonly kind: 'cursorVisible'; readonly enabled: boolean };
 
+export type TerminalRestoreCompletion = TerminalStateChange & {
+  /** Evidence for this restored state, independent of output transport completion. */
+  readonly assurance: Exclude<TerminalOperationAssurance, 'assumed'>;
+};
+
 export interface TerminalRestoreResult {
   readonly status: 'restored' | 'partial' | 'failed';
   readonly reason: TerminalRestoreReason;
   readonly requested: TerminalStateSnapshot;
   readonly attempted: readonly TerminalStateChange[];
-  readonly confirmed: readonly TerminalStateChange[];
+  readonly completed: readonly TerminalRestoreCompletion[];
   readonly resultingState: TerminalStateSnapshot;
   readonly diagnostics: readonly TerminalDiagnostic[];
 }

@@ -89,6 +89,37 @@ test('FrameBuffer preserves style, links, and source metadata per visible cell',
   });
 });
 
+test('FrameBuffer snapshots cannot mutate retained cells or their value objects', () => {
+  const style = { fg: { kind: 'ansi', value: 2 }, bold: true };
+  const buffer = createFrameBuffer(2, 1);
+  buffer.write(1, 1, [{
+    text: 'A',
+    style,
+    link: { href: 'https://example.test' },
+    source: { elementId: 'immutable-cell' }
+  }]);
+  const frame = buffer.snapshot();
+  const cell = frame.cells[0];
+
+  assert.equal(Object.isFrozen(frame), true);
+  assert.equal(Object.isFrozen(cell), true);
+  assert.equal(Object.isFrozen(cell.style), true);
+  assert.equal(Object.isFrozen(cell.style.fg), true);
+  assert.equal(Object.isFrozen(cell.link), true);
+  assert.equal(Object.isFrozen(cell.source), true);
+  assert.throws(() => { cell.text = 'B'; }, TypeError);
+  assert.throws(() => { cell.style.bold = false; }, TypeError);
+  style.bold = false;
+  assert.equal(buffer.readCell(1, 1)?.style?.bold, true);
+  assert.equal(buffer.snapshot().metadata.fingerprint, frame.metadata.fingerprint);
+});
+
+test('FrameBuffer rejects unsafe and unbounded dense allocations', () => {
+  assert.throws(() => createFrameBuffer(Number.MAX_SAFE_INTEGER, 0), /frame width must not exceed/u);
+  assert.throws(() => createFrameBuffer(1_001, 1_000), /must not exceed 1000000 cells/u);
+  assert.throws(() => createFrameBuffer(Number.NaN, 1), /non-negative safe integer/u);
+});
+
 test('public FrameBuffer writes replace earlier backgrounds', () => {
   const buffer = createFrameBuffer(2, 1);
   buffer.write(1, 1, [{

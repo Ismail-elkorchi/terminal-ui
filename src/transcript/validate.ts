@@ -120,7 +120,7 @@ const restoreResultFields = new Set([
   'reason',
   'requested',
   'attempted',
-  'confirmed',
+  'completed',
   'resultingState',
   'diagnostics'
 ]);
@@ -146,6 +146,7 @@ const terminalStateProvenanceFields = new Set([
   'cursorVisible'
 ]);
 const terminalStateChangeFields = new Set(['kind', 'enabled']);
+const terminalRestoreCompletionFields = new Set(['kind', 'enabled', 'assurance']);
 const mouseReportingStateFields = new Set(['tracking', 'encoding']);
 const legacyKeyboardProfileFields = new Set(['kind']);
 const kittyKeyboardProfileFields = new Set(['kind', 'flags']);
@@ -891,13 +892,13 @@ function restoreResultIssue(result: unknown): string | undefined {
     const issue = terminalStateChangeIssue(operation);
     if (issue !== undefined) return `restore attempted: ${issue}`;
   }
-  if (!Array.isArray(typed.confirmed)) return 'restore result requires confirmed.';
-  for (const operation of typed.confirmed) {
-    const issue = terminalStateChangeIssue(operation);
-    if (issue !== undefined) return `restore confirmed: ${issue}`;
+  if (!Array.isArray(typed.completed)) return 'restore result requires completed.';
+  for (const operation of typed.completed) {
+    const issue = terminalRestoreCompletionIssue(operation);
+    if (issue !== undefined) return `restore completed: ${issue}`;
   }
-  if (!isOrderedTerminalStateChangeSubset(typed.confirmed, typed.attempted)) {
-    return 'restore confirmed operations must be an ordered subset of attempted operations.';
+  if (!isOrderedTerminalStateChangeSubset(typed.completed, typed.attempted)) {
+    return 'restore completed operations must be an ordered subset of attempted operations.';
   }
   if (!Array.isArray(typed.diagnostics)) return 'restore result requires diagnostics.';
   for (const item of typed.diagnostics) {
@@ -905,6 +906,18 @@ function restoreResultIssue(result: unknown): string | undefined {
     if (issue !== undefined) return `restore diagnostic: ${issue}`;
   }
   return undefined;
+}
+
+function terminalRestoreCompletionIssue(completion: unknown): string | undefined {
+  if (!isNonArrayObject(completion)) return 'terminal restore completion must be an object.';
+  const unknownField = findUnsupportedField(completion, terminalRestoreCompletionFields);
+  if (unknownField !== undefined) {
+    return `terminal restore completion contains unsupported field: ${unknownField}.`;
+  }
+  if (!isStringMember(completion['assurance'], ['observed', 'sent'] as const)) {
+    return 'terminal restore completion requires assurance.';
+  }
+  return terminalStateChangeIssue({ kind: completion['kind'], enabled: completion['enabled'] });
 }
 
 function isOrderedTerminalStateChangeSubset(

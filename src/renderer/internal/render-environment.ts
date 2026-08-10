@@ -3,6 +3,7 @@ import { defaultTheme, defineTheme, isTerminalTheme } from '../../theme/index.ts
 import type { TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
+import { assertFrameDimensions } from './frame-limits.ts';
 
 export interface RenderEnvironment {
   readonly terminalSize: TerminalSize;
@@ -17,9 +18,10 @@ export interface RenderEnvironmentInput {
 }
 
 export function createRenderEnvironment(input: RenderEnvironmentInput): RenderEnvironment {
+  assertFrameDimensions(input.terminalSize.columns, input.terminalSize.rows);
   const terminalSize = Object.freeze({
-    columns: requireNonNegativeInteger(input.terminalSize.columns, 'terminal size columns'),
-    rows: requireNonNegativeInteger(input.terminalSize.rows, 'terminal size rows')
+    columns: input.terminalSize.columns,
+    rows: input.terminalSize.rows
   });
   const theme = input.theme === undefined
     ? defaultTheme
@@ -29,9 +31,4 @@ export function createRenderEnvironment(input: RenderEnvironmentInput): RenderEn
     theme,
     widthProfile: defineTextWidthProfile(input.widthProfile)
   });
-}
-
-function requireNonNegativeInteger(value: number, label: string): number {
-  if (!Number.isInteger(value) || value < 0) throw new TypeError(`${label} must be a non-negative integer.`);
-  return value;
 }

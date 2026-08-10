@@ -304,6 +304,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     resolverInput,
     beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
     observeModes: (reports) => terminalState.observeModes(reports),
+    observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
     write: (chunk, signal) => output.write(chunk, { signal })
   });
   const host = {
