@@ -19,7 +19,7 @@ import type {
 } from '../../component/index.ts';
 import { list } from './list.ts';
 import { portal, surface } from '../../layout/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { assertOptionalEnum } from '../../foundation/validation.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
@@ -33,7 +33,7 @@ import {
 } from '../../text/index.ts';
 import type { TextSelection } from '../../text/index.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
-import type { CommandInputAction } from '../../ui-model/command-input.ts';
+import type { CommandInputAction, CommandInputPresentation } from '../../ui-model/command-input.ts';
 import type { SuggestionItem } from '../../ui-model/contracts.ts';
 import type { CommandInputValidation } from '../../ui-model/documents.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
@@ -66,19 +66,10 @@ interface CommandInputModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-interface DynamicCommandInputOptions {
-  readonly presentation: unknown;
-  readonly prompt?: unknown;
-  readonly placeholder?: unknown;
-  readonly completionPreview?: unknown;
-  readonly validation?: unknown;
-  readonly footer?: unknown;
-  readonly matchQuery?: unknown;
-  readonly display?: unknown;
-  readonly placement?: unknown;
-  readonly maxVisibleSuggestions?: unknown;
-  readonly pointerState?: unknown;
-}
+type CommandInputComponentOptions = Omit<
+  CommandInputOptions<ComponentMessage>,
+  'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'
+>;
 
 const commandSlots = {
   suggestions: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
@@ -89,7 +80,7 @@ type CommandInputFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 export const commandInput: CommandInputFactory = defineComponent<
-  DynamicCommandInputOptions,
+  CommandInputComponentOptions,
   CommandInputModel,
   CommandInputAction,
   CommandInputStylePart,
@@ -277,29 +268,23 @@ export const commandInput: CommandInputFactory = defineComponent<
   hitTargets: commandInputHitTargets,
 });
 
-function prepareCommandInput(value: Readonly<Record<string, unknown>>): CommandInputModel {
-  exact(value, [
-    'presentation', 'prompt', 'placeholder', 'completionPreview', 'validation', 'footer',
-    'matchQuery', 'display', 'placement', 'maxVisibleSuggestions', 'pointerState',
-  ], 'commandInput options');
-  const presentation = prepareCommandPresentation(value['presentation']);
-  const display = value['display'];
-  if (
-    display !== undefined && display !== 'compact' && display !== 'expanded' && display !== 'popup'
-  ) throw new TypeError('commandInput display must be compact, expanded, or popup.');
+function prepareCommandInput(value: Readonly<CommandInputComponentOptions>): CommandInputModel {
+  const presentation = prepareCommandPresentation(value.presentation);
+  const display = value.display;
+  assertOptionalEnum(display, ['compact', 'expanded', 'popup'], 'commandInput display');
   const maxVisibleSuggestions =
-    positiveInteger(value['maxVisibleSuggestions'], 'commandInput maxVisibleSuggestions') ?? 8;
-  const validation = prepareValidation(value['validation']);
-  const pointerState = preparePointerState(value['pointerState'], 'commandInput');
-  const placement = preparePlacement(value['placement'], 'commandInput placement');
+    positiveInteger(value.maxVisibleSuggestions, 'commandInput maxVisibleSuggestions') ?? 8;
+  const validation = prepareValidation(value.validation);
+  const pointerState = preparePointerState(value.pointerState);
+  const placement = preparePlacement(value.placement, 'commandInput placement');
   return {
     ...presentation,
-    prompt: clean(value['prompt'], 'commandInput prompt') ?? '> ',
-    placeholder: clean(value['placeholder'], 'commandInput placeholder') ?? '',
-    completionPreview: clean(value['completionPreview'], 'commandInput completionPreview') ?? '',
+    prompt: clean(value.prompt, 'commandInput prompt') ?? '> ',
+    placeholder: clean(value.placeholder, 'commandInput placeholder') ?? '',
+    completionPreview: clean(value.completionPreview, 'commandInput completionPreview') ?? '',
     ...(validation === undefined ? {} : { validation }),
-    footer: clean(value['footer'], 'commandInput footer') ?? '',
-    matchQuery: clean(value['matchQuery'], 'commandInput matchQuery') ?? presentation.value,
+    footer: clean(value.footer, 'commandInput footer') ?? '',
+    matchQuery: clean(value.matchQuery, 'commandInput matchQuery') ?? presentation.value,
     display: display ?? 'compact',
     ...(placement === undefined ? {} : { placement }),
     maxVisibleSuggestions,
@@ -308,37 +293,25 @@ function prepareCommandInput(value: Readonly<Record<string, unknown>>): CommandI
 }
 
 function prepareCommandPresentation(
-  value: unknown,
+  value: CommandInputPresentation,
 ): Pick<
   CommandInputModel,
   'value' | 'cursor' | 'selection' | 'historyIndex' | 'suggestions' | 'selectedSuggestionIndex'
 > {
-  if (!isNonArrayObject(value)) throw new TypeError('commandInput presentation must be an object.');
-  exact(value, [
-    'value',
-    'cursor',
-    'suggestions',
-    'selection',
-    'selectedSuggestionIndex',
-    'historyIndex',
-  ], 'commandInput presentation');
-  const text = clean(value['value'], 'commandInput value') ?? '';
-  const cursor = nonNegativeInteger(value['cursor'], 'commandInput cursor');
+  const text = clean(value.value, 'commandInput value') ?? '';
+  const cursor = nonNegativeInteger(value.cursor, 'commandInput cursor');
   if (cursor > text.length) throw new RangeError('commandInput cursor is outside the value.');
-  if (!Array.isArray(value['suggestions'])) {
-    throw new TypeError('commandInput suggestions must be an array.');
-  }
-  const suggestions = Object.freeze(value['suggestions'].map(prepareSuggestion));
+  const suggestions = Object.freeze(value.suggestions.map(prepareSuggestion));
   const selectedSuggestionIndex = optionalNonNegativeInteger(
-    value['selectedSuggestionIndex'],
+    value.selectedSuggestionIndex,
     'commandInput selectedSuggestionIndex',
   );
   if (selectedSuggestionIndex !== undefined && selectedSuggestionIndex >= suggestions.length) {
     throw new RangeError('commandInput selectedSuggestionIndex is outside suggestions.');
   }
-  const selection = prepareTextSelection(value['selection'], text.length, 'commandInput selection');
+  const selection = prepareTextSelection(value.selection, text.length, 'commandInput selection');
   const historyIndex = optionalNonNegativeInteger(
-    value['historyIndex'],
+    value.historyIndex,
     'commandInput historyIndex',
   );
   return {
@@ -351,26 +324,18 @@ function prepareCommandPresentation(
   };
 }
 
-function prepareSuggestion(value: unknown, index: number): SuggestionItem {
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`commandInput suggestions[${String(index)}] must be an object.`);
-  }
-  exact(
-    value,
-    ['label', 'value', 'description', 'disabled'],
-    `commandInput suggestions[${String(index)}]`,
-  );
-  const suggestionValue = clean(value['value'], 'commandInput suggestion value');
+function prepareSuggestion(value: SuggestionItem): SuggestionItem {
+  const suggestionValue = clean(value.value, 'commandInput suggestion value');
   if (suggestionValue === undefined) {
     throw new TypeError('commandInput suggestion value must be a string.');
   }
   return Object.freeze({
-    label: clean(value['label'], 'commandInput suggestion label') ?? suggestionValue,
+    label: clean(value.label, 'commandInput suggestion label') ?? suggestionValue,
     value: suggestionValue,
-    ...(value['description'] === undefined
+    ...(value.description === undefined
       ? {}
-      : { description: clean(value['description'], 'commandInput suggestion description') ?? '' }),
-    ...(optionalBoolean(value['disabled'], 'commandInput suggestion disabled') === true
+      : { description: clean(value.description, 'commandInput suggestion description') ?? '' }),
+    ...(optionalBoolean(value.disabled, 'commandInput suggestion disabled') === true
       ? { disabled: true }
       : {}),
   });
@@ -813,26 +778,17 @@ interface SearchPickerModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-interface DynamicSearchPickerOptions {
-  readonly title?: unknown;
-  readonly query?: unknown;
-  readonly searchPickerIndex: unknown;
-  readonly selectedId?: unknown;
-  readonly maxVisible?: unknown;
-  readonly helpText?: unknown;
-  readonly emptyText?: unknown;
-  readonly scroll?: unknown;
-  readonly scrollbar?: unknown;
-  readonly scrollPolicy?: unknown;
-  readonly pointerState?: unknown;
-}
+type SearchPickerComponentOptions = Omit<
+  SearchPickerOptions<unknown, ComponentMessage>,
+  'id' | 'disabled' | 'onAction' | 'meta'
+>;
 
 type SearchPickerFactory = <TValue, const TMessage extends ComponentMessage = never>(
   options: SearchPickerOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
 const instantiateSearchPicker = defineComponent<
-  DynamicSearchPickerOptions,
+  SearchPickerComponentOptions,
   SearchPickerModel,
   SearchPickerInternalAction,
   SearchPickerStylePart,
@@ -981,19 +937,15 @@ export const searchPicker: SearchPickerFactory = (options) => {
   });
 };
 
-function prepareSearchPicker(value: Readonly<Record<string, unknown>>): SearchPickerModel {
-  exact(value, [
-    'title', 'query', 'searchPickerIndex', 'selectedId', 'maxVisible', 'helpText', 'emptyText',
-    'scroll', 'scrollbar', 'scrollPolicy', 'pointerState',
-  ], 'searchPicker options');
-  const index = value['searchPickerIndex'];
+function prepareSearchPicker(value: Readonly<SearchPickerComponentOptions>): SearchPickerModel {
+  const index = value.searchPickerIndex;
   assertSearchPickerIndex(index);
-  const query = clean(value['query'], 'searchPicker query') ?? '';
-  const selectedId = value['selectedId'] === undefined
+  const query = clean(value.query, 'searchPicker query') ?? '';
+  const selectedId = value.selectedId === undefined
     ? undefined
-    : nonEmpty(value['selectedId'], 'searchPicker selectedId');
-  const scroll = prepareComponentScrollState(value['scroll'], 'searchPicker scroll');
-  const limit = positiveInteger(value['maxVisible'], 'searchPicker maxVisible') ??
+    : nonEmpty(value.selectedId, 'searchPicker selectedId');
+  const scroll = prepareComponentScrollState(value.scroll, 'searchPicker scroll');
+  const limit = positiveInteger(value.maxVisible, 'searchPicker maxVisible') ??
     Math.max(1, scroll?.viewportRows ?? 8);
   const window = searchPickerWindow({
     searchPickerIndex: index,
@@ -1015,25 +967,25 @@ function prepareSearchPicker(value: Readonly<Record<string, unknown>>): SearchPi
       })
     ),
   );
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'searchPicker scrollbar');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'searchPicker scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(
-    value['scrollPolicy'],
+    value.scrollPolicy,
     'searchPicker scrollPolicy',
   );
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('searchPicker scrollbar and scrollPolicy require scroll state.');
   }
-  const pointerState = preparePointerState(value['pointerState'], 'searchPicker');
+  const pointerState = preparePointerState(value.pointerState);
   return {
-    title: clean(value['title'], 'searchPicker title') ?? '',
+    title: clean(value.title, 'searchPicker title') ?? '',
     query,
     rows,
     ...(window.selectedIndex === undefined ? {} : { selectedIndex: window.selectedIndex }),
     totalCount: window.totalCount,
     sourceCount: index.size,
     startIndex: window.startIndex,
-    helpText: clean(value['helpText'], 'searchPicker helpText') ?? '',
-    emptyText: clean(value['emptyText'], 'searchPicker emptyText') ?? 'No matches',
+    helpText: clean(value.helpText, 'searchPicker helpText') ?? '',
+    emptyText: clean(value.emptyText, 'searchPicker emptyText') ?? 'No matches',
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
@@ -1321,29 +1273,23 @@ function searchPickerVisibleEntryCount(model: SearchPickerModel, height: number)
   return Math.max(0, height - 2 - searchPickerTrailingRowCount(model));
 }
 
-function prepareValidation(value: unknown): CommandInputValidation | undefined {
+function prepareValidation(value: CommandInputValidation | undefined): CommandInputValidation | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError('commandInput validation must be an object.');
-  exact(value, ['message', 'level'], 'commandInput validation');
-  const message = clean(value['message'], 'commandInput validation message') ?? '';
+  const message = clean(value.message, 'commandInput validation message') ?? '';
   if (message.length === 0) return undefined;
-  const level = value['level'];
-  if (level !== undefined && level !== 'info' && level !== 'warning' && level !== 'error') {
-    throw new TypeError('commandInput validation level must be info, warning, or error.');
-  }
+  const level = value.level;
+  assertOptionalEnum(level, ['info', 'warning', 'error'], 'commandInput validation level');
   return { message, ...(level === undefined ? {} : { level }) };
 }
 function prepareTextSelection(
-  value: unknown,
+  value: TextSelection | undefined,
   textLength: number,
   owner: string,
 ): TextSelection | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be an object.`);
-  exact(value, ['startOffset', 'endOffsetExclusive'], owner);
-  const startOffset = nonNegativeInteger(value['startOffset'], `${owner}.startOffset`);
+  const startOffset = nonNegativeInteger(value.startOffset, `${owner}.startOffset`);
   const endOffsetExclusive = nonNegativeInteger(
-    value['endOffsetExclusive'],
+    value.endOffsetExclusive,
     `${owner}.endOffsetExclusive`,
   );
   if (startOffset > endOffsetExclusive || endOffsetExclusive > textLength) {
@@ -1351,30 +1297,17 @@ function prepareTextSelection(
   }
   return { startOffset, endOffsetExclusive };
 }
-function preparePlacement(value: unknown, owner: string): AnchoredSurfacePlacement | undefined {
-  if (value === undefined) return undefined;
-  if (
-    value === 'above' || value === 'below' || value === 'left' || value === 'right' ||
-    value === 'auto' || value === 'cursor'
-  ) return value;
-  throw new TypeError(`${owner} must be above, below, left, right, auto, or cursor.`);
+function preparePlacement(
+  value: AnchoredSurfacePlacement | undefined,
+  owner: string,
+): AnchoredSurfacePlacement | undefined {
+  assertOptionalEnum(value, ['above', 'below', 'left', 'right', 'auto', 'cursor'], owner);
+  return value;
 }
-function preparePointerState(value: unknown, owner: string): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  exact(value, ['hoveredTargetId', 'pressedTargetId'], `${owner} pointerState`);
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string') {
-    throw new TypeError(`${owner} hoveredTargetId must be a string.`);
-  }
-  if (pressedTargetId !== undefined && typeof pressedTargetId !== 'string') {
-    throw new TypeError(`${owner} pressedTargetId must be a string.`);
-  }
-  return {
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  };
+function preparePointerState(
+  value: PointerInteractionState | undefined,
+): PointerInteractionState | undefined {
+  return value === undefined ? undefined : Object.freeze({ ...value });
 }
 function clean(value: unknown, owner: string): string | undefined {
   if (value === undefined) return undefined;
@@ -1407,14 +1340,4 @@ function positiveInteger(value: unknown, owner: string): number | undefined {
   const result = nonNegativeInteger(value, owner);
   if (result < 1) throw new RangeError(`${owner} must be positive.`);
   return result;
-}
-function exact(
-  value: Readonly<Record<string, unknown>>,
-  fields: readonly string[],
-  owner: string,
-): void {
-  const unsupported = Object.keys(value).find((field) => !fields.includes(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} contains unknown field "${unsupported}".`);
-  }
 }

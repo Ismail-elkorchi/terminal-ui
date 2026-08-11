@@ -36,7 +36,6 @@ import {
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { TabsOptions } from '../options/tabs.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface TabModelItem {
   readonly id: string;
@@ -591,12 +590,8 @@ function tabsAccessibility(
   };
 }
 
-function prepareTabs(value: Readonly<Record<string, unknown>>): TabsModel {
-  assertKnownOptions(value, [
-    'tabs', 'selected', 'maxTabWidth', 'pointerState', 'gap', 'padding', 'margin',
-    'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'align', 'justify', 'overflow',
-  ], 'tabs');
-  const rawTabs = value['tabs'];
+function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
+  const rawTabs = value.tabs;
   if (!Array.isArray(rawTabs) || rawTabs.length === 0) {
     throw new TypeError('tabs tabs must be a non-empty array.');
   }
@@ -604,18 +599,6 @@ function prepareTabs(value: Readonly<Record<string, unknown>>): TabsModel {
   const tabs = rawTabs.map((raw, index): TabModelItem => {
     if (!isNonArrayObject(raw)) {
       throw new TypeError(`tabs tabs[${String(index)}] must be an object.`);
-    }
-    const unsupported = Object.keys(raw).find((field) =>
-      field !== 'id' &&
-      field !== 'label' &&
-      field !== 'leading' &&
-      field !== 'description' &&
-      field !== 'disabled' &&
-      field !== 'badge' &&
-      field !== 'closable'
-    );
-    if (unsupported !== undefined) {
-      throw new TypeError(`tabs tabs[${String(index)}] contains unknown field "${unsupported}".`);
     }
     const id = raw['id'];
     const label = raw['label'];
@@ -652,7 +635,7 @@ function prepareTabs(value: Readonly<Record<string, unknown>>): TabsModel {
       closable: raw['closable'] === true,
     };
   });
-  const selected = value['selected'];
+  const selected = value.selected;
   if (selected !== undefined && typeof selected !== 'string') {
     throw new TypeError('tabs selected must be a string.');
   }
@@ -662,35 +645,29 @@ function prepareTabs(value: Readonly<Record<string, unknown>>): TabsModel {
   if (selected !== undefined && selectedIndex < 0) {
     throw new RangeError('tabs selected must identify a tab.');
   }
-  const maxTabWidth = value['maxTabWidth'];
+  const maxTabWidth = value.maxTabWidth;
   if (
     maxTabWidth !== undefined &&
-    (!Number.isSafeInteger(maxTabWidth) || (maxTabWidth as number) <= 0)
+    (!Number.isSafeInteger(maxTabWidth) || (maxTabWidth) <= 0)
   ) {
     throw new RangeError('tabs maxTabWidth must be a positive safe integer.');
   }
-  const pointerState = value['pointerState'];
+  const pointerState = value.pointerState;
   if (pointerState !== undefined) assertPointerState(pointerState, 'tabs pointerState');
   return {
     tabs,
     selectedIndex,
-    ...(maxTabWidth === undefined ? {} : { maxTabWidth: maxTabWidth as number }),
+    ...(maxTabWidth === undefined ? {} : { maxTabWidth: maxTabWidth }),
     ...(pointerState === undefined ? {} : { pointerState }),
     layout: prepareLayoutFlowOptions(value, 'tabs'),
   };
 }
 
 function assertPointerState(
-  value: unknown,
+  value: PointerInteractionState,
   label: string,
-): asserts value is PointerInteractionState {
+): void {
   if (!isNonArrayObject(value)) throw new TypeError(`${label} must be an object.`);
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'hoveredTargetId' && field !== 'pressedTargetId'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`${label} contains unknown field "${unsupported}".`);
-  }
   for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
     if (value[field] !== undefined && typeof value[field] !== 'string') {
       throw new TypeError(`${label}.${field} must be a string.`);

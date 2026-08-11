@@ -50,7 +50,11 @@ import {
   prepareLayoutFlowOptions,
   splitTracks,
 } from '../../layout/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import {
+  assertOptionalEnum,
+  isNonArrayObject,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import type { ChoiceItem } from '../../ui-model/contracts.ts';
 import type { SelectAction, SelectPresentation } from '../../ui-model/choice-controls.ts';
 import type { ListAction } from '../../ui-model/list.ts';
@@ -59,7 +63,6 @@ import type { ScrollState } from '../../interaction/scroll.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import { portal, surface } from '../../layout/index.ts';
 import { list } from './list.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface FormModel {
   readonly title: string;
@@ -175,12 +178,8 @@ function formContentBounds(input: ComponentLayoutInput<FormModel, typeof formSlo
   };
 }
 
-function prepareForm(value: Readonly<Record<string, unknown>>): FormModel {
-  assertKnownOptions(value, [
-    'title', 'gap', 'padding', 'margin', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
-    'align', 'justify', 'overflow',
-  ], 'form');
-  const title = value['title'];
+function prepareForm(value: Readonly<FormOptions>): FormModel {
+  const title = value.title;
   if (title !== undefined && typeof title !== 'string') {
     throw new TypeError('form title must be a string when provided.');
   }
@@ -222,10 +221,6 @@ export const field: FieldFactory = defineComponent<
   metadata: ['styles', 'layer'],
   parts: ['label', 'description'],
   prepare(value) {
-    assertKnownOptions(value, [
-      'label', 'description', 'gap', 'padding', 'margin', 'minWidth', 'minHeight',
-      'maxWidth', 'maxHeight', 'align', 'justify', 'overflow',
-    ], 'field');
     const label = value.label;
     const description = value.description;
     if (typeof label !== 'string') throw new TypeError('field label must be a string.');
@@ -366,7 +361,6 @@ export const label: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['label', 'description'],
   prepare(value) {
-    assertKnownOptions(value, ['text', 'forId'], 'label');
     const textValue = value.text;
     const forId = value.forId;
     if (typeof textValue !== 'string') throw new TypeError('label text must be a string.');
@@ -444,11 +438,6 @@ export const button: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer', 'focus'],
   parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
   prepare(value) {
-    assertKnownOptions(
-      value,
-      ['label', 'leading', 'trailing', 'tone', 'density', 'pointerState'],
-      'button',
-    );
     const label = value.label;
     const leading = value.leading;
     const trailing = value.trailing;
@@ -457,9 +446,7 @@ export const button: SemanticLeafComponentFactory<
     const pointerState = value.pointerState;
     if (typeof label !== 'string') throw new TypeError('button label must be a string.');
     if (tone !== undefined && !isButtonTone(tone)) throw new TypeError('button tone is invalid.');
-    if (density !== undefined && density !== 'compact' && density !== 'regular') {
-      throw new TypeError('button density is invalid.');
-    }
+    assertOptionalEnum(density, ['compact', 'regular'], 'button density');
     assertPointerState(pointerState);
     return {
       label: sanitizeTerminalText(label).text,
@@ -731,14 +718,10 @@ function assertInlineContent(value: unknown, field: string): InlineContent {
   return value;
 }
 
-function assertPointerState(value: unknown): asserts value is PointerInteractionState | undefined {
+function assertPointerState(value: PointerInteractionState | undefined): void {
   if (value === undefined) return;
   if (!isNonArrayObject(value)) {
     throw new TypeError('button pointerState must be an object.');
-  }
-  const fields = Object.keys(value);
-  if (fields.some((field) => field !== 'hoveredTargetId' && field !== 'pressedTargetId')) {
-    throw new TypeError('button pointerState contains an unknown field.');
   }
   for (const field of ['hoveredTargetId', 'pressedTargetId']) {
     const member = value[field];
@@ -788,11 +771,6 @@ export const checkbox: SemanticLeafComponentFactory<
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
   prepare(value) {
-    assertKnownOptions(
-      value,
-      ['label', 'checked', 'required', 'error', 'pointerState'],
-      'checkbox',
-    );
     const label = value.label;
     const checked = value.checked;
     const required = value.required;
@@ -892,11 +870,6 @@ export const toggleSwitch: SemanticLeafComponentFactory<
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'onLabel', 'offLabel', 'error'],
   prepare(value) {
-    assertKnownOptions(
-      value,
-      ['label', 'checked', 'onLabel', 'offLabel', 'error', 'pointerState'],
-      'toggleSwitch',
-    );
     const label = value.label;
     const checked = value.checked;
     const onLabel = value.onLabel;
@@ -1158,16 +1131,10 @@ function writeControlLines<TModel extends object, TPart extends string>(
 
 function assertPointerStateFor(
   owner: string,
-  value: unknown,
-): asserts value is PointerInteractionState | undefined {
+  value: PointerInteractionState | undefined,
+): void {
   if (value === undefined) return;
   if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'hoveredTargetId' && field !== 'pressedTargetId'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} pointerState contains unknown field "${unsupported}".`);
-  }
   for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
     if (value[field] !== undefined && typeof value[field] !== 'string') {
       throw new TypeError(`${owner} pointerState.${field} must be a string.`);
@@ -1195,19 +1162,6 @@ interface SelectModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-interface SelectOwnOptions {
-  readonly label: string;
-  readonly options: readonly ChoiceItem<unknown>[];
-  readonly presentation: SelectPresentation;
-  readonly placeholder?: string;
-  readonly placement?: AnchoredSurfacePlacement;
-  readonly maxVisibleOptions?: number;
-  readonly scrollbar?: ScrollbarOptions;
-  readonly required?: boolean;
-  readonly error?: string;
-  readonly pointerState?: PointerInteractionState;
-}
-
 const selectSlots = {
   popup: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
 } as const;
@@ -1217,7 +1171,7 @@ type SelectFactory = <TValue, const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateSelect = defineComponent<
-  SelectOwnOptions,
+  SelectModel,
   SelectModel,
   SelectAction,
   ChoiceStylePart,
@@ -1234,7 +1188,6 @@ const instantiateSelect = defineComponent<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
-  prepare: prepareSelect,
   implementationSlots(input) {
     if (input.model.presentation.kind === 'closed') return { popup: undefined };
     const id = input.id ?? 'select';
@@ -1344,7 +1297,20 @@ const instantiateSelect = defineComponent<
   },
 });
 
-export const select: SelectFactory = (options) => instantiateSelect(options);
+export const select: SelectFactory = (options) => {
+  if (options.disabled === true && Object.hasOwn(options, 'onAction')) {
+    throw new TypeError('Disabled component "terminal-ui/components/select" cannot accept onAction.');
+  }
+  const model = prepareSelect(options);
+  const shared = {
+    ...model,
+    id: options.id,
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+  return options.disabled === true
+    ? instantiateSelect({ ...shared, disabled: true })
+    : instantiateSelect({ ...shared, onAction: options.onAction });
+};
 
 function selectedSelectOption(model: SelectModel): SelectOptionModel | undefined {
   return model.options.find((option) => option.id === model.presentation.selected);
@@ -1495,31 +1461,17 @@ function selectPopupStyles(
   };
 }
 
-function prepareSelect(
-  value: Readonly<Record<string, unknown>>,
-  context: import('../../component/index.ts').ComponentPreparationContext,
+function prepareSelect<TValue, TMessage extends ComponentMessage>(
+  value: Readonly<SelectOptions<TValue, TMessage>>,
 ): SelectModel {
-  assertKnownOptions(value, [
-    'label', 'options', 'presentation', 'placeholder', 'placement', 'maxVisibleOptions',
-    'scrollbar', 'required', 'error', 'pointerState',
-  ], 'select');
-  const label = value['label'];
+  const label = value.label;
   if (typeof label !== 'string') throw new TypeError('select label must be a string.');
-  const rawOptions = value['options'];
+  const rawOptions = value.options;
   if (!Array.isArray(rawOptions)) throw new TypeError('select options must be an array.');
   const ids = new Set<string>();
   const options = rawOptions.map((raw, index): SelectOptionModel => {
     if (!isNonArrayObject(raw)) {
       throw new TypeError(`select options[${String(index)}] must be an object.`);
-    }
-    const unsupported = Object.keys(raw).find((field) =>
-      field !== 'id' && field !== 'label' && field !== 'value' && field !== 'description' &&
-      field !== 'disabled'
-    );
-    if (unsupported !== undefined) {
-      throw new TypeError(
-        `select options[${String(index)}] contains unknown field "${unsupported}".`,
-      );
     }
     const id = raw['id'];
     const optionLabel = raw['label'];
@@ -1546,29 +1498,23 @@ function prepareSelect(
       disabled: raw['disabled'] === true,
     };
   });
-  const presentation = prepareSelectPresentation(value['presentation']);
-  if (context.disabled && presentation.kind === 'open') {
+  const presentation = prepareSelectPresentation(value.presentation);
+  if (value.disabled === true && presentation.kind === 'open') {
     throw new TypeError('select cannot be open while disabled.');
   }
   const choiceOptions = options.map((option): ChoiceItem => ({ ...option, value: option.id }));
   const normalized = normalizeSelectState(presentation, choiceOptions);
-  const placeholder = value['placeholder'];
+  const placeholder = value.placeholder;
   if (placeholder !== undefined && typeof placeholder !== 'string') {
     throw new TypeError('select placeholder must be a string.');
   }
-  const placement = value['placement'];
-  if (
-    placement !== undefined &&
-    placement !== 'above' &&
-    placement !== 'below' &&
-    placement !== 'left' &&
-    placement !== 'right' &&
-    placement !== 'auto' &&
-    placement !== 'cursor'
-  ) {
-    throw new TypeError('select placement is invalid.');
-  }
-  const maxVisibleOptions = value['maxVisibleOptions'];
+  const placement = value.placement;
+  assertOptionalEnum(
+    placement,
+    ['above', 'below', 'left', 'right', 'auto', 'cursor'],
+    'select placement',
+  );
+  const maxVisibleOptions = value.maxVisibleOptions;
   if (
     maxVisibleOptions !== undefined &&
     (typeof maxVisibleOptions !== 'number' ||
@@ -1582,13 +1528,13 @@ function prepareSelect(
       throw new TypeError(`select ${field} must be a boolean.`);
     }
   }
-  const error = value['error'];
+  const error = value.error;
   if (error !== undefined && typeof error !== 'string') {
     throw new TypeError('select error must be a string.');
   }
-  const pointerState = value['pointerState'];
+  const pointerState = value.pointerState;
   if (pointerState !== undefined) assertPointerState(pointerState);
-  const scrollbar = prepareScrollbar(value['scrollbar']);
+  const scrollbar = prepareScrollbar(value.scrollbar);
   return {
     label: sanitizeTerminalText(label).text,
     options,
@@ -1597,34 +1543,28 @@ function prepareSelect(
     placement: placement ?? 'auto',
     maxVisibleOptions: maxVisibleOptions ?? 8,
     ...(scrollbar === undefined ? {} : { scrollbar }),
-    required: value['required'] === true,
+    required: value.required === true,
     ...(error === undefined ? {} : { error: sanitizeTerminalText(error).text }),
     ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
-function prepareSelectPresentation(value: unknown): SelectPresentation {
-  if (!isNonArrayObject(value) || (value['kind'] !== 'open' && value['kind'] !== 'closed')) {
+function prepareSelectPresentation(value: SelectPresentation): SelectPresentation {
+  if (!isNonArrayObject(value) || !isStringMember(value.kind, ['open', 'closed'])) {
     throw new TypeError('select presentation is invalid.');
   }
-  const allowed = value['kind'] === 'open'
-    ? new Set(['kind', 'selected', 'highlighted', 'scroll'])
-    : new Set(['kind', 'selected']);
-  const unsupported = Object.keys(value).find((field) => !allowed.has(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`select presentation contains unknown field "${unsupported}".`);
+  if (value.selected !== undefined && typeof value.selected !== 'string') {
+    throw new TypeError('select presentation selected must be a string.');
   }
-  for (const field of ['selected', 'highlighted'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      throw new TypeError(`select presentation ${field} must be a string.`);
-    }
-  }
-  const selected = value['selected'];
-  if (value['kind'] === 'closed') {
+  const selected = value.selected;
+  if (value.kind === 'closed') {
     return { kind: 'closed', ...(typeof selected === 'string' ? { selected } : {}) };
   }
-  const highlighted = value['highlighted'];
-  const scroll = prepareScrollState(value['scroll'], 'select presentation scroll');
+  if (value.highlighted !== undefined && typeof value.highlighted !== 'string') {
+    throw new TypeError('select presentation highlighted must be a string.');
+  }
+  const highlighted = value.highlighted;
+  const scroll = prepareScrollState(value.scroll, 'select presentation scroll');
   return {
     kind: 'open',
     ...(typeof selected === 'string' ? { selected } : {}),
@@ -1633,7 +1573,7 @@ function prepareSelectPresentation(value: unknown): SelectPresentation {
   };
 }
 
-function prepareScrollState(value: unknown, label: string): ScrollState | undefined {
+function prepareScrollState(value: ScrollState | undefined, label: string): ScrollState | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError(`${label} must be an object.`);
   const required = [
@@ -1644,33 +1584,28 @@ function prepareScrollState(value: unknown, label: string): ScrollState | undefi
     'viewportRows',
     'viewportColumns',
   ] as const;
-  const allowed = new Set([...required, 'followTail', 'selectedIndex']);
-  const unsupported = Object.keys(value).find((field) => !allowed.has(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`${label} contains unknown field "${unsupported}".`);
-  }
   for (const field of required) {
     const member = value[field];
     if (typeof member !== 'number' || !Number.isSafeInteger(member) || member < 0) {
       throw new RangeError(`${label}.${field} must be a non-negative safe integer.`);
     }
   }
-  if (typeof value['followTail'] !== 'boolean') {
+  if (typeof value.followTail !== 'boolean') {
     throw new TypeError(`${label}.followTail must be a boolean.`);
   }
-  const selectedIndex = value['selectedIndex'];
+  const selectedIndex = value.selectedIndex;
   if (
     selectedIndex !== undefined &&
     (typeof selectedIndex !== 'number' || !Number.isSafeInteger(selectedIndex) || selectedIndex < 0)
   ) {
     throw new RangeError(`${label}.selectedIndex must be a non-negative safe integer.`);
   }
-  const offsetRow = value['offsetRow'];
-  const offsetColumn = value['offsetColumn'];
-  const contentRows = value['contentRows'];
-  const contentColumns = value['contentColumns'];
-  const viewportRows = value['viewportRows'];
-  const viewportColumns = value['viewportColumns'];
+  const offsetRow = value.offsetRow;
+  const offsetColumn = value.offsetColumn;
+  const contentRows = value.contentRows;
+  const contentColumns = value.contentColumns;
+  const viewportRows = value.viewportRows;
+  const viewportColumns = value.viewportColumns;
   if (
     typeof offsetRow !== 'number' ||
     typeof offsetColumn !== 'number' ||
@@ -1688,20 +1623,14 @@ function prepareScrollState(value: unknown, label: string): ScrollState | undefi
     contentColumns,
     viewportRows,
     viewportColumns,
-    followTail: value['followTail'],
+    followTail: value.followTail,
     ...(typeof selectedIndex === 'number' ? { selectedIndex } : {}),
   };
 }
 
-function prepareScrollbar(value: unknown): ScrollbarOptions | undefined {
+function prepareScrollbar(value: ScrollbarOptions | undefined): ScrollbarOptions | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('select scrollbar must be an object.');
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'visible' && field !== 'axis' && field !== 'visualState'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`select scrollbar contains unknown field "${unsupported}".`);
-  }
   const visible = value['visible'];
   const axis = value['axis'];
   const visualState = value['visualState'];

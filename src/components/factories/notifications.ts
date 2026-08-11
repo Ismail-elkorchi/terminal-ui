@@ -15,7 +15,7 @@ import type {
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { assertOptionalEnum, isNonArrayObject } from '../../foundation/validation.ts';
 import type { Rect } from '../../geometry/types.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
@@ -40,7 +40,6 @@ import { resolveStableIds } from '../../ui-model/identity.ts';
 import { isNotificationTone } from '../../ui-model/status.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { NotificationHistoryOptions, NotificationRegionOptions } from '../options/feedback.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface NotificationModel {
   readonly items: readonly NotificationItem[];
@@ -177,30 +176,22 @@ export function notificationHistory<const TMessage extends ComponentMessage = ne
 }
 
 function prepareNotifications(
-  value: Readonly<Record<string, unknown>>,
+  value: Readonly<NotificationOwnOptions>,
   acceptsSelection: boolean,
   dismissActions: boolean,
 ): NotificationModel {
-  if (!Array.isArray(value['items'])) {
+  if (!Array.isArray(value.items)) {
     throw new TypeError('notification options must contain an items array.');
   }
-  assertKnownOptions(
-    value,
-    acceptsSelection
-      ? ['items', 'placement', 'maxWidth', 'selectedId', 'pointerState']
-      : ['items', 'placement', 'maxWidth', 'pointerState'],
-    acceptsSelection ? 'notificationHistory' : 'notificationRegion',
-  );
-  const items = value['items'].map(prepareItem);
+  const items = value.items.map(prepareItem);
   resolveStableIds(items, (item) => item.id, 'notifications');
-  const placement = value['placement'];
-  if (
-    placement !== undefined && placement !== 'top-right' && placement !== 'bottom-right' &&
-    placement !== 'centered-stack'
-  ) {
-    throw new TypeError('notification placement is invalid.');
-  }
-  const maxWidth = value['maxWidth'];
+  const placement = value.placement;
+  assertOptionalEnum(
+    placement,
+    ['top-right', 'bottom-right', 'centered-stack'],
+    'notification placement',
+  );
+  const maxWidth = value.maxWidth;
   if (
     maxWidth !== undefined &&
     (typeof maxWidth !== 'number' || !Number.isSafeInteger(maxWidth) || maxWidth < 20 ||
@@ -208,14 +199,16 @@ function prepareNotifications(
   ) {
     throw new RangeError('notification maxWidth must be a safe integer from 20 through 120.');
   }
-  const selectedId = value['selectedId'];
+  const selectedId = value.selectedId;
   if (!acceptsSelection && selectedId !== undefined) {
     throw new TypeError('notificationRegion cannot define selectedId.');
   }
   if (selectedId !== undefined && typeof selectedId !== 'string') {
     throw new TypeError('notification selectedId must be a string.');
   }
-  const pointerState = preparePointerState(value['pointerState']);
+  const pointerState = value.pointerState === undefined
+    ? undefined
+    : Object.freeze({ ...value.pointerState });
   return {
     items,
     placement: placement ?? 'top-right',
@@ -226,16 +219,9 @@ function prepareNotifications(
   };
 }
 
-function prepareItem(value: unknown, index: number): NotificationItem {
+function prepareItem(value: NotificationItem, index: number): NotificationItem {
   if (!isNonArrayObject(value)) {
     throw new TypeError(`notification items[${String(index)}] must be an object.`);
-  }
-  const allowed = new Set(['id', 'title', 'message', 'tone', 'progress', 'detail', 'dismissible']);
-  const unknown = Object.keys(value).find((field) => !allowed.has(field));
-  if (unknown !== undefined) {
-    throw new TypeError(
-      `notification items[${String(index)}] contains unknown field "${unknown}".`,
-    );
   }
   const { id, title, message, tone, progress, detail, dismissible } = value;
   if (typeof id !== 'string' || id.trim() === '') {
@@ -270,28 +256,6 @@ function prepareItem(value: unknown, index: number): NotificationItem {
   };
 }
 
-function preparePointerState(value: unknown): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError('notification pointerState must be an object.');
-  const unknown = Object.keys(value).find((field) =>
-    field !== 'hoveredTargetId' && field !== 'pressedTargetId'
-  );
-  if (unknown !== undefined) {
-    throw new TypeError(`notification pointerState contains unknown field "${unknown}".`);
-  }
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string') {
-    throw new TypeError('notification hoveredTargetId must be a string.');
-  }
-  if (pressedTargetId !== undefined && typeof pressedTargetId !== 'string') {
-    throw new TypeError('notification pressedTargetId must be a string.');
-  }
-  return {
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  };
-}
 
 interface Card {
   readonly item: NotificationItem;

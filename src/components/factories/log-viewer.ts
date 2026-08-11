@@ -29,7 +29,7 @@ import type {
   Element,
   HitTarget,
 } from '../../component/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
@@ -77,18 +77,10 @@ interface LogViewerModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-interface DynamicLogViewerOptions {
-  readonly history: unknown;
-  readonly wrap?: unknown;
-  readonly searchQuery?: unknown;
-  readonly selectedMatch?: unknown;
-  readonly foldedIds?: unknown;
-  readonly selection?: unknown;
-  readonly scroll?: unknown;
-  readonly scrollbar?: unknown;
-  readonly scrollPolicy?: unknown;
-  readonly pointerState?: unknown;
-}
+type LogViewerComponentOptions = Omit<
+  LogViewerOptions<ComponentMessage>,
+  'id' | 'onAction' | 'meta'
+>;
 
 interface LogViewerTextSegment extends RenderSpan {
   readonly body?: boolean;
@@ -149,7 +141,7 @@ const baseDefinition = {
 };
 
 const passiveLogViewer = defineComponent<
-  DynamicLogViewerOptions,
+  LogViewerComponentOptions,
   LogViewerModel,
   never,
   LogViewerStylePart,
@@ -159,7 +151,7 @@ const passiveLogViewer = defineComponent<
 >(baseDefinition);
 
 const activeLogViewer = defineComponent<
-  DynamicLogViewerOptions,
+  LogViewerComponentOptions,
   LogViewerModel,
   LogViewerAction,
   LogViewerStylePart,
@@ -205,53 +197,39 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
 export function logViewer<const TMessage extends ComponentMessage = never>(
   options: LogViewerOptions<TMessage>,
 ): Element<TMessage> {
-  const own: DynamicLogViewerOptions = options;
-  const onAction = options.onAction;
+  const { onAction, ...componentOptions } = options;
   if (onAction === undefined) {
-    return passiveLogViewer({
-      ...own,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
-    });
+    return passiveLogViewer(componentOptions);
   }
   if (options.scroll === undefined) {
     return activeLogViewer({
-      ...own,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
+      ...componentOptions,
       onAction: (action) =>
         action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  return activeLogViewer({
-    ...own,
-    id: options.id,
-    ...(options.meta === undefined ? {} : { meta: options.meta }),
-    onAction: options.onAction,
-  });
+  return activeLogViewer({ ...componentOptions, onAction: options.onAction });
 }
 
-function prepareLogViewer(value: Readonly<Record<string, unknown>>): LogViewerModel {
-  exact(value, [
-    'history', 'wrap', 'searchQuery', 'selectedMatch', 'foldedIds', 'selection', 'scroll',
-    'scrollbar', 'scrollPolicy', 'pointerState',
-  ], 'logViewer options');
-  const history = value['history'];
+function prepareLogViewer(value: Readonly<LogViewerComponentOptions>): LogViewerModel {
+  const history = value.history;
   if (!isLogHistoryValue(history)) {
     throw new TypeError('logViewer history must be created with prepareLogHistory().');
   }
-  const wrap = optionalBoolean(value['wrap'], 'logViewer wrap') ?? false;
-  const searchQuery = cleanLine(value['searchQuery'], 'logViewer searchQuery')?.trim() ?? '';
-  const selectedMatch = prepareSearchMatch(value['selectedMatch']);
-  const foldedIds = prepareStringArray(value['foldedIds'], 'logViewer foldedIds');
-  const selection = prepareSelection(value['selection']);
-  const scroll = prepareComponentScrollState(value['scroll'], 'logViewer scroll');
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'logViewer scrollbar');
+  const wrap = optionalBoolean(value.wrap, 'logViewer wrap') ?? false;
+  const searchQuery = cleanLine(value.searchQuery, 'logViewer searchQuery')?.trim() ?? '';
+  const selectedMatch = prepareSearchMatch(value.selectedMatch);
+  const foldedIds = prepareStringArray(value.foldedIds);
+  const selection = prepareSelection(value.selection);
+  const scroll = prepareComponentScrollState(value.scroll, 'logViewer scroll');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'logViewer scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(
-    value['scrollPolicy'],
+    value.scrollPolicy,
     'logViewer scrollPolicy',
   );
-  const pointerState = preparePointerState(value['pointerState']);
+  const pointerState = value.pointerState === undefined
+    ? undefined
+    : Object.freeze({ ...value.pointerState });
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('logViewer scrollbar and scrollPolicy require scroll state.');
   }
@@ -1048,93 +1026,51 @@ function logViewerDescription(model: LogViewerModel, window: LogViewerWindow): s
   }.${followTail}${query}${selection}`;
 }
 
-function prepareSearchMatch(value: unknown): LogSearchMatch | undefined {
+function prepareSearchMatch(value: LogSearchMatch | undefined): LogSearchMatch | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError('logViewer selectedMatch must be an object.');
-  exact(value, [
-    'id',
-    'entryId',
-    'entryIndex',
-    'occurrenceIndex',
-    'field',
-    'fieldKey',
-    'startOffset',
-    'endOffsetExclusive',
-  ], 'logViewer selectedMatch');
-  const field = value['field'];
-  if (
-    field !== 'timestamp' && field !== 'metadataKey' && field !== 'metadataValue' &&
-    field !== 'body'
-  ) {
+  const field = value.field;
+  if (!isStringMember(field, ['timestamp', 'metadataKey', 'metadataValue', 'body'])) {
     throw new TypeError('logViewer selectedMatch field is invalid.');
   }
   return {
-    id: nonEmpty(value['id'], 'logViewer selectedMatch id'),
-    entryId: nonEmpty(value['entryId'], 'logViewer selectedMatch entryId'),
-    entryIndex: nonNegativeInteger(value['entryIndex'], 'logViewer selectedMatch entryIndex'),
+    id: nonEmpty(value.id, 'logViewer selectedMatch id'),
+    entryId: nonEmpty(value.entryId, 'logViewer selectedMatch entryId'),
+    entryIndex: nonNegativeInteger(value.entryIndex, 'logViewer selectedMatch entryIndex'),
     occurrenceIndex: nonNegativeInteger(
-      value['occurrenceIndex'],
+      value.occurrenceIndex,
       'logViewer selectedMatch occurrenceIndex',
     ),
     field,
-    ...(value['fieldKey'] === undefined
+    ...(value.fieldKey === undefined
       ? {}
-      : { fieldKey: nonEmpty(value['fieldKey'], 'logViewer selectedMatch fieldKey') }),
-    startOffset: nonNegativeInteger(value['startOffset'], 'logViewer selectedMatch startOffset'),
+      : { fieldKey: nonEmpty(value.fieldKey, 'logViewer selectedMatch fieldKey') }),
+    startOffset: nonNegativeInteger(value.startOffset, 'logViewer selectedMatch startOffset'),
     endOffsetExclusive: nonNegativeInteger(
-      value['endOffsetExclusive'],
+      value.endOffsetExclusive,
       'logViewer selectedMatch endOffsetExclusive',
     ),
   };
 }
 
-function prepareSelection(value: unknown): LogViewerSelection | undefined {
+function prepareSelection(value: LogViewerSelection | undefined): LogViewerSelection | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError('logViewer selection must be an object.');
-  exact(value, ['anchor', 'focus'], 'logViewer selection');
   return {
-    anchor: prepareAnchor(value['anchor'], 'logViewer selection anchor'),
-    focus: prepareAnchor(value['focus'], 'logViewer selection focus'),
+    anchor: prepareAnchor(value.anchor, 'logViewer selection anchor'),
+    focus: prepareAnchor(value.focus, 'logViewer selection focus'),
   };
 }
 
-function prepareAnchor(value: unknown, subject: string): LogViewerBodyAnchor {
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
-  exact(value, ['entryId', 'offset'], subject);
+function prepareAnchor(value: LogViewerBodyAnchor, subject: string): LogViewerBodyAnchor {
   return {
-    entryId: nonEmpty(value['entryId'], `${subject} entryId`),
-    offset: nonNegativeInteger(value['offset'], `${subject} offset`),
+    entryId: nonEmpty(value.entryId, `${subject} entryId`),
+    offset: nonNegativeInteger(value.offset, `${subject} offset`),
   };
 }
 
-function preparePointerState(value: unknown): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError('logViewer pointerState must be an object.');
-  exact(value, ['hoveredTargetId', 'pressedTargetId'], 'logViewer pointerState');
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (
-    hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string' ||
-    pressedTargetId !== undefined && typeof pressedTargetId !== 'string'
-  ) {
-    throw new TypeError('logViewer pointerState values must be strings.');
-  }
-  return {
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  };
-}
 
-function prepareStringArray(value: unknown, subject: string): readonly string[] {
+function prepareStringArray(value: readonly string[] | undefined): readonly string[] {
   if (value === undefined) return [];
-  if (!isStringArray(value)) {
-    throw new TypeError(`${subject} must be an array of strings.`);
-  }
   return value.map((entry) => sanitizeTerminalText(entry).text);
-}
-
-function isStringArray(value: unknown): value is readonly string[] {
-  return Array.isArray(value) && value.every((entry: unknown) => typeof entry === 'string');
 }
 
 function optionalBoolean(value: unknown, subject: string): boolean | undefined {
@@ -1162,17 +1098,6 @@ function nonNegativeInteger(value: unknown, subject: string): number {
     throw new RangeError(`${subject} must be a non-negative safe integer.`);
   }
   return value;
-}
-
-function exact(
-  value: Readonly<Record<string, unknown>>,
-  fields: readonly string[],
-  subject: string,
-): void {
-  const unsupported = Object.keys(value).find((field) => !fields.includes(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`${subject} contains unknown field "${unsupported}".`);
-  }
 }
 
 function sourceToken(value: string): string {

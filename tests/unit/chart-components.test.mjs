@@ -142,6 +142,18 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
   assert.equal(frame.cells.find((cell) => cell.text === '1')?.source?.description, 'bar.c.value');
 });
 
+test('barChart owns retained item data at construction', () => {
+  const items = [{ id: 'a', label: 'Original', value: 1 }];
+  const element = barChart({ id: 'owned-bars', items });
+
+  items[0].label = 'Changed';
+  items.push({ id: 'b', label: 'Added', value: 2 });
+
+  const output = renderFramePlain(renderElementFrame(element, { columns: 24, rows: 2 }));
+  assert.match(output, /Original/u);
+  assert.doesNotMatch(output, /Changed|Added/u);
+});
+
 test('barChart budgets labels and fills in terminal cells under wide profiles', () => {
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
   const frame = renderElementFrame(barChart({
@@ -170,7 +182,7 @@ test('barChart renders its loading data state', () => {
 test('chart and meter reject values outside their component-specific state contracts', () => {
   assert.throws(
     () => chart({ id: 'invalid-chart', series: [], dataState: 'success' }),
-    hasCauseMessage(/chart dataState must be loading or error/u)
+    hasCauseMessage(/chart dataState must be one of loading, error/u)
   );
   assert.throws(
     () => meter({ id: 'invalid-meter', value: 10, result: 'running' }),

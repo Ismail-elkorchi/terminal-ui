@@ -2,7 +2,11 @@ import { defineComponent, ignoreMessage } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { ElementStyles } from '../../element/metadata.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import {
+  assertOptionalEnum,
+  isNonArrayObject,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import { column, portal, prepareLayoutFlowOptions, surface } from '../../layout/index.ts';
 import type { InitialFocusSelector } from '../../interaction/focus.ts';
@@ -17,7 +21,6 @@ import {
   normalizeBorderTitle,
 } from '../../visual/border.ts';
 import { divider } from './menus.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface PreparedDialog {
   readonly title?: BorderTitle;
@@ -31,13 +34,18 @@ interface PreparedDialog {
   readonly layout: LayoutFlowOptions;
 }
 
+type DialogComponentOptions = Omit<
+  DialogOptions<ComponentMessage>,
+  'id' | 'slots' | 'meta' | 'onAction'
+>;
+
 const dialogSlots = {
   content: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
   actions: { cardinality: 'optional', owner: 'caller', messages: 'bubble' },
 } as const;
 
 const instantiateDialog = defineComponent<
-  Omit<DialogOptions<ComponentMessage>, 'id' | 'slots' | 'meta' | 'onAction'>,
+  DialogComponentOptions,
   PreparedDialog,
   DialogAction,
   DialogStylePart,
@@ -54,11 +62,6 @@ const instantiateDialog = defineComponent<
   metadata: ['focus', 'layer', 'styles'],
   parts: ['background', 'border', 'title', 'actionSeparator'],
   prepare(value) {
-    assertKnownOptions(value, [
-      'title', 'border', 'width', 'height', 'modal', 'focusPolicy', 'dismissal',
-      'gap', 'padding', 'margin', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
-      'align', 'justify', 'overflow',
-    ], 'dialog');
     const modal = value.modal;
     if (typeof modal !== 'boolean') throw new TypeError('dialog modal must be a boolean.');
     const title = prepareDialogTitle(value.title);
@@ -204,7 +207,7 @@ export function dialog<
   });
 }
 
-function prepareDialogTitle(value: unknown): BorderTitle | undefined {
+function prepareDialogTitle(value: DialogComponentOptions['title']): BorderTitle | undefined {
   if (value === undefined) return undefined;
   if (!isBorderTitle(value)) throw new TypeError('dialog title is invalid.');
   try {
@@ -218,11 +221,7 @@ function isBorderTitle(value: unknown): value is BorderTitle {
   if (typeof value === 'string') return true;
   if (Array.isArray(value)) return isBorderTitleContent(value);
   if (!isNonArrayObject(value)) return false;
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'start' && field !== 'center' && field !== 'end'
-  );
-  return unsupported === undefined &&
-    ['start', 'center', 'end'].every((field) =>
+  return ['start', 'center', 'end'].every((field) =>
       value[field] === undefined || isBorderTitleContent(value[field])
     );
 }
@@ -239,42 +238,32 @@ function isBorderTitleContent(value: unknown): boolean {
       );
 }
 
-function prepareDialogBorder(value: unknown): BorderOptions | undefined {
+function prepareDialogBorder(value: DialogComponentOptions['border']): BorderOptions | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('dialog border must be an object.');
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'kind' && field !== 'titleAlign'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`dialog border contains unknown field "${unsupported}".`);
-  }
-  const kind = value['kind'];
-  if (
-    kind !== 'none' &&
-    kind !== 'single' &&
-    kind !== 'double' &&
-    kind !== 'rounded' &&
-    kind !== 'heavy' &&
-    kind !== 'ascii' &&
-    kind !== 'dashed' &&
-    kind !== 'dotted' &&
-    kind !== 'empty'
-  ) {
+  const kind = value.kind;
+  if (!isStringMember(kind, [
+    'none',
+    'single',
+    'double',
+    'rounded',
+    'heavy',
+    'ascii',
+    'dashed',
+    'dotted',
+    'empty',
+  ])) {
     throw new TypeError('dialog border.kind is invalid.');
   }
-  const titleAlign = value['titleAlign'];
-  if (
-    titleAlign !== undefined &&
-    titleAlign !== 'start' &&
-    titleAlign !== 'center' &&
-    titleAlign !== 'end'
-  ) {
-    throw new TypeError('dialog border.titleAlign is invalid.');
-  }
+  const titleAlign = value.titleAlign;
+  assertOptionalEnum(titleAlign, ['start', 'center', 'end'], 'dialog border.titleAlign');
   return Object.freeze({ kind, ...(titleAlign === undefined ? {} : { titleAlign }) });
 }
 
-function prepareDialogDimension(value: unknown, name: 'width' | 'height'): number | undefined {
+function prepareDialogDimension(
+  value: DialogComponentOptions['width'],
+  name: 'width' | 'height',
+): number | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     throw new RangeError(`dialog ${name} must be a non-negative safe integer.`);
@@ -282,71 +271,64 @@ function prepareDialogDimension(value: unknown, name: 'width' | 'height'): numbe
   return value;
 }
 
-function prepareDialogFocusPolicy(value: unknown, modal: boolean): DialogFocusPolicy | undefined {
+function prepareDialogFocusPolicy(
+  value: DialogComponentOptions['focusPolicy'],
+  modal: boolean,
+): DialogFocusPolicy | undefined {
   if (!modal) {
     if (value !== undefined) throw new TypeError('Non-modal dialog cannot define focusPolicy.');
     return undefined;
   }
   if (!isNonArrayObject(value)) throw new TypeError('Modal dialog requires focusPolicy.');
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'initialFocus' && field !== 'returnFocus'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`dialog focusPolicy contains unknown field "${unsupported}".`);
-  }
-  if (value['returnFocus'] !== 'restore' && value['returnFocus'] !== 'none') {
+  if (!isStringMember(value.returnFocus, ['restore', 'none'])) {
     throw new TypeError('dialog focusPolicy.returnFocus must be "restore" or "none".');
   }
-  const initialFocus = value['initialFocus'] === undefined
+  const initialFocus = value.initialFocus === undefined
     ? undefined
-    : prepareInitialFocus(value['initialFocus']);
+    : prepareInitialFocus(value.initialFocus);
   return Object.freeze({
     ...(initialFocus === undefined ? {} : { initialFocus }),
-    returnFocus: value['returnFocus'],
+    returnFocus: value.returnFocus,
   });
 }
 
-function prepareInitialFocus(value: unknown): InitialFocusSelector {
+function prepareInitialFocus(value: InitialFocusSelector): InitialFocusSelector {
   if (!isNonArrayObject(value)) throw new TypeError('dialog initialFocus must be an object.');
-  if (value['kind'] === 'path') {
-    const path = value['path'];
+  const kind = value.kind;
+  if (!isStringMember(kind, ['path', 'element', 'elementTarget'])) {
+    throw new TypeError('dialog initialFocus kind is invalid.');
+  }
+  if (kind === 'path') {
+    const path = value.path;
     if (
-      Object.keys(value).some((field) => field !== 'kind' && field !== 'path') ||
       !isNonEmptyStringArray(path)
     ) {
       throw new TypeError('dialog initialFocus path is invalid.');
     }
     return Object.freeze({ kind: 'path', path: Object.freeze(path) });
   }
-  if (value['kind'] === 'element') {
+  if (kind === 'element') {
     if (
-      Object.keys(value).some((field) => field !== 'kind' && field !== 'elementId') ||
-      typeof value['elementId'] !== 'string' ||
-      value['elementId'].trim() === ''
+      typeof value.elementId !== 'string' ||
+      value.elementId.trim() === ''
     ) {
       throw new TypeError('dialog initialFocus element is invalid.');
     }
-    return Object.freeze({ kind: 'element', elementId: value['elementId'] });
+    return Object.freeze({ kind: 'element', elementId: value.elementId });
   }
-  if (value['kind'] === 'elementTarget') {
-    if (
-      Object.keys(value).some((field) =>
-        field !== 'kind' && field !== 'elementId' && field !== 'targetId'
-      ) ||
-      typeof value['elementId'] !== 'string' ||
-      value['elementId'].trim() === '' ||
-      typeof value['targetId'] !== 'string' ||
-      value['targetId'].trim() === ''
-    ) {
-      throw new TypeError('dialog initialFocus element target is invalid.');
-    }
-    return Object.freeze({
-      kind: 'elementTarget',
-      elementId: value['elementId'],
-      targetId: value['targetId'],
-    });
+  if (
+    typeof value.elementId !== 'string' ||
+    value.elementId.trim() === '' ||
+    typeof value.targetId !== 'string' ||
+    value.targetId.trim() === ''
+  ) {
+    throw new TypeError('dialog initialFocus element target is invalid.');
   }
-  throw new TypeError('dialog initialFocus kind is invalid.');
+  return Object.freeze({
+    kind: 'elementTarget',
+    elementId: value.elementId,
+    targetId: value.targetId,
+  });
 }
 
 function isNonEmptyStringArray(value: unknown): value is readonly string[] {
@@ -355,17 +337,13 @@ function isNonEmptyStringArray(value: unknown): value is readonly string[] {
     value.every((segment) => typeof segment === 'string' && segment.trim() !== '');
 }
 
-function prepareDialogDismissal(value: unknown): DialogDismissal | undefined {
+function prepareDialogDismissal(
+  value: DialogComponentOptions['dismissal'],
+): DialogDismissal | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('dialog dismissal must be an object.');
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'escape' && field !== 'outsidePress'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`dialog dismissal contains unknown field "${unsupported}".`);
-  }
-  const escape = value['escape'];
-  const outsidePress = value['outsidePress'];
+  const escape = value.escape;
+  const outsidePress = value.outsidePress;
   if (
     typeof escape !== 'boolean' || typeof outsidePress !== 'boolean' || (!escape && !outsidePress)
   ) {

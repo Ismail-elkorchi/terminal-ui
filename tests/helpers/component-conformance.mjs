@@ -7,27 +7,6 @@ import { renderElementSnapshot } from '../../dist/testing/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 export function runButtonConformance(name, createButton) {
-  test(`${name}: unknown options fail at the component boundary`, () => {
-    assert.throws(
-      () => createButton({
-        id: `${name}-typo`,
-        label: 'Delete',
-        disabeld: true,
-        onAction: () => ({ kind: 'delete' })
-      }),
-      /unknown field "disabeld"/u
-    );
-    assert.throws(
-      () => createButton({
-        id: `${name}-visual-typo`,
-        label: 'Delete',
-        toen: 'danger',
-        onAction: () => ({ kind: 'delete' })
-      }),
-      /unknown field "toen"/u
-    );
-  });
-
   test(`${name}: option decoding, sanitization, Unicode, styles, source, focus, and determinism`, () => {
     const element = createButton({
       id: `${name}-button`,

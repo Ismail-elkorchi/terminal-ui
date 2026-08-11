@@ -22,17 +22,29 @@ import type { HitTarget } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import { dataWindow, isCollectionProjection, prepareTreeCollection } from '../../behavior/index.ts';
 import type { CollectionProjection, CollectionRecord } from '../../behavior/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import {
+  assertOptionalEnum,
+  isNonArrayObject,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import { terminalStyleHasBackground } from '../../theme/index.ts';
-import type { TableAction } from '../../ui-model/table.ts';
+import type {
+  TableAction,
+  TablePresentation,
+} from '../../ui-model/table.ts';
 import type { TreeInteractionAction } from '../../ui-model/tree.ts';
-import type { TreeLazyState, TreeNode, TreeVisibleRow } from '../../ui-model/tree.ts';
-import type { TableColumnWidth } from '../../ui-model/content.ts';
+import type {
+  TreeCollectionRecord,
+  TreeLazyState,
+  TreeNode,
+  TreeVisibleRow,
+} from '../../ui-model/tree.ts';
+import type { TableColumn, TableColumnWidth } from '../../ui-model/content.ts';
 import type { TableStylePart, TreeStylePart } from '../../ui-model/style-parts.ts';
 import {
   inlineContentAccessibleText,
@@ -62,11 +74,7 @@ interface PreparedTableColumn {
   readonly width?: TableColumnWidth;
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
-}
-
-interface PreparedTableColumns {
-  readonly models: readonly PreparedTableColumn[];
-  readonly inputs: readonly Readonly<Record<string, unknown>>[];
+  readonly cell: (row: unknown, rowIndex: number, columnIndex: number) => PreparedTableCell;
 }
 
 interface PreparedTablePresentation {
@@ -111,7 +119,7 @@ interface PreparedTableSource {
   readonly rows: readonly unknown[];
   readonly ids: readonly string[];
   readonly indexes: ReadonlyMap<string, number>;
-  readonly columns: readonly Readonly<Record<string, unknown>>[];
+  readonly columns: readonly PreparedTableColumn[];
   readonly preparedRows: Map<number, PreparedTableRow>;
 }
 
@@ -121,20 +129,6 @@ const tableCollectionSources = new WeakMap<object, TableSource>();
 interface TablePreparation {
   readonly columns: readonly PreparedTableColumn[];
   readonly source: Readonly<Record<string, never>>;
-}
-
-interface DynamicTableOptions {
-  readonly rows?: unknown;
-  readonly getRowId?: unknown;
-  readonly collection?: unknown;
-  readonly columns?: unknown;
-  readonly presentation?: unknown;
-  readonly density?: unknown;
-  readonly stickyHeader?: unknown;
-  readonly emptyText?: unknown;
-  readonly scrollbar?: unknown;
-  readonly scrollPolicy?: unknown;
-  readonly pointerState?: unknown;
 }
 
 const tableBase = {
@@ -155,14 +149,13 @@ const tableBase = {
     'empty',
     'scrollbar',
   ] as const,
-  prepare: prepareTable,
   measure: measureTable,
   render: paintTable,
   accessibility: tableAccessibility,
 };
 
 const passiveTable = defineComponent<
-  DynamicTableOptions,
+  TableModel,
   TableModel,
   never,
   TableStylePart,
@@ -172,7 +165,7 @@ const passiveTable = defineComponent<
 >(tableBase);
 
 const activeTable = defineComponent<
-  DynamicTableOptions,
+  TableModel,
   TableModel,
   TableAction,
   TableStylePart,
@@ -246,30 +239,24 @@ export function table<TRow, const TMessage extends ComponentMessage = never>(
 export function table<TRow, const TMessage extends ComponentMessage = never>(
   options: TableOptions<TRow, TMessage>,
 ): Element<TMessage> {
-  const own: DynamicTableOptions = options;
   const onAction = options.onAction;
+  const prepared = prepareTable(options);
+  const componentOptions = {
+    ...prepared,
+    id: options.id,
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
   if (onAction === undefined) {
-    return passiveTable({
-      ...own,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
-    });
+    return passiveTable(componentOptions);
   }
   if (!isScrollableTable(options)) {
     return activeTable({
-      ...own,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
+      ...componentOptions,
       onAction: (action) =>
         action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  return activeTable({
-    ...own,
-    id: options.id,
-    ...(options.meta === undefined ? {} : { meta: options.meta }),
-    onAction: options.onAction,
-  });
+  return activeTable({ ...componentOptions, onAction: options.onAction });
 }
 
 function isScrollableTable<TRow, TMessage extends ComponentMessage>(
@@ -278,25 +265,21 @@ function isScrollableTable<TRow, TMessage extends ComponentMessage>(
   return isNonArrayObject(options.presentation) && 'scroll' in options.presentation;
 }
 
-function prepareTable(value: Readonly<Record<string, unknown>>): TableModel {
-  assertExactFields(value, [
-    'rows', 'getRowId', 'collection', 'columns', 'presentation', 'density', 'stickyHeader',
-    'emptyText', 'scrollbar', 'scrollPolicy', 'pointerState',
-  ], 'table options');
+function prepareTable<TRow, TMessage extends ComponentMessage>(
+  value: Readonly<TableOptions<TRow, TMessage>>,
+): TableModel {
   const source = tableSource(value);
-  const preparation = prepareTableStructure(value['columns'], source);
+  const preparation = prepareTableStructure(value.columns, source);
   const columns = preparation.columns;
-  const presentation = prepareTablePresentation(value['presentation']);
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'table scrollbar');
-  const scrollPolicy = prepareComponentScrollPolicy(value['scrollPolicy'], 'table scrollPolicy');
+  const presentation = prepareTablePresentation(value.presentation);
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'table scrollbar');
+  const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'table scrollPolicy');
   if (
     presentation.scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)
   ) throw new TypeError('table scrollbar and scrollPolicy require scroll state.');
-  const pointerState = preparePointerState(value['pointerState'], 'table');
-  const density = value['density'];
-  if (density !== undefined && density !== 'compact' && density !== 'regular') {
-    throw new TypeError('table density is invalid.');
-  }
+  const pointerState = preparePointerState(value.pointerState);
+  const density = value.density;
+  assertOptionalEnum(density, ['compact', 'regular'], 'table density');
   return {
     columns,
     hasHeader: columns.some((column) => column.header.length > 0),
@@ -310,10 +293,10 @@ function prepareTable(value: Readonly<Record<string, unknown>>): TableModel {
     ...(presentation.sort === undefined ? {} : { sort: presentation.sort }),
     columnWidths: presentation.columnWidths,
     density: density ?? 'regular',
-    stickyHeader: value['stickyHeader'] === undefined
+    stickyHeader: value.stickyHeader === undefined
       ? true
-      : boolean(value['stickyHeader'], 'table stickyHeader'),
-    emptyText: text(value['emptyText'], 'table emptyText') ?? 'No rows',
+      : boolean(value.stickyHeader, 'table stickyHeader'),
+    emptyText: text(value.emptyText, 'table emptyText') ?? 'No rows',
     ...(presentation.scroll === undefined ? {} : { scroll: presentation.scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
@@ -321,15 +304,10 @@ function prepareTable(value: Readonly<Record<string, unknown>>): TableModel {
   };
 }
 
-interface TableSource {
-  readonly rows: readonly unknown[];
-  readonly ids: readonly string[];
-  readonly startIndex: number;
-  readonly totalCount: number;
-  readonly indexes?: ReadonlyMap<string, number>;
-}
-
-function prepareTableStructure(columns: unknown, source: TableSource): TablePreparation {
+function prepareTableStructure<TRow>(
+  columns: readonly TableColumn<TRow>[] | undefined,
+  source: TableSource<TRow>,
+): TablePreparation {
   const preparedColumns = prepareTableColumns(columns, source.rows);
   const sourceToken = Object.freeze({});
   tableSources.set(sourceToken, {
@@ -338,25 +316,32 @@ function prepareTableStructure(columns: unknown, source: TableSource): TablePrep
     indexes: source.indexes ?? new Map(
       source.ids.map((id, index) => [id, source.startIndex + index]),
     ),
-    columns: preparedColumns.inputs,
+    columns: preparedColumns,
     preparedRows: new Map(),
   });
-  return Object.freeze({ columns: preparedColumns.models, source: sourceToken });
+  return Object.freeze({ columns: preparedColumns, source: sourceToken });
 }
 
-function tableSource(value: Readonly<Record<string, unknown>>): TableSource {
-  if (value['collection'] !== undefined) {
-    if (value['rows'] !== undefined || value['getRowId'] !== undefined) {
-      throw new TypeError('table accepts rows or collection, not both.');
-    }
-    const collection = value['collection'];
+interface TableSource<TRow = unknown> {
+  readonly rows: readonly TRow[];
+  readonly ids: readonly string[];
+  readonly startIndex: number;
+  readonly totalCount: number;
+  readonly indexes?: ReadonlyMap<string, number>;
+}
+
+function tableSource<TRow, TMessage extends ComponentMessage>(
+  value: Readonly<TableOptions<TRow, TMessage>>,
+): TableSource<TRow> {
+  if (value.collection !== undefined) {
+    const collection = value.collection;
     if (!isCollectionProjection(collection)) {
       throw new TypeError('table collection must be prepared with prepareTableCollection().');
     }
-    const cached = tableCollectionSources.get(collection);
+    const cached = tableCollectionSources.get(collection) as TableSource<TRow> | undefined;
     if (cached !== undefined) return cached;
     const rows = Object.freeze(collection.records.map((record, index) =>
-      collectionRow(record, `table collection records[${String(index)}]`)
+      tableCollectionRow(record, `table collection records[${String(index)}]`)
     ));
     const ids = Object.freeze(collection.records.map((record) => record.id));
     const prepared = Object.freeze({
@@ -369,11 +354,8 @@ function tableSource(value: Readonly<Record<string, unknown>>): TableSource {
     tableCollectionSources.set(collection, prepared);
     return prepared;
   }
-  if (!Array.isArray(value['rows']) || !isUnknownCallback(value['getRowId'])) {
-    throw new TypeError('table requires rows and getRowId, or collection.');
-  }
-  const rows = value['rows'];
-  const getRowId = value['getRowId'];
+  const rows = Object.freeze([...value.rows]);
+  const getRowId = value.getRowId;
   const ids = rows.map((row, index) =>
     nonEmpty(getRowId(row, index), `table row ${String(index)} id`)
   );
@@ -381,133 +363,125 @@ function tableSource(value: Readonly<Record<string, unknown>>): TableSource {
   return { rows, ids, startIndex: 0, totalCount: rows.length };
 }
 
-function collectionRow(record: CollectionRecord, owner: string): unknown {
+function tableCollectionRow<TRow>(
+  record: CollectionRecord & { readonly row: TRow },
+  owner: string,
+): TRow {
   if (!isNonArrayObject(record) || !Object.hasOwn(record, 'row')) {
     throw new TypeError(`${owner} must contain a row.`);
   }
-  return record['row'];
+  return record.row;
 }
 
-function prepareTableColumns(value: unknown, rows: readonly unknown[]): PreparedTableColumns {
+function prepareTableColumns<TRow>(
+  value: readonly TableColumn<TRow>[] | undefined,
+  rows: readonly TRow[],
+): readonly PreparedTableColumn[] {
   if (value === undefined) {
     const count = rows.reduce<number>((maximum, row) => Math.max(maximum, rowCells(row).length), 0);
-    const inputs: readonly Readonly<Record<string, unknown>>[] = Array.from(
+    const columns: readonly TableColumn<TRow>[] = Array.from(
       { length: count },
       (_unused, index) =>
         Object.freeze({
           id: `column-${String(index)}`,
-          value: (row: unknown) => rowCells(row)[index],
+          value: (row: TRow) => rowCells(row)[index],
         }),
     );
-    const models = inputs.map((column): PreparedTableColumn =>
+    return Object.freeze(columns.map((column, index): PreparedTableColumn =>
       Object.freeze({
-        id: nonEmpty(column['id'], 'inferred table column id'),
-        index: Number(String(column['id']).slice('column-'.length)),
+        id: nonEmpty(column.id, 'inferred table column id'),
+        index,
         header: '',
         align: 'start',
         semantic: 'text',
         sortable: false,
         resizable: false,
+        cell: compiledTableCell(column),
       })
-    );
-    return { models: Object.freeze(models), inputs: Object.freeze(inputs) };
+    ));
   }
-  const columns = arrayObjects(value, 'table columns');
-  const visible = columns.flatMap((column, index) =>
-    column['hidden'] === true ? [] : [{ column, index }]
+  const visible = value.flatMap((column, index) =>
+    column.hidden === true ? [] : [{ column, index }]
   );
-  const inputs = visible.map(({ column }) => column);
   const models = visible.map(({ column, index }): PreparedTableColumn => {
-    const unsupported = Object.keys(column).find((field) =>
-      field !== 'id' && field !== 'header' && field !== 'value' && field !== 'width' &&
-      field !== 'align' && field !== 'semantic' && field !== 'hidden' && field !== 'sortable' &&
-      field !== 'resizable' && field !== 'style' && field !== 'headerStyle' &&
-      field !== 'renderCell'
-    );
-    if (unsupported !== undefined) {
-      throw new TypeError(
-        `table columns[${String(index)}] contains unknown field "${unsupported}".`,
-      );
-    }
-    const id = nonEmpty(column['id'], `table columns[${String(index)}].id`);
-    const header = text(column['header'], `table column ${id} header`) ?? '';
-    if (typeof column['value'] !== 'function') {
+    const id = nonEmpty(column.id, `table columns[${String(index)}].id`);
+    const header = text(column.header, `table column ${id} header`) ?? '';
+    if (typeof column.value !== 'function') {
       throw new TypeError(`table column "${id}" requires value().`);
     }
-    if (column['renderCell'] !== undefined && typeof column['renderCell'] !== 'function') {
+    if ('renderCell' in column && typeof column.renderCell !== 'function') {
       throw new TypeError(`table column "${id}" renderCell must be a function.`);
     }
-    const align = column['align'];
-    if (align !== undefined && align !== 'start' && align !== 'center' && align !== 'end') {
-      throw new TypeError(`table column "${id}" align is invalid.`);
-    }
-    const semantic = column['semantic'];
-    if (
-      semantic !== undefined && semantic !== 'text' && semantic !== 'metric' &&
-      semantic !== 'metadata'
-    ) throw new TypeError(`table column "${id}" semantic is invalid.`);
-    const width = prepareTableColumnWidth(column['width'], `table column "${id}" width`);
+    const align = column.align;
+    assertOptionalEnum(align, ['start', 'center', 'end'], `table column "${id}" align`);
+    const semantic = column.semantic;
+    assertOptionalEnum(semantic, ['text', 'metric', 'metadata'], `table column "${id}" semantic`);
+    const width = prepareTableColumnWidth(column.width, `table column "${id}" width`);
     return Object.freeze({
       id,
       index,
       header,
       align: align ?? 'start',
       semantic: semantic ?? (align === 'end' ? 'metric' : 'text'),
-      sortable: boolean(column['sortable'], `table column "${id}" sortable`),
-      resizable: boolean(column['resizable'], `table column "${id}" resizable`),
+      sortable: boolean(column.sortable, `table column "${id}" sortable`),
+      resizable: boolean(column.resizable, `table column "${id}" resizable`),
       ...(width === undefined ? {} : { width }),
-      ...(column['style'] === undefined
+      ...(column.style === undefined
         ? {}
-        : { style: prepareTerminalStyle(column['style'], `table column "${id}" style`) }),
-      ...(column['headerStyle'] === undefined ? {} : {
+        : { style: prepareTerminalStyle(column.style, `table column "${id}" style`) }),
+      ...(column.headerStyle === undefined ? {} : {
         headerStyle: prepareTerminalStyle(
-          column['headerStyle'],
+          column.headerStyle,
           `table column "${id}" headerStyle`,
         ),
       }),
+      cell: compiledTableCell(column),
     });
   });
   assertUniqueIds(models.map((column) => column.id), 'table columns');
-  return { models: Object.freeze(models), inputs: Object.freeze(inputs) };
+  return Object.freeze(models);
 }
 
-function prepareTableColumnWidth(value: unknown, owner: string): TableColumnWidth | undefined {
+function compiledTableCell<TRow>(
+  column: TableColumn<TRow>,
+): (row: unknown, rowIndex: number, columnIndex: number) => PreparedTableCell {
+  return (row, rowIndex, columnIndex) =>
+    tableCell(column, row as TRow, rowIndex, columnIndex);
+}
+
+function prepareTableColumnWidth(
+  value: TableColumnWidth | undefined,
+  owner: string,
+): TableColumnWidth | undefined {
   if (value === undefined) return undefined;
   if (typeof value === 'number') return positive(value, owner);
-  if (!isNonArrayObject(value) || typeof value['kind'] !== 'string') {
-    throw new TypeError(`${owner} is invalid.`);
-  }
-  switch (value['kind']) {
+  switch (value.kind) {
     case 'fixed': {
-      assertExactFields(value, ['kind', 'cells'], owner);
-      return Object.freeze({ kind: 'fixed', cells: positive(value['cells'], `${owner}.cells`) });
+      return Object.freeze({ kind: 'fixed', cells: positive(value.cells, `${owner}.cells`) });
     }
     case 'percent': {
-      assertExactFields(value, ['kind', 'value'], owner);
-      const percentage = finite(value['value'], `${owner}.value`);
+      const percentage = finite(value.value, `${owner}.value`);
       if (percentage <= 0 || percentage > 100) {
         throw new RangeError(`${owner}.value must be greater than zero and at most 100.`);
       }
       return Object.freeze({ kind: 'percent', value: percentage });
     }
     case 'fill': {
-      assertExactFields(value, ['kind', 'weight'], owner);
-      const weight = value['weight'] === undefined
+      const weight = value.weight === undefined
         ? undefined
-        : finite(value['weight'], `${owner}.weight`);
+        : finite(value.weight, `${owner}.weight`);
       if (weight !== undefined && weight <= 0) {
         throw new RangeError(`${owner}.weight must be positive.`);
       }
       return Object.freeze({ kind: 'fill', ...(weight === undefined ? {} : { weight }) });
     }
     case 'content': {
-      assertExactFields(value, ['kind', 'min', 'max'], owner);
-      const min = value['min'] === undefined
+      const min = value.min === undefined
         ? undefined
-        : nonNegative(value['min'], `${owner}.min`);
-      const max = value['max'] === undefined
+        : nonNegative(value.min, `${owner}.min`);
+      const max = value.max === undefined
         ? undefined
-        : nonNegative(value['max'], `${owner}.max`);
+        : nonNegative(value.max, `${owner}.max`);
       if (min !== undefined && max !== undefined && min > max) {
         throw new RangeError(`${owner}.min must not exceed max.`);
       }
@@ -526,18 +500,18 @@ function rowCells(row: unknown): readonly unknown[] {
   return Array.isArray(row) ? row : [row];
 }
 
-function tableCell(
-  column: Readonly<Record<string, unknown>> | undefined,
-  row: unknown,
+function tableCell<TRow>(
+  column: TableColumn<TRow> | undefined,
+  row: TRow,
   rowIndex: number,
   columnIndex: number,
 ): PreparedTableCell {
-  if (column === undefined || !isUnknownCallback(column['value'])) {
+  if (column === undefined || typeof column.value !== 'function') {
     return { content: Object.freeze([]), text: '' };
   }
-  const rendered = isUnknownCallback(column['renderCell'])
-    ? column['renderCell'](row, rowIndex, columnIndex)
-    : column['value'](row, rowIndex);
+  const rendered = 'renderCell' in column && typeof column.renderCell === 'function'
+    ? column.renderCell(row, rowIndex, columnIndex)
+    : column.value(row, rowIndex);
   let content: InlineContent;
   if (typeof rendered === 'string') {
     content = normalizeInlineContent([{ kind: 'text', text: rendered }]);
@@ -565,31 +539,24 @@ function isInlineContentSegment(value: unknown): value is InlineContentSegment {
       typeof value['accessibleText'] === 'string';
 }
 
-function prepareTablePresentation(value: unknown): PreparedTablePresentation {
+function prepareTablePresentation(
+  value: (TablePresentation & { readonly scroll?: ScrollState }) | null | undefined,
+): PreparedTablePresentation {
   if (value === undefined) return { columnWidths: Object.freeze({}) };
-  if (!isNonArrayObject(value)) throw new TypeError('table presentation must be an object.');
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'selectedRowId' && field !== 'selectedCell' && field !== 'sort' &&
-    field !== 'columnWidths' && field !== 'scroll'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`table presentation contains unknown field "${unsupported}".`);
-  }
-  const selectedRowId = value['selectedRowId'] === undefined
+  if (value === null) throw new TypeError('table presentation must be an object.');
+  const scrollValue = value.scroll;
+  const selectedRowId = value.selectedRowId === undefined
     ? undefined
-    : nonEmpty(value['selectedRowId'], 'table selectedRowId');
+    : nonEmpty(value.selectedRowId, 'table selectedRowId');
   let selectedCell: { readonly rowId: string; readonly columnIndex: number } | undefined;
-  if (value['selectedCell'] !== undefined) {
+  if (value.selectedCell !== undefined) {
     if (
-      !isNonArrayObject(value['selectedCell']) ||
-      Object.keys(value['selectedCell']).some((field) =>
-        field !== 'rowId' && field !== 'columnIndex'
-      )
+      !isNonArrayObject(value.selectedCell)
     ) throw new TypeError('table selectedCell is invalid.');
     selectedCell = {
-      rowId: nonEmpty(value['selectedCell']['rowId'], 'table selectedCell rowId'),
+      rowId: nonEmpty(value.selectedCell.rowId, 'table selectedCell rowId'),
       columnIndex: nonNegative(
-        value['selectedCell']['columnIndex'],
+        value.selectedCell.columnIndex,
         'table selectedCell columnIndex',
       ),
     };
@@ -597,17 +564,17 @@ function prepareTablePresentation(value: unknown): PreparedTablePresentation {
   let sort:
     | { readonly columnId: string; readonly direction: 'ascending' | 'descending' }
     | undefined;
-  if (value['sort'] !== undefined) {
+  if (value.sort !== undefined) {
     if (
-      !isNonArrayObject(value['sort']) ||
-      (value['sort']['direction'] !== 'ascending' && value['sort']['direction'] !== 'descending')
+      !isNonArrayObject(value.sort) ||
+      !isStringMember(value.sort.direction, ['ascending', 'descending'])
     ) throw new TypeError('table sort is invalid.');
     sort = {
-      columnId: nonEmpty(value['sort']['columnId'], 'table sort columnId'),
-      direction: value['sort']['direction'],
+      columnId: nonEmpty(value.sort.columnId, 'table sort columnId'),
+      direction: value.sort.direction,
     };
   }
-  const widths = value['columnWidths'];
+  const widths = value.columnWidths;
   if (widths !== undefined && !isNonArrayObject(widths)) {
     throw new TypeError('table columnWidths must be an object.');
   }
@@ -618,7 +585,7 @@ function prepareTablePresentation(value: unknown): PreparedTablePresentation {
       ) => [nonEmpty(id, 'table columnWidths id'), positive(width, `table columnWidths.${id}`)]),
     ),
   );
-  const scroll = prepareComponentScrollState(value['scroll'], 'table scroll');
+  const scroll = prepareComponentScrollState(scrollValue, 'table scroll');
   return {
     ...(selectedRowId === undefined ? {} : { selectedRowId }),
     ...(selectedCell === undefined ? {} : { selectedCell }),
@@ -1548,7 +1515,7 @@ function preparedTableRow(model: TableModel, localIndex: number): PreparedTableR
     id,
     rowIndex,
     cells: Object.freeze(
-      source.columns.map((column, columnIndex) => tableCell(column, row, rowIndex, columnIndex)),
+      source.columns.map((column, columnIndex) => column.cell(row, rowIndex, columnIndex)),
     ),
   });
   source.preparedRows.set(localIndex, prepared);
@@ -1590,18 +1557,6 @@ interface PreparedTreeSource {
 const treeSources = new WeakMap<object, PreparedTreeSource>();
 const preparedTreeCollections = new WeakMap<object, PreparedTreeSource>();
 
-interface DynamicTreeOptions {
-  readonly nodes?: unknown;
-  readonly collection?: unknown;
-  readonly filterQuery?: unknown;
-  readonly selected?: unknown;
-  readonly emptyText?: unknown;
-  readonly scroll?: unknown;
-  readonly scrollbar?: unknown;
-  readonly scrollPolicy?: unknown;
-  readonly pointerState?: unknown;
-}
-
 const treeBase = {
   name: 'terminal-ui/components/tree' as const,
   identity: 'required' as const,
@@ -1620,14 +1575,13 @@ const treeBase = {
     'empty',
     'scrollbar',
   ] as const,
-  prepare: prepareTree,
   measure: measureTree,
   render: paintTree,
   accessibility: treeAccessibility,
 };
 
 const passiveTree = defineComponent<
-  DynamicTreeOptions,
+  TreeModel,
   TreeModel,
   never,
   TreeStylePart,
@@ -1636,7 +1590,7 @@ const passiveTree = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >(treeBase);
 const activeTree = defineComponent<
-  DynamicTreeOptions,
+  TreeModel,
   TreeModel,
   TreeInteractionAction,
   TreeStylePart,
@@ -1691,38 +1645,34 @@ export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
   const TMessage extends ComponentMessage = never,
 >(options: TreeOptions<TMetadata, TMessage>): Element<TMessage> {
-  const own: DynamicTreeOptions = options;
-  const shared = {
-    ...own,
+  const onAction = options.onAction;
+  const prepared = prepareTree(options);
+  const componentOptions = {
+    ...prepared,
     id: options.id,
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  const onAction = options.onAction;
-  if (onAction === undefined) return passiveTree(shared);
+  if (onAction === undefined) return passiveTree(componentOptions);
   if (options.scroll === undefined) {
     return activeTree({
-      ...shared,
+      ...componentOptions,
       onAction: (action) =>
         action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  return activeTree({ ...shared, onAction: options.onAction });
+  return activeTree({ ...componentOptions, onAction: options.onAction });
 }
 
-function prepareTree(value: Readonly<Record<string, unknown>>): TreeModel {
-  assertExactFields(value, [
-    'nodes', 'collection', 'filterQuery', 'selected', 'emptyText', 'scroll', 'scrollbar',
-    'scrollPolicy', 'pointerState',
-  ], 'tree options');
-  const query = (text(value['filterQuery'], 'tree filterQuery') ?? '').trim();
-  let collection: CollectionProjection<CollectionRecord>;
+function prepareTree<
+  TMetadata extends Readonly<Record<string, unknown>>,
+  TMessage extends ComponentMessage,
+>(value: Readonly<TreeOptions<TMetadata, TMessage>>): TreeModel {
+  const query = (text(value.filterQuery, 'tree filterQuery') ?? '').trim();
+  let collection: CollectionProjection<TreeCollectionRecord<TMetadata>>;
   let startIndex: number;
   let totalCount: number;
-  if (value['collection'] !== undefined) {
-    if (value['nodes'] !== undefined) {
-      throw new TypeError('tree accepts nodes or collection, not both.');
-    }
-    const supplied = value['collection'];
+  if (value.collection !== undefined) {
+    const supplied = value.collection;
     if (!isCollectionProjection(supplied)) {
       throw new TypeError(
         'tree collection must be prepared with prepareTreeCollection() or prepareTreeRows().',
@@ -1732,31 +1682,33 @@ function prepareTree(value: Readonly<Record<string, unknown>>): TreeModel {
     startIndex = supplied.startIndex;
     totalCount = supplied.totalCount;
   } else {
-    if (!Array.isArray(value['nodes'])) throw new TypeError('tree requires nodes or collection.');
-    const nodes = prepareTreeNodes(value['nodes']);
-    collection = prepareTreeCollection(nodes, query === '' ? {} : { filterQuery: query });
+    const nodes = prepareTreeNodes<TMetadata>(value.nodes);
+    collection = prepareTreeCollection<TMetadata>(
+      nodes,
+      query === '' ? {} : { filterQuery: query },
+    );
     startIndex = collection.startIndex;
     totalCount = collection.totalCount;
   }
   const sourceToken = Object.freeze({});
   treeSources.set(sourceToken, preparedTreeSource(collection));
-  const scroll = prepareComponentScrollState(value['scroll'], 'tree scroll');
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'tree scrollbar');
-  const scrollPolicy = prepareComponentScrollPolicy(value['scrollPolicy'], 'tree scrollPolicy');
+  const scroll = prepareComponentScrollState(value.scroll, 'tree scroll');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'tree scrollbar');
+  const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'tree scrollPolicy');
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('tree scrollbar and scrollPolicy require scroll state.');
   }
-  const selected = value['selected'] === undefined
+  const selected = value.selected === undefined
     ? undefined
-    : nonEmpty(value['selected'], 'tree selected');
-  const pointerState = preparePointerState(value['pointerState'], 'tree');
+    : nonEmpty(value.selected, 'tree selected');
+  const pointerState = preparePointerState(value.pointerState);
   return {
     source: sourceToken,
     startIndex,
     totalCount,
     query,
     ...(selected === undefined ? {} : { selected }),
-    emptyText: text(value['emptyText'], 'tree emptyText') ?? 'No items',
+    emptyText: text(value.emptyText, 'tree emptyText') ?? 'No items',
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
@@ -1764,14 +1716,16 @@ function prepareTree(value: Readonly<Record<string, unknown>>): TreeModel {
   };
 }
 
-function preparedTreeSource(
-  collection: CollectionProjection<CollectionRecord>,
+function preparedTreeSource<
+  TMetadata extends Readonly<Record<string, unknown>>,
+>(
+  collection: CollectionProjection<TreeCollectionRecord<TMetadata>>,
 ): PreparedTreeSource {
   const cached = preparedTreeCollections.get(collection);
   if (cached !== undefined) return cached;
   const rows = Object.freeze(collection.records.map((record, index) => {
     const prepared = prepareTreeRecord(
-      collectionRow(record, `tree collection records[${String(index)}]`),
+      record.row,
       record.itemIndex,
     );
     if (prepared.id !== record.id) {
@@ -1787,93 +1741,77 @@ function preparedTreeSource(
   return source;
 }
 
-function prepareTreeNodes(values: readonly unknown[]): readonly TreeNode[] {
+function prepareTreeNodes<
+  TMetadata extends Readonly<Record<string, unknown>>,
+>(values: readonly TreeNode<TMetadata>[]): readonly TreeNode<TMetadata>[] {
   return values.map((value, index) => prepareTreeNode(value, `tree nodes[${String(index)}]`));
 }
 
-function prepareTreeNode(value: unknown, owner: string): TreeNode {
+function prepareTreeNode<
+  TMetadata extends Readonly<Record<string, unknown>>,
+>(value: TreeNode<TMetadata>, owner: string): TreeNode<TMetadata> {
   if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be an object.`);
-  const kind = value['kind'];
-  if (kind !== 'leaf' && kind !== 'branch' && kind !== 'lazy') {
+  const kind = value.kind;
+  if (!isStringMember(kind, ['leaf', 'branch', 'lazy'])) {
     throw new TypeError(`${owner}.kind is invalid.`);
   }
-  const allowed = new Set([
-    'id',
-    'label',
-    'kind',
-    'description',
-    'disabled',
-    'icon',
-    'metadata',
-    ...(kind === 'branch'
-      ? ['expanded', 'children']
-      : kind === 'lazy'
-      ? ['expanded', 'loading']
-      : []),
-  ]);
-  const unsupported = Object.keys(value).find((field) => !allowed.has(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} contains unknown field "${unsupported}".`);
-  }
   const base = {
-    id: nonEmpty(value['id'], `${owner}.id`),
-    label: text(value['label'], `${owner}.label`) ?? '',
-    ...(value['description'] === undefined
+    id: nonEmpty(value.id, `${owner}.id`),
+    label: text(value.label, `${owner}.label`) ?? '',
+    ...(value.description === undefined
       ? {}
-      : { description: text(value['description'], `${owner}.description`) ?? '' }),
-    ...(value['disabled'] === undefined
+      : { description: text(value.description, `${owner}.description`) ?? '' }),
+    ...(value.disabled === undefined
       ? {}
-      : { disabled: boolean(value['disabled'], `${owner}.disabled`) }),
-    ...(value['icon'] === undefined ? {} : { icon: text(value['icon'], `${owner}.icon`) ?? '' }),
-    ...(value['metadata'] === undefined
+      : { disabled: boolean(value.disabled, `${owner}.disabled`) }),
+    ...(value.icon === undefined ? {} : { icon: text(value.icon, `${owner}.icon`) ?? '' }),
+    ...(value.metadata === undefined
       ? {}
-      : { metadata: plainObject(value['metadata'], `${owner}.metadata`) }),
+      : { metadata: plainObject(value.metadata, `${owner}.metadata`) }),
   };
   if (kind === 'leaf') return { ...base, kind };
-  const expanded = boolean(value['expanded'], `${owner}.expanded`);
+  const expanded = boolean(value.expanded, `${owner}.expanded`);
   if (kind === 'branch') {
-    if (!Array.isArray(value['children'])) {
+    if (!Array.isArray(value.children)) {
       throw new TypeError(`${owner}.children must be an array.`);
     }
-    return { ...base, kind, expanded, children: prepareTreeNodes(value['children']) };
+    return { ...base, kind, expanded, children: prepareTreeNodes(value.children) };
   }
-  const loading = value['loading'];
+  const loading = value.loading;
   if (!isNonArrayObject(loading)) throw new TypeError(`${owner}.loading must be an object.`);
-  const loadingKind = loading['kind'];
-  if (
-    loadingKind !== 'idle' && loadingKind !== 'pending' && loadingKind !== 'error' &&
-    loadingKind !== 'empty'
-  ) throw new TypeError(`${owner}.loading.kind is invalid.`);
-  const loadingUnsupported = Object.keys(loading).find((field) =>
-    field !== 'kind' && field !== 'message'
-  );
-  if (loadingUnsupported !== undefined) {
-    throw new TypeError(`${owner}.loading contains unknown field "${loadingUnsupported}".`);
+  const loadingKind = loading.kind;
+  if (!isStringMember(loadingKind, ['idle', 'pending', 'error', 'empty'])) {
+    throw new TypeError(`${owner}.loading.kind is invalid.`);
   }
-  const message = loading['message'] === undefined
+  const rawMessage = 'message' in loading ? loading.message : undefined;
+  const message = rawMessage === undefined
     ? undefined
-    : text(loading['message'], `${owner}.loading.message`);
+    : text(rawMessage, `${owner}.loading.message`);
   if (loadingKind === 'error' && message === undefined) {
     throw new TypeError(`${owner}.loading.message is required for errors.`);
   }
   return { ...base, kind, expanded, loading: preparedTreeLoading(loadingKind, message) };
 }
 
-function plainObject(value: unknown, owner: string): Readonly<Record<string, unknown>> {
+function plainObject<TValue extends Readonly<Record<string, unknown>>>(
+  value: TValue,
+  owner: string,
+): TValue {
   if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be a plain object.`);
-  return value;
+  return Object.freeze({ ...value });
 }
 
-function prepareTreeRecord(value: unknown, itemIndex: number): TreeRow {
+function prepareTreeRecord<
+  TMetadata extends Readonly<Record<string, unknown>>,
+>(value: TreeVisibleRow<TMetadata>, itemIndex: number): TreeRow {
   if (!isNonArrayObject(value)) throw new TypeError('tree collection row is invalid.');
-  assertExactFields(value, ['node', 'depth', 'path', 'lazyPlaceholder'], 'tree collection row');
-  const node = prepareVisibleTreeNode(value['node'], 'tree collection row.node');
-  const depth = nonNegative(value['depth'], 'tree row depth');
-  const path = value['path'];
+  const node = prepareVisibleTreeNode(value.node, 'tree collection row.node');
+  const depth = nonNegative(value.depth, 'tree row depth');
+  const path = value.path;
   if (!Array.isArray(path) || path.some((part) => typeof part !== 'string')) {
     throw new TypeError('tree row path must be a string array.');
   }
-  const lazyPlaceholder = value['lazyPlaceholder'];
+  const lazyPlaceholder = value.lazyPlaceholder;
   if (lazyPlaceholder !== undefined && typeof lazyPlaceholder !== 'boolean') {
     throw new TypeError('tree row lazyPlaceholder must be a boolean.');
   }
@@ -1885,56 +1823,41 @@ function prepareTreeRecord(value: unknown, itemIndex: number): TreeRow {
   }, itemIndex);
 }
 
-function prepareVisibleTreeNode(value: unknown, owner: string): TreeNode {
+function prepareVisibleTreeNode(value: TreeNode, owner: string): TreeNode {
   if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be an object.`);
-  const kind = value['kind'];
-  if (kind !== 'leaf' && kind !== 'branch' && kind !== 'lazy') {
+  const kind = value.kind;
+  if (!isStringMember(kind, ['leaf', 'branch', 'lazy'])) {
     throw new TypeError(`${owner}.kind is invalid.`);
   }
-  assertExactFields(value, [
-    'id',
-    'label',
-    'kind',
-    'description',
-    'disabled',
-    'icon',
-    'metadata',
-    ...(kind === 'branch'
-      ? ['expanded', 'children']
-      : kind === 'lazy'
-      ? ['expanded', 'loading']
-      : []),
-  ], owner);
   const base = {
-    id: nonEmpty(value['id'], `${owner}.id`),
-    label: text(value['label'], `${owner}.label`) ?? '',
-    ...(value['description'] === undefined
+    id: nonEmpty(value.id, `${owner}.id`),
+    label: text(value.label, `${owner}.label`) ?? '',
+    ...(value.description === undefined
       ? {}
-      : { description: text(value['description'], `${owner}.description`) ?? '' }),
-    ...(value['disabled'] === undefined
+      : { description: text(value.description, `${owner}.description`) ?? '' }),
+    ...(value.disabled === undefined
       ? {}
-      : { disabled: boolean(value['disabled'], `${owner}.disabled`) }),
-    ...(value['icon'] === undefined ? {} : { icon: text(value['icon'], `${owner}.icon`) ?? '' }),
+      : { disabled: boolean(value.disabled, `${owner}.disabled`) }),
+    ...(value.icon === undefined ? {} : { icon: text(value.icon, `${owner}.icon`) ?? '' }),
   };
   if (kind === 'leaf') return { ...base, kind };
-  const expanded = boolean(value['expanded'], `${owner}.expanded`);
+  const expanded = boolean(value.expanded, `${owner}.expanded`);
   if (kind === 'branch') {
-    if (!Array.isArray(value['children'])) {
+    if (!Array.isArray(value.children)) {
       throw new TypeError(`${owner}.children must be an array.`);
     }
     return { ...base, kind, expanded, children: [] };
   }
-  const loading = value['loading'];
+  const loading = value.loading;
   if (!isNonArrayObject(loading)) throw new TypeError(`${owner}.loading must be an object.`);
-  assertExactFields(loading, ['kind', 'message'], `${owner}.loading`);
-  const loadingKind = loading['kind'];
-  if (
-    loadingKind !== 'idle' && loadingKind !== 'pending' && loadingKind !== 'error' &&
-    loadingKind !== 'empty'
-  ) throw new TypeError(`${owner}.loading.kind is invalid.`);
-  const message = loading['message'] === undefined
+  const loadingKind = loading.kind;
+  if (!isStringMember(loadingKind, ['idle', 'pending', 'error', 'empty'])) {
+    throw new TypeError(`${owner}.loading.kind is invalid.`);
+  }
+  const rawMessage = 'message' in loading ? loading.message : undefined;
+  const message = rawMessage === undefined
     ? undefined
-    : text(loading['message'], `${owner}.loading.message`);
+    : text(rawMessage, `${owner}.loading.message`);
   if (loadingKind === 'error' && message === undefined) {
     throw new TypeError(`${owner}.loading.message is required for errors.`);
   }
@@ -2363,39 +2286,10 @@ function treeAccessibility(
   };
 }
 
-function preparePointerState(value: unknown, owner: string): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'hoveredTargetId' && field !== 'pressedTargetId'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} pointerState contains unknown field "${unsupported}".`);
-  }
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string') {
-    throw new TypeError(`${owner} hoveredTargetId must be a string.`);
-  }
-  if (pressedTargetId !== undefined && typeof pressedTargetId !== 'string') {
-    throw new TypeError(`${owner} pressedTargetId must be a string.`);
-  }
-  return {
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  };
-}
-function arrayObjects(value: unknown, owner: string): readonly Readonly<Record<string, unknown>>[] {
-  if (!Array.isArray(value)) throw new TypeError(`${owner} must be an array.`);
-  return value.map((entry, index) => {
-    if (!isNonArrayObject(entry)) {
-      throw new TypeError(`${owner}[${String(index)}] must be an object.`);
-    }
-    return entry;
-  });
-}
-function isUnknownCallback(value: unknown): value is (...arguments_: unknown[]) => unknown {
-  return typeof value === 'function';
+function preparePointerState(
+  value: PointerInteractionState | undefined,
+): PointerInteractionState | undefined {
+  return value === undefined ? undefined : Object.freeze({ ...value });
 }
 function text(value: unknown, owner: string): string | undefined {
   if (value === undefined) return undefined;
@@ -2430,16 +2324,6 @@ function finite(value: unknown, owner: string): number {
     throw new RangeError(`${owner} must be finite.`);
   }
   return value;
-}
-function assertExactFields(
-  value: Readonly<Record<string, unknown>>,
-  allowed: readonly string[],
-  owner: string,
-): void {
-  const unsupported = Object.keys(value).find((field) => !allowed.includes(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} contains unknown field "${unsupported}".`);
-  }
 }
 function assertUniqueIds(ids: readonly string[], owner: string): void {
   const seen = new Set<string>();

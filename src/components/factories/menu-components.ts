@@ -21,9 +21,16 @@ import type {
   ComponentRenderInput,
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import {
+  assertOptionalEnum,
+  isNonArrayObject,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import type { Rect } from '../../geometry/types.ts';
-import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
+import type {
+  AnchoredSurfaceAnchor,
+  AnchoredSurfacePlacement,
+} from '../../interaction/anchored-surface.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
@@ -32,12 +39,15 @@ import { portal, surface } from '../../layout/index.ts';
 import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type {
   ContextMenuAction,
+  ContextMenuPresentation,
   DropdownMenuAction,
+  DropdownMenuPresentation,
   MenuAction,
   MenuBarAction,
   MenuBarPresentation,
   MenuItem,
   MenuPresentation,
+  MenuPresentationItem,
 } from '../../ui-model/menu.ts';
 import type { MenuStylePart } from '../../ui-model/style-parts.ts';
 import {
@@ -55,7 +65,6 @@ import type {
   MenuBarOptions,
   MenuOptions,
 } from '../options/menus.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 import { text } from './content.ts';
 
 interface PreparedMenuItemBase {
@@ -493,17 +502,12 @@ const instantiateDropdownMenu = defineComponent<
 
 export const dropdownMenu: DropdownMenuFactory = (options) => instantiateDropdownMenu(options);
 
-function prepareMenu(value: Readonly<Record<string, unknown>>): MenuModel {
-  assertKnownOptions(
-    value,
-    ['presentation', 'emptyText', 'scrollbar', 'scrollPolicy', 'pointerState'],
-    'menu',
-  );
-  const presentation = prepareMenuPresentation(value['presentation'], 'menu presentation');
-  const emptyText = optionalText(value['emptyText'], 'menu emptyText') ?? 'No commands';
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'menu scrollbar');
-  const scrollPolicy = prepareComponentScrollPolicy(value['scrollPolicy'], 'menu scrollPolicy');
-  const pointerState = preparePointerState(value['pointerState'], 'menu');
+function prepareMenu(value: Readonly<MenuOwnOptions>): MenuModel {
+  const presentation = prepareMenuPresentation(value.presentation, 'menu presentation');
+  const emptyText = optionalText(value.emptyText, 'menu emptyText') ?? 'No commands';
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'menu scrollbar');
+  const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'menu scrollPolicy');
+  const pointerState = preparePointerState(value.pointerState);
   const scroll = presentation.scroll;
   const rows = flattenMenu(presentation.items);
   return {
@@ -518,18 +522,17 @@ function prepareMenu(value: Readonly<Record<string, unknown>>): MenuModel {
   };
 }
 
-function prepareMenuPresentation(value: unknown, subject: string): PreparedMenuPresentation {
+function prepareMenuPresentation(
+  value: MenuPresentation,
+  subject: string,
+): PreparedMenuPresentation {
   if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
-  const unknown = Object.keys(value).find((field) =>
-    field !== 'activePath' && field !== 'items' && field !== 'scroll'
-  );
-  if (unknown !== undefined) throw new TypeError(`${subject} contains unknown field "${unknown}".`);
   if (
-    !Array.isArray(value['activePath']) ||
-    value['activePath'].some((id) => typeof id !== 'string' || id.trim() === '')
+    !Array.isArray(value.activePath) ||
+    value.activePath.some((id) => typeof id !== 'string' || id.trim() === '')
   ) throw new TypeError(`${subject}.activePath must be an array of non-empty strings.`);
-  if (!Array.isArray(value['items'])) throw new TypeError(`${subject}.items must be an array.`);
-  const items = prepareItems(value['items'], `${subject}.items`);
+  if (!Array.isArray(value.items)) throw new TypeError(`${subject}.items must be an array.`);
+  const items = prepareItems(value.items, `${subject}.items`);
   const ids = new Set<string>();
   const visit = (current: readonly PreparedMenuItem[]): void => {
     for (const item of current) {
@@ -539,9 +542,9 @@ function prepareMenuPresentation(value: unknown, subject: string): PreparedMenuP
     }
   };
   visit(items);
-  const scroll = prepareComponentScrollState(value['scroll'], `${subject}.scroll`);
+  const scroll = prepareComponentScrollState(value.scroll, `${subject}.scroll`);
   return {
-    activePath: value['activePath'].map(clean),
+    activePath: value.activePath.map(clean),
     items,
     ...(scroll === undefined ? {} : { scroll }),
   };
@@ -576,93 +579,67 @@ function publicMenuItem(value: PreparedMenuItem): MenuPresentation['items'][numb
   };
 }
 
-function prepareItems(values: readonly unknown[], subject: string): readonly PreparedMenuItem[] {
+function prepareItems(
+  values: readonly MenuPresentationItem[],
+  subject: string,
+): readonly PreparedMenuItem[] {
   return values.map((value, index) => {
-    if (!isNonArrayObject(value)) {
-      throw new TypeError(`${subject}[${String(index)}] must be an object.`);
-    }
-    const allowed = new Set([
-      'kind',
-      'id',
-      'label',
-      'description',
-      'disabled',
-      'leading',
-      'trailing',
-      'shortcut',
-      'tone',
-      'checked',
-      'expanded',
-      'children',
-    ]);
-    const unknown = Object.keys(value).find((field) => !allowed.has(field));
-    if (unknown !== undefined) {
-      throw new TypeError(`${subject}[${String(index)}] contains unknown field "${unknown}".`);
-    }
-    const kind = value['kind'];
-    if (kind !== 'action' && kind !== 'check' && kind !== 'submenu') {
+    const kind = value.kind;
+    if (!isStringMember(kind, ['action', 'check', 'submenu'])) {
       throw new TypeError(`${subject}[${String(index)}].kind is invalid.`);
     }
-    const id = requiredText(value['id'], `${subject}[${String(index)}].id`);
-    const label = requiredText(value['label'], `${subject}[${String(index)}].label`);
+    const id = requiredText(value.id, `${subject}[${String(index)}].id`);
+    const label = requiredText(value.label, `${subject}[${String(index)}].label`);
     const description = optionalText(
-      value['description'],
+      value.description,
       `${subject}[${String(index)}].description`,
     );
-    const shortcut = optionalText(value['shortcut'], `${subject}[${String(index)}].shortcut`);
-    if (value['disabled'] !== undefined && typeof value['disabled'] !== 'boolean') {
+    const shortcut = optionalText(value.shortcut, `${subject}[${String(index)}].shortcut`);
+    if (value.disabled !== undefined && typeof value.disabled !== 'boolean') {
       throw new TypeError(`${subject}[${String(index)}].disabled must be boolean.`);
     }
-    if (
-      value['tone'] !== undefined && value['tone'] !== 'default' && value['tone'] !== 'destructive'
-    ) throw new TypeError(`${subject}[${String(index)}].tone is invalid.`);
-    if (kind === 'check' && typeof value['checked'] !== 'boolean') {
+    assertOptionalEnum(
+      value.tone,
+      ['default', 'destructive'],
+      `${subject}[${String(index)}].tone`,
+    );
+    if (kind === 'check' && typeof value.checked !== 'boolean') {
       throw new TypeError(`${subject}[${String(index)}].checked must be boolean.`);
     }
-    if (kind !== 'check' && value['checked'] !== undefined) {
-      throw new TypeError(`${subject}[${String(index)}].checked is only valid for check items.`);
-    }
-    if (kind === 'submenu' && !Array.isArray(value['children'])) {
+    if (kind === 'submenu' && !Array.isArray(value.children)) {
       throw new TypeError(`${subject}[${String(index)}].children must be an array.`);
     }
-    if (kind !== 'submenu' && value['children'] !== undefined) {
-      throw new TypeError(`${subject}[${String(index)}].children is only valid for submenu items.`);
-    }
-    if (
-      value['expanded'] !== undefined &&
-      (kind !== 'submenu' || typeof value['expanded'] !== 'boolean')
-    ) throw new TypeError(`${subject}[${String(index)}].expanded is invalid.`);
     const base: Omit<PreparedMenuItemBase, 'children'> = {
       id: clean(id),
       label: clean(label),
       ...(description === undefined ? {} : { description: clean(description) }),
-      disabled: value['disabled'] === true,
-      ...(value['leading'] === undefined
+      disabled: value.disabled === true,
+      ...(value.leading === undefined
         ? {}
-        : { leading: prepareInline(value['leading'], `${subject}[${String(index)}].leading`) }),
-      ...(value['trailing'] === undefined
+        : { leading: prepareInline(value.leading, `${subject}[${String(index)}].leading`) }),
+      ...(value.trailing === undefined
         ? {}
-        : { trailing: prepareInline(value['trailing'], `${subject}[${String(index)}].trailing`) }),
+        : { trailing: prepareInline(value.trailing, `${subject}[${String(index)}].trailing`) }),
       ...(shortcut === undefined ? {} : { shortcut: clean(shortcut) }),
-      tone: value['tone'] === 'destructive' ? 'destructive' : 'default',
+      tone: value.tone === 'destructive' ? 'destructive' : 'default',
     };
     if (kind === 'action') return { ...base, kind, children: [] };
     if (kind === 'check') {
       return {
         ...base,
         kind,
-        checked: checkedValue(value['checked'], subject, index),
+        checked: checkedValue(value.checked, subject, index),
         children: [],
       };
     }
     return {
       ...base,
       kind,
-      expanded: value['expanded'] === true,
-      children: prepareItems(
-        submenuChildren(value['children'], subject, index),
-        `${subject}[${String(index)}].children`,
-      ),
+      expanded: optionalBoolean(
+        value.expanded,
+        `${subject}[${String(index)}].expanded`,
+      ) ?? false,
+      children: prepareItems(value.children, `${subject}[${String(index)}].children`),
     };
   });
 }
@@ -904,19 +881,16 @@ function activeMenuItem(model: MenuModel): MenuRow | undefined {
   return id === undefined ? undefined : model.rows.find((item) => item.id === id && !item.disabled);
 }
 
-function prepareMenuBar(value: Readonly<Record<string, unknown>>): MenuBarModel {
-  if (!Array.isArray(value['items'])) {
+function prepareMenuBar(value: Readonly<MenuBarOwnOptions>): MenuBarModel {
+  if (!Array.isArray(value.items)) {
     throw new TypeError('menuBar items must be an array.');
   }
-  assertKnownOptions(value, [
-    'items', 'presentation', 'maxVisibleItems', 'scrollbar', 'scrollPolicy', 'pointerState',
-  ], 'menuBar');
-  const items = prepareItems(value['items'], 'menuBar items');
-  const presentation = prepareMenuBarPresentation(value['presentation']);
-  const maxVisibleItems = positiveInteger(value['maxVisibleItems'], 12, 'menuBar maxVisibleItems');
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'menuBar scrollbar');
-  const scrollPolicy = prepareComponentScrollPolicy(value['scrollPolicy'], 'menuBar scrollPolicy');
-  const pointerState = preparePointerState(value['pointerState'], 'menuBar');
+  const items = prepareItems(value.items, 'menuBar items');
+  const presentation = prepareMenuBarPresentation(value.presentation);
+  const maxVisibleItems = positiveInteger(value.maxVisibleItems, 12, 'menuBar maxVisibleItems');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'menuBar scrollbar');
+  const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'menuBar scrollPolicy');
+  const pointerState = preparePointerState(value.pointerState);
   return {
     items,
     presentation,
@@ -927,23 +901,16 @@ function prepareMenuBar(value: Readonly<Record<string, unknown>>): MenuBarModel 
   };
 }
 
-function prepareMenuBarPresentation(value: unknown): MenuBarModel['presentation'] {
-  if (!isNonArrayObject(value) || value['kind'] !== 'closed' && value['kind'] !== 'open') {
+function prepareMenuBarPresentation(value: MenuBarPresentation): MenuBarModel['presentation'] {
+  if (!isNonArrayObject(value) || !isStringMember(value.kind, ['closed', 'open'])) {
     throw new TypeError('menuBar presentation is invalid.');
   }
-  const allowed = value['kind'] === 'open'
-    ? new Set(['kind', 'active', 'menu'])
-    : new Set(['kind', 'active']);
-  const unknown = Object.keys(value).find((field) => !allowed.has(field));
-  if (unknown !== undefined) {
-    throw new TypeError(`menuBar presentation contains unknown field "${unknown}".`);
-  }
-  const active = optionalText(value['active'], 'menuBar active');
-  if (value['kind'] === 'closed') {
+  const active = optionalText(value.active, 'menuBar active');
+  if (value.kind === 'closed') {
     return { kind: 'closed', ...(active === undefined ? {} : { active: clean(active) }) };
   }
   if (active === undefined) throw new TypeError('Open menuBar requires active.');
-  const menuValue = prepareMenuPresentation(value['menu'], 'menuBar menu');
+  const menuValue = prepareMenuPresentation(value.menu, 'menuBar menu');
   return { kind: 'open', active: clean(active), menu: menuValue };
 }
 
@@ -1082,26 +1049,22 @@ function contextMenuAccessibility(
   };
 }
 
-function prepareContextMenu(value: Readonly<Record<string, unknown>>): ContextMenuModel {
-  assertKnownOptions(value, [
-    'presentation', 'title', 'emptyText', 'scrollbar', 'scrollPolicy', 'placement',
-    'maxVisibleItems', 'pointerState',
-  ], 'contextMenu');
-  const presentation = prepareContextPresentation(value['presentation']);
-  const title = optionalText(value['title'], 'contextMenu title');
-  const emptyText = optionalText(value['emptyText'], 'contextMenu emptyText') ?? 'No commands';
-  const placement = preparePlacement(value['placement']);
+function prepareContextMenu(value: Readonly<ContextOwnOptions>): ContextMenuModel {
+  const presentation = prepareContextPresentation(value.presentation);
+  const title = optionalText(value.title, 'contextMenu title');
+  const emptyText = optionalText(value.emptyText, 'contextMenu emptyText') ?? 'No commands';
+  const placement = preparePlacement(value.placement);
   const maxVisibleItems = positiveInteger(
-    value['maxVisibleItems'],
+    value.maxVisibleItems,
     12,
     'contextMenu maxVisibleItems',
   );
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'contextMenu scrollbar');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'contextMenu scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(
-    value['scrollPolicy'],
+    value.scrollPolicy,
     'contextMenu scrollPolicy',
   );
-  const pointerState = preparePointerState(value['pointerState'], 'contextMenu');
+  const pointerState = preparePointerState(value.pointerState);
   return {
     presentation,
     ...(title === undefined ? {} : { title: clean(title) }),
@@ -1114,54 +1077,41 @@ function prepareContextMenu(value: Readonly<Record<string, unknown>>): ContextMe
   };
 }
 
-function prepareContextPresentation(value: unknown): ContextMenuModel['presentation'] {
-  if (!isNonArrayObject(value) || value['kind'] !== 'closed' && value['kind'] !== 'open') {
+function prepareContextPresentation(value: ContextMenuPresentation): ContextMenuModel['presentation'] {
+  if (!isNonArrayObject(value) || !isStringMember(value.kind, ['closed', 'open'])) {
     throw new TypeError('contextMenu presentation is invalid.');
   }
-  if (value['kind'] === 'closed') {
-    if (Object.keys(value).some((field) => field !== 'kind')) {
-      throw new TypeError('Closed contextMenu presentation contains unknown fields.');
-    }
+  if (value.kind === 'closed') {
     return { kind: 'closed' };
   }
-  if (
-    Object.keys(value).some((field) => field !== 'kind' && field !== 'anchor' && field !== 'menu')
-  ) throw new TypeError('Open contextMenu presentation contains unknown fields.');
   return {
     kind: 'open',
-    anchor: prepareAnchor(value['anchor']),
-    menu: prepareMenuPresentation(value['menu'], 'contextMenu menu'),
+    anchor: prepareAnchor(value.anchor),
+    menu: prepareMenuPresentation(value.menu, 'contextMenu menu'),
   };
 }
 
-function prepareDropdown(value: Readonly<Record<string, unknown>>): DropdownModel {
-  if (!Array.isArray(value['items'])) {
+function prepareDropdown(value: Readonly<DropdownOwnOptions>): DropdownModel {
+  if (!Array.isArray(value.items)) {
     throw new TypeError('dropdownMenu items must be an array.');
   }
-  assertKnownOptions(value, [
-    'label', 'items', 'presentation', 'placeholder', 'density', 'placement', 'maxVisibleItems',
-    'scrollbar', 'scrollPolicy', 'pointerState',
-  ], 'dropdownMenu');
-  const label = optionalText(value['label'], 'dropdownMenu label') ?? '';
-  const items = prepareItems(value['items'], 'dropdownMenu items');
-  const presentation = prepareDropdownPresentation(value['presentation']);
-  const placeholder = optionalText(value['placeholder'], 'dropdownMenu placeholder') ?? 'Select…';
-  if (
-    value['density'] !== undefined && value['density'] !== 'compact' &&
-    value['density'] !== 'comfortable'
-  ) throw new TypeError('dropdownMenu density is invalid.');
-  const placement = preparePlacement(value['placement']);
+  const label = optionalText(value.label, 'dropdownMenu label') ?? '';
+  const items = prepareItems(value.items, 'dropdownMenu items');
+  const presentation = prepareDropdownPresentation(value.presentation);
+  const placeholder = optionalText(value.placeholder, 'dropdownMenu placeholder') ?? 'Select…';
+  assertOptionalEnum(value.density, ['compact', 'regular'], 'dropdownMenu density');
+  const placement = preparePlacement(value.placement);
   const maxVisibleItems = positiveInteger(
-    value['maxVisibleItems'],
+    value.maxVisibleItems,
     12,
     'dropdownMenu maxVisibleItems',
   );
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'dropdownMenu scrollbar');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'dropdownMenu scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(
-    value['scrollPolicy'],
+    value.scrollPolicy,
     'dropdownMenu scrollPolicy',
   );
-  const pointerState = preparePointerState(value['pointerState'], 'dropdownMenu');
+  const pointerState = preparePointerState(value.pointerState);
   return {
     label: clean(label),
     items,
@@ -1175,25 +1125,18 @@ function prepareDropdown(value: Readonly<Record<string, unknown>>): DropdownMode
   };
 }
 
-function prepareDropdownPresentation(value: unknown): DropdownModel['presentation'] {
-  if (!isNonArrayObject(value) || value['kind'] !== 'closed' && value['kind'] !== 'open') {
+function prepareDropdownPresentation(value: DropdownMenuPresentation): DropdownModel['presentation'] {
+  if (!isNonArrayObject(value) || !isStringMember(value.kind, ['closed', 'open'])) {
     throw new TypeError('dropdownMenu presentation is invalid.');
   }
-  const allowed = value['kind'] === 'open'
-    ? new Set(['kind', 'active', 'menu'])
-    : new Set(['kind', 'active']);
-  const unknown = Object.keys(value).find((field) => !allowed.has(field));
-  if (unknown !== undefined) {
-    throw new TypeError(`dropdownMenu presentation contains unknown field "${unknown}".`);
-  }
-  const active = optionalText(value['active'], 'dropdownMenu active');
-  if (value['kind'] === 'closed') {
+  const active = optionalText(value.active, 'dropdownMenu active');
+  if (value.kind === 'closed') {
     return { kind: 'closed', ...(active === undefined ? {} : { active: clean(active) }) };
   }
   return {
     kind: 'open',
     ...(active === undefined ? {} : { active: clean(active) }),
-    menu: prepareMenuPresentation(value['menu'], 'dropdownMenu menu'),
+    menu: prepareMenuPresentation(value.menu, 'dropdownMenu menu'),
   };
 }
 
@@ -1318,7 +1261,7 @@ function menuRowText(item: MenuRow, theme: ComponentMeasureInput<MenuModel>['the
   }${item.trailing === undefined ? '' : ` ${inlineContentAccessibleText(item.trailing)}`}`;
 }
 
-function prepareInline(value: unknown, subject: string): InlineContent {
+function prepareInline(value: InlineContent, subject: string): InlineContent {
   if (!isInlineContent(value)) throw new TypeError(`${subject} must be inline content.`);
   return normalizeInlineContent(value);
 }
@@ -1328,17 +1271,15 @@ function checkedValue(value: unknown, subject: string, index: number): boolean {
   }
   return value;
 }
-function submenuChildren(value: unknown, subject: string, index: number): readonly unknown[] {
-  if (!Array.isArray(value)) {
-    throw new TypeError(`${subject}[${String(index)}].children must be an array.`);
-  }
-  return value;
-}
 function requiredText(value: unknown, subject: string): string {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new TypeError(`${subject} must be a non-empty string.`);
   }
   return value;
+}
+function optionalBoolean(value: unknown, subject: string): boolean | undefined {
+  if (value === undefined || typeof value === 'boolean') return value;
+  throw new TypeError(`${subject} must be boolean.`);
 }
 function optionalText(value: unknown, subject: string): string | undefined {
   if (value === undefined) return undefined;
@@ -1355,65 +1296,47 @@ function positiveInteger(value: unknown, fallback: number, subject: string): num
   }
   return value;
 }
-function preparePointerState(value: unknown, subject: string): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (
-    !isNonArrayObject(value) ||
-    Object.keys(value).some((field) => field !== 'hoveredTargetId' && field !== 'pressedTargetId')
-  ) throw new TypeError(`${subject} pointerState is invalid.`);
-  if (
-    value['hoveredTargetId'] !== undefined && typeof value['hoveredTargetId'] !== 'string' ||
-    value['pressedTargetId'] !== undefined && typeof value['pressedTargetId'] !== 'string'
-  ) throw new TypeError(`${subject} pointerState values must be strings.`);
-  return {
-    ...(value['hoveredTargetId'] === undefined
-      ? {}
-      : { hoveredTargetId: value['hoveredTargetId'] }),
-    ...(value['pressedTargetId'] === undefined
-      ? {}
-      : { pressedTargetId: value['pressedTargetId'] }),
-  };
+function preparePointerState(
+  value: PointerInteractionState | undefined,
+): PointerInteractionState | undefined {
+  return value === undefined ? undefined : Object.freeze({ ...value });
 }
-function preparePlacement(value: unknown): AnchoredSurfacePlacement {
+function preparePlacement(value: AnchoredSurfacePlacement | undefined): AnchoredSurfacePlacement {
   if (value === undefined) return 'auto';
-  if (
-    value === 'above' || value === 'below' || value === 'left' || value === 'right' ||
-    value === 'auto' || value === 'cursor'
-  ) return value;
-  throw new TypeError('menu placement is invalid.');
+  assertOptionalEnum(
+    value,
+    ['above', 'below', 'left', 'right', 'auto', 'cursor'],
+    'menu placement',
+  );
+  return value;
 }
 function prepareAnchor(
-  value: unknown,
-): import('../../interaction/anchored-surface.ts').AnchoredSurfaceAnchor {
+  value: AnchoredSurfaceAnchor,
+): AnchoredSurfaceAnchor {
   if (!isNonArrayObject(value)) throw new TypeError('menu anchor must be an object.');
   if (
-    value['kind'] === 'cursor' && typeof value['row'] === 'number' &&
-    Number.isFinite(value['row']) && typeof value['column'] === 'number' &&
-    Number.isFinite(value['column']) &&
-    Object.keys(value).every((field) => field === 'kind' || field === 'row' || field === 'column')
-  ) return { kind: 'cursor', row: value['row'], column: value['column'] };
+    value.kind === 'cursor' && typeof value.row === 'number' &&
+    Number.isFinite(value.row) && typeof value.column === 'number' &&
+    Number.isFinite(value.column)
+  ) return { kind: 'cursor', row: value.row, column: value.column };
   if (
-    value['kind'] === 'target' && isNonArrayObject(value['bounds']) &&
-    Object.keys(value).every((field) => field === 'kind' || field === 'bounds')
+    value.kind === 'target' && isNonArrayObject(value.bounds)
   ) {
-    const bounds = value['bounds'];
+    const bounds = value.bounds;
     if (
-      typeof bounds['row'] === 'number' && Number.isFinite(bounds['row']) &&
-      typeof bounds['column'] === 'number' && Number.isFinite(bounds['column']) &&
-      typeof bounds['width'] === 'number' && Number.isFinite(bounds['width']) &&
-      bounds['width'] >= 0 && typeof bounds['height'] === 'number' &&
-      Number.isFinite(bounds['height']) && bounds['height'] >= 0 &&
-      Object.keys(bounds).every((field) =>
-        field === 'row' || field === 'column' || field === 'width' || field === 'height'
-      )
+      typeof bounds.row === 'number' && Number.isFinite(bounds.row) &&
+      typeof bounds.column === 'number' && Number.isFinite(bounds.column) &&
+      typeof bounds.width === 'number' && Number.isFinite(bounds.width) &&
+      bounds.width >= 0 && typeof bounds.height === 'number' &&
+      Number.isFinite(bounds.height) && bounds.height >= 0
     ) {
       return {
         kind: 'target',
         bounds: {
-          row: bounds['row'],
-          column: bounds['column'],
-          width: bounds['width'],
-          height: bounds['height'],
+          row: bounds.row,
+          column: bounds.column,
+          width: bounds.width,
+          height: bounds.height,
         },
       };
     }

@@ -19,7 +19,7 @@ import {
   scrollReducer,
 } from '../../behavior/index.ts';
 import type { Element } from '../../element/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
@@ -27,11 +27,18 @@ import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import { terminalStyleHasBackground } from '../../theme/index.ts';
-import type { ListAction } from '../../ui-model/list.ts';
+import type {
+  CompleteListCollection,
+  ListAction,
+  ListCollectionRecord,
+  ListItemProjection,
+  ListItemProjector,
+  WindowedListCollection,
+} from '../../ui-model/list.ts';
+import type { CollectionWindowDomain } from '../../ui-model/collection.ts';
 import type { DataListStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ListOptions, PassiveListOptions, ScrollableListOptions } from '../options/content.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface PreparedListEntry {
   readonly id: string;
@@ -55,18 +62,6 @@ interface PreparedList {
   readonly pointerState?: PointerInteractionState;
 }
 
-interface DynamicListOptions {
-  readonly items?: unknown;
-  readonly projectItem?: unknown;
-  readonly collection?: unknown;
-  readonly filterQuery?: unknown;
-  readonly selectedId?: unknown;
-  readonly scroll?: unknown;
-  readonly scrollbar?: unknown;
-  readonly scrollPolicy?: unknown;
-  readonly pointerState?: unknown;
-}
-
 const listDefinitionBase = {
   name: 'terminal-ui/components/list' as const,
   identity: 'required' as const,
@@ -74,14 +69,13 @@ const listDefinitionBase = {
   semantics: 'semantic' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['marker', 'item', 'description', 'match', 'empty', 'scrollbar'] as const,
-  prepare: prepareList,
   measure: measureList,
   render: renderList,
   accessibility: accessibleList,
 };
 
 const passiveList = defineComponent<
-  DynamicListOptions,
+  PreparedList,
   PreparedList,
   never,
   DataListStylePart,
@@ -91,7 +85,7 @@ const passiveList = defineComponent<
 >(listDefinitionBase);
 
 const interactiveList = defineComponent<
-  DynamicListOptions,
+  PreparedList,
   PreparedList,
   ListAction,
   DataListStylePart,
@@ -170,49 +164,47 @@ export function list<TValue, const TMessage extends ComponentMessage = never>(
 export function list<TValue, const TMessage extends ComponentMessage = never>(
   options: ListOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const dynamic: DynamicListOptions = options;
   const onAction = options.onAction;
+  const prepared = prepareList(options);
+  const componentOptions = {
+    ...prepared,
+    id: options.id,
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
   if (onAction === undefined) {
-    return passiveList({
-      ...dynamic,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
-    });
+    return passiveList(componentOptions);
   }
   if (options.scroll === undefined) {
     return interactiveList({
-      ...dynamic,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
+      ...componentOptions,
       onAction: (action) =>
         action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  return interactiveList({
-    ...dynamic,
-    id: options.id,
-    ...(options.meta === undefined ? {} : { meta: options.meta }),
-    onAction: options.onAction,
-  });
+  return interactiveList({ ...componentOptions, onAction: options.onAction });
 }
 
-function prepareList(value: Readonly<Record<string, unknown>>): PreparedList {
-  assertKnownOptions(value, [
-    'items', 'projectItem', 'collection', 'filterQuery', 'selectedId', 'scroll', 'scrollbar',
-    'scrollPolicy', 'pointerState',
-  ], 'list');
-  const rawItems = value['items'];
-  const rawProjector = value['projectItem'];
-  const rawCollection = value['collection'];
+function prepareList<TValue, TMessage extends ComponentMessage>(
+  value: Readonly<ListOptions<TValue, TMessage>>,
+): PreparedList {
+  const rawItems = value.items;
+  const rawProjector = value.projectItem;
+  const rawCollection = value.collection;
   const dataForms = Number(rawItems !== undefined || rawProjector !== undefined) +
     Number(rawCollection !== undefined);
   if (dataForms !== 1) {
     throw new TypeError('list requires either items with projectItem, or collection.');
   }
-  const projected = rawCollection === undefined
-    ? prepareProjectedItems(rawItems, rawProjector)
-    : prepareProjectedCollection(rawCollection);
-  const requestedQuery = value['filterQuery'];
+  let projected: ProjectedListData;
+  if (rawCollection === undefined) {
+    if (rawItems === undefined || rawProjector === undefined) {
+      throw new TypeError('list requires items and projectItem together.');
+    }
+    projected = prepareProjectedItems(rawItems, rawProjector);
+  } else {
+    projected = prepareProjectedCollection(rawCollection);
+  }
+  const requestedQuery = value.filterQuery;
   if (requestedQuery !== undefined && typeof requestedQuery !== 'string') {
     throw new TypeError('list filterQuery must be a string.');
   }
@@ -221,11 +213,13 @@ function prepareList(value: Readonly<Record<string, unknown>>): PreparedList {
   }
   const query = projected.windowed ? projected.query : normalizedQuery(requestedQuery ?? '');
   const entries = preparedListEntries(projected, query);
-  const selectedId = optionalCleanString(value['selectedId'], 'list selectedId');
-  const scroll = prepareComponentScrollState(value['scroll'], 'list scroll');
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'list scrollbar');
-  const scrollPolicy = prepareComponentScrollPolicy(value['scrollPolicy'], 'list scrollPolicy');
-  const pointerState = preparePointerState(value['pointerState']);
+  const selectedId = optionalCleanString(value.selectedId, 'list selectedId');
+  const scroll = prepareComponentScrollState(value.scroll, 'list scroll');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'list scrollbar');
+  const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'list scrollPolicy');
+  const pointerState = value.pointerState === undefined
+    ? undefined
+    : Object.freeze({ ...value.pointerState });
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('list scrollbar and scrollPolicy require scroll state.');
   }
@@ -244,13 +238,16 @@ function prepareList(value: Readonly<Record<string, unknown>>): PreparedList {
 }
 
 interface ProjectedListData {
-  readonly entries:
-    readonly (Omit<PreparedListEntry, 'position'> & { readonly searchText: string })[];
+  readonly entries: readonly PreparedListSourceEntry[];
   readonly windowed: boolean;
   readonly startIndex: number;
   readonly totalCount: number;
   readonly query: string;
 }
+
+type PreparedListSourceEntry = Omit<PreparedListEntry, 'position'> & {
+  readonly searchText: string;
+};
 
 const preparedListCollections = new WeakMap<object, ProjectedListData>();
 const preparedListEntryViews = new WeakMap<
@@ -281,18 +278,20 @@ function preparedListEntries(
   return entries;
 }
 
-function prepareProjectedItems(items: unknown, projector: unknown): ProjectedListData {
-  if (!Array.isArray(items) || !isListProjector(projector)) {
-    throw new TypeError('list items must be an array and projectItem must be a function.');
-  }
+function prepareProjectedItems<TValue>(
+  items: readonly TValue[],
+  projector: ListItemProjector<TValue>,
+): ProjectedListData {
+  const ids = new Set<string>();
   return {
-    entries: prepareEntries(items.map((item, index) => {
+    entries: Object.freeze(items.map((item, index) => {
       const projected = projector(item, index);
-      return {
-        id: isNonArrayObject(projected) ? projected['id'] : undefined,
-        itemIndex: index,
-        item: projected,
-      };
+      return prepareListEntry(
+        isNonArrayObject(projected) ? projected.id : undefined,
+        index,
+        projected,
+        ids,
+      );
     })),
     windowed: false,
     startIndex: 0,
@@ -301,24 +300,15 @@ function prepareProjectedItems(items: unknown, projector: unknown): ProjectedLis
   };
 }
 
-function isListProjector(value: unknown): value is (item: unknown, index: number) => unknown {
-  return typeof value === 'function';
-}
-
-function prepareProjectedCollection(value: unknown): ProjectedListData {
+function prepareProjectedCollection<TValue>(
+  value: CompleteListCollection<TValue> | WindowedListCollection<TValue>,
+): ProjectedListData {
   if (!isCollectionProjection(value)) {
     throw new TypeError('list collection must be prepared with prepareListCollection().');
   }
   const cached = preparedListCollections.get(value);
   if (cached !== undefined) return cached;
   const kind = value.kind;
-  const supported = kind === 'complete'
-    ? new Set(['kind', 'records', 'startIndex', 'totalCount'])
-    : new Set(['kind', 'records', 'startIndex', 'totalCount', 'domain']);
-  const unsupported = Object.keys(value).find((field) => !supported.has(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`list collection contains unknown field "${unsupported}".`);
-  }
   const startIndex = nonNegativeSafeInteger(value.startIndex, 'list collection startIndex');
   const totalCount = nonNegativeSafeInteger(value.totalCount, 'list collection totalCount');
   if (kind === 'complete' && (startIndex !== 0 || totalCount !== value.records.length)) {
@@ -342,82 +332,72 @@ function prepareProjectedCollection(value: unknown): ProjectedListData {
   return prepared;
 }
 
-function prepareCollectionDomain(value: unknown): string {
+function prepareCollectionDomain(value: CollectionWindowDomain): string {
   if (!isNonArrayObject(value)) {
     throw new TypeError('Windowed list collection domain must be an object.');
   }
-  if (value['kind'] === 'source') {
-    if (Object.keys(value).some((field) => field !== 'kind')) {
-      throw new TypeError('Source collection domain contains unknown fields.');
-    }
+  if (value.kind === 'source') {
     return '';
   }
-  if (value['kind'] !== 'projection') {
-    throw new TypeError('Windowed list collection domain kind is invalid.');
-  }
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'kind' && field !== 'id' && field !== 'filterQuery' && field !== 'sort'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`Windowed list collection domain contains unknown field "${unsupported}".`);
-  }
-  if (typeof value['id'] !== 'string' || value['id'].trim() === '') {
+  if (typeof value.id !== 'string' || value.id.trim() === '') {
     throw new TypeError('Projected collection domain id must be non-empty.');
   }
-  if (value['sort'] !== undefined) prepareCollectionSort(value['sort']);
+  if (value.sort !== undefined) assertCollectionSort(value.sort);
   return normalizedQuery(
-    value['filterQuery'] === undefined
+    value.filterQuery === undefined
       ? ''
-      : requiredString(value['filterQuery'], 'collection domain filterQuery'),
+      : requiredString(value.filterQuery, 'collection domain filterQuery'),
   );
 }
 
-function prepareCollectionSort(value: unknown): void {
+function assertCollectionSort(
+  value: NonNullable<Extract<CollectionWindowDomain, { readonly kind: 'projection' }>['sort']>,
+): void {
   if (
     !isNonArrayObject(value) ||
-    Object.keys(value).some((field) => field !== 'key' && field !== 'direction') ||
-    typeof value['key'] !== 'string' ||
-    value['key'].trim() === '' ||
-    value['direction'] !== 'ascending' && value['direction'] !== 'descending'
+    typeof value.key !== 'string' ||
+    value.key.trim() === '' ||
+    !isStringMember(value.direction, ['ascending', 'descending'])
   ) {
     throw new TypeError('Projected collection domain sort is invalid.');
   }
 }
 
-function prepareEntries(
-  records: readonly unknown[],
-): readonly (Omit<PreparedListEntry, 'position'> & { readonly searchText: string })[] {
+function prepareEntries<TValue>(
+  records: readonly ListCollectionRecord<TValue>[],
+): readonly PreparedListSourceEntry[] {
   const ids = new Set<string>();
   return Object.freeze(records.map((record, offset) => {
     if (!isNonArrayObject(record)) {
       throw new TypeError(`list record ${String(offset)} must be an object.`);
     }
-    const unsupported = Object.keys(record).find((field) =>
-      field !== 'id' && field !== 'itemIndex' && field !== 'value' && field !== 'item'
-    );
-    if (unsupported !== undefined) {
-      throw new TypeError(`list record contains unknown field "${unsupported}".`);
-    }
-    const itemIndex = nonNegativeSafeInteger(record['itemIndex'], 'list record itemIndex');
-    const item = prepareListItem(record['item']);
-    const recordId = requiredCleanString(record['id'], 'list record id');
-    if (recordId !== item.id) throw new TypeError('list record and projected item ids must match.');
-    if (ids.has(recordId)) {
-      throw new TypeError(`list item ids must be unique; duplicate id: ${recordId}`);
-    }
-    ids.add(recordId);
-    return Object.freeze({
-      id: recordId,
-      itemIndex,
-      label: item.label,
-      ...(item.description === undefined ? {} : { description: item.description }),
-      disabled: item.disabled,
-      searchText: item.searchText,
-    });
+    return prepareListEntry(record.id, record.itemIndex, record.item, ids);
   }));
 }
 
-function prepareListItem(value: unknown): {
+function prepareListEntry(
+  rawId: unknown,
+  rawItemIndex: number,
+  rawItem: ListItemProjection,
+  ids: Set<string>,
+): PreparedListSourceEntry {
+  const itemIndex = nonNegativeSafeInteger(rawItemIndex, 'list record itemIndex');
+  const item = prepareListItem(rawItem);
+  const id = requiredCleanString(rawId, 'list record id');
+  if (id !== item.id) throw new TypeError('list record and projected item ids must match.');
+  if (ids.has(id)) throw new TypeError(`list item ids must be unique; duplicate id: ${id}`);
+  ids.add(id);
+  return Object.freeze({
+    id,
+    itemIndex,
+    label: item.label,
+    ...(item.description === undefined ? {} : { description: item.description }),
+    disabled: item.disabled,
+    searchText: item.searchText,
+  });
+}
+
+function prepareListItem(value: ListItemProjection): {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
@@ -425,25 +405,18 @@ function prepareListItem(value: unknown): {
   readonly searchText: string;
 } {
   if (!isNonArrayObject(value)) throw new TypeError('list projected item must be an object.');
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'id' && field !== 'label' && field !== 'description' && field !== 'keywords' &&
-    field !== 'disabled'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`list projected item contains unknown field "${unsupported}".`);
-  }
-  const id = requiredCleanString(value['id'], 'list item id');
-  const label = requiredString(value['label'], 'list item label');
-  const description = optionalString(value['description'], 'list item description');
-  const keywords = value['keywords'] === undefined
+  const id = requiredCleanString(value.id, 'list item id');
+  const label = requiredString(value.label, 'list item label');
+  const description = optionalString(value.description, 'list item description');
+  const keywords = value.keywords === undefined
     ? []
-    : Array.isArray(value['keywords'])
-    ? value['keywords'].map((entry) => requiredString(entry, 'list item keyword'))
+    : Array.isArray(value.keywords)
+    ? value.keywords.map((entry) => requiredString(entry, 'list item keyword'))
     : undefined;
   if (keywords === undefined) {
     throw new TypeError('list item keywords must be an array of strings.');
   }
-  if (value['disabled'] !== undefined && typeof value['disabled'] !== 'boolean') {
+  if (value.disabled !== undefined && typeof value.disabled !== 'boolean') {
     throw new TypeError('list item disabled must be a boolean.');
   }
   const cleanLabel = cleanLine(label);
@@ -452,7 +425,7 @@ function prepareListItem(value: unknown): {
     id,
     label: cleanLabel,
     ...(cleanDescription === undefined ? {} : { description: cleanDescription }),
-    disabled: value['disabled'] === true,
+    disabled: value.disabled === true,
     searchText: normalizedQuery(
       [cleanLabel, cleanDescription, ...keywords].filter(Boolean).join(' '),
     ),
@@ -776,26 +749,4 @@ function nonNegativeSafeInteger(value: unknown, subject: string): number {
     throw new RangeError(`${subject} must be a non-negative safe integer.`);
   }
   return value;
-}
-
-function preparePointerState(value: unknown): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (
-    !isNonArrayObject(value) ||
-    Object.keys(value).some((field) => field !== 'hoveredTargetId' && field !== 'pressedTargetId')
-  ) {
-    throw new TypeError('list pointerState is invalid.');
-  }
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (
-    hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string' ||
-    pressedTargetId !== undefined && typeof pressedTargetId !== 'string'
-  ) {
-    throw new TypeError('list pointerState values must be strings.');
-  }
-  return Object.freeze({
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  });
 }

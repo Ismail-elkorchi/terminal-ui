@@ -561,5 +561,5 @@ test('commandInput rejects invalid validation levels at its factory boundary', (
     id: 'invalid-validation-level',
     presentation: { value: '', cursor: 0, suggestions: [] },
     validation: { message: 'Invalid', level: 'success' }
-  }), /validation level must be info, warning, or error/u);
+  }), /validation level must be one of info, warning, error/u);
 });

@@ -18,7 +18,7 @@ import type {
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { Measurement } from '../../renderer/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -48,12 +48,15 @@ import type {
   TextWidthProfile,
 } from '../../text/index.ts';
 import type { TextAreaAction } from '../../ui-model/text-area.ts';
-import type { TextAreaHighlight } from '../../ui-model/content.ts';
+import type {
+  TextAreaHighlight,
+  TextAreaLineNumberOptions,
+  TextAreaWrapOptions,
+} from '../../ui-model/content.ts';
 import type { TextAreaStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ScrollableTextAreaOptions, TextAreaOptions } from '../options/content.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface TextAreaModel {
   readonly document: TextDocument;
@@ -269,43 +272,29 @@ function hasScrollState(value: unknown): boolean {
   return isNonArrayObject(value) && Reflect.get(value, 'scroll') !== undefined;
 }
 
-function prepareTextArea(value: Readonly<Record<string, unknown>>): TextAreaModel {
-  if (!isNonArrayObject(value['presentation'])) {
+function prepareTextArea(
+  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>>,
+): TextAreaModel {
+  if (!isNonArrayObject(value.presentation)) {
     throw new TypeError('textArea presentation must be an object.');
   }
-  assertKnownOptions(value, [
-    'presentation', 'highlights', 'placeholder', 'lineNumbers', 'activeLine', 'wrap', 'required',
-    'error', 'scrollbar', 'scrollPolicy', 'pointerState',
-  ], 'textArea');
-  const presentation = value['presentation'];
-  const unsupportedPresentation = Object.keys(presentation).find((field) =>
-    field !== 'document' &&
-    field !== 'caret' &&
-    field !== 'selection' &&
-    field !== 'scroll' &&
-    field !== 'revealCaret'
-  );
-  if (unsupportedPresentation !== undefined) {
-    throw new TypeError(
-      `textArea presentation contains unknown field "${unsupportedPresentation}".`,
-    );
-  }
-  const document = presentation['document'];
+  const presentation = value.presentation;
+  const document = presentation.document;
   assertTextDocument(document);
-  const caret = presentation['caret'];
-  if (!isNonArrayObject(caret) || !isNonArrayObject(caret['position'])) {
+  const caret = presentation.caret;
+  if (!isNonArrayObject(caret) || !isNonArrayObject(caret.position)) {
     throw new TypeError('textArea caret must contain a position object.');
   }
-  const position = caret['position'];
-  const offset = position['offset'];
-  const affinity = position['affinity'];
+  const position = caret.position;
+  const offset = position.offset;
+  const affinity = position.affinity;
   if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0) {
     throw new RangeError('textArea caret position offset must be a non-negative safe integer.');
   }
-  if (affinity !== 'upstream' && affinity !== 'downstream') {
+  if (!isStringMember(affinity, ['upstream', 'downstream'])) {
     throw new TypeError('textArea caret position affinity is invalid.');
   }
-  const preferredColumnCells = caret['preferredColumnCells'];
+  const preferredColumnCells = caret.preferredColumnCells;
   if (
     preferredColumnCells !== undefined &&
     (typeof preferredColumnCells !== 'number' ||
@@ -322,44 +311,43 @@ function prepareTextArea(value: Readonly<Record<string, unknown>>): TextAreaMode
   };
   const normalizedCaret = normalizeTextCaret(document, decodedCaret);
   let selection: TextDocumentSelection | undefined;
-  if (presentation['selection'] !== undefined) {
-    const candidate = presentation['selection'];
-    if (
-      !isNonArrayObject(candidate) ||
-      Object.keys(candidate).some((field) => field !== 'anchor' && field !== 'focus')
-    ) {
-      throw new TypeError('textArea selection must contain only anchor and focus positions.');
+  if (presentation.selection !== undefined) {
+    const candidate = presentation.selection;
+    if (!isNonArrayObject(candidate)) {
+      throw new TypeError('textArea selection must contain anchor and focus positions.');
     }
     selection = normalizeTextDocumentSelectionModel(document, {
-      anchor: prepareTextPosition(candidate['anchor'], 'textArea selection.anchor'),
-      focus: prepareTextPosition(candidate['focus'], 'textArea selection.focus'),
+      anchor: prepareTextPosition(candidate.anchor, 'textArea selection.anchor'),
+      focus: prepareTextPosition(candidate.focus, 'textArea selection.focus'),
     });
   }
-  const highlights = prepareTextAreaHighlights(value['highlights'], document);
-  const scroll = prepareComponentScrollState(presentation['scroll'], 'textArea scroll');
-  const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'textArea scrollbar');
-  const scrollPolicy = prepareComponentScrollPolicy(value['scrollPolicy'], 'textArea scrollPolicy');
+  const highlights = prepareTextAreaHighlights(value.highlights, document);
+  const scroll = prepareComponentScrollState(presentation.scroll, 'textArea scroll');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'textArea scrollbar');
+  const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'textArea scrollPolicy');
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('textArea scrollbar and scrollPolicy require scroll state.');
   }
-  const lineNumbers = prepareLineNumbers(value['lineNumbers']);
-  const activeLine = booleanOption(value['activeLine'], 'textArea activeLine');
-  const wrap = prepareWrap(value['wrap']);
-  const required = booleanOption(value['required'], 'textArea required');
-  const revealCaret = booleanOption(presentation['revealCaret'], 'textArea revealCaret');
-  const pointerState = preparePointerState(value['pointerState']);
+  const lineNumbers = prepareLineNumbers(value.lineNumbers);
+  const activeLine = booleanOption(value.activeLine, 'textArea activeLine');
+  const wrap = prepareWrap(value.wrap);
+  const required = booleanOption(value.required, 'textArea required');
+  const revealCaret = booleanOption(presentation.revealCaret, 'textArea revealCaret');
+  const pointerState = value.pointerState === undefined
+    ? undefined
+    : Object.freeze({ ...value.pointerState });
   return {
     document,
     caret: normalizedCaret,
     ...(selection === undefined ? {} : { selection }),
     highlights,
-    placeholder: textOption(value['placeholder'], 'textArea placeholder') ?? '',
+    placeholder: textOption(value.placeholder, 'textArea placeholder') ?? '',
     ...(lineNumbers === undefined ? {} : { lineNumbers }),
     activeLine,
     wrap,
     revealCaret,
     required,
-    error: textOption(value['error'], 'textArea error') ?? '',
+    error: textOption(value.error, 'textArea error') ?? '',
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
@@ -497,40 +485,29 @@ function pointerOffset(input: ComponentInput<TextAreaModel>, row: number, column
   );
 }
 
-function prepareTextPosition(value: unknown, owner: string): TextCaret['position'] {
-  if (
-    !isNonArrayObject(value) ||
-    Object.keys(value).some((field) => field !== 'offset' && field !== 'affinity')
-  ) {
-    throw new TypeError(`${owner} must contain only offset and affinity.`);
+function prepareTextPosition(value: TextCaret['position'], owner: string): TextCaret['position'] {
+  if (!isNonArrayObject(value)) {
+    throw new TypeError(`${owner} must contain offset and affinity.`);
   }
-  const offset = value['offset'];
-  const affinity = value['affinity'];
+  const offset = value.offset;
+  const affinity = value.affinity;
   if (typeof offset !== 'number' || !Number.isSafeInteger(offset) || offset < 0) {
     throw new RangeError(`${owner}.offset must be a non-negative safe integer.`);
   }
-  if (affinity !== 'upstream' && affinity !== 'downstream') {
+  if (!isStringMember(affinity, ['upstream', 'downstream'])) {
     throw new TypeError(`${owner}.affinity is invalid.`);
   }
   return { offset, affinity };
 }
 
 function prepareTextAreaHighlights(
-  value: unknown,
+  value: readonly TextAreaHighlight[] | undefined,
   document: TextDocument,
 ): readonly PreparedTextAreaHighlight[] {
   if (value === undefined) return Object.freeze([]);
   if (!Array.isArray(value)) throw new TypeError('textArea highlights must be an array.');
   return Object.freeze(value.map((candidate, index) => {
-    if (
-      !isNonArrayObject(candidate) ||
-      Object.keys(candidate).some((field) =>
-        field !== 'startOffset' &&
-        field !== 'endOffsetExclusive' &&
-        field !== 'label' &&
-        field !== 'style'
-      )
-    ) {
+    if (!isNonArrayObject(candidate)) {
       throw new TypeError(`textArea highlights[${String(index)}] is invalid.`);
     }
     const startOffset = candidate['startOffset'];
@@ -561,14 +538,11 @@ function prepareTextAreaHighlights(
 }
 
 function prepareLineNumbers(
-  value: unknown,
+  value: boolean | TextAreaLineNumberOptions | undefined,
 ): { readonly startNumber: number; readonly minWidth: number } | undefined {
   if (value === undefined || value === false) return undefined;
   if (value === true) return Object.freeze({ startNumber: 1, minWidth: 1 });
-  if (
-    !isNonArrayObject(value) ||
-    Object.keys(value).some((field) => field !== 'startNumber' && field !== 'minWidth')
-  ) {
+  if (!isNonArrayObject(value)) {
     throw new TypeError('textArea lineNumbers must be a boolean or line-number options.');
   }
   const startNumber = value['startNumber'] === undefined ? 1 : value['startNumber'];
@@ -582,12 +556,11 @@ function prepareLineNumbers(
   return Object.freeze({ startNumber, minWidth });
 }
 
-function prepareWrap(value: unknown): boolean {
+function prepareWrap(value: boolean | TextAreaWrapOptions | undefined): boolean {
   if (value === undefined || value === false) return false;
   if (value === true) return true;
   if (
     !isNonArrayObject(value) ||
-    Object.keys(value).some((field) => field !== 'mode') ||
     (value['mode'] !== undefined && value['mode'] !== 'none' && value['mode'] !== 'soft')
   ) {
     throw new TypeError('textArea wrap must be a boolean or wrap options.');
@@ -1026,26 +999,4 @@ function booleanOption(value: unknown, owner: string): boolean {
   if (value === undefined) return false;
   if (typeof value === 'boolean') return value;
   throw new TypeError(`${owner} must be a boolean.`);
-}
-function preparePointerState(value: unknown): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError('textArea pointerState must be an object.');
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'hoveredTargetId' && field !== 'pressedTargetId'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`textArea pointerState contains unknown field "${unsupported}".`);
-  }
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string') {
-    throw new TypeError('textArea hoveredTargetId must be a string.');
-  }
-  if (pressedTargetId !== undefined && typeof pressedTargetId !== 'string') {
-    throw new TypeError('textArea pressedTargetId must be a string.');
-  }
-  return {
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  };
 }

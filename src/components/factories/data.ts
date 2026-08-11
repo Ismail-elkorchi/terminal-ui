@@ -8,7 +8,6 @@ import { sanitizeTerminalText } from '../../text/index.ts';
 import type { PaginatorAction } from '../../ui-model/paginator.ts';
 import type { PaginatorStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan } from '../../visual/render.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface PaginatorModel {
   readonly pageNumber: number;
@@ -53,7 +52,6 @@ export const paginator: SemanticLeafComponentFactory<
   metadata: ['focus', 'layer', 'styles'],
   parts: ['control', 'label', 'value', 'separator'],
   prepare(value) {
-    assertKnownOptions(value, ['pageNumber', 'pageCount', 'label', 'pointerState'], 'paginator');
     const pageNumber = value.pageNumber;
     const pageCount = value.pageCount;
     const label = value.label;
@@ -216,17 +214,11 @@ function paginatorVisual(
 }
 
 function assertPointerState(
-  value: unknown,
+  value: PointerInteractionState | undefined,
   owner: string,
-): asserts value is PointerInteractionState | undefined {
+): void {
   if (value === undefined) return;
   if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  const unknown = Object.keys(value).find((key) =>
-    key !== 'hoveredTargetId' && key !== 'pressedTargetId'
-  );
-  if (unknown !== undefined) {
-    throw new TypeError(`${owner} pointerState contains unknown field "${unknown}".`);
-  }
   for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
     if (value[field] !== undefined && typeof value[field] !== 'string') {
       throw new TypeError(`${owner} pointerState.${field} must be a string.`);

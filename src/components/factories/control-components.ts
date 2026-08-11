@@ -17,12 +17,11 @@ import type {
   SemanticLeafComponentFactory,
 } from '../../component/index.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { FocusTarget, Measurement } from '../../renderer/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
@@ -39,6 +38,7 @@ import {
 import type { TextEditOperation } from '../../text/index.ts';
 import type { TextSelection } from '../../text/index.ts';
 import type { CalendarAction, CalendarDay } from '../../ui-model/calendar.ts';
+import type { ChoiceItem } from '../../ui-model/contracts.ts';
 import type {
   CheckboxGroupAction,
   ColorSwatchPickerAction,
@@ -85,12 +85,29 @@ interface SliderModel extends PointerModel {
   readonly error: string;
 }
 
+type SliderComponentOptions = Omit<
+  SliderOptions<ComponentMessage>,
+  'id' | 'disabled' | 'onAction' | 'meta'
+>;
+type RangeSliderComponentOptions = Omit<
+  RangeSliderOptions<ComponentMessage>,
+  'id' | 'disabled' | 'onAction' | 'meta'
+>;
+type CheckboxGroupComponentOptions = Omit<
+  CheckboxGroupOptions<unknown, ComponentMessage>,
+  'id' | 'disabled' | 'onAction' | 'meta'
+>;
+type RadioGroupComponentOptions = Omit<
+  RadioGroupOptions<unknown, ComponentMessage>,
+  'id' | 'disabled' | 'onAction' | 'meta'
+>;
+
 type SliderFactory = <const TMessage extends ComponentMessage = never>(
   options: SliderOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateSlider = defineComponent<
-  Omit<SliderOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  SliderComponentOptions,
   SliderModel,
   SliderAction,
   SliderStylePart,
@@ -106,13 +123,8 @@ const instantiateSlider = defineComponent<
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'value', 'error'],
   prepare(value) {
-    assertKnownOptions(
-      value,
-      ['label', 'value', 'min', 'max', 'step', 'width', 'error', 'pointerState'],
-      'slider',
-    );
     const common = prepareNumericSlider(value, 'slider');
-    return { ...common, value: numberInRange(value, 'value', common.min, common.max, 'slider') };
+    return { ...common, value: numberInRange(value.value, 'value', common.min, common.max, 'slider') };
   },
   measure: (input) => measureLines(sliderLines(input, false), input),
   render: (input) => {
@@ -156,7 +168,7 @@ type RangeSliderFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateRangeSlider = defineComponent<
-  Omit<RangeSliderOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  RangeSliderComponentOptions,
   RangeModel,
   RangeSliderAction,
   SliderStylePart,
@@ -244,7 +256,7 @@ type CheckboxGroupFactory = <TValue, const TMessage extends ComponentMessage = n
 ) => Element<TMessage>;
 
 const instantiateCheckboxGroup = defineComponent<
-  Omit<CheckboxGroupOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  CheckboxGroupComponentOptions,
   ChoiceModel,
   CheckboxGroupAction,
   ChoiceStylePart,
@@ -270,7 +282,7 @@ type RadioGroupFactory = <TValue, const TMessage extends ComponentMessage = neve
 ) => Element<TMessage>;
 
 const instantiateRadioGroup = defineComponent<
-  Omit<RadioGroupOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  RadioGroupComponentOptions,
   ChoiceModel,
   RadioGroupAction,
   ChoiceStylePart,
@@ -477,10 +489,10 @@ interface TextEntryModel extends PointerModel {
 }
 
 const textInputDefinition = textEntryDefinition<
-  Omit<TextInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>
+  TextInputComponentOptions
 >('text-input', false);
 const passwordInputDefinition = textEntryDefinition<
-  Omit<PasswordInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>
+  PasswordInputComponentOptions
 >('password-input', true);
 
 export function textInput<const TMessage extends ComponentMessage = never>(
@@ -647,15 +659,12 @@ function passivePointerPolicy(): ComponentPointerActions<PointerModel, never> {
   };
 }
 
-function preparePointer(value: unknown, owner: string): PointerInteractionState | undefined {
+function preparePointer(
+  value: PointerInteractionState | undefined,
+  owner: string,
+): PointerInteractionState | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'hoveredTargetId' && field !== 'pressedTargetId'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} pointerState contains unknown field "${unsupported}".`);
-  }
   const hoveredTargetId = value['hoveredTargetId'];
   const pressedTargetId = value['pressedTargetId'];
   if (hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string') {
@@ -671,71 +680,69 @@ function preparePointer(value: unknown, owner: string): PointerInteractionState 
 }
 
 function prepareNumericSlider(
-  value: Readonly<Record<string, unknown>>,
+  value: Readonly<Pick<
+    SliderComponentOptions,
+    'label' | 'min' | 'max' | 'step' | 'width' | 'error' | 'pointerState'
+  >>,
   owner: string,
 ): Omit<SliderModel, 'value'> {
-  const min = optionalFinite(value['min'], `${owner} min`) ?? 0;
-  const max = optionalFinite(value['max'], `${owner} max`) ?? 100;
+  const min = optionalFinite(value.min, `${owner} min`) ?? 0;
+  const max = optionalFinite(value.max, `${owner} max`) ?? 100;
   if (max < min) throw new RangeError(`${owner} must define finite ordered bounds.`);
-  const step = optionalFinite(value['step'], `${owner} step`) ?? 1;
+  const step = optionalFinite(value.step, `${owner} step`) ?? 1;
   if (step <= 0) throw new RangeError(`${owner} step must be finite and greater than zero.`);
-  const width = value['width'] === undefined
+  const width = value.width === undefined
     ? 16
-    : positiveInteger(value['width'], `${owner} width`);
-  const pointerState = preparePointer(value['pointerState'], owner);
+    : positiveInteger(value.width, `${owner} width`);
+  const pointerState = preparePointer(value.pointerState, owner);
   return {
-    label: cleanString(value['label'], `${owner} label`),
+    label: cleanString(value.label, `${owner} label`),
     min,
     max,
     step,
     width: Math.max(3, width),
-    error: optionalString(value['error'], `${owner} error`) ?? '',
+    error: optionalString(value.error, `${owner} error`) ?? '',
     ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
 function numberInRange(
-  value: Readonly<Record<string, unknown>>,
+  value: number | undefined,
   field: string,
   min: number,
   max: number,
   owner: string,
 ): number {
   const label = `${owner} ${field === 'value' ? 'value' : `${field} value`}`;
-  const number = optionalFinite(value[field], label);
+  const number = optionalFinite(value, label);
   if (number === undefined || number < min || number > max) {
     throw new RangeError(`${label} must be within the declared range.`);
   }
   return number;
 }
 
-function prepareRangeSlider(value: Readonly<Record<string, unknown>>): RangeModel {
-  assertKnownOptions(
-    value,
-    ['label', 'state', 'range', 'step', 'width', 'error', 'pointerState'],
-    'rangeSlider',
-  );
-  const range = value['range'];
+function prepareRangeSlider(
+  value: Readonly<RangeSliderComponentOptions>,
+): RangeModel {
+  const range = value.range;
   if (range !== undefined && !isNonArrayObject(range)) {
     throw new TypeError('rangeSlider range must be an object.');
   }
   const base = prepareNumericSlider({
     ...value,
-    min: range?.['min'],
-    max: range?.['max'],
-    value: undefined,
+    ...(range === undefined ? {} : { min: range.min, max: range.max }),
   }, 'rangeSlider');
-  const state = value['state'];
+  const state = value.state;
   if (
-    !isNonArrayObject(state) || !isNonArrayObject(state['value']) ||
-    (state['activeHandle'] !== 'start' && state['activeHandle'] !== 'end')
+    !isNonArrayObject(state) || !isNonArrayObject(state.value) ||
+    !isStringMember(state.activeHandle, ['start', 'end'])
   ) throw new TypeError('rangeSlider state is invalid.');
-  const start = numberInRange(state['value'], 'start', base.min, base.max, 'rangeSlider');
-  const end = numberInRange(state['value'], 'end', base.min, base.max, 'rangeSlider');
+  const start = numberInRange(state.value.start, 'start', base.min, base.max, 'rangeSlider');
+  const end = numberInRange(state.value.end, 'end', base.min, base.max, 'rangeSlider');
   if (start > end) {
     throw new RangeError('rangeSlider start value must be less than or equal to end value.');
   }
-  return { ...base, start, end, activeHandle: state['activeHandle'] };
+  return { ...base, start, end, activeHandle: state.activeHandle };
 }
 
 function sliderLines(
@@ -913,58 +920,43 @@ function sliderPartStyle(description: string, disabled: boolean, active = false)
 }
 
 function prepareChoiceModel(
-  value: Readonly<Record<string, unknown>>,
+  value: Readonly<CheckboxGroupComponentOptions | RadioGroupComponentOptions>,
   owner: string,
   multiple: boolean,
 ): ChoiceModel {
-  if (!Array.isArray(value['options'])) {
-    throw new TypeError(`${owner} options must contain an options array.`);
-  }
-  assertKnownOptions(
-    value,
-    ['label', 'options', 'selected', 'focused', 'required', 'error', 'pointerState'],
-    owner,
-  );
-  const options = value['options'].map((item, index) =>
+  const options = value.options.map((item, index) =>
     prepareChoice(item, `${owner} options[${String(index)}]`)
   );
   assertUnique(options, owner);
-  const selectedValue = value['selected'];
+  const selectedValue = value.selected;
   const selected = multiple
     ? selectedValue === undefined ? [] : stringArray(selectedValue, `${owner} selected`)
     : selectedValue === undefined
     ? []
     : [cleanString(selectedValue, `${owner} selected`)];
-  const focused = optionalString(value['focused'], `${owner} focused`);
-  const pointerState = preparePointer(value['pointerState'], owner);
+  const focused = optionalString(value.focused, `${owner} focused`);
+  const pointerState = preparePointer(value.pointerState, owner);
   return {
-    label: cleanString(value['label'], `${owner} label`),
+    label: cleanString(value.label, `${owner} label`),
     options,
     selected,
     ...(focused === undefined ? {} : { focused }),
-    required: optionalBoolean(value['required'], `${owner} required`) ?? false,
-    error: optionalString(value['error'], `${owner} error`) ?? '',
+    required: optionalBoolean(value.required, `${owner} required`) ?? false,
+    error: optionalString(value.error, `${owner} error`) ?? '',
     ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
 function prepareChoice(
-  value: unknown,
+  value: ChoiceItem<unknown>,
   owner: string,
-  extraFields: readonly string[] = [],
 ): PreparedChoice {
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be an object.`);
-  const allowed = new Set(['id', 'label', 'value', 'description', 'disabled', ...extraFields]);
-  const unsupported = Object.keys(value).find((field) => !allowed.has(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} contains unknown field "${unsupported}".`);
-  }
-  const description = optionalString(value['description'], `${owner}.description`);
+  const description = optionalString(value.description, `${owner}.description`);
   return {
-    id: cleanString(value['id'], `${owner}.id`),
-    label: cleanString(value['label'], `${owner}.label`),
+    id: cleanString(value.id, `${owner}.id`),
+    label: cleanString(value.label, `${owner}.label`),
     ...(description === undefined ? {} : { description }),
-    disabled: optionalBoolean(value['disabled'], `${owner}.disabled`) ?? false,
+    disabled: optionalBoolean(value.disabled, `${owner}.disabled`) ?? false,
   };
 }
 
@@ -1198,48 +1190,40 @@ function choiceAccessibility(
   };
 }
 
-function prepareSwatches(value: Readonly<Record<string, unknown>>): SwatchModel {
-  if (!Array.isArray(value['options'])) {
-    throw new TypeError('colorSwatchPicker options must contain an options array.');
-  }
-  assertKnownOptions(value, [
-    'label', 'options', 'selected', 'focused', 'columns', 'error', 'pointerState',
-  ], 'colorSwatchPicker');
-  const options = value['options'].map((item, index): PreparedSwatch => {
-    const base = prepareChoice(item, `colorSwatchPicker options[${String(index)}]`, [
-      'swatch',
-      'style',
-    ]);
-    if (!isNonArrayObject(item)) throw new TypeError('colorSwatchPicker option must be an object.');
-    const swatch = optionalString(item['swatch'], 'colorSwatchPicker swatch') ?? '■';
+function prepareSwatches(
+  value: Readonly<Omit<ColorSwatchPickerOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>>,
+): SwatchModel {
+  const options = value.options.map((item, index): PreparedSwatch => {
+    const base = prepareChoice(item, `colorSwatchPicker options[${String(index)}]`);
+    const swatch = optionalString(item.swatch, 'colorSwatchPicker swatch') ?? '■';
     if (terminalTextWidth(swatch) !== 1) {
       throw new RangeError('colorSwatchPicker swatch must occupy one terminal cell.');
     }
     return {
       ...base,
       swatch,
-      ...(item['style'] === undefined ? {} : {
+      ...(item.style === undefined ? {} : {
         swatchStyle: prepareTerminalStyle(
-          item['style'],
+          item.style,
           `colorSwatchPicker options[${String(index)}].style`,
         ),
       }),
     };
   });
   assertUnique(options, 'colorSwatchPicker');
-  const columns = value['columns'] === undefined
+  const columns = value.columns === undefined
     ? Math.max(1, Math.min(8, options.length || 1))
-    : positiveInteger(value['columns'], 'colorSwatchPicker columns');
-  const selected = optionalString(value['selected'], 'colorSwatchPicker selected');
-  const focused = optionalString(value['focused'], 'colorSwatchPicker focused');
-  const pointerState = preparePointer(value['pointerState'], 'colorSwatchPicker');
+    : positiveInteger(value.columns, 'colorSwatchPicker columns');
+  const selected = optionalString(value.selected, 'colorSwatchPicker selected');
+  const focused = optionalString(value.focused, 'colorSwatchPicker focused');
+  const pointerState = preparePointer(value.pointerState, 'colorSwatchPicker');
   return {
-    label: cleanString(value['label'], 'colorSwatchPicker label'),
+    label: cleanString(value.label, 'colorSwatchPicker label'),
     options,
     ...(selected === undefined ? {} : { selected }),
     ...(focused === undefined ? {} : { focused }),
     columns,
-    error: optionalString(value['error'], 'colorSwatchPicker error') ?? '',
+    error: optionalString(value.error, 'colorSwatchPicker error') ?? '',
     ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
@@ -1386,20 +1370,19 @@ function swatchOptionSpans(
   ];
 }
 
-function prepareCalendar(value: Readonly<Record<string, unknown>>): CalendarModel {
-  if (!Array.isArray(value['weekdays']) || !Array.isArray(value['days'])) {
+function prepareCalendar(
+  value: Readonly<Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>>,
+): CalendarModel {
+  if (!Array.isArray(value.weekdays) || !Array.isArray(value.days)) {
     throw new TypeError('calendar options are invalid.');
   }
-  assertKnownOptions(value, [
-    'label', 'monthLabel', 'weekdays', 'days', 'selected', 'focused', 'error', 'pointerState',
-  ], 'calendar');
-  if (value['weekdays'].length !== 7) {
+  if (value.weekdays.length !== 7) {
     throw new RangeError('calendar weekdays must contain seven labels.');
   }
-  const weekdays = value['weekdays'].map((day, index) =>
+  const weekdays = value.weekdays.map((day, index) =>
     cleanString(day, `calendar weekdays[${String(index)}]`)
   );
-  const days = value['days'].map((day, index): PreparedDay => {
+  const days = value.days.map((day, index): PreparedDay => {
     if (!isNonArrayObject(day) || !isNonArrayObject(day['date'])) {
       throw new TypeError(`calendar days[${String(index)}] is invalid.`);
     }
@@ -1419,17 +1402,17 @@ function prepareCalendar(value: Readonly<Record<string, unknown>>): CalendarMode
     };
   });
   assertUnique(days, 'calendar');
-  const selected = optionalString(value['selected'], 'calendar selected');
-  const focused = optionalString(value['focused'], 'calendar focused');
-  const pointerState = preparePointer(value['pointerState'], 'calendar');
+  const selected = optionalString(value.selected, 'calendar selected');
+  const focused = optionalString(value.focused, 'calendar focused');
+  const pointerState = preparePointer(value.pointerState, 'calendar');
   return {
-    label: cleanString(value['label'], 'calendar label'),
-    monthLabel: cleanString(value['monthLabel'], 'calendar monthLabel'),
+    label: cleanString(value.label, 'calendar label'),
+    monthLabel: cleanString(value.monthLabel, 'calendar monthLabel'),
     weekdays,
     days,
     ...(selected === undefined ? {} : { selected }),
     ...(focused === undefined ? {} : { focused }),
-    error: optionalString(value['error'], 'calendar error') ?? '',
+    error: optionalString(value.error, 'calendar error') ?? '',
     ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
@@ -1583,7 +1566,18 @@ type TextEntryFactory<TOptions extends object> = SemanticLeafComponentFactory<
   readonly ['focus', 'layer', 'styles']
 >;
 
-function textEntryDefinition<TOptions extends object>(
+type TextInputComponentOptions = Omit<
+  TextInputOptions<ComponentMessage>,
+  'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'
+>;
+type PasswordInputComponentOptions = Omit<
+  PasswordInputOptions<ComponentMessage>,
+  'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'
+>;
+
+function textEntryDefinition<
+  TOptions extends TextInputComponentOptions | PasswordInputComponentOptions,
+>(
   name: 'text-input' | 'password-input',
   password: boolean,
 ): TextEntryFactory<TOptions> {
@@ -1729,22 +1723,17 @@ function textEntryDefinition<TOptions extends object>(
 }
 
 function prepareTextEntry(
-  value: Readonly<Record<string, unknown>>,
+  value: Readonly<TextInputComponentOptions | PasswordInputComponentOptions>,
   owner: string,
   password: boolean,
 ): TextEntryModel {
-  if (!isNonArrayObject(value['presentation'])) {
+  if (!isNonArrayObject(value.presentation)) {
     throw new TypeError(`${owner} presentation must be an object.`);
   }
-  assertKnownOptions(
-    value,
-    password
-      ? ['presentation', 'placeholder', 'required', 'error', 'pointerState', 'mask']
-      : ['presentation', 'placeholder', 'required', 'error', 'pointerState'],
-    owner,
-  );
-  const presentation = prepareTextPresentation(value['presentation'], owner);
-  const mask = password ? optionalString(value['mask'], `${owner} mask`) ?? '•' : undefined;
+  const presentation = prepareTextPresentation(value.presentation, owner);
+  const mask = password
+    ? optionalString('mask' in value ? value.mask : undefined, `${owner} mask`) ?? '•'
+    : undefined;
   if (
     mask !== undefined && (segmentGraphemes(mask).length !== 1 || terminalTextWidth(mask) !== 1)
   ) throw new RangeError('passwordInput mask must be one printable one-cell grapheme.');
@@ -1767,13 +1756,13 @@ function prepareTextEntry(
         graphemes.filter((part) => part.endOffsetExclusive <= selection.endOffsetExclusive).length *
         mask.length,
     };
-  const pointerState = preparePointer(value['pointerState'], owner);
+  const pointerState = preparePointer(value.pointerState, owner);
   return {
     presentation: { ...presentation, cursor: displayedCursor },
     displayedValue,
-    placeholder: optionalString(value['placeholder'], `${owner} placeholder`) ?? '',
-    required: optionalBoolean(value['required'], `${owner} required`) ?? false,
-    error: optionalString(value['error'], `${owner} error`) ?? '',
+    placeholder: optionalString(value.placeholder, `${owner} placeholder`) ?? '',
+    required: optionalBoolean(value.required, `${owner} required`) ?? false,
+    error: optionalString(value.error, `${owner} error`) ?? '',
     sourceValue: presentation.value,
     ...(displayedSelection === undefined ? {} : { displayedSelection }),
     ...(mask === undefined ? {} : { maskCodeUnits: mask.length }),
@@ -1782,43 +1771,34 @@ function prepareTextEntry(
 }
 
 function prepareTextPresentation(
-  value: Readonly<Record<string, unknown>>,
+  value: TextInputPresentation,
   owner: string,
 ): TextInputPresentation {
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'value' && field !== 'cursor' && field !== 'selection'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} presentation contains unknown field "${unsupported}".`);
-  }
-  const raw = cleanString(value['value'], `${owner} value`);
-  const cursor = nonNegativeInteger(value['cursor'], `${owner} cursor`);
+  const raw = cleanString(value.value, `${owner} value`);
+  const cursor = nonNegativeInteger(value.cursor, `${owner} cursor`);
   if (cursor > raw.length) throw new RangeError(`${owner} cursor exceeds value length.`);
-  const selection = prepareTextSelection(value['selection'], raw, owner);
+  const selection = prepareTextSelection(value.selection, raw, owner);
   return { value: raw, cursor, ...(selection === undefined ? {} : { selection }) };
 }
 
 function prepareTextSelection(
-  value: unknown,
+  value: TextSelection | undefined,
   text: string,
   owner: string,
 ): TextSelection | undefined {
   if (value === undefined) return undefined;
   if (
     !isNonArrayObject(value) ||
-    Object.keys(value).some((field) =>
-      field !== 'startOffset' && field !== 'endOffsetExclusive'
-    ) ||
-    typeof value['startOffset'] !== 'number' ||
-    typeof value['endOffsetExclusive'] !== 'number' ||
-    !Number.isSafeInteger(value['startOffset']) ||
-    !Number.isSafeInteger(value['endOffsetExclusive'])
+    typeof value.startOffset !== 'number' ||
+    typeof value.endOffsetExclusive !== 'number' ||
+    !Number.isSafeInteger(value.startOffset) ||
+    !Number.isSafeInteger(value.endOffsetExclusive)
   ) {
     throw new TypeError(`${owner} selection is invalid.`);
   }
   return normalizeTextSelection(text, {
-    startOffset: value['startOffset'],
-    endOffsetExclusive: value['endOffsetExclusive'],
+    startOffset: value.startOffset,
+    endOffsetExclusive: value.endOffsetExclusive,
   });
 }
 
@@ -1965,38 +1945,26 @@ function sourceOffsetAtColumn(
   return source[index]?.startOffset ?? model.sourceValue.length;
 }
 
-function prepareNumberInput(value: Readonly<Record<string, unknown>>): NumberModel {
-  if (!isNonArrayObject(value['presentation'])) {
+function prepareNumberInput(
+  value: Readonly<Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>>,
+): NumberModel {
+  if (!isNonArrayObject(value.presentation)) {
     throw new TypeError('numberInput presentation must be an object.');
   }
-  assertKnownOptions(
-    value,
-    ['presentation', 'placeholder', 'required', 'error', 'pointerState'],
-    'numberInput',
-  );
-  const raw = value['presentation'];
-  const unsupported = Object.keys(raw).find((field) =>
-    field !== 'value' && field !== 'cursor' && field !== 'selection' &&
-    field !== 'validity' && field !== 'parsedValue' && field !== 'committedValue' &&
-    field !== 'min' && field !== 'max' && field !== 'step'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(`numberInput presentation contains unknown field "${unsupported}".`);
-  }
-  const text = cleanString(raw['value'], 'numberInput value');
-  const cursor = nonNegativeInteger(raw['cursor'], 'numberInput cursor');
+  const raw = value.presentation;
+  const text = cleanString(raw.value, 'numberInput value');
+  const cursor = nonNegativeInteger(raw.cursor, 'numberInput cursor');
   if (cursor > text.length) throw new RangeError('numberInput cursor exceeds value length.');
-  const selection = prepareTextSelection(raw['selection'], text, 'numberInput');
-  const validity = raw['validity'];
-  if (
-    validity !== 'empty' && validity !== 'incomplete' && validity !== 'invalid' &&
-    validity !== 'valid' && validity !== 'outOfRange'
-  ) throw new TypeError('numberInput validity is invalid.');
-  const parsedValue = raw['parsedValue'];
-  const min = optionalFinite(raw['min'], 'numberInput min');
-  const max = optionalFinite(raw['max'], 'numberInput max');
-  const step = optionalFinite(raw['step'], 'numberInput step');
-  const committedValue = optionalFinite(raw['committedValue'], 'numberInput committedValue');
+  const selection = prepareTextSelection(raw.selection, text, 'numberInput');
+  const validity = raw.validity;
+  if (!isStringMember(validity, ['empty', 'incomplete', 'invalid', 'valid', 'outOfRange'])) {
+    throw new TypeError('numberInput validity is invalid.');
+  }
+  const parsedValue = raw.parsedValue;
+  const min = optionalFinite(raw.min, 'numberInput min');
+  const max = optionalFinite(raw.max, 'numberInput max');
+  const step = optionalFinite(raw.step, 'numberInput step');
+  const committedValue = optionalFinite(raw.committedValue, 'numberInput committedValue');
   const common = {
     value: text,
     cursor,
@@ -2015,12 +1983,12 @@ function prepareNumberInput(value: Readonly<Record<string, unknown>>): NumberMod
   } else {
     presentation = { ...common, validity };
   }
-  const pointerState = preparePointer(value['pointerState'], 'numberInput');
+  const pointerState = preparePointer(value.pointerState, 'numberInput');
   return {
     presentation,
-    placeholder: optionalString(value['placeholder'], 'numberInput placeholder') ?? '',
-    required: optionalBoolean(value['required'], 'numberInput required') ?? false,
-    error: optionalString(value['error'], 'numberInput error') ?? '',
+    placeholder: optionalString(value.placeholder, 'numberInput placeholder') ?? '',
+    required: optionalBoolean(value.required, 'numberInput required') ?? false,
+    error: optionalString(value.error, 'numberInput error') ?? '',
     ...(pointerState === undefined ? {} : { pointerState }),
   };
 }

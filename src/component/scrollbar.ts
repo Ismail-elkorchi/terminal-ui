@@ -19,52 +19,59 @@ import type { HitTarget, RenderTarget } from '../renderer/contracts.ts';
 import { oneCellGlyph } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { FrameCellSource } from '../visual/source.ts';
-import { isNonArrayObject } from '../foundation/validation.ts';
+import { assertOptionalEnum } from '../foundation/validation.ts';
 
-export function prepareComponentScrollState(value: unknown, subject: string): ScrollState | undefined {
+export function prepareComponentScrollState(
+  value: ScrollState | undefined,
+  subject: string,
+): ScrollState | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
-  const allowed = new Set(['offsetRow', 'offsetColumn', 'contentRows', 'contentColumns', 'viewportRows', 'viewportColumns', 'followTail', 'selectedIndex']);
-  const unknown = Object.keys(value).find((field) => !allowed.has(field));
-  if (unknown !== undefined) throw new TypeError(`${subject} contains unknown field "${unknown}".`);
-  const number = (field: string): number => nonNegativeInteger(value[field], `${subject}.${field}`);
-  if (typeof value['followTail'] !== 'boolean') throw new TypeError(`${subject}.followTail must be a boolean.`);
   return Object.freeze({
-    offsetRow: number('offsetRow'), offsetColumn: number('offsetColumn'),
-    contentRows: number('contentRows'), contentColumns: number('contentColumns'),
-    viewportRows: number('viewportRows'), viewportColumns: number('viewportColumns'),
-    followTail: value['followTail'],
-    ...(value['selectedIndex'] === undefined ? {} : { selectedIndex: number('selectedIndex') })
+    offsetRow: nonNegativeInteger(value.offsetRow, `${subject}.offsetRow`),
+    offsetColumn: nonNegativeInteger(value.offsetColumn, `${subject}.offsetColumn`),
+    contentRows: nonNegativeInteger(value.contentRows, `${subject}.contentRows`),
+    contentColumns: nonNegativeInteger(value.contentColumns, `${subject}.contentColumns`),
+    viewportRows: nonNegativeInteger(value.viewportRows, `${subject}.viewportRows`),
+    viewportColumns: nonNegativeInteger(value.viewportColumns, `${subject}.viewportColumns`),
+    followTail: value.followTail,
+    ...(value.selectedIndex === undefined
+      ? {}
+      : { selectedIndex: nonNegativeInteger(value.selectedIndex, `${subject}.selectedIndex`) })
   });
 }
 
-export function prepareComponentScrollbarOptions(value: unknown, subject: string): ScrollbarOptions | undefined {
+export function prepareComponentScrollbarOptions(
+  value: ScrollbarOptions | undefined,
+  subject: string,
+): ScrollbarOptions | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
-  const unknown = Object.keys(value).find((field) => field !== 'visible' && field !== 'axis' && field !== 'visualState');
-  if (unknown !== undefined) throw new TypeError(`${subject} contains unknown field "${unknown}".`);
-  if (value['visible'] !== undefined && value['visible'] !== 'auto' && value['visible'] !== 'always' && value['visible'] !== 'never') throw new TypeError(`${subject}.visible is invalid.`);
-  if (value['axis'] !== undefined && value['axis'] !== 'vertical' && value['axis'] !== 'horizontal' && value['axis'] !== 'both') throw new TypeError(`${subject}.axis is invalid.`);
-  if (value['visualState'] !== undefined && value['visualState'] !== 'idle' && value['visualState'] !== 'active' && value['visualState'] !== 'hover' && value['visualState'] !== 'disabled' && value['visualState'] !== 'inactive') throw new TypeError(`${subject}.visualState is invalid.`);
+  assertOptionalEnum(value.visible, ['auto', 'always', 'never'], `${subject}.visible`);
+  assertOptionalEnum(value.axis, ['vertical', 'horizontal', 'both'], `${subject}.axis`);
+  assertOptionalEnum(
+    value.visualState,
+    ['idle', 'active', 'hover', 'disabled', 'inactive'],
+    `${subject}.visualState`,
+  );
   return Object.freeze({
-    ...(value['visible'] === undefined ? {} : { visible: value['visible'] }),
-    ...(value['axis'] === undefined ? {} : { axis: value['axis'] }),
-    ...(value['visualState'] === undefined ? {} : { visualState: value['visualState'] })
+    ...(value.visible === undefined ? {} : { visible: value.visible }),
+    ...(value.axis === undefined ? {} : { axis: value.axis }),
+    ...(value.visualState === undefined ? {} : { visualState: value.visualState })
   });
 }
 
-export function prepareComponentScrollPolicy(value: unknown, subject: string): ScrollPolicy | undefined {
+export function prepareComponentScrollPolicy(
+  value: ScrollPolicy | undefined,
+  subject: string,
+): ScrollPolicy | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value) || Object.keys(value).some((field) => field !== 'wheel')) throw new TypeError(`${subject} must contain only wheel.`);
-  const wheel = value['wheel'];
+  const wheel = value.wheel;
   if (wheel === undefined) return Object.freeze({});
-  if (!isNonArrayObject(wheel) || Object.keys(wheel).some((field) => field !== 'unit' && field !== 'rows' && field !== 'columns')) throw new TypeError(`${subject}.wheel is invalid.`);
-  if (wheel['unit'] !== undefined && wheel['unit'] !== 'line' && wheel['unit'] !== 'page') throw new TypeError(`${subject}.wheel.unit is invalid.`);
+  assertOptionalEnum(wheel.unit, ['line', 'page'], `${subject}.wheel.unit`);
   const optional = (field: 'rows' | 'columns'): number | undefined => wheel[field] === undefined ? undefined : nonNegativeInteger(wheel[field], `${subject}.wheel.${field}`);
   const rows = optional('rows');
   const columns = optional('columns');
   return Object.freeze({ wheel: Object.freeze({
-    ...(wheel['unit'] === undefined ? {} : { unit: wheel['unit'] }),
+    ...(wheel.unit === undefined ? {} : { unit: wheel.unit }),
     ...(rows === undefined ? {} : { rows }),
     ...(columns === undefined ? {} : { columns })
   }) });

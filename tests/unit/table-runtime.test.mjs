@@ -41,10 +41,6 @@ async function clickAt(runtime, row, column) {
 }
 
 test('list and table reject empty or duplicate stable ids in their factories', () => {
-  const componentTypeError = (error) => error.name === 'ComponentExecutionError'
-    && error.cause instanceof TypeError;
-  const componentRangeError = (error) => error.name === 'ComponentExecutionError'
-    && error.cause instanceof RangeError;
   assert.throws(() => list({
     id: 'duplicate-list',
     items: ['alpha', 'alpha'],
@@ -55,26 +51,26 @@ test('list and table reject empty or duplicate stable ids in their factories', (
     rows: [['alpha']],
     getRowId: () => '',
     columns: [{ id: 'value', header: 'Value', value: (row) => row[0] }]
-  }), (error) => componentTypeError(error) && /id must be non-empty/u.test(error.cause.message));
+  }), /id must be non-empty/u);
   assert.throws(() => table({
     id: 'invalid-column',
     rows: [['alpha']],
     getRowId: () => 'alpha',
     columns: [{ id: 'value', value: (row) => row[0], align: 'left' }]
-  }), componentTypeError);
+  }), TypeError);
   assert.throws(() => table({
     id: 'invalid-width',
     rows: [['alpha']],
     getRowId: () => 'alpha',
     columns: [{ id: 'value', value: (row) => row[0], width: Number.NaN }]
-  }), componentRangeError);
+  }), RangeError);
   assert.throws(() => table({
     id: 'invalid-cell-selection',
     rows: [['alpha']],
     getRowId: () => 'alpha',
     columns: [{ id: 'value', value: (row) => row[0] }],
     presentation: { selectedCell: { rowId: 'alpha', columnIndex: 0.5 } }
-  }), componentRangeError);
+  }), RangeError);
 });
 
 test('table component renders constrained columns and selected rows', () => {

@@ -21,7 +21,6 @@ import {
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { RenderSpan } from '../../visual/render.ts';
 import type { ElementMessage } from '../../element/index.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface PreparedText {
   readonly content: string;
@@ -51,7 +50,6 @@ export const text: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['content', 'link'],
   prepare(value) {
-    assertKnownOptions(value, ['content', 'textRole'], 'text');
     const content = value.content;
     const textRole = value.textRole;
     if (typeof content !== 'string') throw new TypeError('text content must be a string.');
@@ -160,7 +158,6 @@ export const richText: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['content', 'link'],
   prepare(value) {
-    assertKnownOptions(value, ['segments', 'wrap'], 'richText');
     const segments = value.segments;
     const wrap = value.wrap;
     if (!isInlineContent(segments)) {
@@ -295,7 +292,6 @@ export const disclosure: DisclosureFactory = defineComponent<
   metadata: ['focus', 'layer', 'styles'],
   parts: ['marker', 'label', 'summary'],
   prepare(value) {
-    assertKnownOptions(value, ['label', 'summary', 'expanded'], 'disclosure');
     const label = value.label;
     const summary = value.summary;
     const expanded = value.expanded;

@@ -17,12 +17,6 @@ import {
   sanitizeTerminalText
 } from '../../dist/text/index.js';
 
-function exactOptions(value, fields, subject) {
-  const unknown = Object.keys(value).find((field) => !fields.includes(field));
-  if (unknown !== undefined) throw new TypeError(`${subject} contains unknown field "${unknown}".`);
-  return value;
-}
-
 function cleanString(value, subject) {
   if (typeof value !== 'string') throw new TypeError(`${subject} must be a string.`);
   return sanitizeTerminalText(value).text;
@@ -36,7 +30,7 @@ export const externalText = defineComponent({
   metadata: ['styles', 'layer'],
   parts: ['content'],
   prepare(value) {
-    const input = exactOptions(value, ['content'], 'externalText options');
+    const input = value;
     return { content: cleanString(input.content, 'externalText content') };
   },
   measure({ model, widthProfile }) {
@@ -67,7 +61,7 @@ export const externalButton = defineComponent({
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label'],
   prepare(value) {
-    const input = exactOptions(value, ['label'], 'externalButton options');
+    const input = value;
     return { label: cleanString(input.label, 'externalButton label') };
   },
   measure({ model, widthProfile }) {
@@ -117,7 +111,7 @@ export const externalTextInput = defineComponent({
   metadata: ['focus', 'styles'],
   parts: ['value'],
   prepare(value) {
-    const input = exactOptions(value, ['label', 'value'], 'externalTextInput options');
+    const input = value;
     return {
       label: cleanString(input.label, 'externalTextInput label'),
       value: cleanString(input.value, 'externalTextInput value')
@@ -179,7 +173,7 @@ export const externalVirtualList = defineComponent({
   metadata: ['focus', 'styles'],
   parts: ['item', 'scrollbar'],
   prepare(value) {
-    const input = exactOptions(value, ['items', 'offset', 'scrollbar'], 'externalVirtualList options');
+    const input = value;
     if (!Array.isArray(input.items)) throw new TypeError('externalVirtualList items must be an array.');
     const items = Object.freeze(input.items.map((item, index) => cleanString(item, `externalVirtualList item ${String(index)}`)));
     const offset = input.offset ?? 0;
@@ -281,7 +275,7 @@ export const externalSelect = defineComponent({
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   prepare(value) {
-    const input = exactOptions(value, ['label', 'items', 'selectedIndex', 'open'], 'externalSelect options');
+    const input = value;
     if (!Array.isArray(input.items)) throw new TypeError('externalSelect items must be an array.');
     const items = Object.freeze(input.items.map((item, index) => cleanString(item, `externalSelect item ${String(index)}`)));
     const selectedIndex = input.selectedIndex ?? 0;
@@ -363,7 +357,7 @@ export const externalDialog = defineComponent({
   slots: externalDialogSlots,
   metadata: ['focus', 'layer', 'styles'],
   prepare(value) {
-    const input = exactOptions(value, ['title', 'modal'], 'externalDialog options');
+    const input = value;
     if (typeof input.modal !== 'boolean') throw new TypeError('externalDialog modal must be a boolean.');
     return { title: cleanString(input.title, 'externalDialog title'), modal: input.modal };
   },
@@ -407,7 +401,7 @@ export const externalTooltip = defineComponent({
   semantics: 'semantic',
   slots: externalTooltipSlots,
   prepare(value) {
-    const input = exactOptions(value, ['content', 'open'], 'externalTooltip options');
+    const input = value;
     if (typeof input.open !== 'boolean') throw new TypeError('externalTooltip open must be a boolean.');
     return { content: cleanString(input.content, 'externalTooltip content'), open: input.open };
   },
@@ -445,7 +439,7 @@ export const externalChart = defineComponent({
   metadata: ['styles', 'layer'],
   parts: ['bar'],
   prepare(value) {
-    const input = exactOptions(value, ['label', 'values'], 'externalChart options');
+    const input = value;
     if (!Array.isArray(input.values) || input.values.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry) || entry < 0)) {
       throw new TypeError('externalChart values must be finite non-negative numbers.');
     }

@@ -160,7 +160,7 @@ test('external dialog and tooltip use public modal focus, named slots, portals, 
   assert.equal(nodes.some((node) => node.layer.zIndex >= 40), true);
 });
 
-test('external chart painting is bounded, deterministic, styled, sourced, and exact', () => {
+test('external chart painting is bounded, deterministic, styled, and sourced', () => {
   const element = externalChart({
     id: 'external-chart',
     label: 'Load',
@@ -175,7 +175,6 @@ test('external chart painting is bounded, deterministic, styled, sourced, and ex
   assert.equal(first.frame.cells.some((cell) => cell.style?.underline === true), true);
   assert.equal(first.frame.cells.some((cell) => cell.source?.partType === 'bar'), true);
   assert.throws(() => externalChart({ id: 'invalid-chart', label: 'Bad', values: [Number.NaN] }), /finite/u);
-  assert.throws(() => externalChart({ id: 'unknown-chart', label: 'Bad', values: [], typo: true }), /unknown field/u);
 });
 
 test('external text and built-in text share object-only construction and Unicode measurement', () => {

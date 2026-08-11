@@ -61,7 +61,6 @@ import {
   executeComponentPhase,
   type ComponentDefinitionName
 } from './execution-error.ts';
-import { immutablePreparedModel } from './prepared-model.ts';
 import { mapComponentAction, type ComponentMessage } from './message.ts';
 import {
   assertPointerDefinition,
@@ -249,21 +248,13 @@ interface ComponentDefinitionIdentity {
   readonly name: ComponentDefinitionName;
 }
 
-interface EmptyComponentOptionsDefinition {
-  readonly prepare?: never;
-}
-
-type ComponentPreparationInput<TOptions extends object> = Readonly<
-  Record<string, unknown> & { [TKey in keyof TOptions]?: unknown }
->;
-
 interface PreparedComponentOptionsDefinition<
   TOptions extends object,
   TPrepared extends object
 > {
   readonly prepare: (
     this: undefined,
-    value: ComponentPreparationInput<TOptions>,
+    value: Readonly<TOptions>,
     context: ComponentPreparationContext
   ) => TPrepared;
 }
@@ -279,10 +270,12 @@ export interface ComponentPreparationContext {
 type ComponentOptionsDefinition<
   TOptions extends object,
   TPrepared extends object
-> =
-  keyof TOptions extends never
-    ? EmptyComponentOptionsDefinition | PreparedComponentOptionsDefinition<TOptions, TPrepared>
-    : PreparedComponentOptionsDefinition<TOptions, TPrepared>;
+> = PreparedComponentOptionsDefinition<TOptions, TPrepared>
+  | ([TOptions] extends [TPrepared]
+      ? [TPrepared] extends [TOptions]
+        ? { readonly prepare?: never }
+        : never
+      : never);
 
 type ComponentDefinitionBase<
   TOptions extends object,
@@ -767,81 +760,108 @@ export function defineComponent<
     TSlots
   >
 ): SemanticCompositeComponent<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TSlots>;
-export function defineComponent(
-  definition: unknown
+export function defineComponent<
+  TOptions extends object,
+  TPrepared extends object,
+  TAction,
+  TPart extends string,
+  TStates extends readonly ComponentStateCapability[],
+  TIdentity extends ComponentIdentity,
+  TMetadata extends readonly ComponentMetadataCapability[],
+  TSlots extends ComponentSlotsDefinition
+>(
+  definition: ComponentDefinition<
+    TOptions,
+    TPrepared,
+    TAction,
+    TPart,
+    TStates,
+    TIdentity,
+    TMetadata,
+    TSlots
+  >
 ): unknown {
   assertDefinition(definition);
-  const normalized = normalizeDefinition(definition);
-  const runtime = runtimeDefinition(normalized);
+  const compiled = compileDefinition(definition);
+  const { contract } = compiled;
+  const ownedDefinition = compiled.definition;
+  const runtime = runtimeDefinition(compiled);
   const component = (value: unknown): Element<unknown> => {
-    assertComponentInstanceOptions(value, normalized);
-    const state = normalized.semantics === 'decorative'
+    assertComponentInstanceOptions(value, contract);
+    const state = ownedDefinition.semantics === 'decorative'
       ? emptyComponentState
-      : normalizeComponentState(value, normalized.states);
-    const prepared = prepareComponentOptions(value, normalized, state);
+      : normalizeComponentState(value, contract.states);
+    const prepared = prepareComponentOptions(value, ownedDefinition, state);
     const toActionMessage = value.onAction;
     const behavior = componentBehaviorInput(value.id, prepared, state);
-    const requiredLayer = componentDefinitionLayer(value.id, normalized, behavior);
-    const meta = componentInstanceMeta(value, normalized, behavior, requiredLayer);
-    const slotContent = normalized.structure === 'composite' || normalized.structure === 'composed'
+    const requiredLayer = componentDefinitionLayer(value.id, ownedDefinition, behavior);
+    const meta = componentInstanceMeta(
+      value,
+      contract,
+      behavior,
+      requiredLayer,
+      ownedDefinition.semantics === 'semantic' ? ownedDefinition.focusScope : undefined
+    );
+    const slotContent = ownedDefinition.structure === 'composite' || ownedDefinition.structure === 'composed'
       ? componentSlotChildren(
           value,
-          normalized,
+          ownedDefinition,
+          contract,
           behavior,
           toActionMessage,
           meta.styles,
-          normalized.structure === 'composed' && requiredLayer !== undefined
+          ownedDefinition.structure === 'composed' && requiredLayer !== undefined
             ? Object.freeze({ ...value.meta?.layer, ...requiredLayer })
             : undefined
         )
       : emptySlotContent;
-    const children = normalized.structure === 'composite' || normalized.structure === 'composed'
+    const children = ownedDefinition.structure === 'composite' || ownedDefinition.structure === 'composed'
       ? slotContent.children
       : undefined;
     const renderNode: RenderNodeOfKind<unknown, 'component'> = {
-      ...(value.id === undefined ? {} : { id: renderNodeId(value.id, normalized.name) }),
+      ...(value.id === undefined ? {} : { id: renderNodeId(value.id, ownedDefinition.name) }),
       kind: 'component',
       props: {
-        options: prepared,
+        model: prepared,
         slots: slotContent.ranges,
         ...(toActionMessage === undefined ? {} : { toActionMessage })
       },
       definition: runtime,
       ...(Object.keys(state).length === 0 ? {} : { state }),
       ...(children === undefined ? {} : { children }),
-      ...(normalized.structure === 'leaf'
+      ...(ownedDefinition.structure === 'leaf'
         ? {}
         : { inspectionChildren: slotContent.inspectionChildren }),
       ...renderNodeInteraction({
-        keys: normalized.semantics === 'semantic'
+        keys: ownedDefinition.semantics === 'semantic'
           ? mappedKeyBindings(
-              normalized.keys === undefined
+              ownedDefinition.keys === undefined
                 ? undefined
-                : executeComponentPhase(normalized.name, value.id, 'keyboard', () =>
-                    normalized.keys?.call(undefined, behavior)
+                : executeComponentPhase(ownedDefinition.name, value.id, 'keyboard', () =>
+                    ownedDefinition.keys?.call(undefined, behavior)
                   ),
               toActionMessage,
-              normalized.name,
+              ownedDefinition.name,
               value.id
             )
           : undefined,
-        onInput: normalized.semantics === 'semantic' && normalized.onInput !== undefined
-          ? (text: string) => executeComponentPhase(normalized.name, value.id, 'input', () =>
+        onInput: ownedDefinition.semantics === 'semantic' && ownedDefinition.onInput !== undefined
+          ? (text: string) => executeComponentPhase(ownedDefinition.name, value.id, 'input', () =>
               mapComponentAction(
-                normalized.onInput?.call(undefined, { ...behavior, text }),
+                ownedDefinition.onInput?.call(undefined, { ...behavior, text }),
                 toActionMessage
               )
             )
           : undefined,
-        onPaste: normalized.semantics === 'semantic' && normalized.onPaste !== undefined
-          ? (text: string) => executeComponentPhase(normalized.name, value.id, 'paste', () =>
+        onPaste: ownedDefinition.semantics === 'semantic' && ownedDefinition.onPaste !== undefined
+          ? (text: string) => executeComponentPhase(ownedDefinition.name, value.id, 'paste', () =>
               mapComponentAction(
-                normalized.onPaste?.call(undefined, { ...behavior, text }),
+                ownedDefinition.onPaste?.call(undefined, { ...behavior, text }),
                 toActionMessage
               )
             )
           : undefined,
-        pointer: componentPointerInteraction(normalized, behavior, toActionMessage, value.id),
+        pointer: componentPointerInteraction(ownedDefinition, behavior, toActionMessage, value.id),
         meta
       })
     };
@@ -850,7 +870,7 @@ export function defineComponent(
   return Object.freeze(component);
 }
 
-interface ComponentInstanceOptions extends Record<string, unknown> {
+interface ComponentInstanceOptions {
   readonly id?: string;
   readonly slots?: Readonly<Record<string, unknown>>;
   readonly disabled?: boolean;
@@ -884,133 +904,47 @@ const emptySlotContent: PreparedSlotContent = Object.freeze({
   ranges: Object.freeze([])
 });
 
-interface NormalizedDefinitionBase {
+interface ComponentRuntimeContract {
   readonly name: ComponentDefinitionName;
   readonly identity: ComponentIdentity;
+  readonly structure: 'leaf' | 'composite' | 'composed';
+  readonly semantics: 'semantic' | 'decorative';
   readonly states: readonly ComponentStateCapability[];
   readonly metadata: readonly ComponentMetadataCapability[];
-  readonly slots: readonly NormalizedSlot[];
-  readonly parts: readonly string[];
+  readonly slots: readonly RuntimeComponentSlot[];
   readonly partSet: ReadonlySet<string>;
-  readonly prepare?: (
-    this: undefined,
-    value: Readonly<Record<string, unknown>>,
-    context: ComponentPreparationContext
-  ) => Readonly<Record<string, unknown>>;
-  readonly layer?: (
-    this: undefined,
-    input: ComponentBehaviorInput<Readonly<Record<string, unknown>>>
-  ) => ElementLayer | undefined;
+  readonly actionful: boolean;
 }
 
-interface NormalizedMeasuredDefinition {
-  readonly measure: (
-    this: undefined,
-    input: ComponentMeasureInput<Readonly<Record<string, unknown>>>
-  ) => Measurement;
-}
-
-interface NormalizedSlot {
+interface RuntimeComponentSlot {
   readonly name: string;
   readonly cardinality: ComponentSlotCardinality;
   readonly owner: ComponentSlotOwner;
   readonly messages: ComponentSlotMessagePolicy;
 }
 
-interface NormalizedSemanticDefinition extends NormalizedDefinitionBase {
-  readonly semantics: 'semantic';
-  readonly sensitiveInput: boolean;
-  readonly accessibility: (
-    this: undefined,
-    input: ComponentAccessibilityInput<Readonly<Record<string, unknown>>>
-  ) => AccessibleNode;
-  readonly focusScope?: (
-    this: undefined,
-    input: ComponentBehaviorInput<Readonly<Record<string, unknown>>>
-  ) => ElementFocusScope | undefined;
-  readonly focusTargets?: (
-    this: undefined,
-    input: ComponentInteractionInput<Readonly<Record<string, unknown>>>
-  ) => readonly FocusTarget[];
-  readonly hitTargets?: (
-    this: undefined,
-    input: ComponentInteractionInput<Readonly<Record<string, unknown>>>
-  ) => readonly HitTarget[];
-  readonly keys?: (
-    this: undefined,
-    input: ComponentBehaviorInput<Readonly<Record<string, unknown>>>
-  ) => ElementKeyBindings<unknown>;
-  readonly onInput?: (
-    this: undefined,
-    input: ComponentTextActionInput<Readonly<Record<string, unknown>>>
-  ) => MessageResolution<unknown>;
-  readonly onPaste?: (
-    this: undefined,
-    input: ComponentTextActionInput<Readonly<Record<string, unknown>>>
-  ) => MessageResolution<unknown>;
-  readonly pointer?: ComponentPointerActions<Readonly<Record<string, unknown>>, unknown>;
+interface CompiledComponentDefinition<
+  TOptions extends object,
+  TPrepared extends object,
+  TAction,
+  TPart extends string,
+  TStates extends readonly ComponentStateCapability[],
+  TIdentity extends ComponentIdentity,
+  TMetadata extends readonly ComponentMetadataCapability[],
+  TSlots extends ComponentSlotsDefinition
+> {
+  readonly definition: ComponentDefinition<
+    TOptions,
+    TPrepared,
+    TAction,
+    TPart,
+    TStates,
+    TIdentity,
+    TMetadata,
+    TSlots
+  >;
+  readonly contract: ComponentRuntimeContract;
 }
-
-type NormalizedDefinition =
-  | (NormalizedDefinitionBase & NormalizedMeasuredDefinition & {
-      readonly semantics: 'decorative';
-      readonly structure: 'leaf';
-      readonly render: (
-        this: undefined,
-        input: ComponentRenderInput<Readonly<Record<string, unknown>>>
-      ) => void;
-    })
-  | (NormalizedSemanticDefinition & NormalizedMeasuredDefinition & {
-      readonly structure: 'leaf';
-      readonly render: (
-        this: undefined,
-        input: ComponentRenderInput<Readonly<Record<string, unknown>>>
-      ) => void;
-    })
-  | (NormalizedSemanticDefinition & NormalizedMeasuredDefinition & {
-      readonly structure: 'composite';
-      readonly clipChildren?: boolean;
-      readonly capture?: (
-        this: undefined,
-        input: ComponentCapturedMessageInput<Readonly<Record<string, unknown>>>
-      ) => MessageResolution<unknown>;
-      readonly implementationSlots?: (
-        this: undefined,
-        input: ComponentCompositionInput<
-          Readonly<Record<string, unknown>>,
-          ComponentSlotsDefinition,
-          unknown
-        >
-      ) => Readonly<Record<string, unknown>>;
-      readonly layout: (
-        this: undefined,
-        input: ComponentLayoutInput<Readonly<Record<string, unknown>>>
-      ) => unknown;
-      readonly renderBeforeChildren?: (
-        this: undefined,
-        input: ComponentRenderInput<Readonly<Record<string, unknown>>>
-      ) => void;
-      readonly renderAfterChildren?: (
-        this: undefined,
-        input: ComponentRenderInput<Readonly<Record<string, unknown>>>
-      ) => void;
-    })
-  | (NormalizedSemanticDefinition & {
-      readonly structure: 'composed';
-      readonly clipChildren?: boolean;
-      readonly capture?: (
-        this: undefined,
-        input: ComponentCapturedMessageInput<Readonly<Record<string, unknown>>>
-      ) => MessageResolution<unknown>;
-      readonly compose: (
-        this: undefined,
-        input: ComponentCompositionInput<
-          Readonly<Record<string, unknown>>,
-          ComponentSlotsDefinition,
-          unknown
-        >
-      ) => Element<ComponentMessage>;
-    });
 
 const emptyComponentState: Readonly<ElementState> = Object.freeze({});
 const componentInstanceFields = new Set<ComponentReservedOption>([
@@ -1029,90 +963,63 @@ const componentInstanceFields = new Set<ComponentReservedOption>([
   'pointer'
 ]);
 
-function normalizeDefinition(
+function compileDefinition<
+  TOptions extends object,
+  TPrepared extends object,
+  TAction,
+  TPart extends string,
+  TStates extends readonly ComponentStateCapability[],
+  TIdentity extends ComponentIdentity,
+  TMetadata extends readonly ComponentMetadataCapability[],
+  TSlots extends ComponentSlotsDefinition
+>(
   definition: ComponentDefinition<
-    NoComponentOptions,
-    Readonly<Record<string, unknown>>,
-    unknown,
-    string,
-    readonly ComponentStateCapability[],
-    ComponentIdentity,
-    readonly ComponentMetadataCapability[],
-    ComponentSlotsDefinition
+    TOptions,
+    TPrepared,
+    TAction,
+    TPart,
+    TStates,
+    TIdentity,
+    TMetadata,
+    TSlots
   >
-): NormalizedDefinition {
-  const common = {
-    name: definition.name,
-    identity: definition.identity,
-    states: Object.freeze([...(definition.states ?? [])]),
-    metadata: Object.freeze([...(definition.metadata ?? [])]),
-    slots: normalizeSlots(definition.slots),
-    parts: Object.freeze([...(definition.parts ?? [])]),
-    partSet: new Set(definition.parts ?? []),
-    ...(definition.layer === undefined ? {} : { layer: definition.layer }),
-    ...(definition.prepare === undefined ? {} : { prepare: definition.prepare })
-  };
-  if (definition.semantics === 'decorative') {
-    return Object.freeze({
-      ...common,
-      structure: 'leaf' as const,
-      semantics: 'decorative' as const,
-      measure: definition.measure,
-      render: definition.render
-    });
-  }
-  const interaction = {
-    accessibility: definition.accessibility,
-    sensitiveInput: definition.sensitiveInput === true,
-    ...(definition.focusScope === undefined ? {} : { focusScope: definition.focusScope }),
-    ...(definition.focusTargets === undefined ? {} : { focusTargets: definition.focusTargets }),
-    ...(definition.hitTargets === undefined ? {} : { hitTargets: definition.hitTargets }),
-    ...(definition.keys === undefined ? {} : { keys: definition.keys }),
-    ...(definition.onInput === undefined ? {} : { onInput: definition.onInput }),
-    ...(definition.onPaste === undefined ? {} : { onPaste: definition.onPaste }),
-    ...(definition.pointer === undefined ? {} : { pointer: definition.pointer })
-  };
-  if (definition.structure === 'leaf') {
-    return Object.freeze({
-      ...common,
-      structure: 'leaf' as const,
-      semantics: 'semantic' as const,
-      ...interaction,
-      measure: definition.measure,
-      render: definition.render
-    });
-  }
-  if (definition.structure === 'composed') {
-    return Object.freeze({
-      ...common,
-      structure: 'composed' as const,
-      semantics: 'semantic' as const,
-      ...interaction,
-      ...(definition.clipChildren === undefined ? {} : { clipChildren: definition.clipChildren }),
-      ...(definition.capture === undefined ? {} : { capture: definition.capture }),
-      compose: definition.compose
-    });
-  }
+): CompiledComponentDefinition<
+  TOptions,
+  TPrepared,
+  TAction,
+  TPart,
+  TStates,
+  TIdentity,
+  TMetadata,
+  TSlots
+> {
+  const ownedDefinition = Object.freeze({ ...definition }) as typeof definition;
   return Object.freeze({
-    ...common,
-    structure: 'composite' as const,
-    semantics: 'semantic' as const,
-    ...interaction,
-    ...(definition.clipChildren === undefined ? {} : { clipChildren: definition.clipChildren }),
-    ...(definition.capture === undefined ? {} : { capture: definition.capture }),
-    ...(definition.implementationSlots === undefined
-      ? {}
-      : { implementationSlots: definition.implementationSlots }),
-    measure: definition.measure,
-    layout: definition.layout,
-    ...(definition.renderBeforeChildren === undefined ? {} : { renderBeforeChildren: definition.renderBeforeChildren }),
-    ...(definition.renderAfterChildren === undefined ? {} : { renderAfterChildren: definition.renderAfterChildren })
+    definition: ownedDefinition,
+    contract: Object.freeze({
+      name: definition.name,
+      identity: definition.identity,
+      structure: definition.structure,
+      semantics: definition.semantics,
+      states: Object.freeze([...(definition.states ?? [])]),
+      metadata: Object.freeze([...(definition.metadata ?? [])]),
+      slots: normalizeSlots(definition.slots),
+      partSet: new Set(definition.parts ?? []),
+      actionful: definition.semantics === 'semantic' && (
+        definition.hitTargets !== undefined
+        || definition.structure !== 'leaf' && definition.capture !== undefined
+        || definition.keys !== undefined
+        || definition.onInput !== undefined
+        || definition.onPaste !== undefined
+        || definition.pointer !== undefined
+      )
+    })
   });
 }
 
 function normalizeSlots(
   value: ComponentSlotsDefinition | Readonly<Record<never, never>> | undefined
-): readonly NormalizedSlot[] {
+): readonly RuntimeComponentSlot[] {
   if (value === undefined) return Object.freeze([]);
   return Object.freeze(Object.entries(value).map(([name, slot]) => Object.freeze({
     name,
@@ -1132,11 +1039,6 @@ function assertSlotDefinitions(value: unknown, structure: 'leaf' | 'composite' |
     }
     if (!isNonArrayObject(slot)) throw new TypeError(`Component slot "${name}" must be an object.`);
     const owner = slot['owner'];
-    const allowed = new Set(['cardinality', 'owner', 'messages']);
-    const unsupported = findUnsupportedField(slot, allowed);
-    if (unsupported !== undefined) {
-      throw new TypeError(`Component slot "${name}" contains unknown field "${unsupported}".`);
-    }
     if (slot['cardinality'] !== 'one'
       && slot['cardinality'] !== 'optional'
       && slot['cardinality'] !== 'many') {
@@ -1151,18 +1053,7 @@ function assertSlotDefinitions(value: unknown, structure: 'leaf' | 'composite' |
   }
 }
 
-function assertDefinition(
-  value: unknown
-): asserts value is ComponentDefinition<
-  NoComponentOptions,
-  Readonly<Record<string, unknown>>,
-  unknown,
-  string,
-    readonly ComponentStateCapability[],
-    ComponentIdentity,
-    readonly ComponentMetadataCapability[],
-    ComponentSlotsDefinition
-  > {
+function assertDefinition(value: unknown): void {
   if (!isNonArrayObject(value)) throw new TypeError('Component definition must be an object.');
   const structure = value['structure'];
   const semantics = value['semantics'];
@@ -1186,29 +1077,6 @@ function assertDefinition(
     || new Set(parts).size !== parts.length)) {
     throw new TypeError('Component parts must contain unique safe identifiers other than "root".');
   }
-  const allowed = new Set([
-    'name',
-    'identity',
-    'states',
-    'slots',
-    'metadata',
-    'parts',
-    'layer',
-    'prepare',
-    'structure',
-    'semantics',
-    'measure',
-    ...(structure === 'leaf'
-      ? ['measure', 'render']
-      : structure === 'composite'
-        ? ['measure', 'layout', 'clipChildren', 'capture', 'implementationSlots', 'renderBeforeChildren', 'renderAfterChildren']
-        : ['compose', 'clipChildren', 'capture']),
-    ...(semantics === 'semantic'
-      ? ['accessibility', 'focusScope', 'focusTargets', 'hitTargets', 'keys', 'onInput', 'onPaste', 'pointer', 'sensitiveInput']
-      : [])
-  ]);
-  const unknown = Object.keys(value).find((field) => !allowed.has(field));
-  if (unknown !== undefined) throw new TypeError(`Component definition contains unknown field "${unknown}".`);
   if (value['identity'] !== 'required' && value['identity'] !== 'optional') {
     throw new TypeError('Component definition identity must be "required" or "optional".');
   }
@@ -1252,6 +1120,21 @@ function assertDefinition(
   if (semantics === 'semantic' && typeof value['accessibility'] !== 'function') {
     throw new TypeError('Semantic component definition requires accessibility().');
   }
+  if (semantics === 'decorative' && value['accessibility'] !== undefined) {
+    throw new TypeError('Decorative component definitions cannot define accessibility().');
+  }
+  if (semantics === 'decorative' && (
+    value['states'] !== undefined
+    || value['keys'] !== undefined
+    || value['onInput'] !== undefined
+    || value['onPaste'] !== undefined
+    || value['pointer'] !== undefined
+    || value['focusTargets'] !== undefined
+    || value['hitTargets'] !== undefined
+    || value['focusScope'] !== undefined
+  )) {
+    throw new TypeError('Decorative component definitions cannot declare state or interaction.');
+  }
   for (const hook of [
     'renderBeforeChildren',
     'renderAfterChildren',
@@ -1281,43 +1164,77 @@ function assertDefinition(
   }
 }
 
-function runtimeDefinition(definition: NormalizedDefinition): RuntimeComponentDefinition {
+function runtimeDefinition<
+  TOptions extends object,
+  TPrepared extends object,
+  TAction,
+  TPart extends string,
+  TStates extends readonly ComponentStateCapability[],
+  TIdentity extends ComponentIdentity,
+  TMetadata extends readonly ComponentMetadataCapability[],
+  TSlots extends ComponentSlotsDefinition
+>(compiled: CompiledComponentDefinition<
+  TOptions,
+  TPrepared,
+  TAction,
+  TPart,
+  TStates,
+  TIdentity,
+  TMetadata,
+  TSlots
+>): RuntimeComponentDefinition {
+  const { contract, definition } = compiled;
+  const actions = definition.semantics === 'decorative'
+    ? Object.freeze([])
+    : Object.freeze([
+        ...(definition.keys === undefined ? [] : ['keyboard' as const]),
+        ...(definition.onInput === undefined ? [] : ['input' as const]),
+        ...(definition.onPaste === undefined ? [] : ['paste' as const]),
+        ...(definition.hitTargets === undefined && definition.pointer === undefined
+          ? []
+          : ['pointer' as const])
+      ]);
   return Object.freeze({
     name: definition.name,
-    sensitiveInput: definition.semantics === 'semantic' && definition.sensitiveInput,
+    sensitiveInput: definition.semantics === 'semantic' && definition.sensitiveInput === true,
     inspection: Object.freeze({
       identity: definition.identity,
       structure: definition.structure,
       semantics: definition.semantics,
-      states: definition.states,
-      actions: componentInspectionActions(definition)
+      states: contract.states,
+      actions
     }),
-    renderer: adaptDefinition(definition)
+    renderer: adaptDefinition(compiled)
   });
 }
 
-function componentInspectionActions(
-  definition: NormalizedDefinition
-): import('../element/inspection.ts').ComponentCapabilityInspection['actions'] {
-  if (definition.semantics === 'decorative') return Object.freeze([]);
-  return Object.freeze([
-    ...(definition.keys === undefined ? [] : ['keyboard' as const]),
-    ...(definition.onInput === undefined ? [] : ['input' as const]),
-    ...(definition.onPaste === undefined ? [] : ['paste' as const]),
-    ...(definition.hitTargets === undefined && definition.pointer === undefined
-      ? []
-      : ['pointer' as const])
-  ]);
-}
-
-function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<unknown, 'component'> {
+function adaptDefinition<
+  TOptions extends object,
+  TPrepared extends object,
+  TAction,
+  TPart extends string,
+  TStates extends readonly ComponentStateCapability[],
+  TIdentity extends ComponentIdentity,
+  TMetadata extends readonly ComponentMetadataCapability[],
+  TSlots extends ComponentSlotsDefinition
+>(compiled: CompiledComponentDefinition<
+  TOptions,
+  TPrepared,
+  TAction,
+  TPart,
+  TStates,
+  TIdentity,
+  TMetadata,
+  TSlots
+>): RenderNodeRenderer<unknown, 'component'> {
+  const { contract, definition } = compiled;
   const renderer: RenderNodeRenderer<unknown, 'component'> = {
     ...(definition.structure !== 'leaf' && definition.clipChildren === true ? { clipChildren: true } : {}),
     measure: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'measure', () =>
       definition.structure === 'composed'
         ? input.measureChild(0)
         : definition.measure.call(undefined, {
-            ...componentBaseInput(input.renderNode, input.theme, input.widthProfile),
+            ...componentBaseInput<TPrepared>(input.renderNode, input.theme, input.widthProfile),
             constraints: { width: input.bounds.width, height: input.bounds.height },
             childCount: input.childCount,
             measureChild: input.measureChild,
@@ -1329,16 +1246,16 @@ function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<u
         definition.structure === 'composed'
           ? [input.bounds]
           : normalizeComponentLayout(definition.layout.call(undefined, {
-              ...componentInput(input.renderNode, input.bounds, input.viewport, input.theme, input.widthProfile),
+              ...componentInput<TPrepared>(input.renderNode, input.bounds, input.viewport, input.theme, input.widthProfile),
               childCount: input.childCount,
               measureChild: input.measureChild,
               slots: componentSlotMeasurements(input.renderNode.props.slots, input.measureChild)
-            }), definition, input.renderNode.props.slots, localBounds(input.bounds), input.childCount)
+            }), contract, input.renderNode.props.slots, localBounds(input.bounds), input.childCount)
               .map((bounds) => toAbsoluteRect(bounds, input.bounds))
       )
     }),
     render: (input) => {
-      const renderInput = componentRenderInput(definition, input);
+      const renderInput = componentRenderInput<TPrepared, TPart>(contract, input);
       if (definition.structure === 'leaf') {
         executeComponentPhase(definition.name, input.renderNode.id, 'paint', () =>
           { definition.render.call(undefined, renderInput); }
@@ -1364,7 +1281,7 @@ function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<u
     ...(definition.semantics === 'decorative' ? {} : {
       accessibility: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'accessibility', () =>
         definition.accessibility.call(undefined, {
-        ...componentInput(
+        ...componentInput<TPrepared>(
           input.renderNode,
           input.layoutNode.bounds,
           input.layoutNode.viewport,
@@ -1376,7 +1293,7 @@ function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<u
         focus: input.focus,
         ...(input.focusedTargetId === undefined ? {} : { focusedTargetId: input.focusedTargetId }),
         children: input.children,
-        slots: accessibleSlotValues(
+        slots: accessibleSlotValues<TSlots>(
           input.renderNode.props.slots,
           input.renderNode.children ?? [],
           input.accessibleNodes
@@ -1386,7 +1303,7 @@ function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<u
       ...(definition.focusTargets === undefined ? {} : {
         focusTargets: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'focus', () =>
           (definition.focusTargets?.call(undefined, componentInteractionInput(
-          definition,
+          contract,
           input.renderNode,
           input.bounds,
           input.viewport,
@@ -1398,7 +1315,7 @@ function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<u
       ...(definition.hitTargets === undefined ? {} : {
         hitTargets: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'pointer', () => mapHitTargets(
           (definition.hitTargets?.call(undefined, componentInteractionInput(
-            definition,
+            contract,
             input.renderNode,
             input.bounds,
             input.layoutNode.viewport,
@@ -1415,11 +1332,11 @@ function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<u
   return Object.freeze(renderer);
 }
 
-function accessibleSlotValues(
+function accessibleSlotValues<TSlots extends ComponentSlotShape>(
   ranges: readonly ComponentSlotRange[],
   roots: readonly RenderNode[],
   accessibleNodes: ReadonlyMap<RenderNode, AccessibleNode>
-): ComponentAccessibleSlotValues<ComponentSlotShape> {
+): ComponentAccessibleSlotValues<TSlots> {
   return Object.freeze(Object.fromEntries(ranges.map((range) => [
     range.name,
     Object.freeze(range.accessiblePaths.flatMap((path) => {
@@ -1427,7 +1344,7 @@ function accessibleSlotValues(
       const accessible = root === undefined ? undefined : accessibleNodes.get(root);
       return accessible === undefined ? [] : [accessible];
     }))
-  ])));
+  ]))) as ComponentAccessibleSlotValues<TSlots>;
 }
 
 function renderNodeAtPath(
@@ -1444,18 +1361,18 @@ function renderNodeAtPath(
   return current;
 }
 
-function componentBaseInput(
+function componentBaseInput<TPrepared extends object>(
   renderNode: {
     readonly id?: string;
-    readonly props: { readonly options: Readonly<Record<string, unknown>> };
+    readonly props: { readonly model: unknown };
     readonly state?: ElementState;
   },
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
-): ComponentBaseInput<Readonly<Record<string, unknown>>> {
+): ComponentBaseInput<TPrepared> {
   return {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
-    model: renderNode.props.options,
+    model: renderNode.props.model as Readonly<TPrepared>,
     disabled: renderNode.state?.disabled === true,
     busy: renderNode.state?.busy === true,
     readOnly: renderNode.state?.readOnly === true,
@@ -1465,31 +1382,31 @@ function componentBaseInput(
   };
 }
 
-function componentInput(
+function componentInput<TPrepared extends object>(
   renderNode: {
     readonly id?: string;
-    readonly props: { readonly options: Readonly<Record<string, unknown>> };
+    readonly props: { readonly model: unknown };
     readonly state?: ElementState;
   },
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
-): ComponentInput<Readonly<Record<string, unknown>>> {
+): ComponentInput<TPrepared> {
   return {
-    ...componentBaseInput(renderNode, theme, widthProfile),
+    ...componentBaseInput<TPrepared>(renderNode, theme, widthProfile),
     bounds: localBounds(bounds),
     viewport: localViewport(bounds, viewport)
   };
 }
 
-function componentRenderInput(
-  definition: NormalizedDefinition,
+function componentRenderInput<TPrepared extends object, TPart extends string>(
+  contract: ComponentRuntimeContract,
   input: Parameters<RenderNodeRenderer<unknown, 'component'>['render']>[0]
-): ComponentRenderInput<Readonly<Record<string, unknown>>> {
+): ComponentRenderInput<TPrepared, TPart> {
   return {
-    ...componentInteractionInput(
-      definition,
+    ...componentInteractionInput<TPrepared, TPart>(
+      contract,
       input.renderNode,
       input.layoutNode.bounds,
       input.layoutNode.viewport,
@@ -1502,31 +1419,31 @@ function componentRenderInput(
   };
 }
 
-function componentInteractionInput(
-  definition: NormalizedDefinition,
+function componentInteractionInput<TPrepared extends object, TPart extends string>(
+  contract: ComponentRuntimeContract,
   renderNode: Parameters<typeof resolveRenderNodeStyle>[0] & {
-    readonly props: { readonly options: Readonly<Record<string, unknown>> };
+    readonly props: { readonly model: unknown };
     readonly state?: ElementState;
   },
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
-): ComponentInteractionInput<Readonly<Record<string, unknown>>> {
+): ComponentInteractionInput<TPrepared, TPart> {
   return {
-    ...componentInput(renderNode, bounds, viewport, theme, widthProfile),
-    ...componentHelpers(renderNode, definition)
+    ...componentInput<TPrepared>(renderNode, bounds, viewport, theme, widthProfile),
+    ...componentHelpers<TPart>(renderNode, contract)
   };
 }
 
-function componentHelpers(
+function componentHelpers<TPart extends string>(
   renderNode: Parameters<typeof resolveRenderNodeStyle>[0],
-  definition: NormalizedDefinition
-): Pick<ComponentRenderInput<Readonly<Record<string, unknown>>>, 'style' | 'source'> {
+  contract: ComponentRuntimeContract
+): Pick<ComponentRenderInput<object, TPart>, 'style' | 'source'> {
   return {
     style(input) {
-      if (input.part !== 'root' && !definition.partSet.has(input.part)) {
-        throw new TypeError(`Component "${definition.name}" requested undeclared style part "${input.part}".`);
+      if (input.part !== 'root' && !contract.partSet.has(input.part)) {
+        throw new TypeError(`Component "${contract.name}" requested undeclared style part "${input.part}".`);
       }
       return resolveRenderNodeStyle(renderNode, input);
     },
@@ -1534,7 +1451,7 @@ function componentHelpers(
       const description = input.description ?? input.partName;
       return renderNodeFrameSource({
         ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
-        kind: definition.name
+        kind: contract.name
       }, {
         rendererFamily: 'component',
         cellRole: 'content',
@@ -1545,24 +1462,24 @@ function componentHelpers(
   };
 }
 
-function prepareComponentOptions(
+function prepareComponentOptions<
+  TOptions extends object,
+  TPrepared extends object
+>(
   value: ComponentInstanceOptions,
-  definition: NormalizedDefinition,
+  definition: ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TPrepared>,
   state: Readonly<ElementState>
-): Readonly<Record<string, unknown>> {
+): Readonly<TPrepared> {
   const customEntries = Object.entries(value)
     .filter(([field]) => !componentInstanceFields.has(field as ComponentReservedOption));
+  // This is the one type-erasure boundary between framework-owned fields and
+  // the component's statically declared options.
+  const custom = Object.freeze(Object.fromEntries(customEntries)) as Readonly<TOptions & TPrepared>;
   if (definition.prepare === undefined) {
-    if (customEntries[0] !== undefined) {
-      throw new TypeError(
-        `Component "${definition.name}" does not accept option "${customEntries[0][0]}".`
-      );
-    }
-    return Object.freeze({});
+    return custom;
   }
-  const custom = Object.freeze(Object.fromEntries(customEntries));
   const prepared = executeComponentPhase(definition.name, value.id, 'prepare', () =>
-    definition.prepare?.call(undefined, custom, {
+    definition.prepare.call(undefined, custom, {
       ...(value.id === undefined ? {} : { id: value.id }),
       disabled: state.disabled === true,
       busy: state.busy === true,
@@ -1570,35 +1487,69 @@ function prepareComponentOptions(
       inert: state.inert === true
     })
   );
-  if (!isNonArrayObject(prepared)) {
+  if (!isPreparedModel(prepared)) {
     throw new TypeError(`Component "${definition.name}" prepare must return an object.`);
   }
-  return immutablePreparedModel(prepared, definition.name);
+  return prepared;
 }
 
-function componentSlotChildren(
+function isPreparedModel(value: unknown): value is object {
+  return value !== null && (typeof value === 'object' || typeof value === 'function');
+}
+
+function componentSlotChildren<
+  TOptions extends object,
+  TPrepared extends object,
+  TAction,
+  TPart extends string,
+  TStates extends readonly ComponentStateCapability[],
+  TIdentity extends ComponentIdentity,
+  TMetadata extends readonly ComponentMetadataCapability[],
+  TSlots extends ComponentSlotsDefinition
+>(
   value: ComponentInstanceOptions,
-  definition: Extract<NormalizedDefinition, { readonly structure: 'composite' | 'composed' }>,
-  behavior: ComponentBehaviorInput<Readonly<Record<string, unknown>>>,
+  definition: SemanticCompositeComponentDefinition<
+    TOptions,
+    TPrepared,
+    TAction,
+    TPart,
+    TStates,
+    TIdentity,
+    TMetadata,
+    TSlots
+  > | SemanticComposedComponentDefinition<
+    TOptions,
+    TPrepared,
+    TAction,
+    TPart,
+    TStates,
+    TIdentity,
+    TMetadata,
+    TSlots
+  >,
+  contract: ComponentRuntimeContract,
+  behavior: ComponentBehaviorInput<TPrepared>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
   styles: ElementStyles | undefined,
   layer: ElementLayer | undefined
 ): PreparedSlotContent {
   if (definition.structure === 'composed') {
-    const supplied = callerSlotInput(value, definition);
-    const mapped = Object.freeze(Object.fromEntries(definition.slots.map((slot) => [
+    const supplied = callerSlotInput(value, contract);
+    const mappedRecord = Object.freeze(Object.fromEntries(contract.slots.map((slot) => [
       slot.name,
       mappedComposedSlotValue(
         supplied?.[slot.name],
         slot,
-        definition,
+        definition.name,
+        definition.capture,
         behavior,
         toActionMessage,
         value.id
       )
     ])));
-    const inspectionChildren = definition.slots.flatMap((slot) =>
-      slotElements(mapped[slot.name], slot, definition.name).map((element) => toRenderNode(element))
+    const mapped = mappedRecord as ComponentCallerSlotValues<TSlots>;
+    const inspectionChildren = contract.slots.flatMap((slot) =>
+      slotElements(mappedRecord[slot.name], slot, definition.name).map((element) => toRenderNode(element))
     );
     const callerOwnedRoots = new Set<object>(inspectionChildren);
     const composed = executeComponentPhase(definition.name, value.id, 'compose', () =>
@@ -1616,23 +1567,23 @@ function componentSlotChildren(
     return Object.freeze({
       children,
       inspectionChildren: Object.freeze(inspectionChildren),
-      ranges: Object.freeze(definition.slots.map((slot) => Object.freeze({
+      ranges: Object.freeze(contract.slots.map((slot) => Object.freeze({
         name: slot.name,
         start: 0,
         count: 0,
         accessiblePaths: renderNodePaths(
           children,
-          new Set(slotElements(mapped[slot.name], slot, definition.name)
+          new Set(slotElements(mappedRecord[slot.name], slot, definition.name)
             .map((element) => toRenderNode(element)))
         )
       })))
     });
   }
   const supplied = value.slots;
-  const callerNames = new Set(definition.slots
+  const callerNames = new Set(contract.slots
     .filter((slot) => slot.owner === 'caller')
     .map((slot) => slot.name));
-  const requiresSlots = definition.slots.some((slot) =>
+  const requiresSlots = contract.slots.some((slot) =>
     slot.owner === 'caller' && slot.cardinality !== 'optional'
   );
   if (requiresSlots && !isNonArrayObject(supplied)) {
@@ -1649,7 +1600,7 @@ function componentSlotChildren(
     : executeComponentPhase(definition.name, value.id, 'compose', () =>
         definition.implementationSlots?.call(undefined, {
           ...behavior,
-          slots: Object.freeze({ ...(supplied ?? {}) }),
+          slots: Object.freeze({ ...(supplied ?? {}) }) as ComponentCallerSlotValues<TSlots>,
           emit: (action) => mapComponentAction(action, toActionMessage),
           ...(styles === undefined ? {} : { styles }),
           ...(layer === undefined ? {} : { layer })
@@ -1659,7 +1610,7 @@ function componentSlotChildren(
     throw new TypeError(`Component "${definition.name}" implementationSlots must return an object.`);
   }
   if (isNonArrayObject(implementation)) {
-    const implementationNames = new Set(definition.slots
+    const implementationNames = new Set(contract.slots
       .filter((slot) => slot.owner === 'implementation')
       .map((slot) => slot.name));
     const unsupported = Object.keys(implementation).find((name) => !implementationNames.has(name));
@@ -1670,10 +1621,12 @@ function componentSlotChildren(
   const children: RenderNode[] = [];
   const inspectionChildren: RenderNode[] = [];
   const ranges: ComponentSlotRange[] = [];
-  for (const slot of definition.slots) {
+  const implementationRecord: Readonly<Record<string, unknown>> | undefined =
+    isNonArrayObject(implementation) ? implementation : undefined;
+  for (const slot of contract.slots) {
     const content = slot.owner === 'caller'
       ? supplied?.[slot.name]
-      : implementation?.[slot.name];
+      : implementationRecord?.[slot.name];
     const elements = slotElements(content, slot, definition.name);
     const start = children.length;
     const mapped = slot.messages === 'bubble'
@@ -1729,40 +1682,44 @@ function renderNodePaths(
 
 function callerSlotInput(
   value: ComponentInstanceOptions,
-  definition: Extract<NormalizedDefinition, { readonly structure: 'composed' }>
+  contract: ComponentRuntimeContract
 ): Readonly<Record<string, unknown>> | undefined {
   const supplied = value.slots;
-  const names = new Set(definition.slots.map((slot) => slot.name));
-  const requiresSlots = definition.slots.some((slot) => slot.cardinality !== 'optional');
+  const names = new Set(contract.slots.map((slot) => slot.name));
+  const requiresSlots = contract.slots.some((slot) => slot.cardinality !== 'optional');
   if (requiresSlots && !isNonArrayObject(supplied)) {
-    throw new TypeError(`Component "${definition.name}" requires a slots object.`);
+    throw new TypeError(`Component "${contract.name}" requires a slots object.`);
   }
   if (isNonArrayObject(supplied)) {
     const unsupported = Object.keys(supplied).find((name) => !names.has(name));
     if (unsupported !== undefined) {
-      throw new TypeError(`Component "${definition.name}" received unknown slot "${unsupported}".`);
+      throw new TypeError(`Component "${contract.name}" received unknown slot "${unsupported}".`);
     }
   }
   return supplied;
 }
 
-function mappedComposedSlotValue(
+function mappedComposedSlotValue<TPrepared extends object, TAction>(
   value: unknown,
-  slot: NormalizedSlot,
-  definition: Extract<NormalizedDefinition, { readonly structure: 'composed' }>,
-  behavior: ComponentBehaviorInput<Readonly<Record<string, unknown>>>,
+  slot: RuntimeComponentSlot,
+  component: ComponentDefinitionName,
+  capture: ((
+    this: undefined,
+    input: ComponentCapturedMessageInput<TPrepared>
+  ) => MessageResolution<TAction>) | undefined,
+  behavior: ComponentBehaviorInput<TPrepared>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
   instanceId: string | undefined
 ): unknown {
-  const elements = slotElements(value, slot, definition.name);
+  const elements = slotElements(value, slot, component);
   const mapped = elements.map((element) => slot.messages === 'bubble'
     ? element
     : mapElementMessages(element, (message) => {
         if (slot.messages === 'none') {
-          throw new TypeError(`Component "${definition.name}" slot "${slot.name}" forbids child messages.`);
+          throw new TypeError(`Component "${component}" slot "${slot.name}" forbids child messages.`);
         }
-        return executeComponentPhase(definition.name, instanceId, 'action', () => mapComponentAction(
-          definition.capture?.call(undefined, { ...behavior, slot: slot.name, message }),
+        return executeComponentPhase(component, instanceId, 'action', () => mapComponentAction(
+          capture?.call(undefined, { ...behavior, slot: slot.name, message }),
           toActionMessage
         ));
       }));
@@ -1772,7 +1729,7 @@ function mappedComposedSlotValue(
 
 function slotElements(
   value: unknown,
-  slot: NormalizedSlot,
+  slot: RuntimeComponentSlot,
   component: string
 ): readonly ElementValue[] {
   if (slot.cardinality === 'many') {
@@ -1793,7 +1750,7 @@ function slotElements(
 
 function assertComponentInstanceOptions(
   value: unknown,
-  definition: NormalizedDefinition
+  definition: ComponentRuntimeContract
 ): asserts value is ComponentInstanceOptions {
   if (!isNonArrayObject(value)) {
     throw new TypeError(`Component "${definition.name}" options must be an object.`);
@@ -1836,7 +1793,7 @@ function assertComponentInstanceOptions(
     return;
   }
   assertComponentState(value, definition);
-  const actionful = definitionHasActions(definition);
+  const actionful = definition.actionful;
   if (value['onAction'] !== undefined && typeof value['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" onAction must be a function when provided.`);
   }
@@ -1851,22 +1808,11 @@ function assertComponentInstanceOptions(
   }
 }
 
-function definitionHasActions(
-  definition: Extract<NormalizedDefinition, { readonly semantics: 'semantic' }>
-): boolean {
-  return definition.hitTargets !== undefined
-    || definition.structure !== 'leaf' && definition.capture !== undefined
-    || definition.keys !== undefined
-    || definition.onInput !== undefined
-    || definition.onPaste !== undefined
-    || definition.pointer !== undefined;
-}
-
-function componentBehaviorInput(
+function componentBehaviorInput<TPrepared extends object>(
   id: string | undefined,
-  model: Readonly<Record<string, unknown>>,
+  model: Readonly<TPrepared>,
   state: Readonly<ElementState>
-): ComponentBehaviorInput<Readonly<Record<string, unknown>>> {
+): ComponentBehaviorInput<TPrepared> {
   return Object.freeze({
     ...(id === undefined ? {} : { id }),
     model,
@@ -1890,9 +1836,12 @@ function normalizeComponentState(
   });
 }
 
-function componentPointerInteraction(
-  definition: NormalizedDefinition,
-  behavior: ComponentBehaviorInput<Readonly<Record<string, unknown>>>,
+function componentPointerInteraction<TPrepared extends object, TAction, TPart extends string>(
+  definition: ComponentDefinitionIdentity & (
+    DecorativeDefinition
+    | (InteractiveDefinition<TPrepared, TAction, TPart> & { readonly semantics: 'semantic' })
+  ),
+  behavior: ComponentBehaviorInput<TPrepared>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
   instanceId: string | undefined
 ): PointerInteractionOptions<unknown> | undefined {
@@ -1920,7 +1869,7 @@ function componentPointerInteraction(
 
 function assertComponentState(
   value: ComponentInstanceOptions,
-  definition: NormalizedDefinition
+  definition: ComponentRuntimeContract
 ): void {
   const allowed = new Set(definition.states);
   for (const field of elementStateFields) {
@@ -1935,7 +1884,7 @@ function assertComponentState(
 
 function assertComponentMetadata(
   value: ComponentInstanceOptions['meta'],
-  definition: NormalizedDefinition
+  definition: ComponentRuntimeContract
 ): void {
   if (value === undefined) return;
   const allowed = new Set(definition.metadata);
@@ -1950,21 +1899,25 @@ function assertComponentMetadata(
   if (value.styles !== undefined) normalizeElementStyles(value.styles, definition);
 }
 
-function componentInstanceMeta(
+function componentInstanceMeta<TPrepared extends object>(
   value: ComponentInstanceOptions,
-  definition: NormalizedDefinition,
-  behavior: ComponentBehaviorInput<Readonly<Record<string, unknown>>>,
-  requiredLayer: ElementLayer | undefined
+  definition: ComponentRuntimeContract,
+  behavior: ComponentBehaviorInput<TPrepared>,
+  requiredLayer: ElementLayer | undefined,
+  focusScope: ((
+    this: undefined,
+    input: ComponentBehaviorInput<TPrepared>
+  ) => ElementFocusScope | undefined) | undefined
 ): ComponentInstanceOptions['meta'] & { readonly accessibility?: { readonly decorative: true } } {
   const caller = value.meta;
-  const requiredScope = definition.semantics === 'semantic' && definition.focusScope !== undefined
-    ? executeComponentPhase(definition.name, value.id, 'metadata', () =>
+  const requiredScope = focusScope === undefined
+    ? undefined
+    : executeComponentPhase(definition.name, value.id, 'metadata', () =>
         normalizeFocusScope(
-          definition.focusScope?.call(undefined, behavior),
+          focusScope.call(undefined, behavior),
           definition.name
         )
-      )
-    : undefined;
+      );
   const focus = caller?.focus === undefined && requiredScope === undefined
     ? undefined
     : Object.freeze({
@@ -1992,10 +1945,15 @@ function componentInstanceMeta(
   });
 }
 
-function componentDefinitionLayer(
+function componentDefinitionLayer<TPrepared extends object>(
   instanceId: string | undefined,
-  definition: NormalizedDefinition,
-  behavior: ComponentBehaviorInput<Readonly<Record<string, unknown>>>
+  definition: ComponentDefinitionIdentity & {
+    readonly layer?: (
+      this: undefined,
+      input: ComponentBehaviorInput<TPrepared>
+    ) => ElementLayer | undefined;
+  },
+  behavior: ComponentBehaviorInput<TPrepared>
 ): ElementLayer | undefined {
   return definition.layer === undefined
     ? undefined
@@ -2148,7 +2106,7 @@ function normalizeElementLayer(
 
 function normalizeElementStyles(
   value: unknown,
-  definition: NormalizedDefinition
+  definition: ComponentRuntimeContract
 ): ElementStyles {
   if (!isNonArrayObject(value)) {
     throw new TypeError(`Component "${definition.name}" meta.styles must be an object.`);
@@ -2163,7 +2121,7 @@ function normalizeElementStyles(
     : normalizeTerminalStyle(rootValue, `Component "${definition.name}" meta.styles.root`);
   const parts = normalizeStyleMap(
     value['parts'],
-    new Set(definition.parts),
+    definition.partSet,
     `Component "${definition.name}" meta.styles.parts`
   );
   const states = normalizeStyleMap(
@@ -2240,7 +2198,7 @@ function componentSlotMeasurements(
 
 function normalizeComponentLayout(
   value: unknown,
-  definition: Extract<NormalizedDefinition, { readonly structure: 'composite' }>,
+  definition: ComponentRuntimeContract,
   ranges: readonly { readonly name: string; readonly start: number; readonly count: number }[],
   parent: Rect,
   childCount: number

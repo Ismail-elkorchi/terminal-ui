@@ -25,6 +25,7 @@ import type {
   ProgressBarLabelPosition,
   ProgressBarMode,
   StatusBarItem,
+  ValueScale,
   ValueScaleStop,
 } from '../../ui-model/feedback.ts';
 import type { ProcessStatus } from '../../ui-model/contracts.ts';
@@ -47,9 +48,9 @@ import {
   assertOptionalEnum,
   assertOptionalFiniteNumber,
   isNonArrayObject,
+  isStringMember,
 } from '../../foundation/validation.ts';
 import { isThemeColorToken } from '../../visual/color.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface StatusBarModel {
   readonly leading: readonly StatusBarItem[];
@@ -80,7 +81,6 @@ export const statusBar: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
-    assertKnownOptions(value, ['leading', 'center', 'trailing'], 'statusBar');
     const leading = prepareStatusItems(value.leading, 'leading');
     const center = prepareStatusItems(value.center, 'center');
     const trailing = prepareStatusItems(value.trailing, 'trailing');
@@ -112,23 +112,21 @@ export const statusBar: SemanticLeafComponentFactory<
   },
 });
 
-function prepareStatusItems(value: unknown, section: StatusBarSection): readonly StatusBarItem[] {
+function prepareStatusItems(
+  value: readonly StatusBarItem[] | undefined,
+  section: StatusBarSection,
+): readonly StatusBarItem[] {
   if (value === undefined) return [];
-  if (!Array.isArray(value)) throw new TypeError(`statusBar ${section} must be an array.`);
   return value.map((candidate, index) =>
     prepareStatusItem(candidate, `${section}[${String(index)}]`)
   );
 }
 
-function prepareStatusItem(value: unknown, path: string): StatusBarItem {
+function prepareStatusItem(value: StatusBarItem, path: string): StatusBarItem {
   if (!isNonArrayObject(value)) throw new TypeError(`statusBar ${path} must be an object.`);
-  const kind = value['kind'];
-  const id = value['id'];
-  const textValue = value['text'];
-  const leading = value['leading'];
-  const trailing = value['trailing'];
-  const status = value['status'];
-  if (kind !== 'text' && kind !== 'status') {
+  const { kind, id, leading, trailing } = value;
+  const textValue = value.text;
+  if (!isStringMember(kind, ['text', 'status'])) {
     throw new TypeError(`statusBar ${path} kind is invalid.`);
   }
   if (typeof id !== 'string' || id.trim().length === 0) {
@@ -143,12 +141,6 @@ function prepareStatusItem(value: unknown, path: string): StatusBarItem {
   if (trailing !== undefined && !isInlineContent(trailing)) {
     throw new TypeError(`statusBar ${path} trailing must be inline content.`);
   }
-  if (kind === 'status' && !isStatusBarStatus(status)) {
-    throw new TypeError(`statusBar ${path} status is invalid.`);
-  }
-  if (kind === 'text' && status !== undefined) {
-    throw new TypeError(`statusBar ${path} status is only valid for status items.`);
-  }
   const common = {
     id: sanitizeLine(id),
     text: sanitizeLine(textValue),
@@ -156,6 +148,7 @@ function prepareStatusItem(value: unknown, path: string): StatusBarItem {
     ...(trailing === undefined ? {} : { trailing: normalizeInlineContent(trailing) }),
   };
   if (kind === 'text') return { ...common, kind };
+  const status = value.status;
   if (!isStatusBarStatus(status)) throw new TypeError(`statusBar ${path} status is invalid.`);
   return { ...common, kind, status };
 }
@@ -187,10 +180,6 @@ export const helpBar: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
-    if (!Array.isArray(value.groups)) {
-      throw new TypeError('helpBar groups must be an array.');
-    }
-    assertKnownOptions(value, ['groups'], 'helpBar');
     const groups = value.groups.map((group, index) => prepareHelpGroup(group, index));
     resolveStableIds(groups, (group) => group.id, 'helpBar');
     return { groups };
@@ -449,21 +438,13 @@ function statusItemAccessibleText(item: StatusBarItem): string {
   ].filter((part) => part.length > 0).join(' ');
 }
 
-function prepareHelpGroup(value: unknown, index: number): HelpGroup {
+function prepareHelpGroup(value: HelpGroup, index: number): HelpGroup {
   if (!isNonArrayObject(value)) {
     throw new TypeError(`helpBar groups[${String(index)}] must be an object.`);
   }
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'id' && field !== 'label' && field !== 'bindings'
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(
-      `helpBar groups[${String(index)}] contains unknown field "${unsupported}".`,
-    );
-  }
-  const id = value['id'];
-  const label = value['label'];
-  const bindings = value['bindings'];
+  const id = value.id;
+  const label = value.label;
+  const bindings = value.bindings;
   if (typeof id !== 'string' || id.trim().length === 0) {
     throw new TypeError(`helpBar groups[${String(index)}] id must be a non-empty string.`);
   }
@@ -479,7 +460,6 @@ function prepareHelpGroup(value: unknown, index: number): HelpGroup {
     bindings: bindings.map((binding, bindingIndex) => {
       if (
         !isNonArrayObject(binding) ||
-        Object.keys(binding).some((field) => field !== 'key' && field !== 'label') ||
         typeof binding['key'] !== 'string' ||
         typeof binding['label'] !== 'string'
       ) {
@@ -691,7 +671,6 @@ export const activityIndicator: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['marker', 'label', 'value'],
   prepare(value) {
-    assertKnownOptions(value, ['label', 'status', 'frames', 'frameIndex'], 'activityIndicator');
     const label = value.label;
     const status = value.status;
     const frames = value.frames;
@@ -921,18 +900,12 @@ export const progressBar: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
-    assertKnownOptions(value, [
-      'label', 'mode', 'barWidth', 'display', 'labelPosition', 'elapsedMs', 'remainingMs',
-      'status', 'valueScale',
-    ], 'progressBar');
     const label = value.label;
     const mode = value.mode;
     const display = value.display;
     const labelPosition = value.labelPosition;
     const status = value.status;
     assertAccessibleLabel(label, 'progressBar');
-    assertProgressBarMode(mode);
-    assertValueScale(value.valueScale, 'progressBar');
     assertProcessStatus(status, 'progressBar');
     assertOptionalEnum(
       display,
@@ -984,56 +957,35 @@ export const progressBar: SemanticLeafComponentFactory<
   },
 });
 
-function prepareProgressMode(value: unknown): ProgressBarMode {
-  assertProgressBarMode(value);
-  return value.kind === 'indeterminate'
-    ? { kind: value.kind, ...(value.frame === undefined ? {} : { frame: value.frame }) }
-    : {
-      kind: value.kind,
-      value: value.value,
-      ...(value.max === undefined ? {} : { max: value.max }),
-    };
-}
-
-function assertProgressBarMode(mode: unknown): asserts mode is ProgressBarMode {
-  if (!isNonArrayObject(mode)) {
+function prepareProgressMode(mode: ProgressBarMode): ProgressBarMode {
+  if (!isNonArrayObject(mode) || !isStringMember(mode.kind, ['determinate', 'indeterminate'])) {
     throw new TypeError('progressBar mode must be determinate or indeterminate.');
   }
-  const kind = mode['kind'];
-  const frame = mode['frame'];
-  const value = mode['value'];
-  const max = mode['max'];
-  if (kind !== 'determinate' && kind !== 'indeterminate') {
-    throw new TypeError('progressBar mode must be determinate or indeterminate.');
-  }
-  if (kind === 'indeterminate') {
-    if (value !== undefined || max !== undefined) {
-      throw new TypeError('progressBar indeterminate mode cannot define value or max.');
-    }
+  if (mode.kind === 'indeterminate') {
+    const frame = mode.frame;
     if (frame !== undefined && (typeof frame !== 'number' || !Number.isFinite(frame))) {
       throw new RangeError('progressBar indeterminate frame must be finite when provided.');
     }
-    return;
+    return { kind: mode.kind, ...(frame === undefined ? {} : { frame }) };
   }
-  if (frame !== undefined) {
-    throw new TypeError('progressBar determinate mode cannot define frame.');
-  }
+  const { value, max } = mode;
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new RangeError('progressBar determinate value must be finite.');
   }
   if (max !== undefined && (typeof max !== 'number' || !Number.isFinite(max) || max <= 0)) {
     throw new RangeError('progressBar determinate max must be finite and greater than zero.');
   }
+  return { kind: mode.kind, value, ...(max === undefined ? {} : { max }) };
 }
 
-function normalizedProgressBarWidth(value: unknown): number | undefined {
+function normalizedProgressBarWidth(value: number | undefined): number | undefined {
   assertOptionalFiniteNumber(value, 'progressBar barWidth');
   if (value === undefined) return undefined;
   if (value <= 0) throw new RangeError('progressBar barWidth must be greater than zero.');
   return Math.max(1, Math.min(120, Math.floor(value)));
 }
 
-function normalizedDuration(value: unknown, label: string): number | undefined {
+function normalizedDuration(value: number | undefined, label: string): number | undefined {
   assertOptionalFiniteNumber(value, label);
   if (value === undefined) return undefined;
   if (value < 0) throw new RangeError(`${label} must be non-negative.`);
@@ -1344,15 +1296,33 @@ function progressScaleStyle(
     : { ...base, fg: { kind: 'theme', token: selected.token }, bold: true };
 }
 
-function prepareValueScaleFor(value: unknown, component: string): readonly ValueScaleStop[] {
+function prepareValueScaleFor(
+  value: ValueScale | undefined,
+  component: string,
+): readonly ValueScaleStop[] {
   if (value === undefined) return [];
-  assertValueScale(value, component);
-  return [...value]
-    .map((stop) => ({
+  if (value.length > 32) {
+    throw new RangeError(`${component} valueScale cannot contain more than 32 stops.`);
+  }
+  return value.map((stop) => {
+    const { at, token, label } = stop;
+    if (typeof at !== 'number' || !Number.isFinite(at) || at < 0 || at > 1) {
+      throw new RangeError(
+        `${component} valueScale stop positions must be finite values from 0 through 1.`,
+      );
+    }
+    if (typeof token !== 'string' || !isThemeColorToken(token)) {
+      throw new TypeError(`${component} valueScale stop tokens must be valid theme color tokens.`);
+    }
+    if (label !== undefined && (typeof label !== 'string' || label.trim().length === 0)) {
+      throw new TypeError(`${component} valueScale stop labels must be non-empty strings.`);
+    }
+    return {
       at: stop.at,
       token: stop.token,
       ...(stop.label === undefined ? {} : { label: sanitizeLine(stop.label) }),
-    }))
+    };
+  })
     .sort((left, right) => left.at - right.at);
 }
 
@@ -1442,17 +1412,12 @@ export const sparkline: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['label', 'value', 'muted', 'axis', 'baseline', 'series', 'legend'],
   prepare(value) {
-    assertKnownOptions(value, [
-      'label', 'values', 'min', 'max', 'dataState', 'valueScale', 'emptyText', 'loadingText',
-      'errorText',
-    ], 'sparkline');
     const label = value.label;
     const values = value.values;
     assertAccessibleLabel(label, 'sparkline');
     assertFiniteValues(values, 'sparkline values');
     assertNumericDomain(value.min, value.max, 'sparkline');
     assertChartDataState(value.dataState, 'sparkline');
-    assertValueScale(value.valueScale, 'sparkline');
     const min = typeof value.min === 'number'
       ? value.min
       : values.length === 0
@@ -1603,7 +1568,7 @@ function chartPartSpan<TModel extends object>(
   });
 }
 
-function prepareOptionalLine(value: unknown, label: string, fallback: string): string {
+function prepareOptionalLine(value: string | undefined, label: string, fallback: string): string {
   if (value === undefined) return fallback;
   if (typeof value !== 'string') throw new TypeError(`${label} must be a string.`);
   const prepared = sanitizeLine(value).trim();
@@ -1643,11 +1608,6 @@ export const meter: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
-    assertKnownOptions(
-      value,
-      ['label', 'value', 'min', 'max', 'width', 'variant', 'result'],
-      'meter',
-    );
     const label = value.label;
     const current = value.value;
     const min = value.min;
@@ -1660,9 +1620,7 @@ export const meter: SemanticLeafComponentFactory<
     assertNumericDomain(min, max, 'meter');
     assertPositiveSafeInteger(width, 'meter width');
     assertMeterResult(result);
-    if (variant !== undefined && variant !== 'linear' && variant !== 'dial') {
-      throw new TypeError('meter variant must be linear or dial.');
-    }
+    assertOptionalEnum(variant, ['linear', 'dial'], 'meter variant');
     const minimum = typeof min === 'number' ? min : 0;
     const maximum = Math.max(minimum + 1, typeof max === 'number' ? max : 100);
     return {
@@ -1956,16 +1914,16 @@ function assertAccessibleLabel(value: unknown, component: string): asserts value
 }
 
 function assertFiniteValues(
-  values: unknown,
+  values: readonly number[],
   subject: string,
-): asserts values is readonly number[] {
+): void {
   if (!Array.isArray(values)) throw new TypeError(`${subject} must be an array.`);
   for (const value of values) assertFiniteNumber(value, `${subject} item`);
 }
 
 function assertNumericDomain(
-  minimum: unknown,
-  maximum: unknown,
+  minimum: number | undefined,
+  maximum: number | undefined,
   component: string,
 ): void {
   assertOptionalFiniteNumber(minimum, `${component} min`);
@@ -1979,40 +1937,10 @@ function assertNumericDomain(
   }
 }
 
-function assertPositiveSafeInteger(value: unknown, subject: string): void {
+function assertPositiveSafeInteger(value: number | undefined, subject: string): void {
   if (value === undefined) return;
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
     throw new RangeError(`${subject} must be a positive safe integer.`);
-  }
-}
-
-function assertValueScale(
-  value: unknown,
-  component: string,
-): asserts value is import('../../ui-model/feedback.ts').ValueScale | undefined {
-  if (value === undefined) return;
-  if (!Array.isArray(value)) throw new TypeError(`${component} valueScale must be an array.`);
-  if (value.length > 32) {
-    throw new RangeError(`${component} valueScale cannot contain more than 32 stops.`);
-  }
-  for (const stop of value as readonly unknown[]) {
-    if (!isNonArrayObject(stop)) {
-      throw new TypeError(`${component} valueScale stops must be objects.`);
-    }
-    const at = stop['at'];
-    const token = stop['token'];
-    const label = stop['label'];
-    if (typeof at !== 'number' || !Number.isFinite(at) || at < 0 || at > 1) {
-      throw new RangeError(
-        `${component} valueScale stop positions must be finite values from 0 through 1.`,
-      );
-    }
-    if (typeof token !== 'string' || !isThemeColorToken(token)) {
-      throw new TypeError(`${component} valueScale stop tokens must be valid theme color tokens.`);
-    }
-    if (label !== undefined && (typeof label !== 'string' || label.trim().length === 0)) {
-      throw new TypeError(`${component} valueScale stop labels must be non-empty strings.`);
-    }
   }
 }
 

@@ -70,6 +70,7 @@ for (const filePath of sourceFiles) {
   inspectCentralRenderDispatch(sourceFile, filePath);
   inspectElementConstructionBoundary(sourceFile, filePath);
   inspectComponentCatalog(sourceFile, filePath);
+  inspectComponentPreparationInflation(sourceFile, filePath);
   inspectPublicBoundary(sourceFile, filePath);
   inspectTestingEntrypoint(sourceFile, filePath);
   inspectTuiContext(sourceFile, filePath);
@@ -196,6 +197,90 @@ function inspectComponentCatalog(sourceFile, filePath) {
       failures.push(`${relative(filePath)} imports renderer-private module ${targetPath}`);
     }
   }
+}
+
+function inspectComponentPreparationInflation(sourceFile, filePath) {
+  const sourcePath = sourceRelative(filePath);
+  if (!sourcePath.startsWith('components/factories/')) return;
+
+  const report = (message) => failures.push(`${relative(filePath)} ${message}`);
+  const visit = (node) => {
+    if ((ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node))
+      && /^Dynamic.*Options$/u.test(node.name.text)) {
+      report(`declares erased option mirror ${node.name.text}`);
+    }
+    if (ts.isInterfaceDeclaration(node) && /Options$/u.test(node.name.text)
+      && node.members.length > 0
+      && node.members.every((member) => ts.isPropertySignature(member)
+        && member.type?.kind === ts.SyntaxKind.UnknownKeyword)) {
+      report(`declares all-unknown option mirror ${node.name.text}`);
+    }
+    if (ts.isFunctionDeclaration(node) && node.name !== undefined
+      && /^(exact|exactOptions|rejectUnknownOptions)$/u.test(node.name.text)) {
+      report(`declares generic exact-option helper ${node.name.text}`);
+    }
+    if (ts.isFunctionDeclaration(node) && node.name !== undefined
+      && /^prepare[A-Z]/u.test(node.name.text)
+      && node.parameters[0]?.type !== undefined
+      && isReadonlyUnknownRecord(node.parameters[0].type)) {
+      report(`types ${node.name.text}() as Readonly<Record<string, unknown>>`);
+    }
+    if ((ts.isMethodDeclaration(node) || ts.isPropertyAssignment(node))
+      && propertyName(node.name) === 'prepare') {
+      const callable = ts.isMethodDeclaration(node)
+        ? node
+        : ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer)
+          ? node.initializer
+          : undefined;
+      if (callable?.parameters[0]?.type !== undefined
+        && isReadonlyUnknownRecord(callable.parameters[0].type)) {
+        report('types a component prepare hook as Readonly<Record<string, unknown>>');
+      }
+    }
+    if (ts.isVariableDeclaration(node) && node.type !== undefined
+      && isReadonlyUnknownRecord(node.type)
+      && ts.isIdentifier(node.initializer)
+      && node.initializer.text === 'options') {
+      report(`widens options to a generic record in ${node.name.getText(sourceFile)}`);
+    }
+    if (ts.isExpressionStatement(node) && ts.isCallExpression(node.expression)) {
+      const callee = node.expression.expression;
+      const name = ts.isIdentifier(callee) ? callee.text : undefined;
+      if (name !== undefined && /^prepare[A-Z]/u.test(name)) {
+        report(`discards the result of ${name}()`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    if (/(^|\/)options(?:\.ts)?$/u.test(statement.moduleSpecifier.text)
+      && statement.importClause?.namedBindings !== undefined
+      && ts.isNamedImports(statement.importClause.namedBindings)
+      && statement.importClause.namedBindings.elements.some((item) =>
+        /^(assertKnownOptions|exactOptions|rejectUnknownOptions)$/u.test(item.name.text)
+      )) {
+      report(`imports generic exact-option validation from ${statement.moduleSpecifier.text}`);
+    }
+  }
+}
+
+function propertyName(name) {
+  return name !== undefined && (ts.isIdentifier(name) || ts.isStringLiteral(name))
+    ? name.text
+    : undefined;
+}
+
+function isReadonlyUnknownRecord(node) {
+  if (!ts.isTypeReferenceNode(node) || !ts.isIdentifier(node.typeName)
+    || node.typeName.text !== 'Readonly' || node.typeArguments?.length !== 1) return false;
+  const record = node.typeArguments[0];
+  return ts.isTypeReferenceNode(record) && ts.isIdentifier(record.typeName)
+    && record.typeName.text === 'Record' && record.typeArguments?.length === 2
+    && record.typeArguments[0]?.kind === ts.SyntaxKind.StringKeyword
+    && record.typeArguments[1]?.kind === ts.SyntaxKind.UnknownKeyword;
 }
 
 async function loadComponentCatalogModules(knownFiles) {

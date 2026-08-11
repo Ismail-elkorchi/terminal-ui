@@ -116,6 +116,10 @@ const badge = defineComponent<
   structure: 'leaf',
   semantics: 'semantic',
   prepare(value) {
+    const typedOptions: Readonly<BadgeOptions> = value;
+    void typedOptions;
+    // @ts-expect-error preparation exposes declared options, not an unknown record
+    void value.applicationData;
     if (typeof value.label !== 'string') {
       throw new TypeError('badge label must be a string');
     }

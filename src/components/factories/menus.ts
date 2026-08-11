@@ -13,14 +13,13 @@ import {
   sanitizeTerminalText,
 } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { assertOptionalEnum, isStringMember } from '../../foundation/validation.ts';
 import { portal, surface } from '../../layout/index.ts';
 import { text } from './content.ts';
 import type { TooltipPresentation, TooltipTone } from '../../ui-model/menu.ts';
 import type { TooltipStylePart } from '../../ui-model/style-parts.ts';
 import type { BorderOptions } from '../../visual/border.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
-import { assertKnownOptions } from '../internal/options.ts';
 
 interface PreparedDivider {
   readonly orientation: DividerOrientation;
@@ -52,28 +51,18 @@ export const divider: SemanticLeafComponentFactory<
   metadata: ['styles', 'layer'],
   parts: ['line', 'label'],
   prepare(value) {
-    assertKnownOptions(value, ['orientation', 'line', 'label', 'labelAlign'], 'divider');
     const orientation = value.orientation;
     const line = value.line;
     const label = value.label;
     const labelAlign = value.labelAlign;
-    if (orientation !== undefined && orientation !== 'horizontal' && orientation !== 'vertical') {
-      throw new TypeError('divider orientation must be "horizontal" or "vertical".');
-    }
+    assertOptionalEnum(orientation, ['horizontal', 'vertical'], 'divider orientation');
     if (line !== undefined && !isDividerLineKind(line)) {
       throw new TypeError('divider line is invalid.');
     }
     if (label !== undefined && typeof label !== 'string') {
       throw new TypeError('divider label must be a string.');
     }
-    if (
-      labelAlign !== undefined &&
-      labelAlign !== 'start' &&
-      labelAlign !== 'center' &&
-      labelAlign !== 'end'
-    ) {
-      throw new TypeError('divider labelAlign must be "start", "center", or "end".');
-    }
+    assertOptionalEnum(labelAlign, ['start', 'center', 'end'], 'divider labelAlign');
     return {
       orientation: orientation ?? 'horizontal',
       line: line ?? 'single',
@@ -232,11 +221,6 @@ export const tooltip: SemanticCompositeComponentFactory<
   metadata: ['styles'],
   parts: ['background', 'border', 'title', 'content'],
   prepare(value) {
-    assertKnownOptions(
-      value,
-      ['content', 'presentation', 'title', 'tone', 'placement', 'maxWidth', 'border'],
-      'tooltip',
-    );
     const content = value.content;
     const presentation = prepareTooltipPresentation(value.presentation);
     const title = value.title;
@@ -325,60 +309,46 @@ export const tooltip: SemanticCompositeComponentFactory<
   },
 });
 
-function prepareTooltipPresentation(value: unknown): TooltipPresentation {
-  if (!isNonArrayObject(value) || (value['kind'] !== 'hidden' && value['kind'] !== 'visible')) {
+function prepareTooltipPresentation(value: TooltipPresentation): TooltipPresentation {
+  if (!isStringMember(value.kind, ['hidden', 'visible'])) {
     throw new TypeError('tooltip presentation must be hidden or visible.');
   }
-  if (value['kind'] === 'hidden') {
-    if (value['anchor'] !== undefined) {
-      throw new TypeError('hidden tooltip presentation cannot define an anchor.');
-    }
-    return { kind: 'hidden' };
-  }
-  const anchor = value['anchor'];
-  if (!isNonArrayObject(anchor) || !isTooltipAnchor(anchor)) {
-    throw new TypeError('visible tooltip presentation requires a valid anchor.');
-  }
-  return { kind: 'visible', anchor };
+  return value.kind === 'hidden'
+    ? { kind: 'hidden' }
+    : { kind: 'visible', anchor: prepareTooltipAnchor(value.anchor) };
 }
 
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
-function isTooltipAnchor(
-  value: Readonly<Record<string, unknown>>,
-): value is Extract<TooltipPresentation, { readonly kind: 'visible' }>['anchor'] {
-  if (value['kind'] === 'target') return isFiniteRect(value['bounds']);
-  if (value['kind'] === 'cursor') {
-    return typeof value['row'] === 'number' &&
-      Number.isFinite(value['row']) &&
-      typeof value['column'] === 'number' &&
-      Number.isFinite(value['column']);
+function prepareTooltipAnchor(
+  value: Extract<TooltipPresentation, { readonly kind: 'visible' }>['anchor'],
+): Extract<TooltipPresentation, { readonly kind: 'visible' }>['anchor'] {
+  if (value.kind === 'target') {
+    if (!isFiniteRect(value.bounds)) {
+      throw new TypeError('visible tooltip target bounds must be finite.');
+    }
+    return { kind: 'target', bounds: { ...value.bounds } };
   }
-  return false;
+  if (!Number.isFinite(value.row) || !Number.isFinite(value.column)) {
+    throw new TypeError('visible tooltip cursor coordinates must be finite.');
+  }
+  return { kind: 'cursor', row: value.row, column: value.column };
 }
 
-function isFiniteRect(value: unknown): value is import('../../geometry/types.ts').Rect {
-  return isNonArrayObject(value) &&
-    ['row', 'column', 'width', 'height'].every((field) =>
-      typeof value[field] === 'number' && Number.isFinite(value[field])
-    );
+function isFiniteRect(value: import('../../geometry/types.ts').Rect): boolean {
+  return [value.row, value.column, value.width, value.height].every(Number.isFinite);
 }
 
-function prepareTooltipBorder(value: unknown): BorderOptions {
+function prepareTooltipBorder(value: TooltipOptions['border']): BorderOptions {
   if (value === undefined) return { kind: 'rounded' };
-  if (!isNonArrayObject(value) || !isBorderKind(value['kind'])) {
+  if (!isBorderKind(value.kind)) {
     throw new TypeError('tooltip border is invalid.');
   }
-  const titleAlign = value['titleAlign'];
-  if (
-    titleAlign !== undefined && titleAlign !== 'start' && titleAlign !== 'center' &&
-    titleAlign !== 'end'
-  ) {
-    throw new TypeError('tooltip border titleAlign is invalid.');
-  }
-  return { kind: value['kind'], ...(titleAlign === undefined ? {} : { titleAlign }) };
+  const titleAlign = value.titleAlign;
+  assertOptionalEnum(titleAlign, ['start', 'center', 'end'], 'tooltip border titleAlign');
+  return { kind: value.kind, ...(titleAlign === undefined ? {} : { titleAlign }) };
 }
 
 function isTooltipTone(value: unknown): value is TooltipTone {

@@ -32,7 +32,7 @@ export interface RenderNodePropsByKind<TMessage> {
 }
 
 export interface ComponentRenderProps {
-  readonly options: Readonly<Record<string, unknown>>;
+  readonly model: unknown;
   readonly slots: readonly {
     readonly name: string;
     readonly start: number;

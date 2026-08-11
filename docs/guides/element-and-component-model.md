@@ -108,10 +108,11 @@ not expose renderer internals as ordinary component APIs.
 
 ## Internal Representation
 
-Every definition is compiled once. Each factory call validates exact fields,
-prepares one immutable model, and creates the same generic component runtime
-node through one private construction path. Layout, rendering, and runtime code
-resolve opaque handles only at the renderer boundary.
+Every definition is compiled once. Each factory call separates framework-owned
+fields, performs typed component preparation, and creates the same generic
+component runtime node through one private construction path. The node stores
+the prepared model opaquely; the compiled hooks retain its real type. Layout,
+rendering, and runtime code resolve opaque handles only at the renderer boundary.
 
 A render node can contain:
 
@@ -161,7 +162,7 @@ bounds, theme data, source metadata, and caller-controlled state. It does not re
 direct frame-buffer or terminal-host access.
 
 `defineComponent()` is owned and exported only by the narrow `./component`
-entrypoint. It creates an immutable factory from bounded preparation,
+entrypoint. It creates an immutable factory from component-owned preparation,
 measurement, painting or composition, accessibility, focus-target, and
 hit-target hooks without exposing private node fields. Composite definitions
 arrange typed named slots; composed definitions build ordinary element trees

@@ -29,8 +29,6 @@ const badge = defineComponent<BadgeOptions, BadgeOptions>({
   structure: 'leaf',
   semantics: 'semantic',
   prepare(value) {
-    const unknown = Object.keys(value).find((field) => field !== 'label');
-    if (unknown !== undefined) throw new TypeError(`badge does not accept ${unknown}`);
     if (typeof value.label !== 'string') throw new TypeError('badge requires a string label');
     return { label: value.label };
   },
@@ -171,13 +169,18 @@ framework. Definition hooks should not duplicate it. Decorative definitions
 cannot accept state or actions.
 
 Component-specific inputs are top-level instance fields. `prepare()` is their
-single runtime boundary for JavaScript and other dynamic callers: it validates
-the complete input shape, rejects unknown fields, enforces cross-field rules,
-and returns the immutable model consumed by every later phase. TypeScript checks
-the declared option type for typed callers. Definitions without `prepare()` do
-not accept component-specific fields. The framework validates its shared fields;
-the component owns exactness for the fields it decodes, without a parallel field
-registry on the definition.
+typed construction step. Validate values the component consumes when JavaScript
+callers could otherwise corrupt behavior, enforce cross-field rules, and build
+the model used by every later phase. Do not maintain a second list of option
+names just to reject unused properties. TypeScript checks the declared option
+type for typed callers, while the framework validates its shared fields.
+
+Preparation owns retained data. Copy caller arrays or objects that later hooks
+will retain; freeze those owned values when mutation would violate the
+component's behavior. The framework does not recursively inspect or freeze a
+prepared model, and models may use domain objects rather than only plain JSON
+records. Omit `prepare()` only when the supplied component options already are
+the owned model.
 
 Focus targets and hit targets use stable IDs and bounded rectangles. A hit
 target that should transfer keyboard focus names one of the component's focus

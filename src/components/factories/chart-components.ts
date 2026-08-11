@@ -7,7 +7,7 @@ import type {
   ComponentRenderInput,
   Element,
 } from '../../component/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { assertOptionalEnum, isStringMember } from '../../foundation/validation.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import { createLocalCanvas2D, drawAreaSeries, drawLineSeries } from '../../renderer/index.ts';
 import {
@@ -19,9 +19,12 @@ import {
 import type {
   ChartDataState,
   ChartInterpolation,
+  ChartPointSelection,
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeriesKind,
+  HeatmapSelection,
+  ValueScale,
   ValueScaleStop,
 } from '../../ui-model/feedback.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
@@ -36,6 +39,13 @@ interface ChartStatus {
   readonly emptyText: string;
   readonly loadingText: string;
   readonly errorText: string;
+}
+
+interface ChartStatusOptions {
+  readonly dataState?: ChartDataState;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
 }
 
 interface PreparedBar {
@@ -53,17 +63,10 @@ interface BarChartModel extends ChartStatus {
   readonly pointerState?: PointerInteractionState;
 }
 
-interface DynamicBarChartOptions {
-  readonly label: unknown;
-  readonly items: unknown;
-  readonly max?: unknown;
-  readonly selectedId?: unknown;
-  readonly dataState?: unknown;
-  readonly emptyText?: unknown;
-  readonly loadingText?: unknown;
-  readonly errorText?: unknown;
-  readonly pointerState?: unknown;
-}
+type BarChartComponentOptions = Omit<
+  BarChartOptions<ComponentMessage>,
+  'id' | 'disabled' | 'onAction' | 'meta'
+>;
 
 const barChartBase = {
   name: 'terminal-ui/components/bar-chart' as const,
@@ -80,7 +83,7 @@ const barChartBase = {
 };
 
 const passiveBarChart = defineComponent<
-  DynamicBarChartOptions,
+  BarChartComponentOptions,
   BarChartModel,
   never,
   ChartStylePart,
@@ -90,7 +93,7 @@ const passiveBarChart = defineComponent<
 >(barChartBase);
 
 const activeBarChart = defineComponent<
-  DynamicBarChartOptions,
+  BarChartComponentOptions,
   BarChartModel,
   BarChartAction,
   ChartStylePart,
@@ -138,52 +141,33 @@ const activeBarChart = defineComponent<
 export function barChart<const TMessage extends ComponentMessage = never>(
   options: BarChartOptions<TMessage>,
 ): Element<TMessage> {
-  const own: DynamicBarChartOptions = options;
   if (options.onAction === undefined) {
-    return passiveBarChart({
-      ...own,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
-    });
+    return passiveBarChart(options);
   }
-  return activeBarChart({
-    ...own,
-    id: options.id,
-    onAction: options.onAction,
-    ...(options.meta === undefined ? {} : { meta: options.meta }),
-  });
+  return activeBarChart(options);
 }
 
-function prepareBarChart(value: Readonly<Record<string, unknown>>): BarChartModel {
-  exact(value, [
-    'label', 'items', 'max', 'selectedId', 'dataState', 'emptyText', 'loadingText',
-    'errorText', 'pointerState',
-  ], 'barChart options');
-  const label = nonEmpty(value['label'], 'barChart label');
-  if (!Array.isArray(value['items'])) throw new TypeError('barChart items must be an array.');
+function prepareBarChart(value: Readonly<BarChartComponentOptions>): BarChartModel {
+  const label = nonEmpty(value.label, 'barChart label');
   const ids = new Set<string>();
-  const items = Object.freeze(value['items'].map((candidate, itemIndex): PreparedBar => {
-    if (!isNonArrayObject(candidate)) {
-      throw new TypeError(`barChart items[${String(itemIndex)}] must be an object.`);
-    }
-    exact(candidate, ['id', 'label', 'value'], `barChart items[${String(itemIndex)}]`);
-    const id = nonEmpty(candidate['id'], 'barChart item id');
+  const items = Object.freeze(value.items.map((candidate, itemIndex): PreparedBar => {
+    const id = nonEmpty(candidate.id, 'barChart item id');
     if (ids.has(id)) throw new TypeError(`barChart contains duplicate item id "${id}".`);
     ids.add(id);
     return Object.freeze({
       id,
       itemIndex,
-      label: nonEmpty(candidate['label'], 'barChart item label'),
-      value: finite(candidate['value'], 'barChart item value'),
+      label: nonEmpty(candidate.label, 'barChart item label'),
+      value: finite(candidate.value, 'barChart item value'),
     });
   }));
-  const explicitMaximum = optionalFinite(value['max'], 'barChart max');
+  const explicitMaximum = optionalFinite(value.max, 'barChart max');
   const maximum = explicitMaximum ?? Math.max(1, ...items.map((item) => item.value));
   if (maximum <= 0) throw new RangeError('barChart max must be positive.');
-  const selectedId = value['selectedId'] === undefined
+  const selectedId = value.selectedId === undefined
     ? undefined
-    : nonEmpty(value['selectedId'], 'barChart selectedId');
-  const pointerState = preparePointerState(value['pointerState'], 'barChart');
+    : nonEmpty(value.selectedId, 'barChart selectedId');
+  const pointerState = preparePointerState(value.pointerState);
   return {
     label,
     items,
@@ -354,26 +338,10 @@ interface ChartModel extends ChartStatus {
   readonly pointerState?: PointerInteractionState;
 }
 
-interface DynamicChartOptions {
-  readonly label: unknown;
-  readonly series: unknown;
-  readonly min?: unknown;
-  readonly max?: unknown;
-  readonly selected?: unknown;
-  readonly legend?: unknown;
-  readonly signedDomain?: unknown;
-  readonly xLabel?: unknown;
-  readonly yLabel?: unknown;
-  readonly dataState?: unknown;
-  readonly valueScale?: unknown;
-  readonly sampleMode?: unknown;
-  readonly sampleAlign?: unknown;
-  readonly interpolation?: unknown;
-  readonly emptyText?: unknown;
-  readonly loadingText?: unknown;
-  readonly errorText?: unknown;
-  readonly pointerState?: unknown;
-}
+type ChartComponentOptions = Omit<
+  ChartOptions<ComponentMessage>,
+  'id' | 'disabled' | 'onAction' | 'meta'
+>;
 
 const chartBase = {
   name: 'terminal-ui/components/chart' as const,
@@ -390,7 +358,7 @@ const chartBase = {
 };
 
 const passiveChart = defineComponent<
-  DynamicChartOptions,
+  ChartComponentOptions,
   ChartModel,
   never,
   ChartStylePart,
@@ -400,7 +368,7 @@ const passiveChart = defineComponent<
 >(chartBase);
 
 const activeChart = defineComponent<
-  DynamicChartOptions,
+  ChartComponentOptions,
   ChartModel,
   ChartAction,
   ChartStylePart,
@@ -437,133 +405,91 @@ const activeChart = defineComponent<
 export function chart<const TMessage extends ComponentMessage = never>(
   options: ChartOptions<TMessage>,
 ): Element<TMessage> {
-  const own: DynamicChartOptions = options;
   if (options.onAction === undefined) {
-    return passiveChart({
-      ...own,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
-    });
+    return passiveChart(options);
   }
-  return activeChart({
-    ...own,
-    id: options.id,
-    onAction: options.onAction,
-    ...(options.meta === undefined ? {} : { meta: options.meta }),
-  });
+  return activeChart(options);
 }
 
-function prepareChart(value: Readonly<Record<string, unknown>>): ChartModel {
-  exact(value, [
-    'label', 'series', 'min', 'max', 'selected', 'legend', 'signedDomain', 'xLabel',
-    'yLabel', 'dataState', 'valueScale', 'sampleMode', 'sampleAlign', 'interpolation',
-    'emptyText', 'loadingText', 'errorText', 'pointerState',
-  ], 'chart options');
-  if (!Array.isArray(value['series'])) throw new TypeError('chart series must be an array.');
-  const label = nonEmpty(value['label'], 'chart label');
+function prepareChart(value: Readonly<ChartComponentOptions>): ChartModel {
+  const label = nonEmpty(value.label, 'chart label');
   const seriesIds = new Set<string>();
   const values: number[] = [];
-  const series = Object.freeze(value['series'].map((candidate, seriesIndex): PreparedSeries => {
-    if (!isNonArrayObject(candidate) || !Array.isArray(candidate['points'])) {
-      throw new TypeError(`chart series[${String(seriesIndex)}] is invalid.`);
-    }
-    exact(
-      candidate,
-      [
-        'id',
-        'label',
-        'points',
-        'kind',
-        'glyph',
-        'valueScale',
-        'sampleMode',
-        'sampleAlign',
-        'interpolation',
-      ],
-      `chart series[${String(seriesIndex)}]`,
-    );
-    const id = nonEmpty(candidate['id'], 'chart series id');
+  const series = Object.freeze(value.series.map((candidate, seriesIndex): PreparedSeries => {
+    const id = nonEmpty(candidate.id, 'chart series id');
     if (seriesIds.has(id)) throw new TypeError(`chart contains duplicate series id "${id}".`);
     seriesIds.add(id);
     const pointIds = new Set<string>();
-    const points = Object.freeze(candidate['points'].map((raw, pointIndex): PreparedPoint => {
-      if (!isNonArrayObject(raw)) throw new TypeError('chart point must be an object.');
-      exact(raw, ['id', 'label', 'value'], `chart series "${id}" point`);
-      const pointId = nonEmpty(raw['id'], 'chart point id');
+    const points = Object.freeze(candidate.points.map((raw, pointIndex): PreparedPoint => {
+      const pointId = nonEmpty(raw.id, 'chart point id');
       if (pointIds.has(pointId)) {
         throw new TypeError(`chart series "${id}" contains duplicate point id "${pointId}".`);
       }
       pointIds.add(pointId);
-      const pointValue = finite(raw['value'], 'chart point value');
+      const pointValue = finite(raw.value, 'chart point value');
       values.push(pointValue);
       return Object.freeze({
         id: pointId,
         pointIndex,
-        label: nonEmpty(raw['label'], 'chart point label'),
+        label: nonEmpty(raw.label, 'chart point label'),
         value: pointValue,
       });
     }));
+    const sampleMode = optionalEnum(
+      candidate.sampleMode,
+      ['one-per-column', 'fit', 'window'],
+      'chart series sampleMode',
+    );
+    const sampleAlign = optionalEnum(
+      candidate.sampleAlign,
+      ['start', 'end'],
+      'chart series sampleAlign',
+    );
+    const interpolation = optionalEnum(
+      candidate.interpolation,
+      ['nearest', 'linear'],
+      'chart series interpolation',
+    );
     return Object.freeze({
       id,
       seriesIndex,
-      label: nonEmpty(candidate['label'], 'chart series label'),
+      label: nonEmpty(candidate.label, 'chart series label'),
       points,
       kind:
-        optionalEnum(candidate['kind'], ['line', 'scatter', 'area', 'bar'], 'chart series kind') ??
+        optionalEnum(candidate.kind, ['line', 'scatter', 'area', 'bar'], 'chart series kind') ??
           'line',
-      ...optionalPreparedGlyph(candidate['glyph'], 'chart series glyph'),
-      valueScale: prepareValueScale(candidate['valueScale'], 'chart series valueScale'),
-      ...optionalProperty(
-        'sampleMode',
-        optionalEnum(
-          candidate['sampleMode'],
-          ['one-per-column', 'fit', 'window'],
-          'chart series sampleMode',
-        ),
-      ),
-      ...optionalProperty(
-        'sampleAlign',
-        optionalEnum(
-          candidate['sampleAlign'],
-          ['start', 'end'],
-          'chart series sampleAlign',
-        ),
-      ),
-      ...optionalProperty(
-        'interpolation',
-        optionalEnum(
-          candidate['interpolation'],
-          ['nearest', 'linear'],
-          'chart series interpolation',
-        ),
-      ),
+      ...optionalPreparedGlyph(candidate.glyph, 'chart series glyph'),
+      valueScale: prepareValueScale(candidate.valueScale, 'chart series valueScale'),
+      ...(sampleMode === undefined ? {} : { sampleMode }),
+      ...(sampleAlign === undefined ? {} : { sampleAlign }),
+      ...(interpolation === undefined ? {} : { interpolation }),
     });
   }));
-  const range = numericRange(values, value['min'], value['max'], 'chart');
-  const selected = prepareChartSelection(value['selected']);
-  const pointerState = preparePointerState(value['pointerState'], 'chart');
-  const xLabel = optionalText(value['xLabel'], 'chart xLabel');
-  const yLabel = optionalText(value['yLabel'], 'chart yLabel');
+  const range = numericRange(values, value.min, value.max, 'chart');
+  const selected = prepareChartSelection(value.selected);
+  const pointerState = preparePointerState(value.pointerState);
+  const xLabel = optionalText(value.xLabel, 'chart xLabel');
+  const yLabel = optionalText(value.yLabel, 'chart yLabel');
   return {
     label,
     series,
     minimum: range.min,
     maximum: range.max,
     ...(selected === undefined ? {} : { selected }),
-    legend: optionalBoolean(value['legend'], 'chart legend') ?? false,
-    signedDomain: optionalBoolean(value['signedDomain'], 'chart signedDomain') ?? false,
+    legend: optionalBoolean(value.legend, 'chart legend') ?? false,
+    signedDomain: optionalBoolean(value.signedDomain, 'chart signedDomain') ?? false,
     ...(xLabel === undefined ? {} : { xLabel }),
     ...(yLabel === undefined ? {} : { yLabel }),
-    valueScale: prepareValueScale(value['valueScale'], 'chart valueScale'),
+    valueScale: prepareValueScale(value.valueScale, 'chart valueScale'),
     sampleMode: optionalEnum(
-      value['sampleMode'],
+      value.sampleMode,
       ['one-per-column', 'fit', 'window'],
       'chart sampleMode',
     ) ?? 'one-per-column',
-    sampleAlign: optionalEnum(value['sampleAlign'], ['start', 'end'], 'chart sampleAlign') ??
+    sampleAlign: optionalEnum(value.sampleAlign, ['start', 'end'], 'chart sampleAlign') ??
       'start',
     interpolation: optionalEnum(
-      value['interpolation'],
+      value.interpolation,
       ['nearest', 'linear'],
       'chart interpolation',
     ) ?? 'nearest',
@@ -1072,21 +998,10 @@ interface HeatmapModel extends ChartStatus {
   readonly pointerState?: PointerInteractionState;
 }
 
-interface DynamicHeatmapOptions {
-  readonly label: unknown;
-  readonly rows: unknown;
-  readonly min?: unknown;
-  readonly max?: unknown;
-  readonly selected?: unknown;
-  readonly cellWidth?: unknown;
-  readonly gap?: unknown;
-  readonly dataState?: unknown;
-  readonly valueScale?: unknown;
-  readonly emptyText?: unknown;
-  readonly loadingText?: unknown;
-  readonly errorText?: unknown;
-  readonly pointerState?: unknown;
-}
+type HeatmapComponentOptions = Omit<
+  HeatmapOptions<unknown, ComponentMessage>,
+  'id' | 'disabled' | 'onAction' | 'meta'
+>;
 
 const heatmapBase = {
   name: 'terminal-ui/components/heatmap' as const,
@@ -1103,7 +1018,7 @@ const heatmapBase = {
 };
 
 const passiveHeatmap = defineComponent<
-  DynamicHeatmapOptions,
+  HeatmapComponentOptions,
   HeatmapModel,
   never,
   ChartStylePart,
@@ -1113,7 +1028,7 @@ const passiveHeatmap = defineComponent<
 >(heatmapBase);
 
 const activeHeatmap = defineComponent<
-  DynamicHeatmapOptions,
+  HeatmapComponentOptions,
   HeatmapModel,
   HeatmapAction,
   ChartStylePart,
@@ -1167,69 +1082,49 @@ const activeHeatmap = defineComponent<
 export function heatmap<TValue, const TMessage extends ComponentMessage = never>(
   options: HeatmapOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const own: DynamicHeatmapOptions = options;
   if (options.onAction === undefined) {
-    return passiveHeatmap({
-      ...own,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
-    });
+    return passiveHeatmap(options);
   }
-  return activeHeatmap({
-    ...own,
-    id: options.id,
-    onAction: options.onAction,
-    ...(options.meta === undefined ? {} : { meta: options.meta }),
-  });
+  return activeHeatmap(options);
 }
 
-function prepareHeatmap(value: Readonly<Record<string, unknown>>): HeatmapModel {
-  exact(value, [
-    'label', 'rows', 'min', 'max', 'selected', 'cellWidth', 'gap', 'dataState',
-    'valueScale', 'emptyText', 'loadingText', 'errorText', 'pointerState',
-  ], 'heatmap options');
-  if (!Array.isArray(value['rows'])) throw new TypeError('heatmap rows must be an array.');
-  const label = nonEmpty(value['label'], 'heatmap label');
+function prepareHeatmap(value: Readonly<HeatmapComponentOptions>): HeatmapModel {
+  const label = nonEmpty(value.label, 'heatmap label');
   const ids = new Set<string>();
   const values: number[] = [];
   let itemIndex = 0;
-  const rows = Object.freeze(value['rows'].map((rawRow, row) => {
-    if (!Array.isArray(rawRow)) {
-      throw new TypeError(`heatmap rows[${String(row)}] must be an array.`);
-    }
+  const rows = Object.freeze(value.rows.map((rawRow, row) => {
     return Object.freeze(rawRow.map((raw, column): PreparedHeatCell => {
-      if (!isNonArrayObject(raw)) throw new TypeError('heatmap cell must be an object.');
-      exact(raw, ['id', 'label', 'value', 'payload', 'disabled'], 'heatmap cell');
-      const id = nonEmpty(raw['id'], 'heatmap cell id');
+      const id = nonEmpty(raw.id, 'heatmap cell id');
       if (ids.has(id)) throw new TypeError(`heatmap contains duplicate cell id "${id}".`);
       ids.add(id);
-      const numeric = finite(raw['value'], 'heatmap cell value');
+      const numeric = finite(raw.value, 'heatmap cell value');
       values.push(numeric);
       const prepared = Object.freeze({
         id,
         itemIndex,
         row,
         column,
-        label: nonEmpty(raw['label'], 'heatmap cell label'),
+        label: nonEmpty(raw.label, 'heatmap cell label'),
         value: numeric,
-        disabled: optionalBoolean(raw['disabled'], 'heatmap cell disabled') ?? false,
+        disabled: optionalBoolean(raw.disabled, 'heatmap cell disabled') ?? false,
       });
       itemIndex += 1;
       return prepared;
     }));
   }));
-  const range = numericRange(values, value['min'], value['max'], 'heatmap');
-  const selectedId = prepareSelectionId(value['selected'], 'heatmap selected');
-  const pointerState = preparePointerState(value['pointerState'], 'heatmap');
+  const range = numericRange(values, value.min, value.max, 'heatmap');
+  const selectedId = prepareSelectionId(value.selected, 'heatmap selected');
+  const pointerState = preparePointerState(value.pointerState);
   return {
     label,
     rows,
     minimum: range.min,
     maximum: range.max,
     ...(selectedId === undefined ? {} : { selectedId }),
-    cellWidth: boundedInteger(value['cellWidth'], 1, 8, 3, 'heatmap cellWidth'),
-    gap: boundedInteger(value['gap'], 0, 4, 1, 'heatmap gap'),
-    valueScale: prepareValueScale(value['valueScale'], 'heatmap valueScale'),
+    cellWidth: boundedInteger(value.cellWidth, 1, 8, 3, 'heatmap cellWidth'),
+    gap: boundedInteger(value.gap, 0, 4, 1, 'heatmap gap'),
+    valueScale: prepareValueScale(value.valueScale, 'heatmap valueScale'),
     ...prepareStatus(value, 'heatmap', values.length === 0),
     ...(pointerState === undefined ? {} : { pointerState }),
   };
@@ -1407,20 +1302,18 @@ function heatmapStyle(
 }
 
 function prepareStatus(
-  value: Readonly<Record<string, unknown>>,
+  value: Readonly<ChartStatusOptions>,
   owner: string,
   empty: boolean,
 ): ChartStatus {
-  const dataState = value['dataState'];
-  if (dataState !== undefined && dataState !== 'loading' && dataState !== 'error') {
-    throw new TypeError(`${owner} dataState must be loading or error.`);
-  }
+  const dataState = value.dataState;
+  assertOptionalEnum(dataState, ['loading', 'error'], `${owner} dataState`);
   return {
     ...(dataState === undefined ? {} : { dataState }),
     empty,
-    emptyText: optionalText(value['emptyText'], `${owner} emptyText`) ?? 'No data',
-    loadingText: optionalText(value['loadingText'], `${owner} loadingText`) ?? 'Loading',
-    errorText: optionalText(value['errorText'], `${owner} errorText`) ?? 'Unavailable',
+    emptyText: optionalText(value.emptyText, `${owner} emptyText`) ?? 'No data',
+    loadingText: optionalText(value.loadingText, `${owner} loadingText`) ?? 'Loading',
+    errorText: optionalText(value.errorText, `${owner} errorText`) ?? 'Unavailable',
   };
 }
 
@@ -1540,22 +1433,17 @@ function normalizedIndex(
   return Math.max(0, Math.min(maximum, Math.round(ratio * maximum)));
 }
 
-function prepareValueScale(value: unknown, owner: string): readonly ValueScaleStop[] {
+function prepareValueScale(value: ValueScale | undefined, owner: string): readonly ValueScaleStop[] {
   if (value === undefined) return Object.freeze([]);
-  if (!Array.isArray(value)) throw new TypeError(`${owner} must be an array.`);
   if (value.length > 32) throw new RangeError(`${owner} cannot contain more than 32 stops.`);
   const stops = value.map((raw, index): ValueScaleStop => {
-    if (!isNonArrayObject(raw)) {
-      throw new TypeError(`${owner}[${String(index)}] must be an object.`);
-    }
-    exact(raw, ['at', 'token', 'label'], `${owner}[${String(index)}]`);
-    const at = finite(raw['at'], `${owner}[${String(index)}].at`);
+    const at = finite(raw.at, `${owner}[${String(index)}].at`);
     if (at < 0 || at > 1) throw new RangeError(`${owner} stop positions must be from 0 through 1.`);
-    const token = raw['token'];
+    const token = raw.token;
     if (typeof token !== 'string' || !isThemeColorToken(token)) {
       throw new TypeError(`${owner} stop tokens must be valid theme color tokens.`);
     }
-    const label = optionalText(raw['label'], `${owner}[${String(index)}].label`);
+    const label = optionalText(raw.label, `${owner}[${String(index)}].label`);
     if (label?.trim() === '') {
       throw new TypeError(`${owner} stop labels must be non-empty.`);
     }
@@ -1572,42 +1460,23 @@ function visibleWindow(total: number, height: number, preferred: number) {
   return { start, end: start + count };
 }
 
-function prepareChartSelection(value: unknown): ChartModel['selected'] {
+function prepareChartSelection(value: ChartPointSelection | undefined): ChartModel['selected'] {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError('chart selected must be an object.');
-  exact(value, ['seriesId', 'pointId'], 'chart selected');
   return {
-    seriesId: nonEmpty(value['seriesId'], 'chart selected seriesId'),
-    pointId: nonEmpty(value['pointId'], 'chart selected pointId'),
+    seriesId: nonEmpty(value.seriesId, 'chart selected seriesId'),
+    pointId: nonEmpty(value.pointId, 'chart selected pointId'),
   };
 }
 
-function prepareSelectionId(value: unknown, owner: string): string | undefined {
+function prepareSelectionId(value: HeatmapSelection | undefined, owner: string): string | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be an object.`);
-  exact(value, ['id'], owner);
-  return nonEmpty(value['id'], `${owner} id`);
+  return nonEmpty(value.id, `${owner} id`);
 }
 
 function preparePointerState(
-  value: unknown,
-  owner: string,
+  value: PointerInteractionState | undefined,
 ): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  exact(value, ['hoveredTargetId', 'pressedTargetId'], `${owner} pointerState`);
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string') {
-    throw new TypeError(`${owner} hoveredTargetId must be a string.`);
-  }
-  if (pressedTargetId !== undefined && typeof pressedTargetId !== 'string') {
-    throw new TypeError(`${owner} pressedTargetId must be a string.`);
-  }
-  return {
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  };
+  return value === undefined ? undefined : Object.freeze({ ...value });
 }
 
 function optionalPreparedGlyph(value: unknown, owner: string): { readonly glyph?: string } {
@@ -1640,17 +1509,10 @@ function optionalEnum<const TValue extends string>(
   owner: string,
 ): TValue | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== 'string' || !allowed.includes(value as TValue)) {
+  if (!isStringMember(value, allowed)) {
     throw new TypeError(`${owner} is invalid.`);
   }
-  return value as TValue;
-}
-
-function optionalProperty<TKey extends string, TValue>(
-  key: TKey,
-  value: TValue | undefined,
-): Readonly<Partial<Record<TKey, TValue>>> {
-  return (value === undefined ? {} : { [key]: value }) as Readonly<Partial<Record<TKey, TValue>>>;
+  return value;
 }
 
 function optionalText(value: unknown, owner: string): string | undefined {
@@ -1682,15 +1544,4 @@ function optionalBoolean(value: unknown, owner: string): boolean | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'boolean') throw new TypeError(`${owner} must be a boolean.`);
   return value;
-}
-
-function exact(
-  value: Readonly<Record<string, unknown>>,
-  fields: readonly string[],
-  owner: string,
-): void {
-  const unsupported = Object.keys(value).find((field) => !fields.includes(field));
-  if (unsupported !== undefined) {
-    throw new TypeError(`${owner} contains unknown field "${unsupported}".`);
-  }
 }

@@ -1243,18 +1243,6 @@ test('component composites still reject invalid sizes and relative overflow', ()
 
 test('malformed component definitions fail as programmer errors', () => {
   assert.throws(
-    () => component({
-      id: 'unsupported-placement',
-      definition: {
-        ...leafComponentDefinition,
-        place: ({ bounds }) => bounds,
-        render() {},
-        accessibility: ({ id }) => ({ id, role: 'text', label: id })
-      }
-    }),
-    /unknown field "place"/u
-  );
-  assert.throws(
     () => defineComponent(undefined),
     /Component definition must be an object/u
   );
@@ -1265,31 +1253,6 @@ test('malformed component definitions fail as programmer errors', () => {
   assert.throws(
     () => defineComponent([]),
     /Component definition must be an object/u
-  );
-  assert.throws(
-    () => component({
-      id: 'obsolete-composite-render',
-      children: [text({ content: 'child' })],
-      definition: {
-        ...compositeComponentDefinition,
-        layout: ({ bounds }) => [bounds],
-        render() {},
-        accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children })
-      }
-    }),
-    /unknown field "render"/u
-  );
-  assert.throws(
-    () => component({
-      id: 'composite-hook-on-leaf',
-      definition: {
-        ...leafComponentDefinition,
-        render() {},
-        renderAfterChildren() {},
-        accessibility: ({ id }) => ({ id, role: 'group', label: id })
-      }
-    }),
-    /unknown field "renderAfterChildren"/u
   );
   assert.throws(
     () => component({
@@ -1318,7 +1281,7 @@ test('malformed component definitions fail as programmer errors', () => {
   );
 });
 
-test('component instances decode custom options and reject malformed shared state', () => {
+test('component instances prepare custom options and reject malformed shared state', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/validated-control',
     identity: 'required',
@@ -1335,10 +1298,7 @@ test('component instances decode custom options and reject malformed shared stat
     [{ onInput: () => undefined }, /onInput behavior must be declared by the definition/u]
   ];
 
-  assert.throws(
-    () => control({ id: 'extra-field', applicationData: 42 }),
-    /does not accept option "applicationData"/u
-  );
+  assert.doesNotThrow(() => control({ id: 'extra-field', applicationData: 42 }));
   for (const [options, expected] of invalidOptions) {
     assert.throws(() => control({ id: 'invalid-instance', ...options }), expected);
   }
@@ -1566,7 +1526,7 @@ test('decorative components reject unreachable accessibility hooks', () => {
         }
       }
     }),
-    /unknown field "accessibility"/u
+    /cannot define accessibility/u
   );
   assert.equal(accessibilityCalls, 0);
 });
@@ -1588,7 +1548,7 @@ test('decorative component definitions cannot expose interaction targets', () =>
         id: 'decorative-button',
         definition: interactiveComponent
       }), { columns: 12, rows: 1 }),
-    /unknown field "hitTargets"/u
+    /cannot declare state or interaction/u
   );
 });
 
@@ -1774,7 +1734,7 @@ test('composed component accessibility uses declared slot names and optional slo
   assert.equal('content' in received, false);
 });
 
-test('prepared immutable models are verified once per retained identity', () => {
+test('component preparation does not recursively inspect prepared models', () => {
   let ownKeyReads = 0;
   const retained = new Proxy({ entries: Object.freeze([Object.freeze({ id: 'one' })]) }, {
     ownKeys(target) {
@@ -1797,74 +1757,35 @@ test('prepared immutable models are verified once per retained identity', () => 
   });
 
   retainedModel({ id: 'first', model: retained });
-  const readsAfterFirstVerification = ownKeyReads;
   retainedModel({ id: 'second', model: retained });
 
-  assert.ok(readsAfterFirstVerification > 0);
-  assert.equal(ownKeyReads, readsAfterFirstVerification);
+  assert.equal(ownKeyReads, 0);
 });
 
-test('prepared immutable models reject accessors and frozen mutable exotic objects', () => {
-  const supplied = {};
-  Object.defineProperty(supplied, 'label', {
-    enumerable: true,
-    get: () => 'dynamic'
-  });
-  Object.freeze(supplied);
-
-  const accessorModel = defineComponent({
-    name: 'terminal-ui-tests/components/accessor-model',
+test('component-owned prepared models may use domain objects', () => {
+  const domainModel = defineComponent({
+    name: 'terminal-ui-tests/components/domain-model',
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
     prepare: (value) => value.model,
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
-    accessibility: ({ id, model }) => ({ id, role: 'group', label: model.label })
+    accessibility: ({ id, model }) => ({ id, role: 'group', label: String(model.size) })
   });
+  const supplied = new Map([['one', 1]]);
 
-  assert.throws(
-    () => accessorModel({ id: 'accessor', model: supplied }),
-    /plain objects and arrays with enumerable data fields/u
-  );
-  assert.throws(
-    () => accessorModel({ id: 'map', model: Object.freeze(new Map()) }),
-    /plain objects and arrays with enumerable data fields/u
-  );
-  assert.throws(
-    () => accessorModel({ id: 'date', model: Object.freeze(new Date(0)) }),
-    /plain objects and arrays with enumerable data fields/u
-  );
+  assert.doesNotThrow(() => domainModel({ id: 'map', model: supplied }));
 });
 
-test('prepared immutable models reject excessive nesting before exhausting the call stack', () => {
-  const boundedModel = defineComponent({
-    name: 'terminal-ui-tests/components/bounded-model',
-    identity: 'required',
-    structure: 'leaf',
-    semantics: 'semantic',
-    prepare: (value) => value.model,
-    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
-    render: () => undefined,
-    accessibility: ({ id }) => ({ id, role: 'group', label: id })
-  });
-  let model = {};
-  for (let depth = 0; depth < 300; depth += 1) model = { child: model };
-
-  assert.throws(
-    () => boundedModel({ id: 'deep', model }),
-    /exceeds 256 nested levels/u
-  );
-});
-
-test('built-in adapters leave malformed nested options to structured preparation errors', () => {
+test('built-in factories reject malformed nested options where they are consumed', () => {
   assert.throws(() => table({
     id: 'table',
     rows: [],
     getRowId: () => 'row',
     presentation: null,
     onAction: (action) => action
-  }), componentCause(/table presentation/u));
+  }), /table presentation/u);
   assert.throws(() => textArea({
     id: 'editor',
     presentation: null,
