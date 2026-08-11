@@ -1,6 +1,6 @@
 import { toAccessibleSnapshot as createAccessibleSnapshot } from '../accessibility/index.ts';
 import { createMemoryTerminalHost } from '../host/index.ts';
-import { decodeInputChunk, decodeRecordedInputEvent } from '../input/index.ts';
+import { decodeInputChunk, decodeInputEvent } from '../input/index.ts';
 import { createTranscriptRecorder } from '../transcript/index.ts';
 import { encodeHarnessInputEvent } from './input-events.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
@@ -55,13 +55,13 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
         for (const decoded of decodeInputChunk({ data: event })) transcript.record({ kind: 'input', event: decoded });
         return Promise.resolve();
       }
-      const admitted = decodeRecordedInputEvent(event);
+      const admitted = decodeInputEvent(event);
       deliverHarnessInputEvent(host, admitted);
       transcript.record({ kind: 'input', event: admitted });
       return Promise.resolve();
     },
     resize(terminalSize) {
-      const admitted = decodeRecordedInputEvent({ kind: 'resize', terminalSize });
+      const admitted = decodeInputEvent({ kind: 'resize', terminalSize });
       if (admitted.kind !== 'resize') throw new Error('Expected a decoded resize event.');
       deliverHarnessResize(host, admitted.terminalSize);
       transcript.record({ kind: 'input', event: admitted });
@@ -113,10 +113,6 @@ function deliverHarnessInputEvent(host: MemoryTerminalHost, event: RecordedInput
 function deliverHarnessResize(host: MemoryTerminalHost, terminalSize: { readonly columns: number; readonly rows: number }): void {
   void host.terminalSizeControl?.setTerminalSize(terminalSize);
   host.signals.emit('resize');
-}
-
-export function toAccessibleSnapshotFromHarness(harness: TerminalHarness): AccessibleSnapshot {
-  return harness.snapshot();
 }
 
 function latestHarnessSnapshot(

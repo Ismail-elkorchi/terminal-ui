@@ -17,10 +17,7 @@ import {
   sanitizeTerminalText
 } from '../../dist/text/index.js';
 
-function exactObject(value, fields, subject) {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${subject} must be an object.`);
-  }
+function exactOptions(value, fields, subject) {
   const unknown = Object.keys(value).find((field) => !fields.includes(field));
   if (unknown !== undefined) throw new TypeError(`${subject} contains unknown field "${unknown}".`);
   return value;
@@ -36,11 +33,10 @@ export const externalText = defineComponent({
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { content: null },
   metadata: ['styles', 'layer'],
   parts: ['content'],
   prepare(value) {
-    const input = exactObject(value, ['content'], 'externalText options');
+    const input = exactOptions(value, ['content'], 'externalText options');
     return { content: cleanString(input.content, 'externalText content') };
   },
   measure({ model, widthProfile }) {
@@ -67,12 +63,11 @@ export const externalButton = defineComponent({
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null },
   states: ['disabled', 'busy'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label'],
   prepare(value) {
-    const input = exactObject(value, ['label'], 'externalButton options');
+    const input = exactOptions(value, ['label'], 'externalButton options');
     return { label: cleanString(input.label, 'externalButton label') };
   },
   measure({ model, widthProfile }) {
@@ -118,12 +113,11 @@ export const externalTextInput = defineComponent({
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null, value: null },
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'styles'],
   parts: ['value'],
   prepare(value) {
-    const input = exactObject(value, ['label', 'value'], 'externalTextInput options');
+    const input = exactOptions(value, ['label', 'value'], 'externalTextInput options');
     return {
       label: cleanString(input.label, 'externalTextInput label'),
       value: cleanString(input.value, 'externalTextInput value')
@@ -181,12 +175,11 @@ export const externalVirtualList = defineComponent({
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { items: null, offset: null, scrollbar: null },
   states: ['disabled'],
   metadata: ['focus', 'styles'],
   parts: ['item', 'scrollbar'],
   prepare(value) {
-    const input = exactObject(value, ['items', 'offset', 'scrollbar'], 'externalVirtualList options');
+    const input = exactOptions(value, ['items', 'offset', 'scrollbar'], 'externalVirtualList options');
     if (!Array.isArray(input.items)) throw new TypeError('externalVirtualList items must be an array.');
     const items = Object.freeze(input.items.map((item, index) => cleanString(item, `externalVirtualList item ${String(index)}`)));
     const offset = input.offset ?? 0;
@@ -285,11 +278,10 @@ export const externalSelect = defineComponent({
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
-  optionFields: { label: null, items: null, selectedIndex: null, open: null },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   prepare(value) {
-    const input = exactObject(value, ['label', 'items', 'selectedIndex', 'open'], 'externalSelect options');
+    const input = exactOptions(value, ['label', 'items', 'selectedIndex', 'open'], 'externalSelect options');
     if (!Array.isArray(input.items)) throw new TypeError('externalSelect items must be an array.');
     const items = Object.freeze(input.items.map((item, index) => cleanString(item, `externalSelect item ${String(index)}`)));
     const selectedIndex = input.selectedIndex ?? 0;
@@ -369,10 +361,9 @@ export const externalDialog = defineComponent({
   structure: 'composed',
   semantics: 'semantic',
   slots: externalDialogSlots,
-  optionFields: { title: null, modal: null },
   metadata: ['focus', 'layer', 'styles'],
   prepare(value) {
-    const input = exactObject(value, ['title', 'modal'], 'externalDialog options');
+    const input = exactOptions(value, ['title', 'modal'], 'externalDialog options');
     if (typeof input.modal !== 'boolean') throw new TypeError('externalDialog modal must be a boolean.');
     return { title: cleanString(input.title, 'externalDialog title'), modal: input.modal };
   },
@@ -415,9 +406,8 @@ export const externalTooltip = defineComponent({
   structure: 'composed',
   semantics: 'semantic',
   slots: externalTooltipSlots,
-  optionFields: { content: null, open: null },
   prepare(value) {
-    const input = exactObject(value, ['content', 'open'], 'externalTooltip options');
+    const input = exactOptions(value, ['content', 'open'], 'externalTooltip options');
     if (typeof input.open !== 'boolean') throw new TypeError('externalTooltip open must be a boolean.');
     return { content: cleanString(input.content, 'externalTooltip content'), open: input.open };
   },
@@ -452,11 +442,10 @@ export const externalChart = defineComponent({
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null, values: null },
   metadata: ['styles', 'layer'],
   parts: ['bar'],
   prepare(value) {
-    const input = exactObject(value, ['label', 'values'], 'externalChart options');
+    const input = exactOptions(value, ['label', 'values'], 'externalChart options');
     if (!Array.isArray(input.values) || input.values.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry) || entry < 0)) {
       throw new TypeError('externalChart values must be finite non-negative numbers.');
     }

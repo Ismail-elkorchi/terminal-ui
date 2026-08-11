@@ -103,19 +103,6 @@ export const commandInput: CommandInputFactory = defineComponent<
   structure: 'composite',
   semantics: 'semantic',
   slots: commandSlots,
-  optionFields: {
-    presentation: null,
-    prompt: null,
-    placeholder: null,
-    completionPreview: null,
-    validation: null,
-    footer: null,
-    matchQuery: null,
-    display: null,
-    placement: null,
-    maxVisibleSuggestions: null,
-    pointerState: null,
-  },
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
   parts: [
@@ -290,8 +277,11 @@ export const commandInput: CommandInputFactory = defineComponent<
   hitTargets: commandInputHitTargets,
 });
 
-function prepareCommandInput(value: unknown): CommandInputModel {
-  if (!isNonArrayObject(value)) throw new TypeError('commandInput options must be an object.');
+function prepareCommandInput(value: Readonly<Record<string, unknown>>): CommandInputModel {
+  exact(value, [
+    'presentation', 'prompt', 'placeholder', 'completionPreview', 'validation', 'footer',
+    'matchQuery', 'display', 'placement', 'maxVisibleSuggestions', 'pointerState',
+  ], 'commandInput options');
   const presentation = prepareCommandPresentation(value['presentation']);
   const display = value['display'];
   if (
@@ -854,19 +844,6 @@ const instantiateSearchPicker = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    title: null,
-    query: null,
-    searchPickerIndex: null,
-    selectedId: null,
-    maxVisible: null,
-    helpText: null,
-    emptyText: null,
-    scroll: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: [
@@ -1004,8 +981,11 @@ export const searchPicker: SearchPickerFactory = (options) => {
   });
 };
 
-function prepareSearchPicker(value: unknown): SearchPickerModel {
-  if (!isNonArrayObject(value)) throw new TypeError('searchPicker options must be an object.');
+function prepareSearchPicker(value: Readonly<Record<string, unknown>>): SearchPickerModel {
+  exact(value, [
+    'title', 'query', 'searchPickerIndex', 'selectedId', 'maxVisible', 'helpText', 'emptyText',
+    'scroll', 'scrollbar', 'scrollPolicy', 'pointerState',
+  ], 'searchPicker options');
   const index = value['searchPickerIndex'];
   assertSearchPickerIndex(index);
   const query = clean(value['query'], 'searchPicker query') ?? '';

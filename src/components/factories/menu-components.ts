@@ -55,6 +55,7 @@ import type {
   MenuBarOptions,
   MenuOptions,
 } from '../options/menus.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 import { text } from './content.ts';
 
 interface PreparedMenuItemBase {
@@ -118,13 +119,6 @@ const instantiateMenu = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    presentation: null,
-    emptyText: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'],
   parts: [
     'control',
@@ -206,14 +200,6 @@ const instantiateMenuBar = defineComponent<
   structure: 'composite',
   semantics: 'semantic',
   slots: popupSlot,
-  optionFields: {
-    items: null,
-    presentation: null,
-    maxVisibleItems: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'],
   parts: [
     'control',
@@ -315,16 +301,6 @@ const instantiateContextMenu = defineComponent<
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
-  optionFields: {
-    presentation: null,
-    title: null,
-    emptyText: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    placement: null,
-    maxVisibleItems: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'],
   parts: [
     'control',
@@ -423,18 +399,6 @@ const instantiateDropdownMenu = defineComponent<
   structure: 'composite',
   semantics: 'semantic',
   slots: popupSlot,
-  optionFields: {
-    label: null,
-    items: null,
-    presentation: null,
-    placeholder: null,
-    density: null,
-    placement: null,
-    maxVisibleItems: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'],
   parts: [
     'control',
@@ -529,14 +493,18 @@ const instantiateDropdownMenu = defineComponent<
 
 export const dropdownMenu: DropdownMenuFactory = (options) => instantiateDropdownMenu(options);
 
-function prepareMenu(value: unknown): MenuModel {
-  if (!isNonArrayObject(value)) throw new TypeError('menu options must be an object.');
+function prepareMenu(value: Readonly<Record<string, unknown>>): MenuModel {
+  assertKnownOptions(
+    value,
+    ['presentation', 'emptyText', 'scrollbar', 'scrollPolicy', 'pointerState'],
+    'menu',
+  );
   const presentation = prepareMenuPresentation(value['presentation'], 'menu presentation');
   const emptyText = optionalText(value['emptyText'], 'menu emptyText') ?? 'No commands';
   const scrollbar = prepareComponentScrollbarOptions(value['scrollbar'], 'menu scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value['scrollPolicy'], 'menu scrollPolicy');
   const pointerState = preparePointerState(value['pointerState'], 'menu');
-  const scroll = presentation.scroll ?? prepareComponentScrollState(value['scroll'], 'menu scroll');
+  const scroll = presentation.scroll;
   const rows = flattenMenu(presentation.items);
   return {
     items: presentation.items,
@@ -936,10 +904,13 @@ function activeMenuItem(model: MenuModel): MenuRow | undefined {
   return id === undefined ? undefined : model.rows.find((item) => item.id === id && !item.disabled);
 }
 
-function prepareMenuBar(value: unknown): MenuBarModel {
-  if (!isNonArrayObject(value) || !Array.isArray(value['items'])) {
+function prepareMenuBar(value: Readonly<Record<string, unknown>>): MenuBarModel {
+  if (!Array.isArray(value['items'])) {
     throw new TypeError('menuBar items must be an array.');
   }
+  assertKnownOptions(value, [
+    'items', 'presentation', 'maxVisibleItems', 'scrollbar', 'scrollPolicy', 'pointerState',
+  ], 'menuBar');
   const items = prepareItems(value['items'], 'menuBar items');
   const presentation = prepareMenuBarPresentation(value['presentation']);
   const maxVisibleItems = positiveInteger(value['maxVisibleItems'], 12, 'menuBar maxVisibleItems');
@@ -1111,8 +1082,11 @@ function contextMenuAccessibility(
   };
 }
 
-function prepareContextMenu(value: unknown): ContextMenuModel {
-  if (!isNonArrayObject(value)) throw new TypeError('contextMenu options must be an object.');
+function prepareContextMenu(value: Readonly<Record<string, unknown>>): ContextMenuModel {
+  assertKnownOptions(value, [
+    'presentation', 'title', 'emptyText', 'scrollbar', 'scrollPolicy', 'placement',
+    'maxVisibleItems', 'pointerState',
+  ], 'contextMenu');
   const presentation = prepareContextPresentation(value['presentation']);
   const title = optionalText(value['title'], 'contextMenu title');
   const emptyText = optionalText(value['emptyText'], 'contextMenu emptyText') ?? 'No commands';
@@ -1160,10 +1134,14 @@ function prepareContextPresentation(value: unknown): ContextMenuModel['presentat
   };
 }
 
-function prepareDropdown(value: unknown): DropdownModel {
-  if (!isNonArrayObject(value) || !Array.isArray(value['items'])) {
+function prepareDropdown(value: Readonly<Record<string, unknown>>): DropdownModel {
+  if (!Array.isArray(value['items'])) {
     throw new TypeError('dropdownMenu items must be an array.');
   }
+  assertKnownOptions(value, [
+    'label', 'items', 'presentation', 'placeholder', 'density', 'placement', 'maxVisibleItems',
+    'scrollbar', 'scrollPolicy', 'pointerState',
+  ], 'dropdownMenu');
   const label = optionalText(value['label'], 'dropdownMenu label') ?? '';
   const items = prepareItems(value['items'], 'dropdownMenu items');
   const presentation = prepareDropdownPresentation(value['presentation']);

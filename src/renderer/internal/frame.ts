@@ -83,7 +83,6 @@ export {
 export {
   frameCellSource,
   frameSourcePart,
-  sanitizeFrameCellSource,
   renderNodeFrameSource
 } from '../../visual/source.ts';
 export { serializeRenderSpansStateful } from './ansi.ts';

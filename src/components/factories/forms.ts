@@ -59,6 +59,7 @@ import type { ScrollState } from '../../interaction/scroll.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import { portal, surface } from '../../layout/index.ts';
 import { list } from './list.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface FormModel {
   readonly title: string;
@@ -92,19 +93,6 @@ export const form: SemanticCompositeComponentFactory<
   structure: 'composite',
   semantics: 'semantic',
   slots: formSlots,
-  optionFields: {
-    title: null,
-    gap: null,
-    padding: null,
-    margin: null,
-    minWidth: null,
-    minHeight: null,
-    maxWidth: null,
-    maxHeight: null,
-    align: null,
-    justify: null,
-    overflow: null,
-  },
   metadata: ['styles', 'layer'],
   parts: ['title'],
   prepare: prepareForm,
@@ -187,8 +175,11 @@ function formContentBounds(input: ComponentLayoutInput<FormModel, typeof formSlo
   };
 }
 
-function prepareForm(value: unknown): FormModel {
-  if (!isNonArrayObject(value)) throw new TypeError('form options must be an object.');
+function prepareForm(value: Readonly<Record<string, unknown>>): FormModel {
+  assertKnownOptions(value, [
+    'title', 'gap', 'padding', 'margin', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
+    'align', 'justify', 'overflow',
+  ], 'form');
   const title = value['title'];
   if (title !== undefined && typeof title !== 'string') {
     throw new TypeError('form title must be a string when provided.');
@@ -228,26 +219,15 @@ export const field: FieldFactory = defineComponent<
   structure: 'composite',
   semantics: 'semantic',
   slots: fieldSlots,
-  optionFields: {
-    label: null,
-    description: null,
-    gap: null,
-    padding: null,
-    margin: null,
-    minWidth: null,
-    minHeight: null,
-    maxWidth: null,
-    maxHeight: null,
-    align: null,
-    justify: null,
-    overflow: null,
-  },
   metadata: ['styles', 'layer'],
   parts: ['label', 'description'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('field options must be an object.');
-    const label = value['label'];
-    const description = value['description'];
+    assertKnownOptions(value, [
+      'label', 'description', 'gap', 'padding', 'margin', 'minWidth', 'minHeight',
+      'maxWidth', 'maxHeight', 'align', 'justify', 'overflow',
+    ], 'field');
+    const label = value.label;
+    const description = value.description;
     if (typeof label !== 'string') throw new TypeError('field label must be a string.');
     if (description !== undefined && typeof description !== 'string') {
       throw new TypeError('field description must be a string.');
@@ -383,13 +363,12 @@ export const label: SemanticLeafComponentFactory<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { text: null, forId: null },
   metadata: ['styles', 'layer'],
   parts: ['label', 'description'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('label options must be an object.');
-    const textValue = value['text'];
-    const forId = value['forId'];
+    assertKnownOptions(value, ['text', 'forId'], 'label');
+    const textValue = value.text;
+    const forId = value.forId;
     if (typeof textValue !== 'string') throw new TypeError('label text must be a string.');
     if (typeof forId !== 'string' || forId.trim().length === 0) {
       throw new TypeError('label forId must be a non-empty string.');
@@ -461,27 +440,21 @@ export const button: SemanticLeafComponentFactory<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    leading: null,
-    trailing: null,
-    tone: null,
-    density: null,
-    pointerState: null,
-  },
   states: ['disabled', 'busy'],
   metadata: ['styles', 'layer', 'focus'],
   parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
   prepare(value) {
-    if (!isNonArrayObject(value)) {
-      throw new TypeError('button options must be an object.');
-    }
-    const label = value['label'];
-    const leading = value['leading'];
-    const trailing = value['trailing'];
-    const tone = value['tone'];
-    const density = value['density'];
-    const pointerState = value['pointerState'];
+    assertKnownOptions(
+      value,
+      ['label', 'leading', 'trailing', 'tone', 'density', 'pointerState'],
+      'button',
+    );
+    const label = value.label;
+    const leading = value.leading;
+    const trailing = value.trailing;
+    const tone = value.tone;
+    const density = value.density;
+    const pointerState = value.pointerState;
     if (typeof label !== 'string') throw new TypeError('button label must be a string.');
     if (tone !== undefined && !isButtonTone(tone)) throw new TypeError('button tone is invalid.');
     if (density !== undefined && density !== 'compact' && density !== 'regular') {
@@ -811,17 +784,20 @@ export const checkbox: SemanticLeafComponentFactory<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null, checked: null, required: null, error: null, pointerState: null },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('checkbox options must be an object.');
-    const label = value['label'];
-    const checked = value['checked'];
-    const required = value['required'];
-    const error = value['error'];
-    const pointerState = value['pointerState'];
+    assertKnownOptions(
+      value,
+      ['label', 'checked', 'required', 'error', 'pointerState'],
+      'checkbox',
+    );
+    const label = value.label;
+    const checked = value.checked;
+    const required = value.required;
+    const error = value.error;
+    const pointerState = value.pointerState;
     if (typeof label !== 'string') throw new TypeError('checkbox label must be a string.');
     if (typeof checked !== 'boolean') throw new TypeError('checkbox checked must be a boolean.');
     if (required !== undefined && typeof required !== 'boolean') {
@@ -912,25 +888,21 @@ export const toggleSwitch: SemanticLeafComponentFactory<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    checked: null,
-    onLabel: null,
-    offLabel: null,
-    error: null,
-    pointerState: null,
-  },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'onLabel', 'offLabel', 'error'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('toggleSwitch options must be an object.');
-    const label = value['label'];
-    const checked = value['checked'];
-    const onLabel = value['onLabel'];
-    const offLabel = value['offLabel'];
-    const error = value['error'];
-    const pointerState = value['pointerState'];
+    assertKnownOptions(
+      value,
+      ['label', 'checked', 'onLabel', 'offLabel', 'error', 'pointerState'],
+      'toggleSwitch',
+    );
+    const label = value.label;
+    const checked = value.checked;
+    const onLabel = value.onLabel;
+    const offLabel = value.offLabel;
+    const error = value.error;
+    const pointerState = value.pointerState;
     if (typeof label !== 'string') throw new TypeError('toggleSwitch label must be a string.');
     if (typeof checked !== 'boolean') {
       throw new TypeError('toggleSwitch checked must be a boolean.');
@@ -1259,18 +1231,6 @@ const instantiateSelect = defineComponent<
   structure: 'composite',
   semantics: 'semantic',
   slots: selectSlots,
-  optionFields: {
-    label: null,
-    options: null,
-    presentation: null,
-    placeholder: null,
-    placement: null,
-    maxVisibleOptions: null,
-    scrollbar: null,
-    required: null,
-    error: null,
-    pointerState: null,
-  },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
@@ -1536,10 +1496,13 @@ function selectPopupStyles(
 }
 
 function prepareSelect(
-  value: unknown,
+  value: Readonly<Record<string, unknown>>,
   context: import('../../component/index.ts').ComponentPreparationContext,
 ): SelectModel {
-  if (!isNonArrayObject(value)) throw new TypeError('select options must be an object.');
+  assertKnownOptions(value, [
+    'label', 'options', 'presentation', 'placeholder', 'placement', 'maxVisibleOptions',
+    'scrollbar', 'required', 'error', 'pointerState',
+  ], 'select');
   const label = value['label'];
   if (typeof label !== 'string') throw new TypeError('select label must be a string.');
   const rawOptions = value['options'];

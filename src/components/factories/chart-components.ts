@@ -70,17 +70,6 @@ const barChartBase = {
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
-  optionFields: {
-    label: null,
-    items: null,
-    max: null,
-    selectedId: null,
-    dataState: null,
-    emptyText: null,
-    loadingText: null,
-    errorText: null,
-    pointerState: null,
-  },
   states: ['disabled'] as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
@@ -149,7 +138,7 @@ const activeBarChart = defineComponent<
 export function barChart<const TMessage extends ComponentMessage = never>(
   options: BarChartOptions<TMessage>,
 ): Element<TMessage> {
-  const own = snapshotBarOptions(options);
+  const own: DynamicBarChartOptions = options;
   if (options.onAction === undefined) {
     return passiveBarChart({
       ...own,
@@ -165,12 +154,11 @@ export function barChart<const TMessage extends ComponentMessage = never>(
   });
 }
 
-function snapshotBarOptions(options: BarChartOptions<ComponentMessage>): DynamicBarChartOptions {
-  return { ...options };
-}
-
-function prepareBarChart(value: unknown): BarChartModel {
-  if (!isNonArrayObject(value)) throw new TypeError('barChart options must be an object.');
+function prepareBarChart(value: Readonly<Record<string, unknown>>): BarChartModel {
+  exact(value, [
+    'label', 'items', 'max', 'selectedId', 'dataState', 'emptyText', 'loadingText',
+    'errorText', 'pointerState',
+  ], 'barChart options');
   const label = nonEmpty(value['label'], 'barChart label');
   if (!Array.isArray(value['items'])) throw new TypeError('barChart items must be an array.');
   const ids = new Set<string>();
@@ -392,26 +380,6 @@ const chartBase = {
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
-  optionFields: {
-    label: null,
-    series: null,
-    min: null,
-    max: null,
-    selected: null,
-    legend: null,
-    signedDomain: null,
-    xLabel: null,
-    yLabel: null,
-    dataState: null,
-    valueScale: null,
-    sampleMode: null,
-    sampleAlign: null,
-    interpolation: null,
-    emptyText: null,
-    loadingText: null,
-    errorText: null,
-    pointerState: null,
-  },
   states: ['disabled'] as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted', 'baseline'] as const,
@@ -469,7 +437,7 @@ const activeChart = defineComponent<
 export function chart<const TMessage extends ComponentMessage = never>(
   options: ChartOptions<TMessage>,
 ): Element<TMessage> {
-  const own = snapshotChartOptions(options);
+  const own: DynamicChartOptions = options;
   if (options.onAction === undefined) {
     return passiveChart({
       ...own,
@@ -485,12 +453,12 @@ export function chart<const TMessage extends ComponentMessage = never>(
   });
 }
 
-function snapshotChartOptions(options: ChartOptions<ComponentMessage>): DynamicChartOptions {
-  return { ...options };
-}
-
-function prepareChart(value: unknown): ChartModel {
-  if (!isNonArrayObject(value)) throw new TypeError('chart options must be an object.');
+function prepareChart(value: Readonly<Record<string, unknown>>): ChartModel {
+  exact(value, [
+    'label', 'series', 'min', 'max', 'selected', 'legend', 'signedDomain', 'xLabel',
+    'yLabel', 'dataState', 'valueScale', 'sampleMode', 'sampleAlign', 'interpolation',
+    'emptyText', 'loadingText', 'errorText', 'pointerState',
+  ], 'chart options');
   if (!Array.isArray(value['series'])) throw new TypeError('chart series must be an array.');
   const label = nonEmpty(value['label'], 'chart label');
   const seriesIds = new Set<string>();
@@ -1125,21 +1093,6 @@ const heatmapBase = {
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
-  optionFields: {
-    label: null,
-    rows: null,
-    min: null,
-    max: null,
-    selected: null,
-    cellWidth: null,
-    gap: null,
-    dataState: null,
-    valueScale: null,
-    emptyText: null,
-    loadingText: null,
-    errorText: null,
-    pointerState: null,
-  },
   states: ['disabled'] as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
@@ -1214,7 +1167,7 @@ const activeHeatmap = defineComponent<
 export function heatmap<TValue, const TMessage extends ComponentMessage = never>(
   options: HeatmapOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const own = snapshotHeatmapOptions(options);
+  const own: DynamicHeatmapOptions = options;
   if (options.onAction === undefined) {
     return passiveHeatmap({
       ...own,
@@ -1230,14 +1183,11 @@ export function heatmap<TValue, const TMessage extends ComponentMessage = never>
   });
 }
 
-function snapshotHeatmapOptions<TValue>(
-  options: HeatmapOptions<TValue, ComponentMessage>,
-): DynamicHeatmapOptions {
-  return { ...options };
-}
-
-function prepareHeatmap(value: unknown): HeatmapModel {
-  if (!isNonArrayObject(value)) throw new TypeError('heatmap options must be an object.');
+function prepareHeatmap(value: Readonly<Record<string, unknown>>): HeatmapModel {
+  exact(value, [
+    'label', 'rows', 'min', 'max', 'selected', 'cellWidth', 'gap', 'dataState',
+    'valueScale', 'emptyText', 'loadingText', 'errorText', 'pointerState',
+  ], 'heatmap options');
   if (!Array.isArray(value['rows'])) throw new TypeError('heatmap rows must be an array.');
   const label = nonEmpty(value['label'], 'heatmap label');
   const ids = new Set<string>();

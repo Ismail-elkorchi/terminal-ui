@@ -31,6 +31,7 @@ import type { ListAction } from '../../ui-model/list.ts';
 import type { DataListStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ListOptions, PassiveListOptions, ScrollableListOptions } from '../options/content.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface PreparedListEntry {
   readonly id: string;
@@ -71,17 +72,6 @@ const listDefinitionBase = {
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
-  optionFields: {
-    items: null,
-    projectItem: null,
-    collection: null,
-    filterQuery: null,
-    selectedId: null,
-    scroll: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['marker', 'item', 'description', 'match', 'empty', 'scrollbar'] as const,
   prepare: prepareList,
@@ -180,7 +170,7 @@ export function list<TValue, const TMessage extends ComponentMessage = never>(
 export function list<TValue, const TMessage extends ComponentMessage = never>(
   options: ListOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const dynamic = snapshotListOptions(options);
+  const dynamic: DynamicListOptions = options;
   const onAction = options.onAction;
   if (onAction === undefined) {
     return passiveList({
@@ -206,14 +196,11 @@ export function list<TValue, const TMessage extends ComponentMessage = never>(
   });
 }
 
-function snapshotListOptions<TValue>(
-  options: ListOptions<TValue, ComponentMessage>,
-): DynamicListOptions {
-  return { ...options };
-}
-
-function prepareList(value: unknown): PreparedList {
-  if (!isNonArrayObject(value)) throw new TypeError('list options must be an object.');
+function prepareList(value: Readonly<Record<string, unknown>>): PreparedList {
+  assertKnownOptions(value, [
+    'items', 'projectItem', 'collection', 'filterQuery', 'selectedId', 'scroll', 'scrollbar',
+    'scrollPolicy', 'pointerState',
+  ], 'list');
   const rawItems = value['items'];
   const rawProjector = value['projectItem'];
   const rawCollection = value['collection'];

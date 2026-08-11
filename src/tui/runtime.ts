@@ -1,8 +1,8 @@
 import {
   createInputAmbiguityDeadline,
   createInputPipeline,
-  InputDecodeError,
-  snapshotInputEvent
+  decodeInputEvent,
+  InputDecodeError
 } from '../input/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { TerminalUiError, errorFromUnknown } from '../errors.ts';
@@ -197,7 +197,7 @@ function createRuntime<TState, TMessage>(
       return resizeCoordinator.request(terminalSize);
     },
     async handleInput(rawEvent) {
-      const event = snapshotInputEvent(rawEvent);
+      const event = decodeInputEvent(rawEvent);
       const occurredAt = options.host.clock.monotonicNow();
       return inputQueue.run(() => handleDecodedInput(event, occurredAt));
     },
@@ -609,7 +609,7 @@ function createRuntime<TState, TMessage>(
     const results: TuiInputResult<TState>[] = [];
     const routedEvents = routingInputEvents(events, flushCharacterText);
     for (const routedEvent of routedEvents) {
-      const event = snapshotInputEvent(routedEvent);
+      const event = routedEvent;
       if (isWheelInputEvent(event)) {
         results.push(...await pointerMotion.flush());
         if (results.at(-1)?.exit !== undefined) break;

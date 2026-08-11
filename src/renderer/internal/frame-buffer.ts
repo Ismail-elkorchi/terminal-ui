@@ -1,7 +1,7 @@
 import { measureTextCells, sanitizeTerminalCellText } from '../../text/index.ts';
 import { toAccessibleSnapshot } from '../../accessibility/index.ts';
 import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
-import { sanitizeFrameCellSource } from '../../visual/source.ts';
+import { frameCellSource } from '../../visual/source.ts';
 import type { AccessibleSnapshot } from '../../accessibility/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
@@ -127,9 +127,11 @@ class CellFrameBuffer implements FrameBuffer {
     for (const currentSpan of spans) {
       const text = sanitizeTerminalCellText(currentSpan.text).text;
       const measured = measureTextCells(text, { widthProfile: this.widthProfile });
-      const style = currentSpan.style;
+      const style = currentSpan.style === undefined
+        ? undefined
+        : normalizeTerminalStyle(currentSpan.style, 'Frame span style');
       const link = currentSpan.link === undefined ? undefined : normalizeTerminalLink(currentSpan.link);
-      const source = currentSpan.source === undefined ? undefined : sanitizeFrameCellSource(currentSpan.source);
+      const source = currentSpan.source === undefined ? undefined : frameCellSource(currentSpan.source);
       for (const segment of measured.graphemes) {
         if (segment.cells === 0) {
           this.appendCombining(row, nextColumn, segment.text);
@@ -199,7 +201,7 @@ class CellFrameBuffer implements FrameBuffer {
         : { style: normalizeTerminalStyle(options.cursor.style, 'Frame cursor style') }),
       ...(options.cursor.source === undefined
         ? {}
-        : { source: sanitizeFrameCellSource(options.cursor.source) })
+        : { source: frameCellSource(options.cursor.source) })
     });
     const frame: FrameBufferSnapshot = {
       width: this.width,
@@ -227,12 +229,16 @@ class CellFrameBuffer implements FrameBuffer {
     if (text.length === 0) return;
     const measured = measureTextCells(text, { widthProfile: this.widthProfile });
     if (measured.graphemes.length !== 1 || measured.cells !== cell.width) return;
+    const style = cell.style === undefined
+      ? undefined
+      : normalizeTerminalStyle(cell.style, 'Frame cell style');
+    const link = cell.link === undefined ? undefined : normalizeTerminalLink(cell.link);
     this.writeGrapheme(cell.row, cell.column, {
       text,
       width: cell.width,
-      ...(cell.style === undefined ? {} : { style: cell.style }),
-      ...(cell.link === undefined ? {} : { link: cell.link }),
-      ...(cell.source === undefined ? {} : { source: sanitizeFrameCellSource(cell.source) })
+      ...(style === undefined ? {} : { style }),
+      ...(link === undefined ? {} : { link }),
+      ...(cell.source === undefined ? {} : { source: frameCellSource(cell.source) })
     });
   }
 
@@ -304,7 +310,7 @@ class CellFrameBuffer implements FrameBuffer {
     this.writtenCoverage.addSpan(row, column, Math.max(1, cell.width));
     const style = existingBackground === undefined
       ? cell.style
-      : { ...cell.style, bg: existingBackground };
+      : Object.freeze({ ...cell.style, bg: existingBackground });
     const mainCell: FrameCell = {
       row,
       column,
@@ -386,7 +392,7 @@ class CellFrameBuffer implements FrameBuffer {
   }
 
   private setCellAtIndex(index: number, cell: FrameCell): void {
-    const immutable = immutableFrameCell(cell);
+    const immutable = Object.freeze(cell);
     this.cells[index] = immutable;
     if (isMergeableFrameCell(immutable)) this.mergeableCellIndexes.add(index);
     else this.mergeableCellIndexes.delete(index);
@@ -409,17 +415,6 @@ class CellFrameBuffer implements FrameBuffer {
     const end = Math.min(this.width + 1, column + width);
     if (end > start) this.writtenCoverage.addSpan(row, start, end - start);
   }
-}
-
-function immutableFrameCell(cell: FrameCell): FrameCell {
-  return Object.freeze({
-    ...cell,
-    ...(cell.style === undefined
-      ? {}
-      : { style: normalizeTerminalStyle(cell.style, 'Frame cell style') }),
-    ...(cell.link === undefined ? {} : { link: normalizeTerminalLink(cell.link) }),
-    ...(cell.source === undefined ? {} : { source: sanitizeFrameCellSource(cell.source) })
-  });
 }
 
 function immutableHitTargets(hitTargets: readonly FrameHitTarget[]): readonly FrameHitTarget[] {

@@ -29,11 +29,6 @@ export interface ChoiceItem<TValue = string> extends ItemBase {
   readonly value: TValue;
 }
 
-export interface HierarchyItem<TNode> {
-  readonly children?: readonly TNode[];
-  readonly expanded?: boolean;
-}
-
 export interface SuggestionItem<TValue = string> {
   readonly value: TValue;
   readonly label?: string;

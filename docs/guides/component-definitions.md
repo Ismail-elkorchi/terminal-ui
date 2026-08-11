@@ -28,12 +28,10 @@ const badge = defineComponent<BadgeOptions, BadgeOptions>({
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null },
   prepare(value) {
-    if (typeof value !== 'object' || value === null || !('label' in value)
-      || typeof value.label !== 'string') {
-      throw new TypeError('badge requires only a string label');
-    }
+    const unknown = Object.keys(value).find((field) => field !== 'label');
+    if (unknown !== undefined) throw new TypeError(`badge does not accept ${unknown}`);
+    if (typeof value.label !== 'string') throw new TypeError('badge requires a string label');
     return { label: value.label };
   },
   measure: ({ model, widthProfile }) => {
@@ -172,17 +170,14 @@ Disabled, busy, and read-only state is added to accessibility output by the
 framework. Definition hooks should not duplicate it. Decorative definitions
 cannot accept state or actions.
 
-Component-specific inputs are top-level instance fields. A definition declares
-their exact names with `optionFields` and supplies `prepare()`, which is the
-single runtime boundary for JavaScript and other dynamic callers. Unknown
-fields are rejected before preparation. The hook validates and normalizes once,
-then returns the immutable model consumed by every later phase.
-
-TypeScript erases interface keys at runtime, so `optionFields` is the minimal
-runtime key set used for exact decoding. Its mapped type requires every
-`TOptions` key and rejects extra keys in object literals; the `null` values carry
-no data. `prepare()` validates values and cross-field rules, not the field list
-again.
+Component-specific inputs are top-level instance fields. `prepare()` is their
+single runtime boundary for JavaScript and other dynamic callers: it validates
+the complete input shape, rejects unknown fields, enforces cross-field rules,
+and returns the immutable model consumed by every later phase. TypeScript checks
+the declared option type for typed callers. Definitions without `prepare()` do
+not accept component-specific fields. The framework validates its shared fields;
+the component owns exactness for the fields it decodes, without a parallel field
+registry on the definition.
 
 Focus targets and hit targets use stable IDs and bounded rectangles. A hit
 target that should transfer keyboard focus names one of the component's focus

@@ -141,7 +141,7 @@ export type {
   SelectAction
 } from '../ui-model/choice-controls.ts';
 export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../element/index.ts';
-export { inspectElement } from './inspection.ts';
+export { inspectElement } from '../element/inspection.ts';
 export type {
   ElementFactoryCategory,
   ElementFactoryIdentity,
@@ -150,7 +150,7 @@ export type {
   ElementInputInspection,
   ElementInspection,
   ElementMetaInspection
-} from './inspection.ts';
+} from '../element/inspection.ts';
 export type * from '../ui-model/style-parts.ts';
 export type * from './options/index.ts';
 export {

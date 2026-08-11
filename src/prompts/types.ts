@@ -85,9 +85,6 @@ export type InteractivePromptDefinition<TChoice = never> =
   | TextPromptDefinition
   | ChoicePromptDefinition<TChoice>;
 
-export type PromptValue<TPrompt> =
-  TPrompt extends PromptDefinitionBase<infer TValue> ? TValue : never;
-
 export type PromptKind = PromptDefinition<unknown>['kind'];
 
 export interface PromptValueContract<TValue> {

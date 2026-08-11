@@ -20,7 +20,7 @@ export type {
   VisualSnapshotInput
 } from './visual-snapshots.ts';
 export type { ControlledTerminalClock } from '../host/index.ts';
-export { createTerminalHarness, toAccessibleSnapshotFromHarness } from './harness.ts';
+export { createTerminalHarness } from './harness.ts';
 export { createPtyTerminalHarness, isPtyHarnessUnavailable } from './pty-harness.ts';
 export { createVisualSnapshot, renderElementSnapshot } from './visual-snapshots.ts';
 export {

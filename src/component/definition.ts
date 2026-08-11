@@ -64,7 +64,6 @@ import {
 import { immutablePreparedModel } from './prepared-model.ts';
 import { mapComponentAction, type ComponentMessage } from './message.ts';
 import {
-  actionMapper,
   assertPointerDefinition,
   mapHitTargets,
   mappedKeyBindings,
@@ -251,18 +250,20 @@ interface ComponentDefinitionIdentity {
 }
 
 interface EmptyComponentOptionsDefinition {
-  readonly optionFields?: never;
   readonly prepare?: never;
 }
+
+type ComponentPreparationInput<TOptions extends object> = Readonly<
+  Record<string, unknown> & { [TKey in keyof TOptions]?: unknown }
+>;
 
 interface PreparedComponentOptionsDefinition<
   TOptions extends object,
   TPrepared extends object
 > {
-  readonly optionFields: Readonly<Record<Extract<keyof TOptions, string>, null>>;
   readonly prepare: (
     this: undefined,
-    value: unknown,
+    value: ComponentPreparationInput<TOptions>,
     context: ComponentPreparationContext
   ) => TPrepared;
 }
@@ -891,10 +892,9 @@ interface NormalizedDefinitionBase {
   readonly slots: readonly NormalizedSlot[];
   readonly parts: readonly string[];
   readonly partSet: ReadonlySet<string>;
-  readonly optionFields: readonly string[];
   readonly prepare?: (
     this: undefined,
-    value: unknown,
+    value: Readonly<Record<string, unknown>>,
     context: ComponentPreparationContext
   ) => Readonly<Record<string, unknown>>;
   readonly layer?: (
@@ -1049,7 +1049,6 @@ function normalizeDefinition(
     slots: normalizeSlots(definition.slots),
     parts: Object.freeze([...(definition.parts ?? [])]),
     partSet: new Set(definition.parts ?? []),
-    optionFields: Object.freeze(Object.keys(definition.optionFields ?? {})),
     ...(definition.layer === undefined ? {} : { layer: definition.layer }),
     ...(definition.prepare === undefined ? {} : { prepare: definition.prepare })
   };
@@ -1195,7 +1194,6 @@ function assertDefinition(
     'metadata',
     'parts',
     'layer',
-    'optionFields',
     'prepare',
     'structure',
     'semantics',
@@ -1239,17 +1237,6 @@ function assertDefinition(
     throw new TypeError(
       'Component definition implementationSlots must be declared exactly when a slot is implementation-owned.'
     );
-  }
-  const optionFields = value['optionFields'];
-  if (optionFields !== undefined && (!isNonArrayObject(optionFields)
-    || Object.entries(optionFields).some(([field, included]) =>
-      field.length === 0
-      || componentInstanceFields.has(field as ComponentReservedOption)
-      || included !== null))) {
-    throw new TypeError('Component definition optionFields must map every non-reserved option field to null.');
-  }
-  if ((optionFields === undefined) !== (value['prepare'] === undefined)) {
-    throw new TypeError('Component definition optionFields and prepare must be declared together.');
   }
   const requiredHooks = structure === 'leaf'
     ? ['measure', 'render']
@@ -1418,7 +1405,7 @@ function adaptDefinition(definition: NormalizedDefinition): RenderNodeRenderer<u
             input.theme,
             input.widthProfile
           )) ?? []).map((target) => ({ ...target, bounds: toAbsoluteRect(target.bounds, input.bounds) })),
-          actionMapper(input.renderNode),
+          input.renderNode.props.toActionMessage,
           definition.name,
           input.renderNode.id
         ))
@@ -1565,12 +1552,14 @@ function prepareComponentOptions(
 ): Readonly<Record<string, unknown>> {
   const customEntries = Object.entries(value)
     .filter(([field]) => !componentInstanceFields.has(field as ComponentReservedOption));
-  const allowed = new Set(definition.optionFields);
-  const unsupported = customEntries.find(([field]) => !allowed.has(field))?.[0];
-  if (unsupported !== undefined) {
-    throw new TypeError(`Component "${definition.name}" options contain unknown field "${unsupported}".`);
+  if (definition.prepare === undefined) {
+    if (customEntries[0] !== undefined) {
+      throw new TypeError(
+        `Component "${definition.name}" does not accept option "${customEntries[0][0]}".`
+      );
+    }
+    return Object.freeze({});
   }
-  if (definition.prepare === undefined) return Object.freeze({});
   const custom = Object.freeze(Object.fromEntries(customEntries));
   const prepared = executeComponentPhase(definition.name, value.id, 'prepare', () =>
     definition.prepare?.call(undefined, custom, {

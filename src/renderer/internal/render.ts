@@ -84,7 +84,6 @@ export {
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle,
-  sanitizeFrameCellSource,
   renderNodeFrameSource,
   wrapRenderSpans
 } from './frame.ts';

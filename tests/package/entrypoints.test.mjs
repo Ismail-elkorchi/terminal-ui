@@ -318,9 +318,8 @@ test('component packages can use the narrow authoring entrypoint', () => {
       identity: 'required',
       structure: 'leaf',
       semantics: 'semantic',
-      optionFields: { value: null },
       prepare(value) {
-        if (typeof value !== 'object' || value === null || !('value' in value) || typeof value.value !== 'number') {
+        if (typeof value.value !== 'number') {
           throw new TypeError('meter requires a numeric value');
         }
         return { value: value.value };

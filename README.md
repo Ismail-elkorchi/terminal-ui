@@ -98,7 +98,6 @@ const badgeComponent = defineComponent<BadgeOptions, BadgeOptions>({
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null },
   prepare(value) {
     if (typeof value !== 'object' || value === null || !('label' in value)
       || typeof value.label !== 'string') {

@@ -96,15 +96,6 @@ export function previousFocusPath(layout: LayoutNode, current: FocusPath | undef
   return targets[(index - 1 + targets.length) % targets.length]?.path;
 }
 
-export function findLayoutFocusTarget(
-  layout: LayoutNode,
-  path: FocusPath | undefined
-): LayoutFocusTarget | undefined {
-  if (path === undefined) return undefined;
-  return scopedFocusTargets(layout, collectLayoutFocusTargets(layout))
-    .find((target) => focusPathsEqual(target.path, path));
-}
-
 export function findAnyLayoutFocusTarget(
   layout: LayoutNode,
   path: FocusPath | undefined

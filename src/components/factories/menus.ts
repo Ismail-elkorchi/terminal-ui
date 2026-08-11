@@ -20,6 +20,7 @@ import type { TooltipPresentation, TooltipTone } from '../../ui-model/menu.ts';
 import type { TooltipStylePart } from '../../ui-model/style-parts.ts';
 import type { BorderOptions } from '../../visual/border.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface PreparedDivider {
   readonly orientation: DividerOrientation;
@@ -48,15 +49,14 @@ export const divider: SemanticLeafComponentFactory<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { orientation: null, line: null, label: null, labelAlign: null },
   metadata: ['styles', 'layer'],
   parts: ['line', 'label'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('divider options must be an object.');
-    const orientation = value['orientation'];
-    const line = value['line'];
-    const label = value['label'];
-    const labelAlign = value['labelAlign'];
+    assertKnownOptions(value, ['orientation', 'line', 'label', 'labelAlign'], 'divider');
+    const orientation = value.orientation;
+    const line = value.line;
+    const label = value.label;
+    const labelAlign = value.labelAlign;
     if (orientation !== undefined && orientation !== 'horizontal' && orientation !== 'vertical') {
       throw new TypeError('divider orientation must be "horizontal" or "vertical".');
     }
@@ -229,25 +229,20 @@ export const tooltip: SemanticCompositeComponentFactory<
   identity: 'optional',
   structure: 'composed',
   semantics: 'semantic',
-  optionFields: {
-    content: null,
-    presentation: null,
-    title: null,
-    tone: null,
-    placement: null,
-    maxWidth: null,
-    border: null,
-  },
   metadata: ['styles'],
   parts: ['background', 'border', 'title', 'content'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('tooltip options must be an object.');
-    const content = value['content'];
-    const presentation = prepareTooltipPresentation(value['presentation']);
-    const title = value['title'];
-    const tone = value['tone'];
-    const placement = value['placement'];
-    const maxWidth = value['maxWidth'];
+    assertKnownOptions(
+      value,
+      ['content', 'presentation', 'title', 'tone', 'placement', 'maxWidth', 'border'],
+      'tooltip',
+    );
+    const content = value.content;
+    const presentation = prepareTooltipPresentation(value.presentation);
+    const title = value.title;
+    const tone = value.tone;
+    const placement = value.placement;
+    const maxWidth = value.maxWidth;
     if (typeof content !== 'string' && !isStringArray(content)) {
       throw new TypeError('tooltip content must be a string or an array of strings.');
     }
@@ -273,7 +268,7 @@ export const tooltip: SemanticCompositeComponentFactory<
       tone: tone ?? 'default',
       ...(placement === undefined ? {} : { placement }),
       maxWidth: maxWidth === undefined ? 48 : Math.floor(maxWidth),
-      border: prepareTooltipBorder(value['border']),
+      border: prepareTooltipBorder(value.border),
     };
   },
   layer: ({ model }) => ({

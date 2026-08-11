@@ -5,10 +5,6 @@ export function throwIfTerminalOperationAborted(context: TerminalOperationContex
   context?.signal?.throwIfAborted();
 }
 
-export function terminalOperationContext(signal: AbortSignal): TerminalOperationContext {
-  return Object.freeze({ signal });
-}
-
 export function waitForTerminalOperation<T>(
   operation: Promise<T>,
   context: TerminalOperationContext | undefined

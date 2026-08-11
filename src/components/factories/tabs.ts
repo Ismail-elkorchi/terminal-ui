@@ -36,6 +36,7 @@ import {
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { TabsOptions } from '../options/tabs.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface TabModelItem {
   readonly id: string;
@@ -105,22 +106,6 @@ const instantiateTabs = defineComponent<
   structure: 'composite',
   semantics: 'semantic',
   slots: tabsSlots,
-  optionFields: {
-    tabs: null,
-    selected: null,
-    maxTabWidth: null,
-    pointerState: null,
-    gap: null,
-    padding: null,
-    margin: null,
-    minWidth: null,
-    minHeight: null,
-    maxWidth: null,
-    maxHeight: null,
-    align: null,
-    justify: null,
-    overflow: null,
-  },
   metadata: ['focus', 'layer', 'styles'],
   parts: ['leading', 'label', 'indicator', 'badge', 'close', 'overflow'],
   prepare: prepareTabs,
@@ -606,8 +591,11 @@ function tabsAccessibility(
   };
 }
 
-function prepareTabs(value: unknown): TabsModel {
-  if (!isNonArrayObject(value)) throw new TypeError('tabs options must be an object.');
+function prepareTabs(value: Readonly<Record<string, unknown>>): TabsModel {
+  assertKnownOptions(value, [
+    'tabs', 'selected', 'maxTabWidth', 'pointerState', 'gap', 'padding', 'margin',
+    'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'align', 'justify', 'overflow',
+  ], 'tabs');
   const rawTabs = value['tabs'];
   if (!Array.isArray(rawTabs) || rawTabs.length === 0) {
     throw new TypeError('tabs tabs must be a non-empty array.');

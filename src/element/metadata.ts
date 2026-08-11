@@ -108,8 +108,3 @@ export interface InteractiveElementOptions<
   readonly id: string;
   readonly pointer?: PointerInteractionOptions<TMessage>;
 }
-
-export interface ElementTextInputHandlers<TMessage> {
-  readonly onInput?: (text: string) => TMessage;
-  readonly onPaste?: (text: string) => TMessage;
-}

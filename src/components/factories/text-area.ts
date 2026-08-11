@@ -53,6 +53,7 @@ import type { TextAreaStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ScrollableTextAreaOptions, TextAreaOptions } from '../options/content.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface TextAreaModel {
   readonly document: TextDocument;
@@ -93,19 +94,6 @@ const instantiateTextArea = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    presentation: null,
-    highlights: null,
-    placeholder: null,
-    lineNumbers: null,
-    activeLine: null,
-    wrap: null,
-    required: null,
-    error: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
   parts: [
@@ -281,10 +269,14 @@ function hasScrollState(value: unknown): boolean {
   return isNonArrayObject(value) && Reflect.get(value, 'scroll') !== undefined;
 }
 
-function prepareTextArea(value: unknown): TextAreaModel {
-  if (!isNonArrayObject(value) || !isNonArrayObject(value['presentation'])) {
+function prepareTextArea(value: Readonly<Record<string, unknown>>): TextAreaModel {
+  if (!isNonArrayObject(value['presentation'])) {
     throw new TypeError('textArea presentation must be an object.');
   }
+  assertKnownOptions(value, [
+    'presentation', 'highlights', 'placeholder', 'lineNumbers', 'activeLine', 'wrap', 'required',
+    'error', 'scrollbar', 'scrollPolicy', 'pointerState',
+  ], 'textArea');
   const presentation = value['presentation'];
   const unsupportedPresentation = Object.keys(presentation).find((field) =>
     field !== 'document' &&

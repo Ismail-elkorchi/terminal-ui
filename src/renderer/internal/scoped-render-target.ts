@@ -2,21 +2,12 @@ import { measureTextCells } from '../../text/index.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import {
-  sanitizeFrameCellSource
+  frameCellSource
 } from '../../visual/source.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
 import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { RenderTarget, RenderTargetCell } from '../contracts.ts';
 import { intersectRects } from './rect.ts';
-
-export function createScopedRenderTarget(
-  target: RenderTarget,
-  bounds: Rect,
-  viewport: Rect,
-  owner: ScopedRenderOwner
-): RenderTarget {
-  return createBoundedRenderTarget(target, bounds, viewport, owner);
-}
 
 /** Creates the bounded, write-only target exposed to component definitions. */
 export function createLocalComponentRenderTarget(
@@ -114,7 +105,7 @@ export function scopedFrameSource(
   owner: ScopedRenderOwner,
   source?: FrameCellSource
 ): FrameCellSource {
-  return sanitizeFrameCellSource({
+  return frameCellSource({
     ...source,
     ...(owner.id === undefined ? {} : { elementId: owner.id }),
     elementKind: owner.name,

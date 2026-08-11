@@ -84,12 +84,6 @@ export function windowedCollection<TRecord extends CollectionRecord>(input: {
   });
 }
 
-export function isWindowedCollection<TRecord extends CollectionRecord>(
-  projection: CollectionProjection<TRecord>
-): projection is WindowedCollectionProjection<TRecord> {
-  return projection.kind === 'window';
-}
-
 export function isCollectionProjection(
   value: unknown
 ): value is CollectionProjection<CollectionRecord> {

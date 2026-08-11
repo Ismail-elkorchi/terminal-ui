@@ -23,7 +23,7 @@ export function progressCompletionState(value: number, max: number): ProgressCom
 
 export function indeterminateProgressFrame(frame: number, width: number): ProgressFrame {
   const normalizedWidth = normalizePositiveInteger(width, 1);
-  const normalizedFrame = normalizeFrame(frame, normalizedWidth);
+  const normalizedFrame = cyclicIndex(frame, normalizedWidth);
   const activeWidth = Math.max(1, Math.min(normalizedWidth, Math.ceil(normalizedWidth / 3)));
   return {
     width: normalizedWidth,
@@ -45,9 +45,6 @@ function normalizeFiniteNumber(value: number, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function normalizeFrame(frame: number, width: number): number {
-  return cyclicIndex(frame, width);
-}
 
 function wrappedDistance(index: number, start: number, width: number): number {
   return (index - start + width) % width;

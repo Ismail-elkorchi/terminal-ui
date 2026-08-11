@@ -6,7 +6,7 @@ export { createInputAmbiguityDeadline } from './ambiguity-deadline.ts';
 export type { InputAmbiguityDeadline } from './ambiguity-deadline.ts';
 export { isCancelKey, isInterruptKey, normalizeKeyEvent } from './keys.ts';
 export { inputTriggerIdentity, matchesInputTrigger, normalizeInputTrigger } from './triggers.ts';
-export { decodeRecordedInputEvent, snapshotInputEvent } from './snapshot.ts';
+export { decodeInputEvent } from './snapshot.ts';
 export { createKeyboardState, keyboardKeyIsPressed, pressedKeyIdentity, reduceKeyboardState } from './keyboard-state.ts';
 export type * from './types.ts';
 export type * from './pipeline.ts';

@@ -14,15 +14,10 @@ import {
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
-  barChart,
   button,
-  list,
-  logViewer,
-  notificationRegion,
   table,
   text,
-  textArea,
-  tree
+  textArea
 } from '../../dist/components/index.js';
 import { ComponentExecutionError, defineComponent, ignoreMessage } from '../../dist/component/index.js';
 import {
@@ -1335,12 +1330,15 @@ test('component instances decode custom options and reject malformed shared stat
     accessibility: ({ id }) => ({ id, role: 'button', label: id })
   });
   const invalidOptions = [
-    [{ availablity: 'disabled' }, /options contain unknown field "availablity"/u],
     [{ disabled: 'yes' }, /disabled must be a boolean/u],
     [{ busy: true }, /does not declare the busy capability/u],
     [{ onInput: () => undefined }, /onInput behavior must be declared by the definition/u]
   ];
 
+  assert.throws(
+    () => control({ id: 'extra-field', applicationData: 42 }),
+    /does not accept option "applicationData"/u
+  );
   for (const [options, expected] of invalidOptions) {
     assert.throws(() => control({ id: 'invalid-instance', ...options }), expected);
   }
@@ -1792,7 +1790,6 @@ test('prepared immutable models are verified once per retained identity', () => 
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
-    optionFields: { model: null },
     prepare: (value) => value.model,
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
@@ -1820,7 +1817,6 @@ test('prepared immutable models reject accessors and frozen mutable exotic objec
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
-    optionFields: { model: null },
     prepare: (value) => value.model,
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
@@ -1847,7 +1843,6 @@ test('prepared immutable models reject excessive nesting before exhausting the c
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
-    optionFields: { model: null },
     prepare: (value) => value.model,
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
@@ -1860,21 +1855,6 @@ test('prepared immutable models reject excessive nesting before exhausting the c
     () => boundedModel({ id: 'deep', model }),
     /exceeds 256 nested levels/u
   );
-});
-
-test('built-in adapters preserve unknown options for the canonical decoder', () => {
-  const factories = [
-    () => barChart({ id: 'chart', typo: true }),
-    () => list({ id: 'list', typo: true }),
-    () => logViewer({ id: 'log', typo: true }),
-    () => notificationRegion({ id: 'notifications', typo: true }),
-    () => table({ id: 'table', typo: true }),
-    () => tree({ id: 'tree', typo: true })
-  ];
-
-  for (const create of factories) {
-    assert.throws(create, /options contain unknown field "typo"/u);
-  }
 });
 
 test('built-in adapters leave malformed nested options to structured preparation errors', () => {

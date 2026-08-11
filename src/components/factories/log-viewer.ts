@@ -140,18 +140,6 @@ const baseDefinition = {
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
-  optionFields: {
-    history: null,
-    wrap: null,
-    searchQuery: null,
-    selectedMatch: null,
-    foldedIds: null,
-    selection: null,
-    scroll: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'] as const,
   parts,
   prepare: prepareLogViewer,
@@ -217,7 +205,7 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
 export function logViewer<const TMessage extends ComponentMessage = never>(
   options: LogViewerOptions<TMessage>,
 ): Element<TMessage> {
-  const own = snapshotLogViewerOptions(options);
+  const own: DynamicLogViewerOptions = options;
   const onAction = options.onAction;
   if (onAction === undefined) {
     return passiveLogViewer({
@@ -243,14 +231,11 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
   });
 }
 
-function snapshotLogViewerOptions(
-  options: LogViewerOptions<ComponentMessage>,
-): DynamicLogViewerOptions {
-  return { ...options };
-}
-
-function prepareLogViewer(value: unknown): LogViewerModel {
-  if (!isNonArrayObject(value)) throw new TypeError('logViewer options must be an object.');
+function prepareLogViewer(value: Readonly<Record<string, unknown>>): LogViewerModel {
+  exact(value, [
+    'history', 'wrap', 'searchQuery', 'selectedMatch', 'foldedIds', 'selection', 'scroll',
+    'scrollbar', 'scrollPolicy', 'pointerState',
+  ], 'logViewer options');
   const history = value['history'];
   if (!isLogHistoryValue(history)) {
     throw new TypeError('logViewer history must be created with prepareLogHistory().');

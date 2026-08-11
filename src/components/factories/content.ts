@@ -21,7 +21,7 @@ import {
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { RenderSpan } from '../../visual/render.ts';
 import type { ElementMessage } from '../../element/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface PreparedText {
   readonly content: string;
@@ -48,15 +48,12 @@ export const text: SemanticLeafComponentFactory<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { content: null, textRole: null },
   metadata: ['styles', 'layer'],
   parts: ['content', 'link'],
   prepare(value) {
-    if (!isNonArrayObject(value)) {
-      throw new TypeError('text options must be an object.');
-    }
-    const content = value['content'];
-    const textRole = value['textRole'];
+    assertKnownOptions(value, ['content', 'textRole'], 'text');
+    const content = value.content;
+    const textRole = value.textRole;
     if (typeof content !== 'string') throw new TypeError('text content must be a string.');
     if (textRole !== undefined && !isTextRole(textRole)) {
       throw new TypeError('text textRole is invalid.');
@@ -160,15 +157,12 @@ export const richText: SemanticLeafComponentFactory<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { segments: null, wrap: null },
   metadata: ['styles', 'layer'],
   parts: ['content', 'link'],
   prepare(value) {
-    if (!isNonArrayObject(value)) {
-      throw new TypeError('richText options must be an object.');
-    }
-    const segments = value['segments'];
-    const wrap = value['wrap'];
+    assertKnownOptions(value, ['segments', 'wrap'], 'richText');
+    const segments = value.segments;
+    const wrap = value.wrap;
     if (!isInlineContent(segments)) {
       throw new TypeError('richText segments must be inline content.');
     }
@@ -300,14 +294,11 @@ export const disclosure: DisclosureFactory = defineComponent<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['marker', 'label', 'summary'],
-  optionFields: { label: null, summary: null, expanded: null },
   prepare(value) {
-    if (!isNonArrayObject(value)) {
-      throw new TypeError('disclosure options must be an object.');
-    }
-    const label = value['label'];
-    const summary = value['summary'];
-    const expanded = value['expanded'];
+    assertKnownOptions(value, ['label', 'summary', 'expanded'], 'disclosure');
+    const label = value.label;
+    const summary = value.summary;
+    const expanded = value.expanded;
     if (typeof label !== 'string') throw new TypeError('disclosure label must be a string.');
     if (summary !== undefined && !isInlineContent(summary)) {
       throw new TypeError('disclosure summary must be inline content.');

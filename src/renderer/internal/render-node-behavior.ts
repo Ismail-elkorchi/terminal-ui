@@ -1,4 +1,3 @@
-import type { ElementFocusScope } from '../../element/metadata.ts';
 import { structuralNodeRenderers } from './renderers/index.ts';
 import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
 import {
@@ -275,10 +274,6 @@ export function focusTargetsForRenderNode(
       ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
     };
   });
-}
-
-export function focusScopeForRenderNode(renderNode: RenderNode): ElementFocusScope | undefined {
-  return renderNode.focus?.scope;
 }
 
 export function hitTargetsForRenderNode<TMessage>(

@@ -40,6 +40,7 @@ import { resolveStableIds } from '../../ui-model/identity.ts';
 import { isNotificationTone } from '../../ui-model/status.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { NotificationHistoryOptions, NotificationRegionOptions } from '../options/feedback.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface NotificationModel {
   readonly items: readonly NotificationItem[];
@@ -81,7 +82,6 @@ const passiveRegion = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { items: null, placement: null, maxWidth: null, pointerState: null },
   metadata: ['focus', 'layer', 'styles'],
   parts,
   prepare: (value) => prepareNotifications(value, false, false),
@@ -103,7 +103,6 @@ const activeRegion = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { items: null, placement: null, maxWidth: null, pointerState: null },
   metadata: ['focus', 'layer', 'styles'],
   parts,
   prepare: (value) => prepareNotifications(value, false, true),
@@ -128,13 +127,6 @@ const history = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    items: null,
-    placement: null,
-    maxWidth: null,
-    selectedId: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'],
   parts,
   prepare: (value) => prepareNotifications(value, true, true),
@@ -157,7 +149,7 @@ const history = defineComponent<
 export function notificationRegion<const TMessage extends ComponentMessage = never>(
   options: NotificationRegionOptions<TMessage>,
 ): Element<TMessage> {
-  const own = snapshotNotificationOptions(options);
+  const own: Omit<NotificationOwnOptions, 'selectedId'> = options;
   return options.onAction === undefined
     ? passiveRegion({
       ...own,
@@ -176,7 +168,7 @@ export function notificationHistory<const TMessage extends ComponentMessage = ne
   options: NotificationHistoryOptions<TMessage>,
 ): Element<TMessage> {
   return history({
-    ...snapshotNotificationOptions(options),
+    ...options,
     id: options.id,
     ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
@@ -184,20 +176,21 @@ export function notificationHistory<const TMessage extends ComponentMessage = ne
   });
 }
 
-function snapshotNotificationOptions(
-  options: Pick<NotificationOwnOptions, 'items' | 'placement' | 'maxWidth' | 'pointerState'>,
-): Omit<NotificationOwnOptions, 'selectedId'> {
-  return { ...options };
-}
-
 function prepareNotifications(
-  value: unknown,
+  value: Readonly<Record<string, unknown>>,
   acceptsSelection: boolean,
   dismissActions: boolean,
 ): NotificationModel {
-  if (!isNonArrayObject(value) || !Array.isArray(value['items'])) {
+  if (!Array.isArray(value['items'])) {
     throw new TypeError('notification options must contain an items array.');
   }
+  assertKnownOptions(
+    value,
+    acceptsSelection
+      ? ['items', 'placement', 'maxWidth', 'selectedId', 'pointerState']
+      : ['items', 'placement', 'maxWidth', 'pointerState'],
+    acceptsSelection ? 'notificationHistory' : 'notificationRegion',
+  );
   const items = value['items'].map(prepareItem);
   resolveStableIds(items, (item) => item.id, 'notifications');
   const placement = value['placement'];

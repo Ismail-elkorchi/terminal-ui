@@ -59,7 +59,9 @@ const terminalSignals = ['SIGINT', 'SIGTERM', 'SIGHUP', 'resize'] as const;
 const endEventFields = new Set(['kind']);
 const unknownEventFields = new Set(['kind', 'sequence']);
 
-export function decodeRecordedInputEvent(value: unknown): RecordedInputEvent {
+export function decodeInputEvent(value: InputEvent): InputEvent;
+export function decodeInputEvent(value: unknown): RecordedInputEvent;
+export function decodeInputEvent(value: unknown): RecordedInputEvent {
   if (!isNonArrayObject(value)) throw new TypeError('input event must be an object.');
   switch (value['kind']) {
     case 'key':
@@ -122,12 +124,6 @@ export function decodeRecordedInputEvent(value: unknown): RecordedInputEvent {
     default:
       throw new TypeError(`unsupported input event kind: ${String(value['kind'])}.`);
   }
-}
-
-export function snapshotInputEvent(event: InputEvent): InputEvent;
-export function snapshotInputEvent(event: RecordedInputEvent): RecordedInputEvent;
-export function snapshotInputEvent(event: RecordedInputEvent): RecordedInputEvent {
-  return decodeRecordedInputEvent(event);
 }
 
 function decodeKeyEvent(value: Readonly<Record<string, unknown>>): InputEvent {

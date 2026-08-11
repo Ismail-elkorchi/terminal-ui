@@ -127,7 +127,6 @@ export {
   frameCellSource,
   frameSourcePart,
   sameFrameCellSource,
-  sanitizeFrameCellSource,
   renderNodeFrameSource
 } from '../visual/source.ts';
 export type { FrameCellSource } from '../visual/source.ts';

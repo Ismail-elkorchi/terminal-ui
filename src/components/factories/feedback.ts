@@ -49,6 +49,7 @@ import {
   isNonArrayObject,
 } from '../../foundation/validation.ts';
 import { isThemeColorToken } from '../../visual/color.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface StatusBarModel {
   readonly leading: readonly StatusBarItem[];
@@ -76,14 +77,13 @@ export const statusBar: SemanticLeafComponentFactory<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { leading: null, center: null, trailing: null },
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('statusBar options must be an object.');
-    const leading = prepareStatusItems(value['leading'], 'leading');
-    const center = prepareStatusItems(value['center'], 'center');
-    const trailing = prepareStatusItems(value['trailing'], 'trailing');
+    assertKnownOptions(value, ['leading', 'center', 'trailing'], 'statusBar');
+    const leading = prepareStatusItems(value.leading, 'leading');
+    const center = prepareStatusItems(value.center, 'center');
+    const trailing = prepareStatusItems(value.trailing, 'trailing');
     resolveStableIds([...leading, ...center, ...trailing], (item) => item.id, 'statusBar');
     return { leading, center, trailing };
   },
@@ -184,14 +184,14 @@ export const helpBar: SemanticLeafComponentFactory<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { groups: null },
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
-    if (!isNonArrayObject(value) || !Array.isArray(value['groups'])) {
+    if (!Array.isArray(value.groups)) {
       throw new TypeError('helpBar groups must be an array.');
     }
-    const groups = value['groups'].map((group, index) => prepareHelpGroup(group, index));
+    assertKnownOptions(value, ['groups'], 'helpBar');
+    const groups = value.groups.map((group, index) => prepareHelpGroup(group, index));
     resolveStableIds(groups, (group) => group.id, 'helpBar');
     return { groups };
   },
@@ -688,17 +688,14 @@ export const activityIndicator: SemanticLeafComponentFactory<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null, status: null, frames: null, frameIndex: null },
   metadata: ['styles', 'layer'],
   parts: ['marker', 'label', 'value'],
   prepare(value) {
-    if (!isNonArrayObject(value)) {
-      throw new TypeError('activityIndicator options must be an object.');
-    }
-    const label = value['label'];
-    const status = value['status'];
-    const frames = value['frames'];
-    const frameIndex = value['frameIndex'];
+    assertKnownOptions(value, ['label', 'status', 'frames', 'frameIndex'], 'activityIndicator');
+    const label = value.label;
+    const status = value.status;
+    const frames = value.frames;
+    const frameIndex = value.frameIndex;
     if (typeof label !== 'string' || label.trim().length === 0) {
       throw new TypeError('activityIndicator requires a non-empty label.');
     }
@@ -921,29 +918,21 @@ export const progressBar: SemanticLeafComponentFactory<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    mode: null,
-    barWidth: null,
-    display: null,
-    labelPosition: null,
-    elapsedMs: null,
-    remainingMs: null,
-    status: null,
-    valueScale: null,
-  },
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('progressBar options must be an object.');
-    const label = value['label'];
-    const mode = value['mode'];
-    const display = value['display'];
-    const labelPosition = value['labelPosition'];
-    const status = value['status'];
+    assertKnownOptions(value, [
+      'label', 'mode', 'barWidth', 'display', 'labelPosition', 'elapsedMs', 'remainingMs',
+      'status', 'valueScale',
+    ], 'progressBar');
+    const label = value.label;
+    const mode = value.mode;
+    const display = value.display;
+    const labelPosition = value.labelPosition;
+    const status = value.status;
     assertAccessibleLabel(label, 'progressBar');
     assertProgressBarMode(mode);
-    assertValueScale(value['valueScale'], 'progressBar');
+    assertValueScale(value.valueScale, 'progressBar');
     assertProcessStatus(status, 'progressBar');
     assertOptionalEnum(
       display,
@@ -951,9 +940,9 @@ export const progressBar: SemanticLeafComponentFactory<
       'progressBar display',
     );
     assertOptionalEnum(labelPosition, ['start', 'end', 'none'], 'progressBar labelPosition');
-    const barWidth = normalizedProgressBarWidth(value['barWidth']) ?? 10;
-    const elapsedMs = normalizedDuration(value['elapsedMs'], 'progressBar elapsedMs');
-    const remainingMs = normalizedDuration(value['remainingMs'], 'progressBar remainingMs');
+    const barWidth = normalizedProgressBarWidth(value.barWidth) ?? 10;
+    const elapsedMs = normalizedDuration(value.elapsedMs, 'progressBar elapsedMs');
+    const remainingMs = normalizedDuration(value.remainingMs, 'progressBar remainingMs');
     const normalizedMode = prepareProgressMode(mode);
     const max = normalizedMode.kind === 'determinate' ? normalizedMode.max ?? 100 : 100;
     const current = normalizedMode.kind === 'determinate'
@@ -970,7 +959,7 @@ export const progressBar: SemanticLeafComponentFactory<
       barWidth,
       percentage: max === 0 ? 0 : Math.round((current / max) * 100),
       frame: normalizedMode.kind === 'indeterminate' ? Math.floor(normalizedMode.frame ?? 0) : 0,
-      valueScale: prepareValueScaleFor(value['valueScale'], 'progressBar'),
+      valueScale: prepareValueScaleFor(value.valueScale, 'progressBar'),
       ...(elapsedMs === undefined ? {} : { elapsedMs }),
       ...(remainingMs === undefined ? {} : { remainingMs }),
     };
@@ -1450,35 +1439,27 @@ export const sparkline: SemanticLeafComponentFactory<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    values: null,
-    min: null,
-    max: null,
-    dataState: null,
-    valueScale: null,
-    emptyText: null,
-    loadingText: null,
-    errorText: null,
-  },
   metadata: ['styles', 'layer'],
   parts: ['label', 'value', 'muted', 'axis', 'baseline', 'series', 'legend'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('sparkline options must be an object.');
-    const label = value['label'];
-    const values = value['values'];
+    assertKnownOptions(value, [
+      'label', 'values', 'min', 'max', 'dataState', 'valueScale', 'emptyText', 'loadingText',
+      'errorText',
+    ], 'sparkline');
+    const label = value.label;
+    const values = value.values;
     assertAccessibleLabel(label, 'sparkline');
     assertFiniteValues(values, 'sparkline values');
-    assertNumericDomain(value['min'], value['max'], 'sparkline');
-    assertChartDataState(value['dataState'], 'sparkline');
-    assertValueScale(value['valueScale'], 'sparkline');
-    const min = typeof value['min'] === 'number'
-      ? value['min']
+    assertNumericDomain(value.min, value.max, 'sparkline');
+    assertChartDataState(value.dataState, 'sparkline');
+    assertValueScale(value.valueScale, 'sparkline');
+    const min = typeof value.min === 'number'
+      ? value.min
       : values.length === 0
       ? 0
       : Math.min(...values);
-    const candidateMax = typeof value['max'] === 'number'
-      ? value['max']
+    const candidateMax = typeof value.max === 'number'
+      ? value.max
       : values.length === 0
       ? 1
       : Math.max(...values);
@@ -1487,20 +1468,20 @@ export const sparkline: SemanticLeafComponentFactory<
       values: [...values],
       min,
       max: candidateMax <= min ? min + 1 : candidateMax,
-      ...(value['dataState'] === undefined ? {} : { dataState: value['dataState'] }),
-      valueScale: prepareValueScaleFor(value['valueScale'], 'sparkline'),
+      ...(value.dataState === undefined ? {} : { dataState: value.dataState }),
+      valueScale: prepareValueScaleFor(value.valueScale, 'sparkline'),
       emptyText: prepareOptionalLine(
-        value['emptyText'],
+        value.emptyText,
         'sparkline emptyText',
         'No sparkline data',
       ),
       loadingText: prepareOptionalLine(
-        value['loadingText'],
+        value.loadingText,
         'sparkline loadingText',
         'Loading data',
       ),
       errorText: prepareOptionalLine(
-        value['errorText'],
+        value.errorText,
         'sparkline errorText',
         'Unable to render data',
       ),
@@ -1659,26 +1640,21 @@ export const meter: SemanticLeafComponentFactory<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    value: null,
-    min: null,
-    max: null,
-    width: null,
-    variant: null,
-    result: null,
-  },
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('meter options must be an object.');
-    const label = value['label'];
-    const current = value['value'];
-    const min = value['min'];
-    const max = value['max'];
-    const width = value['width'];
-    const variant = value['variant'];
-    const result = value['result'];
+    assertKnownOptions(
+      value,
+      ['label', 'value', 'min', 'max', 'width', 'variant', 'result'],
+      'meter',
+    );
+    const label = value.label;
+    const current = value.value;
+    const min = value.min;
+    const max = value.max;
+    const width = value.width;
+    const variant = value.variant;
+    const result = value.result;
     assertAccessibleLabel(label, 'meter');
     assertFiniteNumber(current, 'meter value');
     assertNumericDomain(min, max, 'meter');

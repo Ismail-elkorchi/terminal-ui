@@ -7,8 +7,7 @@ import {
   frameCellSource,
   renderDiffAnsi,
   renderFrameAnsi,
-  renderFramePlain,
-  sanitizeFrameCellSource
+  renderFramePlain
 } from '../../dist/renderer/index.js';
 import { richText } from '../../dist/components/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
@@ -132,7 +131,7 @@ test('public FrameBuffer writes replace earlier backgrounds', () => {
 });
 
 test('FrameCellSource sanitizes stable structured metadata before entering frames', () => {
-  const sanitized = sanitizeFrameCellSource({
+  const sanitized = frameCellSource({
     elementId: 'owner\u001B[31m',
     elementKind: 'text',
     rendererFamily: 'text',
@@ -159,11 +158,7 @@ test('FrameCellSource sanitizes stable structured metadata before entering frame
     description: 'Title'
   });
   assert.equal(Object.isFrozen(sanitized), true);
-  assert.equal(sanitizeFrameCellSource(sanitized), sanitized);
-  assert.equal(
-    sanitizeFrameCellSource({ elementId: 'cell', itemIndex: 0 }),
-    sanitizeFrameCellSource({ elementId: 'cell', itemIndex: 0 })
-  );
+  assert.equal(frameCellSource(sanitized), sanitized);
 
   const buffer = createFrameBuffer(4, 1);
   buffer.write(1, 1, [{ text: 'A', source: frameCellSource({ elementId: 'cell', itemIndex: 0 }) }]);
@@ -173,7 +168,7 @@ test('FrameCellSource sanitizes stable structured metadata before entering frame
 test('FrameCellSource rejects invalid item indexes', () => {
   for (const itemIndex of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.throws(
-      () => sanitizeFrameCellSource({ elementId: 'invalid', itemIndex }),
+      () => frameCellSource({ elementId: 'invalid', itemIndex }),
       /Frame cell source itemIndex must be a non-negative integer/u
     );
   }
@@ -194,11 +189,11 @@ test('FrameCellSource preserves supported interaction states and roles', () => {
 
 test('FrameCellSource rejects unknown interaction values at every frame-buffer entry point', () => {
   assert.throws(
-    () => sanitizeFrameCellSource({ elementId: 'invalid', cellRole: 'heading' }),
+    () => frameCellSource({ elementId: 'invalid', cellRole: 'heading' }),
     /Frame cell source cellRole/u
   );
   assert.throws(
-    () => sanitizeFrameCellSource({ elementId: 'invalid', interactionState: 'busy' }),
+    () => frameCellSource({ elementId: 'invalid', interactionState: 'busy' }),
     /Frame cell source interactionState/u
   );
 

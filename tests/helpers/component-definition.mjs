@@ -12,7 +12,6 @@ export const leafComponentDefinition = Object.freeze({
   identity: 'required',
   name: 'terminal-ui-tests/components/testLeaf',
   parts: Object.freeze([]),
-  optionFields: { label: null },
   prepare: (value) => value,
   measure: () => unitMeasurement
 });
@@ -29,7 +28,6 @@ export const compositeComponentDefinition = Object.freeze({
       messages: 'bubble'
     })
   }),
-  optionFields: { label: null },
   prepare: (value) => value,
   measure: ({ childCount, measureChild }) => {
     const children = Array.from({ length: childCount }, (_unused, index) =>
@@ -51,18 +49,9 @@ export const compositeComponentDefinition = Object.freeze({
 });
 
 export function componentElement({ definition, children, ...options }) {
-  const reserved = new Set([
-    'id', 'children', 'slots', 'disabled', 'busy', 'readOnly', 'inert', 'onAction', 'meta',
-    'keys', 'onInput', 'onPaste', 'pointer'
-  ]);
-  const optionFields = Object.fromEntries([...new Set([
-    ...Object.keys(definition.optionFields ?? {}),
-    ...Object.keys(options).filter((field) => !reserved.has(field))
-  ])].map((field) => [field, null]));
   const normalized = {
     semantics: 'semantic',
     ...definition,
-    optionFields,
     ...(definition.structure === 'composite'
       ? {
           layout: (input) => ({
@@ -92,10 +81,9 @@ export function testKeyInput(options) {
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
-    optionFields: { value: null },
     metadata: ['focus', 'layer', 'styles'],
     prepare(value) {
-      if (typeof value !== 'object' || value === null || typeof value.value !== 'string') {
+      if (typeof value.value !== 'string') {
         throw new TypeError('test key input value must be a string.');
       }
       return { value: value.value };

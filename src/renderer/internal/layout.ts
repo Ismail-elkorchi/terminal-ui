@@ -11,7 +11,6 @@ import { defaultTextWidthProfile } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { LayoutFocusRegion, LayoutNode } from '../contracts.ts';
 import {
-  focusScopeForRenderNode,
   focusTargetsForRenderNode,
   createRenderMeasurementContext,
   layoutChildBounds,
@@ -126,7 +125,7 @@ function layoutNode(
         ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
       };
     });
-  const focusScope = focusScopeForRenderNode(renderNode);
+  const focusScope = renderNode.focus?.scope;
   const childViewport = renderNodeClipsChildren(renderNode)
     ? intersectRects(placedBounds, viewport) ?? emptyRect(placedBounds)
     : viewport;

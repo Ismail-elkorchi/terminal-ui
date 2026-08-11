@@ -19,16 +19,22 @@ import {
 import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalSize } from '../host/index.ts';
 import { normalizeKeyboardProfile } from '../protocol/index.ts';
 import {
-  decodeRecordedInputEvent
+  decodeInputEvent
 } from '../input/index.ts';
 import { pointerEventKinds } from '../input/pointer.ts';
 import type { Result } from '../result.ts';
-import type { CursorPosition, Frame, RenderDiff } from '../renderer/index.ts';
+import type { CursorPosition } from '../renderer/index.ts';
 import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
 import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
-import type { InteractionTranscript, TranscriptValidationLimits } from './types.ts';
+import type { DiagnosticOccurrence } from '../diagnostics.ts';
+import type { RecordedInputEvent } from '../input/index.ts';
+import type {
+  InteractionTranscript,
+  InteractionTranscriptStep,
+  TranscriptValidationLimits
+} from './types.ts';
 
 const frameCellSourceFields = new Set([
   'elementId',
@@ -181,9 +187,10 @@ export function validateTranscript(
   } catch (cause) {
     return transcriptFailure(errorMessage(cause));
   }
-  const issue = transcriptIssue(decoded);
+  const inputEvents: RecordedInputEvent[] = [];
+  const issue = transcriptIssue(decoded, inputEvents);
   if (issue !== undefined) return transcriptFailure(issue);
-  return ok(decoded as InteractionTranscript);
+  return ok(transcriptWithDecodedInputEvents(decoded as InteractionTranscript, inputEvents));
 }
 
 function normalizeTranscriptValidationLimits(
@@ -309,7 +316,10 @@ function transcriptResourceIssue(
   return undefined;
 }
 
-function transcriptIssue(transcript: unknown): string | undefined {
+function transcriptIssue(
+  transcript: unknown,
+  inputEvents: RecordedInputEvent[]
+): string | undefined {
   if (!isNonArrayObject(transcript)) return 'Interaction transcript must be an object.';
   const unknownField = findUnsupportedField(transcript, transcriptFields);
   if (unknownField !== undefined) {
@@ -336,18 +346,20 @@ function transcriptIssue(transcript: unknown): string | undefined {
   }
 
   for (const [index, item] of transcript['steps'].entries()) {
-    const issue = stepIssue(item);
+    const issue = stepIssue(item, inputEvents);
     if (issue !== undefined) return `Invalid transcript step at index ${String(index)}: ${issue}`;
   }
-  const orderingIssue = transcriptOrderingIssue(transcript['steps']);
+  const steps = transcript['steps'] as readonly InteractionTranscriptStep[];
+  const orderingIssue = transcriptOrderingIssue(steps);
   if (orderingIssue !== undefined) return orderingIssue;
   for (const [index, item] of transcript['diagnostics'].entries()) {
     const issue = diagnosticOccurrenceIssue(item);
     if (issue !== undefined) return `Invalid transcript diagnostic at index ${String(index)}: ${issue}`;
   }
+  const diagnostics = transcript['diagnostics'] as readonly DiagnosticOccurrence[];
   const occurrenceIssue = transcriptDiagnosticOccurrenceIssue(
-    transcript['steps'],
-    transcript['diagnostics']
+    steps,
+    diagnostics
   );
   if (occurrenceIssue !== undefined) return occurrenceIssue;
   for (const [index, item] of transcript['redactions'].entries()) {
@@ -364,87 +376,60 @@ function transcriptIssue(transcript: unknown): string | undefined {
 }
 
 function transcriptDiagnosticOccurrenceIssue(
-  steps: readonly unknown[],
-  diagnostics: readonly unknown[]
+  steps: readonly InteractionTranscriptStep[],
+  diagnostics: readonly DiagnosticOccurrence[]
 ): string | undefined {
   const stepOccurrences = new Map<string, string>();
   for (const step of steps) {
-    if (!isNonArrayObject(step) || step['kind'] !== 'diagnostic') continue;
-    const identity = diagnosticOccurrenceIdentity(step['occurrence']);
-    if (identity === undefined) continue;
-    if (stepOccurrences.has(identity.id)) {
-      return `Transcript diagnostic occurrence id ${identity.id} is duplicated in steps.`;
+    if (step.kind !== 'diagnostic') continue;
+    const occurrence = step.occurrence;
+    if (stepOccurrences.has(occurrence.id)) {
+      return `Transcript diagnostic occurrence id ${occurrence.id} is duplicated in steps.`;
     }
-    stepOccurrences.set(identity.id, identity.fingerprint);
+    stepOccurrences.set(occurrence.id, occurrence.diagnostic.fingerprint);
   }
 
   const topLevelOccurrences = new Set<string>();
   for (const occurrence of diagnostics) {
-    const identity = diagnosticOccurrenceIdentity(occurrence);
-    if (identity === undefined) continue;
-    if (topLevelOccurrences.has(identity.id)) {
-      return `Transcript diagnostic occurrence id ${identity.id} is duplicated in top-level diagnostics.`;
+    if (topLevelOccurrences.has(occurrence.id)) {
+      return `Transcript diagnostic occurrence id ${occurrence.id} is duplicated in top-level diagnostics.`;
     }
-    topLevelOccurrences.add(identity.id);
-    const stepFingerprint = stepOccurrences.get(identity.id);
-    if (stepFingerprint !== undefined && stepFingerprint !== identity.fingerprint) {
-      return `Transcript diagnostic occurrence id ${identity.id} has conflicting content between steps and top-level diagnostics.`;
+    topLevelOccurrences.add(occurrence.id);
+    const stepFingerprint = stepOccurrences.get(occurrence.id);
+    if (stepFingerprint !== undefined && stepFingerprint !== occurrence.diagnostic.fingerprint) {
+      return `Transcript diagnostic occurrence id ${occurrence.id} has conflicting content between steps and top-level diagnostics.`;
     }
   }
   return undefined;
 }
 
-function diagnosticOccurrenceIdentity(
-  occurrence: unknown
-): { readonly id: string; readonly fingerprint: string } | undefined {
-  if (!isNonArrayObject(occurrence) || typeof occurrence['id'] !== 'string') return undefined;
-  const item = occurrence['diagnostic'];
-  if (!isNonArrayObject(item) || typeof item['fingerprint'] !== 'string') return undefined;
-  return { id: occurrence['id'], fingerprint: item['fingerprint'] };
-}
-
-function transcriptOrderingIssue(steps: readonly unknown[]): string | undefined {
+function transcriptOrderingIssue(steps: readonly InteractionTranscriptStep[]): string | undefined {
   const commitIds = new Set<string>();
   let lastStateVersion = -1;
   let restorationSeen = false;
   let previousProjection: RenderDiffProjection | undefined;
   for (const [index, step] of steps.entries()) {
-    if (!isNonArrayObject(step)) continue;
-    if (step['kind'] === 'restore' && step['phase'] === 'shutdown') {
+    if (step.kind === 'restore' && step.phase === 'shutdown') {
       restorationSeen = true;
       continue;
     }
-    if (restorationSeen && (step['kind'] === 'commit' || step['kind'] === 'input' || step['kind'] === 'message')) {
-      return `Transcript ${step['kind']} step at index ${String(index)} occurs after shutdown restoration.`;
+    if (restorationSeen && (step.kind === 'commit' || step.kind === 'input' || step.kind === 'message')) {
+      return `Transcript ${step.kind} step at index ${String(index)} occurs after shutdown restoration.`;
     }
-    if (step['kind'] !== 'commit' || !isNonArrayObject(step['commit'])) continue;
-    const id = step['commit']['id'];
-    const stateVersion = step['commit']['stateVersion'];
-    if (typeof id === 'string') {
-      if (commitIds.has(id)) return `Transcript commit id ${id} is duplicated.`;
-      commitIds.add(id);
+    if (step.kind !== 'commit') continue;
+    const { id, stateVersion, frame, diff } = step.commit;
+    if (commitIds.has(id)) return `Transcript commit id ${id} is duplicated.`;
+    commitIds.add(id);
+    if (stateVersion < lastStateVersion) {
+      return `Transcript commit stateVersion decreases at index ${String(index)}.`;
     }
-    if (typeof stateVersion === 'number') {
-      if (stateVersion < lastStateVersion) {
-        return `Transcript commit stateVersion decreases at index ${String(index)}.`;
-      }
-      lastStateVersion = stateVersion;
-    }
-    const frame = step['commit']['frame'];
-    const diff = step['commit']['diff'];
-    if (!isNonArrayObject(frame) || !isNonArrayObject(diff)) continue;
-    if (previousProjection === undefined && diff['fullRewrite'] !== true) {
+    lastStateVersion = stateVersion;
+    if (previousProjection === undefined && !diff.fullRewrite) {
       return `Transcript first commit at index ${String(index)} must contain a full rewrite.`;
     }
     try {
-      const projection = applyRenderDiff(
-        previousProjection,
-        diff as unknown as RenderDiff
-      );
-      if (!renderDiffProjectionMatchesFrame(
-        projection,
-        frame as unknown as Frame
-      )) {
+      const projection = applyRenderDiff(previousProjection, diff);
+      if (!renderDiffProjectionMatchesFrame(projection, frame)) {
         return `Transcript commit at index ${String(index)} diff does not reproduce its frame.`;
       }
       previousProjection = projection;
@@ -459,7 +444,7 @@ function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-function stepIssue(step: unknown): string | undefined {
+function stepIssue(step: unknown, inputEvents: RecordedInputEvent[]): string | undefined {
   if (!isNonArrayObject(step)) return 'step must be an object.';
   const fields = typeof step['kind'] === 'string'
     ? transcriptStepFields[step['kind']]
@@ -472,7 +457,7 @@ function stepIssue(step: unknown): string | undefined {
   }
   switch (step['kind']) {
     case 'input':
-      return inputEventIssue(step['event']);
+      return inputEventIssue(step['event'], inputEvents);
     case 'message':
       return messageStepIssue(step);
     case 'commit':
@@ -544,13 +529,34 @@ function messageStepIssue(step: Record<string, unknown>): string | undefined {
   return Object.hasOwn(step, 'message') ? undefined : 'message step requires message.';
 }
 
-function inputEventIssue(event: unknown): string | undefined {
+function inputEventIssue(
+  event: unknown,
+  inputEvents: RecordedInputEvent[]
+): string | undefined {
   try {
-    decodeRecordedInputEvent(event);
+    inputEvents.push(decodeInputEvent(event));
     return undefined;
   } catch (cause) {
     return errorMessage(cause);
   }
+}
+
+function transcriptWithDecodedInputEvents(
+  transcript: InteractionTranscript,
+  inputEvents: readonly RecordedInputEvent[]
+): InteractionTranscript {
+  if (inputEvents.length === 0) return transcript;
+  let index = 0;
+  return {
+    ...transcript,
+    steps: transcript.steps.map((step) => {
+      if (step.kind !== 'input') return step;
+      const event = inputEvents[index];
+      if (event === undefined) throw new Error('Validated transcript input event is missing.');
+      index += 1;
+      return { kind: 'input', event };
+    })
+  };
 }
 
 function frameIssue(frame: unknown): string | undefined {

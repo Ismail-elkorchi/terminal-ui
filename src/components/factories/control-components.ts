@@ -17,6 +17,7 @@ import type {
   SemanticLeafComponentFactory,
 } from '../../component/index.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
@@ -101,21 +102,15 @@ const instantiateSlider = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    value: null,
-    min: null,
-    max: null,
-    step: null,
-    width: null,
-    error: null,
-    pointerState: null,
-  },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'value', 'error'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('slider options must be an object.');
+    assertKnownOptions(
+      value,
+      ['label', 'value', 'min', 'max', 'step', 'width', 'error', 'pointerState'],
+      'slider',
+    );
     const common = prepareNumericSlider(value, 'slider');
     return { ...common, value: numberInRange(value, 'value', common.min, common.max, 'slider') };
   },
@@ -173,15 +168,6 @@ const instantiateRangeSlider = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    state: null,
-    range: null,
-    step: null,
-    width: null,
-    error: null,
-    pointerState: null,
-  },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'value', 'error'],
@@ -267,15 +253,6 @@ const instantiateCheckboxGroup = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   ...choiceDefinitionBase('checkbox-group'),
-  optionFields: {
-    label: null,
-    options: null,
-    selected: null,
-    focused: null,
-    required: null,
-    error: null,
-    pointerState: null,
-  },
   prepare: (value) => prepareChoiceModel(value, 'checkboxGroup', true),
   render: (input) => {
     paintLines(input, choiceLines(input, 'checkbox', true));
@@ -302,15 +279,6 @@ const instantiateRadioGroup = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   ...choiceDefinitionBase('radio-group'),
-  optionFields: {
-    label: null,
-    options: null,
-    selected: null,
-    focused: null,
-    required: null,
-    error: null,
-    pointerState: null,
-  },
   prepare: (value) => prepareChoiceModel(value, 'radioGroup', false),
   render: (input) => {
     paintLines(input, choiceLines(input, 'radio', true));
@@ -357,15 +325,6 @@ const instantiateColorSwatchPicker = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    options: null,
-    selected: null,
-    focused: null,
-    columns: null,
-    error: null,
-    pointerState: null,
-  },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'summary', 'option', 'swatch', 'error'],
@@ -450,16 +409,6 @@ const instantiateCalendar = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    label: null,
-    monthLabel: null,
-    weekdays: null,
-    days: null,
-    selected: null,
-    focused: null,
-    error: null,
-    pointerState: null,
-  },
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'option', 'month', 'weekday', 'error'],
@@ -529,23 +478,10 @@ interface TextEntryModel extends PointerModel {
 
 const textInputDefinition = textEntryDefinition<
   Omit<TextInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>
->('text-input', false, {
-  presentation: null,
-  placeholder: null,
-  required: null,
-  error: null,
-  pointerState: null,
-});
+>('text-input', false);
 const passwordInputDefinition = textEntryDefinition<
   Omit<PasswordInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>
->('password-input', true, {
-  presentation: null,
-  placeholder: null,
-  required: null,
-  error: null,
-  pointerState: null,
-  mask: null,
-});
+>('password-input', true);
 
 export function textInput<const TMessage extends ComponentMessage = never>(
   options: TextInputOptions<TMessage>,
@@ -583,13 +519,6 @@ const instantiateNumberInput = defineComponent<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: {
-    presentation: null,
-    placeholder: null,
-    required: null,
-    error: null,
-    pointerState: null,
-  },
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['border', 'value', 'placeholder', 'selection', 'cursor', 'stepper', 'error'],
@@ -741,8 +670,10 @@ function preparePointer(value: unknown, owner: string): PointerInteractionState 
   };
 }
 
-function prepareNumericSlider(value: unknown, owner: string): Omit<SliderModel, 'value'> {
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} options must be an object.`);
+function prepareNumericSlider(
+  value: Readonly<Record<string, unknown>>,
+  owner: string,
+): Omit<SliderModel, 'value'> {
   const min = optionalFinite(value['min'], `${owner} min`) ?? 0;
   const max = optionalFinite(value['max'], `${owner} max`) ?? 100;
   if (max < min) throw new RangeError(`${owner} must define finite ordered bounds.`);
@@ -778,8 +709,12 @@ function numberInRange(
   return number;
 }
 
-function prepareRangeSlider(value: unknown): RangeModel {
-  if (!isNonArrayObject(value)) throw new TypeError('rangeSlider options must be an object.');
+function prepareRangeSlider(value: Readonly<Record<string, unknown>>): RangeModel {
+  assertKnownOptions(
+    value,
+    ['label', 'state', 'range', 'step', 'width', 'error', 'pointerState'],
+    'rangeSlider',
+  );
   const range = value['range'];
   if (range !== undefined && !isNonArrayObject(range)) {
     throw new TypeError('rangeSlider range must be an object.');
@@ -977,10 +912,19 @@ function sliderPartStyle(description: string, disabled: boolean, active = false)
     : base;
 }
 
-function prepareChoiceModel(value: unknown, owner: string, multiple: boolean): ChoiceModel {
-  if (!isNonArrayObject(value) || !Array.isArray(value['options'])) {
+function prepareChoiceModel(
+  value: Readonly<Record<string, unknown>>,
+  owner: string,
+  multiple: boolean,
+): ChoiceModel {
+  if (!Array.isArray(value['options'])) {
     throw new TypeError(`${owner} options must contain an options array.`);
   }
+  assertKnownOptions(
+    value,
+    ['label', 'options', 'selected', 'focused', 'required', 'error', 'pointerState'],
+    owner,
+  );
   const options = value['options'].map((item, index) =>
     prepareChoice(item, `${owner} options[${String(index)}]`)
   );
@@ -1254,10 +1198,13 @@ function choiceAccessibility(
   };
 }
 
-function prepareSwatches(value: unknown): SwatchModel {
-  if (!isNonArrayObject(value) || !Array.isArray(value['options'])) {
+function prepareSwatches(value: Readonly<Record<string, unknown>>): SwatchModel {
+  if (!Array.isArray(value['options'])) {
     throw new TypeError('colorSwatchPicker options must contain an options array.');
   }
+  assertKnownOptions(value, [
+    'label', 'options', 'selected', 'focused', 'columns', 'error', 'pointerState',
+  ], 'colorSwatchPicker');
   const options = value['options'].map((item, index): PreparedSwatch => {
     const base = prepareChoice(item, `colorSwatchPicker options[${String(index)}]`, [
       'swatch',
@@ -1439,10 +1386,13 @@ function swatchOptionSpans(
   ];
 }
 
-function prepareCalendar(value: unknown): CalendarModel {
-  if (
-    !isNonArrayObject(value) || !Array.isArray(value['weekdays']) || !Array.isArray(value['days'])
-  ) throw new TypeError('calendar options are invalid.');
+function prepareCalendar(value: Readonly<Record<string, unknown>>): CalendarModel {
+  if (!Array.isArray(value['weekdays']) || !Array.isArray(value['days'])) {
+    throw new TypeError('calendar options are invalid.');
+  }
+  assertKnownOptions(value, [
+    'label', 'monthLabel', 'weekdays', 'days', 'selected', 'focused', 'error', 'pointerState',
+  ], 'calendar');
   if (value['weekdays'].length !== 7) {
     throw new RangeError('calendar weekdays must contain seven labels.');
   }
@@ -1636,7 +1586,6 @@ type TextEntryFactory<TOptions extends object> = SemanticLeafComponentFactory<
 function textEntryDefinition<TOptions extends object>(
   name: 'text-input' | 'password-input',
   password: boolean,
-  optionFields: Readonly<Record<Extract<keyof TOptions, string>, null>>,
 ): TextEntryFactory<TOptions> {
   return defineComponent<
     TOptions,
@@ -1651,7 +1600,6 @@ function textEntryDefinition<TOptions extends object>(
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
-    optionFields,
     states: ['disabled', 'readOnly'],
     metadata: ['focus', 'layer', 'styles'],
     parts: ['border', 'label', 'value', 'placeholder', 'selection', 'cursor', 'error'],
@@ -1780,10 +1728,21 @@ function textEntryDefinition<TOptions extends object>(
   });
 }
 
-function prepareTextEntry(value: unknown, owner: string, password: boolean): TextEntryModel {
-  if (!isNonArrayObject(value) || !isNonArrayObject(value['presentation'])) {
+function prepareTextEntry(
+  value: Readonly<Record<string, unknown>>,
+  owner: string,
+  password: boolean,
+): TextEntryModel {
+  if (!isNonArrayObject(value['presentation'])) {
     throw new TypeError(`${owner} presentation must be an object.`);
   }
+  assertKnownOptions(
+    value,
+    password
+      ? ['presentation', 'placeholder', 'required', 'error', 'pointerState', 'mask']
+      : ['presentation', 'placeholder', 'required', 'error', 'pointerState'],
+    owner,
+  );
   const presentation = prepareTextPresentation(value['presentation'], owner);
   const mask = password ? optionalString(value['mask'], `${owner} mask`) ?? '•' : undefined;
   if (
@@ -2006,10 +1965,15 @@ function sourceOffsetAtColumn(
   return source[index]?.startOffset ?? model.sourceValue.length;
 }
 
-function prepareNumberInput(value: unknown): NumberModel {
-  if (!isNonArrayObject(value) || !isNonArrayObject(value['presentation'])) {
+function prepareNumberInput(value: Readonly<Record<string, unknown>>): NumberModel {
+  if (!isNonArrayObject(value['presentation'])) {
     throw new TypeError('numberInput presentation must be an object.');
   }
+  assertKnownOptions(
+    value,
+    ['presentation', 'placeholder', 'required', 'error', 'pointerState'],
+    'numberInput',
+  );
   const raw = value['presentation'];
   const unsupported = Object.keys(raw).find((field) =>
     field !== 'value' && field !== 'cursor' && field !== 'selection' &&

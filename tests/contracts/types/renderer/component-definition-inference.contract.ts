@@ -115,10 +115,8 @@ const badge = defineComponent<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null },
   prepare(value) {
-    if (typeof value !== 'object' || value === null || !('label' in value)
-      || typeof value.label !== 'string') {
+    if (typeof value.label !== 'string') {
       throw new TypeError('badge label must be a string');
     }
     return { label: value.label };
@@ -162,10 +160,8 @@ const instantiateGenericBox = defineComponent<
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { values: null },
-  prepare(value: unknown) {
-    if (typeof value !== 'object' || value === null || !('values' in value)
-      || !Array.isArray(value.values)
+  prepare(value) {
+    if (!Array.isArray(value.values)
       || value.values.some((entry) => typeof entry !== 'string')) {
       throw new TypeError('generic box values must be strings');
     }
@@ -191,22 +187,6 @@ const genericBox: GenericBoxFactory = (options) => instantiateGenericBox({
 
 genericBox({ values: [1, 2, 3], label: (value) => value.toFixed(0) });
 genericBox({ values: [{ id: 'one' }], label: (value) => value.id });
-
-// @ts-expect-error every public option must be declared at the decoding boundary
-defineComponent<
-  { readonly label: string; readonly tone: string },
-  { readonly label: string; readonly tone: string }
->({
-  name: 'terminal-ui-tests/components/incomplete-options',
-  identity: 'optional',
-  structure: 'leaf',
-  semantics: 'semantic',
-  optionFields: { label: null },
-  prepare: () => ({ label: 'label', tone: 'neutral' }),
-  measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
-  render: () => undefined,
-  accessibility: ({ id }: { readonly id: string }) => ({ id, role: 'text' })
-});
 
 const noFactoryBuilderDefinition = {
   name: 'terminal-ui-tests/components/no-factory-builder',

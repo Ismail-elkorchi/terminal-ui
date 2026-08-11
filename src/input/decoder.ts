@@ -32,12 +32,16 @@ export const defaultInputDecodeLimits: InputDecodeLimits = Object.freeze({
   maxMouseFieldDigits: 9
 });
 
+type NormalizedInputDecodeOptions = Omit<InputDecodeOptions, 'limits'> & {
+  readonly limits: InputDecodeLimits;
+};
+
 export function decodeInputChunk(
   chunk: TerminalInputChunk,
   options: InputDecodeOptions = {}
 ): readonly InputEvent[] {
   const normalized = normalizeDecodeOptions(options);
-  const limits = normalizeInputDecodeLimits(normalized.limits);
+  const limits = normalized.limits;
   assertHostChunkWithinLimit(chunk, limits);
   const text = decodeUtf8Chunk(chunk);
   if (text.length === 0) return [];
@@ -50,7 +54,7 @@ export function createInputDecoder(options: InputDecodeOptions = {}): InputDecod
   let pasteSearchFrom = BRACKETED_PASTE_START.length;
   let protocolSearchFrom = 0;
   const utf8 = createUtf8StreamDecoder();
-  const limits = normalizeInputDecodeLimits(normalized.limits);
+  const limits = normalized.limits;
 
   return {
     decode(chunk) {
@@ -412,7 +416,7 @@ export function normalizeInputDecodeLimits(value: unknown): InputDecodeLimits {
   });
 }
 
-function normalizeDecodeOptions(value: InputDecodeOptions): InputDecodeOptions {
+function normalizeDecodeOptions(value: InputDecodeOptions): NormalizedInputDecodeOptions {
   const candidate: unknown = value;
   assertNonArrayRecord(candidate, 'Input decode options');
   const record = candidate;
@@ -439,9 +443,7 @@ function normalizeDecodeOptions(value: InputDecodeOptions): InputDecodeOptions {
   ) {
     throw new TypeError('Input decode option mouseReporting is unsupported.');
   }
-  const limits = record['limits'] === undefined
-    ? undefined
-    : normalizeInputDecodeLimits(record['limits']);
+  const limits = normalizeInputDecodeLimits(record['limits']);
   const keyboard = record['keyboard'] === undefined
     ? undefined
     : normalizeKeyboardProfile(record['keyboard']);
@@ -450,7 +452,7 @@ function normalizeDecodeOptions(value: InputDecodeOptions): InputDecodeOptions {
     ...(bracketedPaste === undefined ? {} : { bracketedPaste }),
     ...(focusReporting === undefined ? {} : { focusReporting }),
     ...(mouseReporting === undefined ? {} : { mouseReporting }),
-    ...(limits === undefined ? {} : { limits })
+    limits
   });
 }
 

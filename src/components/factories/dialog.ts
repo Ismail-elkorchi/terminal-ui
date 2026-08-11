@@ -17,6 +17,7 @@ import {
   normalizeBorderTitle,
 } from '../../visual/border.ts';
 import { divider } from './menus.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface PreparedDialog {
   readonly title?: BorderTitle;
@@ -52,35 +53,20 @@ const instantiateDialog = defineComponent<
   slots: dialogSlots,
   metadata: ['focus', 'layer', 'styles'],
   parts: ['background', 'border', 'title', 'actionSeparator'],
-  optionFields: {
-    title: null,
-    border: null,
-    width: null,
-    height: null,
-    modal: null,
-    focusPolicy: null,
-    dismissal: null,
-    gap: null,
-    padding: null,
-    margin: null,
-    minWidth: null,
-    minHeight: null,
-    maxWidth: null,
-    maxHeight: null,
-    align: null,
-    justify: null,
-    overflow: null,
-  },
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('dialog options must be an object.');
-    const modal = value['modal'];
+    assertKnownOptions(value, [
+      'title', 'border', 'width', 'height', 'modal', 'focusPolicy', 'dismissal',
+      'gap', 'padding', 'margin', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
+      'align', 'justify', 'overflow',
+    ], 'dialog');
+    const modal = value.modal;
     if (typeof modal !== 'boolean') throw new TypeError('dialog modal must be a boolean.');
-    const title = prepareDialogTitle(value['title']);
-    const border = prepareDialogBorder(value['border']) ?? { kind: 'single' as const };
-    const width = prepareDialogDimension(value['width'], 'width');
-    const height = prepareDialogDimension(value['height'], 'height');
-    const focusPolicy = prepareDialogFocusPolicy(value['focusPolicy'], modal);
-    const dismissal = prepareDialogDismissal(value['dismissal']);
+    const title = prepareDialogTitle(value.title);
+    const border = prepareDialogBorder(value.border) ?? { kind: 'single' as const };
+    const width = prepareDialogDimension(value.width, 'width');
+    const height = prepareDialogDimension(value.height, 'height');
+    const focusPolicy = prepareDialogFocusPolicy(value.focusPolicy, modal);
+    const dismissal = prepareDialogDismissal(value.dismissal);
     const layout = prepareLayoutFlowOptions(value, 'dialog');
     if (
       width !== undefined &&

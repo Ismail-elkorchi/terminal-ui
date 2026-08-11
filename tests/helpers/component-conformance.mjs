@@ -7,7 +7,28 @@ import { renderElementSnapshot } from '../../dist/testing/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 export function runButtonConformance(name, createButton) {
-  test(`${name}: exact decoding, sanitization, Unicode, styles, source, focus, and determinism`, () => {
+  test(`${name}: unknown options fail at the component boundary`, () => {
+    assert.throws(
+      () => createButton({
+        id: `${name}-typo`,
+        label: 'Delete',
+        disabeld: true,
+        onAction: () => ({ kind: 'delete' })
+      }),
+      /unknown field "disabeld"/u
+    );
+    assert.throws(
+      () => createButton({
+        id: `${name}-visual-typo`,
+        label: 'Delete',
+        toen: 'danger',
+        onAction: () => ({ kind: 'delete' })
+      }),
+      /unknown field "toen"/u
+    );
+  });
+
+  test(`${name}: option decoding, sanitization, Unicode, styles, source, focus, and determinism`, () => {
     const element = createButton({
       id: `${name}-button`,
       label: `Go\u001b[31m界`,
@@ -45,15 +66,6 @@ export function runButtonConformance(name, createButton) {
     assert.equal(snapshot.frame.hitTargets?.length ?? 0, 0);
     assert.equal(snapshot.frame.focusPath, undefined);
     assert.equal(snapshot.frame.accessibility.root.disabled, true);
-  });
-
-  test(`${name}: unknown instance fields fail at the component boundary`, () => {
-    assert.throws(() => createButton({
-      id: `${name}-invalid`,
-      label: 'Invalid',
-      onAction: () => ({ kind: 'activate' }),
-      misspelled: true
-    }), /unknown field/u);
   });
 }
 

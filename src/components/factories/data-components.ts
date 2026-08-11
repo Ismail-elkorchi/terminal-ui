@@ -142,19 +142,6 @@ const tableBase = {
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
-  optionFields: {
-    rows: null,
-    getRowId: null,
-    collection: null,
-    columns: null,
-    presentation: null,
-    density: null,
-    stickyHeader: null,
-    emptyText: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: [
     'header',
@@ -259,7 +246,7 @@ export function table<TRow, const TMessage extends ComponentMessage = never>(
 export function table<TRow, const TMessage extends ComponentMessage = never>(
   options: TableOptions<TRow, TMessage>,
 ): Element<TMessage> {
-  const own = snapshotTableOptions(options);
+  const own: DynamicTableOptions = options;
   const onAction = options.onAction;
   if (onAction === undefined) {
     return passiveTable({
@@ -291,14 +278,11 @@ function isScrollableTable<TRow, TMessage extends ComponentMessage>(
   return isNonArrayObject(options.presentation) && 'scroll' in options.presentation;
 }
 
-function snapshotTableOptions<TRow>(
-  options: TableOptions<TRow, ComponentMessage>,
-): DynamicTableOptions {
-  return { ...options };
-}
-
-function prepareTable(value: unknown): TableModel {
-  if (!isNonArrayObject(value)) throw new TypeError('table options must be an object.');
+function prepareTable(value: Readonly<Record<string, unknown>>): TableModel {
+  assertExactFields(value, [
+    'rows', 'getRowId', 'collection', 'columns', 'presentation', 'density', 'stickyHeader',
+    'emptyText', 'scrollbar', 'scrollPolicy', 'pointerState',
+  ], 'table options');
   const source = tableSource(value);
   const preparation = prepareTableStructure(value['columns'], source);
   const columns = preparation.columns;
@@ -1623,17 +1607,6 @@ const treeBase = {
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
-  optionFields: {
-    nodes: null,
-    collection: null,
-    filterQuery: null,
-    selected: null,
-    emptyText: null,
-    scroll: null,
-    scrollbar: null,
-    scrollPolicy: null,
-    pointerState: null,
-  },
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: [
     'marker',
@@ -1718,7 +1691,7 @@ export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
   const TMessage extends ComponentMessage = never,
 >(options: TreeOptions<TMetadata, TMessage>): Element<TMessage> {
-  const own = snapshotTreeOptions(options);
+  const own: DynamicTreeOptions = options;
   const shared = {
     ...own,
     id: options.id,
@@ -1736,14 +1709,11 @@ export function tree<
   return activeTree({ ...shared, onAction: options.onAction });
 }
 
-function snapshotTreeOptions<TMetadata extends Readonly<Record<string, unknown>>>(
-  options: TreeOptions<TMetadata, ComponentMessage>,
-): DynamicTreeOptions {
-  return { ...options };
-}
-
-function prepareTree(value: unknown): TreeModel {
-  if (!isNonArrayObject(value)) throw new TypeError('tree options must be an object.');
+function prepareTree(value: Readonly<Record<string, unknown>>): TreeModel {
+  assertExactFields(value, [
+    'nodes', 'collection', 'filterQuery', 'selected', 'emptyText', 'scroll', 'scrollbar',
+    'scrollPolicy', 'pointerState',
+  ], 'tree options');
   const query = (text(value['filterQuery'], 'tree filterQuery') ?? '').trim();
   let collection: CollectionProjection<CollectionRecord>;
   let startIndex: number;

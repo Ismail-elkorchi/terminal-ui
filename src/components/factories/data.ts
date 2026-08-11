@@ -8,6 +8,7 @@ import { sanitizeTerminalText } from '../../text/index.ts';
 import type { PaginatorAction } from '../../ui-model/paginator.ts';
 import type { PaginatorStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan } from '../../visual/render.ts';
+import { assertKnownOptions } from '../internal/options.ts';
 
 interface PaginatorModel {
   readonly pageNumber: number;
@@ -49,15 +50,14 @@ export const paginator: SemanticLeafComponentFactory<
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { pageNumber: null, pageCount: null, label: null, pointerState: null },
   metadata: ['focus', 'layer', 'styles'],
   parts: ['control', 'label', 'value', 'separator'],
   prepare(value) {
-    if (!isNonArrayObject(value)) throw new TypeError('paginator options must be an object.');
-    const pageNumber = value['pageNumber'];
-    const pageCount = value['pageCount'];
-    const label = value['label'];
-    const pointerState = value['pointerState'];
+    assertKnownOptions(value, ['pageNumber', 'pageCount', 'label', 'pointerState'], 'paginator');
+    const pageNumber = value.pageNumber;
+    const pageCount = value.pageCount;
+    const label = value.label;
+    const pointerState = value.pointerState;
     if (typeof pageNumber !== 'number' || !Number.isFinite(pageNumber)) {
       throw new TypeError('paginator pageNumber must be finite.');
     }

@@ -1,5 +1,4 @@
 import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
-import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { HitTarget } from '../contracts.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
@@ -24,34 +23,6 @@ export function pointerInteractionHitTargets<TMessage>(
         cursor: 'default' as const
       }];
   return interactionTargets.map((target) => decoratePointerTarget(target, toActionMessage));
-}
-
-export function renderNodePointerVisualState(
-  renderNode: RenderNode,
-  targetId: string
-): 'hovered' | 'pressed' | undefined {
-  return pointerVisualState(renderNode.pointer?.state, targetId);
-}
-
-export function renderNodeTargetId(renderNode: RenderNode, ...parts: readonly string[]): string {
-  return [renderNode.id ?? renderNode.kind, ...parts].join(':');
-}
-
-export function interactionVisualState(
-  renderNode: RenderNode,
-  targetId: string,
-  state: {
-    readonly disabled?: boolean;
-    readonly selected?: boolean;
-    readonly focused?: boolean;
-  } = {}
-): import('../../element/metadata.ts').ElementVisualState | undefined {
-  if (state.disabled === true) return 'disabled';
-  const pointer = renderNodePointerVisualState(renderNode, targetId);
-  if (pointer === 'pressed') return 'pressed';
-  if (state.selected === true) return 'selected';
-  if (state.focused === true) return 'focused';
-  return pointer;
 }
 
 function decoratePointerTarget<TMessage>(

@@ -5,9 +5,8 @@ const badge = defineComponent({
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
-  optionFields: { label: null },
   prepare(value) {
-    if (typeof value !== 'object' || value === null || typeof value.label !== 'string') {
+    if (typeof value.label !== 'string') {
       throw new TypeError('peer badge requires a label.');
     }
     return Object.freeze({ label: value.label });

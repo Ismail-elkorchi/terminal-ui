@@ -47,14 +47,12 @@ export interface RenderNodeFrameSourceOptions {
 }
 
 const sanitizedFrameSources = new WeakMap<object, FrameCellSource>();
-const frameSourceInternLimit = 8192;
-const internedFrameSources = new Map<string, FrameCellSource>();
 
 export function renderNodeFrameSource(
   renderNode: { readonly id?: string; readonly kind: string },
   options: RenderNodeFrameSourceOptions = {}
 ): FrameCellSource {
-  return sanitizeFrameCellSource({
+  return frameCellSource({
     ...(renderNode.id === undefined ? {} : { elementId: renderNode.id }),
     elementKind: renderNode.kind,
     ...options
@@ -62,7 +60,7 @@ export function renderNodeFrameSource(
 }
 
 export function frameCellSource(input: FrameCellSource): FrameCellSource {
-  return sanitizeFrameCellSource(input);
+  return normalizeUntrustedFrameCellSource(input);
 }
 
 export function frameSourcePart(
@@ -70,14 +68,10 @@ export function frameSourcePart(
   options: Pick<RenderNodeFrameSourceOptions, 'partName' | 'partType' | 'interactionState' | 'description'>
 ): FrameCellSource | undefined {
   if (source === undefined) return undefined;
-  return sanitizeFrameCellSource({
+  return frameCellSource({
     ...source,
     ...options
   });
-}
-
-export function sanitizeFrameCellSource(source: FrameCellSource): FrameCellSource {
-  return normalizeUntrustedFrameCellSource(source);
 }
 
 export function normalizeUntrustedFrameCellSource(source: unknown): FrameCellSource {
@@ -98,13 +92,8 @@ export function normalizeUntrustedFrameCellSource(source: unknown): FrameCellSou
     ...optionalInteractionState(source['interactionState']),
     ...optionalTextField('description', source['description'])
   };
-  const key = frameSourceInternKey(normalized);
-  const interned = internedFrameSources.get(key);
-  if (interned !== undefined) return interned;
   const sanitized = Object.freeze(normalized);
   sanitizedFrameSources.set(sanitized, sanitized);
-  internedFrameSources.set(key, sanitized);
-  trimInternedFrameSources();
   return sanitized;
 }
 
@@ -184,27 +173,4 @@ export function isFrameCellInteractionState(
 ): value is NonNullable<FrameCellSource['interactionState']> {
   return typeof value === 'string'
     && (interactionStates as readonly string[]).includes(value);
-}
-
-function frameSourceInternKey(source: FrameCellSource): string {
-  return [
-    source.elementId ?? '',
-    source.elementKind ?? '',
-    source.rendererFamily ?? '',
-    source.cellRole ?? '',
-    source.partName ?? '',
-    source.partType ?? '',
-    source.itemId ?? '',
-    source.itemIndex === undefined ? '' : String(source.itemIndex),
-    source.interactionState ?? '',
-    source.description ?? ''
-  ].join('\u0000');
-}
-
-function trimInternedFrameSources(): void {
-  while (internedFrameSources.size > frameSourceInternLimit) {
-    const oldest = internedFrameSources.keys().next().value;
-    if (oldest === undefined) return;
-    internedFrameSources.delete(oldest);
-  }
 }

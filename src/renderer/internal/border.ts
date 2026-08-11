@@ -192,22 +192,6 @@ function titleLength(title: BorderTitle, widthProfile: TextWidthProfile): number
   return measureRenderSpans(titleSpans(title, undefined), { widthProfile });
 }
 
-export function borderTitleText(title: BorderTitle | undefined): string {
-  if (title === undefined) return '';
-  if (isBorderTitleSlots(title)) {
-    return titleSlotContents(title)
-      .map((currentTitle) => borderTitleContentText(currentTitle))
-      .filter((text) => text.length > 0)
-      .join(' ');
-  }
-  return borderTitleContentText(title);
-}
-
-function borderTitleContentText(title: BorderTitleContent): string {
-  if (typeof title === 'string') return sanitizeTerminalText(title).text;
-  return sanitizeTerminalText(title.map((currentSpan) => currentSpan.text).join('')).text;
-}
-
 function titleSpans(title: BorderTitleContent, style: TerminalStyle | undefined): readonly RenderSpan[] {
   if (typeof title === 'string') {
     const text = sanitizeTerminalText(title).text;

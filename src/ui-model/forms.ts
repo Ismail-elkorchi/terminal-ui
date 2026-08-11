@@ -1,6 +1,6 @@
 import type { TerminalStyle } from '../visual/render.ts';
 import type { ChoiceItem } from './contracts.ts';
-import type { PointerInteractionAction, PointerInteractionState } from '../interaction/pointer-interaction.ts';
+import type { PointerInteractionAction } from '../interaction/pointer-interaction.ts';
 
 export type ButtonTone = 'default' | 'primary' | 'secondary' | 'ghost' | 'destructive';
 export type ButtonAction =
@@ -11,9 +11,6 @@ export type CheckboxAction =
   | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
 export type ToggleSwitchAction = CheckboxAction;
 
-export interface ButtonPointerState {
-  readonly pointerState?: PointerInteractionState;
-}
 export type SliderStepDirection = 'decrement' | 'increment';
 export type SliderAction =
   | { readonly kind: 'change'; readonly value: number }

@@ -26,7 +26,7 @@ export function checkboxGroupReducer<TValue>(
   let next: CheckboxGroupState;
   switch (action.kind) {
     case 'focus': next = enabled.includes(action.id) ? { ...normalized, focused: action.id } : normalized; break;
-    case 'move': next = withFocused(normalized, adjacentId(enabled, normalized.focused, action.delta)); break;
+    case 'move': next = withFocused(normalized, adjacentItemId(enabled, normalized.focused, action.delta)); break;
     case 'first': next = withFocused(normalized, enabled[0]); break;
     case 'last': next = withFocused(normalized, enabled.at(-1)); break;
     case 'toggle':
@@ -116,7 +116,7 @@ export function selectReducer<TValue>(
       : normalized;
     case 'move': {
       if (normalized.kind === 'closed') return openSelect(normalized.selected, enabled, action.delta < 0 ? 'last' : 'first');
-      const highlighted = adjacentId(enabled, normalized.highlighted ?? normalized.selected, action.delta);
+      const highlighted = adjacentItemId(enabled, normalized.highlighted ?? normalized.selected, action.delta);
       return highlighted === undefined ? normalized : withSelectHighlight(normalized, highlighted, options);
     }
     case 'first': {
@@ -191,7 +191,10 @@ export function colorSwatchPickerReducer<TValue>(
   let next: ColorSwatchPickerState;
   switch (action.kind) {
     case 'focus': next = enabled.includes(action.id) ? { ...normalized, focused: action.id } : normalized; break;
-    case 'move': next = withFocused(normalized, adjacentId(enabled, normalized.focused ?? normalized.selected, action.delta)); break;
+    case 'move': next = withFocused(
+      normalized,
+      adjacentItemId(enabled, normalized.focused ?? normalized.selected, action.delta),
+    ); break;
     case 'first': next = withFocused(normalized, enabled[0]); break;
     case 'last': next = withFocused(normalized, enabled.at(-1)); break;
     case 'select': next = enabled.includes(action.id) ? { selected: action.id, focused: action.id } : normalized; break;
@@ -225,7 +228,10 @@ function reduceSingleChoice(
 ): SingleChoiceState {
   switch (action.kind) {
     case 'focus': return enabled.includes(action.id) ? { ...state, focused: action.id } : state;
-    case 'move': return withFocused(state, adjacentId(enabled, state.focused ?? state.selected, action.delta));
+    case 'move': return withFocused(
+      state,
+      adjacentItemId(enabled, state.focused ?? state.selected, action.delta),
+    );
     case 'first': return withFocused(state, enabled[0]);
     case 'last': return withFocused(state, enabled.at(-1));
     case 'select': return enabled.includes(action.id) ? { selected: action.id, focused: action.id } : state;
@@ -235,10 +241,6 @@ function reduceSingleChoice(
 function enabledIds<TValue>(items: readonly ChoiceItem<TValue>[], context: string): readonly string[] {
   resolveStableIds(items, (item) => item.id, context);
   return items.filter((item) => item.disabled !== true).map((item) => item.id);
-}
-
-function adjacentId(ids: readonly string[], current: string | undefined, delta: number): string | undefined {
-  return adjacentItemId(ids, current, delta);
 }
 
 function withFocused<TState extends { readonly focused?: string }>(state: TState, focused: string | undefined): TState | TState & { readonly focused: string } {
