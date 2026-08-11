@@ -56,4 +56,4 @@ export {
   layoutPaddingBounds,
   splitTracks
 } from '../geometry/layout.ts';
-export { prepareLayoutFlowOptions } from './prepare.ts';
+export { normalizeLayoutFlowOptions } from './prepare.ts';

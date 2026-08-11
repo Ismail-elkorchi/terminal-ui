@@ -6,6 +6,7 @@ import { restoreTerminalState } from '../../dist/host/index.js';
 import { createTerminalHarness, replayTranscript } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, redactTranscript, validateTranscript } from '../../dist/transcript/index.js';
 import { createFrameBuffer } from '../../dist/renderer/index.js';
+import { decodeInputEvent } from '../../dist/input/index.js';
 
 test('transcript recording detaches and freezes input evidence before dispatch', () => {
   const recorder = createTranscriptRecorder({ id: 'input-snapshot', source: 'tui' });
@@ -17,7 +18,6 @@ test('transcript recording detaches and freezes input evidence before dispatch',
     eventType: 'press',
     location: 'standard'
   };
-
   recorder.record({ kind: 'input', event });
   event.key = 'b';
   event.modifiers.ctrl = true;
@@ -33,6 +33,10 @@ test('transcript recording detaches and freezes input evidence before dispatch',
   });
   assert.equal(Object.isFrozen(recorded), true);
   assert.equal(Object.isFrozen(recorded?.modifiers), true);
+
+  const decoded = decodeInputEvent({ kind: 'text', text: 'owned', paste: false });
+  recorder.record({ kind: 'input', event: decoded });
+  assert.strictEqual(recorder.snapshot().steps[1]?.event, decoded);
 });
 
 test('transcript replay preserves frames, diffs, snapshots, diagnostics, and restore outcomes', async () => {

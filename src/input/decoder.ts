@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { focusFromPrefix } from './focus.ts';
 import { InputDecodeError } from './decode-error.ts';
 import { enhancedKeyFromPrefix } from './enhanced-keyboard.ts';
@@ -360,56 +361,43 @@ function controlPrefixLength(original: string, normalizedLength: number): number
   return first === 0x9b || first === 0x8f ? normalizedLength - 1 : normalizedLength;
 }
 
-export function normalizeInputDecodeLimits(value: unknown): InputDecodeLimits {
-  let record: Readonly<Record<string, unknown>> = {};
-  if (value !== undefined) {
-    assertNonArrayRecord(value, 'Input decode limits');
-    record = value;
-    const supported = new Set([
-      'maxHostChunkBytes',
-      'maxProtocolCodeUnits',
-      'maxTextEventCodeUnits',
-      'maxEventsPerBatch',
-      'maxPasteCodeUnits',
-      'maxKittyAssociatedTextCodePoints',
-      'maxMouseFieldDigits'
-    ]);
-    const unknown = Object.keys(value).find((field) => !supported.has(field));
-    if (unknown !== undefined) throw new TypeError(`Input decode limits contain unknown field "${unknown}".`);
+export function normalizeInputDecodeLimits(value: Partial<InputDecodeLimits> | undefined): InputDecodeLimits {
+  if (value !== undefined && (typeof value !== 'object' || value === null || Array.isArray(value))) {
+    throw new TypeError('Input decode limits must be an object.');
   }
   return Object.freeze({
     maxHostChunkBytes: positiveInteger(
-      record['maxHostChunkBytes'],
+      value?.maxHostChunkBytes,
       defaultInputDecodeLimits.maxHostChunkBytes,
       'maxHostChunkBytes'
     ),
     maxProtocolCodeUnits: positiveInteger(
-      record['maxProtocolCodeUnits'],
+      value?.maxProtocolCodeUnits,
       defaultInputDecodeLimits.maxProtocolCodeUnits,
       'maxProtocolCodeUnits'
     ),
     maxTextEventCodeUnits: positiveInteger(
-      record['maxTextEventCodeUnits'],
+      value?.maxTextEventCodeUnits,
       defaultInputDecodeLimits.maxTextEventCodeUnits,
       'maxTextEventCodeUnits'
     ),
     maxEventsPerBatch: positiveInteger(
-      record['maxEventsPerBatch'],
+      value?.maxEventsPerBatch,
       defaultInputDecodeLimits.maxEventsPerBatch,
       'maxEventsPerBatch'
     ),
     maxPasteCodeUnits: positiveInteger(
-      record['maxPasteCodeUnits'],
+      value?.maxPasteCodeUnits,
       defaultInputDecodeLimits.maxPasteCodeUnits,
       'maxPasteCodeUnits'
     ),
     maxKittyAssociatedTextCodePoints: positiveInteger(
-      record['maxKittyAssociatedTextCodePoints'],
+      value?.maxKittyAssociatedTextCodePoints,
       defaultInputDecodeLimits.maxKittyAssociatedTextCodePoints,
       'maxKittyAssociatedTextCodePoints'
     ),
     maxMouseFieldDigits: positiveInteger(
-      record['maxMouseFieldDigits'],
+      value?.maxMouseFieldDigits,
       defaultInputDecodeLimits.maxMouseFieldDigits,
       'maxMouseFieldDigits'
     )
@@ -417,23 +405,18 @@ export function normalizeInputDecodeLimits(value: unknown): InputDecodeLimits {
 }
 
 function normalizeDecodeOptions(value: InputDecodeOptions): NormalizedInputDecodeOptions {
-  const candidate: unknown = value;
-  assertNonArrayRecord(candidate, 'Input decode options');
-  const record = candidate;
-  const supported = new Set([
-    'keyboard', 'bracketedPaste', 'focusReporting', 'mouseReporting', 'limits'
-  ]);
-  const unknown = Object.keys(record).find((field) => !supported.has(field));
-  if (unknown !== undefined) throw new TypeError(`Input decode options contain unknown field "${unknown}".`);
-  const bracketedPaste = record['bracketedPaste'];
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('Input decode options must be an object.');
+  }
+  const bracketedPaste = value.bracketedPaste;
   if (bracketedPaste !== undefined && typeof bracketedPaste !== 'boolean') {
     throw new TypeError('Input decode option bracketedPaste must be boolean.');
   }
-  const focusReporting = record['focusReporting'];
+  const focusReporting = value.focusReporting;
   if (focusReporting !== undefined && typeof focusReporting !== 'boolean') {
     throw new TypeError('Input decode option focusReporting must be boolean.');
   }
-  const mouseReporting = record['mouseReporting'];
+  const mouseReporting = value.mouseReporting;
   if (
     mouseReporting !== undefined
     && mouseReporting !== 'none'
@@ -443,10 +426,10 @@ function normalizeDecodeOptions(value: InputDecodeOptions): NormalizedInputDecod
   ) {
     throw new TypeError('Input decode option mouseReporting is unsupported.');
   }
-  const limits = normalizeInputDecodeLimits(record['limits']);
-  const keyboard = record['keyboard'] === undefined
+  const limits = normalizeInputDecodeLimits(value.limits);
+  const keyboard = value.keyboard === undefined
     ? undefined
-    : normalizeKeyboardProfile(record['keyboard']);
+    : normalizeKeyboardProfile(value.keyboard);
   return Object.freeze({
     ...(keyboard === undefined ? {} : { keyboard }),
     ...(bracketedPaste === undefined ? {} : { bracketedPaste }),
@@ -465,7 +448,7 @@ function assertNonArrayRecord(
   }
 }
 
-function positiveInteger(value: unknown, fallback: number, name: string): number {
+function positiveInteger(value: number | undefined, fallback: number, name: string): number {
   const resolved = value ?? fallback;
   if (typeof resolved !== 'number' || !Number.isSafeInteger(resolved) || resolved <= 0) {
     throw new RangeError(`Input decode limit ${name} must be a positive safe integer.`);

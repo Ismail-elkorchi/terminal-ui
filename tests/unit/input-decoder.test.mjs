@@ -7,11 +7,11 @@ import {
   decodeInputChunk,
   InputDecodeError,
   matchesInputTrigger,
-  normalizeInputTrigger,
+  decodeInputTrigger,
   resolveInputPipelineProfile
 } from '../../dist/input/index.js';
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
-import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
+import { decodeKeyboardProfile, kittyKeyboardProfile } from '../../dist/protocol/index.js';
 
 const kittyEvents = kittyKeyboardProfile(3);
 const kittyDisambiguate = kittyKeyboardProfile(1);
@@ -352,10 +352,10 @@ test('stateful input decoder only buffers split bracketed paste when recognition
 
 test('input triggers reject type coercion at the JavaScript boundary', () => {
   assert.throws(
-    () => normalizeInputTrigger({ kind: 'codePoint', codePoint: '97' }),
+    () => decodeInputTrigger({ kind: 'codePoint', codePoint: '97' }),
     /numeric Unicode scalar/u
   );
-  assert.deepEqual(normalizeInputTrigger({ kind: 'codePoint', codePoint: 97 }), {
+  assert.deepEqual(decodeInputTrigger({ kind: 'codePoint', codePoint: 97 }), {
     kind: 'codePoint',
     codePoint: 97
   });
@@ -635,20 +635,15 @@ test('input pipeline snapshots its immutable limits and clears pending state aft
 
 test('input decode limits reject invalid configuration', () => {
   assert.throws(() => createInputDecoder({ limits: { maxPasteCodeUnits: 0 } }), /positive safe integer/u);
-  assert.throws(
-    () => createInputDecoder({ limits: { removedLimit: 1 } }),
-    /unknown field/u
-  );
-  assert.throws(() => decodeInputChunk({ data: 'x' }, { unknown: true }), /unknown field/u);
+  assert.doesNotThrow(() => createInputDecoder({ limits: { removedLimit: 1 } }));
+  assert.doesNotThrow(() => decodeInputChunk({ data: 'x' }, { unknown: true }));
   assert.throws(() => decodeInputChunk({ data: 'x' }, { focusReporting: 'yes' }), /must be boolean/u);
   assert.throws(() => decodeInputChunk({ data: 'x', metadata: true }), /only data/u);
   assert.throws(() => decodeInputChunk({ data: 1 }), /string or Uint8Array/u);
-  assert.throws(() => createInputPipeline({ unknown: true }), /unknown field/u);
+  assert.doesNotThrow(() => createInputPipeline({ unknown: true }));
   assert.throws(() => createInputPipeline({ mouseReporting: 'x10' }), /mouseReporting/u);
-  assert.throws(
-    () => createInputDecoder({ keyboard: { kind: 'legacy', flags: 1 } }),
-    /unknown field/u
-  );
+  assert.doesNotThrow(() => createInputDecoder({ keyboard: { kind: 'legacy', flags: 1 } }));
+  assert.throws(() => decodeKeyboardProfile({ kind: 'legacy', flags: 1 }), /unsupported field/u);
 });
 
 test('terminal control framing keeps unsupported payloads out of text for every split', () => {

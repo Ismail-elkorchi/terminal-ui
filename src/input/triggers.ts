@@ -10,7 +10,8 @@ import { keyEventTypes, keyLocations, keyNames } from './types.ts';
 import { isNonArrayObject, isStringMember } from '../foundation/validation.ts';
 import { segmentGraphemes } from '../text/index.ts';
 
-export function normalizeInputTrigger(value: unknown): InputTrigger {
+/** Decodes one dynamically supplied trigger at an authoring boundary. */
+export function decodeInputTrigger(value: unknown): InputTrigger {
   if (!isNonArrayObject(value) || typeof value['kind'] !== 'string') {
     throw new TypeError('Input trigger must be an object with a kind.');
   }

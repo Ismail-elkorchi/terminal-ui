@@ -9,7 +9,7 @@ import type {
   InputTrigger,
 } from '../input/types.ts';
 import { keyNames } from '../input/types.ts';
-import { normalizeInputTrigger } from '../input/triggers.ts';
+import { decodeInputTrigger } from '../input/triggers.ts';
 import type { PointerInteractionState } from '../interaction/pointer-interaction.ts';
 import type { HitTarget } from '../renderer/contracts.ts';
 import { segmentGraphemes } from '../text/index.ts';
@@ -176,7 +176,7 @@ function normalizeComponentKeyTrigger(
 ): Extract<InputTrigger, { readonly kind: 'key' | 'codePoint' | 'physicalKey' }> {
   let trigger: InputTrigger;
   try {
-    trigger = normalizeInputTrigger(value);
+    trigger = decodeInputTrigger(value);
   } catch (cause) {
     const detail = cause instanceof Error ? ` ${cause.message}` : '';
     throw new TypeError(`${subject} is invalid.${detail}`, { cause });

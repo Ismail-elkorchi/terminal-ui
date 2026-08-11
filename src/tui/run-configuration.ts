@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { defaultSessionProtocolPolicy } from './session-policy.ts';
-import { isNonArrayObject } from '../foundation/validation.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
 import type { MouseReportingMode } from '../host/index.ts';
-import type { SessionProtocolPolicy } from './session-policy.ts';
+import type { CursorVisibilityPolicy, ProtocolRequirement, SessionProtocolPolicy } from './session-policy.ts';
 import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiRunOptions, TuiTheme } from './types.ts';
 
 export type NormalizedTuiLifecyclePolicy = Readonly<Required<Omit<TuiLifecyclePolicy, 'defaultTimeoutMs'>>>;
@@ -76,84 +76,87 @@ function optionalTimeout(value: number | undefined, name: keyof TuiLifecyclePoli
   return value;
 }
 
-function normalizeSessionPolicy(policy: unknown): SessionProtocolPolicy {
+function normalizeSessionPolicy(policy: SessionProtocolPolicy | undefined): SessionProtocolPolicy {
   const value = policy ?? defaultSessionProtocolPolicy;
-  if (!isNonArrayObject(value)) throw new TypeError('TUI session policy must be an object.');
-  const keyboard = requiredRecord(value['keyboard'], 'keyboard');
-  const cursorVisibility = requiredRecord(value['cursorVisibility'], 'cursorVisibility');
-  const mouseReporting = requiredRecord(value['mouseReporting'], 'mouseReporting');
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('TUI session policy must be an object.');
+  }
+  if (typeof value.keyboard !== 'object' || value.keyboard === null || Array.isArray(value.keyboard)) {
+    throw new TypeError('TUI session policy keyboard must be an object.');
+  }
+  if (typeof value.cursorVisibility !== 'object'
+    || value.cursorVisibility === null
+    || Array.isArray(value.cursorVisibility)) {
+    throw new TypeError('TUI session policy cursorVisibility must be an object.');
+  }
+  if (typeof value.mouseReporting !== 'object'
+    || value.mouseReporting === null
+    || Array.isArray(value.mouseReporting)) {
+    throw new TypeError('TUI session policy mouseReporting must be an object.');
+  }
   return Object.freeze({
-    alternateScreen: protocolRequirement(value['alternateScreen'], 'alternateScreen'),
-    rawInput: protocolRequirement(value['rawInput'], 'rawInput'),
-    bracketedPaste: protocolRequirement(value['bracketedPaste'], 'bracketedPaste'),
-    focusReporting: protocolRequirement(value['focusReporting'], 'focusReporting'),
-    unicodeGraphemeMode: protocolRequirement(value['unicodeGraphemeMode'], 'unicodeGraphemeMode'),
+    alternateScreen: protocolRequirement(value.alternateScreen, 'alternateScreen'),
+    rawInput: protocolRequirement(value.rawInput, 'rawInput'),
+    bracketedPaste: protocolRequirement(value.bracketedPaste, 'bracketedPaste'),
+    focusReporting: protocolRequirement(value.focusReporting, 'focusReporting'),
+    unicodeGraphemeMode: protocolRequirement(value.unicodeGraphemeMode, 'unicodeGraphemeMode'),
     keyboard: Object.freeze({
-      profile: normalizeKeyboardProfile(keyboard['profile']),
-      requirement: protocolRequirement(keyboard['requirement'], 'keyboard.requirement')
+      profile: normalizeKeyboardProfile(value.keyboard.profile),
+      requirement: protocolRequirement(value.keyboard.requirement, 'keyboard.requirement')
     }),
     cursorVisibility: Object.freeze({
-      state: oneOf(cursorVisibility['state'], ['hide', 'show', 'unchanged'] as const, 'cursorVisibility.state'),
-      requirement: protocolRequirement(cursorVisibility['requirement'], 'cursorVisibility.requirement')
+      state: cursorVisibility(value.cursorVisibility.state),
+      requirement: protocolRequirement(value.cursorVisibility.requirement, 'cursorVisibility.requirement')
     }),
     mouseReporting: Object.freeze({
-      mode: oneOf(
-        mouseReporting['mode'],
-        ['none', 'click', 'drag', 'all'] as const satisfies readonly MouseReportingMode[],
-        'mouseReporting.mode'
-      ),
-      requirement: protocolRequirement(mouseReporting['requirement'], 'mouseReporting.requirement')
+      mode: mouseReportingMode(value.mouseReporting.mode),
+      requirement: protocolRequirement(value.mouseReporting.requirement, 'mouseReporting.requirement')
     })
   });
 }
 
-function normalizeInitialFocus(selector: unknown): InitialFocusSelector | undefined {
+function normalizeInitialFocus(selector: InitialFocusSelector | undefined): InitialFocusSelector | undefined {
   if (selector === undefined) return undefined;
-  if (!isNonArrayObject(selector)) throw new TypeError('TUI initial focus selector must be an object.');
-  if (selector['kind'] === 'path') {
-    if (!Array.isArray(selector['path'])) throw new TypeError('TUI initial focus path must be an array.');
-    const path: readonly unknown[] = selector['path'];
+  if (typeof selector !== 'object' || selector === null || Array.isArray(selector)) {
+    throw new TypeError('TUI initial focus selector must be an object.');
+  }
+  if (selector.kind === 'path') {
+    const path = selector.path;
+    if (!Array.isArray(selector.path)) throw new TypeError('TUI initial focus path must be an array.');
     if (path.length === 0 || path.some((segment) => typeof segment !== 'string' || segment.trim() === '')) {
       throw new TypeError('TUI initial focus path must contain non-empty string segments.');
     }
-    return Object.freeze({ kind: 'path', path: Object.freeze(path.map((segment) => String(segment))) });
+    return Object.freeze({ kind: 'path', path: Object.freeze([...path]) });
   }
-  const elementId = nonEmptyString(selector['elementId'], 'elementId');
-  if (selector['kind'] === 'element') return Object.freeze({ kind: 'element', elementId });
-  if (selector['kind'] !== 'elementTarget') throw new TypeError('TUI initial focus selector kind is invalid.');
+  const elementId = nonEmptyString(selector.elementId, 'elementId');
+  if (selector.kind === 'element') return Object.freeze({ kind: 'element', elementId });
+  if (selector.kind !== 'elementTarget') throw new TypeError('TUI initial focus selector kind is invalid.');
   return Object.freeze({
     kind: 'elementTarget',
     elementId,
-    targetId: nonEmptyString(selector['targetId'], 'targetId')
+    targetId: nonEmptyString(selector.targetId, 'targetId')
   });
 }
 
 function protocolRequirement(
-  value: unknown,
+  value: ProtocolRequirement,
   name: string
-): SessionProtocolPolicy['alternateScreen'] {
-  return oneOf(value, ['required', 'optional', 'disabled'] as const, name);
-}
-
-function oneOf<const TValues extends readonly string[]>(
-  value: unknown,
-  values: TValues,
-  name: string
-): TValues[number] {
-  if (typeof value === 'string') {
-    for (const candidate of values) {
-      if (candidate === value) return candidate;
-    }
-  }
+): ProtocolRequirement {
+  if (value === 'required' || value === 'optional' || value === 'disabled') return value;
   throw new TypeError(`TUI session policy ${name} is invalid.`);
 }
 
-function requiredRecord(value: unknown, name: string): Record<string, unknown> {
-  if (!isNonArrayObject(value)) throw new TypeError(`TUI session policy ${name} must be an object.`);
-  return value;
+function cursorVisibility(value: CursorVisibilityPolicy): CursorVisibilityPolicy {
+  if (value === 'hide' || value === 'show' || value === 'unchanged') return value;
+  throw new TypeError('TUI session policy cursorVisibility.state is invalid.');
 }
 
-function nonEmptyString(value: unknown, name: string): string {
+function mouseReportingMode(value: MouseReportingMode): MouseReportingMode {
+  if (value === 'none' || value === 'click' || value === 'drag' || value === 'all') return value;
+  throw new TypeError('TUI session policy mouseReporting.mode is invalid.');
+}
+
+function nonEmptyString(value: string, name: string): string {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new TypeError(`TUI initial focus ${name} must be non-empty.`);
   }

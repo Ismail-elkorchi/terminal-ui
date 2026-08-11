@@ -367,7 +367,7 @@ function tableCollectionRow<TRow>(
   record: CollectionRecord & { readonly row: TRow },
   owner: string,
 ): TRow {
-  if (!isNonArrayObject(record) || !Object.hasOwn(record, 'row')) {
+  if (!Object.hasOwn(record, 'row')) {
     throw new TypeError(`${owner} must contain a row.`);
   }
   return record.row;

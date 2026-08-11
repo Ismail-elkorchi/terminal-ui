@@ -33,6 +33,10 @@ terminal session. The caller must dispose the host when it is no longer needed.
 Use `createTuiRuntime()` when a custom event loop needs a longer-lived,
 externally coordinated host.
 
+`defineTui()` validates consumed hooks, IDs, binding relationships, phases,
+predicates, and triggers, then retains owned binding snapshots.
+It does not maintain a second field registry for unused JavaScript properties.
+
 If restoring a session times out or fails, the runtime makes one bounded
 host-level recovery attempt through an emergency authority that does not wait
 behind the failed restoration queue. This applies to both borrowed and
@@ -79,6 +83,9 @@ incomplete UTF-8 and terminal tokens; it has no per-call override.
 host protocol state. Low-level pipelines default to legacy keyboard decoding
 with paste, focus, and mouse protocols disabled. Their explicit protocol
 options are authority supplied by the host adapter, not capability guesses.
+
+`decodeInputEvent()` strictly decodes imported or dynamic events, while
+`snapshotInputEvent()` owns typed events without traversing decoder output again.
 
 Decoded work has independent bounds for host chunks, framed tokens, text
 events, event batches, paste payloads, Kitty associated text, and mouse numeric

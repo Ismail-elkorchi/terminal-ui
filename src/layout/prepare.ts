@@ -1,9 +1,9 @@
-import { isNonArrayObject } from '../foundation/validation.ts';
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import type { LayoutFlowOptions, LayoutInsetInput } from '../geometry/types.ts';
 
-/** Validates and detaches the layout fields of a dynamic component model. */
-export function prepareLayoutFlowOptions(
-  value: Readonly<Record<string, unknown>>,
+/** Validates and detaches layout fields retained by a layout or component. */
+export function normalizeLayoutFlowOptions(
+  value: Readonly<LayoutFlowOptions>,
   owner: string
 ): LayoutFlowOptions {
   const result: {
@@ -31,12 +31,12 @@ export function prepareLayoutFlowOptions(
     if (member === undefined) continue;
     result[field] = prepareInsets(member, `${owner} ${field}`);
   }
-  const align = value['align'];
+  const align = value.align;
   if (align !== undefined && align !== 'start' && align !== 'center' && align !== 'end' && align !== 'stretch') {
     throw new TypeError(`${owner} align is invalid.`);
   }
   if (align !== undefined) result.align = align;
-  const justify = value['justify'];
+  const justify = value.justify;
   if (justify !== undefined
     && justify !== 'start'
     && justify !== 'center'
@@ -45,7 +45,7 @@ export function prepareLayoutFlowOptions(
     throw new TypeError(`${owner} justify is invalid.`);
   }
   if (justify !== undefined) result.justify = justify;
-  const overflow = value['overflow'];
+  const overflow = value.overflow;
   if (overflow !== undefined && overflow !== 'clip' && overflow !== 'visible') {
     throw new TypeError(`${owner} overflow is invalid.`);
   }
@@ -53,20 +53,16 @@ export function prepareLayoutFlowOptions(
   return result;
 }
 
-function prepareInsets(value: unknown, label: string): LayoutInsetInput {
+function prepareInsets(value: LayoutInsetInput, label: string): LayoutInsetInput {
   if (typeof value === 'number') {
     if (!Number.isSafeInteger(value) || value < 0) {
       throw new RangeError(`${label} must be a non-negative safe integer or inset object.`);
     }
     return value;
   }
-  if (!isNonArrayObject(value)) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`${label} must be a non-negative safe integer or inset object.`);
   }
-  const unsupported = Object.keys(value).find((field) =>
-    field !== 'top' && field !== 'right' && field !== 'bottom' && field !== 'left'
-  );
-  if (unsupported !== undefined) throw new TypeError(`${label} contains unknown field "${unsupported}".`);
   const result: { top?: number; right?: number; bottom?: number; left?: number } = {};
   for (const field of ['top', 'right', 'bottom', 'left'] as const) {
     const member = value[field];

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { sanitizeTerminalCellText } from '../text/index.ts';
 export type { ClipboardWritePolicy, ClipboardWriteResult } from './clipboard.ts';
 export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
@@ -5,6 +6,7 @@ export type { TerminalProtocolSink } from './types.ts';
 export {
   KITTY_KEYBOARD_FLAGS,
   LEGACY_KEYBOARD_PROFILE,
+  decodeKeyboardProfile,
   kittyKeyboardFlags,
   kittyKeyboardProfile,
   normalizeKeyboardProfile
@@ -92,17 +94,12 @@ function mouseReportingSequence(state: MouseReportingState): string {
   return `${resetTracking}${encoding}\u001B[?${tracking}h`;
 }
 
-export function normalizeMouseReportingState(state: unknown): MouseReportingState {
+export function normalizeMouseReportingState(state: MouseReportingState): MouseReportingState {
   if (typeof state !== 'object' || state === null || Array.isArray(state)) {
     throw new TypeError('mouse reporting state must be an object.');
   }
-  const value = state as Readonly<Record<string, unknown>>;
-  const fields = Object.keys(value);
-  if (fields.length !== 2 || !fields.includes('tracking') || !fields.includes('encoding')) {
-    throw new TypeError('mouse reporting state must contain exactly tracking and encoding.');
-  }
-  const tracking = assertMouseReportingMode(value['tracking']);
-  const encoding = value['encoding'];
+  const tracking = assertMouseReportingMode(state.tracking);
+  const encoding = state.encoding;
   if (encoding !== 'default' && encoding !== 'sgr') {
     throw new RangeError('mouse reporting encoding must be default or sgr.');
   }
@@ -123,7 +120,7 @@ function positiveInteger(value: number, name: string): number {
   return value;
 }
 
-function assertMouseReportingMode(mode: unknown): MouseReportingMode {
+function assertMouseReportingMode(mode: MouseReportingMode): MouseReportingMode {
   if (mode === 'none' || mode === 'click' || mode === 'drag' || mode === 'all') return mode;
   throw new RangeError('mouse reporting mode must be none, click, drag, or all.');
 }

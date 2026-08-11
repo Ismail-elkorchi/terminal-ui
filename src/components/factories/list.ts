@@ -19,7 +19,7 @@ import {
   scrollReducer,
 } from '../../behavior/index.ts';
 import type { Element } from '../../element/index.ts';
-import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
@@ -35,7 +35,6 @@ import type {
   ListItemProjector,
   WindowedListCollection,
 } from '../../ui-model/list.ts';
-import type { CollectionWindowDomain } from '../../ui-model/collection.ts';
 import type { DataListStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ListOptions, PassiveListOptions, ScrollableListOptions } from '../options/content.ts';
@@ -309,69 +308,34 @@ function prepareProjectedCollection<TValue>(
   const cached = preparedListCollections.get(value);
   if (cached !== undefined) return cached;
   const kind = value.kind;
-  const startIndex = nonNegativeSafeInteger(value.startIndex, 'list collection startIndex');
-  const totalCount = nonNegativeSafeInteger(value.totalCount, 'list collection totalCount');
-  if (kind === 'complete' && (startIndex !== 0 || totalCount !== value.records.length)) {
-    throw new RangeError('Complete list collection indexes are inconsistent.');
-  }
-  if (
-    kind === 'window' &&
-    (startIndex > totalCount || value.records.length > totalCount - startIndex)
-  ) {
-    throw new RangeError('Windowed list collection records exceed its declared range.');
-  }
-  const query = kind === 'window' ? prepareCollectionDomain(value.domain) : '';
+  const query = kind === 'window' && value.domain.kind === 'projection'
+    ? normalizedQuery(value.domain.filterQuery ?? '')
+    : '';
   const prepared = Object.freeze({
     entries: prepareEntries(value.records),
     windowed: kind === 'window',
-    startIndex,
-    totalCount,
+    startIndex: value.startIndex,
+    totalCount: value.totalCount,
     query,
   });
   preparedListCollections.set(value, prepared);
   return prepared;
 }
 
-function prepareCollectionDomain(value: CollectionWindowDomain): string {
-  if (!isNonArrayObject(value)) {
-    throw new TypeError('Windowed list collection domain must be an object.');
-  }
-  if (value.kind === 'source') {
-    return '';
-  }
-  if (typeof value.id !== 'string' || value.id.trim() === '') {
-    throw new TypeError('Projected collection domain id must be non-empty.');
-  }
-  if (value.sort !== undefined) assertCollectionSort(value.sort);
-  return normalizedQuery(
-    value.filterQuery === undefined
-      ? ''
-      : requiredString(value.filterQuery, 'collection domain filterQuery'),
-  );
-}
-
-function assertCollectionSort(
-  value: NonNullable<Extract<CollectionWindowDomain, { readonly kind: 'projection' }>['sort']>,
-): void {
-  if (
-    !isNonArrayObject(value) ||
-    typeof value.key !== 'string' ||
-    value.key.trim() === '' ||
-    !isStringMember(value.direction, ['ascending', 'descending'])
-  ) {
-    throw new TypeError('Projected collection domain sort is invalid.');
-  }
-}
-
 function prepareEntries<TValue>(
   records: readonly ListCollectionRecord<TValue>[],
 ): readonly PreparedListSourceEntry[] {
-  const ids = new Set<string>();
-  return Object.freeze(records.map((record, offset) => {
-    if (!isNonArrayObject(record)) {
-      throw new TypeError(`list record ${String(offset)} must be an object.`);
-    }
-    return prepareListEntry(record.id, record.itemIndex, record.item, ids);
+  return Object.freeze(records.map((record) => {
+    const item = prepareListItem(record.item);
+    if (record.id !== item.id) throw new TypeError('list record and projected item ids must match.');
+    return Object.freeze({
+      id: record.id,
+      itemIndex: record.itemIndex,
+      label: item.label,
+      ...(item.description === undefined ? {} : { description: item.description }),
+      disabled: item.disabled,
+      searchText: item.searchText,
+    });
   }));
 }
 

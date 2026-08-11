@@ -19,7 +19,7 @@ import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
   layoutContentBounds,
   layoutInsetSize,
-  prepareLayoutFlowOptions,
+  normalizeLayoutFlowOptions,
 } from '../../layout/index.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
@@ -55,21 +55,11 @@ interface TabsModel {
   readonly layout: LayoutFlowOptions;
 }
 
-interface TabsOwnOptions {
+interface TabsOwnOptions extends LayoutFlowOptions {
   readonly tabs: readonly TabOwnOption[];
   readonly selected?: string;
   readonly maxTabWidth?: number;
   readonly pointerState?: PointerInteractionState;
-  readonly gap?: number;
-  readonly padding?: LayoutFlowOptions['padding'];
-  readonly margin?: LayoutFlowOptions['margin'];
-  readonly minWidth?: number;
-  readonly minHeight?: number;
-  readonly maxWidth?: number;
-  readonly maxHeight?: number;
-  readonly align?: LayoutFlowOptions['align'];
-  readonly justify?: LayoutFlowOptions['justify'];
-  readonly overflow?: LayoutFlowOptions['overflow'];
 }
 
 interface TabOwnOption {
@@ -659,7 +649,7 @@ function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
     selectedIndex,
     ...(maxTabWidth === undefined ? {} : { maxTabWidth: maxTabWidth }),
     ...(pointerState === undefined ? {} : { pointerState }),
-    layout: prepareLayoutFlowOptions(value, 'tabs'),
+    layout: normalizeLayoutFlowOptions(value, 'tabs'),
   };
 }
 

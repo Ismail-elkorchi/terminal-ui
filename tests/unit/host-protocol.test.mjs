@@ -42,11 +42,8 @@ test('memory host captures output and exposes capabilities', async () => {
   assert.equal((await host.getCapabilities()).runtime, 'memory');
 });
 
-test('memory host decodes its exact public option contract', () => {
-  assert.throws(
-    () => createMemoryTerminalHost({ unknownOption: true }),
-    /unknown field "unknownOption"/u
-  );
+test('memory host validates the public option fields it consumes', () => {
+  assert.doesNotThrow(() => createMemoryTerminalHost({ unknownOption: true }));
   assert.throws(
     () => createMemoryTerminalHost({ clipboardWrite: 'yes' }),
     /clipboardWrite must be a boolean/u

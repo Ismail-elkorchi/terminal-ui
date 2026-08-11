@@ -8,7 +8,7 @@ import {
   isStringMember,
 } from '../../foundation/validation.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
-import { column, portal, prepareLayoutFlowOptions, surface } from '../../layout/index.ts';
+import { column, normalizeLayoutFlowOptions, portal, surface } from '../../layout/index.ts';
 import type { InitialFocusSelector } from '../../interaction/focus.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { DialogOptions } from '../options/dialog.ts';
@@ -70,7 +70,7 @@ const instantiateDialog = defineComponent<
     const height = prepareDialogDimension(value.height, 'height');
     const focusPolicy = prepareDialogFocusPolicy(value.focusPolicy, modal);
     const dismissal = prepareDialogDismissal(value.dismissal);
-    const layout = prepareLayoutFlowOptions(value, 'dialog');
+    const layout = normalizeLayoutFlowOptions(value, 'dialog');
     if (
       width !== undefined &&
       ((layout.minWidth ?? 0) > width || (layout.maxWidth ?? width) < width)

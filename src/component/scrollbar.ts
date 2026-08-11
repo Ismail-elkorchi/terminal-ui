@@ -77,7 +77,7 @@ export function prepareComponentScrollPolicy(
   }) });
 }
 
-function nonNegativeInteger(value: unknown, subject: string): number {
+function nonNegativeInteger(value: number, subject: string): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw new RangeError(`${subject} must be a non-negative safe integer.`);
   return value;
 }

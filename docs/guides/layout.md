@@ -42,6 +42,8 @@ min/max dimensions, alignment, justification, overflow, z-index, visibility,
 and focus scope. Tiny terminal sizes should produce clipped or empty regions,
 not crashes.
 
+`normalizeLayoutFlowOptions()` validates shared flow semantics and copies retained insets without decoding the containing typed options object.
+
 For `surface()`, margin is outside the painted surface, min/max dimensions and
 alignment size the surface itself, and padding is inside its border. A shadow
 uses the final row and column of the surface's visual bounds.

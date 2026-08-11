@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 export interface KittyKeyboardFlagMap {
   readonly disambiguateEscapeCodes: 1;
   readonly reportEventTypes: 2;
@@ -20,7 +21,9 @@ export type TerminalKeyboardProfile =
   | { readonly kind: 'legacy' }
   | { readonly kind: 'kitty'; readonly flags: KittyKeyboardFlags };
 
-export const LEGACY_KEYBOARD_PROFILE: TerminalKeyboardProfile = Object.freeze({ kind: 'legacy' });
+const canonicalKeyboardProfiles = new WeakSet<object>();
+
+export const LEGACY_KEYBOARD_PROFILE: TerminalKeyboardProfile = canonicalProfile({ kind: 'legacy' });
 
 export function kittyKeyboardFlags(value: number): KittyKeyboardFlags {
   if (!Number.isSafeInteger(value) || value < 1 || value > 31) {
@@ -35,10 +38,11 @@ export function kittyKeyboardFlags(value: number): KittyKeyboardFlags {
 }
 
 export function kittyKeyboardProfile(flags: number): TerminalKeyboardProfile {
-  return Object.freeze({ kind: 'kitty', flags: kittyKeyboardFlags(flags) });
+  return canonicalProfile({ kind: 'kitty', flags: kittyKeyboardFlags(flags) });
 }
 
-export function normalizeKeyboardProfile(profile: unknown): TerminalKeyboardProfile {
+/** Decodes a profile received from serialized or independently implemented input. */
+export function decodeKeyboardProfile(profile: unknown): TerminalKeyboardProfile {
   if (!isNonArrayObject(profile)) throw new TypeError('Terminal keyboard profile must be an object.');
   if (profile['kind'] === 'legacy') {
     assertExactProfileFields(profile, ['kind']);
@@ -51,12 +55,29 @@ export function normalizeKeyboardProfile(profile: unknown): TerminalKeyboardProf
   throw new TypeError('Terminal keyboard profile kind must be legacy or kitty.');
 }
 
+/** Canonicalizes a typed profile and enforces the Kitty flag relationship. */
+export function normalizeKeyboardProfile(profile: TerminalKeyboardProfile): TerminalKeyboardProfile {
+  if (typeof profile !== 'object' || profile === null || Array.isArray(profile)) {
+    throw new TypeError('Terminal keyboard profile must be an object.');
+  }
+  if (canonicalKeyboardProfiles.has(profile)) return profile;
+  if (profile.kind === 'legacy') return LEGACY_KEYBOARD_PROFILE;
+  if (profile.kind === 'kitty') return kittyKeyboardProfile(profile.flags);
+  throw new TypeError('Terminal keyboard profile kind must be legacy or kitty.');
+}
+
+function canonicalProfile<TProfile extends TerminalKeyboardProfile>(profile: TProfile): TProfile {
+  const canonical = Object.freeze(profile);
+  canonicalKeyboardProfiles.add(canonical);
+  return canonical;
+}
+
 function assertExactProfileFields(
   value: Readonly<Record<string, unknown>>,
   supported: readonly string[]
 ): void {
   const unknown = Object.keys(value).find((field) => !supported.includes(field));
-  if (unknown !== undefined) throw new TypeError(`Terminal keyboard profile contains unknown field "${unknown}".`);
+  if (unknown !== undefined) throw new TypeError(`Terminal keyboard profile contains unsupported field "${unknown}".`);
 }
 
 import { isNonArrayObject } from '../foundation/validation.ts';

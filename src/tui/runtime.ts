@@ -197,9 +197,12 @@ function createRuntime<TState, TMessage>(
       return resizeCoordinator.request(terminalSize);
     },
     async handleInput(rawEvent) {
-      const event = decodeInputEvent(rawEvent);
+      const decoded = decodeInputEvent(rawEvent);
+      if (decoded.kind === 'resize' || decoded.kind === 'signal' || decoded.kind === 'end') {
+        throw new TypeError(`TUI runtime handleInput() does not accept ${decoded.kind} events.`);
+      }
       const occurredAt = options.host.clock.monotonicNow();
-      return inputQueue.run(() => handleDecodedInput(event, occurredAt));
+      return inputQueue.run(() => handleDecodedInput(decoded, occurredAt));
     },
     async handleInputChunk(chunk) {
       const ownedChunk = snapshotInputChunk(chunk);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
@@ -6,7 +7,6 @@ import { throwIfTerminalOperationAborted } from './operation.ts';
 import { committedTerminalWrite, failedTerminalWrite } from './write-receipt.ts';
 import { TerminalInputAuthority } from './input-authority.ts';
 import { TerminalCapabilityDetector } from './capability-detection.ts';
-import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
 import type {
   ControlledTerminalClock,
   MemoryTerminalHostOptions,
@@ -257,7 +257,7 @@ export interface MemoryTerminalHost extends TerminalHost {
 }
 
 export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}): MemoryTerminalHost {
-  assertMemoryTerminalHostOptions(options);
+  validateMemoryTerminalHostOptions(options);
   let terminalSize: TerminalSize = options.terminalSize ?? { columns: 80, rows: 24 };
   const isTty = options.isTty ?? true;
   const inputSource = new QueueInput(isTty);
@@ -365,24 +365,11 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
   return host;
 }
 
-const memoryTerminalHostOptionFields = new Set([
-  'id',
-  'terminalSize',
-  'isTty',
-  'clipboardWrite',
-  'env',
-  'observer',
-  'capabilities',
-  'initialState'
-]);
-
-function assertMemoryTerminalHostOptions(value: unknown): asserts value is MemoryTerminalHostOptions {
-  if (!isNonArrayObject(value)) throw new TypeError('Memory terminal host options must be an object.');
-  const unsupported = findUnsupportedField(value, memoryTerminalHostOptionFields);
-  if (unsupported !== undefined) {
-    throw new TypeError(`Memory terminal host options contain unknown field "${unsupported}".`);
+function validateMemoryTerminalHostOptions(value: MemoryTerminalHostOptions): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('Memory terminal host options must be an object.');
   }
-  if (value['clipboardWrite'] !== undefined && typeof value['clipboardWrite'] !== 'boolean') {
+  if (value.clipboardWrite !== undefined && typeof value.clipboardWrite !== 'boolean') {
     throw new TypeError('Memory terminal host clipboardWrite must be a boolean when provided.');
   }
 }

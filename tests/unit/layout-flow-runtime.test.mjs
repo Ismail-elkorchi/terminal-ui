@@ -3,7 +3,7 @@ import test from 'node:test';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
-import { anchored, column, flow, grid, measuredColumn, row, splitPane, surface } from '../../dist/layout/index.js';
+import { anchored, column, flow, grid, measuredColumn, normalizeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 import { measuredWindow, prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 
@@ -513,6 +513,21 @@ test('layout flow options align, justify, and bound content regions', () => {
 
   assert.deepEqual(layout.bounds, { row: 4, column: 4, width: 4, height: 1 });
   assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 4, width: 4, height: 1 });
+});
+
+test('layout flow normalization reads owned layout fields without decoding the containing options object', () => {
+  const padding = { top: 1, left: 3 };
+  const options = {
+    gap: 2,
+    padding,
+    get unrelated() { throw new Error('unrelated component option was inspected'); }
+  };
+
+  const normalized = normalizeLayoutFlowOptions(options, 'test layout');
+  assert.deepEqual(normalized, { gap: 2, padding: { top: 1, left: 3 } });
+  padding.left = 9;
+  assert.deepEqual(normalized.padding, { top: 1, left: 3 });
+  assert.throws(() => normalizeLayoutFlowOptions({ minWidth: -1 }, 'test layout'), /non-negative safe integer/u);
 });
 
 test('surface margin sizes the outer box while border and padding inset content', () => {

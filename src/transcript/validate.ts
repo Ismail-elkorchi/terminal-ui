@@ -17,7 +17,7 @@ import {
   renderDiffProjectionMatchesFrame
 } from '../renderer/internal/diff-interpreter.ts';
 import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalSize } from '../host/index.ts';
-import { normalizeKeyboardProfile } from '../protocol/index.ts';
+import { decodeKeyboardProfile, normalizeKeyboardProfile } from '../protocol/index.ts';
 import {
   decodeInputEvent
 } from '../input/index.ts';
@@ -154,8 +154,6 @@ const terminalStateProvenanceFields = new Set([
 const terminalStateChangeFields = new Set(['kind', 'enabled']);
 const terminalRestoreCompletionFields = new Set(['kind', 'enabled', 'assurance']);
 const mouseReportingStateFields = new Set(['tracking', 'encoding']);
-const legacyKeyboardProfileFields = new Set(['kind']);
-const kittyKeyboardProfileFields = new Set(['kind', 'flags']);
 
 type NormalizedTranscriptValidationLimits = Readonly<Required<TranscriptValidationLimits>>;
 
@@ -1038,19 +1036,13 @@ function terminalSizeIssue(terminalSize: unknown): string | undefined {
 }
 
 function terminalKeyboardProfileIssue(profile: unknown): string | undefined {
-  if (!isNonArrayObject(profile)) return 'keyboardProfile must be an object.';
-  const allowedFields = profile['kind'] === 'kitty'
-    ? kittyKeyboardProfileFields
-    : legacyKeyboardProfileFields;
-  const unknownField = findUnsupportedField(profile, allowedFields);
-  if (unknownField !== undefined) {
-    return `keyboardProfile contains unsupported field: ${unknownField}.`;
-  }
   try {
-    normalizeKeyboardProfile(profile);
+    decodeKeyboardProfile(profile);
     return undefined;
-  } catch {
-    return 'keyboardProfile must be a valid legacy or Kitty profile.';
+  } catch (cause) {
+    return cause instanceof Error
+      ? cause.message
+      : 'keyboardProfile must be a valid legacy or Kitty profile.';
   }
 }
 

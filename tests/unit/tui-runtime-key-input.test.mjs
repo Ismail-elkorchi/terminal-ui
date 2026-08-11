@@ -39,7 +39,7 @@ test('defineTui rejects duplicate binding identities and duplicate triggers with
   }), /duplicate trigger/u);
 });
 
-test('defineTui decodes exact immutable input bindings at the public boundary', async () => {
+test('defineTui owns input bindings and validates the fields it consumes', async () => {
   const trigger = { kind: 'key', key: 'enter' };
   const bindings = [{ id: 'submit', triggers: [trigger], message: 'submitted' }];
   const definition = {
@@ -66,11 +66,11 @@ test('defineTui decodes exact immutable input bindings at the public boundary', 
   assert.equal(Object.isFrozen(app.definition.inputBindings), true);
   assert.equal(Object.isFrozen(app.definition.inputBindings[0]?.triggers[0]), true);
 
-  assert.throws(() => defineTui({ ...definition, unsupported: true }), /unknown field/u);
-  assert.throws(() => defineTui({
+  assert.doesNotThrow(() => defineTui({ ...definition, unsupported: true }));
+  assert.doesNotThrow(() => defineTui({
     ...definition,
     inputBindings: [{ ...bindings[0], typo: true }]
-  }), /unknown field/u);
+  }));
   assert.throws(() => defineTui({
     ...definition,
     inputBindings: [{ ...bindings[0], phase: 'capture' }]

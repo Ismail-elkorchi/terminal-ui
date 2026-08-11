@@ -58,11 +58,19 @@ const signalEventFields = new Set(['kind', 'signal']);
 const terminalSignals = ['SIGINT', 'SIGTERM', 'SIGHUP', 'resize'] as const;
 const endEventFields = new Set(['kind']);
 const unknownEventFields = new Set(['kind', 'sequence']);
+const ownedInputEvents = new WeakSet<object>();
 
-export function decodeInputEvent(value: InputEvent): InputEvent;
-export function decodeInputEvent(value: unknown): RecordedInputEvent;
 export function decodeInputEvent(value: unknown): RecordedInputEvent {
+  if (typeof value === 'object' && value !== null && ownedInputEvents.has(value)) {
+    return value as RecordedInputEvent;
+  }
   if (!isNonArrayObject(value)) throw new TypeError('input event must be an object.');
+  const event = decodeInputEventRecord(value);
+  ownedInputEvents.add(event);
+  return event;
+}
+
+function decodeInputEventRecord(value: Readonly<Record<string, unknown>>): RecordedInputEvent {
   switch (value['kind']) {
     case 'key':
       return decodeKeyEvent(value);
@@ -124,6 +132,51 @@ export function decodeInputEvent(value: unknown): RecordedInputEvent {
     default:
       throw new TypeError(`unsupported input event kind: ${String(value['kind'])}.`);
   }
+}
+
+/** Takes ownership of an event that has already crossed an input boundary. */
+export function snapshotInputEvent(value: InputEvent): InputEvent;
+export function snapshotInputEvent(value: RecordedInputEvent): RecordedInputEvent;
+export function snapshotInputEvent(value: RecordedInputEvent): RecordedInputEvent {
+  if (ownedInputEvents.has(value)) return value;
+  let event: RecordedInputEvent;
+  switch (value.kind) {
+    case 'key':
+      event = Object.freeze({
+        ...value,
+        modifiers: snapshotKeyModifiers(value.modifiers),
+        ...(value.alternateCodePoints === undefined
+          ? {}
+          : { alternateCodePoints: Object.freeze({ ...value.alternateCodePoints }) })
+      });
+      break;
+    case 'mouse':
+      event = Object.freeze({ ...value, modifiers: Object.freeze({ ...value.modifiers }) });
+      break;
+    case 'resize':
+      event = Object.freeze({
+        kind: 'resize',
+        terminalSize: Object.freeze({ ...value.terminalSize })
+      });
+      break;
+    default:
+      event = Object.freeze({ ...value });
+  }
+  ownedInputEvents.add(event);
+  return event;
+}
+
+function snapshotKeyModifiers(value: KeyModifiers): KeyModifiers {
+  return Object.freeze({
+    ctrl: value.ctrl,
+    alt: value.alt,
+    shift: value.shift,
+    meta: value.meta,
+    ...(value.super === undefined ? {} : { super: value.super }),
+    ...(value.hyper === undefined ? {} : { hyper: value.hyper }),
+    ...(value.capsLock === undefined ? {} : { capsLock: value.capsLock }),
+    ...(value.numLock === undefined ? {} : { numLock: value.numLock })
+  });
 }
 
 function decodeKeyEvent(value: Readonly<Record<string, unknown>>): InputEvent {

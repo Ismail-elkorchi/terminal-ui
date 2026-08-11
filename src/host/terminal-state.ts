@@ -1,6 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { diagnostic } from '../diagnostics.ts';
 import { createProtocolWriter, normalizeMouseReportingState } from '../protocol/index.ts';
-import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/keyboard.ts';
+import {
+  LEGACY_KEYBOARD_PROFILE,
+  normalizeKeyboardProfile
+} from '../protocol/keyboard.ts';
 import {
   terminalOperationApplied,
   terminalOperationIndeterminate,
@@ -848,9 +852,7 @@ function initialTerminalState(
     mouseReporting: explicit.mouseReporting ?? Object.freeze({ tracking: 'none', encoding: 'default' }),
     focusReporting: explicit.focusReporting ?? false,
     unicodeGraphemeMode: explicit.unicodeGraphemeMode ?? false,
-    keyboardProfile: explicit.keyboardProfile === undefined
-      ? LEGACY_KEYBOARD_PROFILE
-      : normalizeKeyboardProfile(explicit.keyboardProfile),
+    keyboardProfile: explicit.keyboardProfile ?? LEGACY_KEYBOARD_PROFILE,
     cursorVisible: explicit.cursorVisible ?? true
   } satisfies Omit<TerminalStateSnapshot, 'provenance'>;
   const provenance: TerminalStateProvenanceSnapshot = {
@@ -873,24 +875,11 @@ function initialKnowledge(
   return Object.hasOwn(state, kind) ? 'explicit' : 'assumed';
 }
 
-function normalizeInitialState(initial: unknown): TerminalInitialState {
+function normalizeInitialState(initial: TerminalInitialState | undefined): TerminalInitialState {
   if (initial === undefined) return {};
   if (typeof initial !== 'object' || initial === null || Array.isArray(initial)) {
     throw new TypeError('Terminal initial state must be an object.');
   }
-  const typed = initial as TerminalInitialState;
-  const supported = new Set([
-    'rawInput',
-    'alternateScreen',
-    'bracketedPaste',
-    'mouseReporting',
-    'focusReporting',
-    'unicodeGraphemeMode',
-    'keyboardProfile',
-    'cursorVisible'
-  ]);
-  const unknown = Object.keys(typed).find((field) => !supported.has(field));
-  if (unknown !== undefined) throw new TypeError(`Terminal initial state contains unknown field "${unknown}".`);
   const booleanFields = [
     'rawInput',
     'alternateScreen',
@@ -900,18 +889,25 @@ function normalizeInitialState(initial: unknown): TerminalInitialState {
     'cursorVisible'
   ] as const;
   for (const field of booleanFields) {
-    if (Object.hasOwn(typed, field) && typeof typed[field] !== 'boolean') {
+    if (Object.hasOwn(initial, field) && typeof initial[field] !== 'boolean') {
       throw new TypeError(`Terminal initial state ${field} must be a boolean.`);
     }
   }
   return Object.freeze({
-    ...typed,
-    ...(typed.mouseReporting === undefined
+    ...(initial.rawInput === undefined ? {} : { rawInput: initial.rawInput }),
+    ...(initial.alternateScreen === undefined ? {} : { alternateScreen: initial.alternateScreen }),
+    ...(initial.bracketedPaste === undefined ? {} : { bracketedPaste: initial.bracketedPaste }),
+    ...(initial.focusReporting === undefined ? {} : { focusReporting: initial.focusReporting }),
+    ...(initial.unicodeGraphemeMode === undefined
       ? {}
-      : { mouseReporting: normalizeMouseReportingState(typed.mouseReporting) }),
-    ...(typed.keyboardProfile === undefined
+      : { unicodeGraphemeMode: initial.unicodeGraphemeMode }),
+    ...(initial.cursorVisible === undefined ? {} : { cursorVisible: initial.cursorVisible }),
+    ...(initial.mouseReporting === undefined
       ? {}
-      : { keyboardProfile: normalizeKeyboardProfile(typed.keyboardProfile) })
+      : { mouseReporting: normalizeMouseReportingState(initial.mouseReporting) }),
+    ...(initial.keyboardProfile === undefined
+      ? {}
+      : { keyboardProfile: normalizeKeyboardProfile(initial.keyboardProfile) })
   });
 }
 
@@ -921,19 +917,18 @@ function cloneTerminalState(
 ): TerminalStateSnapshot {
   const provenance = { ...state.provenance };
   for (const key of uncertain) provenance[key] = 'indeterminate';
-  return freezeTerminalState({
-    ...state,
-    mouseReporting: { ...state.mouseReporting },
-    keyboardProfile: { ...state.keyboardProfile },
-    provenance
-  });
+  return freezeTerminalState({ ...state, provenance });
 }
 
 function freezeTerminalState(state: TerminalStateSnapshot): TerminalStateSnapshot {
   return Object.freeze({
     ...state,
-    mouseReporting: Object.freeze({ ...state.mouseReporting }),
-    keyboardProfile: normalizeKeyboardProfile(state.keyboardProfile),
+    mouseReporting: Object.isFrozen(state.mouseReporting)
+      ? state.mouseReporting
+      : Object.freeze({ ...state.mouseReporting }),
+    keyboardProfile: Object.isFrozen(state.keyboardProfile)
+      ? state.keyboardProfile
+      : Object.freeze({ ...state.keyboardProfile }),
     provenance: Object.freeze({ ...state.provenance })
   });
 }
@@ -1206,11 +1201,5 @@ function freezeRestoreResult(result: TerminalRestoreResult): TerminalRestoreResu
 }
 
 function freezeTerminalStateChange(change: TerminalStateChange): TerminalStateChange {
-  if (change.kind === 'mouseReporting') {
-    return Object.freeze({ ...change, enabled: normalizeMouseReportingState(change.enabled) });
-  }
-  if (change.kind === 'keyboardProfile') {
-    return Object.freeze({ ...change, enabled: normalizeKeyboardProfile(change.enabled) });
-  }
   return Object.freeze({ ...change });
 }

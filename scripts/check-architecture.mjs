@@ -33,6 +33,11 @@ const componentForbiddenLayers = new Set([
 const componentDefinitionPrivateRendererDependencies = new Set([
   'renderer/model/component-node.ts'
 ]);
+const typedNormalizationPaths = new Set([
+  'host/memory.ts', 'host/terminal-state.ts', 'input/decoder.ts', 'input/pipeline.ts',
+  'layout/prepare.ts', 'protocol/index.ts', 'protocol/keyboard.ts',
+  'tui/definition.ts', 'tui/run-configuration.ts'
+]);
 const runtimeGlobalNames = new Set(['Bun', 'Deno', 'globalThis', 'process']);
 const foundationDependencies = new Map([
   ['diagnostic-identity.ts', new Set()],
@@ -71,6 +76,7 @@ for (const filePath of sourceFiles) {
   inspectElementConstructionBoundary(sourceFile, filePath);
   inspectComponentCatalog(sourceFile, filePath);
   inspectComponentPreparationInflation(sourceFile, filePath);
+  inspectTypedNormalizationInflation(sourceFile, filePath);
   inspectPublicBoundary(sourceFile, filePath);
   inspectTestingEntrypoint(sourceFile, filePath);
   inspectTuiContext(sourceFile, filePath);
@@ -239,7 +245,7 @@ function inspectComponentPreparationInflation(sourceFile, filePath) {
     }
     if (ts.isVariableDeclaration(node) && node.type !== undefined
       && isReadonlyUnknownRecord(node.type)
-      && ts.isIdentifier(node.initializer)
+      && node.initializer !== undefined && ts.isIdentifier(node.initializer)
       && node.initializer.text === 'options') {
       report(`widens options to a generic record in ${node.name.getText(sourceFile)}`);
     }
@@ -249,6 +255,17 @@ function inspectComponentPreparationInflation(sourceFile, filePath) {
       if (name !== undefined && /^prepare[A-Z]/u.test(name)) {
         report(`discards the result of ${name}()`);
       }
+    }
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+      && /^(?:nonNegativeSafeInteger|nonNegativeInteger)$/u.test(node.expression.text)
+      && node.arguments.some((argument) => ts.isPropertyAccessExpression(argument)
+        && /^(?:itemIndex|startIndex|totalCount)$/u.test(argument.name.text))) {
+      report('revalidates a branded collection index');
+    }
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+      && node.expression.text === 'isNonArrayObject'
+      && node.arguments.some((argument) => ts.isIdentifier(argument) && argument.text === 'record')) {
+      report('revalidates the generic shape of a branded collection record');
     }
     ts.forEachChild(node, visit);
   };
@@ -265,6 +282,33 @@ function inspectComponentPreparationInflation(sourceFile, filePath) {
       report(`imports generic exact-option validation from ${statement.moduleSpecifier.text}`);
     }
   }
+}
+
+function inspectTypedNormalizationInflation(sourceFile, filePath) {
+  const sourcePath = sourceRelative(filePath);
+  const typedPath = typedNormalizationPaths.has(sourcePath);
+  if (!typedPath && sourcePath !== 'transcript/recorder.ts') return;
+  const report = (message) => failures.push(`${relative(filePath)} ${message}`);
+  const visit = (node) => {
+    if (typedPath && ts.isVariableDeclaration(node) && node.initializer !== undefined
+      && ts.isIdentifier(node.initializer)
+      && node.type !== undefined
+      && (node.type.kind === ts.SyntaxKind.UnknownKeyword || isReadonlyUnknownRecord(node.type))
+      && !(sourcePath === 'input/decoder.ts' && node.initializer.text === 'chunk')) {
+      report(`widens ${node.initializer.text} before typed normalization`);
+    }
+    if (typedPath && ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)
+      && /Fields$/u.test(node.name.text) && node.initializer !== undefined && ts.isNewExpression(node.initializer)
+      && node.initializer.expression.getText(sourceFile) === 'Set') {
+      report(`maintains exact authoring-field mirror ${node.name.text}`);
+    }
+    if (sourcePath === 'transcript/recorder.ts' && ts.isCallExpression(node)
+      && node.expression.getText(sourceFile) === 'decodeInputEvent') {
+      report('decodes an already admitted input event');
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
 }
 
 function propertyName(name) {

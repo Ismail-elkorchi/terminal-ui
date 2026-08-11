@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { diagnostic } from '../diagnostics.ts';
 import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/index.ts';
 import {
@@ -86,7 +87,7 @@ export function createInputPipeline(options: InputPipelineOptions = {}): InputPi
 }
 
 export function resolveInputPipelineProfile(options: InputPipelineOptions = {}): InputPipelineProfile {
-  assertPipelineOptions(options);
+  validatePipelineOptions(options);
   const requested = normalizeKeyboardProfile(options.keyboard ?? LEGACY_KEYBOARD_PROFILE);
   const requestedProfile = requested;
   const available = requestedProfile.kind === 'legacy' || capabilityUsable(options.capabilities?.keyboardProtocol);
@@ -104,44 +105,24 @@ export function resolveInputPipelineProfile(options: InputPipelineOptions = {}):
   });
 }
 
-function assertPipelineOptions(value: InputPipelineOptions): void {
-  const candidate: unknown = value;
-  assertNonArrayRecord(candidate, 'Input pipeline options');
-  const record = candidate;
-  const supported = new Set([
-    'capabilities',
-    'keyboard',
-    'bracketedPaste',
-    'focusReporting',
-    'mouseReporting',
-    'escapeDelayMs',
-    'limits'
-  ]);
-  const unknown = Object.keys(record).find((field) => !supported.has(field));
-  if (unknown !== undefined) throw new TypeError(`Input pipeline options contain unknown field "${unknown}".`);
+function validatePipelineOptions(value: InputPipelineOptions): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('Input pipeline options must be an object.');
+  }
   for (const field of ['bracketedPaste', 'focusReporting'] as const) {
-    if (record[field] !== undefined && typeof record[field] !== 'boolean') {
+    if (value[field] !== undefined && typeof value[field] !== 'boolean') {
       throw new TypeError(`Input pipeline option ${field} must be boolean.`);
     }
   }
-  const mouse = record['mouseReporting'];
+  const mouse = value.mouseReporting;
   if (mouse !== undefined && mouse !== 'none' && mouse !== 'click' && mouse !== 'drag' && mouse !== 'all') {
     throw new TypeError('Input pipeline mouseReporting is unsupported.');
   }
   for (const field of ['capabilities', 'limits'] as const) {
-    const nested = record[field];
+    const nested = value[field];
     if (nested !== undefined && (typeof nested !== 'object' || nested === null || Array.isArray(nested))) {
       throw new TypeError(`Input pipeline ${field} must be an object.`);
     }
-  }
-}
-
-function assertNonArrayRecord(
-  value: unknown,
-  subject: string
-): asserts value is Readonly<Record<string, unknown>> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${subject} must be an object.`);
   }
 }
 

@@ -47,7 +47,7 @@ import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
   layoutContentBounds,
   layoutInsetSize,
-  prepareLayoutFlowOptions,
+  normalizeLayoutFlowOptions,
   splitTracks,
 } from '../../layout/index.ts';
 import {
@@ -185,7 +185,7 @@ function prepareForm(value: Readonly<FormOptions>): FormModel {
   }
   return {
     title: title === undefined ? '' : sanitizeTerminalText(title).text,
-    layout: prepareLayoutFlowOptions(value, 'form'),
+    layout: normalizeLayoutFlowOptions(value, 'form'),
   };
 }
 
@@ -230,7 +230,7 @@ export const field: FieldFactory = defineComponent<
     return {
       label: sanitizeTerminalText(label).text,
       description: description === undefined ? '' : sanitizeTerminalText(description).text,
-      layout: prepareLayoutFlowOptions(value, 'field'),
+      layout: normalizeLayoutFlowOptions(value, 'field'),
     };
   },
   measure(input) {
