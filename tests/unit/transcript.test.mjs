@@ -39,6 +39,31 @@ test('transcript recording detaches and freezes input evidence before dispatch',
   assert.strictEqual(recorder.snapshot().steps[1]?.event, decoded);
 });
 
+test('transcript recording adopts independently supplied diagnostic occurrences', () => {
+  const recorder = createTranscriptRecorder({ id: 'diagnostic-snapshot', source: 'tui' });
+  const source = createDiagnosticOccurrenceReporter('external-owner').report(diagnostic(
+    'TUI_RUN_FAILED',
+    'Original diagnostic.',
+    { cause: { values: ['cause'] }, data: { values: ['data'] } }
+  ));
+  const supplied = JSON.parse(JSON.stringify(source));
+
+  recorder.recordDiagnostic(supplied);
+  supplied.owner = 'changed-owner';
+  supplied.diagnostic.message = 'Changed diagnostic.';
+  supplied.diagnostic.cause.values[0] = 'changed-cause';
+  supplied.diagnostic.data.values[0] = 'changed-data';
+
+  const recorded = recorder.snapshot().diagnostics[0];
+  assert.notEqual(recorded, supplied);
+  assert.equal(recorded.owner, 'external-owner');
+  assert.equal(recorded.diagnostic.message, 'Original diagnostic.');
+  assert.deepEqual(recorded.diagnostic.cause, { values: ['cause'] });
+  assert.deepEqual(recorded.diagnostic.data, { values: ['data'] });
+  assert.equal(Object.isFrozen(recorded), true);
+  assert.equal(Object.isFrozen(recorded.diagnostic.cause.values), true);
+});
+
 test('transcript replay preserves frames, diffs, snapshots, diagnostics, and restore outcomes', async () => {
   const harness = createTerminalHarness();
   const snapshot = harness.snapshot();
@@ -690,7 +715,7 @@ test('transcript redaction projects JSON keys without collisions or audit-path l
   );
   assert.deepEqual(
     Object.keys(redacted.diagnostics[0]?.diagnostic.data),
-    ['[redacted]#1', '[redacted]']
+    ['[redacted]', '[redacted]#1']
   );
   assert.equal(
     redacted.redactions.some((redaction) => redaction.path.includes('private-marker')),

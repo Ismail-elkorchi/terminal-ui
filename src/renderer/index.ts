@@ -144,7 +144,7 @@ export {
   normalizeMeasurement,
   zeroMeasurement
 } from './internal/measurement.ts';
-export { assertValidMeasurement } from './measurement-validation.ts';
+export { adoptMeasurement } from './measurement-validation.ts';
 export {
   highlightRenderSpans
 } from './internal/text-highlight.ts';

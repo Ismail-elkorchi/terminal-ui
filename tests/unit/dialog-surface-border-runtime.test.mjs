@@ -66,6 +66,42 @@ test('dialog accessibility label derives from structured caller-supplied titles'
   assert.equal(slottedTitleFrame.accessibility.root.label, 'Start Center End');
 });
 
+test('dialog adopts border-title slots once and rejects malformed nested content', () => {
+  const reads = { start: 0, center: 0, end: 0 };
+  const title = {};
+  for (const [field, value] of [
+    ['start', [{ kind: 'text', text: 'Start' }]],
+    ['center', 'Center'],
+    ['end', [{ kind: 'symbol', unicode: '✓', ascii: '+', accessibleText: 'done' }]]
+  ]) {
+    Object.defineProperty(title, field, {
+      enumerable: true,
+      get() {
+        reads[field] += 1;
+        return value;
+      }
+    });
+  }
+  const element = dialog({
+    slots: { content: text({ content: 'inside', id: 'owned-title-content' }) },
+    id: 'owned-title-dialog',
+    title,
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' }
+  });
+  const frame = renderElementFrame(element, { columns: 32, rows: 8 });
+
+  assert.equal(frame.accessibility.root.label, 'Start Center done');
+  assert.deepEqual(reads, { start: 1, center: 1, end: 1 });
+  assert.throws(() => dialog({
+    slots: { content: text({ content: 'inside' }) },
+    id: 'invalid-title-dialog',
+    title: { center: [{ kind: 'symbol', unicode: '✓', ascii: '', accessibleText: 'done' }] },
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' }
+  }), /dialog title is invalid/u);
+});
+
 test('dialog reserves a structurally separated action area without color', () => {
   const element = dialog({
     slots: {

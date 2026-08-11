@@ -53,7 +53,6 @@ import type { MenuStylePart } from '../../ui-model/style-parts.ts';
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
-  isInlineContent,
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
@@ -1262,8 +1261,11 @@ function menuRowText(item: MenuRow, theme: ComponentMeasureInput<MenuModel>['the
 }
 
 function prepareInline(value: InlineContent, subject: string): InlineContent {
-  if (!isInlineContent(value)) throw new TypeError(`${subject} must be inline content.`);
-  return normalizeInlineContent(value);
+  try {
+    return normalizeInlineContent(value);
+  } catch (cause) {
+    throw new TypeError(`${subject} must be inline content.`, { cause });
+  }
 }
 function checkedValue(value: unknown, subject: string, index: number): boolean {
   if (typeof value !== 'boolean') {

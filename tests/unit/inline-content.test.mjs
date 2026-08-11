@@ -22,7 +22,8 @@ import {
 } from '../../dist/theme/index.js';
 import {
   inlineContentAccessibleText,
-  normalizeInlineContent
+  normalizeInlineContent,
+  normalizeTerminalLink
 } from '../../dist/visual/index.js';
 
 const symbol = {
@@ -33,10 +34,12 @@ const symbol = {
 };
 
 test('inline content normalization sanitizes caller-supplied data and validates symbolic fallbacks', () => {
+  const style = { fg: { kind: 'rgb', r: 1, g: 2, b: 3 } };
   const normalized = normalizeInlineContent([
     {
       kind: 'text',
       text: 'safe\u001b[31m',
+      style,
       link: { href: 'https://example.test/\u001b', id: 'docs\u0000' }
     },
     symbol
@@ -44,12 +47,20 @@ test('inline content normalization sanitizes caller-supplied data and validates 
 
   assert.equal(Object.isFrozen(normalized), true);
   assert.equal(Object.isFrozen(normalized[0]), true);
+  assert.equal(normalizeInlineContent(normalized), normalized);
   assert.equal(normalized[0]?.text, 'safe');
   assert.deepEqual(normalized[0]?.link, {
     href: 'https://example.test/',
     id: 'docs'
   });
+  assert.equal(normalizeTerminalLink(normalized[0].link), normalized[0].link);
+  style.fg.r = 99;
+  assert.deepEqual(normalized[0]?.style?.fg, { kind: 'rgb', r: 1, g: 2, b: 3 });
   assert.equal(inlineContentAccessibleText(normalized), 'safestatus');
+  assert.throws(() => normalizeInlineContent(null), /must be an array/u);
+  assert.throws(() => normalizeInlineContent([null]), /must be an object/u);
+  assert.throws(() => normalizeInlineContent([{ kind: 'other' }]), /kind is invalid/u);
+  assert.throws(() => normalizeInlineContent([{ kind: 'text' }]), /requires text/u);
   assert.throws(() => normalizeInlineContent([{
     kind: 'symbol',
     unicode: '→',
@@ -63,6 +74,12 @@ test('inline content normalization sanitizes caller-supplied data and validates 
     accessibleText: '   '
   }]), /non-empty accessibleText/u);
   assert.throws(() => normalizeInlineContent([{
+    kind: 'symbol',
+    unicode: '',
+    ascii: '*',
+    accessibleText: 'empty'
+  }]), /at least one cell/u);
+  assert.throws(() => normalizeInlineContent([{
     kind: 'text',
     text: 'link',
     link: { href: 'https://example.test/', id: 'bad id' }
@@ -72,6 +89,44 @@ test('inline content normalization sanitizes caller-supplied data and validates 
     text: 'link',
     link: { href: 'https://example.test/', extra: true }
   }]), /unsupported field/u);
+});
+
+test('inline content adoption reads each consumed segment field once', () => {
+  const reads = new Map();
+  const segment = {};
+  for (const [field, value] of [
+    ['kind', 'symbol'],
+    ['unicode', '→'],
+    ['ascii', '->'],
+    ['accessibleText', 'next'],
+    ['style', undefined],
+    ['link', undefined]
+  ]) {
+    Object.defineProperty(segment, field, {
+      enumerable: true,
+      get() {
+        reads.set(field, (reads.get(field) ?? 0) + 1);
+        return value;
+      }
+    });
+  }
+
+  const normalized = normalizeInlineContent([segment]);
+
+  assert.deepEqual(normalized, [{
+    kind: 'symbol',
+    unicode: '→',
+    ascii: '->',
+    accessibleText: 'next'
+  }]);
+  assert.deepEqual(Object.fromEntries(reads), {
+    kind: 1,
+    unicode: 1,
+    ascii: 1,
+    accessibleText: 1,
+    style: 1,
+    link: 1
+  });
 });
 
 test('rich text projects symbol mode and accessible text while the renderer produces source metadata', () => {

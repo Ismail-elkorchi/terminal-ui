@@ -49,10 +49,10 @@ import type { TableStylePart, TreeStylePart } from '../../ui-model/style-parts.t
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
-  isInlineContent,
   normalizeInlineContent,
+  tryNormalizeInlineContent,
 } from '../../visual/inline-content.ts';
-import type { InlineContent, InlineContentSegment } from '../../visual/inline-content.ts';
+import type { InlineContent } from '../../visual/inline-content.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import type {
   PassiveTableOptions,
@@ -515,10 +515,10 @@ function tableCell<TRow>(
   let content: InlineContent;
   if (typeof rendered === 'string') {
     content = normalizeInlineContent([{ kind: 'text', text: rendered }]);
-  } else if (isInlineContent(rendered)) {
-    content = normalizeInlineContent(rendered);
-  } else if (isInlineContentSegment(rendered)) {
-    content = normalizeInlineContent([rendered]);
+  } else if (Array.isArray(rendered)) {
+    content = tryNormalizeInlineContent(rendered) ?? Object.freeze([]);
+  } else if (typeof rendered === 'object' && rendered !== null) {
+    content = tryNormalizeInlineContent([rendered]) ?? Object.freeze([]);
   } else if (
     typeof rendered === 'number' || typeof rendered === 'bigint' || typeof rendered === 'boolean'
   ) {
@@ -527,16 +527,6 @@ function tableCell<TRow>(
     content = Object.freeze([]);
   }
   return Object.freeze({ content, text: inlineContentAccessibleText(content) });
-}
-
-function isInlineContentSegment(value: unknown): value is InlineContentSegment {
-  if (!isNonArrayObject(value)) return false;
-  return value['kind'] === 'text'
-    ? typeof value['text'] === 'string'
-    : value['kind'] === 'symbol' &&
-      typeof value['unicode'] === 'string' &&
-      typeof value['ascii'] === 'string' &&
-      typeof value['accessibleText'] === 'string';
 }
 
 function prepareTablePresentation(

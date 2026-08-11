@@ -17,7 +17,7 @@ import {
   renderDiffProjectionMatchesFrame
 } from '../renderer/internal/diff-interpreter.ts';
 import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalSize } from '../host/index.ts';
-import { decodeKeyboardProfile, normalizeKeyboardProfile } from '../protocol/index.ts';
+import { decodeKeyboardProfile } from '../protocol/index.ts';
 import {
   decodeInputEvent
 } from '../input/index.ts';
@@ -947,11 +947,9 @@ function isOrderedTerminalStateChangeSubset(
 function terminalStateChangesEqual(left: TerminalStateChange, right: TerminalStateChange): boolean {
   if (left.kind !== right.kind) return false;
   if (left.kind === 'keyboardProfile' && right.kind === 'keyboardProfile') {
-    const leftProfile = normalizeKeyboardProfile(left.enabled);
-    const rightProfile = normalizeKeyboardProfile(right.enabled);
-    return leftProfile.kind === rightProfile.kind
-      && (leftProfile.kind === 'legacy'
-        || (rightProfile.kind === 'kitty' && leftProfile.flags === rightProfile.flags));
+    return left.enabled.kind === right.enabled.kind
+      && (left.enabled.kind === 'legacy'
+        || (right.enabled.kind === 'kitty' && left.enabled.flags === right.enabled.flags));
   }
   if (left.kind === 'mouseReporting' && right.kind === 'mouseReporting') {
     return left.enabled.tracking === right.enabled.tracking

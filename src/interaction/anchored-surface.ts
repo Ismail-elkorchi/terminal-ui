@@ -45,6 +45,10 @@ export function placeAnchoredSurface(input: PlaceAnchoredSurfaceInput): Rect {
   assertAnchoredSurfaceOptions(input, 'placeAnchoredSurface()');
   assertRect(input.viewport, 'placeAnchoredSurface() viewport');
   assertSize(input.size, 'placeAnchoredSurface() size');
+  return placeAnchoredSurfaceFromValidatedInput(input);
+}
+
+export function placeAnchoredSurfaceFromValidatedInput(input: PlaceAnchoredSurfaceInput): Rect {
   const viewport = normalizeRect(input.viewport);
   const size = boundedSize(input.size, viewport);
   const margin = finiteNonNegativeIntegerOrZero(input.margin ?? 1);

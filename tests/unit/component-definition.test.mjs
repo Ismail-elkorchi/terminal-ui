@@ -1173,6 +1173,47 @@ test('invalid component measurements are rejected instead of silently normalized
   );
 });
 
+test('valid component measurements are adopted in one pass', () => {
+  const reads = new Map();
+  const measurement = {};
+  for (const [field, value] of [
+    ['minWidth', 1],
+    ['minHeight', 1],
+    ['preferredWidth', 3],
+    ['preferredHeight', 1],
+    ['maxWidth', undefined],
+    ['maxHeight', undefined]
+  ]) {
+    Object.defineProperty(measurement, field, {
+      enumerable: true,
+      get() {
+        reads.set(field, (reads.get(field) ?? 0) + 1);
+        return value;
+      }
+    });
+  }
+  const element = component({
+    id: 'owned-measurement',
+    definition: {
+      ...leafComponentDefinition,
+      measure: () => measurement,
+      render() {},
+      accessibility: ({ id }) => ({ id, role: 'text', label: id })
+    }
+  });
+
+  layoutElement(row([element], { sizes: [{ kind: 'content' }] }), { columns: 8, rows: 1 });
+
+  assert.deepEqual(Object.fromEntries(reads), {
+    minWidth: 1,
+    minHeight: 1,
+    preferredWidth: 1,
+    preferredHeight: 1,
+    maxWidth: 1,
+    maxHeight: 1
+  });
+});
+
 test('component composites accept clipped child coordinates inside a scrolled parent', () => {
   const composite = component({
     id: 'scrolled-composite',

@@ -15,7 +15,6 @@ import type { TextStylePart } from '../../ui-model/style-parts.ts';
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
-  isInlineContent,
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
@@ -160,9 +159,6 @@ export const richText: SemanticLeafComponentFactory<
   prepare(value) {
     const segments = value.segments;
     const wrap = value.wrap;
-    if (!isInlineContent(segments)) {
-      throw new TypeError('richText segments must be inline content.');
-    }
     if (wrap !== undefined && typeof wrap !== 'boolean') {
       throw new TypeError('richText wrap must be a boolean.');
     }
@@ -296,9 +292,6 @@ export const disclosure: DisclosureFactory = defineComponent<
     const summary = value.summary;
     const expanded = value.expanded;
     if (typeof label !== 'string') throw new TypeError('disclosure label must be a string.');
-    if (summary !== undefined && !isInlineContent(summary)) {
-      throw new TypeError('disclosure summary must be inline content.');
-    }
     if (typeof expanded !== 'boolean') {
       throw new TypeError('disclosure expanded must be a boolean.');
     }

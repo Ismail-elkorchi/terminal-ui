@@ -47,7 +47,8 @@ export function jsonValueIssue(value: unknown): string | undefined {
     0,
     { nodes: 0, stringCodeUnits: 0 },
     false,
-    defaultJsonSnapshotLimits
+    defaultJsonSnapshotLimits,
+    false
   );
   return result.ok ? undefined : result.issue;
 }
@@ -64,7 +65,22 @@ export function snapshotJsonValue(
     0,
     { nodes: 0, stringCodeUnits: 0 },
     true,
-    normalizedLimits
+    normalizedLimits,
+    false
+  );
+  if (!result.ok) throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);
+  return result.snapshot as JsonValue;
+}
+
+export function snapshotCanonicalJsonValue(value: unknown, subject: string): JsonValue {
+  const result = inspectJsonValue(
+    value,
+    new Set(),
+    0,
+    { nodes: 0, stringCodeUnits: 0 },
+    true,
+    defaultJsonSnapshotLimits,
+    true
   );
   if (!result.ok) throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);
   return result.snapshot as JsonValue;
@@ -80,7 +96,8 @@ function inspectJsonValue(
   depth: number,
   budget: JsonTraversalBudget,
   snapshot: boolean,
-  limits: NormalizedJsonSnapshotLimits
+  limits: NormalizedJsonSnapshotLimits,
+  canonical: boolean
 ): JsonInspection {
   budget.nodes += 1;
   if (budget.nodes > limits.maxNodes) {
@@ -131,7 +148,7 @@ function inspectJsonValue(
         ancestors.delete(value);
         return { ok: false, issue: 'object properties could not be read' };
       }
-      const result = inspectJsonValue(item, ancestors, depth + 1, budget, snapshot, limits);
+      const result = inspectJsonValue(item, ancestors, depth + 1, budget, snapshot, limits, canonical);
       if (!result.ok) {
         ancestors.delete(value);
         return result;
@@ -139,7 +156,9 @@ function inspectJsonValue(
       arraySnapshot?.push(result.snapshot as JsonValue);
     }
     ancestors.delete(value);
-    return snapshot ? { ok: true, snapshot: arraySnapshot ?? [] } : { ok: true };
+    return snapshot
+      ? { ok: true, snapshot: canonical ? Object.freeze(arraySnapshot ?? []) : arraySnapshot ?? [] }
+      : { ok: true };
   }
 
   const objectValue = value as Record<string, unknown>;
@@ -152,7 +171,15 @@ function inspectJsonValue(
         ancestors.delete(value);
         return { ok: false, issue: keyIssue };
       }
-      const result = inspectJsonValue(objectValue[key], ancestors, depth + 1, budget, snapshot, limits);
+      const result = inspectJsonValue(
+        objectValue[key],
+        ancestors,
+        depth + 1,
+        budget,
+        snapshot,
+        limits,
+        canonical
+      );
       if (!result.ok) {
         ancestors.delete(value);
         return result;
@@ -164,9 +191,10 @@ function inspectJsonValue(
     return { ok: false, issue: 'object properties could not be read' };
   }
   ancestors.delete(value);
-  return snapshot
-    ? { ok: true, snapshot: Object.fromEntries(objectSnapshot ?? []) }
-    : { ok: true };
+  if (!snapshot) return { ok: true };
+  if (canonical) objectSnapshot?.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+  const valueSnapshot = Object.fromEntries(objectSnapshot ?? []);
+  return { ok: true, snapshot: canonical ? Object.freeze(valueSnapshot) : valueSnapshot };
 }
 
 function addStringCodeUnits(

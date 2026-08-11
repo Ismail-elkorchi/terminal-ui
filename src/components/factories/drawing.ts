@@ -2,7 +2,7 @@ import { defineComponent } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { CanvasOptions } from '../options/drawing.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
-import { assertValidMeasurement, createLocalCanvas2D } from '../../renderer/index.ts';
+import { adoptMeasurement, createLocalCanvas2D } from '../../renderer/index.ts';
 import type { CanvasPainter, Measurement } from '../../renderer/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { CanvasStylePart } from '../../ui-model/style-parts.ts';
@@ -89,7 +89,7 @@ function prepareCanvas(
   const painter = value.painter;
   if (!isCanvasPainter(painter)) throw new TypeError('canvas painter must be a function.');
   const measurement = value.measurement;
-  assertValidMeasurement(measurement, 'canvas');
+  const ownedMeasurement = adoptMeasurement(measurement, 'canvas');
   const label = value.label;
   if (label !== undefined && typeof label !== 'string') {
     throw new TypeError('canvas label must be a string.');
@@ -100,7 +100,7 @@ function prepareCanvas(
   }
   return {
     painter,
-    measurement,
+    measurement: ownedMeasurement,
     ...(normalizedLabel === undefined ? {} : { label: normalizedLabel }),
   };
 }

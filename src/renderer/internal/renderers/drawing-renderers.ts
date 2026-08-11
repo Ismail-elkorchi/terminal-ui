@@ -8,7 +8,7 @@ import {
   surfaceChildBounds
 } from '../drawing-rendering.ts';
 import { drawSurface } from '../surface.ts';
-import { placeAnchoredSurface } from '../../../interaction/anchored-surface.ts';
+import { placeAnchoredSurfaceFromValidatedInput } from '../../../interaction/anchored-surface.ts';
 import { drawingMeasurements } from './drawing-measurements.ts';
 import type { StructuralRendererMap } from './types.ts';
 import type { Rect } from '../../../geometry/types.ts';
@@ -37,7 +37,7 @@ export const drawingRenderers = {
     measure: drawingMeasurements.anchored,
     place: ({ renderNode, viewport, measurement }) => {
       const content = measurement();
-      return placeAnchoredSurface({
+      return placeAnchoredSurfaceFromValidatedInput({
         viewport,
         anchor: renderNode.props.anchor,
         size: {
@@ -83,7 +83,7 @@ export const drawingRenderers = {
           height
         };
       }
-      return placeAnchoredSurface({
+      return placeAnchoredSurfaceFromValidatedInput({
         viewport,
         anchor: renderNode.props.anchor.kind === 'allocation'
           ? { kind: 'target', bounds }

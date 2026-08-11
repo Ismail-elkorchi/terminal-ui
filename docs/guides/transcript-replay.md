@@ -45,6 +45,10 @@ Diagnostics separate immutable content from reported occurrences. A
 `DiagnosticOccurrence` contains a `TerminalDiagnostic` together with an
 owner-local `id` and `sequence` assigned when that content first reaches a
 runtime, transcript, or other reporting boundary.
+Diagnostics created by the package are already canonical and pass through a
+reporter unchanged. Independently constructed diagnostics and occurrences are
+validated, canonically ordered, detached, and frozen once when they cross that
+boundary.
 Recording the same occurrence twice is idempotent; reporting equal content
 twice creates two occurrences. Consumers may group occurrences by
 `diagnostic.fingerprint` for presentation, but transcripts preserve every

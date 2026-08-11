@@ -90,10 +90,8 @@ test('diagnostic occurrences preserve repeated equal content', () => {
   const first = reporter.report(content);
   const second = reporter.report(content);
 
-  assert.notEqual(first.diagnostic, content);
-  assert.notEqual(second.diagnostic, content);
-  assert.deepEqual(first.diagnostic, content);
-  assert.deepEqual(second.diagnostic, content);
+  assert.equal(first.diagnostic, content);
+  assert.equal(second.diagnostic, content);
   assert.equal(first.diagnostic.fingerprint, second.diagnostic.fingerprint);
   assert.notEqual(first.id, second.id);
   assert.deepEqual([first.sequence, second.sequence], [1, 2]);
@@ -152,4 +150,48 @@ test('diagnostic content is detached and deeply immutable across reporting bound
   assert.throws(() => {
     occurrence.diagnostic.data.nested.values[0] = 'forbidden';
   }, TypeError);
+});
+
+test('independently supplied diagnostics are adopted in one pass', () => {
+  const canonical = diagnostic('TUI_RUN_FAILED', 'External diagnostic.', {
+    cause: { nested: ['cause'] },
+    data: { nested: ['data'] }
+  });
+  const reads = { cause: 0, data: 0 };
+  const causeValues = ['cause'];
+  const dataValues = ['data'];
+  const suppliedCause = {};
+  const suppliedData = {};
+  Object.defineProperty(suppliedCause, 'nested', {
+    enumerable: true,
+    get() {
+      reads.cause += 1;
+      return causeValues;
+    }
+  });
+  Object.defineProperty(suppliedData, 'nested', {
+    enumerable: true,
+    get() {
+      reads.data += 1;
+      return dataValues;
+    }
+  });
+  const supplied = {
+    ...canonical,
+    cause: suppliedCause,
+    data: suppliedData
+  };
+
+  const adopted = createDiagnosticOccurrenceReporter('external').report(supplied).diagnostic;
+
+  assert.notEqual(adopted, supplied);
+  assert.deepEqual(reads, { cause: 1, data: 1 });
+  assert.deepEqual(adopted.cause, { nested: ['cause'] });
+  assert.deepEqual(adopted.data, { nested: ['data'] });
+  assert.equal(Object.isFrozen(adopted.cause.nested), true);
+  assert.equal(Object.isFrozen(adopted.data.nested), true);
+  causeValues[0] = 'changed';
+  dataValues[0] = 'changed';
+  assert.deepEqual(adopted.cause, { nested: ['cause'] });
+  assert.deepEqual(adopted.data, { nested: ['data'] });
 });

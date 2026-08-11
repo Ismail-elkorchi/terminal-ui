@@ -46,6 +46,8 @@ export interface MouseReportingState {
   readonly encoding: MouseReportingEncoding;
 }
 
+const canonicalMouseReportingStates = new WeakSet<object>();
+
 export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtocolWriter {
   return {
     enableAlternateScreen: async () => sink.write('\u001B[?1049h'),
@@ -98,12 +100,15 @@ export function normalizeMouseReportingState(state: MouseReportingState): MouseR
   if (typeof state !== 'object' || state === null || Array.isArray(state)) {
     throw new TypeError('mouse reporting state must be an object.');
   }
+  if (canonicalMouseReportingStates.has(state)) return state;
   const tracking = assertMouseReportingMode(state.tracking);
   const encoding = state.encoding;
   if (encoding !== 'default' && encoding !== 'sgr') {
     throw new RangeError('mouse reporting encoding must be default or sgr.');
   }
-  return Object.freeze({ tracking, encoding });
+  const normalized = Object.freeze({ tracking, encoding });
+  canonicalMouseReportingStates.add(normalized);
+  return normalized;
 }
 
 function terminalTitle(value: string): string {

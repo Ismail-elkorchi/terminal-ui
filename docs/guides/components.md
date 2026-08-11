@@ -149,6 +149,10 @@ renderer spans. A text segment may carry local style and link data. A symbol
 segment supplies Unicode and printable-ASCII renderings plus required
 `accessibleText`, so the active theme chooses a deterministic symbol mode
 without making accessibility depend on a decorative glyph.
+Inline content is adopted in one operation: text is sanitized, styles and links
+are detached, symbol fallbacks are checked, and the resulting segments are
+immutable. Components retain that owned value instead of separately testing and
+then rebuilding the caller's segments.
 
 ```ts
 import { button } from '@ismail-elkorchi/terminal-ui/components';
@@ -175,7 +179,8 @@ tokens must use the `custom.*` namespace.
 places title content in its `start`, `center`, and `end` slots. Its `border`
 option owns geometry only: border kind and title alignment. Render spans,
 frame source metadata, and border styles remain component implementation
-concerns.
+concerns. Title strings, inline arrays, and slotted titles use the same border-title
+adoption boundary.
 
 For app structure and controlled state, see [Building terminal apps](./building-terminal-apps.md).
 For reusable reducers, see [Behavior helpers](./behavior.md). For reusable

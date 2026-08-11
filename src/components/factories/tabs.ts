@@ -30,7 +30,6 @@ import type { TabsStylePart } from '../../ui-model/style-parts.ts';
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
-  isInlineContent,
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
@@ -582,28 +581,22 @@ function tabsAccessibility(
 
 function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
   const rawTabs = value.tabs;
-  if (!Array.isArray(rawTabs) || rawTabs.length === 0) {
+  if (rawTabs.length === 0) {
     throw new TypeError('tabs tabs must be a non-empty array.');
   }
   const ids = new Set<string>();
-  const tabs = rawTabs.map((raw, index): TabModelItem => {
-    if (!isNonArrayObject(raw)) {
-      throw new TypeError(`tabs tabs[${String(index)}] must be an object.`);
-    }
-    const id = raw['id'];
-    const label = raw['label'];
+  const tabs = rawTabs.map((raw): TabModelItem => {
+    const id = raw.id;
+    const label = raw.label;
     if (typeof id !== 'string' || id.trim() === '') {
       throw new TypeError('tabs tab id must be non-empty.');
     }
     if (ids.has(id)) throw new TypeError(`tabs contains duplicate tab id "${id}".`);
     ids.add(id);
     if (typeof label !== 'string') throw new TypeError('tabs tab label must be a string.');
-    const leading = raw['leading'];
-    if (leading !== undefined && !isInlineContent(leading)) {
-      throw new TypeError('tabs tab leading is invalid.');
-    }
-    const description = raw['description'];
-    const badge = raw['badge'];
+    const leading = raw.leading;
+    const description = raw.description;
+    const badge = raw.badge;
     if (description !== undefined && typeof description !== 'string') {
       throw new TypeError('tabs tab description must be a string.');
     }
@@ -621,8 +614,8 @@ function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
       ...(leading === undefined ? {} : { leading: normalizeInlineContent(leading) }),
       ...(description === undefined ? {} : { description: sanitizeTerminalText(description).text }),
       ...(badge === undefined ? {} : { badge: sanitizeTerminalText(badge).text }),
-      disabled: raw['disabled'] === true,
-      closable: raw['closable'] === true,
+      disabled: raw.disabled === true,
+      closable: raw.closable === true,
     };
   });
   const selected = value.selected;

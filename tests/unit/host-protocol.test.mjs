@@ -17,7 +17,8 @@ import {
 import {
   LEGACY_KEYBOARD_PROFILE,
   createProtocolWriter,
-  kittyKeyboardProfile
+  kittyKeyboardProfile,
+  normalizeMouseReportingState
 } from '../../dist/protocol/index.js';
 import { applySessionProtocolPolicy } from '../../dist/tui/index.js';
 
@@ -621,6 +622,15 @@ test('protocol writer rejects invalid typed protocol parameters', async () => {
     /mouse reporting mode/u
   );
   assert.equal(host.output(), '');
+});
+
+test('mouse-reporting normalization preserves canonical state identity', () => {
+  const source = { tracking: 'drag', encoding: 'sgr' };
+  const canonical = normalizeMouseReportingState(source);
+
+  assert.notEqual(canonical, source);
+  assert.equal(normalizeMouseReportingState(canonical), canonical);
+  assert.equal(Object.isFrozen(canonical), true);
 });
 
 test('default session protocol requests drag mouse reporting for pointer capture', () => {

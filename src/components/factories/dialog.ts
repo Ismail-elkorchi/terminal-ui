@@ -209,33 +209,11 @@ export function dialog<
 
 function prepareDialogTitle(value: DialogComponentOptions['title']): BorderTitle | undefined {
   if (value === undefined) return undefined;
-  if (!isBorderTitle(value)) throw new TypeError('dialog title is invalid.');
   try {
     return normalizeBorderTitle(value);
   } catch (cause) {
     throw new TypeError('dialog title is invalid.', { cause });
   }
-}
-
-function isBorderTitle(value: unknown): value is BorderTitle {
-  if (typeof value === 'string') return true;
-  if (Array.isArray(value)) return isBorderTitleContent(value);
-  if (!isNonArrayObject(value)) return false;
-  return ['start', 'center', 'end'].every((field) =>
-      value[field] === undefined || isBorderTitleContent(value[field])
-    );
-}
-
-function isBorderTitleContent(value: unknown): boolean {
-  return typeof value === 'string' ||
-    Array.isArray(value) && value.every((segment) =>
-        isNonArrayObject(segment) &&
-        (segment['kind'] === 'text' && typeof segment['text'] === 'string' ||
-          segment['kind'] === 'symbol' &&
-            typeof segment['unicode'] === 'string' &&
-            typeof segment['ascii'] === 'string' &&
-            typeof segment['accessibleText'] === 'string')
-      );
 }
 
 function prepareDialogBorder(value: DialogComponentOptions['border']): BorderOptions | undefined {

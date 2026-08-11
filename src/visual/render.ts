@@ -35,9 +35,12 @@ export interface TerminalLink {
 const maximumTerminalLinkHrefCodeUnits = 4096;
 const maximumTerminalLinkIdCodeUnits = 128;
 const terminalLinkIdPattern = /^[A-Za-z0-9._~-]+$/u;
+const normalizedTerminalLinks = new WeakMap<object, TerminalLink>();
 
 export function normalizeTerminalLink(value: unknown): TerminalLink {
   if (!isNonArrayObject(value)) throw new TypeError('Terminal link must be an object.');
+  const existing = normalizedTerminalLinks.get(value);
+  if (existing !== undefined) return existing;
   const unknown = Object.keys(value).find((field) => field !== 'href' && field !== 'id');
   if (unknown !== undefined) throw new TypeError(`Terminal link contains unsupported field "${unknown}".`);
   if (typeof value['href'] !== 'string') throw new TypeError('Terminal link href must be a string.');
@@ -47,7 +50,7 @@ export function normalizeTerminalLink(value: unknown): TerminalLink {
       `Terminal link href must contain 1-${String(maximumTerminalLinkHrefCodeUnits)} safe code units.`
     );
   }
-  if (value['id'] === undefined) return Object.freeze({ href });
+  if (value['id'] === undefined) return canonicalTerminalLink(value, { href });
   if (typeof value['id'] !== 'string') throw new TypeError('Terminal link id must be a string when provided.');
   const id = sanitizeTerminalCellText(value['id']).text;
   if (
@@ -59,7 +62,14 @@ export function normalizeTerminalLink(value: unknown): TerminalLink {
       `Terminal link id must contain 1-${String(maximumTerminalLinkIdCodeUnits)} ASCII identifier characters.`
     );
   }
-  return Object.freeze({ href, id });
+  return canonicalTerminalLink(value, { href, id });
+}
+
+function canonicalTerminalLink(source: object, link: TerminalLink): TerminalLink {
+  const normalized = Object.freeze(link);
+  normalizedTerminalLinks.set(normalized, normalized);
+  if (Object.isFrozen(source)) normalizedTerminalLinks.set(source, normalized);
+  return normalized;
 }
 
 export interface RenderSpan {

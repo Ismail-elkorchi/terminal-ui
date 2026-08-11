@@ -24,8 +24,7 @@ import type {
   SelectOptions,
   ToggleSwitchOptions,
 } from '../options/forms.ts';
-import { normalizeInlineContent } from '../../visual/inline-content.ts';
-import { inlineSegmentText, isInlineContent } from '../../visual/inline-content.ts';
+import { inlineSegmentText, normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import { normalizeSelectState } from '../../behavior/choice-controls.ts';
 import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
@@ -452,10 +451,10 @@ export const button: SemanticLeafComponentFactory<
       label: sanitizeTerminalText(label).text,
       ...(leading === undefined
         ? {}
-        : { leading: normalizeInlineContent(assertInlineContent(leading, 'leading')) }),
+        : { leading: normalizeInlineContent(leading) }),
       ...(trailing === undefined
         ? {}
-        : { trailing: normalizeInlineContent(assertInlineContent(trailing, 'trailing')) }),
+        : { trailing: normalizeInlineContent(trailing) }),
       tone: tone ?? 'default',
       density: density ?? 'regular',
       ...(pointerState === undefined ? {} : { pointerState }),
@@ -711,11 +710,6 @@ function measureSpans(spans: readonly RenderSpan[], widthProfile: TextWidthProfi
     (width, span) => width + measureTextCells(span.text, { widthProfile }).cells,
     0,
   );
-}
-
-function assertInlineContent(value: unknown, field: string): InlineContent {
-  if (!isInlineContent(value)) throw new TypeError(`button ${field} must be inline content.`);
-  return value;
 }
 
 function assertPointerState(value: PointerInteractionState | undefined): void {

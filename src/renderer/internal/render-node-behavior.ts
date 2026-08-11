@@ -25,7 +25,7 @@ import {
   assertValidComponentHitTargets,
   normalizeComponentFocusTargets
 } from './component-output.ts';
-import { assertValidMeasurement } from '../measurement-validation.ts';
+import { adoptMeasurement } from '../measurement-validation.ts';
 import { intersectRects } from './rect.ts';
 import { scopedFrameSource } from './scoped-render-target.ts';
 
@@ -140,7 +140,7 @@ function measureRenderNode(
     widthProfile: context.widthProfile
   });
   if (renderNode.kind === 'component') {
-    assertValidMeasurement(measurement, `Component "${renderNode.id ?? renderNodeFactoryName(renderNode)}"`);
+    return adoptMeasurement(measurement, `Component "${renderNode.id ?? renderNodeFactoryName(renderNode)}"`);
   }
   return normalizeMeasurement(measurement);
 }

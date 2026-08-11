@@ -16,7 +16,6 @@ import type {
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
-  isInlineContent,
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
@@ -134,12 +133,6 @@ function prepareStatusItem(value: StatusBarItem, path: string): StatusBarItem {
   }
   if (typeof textValue !== 'string') {
     throw new TypeError(`statusBar ${path} text must be a string.`);
-  }
-  if (leading !== undefined && !isInlineContent(leading)) {
-    throw new TypeError(`statusBar ${path} leading must be inline content.`);
-  }
-  if (trailing !== undefined && !isInlineContent(trailing)) {
-    throw new TypeError(`statusBar ${path} trailing must be inline content.`);
   }
   const common = {
     id: sanitizeLine(id),

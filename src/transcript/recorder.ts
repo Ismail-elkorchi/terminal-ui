@@ -6,7 +6,7 @@ import type {
   TranscriptRecorderOptions
 } from './types.ts';
 import { interactionTranscriptFormatVersion } from './types.ts';
-import { createDiagnosticOccurrenceReporter } from '../diagnostics.ts';
+import { adoptDiagnosticOccurrence, createDiagnosticOccurrenceReporter } from '../diagnostics.ts';
 import { snapshotJsonValue, snapshotUnknownJsonValue } from '../foundation/json.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type { Frame } from '../renderer/index.ts';
@@ -59,7 +59,8 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
     }
   };
 
-  function recordOccurrence(item: DiagnosticOccurrence): void {
+  function recordOccurrence(value: DiagnosticOccurrence): void {
+    const item = adoptDiagnosticOccurrence(value);
     if (diagnosticIds.has(item.id)) return;
     diagnosticIds.add(item.id);
     diagnostics.push(item);
@@ -93,7 +94,7 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
     case 'snapshot':
       return step;
     case 'diagnostic':
-      return step;
+      return { kind: 'diagnostic', occurrence: adoptDiagnosticOccurrence(step.occurrence) };
     case 'restore':
       return step;
   }

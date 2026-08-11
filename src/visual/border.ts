@@ -1,4 +1,5 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 import {
   inlineContentAccessibleText,
   normalizeInlineContent,
@@ -31,33 +32,49 @@ export interface BorderOptions {
   readonly titleAlign?: 'start' | 'center' | 'end';
 }
 
+const normalizedBorderTitles = new WeakSet<object>();
+
 export function normalizeBorderTitle(title: BorderTitle): BorderTitle {
   if (typeof title === 'string') return sanitizeTerminalText(title).text;
-  if (!isBorderTitleSlots(title)) return normalizeInlineContent(title);
-  return Object.freeze({
-    ...(title.start === undefined ? {} : { start: normalizeBorderTitleContent(title.start) }),
-    ...(title.center === undefined ? {} : { center: normalizeBorderTitleContent(title.center) }),
-    ...(title.end === undefined ? {} : { end: normalizeBorderTitleContent(title.end) })
+  if (Array.isArray(title)) return normalizeInlineContent(title);
+  if (!isNonArrayObject(title)) throw new TypeError('Border title must be a string, inline content, or title slots.');
+  if (normalizedBorderTitles.has(title)) return title;
+  let start: unknown;
+  let center: unknown;
+  let end: unknown;
+  try {
+    start = title['start'];
+    center = title['center'];
+    end = title['end'];
+  } catch (cause) {
+    throw new TypeError('Border title slots could not be read.', { cause });
+  }
+  const normalized = Object.freeze({
+    ...(start === undefined ? {} : { start: normalizeBorderTitleContent(start) }),
+    ...(center === undefined ? {} : { center: normalizeBorderTitleContent(center) }),
+    ...(end === undefined ? {} : { end: normalizeBorderTitleContent(end) })
   });
+  normalizedBorderTitles.add(normalized);
+  return normalized;
 }
 
 export function borderTitleAccessibleText(title: BorderTitle | undefined): string {
   if (title === undefined) return '';
-  if (typeof title === 'string') return sanitizeTerminalText(title).text;
-  if (!isBorderTitleSlots(title)) return sanitizeTerminalText(inlineContentAccessibleText(title)).text;
+  if (typeof title === 'string') return title;
+  if (!isBorderTitleSlots(title)) return inlineContentAccessibleText(title);
   return [title.start, title.center, title.end]
     .filter((content): content is BorderTitleContent => content !== undefined)
     .map((content) => typeof content === 'string'
-      ? sanitizeTerminalText(content).text
-      : sanitizeTerminalText(inlineContentAccessibleText(content)).text)
+      ? content
+      : inlineContentAccessibleText(content))
     .filter((content) => content.length > 0)
     .join(' ');
 }
 
-function normalizeBorderTitleContent(content: BorderTitleContent): BorderTitleContent {
+function normalizeBorderTitleContent(content: unknown): BorderTitleContent {
   return typeof content === 'string'
     ? sanitizeTerminalText(content).text
-    : normalizeInlineContent(content);
+    : normalizeInlineContent(content as InlineContent);
 }
 
 function isBorderTitleSlots(title: Exclude<BorderTitle, string>): title is BorderTitleSlots {

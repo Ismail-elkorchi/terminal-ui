@@ -1,6 +1,6 @@
 import { redactSecretLikeText } from './text/secrets.ts';
 import { sha256Hex } from './diagnostic-identity.ts';
-import { jsonValueIssue } from './foundation/json.ts';
+import { snapshotCanonicalJsonValue } from './foundation/json.ts';
 import {
   findUnsupportedField,
   isNonArrayObject,
@@ -102,6 +102,8 @@ const diagnosticOccurrenceFields = new Set([
   'sequence',
   'diagnostic'
 ]);
+const canonicalDiagnostics = new WeakSet<object>();
+const canonicalDiagnosticOccurrences = new WeakSet<object>();
 
 export function diagnostic(
   code: TerminalDiagnosticCode,
@@ -123,29 +125,19 @@ export function diagnostic(
     ...(options.hint === undefined ? {} : { hint: redactDiagnosticText(options.hint) }),
     ...(options.data === undefined ? {} : { data: diagnosticData(options.data) })
   } as const;
-  return terminalDiagnosticFromContent(content);
+  return createCanonicalTerminalDiagnostic(canonicalDiagnosticContent(content));
 }
 
 export function terminalDiagnosticFromContent(
   content: Omit<TerminalDiagnostic, 'fingerprint'>
 ): TerminalDiagnostic {
-  const immutableContent = {
-    code: content.code,
-    severity: content.severity,
-    message: content.message,
-    ...(content.target === undefined ? {} : { target: content.target }),
-    ...(content.cause === undefined ? {} : { cause: immutableDiagnosticValue(content.cause) }),
-    ...(content.hint === undefined ? {} : { hint: content.hint }),
-    ...(content.data === undefined ? {} : { data: immutableDiagnosticData(content.data) })
-  } as const;
-  return Object.freeze({
-    ...immutableContent,
-    fingerprint: diagnosticFingerprint(immutableContent)
-  });
+  const result = readDiagnosticContent(content);
+  if (!result.ok) throw new TypeError(`Invalid terminal diagnostic content: ${result.issue}`);
+  return createCanonicalTerminalDiagnostic(result.content);
 }
 
 function diagnosticFingerprint(content: Omit<TerminalDiagnostic, 'fingerprint'>): string {
-  const serialized = JSON.stringify(canonicalDiagnosticValue(content));
+  const serialized = JSON.stringify(content);
   return `diagnostic:sha256:${sha256Hex(serialized)}`;
 }
 
@@ -156,73 +148,153 @@ export function createDiagnosticOccurrenceReporter(owner: string): DiagnosticOcc
   return Object.freeze({
     owner: normalizedOwner,
     report(item: TerminalDiagnostic) {
-      const content = snapshotTerminalDiagnostic(item);
+      const content = adoptTerminalDiagnostic(item);
       const sequence = nextSequence;
       nextSequence += 1;
-      return Object.freeze({
+      const occurrence = Object.freeze({
         id: `${normalizedOwner}:diagnostic:${String(sequence)}`,
         owner: normalizedOwner,
         sequence,
         diagnostic: content
       });
+      canonicalDiagnosticOccurrences.add(occurrence);
+      return occurrence;
     }
   });
 }
 
-function snapshotTerminalDiagnostic(item: TerminalDiagnostic): TerminalDiagnostic {
-  const issue = terminalDiagnosticIssue(item);
-  if (issue !== undefined) throw new TypeError(`Invalid terminal diagnostic: ${issue}`);
-  return terminalDiagnosticFromContent({
-    code: item.code,
-    severity: item.severity,
-    message: item.message,
-    ...(item.target === undefined ? {} : { target: item.target }),
-    ...(item.cause === undefined ? {} : { cause: item.cause }),
-    ...(item.hint === undefined ? {} : { hint: item.hint }),
-    ...(item.data === undefined ? {} : { data: item.data })
+export function adoptTerminalDiagnostic(item: TerminalDiagnostic): TerminalDiagnostic {
+  if (canonicalDiagnostics.has(item)) return item;
+  if (!isNonArrayObject(item)) throw new TypeError('Invalid terminal diagnostic: diagnostic must be an object.');
+  const unknownField = findUnsupportedField(item, terminalDiagnosticFields);
+  if (unknownField !== undefined) {
+    throw new TypeError(`Invalid terminal diagnostic: diagnostic contains unsupported field: ${unknownField}.`);
+  }
+  const result = readDiagnosticContent(item);
+  if (!result.ok) throw new TypeError(`Invalid terminal diagnostic: ${result.issue}`);
+  const fingerprint = item.fingerprint;
+  if (typeof fingerprint !== 'string' || fingerprint.length === 0) {
+    throw new TypeError('Invalid terminal diagnostic: diagnostic fingerprint must be a non-empty string.');
+  }
+  const expectedFingerprint = diagnosticFingerprint(result.content);
+  if (fingerprint !== expectedFingerprint) {
+    throw new TypeError('Invalid terminal diagnostic: diagnostic fingerprint does not match its canonical content.');
+  }
+  return createCanonicalTerminalDiagnostic(result.content, expectedFingerprint);
+}
+
+type DiagnosticContentRead =
+  | { readonly ok: true; readonly content: Omit<TerminalDiagnostic, 'fingerprint'> }
+  | { readonly ok: false; readonly issue: string };
+
+function readDiagnosticContent(item: Readonly<Record<string, unknown>>): DiagnosticContentRead {
+  let code: unknown;
+  let severity: unknown;
+  let message: unknown;
+  let target: unknown;
+  let causeValue: unknown;
+  let hint: unknown;
+  let dataValue: unknown;
+  try {
+    code = item['code'];
+    severity = item['severity'];
+    message = item['message'];
+    target = item['target'];
+    causeValue = item['cause'];
+    hint = item['hint'];
+    dataValue = item['data'];
+  } catch {
+    return { ok: false, issue: 'diagnostic properties could not be read.' };
+  }
+  if (!isStringMember(code, terminalDiagnosticCodes)) {
+    return { ok: false, issue: `unsupported diagnostic code: ${String(code)}.` };
+  }
+  if (!isStringMember(severity, terminalSeverities)) {
+    return { ok: false, issue: `unsupported diagnostic severity: ${String(severity)}.` };
+  }
+  if (typeof message !== 'string') {
+    return { ok: false, issue: 'diagnostic message must be a string.' };
+  }
+  if (target !== undefined && typeof target !== 'string') {
+    return { ok: false, issue: 'diagnostic target must be a string.' };
+  }
+  if (hint !== undefined && typeof hint !== 'string') {
+    return { ok: false, issue: 'diagnostic hint must be a string.' };
+  }
+
+  let cause: TerminalDiagnosticValue | undefined;
+  if (causeValue !== undefined) {
+    try {
+      cause = snapshotCanonicalJsonValue(causeValue, 'diagnostic cause');
+    } catch (error) {
+      return {
+        ok: false,
+        issue: error instanceof Error ? error.message : 'diagnostic cause must be JSON-safe.'
+      };
+    }
+  }
+
+  let data: Readonly<Record<string, TerminalDiagnosticValue>> | undefined;
+  if (dataValue !== undefined) {
+    try {
+      const adopted = snapshotCanonicalJsonValue(dataValue, 'diagnostic data');
+      if (!isDiagnosticObject(adopted)) {
+        return { ok: false, issue: 'diagnostic data must be a JSON-safe object.' };
+      }
+      data = adopted;
+    } catch (error) {
+      return {
+        ok: false,
+        issue: error instanceof Error ? error.message : 'diagnostic data must be a JSON-safe object.'
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    content: canonicalDiagnosticContent({
+      code,
+      severity,
+      message,
+      ...(target === undefined ? {} : { target }),
+      ...(cause === undefined ? {} : { cause }),
+      ...(hint === undefined ? {} : { hint }),
+      ...(data === undefined ? {} : { data })
+    })
+  };
+}
+
+function canonicalDiagnosticContent(
+  content: Omit<TerminalDiagnostic, 'fingerprint'>
+): Omit<TerminalDiagnostic, 'fingerprint'> {
+  return Object.freeze({
+    ...(content.cause === undefined ? {} : { cause: content.cause }),
+    code: content.code,
+    ...(content.data === undefined ? {} : { data: content.data }),
+    ...(content.hint === undefined ? {} : { hint: content.hint }),
+    message: content.message,
+    severity: content.severity,
+    ...(content.target === undefined ? {} : { target: content.target })
   });
 }
 
-function canonicalDiagnosticValue(value: TerminalDiagnosticValue): TerminalDiagnosticValue {
-  if (Array.isArray(value)) return value.map(canonicalDiagnosticValue);
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([left], [right]) => compareCodeUnits(left, right))
-        .map(([key, item]) => [key, canonicalDiagnosticValue(item)])
-    );
-  }
-  return value;
+function createCanonicalTerminalDiagnostic(
+  content: Omit<TerminalDiagnostic, 'fingerprint'>,
+  fingerprint = diagnosticFingerprint(content)
+): TerminalDiagnostic {
+  const item = Object.freeze({ ...content, fingerprint });
+  canonicalDiagnostics.add(item);
+  return item;
 }
 
 function compareCodeUnits(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function immutableDiagnosticValue(value: TerminalDiagnosticValue): TerminalDiagnosticValue {
-  if (Array.isArray(value)) {
-    return Object.freeze(value.map(immutableDiagnosticValue));
-  }
-  if (value !== null && typeof value === 'object') {
-    return Object.freeze(Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, immutableDiagnosticValue(item)])
-    ));
-  }
-  return value;
-}
-
-function immutableDiagnosticData(
-  data: Readonly<Record<string, TerminalDiagnosticValue>>
-): Readonly<Record<string, TerminalDiagnosticValue>> {
-  return Object.freeze(Object.fromEntries(
-    Object.entries(data).map(([key, value]) => [key, immutableDiagnosticValue(value)])
-  ));
-}
-
 function diagnosticValue(value: unknown): TerminalDiagnosticValue {
   const normalized = normalizeDiagnosticValue(value, new Set(), 0, { nodes: 0 });
   return normalized.ok
-    ? redactDiagnosticValue(normalized.value)
+    ? normalized.value
     : diagnosticTruncation;
 }
 
@@ -230,11 +302,10 @@ function diagnosticData(
   data: Readonly<Record<string, TerminalDiagnosticValue>>
 ): Readonly<Record<string, TerminalDiagnosticValue>> {
   const normalized = normalizeDiagnosticValue(data, new Set(), 0, { nodes: 0 });
-  if (!normalized.ok) return { value: diagnosticTruncation };
-  const redacted = redactDiagnosticValue(normalized.value);
-  return isDiagnosticObject(redacted)
-    ? redacted
-    : { value: redacted };
+  if (!normalized.ok) return Object.freeze({ value: diagnosticTruncation });
+  return isDiagnosticObject(normalized.value)
+    ? normalized.value
+    : Object.freeze({ value: normalized.value });
 }
 
 function isDiagnosticObject(
@@ -263,28 +334,39 @@ function normalizeDiagnosticValue(
 ): DiagnosticNormalization {
   budget.nodes += 1;
   if (budget.nodes > maximumDiagnosticNodes) return { ok: false };
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+  if (value === null || typeof value === 'boolean') {
     return { ok: true, value };
   }
+  if (typeof value === 'string') return { ok: true, value: redactDiagnosticText(value) };
   if (typeof value === 'number') {
-    return { ok: true, value: Number.isFinite(value) ? value : String(value) };
+    return { ok: true, value: Number.isFinite(value) ? value : redactDiagnosticText(String(value)) };
   }
-  if (typeof value === 'bigint') return { ok: true, value: value.toString() };
-  if (typeof value === 'symbol') return { ok: true, value: value.description ?? 'symbol' };
+  if (typeof value === 'bigint') return { ok: true, value: redactDiagnosticText(value.toString()) };
+  if (typeof value === 'symbol') {
+    return { ok: true, value: redactDiagnosticText(value.description ?? 'symbol') };
+  }
   if (typeof value === 'function' || value === undefined) {
-    return { ok: true, value: objectTag(value) };
+    return { ok: true, value: redactDiagnosticText(objectTag(value)) };
   }
   if (value instanceof Error) {
-    return { ok: true, value: { name: value.name, message: value.message } };
+    return {
+      ok: true,
+      value: Object.freeze({
+        message: redactDiagnosticText(value.message),
+        name: redactDiagnosticText(value.name)
+      })
+    };
   }
-  if (ancestors.has(value)) return { ok: true, value: '[Circular]' };
-  if (depth >= maximumDiagnosticDepth) return { ok: true, value: objectTag(value) };
+  if (ancestors.has(value)) return { ok: true, value: redactDiagnosticText('[Circular]') };
+  if (depth >= maximumDiagnosticDepth) {
+    return { ok: true, value: redactDiagnosticText(objectTag(value)) };
+  }
 
   let arrayValue: unknown[] | undefined;
   try {
     arrayValue = Array.isArray(value) ? value : undefined;
   } catch {
-    return { ok: true, value: '[Unserializable]' };
+    return { ok: true, value: redactDiagnosticText('[Unserializable]') };
   }
 
   ancestors.add(value);
@@ -302,10 +384,10 @@ function normalizeDiagnosticValue(
       }
     } catch {
       ancestors.delete(value);
-      return { ok: true, value: '[Unserializable]' };
+      return { ok: true, value: redactDiagnosticText('[Unserializable]') };
     }
     ancestors.delete(value);
-    return { ok: true, value: normalized };
+    return { ok: true, value: Object.freeze(normalized) };
   }
 
   const objectValue = value as Record<string, unknown>;
@@ -322,10 +404,11 @@ function normalizeDiagnosticValue(
     }
   } catch {
     ancestors.delete(value);
-    return { ok: true, value: '[Unserializable]' };
+    return { ok: true, value: redactDiagnosticText('[Unserializable]') };
   }
   ancestors.delete(value);
-  return { ok: true, value: Object.fromEntries(normalizedEntries) };
+  normalizedEntries.sort(([left], [right]) => compareCodeUnits(left, right));
+  return { ok: true, value: Object.freeze(Object.fromEntries(normalizedEntries)) };
 }
 
 function objectTag(value: unknown): string {
@@ -336,71 +419,64 @@ function objectTag(value: unknown): string {
   }
 }
 
-function redactDiagnosticValue(value: TerminalDiagnosticValue): TerminalDiagnosticValue {
-  if (typeof value === 'string') return redactDiagnosticText(value);
-  if (Array.isArray(value)) return value.map(redactDiagnosticValue);
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, redactDiagnosticValue(item)])
-    );
-  }
-  return value;
-}
-
 function redactDiagnosticText(value: string): string {
   return redactSecretLikeText(value);
 }
 
 export function terminalDiagnosticIssue(item: unknown): string | undefined {
+  if (typeof item === 'object' && item !== null && canonicalDiagnostics.has(item)) return undefined;
   if (!isNonArrayObject(item)) return 'diagnostic must be an object.';
   const unknownField = findUnsupportedField(item, terminalDiagnosticFields);
   if (unknownField !== undefined) return `diagnostic contains unsupported field: ${unknownField}.`;
-  return diagnosticContentIssue(item);
-}
-
-function diagnosticContentIssue(item: Readonly<Record<string, unknown>>): string | undefined {
   if (typeof item['fingerprint'] !== 'string' || item['fingerprint'].length === 0) {
     return 'diagnostic fingerprint must be a non-empty string.';
   }
-  if (!isStringMember(item['code'], terminalDiagnosticCodes)) {
-    return `unsupported diagnostic code: ${String(item['code'])}.`;
-  }
-  if (!isStringMember(item['severity'], terminalSeverities)) {
-    return `unsupported diagnostic severity: ${String(item['severity'])}.`;
-  }
-  if (typeof item['message'] !== 'string') return 'diagnostic message must be a string.';
-  if (item['target'] !== undefined && typeof item['target'] !== 'string') {
-    return 'diagnostic target must be a string.';
-  }
-  if (item['cause'] !== undefined) {
-    const issue = jsonValueIssue(item['cause']);
-    if (issue !== undefined) return `diagnostic cause must be JSON-safe: ${issue}.`;
-  }
-  if (item['hint'] !== undefined && typeof item['hint'] !== 'string') return 'diagnostic hint must be a string.';
-  if (
-    item['data'] !== undefined
-    && (!isNonArrayObject(item['data']) || jsonValueIssue(item['data']) !== undefined)
-  ) {
-    return 'diagnostic data must be a JSON-safe object.';
-  }
-  const content: Omit<TerminalDiagnostic, 'fingerprint'> = {
-    code: item['code'],
-    severity: item['severity'],
-    message: item['message'],
-    ...(typeof item['target'] === 'string' ? { target: item['target'] } : {}),
-    ...(item['cause'] === undefined ? {} : { cause: item['cause'] as TerminalDiagnosticValue }),
-    ...(typeof item['hint'] === 'string' ? { hint: item['hint'] } : {}),
-    ...(item['data'] === undefined
-      ? {}
-      : { data: item['data'] as Readonly<Record<string, TerminalDiagnosticValue>> })
-  };
-  if (item['fingerprint'] !== diagnosticFingerprint(content)) {
+  const result = readDiagnosticContent(item);
+  if (!result.ok) return result.issue;
+  if (item['fingerprint'] !== diagnosticFingerprint(result.content)) {
     return 'diagnostic fingerprint does not match its canonical content.';
   }
   return undefined;
 }
 
+export function adoptDiagnosticOccurrence(item: DiagnosticOccurrence): DiagnosticOccurrence {
+  if (canonicalDiagnosticOccurrences.has(item)) return item;
+  if (!isNonArrayObject(item)) {
+    throw new TypeError('Invalid diagnostic occurrence: diagnostic occurrence must be an object.');
+  }
+  const unknownField = findUnsupportedField(item, diagnosticOccurrenceFields);
+  if (unknownField !== undefined) {
+    throw new TypeError(
+      `Invalid diagnostic occurrence: diagnostic occurrence contains unsupported field: ${unknownField}.`
+    );
+  }
+  const id = item.id;
+  const owner = item.owner;
+  const sequence = item.sequence;
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new TypeError('Invalid diagnostic occurrence: diagnostic occurrence id must be a non-empty string.');
+  }
+  if (typeof owner !== 'string' || owner.length === 0) {
+    throw new TypeError('Invalid diagnostic occurrence: diagnostic occurrence owner must be a non-empty string.');
+  }
+  if (typeof sequence !== 'number' || !Number.isInteger(sequence) || sequence < 1) {
+    throw new TypeError('Invalid diagnostic occurrence: diagnostic occurrence sequence must be a positive integer.');
+  }
+  if (id !== `${owner}:diagnostic:${String(sequence)}`) {
+    throw new TypeError('Invalid diagnostic occurrence: diagnostic occurrence id must match its owner and sequence.');
+  }
+  const occurrence = Object.freeze({
+    id,
+    owner,
+    sequence,
+    diagnostic: adoptTerminalDiagnostic(item.diagnostic)
+  });
+  canonicalDiagnosticOccurrences.add(occurrence);
+  return occurrence;
+}
+
 export function diagnosticOccurrenceIssue(item: unknown): string | undefined {
+  if (typeof item === 'object' && item !== null && canonicalDiagnosticOccurrences.has(item)) return undefined;
   if (!isNonArrayObject(item)) return 'diagnostic occurrence must be an object.';
   const unknownField = findUnsupportedField(item, diagnosticOccurrenceFields);
   if (unknownField !== undefined) {
