@@ -35,7 +35,7 @@ import {
   renderNodeClipsChildren,
   renderRenderNode
 } from './render-node-behavior.ts';
-import { assertValidRenderedAccessibility } from './component-output.ts';
+import { adoptRenderedAccessibility } from './component-output.ts';
 import { renderNodeFactoryName } from '../model/node.ts';
 import {
   createClippedRenderTarget,
@@ -212,8 +212,7 @@ export function renderElementInternal<TMessage>(
         ? inertAccessibleRoot()
         : withControlLabelRelationships(accessibleRoot)
     });
-    assertValidRenderedAccessibility(snapshot, resolvedFocusPath !== undefined);
-    return snapshot;
+    return adoptRenderedAccessibility(snapshot, resolvedFocusPath !== undefined);
   });
   const frame = measureRenderStage(options.instrumentation, 'snapshot', () => buffer.snapshot({
       accessibility,

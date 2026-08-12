@@ -635,6 +635,7 @@ test('input pipeline snapshots its immutable limits and clears pending state aft
 
 test('input decode limits reject invalid configuration', () => {
   assert.throws(() => createInputDecoder({ limits: { maxPasteCodeUnits: 0 } }), /positive safe integer/u);
+  assert.throws(() => createInputDecoder({ bracketedPaste: 'yes' }), /must be boolean/u);
   assert.doesNotThrow(() => createInputDecoder({ limits: { removedLimit: 1 } }));
   assert.doesNotThrow(() => decodeInputChunk({ data: 'x' }, { unknown: true }));
   assert.throws(() => decodeInputChunk({ data: 'x' }, { focusReporting: 'yes' }), /must be boolean/u);
@@ -642,6 +643,10 @@ test('input decode limits reject invalid configuration', () => {
   assert.throws(() => decodeInputChunk({ data: 1 }), /string or Uint8Array/u);
   assert.doesNotThrow(() => createInputPipeline({ unknown: true }));
   assert.throws(() => createInputPipeline({ mouseReporting: 'x10' }), /mouseReporting/u);
+  assert.throws(
+    () => createInputPipeline().decodeOnce({ data: 'x' }, { focusReporting: 'yes' }),
+    /must be boolean/u
+  );
   assert.doesNotThrow(() => createInputDecoder({ keyboard: { kind: 'legacy', flags: 1 } }));
   assert.throws(() => decodeKeyboardProfile({ kind: 'legacy', flags: 1 }), /unsupported field/u);
 });

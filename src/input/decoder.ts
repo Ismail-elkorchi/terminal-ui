@@ -33,7 +33,7 @@ export const defaultInputDecodeLimits: InputDecodeLimits = Object.freeze({
   maxMouseFieldDigits: 9
 });
 
-type NormalizedInputDecodeOptions = Omit<InputDecodeOptions, 'limits'> & {
+export type NormalizedInputDecodeOptions = Omit<InputDecodeOptions, 'limits'> & {
   readonly limits: InputDecodeLimits;
 };
 
@@ -50,7 +50,13 @@ export function decodeInputChunk(
 }
 
 export function createInputDecoder(options: InputDecodeOptions = {}): InputDecoder {
-  const normalized = normalizeDecodeOptions(options);
+  return createInputDecoderFromNormalizedOptions(normalizeDecodeOptions(options));
+}
+
+/** Internal trusted path for pipeline profiles that already own canonical options. */
+export function createInputDecoderFromNormalizedOptions(
+  normalized: NormalizedInputDecodeOptions
+): InputDecoder {
   let pending = '';
   let pasteSearchFrom = BRACKETED_PASTE_START.length;
   let protocolSearchFrom = 0;

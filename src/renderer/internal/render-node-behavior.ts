@@ -22,7 +22,6 @@ import type { RenderNodeRenderer, RenderNodeRenderInput } from '../model/rendere
 import type { RenderNodeOfKind } from '../model/types.ts';
 import type { StructuralRenderNodeKind } from './renderers/types.ts';
 import {
-  assertValidComponentHitTargets,
   normalizeComponentFocusTargets
 } from './component-output.ts';
 import { adoptMeasurement } from '../measurement-validation.ts';
@@ -292,9 +291,6 @@ export function hitTargetsForRenderNode<TMessage>(
     theme,
     widthProfile
   }) ?? [];
-  if (renderNode.kind === 'component') {
-    assertValidComponentHitTargets(targets, renderNode.id ?? renderNodeFactoryName(renderNode));
-  }
   const interactionTargets = pointerInteractionHitTargets(renderNode, target.bounds, targets)
     .map((hitTarget) => withoutDisabledTargetFocus({
       ...hitTarget,

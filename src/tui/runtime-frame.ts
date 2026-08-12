@@ -159,7 +159,7 @@ function appAccessibility<TState, TMessage>(
     source: 'tui'
   });
   const valid = validateAccessibleSnapshot(normalized);
-  if (valid.ok) return normalized;
+  if (valid.ok) return valid.value;
   return Object.freeze({
     ...tuiAccessibility,
     diagnostics: Object.freeze([...tuiAccessibility.diagnostics, valid.error])

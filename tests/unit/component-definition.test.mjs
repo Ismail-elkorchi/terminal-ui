@@ -720,6 +720,54 @@ test('component definition hit targets route mouse messages', async () => {
   });
 });
 
+test('component hit targets are adopted before pointer routing', async () => {
+  let returned;
+  const app = defineTui({
+    id: 'owned-hit-tui',
+    init: () => ({ clicked: false }),
+    update: (_state, message) => ({ state: { clicked: message.clicked } }),
+    view: () => component({
+      id: 'owned-hit-component',
+      definition: {
+        ...leafComponentDefinition,
+        render() {},
+        accessibility: ({ id }) => ({ id, role: 'button', label: 'Owned hit target' }),
+        hitTargets: () => {
+          const bounds = { row: 0, column: 0, width: 12, height: 3 };
+          const accepts = ['click'];
+          const focus = { kind: 'preserve' };
+          const target = {
+            id: 'owned-hit',
+            bounds,
+            accepts,
+            focus,
+            message: () => ({ clicked: true })
+          };
+          returned = { target, bounds, accepts, focus };
+          return [target];
+        }
+      }
+    })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
+
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const adopted = returned;
+  adopted.bounds.row = 2;
+  adopted.bounds.width = 1;
+  adopted.accepts.length = 0;
+  adopted.focus.kind = 'invalid';
+  adopted.target.message = () => ({ clicked: false });
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
+
+  assert.deepEqual(runtime.state(), { clicked: true });
+  assert.equal(Object.isFrozen(adopted.bounds), false);
+  assert.equal(Object.isFrozen(adopted.accepts), false);
+  assert.equal(Object.isFrozen(adopted.focus), false);
+});
+
 test('component definitions map keyboard text and paste through one action boundary', async () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/action-input',

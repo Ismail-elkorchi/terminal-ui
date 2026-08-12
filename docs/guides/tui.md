@@ -57,8 +57,11 @@ context.
 Input bytes are decoded through an input pipeline selected from the active
 terminal capability profile and session setup result. The keyboard profile is
 either legacy input or an exact Kitty flag set. Kitty setup, decoding, and
-restoration use the same verified flags. Base CSI-u code-point packets are
-recognized without enabling optional Kitty fields; event types, alternate keys,
+restoration use the same verified flags. The pipeline constructs its stateful
+decoder directly from this normalized profile; direct decoder calls and
+one-shot overrides remain separate public validation boundaries. Base CSI-u
+code-point packets are recognized without enabling optional Kitty fields;
+event types, alternate keys,
 and associated text require their negotiated flags. Associated text is accepted only with the
 report-all-keys flag required by the protocol. Report-all-keys is also valid
 without associated text; that profile deliberately reports key identity without

@@ -64,8 +64,8 @@ import {
 import { mapComponentAction, type ComponentMessage } from './message.ts';
 import {
   assertPointerDefinition,
-  mapHitTargets,
   mappedKeyBindings,
+  normalizeComponentHitTargets,
   normalizedPointerState
 } from './action-routing.ts';
 
@@ -1313,19 +1313,21 @@ function adaptDefinition<
         )
       }),
       ...(definition.hitTargets === undefined ? {} : {
-        hitTargets: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'pointer', () => mapHitTargets(
-          (definition.hitTargets?.call(undefined, componentInteractionInput(
-            contract,
-            input.renderNode,
+        hitTargets: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'pointer', () =>
+          normalizeComponentHitTargets(
+            definition.hitTargets?.call(undefined, componentInteractionInput(
+              contract,
+              input.renderNode,
+              input.bounds,
+              input.layoutNode.viewport,
+              input.theme,
+              input.widthProfile
+            )) ?? [],
             input.bounds,
-            input.layoutNode.viewport,
-            input.theme,
-            input.widthProfile
-          )) ?? []).map((target) => ({ ...target, bounds: toAbsoluteRect(target.bounds, input.bounds) })),
-          input.renderNode.props.toActionMessage,
-          definition.name,
-          input.renderNode.id
-        ))
+            input.renderNode.props.toActionMessage,
+            definition.name,
+            input.renderNode.id
+          ))
       })
     })
   };

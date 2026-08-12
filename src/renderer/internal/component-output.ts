@@ -2,11 +2,8 @@ import { validateAccessibleSnapshot } from '../../accessibility/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
 import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
 import { normalizeUntrustedFrameCellSource } from '../../visual/source.ts';
-import { pointerEventKinds } from '../../input/pointer.ts';
 import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/index.ts';
-import type { CursorPosition, FocusTarget, HitTarget, Rect } from '../contracts.ts';
-
-const pointerEventKindSet = new Set<string>(pointerEventKinds);
+import type { CursorPosition, FocusTarget, Rect } from '../contracts.ts';
 
 export function normalizeComponentFocusTargets(
   value: unknown,
@@ -51,56 +48,20 @@ export function normalizeComponentFocusTargets(
   return normalized;
 }
 
-export function assertValidComponentHitTargets<TMessage>(
-  value: unknown,
-  owner: string
-): asserts value is readonly HitTarget<TMessage>[] {
-  if (!Array.isArray(value)) {
-    throw new TypeError(`Component "${owner}" hitTargets must return an array.`);
-  }
-  const ids = new Set<string>();
-  for (const [index, target] of value.entries()) {
-    if (!isNonArrayObject(target)) {
-      throw new TypeError(`Component "${owner}" hit target ${String(index)} must be an object.`);
-    }
-    const id = target['id'];
-    assertUniqueId(id, ids, `Component "${owner}" hit target`);
-    assertValidRect(target['bounds'], `Component "${owner}" hit target "${id}"`);
-    if (typeof target['message'] !== 'function') {
-      throw new TypeError(`Component "${owner}" hit target "${id}" must provide a message function.`);
-    }
-    const accepts = target['accepts'];
-    if (accepts !== undefined) {
-      if (!Array.isArray(accepts)
-        || accepts.some((kind) => typeof kind !== 'string' || !pointerEventKindSet.has(kind))
-        || new Set(accepts).size !== accepts.length) {
-        throw new TypeError(`Component "${owner}" hit target "${id}" accepts contains invalid or duplicate event kinds.`);
-      }
-    }
-    assertPointerFocusIntent(target['focus'], owner, id);
-    const cursor = target['cursor'];
-    if (cursor !== undefined && (typeof cursor !== 'string' || !['pointer', 'text', 'default'].includes(cursor))) {
-      throw new TypeError(`Component "${owner}" hit target "${id}" cursor is invalid.`);
-    }
-    if (target['zIndex'] !== undefined && !Number.isSafeInteger(target['zIndex'])) {
-      throw new TypeError(`Component "${owner}" hit target "${id}" zIndex must be a safe integer.`);
-    }
-  }
-}
-
-export function assertValidRenderedAccessibility(
+export function adoptRenderedAccessibility(
   snapshot: AccessibleSnapshot,
   frameFocused: boolean
-): void {
+): AccessibleSnapshot {
   const result = validateAccessibleSnapshot(snapshot);
   if (!result.ok) {
     throw new TypeError(`Renderer returned invalid accessibility: ${result.error.message}`);
   }
-  if ((snapshot.focusPath.length > 0) !== frameFocused) {
+  if ((result.value.focusPath.length > 0) !== frameFocused) {
     throw new TypeError(
       'Rendered accessibility focus must agree with the resolved frame focus.'
     );
   }
+  return result.value;
 }
 
 export function assertComponentAccessibilityFocus(
@@ -183,16 +144,6 @@ function ownValue(value: Readonly<Record<string, unknown>>, field: string): unkn
 
 function isSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value);
-}
-
-function assertPointerFocusIntent(value: unknown, owner: string, id: string): void {
-  if (value === undefined) return;
-  if (!isNonArrayObject(value)) {
-    throw new TypeError(`Component "${owner}" hit target "${id}" focus must be an object.`);
-  }
-  if (value['kind'] === 'preserve') return;
-  if (value['kind'] === 'target' && isNonEmptyString(value['targetId'])) return;
-  throw new TypeError(`Component "${owner}" hit target "${id}" focus intent is invalid.`);
 }
 
 function assertUniqueId(value: unknown, ids: Set<string>, subject: string): asserts value is string {

@@ -102,8 +102,8 @@ const diagnosticOccurrenceFields = new Set([
   'sequence',
   'diagnostic'
 ]);
-const canonicalDiagnostics = new WeakSet<object>();
-const canonicalDiagnosticOccurrences = new WeakSet<object>();
+const canonicalDiagnostics = new WeakMap<object, TerminalDiagnostic>();
+const canonicalDiagnosticOccurrences = new WeakMap<object, DiagnosticOccurrence>();
 
 export function diagnostic(
   code: TerminalDiagnosticCode,
@@ -157,14 +157,17 @@ export function createDiagnosticOccurrenceReporter(owner: string): DiagnosticOcc
         sequence,
         diagnostic: content
       });
-      canonicalDiagnosticOccurrences.add(occurrence);
+      canonicalDiagnosticOccurrences.set(occurrence, occurrence);
       return occurrence;
     }
   });
 }
 
-export function adoptTerminalDiagnostic(item: TerminalDiagnostic): TerminalDiagnostic {
-  if (canonicalDiagnostics.has(item)) return item;
+export function adoptTerminalDiagnostic(item: unknown): TerminalDiagnostic {
+  if (typeof item === 'object' && item !== null) {
+    const existing = canonicalDiagnostics.get(item);
+    if (existing !== undefined) return existing;
+  }
   if (!isNonArrayObject(item)) throw new TypeError('Invalid terminal diagnostic: diagnostic must be an object.');
   const unknownField = findUnsupportedField(item, terminalDiagnosticFields);
   if (unknownField !== undefined) {
@@ -172,7 +175,7 @@ export function adoptTerminalDiagnostic(item: TerminalDiagnostic): TerminalDiagn
   }
   const result = readDiagnosticContent(item);
   if (!result.ok) throw new TypeError(`Invalid terminal diagnostic: ${result.issue}`);
-  const fingerprint = item.fingerprint;
+  const fingerprint = item['fingerprint'];
   if (typeof fingerprint !== 'string' || fingerprint.length === 0) {
     throw new TypeError('Invalid terminal diagnostic: diagnostic fingerprint must be a non-empty string.');
   }
@@ -283,7 +286,7 @@ function createCanonicalTerminalDiagnostic(
   fingerprint = diagnosticFingerprint(content)
 ): TerminalDiagnostic {
   const item = Object.freeze({ ...content, fingerprint });
-  canonicalDiagnostics.add(item);
+  canonicalDiagnostics.set(item, item);
   return item;
 }
 
@@ -439,8 +442,11 @@ export function terminalDiagnosticIssue(item: unknown): string | undefined {
   return undefined;
 }
 
-export function adoptDiagnosticOccurrence(item: DiagnosticOccurrence): DiagnosticOccurrence {
-  if (canonicalDiagnosticOccurrences.has(item)) return item;
+export function adoptDiagnosticOccurrence(item: unknown): DiagnosticOccurrence {
+  if (typeof item === 'object' && item !== null) {
+    const existing = canonicalDiagnosticOccurrences.get(item);
+    if (existing !== undefined) return existing;
+  }
   if (!isNonArrayObject(item)) {
     throw new TypeError('Invalid diagnostic occurrence: diagnostic occurrence must be an object.');
   }
@@ -450,9 +456,9 @@ export function adoptDiagnosticOccurrence(item: DiagnosticOccurrence): Diagnosti
       `Invalid diagnostic occurrence: diagnostic occurrence contains unsupported field: ${unknownField}.`
     );
   }
-  const id = item.id;
-  const owner = item.owner;
-  const sequence = item.sequence;
+  const id = item['id'];
+  const owner = item['owner'];
+  const sequence = item['sequence'];
   if (typeof id !== 'string' || id.length === 0) {
     throw new TypeError('Invalid diagnostic occurrence: diagnostic occurrence id must be a non-empty string.');
   }
@@ -469,9 +475,9 @@ export function adoptDiagnosticOccurrence(item: DiagnosticOccurrence): Diagnosti
     id,
     owner,
     sequence,
-    diagnostic: adoptTerminalDiagnostic(item.diagnostic)
+    diagnostic: adoptTerminalDiagnostic(item['diagnostic'])
   });
-  canonicalDiagnosticOccurrences.add(occurrence);
+  canonicalDiagnosticOccurrences.set(occurrence, occurrence);
   return occurrence;
 }
 

@@ -1,14 +1,18 @@
 import type { ElementKeyBindings, ElementKeyEvent } from '../element/metadata.ts';
 import {
   findUnsupportedField,
+  isNonEmptyString,
   isNonArrayObject,
   isStringMember,
 } from '../foundation/validation.ts';
+import type { Rect } from '../geometry/types.ts';
 import type {
   BindableKeyName,
   InputTrigger,
 } from '../input/types.ts';
 import { keyNames } from '../input/types.ts';
+import { pointerEventKinds } from '../input/pointer.ts';
+import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
 import { decodeInputTrigger } from '../input/triggers.ts';
 import type { PointerInteractionState } from '../interaction/pointer-interaction.ts';
 import type { HitTarget } from '../renderer/contracts.ts';
@@ -97,17 +101,137 @@ export function mappedKeyBindings(
   });
 }
 
-export function mapHitTargets(
-  targets: readonly HitTarget[],
+export function normalizeComponentHitTargets(
+  value: unknown,
+  allocation: Rect,
   mapper: ((action: unknown) => unknown) | undefined,
   component: ComponentDefinitionName,
   instanceId: string | undefined,
 ): readonly HitTarget[] {
-  return targets.map((target) => ({
-    ...target,
-    message: (event) => executeComponentPhase(component, instanceId, 'pointer', () =>
-      mapComponentAction(target.message(event), mapper)),
+  if (!Array.isArray(value)) {
+    throw new TypeError(`Component "${component}" hitTargets must return an array.`);
+  }
+  const ids = new Set<string>();
+  return Object.freeze(value.map((item, index): HitTarget => {
+    if (!isNonArrayObject(item)) {
+      throw new TypeError(`Component "${component}" hit target ${String(index)} must be an object.`);
+    }
+    const target = { ...item };
+    const id = target['id'];
+    if (!isNonEmptyString(id)) {
+      throw new TypeError(`Component "${component}" hit target id must be a non-empty string.`);
+    }
+    if (ids.has(id)) {
+      throw new TypeError(`Component "${component}" hit target id must be unique: "${id}".`);
+    }
+    ids.add(id);
+    const bounds = absoluteHitTargetBounds(target['bounds'], allocation, component, id);
+    const accepts = normalizeAcceptedPointerEvents(target['accepts'], component, id);
+    const focus = normalizePointerFocusIntent(target['focus'], component, id);
+    const message = target['message'];
+    if (!isPointerMessage(message)) {
+      throw new TypeError(`Component "${component}" hit target "${id}" must provide a message function.`);
+    }
+    const cursor = target['cursor'];
+    if (cursor !== undefined && cursor !== 'pointer' && cursor !== 'text' && cursor !== 'default') {
+      throw new TypeError(`Component "${component}" hit target "${id}" cursor is invalid.`);
+    }
+    const zIndex = target['zIndex'];
+    if (zIndex !== undefined && (typeof zIndex !== 'number' || !Number.isSafeInteger(zIndex))) {
+      throw new TypeError(`Component "${component}" hit target "${id}" zIndex must be a safe integer.`);
+    }
+    return Object.freeze({
+      id,
+      bounds,
+      ...(accepts === undefined ? {} : { accepts }),
+      ...(focus === undefined ? {} : { focus }),
+      message: (event: RoutedPointerEvent) => executeComponentPhase(component, instanceId, 'pointer', () =>
+        mapComponentAction(message(event), mapper)),
+      ...(cursor === undefined ? {} : { cursor }),
+      ...(zIndex === undefined ? {} : { zIndex }),
+    });
   }));
+}
+
+const pointerEventKindSet = new Set<string>(pointerEventKinds);
+
+function absoluteHitTargetBounds(
+  value: unknown,
+  allocation: Rect,
+  component: string,
+  id: string,
+): Rect {
+  if (!isNonArrayObject(value)) {
+    throw new TypeError(`Component "${component}" hit target "${id}" bounds must be an object.`);
+  }
+  const { row, column, width, height } = value;
+  if (!Number.isSafeInteger(row)
+    || !Number.isSafeInteger(column)
+    || !isNonNegativeSafeInteger(width)
+    || !isNonNegativeSafeInteger(height)) {
+    throw new TypeError(
+      `Component "${component}" hit target "${id}" bounds must use safe-integer coordinates and non-negative safe-integer dimensions.`,
+    );
+  }
+  return Object.freeze({
+    row: allocation.row + Number(row),
+    column: allocation.column + Number(column),
+    width,
+    height,
+  });
+}
+
+function normalizeAcceptedPointerEvents(
+  value: unknown,
+  component: string,
+  id: string,
+): readonly PointerEventKind[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    throw new TypeError(`Component "${component}" hit target "${id}" accepts must be an array.`);
+  }
+  const accepts: PointerEventKind[] = [];
+  const accepted = new Set<PointerEventKind>();
+  for (const item of value) {
+    if (!isPointerEventKind(item) || accepted.has(item)) {
+      throw new TypeError(
+        `Component "${component}" hit target "${id}" accepts contains invalid or duplicate event kinds.`,
+      );
+    }
+    accepted.add(item);
+    accepts.push(item);
+  }
+  return Object.freeze(accepts);
+}
+
+function isPointerEventKind(value: unknown): value is PointerEventKind {
+  return typeof value === 'string' && pointerEventKindSet.has(value);
+}
+
+function isPointerMessage(value: unknown): value is (event: RoutedPointerEvent) => unknown {
+  return typeof value === 'function';
+}
+
+function normalizePointerFocusIntent(
+  value: unknown,
+  component: string,
+  id: string,
+): HitTarget['focus'] {
+  if (value === undefined) return undefined;
+  if (!isNonArrayObject(value)) {
+    throw new TypeError(`Component "${component}" hit target "${id}" focus must be an object.`);
+  }
+  const { kind } = value;
+  if (kind === 'preserve') return Object.freeze({ kind });
+  const targetId = value['targetId'];
+  if (kind === 'target' && isNonEmptyString(targetId)) {
+    return Object.freeze({ kind, targetId });
+  }
+  throw new TypeError(`Component "${component}" hit target "${id}" focus intent is invalid.`);
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
 export function assertPointerDefinition(value: unknown): void {

@@ -25,7 +25,10 @@ not just tagged with a step kind.
 The transcript carries one numeric `formatVersion` for the complete persisted
 record. Pass parsed data directly to `validateTranscript()` or
 `replayTranscript()`; both treat it as untrusted input, and replay proceeds only
-after structural and semantic validation succeeds. Recorded application
+after structural and semantic validation succeeds. Successful validation
+returns a detached, immutable transcript containing the exact adopted input
+events, diagnostics, accessible snapshots, protocol profiles, frames, diffs,
+and restoration state that replay will consume. Recorded application
 messages carry an explicit `fidelity` value. `record()` accepts only JSON-safe
 `exact` messages. `recordNormalizedMessage()` takes one deterministic, bounded
 snapshot and marks it `normalized`; that step documents that replay cannot

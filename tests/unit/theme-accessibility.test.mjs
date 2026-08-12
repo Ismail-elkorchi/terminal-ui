@@ -247,6 +247,33 @@ test('accessible snapshots detach and freeze nested semantic state', () => {
   assert.equal(snapshot.root.window.totalCount, 2);
 });
 
+test('accessible snapshot validation returns the retained owned value', () => {
+  const numericValue = { current: 1, minimum: 0, maximum: 2 };
+  const child = { id: 'status', role: 'progressbar', numericValue };
+  const children = [child];
+  const input = {
+    source: 'renderer',
+    root: { id: 'root', role: 'application', children },
+    focusPath: [],
+    diagnostics: []
+  };
+
+  const result = validateAccessibleSnapshot(input);
+  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+  assert.notEqual(result.value, input);
+  assert.notEqual(result.value.root, input.root);
+  assert.notEqual(result.value.root.children, children);
+  assert.notEqual(result.value.root.children[0].numericValue, numericValue);
+  numericValue.current = 2;
+  child.role = 'text';
+  children.length = 0;
+  assert.equal(result.value.root.children[0].role, 'progressbar');
+  assert.equal(result.value.root.children[0].numericValue.current, 1);
+  assert.equal(Object.isFrozen(result.value), true);
+  assert.equal(Object.isFrozen(result.value.root.children), true);
+  assert.strictEqual(validateAccessibleSnapshot(result.value).value, result.value);
+});
+
 test('accessible snapshots enforce role fields, direct-child roles, numeric values, and index bases', () => {
   const validRoots = [
     {

@@ -185,6 +185,9 @@ the owned model.
 Focus targets and hit targets use stable IDs and bounded rectangles. A hit
 target that should transfer keyboard focus names one of the component's focus
 targets explicitly. The runtime resolves that ID to the committed focus path.
+Hit-target bounds, accepted event kinds, and focus intent are copied and
+validated together before pointer routing; later mutation of hook-owned data
+cannot change the committed interaction regions.
 Accessibility focus must agree with the resolved target; when accessible node
 IDs match focus-target IDs, the matching accessible node must be focused.
 

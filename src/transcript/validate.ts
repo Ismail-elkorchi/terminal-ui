@@ -1,6 +1,11 @@
 import { validateAccessibleSnapshot } from '../accessibility/index.ts';
-import { diagnostic, diagnosticOccurrenceIssue, terminalDiagnosticIssue } from '../diagnostics.ts';
-import { snapshotJsonValue } from '../foundation/json.ts';
+import {
+  adoptDiagnosticOccurrence,
+  adoptTerminalDiagnostic,
+  diagnostic
+} from '../diagnostics.ts';
+import { snapshotCanonicalJsonValue } from '../foundation/json.ts';
+import type { JsonValue } from '../foundation/json.ts';
 import {
   findUnsupportedField,
   isCanonicalDateTime,
@@ -16,23 +21,40 @@ import {
   applyRenderDiff,
   renderDiffProjectionMatchesFrame
 } from '../renderer/internal/diff-interpreter.ts';
-import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalSize } from '../host/index.ts';
+import type {
+  TerminalRestoreCompletion,
+  TerminalRestoreResult,
+  TerminalStateChange,
+  TerminalStateSnapshot,
+  TerminalSize
+} from '../host/index.ts';
 import { decodeKeyboardProfile } from '../protocol/index.ts';
 import {
   decodeInputEvent
 } from '../input/index.ts';
 import { pointerEventKinds } from '../input/pointer.ts';
 import type { Result } from '../result.ts';
-import type { CursorPosition } from '../renderer/index.ts';
+import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type {
+  CursorPosition,
+  Frame,
+  FrameCell,
+  FrameHitTarget,
+  Rect,
+  RenderDiff,
+  RenderOperation
+} from '../renderer/index.ts';
 import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
+import type { FrameCellSource, RenderSpan, TerminalLink, TerminalStyle } from '../visual/index.ts';
 import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
-import type { RecordedInputEvent } from '../input/index.ts';
 import type {
   InteractionTranscript,
   InteractionTranscriptStep,
+  TranscriptRedaction,
+  TranscriptRuntimeCommit,
   TranscriptValidationLimits
 } from './types.ts';
 
@@ -157,6 +179,20 @@ const mouseReportingStateFields = new Set(['tracking', 'encoding']);
 
 type NormalizedTranscriptValidationLimits = Readonly<Required<TranscriptValidationLimits>>;
 
+interface TranscriptAdoptions {
+  readonly cursors: WeakMap<object, CursorPosition>;
+  readonly diagnostics: WeakMap<object, import('../diagnostics.ts').TerminalDiagnostic>;
+  readonly diffs: WeakMap<object, RenderDiff>;
+  readonly frames: WeakMap<object, Frame>;
+  readonly keyboardProfiles: WeakMap<object, import('../protocol/index.ts').TerminalKeyboardProfile>;
+  readonly operations: WeakMap<object, RenderOperation>;
+  readonly restores: WeakMap<object, TerminalRestoreResult>;
+  readonly stateChanges: WeakMap<object, TerminalStateChange | TerminalRestoreCompletion>;
+  readonly stateSnapshots: WeakMap<object, TerminalStateSnapshot>;
+  readonly styles: WeakMap<object, TerminalStyle>;
+  readonly widthProfiles: WeakMap<object, TextWidthProfile>;
+}
+
 export const defaultTranscriptValidationLimits: Readonly<Required<TranscriptValidationLimits>> = Object.freeze({
   maxDepth: 128,
   maxJsonNodes: 1_000_000,
@@ -176,7 +212,7 @@ export function validateTranscript(
   let normalizedLimits: NormalizedTranscriptValidationLimits;
   try {
     normalizedLimits = normalizeTranscriptValidationLimits(limits);
-    decoded = snapshotJsonValue(transcript, 'Interaction transcript', {
+    decoded = snapshotCanonicalJsonValue(transcript, 'Interaction transcript', {
       maxDepth: normalizedLimits.maxDepth,
       maxNodes: normalizedLimits.maxJsonNodes,
       maxStringCodeUnits: normalizedLimits.maxStringCodeUnits
@@ -184,10 +220,25 @@ export function validateTranscript(
   } catch (cause) {
     return transcriptFailure(errorMessage(cause));
   }
-  const inputEvents: RecordedInputEvent[] = [];
-  const issue = transcriptIssue(decoded, inputEvents, normalizedLimits);
-  if (issue !== undefined) return transcriptFailure(issue);
-  return ok(transcriptWithDecodedInputEvents(decoded as InteractionTranscript, inputEvents));
+  const adoptions: TranscriptAdoptions = {
+    cursors: new WeakMap(),
+    diagnostics: new WeakMap(),
+    diffs: new WeakMap(),
+    frames: new WeakMap(),
+    keyboardProfiles: new WeakMap(),
+    operations: new WeakMap(),
+    restores: new WeakMap(),
+    stateChanges: new WeakMap(),
+    stateSnapshots: new WeakMap(),
+    styles: new WeakMap(),
+    widthProfiles: new WeakMap()
+  };
+  try {
+    const result = decodeTranscript(decoded, adoptions, normalizedLimits);
+    return typeof result === 'string' ? transcriptFailure(result) : ok(result);
+  } catch (cause) {
+    return transcriptFailure(errorMessage(cause));
+  }
 }
 
 function normalizeTranscriptValidationLimits(
@@ -255,11 +306,11 @@ function transcriptLimit(value: unknown, fallback: number, field: string): numbe
   return value;
 }
 
-function transcriptIssue(
+function decodeTranscript(
   transcript: unknown,
-  inputEvents: RecordedInputEvent[],
+  adoptions: TranscriptAdoptions,
   limits: NormalizedTranscriptValidationLimits
-): string | undefined {
+): InteractionTranscript | string {
   if (!isNonArrayObject(transcript)) return 'Interaction transcript must be an object.';
   const unknownField = findUnsupportedField(transcript, transcriptFields);
   if (unknownField !== undefined) {
@@ -299,6 +350,7 @@ function transcriptIssue(
 
   let frameCells = 0;
   let diffOperations = 0;
+  const steps: InteractionTranscriptStep[] = [];
   for (const [index, item] of transcript['steps'].entries()) {
     if (isNonArrayObject(item) && item['kind'] === 'commit' && isNonArrayObject(item['commit'])) {
       const frame = item['commit']['frame'];
@@ -316,22 +368,26 @@ function transcriptIssue(
         }
       }
     }
-    const issue = stepIssue(item, inputEvents);
-    if (issue !== undefined) return `Invalid transcript step at index ${String(index)}: ${issue}`;
+    const step = decodeStep(item, adoptions);
+    if (typeof step === 'string') return `Invalid transcript step at index ${String(index)}: ${step}`;
+    steps.push(step);
   }
-  const steps = transcript['steps'] as readonly InteractionTranscriptStep[];
   const orderingIssue = transcriptOrderingIssue(steps);
   if (orderingIssue !== undefined) return orderingIssue;
+  const diagnostics: DiagnosticOccurrence[] = [];
   for (const [index, item] of transcript['diagnostics'].entries()) {
-    const issue = diagnosticOccurrenceIssue(item);
-    if (issue !== undefined) return `Invalid transcript diagnostic at index ${String(index)}: ${issue}`;
+    const occurrence = decodeOccurrence(item);
+    if (typeof occurrence === 'string') {
+      return `Invalid transcript diagnostic at index ${String(index)}: ${occurrence}`;
+    }
+    diagnostics.push(occurrence);
   }
-  const diagnostics = transcript['diagnostics'] as readonly DiagnosticOccurrence[];
   const occurrenceIssue = transcriptDiagnosticOccurrenceIssue(
     steps,
     diagnostics
   );
   if (occurrenceIssue !== undefined) return occurrenceIssue;
+  const redactions: TranscriptRedaction[] = [];
   for (const [index, item] of transcript['redactions'].entries()) {
     if (!isNonArrayObject(item) || typeof item['path'] !== 'string' || item['reason'] !== 'secret') {
       return `Invalid transcript redaction at index ${String(index)}.`;
@@ -340,9 +396,17 @@ function transcriptIssue(
     if (unknownField !== undefined) {
       return `Invalid transcript redaction at index ${String(index)}: unsupported field ${unknownField}.`;
     }
+    redactions.push(Object.freeze({ path: item['path'], reason: 'secret' }));
   }
-
-  return undefined;
+  return Object.freeze({
+    formatVersion: interactionTranscriptFormatVersion,
+    id: transcript['id'],
+    source: transcript['source'],
+    ...(typeof transcript['startedAt'] === 'string' ? { startedAt: transcript['startedAt'] } : {}),
+    steps: Object.freeze(steps),
+    diagnostics: Object.freeze(diagnostics),
+    redactions: Object.freeze(redactions)
+  });
 }
 
 function transcriptDiagnosticOccurrenceIssue(
@@ -371,6 +435,25 @@ function transcriptDiagnosticOccurrenceIssue(
     }
   }
   return undefined;
+}
+
+function decodeOccurrence(value: unknown): DiagnosticOccurrence | string {
+  if (!isNonArrayObject(value)) return 'diagnostic occurrence must be an object.';
+  try {
+    return adoptDiagnosticOccurrence(value);
+  } catch (cause) {
+    return errorMessage(cause).replace(/^Invalid diagnostic occurrence: /u, '');
+  }
+}
+
+function adoptDiagnosticIssue(value: unknown, adoptions: TranscriptAdoptions): string | undefined {
+  if (!isNonArrayObject(value)) return 'diagnostic must be an object.';
+  try {
+    adoptions.diagnostics.set(value, adoptTerminalDiagnostic(value));
+    return undefined;
+  } catch (cause) {
+    return errorMessage(cause).replace(/^Invalid terminal diagnostic: /u, '');
+  }
 }
 
 function transcriptDiagnosticLimitIssue(
@@ -439,7 +522,7 @@ function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-function stepIssue(step: unknown, inputEvents: RecordedInputEvent[]): string | undefined {
+function decodeStep(step: unknown, adoptions: TranscriptAdoptions): InteractionTranscriptStep | string {
   if (!isNonArrayObject(step)) return 'step must be an object.';
   const fields = typeof step['kind'] === 'string'
     ? transcriptStepFields[step['kind']]
@@ -451,26 +534,61 @@ function stepIssue(step: unknown, inputEvents: RecordedInputEvent[]): string | u
     }
   }
   switch (step['kind']) {
-    case 'input':
-      return inputEventIssue(step['event'], inputEvents);
-    case 'message':
-      return messageStepIssue(step);
-    case 'commit':
-      return commitIssue(step['commit']);
-    case 'snapshot':
-      return snapshotIssue(step['snapshot']);
-    case 'diagnostic':
-      return diagnosticOccurrenceIssue(step['occurrence']);
-    case 'restore':
-      return step['phase'] === 'checkpoint' || step['phase'] === 'shutdown'
-        ? restoreResultIssue(step['result'])
-        : 'restore step phase must be "checkpoint" or "shutdown".';
+    case 'input': {
+      try {
+        return Object.freeze({ kind: 'input', event: decodeInputEvent(step['event']) });
+      } catch (cause) {
+        return errorMessage(cause);
+      }
+    }
+    case 'message': {
+      const issue = messageStepIssue(step);
+      if (issue !== undefined) return issue;
+      const source = step['source'];
+      const fidelity = step['fidelity'];
+      if (!isStringMember(source, tuiMessageSources)
+        || (fidelity !== 'exact' && fidelity !== 'normalized')) {
+        return 'message step values are invalid.';
+      }
+      return Object.freeze({
+        kind: 'message',
+        source,
+        fidelity,
+        message: step['message'] as JsonValue
+      });
+    }
+    case 'commit': {
+      const commit = decodeCommit(step['commit'], adoptions);
+      return typeof commit === 'string' ? commit : Object.freeze({ kind: 'commit', commit });
+    }
+    case 'snapshot': {
+      const snapshot = decodeSnapshot(step['snapshot']);
+      return typeof snapshot === 'string' ? snapshot : Object.freeze({ kind: 'snapshot', snapshot });
+    }
+    case 'diagnostic': {
+      const occurrence = decodeOccurrence(step['occurrence']);
+      return typeof occurrence === 'string'
+        ? occurrence
+        : Object.freeze({ kind: 'diagnostic', occurrence });
+    }
+    case 'restore': {
+      if (step['phase'] !== 'checkpoint' && step['phase'] !== 'shutdown') {
+        return 'restore step phase must be "checkpoint" or "shutdown".';
+      }
+      const issue = restoreResultIssue(step['result'], adoptions);
+      if (issue !== undefined) return issue;
+      if (!isNonArrayObject(step['result'])) return 'restore result was not adopted.';
+      const result = adoptions.restores.get(step['result']);
+      return result === undefined
+        ? 'restore result was not adopted.'
+        : Object.freeze({ kind: 'restore', phase: step['phase'], result });
+    }
     default:
       return `unsupported step kind: ${String(step['kind'])}.`;
   }
 }
 
-function commitIssue(value: unknown): string | undefined {
+function decodeCommit(value: unknown, adoptions: TranscriptAdoptions): TranscriptRuntimeCommit | string {
   if (!isNonArrayObject(value)) return 'commit must be an object.';
   const unknownField = findUnsupportedField(value, commitFields);
   if (unknownField !== undefined) return `commit contains unsupported field: ${unknownField}.`;
@@ -478,13 +596,14 @@ function commitIssue(value: unknown): string | undefined {
   if (!isIntegerAtLeast(value['stateVersion'], 0)) return 'commit stateVersion must be a non-negative integer.';
   const terminalSize = terminalSizeIssue(value['terminalSize']);
   if (terminalSize !== undefined) return `commit terminal size: ${terminalSize}`;
-  if (value['focusPath'] !== undefined && !isStringArray(value['focusPath'])) {
+  const focusPath = value['focusPath'];
+  if (focusPath !== undefined && !isStringArray(focusPath)) {
     return 'commit focusPath must be a string array.';
   }
-  const frame = frameIssue(value['frame']);
-  if (frame !== undefined) return `commit frame: ${frame}`;
-  const diff = renderDiffIssue(value['diff']);
-  if (diff !== undefined) return `commit diff: ${diff}`;
+  const frameIssueResult = frameIssue(value['frame'], adoptions);
+  if (frameIssueResult !== undefined) return `commit frame: ${frameIssueResult}`;
+  const diffIssue = renderDiffIssue(value['diff'], adoptions);
+  if (diffIssue !== undefined) return `commit diff: ${diffIssue}`;
   if (!isNonArrayObject(value['terminalSize']) || !isNonArrayObject(value['frame']) || !isNonArrayObject(value['diff'])) {
     return 'commit terminal size, frame, and diff must be objects.';
   }
@@ -502,7 +621,19 @@ function commitIssue(value: unknown): string | undefined {
   if (!sameOptionalStringArray(value['focusPath'], value['frame']['focusPath'])) {
     return 'commit focusPath must match frame focusPath.';
   }
-  return undefined;
+  const adoptedFrame = adoptions.frames.get(value['frame']);
+  const adoptedDiff = adoptions.diffs.get(value['diff']);
+  if (adoptedFrame === undefined || adoptedDiff === undefined) {
+    return 'commit frame and diff were not adopted.';
+  }
+  return Object.freeze({
+    id: value['id'],
+    stateVersion: Number(value['stateVersion']),
+    terminalSize: Object.freeze({ columns: Number(columns), rows: Number(rows) }),
+    ...(focusPath === undefined ? {} : { focusPath: Object.freeze([...focusPath]) }),
+    frame: adoptedFrame,
+    diff: adoptedDiff
+  });
 }
 
 function sameWidthProfile(left: unknown, right: unknown): boolean {
@@ -524,69 +655,62 @@ function messageStepIssue(step: Record<string, unknown>): string | undefined {
   return Object.hasOwn(step, 'message') ? undefined : 'message step requires message.';
 }
 
-function inputEventIssue(
-  event: unknown,
-  inputEvents: RecordedInputEvent[]
-): string | undefined {
-  try {
-    inputEvents.push(decodeInputEvent(event));
-    return undefined;
-  } catch (cause) {
-    return errorMessage(cause);
-  }
-}
-
-function transcriptWithDecodedInputEvents(
-  transcript: InteractionTranscript,
-  inputEvents: readonly RecordedInputEvent[]
-): InteractionTranscript {
-  if (inputEvents.length === 0) return transcript;
-  let index = 0;
-  return {
-    ...transcript,
-    steps: transcript.steps.map((step) => {
-      if (step.kind !== 'input') return step;
-      const event = inputEvents[index];
-      if (event === undefined) throw new Error('Validated transcript input event is missing.');
-      index += 1;
-      return { kind: 'input', event };
-    })
-  };
-}
-
-function frameIssue(frame: unknown): string | undefined {
+function frameIssue(frame: unknown, adoptions: TranscriptAdoptions): string | undefined {
   if (!isNonArrayObject(frame)) return 'frame must be an object.';
   const unknownField = findUnsupportedField(frame, transcriptFrameFields);
   if (unknownField !== undefined) return `frame contains unsupported field: ${unknownField}.`;
   if (!isIntegerAtLeast(frame['width'], 0) || !isIntegerAtLeast(frame['height'], 0)) {
     return 'frame width and height must be non-negative integers.';
   }
-  const widthProfile = textWidthProfileIssue(frame['widthProfile']);
+  const widthProfile = textWidthProfileIssue(frame['widthProfile'], adoptions);
   if (widthProfile !== undefined) return `frame widthProfile: ${widthProfile}`;
   if (!Array.isArray(frame['cells'])) return 'frame cells must be an array.';
+  const cells: FrameCell[] = [];
   for (const [index, cell] of frame['cells'].entries()) {
-    const issue = frameCellIssue(cell);
+    const issue = frameCellIssue(cell, adoptions);
     if (issue !== undefined) return `frame cell ${String(index)}: ${issue}`;
+    if (isNonArrayObject(cell)) cells.push(decodedFrameCell(cell, adoptions));
   }
+  let cursor: CursorPosition | undefined;
   if (frame['cursor'] !== undefined) {
-    const issue = cursorIssue(frame['cursor']);
+    const issue = cursorIssue(frame['cursor'], adoptions);
     if (issue !== undefined) return issue;
+    if (isNonArrayObject(frame['cursor'])) cursor = adoptions.cursors.get(frame['cursor']);
   }
+  let hitTargets: readonly FrameHitTarget[] | undefined;
   if (frame['hitTargets'] !== undefined) {
     if (!Array.isArray(frame['hitTargets'])) return 'frame hitTargets must be an array.';
+    const ownedTargets: FrameHitTarget[] = [];
     for (const [index, target] of frame['hitTargets'].entries()) {
       const issue = frameHitTargetIssue(target, Number(frame['width']), Number(frame['height']));
       if (issue !== undefined) return `frame hit target ${String(index)}: ${issue}`;
+      if (isNonArrayObject(target)) ownedTargets.push(decodedFrameHitTarget(target));
     }
+    hitTargets = Object.freeze(ownedTargets);
   }
-  if (frame['focusPath'] !== undefined && !isStringArray(frame['focusPath'])) {
+  const focusPath = frame['focusPath'];
+  if (focusPath !== undefined && !isStringArray(focusPath)) {
     return 'frame focusPath must be a string array.';
   }
-  const snapshot = snapshotIssue(frame['accessibility']);
-  return snapshot === undefined ? undefined : `frame accessibility: ${snapshot}`;
+  const accessibility = decodeSnapshot(frame['accessibility']);
+  if (typeof accessibility === 'string') return `frame accessibility: ${accessibility}`;
+  if (!isNonArrayObject(frame['widthProfile'])) return 'frame widthProfile was not adopted.';
+  const profile = adoptions.widthProfiles.get(frame['widthProfile']);
+  if (profile === undefined) return 'frame width profile was not adopted.';
+  adoptions.frames.set(frame, Object.freeze({
+    width: Number(frame['width']),
+    height: Number(frame['height']),
+    widthProfile: profile,
+    cells: Object.freeze(cells),
+    ...(hitTargets === undefined ? {} : { hitTargets }),
+    ...(cursor === undefined ? {} : { cursor }),
+    ...(focusPath === undefined ? {} : { focusPath: Object.freeze([...focusPath]) }),
+    accessibility
+  }));
+  return undefined;
 }
 
-function frameCellIssue(cell: unknown): string | undefined {
+function frameCellIssue(cell: unknown, adoptions: TranscriptAdoptions): string | undefined {
   if (!isNonArrayObject(cell)) return 'cell must be an object.';
   const unknownField = findUnsupportedField(cell, frameCellFields);
   if (unknownField !== undefined) return `cell contains unsupported field: ${unknownField}.`;
@@ -598,7 +722,7 @@ function frameCellIssue(cell: unknown): string | undefined {
   if (cell['continuation'] !== undefined && typeof cell['continuation'] !== 'boolean') {
     return 'continuation must be a boolean.';
   }
-  const style = terminalStyleIssue(cell['style'], 'cell style');
+  const style = terminalStyleIssue(cell['style'], 'cell style', adoptions);
   if (style !== undefined) return style;
   const link = terminalLinkIssue(cell['link']);
   if (link !== undefined) return `link: ${link}`;
@@ -607,7 +731,7 @@ function frameCellIssue(cell: unknown): string | undefined {
   return undefined;
 }
 
-function cursorIssue(cursor: unknown): string | undefined {
+function cursorIssue(cursor: unknown, adoptions: TranscriptAdoptions): string | undefined {
   if (!isNonArrayObject(cursor)) return 'frame cursor must be an object.';
   const unknownField = findUnsupportedField(cursor, cursorFields);
   if (unknownField !== undefined) return `cursor contains unsupported field: ${unknownField}.`;
@@ -615,28 +739,33 @@ function cursorIssue(cursor: unknown): string | undefined {
   if (!isIntegerAtLeast(typed.row, 1) || !isIntegerAtLeast(typed.column, 1)) {
     return 'frame cursor row and column must be positive integers.';
   }
-  const style = terminalStyleIssue(cursor['style'], 'cursor style');
+  const style = terminalStyleIssue(cursor['style'], 'cursor style', adoptions);
   if (style !== undefined) return style;
   const sourceIssue = frameCellSourceIssue(cursor['source']);
-  return sourceIssue === undefined ? undefined : `frame cursor source: ${sourceIssue}`;
+  if (sourceIssue !== undefined) return `frame cursor source: ${sourceIssue}`;
+  adoptions.cursors.set(cursor, decodedCursor(cursor, adoptions));
+  return undefined;
 }
 
-function renderDiffIssue(diff: unknown): string | undefined {
+function renderDiffIssue(diff: unknown, adoptions: TranscriptAdoptions): string | undefined {
   if (!isNonArrayObject(diff)) return 'diff must be an object.';
   const unknownField = findUnsupportedField(diff, renderDiffFields);
   if (unknownField !== undefined) return `diff contains unsupported field: ${unknownField}.`;
   if (!isIntegerAtLeast(diff['width'], 0) || !isIntegerAtLeast(diff['height'], 0)) {
     return 'diff width and height must be non-negative integers.';
   }
-  const widthProfile = textWidthProfileIssue(diff['widthProfile']);
+  const widthProfile = textWidthProfileIssue(diff['widthProfile'], adoptions);
   if (widthProfile !== undefined) return `diff widthProfile: ${widthProfile}`;
-  const normalizedWidthProfile = defineTextWidthProfile(diff['widthProfile']);
+  const normalizedWidthProfile = isNonArrayObject(diff['widthProfile'])
+    ? adoptions.widthProfiles.get(diff['widthProfile'])
+    : undefined;
+  if (normalizedWidthProfile === undefined) return 'diff widthProfile was not adopted.';
   const width = Number(diff['width']);
   const height = Number(diff['height']);
   if (typeof diff['fullRewrite'] !== 'boolean') return 'diff fullRewrite must be a boolean.';
   if (!Array.isArray(diff['operations'])) return 'diff operations must be an array.';
   if (diff['cursor'] !== undefined) {
-    const issue = cursorIssue(diff['cursor']);
+    const issue = cursorIssue(diff['cursor'], adoptions);
     if (issue !== undefined) return `diff cursor: ${issue}`;
     if (isNonArrayObject(diff['cursor']) && !pointFits(diff['cursor'], width, height)) {
       return 'diff cursor must fit within the declared frame.';
@@ -650,30 +779,46 @@ function renderDiffIssue(diff: unknown): string | undefined {
     }
   }
   for (const [index, operation] of diff['operations'].entries()) {
-    const issue = renderOperationIssue(operation, width, height, normalizedWidthProfile);
+    const issue = renderOperationIssue(operation, width, height, normalizedWidthProfile, adoptions);
     if (issue !== undefined) return `diff operation ${String(index)}: ${issue}`;
   }
+  if (!isNonArrayObject(diff['widthProfile'])) return 'diff widthProfile was not adopted.';
+  const operations = diff['operations'].flatMap((operation) =>
+    isNonArrayObject(operation) ? [adoptions.operations.get(operation)].filter(isDefined) : []);
+  const cursor = isNonArrayObject(diff['cursor']) ? adoptions.cursors.get(diff['cursor']) : undefined;
+  adoptions.diffs.set(diff, Object.freeze({
+    width,
+    height,
+    widthProfile: normalizedWidthProfile,
+    operations: Object.freeze(operations),
+    ...(cursor === undefined ? {} : { cursor }),
+    fullRewrite: diff['fullRewrite'],
+    ...(Array.isArray(diff['dirtyRegions'])
+      ? { dirtyRegions: Object.freeze(diff['dirtyRegions'].flatMap((rect) =>
+          isNonArrayObject(rect) ? [decodedRect(rect)] : [])) }
+      : {})
+  }));
   return undefined;
 }
 
-function textWidthProfileIssue(value: unknown): string | undefined {
+function textWidthProfileIssue(value: unknown, adoptions: TranscriptAdoptions): string | undefined {
   if (!isNonArrayObject(value)) return 'must be an object.';
   const unknownField = findUnsupportedField(value, textWidthProfileFields);
   if (unknownField !== undefined) return `contains unsupported field: ${unknownField}.`;
-  if (value['emoji'] !== 'narrow' && value['emoji'] !== 'wide') {
-    return 'emoji must be "narrow" or "wide".';
+  try {
+    adoptions.widthProfiles.set(value, defineTextWidthProfile(value));
+    return undefined;
+  } catch (cause) {
+    return errorMessage(cause);
   }
-  if (value['ambiguous'] !== 'narrow' && value['ambiguous'] !== 'wide') {
-    return 'ambiguous must be "narrow" or "wide".';
-  }
-  return undefined;
 }
 
 function renderOperationIssue(
   operation: unknown,
   width: number,
   height: number,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  adoptions: TranscriptAdoptions
 ): string | undefined {
   if (!isNonArrayObject(operation)) return 'operation must be an object.';
   switch (operation['kind']) {
@@ -691,6 +836,7 @@ function renderOperationIssue(
         return 'write requires at least one span.';
       }
       let columns = 0;
+      const spans: RenderSpan[] = [];
       for (const item of operation['spans']) {
         if (!isNonArrayObject(item) || typeof item['text'] !== 'string') {
           return 'write spans must contain text.';
@@ -699,18 +845,25 @@ function renderOperationIssue(
         if (unknownField !== undefined) {
           return `write span contains unsupported field: ${unknownField}.`;
         }
-        const style = terminalStyleIssue(item['style'], 'write span style');
+        const style = terminalStyleIssue(item['style'], 'write span style', adoptions);
         if (style !== undefined) return style;
         const link = terminalLinkIssue(item['link']);
         if (link !== undefined) return `write span link: ${link}`;
         const sourceIssue = frameCellSourceIssue(item['source']);
         if (sourceIssue !== undefined) return `write span source: ${sourceIssue}`;
         columns += measureTextCells(item['text'], { widthProfile }).cells;
+        spans.push(decodedRenderSpan(item, adoptions));
       }
       if (columns <= 0) return 'write must affect at least one terminal cell.';
       if (row > height || column + columns - 1 > width) {
         return 'write must fit within the declared frame.';
       }
+      adoptions.operations.set(operation, Object.freeze({
+        kind: 'write',
+        row,
+        column,
+        spans: Object.freeze(spans)
+      }));
       return undefined;
     }
     case 'clearRect': {
@@ -718,7 +871,15 @@ function renderOperationIssue(
       if (unknownField !== undefined) {
         return `clearRect contains unsupported field: ${unknownField}.`;
       }
-      return boundedRectIssue(operation['bounds'], width, height);
+      const issue = boundedRectIssue(operation['bounds'], width, height);
+      if (issue !== undefined) return issue;
+      if (isNonArrayObject(operation['bounds'])) {
+        adoptions.operations.set(operation, Object.freeze({
+          kind: 'clearRect',
+          bounds: decodedRect(operation['bounds'])
+        }));
+      }
+      return undefined;
     }
     default:
       return `unsupported diff operation kind: ${String(operation['kind'])}.`;
@@ -758,10 +919,16 @@ function frameCellSourceIssue(source: unknown): string | undefined {
   return undefined;
 }
 
-function terminalStyleIssue(style: unknown, subject: string): string | undefined {
+function terminalStyleIssue(
+  style: unknown,
+  subject: string,
+  adoptions: TranscriptAdoptions
+): string | undefined {
   if (style === undefined) return undefined;
   try {
-    normalizeTerminalStyle(style, subject);
+    if (!isNonArrayObject(style)) return `${subject} must be an object.`;
+    const normalized = normalizeTerminalStyle(style, subject);
+    adoptions.styles.set(style, normalized);
     return undefined;
   } catch (cause) {
     return errorMessage(cause);
@@ -776,6 +943,75 @@ function terminalLinkIssue(link: unknown): string | undefined {
   if (typeof link['href'] !== 'string') return 'href must be a string.';
   if (link['id'] !== undefined && typeof link['id'] !== 'string') return 'id must be a string.';
   return undefined;
+}
+
+function decodedFrameCell(
+  cell: Readonly<Record<string, unknown>>,
+  adoptions: TranscriptAdoptions
+): FrameCell {
+  const style = isNonArrayObject(cell['style']) ? adoptions.styles.get(cell['style']) : undefined;
+  return Object.freeze({
+    row: Number(cell['row']),
+    column: Number(cell['column']),
+    text: String(cell['text']),
+    width: Number(cell['width']),
+    ...(style === undefined ? {} : { style }),
+    ...decodedLinkField(cell['link']),
+    ...decodedSourceField(cell['source']),
+    ...(typeof cell['continuation'] === 'boolean' ? { continuation: cell['continuation'] } : {})
+  });
+}
+
+function decodedCursor(
+  cursor: Readonly<Record<string, unknown>>,
+  adoptions: TranscriptAdoptions
+): CursorPosition {
+  const style = isNonArrayObject(cursor['style']) ? adoptions.styles.get(cursor['style']) : undefined;
+  return Object.freeze({
+    row: Number(cursor['row']),
+    column: Number(cursor['column']),
+    ...(style === undefined ? {} : { style }),
+    ...decodedSourceField(cursor['source'])
+  });
+}
+
+function decodedRenderSpan(
+  span: Readonly<Record<string, unknown>>,
+  adoptions: TranscriptAdoptions
+): RenderSpan {
+  const style = isNonArrayObject(span['style']) ? adoptions.styles.get(span['style']) : undefined;
+  return Object.freeze({
+    text: String(span['text']),
+    ...(style === undefined ? {} : { style }),
+    ...decodedLinkField(span['link']),
+    ...decodedSourceField(span['source'])
+  });
+}
+
+function decodedLinkField(value: unknown): { readonly link?: TerminalLink } {
+  if (!isNonArrayObject(value) || typeof value['href'] !== 'string') return {};
+  return { link: Object.freeze({
+    href: value['href'],
+    ...(typeof value['id'] === 'string' ? { id: value['id'] } : {})
+  }) };
+}
+
+function decodedSourceField(value: unknown): { readonly source?: FrameCellSource } {
+  if (!isNonArrayObject(value)) return {};
+  return { source: Object.freeze({
+    ...(typeof value['elementId'] === 'string' ? { elementId: value['elementId'] } : {}),
+    ...(typeof value['elementKind'] === 'string' ? { elementKind: value['elementKind'] } : {}),
+    ...(typeof value['rendererFamily'] === 'string' ? { rendererFamily: value['rendererFamily'] } : {}),
+    ...(isFrameCellRole(value['cellRole']) ? { cellRole: value['cellRole'] } : {}),
+    ...(typeof value['partName'] === 'string' ? { partName: value['partName'] } : {}),
+    ...(typeof value['partType'] === 'string' ? { partType: value['partType'] } : {}),
+    ...(typeof value['itemId'] === 'string' ? { itemId: value['itemId'] } : {}),
+    ...(typeof value['itemIndex'] === 'number' ? { itemIndex: value['itemIndex'] } : {}),
+    ...(isFrameCellInteractionState(value['interactionState'])
+      ? { interactionState: value['interactionState'] }
+      : {}),
+    ...(typeof value['description'] === 'string' ? { description: value['description'] } : {})
+  }) };
 }
 
 function frameHitTargetIssue(target: unknown, width: number, height: number): string | undefined {
@@ -822,6 +1058,36 @@ function frameHitTargetIssue(target: unknown, width: number, height: number): st
   return undefined;
 }
 
+function decodedFrameHitTarget(target: Readonly<Record<string, unknown>>): FrameHitTarget {
+  const focus = target['focus'];
+  if (!isNonArrayObject(target['bounds'])) {
+    throw new Error('Validated frame hit target bounds are missing.');
+  }
+  return Object.freeze({
+    id: String(target['id']),
+    bounds: decodedRect(target['bounds']),
+    ...(Array.isArray(target['accepts'])
+      ? { accepts: Object.freeze(target['accepts'].filter(isPointerEventKind)) }
+      : {}),
+    ...(isNonArrayObject(focus) && focus['kind'] === 'preserve'
+      ? { focus: Object.freeze({ kind: 'preserve' as const }) }
+      : isNonArrayObject(focus) && focus['kind'] === 'focus' && Array.isArray(focus['path'])
+        ? { focus: Object.freeze({
+            kind: 'focus' as const,
+            path: Object.freeze(focus['path'].filter((item): item is string => typeof item === 'string'))
+          }) }
+        : {}),
+    ...(target['cursor'] === 'pointer' || target['cursor'] === 'text' || target['cursor'] === 'default'
+      ? { cursor: target['cursor'] }
+      : {}),
+    ...(typeof target['zIndex'] === 'number' ? { zIndex: target['zIndex'] } : {})
+  });
+}
+
+function isPointerEventKind(value: unknown): value is NonNullable<FrameHitTarget['accepts']>[number] {
+  return isStringMember(value, pointerEventKinds);
+}
+
 function frameRectIssue(rect: unknown, width: number, height: number): string | undefined {
   if (!isNonArrayObject(rect)) return 'must be an object.';
   const unknownField = findUnsupportedField(rect, rectFields);
@@ -836,6 +1102,15 @@ function frameRectIssue(rect: unknown, width: number, height: number): string | 
     && Number(rect['column']) + Number(rect['width']) - 1 <= width
     ? undefined
     : 'must fit within the declared frame.';
+}
+
+function decodedRect(rect: Readonly<Record<string, unknown>>): Rect {
+  return Object.freeze({
+    row: Number(rect['row']),
+    column: Number(rect['column']),
+    width: Number(rect['width']),
+    height: Number(rect['height'])
+  });
 }
 
 function rectIssue(rect: unknown): string | undefined {
@@ -867,13 +1142,13 @@ function pointFits(point: Record<string, unknown>, width: number, height: number
     && point['column'] <= width;
 }
 
-function snapshotIssue(snapshot: unknown): string | undefined {
-  if (!isNonArrayObject(snapshot)) return 'snapshot must be an object.';
+function decodeSnapshot(snapshot: unknown): AccessibleSnapshot | string {
   const result = validateAccessibleSnapshot(snapshot);
-  return result.ok ? undefined : result.error.message;
+  if (!result.ok) return result.error.message;
+  return result.value;
 }
 
-function restoreResultIssue(result: unknown): string | undefined {
+function restoreResultIssue(result: unknown, adoptions: TranscriptAdoptions): string | undefined {
   if (!isNonArrayObject(result)) return 'restore result must be an object.';
   const unknownField = findUnsupportedField(result, restoreResultFields);
   if (unknownField !== undefined) {
@@ -884,32 +1159,65 @@ function restoreResultIssue(result: unknown): string | undefined {
   if (!isStringMember(typed.reason, ['success', 'cancelled', 'interrupted', 'timeout', 'error', 'disposed'] as const)) {
     return 'restore result requires reason.';
   }
-  const requestedIssue = terminalStateSnapshotIssue(typed.requested);
+  const requestedIssue = terminalStateSnapshotIssue(typed.requested, adoptions);
   if (requestedIssue !== undefined) return `restore requested state: ${requestedIssue}`;
-  const resultingIssue = terminalStateSnapshotIssue(typed.resultingState);
+  const resultingIssue = terminalStateSnapshotIssue(typed.resultingState, adoptions);
   if (resultingIssue !== undefined) return `restore resulting state: ${resultingIssue}`;
   if (!Array.isArray(typed.attempted)) return 'restore result requires attempted.';
+  const attempted: TerminalStateChange[] = [];
   for (const operation of typed.attempted) {
-    const issue = terminalStateChangeIssue(operation);
+    const issue = terminalStateChangeIssue(operation, adoptions);
     if (issue !== undefined) return `restore attempted: ${issue}`;
+    if (isNonArrayObject(operation)) {
+      const adopted = adoptions.stateChanges.get(operation);
+      if (adopted !== undefined) attempted.push(withoutAssurance(adopted));
+    }
   }
   if (!Array.isArray(typed.completed)) return 'restore result requires completed.';
+  const completed: TerminalRestoreCompletion[] = [];
   for (const operation of typed.completed) {
-    const issue = terminalRestoreCompletionIssue(operation);
+    const issue = terminalRestoreCompletionIssue(operation, adoptions);
     if (issue !== undefined) return `restore completed: ${issue}`;
+    if (isNonArrayObject(operation)) {
+      const adopted = adoptions.stateChanges.get(operation);
+      if (adopted !== undefined && 'assurance' in adopted) completed.push(adopted);
+    }
   }
-  if (!isOrderedTerminalStateChangeSubset(typed.completed, typed.attempted)) {
+  if (!isOrderedTerminalStateChangeSubset(completed, attempted)) {
     return 'restore completed operations must be an ordered subset of attempted operations.';
   }
   if (!Array.isArray(typed.diagnostics)) return 'restore result requires diagnostics.';
+  const diagnostics = [];
   for (const item of typed.diagnostics) {
-    const issue = terminalDiagnosticIssue(item);
+    const issue = adoptDiagnosticIssue(item, adoptions);
     if (issue !== undefined) return `restore diagnostic: ${issue}`;
+    if (isNonArrayObject(item)) {
+      const adopted = adoptions.diagnostics.get(item);
+      if (adopted !== undefined) diagnostics.push(adopted);
+    }
   }
+  if (!isNonArrayObject(typed.requested) || !isNonArrayObject(typed.resultingState)) {
+    return 'restore state snapshots were not adopted.';
+  }
+  const requested = adoptions.stateSnapshots.get(typed.requested);
+  const resultingState = adoptions.stateSnapshots.get(typed.resultingState);
+  if (requested === undefined || resultingState === undefined) return 'restore state snapshots were not adopted.';
+  adoptions.restores.set(result, Object.freeze({
+    status: typed.status,
+    reason: typed.reason,
+    requested,
+    attempted: Object.freeze(attempted),
+    completed: Object.freeze(completed),
+    resultingState,
+    diagnostics: Object.freeze(diagnostics)
+  }));
   return undefined;
 }
 
-function terminalRestoreCompletionIssue(completion: unknown): string | undefined {
+function terminalRestoreCompletionIssue(
+  completion: unknown,
+  adoptions: TranscriptAdoptions
+): string | undefined {
   if (!isNonArrayObject(completion)) return 'terminal restore completion must be an object.';
   const unknownField = findUnsupportedField(completion, terminalRestoreCompletionFields);
   if (unknownField !== undefined) {
@@ -918,7 +1226,7 @@ function terminalRestoreCompletionIssue(completion: unknown): string | undefined
   if (!isStringMember(completion['assurance'], ['observed', 'sent'] as const)) {
     return 'terminal restore completion requires assurance.';
   }
-  return terminalStateChangeIssue({ kind: completion['kind'], enabled: completion['enabled'] });
+  return terminalStateChangeIssue(completion, adoptions, true);
 }
 
 function isOrderedTerminalStateChangeSubset(
@@ -955,7 +1263,10 @@ function terminalStateChangesEqual(left: TerminalStateChange, right: TerminalSta
   return left.enabled === right.enabled;
 }
 
-function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
+function terminalStateSnapshotIssue(
+  checkpoint: unknown,
+  adoptions: TranscriptAdoptions
+): string | undefined {
   if (!isNonArrayObject(checkpoint)) return 'terminal state must be an object.';
   const unknownField = findUnsupportedField(checkpoint, terminalStateFields);
   if (unknownField !== undefined) return `terminal state contains unsupported field: ${unknownField}.`;
@@ -968,7 +1279,7 @@ function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
   }
   if (typeof typed.focusReporting !== 'boolean') return 'terminal state requires focusReporting.';
   if (typeof typed.unicodeGraphemeMode !== 'boolean') return 'terminal state requires unicodeGraphemeMode.';
-  const keyboardProfileIssue = terminalKeyboardProfileIssue(typed.keyboardProfile);
+  const keyboardProfileIssue = terminalKeyboardProfileIssue(typed.keyboardProfile, adoptions);
   if (keyboardProfileIssue !== undefined) return `terminal state keyboardProfile: ${keyboardProfileIssue}`;
   if (typeof typed.cursorVisible !== 'boolean') return 'terminal state requires cursorVisible.';
   if (!isNonArrayObject(typed.provenance)) return 'terminal state requires provenance.';
@@ -981,16 +1292,49 @@ function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
       return `terminal state provenance requires ${key}.`;
     }
   }
+  if (!isNonArrayObject(typed.mouseReporting) || !isNonArrayObject(typed.keyboardProfile)) {
+    return 'terminal state protocol values were not adopted.';
+  }
+  const keyboardProfile = adoptions.keyboardProfiles.get(typed.keyboardProfile);
+  if (keyboardProfile === undefined) return 'terminal state keyboardProfile was not adopted.';
+  adoptions.stateSnapshots.set(checkpoint, Object.freeze({
+    rawInput: typed.rawInput,
+    alternateScreen: typed.alternateScreen,
+    bracketedPaste: typed.bracketedPaste,
+    mouseReporting: decodedMouseReportingState(typed.mouseReporting),
+    focusReporting: typed.focusReporting,
+    unicodeGraphemeMode: typed.unicodeGraphemeMode,
+    keyboardProfile,
+    cursorVisible: typed.cursorVisible,
+    provenance: Object.freeze({
+      rawInput: typed.provenance.rawInput,
+      alternateScreen: typed.provenance.alternateScreen,
+      bracketedPaste: typed.provenance.bracketedPaste,
+      mouseReporting: typed.provenance.mouseReporting,
+      focusReporting: typed.provenance.focusReporting,
+      unicodeGraphemeMode: typed.provenance.unicodeGraphemeMode,
+      keyboardProfile: typed.provenance.keyboardProfile,
+      cursorVisible: typed.provenance.cursorVisible
+    })
+  }));
   return undefined;
 }
 
-function terminalStateChangeIssue(operation: unknown): string | undefined {
+function terminalStateChangeIssue(
+  operation: unknown,
+  adoptions: TranscriptAdoptions,
+  completion = false
+): string | undefined {
   if (!isNonArrayObject(operation)) return 'terminal state change must be an object.';
-  const unknownField = findUnsupportedField(operation, terminalStateChangeFields);
+  const unknownField = findUnsupportedField(
+    operation,
+    completion ? terminalRestoreCompletionFields : terminalStateChangeFields
+  );
   if (unknownField !== undefined) {
     return `terminal state change contains unsupported field: ${unknownField}.`;
   }
   const typed = operation as Partial<TerminalStateChange>;
+  let change: TerminalStateChange;
   switch (typed.kind) {
     case 'rawInput':
     case 'alternateScreen':
@@ -998,14 +1342,32 @@ function terminalStateChangeIssue(operation: unknown): string | undefined {
     case 'focusReporting':
     case 'unicodeGraphemeMode':
     case 'cursorVisible':
-      return typeof typed.enabled === 'boolean' ? undefined : `${typed.kind} requires a boolean value.`;
-    case 'mouseReporting':
-      return mouseReportingStateIssue(typed.enabled);
-    case 'keyboardProfile':
-      return terminalKeyboardProfileIssue(typed.enabled);
+      if (typeof typed.enabled !== 'boolean') return `${typed.kind} requires a boolean value.`;
+      change = Object.freeze({ kind: typed.kind, enabled: typed.enabled });
+      break;
+    case 'mouseReporting': {
+      const issue = mouseReportingStateIssue(typed.enabled);
+      if (issue !== undefined) return issue;
+      if (!isNonArrayObject(typed.enabled)) return 'mouseReporting requires an object.';
+      change = Object.freeze({ kind: typed.kind, enabled: decodedMouseReportingState(typed.enabled) });
+      break;
+    }
+    case 'keyboardProfile': {
+      const issue = terminalKeyboardProfileIssue(typed.enabled, adoptions);
+      if (issue !== undefined) return issue;
+      if (!isNonArrayObject(typed.enabled)) return 'keyboardProfile requires an object.';
+      const profile = adoptions.keyboardProfiles.get(typed.enabled);
+      if (profile === undefined) return 'keyboardProfile was not adopted.';
+      change = Object.freeze({ kind: typed.kind, enabled: profile });
+      break;
+    }
     default:
       return 'terminal state change requires a valid kind.';
   }
+  adoptions.stateChanges.set(operation, completion
+    ? Object.freeze({ ...change, assurance: operation['assurance'] === 'observed' ? 'observed' : 'sent' })
+    : change);
+  return undefined;
 }
 
 function mouseReportingStateIssue(state: unknown): string | undefined {
@@ -1020,6 +1382,27 @@ function mouseReportingStateIssue(state: unknown): string | undefined {
     : 'mouseReporting requires a valid encoding.';
 }
 
+function decodedMouseReportingState(
+  state: Readonly<Record<string, unknown>>
+): TerminalStateSnapshot['mouseReporting'] {
+  const tracking = state['tracking'];
+  const encoding = state['encoding'];
+  if ((tracking !== 'none' && tracking !== 'click' && tracking !== 'drag' && tracking !== 'all')
+    || (encoding !== 'default' && encoding !== 'sgr')) {
+    throw new Error('Validated mouse-reporting state is invalid.');
+  }
+  return Object.freeze({ tracking, encoding });
+}
+
+function withoutAssurance(
+  change: TerminalStateChange | TerminalRestoreCompletion
+): TerminalStateChange {
+  if (!('assurance' in change)) return change;
+  const { assurance, ...stateChange } = change;
+  void assurance;
+  return Object.freeze(stateChange);
+}
+
 function terminalSizeIssue(terminalSize: unknown): string | undefined {
   if (!isNonArrayObject(terminalSize)) return 'terminal size must be an object.';
   const unknownField = findUnsupportedField(terminalSize, terminalSizeFields);
@@ -1030,9 +1413,13 @@ function terminalSizeIssue(terminalSize: unknown): string | undefined {
     : 'terminal size columns and rows must be positive integers.';
 }
 
-function terminalKeyboardProfileIssue(profile: unknown): string | undefined {
+function terminalKeyboardProfileIssue(
+  profile: unknown,
+  adoptions: TranscriptAdoptions
+): string | undefined {
   try {
-    decodeKeyboardProfile(profile);
+    if (!isNonArrayObject(profile)) return 'Terminal keyboard profile must be an object.';
+    adoptions.keyboardProfiles.set(profile, decodeKeyboardProfile(profile));
     return undefined;
   } catch (cause) {
     return cause instanceof Error
@@ -1051,4 +1438,8 @@ function isStringArray(value: unknown): value is readonly string[] {
 
 function isIntegerAtLeast(value: unknown, min: number): boolean {
   return Number.isInteger(value) && Number(value) >= min;
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
 }

@@ -72,14 +72,19 @@ export function snapshotJsonValue(
   return result.snapshot as JsonValue;
 }
 
-export function snapshotCanonicalJsonValue<T>(value: T, subject: string): T & JsonValue {
+export function snapshotCanonicalJsonValue<T>(
+  value: T,
+  subject: string,
+  limits: JsonSnapshotLimits = {}
+): T & JsonValue {
+  const normalizedLimits = normalizeJsonSnapshotLimits(limits);
   const result = inspectJsonValue(
     value,
     new Set(),
     0,
     { nodes: 0, stringCodeUnits: 0 },
     true,
-    defaultJsonSnapshotLimits,
+    normalizedLimits,
     true
   );
   if (!result.ok) throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);

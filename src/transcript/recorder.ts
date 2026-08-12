@@ -15,6 +15,7 @@ import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type { Frame } from '../renderer/index.ts';
 import { isCanonicalDateTime } from '../foundation/validation.ts';
 import { snapshotInputEvent } from '../input/index.ts';
+import { validateAccessibleSnapshot } from '../accessibility/index.ts';
 
 export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}): TranscriptRecorder {
   const { id: suppliedId, source = 'test', startedAt = new Date(0).toISOString() } = options;
@@ -95,8 +96,11 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
         fidelity: step.fidelity,
         message: step.message
       } as const, 'Transcript message step');
-    case 'snapshot':
-      return snapshotCanonicalJsonValue(step, 'Transcript accessibility snapshot step');
+    case 'snapshot': {
+      const snapshot = validateAccessibleSnapshot(step.snapshot);
+      if (!snapshot.ok) throw new TypeError(snapshot.error.message);
+      return Object.freeze({ kind: 'snapshot', snapshot: snapshot.value });
+    }
     case 'diagnostic':
       return Object.freeze({ kind: 'diagnostic', occurrence: adoptDiagnosticOccurrence(step.occurrence) });
     case 'restore':

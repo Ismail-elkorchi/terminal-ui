@@ -71,6 +71,7 @@ for (const filePath of sourceFiles) {
   inspectElementConstructionBoundary(sourceFile, filePath);
   inspectComponentCatalog(sourceFile, filePath);
   inspectComponentPreparationInflation(sourceFile, filePath);
+  inspectRetainedProofFlow(sourceFile, filePath);
   inspectPublicBoundary(sourceFile, filePath);
   inspectTestingEntrypoint(sourceFile, filePath);
   inspectTuiContext(sourceFile, filePath);
@@ -275,6 +276,31 @@ function inspectComponentPreparationInflation(sourceFile, filePath) {
       )) {
       report(`imports generic exact-option validation from ${statement.moduleSpecifier.text}`);
     }
+  }
+}
+
+function inspectRetainedProofFlow(sourceFile, filePath) {
+  const sourcePath = sourceRelative(filePath);
+  if (sourcePath !== 'input/pipeline.ts' && sourcePath !== 'transcript/validate.ts') return;
+  let trustedDecoderConstruction = false;
+  const visit = (node) => {
+    if (sourcePath === 'input/pipeline.ts' && ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      if (node.expression.text === 'createInputDecoder') {
+        failures.push(`${relative(filePath)} routes normalized pipeline options through the public decoder boundary`);
+      }
+      if (node.expression.text === 'createInputDecoderFromNormalizedOptions') {
+        trustedDecoderConstruction = true;
+      }
+    }
+    if (sourcePath === 'transcript/validate.ts' && ts.isAsExpression(node)
+      && node.type.getText(sourceFile) === 'InteractionTranscript') {
+      failures.push(`${relative(filePath)} completes transcript decoding through a domain cast`);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  if (sourcePath === 'input/pipeline.ts' && !trustedDecoderConstruction) {
+    failures.push(`${relative(filePath)} must preserve its normalized decoder options through trusted construction`);
   }
 }
 

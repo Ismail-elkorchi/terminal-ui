@@ -2,10 +2,11 @@
 import { diagnostic } from '../diagnostics.ts';
 import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/index.ts';
 import {
-  createInputDecoder,
+  createInputDecoderFromNormalizedOptions,
   decodeInputChunk,
   normalizeInputDecodeLimits
 } from './decoder.ts';
+import type { NormalizedInputDecodeOptions } from './decoder.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { MouseReportingMode, TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/index.ts';
@@ -53,7 +54,7 @@ export interface InputPipeline {
 
 export function createInputPipeline(options: InputPipelineOptions = {}): InputPipeline {
   const profile = resolveInputPipelineProfile(options);
-  const decoder = createInputDecoder(decodeOptions(profile));
+  const decoder = createInputDecoderFromNormalizedOptions(decodeOptions(profile));
   let pending: InputPendingState = noPendingInput;
   return {
     profile,
@@ -148,14 +149,14 @@ function escapeDelay(value: number | undefined): number {
   return delay;
 }
 
-function decodeOptions(profile: InputPipelineProfile): InputDecodeOptions {
-  return {
+function decodeOptions(profile: InputPipelineProfile): NormalizedInputDecodeOptions {
+  return Object.freeze({
     bracketedPaste: profile.bracketedPaste,
     focusReporting: profile.focusReporting,
     mouseReporting: profile.mouseReporting,
     keyboard: profile.keyboard.active,
     limits: profile.limits
-  };
+  });
 }
 
 function pipelineDecodeOptions(

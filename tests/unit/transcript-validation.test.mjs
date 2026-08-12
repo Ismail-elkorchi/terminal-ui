@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagnostics.js';
+import {
+  adoptDiagnosticOccurrence,
+  adoptTerminalDiagnostic,
+  createDiagnosticOccurrenceReporter,
+  diagnostic
+} from '../../dist/diagnostics.js';
+import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import { decodeInputEvent } from '../../dist/input/index.js';
+import { decodeKeyboardProfile } from '../../dist/protocol/index.js';
+import { defineTextWidthProfile } from '../../dist/text/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 
@@ -54,6 +63,57 @@ test('transcript validation returns a detached canonical value', () => {
   assert.notEqual(result.value.steps[0].event, source.steps[0].event);
   source.steps[0].event.focused = false;
   assert.equal(result.value.steps[0].event.focused, true);
+});
+
+test('transcript decoding retains every successful nested adoption', () => {
+  const reporter = createDiagnosticOccurrenceReporter('decoded-transcript');
+  const occurrence = reporter.report(diagnostic('HOST_STREAM_CLOSED', 'Closed'));
+  const snapshot = createTerminalHarness().snapshot();
+  const widthProfile = { emoji: 'wide', ambiguous: 'narrow' };
+  const frame = {
+    width: 2,
+    height: 1,
+    widthProfile,
+    cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
+    accessibility: snapshot
+  };
+  const diff = {
+    width: 2,
+    height: 1,
+    widthProfile,
+    fullRewrite: true,
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }]
+  };
+  const source = transcript({
+    id: 'nested-adoptions',
+    steps: [
+      { kind: 'input', event: { kind: 'focus', focused: true } },
+      { kind: 'diagnostic', occurrence },
+      { kind: 'commit', commit: runtimeCommit(frame, diff) },
+      { kind: 'restore', phase: 'shutdown', result: validRestoreResult() }
+    ],
+    diagnostics: [occurrence]
+  });
+
+  const result = validateTranscript(source);
+  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+  const input = result.value.steps[0].event;
+  const stepOccurrence = result.value.steps[1].occurrence;
+  const commit = result.value.steps[2].commit;
+  const restore = result.value.steps[3].result;
+  assert.strictEqual(decodeInputEvent(input), input);
+  assert.strictEqual(adoptDiagnosticOccurrence(stepOccurrence), stepOccurrence);
+  assert.strictEqual(adoptTerminalDiagnostic(stepOccurrence.diagnostic), stepOccurrence.diagnostic);
+  assert.strictEqual(defineTextWidthProfile(commit.frame.widthProfile), commit.frame.widthProfile);
+  assert.strictEqual(defineTextWidthProfile(commit.diff.widthProfile), commit.diff.widthProfile);
+  assert.strictEqual(validateAccessibleSnapshot(commit.frame.accessibility).value, commit.frame.accessibility);
+  assert.strictEqual(
+    decodeKeyboardProfile(restore.requested.keyboardProfile),
+    restore.requested.keyboardProfile
+  );
+  assert.equal(Object.isFrozen(result.value.steps), true);
+  assert.equal(Object.isFrozen(commit.frame.cells), true);
+  assert.equal(Object.isFrozen(restore.requested.provenance), true);
 });
 
 test('transcript validation accounts resources on the owned snapshot', () => {
