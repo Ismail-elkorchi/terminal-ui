@@ -787,16 +787,16 @@ export function defineComponent<
   const ownedDefinition = compiled.definition;
   const runtime = runtimeDefinition(compiled);
   const component = (value: unknown): Element<unknown> => {
-    assertComponentInstanceOptions(value, contract);
+    const instance = adoptComponentInstanceOptions(value, contract);
     const state = ownedDefinition.semantics === 'decorative'
       ? emptyComponentState
-      : normalizeComponentState(value, contract.states);
-    const prepared = prepareComponentOptions(value, ownedDefinition, state);
-    const toActionMessage = value.onAction;
-    const behavior = componentBehaviorInput(value.id, prepared, state);
-    const requiredLayer = componentDefinitionLayer(value.id, ownedDefinition, behavior);
+      : normalizeComponentState(instance, contract.states);
+    const prepared = prepareComponentOptions(instance, ownedDefinition, state);
+    const toActionMessage = instance.onAction;
+    const behavior = componentBehaviorInput(instance.id, prepared, state);
+    const requiredLayer = componentDefinitionLayer(instance.id, ownedDefinition, behavior);
     const meta = componentInstanceMeta(
-      value,
+      instance,
       contract,
       behavior,
       requiredLayer,
@@ -804,14 +804,14 @@ export function defineComponent<
     );
     const slotContent = ownedDefinition.structure === 'composite' || ownedDefinition.structure === 'composed'
       ? componentSlotChildren(
-          value,
+          instance,
           ownedDefinition,
           contract,
           behavior,
           toActionMessage,
           meta.styles,
           ownedDefinition.structure === 'composed' && requiredLayer !== undefined
-            ? Object.freeze({ ...value.meta?.layer, ...requiredLayer })
+            ? Object.freeze({ ...instance.meta?.layer, ...requiredLayer })
             : undefined
         )
       : emptySlotContent;
@@ -819,7 +819,7 @@ export function defineComponent<
       ? slotContent.children
       : undefined;
     const renderNode: RenderNodeOfKind<unknown, 'component'> = {
-      ...(value.id === undefined ? {} : { id: renderNodeId(value.id, ownedDefinition.name) }),
+      ...(instance.id === undefined ? {} : { id: renderNodeId(instance.id, ownedDefinition.name) }),
       kind: 'component',
       props: {
         model: prepared,
@@ -837,16 +837,16 @@ export function defineComponent<
           ? mappedKeyBindings(
               ownedDefinition.keys === undefined
                 ? undefined
-                : executeComponentPhase(ownedDefinition.name, value.id, 'keyboard', () =>
+                : executeComponentPhase(ownedDefinition.name, instance.id, 'keyboard', () =>
                     ownedDefinition.keys?.call(undefined, behavior)
                   ),
               toActionMessage,
               ownedDefinition.name,
-              value.id
+              instance.id
             )
           : undefined,
         onInput: ownedDefinition.semantics === 'semantic' && ownedDefinition.onInput !== undefined
-          ? (text: string) => executeComponentPhase(ownedDefinition.name, value.id, 'input', () =>
+          ? (text: string) => executeComponentPhase(ownedDefinition.name, instance.id, 'input', () =>
               mapComponentAction(
                 ownedDefinition.onInput?.call(undefined, { ...behavior, text }),
                 toActionMessage
@@ -854,14 +854,14 @@ export function defineComponent<
             )
           : undefined,
         onPaste: ownedDefinition.semantics === 'semantic' && ownedDefinition.onPaste !== undefined
-          ? (text: string) => executeComponentPhase(ownedDefinition.name, value.id, 'paste', () =>
+          ? (text: string) => executeComponentPhase(ownedDefinition.name, instance.id, 'paste', () =>
               mapComponentAction(
                 ownedDefinition.onPaste?.call(undefined, { ...behavior, text }),
                 toActionMessage
               )
             )
           : undefined,
-        pointer: componentPointerInteraction(ownedDefinition, behavior, toActionMessage, value.id),
+        pointer: componentPointerInteraction(ownedDefinition, behavior, toActionMessage, instance.id),
         meta
       })
     };
@@ -1748,64 +1748,63 @@ function slotElements(
   return [value as ElementValue];
 }
 
-function assertComponentInstanceOptions(
+function adoptComponentInstanceOptions(
   value: unknown,
   definition: ComponentRuntimeContract
-): asserts value is ComponentInstanceOptions {
+): ComponentInstanceOptions {
   if (!isNonArrayObject(value)) {
     throw new TypeError(`Component "${definition.name}" options must be an object.`);
   }
+  const instance = { ...value };
   if (definition.identity === 'required'
-    && (typeof value['id'] !== 'string' || value['id'].trim() === '')) {
+    && (typeof instance['id'] !== 'string' || instance['id'].trim() === '')) {
     throw new TypeError(`Component "${definition.name}" requires a non-empty id.`);
   }
-  if (value['id'] !== undefined && (typeof value['id'] !== 'string' || value['id'].trim() === '')) {
+  if (instance['id'] !== undefined && (typeof instance['id'] !== 'string' || instance['id'].trim() === '')) {
     throw new TypeError(`Component "${definition.name}" id must be a non-empty string when provided.`);
   }
-  if (Object.hasOwn(value, 'children')) {
+  if (Object.hasOwn(instance, 'children')) {
     throw new TypeError(
       `Component "${definition.name}" options contain unknown field "children"; use declared named slots.`
     );
   }
-  if (definition.structure === 'leaf' && value['slots'] !== undefined) {
+  if (definition.structure === 'leaf' && instance['slots'] !== undefined) {
     throw new TypeError(`Component "${definition.name}" is a leaf and cannot contain slots.`);
   }
-  if (value['meta'] !== undefined && !isNonArrayObject(value['meta'])) {
-    throw new TypeError(`Component "${definition.name}" meta must be an object when provided.`);
-  }
-  assertComponentMetadata(value['meta'], definition);
+  const meta = normalizeComponentMetadata(instance['meta'], definition);
+  if (meta !== undefined) instance['meta'] = meta;
   for (const removedInstanceHandler of ['keys', 'onInput', 'onPaste', 'pointer'] as const) {
-    if (value[removedInstanceHandler] !== undefined) {
+    if (instance[removedInstanceHandler] !== undefined) {
       throw new TypeError(
         `Component "${definition.name}" ${removedInstanceHandler} behavior must be declared by the definition.`
       );
     }
   }
   if (definition.semantics === 'decorative') {
-    if (elementStateFields.some((field) => value[field] !== undefined)
-      || value['onAction'] !== undefined
-      || isNonArrayObject(value['meta'])
-        && value['meta']['focus'] !== undefined) {
+    if (elementStateFields.some((field) => instance[field] !== undefined)
+      || instance['onAction'] !== undefined
+      || meta?.focus !== undefined) {
       throw new TypeError(
         `Decorative component "${definition.name}" cannot define state, actions, or focus options.`
       );
     }
-    return;
+    return Object.freeze(instance);
   }
-  assertComponentState(value, definition);
+  assertComponentState(instance, definition);
   const actionful = definition.actionful;
-  if (value['onAction'] !== undefined && typeof value['onAction'] !== 'function') {
+  if (instance['onAction'] !== undefined && typeof instance['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" onAction must be a function when provided.`);
   }
-  if (actionful && value['disabled'] !== true && typeof value['onAction'] !== 'function') {
+  if (actionful && instance['disabled'] !== true && typeof instance['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" requires onAction to map its semantic actions.`);
   }
-  if (actionful && value['disabled'] === true && value['onAction'] !== undefined) {
+  if (actionful && instance['disabled'] === true && instance['onAction'] !== undefined) {
     throw new TypeError(`Disabled component "${definition.name}" cannot accept onAction.`);
   }
-  if (!actionful && value['onAction'] !== undefined) {
+  if (!actionful && instance['onAction'] !== undefined) {
     throw new TypeError(`Component "${definition.name}" does not define actions and cannot accept onAction.`);
   }
+  return Object.freeze(instance);
 }
 
 function componentBehaviorInput<TPrepared extends object>(
@@ -1882,11 +1881,14 @@ function assertComponentState(
   }
 }
 
-function assertComponentMetadata(
-  value: ComponentInstanceOptions['meta'],
+function normalizeComponentMetadata(
+  value: unknown,
   definition: ComponentRuntimeContract
-): void {
-  if (value === undefined) return;
+): ComponentInstanceOptions['meta'] {
+  if (value === undefined) return undefined;
+  if (!isNonArrayObject(value)) {
+    throw new TypeError(`Component "${definition.name}" meta must be an object when provided.`);
+  }
   const allowed = new Set(definition.metadata);
   const unsupported = findUnsupportedField(value, allowed);
   if (unsupported !== undefined) {
@@ -1894,9 +1896,17 @@ function assertComponentMetadata(
       `Component "${definition.name}" does not permit caller metadata field "${unsupported}".`
     );
   }
-  if (value.focus !== undefined) assertCallerFocus(value.focus, definition.name);
-  if (value.layer !== undefined) normalizeElementLayer(value.layer, definition.name, 'caller');
-  if (value.styles !== undefined) normalizeElementStyles(value.styles, definition);
+  const focusValue = value['focus'];
+  const layerValue = value['layer'];
+  const stylesValue = value['styles'];
+  const focus = normalizeCallerFocus(focusValue, definition.name);
+  const layer = normalizeElementLayer(layerValue, definition.name, 'caller');
+  const styles = stylesValue === undefined ? undefined : normalizeElementStyles(stylesValue, definition);
+  return Object.freeze({
+    ...(focus === undefined ? {} : { focus }),
+    ...(layer === undefined ? {} : { layer }),
+    ...(styles === undefined ? {} : { styles })
+  });
 }
 
 function componentInstanceMeta<TPrepared extends object>(
@@ -1932,9 +1942,7 @@ function componentInstanceMeta<TPrepared extends object>(
   const layer = callerRootLayer === undefined && rootRequiredLayer === undefined
     ? undefined
     : Object.freeze({ ...callerRootLayer, ...rootRequiredLayer });
-  const styles = caller?.styles === undefined
-    ? undefined
-    : normalizeElementStyles(caller.styles, definition);
+  const styles = caller?.styles;
   return Object.freeze({
     ...(focus === undefined ? {} : { focus }),
     ...(layer === undefined ? {} : { layer }),
@@ -1966,7 +1974,8 @@ function componentDefinitionLayer<TPrepared extends object>(
       );
 }
 
-function assertCallerFocus(value: unknown, component: string): void {
+function normalizeCallerFocus(value: unknown, component: string): ElementFocus | undefined {
+  if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) {
     throw new TypeError(`Component "${component}" meta.focus must be an object.`);
   }
@@ -1974,15 +1983,21 @@ function assertCallerFocus(value: unknown, component: string): void {
   if (unsupported !== undefined) {
     throw new TypeError(`Component "${component}" meta.focus contains unknown field "${unsupported}".`);
   }
-  if (value['disabled'] !== undefined && typeof value['disabled'] !== 'boolean') {
+  const disabled = value['disabled'];
+  const order = value['order'];
+  if (disabled !== undefined && typeof disabled !== 'boolean') {
     throw new TypeError(`Component "${component}" meta.focus.disabled must be a boolean.`);
   }
-  if (value['order'] !== undefined
-    && (typeof value['order'] !== 'number'
-      || !Number.isFinite(value['order'])
-      || !Number.isInteger(value['order']))) {
+  if (order !== undefined
+    && (typeof order !== 'number'
+      || !Number.isFinite(order)
+      || !Number.isInteger(order))) {
     throw new TypeError(`Component "${component}" meta.focus.order must be a finite integer.`);
   }
+  return Object.freeze({
+    ...(disabled === undefined ? {} : { disabled }),
+    ...(order === undefined ? {} : { order })
+  });
 }
 
 function normalizeFocusScope(
@@ -2024,11 +2039,16 @@ function normalizeInitialFocusSelector(
     const path = value['path'];
     const unsupported = findUnsupportedField(value, new Set(['kind', 'path']));
     if (unsupported !== undefined || !Array.isArray(path)
-      || path.length === 0
-      || path.some((segment) => typeof segment !== 'string' || segment.trim() === '')) {
+      || path.length === 0) {
       throw new TypeError(`Component "${component}" initial focus path must contain non-empty segments.`);
     }
-    return Object.freeze({ kind: 'path' as const, path: Object.freeze(path) });
+    const ownedPath = path.map((segment: unknown) => {
+      if (typeof segment !== 'string' || segment.trim() === '') {
+        throw new TypeError(`Component "${component}" initial focus path must contain non-empty segments.`);
+      }
+      return segment;
+    });
+    return Object.freeze({ kind: 'path' as const, path: Object.freeze(ownedPath) });
   }
   const kind = value['kind'];
   const supported = kind === 'element'
@@ -2130,7 +2150,7 @@ function normalizeElementStyles(
     `Component "${definition.name}" meta.styles.states`
   );
   return Object.freeze({
-    ...(root === undefined ? {} : { root: Object.freeze(root) }),
+    ...(root === undefined ? {} : { root }),
     ...(parts === undefined ? {} : { parts }),
     ...(states === undefined ? {} : { states })
   });
@@ -2147,7 +2167,7 @@ function normalizeStyleMap(
   if (unsupported !== undefined) throw new TypeError(`${subject} contains unknown field "${unsupported}".`);
   return Object.freeze(Object.fromEntries(Object.entries(value).map(([name, style]) => [
     name,
-    Object.freeze(normalizeTerminalStyle(style, `${subject}.${name}`))
+    normalizeTerminalStyle(style, `${subject}.${name}`)
   ])));
 }
 

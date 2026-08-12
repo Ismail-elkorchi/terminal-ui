@@ -139,16 +139,27 @@ function writeClippedSpans(
         ? span.source === undefined ? {} : { source: span.source }
         : { source: scopedFrameSource(owner, span.source) })
     };
+    let runColumn = 0;
+    let runText = '';
+    const flush = (): void => {
+      if (runText.length === 0) return;
+      target.write(row, runColumn, [{ text: runText, ...metadata }]);
+      runText = '';
+    };
     for (const grapheme of measured.graphemes) {
       const endColumn = nextColumn + grapheme.cells;
       const fullyInside = grapheme.cells === 0
         ? nextColumn > bounds.column && nextColumn <= right
         : nextColumn >= bounds.column && endColumn <= right;
       if (fullyInside) {
-        target.write(row, nextColumn, [{ text: grapheme.text, ...metadata }]);
+        if (runText.length === 0) runColumn = nextColumn;
+        runText += grapheme.text;
+      } else {
+        flush();
       }
       nextColumn = endColumn;
     }
+    flush();
   }
 }
 

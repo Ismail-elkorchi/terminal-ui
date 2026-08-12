@@ -87,43 +87,57 @@ export function createInputPipeline(options: InputPipelineOptions = {}): InputPi
 }
 
 export function resolveInputPipelineProfile(options: InputPipelineOptions = {}): InputPipelineProfile {
-  validatePipelineOptions(options);
-  const requested = normalizeKeyboardProfile(options.keyboard ?? LEGACY_KEYBOARD_PROFILE);
+  if (typeof options !== 'object' || options === null || Array.isArray(options)) {
+    throw new TypeError('Input pipeline options must be an object.');
+  }
+  const {
+    capabilities,
+    keyboard,
+    bracketedPaste,
+    focusReporting,
+    mouseReporting,
+    escapeDelayMs,
+    limits
+  } = options;
+  if (bracketedPaste !== undefined && typeof bracketedPaste !== 'boolean') {
+    throw new TypeError('Input pipeline option bracketedPaste must be boolean.');
+  }
+  if (focusReporting !== undefined && typeof focusReporting !== 'boolean') {
+    throw new TypeError('Input pipeline option focusReporting must be boolean.');
+  }
+  if (mouseReporting !== undefined
+    && mouseReporting !== 'none'
+    && mouseReporting !== 'click'
+    && mouseReporting !== 'drag'
+    && mouseReporting !== 'all') {
+    throw new TypeError('Input pipeline mouseReporting is unsupported.');
+  }
+  if (capabilities !== undefined
+    && (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities))) {
+    throw new TypeError('Input pipeline capabilities must be an object.');
+  }
+  if (limits !== undefined && (typeof limits !== 'object' || limits === null || Array.isArray(limits))) {
+    throw new TypeError('Input pipeline limits must be an object.');
+  }
+  const requested = normalizeKeyboardProfile(keyboard ?? LEGACY_KEYBOARD_PROFILE);
   const requestedProfile = requested;
-  const available = requestedProfile.kind === 'legacy' || capabilityUsable(options.capabilities?.keyboardProtocol);
+  const keyboardCapability = capabilities?.keyboardProtocol;
+  const keyboardSupport = keyboardCapability?.support;
+  const keyboardAvailability = keyboardCapability?.availability;
+  const available = requestedProfile.kind === 'legacy'
+    || keyboardSupport === 'supported' && keyboardAvailability === 'available';
   const active = available ? requestedProfile : LEGACY_KEYBOARD_PROFILE;
   return Object.freeze({
     keyboard: Object.freeze({ active, requested }),
-    bracketedPaste: options.bracketedPaste ?? false,
-    focusReporting: options.focusReporting ?? false,
-    mouseReporting: options.mouseReporting ?? 'none',
-    escapeDelayMs: escapeDelay(options.escapeDelayMs),
-    limits: normalizeInputDecodeLimits(options.limits),
+    bracketedPaste: bracketedPaste ?? false,
+    focusReporting: focusReporting ?? false,
+    mouseReporting: mouseReporting ?? 'none',
+    escapeDelayMs: escapeDelay(escapeDelayMs),
+    limits: normalizeInputDecodeLimits(limits),
     diagnostics: Object.freeze(available
       ? []
-      : [unsupportedKeyboardDiagnostic(requestedProfile, options.capabilities)])
+      : [unsupportedKeyboardDiagnostic(requestedProfile, keyboardSupport, keyboardAvailability)])
   });
-}
-
-function validatePipelineOptions(value: InputPipelineOptions): void {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError('Input pipeline options must be an object.');
-  }
-  for (const field of ['bracketedPaste', 'focusReporting'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'boolean') {
-      throw new TypeError(`Input pipeline option ${field} must be boolean.`);
-    }
-  }
-  const mouse = value.mouseReporting;
-  if (mouse !== undefined && mouse !== 'none' && mouse !== 'click' && mouse !== 'drag' && mouse !== 'all') {
-    throw new TypeError('Input pipeline mouseReporting is unsupported.');
-  }
-  for (const field of ['capabilities', 'limits'] as const) {
-    const nested = value[field];
-    if (nested !== undefined && (typeof nested !== 'object' || nested === null || Array.isArray(nested))) {
-      throw new TypeError(`Input pipeline ${field} must be an object.`);
-    }
-  }
 }
 
 function escapeDelay(value: number | undefined): number {
@@ -161,22 +175,18 @@ function immutablePendingState(value: InputPendingState): InputPendingState {
   return value.kind === 'none' ? noPendingInput : Object.freeze({ kind: value.kind });
 }
 
-function capabilityUsable(capability: TerminalCapabilityProfile['keyboardProtocol'] | undefined): boolean {
-  if (capability === undefined) return false;
-  return capability.support === 'supported' && capability.availability === 'available';
-}
-
 function unsupportedKeyboardDiagnostic(
   requested: TerminalKeyboardProfile,
-  capabilities: TerminalCapabilityProfile | undefined
+  support: TerminalCapabilityProfile['keyboardProtocol']['support'] | undefined,
+  availability: TerminalCapabilityProfile['keyboardProtocol']['availability'] | undefined
 ): TerminalDiagnostic {
   return diagnostic('INPUT_PROFILE_UNSUPPORTED', 'Requested keyboard profile is unavailable; using legacy decoding.', {
     severity: 'warning',
     data: {
       requested: requested.kind === 'kitty' ? `kitty:${String(requested.flags)}` : 'legacy',
       active: 'legacy',
-      support: capabilities?.keyboardProtocol.support ?? 'unknown',
-      availability: capabilities?.keyboardProtocol.availability ?? 'unavailable'
+      support: support ?? 'unknown',
+      availability: availability ?? 'unavailable'
     }
   });
 }

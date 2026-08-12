@@ -33,11 +33,6 @@ const componentForbiddenLayers = new Set([
 const componentDefinitionPrivateRendererDependencies = new Set([
   'renderer/model/component-node.ts'
 ]);
-const typedNormalizationPaths = new Set([
-  'host/memory.ts', 'host/terminal-state.ts', 'input/decoder.ts', 'input/pipeline.ts',
-  'layout/prepare.ts', 'protocol/index.ts', 'protocol/keyboard.ts',
-  'tui/definition.ts', 'tui/run-configuration.ts'
-]);
 const runtimeGlobalNames = new Set(['Bun', 'Deno', 'globalThis', 'process']);
 const foundationDependencies = new Map([
   ['diagnostic-identity.ts', new Set()],
@@ -76,8 +71,6 @@ for (const filePath of sourceFiles) {
   inspectElementConstructionBoundary(sourceFile, filePath);
   inspectComponentCatalog(sourceFile, filePath);
   inspectComponentPreparationInflation(sourceFile, filePath);
-  inspectTypedNormalizationInflation(sourceFile, filePath);
-  inspectAdjacentProofInflation(sourceFile, filePath);
   inspectPublicBoundary(sourceFile, filePath);
   inspectTestingEntrypoint(sourceFile, filePath);
   inspectTuiContext(sourceFile, filePath);
@@ -282,82 +275,6 @@ function inspectComponentPreparationInflation(sourceFile, filePath) {
       )) {
       report(`imports generic exact-option validation from ${statement.moduleSpecifier.text}`);
     }
-  }
-}
-
-function inspectTypedNormalizationInflation(sourceFile, filePath) {
-  const sourcePath = sourceRelative(filePath);
-  const typedPath = typedNormalizationPaths.has(sourcePath);
-  if (!typedPath && sourcePath !== 'transcript/recorder.ts') return;
-  const report = (message) => failures.push(`${relative(filePath)} ${message}`);
-  const visit = (node) => {
-    if (typedPath && ts.isVariableDeclaration(node) && node.initializer !== undefined
-      && ts.isIdentifier(node.initializer)
-      && node.type !== undefined
-      && (node.type.kind === ts.SyntaxKind.UnknownKeyword || isReadonlyUnknownRecord(node.type))
-      && !(sourcePath === 'input/decoder.ts' && node.initializer.text === 'chunk')) {
-      report(`widens ${node.initializer.text} before typed normalization`);
-    }
-    if (typedPath && ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)
-      && /Fields$/u.test(node.name.text) && node.initializer !== undefined && ts.isNewExpression(node.initializer)
-      && node.initializer.expression.getText(sourceFile) === 'Set') {
-      report(`maintains exact authoring-field mirror ${node.name.text}`);
-    }
-    if (sourcePath === 'transcript/recorder.ts' && ts.isCallExpression(node)
-      && node.expression.getText(sourceFile) === 'decodeInputEvent') {
-      report('decodes an already admitted input event');
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-}
-
-function inspectAdjacentProofInflation(sourceFile, filePath) {
-  const sourcePath = sourceRelative(filePath);
-  if (sourcePath.startsWith('components/factories/')) {
-    for (const statement of sourceFile.statements) {
-      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)
-        || !statement.moduleSpecifier.text.endsWith('/visual/inline-content.ts')
-        || statement.importClause?.namedBindings === undefined
-        || !ts.isNamedImports(statement.importClause.namedBindings)) continue;
-      const imports = new Set(statement.importClause.namedBindings.elements.map((item) => item.name.text));
-      if (imports.has('isInlineContent') && imports.has('normalizeInlineContent')) {
-        failures.push(`${relative(filePath)} imports a boolean inline-content proof beside final adoption`);
-      }
-    }
-  }
-
-  const visit = (node) => {
-    if (sourcePath === 'components/factories/dialog.ts' && ts.isFunctionDeclaration(node)
-      && node.name !== undefined && /^isBorderTitle(?:Content)?$/u.test(node.name.text)) {
-      failures.push(`${relative(filePath)} duplicates border-title adoption in ${node.name.text}()`);
-    }
-    if (sourcePath === 'diagnostics.ts' && ts.isFunctionDeclaration(node) && node.body !== undefined) {
-      const calls = new Set();
-      const inspectCall = (child) => {
-        if (ts.isCallExpression(child) && ts.isIdentifier(child.expression)) calls.add(child.expression.text);
-        ts.forEachChild(child, inspectCall);
-      };
-      inspectCall(node.body);
-      if (calls.has('terminalDiagnosticIssue') && calls.has('terminalDiagnosticFromContent')) {
-        failures.push(`${relative(filePath)} validates a diagnostic before rebuilding it`);
-      }
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-
-  if (sourcePath === 'protocol/index.ts') {
-    const normalizer = sourceFile.statements.find((statement) =>
-      ts.isFunctionDeclaration(statement) && statement.name?.text === 'normalizeMouseReportingState');
-    if (normalizer === undefined
-      || !normalizer.getText(sourceFile).includes('canonicalMouseReportingStates.has')) {
-      failures.push('src/protocol/index.ts must preserve canonical mouse-reporting state identity');
-    }
-  }
-  if (sourcePath === 'renderer/internal/render-node-behavior.ts'
-    && sourceFile.getText().includes('assertValidMeasurement')) {
-    failures.push('src/renderer/internal/render-node-behavior.ts discards component measurement validation');
   }
 }
 

@@ -1345,6 +1345,53 @@ test('component instances prepare custom options and reject malformed shared sta
   }
 });
 
+test('component instances adopt shared metadata once before retaining it', () => {
+  let layerReads = 0;
+  let rootStyleReads = 0;
+  const element = button({
+    id: 'adopted-metadata',
+    label: 'Action',
+    onAction: () => ignoreMessage(),
+    meta: {
+      layer: {
+        get zIndex() {
+          layerReads += 1;
+          return layerReads === 1 ? 20 : 'invalid-after-validation';
+        }
+      },
+      styles: {
+        get root() {
+          rootStyleReads += 1;
+          return { bold: true };
+        }
+      }
+    }
+  });
+
+  const regions = renderElementRegions(element, { columns: 10, rows: 1 });
+  assert.equal(layerReads, 1);
+  assert.equal(rootStyleReads, 1);
+  assert.equal(regions.at(-1)?.zIndex, 20);
+
+  const path = ['child'];
+  const scoped = defineComponent({
+    name: 'terminal-ui-tests/components/owned-focus-path',
+    identity: 'optional',
+    structure: 'leaf',
+    semantics: 'semantic',
+    focusScope: () => ({
+      kind: 'contain',
+      initialFocus: { kind: 'path', path },
+      restore: true
+    }),
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render() {},
+    accessibility: () => ({ id: 'owned-focus-path', role: 'group', label: 'Owned focus path' })
+  });
+  scoped({});
+  assert.equal(Object.isFrozen(path), false);
+});
+
 test('component definition hook results are not replaced with definition fallbacks', () => {
   const element = component({
     id: 'missing-accessibility-result',

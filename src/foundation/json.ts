@@ -72,7 +72,7 @@ export function snapshotJsonValue(
   return result.snapshot as JsonValue;
 }
 
-export function snapshotCanonicalJsonValue(value: unknown, subject: string): JsonValue {
+export function snapshotCanonicalJsonValue<T>(value: T, subject: string): T & JsonValue {
   const result = inspectJsonValue(
     value,
     new Set(),
@@ -83,7 +83,7 @@ export function snapshotCanonicalJsonValue(value: unknown, subject: string): Jso
     true
   );
   if (!result.ok) throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);
-  return result.snapshot as JsonValue;
+  return result.snapshot as T & JsonValue;
 }
 
 export function snapshotUnknownJsonValue(value: unknown): JsonValue {
@@ -258,10 +258,10 @@ function normalizeUnknownJsonValue(
       return normalizedJsonTruncation(budget);
     }
     budget.stringCodeUnits += fieldCodeUnits;
-    return {
+    return Object.freeze({
       name: normalizedJsonString(value.name, budget),
       message: normalizedJsonString(value.message, budget)
-    };
+    });
   }
   if (ancestors.has(value)) return normalizedJsonString('[Circular]', budget);
   if (depth >= maximumNormalizedJsonDepth) return jsonObjectTag(value, budget);
@@ -291,7 +291,7 @@ function normalizeUnknownJsonValue(
       return normalizedJsonString('[Unserializable]', budget);
     }
     ancestors.delete(value);
-    return normalized;
+    return Object.freeze(normalized);
   }
 
   const objectValue = value as Record<string, unknown>;
@@ -315,7 +315,7 @@ function normalizeUnknownJsonValue(
     return normalizedJsonString('[Unserializable]', budget);
   }
   ancestors.delete(value);
-  return Object.fromEntries(normalizedEntries);
+  return Object.freeze(Object.fromEntries(normalizedEntries));
 }
 
 function normalizedJsonString(value: string, budget: JsonTraversalBudget): string {

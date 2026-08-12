@@ -64,6 +64,56 @@ test('transcript recording adopts independently supplied diagnostic occurrences'
   assert.equal(Object.isFrozen(recorded.diagnostic.cause.values), true);
 });
 
+test('transcript recording owns every retained step and redaction', () => {
+  const recorder = createTranscriptRecorder({ id: 'owned-steps', source: 'tui' });
+  const accessibility = JSON.parse(JSON.stringify(createTerminalHarness().snapshot()));
+  const frame = {
+    width: 1,
+    height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
+    cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
+    accessibility
+  };
+  const diff = {
+    width: 1,
+    height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }],
+    fullRewrite: true
+  };
+  const restore = {
+    status: 'restored',
+    reason: 'success',
+    requested: terminalState(),
+    attempted: [],
+    completed: [],
+    resultingState: terminalState(),
+    diagnostics: []
+  };
+  const redaction = { path: '$.secret', reason: 'secret' };
+
+  recorder.record({ kind: 'commit', commit: runtimeCommit(frame, diff) });
+  recorder.record({ kind: 'snapshot', snapshot: accessibility });
+  recorder.record({ kind: 'restore', phase: 'shutdown', result: restore });
+  recorder.recordRedaction(redaction);
+
+  frame.cells[0].text = 'changed';
+  diff.operations[0].spans[0].text = 'changed';
+  accessibility.root.label = 'changed';
+  restore.requested.provenance.rawInput = 'indeterminate';
+  redaction.path = '$.changed';
+
+  const transcript = recorder.snapshot();
+  assert.equal(transcript.steps[0]?.commit.frame.cells[0]?.text, 'x');
+  assert.equal(transcript.steps[0]?.commit.diff.operations[0]?.spans[0]?.text, 'x');
+  assert.notEqual(transcript.steps[1]?.snapshot.root.label, 'changed');
+  assert.equal(transcript.steps[2]?.result.requested.provenance.rawInput, 'observed');
+  assert.equal(transcript.redactions[0]?.path, '$.secret');
+  assert.equal(Object.isFrozen(transcript), true);
+  assert.equal(Object.isFrozen(transcript.steps[0]?.commit.frame.cells[0]), true);
+  assert.equal(Object.isFrozen(transcript.steps[2]?.result.requested.provenance), true);
+});
+
 test('transcript replay preserves frames, diffs, snapshots, diagnostics, and restore outcomes', async () => {
   const harness = createTerminalHarness();
   const snapshot = harness.snapshot();
@@ -219,9 +269,12 @@ test('transcript commits exclude renderer optimization metadata', () => {
   assert.equal('metadata' in frame, true);
   assert.equal(recorded.kind, 'commit');
   assert.equal('metadata' in recorded.commit.frame, false);
-  assert.equal(recorded.commit.frame.cells, frame.cells);
-  assert.equal(recorded.commit.frame.accessibility, frame.accessibility);
-  assert.equal(recorded.commit.diff, diff);
+  assert.notEqual(recorded.commit.frame.cells, frame.cells);
+  assert.deepEqual(recorded.commit.frame.cells, frame.cells);
+  assert.notEqual(recorded.commit.frame.accessibility, frame.accessibility);
+  assert.deepEqual(recorded.commit.frame.accessibility, frame.accessibility);
+  assert.notEqual(recorded.commit.diff, diff);
+  assert.deepEqual(recorded.commit.diff, diff);
   assert.equal(validateTranscript(transcript).ok, true);
 });
 

@@ -96,30 +96,31 @@ import type { TerminalCapabilityProfile } from './capability-types.ts';
 
 export function createTerminalHost(options?: CreateTerminalHostOptions): TerminalHost {
   if (options === undefined) return createDefaultTerminalHost();
-  validateTerminalHostSelector(options);
-  if ('adapter' in options) {
-    const { adapter, ...hostOptions } = options;
+  const selector: CreateTerminalHostOptions = { ...options };
+  validateTerminalHostSelector(selector);
+  if ('adapter' in selector) {
+    const { adapter, ...hostOptions } = selector;
     void adapter;
     return createPtyTerminalHost(hostOptions);
   }
-  switch (options.runtime) {
+  switch (selector.runtime) {
     case 'node': {
-      const { runtime, ...hostOptions } = options;
+      const { runtime, ...hostOptions } = selector;
       void runtime;
       return createNodeTerminalHost(hostOptions);
     }
     case 'deno': {
-      const { runtime, ...hostOptions } = options;
+      const { runtime, ...hostOptions } = selector;
       void runtime;
       return createDenoTerminalHost(hostOptions);
     }
     case 'bun': {
-      const { runtime, ...hostOptions } = options;
+      const { runtime, ...hostOptions } = selector;
       void runtime;
       return createBunTerminalHost(hostOptions);
     }
     case 'memory': {
-      const { runtime, ...hostOptions } = options;
+      const { runtime, ...hostOptions } = selector;
       void runtime;
       return createMemoryTerminalHost(hostOptions);
     }

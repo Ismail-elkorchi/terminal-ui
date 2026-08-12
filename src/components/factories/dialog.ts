@@ -283,7 +283,7 @@ function prepareInitialFocus(value: InitialFocusSelector): InitialFocusSelector 
     ) {
       throw new TypeError('dialog initialFocus path is invalid.');
     }
-    return Object.freeze({ kind: 'path', path: Object.freeze(path) });
+    return Object.freeze({ kind: 'path', path: Object.freeze([...path]) });
   }
   if (kind === 'element') {
     if (

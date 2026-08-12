@@ -220,7 +220,7 @@ function normalizeEntry(
     ...(entry.level === undefined ? {} : { level: entry.level }),
     ...(entry.style === undefined
       ? {}
-      : { style: Object.freeze(normalizeTerminalStyle(entry.style, 'log entry style')) }),
+      : { style: normalizeTerminalStyle(entry.style, 'log entry style') }),
     ...(timestamp === undefined ? {} : { timestamp }),
     ...(metadataEntries.length === 0 ? {} : { metadata: Object.freeze(Object.fromEntries(metadataEntries)) })
   });

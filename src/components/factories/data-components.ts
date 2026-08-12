@@ -509,10 +509,15 @@ function tableCell<TRow>(
   if (column === undefined || typeof column.value !== 'function') {
     return { content: Object.freeze([]), text: '' };
   }
-  const rendered = 'renderCell' in column && typeof column.renderCell === 'function'
-    ? column.renderCell(row, rowIndex, columnIndex)
-    : column.value(row, rowIndex);
   let content: InlineContent;
+  if ('renderCell' in column && typeof column.renderCell === 'function') {
+    const rendered = column.renderCell(row, rowIndex, columnIndex);
+    content = typeof rendered === 'string'
+      ? normalizeInlineContent([{ kind: 'text', text: rendered }])
+      : normalizeInlineContent(Array.isArray(rendered) ? rendered : [rendered]);
+    return Object.freeze({ content, text: inlineContentAccessibleText(content) });
+  }
+  const rendered = column.value(row, rowIndex);
   if (typeof rendered === 'string') {
     content = normalizeInlineContent([{ kind: 'text', text: rendered }]);
   } else if (Array.isArray(rendered)) {

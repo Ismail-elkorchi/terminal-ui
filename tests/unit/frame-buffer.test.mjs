@@ -12,6 +12,8 @@ import {
 import { richText } from '../../dist/components/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import { blitFrameCell } from '../../dist/renderer/internal/frame-buffer.js';
+import { createClippedRenderTarget } from '../../dist/renderer/internal/scoped-render-target.js';
+import { defineTextWidthProfile } from '../../dist/text/index.js';
 
 test('FrameBuffer records ASCII, Unicode width, emoji, CJK, and combining marks deterministically', () => {
   const buffer = createFrameBuffer(10, 2);
@@ -28,6 +30,33 @@ test('FrameBuffer records ASCII, Unicode width, emoji, CJK, and combining marks 
     [6, '', 0, true],
     [7, 'é', 1, false]
   ]);
+});
+
+test('canonical width profiles retain identity and clipped targets batch visible runs', () => {
+  const widthProfile = defineTextWidthProfile({ emoji: 'wide', ambiguous: 'narrow' });
+  assert.strictEqual(defineTextWidthProfile(widthProfile), widthProfile);
+  assert.strictEqual(createFrameBuffer(2, 1, { widthProfile }).widthProfile, widthProfile);
+
+  const writes = [];
+  const target = {
+    width: 100,
+    height: 1,
+    widthProfile,
+    write: (row, column, spans) => writes.push({ row, column, spans }),
+    writeLine() {},
+    writeBlock() {},
+    writeCell() {},
+    clear() {}
+  };
+  const clipped = createClippedRenderTarget(
+    target,
+    { row: 1, column: 1, width: 100, height: 1 },
+    { row: 1, column: 1, width: 100, height: 1 }
+  );
+  clipped.write(1, 1, [{ text: 'x'.repeat(100) }]);
+
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0]?.spans[0]?.text, 'x'.repeat(100));
 });
 
 test('FrameBuffer excludes terminal movement controls from cell text and geometry', () => {

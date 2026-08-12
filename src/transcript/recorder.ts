@@ -6,18 +6,22 @@ import type {
   TranscriptRecorderOptions
 } from './types.ts';
 import { interactionTranscriptFormatVersion } from './types.ts';
-import { adoptDiagnosticOccurrence, createDiagnosticOccurrenceReporter } from '../diagnostics.ts';
-import { snapshotJsonValue, snapshotUnknownJsonValue } from '../foundation/json.ts';
+import {
+  adoptDiagnosticOccurrence,
+  createDiagnosticOccurrenceReporter
+} from '../diagnostics.ts';
+import { snapshotCanonicalJsonValue, snapshotUnknownJsonValue } from '../foundation/json.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type { Frame } from '../renderer/index.ts';
 import { isCanonicalDateTime } from '../foundation/validation.ts';
 import { snapshotInputEvent } from '../input/index.ts';
 
 export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}): TranscriptRecorder {
-  if (options.startedAt !== undefined && !isCanonicalDateTime(options.startedAt)) {
+  const { id: suppliedId, source = 'test', startedAt = new Date(0).toISOString() } = options;
+  if (!isCanonicalDateTime(startedAt)) {
     throw new TypeError('Transcript startedAt must be a canonical ISO 8601 date-time.');
   }
-  const id = options.id ?? 'transcript';
+  const id = suppliedId ?? 'transcript';
   const steps: InteractionTranscriptStep[] = [];
   const diagnostics: DiagnosticOccurrence[] = [];
   const diagnosticIds = new Set<string>();
@@ -28,12 +32,12 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
       steps.push(recordedTranscriptStep(step));
     },
     recordNormalizedMessage(source, message) {
-      steps.push({
+      steps.push(Object.freeze({
         kind: 'message',
         source,
         fidelity: 'normalized',
         message: snapshotUnknownJsonValue(message)
-      });
+      }));
     },
     reportDiagnostic(item) {
       const occurrence = reporter.report(item);
@@ -44,18 +48,18 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
       recordOccurrence(item);
     },
     recordRedaction(redaction) {
-      redactions.push(redaction);
+      redactions.push(snapshotCanonicalJsonValue(redaction, 'Transcript redaction'));
     },
     snapshot(): InteractionTranscript {
-      return {
+      return Object.freeze({
         formatVersion: interactionTranscriptFormatVersion,
         id,
-        source: options.source ?? 'test',
-        startedAt: options.startedAt ?? new Date(0).toISOString(),
-        steps: [...steps],
-        diagnostics: [...diagnostics],
-        redactions: [...redactions]
-      };
+        source,
+        startedAt,
+        steps: Object.freeze([...steps]),
+        diagnostics: Object.freeze([...diagnostics]),
+        redactions: Object.freeze([...redactions])
+      });
     }
   };
 
@@ -64,14 +68,14 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
     if (diagnosticIds.has(item.id)) return;
     diagnosticIds.add(item.id);
     diagnostics.push(item);
-    steps.push({ kind: 'diagnostic', occurrence: item });
+    steps.push(Object.freeze({ kind: 'diagnostic', occurrence: item }));
   }
 }
 
 function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTranscriptStep {
   switch (step.kind) {
     case 'commit':
-      return {
+      return snapshotCanonicalJsonValue({
         kind: 'commit',
         commit: {
           id: step.commit.id,
@@ -81,22 +85,22 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
           frame: transcriptFrame(step.commit.frame),
           diff: step.commit.diff
         }
-      };
+      } as const, 'Transcript commit step');
     case 'input':
-      return { kind: 'input', event: snapshotInputEvent(step.event) };
+      return Object.freeze({ kind: 'input', event: snapshotInputEvent(step.event) });
     case 'message':
-      return {
+      return snapshotCanonicalJsonValue({
         kind: 'message',
         source: step.source,
         fidelity: step.fidelity,
-        message: snapshotJsonValue(step.message, 'Transcript message')
-      };
+        message: step.message
+      } as const, 'Transcript message step');
     case 'snapshot':
-      return step;
+      return snapshotCanonicalJsonValue(step, 'Transcript accessibility snapshot step');
     case 'diagnostic':
-      return { kind: 'diagnostic', occurrence: adoptDiagnosticOccurrence(step.occurrence) };
+      return Object.freeze({ kind: 'diagnostic', occurrence: adoptDiagnosticOccurrence(step.occurrence) });
     case 'restore':
-      return step;
+      return snapshotCanonicalJsonValue(step, 'Transcript restore step');
   }
 }
 

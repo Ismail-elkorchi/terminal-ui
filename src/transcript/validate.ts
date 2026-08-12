@@ -173,10 +173,9 @@ export function validateTranscript(
   limits: TranscriptValidationLimits = {}
 ): Result<InteractionTranscript> {
   let decoded: unknown;
+  let normalizedLimits: NormalizedTranscriptValidationLimits;
   try {
-    const normalizedLimits = normalizeTranscriptValidationLimits(limits);
-    const resourceIssue = transcriptResourceIssue(transcript, normalizedLimits);
-    if (resourceIssue !== undefined) return transcriptFailure(resourceIssue);
+    normalizedLimits = normalizeTranscriptValidationLimits(limits);
     decoded = snapshotJsonValue(transcript, 'Interaction transcript', {
       maxDepth: normalizedLimits.maxDepth,
       maxNodes: normalizedLimits.maxJsonNodes,
@@ -186,7 +185,7 @@ export function validateTranscript(
     return transcriptFailure(errorMessage(cause));
   }
   const inputEvents: RecordedInputEvent[] = [];
-  const issue = transcriptIssue(decoded, inputEvents);
+  const issue = transcriptIssue(decoded, inputEvents, normalizedLimits);
   if (issue !== undefined) return transcriptFailure(issue);
   return ok(transcriptWithDecodedInputEvents(decoded as InteractionTranscript, inputEvents));
 }
@@ -256,67 +255,10 @@ function transcriptLimit(value: unknown, fallback: number, field: string): numbe
   return value;
 }
 
-function transcriptResourceIssue(
-  value: unknown,
-  limits: NormalizedTranscriptValidationLimits
-): string | undefined {
-  if (!isNonArrayObject(value)) return undefined;
-  const steps = value['steps'];
-  const diagnostics = value['diagnostics'];
-  const redactions = value['redactions'];
-  if (Array.isArray(steps) && steps.length > limits.maxSteps) {
-    return `Interaction transcript exceeds the ${String(limits.maxSteps)}-step limit.`;
-  }
-  if (Array.isArray(redactions) && redactions.length > limits.maxRedactions) {
-    return `Interaction transcript exceeds the ${String(limits.maxRedactions)}-redaction limit.`;
-  }
-  if (!Array.isArray(steps)) return undefined;
-  let frameCells = 0;
-  let diffOperations = 0;
-  const diagnosticIds = new Set<string>();
-  let unidentifiedDiagnostics = 0;
-  for (const occurrence of Array.isArray(diagnostics) ? diagnostics : []) {
-    const id = isNonArrayObject(occurrence) ? occurrence['id'] : undefined;
-    if (typeof id === 'string') diagnosticIds.add(id);
-    else unidentifiedDiagnostics += 1;
-  }
-  for (const step of steps) {
-    if (!isNonArrayObject(step)) continue;
-    if (step['kind'] === 'diagnostic') {
-      const occurrence = step['occurrence'];
-      const id = isNonArrayObject(occurrence) ? occurrence['id'] : undefined;
-      if (typeof id === 'string') diagnosticIds.add(id);
-      else unidentifiedDiagnostics += 1;
-      if (diagnosticIds.size + unidentifiedDiagnostics > limits.maxDiagnostics) {
-        return `Interaction transcript exceeds the ${String(limits.maxDiagnostics)}-diagnostic limit.`;
-      }
-      continue;
-    }
-    if (step['kind'] !== 'commit' || !isNonArrayObject(step['commit'])) continue;
-    const frame = step['commit']['frame'];
-    if (isNonArrayObject(frame) && Array.isArray(frame['cells'])) {
-      frameCells += frame['cells'].length;
-      if (frameCells > limits.maxFrameCells) {
-        return `Interaction transcript exceeds the ${String(limits.maxFrameCells)}-frame-cell limit.`;
-      }
-    }
-    const diff = step['commit']['diff'];
-    if (isNonArrayObject(diff) && Array.isArray(diff['operations'])) {
-      diffOperations += diff['operations'].length;
-      if (diffOperations > limits.maxDiffOperations) {
-        return `Interaction transcript exceeds the ${String(limits.maxDiffOperations)}-diff-operation limit.`;
-      }
-    }
-  }
-  if (diagnosticIds.size + unidentifiedDiagnostics > limits.maxDiagnostics) {
-    return `Interaction transcript exceeds the ${String(limits.maxDiagnostics)}-diagnostic limit.`;
-  }
-  return undefined;
-}
-
 function transcriptIssue(
   transcript: unknown,
-  inputEvents: RecordedInputEvent[]
+  inputEvents: RecordedInputEvent[],
+  limits: NormalizedTranscriptValidationLimits
 ): string | undefined {
   if (!isNonArrayObject(transcript)) return 'Interaction transcript must be an object.';
   const unknownField = findUnsupportedField(transcript, transcriptFields);
@@ -342,8 +284,38 @@ function transcriptIssue(
   if (!Array.isArray(transcript['redactions'])) {
     return 'Interaction transcript redactions must be an array.';
   }
+  if (transcript['steps'].length > limits.maxSteps) {
+    return `Interaction transcript exceeds the ${String(limits.maxSteps)}-step limit.`;
+  }
+  if (transcript['redactions'].length > limits.maxRedactions) {
+    return `Interaction transcript exceeds the ${String(limits.maxRedactions)}-redaction limit.`;
+  }
+  const diagnosticLimitIssue = transcriptDiagnosticLimitIssue(
+    transcript['steps'],
+    transcript['diagnostics'],
+    limits.maxDiagnostics
+  );
+  if (diagnosticLimitIssue !== undefined) return diagnosticLimitIssue;
 
+  let frameCells = 0;
+  let diffOperations = 0;
   for (const [index, item] of transcript['steps'].entries()) {
+    if (isNonArrayObject(item) && item['kind'] === 'commit' && isNonArrayObject(item['commit'])) {
+      const frame = item['commit']['frame'];
+      const diff = item['commit']['diff'];
+      if (isNonArrayObject(frame) && Array.isArray(frame['cells'])) {
+        frameCells += frame['cells'].length;
+        if (frameCells > limits.maxFrameCells) {
+          return `Interaction transcript exceeds the ${String(limits.maxFrameCells)}-frame-cell limit.`;
+        }
+      }
+      if (isNonArrayObject(diff) && Array.isArray(diff['operations'])) {
+        diffOperations += diff['operations'].length;
+        if (diffOperations > limits.maxDiffOperations) {
+          return `Interaction transcript exceeds the ${String(limits.maxDiffOperations)}-diff-operation limit.`;
+        }
+      }
+    }
     const issue = stepIssue(item, inputEvents);
     if (issue !== undefined) return `Invalid transcript step at index ${String(index)}: ${issue}`;
   }
@@ -396,6 +368,31 @@ function transcriptDiagnosticOccurrenceIssue(
     const stepFingerprint = stepOccurrences.get(occurrence.id);
     if (stepFingerprint !== undefined && stepFingerprint !== occurrence.diagnostic.fingerprint) {
       return `Transcript diagnostic occurrence id ${occurrence.id} has conflicting content between steps and top-level diagnostics.`;
+    }
+  }
+  return undefined;
+}
+
+function transcriptDiagnosticLimitIssue(
+  steps: readonly unknown[],
+  diagnostics: readonly unknown[],
+  maximum: number
+): string | undefined {
+  const ids = new Set<string>();
+  let unidentified = 0;
+  const count = (value: unknown): boolean => {
+    const id = isNonArrayObject(value) ? value['id'] : undefined;
+    if (typeof id === 'string') ids.add(id);
+    else unidentified += 1;
+    return ids.size + unidentified > maximum;
+  };
+  for (const occurrence of diagnostics) {
+    if (count(occurrence)) return `Interaction transcript exceeds the ${String(maximum)}-diagnostic limit.`;
+  }
+  for (const step of steps) {
+    if (!isNonArrayObject(step) || step['kind'] !== 'diagnostic') continue;
+    if (count(step['occurrence'])) {
+      return `Interaction transcript exceeds the ${String(maximum)}-diagnostic limit.`;
     }
   }
   return undefined;

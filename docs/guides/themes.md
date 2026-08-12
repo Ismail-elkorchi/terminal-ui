@@ -4,6 +4,8 @@ Themes are named design-token collections. A `TerminalTheme` contains
 `tokens.colors` and `tokens.symbols`, plus a stable fingerprint used by render
 and runtime caches. Structural layout and component density remain explicit
 element contracts; changing a theme does not reflow the application.
+Theme construction copies and freezes token data, so later mutation of the
+definition objects cannot invalidate that fingerprint.
 
 The built-in presets are:
 

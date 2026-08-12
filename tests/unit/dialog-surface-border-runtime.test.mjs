@@ -29,6 +29,23 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
   assert.match(rendered, /inside/u);
 });
 
+test('dialog copies caller-owned focus paths before freezing its model', () => {
+  const path = ['inside'];
+  dialog({
+    slots: { content: text({ content: 'inside', id: 'inside' }) },
+    id: 'owned-focus-path',
+    modal: true,
+    focusPolicy: {
+      initialFocus: { kind: 'path', path },
+      returnFocus: 'restore'
+    }
+  });
+
+  assert.equal(Object.isFrozen(path), false);
+  path.push('still-caller-owned');
+  assert.deepEqual(path, ['inside', 'still-caller-owned']);
+});
+
 test('surface rejects unknown appearances at its factory boundary', () => {
   assert.throws(
     () => surface(text({ content: 'content' }), { appearance: 'floating' }),

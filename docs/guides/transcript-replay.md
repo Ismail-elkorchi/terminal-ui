@@ -3,6 +3,9 @@
 Transcripts are deterministic interaction recordings. They can include
 normalized input events, frames, render diffs, accessible snapshots,
 diagnostics, and terminal restore checkpoints.
+The recorder adopts every retained step and redaction. Mutating a frame,
+snapshot, restore result, or redaction object after `record()` returns cannot
+change the recorded evidence.
 
 Transcript capture is opt-in for interactive prompts and TUI sessions with
 `transcript: true`; prompt `transcript_only`

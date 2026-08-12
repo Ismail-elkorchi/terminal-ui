@@ -9,31 +9,44 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
   if (typeof definition !== 'object' || definition === null || Array.isArray(definition)) {
     throw new TypeError('TUI definition must be an object.');
   }
-  const id = definition.id ?? 'tui-app';
+  const {
+    id: suppliedId,
+    init,
+    update,
+    view,
+    inputBindings: suppliedInputBindings,
+    subscriptions,
+    onExit,
+    transcript,
+    accessibility: suppliedAccessibility,
+    nonTty: suppliedNonTty
+  } = definition;
+  const id = suppliedId ?? 'tui-app';
   if (typeof id !== 'string' || id.trim() === '') throw new TypeError('TUI id must be a non-empty string.');
-  for (const field of ['init', 'update', 'view'] as const) {
-    if (typeof definition[field] !== 'function') throw new TypeError(`TUI ${field} must be a function.`);
+  if (typeof init !== 'function') throw new TypeError('TUI init must be a function.');
+  if (typeof update !== 'function') throw new TypeError('TUI update must be a function.');
+  if (typeof view !== 'function') throw new TypeError('TUI view must be a function.');
+  if (subscriptions !== undefined && typeof subscriptions !== 'function') {
+    throw new TypeError('TUI subscriptions must be a function when provided.');
   }
-  for (const field of ['subscriptions', 'onExit'] as const) {
-    if (definition[field] !== undefined && typeof definition[field] !== 'function') {
-      throw new TypeError(`TUI ${field} must be a function when provided.`);
-    }
+  if (onExit !== undefined && typeof onExit !== 'function') {
+    throw new TypeError('TUI onExit must be a function when provided.');
   }
-  if (definition.transcript !== undefined && typeof definition.transcript !== 'boolean') {
+  if (transcript !== undefined && typeof transcript !== 'boolean') {
     throw new TypeError('TUI transcript must be a boolean when provided.');
   }
-  const inputBindings = normalizeInputBindings(definition.inputBindings);
-  const accessibility = normalizeAccessibility(definition.accessibility);
-  const nonTty = normalizeNonTty(definition.nonTty);
+  const inputBindings = normalizeInputBindings(suppliedInputBindings);
+  const accessibility = normalizeAccessibility(suppliedAccessibility);
+  const nonTty = normalizeNonTty(suppliedNonTty);
   const normalized: TuiDefinition<TState, TMessage> = Object.freeze({
     id,
-    init: definition.init,
-    update: definition.update,
-    view: definition.view,
+    init,
+    update,
+    view,
     ...(inputBindings === undefined ? {} : { inputBindings }),
-    ...(definition.subscriptions === undefined ? {} : { subscriptions: definition.subscriptions }),
-    ...(definition.onExit === undefined ? {} : { onExit: definition.onExit }),
-    ...(definition.transcript === undefined ? {} : { transcript: definition.transcript }),
+    ...(subscriptions === undefined ? {} : { subscriptions }),
+    ...(onExit === undefined ? {} : { onExit }),
+    ...(transcript === undefined ? {} : { transcript }),
     ...(accessibility === undefined ? {} : { accessibility }),
     ...(nonTty === undefined ? {} : { nonTty })
   });
@@ -48,22 +61,23 @@ function normalizeInputBindings<TState, TMessage>(
   if (!Array.isArray(value)) throw new TypeError('TUI inputBindings must be an array.');
   const ids = new Set<string>();
   return Object.freeze(bindings.map((candidate, index) => {
-    assertInputBinding(candidate, index);
-    if (ids.has(candidate.id)) {
-      throw new TypeError(`TUI input binding id ${JSON.stringify(candidate.id)} is duplicated.`);
+    const binding = Object.freeze({ ...candidate });
+    assertInputBinding(binding, index);
+    if (ids.has(binding.id)) {
+      throw new TypeError(`TUI input binding id ${JSON.stringify(binding.id)} is duplicated.`);
     }
-    ids.add(candidate.id);
-    const triggers = normalizeBindingTriggers(candidate.id, candidate.triggers);
+    ids.add(binding.id);
+    const triggers = normalizeBindingTriggers(binding.id, binding.triggers);
     const base = {
-      id: candidate.id,
+      id: binding.id,
       triggers,
-      ...(candidate.phase === undefined ? {} : { phase: candidate.phase }),
-      ...(candidate.label === undefined ? {} : { label: candidate.label }),
-      ...(candidate.enabled === undefined ? {} : { enabled: candidate.enabled })
+      ...(binding.phase === undefined ? {} : { phase: binding.phase }),
+      ...(binding.label === undefined ? {} : { label: binding.label }),
+      ...(binding.enabled === undefined ? {} : { enabled: binding.enabled })
     };
-    return 'toMessage' in candidate
-      ? Object.freeze({ ...base, toMessage: candidate.toMessage })
-      : Object.freeze({ ...base, message: candidate.message });
+    return 'toMessage' in binding
+      ? Object.freeze({ ...base, toMessage: binding.toMessage })
+      : Object.freeze({ ...base, message: binding.message });
   }));
 }
 
@@ -123,10 +137,11 @@ function normalizeAccessibility<TState>(
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError('TUI accessibility must be an object.');
   }
-  if (value.describe !== undefined && typeof value.describe !== 'function') {
+  const { describe } = value;
+  if (describe !== undefined && typeof describe !== 'function') {
     throw new TypeError('TUI accessibility describe must be a function.');
   }
-  return Object.freeze({ ...(value.describe === undefined ? {} : { describe: value.describe }) });
+  return Object.freeze({ ...(describe === undefined ? {} : { describe }) });
 }
 
 function normalizeNonTty(value: TuiDefinition<unknown, unknown>['nonTty']): TuiDefinition<unknown, unknown>['nonTty'] {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalSymbolMode } from '../visual/inline-content.ts';
 
@@ -84,6 +85,8 @@ export interface TerminalSymbolsDefinition {
   readonly viewportClipRight?: string;
   readonly viewportEmpty?: string;
 }
+
+const sanitizedTerminalSymbols = new WeakMap<object, TerminalSymbols>();
 
 export const asciiSymbols: TerminalSymbols = {
   mode: 'ascii',
@@ -188,7 +191,12 @@ export function mergeSymbols(base: TerminalSymbols, override: TerminalSymbolsDef
 }
 
 export function sanitizeSymbols(symbols: TerminalSymbols): TerminalSymbols {
-  return {
+  if (typeof symbols !== 'object' || symbols === null || Array.isArray(symbols)) {
+    throw new TypeError('Terminal symbols must be an object.');
+  }
+  const existing = sanitizedTerminalSymbols.get(symbols);
+  if (existing !== undefined) return existing;
+  const normalized = Object.freeze({
     mode: symbols.mode === 'unicode' ? 'unicode' : 'ascii',
     borderSingle: sanitizeBorder(symbols.borderSingle),
     borderRounded: sanitizeBorder(symbols.borderRounded),
@@ -219,7 +227,9 @@ export function sanitizeSymbols(symbols: TerminalSymbols): TerminalSymbols {
     viewportClipLeft: cleanSymbol(symbols.viewportClipLeft),
     viewportClipRight: cleanSymbol(symbols.viewportClipRight),
     viewportEmpty: cleanSymbol(symbols.viewportEmpty)
-  };
+  });
+  sanitizedTerminalSymbols.set(normalized, normalized);
+  return normalized;
 }
 
 export function symbolEntries(symbols: TerminalSymbols): readonly unknown[] {
@@ -269,14 +279,14 @@ function mergeBorder(base: BorderGlyphSet, override: BorderGlyphSetDefinition | 
 }
 
 function sanitizeBorder(border: BorderGlyphSet): BorderGlyphSet {
-  return {
+  return Object.freeze({
     topLeft: cleanSymbol(border.topLeft),
     topRight: cleanSymbol(border.topRight),
     bottomLeft: cleanSymbol(border.bottomLeft),
     bottomRight: cleanSymbol(border.bottomRight),
     horizontal: cleanSymbol(border.horizontal),
     vertical: cleanSymbol(border.vertical)
-  };
+  });
 }
 
 function borderEntries(border: BorderGlyphSet): readonly unknown[] {

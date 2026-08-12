@@ -1,7 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import type { TerminalStyle } from '../visual/render.ts';
 import { mergeSymbols, sanitizeSymbols, symbolEntries } from './symbols.ts';
 import type { TerminalDesignTokenDefinition, TerminalDesignTokens, ThemeColor, ThemeColorToken } from './tokens.ts';
 import { isThemeColorToken } from '../visual/color.ts';
+
+const canonicalThemes = new WeakSet<object>();
+const canonicalDesignTokens = new WeakSet<object>();
+const canonicalThemeColors = new WeakMap<object, ThemeColor>();
 
 export interface TerminalTheme {
   readonly name: string;
@@ -15,19 +20,33 @@ export interface TerminalThemeDefinition {
 }
 
 export function createTheme(input: { readonly name: string; readonly tokens: TerminalDesignTokens }): TerminalTheme {
-  const tokens = normalizeDesignTokens(input.tokens);
-  return {
-    name: input.name,
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new TypeError('Theme input must be an object.');
+  }
+  const { name, tokens: suppliedTokens } = input;
+  if (typeof name !== 'string' || name.trim() === '') {
+    throw new TypeError('Theme name must be a non-empty string.');
+  }
+  const tokens = normalizeDesignTokens(suppliedTokens);
+  const theme = Object.freeze({
+    name,
     tokens,
-    fingerprint: themeFingerprint(input.name, tokens)
-  };
+    fingerprint: themeFingerprint(name, tokens)
+  });
+  canonicalThemes.add(theme);
+  return theme;
 }
 
 export function mergeThemes(base: TerminalTheme, override: TerminalThemeDefinition): TerminalTheme {
-  assertThemeDefinition(override);
+  if (!isTerminalTheme(base)) throw new TypeError('Theme base must be created by createTheme or defineTheme.');
+  if (typeof override !== 'object' || override === null || Array.isArray(override)) {
+    throw new TypeError('Theme definition must be an object.');
+  }
+  assertSupportedThemeFields(override);
+  const { name, tokens } = override;
   return createTheme({
-    name: override.name ?? base.name,
-    tokens: mergeDesignTokens(base.tokens, override.tokens)
+    name: name ?? base.name,
+    tokens: mergeDesignTokens(base.tokens, tokens)
   });
 }
 
@@ -35,11 +54,16 @@ export function mergeDesignTokens(
   base: TerminalDesignTokens,
   override: TerminalDesignTokenDefinition | undefined
 ): TerminalDesignTokens {
-  if (override === undefined) return base;
-  assertDesignTokenDefinition(override);
+  const normalizedBase = normalizeDesignTokens(base);
+  if (override === undefined) return normalizedBase;
+  if (typeof override !== 'object' || override === null || Array.isArray(override)) {
+    throw new TypeError('Design token definition must be an object.');
+  }
+  assertSupportedDesignTokenFields(override);
+  const { colors, symbols } = override;
   return normalizeDesignTokens({
-    colors: { ...base.colors, ...(override.colors ?? {}) },
-    symbols: mergeSymbols(base.symbols, override.symbols)
+    colors: { ...normalizedBase.colors, ...(colors ?? {}) },
+    symbols: mergeSymbols(normalizedBase.symbols, symbols)
   });
 }
 
@@ -82,19 +106,19 @@ export function terminalStyleHasBackground(
 }
 
 export function isTerminalTheme(theme: TerminalTheme | TerminalThemeDefinition): theme is TerminalTheme {
-  return theme.name !== undefined
-    && 'fingerprint' in theme
-    && typeof theme.fingerprint === 'string'
-    && 'tokens' in theme
-    && typeof theme.tokens === 'object';
+  return typeof theme === 'object' && theme !== null && canonicalThemes.has(theme);
 }
 
 function normalizeDesignTokens(tokens: TerminalDesignTokens): TerminalDesignTokens {
-  assertColorTokens(tokens.colors);
-  return {
-    colors: Object.freeze({ ...tokens.colors }),
-    symbols: sanitizeSymbols(tokens.symbols)
-  };
+  if (typeof tokens !== 'object' || tokens === null || Array.isArray(tokens)) {
+    throw new TypeError('Design tokens must be an object.');
+  }
+  if (canonicalDesignTokens.has(tokens)) return tokens;
+  const colors = normalizeColorTokens(tokens.colors);
+  const symbols = sanitizeSymbols(tokens.symbols);
+  const normalized = Object.freeze({ colors, symbols });
+  canonicalDesignTokens.add(normalized);
+  return normalized;
 }
 
 function themeFingerprint(name: string, tokens: TerminalDesignTokens): string {
@@ -126,29 +150,66 @@ function hashString(value: string): string {
   return hash.toString(16).padStart(8, '0');
 }
 
-function assertThemeDefinition(definition: TerminalThemeDefinition): void {
+function assertSupportedThemeFields(definition: TerminalThemeDefinition): void {
   const keys = Object.keys(definition);
   for (const key of keys) {
     if (key !== 'name' && key !== 'tokens') {
       throw new TypeError(`Unsupported theme definition key: ${key}. Use tokens.colors or tokens.symbols.`);
     }
   }
-  if (definition.tokens !== undefined) assertDesignTokenDefinition(definition.tokens);
 }
 
-function assertDesignTokenDefinition(definition: TerminalDesignTokenDefinition): void {
+function assertSupportedDesignTokenFields(definition: TerminalDesignTokenDefinition): void {
   for (const key of Object.keys(definition)) {
     if (key !== 'colors' && key !== 'symbols') {
       throw new TypeError(`Unsupported design token key: ${key}. Use colors or symbols.`);
     }
   }
-  if (definition.colors !== undefined) assertColorTokens(definition.colors);
 }
 
-function assertColorTokens(colors: TerminalDesignTokens['colors']): void {
-  for (const token of Object.keys(colors)) {
+function normalizeColorTokens(colors: TerminalDesignTokens['colors']): TerminalDesignTokens['colors'] {
+  if (typeof colors !== 'object' || colors === null || Array.isArray(colors)) {
+    throw new TypeError('Theme colors must be an object.');
+  }
+  const entries: [ThemeColorToken, ThemeColor][] = [];
+  for (const [token, color] of Object.entries(colors)) {
     if (!isThemeColorToken(token)) {
       throw new TypeError(`Unsupported color token: ${token}. Custom color tokens must use the custom.* namespace.`);
     }
+    if (color !== undefined) entries.push([token, normalizeThemeColor(color, `Theme color ${token}`)]);
   }
+  return Object.freeze(Object.fromEntries(entries));
+}
+
+function normalizeThemeColor(value: unknown, subject: string): ThemeColor {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${subject} must be an object.`);
+  }
+  const existing = canonicalThemeColors.get(value);
+  if (existing !== undefined) return existing;
+  const kind = 'kind' in value ? value.kind : undefined;
+  let normalized: ThemeColor;
+  if (kind === 'ansi') {
+    const index = 'value' in value ? value.value : undefined;
+    if (!colorChannel(index)) {
+      throw new RangeError(`${subject}.value must be an integer from 0 through 255.`);
+    }
+    normalized = Object.freeze({ kind: 'ansi', value: index });
+  } else if (kind === 'rgb') {
+    const r = 'r' in value ? value.r : undefined;
+    const g = 'g' in value ? value.g : undefined;
+    const b = 'b' in value ? value.b : undefined;
+    if (!colorChannel(r) || !colorChannel(g) || !colorChannel(b)) {
+      throw new RangeError(`${subject} channels must be integers from 0 through 255.`);
+    }
+    normalized = Object.freeze({ kind: 'rgb', r, g, b });
+  } else {
+    throw new TypeError(`${subject}.kind must be "ansi" or "rgb".`);
+  }
+  canonicalThemeColors.set(normalized, normalized);
+  return normalized;
+}
+
+function colorChannel(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255;
 }

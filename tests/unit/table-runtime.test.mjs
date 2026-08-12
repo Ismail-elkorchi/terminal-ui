@@ -146,6 +146,25 @@ test('table recomputes cell content for each component instance', () => {
   assert.doesNotMatch(updated, /Row-one/u);
 });
 
+test('table rejects malformed output from explicit cell renderers', () => {
+  const columns = [tableColumn({
+    id: 'value',
+    value: (row) => row.value,
+    render: () => ({ kind: 'text', text: 42 })
+  })];
+  const element = table({
+    id: 'invalid-rendered-cell',
+    rows: [{ id: 'row', value: 'value' }],
+    getRowId: (row) => row.id,
+    columns
+  });
+
+  assert.throws(
+    () => renderElementFrame(element, { columns: 20, rows: 2 }),
+    /Inline text segment 0 requires text/u
+  );
+});
+
 test('table evaluates each cell once and shares it across frame outputs', () => {
   let valueCalls = 0;
   let renderCalls = 0;

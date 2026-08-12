@@ -56,6 +56,30 @@ test('transcript validation returns a detached canonical value', () => {
   assert.equal(result.value.steps[0].event.focused, true);
 });
 
+test('transcript validation accounts resources on the owned snapshot', () => {
+  let stepsReads = 0;
+  let diagnosticsReads = 0;
+  const source = {
+    formatVersion: 4,
+    id: 'single-read-boundary',
+    source: 'test',
+    get steps() {
+      stepsReads += 1;
+      return [];
+    },
+    get diagnostics() {
+      diagnosticsReads += 1;
+      return [];
+    },
+    redactions: []
+  };
+
+  const result = validateTranscript(source);
+  assert.equal(result.ok, true);
+  assert.equal(stepsReads, 1);
+  assert.equal(diagnosticsReads, 1);
+});
+
 test('transcript validation rejects duplicate and conflicting diagnostic occurrence identities', () => {
   const reporter = createDiagnosticOccurrenceReporter('occurrence-identity');
   const first = reporter.report(diagnostic('HOST_STREAM_CLOSED', 'First failure.'));

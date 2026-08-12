@@ -257,16 +257,23 @@ export interface MemoryTerminalHost extends TerminalHost {
 }
 
 export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}): MemoryTerminalHost {
-  validateMemoryTerminalHostOptions(options);
-  let terminalSize: TerminalSize = options.terminalSize ?? { columns: 80, rows: 24 };
-  const isTty = options.isTty ?? true;
+  const config = Object.freeze({ ...options });
+  validateMemoryTerminalHostOptions(config);
+  let terminalSize: TerminalSize = config.terminalSize ?? { columns: 80, rows: 24 };
+  const isTty = config.isTty ?? true;
   const inputSource = new QueueInput(isTty);
   const stdin = new TerminalInputAuthority(inputSource, () => { inputSource.close(); });
   const stdout = new BufferOutput(terminalSize.columns, terminalSize.rows, isTty);
   const stderr = new BufferOutput(terminalSize.columns, terminalSize.rows, isTty);
-  const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'memory');
+  const output = createTerminalHostOutputAuthority(stdout, stderr, config.id ?? 'memory');
   const signals = new MemorySignals();
   const clock = new MemoryClock();
+  const {
+    probes,
+    colorDepth,
+    widthProfile,
+    overrides
+  } = config.capabilities ?? {};
   const resolverInput = {
     host: {
       runtime: 'memory',
@@ -278,22 +285,22 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
       resizeEvents: true,
       terminalProtocols: isTty
     },
-    environment: { variables: options.env ?? {} },
-    ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
-    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
-    ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile }),
+    environment: { variables: config.env ?? {} },
+    ...(probes === undefined ? {} : { probes }),
+    ...(colorDepth === undefined ? {} : { colorDepth }),
+    ...(widthProfile === undefined ? {} : { widthProfile }),
     ...(
-      options.clipboardWrite === undefined && options.capabilities?.overrides === undefined
+      config.clipboardWrite === undefined && overrides === undefined
         ? {}
         : {
             overrides: {
-              ...(options.capabilities?.overrides ?? {}),
-              ...(options.clipboardWrite === undefined ? {} : { clipboardWrite: options.clipboardWrite })
+              ...(overrides ?? {}),
+              ...(config.clipboardWrite === undefined ? {} : { clipboardWrite: config.clipboardWrite })
             }
           }
     )
   } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
-  const env = new ObjectEnvironment(options.env ?? {});
+  const env = new ObjectEnvironment(config.env ?? {});
   const frames: unknown[] = [];
   const diffs: unknown[] = [];
   const restores: TerminalRestoreResult[] = [];
@@ -308,7 +315,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     write: (chunk, signal) => output.write(chunk, { signal })
   });
   const host = {
-    id: options.id ?? 'memory',
+    id: config.id ?? 'memory',
     runtime: 'memory',
     stdin,
     stdout,
@@ -324,15 +331,15 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     observer: {
       recordFrame(frame: unknown) {
         frames.push(frame);
-        options.observer?.recordFrame?.(frame);
+        config.observer?.recordFrame?.(frame);
       },
       recordDiff(diff: unknown) {
         diffs.push(diff);
-        options.observer?.recordDiff?.(diff);
+        config.observer?.recordDiff?.(diff);
       },
       recordRestore(result) {
         restores.push(result);
-        options.observer?.recordRestore?.(result);
+        config.observer?.recordRestore?.(result);
       }
     },
     getTerminalSize: () => terminalSize,
@@ -360,7 +367,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
   } satisfies MemoryTerminalHost;
   terminalState.bind(host, {
     rawInputKnowledge: 'library_known',
-    ...(options.initialState === undefined ? {} : { initialState: options.initialState })
+    ...(config.initialState === undefined ? {} : { initialState: config.initialState })
   });
   return host;
 }

@@ -11,6 +11,7 @@ import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagn
 import { defaultThemes,
   defaultTheme,
   defineTheme,
+  isTerminalTheme,
   mergeThemes,
   resolveThemeColor,
   resolveTerminalStyle } from '../../dist/theme/index.js';
@@ -129,6 +130,30 @@ test('theme fingerprints are stable for equivalent themes and change with theme 
   for (const theme of Object.values(defaultThemes)) {
     assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
   }
+});
+
+test('themes own immutable token data and only classify canonical themes', () => {
+  const color = { kind: 'rgb', r: 1, g: 2, b: 3 };
+  const symbols = { pointer: '>' };
+  const theme = defineTheme({
+    name: 'owned-theme',
+    tokens: { colors: { 'custom.owned': color }, symbols }
+  });
+  const fingerprint = theme.fingerprint;
+
+  color.r = 200;
+  symbols.pointer = '!';
+
+  assert.equal(theme.tokens.colors['custom.owned']?.r, 1);
+  assert.equal(theme.tokens.symbols.pointer, '>');
+  assert.equal(theme.fingerprint, fingerprint);
+  assert.equal(Object.isFrozen(theme), true);
+  assert.equal(Object.isFrozen(theme.tokens), true);
+  assert.equal(Object.isFrozen(theme.tokens.colors['custom.owned']), true);
+  assert.equal(Object.isFrozen(theme.tokens.symbols), true);
+  assert.equal(Object.isFrozen(theme.tokens.symbols.borderSingle), true);
+  assert.equal(isTerminalTheme(theme), true);
+  assert.equal(isTerminalTheme({ name: 'fake', fingerprint: 'fake', tokens: {} }), false);
 });
 
 test('rich text components preserve render spans and render their plain text into frames', () => {
