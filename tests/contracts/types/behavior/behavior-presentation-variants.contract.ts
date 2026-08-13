@@ -17,7 +17,13 @@ import {
   type TreeControlTransition,
   type TreeTransition,
 } from '@ismail-elkorchi/terminal-ui/components';
-import { createScrollState, prepareLogHistory } from '@ismail-elkorchi/terminal-ui/behavior';
+import {
+  comboboxReducer,
+  commitCombobox,
+  createScrollState,
+  prepareLogHistory,
+  type UnscrolledComboboxPresentation,
+} from '@ismail-elkorchi/terminal-ui/behavior';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Equal<TLeft, TRight> =
@@ -30,6 +36,20 @@ const interaction = { activeId: 'one', selection: { mode: 'single' as const, sel
 const nodes = [{ id: 'one', label: 'One', kind: 'leaf' as const }];
 const rows = [{ id: 'one' }];
 const history = prepareLogHistory([]);
+const unscrolledCombobox: UnscrolledComboboxPresentation = {
+  open: false,
+  interaction: { selection: { mode: 'single' } },
+};
+const openedCombobox = comboboxReducer(
+  unscrolledCombobox,
+  { kind: 'open' },
+  { enabledIds: ['one'] },
+);
+const committedCombobox = commitCombobox(
+  openedCombobox,
+  { kind: 'commit', id: 'one' },
+  { enabledIds: ['one'] },
+);
 
 const unscrolledListbox = listbox({
   id: 'unscrolled-listbox',
@@ -109,6 +129,14 @@ export type _ScrollableLog = Assert<Equal<MessageOf<typeof scrollableLog>, { rea
 export type _TypedTabs = Assert<Equal<
   MessageOf<typeof typedTabs>,
   { readonly kind: 'tabs'; readonly transition: TabsTransition<'one' | 'two'> }
+>>;
+export type _UnscrolledComboboxReducer = Assert<Equal<
+  typeof openedCombobox,
+  UnscrolledComboboxPresentation
+>>;
+export type _UnscrolledComboboxCommit = Assert<Equal<
+  typeof committedCombobox,
+  UnscrolledComboboxPresentation
 >>;
 
 declare const textAreaControlAction: TextAreaControlAction;

@@ -3,8 +3,11 @@ import type { NavigationPolicy } from '../interaction/navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
 import type {
   ComboboxCommitEvent,
+  ComboboxControlTransition,
   ComboboxPresentation,
+  ScrollableComboboxPresentation,
   ComboboxTransition,
+  UnscrolledComboboxPresentation,
 } from '../ui-model/combobox.ts';
 import { popupReducer } from '../interaction/popup.ts';
 
@@ -16,6 +19,16 @@ export interface ComboboxReducerOptions {
 
 const selectionPolicy = { mode: 'single', commitment: 'manual' } as const;
 
+export function comboboxReducer(
+  state: ScrollableComboboxPresentation,
+  transition: ComboboxTransition,
+  options: ComboboxReducerOptions,
+): ScrollableComboboxPresentation;
+export function comboboxReducer(
+  state: UnscrolledComboboxPresentation,
+  transition: ComboboxControlTransition,
+  options: ComboboxReducerOptions,
+): UnscrolledComboboxPresentation;
 export function comboboxReducer(
   state: ComboboxPresentation,
   transition: ComboboxTransition,
@@ -66,6 +79,16 @@ export function comboboxReducer(
   }
 }
 
+export function commitCombobox(
+  state: ScrollableComboboxPresentation,
+  event: ComboboxCommitEvent,
+  options: ComboboxReducerOptions,
+): ScrollableComboboxPresentation;
+export function commitCombobox(
+  state: UnscrolledComboboxPresentation,
+  event: ComboboxCommitEvent,
+  options: ComboboxReducerOptions,
+): UnscrolledComboboxPresentation;
 export function commitCombobox(
   state: ComboboxPresentation,
   event: ComboboxCommitEvent,
