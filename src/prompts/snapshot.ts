@@ -1,4 +1,4 @@
-import { toAccessibleSnapshot } from '../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import { isChoiceDisabled } from './choices.ts';
 import { createProgress } from './progress.ts';
 import type { AccessibleNode, AccessibleRole, AccessibleSnapshot, AccessibleValue } from '../accessibility/index.ts';
@@ -19,7 +19,7 @@ export function createPromptSnapshot<TChoice>(
 ): AccessibleSnapshot {
   if (prompt.kind === 'progress') return createProgressPromptSnapshot(prompt);
   const snapshotValue = value ?? promptSnapshotValue(prompt);
-  return toAccessibleSnapshot({
+  return createAccessibleSnapshot({
     source: 'prompt',
     root: {
       id: prompt.accessibility?.id ?? prompt.id ?? `prompt-${prompt.kind}`,
@@ -41,7 +41,7 @@ function createProgressPromptSnapshot(
     label: prompt.label,
     ...prompt.progress
   }).snapshot();
-  return toAccessibleSnapshot({
+  return createAccessibleSnapshot({
     source: snapshot.source,
     root: { ...snapshot.root, focused: true }
   });

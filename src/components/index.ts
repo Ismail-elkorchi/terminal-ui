@@ -53,6 +53,7 @@ export {
   tree,
   switchControl
 } from './factories.ts';
+export { prepareCommandSuggestions } from '../behavior/command-input-state.ts';
 export type * from '../ui-model/contracts.ts';
 export { tableColumn } from '../ui-model/content.ts';
 export type {
@@ -64,6 +65,7 @@ export type {
 export type {
   CommandInputPresentation,
   CommandInputSubmitEvent,
+  CommandSuggestion,
   CommandInputTransition,
 } from '../ui-model/command-input.ts';
 export type {

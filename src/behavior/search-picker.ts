@@ -89,22 +89,22 @@ export function searchPickerReducer<TValue>(
       );
     }
     case 'setActive':
-      return withActive(state, enabledIds(state, options.searchPickerIndex), transition.id);
+      return withActive(state, enabledIndex(state, options.searchPickerIndex), transition.id);
     case 'moveActive': {
-      const enabled = enabledIds(state, options.searchPickerIndex);
+      const enabled = enabledIndex(state, options.searchPickerIndex);
       return withActive(
         state,
         enabled,
-        adjacentItemId(enabled, state.activeId, transition.delta, options.navigation),
+        adjacentItemId(enabled.ids, state.activeId, transition.delta, options.navigation),
       );
     }
     case 'firstActive': {
-      const enabled = enabledIds(state, options.searchPickerIndex);
-      return withActive(state, enabled, enabled[0]);
+      const enabled = enabledIndex(state, options.searchPickerIndex);
+      return withActive(state, enabled, enabled.ids[0]);
     }
     case 'lastActive': {
-      const enabled = enabledIds(state, options.searchPickerIndex);
-      return withActive(state, enabled, enabled.at(-1));
+      const enabled = enabledIndex(state, options.searchPickerIndex);
+      return withActive(state, enabled, enabled.ids.at(-1));
     }
     case 'scroll': {
       const scroll = applyScrollEvent(state.scroll ?? transition.event.nextState, transition.event);
@@ -185,21 +185,19 @@ function activeForQuery<TValue>(
   };
 }
 
-function enabledIds<TValue>(
+function enabledIndex<TValue>(
   state: SearchPickerPresentation,
   index: SearchPickerIndex<TValue>,
-): readonly string[] {
-  return querySearchPickerIndex(index, state.query).entries
-    .filter((entry) => entry.disabled !== true)
-    .map((entry) => entry.id);
+): import('../interaction/collection.ts').CollectionInteractionIndex {
+  return querySearchPickerIndex(index, state.query).interactionIndex;
 }
 
 function withActive(
   state: SearchPickerPresentation,
-  enabledIds: readonly string[],
+  enabled: import('../interaction/collection.ts').CollectionInteractionIndex,
   activeId: string | undefined,
 ): SearchPickerPresentation {
-  const valid = activeId !== undefined && enabledIds.includes(activeId) ? activeId : undefined;
+  const valid = activeId !== undefined && enabled.positions.has(activeId) ? activeId : undefined;
   if (state.activeId === valid) return state;
   return {
     query: state.query,

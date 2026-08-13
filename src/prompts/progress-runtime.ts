@@ -1,7 +1,7 @@
 import { diagnostic } from '../diagnostics.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { isCancelKey, isInterruptKey } from '../input/index.ts';
-import { toAccessibleSnapshot } from '../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import { createProgress } from './progress.ts';
 import { progressDisplayLine } from './progress-view.ts';
 import { nonTtyDiagnosticOptions } from './non-tty.ts';
@@ -217,7 +217,7 @@ async function progressResultFromOutcome(
 
 function progressSnapshot(progress: ProgressState): AccessibleSnapshot {
   const snapshot = progress.snapshot();
-  return toAccessibleSnapshot({
+  return createAccessibleSnapshot({
     source: snapshot.source,
     root: { ...snapshot.root, focused: true }
   });

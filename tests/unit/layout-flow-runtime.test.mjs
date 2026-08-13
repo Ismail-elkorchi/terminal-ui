@@ -5,7 +5,7 @@ import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, spl
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
 import { anchored, column, flow, grid, measuredColumn, normalizeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
-import { measuredWindow, prepareSearchPickerIndex } from '../../dist/behavior/index.js';
+import { measuredWindow, prepareCommandSuggestions, prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
   assert.deepEqual(
@@ -91,7 +91,7 @@ test('grid and splitPane layouts arrange common app frames', () => {
     text({ content: 'status', id: 'status' }),
     commandInput({
       id: 'command',
-      presentation: { value: '/help', cursor: 0, suggestions: [] },
+      presentation: { value: '/help', cursor: 0, suggestions: prepareCommandSuggestions([]) },
       onTransition: (action) => action
     })
   ], {
@@ -222,7 +222,7 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
     button({ id: 'forward', label: 'Forward', onAction: () => ignoreMessage() }),
     surface(commandInput({
       id: 'address',
-      presentation: { value: 'example.test', cursor: 12, suggestions: [] },
+      presentation: { value: 'example.test', cursor: 12, suggestions: prepareCommandSuggestions([]) },
       onTransition: (action) => action
     }), { appearance: 'inset' }),
     button({ id: 'menu', label: 'Menu', onAction: () => ignoreMessage() })

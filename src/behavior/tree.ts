@@ -1,4 +1,4 @@
-import { collectionInteractionReducer } from '../interaction/collection.ts';
+import { collectionInteractionReducer, prepareCollectionInteractionIndex } from '../interaction/collection.ts';
 import type { SelectionPolicy } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type { CollectionWindow } from '../ui-model/collection.ts';
@@ -57,9 +57,9 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
   if (isDisclosure(action)) return reduceDisclosure(state, action, options.nodes);
   const collection = treeCollectionFor(state, options);
   const interaction = collectionInteractionReducer(state, action, {
-    enabledIds: collection.records
+    index: prepareCollectionInteractionIndex(collection.records
       .filter((record) => record.row.node.disabled !== true && record.row.lazyPlaceholder !== true)
-      .map((record) => record.id),
+      .map((record) => record.id)),
     selection: options.selection,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });
@@ -92,9 +92,9 @@ export function visibleTreeRows<TMetadata extends Readonly<Record<string, unknow
   assertUniqueRecursiveIds(nodes, (node) => ({ id: node.id, children: treeNodeChildren(node) }), 'tree');
   const expanded = new Set(presentation.expandedIds);
   const query = normalizeCollectionQuery(presentation.query ?? { text: '', mode: 'contains' });
-  const rows: TreeVisibleRow<TMetadata>[] = [];
-  for (const node of nodes) collectRows(rows, node, 0, [], query, expanded, presentation.loadStates ?? {});
-  return Object.freeze(rows);
+  return query.text.length === 0
+    ? visibleExpandedRows(nodes, expanded, presentation.loadStates ?? {})
+    : visibleMatchedRows(nodes, query, presentation.loadStates ?? {});
 }
 
 export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknown>>>(
@@ -180,45 +180,115 @@ function reduceDisclosure<TMetadata extends Readonly<Record<string, unknown>>>(
   return { ...state, expandedIds: Object.freeze([...current]) };
 }
 
-function collectRows<TMetadata extends Readonly<Record<string, unknown>>>(
-  rows: TreeVisibleRow<TMetadata>[],
-  node: TreeNode<TMetadata>,
-  depth: number,
-  parentPath: readonly string[],
-  query: Required<CollectionQuery>,
+function visibleExpandedRows<TMetadata extends Readonly<Record<string, unknown>>>(
+  nodes: readonly TreeNode<TMetadata>[],
   expanded: ReadonlySet<string>,
   loadStates: Readonly<Record<string, TreeLoadState>>,
-): boolean {
-  const path = [...parentPath, node.id];
-  const descendants: TreeVisibleRow<TMetadata>[] = [];
-  let descendantMatches = false;
-  for (const child of treeNodeChildren(node)) {
-    descendantMatches = collectRows(
-      descendants, child, depth + 1, path, query, expanded, loadStates,
-    ) || descendantMatches;
-  }
-  const selfMatches = query.text.length === 0 || treeNodeMatchesNormalized(node, query);
-  if (!selfMatches && !descendantMatches) return false;
-  const isExpanded = node.kind !== 'leaf' && expanded.has(node.id);
-  const loadState = node.kind === 'lazy' ? loadStates[node.id] ?? { kind: 'idle' as const } : undefined;
-  rows.push({
-    node,
-    depth,
-    path: Object.freeze(path),
-    expanded: isExpanded,
-    ...(loadState === undefined ? {} : { loadState }),
-  });
-  if (query.text.length > 0 || isExpanded && node.kind === 'branch') rows.push(...descendants);
-  if (isExpanded && node.kind === 'lazy') {
+): readonly TreeVisibleRow<TMetadata>[] {
+  const rows: TreeVisibleRow<TMetadata>[] = [];
+  const pending = nodes.toReversed().map((node) => ({ node, depth: 0, path: Object.freeze([node.id]) }));
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) continue;
+    const isExpanded = current.node.kind !== 'leaf' && expanded.has(current.node.id);
+    const loadState = current.node.kind === 'lazy'
+      ? loadStates[current.node.id] ?? { kind: 'idle' as const }
+      : undefined;
     rows.push({
-      node: { id: `${node.id}:status`, label: loadLabel(loadState), disabled: true, kind: 'leaf' },
-      depth: depth + 1,
-      path: Object.freeze([...path, 'status']),
-      expanded: false,
-      lazyPlaceholder: true,
+      node: current.node,
+      depth: current.depth,
+      path: current.path,
+      expanded: isExpanded,
+      ...(loadState === undefined ? {} : { loadState }),
     });
+    if (isExpanded && current.node.kind === 'lazy') {
+      rows.push(lazyStatusRow(
+        current.node,
+        current.depth,
+        current.path,
+        loadState ?? { kind: 'idle' },
+      ));
+    }
+    if (isExpanded && current.node.kind === 'branch') {
+      for (let index = current.node.children.length - 1; index >= 0; index -= 1) {
+        const child = current.node.children[index];
+        if (child !== undefined) pending.push({
+          node: child,
+          depth: current.depth + 1,
+          path: Object.freeze([...current.path, child.id]),
+        });
+      }
+    }
   }
-  return true;
+  return Object.freeze(rows);
+}
+
+function visibleMatchedRows<TMetadata extends Readonly<Record<string, unknown>>>(
+  nodes: readonly TreeNode<TMetadata>[],
+  query: Required<CollectionQuery>,
+  loadStates: Readonly<Record<string, TreeLoadState>>,
+): readonly TreeVisibleRow<TMetadata>[] {
+  const matched = new WeakSet<object>();
+  const traversal: { readonly node: TreeNode<TMetadata>; readonly visited: boolean }[] = nodes
+    .toReversed()
+    .map((node) => ({ node, visited: false }));
+  while (traversal.length > 0) {
+    const current = traversal.pop();
+    if (current === undefined) continue;
+    if (!current.visited) {
+      traversal.push({ node: current.node, visited: true });
+      for (let index = treeNodeChildren(current.node).length - 1; index >= 0; index -= 1) {
+        const child = treeNodeChildren(current.node)[index];
+        if (child !== undefined) traversal.push({ node: child, visited: false });
+      }
+      continue;
+    }
+    if (treeNodeMatchesNormalized(current.node, query)
+      || treeNodeChildren(current.node).some((child) => matched.has(child))) {
+      matched.add(current.node);
+    }
+  }
+  const rows: TreeVisibleRow<TMetadata>[] = [];
+  const pending = nodes.toReversed().map((node) => ({ node, depth: 0, path: Object.freeze([node.id]) }));
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined || !matched.has(current.node)) continue;
+    const loadState = current.node.kind === 'lazy'
+      ? loadStates[current.node.id] ?? { kind: 'idle' as const }
+      : undefined;
+    rows.push({
+      node: current.node,
+      depth: current.depth,
+      path: current.path,
+      expanded: current.node.kind !== 'leaf',
+      ...(loadState === undefined ? {} : { loadState }),
+    });
+    const children = treeNodeChildren(current.node);
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index];
+      if (child !== undefined) pending.push({
+        node: child,
+        depth: current.depth + 1,
+        path: Object.freeze([...current.path, child.id]),
+      });
+    }
+  }
+  return Object.freeze(rows);
+}
+
+function lazyStatusRow<TMetadata extends Readonly<Record<string, unknown>>>(
+  node: TreeNode<TMetadata> & { readonly kind: 'lazy' },
+  depth: number,
+  path: readonly string[],
+  loadState: TreeLoadState,
+): TreeVisibleRow<TMetadata> {
+  return {
+    node: { id: `${node.id}:status`, label: loadLabel(loadState), disabled: true, kind: 'leaf' },
+    depth: depth + 1,
+    path: Object.freeze([...path, 'status']),
+    expanded: false,
+    lazyPlaceholder: true,
+  };
 }
 
 function loadLabel(state: TreeLoadState | undefined): string {
@@ -245,13 +315,13 @@ function snapshotRow<TMetadata extends Readonly<Record<string, unknown>>>(
 
 function expandableIds(nodes: readonly TreeNode[]): ReadonlySet<string> {
   const ids = new Set<string>();
-  const visit = (items: readonly TreeNode[]): void => {
-    for (const item of items) {
-      if (item.kind !== 'leaf') ids.add(item.id);
-      visit(treeNodeChildren(item));
-    }
-  };
-  visit(nodes);
+  const pending = nodes.toReversed();
+  while (pending.length > 0) {
+    const item = pending.pop();
+    if (item === undefined) continue;
+    if (item.kind !== 'leaf') ids.add(item.id);
+    pending.push(...treeNodeChildren(item).toReversed());
+  }
   return ids;
 }
 

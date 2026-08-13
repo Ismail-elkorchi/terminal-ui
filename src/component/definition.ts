@@ -1494,16 +1494,29 @@ function componentHelpers<TPart extends string>(
   renderNode: Parameters<typeof resolveRenderNodeStyle>[0],
   contract: ComponentRuntimeContract
 ): Pick<ComponentRenderInput<object, TPart>, 'style' | 'source'> {
-  return {
+  const cachedByContract = componentHelperCache.get(renderNode) ?? new WeakMap<object, ComponentHelpers>();
+  componentHelperCache.set(renderNode, cachedByContract);
+  const cached = cachedByContract.get(contract);
+  if (cached !== undefined) return cached;
+  const styles = new Map<string, ReturnType<typeof resolveRenderNodeStyle>>();
+  const sources = new Map<string, ReturnType<typeof renderNodeFrameSource>>();
+  const helpers: ComponentHelpers = {
     style(input) {
       if (input.part !== 'root' && !contract.partSet.has(input.part)) {
         throw new TypeError(`Component "${contract.name}" requested undeclared style part "${input.part}".`);
       }
-      return resolveRenderNodeStyle(renderNode, input);
+      const key = JSON.stringify(input);
+      if (styles.has(key)) return styles.get(key);
+      const style = resolveRenderNodeStyle(renderNode, input);
+      styles.set(key, style);
+      return style;
     },
     source(input = {}) {
       const description = input.description ?? input.partName;
-      return renderNodeFrameSource({
+      const key = JSON.stringify({ ...input, description });
+      const cachedSource = sources.get(key);
+      if (cachedSource !== undefined) return cachedSource;
+      const source = renderNodeFrameSource({
         ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
         kind: contract.name
       }, {
@@ -1512,9 +1525,16 @@ function componentHelpers<TPart extends string>(
         ...input,
         ...(description === undefined ? {} : { description })
       });
+      sources.set(key, source);
+      return source;
     }
   };
+  cachedByContract.set(contract, helpers);
+  return helpers;
 }
+
+type ComponentHelpers = Pick<ComponentRenderInput<object>, 'style' | 'source'>;
+const componentHelperCache = new WeakMap<object, WeakMap<object, ComponentHelpers>>();
 
 function prepareComponentOptions<
   TOptions extends object,

@@ -48,41 +48,53 @@ export function createUtf8StreamDecoder(): Utf8StreamDecoder {
   };
 
   function normalizeRawC1(bytes: Uint8Array): Uint8Array {
-    let changed = false;
-    const result: number[] = [];
+    const initialContinuations = expectedContinuations;
+    let extraBytes = 0;
     for (const byte of bytes) {
       if (expectedContinuations > 0 && byte >= 0x80 && byte <= 0xbf) {
         expectedContinuations -= 1;
-        result.push(byte);
         continue;
       }
       expectedContinuations = utf8ContinuationCount(byte);
       if (byte >= 0x80 && byte <= 0x9f && expectedContinuations === 0) {
-        result.push(0xc2, byte);
-        changed = true;
-      } else {
-        result.push(byte);
+        extraBytes += 1;
       }
     }
-    return changed ? Uint8Array.from(result) : bytes;
+    if (extraBytes === 0) return bytes;
+    return expandRawC1(bytes, initialContinuations, extraBytes);
   }
 }
 
 export function decodeUtf8Chunk(chunk: TerminalInputChunk): string {
   if (typeof chunk.data === 'string') return chunk.data;
-  const bytes: number[] = [];
+  let extraBytes = 0;
   let expectedContinuations = 0;
   for (const byte of chunk.data) {
     if (expectedContinuations > 0 && byte >= 0x80 && byte <= 0xbf) {
       expectedContinuations -= 1;
-      bytes.push(byte);
       continue;
     }
     expectedContinuations = utf8ContinuationCount(byte);
-    if (byte >= 0x80 && byte <= 0x9f && expectedContinuations === 0) bytes.push(0xc2, byte);
-    else bytes.push(byte);
+    if (byte >= 0x80 && byte <= 0x9f && expectedContinuations === 0) extraBytes += 1;
   }
-  return new TextDecoder().decode(Uint8Array.from(bytes));
+  return new TextDecoder().decode(extraBytes === 0 ? chunk.data : expandRawC1(chunk.data, 0, extraBytes));
+}
+
+function expandRawC1(bytes: Uint8Array, initialContinuations: number, extraBytes: number): Uint8Array {
+  const result = new Uint8Array(bytes.length + extraBytes);
+  let expectedContinuations = initialContinuations;
+  let output = 0;
+  for (const byte of bytes) {
+    if (expectedContinuations > 0 && byte >= 0x80 && byte <= 0xbf) {
+      expectedContinuations -= 1;
+      result[output++] = byte;
+      continue;
+    }
+    expectedContinuations = utf8ContinuationCount(byte);
+    if (byte >= 0x80 && byte <= 0x9f && expectedContinuations === 0) result[output++] = 0xc2;
+    result[output++] = byte;
+  }
+  return result;
 }
 
 function utf8ContinuationCount(byte: number): number {

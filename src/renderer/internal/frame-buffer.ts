@@ -1,5 +1,5 @@
 import { measureTextCells, sanitizeTerminalCellText } from '../../text/index.ts';
-import { toAccessibleSnapshot } from '../../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../../accessibility/index.ts';
 import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
 import { frameCellSource } from '../../visual/source.ts';
 import type { AccessibleSnapshot } from '../../accessibility/index.ts';
@@ -14,6 +14,7 @@ import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render.ts';
 import type { RenderTarget } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
+import type { GraphemeSegment } from '../../text/index.ts';
 import { defaultTextWidthProfile, defineTextWidthProfile } from '../../text/index.ts';
 import { assertFrameDimensions } from './frame-limits.ts';
 
@@ -22,6 +23,7 @@ export interface FrameBufferOptions {
 }
 
 export interface FrameBufferSnapshotOptions {
+  readonly canvasStyle?: TerminalStyle;
   readonly cursor?: CursorPosition;
   readonly focusPath?: FocusPath;
   readonly accessibility?: AccessibleSnapshot;
@@ -33,10 +35,18 @@ export interface FrameRowFingerprint {
   readonly fingerprint: string;
 }
 
+export interface FrameSnapshotRowIndex {
+  readonly row: number;
+  readonly cells: ReadonlyMap<number, FrameCell>;
+  readonly renderable: readonly FrameCell[];
+  readonly fingerprint: string;
+}
+
 export interface FrameBufferSnapshotMetadata {
   readonly writtenBounds: DirtyRegionSet;
   readonly clearedBounds: DirtyRegionSet;
   readonly rowFingerprints: readonly FrameRowFingerprint[];
+  readonly rowIndexes: readonly FrameSnapshotRowIndex[];
   readonly fingerprint: string;
 }
 
@@ -88,12 +98,59 @@ export function blitFrameCell(buffer: RenderTarget, cell: FrameCell): void {
   buffer.writeCell(cell);
 }
 
+/** Transfers a cell already produced by a framework-owned frame snapshot. */
+export function transferFrameCell(buffer: RenderTarget, cell: FrameCell): void {
+  if (buffer instanceof CellFrameBuffer) {
+    buffer[transferCell](cell);
+    return;
+  }
+  buffer.writeCell(cell);
+}
+
+export interface PreparedRenderSpan {
+  readonly graphemes: readonly Pick<GraphemeSegment, 'text' | 'cells'>[];
+  readonly style?: TerminalStyle;
+  readonly link?: TerminalLink;
+  readonly source?: FrameCellSource;
+}
+
+/** Transfers spans already sanitized, measured, and canonicalized by a scoped renderer boundary. */
+export function transferPreparedRenderSpans(
+  buffer: RenderTarget,
+  row: number,
+  column: number,
+  spans: readonly PreparedRenderSpan[],
+): void {
+  if (buffer instanceof CellFrameBuffer) {
+    buffer[transferSpans](row, column, spans);
+    return;
+  }
+  buffer.write(row, column, spans.map((current) => ({
+    text: current.graphemes.map((grapheme) => grapheme.text).join(''),
+    ...(current.style === undefined ? {} : { style: current.style }),
+    ...(current.link === undefined ? {} : { link: current.link }),
+    ...(current.source === undefined ? {} : { source: current.source }),
+  })));
+}
+
+/** Applies a full-canvas backdrop without materializing empty terminal cells. */
+export function applyImplicitCanvasBackdrop(
+  buffer: FrameBuffer,
+  bounds: Rect,
+  style: TerminalStyle,
+): boolean {
+  return buffer instanceof CellFrameBuffer && buffer[applyBackdrop](bounds, style);
+}
+
 export function mergeableFrameCells(buffer: FrameBuffer): readonly FrameCell[] {
   if (buffer instanceof CellFrameBuffer) return buffer[mergeableCells]();
   return buffer.snapshot().cells.filter(isMergeableFrameCell);
 }
 
 const blitCell = Symbol('terminal-ui.blit-frame-cell');
+const transferCell = Symbol('terminal-ui.transfer-frame-cell');
+const transferSpans = Symbol('terminal-ui.transfer-render-spans');
+const applyBackdrop = Symbol('terminal-ui.apply-canvas-backdrop');
 const mergeableCells = Symbol('terminal-ui.mergeable-frame-cells');
 
 class CellFrameBuffer implements FrameBuffer {
@@ -101,11 +158,12 @@ class CellFrameBuffer implements FrameBuffer {
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
 
-  private readonly cells: (FrameCell | undefined)[];
+  private readonly rows = new Map<number, Map<number, FrameCell>>();
   private readonly inheritBackground: boolean;
-  private readonly mergeableCellIndexes = new Set<number>();
+  private readonly mergeableCellValues = new Set<FrameCell>();
   private readonly writtenCoverage = new DirtyCoverageAccumulator();
   private readonly clearedCoverage = new DirtyCoverageAccumulator();
+  private canvasStyleOverride: TerminalStyle | undefined;
 
   constructor(
     width: number,
@@ -118,7 +176,6 @@ class CellFrameBuffer implements FrameBuffer {
     this.height = height;
     this.widthProfile = widthProfile;
     this.inheritBackground = inheritBackground;
-    this.cells = Array.from({ length: this.width * this.height });
   }
 
   write(row: number, column: number, spans: readonly RenderSpan[]): void {
@@ -181,19 +238,33 @@ class CellFrameBuffer implements FrameBuffer {
     const clipped = this.clipRect(rect ?? { row: 1, column: 1, width: this.width, height: this.height });
     if (clipped === undefined) return;
     this.clearedCoverage.add(clipped);
-    for (let row = clipped.row; row < clipped.row + clipped.height; row += 1) {
-      for (let column = clipped.column; column < clipped.column + clipped.width; column += 1) {
-        this.clearCellGroup(row, column, 'none');
-      }
+    if (clipped.row === 1 && clipped.column === 1 && clipped.width === this.width && clipped.height === this.height) {
+      this.rows.clear();
+      this.mergeableCellValues.clear();
+      return;
+    }
+    for (const [row, cells] of this.rows) {
+      if (row < clipped.row || row >= clipped.row + clipped.height) continue;
+      const affected = [...cells.values()].filter((cell) =>
+        cell.column < clipped.column + clipped.width
+        && cell.column + Math.max(1, cell.width) > clipped.column
+      );
+      for (const cell of affected) this.clearCellGroup(row, cell.column, 'none');
     }
   }
 
   snapshot(options: FrameBufferSnapshotOptions = {}): FrameBufferSnapshot {
-    const accessibility = toAccessibleSnapshot(options.accessibility ?? {
+    const accessibility = createAccessibleSnapshot(options.accessibility ?? {
       source: 'renderer',
       root: { id: 'frame', role: 'text', label: 'frame' }
     });
-    const { cells, rowFingerprints } = this.snapshotCellsAndFingerprints();
+    const requestedCanvasStyle = this.canvasStyleOverride === undefined
+      ? options.canvasStyle
+      : { ...options.canvasStyle, ...this.canvasStyleOverride };
+    const canvasStyle = requestedCanvasStyle === undefined
+      ? undefined
+      : normalizeTerminalStyle(requestedCanvasStyle, 'Frame canvas style');
+    const { cells, rowFingerprints, rowIndexes } = this.snapshotCellsAndFingerprints(canvasStyle);
     const cursor = options.cursor === undefined ? undefined : Object.freeze({
       ...options.cursor,
       ...(options.cursor.style === undefined
@@ -207,12 +278,14 @@ class CellFrameBuffer implements FrameBuffer {
       width: this.width,
       height: this.height,
       widthProfile: this.widthProfile,
+      ...(canvasStyle === undefined ? {} : { canvasStyle }),
       cells,
       accessibility,
       metadata: Object.freeze({
         writtenBounds: this.writtenCoverage.toDirtyRegionSet(),
         clearedBounds: this.clearedCoverage.toDirtyRegionSet(),
         rowFingerprints,
+        rowIndexes,
         fingerprint: bufferFingerprint(rowFingerprints)
       }),
       ...(options.hitTargets === undefined ? {} : { hitTargets: immutableHitTargets(options.hitTargets) }),
@@ -242,13 +315,65 @@ class CellFrameBuffer implements FrameBuffer {
     });
   }
 
+  [transferCell](cell: FrameCell): void {
+    if (cell.continuation === true || !this.containsCell(cell.row, cell.column)) return;
+    if (cell.width < 1 || cell.column + cell.width - 1 > this.width) return;
+    this.writeGrapheme(cell.row, cell.column, {
+      text: cell.text,
+      width: cell.width,
+      ...(cell.style === undefined ? {} : { style: cell.style }),
+      ...(cell.link === undefined ? {} : { link: cell.link }),
+      ...(cell.source === undefined ? {} : { source: cell.source })
+    });
+  }
+
+  [transferSpans](row: number, column: number, spans: readonly PreparedRenderSpan[]): void {
+    if (!this.containsRow(row)) return;
+    let nextColumn = Math.floor(column);
+    for (const currentSpan of spans) {
+      for (const grapheme of currentSpan.graphemes) {
+        if (grapheme.cells === 0) {
+          this.appendCombining(row, nextColumn, grapheme.text);
+          continue;
+        }
+        if (nextColumn >= 1 && nextColumn + grapheme.cells - 1 <= this.width) {
+          this.writeGrapheme(row, nextColumn, {
+            text: grapheme.text,
+            width: grapheme.cells,
+            ...(currentSpan.style === undefined ? {} : { style: currentSpan.style }),
+            ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
+            ...(currentSpan.source === undefined ? {} : { source: currentSpan.source }),
+          });
+        }
+        nextColumn += grapheme.cells;
+      }
+    }
+  }
+
+  [applyBackdrop](bounds: Rect, style: TerminalStyle): boolean {
+    const clipped = this.clipRect(bounds);
+    if (clipped?.row !== 1
+      || clipped.column !== 1
+      || clipped.width !== this.width
+      || clipped.height !== this.height) return false;
+    const backdrop = normalizeTerminalStyle(style, 'Frame canvas backdrop style');
+    this.canvasStyleOverride = Object.freeze({ ...this.canvasStyleOverride, ...backdrop });
+    for (const [row, cells] of this.rows) {
+      for (const cell of [...cells.values()]) {
+        const unlinked = { ...cell };
+        Reflect.deleteProperty(unlinked, 'link');
+        this.setCell(row, cell.column, {
+          ...unlinked,
+          style: Object.freeze({ ...cell.style, ...backdrop }),
+        });
+      }
+    }
+    return true;
+  }
+
   [mergeableCells](): readonly FrameCell[] {
-    return Object.freeze([...this.mergeableCellIndexes]
-      .toSorted((left, right) => left - right)
-      .flatMap((index) => {
-        const cell = this.cells[index];
-        return cell === undefined ? [] : [cell];
-      }));
+    return Object.freeze([...this.mergeableCellValues]
+      .toSorted((left, right) => left.row - right.row || left.column - right.column));
   }
 
   private containsRow(row: number): boolean {
@@ -269,27 +394,43 @@ class CellFrameBuffer implements FrameBuffer {
     return width === 0 || height === 0 ? undefined : { row, column, width, height };
   }
 
-  private snapshotCellsAndFingerprints(): {
+  private snapshotCellsAndFingerprints(canvasStyle?: TerminalStyle): {
     readonly cells: readonly FrameCell[];
     readonly rowFingerprints: readonly FrameRowFingerprint[];
+    readonly rowIndexes: readonly FrameSnapshotRowIndex[];
   } {
     const output: FrameCell[] = [];
     const rowFingerprints: FrameRowFingerprint[] = [];
+    const rowIndexes: FrameSnapshotRowIndex[] = [];
     for (let row = 1; row <= this.height; row += 1) {
       let rowHash = fnvOffset;
-      const rowOffset = (row - 1) * this.width;
-      for (let column = 1; column <= this.width; column += 1) {
-        const cell = this.cells[rowOffset + column - 1];
-        if (cell !== undefined) {
-          output.push(cell);
-          rowHash = hashFrameCell(rowHash, cell);
-        }
+      const cells = this.rows.get(row);
+      const indexedCells = new Map<number, FrameCell>();
+      const renderable: FrameCell[] = [];
+      for (const storedCell of cells === undefined
+        ? []
+        : [...cells.values()].toSorted((left, right) => left.column - right.column)) {
+        const cell = effectiveCanvasCell(storedCell, canvasStyle);
+        output.push(cell);
+        indexedCells.set(cell.column, cell);
+        if (cell.continuation !== true) renderable.push(cell);
+        rowHash = hashFrameCell(rowHash, cell);
       }
-      rowFingerprints.push(Object.freeze({ row, fingerprint: hashToString(rowHash) }));
+      const fingerprint = hashToString(rowHash);
+      rowFingerprints.push(Object.freeze({ row, fingerprint }));
+      if (indexedCells.size > 0) {
+        rowIndexes.push(Object.freeze({
+          row,
+          cells: indexedCells,
+          renderable: Object.freeze(renderable),
+          fingerprint
+        }));
+      }
     }
     return {
       cells: Object.freeze(output),
-      rowFingerprints: Object.freeze(rowFingerprints)
+      rowFingerprints: Object.freeze(rowFingerprints),
+      rowIndexes: Object.freeze(rowIndexes)
     };
   }
 
@@ -301,9 +442,8 @@ class CellFrameBuffer implements FrameBuffer {
     const existingBackground = this.inheritBackground && cell.style?.bg === undefined
       ? this.cellAt(row, column)?.style?.bg
       : undefined;
-    const firstIndex = this.index(row, column);
     for (let offset = 0; offset < cell.width; offset += 1) {
-      if (this.cells[firstIndex + offset] !== undefined) {
+      if (this.cellAt(row, column + offset) !== undefined) {
         this.clearCellGroup(row, column + offset, 'write');
       }
     }
@@ -320,9 +460,9 @@ class CellFrameBuffer implements FrameBuffer {
       ...(cell.link === undefined ? {} : { link: cell.link }),
       ...(cell.source === undefined ? {} : { source: cell.source })
     };
-    this.setCellAtIndex(firstIndex, mainCell);
+    this.setCell(row, column, mainCell);
     for (let offset = 1; offset < cell.width; offset += 1) {
-      this.setCellAtIndex(firstIndex + offset, {
+      this.setCell(row, column + offset, {
         row,
         column: column + offset,
         text: '',
@@ -349,7 +489,7 @@ class CellFrameBuffer implements FrameBuffer {
 
   private clearCellGroup(row: number, column: number, coverage: 'write' | 'none'): void {
     if (!this.containsCell(row, column)) return;
-    const current = this.cells[this.index(row, column)];
+    const current = this.cellAt(row, column);
     if (current === undefined) return;
     if (current.continuation === true) {
       const leadingCell = this.findWideLeadingCell(row, column);
@@ -383,30 +523,28 @@ class CellFrameBuffer implements FrameBuffer {
 
   private cellAt(row: number, column: number): FrameCell | undefined {
     if (!this.containsCell(row, column)) return undefined;
-    return this.cells[this.index(row, column)];
+    return this.rows.get(row)?.get(column);
   }
 
   private setCell(row: number, column: number, cell: FrameCell): void {
     if (!this.containsCell(row, column)) return;
-    this.setCellAtIndex(this.index(row, column), cell);
-  }
-
-  private setCellAtIndex(index: number, cell: FrameCell): void {
+    const cells = this.rows.get(row) ?? new Map<number, FrameCell>();
+    this.rows.set(row, cells);
+    const previous = cells.get(column);
+    if (previous !== undefined) this.mergeableCellValues.delete(previous);
     const immutable = Object.freeze(cell);
-    this.cells[index] = immutable;
-    if (isMergeableFrameCell(immutable)) this.mergeableCellIndexes.add(index);
-    else this.mergeableCellIndexes.delete(index);
+    cells.set(column, immutable);
+    if (isMergeableFrameCell(immutable)) this.mergeableCellValues.add(immutable);
   }
 
   private deleteCell(row: number, column: number): void {
     if (!this.containsCell(row, column)) return;
-    const index = this.index(row, column);
-    this.cells[index] = undefined;
-    this.mergeableCellIndexes.delete(index);
-  }
-
-  private index(row: number, column: number): number {
-    return (row - 1) * this.width + column - 1;
+    const cells = this.rows.get(row);
+    const previous = cells?.get(column);
+    if (previous === undefined) return;
+    cells?.delete(column);
+    this.mergeableCellValues.delete(previous);
+    if (cells?.size === 0) this.rows.delete(row);
   }
 
   private markWritten(row: number, column: number, width: number): void {
@@ -415,6 +553,14 @@ class CellFrameBuffer implements FrameBuffer {
     const end = Math.min(this.width + 1, column + width);
     if (end > start) this.writtenCoverage.addSpan(row, start, end - start);
   }
+}
+
+function effectiveCanvasCell(cell: FrameCell, canvasStyle: TerminalStyle | undefined): FrameCell {
+  if (canvasStyle === undefined) return cell;
+  return Object.freeze({
+    ...cell,
+    style: normalizeTerminalStyle({ ...canvasStyle, ...cell.style }, 'Frame effective cell style')
+  });
 }
 
 function immutableHitTargets(hitTargets: readonly FrameHitTarget[]): readonly FrameHitTarget[] {

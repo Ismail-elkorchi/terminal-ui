@@ -1,5 +1,6 @@
 import {
   commandInput,
+  prepareCommandSuggestions,
   searchPicker,
   textArea,
   tree,
@@ -34,7 +35,7 @@ const editor = textArea({
 
 const commands = commandInput({
   id: 'commands',
-  presentation: { value: '', cursor: 0, suggestions: [] },
+  presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
   onTransition: (transition) => ({ kind: 'commandTransition' as const, transition }),
   onSubmit: (event) => ({ kind: 'commandSubmit' as const, event }),
 });

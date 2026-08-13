@@ -22,7 +22,7 @@ import {
   grid,
   splitPane
 } from '../../dist/layout/index.js';
-import { prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
+import { prepareCommandSuggestions, prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
 
 function workspaceView(state) {
   const mainPanel = tabs({
@@ -78,7 +78,7 @@ function workspaceView(state) {
     commandInput({
       id: 'command',
       prompt: '/',
-      presentation: { value: state.query, cursor: 0, suggestions: [] },
+      presentation: { value: state.query, cursor: 0, suggestions: prepareCommandSuggestions([]) },
       onTransition: () => ({ type: 'component' })
     })
   ], {

@@ -1,26 +1,14 @@
-import { sanitizeTerminalText } from '../text/index.ts';
+import { adoptAccessibleSnapshot } from './validate.ts';
 import type {
   AccessibleNode,
   AccessibleSnapshot,
-  AccessibleValue,
   AccessibleSnapshotInput
 } from './types.ts';
 
-const sanitizedAccessibleSnapshots = new WeakMap<object, AccessibleSnapshot>();
-
-export function toAccessibleSnapshot(input: AccessibleSnapshotInput): AccessibleSnapshot {
-  const existing = sanitizedAccessibleSnapshots.get(input);
-  if (existing !== undefined) return existing;
-  const root = sanitizeAccessibleNode(input.root);
-  const snapshot = Object.freeze({
-    source: input.source,
-    ...(input.title === undefined ? {} : { title: sanitizeAccessibleText(input.title) }),
-    root,
-    focusPath: Object.freeze([...(input.focusPath ?? collectFocusPath(root))]),
-    diagnostics: Object.freeze([...(input.diagnostics ?? [])])
-  });
-  sanitizedAccessibleSnapshots.set(snapshot, snapshot);
-  return snapshot;
+export function createAccessibleSnapshot(input: AccessibleSnapshotInput): AccessibleSnapshot {
+  const result = adoptAccessibleSnapshot(input, true);
+  if (result.ok) return result.value;
+  throw new TypeError(result.error.message);
 }
 
 export function findAccessibleNode(snapshot: AccessibleSnapshot, id: string): AccessibleNode | undefined {
@@ -28,19 +16,32 @@ export function findAccessibleNode(snapshot: AccessibleSnapshot, id: string): Ac
 }
 
 export function collectFocusPath(node: AccessibleNode): readonly string[] {
-  if (node.focused === true) return [node.id];
-  for (const child of node.children ?? []) {
-    const childPath = collectFocusPath(child);
-    if (childPath.length > 0) return [node.id, ...childPath];
+  const pending: { readonly node: AccessibleNode; readonly path: readonly string[] }[] = [
+    { node, path: Object.freeze([node.id]) },
+  ];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) continue;
+    if (current.node.focused === true) return current.path;
+    const children = current.node.children ?? [];
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index];
+      if (child !== undefined) pending.push({
+        node: child,
+        path: Object.freeze([...current.path, child.id]),
+      });
+    }
   }
   return [];
 }
 
 export function findNode(node: AccessibleNode, id: string): AccessibleNode | undefined {
-  if (node.id === id) return node;
-  for (const child of node.children ?? []) {
-    const match = findNode(child, id);
-    if (match !== undefined) return match;
+  const pending = [node];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) continue;
+    if (current.id === id) return current;
+    pending.push(...(current.children ?? []).toReversed());
   }
   return undefined;
 }
@@ -57,38 +58,4 @@ export function nodePath(root: AccessibleNode, path: readonly string[]): readonl
     current = next;
   }
   return nodes;
-}
-
-function sanitizeAccessibleNode(node: AccessibleNode): AccessibleNode {
-  return Object.freeze({
-    ...node,
-    ...(node.label === undefined ? {} : { label: sanitizeAccessibleText(node.label) }),
-    ...(node.description === undefined ? {} : { description: sanitizeAccessibleText(node.description) }),
-    ...(node.controls === undefined ? {} : { controls: sanitizeAccessibleText(node.controls) }),
-    ...(node.labelledBy === undefined ? {} : { labelledBy: sanitizeAccessibleText(node.labelledBy) }),
-    ...(node.value === undefined ? {} : { value: sanitizeAccessibleValue(node.value) }),
-    ...(node.numericValue === undefined ? {} : { numericValue: Object.freeze({ ...node.numericValue }) }),
-    ...(node.scope === undefined ? {} : { scope: Object.freeze({ ...node.scope }) }),
-    ...(node.window === undefined ? {} : { window: Object.freeze({ ...node.window }) }),
-    ...(node.position === undefined ? {} : { position: sanitizePosition(node.position) }),
-    ...(node.children === undefined
-      ? {}
-      : { children: Object.freeze(node.children.map(sanitizeAccessibleNode)) })
-  });
-}
-
-function sanitizePosition(position: NonNullable<AccessibleNode['position']>): NonNullable<AccessibleNode['position']> {
-  return Object.freeze({
-    ...position,
-    ...(position.columnLabel === undefined ? {} : { columnLabel: sanitizeAccessibleText(position.columnLabel) }),
-    ...(position.group === undefined ? {} : { group: sanitizeAccessibleText(position.group) })
-  });
-}
-
-function sanitizeAccessibleValue(value: AccessibleValue): AccessibleValue {
-  return typeof value === 'string' ? sanitizeAccessibleText(value) : value;
-}
-
-function sanitizeAccessibleText(text: string): string {
-  return sanitizeTerminalText(text).text;
 }

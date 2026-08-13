@@ -24,6 +24,7 @@ import type {
 import type { Rect } from '../../contracts.ts';
 import type { RenderSpan, TerminalStyle } from '../../../visual/render.ts';
 import { clipRenderSpans } from '../../../visual/render.ts';
+import { measureTextCells } from '../../../text/index.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
 
 export function createCanvas2D(buffer: RenderTarget, bounds: Rect): Canvas2D {
@@ -59,17 +60,14 @@ class FrameBufferCanvas2D implements Canvas2D {
   point(x: number, y: number, span: RenderSpan): void {
     assertIntegerCoordinates('point', x, y);
     const point = this.transformedPoint(x, y);
-    if (!this.inside(point.x, point.y)) return;
-    this.#buffer.write(this.rowFor(point.y), this.columnFor(point.x), this.clipAt(point.x, [span]));
+    this.paintPoints([point], prepareCanvasBrush(span, this.widthProfile));
   }
 
   line(x1: number, y1: number, x2: number, y2: number, span: RenderSpan): void {
     assertIntegerCoordinates('line', x1, y1, x2, y2);
     const start = this.transformedPoint(x1, y1);
     const end = this.transformedPoint(x2, y2);
-    for (const point of linePoints(start.x, start.y, end.x, end.y)) {
-      this.rawPoint(point.x, point.y, span);
-    }
+    this.paintPoints(linePoints(start.x, start.y, end.x, end.y), prepareCanvasBrush(span, this.widthProfile));
   }
 
   polyline(points: readonly CanvasPoint[], span: RenderSpan): void {
@@ -92,10 +90,10 @@ class FrameBufferCanvas2D implements Canvas2D {
     const fill = options.fill;
     const stroke = options.stroke;
     if (fill !== undefined) {
-      for (const point of rectInteriorPoints(transformed)) this.rawPoint(point.x, point.y, fill);
+      this.paintPoints(rectInteriorPoints(transformed), prepareCanvasBrush(fill, this.widthProfile));
     }
     if (stroke !== undefined) {
-      for (const point of rectStrokePoints(transformed)) this.rawPoint(point.x, point.y, stroke);
+      this.paintPoints(rectStrokePoints(transformed), prepareCanvasBrush(stroke, this.widthProfile));
     }
   }
 
@@ -112,10 +110,16 @@ class FrameBufferCanvas2D implements Canvas2D {
     const rx = Math.abs(radiusX * this.transform.scaleX);
     const ry = Math.abs(radiusY * this.transform.scaleY);
     if (options.fill !== undefined) {
-      for (const point of ellipseInteriorPoints(transformed, rx, ry)) this.rawPoint(point.x, point.y, options.fill);
+      this.paintPoints(
+        ellipseInteriorPoints(transformed, rx, ry),
+        prepareCanvasBrush(options.fill, this.widthProfile),
+      );
     }
     if (options.stroke !== undefined) {
-      for (const point of ellipseStrokePoints(transformed, rx, ry)) this.rawPoint(point.x, point.y, options.stroke);
+      this.paintPoints(
+        ellipseStrokePoints(transformed, rx, ry),
+        prepareCanvasBrush(options.stroke, this.widthProfile),
+      );
     }
   }
 
@@ -127,15 +131,16 @@ class FrameBufferCanvas2D implements Canvas2D {
     const transformed = this.transformedPoint(center.x, center.y);
     const rx = Math.abs(radius * this.transform.scaleX);
     const ry = Math.abs(radius * this.transform.scaleY);
-    for (const point of ellipseStrokePoints(transformed, rx, ry, startAngle, endAngle)) {
-      this.rawPoint(point.x, point.y, options.stroke);
-    }
+    this.paintPoints(
+      ellipseStrokePoints(transformed, rx, ry, startAngle, endAngle),
+      prepareCanvasBrush(options.stroke, this.widthProfile),
+    );
   }
 
   fillPolygon(points: readonly CanvasPoint[], span: RenderSpan): void {
     for (const point of points) assertIntegerCoordinates('polygon point', point.x, point.y);
     const transformed = points.map((point) => this.transformedPoint(point.x, point.y));
-    for (const point of polygonInteriorPoints(transformed)) this.rawPoint(point.x, point.y, span);
+    this.paintPoints(polygonInteriorPoints(transformed), prepareCanvasBrush(span, this.widthProfile));
   }
 
   text(x: number, y: number, spans: readonly RenderSpan[]): void {
@@ -206,9 +211,35 @@ class FrameBufferCanvas2D implements Canvas2D {
     }
   }
 
-  private rawPoint(x: number, y: number, span: RenderSpan): void {
-    if (!this.inside(x, y)) return;
-    this.#buffer.write(this.rowFor(y), this.columnFor(x), this.clipAt(x, [span]));
+  private paintPoints(points: Iterable<CanvasPoint>, brush: RenderSpan): void {
+    const rows = new Map<number, Set<number>>();
+    for (const point of points) {
+      if (!this.inside(point.x, point.y)) continue;
+      const row = Math.floor(point.y);
+      const columns = rows.get(row) ?? new Set<number>();
+      rows.set(row, columns);
+      columns.add(Math.floor(point.x));
+    }
+    for (const [row, columns] of rows) {
+      const sorted = [...columns].toSorted((left, right) => left - right);
+      let runStart: number | undefined;
+      let previous: number | undefined;
+      const flush = (): void => {
+        if (runStart === undefined || previous === undefined) return;
+        this.#buffer.write(this.rowFor(row), this.columnFor(runStart), [{
+          ...brush,
+          text: brush.text.repeat(previous - runStart + 1),
+        }]);
+      };
+      for (const column of sorted) {
+        if (previous !== undefined && column !== previous + 1) {
+          flush();
+          runStart = column;
+        } else runStart ??= column;
+        previous = column;
+      }
+      flush();
+    }
   }
 
   private transformedPoint(x: number, y: number): CanvasPoint {
@@ -254,6 +285,14 @@ class FrameBufferCanvas2D implements Canvas2D {
       }
     }
   }
+}
+
+function prepareCanvasBrush(span: RenderSpan, widthProfile: TextWidthProfile): RenderSpan {
+  const measured = measureTextCells(span.text, { widthProfile });
+  if (measured.graphemes.length !== 1 || measured.cells !== 1) {
+    throw new RangeError('Canvas2D point and shape brushes must contain exactly one one-cell grapheme.');
+  }
+  return { ...span, text: measured.text };
 }
 
 function assertCanvasBounds(buffer: RenderTarget, bounds: Rect): void {

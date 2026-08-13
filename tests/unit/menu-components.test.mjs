@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { defineTui } from '../../dist/tui/index.js';
 import {
-  validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+  decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime } from '../../dist/tui/index.js';
 import {
@@ -87,7 +87,7 @@ test('menu component renders nested checked disabled items with menu accessibili
   assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Disabled Recent')?.disabled, true);
   assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Autosave')?.role, 'menuitemcheckbox');
   assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Autosave')?.checked, true);
-  assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
+  assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
 test('simple action menus omit unused checkbox and submenu columns', () => {

@@ -1,4 +1,4 @@
-import { validateAccessibleSnapshot } from '../../accessibility/index.ts';
+import { decodeAccessibleSnapshot } from '../../accessibility/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
 import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
 import { normalizeUntrustedFrameCellSource } from '../../visual/source.ts';
@@ -52,7 +52,7 @@ export function adoptRenderedAccessibility(
   snapshot: AccessibleSnapshot,
   frameFocused: boolean
 ): AccessibleSnapshot {
-  const result = validateAccessibleSnapshot(snapshot);
+  const result = decodeAccessibleSnapshot(snapshot);
   if (!result.ok) {
     throw new TypeError(`Renderer returned invalid accessibility: ${result.error.message}`);
   }

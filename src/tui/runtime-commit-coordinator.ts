@@ -11,6 +11,7 @@ import {
   commitFrame,
   dirtyRegionsForRenderCommit,
   renderCurrentFrame,
+  rerenderCurrentFrame,
   resolveTuiTheme
 } from './runtime-frame.ts';
 import { diffFrames } from '../renderer/internal/frame.ts';
@@ -177,12 +178,11 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       const resolution = resolveInitialFocusSelector(render.layout, initialFocus);
       if (resolution.kind === 'matched' && !focusPathsEqual(resolution.path, render.frame.focusPath)) {
         desiredFocusPath = resolution.path;
-        render = renderCurrentFrame(
+        render = rerenderCurrentFrame(
           options.app,
           state,
-          context,
+          render,
           desiredFocusPath,
-          theme,
           stateVersion,
           commitId
         );
@@ -214,12 +214,11 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       && desiredFocusPath !== undefined
       && !focusPathsEqual(render.frame.focusPath, desiredFocusPath)
     ) {
-      const recovered = renderCurrentFrame(
+      const recovered = rerenderCurrentFrame(
         options.app,
         state,
-        context,
+        render,
         focusReturnPath,
-        theme,
         stateVersion,
         commitId
       );

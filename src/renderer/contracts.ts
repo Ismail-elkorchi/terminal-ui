@@ -259,6 +259,8 @@ export interface Frame {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
+  /** Style inherited by every cell, including otherwise empty canvas cells. */
+  readonly canvasStyle?: TerminalStyle;
   readonly cells: readonly FrameCell[];
   readonly hitTargets?: readonly FrameHitTarget[];
   readonly cursor?: CursorPosition;
@@ -303,6 +305,6 @@ export interface FrameRowDiff {
 
 export type RenderOperation =
   | { readonly kind: 'write'; readonly row: number; readonly column: number; readonly spans: readonly RenderSpan[] }
-  | { readonly kind: 'clearRect'; readonly bounds: Rect };
+  | { readonly kind: 'clearRect'; readonly bounds: Rect; readonly style?: TerminalStyle };
 
 export type { Rect } from '../geometry/types.ts';

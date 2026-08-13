@@ -32,7 +32,6 @@ import type {
 import {
   assertOptionalCallback,
   assertRequiredCallback,
-  isStringMember,
 } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
@@ -45,6 +44,7 @@ import {
   findTextHighlightMatches,
   measureTextCells,
   sanitizeTerminalText,
+  textWidthProfileKey,
 } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { assertLogHistory, logHistoryRecordById } from '../../ui-model/log-history.ts';
@@ -74,7 +74,7 @@ interface LogViewerModel {
   readonly history: LogHistory;
   readonly wrap: boolean;
   readonly searchQuery: string;
-  readonly activeMatch?: LogSearchMatch;
+  readonly activeMatchId?: string;
   readonly foldedIds: readonly string[];
   readonly selection?: LogViewerSelection;
   readonly scroll?: ScrollState;
@@ -125,6 +125,8 @@ interface LogViewerWindow {
   readonly selectedText?: string;
   readonly scrollbar: ReturnType<typeof prepareComponentScrollbar>;
 }
+
+const logViewerWindows = new WeakMap<LogViewerModel, Map<string, LogViewerWindow>>();
 
 const parts = [
   'body',
@@ -180,16 +182,8 @@ const activeLogViewer = defineComponent<
     );
     return {
       ...(search.matches.length === 0 ? {} : {
-        arrowUp: () => ({
-          kind: 'jumpMatch' as const,
-          direction: -1 as const,
-          matches: search.matches,
-        }),
-        arrowDown: () => ({
-          kind: 'jumpMatch' as const,
-          direction: 1 as const,
-          matches: search.matches,
-        }),
+        arrowUp: () => ({ kind: 'jumpMatch' as const, direction: -1 as const }),
+        arrowDown: () => ({ kind: 'jumpMatch' as const, direction: 1 as const }),
       }),
     };
   },
@@ -244,7 +238,9 @@ function prepareLogViewer(
   assertLogHistory(history);
   const wrap = optionalBoolean(value.wrap, 'logViewer wrap') ?? false;
   const searchQuery = cleanLine(value.searchQuery, 'logViewer searchQuery')?.trim() ?? '';
-  const activeMatch = prepareSearchMatch(value.activeMatch);
+  const activeMatchId = value.activeMatchId === undefined
+    ? undefined
+    : nonEmpty(value.activeMatchId, 'logViewer activeMatchId');
   const foldedIds = prepareStringArray(value.foldedIds);
   const selection = prepareSelection(value.selection);
   const scroll = prepareComponentScrollState(value.scroll, 'logViewer scroll');
@@ -266,7 +262,7 @@ function prepareLogViewer(
     wrap,
     searchQuery,
     foldedIds,
-    ...(activeMatch === undefined ? {} : { activeMatch }),
+    ...(activeMatchId === undefined ? {} : { activeMatchId }),
     ...(selection === undefined ? {} : { selection }),
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
@@ -338,6 +334,11 @@ function logViewerWindow(
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   styled: boolean,
 ): LogViewerWindow {
+  const key = `${String(input.bounds.width)}:${String(input.bounds.height)}:${
+    textWidthProfileKey(input.widthProfile)
+  }:${styled ? 'styled' : 'plain'}`;
+  const cached = logViewerWindows.get(input.model)?.get(key);
+  if (cached !== undefined) return cached;
   const foldedIds = new Set(input.model.foldedIds);
   const initialLayout = logViewerLayout(
     input.model.history,
@@ -347,9 +348,9 @@ function logViewerWindow(
     foldedIds,
   );
   const search = searchLogViewerHistory(input.model.history, input.model.searchQuery, foldedIds);
-  const activeMatch = input.model.activeMatch === undefined
+  const activeMatch = input.model.activeMatchId === undefined
     ? search.matches[0]
-    : search.matches.find((match) => match.id === input.model.activeMatch?.id) ??
+    : search.matches.find((match) => match.id === input.model.activeMatchId) ??
       search.matches[0];
   const firstMatchRow = activeMatch === undefined
     ? undefined
@@ -424,7 +425,7 @@ function logViewerWindow(
     history: input.model.history,
     ...(input.model.selection === undefined ? {} : { selection: input.model.selection }),
   });
-  return {
+  const result = {
     rows: marked,
     totalRows: layout.totalRows,
     start: visible.startIndex,
@@ -436,6 +437,10 @@ function logViewerWindow(
     ...(selectedText === undefined ? {} : { selectedText }),
     scrollbar,
   };
+  const windows = logViewerWindows.get(input.model) ?? new Map<string, LogViewerWindow>();
+  windows.set(key, result);
+  logViewerWindows.set(input.model, windows);
+  return result;
 }
 
 function matchingLogViewerRow(
@@ -1053,32 +1058,6 @@ function logViewerDescription(model: LogViewerModel, window: LogViewerWindow): s
   } log rows. Omitted before: ${String(window.omittedBefore)}. Omitted after: ${
     String(window.omittedAfter)
   }.${followTail}${query}${selection}`;
-}
-
-function prepareSearchMatch(value: LogSearchMatch | undefined): LogSearchMatch | undefined {
-  if (value === undefined) return undefined;
-  const field = value.field;
-  if (!isStringMember(field, ['timestamp', 'metadataKey', 'metadataValue', 'body'])) {
-    throw new TypeError('logViewer activeMatch field is invalid.');
-  }
-  return {
-    id: nonEmpty(value.id, 'logViewer activeMatch id'),
-    entryId: nonEmpty(value.entryId, 'logViewer activeMatch entryId'),
-    entryIndex: nonNegativeInteger(value.entryIndex, 'logViewer activeMatch entryIndex'),
-    occurrenceIndex: nonNegativeInteger(
-      value.occurrenceIndex,
-      'logViewer activeMatch occurrenceIndex',
-    ),
-    field,
-    ...(value.fieldKey === undefined
-      ? {}
-      : { fieldKey: nonEmpty(value.fieldKey, 'logViewer activeMatch fieldKey') }),
-    startOffset: nonNegativeInteger(value.startOffset, 'logViewer activeMatch startOffset'),
-    endOffsetExclusive: nonNegativeInteger(
-      value.endOffsetExclusive,
-      'logViewer activeMatch endOffsetExclusive',
-    ),
-  };
 }
 
 function prepareSelection(value: LogViewerSelection | undefined): LogViewerSelection | undefined {

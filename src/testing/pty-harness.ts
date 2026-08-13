@@ -1,5 +1,5 @@
 import { diagnostic } from '../diagnostics.ts';
-import { toAccessibleSnapshot } from '../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import { createPtyTerminalHost } from '../host/index.ts';
 import { decodeInputChunk, decodeInputEvent } from '../input/index.ts';
 import { createTranscriptRecorder } from '../transcript/index.ts';
@@ -276,7 +276,7 @@ function latestPtyHarnessSnapshot(
   }
   const lastFrame = frames.at(-1);
   if (lastFrame !== undefined) return lastFrame.accessibility;
-  return toAccessibleSnapshot({
+  return createAccessibleSnapshot({
     source: 'test_harness',
     root: { id: 'pty-harness', role: 'group', label: 'PTY harness' }
   });

@@ -30,6 +30,20 @@ export interface QueryMatchRange {
   readonly end: number;
 }
 
+interface PreparedQueryCandidate extends QueryCandidate {
+  readonly normalizedPrimary: string;
+  readonly normalizedSecondary: readonly string[];
+}
+
+export function prepareQueryCandidate(candidate: QueryCandidate): QueryCandidate {
+  assertQueryCandidate(candidate);
+  return Object.freeze({
+    ...candidate,
+    normalizedPrimary: candidate.primary.toLocaleLowerCase(),
+    normalizedSecondary: Object.freeze((candidate.secondary ?? []).map((value) => value.toLocaleLowerCase())),
+  } satisfies PreparedQueryCandidate);
+}
+
 export function normalizeCollectionQuery(query: CollectionQuery): Required<CollectionQuery> {
   if (typeof query.text !== 'string') throw new TypeError('query text must be a string.');
   if (query.mode !== undefined && !['contains', 'prefix', 'exact', 'fuzzy'].includes(query.mode)) {
@@ -60,7 +74,11 @@ export function matchNormalizedCollectionQuery(
   normalized: Required<CollectionQuery>,
 ): QueryMatch | undefined {
   if (normalized.text.length === 0) return Object.freeze({ id: candidate.id, score: 0, ranges: [] });
-  const fields = [candidate.primary, ...(candidate.secondary ?? [])];
+  const prepared = candidate as Partial<PreparedQueryCandidate>;
+  const fields = normalized.caseSensitive
+    ? [candidate.primary, ...(candidate.secondary ?? [])]
+    : [prepared.normalizedPrimary ?? candidate.primary.toLocaleLowerCase(),
+        ...(prepared.normalizedSecondary ?? candidate.secondary?.map((value) => value.toLocaleLowerCase()) ?? [])];
   const needle = normalized.caseSensitive ? normalized.text : normalized.text.toLocaleLowerCase();
   let best: {
     readonly score: number;
@@ -69,8 +87,7 @@ export function matchNormalizedCollectionQuery(
     readonly fieldIndex: number;
   } | undefined;
   for (const [fieldIndex, raw] of fields.entries()) {
-    const text = normalized.caseSensitive ? raw : raw.toLocaleLowerCase();
-    const match = matchText(text, needle, normalized.mode);
+    const match = matchText(raw, needle, normalized.mode);
     if (match !== undefined && (best === undefined || match.score > best.score)) {
       best = { ...match, fieldIndex };
     }

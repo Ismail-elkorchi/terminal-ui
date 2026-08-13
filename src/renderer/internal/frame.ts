@@ -13,7 +13,8 @@ import type {
 } from '../contracts.ts';
 import type { Rect } from '../contracts.ts';
 import type {
-  RenderSpan
+  RenderSpan,
+  TerminalStyle
 } from '../../visual/render.ts';
 import { sameFrameCellSource, sameTerminalLink, sameTerminalStyle, span } from '../../visual/render.ts';
 import type { RenderSerializeOptions } from './ansi.ts';
@@ -58,7 +59,8 @@ export type {
   FrameBufferSnapshot,
   FrameBufferSnapshotMetadata,
   FrameBufferSnapshotOptions,
-  FrameRowFingerprint
+  FrameRowFingerprint,
+  FrameSnapshotRowIndex
 } from './frame-buffer.ts';
 export { createFrameBuffer } from './frame-buffer.ts';
 export {
@@ -95,7 +97,12 @@ export function renderFramePlain(frame: Frame): string {
 }
 
 export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): string {
-  const operations: RenderOperation[] = [...frameWriteOperations(frame)];
+  const operations: RenderOperation[] = [
+    ...(frame.canvasStyle === undefined || frame.width === 0 || frame.height === 0
+      ? []
+      : [canvasClearOperation(frame)]),
+    ...frameWriteOperations(frame)
+  ];
   return renderDiffAnsi({
     width: frame.width,
     height: frame.height,
@@ -111,9 +118,10 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     previous?.width !== next.width
     || previous.height !== next.height
     || textWidthProfileKey(previous.widthProfile) !== textWidthProfileKey(next.widthProfile)
+    || !sameTerminalStyle(previous.canvasStyle, next.canvasStyle)
   ) {
     const clear = next.width > 0 && next.height > 0
-      ? [{ kind: 'clearRect', bounds: { row: 1, column: 1, width: next.width, height: next.height } } as const]
+      ? [canvasClearOperation(next)]
       : [];
     const diff: RenderDiff = {
       width: next.width,
@@ -225,7 +233,7 @@ function trimTrailingEmptyRows(rows: string[]): string[] {
 function frameWriteOperations(frame: Frame): readonly RenderOperation[] {
   const rows = frameIndex(frame).rows;
   return Array.from({ length: frame.height }, (_value, index) =>
-    rowWriteOperations(rows[index]?.renderable ?? [], index + 1, frame.width, 1)
+    rowWriteOperations(rows[index]?.renderable ?? [], index + 1, frame.width, 1, frame.width, frame.canvasStyle)
   ).flat();
 }
 
@@ -234,7 +242,8 @@ function rowWriteOperations(
   row: number,
   width: number,
   fromColumn: number,
-  toColumn = width
+  toColumn = width,
+  canvasStyle?: TerminalStyle
 ): readonly RenderOperation[] {
   if (rowCells.length === 0) return [];
   const spans: RenderSpan[] = [];
@@ -243,10 +252,10 @@ function rowWriteOperations(
     if (cell.column < nextColumn) continue;
     if (cell.column > toColumn || cell.column > width) break;
     if (cell.column > nextColumn) {
-      pushSpan(spans, span(' '.repeat(cell.column - nextColumn)));
+      pushSpan(spans, span(' '.repeat(cell.column - nextColumn), styleOptions(canvasStyle)));
     }
     pushSpan(spans, span(cell.text, {
-      ...(cell.style === undefined ? {} : { style: cell.style }),
+      ...styleOptions(mergeTerminalStyle(canvasStyle, cell.style)),
       ...(cell.link === undefined ? {} : { link: cell.link }),
       ...(cell.source === undefined ? {} : { source: cell.source })
     }));
@@ -333,9 +342,20 @@ function changedRunOperations(
 ): readonly RenderOperation[] {
   const operations: RenderOperation[] = [];
   if (runNeedsClear(previousCells, nextCells, row, fromColumn, toColumn)) {
-    operations.push({ kind: 'clearRect', bounds: { row, column: fromColumn, width: toColumn - fromColumn + 1, height: 1 } });
+    operations.push({
+      kind: 'clearRect',
+      bounds: { row, column: fromColumn, width: toColumn - fromColumn + 1, height: 1 },
+      ...styleOptions(nextCells.frame.canvasStyle)
+    });
   }
-  operations.push(...rowWriteOperations(nextCells.rows[row - 1]?.renderable ?? [], row, nextWidth, fromColumn, toColumn));
+  operations.push(...rowWriteOperations(
+    nextCells.rows[row - 1]?.renderable ?? [],
+    row,
+    nextWidth,
+    fromColumn,
+    toColumn,
+    nextCells.frame.canvasStyle
+  ));
   return operations;
 }
 
@@ -400,4 +420,25 @@ function cellToSpan(cell: FrameCell): RenderSpan {
     ...(cell.link === undefined ? {} : { link: cell.link }),
     ...(cell.source === undefined ? {} : { source: cell.source })
   });
+}
+
+function canvasClearOperation(frame: Frame): Extract<RenderOperation, { readonly kind: 'clearRect' }> {
+  return {
+    kind: 'clearRect',
+    bounds: { row: 1, column: 1, width: frame.width, height: frame.height },
+    ...styleOptions(frame.canvasStyle)
+  };
+}
+
+function mergeTerminalStyle(
+  inherited: TerminalStyle | undefined,
+  own: TerminalStyle | undefined
+): TerminalStyle | undefined {
+  if (inherited === undefined) return own;
+  if (own === undefined) return inherited;
+  return { ...inherited, ...own };
+}
+
+function styleOptions(style: TerminalStyle | undefined): { readonly style?: TerminalStyle } {
+  return style === undefined ? {} : { style };
 }

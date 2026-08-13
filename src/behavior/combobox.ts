@@ -1,4 +1,4 @@
-import { collectionInteractionReducer, normalizeCollectionInteraction } from '../interaction/collection.ts';
+import { collectionInteractionReducer, normalizeCollectionInteraction, prepareCollectionInteractionIndex } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
 import type {
@@ -36,7 +36,7 @@ export function comboboxReducer(
 ): ComboboxPresentation {
   const interaction = normalizeCollectionInteraction(
     state.interaction,
-    options.enabledIds,
+    prepareCollectionInteractionIndex(options.enabledIds),
     selectionPolicy,
   );
   switch (transition.kind) {
@@ -70,7 +70,7 @@ export function comboboxReducer(
       return {
         ...opened,
         interaction: collectionInteractionReducer(interaction, action, {
-          enabledIds: options.enabledIds,
+          index: prepareCollectionInteractionIndex(options.enabledIds),
           selection: selectionPolicy,
           ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
         }),
@@ -96,7 +96,7 @@ export function commitCombobox(
 ): ComboboxPresentation {
   const interaction = normalizeCollectionInteraction(
     state.interaction,
-    options.enabledIds,
+    prepareCollectionInteractionIndex(options.enabledIds),
     selectionPolicy,
   );
   if (!options.enabledIds.includes(event.id)) {
@@ -106,7 +106,7 @@ export function commitCombobox(
     interaction,
     { kind: 'select', id: event.id },
     {
-      enabledIds: options.enabledIds,
+      index: prepareCollectionInteractionIndex(options.enabledIds),
       selection: selectionPolicy,
       ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
     },
@@ -129,7 +129,7 @@ function withInitialActive(
     kind: 'setActive',
     ...(initialId === undefined ? {} : { id: initialId }),
   }, {
-    enabledIds: options.enabledIds,
+    index: prepareCollectionInteractionIndex(options.enabledIds),
     selection: selectionPolicy,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });

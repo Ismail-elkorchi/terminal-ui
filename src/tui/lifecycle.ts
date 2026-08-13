@@ -1,4 +1,4 @@
-import { toAccessibleSnapshot } from '../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { applySessionProtocolPolicy } from './session-policy.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
@@ -23,7 +23,7 @@ export type {
 } from './session-policy.ts';
 
 export function tuiSnapshot(id: string): AccessibleSnapshot {
-  return toAccessibleSnapshot({
+  return createAccessibleSnapshot({
     source: 'tui',
     root: { id, role: 'application', label: id }
   });

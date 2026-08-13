@@ -14,5 +14,5 @@ export type {
   AccessibleWindow
 } from './types.ts';
 export { accessibleRoles, accessibleSources, isAccessibleRole } from './types.ts';
-export { findAccessibleNode, toAccessibleSnapshot } from './snapshot.ts';
-export { validateAccessibleSnapshot } from './validate.ts';
+export { createAccessibleSnapshot, findAccessibleNode } from './snapshot.ts';
+export { decodeAccessibleSnapshot } from './validate.ts';

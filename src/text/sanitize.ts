@@ -15,9 +15,10 @@ const unsafeTerminalCellSequence = new RegExp([
   ...unsafeTerminalSequenceParts,
   String.raw`[\u0009\u000A\u000D]`
 ].join('|'), 'gu');
-const sanitizeCacheLimit = 8192;
-const sanitizeCacheMaxTextLength = 4096;
+const sanitizeCacheWeightLimit = 65_536;
+const sanitizeCacheMaxTextLength = 256;
 const sanitizeCache = new Map<string, SanitizedTerminalText>();
+let sanitizeCacheWeight = 0;
 
 export function sanitizeTerminalText(
   text: string,
@@ -52,7 +53,11 @@ function sanitize(
   const cacheKey = sanitizeCacheKey(text, replacement, cellText);
   if (cacheKey !== undefined) {
     const cached = sanitizeCache.get(cacheKey);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+      sanitizeCache.delete(cacheKey);
+      sanitizeCache.set(cacheKey, cached);
+      return cached;
+    }
   }
   if (!isUnsafe(text)) {
     const result = Object.freeze({
@@ -62,6 +67,7 @@ function sanitize(
     });
     if (cacheKey !== undefined) {
       sanitizeCache.set(cacheKey, result);
+      sanitizeCacheWeight += cacheKey.length;
       trimSanitizeCache();
     }
     return result;
@@ -83,6 +89,7 @@ function sanitize(
   });
   if (cacheKey !== undefined) {
     sanitizeCache.set(cacheKey, result);
+    sanitizeCacheWeight += cacheKey.length;
     trimSanitizeCache();
   }
   return result;
@@ -125,9 +132,10 @@ function sanitizeCacheKey(text: string, replacement: string, cellText: boolean):
 }
 
 function trimSanitizeCache(): void {
-  while (sanitizeCache.size > sanitizeCacheLimit) {
-    const oldest = sanitizeCache.keys().next().value;
+  while (sanitizeCacheWeight > sanitizeCacheWeightLimit) {
+    const oldest = sanitizeCache.entries().next().value;
     if (oldest === undefined) return;
-    sanitizeCache.delete(oldest);
+    sanitizeCache.delete(oldest[0]);
+    sanitizeCacheWeight -= oldest[0].length;
   }
 }

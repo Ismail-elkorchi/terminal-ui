@@ -1,5 +1,6 @@
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
 import type { CollectionInteractionAction, CollectionInteractionState } from '../interaction/collection.ts';
+import type { CollectionInteractionIndex } from '../interaction/collection.ts';
 import type {
   CollectionProjection,
   CollectionRecord,
@@ -41,6 +42,7 @@ export interface PreparedListboxView<TValue> {
   readonly query: Required<import('./query.ts').CollectionQuery>;
   readonly entries: readonly ListboxViewEntry<TValue>[];
   readonly selectable: readonly ListboxViewEntry<TValue>[];
+  readonly interactionIndex: CollectionInteractionIndex;
   readonly startIndex: number;
   readonly totalCount: number;
 }

@@ -47,7 +47,9 @@ import type {
   CommandInputSubmitEvent,
   CommandInputTransition,
 } from '../../ui-model/command-input.ts';
-import type { SuggestionItem } from '../../ui-model/contracts.ts';
+import type { ListboxViewEntry, PreparedListboxView } from '../../ui-model/list.ts';
+import { prepareListboxView } from '../../ui-model/list-view.ts';
+import { isCollectionProjection } from '../../ui-model/collection.ts';
 import type { CommandInputValidation } from '../../ui-model/documents.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import type {
@@ -72,7 +74,7 @@ interface CommandInputModel {
   readonly cursor: number;
   readonly selection?: TextSelection;
   readonly historyIndex?: number;
-  readonly suggestions: readonly SuggestionItem[];
+  readonly suggestions: PreparedListboxView<string>;
   readonly activeSuggestionId?: string;
   readonly prompt: string;
   readonly placeholder: string;
@@ -140,19 +142,13 @@ const instantiateCommandInput = defineComponent<
   ],
   prepare: (value, context) => prepareCommandInput(value, !context.disabled && !context.inert),
   implementationSlots(input) {
-    if (input.model.display !== 'popup' || input.model.suggestions.length === 0) {
+    if (input.model.display !== 'popup' || input.model.suggestions.entries.length === 0) {
       return { suggestions: undefined };
     }
     const selected = input.model.activeSuggestionId;
     const suggestions = listbox({
       id: `${input.id ?? 'command-input'}:suggestions:list`,
-      items: input.model.suggestions,
-      projectItem: (item: SuggestionItem) => ({
-        id: item.id,
-        label: item.label ?? item.value,
-        ...(item.description === undefined ? {} : { description: item.description }),
-        disabled: item.disabled === true,
-      }),
+      collection: input.model.suggestions.source,
       presentation: {
         ...(selected === undefined ? {} : { activeId: selected }),
         selection: { mode: 'none' },
@@ -186,7 +182,7 @@ const instantiateCommandInput = defineComponent<
   measure(input) {
     const value = input.model.value.length === 0 ? input.model.placeholder : input.model.value;
     const expandedRows = input.model.display === 'expanded'
-      ? Math.min(input.model.suggestions.length, input.model.maxVisibleSuggestions)
+      ? Math.min(input.model.suggestions.entries.length, input.model.maxVisibleSuggestions)
       : 0;
     return {
       minWidth: 1,
@@ -202,7 +198,7 @@ const instantiateCommandInput = defineComponent<
   layout: ({ bounds }) => ({ suggestions: bounds }),
   renderBeforeChildren: paintCommandInput,
   accessibility(input) {
-    const suggestions = input.model.display === 'compact' ? [] : input.model.suggestions;
+    const suggestions = input.model.display === 'compact' ? [] : input.model.suggestions.entries;
     const children = [
       ...(input.model.validation === undefined ? [] : [{
         id: `${input.id}:validation`,
@@ -214,13 +210,27 @@ const instantiateCommandInput = defineComponent<
         id: `${input.id}:suggestions`,
         role: 'listbox' as const,
         label: 'Suggestions',
+        window: {
+          startIndex: input.model.suggestions.startIndex,
+          endIndexExclusive: input.model.suggestions.startIndex + suggestions.length,
+          totalCount: input.model.suggestions.totalCount,
+          omittedBefore: input.model.suggestions.startIndex,
+          omittedAfter: Math.max(
+            0,
+            input.model.suggestions.totalCount - input.model.suggestions.startIndex - suggestions.length,
+          ),
+        },
         children: suggestions.map((suggestion) => ({
           id: `${input.id}:suggestion:${suggestion.id}`,
           role: 'option' as const,
-          label: suggestion.label ?? suggestion.value,
+          label: suggestion.item.label,
           value: suggestion.value,
           current: suggestion.id === input.model.activeSuggestionId,
-          disabled: suggestion.disabled === true,
+          disabled: suggestion.item.disabled,
+          position: {
+            positionInSet: suggestion.sourceIndex + 1,
+            setSize: input.model.suggestions.totalCount,
+          },
         })),
       }]),
     ];
@@ -242,7 +252,7 @@ const instantiateCommandInput = defineComponent<
   },
   keys: ({ model, readOnly }) => {
     const active = activeSuggestion(model);
-    const submitted = active?.disabled === true ? model.value : active?.value ?? model.value;
+    const submitted = active?.item.disabled === true ? model.value : active?.value ?? model.value;
     return {
       triggers: textEditingTriggers(readOnly, false).map((binding) => ({
         trigger: binding.trigger,
@@ -265,14 +275,14 @@ const instantiateCommandInput = defineComponent<
       home: () => commandTransition({ kind: 'edit', operation: { kind: 'moveHome' } }),
       end: () => commandTransition({ kind: 'edit', operation: { kind: 'moveEnd' } }),
       arrowUp: () =>
-        model.suggestions.length === 0
+        model.suggestions.entries.length === 0
           ? readOnly ? ignoreMessage() : commandTransition({ kind: 'historyPrevious' })
           : commandTransition({ kind: 'moveSuggestion', delta: -1 }),
       arrowDown: () =>
-        model.suggestions.length === 0
+        model.suggestions.entries.length === 0
           ? readOnly ? ignoreMessage() : commandTransition({ kind: 'historyNext' })
           : commandTransition({ kind: 'moveSuggestion', delta: 1 }),
-      ...(readOnly || model.suggestions.length === 0
+      ...(readOnly || model.suggestions.entries.length === 0
         ? {}
         : { tab: () => commandTransition({ kind: 'acceptSuggestion' }) }),
       ...(readOnly ? {} : { enter: () => ({ kind: 'submit' as const, event: { kind: 'submit' as const, value: submitted } }) }),
@@ -389,14 +399,15 @@ function prepareCommandPresentation(
   const text = clean(value.value, 'commandInput value') ?? '';
   const cursor = nonNegativeInteger(value.cursor, 'commandInput cursor');
   if (cursor > text.length) throw new RangeError('commandInput cursor is outside the value.');
-  const suggestions = Object.freeze(value.suggestions.map(prepareSuggestion));
-  const ids = suggestions.map((suggestion) => suggestion.id);
-  if (new Set(ids).size !== ids.length) throw new TypeError('commandInput suggestion ids must be unique.');
+  if (!isCollectionProjection(value.suggestions)) {
+    throw new TypeError('commandInput suggestions must be a prepared listbox collection.');
+  }
+  const suggestions = prepareListboxView(value.suggestions);
   const activeSuggestionId = value.activeSuggestionId === undefined
     ? undefined
     : nonEmpty(value.activeSuggestionId, 'commandInput activeSuggestionId');
   if (activeSuggestionId !== undefined &&
-    !suggestions.some((suggestion) => suggestion.id === activeSuggestionId && suggestion.disabled !== true)) {
+    !suggestions.interactionIndex.positions.has(activeSuggestionId)) {
     throw new RangeError('commandInput activeSuggestionId must reference an enabled suggestion.');
   }
   const selection = prepareTextSelection(value.selection, text.length, 'commandInput selection');
@@ -412,24 +423,6 @@ function prepareCommandPresentation(
     suggestions,
     ...(activeSuggestionId === undefined ? {} : { activeSuggestionId }),
   };
-}
-
-function prepareSuggestion(value: SuggestionItem): SuggestionItem {
-  const suggestionValue = clean(value.value, 'commandInput suggestion value');
-  if (suggestionValue === undefined) {
-    throw new TypeError('commandInput suggestion value must be a string.');
-  }
-  return Object.freeze({
-    id: nonEmpty(value.id, 'commandInput suggestion id'),
-    label: clean(value.label, 'commandInput suggestion label') ?? suggestionValue,
-    value: suggestionValue,
-    ...(value.description === undefined
-      ? {}
-      : { description: clean(value.description, 'commandInput suggestion description') ?? '' }),
-    ...(optionalBoolean(value.disabled, 'commandInput suggestion disabled') === true
-      ? { disabled: true }
-      : {}),
-  });
 }
 
 function paintCommandInput(
@@ -554,7 +547,7 @@ function paintCommandInput(
       0,
       Math.min(input.model.maxVisibleSuggestions, input.bounds.height - row - reserveFooter),
     );
-    input.model.suggestions.slice(0, available).forEach((suggestion, index) => {
+    input.model.suggestions.entries.slice(0, available).forEach((suggestion, index) => {
       input.target.write(row + index, 0, commandSuggestionSpans(input, suggestion, index));
     });
     row += available;
@@ -695,7 +688,7 @@ function commandValueSpans(
 
 function commandSuggestionSpans(
   input: ComponentRenderInput<CommandInputModel, CommandInputStylePart>,
-  suggestion: SuggestionItem,
+  suggestion: ListboxViewEntry<string>,
   index: number,
 ): import('../../visual/render.ts').RenderSpan[] {
   const selected = suggestion.id === input.model.activeSuggestionId;
@@ -703,7 +696,7 @@ function commandSuggestionSpans(
     input.model.pointerState,
     `${input.id ?? 'command-input'}:suggestion:${suggestion.id}`,
   );
-  const state = suggestion.disabled === true
+  const state = suggestion.item.disabled
     ? 'disabled' as const
     : pointer ?? (selected ? 'selected' as const : undefined);
   const rowStyle = input.style({
@@ -716,7 +709,7 @@ function commandSuggestionSpans(
       : { fg: { kind: 'theme', token: 'text.default' } },
     ...(state === undefined ? {} : { state }),
   });
-  const label = suggestion.label ?? suggestion.value;
+  const label = suggestion.item.label;
   const matches = input.model.matchQuery.trim().length > 0 &&
     label.toLocaleLowerCase().includes(input.model.matchQuery.trim().toLocaleLowerCase());
   const matchStyle = matches
@@ -755,7 +748,7 @@ function commandSuggestionSpans(
         ...(state === undefined ? {} : { interactionState: state }),
       }),
     }),
-    ...(suggestion.description === undefined ? [] : [span(` · ${suggestion.description}`, {
+    ...(suggestion.item.description === undefined ? [] : [span(` · ${suggestion.item.description}`, {
       ...(rowStyle === undefined ? {} : { style: rowStyle }),
       source: input.source({
         partName: `suggestion.${String(index)}.description`,
@@ -818,11 +811,11 @@ function commandInputHitTargets(
   );
   return [
     textTarget,
-    ...input.model.suggestions.slice(0, available).flatMap((
+    ...input.model.suggestions.entries.slice(0, available).flatMap((
       suggestion,
       index,
     ): readonly HitTarget<CommandInputComponentAction>[] =>
-      suggestion.disabled === true ? [] : [{
+      suggestion.item.disabled ? [] : [{
         id: `${input.id ?? 'command-input'}:suggestion:${suggestion.id}`,
         bounds: { row: row + index, column: 0, width: input.bounds.width, height: 1 },
         cursor: 'pointer',
@@ -833,10 +826,10 @@ function commandInputHitTargets(
   ];
 }
 
-function activeSuggestion(model: CommandInputModel): SuggestionItem | undefined {
-  return model.activeSuggestionId === undefined
-    ? undefined
-    : model.suggestions.find((suggestion) => suggestion.id === model.activeSuggestionId);
+function activeSuggestion(model: CommandInputModel): ListboxViewEntry<string> | undefined {
+  if (model.activeSuggestionId === undefined) return undefined;
+  const position = model.suggestions.interactionIndex.positions.get(model.activeSuggestionId);
+  return position === undefined ? undefined : model.suggestions.selectable[position];
 }
 
 interface PreparedSearchEntry {
@@ -1508,11 +1501,6 @@ function nonEmpty(value: unknown, owner: string): string {
     throw new TypeError(`${owner} must be non-empty.`);
   }
   return result;
-}
-function optionalBoolean(value: unknown, owner: string): boolean | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'boolean') throw new TypeError(`${owner} must be a boolean.`);
-  return value;
 }
 function nonNegativeInteger(value: unknown, owner: string): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {

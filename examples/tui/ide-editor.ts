@@ -13,6 +13,7 @@ import {
   grid,
   helpBar,
   menuBar,
+  prepareCommandSuggestions,
   overlay,
   runTui,
   splitPane,
@@ -166,7 +167,7 @@ function initialState(): EditorState {
 }
 
 function emptyCommand(): CommandInputState {
-  return { input: { text: '', cursor: 0 }, history: [], suggestions: [] };
+  return { input: { text: '', cursor: 0 }, history: [], suggestions: prepareCommandSuggestions([]) };
 }
 
 export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorOperations) {

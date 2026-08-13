@@ -1,4 +1,4 @@
-import { validateAccessibleSnapshot } from '../accessibility/index.ts';
+import { decodeAccessibleSnapshot } from '../accessibility/index.ts';
 import {
   adoptDiagnosticOccurrence,
   adoptTerminalDiagnostic,
@@ -74,6 +74,7 @@ const transcriptFrameFields = new Set([
   'width',
   'height',
   'widthProfile',
+  'canvasStyle',
   'cells',
   'hitTargets',
   'cursor',
@@ -86,6 +87,7 @@ const transcriptFields = new Set([
   'source',
   'startedAt',
   'steps',
+  'omittedSteps',
   'diagnostics',
   'redactions'
 ]);
@@ -129,7 +131,7 @@ const renderDiffFields = new Set([
 ]);
 const textWidthProfileFields = new Set(['emoji', 'ambiguous']);
 const writeOperationFields = new Set(['kind', 'row', 'column', 'spans']);
-const clearRectOperationFields = new Set(['kind', 'bounds']);
+const clearRectOperationFields = new Set(['kind', 'bounds', 'style']);
 const renderSpanFields = new Set(['text', 'style', 'link', 'source']);
 const terminalLinkFields = new Set(['href', 'id']);
 const frameHitTargetFields = new Set([
@@ -331,6 +333,9 @@ function decodeTranscript(
     return 'Interaction transcript startedAt must be a canonical ISO 8601 date-time when present.';
   }
   if (!Array.isArray(transcript['steps'])) return 'Interaction transcript steps must be an array.';
+  if (!Number.isSafeInteger(transcript['omittedSteps']) || Number(transcript['omittedSteps']) < 0) {
+    return 'Interaction transcript omittedSteps must be a non-negative safe integer.';
+  }
   if (!Array.isArray(transcript['diagnostics'])) {
     return 'Interaction transcript diagnostics must be an array.';
   }
@@ -406,6 +411,7 @@ function decodeTranscript(
     source: transcript['source'],
     ...(typeof transcript['startedAt'] === 'string' ? { startedAt: transcript['startedAt'] } : {}),
     steps: Object.freeze(steps),
+    omittedSteps: Number(transcript['omittedSteps']),
     diagnostics: Object.freeze(diagnostics),
     redactions: Object.freeze(redactions)
   });
@@ -666,6 +672,8 @@ function frameIssue(frame: unknown, adoptions: TranscriptAdoptions): string | un
   }
   const widthProfile = textWidthProfileIssue(frame['widthProfile'], adoptions);
   if (widthProfile !== undefined) return `frame widthProfile: ${widthProfile}`;
+  const canvasStyleIssue = terminalStyleIssue(frame['canvasStyle'], 'frame canvas style', adoptions);
+  if (canvasStyleIssue !== undefined) return canvasStyleIssue;
   if (!Array.isArray(frame['cells'])) return 'frame cells must be an array.';
   const cells: FrameCell[] = [];
   for (const [index, cell] of frame['cells'].entries()) {
@@ -699,10 +707,14 @@ function frameIssue(frame: unknown, adoptions: TranscriptAdoptions): string | un
   if (!isNonArrayObject(frame['widthProfile'])) return 'frame widthProfile was not adopted.';
   const profile = adoptions.widthProfiles.get(frame['widthProfile']);
   if (profile === undefined) return 'frame width profile was not adopted.';
+  const canvasStyle = isNonArrayObject(frame['canvasStyle'])
+    ? adoptions.styles.get(frame['canvasStyle'])
+    : undefined;
   adoptions.frames.set(frame, Object.freeze({
     width: Number(frame['width']),
     height: Number(frame['height']),
     widthProfile: profile,
+    ...(canvasStyle === undefined ? {} : { canvasStyle }),
     cells: Object.freeze(cells),
     ...(hitTargets === undefined ? {} : { hitTargets }),
     ...(cursor === undefined ? {} : { cursor }),
@@ -875,10 +887,16 @@ function renderOperationIssue(
       }
       const issue = boundedRectIssue(operation['bounds'], width, height);
       if (issue !== undefined) return issue;
+      const styleIssue = terminalStyleIssue(operation['style'], 'clearRect style', adoptions);
+      if (styleIssue !== undefined) return styleIssue;
       if (isNonArrayObject(operation['bounds'])) {
+        const style = isNonArrayObject(operation['style'])
+          ? adoptions.styles.get(operation['style'])
+          : undefined;
         adoptions.operations.set(operation, Object.freeze({
           kind: 'clearRect',
-          bounds: decodedRect(operation['bounds'])
+          bounds: decodedRect(operation['bounds']),
+          ...(style === undefined ? {} : { style })
         }));
       }
       return undefined;
@@ -1145,7 +1163,7 @@ function pointFits(point: Record<string, unknown>, width: number, height: number
 }
 
 function decodeSnapshot(snapshot: unknown): AccessibleSnapshot | string {
-  const result = validateAccessibleSnapshot(snapshot);
+  const result = decodeAccessibleSnapshot(snapshot);
   if (!result.ok) return result.error.message;
   return result.value;
 }

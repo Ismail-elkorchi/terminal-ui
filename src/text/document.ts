@@ -42,6 +42,8 @@ interface PieceBranch extends PieceMetrics {
 
 interface TextDocumentData {
   readonly root: PieceNode;
+  readonly parent?: TextDocument;
+  readonly change?: Omit<TextDocumentChange, 'document'>;
 }
 
 const EMPTY_LEAF: PieceLeaf = Object.freeze({ kind: 'leaf', text: '', length: 0, lineBreaks: 0, height: 1 });
@@ -112,7 +114,10 @@ export function textDocumentEdit(
   const [, after] = split(remainder, end - start);
   const next = concat(concat(before, treeFromText(sanitized)), after);
   return {
-    document: createDocument(next),
+    document: createDocument(next, document, {
+      replaced: { startOffset: start, endOffsetExclusive: end },
+      insertedLength: sanitized.length,
+    }),
     replaced: { startOffset: start, endOffsetExclusive: end },
     insertedLength: sanitized.length
   };
@@ -206,9 +211,31 @@ export function textDocumentSelectionRange(
   };
 }
 
-function createDocument(root: PieceNode): TextDocument {
+export function textDocumentParentChange(document: TextDocument): {
+  readonly parent: TextDocument;
+  readonly replaced: { readonly startOffset: number; readonly endOffsetExclusive: number };
+  readonly insertedLength: number;
+} | undefined {
+  const data = dataFor(document);
+  return data.parent === undefined || data.change === undefined
+    ? undefined
+    : { parent: data.parent, ...data.change };
+}
+
+function createDocument(
+  root: PieceNode,
+  parent?: TextDocument,
+  change?: Omit<TextDocumentChange, 'document'>,
+): TextDocument {
   const document = Object.freeze({}) as TextDocument;
-  documents.set(document, Object.freeze({ root }));
+  documents.set(document, Object.freeze({
+    root,
+    ...(parent === undefined ? {} : { parent }),
+    ...(change === undefined ? {} : { change: Object.freeze({
+      replaced: Object.freeze({ ...change.replaced }),
+      insertedLength: change.insertedLength,
+    }) }),
+  }));
   return document;
 }
 

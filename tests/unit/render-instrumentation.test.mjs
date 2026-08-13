@@ -38,8 +38,8 @@ test('render instrumentation records each stage only when requested', () => {
     hit_target_candidates: 0,
     composed_cells: 8,
     snapshot_rows: 3,
-    snapshot_cells: 60,
-    emitted_cells: 60
+    snapshot_cells: 8,
+    emitted_cells: 8
   });
 });
 

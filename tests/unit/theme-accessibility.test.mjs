@@ -3,8 +3,8 @@ import test from 'node:test';
 
 import {
   findAccessibleNode,
-  toAccessibleSnapshot,
-  validateAccessibleSnapshot
+  createAccessibleSnapshot,
+  decodeAccessibleSnapshot
 } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagnostics.js';
@@ -84,7 +84,7 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   assert.equal(resolveThemeColor(defaultThemes.minimal, 'app.background'), undefined);
 });
 
-test('the graphical default paints a complete canvas while minimal preserves terminal colors', () => {
+test('the graphical default retains an implicit canvas while minimal preserves terminal colors', () => {
   const graphical = renderElementFrame(richText({
     id: 'graphical',
     segments: [{ kind: 'text', text: 'A' }]
@@ -94,13 +94,12 @@ test('the graphical default paints a complete canvas while minimal preserves ter
     segments: [{ kind: 'text', text: 'A' }]
   }), { columns: 3, rows: 2 }, { theme: defaultThemes.minimal });
 
-  assert.equal(graphical.cells.length, 6);
+  assert.equal(graphical.cells.length, 1);
   assert.equal(minimal.cells.length, 1);
+  assert.equal(graphical.canvasStyle?.bg?.token, 'app.background');
+  assert.equal(graphical.canvasStyle?.fg?.token, 'app.foreground');
+  assert.equal(minimal.canvasStyle, undefined);
   assert.equal(graphical.cells.every((cell) => cell.style?.bg?.token === 'app.background'), true);
-  assert.equal(
-    graphical.cells.filter((cell) => cell.text === ' ').every((cell) => cell.style?.fg?.token === 'app.foreground'),
-    true
-  );
   assert.equal(graphical.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'text.default');
 });
 
@@ -171,7 +170,7 @@ test('rich text components preserve render spans and render their plain text int
 });
 
 test('accessible snapshots validate tree identity, focus paths, and role state', () => {
-  const snapshot = toAccessibleSnapshot({
+  const snapshot = createAccessibleSnapshot({
     source: 'tui',
     root: {
       id: 'app',
@@ -183,11 +182,11 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
     }
   });
 
-  assert.equal(validateAccessibleSnapshot(snapshot).ok, true);
+  assert.equal(decodeAccessibleSnapshot(snapshot).ok, true);
   assert.equal(findAccessibleNode(snapshot, 'field')?.role, 'textbox');
   assert.deepEqual(snapshot.focusPath, ['app', 'field']);
 
-  const duplicate = validateAccessibleSnapshot({
+  const duplicate = decodeAccessibleSnapshot({
     ...snapshot,
     root: {
       id: 'app',
@@ -202,11 +201,11 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
   assert.equal(duplicate.ok, false);
   assert.equal(duplicate.error.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
 
-  const wrongFocus = validateAccessibleSnapshot({ ...snapshot, focusPath: ['app', 'title'] });
+  const wrongFocus = decodeAccessibleSnapshot({ ...snapshot, focusPath: ['app', 'title'] });
   assert.equal(wrongFocus.ok, false);
   assert.equal(wrongFocus.error.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
 
-  const invalidProgress = validateAccessibleSnapshot({
+  const invalidProgress = decodeAccessibleSnapshot({
     ...snapshot,
     root: {
       id: 'status',
@@ -223,7 +222,7 @@ test('accessible snapshots detach and freeze nested semantic state', () => {
   const numericValue = { current: 1, minimum: 0, maximum: 2 };
   const scope = { kind: 'modal', trapsFocus: true };
   const window = { startIndex: 0, endIndexExclusive: 1, totalCount: 2 };
-  const snapshot = toAccessibleSnapshot({
+  const snapshot = createAccessibleSnapshot({
     source: 'renderer',
     root: {
       id: 'progress',
@@ -258,7 +257,7 @@ test('accessible snapshot validation returns the retained owned value', () => {
     diagnostics: []
   };
 
-  const result = validateAccessibleSnapshot(input);
+  const result = decodeAccessibleSnapshot(input);
   assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
   assert.notEqual(result.value, input);
   assert.notEqual(result.value.root, input.root);
@@ -271,7 +270,7 @@ test('accessible snapshot validation returns the retained owned value', () => {
   assert.equal(result.value.root.children[0].numericValue.current, 1);
   assert.equal(Object.isFrozen(result.value), true);
   assert.equal(Object.isFrozen(result.value.root.children), true);
-  assert.strictEqual(validateAccessibleSnapshot(result.value).value, result.value);
+  assert.strictEqual(decodeAccessibleSnapshot(result.value).value, result.value);
 });
 
 test('accessible snapshots enforce role fields, direct-child roles, numeric values, and index bases', () => {
@@ -393,18 +392,18 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
   ];
 
   for (const root of validRoots) {
-    assert.equal(validateAccessibleSnapshot({
+    assert.equal(decodeAccessibleSnapshot({
       source: 'renderer',
       root,
       focusPath: [],
       diagnostics: []
     }).ok, true, root.id);
   }
-  assert.match(renderAccessibleSnapshot(toAccessibleSnapshot({
+  assert.match(renderAccessibleSnapshot(createAccessibleSnapshot({
     source: 'renderer',
     root: validRoots[3]
   })), /position:1\/3/u);
-  assert.match(renderAccessibleSnapshot(toAccessibleSnapshot({
+  assert.match(renderAccessibleSnapshot(createAccessibleSnapshot({
     source: 'renderer',
     root: validRoots[4]
   })), /\[row:1\/1\]/u);
@@ -469,7 +468,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
   ];
 
   for (const root of invalidRoots) {
-    const result = validateAccessibleSnapshot({
+    const result = decodeAccessibleSnapshot({
       source: 'renderer',
       root,
       focusPath: [],
@@ -480,13 +479,13 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
 });
 
 test('accessible snapshot validation returns diagnostics for malformed public payloads', () => {
-  const underShaped = validateAccessibleSnapshot({
+  const underShaped = decodeAccessibleSnapshot({
     source: 'tui',
     root: { role: 'text' },
     focusPath: [],
     diagnostics: []
   });
-  const invalidDiagnostic = validateAccessibleSnapshot({
+  const invalidDiagnostic = decodeAccessibleSnapshot({
     source: 'tui',
     root: { id: 'root', role: 'application' },
     focusPath: [],
@@ -499,7 +498,7 @@ test('accessible snapshot validation returns diagnostics for malformed public pa
       }
     ]
   });
-  const invalidState = validateAccessibleSnapshot({
+  const invalidState = decodeAccessibleSnapshot({
     source: 'tui',
     root: { id: 'root', role: 'application', selected: 'yes' },
     focusPath: [],
@@ -522,11 +521,11 @@ test('accessible snapshots accept diagnostic content, not occurrence metadata', 
     focusPath: []
   };
 
-  assert.equal(validateAccessibleSnapshot({
+  assert.equal(decodeAccessibleSnapshot({
     ...snapshot,
     diagnostics: [occurrence.diagnostic]
   }).ok, true);
-  const invalid = validateAccessibleSnapshot({
+  const invalid = decodeAccessibleSnapshot({
     ...snapshot,
     diagnostics: [occurrence]
   });
@@ -560,7 +559,7 @@ test('accessible snapshot validation rejects unknown fields throughout its objec
   ];
 
   for (const root of roots) {
-    const result = validateAccessibleSnapshot({
+    const result = decodeAccessibleSnapshot({
       source: 'renderer',
       root,
       focusPath: [],
@@ -572,7 +571,7 @@ test('accessible snapshot validation rejects unknown fields throughout its objec
 });
 
 test('accessible snapshots sanitize exported text and validation rejects raw control sequences', () => {
-  const snapshot = toAccessibleSnapshot({
+  const snapshot = createAccessibleSnapshot({
     source: 'prompt',
     title: 'Title\u001B[31m',
     root: {
@@ -591,9 +590,9 @@ test('accessible snapshots sanitize exported text and validation rejects raw con
   assert.equal(snapshot.root.value, 'Ada');
   assert.equal(snapshot.root.description, 'Prompt');
   assert.equal(snapshot.root.children[0]?.label, 'Child');
-  assert.equal(validateAccessibleSnapshot(snapshot).ok, true);
+  assert.equal(decodeAccessibleSnapshot(snapshot).ok, true);
 
-  const raw = validateAccessibleSnapshot({
+  const raw = decodeAccessibleSnapshot({
     source: 'prompt',
     focusPath: [],
     diagnostics: [],

@@ -6,9 +6,10 @@ const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme
 const defaultWordLocale = 'en';
 const wordSegmenterCacheLimit = 32;
 const wordSegmenters = new Map<string, Intl.Segmenter>();
-const segmentCacheLimit = 4096;
-const segmentCacheMaxTextLength = 4096;
+const segmentCacheWeightLimit = 65_536;
+const segmentCacheMaxTextLength = 256;
 const segmentCache = new Map<string, readonly GraphemeSegment[]>();
+let segmentCacheWeight = 0;
 
 export function segmentGraphemes(text: string): readonly GraphemeSegment[] {
   return segmentGraphemesForMeasurement(text, {});
@@ -21,7 +22,11 @@ export function segmentGraphemesForMeasurement(
   const cacheKey = segmentCacheKey(text, options);
   if (cacheKey !== undefined) {
     const cached = segmentCache.get(cacheKey);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+      segmentCache.delete(cacheKey);
+      segmentCache.set(cacheKey, cached);
+      return cached;
+    }
   }
   const segments = Object.freeze([...graphemeSegmenter.segment(text)].map((segment) => Object.freeze({
     text: segment.segment,
@@ -31,6 +36,7 @@ export function segmentGraphemesForMeasurement(
   })));
   if (cacheKey !== undefined) {
     segmentCache.set(cacheKey, segments);
+    segmentCacheWeight += cacheKey.length;
     trimSegmentCache();
   }
   return segments;
@@ -114,9 +120,10 @@ function inRanges(value: number, ranges: readonly (readonly [number, number])[])
 }
 
 function trimSegmentCache(): void {
-  while (segmentCache.size > segmentCacheLimit) {
-    const oldest = segmentCache.keys().next().value;
+  while (segmentCacheWeight > segmentCacheWeightLimit) {
+    const oldest = segmentCache.entries().next().value;
     if (oldest === undefined) return;
-    segmentCache.delete(oldest);
+    segmentCache.delete(oldest[0]);
+    segmentCacheWeight -= oldest[0].length;
   }
 }

@@ -7,12 +7,19 @@ export interface FrameRowIndex {
 }
 
 export interface FrameIndex {
+  readonly frame: Frame;
   readonly rows: readonly (FrameRowIndex | undefined)[];
 }
 
 interface FrameWithSnapshotMetadata extends Frame {
   readonly metadata?: {
     readonly rowFingerprints?: readonly { readonly row: number; readonly fingerprint: string }[];
+    readonly rowIndexes?: readonly {
+      readonly row: number;
+      readonly cells: ReadonlyMap<number, FrameCell>;
+      readonly renderable: readonly FrameCell[];
+      readonly fingerprint: string;
+    }[];
   };
 }
 
@@ -27,6 +34,14 @@ export function frameIndex(frame: Frame): FrameIndex {
 }
 
 function createFrameIndex(frame: Frame): FrameIndex {
+  const retained = (frame as FrameWithSnapshotMetadata).metadata?.rowIndexes;
+  if (retained !== undefined) {
+    const rows: (FrameRowIndex | undefined)[] = Array.from({ length: frame.height });
+    for (const row of retained) {
+      if (row.row >= 1 && row.row <= frame.height) rows[row.row - 1] = row;
+    }
+    return Object.freeze({ frame, rows: Object.freeze(rows) });
+  }
   const fingerprints = fingerprintRows(frame);
   const mutableRows: (MutableFrameRowIndex | undefined)[] = Array.from({ length: frame.height });
   for (const cell of frame.cells) {
@@ -38,6 +53,7 @@ function createFrameIndex(frame: Frame): FrameIndex {
     if (cell.continuation !== true) row.renderable.push(cell);
   }
   return Object.freeze({
+    frame,
     rows: Object.freeze(mutableRows.map((row, index): FrameRowIndex | undefined => {
       const fingerprint = fingerprints?.[index];
       if (row === undefined) {

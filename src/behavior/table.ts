@@ -284,28 +284,58 @@ function commitGridSelection<TRow>(
   }
   const active = state.interaction.activeCell;
   if (active === undefined) return state;
-  const key = cellKey(active);
-  const selectedKeys = selectedIds(
-    state.interaction.selectedCells.map(cellKey),
-    key,
-    state.interaction.selectionAnchor === undefined ? undefined : cellKey(state.interaction.selectionAnchor),
-    gridCellKeys(options.collection, options.columnIds),
-    options.selection,
+  const selectedCells = selectedGridCells(
+    state.interaction.selectedCells,
+    active,
+    state.interaction.selectionAnchor,
+    options,
     extend,
     toggle,
   );
-  const cells = new Map(gridCells(options.collection, options.columnIds).map((cell) => [cellKey(cell), cell]));
   return {
     ...state,
     interaction: {
       ...state.interaction,
-      selectedCells: selectedKeys.flatMap((selectedKey) => {
-        const cell = cells.get(selectedKey);
-        return cell === undefined ? [] : [cell];
-      }),
+      selectedCells,
       selectionAnchor: active,
     },
   };
+}
+
+function selectedGridCells<TRow>(
+  current: readonly DataGridCell[],
+  active: DataGridCell,
+  anchor: DataGridCell | undefined,
+  options: DataGridReducerOptions<TRow>,
+  extend: boolean,
+  toggle: boolean,
+): readonly DataGridCell[] {
+  if (options.selection.mode !== 'multiple') return options.selection.mode === 'single' ? [active] : [];
+  if (extend && options.selection.range && anchor !== undefined) {
+    const rowIds = collectionIds(options.collection);
+    const anchorRow = rowIds.indexOf(anchor.rowId);
+    const activeRow = rowIds.indexOf(active.rowId);
+    const anchorColumn = options.columnIds.indexOf(anchor.columnId);
+    const activeColumn = options.columnIds.indexOf(active.columnId);
+    if (anchorRow >= 0 && activeRow >= 0 && anchorColumn >= 0 && activeColumn >= 0) {
+      const selected: DataGridCell[] = [];
+      for (const rowId of rowIds.slice(Math.min(anchorRow, activeRow), Math.max(anchorRow, activeRow) + 1)) {
+        for (const columnId of options.columnIds.slice(
+          Math.min(anchorColumn, activeColumn),
+          Math.max(anchorColumn, activeColumn) + 1,
+        )) {
+          selected.push({ rowId, columnId });
+        }
+      }
+      return Object.freeze(selected);
+    }
+  }
+  if (!toggle) return Object.freeze([active]);
+  const key = cellKey(active);
+  const selected = new Map(current.map((cell) => [cellKey(cell), cell]));
+  if (selected.has(key)) selected.delete(key);
+  else selected.set(key, active);
+  return Object.freeze([...selected.values()]);
 }
 
 function selectedIds(
@@ -357,14 +387,6 @@ function validCell(cell: DataGridCell, rowIds: readonly string[], columnIds: rea
 
 function cellKey(cell: DataGridCell): string {
   return `${cell.rowId}\u0000${cell.columnId}`;
-}
-
-function gridCells<TRow>(collection: TableCollection<TRow>, columnIds: readonly string[]): readonly DataGridCell[] {
-  return collectionIds(collection).flatMap((rowId) => columnIds.map((columnId) => ({ rowId, columnId })));
-}
-
-function gridCellKeys<TRow>(collection: TableCollection<TRow>, columnIds: readonly string[]): readonly string[] {
-  return gridCells(collection, columnIds).map(cellKey);
 }
 
 function nextSort(current: TableSortState | undefined, columnId: string): TableSortState {

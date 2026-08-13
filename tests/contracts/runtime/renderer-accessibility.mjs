@@ -1,10 +1,10 @@
-import { toAccessibleSnapshot, validateAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
+import { createAccessibleSnapshot, decodeAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 
 const frame = renderElementFrame(text({ content: 'Portable renderer' }), { columns: 24, rows: 2 });
 const plain = renderFramePlain(frame);
-const snapshot = toAccessibleSnapshot({
+const snapshot = createAccessibleSnapshot({
   source: 'renderer',
   root: {
     id: 'root',
@@ -18,7 +18,7 @@ const snapshot = toAccessibleSnapshot({
     }]
   }
 });
-const validation = validateAccessibleSnapshot(snapshot);
+const validation = decodeAccessibleSnapshot(snapshot);
 
 invariant(plain.includes('Portable renderer'), 'plain rendering failed');
 invariant(frame.accessibility.source === 'renderer', 'direct renderer snapshot source was not renderer');

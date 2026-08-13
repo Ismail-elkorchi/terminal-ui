@@ -15,7 +15,7 @@ import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type { Frame } from '../renderer/index.ts';
 import { isCanonicalDateTime } from '../foundation/validation.ts';
 import { snapshotInputEvent } from '../input/index.ts';
-import { validateAccessibleSnapshot } from '../accessibility/index.ts';
+import { decodeAccessibleSnapshot } from '../accessibility/index.ts';
 
 export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}): TranscriptRecorder {
   const { id: suppliedId, source = 'test', startedAt = new Date(0).toISOString() } = options;
@@ -24,16 +24,22 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
   }
   const id = suppliedId ?? 'transcript';
   const steps: InteractionTranscriptStep[] = [];
+  const retainedStepLimit = retentionLimit(options.retention);
+  if (options.onStep !== undefined && typeof options.onStep !== 'function') {
+    throw new TypeError('Transcript onStep must be a function.');
+  }
+  let omittedSteps = 0;
+  let oldestStepIndex = 0;
   const diagnostics: DiagnosticOccurrence[] = [];
   const diagnosticIds = new Set<string>();
   const reporter = createDiagnosticOccurrenceReporter(`${id}:transcript`);
   const redactions: TranscriptRedaction[] = [];
   return {
     record(step) {
-      steps.push(recordedTranscriptStep(step));
+      appendStep(recordedTranscriptStep(step));
     },
     recordNormalizedMessage(source, message) {
-      steps.push(Object.freeze({
+      appendStep(Object.freeze({
         kind: 'message',
         source,
         fidelity: 'normalized',
@@ -57,7 +63,8 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
         id,
         source,
         startedAt,
-        steps: Object.freeze([...steps]),
+        steps: orderedSteps(),
+        omittedSteps,
         diagnostics: Object.freeze([...diagnostics]),
         redactions: Object.freeze([...redactions])
       });
@@ -69,8 +76,41 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
     if (diagnosticIds.has(item.id)) return;
     diagnosticIds.add(item.id);
     diagnostics.push(item);
-    steps.push(Object.freeze({ kind: 'diagnostic', occurrence: item }));
+    appendStep(Object.freeze({ kind: 'diagnostic', occurrence: item }));
   }
+
+  function appendStep(step: InteractionTranscriptStep): void {
+    options.onStep?.(step);
+    if (retainedStepLimit === 0) {
+      omittedSteps += 1;
+      return;
+    }
+    if (!Number.isFinite(retainedStepLimit) || steps.length < retainedStepLimit) {
+      steps.push(step);
+      return;
+    }
+    steps[oldestStepIndex] = step;
+    oldestStepIndex = (oldestStepIndex + 1) % retainedStepLimit;
+    omittedSteps += 1;
+  }
+
+  function orderedSteps(): readonly InteractionTranscriptStep[] {
+    if (oldestStepIndex === 0 || steps.length < retainedStepLimit) {
+      return Object.freeze([...steps]);
+    }
+    return Object.freeze([
+      ...steps.slice(oldestStepIndex),
+      ...steps.slice(0, oldestStepIndex),
+    ]);
+  }
+}
+
+function retentionLimit(retention: TranscriptRecorderOptions['retention']): number {
+  if (retention === undefined || retention.kind === 'all') return Number.POSITIVE_INFINITY;
+  if (!Number.isSafeInteger(retention.limit) || retention.limit < 0) {
+    throw new RangeError('Transcript retained step limit must be a non-negative safe integer.');
+  }
+  return retention.limit;
 }
 
 function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTranscriptStep {
@@ -97,7 +137,7 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
         message: step.message
       } as const, 'Transcript message step');
     case 'snapshot': {
-      const snapshot = validateAccessibleSnapshot(step.snapshot);
+      const snapshot = decodeAccessibleSnapshot(step.snapshot);
       if (!snapshot.ok) throw new TypeError(snapshot.error.message);
       return Object.freeze({ kind: 'snapshot', snapshot: snapshot.value });
     }
@@ -113,6 +153,7 @@ function transcriptFrame(frame: Frame): Frame {
     width: frame.width,
     height: frame.height,
     widthProfile: frame.widthProfile,
+    ...(frame.canvasStyle === undefined ? {} : { canvasStyle: frame.canvasStyle }),
     cells: frame.cells,
     ...(frame.hitTargets === undefined ? {} : { hitTargets: frame.hitTargets }),
     ...(frame.cursor === undefined ? {} : { cursor: frame.cursor }),

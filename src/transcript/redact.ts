@@ -85,6 +85,7 @@ export function redactTranscript(
       : {}),
     steps: transcript.steps.map((step, index) =>
       redactStep(step, `$.steps[${String(index)}]`, context)),
+    omittedSteps: transcript.omittedSteps,
     diagnostics: transcript.diagnostics.map((occurrence, index) =>
       redactOccurrence(occurrence, `$.diagnostics[${String(index)}]`, context)),
     redactions

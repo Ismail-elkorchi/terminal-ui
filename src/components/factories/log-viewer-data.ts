@@ -59,8 +59,9 @@ const expandedRecords = new WeakMap<LogHistoryRecord, LogViewerRecordModel>();
 const foldedRecords = new WeakMap<LogHistoryRecord, LogViewerRecordModel>();
 const layoutCache = new WeakMap<LogHistorySegment, Map<string, CachedSegmentLayout>>();
 const searchCache = new WeakMap<LogHistorySegment, Map<string, CachedSegmentSearch>>();
+const historySearchCache = new WeakMap<LogHistory, Map<string, LogViewerSearchResults>>();
 const maxLayoutsPerSegment = 8;
-const maxSearchesPerSegment = 16;
+const maxSearchesPerSegment = 8;
 
 export function logViewerRecordModel(
   record: LogHistoryRecord,
@@ -192,19 +193,42 @@ export function searchLogViewerHistory(
 ): LogViewerSearchResults {
   const searchQuery = query.trim();
   if (searchQuery.length === 0) return { matchingEntries: 0, matches: [] };
+  const foldKey = [...foldedIds].toSorted().join('\u0000');
+  const key = `${searchQuery}:${foldKey}`;
+  const cache = cacheFor(historySearchCache, history);
+  const cached = touch(cache, key);
+  if (cached !== undefined) return cached;
   const preparedQuery = prepareLogSearchQuery(searchQuery);
   const matches: LogSearchMatch[] = [];
   let matchingEntries = 0;
   for (const segment of history.segments) {
-    const foldKey = segment.records
+    const segmentFoldKey = segment.records
       .filter((record) => foldedIds.has(record.entry.id))
       .map((record) => record.entry.id)
       .join('\u0000');
-    const result = segmentSearch(segment, `${searchQuery}:${foldKey}`, preparedQuery, foldedIds);
+    const result = segmentSearch(segment, `${searchQuery}:${segmentFoldKey}`, preparedQuery, foldedIds);
     matchingEntries += result.matchingEntries;
     matches.push(...result.matches);
   }
-  return Object.freeze({ matchingEntries, matches: Object.freeze(matches) });
+  const result = Object.freeze({ matchingEntries, matches: Object.freeze(matches) });
+  retainWeightedSearch(cache, key, result);
+  return result;
+}
+
+function retainWeightedSearch(
+  cache: Map<string, LogViewerSearchResults>,
+  key: string,
+  value: LogViewerSearchResults,
+): void {
+  cache.delete(key);
+  cache.set(key, value);
+  let retainedMatches = [...cache.values()].reduce((total, result) => total + result.matches.length, 0);
+  while (cache.size > 1 && (cache.size > 4 || retainedMatches > 8_192)) {
+    const oldest = cache.entries().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest[0]);
+    retainedMatches -= oldest[1].matches.length;
+  }
 }
 
 function segmentLayout(

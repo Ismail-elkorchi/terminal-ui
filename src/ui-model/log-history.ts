@@ -141,8 +141,8 @@ export function logHistoryRecordById(
   id: string
 ): LogHistoryRecord | undefined {
   for (const segment of history.segments) {
-    if (segmentIds.get(segment)?.has(id) !== true) continue;
-    return segment.records.find((record) => record.entry.id === id);
+    const record = segmentRecordsById.get(segment)?.get(id);
+    if (record !== undefined) return record;
   }
   return undefined;
 }
@@ -159,6 +159,7 @@ export function assertLogHistory(value: unknown): asserts value is LogHistory {
 
 const histories = new WeakSet<object>();
 const segmentIds = new WeakMap<LogHistorySegment, ReadonlySet<string>>();
+const segmentRecordsById = new WeakMap<LogHistorySegment, ReadonlyMap<string, LogHistoryRecord>>();
 const searchIndexes = new WeakMap<LogSearchField, PreparedTextSearchIndex>();
 
 const emptyLogHistory: LogHistory = registerHistory(Object.freeze({
@@ -273,6 +274,7 @@ function logHistorySegment(records: readonly LogHistoryRecord[]): LogHistorySegm
     records
   });
   segmentIds.set(segment, new Set(records.map((record) => record.entry.id)));
+  segmentRecordsById.set(segment, new Map(records.map((record) => [record.entry.id, record])));
   return segment;
 }
 

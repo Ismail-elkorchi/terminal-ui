@@ -11,6 +11,7 @@ import {
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { button, list, listbox, listView, text } from '../../dist/components/index.js';
+import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
 
 const mousePress = (row, column) => ({
   kind: 'mouse',
@@ -60,11 +61,15 @@ test('passive list preserves arbitrary child semantics without interaction', () 
 test('listView measures arbitrary rows and derives one active-item scroll window', () => {
   const frame = renderElementFrame(listView({
     id: 'activity',
-    items: [
-      { id: 'first', label: 'First', content: text({ content: 'First A\nFirst B' }) },
-      { id: 'second', label: 'Second', content: text({ content: 'Second' }) },
-      { id: 'third', label: 'Third', content: text({ content: 'Third A\nThird B' }) }
-    ],
+    projection: {
+      records: [
+        { id: 'first', itemIndex: 0, startRow: 0, rowCount: 2, label: 'First', content: text({ content: 'First A\nFirst B' }) },
+        { id: 'second', itemIndex: 1, startRow: 2, rowCount: 1, label: 'Second', content: text({ content: 'Second' }) },
+        { id: 'third', itemIndex: 2, startRow: 3, rowCount: 2, label: 'Third', content: text({ content: 'Third A\nThird B' }) }
+      ],
+      totalCount: 3,
+      totalRows: 5
+    },
     presentation: {
       activeId: 'third',
       selection: { mode: 'single', selectedId: 'first' },
@@ -98,10 +103,14 @@ test('listView owns retained multiple-selection state at construction', () => {
   const selectedIds = ['first'];
   const element = listView({
     id: 'owned-list-view-selection',
-    items: [
-      { id: 'first', content: text({ content: 'First' }) },
-      { id: 'second', content: text({ content: 'Second' }) }
-    ],
+    projection: {
+      records: [
+        { id: 'first', itemIndex: 0, startRow: 0, rowCount: 1, content: text({ content: 'First' }) },
+        { id: 'second', itemIndex: 1, startRow: 1, rowCount: 1, content: text({ content: 'Second' }) }
+      ],
+      totalCount: 2,
+      totalRows: 2
+    },
     presentation: {
       selection: { mode: 'multiple', selectedIds, anchorId: 'first' }
     },
@@ -119,21 +128,25 @@ test('listView reducer separates active position, committed selection, and child
     activeId: 'first',
     selection: { mode: 'single', selectedId: 'first' }
   };
-  const items = [{ id: 'first' }, { id: 'second' }];
+  const index = prepareCollectionInteractionIndex(['first', 'second']);
   const moved = listViewReducer(state, { kind: 'moveActive', delta: 1 }, {
-    items,
+    index,
     selection: { mode: 'single', commitment: 'manual' }
   });
   const committed = listViewReducer(moved, { kind: 'commitActive' }, {
-    items,
+    index,
     selection: { mode: 'single', commitment: 'manual' }
   });
   const actionList = listView({
     id: 'actions',
-    items: [{
-      id: 'row',
-      content: button({ id: 'row-action', label: 'Run', onAction: () => ({ kind: 'run' }) })
-    }],
+    projection: {
+      records: [{
+        id: 'row', itemIndex: 0, startRow: 0, rowCount: 1,
+        content: button({ id: 'row-action', label: 'Run', onAction: () => ({ kind: 'run' }) })
+      }],
+      totalCount: 1,
+      totalRows: 1
+    },
     presentation: { activeId: 'row', selection: { mode: 'none' } },
     onTransition: (transition) => transition
   });

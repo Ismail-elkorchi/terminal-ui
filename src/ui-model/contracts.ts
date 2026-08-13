@@ -29,14 +29,6 @@ export interface ChoiceItem<TValue = string> extends ItemBase {
   readonly value: TValue;
 }
 
-export interface SuggestionItem<TValue = string> {
-  readonly id: string;
-  readonly value: TValue;
-  readonly label?: string;
-  readonly description?: string;
-  readonly disabled?: boolean;
-}
-
 export interface SearchEntry<TValue = string> extends ChoiceItem<TValue> {
   readonly group?: string;
   readonly keywords?: readonly string[];

@@ -6,7 +6,6 @@ import {
 } from '../foundation/validation.ts';
 import { err, ok } from '../result.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
-import { collectFocusPath, nodePath } from './snapshot.ts';
 import {
   accessibleRoles,
   accessibleRoleSupportsReadOnly,
@@ -24,11 +23,18 @@ import type {
   AccessibleWindow
 } from './types.ts';
 
-const validatedAccessibleSnapshots = new WeakMap<object, AccessibleSnapshot>();
+const decodedAccessibleSnapshots = new WeakMap<object, AccessibleSnapshot>();
 
-export function validateAccessibleSnapshot(snapshot: unknown): Result<AccessibleSnapshot> {
+export function decodeAccessibleSnapshot(snapshot: unknown): Result<AccessibleSnapshot> {
+  return adoptAccessibleSnapshot(snapshot, false);
+}
+
+export function adoptAccessibleSnapshot(
+  snapshot: unknown,
+  sanitizeText: boolean
+): Result<AccessibleSnapshot> {
   if (typeof snapshot === 'object' && snapshot !== null) {
-    const existing = validatedAccessibleSnapshots.get(snapshot);
+    const existing = decodedAccessibleSnapshots.get(snapshot);
     if (existing !== undefined) return ok(existing);
   }
   if (!isNonArrayObject(snapshot)) return err(accessibilityFailure('Accessible snapshot must be an object.'));
@@ -41,21 +47,34 @@ export function validateAccessibleSnapshot(snapshot: unknown): Result<Accessible
     return err(accessibilityFailure(`Unsupported accessible snapshot source: ${String(candidate['source'])}.`));
   }
   const source = candidate['source'];
-  const title = candidate['title'];
+  let title = candidate['title'];
   if (title !== undefined && typeof title !== 'string') {
     return err(accessibilityFailure('Accessible snapshot title must be a string.'));
   }
+  if (typeof title === 'string') {
+    const sanitizedTitle = sanitizeTerminalText(title);
+    if (!sanitizeText && sanitizedTitle.changed) {
+      return err(accessibilityFailure('Accessible snapshot title must not contain terminal control sequences.'));
+    }
+    title = sanitizedTitle.text;
+  }
   const suppliedFocusPath = candidate['focusPath'];
-  if (!Array.isArray(suppliedFocusPath) || !suppliedFocusPath.every((item) => typeof item === 'string')) {
+  if (!sanitizeText && suppliedFocusPath === undefined) {
     return err(accessibilityFailure('Accessible snapshot focusPath must be a string array.'));
   }
-  const focusPath = Object.freeze([...suppliedFocusPath]);
+  if (suppliedFocusPath !== undefined
+    && (!Array.isArray(suppliedFocusPath) || !suppliedFocusPath.every((item) => typeof item === 'string'))) {
+    return err(accessibilityFailure('Accessible snapshot focusPath must be a string array.'));
+  }
   const suppliedDiagnostics = candidate['diagnostics'];
-  if (!Array.isArray(suppliedDiagnostics)) {
+  if (!sanitizeText && suppliedDiagnostics === undefined) {
+    return err(accessibilityFailure('Accessible snapshot diagnostics must be an array.'));
+  }
+  if (suppliedDiagnostics !== undefined && !Array.isArray(suppliedDiagnostics)) {
     return err(accessibilityFailure('Accessible snapshot diagnostics must be an array.'));
   }
   const diagnostics = [];
-  for (const [index, item] of suppliedDiagnostics.entries()) {
+  for (const [index, item] of (suppliedDiagnostics ?? []).entries()) {
     try {
       diagnostics.push(adoptTerminalDiagnostic(item));
     } catch (cause) {
@@ -64,33 +83,52 @@ export function validateAccessibleSnapshot(snapshot: unknown): Result<Accessible
     }
   }
   const nodes = new WeakMap<object, AccessibleNode>();
+  const nodesById = new Map<string, AccessibleNode>();
+  let actualFocusPath: readonly string[] = [];
   const rootValue = candidate['root'];
-  const nodeIssue = firstNodeIssue(rootValue, new Set(), nodes);
+  const nodeIssue = firstNodeIssue(
+    rootValue,
+    new Set(),
+    nodes,
+    nodesById,
+    sanitizeText,
+    [],
+    (path) => { if (actualFocusPath.length === 0) actualFocusPath = path; },
+  );
   if (nodeIssue !== undefined) return err(nodeIssue);
   if (!isNonArrayObject(rootValue)) {
     return err(accessibilityFailure('Accessible node must be an object.'));
   }
   const root = nodes.get(rootValue);
   if (root === undefined) return err(accessibilityFailure('Accessible snapshot root was not adopted.'));
+  const ownedTitle = typeof title === 'string' ? title : undefined;
+  const focusPath = Object.freeze([
+    ...(suppliedFocusPath ?? actualFocusPath)
+  ]);
   const owned = Object.freeze({
     source,
-    ...(title === undefined ? {} : { title }),
+    ...(ownedTitle === undefined ? {} : { title: ownedTitle }),
     root,
     focusPath,
     diagnostics: Object.freeze(diagnostics)
   });
-  const focusIssue = firstFocusIssue(owned);
+  const focusIssue = firstFocusIssue(owned, actualFocusPath);
   if (focusIssue !== undefined) return err(focusIssue);
-  const relationshipIssue = firstRelationshipIssue(root);
+  const relationshipIssue = firstRelationshipIssue(nodesById);
   if (relationshipIssue !== undefined) return err(relationshipIssue);
-  validatedAccessibleSnapshots.set(owned, owned);
+  decodedAccessibleSnapshots.set(snapshot, owned);
+  decodedAccessibleSnapshots.set(owned, owned);
   return ok(owned);
 }
 
 function firstNodeIssue(
   node: unknown,
   ids: Set<string>,
-  adopted: WeakMap<object, AccessibleNode>
+  adopted: WeakMap<object, AccessibleNode>,
+  nodesById: Map<string, AccessibleNode>,
+  sanitizeText: boolean,
+  path: readonly string[],
+  recordFocusPath: (path: readonly string[]) => void,
 ): TerminalDiagnostic | undefined {
   if (!isNonArrayObject(node)) return accessibilityFailure('Accessible node must be an object.');
   const original = node;
@@ -109,12 +147,14 @@ function firstNodeIssue(
   }
   if (!isNonEmptyString(candidate['id'])) return accessibilityFailure('Accessible node id must not be empty.');
   const id = candidate['id'];
+  const currentPath = [...path, id];
   if (ids.has(id)) return accessibilityFailure(`Accessible node id must be unique: ${id}.`);
   ids.add(id);
   if (!isAccessibleRole(candidate['role'])) {
     return accessibilityFailure(`Unsupported accessible node role: ${String(candidate['role'])}.`, id);
   }
   const role = candidate['role'];
+  if (sanitizeText) sanitizeNodeText(candidate);
   const labelIssue = optionalStringIssue(candidate, 'label', id);
   if (labelIssue !== undefined) return labelIssue;
   const descriptionIssue = optionalStringIssue(candidate, 'description', id);
@@ -191,9 +231,18 @@ function firstNodeIssue(
   if (candidate['children'] !== undefined && !Array.isArray(candidate['children'])) {
     return accessibilityFailure('Accessible node children must be an array.', id);
   }
+  if (candidate['focused'] === true) recordFocusPath(Object.freeze(currentPath));
   const children: AccessibleNode[] = [];
   for (const child of candidate['children'] ?? []) {
-    const childIssue = firstNodeIssue(child, ids, adopted);
+    const childIssue = firstNodeIssue(
+      child,
+      ids,
+      adopted,
+      nodesById,
+      sanitizeText,
+      currentPath,
+      recordFocusPath,
+    );
     if (childIssue !== undefined) return childIssue;
     if (isNonArrayObject(child)) {
       const ownedChild = adopted.get(child);
@@ -202,8 +251,32 @@ function firstNodeIssue(
   }
   const relationshipIssue = childRoleIssue(candidate, id);
   if (relationshipIssue !== undefined) return relationshipIssue;
-  adopted.set(original, ownedAccessibleNode(candidate, id, role, children));
+  const owned = ownedAccessibleNode(candidate, id, role, children);
+  adopted.set(original, owned);
+  nodesById.set(id, owned);
   return undefined;
+}
+
+function sanitizeNodeText(node: Record<string, unknown>): void {
+  for (const field of [
+    'label',
+    'description',
+    'controls',
+    'labelledBy',
+    'activeDescendant',
+    'errorMessage'
+  ] as const) {
+    if (typeof node[field] === 'string') node[field] = sanitizeTerminalText(node[field]).text;
+  }
+  if (typeof node['value'] === 'string') node['value'] = sanitizeTerminalText(node['value']).text;
+  const position = node['position'];
+  if (!isNonArrayObject(position)) return;
+  const mutablePosition = position as Record<string, unknown>;
+  for (const field of ['columnLabel', 'group'] as const) {
+    if (typeof mutablePosition[field] === 'string') {
+      mutablePosition[field] = sanitizeTerminalText(mutablePosition[field]).text;
+    }
+  }
 }
 
 function ownedAccessibleNode(
@@ -468,9 +541,9 @@ const positionFields = new Set([
 ]);
 
 function firstFocusIssue(
-  snapshot: Pick<AccessibleSnapshot, 'root' | 'focusPath'>
+  snapshot: Pick<AccessibleSnapshot, 'root' | 'focusPath'>,
+  actualFocusPath: readonly string[],
 ): TerminalDiagnostic | undefined {
-  const actualFocusPath = collectFocusPath(snapshot.root);
   if (snapshot.focusPath.length === 0) {
     return actualFocusPath.length === 0
       ? undefined
@@ -486,9 +559,21 @@ function firstFocusIssue(
   return undefined;
 }
 
-function firstRelationshipIssue(root: AccessibleNode): TerminalDiagnostic | undefined {
-  const nodes = new Map<string, AccessibleNode>();
-  collectAccessibleNodes(root, nodes);
+function nodePath(root: AccessibleNode, path: readonly string[]): readonly AccessibleNode[] | undefined {
+  if (path.length === 0) return [];
+  if (root.id !== path[0]) return undefined;
+  const nodes: AccessibleNode[] = [root];
+  let current = root;
+  for (const id of path.slice(1)) {
+    const next = current.children?.find((child) => child.id === id);
+    if (next === undefined) return undefined;
+    nodes.push(next);
+    current = next;
+  }
+  return nodes;
+}
+
+function firstRelationshipIssue(nodes: ReadonlyMap<string, AccessibleNode>): TerminalDiagnostic | undefined {
   for (const node of nodes.values()) {
     if (node.labelledBy !== undefined) {
       if (node.labelledBy === node.id) {
@@ -534,11 +619,6 @@ function firstRelationshipIssue(root: AccessibleNode): TerminalDiagnostic | unde
     }
   }
   return undefined;
-}
-
-function collectAccessibleNodes(node: AccessibleNode, nodes: Map<string, AccessibleNode>): void {
-  nodes.set(node.id, node);
-  for (const child of node.children ?? []) collectAccessibleNodes(child, nodes);
 }
 
 function accessibilityFailure(message: string, target?: string): TerminalDiagnostic {

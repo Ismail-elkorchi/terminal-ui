@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
+import { prepareCommandSuggestions, prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
@@ -334,10 +334,10 @@ test('controlled pointer interaction resolves styles and source state across com
     presentation: {
       value: '/o',
       cursor: 0,
-      suggestions: [
+      suggestions: prepareCommandSuggestions([
         { id: 'open', value: '/open', label: 'Open' },
         { id: 'save', value: '/save', label: 'Save' }
-      ],
+      ]),
       activeSuggestionId: 'open'
     },
     display: 'expanded',
@@ -556,10 +556,10 @@ test('default interactive component anatomy uses theme tokens instead of termina
 }), { columns: 18, rows: 1 });
   const commandFrame = renderElementFrame(commandInput({
     id: 'command',
-    presentation: { value: '/open README.md', cursor: 0, suggestions: [
+    presentation: { value: '/open README.md', cursor: 0, suggestions: prepareCommandSuggestions([
       { id: 'open', value: '/open', label: 'Open file' },
       { id: 'save', value: '/save', label: 'Save file' }
-    ], activeSuggestionId: 'open' },
+    ]), activeSuggestionId: 'open' },
     display: 'expanded',
   }), { columns: 36, rows: 3 });
   const menuFrame = renderElementFrame(menu({

@@ -72,7 +72,11 @@ const controlledViewport = viewport(text({ content: 'content' }), {
 });
 const controlledListView = listView({
   id: 'list-view',
-  items: [{ id: 'one', content: text({ content: 'One' }) }],
+  projection: {
+    records: [{ id: 'one', itemIndex: 0, startRow: 0, rowCount: 1, content: text({ content: 'One' }) }],
+    totalCount: 1,
+    totalRows: 1,
+  },
   presentation: { selection: { mode: 'none' }, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'listView' as const, transition }),
@@ -110,7 +114,7 @@ searchPicker({ id: 'inert-searchPicker', presentation: { query: { text: '', mode
 // @ts-expect-error viewport scrollbar requires event routing
 viewport(text({ content: 'content' }), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });
 // @ts-expect-error list view scrollbar requires presentation scroll state
-listView({ id: 'inert-list-view', items: [], presentation: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+listView({ id: 'inert-list-view', projection: { records: [], totalCount: 0, totalRows: 0 }, presentation: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error passive table scrollbar requires controlled scroll state and routing
 table({ id: 'inert-table', rows: [], getRowId: () => '', scrollbar: { visible: 'auto' } });
 // @ts-expect-error combobox scrollbar requires presentation scroll state

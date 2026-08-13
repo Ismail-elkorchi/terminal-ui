@@ -74,7 +74,7 @@ export function listboxReducer<TValue>(
     ? { kind: 'moveActive' as const, delta: action.delta * Math.max(1, options.pageSize ?? 1) }
     : action;
   const interaction = collectionInteractionReducer(state, interactionAction, {
-    enabledIds: view.selectable.map((entry) => entry.id),
+    index: view.interactionIndex,
     selection: options.selection,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });

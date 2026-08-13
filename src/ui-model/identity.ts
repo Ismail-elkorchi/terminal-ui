@@ -24,14 +24,17 @@ export function assertUniqueRecursiveIds<TNode>(
   context: string
 ): void {
   const seen = new Set<string>();
-  const visit = (items: readonly TNode[]): void => {
-    for (const item of items) {
-      const node = identity(item);
-      if (node.id.length === 0) throw new TypeError(`${context} item ids must not be empty.`);
-      if (seen.has(node.id)) throw new TypeError(`${context} item ids must be unique; duplicate id: ${node.id}`);
-      seen.add(node.id);
-      visit(node.children);
+  const pending = [...nodes].reverse();
+  while (pending.length > 0) {
+    const item = pending.pop();
+    if (item === undefined) continue;
+    const node = identity(item);
+    if (node.id.length === 0) throw new TypeError(`${context} item ids must not be empty.`);
+    if (seen.has(node.id)) throw new TypeError(`${context} item ids must be unique; duplicate id: ${node.id}`);
+    seen.add(node.id);
+    for (let index = node.children.length - 1; index >= 0; index -= 1) {
+      const child = node.children[index];
+      if (child !== undefined) pending.push(child);
     }
-  };
-  visit(nodes);
+  }
 }

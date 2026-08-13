@@ -3,12 +3,13 @@ import {
   createScrollState,
   dataGridReducer,
   pointerInteractionReducer,
+  prepareCommandSuggestions,
   prepareTableCollection,
   scrollReducer,
   type CommandInputState,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
-const command: CommandInputState = { input: { text: '', cursor: 0 }, history: [], suggestions: [] };
+const command: CommandInputState = { input: { text: '', cursor: 0 }, history: [], suggestions: prepareCommandSuggestions([]) };
 const edited = commandInputReducer(command, { kind: 'edit', operation: { kind: 'insert', text: 'x' } });
 const scrolled = scrollReducer(createScrollState(), { kind: 'scrollLines', rows: 2 }, {
   contentRows: 20,

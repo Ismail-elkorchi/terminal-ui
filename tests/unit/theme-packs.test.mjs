@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createScrollState, prepareLogHistory } from '../../dist/behavior/index.js';
+import { createScrollState, prepareCommandSuggestions, prepareLogHistory } from '../../dist/behavior/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
-  validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+  decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import {
   catppuccinTheme,
@@ -147,7 +147,7 @@ test('theme matrix snapshots cover core components with packs high contrast and 
       })
     ], { id: `matrix-${theme.name}`, gap: 1 }), { columns: 48, rows: 14 }, { theme });
 
-    assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true, theme.name);
+    assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true, theme.name);
     assert.equal(frame.cells.every((cell) => cell.row >= 1 && cell.row <= frame.height && cell.column >= 1 && cell.column <= frame.width), true);
     assert.equal(typeof createVisualSnapshot({ frame }).plainTextFrame, 'string');
   }
@@ -183,7 +183,7 @@ test('default theme specimen composes surface control text command log and data 
       presentation: {
         value: '/open readme',
         cursor: 0,
-        suggestions: [{ id: 'open', value: '/open', label: 'Open File' }],
+        suggestions: prepareCommandSuggestions([{ id: 'open', value: '/open', label: 'Open File' }]),
         activeSuggestionId: 'open'
       },
       display: 'expanded',

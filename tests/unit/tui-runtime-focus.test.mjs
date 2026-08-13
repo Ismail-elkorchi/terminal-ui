@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui, runTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import { decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   componentElement,
@@ -267,8 +267,8 @@ test('runTui accepts a state-derived theme', async () => {
   });
 
   assert.equal(exit.status, 'completed');
-  assert.match(host.output(), /\u001B\[31;40m/u);
-  assert.match(host.output(), /\u001B\[32;40m/u);
+  assert.match(host.output(), /\u001B\[31m/u);
+  assert.match(host.output(), /\u001B\[32m/u);
 });
 
 test('TUI runtime restores a serialized focus path when it still exists', async () => {
@@ -905,7 +905,7 @@ test('TUI runtime uses app-level accessibility descriptions for frames and exits
   assert.equal(harness.frames()[0].accessibility.root.id, 'custom-root');
   assert.equal(harness.frames()[0].accessibility.root.label, 'Accessible ready');
   assert.deepEqual(harness.frames()[0].accessibility.focusPath, ['custom-root', 'custom-status']);
-  assert.equal(validateAccessibleSnapshot(harness.frames()[0].accessibility).ok, true);
+  assert.equal(decodeAccessibleSnapshot(harness.frames()[0].accessibility).ok, true);
 
   harness.host.input('\r');
   const exit = await running;
@@ -938,5 +938,5 @@ test('TUI runtime falls back when app-level accessibility is structurally invali
 
   assert.equal(snapshot.root.id, 'safe-field');
   assert.equal(snapshot.diagnostics[0]?.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
-  assert.equal(validateAccessibleSnapshot(snapshot).ok, true);
+  assert.equal(decodeAccessibleSnapshot(snapshot).ok, true);
 });

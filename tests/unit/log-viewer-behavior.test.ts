@@ -21,18 +21,19 @@ const history = prepareLogHistory(entries);
 void test('logViewerReducer owns search match fold and follow-tail state', () => {
   const initial = { foldedIds: [], followTail: true };
   const matches = logViewerSearchMatches(history, 'needle');
-  const searching = logViewerReducer(initial, { kind: 'setSearchQuery', query: 'needle' });
-  const jumped = logViewerReducer(searching, { kind: 'jumpMatch', direction: 1, matches });
-  const folded = logViewerReducer(jumped, { kind: 'toggleFold', id: 'a' });
-  const unfollowed = logViewerReducer(folded, { kind: 'setFollowTail', followTail: false });
-  const cleared = logViewerReducer(unfollowed, { kind: 'setSearchQuery', query: '' });
+  const options = { history };
+  const searching = logViewerReducer(initial, { kind: 'setSearchQuery', query: 'needle' }, options);
+  const jumped = logViewerReducer(searching, { kind: 'jumpMatch', direction: 1 }, options);
+  const folded = logViewerReducer(jumped, { kind: 'toggleFold', id: 'a' }, options);
+  const unfollowed = logViewerReducer(folded, { kind: 'setFollowTail', followTail: false }, options);
+  const cleared = logViewerReducer(unfollowed, { kind: 'setSearchQuery', query: '' }, options);
 
   assert.deepEqual(searching, { foldedIds: [], followTail: true, searchQuery: 'needle' });
-  assert.equal(jumped.activeMatch?.id, matches[0]?.id);
+  assert.equal(jumped.activeMatchId, matches[0]?.id);
   assert.deepEqual(folded.foldedIds, ['a']);
   assert.equal(unfollowed.followTail, false);
   assert.equal(cleared.searchQuery, undefined);
-  assert.equal(cleared.activeMatch, undefined);
+  assert.equal(cleared.activeMatchId, undefined);
 });
 
 void test('logViewerSearchMatches and nextLogViewerMatch expose one ordered occurrence domain', () => {
@@ -99,11 +100,11 @@ void test('logViewerReducer owns pointer selection without retaining an empty ra
       anchor: { entryId: 'b', offset: 8 },
       position: { entryId: 'a', offset: 2 }
     }
-  });
+  }, { history });
   const cleared = logViewerReducer(selected, {
     kind: 'pointer',
     action: { kind: 'placeCaret', position: { entryId: 'a', offset: 4 } }
-  });
+  }, { history });
 
   assert.deepEqual(selected.selection, {
     anchor: { entryId: 'b', offset: 8 },
@@ -114,20 +115,15 @@ void test('logViewerReducer owns pointer selection without retaining an empty ra
 
 void test('logViewerReducer preserves identity for no-op query fold scroll and navigation actions', () => {
   const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
-  const matches = logViewerSearchMatches(history, 'needle');
   const state = logViewerReducer({ foldedIds: ['a'], followTail: true, searchQuery: 'needle', scroll }, {
     kind: 'jumpMatch',
-    direction: 1,
-    matches
-  });
+    direction: 1
+  }, { history });
 
-  assert.equal(logViewerReducer(state, { kind: 'setSearchQuery', query: ' needle ' }), state);
-  assert.equal(logViewerReducer(state, { kind: 'fold', id: 'a' }), state);
-  assert.equal(logViewerReducer(state, { kind: 'setFollowTail', followTail: true }), state);
-  assert.notEqual(state.activeMatch, undefined);
-  const activeMatch = state.activeMatch;
-  if (activeMatch === undefined) throw new Error('Expected an active log viewer match.');
-  assert.equal(logViewerReducer(state, { kind: 'jumpMatch', direction: 1, matches: [activeMatch] }), state);
-  const cleared = logViewerReducer(state, { kind: 'jumpMatch', direction: 1, matches: [] });
-  assert.equal(cleared.activeMatch, undefined);
+  assert.equal(logViewerReducer(state, { kind: 'setSearchQuery', query: ' needle ' }, { history }), state);
+  assert.equal(logViewerReducer(state, { kind: 'fold', id: 'a' }, { history }), state);
+  assert.equal(logViewerReducer(state, { kind: 'setFollowTail', followTail: true }, { history }), state);
+  assert.notEqual(state.activeMatchId, undefined);
+  const cleared = logViewerReducer(state, { kind: 'setSearchQuery', query: '' }, { history });
+  assert.equal(cleared.activeMatchId, undefined);
 });

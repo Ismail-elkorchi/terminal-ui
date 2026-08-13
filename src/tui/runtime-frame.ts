@@ -1,8 +1,9 @@
-import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibility/index.ts';
+import { createAccessibleSnapshot, decodeAccessibleSnapshot } from '../accessibility/index.ts';
+import { diagnostic } from '../diagnostics.ts';
 import type { RenderNode } from '../renderer/model/index.ts';
 import { defaultTheme, defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
-import { diffFrames, renderElementInternal } from '../renderer/internal/render.ts';
+import { diffFrames, renderElementInternal, rerenderElementInternal } from '../renderer/internal/render.ts';
 import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-planner.ts';
 import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
 import {
@@ -29,6 +30,7 @@ export interface RenderCommitCandidate<TMessage> {
   readonly stateVersion: number;
   readonly themeFingerprint: string;
   readonly terminalSize: TerminalSize;
+  readonly widthProfile: RenderCommitCandidate<TMessage>['frame']['widthProfile'];
   readonly node: RenderNode<TMessage>;
   readonly layout: LayoutNode;
   readonly regions: readonly RenderRegion<TMessage>[];
@@ -50,6 +52,30 @@ export function renderCurrentFrame<TState, TMessage>(
     theme,
     widthProfile: context.capabilities.unicode.widthProfile
   });
+  return candidateFromRenderResult(app, state, renderResult, stateVersion, commitId);
+}
+
+export function rerenderCurrentFrame<TState, TMessage>(
+  app: TuiApp<TState, TMessage>,
+  state: TState,
+  prepared: RenderCommitCandidate<TMessage>,
+  focusPath: FocusPath | undefined,
+  stateVersion: number,
+  commitId: string,
+): RenderCommitCandidate<TMessage> {
+  const renderResult = rerenderElementInternal<TMessage>(prepared, {
+    ...(focusPath === undefined ? {} : { focusPath }),
+  });
+  return candidateFromRenderResult<TState, TMessage>(app, state, renderResult, stateVersion, commitId);
+}
+
+function candidateFromRenderResult<TState, TMessage>(
+  app: TuiApp<TState, TMessage>,
+  state: TState,
+  renderResult: ReturnType<typeof renderElementInternal<TMessage>>,
+  stateVersion: number,
+  commitId: string,
+): RenderCommitCandidate<TMessage> {
   const accessibility = appAccessibility(app, state, renderResult.frame);
   const frame = accessibility === renderResult.frame.accessibility
     ? renderResult.frame
@@ -57,13 +83,14 @@ export function renderCurrentFrame<TState, TMessage>(
   return {
     commitId,
     stateVersion,
-    themeFingerprint: theme.fingerprint,
-    terminalSize: context.terminalSize,
+    themeFingerprint: renderResult.theme.fingerprint,
+    terminalSize: renderResult.terminalSize,
+    widthProfile: renderResult.widthProfile,
     node: renderResult.node,
     layout: renderResult.layout,
     regions: renderResult.regions,
     frame,
-    theme
+    theme: renderResult.theme
   };
 }
 
@@ -154,11 +181,23 @@ function appAccessibility<TState, TMessage>(
   });
   const described = app.definition.accessibility?.describe?.(state);
   if (described === undefined) return tuiAccessibility;
-  const normalized = toAccessibleSnapshot({
-    ...described,
-    source: 'tui'
-  });
-  const valid = validateAccessibleSnapshot(normalized);
+  let normalized;
+  try {
+    normalized = createAccessibleSnapshot({
+      ...described,
+      source: 'tui'
+    });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    return Object.freeze({
+      ...tuiAccessibility,
+      diagnostics: Object.freeze([
+        ...tuiAccessibility.diagnostics,
+        diagnostic('ACCESSIBLE_SNAPSHOT_INVALID', detail),
+      ]),
+    });
+  }
+  const valid = decodeAccessibleSnapshot(normalized);
   if (valid.ok) return valid.value;
   return Object.freeze({
     ...tuiAccessibility,

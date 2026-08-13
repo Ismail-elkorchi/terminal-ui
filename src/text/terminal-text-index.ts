@@ -12,7 +12,11 @@ export function createTerminalTextIndex(
   const graphemes = segmentGraphemesForMeasurement(text, options);
   const codeUnitOffsets = graphemeCodeUnitOffsets(graphemes, text.length);
   const visualOffsets = visualColumnOffsets(graphemes);
-  const byteOffsets = utf8ByteOffsets(graphemes);
+  let retainedByteOffsets: readonly number[] | undefined;
+  const byteOffsets = (): readonly number[] => {
+    retainedByteOffsets ??= utf8ByteOffsets(graphemes);
+    return retainedByteOffsets;
+  };
   let words: ReturnType<typeof prepareWordBoundaryIndex> | undefined;
   const wordIndex = (): ReturnType<typeof prepareWordBoundaryIndex> => {
     words ??= prepareWordBoundaryIndex(text, codeUnitOffsets, options);
@@ -24,7 +28,10 @@ export function createTerminalTextIndex(
     graphemes,
     cells: visualOffsets[visualOffsets.length - 1] ?? 0,
     codeUnits: text.length,
-    bytes: byteOffsets[byteOffsets.length - 1] ?? 0,
+    get bytes() {
+      const offsets = byteOffsets();
+      return offsets[offsets.length - 1] ?? 0;
+    },
     graphemeIndexToCodeUnitOffset(index) {
       const bounded = clampIndex(index, graphemes.length);
       return graphemes[bounded]?.startOffset ?? text.length;
@@ -39,10 +46,11 @@ export function createTerminalTextIndex(
       return offsetToGraphemeIndex(column, visualOffsets, visualOffsets[visualOffsets.length - 1] ?? 0);
     },
     graphemeIndexToByteOffset(index) {
-      return byteOffsets[clampIndex(index, graphemes.length)] ?? 0;
+      return byteOffsets()[clampIndex(index, graphemes.length)] ?? 0;
     },
     byteOffsetToGraphemeIndex(offset) {
-      return offsetToGraphemeIndex(offset, byteOffsets, byteOffsets[byteOffsets.length - 1] ?? 0);
+      const offsets = byteOffsets();
+      return offsetToGraphemeIndex(offset, offsets, offsets[offsets.length - 1] ?? 0);
     },
     previousWordBoundary(offset) {
       return wordIndex().previous(offset);

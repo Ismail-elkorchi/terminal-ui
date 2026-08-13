@@ -25,6 +25,23 @@ export interface SerializedRenderSpans {
   readonly usesHyperlink: boolean;
 }
 
+export interface SerializedRenderSpanChunk extends SerializedRenderSpans {
+  readonly state: AnsiStyleState;
+}
+
+export interface RenderSpanSerializer {
+  readonly write: (
+    spans: readonly RenderSpan[],
+    state?: AnsiStyleState,
+  ) => SerializedRenderSpanChunk;
+  readonly transition: (
+    style: TerminalStyle | undefined,
+    link: TerminalLink | undefined,
+    state?: AnsiStyleState,
+  ) => SerializedRenderSpanChunk;
+  readonly finish: (state: AnsiStyleState) => string;
+}
+
 export function serializeRenderSpans(
   spans: readonly RenderSpan[],
   options?: RenderSerializeOptions
@@ -43,38 +60,68 @@ export function serializeRenderSpansWithProtocols(
   spans: readonly RenderSpan[],
   options?: RenderSerializeOptions
 ): SerializedRenderSpans {
-  let output = '';
-  let state: AnsiStyleState = {};
-  let usesStyle = false;
-  let usesHyperlink = false;
+  const serializer = createRenderSpanSerializer(options);
+  const chunk = serializer.write(spans);
+  return Object.freeze({
+    text: chunk.text + serializer.finish(chunk.state),
+    usesStyle: chunk.usesStyle,
+    usesHyperlink: chunk.usesHyperlink,
+  });
+}
+
+export function createRenderSpanSerializer(
+  options?: RenderSerializeOptions,
+): RenderSpanSerializer {
   const policy = createTerminalSerializationPolicy(options);
-  for (const currentSpan of spans) {
-    const text = sanitizeTerminalCellText(currentSpan.text).text;
-    if (text.length === 0) continue;
-    const nextLink = effectiveLink(currentSpan, options);
-    const nextStyle = policy.effectiveStyle(resolvedStyle(currentSpan.style, options));
-    if (nextLink !== undefined) usesHyperlink = true;
-    if (nextStyle !== undefined) usesStyle = true;
+  const theme = themeForOptions(options);
+  const transition = (
+    style: TerminalStyle | undefined,
+    link: TerminalLink | undefined,
+    initialState: AnsiStyleState = {},
+  ): SerializedRenderSpanChunk => {
+    let text = '';
+    let state = initialState;
+    const nextLink = link === undefined ? undefined : effectiveLink({ text: '', link }, options);
+    const nextStyle = policy.effectiveStyle(resolveTerminalStyle(style, theme));
     if (!sameTerminalLink(state.link, nextLink)) {
-      output += closeLink(state, policy);
-      output += openLink(nextLink, policy);
+      text += closeLink(state, policy);
+      text += openLink(nextLink, policy);
       state = nextLink === undefined ? withoutLink(state) : { ...state, link: nextLink };
     }
     if (!sameTerminalStyle(state.style, nextStyle)) {
-      const transition = policy.styleTransition(state.style, nextStyle);
-      output += transition;
+      text += policy.styleTransition(state.style, nextStyle);
       state = nextStyle === undefined ? withoutStyle(state) : { ...state, style: nextStyle };
     }
+    return Object.freeze({
+      text,
+      state,
+      usesStyle: nextStyle !== undefined,
+      usesHyperlink: nextLink !== undefined,
+    });
+  };
+  return Object.freeze({
+    write(spans: readonly RenderSpan[], initialState: AnsiStyleState = {}): SerializedRenderSpanChunk {
+  let output = '';
+      let state = initialState;
+  let usesStyle = false;
+  let usesHyperlink = false;
+  for (const currentSpan of spans) {
+    const text = sanitizeTerminalCellText(currentSpan.text).text;
+    if (text.length === 0) continue;
+        const changed = transition(currentSpan.style, currentSpan.link, state);
+        usesStyle ||= changed.usesStyle;
+        usesHyperlink ||= changed.usesHyperlink;
+        output += changed.text;
+        state = changed.state;
     output += text;
   }
-  output += closeStyle(state, policy);
-  output += closeLink(state, policy);
-  return Object.freeze({ text: output, usesStyle, usesHyperlink });
-}
-
-function resolvedStyle(style: TerminalStyle | undefined, options: RenderSerializeOptions | undefined): TerminalStyle | undefined {
-  const theme = themeForOptions(options);
-  return resolveTerminalStyle(style, theme);
+      return Object.freeze({ text: output, state, usesStyle, usesHyperlink });
+    },
+    transition,
+    finish(state: AnsiStyleState): string {
+      return closeLink(state, policy) + closeStyle(state, policy);
+    },
+  });
 }
 
 function themeForOptions(options: RenderSerializeOptions | undefined): TerminalTheme {

@@ -1,11 +1,10 @@
 import type {
-  CompleteListboxCollection,
   ListboxCollection,
   ListboxViewEntry,
   PreparedListboxView,
-  WindowedListboxCollection,
 } from './list.ts';
 import { normalizeCollectionQuery, queryNormalizedCandidates } from './query.ts';
+import { prepareCollectionInteractionIndex } from '../interaction/collection.ts';
 import type { CollectionQuery } from './query.ts';
 
 interface ListboxViewIndex<TValue> {
@@ -17,17 +16,13 @@ interface ListboxViewIndex<TValue> {
 const views = new WeakMap<object, Map<string, ListboxViewIndex<unknown>>>();
 
 export function prepareListboxView<TValue>(
-  collection: CompleteListboxCollection<TValue>,
-  options?: { readonly filterQuery?: CollectionQuery },
-): PreparedListboxView<TValue>;
-export function prepareListboxView<TValue>(
-  collection: WindowedListboxCollection<TValue>,
-): PreparedListboxView<TValue>;
-export function prepareListboxView<TValue>(
   collection: ListboxCollection<TValue>,
-  options: { readonly filterQuery?: CollectionQuery } = {},
+  options?: { readonly filterQuery?: CollectionQuery },
 ): PreparedListboxView<TValue> {
-  const query = queryFor(collection, options.filterQuery);
+  if (collection.kind === 'window' && options?.filterQuery !== undefined) {
+    throw new TypeError('Windowed listbox collections own their filter query.');
+  }
+  const query = queryFor(collection, options?.filterQuery);
   return viewIndex(collection, query).view;
 }
 
@@ -57,22 +52,28 @@ function viewIndex<TValue>(
   const key = queryKey(query);
   const cached = byQuery.get(key) as ListboxViewIndex<TValue> | undefined;
   if (cached !== undefined) return cached;
-  const records = new Map(collection.records.map((record) => [record.id, record] as const));
-  const matches = queryNormalizedCandidates(collection.records.map((record) => ({
-    id: record.id,
-    primary: record.item.label,
-    secondary: [
-      record.item.description,
-      ...(record.item.keywords ?? []),
-    ].filter((value): value is string => value !== undefined),
-    ...(record.sectionId === undefined ? {} : { group: record.sectionId }),
-  })), query);
   const visibleRecords = query.text.length === 0
     ? collection.records
-    : matches.flatMap((match) => {
+    : matchedRecords(collection, query);
+
+  function matchedRecords(
+    source: ListboxCollection<TValue>,
+    normalizedQuery: Required<CollectionQuery>,
+  ): readonly ListboxCollection<TValue>['records'][number][] {
+    const records = new Map(source.records.map((record) => [record.id, record] as const));
+    return queryNormalizedCandidates(source.records.map((record) => ({
+        id: record.id,
+        primary: record.item.label,
+        secondary: [
+          record.item.description,
+          ...(record.item.keywords ?? []),
+        ].filter((value): value is string => value !== undefined),
+        ...(record.sectionId === undefined ? {} : { group: record.sectionId }),
+      })), normalizedQuery).flatMap((match) => {
         const record = records.get(match.id);
         return record === undefined ? [] : [record];
       });
+  }
   const selectablePositions = new Map<string, number>();
   const scrollPositions = new Map<string, number>();
   let selectableIndex = 0;
@@ -96,12 +97,30 @@ function viewIndex<TValue>(
     query,
     entries,
     selectable,
+    interactionIndex: prepareCollectionInteractionIndex(selectable.map((entry) => entry.id)),
     startIndex: collection.kind === 'window' ? collection.startIndex : 0,
     totalCount: collection.kind === 'window' ? collection.totalCount : entries.length,
   });
   const index = Object.freeze({ view, selectablePositions, scrollPositions });
-  byQuery.set(key, index);
+  retainView(byQuery, key, index);
   return index;
+}
+
+function retainView(
+  viewsByQuery: Map<string, ListboxViewIndex<unknown>>,
+  key: string,
+  index: ListboxViewIndex<unknown>,
+): void {
+  viewsByQuery.delete(key);
+  viewsByQuery.set(key, index);
+  let retainedReferences = [...viewsByQuery.values()]
+    .reduce((total, entry) => total + entry.view.entries.length, 0);
+  while (viewsByQuery.size > 1 && (viewsByQuery.size > 8 || retainedReferences > 8_192)) {
+    const oldest = viewsByQuery.entries().next().value;
+    if (oldest === undefined) break;
+    viewsByQuery.delete(oldest[0]);
+    retainedReferences -= oldest[1].view.entries.length;
+  }
 }
 
 function queryFor<TValue>(

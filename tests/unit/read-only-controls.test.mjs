@@ -15,6 +15,7 @@ import { row } from '../../dist/layout/index.js';
 import { layoutElement, renderElementFrame } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { isIgnoredMessage } from '../../dist/interaction/index.js';
+import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
@@ -69,7 +70,7 @@ test('editable components share one read-only mutation policy', async () => {
       name: 'commandInput',
       element: (onAction) => commandInput({
         id: 'control',
-        presentation: { value: 'abc', cursor: 1, suggestions: [] },
+        presentation: { value: 'abc', cursor: 1, suggestions: prepareCommandSuggestions([]) },
         readOnly: true,
         onTransition: onAction
       }),
@@ -88,7 +89,7 @@ test('read-only command input cannot accept a completion', async () => {
     presentation: {
       value: 'a',
       cursor: 1,
-      suggestions: [{ id: 'alpha', value: 'alpha', label: 'alpha' }]
+      suggestions: prepareCommandSuggestions([{ id: 'alpha', value: 'alpha', label: 'alpha' }])
     },
     readOnly: true,
     onTransition: onAction

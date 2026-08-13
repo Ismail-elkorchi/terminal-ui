@@ -1,4 +1,4 @@
-import { toAccessibleSnapshot as createAccessibleSnapshot } from '../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import { createMemoryTerminalHost } from '../host/index.ts';
 import { decodeInputChunk, decodeInputEvent } from '../input/index.ts';
 import { createTranscriptRecorder } from '../transcript/index.ts';

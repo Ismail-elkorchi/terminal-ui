@@ -2,6 +2,7 @@ import {
   button,
   commandInput,
   label,
+  prepareCommandSuggestions,
   text,
   textArea,
   textInput,
@@ -22,7 +23,7 @@ button({
 label({ id: 'query-label', forId: 'query', text: 'Query' });
 commandInput({
   id: 'command',
-  presentation: { value: '', cursor: 0, suggestions: [] },
+  presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
   validation: { message: 'Choose a command', level: validationLevel },
   onTransition: (transition) => ({ kind: 'command' as const, transition }),
   onSubmit: (event) => ({ kind: 'submit' as const, value: event.value })
@@ -30,7 +31,7 @@ commandInput({
 // @ts-expect-error disabled editable controls cannot also declare read-only state
 commandInput({
   id: 'invalid-disabled-read-only-command',
-  presentation: { value: '', cursor: 0, suggestions: [] },
+  presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
   disabled: true,
   readOnly: true
 });

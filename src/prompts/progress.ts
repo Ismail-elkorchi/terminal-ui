@@ -1,4 +1,4 @@
-import { toAccessibleSnapshot } from '../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../accessibility/index.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { ProgressOptions, ProgressSnapshot, ProgressState } from './types.ts';
 
@@ -16,7 +16,7 @@ function makeProgressState(
       return makeProgressState(id, label, normalizeProgress(next));
     },
     snapshot(): AccessibleSnapshot {
-      return toAccessibleSnapshot({
+      return createAccessibleSnapshot({
         source: 'progress',
         root: {
           id,

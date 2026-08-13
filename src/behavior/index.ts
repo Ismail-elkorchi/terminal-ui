@@ -62,12 +62,17 @@ export type {
   CommandInputPresentation
 } from '../ui-model/command-input.ts';
 export {
-  commandInputReducer
+  commandInputReducer,
+  prepareCommandSuggestions
 } from './command-input-state.ts';
 export type {
   CommandInputState
 } from './command-input-state.ts';
-export type { CommandInputSubmitEvent, CommandInputTransition } from '../ui-model/command-input.ts';
+export type {
+  CommandInputSubmitEvent,
+  CommandInputTransition,
+  CommandSuggestion,
+} from '../ui-model/command-input.ts';
 export {
   applyTextPointerAction,
   createTextAreaState,

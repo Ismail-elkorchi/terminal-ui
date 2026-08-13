@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { defineTui } from '../../dist/tui/index.js';
 import {
-  validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+  decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime } from '../../dist/tui/index.js';
 import {
@@ -109,7 +109,7 @@ test('form components render settings and setup-wizard shapes with scoped state'
   assert.match(output, /Region: Europe/u);
   assert.match(output, /4/u);
   assert.match(output, /Continue\s+Cancel/u);
-  assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
+  assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
 test('open combobox renders a bounded popup with painted option targets only', () => {
@@ -337,7 +337,7 @@ test('control labels create a structural accessible-name relationship', () => {
   assert.equal(labelNode?.description, undefined);
   assert.equal(inputNode?.role, 'textbox');
   assert.equal(inputNode?.labelledBy, 'email-label');
-  assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
+  assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
 test('control labels reject missing accessible targets', () => {

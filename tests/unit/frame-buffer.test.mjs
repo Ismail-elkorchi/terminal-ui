@@ -429,7 +429,7 @@ test('renderFrameAnsi serializes full frames as row runs instead of per-cell cur
   assert.match(output, /\u001B\[H/u);
   assert.match(output, /AB/u);
   assert.match(output, /CD/u);
-  assert.match(output, /\u001B\[3H   Z/u);
+  assert.match(output, /\u001B\[3H\u001B\[39m   Z/u);
 });
 
 test('renderDiffAnsi serializes styled spans according to terminal color capability', () => {

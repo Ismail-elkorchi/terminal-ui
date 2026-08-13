@@ -42,7 +42,7 @@ Collection windows use zero-based `startIndex` values and exclusive
 describe the full collection. A visible item at internal index 0 therefore has
 accessibility position in set 1.
 
-Use `toAccessibleSnapshot()` for standalone accessible payloads and the testing
+Use `createAccessibleSnapshot()` for standalone accessible payloads and the testing
 harness `snapshot()` method for rendered surfaces. Prompt and TUI runs return
 snapshots in their typed result objects.
 

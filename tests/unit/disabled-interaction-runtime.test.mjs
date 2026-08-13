@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
+import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
 
 import { ignoreMessage } from '../../dist/component/index.js';
 import { defineTui } from '../../dist/tui/index.js';
@@ -263,9 +264,9 @@ test('commandInput preserves disabled suggestion semantics', () => {
     commandInput({
       id: 'command',
       prompt: '>',
-      presentation: { value: 'de', cursor: 0, suggestions: [
+      presentation: { value: 'de', cursor: 0, suggestions: prepareCommandSuggestions([
         { id: 'deploy', value: 'deploy', label: 'Deploy', description: 'Unavailable', disabled: true }
-      ] },
+      ]) },
       matchQuery: 'de',
       display: 'expanded',
       onTransition: () => ignoreMessage()

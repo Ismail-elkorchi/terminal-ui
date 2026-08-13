@@ -6,6 +6,7 @@ import {
   createTerminalHost,
   defineTui,
   ok,
+  prepareCommandSuggestions,
   passwordInput,
   splitPane,
   surface,
@@ -26,7 +27,7 @@ import { createProtocolWriter } from '@ismail-elkorchi/terminal-ui/protocol';
 import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
 import { defaultTheme, resolveThemeColor } from '@ismail-elkorchi/terminal-ui/theme';
 import { confirm, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
-import { toAccessibleSnapshot, validateAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
+import { createAccessibleSnapshot, decodeAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
 import { createTranscriptRecorder, validateTranscript } from '@ismail-elkorchi/terminal-ui/transcript';
 import { createTerminalHarness, renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
 import { peerBadge } from 'terminal-ui-peer-component-fixture';
@@ -75,7 +76,7 @@ function view(state: State): Element<Message> {
     presentation: behavior.commandInputPresentation({
       input: { text: '', cursor: 0 },
       history: [],
-      suggestions: [{ id: 'open', label: 'Open', value: 'open' }]
+      suggestions: prepareCommandSuggestions([{ id: 'open', label: 'Open', value: 'open' }])
     }),
     display: 'popup',
     placement: 'above',
@@ -132,7 +133,7 @@ const scroll = behavior.scrollReducer(
 const command = behavior.commandInputReducer({
   input: { text: '', cursor: 0 },
   history: [],
-  suggestions: []
+  suggestions: prepareCommandSuggestions([])
 }, { kind: 'edit', operation: { kind: 'insert', text: 'open' } });
 const split = behavior.splitPaneReducer(behavior.createSplitPaneState(2), {
   kind: 'resizeBy',
@@ -240,7 +241,7 @@ const promptResult = await runPrompt(confirm({
   label: 'Continue?',
   nonTty: { mode: 'provided_value', value: true }
 }));
-const accessible = toAccessibleSnapshot({
+const accessible = createAccessibleSnapshot({
   source: 'renderer',
   root: {
     id: 'consumer',
@@ -294,7 +295,7 @@ if (measureTextCells('A界').cells !== 3 || resolveThemeColor(defaultTheme, 'acc
 if (protocolWrites[0] !== '\u001B[?2004h' || promptResult.status !== 'submitted') {
   throw new Error('The packed protocol or prompt entrypoint failed.');
 }
-if (!validateAccessibleSnapshot(accessible).ok || !validateTranscript(transcript).ok) {
+if (!decodeAccessibleSnapshot(accessible).ok || !validateTranscript(transcript).ok) {
   throw new Error('The packed accessibility or transcript entrypoint failed.');
 }
 

@@ -1,14 +1,23 @@
 import { editTextBuffer } from '../text/index.ts';
 import type { TextEditBuffer } from '../text/index.ts';
-import type { CommandInputTransition } from '../ui-model/command-input.ts';
-import type { SuggestionItem } from '../ui-model/contracts.ts';
+import type { CommandInputTransition, CommandSuggestion } from '../ui-model/command-input.ts';
+import type {
+  CompleteListboxCollection,
+  ListboxCollection,
+  ListboxViewEntry,
+  WindowedListboxCollection,
+} from '../ui-model/list.ts';
+import type { CollectionWindow } from '../ui-model/collection.ts';
+import { collectionRecordById } from '../ui-model/collection.ts';
+import { prepareListboxCollection } from './list.ts';
+import { prepareListboxView } from '../ui-model/list-view.ts';
 import { applyTextPointerAction } from './text-editing.ts';
 
 export interface CommandInputState {
   readonly input: TextEditBuffer;
   readonly history: readonly string[];
   readonly historyIndex?: number;
-  readonly suggestions: readonly SuggestionItem[];
+  readonly suggestions: ListboxCollection<string>;
   readonly activeSuggestionId?: string;
 }
 
@@ -33,7 +42,7 @@ export function commandInputReducer(state: CommandInputState, action: CommandInp
       return setActiveSuggestion(state, action.id);
     case 'acceptSuggestion': {
       const suggestion = acceptedSuggestion(state);
-      return suggestion === undefined || suggestion.disabled === true
+      return suggestion === undefined || suggestion.item.disabled
         ? state
         : withClearedSuggestion({ ...state, input: { text: suggestion.value, cursor: suggestion.value.length } });
     }
@@ -41,7 +50,7 @@ export function commandInputReducer(state: CommandInputState, action: CommandInp
       return {
         input: state.input,
         history: state.history,
-        suggestions: [],
+        suggestions: emptyCommandSuggestions,
         ...(state.historyIndex === undefined ? {} : { historyIndex: state.historyIndex })
       };
   }
@@ -59,23 +68,22 @@ function commandInputHistory(state: CommandInputState, direction: 1 | -1): Comma
 }
 
 function moveSuggestion(state: CommandInputState, direction: 1 | -1): CommandInputState {
-  if (state.suggestions.length === 0) return state;
-  const current = state.suggestions.findIndex((suggestion) => suggestion.id === state.activeSuggestionId);
-  for (let offset = 1; offset <= state.suggestions.length; offset += 1) {
-    const candidateIndex = (current + (direction * offset) + state.suggestions.length) % state.suggestions.length;
-    const suggestion = state.suggestions[candidateIndex];
-    if (suggestion !== undefined && suggestion.disabled !== true) {
-      return { ...state, activeSuggestionId: suggestion.id };
-    }
-  }
-  return withClearedSuggestion(state);
+  const view = prepareListboxView(state.suggestions);
+  if (view.selectable.length === 0) return state;
+  const current = state.activeSuggestionId === undefined
+    ? undefined
+    : view.interactionIndex.positions.get(state.activeSuggestionId);
+  const start = current ?? (direction > 0 ? -1 : 0);
+  const next = (start + direction + view.selectable.length) % view.selectable.length;
+  const suggestion = view.selectable[next];
+  return suggestion === undefined ? state : { ...state, activeSuggestionId: suggestion.id };
 }
 
 function setActiveSuggestion(state: CommandInputState, id: string): CommandInputState {
-  const suggestion = state.suggestions.find((candidate) => candidate.id === id);
-  return suggestion === undefined || suggestion.disabled === true
+  const view = prepareListboxView(state.suggestions);
+  return !view.interactionIndex.positions.has(id)
     ? state
-    : { ...state, activeSuggestionId: suggestion.id };
+    : { ...state, activeSuggestionId: id };
 }
 
 function withClearedHistory(state: CommandInputState): CommandInputState {
@@ -96,12 +104,50 @@ function withClearedSuggestion(state: CommandInputState): CommandInputState {
   };
 }
 
-function acceptedSuggestion(state: CommandInputState): SuggestionItem | undefined {
-  return state.activeSuggestionId === undefined
-    ? state.suggestions.find((suggestion) => suggestion.disabled !== true)
-    : state.suggestions.find((suggestion) => suggestion.id === state.activeSuggestionId);
+function acceptedSuggestion(state: CommandInputState): ListboxViewEntry<string> | undefined {
+  const view = prepareListboxView(state.suggestions);
+  if (state.activeSuggestionId === undefined) return view.selectable[0];
+  const record = collectionRecordById(view.source, state.activeSuggestionId);
+  if (record?.item.disabled !== false) return undefined;
+  const position = view.interactionIndex.positions.get(record.id);
+  return position === undefined ? undefined : view.selectable[position];
 }
 
 function clampIndex(index: number, count: number): number {
   return Math.max(0, Math.min(count - 1, Math.floor(index)));
 }
+
+export function prepareCommandSuggestions(
+  suggestions: readonly CommandSuggestion[],
+): CompleteListboxCollection<string>;
+export function prepareCommandSuggestions(
+  suggestions: readonly CommandSuggestion[],
+  window: CollectionWindow,
+): WindowedListboxCollection<string>;
+export function prepareCommandSuggestions(
+  suggestions: readonly CommandSuggestion[],
+  window?: CollectionWindow,
+): ListboxCollection<string> {
+  const values = suggestions.map((suggestion) => {
+    if (typeof suggestion.value !== 'string') {
+      throw new TypeError('command suggestion value must be a string.');
+    }
+    return suggestion.value;
+  });
+  const startIndex = window?.startIndex ?? 0;
+  const projector = (_value: string, itemIndex: number) => {
+    const suggestion = suggestions[itemIndex - startIndex];
+    if (suggestion === undefined) throw new RangeError('command suggestion window index is invalid.');
+    return ({
+    id: suggestion.id,
+    label: suggestion.label ?? suggestion.value,
+    ...(suggestion.description === undefined ? {} : { description: suggestion.description }),
+    disabled: suggestion.disabled === true,
+    });
+  };
+  return window === undefined
+    ? prepareListboxCollection(values, projector)
+    : prepareListboxCollection(values, projector, window);
+}
+
+const emptyCommandSuggestions = prepareCommandSuggestions([]);

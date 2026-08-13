@@ -4,6 +4,12 @@ import type { ElementInspection } from './inspection.ts';
 const internals = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
 
+export function isRegisteredElement(value: unknown): value is Element {
+  return value !== null
+    && (typeof value === 'object' || typeof value === 'function')
+    && internals.has(value);
+}
+
 export function registerElement<TMessage>(
   internal: unknown,
   inspection: ElementInspection

@@ -1,10 +1,13 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { SearchEntry } from './contracts.ts';
-import { normalizeCollectionQuery, queryNormalizedCandidates } from './query.ts';
+import { normalizeCollectionQuery, prepareQueryCandidate, queryNormalizedCandidates } from './query.ts';
+import { prepareCollectionInteractionIndex } from '../interaction/collection.ts';
+import type { CollectionInteractionIndex } from '../interaction/collection.ts';
 import type { CollectionQuery, QueryMatch } from './query.ts';
 
 const searchPickerIndexBrand: unique symbol = Symbol('terminal-ui.search-picker-index');
-const queryCacheLimit = 32;
+const queryCacheLimit = 8;
+const queryCacheReferenceLimit = 8_192;
 
 export interface SearchPickerIndex<TValue = string> {
   readonly [searchPickerIndexBrand]: TValue;
@@ -18,6 +21,7 @@ export interface SearchPickerQueryResult<TValue = string> {
   readonly query: Required<CollectionQuery>;
   readonly entries: readonly SearchEntry<TValue>[];
   readonly matches: readonly QueryMatch[];
+  readonly interactionIndex: CollectionInteractionIndex;
 }
 
 interface SearchPickerIndexData<TValue> {
@@ -91,7 +95,7 @@ function buildSearchPickerIndex<TValue>(
     kind: 'search-picker-index',
     size: normalized.length
   });
-  const candidates = Object.freeze(normalized.map((entry) => Object.freeze({
+  const candidates = Object.freeze(normalized.map((entry) => prepareQueryCandidate({
     id: entry.id,
     primary: entry.label,
     secondary: Object.freeze([
@@ -148,11 +152,19 @@ export function querySearchPickerIndex<TValue>(
     query: normalizedQuery,
     entries,
     matches,
+    interactionIndex: prepareCollectionInteractionIndex(entries
+      .filter((entry) => entry.disabled !== true)
+      .map((entry) => entry.id)),
   });
   data.queryResults.set(cacheKey, result);
-  if (data.queryResults.size > queryCacheLimit) {
-    const oldest = data.queryResults.keys().next().value;
-    if (oldest !== undefined) data.queryResults.delete(oldest);
+  let retainedReferences = [...data.queryResults.values()]
+    .reduce((total, entry) => total + entry.entries.length, 0);
+  while (data.queryResults.size > 1
+    && (data.queryResults.size > queryCacheLimit || retainedReferences > queryCacheReferenceLimit)) {
+    const oldest = data.queryResults.entries().next().value;
+    if (oldest === undefined) break;
+    data.queryResults.delete(oldest[0]);
+    retainedReferences -= oldest[1].entries.length;
   }
   return result;
 }

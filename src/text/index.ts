@@ -19,13 +19,14 @@ export {
   textDocumentLineAt,
   textDocumentLineCount,
   textDocumentLineIndexAtOffset,
+  textDocumentParentChange,
   textDocumentSlice,
   textDocumentSelectionRange,
   textDocumentText
 } from './document.ts';
 export type { TextDocument, TextDocumentChange, TextDocumentLine } from './document.ts';
 export { segmentGraphemes } from './graphemes.ts';
-export { measureTextCells } from './measure.ts';
+export { measureTerminalCellText, measureTextCells } from './measure.ts';
 export { sanitizeTerminalCellText, sanitizeTerminalText } from './sanitize.ts';
 export { findTextHighlightMatches } from './search-highlight.ts';
 export {

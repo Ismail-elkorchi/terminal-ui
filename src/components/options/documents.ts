@@ -21,7 +21,6 @@ import type {
 import type { SearchPickerIndex } from '../../ui-model/search-picker-index.ts';
 import type { LogViewerAction, LogViewerControlAction } from '../../ui-model/log-viewer.ts';
 import type { LogViewerSelection } from '../../ui-model/log-viewer.ts';
-import type { LogSearchMatch } from '../../ui-model/log-history.ts';
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
@@ -36,7 +35,7 @@ interface LogViewerBaseOptions {
   readonly history: LogHistory;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
-  readonly activeMatch?: LogSearchMatch;
+  readonly activeMatchId?: string;
   readonly foldedIds?: readonly string[];
   readonly selection?: LogViewerSelection;
   readonly pointerState?: PointerInteractionState;

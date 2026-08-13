@@ -3,13 +3,14 @@ import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
 import {
   measuredWindow,
+  prepareCommandSuggestions,
   prepareSearchPickerIndex,
   prepareLogHistory
 } from '../../dist/behavior/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 import {
-  validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+  decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { defineTheme,
@@ -690,7 +691,7 @@ const cases = [
     name: 'commandInput',
     element: () => commandInput({
       id: 'command-input',
-      presentation: { value: unsafe, cursor: 0, suggestions: [{ id: 'open', value: 'open', label: unsafe, description: 'Open action' }], activeSuggestionId: 'open' },
+      presentation: { value: unsafe, cursor: 0, suggestions: prepareCommandSuggestions([{ id: 'open', value: 'open', label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
       prompt: '>',
       onTransition: (action) => action
     }),
@@ -797,7 +798,7 @@ for (const current of cases) {
 
     assert.equal(frame.width, terminalSizeNormal.columns);
     assert.equal(frame.height, terminalSizeNormal.rows);
-    assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true);
     assert.match(plain, current.expectText);
     assert.doesNotMatch(plain, /\u001B/u);
     assert.doesNotMatch(accessibilityJson, /\u001B/u);
@@ -817,22 +818,22 @@ for (const current of cases) {
 
     const resized = renderElementFrame(current.element(), terminalSizeWide);
     assert.equal(resized.width, terminalSizeWide.columns);
-    assert.equal(validateAccessibleSnapshot(resized.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(resized.accessibility).ok, true);
     assertCellsAreInsideFrame(resized);
 
     const tiny = renderElementFrame(current.element(), terminalSizeTiny);
     assert.equal(tiny.width, terminalSizeTiny.columns);
     assert.equal(tiny.height, terminalSizeTiny.rows);
-    assert.equal(validateAccessibleSnapshot(tiny.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(tiny.accessibility).ok, true);
     assertCellsAreInsideFrame(tiny);
     assert.doesNotMatch(renderFramePlain(tiny), /\u001B/u);
 
     const themedFrame = renderElementFrame(current.element(), terminalSizeNormal, { theme: themed });
-    assert.equal(validateAccessibleSnapshot(themedFrame.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(themedFrame.accessibility).ok, true);
     assertCellsAreInsideFrame(themedFrame);
 
     const highContrastFrame = renderElementFrame(current.element(), terminalSizeNormal, { theme: highContrastTheme });
-    assert.equal(validateAccessibleSnapshot(highContrastFrame.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(highContrastFrame.accessibility).ok, true);
     assertCellsAreInsideFrame(highContrastFrame);
     assertElementVisualSnapshot(
       createVisualSnapshot({ frame: highContrastFrame, ansi: { capabilities: colorCapabilities(), theme: highContrastTheme } }),

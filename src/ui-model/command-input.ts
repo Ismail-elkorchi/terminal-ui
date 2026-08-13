@@ -1,11 +1,19 @@
 import type { TextEditOperation, TextSelection } from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
-import type { SuggestionItem } from './contracts.ts';
+import type { ListboxCollection } from './list.ts';
+
+export interface CommandSuggestion {
+  readonly id: string;
+  readonly value: string;
+  readonly label?: string;
+  readonly description?: string;
+  readonly disabled?: boolean;
+}
 
 export interface CommandInputPresentation {
   readonly value: string;
   readonly cursor: number;
-  readonly suggestions: readonly SuggestionItem[];
+  readonly suggestions: ListboxCollection<string>;
   readonly selection?: TextSelection;
   readonly activeSuggestionId?: string;
   readonly historyIndex?: number;

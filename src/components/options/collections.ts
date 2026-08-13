@@ -9,7 +9,7 @@ import type { MessageResolution } from '../../interaction/message.ts';
 import type {
   ListViewActivateEvent,
   ListViewControlTransition,
-  ListViewItem,
+  ListViewProjection,
   ListViewTransition,
   ScrollableListViewPresentation,
   SemanticListItem,
@@ -24,9 +24,9 @@ export interface ListOptions<TItems extends readonly SemanticListItem[]> {
   readonly meta?: ComponentMetadataOptions<readonly ['layer', 'styles'], SemanticListStylePart>;
 }
 
-interface ListViewBaseOptions<TItems extends readonly ListViewItem[]> {
+interface ListViewBaseOptions<TProjection extends ListViewProjection> {
   readonly id: string;
-  readonly items: TItems;
+  readonly projection: TProjection;
   readonly pointerState?: PointerInteractionState;
   readonly readOnly?: boolean;
   readonly busy?: boolean;
@@ -63,23 +63,23 @@ interface DisabledListViewOptions {
 }
 
 export type ListViewOptions<
-  TItems extends readonly ListViewItem[],
+  TProjection extends ListViewProjection,
   TMessage extends ComponentMessage = never,
-> = UnscrolledListViewOptions<TItems, TMessage> | ScrollableListViewOptions<TItems, TMessage>;
+> = UnscrolledListViewOptions<TProjection, TMessage> | ScrollableListViewOptions<TProjection, TMessage>;
 
 export type UnscrolledListViewOptions<
-  TItems extends readonly ListViewItem[],
+  TProjection extends ListViewProjection,
   TMessage extends ComponentMessage = never,
-> = ListViewBaseOptions<TItems> & {
+> = ListViewBaseOptions<TProjection> & {
   readonly presentation: UnscrolledListViewPresentation;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 } & (ActiveListViewOptions<ListViewControlTransition, TMessage> | DisabledListViewOptions | InertListViewOptions);
 
 export type ScrollableListViewOptions<
-  TItems extends readonly ListViewItem[],
+  TProjection extends ListViewProjection,
   TMessage extends ComponentMessage = never,
-> = ListViewBaseOptions<TItems> & {
+> = ListViewBaseOptions<TProjection> & {
   readonly presentation: ScrollableListViewPresentation;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
@@ -88,7 +88,8 @@ export type ScrollableListViewOptions<
 export type {
   ListViewActivateEvent,
   ListViewControlTransition,
-  ListViewItem,
+  ListViewProjection,
+  ListViewRecord,
   ListViewPresentation,
   ListViewTransition,
   ScrollableListViewPresentation,

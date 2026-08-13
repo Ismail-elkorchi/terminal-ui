@@ -1,4 +1,4 @@
-import { measureTextCells } from '../../text/index.ts';
+import { measureTerminalCellText } from '../../text/index.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import {
@@ -6,8 +6,10 @@ import {
 } from '../../visual/source.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
 import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
+import { normalizeTerminalLink } from '../../visual/render.ts';
 import type { RenderTarget, RenderTargetCell } from '../contracts.ts';
 import { intersectRects } from './rect.ts';
+import { transferPreparedRenderSpans } from './frame-buffer.ts';
 
 /** Creates the bounded, write-only target exposed to component definitions. */
 export function createLocalComponentRenderTarget(
@@ -125,26 +127,28 @@ function writeClippedSpans(
   let nextColumn = Math.floor(column);
   const right = bounds.column + bounds.width;
   for (const span of spans) {
-    const measured = measureTextCells(span.text, { widthProfile: target.widthProfile });
-    const style = span.style === undefined || owner === undefined
-      ? span.style
+    const measured = measureTerminalCellText(span.text, { widthProfile: target.widthProfile });
+    const style = span.style === undefined
+      ? undefined
       : normalizeTerminalStyle(
           span.style,
-          `Component "${owner.name}" render span style`
+          owner === undefined ? 'Render span style' : `Component "${owner.name}" render span style`,
         );
+    const link = span.link === undefined ? undefined : normalizeTerminalLink(span.link);
+    const source = owner === undefined
+      ? span.source === undefined ? undefined : frameCellSource(span.source)
+      : scopedFrameSource(owner, span.source);
     const metadata = {
       ...(style === undefined ? {} : { style }),
-      ...(span.link === undefined ? {} : { link: span.link }),
-      ...(owner === undefined
-        ? span.source === undefined ? {} : { source: span.source }
-        : { source: scopedFrameSource(owner, span.source) })
+      ...(link === undefined ? {} : { link }),
+      ...(source === undefined ? {} : { source }),
     };
     let runColumn = 0;
-    let runText = '';
+    let run: { readonly text: string; readonly cells: number }[] = [];
     const flush = (): void => {
-      if (runText.length === 0) return;
-      target.write(row, runColumn, [{ text: runText, ...metadata }]);
-      runText = '';
+      if (run.length === 0) return;
+      transferPreparedRenderSpans(target, row, runColumn, [{ graphemes: run, ...metadata }]);
+      run = [];
     };
     for (const grapheme of measured.graphemes) {
       const endColumn = nextColumn + grapheme.cells;
@@ -152,8 +156,8 @@ function writeClippedSpans(
         ? nextColumn > bounds.column && nextColumn <= right
         : nextColumn >= bounds.column && endColumn <= right;
       if (fullyInside) {
-        if (runText.length === 0) runColumn = nextColumn;
-        runText += grapheme.text;
+        if (run.length === 0) runColumn = nextColumn;
+        run.push(grapheme);
       } else {
         flush();
       }

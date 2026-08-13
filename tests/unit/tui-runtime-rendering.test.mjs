@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage } from '../../dist/component/index.js';
-import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import { decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { diffFrames, renderDiffAnsi, renderElementFrame, renderFrameDebug, renderFramePlain } from '../../dist/renderer/index.js';
 import { activityIndicator, canvas, listbox, progressBar, statusBar, dataGrid, text, textInput } from '../../dist/components/index.js';
 import { column, row, viewport } from '../../dist/layout/index.js';
@@ -129,7 +129,7 @@ test('TUI status, progress, and activity components render accessible status sta
   ]);
   assert.deepEqual([spinnerNode?.role, spinnerNode?.value], ['status', 'Working (running)']);
   assert.deepEqual([statusNode?.live, progressNode?.live, pendingNode?.live, spinnerNode?.live], ['polite', 'polite', 'polite', 'polite']);
-  assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
+  assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
 test('renderDiffAnsi serializes clear, write, and structural cursor state', () => {

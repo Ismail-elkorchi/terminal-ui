@@ -113,6 +113,7 @@ export function applyTerminalRowMovement(frame: Frame, movement: TerminalRowMove
     width: frame.width,
     height: frame.height,
     widthProfile: frame.widthProfile,
+    ...(frame.canvasStyle === undefined ? {} : { canvasStyle: frame.canvasStyle }),
     cells: Object.freeze(cells.toSorted((left, right) => left.row - right.row || left.column - right.column)),
     accessibility: frame.accessibility,
     ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),

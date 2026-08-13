@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createProgress, progress, runPrompt } from '../../dist/prompts/index.js';
-import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import { decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 test('progress primitive exposes accessible progress state', () => {
@@ -22,8 +22,8 @@ test('progress primitive normalizes accessible progress values across updates', 
   assert.deepEqual(progressState.snapshot().root.numericValue, { current: 10, minimum: 0, maximum: 10, indeterminate: false });
   assert.deepEqual(updated.snapshot().root.numericValue, { current: 0, minimum: 0, maximum: 100, indeterminate: false });
   assert.equal(updated.snapshot().root.description, 'retrying');
-  assert.equal(validateAccessibleSnapshot(progressState.snapshot()).ok, true);
-  assert.equal(validateAccessibleSnapshot(updated.snapshot()).ok, true);
+  assert.equal(decodeAccessibleSnapshot(progressState.snapshot()).ok, true);
+  assert.equal(decodeAccessibleSnapshot(updated.snapshot()).ok, true);
 });
 
 test('runPrompt supports transcript-only non-TTY progress results', async () => {

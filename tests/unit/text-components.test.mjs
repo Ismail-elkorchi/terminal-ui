@@ -12,6 +12,7 @@ import {
   noColorTheme
 } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { activityIndicator,
   commandInput as createCommandInput,
@@ -237,7 +238,7 @@ test('text components map Unicode cursor positions through the shared text contr
   const commandFrame = renderElementFrame(commandInput({
     id: 'unicode-command',
     prompt: '> ',
-    presentation: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: [] }
+    presentation: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: prepareCommandSuggestions([]) }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 6 });
@@ -403,7 +404,7 @@ test('editable text controls remain readable in high contrast and no-color rende
     commandInput({
       id: 'contrast-command',
       prompt: '/',
-      presentation: { value: '', cursor: 0, suggestions: [] },
+      presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
       placeholder: 'command',
       validation: { level: 'warning', message: 'Waiting' }
     })
@@ -440,7 +441,7 @@ test('editable text controls remain identifiable when the theme has no field fil
     commandInput({
       id: 'no-color-command',
       prompt: '› ',
-      presentation: { value: '', cursor: 0, suggestions: [] },
+      presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
       placeholder: '/open',
       meta: { focus: { disabled: true } }
     })

@@ -207,6 +207,7 @@ function translateSnapshotMetadata(bounds: Rect, metadata: FrameBufferSnapshotMe
     writtenBounds: translateDirtyRegionSet(bounds, metadata.writtenBounds),
     clearedBounds: translateDirtyRegionSet(bounds, metadata.clearedBounds),
     rowFingerprints: metadata.rowFingerprints,
+    rowIndexes: Object.freeze([]),
     fingerprint: metadata.fingerprint
   };
 }

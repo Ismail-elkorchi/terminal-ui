@@ -42,6 +42,7 @@ import {
   textDocumentLineAt,
   textDocumentLineCount,
   textDocumentLineIndexAtOffset,
+  textDocumentParentChange,
   textDocumentSelectionRange,
   textDocumentText,
   textWidthProfileKey,
@@ -878,7 +879,19 @@ interface TextAreaDocumentLayout {
   readonly contentColumns: number;
 }
 
+interface TextAreaLogicalLineLayout {
+  readonly text: string;
+  readonly intrinsicColumns: number;
+  readonly visualLines: readonly {
+    readonly text: string;
+    readonly localStart: number;
+    readonly firstVisualLine: boolean;
+    readonly index: TerminalTextIndex;
+  }[];
+}
+
 const textAreaLayouts = new WeakMap<TextDocument, Map<string, TextAreaDocumentLayout>>();
+const textAreaLogicalLayouts = new WeakMap<TextDocument, Map<string, readonly TextAreaLogicalLineLayout[]>>();
 
 function layoutTextAreaDocument(
   document: TextDocument,
@@ -904,41 +917,21 @@ function layoutTextAreaDocument(
   const lines: TextAreaLayoutLine[] = [];
   const logicalLineRowStarts: number[] = [];
   let intrinsicColumns = 0;
-  for (let lineIndex = 0; lineIndex < textDocumentLineCount(document); lineIndex += 1) {
+  const logicalLines = logicalLineLayouts(document, normalizedWidth, wrap, widthProfile, key);
+  for (let lineIndex = 0; lineIndex < logicalLines.length; lineIndex += 1) {
     logicalLineRowStarts.push(lines.length);
     const line = textDocumentLineAt(document, lineIndex);
-    if (line === undefined) continue;
-    const index = createTerminalTextIndex(line.text, { widthProfile });
-    intrinsicColumns = Math.max(intrinsicColumns, index.cells);
-    if (!wrap || normalizedWidth <= 0 || index.cells <= normalizedWidth || line.text === '') {
+    const logical = logicalLines[lineIndex];
+    if (line === undefined || logical === undefined) continue;
+    intrinsicColumns = Math.max(intrinsicColumns, logical.intrinsicColumns);
+    for (const visual of logical.visualLines) {
       lines.push({
-        text: line.text,
-        start: line.startOffset,
+        text: visual.text,
+        start: line.startOffset + visual.localStart,
         logicalLineIndex: lineIndex,
-        firstVisualLine: true,
-        index,
+        firstVisualLine: visual.firstVisualLine,
+        index: visual.index,
       });
-      continue;
-    }
-    let visualColumn = 0;
-    while (visualColumn < index.cells) {
-      const startGrapheme = index.visualColumnToGraphemeIndex(visualColumn);
-      const endGrapheme = Math.max(
-        startGrapheme + 1,
-        index.visualColumnToGraphemeIndex(visualColumn + normalizedWidth),
-      );
-      const startOffset = index.graphemeIndexToCodeUnitOffset(startGrapheme);
-      const endOffset = index.graphemeIndexToCodeUnitOffset(endGrapheme);
-      const text = line.text.slice(startOffset, endOffset);
-      lines.push({
-        text,
-        start: line.startOffset + startOffset,
-        logicalLineIndex: lineIndex,
-        firstVisualLine: startOffset === 0,
-        index: createTerminalTextIndex(text, { widthProfile }),
-      });
-      visualColumn = index.graphemeIndexToVisualColumn(endGrapheme);
-      if (endOffset >= line.text.length) break;
     }
   }
   const created = Object.freeze({
@@ -957,26 +950,110 @@ function layoutTextAreaDocument(
   return created;
 }
 
+function logicalLineLayouts(
+  document: TextDocument,
+  width: number,
+  wrap: boolean,
+  widthProfile: TextWidthProfile,
+  key: string,
+): readonly TextAreaLogicalLineLayout[] {
+  const cached = textAreaLogicalLayouts.get(document)?.get(key);
+  if (cached !== undefined) return cached;
+  const count = textDocumentLineCount(document);
+  const result: (TextAreaLogicalLineLayout | undefined)[] = Array.from({ length: count });
+  const lineage = textDocumentParentChange(document);
+  const parent = lineage === undefined ? undefined : textAreaLogicalLayouts.get(lineage.parent)?.get(key);
+  let prefixEnd = 0;
+  let suffixStart = count;
+  let parentSuffixStart = parent?.length ?? 0;
+  if (lineage !== undefined && parent !== undefined) {
+    prefixEnd = textDocumentLineIndexAtOffset(lineage.parent, lineage.replaced.startOffset);
+    parentSuffixStart = textDocumentLineIndexAtOffset(
+      lineage.parent,
+      lineage.replaced.endOffsetExclusive,
+    ) + 1;
+    suffixStart = textDocumentLineIndexAtOffset(
+      document,
+      lineage.replaced.startOffset + lineage.insertedLength,
+    ) + 1;
+  }
+  for (let lineIndex = 0; lineIndex < count; lineIndex += 1) {
+    const inherited = lineIndex < prefixEnd
+      ? parent?.[lineIndex]
+      : lineIndex >= suffixStart
+        ? parent?.[parentSuffixStart + lineIndex - suffixStart]
+        : undefined;
+    if (inherited !== undefined) {
+      result[lineIndex] = inherited;
+      continue;
+    }
+    const line = textDocumentLineAt(document, lineIndex);
+    if (line !== undefined) result[lineIndex] = prepareLogicalLineLayout(line.text, width, wrap, widthProfile);
+  }
+  const owned = Object.freeze(result.filter((line): line is TextAreaLogicalLineLayout => line !== undefined));
+  const byKey = textAreaLogicalLayouts.get(document) ?? new Map<string, readonly TextAreaLogicalLineLayout[]>();
+  byKey.set(key, owned);
+  while (byKey.size > 8) {
+    const oldest = byKey.keys().next().value;
+    if (oldest === undefined) break;
+    byKey.delete(oldest);
+  }
+  textAreaLogicalLayouts.set(document, byKey);
+  return owned;
+}
+
+function prepareLogicalLineLayout(
+  text: string,
+  width: number,
+  wrap: boolean,
+  widthProfile: TextWidthProfile,
+): TextAreaLogicalLineLayout {
+  const index = createTerminalTextIndex(text, { widthProfile });
+  if (!wrap || width <= 0 || index.cells <= width || text === '') {
+    return Object.freeze({
+      text,
+      intrinsicColumns: index.cells,
+      visualLines: Object.freeze([{ text, localStart: 0, firstVisualLine: true, index }]),
+    });
+  }
+  const visualLines: TextAreaLogicalLineLayout['visualLines'][number][] = [];
+  let visualColumn = 0;
+  while (visualColumn < index.cells) {
+    const startGrapheme = index.visualColumnToGraphemeIndex(visualColumn);
+    const endGrapheme = Math.max(
+      startGrapheme + 1,
+      index.visualColumnToGraphemeIndex(visualColumn + width),
+    );
+    const startOffset = index.graphemeIndexToCodeUnitOffset(startGrapheme);
+    const endOffset = index.graphemeIndexToCodeUnitOffset(endGrapheme);
+    const visualText = text.slice(startOffset, endOffset);
+    visualLines.push(Object.freeze({
+      text: visualText,
+      localStart: startOffset,
+      firstVisualLine: startOffset === 0,
+      index: createTerminalTextIndex(visualText, { widthProfile }),
+    }));
+    visualColumn = index.graphemeIndexToVisualColumn(endGrapheme);
+    if (endOffset >= text.length) break;
+  }
+  return Object.freeze({ text, intrinsicColumns: index.cells, visualLines: Object.freeze(visualLines) });
+}
+
 function textAreaCursorInLayout(
   layout: TextAreaDocumentLayout,
   caret: TextCaret,
 ): { readonly rowIndex: number; readonly columnCells: number } {
   const offset = caret.position.offset;
-  let rowIndex = 0;
-  for (let index = 0; index < layout.lines.length; index += 1) {
-    const line = layout.lines[index];
-    if (line === undefined) continue;
-    const end = line.start + line.text.length;
-    if (
-      offset < end ||
-      offset === end &&
-        (caret.position.affinity === 'upstream' || index === layout.lines.length - 1) ||
-      index === layout.lines.length - 1
-    ) {
-      rowIndex = index;
-      break;
-    }
+  let low = 0;
+  let high = layout.lines.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if ((layout.lines[middle]?.start ?? Number.POSITIVE_INFINITY) <= offset) low = middle + 1;
+    else high = middle;
   }
+  let rowIndex = Math.max(0, Math.min(layout.lines.length - 1, low - 1));
+  const next = layout.lines[rowIndex + 1];
+  if (next?.start === offset && caret.position.affinity !== 'upstream') rowIndex += 1;
   const line = layout.lines[rowIndex];
   if (line === undefined) return { rowIndex: 0, columnCells: 0 };
   const localOffset = Math.max(0, Math.min(line.text.length, offset - line.start));

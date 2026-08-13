@@ -1,4 +1,4 @@
-import { toAccessibleSnapshot } from '../../accessibility/index.ts';
+import { createAccessibleSnapshot } from '../../accessibility/index.ts';
 import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../model/element.ts';
 import type { RenderNode } from '../model/index.ts';
@@ -14,7 +14,11 @@ import {
 import { createRegionTargetIndex } from './region-target-index.ts';
 import type { RegionTargetIndex } from './region-target-index.ts';
 import { createFrameBuffer } from './frame.ts';
-import { blitFrameCell } from './frame-buffer.ts';
+import {
+  applyImplicitCanvasBackdrop,
+  blitFrameCell,
+  transferFrameCell,
+} from './frame-buffer.ts';
 import { applyCursorStyle } from './cursor-style.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutRenderNode } from './layout.ts';
@@ -60,6 +64,7 @@ import type {
   RenderWorkMeasurement
 } from '../contracts.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
+import type { TerminalStyle } from '../../visual/render.ts';
 
 export {
   alignRenderLine,
@@ -156,6 +161,32 @@ export function renderElementInternal<TMessage>(
   const layout = measureRenderStage(options.instrumentation, 'layout', () =>
     layoutRenderNode(renderNode, terminalSize, theme, widthProfile)
   );
+  return materializeRenderNode(renderNode, environment.terminalSize, theme, widthProfile, layout, options);
+}
+
+/** Repaints a prepared render tree when only focus-dependent output changed. */
+export function rerenderElementInternal<TMessage>(
+  prepared: Pick<InternalRenderResult<TMessage>, 'node' | 'terminalSize' | 'theme' | 'widthProfile' | 'layout'>,
+  options: Pick<RenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation'> = {},
+): InternalRenderResult<TMessage> {
+  return materializeRenderNode(
+    prepared.node,
+    prepared.terminalSize,
+    prepared.theme,
+    prepared.widthProfile,
+    prepared.layout,
+    options,
+  );
+}
+
+function materializeRenderNode<TMessage>(
+  renderNode: RenderNode<TMessage>,
+  terminalSize: TerminalSize,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  layout: LayoutNode,
+  options: Pick<RenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation'>,
+): InternalRenderResult<TMessage> {
   const decorativeNodes = decorativeSubtreeNodes(renderNode, layout);
   recordRenderWork(options.instrumentation, { kind: 'measured_nodes', count: layoutNodeCount(layout) });
   recordRenderWork(options.instrumentation, { kind: 'rendered_nodes', count: visibleLayoutNodeCount(layout) });
@@ -178,9 +209,7 @@ export function renderElementInternal<TMessage>(
     count: regions.reduce((total, region) => total + region.hitTargets.length, 0)
   });
   const buffer = measureRenderStage(options.instrumentation, 'composition', () => {
-    const composed = compositeRegions(terminalSize, regions, widthProfile);
-    applyThemeCanvas(composed, theme);
-    return composed;
+    return compositeRegions(terminalSize, regions, widthProfile);
   });
   recordRenderWork(options.instrumentation, {
     kind: 'composed_cells',
@@ -206,24 +235,31 @@ export function renderElementInternal<TMessage>(
       theme,
       widthProfile
     );
-    const snapshot = toAccessibleSnapshot({
-      source: 'renderer',
-      root: accessibleRoot === undefined
-        ? inertAccessibleRoot()
-        : withControlLabelRelationships(accessibleRoot)
-    });
+    let snapshot;
+    try {
+      snapshot = createAccessibleSnapshot({
+        source: 'renderer',
+        root: accessibleRoot === undefined
+          ? inertAccessibleRoot()
+          : withControlLabelRelationships(accessibleRoot)
+      });
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      throw new TypeError(`Renderer returned invalid accessibility: ${detail}`, { cause });
+    }
     return adoptRenderedAccessibility(snapshot, resolvedFocusPath !== undefined);
   });
   const frame = measureRenderStage(options.instrumentation, 'snapshot', () => buffer.snapshot({
       accessibility,
+      ...canvasStyleSnapshotOptions(theme),
       ...(hitTargets.length === 0 ? {} : { hitTargets }),
       ...(cursor === undefined ? {} : { cursor }),
       ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
     }));
   recordRenderWork(options.instrumentation, { kind: 'snapshot_rows', count: frame.height });
-  recordRenderWork(options.instrumentation, { kind: 'snapshot_cells', count: frame.width * frame.height });
+  recordRenderWork(options.instrumentation, { kind: 'snapshot_cells', count: frame.cells.length });
   recordRenderWork(options.instrumentation, { kind: 'emitted_cells', count: frame.cells.length });
-  return { node: renderNode, terminalSize: environment.terminalSize, theme, widthProfile, layout, regions, frame };
+  return { node: renderNode, terminalSize, theme, widthProfile, layout, regions, frame };
 }
 
 function recordRenderWork(
@@ -582,25 +618,39 @@ export function compositeRegions(
   widthProfile: TextWidthProfile
 ): FrameBuffer {
   const buffer = createFrameBuffer(terminalSize.columns, terminalSize.rows, { widthProfile });
+  let canvasBackdropActive = false;
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
-    if (region.backdropBounds !== undefined) applyModalBackdrop(buffer, region.backdropBounds);
+    if (region.backdropBounds !== undefined) {
+      canvasBackdropActive = applyModalBackdrop(buffer, region.backdropBounds) || canvasBackdropActive;
+    }
     if (region.underlay === 'clear') {
       buffer.clear(region.bounds);
-      for (const cell of region.cells) blitFrameCell(buffer, cell);
+      for (const cell of region.cells) {
+        transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
+      }
       continue;
     }
     if (region.underlay === 'inheritBackground') {
       for (const cell of region.cells) {
-        blitFrameCell(buffer, withInheritedBackground(cell, buffer.readCell(cell.row, cell.column)));
+        const inherited = withInheritedBackground(cell, buffer.readCell(cell.row, cell.column));
+        transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(inherited) : inherited);
       }
       continue;
     }
-    for (const cell of region.cells) blitFrameCell(buffer, cell);
+    for (const cell of region.cells) {
+      transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
+    }
   }
   return buffer;
 }
 
-function applyModalBackdrop(buffer: FrameBuffer, bounds: Rect): void {
+const backdropStyle: TerminalStyle = Object.freeze({
+  bg: { kind: 'theme' as const, token: 'surface.backdrop' as const },
+  dim: true,
+});
+
+function applyModalBackdrop(buffer: FrameBuffer, bounds: Rect): boolean {
+  if (applyImplicitCanvasBackdrop(buffer, bounds, backdropStyle)) return true;
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     for (let column = bounds.column; column < bounds.column + bounds.width; column += 1) {
       const cell = buffer.readCell(row, column);
@@ -608,10 +658,7 @@ function applyModalBackdrop(buffer: FrameBuffer, bounds: Rect): void {
       if (cell === undefined) {
         buffer.write(row, column, [{
           text: ' ',
-          style: {
-            bg: { kind: 'theme', token: 'surface.backdrop' },
-            dim: true
-          }
+          style: backdropStyle,
         }]);
         continue;
       }
@@ -621,38 +668,31 @@ function applyModalBackdrop(buffer: FrameBuffer, bounds: Rect): void {
         ...unlinked,
         style: {
           ...cell.style,
-          bg: { kind: 'theme', token: 'surface.backdrop' },
-          dim: true
+          ...backdropStyle,
         }
       });
     }
   }
+  return false;
 }
 
-function applyThemeCanvas(buffer: FrameBuffer, theme: TerminalTheme): void {
-  if (theme.tokens.colors['app.background'] === undefined) return;
-  const canvasStyle = {
+function aboveBackdrop(cell: FrameCell): FrameCell {
+  return Object.freeze({
+    ...cell,
+    style: Object.freeze({ ...cell.style, dim: false }),
+  });
+}
+
+function canvasStyleSnapshotOptions(theme: TerminalTheme): { readonly canvasStyle?: TerminalStyle } {
+  if (theme.tokens.colors['app.background'] === undefined) return {};
+  return {
+    canvasStyle: {
     ...(theme.tokens.colors['app.foreground'] === undefined
       ? {}
       : { fg: { kind: 'theme' as const, token: 'app.foreground' as const } }),
     bg: { kind: 'theme' as const, token: 'app.background' as const }
-  };
-  for (const cell of buffer.snapshot().cells) {
-    if (cell.continuation === true) continue;
-    blitFrameCell(buffer, {
-      ...cell,
-      style: {
-        ...canvasStyle,
-        ...cell.style
-      }
-    });
-  }
-  for (let row = 1; row <= buffer.height; row += 1) {
-    for (let column = 1; column <= buffer.width; column += 1) {
-      if (buffer.readCell(row, column) !== undefined) continue;
-      buffer.write(row, column, [{ text: ' ', style: canvasStyle }]);
     }
-  }
+  };
 }
 
 function withInheritedBackground(cell: FrameCell, lower: FrameCell | undefined): FrameCell {

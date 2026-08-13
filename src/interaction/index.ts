@@ -5,6 +5,7 @@ export {
   collectionInteractionReducer,
   normalizeCollectionInteraction,
   ownSelectionState,
+  prepareCollectionInteractionIndex,
 } from './collection.ts';
 export type * from './focus.ts';
 export type * from './navigation.ts';

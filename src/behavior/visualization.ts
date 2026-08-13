@@ -1,4 +1,4 @@
-import { collectionInteractionReducer, normalizeCollectionInteraction } from '../interaction/collection.ts';
+import { collectionInteractionReducer, normalizeCollectionInteraction, prepareCollectionInteractionIndex } from '../interaction/collection.ts';
 import type { CollectionInteractionAction, SelectionPolicy } from '../interaction/collection.ts';
 import { adjacentItemId } from '../interaction/navigation.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
@@ -44,7 +44,7 @@ export function chartReducer(
     item.points.some((point) => point.id === activePoint?.id)
   ));
   const currentSeries = series[currentSeriesIndex];
-  if (currentSeries === undefined) return normalizeCollectionInteraction(state, ids, options.selection);
+  if (currentSeries === undefined) return normalizeCollectionInteraction(state, prepareCollectionInteractionIndex(ids), options.selection);
   const currentPointIndex = Math.max(0, currentSeries.points.findIndex((point) => point.id === activePoint?.id));
   if (transition.kind === 'moveSeries') {
     const enabledSeries = series.filter((item) => item.points.length > 0);
@@ -82,7 +82,7 @@ export function heatmapReducer<TValue>(
   const ids = cells.map((cell) => cell.id);
   if (isCollectionTransition(transition)) return reduceCollection(state, transition, ids, options);
   const current = cells.find((cell) => cell.id === state.activeId) ?? cells[0];
-  if (current === undefined) return normalizeCollectionInteraction(state, ids, options.selection);
+  if (current === undefined) return normalizeCollectionInteraction(state, prepareCollectionInteractionIndex(ids), options.selection);
   const rowsDelta = transition.kind === 'pageRows'
     ? transition.delta * Math.max(1, Math.floor(options.pageSize ?? 1))
     : transition.rows;
@@ -107,7 +107,7 @@ function reduceCollection(
   options: VisualizationReducerOptions,
 ): VisualizationPresentation {
   return collectionInteractionReducer(state, transition, {
-    enabledIds,
+    index: prepareCollectionInteractionIndex(enabledIds),
     selection: options.selection,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });

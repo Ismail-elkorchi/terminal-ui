@@ -7,7 +7,7 @@ import {
   createDiagnosticOccurrenceReporter,
   diagnostic
 } from '../../dist/diagnostics.js';
-import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import { decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { decodeInputEvent } from '../../dist/input/index.js';
 import { decodeKeyboardProfile } from '../../dist/protocol/index.js';
 import { defineTextWidthProfile } from '../../dist/text/index.js';
@@ -106,7 +106,7 @@ test('transcript decoding retains every successful nested adoption', () => {
   assert.strictEqual(adoptTerminalDiagnostic(stepOccurrence.diagnostic), stepOccurrence.diagnostic);
   assert.strictEqual(defineTextWidthProfile(commit.frame.widthProfile), commit.frame.widthProfile);
   assert.strictEqual(defineTextWidthProfile(commit.diff.widthProfile), commit.diff.widthProfile);
-  assert.strictEqual(validateAccessibleSnapshot(commit.frame.accessibility).value, commit.frame.accessibility);
+  assert.strictEqual(decodeAccessibleSnapshot(commit.frame.accessibility).value, commit.frame.accessibility);
   assert.strictEqual(
     decodeKeyboardProfile(restore.requested.keyboardProfile),
     restore.requested.keyboardProfile
@@ -120,7 +120,8 @@ test('transcript validation accounts resources on the owned snapshot', () => {
   let stepsReads = 0;
   let diagnosticsReads = 0;
   const source = {
-    formatVersion: 4,
+    formatVersion: 5,
+    omittedSteps: 0,
     id: 'single-read-boundary',
     source: 'test',
     get steps() {
@@ -598,7 +599,8 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    formatVersion: 4,
+    formatVersion: 5,
+    omittedSteps: 0,
     id: '',
     source: 'test',
     steps: [],

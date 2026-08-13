@@ -1,6 +1,6 @@
 import {
-  toAccessibleSnapshot,
-  validateAccessibleSnapshot,
+  createAccessibleSnapshot,
+  decodeAccessibleSnapshot,
   type AccessibleSnapshotInput,
   type AccessibleSnapshotSource
 } from '@ismail-elkorchi/terminal-ui/accessibility';
@@ -12,7 +12,7 @@ import {
 
 const source: AccessibleSnapshotSource = 'tui';
 const harnessSource: AccessibleSnapshotSource = 'test_harness';
-const snapshot = toAccessibleSnapshot({
+const snapshot = createAccessibleSnapshot({
   source,
   root: {
     id: 'root',
@@ -37,7 +37,7 @@ const snapshot = toAccessibleSnapshot({
     }]
   }
 });
-const validation = validateAccessibleSnapshot(snapshot);
+const validation = decodeAccessibleSnapshot(snapshot);
 const occurrence = createDiagnosticOccurrenceReporter('accessibility-contract')
   .report(diagnostic('INPUT_TIMEOUT', 'Timed out.'));
 const content: TerminalDiagnostic = occurrence.diagnostic;

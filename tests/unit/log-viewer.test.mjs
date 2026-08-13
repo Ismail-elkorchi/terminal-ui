@@ -268,7 +268,7 @@ test('wrapped log viewer search navigates by exact occurrence identity', () => {
     id: 'selected-search-occurrence',
     history,
     searchQuery: 'needle',
-    activeMatch: matches[1],
+    activeMatchId: matches[1]?.id,
     wrap: true
   }), { columns: 8, rows: 3 });
 

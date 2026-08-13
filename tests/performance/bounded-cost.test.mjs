@@ -11,6 +11,7 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
+import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
 import { dirtyRegionsForRegionChanges } from '../../dist/renderer/internal/dirty-regions.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import {
@@ -24,11 +25,12 @@ import {
   richText,
   logViewer,
   dataGrid,
+  dialog,
   table,
   text,
   tree
 } from '../../dist/components/index.js';
-import { column } from '../../dist/layout/index.js';
+import { column, overlay } from '../../dist/layout/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import {
   appendLogHistory,
@@ -165,6 +167,41 @@ test('windowed listbox collections project only supplied rows while preserving g
   assert.equal(frame.accessibility.root.description, 'Showing 40003-40007 of 50000 items.');
 });
 
+test('command suggestions retain only a supplied window while preserving global accessibility', () => {
+  const start = 40_000;
+  const suggestions = prepareCommandSuggestions(
+    Array.from({ length: 8 }, (_value, offset) => ({
+      id: `command-${String(start + offset)}`,
+      label: `Command ${String(start + offset)}`,
+      value: `command-${String(start + offset)}`,
+    })),
+    { startIndex: start, totalCount: 100_000, domain: { kind: 'source' } },
+  );
+  const frame = renderElementFrame(commandInput({
+    id: 'windowed-command',
+    display: 'expanded',
+    maxVisibleSuggestions: 8,
+    presentation: {
+      value: '',
+      cursor: 0,
+      suggestions,
+      activeSuggestionId: 'command-40003',
+    },
+    onTransition: () => ignoreMessage(),
+  }), { columns: 40, rows: 9 });
+  const listbox = frame.accessibility.root.children?.find((node) => node.role === 'listbox');
+
+  assert.match(renderFramePlain(frame), /Command 40003/u);
+  assert.equal(listbox?.children?.length, 8);
+  assert.deepEqual(listbox?.window, {
+    startIndex: 40_000,
+    endIndexExclusive: 40_008,
+    totalCount: 100_000,
+    omittedBefore: 40_000,
+    omittedAfter: 59_992,
+  });
+});
+
 test('large log viewer rendering is bounded by terminal size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
   const history = prepareLogHistory(items);
@@ -247,10 +284,10 @@ test('full frame render stays bounded by terminal size for mixed element trees',
     commandInput({
       id: 'search',
       prompt: '?',
-      presentation: { value: 'fil', cursor: 0, suggestions: [
+      presentation: { value: 'fil', cursor: 0, suggestions: prepareCommandSuggestions([
         { id: 'file', value: 'file', label: 'file' },
         { id: 'filter', value: 'filter', label: 'filter' }
-      ], activeSuggestionId: 'file' },
+      ]), activeSuggestionId: 'file' },
       onTransition: (transition) => transition
     }),
     table({
@@ -522,6 +559,60 @@ test('large sparse canvas retained damage is narrowed to touched cells', () => {
   assert.deepEqual(dirty?.rects, [
     { row: 20, column: 60, width: 1, height: 1 }
   ]);
+});
+
+test('sparse frame snapshots retain occupied cells instead of terminal-area storage', () => {
+  const measurements = [];
+  const frame = renderElementFrame(canvas({
+    id: 'sparse-storage',
+    label: 'Sparse storage',
+    measurement: {
+      minWidth: 0,
+      minHeight: 0,
+      preferredWidth: 400,
+      preferredHeight: 200,
+    },
+    painter({ canvas }) {
+      canvas.text(199, 99, [{ text: 'x' }]);
+    },
+  }), { columns: 400, rows: 200 }, {
+    instrumentation: {
+      now: () => 0,
+      record: () => {},
+      recordWork: (measurement) => measurements.push(measurement),
+    },
+  });
+
+  assert.equal(frame.cells.length, 1);
+  assert.equal(
+    measurements.find((measurement) => measurement.kind === 'snapshot_cells')?.count,
+    1,
+  );
+});
+
+test('modal viewport backdrops transform occupied cells without materializing empty space', () => {
+  const frame = renderElementFrame(overlay([
+    canvas({
+      id: 'modal-background',
+      label: 'Background',
+      measurement: { minWidth: 0, minHeight: 0, preferredWidth: 400, preferredHeight: 200 },
+      painter({ canvas }) {
+        canvas.text(0, 0, [{ text: 'background' }]);
+      },
+    }),
+    dialog({
+      id: 'sparse-modal',
+      title: 'Modal',
+      modal: true,
+      focusPolicy: { returnFocus: 'restore' },
+      width: 40,
+      height: 10,
+      slots: { content: text({ content: 'front' }) },
+    }),
+  ]), { columns: 400, rows: 200 });
+
+  assert.equal(frame.canvasStyle?.bg?.token, 'surface.backdrop');
+  assert.ok(frame.cells.length < 2_000, `expected sparse modal frame, received ${String(frame.cells.length)} cells`);
 });
 
 test('large tree rendering is bounded by terminal size independently from node count', () => {

@@ -1413,21 +1413,30 @@ function scrollTableSpans(
   const visible: import('../../visual/render.ts').RenderSpan[] = [];
   let skipped = 0;
   let written = 0;
-  outer: for (const current of spans) {
+  for (const current of spans) {
+    let visibleText = '';
+    let exhausted = false;
     for (const grapheme of measureTextCells(current.text, { widthProfile }).graphemes) {
       if (skipped < offsetCells) {
         skipped += grapheme.cells;
         continue;
       }
-      if (written + grapheme.cells > width) break outer;
+      if (written + grapheme.cells > width) {
+        exhausted = true;
+        break;
+      }
+      visibleText += grapheme.text;
+      written += grapheme.cells;
+    }
+    if (visibleText.length > 0) {
       visible.push({
-        text: grapheme.text,
+        text: visibleText,
         ...(current.style === undefined ? {} : { style: current.style }),
         ...(current.link === undefined ? {} : { link: current.link }),
         ...(current.source === undefined ? {} : { source: current.source }),
       });
-      written += grapheme.cells;
     }
+    if (exhausted) break;
   }
   return visible;
 }

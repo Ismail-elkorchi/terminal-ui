@@ -6,6 +6,7 @@ import {
   commandInput,
   dataGrid,
   listbox,
+  prepareCommandSuggestions,
   searchPicker,
   slider,
   tabs,
@@ -36,7 +37,7 @@ void test('component construction and rendering do not execute event handlers', 
     textArea({ id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
     commandInput({
       id: 'command',
-      presentation: { value: 'a', cursor: 0, suggestions: [] },
+      presentation: { value: 'a', cursor: 0, suggestions: prepareCommandSuggestions([]) },
       onTransition: message
     }),
     searchPicker({ id: 'searchPicker', presentation: { query: { text: '', mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })

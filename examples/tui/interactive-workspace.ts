@@ -12,6 +12,7 @@ import {
   dataGrid,
   helpBar,
   overlay,
+  prepareCommandSuggestions,
   runTui,
   searchPicker,
   splitPane,
@@ -121,7 +122,9 @@ const searchPickerEntries: readonly SearchEntry[] = [
 ];
 const workspaceSearchPickerIndex = prepareSearchPickerIndex(searchPickerEntries);
 
-const suggestions = searchPickerEntries.map((entry) => ({ id: entry.id, label: entry.label, value: entry.value }));
+const suggestions = prepareCommandSuggestions(
+  searchPickerEntries.map((entry) => ({ id: entry.id, label: entry.label, value: entry.value })),
+);
 
 function navigationNodes(): readonly TreeNode<NavigationMetadata>[] {
   return [{
@@ -424,7 +427,7 @@ function commandPane(state: WorkspaceState) {
     id: 'workspace-command',
     prompt: '› ',
     placeholder: 'Type /command',
-    presentation: { ...presentation, suggestions: showSuggestions ? presentation.suggestions : [] },
+    presentation: { ...presentation, suggestions: showSuggestions ? presentation.suggestions : prepareCommandSuggestions([]) },
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 6,

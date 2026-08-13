@@ -9,8 +9,18 @@ export interface SemanticListItem<TContent extends Element = Element> {
   readonly label?: string;
 }
 
-export interface ListViewItem<TContent extends Element = Element> extends SemanticListItem<TContent> {
+export interface ListViewRecord<TContent extends Element = Element> extends SemanticListItem<TContent> {
+  readonly itemIndex: number;
+  readonly startRow: number;
+  readonly rowCount: number;
   readonly disabled?: boolean;
+}
+
+/** A caller-owned, variable-height window over a larger list view. */
+export interface ListViewProjection<TContent extends Element = Element> {
+  readonly records: readonly ListViewRecord<TContent>[];
+  readonly totalCount: number;
+  readonly totalRows: number;
 }
 
 export interface UnscrolledListViewPresentation extends CollectionInteractionState {

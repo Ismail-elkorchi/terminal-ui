@@ -43,9 +43,14 @@ export type CollectionInteractionAction =
   | { readonly kind: 'clearSelection' };
 
 export interface CollectionInteractionOptions {
-  readonly enabledIds: readonly string[];
+  readonly index: CollectionInteractionIndex;
   readonly selection: SelectionPolicy;
   readonly navigation?: NavigationPolicy;
+}
+
+export interface CollectionInteractionIndex {
+  readonly ids: readonly string[];
+  readonly positions: ReadonlyMap<string, number>;
 }
 
 export const noSelection: SelectionPolicy = Object.freeze({ mode: 'none' });
@@ -53,6 +58,19 @@ export const manualSingleSelection: SelectionPolicy = Object.freeze({
   mode: 'single',
   commitment: 'manual',
 });
+
+export function prepareCollectionInteractionIndex(value: unknown): CollectionInteractionIndex {
+  if (!Array.isArray(value)) throw new TypeError('Collection interaction ids must be an array.');
+  const ids = Object.freeze(value.map((id, position) =>
+    selectionId(id, `Collection interaction ids[${String(position)}]`)
+  ));
+  const positions = new Map<string, number>();
+  for (const [position, id] of ids.entries()) {
+    if (positions.has(id)) throw new TypeError('Collection interaction ids must be unique.');
+    positions.set(id, position);
+  }
+  return Object.freeze({ ids, positions });
+}
 
 const emptySelectionState: SelectionState = Object.freeze({ mode: 'none' });
 
@@ -94,15 +112,15 @@ export function collectionInteractionReducer(
   action: CollectionInteractionAction,
   options: CollectionInteractionOptions,
 ): CollectionInteractionState {
-  const enabledIds = uniqueIds(options.enabledIds);
-  const normalized = normalizeCollectionInteractionWithIds(state, enabledIds, options.selection);
+  const enabledIds = options.index.ids;
+  const normalized = normalizeCollectionInteractionWithIndex(state, options.index, options.selection);
   switch (action.kind) {
     case 'setActive':
-      return setActive(normalized, validId(enabledIds, action.id), options.selection);
+      return setActive(normalized, validId(options.index, action.id), options.selection);
     case 'moveActive':
       return setActive(
         normalized,
-        adjacentItemId(enabledIds, normalized.activeId, action.delta, options.navigation),
+        adjacentIndexedItemId(options.index, normalized.activeId, action.delta, options.navigation),
         options.selection,
       );
     case 'firstActive':
@@ -114,15 +132,15 @@ export function collectionInteractionReducer(
         ? normalized
         : selectId(normalized, normalized.activeId, options.selection, false);
     case 'select':
-      return enabledIds.includes(action.id)
+      return options.index.positions.has(action.id)
         ? selectId(normalized, action.id, options.selection, false)
         : normalized;
     case 'toggleSelection':
-      return enabledIds.includes(action.id)
+      return options.index.positions.has(action.id)
         ? selectId(normalized, action.id, options.selection, true)
         : normalized;
     case 'selectRange':
-      return selectRange(normalized, action.toId, enabledIds, options.selection);
+      return selectRange(normalized, action.toId, options.index, options.selection);
     case 'clearSelection':
       return withSelection(normalized, emptySelection(options.selection));
   }
@@ -130,20 +148,19 @@ export function collectionInteractionReducer(
 
 export function normalizeCollectionInteraction(
   state: CollectionInteractionState,
-  enabledIds: readonly string[],
+  index: CollectionInteractionIndex,
   policy: SelectionPolicy,
 ): CollectionInteractionState {
-  const ids = uniqueIds(enabledIds);
-  return normalizeCollectionInteractionWithIds(state, ids, policy);
+  return normalizeCollectionInteractionWithIndex(state, index, policy);
 }
 
-function normalizeCollectionInteractionWithIds(
+function normalizeCollectionInteractionWithIndex(
   state: CollectionInteractionState,
-  ids: readonly string[],
+  index: CollectionInteractionIndex,
   policy: SelectionPolicy,
 ): CollectionInteractionState {
-  const activeId = validId(ids, state.activeId);
-  const selection = normalizedSelection(state.selection, ids, policy);
+  const activeId = validId(index, state.activeId);
+  const selection = normalizedSelection(state.selection, index, policy);
   if (state.activeId === activeId && sameSelection(state.selection, selection)) return state;
   return Object.freeze({
     ...(activeId === undefined ? {} : { activeId }),
@@ -197,17 +214,17 @@ function selectId(
 function selectRange(
   state: CollectionInteractionState,
   toId: string,
-  enabledIds: readonly string[],
+  index: CollectionInteractionIndex,
   policy: SelectionPolicy,
 ): CollectionInteractionState {
-  if (policy.mode !== 'multiple' || !policy.range || !enabledIds.includes(toId)) return state;
+  if (policy.mode !== 'multiple' || !policy.range || !index.positions.has(toId)) return state;
   const anchor = state.selection.mode === 'multiple' && state.selection.anchorId !== undefined
     ? state.selection.anchorId
     : state.activeId ?? toId;
-  const from = enabledIds.indexOf(anchor);
-  const to = enabledIds.indexOf(toId);
+  const from = index.positions.get(anchor) ?? -1;
+  const to = index.positions.get(toId) ?? -1;
   if (from < 0 || to < 0) return state;
-  const selectedIds = Object.freeze(enabledIds.slice(Math.min(from, to), Math.max(from, to) + 1));
+  const selectedIds = Object.freeze(index.ids.slice(Math.min(from, to), Math.max(from, to) + 1));
   return Object.freeze({
     activeId: toId,
     selection: Object.freeze({ mode: 'multiple', selectedIds, anchorId: anchor }),
@@ -216,7 +233,7 @@ function selectRange(
 
 function normalizedSelection(
   state: SelectionState,
-  enabledIds: readonly string[],
+  index: CollectionInteractionIndex,
   policy: SelectionPolicy,
 ): SelectionState {
   if (policy.mode === 'none') return emptySelection(policy);
@@ -224,15 +241,15 @@ function normalizedSelection(
     const candidate = state.mode === 'single'
       ? state.selectedId
       : state.mode === 'multiple' ? state.selectedIds[0] : undefined;
-    const selectedId = validId(enabledIds, candidate);
+    const selectedId = validId(index, candidate);
     return Object.freeze({ mode: 'single', ...(selectedId === undefined ? {} : { selectedId }) });
   }
   const candidates = state.mode === 'multiple'
     ? state.selectedIds
     : state.mode === 'single' && state.selectedId !== undefined ? [state.selectedId] : [];
   const selected = new Set(candidates);
-  const selectedIds = Object.freeze(enabledIds.filter((id) => selected.has(id)));
-  const anchorId = state.mode === 'multiple' ? validId(enabledIds, state.anchorId) : undefined;
+  const selectedIds = Object.freeze(index.ids.filter((id) => selected.has(id)));
+  const anchorId = state.mode === 'multiple' ? validId(index, state.anchorId) : undefined;
   return Object.freeze({
     mode: 'multiple',
     selectedIds,
@@ -261,13 +278,20 @@ function withSelection(
     : Object.freeze({ ...(state.activeId === undefined ? {} : { activeId: state.activeId }), selection });
 }
 
-function validId(ids: readonly string[], id: string | undefined): string | undefined {
-  return id !== undefined && ids.includes(id) ? id : undefined;
+function validId(index: CollectionInteractionIndex, id: string | undefined): string | undefined {
+  return id !== undefined && index.positions.has(id) ? id : undefined;
 }
 
-function uniqueIds(ids: readonly string[]): readonly string[] {
-  if (new Set(ids).size !== ids.length) throw new TypeError('Collection interaction ids must be unique.');
-  return ids;
+function adjacentIndexedItemId(
+  index: CollectionInteractionIndex,
+  currentId: string | undefined,
+  delta: number,
+  navigation: NavigationPolicy | undefined,
+): string | undefined {
+  if (index.ids.length === 0) return undefined;
+  const current = currentId === undefined ? undefined : index.positions.get(currentId);
+  if (current === undefined) return delta < 0 ? index.ids.at(-1) : index.ids[0];
+  return adjacentItemId(index.ids, currentId, delta, navigation);
 }
 
 function sameSelection(left: SelectionState, right: SelectionState): boolean {

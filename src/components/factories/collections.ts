@@ -1,5 +1,4 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
-import { measuredWindow } from '../../behavior/measured-window.ts';
 import { createScrollState, normalizeScrollState } from '../../behavior/scroll.ts';
 import {
   componentScrollbarHitTargets,
@@ -13,6 +12,7 @@ import {
 } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
+import { isRegisteredElement } from '../../element/registry.ts';
 import type { Rect } from '../../geometry/types.ts';
 import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
@@ -22,10 +22,16 @@ import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import { ownSelectionState, type SelectionState } from '../../interaction/collection.ts';
+import {
+  ownSelectionState,
+  prepareCollectionInteractionIndex,
+  type CollectionInteractionIndex,
+  type SelectionState,
+} from '../../interaction/collection.ts';
 import type {
   ListViewActivateEvent,
-  ListViewItem,
+  ListViewProjection,
+  ListViewRecord,
   ListViewTransition,
   SemanticListItem,
 } from '../../ui-model/semantic-list.ts';
@@ -166,7 +172,16 @@ export function list<const TItems extends readonly SemanticListItem[]>(
 }
 
 interface ListViewModel {
-  readonly items: readonly (PreparedSemanticListItem & { readonly disabled: boolean })[];
+  readonly items: readonly (PreparedSemanticListItem & {
+    readonly itemIndex: number;
+    readonly startRow: number;
+    readonly rowCount: number;
+    readonly disabled: boolean;
+  })[];
+  readonly totalCount: number;
+  readonly totalRows: number;
+  readonly interactionIndex: CollectionInteractionIndex;
+  readonly positions: ReadonlyMap<string, number>;
   readonly activeId?: string;
   readonly selection: SelectionState;
   readonly scroll?: ScrollState;
@@ -214,57 +229,62 @@ const instantiateListView = defineComponent<
       minWidth: 0,
       minHeight: 0,
       preferredWidth: Math.max(0, ...measurements.map((item) => item.preferredWidth + 2)),
-      preferredHeight: measurements.reduce((sum, item) => sum + item.preferredHeight, 0),
+      preferredHeight: input.model.totalRows,
     };
   },
   layout(input) {
-    const measured = input.model.items.map((item, index) => ({
-      id: item.id,
-      value: index,
-      rows: input.slots.measure('items', index).preferredHeight,
-    }));
-    const totalRows = measured.reduce((sum, item) => sum + item.rows, 0);
-    const scroll = prepareListViewScroll(input.model.scroll, totalRows, input.bounds);
+    const scroll = prepareListViewScroll(input.model.scroll, input.model.totalRows, input.bounds);
     const initialScrollbar = prepareComponentScrollbar({
       bounds: input.bounds,
       scroll,
-      contentRows: totalRows,
+      contentRows: input.model.totalRows,
       contentColumns: input.bounds.width,
       ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
       defaultAxis: 'vertical',
     });
-    const window = measuredWindow({
-      items: measured,
-      viewportRows: initialScrollbar.contentBounds.height,
-      offsetRow: initialScrollbar.scroll.offsetRow,
-      ...(input.model.activeId === undefined ? {} : { activeId: input.model.activeId }),
-    });
+    const activePosition = input.model.activeId === undefined
+      ? undefined
+      : input.model.positions.get(input.model.activeId);
+    const active = activePosition === undefined ? undefined : input.model.items[activePosition];
+    const offsetRow = active === undefined
+      ? initialScrollbar.scroll.offsetRow
+      : rowIntoViewOffset(
+          initialScrollbar.scroll.offsetRow,
+          initialScrollbar.contentBounds.height,
+          active.startRow,
+          active.rowCount,
+          input.model.totalRows,
+        );
     const scrollbar = prepareComponentScrollbar({
       bounds: input.bounds,
       scroll: {
         ...initialScrollbar.scroll,
-        offsetRow: window.offsetRow,
+        offsetRow,
         followTail: false,
       },
-      contentRows: totalRows,
+      contentRows: input.model.totalRows,
       contentColumns: input.bounds.width,
       ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
       defaultAxis: 'vertical',
     });
-    const visible = new Map(window.entries.map((entry) => [entry.itemIndex, entry]));
-    const rects = input.model.items.map((_item, index): Rect => {
-      const entry = visible.get(index);
-      if (entry === undefined) return { row: 0, column: 0, width: 0, height: 0 };
+    const viewportEnd = scrollbar.scroll.offsetRow + scrollbar.contentBounds.height;
+    const visibleIndexes: number[] = [];
+    const rects = input.model.items.map((item, index): Rect => {
+      const itemEnd = item.startRow + item.rowCount;
+      if (item.startRow >= viewportEnd || itemEnd <= scrollbar.scroll.offsetRow) {
+        return { row: 0, column: 0, width: 0, height: 0 };
+      }
+      visibleIndexes.push(index);
       return {
-        row: entry.startRowIndex - window.offsetRow,
+        row: item.startRow - scrollbar.scroll.offsetRow,
         column: 2,
         width: Math.max(0, scrollbar.contentBounds.width - 2),
-        height: entry.endRowIndexExclusive - entry.startRowIndex,
+        height: item.rowCount,
       };
     });
     listViewLayouts.set(input.model, {
       rects,
-      visibleIndexes: window.entries.map((entry) => entry.itemIndex),
+      visibleIndexes: Object.freeze(visibleIndexes),
       scrollbar,
     });
     return { items: rects };
@@ -292,7 +312,7 @@ const instantiateListView = defineComponent<
           source: input.source({
             partName: 'item',
             itemId: item.id,
-            itemIndex: index,
+            itemIndex: item.itemIndex,
             ...(state === undefined ? {} : { interactionState: state }),
           }),
         }]);
@@ -308,7 +328,7 @@ const instantiateListView = defineComponent<
         source: input.source({
           partName: 'marker',
           itemId: item.id,
-          itemIndex: index,
+          itemIndex: item.itemIndex,
           ...(state === undefined ? {} : { interactionState: state }),
         }),
       }]);
@@ -324,7 +344,7 @@ const instantiateListView = defineComponent<
     if (busy) return {};
     const activeIndex = model.activeId === undefined
       ? -1
-      : model.items.findIndex((item) => item.id === model.activeId);
+      : model.positions.get(model.activeId) ?? -1;
     const active = model.items[activeIndex];
     return {
       arrowUp: () => transition({ kind: 'moveActive', delta: -1 }),
@@ -334,7 +354,7 @@ const instantiateListView = defineComponent<
       ...(readOnly ? {} : { space: () => transition({ kind: 'commitActive' }) }),
       ...(readOnly || active === undefined || active.disabled
         ? {}
-        : { enter: () => activate(active.id, activeIndex) }),
+        : { enter: () => activate(active.id, active.itemIndex) }),
     };
   },
   pointer: {
@@ -345,7 +365,7 @@ const instantiateListView = defineComponent<
     const layout = listViewLayouts.get(input.model);
     const index = input.model.activeId === undefined
       ? -1
-      : input.model.items.findIndex((item) => item.id === input.model.activeId);
+      : input.model.positions.get(input.model.activeId) ?? -1;
     const rect = index < 0 ? undefined : layout?.rects[index];
     return [{
       id: 'self',
@@ -368,7 +388,7 @@ const instantiateListView = defineComponent<
           accepts: ['click'] as const,
           cursor: 'pointer' as const,
           message: (event: RoutedPointerEvent) => event.clickCount === 2 && !input.readOnly
-            ? activate(item.id, index)
+            ? activate(item.id, item.itemIndex)
             : transition({ kind: 'setActive', id: item.id }),
         }];
       }),
@@ -392,7 +412,7 @@ const instantiateListView = defineComponent<
         ...(item.label === undefined ? {} : { label: item.label }),
         selected: selectionContains(input.model.selection, item.id),
         disabled: item.disabled,
-        position: { positionInSet: index + 1, setSize: input.model.items.length },
+        position: { positionInSet: item.itemIndex + 1, setSize: input.model.totalCount },
         children: child === undefined ? [] : [child],
       }];
     });
@@ -407,25 +427,26 @@ const instantiateListView = defineComponent<
 });
 
 export function listView<
-  const TItems extends readonly ListViewItem[],
+  const TProjection extends ListViewProjection,
   const TMessage extends ComponentMessage = never,
 >(
-  options: ScrollableListViewOptions<TItems, TMessage>,
-): Element<TMessage | ElementMessage<TItems[number]['content']>>;
+  options: ScrollableListViewOptions<TProjection, TMessage>,
+): Element<TMessage | ElementMessage<TProjection['records'][number]['content']>>;
 export function listView<
-  const TItems extends readonly ListViewItem[],
+  const TProjection extends ListViewProjection,
   const TMessage extends ComponentMessage = never,
 >(
   // eslint-disable-next-line @typescript-eslint/unified-signatures
-  options: UnscrolledListViewOptions<TItems, TMessage>,
-): Element<TMessage | ElementMessage<TItems[number]['content']>>;
+  options: UnscrolledListViewOptions<TProjection, TMessage>,
+): Element<TMessage | ElementMessage<TProjection['records'][number]['content']>>;
 export function listView<
-  const TItems extends readonly ListViewItem[],
+  const TProjection extends ListViewProjection,
   const TMessage extends ComponentMessage = never,
 >(
-  options: ListViewOptions<TItems, TMessage>,
-): Element<TMessage | ElementMessage<TItems[number]['content']>> {
-  const items = preparePublicListViewItems(options.items);
+  options: ListViewOptions<TProjection, TMessage>,
+): Element<TMessage | ElementMessage<TProjection['records'][number]['content']>> {
+  const projection = preparePublicListViewProjection(options.projection);
+  const items = projection.records;
   const scroll = prepareComponentScrollState(options.presentation.scroll, 'listView scroll');
   const scrollbar = prepareComponentScrollbarOptions(options.scrollbar, 'listView scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(options.scrollPolicy, 'listView scrollPolicy');
@@ -438,11 +459,18 @@ export function listView<
     options.disabled !== true && options.inert !== true,
   );
   const model: ListViewModel = {
-    items: items.map(({ id, label, disabled }) => ({
+    items: items.map(({ id, label, disabled, itemIndex, startRow, rowCount }) => ({
       id,
       ...(label === undefined ? {} : { label }),
-      disabled,
+      disabled: disabled === true,
+      itemIndex,
+      startRow,
+      rowCount,
     })),
+    totalCount: projection.totalCount,
+    totalRows: projection.totalRows,
+    interactionIndex: prepareCollectionInteractionIndex(items.filter((item) => !item.disabled).map((item) => item.id)),
+    positions: new Map(items.map((item, index) => [item.id, index])),
     ...(options.presentation.activeId === undefined ? {} : { activeId: options.presentation.activeId }),
     selection: ownSelectionState(options.presentation.selection, 'listView selection'),
     ...(scroll === undefined ? {} : { scroll }),
@@ -481,11 +509,11 @@ export function listView<
 }
 
 function isScrollableListViewOptions<
-  TItems extends readonly ListViewItem[],
+  TProjection extends ListViewProjection,
   TMessage extends ComponentMessage,
 >(
-  options: ListViewOptions<TItems, TMessage>,
-): options is ScrollableListViewOptions<TItems, TMessage> {
+  options: ListViewOptions<TProjection, TMessage>,
+): options is ScrollableListViewOptions<TProjection, TMessage> {
   return options.presentation.scroll !== undefined;
 }
 
@@ -529,16 +557,80 @@ function preparePublicItems<TItems extends readonly SemanticListItem[]>(
   })));
 }
 
-function preparePublicListViewItems(items: readonly ListViewItem[]): readonly (
-  ListViewItem & { readonly disabled: boolean }
-)[] {
-  const prepared = prepareItems(items, 'listView');
-  return Object.freeze(items.map((item, index) => ({
-    ...item,
-    id: prepared[index]?.id ?? item.id,
-    ...(prepared[index]?.label === undefined ? {} : { label: prepared[index].label }),
-    disabled: item.disabled === true,
-  })));
+function preparePublicListViewProjection(
+  value: unknown,
+): ListViewProjection & { readonly records: readonly (ListViewRecord & { readonly disabled: boolean })[] } {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('listView projection must be an object.');
+  }
+  const projection = value as Readonly<Record<string, unknown>>;
+  const totalCount = projection['totalCount'];
+  const totalRows = projection['totalRows'];
+  if (typeof totalCount !== 'number' || !Number.isSafeInteger(totalCount) || totalCount < 0) {
+    throw new RangeError('listView projection totalCount must be a non-negative safe integer.');
+  }
+  if (typeof totalRows !== 'number' || !Number.isSafeInteger(totalRows) || totalRows < 0) {
+    throw new RangeError('listView projection totalRows must be a non-negative safe integer.');
+  }
+  const suppliedRecords = projection['records'];
+  if (!Array.isArray(suppliedRecords)) throw new TypeError('listView projection records must be an array.');
+  const ids = new Set<string>();
+  let previousItemIndex = -1;
+  let previousEndRow = -1;
+  const records = Object.freeze(suppliedRecords.map((value): ListViewRecord & { readonly disabled: boolean } => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw new TypeError('listView records must be objects.');
+    }
+    const item = value as Readonly<Record<string, unknown>>;
+    const id = cleanId(item['id'], 'listView item id');
+    if (ids.has(id)) throw new TypeError(`listView item ids must be unique; duplicate id: ${id}`);
+    ids.add(id);
+    const itemIndex = item['itemIndex'];
+    const startRow = item['startRow'];
+    const rowCount = item['rowCount'];
+    if (typeof itemIndex !== 'number'
+      || !Number.isSafeInteger(itemIndex)
+      || itemIndex <= previousItemIndex
+      || itemIndex >= totalCount) {
+      throw new RangeError('listView record itemIndex values must be ascending and less than totalCount.');
+    }
+    if (typeof startRow !== 'number'
+      || !Number.isSafeInteger(startRow)
+      || startRow < 0
+      || startRow < previousEndRow) {
+      throw new RangeError('listView record startRow values must be non-negative and non-overlapping.');
+    }
+    if (typeof rowCount !== 'number'
+      || !Number.isSafeInteger(rowCount)
+      || rowCount < 1
+      || startRow + rowCount > totalRows) {
+      throw new RangeError('listView record rowCount must be positive and fit inside totalRows.');
+    }
+    const content = item['content'];
+    if (!isRegisteredElement(content)) {
+      throw new TypeError('listView record content must be an Element created by this package instance.');
+    }
+    const label = item['label'];
+    if (label !== undefined && typeof label !== 'string') {
+      throw new TypeError('listView item label must be a string.');
+    }
+    const disabled = item['disabled'];
+    if (disabled !== undefined && typeof disabled !== 'boolean') {
+      throw new TypeError('listView record disabled must be a boolean.');
+    }
+    previousItemIndex = itemIndex;
+    previousEndRow = startRow + rowCount;
+    return Object.freeze({
+      id,
+      content,
+      itemIndex,
+      startRow,
+      rowCount,
+      ...(label === undefined ? {} : { label: sanitizeTerminalText(label).text }),
+      disabled: disabled === true,
+    });
+  }));
+  return Object.freeze({ records, totalCount, totalRows });
 }
 
 function cleanId(value: unknown, label: string): string {
@@ -557,6 +649,19 @@ function prepareListViewScroll(scroll: ScrollState | undefined, totalRows: numbe
       viewportRows: bounds.height,
       viewportColumns: bounds.width,
     });
+}
+
+function rowIntoViewOffset(
+  offset: number,
+  viewportRows: number,
+  startRow: number,
+  rowCount: number,
+  totalRows: number,
+): number {
+  if (startRow < offset) return startRow;
+  const endRow = startRow + rowCount;
+  if (endRow <= offset + viewportRows) return offset;
+  return Math.min(Math.max(0, totalRows - viewportRows), Math.max(startRow, endRow - viewportRows));
 }
 
 function selectionContains(selection: SelectionState, id: string): boolean {
