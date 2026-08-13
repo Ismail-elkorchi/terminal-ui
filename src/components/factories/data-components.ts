@@ -1904,11 +1904,10 @@ export function tree<
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
       if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
-      if (options.scroll === undefined) {
-        if (action.action.kind === 'scroll') return ignoreMessage();
-        return options.onTransition(action.action);
-      }
-      return options.onTransition(action.action);
+      if (isScrollableTreeOptions(options)) return options.onTransition(action.action);
+      return action.action.kind === 'scroll'
+        ? ignoreMessage()
+        : options.onTransition(action.action);
     },
   });
 }
@@ -1949,7 +1948,7 @@ function prepareTree<
   }
   const sourceToken = Object.freeze({});
   treeSources.set(sourceToken, preparedTreeSource(collection));
-  const scroll = prepareComponentScrollState(value.scroll, 'tree scroll');
+  const scroll = prepareComponentScrollState(value.presentation.scroll, 'tree scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'tree scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'tree scrollPolicy');
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
@@ -1976,6 +1975,17 @@ function prepareTree<
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
     ...(pointerState === undefined ? {} : { pointerState }),
   };
+}
+
+function isScrollableTreeOptions<
+  TMetadata extends Readonly<Record<string, unknown>>,
+  TTransitionMessage extends ComponentMessage,
+  TActivateMessage extends ComponentMessage,
+  TPointerMessage extends ComponentMessage,
+>(
+  options: TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>,
+): options is ScrollableTreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage> {
+  return options.presentation.scroll !== undefined;
 }
 
 function preparedTreeSource<

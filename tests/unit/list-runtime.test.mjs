@@ -67,9 +67,9 @@ test('listView measures arbitrary rows and derives one active-item scroll window
     ],
     presentation: {
       activeId: 'third',
-      selection: { mode: 'single', selectedId: 'first' }
+      selection: { mode: 'single', selectedId: 'first' },
+      scroll: createScrollState()
     },
-    scroll: createScrollState(),
     scrollbar: { visible: 'always' },
     onTransition: (transition) => transition
   }), { columns: 20, rows: 3 });
@@ -176,8 +176,10 @@ test('listbox component filters items and can use explicit shared scroll state',
     id: 'filtered-listbox',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
     filterQuery: { text: 'a' },
-    presentation: { selection: { mode: 'none' } },
-    scroll: createScrollState({ offsetRow: 1 }),
+    presentation: {
+      selection: { mode: 'none' },
+      scroll: createScrollState({ offsetRow: 1 })
+    },
     onTransition: (transition) => transition
   }), { columns: 24, rows: 2 });
 

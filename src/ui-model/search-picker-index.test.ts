@@ -3,7 +3,8 @@ import test from 'node:test';
 import {
   searchPickerIndexStatistics,
   prepareSearchPickerIndex,
-  querySearchPickerIndex
+  querySearchPickerIndex,
+  searchPickerEntryById,
 } from './search-picker-index.ts';
 
 void test('searchPicker indexes snapshot entries and retain ranked query work', () => {
@@ -37,4 +38,25 @@ void test('searchPicker indexes reject ambiguous entry identity', () => {
     ]),
     /must be unique/u
   );
+});
+
+void test('searchPicker indexes retain stable-id lookup and projected source identity', () => {
+  const source = [
+    { key: 'open', title: 'Open file' },
+    { key: 'close', title: 'Close file' },
+  ];
+  const project = (entry: typeof source[number]) => ({
+    id: entry.key,
+    label: entry.title,
+    value: entry,
+  });
+  const first = prepareSearchPickerIndex(source, project);
+  const retained = prepareSearchPickerIndex(source, project);
+
+  assert.equal(retained, first);
+  assert.equal(searchPickerEntryById(first, 'close')?.value, source[1]);
+  assert.equal(searchPickerEntryById(first, 'missing'), undefined);
+  assert.deepEqual(querySearchPickerIndex(first, { text: 'open', mode: 'fuzzy' }).entries, [
+    searchPickerEntryById(first, 'open'),
+  ]);
 });

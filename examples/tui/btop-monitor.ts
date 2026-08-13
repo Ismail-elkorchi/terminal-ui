@@ -32,7 +32,7 @@ import {
   prepareTableCollection,
   sortTableRows,
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { DataGridPresentation, DataGridTransition } from '@ismail-elkorchi/terminal-ui';
+import type { DataGridTransition, ScrollableDataGridPresentation } from '@ismail-elkorchi/terminal-ui';
 import type { KeyEvent, MousePointerEvent } from '@ismail-elkorchi/terminal-ui/input';
 import type { ThemeColorToken } from '@ismail-elkorchi/terminal-ui/theme';
 
@@ -48,7 +48,7 @@ interface ProcessRow {
 
 interface MonitorState {
   readonly tick: number;
-  readonly processTable: DataGridPresentation & { readonly scroll: NonNullable<DataGridPresentation['scroll']> };
+  readonly processTable: ScrollableDataGridPresentation;
 }
 
 type MonitorMessage =
@@ -676,7 +676,7 @@ export async function runScriptedBtopMonitor() {
   }
 }
 
-function selectedProcessId(presentation: DataGridPresentation): string | undefined {
+function selectedProcessId(presentation: ScrollableDataGridPresentation): string | undefined {
   return presentation.interaction.kind === 'row'
     ? presentation.interaction.selectedRowIds[0]
     : undefined;

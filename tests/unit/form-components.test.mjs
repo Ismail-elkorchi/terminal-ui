@@ -23,9 +23,11 @@ import {
   textInput
 } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
+import { commitCombobox, comboboxReducer } from '../../dist/behavior/index.js';
 
 const enter = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 const tab = { kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
+const pageDown = { kind: 'key', key: 'pageDown', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
 test('text controls reject every malformed provided handler', () => {
   for (const control of [textInput, passwordInput]) {
@@ -164,6 +166,59 @@ test('closed combobox renders only its trigger and hides popup accessibility chi
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['region:trigger']);
   assert.equal(frame.accessibility.root.expanded, false);
   assert.deepEqual(frame.accessibility.root.children, []);
+});
+
+test('controlled combobox pages and commits through its public behavior operations', async () => {
+  const options = Array.from({ length: 6 }, (_value, index) => ({
+    id: `option-${String(index + 1)}`,
+    label: `Option ${String(index + 1)}`,
+    value: index + 1,
+  }));
+  const enabledIds = options.map((option) => option.id);
+  const behavior = { enabledIds, pageSize: 3 };
+  const app = defineTui({
+    id: 'combobox-behavior',
+    init: () => ({
+      presentation: {
+        open: true,
+        interaction: { activeId: 'option-1', selection: { mode: 'single' } },
+      },
+    }),
+    update: (state, message) => ({
+      state: {
+        presentation: message.kind === 'transition'
+          ? comboboxReducer(state.presentation, message.transition, behavior)
+          : commitCombobox(state.presentation, message.event, behavior),
+      },
+    }),
+    view: (state) => combobox({
+      id: 'choice',
+      label: 'Choice',
+      options,
+      presentation: state.presentation,
+      maxVisibleOptions: behavior.pageSize,
+      onTransition: (transition) => ({ kind: 'transition', transition }),
+      onCommit: (event) => ({ kind: 'commit', event }),
+    }),
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 8 } }),
+  });
+  try {
+    await runtime.start();
+    await runtime.handleInput(pageDown);
+    const result = await runtime.handleInput(enter);
+
+    assert.equal(result.state.presentation.open, false);
+    assert.equal(result.state.presentation.interaction.activeId, 'option-4');
+    assert.deepEqual(result.state.presentation.interaction.selection, {
+      mode: 'single',
+      selectedId: 'option-4',
+    });
+  } finally {
+    await runtime.dispose();
+  }
 });
 
 test('form fields expose label required description and validation source anatomy', () => {

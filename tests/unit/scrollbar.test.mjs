@@ -339,8 +339,11 @@ test('tree scrollbar follows explicit tree scroll state', () => {
       { id: 'c', label: 'Charlie', kind: 'leaf' },
       { id: 'd', label: 'Delta', kind: 'leaf' }
     ],
-    presentation: { expandedIds: [], selection: { mode: 'none' } },
-    scroll: createScrollState({ offsetRow: 1 }),
+    presentation: {
+      expandedIds: [],
+      selection: { mode: 'none' },
+      scroll: createScrollState({ offsetRow: 1 })
+    },
     scrollbar: {},
     onTransition: () => ignoreMessage()
   }), { columns: 16, rows: 2 });

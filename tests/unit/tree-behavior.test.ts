@@ -11,7 +11,7 @@ import {
   treeReducer,
   visibleTreeRows,
 } from '../../dist/behavior/index.js';
-import type { TreeNode, TreePresentation } from '../../dist/components/index.js';
+import type { TreeNode, UnscrolledTreePresentation } from '../../dist/components/index.js';
 
 const nodes: readonly TreeNode<{ readonly path: string }>[] = [
   {
@@ -38,7 +38,7 @@ const initial = {
   expandedIds: ['src'],
   activeId: 'src',
   selection: { mode: 'single', selectedId: 'src' },
-} as const satisfies Omit<TreePresentation, 'scroll'>;
+} as const satisfies UnscrolledTreePresentation;
 
 const options = {
   nodes,

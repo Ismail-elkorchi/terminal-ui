@@ -14,8 +14,9 @@ import type {
 import type {
   SearchPickerAcceptEvent,
   SearchPickerControlTransition,
-  SearchPickerPresentation,
+  ScrollableSearchPickerPresentation,
   SearchPickerTransition,
+  UnscrolledSearchPickerPresentation,
 } from '../../ui-model/search-picker.ts';
 import type { SearchPickerIndex } from '../../ui-model/search-picker-index.ts';
 import type { LogViewerAction, LogViewerControlAction } from '../../ui-model/log-viewer.ts';
@@ -162,7 +163,7 @@ export type UnscrolledSearchPickerOptions<
   TAcceptMessage extends ComponentMessage = TTransitionMessage,
   TPointerMessage extends ComponentMessage = TTransitionMessage,
 > = SearchPickerOptionsBase<TValue> & {
-  readonly presentation: Omit<SearchPickerPresentation, 'scroll'> & { readonly scroll?: never };
+  readonly presentation: UnscrolledSearchPickerPresentation;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 } & (ActiveSearchPickerCallbacks<
@@ -178,7 +179,7 @@ export type ScrollableSearchPickerOptions<
   TAcceptMessage extends ComponentMessage = TTransitionMessage,
   TPointerMessage extends ComponentMessage = TTransitionMessage,
 > = SearchPickerOptionsBase<TValue> & {
-  readonly presentation: SearchPickerPresentation & { readonly scroll: ScrollState };
+  readonly presentation: ScrollableSearchPickerPresentation;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 } & (ActiveSearchPickerCallbacks<

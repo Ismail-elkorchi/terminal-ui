@@ -1,6 +1,7 @@
 import type { Element, ElementMessage } from '../element/index.ts';
 import type { CollectionInteractionAction, CollectionInteractionState } from '../interaction/collection.ts';
 import type { ScrollEvent } from '../interaction/scroll.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 
 export interface SemanticListItem<TContent extends Element = Element> {
   readonly id: string;
@@ -12,12 +13,27 @@ export interface ListViewItem<TContent extends Element = Element> extends Semant
   readonly disabled?: boolean;
 }
 
-export type ListViewPresentation = CollectionInteractionState;
+export interface UnscrolledListViewPresentation extends CollectionInteractionState {
+  readonly scroll?: never;
+}
+
+export interface ScrollableListViewPresentation extends CollectionInteractionState {
+  readonly scroll: ScrollState;
+}
+
+export type ListViewPresentation =
+  | UnscrolledListViewPresentation
+  | ScrollableListViewPresentation;
 
 export type ListViewTransition = CollectionInteractionAction | {
   readonly kind: 'scroll';
   readonly event: ScrollEvent;
 };
+
+export type ListViewControlTransition = Exclude<
+  ListViewTransition,
+  { readonly kind: 'scroll' }
+>;
 
 export interface ListViewActivateEvent {
   readonly kind: 'activate';

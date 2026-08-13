@@ -15,17 +15,21 @@ import type {
 import type { TabsStylePart } from '../../ui-model/style-parts.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 
-export interface TabItem<TMessage extends ComponentMessage = never> extends ItemBase {
+export interface TabItem<
+  TId extends string = string,
+  TMessage extends ComponentMessage = never,
+> extends ItemBase {
+  readonly id: TId;
   readonly leading?: InlineContent;
   readonly badge?: string;
   readonly closable?: boolean;
   readonly panel: Element<TMessage>;
 }
 
-interface TabsBaseOptions<TMessage extends ComponentMessage> extends LayoutFlowOptions {
+interface TabsBaseOptions<TId extends string, TMessage extends ComponentMessage> extends LayoutFlowOptions {
   readonly id: string;
-  readonly tabs: readonly TabItem<TMessage>[];
-  readonly presentation: TabsPresentation;
+  readonly tabs: readonly TabItem<TId, TMessage>[];
+  readonly presentation: TabsPresentation<TId>;
   readonly maxTabWidth?: number;
   readonly pointerState?: PointerInteractionState;
   readonly readOnly?: boolean;
@@ -34,11 +38,11 @@ interface TabsBaseOptions<TMessage extends ComponentMessage> extends LayoutFlowO
   readonly meta?: Pick<ElementMeta<TabsStylePart>, 'focus' | 'layer' | 'styles'>;
 }
 
-interface ActiveTabsOptions<TMessage extends ComponentMessage> {
+interface ActiveTabsOptions<TId extends string, TMessage extends ComponentMessage> {
   readonly disabled?: false;
   readonly inert?: false;
-  readonly onTransition: (action: TabsTransition) => MessageResolution<TMessage>;
-  readonly onClose?: (event: TabCloseEvent) => MessageResolution<TMessage>;
+  readonly onTransition: (action: TabsTransition<TId>) => MessageResolution<TMessage>;
+  readonly onClose?: (event: TabCloseEvent<TId>) => MessageResolution<TMessage>;
   readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
 }
 
@@ -62,8 +66,11 @@ interface DisabledTabsOptions {
   readonly onPointerAction?: never;
 }
 
-export type TabsOptions<TMessage extends ComponentMessage = never> = TabsBaseOptions<TMessage>
-  & (ActiveTabsOptions<TMessage> | DisabledTabsOptions | InertTabsOptions);
+export type TabsOptions<
+  TId extends string = string,
+  TMessage extends ComponentMessage = never,
+> = TabsBaseOptions<TId, TMessage>
+  & (ActiveTabsOptions<TId, TMessage> | DisabledTabsOptions | InertTabsOptions);
 
 export type {
   TabCloseEvent,

@@ -12,8 +12,10 @@ import type {
   TreeLoadState,
   TreeNode,
   TreePresentation,
+  ScrollableTreePresentation,
   TreeTransition,
   TreeVisibleRow,
+  UnscrolledTreePresentation,
 } from '../ui-model/tree.ts';
 import { treeNodeChildren } from '../ui-model/tree.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
@@ -31,15 +33,15 @@ export interface TreeReducerOptions<
 }
 
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
-  state: TreePresentation & { readonly scroll: NonNullable<TreePresentation['scroll']> },
+  state: ScrollableTreePresentation,
   action: TreeTransition,
   options: TreeReducerOptions<TMetadata>,
-): TreePresentation & { readonly scroll: NonNullable<TreePresentation['scroll']> };
+): ScrollableTreePresentation;
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
-  state: Omit<TreePresentation, 'scroll'> & { readonly scroll?: never },
+  state: UnscrolledTreePresentation,
   action: TreeControlTransition,
   options: TreeReducerOptions<TMetadata>,
-): Omit<TreePresentation, 'scroll'> & { readonly scroll?: never };
+): UnscrolledTreePresentation;
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
   state: TreePresentation,
   action: TreeTransition,

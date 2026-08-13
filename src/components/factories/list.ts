@@ -212,13 +212,18 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
       if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
-      if (options.scroll === undefined) {
-        if (action.action.kind === 'scroll') return ignoreMessage();
-        return options.onTransition(action.action);
-      }
-      return options.onTransition(action.action);
+      if (isScrollableListboxOptions(options)) return options.onTransition(action.action);
+      return action.action.kind === 'scroll'
+        ? ignoreMessage()
+        : options.onTransition(action.action);
     },
   });
+}
+
+function isScrollableListboxOptions<TValue, TMessage extends ComponentMessage>(
+  options: ListboxOptions<TValue, TMessage>,
+): options is ScrollableListboxOptions<TValue, TMessage> {
+  return options.presentation.scroll !== undefined;
 }
 
 function prepareListbox<TValue, TMessage extends ComponentMessage>(
@@ -252,7 +257,7 @@ function prepareListbox<TValue, TMessage extends ComponentMessage>(
   const entries = preparedListEntries(projected, query);
   const activeId = optionalCleanString(value.presentation.activeId, 'listbox activeId');
   const selection = ownSelectionState(value.presentation.selection, 'listbox selection');
-  const scroll = prepareComponentScrollState(value.scroll, 'list scroll');
+  const scroll = prepareComponentScrollState(value.presentation.scroll, 'list scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'list scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'list scrollPolicy');
   const pointerState = preparePointerInteractionState(

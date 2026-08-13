@@ -47,8 +47,7 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
   const scrolled = textAreaReducer(selected, {
     kind: 'scroll',
     event: {
-      action: { kind: 'scrollLines', rows: 3 },
-      state: createScrollState({ offsetRow: 3 }),
+      nextState: createScrollState({ offsetRow: 3 }),
       source: 'wheel',
       target: 'content'
     }
@@ -106,8 +105,7 @@ void test('textAreaReducer preserves identity for no-op pointer and scroll actio
   const scrolled = textAreaReducer({ ...initial, revealCaret: false }, {
     kind: 'scroll',
     event: {
-      action: { kind: 'scrollLines', rows: 0 },
-      state: initial.scroll,
+      nextState: initial.scroll,
       source: 'wheel',
       target: 'content'
     }

@@ -91,8 +91,7 @@ void test('scroll events expose semantic state and do not leak routed pointer in
   const stale = createScrollState({ offsetRow: 79 });
   const rendered = createScrollState({ offsetRow: 71 });
   const next = applyScrollEvent(stale, {
-    action: { kind: 'scrollLines', rows: -3 },
-    state: rendered,
+    nextState: rendered,
     source: 'wheel',
     target: 'content',
   });

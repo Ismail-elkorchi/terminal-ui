@@ -13,12 +13,12 @@ export const defaultNavigationPolicy: NavigationPolicy = Object.freeze({
   initial: 'directional-edge',
 });
 
-export function adjacentItemId(
-  ids: readonly string[],
-  current: string | undefined,
+export function adjacentItemId<TId extends string>(
+  ids: readonly TId[],
+  current: TId | undefined,
   delta: number,
   policy: NavigationPolicy = defaultNavigationPolicy,
-): string | undefined {
+): TId | undefined {
   if (ids.length === 0) return undefined;
   const currentIndex = current === undefined ? -1 : ids.indexOf(current);
   if (currentIndex < 0) return ids[initialIndex(ids.length, delta, policy.initial)];

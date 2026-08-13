@@ -32,12 +32,21 @@ export type TreeLoadState =
   | { readonly kind: 'error'; readonly message: string }
   | { readonly kind: 'empty'; readonly message?: string };
 
-export interface TreePresentation extends CollectionInteractionState {
+interface TreePresentationBase extends CollectionInteractionState {
   readonly expandedIds: readonly string[];
   readonly query?: import('./query.ts').CollectionQuery;
   readonly loadStates?: Readonly<Record<string, TreeLoadState>>;
-  readonly scroll?: ScrollState;
 }
+
+export interface UnscrolledTreePresentation extends TreePresentationBase {
+  readonly scroll?: never;
+}
+
+export interface ScrollableTreePresentation extends TreePresentationBase {
+  readonly scroll: ScrollState;
+}
+
+export type TreePresentation = UnscrolledTreePresentation | ScrollableTreePresentation;
 
 export interface TreeVisibleRow<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,

@@ -2,22 +2,22 @@ import { adjacentItemId } from '../interaction/navigation.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type { TabsActivation, TabsPresentation, TabsTransition } from '../ui-model/tabs.ts';
 
-export interface TabBehaviorItem {
-  readonly id: string;
+export interface TabBehaviorItem<TId extends string = string> {
+  readonly id: TId;
   readonly disabled?: boolean;
 }
 
-export interface TabsReducerOptions {
-  readonly tabs: readonly TabBehaviorItem[];
+export interface TabsReducerOptions<TId extends string = string> {
+  readonly tabs: readonly TabBehaviorItem<TId>[];
   readonly activation: TabsActivation;
   readonly navigation?: NavigationPolicy;
 }
 
-export function tabsReducer(
-  state: TabsPresentation,
-  action: TabsTransition,
-  options: TabsReducerOptions,
-): TabsPresentation {
+export function tabsReducer<TId extends string>(
+  state: TabsPresentation<TId>,
+  action: TabsTransition<TId>,
+  options: TabsReducerOptions<TId>,
+): TabsPresentation<TId> {
   const enabled = options.tabs.filter((tab) => tab.disabled !== true).map((tab) => tab.id);
   const activeId = validId(enabled, state.activeId);
   const selectedId = validId(enabled, state.selectedId);
@@ -45,20 +45,20 @@ export function tabsReducer(
   }
 }
 
-function withActive(
-  state: TabsPresentation,
-  activeId: string | undefined,
+function withActive<TId extends string>(
+  state: TabsPresentation<TId>,
+  activeId: TId | undefined,
   activation: TabsActivation,
-): TabsPresentation {
+): TabsPresentation<TId> {
   const selectedId = activation === 'automatic' ? activeId : state.selectedId;
   return normalized(state, activeId, selectedId);
 }
 
-function normalized(
-  state: TabsPresentation,
-  activeId: string | undefined,
-  selectedId: string | undefined,
-): TabsPresentation {
+function normalized<TId extends string>(
+  state: TabsPresentation<TId>,
+  activeId: TId | undefined,
+  selectedId: TId | undefined,
+): TabsPresentation<TId> {
   if (state.activeId === activeId && state.selectedId === selectedId) return state;
   return {
     ...(activeId === undefined ? {} : { activeId }),
@@ -66,6 +66,6 @@ function normalized(
   };
 }
 
-function validId(ids: readonly string[], id: string | undefined): string | undefined {
+function validId<TId extends string>(ids: readonly TId[], id: TId | undefined): TId | undefined {
   return id !== undefined && ids.includes(id) ? id : undefined;
 }

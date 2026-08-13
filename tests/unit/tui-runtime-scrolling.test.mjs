@@ -288,7 +288,7 @@ test('TUI scrollbar thumb drag preserves the press anchor', async () => {
     update: (state, message) => ({
       state: {
         scroll: applyScrollEvent(state.scroll, message.event),
-        events: [...state.events, `${message.event.source}:${message.event.target}:${message.event.action.kind}`]
+        events: [...state.events, `${message.event.source}:${message.event.target}`]
       }
     }),
     view: (state) => textArea({
@@ -330,8 +330,8 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
   assert.equal(press.handled, true);
   assert.equal(drag.handled, true);
   assert.deepEqual(runtime.state().events, [
-    'pointerDown:verticalScrollbarThumb:setOffset',
-    'dragStart:verticalScrollbarThumb:setOffset'
+    'pointerDown:verticalScrollbarThumb',
+    'dragStart:verticalScrollbarThumb'
   ]);
   assert.equal(runtime.state().scroll.offsetRow, 27);
 });
@@ -659,7 +659,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
 
   assert.equal(down.handled, true);
   assert.equal(right.handled, true);
-  assert.deepEqual(runtime.state().event.action, { kind: 'scrollLines', columns: 5 });
+  assert.equal(runtime.state().event.nextState, runtime.state().scroll);
   assert.equal(runtime.state().scroll.offsetRow, 8);
   assert.equal(runtime.state().scroll.offsetColumn, 5);
   assert.match(renderFramePlain(runtime.frame()), /09 x/u);
@@ -787,7 +787,6 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
       id: 'tree-scroll',
       nodes,
       presentation: state.tree,
-      scroll: state.tree.scroll,
       scrollbar: { visible: 'always' },
       onTransition: (action) => ({ action })
     })
@@ -812,7 +811,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
   });
 
   assert.equal(result.handled, true);
-  assert.equal(runtime.state().event.state.offsetRow, 3);
+  assert.equal(runtime.state().event.nextState.offsetRow, 3);
   assert.equal('scroll' in runtime.state().event, false);
   assert.equal(runtime.state().tree.scroll.offsetRow, 3);
   assert.match(renderFramePlain(runtime.frame()), /Node 4/u);
@@ -871,7 +870,7 @@ test('TUI routed context menu scroll events use a fixed title row and shared scr
   });
 
   assert.equal(result.handled, true);
-  assert.equal(runtime.state().event.state.offsetRow, 2);
+  assert.equal(runtime.state().event.nextState.offsetRow, 2);
   assert.equal(runtime.state().scroll.offsetRow, 2);
   const frame = renderFramePlain(runtime.frame());
   assert.match(frame, /Actions/u);

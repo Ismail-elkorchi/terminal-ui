@@ -19,12 +19,15 @@ export type {
   CalendarPresentation,
 } from '../ui-model/calendar.ts';
 export { dataWindow, rowWindow } from './data-window.ts';
-export { comboboxReducer } from './combobox.ts';
+export { commitCombobox, comboboxReducer } from './combobox.ts';
 export type { ComboboxReducerOptions } from './combobox.ts';
 export type {
   ComboboxCommitEvent,
+  ComboboxControlTransition,
   ComboboxPresentation,
+  ScrollableComboboxPresentation,
   ComboboxTransition,
+  UnscrolledComboboxPresentation,
 } from '../ui-model/combobox.ts';
 export {
   completeCollection,
@@ -78,7 +81,8 @@ export type {
   TextAreaAction,
   TextAreaControlAction,
   TextAreaPresentation,
-  TextAreaScrollablePresentation
+  ScrollableTextAreaPresentation,
+  UnscrolledTextAreaPresentation,
 } from '../ui-model/text-area.ts';
 export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
 export type { PointerSelectionAction, TextPointerAction } from '../interaction/text-pointer.ts';
@@ -93,7 +97,7 @@ export type {
 } from './feedback.ts';
 export { pointerInteractionReducer } from './pointer-interaction.ts';
 export { listViewReducer } from './list-view.ts';
-export type { ListViewReducerOptions, ListViewState } from './list-view.ts';
+export type { ListViewReducerOptions } from './list-view.ts';
 export type {
   PointerInteractionAction,
   PointerInteractionState
@@ -105,9 +109,6 @@ export {
 } from './list.ts';
 export type {
   ListboxReducerOptions,
-  UnscrolledListboxState,
-  ScrollableListboxState,
-  ListboxState
 } from './list.ts';
 export type {
   CompleteListboxCollection,
@@ -118,8 +119,10 @@ export type {
   ListboxOption,
   ListboxOptionProjector,
   ListboxPresentation,
+  ScrollableListboxPresentation,
   ListboxTransition,
   ListboxViewEntry,
+  UnscrolledListboxPresentation,
   WindowedListboxCollection
 } from '../ui-model/list.ts';
 export { rangeSliderReducer } from './range-slider.ts';
@@ -192,9 +195,11 @@ export type {
   SearchPickerAcceptEvent,
   SearchPickerControlTransition,
   SearchPickerPresentation,
-  SearchPickerTransition
+  ScrollableSearchPickerPresentation,
+  SearchPickerTransition,
+  UnscrolledSearchPickerPresentation,
 } from '../ui-model/search-picker.ts';
-export { prepareSearchPickerIndex } from '../ui-model/search-picker-index.ts';
+export { prepareSearchPickerIndex, searchPickerEntryById } from '../ui-model/search-picker-index.ts';
 export type { SearchPickerIndex } from '../ui-model/search-picker-index.ts';
 export {
   contextMenuPresentation,
@@ -360,11 +365,13 @@ export type {
   DataGridControlTransition,
   DataGridInteraction,
   DataGridPresentation,
+  ScrollableDataGridPresentation,
   DataGridTransition,
   TableCollection,
   TableCollectionRecord,
   TablePresentation,
-  TableSortState
+  TableSortState,
+  UnscrolledDataGridPresentation,
 } from '../ui-model/table.ts';
 export {
   prepareTreeCollection,
@@ -384,8 +391,10 @@ export type {
   TreeDisclosureTransition,
   TreeLoadState,
   TreePresentation,
+  ScrollableTreePresentation,
   TreeTransition,
   TreeVisibleRow,
+  UnscrolledTreePresentation,
   WindowedTreeCollection
 } from '../ui-model/tree.ts';
 export type { CollectionWindow, CollectionWindowDomain } from '../ui-model/collection.ts';

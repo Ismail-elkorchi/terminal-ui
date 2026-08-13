@@ -6,10 +6,12 @@ import type {
   DataGridCell,
   DataGridInteraction,
   DataGridPresentation,
+  ScrollableDataGridPresentation,
   DataGridTransition,
   TableCollection,
   TableCollectionRecord,
   TableSortState,
+  UnscrolledDataGridPresentation,
 } from '../ui-model/table.ts';
 import {
   collectionIds,
@@ -31,15 +33,15 @@ export interface DataGridReducerOptions<TRow> {
 export type TableCellValueGetter<TRow> = (row: TRow, columnId: string) => unknown;
 
 export function dataGridReducer<TRow>(
-  state: DataGridPresentation & { readonly scroll: NonNullable<DataGridPresentation['scroll']> },
+  state: ScrollableDataGridPresentation,
   transition: DataGridTransition,
   options: DataGridReducerOptions<TRow>,
-): DataGridPresentation & { readonly scroll: NonNullable<DataGridPresentation['scroll']> };
+): ScrollableDataGridPresentation;
 export function dataGridReducer<TRow>(
-  state: Omit<DataGridPresentation, 'scroll'> & { readonly scroll?: never },
+  state: UnscrolledDataGridPresentation,
   transition: Exclude<DataGridTransition, { readonly kind: 'scroll' }>,
   options: DataGridReducerOptions<TRow>,
-): Omit<DataGridPresentation, 'scroll'> & { readonly scroll?: never };
+): UnscrolledDataGridPresentation;
 export function dataGridReducer<TRow>(
   state: DataGridPresentation,
   transition: DataGridTransition,

@@ -83,7 +83,7 @@ export function scrollReducer(
 }
 
 export function applyScrollEvent(state: ScrollState, event: ScrollEvent): ScrollState {
-  return preserveScrollIdentity(state, event.state);
+  return preserveScrollIdentity(state, event.nextState);
 }
 
 export function visibleWindowFromScroll(

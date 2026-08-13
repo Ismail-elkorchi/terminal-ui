@@ -48,8 +48,7 @@ export interface ScrollPolicy {
 
 /** A semantic scroll transition. The routed pointer event stays inside the runtime. */
 export interface ScrollEvent {
-  readonly action: ScrollAction;
-  readonly state: ScrollState;
+  readonly nextState: ScrollState;
   readonly source: ScrollEventSource;
   readonly target: ScrollEventTarget;
 }

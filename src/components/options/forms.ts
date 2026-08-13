@@ -27,8 +27,10 @@ import type {
 import type { RangeSliderAction, RangeSliderState } from '../../ui-model/range-slider.ts';
 import type {
   ComboboxCommitEvent,
-  ComboboxPresentation,
+  ComboboxControlTransition,
+  ScrollableComboboxPresentation,
   ComboboxTransition,
+  UnscrolledComboboxPresentation,
 } from '../../ui-model/combobox.ts';
 import type { ElementMeta } from '../../element/metadata.ts';
 import type {
@@ -331,22 +333,14 @@ interface ComboboxOptionsBase<TValue> {
   readonly placeholder?: string;
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleOptions?: number;
-  readonly scrollbar?: ScrollbarOptions;
   readonly required?: boolean;
   readonly error?: string;
   readonly pointerState?: PointerInteractionState;
   readonly meta?: Pick<ElementMeta<ChoiceStylePart>, 'focus' | 'layer' | 'styles'>;
 }
 
-export type ComboboxOptions<TValue = string, TMessage extends ComponentMessage = never> =
-  | ActiveComboboxOptions<TValue, TMessage>
-  | InertComboboxOptions<TValue>
-  | DisabledComboboxOptions<TValue>;
-
-export interface ActiveComboboxOptions<TValue, TMessage extends ComponentMessage>
-  extends ComboboxOptionsBase<TValue> {
-  readonly presentation: ComboboxPresentation;
-  readonly onTransition: (transition: ComboboxTransition) => MessageResolution<TMessage>;
+interface ActiveComboboxCallbacks<TTransition, TMessage extends ComponentMessage> {
+  readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
   readonly onCommit?: (event: ComboboxCommitEvent) => MessageResolution<TMessage>;
   readonly onPointerAction?: (action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction) => MessageResolution<TMessage>;
   readonly disabled?: false;
@@ -355,8 +349,21 @@ export interface ActiveComboboxOptions<TValue, TMessage extends ComponentMessage
   readonly inert?: false;
 }
 
-export type InertComboboxOptions<TValue> = ComboboxOptionsBase<TValue> & {
-  readonly presentation: ComboboxPresentation;
+type UnscrolledComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
+  readonly presentation: UnscrolledComboboxPresentation;
+  readonly scrollbar?: never;
+};
+
+type ScrollableComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
+  readonly presentation: ScrollableComboboxPresentation;
+  readonly scrollbar?: ScrollbarOptions;
+};
+
+export type ActiveComboboxOptions<TValue, TMessage extends ComponentMessage> =
+  | UnscrolledComboboxBase<TValue> & ActiveComboboxCallbacks<ComboboxControlTransition, TMessage>
+  | ScrollableComboboxBase<TValue> & ActiveComboboxCallbacks<ComboboxTransition, TMessage>;
+
+interface InertComboboxAvailability {
   readonly onTransition?: never;
   readonly onCommit?: never;
   readonly onPointerAction?: never;
@@ -365,10 +372,13 @@ export type InertComboboxOptions<TValue> = ComboboxOptionsBase<TValue> & {
   readonly readOnly?: never;
   readonly busy?: boolean;
   readonly inert: true;
-};
+}
 
-export type DisabledComboboxOptions<TValue> = ComboboxOptionsBase<TValue> & {
-  readonly presentation: ComboboxPresentation & { readonly open: false };
+export type InertComboboxOptions<TValue> =
+  | UnscrolledComboboxBase<TValue> & InertComboboxAvailability
+  | ScrollableComboboxBase<TValue> & InertComboboxAvailability;
+
+interface DisabledComboboxAvailability {
   readonly onTransition?: never;
   readonly onCommit?: never;
   readonly onPointerAction?: never;
@@ -377,7 +387,41 @@ export type DisabledComboboxOptions<TValue> = ComboboxOptionsBase<TValue> & {
   readonly readOnly?: never;
   readonly busy?: never;
   readonly inert?: never;
-};
+}
+
+export type DisabledComboboxOptions<TValue> =
+  | UnscrolledComboboxBase<TValue> & DisabledComboboxAvailability & {
+      readonly presentation: UnscrolledComboboxPresentation & { readonly open: false };
+    }
+  | ScrollableComboboxBase<TValue> & DisabledComboboxAvailability & {
+      readonly presentation: ScrollableComboboxPresentation & { readonly open: false };
+    };
+
+export type UnscrolledComboboxOptions<
+  TValue = string,
+  TMessage extends ComponentMessage = never,
+> = UnscrolledComboboxBase<TValue> & (
+  | ActiveComboboxCallbacks<ComboboxControlTransition, TMessage>
+  | InertComboboxAvailability
+  | DisabledComboboxAvailability & {
+      readonly presentation: UnscrolledComboboxPresentation & { readonly open: false };
+    }
+);
+
+export type ScrollableComboboxOptions<
+  TValue = string,
+  TMessage extends ComponentMessage = never,
+> = ScrollableComboboxBase<TValue> & (
+  | ActiveComboboxCallbacks<ComboboxTransition, TMessage>
+  | InertComboboxAvailability
+  | DisabledComboboxAvailability & {
+      readonly presentation: ScrollableComboboxPresentation & { readonly open: false };
+    }
+);
+
+export type ComboboxOptions<TValue = string, TMessage extends ComponentMessage = never> =
+  | UnscrolledComboboxOptions<TValue, TMessage>
+  | ScrollableComboboxOptions<TValue, TMessage>;
 
 interface TextInputOptionsBase {
   readonly id: string;

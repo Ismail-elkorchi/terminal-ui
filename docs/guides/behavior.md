@@ -89,7 +89,7 @@ the same pattern:
 import {
   searchPicker,
   type SearchPickerControlTransition,
-  type SearchPickerPresentation,
+  type UnscrolledSearchPickerPresentation,
   type SearchEntry
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
@@ -103,7 +103,7 @@ const entries = [
 const searchPickerIndex = prepareSearchPickerIndex(entries);
 
 type SearchPickerMessage = { kind: 'searchPicker'; transition: SearchPickerControlTransition };
-type SearchPickerState = Omit<SearchPickerPresentation, 'scroll'> & { readonly scroll?: never };
+type SearchPickerState = UnscrolledSearchPickerPresentation;
 
 function updateSearchPicker(
   state: SearchPickerState,
@@ -125,10 +125,16 @@ function searchPickerView(state: SearchPickerState) {
 }
 ```
 
-Text editing, selection movement, scrolling, and activation produce
-`SearchPickerControlTransition` messages. Acceptance is a separate application event,
+Query editing and active-item navigation produce `SearchPickerControlTransition`
+messages. Acceptance is a separate application event,
 and closing a surrounding dialog remains an
 application decision because it changes application state outside the picker.
+
+Comboboxes make the same event/state distinction. Route navigation through
+`comboboxReducer()`, then handle `onCommit` with `commitCombobox()` to select the
+accepted stable ID and close the popup while performing any application value
+update alongside it. Configure the reducer `pageSize` and component
+`maxVisibleOptions` from the same application constant.
 
 Hierarchical data uses the same controlled shape without moving application
 effects into the component:
@@ -138,7 +144,7 @@ import {
   tree,
   type TreeControlTransition,
   type TreeNode,
-  type TreePresentation
+  type UnscrolledTreePresentation
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
   treeReducer
@@ -149,7 +155,7 @@ const nodes: readonly TreeNode[] = [
 ];
 const selection = { mode: 'single', commitment: 'manual' } as const;
 type Message = { kind: 'tree'; transition: TreeControlTransition };
-type TreeState = Omit<TreePresentation, 'scroll'> & { readonly scroll?: never };
+type TreeState = UnscrolledTreePresentation;
 
 function updateTree(state: TreeState, message: Message): TreeState {
   return treeReducer(state, message.transition, { nodes, selection });

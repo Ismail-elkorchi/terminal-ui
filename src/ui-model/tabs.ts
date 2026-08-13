@@ -1,19 +1,19 @@
-export interface TabsPresentation {
-  readonly activeId?: string;
-  readonly selectedId?: string;
+export interface TabsPresentation<TId extends string = string> {
+  readonly activeId?: TId;
+  readonly selectedId?: TId;
 }
 
 export type TabsActivation = 'automatic' | 'manual';
 
-export type TabsTransition =
-  | { readonly kind: 'setActive'; readonly id: string }
+export type TabsTransition<TId extends string = string> =
+  | { readonly kind: 'setActive'; readonly id: TId }
   | { readonly kind: 'moveActive'; readonly delta: number }
   | { readonly kind: 'firstActive' }
   | { readonly kind: 'lastActive' }
-  | { readonly kind: 'select'; readonly id: string }
+  | { readonly kind: 'select'; readonly id: TId }
   | { readonly kind: 'selectActive' };
 
-export interface TabCloseEvent {
+export interface TabCloseEvent<TId extends string = string> {
   readonly kind: 'close';
-  readonly id: string;
+  readonly id: TId;
 }

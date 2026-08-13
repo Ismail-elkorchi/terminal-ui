@@ -39,15 +39,15 @@ import type { CommandInputState } from '@ismail-elkorchi/terminal-ui/behavior';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import type {
   CommandInputTransition,
-  DataGridPresentation,
+  ScrollableDataGridPresentation,
   DataGridTransition,
   SearchEntry,
   SearchPickerControlTransition,
-  SearchPickerPresentation,
+  UnscrolledSearchPickerPresentation,
   TableColumn,
   TabsTransition,
   TreeNode,
-  TreePresentation,
+  ScrollableTreePresentation,
   TreeTransition,
 } from '@ismail-elkorchi/terminal-ui';
 import type { InputEvent, KeyEvent, MousePointerEvent } from '@ismail-elkorchi/terminal-ui/input';
@@ -66,11 +66,10 @@ type WorkspaceTab = 'issues' | 'activity' | 'notes';
 
 interface WorkspaceState {
   readonly tab: WorkspaceTab;
-  readonly tree: TreePresentation & { readonly scroll: NonNullable<TreePresentation['scroll']> };
-  readonly table: DataGridPresentation & { readonly scroll: NonNullable<DataGridPresentation['scroll']> };
+  readonly tree: ScrollableTreePresentation;
+  readonly table: ScrollableDataGridPresentation;
   readonly command: CommandInputState;
-  readonly searchPicker: Omit<SearchPickerPresentation, 'scroll'> & {
-    readonly scroll?: never;
+  readonly searchPicker: UnscrolledSearchPickerPresentation & {
     readonly open: boolean;
     readonly used: boolean;
   };
@@ -87,7 +86,7 @@ type WorkspaceMessage =
   | { readonly kind: 'tree'; readonly action: TreeTransition }
   | { readonly kind: 'treeActivate'; readonly id: string }
   | { readonly kind: 'table'; readonly action: DataGridTransition }
-  | { readonly kind: 'tabs'; readonly action: TabsTransition }
+  | { readonly kind: 'tabs'; readonly action: TabsTransition<WorkspaceTab> }
   | { readonly kind: 'command'; readonly action: CommandInputTransition }
   | { readonly kind: 'submit'; readonly value: string }
   | { readonly kind: 'openSearchPicker' }
@@ -233,7 +232,7 @@ function updateWorkspace(
         { activeId: state.tab, selectedId: state.tab },
         message.action,
         { tabs: [{ id: 'issues' }, { id: 'activity' }, { id: 'notes' }], activation: 'automatic' },
-      ).selectedId as WorkspaceTab | undefined;
+      ).selectedId;
       return updateResult(selected === undefined ? state : { ...state, tab: selected });
     }
     case 'command':
@@ -339,7 +338,6 @@ function navigationPane(state: WorkspaceState) {
       id: 'workspace-tree',
       nodes: navigationNodes(),
       presentation: state.tree,
-      scroll: state.tree.scroll,
       scrollbar: { visible: 'auto' },
       onTransition: (action): WorkspaceMessage => ({ kind: 'tree', action }),
       onActivate: (event): WorkspaceMessage => ({ kind: 'treeActivate', id: event.id }),
@@ -493,11 +491,11 @@ function selectedTicket(state: WorkspaceState): Ticket {
     ?? firstTicket();
 }
 
-function selectedTreeId(state: TreePresentation): string | undefined {
+function selectedTreeId(state: ScrollableTreePresentation): string | undefined {
   return state.selection.mode === 'single' ? state.selection.selectedId : undefined;
 }
 
-function selectedTableRowId(state: DataGridPresentation): string | undefined {
+function selectedTableRowId(state: ScrollableDataGridPresentation): string | undefined {
   return state.interaction.kind === 'row' ? state.interaction.selectedRowIds[0] : undefined;
 }
 

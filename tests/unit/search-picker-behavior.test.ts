@@ -103,8 +103,7 @@ void test('scroll transitions consume semantic renderer state', () => {
   const moved = searchPickerReducer({ query: emptyQuery, scroll: createScrollState() }, {
     kind: 'scroll',
     event: {
-      action: { kind: 'scrollLines', rows: 2 },
-      state: rendered,
+      nextState: rendered,
       source: 'wheel',
       target: 'content',
     },

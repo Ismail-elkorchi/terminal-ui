@@ -19,11 +19,14 @@ import type { Element } from '../../element/index.ts';
 import type {
   ButtonOptions,
   CheckboxOptions,
+  ActiveComboboxOptions,
   ComboboxOptions,
   FieldOptions,
   FormOptions,
   LabelOptions,
   SwitchOptions,
+  ScrollableComboboxOptions,
+  UnscrolledComboboxOptions,
 } from '../options/forms.ts';
 import { inlineSegmentText, normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
@@ -61,6 +64,7 @@ import {
 import type {
   ComboboxCommitEvent,
   ComboboxPresentation,
+  ScrollableComboboxPresentation,
   ComboboxTransition,
 } from '../../ui-model/combobox.ts';
 import type { ListboxTransition } from '../../ui-model/list.ts';
@@ -1257,9 +1261,16 @@ const comboboxSlots = {
   popup: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
 } as const;
 
-type ComboboxFactory = <TValue, const TMessage extends ComponentMessage = never>(
-  options: ComboboxOptions<TValue, TMessage>,
-) => Element<TMessage>;
+/* eslint-disable @typescript-eslint/unified-signatures -- overloads preserve mode-specific transition inference */
+interface ComboboxFactory {
+  <TValue, const TMessage extends ComponentMessage = never>(
+    options: ScrollableComboboxOptions<TValue, TMessage>,
+  ): Element<TMessage>;
+  <TValue, const TMessage extends ComponentMessage = never>(
+    options: UnscrolledComboboxOptions<TValue, TMessage>,
+  ): Element<TMessage>;
+}
+/* eslint-enable @typescript-eslint/unified-signatures */
 
 type ComboboxComponentAction =
   | { readonly kind: 'transition'; readonly transition: ComboboxTransition }
@@ -1294,12 +1305,6 @@ const instantiateCombobox = defineComponent<
       id: `${id}:popup:list`,
       items: input.model.options,
       projectItem: (option: ComboboxOptionModel) => option,
-      presentation: {
-        ...(highlighted === undefined ? {} : { activeId: highlighted }),
-        selection: selectedId === undefined
-          ? { mode: 'single' as const }
-          : { mode: 'single' as const, selectedId },
-      },
       meta: {
         focus: { disabled: true },
         ...(input.styles === undefined ? {} : { styles: comboboxPopupStyles(input.styles) }),
@@ -1308,6 +1313,12 @@ const instantiateCombobox = defineComponent<
     const popupList = input.model.presentation.scroll === undefined
       ? listbox<ComboboxOptionModel, ComponentMessage>({
         ...common,
+        presentation: {
+          ...(highlighted === undefined ? {} : { activeId: highlighted }),
+          selection: selectedId === undefined
+            ? { mode: 'single' as const }
+            : { mode: 'single' as const, selectedId },
+        },
         onTransition: (action) => input.emit(comboboxTransitionForListbox(action)),
         onActivate: (event) => input.readOnly
           ? ignoreMessage()
@@ -1315,7 +1326,13 @@ const instantiateCombobox = defineComponent<
       })
       : listbox<ComboboxOptionModel, ComponentMessage>({
         ...common,
-        scroll: input.model.presentation.scroll,
+        presentation: {
+          ...(highlighted === undefined ? {} : { activeId: highlighted }),
+          selection: selectedId === undefined
+            ? { mode: 'single' as const }
+            : { mode: 'single' as const, selectedId },
+          scroll: input.model.presentation.scroll,
+        },
         ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),
         onTransition: (action) => input.emit(comboboxTransitionForListbox(action)),
         onActivate: (event) => input.readOnly
@@ -1374,6 +1391,8 @@ const instantiateCombobox = defineComponent<
     return {
       arrowDown: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: 1 })),
       arrowUp: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: -1 })),
+      pageDown: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: 1 })),
+      pageUp: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: -1 })),
       home: whenSelf(comboboxComponentTransition({ kind: 'firstActive' })),
       end: whenSelf(comboboxComponentTransition({ kind: 'lastActive' })),
       space: whenSelf(comboboxComponentTransition({ kind: 'toggle' })),
@@ -1436,12 +1455,33 @@ export const combobox: ComboboxFactory = (options) => {
     ...shared,
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => {
-      if (action.kind === 'transition') return options.onTransition(action.transition);
+      if (action.kind === 'transition') return emitComboboxTransition(options, action.transition);
       if (action.kind === 'commit') return options.onCommit?.(action.event) ?? ignoreMessage();
       return options.onPointerAction?.(action.action) ?? ignoreMessage();
     },
   });
 };
+
+function emitComboboxTransition<TValue, TMessage extends ComponentMessage>(
+  options: ActiveComboboxOptions<TValue, TMessage>,
+  transition: ComboboxTransition,
+): import('../../interaction/message.ts').MessageResolution<TMessage> {
+  if (isScrollableComboboxOptions(options)) return options.onTransition(transition);
+  return transition.kind === 'scroll'
+    ? ignoreMessage()
+    : options.onTransition(transition);
+}
+
+function isScrollableComboboxOptions<TValue, TMessage extends ComponentMessage>(
+  options: ActiveComboboxOptions<TValue, TMessage>,
+): options is ActiveComboboxOptions<TValue, TMessage> & {
+  readonly presentation: ScrollableComboboxPresentation;
+  readonly onTransition: (
+    transition: ComboboxTransition,
+  ) => import('../../interaction/message.ts').MessageResolution<TMessage>;
+} {
+  return options.presentation.scroll !== undefined;
+}
 
 function assertActionCallbacks(
   options: { readonly onAction?: unknown; readonly onPointerAction?: unknown },
@@ -1580,7 +1620,7 @@ function comboboxTransitionForListbox(action: ListboxTransition): ComboboxCompon
     case 'moveActive':
       return comboboxComponentTransition({ kind: 'moveActive', delta: action.delta });
     case 'pageActive':
-      return comboboxComponentTransition({ kind: 'moveActive', delta: action.delta });
+      return comboboxComponentTransition({ kind: 'pageActive', delta: action.delta });
     case 'firstActive':
       return comboboxComponentTransition({ kind: 'firstActive' });
     case 'lastActive':
@@ -1691,6 +1731,9 @@ function prepareCombobox<TValue, TMessage extends ComponentMessage>(
     pointerAvailable,
   );
   const scrollbar = prepareScrollbar(value.scrollbar);
+  if (presentation.scroll === undefined && scrollbar !== undefined) {
+    throw new TypeError('combobox scrollbar requires presentation scroll state.');
+  }
   return {
     label: sanitizeTerminalText(label).text,
     options,

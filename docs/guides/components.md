@@ -47,7 +47,7 @@ useful to the consumer.
 | `rangeSlider()` | Two numeric endpoints with a caller-controlled active handle on one track. | Two unrelated sliders or a progress meter. |
 | `checkboxGroup()` | Multiple independent choices with an active item and committed multi-selection. | A tree, table, or form validator. |
 | `radioGroup()` | One committed choice with selection following the active item. | A menu or arbitrary command list. |
-| `combobox()` | Form value popup with independent active option, committed selection, query, and dismissal state. | A command menu or context menu. |
+| `combobox()` | Form value popup with independent active option, committed selection, and dismissal state. | A searchable picker, command menu, or context menu. |
 | `colorSwatchPicker()` | Compact caller-controlled color choice with semantic navigation and selection actions. | A full color-management tool. |
 | `calendar()` | Compact caller-controlled date choice control. | Calendar scheduling or date arithmetic. |
 | `menu()` | Inline command/action list with semantic navigation, activation, hierarchy, and scroll actions. | A form value selector or searchable command surface. |

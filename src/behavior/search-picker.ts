@@ -7,6 +7,8 @@ import type {
   SearchPickerControlTransition,
   SearchPickerPresentation,
   SearchPickerTransition,
+  ScrollableSearchPickerPresentation,
+  UnscrolledSearchPickerPresentation,
 } from '../ui-model/search-picker.ts';
 import { querySearchPickerIndex } from '../ui-model/search-picker-index.ts';
 import type { SearchPickerIndex } from '../ui-model/search-picker-index.ts';
@@ -41,20 +43,19 @@ export interface SearchPickerWindow<TValue = string> {
 export interface SearchPickerActiveInput<TValue = string> {
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
   readonly presentation: SearchPickerPresentation;
-  readonly scroll?: ScrollState;
   readonly limit?: number;
 }
 
 export function searchPickerReducer<TValue>(
-  state: SearchPickerPresentation & { readonly scroll: ScrollState },
+  state: ScrollableSearchPickerPresentation,
   transition: SearchPickerTransition,
   options: SearchPickerReducerOptions<TValue>,
-): SearchPickerPresentation & { readonly scroll: ScrollState };
+): ScrollableSearchPickerPresentation;
 export function searchPickerReducer<TValue>(
-  state: Omit<SearchPickerPresentation, 'scroll'> & { readonly scroll?: never },
+  state: UnscrolledSearchPickerPresentation,
   transition: SearchPickerControlTransition,
   options: SearchPickerReducerOptions<TValue>,
-): Omit<SearchPickerPresentation, 'scroll'> & { readonly scroll?: never };
+): UnscrolledSearchPickerPresentation;
 export function searchPickerReducer<TValue>(
   state: SearchPickerPresentation,
   transition: SearchPickerTransition,
@@ -106,7 +107,7 @@ export function searchPickerReducer<TValue>(
       return withActive(state, enabled, enabled.at(-1));
     }
     case 'scroll': {
-      const scroll = applyScrollEvent(state.scroll ?? transition.event.state, transition.event);
+      const scroll = applyScrollEvent(state.scroll ?? transition.event.nextState, transition.event);
       return state.scroll === scroll ? state : { ...state, scroll };
     }
   }
@@ -157,7 +158,7 @@ export function searchPickerWindow<TValue>(
 export function activeSearchPickerEntry<TValue>(
   input: SearchPickerActiveInput<TValue>,
 ): SearchEntry<TValue> | undefined {
-  const scroll = input.scroll ?? input.presentation.scroll;
+  const scroll = input.presentation.scroll;
   return searchPickerWindow({
     searchPickerIndex: input.searchPickerIndex,
     query: input.presentation.query,

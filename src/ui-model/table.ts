@@ -40,10 +40,21 @@ export type DataGridInteraction =
       readonly selectionAnchor?: DataGridCell;
     };
 
-export interface DataGridPresentation extends TablePresentation {
+interface DataGridPresentationBase extends TablePresentation {
   readonly interaction: DataGridInteraction;
-  readonly scroll?: ScrollState;
 }
+
+export interface UnscrolledDataGridPresentation extends DataGridPresentationBase {
+  readonly scroll?: never;
+}
+
+export interface ScrollableDataGridPresentation extends DataGridPresentationBase {
+  readonly scroll: ScrollState;
+}
+
+export type DataGridPresentation =
+  | UnscrolledDataGridPresentation
+  | ScrollableDataGridPresentation;
 
 export type DataGridTransition =
   | { readonly kind: 'setActiveRow'; readonly rowId: string }

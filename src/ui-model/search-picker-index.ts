@@ -22,6 +22,7 @@ export interface SearchPickerQueryResult<TValue = string> {
 
 interface SearchPickerIndexData<TValue> {
   readonly entries: readonly SearchEntry<TValue>[];
+  readonly entriesById: ReadonlyMap<string, SearchEntry<TValue>>;
   readonly candidates: readonly import('./query.ts').QueryCandidate[];
   readonly queryResults: Map<string, SearchPickerQueryResult<TValue>>;
   queryEvaluations: number;
@@ -29,11 +30,45 @@ interface SearchPickerIndexData<TValue> {
 }
 
 const sourceIndexes = new WeakMap<object, SearchPickerIndex<unknown>>();
+const projectedSourceIndexes = new WeakMap<object, WeakMap<object, SearchPickerIndex<unknown>>>();
 const indexData = new WeakMap<object, SearchPickerIndexData<unknown>>();
 
-export function prepareSearchPickerIndex<TValue>(entries: readonly SearchEntry<TValue>[]): SearchPickerIndex<TValue> {
+export function prepareSearchPickerIndex<TValue>(
+  entries: readonly SearchEntry<TValue>[],
+): SearchPickerIndex<TValue>;
+export function prepareSearchPickerIndex<TSource, TValue>(
+  source: readonly TSource[],
+  projectEntry: (value: TSource, index: number) => SearchEntry<TValue>,
+): SearchPickerIndex<TValue>;
+export function prepareSearchPickerIndex<TSource, TValue>(
+  source: readonly TSource[],
+  projectEntry?: (value: TSource, index: number) => SearchEntry<TValue>,
+): SearchPickerIndex<TValue> {
+  if (!Array.isArray(source)) throw new TypeError('Search picker index source must be an array.');
+  if (projectEntry !== undefined && typeof projectEntry !== 'function') {
+    throw new TypeError('Search picker index projector must be a function.');
+  }
+  if (projectEntry !== undefined) {
+    const byProjector = projectedSourceIndexes.get(source);
+    const cached = byProjector?.get(projectEntry) as SearchPickerIndex<TValue> | undefined;
+    if (cached !== undefined) return cached;
+    const index = buildSearchPickerIndex(source.map(projectEntry));
+    const cache = byProjector ?? new WeakMap<object, SearchPickerIndex<unknown>>();
+    cache.set(projectEntry, index);
+    if (byProjector === undefined) projectedSourceIndexes.set(source, cache);
+    return index;
+  }
+  const entries = source as readonly SearchEntry<TValue>[];
   const cached = sourceIndexes.get(entries) as SearchPickerIndex<TValue> | undefined;
   if (cached !== undefined) return cached;
+  const index = buildSearchPickerIndex(entries);
+  sourceIndexes.set(entries, index);
+  return index;
+}
+
+function buildSearchPickerIndex<TValue>(
+  entries: readonly SearchEntry<TValue>[],
+): SearchPickerIndex<TValue> {
   const seen = new Set<string>();
   const normalized = Object.freeze(entries.map((entry): SearchEntry<TValue> => {
     const id = clean(entry.id);
@@ -66,15 +101,23 @@ export function prepareSearchPickerIndex<TValue>(entries: readonly SearchEntry<T
     ].filter((value): value is string => value !== undefined)),
     ...(entry.group === undefined ? {} : { group: entry.group }),
   })));
+  const entriesById = new Map(normalized.map((entry) => [entry.id, entry] as const));
   indexData.set(index, {
     entries: normalized,
+    entriesById,
     candidates,
     queryResults: new Map(),
     queryEvaluations: 0,
     candidateEvaluations: 0
   });
-  sourceIndexes.set(entries, index);
   return index;
+}
+
+export function searchPickerEntryById<TValue>(
+  index: SearchPickerIndex<TValue>,
+  id: string,
+): SearchEntry<TValue> | undefined {
+  return dataFor(index).entriesById.get(id);
 }
 
 export function querySearchPickerIndex<TValue>(
@@ -93,11 +136,10 @@ export function querySearchPickerIndex<TValue>(
   data.queryEvaluations += 1;
   data.candidateEvaluations += normalizedQuery.text.length === 0 ? 0 : data.entries.length;
   const matches = queryNormalizedCandidates(data.candidates, normalizedQuery);
-  const entriesById = new Map(data.entries.map((entry) => [entry.id, entry] as const));
   const entries = normalizedQuery.text.length === 0
     ? data.entries
     : Object.freeze(matches.flatMap((match) => {
-        const entry = entriesById.get(match.id);
+        const entry = data.entriesById.get(match.id);
         return entry === undefined ? [] : [entry];
       }));
   const result = Object.freeze({

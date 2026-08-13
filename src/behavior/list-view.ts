@@ -1,13 +1,15 @@
 import { collectionInteractionReducer } from '../interaction/collection.ts';
-import type { CollectionInteractionState, SelectionPolicy } from '../interaction/collection.ts';
+import type { SelectionPolicy } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
-import type { ScrollState } from '../interaction/scroll.ts';
-import type { ListViewItem, ListViewTransition } from '../ui-model/semantic-list.ts';
+import type {
+  ListViewControlTransition,
+  ListViewItem,
+  ListViewPresentation,
+  ListViewTransition,
+  ScrollableListViewPresentation,
+  UnscrolledListViewPresentation,
+} from '../ui-model/semantic-list.ts';
 import { applyScrollEvent } from './scroll.ts';
-
-export interface ListViewState extends CollectionInteractionState {
-  readonly scroll?: ScrollState;
-}
 
 export interface ListViewReducerOptions {
   readonly items: readonly Pick<ListViewItem, 'id' | 'disabled'>[];
@@ -16,10 +18,20 @@ export interface ListViewReducerOptions {
 }
 
 export function listViewReducer(
-  state: ListViewState,
+  state: ScrollableListViewPresentation,
   action: ListViewTransition,
   options: ListViewReducerOptions,
-): ListViewState {
+): ScrollableListViewPresentation;
+export function listViewReducer(
+  state: UnscrolledListViewPresentation,
+  action: ListViewControlTransition,
+  options: ListViewReducerOptions,
+): UnscrolledListViewPresentation;
+export function listViewReducer(
+  state: ListViewPresentation,
+  action: ListViewTransition,
+  options: ListViewReducerOptions,
+): ListViewPresentation {
   if (action.kind === 'scroll') {
     return state.scroll === undefined
       ? state

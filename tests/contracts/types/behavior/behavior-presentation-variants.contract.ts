@@ -2,6 +2,8 @@ import {
   dataGrid,
   listbox,
   logViewer,
+  tabs,
+  text,
   tree,
   type DataGridControlTransition,
   type DataGridTransition,
@@ -11,6 +13,7 @@ import {
   type LogViewerAction,
   type LogViewerControlAction,
   type TextAreaControlAction,
+  type TabsTransition,
   type TreeControlTransition,
   type TreeTransition,
 } from '@ismail-elkorchi/terminal-ui/components';
@@ -39,8 +42,7 @@ const scrollableListbox = listbox({
   id: 'scrollable-listbox',
   items: ['one'],
   projectItem: (value) => ({ id: value, label: value }),
-  presentation: interaction,
-  scroll,
+  presentation: { ...interaction, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'scrollableListbox' as const, transition }),
 });
@@ -53,8 +55,7 @@ const unscrolledTree = tree({
 const scrollableTree = tree({
   id: 'scrollable-tree',
   nodes,
-  presentation: { ...interaction, expandedIds: [] },
-  scroll,
+  presentation: { ...interaction, expandedIds: [], scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'scrollableTree' as const, transition }),
 });
@@ -87,6 +88,15 @@ const scrollableLog = logViewer({
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'scrollableLog' as const, action }),
 });
+const typedTabs = tabs({
+  id: 'typed-tabs',
+  tabs: [
+    { id: 'one', label: 'One', panel: text({ content: 'One' }) },
+    { id: 'two', label: 'Two', panel: text({ content: 'Two' }) },
+  ],
+  presentation: { activeId: 'one', selectedId: 'one' },
+  onTransition: (transition) => ({ kind: 'tabs' as const, transition }),
+});
 
 export type _UnscrolledListbox = Assert<Equal<MessageOf<typeof unscrolledListbox>, { readonly kind: 'unscrolledListbox'; readonly transition: ListboxControlTransition }>>;
 export type _ScrollableListbox = Assert<Equal<MessageOf<typeof scrollableListbox>, { readonly kind: 'scrollableListbox'; readonly transition: ListboxTransition }>>;
@@ -96,6 +106,10 @@ export type _UnscrolledGrid = Assert<Equal<MessageOf<typeof unscrolledGrid>, { r
 export type _ScrollableGrid = Assert<Equal<MessageOf<typeof scrollableGrid>, { readonly kind: 'scrollableGrid'; readonly transition: DataGridTransition }>>;
 export type _UnscrolledLog = Assert<Equal<MessageOf<typeof unscrolledLog>, { readonly kind: 'unscrolledLog'; readonly action: LogViewerControlAction }>>;
 export type _ScrollableLog = Assert<Equal<MessageOf<typeof scrollableLog>, { readonly kind: 'scrollableLog'; readonly action: LogViewerAction }>>;
+export type _TypedTabs = Assert<Equal<
+  MessageOf<typeof typedTabs>,
+  { readonly kind: 'tabs'; readonly transition: TabsTransition<'one' | 'two'> }
+>>;
 
 declare const textAreaControlAction: TextAreaControlAction;
 void textAreaControlAction;

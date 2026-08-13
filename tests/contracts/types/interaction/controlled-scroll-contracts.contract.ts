@@ -1,11 +1,16 @@
 import {
+  combobox,
+  listView,
   listbox,
   logViewer,
   searchPicker,
   text,
   textArea,
+  table,
   tree,
+  type ComboboxTransition,
   type Element,
+  type ListViewTransition,
   type ListboxTransition,
   type LogViewerAction,
   type SearchPickerTransition,
@@ -28,16 +33,14 @@ const controlledListbox = listbox({
   id: 'listbox',
   items: ['one'],
   projectItem: (value) => ({ id: value, label: value }),
-  presentation: { activeId: 'one', selection: { mode: 'none' } },
-  scroll,
+  presentation: { activeId: 'one', selection: { mode: 'none' }, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'listbox' as const, transition }),
 });
 const controlledTree = tree({
   id: 'tree',
   nodes: [{ id: 'one', label: 'One', kind: 'leaf' }],
-  presentation: { activeId: 'one', selection: { mode: 'none' }, expandedIds: [] },
-  scroll,
+  presentation: { activeId: 'one', selection: { mode: 'none' }, expandedIds: [], scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'tree' as const, transition }),
 });
@@ -67,6 +70,21 @@ const controlledViewport = viewport(text({ content: 'content' }), {
   scrollbar: { visible: 'auto' },
   onScroll: (event) => ({ kind: 'viewportScroll' as const, event }),
 });
+const controlledListView = listView({
+  id: 'list-view',
+  items: [{ id: 'one', content: text({ content: 'One' }) }],
+  presentation: { selection: { mode: 'none' }, scroll },
+  scrollbar: { visible: 'auto' },
+  onTransition: (transition) => ({ kind: 'listView' as const, transition }),
+});
+const controlledCombobox = combobox({
+  id: 'combobox',
+  label: 'Choice',
+  options: [{ id: 'one', label: 'One', value: 1 }],
+  presentation: { open: false, interaction: { selection: { mode: 'single' } }, scroll },
+  scrollbar: { visible: 'auto' },
+  onTransition: (transition) => ({ kind: 'combobox' as const, transition }),
+});
 
 export type _Listbox = Assert<Equal<MessageOf<typeof controlledListbox>, { readonly kind: 'listbox'; readonly transition: ListboxTransition }>>;
 export type _Tree = Assert<Equal<MessageOf<typeof controlledTree>, { readonly kind: 'tree'; readonly transition: TreeTransition }>>;
@@ -76,6 +94,8 @@ export type _EditorExpected = Assert<EditorMessage extends MessageOf<typeof cont
 export type _Log = Assert<Equal<MessageOf<typeof controlledLog>, { readonly kind: 'log'; readonly action: LogViewerAction }>>;
 export type _Search = Assert<Equal<MessageOf<typeof controlledSearchPicker>, { readonly kind: 'searchPicker'; readonly transition: SearchPickerTransition }>>;
 export type _Viewport = Assert<Equal<MessageOf<typeof controlledViewport>, { readonly kind: 'viewportScroll'; readonly event: ScrollEvent }>>;
+export type _ListView = Assert<Equal<MessageOf<typeof controlledListView>, { readonly kind: 'listView'; readonly transition: ListViewTransition }>>;
+export type _Combobox = Assert<Equal<MessageOf<typeof controlledCombobox>, { readonly kind: 'combobox'; readonly transition: ComboboxTransition }>>;
 
 // @ts-expect-error listbox scrollbar requires controlled scroll state
 listbox({ id: 'inert-listbox', items: [], projectItem: () => ({ id: '', label: '' }), presentation: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
@@ -89,3 +109,9 @@ logViewer({ id: 'inert-log', history: prepareLogHistory([]), scrollbar: { visibl
 searchPicker({ id: 'inert-searchPicker', presentation: { query: { text: '', mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([]), scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error viewport scrollbar requires event routing
 viewport(text({ content: 'content' }), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });
+// @ts-expect-error list view scrollbar requires presentation scroll state
+listView({ id: 'inert-list-view', items: [], presentation: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+// @ts-expect-error passive table scrollbar requires controlled scroll state and routing
+table({ id: 'inert-table', rows: [], getRowId: () => '', scrollbar: { visible: 'auto' } });
+// @ts-expect-error combobox scrollbar requires presentation scroll state
+combobox({ id: 'inert-combobox', label: 'Choice', options: [], presentation: { open: false, interaction: { selection: { mode: 'single' } } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });

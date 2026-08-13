@@ -78,8 +78,11 @@ const tabsSlots = {
   panels: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
 } as const;
 
-type TabsFactory = <TMessage extends ComponentMessage>(
-  options: TabsOptions<TMessage>,
+type TabsFactory = <
+  const TId extends string,
+  const TMessage extends ComponentMessage = never,
+>(
+  options: TabsOptions<TId, TMessage>,
 ) => Element<TMessage>;
 
 type TabsComponentAction =
@@ -236,7 +239,10 @@ const instantiateTabs = defineComponent<
   },
 });
 
-export const tabs: TabsFactory = (options) => {
+export const tabs: TabsFactory = <
+  const TId extends string,
+  const TMessage extends ComponentMessage = never,
+>(options: TabsOptions<TId, TMessage>) => {
   const items = options.tabs;
   const shared = {
     id: options.id,
@@ -280,9 +286,11 @@ export const tabs: TabsFactory = (options) => {
     ...shared,
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => {
-      if (action.kind === 'close') return options.onClose?.(action.event) ?? ignoreMessage();
+      if (action.kind === 'close') {
+        return options.onClose?.(action.event as TabCloseEvent<TId>) ?? ignoreMessage();
+      }
       if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
-      return options.onTransition(action.action);
+      return options.onTransition(action.action as TabsTransition<TId>);
     },
   });
 };

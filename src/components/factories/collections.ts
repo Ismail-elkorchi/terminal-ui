@@ -30,7 +30,12 @@ import type {
   SemanticListItem,
 } from '../../ui-model/semantic-list.ts';
 import type { ListViewStylePart, SemanticListStylePart } from '../../ui-model/style-parts.ts';
-import type { ListOptions, ListViewOptions } from '../options/collections.ts';
+import type {
+  ListOptions,
+  ListViewOptions,
+  ScrollableListViewOptions,
+  UnscrolledListViewOptions,
+} from '../options/collections.ts';
 
 interface PreparedSemanticListItem {
   readonly id: string;
@@ -405,10 +410,23 @@ export function listView<
   const TItems extends readonly ListViewItem[],
   const TMessage extends ComponentMessage = never,
 >(
+  options: ScrollableListViewOptions<TItems, TMessage>,
+): Element<TMessage | ElementMessage<TItems[number]['content']>>;
+export function listView<
+  const TItems extends readonly ListViewItem[],
+  const TMessage extends ComponentMessage = never,
+>(
+  // eslint-disable-next-line @typescript-eslint/unified-signatures
+  options: UnscrolledListViewOptions<TItems, TMessage>,
+): Element<TMessage | ElementMessage<TItems[number]['content']>>;
+export function listView<
+  const TItems extends readonly ListViewItem[],
+  const TMessage extends ComponentMessage = never,
+>(
   options: ListViewOptions<TItems, TMessage>,
 ): Element<TMessage | ElementMessage<TItems[number]['content']>> {
   const items = preparePublicListViewItems(options.items);
-  const scroll = prepareComponentScrollState(options.scroll, 'listView scroll');
+  const scroll = prepareComponentScrollState(options.presentation.scroll, 'listView scroll');
   const scrollbar = prepareComponentScrollbarOptions(options.scrollbar, 'listView scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(options.scrollPolicy, 'listView scrollPolicy');
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
@@ -454,9 +472,21 @@ export function listView<
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
       if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
-      return options.onTransition(action.action);
+      if (isScrollableListViewOptions(options)) return options.onTransition(action.action);
+      return action.action.kind === 'scroll'
+        ? ignoreMessage()
+        : options.onTransition(action.action);
     },
   });
+}
+
+function isScrollableListViewOptions<
+  TItems extends readonly ListViewItem[],
+  TMessage extends ComponentMessage,
+>(
+  options: ListViewOptions<TItems, TMessage>,
+): options is ScrollableListViewOptions<TItems, TMessage> {
+  return options.presentation.scroll !== undefined;
 }
 
 function prepareItems(

@@ -1,11 +1,22 @@
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
 import type { CollectionQuery } from './query.ts';
 
-export interface SearchPickerPresentation {
+interface SearchPickerPresentationBase {
   readonly query: CollectionQuery;
   readonly activeId?: string;
-  readonly scroll?: ScrollState;
 }
+
+export interface UnscrolledSearchPickerPresentation extends SearchPickerPresentationBase {
+  readonly scroll?: never;
+}
+
+export interface ScrollableSearchPickerPresentation extends SearchPickerPresentationBase {
+  readonly scroll: ScrollState;
+}
+
+export type SearchPickerPresentation =
+  | UnscrolledSearchPickerPresentation
+  | ScrollableSearchPickerPresentation;
 
 export type SearchPickerTransition =
   | { readonly kind: 'setQuery'; readonly query: CollectionQuery }

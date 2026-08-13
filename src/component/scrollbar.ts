@@ -427,8 +427,7 @@ function emitScrollAction<TAction>(
   return action === undefined
     ? ignoreMessage()
     : onScroll({
-      action,
-      state: scrollReducer(scrollPosition(scroll), action, scrollGeometry(scroll)),
+      nextState: scrollReducer(scrollPosition(scroll), action, scrollGeometry(scroll)),
       source: scrollEventSource(pointer),
       target,
     });

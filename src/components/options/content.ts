@@ -8,26 +8,29 @@ import type {
   ListboxActivateEvent,
   ListboxControlTransition,
   ListboxOptionProjector,
-  ListboxPresentation,
+  ScrollableListboxPresentation,
   ListboxTransition,
+  UnscrolledListboxPresentation,
   WindowedListboxCollection
 } from '../../ui-model/list.ts';
 import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
 import type {
   DataGridActivateEvent,
   DataGridControlTransition,
-  DataGridPresentation,
+  ScrollableDataGridPresentation,
   DataGridTransition,
   TableCollection,
-  TablePresentation
+  TablePresentation,
+  UnscrolledDataGridPresentation,
 } from '../../ui-model/table.ts';
 import type {
   CompleteTreeCollection,
   TreeActivateEvent,
   TreeControlTransition,
   TreeNode,
-  TreePresentation,
+  ScrollableTreePresentation,
   TreeTransition,
+  UnscrolledTreePresentation,
   WindowedTreeCollection
 } from '../../ui-model/tree.ts';
 import type { PaginationAction } from '../../ui-model/pagination.ts';
@@ -35,8 +38,8 @@ import type { ComponentDensity } from '../../ui-model/contracts.ts';
 import type {
   TextAreaAction,
   TextAreaControlAction,
-  TextAreaPresentation,
-  TextAreaScrollablePresentation
+  ScrollableTextAreaPresentation,
+  UnscrolledTextAreaPresentation
 } from '../../ui-model/text-area.ts';
 import type {
   TableColumn,
@@ -111,7 +114,6 @@ export type DisclosureMessage<
 
 type ListboxCommonOptions<TValue> = ListboxDataOptions<TValue> & {
   readonly id: string;
-  readonly presentation: ListboxPresentation;
   readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
   readonly readOnly?: boolean;
   readonly busy?: boolean;
@@ -174,7 +176,7 @@ export type ListboxOptions<TValue, TMessage extends ComponentMessage = never> =
   | ScrollableListboxOptions<TValue, TMessage>;
 
 export type UnscrolledListboxOptions<TValue, TMessage extends ComponentMessage = never> = ListboxCommonOptions<TValue> & {
-  readonly scroll?: never;
+  readonly presentation: UnscrolledListboxPresentation;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 } & (Omit<ActiveListboxCallbacks<TMessage>, 'onTransition'> & {
@@ -182,14 +184,13 @@ export type UnscrolledListboxOptions<TValue, TMessage extends ComponentMessage =
 } | UnavailableListboxCallbacks);
 
 export type ScrollableListboxOptions<TValue, TMessage extends ComponentMessage = never> = ListboxCommonOptions<TValue> & {
-  readonly scroll: ScrollState;
+  readonly presentation: ScrollableListboxPresentation;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 } & (ActiveListboxCallbacks<TMessage> | UnavailableListboxCallbacks);
 
 interface TreeCommonOptions {
   readonly id: string;
-  readonly presentation: TreePresentation;
   readonly emptyText?: string;
   readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
   readonly readOnly?: boolean;
@@ -258,7 +259,7 @@ export type UnscrolledTreeOptions<
   TActivateMessage extends ComponentMessage = TTransitionMessage,
   TPointerMessage extends ComponentMessage = TTransitionMessage,
 > = TreeBaseOptions<TMetadata> & {
-  readonly scroll?: never;
+  readonly presentation: UnscrolledTreePresentation;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 } & (Omit<ActiveTreeCallbacks<TTransitionMessage, TActivateMessage, TPointerMessage>, 'onTransition'> & {
@@ -271,7 +272,7 @@ export type ScrollableTreeOptions<
   TActivateMessage extends ComponentMessage = TTransitionMessage,
   TPointerMessage extends ComponentMessage = TTransitionMessage,
 > = TreeBaseOptions<TMetadata> & {
-  readonly scroll: ScrollState;
+  readonly presentation: ScrollableTreePresentation;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 } & (ActiveTreeCallbacks<TTransitionMessage, TActivateMessage, TPointerMessage> | UnavailableTreeCallbacks);
@@ -296,19 +297,31 @@ type TableDataOptions<TRow> =
       readonly getRowId?: never;
     };
 
-type TableBaseOptions<TRow> = TableCommonOptions<TRow> & TableDataOptions<TRow>;
-
-export type TableOptions<TRow, TMessage extends ComponentMessage = never> = TableBaseOptions<TRow> & {
+interface TableOptionsBase<TRow> extends TableCommonOptions<TRow> {
   readonly presentation?: TablePresentation;
-  readonly scroll?: {
+  readonly busy?: boolean;
+  readonly meta?: ComponentMetadataOptions<readonly ['layer', 'styles'], TableStylePart>;
+}
+
+export type UnscrolledTableOptions<TRow> = TableOptionsBase<TRow> & TableDataOptions<TRow> & {
+  readonly scroll?: never;
+  readonly scrollbar?: never;
+  readonly scrollPolicy?: never;
+};
+
+export type ScrollableTableOptions<TRow, TMessage extends ComponentMessage = never> =
+  TableOptionsBase<TRow> & TableDataOptions<TRow> & {
+  readonly scroll: {
     readonly state: ScrollState;
     readonly onTransition: (event: import('../../interaction/scroll.ts').ScrollEvent) => MessageResolution<TMessage>;
   };
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly busy?: boolean;
-  readonly meta?: ComponentMetadataOptions<readonly ['layer', 'styles'], TableStylePart>;
 };
+
+export type TableOptions<TRow, TMessage extends ComponentMessage = never> =
+  | UnscrolledTableOptions<TRow>
+  | ScrollableTableOptions<TRow, TMessage>;
 
 interface DataGridCallbacks<
   TTransition,
@@ -367,7 +380,7 @@ export type UnscrolledDataGridOptions<
   TActivateMessage extends ComponentMessage = TTransitionMessage,
   TPointerMessage extends ComponentMessage = TTransitionMessage,
 > = DataGridBaseOptions<TRow> & TableDataOptions<TRow> & {
-  readonly presentation: Omit<DataGridPresentation, 'scroll'> & { readonly scroll?: never };
+  readonly presentation: UnscrolledDataGridPresentation;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 } & DataGridAvailability<DataGridControlTransition, TTransitionMessage, TActivateMessage, TPointerMessage>;
@@ -378,7 +391,7 @@ export type ScrollableDataGridOptions<
   TActivateMessage extends ComponentMessage = TTransitionMessage,
   TPointerMessage extends ComponentMessage = TTransitionMessage,
 > = DataGridBaseOptions<TRow> & TableDataOptions<TRow> & {
-  readonly presentation: DataGridPresentation & { readonly scroll: ScrollState };
+  readonly presentation: ScrollableDataGridPresentation;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 } & DataGridAvailability<DataGridTransition, TTransitionMessage, TActivateMessage, TPointerMessage>;
@@ -426,7 +439,7 @@ export type UnscrolledTextAreaOptions<TMessage extends ComponentMessage = never>
   & TextAreaBaseOptions
   & {
     readonly disabled?: false;
-    readonly presentation: Omit<TextAreaPresentation, 'scroll'> & { readonly scroll?: never };
+    readonly presentation: UnscrolledTextAreaPresentation;
     readonly scrollbar?: never;
     readonly scrollPolicy?: never;
     readonly onAction: (action: TextAreaControlAction) => MessageResolution<TMessage>;
@@ -437,7 +450,7 @@ export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never>
   & TextAreaBaseOptions
   & {
     readonly disabled?: false;
-    readonly presentation: TextAreaScrollablePresentation;
+    readonly presentation: ScrollableTextAreaPresentation;
     readonly scrollbar?: ScrollbarOptions;
     readonly scrollPolicy?: ScrollPolicy;
     readonly onAction: (action: TextAreaAction) => MessageResolution<TMessage>;
@@ -446,12 +459,12 @@ export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never>
 
 export type DisabledTextAreaOptions = TextAreaBaseOptions & { readonly disabled: true; readonly readOnly?: never; readonly onAction?: never; readonly onPointerAction?: never; readonly pointerState?: never } & (
   | {
-      readonly presentation: Omit<TextAreaPresentation, 'scroll'> & { readonly scroll?: never };
+      readonly presentation: UnscrolledTextAreaPresentation;
       readonly scrollbar?: never;
       readonly scrollPolicy?: never;
     }
   | {
-      readonly presentation: TextAreaScrollablePresentation;
+      readonly presentation: ScrollableTextAreaPresentation;
       readonly scrollbar?: ScrollbarOptions;
       readonly scrollPolicy?: ScrollPolicy;
     }

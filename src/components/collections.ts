@@ -12,10 +12,12 @@ export type {
   ScrollableListboxOptions,
   ScrollableDataGridOptions,
   ScrollableTreeOptions,
+  ScrollableTableOptions,
   TableOptions,
   TreeOptions,
   UnscrolledListboxOptions,
   UnscrolledDataGridOptions,
   UnscrolledTreeOptions,
+  UnscrolledTableOptions,
 } from './options/content.ts';
 export type * from './options/tabs.ts';

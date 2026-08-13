@@ -130,8 +130,7 @@ void test('grid scroll transitions accept renderer-derived semantic state', () =
   const state = dataGridReducer(initial, {
     kind: 'scroll',
     event: {
-      action: { kind: 'scrollLines', rows: 2, columns: 1 },
-      state: rendered,
+      nextState: rendered,
       source: 'wheel',
       target: 'content',
     },

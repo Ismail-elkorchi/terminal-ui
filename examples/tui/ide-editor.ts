@@ -32,7 +32,7 @@ import type {
   TabsTransition,
   TextAreaAction,
   TreeNode,
-  TreePresentation,
+  ScrollableTreePresentation,
   TreeTransition,
 } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
@@ -93,7 +93,7 @@ interface ChooserState {
 interface EditorState {
   readonly root?: string;
   readonly nodes: readonly TreeNode<EntryMetadata>[];
-  readonly tree: TreePresentation & { readonly scroll: NonNullable<TreePresentation['scroll']> };
+  readonly tree: ScrollableTreePresentation;
   readonly buffers: readonly EditorBuffer[];
   readonly activePath?: string;
   readonly menu: MenuBarState;
@@ -520,7 +520,6 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
       id: 'editor-tree',
       nodes: state.nodes,
       presentation: state.tree,
-      scroll: state.tree.scroll,
       emptyText: 'Use /folder <path>',
       onTransition: (action): EditorMessage => ({ kind: 'tree', action }),
       onActivate: (event): EditorMessage => ({ kind: 'treeActivate', id: event.id }),

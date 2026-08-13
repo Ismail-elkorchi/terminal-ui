@@ -2,17 +2,24 @@ import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
 import type { TextCaret, TextDocument, TextDocumentSelection, TextEditOperation } from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
 
-export interface TextAreaPresentation {
+interface TextAreaPresentationBase {
   readonly document: TextDocument;
   readonly caret: TextCaret;
   readonly selection?: TextDocumentSelection;
-  readonly scroll?: ScrollState;
   readonly revealCaret?: boolean;
 }
 
-export interface TextAreaScrollablePresentation extends Omit<TextAreaPresentation, 'scroll'> {
+export interface UnscrolledTextAreaPresentation extends TextAreaPresentationBase {
+  readonly scroll?: never;
+}
+
+export interface ScrollableTextAreaPresentation extends TextAreaPresentationBase {
   readonly scroll: ScrollState;
 }
+
+export type TextAreaPresentation =
+  | UnscrolledTextAreaPresentation
+  | ScrollableTextAreaPresentation;
 
 export type TextAreaAction =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }

@@ -76,7 +76,8 @@ export type {
   TextAreaAction,
   TextAreaControlAction,
   TextAreaPresentation,
-  TextAreaScrollablePresentation
+  ScrollableTextAreaPresentation,
+  UnscrolledTextAreaPresentation,
 } from '../ui-model/text-area.ts';
 export type { PointerSelectionAction, TextPointerAction } from '../interaction/text-pointer.ts';
 export type * from '../ui-model/foundations.ts';
@@ -89,7 +90,9 @@ export type {
   ListboxOption,
   ListboxOptionProjector,
   ListboxPresentation,
-  ListboxTransition
+  ScrollableListboxPresentation,
+  ListboxTransition,
+  UnscrolledListboxPresentation,
 } from '../ui-model/list.ts';
 export type {
   RangeSliderAction,
@@ -102,12 +105,14 @@ export type {
   DataGridControlTransition,
   DataGridInteraction,
   DataGridPresentation,
+  ScrollableDataGridPresentation,
   DataGridTransition,
   TableCollection,
   TableCollectionRecord,
   TablePresentation,
   TableSortDirection,
-  TableSortState
+  TableSortState,
+  UnscrolledDataGridPresentation,
 } from '../ui-model/table.ts';
 export type {
   TreeActivateEvent,
@@ -115,11 +120,13 @@ export type {
   TreeDisclosureTransition,
   TreeLoadState,
   TreePresentation,
+  ScrollableTreePresentation,
   TreeTransition,
   TreeNode,
   TreeCollection,
   TreeCollectionRecord,
-  TreeVisibleRow
+  TreeVisibleRow,
+  UnscrolledTreePresentation,
 } from '../ui-model/tree.ts';
 export type { NumberInputAction, NumberInputControlAction, NumberInputValidity } from '../ui-model/number-input.ts';
 export type { PaginationAction } from '../ui-model/pagination.ts';
@@ -135,7 +142,9 @@ export type {
   SearchPickerAcceptEvent,
   SearchPickerControlTransition,
   SearchPickerPresentation,
-  SearchPickerTransition
+  ScrollableSearchPickerPresentation,
+  SearchPickerTransition,
+  UnscrolledSearchPickerPresentation,
 } from '../ui-model/search-picker.ts';
 export type {
   ContextMenuTransition,
@@ -174,8 +183,11 @@ export type {
 } from '../ui-model/choice-controls.ts';
 export type {
   ComboboxCommitEvent,
+  ComboboxControlTransition,
   ComboboxPresentation,
-  ComboboxTransition
+  ScrollableComboboxPresentation,
+  ComboboxTransition,
+  UnscrolledComboboxPresentation,
 } from '../ui-model/combobox.ts';
 export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../element/index.ts';
 export { inspectElement } from '../element/inspection.ts';

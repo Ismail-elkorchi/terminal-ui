@@ -1,4 +1,4 @@
-import type { ScrollEvent } from '../interaction/scroll.ts';
+import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
 import type { CollectionInteractionAction, CollectionInteractionState } from '../interaction/collection.ts';
 import type {
   CollectionProjection,
@@ -45,7 +45,17 @@ export interface PreparedListboxView<TValue> {
   readonly totalCount: number;
 }
 
-export type ListboxPresentation = CollectionInteractionState;
+export interface UnscrolledListboxPresentation extends CollectionInteractionState {
+  readonly scroll?: never;
+}
+
+export interface ScrollableListboxPresentation extends CollectionInteractionState {
+  readonly scroll: ScrollState;
+}
+
+export type ListboxPresentation =
+  | UnscrolledListboxPresentation
+  | ScrollableListboxPresentation;
 
 export type ListboxTransition =
   | CollectionInteractionAction

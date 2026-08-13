@@ -6,6 +6,7 @@ import {
   checkboxGroupReducer,
   colorSwatchPickerPresentation,
   colorSwatchPickerReducer,
+  commitCombobox,
   comboboxReducer,
   menuPresentation,
   menuReducer,
@@ -91,6 +92,32 @@ void test('combobox focus and committed selection remain independent', () => {
   assert.deepEqual(moved.interaction.selection, { mode: 'single', selectedId: 'alpha' });
   assert.equal(dismissed.open, false);
   assert.deepEqual(dismissed.interaction.selection, { mode: 'single', selectedId: 'alpha' });
+});
+
+void test('combobox page navigation preserves page intent and commitment closes the popup', () => {
+  const enabledIds = ['one', 'two', 'three', 'four', 'five'];
+  const initial = {
+    open: true,
+    interaction: { activeId: 'one', selection: { mode: 'single' as const } },
+  };
+  const paged = comboboxReducer(initial, { kind: 'pageActive', delta: 1 }, {
+    enabledIds,
+    pageSize: 3,
+  });
+  const committed = commitCombobox(paged, { kind: 'commit', id: 'four' }, { enabledIds });
+  const ignored = commitCombobox(paged, { kind: 'commit', id: 'disabled' }, { enabledIds });
+
+  assert.equal(paged.interaction.activeId, 'four');
+  assert.deepEqual(paged.interaction.selection, { mode: 'single' });
+  assert.deepEqual(committed, {
+    open: false,
+    interaction: {
+      activeId: 'four',
+      selection: { mode: 'single', selectedId: 'four' },
+    },
+  });
+  assert.equal(ignored.open, true);
+  assert.deepEqual(ignored.interaction.selection, { mode: 'single' });
 });
 
 void test('choice controls use active position and committed selection consistently', () => {

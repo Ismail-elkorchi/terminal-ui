@@ -1,12 +1,14 @@
 import type { ListboxControlTransition, ListboxTransition } from '../ui-model/list.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
-import type { ScrollState } from '../interaction/scroll.ts';
 import type {
   CompleteListboxCollection,
   ListboxCollection,
   ListboxCollectionRecord,
   ListboxOption,
   ListboxOptionProjector,
+  ListboxPresentation,
+  ScrollableListboxPresentation,
+  UnscrolledListboxPresentation,
   ListboxViewEntry,
   PreparedListboxView,
   WindowedListboxCollection
@@ -19,23 +21,8 @@ import { completeCollection, windowedCollection } from '../ui-model/collection.t
 import type { CollectionWindow } from '../ui-model/collection.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import { collectionInteractionReducer } from '../interaction/collection.ts';
-import type {
-  CollectionInteractionState,
-  SelectionPolicy,
-} from '../interaction/collection.ts';
+import type { SelectionPolicy } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
-
-type ListboxStateBase = CollectionInteractionState;
-
-export interface UnscrolledListboxState extends ListboxStateBase {
-  readonly scroll?: never;
-}
-
-export interface ScrollableListboxState extends ListboxStateBase {
-  readonly scroll: ScrollState;
-}
-
-export type ListboxState = UnscrolledListboxState | ScrollableListboxState;
 
 export type ListboxReducerOptions<TValue> = (
   | {
@@ -63,20 +50,20 @@ export type ListboxReducerOptions<TValue> = (
 };
 
 export function listboxReducer<TValue>(
-  state: ScrollableListboxState,
+  state: ScrollableListboxPresentation,
   action: ListboxTransition,
   options: ListboxReducerOptions<TValue>
-): ScrollableListboxState;
+): ScrollableListboxPresentation;
 export function listboxReducer<TValue>(
-  state: UnscrolledListboxState,
+  state: UnscrolledListboxPresentation,
   action: ListboxControlTransition,
   options: ListboxReducerOptions<TValue>
-): UnscrolledListboxState;
+): UnscrolledListboxPresentation;
 export function listboxReducer<TValue>(
-  state: ListboxState,
+  state: ListboxPresentation,
   action: ListboxTransition,
   options: ListboxReducerOptions<TValue>
-): ListboxState {
+): ListboxPresentation {
   if (action.kind === 'scroll') {
     return state.scroll === undefined
       ? state

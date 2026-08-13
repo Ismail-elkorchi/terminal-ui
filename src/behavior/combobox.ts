@@ -1,13 +1,20 @@
 import { collectionInteractionReducer, normalizeCollectionInteraction } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
-import type { ComboboxPresentation, ComboboxTransition } from '../ui-model/combobox.ts';
+import type {
+  ComboboxCommitEvent,
+  ComboboxPresentation,
+  ComboboxTransition,
+} from '../ui-model/combobox.ts';
 import { popupReducer } from '../interaction/popup.ts';
 
 export interface ComboboxReducerOptions {
   readonly enabledIds: readonly string[];
   readonly navigation?: NavigationPolicy;
+  readonly pageSize?: number;
 }
+
+const selectionPolicy = { mode: 'single', commitment: 'manual' } as const;
 
 export function comboboxReducer(
   state: ComboboxPresentation,
@@ -17,7 +24,7 @@ export function comboboxReducer(
   const interaction = normalizeCollectionInteraction(
     state.interaction,
     options.enabledIds,
-    { mode: 'single', commitment: 'manual' },
+    selectionPolicy,
   );
   switch (transition.kind) {
     case 'open':
@@ -39,23 +46,51 @@ export function comboboxReducer(
         ? { ...state, interaction, scroll: applyScrollEvent(state.scroll, transition.event) }
         : state;
     default: {
-      if (!state.open && transition.kind !== 'moveActive') return state;
+      if (!state.open && transition.kind !== 'moveActive' && transition.kind !== 'pageActive') return state;
       const opened = state.open ? state : { ...state, open: true };
-      const action = transition.kind === 'moveActive'
-        ? transition
-        : transition.kind === 'setActive'
-        ? transition
+      const action = transition.kind === 'pageActive'
+        ? {
+            kind: 'moveActive' as const,
+            delta: transition.delta * Math.max(1, options.pageSize ?? 8),
+          }
         : transition;
       return {
         ...opened,
         interaction: collectionInteractionReducer(interaction, action, {
           enabledIds: options.enabledIds,
-          selection: { mode: 'single', commitment: 'manual' },
+          selection: selectionPolicy,
           ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
         }),
       };
     }
   }
+}
+
+export function commitCombobox(
+  state: ComboboxPresentation,
+  event: ComboboxCommitEvent,
+  options: ComboboxReducerOptions,
+): ComboboxPresentation {
+  const interaction = normalizeCollectionInteraction(
+    state.interaction,
+    options.enabledIds,
+    selectionPolicy,
+  );
+  if (!options.enabledIds.includes(event.id)) {
+    return interaction === state.interaction ? state : { ...state, interaction };
+  }
+  const committed = collectionInteractionReducer(
+    interaction,
+    { kind: 'select', id: event.id },
+    {
+      enabledIds: options.enabledIds,
+      selection: selectionPolicy,
+      ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
+    },
+  );
+  return !state.open && committed === state.interaction
+    ? state
+    : { ...state, open: false, interaction: committed };
 }
 
 function withInitialActive(
@@ -72,7 +107,7 @@ function withInitialActive(
     ...(initialId === undefined ? {} : { id: initialId }),
   }, {
     enabledIds: options.enabledIds,
-    selection: { mode: 'single', commitment: 'manual' },
+    selection: selectionPolicy,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });
 }

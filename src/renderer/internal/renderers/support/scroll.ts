@@ -223,8 +223,7 @@ function scrollEvent(
   target: ScrollEventTarget
 ): ScrollEvent {
   return {
-    action,
-    state: scrollReducer(scrollPosition(scroll), action, scrollGeometry(scroll)),
+    nextState: scrollReducer(scrollPosition(scroll), action, scrollGeometry(scroll)),
     source: scrollEventSource(pointer),
     target,
   };
