@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { diagnostic } from '../diagnostics.ts';
-import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/index.ts';
+import { LEGACY_KEYBOARD_PROFILE, decodeKeyboardProfile } from '../protocol/index.ts';
 import {
   createInputDecoderFromNormalizedOptions,
   decodeInputChunk,
@@ -87,19 +86,15 @@ export function createInputPipeline(options: InputPipelineOptions = {}): InputPi
   };
 }
 
-export function resolveInputPipelineProfile(options: InputPipelineOptions = {}): InputPipelineProfile {
-  if (typeof options !== 'object' || options === null || Array.isArray(options)) {
-    throw new TypeError('Input pipeline options must be an object.');
-  }
-  const {
-    capabilities,
-    keyboard,
-    bracketedPaste,
-    focusReporting,
-    mouseReporting,
-    escapeDelayMs,
-    limits
-  } = options;
+export function resolveInputPipelineProfile(options?: InputPipelineOptions): InputPipelineProfile;
+export function resolveInputPipelineProfile(options: unknown = {}): InputPipelineProfile {
+  const supplied = record(options, 'Input pipeline options');
+  const keyboard = supplied['keyboard'];
+  const bracketedPaste = supplied['bracketedPaste'];
+  const focusReporting = supplied['focusReporting'];
+  const mouseReporting = supplied['mouseReporting'];
+  const escapeDelayMs = supplied['escapeDelayMs'];
+  const limits = supplied['limits'];
   if (bracketedPaste !== undefined && typeof bracketedPaste !== 'boolean') {
     throw new TypeError('Input pipeline option bracketedPaste must be boolean.');
   }
@@ -113,21 +108,32 @@ export function resolveInputPipelineProfile(options: InputPipelineOptions = {}):
     && mouseReporting !== 'all') {
     throw new TypeError('Input pipeline mouseReporting is unsupported.');
   }
-  if (capabilities !== undefined
-    && (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities))) {
-    throw new TypeError('Input pipeline capabilities must be an object.');
+  const requested = decodeKeyboardProfile(keyboard ?? LEGACY_KEYBOARD_PROFILE);
+  const capabilities = requested.kind === 'legacy'
+    ? undefined
+    : optionalRecord(supplied['capabilities'], 'Input pipeline capabilities');
+  const keyboardCapability = requested.kind === 'legacy'
+    ? undefined
+    : optionalRecord(
+        capabilities?.['keyboardProtocol'],
+        'Input pipeline keyboard capability',
+      );
+  const keyboardSupport = keyboardCapability?.['support'];
+  if (keyboardSupport !== undefined
+    && keyboardSupport !== 'supported'
+    && keyboardSupport !== 'unsupported'
+    && keyboardSupport !== 'unknown') {
+    throw new TypeError('Input pipeline keyboard capability support is invalid.');
   }
-  if (limits !== undefined && (typeof limits !== 'object' || limits === null || Array.isArray(limits))) {
-    throw new TypeError('Input pipeline limits must be an object.');
+  const keyboardAvailability = keyboardCapability?.['availability'];
+  if (keyboardAvailability !== undefined
+    && keyboardAvailability !== 'available'
+    && keyboardAvailability !== 'unavailable') {
+    throw new TypeError('Input pipeline keyboard capability availability is invalid.');
   }
-  const requested = normalizeKeyboardProfile(keyboard ?? LEGACY_KEYBOARD_PROFILE);
-  const requestedProfile = requested;
-  const keyboardCapability = capabilities?.keyboardProtocol;
-  const keyboardSupport = keyboardCapability?.support;
-  const keyboardAvailability = keyboardCapability?.availability;
-  const available = requestedProfile.kind === 'legacy'
+  const available = requested.kind === 'legacy'
     || keyboardSupport === 'supported' && keyboardAvailability === 'available';
-  const active = available ? requestedProfile : LEGACY_KEYBOARD_PROFILE;
+  const active = available ? requested : LEGACY_KEYBOARD_PROFILE;
   return Object.freeze({
     keyboard: Object.freeze({ active, requested }),
     bracketedPaste: bracketedPaste ?? false,
@@ -137,16 +143,30 @@ export function resolveInputPipelineProfile(options: InputPipelineOptions = {}):
     limits: normalizeInputDecodeLimits(limits),
     diagnostics: Object.freeze(available
       ? []
-      : [unsupportedKeyboardDiagnostic(requestedProfile, keyboardSupport, keyboardAvailability)])
+      : [unsupportedKeyboardDiagnostic(requested, keyboardSupport, keyboardAvailability)])
   });
 }
 
-function escapeDelay(value: number | undefined): number {
+function escapeDelay(value: unknown): number {
   const delay = value ?? 25;
-  if (!Number.isFinite(delay) || delay < 0) {
+  if (typeof delay !== 'number' || !Number.isFinite(delay) || delay < 0) {
     throw new RangeError('Input escapeDelayMs must be a non-negative finite number.');
   }
   return delay;
+}
+
+function record(value: unknown, subject: string): Readonly<Record<string, unknown>> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${subject} must be an object.`);
+  }
+  return value as Readonly<Record<string, unknown>>;
+}
+
+function optionalRecord(
+  value: unknown,
+  subject: string,
+): Readonly<Record<string, unknown>> | undefined {
+  return value === undefined ? undefined : record(value, subject);
 }
 
 function decodeOptions(profile: InputPipelineProfile): NormalizedInputDecodeOptions {

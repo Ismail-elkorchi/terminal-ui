@@ -1,5 +1,4 @@
 import {
-  assertComponentOptions,
   clipRenderSpans,
   defineComponent,
   ignoreMessage,
@@ -54,7 +53,9 @@ import {
   splitTracks,
 } from '../../layout/index.ts';
 import {
+  assertOptionalCallback,
   assertOptionalEnum,
+  assertRequiredCallback,
   isNonArrayObject,
 } from '../../foundation/validation.ts';
 import type {
@@ -97,19 +98,6 @@ export const form: SemanticCompositeComponentFactory<
   typeof formSlots
 >({
   name: 'terminal-ui/components/form',
-  optionFields: {
-    title: true,
-    gap: true,
-    padding: true,
-    margin: true,
-    minWidth: true,
-    minHeight: true,
-    maxWidth: true,
-    maxHeight: true,
-    align: true,
-    justify: true,
-    overflow: true,
-  } as const,
   identity: 'optional',
   structure: 'composite',
   semantics: 'semantic',
@@ -233,20 +221,6 @@ const instantiateField = defineComponent<
   typeof fieldSlots
 >({
   name: 'terminal-ui/components/field',
-  optionFields: {
-    label: true,
-    description: true,
-    gap: true,
-    padding: true,
-    margin: true,
-    minWidth: true,
-    minHeight: true,
-    maxWidth: true,
-    maxHeight: true,
-    align: true,
-    justify: true,
-    overflow: true,
-  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -347,12 +321,6 @@ const instantiateField = defineComponent<
 });
 
 export const field: FieldFactory = (options) => {
-  assertComponentOptions(options, 'field', {
-    fields: [
-      'id', 'label', 'description', 'control', 'gap', 'padding', 'margin', 'minWidth',
-      'minHeight', 'maxWidth', 'maxHeight', 'align', 'justify', 'overflow', 'meta',
-    ],
-  });
   const { control, ...rest } = options;
   return instantiateField({ ...rest, slots: { control } });
 };
@@ -386,7 +354,6 @@ export const label: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/label',
-  optionFields: { text: true, forId: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -479,15 +446,6 @@ const instantiateButton: SemanticLeafComponentFactory<
   readonly ['styles', 'layer', 'focus']
 >({
   name: 'terminal-ui/components/button',
-  optionFields: {
-    label: true,
-    accessibleName: true,
-    leading: true,
-    trailing: true,
-    tone: true,
-    density: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -495,14 +453,18 @@ const instantiateButton: SemanticLeafComponentFactory<
   states: ['disabled', 'busy'],
   metadata: ['styles', 'layer', 'focus'],
   parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
-  prepare(value) {
+  prepare(value, context) {
     const label = value.label ?? '';
     const accessibleName = value.accessibleName ?? label;
     const leading = value.leading;
     const trailing = value.trailing;
     const tone = value.tone;
     const density = value.density;
-    const pointerState = preparePointerInteractionState(value.pointerState, 'button pointerState');
+    const pointerState = preparePointerInteractionState(
+      value.pointerState,
+      'button pointerState',
+      !context.disabled && !context.inert,
+    );
     if (typeof label !== 'string') throw new TypeError('button label must be a string.');
     if (typeof accessibleName !== 'string' || sanitizeTerminalText(accessibleName).text.trim() === '') {
       throw new TypeError('button accessibleName must be a non-empty string.');
@@ -582,16 +544,6 @@ const instantiateButton: SemanticLeafComponentFactory<
 });
 
 export const button: ButtonFactory = (options) => {
-  assertComponentOptions(options, 'button', {
-    fields: [
-      'id', 'label', 'accessibleName', 'leading', 'trailing', 'tone', 'density',
-      'busy', 'disabled', 'pointerState', 'meta', 'onAction', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true
-      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
-      : { onAction: 'required', onPointerAction: 'optional' },
-    ...(options.disabled === true ? { forbiddenFields: ['pointerState'] } : {}),
-  });
   const own = {
     id: options.id,
     ...(options.label === undefined ? {} : { label: options.label }),
@@ -604,6 +556,7 @@ export const button: ButtonFactory = (options) => {
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateButton({ ...own, disabled: true });
+  assertActionCallbacks(options, 'button');
   return instantiateButton({
     ...own,
     ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
@@ -851,13 +804,6 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/checkbox',
-  optionFields: {
-    label: true,
-    checked: true,
-    required: true,
-    error: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -865,12 +811,16 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
-  prepare(value) {
+  prepare(value, context) {
     const label = value.label;
     const checked = value.checked;
     const required = value.required;
     const error = value.error;
-    const pointerState = preparePointerInteractionState(value.pointerState, 'checkbox pointerState');
+    const pointerState = preparePointerInteractionState(
+      value.pointerState,
+      'checkbox pointerState',
+      !context.disabled && !context.inert,
+    );
     if (typeof label !== 'string') throw new TypeError('checkbox label must be a string.');
     if (typeof checked !== 'boolean') throw new TypeError('checkbox checked must be a boolean.');
     if (required !== undefined && typeof required !== 'boolean') {
@@ -931,16 +881,6 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
 });
 
 export const checkbox: CheckboxFactory = (options) => {
-  assertComponentOptions(options, 'checkbox', {
-    fields: [
-      'id', 'label', 'checked', 'required', 'error', 'pointerState', 'disabled', 'meta',
-      'onAction', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true
-      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
-      : { onAction: 'required', onPointerAction: 'optional' },
-    ...(options.disabled === true ? { forbiddenFields: ['pointerState'] } : {}),
-  });
   const own = {
     id: options.id,
     label: options.label,
@@ -950,6 +890,7 @@ export const checkbox: CheckboxFactory = (options) => {
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateCheckbox({ ...own, disabled: true });
+  assertActionCallbacks(options, 'checkbox');
   return instantiateCheckbox({
     ...own,
     ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
@@ -997,14 +938,6 @@ const instantiateSwitch: SemanticLeafComponentFactory<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/switch',
-  optionFields: {
-    label: true,
-    checked: true,
-    onLabel: true,
-    offLabel: true,
-    error: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -1012,7 +945,7 @@ const instantiateSwitch: SemanticLeafComponentFactory<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'onLabel', 'offLabel', 'error'],
-  prepare(value) {
+  prepare(value, context) {
     const label = value.label;
     const checked = value.checked;
     const onLabel = value.onLabel;
@@ -1021,6 +954,7 @@ const instantiateSwitch: SemanticLeafComponentFactory<
     const pointerState = preparePointerInteractionState(
       value.pointerState,
       'switchControl pointerState',
+      !context.disabled && !context.inert,
     );
     if (typeof label !== 'string') throw new TypeError('switchControl label must be a string.');
     if (typeof checked !== 'boolean') {
@@ -1084,16 +1018,6 @@ const instantiateSwitch: SemanticLeafComponentFactory<
 });
 
 export const switchControl: SwitchFactory = (options) => {
-  assertComponentOptions(options, 'switchControl', {
-    fields: [
-      'id', 'label', 'checked', 'onLabel', 'offLabel', 'error', 'pointerState', 'disabled',
-      'meta', 'onAction', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true
-      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
-      : { onAction: 'required', onPointerAction: 'optional' },
-    ...(options.disabled === true ? { forbiddenFields: ['pointerState'] } : {}),
-  });
   const own = {
     id: options.id,
     label: options.label,
@@ -1104,6 +1028,7 @@ export const switchControl: SwitchFactory = (options) => {
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateSwitch({ ...own, disabled: true });
+  assertActionCallbacks(options, 'switchControl');
   return instantiateSwitch({
     ...own,
     ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
@@ -1351,18 +1276,6 @@ const instantiateCombobox = defineComponent<
   typeof comboboxSlots
 >({
   name: 'terminal-ui/components/combobox',
-  optionFields: {
-    label: true,
-    options: true,
-    presentation: true,
-    placeholder: true,
-    placement: true,
-    maxVisibleOptions: true,
-    scrollbar: true,
-    required: true,
-    error: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -1500,23 +1413,10 @@ const instantiateCombobox = defineComponent<
 });
 
 export const combobox: ComboboxFactory = (options) => {
-  assertComponentOptions(options, 'combobox', {
-    fields: [
-      'id', 'label', 'options', 'presentation', 'placeholder', 'placement',
-      'maxVisibleOptions', 'scrollbar', 'required', 'error',
-      'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta',
-      'onTransition', 'onCommit', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onCommit: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onCommit: 'optional', onPointerAction: 'optional' },
-    ...(options.disabled === true
-      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy', 'inert'] }
-      : options.inert === true
-        ? { forbiddenFields: ['readOnly'] }
-      : {}),
-  });
-  const model = prepareCombobox(options);
+  const model = prepareCombobox(
+    options,
+    options.disabled !== true && options.inert !== true,
+  );
   const common = {
     ...model,
     id: options.id,
@@ -1528,6 +1428,9 @@ export const combobox: ComboboxFactory = (options) => {
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   };
   if (options.inert === true) return instantiateCombobox({ ...shared, inert: true });
+  assertRequiredCallback(options.onTransition, 'combobox onTransition');
+  assertOptionalCallback(options.onCommit, 'combobox onCommit');
+  assertOptionalCallback(options.onPointerAction, 'combobox onPointerAction');
   return instantiateCombobox({
     ...shared,
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
@@ -1538,6 +1441,14 @@ export const combobox: ComboboxFactory = (options) => {
     },
   });
 };
+
+function assertActionCallbacks(
+  options: { readonly onAction?: unknown; readonly onPointerAction?: unknown },
+  component: string,
+): void {
+  assertRequiredCallback(options.onAction, `${component} onAction`);
+  assertOptionalCallback(options.onPointerAction, `${component} onPointerAction`);
+}
 
 function selectedComboboxOption(model: ComboboxModel): ComboboxOptionModel | undefined {
   return model.options.find((option) => option.id === comboboxSelectedId(model.presentation));
@@ -1705,6 +1616,7 @@ function comboboxPopupStyles(
 
 function prepareCombobox<TValue, TMessage extends ComponentMessage>(
   value: Readonly<ComboboxOptions<TValue, TMessage>>,
+  pointerAvailable: boolean,
 ): ComboboxModel {
   const label = value.label;
   if (typeof label !== 'string') throw new TypeError('combobox label must be a string.');
@@ -1772,7 +1684,11 @@ function prepareCombobox<TValue, TMessage extends ComponentMessage>(
   if (error !== undefined && typeof error !== 'string') {
     throw new TypeError('combobox error must be a string.');
   }
-  const pointerState = preparePointerInteractionState(value.pointerState, 'combobox pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'combobox pointerState',
+    pointerAvailable,
+  );
   const scrollbar = prepareScrollbar(value.scrollbar);
   return {
     label: sanitizeTerminalText(label).text,

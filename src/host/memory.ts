@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
@@ -256,9 +255,9 @@ export interface MemoryTerminalHost extends TerminalHost {
   restores(): readonly TerminalRestoreResult[];
 }
 
-export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}): MemoryTerminalHost {
-  const config = Object.freeze({ ...options });
-  validateMemoryTerminalHostOptions(config);
+export function createMemoryTerminalHost(options?: MemoryTerminalHostOptions): MemoryTerminalHost;
+export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalHost {
+  const config = decodeMemoryTerminalHostOptions(options);
   let terminalSize: TerminalSize = config.terminalSize ?? { columns: 80, rows: 24 };
   const isTty = config.isTty ?? true;
   const inputSource = new QueueInput(isTty);
@@ -372,11 +371,102 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
   return host;
 }
 
-function validateMemoryTerminalHostOptions(value: MemoryTerminalHostOptions): void {
+function decodeMemoryTerminalHostOptions(value: unknown): MemoryTerminalHostOptions {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError('Memory terminal host options must be an object.');
   }
-  if (value.clipboardWrite !== undefined && typeof value.clipboardWrite !== 'boolean') {
+  const options = value as Readonly<Record<string, unknown>>;
+  const id = options['id'];
+  const isTty = options['isTty'];
+  const clipboardWrite = options['clipboardWrite'];
+  if (id !== undefined && typeof id !== 'string') {
+    throw new TypeError('Memory terminal host id must be a string when provided.');
+  }
+  if (isTty !== undefined && typeof isTty !== 'boolean') {
+    throw new TypeError('Memory terminal host isTty must be a boolean when provided.');
+  }
+  if (clipboardWrite !== undefined && typeof clipboardWrite !== 'boolean') {
     throw new TypeError('Memory terminal host clipboardWrite must be a boolean when provided.');
   }
+  const terminalSize = decodeTerminalSize(options['terminalSize']);
+  const env = decodeMemoryEnvironment(options['env']);
+  const observer = decodeMemoryObserver(options['observer']);
+  const capabilities = options['capabilities'];
+  const initialState = options['initialState'];
+  if (capabilities !== undefined
+    && (typeof capabilities !== 'object' || capabilities === null || Array.isArray(capabilities))) {
+    throw new TypeError('Memory terminal host capabilities must be an object when provided.');
+  }
+  return Object.freeze({
+    ...(id === undefined ? {} : { id }),
+    ...(terminalSize === undefined ? {} : { terminalSize }),
+    ...(isTty === undefined ? {} : { isTty }),
+    ...(clipboardWrite === undefined ? {} : { clipboardWrite }),
+    ...(env === undefined ? {} : { env }),
+    ...(observer === undefined ? {} : { observer }),
+    ...(capabilities === undefined
+      ? {}
+      : { capabilities }),
+    ...(initialState === undefined
+      ? {}
+      : { initialState: initialState as NonNullable<MemoryTerminalHostOptions['initialState']> }),
+  });
+}
+
+function decodeTerminalSize(value: unknown): MemoryTerminalHostOptions['terminalSize'] {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('Memory terminal host terminalSize must be an object.');
+  }
+  const size = value as Readonly<Record<string, unknown>>;
+  const columns = size['columns'];
+  const rows = size['rows'];
+  if (!Number.isSafeInteger(columns) || Number(columns) <= 0
+    || !Number.isSafeInteger(rows) || Number(rows) <= 0) {
+    throw new RangeError('Memory terminal host terminalSize columns and rows must be positive integers.');
+  }
+  return Object.freeze({ columns: Number(columns), rows: Number(rows) });
+}
+
+function decodeMemoryEnvironment(value: unknown): MemoryTerminalHostOptions['env'] {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('Memory terminal host env must be an object.');
+  }
+  const env = { ...value };
+  if (Object.values(env).some((entry) => typeof entry !== 'string')) {
+    throw new TypeError('Memory terminal host env values must be strings.');
+  }
+  return Object.freeze(env);
+}
+
+function decodeMemoryObserver(value: unknown): MemoryTerminalHostOptions['observer'] {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError('Memory terminal host observer must be an object.');
+  }
+  const observer = value as Readonly<Record<string, unknown>>;
+  const recordFrame = observer['recordFrame'];
+  const recordDiff = observer['recordDiff'];
+  const recordRestore = observer['recordRestore'];
+  if (recordFrame !== undefined && typeof recordFrame !== 'function') {
+    throw new TypeError('Memory terminal host observer.recordFrame must be a function when provided.');
+  }
+  if (recordDiff !== undefined && typeof recordDiff !== 'function') {
+    throw new TypeError('Memory terminal host observer.recordDiff must be a function when provided.');
+  }
+  if (recordRestore !== undefined && typeof recordRestore !== 'function') {
+    throw new TypeError('Memory terminal host observer.recordRestore must be a function when provided.');
+  }
+  return Object.freeze({
+    ...(recordFrame === undefined
+      ? {}
+      : { recordFrame: recordFrame as NonNullable<NonNullable<MemoryTerminalHostOptions['observer']>['recordFrame']> }),
+    ...(recordDiff === undefined
+      ? {}
+      : { recordDiff: recordDiff as NonNullable<NonNullable<MemoryTerminalHostOptions['observer']>['recordDiff']> }),
+    ...(recordRestore === undefined
+      ? {}
+      : { recordRestore: recordRestore as NonNullable<NonNullable<MemoryTerminalHostOptions['observer']>['recordRestore']> }),
+  });
 }

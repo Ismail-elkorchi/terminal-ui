@@ -1,5 +1,4 @@
 import {
-  assertComponentOptions,
   componentScrollbarHitTargets,
   defineComponent,
   ignoreMessage,
@@ -19,7 +18,12 @@ import type {
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { Measurement } from '../../renderer/index.ts';
-import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
+import {
+  assertOptionalCallback,
+  assertRequiredCallback,
+  isNonArrayObject,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
 import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
@@ -102,19 +106,6 @@ const instantiateTextArea = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/text-area',
-  optionFields: {
-    presentation: true,
-    placeholder: true,
-    highlights: true,
-    lineNumbers: true,
-    activeLine: true,
-    wrap: true,
-    required: true,
-    error: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -135,7 +126,7 @@ const instantiateTextArea = defineComponent<
     'highlight',
     'scrollbar',
   ],
-  prepare: prepareTextArea,
+  prepare: (value, context) => prepareTextArea(value, !context.disabled && !context.inert),
   measure: measureTextArea,
   render: paintTextArea,
   keys: ({ readOnly }) => ({
@@ -282,18 +273,9 @@ const instantiateTextArea = defineComponent<
 });
 
 export const textArea: TextAreaFactory = (options) => {
-  assertComponentOptions(options, 'textArea', {
-    fields: [
-      'id', 'presentation', 'highlights', 'placeholder', 'lineNumbers', 'activeLine',
-      'wrap', 'required', 'error', 'readOnly', 'pointerState', 'scrollbar',
-      'scrollPolicy', 'disabled', 'meta', 'onAction', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true
-      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
-      : { onAction: 'required', onPointerAction: 'optional' },
-    ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'readOnly'] } : {}),
-  });
   if (options.disabled === true) return instantiateTextArea(options);
+  assertRequiredCallback(options.onAction, 'textArea onAction');
+  assertOptionalCallback(options.onPointerAction, 'textArea onPointerAction');
   if (!isScrollableTextArea(options)) {
     const { onAction, onPointerAction, ...componentOptions } = options;
     return instantiateTextArea({
@@ -324,6 +306,7 @@ function hasScrollState(value: unknown): boolean {
 
 function prepareTextArea(
   value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'>>,
+  pointerAvailable: boolean,
 ): TextAreaModel {
   if (!isNonArrayObject(value.presentation)) {
     throw new TypeError('textArea presentation must be an object.');
@@ -383,7 +366,11 @@ function prepareTextArea(
   const wrap = prepareWrap(value.wrap);
   const required = booleanOption(value.required, 'textArea required');
   const revealCaret = booleanOption(presentation.revealCaret, 'textArea revealCaret');
-  const pointerState = preparePointerInteractionState(value.pointerState, 'textArea pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'textArea pointerState',
+    pointerAvailable,
+  );
   return {
     document,
     caret: normalizedCaret,

@@ -1,5 +1,4 @@
 import {
-  assertComponentOptions,
   clipRenderLine,
   componentScrollbarHitTargets,
   defineComponent,
@@ -20,7 +19,12 @@ import {
   scrollReducer,
 } from '../../behavior/index.ts';
 import type { Element } from '../../element/index.ts';
-import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
+import {
+  assertOptionalCallback,
+  assertRequiredCallback,
+  isNonArrayObject,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import {
   pointerVisualState,
@@ -77,19 +81,6 @@ interface PreparedListbox {
 
 const listboxDefinitionBase = {
   name: 'terminal-ui/components/listbox' as const,
-  optionFields: {
-    entries: true,
-    startIndex: true,
-    totalCount: true,
-    windowed: true,
-    query: true,
-    activeId: true,
-    selection: true,
-    scroll: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
@@ -192,22 +183,10 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
 export function listbox<TValue, const TMessage extends ComponentMessage = never>(
   options: ListboxOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  assertComponentOptions(options, 'listbox', {
-    fields: [
-      'id', 'items', 'projectItem', 'collection', 'filterQuery', 'presentation',
-      'scroll', 'scrollbar', 'scrollPolicy', 'pointerState', 'readOnly', 'busy',
-      'inert', 'disabled', 'meta', 'onTransition', 'onActivate', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
-    ...(options.disabled === true
-      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy'] }
-      : options.inert === true
-        ? { forbiddenFields: ['readOnly'] }
-      : {}),
-  });
-  const prepared = prepareListbox(options);
+  const prepared = prepareListbox(
+    options,
+    options.disabled !== true && options.inert !== true,
+  );
   if (options.disabled === true) return instantiateListbox({
     ...prepared,
     id: options.id,
@@ -222,6 +201,9 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
     ...(options.busy === undefined ? {} : { busy: options.busy }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   });
+  assertRequiredCallback(options.onTransition, 'listbox onTransition');
+  assertOptionalCallback(options.onActivate, 'listbox onActivate');
+  assertOptionalCallback(options.onPointerAction, 'listbox onPointerAction');
   return instantiateListbox({
     ...prepared,
     id: options.id,
@@ -242,6 +224,7 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
 
 function prepareListbox<TValue, TMessage extends ComponentMessage>(
   value: Readonly<ListboxOptions<TValue, TMessage>>,
+  pointerAvailable: boolean,
 ): PreparedListbox {
   const rawItems = value.items;
   const rawProjector = value.projectItem;
@@ -273,7 +256,11 @@ function prepareListbox<TValue, TMessage extends ComponentMessage>(
   const scroll = prepareComponentScrollState(value.scroll, 'list scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'list scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'list scrollPolicy');
-  const pointerState = preparePointerInteractionState(value.pointerState, 'listbox pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'listbox pointerState',
+    pointerAvailable,
+  );
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('list scrollbar and scrollPolicy require scroll state.');
   }

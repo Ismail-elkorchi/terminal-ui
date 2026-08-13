@@ -150,6 +150,7 @@ interface ActiveListboxCallbacks<TMessage extends ComponentMessage> {
 interface InertListboxCallbacks {
   readonly disabled?: false;
   readonly inert: true;
+  readonly pointerState?: never;
   readonly readOnly?: never;
   readonly onTransition?: never;
   readonly onActivate?: never;
@@ -232,6 +233,7 @@ interface ActiveTreeCallbacks<
 interface InertTreeCallbacks {
   readonly disabled?: false;
   readonly inert: true;
+  readonly pointerState?: never;
   readonly readOnly?: never;
   readonly onTransition?: never;
   readonly onActivate?: never;

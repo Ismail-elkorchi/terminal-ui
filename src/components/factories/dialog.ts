@@ -1,5 +1,4 @@
 import {
-  assertComponentOptions,
   defineComponent,
   ignoreMessage,
   mapComponentStyles,
@@ -59,26 +58,6 @@ const instantiateDialog = defineComponent<
   typeof dialogSlots
 >({
   name: 'terminal-ui/components/dialog',
-  optionFields: {
-    title: true,
-    accessibleName: true,
-    modal: true,
-    focusPolicy: true,
-    dismissal: true,
-    border: true,
-    width: true,
-    height: true,
-    gap: true,
-    padding: true,
-    margin: true,
-    minWidth: true,
-    minHeight: true,
-    maxWidth: true,
-    maxHeight: true,
-    align: true,
-    justify: true,
-    overflow: true,
-  } as const,
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
@@ -229,20 +208,22 @@ export function dialog<
     readonly slots: { readonly content: TContent; readonly actions?: TActions };
   },
 ): Element<ElementMessage<TContent> | ElementMessage<NonNullable<TActions>> | TMessage> {
-  assertComponentOptions(options, 'dialog', {
-    fields: [
-      'id', 'slots', 'title', 'accessibleName', 'modal', 'focusPolicy', 'dismissal', 'border',
-      'width', 'height', 'gap', 'padding', 'margin', 'minWidth', 'minHeight', 'maxWidth',
-      'maxHeight', 'align', 'justify', 'overflow', 'meta', 'onAction',
-    ],
-    callbacks: options.dismissal === undefined ? { onAction: 'forbidden' } : { onAction: 'required' },
-  });
-  const actionMapper = (action: DialogAction): MessageResolution<TMessage> =>
-    options.onAction === undefined ? ignoreMessage() : options.onAction(action);
+  if (options.dismissal === undefined) {
+    const ignoreDismissal = (): MessageResolution<TMessage> => ignoreMessage();
+    return instantiateDialog({
+      ...options,
+      slots: options.slots,
+      onAction: ignoreDismissal,
+    });
+  }
+  const onAction = options.onAction;
+  if (typeof onAction !== 'function') {
+    throw new TypeError('dialog onAction must be a function.');
+  }
   return instantiateDialog({
     ...options,
     slots: options.slots,
-    onAction: actionMapper,
+    onAction: (action: DialogAction): MessageResolution<TMessage> => onAction(action),
   });
 }
 

@@ -1,15 +1,18 @@
-import { assertComponentOptions, defineComponent, ignoreMessage, span } from '../../component/index.ts';
+import { defineComponent, ignoreMessage, span } from '../../component/index.ts';
 import type {
   ComponentMessage,
-  CompleteComponentOptionFields,
-  ComponentOptionKey,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentMeasureInput,
   ComponentRenderInput,
   Element,
 } from '../../component/index.ts';
-import { assertOptionalEnum, isStringMember } from '../../foundation/validation.ts';
+import {
+  assertOptionalCallback,
+  assertOptionalEnum,
+  assertRequiredCallback,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import {
   preparePointerInteractionState,
   type PointerInteractionState,
@@ -86,17 +89,6 @@ type BarChartComponentAction =
 
 const barChartBase = {
   name: 'terminal-ui/components/bar-chart' as const,
-  optionFields: {
-    items: true,
-    label: true,
-    max: true,
-    presentation: true,
-    pointerState: true,
-    dataState: true,
-    emptyText: true,
-    loadingText: true,
-    errorText: true,
-  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
@@ -104,7 +96,6 @@ const barChartBase = {
   accessibleRole: 'listbox' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
-  prepare: prepareBarChart,
   measure: measureBarChart,
   render: paintBarChart,
   accessibility: barChartAccessibility,
@@ -118,7 +109,7 @@ const passiveBarChart = defineComponent<
   readonly ['busy'],
   'required',
   readonly ['focus', 'layer', 'styles']
->(barChartBase);
+>({ ...barChartBase, prepare: (value) => prepareBarChart(value, false) });
 
 const activeBarChart = defineComponent<
   BarChartComponentOptions,
@@ -131,6 +122,7 @@ const activeBarChart = defineComponent<
 >({
   ...barChartBase,
   states: ['disabled', 'busy', 'readOnly', 'inert'],
+  prepare: (value, context) => prepareBarChart(value, !context.disabled && !context.inert),
   keys: ({ model, busy, readOnly }) => {
     if (busy) return {};
     const active = activeBar(model);
@@ -168,17 +160,13 @@ const activeBarChart = defineComponent<
 export function barChart<const TMessage extends ComponentMessage = never>(
   options: BarChartOptions<TMessage>,
 ): Element<TMessage> {
-  assertVisualizationOptions(options, 'barChart', [
-    'id', 'label', 'items', 'max', 'dataState', 'emptyText', 'loadingText', 'errorText',
-    'presentation', 'pointerState', 'disabled', 'readOnly', 'busy',
-    'inert', 'meta', 'onTransition', 'onActivate', 'onPointerAction',
-  ]);
   if (options.presentation === undefined) {
     return passiveBarChart(withoutVisualizationBehavior(options));
   }
   if (options.disabled === true || options.inert === true) {
     return activeBarChart(withoutVisualizationBehavior(options));
   }
+  assertVisualizationCallbacks(options, 'barChart');
   const componentOptions = withoutVisualizationBehavior(options);
   return activeBarChart({
     ...componentOptions,
@@ -190,7 +178,10 @@ export function barChart<const TMessage extends ComponentMessage = never>(
   });
 }
 
-function prepareBarChart(value: Readonly<BarChartComponentOptions>): BarChartModel {
+function prepareBarChart(
+  value: Readonly<BarChartComponentOptions>,
+  pointerAvailable: boolean,
+): BarChartModel {
   const label = nonEmpty(value.label, 'barChart label');
   const ids = new Set<string>();
   const items = Object.freeze(value.items.map((candidate, itemIndex): PreparedBar => {
@@ -211,7 +202,11 @@ function prepareBarChart(value: Readonly<BarChartComponentOptions>): BarChartMod
     ? undefined
     : nonEmpty(value.presentation.activeId, 'barChart activeId');
   const selection = value.presentation?.selection ?? { mode: 'none' as const };
-  const pointerState = preparePointerInteractionState(value.pointerState, 'barChart pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'barChart pointerState',
+    pointerAvailable,
+  );
   return {
     label,
     items,
@@ -399,26 +394,6 @@ type ChartComponentAction =
 
 const chartBase = {
   name: 'terminal-ui/components/chart' as const,
-  optionFields: {
-    series: true,
-    label: true,
-    min: true,
-    max: true,
-    presentation: true,
-    legend: true,
-    signedDomain: true,
-    xLabel: true,
-    yLabel: true,
-    valueScale: true,
-    sampleMode: true,
-    sampleAlign: true,
-    interpolation: true,
-    pointerState: true,
-    dataState: true,
-    emptyText: true,
-    loadingText: true,
-    errorText: true,
-  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
@@ -426,7 +401,6 @@ const chartBase = {
   accessibleRole: 'listbox' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted', 'baseline'] as const,
-  prepare: prepareChart,
   measure: measureChart,
   render: paintChart,
   accessibility: chartAccessibility,
@@ -440,7 +414,7 @@ const passiveChart = defineComponent<
   readonly ['busy'],
   'required',
   readonly ['focus', 'layer', 'styles']
->(chartBase);
+>({ ...chartBase, prepare: (value) => prepareChart(value, false) });
 
 const activeChart = defineComponent<
   ChartComponentOptions,
@@ -453,6 +427,7 @@ const activeChart = defineComponent<
 >({
   ...chartBase,
   states: ['disabled', 'busy', 'readOnly', 'inert'],
+  prepare: (value, context) => prepareChart(value, !context.disabled && !context.inert),
   keys: ({ model, busy, readOnly }) => {
     if (busy) return {};
     const transition = (value: ChartTransition): ChartComponentAction => ({ kind: 'transition', transition: value });
@@ -481,19 +456,13 @@ const activeChart = defineComponent<
 export function chart<const TMessage extends ComponentMessage = never>(
   options: ChartOptions<TMessage>,
 ): Element<TMessage> {
-  assertVisualizationOptions(options, 'chart', [
-    'id', 'label', 'series', 'min', 'max', 'legend', 'signedDomain', 'xLabel', 'yLabel',
-    'dataState', 'valueScale', 'sampleMode', 'sampleAlign', 'interpolation', 'emptyText',
-    'loadingText', 'errorText', 'presentation', 'pointerState',
-    'disabled', 'readOnly', 'busy', 'inert', 'meta', 'onTransition', 'onActivate',
-    'onPointerAction',
-  ]);
   if (options.presentation === undefined) {
     return passiveChart(withoutVisualizationBehavior(options));
   }
   if (options.disabled === true || options.inert === true) {
     return activeChart(withoutVisualizationBehavior(options));
   }
+  assertVisualizationCallbacks(options, 'chart');
   const componentOptions = withoutVisualizationBehavior(options);
   return activeChart({
     ...componentOptions,
@@ -505,7 +474,10 @@ export function chart<const TMessage extends ComponentMessage = never>(
   });
 }
 
-function prepareChart(value: Readonly<ChartComponentOptions>): ChartModel {
+function prepareChart(
+  value: Readonly<ChartComponentOptions>,
+  pointerAvailable: boolean,
+): ChartModel {
   const label = nonEmpty(value.label, 'chart label');
   const seriesIds = new Set<string>();
   const globalPointIds = new Set<string>();
@@ -569,7 +541,11 @@ function prepareChart(value: Readonly<ChartComponentOptions>): ChartModel {
     ? undefined
     : nonEmpty(value.presentation.activeId, 'chart activeId');
   const selection = value.presentation?.selection ?? { mode: 'none' as const };
-  const pointerState = preparePointerInteractionState(value.pointerState, 'chart pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'chart pointerState',
+    pointerAvailable,
+  );
   const xLabel = optionalText(value.xLabel, 'chart xLabel');
   const yLabel = optionalText(value.yLabel, 'chart yLabel');
   return {
@@ -1152,21 +1128,6 @@ type HeatmapComponentAction =
 
 const heatmapBase = {
   name: 'terminal-ui/components/heatmap' as const,
-  optionFields: {
-    rows: true,
-    label: true,
-    min: true,
-    max: true,
-    presentation: true,
-    cellWidth: true,
-    gap: true,
-    valueScale: true,
-    pointerState: true,
-    dataState: true,
-    emptyText: true,
-    loadingText: true,
-    errorText: true,
-  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
@@ -1174,7 +1135,6 @@ const heatmapBase = {
   accessibleRole: 'grid' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
-  prepare: prepareHeatmap,
   measure: measureHeatmap,
   render: paintHeatmap,
   accessibility: heatmapAccessibility,
@@ -1188,7 +1148,7 @@ const passiveHeatmap = defineComponent<
   readonly ['busy'],
   'required',
   readonly ['focus', 'layer', 'styles']
->(heatmapBase);
+>({ ...heatmapBase, prepare: (value) => prepareHeatmap(value, false) });
 
 const activeHeatmap = defineComponent<
   HeatmapComponentOptions,
@@ -1201,6 +1161,7 @@ const activeHeatmap = defineComponent<
 >({
   ...heatmapBase,
   states: ['disabled', 'busy', 'readOnly', 'inert'],
+  prepare: (value, context) => prepareHeatmap(value, !context.disabled && !context.inert),
   keys: ({ model, busy, readOnly }) => {
     if (busy) return {};
     const transition = (value: HeatmapTransition): HeatmapComponentAction => ({ kind: 'transition', transition: value });
@@ -1253,18 +1214,13 @@ const activeHeatmap = defineComponent<
 export function heatmap<TValue, const TMessage extends ComponentMessage = never>(
   options: HeatmapOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  assertVisualizationOptions(options, 'heatmap', [
-    'id', 'label', 'rows', 'min', 'max', 'cellWidth', 'gap', 'dataState', 'valueScale',
-    'emptyText', 'loadingText', 'errorText', 'presentation',
-    'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta', 'onTransition',
-    'onActivate', 'onPointerAction',
-  ]);
   if (options.presentation === undefined) {
     return passiveHeatmap(withoutVisualizationBehavior(options));
   }
   if (options.disabled === true || options.inert === true) {
     return activeHeatmap(withoutVisualizationBehavior(options));
   }
+  assertVisualizationCallbacks(options, 'heatmap');
   const componentOptions = withoutVisualizationBehavior(options);
   return activeHeatmap({
     ...componentOptions,
@@ -1276,44 +1232,17 @@ export function heatmap<TValue, const TMessage extends ComponentMessage = never>
   });
 }
 
-function assertVisualizationOptions<
-  TOptions extends {
-    readonly presentation?: unknown;
-    readonly pointerState?: unknown;
-    readonly disabled?: boolean;
-    readonly readOnly?: unknown;
-    readonly inert?: unknown;
+function assertVisualizationCallbacks(
+  options: {
     readonly onTransition?: unknown;
     readonly onActivate?: unknown;
     readonly onPointerAction?: unknown;
   },
-  const TFields extends readonly ComponentOptionKey<TOptions>[],
->(
-  options: TOptions,
   component: string,
-  fields: TFields & CompleteComponentOptionFields<TOptions, TFields>,
 ): void {
-  assertComponentOptions<TOptions, TFields>(options, component, {
-    fields,
-    forbiddenFields: options.presentation === undefined
-      ? [
-          'pointerState' as ComponentOptionKey<TOptions>,
-          'disabled' as ComponentOptionKey<TOptions>,
-          'readOnly' as ComponentOptionKey<TOptions>,
-          'inert' as ComponentOptionKey<TOptions>,
-        ]
-      : options.disabled === true
-        ? [
-            'pointerState' as ComponentOptionKey<TOptions>,
-            'readOnly' as ComponentOptionKey<TOptions>,
-          ]
-        : options.inert === true
-          ? ['readOnly' as ComponentOptionKey<TOptions>]
-        : [],
-    callbacks: options.presentation === undefined || options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
-  });
+  assertRequiredCallback(options.onTransition, `${component} onTransition`);
+  assertOptionalCallback(options.onActivate, `${component} onActivate`);
+  assertOptionalCallback(options.onPointerAction, `${component} onPointerAction`);
 }
 
 type WithoutVisualizationBehavior<TOptions> = TOptions extends unknown
@@ -1330,7 +1259,10 @@ function withoutVisualizationBehavior<TOptions extends {
   )) as WithoutVisualizationBehavior<TOptions>;
 }
 
-function prepareHeatmap(value: Readonly<HeatmapComponentOptions>): HeatmapModel {
+function prepareHeatmap(
+  value: Readonly<HeatmapComponentOptions>,
+  pointerAvailable: boolean,
+): HeatmapModel {
   const label = nonEmpty(value.label, 'heatmap label');
   const ids = new Set<string>();
   const values: number[] = [];
@@ -1360,7 +1292,11 @@ function prepareHeatmap(value: Readonly<HeatmapComponentOptions>): HeatmapModel 
     ? undefined
     : nonEmpty(value.presentation.activeId, 'heatmap activeId');
   const selection = value.presentation?.selection ?? { mode: 'none' as const };
-  const pointerState = preparePointerInteractionState(value.pointerState, 'heatmap pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'heatmap pointerState',
+    pointerAvailable,
+  );
   return {
     label,
     rows,

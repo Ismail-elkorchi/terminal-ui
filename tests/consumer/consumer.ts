@@ -160,7 +160,6 @@ const selected = resolveSelectedText({
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const packedComponent = defineComponent({
   name: 'terminal-ui-consumer/components/packedComponent',
-  optionFields: {},
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -178,7 +177,6 @@ const packedComponent = defineComponent({
 });
 const packedPanel = defineComponent({
   name: 'terminal-ui-consumer/components/packedPanel',
-  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',

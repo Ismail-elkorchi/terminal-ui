@@ -21,7 +21,7 @@ interface DisabledControl {
 
 interface InertControl {
   readonly disabled?: false;
-  readonly pointerState?: PointerInteractionState;
+  readonly pointerState?: never;
   readonly busy?: boolean;
   readonly inert: true;
 }

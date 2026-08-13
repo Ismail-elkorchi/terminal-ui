@@ -1,26 +1,27 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { decodeInputTrigger, inputTriggerIdentity } from '../input/index.ts';
 import type { InputTrigger } from '../input/index.ts';
 import type { TuiApp, TuiDefinition, TuiInputBinding } from './types.ts';
 
 export function defineTui<TState, TMessage extends NonNullable<unknown>>(
   definition: TuiDefinition<TState, TMessage>
+): TuiApp<TState, TMessage>;
+export function defineTui<TState, TMessage extends NonNullable<unknown>>(
+  definition: unknown,
 ): TuiApp<TState, TMessage> {
   if (typeof definition !== 'object' || definition === null || Array.isArray(definition)) {
     throw new TypeError('TUI definition must be an object.');
   }
-  const {
-    id: suppliedId,
-    init,
-    update,
-    view,
-    inputBindings: suppliedInputBindings,
-    subscriptions,
-    onExit,
-    transcript,
-    accessibility: suppliedAccessibility,
-    nonTty: suppliedNonTty
-  } = definition;
+  const supplied = definition as Readonly<Record<string, unknown>>;
+  const suppliedId = supplied['id'];
+  const init = supplied['init'];
+  const update = supplied['update'];
+  const view = supplied['view'];
+  const suppliedInputBindings = supplied['inputBindings'];
+  const subscriptions = supplied['subscriptions'];
+  const onExit = supplied['onExit'];
+  const transcript = supplied['transcript'];
+  const suppliedAccessibility = supplied['accessibility'];
+  const suppliedNonTty = supplied['nonTty'];
   const id = suppliedId ?? 'tui-app';
   if (typeof id !== 'string' || id.trim() === '') throw new TypeError('TUI id must be a non-empty string.');
   if (typeof init !== 'function') throw new TypeError('TUI init must be a function.');
@@ -38,7 +39,7 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
   const inputBindings = normalizeInputBindings(suppliedInputBindings);
   const accessibility = normalizeAccessibility(suppliedAccessibility);
   const nonTty = normalizeNonTty(suppliedNonTty);
-  const normalized: TuiDefinition<TState, TMessage> = Object.freeze({
+  const normalized = Object.freeze({
     id,
     init,
     update,
@@ -49,20 +50,18 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
     ...(transcript === undefined ? {} : { transcript }),
     ...(accessibility === undefined ? {} : { accessibility }),
     ...(nonTty === undefined ? {} : { nonTty })
-  });
+  }) as TuiDefinition<TState, TMessage>;
   return Object.freeze({ id, definition: normalized });
 }
 
 function normalizeInputBindings<TState, TMessage>(
-  value: readonly TuiInputBinding<TState, TMessage>[] | undefined
+  value: unknown,
 ): readonly TuiInputBinding<TState, TMessage>[] | undefined {
   if (value === undefined) return undefined;
-  const bindings = value;
   if (!Array.isArray(value)) throw new TypeError('TUI inputBindings must be an array.');
   const ids = new Set<string>();
-  return Object.freeze(bindings.map((candidate, index) => {
-    const binding = Object.freeze({ ...candidate });
-    assertInputBinding(binding, index);
+  return Object.freeze(value.map((candidate, index) => {
+    const binding = decodeInputBinding(candidate, index);
     if (ids.has(binding.id)) {
       throw new TypeError(`TUI input binding id ${JSON.stringify(binding.id)} is duplicated.`);
     }
@@ -75,49 +74,76 @@ function normalizeInputBindings<TState, TMessage>(
       ...(binding.label === undefined ? {} : { label: binding.label }),
       ...(binding.enabled === undefined ? {} : { enabled: binding.enabled })
     };
-    return 'toMessage' in binding
-      ? Object.freeze({ ...base, toMessage: binding.toMessage })
-      : Object.freeze({ ...base, message: binding.message });
+    return (binding.toMessage === undefined
+      ? Object.freeze({ ...base, message: binding.message })
+      : Object.freeze({ ...base, toMessage: binding.toMessage })) as TuiInputBinding<TState, TMessage>;
   }));
 }
 
-function assertInputBinding<TState, TMessage>(
-  value: TuiInputBinding<TState, TMessage>,
-  index: number
-): void {
+interface DecodedInputBinding {
+  readonly id: string;
+  readonly triggers: readonly unknown[];
+  readonly phase?: 'beforeFocus' | 'afterFocus';
+  readonly label?: string;
+  readonly enabled?: boolean | ((context: unknown) => boolean);
+  readonly message?: NonNullable<unknown>;
+  readonly toMessage?: (context: unknown) => NonNullable<unknown>;
+}
+
+function decodeInputBinding(value: unknown, index: number): DecodedInputBinding {
   const subject = `TUI input binding at index ${String(index)}`;
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`${subject} must be an object.`);
   }
-  if (typeof value.id !== 'string' || value.id.trim() === '') {
+  const candidate = value as Readonly<Record<string, unknown>>;
+  const id = candidate['id'];
+  const triggers = candidate['triggers'];
+  const phase = candidate['phase'];
+  const label = candidate['label'];
+  const enabled = candidate['enabled'];
+  if (typeof id !== 'string' || id.trim() === '') {
     throw new TypeError(`${subject} id must be a non-empty string.`);
   }
-  if (!Array.isArray(value.triggers) || value.triggers.length === 0) {
+  if (!Array.isArray(triggers) || triggers.length === 0) {
     throw new TypeError(`${subject} must define at least one trigger.`);
   }
-  if (value.phase !== undefined && value.phase !== 'beforeFocus' && value.phase !== 'afterFocus') {
+  if (phase !== undefined && phase !== 'beforeFocus' && phase !== 'afterFocus') {
     throw new TypeError(`${subject} phase must be beforeFocus or afterFocus.`);
   }
-  if (value.label !== undefined && typeof value.label !== 'string') {
+  if (label !== undefined && typeof label !== 'string') {
     throw new TypeError(`${subject} label must be a string.`);
   }
-  if (value.enabled !== undefined && typeof value.enabled !== 'boolean' && typeof value.enabled !== 'function') {
+  if (enabled !== undefined && typeof enabled !== 'boolean' && typeof enabled !== 'function') {
     throw new TypeError(`${subject} enabled must be a boolean or function.`);
   }
-  const hasMessage = Object.hasOwn(value, 'message');
-  const hasToMessage = Object.hasOwn(value, 'toMessage');
+  const hasMessage = Object.hasOwn(candidate, 'message');
+  const hasToMessage = Object.hasOwn(candidate, 'toMessage');
   if (hasMessage === hasToMessage) {
     throw new TypeError(`${subject} must define exactly one of message or toMessage.`);
   }
-  if (hasMessage && (value.message === undefined || value.message === null)) {
+  const message = candidate['message'];
+  const toMessage = candidate['toMessage'];
+  if (hasMessage && (message === undefined || message === null)) {
     throw new TypeError(`${subject} message cannot be null or undefined.`);
   }
-  if (hasToMessage && typeof value.toMessage !== 'function') {
+  if (hasToMessage && typeof toMessage !== 'function') {
     throw new TypeError(`${subject} toMessage must be a function.`);
   }
+  return Object.freeze({
+    id,
+    triggers,
+    ...(phase === undefined ? {} : { phase }),
+    ...(label === undefined ? {} : { label }),
+    ...(enabled === undefined ? {} : {
+      enabled: enabled as boolean | ((context: unknown) => boolean),
+    }),
+    ...(hasMessage ? { message: message as NonNullable<unknown> } : {
+      toMessage: toMessage as (context: unknown) => NonNullable<unknown>,
+    }),
+  });
 }
 
-function normalizeBindingTriggers(id: string, values: readonly InputTrigger[]): readonly InputTrigger[] {
+function normalizeBindingTriggers(id: string, values: readonly unknown[]): readonly InputTrigger[] {
   const identities = new Set<string>();
   return Object.freeze(values.map((value) => {
     const trigger = decodeInputTrigger(value);
@@ -131,29 +157,33 @@ function normalizeBindingTriggers(id: string, values: readonly InputTrigger[]): 
 }
 
 function normalizeAccessibility<TState>(
-  value: TuiDefinition<TState, unknown>['accessibility']
+  value: unknown,
 ): TuiDefinition<TState, unknown>['accessibility'] {
   if (value === undefined) return undefined;
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError('TUI accessibility must be an object.');
   }
-  const { describe } = value;
+  const describe = (value as Readonly<Record<string, unknown>>)['describe'];
   if (describe !== undefined && typeof describe !== 'function') {
     throw new TypeError('TUI accessibility describe must be a function.');
   }
-  return Object.freeze({ ...(describe === undefined ? {} : { describe }) });
+  if (describe === undefined) return Object.freeze({});
+  return Object.freeze({
+    describe: describe as NonNullable<NonNullable<TuiDefinition<TState, unknown>['accessibility']>['describe']>,
+  });
 }
 
-function normalizeNonTty(value: TuiDefinition<unknown, unknown>['nonTty']): TuiDefinition<unknown, unknown>['nonTty'] {
+function normalizeNonTty(value: unknown): TuiDefinition<unknown, unknown>['nonTty'] {
   if (value === undefined) return undefined;
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError('TUI nonTty must be an object.');
   }
-  const mode = value.mode;
+  const candidate = value as Readonly<Record<string, unknown>>;
+  const mode = candidate['mode'];
   if (mode !== 'reject' && mode !== 'transcript_only' && mode !== 'last_frame') {
     throw new TypeError('TUI nonTty mode is unsupported.');
   }
-  const diagnosticHint = value.diagnosticHint;
+  const diagnosticHint = candidate['diagnosticHint'];
   if (diagnosticHint !== undefined && typeof diagnosticHint !== 'string') {
     throw new TypeError('TUI nonTty diagnosticHint must be a string.');
   }

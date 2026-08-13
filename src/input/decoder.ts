@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { focusFromPrefix } from './focus.ts';
 import { InputDecodeError } from './decode-error.ts';
 import { enhancedKeyFromPrefix } from './enhanced-keyboard.ts';
@@ -13,7 +12,7 @@ import {
 } from './paste.ts';
 import { createUtf8StreamDecoder, decodeUtf8Chunk } from './utf8-stream.ts';
 import type { TerminalInputChunk } from '../host/index.ts';
-import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/index.ts';
+import { LEGACY_KEYBOARD_PROFILE, decodeKeyboardProfile } from '../protocol/index.ts';
 import type {
   InputDecodeLimits,
   InputDecodeOptions,
@@ -367,62 +366,58 @@ function controlPrefixLength(original: string, normalizedLength: number): number
   return first === 0x9b || first === 0x8f ? normalizedLength - 1 : normalizedLength;
 }
 
-export function normalizeInputDecodeLimits(value: Partial<InputDecodeLimits> | undefined): InputDecodeLimits {
-  if (value !== undefined && (typeof value !== 'object' || value === null || Array.isArray(value))) {
-    throw new TypeError('Input decode limits must be an object.');
-  }
+export function normalizeInputDecodeLimits(value: unknown): InputDecodeLimits {
+  const limits = optionalRecord(value, 'Input decode limits');
   return Object.freeze({
     maxHostChunkBytes: positiveInteger(
-      value?.maxHostChunkBytes,
+      limits?.['maxHostChunkBytes'],
       defaultInputDecodeLimits.maxHostChunkBytes,
       'maxHostChunkBytes'
     ),
     maxProtocolCodeUnits: positiveInteger(
-      value?.maxProtocolCodeUnits,
+      limits?.['maxProtocolCodeUnits'],
       defaultInputDecodeLimits.maxProtocolCodeUnits,
       'maxProtocolCodeUnits'
     ),
     maxTextEventCodeUnits: positiveInteger(
-      value?.maxTextEventCodeUnits,
+      limits?.['maxTextEventCodeUnits'],
       defaultInputDecodeLimits.maxTextEventCodeUnits,
       'maxTextEventCodeUnits'
     ),
     maxEventsPerBatch: positiveInteger(
-      value?.maxEventsPerBatch,
+      limits?.['maxEventsPerBatch'],
       defaultInputDecodeLimits.maxEventsPerBatch,
       'maxEventsPerBatch'
     ),
     maxPasteCodeUnits: positiveInteger(
-      value?.maxPasteCodeUnits,
+      limits?.['maxPasteCodeUnits'],
       defaultInputDecodeLimits.maxPasteCodeUnits,
       'maxPasteCodeUnits'
     ),
     maxKittyAssociatedTextCodePoints: positiveInteger(
-      value?.maxKittyAssociatedTextCodePoints,
+      limits?.['maxKittyAssociatedTextCodePoints'],
       defaultInputDecodeLimits.maxKittyAssociatedTextCodePoints,
       'maxKittyAssociatedTextCodePoints'
     ),
     maxMouseFieldDigits: positiveInteger(
-      value?.maxMouseFieldDigits,
+      limits?.['maxMouseFieldDigits'],
       defaultInputDecodeLimits.maxMouseFieldDigits,
       'maxMouseFieldDigits'
     )
   });
 }
 
-function normalizeDecodeOptions(value: InputDecodeOptions): NormalizedInputDecodeOptions {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError('Input decode options must be an object.');
-  }
-  const bracketedPaste = value.bracketedPaste;
+function normalizeDecodeOptions(value: unknown): NormalizedInputDecodeOptions {
+  const options = record(value, 'Input decode options');
+  const bracketedPaste = options['bracketedPaste'];
   if (bracketedPaste !== undefined && typeof bracketedPaste !== 'boolean') {
     throw new TypeError('Input decode option bracketedPaste must be boolean.');
   }
-  const focusReporting = value.focusReporting;
+  const focusReporting = options['focusReporting'];
   if (focusReporting !== undefined && typeof focusReporting !== 'boolean') {
     throw new TypeError('Input decode option focusReporting must be boolean.');
   }
-  const mouseReporting = value.mouseReporting;
+  const mouseReporting = options['mouseReporting'];
   if (
     mouseReporting !== undefined
     && mouseReporting !== 'none'
@@ -432,10 +427,10 @@ function normalizeDecodeOptions(value: InputDecodeOptions): NormalizedInputDecod
   ) {
     throw new TypeError('Input decode option mouseReporting is unsupported.');
   }
-  const limits = normalizeInputDecodeLimits(value.limits);
-  const keyboard = value.keyboard === undefined
+  const limits = normalizeInputDecodeLimits(options['limits']);
+  const keyboard = options['keyboard'] === undefined
     ? undefined
-    : normalizeKeyboardProfile(value.keyboard);
+    : decodeKeyboardProfile(options['keyboard']);
   return Object.freeze({
     ...(keyboard === undefined ? {} : { keyboard }),
     ...(bracketedPaste === undefined ? {} : { bracketedPaste }),
@@ -454,7 +449,19 @@ function assertNonArrayRecord(
   }
 }
 
-function positiveInteger(value: number | undefined, fallback: number, name: string): number {
+function record(value: unknown, subject: string): Readonly<Record<string, unknown>> {
+  assertNonArrayRecord(value, subject);
+  return value;
+}
+
+function optionalRecord(
+  value: unknown,
+  subject: string,
+): Readonly<Record<string, unknown>> | undefined {
+  return value === undefined ? undefined : record(value, subject);
+}
+
+function positiveInteger(value: unknown, fallback: number, name: string): number {
   const resolved = value ?? fallback;
   if (typeof resolved !== 'number' || !Number.isSafeInteger(resolved) || resolved <= 0) {
     throw new RangeError(`Input decode limit ${name} must be a positive safe integer.`);
@@ -462,14 +469,13 @@ function positiveInteger(value: number | undefined, fallback: number, name: stri
   return resolved;
 }
 
-function assertHostChunkWithinLimit(chunk: TerminalInputChunk, limits: InputDecodeLimits): void {
-  const candidate: unknown = chunk;
-  assertNonArrayRecord(candidate, 'Terminal input chunk');
-  const fields = Object.keys(candidate);
+function assertHostChunkWithinLimit(chunk: unknown, limits: InputDecodeLimits): asserts chunk is TerminalInputChunk {
+  assertNonArrayRecord(chunk, 'Terminal input chunk');
+  const fields = Object.keys(chunk);
   if (fields.length !== 1 || fields[0] !== 'data') {
     throw new TypeError('Terminal input chunk must contain only data.');
   }
-  const data = candidate['data'];
+  const data = chunk['data'];
   if (typeof data !== 'string' && !(data instanceof Uint8Array)) {
     throw new TypeError('Terminal input chunk data must be a string or Uint8Array.');
   }

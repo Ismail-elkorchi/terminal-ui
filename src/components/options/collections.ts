@@ -48,6 +48,7 @@ interface ActiveListViewOptions<TMessage extends ComponentMessage> {
 interface InertListViewOptions {
   readonly disabled?: false;
   readonly inert: true;
+  readonly pointerState?: never;
   readonly readOnly?: never;
   readonly onTransition?: never;
   readonly onActivate?: never;

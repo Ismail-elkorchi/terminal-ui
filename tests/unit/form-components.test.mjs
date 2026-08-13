@@ -33,7 +33,7 @@ test('text controls reject every malformed provided handler', () => {
       id: 'malformed-handler',
       presentation: { value: '', cursor: 0 },
       onAction: 'not-a-function'
-    }), /onAction must be a function when provided/u);
+    }), /onAction must be a function/u);
   }
 });
 

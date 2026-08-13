@@ -14,7 +14,6 @@ import type {
 } from '../element/metadata.ts';
 import { elementStateFields } from '../element/metadata.ts';
 import { renderNodeId } from '../foundation/identity.ts';
-import { isImmutableIdentity } from '../immutable-identity.ts';
 import {
   findUnsupportedField,
   isNonArrayObject,
@@ -243,10 +242,6 @@ export interface ComponentPointerActions<
 }
 
 type NoComponentOptions = Readonly<Record<never, never>>;
-type KeysOfUnion<T> = T extends unknown ? keyof T : never;
-type ComponentOptionFields<TOptions extends object> = Readonly<
-  Record<Extract<KeysOfUnion<TOptions>, string>, true>
->;
 
 interface ComponentDefinitionIdentity {
   /** A package-qualified identity such as `acme/widgets/badge`. */
@@ -288,11 +283,7 @@ type ComponentDefinitionBase<
   TStates extends readonly ComponentStateCapability[],
   TIdentity extends ComponentIdentity,
   TPart extends string
-> = ComponentDefinitionIdentity
-  & ComponentOptionsDefinition<TOptions, TPrepared>
-  & {
-  /** Exact runtime names for the component-specific options in `TOptions`. */
-  readonly optionFields: ComponentOptionFields<TOptions>;
+> = ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TPrepared> & {
   readonly identity: TIdentity;
   readonly states?: TStates;
   readonly parts?: readonly TPart[];
@@ -814,7 +805,10 @@ export function defineComponent<
   TMetadata extends readonly ComponentMetadataCapability[],
   TSlots extends ComponentSlotsDefinition
 >(
-  definition: ComponentDefinition<
+  definition: unknown
+): unknown {
+  assertDefinition(definition);
+  const suppliedDefinition = definition as ComponentDefinition<
     TOptions,
     TPrepared,
     TAction,
@@ -823,10 +817,8 @@ export function defineComponent<
     TIdentity,
     TMetadata,
     TSlots
-  >
-): unknown {
-  assertDefinition(definition);
-  const compiled = compileDefinition(definition);
+  >;
+  const compiled = compileDefinition(suppliedDefinition);
   const { contract } = compiled;
   const ownedDefinition = compiled.definition;
   const runtime = runtimeDefinition(compiled);
@@ -921,7 +913,7 @@ export function defineComponent<
 
 interface ComponentInstanceOptions {
   readonly id?: string;
-  readonly slots?: Readonly<Record<string, unknown>>;
+  readonly slots?: unknown;
   readonly disabled?: boolean;
   readonly busy?: boolean;
   readonly readOnly?: boolean;
@@ -963,7 +955,6 @@ interface ComponentRuntimeContract {
   readonly slots: readonly RuntimeComponentSlot[];
   readonly partSet: ReadonlySet<string>;
   readonly actionful: boolean;
-  readonly optionFields: ReadonlySet<string>;
 }
 
 interface RuntimeComponentSlot {
@@ -1043,8 +1034,7 @@ function compileDefinition<
   TMetadata,
   TSlots
 > {
-  const optionFields = Object.freeze({ ...definition.optionFields });
-  const ownedDefinition = Object.freeze({ ...definition, optionFields }) as typeof definition;
+  const ownedDefinition = Object.freeze({ ...definition }) as typeof definition;
   return Object.freeze({
     definition: ownedDefinition,
     contract: Object.freeze({
@@ -1063,8 +1053,7 @@ function compileDefinition<
         || definition.onInput !== undefined
         || definition.onPaste !== undefined
         || definition.pointer !== undefined
-      ),
-      optionFields: new Set(Object.keys(optionFields)),
+      )
     })
   });
 }
@@ -1109,15 +1098,6 @@ function assertDefinition(value: unknown): void {
   if (!isNonArrayObject(value)) throw new TypeError('Component definition must be an object.');
   const structure = value['structure'];
   const semantics = value['semantics'];
-  if (!isNonArrayObject(value['optionFields'])
-    || Object.values(value['optionFields']).some((enabled) => enabled !== true)) {
-    throw new TypeError('Component definition optionFields must map every option name to true.');
-  }
-  const reservedOption = Object.keys(value['optionFields'])
-    .find((field) => componentInstanceFields.has(field as ComponentReservedOption));
-  if (reservedOption !== undefined) {
-    throw new TypeError(`Component definition optionFields cannot redeclare reserved field "${reservedOption}".`);
-  }
   if (structure !== 'leaf' && structure !== 'composite' && structure !== 'composed') {
     throw new TypeError('Component definition structure must be "leaf", "composite", or "composed".');
   }
@@ -1547,12 +1527,10 @@ function prepareComponentOptions<
   const customEntries = Object.entries(value)
     .filter(([field]) => !componentInstanceFields.has(field as ComponentReservedOption));
   // This is the one type-erasure boundary between framework-owned fields and
-  // the component's statically declared options. prepare() is synchronous and
-  // receives a detached top-level record so it can project domain values before
-  // the retained model is adopted by the framework.
+  // the component's statically declared options.
   const custom = Object.freeze(Object.fromEntries(customEntries)) as Readonly<TOptions & TPrepared>;
   if (definition.prepare === undefined) {
-    return adoptPreparedModel<TPrepared>(custom, definition.name);
+    return custom;
   }
   const prepared = executeComponentPhase(definition.name, value.id, 'prepare', () =>
     definition.prepare.call(undefined, custom, {
@@ -1563,91 +1541,14 @@ function prepareComponentOptions<
       inert: state.inert === true
     })
   );
-  return adoptPreparedModel<TPrepared>(prepared, definition.name);
+  if (!isPreparedModel(prepared)) {
+    throw new TypeError(`Component "${definition.name}" prepare must return an object.`);
+  }
+  return prepared;
 }
 
-function adoptPreparedModel<T extends object>(value: unknown, component: string): Readonly<T> {
-  if (value === null || typeof value !== 'object') {
-    throw new TypeError(`Component "${component}" prepare must return a non-callable object.`);
-  }
-  return snapshotComponentValue(value, component) as Readonly<T>;
-}
-
-function snapshotComponentValue<T>(
-  value: T,
-  component: string,
-  copies = new WeakMap<object, unknown>()
-): T {
-  if (typeof value !== 'object' || value === null) return value;
-  if (isImmutableIdentity(value)) return value;
-  const existing = copies.get(value);
-  if (existing !== undefined) return existing as T;
-  if (value instanceof Date) {
-    const copy = Object.freeze(new Date(value.getTime()));
-    copies.set(value, copy);
-    return copy as T;
-  }
-  if (value instanceof Map) {
-    const copy = new Map<unknown, unknown>();
-    copies.set(value, copy);
-    for (const [key, entry] of value) {
-      copy.set(
-        snapshotComponentValue(key, component, copies),
-        snapshotComponentValue(entry, component, copies)
-      );
-    }
-    Object.freeze(copy);
-    return copy as T;
-  }
-  if (value instanceof Set) {
-    const copy = new Set<unknown>();
-    copies.set(value, copy);
-    for (const entry of value) copy.add(snapshotComponentValue(entry, component, copies));
-    Object.freeze(copy);
-    return copy as T;
-  }
-  if (ArrayBuffer.isView(value)) {
-    const copy = (
-      value instanceof DataView
-        ? new DataView(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength))
-        : (value as unknown as { slice(): object }).slice()
-    ) as T;
-    copies.set(value, copy);
-    return copy;
-  }
-  if (value instanceof ArrayBuffer) {
-    const copy = Object.freeze(value.slice(0)) as T;
-    copies.set(value, copy);
-    return copy;
-  }
-  const source = value as object;
-  const prototype = Object.getPrototypeOf(source) as object | null;
-  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
-    const name = (prototype as { readonly constructor?: { readonly name?: string } })
-      .constructor?.name ?? 'unknown';
-    throw new TypeError(
-      `Component "${component}" prepared model contains unsupported ${name} instance.`
-    );
-  }
-  const copy: unknown[] | Record<PropertyKey, unknown> = Array.isArray(value)
-    ? []
-    : Object.create(prototype === null ? null : Object.prototype) as Record<PropertyKey, unknown>;
-  copies.set(source, copy);
-  for (const key of Reflect.ownKeys(source)) {
-    const descriptor = Object.getOwnPropertyDescriptor(source, key);
-    if (descriptor === undefined) continue;
-    const retainedValue: unknown = 'value' in descriptor
-      ? (descriptor as PropertyDescriptor & { readonly value: unknown }).value
-      : descriptor.get?.call(source) as unknown;
-    if (!('value' in descriptor) && descriptor.get === undefined) continue;
-    Object.defineProperty(copy, key, {
-      configurable: descriptor.configurable ?? false,
-      enumerable: descriptor.enumerable ?? false,
-      writable: false,
-      value: snapshotComponentValue(retainedValue, component, copies),
-    });
-  }
-  return Object.freeze(copy) as T;
+function isPreparedModel(value: unknown): value is object {
+  return value !== null && (typeof value === 'object' || typeof value === 'function');
 }
 
 function componentSlotChildren<
@@ -1733,17 +1634,21 @@ function componentSlotChildren<
       })))
     });
   }
-  const supplied = value.slots;
+  const suppliedValue = value.slots;
   const callerNames = new Set(contract.slots
     .filter((slot) => slot.owner === 'caller')
     .map((slot) => slot.name));
   const requiresSlots = contract.slots.some((slot) =>
     slot.owner === 'caller' && slot.cardinality !== 'optional'
   );
-  if (requiresSlots && !isNonArrayObject(supplied)) {
+  if (suppliedValue !== undefined && !isNonArrayObject(suppliedValue)) {
+    throw new TypeError(`Component "${definition.name}" slots must be an object.`);
+  }
+  const supplied = isNonArrayObject(suppliedValue) ? suppliedValue : undefined;
+  if (requiresSlots && supplied === undefined) {
     throw new TypeError(`Component "${definition.name}" requires a slots object.`);
   }
-  if (isNonArrayObject(supplied)) {
+  if (supplied !== undefined) {
     const unsupported = Object.keys(supplied).find((name) => !callerNames.has(name));
     if (unsupported !== undefined) {
       throw new TypeError(`Component "${definition.name}" received unknown or implementation-owned slot "${unsupported}".`);
@@ -1838,13 +1743,17 @@ function callerSlotInput(
   value: ComponentInstanceOptions,
   contract: ComponentRuntimeContract
 ): Readonly<Record<string, unknown>> | undefined {
-  const supplied = value.slots;
+  const suppliedValue = value.slots;
   const names = new Set(contract.slots.map((slot) => slot.name));
   const requiresSlots = contract.slots.some((slot) => slot.cardinality !== 'optional');
-  if (requiresSlots && !isNonArrayObject(supplied)) {
+  if (suppliedValue !== undefined && !isNonArrayObject(suppliedValue)) {
+    throw new TypeError(`Component "${contract.name}" slots must be an object.`);
+  }
+  const supplied = isNonArrayObject(suppliedValue) ? suppliedValue : undefined;
+  if (requiresSlots && supplied === undefined) {
     throw new TypeError(`Component "${contract.name}" requires a slots object.`);
   }
-  if (isNonArrayObject(supplied)) {
+  if (supplied !== undefined) {
     const unsupported = Object.keys(supplied).find((name) => !names.has(name));
     if (unsupported !== undefined) {
       throw new TypeError(`Component "${contract.name}" received unknown slot "${unsupported}".`);
@@ -1910,14 +1819,6 @@ function adoptComponentInstanceOptions(
     throw new TypeError(`Component "${definition.name}" options must be an object.`);
   }
   const instance = { ...value };
-  const allowedFields = new Set(definition.optionFields);
-  for (const field of componentInstanceFields) allowedFields.add(field);
-  const unsupported = findUnsupportedField(instance, allowedFields);
-  if (unsupported !== undefined) {
-    throw new TypeError(
-      `Component "${definition.name}" options contain unknown field "${unsupported}".`
-    );
-  }
   if (definition.identity === 'required'
     && (typeof instance['id'] !== 'string' || instance['id'].trim() === '')) {
     throw new TypeError(`Component "${definition.name}" requires a non-empty id.`);
@@ -1955,16 +1856,15 @@ function adoptComponentInstanceOptions(
   assertComponentState(instance, definition);
   const actionful = definition.actionful;
   const unavailable = instance['disabled'] === true || instance['inert'] === true;
-  if (instance['onAction'] !== undefined && typeof instance['onAction'] !== 'function') {
+  if (unavailable) {
+    delete instance['onAction'];
+  } else if (instance['onAction'] !== undefined && typeof instance['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" onAction must be a function when provided.`);
   }
   if (actionful && !unavailable && typeof instance['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" requires onAction to map its semantic actions.`);
   }
-  if (actionful && unavailable && instance['onAction'] !== undefined) {
-    throw new TypeError(`Unavailable component "${definition.name}" cannot accept onAction.`);
-  }
-  if (!actionful && instance['onAction'] !== undefined) {
+  if (!unavailable && !actionful && instance['onAction'] !== undefined) {
     throw new TypeError(`Component "${definition.name}" does not define actions and cannot accept onAction.`);
   }
   return Object.freeze(instance);
@@ -2052,7 +1952,7 @@ function componentPointerInteraction<TPrepared extends object, TAction, TPart ex
 }
 
 function assertComponentState(
-  value: ComponentInstanceOptions,
+  value: Readonly<Record<string, unknown>>,
   definition: ComponentRuntimeContract
 ): void {
   const allowed = new Set(definition.states);

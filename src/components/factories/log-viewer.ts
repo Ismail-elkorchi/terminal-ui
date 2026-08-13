@@ -8,7 +8,6 @@ import {
   visibleWindowFromScroll,
 } from '../../behavior/index.ts';
 import {
-  assertComponentOptions,
   componentScrollbarHitTargets,
   defineComponent,
   ignoreMessage,
@@ -30,7 +29,11 @@ import type {
   Element,
   HitTarget,
 } from '../../component/index.ts';
-import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
+import {
+  assertOptionalCallback,
+  assertRequiredCallback,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
@@ -137,25 +140,12 @@ const parts = [
 
 const baseDefinition = {
   name: 'terminal-ui/components/log-viewer' as const,
-  optionFields: {
-    history: true,
-    wrap: true,
-    searchQuery: true,
-    activeMatch: true,
-    foldedIds: true,
-    selection: true,
-    scroll: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
   accessibleRole: 'text' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts,
-  prepare: prepareLogViewer,
   measure: measureLogViewer,
   render: renderLogViewer,
   accessibility: logViewerAccessibility,
@@ -169,7 +159,7 @@ const passiveLogViewer = defineComponent<
   readonly [],
   'required',
   readonly ['focus', 'layer', 'styles']
->(baseDefinition);
+>({ ...baseDefinition, prepare: (value) => prepareLogViewer(value, false) });
 
 const activeLogViewer = defineComponent<
   LogViewerComponentOptions,
@@ -181,6 +171,7 @@ const activeLogViewer = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   ...baseDefinition,
+  prepare: (value) => prepareLogViewer(value, true),
   keys: ({ model }) => {
     const search = searchLogViewerHistory(
       model.history,
@@ -221,22 +212,11 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
 export function logViewer<const TMessage extends ComponentMessage = never>(
   options: LogViewerOptions<TMessage>,
 ): Element<TMessage> {
-  assertComponentOptions(options, 'logViewer', {
-    fields: [
-      'id', 'history', 'wrap', 'searchQuery', 'activeMatch', 'foldedIds', 'selection',
-      'scroll', 'scrollbar', 'scrollPolicy', 'pointerState', 'meta', 'onAction',
-      'onPointerAction',
-    ],
-    callbacks: options.onAction === undefined
-      ? { onAction: 'optional', onPointerAction: 'forbidden' }
-      : { onAction: 'required', onPointerAction: 'optional' },
-  });
-  if (options.onAction === undefined && optionField(options, 'pointerState') !== undefined) {
-    throw new TypeError('logViewer pointerState requires onAction.');
-  }
   if (options.onAction === undefined) {
     return passiveLogViewer(options);
   }
+  assertRequiredCallback(options.onAction, 'logViewer onAction');
+  assertOptionalCallback(options.onPointerAction, 'logViewer onPointerAction');
   if (options.scroll === undefined) {
     const { onAction, onPointerAction, ...componentOptions } = options;
     return activeLogViewer({
@@ -256,11 +236,10 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
   });
 }
 
-function optionField(value: unknown, field: string): unknown {
-  return isNonArrayObject(value) ? Reflect.get(value, field) : undefined;
-}
-
-function prepareLogViewer(value: Readonly<LogViewerComponentOptions>): LogViewerModel {
+function prepareLogViewer(
+  value: Readonly<LogViewerComponentOptions>,
+  pointerAvailable: boolean,
+): LogViewerModel {
   const history = value.history;
   assertLogHistory(history);
   const wrap = optionalBoolean(value.wrap, 'logViewer wrap') ?? false;
@@ -274,7 +253,11 @@ function prepareLogViewer(value: Readonly<LogViewerComponentOptions>): LogViewer
     value.scrollPolicy,
     'logViewer scrollPolicy',
   );
-  const pointerState = preparePointerInteractionState(value.pointerState, 'logViewer pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'logViewer pointerState',
+    pointerAvailable,
+  );
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('logViewer scrollbar and scrollPolicy require scroll state.');
   }

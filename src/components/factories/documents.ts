@@ -1,5 +1,4 @@
 import {
-  assertComponentOptions,
   clipRenderSpans,
   componentScrollbarHitTargets,
   defineComponent,
@@ -21,7 +20,12 @@ import type {
 } from '../../component/index.ts';
 import { listbox } from './list.ts';
 import { portal, surface } from '../../layout/index.ts';
-import { assertOptionalEnum, isNonArrayObject } from '../../foundation/validation.ts';
+import {
+  assertOptionalCallback,
+  assertOptionalEnum,
+  assertRequiredCallback,
+  isNonArrayObject,
+} from '../../foundation/validation.ts';
 import {
   pointerVisualState,
   preparePointerInteractionState,
@@ -115,19 +119,6 @@ const instantiateCommandInput = defineComponent<
   typeof commandSlots
 >({
   name: 'terminal-ui/components/command-input',
-  optionFields: {
-    presentation: true,
-    prompt: true,
-    placeholder: true,
-    completionPreview: true,
-    validation: true,
-    footer: true,
-    matchQuery: true,
-    display: true,
-    placement: true,
-    maxVisibleSuggestions: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -147,7 +138,7 @@ const instantiateCommandInput = defineComponent<
     'status',
     'footer',
   ],
-  prepare: prepareCommandInput,
+  prepare: (value, context) => prepareCommandInput(value, !context.disabled && !context.inert),
   implementationSlots(input) {
     if (input.model.display !== 'popup' || input.model.suggestions.length === 0) {
       return { suggestions: undefined };
@@ -324,18 +315,6 @@ const instantiateCommandInput = defineComponent<
 });
 
 export const commandInput: CommandInputFactory = (options) => {
-  assertComponentOptions(options, 'commandInput', {
-    fields: [
-      'id', 'presentation', 'prompt', 'placeholder', 'completionPreview', 'validation',
-      'footer', 'matchQuery', 'display', 'placement', 'maxVisibleSuggestions',
-      'pointerState', 'disabled', 'readOnly', 'meta', 'onTransition', 'onSubmit',
-      'onPointerAction',
-    ],
-    callbacks: options.disabled === true
-      ? { onTransition: 'forbidden', onSubmit: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onSubmit: 'optional', onPointerAction: 'optional' },
-    ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'readOnly'] } : {}),
-  });
   const shared = {
     id: options.id,
     presentation: options.presentation,
@@ -353,6 +332,9 @@ export const commandInput: CommandInputFactory = (options) => {
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateCommandInput({ ...shared, disabled: true });
+  assertRequiredCallback(options.onTransition, 'commandInput onTransition');
+  assertOptionalCallback(options.onSubmit, 'commandInput onSubmit');
+  assertOptionalCallback(options.onPointerAction, 'commandInput onPointerAction');
   return instantiateCommandInput({
     ...shared,
     onAction: (action) => {
@@ -367,14 +349,21 @@ function commandTransition(transition: CommandInputTransition): CommandInputComp
   return { kind: 'transition', transition };
 }
 
-function prepareCommandInput(value: Readonly<CommandInputComponentOptions>): CommandInputModel {
+function prepareCommandInput(
+  value: Readonly<CommandInputComponentOptions>,
+  pointerAvailable: boolean,
+): CommandInputModel {
   const presentation = prepareCommandPresentation(value.presentation);
   const display = value.display;
   assertOptionalEnum(display, ['compact', 'expanded', 'popup'], 'commandInput display');
   const maxVisibleSuggestions =
     positiveInteger(value.maxVisibleSuggestions, 'commandInput maxVisibleSuggestions') ?? 8;
   const validation = prepareValidation(value.validation);
-  const pointerState = preparePointerInteractionState(value.pointerState, 'commandInput pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'commandInput pointerState',
+    pointerAvailable,
+  );
   const placement = preparePlacement(value.placement, 'commandInput placement');
   return {
     ...presentation,
@@ -931,24 +920,12 @@ const createSearchPicker: SearchPickerFactory = <
 >(
   options: SearchPickerOptions<TValue, TTransitionMessage, TAcceptMessage, TPointerMessage>,
 ) => {
-  assertComponentOptions(options, 'searchPicker', {
-    fields: [
-      'id', 'title', 'searchPickerIndex', 'presentation', 'maxVisible',
-      'helpText', 'emptyText', 'scrollbar', 'scrollPolicy', 'pointerState', 'disabled',
-      'readOnly', 'busy', 'inert', 'meta', 'onTransition', 'onAccept', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onAccept: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onAccept: 'optional', onPointerAction: 'optional' },
-    ...(options.disabled === true
-      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy', 'inert'] }
-      : options.inert === true
-        ? { forbiddenFields: ['readOnly'] }
-      : {}),
-  });
   if (options.disabled === true || options.inert === true) {
     return instantiateSearchPicker(withoutSearchPickerCallbacks(options));
   }
+  assertRequiredCallback(options.onTransition, 'searchPicker onTransition');
+  assertOptionalCallback(options.onAccept, 'searchPicker onAccept');
+  assertOptionalCallback(options.onPointerAction, 'searchPicker onPointerAction');
   const { onTransition, onAccept, onPointerAction, ...componentOptions } = options;
   return instantiateSearchPicker({
     ...componentOptions,
@@ -991,17 +968,6 @@ const instantiateSearchPicker = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/search-picker',
-  optionFields: {
-    title: true,
-    searchPickerIndex: true,
-    maxVisible: true,
-    helpText: true,
-    emptyText: true,
-    pointerState: true,
-    presentation: true,
-    scrollbar: true,
-    scrollPolicy: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -1022,7 +988,7 @@ const instantiateSearchPicker = defineComponent<
     'empty',
     'scrollbar',
   ],
-  prepare: prepareSearchPicker,
+  prepare: (value, context) => prepareSearchPicker(value, !context.disabled && !context.inert),
   measure(input) {
     return {
       minWidth: 1,
@@ -1156,7 +1122,10 @@ function isScrollableSearchPicker<
   return options.presentation.scroll !== undefined;
 }
 
-function prepareSearchPicker(value: Readonly<SearchPickerComponentOptions>): SearchPickerModel {
+function prepareSearchPicker(
+  value: Readonly<SearchPickerComponentOptions>,
+  pointerAvailable: boolean,
+): SearchPickerModel {
   const index = value.searchPickerIndex;
   assertSearchPickerIndex(index);
   const presentation = prepareSearchPickerPresentation(value.presentation);
@@ -1191,7 +1160,11 @@ function prepareSearchPicker(value: Readonly<SearchPickerComponentOptions>): Sea
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('searchPicker scrollbar and scrollPolicy require scroll state.');
   }
-  const pointerState = preparePointerInteractionState(value.pointerState, 'searchPicker pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'searchPicker pointerState',
+    pointerAvailable,
+  );
   return {
     title: clean(value.title, 'searchPicker title') ?? '',
     query,

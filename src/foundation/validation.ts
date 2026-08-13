@@ -52,6 +52,19 @@ export function assertFiniteNumber(value: unknown, label: string): asserts value
   throw new RangeError(`${label} must be finite.`);
 }
 
+export function assertRequiredCallback(value: unknown, label: string): void {
+  if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
+}
+
+export function assertOptionalCallback(
+  value: unknown,
+  label: string,
+): void {
+  if (value !== undefined && typeof value !== 'function') {
+    throw new TypeError(`${label} must be a function when provided.`);
+  }
+}
+
 export function finiteNonNegativeIntegerOrZero(value: number | undefined): number {
   return finiteNonNegativeIntegerOr(value, 0);
 }

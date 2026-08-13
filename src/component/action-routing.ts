@@ -24,7 +24,7 @@ import { executeComponentPhase, type ComponentDefinitionName } from './execution
 import { mapComponentAction } from './message.ts';
 
 export function mappedKeyBindings(
-  bindings: ElementKeyBindings<unknown> | undefined,
+  bindings: unknown,
   mapper: ((action: unknown) => unknown) | undefined,
   component: ComponentDefinitionName,
   instanceId: string | undefined,

@@ -643,12 +643,17 @@ test('input decode limits reject invalid configuration', () => {
   assert.throws(() => decodeInputChunk({ data: 1 }), /string or Uint8Array/u);
   assert.doesNotThrow(() => createInputPipeline({ unknown: true }));
   assert.throws(() => createInputPipeline({ mouseReporting: 'x10' }), /mouseReporting/u);
+  assert.doesNotThrow(() => createInputPipeline({ capabilities: 'unused-with-legacy' }));
+  assert.throws(
+    () => createInputPipeline({ keyboard: kittyEvents, capabilities: 'invalid' }),
+    /capabilities must be an object/u
+  );
   assert.throws(
     () => createInputPipeline().decodeOnce({ data: 'x' }, { focusReporting: 'yes' }),
     /must be boolean/u
   );
   assert.doesNotThrow(() => createInputDecoder({ keyboard: { kind: 'legacy', flags: 1 } }));
-  assert.throws(() => decodeKeyboardProfile({ kind: 'legacy', flags: 1 }), /unsupported field/u);
+  assert.doesNotThrow(() => decodeKeyboardProfile({ kind: 'legacy', flags: 1 }));
 });
 
 test('terminal control framing keeps unsupported payloads out of text for every split', () => {

@@ -18,7 +18,7 @@ import {
   LEGACY_KEYBOARD_PROFILE,
   createProtocolWriter,
   kittyKeyboardProfile,
-  normalizeMouseReportingState
+  decodeMouseReportingState
 } from '../../dist/protocol/index.js';
 import { applySessionProtocolPolicy } from '../../dist/tui/index.js';
 
@@ -45,9 +45,20 @@ test('memory host captures output and exposes capabilities', async () => {
 
 test('memory host validates the public option fields it consumes', () => {
   assert.doesNotThrow(() => createMemoryTerminalHost({ unknownOption: true }));
+  assert.throws(() => createMemoryTerminalHost(null), /options must be an object/u);
   assert.throws(
     () => createMemoryTerminalHost({ clipboardWrite: 'yes' }),
     /clipboardWrite must be a boolean/u
+  );
+  assert.throws(
+    () => createMemoryTerminalHost({ terminalSize: { columns: 0, rows: 1 } }),
+    /positive integers/u
+  );
+  assert.throws(() => createMemoryTerminalHost({ isTty: 'yes' }), /isTty must be a boolean/u);
+  assert.throws(() => createMemoryTerminalHost({ env: { TERM: 1 } }), /env values must be strings/u);
+  assert.throws(
+    () => createMemoryTerminalHost({ observer: { recordFrame: true } }),
+    /observer\.recordFrame must be a function/u
   );
 });
 
@@ -626,10 +637,10 @@ test('protocol writer rejects invalid typed protocol parameters', async () => {
 
 test('mouse-reporting normalization preserves canonical state identity', () => {
   const source = { tracking: 'drag', encoding: 'sgr' };
-  const canonical = normalizeMouseReportingState(source);
+  const canonical = decodeMouseReportingState(source);
 
   assert.notEqual(canonical, source);
-  assert.equal(normalizeMouseReportingState(canonical), canonical);
+  assert.equal(decodeMouseReportingState(canonical), canonical);
   assert.equal(Object.isFrozen(canonical), true);
 });
 

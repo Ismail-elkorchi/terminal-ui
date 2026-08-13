@@ -61,7 +61,6 @@ void test('component key handlers run at dispatch time with the normalized event
   }
   const field = defineComponent<Record<never, never>, Record<never, never>, FieldAction>({
     name: 'terminal-ui-tests/components/deferred-key-field',
-    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -163,7 +162,6 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
     semantics: 'semantic',
     accessibleRole: 'document',
     name: 'terminal-ui-tests/components/focusPanel',
-    optionFields: {},
     parts: [],
     measure: () => ({
       minWidth: 0,

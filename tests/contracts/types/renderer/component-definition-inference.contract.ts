@@ -26,7 +26,6 @@ const actionRow = defineComponent<
   typeof actionRowSlots
 >({
   name: 'terminal-ui-tests/components/action-row',
-  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -75,7 +74,6 @@ const interactive = defineComponent<
   InteractiveAction
 >({
   name: 'terminal-ui-tests/components/interactive',
-  optionFields: {},
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -113,7 +111,6 @@ const inertInteractive = defineComponent<
   readonly ['inert']
 >({
   name: 'terminal-ui-tests/components/inert-interactive',
-  optionFields: {},
   identity: 'required',
   states: ['inert'],
   structure: 'leaf',
@@ -141,7 +138,6 @@ const badge = defineComponent<
   'optional'
 >({
   name: 'terminal-ui-tests/components/badge',
-  optionFields: { label: true },
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -172,20 +168,6 @@ badge({ id: 'identified-badge', label: 'Ready' });
 // @ts-expect-error component factories expose only declared options
 badge({ label: 'Ready', lable: 'typo' });
 
-defineComponent<BadgeOptions, BadgeModel>({
-  name: 'terminal-ui-tests/components/incomplete-badge-options',
-  // @ts-expect-error every TypeScript option must have a runtime field declaration
-  optionFields: {},
-  identity: 'required',
-  structure: 'leaf',
-  semantics: 'semantic',
-  accessibleRole: 'status',
-  prepare: (value) => ({ label: value.label }),
-  measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
-  render: () => undefined,
-  accessibility: ({ id }) => ({ id, role: 'status', label: 'Badge' })
-});
-
 interface GenericBoxOptions {
   readonly values: readonly string[];
 }
@@ -206,7 +188,6 @@ const instantiateGenericBox = defineComponent<
   readonly []
 >({
   name: 'terminal-ui-tests/components/generic-box',
-  optionFields: { values: true },
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -241,7 +222,6 @@ genericBox({ values: [{ id: 'one' }], label: (value) => value.id });
 
 const noFactoryBuilderDefinition = {
   name: 'terminal-ui-tests/components/no-factory-builder',
-  optionFields: {},
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -255,7 +235,6 @@ defineComponent(noFactoryBuilderDefinition, () => () => 'not an element');
 
 const optionalSlotComponent = defineComponent({
   name: 'terminal-ui-tests/components/optional-slot',
-  optionFields: {},
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
@@ -270,7 +249,6 @@ optionalSlotComponent({ id: 'optional-slot' });
 
 const composed = defineComponent({
   name: 'terminal-ui-tests/components/composed',
-  optionFields: {},
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
@@ -294,7 +272,6 @@ const capturing = defineComponent<
   typeof captureSlots
 >({
   name: 'terminal-ui-tests/components/capturing',
-  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -330,7 +307,6 @@ const nonInteractiveWrapper = defineComponent<
   typeof noneSlots
 >({
   name: 'terminal-ui-tests/components/non-interactive-wrapper',
-  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',

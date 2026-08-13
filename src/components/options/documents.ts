@@ -136,6 +136,7 @@ interface ActiveSearchPickerCallbacks<
 
 interface InertSearchPickerCallbacks {
   readonly disabled?: false;
+  readonly pointerState?: never;
   readonly readOnly?: never;
   readonly busy?: boolean;
   readonly inert: true;

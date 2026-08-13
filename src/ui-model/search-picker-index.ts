@@ -1,5 +1,4 @@
 import { sanitizeTerminalText } from '../text/index.ts';
-import { registerImmutableIdentity } from '../immutable-identity.ts';
 import type { SearchEntry } from './contracts.ts';
 import { normalizeCollectionQuery, queryNormalizedCandidates } from './query.ts';
 import type { CollectionQuery, QueryMatch } from './query.ts';
@@ -52,11 +51,11 @@ export function prepareSearchPickerIndex<TValue>(entries: readonly SearchEntry<T
       ...(entry.keywords === undefined ? {} : { keywords: Object.freeze(entry.keywords.map(clean)) })
     });
   }));
-  const index = registerImmutableIdentity(Object.freeze<SearchPickerIndex<TValue>>({
+  const index = Object.freeze<SearchPickerIndex<TValue>>({
     [searchPickerIndexBrand]: undefined as TValue,
     kind: 'search-picker-index',
     size: normalized.length
-  }));
+  });
   const candidates = Object.freeze(normalized.map((entry) => Object.freeze({
     id: entry.id,
     primary: entry.label,

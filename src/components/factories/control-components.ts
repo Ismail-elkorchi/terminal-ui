@@ -1,5 +1,4 @@
 import {
-  assertComponentOptions,
   clipRenderSpans,
   defineComponent,
   ignoreMessage,
@@ -9,8 +8,6 @@ import {
 } from '../../component/index.ts';
 import type {
   ComponentMessage,
-  CompleteComponentOptionFields,
-  ComponentOptionKey,
   ComponentInput,
   ComponentMeasureInput,
   ComponentPointerActions,
@@ -23,7 +20,12 @@ import type { Element } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { FocusTarget, Measurement } from '../../renderer/index.ts';
-import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
+import {
+  assertOptionalCallback,
+  assertRequiredCallback,
+  isNonArrayObject,
+  isStringMember,
+} from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import {
@@ -86,30 +88,6 @@ interface PointerLifecycleAction {
   readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction;
 }
 
-function assertAvailableControlOptions<
-  TOptions extends {
-    readonly disabled?: boolean;
-    readonly pointerState?: unknown;
-    readonly onAction?: unknown;
-    readonly onPointerAction?: unknown;
-  },
-  const TFields extends readonly ComponentOptionKey<TOptions>[],
->(
-  options: TOptions,
-  component: string,
-  fields: TFields & CompleteComponentOptionFields<TOptions, TFields>,
-): void {
-  assertComponentOptions<TOptions, TFields>(options, component, {
-    fields,
-    ...(options.disabled === true
-      ? { forbiddenFields: ['pointerState' as ComponentOptionKey<TOptions>] }
-      : {}),
-    callbacks: options.disabled === true
-      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
-      : { onAction: 'required', onPointerAction: 'optional' },
-  });
-}
-
 interface SliderModel extends PointerModel {
   readonly label: string;
   readonly value: number;
@@ -151,16 +129,6 @@ const instantiateSlider = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/slider',
-  optionFields: {
-    label: true,
-    value: true,
-    min: true,
-    max: true,
-    step: true,
-    width: true,
-    error: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -168,8 +136,8 @@ const instantiateSlider = defineComponent<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'value', 'error'],
-  prepare(value) {
-    const common = prepareNumericSlider(value, 'slider');
+  prepare(value, context) {
+    const common = prepareNumericSlider(value, 'slider', !context.disabled && !context.inert);
     return { ...common, value: numberInRange(value.value, 'value', common.min, common.max, 'slider') };
   },
   measure: (input) => measureLines(sliderLines(input, false), input),
@@ -205,13 +173,10 @@ const instantiateSlider = defineComponent<
 });
 
 export const slider: SliderFactory = (options) => {
-  assertAvailableControlOptions(options, 'slider', [
-    'id', 'label', 'value', 'min', 'max', 'step', 'width', 'error', 'pointerState',
-    'disabled', 'meta', 'onAction', 'onPointerAction',
-  ]);
   if (options.disabled === true) {
     return instantiateSlider(options);
   }
+  assertControlCallbacks(options, 'slider');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return instantiateSlider({
     ...rest,
@@ -241,15 +206,6 @@ const instantiateRangeSlider = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/range-slider',
-  optionFields: {
-    label: true,
-    state: true,
-    range: true,
-    step: true,
-    width: true,
-    error: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -257,7 +213,7 @@ const instantiateRangeSlider = defineComponent<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'value', 'error'],
-  prepare: prepareRangeSlider,
+  prepare: (value, context) => prepareRangeSlider(value, !context.disabled && !context.inert),
   measure: (input) => measureLines(rangeLines(input, false), input),
   render: (input) => {
     paintLines(input, rangeLines(input, true));
@@ -314,13 +270,10 @@ const instantiateRangeSlider = defineComponent<
 });
 
 export const rangeSlider: RangeSliderFactory = (options) => {
-  assertAvailableControlOptions(options, 'rangeSlider', [
-    'id', 'label', 'state', 'range', 'step', 'width', 'error', 'pointerState',
-    'disabled', 'meta', 'onAction', 'onPointerAction',
-  ]);
   if (options.disabled === true) {
     return instantiateRangeSlider(options);
   }
+  assertControlCallbacks(options, 'rangeSlider');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return instantiateRangeSlider({
     ...rest,
@@ -360,7 +313,7 @@ const instantiateCheckboxGroup = defineComponent<
 >({
   ...choiceDefinitionBase('checkbox-group'),
   accessibleRole: 'group',
-  prepare: (value) => prepareChoiceModel(value, 'checkboxGroup', true),
+  prepare: (value, context) => prepareChoiceModel(value, 'checkboxGroup', true, !context.disabled && !context.inert),
   render: (input) => {
     paintLines(input, choiceLines(input, 'checkbox', true));
   },
@@ -371,13 +324,10 @@ const instantiateCheckboxGroup = defineComponent<
 });
 
 export const checkboxGroup: CheckboxGroupFactory = (options) => {
-  assertAvailableControlOptions(options, 'checkboxGroup', [
-    'id', 'label', 'options', 'presentation', 'required', 'error', 'pointerState',
-    'disabled', 'meta', 'onAction', 'onPointerAction',
-  ]);
   if (options.disabled === true) {
     return instantiateCheckboxGroup(options);
   }
+  assertControlCallbacks(options, 'checkboxGroup');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return instantiateCheckboxGroup({
     ...rest,
@@ -402,7 +352,7 @@ const instantiateRadioGroup = defineComponent<
 >({
   ...choiceDefinitionBase('radio-group'),
   accessibleRole: 'radiogroup',
-  prepare: (value) => prepareChoiceModel(value, 'radioGroup', false),
+  prepare: (value, context) => prepareChoiceModel(value, 'radioGroup', false, !context.disabled && !context.inert),
   render: (input) => {
     paintLines(input, choiceLines(input, 'radio', true));
   },
@@ -413,13 +363,10 @@ const instantiateRadioGroup = defineComponent<
 });
 
 export const radioGroup: RadioGroupFactory = (options) => {
-  assertAvailableControlOptions(options, 'radioGroup', [
-    'id', 'label', 'options', 'presentation', 'required', 'error', 'pointerState',
-    'disabled', 'meta', 'onAction', 'onPointerAction',
-  ]);
   if (options.disabled === true) {
     return instantiateRadioGroup(options);
   }
+  assertControlCallbacks(options, 'radioGroup');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return instantiateRadioGroup({
     ...rest,
@@ -459,14 +406,6 @@ const instantiateColorSwatchPicker = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/color-swatch-picker',
-  optionFields: {
-    label: true,
-    options: true,
-    presentation: true,
-    columns: true,
-    error: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -474,7 +413,7 @@ const instantiateColorSwatchPicker = defineComponent<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'summary', 'option', 'swatch', 'error'],
-  prepare: prepareSwatches,
+  prepare: (value, context) => prepareSwatches(value, !context.disabled && !context.inert),
   measure: (input) => measureLines(swatchLines(input, false), input),
   render: (input) => {
     paintLines(input, swatchLines(input, true));
@@ -522,13 +461,10 @@ const instantiateColorSwatchPicker = defineComponent<
 });
 
 export const colorSwatchPicker: ColorSwatchPickerFactory = (options) => {
-  assertAvailableControlOptions(options, 'colorSwatchPicker', [
-    'id', 'label', 'options', 'presentation', 'columns', 'error', 'pointerState',
-    'disabled', 'meta', 'onAction', 'onPointerAction',
-  ]);
   if (options.disabled === true) {
     return instantiateColorSwatchPicker(options);
   }
+  assertControlCallbacks(options, 'colorSwatchPicker');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return instantiateColorSwatchPicker({
     ...rest,
@@ -566,12 +502,6 @@ const instantiateCalendar = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/calendar',
-  optionFields: {
-    label: true,
-    presentation: true,
-    error: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -579,7 +509,7 @@ const instantiateCalendar = defineComponent<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'option', 'month', 'weekday', 'error'],
-  prepare: prepareCalendar,
+  prepare: (value, context) => prepareCalendar(value, !context.disabled && !context.inert),
   measure: (input) => measureLines(calendarLines(input, false), input),
   render: (input) => {
     paintLines(input, calendarLines(input, true));
@@ -633,13 +563,10 @@ const instantiateCalendar = defineComponent<
 });
 
 export const calendar: CalendarFactory = (options) => {
-  assertAvailableControlOptions(options, 'calendar', [
-    'id', 'label', 'presentation', 'error',
-    'pointerState', 'disabled', 'meta', 'onAction', 'onPointerAction',
-  ]);
   if (options.disabled === true) {
     return instantiateCalendar(options);
   }
+  assertControlCallbacks(options, 'calendar');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return instantiateCalendar({
     ...rest,
@@ -662,31 +589,18 @@ interface TextEntryModel extends PointerModel {
 
 const textInputDefinition = textEntryDefinition<
   TextInputComponentOptions
->('text-input', false, {
-  presentation: true,
-  placeholder: true,
-  required: true,
-  error: true,
-  pointerState: true,
-});
+>('text-input', false);
 const passwordInputDefinition = textEntryDefinition<
   PasswordInputComponentOptions
->('password-input', true, {
-  presentation: true,
-  placeholder: true,
-  required: true,
-  error: true,
-  pointerState: true,
-  mask: true,
-});
+>('password-input', true);
 
 export function textInput<const TMessage extends ComponentMessage = never>(
   options: TextInputOptions<TMessage>,
 ): Element<TMessage> {
-  validateTextEntryOptions(options, 'textInput', false);
   if (options.disabled === true) {
     return textInputDefinition(options);
   }
+  assertControlCallbacks(options, 'textInput');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return textInputDefinition({
     ...rest,
@@ -699,45 +613,16 @@ export function textInput<const TMessage extends ComponentMessage = never>(
 export function passwordInput<const TMessage extends ComponentMessage = never>(
   options: PasswordInputOptions<TMessage>,
 ): Element<TMessage> {
-  validateTextEntryOptions(options, 'passwordInput', true);
   if (options.disabled === true) {
     return passwordInputDefinition(options);
   }
+  assertControlCallbacks(options, 'passwordInput');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return passwordInputDefinition({
     ...rest,
     onAction: (action) => action.kind === 'pointerLifecycle'
       ? onPointer?.(action.action) ?? ignoreMessage()
       : onAction(action),
-  });
-}
-
-function validateTextEntryOptions(
-  options: TextInputOptions<ComponentMessage> | PasswordInputOptions<ComponentMessage>,
-  component: 'textInput' | 'passwordInput',
-  password: boolean,
-): void {
-  const callbacks = options.disabled === true
-    ? { onAction: 'forbidden' as const, onPointerAction: 'forbidden' as const }
-    : { onAction: 'required' as const, onPointerAction: 'optional' as const };
-  if (password) {
-    assertComponentOptions(options as PasswordInputOptions<ComponentMessage>, component, {
-      fields: [
-        'id', 'presentation', 'placeholder', 'required', 'error', 'readOnly',
-        'disabled', 'pointerState', 'meta', 'onAction', 'onPointerAction', 'mask',
-      ],
-      callbacks,
-      ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'readOnly'] } : {}),
-    });
-    return;
-  }
-  assertComponentOptions(options as TextInputOptions<ComponentMessage>, component, {
-    fields: [
-      'id', 'presentation', 'placeholder', 'required', 'error', 'readOnly',
-      'disabled', 'pointerState', 'meta', 'onAction', 'onPointerAction',
-    ],
-    callbacks,
-    ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'readOnly'] } : {}),
   });
 }
 
@@ -762,13 +647,6 @@ const instantiateNumberInput = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/number-input',
-  optionFields: {
-    presentation: true,
-    placeholder: true,
-    required: true,
-    error: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -776,7 +654,7 @@ const instantiateNumberInput = defineComponent<
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['border', 'value', 'placeholder', 'selection', 'cursor', 'stepper', 'error'],
-  prepare: prepareNumberInput,
+  prepare: (value, context) => prepareNumberInput(value, !context.disabled && !context.inert),
   measure: measureNumberInput,
   render: paintNumberInput,
   keys: ({ readOnly }) => ({
@@ -869,13 +747,10 @@ const instantiateNumberInput = defineComponent<
 });
 
 export const numberInput: NumberInputFactory = (options) => {
-  assertAvailableControlOptions(options, 'numberInput', [
-    'id', 'presentation', 'placeholder', 'required', 'error', 'pointerState', 'readOnly',
-    'disabled', 'meta', 'onAction', 'onPointerAction',
-  ]);
   if (options.disabled === true) {
     return instantiateNumberInput(options);
   }
+  assertControlCallbacks(options, 'numberInput');
   const { onAction, onPointerAction: onPointer, ...rest } = options;
   return instantiateNumberInput({
     ...rest,
@@ -885,16 +760,16 @@ export const numberInput: NumberInputFactory = (options) => {
   });
 };
 
+function assertControlCallbacks(
+  options: { readonly onAction?: unknown; readonly onPointerAction?: unknown },
+  component: string,
+): void {
+  assertRequiredCallback(options.onAction, `${component} onAction`);
+  assertOptionalCallback(options.onPointerAction, `${component} onPointerAction`);
+}
+
 interface ChoiceDefinitionBase<TName extends 'checkbox-group' | 'radio-group'> {
   readonly name: `terminal-ui/components/${TName}`;
-  readonly optionFields: Readonly<{
-    label: true;
-    options: true;
-    presentation: true;
-    required: true;
-    error: true;
-    pointerState: true;
-  }>;
   readonly identity: 'required';
   readonly structure: 'leaf';
   readonly semantics: 'semantic';
@@ -910,14 +785,6 @@ function choiceDefinitionBase<const TName extends 'checkbox-group' | 'radio-grou
 ): ChoiceDefinitionBase<TName> {
   return {
     name: `terminal-ui/components/${name}` as const,
-    optionFields: {
-      label: true,
-      options: true,
-      presentation: true,
-      required: true,
-      error: true,
-      pointerState: true,
-    } as const,
     identity: 'required' as const,
     structure: 'leaf' as const,
     semantics: 'semantic' as const,
@@ -939,8 +806,9 @@ function pointerLifecyclePolicy(): ComponentPointerActions<PointerModel, Pointer
 function preparePointer(
   value: PointerInteractionState | undefined,
   owner: string,
+  available: boolean,
 ): PointerInteractionState | undefined {
-  return preparePointerInteractionState(value, `${owner} pointerState`);
+  return preparePointerInteractionState(value, `${owner} pointerState`, available);
 }
 
 function prepareNumericSlider(
@@ -949,6 +817,7 @@ function prepareNumericSlider(
     'label' | 'min' | 'max' | 'step' | 'width' | 'error' | 'pointerState'
   >>,
   owner: string,
+  pointerAvailable: boolean,
 ): Omit<SliderModel, 'value'> {
   const min = optionalFinite(value.min, `${owner} min`) ?? 0;
   const max = optionalFinite(value.max, `${owner} max`) ?? 100;
@@ -958,7 +827,7 @@ function prepareNumericSlider(
   const width = value.width === undefined
     ? 16
     : positiveInteger(value.width, `${owner} width`);
-  const pointerState = preparePointer(value.pointerState, owner);
+  const pointerState = preparePointer(value.pointerState, owner, pointerAvailable);
   return {
     label: cleanString(value.label, `${owner} label`),
     min,
@@ -987,6 +856,7 @@ function numberInRange(
 
 function prepareRangeSlider(
   value: Readonly<RangeSliderComponentOptions>,
+  pointerAvailable: boolean,
 ): RangeModel {
   const range = value.range;
   if (range !== undefined && !isNonArrayObject(range)) {
@@ -995,7 +865,7 @@ function prepareRangeSlider(
   const base = prepareNumericSlider({
     ...value,
     ...(range === undefined ? {} : { min: range.min, max: range.max }),
-  }, 'rangeSlider');
+  }, 'rangeSlider', pointerAvailable);
   const state = value.state;
   if (
     !isNonArrayObject(state) || !isNonArrayObject(state.value) ||
@@ -1187,6 +1057,7 @@ function prepareChoiceModel(
   value: Readonly<CheckboxGroupComponentOptions | RadioGroupComponentOptions>,
   owner: string,
   multiple: boolean,
+  pointerAvailable: boolean,
 ): ChoiceModel {
   const options = value.options.map((item, index) =>
     prepareChoice(item, `${owner} options[${String(index)}]`)
@@ -1198,7 +1069,7 @@ function prepareChoiceModel(
     owner,
     options.map((option) => option.id),
   );
-  const pointerState = preparePointer(value.pointerState, owner);
+  const pointerState = preparePointer(value.pointerState, owner, pointerAvailable);
   return {
     label: cleanString(value.label, `${owner} label`),
     options,
@@ -1521,6 +1392,7 @@ function choiceAccessibility(
 
 function prepareSwatches(
   value: Readonly<Omit<ColorSwatchPickerOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>>,
+  pointerAvailable: boolean,
 ): SwatchModel {
   const options = value.options.map((item, index): PreparedSwatch => {
     const base = prepareChoice(item, `colorSwatchPicker options[${String(index)}]`);
@@ -1549,7 +1421,7 @@ function prepareSwatches(
     'colorSwatchPicker',
     options.map((option) => option.id),
   );
-  const pointerState = preparePointer(value.pointerState, 'colorSwatchPicker');
+  const pointerState = preparePointer(value.pointerState, 'colorSwatchPicker', pointerAvailable);
   return {
     label: cleanString(value.label, 'colorSwatchPicker label'),
     options,
@@ -1705,6 +1577,7 @@ function swatchOptionSpans(
 
 function prepareCalendar(
   value: Readonly<Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>>,
+  pointerAvailable: boolean,
 ): CalendarModel {
   if (!isNonArrayObject(value.presentation)
     || !Array.isArray(value.presentation.weekdays)
@@ -1743,7 +1616,7 @@ function prepareCalendar(
     'calendar',
     days.map((day) => day.id),
   );
-  const pointerState = preparePointer(value.pointerState, 'calendar');
+  const pointerState = preparePointer(value.pointerState, 'calendar', pointerAvailable);
   return {
     label: cleanString(value.label, 'calendar label'),
     monthLabel: cleanString(value.presentation.monthLabel, 'calendar monthLabel'),
@@ -1906,11 +1779,6 @@ type TextEntryFactory<TOptions extends object> = SemanticLeafComponentFactory<
   readonly ['focus', 'layer', 'styles']
 >;
 
-type OptionKeys<TOptions> = TOptions extends unknown ? keyof TOptions : never;
-type ExactOptionFields<TOptions extends object> = Readonly<
-  Record<Extract<OptionKeys<TOptions>, string>, true>
->;
-
 type TextInputComponentOptions = Omit<
   TextInputOptions<ComponentMessage>,
   'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'
@@ -1925,7 +1793,6 @@ function textEntryDefinition<
 >(
   name: 'text-input' | 'password-input',
   password: boolean,
-  optionFields: ExactOptionFields<TOptions>,
 ): TextEntryFactory<TOptions> {
   return defineComponent<
     TOptions,
@@ -1937,7 +1804,6 @@ function textEntryDefinition<
     readonly ['focus', 'layer', 'styles']
   >({
     name: `terminal-ui/components/${name}`,
-    optionFields,
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -1946,7 +1812,12 @@ function textEntryDefinition<
     metadata: ['focus', 'layer', 'styles'],
     parts: ['border', 'label', 'value', 'placeholder', 'selection', 'cursor', 'error'],
     sensitiveInput: password,
-    prepare: (value) => prepareTextEntry(value, name, password),
+    prepare: (value, context) => prepareTextEntry(
+      value,
+      name,
+      password,
+      !context.disabled && !context.inert,
+    ),
     measure(input) {
       const shown = input.model.displayedValue === ''
         ? input.model.placeholder
@@ -2081,6 +1952,7 @@ function prepareTextEntry(
   value: Readonly<TextInputComponentOptions | PasswordInputComponentOptions>,
   owner: string,
   password: boolean,
+  pointerAvailable: boolean,
 ): TextEntryModel {
   if (!isNonArrayObject(value.presentation)) {
     throw new TypeError(`${owner} presentation must be an object.`);
@@ -2111,7 +1983,7 @@ function prepareTextEntry(
         graphemes.filter((part) => part.endOffsetExclusive <= selection.endOffsetExclusive).length *
         mask.length,
     };
-  const pointerState = preparePointer(value.pointerState, owner);
+  const pointerState = preparePointer(value.pointerState, owner, pointerAvailable);
   return {
     presentation: { ...presentation, cursor: displayedCursor },
     displayedValue,
@@ -2302,6 +2174,7 @@ function sourceOffsetAtColumn(
 
 function prepareNumberInput(
   value: Readonly<Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>>,
+  pointerAvailable: boolean,
 ): NumberModel {
   if (!isNonArrayObject(value.presentation)) {
     throw new TypeError('numberInput presentation must be an object.');
@@ -2338,7 +2211,7 @@ function prepareNumberInput(
   } else {
     presentation = { ...common, validity };
   }
-  const pointerState = preparePointer(value.pointerState, 'numberInput');
+  const pointerState = preparePointer(value.pointerState, 'numberInput', pointerAvailable);
   return {
     presentation,
     placeholder: optionalString(value.placeholder, 'numberInput placeholder') ?? '',

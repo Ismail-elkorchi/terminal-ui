@@ -1,4 +1,3 @@
-import { registerImmutableIdentity } from '../immutable-identity.ts';
 
 const collectionProjectionBrand: unique symbol = Symbol('terminal-ui.collection-projection');
 
@@ -205,7 +204,7 @@ function registerCollectionProjection<T extends AnyCollectionProjection<Collecti
 ): T {
   allCollectionProjections.add(projection);
   if (supportsInteraction) collectionProjections.add(projection);
-  return registerImmutableIdentity(projection);
+  return projection;
 }
 
 export function collectionIds<TRecord extends CollectionRecord>(

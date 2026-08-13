@@ -1,6 +1,5 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import { registerImmutableIdentity } from '../immutable-identity.ts';
 import {
   findPreparedTextMatches,
   prepareTextSearchIndex,
@@ -315,5 +314,5 @@ function compareCodePoints(left: string, right: string): number {
 
 function registerHistory<T extends LogHistory>(history: T): T {
   histories.add(history);
-  return registerImmutableIdentity(history);
+  return history;
 }

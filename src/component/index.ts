@@ -48,13 +48,6 @@ export type {
 export { ignoreMessage } from '../interaction/message.ts';
 export { mapComponentStyles } from './styles.ts';
 export type { ComponentStylePartMapping } from './styles.ts';
-export { assertComponentOptions } from './options.ts';
-export type {
-  CompleteComponentOptionFields,
-  ComponentCallbackRequirement,
-  ComponentOptionKey,
-  ComponentOptionsSchema,
-} from './options.ts';
 export type { IgnoredMessage, MessageResolution } from '../interaction/message.ts';
 export {
   adjacentItemId,

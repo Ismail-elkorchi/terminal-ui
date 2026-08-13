@@ -95,16 +95,12 @@ interface BadgeOptions {
 
 const badgeComponent = defineComponent<BadgeOptions, BadgeOptions>({
   name: 'example-app/components/badge',
-  optionFields: { label: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
   accessibleRole: 'status',
   prepare(value) {
-    if (typeof value !== 'object' || value === null || !('label' in value)
-      || typeof value.label !== 'string') {
-      throw new TypeError('badge requires only a string label');
-    }
+    if (typeof value.label !== 'string') throw new TypeError('badge requires a string label');
     return { label: value.label };
   },
   measure: ({ model, widthProfile }) => {

@@ -81,7 +81,6 @@ test('named slots enforce cardinality, ownership, and child-message policy', () 
   };
   const capturing = defineComponent({
     name: 'terminal-ui-tests/components/capturing-slot',
-    optionFields: {},
     identity: 'required',
     structure: 'composite',
     semantics: 'semantic',
@@ -121,7 +120,6 @@ test('named slots enforce cardinality, ownership, and child-message policy', () 
 
   const implementationOwned = defineComponent({
     name: 'terminal-ui-tests/components/implementation-slot',
-    optionFields: {},
     identity: 'required',
     structure: 'composite',
     semantics: 'semantic',
@@ -185,7 +183,6 @@ test('component definitions render through required definition contract', () => 
   const definition = {
     ...leafComponentDefinition,
     accessibleRole: 'button',
-    optionFields: { label: true },
     render({ model, bounds, target, focus }) {
       observedFocus = focus;
       target.write(bounds.row, bounds.column, [{
@@ -807,7 +804,6 @@ test('component hit targets are adopted before pointer routing', async () => {
 test('component definitions map keyboard text and paste through one action boundary', async () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/action-input',
-    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -861,7 +857,6 @@ test('component definitions map keyboard text and paste through one action bound
 test('component state governs interaction and accessibility without hook duplication', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/stateful-control',
-    optionFields: {},
     identity: 'required',
     states: ['disabled', 'busy', 'readOnly'],
     structure: 'leaf',
@@ -896,7 +891,6 @@ test('component state governs interaction and accessibility without hook duplica
 
   const action = defineComponent({
     name: 'terminal-ui-tests/components/read-only-action',
-    optionFields: {},
     identity: 'required',
     states: ['readOnly'],
     structure: 'leaf',
@@ -919,7 +913,6 @@ test('inert component subtrees are absent from interaction and accessibility out
   let childAccessibilityCalls = 0;
   const child = defineComponent({
     name: 'terminal-ui-tests/components/inert-child',
-    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -934,7 +927,6 @@ test('inert component subtrees are absent from interaction and accessibility out
   });
   const container = defineComponent({
     name: 'terminal-ui-tests/components/inert-container',
-    optionFields: {},
     identity: 'required',
     states: ['inert'],
     structure: 'composite',
@@ -963,10 +955,9 @@ test('inert component subtrees are absent from interaction and accessibility out
   assert.equal(childAccessibilityCalls, 0);
 });
 
-test('inert actionful components reject unreachable action mappers', () => {
+test('inert actionful components ignore unreachable action mappers', () => {
   const actionful = defineComponent({
     name: 'terminal-ui-tests/components/inert-actionful',
-    optionFields: {},
     identity: 'required',
     states: ['inert'],
     structure: 'leaf',
@@ -979,20 +970,18 @@ test('inert actionful components reject unreachable action mappers', () => {
   });
 
   assert.doesNotThrow(() => actionful({ id: 'inert-actionful', inert: true }));
-  assert.throws(
+  assert.doesNotThrow(
     () => actionful({
       id: 'invalid-inert-actionful',
       inert: true,
       onAction: () => ({ kind: 'mapped' })
-    }),
-    /Unavailable component .* cannot accept onAction/u
+    })
   );
 });
 
 test('component definition key triggers are fully validated at construction', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/invalid-trigger',
-    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -1015,7 +1004,6 @@ test('component definition key triggers are fully validated at construction', ()
 
   const sequenceControl = defineComponent({
     name: 'terminal-ui-tests/components/invalid-text-sequence',
-    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -1036,7 +1024,6 @@ test('component definitions retain normalized trigger snapshots', async () => {
   const trigger = { kind: 'codePoint', codePoint: 97 };
   const control = defineComponent({
     name: 'terminal-ui-tests/components/owned-trigger',
-    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -1412,7 +1399,6 @@ test('malformed component definitions fail as programmer errors', () => {
   assert.throws(
     () => defineComponent({
       name: 'terminal-ui-tests/components/missing-role',
-      optionFields: {},
       identity: 'required',
       structure: 'leaf',
       semantics: 'semantic',
@@ -1429,27 +1415,6 @@ test('malformed component definitions fail as programmer errors', () => {
   assert.throws(
     () => defineComponent([]),
     /Component definition must be an object/u
-  );
-  assert.throws(
-    () => defineComponent({
-      ...leafComponentDefinition,
-      optionFields: []
-    }),
-    /optionFields must map every option name to true/u
-  );
-  assert.throws(
-    () => defineComponent({
-      ...leafComponentDefinition,
-      optionFields: { label: false }
-    }),
-    /optionFields must map every option name to true/u
-  );
-  assert.throws(
-    () => defineComponent({
-      ...leafComponentDefinition,
-      optionFields: { disabled: true }
-    }),
-    /cannot redeclare reserved field "disabled"/u
   );
   assert.throws(
     () => component({
@@ -1479,10 +1444,9 @@ test('malformed component definitions fail as programmer errors', () => {
   );
 });
 
-test('component instances reject unknown options and malformed shared state', () => {
+test('component instances ignore unknown component-specific options and reject malformed shared state', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/validated-control',
-    optionFields: {},
     identity: 'required',
     states: ['disabled'],
     structure: 'leaf',
@@ -1498,10 +1462,7 @@ test('component instances reject unknown options and malformed shared state', ()
     [{ onInput: () => undefined }, /onInput behavior must be declared by the definition/u]
   ];
 
-  assert.throws(
-    () => control({ id: 'extra-field', applicationData: 42 }),
-    /unknown field "applicationData"/u
-  );
+  assert.doesNotThrow(() => control({ id: 'extra-field', applicationData: 42 }));
   for (const [options, expected] of invalidOptions) {
     assert.throws(() => control({ id: 'invalid-instance', ...options }), expected);
   }
@@ -1538,7 +1499,6 @@ test('component instances adopt shared metadata once before retaining it', () =>
   const path = ['child'];
   const scoped = defineComponent({
     name: 'terminal-ui-tests/components/owned-focus-path',
-    optionFields: {},
     identity: 'optional',
     structure: 'leaf',
     semantics: 'semantic',
@@ -1600,7 +1560,6 @@ test('composed keyboard handlers do not create an implicit container focus targe
   };
   const container = defineComponent({
     name: 'terminal-ui-tests/components/keyboard-container',
-    optionFields: {},
     identity: 'required',
     structure: 'composed',
     semantics: 'semantic',
@@ -1680,7 +1639,6 @@ test('viewport bounds component rendering, focus, pointer, and accessibility to 
   const definition = {
     ...leafComponentDefinition,
     accessibleRole: 'listbox',
-    optionFields: { rows: true },
     measure({ model }) {
       return {
         minWidth: 1,
@@ -1911,7 +1869,6 @@ test('component composites arrange opaque children while preserving interaction 
       ],
       definition: {
         ...compositeComponentDefinition,
-        optionFields: { selected: true },
         layout({ bounds }) {
           return [
             { ...bounds, width: Math.floor(bounds.width / 2) },
@@ -1955,7 +1912,6 @@ test('component composites arrange opaque children while preserving interaction 
 test('component accessibility slots follow their render roots after inaccessible children are filtered', () => {
   const ornament = defineComponent({
     name: 'terminal-ui-tests/components/slot-ornament',
-    optionFields: {},
     identity: 'optional',
     structure: 'leaf',
     semantics: 'decorative',
@@ -1965,7 +1921,6 @@ test('component accessibility slots follow their render roots after inaccessible
   let received;
   const slotted = defineComponent({
     name: 'terminal-ui-tests/components/accessibility-slots',
-    optionFields: {},
     identity: 'required',
     structure: 'composite',
     semantics: 'semantic',
@@ -1998,7 +1953,6 @@ test('composed component accessibility uses declared slot names and optional slo
   let received;
   const composed = defineComponent({
     name: 'terminal-ui-tests/components/composed-named-slots',
-    optionFields: {},
     identity: 'required',
     structure: 'composed',
     semantics: 'semantic',
@@ -2018,7 +1972,6 @@ test('composed component accessibility uses declared slot names and optional slo
   });
   const optionalOnly = defineComponent({
     name: 'terminal-ui-tests/components/optional-only-slot',
-    optionFields: {},
     identity: 'required',
     structure: 'composed',
     semantics: 'semantic',
@@ -2042,7 +1995,7 @@ test('composed component accessibility uses declared slot names and optional slo
   assert.equal('content' in received, false);
 });
 
-test('component preparation snapshots retained models at the construction boundary', () => {
+test('component preparation treats retained models as opaque', () => {
   let ownKeyReads = 0;
   const retained = new Proxy({ entries: Object.freeze([Object.freeze({ id: 'one' })]) }, {
     ownKeys(target) {
@@ -2055,7 +2008,6 @@ test('component preparation snapshots retained models at the construction bounda
 
   const retainedModel = defineComponent({
     name: 'terminal-ui-tests/components/retained-model',
-    optionFields: { model: true },
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -2069,35 +2021,12 @@ test('component preparation snapshots retained models at the construction bounda
   retainedModel({ id: 'first', model: retained });
   retainedModel({ id: 'second', model: retained });
 
-  assert.ok(ownKeyReads > 0);
+  assert.equal(ownKeyReads, 0);
 });
 
-test('component preparation does not trust a frozen container with mutable descendants', () => {
-  const nested = { label: 'before' };
-  const supplied = Object.freeze({ nested });
-  const retainedModel = defineComponent({
-    name: 'terminal-ui-tests/components/frozen-retained-model',
-    optionFields: { model: true },
-    identity: 'required',
-    structure: 'leaf',
-    semantics: 'semantic',
-    accessibleRole: 'group',
-    prepare: (value) => value.model,
-    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
-    render: () => undefined,
-    accessibility: ({ id, model }) => ({ id, role: 'group', label: model.nested.label })
-  });
-  const element = retainedModel({ id: 'frozen', model: supplied });
-
-  nested.label = 'after';
-
-  assert.equal(renderElementFrame(element, { columns: 1, rows: 1 }).accessibility.root.label, 'before');
-});
-
-test('component-owned prepared models detach supported domain containers', () => {
+test('component-owned prepared models may use domain objects', () => {
   const domainModel = defineComponent({
     name: 'terminal-ui-tests/components/domain-model',
-    optionFields: { model: true },
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -2108,14 +2037,10 @@ test('component-owned prepared models detach supported domain containers', () =>
     accessibility: ({ id, model }) => ({ id, role: 'group', label: String(model.size) })
   });
   const supplied = new Map([['one', 1]]);
-  const element = domainModel({ id: 'map', model: supplied });
-
-  supplied.set('two', 2);
-
-  assert.equal(renderElementFrame(element, { columns: 1, rows: 1 }).accessibility.root.label, '1');
+  assert.doesNotThrow(() => domainModel({ id: 'map', model: supplied }));
 });
 
-test('component preparation must project custom domain instances before retaining them', () => {
+test('component preparation may retain custom domain instances', () => {
   class DomainRecord {
     constructor(label) {
       this.label = label;
@@ -2123,7 +2048,6 @@ test('component preparation must project custom domain instances before retainin
   }
   const retainedDomain = defineComponent({
     name: 'terminal-ui-tests/components/retained-domain-instance',
-    optionFields: { model: true },
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
@@ -2133,31 +2057,9 @@ test('component preparation must project custom domain instances before retainin
     render: () => undefined,
     accessibility: ({ id }) => ({ id, role: 'group', label: id })
   });
-  const projectedDomain = defineComponent({
-    name: 'terminal-ui-tests/components/projected-domain-instance',
-    optionFields: { model: true },
-    identity: 'required',
-    structure: 'leaf',
-    semantics: 'semantic',
-    accessibleRole: 'group',
-    prepare: (value) => ({ label: value.model.label }),
-    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
-    render: () => undefined,
-    accessibility: ({ id, model }) => ({ id, role: 'group', label: model.label })
-  });
   const domain = new DomainRecord('Projected');
 
-  assert.throws(
-    () => retainedDomain({ id: 'retained-domain', model: domain }),
-    /prepared model contains unsupported DomainRecord instance/u
-  );
-  assert.equal(
-    renderElementFrame(
-      projectedDomain({ id: 'projected-domain', model: domain }),
-      { columns: 1, rows: 1 }
-    ).accessibility.root.label,
-    'Projected'
-  );
+  assert.doesNotThrow(() => retainedDomain({ id: 'retained-domain', model: domain }));
 });
 
 test('built-in factories reject malformed nested options where they are consumed', () => {

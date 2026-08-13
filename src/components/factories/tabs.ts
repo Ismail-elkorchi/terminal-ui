@@ -1,7 +1,6 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
   clipRenderSpans,
-  assertComponentOptions,
   defineComponent,
   ignoreMessage,
   measureRenderSpans,
@@ -15,6 +14,7 @@ import type {
   ComponentRenderInput,
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
+import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
 import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
@@ -98,23 +98,6 @@ const instantiateTabs = defineComponent<
   typeof tabsSlots
 >({
   name: 'terminal-ui/components/tabs',
-  optionFields: {
-    tabs: true,
-    activeId: true,
-    selectedId: true,
-    maxTabWidth: true,
-    pointerState: true,
-    gap: true,
-    padding: true,
-    margin: true,
-    minWidth: true,
-    minHeight: true,
-    maxWidth: true,
-    maxHeight: true,
-    align: true,
-    justify: true,
-    overflow: true,
-  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -123,7 +106,7 @@ const instantiateTabs = defineComponent<
   states: ['disabled', 'busy', 'readOnly', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['leading', 'label', 'indicator', 'badge', 'close', 'overflow'],
-  prepare: prepareTabs,
+  prepare: (value, context) => prepareTabs(value, !context.disabled && !context.inert),
   measure(input) {
     const headerWidth = tabHeaderEntries(input)
       .reduce((width, entry, index) => width + entry.width + (index === 0 ? 0 : 1), 0);
@@ -254,22 +237,6 @@ const instantiateTabs = defineComponent<
 });
 
 export const tabs: TabsFactory = (options) => {
-  assertComponentOptions(options, 'tabs', {
-    fields: [
-      'id', 'tabs', 'presentation', 'maxTabWidth', 'pointerState',
-      'readOnly', 'busy', 'inert', 'disabled', 'meta', 'gap', 'padding', 'margin',
-      'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'align', 'justify', 'overflow',
-      'onTransition', 'onClose', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onClose: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onClose: 'optional', onPointerAction: 'optional' },
-    ...(options.disabled === true
-      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy'] }
-      : options.inert === true
-        ? { forbiddenFields: ['readOnly'] }
-      : {}),
-  });
   const items = options.tabs;
   const shared = {
     id: options.id,
@@ -306,6 +273,9 @@ export const tabs: TabsFactory = (options) => {
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
   if (options.inert === true) return instantiateTabs({ ...shared, inert: true });
+  assertRequiredCallback(options.onTransition, 'tabs onTransition');
+  assertOptionalCallback(options.onClose, 'tabs onClose');
+  assertOptionalCallback(options.onPointerAction, 'tabs onPointerAction');
   return instantiateTabs({
     ...shared,
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
@@ -672,7 +642,7 @@ function tabsAccessibility(
   };
 }
 
-function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
+function prepareTabs(value: Readonly<TabsOwnOptions>, pointerAvailable: boolean): TabsModel {
   const rawTabs = value.tabs;
   if (rawTabs.length === 0) {
     throw new TypeError('tabs tabs must be a non-empty array.');
@@ -734,7 +704,11 @@ function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
   ) {
     throw new RangeError('tabs maxTabWidth must be a positive safe integer.');
   }
-  const pointerState = preparePointerInteractionState(value.pointerState, 'tabs pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'tabs pointerState',
+    pointerAvailable,
+  );
   return {
     tabs,
     selectedIndex,

@@ -24,7 +24,6 @@ function cleanString(value, subject) {
 
 export const externalText = defineComponent({
   name: 'terminal-ui-parity/components/text',
-  optionFields: { content: true },
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -56,7 +55,6 @@ export const externalText = defineComponent({
 
 export const externalButton = defineComponent({
   name: 'terminal-ui-parity/components/button',
-  optionFields: { label: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -108,7 +106,6 @@ export const externalButton = defineComponent({
 
 export const externalTextInput = defineComponent({
   name: 'terminal-ui-parity/components/text-input',
-  optionFields: { label: true, value: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -172,7 +169,6 @@ export const externalTextInput = defineComponent({
 
 export const externalVirtualList = defineComponent({
   name: 'terminal-ui-parity/components/virtual-list',
-  optionFields: { items: true, offset: true, scrollbar: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -275,7 +271,6 @@ function virtualListPlan(input) {
 
 export const externalCombobox = defineComponent({
   name: 'terminal-ui-parity/components/combobox',
-  optionFields: { label: true, items: true, selectedId: true, open: true },
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
@@ -359,7 +354,6 @@ const externalDialogSlots = {
 
 export const externalDialog = defineComponent({
   name: 'terminal-ui-parity/components/dialog',
-  optionFields: { title: true, modal: true },
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
@@ -406,7 +400,6 @@ const externalTooltipSlots = {
 
 export const externalTooltip = defineComponent({
   name: 'terminal-ui-parity/components/tooltip',
-  optionFields: { content: true, open: true },
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
@@ -445,7 +438,6 @@ export const externalTooltip = defineComponent({
 
 export const externalChart = defineComponent({
   name: 'terminal-ui-parity/components/chart',
-  optionFields: { label: true, values: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',

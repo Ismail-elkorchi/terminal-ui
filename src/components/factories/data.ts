@@ -46,7 +46,6 @@ export const pagination: SemanticLeafComponentFactory<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/pagination',
-  optionFields: { pageNumber: true, pageCount: true, label: true, pointerState: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',

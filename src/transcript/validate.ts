@@ -28,7 +28,7 @@ import type {
   TerminalStateSnapshot,
   TerminalSize
 } from '../host/index.ts';
-import { decodeKeyboardProfile } from '../protocol/index.ts';
+import { LEGACY_KEYBOARD_PROFILE, kittyKeyboardProfile } from '../protocol/index.ts';
 import {
   decodeInputEvent
 } from '../input/index.ts';
@@ -176,6 +176,8 @@ const terminalStateProvenanceFields = new Set([
 const terminalStateChangeFields = new Set(['kind', 'enabled']);
 const terminalRestoreCompletionFields = new Set(['kind', 'enabled', 'assurance']);
 const mouseReportingStateFields = new Set(['tracking', 'encoding']);
+const legacyKeyboardProfileFields = new Set(['kind']);
+const kittyKeyboardProfileFields = new Set(['kind', 'flags']);
 
 type NormalizedTranscriptValidationLimits = Readonly<Required<TranscriptValidationLimits>>;
 
@@ -1419,7 +1421,22 @@ function terminalKeyboardProfileIssue(
 ): string | undefined {
   try {
     if (!isNonArrayObject(profile)) return 'Terminal keyboard profile must be an object.';
-    adoptions.keyboardProfiles.set(profile, decodeKeyboardProfile(profile));
+    const kind = profile['kind'];
+    const supported = kind === 'legacy'
+      ? legacyKeyboardProfileFields
+      : kind === 'kitty' ? kittyKeyboardProfileFields : undefined;
+    if (supported === undefined) return 'Terminal keyboard profile kind must be legacy or kitty.';
+    const unknown = findUnsupportedField(profile, supported);
+    if (unknown !== undefined) {
+      return `Terminal keyboard profile contains unsupported field: ${unknown}.`;
+    }
+    if (kind === 'legacy') {
+      adoptions.keyboardProfiles.set(profile, LEGACY_KEYBOARD_PROFILE);
+      return undefined;
+    }
+    const flags = profile['flags'];
+    if (typeof flags !== 'number') return 'Kitty keyboard profile flags must be a number.';
+    adoptions.keyboardProfiles.set(profile, kittyKeyboardProfile(flags));
     return undefined;
   } catch (cause) {
     return cause instanceof Error

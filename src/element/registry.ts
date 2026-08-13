@@ -1,6 +1,5 @@
 import type { Element, ElementValue } from './types.ts';
 import type { ElementInspection } from './inspection.ts';
-import { registerImmutableIdentity } from '../immutable-identity.ts';
 
 const internals = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
@@ -9,14 +8,14 @@ export function registerElement<TMessage>(
   internal: unknown,
   inspection: ElementInspection
 ): Element<TMessage> {
-  const element = registerImmutableIdentity(Object.freeze({})) as Element<TMessage>;
+  const element = Object.freeze({}) as Element<TMessage>;
   internals.set(element, internal);
   inspections.set(element, inspection);
   return element;
 }
 
 export function internalElementValue(element: ElementValue): unknown {
-  const internal = isObject(element) ? internals.get(element) : undefined;
+  const internal = internals.get(element);
   if (internal === undefined) {
     throw invalidElementError();
   }
@@ -24,15 +23,11 @@ export function internalElementValue(element: ElementValue): unknown {
 }
 
 export function inspectRegisteredElement(element: ElementValue): ElementInspection {
-  const inspection = isObject(element) ? inspections.get(element) : undefined;
+  const inspection = inspections.get(element);
   if (inspection === undefined) {
     throw invalidElementError();
   }
   return inspection;
-}
-
-function isObject(value: unknown): value is object {
-  return typeof value === 'object' && value !== null;
 }
 
 function invalidElementError(): TypeError {

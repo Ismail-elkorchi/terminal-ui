@@ -1,4 +1,4 @@
-import { assertComponentOptions, defineComponent, ignoreMessage } from '../../component/index.ts';
+import { defineComponent, ignoreMessage } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementMessage } from '../../element/index.ts';
@@ -12,7 +12,7 @@ import {
   sanitizeTerminalText,
 } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import { assertOptionalEnum } from '../../foundation/validation.ts';
+import { assertOptionalEnum, assertRequiredCallback } from '../../foundation/validation.ts';
 import { overlay, portal, surface } from '../../layout/index.ts';
 import { text } from './content.ts';
 import type { TooltipTone, TooltipTransition } from '../../ui-model/menu.ts';
@@ -28,7 +28,6 @@ interface PreparedDivider {
 }
 
 const dividerDefinitionBase = {
-  optionFields: { orientation: true, line: true, label: true, labelAlign: true } as const,
   identity: 'optional' as const,
   structure: 'leaf' as const,
   metadata: ['styles', 'layer'] as const,
@@ -240,15 +239,6 @@ const instantiateTooltip = defineComponent<
   typeof tooltipSlots
 >({
   name: 'terminal-ui/components/tooltip',
-  optionFields: {
-    content: true,
-    open: true,
-    title: true,
-    tone: true,
-    placement: true,
-    maxWidth: true,
-    border: true,
-  } as const,
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
@@ -371,13 +361,7 @@ export function tooltip<
   const TTrigger extends Element<ComponentMessage>,
   const TMessage extends ComponentMessage = never,
 >(options: TooltipOptions<TTrigger, TMessage>): Element<ElementMessage<TTrigger> | TMessage> {
-  assertComponentOptions(options, 'tooltip', {
-    fields: [
-      'id', 'trigger', 'content', 'open', 'title', 'tone', 'placement', 'maxWidth', 'border',
-      'meta', 'onTransition',
-    ],
-    callbacks: { onTransition: 'required' },
-  });
+  assertRequiredCallback(options.onTransition, 'tooltip onTransition');
   return instantiateTooltip({
     id: options.id,
     content: options.content,

@@ -1,7 +1,6 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
   clipRenderSpans,
-  assertComponentOptions,
   defineComponent,
   ignoreMessage,
   measureRenderSpans,
@@ -16,7 +15,12 @@ import type {
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
-import { assertOptionalEnum, isNonArrayObject } from '../../foundation/validation.ts';
+import {
+  assertOptionalCallback,
+  assertOptionalEnum,
+  assertRequiredCallback,
+  isNonArrayObject,
+} from '../../foundation/validation.ts';
 import type { Rect } from '../../geometry/types.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
@@ -91,7 +95,6 @@ const passiveRegion = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/notification-region',
-  optionFields: { items: true, placement: true, maxWidth: true, pointerState: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -114,7 +117,6 @@ const activeRegion = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/notification-region',
-  optionFields: { items: true, placement: true, maxWidth: true, pointerState: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -143,13 +145,6 @@ const history = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/notification-history',
-  optionFields: {
-    items: true,
-    placement: true,
-    maxWidth: true,
-    selectedId: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -179,12 +174,6 @@ const history = defineComponent<
 export function notificationRegion<const TMessage extends ComponentMessage = never>(
   options: NotificationRegionOptions<TMessage>,
 ): Element<TMessage> {
-  assertComponentOptions(options, 'notificationRegion', {
-    fields: ['id', 'items', 'placement', 'maxWidth', 'pointerState', 'meta', 'onAction', 'onPointerAction'],
-    callbacks: options.onAction === undefined
-      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
-      : { onAction: 'required', onPointerAction: 'optional' },
-  });
   if (options.onAction === undefined) {
     return passiveRegion({
       items: options.items,
@@ -194,6 +183,8 @@ export function notificationRegion<const TMessage extends ComponentMessage = nev
       ...(options.meta === undefined ? {} : { meta: options.meta }),
     });
   }
+  assertRequiredCallback(options.onAction, 'notificationRegion onAction');
+  assertOptionalCallback(options.onPointerAction, 'notificationRegion onPointerAction');
   const { onAction, onPointerAction, ...own } = options;
   return activeRegion({
       ...own,
@@ -208,20 +199,8 @@ export function notificationRegion<const TMessage extends ComponentMessage = nev
 export function notificationHistory<const TMessage extends ComponentMessage = never>(
   options: NotificationHistoryOptions<TMessage>,
 ): Element<TMessage> {
-  assertComponentOptions(options, 'notificationHistory', {
-    fields: [
-      'id',
-      'items',
-      'placement',
-      'maxWidth',
-      'pointerState',
-      'selectedId',
-      'meta',
-      'onAction',
-      'onPointerAction',
-    ],
-    callbacks: { onAction: 'required', onPointerAction: 'optional' },
-  });
+  assertRequiredCallback(options.onAction, 'notificationHistory onAction');
+  assertOptionalCallback(options.onPointerAction, 'notificationHistory onPointerAction');
   const { onAction, onPointerAction, ...own } = options;
   return history({
     ...own,
@@ -268,6 +247,7 @@ function prepareNotifications(
   const pointerState = preparePointerInteractionState(
     value.pointerState,
     'notification pointerState',
+    dismissActions,
   );
   return {
     items,

@@ -45,6 +45,7 @@ interface ActiveTabsOptions<TMessage extends ComponentMessage> {
 interface InertTabsOptions {
   readonly disabled?: false;
   readonly inert: true;
+  readonly pointerState?: never;
   readonly readOnly?: never;
   readonly onTransition?: never;
   readonly onClose?: never;

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalSymbolMode } from '../visual/inline-content.ts';
 
@@ -154,79 +153,82 @@ export const unicodeSymbols: TerminalSymbols = {
   viewportEmpty: '∅'
 };
 
-export function mergeSymbols(base: TerminalSymbols, override: TerminalSymbolsDefinition | undefined): TerminalSymbols {
+export function mergeSymbols(base: TerminalSymbols, override: unknown): TerminalSymbols {
   if (override === undefined) return base;
-  return sanitizeSymbols({
-    mode: override.mode ?? base.mode,
-    borderSingle: mergeBorder(base.borderSingle, override.borderSingle),
-    borderRounded: mergeBorder(base.borderRounded, override.borderRounded),
-    treeExpanded: override.treeExpanded ?? base.treeExpanded,
-    treeCollapsed: override.treeCollapsed ?? base.treeCollapsed,
-    pointer: override.pointer ?? base.pointer,
-    selected: override.selected ?? base.selected,
-    unselected: override.unselected ?? base.unselected,
-    checkboxChecked: override.checkboxChecked ?? base.checkboxChecked,
-    checkboxUnchecked: override.checkboxUnchecked ?? base.checkboxUnchecked,
-    radioChecked: override.radioChecked ?? base.radioChecked,
-    radioUnchecked: override.radioUnchecked ?? base.radioUnchecked,
-    statusError: override.statusError ?? base.statusError,
-    statusWarning: override.statusWarning ?? base.statusWarning,
-    statusInfo: override.statusInfo ?? base.statusInfo,
-    statusSuccess: override.statusSuccess ?? base.statusSuccess,
-    progressFilled: override.progressFilled ?? base.progressFilled,
-    progressEmpty: override.progressEmpty ?? base.progressEmpty,
-    spinnerFrames: override.spinnerFrames ?? base.spinnerFrames,
-    collapsed: override.collapsed ?? base.collapsed,
-    expanded: override.expanded ?? base.expanded,
-    scrollbarVerticalTrack: override.scrollbarVerticalTrack ?? base.scrollbarVerticalTrack,
-    scrollbarVerticalThumb: override.scrollbarVerticalThumb ?? base.scrollbarVerticalThumb,
-    scrollbarHorizontalTrack: override.scrollbarHorizontalTrack ?? base.scrollbarHorizontalTrack,
-    scrollbarHorizontalThumb: override.scrollbarHorizontalThumb ?? base.scrollbarHorizontalThumb,
-    viewportClipTop: override.viewportClipTop ?? base.viewportClipTop,
-    viewportClipBottom: override.viewportClipBottom ?? base.viewportClipBottom,
-    viewportClipLeft: override.viewportClipLeft ?? base.viewportClipLeft,
-    viewportClipRight: override.viewportClipRight ?? base.viewportClipRight,
-    viewportEmpty: override.viewportEmpty ?? base.viewportEmpty
+  const definition = record(override, 'Terminal symbol definition');
+  return decodeTerminalSymbols({
+    mode: definition['mode'] ?? base.mode,
+    borderSingle: mergeBorder(base.borderSingle, definition['borderSingle']),
+    borderRounded: mergeBorder(base.borderRounded, definition['borderRounded']),
+    treeExpanded: definition['treeExpanded'] ?? base.treeExpanded,
+    treeCollapsed: definition['treeCollapsed'] ?? base.treeCollapsed,
+    pointer: definition['pointer'] ?? base.pointer,
+    selected: definition['selected'] ?? base.selected,
+    unselected: definition['unselected'] ?? base.unselected,
+    checkboxChecked: definition['checkboxChecked'] ?? base.checkboxChecked,
+    checkboxUnchecked: definition['checkboxUnchecked'] ?? base.checkboxUnchecked,
+    radioChecked: definition['radioChecked'] ?? base.radioChecked,
+    radioUnchecked: definition['radioUnchecked'] ?? base.radioUnchecked,
+    statusError: definition['statusError'] ?? base.statusError,
+    statusWarning: definition['statusWarning'] ?? base.statusWarning,
+    statusInfo: definition['statusInfo'] ?? base.statusInfo,
+    statusSuccess: definition['statusSuccess'] ?? base.statusSuccess,
+    progressFilled: definition['progressFilled'] ?? base.progressFilled,
+    progressEmpty: definition['progressEmpty'] ?? base.progressEmpty,
+    spinnerFrames: definition['spinnerFrames'] ?? base.spinnerFrames,
+    collapsed: definition['collapsed'] ?? base.collapsed,
+    expanded: definition['expanded'] ?? base.expanded,
+    scrollbarVerticalTrack: definition['scrollbarVerticalTrack'] ?? base.scrollbarVerticalTrack,
+    scrollbarVerticalThumb: definition['scrollbarVerticalThumb'] ?? base.scrollbarVerticalThumb,
+    scrollbarHorizontalTrack: definition['scrollbarHorizontalTrack'] ?? base.scrollbarHorizontalTrack,
+    scrollbarHorizontalThumb: definition['scrollbarHorizontalThumb'] ?? base.scrollbarHorizontalThumb,
+    viewportClipTop: definition['viewportClipTop'] ?? base.viewportClipTop,
+    viewportClipBottom: definition['viewportClipBottom'] ?? base.viewportClipBottom,
+    viewportClipLeft: definition['viewportClipLeft'] ?? base.viewportClipLeft,
+    viewportClipRight: definition['viewportClipRight'] ?? base.viewportClipRight,
+    viewportEmpty: definition['viewportEmpty'] ?? base.viewportEmpty
   });
 }
 
-export function sanitizeSymbols(symbols: TerminalSymbols): TerminalSymbols {
-  if (typeof symbols !== 'object' || symbols === null || Array.isArray(symbols)) {
-    throw new TypeError('Terminal symbols must be an object.');
-  }
+export function decodeTerminalSymbols(value: unknown): TerminalSymbols {
+  const symbols = record(value, 'Terminal symbols');
   const existing = sanitizedTerminalSymbols.get(symbols);
   if (existing !== undefined) return existing;
+  const mode = symbols['mode'];
+  if (mode !== 'ascii' && mode !== 'unicode') {
+    throw new TypeError('Terminal symbol mode must be ascii or unicode.');
+  }
   const normalized = Object.freeze({
-    mode: symbols.mode === 'unicode' ? 'unicode' : 'ascii',
-    borderSingle: sanitizeBorder(symbols.borderSingle),
-    borderRounded: sanitizeBorder(symbols.borderRounded),
-    treeExpanded: cleanSymbol(symbols.treeExpanded),
-    treeCollapsed: cleanSymbol(symbols.treeCollapsed),
-    pointer: cleanSymbol(symbols.pointer),
-    selected: cleanSymbol(symbols.selected),
-    unselected: cleanSymbol(symbols.unselected),
-    checkboxChecked: cleanSymbol(symbols.checkboxChecked),
-    checkboxUnchecked: cleanSymbol(symbols.checkboxUnchecked),
-    radioChecked: cleanSymbol(symbols.radioChecked),
-    radioUnchecked: cleanSymbol(symbols.radioUnchecked),
-    statusError: cleanSymbol(symbols.statusError),
-    statusWarning: cleanSymbol(symbols.statusWarning),
-    statusInfo: cleanSymbol(symbols.statusInfo),
-    statusSuccess: cleanSymbol(symbols.statusSuccess),
-    progressFilled: cleanSymbol(symbols.progressFilled),
-    progressEmpty: cleanSymbol(symbols.progressEmpty),
-    spinnerFrames: cleanSymbolList(symbols.spinnerFrames, asciiSymbols.spinnerFrames),
-    collapsed: cleanSymbol(symbols.collapsed),
-    expanded: cleanSymbol(symbols.expanded),
-    scrollbarVerticalTrack: cleanSymbol(symbols.scrollbarVerticalTrack),
-    scrollbarVerticalThumb: cleanSymbol(symbols.scrollbarVerticalThumb),
-    scrollbarHorizontalTrack: cleanSymbol(symbols.scrollbarHorizontalTrack),
-    scrollbarHorizontalThumb: cleanSymbol(symbols.scrollbarHorizontalThumb),
-    viewportClipTop: cleanSymbol(symbols.viewportClipTop),
-    viewportClipBottom: cleanSymbol(symbols.viewportClipBottom),
-    viewportClipLeft: cleanSymbol(symbols.viewportClipLeft),
-    viewportClipRight: cleanSymbol(symbols.viewportClipRight),
-    viewportEmpty: cleanSymbol(symbols.viewportEmpty)
+    mode,
+    borderSingle: sanitizeBorder(symbols['borderSingle']),
+    borderRounded: sanitizeBorder(symbols['borderRounded']),
+    treeExpanded: cleanSymbol(symbols['treeExpanded']),
+    treeCollapsed: cleanSymbol(symbols['treeCollapsed']),
+    pointer: cleanSymbol(symbols['pointer']),
+    selected: cleanSymbol(symbols['selected']),
+    unselected: cleanSymbol(symbols['unselected']),
+    checkboxChecked: cleanSymbol(symbols['checkboxChecked']),
+    checkboxUnchecked: cleanSymbol(symbols['checkboxUnchecked']),
+    radioChecked: cleanSymbol(symbols['radioChecked']),
+    radioUnchecked: cleanSymbol(symbols['radioUnchecked']),
+    statusError: cleanSymbol(symbols['statusError']),
+    statusWarning: cleanSymbol(symbols['statusWarning']),
+    statusInfo: cleanSymbol(symbols['statusInfo']),
+    statusSuccess: cleanSymbol(symbols['statusSuccess']),
+    progressFilled: cleanSymbol(symbols['progressFilled']),
+    progressEmpty: cleanSymbol(symbols['progressEmpty']),
+    spinnerFrames: cleanSymbolList(symbols['spinnerFrames'], asciiSymbols.spinnerFrames),
+    collapsed: cleanSymbol(symbols['collapsed']),
+    expanded: cleanSymbol(symbols['expanded']),
+    scrollbarVerticalTrack: cleanSymbol(symbols['scrollbarVerticalTrack']),
+    scrollbarVerticalThumb: cleanSymbol(symbols['scrollbarVerticalThumb']),
+    scrollbarHorizontalTrack: cleanSymbol(symbols['scrollbarHorizontalTrack']),
+    scrollbarHorizontalThumb: cleanSymbol(symbols['scrollbarHorizontalThumb']),
+    viewportClipTop: cleanSymbol(symbols['viewportClipTop']),
+    viewportClipBottom: cleanSymbol(symbols['viewportClipBottom']),
+    viewportClipLeft: cleanSymbol(symbols['viewportClipLeft']),
+    viewportClipRight: cleanSymbol(symbols['viewportClipRight']),
+    viewportEmpty: cleanSymbol(symbols['viewportEmpty'])
   });
   sanitizedTerminalSymbols.set(normalized, normalized);
   return normalized;
@@ -267,25 +269,27 @@ export function symbolEntries(symbols: TerminalSymbols): readonly unknown[] {
   ];
 }
 
-function mergeBorder(base: BorderGlyphSet, override: BorderGlyphSetDefinition | undefined): BorderGlyphSet {
+function mergeBorder(base: BorderGlyphSet, value: unknown): Readonly<Record<string, unknown>> {
+  const override = value === undefined ? undefined : record(value, 'Terminal border symbols');
   return {
-    topLeft: override?.topLeft ?? base.topLeft,
-    topRight: override?.topRight ?? base.topRight,
-    bottomLeft: override?.bottomLeft ?? base.bottomLeft,
-    bottomRight: override?.bottomRight ?? base.bottomRight,
-    horizontal: override?.horizontal ?? base.horizontal,
-    vertical: override?.vertical ?? base.vertical
+    topLeft: override?.['topLeft'] ?? base.topLeft,
+    topRight: override?.['topRight'] ?? base.topRight,
+    bottomLeft: override?.['bottomLeft'] ?? base.bottomLeft,
+    bottomRight: override?.['bottomRight'] ?? base.bottomRight,
+    horizontal: override?.['horizontal'] ?? base.horizontal,
+    vertical: override?.['vertical'] ?? base.vertical
   };
 }
 
-function sanitizeBorder(border: BorderGlyphSet): BorderGlyphSet {
+function sanitizeBorder(value: unknown): BorderGlyphSet {
+  const border = record(value, 'Terminal border symbols');
   return Object.freeze({
-    topLeft: cleanSymbol(border.topLeft),
-    topRight: cleanSymbol(border.topRight),
-    bottomLeft: cleanSymbol(border.bottomLeft),
-    bottomRight: cleanSymbol(border.bottomRight),
-    horizontal: cleanSymbol(border.horizontal),
-    vertical: cleanSymbol(border.vertical)
+    topLeft: cleanSymbol(border['topLeft']),
+    topRight: cleanSymbol(border['topRight']),
+    bottomLeft: cleanSymbol(border['bottomLeft']),
+    bottomRight: cleanSymbol(border['bottomRight']),
+    horizontal: cleanSymbol(border['horizontal']),
+    vertical: cleanSymbol(border['vertical'])
   });
 }
 
@@ -300,11 +304,20 @@ function borderEntries(border: BorderGlyphSet): readonly unknown[] {
   ];
 }
 
-function cleanSymbol(value: string): string {
+function cleanSymbol(value: unknown): string {
+  if (typeof value !== 'string') throw new TypeError('Terminal symbols must be strings.');
   return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ') || '?';
 }
 
-function cleanSymbolList(values: readonly string[], fallback: readonly string[]): readonly string[] {
+function cleanSymbolList(values: unknown, fallback: readonly string[]): readonly string[] {
+  if (!Array.isArray(values)) throw new TypeError('Terminal symbol frames must be an array.');
   const cleaned = values.map(cleanSymbol).filter((value) => value.length > 0);
   return Object.freeze(cleaned.length === 0 ? [...fallback] : cleaned);
+}
+
+function record(value: unknown, subject: string): Readonly<Record<string, unknown>> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${subject} must be an object.`);
+  }
+  return value as Readonly<Record<string, unknown>>;
 }

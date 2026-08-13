@@ -429,7 +429,6 @@ test('TUI pointer motion drops stale drag samples before routing release', async
   const renderer = {
     ...leafComponentDefinition,
     accessibleRole: 'button',
-    optionFields: { eventCount: true },
     render({ model, target }) {
       target.write(0, 0, [{ text: `events ${String(model.eventCount)}` }]);
     },
@@ -495,7 +494,6 @@ test('pointer capture resolves the latest target callback after a render', async
   const definition = {
     ...leafComponentDefinition,
     accessibleRole: 'button',
-    optionFields: { version: true },
     render({ model, target }) {
       target.write(0, 0, [{ text: `v${String(model.version)}` }]);
     },
@@ -544,7 +542,6 @@ test('pointer identity includes the owning element when local target ids collide
   const definition = {
     ...leafComponentDefinition,
     accessibleRole: 'button',
-    optionFields: { label: true },
     render({ model, target }) {
       target.write(0, 0, [{ text: model.label }]);
     },
@@ -583,7 +580,6 @@ test('wheel batches retain their ingestion target across intervening renders', a
   const definition = {
     ...leafComponentDefinition,
     accessibleRole: 'group',
-    optionFields: { owner: true },
     render({ model, target }) {
       target.write(0, 0, [{ text: model.owner }]);
     },

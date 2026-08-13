@@ -75,7 +75,6 @@ export const statusBar: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/status-bar',
-  optionFields: { leading: true, center: true, trailing: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -176,7 +175,6 @@ export const helpBar: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/help-bar',
-  optionFields: { groups: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -672,7 +670,6 @@ export const activityIndicator: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/activity-indicator',
-  optionFields: { label: true, status: true, frames: true, frameIndex: true } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -903,17 +900,6 @@ export const progressBar: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/progress-bar',
-  optionFields: {
-    label: true,
-    mode: true,
-    barWidth: true,
-    display: true,
-    labelPosition: true,
-    elapsedMs: true,
-    remainingMs: true,
-    status: true,
-    valueScale: true,
-  } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -1427,17 +1413,6 @@ export const sparkline: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/sparkline',
-  optionFields: {
-    label: true,
-    values: true,
-    min: true,
-    max: true,
-    dataState: true,
-    valueScale: true,
-    emptyText: true,
-    loadingText: true,
-    errorText: true,
-  } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -1635,15 +1610,6 @@ export const meter: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/meter',
-  optionFields: {
-    label: true,
-    value: true,
-    min: true,
-    max: true,
-    width: true,
-    variant: true,
-    result: true,
-  } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',

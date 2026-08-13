@@ -1,5 +1,4 @@
 import {
-  assertComponentOptions,
   clipRenderSpans,
   componentScrollbarHitTargets,
   defineComponent,
@@ -23,9 +22,10 @@ import type { HitTarget } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import { dataWindow, isCollectionProjection, prepareTreeCollection } from '../../behavior/index.ts';
 import type { CollectionProjection, CollectionRecord } from '../../behavior/index.ts';
-import { registerImmutableIdentity } from '../../immutable-identity.ts';
 import {
+  assertOptionalCallback,
   assertOptionalEnum,
+  assertRequiredCallback,
   isNonArrayObject,
   isStringMember,
 } from '../../foundation/validation.ts';
@@ -156,29 +156,6 @@ interface TablePreparation {
 }
 
 const tableBase = {
-  optionFields: {
-    semanticRole: true,
-    columns: true,
-    hasHeader: true,
-    source: true,
-    startIndex: true,
-    totalCount: true,
-    interactionKind: true,
-    selectionMode: true,
-    activeRowId: true,
-    activeColumnId: true,
-    selectedRowIds: true,
-    selectedCells: true,
-    sort: true,
-    columnWidths: true,
-    density: true,
-    stickyHeader: true,
-    emptyText: true,
-    scroll: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
@@ -310,19 +287,16 @@ const activeDataGrid = defineComponent<
 export function table<TRow, const TMessage extends ComponentMessage = never>(
   options: TableOptions<TRow, TMessage>,
 ): Element<TMessage> {
-  assertComponentOptions(options, 'table', {
-    fields: [
-      'id', 'rows', 'getRowId', 'collection', 'columns', 'density', 'stickyHeader',
-      'emptyText', 'presentation', 'scroll', 'scrollbar', 'scrollPolicy', 'busy', 'meta',
-    ],
-  });
-  const prepared = prepareTable(options, 'table', options.scroll?.state);
+  const prepared = prepareTable(options, 'table', options.scroll?.state, false);
   const componentOptions = {
     ...prepared,
     id: options.id,
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   const scroll = options.scroll;
+  if (scroll !== undefined) {
+    assertRequiredCallback(scroll.onTransition, 'table scroll.onTransition');
+  }
   return scroll === undefined
     ? passiveTable(componentOptions)
     : scrollableTable({
@@ -353,23 +327,12 @@ export function dataGrid<
 >(
   options: DataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>,
 ): Element<TTransitionMessage | TActivateMessage | TPointerMessage> {
-  assertComponentOptions(options, 'dataGrid', {
-    fields: [
-      'id', 'rows', 'getRowId', 'collection', 'columns', 'density', 'stickyHeader',
-      'emptyText', 'presentation', 'scrollbar', 'scrollPolicy',
-      'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta', 'onTransition',
-      'onActivate', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
-    ...(
-      options.disabled === true || options.inert === true
-        ? { forbiddenFields: ['pointerState', 'readOnly'] }
-        : {}
-    ),
-  });
-  const prepared = prepareTable(options, 'grid');
+  const prepared = prepareTable(
+    options,
+    'grid',
+    undefined,
+    options.disabled !== true && options.inert !== true,
+  );
   const shared = {
     ...prepared,
     id: options.id,
@@ -382,6 +345,9 @@ export function dataGrid<
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
   if (options.inert === true) return activeDataGrid({ ...shared, inert: true });
+  assertRequiredCallback(options.onTransition, 'dataGrid onTransition');
+  assertOptionalCallback(options.onActivate, 'dataGrid onActivate');
+  assertOptionalCallback(options.onPointerAction, 'dataGrid onPointerAction');
   const onTransition = isScrollableDataGrid(options)
     ? (transition: DataGridTransition) => options.onTransition(transition)
     : (transition: DataGridTransition) => transition.kind === 'scroll'
@@ -413,6 +379,7 @@ function prepareTable<TRow, TMessage extends ComponentMessage>(
   value: Readonly<TableOptions<TRow, TMessage> | DataGridOptions<TRow, ComponentMessage, ComponentMessage, ComponentMessage>>,
   semanticRole: 'table' | 'grid',
   passiveScroll?: ScrollState,
+  pointerAvailable = true,
 ): TableModel {
   const source = tableSource(value);
   const preparation = prepareTableStructure(value.columns, source);
@@ -430,6 +397,7 @@ function prepareTable<TRow, TMessage extends ComponentMessage>(
   const pointerState = preparePointerInteractionState(
     'pointerState' in value ? value.pointerState : undefined,
     'dataGrid pointerState',
+    pointerAvailable,
   );
   if (semanticRole === 'grid') {
     validateDataGridPresentation(presentation, columns);
@@ -489,7 +457,7 @@ function prepareTableStructure<TRow>(
   source: TableSource<TRow>,
 ): TablePreparation {
   const preparedColumns = prepareTableColumns(columns, source.rows);
-  const sourceToken = registerImmutableIdentity(Object.freeze({}));
+  const sourceToken = Object.freeze({});
   tableSources.set(sourceToken, {
     rows: source.rows,
     ids: source.ids,
@@ -1814,19 +1782,6 @@ const preparedTreeCollections = new WeakMap<object, PreparedTreeSource>();
 
 const treeBase = {
   name: 'terminal-ui/components/tree' as const,
-  optionFields: {
-    source: true,
-    startIndex: true,
-    totalCount: true,
-    query: true,
-    activeId: true,
-    selection: true,
-    emptyText: true,
-    scroll: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
@@ -1924,22 +1879,10 @@ export function tree<
   const TActivateMessage extends ComponentMessage = never,
   const TPointerMessage extends ComponentMessage = never,
 >(options: TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage> {
-  assertComponentOptions(options, 'tree', {
-    fields: [
-      'id', 'nodes', 'collection', 'presentation', 'emptyText',
-      'scroll', 'scrollbar', 'scrollPolicy', 'pointerState', 'disabled', 'readOnly', 'busy',
-      'inert', 'meta', 'onTransition', 'onActivate', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
-    ...(options.disabled === true
-      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy'] }
-      : options.inert === true
-        ? { forbiddenFields: ['readOnly'] }
-      : {}),
-  });
-  const prepared = prepareTree(options);
+  const prepared = prepareTree(
+    options,
+    options.disabled !== true && options.inert !== true,
+  );
   const shared = {
     ...prepared,
     id: options.id,
@@ -1952,6 +1895,9 @@ export function tree<
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
   if (options.inert === true) return activeTree({ ...shared, inert: true });
+  assertRequiredCallback(options.onTransition, 'tree onTransition');
+  assertOptionalCallback(options.onActivate, 'tree onActivate');
+  assertOptionalCallback(options.onPointerAction, 'tree onPointerAction');
   return activeTree({
     ...shared,
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
@@ -1972,7 +1918,10 @@ function prepareTree<
   TTransitionMessage extends ComponentMessage,
   TActivateMessage extends ComponentMessage,
   TPointerMessage extends ComponentMessage,
->(value: Readonly<TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>>): TreeModel {
+>(
+  value: Readonly<TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>>,
+  pointerAvailable: boolean,
+): TreeModel {
   const query = normalizeCollectionQuery(
     value.presentation.query ?? { text: '', mode: 'contains' },
   );
@@ -1998,7 +1947,7 @@ function prepareTree<
     startIndex = collection.startIndex;
     totalCount = collection.totalCount;
   }
-  const sourceToken = registerImmutableIdentity(Object.freeze({}));
+  const sourceToken = Object.freeze({});
   treeSources.set(sourceToken, preparedTreeSource(collection));
   const scroll = prepareComponentScrollState(value.scroll, 'tree scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'tree scrollbar');
@@ -2009,7 +1958,11 @@ function prepareTree<
   const activeId = value.presentation.activeId === undefined
     ? undefined
     : nonEmpty(value.presentation.activeId, 'tree activeId');
-  const pointerState = preparePointerInteractionState(value.pointerState, 'tree pointerState');
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'tree pointerState',
+    pointerAvailable,
+  );
   return {
     source: sourceToken,
     startIndex,

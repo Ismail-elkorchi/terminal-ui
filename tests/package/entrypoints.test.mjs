@@ -252,7 +252,6 @@ test('component definitions and border title slots expose usable structural cont
     }];
     const marker = defineComponent({
       name: 'terminal-ui-tests/components/marker',
-      optionFields: {},
       identity: 'required',
       structure: 'leaf',
       semantics: 'semantic',
@@ -321,7 +320,6 @@ test('component packages can use the narrow authoring entrypoint', () => {
       { readonly value: number }
     >({
       name: 'terminal-ui-tests/components/meter',
-      optionFields: { value: true },
       identity: 'required',
       structure: 'leaf',
       semantics: 'semantic',
@@ -360,7 +358,6 @@ test('component packages can use the narrow authoring entrypoint', () => {
     });
     const panelComponent = defineComponent({
       name: 'terminal-ui-tests/components/componentPanel',
-      optionFields: {},
       identity: 'required',
       structure: 'composite',
       semantics: 'semantic',

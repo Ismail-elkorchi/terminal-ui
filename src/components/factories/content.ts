@@ -44,7 +44,6 @@ export const text: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/text',
-  optionFields: { content: true, textRole: true, headingLevel: true } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -170,7 +169,6 @@ export const richText: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/rich-text',
-  optionFields: { segments: true, wrap: true } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
@@ -312,7 +310,6 @@ export const disclosure: DisclosureFactory = defineComponent<
   typeof disclosureSlots
 >({
   name: 'terminal-ui/components/disclosure',
-  optionFields: { label: true, summary: true, expanded: true } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',

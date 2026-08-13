@@ -64,6 +64,7 @@ type MenuAvailability<TTransition, TMessage extends ComponentMessage> =
       | {
           readonly disabled?: false;
           readonly inert: true;
+          readonly pointerState?: never;
           readonly readOnly?: never;
         }
     ));

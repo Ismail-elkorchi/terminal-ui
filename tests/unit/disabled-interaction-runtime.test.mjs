@@ -181,72 +181,68 @@ test('disabled components expose no keyboard or mouse dispatch', async () => {
   assert.deepEqual(runtime.state(), { active: 'idle' });
 });
 
-test('disabled controls reject unreachable interaction hooks at the JavaScript boundary', () => {
-  assert.throws(
+test('unavailable controls ignore unreachable interaction options', () => {
+  assert.doesNotThrow(
     () => button({
       id: 'invalid-disabled-button',
       label: 'Disabled',
       disabled: true,
-      onAction: () => ({ kind: 'press' })
+      onAction: 'unreachable'
     }),
-    /cannot accept onAction/u
   );
-  assert.throws(
+  assert.doesNotThrow(
     () => textInput({
       id: 'invalid-disabled-input',
       presentation: { value: '', cursor: 0 },
       disabled: true,
-      onAction: () => ({ kind: 'edit' })
+      onAction: 'unreachable'
     }),
-    /cannot accept onAction/u
   );
-  assert.throws(
+  assert.doesNotThrow(
     () => combobox({
       id: 'invalid-disabled-combobox',
       label: 'Choice',
       options: formOptions,
       presentation: { open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true,
-      onTransition: () => ({ kind: 'combobox' })
+      onTransition: 'unreachable'
     }),
-    /cannot accept onTransition/u
   );
-  assert.throws(
+  assert.doesNotThrow(
     () => textArea({
       id: 'invalid-disabled-editor',
       presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) },
       disabled: true,
-      onAction: () => ({ kind: 'edit' })
+      onAction: 'unreachable'
     }),
-    /cannot accept onAction/u
   );
-  assert.throws(
+  assert.doesNotThrow(
     () => button({
       id: 'invalid-disabled-pointer',
       label: 'Disabled',
       disabled: true,
-      pointerState: { hoveredTargetId: 'invalid-disabled-pointer:control' }
+      pointerState: new Proxy({}, {
+        get() { throw new Error('unreachable pointer state was read'); }
+      })
     }),
-    /cannot accept pointerState/u
   );
-  assert.throws(
+  assert.doesNotThrow(
     () => link({
       id: 'invalid-inert-link',
       label: 'Documentation',
       href: 'https://example.test',
       inert: true,
-      onActivate: () => ({ kind: 'open' })
+      onActivate: 'unreachable'
     }),
-    /cannot accept onActivate/u
   );
 });
 
-test('pointer state is validated once before component routing consumes it', () => {
-  let ownKeyReads = 0;
-  const pointerState = new Proxy({ hoveredTargetId: 'submit:control' }, {
-    ownKeys(target) {
-      ownKeyReads += 1;
-      return Reflect.ownKeys(target);
+test('pointer state reads each consumed field once and ignores unrelated fields', () => {
+  const reads = new Map();
+  const pointerState = new Proxy({ hoveredTargetId: 'submit:control', typo: true }, {
+    get(target, field, receiver) {
+      reads.set(field, (reads.get(field) ?? 0) + 1);
+      return Reflect.get(target, field, receiver);
     }
   });
 
@@ -257,16 +253,9 @@ test('pointer state is validated once before component routing consumes it', () 
     onAction: () => ignoreMessage()
   });
 
-  assert.equal(ownKeyReads, 1);
-  assert.throws(
-    () => button({
-      id: 'invalid-pointer-state',
-      label: 'Submit',
-      pointerState: { hoveredTargetId: 'target', typo: true },
-      onAction: () => ignoreMessage()
-    }),
-    /pointerState contains unknown field "typo"/u
-  );
+  assert.equal(reads.get('hoveredTargetId'), 1);
+  assert.equal(reads.get('pressedTargetId'), 1);
+  assert.equal(reads.get('typo'), undefined);
 });
 
 test('commandInput preserves disabled suggestion semantics', () => {

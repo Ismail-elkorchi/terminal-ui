@@ -36,11 +36,10 @@ const componentDefinitionPrivateRendererDependencies = new Set([
 const runtimeGlobalNames = new Set(['Bun', 'Deno', 'globalThis', 'process']);
 const foundationDependencies = new Map([
   ['diagnostic-identity.ts', new Set()],
-  ['immutable-identity.ts', new Set()],
   ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'foundation', 'text'])],
   ['foundation', new Set()],
   ['geometry', new Set(['foundation'])],
-  ['text', new Set(['immutable-identity.ts'])]
+  ['text', new Set()]
 ]);
 
 for (const filePath of sourceFiles) {
@@ -203,10 +202,31 @@ function inspectComponentCatalog(sourceFile, filePath) {
 
 function inspectComponentPreparationInflation(sourceFile, filePath) {
   const sourcePath = sourceRelative(filePath);
-  if (!sourcePath.startsWith('components/factories/')) return;
+  const factory = sourcePath.startsWith('components/factories/');
+  const kernel = sourcePath === 'component/definition.ts';
+  if (!factory && !kernel) return;
 
   const report = (message) => failures.push(`${relative(filePath)} ${message}`);
   const visit = (node) => {
+    if ((ts.isPropertyAssignment(node) || ts.isPropertySignature(node))
+      && propertyName(node.name) === 'optionFields') {
+      report('duplicates the TypeScript option surface as runtime optionFields');
+    }
+    if (kernel && ts.isFunctionDeclaration(node) && node.name?.text === 'prepareComponentOptions') {
+      const inspectPreparedOwnership = (child) => {
+        if (ts.isCallExpression(child)
+          && child.arguments.some((argument) => ts.isIdentifier(argument) && argument.text === 'prepared')
+          && !(ts.isIdentifier(child.expression) && child.expression.text === 'isPreparedModel')) {
+          report('post-processes a component-owned prepared model');
+        }
+        ts.forEachChild(child, inspectPreparedOwnership);
+      };
+      inspectPreparedOwnership(node.body);
+    }
+    if (!factory) {
+      ts.forEachChild(node, visit);
+      return;
+    }
     if ((ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node))
       && /^Dynamic.*Options$/u.test(node.name.text)) {
       report(`declares erased option mirror ${node.name.text}`);
@@ -269,13 +289,16 @@ function inspectComponentPreparationInflation(sourceFile, filePath) {
 
   for (const statement of sourceFile.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
-    if (/(^|\/)options(?:\.ts)?$/u.test(statement.moduleSpecifier.text)
+    if (factory
+      && /(^|\/)options(?:\.ts)?$/u.test(statement.moduleSpecifier.text)
+      && !isTypeOnlyDependency(statement)) {
+      report(`imports runtime option machinery from ${statement.moduleSpecifier.text}`);
+    }
+    if (factory
       && statement.importClause?.namedBindings !== undefined
       && ts.isNamedImports(statement.importClause.namedBindings)
-      && statement.importClause.namedBindings.elements.some((item) =>
-        /^(assertKnownOptions|exactOptions|rejectUnknownOptions)$/u.test(item.name.text)
-      )) {
-      report(`imports generic exact-option validation from ${statement.moduleSpecifier.text}`);
+      && statement.importClause.namedBindings.elements.some((item) => item.name.text === 'findUnsupportedField')) {
+      report(`imports exact-field rejection from ${statement.moduleSpecifier.text}`);
     }
   }
 }

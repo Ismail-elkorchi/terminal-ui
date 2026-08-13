@@ -817,7 +817,6 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
         definition: {
           ...leafComponentDefinition,
           accessibleRole: 'textbox',
-          optionFields: { label: true },
           render: ({ target, model }) => target.write(0, 0, [{ text: model.label }]),
           focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
           accessibility: ({ id, model, focused }) => ({

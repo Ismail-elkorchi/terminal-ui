@@ -2,7 +2,6 @@ import { defineComponent, span } from '@ismail-elkorchi/terminal-ui/component';
 
 const badge = defineComponent({
   name: 'terminal-ui-peer-component-fixture/components/badge',
-  optionFields: { label: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',

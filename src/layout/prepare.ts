@@ -1,11 +1,14 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import type { LayoutFlowOptions, LayoutInsetInput } from '../geometry/types.ts';
 
 /** Validates and detaches layout fields retained by a layout or component. */
 export function normalizeLayoutFlowOptions(
-  value: Readonly<LayoutFlowOptions>,
+  value: unknown,
   owner: string
 ): LayoutFlowOptions {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${owner} options must be an object.`);
+  }
+  const options = value as Readonly<Record<string, unknown>>;
   const result: {
     gap?: number;
     padding?: LayoutInsetInput;
@@ -19,7 +22,7 @@ export function normalizeLayoutFlowOptions(
     overflow?: NonNullable<LayoutFlowOptions['overflow']>;
   } = {};
   for (const field of ['gap', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight'] as const) {
-    const member = value[field];
+    const member = options[field];
     if (member === undefined) continue;
     if (typeof member !== 'number' || !Number.isSafeInteger(member) || member < 0) {
       throw new RangeError(`${owner} ${field} must be a non-negative safe integer.`);
@@ -27,16 +30,16 @@ export function normalizeLayoutFlowOptions(
     result[field] = member;
   }
   for (const field of ['padding', 'margin'] as const) {
-    const member = value[field];
+    const member = options[field];
     if (member === undefined) continue;
     result[field] = prepareInsets(member, `${owner} ${field}`);
   }
-  const align = value.align;
+  const align = options['align'];
   if (align !== undefined && align !== 'start' && align !== 'center' && align !== 'end' && align !== 'stretch') {
     throw new TypeError(`${owner} align is invalid.`);
   }
   if (align !== undefined) result.align = align;
-  const justify = value.justify;
+  const justify = options['justify'];
   if (justify !== undefined
     && justify !== 'start'
     && justify !== 'center'
@@ -45,7 +48,7 @@ export function normalizeLayoutFlowOptions(
     throw new TypeError(`${owner} justify is invalid.`);
   }
   if (justify !== undefined) result.justify = justify;
-  const overflow = value.overflow;
+  const overflow = options['overflow'];
   if (overflow !== undefined && overflow !== 'clip' && overflow !== 'visible') {
     throw new TypeError(`${owner} overflow is invalid.`);
   }
@@ -53,7 +56,7 @@ export function normalizeLayoutFlowOptions(
   return result;
 }
 
-function prepareInsets(value: LayoutInsetInput, label: string): LayoutInsetInput {
+function prepareInsets(value: unknown, label: string): LayoutInsetInput {
   if (typeof value === 'number') {
     if (!Number.isSafeInteger(value) || value < 0) {
       throw new RangeError(`${label} must be a non-negative safe integer or inset object.`);
@@ -63,9 +66,10 @@ function prepareInsets(value: LayoutInsetInput, label: string): LayoutInsetInput
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`${label} must be a non-negative safe integer or inset object.`);
   }
+  const insets = value as Readonly<Record<string, unknown>>;
   const result: { top?: number; right?: number; bottom?: number; left?: number } = {};
   for (const field of ['top', 'right', 'bottom', 'left'] as const) {
-    const member = value[field];
+    const member = insets[field];
     if (member === undefined) continue;
     if (typeof member !== 'number' || !Number.isSafeInteger(member) || member < 0) {
       throw new RangeError(`${label}.${field} must be a non-negative safe integer.`);

@@ -361,6 +361,7 @@ export type InertComboboxOptions<TValue> = ComboboxOptionsBase<TValue> & {
   readonly onCommit?: never;
   readonly onPointerAction?: never;
   readonly disabled?: false;
+  readonly pointerState?: never;
   readonly readOnly?: never;
   readonly busy?: boolean;
   readonly inert: true;

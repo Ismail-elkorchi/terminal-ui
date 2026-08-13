@@ -2,7 +2,6 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import { measuredWindow } from '../../behavior/measured-window.ts';
 import { createScrollState, normalizeScrollState } from '../../behavior/scroll.ts';
 import {
-  assertComponentOptions,
   componentScrollbarHitTargets,
   defineComponent,
   ignoreMessage,
@@ -15,8 +14,9 @@ import {
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { Rect } from '../../geometry/types.ts';
+import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
-import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
+import { pointerVisualState, preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -59,7 +59,6 @@ const instantiateList = defineComponent<
   typeof listSlots
 >({
   name: 'terminal-ui/components/list',
-  optionFields: { items: true, ordered: true } as const,
   identity: 'optional',
   structure: 'composite',
   semantics: 'semantic',
@@ -151,9 +150,6 @@ const instantiateList = defineComponent<
 export function list<const TItems extends readonly SemanticListItem[]>(
   options: ListOptions<TItems>,
 ): Element<ElementMessage<TItems[number]['content']>> {
-  assertComponentOptions(options, 'list', {
-    fields: ['id', 'items', 'ordered', 'meta'],
-  });
   const items = preparePublicItems(options.items, 'list');
   return instantiateList({
     ...(options.id === undefined ? {} : { id: options.id }),
@@ -198,15 +194,6 @@ const instantiateListView = defineComponent<
   typeof listSlots
 >({
   name: 'terminal-ui/components/list-view',
-  optionFields: {
-    items: true,
-    activeId: true,
-    selection: true,
-    scroll: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -420,21 +407,6 @@ export function listView<
 >(
   options: ListViewOptions<TItems, TMessage>,
 ): Element<TMessage | ElementMessage<TItems[number]['content']>> {
-  assertComponentOptions(options, 'listView', {
-    fields: [
-      'id', 'items', 'presentation', 'scroll', 'scrollbar',
-      'scrollPolicy', 'pointerState', 'readOnly', 'busy', 'inert', 'disabled', 'meta',
-      'onTransition', 'onActivate', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
-    ...(options.disabled === true
-      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy'] }
-      : options.inert === true
-        ? { forbiddenFields: ['readOnly'] }
-      : {}),
-  });
   const items = preparePublicListViewItems(options.items);
   const scroll = prepareComponentScrollState(options.scroll, 'listView scroll');
   const scrollbar = prepareComponentScrollbarOptions(options.scrollbar, 'listView scrollbar');
@@ -442,6 +414,11 @@ export function listView<
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('listView scrollbar and scrollPolicy require scroll state.');
   }
+  const pointerState = preparePointerInteractionState(
+    options.pointerState,
+    'listView pointerState',
+    options.disabled !== true && options.inert !== true,
+  );
   const model: ListViewModel = {
     items: items.map(({ id, label, disabled }) => ({
       id,
@@ -453,7 +430,7 @@ export function listView<
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    ...(pointerState === undefined ? {} : { pointerState }),
   };
   const shared = {
     ...model,
@@ -468,6 +445,9 @@ export function listView<
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
   if (options.inert === true) return instantiateListView({ ...shared, inert: true });
+  assertRequiredCallback(options.onTransition, 'listView onTransition');
+  assertOptionalCallback(options.onActivate, 'listView onActivate');
+  assertOptionalCallback(options.onPointerAction, 'listView onPointerAction');
   return instantiateListView({
     ...shared,
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),

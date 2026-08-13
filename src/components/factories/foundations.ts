@@ -1,5 +1,4 @@
 import {
-  assertComponentOptions,
   defineComponent,
   ignoreMessage,
   measureRenderSpans,
@@ -8,7 +7,8 @@ import {
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { Rect } from '../../geometry/types.ts';
-import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
+import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
+import { pointerVisualState, preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import type { LinkActivateEvent, ToggleButtonTransition } from '../../ui-model/foundations.ts';
@@ -36,7 +36,6 @@ const instantiateLink = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/link',
-  optionFields: { label: true, accessibleName: true, href: true, pointerState: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -92,24 +91,19 @@ const instantiateLink = defineComponent<
 export function link<const TMessage extends ComponentMessage = never>(
   options: LinkOptions<TMessage>,
 ): Element<TMessage> {
-  assertComponentOptions(options, 'link', {
-    fields: [
-      'id', 'label', 'accessibleName', 'href', 'pointerState', 'busy', 'disabled', 'inert',
-      'meta', 'onActivate', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onActivate: 'forbidden', onPointerAction: 'forbidden' }
-      : { onActivate: 'required', onPointerAction: 'optional' },
-    ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'busy'] } : {}),
-  });
   const label = clean(options.label, 'link label');
   const accessibleName = clean(options.accessibleName ?? options.label, 'link accessibleName');
   const href = clean(options.href, 'link href');
+  const pointerState = preparePointerInteractionState(
+    options.pointerState,
+    'link pointerState',
+    options.disabled !== true && options.inert !== true,
+  );
   const model = {
     label,
     accessibleName,
     href,
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    ...(pointerState === undefined ? {} : { pointerState }),
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
@@ -120,6 +114,8 @@ export function link<const TMessage extends ComponentMessage = never>(
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
   if (options.inert === true) return instantiateLink({ ...model, inert: true });
+  assertRequiredCallback(options.onActivate, 'link onActivate');
+  assertOptionalCallback(options.onPointerAction, 'link onPointerAction');
   return instantiateLink({
     ...model,
     onAction: (action) => action.kind === 'activate'
@@ -149,7 +145,6 @@ const instantiateToggleButton = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/toggle-button',
-  optionFields: { label: true, accessibleName: true, pressed: true, pointerState: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -210,21 +205,16 @@ const instantiateToggleButton = defineComponent<
 export function toggleButton<const TMessage extends ComponentMessage = never>(
   options: ToggleButtonOptions<TMessage>,
 ): Element<TMessage> {
-  assertComponentOptions(options, 'toggleButton', {
-    fields: [
-      'id', 'label', 'accessibleName', 'pressed', 'pointerState', 'busy', 'disabled', 'inert',
-      'meta', 'onTransition', 'onPointerAction',
-    ],
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onPointerAction: 'optional' },
-    ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'busy'] } : {}),
-  });
+  const pointerState = preparePointerInteractionState(
+    options.pointerState,
+    'toggleButton pointerState',
+    options.disabled !== true && options.inert !== true,
+  );
   const model = {
     label: clean(options.label, 'toggleButton label'),
     accessibleName: clean(options.accessibleName ?? options.label, 'toggleButton accessibleName'),
     pressed: options.pressed,
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    ...(pointerState === undefined ? {} : { pointerState }),
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
@@ -235,6 +225,8 @@ export function toggleButton<const TMessage extends ComponentMessage = never>(
     ...(options.inert === undefined ? {} : { inert: options.inert }),
   });
   if (options.inert === true) return instantiateToggleButton({ ...model, inert: true });
+  assertRequiredCallback(options.onTransition, 'toggleButton onTransition');
+  assertOptionalCallback(options.onPointerAction, 'toggleButton onPointerAction');
   return instantiateToggleButton({
     ...model,
     onAction: (action) => action.kind === 'transition'
@@ -263,7 +255,6 @@ const instantiateToolbar = defineComponent<
   typeof toolbarSlots
 >({
   name: 'terminal-ui/components/toolbar',
-  optionFields: { label: true, orientation: true } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -312,9 +303,6 @@ const instantiateToolbar = defineComponent<
 export function toolbar<const TItems extends readonly Element[]>(
   options: ToolbarOptions<TItems>,
 ): Element<ElementMessage<TItems[number]>> {
-  assertComponentOptions(options, 'toolbar', {
-    fields: ['id', 'label', 'orientation', 'items', 'meta'],
-  });
   return instantiateToolbar({
     id: options.id,
     label: clean(options.label, 'toolbar label'),

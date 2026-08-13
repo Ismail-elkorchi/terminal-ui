@@ -25,7 +25,6 @@ interface BadgeOptions {
 
 const badge = defineComponent<BadgeOptions, BadgeOptions>({
   name: 'example-app/components/badge',
-  optionFields: { label: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -71,7 +70,6 @@ import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
 
 const stack = defineComponent({
   name: 'example-app/components/stack',
-  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -174,23 +172,21 @@ status value:
 
 Disabled, busy, and read-only state is added to accessibility output by the
 framework. Definition hooks should not duplicate it. Decorative definitions
-cannot accept state or actions. Actionful instances require `onAction` only
-while available; disabled and inert instances reject an unreachable mapper.
+cannot accept state or actions.
 
-Component-specific inputs are top-level instance fields. Declare their exact
-runtime names in the keyed `optionFields` schema; TypeScript requires one
-`field: true` entry for every declared option, and the framework rejects unknown
-fields before `prepare()` runs for JavaScript callers. `prepare()` is the one
-typed boundary for validating values and cross-field rules and building the
-model used by every later phase.
+Component-specific inputs are top-level instance fields. `prepare()` is their
+typed construction step. Validate values the component consumes when JavaScript
+callers could otherwise corrupt behavior, enforce cross-field rules, and build
+the model used by every later phase. Do not maintain a second list of option
+names just to reject unused properties. TypeScript checks the declared option
+type for typed callers, while the framework validates its shared fields.
 
-`prepare()` receives a detached, frozen top-level option record so it can
-project domain objects synchronously. The framework then snapshots the returned
-prepared model exactly once. Retained plain records, arrays, maps, sets, dates,
-buffers, and typed arrays cannot be changed through caller-owned references.
-Custom class instances must be projected to supported retained data; registered
-framework identities remain opaque and stable. Omit `prepare()` only when the
-supplied component options already have the desired retained model shape.
+Preparation owns retained data. Copy caller arrays or objects that later hooks
+will retain; freeze those owned values when mutation would violate the
+component's behavior. The framework does not recursively inspect or freeze a
+prepared model, and models may use domain objects rather than only plain JSON
+records. Omit `prepare()` only when the supplied component options already are
+the owned model.
 
 Focus targets and hit targets use stable IDs and bounded rectangles. A hit
 target that should transfer keyboard focus names one of the component's focus

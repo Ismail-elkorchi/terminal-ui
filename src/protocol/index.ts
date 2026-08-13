@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { sanitizeTerminalCellText } from '../text/index.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 export type { ClipboardWritePolicy, ClipboardWriteResult } from './clipboard.ts';
 export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
 export type { TerminalProtocolSink } from './types.ts';
@@ -8,12 +8,11 @@ export {
   LEGACY_KEYBOARD_PROFILE,
   decodeKeyboardProfile,
   kittyKeyboardFlags,
-  kittyKeyboardProfile,
-  normalizeKeyboardProfile
+  kittyKeyboardProfile
 } from './keyboard.ts';
 export type { KittyKeyboardFlagMap, KittyKeyboardFlags, TerminalKeyboardProfile } from './keyboard.ts';
 import type { TerminalProtocolSink } from './types.ts';
-import { normalizeKeyboardProfile } from './keyboard.ts';
+import { decodeKeyboardProfile } from './keyboard.ts';
 import type { TerminalKeyboardProfile } from './keyboard.ts';
 
 export interface TerminalProtocolWriter {
@@ -54,18 +53,18 @@ export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtoc
     disableAlternateScreen: async () => sink.write('\u001B[?1049l'),
     enableBracketedPaste: async () => sink.write('\u001B[?2004h'),
     disableBracketedPaste: async () => sink.write('\u001B[?2004l'),
-    setMouseReporting: async (state) => sink.write(mouseReportingSequence(normalizeMouseReportingState(state))),
+    setMouseReporting: async (state) => sink.write(mouseReportingSequence(decodeMouseReportingState(state))),
     enableFocusReporting: async () => sink.write('\u001B[?1004h'),
     disableFocusReporting: async () => sink.write('\u001B[?1004l'),
     enableUnicodeGraphemeMode: async () => sink.write('\u001B[?2027h'),
     disableUnicodeGraphemeMode: async () => sink.write('\u001B[?2027l'),
     pushKeyboardProfile: async (profile) => {
-      const normalized = normalizeKeyboardProfile(profile);
+      const normalized = decodeKeyboardProfile(profile);
       const flags = normalized.kind === 'kitty' ? normalized.flags : 0;
       await sink.write(`\u001B[>${String(flags)}u`);
     },
     setKeyboardProfile: async (profile) => {
-      const normalized = normalizeKeyboardProfile(profile);
+      const normalized = decodeKeyboardProfile(profile);
       const flags = normalized.kind === 'kitty' ? normalized.flags : 0;
       await sink.write(`\u001B[=${String(flags)}u`);
     },
@@ -96,13 +95,13 @@ function mouseReportingSequence(state: MouseReportingState): string {
   return `${resetTracking}${encoding}\u001B[?${tracking}h`;
 }
 
-export function normalizeMouseReportingState(state: MouseReportingState): MouseReportingState {
-  if (typeof state !== 'object' || state === null || Array.isArray(state)) {
+export function decodeMouseReportingState(state: unknown): MouseReportingState {
+  if (!isNonArrayObject(state)) {
     throw new TypeError('mouse reporting state must be an object.');
   }
-  if (canonicalMouseReportingStates.has(state)) return state;
-  const tracking = assertMouseReportingMode(state.tracking);
-  const encoding = state.encoding;
+  if (isCanonicalMouseReportingState(state)) return state;
+  const tracking = decodeMouseReportingMode(state['tracking']);
+  const encoding = state['encoding'];
   if (encoding !== 'default' && encoding !== 'sgr') {
     throw new RangeError('mouse reporting encoding must be default or sgr.');
   }
@@ -111,21 +110,27 @@ export function normalizeMouseReportingState(state: MouseReportingState): MouseR
   return normalized;
 }
 
-function terminalTitle(value: string): string {
+function isCanonicalMouseReportingState(
+  value: object,
+): value is MouseReportingState {
+  return canonicalMouseReportingStates.has(value);
+}
+
+function terminalTitle(value: unknown): string {
   if (typeof value !== 'string') throw new TypeError('Terminal title must be a string.');
   const title = sanitizeTerminalCellText(value).text;
   if (title.length > 4096) throw new RangeError('Terminal title must not exceed 4096 code units.');
   return title;
 }
 
-function positiveInteger(value: number, name: string): number {
-  if (!Number.isInteger(value) || value < 1) {
+function positiveInteger(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
     throw new RangeError(`${name} must be a positive integer.`);
   }
   return value;
 }
 
-function assertMouseReportingMode(mode: MouseReportingMode): MouseReportingMode {
+function decodeMouseReportingMode(mode: unknown): MouseReportingMode {
   if (mode === 'none' || mode === 'click' || mode === 'drag' || mode === 'all') return mode;
   throw new RangeError('mouse reporting mode must be none, click, drag, or all.');
 }

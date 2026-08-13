@@ -71,16 +71,16 @@ export interface SessionProtocolSetupResult {
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
-export const defaultSessionProtocolPolicy: SessionProtocolPolicy = {
+export const defaultSessionProtocolPolicy: SessionProtocolPolicy = Object.freeze({
   alternateScreen: 'required',
   rawInput: 'required',
   bracketedPaste: 'optional',
   focusReporting: 'optional',
   unicodeGraphemeMode: 'optional',
-  keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
-  cursorVisibility: { state: 'hide', requirement: 'optional' },
-  mouseReporting: { mode: 'drag', requirement: 'optional' }
-};
+  keyboard: Object.freeze({ profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' }),
+  cursorVisibility: Object.freeze({ state: 'hide', requirement: 'optional' }),
+  mouseReporting: Object.freeze({ mode: 'drag', requirement: 'optional' })
+});
 
 export function createSessionProtocolPlan(
   policy: SessionProtocolPolicy = defaultSessionProtocolPolicy

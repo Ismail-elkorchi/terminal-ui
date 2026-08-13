@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- Public JavaScript callers can bypass TypeScript. */
 import { diagnostic } from '../diagnostics.ts';
-import { createProtocolWriter, normalizeMouseReportingState } from '../protocol/index.ts';
+import { createProtocolWriter, decodeMouseReportingState } from '../protocol/index.ts';
 import {
   LEGACY_KEYBOARD_PROFILE,
-  normalizeKeyboardProfile
+  decodeKeyboardProfile
 } from '../protocol/keyboard.ts';
 import {
   terminalOperationApplied,
@@ -154,7 +153,7 @@ export class TerminalStateAuthority {
         throw new Error('Terminal keyboard state cannot be observed while a terminal session is active.');
       }
       if (this.#current.provenance.keyboardProfile !== 'explicit') {
-        this.setKnown('keyboardProfile', normalizeKeyboardProfile(profile), 'observed');
+        this.setKnown('keyboardProfile', decodeKeyboardProfile(profile), 'observed');
       }
       return Promise.resolve();
     });
@@ -235,7 +234,7 @@ export class TerminalStateAuthority {
     return this.runExclusive(async (generation) => {
       const inactive = this.inactiveLeaseDiagnostic(lease);
       if (inactive !== undefined) return terminalOperationRejected(inactive);
-      const normalized = normalizeKeyboardProfile(profile);
+      const normalized = decodeKeyboardProfile(profile);
       const change = { kind: 'keyboardProfile', enabled: normalized } as const;
       const cancellation = cancelledOperationDiagnostic(lease, context);
       if (cancellation !== undefined) return terminalOperationRejected(cancellation);
@@ -875,40 +874,44 @@ function initialKnowledge(
   return Object.hasOwn(state, kind) ? 'explicit' : 'assumed';
 }
 
-function normalizeInitialState(initial: TerminalInitialState | undefined): TerminalInitialState {
+function normalizeInitialState(initial: unknown): TerminalInitialState {
   if (initial === undefined) return {};
   if (typeof initial !== 'object' || initial === null || Array.isArray(initial)) {
     throw new TypeError('Terminal initial state must be an object.');
   }
-  const booleanFields = [
-    'rawInput',
-    'alternateScreen',
-    'bracketedPaste',
-    'focusReporting',
+  const supplied = initial as Readonly<Record<string, unknown>>;
+  const rawInput = optionalInitialBoolean(supplied['rawInput'], 'rawInput');
+  const alternateScreen = optionalInitialBoolean(supplied['alternateScreen'], 'alternateScreen');
+  const bracketedPaste = optionalInitialBoolean(supplied['bracketedPaste'], 'bracketedPaste');
+  const focusReporting = optionalInitialBoolean(supplied['focusReporting'], 'focusReporting');
+  const unicodeGraphemeMode = optionalInitialBoolean(
+    supplied['unicodeGraphemeMode'],
     'unicodeGraphemeMode',
-    'cursorVisible'
-  ] as const;
-  for (const field of booleanFields) {
-    if (Object.hasOwn(initial, field) && typeof initial[field] !== 'boolean') {
-      throw new TypeError(`Terminal initial state ${field} must be a boolean.`);
-    }
-  }
+  );
+  const cursorVisible = optionalInitialBoolean(supplied['cursorVisible'], 'cursorVisible');
+  const mouseReporting = supplied['mouseReporting'];
+  const keyboardProfile = supplied['keyboardProfile'];
   return Object.freeze({
-    ...(initial.rawInput === undefined ? {} : { rawInput: initial.rawInput }),
-    ...(initial.alternateScreen === undefined ? {} : { alternateScreen: initial.alternateScreen }),
-    ...(initial.bracketedPaste === undefined ? {} : { bracketedPaste: initial.bracketedPaste }),
-    ...(initial.focusReporting === undefined ? {} : { focusReporting: initial.focusReporting }),
-    ...(initial.unicodeGraphemeMode === undefined
+    ...(rawInput === undefined ? {} : { rawInput }),
+    ...(alternateScreen === undefined ? {} : { alternateScreen }),
+    ...(bracketedPaste === undefined ? {} : { bracketedPaste }),
+    ...(focusReporting === undefined ? {} : { focusReporting }),
+    ...(unicodeGraphemeMode === undefined
       ? {}
-      : { unicodeGraphemeMode: initial.unicodeGraphemeMode }),
-    ...(initial.cursorVisible === undefined ? {} : { cursorVisible: initial.cursorVisible }),
-    ...(initial.mouseReporting === undefined
+      : { unicodeGraphemeMode }),
+    ...(cursorVisible === undefined ? {} : { cursorVisible }),
+    ...(mouseReporting === undefined
       ? {}
-      : { mouseReporting: normalizeMouseReportingState(initial.mouseReporting) }),
-    ...(initial.keyboardProfile === undefined
+      : { mouseReporting: decodeMouseReportingState(mouseReporting) }),
+    ...(keyboardProfile === undefined
       ? {}
-      : { keyboardProfile: normalizeKeyboardProfile(initial.keyboardProfile) })
+      : { keyboardProfile: decodeKeyboardProfile(keyboardProfile) })
   });
+}
+
+function optionalInitialBoolean(value: unknown, field: string): boolean | undefined {
+  if (value === undefined || typeof value === 'boolean') return value;
+  throw new TypeError(`Terminal initial state ${field} must be a boolean.`);
 }
 
 function cloneTerminalState(

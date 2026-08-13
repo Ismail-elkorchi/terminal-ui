@@ -233,7 +233,7 @@ type VisualizationOptions<
     }
   | {
       readonly presentation: VisualizationPresentation;
-      readonly pointerState?: PointerInteractionState;
+      readonly pointerState?: never;
       readonly disabled?: false;
       readonly readOnly?: never;
       readonly busy?: boolean;

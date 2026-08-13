@@ -16,25 +16,18 @@ export function decodeInputTrigger(value: unknown): InputTrigger {
     throw new TypeError('Input trigger must be an object with a kind.');
   }
   if (value['kind'] === 'text') {
-    assertExactFields(value, ['kind', 'text']);
     if (typeof value['text'] !== 'string' || segmentGraphemes(value['text']).length !== 1) {
       throw new TypeError('Text input trigger must contain exactly one grapheme.');
     }
     return Object.freeze({ kind: 'text', text: value['text'] });
   }
   if (value['kind'] === 'focus') {
-    assertExactFields(value, ['kind', 'focused']);
     if (typeof value['focused'] !== 'boolean') throw new TypeError('Focus input trigger requires focused boolean.');
     return Object.freeze({ kind: 'focus', focused: value['focused'] });
   }
   if (value['kind'] !== 'key' && value['kind'] !== 'codePoint' && value['kind'] !== 'physicalKey') {
     throw new TypeError('Input trigger kind is unsupported.');
   }
-  assertExactFields(value, value['kind'] === 'key'
-    ? ['kind', 'key', 'modifiers', 'eventType', 'location']
-    : value['kind'] === 'codePoint'
-      ? ['kind', 'codePoint', 'source', 'modifiers', 'eventType', 'location']
-      : ['kind', 'codePoint', 'modifiers', 'eventType', 'location']);
   const modifiers = normalizeModifierTrigger(value['modifiers']);
   const eventType = value['eventType'];
   const location = value['location'];
@@ -143,11 +136,11 @@ function unicodeScalar(value: number): number {
 function normalizeModifierTrigger(value: unknown): KeyModifierTrigger | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('Input trigger modifiers must be an object.');
-  assertExactFields(value, [
-    'kind', 'ctrl', 'alt', 'shift', 'meta', 'super', 'hyper', 'capsLock', 'numLock'
-  ]);
   if (value['kind'] === 'any') {
-    if (Object.keys(value).length !== 1) throw new TypeError('Any-modifier trigger cannot define modifier flags.');
+    if (['ctrl', 'alt', 'shift', 'meta', 'super', 'hyper', 'capsLock', 'numLock']
+      .some((field) => value[field] !== undefined)) {
+      throw new TypeError('Any-modifier trigger cannot define modifier flags.');
+    }
     return Object.freeze({ kind: 'any' });
   }
   if (value['kind'] !== undefined && value['kind'] !== 'exact') {
@@ -183,11 +176,6 @@ function normalizeModifierTrigger(value: unknown): KeyModifierTrigger | undefine
 
 function optionalBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
-}
-
-function assertExactFields(value: Readonly<Record<string, unknown>>, supported: readonly string[]): void {
-  const unknown = Object.keys(value).find((field) => !supported.includes(field));
-  if (unknown !== undefined) throw new TypeError(`Input trigger contains unknown field "${unknown}".`);
 }
 
 function isBindableKeyName(value: unknown): value is BindableKeyName {

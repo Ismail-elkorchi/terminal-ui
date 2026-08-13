@@ -1,7 +1,6 @@
 import { createScrollState } from '../../behavior/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
-  assertComponentOptions,
   clipRenderSpans,
   componentScrollbarHitTargets,
   defineComponent,
@@ -16,8 +15,6 @@ import {
 } from '../../component/index.ts';
 import type {
   ComponentMessage,
-  CompleteComponentOptionFields,
-  ComponentOptionKey,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentMeasureInput,
@@ -25,7 +22,9 @@ import type {
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import {
+  assertOptionalCallback,
   assertOptionalEnum,
+  assertRequiredCallback,
   isNonArrayObject,
   isStringMember,
 } from '../../foundation/validation.ts';
@@ -124,40 +123,6 @@ type MenuComponentAction =
   | { readonly kind: 'activate'; readonly event: MenuActivateEvent }
   | { readonly kind: 'pointer'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
 
-function assertMenuFactoryOptions<
-  TOptions extends {
-    readonly disabled?: boolean;
-    readonly inert?: boolean;
-    readonly pointerState?: unknown;
-    readonly readOnly?: unknown;
-    readonly busy?: unknown;
-    readonly onTransition?: unknown;
-    readonly onActivate?: unknown;
-    readonly onPointerAction?: unknown;
-  },
-  const TFields extends readonly ComponentOptionKey<TOptions>[],
->(
-  options: TOptions,
-  component: string,
-  fields: TFields & CompleteComponentOptionFields<TOptions, TFields>,
-): void {
-  assertComponentOptions<TOptions, TFields>(options, component, {
-    fields,
-    callbacks: options.disabled === true || options.inert === true
-      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
-      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
-    forbiddenFields: options.disabled === true
-      ? [
-          'pointerState' as ComponentOptionKey<TOptions>,
-          'readOnly' as ComponentOptionKey<TOptions>,
-          'busy' as ComponentOptionKey<TOptions>,
-        ]
-      : options.inert === true
-        ? ['readOnly' as ComponentOptionKey<TOptions>]
-        : [],
-  });
-}
-
 type MenuFactory = <const TMessage extends ComponentMessage = never>(
   options: MenuOptions<TMessage>,
 ) => Element<TMessage>;
@@ -172,13 +137,6 @@ const instantiateMenu = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/menu',
-  optionFields: {
-    presentation: true,
-    emptyText: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
@@ -199,7 +157,7 @@ const instantiateMenu = defineComponent<
     'empty',
     'scrollbar',
   ],
-  prepare: prepareMenu,
+  prepare: (value, context) => prepareMenu(value, !context.disabled && !context.inert),
   measure: measureMenu,
   render: paintMenu,
   keys: ({ model, busy, readOnly }) => busy ? {} : ({
@@ -226,11 +184,6 @@ const instantiateMenu = defineComponent<
 });
 
 export const menu: MenuFactory = (options) => {
-  assertMenuFactoryOptions(options, 'menu', [
-    'id', 'presentation', 'emptyText', 'scrollbar', 'scrollPolicy', 'pointerState',
-    'disabled', 'readOnly', 'busy', 'inert', 'meta', 'onTransition', 'onActivate',
-    'onPointerAction',
-  ]);
   const shared = menuInstanceOptions(options);
   if (options.disabled === true) return instantiateMenu({
     ...shared,
@@ -242,6 +195,7 @@ export const menu: MenuFactory = (options) => {
     inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   });
+  assertMenuCallbacks(options, 'menu');
   return instantiateMenu({
     ...shared,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
@@ -321,14 +275,6 @@ const instantiateMenuBar = defineComponent<
   typeof popupSlot
 >({
   name: 'terminal-ui/components/menu-bar',
-  optionFields: {
-    items: true,
-    presentation: true,
-    maxVisibleItems: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -350,7 +296,7 @@ const instantiateMenuBar = defineComponent<
     'empty',
     'scrollbar',
   ],
-  prepare: prepareMenuBar,
+  prepare: (value, context) => prepareMenuBar(value, !context.disabled && !context.inert),
   implementationSlots(input) {
     if (input.model.presentation.kind === 'closed') return { popup: undefined };
     return {
@@ -406,11 +352,6 @@ const instantiateMenuBar = defineComponent<
 });
 
 export const menuBar: MenuBarFactory = (options) => {
-  assertMenuFactoryOptions(options, 'menuBar', [
-    'id', 'items', 'presentation', 'maxVisibleItems', 'scrollbar', 'scrollPolicy',
-    'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta', 'onTransition',
-    'onActivate', 'onPointerAction',
-  ]);
   const shared = menuBarInstanceOptions(options);
   if (options.disabled === true) return instantiateMenuBar({
     ...shared,
@@ -422,6 +363,7 @@ export const menuBar: MenuBarFactory = (options) => {
     inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   });
+  assertMenuCallbacks(options, 'menuBar');
   return instantiateMenuBar({
     ...shared,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
@@ -505,16 +447,6 @@ const instantiateContextMenu = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/context-menu',
-  optionFields: {
-    presentation: true,
-    title: true,
-    emptyText: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    placement: true,
-    maxVisibleItems: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
@@ -535,7 +467,7 @@ const instantiateContextMenu = defineComponent<
     'empty',
     'scrollbar',
   ],
-  prepare: prepareContextMenu,
+  prepare: (value, context) => prepareContextMenu(value, !context.disabled && !context.inert),
   compose(input) {
     if (input.model.presentation.kind === 'closed') {
       return text({ id: `${input.id ?? 'context-menu'}:closed`, content: '' });
@@ -592,11 +524,6 @@ const instantiateContextMenu = defineComponent<
 });
 
 export const contextMenu: ContextMenuFactory = (options) => {
-  assertMenuFactoryOptions(options, 'contextMenu', [
-    'id', 'presentation', 'title', 'emptyText', 'scrollbar', 'scrollPolicy', 'placement',
-    'maxVisibleItems', 'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta',
-    'onTransition', 'onActivate', 'onPointerAction',
-  ]);
   const shared = contextMenuInstanceOptions(options);
   if (options.disabled === true) return instantiateContextMenu({
     ...shared,
@@ -608,6 +535,7 @@ export const contextMenu: ContextMenuFactory = (options) => {
     inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   });
+  assertMenuCallbacks(options, 'contextMenu');
   return instantiateContextMenu({
     ...shared,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
@@ -689,18 +617,6 @@ const instantiateMenuTrigger = defineComponent<
   typeof popupSlot
 >({
   name: 'terminal-ui/components/menu-trigger',
-  optionFields: {
-    label: true,
-    items: true,
-    presentation: true,
-    placeholder: true,
-    density: true,
-    placement: true,
-    maxVisibleItems: true,
-    scrollbar: true,
-    scrollPolicy: true,
-    pointerState: true,
-  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
@@ -722,7 +638,7 @@ const instantiateMenuTrigger = defineComponent<
     'empty',
     'scrollbar',
   ],
-  prepare: prepareMenuTrigger,
+  prepare: (value, context) => prepareMenuTrigger(value, !context.disabled && !context.inert),
   implementationSlots(input) {
     if (input.model.presentation.kind === 'closed') return { popup: undefined };
     return {
@@ -802,11 +718,6 @@ const instantiateMenuTrigger = defineComponent<
 });
 
 export const menuTrigger: MenuTriggerFactory = (options) => {
-  assertMenuFactoryOptions(options, 'menuTrigger', [
-    'id', 'label', 'items', 'presentation', 'placeholder', 'density', 'placement',
-    'maxVisibleItems', 'scrollbar', 'scrollPolicy', 'pointerState', 'disabled', 'readOnly',
-    'busy', 'inert', 'meta', 'onTransition', 'onActivate', 'onPointerAction',
-  ]);
   const shared = menuTriggerInstanceOptions(options);
   if (options.disabled === true) return instantiateMenuTrigger({
     ...shared,
@@ -818,6 +729,7 @@ export const menuTrigger: MenuTriggerFactory = (options) => {
     inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
   });
+  assertMenuCallbacks(options, 'menuTrigger');
   return instantiateMenuTrigger({
     ...shared,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
@@ -825,6 +737,19 @@ export const menuTrigger: MenuTriggerFactory = (options) => {
     onAction: (action) => routeMenuTriggerAction(action, options),
   });
 };
+
+function assertMenuCallbacks(
+  options: {
+    readonly onTransition?: unknown;
+    readonly onActivate?: unknown;
+    readonly onPointerAction?: unknown;
+  },
+  component: string,
+): void {
+  assertRequiredCallback(options.onTransition, `${component} onTransition`);
+  assertOptionalCallback(options.onActivate, `${component} onActivate`);
+  assertOptionalCallback(options.onPointerAction, `${component} onPointerAction`);
+}
 
 function menuTriggerComponentTransition(
   transition: MenuTriggerTransition,
@@ -868,12 +793,12 @@ function routeMenuTriggerAction<TMessage extends ComponentMessage>(
   return options.onPointerAction?.(action.action) ?? ignoreMessage();
 }
 
-function prepareMenu(value: Readonly<MenuOwnOptions>): MenuModel {
+function prepareMenu(value: Readonly<MenuOwnOptions>, pointerAvailable: boolean): MenuModel {
   const presentation = prepareMenuPresentation(value.presentation, 'menu presentation');
   const emptyText = optionalText(value.emptyText, 'menu emptyText') ?? 'No commands';
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'menu scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'menu scrollPolicy');
-  const pointerState = preparePointerInteractionState(value.pointerState, 'menu pointerState');
+  const pointerState = preparePointerInteractionState(value.pointerState, 'menu pointerState', pointerAvailable);
   const scroll = presentation.scroll;
   const rows = flattenMenu(presentation.items);
   return {
@@ -1330,7 +1255,7 @@ function activeMenuItem(model: MenuModel): MenuRow | undefined {
   return id === undefined ? undefined : model.rows.find((item) => item.id === id && !item.disabled);
 }
 
-function prepareMenuBar(value: Readonly<MenuBarOwnOptions>): MenuBarModel {
+function prepareMenuBar(value: Readonly<MenuBarOwnOptions>, pointerAvailable: boolean): MenuBarModel {
   if (!Array.isArray(value.items)) {
     throw new TypeError('menuBar items must be an array.');
   }
@@ -1339,7 +1264,7 @@ function prepareMenuBar(value: Readonly<MenuBarOwnOptions>): MenuBarModel {
   const maxVisibleItems = positiveInteger(value.maxVisibleItems, 12, 'menuBar maxVisibleItems');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'menuBar scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'menuBar scrollPolicy');
-  const pointerState = preparePointerInteractionState(value.pointerState, 'menuBar pointerState');
+  const pointerState = preparePointerInteractionState(value.pointerState, 'menuBar pointerState', pointerAvailable);
   return {
     items,
     presentation,
@@ -1509,7 +1434,7 @@ function contextMenuAccessibility(
   };
 }
 
-function prepareContextMenu(value: Readonly<ContextOwnOptions>): ContextMenuModel {
+function prepareContextMenu(value: Readonly<ContextOwnOptions>, pointerAvailable: boolean): ContextMenuModel {
   const presentation = prepareContextPresentation(value.presentation);
   const title = optionalText(value.title, 'contextMenu title');
   const emptyText = optionalText(value.emptyText, 'contextMenu emptyText') ?? 'No commands';
@@ -1524,7 +1449,7 @@ function prepareContextMenu(value: Readonly<ContextOwnOptions>): ContextMenuMode
     value.scrollPolicy,
     'contextMenu scrollPolicy',
   );
-  const pointerState = preparePointerInteractionState(value.pointerState, 'contextMenu pointerState');
+  const pointerState = preparePointerInteractionState(value.pointerState, 'contextMenu pointerState', pointerAvailable);
   return {
     presentation,
     ...(title === undefined ? {} : { title: clean(title) }),
@@ -1551,7 +1476,7 @@ function prepareContextPresentation(value: ContextMenuPresentation): ContextMenu
   };
 }
 
-function prepareMenuTrigger(value: Readonly<MenuTriggerOwnOptions>): MenuTriggerModel {
+function prepareMenuTrigger(value: Readonly<MenuTriggerOwnOptions>, pointerAvailable: boolean): MenuTriggerModel {
   if (!Array.isArray(value.items)) {
     throw new TypeError('menuTrigger items must be an array.');
   }
@@ -1571,7 +1496,7 @@ function prepareMenuTrigger(value: Readonly<MenuTriggerOwnOptions>): MenuTrigger
     value.scrollPolicy,
     'menuTrigger scrollPolicy',
   );
-  const pointerState = preparePointerInteractionState(value.pointerState, 'menuTrigger pointerState');
+  const pointerState = preparePointerInteractionState(value.pointerState, 'menuTrigger pointerState', pointerAvailable);
   return {
     label: clean(label),
     items,
