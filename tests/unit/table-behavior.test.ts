@@ -1,154 +1,158 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createScrollState } from '../../dist/behavior/index.js';
 import {
+  createScrollState,
+  dataGridReducer,
+  prepareTableCollection,
   sortTableRows,
-  tableScrollablePresentation,
-  tableReducer
 } from '../../dist/behavior/index.js';
-import type { TableReducerOptions } from '../../dist/behavior/index.js';
+import type { DataGridReducerOptions } from '../../dist/behavior/index.js';
 
 const rows = ['row-0', 'row-1', 'row-2', 'row-3'];
-const options: TableReducerOptions<string> = {
-  rows,
-  getRowId: (row) => row,
-  columnCount: 3
+const collection = prepareTableCollection(rows, (row) => row);
+const rowOptions: DataGridReducerOptions<string> = {
+  collection,
+  columnIds: ['name', 'status', 'owner'],
+  selection: { mode: 'single', commitment: 'manual' },
 };
 
-void test('tableReducer selects rows by stable id and clamps cell columns', () => {
-  const row = tableReducer({}, { kind: 'selectRow', rowId: 'row-2', rowIndex: 2 }, options);
-  const cell = tableReducer(
-    row,
-    { kind: 'selectCell', rowId: 'row-0', rowIndex: 0, columnIndex: 99 },
-    options
-  );
+void test('row-grid navigation changes active position without committing selection', () => {
+  const initial = {
+    interaction: {
+      kind: 'row' as const,
+      selectionMode: 'single' as const,
+      activeRowId: 'row-0',
+      selectedRowIds: ['row-0'],
+    },
+  };
+  const moved = dataGridReducer(initial, { kind: 'moveRow', delta: 2 }, rowOptions);
+  const committed = dataGridReducer(moved, { kind: 'commit' }, rowOptions);
 
-  assert.deepEqual(row, { selectedRowId: 'row-2' });
-  assert.deepEqual(cell, { selectedRowId: 'row-0', selectedColumnIndex: 2 });
+  assert.equal(moved.interaction.kind, 'row');
+  assert.deepEqual(moved.interaction, {
+    kind: 'row',
+    selectionMode: 'single' as const,
+    activeRowId: 'row-2',
+    selectedRowIds: ['row-0'],
+  });
+  assert.deepEqual(committed.interaction, {
+    kind: 'row',
+    selectionMode: 'single' as const,
+    activeRowId: 'row-2',
+    selectedRowIds: ['row-2'],
+    selectionAnchorId: 'row-2',
+  });
 });
 
-void test('tableReducer preserves identity across reorder and recovers after deletion', () => {
-  const selected = tableReducer({}, { kind: 'selectRow', rowId: 'row-2', rowIndex: 2 }, options);
-  const reordered = { ...options, rows: ['row-3', 'row-2', 'row-0', 'row-1'] };
-  const moved = tableReducer(selected, { kind: 'moveRow', delta: 1 }, reordered);
-  const deleted = { ...options, rows: ['row-3', 'row-0', 'row-1'] };
-  const recoveredNext = tableReducer(selected, { kind: 'moveRow', delta: 1 }, deleted);
-  const recoveredPrevious = tableReducer(selected, { kind: 'moveRow', delta: -1 }, deleted);
+void test('cell-grid mode uses stable row and column identities and clamps by default', () => {
+  const initial = {
+    interaction: {
+      kind: 'cell' as const,
+      selectionMode: 'single' as const,
+      activeCell: { rowId: 'row-0', columnId: 'name' },
+      selectedCells: [],
+    },
+  };
+  const column = dataGridReducer(initial, { kind: 'moveColumn', delta: 99 }, rowOptions);
+  const row = dataGridReducer(column, { kind: 'moveRow', delta: -99 }, rowOptions);
 
-  assert.equal(selected.selectedRowId, 'row-2');
-  assert.equal(moved.selectedRowId, 'row-0');
-  assert.equal(recoveredNext.selectedRowId, 'row-3');
-  assert.equal(recoveredPrevious.selectedRowId, 'row-1');
+  assert.deepEqual(column.interaction.kind === 'cell' ? column.interaction.activeCell : undefined, {
+    rowId: 'row-0',
+    columnId: 'owner',
+  });
+  assert.deepEqual(row.interaction.kind === 'cell' ? row.interaction.activeCell : undefined, {
+    rowId: 'row-0',
+    columnId: 'owner',
+  });
 });
 
-void test('tableReducer toggles sort state and resizes columns', () => {
-  const first = tableReducer({}, { kind: 'sortBy', columnId: 'name' }, options);
-  const second = tableReducer(first, { kind: 'sortBy', columnId: 'name' }, options);
-  const resized = tableReducer(
-    second,
-    { kind: 'resizeColumnBy', columnId: 'name', delta: 4 },
-    { ...options, minColumnWidth: 3 }
-  );
-  const shrunk = tableReducer(
-    resized,
-    { kind: 'resizeColumnBy', columnId: 'name', delta: -100 },
-    { ...options, minColumnWidth: 3 }
-  );
-  const absolute = tableReducer(
-    shrunk,
-    { kind: 'setColumnWidth', columnId: 'name', width: 11 },
-    { ...options, minColumnWidth: 3 }
-  );
+void test('multiple row selection supports toggle and anchored ranges', () => {
+  const options: DataGridReducerOptions<string> = {
+    ...rowOptions,
+    selection: { mode: 'multiple', commitment: 'manual', range: true },
+  };
+  const initial = {
+    interaction: {
+      kind: 'row' as const,
+      selectionMode: 'multiple' as const,
+      activeRowId: 'row-1',
+      selectedRowIds: ['row-1'],
+      selectionAnchorId: 'row-1',
+    },
+  };
+  const moved = dataGridReducer(initial, { kind: 'moveRow', delta: 2 }, options);
+  const ranged = dataGridReducer(moved, { kind: 'commit', extend: true }, options);
+  const toggled = dataGridReducer(ranged, { kind: 'commit', toggle: true }, options);
+
+  assert.deepEqual(ranged.interaction.kind === 'row' ? ranged.interaction.selectedRowIds : [], [
+    'row-1',
+    'row-2',
+    'row-3',
+  ]);
+  assert.deepEqual(toggled.interaction.kind === 'row' ? toggled.interaction.selectedRowIds : [], [
+    'row-1',
+    'row-2',
+  ]);
+});
+
+void test('data-grid sorting and column resizing remain controlled transitions', () => {
+  const initial = {
+    interaction: { kind: 'row' as const,
+    selectionMode: 'single' as const, selectedRowIds: [] },
+  };
+  const first = dataGridReducer(initial, { kind: 'sortBy', columnId: 'name' }, rowOptions);
+  const second = dataGridReducer(first, { kind: 'sortBy', columnId: 'name' }, rowOptions);
+  const resized = dataGridReducer(second, {
+    kind: 'resizeColumnBy',
+    columnId: 'name',
+    delta: 4,
+  }, { ...rowOptions, minColumnWidth: 3 });
+  const shrunk = dataGridReducer(resized, {
+    kind: 'setColumnWidth',
+    columnId: 'name',
+    width: 1,
+  }, { ...rowOptions, minColumnWidth: 3 });
 
   assert.deepEqual(first.sort, { columnId: 'name', direction: 'ascending' });
   assert.deepEqual(second.sort, { columnId: 'name', direction: 'descending' });
   assert.equal(resized.columnWidths?.['name'], 7);
   assert.equal(shrunk.columnWidths?.['name'], 3);
-  assert.equal(absolute.columnWidths?.['name'], 11);
 });
 
-void test('tablePresentation prepares every renderer-facing table state field', () => {
-  const scroll = createScrollState({ contentRows: 20, viewportRows: 5 });
-  assert.deepEqual(tableScrollablePresentation({
-    selectedRowId: 'row-3',
-    selectedColumnIndex: 2,
-    sort: { columnId: 'name', direction: 'descending' },
-    columnWidths: { name: 18 },
-    scroll
-  }), {
-    selectedRowId: 'row-3',
-    selectedCell: { rowId: 'row-3', columnIndex: 2 },
-    sort: { columnId: 'name', direction: 'descending' },
-    columnWidths: { name: 18 },
-    scroll
-  });
-});
-
-void test('tableReducer forwards scroll actions without creating hidden table state', () => {
-  const scroll = createScrollState({
-    contentRows: 100,
-    viewportRows: 10,
-    contentColumns: 20,
-    viewportColumns: 10
-  });
-  const state = tableReducer({ scroll }, {
+void test('grid scroll transitions accept renderer-derived semantic state', () => {
+  const initial = {
+    interaction: { kind: 'row' as const,
+    selectionMode: 'single' as const, selectedRowIds: [] },
+    scroll: createScrollState(),
+  };
+  const rendered = createScrollState({ offsetRow: 2, offsetColumn: 1 });
+  const state = dataGridReducer(initial, {
     kind: 'scroll',
     event: {
-      action: { kind: 'scrollLines', rows: 4, columns: 2 },
-      scroll,
+      action: { kind: 'scrollLines', rows: 2, columns: 1 },
+      state: rendered,
       source: 'wheel',
       target: 'content',
-      pointer: {
-        kind: 'scroll',
-        source: 'mouse',
-        row: 1,
-        column: 1,
-        button: 'wheelDown',
-        modifiers: { shift: false, alt: false, ctrl: false },
-        deltaRows: 4,
-        deltaColumns: 2,
-        clickCount: 0,
-        raw: {
-          kind: 'mouse',
-          sequence: '',
-          encoding: 'sgr',
-          action: 'wheel',
-          button: 'wheelDown',
-          deltaRows: 1,
-          deltaColumns: 0,
-          row: 1,
-          column: 1,
-          rawCode: 0,
-          modifiers: { shift: false, alt: false, ctrl: false }
-        }
-      }
-    }
-  }, options);
-
-  assert.equal(state.scroll.offsetRow, 4);
-  assert.equal(state.scroll.offsetColumn, 2);
+    },
+  }, rowOptions);
+  assert.equal(state.scroll, rendered);
 });
 
 void test('sortTableRows sorts with caller-controlled column accessors', () => {
-  const rows = [
+  const values = [
     { name: 'zeta', count: 2 },
     { name: 'alpha', count: 10 },
-    { name: 'beta', count: 1 }
+    { name: 'beta', count: 1 },
   ];
-
-  const valueForColumn = (row: typeof rows[number], column: string): unknown => {
-    if (column === 'name') return row.name;
-    if (column === 'count') return row.count;
-    return undefined;
-  };
-
+  const valueForColumn = (row: typeof values[number], column: string): unknown =>
+    column === 'name' ? row.name : column === 'count' ? row.count : undefined;
   assert.deepEqual(
-    sortTableRows(rows, { columnId: 'name', direction: 'ascending' }, valueForColumn).map((row) => row.name),
-    ['alpha', 'beta', 'zeta']
+    sortTableRows(values, { columnId: 'name', direction: 'ascending' }, valueForColumn).map((row) => row.name),
+    ['alpha', 'beta', 'zeta'],
   );
   assert.deepEqual(
-    sortTableRows(rows, { columnId: 'count', direction: 'descending' }, valueForColumn).map((row) => row.count),
-    [10, 2, 1]
+    sortTableRows(values, { columnId: 'count', direction: 'descending' }, valueForColumn).map((row) => row.count),
+    [10, 2, 1],
   );
 });

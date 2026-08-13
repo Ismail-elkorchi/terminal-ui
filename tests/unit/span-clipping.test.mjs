@@ -15,7 +15,7 @@ import {
   renderElementFrame,
   wrapRenderSpans
 } from '../../dist/renderer/index.js';
-import { table, tableColumn } from '../../dist/components/index.js';
+import { dataGrid, tableColumn } from '../../dist/components/index.js';
 
 const red = { fg: { kind: 'ansi', value: 1 } };
 const blue = { fg: { kind: 'ansi', value: 4 } };
@@ -110,11 +110,15 @@ test('render span utilities measure compact pad clip and align while preserving 
   ]);
 });
 
-test('table clipping keeps multi-span cell styles instead of flattening to plain text', () => {
-  const frame = renderElementFrame(table({
+test('dataGrid clipping keeps multi-span cell styles instead of flattening to plain text', () => {
+  const frame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'styled-table',
-    presentation: { selectedRowId: '0' },
+    id: 'styled-dataGrid',
+    presentation: {
+      interaction: { kind: 'row',
+      selectionMode: 'single', activeRowId: '0', selectedRowIds: ['0'] }
+    },
+    onTransition: (action) => action,
     rows: [{ value: 'unused' }],
     columns: [tableColumn({
       id: 'state-0', value: (row) => Array.isArray(row) ? row[0] : row,
@@ -133,7 +137,7 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
       .filter((cell) =>
         cell.row === 2
         && cell.column >= 3
-        && cell.source?.elementId === 'styled-table'
+        && cell.source?.elementId === 'styled-dataGrid'
       )
       .map((cell) => [cell.text, cell.style]),
     [
@@ -147,16 +151,17 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
   );
 });
 
-test('table horizontal scrolling keeps span styles after clipped cells are shifted', () => {
-  const frame = renderElementFrame(table({
+test('dataGrid horizontal scrolling keeps span styles after clipped cells are shifted', () => {
+  const frame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'scrolled-styled-table',
+    id: 'scrolled-styled-dataGrid',
     presentation: {
-      selectedRowId: '0',
-      scroll: createScrollState({ offsetColumn: 4, contentRows: 1, viewportRows: 1, contentColumns: 10, viewportColumns: 6 })
+      interaction: { kind: 'row',
+      selectionMode: 'single', activeRowId: '0', selectedRowIds: ['0'] },
+      scroll: createScrollState({ offsetColumn: 4 })
     },
     rows: [{ value: 'unused' }],
-    onAction: (action) => action,
+    onTransition: (action) => action,
     columns: [tableColumn({
       id: 'column-0', value: (row) => Array.isArray(row) ? row[0] : row,
       width: 8,
@@ -170,7 +175,7 @@ test('table horizontal scrolling keeps span styles after clipped cells are shift
   assert.equal(renderFramePlain(frame), 'ftrig…');
   assert.deepEqual(
     frame.cells
-      .filter((cell) => cell.source?.elementId === 'scrolled-styled-table')
+      .filter((cell) => cell.source?.elementId === 'scrolled-styled-dataGrid')
       .map((cell) => [cell.text, cell.style]),
     [
       ['f', selectedRed],

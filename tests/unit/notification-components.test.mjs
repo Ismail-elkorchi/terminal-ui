@@ -252,7 +252,7 @@ test('notificationHistory rejects invalid runtime contracts during construction'
   assert.throws(() => notificationHistory({
     id: 'missing-handler',
     items: []
-  }), /requires onAction to map its semantic actions/u);
+  }), /onAction must be a function/u);
 });
 
 function colorCapabilities() {

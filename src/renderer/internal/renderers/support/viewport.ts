@@ -78,11 +78,12 @@ function viewportVisualStateForSize(
   const scroll = normalizeScrollState({
     offsetRow: finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'offsetRow')),
     offsetColumn: finiteNonNegativeIntegerOrZero(numberProp(renderNode, 'offsetColumn')),
+    followTail: false
+  }, {
     contentRows,
     contentColumns,
     viewportRows: bounds.height,
     viewportColumns: bounds.width,
-    followTail: false
   });
   return {
     offsetRow: scroll.offsetRow,

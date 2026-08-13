@@ -3,7 +3,7 @@ import test from 'node:test';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { diffFrames, renderDiffAnsi, renderElementFrame, renderFrameDebug, renderFramePlain } from '../../dist/renderer/index.js';
-import { activityIndicator, canvas, list, progressBar, statusBar, table, text, textInput } from '../../dist/components/index.js';
+import { activityIndicator, canvas, listbox, progressBar, statusBar, dataGrid, text, textInput } from '../../dist/components/index.js';
 import { column, row, viewport } from '../../dist/layout/index.js';
 
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
@@ -65,25 +65,28 @@ test('one width profile governs nested buffers and incompatible profiles force a
   assert.equal(diffFrames(narrow, wide).fullRewrite, true);
 });
 
-test('TUI frame cursor follows the selected visible list item', () => {
+test('TUI frame cursor follows the centered active listbox item', () => {
   const items = Array.from({ length: 10 }, (_value, index) => `Item ${index}`);
-  const frame = renderElementFrame(list({
-    id: 'cursor-list',
+  const frame = renderElementFrame(listbox({
+    id: 'cursor-listbox',
     items,
     projectItem: (item) => ({ id: item, label: item }),
-    selectedId: 'Item 6',
-    onAction: (action) => action
+    presentation: {
+      activeId: 'Item 6',
+      selection: { mode: 'single', selectedId: 'Item 6' }
+    },
+    onTransition: (action) => action
   }), { columns: 16, rows: 5 });
   const output = renderFramePlain(frame);
   const addressed = renderFrameDebug(frame);
 
-  assert.deepEqual(frame.focusPath, ['cursor-list']);
+  assert.deepEqual(frame.focusPath, ['cursor-listbox']);
   assert.deepEqual(frame.cursor, {
     row: 3,
     column: 1,
     source: {
-      elementId: 'cursor-list',
-      elementKind: 'terminal-ui/components/list',
+      elementId: 'cursor-listbox',
+      elementKind: 'terminal-ui/components/listbox',
       rendererFamily: 'component',
       cellRole: 'cursor',
       partName: 'cursor',
@@ -146,11 +149,27 @@ test('renderDiffAnsi serializes clear, write, and structural cursor state', () =
 });
 
 
-test('TUI rendering windows large list and table components to visible height', () => {
+test('TUI rendering windows large listbox and dataGrid components to visible height', () => {
   const manyItems = Array.from({ length: 1000 }, (_value, index) => `Item ${index}`);
   const frame = renderElementFrame(column([
-    list({ id: 'many-items', items: manyItems, projectItem: (item) => ({ id: item, label: item }), selectedId: 'Item 990' }),
-    table({ id: 'many-rows', rows: manyItems.map((item) => [item, 'value']), getRowId: (_row, index) => String(index) })
+    listbox({
+      id: 'many-items',
+      items: manyItems,
+      projectItem: (item) => ({ id: item, label: item }),
+      presentation: {
+        activeId: 'Item 990',
+        selection: { mode: 'single', selectedId: 'Item 990' }
+      },
+      onTransition: (action) => action
+    }),
+    dataGrid({
+      id: 'many-rows',
+      rows: manyItems.map((item) => [item, 'value']),
+      getRowId: (_row, index) => String(index),
+      presentation: { interaction: { kind: 'row',
+      selectionMode: 'single', selectedRowIds: [] } },
+      onTransition: (action) => action
+    })
   ], {
     sizes: [{ kind: 'fill' }, { kind: 'fill' }]
   }), { columns: 24, rows: 8 });

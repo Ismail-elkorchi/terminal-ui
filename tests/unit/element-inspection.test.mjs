@@ -7,7 +7,8 @@ import {
   inspectElement,
   notificationHistory,
   notificationRegion,
-  select,
+  passwordInput,
+  combobox,
   text,
   textInput
 } from '../../dist/components/index.js';
@@ -38,72 +39,18 @@ test('element inspection exposes an immutable factory description without implem
 
   const inspection = inspectElement(element);
 
-  assert.deepEqual(inspection, {
-    factory: { category: 'layout', name: 'surface' },
-    id: 'panel',
-    inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
-    meta: {
-      accessibility: false,
-      styled: false,
-      styleParts: [],
-      styleStates: [],
-      layered: false
-    },
-    children: [{
-      factory: { category: 'layout', name: 'column' },
-      id: 'controls',
-      inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
-      meta: {
-        accessibility: false,
-        styled: false,
-        styleParts: [],
-        styleStates: [],
-        layered: false
-      },
-      children: [
-        {
-          factory: { category: 'component', name: 'terminal-ui/components/text-input' },
-          component: {
-            identity: 'required',
-            structure: 'leaf',
-            semantics: 'semantic',
-            states: ['disabled', 'readOnly'],
-            actions: ['keyboard', 'input', 'paste', 'pointer']
-          },
-          id: 'query',
-          inputs: { keyboard: true, text: true, paste: true, focus: 'item' },
-          meta: {
-            accessibility: false,
-            styled: true,
-            styleParts: ['value'],
-            styleStates: ['focused'],
-            layered: false
-          },
-          children: []
-        },
-        {
-          factory: { category: 'component', name: 'terminal-ui/components/button' },
-          component: {
-            identity: 'required',
-            structure: 'leaf',
-            semantics: 'semantic',
-            states: ['disabled', 'busy'],
-            actions: ['keyboard', 'pointer']
-          },
-          id: 'submit',
-          inputs: { keyboard: true, text: false, paste: false, focus: 'item' },
-          meta: {
-            accessibility: false,
-            styled: false,
-            styleParts: [],
-            styleStates: [],
-            layered: false
-          },
-          children: []
-        }
-      ]
-    }]
-  });
+  assert.equal(inspection.factory.name, 'surface');
+  assert.equal(inspection.id, 'panel');
+  const controls = inspection.children[0];
+  const query = controls?.children[0];
+  const submit = controls?.children[1];
+  assert.equal(controls?.factory.name, 'column');
+  assert.equal(query?.component?.accessibleRole, 'textbox');
+  assert.deepEqual(query?.component?.actions, ['keyboard', 'input', 'paste', 'pointer']);
+  assert.deepEqual(query?.semantic?.validation, { required: false, invalid: false });
+  assert.deepEqual(query?.semantic?.state.presentation, { value: '', cursor: 0 });
+  assert.equal(submit?.component?.accessibleRole, 'button');
+  assert.equal(submit?.semantic?.state.accessibleName, 'Search');
   assert.equal(Object.isFrozen(inspection), true);
   assert.equal(Object.isFrozen(inspection.children), true);
   assert.equal('props' in inspection, false);
@@ -128,6 +75,25 @@ test('element inspection identifies defined components without exposing their de
   });
   assert.equal(inspection.id, 'plug-in');
   assert.equal('definition' in inspection, false);
+});
+
+test('element inspection never exposes sensitive prepared input', () => {
+  const inspection = inspectElement(passwordInput({
+    id: 'secret',
+    presentation: { value: 'correct horse battery staple', cursor: 28 },
+    required: true,
+    disabled: true
+  }));
+  const serialized = JSON.stringify(inspection);
+
+  assert.doesNotMatch(serialized, /correct horse battery staple/u);
+  assert.deepEqual(inspection.semantic?.state, { redacted: true });
+  assert.deepEqual(inspection.semantic?.validation, { required: true, invalid: false });
+});
+
+test('element inspection resolves model-dependent accessibility roles', () => {
+  assert.equal(inspectElement(text({ content: 'Title', textRole: 'heading' })).component?.accessibleRole, 'heading');
+  assert.equal(inspectElement(text({ content: 'Body' })).component?.accessibleRole, 'text');
 });
 
 test('element inspection keeps factory category independent from diagnostic names', () => {
@@ -222,6 +188,7 @@ test('element inspection reports factory-declared focus capability instead of ge
     id: 'focusable-component-inspection',
     definition: {
       ...leafComponentDefinition,
+      accessibleRole: 'button',
       render() {},
       accessibility: ({ id, focused }) => ({
         id,
@@ -261,12 +228,15 @@ test('element inspection reports factory-declared focus capability instead of ge
 });
 
 test('element inspection omits private implementation children with no public factory', () => {
-  const inspection = inspectElement(select({
+  const inspection = inspectElement(combobox({
     id: 'choice',
     label: 'Choice',
     options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
-    presentation: { kind: 'open', selected: 'alpha', highlighted: 'alpha' },
-    onAction: () => ignoreMessage()
+    presentation: {
+      open: true,
+      interaction: { activeId: 'alpha', selection: { mode: 'single', selectedId: 'alpha' } }
+    },
+    onTransition: () => ignoreMessage()
   }));
 
   assert.deepEqual(inspection.children, []);

@@ -4,16 +4,16 @@ import test from 'node:test';
 import {
   checkbox,
   commandInput,
-  list,
+  dataGrid,
+  listbox,
   searchPicker,
   slider,
-  table,
   tabs,
   text,
   textArea
 } from '../../dist/components/index.js';
-import { defineComponent } from '../../dist/component/index.js';
-import type { TabAction } from '../../dist/components/index.js';
+import { defineComponent, ignoreMessage } from '../../dist/component/index.js';
+import type { TabCloseEvent } from '../../dist/components/index.js';
 import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import type { InputEvent } from '../../dist/input/index.js';
@@ -30,15 +30,16 @@ void test('component construction and rendering do not execute event handlers', 
   const elements = [
     checkbox({ id: 'check', label: 'Check', checked: false, onAction: message }),
     slider({ id: 'slider', label: 'Value', value: 4, onAction: message }),
-    list({ id: 'list', items: ['a'], projectItem: (item) => ({ id: item, label: item }), selectedId: 'a', onAction: message }),
-    table({ id: 'table', rows: ['a'], getRowId: (row) => row, presentation: { selectedRowId: 'a' }, onAction: message }),
+    listbox({ id: 'listbox', items: ['a'], projectItem: (item) => ({ id: item, label: item }), presentation: { activeId: 'a', selection: { mode: 'single', selectedId: 'a' } }, onTransition: message }),
+    dataGrid({ id: 'grid', rows: ['a'], getRowId: (row) => row, presentation: { interaction: { kind: 'row',
+    selectionMode: 'single' as const, activeRowId: 'a', selectedRowIds: ['a'] } }, onTransition: message }),
     textArea({ id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
     commandInput({
       id: 'command',
       presentation: { value: 'a', cursor: 0, suggestions: [] },
-      onAction: message
+      onTransition: message
     }),
-    searchPicker({ id: 'searchPicker', searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onAction: message })
+    searchPicker({ id: 'searchPicker', presentation: { query: { text: '', mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
   ];
 
   for (const element of elements) renderElementFrame(element, { columns: 40, rows: 6 });
@@ -60,9 +61,11 @@ void test('component key handlers run at dispatch time with the normalized event
   }
   const field = defineComponent<Record<never, never>, Record<never, never>, FieldAction>({
     name: 'terminal-ui-tests/components/deferred-key-field',
+    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'textbox',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render: () => undefined,
     focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
@@ -116,7 +119,7 @@ void test('tabs route delete to the selected close action without selecting twic
   }
   interface Message {
     readonly kind: 'tabs';
-    readonly action: TabAction;
+    readonly action: TabCloseEvent;
   }
   const messages: Message[] = [];
   const app = defineTui<State, Message>({
@@ -128,12 +131,13 @@ void test('tabs route delete to the selected close action without selecting twic
     },
     view: (state) => tabs({
       id: 'tabs',
-      selected: state.selected,
+      presentation: { activeId: state.selected, selectedId: state.selected },
       tabs: [
         { id: 'first', label: 'First', panel: text({ content: 'First' }) },
         { id: 'second', label: 'Second', closable: true, panel: text({ content: 'Second' }) }
       ],
-      onAction: (action) => ({ kind: 'tabs', action })
+      onTransition: () => ignoreMessage(),
+      onClose: (action) => ({ kind: 'tabs', action })
     })
   });
   const runtime = createTuiRuntime({
@@ -151,13 +155,15 @@ void test('tabs route delete to the selected close action without selecting twic
 void test('tabs do not consume keys handled by the selected panel', async () => {
   type Message =
     | { readonly kind: 'panel' }
-    | { readonly kind: 'tabs'; readonly action: TabAction };
+    | { readonly kind: 'tabs'; readonly action: import('../../dist/components/index.js').TabsTransition };
   const messages: Message[] = [];
   const focusPanel = defineComponent({
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'document',
     name: 'terminal-ui-tests/components/focusPanel',
+    optionFields: {},
     parts: [],
     measure: () => ({
       minWidth: 0,
@@ -183,13 +189,13 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
     },
     view: () => tabs({
       id: 'tabs',
-      selected: 'current',
+      presentation: { activeId: 'current', selectedId: 'current' },
       tabs: [{
         id: 'current',
         label: 'Current',
         panel: focusPanel({ id: 'panel' })
       }],
-      onAction: (action) => ({ kind: 'tabs', action })
+      onTransition: (action) => ({ kind: 'tabs', action })
     }),
     inputBindings: [{
       id: 'panel-enter',
@@ -235,9 +241,7 @@ void test('checkbox keyboard and pointer activation evaluate the same handler at
       checked: state.checked,
       onAction: (action) => {
         actionKinds.push(action.kind);
-        return {
-          checked: action.kind === 'change' ? action.checked : state.checked
-        };
+        return { checked: action.checked };
       }
     })
   });

@@ -18,12 +18,14 @@ test('TUI tabs expose clickable tab hit targets', async () => {
     update: (_state, message) => ({ state: { selected: message.selected } }),
     view: (state) => tabs({
       id: 'click-tabs',
-      selected: state.selected,
+      presentation: { activeId: state.selected, selectedId: state.selected },
       tabs: [
         { id: 'left', label: 'Left', panel: text({ content: 'left panel' }) },
         { id: 'right', label: 'Right', panel: text({ content: 'right panel' }) }
       ],
-      onAction: (action) => action.kind === 'select' ? { selected: action.id } : { selected: state.selected }
+      onTransition: (action) => action.kind === 'select'
+        ? { selected: action.id }
+        : { selected: state.selected }
     })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 32, rows: 4 } });
@@ -151,6 +153,7 @@ test('TUI runtime uses committed hit targets without recomputing renderer hit ta
   let hitTargetCalls = 0;
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'cached hit' }]);
     },

@@ -63,9 +63,11 @@ drawing.rect({ x: 0, y: 0, width: 2, height: 2 }, { fill: { text: '*' } });
 
 const writeOnly = defineComponent({
   name: 'terminal-ui-tests/components/write-only',
+  optionFields: {},
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'text',
   states: ['inert'],
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 2, preferredHeight: 1 }),
   render({ target }) {
@@ -88,9 +90,11 @@ writeOnly({
 
 const rendererWithUnsupportedPlacement: SemanticLeafComponentDefinition = {
   name: 'terminal-ui-tests/components/placed-leaf',
+  optionFields: {},
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'text',
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined,
   accessibility: ({ id }) => ({ id, role: 'text', label: id }),
@@ -107,6 +111,7 @@ const componentMeasureViewport = componentMeasureInput.viewport;
 
 const interactiveDecoration: DecorativeLeafComponentDefinition = {
   name: 'terminal-ui-tests/components/interactive-decoration',
+  optionFields: {},
   identity: 'optional',
   structure: 'leaf',
   semantics: 'decorative',
@@ -119,6 +124,7 @@ void interactiveDecoration;
 
 const decoration = defineComponent({
   name: 'terminal-ui-tests/components/decoration',
+  optionFields: {},
   identity: 'optional',
   structure: 'leaf',
   semantics: 'decorative',
@@ -135,6 +141,7 @@ decoration({
 // @ts-expect-error semantic leaf components require accessibility
 const missingAccessibility: SemanticLeafComponentDefinition = {
   name: 'terminal-ui-tests/components/missing-accessibility',
+  optionFields: {},
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',

@@ -1,6 +1,7 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
   clipRenderSpans,
+  assertComponentOptions,
   defineComponent,
   ignoreMessage,
   measureRenderSpans,
@@ -19,6 +20,8 @@ import { assertOptionalEnum, isNonArrayObject } from '../../foundation/validatio
 import type { Rect } from '../../geometry/types.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
+import type { PointerInteractionAction } from '../../interaction/index.ts';
+import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import {
   fillTextCells,
   measureTextCells,
@@ -58,6 +61,16 @@ interface NotificationOwnOptions {
   readonly pointerState?: PointerInteractionState;
 }
 
+type NotificationRegionComponentAction = NotificationRegionAction | {
+  readonly kind: 'pointerLifecycle';
+  readonly action: PointerInteractionAction;
+};
+
+type NotificationHistoryComponentAction = NotificationHistoryAction | {
+  readonly kind: 'pointerLifecycle';
+  readonly action: PointerInteractionAction;
+};
+
 const parts = [
   'background',
   'border',
@@ -78,9 +91,11 @@ const passiveRegion = defineComponent<
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/notification-region',
+  optionFields: { items: true, placement: true, maxWidth: true, pointerState: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'status',
   metadata: ['focus', 'layer', 'styles'],
   parts,
   prepare: (value) => prepareNotifications(value, false, false),
@@ -92,22 +107,27 @@ const passiveRegion = defineComponent<
 const activeRegion = defineComponent<
   Omit<NotificationOwnOptions, 'selectedId'>,
   NotificationModel,
-  NotificationRegionAction,
+  NotificationRegionComponentAction,
   NotificationStylePart,
   readonly [],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/notification-region',
+  optionFields: { items: true, placement: true, maxWidth: true, pointerState: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'status',
   metadata: ['focus', 'layer', 'styles'],
   parts,
   prepare: (value) => prepareNotifications(value, false, true),
   measure: measureNotifications,
   render: paintNotifications,
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
+  },
   focusTargets: (input) => focusTargets(input, 'region'),
   hitTargets: (input) => hitTargets<NotificationRegionAction>(input, 'region'),
   accessibility: (input) => accessibleNotifications(input, 'region', true),
@@ -116,16 +136,24 @@ const activeRegion = defineComponent<
 const history = defineComponent<
   NotificationOwnOptions,
   NotificationModel,
-  NotificationHistoryAction,
+  NotificationHistoryComponentAction,
   NotificationStylePart,
   readonly [],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/notification-history',
+  optionFields: {
+    items: true,
+    placement: true,
+    maxWidth: true,
+    selectedId: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'listbox',
   metadata: ['focus', 'layer', 'styles'],
   parts,
   prepare: (value) => prepareNotifications(value, true, true),
@@ -139,7 +167,10 @@ const history = defineComponent<
     delete: () =>
       model.selectedId === undefined ? ignoreMessage() : { kind: 'remove', id: model.selectedId },
   }),
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
+  },
   focusTargets: (input) => focusTargets(input, 'history'),
   hitTargets: (input) => hitTargets<NotificationHistoryAction>(input, 'history'),
   accessibility: (input) => accessibleNotifications(input, 'history', true),
@@ -148,30 +179,58 @@ const history = defineComponent<
 export function notificationRegion<const TMessage extends ComponentMessage = never>(
   options: NotificationRegionOptions<TMessage>,
 ): Element<TMessage> {
-  const own: Omit<NotificationOwnOptions, 'selectedId'> = options;
-  return options.onAction === undefined
-    ? passiveRegion({
-      ...own,
+  assertComponentOptions(options, 'notificationRegion', {
+    fields: ['id', 'items', 'placement', 'maxWidth', 'pointerState', 'meta', 'onAction', 'onPointerAction'],
+    callbacks: options.onAction === undefined
+      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
+      : { onAction: 'required', onPointerAction: 'optional' },
+  });
+  if (options.onAction === undefined) {
+    return passiveRegion({
+      items: options.items,
       id: options.id,
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
       ...(options.meta === undefined ? {} : { meta: options.meta }),
-    })
-    : activeRegion({
-      ...own,
-      id: options.id,
-      ...(options.meta === undefined ? {} : { meta: options.meta }),
-      onAction: options.onAction,
     });
+  }
+  const { onAction, onPointerAction, ...own } = options;
+  return activeRegion({
+      ...own,
+      id: options.id,
+      ...(options.meta === undefined ? {} : { meta: options.meta }),
+      onAction: (action) => action.kind === 'pointerLifecycle'
+        ? onPointerAction?.(action.action) ?? ignoreMessage()
+        : onAction(action),
+  });
 }
 
 export function notificationHistory<const TMessage extends ComponentMessage = never>(
   options: NotificationHistoryOptions<TMessage>,
 ): Element<TMessage> {
+  assertComponentOptions(options, 'notificationHistory', {
+    fields: [
+      'id',
+      'items',
+      'placement',
+      'maxWidth',
+      'pointerState',
+      'selectedId',
+      'meta',
+      'onAction',
+      'onPointerAction',
+    ],
+    callbacks: { onAction: 'required', onPointerAction: 'optional' },
+  });
+  const { onAction, onPointerAction, ...own } = options;
   return history({
-    ...options,
+    ...own,
     id: options.id,
     ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
-    onAction: options.onAction,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointerAction?.(action.action) ?? ignoreMessage()
+      : onAction(action),
   });
 }
 
@@ -206,9 +265,10 @@ function prepareNotifications(
   if (selectedId !== undefined && typeof selectedId !== 'string') {
     throw new TypeError('notification selectedId must be a string.');
   }
-  const pointerState = value.pointerState === undefined
-    ? undefined
-    : Object.freeze({ ...value.pointerState });
+  const pointerState = preparePointerInteractionState(
+    value.pointerState,
+    'notification pointerState',
+  );
   return {
     items,
     placement: placement ?? 'top-right',

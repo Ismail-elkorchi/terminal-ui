@@ -215,9 +215,9 @@ Scrollable components share the same `ScrollState`, `scrollReducer()`, and
 application actions such as line/page/top/bottom movement, item-into-view
 behavior, horizontal offsets, and follow-tail log views. Use
 `applyScrollEvent(currentScroll, event)` for routed wheel, scrollbar, or drag
-messages produced by `onScroll` or a component's semantic `onAction`; the event carries the normalized
-rendered content and viewport metrics, so controlled scroll state stays aligned
-with the region the user actually sees. Use `scrollPolicy` on scrollable
+messages. The event carries the normalized next state plus semantic source and
+target; content and viewport geometry remain renderer-derived. Use
+`scrollPolicy` on scrollable
 components to tune discrete wheel behavior, such as denser line steps for an
 editor-like text area or page-based wheel movement for a large viewport.
 Existing visible-window helpers route through this reducer family so list,
@@ -229,17 +229,17 @@ geometry, and `visualState: 'active' | 'hover' | 'disabled' | 'inactive' |
 'idle'` only when the application owns that state. Otherwise renderers derive
 stable `idle` or `inactive` states from scrollability.
 
-Tree components keep hierarchy state caller-controlled. Send the component's
-interaction `onAction` stream through `treeReducer()` and render passive state with
-the tree state fields directly. Component interaction emits selection,
-navigation, activation, disclosure, and scrolling. Filtering, rename workflow,
-and lazy-loading transitions are application or effect commands accepted by the
-same reducer; the renderer does not invent them.
+Tree components keep hierarchy state caller-controlled. Send `onTransition`
+through `treeReducer()` and render its `TreePresentation`. Component interaction
+emits active-position, selection, disclosure, query, and scrolling transitions;
+activation is delivered separately through `onActivate`. Loading and editing
+remain application state and effects; immutable `TreeNode` data never embeds UI
+state.
 `visibleTreeRows()` remains available when application effects need the exact
 rendered row order. These helpers do not load files or infer application
 activation policy; they only describe generic hierarchical records. Pointer
 routing keeps disclosure and row-body regions separate while both produce the
-same `TreeAction` vocabulary, so keyboard and pointer paths cannot drift.
+same `TreeTransition` vocabulary, so keyboard and pointer paths cannot drift.
 Tree row rendering uses typed style parts for `indent`, `disclosure`, `icon`,
 `label`, `metadata`, `match`, `placeholder`, `empty`, and `scrollbar` anatomy;
 selected and disabled presentation use visual-state styles. Frame source metadata
@@ -319,6 +319,7 @@ track count must match the child count.
 
 ```ts
 import { helpBar, text, tree, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
+import { ignoreMessage } from '@ismail-elkorchi/terminal-ui/component';
 import { column, surface } from '@ismail-elkorchi/terminal-ui/layout';
 
 const nodes: readonly TreeNode[] = [
@@ -326,15 +327,23 @@ const nodes: readonly TreeNode[] = [
     id: 'src',
     label: 'src',
     kind: 'branch',
-    expanded: true,
     children: [{ id: 'index', label: 'index.ts', kind: 'leaf' }]
   }
 ];
-const bindings = [{ key: 'Enter', label: 'Open' }];
+const bindings = [{ binding: { kind: 'key', key: 'enter' } as const, label: 'Open' }];
 
 surface(column([
   text({ content: 'Explorer', textRole: 'heading' }),
-  tree({ id: 'explorer-tree', nodes }),
+  tree({
+    id: 'explorer-tree',
+    nodes,
+    presentation: {
+      expandedIds: ['src'],
+      activeId: 'src',
+      selection: { mode: 'none' }
+    },
+    onTransition: () => ignoreMessage()
+  }),
   helpBar({ id: 'explorer-help', groups: [{ id: 'explorer', bindings }] })
 ], {
   sizes: [

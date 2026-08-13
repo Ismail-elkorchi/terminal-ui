@@ -1,5 +1,6 @@
 import type { Element, ElementValue } from './types.ts';
 import type { ElementInspection } from './inspection.ts';
+import { registerImmutableIdentity } from '../immutable-identity.ts';
 
 const internals = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
@@ -8,7 +9,7 @@ export function registerElement<TMessage>(
   internal: unknown,
   inspection: ElementInspection
 ): Element<TMessage> {
-  const element = Object.freeze({}) as Element<TMessage>;
+  const element = registerImmutableIdentity(Object.freeze({})) as Element<TMessage>;
   internals.set(element, internal);
   inspections.set(element, inspection);
   return element;

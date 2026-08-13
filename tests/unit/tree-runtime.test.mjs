@@ -34,19 +34,27 @@ async function clickAt(runtime, row, column) {
   return runtime.handleInput(mouseRelease(row, column));
 }
 
-test('treeReducer toggles nested expansion without mutating input nodes', () => {
+test('treeReducer keeps disclosure state separate from immutable input nodes', () => {
   const nodes = [{
     id: 'root',
     label: 'Root',
     kind: 'branch',
-    expanded: false,
     children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
   }];
-  const expanded = treeReducer({ nodes }, { kind: 'toggle', id: 'root' });
-  const frame = renderElementFrame(tree({ id: 'tree', nodes: expanded.nodes }), { columns: 24, rows: 3 });
+  const state = { expandedIds: [], selection: { mode: 'single' } };
+  const expanded = treeReducer(state, { kind: 'toggle', id: 'root' }, {
+    nodes,
+    selection: { mode: 'single', commitment: 'manual' }
+  });
+  const frame = renderElementFrame(tree({
+    id: 'tree',
+    nodes,
+    presentation: expanded,
+    onTransition: (action) => action
+  }), { columns: 24, rows: 3 });
 
-  assert.equal(nodes[0]?.expanded, false);
-  assert.equal(expanded.nodes[0]?.expanded, true);
+  assert.equal('expanded' in nodes[0], false);
+  assert.deepEqual(expanded.expandedIds, ['root']);
   assert.match(renderFramePlain(frame), /Child/u);
 });
 
@@ -58,11 +66,12 @@ test('tree factory rejects duplicate identities across nested branches', () => {
         id: 'root',
         label: 'Root',
         kind: 'branch',
-        expanded: true,
         children: [{ id: 'duplicate', label: 'Nested', kind: 'leaf' }]
       },
       { id: 'duplicate', label: 'Top level', kind: 'leaf' }
-    ]
+    ],
+    presentation: { expandedIds: ['root'], selection: { mode: 'none' } },
+    onTransition: (action) => action
   }), /tree item ids must be unique; duplicate id: duplicate/u);
 });
 
@@ -74,7 +83,12 @@ test('tree validates every prepared collection row during construction', () => {
   }]);
 
   assert.throws(
-    () => tree({ id: 'invalid-tree', collection }),
+    () => tree({
+      id: 'invalid-tree',
+      collection,
+      presentation: { expandedIds: [], selection: { mode: 'none' } },
+      onTransition: (action) => action
+    }),
     /tree collection row\.node\.label must be a string/u
   );
 });
@@ -87,7 +101,9 @@ test('tree pointer selection and double-click activation match keyboard semantic
     view: () => tree({
       id: 'activation-tree',
       nodes: [{ id: 'leaf', label: 'Leaf', kind: 'leaf' }],
-      onAction: (action) => action
+      presentation: { expandedIds: [], selection: { mode: 'single' } },
+      onTransition: (action) => action,
+      onActivate: (event) => event
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } }) });
@@ -99,7 +115,7 @@ test('tree pointer selection and double-click activation match keyboard semantic
   await clickAt(runtime, target.bounds.row, target.bounds.column);
 
   assert.deepEqual(runtime.state().actions, [
-    { kind: 'select', id: 'leaf' },
+    { kind: 'setActive', id: 'leaf' },
     { kind: 'activate', id: 'leaf' }
   ]);
 });
@@ -107,14 +123,18 @@ test('tree pointer selection and double-click activation match keyboard semantic
 test('tree filters through descendants and exposes selected disabled metadata-rich nodes', () => {
   const frame = renderElementFrame(tree({
     id: 'tree',
-    selected: 'api',
-    filterQuery: 'server',
+    presentation: {
+      expandedIds: [],
+      activeId: 'api',
+      selection: { mode: 'single', selectedId: 'api' },
+      query: { text: 'server', mode: 'contains' }
+    },
+    onTransition: (action) => action,
     nodes: [{
       id: 'root',
       label: 'Workspace',
       icon: '▣',
       kind: 'branch',
-      expanded: false,
       children: [
         { id: 'ui', label: 'Terminal UI', kind: 'leaf', metadata: { domain: 'components' } },
         { id: 'api', label: 'API Layer', kind: 'leaf', description: 'Server request boundary', disabled: true, metadata: { domain: 'server' } }
@@ -157,14 +177,18 @@ test('tree renders lazy placeholders and clips tiny viewports safely', () => {
       id: 'root',
       label: 'Very long root label for clipping',
       kind: 'lazy',
-      expanded: true,
-      loading: { kind: 'pending' }
-    }]
+    }],
+    presentation: {
+      expandedIds: ['root'],
+      selection: { mode: 'none' },
+      loadStates: { root: { kind: 'pending' } }
+    },
+    onTransition: (action) => action
   }), { columns: 14, rows: 2 });
 
   const output = renderFramePlain(frame);
   assert.match(output, /Very long…/u);
   assert.match(output, /Loading/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.description, 'node.root:lazy.label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.description, 'node.root:status.label');
   assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
 });

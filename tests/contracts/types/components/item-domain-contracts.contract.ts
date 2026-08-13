@@ -14,11 +14,11 @@ const action: MenuActionItem = { kind: 'action', id: 'open', label: 'Open' };
 const check: MenuCheckItem = { kind: 'check', id: 'autosave', label: 'Autosave', checked: true };
 const submenu: MenuSubmenuItem = { kind: 'submenu', id: 'file', label: 'File', children: [action] };
 const menuItems: readonly MenuItem[] = [action, check, submenu];
-const suggestion: SuggestionItem = { value: '/open', label: 'Open' };
+const suggestion: SuggestionItem = { id: 'open', value: '/open', label: 'Open' };
 const search: SearchEntry<number> = {
   id: 'file', label: 'File', value: 1, keywords: ['open']
 };
-const tree: TreeNode = { id: 'src', label: 'src', kind: 'branch', expanded: true, children: [] };
+const tree: TreeNode = { id: 'src', label: 'src', kind: 'branch', children: [] };
 void [choice, menuItems, suggestion, search, tree];
 
 // @ts-expect-error check items require explicit checked state

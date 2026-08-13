@@ -2,13 +2,14 @@ import type {
   CalendarDate,
   CalendarMonth,
   CalendarAction,
-  CalendarDay
+  CalendarDay,
+  CalendarPresentation,
 } from '../ui-model/calendar.ts';
 
 export interface CalendarState {
   readonly visibleMonth: CalendarMonth;
-  readonly selected?: CalendarDate;
-  readonly focused?: CalendarDate;
+  readonly selectedDate?: CalendarDate;
+  readonly activeDate?: CalendarDate;
 }
 
 export interface CalendarBehaviorOptions {
@@ -24,14 +25,6 @@ export interface CalendarBehaviorOptions {
 
 export const defaultCalendarFocusSearchLimitDays = 3660;
 
-export interface CalendarPresentation {
-  readonly monthLabel: string;
-  readonly weekdays: readonly string[];
-  readonly days: readonly CalendarDay[];
-  readonly selected?: string;
-  readonly focused?: string;
-}
-
 export function calendarReducer(
   state: CalendarState,
   action: CalendarAction,
@@ -41,20 +34,24 @@ export function calendarReducer(
   switch (action.kind) {
     case 'select':
       return selectable(action.date, options)
-        ? { ...state, selected: action.date, focused: action.date, visibleMonth: monthOf(action.date) }
+        ? { ...state, selectedDate: action.date, activeDate: action.date, visibleMonth: monthOf(action.date) }
         : state;
-    case 'focus':
+    case 'setActive':
       return selectable(action.date, options)
-        ? { ...state, focused: action.date, visibleMonth: monthOf(action.date) }
+        ? { ...state, activeDate: action.date, visibleMonth: monthOf(action.date) }
         : state;
-    case 'moveFocus':
-      return moveFocus(state, action.days, options);
+    case 'moveActive':
+      return moveActive(state, action.days, options);
+    case 'commitActive':
+      return state.activeDate === undefined || !selectable(state.activeDate, options)
+        ? state
+        : { ...state, selectedDate: state.activeDate };
     case 'moveMonth':
       return moveVisibleMonth(state, action.months, options);
     case 'startOfWeek':
-      return moveFocus(state, -weekdayOffset(focusDate(state), options.weekStartsOn), options);
+      return moveActive(state, -weekdayOffset(activeDate(state), options.weekStartsOn), options);
     case 'endOfWeek':
-      return moveFocus(state, 6 - weekdayOffset(focusDate(state), options.weekStartsOn), options);
+      return moveActive(state, 6 - weekdayOffset(activeDate(state), options.weekStartsOn), options);
   }
 }
 
@@ -68,16 +65,19 @@ export function calendarPresentation(
   const start = addDays(first, -weekdayOffset(first, options.weekStartsOn));
   const weekdays = Array.from({ length: 7 }, (_value, index) => weekdayLabel(addDays(start, index), options.locale));
   const days = calendarDays(state.visibleMonth, options);
-  const focusedId = state.focused === undefined ? undefined : calendarDateId(state.focused);
-  const representedFocus = focusedId === undefined
+  const activeId = state.activeDate === undefined ? undefined : calendarDateId(state.activeDate);
+  const representedActive = activeId === undefined
     ? undefined
-    : days.find((day) => day.id === focusedId && day.disabled !== true)?.id;
+    : days.find((day) => day.id === activeId && day.disabled !== true)?.id;
+  const selectedId = state.selectedDate === undefined ? undefined : calendarDateId(state.selectedDate);
   return {
     monthLabel: monthLabel(state.visibleMonth, options.locale),
     weekdays,
     days,
-    ...(state.selected === undefined ? {} : { selected: calendarDateId(state.selected) }),
-    ...(representedFocus === undefined ? {} : { focused: representedFocus })
+    interaction: {
+      ...(representedActive === undefined ? {} : { activeId: representedActive }),
+      selection: { mode: 'single', ...(selectedId === undefined ? {} : { selectedId }) },
+    },
   };
 }
 
@@ -102,20 +102,20 @@ export function addMonths(month: CalendarMonth, months: number): CalendarMonth {
   return { year: value.getUTCFullYear(), month: value.getUTCMonth() + 1 };
 }
 
-function moveFocus(
+function moveActive(
   state: CalendarState,
   days: number,
   options: CalendarBehaviorOptions
 ): CalendarState {
   const direction = Math.sign(days);
-  let candidate = addDays(focusDate(state), days);
+  let candidate = addDays(activeDate(state), days);
   const searchLimit = options.focusSearchLimitDays ?? defaultCalendarFocusSearchLimitDays;
   for (let attempts = 0; attempts <= searchLimit; attempts += 1) {
-    if (selectable(candidate, options)) return { ...state, focused: candidate, visibleMonth: monthOf(candidate) };
-    if (direction === 0 || outsideBounds(candidate, options, direction)) return withoutCalendarFocus(state);
+    if (selectable(candidate, options)) return { ...state, activeDate: candidate, visibleMonth: monthOf(candidate) };
+    if (direction === 0 || outsideBounds(candidate, options, direction)) return withoutCalendarActive(state);
     candidate = addDays(candidate, direction);
   }
-  return withoutCalendarFocus(state);
+  return withoutCalendarActive(state);
 }
 
 function moveVisibleMonth(
@@ -124,11 +124,11 @@ function moveVisibleMonth(
   options: CalendarBehaviorOptions
 ): CalendarState {
   const visibleMonth = addMonths(state.visibleMonth, months);
-  const day = Math.min(focusDate(state).day, daysInMonth(visibleMonth));
+  const day = Math.min(activeDate(state).day, daysInMonth(visibleMonth));
   const candidate = { ...visibleMonth, day };
-  const focused = nearestPresentedSelectableDate(visibleMonth, candidate, options);
-  const next = withoutCalendarFocus({ ...state, visibleMonth });
-  return focused === undefined ? next : { ...next, focused };
+  const active = nearestPresentedSelectableDate(visibleMonth, candidate, options);
+  const next = withoutCalendarActive({ ...state, visibleMonth });
+  return active === undefined ? next : { ...next, activeDate: active };
 }
 
 function calendarDays(
@@ -166,14 +166,14 @@ function nearestPresentedSelectableDate(
     .sort((left, right) => Math.abs(compareDates(left, candidate)) - Math.abs(compareDates(right, candidate)))[0];
 }
 
-function withoutCalendarFocus<TState extends CalendarState>(state: TState): Omit<TState, 'focused'> {
-  const { focused, ...rest } = state;
-  void focused;
+function withoutCalendarActive<TState extends CalendarState>(state: TState): Omit<TState, 'activeDate'> {
+  const { activeDate: discarded, ...rest } = state;
+  void discarded;
   return rest;
 }
 
-function focusDate(state: CalendarState): CalendarDate {
-  return state.focused ?? state.selected ?? { ...state.visibleMonth, day: 1 };
+function activeDate(state: CalendarState): CalendarDate {
+  return state.activeDate ?? state.selectedDate ?? { ...state.visibleMonth, day: 1 };
 }
 
 function selectable(date: CalendarDate, options: CalendarBehaviorOptions): boolean {

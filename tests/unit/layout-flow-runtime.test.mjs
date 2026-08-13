@@ -92,7 +92,7 @@ test('grid and splitPane layouts arrange common app frames', () => {
     commandInput({
       id: 'command',
       presentation: { value: '/help', cursor: 0, suggestions: [] },
-      onAction: (action) => action
+      onTransition: (action) => action
     })
   ], {
     id: 'workspace-frame',
@@ -223,7 +223,7 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
     surface(commandInput({
       id: 'address',
       presentation: { value: 'example.test', cursor: 12, suggestions: [] },
-      onAction: (action) => action
+      onTransition: (action) => action
     }), { appearance: 'inset' }),
     button({ id: 'menu', label: 'Menu', onAction: () => ignoreMessage() })
   ], {
@@ -248,13 +248,11 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
 test('form content tracks include field labels and control gaps', () => {
   const element = column([
     form({ slots: { content: [
-      field({ slots: { content: [
-        textInput({
+      field({ control: textInput({
           id: 'name',
           presentation: { value: '', cursor: 0 },
           onAction: (action) => action
-        })
-      ] }, id: 'name-field', label: 'Name' }),
+        }), id: 'name-field', label: 'Name' }),
       button({ id: 'submit', label: 'Submit', onAction: () => ignoreMessage() })
     ] }, id: 'profile-form', gap: 1 }),
     text({ content: 'remaining' })
@@ -274,7 +272,8 @@ test('wrapped text-area content tracks retain intrinsic width', () => {
     textArea({
       id: 'wrapped-content-editor',
       presentation: { document: prepareTextDocument('x'), caret: textCaretAt(0 )},
-      wrap: true
+      wrap: true,
+      onAction: (action) => action
     }),
     text({ content: 'remaining', id: 'wrapped-content-sibling' })
   ], {
@@ -293,8 +292,8 @@ test('searchPicker content tracks use the active text-width profile', () => {
     searchPicker({
       id: 'profiled-searchPicker',
       searchPickerIndex: prepareSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
-      query: '',
-      onAction: (action) => action
+      presentation: { query: { text: '', mode: 'fuzzy' } },
+      onTransition: (action) => action
     }),
     text({ content: 'remaining', id: 'profiled-searchPicker-sibling' })
   ], {

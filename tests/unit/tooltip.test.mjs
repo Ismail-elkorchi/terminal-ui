@@ -10,12 +10,18 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { tooltip } from '../../dist/components/index.js';
+import { button, tooltip } from '../../dist/components/index.js';
+
+function trigger(id) {
+  return button({ id: `${id}-trigger`, label: 'Trigger', onAction: () => ({ kind: 'trigger' }) });
+}
 
 test('tooltip renders bounded popover content with semantic surface tokens', () => {
   const frame = renderElementFrame(tooltip({
     id: 'tip',
-    presentation: { kind: 'visible', anchor: { kind: 'cursor', row: 1, column: 1 } },
+    trigger: trigger('tip'),
+    open: true,
+    onTransition: (action) => action,
     title: 'Hint',
     content: ['Use Enter', 'Press Esc'],
     tone: 'info'
@@ -25,7 +31,9 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   const content = frame.cells.find((cell) => cell.text === 'U');
   const highContrastFrame = renderElementFrame(tooltip({
     id: 'tip-hc',
-    presentation: { kind: 'visible', anchor: { kind: 'cursor', row: 1, column: 1 } },
+    trigger: trigger('tip-hc'),
+    open: true,
+    onTransition: (action) => action,
     title: 'Hint',
     content: ['Use Enter', 'Press Esc'],
     tone: 'info'
@@ -49,24 +57,29 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   });
   assert.match(noColor.plainTextFrame, /Hint/u);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
-  assert.equal(frame.accessibility.root.scope?.kind, 'popover');
-  assert.equal(frame.accessibility.root.live, 'polite');
+  const accessibleTooltip = frame.accessibility.root.children?.find((node) => node.role === 'tooltip');
+  assert.equal(accessibleTooltip?.scope?.kind, 'popover');
+  assert.equal(accessibleTooltip?.live, 'polite');
 });
 
 test('tooltip visibility and anchor determine painted geometry', () => {
   const hidden = renderElementFrame(tooltip({
     id: 'hidden-tip',
     content: 'Hidden',
-    presentation: { kind: 'hidden' }
+    trigger: trigger('hidden-tip'),
+    open: false,
+    onTransition: (action) => action
   }), { columns: 20, rows: 6 });
   const visible = renderElementFrame(tooltip({
     id: 'visible-tip',
     content: 'Visible',
-    presentation: { kind: 'visible', anchor: { kind: 'cursor', row: 5, column: 18 } },
-    placement: 'below'
+    trigger: trigger('visible-tip'),
+    open: true,
+    placement: 'below',
+    onTransition: (action) => action
   }), { columns: 20, rows: 6 });
 
-  assert.equal(hidden.cells.some((cell) => cell.source?.elementId === 'hidden-tip'), false);
+  assert.doesNotMatch(renderFramePlain(hidden), /Hidden/u);
   assert.match(renderFramePlain(visible), /Visible/u);
   assert.equal(visible.cells.every((cell) => cell.row >= 1 && cell.row <= 6 && cell.column >= 1 && cell.column <= 20), true);
 });

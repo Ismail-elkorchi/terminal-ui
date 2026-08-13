@@ -6,32 +6,28 @@ import {
   checkboxGroupReducer,
   colorSwatchPickerPresentation,
   colorSwatchPickerReducer,
-  dropdownMenuPresentation,
-  dropdownMenuReducer,
+  comboboxReducer,
   menuPresentation,
   menuReducer,
-  radioGroupReducer,
+  menuTriggerPresentation,
+  menuTriggerReducer,
   radioGroupPresentation,
-  selectPresentation,
-  selectReducer,
-  tabsReducer
+  radioGroupReducer,
+  tabsReducer,
 } from '../../dist/behavior/index.js';
-import type {
-  ChoiceItem,
-  MenuActionItem,
-  MenuItem
-} from '../../dist/components/index.js';
+import type { ChoiceItem, MenuItem } from '../../dist/components/index.js';
 
 const choices = [
   { id: 'alpha', label: 'Alpha', value: 1 },
   { id: 'disabled', label: 'Disabled', value: 2, disabled: true },
-  { id: 'beta', label: 'Beta', value: 3 }
+  { id: 'beta', label: 'Beta', value: 3 },
 ] satisfies readonly ChoiceItem<number>[];
 
-void test('menu behavior owns selection, hierarchy presentation, and activation state', () => {
+void test('menu behavior owns nested active position but not application activation', () => {
   const items = [
     { kind: 'submenu', id: 'file', label: 'File', children: [{ kind: 'action', id: 'open', label: 'Open' }] },
-    { kind: 'action', id: 'disabled', label: 'Disabled', disabled: true }
+    { kind: 'separator', id: 'divider' },
+    { kind: 'action', id: 'disabled', label: 'Disabled', disabled: true },
   ] satisfies readonly MenuItem[];
   const entered = menuReducer({ activePath: ['file'] }, { kind: 'enter' }, items);
   const returned = menuReducer(entered, { kind: 'back' }, items);
@@ -41,108 +37,102 @@ void test('menu behavior owns selection, hierarchy presentation, and activation 
   assert.deepEqual(returned.activePath, ['file']);
   const fileItem = presentation.items[0];
   assert.equal(fileItem?.kind === 'submenu' ? fileItem.expanded : undefined, true);
-  assert.equal(menuReducer(returned, { kind: 'focus', id: 'disabled' }, items), returned);
+  assert.equal(menuReducer(returned, { kind: 'setActive', id: 'disabled' }, items), returned);
 });
 
-void test('dropdownMenu behavior separates popup navigation from committed action', () => {
-  const actions: readonly MenuActionItem[] = choices.map(({ id, label, disabled }) => ({
+void test('menu trigger reuses the menu foundation and keeps activation out of its reducer', () => {
+  const items: readonly MenuItem[] = choices.map(({ id, label, disabled }) => ({
     id,
     label,
     kind: 'action',
-    ...(disabled === undefined ? {} : { disabled })
+    ...(disabled === undefined ? {} : { disabled }),
   }));
-  const opened = dropdownMenuReducer({ kind: 'closed', active: 'alpha' }, { kind: 'open' }, actions);
-  const moved = dropdownMenuReducer(opened, { kind: 'menu', action: { kind: 'move', delta: 1 } }, actions);
-  const committed = dropdownMenuReducer(moved, { kind: 'menu', action: { kind: 'activate', id: 'beta' } }, actions);
+  const opened = menuTriggerReducer({ kind: 'closed', active: 'alpha' }, { kind: 'open' }, items);
+  const moved = menuTriggerReducer(opened, {
+    kind: 'menu',
+    transition: { kind: 'move', delta: 1 },
+  }, items);
+  const dismissed = menuTriggerReducer(moved, { kind: 'dismiss', reason: 'escape' }, items);
 
   assert.deepEqual(opened.kind === 'open' ? opened.menu.activePath : [], ['alpha']);
   assert.deepEqual(moved.kind === 'open' ? moved.menu.activePath : [], ['beta']);
-  assert.deepEqual(dropdownMenuPresentation(actions, committed), { kind: 'closed', active: 'beta' });
+  assert.deepEqual(menuTriggerPresentation(items, dismissed), { kind: 'closed', active: 'alpha' });
 });
 
-void test('tabs behavior skips disabled tabs and leaves close handling with the app', () => {
-  const items = [
-    { id: 'one' },
-    { id: 'two', disabled: true },
-    { id: 'three' }
-  ];
-  const moved = tabsReducer({ selected: 'one' }, { kind: 'move', delta: 1 }, items);
+void test('tabs support automatic and manual activation without conflating close events', () => {
+  const tabs = [{ id: 'one' }, { id: 'two', disabled: true }, { id: 'three' }];
+  const automatic = tabsReducer(
+    { activeId: 'one', selectedId: 'one' },
+    { kind: 'moveActive', delta: 1 },
+    { tabs, activation: 'automatic' },
+  );
+  const manual = tabsReducer(
+    { activeId: 'one', selectedId: 'one' },
+    { kind: 'moveActive', delta: 1 },
+    { tabs, activation: 'manual' },
+  );
+  const committed = tabsReducer(manual, { kind: 'selectActive' }, { tabs, activation: 'manual' });
 
-  assert.deepEqual(moved, { selected: 'three' });
-  assert.equal(tabsReducer(moved, { kind: 'close', id: 'three' }, items), moved);
+  assert.deepEqual(automatic, { activeId: 'three', selectedId: 'three' });
+  assert.deepEqual(manual, { activeId: 'three', selectedId: 'one' });
+  assert.deepEqual(committed, { activeId: 'three', selectedId: 'three' });
 });
 
-void test('choice controls keep distinct action semantics while sharing item foundations', () => {
-  const checked = checkboxGroupReducer({ selected: ['alpha'] }, { kind: 'toggle', id: 'beta' }, choices);
-  const radio = radioGroupReducer({}, { kind: 'select', id: 'beta' }, choices);
-  const selected = selectReducer({ kind: 'closed' }, { kind: 'move', delta: 1 }, choices);
-  const color = colorSwatchPickerReducer({}, { kind: 'select', id: 'beta' }, choices);
+void test('combobox focus and committed selection remain independent', () => {
+  const initial = {
+    open: false,
+    interaction: { activeId: 'alpha', selection: { mode: 'single', selectedId: 'alpha' } },
+  } as const;
+  const opened = comboboxReducer(initial, { kind: 'open' }, { enabledIds: ['alpha', 'beta'] });
+  const moved = comboboxReducer(opened, { kind: 'moveActive', delta: 1 }, { enabledIds: ['alpha', 'beta'] });
+  const dismissed = comboboxReducer(moved, { kind: 'dismiss', reason: 'escape' }, { enabledIds: ['alpha', 'beta'] });
 
-  assert.deepEqual(checkboxGroupPresentation(checked, choices), { selected: ['alpha', 'beta'], focused: 'beta' });
-  assert.deepEqual(radio, { selected: 'beta', focused: 'beta' });
-  assert.deepEqual(selected, { kind: 'open', highlighted: 'alpha' });
-  assert.deepEqual(color, { selected: 'beta', focused: 'beta' });
+  assert.equal(moved.interaction.activeId, 'beta');
+  assert.deepEqual(moved.interaction.selection, { mode: 'single', selectedId: 'alpha' });
+  assert.equal(dismissed.open, false);
+  assert.deepEqual(dismissed.interaction.selection, { mode: 'single', selectedId: 'alpha' });
 });
 
-void test('choice presentations normalize dynamic option changes deterministically', () => {
+void test('choice controls use active position and committed selection consistently', () => {
+  const checked = checkboxGroupReducer(
+    { activeId: 'alpha', selection: { mode: 'multiple', selectedIds: ['alpha'] } },
+    { kind: 'toggleSelection', id: 'beta' },
+    choices,
+  );
+  const emptySingle = { selection: { mode: 'single' as const } };
+  const radio = radioGroupReducer(emptySingle, { kind: 'select', id: 'beta' }, choices);
+  const color = colorSwatchPickerReducer(emptySingle, { kind: 'select', id: 'beta' }, choices);
+
+  assert.deepEqual(checkboxGroupPresentation(checked, choices), {
+    activeId: 'beta',
+    selection: { mode: 'multiple', selectedIds: ['alpha', 'beta'], anchorId: 'beta' },
+  });
+  assert.deepEqual(radioGroupPresentation(radio, choices), {
+    activeId: 'beta', selection: { mode: 'single', selectedId: 'beta' },
+  });
+  assert.deepEqual(colorSwatchPickerPresentation(color, choices), {
+    activeId: 'beta', selection: { mode: 'single', selectedId: 'beta' },
+  });
+});
+
+void test('choice presentations normalize replacement and reject duplicate identities', () => {
   const changed = [
     { id: 'beta', label: 'Beta', value: 3 },
     { id: 'alpha', label: 'Alpha', value: 1, disabled: true },
-    { id: 'gamma', label: 'Gamma', value: 4 }
   ] satisfies readonly ChoiceItem<number>[];
-
   assert.deepEqual(
-    checkboxGroupPresentation({ selected: ['missing', 'beta', 'beta', 'alpha'], focused: 'alpha' }, changed),
-    { selected: ['beta'] }
+    checkboxGroupPresentation({
+      activeId: 'alpha',
+      selection: { mode: 'multiple', selectedIds: ['missing', 'beta', 'beta', 'alpha'] },
+    }, changed),
+    { selection: { mode: 'multiple', selectedIds: ['beta'] } },
   );
-  assert.deepEqual(
-    radioGroupPresentation({ selected: 'alpha', focused: 'missing' }, changed),
-    {}
-  );
-  assert.deepEqual(
-    colorSwatchPickerPresentation({ selected: 'beta', focused: 'alpha' }, changed),
-    { selected: 'beta' }
-  );
-  assert.deepEqual(
-    selectPresentation({ kind: 'open', selected: 'missing', highlighted: 'alpha' }, changed),
-    { kind: 'open', highlighted: 'beta' }
-  );
-});
-
-void test('choice behavior rejects duplicate option identities at its boundary', () => {
+  assert.deepEqual(radioGroupPresentation({
+    activeId: 'missing', selection: { mode: 'single', selectedId: 'alpha' },
+  }, changed), { selection: { mode: 'single' } });
   const first = choices[0];
   assert.ok(first);
-  const duplicate = [first, first];
-
-  assert.throws(
-    () => checkboxGroupPresentation({ selected: [] }, duplicate),
-    /ids must be unique/u
-  );
-  assert.throws(
-    () => selectPresentation({ kind: 'closed' }, duplicate),
-    /ids must be unique/u
-  );
-});
-
-void test('select keeps highlight separate from committed selection and dismisses without committing', () => {
-  const opened = selectReducer({ kind: 'closed', selected: 'alpha' }, { kind: 'open' }, choices);
-  const moved = selectReducer(opened, { kind: 'move', delta: 1 }, choices);
-  const dismissed = selectReducer(moved, { kind: 'dismiss', reason: 'escape' }, choices);
-  const committed = selectReducer(moved, { kind: 'commit', id: 'beta' }, choices);
-
-  assert.deepEqual(opened, { kind: 'open', selected: 'alpha', highlighted: 'alpha' });
-  assert.deepEqual(moved, { kind: 'open', selected: 'alpha', highlighted: 'beta' });
-  assert.deepEqual(dismissed, { kind: 'closed', selected: 'alpha' });
-  assert.deepEqual(committed, { kind: 'closed', selected: 'beta' });
-});
-
-void test('select never highlights or commits disabled options', () => {
-  const opened = selectReducer({ kind: 'closed' }, { kind: 'open' }, choices);
-
-  assert.equal(selectReducer(opened, { kind: 'highlight', id: 'disabled' }, choices), opened);
-  assert.equal(selectReducer(opened, { kind: 'commit', id: 'disabled' }, choices), opened);
-  assert.deepEqual(selectReducer(opened, { kind: 'last' }, choices), {
-    kind: 'open',
-    highlighted: 'beta'
-  });
+  assert.throws(() => checkboxGroupPresentation({
+    selection: { mode: 'multiple', selectedIds: [] },
+  }, [first, first]), /ids must be unique/u);
 });

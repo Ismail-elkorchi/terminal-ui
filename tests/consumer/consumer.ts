@@ -9,13 +9,13 @@ import {
   passwordInput,
   splitPane,
   surface,
-  table,
+  dataGrid,
   text,
   tree,
-  type CommandInputAction,
-  type TableAction,
+  type CommandInputTransition,
+  type DataGridTransition,
   type TextInputAction,
-  type TreeAction
+  type TreeTransition
 } from '@ismail-elkorchi/terminal-ui';
 import { defineComponent, type Element } from '@ismail-elkorchi/terminal-ui/component';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
@@ -33,9 +33,9 @@ import { peerBadge } from 'terminal-ui-peer-component-fixture';
 
 type Message =
   | { readonly kind: 'increment' }
-  | { readonly kind: 'selectRow'; readonly action: TableAction }
-  | { readonly kind: 'tree'; readonly action: TreeAction }
-  | { readonly kind: 'command'; readonly action: CommandInputAction }
+  | { readonly kind: 'selectRow'; readonly transition: DataGridTransition }
+  | { readonly kind: 'tree'; readonly transition: TreeTransition }
+  | { readonly kind: 'command'; readonly transition: CommandInputTransition }
   | { readonly kind: 'secret'; readonly action: TextInputAction }
   | { readonly kind: 'submit' };
 
@@ -49,7 +49,7 @@ function view(state: State): Element<Message> {
     label: 'Increment',
     onAction: () => ({ kind: 'increment' }) as const
   });
-  const processes: Element<{ readonly kind: 'selectRow'; readonly action: TableAction }> = table({
+  const processes: Element<{ readonly kind: 'selectRow'; readonly transition: DataGridTransition }> = dataGrid({
     getRowId: (row) => String(row.id),
     id: 'processes',
     rows: [{ id: 7, name: 'worker' }],
@@ -57,29 +57,31 @@ function view(state: State): Element<Message> {
       { id: 'id', header: 'ID', value: (row) => row.id },
       { id: 'name', header: 'Name', value: (row) => row.name }
     ],
-    onAction: (action) => ({ kind: 'selectRow' as const, action })
+    presentation: { interaction: { kind: 'row',
+    selectionMode: 'single' as const, selectedRowIds: [] } },
+    onTransition: (transition) => ({ kind: 'selectRow' as const, transition })
   });
-  const files: Element<{ readonly kind: 'tree'; readonly action: TreeAction }> = tree({
+  const files: Element<{ readonly kind: 'tree'; readonly transition: TreeTransition }> = tree({
     id: 'files',
     nodes: [{ id: 'src', label: 'src', kind: 'leaf' }],
-    onAction: (action) => ({ kind: 'tree' as const, action })
+    presentation: { selection: { mode: 'single' }, expandedIds: [] },
+    onTransition: (transition) => ({ kind: 'tree' as const, transition })
   });
   const commands: Element<
-    | { readonly kind: 'command'; readonly action: CommandInputAction }
+    | { readonly kind: 'command'; readonly transition: CommandInputTransition }
     | { readonly kind: 'submit' }
   > = commandInput({
     id: 'commands',
     presentation: behavior.commandInputPresentation({
       input: { text: '', cursor: 0 },
       history: [],
-      suggestions: [{ label: 'Open', value: 'open' }]
+      suggestions: [{ id: 'open', label: 'Open', value: 'open' }]
     }),
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 4,
-    onAction: (action) => action.kind === 'submit'
-      ? { kind: 'submit' as const }
-      : { kind: 'command' as const, action }
+    onTransition: (transition) => ({ kind: 'command' as const, transition }),
+    onSubmit: () => ({ kind: 'submit' as const })
   });
   const secret: Element<{ readonly kind: 'secret'; readonly action: TextInputAction }> = passwordInput({
     id: 'secret',
@@ -116,10 +118,17 @@ const app = defineTui<State, Message>({
   view
 });
 
-const scroll = behavior.scrollReducer(behavior.createScrollState({
+const scrollGeometry = {
   contentRows: 20,
-  viewportRows: 5
-}), { kind: 'scrollLines', rows: 2 });
+  contentColumns: 0,
+  viewportRows: 5,
+  viewportColumns: 0
+};
+const scroll = behavior.scrollReducer(
+  behavior.createScrollState(),
+  { kind: 'scrollLines', rows: 2 },
+  scrollGeometry
+);
 const command = behavior.commandInputReducer({
   input: { text: '', cursor: 0 },
   history: [],
@@ -151,9 +160,11 @@ const selected = resolveSelectedText({
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const packedComponent = defineComponent({
   name: 'terminal-ui-consumer/components/packedComponent',
+  optionFields: {},
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'text',
   measure: () => ({
     minWidth: 1,
     minHeight: 1,
@@ -167,9 +178,11 @@ const packedComponent = defineComponent({
 });
 const packedPanel = defineComponent({
   name: 'terminal-ui-consumer/components/packedPanel',
+  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: {
     content: { cardinality: 'many', owner: 'caller', messages: 'bubble' }
   } as const,

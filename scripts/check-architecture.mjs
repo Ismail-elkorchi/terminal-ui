@@ -36,10 +36,11 @@ const componentDefinitionPrivateRendererDependencies = new Set([
 const runtimeGlobalNames = new Set(['Bun', 'Deno', 'globalThis', 'process']);
 const foundationDependencies = new Map([
   ['diagnostic-identity.ts', new Set()],
+  ['immutable-identity.ts', new Set()],
   ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'foundation', 'text'])],
   ['foundation', new Set()],
   ['geometry', new Set(['foundation'])],
-  ['text', new Set()]
+  ['text', new Set(['immutable-identity.ts'])]
 ]);
 
 for (const filePath of sourceFiles) {

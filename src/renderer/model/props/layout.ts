@@ -34,6 +34,6 @@ export interface GridRenderProps extends RenderNodeLayoutProps {
 export type SplitPaneRenderProps<TMessage = never> = RenderNodeLayoutProps & {
   readonly direction: 'horizontal' | 'vertical';
   readonly sizes?: readonly LayoutSize[];
-  readonly selectedDivider?: number;
+  readonly activeDivider?: number;
   readonly toActionMessage?: (action: SplitPaneAction) => TMessage;
 };

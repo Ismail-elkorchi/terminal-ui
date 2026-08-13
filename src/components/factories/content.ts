@@ -24,17 +24,18 @@ import type { ElementMessage } from '../../element/index.ts';
 interface PreparedText {
   readonly content: string;
   readonly textRole: ElementTextRole;
+  readonly headingLevel?: number;
 }
 
 export const text: SemanticLeafComponentFactory<
-  Pick<TextOptions, 'content' | 'textRole'>,
+  Pick<TextOptions, 'content' | 'textRole' | 'headingLevel'>,
   never,
   TextStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
 > = defineComponent<
-  Pick<TextOptions, 'content' | 'textRole'>,
+  Pick<TextOptions, 'content' | 'textRole' | 'headingLevel'>,
   PreparedText,
   never,
   TextStylePart,
@@ -43,21 +44,33 @@ export const text: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/text',
+  optionFields: { content: true, textRole: true, headingLevel: true } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: ({ model }) =>
+    model.textRole === 'heading' || model.textRole === 'title' ? 'heading' : 'text',
   metadata: ['styles', 'layer'],
   parts: ['content', 'link'],
   prepare(value) {
     const content = value.content;
     const textRole = value.textRole;
+    const headingLevel = value.headingLevel;
     if (typeof content !== 'string') throw new TypeError('text content must be a string.');
     if (textRole !== undefined && !isTextRole(textRole)) {
       throw new TypeError('text textRole is invalid.');
     }
+    if (headingLevel !== undefined
+      && (!Number.isSafeInteger(headingLevel) || headingLevel < 1 || headingLevel > 6)) {
+      throw new RangeError('text headingLevel must be an integer from 1 through 6.');
+    }
+    if (headingLevel !== undefined && textRole !== 'heading' && textRole !== 'title') {
+      throw new TypeError('text headingLevel requires a heading or title textRole.');
+    }
     return {
       content: sanitizeTerminalText(content).text,
       textRole: textRole ?? 'body',
+      ...(headingLevel === undefined ? {} : { headingLevel }),
     };
   },
   measure({ model, widthProfile }) {
@@ -93,7 +106,13 @@ export const text: SemanticLeafComponentFactory<
     });
   },
   accessibility({ id, model }) {
-    return { id, role: 'text', label: id, value: model.content };
+    const heading = model.textRole === 'heading' || model.textRole === 'title';
+    return {
+      id,
+      role: heading ? 'heading' : 'text',
+      value: model.content,
+      ...(heading ? { label: model.content, position: { level: model.headingLevel ?? (model.textRole === 'title' ? 1 : 2) } } : {}),
+    };
   },
 });
 
@@ -151,9 +170,11 @@ export const richText: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/rich-text',
+  optionFields: { segments: true, wrap: true } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'text',
   metadata: ['styles', 'layer'],
   parts: ['content', 'link'],
   prepare(value) {
@@ -203,7 +224,18 @@ export const richText: SemanticLeafComponentFactory<
     input.target.writeBlock(0, 0, { lines: lines.slice(0, input.bounds.height) });
   },
   accessibility({ id, model }) {
-    return { id, role: 'text', label: id, value: inlineContentAccessibleText(model.segments) };
+    const children = model.segments.flatMap((segment, index) => segment.link === undefined ? [] : [{
+      id: `${id}:link:${String(index)}`,
+      role: 'link' as const,
+      label: inlineSegmentText(segment, 'unicode'),
+      value: segment.link.href,
+    }]);
+    return {
+      id,
+      role: 'text',
+      value: inlineContentAccessibleText(model.segments),
+      ...(children.length === 0 ? {} : { children }),
+    };
   },
 });
 
@@ -280,9 +312,11 @@ export const disclosure: DisclosureFactory = defineComponent<
   typeof disclosureSlots
 >({
   name: 'terminal-ui/components/disclosure',
+  optionFields: { label: true, summary: true, expanded: true } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: disclosureSlots,
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],

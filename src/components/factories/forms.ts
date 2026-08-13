@@ -1,7 +1,9 @@
 import {
+  assertComponentOptions,
   clipRenderSpans,
   defineComponent,
   ignoreMessage,
+  mapComponentStyles,
   measureRenderSpans,
   span,
 } from '../../component/index.ts';
@@ -18,28 +20,30 @@ import type { Element } from '../../element/index.ts';
 import type {
   ButtonOptions,
   CheckboxOptions,
+  ComboboxOptions,
   FieldOptions,
   FormOptions,
   LabelOptions,
-  SelectOptions,
-  ToggleSwitchOptions,
+  SwitchOptions,
 } from '../options/forms.ts';
 import { inlineSegmentText, normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
-import { normalizeSelectState } from '../../behavior/choice-controls.ts';
 import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type {
   ButtonAction,
   ButtonTone,
   CheckboxAction,
-  ToggleSwitchAction,
+  SwitchAction,
 } from '../../ui-model/forms.ts';
 import type { ButtonStylePart } from '../../ui-model/style-parts.ts';
 import type { ChoiceStylePart } from '../../ui-model/style-parts.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
-import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
+import {
+  pointerVisualState,
+  preparePointerInteractionState,
+} from '../../interaction/pointer-interaction.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
@@ -52,16 +56,18 @@ import {
 import {
   assertOptionalEnum,
   isNonArrayObject,
-  isStringMember,
 } from '../../foundation/validation.ts';
-import type { ChoiceItem } from '../../ui-model/contracts.ts';
-import type { SelectAction, SelectPresentation } from '../../ui-model/choice-controls.ts';
-import type { ListAction } from '../../ui-model/list.ts';
+import type {
+  ComboboxCommitEvent,
+  ComboboxPresentation,
+  ComboboxTransition,
+} from '../../ui-model/combobox.ts';
+import type { ListboxTransition } from '../../ui-model/list.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import { portal, surface } from '../../layout/index.ts';
-import { list } from './list.ts';
+import { listbox } from './list.ts';
 
 interface FormModel {
   readonly title: string;
@@ -91,9 +97,23 @@ export const form: SemanticCompositeComponentFactory<
   typeof formSlots
 >({
   name: 'terminal-ui/components/form',
+  optionFields: {
+    title: true,
+    gap: true,
+    padding: true,
+    margin: true,
+    minWidth: true,
+    minHeight: true,
+    maxWidth: true,
+    maxHeight: true,
+    align: true,
+    justify: true,
+    overflow: true,
+  } as const,
   identity: 'optional',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'form',
   slots: formSlots,
   metadata: ['styles', 'layer'],
   parts: ['title'],
@@ -195,27 +215,42 @@ interface FieldModel {
 }
 
 const fieldSlots = {
-  content: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
+  control: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
 } as const;
 
 type FieldFactory = <TChild extends Element<ComponentMessage>>(
   options: FieldOptions<TChild>,
 ) => Element<import('../../element/index.ts').ElementMessage<TChild>>;
 
-export const field: FieldFactory = defineComponent<
+const instantiateField = defineComponent<
   { readonly label: string; readonly description?: string } & LayoutFlowOptions,
   FieldModel,
   never,
   import('../../ui-model/style-parts.ts').FormGroupStylePart,
   readonly [],
-  'optional',
+  'required',
   readonly ['styles', 'layer'],
   typeof fieldSlots
 >({
   name: 'terminal-ui/components/field',
-  identity: 'optional',
+  optionFields: {
+    label: true,
+    description: true,
+    gap: true,
+    padding: true,
+    margin: true,
+    minWidth: true,
+    minHeight: true,
+    maxWidth: true,
+    maxHeight: true,
+    align: true,
+    justify: true,
+    overflow: true,
+  } as const,
+  identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: fieldSlots,
   metadata: ['styles', 'layer'],
   parts: ['label', 'description'],
@@ -236,19 +271,10 @@ export const field: FieldFactory = defineComponent<
     const header = fieldHeader(input.model);
     const width = Math.max(
       ...header.map((entry) => measureTextCells(entry, { widthProfile: input.widthProfile }).cells),
-      ...Array.from(
-        { length: input.slots.count('content') },
-        (_unused, index) => input.slots.measure('content', index).preferredWidth,
-      ),
+      input.slots.measure('control').preferredWidth,
       0,
     );
-    const height = header.length +
-      Array.from(
-        { length: input.slots.count('content') },
-        (_unused, index) => input.slots.measure('content', index).preferredHeight,
-      )
-        .reduce((sum, current) => sum + current, 0) +
-      Math.max(0, input.slots.count('content') - 1) * (input.model.layout.gap ?? 0);
+    const height = header.length + input.slots.measure('control').preferredHeight;
     const inset = layoutInsetSize(input.model.layout.padding);
     const margin = layoutInsetSize(input.model.layout.margin);
     return {
@@ -267,18 +293,8 @@ export const field: FieldFactory = defineComponent<
       width: content.width,
       height: Math.max(0, content.height - headerRows),
     };
-    const count = input.slots.count('content');
     return {
-      content: splitTracks(
-        childBounds,
-        'vertical',
-        Array.from({ length: count }, () => ({ kind: 'content' as const })),
-        input.model.layout.gap === undefined ? {} : { gap: input.model.layout.gap },
-        Array.from(
-          { length: count },
-          (_unused, index) => input.slots.measure('content', index).preferredHeight,
-        ),
-      ),
+      control: childBounds,
     };
   },
   renderBeforeChildren(input) {
@@ -317,13 +333,29 @@ export const field: FieldFactory = defineComponent<
     return {
       id: input.id,
       role: 'group',
-      label: input.model.label || input.id,
+      labelledBy: `${input.id}:label`,
       ...(input.model.description.length === 0 ? {} : { description: input.model.description }),
       ...(input.focused ? { focused: true } : {}),
-      children: input.slots.content,
+      children: [{
+        id: `${input.id}:label`,
+        role: 'text',
+        value: input.model.label,
+        ...(input.slots.control[0] === undefined ? {} : { controls: input.slots.control[0].id }),
+      }, ...input.slots.control],
     };
   },
 });
+
+export const field: FieldFactory = (options) => {
+  assertComponentOptions(options, 'field', {
+    fields: [
+      'id', 'label', 'description', 'control', 'gap', 'padding', 'margin', 'minWidth',
+      'minHeight', 'maxWidth', 'maxHeight', 'align', 'justify', 'overflow', 'meta',
+    ],
+  });
+  const { control, ...rest } = options;
+  return instantiateField({ ...rest, slots: { control } });
+};
 
 function fieldHeader(model: FieldModel): readonly string[] {
   return [
@@ -354,9 +386,11 @@ export const label: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/label',
+  optionFields: { text: true, forId: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'text',
   metadata: ['styles', 'layer'],
   parts: ['label', 'description'],
   prepare(value) {
@@ -401,6 +435,7 @@ export const label: SemanticLeafComponentFactory<
 
 interface ButtonModel {
   readonly label: string;
+  readonly accessibleName: string;
   readonly leading?: InlineContent;
   readonly trailing?: InlineContent;
   readonly tone: ButtonTone;
@@ -409,13 +444,27 @@ interface ButtonModel {
 }
 
 type ButtonOwnOptions = Pick<
-  ButtonOptions<ComponentMessage>,
-  'label' | 'leading' | 'trailing' | 'tone' | 'density' | 'pointerState'
+  ButtonOptions<ComponentMessage, ComponentMessage>,
+  'label' | 'accessibleName' | 'leading' | 'trailing' | 'tone' | 'density' | 'pointerState'
 >;
 
-export const button: SemanticLeafComponentFactory<
+interface PointerLifecycleEvent {
+  readonly kind: 'pointerLifecycle';
+  readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction;
+}
+
+type ButtonComponentAction = ButtonAction | PointerLifecycleEvent;
+
+type ButtonFactory = <
+  const TActionMessage extends ComponentMessage = never,
+  const TPointerMessage extends ComponentMessage = never,
+>(
+  options: ButtonOptions<TActionMessage, TPointerMessage>,
+) => Element<TActionMessage | TPointerMessage>;
+
+const instantiateButton: SemanticLeafComponentFactory<
   ButtonOwnOptions,
-  ButtonAction,
+  ButtonComponentAction,
   ButtonStylePart,
   readonly ['disabled', 'busy'],
   'required',
@@ -423,32 +472,49 @@ export const button: SemanticLeafComponentFactory<
 > = defineComponent<
   ButtonOwnOptions,
   ButtonModel,
-  ButtonAction,
+  ButtonComponentAction,
   ButtonStylePart,
   readonly ['disabled', 'busy'],
   'required',
   readonly ['styles', 'layer', 'focus']
 >({
   name: 'terminal-ui/components/button',
+  optionFields: {
+    label: true,
+    accessibleName: true,
+    leading: true,
+    trailing: true,
+    tone: true,
+    density: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'button',
   states: ['disabled', 'busy'],
   metadata: ['styles', 'layer', 'focus'],
   parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
   prepare(value) {
-    const label = value.label;
+    const label = value.label ?? '';
+    const accessibleName = value.accessibleName ?? label;
     const leading = value.leading;
     const trailing = value.trailing;
     const tone = value.tone;
     const density = value.density;
-    const pointerState = value.pointerState;
+    const pointerState = preparePointerInteractionState(value.pointerState, 'button pointerState');
     if (typeof label !== 'string') throw new TypeError('button label must be a string.');
+    if (typeof accessibleName !== 'string' || sanitizeTerminalText(accessibleName).text.trim() === '') {
+      throw new TypeError('button accessibleName must be a non-empty string.');
+    }
+    if (label === '' && leading === undefined && trailing === undefined) {
+      throw new TypeError('an icon-only button requires leading or trailing content.');
+    }
     if (tone !== undefined && !isButtonTone(tone)) throw new TypeError('button tone is invalid.');
     assertOptionalEnum(density, ['compact', 'regular'], 'button density');
-    assertPointerState(pointerState);
     return {
       label: sanitizeTerminalText(label).text,
+      accessibleName: sanitizeTerminalText(accessibleName).text,
       ...(leading === undefined
         ? {}
         : { leading: normalizeInlineContent(leading) }),
@@ -493,7 +559,7 @@ export const button: SemanticLeafComponentFactory<
   }),
   pointer: {
     state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: ({ id, bounds }) => [{
@@ -508,12 +574,44 @@ export const button: SemanticLeafComponentFactory<
     return {
       id,
       role: 'button',
-      label: model.label || id,
+      label: model.accessibleName,
       ...(busy ? { description: 'Busy.' } : {}),
       ...(focused ? { focused: true } : {}),
     };
   },
 });
+
+export const button: ButtonFactory = (options) => {
+  assertComponentOptions(options, 'button', {
+    fields: [
+      'id', 'label', 'accessibleName', 'leading', 'trailing', 'tone', 'density',
+      'busy', 'disabled', 'pointerState', 'meta', 'onAction', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true
+      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
+      : { onAction: 'required', onPointerAction: 'optional' },
+    ...(options.disabled === true ? { forbiddenFields: ['pointerState'] } : {}),
+  });
+  const own = {
+    id: options.id,
+    ...(options.label === undefined ? {} : { label: options.label }),
+    ...(options.accessibleName === undefined ? {} : { accessibleName: options.accessibleName }),
+    ...(options.leading === undefined ? {} : { leading: options.leading }),
+    ...(options.trailing === undefined ? {} : { trailing: options.trailing }),
+    ...(options.tone === undefined ? {} : { tone: options.tone }),
+    ...(options.density === undefined ? {} : { density: options.density }),
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+  if (options.disabled === true) return instantiateButton({ ...own, disabled: true });
+  return instantiateButton({
+    ...own,
+    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? options.onPointerAction?.(action.action) ?? ignoreMessage()
+      : options.onAction(action),
+  });
+};
 
 type ButtonVisualInput =
   | ComponentMeasureInput<ButtonModel>
@@ -562,7 +660,9 @@ function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly Rende
     spans.push(componentSpan(input, ' ', 'frame', 'separator.leading', frameStyle, state));
   }
   spans.push(
-    componentSpan(input, input.model.label || 'Button', 'label', 'label.text', labelStyle, state),
+    ...(input.model.label === ''
+      ? []
+      : [componentSpan(input, input.model.label, 'label', 'label.text', labelStyle, state)]),
   );
   if (input.model.trailing !== undefined) {
     spans.push(componentSpan(input, ' ', 'frame', 'separator.trailing', frameStyle, state));
@@ -712,19 +812,6 @@ function measureSpans(spans: readonly RenderSpan[], widthProfile: TextWidthProfi
   );
 }
 
-function assertPointerState(value: PointerInteractionState | undefined): void {
-  if (value === undefined) return;
-  if (!isNonArrayObject(value)) {
-    throw new TypeError('button pointerState must be an object.');
-  }
-  for (const field of ['hoveredTargetId', 'pressedTargetId']) {
-    const member = value[field];
-    if (member !== undefined && typeof member !== 'string') {
-      throw new TypeError(`button pointerState.${field} must be a string.`);
-    }
-  }
-}
-
 function isButtonTone(value: unknown): value is ButtonTone {
   return value === 'default' ||
     value === 'primary' ||
@@ -741,9 +828,15 @@ interface CheckboxModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-export const checkbox: SemanticLeafComponentFactory<
+type CheckboxComponentAction = CheckboxAction | PointerLifecycleEvent;
+
+type CheckboxFactory = <const TMessage extends ComponentMessage = never>(
+  options: CheckboxOptions<TMessage>,
+) => Element<TMessage>;
+
+const instantiateCheckbox: SemanticLeafComponentFactory<
   Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
-  CheckboxAction,
+  CheckboxComponentAction,
   ChoiceStylePart,
   readonly ['disabled'],
   'required',
@@ -751,16 +844,24 @@ export const checkbox: SemanticLeafComponentFactory<
 > = defineComponent<
   Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
   CheckboxModel,
-  CheckboxAction,
+  CheckboxComponentAction,
   ChoiceStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/checkbox',
+  optionFields: {
+    label: true,
+    checked: true,
+    required: true,
+    error: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'checkbox',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
@@ -769,7 +870,7 @@ export const checkbox: SemanticLeafComponentFactory<
     const checked = value.checked;
     const required = value.required;
     const error = value.error;
-    const pointerState = value.pointerState;
+    const pointerState = preparePointerInteractionState(value.pointerState, 'checkbox pointerState');
     if (typeof label !== 'string') throw new TypeError('checkbox label must be a string.');
     if (typeof checked !== 'boolean') throw new TypeError('checkbox checked must be a boolean.');
     if (required !== undefined && typeof required !== 'boolean') {
@@ -778,7 +879,6 @@ export const checkbox: SemanticLeafComponentFactory<
     if (error !== undefined && typeof error !== 'string') {
       throw new TypeError('checkbox error must be a string.');
     }
-    assertPointerStateFor('checkbox', pointerState);
     return {
       label: sanitizeTerminalText(label).text,
       checked,
@@ -800,7 +900,7 @@ export const checkbox: SemanticLeafComponentFactory<
   }),
   pointer: {
     state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: ({ id, model, bounds }) => [{
@@ -810,20 +910,54 @@ export const checkbox: SemanticLeafComponentFactory<
     focus: { kind: 'target', targetId: 'self' },
     message: () => ({ kind: 'change', checked: !model.checked }),
   }],
-  accessibility({ id, model, focused, disabled }) {
+  accessibility({ id, model, focused }) {
     const description = [model.required ? 'Required.' : '', model.error]
       .filter((value) => value.length > 0).join(' ');
     return {
       id,
       role: 'checkbox',
-      label: model.required ? `${model.label} *` : model.label || id,
+      label: model.label || id,
       checked: model.checked,
+      required: model.required,
+      invalid: model.error !== '',
+      ...(model.error === '' ? {} : {
+        errorMessage: `${id}:error`,
+        children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
+      }),
       ...(description.length === 0 ? {} : { description }),
       ...(focused ? { focused: true } : {}),
-      ...(disabled ? { disabled: true } : {}),
     };
   },
 });
+
+export const checkbox: CheckboxFactory = (options) => {
+  assertComponentOptions(options, 'checkbox', {
+    fields: [
+      'id', 'label', 'checked', 'required', 'error', 'pointerState', 'disabled', 'meta',
+      'onAction', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true
+      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
+      : { onAction: 'required', onPointerAction: 'optional' },
+    ...(options.disabled === true ? { forbiddenFields: ['pointerState'] } : {}),
+  });
+  const own = {
+    id: options.id,
+    label: options.label,
+    checked: options.checked,
+    ...(options.required === undefined ? {} : { required: options.required }),
+    ...(options.error === undefined ? {} : { error: options.error }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+  if (options.disabled === true) return instantiateCheckbox({ ...own, disabled: true });
+  return instantiateCheckbox({
+    ...own,
+    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? options.onPointerAction?.(action.action) ?? ignoreMessage()
+      : options.onAction(action),
+  });
+};
 
 interface ToggleModel {
   readonly label: string;
@@ -834,32 +968,47 @@ interface ToggleModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-export const toggleSwitch: SemanticLeafComponentFactory<
+type SwitchComponentAction = SwitchAction | PointerLifecycleEvent;
+
+type SwitchFactory = <const TMessage extends ComponentMessage = never>(
+  options: SwitchOptions<TMessage>,
+) => Element<TMessage>;
+
+const instantiateSwitch: SemanticLeafComponentFactory<
   Pick<
-    ToggleSwitchOptions<ComponentMessage>,
+    SwitchOptions<ComponentMessage>,
     'label' | 'checked' | 'onLabel' | 'offLabel' | 'error' | 'pointerState'
   >,
-  ToggleSwitchAction,
+  SwitchComponentAction,
   import('../../ui-model/style-parts.ts').ToggleStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 > = defineComponent<
   Pick<
-    ToggleSwitchOptions<ComponentMessage>,
+    SwitchOptions<ComponentMessage>,
     'label' | 'checked' | 'onLabel' | 'offLabel' | 'error' | 'pointerState'
   >,
   ToggleModel,
-  ToggleSwitchAction,
+  SwitchComponentAction,
   import('../../ui-model/style-parts.ts').ToggleStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
-  name: 'terminal-ui/components/toggle-switch',
+  name: 'terminal-ui/components/switch',
+  optionFields: {
+    label: true,
+    checked: true,
+    onLabel: true,
+    offLabel: true,
+    error: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'switch',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'onLabel', 'offLabel', 'error'],
@@ -869,21 +1018,23 @@ export const toggleSwitch: SemanticLeafComponentFactory<
     const onLabel = value.onLabel;
     const offLabel = value.offLabel;
     const error = value.error;
-    const pointerState = value.pointerState;
-    if (typeof label !== 'string') throw new TypeError('toggleSwitch label must be a string.');
+    const pointerState = preparePointerInteractionState(
+      value.pointerState,
+      'switchControl pointerState',
+    );
+    if (typeof label !== 'string') throw new TypeError('switchControl label must be a string.');
     if (typeof checked !== 'boolean') {
-      throw new TypeError('toggleSwitch checked must be a boolean.');
+      throw new TypeError('switchControl checked must be a boolean.');
     }
     if (onLabel !== undefined && typeof onLabel !== 'string') {
-      throw new TypeError('toggleSwitch onLabel must be a string.');
+      throw new TypeError('switchControl onLabel must be a string.');
     }
     if (offLabel !== undefined && typeof offLabel !== 'string') {
-      throw new TypeError('toggleSwitch offLabel must be a string.');
+      throw new TypeError('switchControl offLabel must be a string.');
     }
     if (error !== undefined && typeof error !== 'string') {
-      throw new TypeError('toggleSwitch error must be a string.');
+      throw new TypeError('switchControl error must be a string.');
     }
-    assertPointerStateFor('toggleSwitch', pointerState);
     return {
       label: sanitizeTerminalText(label).text,
       checked,
@@ -905,29 +1056,62 @@ export const toggleSwitch: SemanticLeafComponentFactory<
   }),
   pointer: {
     state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: ({ id, model, bounds }) => [{
-    id: `${id ?? 'toggleSwitch'}:control`,
+    id: `${id ?? 'switchControl'}:control`,
     bounds,
     cursor: 'pointer',
     focus: { kind: 'target', targetId: 'self' },
     message: () => ({ kind: 'change', checked: !model.checked }),
   }],
-  accessibility({ id, model, focused, disabled }) {
+  accessibility({ id, model, focused }) {
     return {
       id,
       role: 'switch',
       label: model.label || id,
       value: model.checked ? model.onLabel : model.offLabel,
       checked: model.checked,
-      ...(model.error.length === 0 ? {} : { description: model.error }),
+      invalid: model.error !== '',
+      ...(model.error.length === 0 ? {} : {
+        errorMessage: `${id}:error`,
+        children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
+      }),
       ...(focused ? { focused: true } : {}),
-      ...(disabled ? { disabled: true } : {}),
     };
   },
 });
+
+export const switchControl: SwitchFactory = (options) => {
+  assertComponentOptions(options, 'switchControl', {
+    fields: [
+      'id', 'label', 'checked', 'onLabel', 'offLabel', 'error', 'pointerState', 'disabled',
+      'meta', 'onAction', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true
+      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
+      : { onAction: 'required', onPointerAction: 'optional' },
+    ...(options.disabled === true ? { forbiddenFields: ['pointerState'] } : {}),
+  });
+  const own = {
+    id: options.id,
+    label: options.label,
+    checked: options.checked,
+    ...(options.onLabel === undefined ? {} : { onLabel: options.onLabel }),
+    ...(options.offLabel === undefined ? {} : { offLabel: options.offLabel }),
+    ...(options.error === undefined ? {} : { error: options.error }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+  if (options.disabled === true) return instantiateSwitch({ ...own, disabled: true });
+  return instantiateSwitch({
+    ...own,
+    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? options.onPointerAction?.(action.action) ?? ignoreMessage()
+      : options.onAction(action),
+  });
+};
 
 interface ControlVisualInput<TModel extends object, TPart extends string> {
   readonly id?: string;
@@ -981,7 +1165,7 @@ function toggleLines(
   input: ControlVisualInput<ToggleModel, import('../../ui-model/style-parts.ts').ToggleStylePart>,
   decorated: boolean,
 ): readonly (readonly RenderSpan[])[] {
-  const state = controlVisualState(input, `${input.id ?? 'toggleSwitch'}:control`);
+  const state = controlVisualState(input, `${input.id ?? 'switchControl'}:control`);
   const thumb = oneCellGlyph(input.theme.tokens.symbols.radioChecked, '*', {
     widthProfile: input.widthProfile,
   });
@@ -1123,30 +1307,17 @@ function writeControlLines<TModel extends object, TPart extends string>(
   });
 }
 
-function assertPointerStateFor(
-  owner: string,
-  value: PointerInteractionState | undefined,
-): void {
-  if (value === undefined) return;
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      throw new TypeError(`${owner} pointerState.${field} must be a string.`);
-    }
-  }
-}
-
-interface SelectOptionModel {
+interface ComboboxOptionModel {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
   readonly disabled: boolean;
 }
 
-interface SelectModel {
+interface ComboboxModel {
   readonly label: string;
-  readonly options: readonly SelectOptionModel[];
-  readonly presentation: SelectPresentation;
+  readonly options: readonly ComboboxOptionModel[];
+  readonly presentation: ComboboxPresentation;
   readonly placeholder: string;
   readonly placement: AnchoredSurfacePlacement;
   readonly maxVisibleOptions: number;
@@ -1156,56 +1327,86 @@ interface SelectModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-const selectSlots = {
+const comboboxSlots = {
   popup: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
 } as const;
 
-type SelectFactory = <TValue, const TMessage extends ComponentMessage = never>(
-  options: SelectOptions<TValue, TMessage>,
+type ComboboxFactory = <TValue, const TMessage extends ComponentMessage = never>(
+  options: ComboboxOptions<TValue, TMessage>,
 ) => Element<TMessage>;
 
-const instantiateSelect = defineComponent<
-  SelectModel,
-  SelectModel,
-  SelectAction,
+type ComboboxComponentAction =
+  | { readonly kind: 'transition'; readonly transition: ComboboxTransition }
+  | { readonly kind: 'commit'; readonly event: ComboboxCommitEvent }
+  | { readonly kind: 'pointer'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+
+const instantiateCombobox = defineComponent<
+  ComboboxModel,
+  ComboboxModel,
+  ComboboxComponentAction,
   ChoiceStylePart,
-  readonly ['disabled'],
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
-  typeof selectSlots
+  typeof comboboxSlots
 >({
-  name: 'terminal-ui/components/select',
+  name: 'terminal-ui/components/combobox',
+  optionFields: {
+    label: true,
+    options: true,
+    presentation: true,
+    placeholder: true,
+    placement: true,
+    maxVisibleOptions: true,
+    scrollbar: true,
+    required: true,
+    error: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
-  slots: selectSlots,
-  states: ['disabled'],
+  accessibleRole: 'combobox',
+  slots: comboboxSlots,
+  states: ['disabled', 'busy', 'readOnly', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
   implementationSlots(input) {
-    if (input.model.presentation.kind === 'closed') return { popup: undefined };
-    const id = input.id ?? 'select';
-    const highlighted = input.model.presentation.highlighted;
+    if (!input.model.presentation.open) return { popup: undefined };
+    const id = input.id ?? 'combobox';
+    const highlighted = input.model.presentation.interaction.activeId;
+    const selectedId = comboboxSelectedId(input.model.presentation);
     const common = {
       id: `${id}:popup:list`,
       items: input.model.options,
-      projectItem: (option: SelectOptionModel) => option,
-      ...(highlighted === undefined ? {} : { selectedId: highlighted }),
+      projectItem: (option: ComboboxOptionModel) => option,
+      presentation: {
+        ...(highlighted === undefined ? {} : { activeId: highlighted }),
+        selection: selectedId === undefined
+          ? { mode: 'single' as const }
+          : { mode: 'single' as const, selectedId },
+      },
       meta: {
         focus: { disabled: true },
-        ...(input.styles === undefined ? {} : { styles: selectPopupStyles(input.styles) }),
+        ...(input.styles === undefined ? {} : { styles: comboboxPopupStyles(input.styles) }),
       },
     };
     const popupList = input.model.presentation.scroll === undefined
-      ? list<SelectOptionModel, ComponentMessage>({
+      ? listbox<ComboboxOptionModel, ComponentMessage>({
         ...common,
-        onAction: (action) => input.emit(selectActionForList(action)),
+        onTransition: (action) => input.emit(comboboxTransitionForListbox(action)),
+        onActivate: (event) => input.readOnly
+          ? ignoreMessage()
+          : input.emit({ kind: 'commit', event: { kind: 'commit', id: event.id } }),
       })
-      : list<SelectOptionModel, ComponentMessage>({
+      : listbox<ComboboxOptionModel, ComponentMessage>({
         ...common,
         scroll: input.model.presentation.scroll,
         ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),
-        onAction: (action) => input.emit(selectActionForList(action)),
+        onTransition: (action) => input.emit(comboboxTransitionForListbox(action)),
+        onActivate: (event) => input.readOnly
+          ? ignoreMessage()
+          : input.emit({ kind: 'commit', event: { kind: 'commit', id: event.id } }),
       });
     return {
       popup: portal(
@@ -1220,14 +1421,17 @@ const instantiateSelect = defineComponent<
           anchor: { kind: 'allocation' },
           placement: input.model.placement,
           margin: 0,
-          onOutsidePress: () => input.emit({ kind: 'dismiss', reason: 'outsidePress' }),
+          onOutsidePress: () => input.emit(comboboxComponentTransition({
+            kind: 'dismiss',
+            reason: 'outsidePress',
+          })),
           meta: { layer: { zIndex: 20, underlay: 'clear' } },
         },
       ),
     };
   },
   measure(input) {
-    const selected = selectedSelectOption(input.model);
+    const selected = selectedComboboxOption(input.model);
     const value = selected?.label ?? input.model.placeholder;
     const label = input.model.required ? `${input.model.label} *` : input.model.label;
     return {
@@ -1242,32 +1446,36 @@ const instantiateSelect = defineComponent<
     return { popup: bounds };
   },
   renderBeforeChildren(input) {
-    renderSelect(input);
+    renderCombobox(input);
   },
-  keys({ id, model }) {
+  keys({ id, model, busy, readOnly }) {
+    if (busy) return {};
     const whenSelf =
-      (action: import('../../interaction/index.ts').MessageResolution<SelectAction>) =>
+      (action: import('../../interaction/index.ts').MessageResolution<ComboboxComponentAction>) =>
       (event: { readonly focusPath: readonly string[] }) =>
         event.focusPath.at(-1) === id ? action : ignoreMessage();
-    const highlighted = model.presentation.kind === 'open'
-      ? model.presentation.highlighted
+    const highlighted = model.presentation.open
+      ? model.presentation.interaction.activeId
       : undefined;
     return {
-      arrowDown: whenSelf({ kind: 'move', delta: 1 }),
-      arrowUp: whenSelf({ kind: 'move', delta: -1 }),
-      home: whenSelf({ kind: 'first' }),
-      end: whenSelf({ kind: 'last' }),
-      space: whenSelf({ kind: 'toggle' }),
+      arrowDown: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: 1 })),
+      arrowUp: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: -1 })),
+      home: whenSelf(comboboxComponentTransition({ kind: 'firstActive' })),
+      end: whenSelf(comboboxComponentTransition({ kind: 'lastActive' })),
+      space: whenSelf(comboboxComponentTransition({ kind: 'toggle' })),
       enter: whenSelf(
-        model.presentation.kind === 'closed'
-          ? { kind: 'open' }
-          : highlighted === undefined
+        !model.presentation.open
+          ? comboboxComponentTransition({ kind: 'open' })
+        : highlighted === undefined
           ? ignoreMessage()
-          : { kind: 'commit', id: highlighted },
+          : readOnly ? ignoreMessage() : {
+            kind: 'commit',
+            event: { kind: 'commit', id: highlighted },
+          },
       ),
       escape: whenSelf(
-        model.presentation.kind === 'open'
-          ? { kind: 'dismiss', reason: 'escape' }
+        model.presentation.open
+          ? comboboxComponentTransition({ kind: 'dismiss', reason: 'escape' })
           : ignoreMessage(),
       ),
     };
@@ -1278,44 +1486,69 @@ const instantiateSelect = defineComponent<
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: ({ id, bounds, model }) => [{
-    id: `${id ?? 'select'}:trigger`,
+    id: `${id ?? 'combobox'}:trigger`,
     bounds: { ...bounds, height: Math.min(1, bounds.height) },
     accepts: ['click'],
     focus: { kind: 'target', targetId: 'self' },
-    message: () => ({ kind: 'toggle' }),
+    message: () => comboboxComponentTransition({ kind: 'toggle' }),
     cursor: 'pointer',
-    ...(model.presentation.kind === 'open' ? { zIndex: 21 } : {}),
+    ...(model.presentation.open ? { zIndex: 21 } : {}),
   }],
   accessibility(input) {
-    return selectAccessibility(input);
+    return comboboxAccessibility(input);
   },
 });
 
-export const select: SelectFactory = (options) => {
-  if (options.disabled === true && Object.hasOwn(options, 'onAction')) {
-    throw new TypeError('Disabled component "terminal-ui/components/select" cannot accept onAction.');
-  }
-  const model = prepareSelect(options);
-  const shared = {
+export const combobox: ComboboxFactory = (options) => {
+  assertComponentOptions(options, 'combobox', {
+    fields: [
+      'id', 'label', 'options', 'presentation', 'placeholder', 'placement',
+      'maxVisibleOptions', 'scrollbar', 'required', 'error',
+      'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta',
+      'onTransition', 'onCommit', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true || options.inert === true
+      ? { onTransition: 'forbidden', onCommit: 'forbidden', onPointerAction: 'forbidden' }
+      : { onTransition: 'required', onCommit: 'optional', onPointerAction: 'optional' },
+    ...(options.disabled === true
+      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy', 'inert'] }
+      : options.inert === true
+        ? { forbiddenFields: ['readOnly'] }
+      : {}),
+  });
+  const model = prepareCombobox(options);
+  const common = {
     ...model,
     id: options.id,
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  return options.disabled === true
-    ? instantiateSelect({ ...shared, disabled: true })
-    : instantiateSelect({ ...shared, onAction: options.onAction });
+  if (options.disabled === true) return instantiateCombobox({ ...common, disabled: true });
+  const shared = {
+    ...common,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+  };
+  if (options.inert === true) return instantiateCombobox({ ...shared, inert: true });
+  return instantiateCombobox({
+    ...shared,
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => {
+      if (action.kind === 'transition') return options.onTransition(action.transition);
+      if (action.kind === 'commit') return options.onCommit?.(action.event) ?? ignoreMessage();
+      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+    },
+  });
 };
 
-function selectedSelectOption(model: SelectModel): SelectOptionModel | undefined {
-  return model.options.find((option) => option.id === model.presentation.selected);
+function selectedComboboxOption(model: ComboboxModel): ComboboxOptionModel | undefined {
+  return model.options.find((option) => option.id === comboboxSelectedId(model.presentation));
 }
 
-function renderSelect(input: ComponentRenderInput<SelectModel, ChoiceStylePart>): void {
-  const selected = selectedSelectOption(input.model);
+function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePart>): void {
+  const selected = selectedComboboxOption(input.model);
   const value = selected?.label ?? input.model.placeholder;
   const state = input.disabled
     ? 'disabled' as const
-    : pointerVisualState(input.model.pointerState, `${input.id ?? 'select'}:trigger`) ??
+    : pointerVisualState(input.model.pointerState, `${input.id ?? 'combobox'}:trigger`) ??
       (input.focus === 'self' ? 'focused' as const : undefined);
   const label = input.model.required ? `${input.model.label} *` : input.model.label;
   const labelStyle = input.style({
@@ -1337,19 +1570,19 @@ function renderSelect(input: ComponentRenderInput<SelectModel, ChoiceStylePart>)
     base: { fg: { kind: 'theme', token: 'control.foreground' } },
   });
   input.target.write(0, 0, [
-    selectSpan(input, label, 'label', 'label', labelStyle),
-    selectSpan(input, ': ', 'label', 'label.separator', labelStyle),
-    selectSpan(
+    comboboxSpan(input, label, 'label', 'label', labelStyle),
+    comboboxSpan(input, ': ', 'label', 'label.separator', labelStyle),
+    comboboxSpan(
       input,
       value,
       valuePart,
       selected === undefined ? 'value.placeholder' : 'value.selected',
       valueStyle,
     ),
-    selectSpan(input, ' ', 'marker', 'value.separator', markerStyle),
-    selectSpan(
+    comboboxSpan(input, ' ', 'marker', 'value.separator', markerStyle),
+    comboboxSpan(
       input,
-      input.model.presentation.kind === 'open'
+      input.model.presentation.open
         ? input.theme.tokens.symbols.expanded
         : input.theme.tokens.symbols.collapsed,
       'marker',
@@ -1363,13 +1596,13 @@ function renderSelect(input: ComponentRenderInput<SelectModel, ChoiceStylePart>)
       base: { fg: { kind: 'theme', token: 'status.error' } },
     });
     input.target.write(1, 0, [
-      selectSpan(input, input.model.error, 'error', 'validation.error', errorStyle),
+      comboboxSpan(input, input.model.error, 'error', 'validation.error', errorStyle),
     ]);
   }
 }
 
-function selectSpan(
-  input: ComponentRenderInput<SelectModel, ChoiceStylePart>,
+function comboboxSpan(
+  input: ComponentRenderInput<ComboboxModel, ChoiceStylePart>,
   text: string,
   part: ChoiceStylePart,
   partName: string,
@@ -1382,23 +1615,33 @@ function selectSpan(
   };
 }
 
-function selectAccessibility(
-  input: ComponentAccessibilityInput<SelectModel, typeof selectSlots>,
+function comboboxAccessibility(
+  input: ComponentAccessibilityInput<ComboboxModel, typeof comboboxSlots>,
 ): import('../../accessibility/index.ts').AccessibleNode {
-  const selected = selectedSelectOption(input.model);
+  const selected = selectedComboboxOption(input.model);
   const description = [input.model.required ? 'Required.' : '', input.model.error ?? '']
     .filter((part) => part.length > 0)
     .join(' ');
-  const open = input.model.presentation.kind === 'open' ? input.model.presentation : undefined;
+  const open = input.model.presentation.open ? input.model.presentation : undefined;
   return {
     id: input.id,
     role: 'combobox',
-    label: input.model.required ? `${input.model.label} *` : input.model.label,
-    expanded: input.model.presentation.kind === 'open',
+    label: input.model.label,
+    required: input.model.required,
+    invalid: input.model.error !== undefined,
+    ...(input.model.error === undefined ? {} : { errorMessage: `${input.id}:error` }),
+    expanded: input.model.presentation.open,
+    ...(open?.interaction.activeId === undefined
+      ? {}
+      : { activeDescendant: `${input.id}:${open.interaction.activeId}` }),
     ...(selected === undefined ? {} : { value: selected.label }),
     ...(description.length === 0 ? {} : { description }),
     ...(input.focused ? { focused: true } : {}),
-    ...(open === undefined ? { children: [] } : {
+    ...(open === undefined ? {
+      children: input.model.error === undefined
+        ? []
+        : [{ id: `${input.id}:error`, role: 'status' as const, label: input.model.error }],
+    } : {
       children: [{
         id: `${input.id}:options`,
         role: 'listbox' as const,
@@ -1407,81 +1650,86 @@ function selectAccessibility(
           id: `${input.id}:${option.id}`,
           role: 'option' as const,
           label: option.label,
-          selected: option.id === open.selected,
-          ...(option.id === open.highlighted ? { focused: true } : {}),
+          selected: option.id === comboboxSelectedId(open),
           ...(option.description === undefined ? {} : { description: option.description }),
           ...(option.disabled ? { disabled: true } : {}),
         })),
-      }],
+      }, ...(input.model.error === undefined
+        ? []
+        : [{ id: `${input.id}:error`, role: 'status' as const, label: input.model.error }])],
     }),
   };
 }
 
-function selectActionForList(action: ListAction): SelectAction {
+function comboboxTransitionForListbox(action: ListboxTransition): ComboboxComponentAction {
   switch (action.kind) {
+    case 'setActive':
+      return comboboxComponentTransition({ kind: 'setActive', ...(action.id === undefined ? {} : { id: action.id }) });
+    case 'moveActive':
+      return comboboxComponentTransition({ kind: 'moveActive', delta: action.delta });
+    case 'pageActive':
+      return comboboxComponentTransition({ kind: 'moveActive', delta: action.delta });
+    case 'firstActive':
+      return comboboxComponentTransition({ kind: 'firstActive' });
+    case 'lastActive':
+      return comboboxComponentTransition({ kind: 'lastActive' });
+    case 'commitActive':
+      return comboboxComponentTransition({ kind: 'dismiss', reason: 'programmatic' });
     case 'select':
-    case 'activate':
-      return { kind: 'commit', id: action.id };
-    case 'move':
-      return action;
-    case 'page':
-      return { kind: 'move', delta: action.delta };
-    case 'first':
-      return action;
-    case 'last':
-      return action;
+    case 'toggleSelection':
+      return { kind: 'commit', event: { kind: 'commit', id: action.id } };
+    case 'selectRange':
+      return { kind: 'commit', event: { kind: 'commit', id: action.toId } };
+    case 'clearSelection':
+      return comboboxComponentTransition({ kind: 'dismiss', reason: 'programmatic' });
     case 'scroll':
-      return action;
+      return comboboxComponentTransition(action);
   }
 }
 
-function selectPopupStyles(
+function comboboxComponentTransition(transition: ComboboxTransition): ComboboxComponentAction {
+  return { kind: 'transition', transition };
+}
+
+function comboboxPopupStyles(
   styles: import('../../element/index.ts').ElementStyles<ChoiceStylePart>,
 ): import('../../element/index.ts').ElementStyles<
   import('../../ui-model/style-parts.ts').DataListStylePart
 > {
-  return {
-    ...(styles.root === undefined ? {} : { root: styles.root }),
-    ...(styles.parts === undefined ? {} : {
-      parts: {
-        ...(styles.parts.marker === undefined ? {} : { marker: styles.parts.marker }),
-        ...(styles.parts.option === undefined ? {} : { item: styles.parts.option }),
-        ...(styles.parts.description === undefined
-          ? {}
-          : { description: styles.parts.description }),
-      },
-    }),
-    ...(styles.states === undefined ? {} : { states: styles.states }),
-  };
+  return mapComponentStyles(styles, {
+    marker: 'marker',
+    item: 'option',
+    description: 'description',
+  }) ?? {};
 }
 
-function prepareSelect<TValue, TMessage extends ComponentMessage>(
-  value: Readonly<SelectOptions<TValue, TMessage>>,
-): SelectModel {
+function prepareCombobox<TValue, TMessage extends ComponentMessage>(
+  value: Readonly<ComboboxOptions<TValue, TMessage>>,
+): ComboboxModel {
   const label = value.label;
-  if (typeof label !== 'string') throw new TypeError('select label must be a string.');
+  if (typeof label !== 'string') throw new TypeError('combobox label must be a string.');
   const rawOptions = value.options;
-  if (!Array.isArray(rawOptions)) throw new TypeError('select options must be an array.');
+  if (!Array.isArray(rawOptions)) throw new TypeError('combobox options must be an array.');
   const ids = new Set<string>();
-  const options = rawOptions.map((raw, index): SelectOptionModel => {
+  const options = rawOptions.map((raw, index): ComboboxOptionModel => {
     if (!isNonArrayObject(raw)) {
-      throw new TypeError(`select options[${String(index)}] must be an object.`);
+      throw new TypeError(`combobox options[${String(index)}] must be an object.`);
     }
     const id = raw['id'];
     const optionLabel = raw['label'];
     if (typeof id !== 'string' || id.trim() === '') {
-      throw new TypeError('select option id must be non-empty.');
+      throw new TypeError('combobox option id must be non-empty.');
     }
-    if (ids.has(id)) throw new TypeError(`select contains duplicate option id "${id}".`);
+    if (ids.has(id)) throw new TypeError(`combobox contains duplicate option id "${id}".`);
     ids.add(id);
     if (typeof optionLabel !== 'string') {
-      throw new TypeError('select option label must be a string.');
+      throw new TypeError('combobox option label must be a string.');
     }
     if (raw['description'] !== undefined && typeof raw['description'] !== 'string') {
-      throw new TypeError('select option description must be a string.');
+      throw new TypeError('combobox option description must be a string.');
     }
     if (raw['disabled'] !== undefined && typeof raw['disabled'] !== 'boolean') {
-      throw new TypeError('select option disabled must be a boolean.');
+      throw new TypeError('combobox option disabled must be a boolean.');
     }
     return {
       id,
@@ -1492,21 +1740,19 @@ function prepareSelect<TValue, TMessage extends ComponentMessage>(
       disabled: raw['disabled'] === true,
     };
   });
-  const presentation = prepareSelectPresentation(value.presentation);
-  if (value.disabled === true && presentation.kind === 'open') {
-    throw new TypeError('select cannot be open while disabled.');
+  const presentation = prepareComboboxPresentation(value.presentation, options);
+  if (value.disabled === true && presentation.open) {
+    throw new TypeError('combobox cannot be open while disabled.');
   }
-  const choiceOptions = options.map((option): ChoiceItem => ({ ...option, value: option.id }));
-  const normalized = normalizeSelectState(presentation, choiceOptions);
   const placeholder = value.placeholder;
   if (placeholder !== undefined && typeof placeholder !== 'string') {
-    throw new TypeError('select placeholder must be a string.');
+    throw new TypeError('combobox placeholder must be a string.');
   }
   const placement = value.placement;
   assertOptionalEnum(
     placement,
     ['above', 'below', 'left', 'right', 'auto', 'cursor'],
-    'select placement',
+    'combobox placement',
   );
   const maxVisibleOptions = value.maxVisibleOptions;
   if (
@@ -1515,24 +1761,23 @@ function prepareSelect<TValue, TMessage extends ComponentMessage>(
       !Number.isSafeInteger(maxVisibleOptions) ||
       maxVisibleOptions < 1)
   ) {
-    throw new RangeError('select maxVisibleOptions must be a positive safe integer.');
+    throw new RangeError('combobox maxVisibleOptions must be a positive safe integer.');
   }
   for (const field of ['required'] as const) {
     if (value[field] !== undefined && typeof value[field] !== 'boolean') {
-      throw new TypeError(`select ${field} must be a boolean.`);
+      throw new TypeError(`combobox ${field} must be a boolean.`);
     }
   }
   const error = value.error;
   if (error !== undefined && typeof error !== 'string') {
-    throw new TypeError('select error must be a string.');
+    throw new TypeError('combobox error must be a string.');
   }
-  const pointerState = value.pointerState;
-  if (pointerState !== undefined) assertPointerState(pointerState);
+  const pointerState = preparePointerInteractionState(value.pointerState, 'combobox pointerState');
   const scrollbar = prepareScrollbar(value.scrollbar);
   return {
     label: sanitizeTerminalText(label).text,
     options,
-    presentation: normalized,
+    presentation,
     placeholder: sanitizeTerminalText(placeholder ?? 'Select…').text,
     placement: placement ?? 'auto',
     maxVisibleOptions: maxVisibleOptions ?? 8,
@@ -1543,41 +1788,61 @@ function prepareSelect<TValue, TMessage extends ComponentMessage>(
   };
 }
 
-function prepareSelectPresentation(value: SelectPresentation): SelectPresentation {
-  if (!isNonArrayObject(value) || !isStringMember(value.kind, ['open', 'closed'])) {
-    throw new TypeError('select presentation is invalid.');
+function prepareComboboxPresentation(
+  value: ComboboxPresentation,
+  options: readonly ComboboxOptionModel[],
+): ComboboxPresentation {
+  if (!isNonArrayObject(value) || typeof value.open !== 'boolean' ||
+    !isNonArrayObject(value.interaction)) {
+    throw new TypeError('combobox presentation is invalid.');
   }
-  if (value.selected !== undefined && typeof value.selected !== 'string') {
-    throw new TypeError('select presentation selected must be a string.');
+  const selection = value.interaction.selection;
+  if (!isNonArrayObject(selection) || selection.mode !== 'single') {
+    throw new TypeError('combobox interaction selection must use single mode.');
   }
-  const selected = value.selected;
-  if (value.kind === 'closed') {
-    return { kind: 'closed', ...(typeof selected === 'string' ? { selected } : {}) };
+  const selectedId = selection.selectedId === undefined
+    ? undefined
+    : nonEmptyId(selection.selectedId, 'combobox selectedId');
+  if (selectedId !== undefined && !options.some((option) => option.id === selectedId)) {
+    throw new TypeError('combobox selectedId must reference an option.');
   }
-  if (value.highlighted !== undefined && typeof value.highlighted !== 'string') {
-    throw new TypeError('select presentation highlighted must be a string.');
+  const activeId = value.interaction.activeId === undefined
+    ? undefined
+    : nonEmptyId(value.interaction.activeId, 'combobox activeId');
+  if (activeId !== undefined && !options.some((option) => option.id === activeId && !option.disabled)) {
+    throw new TypeError('combobox activeId must reference an enabled option.');
   }
-  const highlighted = value.highlighted;
-  const scroll = prepareScrollState(value.scroll, 'select presentation scroll');
+  const scroll = prepareScrollState(value.scroll, 'combobox presentation scroll');
   return {
-    kind: 'open',
-    ...(typeof selected === 'string' ? { selected } : {}),
-    ...(typeof highlighted === 'string' ? { highlighted } : {}),
+    open: value.open,
+    interaction: Object.freeze({
+      ...(activeId === undefined ? {} : { activeId }),
+      selection: Object.freeze({
+        mode: 'single' as const,
+        ...(selectedId === undefined ? {} : { selectedId }),
+      }),
+    }),
     ...(scroll === undefined ? {} : { scroll }),
   };
+}
+
+function comboboxSelectedId(presentation: ComboboxPresentation): string | undefined {
+  return presentation.interaction.selection.mode === 'single'
+    ? presentation.interaction.selection.selectedId
+    : undefined;
+}
+
+function nonEmptyId(value: unknown, owner: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new TypeError(`${owner} must be a non-empty string.`);
+  }
+  return value;
 }
 
 function prepareScrollState(value: ScrollState | undefined, label: string): ScrollState | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError(`${label} must be an object.`);
-  const required = [
-    'offsetRow',
-    'offsetColumn',
-    'contentRows',
-    'contentColumns',
-    'viewportRows',
-    'viewportColumns',
-  ] as const;
+  const required = ['offsetRow', 'offsetColumn'] as const;
   for (const field of required) {
     const member = value[field];
     if (typeof member !== 'number' || !Number.isSafeInteger(member) || member < 0) {
@@ -1587,52 +1852,29 @@ function prepareScrollState(value: ScrollState | undefined, label: string): Scro
   if (typeof value.followTail !== 'boolean') {
     throw new TypeError(`${label}.followTail must be a boolean.`);
   }
-  const selectedIndex = value.selectedIndex;
-  if (
-    selectedIndex !== undefined &&
-    (typeof selectedIndex !== 'number' || !Number.isSafeInteger(selectedIndex) || selectedIndex < 0)
-  ) {
-    throw new RangeError(`${label}.selectedIndex must be a non-negative safe integer.`);
-  }
   const offsetRow = value.offsetRow;
   const offsetColumn = value.offsetColumn;
-  const contentRows = value.contentRows;
-  const contentColumns = value.contentColumns;
-  const viewportRows = value.viewportRows;
-  const viewportColumns = value.viewportColumns;
-  if (
-    typeof offsetRow !== 'number' ||
-    typeof offsetColumn !== 'number' ||
-    typeof contentRows !== 'number' ||
-    typeof contentColumns !== 'number' ||
-    typeof viewportRows !== 'number' ||
-    typeof viewportColumns !== 'number'
-  ) {
+  if (typeof offsetRow !== 'number' || typeof offsetColumn !== 'number') {
     throw new TypeError(`${label} is invalid.`);
   }
   return {
     offsetRow,
     offsetColumn,
-    contentRows,
-    contentColumns,
-    viewportRows,
-    viewportColumns,
     followTail: value.followTail,
-    ...(typeof selectedIndex === 'number' ? { selectedIndex } : {}),
   };
 }
 
 function prepareScrollbar(value: ScrollbarOptions | undefined): ScrollbarOptions | undefined {
   if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError('select scrollbar must be an object.');
+  if (!isNonArrayObject(value)) throw new TypeError('combobox scrollbar must be an object.');
   const visible = value['visible'];
   const axis = value['axis'];
   const visualState = value['visualState'];
   if (visible !== undefined && visible !== 'auto' && visible !== 'always' && visible !== 'never') {
-    throw new TypeError('select scrollbar visible is invalid.');
+    throw new TypeError('combobox scrollbar visible is invalid.');
   }
   if (axis !== undefined && axis !== 'vertical' && axis !== 'horizontal' && axis !== 'both') {
-    throw new TypeError('select scrollbar axis is invalid.');
+    throw new TypeError('combobox scrollbar axis is invalid.');
   }
   if (
     visualState !== undefined &&
@@ -1642,7 +1884,7 @@ function prepareScrollbar(value: ScrollbarOptions | undefined): ScrollbarOptions
     visualState !== 'disabled' &&
     visualState !== 'inactive'
   ) {
-    throw new TypeError('select scrollbar visualState is invalid.');
+    throw new TypeError('combobox scrollbar visualState is invalid.');
   }
   return {
     ...(visible === undefined ? {} : { visible }),

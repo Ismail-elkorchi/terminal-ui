@@ -23,7 +23,7 @@ import {
   menu,
   searchPicker,
   logViewer,
-  table,
+  dataGrid,
   textArea,
   tree,
   text
@@ -278,8 +278,8 @@ test('component scrollbars expose producing-element metadata and visual state', 
   assert.equal(thumbCell?.style?.bold, true);
 });
 
-test('table scrollbar can expose vertical and horizontal scroll scope together', () => {
-  const frame = renderElementFrame(table({
+test('dataGrid scrollbar can expose vertical and horizontal scroll scope together', () => {
+  const frame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
     id: 'wide',
     rows: [
@@ -294,17 +294,12 @@ test('table scrollbar can expose vertical and horizontal scroll scope together',
         id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: { kind: 'fixed', cells: 10 } }
     ],
     presentation: {
-      scroll: createScrollState({
-        offsetRow: 1,
-        offsetColumn: 8,
-        contentRows: 3,
-        contentColumns: 30,
-        viewportRows: 3,
-        viewportColumns: 14
-      })
+      interaction: { kind: 'row',
+      selectionMode: 'single', selectedRowIds: [] },
+      scroll: createScrollState({ offsetRow: 1, offsetColumn: 8 })
     },
     scrollbar: { axis: 'both' },
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 14, rows: 3 });
 
   assert.ok(frame.cells.some((cell) => cell.column === 14 && cell.source?.cellRole === 'scrollbar'));
@@ -322,10 +317,10 @@ test('menu scrollbar windows menu rows instead of drawing a fixed decoration onl
         { kind: 'action', id: 'save', label: 'Save' },
         { kind: 'action', id: 'quit', label: 'Quit' }
       ],
-      scroll: createScrollState({ offsetRow: 2, contentRows: 4, viewportRows: 2 })
+      scroll: createScrollState({ offsetRow: 2 })
     },
     scrollbar: {},
-    onAction: () => ignoreMessage()
+    onTransition: () => ignoreMessage()
   }), { columns: 14, rows: 2 });
 
   const output = renderFramePlain(frame);
@@ -344,8 +339,10 @@ test('tree scrollbar follows explicit tree scroll state', () => {
       { id: 'c', label: 'Charlie', kind: 'leaf' },
       { id: 'd', label: 'Delta', kind: 'leaf' }
     ],
-    scroll: createScrollState({ offsetRow: 1, contentRows: 4, viewportRows: 2 }),
-    scrollbar: {}
+    presentation: { expandedIds: [], selection: { mode: 'none' } },
+    scroll: createScrollState({ offsetRow: 1 }),
+    scrollbar: {},
+    onTransition: () => ignoreMessage()
   }), { columns: 16, rows: 2 });
 
   const output = renderFramePlain(frame);
@@ -365,9 +362,12 @@ test('searchPicker scrollbar renders beside the filtered result window', () => {
       { id: 'three', label: 'Three', value: 'three' },
       { id: 'four', label: 'Four', value: 'four' }
     ]),
-    scroll: createScrollState({ offsetRow: 1, contentRows: 4, viewportRows: 4 }),
+    presentation: {
+      query: { text: '', mode: 'fuzzy' },
+      scroll: createScrollState({ offsetRow: 1 })
+    },
     scrollbar: { visible: 'always' },
-    onAction: () => ignoreMessage()
+    onTransition: () => ignoreMessage()
   }), { columns: 18, rows: 4 });
 
   assert.match(renderFramePlain(frame), /Actions/u);

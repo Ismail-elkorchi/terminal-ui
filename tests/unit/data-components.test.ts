@@ -6,23 +6,27 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
-  paginator,
+  pagination,
   tree
 } from '../../dist/components/index.js';
 
 void test('tree component renders expanded visible nodes and accessible selection state', () => {
   const frame = renderElementFrame(tree({
     id: 'tree',
-    selected: 'child',
+    presentation: {
+      expandedIds: ['root'],
+      activeId: 'root',
+      selection: { mode: 'single', selectedId: 'child' }
+    },
+    onTransition: (transition) => transition,
     nodes: [
       {
         id: 'root',
         label: 'Root',
         kind: 'branch',
-        expanded: true,
         children: [
           { id: 'child', label: 'Child', kind: 'leaf' },
-          { id: 'hidden-parent', label: 'Hidden parent', kind: 'branch', expanded: false, children: [{ id: 'hidden', label: 'Hidden', kind: 'leaf' }] }
+          { id: 'hidden-parent', label: 'Hidden parent', kind: 'branch', children: [{ id: 'hidden', label: 'Hidden', kind: 'leaf' }] }
         ]
       }
     ]
@@ -43,8 +47,8 @@ void test('tree component renders expanded visible nodes and accessible selectio
   assert.equal(children[0]?.expanded, true);
 });
 
-void test('paginator normalizes page bounds and renders navigation controls', () => {
-  const frame = renderElementFrame(paginator({
+void test('pagination normalizes page bounds and renders navigation controls', () => {
+  const frame = renderElementFrame(pagination({
     id: 'pages',
       label: 'Results',
       pageNumber: 20,

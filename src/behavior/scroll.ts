@@ -3,159 +3,164 @@ import type {
   CreateScrollStateInput,
   ScrollAction,
   ScrollEvent,
+  ScrollGeometry,
   ScrollState,
-  ScrollVisibleWindow
+  ScrollVisibleWindow,
 } from '../interaction/scroll.ts';
+
+const unboundedGeometry: ScrollGeometry = Object.freeze({
+  contentRows: Number.MAX_SAFE_INTEGER,
+  contentColumns: Number.MAX_SAFE_INTEGER,
+  viewportRows: 0,
+  viewportColumns: 0,
+});
 
 export function createScrollState(input: CreateScrollStateInput = {}): ScrollState {
   return normalizeScrollState({
     offsetRow: input.offsetRow ?? 0,
     offsetColumn: input.offsetColumn ?? 0,
-    contentRows: input.contentRows ?? 0,
-    contentColumns: input.contentColumns ?? 0,
-    viewportRows: input.viewportRows ?? 0,
-    viewportColumns: input.viewportColumns ?? 0,
     followTail: input.followTail ?? false,
-    ...(input.selectedIndex === undefined ? {} : { selectedIndex: input.selectedIndex })
   });
 }
 
-export function scrollReducer(state: ScrollState, action: ScrollAction): ScrollState {
+export function scrollReducer(
+  state: ScrollState,
+  action: ScrollAction,
+  geometry: ScrollGeometry = unboundedGeometry,
+): ScrollState {
+  const normalized = normalizeScrollState(state, geometry);
   switch (action.kind) {
-    case 'setContent':
-      return preserveScrollIdentity(state, normalizeScrollState({
-        ...state,
-        contentRows: action.rows ?? state.contentRows,
-        contentColumns: action.columns ?? state.contentColumns,
-        offsetRow: state.followTail && action.rows !== undefined
-          ? bottomOffset(action.rows, state.viewportRows)
-          : state.offsetRow
-      }));
-    case 'setViewport':
-      return preserveScrollIdentity(state, normalizeScrollState({
-        ...state,
-        viewportRows: action.rows ?? state.viewportRows,
-        viewportColumns: action.columns ?? state.viewportColumns
-      }));
     case 'setOffset':
       return preserveScrollIdentity(state, normalizeScrollState({
-        ...state,
-        offsetRow: action.rows ?? state.offsetRow,
-        offsetColumn: action.columns ?? state.offsetColumn,
-        followTail: action.rows === undefined ? state.followTail : false
-      }));
+        ...normalized,
+        offsetRow: action.rows ?? normalized.offsetRow,
+        offsetColumn: action.columns ?? normalized.offsetColumn,
+        followTail: action.rows === undefined ? normalized.followTail : false,
+      }, geometry));
     case 'scrollLines':
       return preserveScrollIdentity(state, normalizeScrollState({
-        ...state,
-        offsetRow: state.offsetRow + (action.rows ?? 0),
-        offsetColumn: state.offsetColumn + (action.columns ?? 0),
-        followTail: action.rows === undefined || action.rows >= 0 ? state.followTail : false
-      }));
+        ...normalized,
+        offsetRow: normalized.offsetRow + (action.rows ?? 0),
+        offsetColumn: normalized.offsetColumn + (action.columns ?? 0),
+        followTail: action.rows === undefined || action.rows >= 0 ? normalized.followTail : false,
+      }, geometry));
     case 'scrollPages':
       return preserveScrollIdentity(state, normalizeScrollState({
-        ...state,
-        offsetRow: state.offsetRow + (action.rows ?? 0) * Math.max(1, state.viewportRows),
-        offsetColumn: state.offsetColumn + (action.columns ?? 0) * Math.max(1, state.viewportColumns),
-        followTail: action.rows === undefined || action.rows >= 0 ? state.followTail : false
-      }));
+        ...normalized,
+        offsetRow: normalized.offsetRow + (action.rows ?? 0) * Math.max(1, geometry.viewportRows),
+        offsetColumn: normalized.offsetColumn + (action.columns ?? 0) * Math.max(1, geometry.viewportColumns),
+        followTail: action.rows === undefined || action.rows >= 0 ? normalized.followTail : false,
+      }, geometry));
     case 'top':
-      return preserveScrollIdentity(state, normalizeScrollState({ ...state, offsetRow: 0, followTail: false }));
+      return preserveScrollIdentity(state, { ...normalized, offsetRow: 0, followTail: false });
     case 'bottom':
-      return preserveScrollIdentity(state, normalizeScrollState({ ...state, offsetRow: bottomOffset(state.contentRows, state.viewportRows), followTail: true }));
+      return preserveScrollIdentity(state, {
+        ...normalized,
+        offsetRow: bottomOffset(geometry.contentRows, geometry.viewportRows),
+        followTail: true,
+      });
     case 'itemIntoView':
-      return preserveScrollIdentity(state, normalizeScrollState({
-        ...state,
-        offsetRow: centeredOffset(state.contentRows, state.viewportRows, action.itemIndex),
-        selectedIndex: normalizeSelectedIndex(action.itemIndex, state.contentRows),
-        followTail: false
-      }));
+      return preserveScrollIdentity(state, {
+        ...normalized,
+        offsetRow: itemIntoViewOffset(
+          normalized.offsetRow,
+          geometry.contentRows,
+          geometry.viewportRows,
+          action.itemIndex,
+          action.alignment,
+        ),
+        followTail: false,
+      });
     case 'setFollowTail':
-      return preserveScrollIdentity(state, normalizeScrollState({
-        ...state,
+      return preserveScrollIdentity(state, {
+        ...normalized,
         followTail: action.followTail,
-        offsetRow: action.followTail ? bottomOffset(state.contentRows, state.viewportRows) : state.offsetRow
-      }));
+        offsetRow: action.followTail
+          ? bottomOffset(geometry.contentRows, geometry.viewportRows)
+          : normalized.offsetRow,
+      });
   }
 }
 
 export function applyScrollEvent(state: ScrollState, event: ScrollEvent): ScrollState {
-  const reconciled = normalizeScrollState({
-    ...state,
-    offsetRow: event.scroll.offsetRow,
-    offsetColumn: event.scroll.offsetColumn,
-    contentRows: event.scroll.contentRows,
-    contentColumns: event.scroll.contentColumns,
-    viewportRows: event.scroll.viewportRows,
-    viewportColumns: event.scroll.viewportColumns
-  });
-  return preserveScrollIdentity(state, scrollReducer(reconciled, event.action));
+  return preserveScrollIdentity(state, event.state);
 }
 
-export function visibleWindowFromScroll(state: ScrollState): ScrollVisibleWindow {
-  const normalized = normalizeScrollState(state);
-  if (normalized.contentRows <= 0 || normalized.viewportRows <= 0) {
+export function visibleWindowFromScroll(
+  state: ScrollState,
+  geometry: ScrollGeometry,
+): ScrollVisibleWindow {
+  const normalized = normalizeScrollState(state, geometry);
+  if (geometry.contentRows <= 0 || geometry.viewportRows <= 0) {
     return { startIndex: 0, endIndexExclusive: 0 };
   }
-  const size = Math.min(normalized.contentRows, Math.max(1, normalized.viewportRows));
+  const size = Math.min(geometry.contentRows, Math.max(1, geometry.viewportRows));
   return {
     startIndex: normalized.offsetRow,
-    endIndexExclusive: Math.min(normalized.contentRows, normalized.offsetRow + size)
+    endIndexExclusive: Math.min(geometry.contentRows, normalized.offsetRow + size),
   };
 }
 
-export function normalizeScrollState(state: ScrollState): ScrollState {
-  const contentRows = finiteNonNegativeIntegerOrZero(state.contentRows);
-  const contentColumns = finiteNonNegativeIntegerOrZero(state.contentColumns);
-  const viewportRows = finiteNonNegativeIntegerOrZero(state.viewportRows);
-  const viewportColumns = finiteNonNegativeIntegerOrZero(state.viewportColumns);
+export function normalizeScrollState(
+  state: ScrollState,
+  geometry: ScrollGeometry = unboundedGeometry,
+): ScrollState {
+  const contentRows = finiteNonNegativeIntegerOrZero(geometry.contentRows);
+  const contentColumns = finiteNonNegativeIntegerOrZero(geometry.contentColumns);
+  const viewportRows = finiteNonNegativeIntegerOrZero(geometry.viewportRows);
+  const viewportColumns = finiteNonNegativeIntegerOrZero(geometry.viewportColumns);
   const normalized: ScrollState = {
-    offsetRow: clamp(finiteNonNegativeIntegerOrZero(state.offsetRow), 0, bottomOffset(contentRows, viewportRows)),
-    offsetColumn: clamp(finiteNonNegativeIntegerOrZero(state.offsetColumn), 0, bottomOffset(contentColumns, viewportColumns)),
-    contentRows,
-    contentColumns,
-    viewportRows,
-    viewportColumns,
+    offsetRow: clamp(
+      finiteNonNegativeIntegerOrZero(state.offsetRow),
+      0,
+      bottomOffset(contentRows, viewportRows),
+    ),
+    offsetColumn: clamp(
+      finiteNonNegativeIntegerOrZero(state.offsetColumn),
+      0,
+      bottomOffset(contentColumns, viewportColumns),
+    ),
     followTail: state.followTail,
-    ...(state.selectedIndex === undefined
-      ? {}
-      : { selectedIndex: normalizeSelectedIndex(state.selectedIndex, contentRows) })
   };
-  if (normalized.followTail) {
-    return { ...normalized, offsetRow: bottomOffset(contentRows, viewportRows) };
-  }
-  return normalized;
+  return normalized.followTail
+    ? { ...normalized, offsetRow: bottomOffset(contentRows, viewportRows) }
+    : normalized;
 }
 
-function centeredOffset(total: number, size: number, preferredIndex: number): number {
+function itemIntoViewOffset(
+  currentOffset: number,
+  total: number,
+  size: number,
+  preferredIndex: number,
+  alignment: 'nearest' | 'start' | 'center' | 'end',
+): number {
   if (total <= 0 || size <= 0) return 0;
   const windowSize = Math.min(total, Math.max(1, size));
   const normalizedPreferred = preferredIndex >= 0 && preferredIndex < total ? preferredIndex : 0;
-  const centered = normalizedPreferred - Math.floor(windowSize / 2);
-  return clamp(centered, 0, total - windowSize);
+  if (alignment === 'start') return clamp(normalizedPreferred, 0, total - windowSize);
+  if (alignment === 'center') {
+    return clamp(normalizedPreferred - Math.floor(windowSize / 2), 0, total - windowSize);
+  }
+  if (alignment === 'end') {
+    return clamp(normalizedPreferred - windowSize + 1, 0, total - windowSize);
+  }
+  if (normalizedPreferred < currentOffset) return normalizedPreferred;
+  if (normalizedPreferred >= currentOffset + windowSize) {
+    return clamp(normalizedPreferred - windowSize + 1, 0, total - windowSize);
+  }
+  return currentOffset;
 }
 
 function bottomOffset(total: number, size: number): number {
-  return Math.max(0, finiteNonNegativeIntegerOrZero(total) - Math.max(0, finiteNonNegativeIntegerOrZero(size)));
-}
-
-function normalizeSelectedIndex(index: number, total: number): number {
-  if (total <= 0) return 0;
-  return clamp(Math.floor(index), 0, total - 1);
+  return Math.max(0, finiteNonNegativeIntegerOrZero(total) - finiteNonNegativeIntegerOrZero(size));
 }
 
 function preserveScrollIdentity(previous: ScrollState, next: ScrollState): ScrollState {
-  return sameScrollState(previous, next) ? previous : next;
-}
-
-function sameScrollState(left: ScrollState, right: ScrollState): boolean {
-  return left.offsetRow === right.offsetRow
-    && left.offsetColumn === right.offsetColumn
-    && left.contentRows === right.contentRows
-    && left.contentColumns === right.contentColumns
-    && left.viewportRows === right.viewportRows
-    && left.viewportColumns === right.viewportColumns
-    && left.followTail === right.followTail
-    && left.selectedIndex === right.selectedIndex;
+  return previous.offsetRow === next.offsetRow &&
+      previous.offsetColumn === next.offsetColumn &&
+      previous.followTail === next.followTail
+    ? previous
+    : Object.freeze(next);
 }
 
 function clamp(value: number, min: number, max: number): number {

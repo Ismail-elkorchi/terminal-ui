@@ -7,14 +7,12 @@ import type {
   BarChartItem,
   ChartDataState,
   ChartInterpolation,
-  ChartPointSelection,
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeries,
   MeterResult,
   MeterVariant,
   HeatmapCell,
-  HeatmapSelection,
   NotificationPlacement,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
@@ -22,12 +20,20 @@ import type {
   StatusBarItem,
   ValueScale
 } from '../../ui-model/feedback.ts';
-import type { ElementOptions } from '../../element/metadata.ts';
-import type { PointerInteractionState } from '../../interaction/index.ts';
+import type {
+  PointerInteractionAction,
+  PointerInteractionState,
+} from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
 import type { NotificationHistoryAction, NotificationRegionAction } from '../../ui-model/notification.ts';
-import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
+import type {
+  BarChartTransition,
+  ChartTransition,
+  HeatmapTransition,
+  VisualizationActivateEvent,
+  VisualizationPresentation,
+} from '../../ui-model/visualization.ts';
 import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../../ui-model/style-parts.ts';
 
 interface NotificationOptionsBase {
@@ -45,9 +51,11 @@ interface NotificationRegionOptionsBase extends NotificationOptionsBase {
 export type NotificationRegionOptions<TMessage extends ComponentMessage = never> =
   | (NotificationRegionOptionsBase & {
       readonly onAction: (action: NotificationRegionAction) => MessageResolution<TMessage>;
+      readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
     })
   | (NotificationRegionOptionsBase & {
       readonly onAction?: never;
+      readonly onPointerAction?: never;
       readonly pointerState?: never;
     });
 
@@ -56,6 +64,7 @@ export interface NotificationHistoryOptions<TMessage extends ComponentMessage = 
   readonly items: readonly import('../../ui-model/feedback.ts').NotificationItem[];
   readonly selectedId?: string;
   readonly onAction: (action: NotificationHistoryAction) => MessageResolution<TMessage>;
+  readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
 }
 
 export interface StatusBarOptions {
@@ -72,7 +81,8 @@ export interface HelpBarOptions {
   readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], StatusStylePart>;
 }
 
-interface ActivityIndicatorOptionsBase extends ElementOptions<StatusStylePart> {
+interface ActivityIndicatorOptionsBase {
+  readonly id?: string;
   readonly label: string;
   readonly meta?: import('../../component/index.ts').ComponentMetadataOptions<readonly ['styles', 'layer'], StatusStylePart>;
 }
@@ -128,20 +138,15 @@ interface BarChartOptionsBase {
   readonly label: string;
   readonly items: readonly BarChartItem[];
   readonly max?: number;
-  readonly selectedId?: string;
   readonly dataState?: ChartDataState;
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly pointerState?: PointerInteractionState;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
 }
 
-export type BarChartOptions<TMessage extends ComponentMessage = never> = BarChartOptionsBase & (
-  | { readonly onAction?: never; readonly pointerState?: never }
-  | { readonly onAction: (action: BarChartAction) => MessageResolution<TMessage>; readonly disabled?: false }
-  | { readonly onAction?: never; readonly disabled: true; readonly pointerState?: never }
-);
+export type BarChartOptions<TMessage extends ComponentMessage = never> = BarChartOptionsBase &
+  VisualizationOptions<BarChartTransition, TMessage>;
 
 interface ChartOptionsBase {
   readonly id: string;
@@ -149,7 +154,6 @@ interface ChartOptionsBase {
   readonly series: readonly ChartSeries[];
   readonly min?: number;
   readonly max?: number;
-  readonly selected?: ChartPointSelection;
   readonly legend?: boolean;
   readonly signedDomain?: boolean;
   readonly xLabel?: string;
@@ -162,15 +166,11 @@ interface ChartOptionsBase {
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly pointerState?: PointerInteractionState;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
 }
 
-export type ChartOptions<TMessage extends ComponentMessage = never> = ChartOptionsBase & (
-  | { readonly onAction?: never; readonly pointerState?: never }
-  | { readonly onAction: (action: ChartAction) => MessageResolution<TMessage>; readonly disabled?: false }
-  | { readonly onAction?: never; readonly disabled: true; readonly pointerState?: never }
-);
+export type ChartOptions<TMessage extends ComponentMessage = never> = ChartOptionsBase &
+  VisualizationOptions<ChartTransition, TMessage>;
 
 export interface MeterOptions {
   readonly id?: string;
@@ -190,7 +190,6 @@ interface HeatmapOptionsBase<TValue> {
   readonly rows: readonly (readonly HeatmapCell<TValue>[])[];
   readonly min?: number;
   readonly max?: number;
-  readonly selected?: HeatmapSelection;
   readonly cellWidth?: number;
   readonly gap?: number;
   readonly dataState?: ChartDataState;
@@ -198,25 +197,68 @@ interface HeatmapOptionsBase<TValue> {
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly pointerState?: PointerInteractionState;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
 }
 
 export type HeatmapOptions<
   TValue = unknown,
   TMessage extends ComponentMessage = never
-> = HeatmapOptionsBase<TValue> & (
-  | { readonly onAction?: never; readonly pointerState?: never }
-  | { readonly onAction: (action: HeatmapAction) => MessageResolution<TMessage>; readonly disabled?: false }
-  | { readonly onAction?: never; readonly disabled: true; readonly pointerState?: never }
-);
+> = HeatmapOptionsBase<TValue> & VisualizationOptions<HeatmapTransition, TMessage>;
+
+type VisualizationOptions<
+  TTransition,
+  TMessage extends ComponentMessage,
+> =
+  | {
+      readonly presentation?: never;
+      readonly pointerState?: never;
+      readonly disabled?: never;
+      readonly readOnly?: never;
+      readonly busy?: boolean;
+      readonly inert?: never;
+      readonly onTransition?: never;
+      readonly onActivate?: never;
+      readonly onPointerAction?: never;
+    }
+  | {
+      readonly presentation: VisualizationPresentation;
+      readonly pointerState?: PointerInteractionState;
+      readonly disabled?: false;
+      readonly readOnly?: boolean;
+      readonly busy?: boolean;
+      readonly inert?: false;
+      readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
+      readonly onActivate?: (event: VisualizationActivateEvent) => MessageResolution<TMessage>;
+      readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
+    }
+  | {
+      readonly presentation: VisualizationPresentation;
+      readonly pointerState?: PointerInteractionState;
+      readonly disabled?: false;
+      readonly readOnly?: never;
+      readonly busy?: boolean;
+      readonly inert: true;
+      readonly onTransition?: never;
+      readonly onActivate?: never;
+      readonly onPointerAction?: never;
+    }
+  | {
+      readonly presentation: VisualizationPresentation;
+      readonly pointerState?: never;
+      readonly disabled: true;
+      readonly readOnly?: never;
+      readonly busy?: boolean;
+      readonly inert?: boolean;
+      readonly onTransition?: never;
+      readonly onActivate?: never;
+      readonly onPointerAction?: never;
+    };
 
 export type {
   BarChartItem,
   ChartDataState,
   ChartInterpolation,
   ChartPoint,
-  ChartPointSelection,
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeries,
@@ -224,7 +266,6 @@ export type {
   MeterResult,
   MeterVariant,
   HeatmapCell,
-  HeatmapSelection,
   NotificationItem,
   NotificationPlacement,
   NotificationTone,

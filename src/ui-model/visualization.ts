@@ -1,21 +1,21 @@
-export type ChartAction =
-  | { readonly kind: 'select'; readonly seriesId: string; readonly pointId: string }
+import type { CollectionInteractionAction, CollectionInteractionState } from '../interaction/collection.ts';
+
+export type VisualizationPresentation = CollectionInteractionState;
+
+export type BarChartTransition = CollectionInteractionAction;
+
+export type ChartTransition =
+  | CollectionInteractionAction
   | { readonly kind: 'movePoint'; readonly delta: number }
   | { readonly kind: 'pagePoints'; readonly delta: number }
-  | { readonly kind: 'moveSeries'; readonly delta: number }
-  | { readonly kind: 'firstPoint' }
-  | { readonly kind: 'lastPoint' };
+  | { readonly kind: 'moveSeries'; readonly delta: number };
 
-export type BarChartAction =
-  | { readonly kind: 'select'; readonly id: string; readonly itemIndex: number }
-  | { readonly kind: 'move'; readonly delta: number }
-  | { readonly kind: 'first' }
-  | { readonly kind: 'last' }
-  | { readonly kind: 'activate'; readonly id: string; readonly itemIndex: number };
+export type HeatmapTransition =
+  | CollectionInteractionAction
+  | { readonly kind: 'moveCell'; readonly rows: number; readonly columns: number }
+  | { readonly kind: 'pageRows'; readonly delta: number };
 
-export type HeatmapAction =
-  | { readonly kind: 'select'; readonly id: string }
-  | { readonly kind: 'move'; readonly rows: number; readonly columns: number }
-  | { readonly kind: 'pageRows'; readonly delta: number }
-  | { readonly kind: 'first' }
-  | { readonly kind: 'last' };
+export interface VisualizationActivateEvent {
+  readonly kind: 'activate';
+  readonly id: string;
+}

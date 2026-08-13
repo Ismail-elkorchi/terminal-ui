@@ -19,7 +19,7 @@ import {
   numberInput,
   passwordInput,
   radioGroup,
-  select,
+  combobox,
   textInput
 } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
@@ -40,14 +40,14 @@ test('text controls reject every malformed provided handler', () => {
 test('form components render settings and setup-wizard shapes with scoped state', () => {
   const element = form({ slots: { content: [
     field({
-      slots: { content: [textInput({
+      control: textInput({
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
       onAction: (action) => action,
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
-      })] },
+      }),
       id: 'name-field',
       label: 'Name',
       description: 'Shown in reports'
@@ -61,22 +61,25 @@ test('form components render settings and setup-wizard shapes with scoped state'
     radioGroup({
       id: 'mode',
       label: 'Install mode',
-      selected: 'safe',
+      presentation: {
+        activeId: 'safe',
+        selection: { mode: 'single', selectedId: 'safe' }
+      },
       options: [
         { id: 'safe', label: 'Safe', value: 'safe' },
         { id: 'fast', label: 'Fast', value: 'fast', disabled: true }
       ],
       onAction: (action) => ({ kind: 'mode', action })
     }),
-    select({
+    combobox({
       id: 'region',
       label: 'Region',
-      presentation: { kind: 'closed', selected: 'eu' },
+      presentation: { open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
       options: [
         { id: 'eu', label: 'Europe', value: 'eu' },
         { id: 'us', label: 'United States', value: 'us' }
       ],
-      onAction: (action) => ({ kind: 'region', action })
+      onTransition: (action) => ({ kind: 'region', action })
     }),
     numberInput({
       id: 'workers',
@@ -107,17 +110,23 @@ test('form components render settings and setup-wizard shapes with scoped state'
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
-test('open select renders a bounded popup with painted option targets only', () => {
-  const frame = renderElementFrame(select({
+test('open combobox renders a bounded popup with painted option targets only', () => {
+  const frame = renderElementFrame(combobox({
     id: 'region',
     label: 'Region',
-    presentation: { kind: 'open', selected: 'eu', highlighted: 'us' },
+    presentation: {
+      open: true,
+      interaction: {
+        activeId: 'us',
+        selection: { mode: 'single', selectedId: 'eu' }
+      }
+    },
     options: [
       { id: 'eu', label: 'Europe', value: 'eu' },
       { id: 'disabled', label: 'Unavailable', value: 'disabled', disabled: true },
       { id: 'us', label: 'United States', value: 'us' }
     ],
-    onAction: (action) => ({ kind: 'region', action })
+    onTransition: (action) => ({ kind: 'region', action })
   }), { columns: 24, rows: 8 });
   const output = renderFramePlain(frame);
   const targetIds = frame.hitTargets?.map((target) => target.id) ?? [];
@@ -136,19 +145,19 @@ test('open select renders a bounded popup with painted option targets only', () 
   assert.equal(frame.accessibility.root.value, 'Europe');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.disabled, true);
-  assert.equal(frame.accessibility.root.children?.[0]?.children?.[2]?.focused, true);
+  assert.equal(frame.accessibility.root.activeDescendant, 'region:us');
 });
 
-test('closed select renders only its trigger and hides popup accessibility children', () => {
-  const frame = renderElementFrame(select({
+test('closed combobox renders only its trigger and hides popup accessibility children', () => {
+  const frame = renderElementFrame(combobox({
     id: 'region',
     label: 'Region',
-    presentation: { kind: 'closed', selected: 'eu' },
+    presentation: { open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
     options: [
       { id: 'eu', label: 'Europe', value: 'eu' },
       { id: 'us', label: 'United States', value: 'us' }
     ],
-    onAction: (action) => ({ kind: 'region', action })
+    onTransition: (action) => ({ kind: 'region', action })
   }), { columns: 24, rows: 4 });
 
   assert.doesNotMatch(renderFramePlain(frame), /United States/u);
@@ -160,14 +169,14 @@ test('closed select renders only its trigger and hides popup accessibility child
 test('form fields expose label required description and validation source anatomy', () => {
   const element = form({ slots: { content: [
     field({
-      slots: { content: [textInput({
+      control: textInput({
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
       onAction: (action) => action,
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
-      })] },
+      }),
       id: 'name-field',
       label: 'Name',
       description: 'Shown in reports'
@@ -197,12 +206,12 @@ test('form fields expose label required description and validation source anatom
 test('form accessibility exposes labels, values, validation, required, disabled, and focus state', () => {
   const element = form({ slots: { content: [
     field({
-      slots: { content: [textInput({
+      control: textInput({
       id: 'email',
       presentation: { value: 'user@example.test', cursor: 0 },
       onAction: (action) => action,
       required: true
-      })] },
+      }),
       id: 'email-field',
       label: 'Email'
     }),
@@ -217,7 +226,10 @@ test('form accessibility exposes labels, values, validation, required, disabled,
     radioGroup({
       id: 'tier',
       label: 'Tier',
-      selected: 'free',
+      presentation: {
+        activeId: 'free',
+        selection: { mode: 'single', selectedId: 'free' }
+      },
       options: [
         { id: 'free', label: 'Free', value: 'free' },
         { id: 'pro', label: 'Pro', value: 'pro', disabled: true }
@@ -236,12 +248,16 @@ test('form accessibility exposes labels, values, validation, required, disabled,
 
   assert.equal(frame.accessibility.root.role, 'form');
   assert.equal(frame.accessibility.root.label, 'Account');
-  assert.equal(emailField?.label, 'Email');
-  assert.equal(emailField?.children?.[0]?.role, 'textbox');
-  assert.equal(emailField?.children?.[0]?.value, 'user@example.test');
+  assert.equal(emailField?.labelledBy, 'email-field:label');
+  assert.equal(emailField?.children?.[0]?.controls, 'email');
+  assert.equal(emailField?.children?.[1]?.role, 'textbox');
+  assert.equal(emailField?.children?.[1]?.value, 'user@example.test');
+  assert.equal(emailField?.children?.[1]?.required, true);
   assert.equal(terms?.role, 'checkbox');
-  assert.equal(terms?.label, 'Accept terms *');
+  assert.equal(terms?.label, 'Accept terms');
   assert.equal(terms?.checked, false);
+  assert.equal(terms?.required, true);
+  assert.equal(terms?.invalid, true);
   assert.equal(terms?.description, 'Required. Required before submit');
   assert.equal(terms?.focused, true);
   assert.equal(tier?.children?.[1]?.disabled, true);

@@ -48,6 +48,30 @@
       "types": "./dist/components/index.d.ts",
       "default": "./dist/components/index.js"
     },
+    "./components/foundations": {
+      "types": "./dist/components/foundations.d.ts",
+      "default": "./dist/components/foundations.js"
+    },
+    "./components/forms": {
+      "types": "./dist/components/forms.d.ts",
+      "default": "./dist/components/forms.js"
+    },
+    "./components/collections": {
+      "types": "./dist/components/collections.d.ts",
+      "default": "./dist/components/collections.js"
+    },
+    "./components/overlays": {
+      "types": "./dist/components/overlays.d.ts",
+      "default": "./dist/components/overlays.js"
+    },
+    "./components/patterns": {
+      "types": "./dist/components/patterns.d.ts",
+      "default": "./dist/components/patterns.js"
+    },
+    "./components/visualizations": {
+      "types": "./dist/components/visualizations.d.ts",
+      "default": "./dist/components/visualizations.js"
+    },
     "./component": {
       "types": "./dist/component/index.d.ts",
       "default": "./dist/component/index.js"

@@ -4,8 +4,8 @@ export function calendarFixture(options = {}) {
   const visibleMonth = options.visibleMonth ?? { year: 2026, month: 6 };
   return calendarPresentation({
     visibleMonth,
-    ...(options.selected === undefined ? {} : { selected: options.selected }),
-    ...(options.focused === undefined ? {} : { focused: options.focused })
+    ...(options.selectedDate === undefined ? {} : { selectedDate: options.selectedDate }),
+    ...(options.activeDate === undefined ? {} : { activeDate: options.activeDate })
   }, {
     locale: options.locale ?? 'en-US',
     weekStartsOn: options.weekStartsOn ?? 1,

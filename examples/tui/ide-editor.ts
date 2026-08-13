@@ -24,12 +24,16 @@ import {
   tree
 } from '@ismail-elkorchi/terminal-ui';
 import type {
+  CommandInputTransition,
   Element,
+  MenuBarTransition,
   MenuItem,
-  TabAction,
+  TabCloseEvent,
+  TabsTransition,
   TextAreaAction,
-  TreeInteractionAction,
-  TreeNode
+  TreeNode,
+  TreePresentation,
+  TreeTransition,
 } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
@@ -43,9 +47,8 @@ import {
   tabsReducer,
   textAreaReducer,
   treeReducer,
-  visibleTreeRows
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { CommandInputAction, CommandInputState, MenuBarState, ScrollableTreeState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { CommandInputState, MenuBarState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
 import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TuiEffect, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
 import { textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
@@ -89,7 +92,8 @@ interface ChooserState {
 
 interface EditorState {
   readonly root?: string;
-  readonly tree: ScrollableTreeState<EntryMetadata>;
+  readonly nodes: readonly TreeNode<EntryMetadata>[];
+  readonly tree: TreePresentation & { readonly scroll: NonNullable<TreePresentation['scroll']> };
   readonly buffers: readonly EditorBuffer[];
   readonly activePath?: string;
   readonly menu: MenuBarState;
@@ -101,14 +105,17 @@ interface EditorState {
 }
 
 type EditorMessage =
-  | { readonly kind: 'menu'; readonly action: Parameters<typeof menuBarReducer>[1] }
-  | { readonly kind: 'tree'; readonly action: TreeInteractionAction }
-  | { readonly kind: 'tabs'; readonly action: TabAction }
+  | { readonly kind: 'menu'; readonly action: MenuBarTransition }
+  | { readonly kind: 'menuActivate'; readonly id: string }
+  | { readonly kind: 'tree'; readonly action: TreeTransition }
+  | { readonly kind: 'treeActivate'; readonly id: string }
+  | { readonly kind: 'tabs'; readonly action: TabsTransition }
+  | { readonly kind: 'closeTab'; readonly event: TabCloseEvent }
   | { readonly kind: 'edit'; readonly path: string; readonly action: TextAreaAction }
-  | { readonly kind: 'command'; readonly action: CommandInputAction }
+  | { readonly kind: 'command'; readonly action: CommandInputTransition }
   | { readonly kind: 'submitCommand'; readonly value: string }
   | { readonly kind: 'showChooser'; readonly mode: OpenMode }
-  | { readonly kind: 'chooser'; readonly action: CommandInputAction }
+  | { readonly kind: 'chooser'; readonly action: CommandInputTransition }
   | { readonly kind: 'submitChooser'; readonly value: string }
   | { readonly kind: 'dismissChooser' }
   | { readonly kind: 'requestOpen'; readonly mode: OpenMode; readonly path: string }
@@ -125,11 +132,11 @@ const menuItems: readonly MenuItem[] = [{
   kind: 'submenu',
   label: 'File',
   children: [
-    { id: 'open-file', kind: 'action', label: 'Open File', shortcut: 'Ctrl+O' },
+    { id: 'open-file', kind: 'action', label: 'Open File', shortcut: { kind: 'key', key: 'o', modifiers: { ctrl: true } } },
     { id: 'open-folder', kind: 'action', label: 'Open Folder' },
-    { id: 'save', kind: 'action', label: 'Save', shortcut: 'Ctrl+S' },
+    { id: 'save', kind: 'action', label: 'Save', shortcut: { kind: 'key', key: 's', modifiers: { ctrl: true } } },
     { id: 'close', kind: 'action', label: 'Close Buffer' },
-    { id: 'quit', kind: 'action', label: 'Quit', shortcut: 'Ctrl+Q' }
+    { id: 'quit', kind: 'action', label: 'Quit', shortcut: { kind: 'key', key: 'q', modifiers: { ctrl: true } } }
   ]
 }, {
   id: 'view',
@@ -143,9 +150,11 @@ const menuItems: readonly MenuItem[] = [{
 
 function initialState(): EditorState {
   return {
+    nodes: [],
     tree: {
-      nodes: [],
-      scroll: createScrollState({ contentRows: 0, viewportRows: 20 })
+      expandedIds: [],
+      selection: { mode: 'none' },
+      scroll: createScrollState()
     },
     buffers: [],
     menu: { kind: 'closed', active: 'file' },
@@ -198,22 +207,26 @@ function updateEditor(
   switch (message.kind) {
     case 'menu': {
       const menu = menuBarReducer(state.menu, message.action, menuItems);
-      const activated = message.action.kind === 'menu' && message.action.action.kind === 'activate'
-        ? message.action.action.id
-        : undefined;
-      return activated === undefined
-        ? result({ ...state, menu })
-        : commandResult({ ...state, menu }, activated, operations);
+      return result({ ...state, menu });
     }
+    case 'menuActivate':
+      return commandResult(state, message.id, operations);
     case 'tree': {
-      const treeState = treeReducer(state.tree, message.action);
-      if (message.action.kind !== 'activate') return result({ ...state, tree: treeState });
-      const node = findTreeNode(state.tree.nodes, message.action.id);
-      if (node?.metadata?.entryKind !== 'file') return result({ ...state, tree: treeState });
-      return requestOpen({ ...state, tree: treeState }, 'file', node.metadata.path, operations);
+      const treeState = treeReducer(state.tree, message.action, {
+        nodes: state.nodes,
+        selection: { mode: 'single', commitment: 'followActive' },
+      });
+      return result({ ...state, tree: treeState });
+    }
+    case 'treeActivate': {
+      const node = findTreeNode(state.nodes, message.id);
+      if (node?.metadata?.entryKind !== 'file') return result(state);
+      return requestOpen(state, 'file', node.metadata.path, operations);
     }
     case 'tabs':
       return updateTabs(state, message.action);
+    case 'closeTab':
+      return result(closeBuffer(state, message.event.id));
     case 'edit':
       return result(updateBuffer(state, message.path, (buffer) => ({
         ...buffer,
@@ -245,13 +258,14 @@ function updateEditor(
       return result({
         ...state,
         root: message.root,
+        nodes: message.nodes,
         tree: {
-          nodes: message.nodes,
-          ...(message.nodes[0]?.id === undefined ? {} : { selected: message.nodes[0].id }),
-          scroll: createScrollState({
-            contentRows: visibleTreeRows(message.nodes).length,
-            viewportRows: 24
-          })
+          expandedIds: message.nodes.filter((node) => node.kind !== 'leaf').map((node) => node.id),
+          ...(message.nodes[0]?.id === undefined ? {} : { activeId: message.nodes[0].id }),
+          selection: message.nodes[0]?.id === undefined
+            ? { mode: 'single' }
+            : { mode: 'single', selectedId: message.nodes[0].id },
+          scroll: createScrollState()
         },
         operation: { kind: 'idle' },
         notice: `Opened workspace ${message.root}`
@@ -434,7 +448,6 @@ async function readDirectoryTree(root: string, signal: AbortSignal): Promise<rea
           id: entryPath,
           kind: 'branch',
           label: entry.name,
-          expanded: depth < 1,
           children,
           metadata: { path: entryPath, entryKind: 'directory' }
         });
@@ -494,7 +507,8 @@ function topMenu(state: EditorState): Element<EditorMessage> {
     id: 'editor-menu',
     items: menuItems,
     presentation: menuBarPresentation(menuItems, state.menu),
-    onAction: (action): EditorMessage => ({ kind: 'menu', action })
+    onTransition: (action): EditorMessage => ({ kind: 'menu', action }),
+    onActivate: (event): EditorMessage => ({ kind: 'menuActivate', id: event.id }),
   }), { id: 'editor-menu-surface', appearance: 'bar', padding: { left: 1, right: 1 } });
 }
 
@@ -504,11 +518,17 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
     text({ content: state.root === undefined ? 'No folder open' : path.basename(state.root), id: 'explorer-root', textRole: 'metadata' }),
     tree({
       id: 'editor-tree',
-      ...state.tree,
+      nodes: state.nodes,
+      presentation: state.tree,
+      scroll: state.tree.scroll,
       emptyText: 'Use /folder <path>',
-      onAction: (action): EditorMessage => ({ kind: 'tree', action })
+      onTransition: (action): EditorMessage => ({ kind: 'tree', action }),
+      onActivate: (event): EditorMessage => ({ kind: 'treeActivate', id: event.id }),
     }),
-    helpBar({ id: 'explorer-help', groups: [{ id: 'tree', bindings: [{ key: 'Enter', label: 'open' }, { key: '←/→', label: 'fold' }] }] })
+    helpBar({ id: 'explorer-help', groups: [{ id: 'tree', bindings: [
+      { binding: { kind: 'key', key: 'enter' }, label: 'open' },
+      { binding: { kind: 'key', key: 'arrowRight' }, label: 'expand' },
+    ] }] })
   ], {
     id: 'explorer-layout',
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
@@ -538,8 +558,11 @@ function editorPane(state: EditorState): Element<EditorMessage> {
         onAction: (action: TextAreaAction): EditorMessage => ({ kind: 'edit', path: buffer.path, action })
       })
     })),
-    ...(state.activePath === undefined ? {} : { selected: state.activePath }),
-    onAction: (action: TabAction): EditorMessage => ({ kind: 'tabs', action })
+    presentation: state.activePath === undefined
+      ? {}
+      : { activeId: state.activePath, selectedId: state.activePath },
+    onTransition: (action): EditorMessage => ({ kind: 'tabs', action }),
+    onClose: (event): EditorMessage => ({ kind: 'closeTab', event }),
   });
 }
 
@@ -569,9 +592,8 @@ function commandPane(state: EditorState): Element<EditorMessage> {
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 6,
-    onAction: (action): EditorMessage => action.kind === 'submit'
-      ? { kind: 'submitCommand', value: action.value }
-      : { kind: 'command', action }
+    onTransition: (action): EditorMessage => ({ kind: 'command', action }),
+    onSubmit: (event): EditorMessage => ({ kind: 'submitCommand', value: event.value })
   }), {
     id: 'editor-command-surface',
     appearance: 'bar',
@@ -598,9 +620,8 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
         placeholder: chooser.mode === 'folder' ? '/path/to/folder' : '/path/to/file',
         presentation: commandInputPresentation(chooser.command),
         display: 'compact',
-        onAction: (action): EditorMessage => action.kind === 'submit'
-          ? { kind: 'submitChooser', value: action.value }
-          : { kind: 'chooser', action }
+        onTransition: (action): EditorMessage => ({ kind: 'chooser', action }),
+        onSubmit: (event): EditorMessage => ({ kind: 'submitChooser', value: event.value })
       })
     },
     id: 'path-chooser',
@@ -614,13 +635,17 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
   });
 }
 
-function updateTabs(state: EditorState, action: TabAction): TuiUpdateResult<EditorState, EditorMessage> {
-  if (action.kind === 'close') return result(closeBuffer(state, action.id));
+function updateTabs(state: EditorState, action: TabsTransition): TuiUpdateResult<EditorState, EditorMessage> {
   const selected = tabsReducer(
-    state.activePath === undefined ? {} : { selected: state.activePath },
+    state.activePath === undefined
+      ? {}
+      : { activeId: state.activePath, selectedId: state.activePath },
     action,
-    state.buffers.map((buffer) => ({ id: buffer.path }))
-  ).selected;
+    {
+      tabs: state.buffers.map((buffer) => ({ id: buffer.path })),
+      activation: 'automatic'
+    }
+  ).selectedId;
   return result(selected === undefined ? state : { ...state, activePath: selected });
 }
 
@@ -635,7 +660,7 @@ function openBuffer(state: EditorState, targetPath: string, content: string): Ed
     editor: createTextAreaState({
       value: content,
       caret: { position: { offset: 0, affinity: 'downstream' } },
-      scroll: createScrollState({ contentRows: lineCount(content), viewportRows: 24 })
+      scroll: createScrollState()
     }),
     savedText: content
   };
@@ -718,10 +743,6 @@ function shortPath(root: string | undefined, targetPath: string): string {
   if (root === undefined) return targetPath;
   const relative = path.relative(root, targetPath);
   return relative.length === 0 ? '.' : relative;
-}
-
-function lineCount(content: string): number {
-  return Math.max(1, content.split('\n').length);
 }
 
 function result(state: EditorState): TuiUpdateResult<EditorState, EditorMessage> {

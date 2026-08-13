@@ -12,7 +12,7 @@ export interface SplitPaneDragState {
 
 export interface SplitPaneState {
   readonly shares: readonly number[];
-  readonly selectedDivider?: number;
+  readonly activeDivider?: number;
   readonly drag?: SplitPaneDragState;
 }
 
@@ -22,7 +22,7 @@ export interface SplitPaneReducerOptions {
 
 export interface SplitPanePresentation {
   readonly sizes: readonly { readonly kind: 'percent'; readonly value: number }[];
-  readonly selectedDivider?: number;
+  readonly activeDivider?: number;
 }
 
 export function createSplitPaneState(
@@ -32,7 +32,7 @@ export function createSplitPaneState(
   const normalized = normalizeShares(paneCount, shares);
   return {
     shares: normalized,
-    ...(paneCount < 2 ? {} : { selectedDivider: 0 })
+    ...(paneCount < 2 ? {} : { activeDivider: 0 })
   };
 }
 
@@ -46,26 +46,26 @@ export function splitPaneReducer(
   if (dividerCount === 0) return state;
 
   switch (action.kind) {
-    case 'selectDivider':
+    case 'setActiveDivider':
       return validDivider(action.dividerIndex, dividerCount)
-        ? withSelectedDivider(state, shares, action.dividerIndex)
+        ? withActiveDivider(state, shares, action.dividerIndex)
         : state;
-    case 'moveDividerSelection':
-      return withSelectedDivider(
+    case 'moveActiveDivider':
+      return withActiveDivider(
         state,
         shares,
-        clampDivider((state.selectedDivider ?? 0) + Math.sign(action.delta), dividerCount)
+        clampDivider((state.activeDivider ?? 0) + Math.sign(action.delta), dividerCount)
       );
-    case 'selectFirstDivider':
-      return withSelectedDivider(state, shares, 0);
-    case 'selectLastDivider':
-      return withSelectedDivider(state, shares, dividerCount - 1);
+    case 'firstActiveDivider':
+      return withActiveDivider(state, shares, 0);
+    case 'lastActiveDivider':
+      return withActiveDivider(state, shares, dividerCount - 1);
     case 'resizeBy':
-      return resizeState(state, shares, state.selectedDivider ?? 0, action.deltaShare, options.constraints);
+      return resizeState(state, shares, state.activeDivider ?? 0, action.deltaShare, options.constraints);
     case 'beginResize':
       return validDivider(action.dividerIndex, dividerCount)
         ? {
-            ...withSelectedDivider(state, shares, action.dividerIndex),
+            ...withActiveDivider(state, shares, action.dividerIndex),
             drag: { dividerIndex: action.dividerIndex, anchorShares: shares }
           }
         : state;
@@ -83,7 +83,7 @@ export function splitPanePresentation(state: SplitPaneState): SplitPanePresentat
   const shares = normalizeShares(state.shares.length, state.shares);
   return {
     sizes: shares.map((share) => ({ kind: 'percent', value: share * 100 })),
-    ...(state.selectedDivider === undefined ? {} : { selectedDivider: state.selectedDivider })
+    ...(state.activeDivider === undefined ? {} : { activeDivider: state.activeDivider })
   };
 }
 
@@ -102,7 +102,7 @@ function resizeState(
   const minimumDelta = Math.max(leftConstraint.min - left, right - rightConstraint.max);
   const maximumDelta = Math.min(leftConstraint.max - left, right - rightConstraint.min);
   const delta = Math.min(Math.max(requestedDelta, minimumDelta), maximumDelta);
-  if (delta === 0) return withSelectedDivider(state, state.shares, dividerIndex);
+  if (delta === 0) return withActiveDivider(state, state.shares, dividerIndex);
   const shares = baseShares.map((share, index) => {
     if (index === dividerIndex) return share + delta;
     if (index === dividerIndex + 1) return share - delta;
@@ -111,7 +111,7 @@ function resizeState(
   return {
     ...state,
     shares,
-    selectedDivider: dividerIndex
+    activeDivider: dividerIndex
   };
 }
 
@@ -145,21 +145,21 @@ function clampDivider(index: number, count: number): number {
   return Math.min(Math.max(0, index), Math.max(0, count - 1));
 }
 
-function withSelectedDivider(
+function withActiveDivider(
   state: SplitPaneState,
   shares: readonly number[],
-  selectedDivider: number
+  activeDivider: number
 ): SplitPaneState {
   return {
     ...state,
     shares,
-    selectedDivider
+    activeDivider
   };
 }
 
 function withoutDrag(state: SplitPaneState): SplitPaneState {
   return {
     shares: state.shares,
-    ...(state.selectedDivider === undefined ? {} : { selectedDivider: state.selectedDivider })
+    ...(state.activeDivider === undefined ? {} : { activeDivider: state.activeDivider })
   };
 }

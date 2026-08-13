@@ -6,12 +6,43 @@ export interface ElementFactoryIdentity {
   readonly name: string;
 }
 
-export interface ComponentCapabilityInspection {
+interface ComponentCapabilityInspectionBase {
   readonly identity: 'required' | 'optional';
   readonly structure: 'leaf' | 'composite' | 'composed';
-  readonly semantics: 'semantic' | 'decorative';
   readonly states: readonly ('disabled' | 'busy' | 'readOnly' | 'inert')[];
   readonly actions: readonly ('keyboard' | 'input' | 'paste' | 'pointer')[];
+}
+
+export type ComponentCapabilityInspection =
+  | (ComponentCapabilityInspectionBase & {
+      readonly semantics: 'semantic';
+      readonly accessibleRole: import('../accessibility/types.ts').AccessibleRole;
+    })
+  | (ComponentCapabilityInspectionBase & {
+      readonly semantics: 'decorative';
+      readonly accessibleRole?: never;
+    });
+
+export interface ComponentDefinitionInspection extends ComponentCapabilityInspectionBase {
+  readonly semantics: 'semantic' | 'decorative';
+  readonly accessibleRole?: import('../accessibility/types.ts').AccessibleRole;
+}
+
+export interface ComponentSemanticInspection {
+  readonly value?: string | number | boolean;
+  readonly active?: unknown;
+  readonly selection?: unknown;
+  readonly validation?: {
+    readonly required?: boolean;
+    readonly invalid: boolean;
+    readonly message?: string;
+  };
+  readonly collection?: {
+    readonly startIndex?: number;
+    readonly totalCount?: number;
+    readonly visibleCount?: number;
+  };
+  readonly state: Readonly<Record<string, unknown>>;
 }
 
 export interface ElementInputInspection {
@@ -32,6 +63,7 @@ export interface ElementMetaInspection {
 export interface ElementInspection {
   readonly factory: ElementFactoryIdentity;
   readonly component?: ComponentCapabilityInspection;
+  readonly semantic?: ComponentSemanticInspection;
   readonly id?: string;
   readonly inputs: ElementInputInspection;
   readonly meta: ElementMetaInspection;

@@ -5,7 +5,7 @@ import type {
   RenderNodeOfKind,
   RenderNodesOfKind
 } from '../../../model/index.ts';
-import { normalizeScrollState } from '../../../../behavior/scroll.ts';
+import { normalizeScrollState, scrollReducer } from '../../../../behavior/scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { viewportVisualState } from './viewport.ts';
 import type { RenderTarget } from '../../../contracts.ts';
@@ -45,10 +45,10 @@ interface NormalizedScrollWheelPolicy {
 interface RenderNodeScrollbarPlan {
   readonly contentBounds: Rect;
   readonly layout?: ScrollbarLayout;
-  readonly state: ScrollState;
+  readonly state: ScrollbarState;
 }
 
-type RenderNodeScrollbarStateFactory = (bounds: Rect) => ScrollState;
+type RenderNodeScrollbarStateFactory = (bounds: Rect) => ScrollbarState;
 
 export function scrollbarsForRenderNode(
   renderNode: ScrollableNode,
@@ -89,7 +89,7 @@ export function drawScrollbars(
 export function scrollbarHitTargetsForRenderNode<TMessage>(
   renderNode: ScrollableNode<TMessage>,
   plan: RenderNodeScrollbarPlan,
-  state: ScrollState
+  state: ScrollbarState
 ): readonly HitTarget<TMessage>[] {
   const factory = scrollMessageFactory(renderNode);
   if (factory === undefined) return [];
@@ -109,12 +109,14 @@ export function scrollbarHitTargetsForRenderNode<TMessage>(
   ];
 }
 
-function scrollStateForContentBounds(state: ScrollState, bounds: Rect): ScrollState {
-  return normalizeScrollState({
-    ...state,
+function scrollStateForContentBounds(state: ScrollbarState, bounds: Rect): ScrollbarState {
+  const geometry = {
+    contentRows: state.contentRows,
+    contentColumns: state.contentColumns,
     viewportRows: bounds.height,
-    viewportColumns: state.viewportColumns
-  });
+    viewportColumns: bounds.width,
+  };
+  return { ...normalizeScrollState(scrollPosition(state), geometry), ...geometry };
 }
 
 function reconciledScrollbarLayout(
@@ -151,7 +153,7 @@ function scrollMessageFactory<TMessage>(
 function scrollContentHitTarget<TMessage>(
   id: string,
   bounds: Rect,
-  state: ScrollState,
+  state: ScrollbarState,
   wheel: NormalizedScrollWheelPolicy,
   factory: (event: ScrollEvent) => MessageResolution<TMessage>
 ): HitTarget<TMessage> {
@@ -170,7 +172,7 @@ function scrollbarTrackHitTargets<TMessage>(
   id: string,
   axis: 'vertical' | 'horizontal',
   track: ScrollbarTrack,
-  state: ScrollState,
+  state: ScrollbarState,
   wheel: NormalizedScrollWheelPolicy,
   factory: (event: ScrollEvent) => MessageResolution<TMessage>
 ): readonly HitTarget<TMessage>[] {
@@ -216,16 +218,15 @@ function scrollbarTrackHitTargets<TMessage>(
 
 function scrollEvent(
   action: ScrollAction,
-  scroll: ScrollState,
+  scroll: ScrollbarState,
   pointer: RoutedPointerEvent,
   target: ScrollEventTarget
 ): ScrollEvent {
   return {
     action,
-    scroll,
+    state: scrollReducer(scrollPosition(scroll), action, scrollGeometry(scroll)),
     source: scrollEventSource(pointer),
     target,
-    pointer
   };
 }
 
@@ -260,7 +261,7 @@ function scrollActionForWheel(
 function scrollActionForTrack(
   axis: 'vertical' | 'horizontal',
   track: ScrollbarTrack,
-  state: ScrollState,
+  state: ScrollbarState,
   event: RoutedPointerEvent
 ): ScrollAction | undefined {
   if (axis === 'vertical') {
@@ -282,7 +283,7 @@ function scrollActionForTrack(
 function scrollActionForThumb(
   axis: 'vertical' | 'horizontal',
   track: ScrollbarTrack,
-  state: ScrollState,
+  state: ScrollbarState,
   event: RoutedPointerEvent
 ): ScrollAction | undefined {
   if (axis === 'vertical') {
@@ -395,15 +396,33 @@ export function viewportScrollbarState(
   renderNode: ViewportNode,
   bounds: Rect,
   node: Pick<LayoutNode, 'children'>
-): ScrollState {
+): ScrollbarState {
   const state = viewportVisualState(renderNode, bounds, node);
-  return normalizeScrollState({
-    offsetRow: state.offsetRow,
-    offsetColumn: state.offsetColumn,
+  const geometry = {
     contentRows: state.contentRows,
     contentColumns: state.contentColumns,
     viewportRows: bounds.height,
     viewportColumns: bounds.width,
+  };
+  return {
+    ...normalizeScrollState({
+    offsetRow: state.offsetRow,
+    offsetColumn: state.offsetColumn,
     followTail: false
-  });
+    }, geometry),
+    ...geometry,
+  };
+}
+
+function scrollPosition(state: ScrollbarState): ScrollState {
+  return { offsetRow: state.offsetRow, offsetColumn: state.offsetColumn, followTail: state.followTail };
+}
+
+function scrollGeometry(state: ScrollbarState) {
+  return {
+    contentRows: state.contentRows,
+    contentColumns: state.contentColumns,
+    viewportRows: state.viewportRows,
+    viewportColumns: state.viewportColumns,
+  };
 }

@@ -7,7 +7,7 @@ import { tabs, text, textInput } from '../../dist/components/index.js';
 test('tabs render only the selected panel as focusable content', () => {
   const element = tabs({
     id: 'tabs',
-    selected: 'second',
+    presentation: { activeId: 'second', selectedId: 'second' },
     tabs: [
       {
         id: 'first',
@@ -29,7 +29,7 @@ test('tabs render only the selected panel as focusable content', () => {
         })
       }
     ],
-    onAction: (action) => action
+    onTransition: (action) => action
   });
 
   const layout = layoutElement(element, { columns: 32, rows: 5 });
@@ -59,13 +59,13 @@ test('tabs render only the selected panel as focusable content', () => {
 test('tabs keep active markers disabled targets and overflow visible without color', () => {
   const frame = renderElementFrame(tabs({
     id: 'tabs',
-    selected: 'alpha',
+    presentation: { activeId: 'alpha', selectedId: 'alpha' },
     tabs: [
       { id: 'alpha', label: 'Alpha', panel: text({ content: 'Alpha panel' }) },
       { id: 'beta', label: 'Beta', disabled: true, panel: text({ content: 'Beta panel' }) },
       { id: 'gamma', label: 'Gamma', panel: text({ content: 'Gamma panel' }) }
     ],
-    onAction: (action) => ({ kind: 'tabs', action })
+    onTransition: (action) => ({ kind: 'tabs', action })
   }), { columns: 14, rows: 3 }, { theme: noColorTheme });
   const header = renderFramePlain(frame).split('\n')[0] ?? '';
 
@@ -78,7 +78,7 @@ test('tabs keep active markers disabled targets and overflow visible without col
 test('tabs keep the selected tab visible when headers overflow', () => {
   const frame = renderElementFrame(tabs({
     id: 'tabs',
-    selected: 'gamma',
+    presentation: { activeId: 'gamma', selectedId: 'gamma' },
     tabs: [
       { id: 'alpha', label: 'Alpha', panel: text({ content: 'Alpha panel' }) },
       { id: 'beta', label: 'Beta', panel: text({ content: 'Beta panel' }) },
@@ -91,7 +91,7 @@ test('tabs keep the selected tab visible when headers overflow', () => {
       },
       { id: 'delta', label: 'Delta', panel: text({ content: 'Delta panel' }) }
     ],
-    onAction: (action) => ({ kind: 'tabs', action })
+    onTransition: (action) => ({ kind: 'tabs', action })
   }), { columns: 15, rows: 3 }, { theme: noColorTheme });
   const header = renderFramePlain(frame).split('\n')[0] ?? '';
 
@@ -112,12 +112,12 @@ test('tabs keep the selected tab visible when headers overflow', () => {
 test('tabs paint a complete strip and raise the selected tab', () => {
   const frame = renderElementFrame(tabs({
     id: 'painted-tabs',
-    selected: 'second',
+    presentation: { activeId: 'second', selectedId: 'second' },
     tabs: [
       { id: 'first', label: 'First', panel: text({ content: 'First panel' }) },
       { id: 'second', label: 'Second', closable: true, panel: text({ content: 'Second panel' }) }
     ],
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 24, rows: 3 }, { theme: defaultTheme });
   const header = frame.cells.filter((cell) => cell.row === 1);
   const selected = header.filter((cell) =>
@@ -147,7 +147,7 @@ test('tabs paint a complete strip and raise the selected tab', () => {
 test('tabs bound individual labels without losing close actions or accessible names', () => {
   const frame = renderElementFrame(tabs({
     id: 'bounded-tabs',
-    selected: 'long',
+    presentation: { activeId: 'long', selectedId: 'long' },
     maxTabWidth: 12,
     tabs: [
       {
@@ -158,7 +158,7 @@ test('tabs bound individual labels without losing close actions or accessible na
       },
       { id: 'short', label: 'Short', panel: text({ content: 'Short panel' }) }
     ],
-    onAction: (action) => ({ kind: 'tabs', action })
+    onTransition: (action) => ({ kind: 'tabs', action })
   }), { columns: 30, rows: 3 });
   const selectedCells = frame.cells.filter((cell) => cell.row === 1 && cell.source?.itemId === 'long');
   const selectedColumns = selectedCells.map((cell) => cell.column);
@@ -173,10 +173,10 @@ test('tabs bound individual labels without losing close actions or accessible na
 test('a one-cell tab limit prioritizes the close action over decoration', () => {
   const frame = renderElementFrame(tabs({
     id: 'minimal-tab',
-    selected: 'only',
+    presentation: { activeId: 'only', selectedId: 'only' },
     maxTabWidth: 1,
     tabs: [{ id: 'only', label: 'Only', closable: true, panel: text({ content: 'Panel' }) }],
-    onAction: (action) => ({ kind: 'tabs', action })
+    onTransition: (action) => ({ kind: 'tabs', action })
   }), { columns: 8, rows: 2 });
 
   assert.equal(renderFramePlain(frame).split('\n')[0], '×');
@@ -186,12 +186,12 @@ test('a one-cell tab limit prioritizes the close action over decoration', () => 
 test('tab controls preserve one-cell geometry under ambiguous-wide profiles', () => {
   const element = tabs({
     id: 'fixed-cell-tabs',
-    selected: 'second',
+    presentation: { activeId: 'second', selectedId: 'second' },
     tabs: [
       { id: 'first', label: 'First', panel: text({ content: 'First panel' }) },
       { id: 'second', label: 'Second', closable: true, panel: text({ content: 'Second panel' }) }
     ],
-    onAction: (action) => ({ kind: 'tabs', action })
+    onTransition: (action) => ({ kind: 'tabs', action })
   });
   const frame = renderElementFrame(element, { columns: 24, rows: 4 }, { theme: defaultTheme });
   const wideFrame = renderElementFrame(element, { columns: 24, rows: 4 }, {

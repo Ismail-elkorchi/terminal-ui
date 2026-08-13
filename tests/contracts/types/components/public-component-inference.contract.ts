@@ -14,9 +14,8 @@ const controlled = button({
   id: 'controlled',
   label: 'Controlled',
   pointerState: { hoveredTargetId: 'controlled:control' },
-  onAction: (action) => action.kind === 'pointer'
-    ? ({ kind: 'pointer', action: action.action } as const)
-    : ({ kind: 'activate' } as const)
+  onAction: () => ({ kind: 'activate' } as const),
+  onPointerAction: (action) => ({ kind: 'pointer', action } as const)
 });
 const toolbar = row([passive, save, quit] as const);
 

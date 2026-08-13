@@ -19,26 +19,26 @@ import {
   commandInput as createCommandInput,
   calendar as createCalendar,
   dialog,
-  dropdownMenu as createDropdownMenu,
+  menuTrigger as createDropdownMenu,
   helpBar,
   heatmap,
-  list,
+  listbox as createListbox,
   menu as createMenu,
   menuBar as createMenuBar,
   notificationRegion,
   searchPicker as createSearchPicker,
-  paginator,
+  pagination,
   progressBar,
   logViewer,
   slider as createSlider,
   statusBar,
-  table,
+  dataGrid as createDataGrid,
   tabs as createTabs,
   text,
   textArea,
   textInput as createTextInput,
-  toggleSwitch as createToggleSwitch,
-  tree
+  switchControl as createToggleSwitch,
+  tree as createTree
 } from '../../dist/components/index.js';
 import { prepareTextDocument, terminalTextWidth, textCaretAt } from '../../dist/text/index.js';
 import { modernTheme, noColorTheme } from '../../dist/theme/index.js';
@@ -75,7 +75,7 @@ function checkbox(options) {
   );
 }
 
-function toggleSwitch(options) {
+function switchControl(options) {
   return createToggleSwitch(
     options.disabled === true ? options : { onAction: noMessage, ...options }
   );
@@ -106,28 +106,60 @@ function calendar(options) {
 }
 
 function menu(options) {
-  return createMenu({ onAction: noMessage, ...options });
+  return createMenu({ onTransition: noMessage, ...options });
 }
 
 function menuBar(options) {
-  return createMenuBar({ onAction: noMessage, ...options });
+  return createMenuBar({ onTransition: noMessage, ...options });
 }
 
-function dropdownMenu(options) {
-  return createDropdownMenu({ onAction: noMessage, ...options });
+function menuTrigger(options) {
+  return createDropdownMenu({ onTransition: noMessage, ...options });
 }
 
 function tabs(options) {
-  return createTabs({ onAction: noMessage, ...options });
+  return createTabs({
+    onTransition: noMessage,
+    ...options
+  });
 }
 
 function searchPicker(options) {
-  return createSearchPicker({ onAction: noMessage, ...options });
+  return createSearchPicker({
+    presentation: { query: { text: '', mode: 'fuzzy' } },
+    onTransition: noMessage,
+    ...options
+  });
 }
 
 function commandInput(options) {
   return createCommandInput({
-    onAction: noMessage,
+    onTransition: noMessage,
+    ...options
+  });
+}
+
+function listbox(options) {
+  return createListbox({
+    presentation: { selection: { mode: 'none' } },
+    onTransition: noMessage,
+    ...options
+  });
+}
+
+function dataGrid(options) {
+  return createDataGrid({
+    presentation: { interaction: { kind: 'row',
+    selectionMode: 'single', selectedRowIds: [] } },
+    onTransition: noMessage,
+    ...options
+  });
+}
+
+function tree(options) {
+  return createTree({
+    presentation: { expandedIds: [], selection: { mode: 'none' } },
+    onTransition: noMessage,
     ...options
   });
 }
@@ -265,22 +297,25 @@ test('controlled pointer interaction resolves styles and source state across com
     label: 'Enabled',
     checked: false,
     meta: { focus: { disabled: true } },
-    pointerState: { hoveredTargetId: 'check:control' }
+    pointerState: { hoveredTargetId: 'check:control' },
+    onAction: () => ignoreMessage()
   }), { columns: 20, rows: 1 });
-  const listFrame = renderElementFrame(list({
+  const listFrame = renderElementFrame(listbox({
     id: 'items',
     items: ['Alpha', 'Beta'],
     projectItem: (item) => ({ id: item, label: item }),
-    pointerState: { hoveredTargetId: 'items:option:Beta' }
+    pointerState: { hoveredTargetId: 'items:option:Beta' },
+    onTransition: () => ignoreMessage()
   }), { columns: 20, rows: 2 });
   const tabFrame = renderElementFrame(tabs({
     id: 'views',
-    selected: 'one',
+    presentation: { activeId: 'one', selectedId: 'one' },
     tabs: [
       { id: 'one', label: 'One', panel: text({ content: 'One' }) },
       { id: 'two', label: 'Two', panel: text({ content: 'Two' }) }
     ],
-    pointerState: { pressedTargetId: 'views:tab:two' }
+    pointerState: { pressedTargetId: 'views:tab:two' },
+    onTransition: () => ignoreMessage()
   }), { columns: 24, rows: 2 });
   const menuFrame = renderElementFrame(menu({
     id: 'actions',
@@ -291,16 +326,25 @@ test('controlled pointer interaction resolves styles and source state across com
         { kind: 'action', id: 'save', label: 'Save' }
       ]
     },
-    pointerState: { hoveredTargetId: 'actions:item:save' }
+    pointerState: { hoveredTargetId: 'actions:item:save' },
+    onTransition: () => ignoreMessage()
   }), { columns: 20, rows: 2 });
   const commandFrame = renderElementFrame(commandInput({
     id: 'command',
-    presentation: { value: '/o', cursor: 0, suggestions: [{ value: '/open', label: 'Open' }, { value: '/save', label: 'Save' }], selectedSuggestionIndex: 0 },
+    presentation: {
+      value: '/o',
+      cursor: 0,
+      suggestions: [
+        { id: 'open', value: '/open', label: 'Open' },
+        { id: 'save', value: '/save', label: 'Save' }
+      ],
+      activeSuggestionId: 'open'
+    },
     display: 'expanded',
-    onAction: (action) => action,
-    pointerState: { hoveredTargetId: 'command:suggestion:1' }
+    pointerState: { hoveredTargetId: 'command:suggestion:save' },
+    onTransition: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
-  const paginatorFrame = renderElementFrame(paginator({
+  const paginationFrame = renderElementFrame(pagination({
     id: 'pages',
     pageNumber: 2,
     pageCount: 4,
@@ -310,7 +354,8 @@ test('controlled pointer interaction resolves styles and source state across com
   const notificationFrame = renderElementFrame(notificationRegion({
     id: 'notices',
     items: [{ id: 'ready', title: 'Ready', tone: 'info' }],
-    pointerState: { hoveredTargetId: 'notices:notification:ready' }
+    pointerState: { hoveredTargetId: 'notices:notification:ready' },
+    onAction: () => ignoreMessage()
   }), { columns: 30, rows: 6 });
 
   assert.equal(styleFor(checkboxFrame, 'E')?.bg?.token, 'focus.background');
@@ -323,7 +368,7 @@ test('controlled pointer interaction resolves styles and source state across com
   assert.equal(menuFrame.cells.find((cell) => cell.text === 'S')?.source?.interactionState, 'hovered');
   assert.equal(styleFor(commandFrame, 'S')?.bg?.token, 'focus.background');
   assert.equal(commandFrame.cells.find((cell) => cell.text === 'S')?.source?.interactionState, 'hovered');
-  assert.equal(paginatorFrame.cells.find((cell) => cell.source?.partName === 'control.next')?.source?.interactionState, 'pressed');
+  assert.equal(paginationFrame.cells.find((cell) => cell.source?.partName === 'control.next')?.source?.interactionState, 'pressed');
   assert.equal(notificationFrame.cells.find((cell) =>
     cell.source?.itemId === 'ready' && cell.source.partName === 'title'
   )?.source?.interactionState, 'hovered');
@@ -365,7 +410,7 @@ test('text entry frames use shared border, focus, and error styles', () => {
   assert.equal(styleFor(areaFrame, '×')?.fg?.token, 'status.error');
 });
 
-test('menu searchPicker table and tree use selected placeholder and title slots', () => {
+test('menu searchPicker dataGrid and tree use selected placeholder and title slots', () => {
   const menuFrame = renderElementFrame(menuBar({
     id: 'styled-menu',
     presentation: { kind: 'closed', active: 'file' },
@@ -383,7 +428,6 @@ test('menu searchPicker table and tree use selected placeholder and title slots'
     id: 'styled-searchPicker',
     title: 'Commands',
     searchPickerIndex: prepareSearchPickerIndex([]),
-    onAction: (action) => action,
     meta: {
         styles: {
             parts: {
@@ -393,9 +437,9 @@ test('menu searchPicker table and tree use selected placeholder and title slots'
         }
     }
 }), { columns: 24, rows: 3 });
-  const tableFrame = renderElementFrame(table({
+  const tableFrame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'empty-table',
+    id: 'empty-dataGrid',
     rows: [],
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
@@ -408,9 +452,14 @@ test('menu searchPicker table and tree use selected placeholder and title slots'
 }), { columns: 20, rows: 2 });
   const treeFrame = renderElementFrame(tree({
     id: 'selected-tree',
-    selected: 'api',
+    presentation: {
+      expandedIds: [],
+      activeId: 'api',
+      selection: { mode: 'single', selectedId: 'api' }
+    },
     nodes: [{ id: 'api', label: 'API', kind: 'leaf' }],
     meta: {
+        focus: { disabled: true },
         styles: {
             states: { selected: tokenStyle('status.success') }
         }
@@ -424,38 +473,54 @@ test('menu searchPicker table and tree use selected placeholder and title slots'
   assert.equal(styleFor(treeFrame, 'A')?.fg?.token, 'status.success');
 });
 
-test('list table and tree share data navigation selection and match styles', () => {
-  const listFrame = renderElementFrame(list({
+test('listbox dataGrid and tree share data navigation selection and match styles', () => {
+  const listFrame = renderElementFrame(listbox({
     projectItem: (item) => ({ id: String(item), label: String(item) }),
-    id: 'styled-list',
+    id: 'styled-listbox',
     items: ['Atlas', 'Pulse'],
-    selectedId: 'Atlas',
-    filterQuery: 'at'
+    presentation: {
+      activeId: 'Atlas',
+      selection: { mode: 'single', selectedId: 'Atlas' }
+    },
+    filterQuery: { text: 'at', mode: 'contains' }
   }), { columns: 18, rows: 2 });
-  const tableFrame = renderElementFrame(table({
+  const tableFrame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'styled-table',
-    presentation: { selectedRowId: '0' },
+    id: 'styled-dataGrid',
+    presentation: {
+      interaction: { kind: 'row',
+      selectionMode: 'single', activeRowId: '0', selectedRowIds: ['0'] }
+    },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
-  const activeTableFrame = renderElementFrame(table({
+  const activeTableFrame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'active-table',
-    presentation: { selectedCell: { rowId: '0', columnIndex: 0 } },
+    id: 'active-dataGrid',
+    presentation: {
+      interaction: {
+        kind: 'cell',
+        selectionMode: 'single',
+        activeCell: { rowId: '0', columnId: 'name-0' },
+        selectedCells: [{ rowId: '0', columnId: 'name-0' }]
+      }
+    },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
   const treeFrame = renderElementFrame(tree({
     id: 'filtered-tree',
-    filterQuery: 'api',
+    presentation: {
+      expandedIds: ['root'],
+      query: { text: 'api', mode: 'contains' },
+      selection: { mode: 'none' }
+    },
     nodes: [{
       id: 'root',
       label: 'Workspace',
       kind: 'branch',
-      expanded: true,
       children: [{ id: 'api', label: 'API Layer', kind: 'leaf' }]
     }]
   }), { columns: 24, rows: 3 });
@@ -492,9 +557,9 @@ test('default interactive component anatomy uses theme tokens instead of termina
   const commandFrame = renderElementFrame(commandInput({
     id: 'command',
     presentation: { value: '/open README.md', cursor: 0, suggestions: [
-      { value: '/open', label: 'Open file' },
-      { value: '/save', label: 'Save file' }
-    ], selectedSuggestionIndex: 0 },
+      { id: 'open', value: '/open', label: 'Open file' },
+      { id: 'save', value: '/save', label: 'Save file' }
+    ], activeSuggestionId: 'open' },
     display: 'expanded',
   }), { columns: 36, rows: 3 });
   const menuFrame = renderElementFrame(menu({
@@ -507,7 +572,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
       ]
     }
   }), { columns: 20, rows: 2 });
-  const dropdownMenuFrame = renderElementFrame(dropdownMenu({
+  const menuTriggerFrame = renderElementFrame(menuTrigger({
     id: 'region',
     label: 'Region',
     meta: { focus: { disabled: true } },
@@ -518,39 +583,44 @@ test('default interactive component anatomy uses theme tokens instead of termina
   }), { columns: 32, rows: 1 });
   const searchPickerFrame = renderElementFrame(searchPicker({
     id: 'searchPicker',
-    query: 'o',
-    selectedId: 'toggle',
+    presentation: {
+      query: { text: 'o', mode: 'fuzzy' },
+      activeId: 'toggle'
+    },
     searchPickerIndex: prepareSearchPickerIndex([
       { id: 'open', label: 'Open file' },
       { id: 'toggle', label: 'Toggle theme' }
-    ]),
-    onAction: (action) => action
+    ])
   }), { columns: 36, rows: 5 });
   const tabsFrame = renderElementFrame(tabs({
     id: 'tabs',
-    selected: 'one',
+    presentation: { activeId: 'one', selectedId: 'one' },
     tabs: [
       { id: 'one', label: 'One', panel: text({ content: 'One' }) },
       { id: 'two', label: 'Two', panel: text({ content: 'Two' }) }
     ]
   }), { columns: 28, rows: 2 });
-  const tableFrame = renderElementFrame(table({
+  const tableFrame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'table',
+    id: 'dataGrid',
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
   const treeFrame = renderElementFrame(tree({
     id: 'tree',
-    selected: 'api',
+    presentation: {
+      expandedIds: ['root'],
+      activeId: 'api',
+      selection: { mode: 'single', selectedId: 'api' }
+    },
     nodes: [{
       id: 'root',
       label: 'Workspace',
       kind: 'branch',
-      expanded: true,
       children: [{ id: 'api', label: 'API', kind: 'leaf' }]
-    }]
+    }],
+    meta: { focus: { disabled: true } }
   }), { columns: 24, rows: 2 });
   const noticeFrame = renderElementFrame(notificationRegion({
     id: 'notices',
@@ -563,9 +633,9 @@ test('default interactive component anatomy uses theme tokens instead of termina
   assert.equal(styleForSource(commandFrame, (source) => source.partName === 'prompt')?.fg?.token, 'command.prompt');
   assert.equal(styleForSource(commandFrame, (source) => source.partName === 'suggestion.0.label')?.bg?.token, 'selection.background');
   assert.equal(styleForSource(menuFrame, (source) => source.partType === 'label' && source.itemId === 'open')?.bg?.token, 'selection.background');
-  assert.equal(styleForSource(dropdownMenuFrame, (source) => source.partName === 'value')?.fg?.token, 'text.strong');
+  assert.equal(styleForSource(menuTriggerFrame, (source) => source.partName === 'value')?.fg?.token, 'text.strong');
   assert.equal(styleForSource(searchPickerFrame, (source) => source.partName === 'entry.open.label')?.fg?.token, 'text.default');
-  assert.equal(searchPickerFrame.cells.find((cell) => cell.row === 4 && cell.column === 36)?.style?.bg?.token, 'selection.background');
+  assert.equal(searchPickerFrame.cells.find((cell) => cell.row === 4 && cell.column === 36)?.source?.interactionState, 'active');
   assert.equal(styleForSource(tabsFrame, (source) => source.partName === 'label' && source.itemId === 'one')?.fg?.token, 'tab.active.foreground');
   assert.equal(styleForSource(tabsFrame, (source) => source.partName === 'label' && source.itemId === 'two')?.fg?.token, 'tab.inactive.foreground');
   assert.equal(styleForSource(tableFrame, (source) => source.partName === 'row.1.cell.0')?.fg?.token, 'text.default');
@@ -585,9 +655,12 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
             label: 'Root',
             icon: '◆',
             kind: 'branch',
-            expanded: true,
             children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
         }],
+    presentation: {
+      expandedIds: ['root'],
+      selection: { mode: 'none' }
+    },
     meta: {
         styles: {
             parts: {
@@ -617,23 +690,36 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
 
 test('data selections rely on graphical backgrounds and retain a monochrome marker', () => {
   const elements = [
-    list({
-      id: 'selection-list',
+    listbox({
+      id: 'selection-listbox',
       items: ['Atlas'],
       projectItem: (item) => ({ id: item, label: item }),
-      selectedId: 'Atlas'
+      presentation: {
+        activeId: 'Atlas',
+        selection: { mode: 'single', selectedId: 'Atlas' }
+      },
+      meta: { focus: { disabled: true } }
     }),
-    table({
-      id: 'selection-table',
+    dataGrid({
+      id: 'selection-dataGrid',
       rows: [['Atlas']],
       columns: [{ id: 'name', header: 'Name', value: (row) => row[0] }],
       getRowId: () => 'atlas',
-      presentation: { selectedRowId: 'atlas' }
+      presentation: {
+        interaction: { kind: 'row',
+        selectionMode: 'single', activeRowId: 'atlas', selectedRowIds: ['atlas'] }
+      },
+      meta: { focus: { disabled: true } }
     }),
     tree({
       id: 'selection-tree',
-      selected: 'atlas',
-      nodes: [{ id: 'atlas', label: 'Atlas', kind: 'leaf' }]
+      presentation: {
+        expandedIds: [],
+        activeId: 'atlas',
+        selection: { mode: 'single', selectedId: 'atlas' }
+      },
+      nodes: [{ id: 'atlas', label: 'Atlas', kind: 'leaf' }],
+      meta: { focus: { disabled: true } }
     })
   ];
   const markerDescriptions = ['item.Atlas.marker', 'row.atlas.marker', 'node.atlas.marker'];
@@ -655,7 +741,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
 test('tabs use shared selected disabled and value styles', () => {
   const frame = renderElementFrame(tabs({
     id: 'tabs',
-    selected: 'data',
+    presentation: { activeId: 'data', selectedId: 'data' },
     tabs: [
       { id: 'dash', label: 'Dash', panel: text({ content: 'Dashboard' }) },
       { id: 'data', label: 'Data', panel: text({ content: 'Data view' }) },
@@ -676,7 +762,7 @@ test('tabs use shared selected disabled and value styles', () => {
   const selectedLabel = frame.cells.find((cell) => cell.source?.itemId === 'data' && cell.source?.description === 'label');
 
   assert.equal(dStyles[0]?.fg?.token, 'text.muted');
-  assert.equal(selectedLabel?.style?.fg?.token, 'status.success');
+  assert.equal(selectedLabel?.style?.fg?.token, 'accent.primary');
   assert.equal(styleFor(frame, 'A')?.fg?.token, 'status.warning');
 });
 
@@ -710,7 +796,7 @@ test('log viewer omissions and dialog borders use their direct style slots', () 
 
   assert.equal(styleFor(logViewerFrame, '.')?.fg?.token, 'status.warning');
   assert.equal(styleFor(modalFrame, '┌')?.fg?.token, 'status.error');
-  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.elementKind === 'terminal-ui/components/divider' && cell.source.partName === 'line')?.fg?.token, 'status.error');
+  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.elementId === 'styled-dialog:action-separator' && cell.source.partName === 'line')?.fg?.token, 'status.error');
 });
 
 test('structural text roles use shared visual grammar', () => {
@@ -782,8 +868,8 @@ test('feedback components use shared status styles and source metadata', () => {
     groups: [{
       id: 'primary',
       bindings: [
-        { key: 'Enter', label: 'open' },
-        { key: 'Esc', label: 'close' }
+        { binding: { kind: 'key', key: 'enter' }, label: 'open' },
+        { binding: { kind: 'key', key: 'escape' }, label: 'close' }
       ]
     }],
     meta: {
@@ -845,8 +931,9 @@ test('chart components apply their styles and source metadata', () => {
   const barFrame = renderElementFrame(barChart({
     id: 'bars',
     label: 'Builds',
-    selectedId: 'atlas',
     items: [{ id: 'atlas', label: 'Atlas', value: 5 }],
+    presentation: { activeId: 'atlas', selection: { mode: 'single', selectedId: 'atlas' } },
+    onTransition: noMessage,
     meta: {
         styles: {
             parts: { label: tokenStyle('accent.primary') },
@@ -886,7 +973,7 @@ test('chart components apply their styles and source metadata', () => {
 });
 
 test('choice and picker controls use shared form visual styles and source metadata', () => {
-  const toggleFrame = renderElementFrame(toggleSwitch({
+  const toggleFrame = renderElementFrame(switchControl({
     id: 'toggle',
     label: 'Live',
     checked: true
@@ -902,7 +989,10 @@ test('choice and picker controls use shared form visual styles and source metada
   const checkboxFrame = renderElementFrame(checkboxGroup({
     id: 'checks',
     label: 'Checks',
-    selected: ['a'],
+    presentation: {
+      activeId: 'a',
+      selection: { mode: 'multiple', selectedIds: ['a'] }
+    },
     options: [
       { id: 'a', label: 'Alpha', value: 'a' },
       { id: 'b', label: 'Beta', value: 'b' }
@@ -912,13 +1002,16 @@ test('choice and picker controls use shared form visual styles and source metada
   const colorFrame = renderElementFrame(colorSwatchPicker({
     id: 'colors',
     label: 'Colors',
-    selected: 'green',
+    presentation: {
+      activeId: 'green',
+      selection: { mode: 'single', selectedId: 'green' }
+    },
     options: [{ id: 'green', label: 'Green', value: 'green', swatch: '■' }]
   }), { columns: 24, rows: 3 });
   const dateFrame = renderElementFrame(calendar({
     id: 'dates',
     label: 'Dates',
-    ...calendarFixture({ selected: { year: 2026, month: 6, day: 2 } })
+    presentation: calendarFixture({ selectedDate: { year: 2026, month: 6, day: 2 } })
   }), { columns: 30, rows: 8 });
 
   assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.description === 'value.on')?.bg?.token, 'control.toggle.on.background');

@@ -1,6 +1,7 @@
 import { createScrollState } from '../../behavior/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
+  assertComponentOptions,
   clipRenderSpans,
   componentScrollbarHitTargets,
   defineComponent,
@@ -15,6 +16,8 @@ import {
 } from '../../component/index.ts';
 import type {
   ComponentMessage,
+  CompleteComponentOptionFields,
+  ComponentOptionKey,
   ComponentAccessibilityInput,
   ComponentInput,
   ComponentMeasureInput,
@@ -32,18 +35,21 @@ import type {
   AnchoredSurfacePlacement,
 } from '../../interaction/anchored-surface.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
+import { formatKeyboardBinding } from '../../interaction/key-binding.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
+import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { portal, surface } from '../../layout/index.ts';
 import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type {
-  ContextMenuAction,
+  ContextMenuTransition,
   ContextMenuPresentation,
-  DropdownMenuAction,
-  DropdownMenuPresentation,
-  MenuAction,
-  MenuBarAction,
+  MenuTriggerTransition,
+  MenuTriggerPresentation,
+  MenuActivateEvent,
+  MenuTransition,
+  MenuBarTransition,
   MenuBarPresentation,
   MenuItem,
   MenuPresentation,
@@ -60,7 +66,7 @@ import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { Measurement } from '../../renderer/index.ts';
 import type {
   ContextMenuOptions,
-  DropdownMenuOptions,
+  MenuTriggerOptions,
   MenuBarOptions,
   MenuOptions,
 } from '../options/menus.ts';
@@ -73,7 +79,7 @@ interface PreparedMenuItemBase {
   readonly disabled: boolean;
   readonly leading?: InlineContent;
   readonly trailing?: InlineContent;
-  readonly shortcut?: string;
+  readonly shortcut?: import('../../interaction/key-binding.ts').KeyboardBinding;
   readonly tone: 'default' | 'destructive';
   readonly children: readonly PreparedMenuItem[];
 }
@@ -81,6 +87,9 @@ interface PreparedMenuItemBase {
 type PreparedMenuItem =
   | (PreparedMenuItemBase & { readonly kind: 'action' })
   | (PreparedMenuItemBase & { readonly kind: 'check'; readonly checked: boolean })
+  | (PreparedMenuItemBase & { readonly kind: 'radio'; readonly checked: boolean; readonly groupId: string })
+  | (PreparedMenuItemBase & { readonly kind: 'separator' })
+  | (PreparedMenuItemBase & { readonly kind: 'section' })
   | (PreparedMenuItemBase & { readonly kind: 'submenu'; readonly expanded?: boolean });
 
 type MenuRow = PreparedMenuItem & { readonly depth: number };
@@ -110,6 +119,45 @@ interface MenuOwnOptions {
   readonly pointerState?: PointerInteractionState;
 }
 
+type MenuComponentAction =
+  | { readonly kind: 'transition'; readonly transition: MenuTransition }
+  | { readonly kind: 'activate'; readonly event: MenuActivateEvent }
+  | { readonly kind: 'pointer'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+
+function assertMenuFactoryOptions<
+  TOptions extends {
+    readonly disabled?: boolean;
+    readonly inert?: boolean;
+    readonly pointerState?: unknown;
+    readonly readOnly?: unknown;
+    readonly busy?: unknown;
+    readonly onTransition?: unknown;
+    readonly onActivate?: unknown;
+    readonly onPointerAction?: unknown;
+  },
+  const TFields extends readonly ComponentOptionKey<TOptions>[],
+>(
+  options: TOptions,
+  component: string,
+  fields: TFields & CompleteComponentOptionFields<TOptions, TFields>,
+): void {
+  assertComponentOptions<TOptions, TFields>(options, component, {
+    fields,
+    callbacks: options.disabled === true || options.inert === true
+      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
+      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
+    forbiddenFields: options.disabled === true
+      ? [
+          'pointerState' as ComponentOptionKey<TOptions>,
+          'readOnly' as ComponentOptionKey<TOptions>,
+          'busy' as ComponentOptionKey<TOptions>,
+        ]
+      : options.inert === true
+        ? ['readOnly' as ComponentOptionKey<TOptions>]
+        : [],
+  });
+}
+
 type MenuFactory = <const TMessage extends ComponentMessage = never>(
   options: MenuOptions<TMessage>,
 ) => Element<TMessage>;
@@ -117,17 +165,26 @@ type MenuFactory = <const TMessage extends ComponentMessage = never>(
 const instantiateMenu = defineComponent<
   MenuOwnOptions,
   MenuModel,
-  MenuAction,
+  MenuComponentAction,
   MenuStylePart,
-  readonly [],
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/menu',
+  optionFields: {
+    presentation: true,
+    emptyText: true,
+    scrollbar: true,
+    scrollPolicy: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'menu',
   metadata: ['focus', 'layer', 'styles'],
+  states: ['disabled', 'busy', 'readOnly', 'inert'],
   parts: [
     'control',
     'title',
@@ -145,25 +202,80 @@ const instantiateMenu = defineComponent<
   prepare: prepareMenu,
   measure: measureMenu,
   render: paintMenu,
-  keys: ({ model }) => ({
-    arrowUp: () => ({ kind: 'move', delta: -1 }),
-    arrowDown: () => ({ kind: 'move', delta: 1 }),
-    home: () => ({ kind: 'first' }),
-    end: () => ({ kind: 'last' }),
-    arrowRight: () => ({ kind: 'enter' }),
-    arrowLeft: () => ({ kind: 'back' }),
+  keys: ({ model, busy, readOnly }) => busy ? {} : ({
+    arrowUp: () => menuComponentTransition({ kind: 'move', delta: -1 }),
+    arrowDown: () => menuComponentTransition({ kind: 'move', delta: 1 }),
+    home: () => menuComponentTransition({ kind: 'first' }),
+    end: () => menuComponentTransition({ kind: 'last' }),
+    arrowRight: () => menuComponentTransition({ kind: 'enter' }),
+    arrowLeft: () => menuComponentTransition({ kind: 'back' }),
     enter: () =>
       activeMenuItem(model) === undefined
         ? ignoreMessage()
-        : { kind: 'activate', id: activeMenuItem(model)?.id ?? '' },
+        : activeMenuItem(model)?.kind === 'submenu'
+        ? menuComponentTransition({ kind: 'enter' })
+        : readOnly ? ignoreMessage() : {
+          kind: 'activate',
+          event: { kind: 'activate', id: activeMenuItem(model)?.id ?? '' },
+        },
   }),
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: menuHitTargets,
   accessibility: menuAccessibility,
 });
 
-export const menu: MenuFactory = (options) => instantiateMenu(options);
+export const menu: MenuFactory = (options) => {
+  assertMenuFactoryOptions(options, 'menu', [
+    'id', 'presentation', 'emptyText', 'scrollbar', 'scrollPolicy', 'pointerState',
+    'disabled', 'readOnly', 'busy', 'inert', 'meta', 'onTransition', 'onActivate',
+    'onPointerAction',
+  ]);
+  const shared = menuInstanceOptions(options);
+  if (options.disabled === true) return instantiateMenu({
+    ...shared,
+    disabled: true,
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
+  });
+  if (options.inert === true) return instantiateMenu({
+    ...shared,
+    inert: true,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+  });
+  return instantiateMenu({
+    ...shared,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => routeMenuComponentAction(action, options),
+  });
+};
+
+function menuComponentTransition(transition: MenuTransition): MenuComponentAction {
+  return { kind: 'transition', transition };
+}
+
+function menuInstanceOptions<TMessage extends ComponentMessage>(options: MenuOptions<TMessage>) {
+  return {
+    id: options.id,
+    presentation: options.presentation,
+    ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
+    ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+    ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+}
+
+function routeMenuComponentAction<TMessage extends ComponentMessage>(
+  action: MenuComponentAction,
+  options: MenuOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
+) {
+  if (action.kind === 'transition') return options.onTransition(action.transition);
+  if (action.kind === 'activate') {
+    return options.readOnly ? ignoreMessage() : options.onActivate?.(action.event) ?? ignoreMessage();
+  }
+  return options.onPointerAction?.(action.action) ?? ignoreMessage();
+}
 
 const popupSlot = {
   popup: { cardinality: 'optional', owner: 'implementation', messages: 'bubble' },
@@ -193,22 +305,37 @@ type MenuBarFactory = <const TMessage extends ComponentMessage = never>(
   options: MenuBarOptions<TMessage>,
 ) => Element<TMessage>;
 
+type MenuBarComponentAction =
+  | { readonly kind: 'transition'; readonly transition: MenuBarTransition }
+  | { readonly kind: 'activate'; readonly event: MenuActivateEvent }
+  | { readonly kind: 'pointer'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+
 const instantiateMenuBar = defineComponent<
   MenuBarOwnOptions,
   MenuBarModel,
-  MenuBarAction,
+  MenuBarComponentAction,
   MenuStylePart,
-  readonly [],
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
   typeof popupSlot
 >({
   name: 'terminal-ui/components/menu-bar',
+  optionFields: {
+    items: true,
+    presentation: true,
+    maxVisibleItems: true,
+    scrollbar: true,
+    scrollPolicy: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'menubar',
   slots: popupSlot,
   metadata: ['focus', 'layer', 'styles'],
+  states: ['disabled', 'busy', 'readOnly', 'inert'],
   parts: [
     'control',
     'title',
@@ -231,10 +358,13 @@ const instantiateMenuBar = defineComponent<
         input.id,
         input.model.presentation.menu,
         input.model.maxVisibleItems,
-        (action) => input.emit({ kind: 'menu', action }),
+        (action) => input.emit(menuBarChildAction(action)),
         input.model.scrollbar,
         input.model.scrollPolicy,
         input.styles,
+        undefined,
+        input.readOnly,
+        input.busy,
       ),
     };
   },
@@ -253,16 +383,20 @@ const instantiateMenuBar = defineComponent<
       : { ...input.bounds, height: Math.min(1, input.bounds.height) },
   }),
   renderBeforeChildren: paintMenuBar,
-  keys: ({ model }) => ({
-    arrowLeft: () => ({ kind: 'moveHeading', delta: -1 }),
-    arrowRight: () => ({ kind: 'moveHeading', delta: 1 }),
-    home: () => ({ kind: 'firstHeading' }),
-    end: () => ({ kind: 'lastHeading' }),
+  keys: ({ model, busy }) => busy ? {} : ({
+    arrowLeft: () => menuBarComponentTransition({ kind: 'moveHeading', delta: -1 }),
+    arrowRight: () => menuBarComponentTransition({ kind: 'moveHeading', delta: 1 }),
+    home: () => menuBarComponentTransition({ kind: 'firstHeading' }),
+    end: () => menuBarComponentTransition({ kind: 'lastHeading' }),
     enter: () =>
-      model.presentation.kind === 'open' ? { kind: 'close', reason: 'escape' } : { kind: 'open' },
-    escape: () => ({ kind: 'close', reason: 'escape' }),
+      menuBarComponentTransition(
+        model.presentation.kind === 'open'
+          ? { kind: 'close', reason: 'escape' }
+          : { kind: 'open' },
+      ),
+    escape: () => menuBarComponentTransition({ kind: 'close', reason: 'escape' }),
   }),
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
   focusScope: ({ model }) => model.presentation.kind === 'open' ? { kind: 'contain' } : undefined,
   focusTargets: (
     { bounds },
@@ -271,7 +405,64 @@ const instantiateMenuBar = defineComponent<
   accessibility: menuBarAccessibility,
 });
 
-export const menuBar: MenuBarFactory = (options) => instantiateMenuBar(options);
+export const menuBar: MenuBarFactory = (options) => {
+  assertMenuFactoryOptions(options, 'menuBar', [
+    'id', 'items', 'presentation', 'maxVisibleItems', 'scrollbar', 'scrollPolicy',
+    'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta', 'onTransition',
+    'onActivate', 'onPointerAction',
+  ]);
+  const shared = menuBarInstanceOptions(options);
+  if (options.disabled === true) return instantiateMenuBar({
+    ...shared,
+    disabled: true,
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
+  });
+  if (options.inert === true) return instantiateMenuBar({
+    ...shared,
+    inert: true,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+  });
+  return instantiateMenuBar({
+    ...shared,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => routeMenuBarAction(action, options),
+  });
+};
+
+function menuBarComponentTransition(transition: MenuBarTransition): MenuBarComponentAction {
+  return { kind: 'transition', transition };
+}
+
+function menuBarChildAction(action: MenuComponentAction): MenuBarComponentAction {
+  return action.kind === 'transition'
+    ? menuBarComponentTransition({ kind: 'menu', transition: action.transition })
+    : action;
+}
+
+function menuBarInstanceOptions<TMessage extends ComponentMessage>(options: MenuBarOptions<TMessage>) {
+  return {
+    id: options.id,
+    items: options.items,
+    presentation: options.presentation,
+    ...(options.maxVisibleItems === undefined ? {} : { maxVisibleItems: options.maxVisibleItems }),
+    ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+    ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+}
+
+function routeMenuBarAction<TMessage extends ComponentMessage>(
+  action: MenuBarComponentAction,
+  options: MenuBarOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
+) {
+  if (action.kind === 'transition') return options.onTransition(action.transition);
+  if (action.kind === 'activate') {
+    return options.readOnly ? ignoreMessage() : options.onActivate?.(action.event) ?? ignoreMessage();
+  }
+  return options.onPointerAction?.(action.action) ?? ignoreMessage();
+}
 
 interface ContextMenuModel {
   readonly presentation:
@@ -290,26 +481,46 @@ interface ContextMenuModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-type ContextOwnOptions = Omit<ContextMenuOptions<ComponentMessage>, 'id' | 'onAction' | 'keys' | 'meta'>;
+type ContextOwnOptions = Omit<
+  ContextMenuOptions<ComponentMessage>,
+  'id' | 'onTransition' | 'onActivate' | 'onPointerAction' | 'meta' | 'disabled' | 'busy' | 'readOnly' | 'inert'
+>;
 
 type ContextMenuFactory = <const TMessage extends ComponentMessage = never>(
   options: ContextMenuOptions<TMessage>,
 ) => Element<TMessage>;
 
+type ContextMenuComponentAction =
+  | { readonly kind: 'transition'; readonly transition: ContextMenuTransition }
+  | { readonly kind: 'activate'; readonly event: MenuActivateEvent }
+  | { readonly kind: 'pointer'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+
 const instantiateContextMenu = defineComponent<
   ContextOwnOptions,
   ContextMenuModel,
-  ContextMenuAction,
+  ContextMenuComponentAction,
   MenuStylePart,
-  readonly [],
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/context-menu',
+  optionFields: {
+    presentation: true,
+    title: true,
+    emptyText: true,
+    scrollbar: true,
+    scrollPolicy: true,
+    placement: true,
+    maxVisibleItems: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
+  accessibleRole: 'menu',
   metadata: ['focus', 'layer', 'styles'],
+  states: ['disabled', 'busy', 'readOnly', 'inert'],
   parts: [
     'control',
     'title',
@@ -336,7 +547,14 @@ const instantiateContextMenu = defineComponent<
       ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),
       ...(input.model.scrollPolicy === undefined ? {} : { scrollPolicy: input.model.scrollPolicy }),
       ...(input.styles === undefined ? {} : { meta: { styles: input.styles } }),
-      onAction: (action) => input.emit({ kind: 'menu', action }),
+      ...(input.readOnly ? { readOnly: true } : {}),
+      ...(input.busy ? { busy: true } : {}),
+      onTransition: (transition) => input.emit(contextMenuComponentTransition({
+        kind: 'menu',
+        transition,
+      })),
+      onActivate: (event) => input.emit({ kind: 'activate', event }),
+      onPointerAction: (action) => input.emit({ kind: 'pointer', action }),
     });
     return portal(
       surface(popup, {
@@ -350,7 +568,10 @@ const instantiateContextMenu = defineComponent<
         id: `${input.id ?? 'context-menu'}:portal`,
         anchor: input.model.presentation.anchor,
         placement: input.model.placement,
-        onOutsidePress: () => input.emit({ kind: 'dismiss', reason: 'outsidePress' }),
+        onOutsidePress: () => input.emit(contextMenuComponentTransition({
+          kind: 'dismiss',
+          reason: 'outsidePress',
+        })),
         meta: {
           layer: {
             ...input.layer,
@@ -363,16 +584,73 @@ const instantiateContextMenu = defineComponent<
   },
   keys: ({ model }) =>
     model.presentation.kind === 'open'
-      ? { escape: () => ({ kind: 'dismiss', reason: 'escape' }) }
+      ? { escape: () => contextMenuComponentTransition({ kind: 'dismiss', reason: 'escape' }) }
       : {},
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
   focusScope: ({ model }) => model.presentation.kind === 'open' ? { kind: 'contain' } : undefined,
   accessibility: contextMenuAccessibility,
 });
 
-export const contextMenu: ContextMenuFactory = (options) => instantiateContextMenu(options);
+export const contextMenu: ContextMenuFactory = (options) => {
+  assertMenuFactoryOptions(options, 'contextMenu', [
+    'id', 'presentation', 'title', 'emptyText', 'scrollbar', 'scrollPolicy', 'placement',
+    'maxVisibleItems', 'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta',
+    'onTransition', 'onActivate', 'onPointerAction',
+  ]);
+  const shared = contextMenuInstanceOptions(options);
+  if (options.disabled === true) return instantiateContextMenu({
+    ...shared,
+    disabled: true,
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
+  });
+  if (options.inert === true) return instantiateContextMenu({
+    ...shared,
+    inert: true,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+  });
+  return instantiateContextMenu({
+    ...shared,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => routeContextMenuAction(action, options),
+  });
+};
 
-interface DropdownModel {
+function contextMenuComponentTransition(
+  transition: ContextMenuTransition,
+): ContextMenuComponentAction {
+  return { kind: 'transition', transition };
+}
+
+function contextMenuInstanceOptions<TMessage extends ComponentMessage>(
+  options: ContextMenuOptions<TMessage>,
+) {
+  return {
+    id: options.id,
+    presentation: options.presentation,
+    ...(options.title === undefined ? {} : { title: options.title }),
+    ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
+    ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+    ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+    ...(options.placement === undefined ? {} : { placement: options.placement }),
+    ...(options.maxVisibleItems === undefined ? {} : { maxVisibleItems: options.maxVisibleItems }),
+    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+}
+
+function routeContextMenuAction<TMessage extends ComponentMessage>(
+  action: ContextMenuComponentAction,
+  options: ContextMenuOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
+) {
+  if (action.kind === 'transition') return options.onTransition(action.transition);
+  if (action.kind === 'activate') {
+    return options.readOnly ? ignoreMessage() : options.onActivate?.(action.event) ?? ignoreMessage();
+  }
+  return options.onPointerAction?.(action.action) ?? ignoreMessage();
+}
+
+interface MenuTriggerModel {
   readonly label: string;
   readonly items: readonly PreparedMenuItem[];
   readonly presentation:
@@ -386,28 +664,50 @@ interface DropdownModel {
   readonly pointerState?: PointerInteractionState;
 }
 
-type DropdownOwnOptions = Omit<DropdownMenuOptions<ComponentMessage>, 'id' | 'onAction' | 'keys' | 'meta'>;
+type MenuTriggerOwnOptions = Omit<
+  MenuTriggerOptions<ComponentMessage>,
+  'id' | 'onTransition' | 'onActivate' | 'onPointerAction' | 'meta' | 'disabled' | 'busy' | 'readOnly' | 'inert'
+>;
 
-type DropdownMenuFactory = <const TMessage extends ComponentMessage = never>(
-  options: DropdownMenuOptions<TMessage>,
+type MenuTriggerFactory = <const TMessage extends ComponentMessage = never>(
+  options: MenuTriggerOptions<TMessage>,
 ) => Element<TMessage>;
 
-const instantiateDropdownMenu = defineComponent<
-  DropdownOwnOptions,
-  DropdownModel,
-  DropdownMenuAction,
+type MenuTriggerComponentAction =
+  | { readonly kind: 'transition'; readonly transition: MenuTriggerTransition }
+  | { readonly kind: 'activate'; readonly event: MenuActivateEvent }
+  | { readonly kind: 'pointer'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+
+const instantiateMenuTrigger = defineComponent<
+  MenuTriggerOwnOptions,
+  MenuTriggerModel,
+  MenuTriggerComponentAction,
   MenuStylePart,
-  readonly [],
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
   typeof popupSlot
 >({
-  name: 'terminal-ui/components/dropdown-menu',
+  name: 'terminal-ui/components/menu-trigger',
+  optionFields: {
+    label: true,
+    items: true,
+    presentation: true,
+    placeholder: true,
+    density: true,
+    placement: true,
+    maxVisibleItems: true,
+    scrollbar: true,
+    scrollPolicy: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: popupSlot,
   metadata: ['focus', 'layer', 'styles'],
+  states: ['disabled', 'busy', 'readOnly', 'inert'],
   parts: [
     'control',
     'title',
@@ -422,7 +722,7 @@ const instantiateDropdownMenu = defineComponent<
     'empty',
     'scrollbar',
   ],
-  prepare: prepareDropdown,
+  prepare: prepareMenuTrigger,
   implementationSlots(input) {
     if (input.model.presentation.kind === 'closed') return { popup: undefined };
     return {
@@ -430,16 +730,18 @@ const instantiateDropdownMenu = defineComponent<
         input.id,
         input.model.presentation.menu,
         input.model.maxVisibleItems,
-        (action) => input.emit({ kind: 'menu', action }),
+        (action) => input.emit(menuTriggerChildAction(action)),
         input.model.scrollbar,
         input.model.scrollPolicy,
         input.styles,
         input.model.placement,
+        input.readOnly,
+        input.busy,
       ),
     };
   },
   measure(input) {
-    const value = dropdownValue(input.model);
+    const value = menuTriggerValue(input.model);
     return {
       minWidth: 1,
       minHeight: 1,
@@ -455,21 +757,21 @@ const instantiateDropdownMenu = defineComponent<
       ? undefined
       : { ...input.bounds, height: Math.min(1, input.bounds.height) },
   }),
-  renderBeforeChildren: paintDropdown,
-  keys: ({ model }) => ({
-    enter: () => ({ kind: 'toggle' }),
-    space: () => ({ kind: 'toggle' }),
+  renderBeforeChildren: paintMenuTrigger,
+  keys: ({ model, busy }) => busy ? {} : ({
+    enter: () => menuTriggerComponentTransition({ kind: 'toggle' }),
+    space: () => menuTriggerComponentTransition({ kind: 'toggle' }),
     arrowDown: () =>
       model.presentation.kind === 'closed'
-        ? { kind: 'open' }
-        : { kind: 'menu', action: { kind: 'move', delta: 1 } },
+        ? menuTriggerComponentTransition({ kind: 'open' })
+        : menuTriggerComponentTransition({ kind: 'menu', transition: { kind: 'move', delta: 1 } }),
     arrowUp: () =>
       model.presentation.kind === 'closed'
-        ? { kind: 'open' }
-        : { kind: 'menu', action: { kind: 'move', delta: -1 } },
-    escape: () => ({ kind: 'dismiss', reason: 'escape' }),
+        ? menuTriggerComponentTransition({ kind: 'open' })
+        : menuTriggerComponentTransition({ kind: 'menu', transition: { kind: 'move', delta: -1 } }),
+    escape: () => menuTriggerComponentTransition({ kind: 'dismiss', reason: 'escape' }),
   }),
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
   focusScope: ({ model }) => model.presentation.kind === 'open' ? { kind: 'contain' } : undefined,
   focusTargets: (
     { bounds },
@@ -477,12 +779,12 @@ const instantiateDropdownMenu = defineComponent<
   hitTargets: (
     { id, bounds },
   ) => [{
-    id: `${id ?? 'dropdown'}:trigger`,
+    id: `${id ?? 'menu-trigger'}:trigger`,
     bounds: { ...bounds, height: Math.min(1, bounds.height) },
     accepts: ['click'],
     focus: { kind: 'target', targetId: 'self' },
     cursor: 'pointer',
-    message: () => ({ kind: 'toggle' }),
+    message: () => menuTriggerComponentTransition({ kind: 'toggle' }),
   }],
   accessibility: ({ id, model, focused, children }) => ({
     id,
@@ -492,21 +794,86 @@ const instantiateDropdownMenu = defineComponent<
       id: `${id}:trigger`,
       role: 'button',
       label: model.label || id,
-      value: dropdownValue(model),
+      value: menuTriggerValue(model),
       expanded: model.presentation.kind === 'open',
       ...(focused ? { focused: true } : {}),
     }, ...children],
   }),
 });
 
-export const dropdownMenu: DropdownMenuFactory = (options) => instantiateDropdownMenu(options);
+export const menuTrigger: MenuTriggerFactory = (options) => {
+  assertMenuFactoryOptions(options, 'menuTrigger', [
+    'id', 'label', 'items', 'presentation', 'placeholder', 'density', 'placement',
+    'maxVisibleItems', 'scrollbar', 'scrollPolicy', 'pointerState', 'disabled', 'readOnly',
+    'busy', 'inert', 'meta', 'onTransition', 'onActivate', 'onPointerAction',
+  ]);
+  const shared = menuTriggerInstanceOptions(options);
+  if (options.disabled === true) return instantiateMenuTrigger({
+    ...shared,
+    disabled: true,
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
+  });
+  if (options.inert === true) return instantiateMenuTrigger({
+    ...shared,
+    inert: true,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+  });
+  return instantiateMenuTrigger({
+    ...shared,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => routeMenuTriggerAction(action, options),
+  });
+};
+
+function menuTriggerComponentTransition(
+  transition: MenuTriggerTransition,
+): MenuTriggerComponentAction {
+  return { kind: 'transition', transition };
+}
+
+function menuTriggerChildAction(action: MenuComponentAction): MenuTriggerComponentAction {
+  return action.kind === 'transition'
+    ? menuTriggerComponentTransition({ kind: 'menu', transition: action.transition })
+    : action;
+}
+
+function menuTriggerInstanceOptions<TMessage extends ComponentMessage>(
+  options: MenuTriggerOptions<TMessage>,
+) {
+  return {
+    id: options.id,
+    items: options.items,
+    presentation: options.presentation,
+    ...(options.label === undefined ? {} : { label: options.label }),
+    ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
+    ...(options.density === undefined ? {} : { density: options.density }),
+    ...(options.placement === undefined ? {} : { placement: options.placement }),
+    ...(options.maxVisibleItems === undefined ? {} : { maxVisibleItems: options.maxVisibleItems }),
+    ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+    ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+}
+
+function routeMenuTriggerAction<TMessage extends ComponentMessage>(
+  action: MenuTriggerComponentAction,
+  options: MenuTriggerOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
+) {
+  if (action.kind === 'transition') return options.onTransition(action.transition);
+  if (action.kind === 'activate') {
+    return options.readOnly ? ignoreMessage() : options.onActivate?.(action.event) ?? ignoreMessage();
+  }
+  return options.onPointerAction?.(action.action) ?? ignoreMessage();
+}
 
 function prepareMenu(value: Readonly<MenuOwnOptions>): MenuModel {
   const presentation = prepareMenuPresentation(value.presentation, 'menu presentation');
   const emptyText = optionalText(value.emptyText, 'menu emptyText') ?? 'No commands';
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'menu scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'menu scrollPolicy');
-  const pointerState = preparePointerState(value.pointerState);
+  const pointerState = preparePointerInteractionState(value.pointerState, 'menu pointerState');
   const scroll = presentation.scroll;
   const rows = flattenMenu(presentation.items);
   return {
@@ -558,6 +925,13 @@ function publicMenuPresentation(value: PreparedMenuPresentation): MenuPresentati
 }
 
 function publicMenuItem(value: PreparedMenuItem): MenuPresentation['items'][number] {
+  if (value.kind === 'separator') return { kind: 'separator', id: value.id };
+  if (value.kind === 'section') return {
+    kind: 'section',
+    id: value.id,
+    ...(value.label === '' ? {} : { label: value.label }),
+    children: value.children.map(publicMenuItem),
+  };
   const common = {
     id: value.id,
     label: value.label,
@@ -570,6 +944,9 @@ function publicMenuItem(value: PreparedMenuItem): MenuPresentation['items'][numb
   };
   if (value.kind === 'action') return { ...common, kind: value.kind };
   if (value.kind === 'check') return { ...common, kind: value.kind, checked: value.checked };
+  if (value.kind === 'radio') {
+    return { ...common, kind: value.kind, checked: value.checked, groupId: value.groupId };
+  }
   return {
     ...common,
     kind: value.kind,
@@ -584,16 +961,40 @@ function prepareItems(
 ): readonly PreparedMenuItem[] {
   return values.map((value, index) => {
     const kind = value.kind;
-    if (!isStringMember(kind, ['action', 'check', 'submenu'])) {
+    if (!isStringMember(kind, ['action', 'check', 'radio', 'separator', 'section', 'submenu'])) {
       throw new TypeError(`${subject}[${String(index)}].kind is invalid.`);
     }
     const id = requiredText(value.id, `${subject}[${String(index)}].id`);
+    if (kind === 'separator') {
+      return {
+        id: clean(id),
+        label: '',
+        disabled: true,
+        tone: 'default',
+        kind,
+        children: [],
+      };
+    }
+    if (kind === 'section') {
+      if (!Array.isArray(value.children) || value.children.length === 0) {
+        throw new TypeError(`${subject}[${String(index)}].children must be a non-empty array.`);
+      }
+      return {
+        id: clean(id),
+        label: optionalText(value.label, `${subject}[${String(index)}].label`) ?? '',
+        disabled: true,
+        tone: 'default',
+        kind,
+        children: prepareItems(value.children, `${subject}[${String(index)}].children`),
+      };
+    }
     const label = requiredText(value.label, `${subject}[${String(index)}].label`);
     const description = optionalText(
       value.description,
       `${subject}[${String(index)}].description`,
     );
-    const shortcut = optionalText(value.shortcut, `${subject}[${String(index)}].shortcut`);
+    const shortcut = value.shortcut;
+    if (shortcut !== undefined) formatKeyboardBinding(shortcut);
     if (value.disabled !== undefined && typeof value.disabled !== 'boolean') {
       throw new TypeError(`${subject}[${String(index)}].disabled must be boolean.`);
     }
@@ -602,7 +1003,7 @@ function prepareItems(
       ['default', 'destructive'],
       `${subject}[${String(index)}].tone`,
     );
-    if (kind === 'check' && typeof value.checked !== 'boolean') {
+    if ((kind === 'check' || kind === 'radio') && typeof value.checked !== 'boolean') {
       throw new TypeError(`${subject}[${String(index)}].checked must be boolean.`);
     }
     if (kind === 'submenu' && !Array.isArray(value.children)) {
@@ -619,7 +1020,7 @@ function prepareItems(
       ...(value.trailing === undefined
         ? {}
         : { trailing: prepareInline(value.trailing, `${subject}[${String(index)}].trailing`) }),
-      ...(shortcut === undefined ? {} : { shortcut: clean(shortcut) }),
+      ...(shortcut === undefined ? {} : { shortcut }),
       tone: value.tone === 'destructive' ? 'destructive' : 'default',
     };
     if (kind === 'action') return { ...base, kind, children: [] };
@@ -628,6 +1029,15 @@ function prepareItems(
         ...base,
         kind,
         checked: checkedValue(value.checked, subject, index),
+        children: [],
+      };
+    }
+    if (kind === 'radio') {
+      return {
+        ...base,
+        kind,
+        checked: checkedValue(value.checked, subject, index),
+        groupId: requiredText(value.groupId, `${subject}[${String(index)}].groupId`),
         children: [],
       };
     }
@@ -648,7 +1058,9 @@ function flattenMenu(items: readonly PreparedMenuItem[], depth = 0): readonly Me
     item,
   ): readonly MenuRow[] => [
     { ...item, depth },
-    ...(item.kind === 'submenu' && item.expanded ? flattenMenu(item.children, depth + 1) : []),
+    ...(item.kind === 'submenu' && item.expanded
+      ? flattenMenu(item.children, depth + 1)
+      : item.kind === 'section' ? flattenMenu(item.children, depth) : []),
   ]);
 }
 
@@ -670,15 +1082,12 @@ function measureMenu(input: ComponentMeasureInput<MenuModel>): Measurement {
 
 function menuPlan(model: MenuModel, bounds: Rect) {
   const scroll = model.scroll ??
-    createScrollState({
-      contentRows: model.rows.length,
-      contentColumns: bounds.width,
-      viewportRows: bounds.height,
-      viewportColumns: bounds.width,
-    });
+    createScrollState();
   const plan = prepareComponentScrollbar({
     bounds,
-    scroll: { ...scroll, contentRows: model.rows.length },
+    scroll,
+    contentRows: model.rows.length,
+    contentColumns: bounds.width,
     ...(model.scrollbar === undefined ? {} : { options: model.scrollbar }),
     defaultAxis: 'vertical',
   });
@@ -757,7 +1166,27 @@ function menuRowSpans(
   base: TerminalStyle,
 ): readonly RenderSpan[] {
   const indent = '  '.repeat(item.depth);
-  const marker = item.kind === 'check'
+  if (item.kind === 'separator') {
+    return [menuSpan(
+      input,
+      input.theme.tokens.symbols.borderSingle.horizontal,
+      'separator',
+      `item.${item.id}.separator`,
+      item.id,
+      base,
+    )];
+  }
+  if (item.kind === 'section') {
+    return [menuSpan(
+      input,
+      `${indent}${item.label}`,
+      'title',
+      `item.${item.id}.section`,
+      item.id,
+      { ...base, bold: true },
+    )];
+  }
+  const marker = item.kind === 'check' || item.kind === 'radio'
     ? item.checked
       ? input.theme.tokens.symbols.checkboxChecked
       : input.theme.tokens.symbols.checkboxUnchecked
@@ -798,7 +1227,7 @@ function menuRowSpans(
     ...(item.shortcut === undefined ? [] : [
       menuSpan(
         input,
-        `  ${item.shortcut}`,
+        `  ${formatKeyboardBinding(item.shortcut)}`,
         'shortcut',
         `item.${item.id}.shortcut`,
         item.id,
@@ -815,8 +1244,15 @@ function menuRowSpans(
 
 function menuHitTargets(
   input: ComponentInput<MenuModel>,
-): readonly import('../../renderer/index.ts').HitTarget<MenuAction>[] {
+): readonly import('../../renderer/index.ts').HitTarget<MenuComponentAction>[] {
   const { plan, rows } = menuPlan(input.model, input.bounds);
+  const scrollTargets = componentScrollbarHitTargets<MenuComponentAction>({
+    id: input.id ?? 'menu',
+    plan,
+    ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
+    onScroll: (event) => menuComponentTransition({ kind: 'scroll', event }),
+  });
+  if (input.busy) return scrollTargets;
   return [
     ...rows.flatMap((item, index) =>
       item.disabled ? [] : [{
@@ -830,15 +1266,15 @@ function menuHitTargets(
         accepts: ['click' as const],
         focus: { kind: 'target' as const, targetId: 'self' },
         cursor: 'pointer' as const,
-        message: () => ({ kind: 'activate' as const, id: item.id }),
+        message: () => item.kind === 'submenu'
+          ? menuComponentTransition({ kind: 'setActive', id: item.id })
+          : input.readOnly ? ignoreMessage() : ({
+            kind: 'activate' as const,
+            event: { kind: 'activate' as const, id: item.id },
+          }),
       }]
     ),
-    ...componentScrollbarHitTargets<MenuAction>({
-      id: input.id ?? 'menu',
-      plan,
-      ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
-      onScroll: (event) => ({ kind: 'scroll', event }),
-    }),
+    ...scrollTargets,
   ];
 }
 
@@ -864,12 +1300,26 @@ function menuAccessibleItems(
   focused: boolean,
 ): readonly AccessibleNode[] {
   const activeId = activePath.at(-1);
-  return rows.map((item) => ({
+  return rows.map((item): AccessibleNode => item.kind === 'separator'
+    ? {
+      id: `${menuId}:item:${item.id}`,
+      role: 'separator',
+      orientation: 'horizontal',
+    }
+    : item.kind === 'section'
+    ? {
+      id: `${menuId}:item:${item.id}`,
+      role: 'group',
+      ...(item.label === '' ? {} : { label: item.label }),
+    }
+    : ({
     id: `${menuId}:item:${item.id}`,
-    role: item.kind === 'check' ? 'menuitemcheckbox' : 'menuitem',
+    role: item.kind === 'check'
+      ? 'menuitemcheckbox'
+      : item.kind === 'radio' ? 'menuitemradio' : 'menuitem',
     label: item.label,
     ...(item.description === undefined ? {} : { description: item.description }),
-    ...(item.kind === 'check' ? { checked: item.checked } : {}),
+    ...(item.kind === 'check' || item.kind === 'radio' ? { checked: item.checked } : {}),
     ...(item.disabled ? { disabled: true } : {}),
     ...(focused && item.id === activeId ? { focused: true } : {}),
   }));
@@ -889,7 +1339,7 @@ function prepareMenuBar(value: Readonly<MenuBarOwnOptions>): MenuBarModel {
   const maxVisibleItems = positiveInteger(value.maxVisibleItems, 12, 'menuBar maxVisibleItems');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'menuBar scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'menuBar scrollPolicy');
-  const pointerState = preparePointerState(value.pointerState);
+  const pointerState = preparePointerInteractionState(value.pointerState, 'menuBar pointerState');
   return {
     items,
     presentation,
@@ -953,7 +1403,7 @@ function paintMenuBar(input: ComponentRenderInput<MenuBarModel, MenuStylePart>):
 
 function menuBarHitTargets(
   input: ComponentInput<MenuBarModel>,
-): readonly import('../../renderer/index.ts').HitTarget<MenuBarAction>[] {
+): readonly import('../../renderer/index.ts').HitTarget<MenuBarComponentAction>[] {
   let column = 0;
   return input.model.items.flatMap((item, index) => {
     if (index > 0) column += 2;
@@ -966,7 +1416,12 @@ function menuBarHitTargets(
       accepts: ['click' as const],
       focus: { kind: 'target' as const, targetId: 'self' },
       cursor: 'pointer' as const,
-      message: () => ({ kind: 'activateHeading' as const, id: item.id }),
+      message: () => item.kind === 'submenu'
+        ? menuBarComponentTransition({ kind: 'activateHeading', id: item.id })
+        : input.readOnly ? ignoreMessage() : ({
+          kind: 'activate' as const,
+          event: { kind: 'activate' as const, id: item.id },
+        }),
     }];
   });
 }
@@ -997,12 +1452,14 @@ function menuPopup(
   presentation: PreparedMenuPresentation,
   maxVisibleItems: number,
   emit: (
-    action: MenuAction,
+    action: MenuComponentAction,
   ) => import('../../interaction/index.ts').MessageResolution<ComponentMessage>,
   scrollbar?: ScrollbarOptions,
   scrollPolicy?: ScrollPolicy,
   styles?: import('../../element/metadata.ts').ElementStyles<MenuStylePart>,
   placement: AnchoredSurfacePlacement = 'auto',
+  readOnly = false,
+  busy = false,
 ): Element<ComponentMessage> {
   const popupMenu = menu({
     id: `${id ?? 'menu'}:popup:menu`,
@@ -1010,7 +1467,11 @@ function menuPopup(
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
     ...(styles === undefined ? {} : { meta: { styles } }),
-    onAction: (action) => emit(action),
+    ...(readOnly ? { readOnly: true } : {}),
+    ...(busy ? { busy: true } : {}),
+    onTransition: (transition) => emit(menuComponentTransition(transition)),
+    onActivate: (event) => emit({ kind: 'activate', event }),
+    onPointerAction: (action) => emit({ kind: 'pointer', action }),
   });
   return portal(
     surface(popupMenu, {
@@ -1063,7 +1524,7 @@ function prepareContextMenu(value: Readonly<ContextOwnOptions>): ContextMenuMode
     value.scrollPolicy,
     'contextMenu scrollPolicy',
   );
-  const pointerState = preparePointerState(value.pointerState);
+  const pointerState = preparePointerInteractionState(value.pointerState, 'contextMenu pointerState');
   return {
     presentation,
     ...(title === undefined ? {} : { title: clean(title) }),
@@ -1090,27 +1551,27 @@ function prepareContextPresentation(value: ContextMenuPresentation): ContextMenu
   };
 }
 
-function prepareDropdown(value: Readonly<DropdownOwnOptions>): DropdownModel {
+function prepareMenuTrigger(value: Readonly<MenuTriggerOwnOptions>): MenuTriggerModel {
   if (!Array.isArray(value.items)) {
-    throw new TypeError('dropdownMenu items must be an array.');
+    throw new TypeError('menuTrigger items must be an array.');
   }
-  const label = optionalText(value.label, 'dropdownMenu label') ?? '';
-  const items = prepareItems(value.items, 'dropdownMenu items');
-  const presentation = prepareDropdownPresentation(value.presentation);
-  const placeholder = optionalText(value.placeholder, 'dropdownMenu placeholder') ?? 'Select…';
-  assertOptionalEnum(value.density, ['compact', 'regular'], 'dropdownMenu density');
+  const label = optionalText(value.label, 'menuTrigger label') ?? '';
+  const items = prepareItems(value.items, 'menuTrigger items');
+  const presentation = prepareMenuTriggerPresentation(value.presentation);
+  const placeholder = optionalText(value.placeholder, 'menuTrigger placeholder') ?? 'Select…';
+  assertOptionalEnum(value.density, ['compact', 'regular'], 'menuTrigger density');
   const placement = preparePlacement(value.placement);
   const maxVisibleItems = positiveInteger(
     value.maxVisibleItems,
     12,
-    'dropdownMenu maxVisibleItems',
+    'menuTrigger maxVisibleItems',
   );
-  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'dropdownMenu scrollbar');
+  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'menuTrigger scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(
     value.scrollPolicy,
-    'dropdownMenu scrollPolicy',
+    'menuTrigger scrollPolicy',
   );
-  const pointerState = preparePointerState(value.pointerState);
+  const pointerState = preparePointerInteractionState(value.pointerState, 'menuTrigger pointerState');
   return {
     label: clean(label),
     items,
@@ -1124,24 +1585,24 @@ function prepareDropdown(value: Readonly<DropdownOwnOptions>): DropdownModel {
   };
 }
 
-function prepareDropdownPresentation(value: DropdownMenuPresentation): DropdownModel['presentation'] {
+function prepareMenuTriggerPresentation(value: MenuTriggerPresentation): MenuTriggerModel['presentation'] {
   if (!isNonArrayObject(value) || !isStringMember(value.kind, ['closed', 'open'])) {
-    throw new TypeError('dropdownMenu presentation is invalid.');
+    throw new TypeError('menuTrigger presentation is invalid.');
   }
-  const active = optionalText(value.active, 'dropdownMenu active');
+  const active = optionalText(value.active, 'menuTrigger active');
   if (value.kind === 'closed') {
     return { kind: 'closed', ...(active === undefined ? {} : { active: clean(active) }) };
   }
   return {
     kind: 'open',
     ...(active === undefined ? {} : { active: clean(active) }),
-    menu: prepareMenuPresentation(value.menu, 'dropdownMenu menu'),
+    menu: prepareMenuPresentation(value.menu, 'menuTrigger menu'),
   };
 }
 
-function paintDropdown(input: ComponentRenderInput<DropdownModel, MenuStylePart>): void {
-  const value = dropdownValue(input.model);
-  const state = pointerVisualState(input.model.pointerState, `${input.id ?? 'dropdown'}:trigger`) ??
+function paintMenuTrigger(input: ComponentRenderInput<MenuTriggerModel, MenuStylePart>): void {
+  const value = menuTriggerValue(input.model);
+  const state = pointerVisualState(input.model.pointerState, `${input.id ?? 'menu-trigger'}:trigger`) ??
     (input.focus === 'self' ? 'focused' as const : undefined);
   const selected = input.model.presentation.active === undefined
     ? ' '
@@ -1195,7 +1656,7 @@ function paintDropdown(input: ComponentRenderInput<DropdownModel, MenuStylePart>
   );
 }
 
-function dropdownValue(model: DropdownModel): string {
+function menuTriggerValue(model: MenuTriggerModel): string {
   const active = model.presentation.active;
   return active === undefined
     ? model.placeholder
@@ -1256,7 +1717,7 @@ function menuRowText(item: MenuRow, theme: ComponentMeasureInput<MenuModel>['the
   return `${'  '.repeat(item.depth)}${theme.tokens.symbols.pointer} ${
     item.leading === undefined ? '' : `${inlineContentAccessibleText(item.leading)} `
   }${item.label}${item.description === undefined ? '' : `  ${item.description}`}${
-    item.shortcut === undefined ? '' : `  ${item.shortcut}`
+    item.shortcut === undefined ? '' : `  ${formatKeyboardBinding(item.shortcut)}`
   }${item.trailing === undefined ? '' : ` ${inlineContentAccessibleText(item.trailing)}`}`;
 }
 
@@ -1297,11 +1758,6 @@ function positiveInteger(value: unknown, fallback: number, subject: string): num
     throw new RangeError(`${subject} must be a positive safe integer.`);
   }
   return value;
-}
-function preparePointerState(
-  value: PointerInteractionState | undefined,
-): PointerInteractionState | undefined {
-  return value === undefined ? undefined : Object.freeze({ ...value });
 }
 function preparePlacement(value: AnchoredSurfacePlacement | undefined): AnchoredSurfacePlacement {
   if (value === undefined) return 'auto';

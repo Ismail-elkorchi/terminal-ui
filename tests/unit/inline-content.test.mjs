@@ -7,7 +7,7 @@ import {
   menu,
   richText,
   statusBar,
-  table,
+  dataGrid,
   tableColumn,
   tabs,
   text
@@ -178,7 +178,7 @@ test('inline adornments use component part styles and source anatomy', () => {
         activePath: ['open'],
         items: [{ kind: 'action', id: 'open', label: 'Open', leading: [symbol], trailing: [{ kind: 'text', text: 'O' }] }]
       },
-      onAction: (action) => action,
+      onTransition: (action) => action,
       meta: {
         focus: { disabled: true },
         styles: { parts: { leading: leadingStyle, trailing: trailingStyle } }
@@ -186,9 +186,9 @@ test('inline adornments use component part styles and source anatomy', () => {
     }), { columns: 24, rows: 1 }),
     renderElementFrame(tabs({
       id: 'views',
-      selected: 'main',
+      presentation: { activeId: 'main', selectedId: 'main' },
       tabs: [{ id: 'main', label: 'Main', leading: [symbol], panel: text({ content: 'Panel' }) }],
-      onAction: (action) => action,
+      onTransition: (action) => action,
       meta: {
         focus: { disabled: true },
         styles: { parts: { leading: leadingStyle } }
@@ -217,11 +217,14 @@ test('inline adornments use component part styles and source anatomy', () => {
   assert.equal(frames[3]?.cells.find((cell) => cell.source?.partType === 'trailing')?.style?.fg?.token, 'status.warning');
 });
 
-test('table inline cell content preserves caller style while replacing injected source metadata', () => {
-  const frame = renderElementFrame(table({
+test('dataGrid inline cell content preserves caller style while replacing injected source metadata', () => {
+  const frame = renderElementFrame(dataGrid({
     id: 'results',
     rows: [{ id: 'one', state: 'ready' }],
     getRowId: (row) => row.id,
+    presentation: { interaction: { kind: 'row',
+    selectionMode: 'single', selectedRowIds: [] } },
+    onTransition: (action) => action,
     columns: [tableColumn({
       id: 'state',
       header: 'State',
@@ -238,6 +241,6 @@ test('table inline cell content preserves caller style while replacing injected 
 
   assert.equal(cell?.style?.fg?.token, 'status.success');
   assert.equal(cell?.source?.elementId, 'results');
-  assert.equal(cell?.source?.elementKind, 'terminal-ui/components/table');
+  assert.equal(cell?.source?.elementKind, 'terminal-ui/components/data-grid');
   assert.equal(cell?.source?.partName, 'row.one.cell.0');
 });

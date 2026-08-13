@@ -17,15 +17,17 @@ import {
   checkboxGroup,
   colorSwatchPicker,
   commandInput,
+  contextMenu,
   calendar,
   numberInput,
   radioGroup,
   rangeSlider,
-  select,
+  combobox,
+  link,
   slider,
   textArea,
   textInput,
-  toggleSwitch
+  switchControl
 } from '../../dist/components/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
@@ -44,8 +46,8 @@ const disabledElementCases = [
     element: () => checkbox({ id: 'disabled-checkbox', label: 'Accept', checked: false, disabled: true })
   },
   {
-    name: 'toggleSwitch',
-    element: () => toggleSwitch({ id: 'disabled-switch', label: 'Live', checked: true, disabled: true })
+    name: 'switchControl',
+    element: () => switchControl({ id: 'disabled-switch', label: 'Live', checked: true, disabled: true })
   },
   {
     name: 'slider',
@@ -66,6 +68,7 @@ const disabledElementCases = [
       id: 'disabled-checkbox-list',
       label: 'Channels',
       options: formOptions,
+      presentation: { selection: { mode: 'multiple', selectedIds: [] } },
       disabled: true
     })
   },
@@ -75,16 +78,17 @@ const disabledElementCases = [
       id: 'disabled-radio',
       label: 'Tier',
       options: formOptions,
+      presentation: { selection: { mode: 'single' } },
       disabled: true
     })
   },
   {
-    name: 'select',
-    element: () => select({
-      id: 'disabled-select',
+    name: 'combobox',
+    element: () => combobox({
+      id: 'disabled-combobox',
       label: 'Tier',
       options: formOptions,
-      presentation: { kind: 'closed' },
+      presentation: { open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true
     })
   },
@@ -94,6 +98,7 @@ const disabledElementCases = [
       id: 'disabled-colors',
       label: 'Accent',
       options: formOptions,
+      presentation: { selection: { mode: 'single' } },
       disabled: true
     })
   },
@@ -102,7 +107,7 @@ const disabledElementCases = [
     element: () => calendar({
       id: 'disabled-date',
       label: 'Date',
-      ...calendarFixture(),
+      presentation: calendarFixture(),
       disabled: true
     })
   },
@@ -121,6 +126,21 @@ const disabledElementCases = [
   {
     name: 'textArea',
     element: () => textArea({ id: 'disabled-text-area', presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) }, disabled: true })
+  },
+  {
+    name: 'open contextMenu',
+    element: () => contextMenu({
+      id: 'disabled-context-menu',
+      presentation: {
+        kind: 'open',
+        anchor: { kind: 'cursor', row: 0, column: 0 },
+        menu: {
+          activePath: ['run'],
+          items: [{ id: 'run', kind: 'action', label: 'Run' }]
+        }
+      },
+      disabled: true
+    })
   }
 ];
 
@@ -181,15 +201,15 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
     /cannot accept onAction/u
   );
   assert.throws(
-    () => select({
-      id: 'invalid-disabled-select',
+    () => combobox({
+      id: 'invalid-disabled-combobox',
       label: 'Choice',
       options: formOptions,
-      presentation: { kind: 'closed' },
+      presentation: { open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true,
-      onAction: () => ({ kind: 'select' })
+      onTransition: () => ({ kind: 'combobox' })
     }),
-    /cannot accept onAction/u
+    /cannot accept onTransition/u
   );
   assert.throws(
     () => textArea({
@@ -200,6 +220,53 @@ test('disabled controls reject unreachable interaction hooks at the JavaScript b
     }),
     /cannot accept onAction/u
   );
+  assert.throws(
+    () => button({
+      id: 'invalid-disabled-pointer',
+      label: 'Disabled',
+      disabled: true,
+      pointerState: { hoveredTargetId: 'invalid-disabled-pointer:control' }
+    }),
+    /cannot accept pointerState/u
+  );
+  assert.throws(
+    () => link({
+      id: 'invalid-inert-link',
+      label: 'Documentation',
+      href: 'https://example.test',
+      inert: true,
+      onActivate: () => ({ kind: 'open' })
+    }),
+    /cannot accept onActivate/u
+  );
+});
+
+test('pointer state is validated once before component routing consumes it', () => {
+  let ownKeyReads = 0;
+  const pointerState = new Proxy({ hoveredTargetId: 'submit:control' }, {
+    ownKeys(target) {
+      ownKeyReads += 1;
+      return Reflect.ownKeys(target);
+    }
+  });
+
+  button({
+    id: 'submit',
+    label: 'Submit',
+    pointerState,
+    onAction: () => ignoreMessage()
+  });
+
+  assert.equal(ownKeyReads, 1);
+  assert.throws(
+    () => button({
+      id: 'invalid-pointer-state',
+      label: 'Submit',
+      pointerState: { hoveredTargetId: 'target', typo: true },
+      onAction: () => ignoreMessage()
+    }),
+    /pointerState contains unknown field "typo"/u
+  );
 });
 
 test('commandInput preserves disabled suggestion semantics', () => {
@@ -208,11 +275,11 @@ test('commandInput preserves disabled suggestion semantics', () => {
       id: 'command',
       prompt: '>',
       presentation: { value: 'de', cursor: 0, suggestions: [
-        { value: 'deploy', label: 'Deploy', description: 'Unavailable', disabled: true }
-      ], selectedSuggestionIndex: 0 },
+        { id: 'deploy', value: 'deploy', label: 'Deploy', description: 'Unavailable', disabled: true }
+      ] },
       matchQuery: 'de',
       display: 'expanded',
-      onAction: () => ignoreMessage()
+      onTransition: () => ignoreMessage()
     }),
     { columns: 40, rows: 3 }
   );

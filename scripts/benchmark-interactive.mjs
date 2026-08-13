@@ -9,6 +9,7 @@ import {
 } from '../dist/renderer/index.js';
 import {
   canvas,
+  dataGrid,
   searchPicker,
   logViewer,
   table,
@@ -121,7 +122,11 @@ function renderScenarios(realApps) {
     kind: 'leaf',
     label: `Node ${String(index)}`
   }));
-  const treeCollection = prepareTreeCollection(treeNodes);
+  const treePresentation = {
+    selection: { mode: 'single' },
+    expandedIds: []
+  };
+  const treeCollection = prepareTreeCollection(treeNodes, treePresentation);
   const selectionDocument = prepareTextDocument(Array.from(
     { length: quick ? 2_000 : 20_000 },
     (_value, index) => `line ${String(index)} contains selectable text`
@@ -137,9 +142,7 @@ function renderScenarios(realApps) {
             document: selectionDocument,
             caret: textCaretAt(0),
             scroll: createScrollState({
-              offsetRow: index + 100,
-              contentRows: textDocumentLineCount(selectionDocument),
-              viewportRows: terminalSize.rows
+              offsetRow: index + 100
             })
           },
           lineNumbers: true,
@@ -156,9 +159,7 @@ function renderScenarios(realApps) {
           id: 'scrolling-log',
           history,
           scroll: createScrollState({
-            offsetRow: index + 100,
-            contentRows: history.entryCount,
-            viewportRows: terminalSize.rows
+            offsetRow: index + 100
           }),
           onAction: (action) => action
         });
@@ -173,14 +174,10 @@ function renderScenarios(realApps) {
           id: 'scrolling-processes',
           collection: tableCollection,
           columns: tableColumns,
-          presentation: {
-            scroll: createScrollState({
-              offsetRow: index + 100,
-              contentRows: tableCollection.records.length,
-              viewportRows: terminalSize.rows - 1
-            })
+          scroll: {
+            state: createScrollState({ offsetRow: index + 100 }),
+            onTransition: (event) => event
           },
-          onAction: (action) => action
         });
       }
     },
@@ -192,12 +189,11 @@ function renderScenarios(realApps) {
         return tree({
           id: 'scrolling-tree',
           collection: treeCollection,
-          scroll: createScrollState({
-            offsetRow: index + 100,
-            contentRows: treeCollection.records.length,
-            viewportRows: terminalSize.rows
-          }),
-          onAction: (action) => action
+          presentation: {
+            ...treePresentation,
+            scroll: createScrollState({ offsetRow: index + 100 })
+          },
+          onTransition: (transition) => transition
         });
       }
     },
@@ -210,7 +206,8 @@ function renderScenarios(realApps) {
           presentation: {
             document: prepareTextDocument(`${'line\n'.repeat(200)}edit-${String(index)}`),
             caret: textCaretAt(index)
-          }
+          },
+          onAction: (action) => action
         });
       }
     },
@@ -227,7 +224,8 @@ function renderScenarios(realApps) {
             selection: textDocumentSelectionBetween(1_000, end)
           },
           lineNumbers: true,
-          activeLine: true
+          activeLine: true,
+          onAction: (action) => action
         });
       }
     },
@@ -236,11 +234,19 @@ function renderScenarios(realApps) {
       scale: smallTableCollection.records.length,
       setupWork: { normalized_records: smallTableCollection.records.length },
       createElement(index) {
-        return table({
+        return dataGrid({
           id: 'small-processes',
           collection: smallTableCollection,
           columns: tableColumns,
-          presentation: { selectedRowId: String(index % smallTableCollection.records.length) }
+          presentation: {
+            interaction: {
+              kind: 'row',
+              selectionMode: 'single',
+              activeRowId: String(index % smallTableCollection.records.length),
+              selectedRowIds: []
+            }
+          },
+          onTransition: (transition) => transition
         });
       }
     },
@@ -250,11 +256,19 @@ function renderScenarios(realApps) {
       setupWork: { normalized_records: tableCollection.records.length },
       createElement(index) {
         const selected = Math.min(tableRows.length - 1, Math.floor(tableRows.length / 2) + index);
-        return table({
+        return dataGrid({
           id: 'processes',
           collection: tableCollection,
           columns: tableColumns,
-          presentation: { selectedRowId: String(selected) }
+          presentation: {
+            interaction: {
+              kind: 'row',
+              selectionMode: 'single',
+              activeRowId: String(selected),
+              selectedRowIds: []
+            }
+          },
+          onTransition: (transition) => transition
         });
       }
     },
@@ -297,9 +311,11 @@ function renderScenarios(realApps) {
         return searchPicker({
           id: 'commands',
           searchPickerIndex,
-          query: String(entries.length - 1 - index),
+          presentation: {
+            query: { text: String(entries.length - 1 - index), mode: 'fuzzy' }
+          },
           maxVisible: 8,
-          onAction: (action) => action
+          onTransition: (transition) => transition
         });
       }
     },
@@ -449,13 +465,22 @@ async function runInputToCommitScenario() {
     id: 'benchmark-input-commit',
     init: () => ({ selected: 0 }),
     update: (state, message) => ({ state: { selected: Math.max(0, Math.min(rows.length - 1, state.selected + message.delta)) } }),
-    view: (state) => table({
+    view: (state) => dataGrid({
       id: 'rows',
       rows,
       getRowId: (row) => row.id,
       columns: [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }],
-      presentation: { selectedRowId: String(state.selected) },
-      onAction: (action) => ({ delta: action.kind === 'moveRow' ? action.delta : 0 })
+      presentation: {
+        interaction: {
+          kind: 'row',
+          selectionMode: 'single',
+          activeRowId: String(state.selected),
+          selectedRowIds: []
+        }
+      },
+      onTransition: (transition) => ({
+        delta: transition.kind === 'moveRow' ? transition.delta : 0
+      })
     })
   });
   const host = createMemoryTerminalHost({ terminalSize });
@@ -482,13 +507,22 @@ async function runPointerRoutingScenario() {
     id: 'benchmark-pointer-routing',
     init: () => ({ selected: '0' }),
     update: (state, message) => ({ state: { selected: message.rowId } }),
-    view: (state) => table({
+    view: (state) => dataGrid({
       id: 'pointer-rows',
       rows,
       getRowId: (row) => row.id,
       columns: [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }],
-      presentation: { selectedRowId: state.selected },
-      onAction: (action) => ({ rowId: action.kind === 'selectRow' ? action.rowId : state.selected })
+      presentation: {
+        interaction: {
+          kind: 'row',
+          selectionMode: 'single',
+          activeRowId: state.selected,
+          selectedRowIds: []
+        }
+      },
+      onTransition: (transition) => ({
+        rowId: transition.kind === 'setActiveRow' ? transition.rowId : state.selected
+      })
     })
   });
   const host = createMemoryTerminalHost({ terminalSize });

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { contextMenu, dialog, dropdownMenu, richText, table, text, textInput } from '../../dist/components/index.js';
+import { contextMenu, dialog, menuTrigger, richText, dataGrid, text, textInput } from '../../dist/components/index.js';
 import { testCanvas as canvas } from '../helpers/canvas.mjs';
 import { absolute, overlay, surface } from '../../dist/layout/index.js';
 
@@ -276,11 +276,11 @@ test('modal dialogs create their own layer and dim the complete lower canvas', (
   assert.equal(backdropCell?.style?.dim, true);
 });
 
-test('dropdownMenu renders above table content in a higher region', () => {
+test('menuTrigger renders above dataGrid content in a higher region', () => {
   const element = surface(overlay([
-    table({
+    dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'settings-table',
+    id: 'settings-dataGrid',
     columns: [
         {
           id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 },
@@ -291,14 +291,17 @@ test('dropdownMenu renders above table content in a higher region', () => {
         ['Theme', 'System'],
         ['Mode', 'Compact']
     ],
+    presentation: { interaction: { kind: 'row',
+    selectionMode: 'single', selectedRowIds: [] } },
+    onTransition: (action) => action,
     meta: {
         layer: {
             zIndex: 0
         }
     }
 }),
-    dropdownMenu({
-    id: 'theme-dropdownMenu-layer',
+    menuTrigger({
+    id: 'theme-menuTrigger-layer',
     label: 'Theme',
     presentation: {
       kind: 'open',
@@ -315,15 +318,15 @@ test('dropdownMenu renders above table content in a higher region', () => {
         { kind: 'action', id: 'light', label: 'Light' },
         { kind: 'action', id: 'dark', label: 'Dark' }
     ],
-    onAction: (action) => ({ kind: 'theme', action }),
+    onTransition: (action) => ({ kind: 'theme', action }),
     meta: {
         layer: {
             zIndex: 15
         }
     }
 })
-  ], { id: 'dropdownMenu-layer-overlay' }), {
-    id: 'dropdownMenu-layer-root',
+  ], { id: 'menuTrigger-layer-overlay' }), {
+    id: 'menuTrigger-layer-root',
     border: { kind: 'none' }
   });
 
@@ -368,7 +371,7 @@ test('context menu renders above canvas content in a higher region', () => {
         ]
       }
     },
-    onAction: (action) => ({ kind: 'context', action }),
+    onTransition: (transition) => ({ kind: 'context', transition }),
     meta: {
         layer: {
             zIndex: 12

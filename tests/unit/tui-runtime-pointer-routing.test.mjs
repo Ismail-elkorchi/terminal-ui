@@ -83,9 +83,8 @@ test('built-in controls expose controlled pointer interaction without duplicate 
       id: 'controlled-button',
       label: 'Run',
       pointerState: state.pointer,
-      onAction: (action) => action.kind === 'pointer'
-        ? ({ kind: 'pointer', action: action.action })
-        : ({ kind: 'activate' })
+      onAction: () => ({ kind: 'activate' }),
+      onPointerAction: (action) => ({ kind: 'pointer', action })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
@@ -135,6 +134,7 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
 test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'pointer lifecycle' }]);
     },
@@ -195,6 +195,7 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
 test('TUI pointer click counts use clock, stable target identity, and cross-target reset', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'group',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'left right' }]);
     },
@@ -257,6 +258,7 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
 test('TUI pointer hover emits enter leave and hover when crossing targets', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'group',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'left  right' }]);
     },
@@ -323,6 +325,7 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
 test('TUI pointer targets receive event-aware messages and horizontal wheel deltas', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'pointer target' }]);
     },
@@ -375,6 +378,7 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
 test('TUI pointer drag routes to the captured origin target', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'drag target' }]);
     },
@@ -424,6 +428,8 @@ test('TUI pointer drag routes to the captured origin target', async () => {
 test('TUI pointer motion drops stale drag samples before routing release', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
+    optionFields: { eventCount: true },
     render({ model, target }) {
       target.write(0, 0, [{ text: `events ${String(model.eventCount)}` }]);
     },
@@ -488,6 +494,8 @@ test('TUI pointer motion drops stale drag samples before routing release', async
 test('pointer capture resolves the latest target callback after a render', async () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
+    optionFields: { version: true },
     render({ model, target }) {
       target.write(0, 0, [{ text: `v${String(model.version)}` }]);
     },
@@ -535,6 +543,8 @@ test('pointer capture resolves the latest target callback after a render', async
 test('pointer identity includes the owning element when local target ids collide', async () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
+    optionFields: { label: true },
     render({ model, target }) {
       target.write(0, 0, [{ text: model.label }]);
     },
@@ -572,6 +582,8 @@ test('pointer identity includes the owning element when local target ids collide
 test('wheel batches retain their ingestion target across intervening renders', async () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'group',
+    optionFields: { owner: true },
     render({ model, target }) {
       target.write(0, 0, [{ text: model.owner }]);
     },
@@ -623,9 +635,8 @@ test('terminal focus loss cancels pressed and hovered pointer state', async () =
       id: 'focus-loss-button',
       label: 'Button',
       pointerState: state.pointer,
-      onAction: (action) => action.kind === 'pointer'
-        ? { action: action.action }
-        : { action: { kind: 'release', targetId: 'focus-loss-button:control' } }
+      onAction: () => ({ action: { kind: 'release', targetId: 'focus-loss-button:control' } }),
+      onPointerAction: (action) => ({ action })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 1 } });
@@ -650,6 +661,7 @@ test('terminal focus loss cancels pressed and hovered pointer state', async () =
 test('an abandoned second click clears the previous double-click candidate', async () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
     render({ target }) {
       target.write(0, 0, [{ text: 'click' }]);
     },
@@ -695,15 +707,19 @@ test('an abandoned second click clears the previous double-click candidate', asy
 test('TUI runtime routes tree row hit targets to node messages', async () => {
   const app = defineTui({
     id: 'tree-mouse-routing',
-    init: () => ({ selected: 'none' }),
-    update: (_state, message) => ({ state: { selected: message.id } }),
+    init: () => ({ activeId: undefined }),
+    update: (_state, message) => ({ state: { activeId: message.id } }),
     view: (state) => tree({
       id: 'tree',
-      selected: state.selected,
+      presentation: {
+        expandedIds: ['root'],
+        ...(state.activeId === undefined ? {} : { activeId: state.activeId }),
+        selection: { mode: 'none' }
+      },
       nodes: [
-        { id: 'root', label: 'Root', kind: 'branch', expanded: true, children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
+        { id: 'root', label: 'Root', kind: 'branch', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
       ],
-      onAction: (action) => action.kind === 'select' ? { id: action.id } : undefined
+      onTransition: (action) => action.kind === 'setActive' ? { id: action.id } : undefined
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -715,7 +731,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
 
   assert.equal(press.results[0]?.handled, false);
   assert.equal(release.results[0]?.handled, true);
-  assert.deepEqual(runtime.state(), { selected: 'child' });
+  assert.deepEqual(runtime.state(), { activeId: 'child' });
   assert.match(renderFramePlain(runtime.frame()), /Child/);
 });
 
@@ -726,11 +742,15 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => tree({
       id: 'tree',
-      selected: 'root',
+      presentation: {
+        expandedIds: ['root'],
+        activeId: 'root',
+        selection: { mode: 'none' }
+      },
       nodes: [
-        { id: 'root', label: 'Root', kind: 'branch', expanded: true, children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
+        { id: 'root', label: 'Root', kind: 'branch', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
       ],
-      onAction: (action) => ({ kind: 'tree', action })
+      onTransition: (action) => ({ kind: 'tree', action })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -747,7 +767,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
   assert.deepEqual(runtime.state(), {
     events: [
       { kind: 'tree', action: { kind: 'toggle', id: 'root' } },
-      { kind: 'tree', action: { kind: 'select', id: 'root' } }
+      { kind: 'tree', action: { kind: 'setActive', id: 'root' } }
     ]
   });
 });

@@ -22,6 +22,12 @@ export interface AccessibleNode {
   readonly readOnly?: boolean;
   readonly expanded?: boolean;
   readonly checked?: boolean | 'mixed';
+  readonly pressed?: boolean | 'mixed';
+  readonly current?: boolean | 'page' | 'step' | 'location' | 'date' | 'time';
+  readonly orientation?: 'horizontal' | 'vertical';
+  readonly multiSelectable?: boolean;
+  readonly required?: boolean;
+  readonly invalid?: boolean | 'grammar' | 'spelling';
   readonly numericValue?: AccessibleNumericValue;
   readonly live?: AccessibleLiveRegion;
   readonly scope?: AccessibleScope;
@@ -30,6 +36,8 @@ export interface AccessibleNode {
   readonly description?: string;
   readonly controls?: string;
   readonly labelledBy?: string;
+  readonly activeDescendant?: string;
+  readonly errorMessage?: string;
   readonly children?: readonly AccessibleNode[];
 }
 
@@ -104,6 +112,7 @@ export const accessibleRoles = [
   'status',
   'progressbar',
   'meter',
+  'separator',
   'textbox',
   'button',
   'checkbox',
@@ -139,19 +148,31 @@ export const accessibleRoles = [
   'text'
 ] as const;
 
+const accessibleRoleSet: ReadonlySet<string> = new Set(accessibleRoles);
+
+export function isAccessibleRole(value: unknown): value is AccessibleRole {
+  return typeof value === 'string' && accessibleRoleSet.has(value);
+}
+
 const accessibleReadOnlyRoles = new Set<AccessibleRole>([
   'checkbox',
   'columnheader',
   'combobox',
   'grid',
   'gridcell',
+  'group',
+  'list',
   'listbox',
+  'menu',
+  'menubar',
   'radiogroup',
   'rowheader',
   'slider',
   'spinbutton',
   'switch',
-  'textbox'
+  'tablist',
+  'textbox',
+  'tree',
 ]);
 
 export function accessibleRoleSupportsReadOnly(role: AccessibleRole): boolean {

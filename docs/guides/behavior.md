@@ -9,13 +9,13 @@ Use behavior helpers when component interaction has reusable rules:
 - scroll offsets and follow-tail state;
 - table row, cell, sort, and resize behavior;
 - tree expansion, filtering, selection, and lazy state;
-- search-picker query, selection, preview, and grouping;
+- search-picker query, active-item navigation, preview, and grouping;
 - command-input editing, history, and suggestion navigation;
 - notification history, expiry, pause, resume, and dismissal;
-- menu hierarchy, dropdown-menu highlighting, and tab navigation;
-- checkbox-group, radio-group, select, and color-swatch-picker navigation;
+- menu hierarchy, menu-trigger state, and tab navigation;
+- checkbox-group, radio-group, combobox, and color-swatch-picker navigation;
 - log-viewer search, folds, follow-tail, and scroll behavior;
-- chart and heatmap keyboard and pointer selection;
+- chart and heatmap active-datum navigation and committed selection;
 - pointer interaction, focus, and visual-state reducers;
 - split-pane divider selection, constrained resizing, and pointer drag anchors.
 
@@ -37,18 +37,17 @@ shaped for rendering.
 Computed wrapping, rows, carets, selection geometry, and similar coordinates
 are layout. Retained search and collection indexes use `prepare...` names.
 
-The component families apply that rule independently:
+The component families apply that rule consistently:
 
 - text input and text area use presentations because their helpers normalize
   caller-controlled editing state into renderer-ready text, caret, selection, and
   scroll data;
-- select uses a presentation because normalization produces the closed/open
-  renderer union, including the highlighted option and popup scroll data;
+- combobox uses a presentation because normalization produces the closed/open
+  popup union, including independent active and selected option identities;
 - command input uses a presentation derived from its editing, history, and
   suggestion state;
-- table uses a presentation because the selected cell is derived from valid
-  row and column state, while list, tree, tabs, search picker, and the log viewer expose
-  their independent component fields directly;
+- listbox, list view, data grid, tree, tabs, search picker, and visualizations
+  use presentations that distinguish active position from committed selection;
 - range slider accepts one grouped state object because the active handle and
   ordered range values form one valid interaction state.
 
@@ -61,24 +60,23 @@ import {
   commandInputReducer,
   type CommandInputState
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { CommandInputAction } from '@ismail-elkorchi/terminal-ui/components';
+import type { CommandInputTransition } from '@ismail-elkorchi/terminal-ui/components';
 
-type Message = { kind: 'command'; action: CommandInputAction };
+type Message = { kind: 'command'; transition: CommandInputTransition };
 
 interface State {
   readonly command: CommandInputState;
 }
 
 function update(state: State, message: Message): State {
-  if (message.action.kind === 'submit') return state;
-  return { ...state, command: commandInputReducer(state.command, message.action) };
+  return { ...state, command: commandInputReducer(state.command, message.transition) };
 }
 
 function view(state: State) {
   return commandInput({
     id: 'command',
     presentation: commandInputPresentation(state.command),
-    onAction: (action): Message => ({ kind: 'command', action })
+    onTransition: (transition): Message => ({ kind: 'command', transition })
   });
 }
 ```
@@ -90,13 +88,13 @@ the same pattern:
 ```ts
 import {
   searchPicker,
-  type SearchPickerAction,
+  type SearchPickerControlTransition,
+  type SearchPickerPresentation,
   type SearchEntry
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
   searchPickerReducer,
-  prepareSearchPickerIndex,
-  type SearchPickerState
+  prepareSearchPickerIndex
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
 const entries = [
@@ -104,48 +102,65 @@ const entries = [
 ] satisfies readonly SearchEntry<string>[];
 const searchPickerIndex = prepareSearchPickerIndex(entries);
 
-type SearchPickerMessage = { kind: 'searchPicker'; action: SearchPickerAction };
+type SearchPickerMessage = { kind: 'searchPicker'; transition: SearchPickerControlTransition };
+type SearchPickerState = Omit<SearchPickerPresentation, 'scroll'> & { readonly scroll?: never };
 
-function updateSearchPicker(state: SearchPickerState, action: SearchPickerAction): SearchPickerState {
-  return searchPickerReducer(state, action, { searchPickerIndex });
+function updateSearchPicker(
+  state: SearchPickerState,
+  transition: SearchPickerControlTransition
+): SearchPickerState {
+  return searchPickerReducer(state, transition, { searchPickerIndex });
 }
 
 function searchPickerView(state: SearchPickerState) {
-  return searchPicker({
+  return searchPicker<string, SearchPickerMessage>({
     id: 'commands',
     searchPickerIndex,
-    query: state.query,
-    ...(state.selectedId === undefined ? {} : { selectedId: state.selectedId }),
-    onAction: (action): SearchPickerMessage => ({ kind: 'searchPicker', action })
+    presentation: state,
+    onTransition: (transition: SearchPickerControlTransition): SearchPickerMessage => ({
+      kind: 'searchPicker',
+      transition
+    })
   });
 }
 ```
 
 Text editing, selection movement, scrolling, and activation produce
-`SearchPickerAction` messages. Closing a surrounding dialog remains an
+`SearchPickerControlTransition` messages. Acceptance is a separate application event,
+and closing a surrounding dialog remains an
 application decision because it changes application state outside the picker.
 
 Hierarchical data uses the same controlled shape without moving application
 effects into the component:
 
 ```ts
-import { tree, type TreeControlAction, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
 import {
-  treeReducer,
-  type PassiveTreeState
+  tree,
+  type TreeControlTransition,
+  type TreeNode,
+  type TreePresentation
+} from '@ismail-elkorchi/terminal-ui/components';
+import {
+  treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
-type Message = { kind: 'tree'; action: TreeControlAction };
+const nodes: readonly TreeNode[] = [
+  { id: 'readme', label: 'README.md', kind: 'leaf' }
+];
+const selection = { mode: 'single', commitment: 'manual' } as const;
+type Message = { kind: 'tree'; transition: TreeControlTransition };
+type TreeState = Omit<TreePresentation, 'scroll'> & { readonly scroll?: never };
 
-function updateTree(state: PassiveTreeState, message: Message): PassiveTreeState {
-  return treeReducer(state, message.action);
+function updateTree(state: TreeState, message: Message): TreeState {
+  return treeReducer(state, message.transition, { nodes, selection });
 }
 
-function treeView(state: PassiveTreeState) {
+function treeView(state: TreeState) {
   return tree({
     id: 'navigation',
-    ...state,
-    onAction: (action: TreeControlAction): Message => ({ kind: 'tree', action })
+    nodes,
+    presentation: state,
+    onTransition: (transition): Message => ({ kind: 'tree', transition })
   });
 }
 ```
@@ -167,7 +182,7 @@ lossless decimal scale must own that domain value separately.
 
 ## Large Collections
 
-`list()`, `table()`, and `tree()` accept ordinary arrays for small, local data.
+`listbox()`, `dataGrid()`, and `tree()` accept ordinary arrays for small, local data.
 For large or remotely windowed data, prepare an immutable collection outside
 `view()` and retain it until its source data changes:
 
@@ -189,7 +204,7 @@ table({
 });
 ```
 
-`prepareListCollection()`, `prepareTableCollection()`, and
+`prepareListboxCollection()`, `prepareTableCollection()`, and
 `prepareTreeCollection()` create complete projections. The list and table
 helpers accept `startIndex` and `totalCount` to create a windowed projection
 whose records retain zero-based global `itemIndex` values. `totalCount` may be
@@ -231,13 +246,11 @@ dedicated contract. Build a `LogHistory` once with
 with `appendLogHistory()`. The append helper preserves existing history
 segments, while wrapping and search indexes are reused by the renderer.
 
-Scrollable controls use exact state and presentation variants. For example,
-`PassiveTableState` is prepared with `tablePresentation()`, while
-`ScrollableTableState` is prepared with `tableScrollablePresentation()` and
-accepts the complete `TableAction` stream. Lists, trees, and the log viewer follow
-the same naming and action split. This prevents passive controls from receiving
-scroll actions that cannot change their state and prevents scrollable controls
-from losing required scroll metrics in their renderer-facing data.
+Scrollable controls use exact option variants. A passive `table()` has no
+managed navigation, while `dataGrid()` has an explicit row or cell interaction
+mode. Unscrolled transition callbacks cannot receive scroll transitions;
+scrollable variants require caller-owned `ScrollState`. This prevents controls
+from receiving transitions their state cannot represent.
 
 Resizable panes use normalized shares so terminal resizing does not make the
 application persist stale cell coordinates. `createSplitPaneState()` owns the

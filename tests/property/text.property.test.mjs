@@ -68,23 +68,29 @@ test('scroll window properties keep normalized windows within content bounds', (
   for (let index = 0; index < 128; index += 1) {
     const contentRows = (index * 37) % 500;
     const viewportRows = index % 23;
-    const state = createScrollState({
-      offsetRow: (index * 19) - 50,
-      offsetColumn: (index * 11) - 20,
+    const geometry = {
       contentRows,
       contentColumns: (index * 13) % 200,
       viewportRows,
-      viewportColumns: index % 17,
+      viewportColumns: index % 17
+    };
+    const state = createScrollState({
+      offsetRow: (index * 19) - 50,
+      offsetColumn: (index * 11) - 20,
       followTail: index % 5 === 0
     });
-    const scrolled = scrollReducer(state, { kind: 'scrollPages', rows: index % 7 - 3, columns: index % 5 - 2 });
-    const window = visibleWindowFromScroll(scrolled);
+    const scrolled = scrollReducer(
+      state,
+      { kind: 'scrollPages', rows: index % 7 - 3, columns: index % 5 - 2 },
+      geometry
+    );
+    const window = visibleWindowFromScroll(scrolled, geometry);
     const detail = `index=${String(index)} contentRows=${String(contentRows)} viewportRows=${String(viewportRows)}`;
 
     assert.equal(window.startIndex >= 0, true, `${detail}: start before zero`);
     assert.equal(window.endIndexExclusive >= window.startIndex, true, `${detail}: end before start`);
-    assert.equal(window.endIndexExclusive <= scrolled.contentRows, true, `${detail}: end beyond content`);
-    assert.equal(window.endIndexExclusive - window.startIndex <= Math.max(0, scrolled.viewportRows), true, `${detail}: visible window exceeds viewport`);
+    assert.equal(window.endIndexExclusive <= geometry.contentRows, true, `${detail}: end beyond content`);
+    assert.equal(window.endIndexExclusive - window.startIndex <= Math.max(0, geometry.viewportRows), true, `${detail}: visible window exceeds viewport`);
   }
 });
 

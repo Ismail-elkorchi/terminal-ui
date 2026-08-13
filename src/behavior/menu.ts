@@ -1,19 +1,19 @@
 import type { AnchoredSurfaceAnchor } from '../interaction/anchored-surface.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type {
-  ContextMenuAction,
+  ContextMenuTransition,
   ContextMenuPresentation,
-  DropdownMenuAction,
-  DropdownMenuPresentation,
-  MenuAction,
-  MenuBarAction,
+  MenuTriggerTransition,
+  MenuTriggerPresentation,
+  MenuTransition,
+  MenuBarTransition,
   MenuBarPresentation,
   MenuItem,
   MenuPresentation,
   MenuPresentationItem
 } from '../ui-model/menu.ts';
 import { assertValidMenuItems, menuItemChildren } from '../ui-model/menu.ts';
-import { adjacentItemId } from './navigation.ts';
+import { adjacentItemId } from '../interaction/navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
 
 export interface MenuState {
@@ -29,18 +29,18 @@ export type ContextMenuState =
   | { readonly kind: 'closed' }
   | { readonly kind: 'open'; readonly anchor: AnchoredSurfaceAnchor; readonly menu: MenuState };
 
-export type DropdownMenuState =
+export type MenuTriggerState =
   | { readonly kind: 'closed'; readonly active?: string }
   | { readonly kind: 'open'; readonly active?: string; readonly menu: MenuState };
 
 export function menuReducer(
   state: MenuState,
-  action: MenuAction,
+  action: MenuTransition,
   items: readonly MenuItem[]
 ): MenuState {
   const activePath = normalizedActivePath(items, state.activePath);
   switch (action.kind) {
-    case 'focus': {
+    case 'setActive': {
       const path = enabledPathForId(items, action.id);
       return path === undefined ? state : { ...state, activePath: path };
     }
@@ -54,11 +54,6 @@ export function menuReducer(
       return enterMenuItem({ ...state, activePath }, items);
     case 'back':
       return activePath.length <= 1 ? { ...state, activePath } : { ...state, activePath: activePath.slice(0, -1) };
-    case 'activate': {
-      const path = enabledPathForId(items, action.id);
-      if (path === undefined) return state;
-      return enterMenuItem({ ...state, activePath: path }, items);
-    }
     case 'scroll':
       return state.scroll === undefined
         ? state
@@ -78,13 +73,13 @@ export function menuPresentation(items: readonly MenuItem[], state: MenuState): 
 
 export function menuBarReducer(
   state: MenuBarState,
-  action: MenuBarAction,
+  action: MenuBarTransition,
   items: readonly MenuItem[]
 ): MenuBarState {
   const headings = enabledItems(items);
   const active = validId(headings, state.active) ?? headings[0]?.id;
   switch (action.kind) {
-    case 'focusHeading':
+    case 'setActiveHeading':
       return enabledItem(items, action.id) === undefined
         ? state
         : state.kind === 'open'
@@ -117,10 +112,7 @@ export function menuBarReducer(
       if (state.kind !== 'open') return state;
       const heading = enabledItem(items, state.active);
       if (heading?.kind !== 'submenu') return state;
-      const nextMenu = menuReducer(state.menu, action.action, heading.children);
-      return action.action.kind === 'activate' && isLeafId(heading.children, action.action.id)
-        ? { kind: 'closed', active: state.active }
-        : { ...state, menu: nextMenu };
+      return { ...state, menu: menuReducer(state.menu, action.transition, heading.children) };
     }
   }
 }
@@ -137,7 +129,7 @@ export function menuBarPresentation(items: readonly MenuItem[], state: MenuBarSt
 
 export function contextMenuReducer(
   state: ContextMenuState,
-  action: ContextMenuAction,
+  action: ContextMenuTransition,
   items: readonly MenuItem[]
 ): ContextMenuState {
   switch (action.kind) {
@@ -145,10 +137,7 @@ export function contextMenuReducer(
     case 'dismiss': return { kind: 'closed' };
     case 'menu': {
       if (state.kind !== 'open') return state;
-      const menu = menuReducer(state.menu, action.action, items);
-      return action.action.kind === 'activate' && isLeafId(items, action.action.id)
-        ? { kind: 'closed' }
-        : { ...state, menu };
+      return { ...state, menu: menuReducer(state.menu, action.transition, items) };
     }
   }
 }
@@ -159,28 +148,25 @@ export function contextMenuPresentation(items: readonly MenuItem[], state: Conte
     : { kind: 'open', anchor: state.anchor, menu: menuPresentation(items, state.menu) };
 }
 
-export function dropdownMenuReducer(
-  state: DropdownMenuState,
-  action: DropdownMenuAction,
+export function menuTriggerReducer(
+  state: MenuTriggerState,
+  action: MenuTriggerTransition,
   items: readonly MenuItem[]
-): DropdownMenuState {
+): MenuTriggerState {
   switch (action.kind) {
-    case 'open': return state.kind === 'open' ? state : openDropdownMenu(items, state.active);
+    case 'open': return state.kind === 'open' ? state : openMenuTrigger(items, state.active);
     case 'toggle': return state.kind === 'open'
-      ? closedDropdownMenu(state.active)
-      : openDropdownMenu(items, state.active);
-    case 'dismiss': return closedDropdownMenu(state.active);
+      ? closedMenuTrigger(state.active)
+      : openMenuTrigger(items, state.active);
+    case 'dismiss': return closedMenuTrigger(state.active);
     case 'menu': {
       if (state.kind !== 'open') return state;
-      const menu = menuReducer(state.menu, action.action, items);
-      return action.action.kind === 'activate' && isLeafId(items, action.action.id)
-        ? { kind: 'closed', active: action.action.id }
-        : { ...state, menu };
+      return { ...state, menu: menuReducer(state.menu, action.transition, items) };
     }
   }
 }
 
-export function dropdownMenuPresentation(items: readonly MenuItem[], state: DropdownMenuState): DropdownMenuPresentation {
+export function menuTriggerPresentation(items: readonly MenuItem[], state: MenuTriggerState): MenuTriggerPresentation {
   const active = validId(enabledItems(items), state.active);
   if (state.kind === 'closed') {
     return active === undefined ? { kind: 'closed' } : { kind: 'closed', active };
@@ -204,7 +190,7 @@ function openMenuBar(items: readonly MenuItem[], id: string): MenuBarState {
     : { kind: 'open', active: id, menu: initialMenuState(heading.children) };
 }
 
-function openDropdownMenu(items: readonly MenuItem[], active: string | undefined): DropdownMenuState {
+function openMenuTrigger(items: readonly MenuItem[], active: string | undefined): MenuTriggerState {
   const initial = validId(enabledItems(items), active);
   return {
     kind: 'open',
@@ -213,7 +199,7 @@ function openDropdownMenu(items: readonly MenuItem[], active: string | undefined
   };
 }
 
-function closedDropdownMenu(active: string | undefined): DropdownMenuState {
+function closedMenuTrigger(active: string | undefined): MenuTriggerState {
   return active === undefined ? { kind: 'closed' } : { kind: 'closed', active };
 }
 
@@ -272,10 +258,18 @@ function projectMenuItems(
 
 function enabledPathForId(items: readonly MenuItem[], id: string, parent: readonly string[] = []): readonly string[] | undefined {
   for (const item of items) {
-    if (item.disabled === true) continue;
+    if (item.kind === 'separator' || item.kind === 'section' || item.disabled === true) {
+      if (item.kind === 'section') {
+        const child = enabledPathForId(item.children, id, parent);
+        if (child !== undefined) return child;
+      }
+      continue;
+    }
     const path = [...parent, item.id];
     if (item.id === id) return path;
-    const child = item.kind === 'submenu' ? enabledPathForId(item.children, id, path) : undefined;
+    const child = item.kind === 'submenu'
+      ? enabledPathForId(item.children, id, path)
+      : undefined;
     if (child !== undefined) return child;
   }
   return undefined;
@@ -285,7 +279,7 @@ function itemAtPath(items: readonly MenuItem[], path: readonly string[]): MenuIt
   let siblings = items;
   let current: MenuItem | undefined;
   for (const id of path) {
-    current = siblings.find((item) => item.id === id);
+    current = navigableItem(siblings, id);
     if (current === undefined) return undefined;
     siblings = menuItemChildren(current);
   }
@@ -299,11 +293,25 @@ function itemsAtPath(items: readonly MenuItem[], path: readonly string[]): reado
 }
 
 function enabledItems(items: readonly MenuItem[]): readonly MenuItem[] {
-  return items.filter((item) => item.disabled !== true);
+  return items.flatMap((item): readonly MenuItem[] =>
+    item.kind === 'section'
+      ? enabledItems(item.children)
+      : item.kind === 'separator' || item.disabled === true ? [] : [item]
+  );
 }
 
 function enabledItem(items: readonly MenuItem[], id: string): MenuItem | undefined {
-  return items.find((item) => item.id === id && item.disabled !== true);
+  return enabledItems(items).find((item) => item.id === id);
+}
+
+function navigableItem(items: readonly MenuItem[], id: string): MenuItem | undefined {
+  for (const item of items) {
+    if (item.kind === 'section') {
+      const nested = navigableItem(item.children, id);
+      if (nested !== undefined) return nested;
+    } else if (item.id === id) return item;
+  }
+  return undefined;
 }
 
 function validId(items: readonly MenuItem[], id: string | undefined): string | undefined {
@@ -312,10 +320,4 @@ function validId(items: readonly MenuItem[], id: string | undefined): string | u
 
 function hasEnabledChildren(item: MenuItem): boolean {
   return enabledItems(menuItemChildren(item)).length > 0;
-}
-
-function isLeafId(items: readonly MenuItem[], id: string): boolean {
-  const path = enabledPathForId(items, id);
-  const item = path === undefined ? undefined : itemAtPath(items, path);
-  return item !== undefined && item.kind !== 'submenu';
 }

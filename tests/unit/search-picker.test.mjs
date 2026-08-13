@@ -19,11 +19,11 @@ const index = prepareSearchPickerIndex(entries);
 
 test('searchPicker filtering is fuzzy stable and value-agnostic', () => {
   assert.deepEqual(
-    searchPickerWindow({ searchPickerIndex: index, query: 'term' }).entries.map((entry) => entry.id),
+    searchPickerWindow({ searchPickerIndex: index, query: { text: 'term', mode: 'fuzzy' } }).entries.map((entry) => entry.id),
     ['toggle-terminal']
   );
   assert.deepEqual(
-    searchPickerWindow({ searchPickerIndex: index, query: 'rt' }).entries.map((entry) => entry.id),
+    searchPickerWindow({ searchPickerIndex: index, query: { text: 'rt', mode: 'fuzzy' } }).entries.map((entry) => entry.id),
     ['run-tests']
   );
 });
@@ -41,8 +41,8 @@ test('searchPicker filtering reuses immutable entry search text across queries',
   };
 
   const measuredIndex = prepareSearchPickerIndex([measuredEntry]);
-  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, query: 'measured' }).entries.map((entry) => entry.id), ['measured']);
-  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, query: 'stable' }).entries.map((entry) => entry.id), ['measured']);
+  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, query: { text: 'measured', mode: 'fuzzy' } }).entries.map((entry) => entry.id), ['measured']);
+  assert.deepEqual(searchPickerWindow({ searchPickerIndex: measuredIndex, query: { text: 'stable', mode: 'fuzzy' } }).entries.map((entry) => entry.id), ['measured']);
   assert.equal(labelReads, 1);
 });
 
@@ -51,28 +51,24 @@ test('searchPickerWindow bounds visible entries around stable id selection and s
     ...entry,
     disabled: false
   })));
-  const centered = searchPickerWindow({ searchPickerIndex: windowIndex, selectedId: 'run-tests', limit: 2 });
+  const centered = searchPickerWindow({ searchPickerIndex: windowIndex, activeId: 'run-tests', limit: 2 });
   assert.equal(centered.totalCount, 3);
   assert.deepEqual(centered.entries.map((entry) => entry.id), ['toggle-terminal', 'run-tests']);
-  assert.equal(centered.selectedIndex, 1);
-  assert.equal(centered.selectedEntry?.id, 'run-tests');
+  assert.equal(centered.activeIndex, 1);
+  assert.equal(centered.activeEntry?.id, 'run-tests');
 
   const scrolled = searchPickerWindow({
     searchPickerIndex: windowIndex,
-    selectedId: 'run-tests',
+    activeId: 'run-tests',
     scroll: {
       offsetRow: 0,
       offsetColumn: 0,
-      contentRows: 3,
-      contentColumns: 1,
-      viewportRows: 2,
-      viewportColumns: 1,
       followTail: false
     },
     limit: 2
   });
   assert.deepEqual(scrolled.entries.map((entry) => entry.id), ['toggle-terminal', 'run-tests']);
-  assert.equal(scrolled.selectedIndex, 1);
+  assert.equal(scrolled.activeIndex, 1);
   assert.equal(scrolled.omittedBefore, 1);
   assert.equal(scrolled.omittedAfter, 0);
 
@@ -81,29 +77,25 @@ test('searchPickerWindow bounds visible entries around stable id selection and s
     scroll: {
       offsetRow: 1,
       offsetColumn: 0,
-      contentRows: 3,
-      contentColumns: 1,
-      viewportRows: 2,
-      viewportColumns: 1,
       followTail: false
     },
     limit: 2
   });
   assert.equal(scrolledWithoutSelection.startIndex, 1);
-  assert.equal(scrolledWithoutSelection.selectedEntry?.id, 'toggle-terminal');
-  assert.equal(scrolledWithoutSelection.selectedIndex, 0);
+  assert.equal(scrolledWithoutSelection.activeEntry?.id, 'toggle-terminal');
+  assert.equal(scrolledWithoutSelection.activeIndex, 0);
 });
 
-test('searchPickerWindow rejects disabled or stale selection in favor of an enabled entry', () => {
-  for (const selectedId of ['run-tests', 'missing']) {
+test('searchPickerWindow rejects disabled or stale active identity in favor of an enabled entry', () => {
+  for (const activeId of ['run-tests', 'missing']) {
     const window = searchPickerWindow({
       searchPickerIndex: index,
-      selectedId,
+      activeId,
       limit: 3
     });
 
-    assert.equal(window.selectedEntry?.id, 'open-file');
-    assert.equal(window.entries[window.selectedIndex ?? -1]?.id, 'open-file');
+    assert.equal(window.activeEntry?.id, 'open-file');
+    assert.equal(window.entries[window.activeIndex ?? -1]?.id, 'open-file');
   }
 });
 
@@ -112,13 +104,12 @@ test('searchPicker component renders query matches disabled entries preview help
     searchPicker({
       id: 'searchPicker',
       title: 'Things',
-      query: 'run',
       searchPickerIndex: index,
-      selectedId: 'run-tests',
+      presentation: { query: { text: 'run', mode: 'fuzzy' }, activeId: 'run-tests' },
       maxVisible: 2,
       helpText: 'enter accepts, escape closes',
       emptyText: 'Nothing here',
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     { columns: 48, rows: 6 }
   );
@@ -150,7 +141,8 @@ test('searchPicker component renders query matches disabled entries preview help
   assert.equal(frame.accessibility.root.role, 'combobox');
   assert.equal(frame.accessibility.root.scope, undefined);
   const selectedOption = frame.accessibility.root.children?.[0]?.children?.[0];
-  assert.equal(selectedOption?.selected, false);
+  assert.equal(selectedOption?.selected, undefined);
+  assert.equal(selectedOption?.current, false);
   assert.equal(selectedOption?.disabled, true);
   assert.deepEqual(selectedOption?.position, {
     positionInSet: 1,
@@ -160,7 +152,7 @@ test('searchPicker component renders query matches disabled entries preview help
   assert.equal(selectedOption?.value, undefined);
 });
 
-test('searchPicker keeps a controlled selection visible before activating it', async () => {
+test('searchPicker keeps a controlled active item visible before accepting it', async () => {
   const manyEntries = Array.from({ length: 5 }, (_, entryIndex) => ({
     id: String(entryIndex),
     label: `Entry ${String(entryIndex)}`,
@@ -170,10 +162,6 @@ test('searchPicker keeps a controlled selection visible before activating it', a
   const scroll = {
     offsetRow: 0,
     offsetColumn: 0,
-    contentRows: 5,
-    contentColumns: 1,
-    viewportRows: 3,
-    viewportColumns: 1,
     followTail: false
   };
   const app = defineTui({
@@ -183,10 +171,10 @@ test('searchPicker keeps a controlled selection visible before activating it', a
     view: () => searchPicker({
       id: 'windowed-picker',
       searchPickerIndex: manyIndex,
-      selectedId: '4',
-      scroll,
+      presentation: { query: { text: '', mode: 'fuzzy' }, activeId: '4', scroll },
       maxVisible: 3,
-      onAction: (action) => action
+      onTransition: (action) => action,
+      onAccept: (event) => event
     })
   });
   const runtime = createTuiRuntime({
@@ -208,9 +196,9 @@ test('searchPicker keeps a controlled selection visible before activating it', a
 
   assert.deepEqual([...visibleIds], ['2', '3', '4']);
   assert.equal(runtime.frame().cells.some((cell) =>
-    cell.source?.itemId === '4' && cell.source.interactionState === 'selected'
+    cell.source?.itemId === '4' && cell.source.interactionState === 'active'
   ), true);
-  assert.equal(runtime.state().actions[0]?.entry.id, '4');
+  assert.deepEqual(runtime.state().actions[0], { kind: 'accept', id: '4' });
   await runtime.dispose();
 });
 
@@ -228,8 +216,8 @@ test('searchPicker reuses normalized entries across repeated factory calls', () 
   const elementForQuery = (query) => searchPicker({
     id: 'measured-searchPicker',
       searchPickerIndex: measuredIndex,
-    query,
-    onAction: (action) => action
+    presentation: { query: { text: query, mode: 'fuzzy' } },
+    onTransition: (action) => action
   });
 
   renderElementFrame(elementForQuery('entry'), { columns: 60, rows: 12 });
@@ -242,10 +230,10 @@ test('searchPicker component renders empty states for unrelated queries', () => 
   const frame = renderElementFrame(
     searchPicker({
       id: 'searchPicker',
-      query: 'zz',
       searchPickerIndex: index,
+      presentation: { query: { text: 'zz', mode: 'fuzzy' } },
       emptyText: 'No available entries',
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     { columns: 32, rows: 4 }
   );
@@ -259,10 +247,10 @@ test('searchPicker exposes enabled visible entry hit targets when toMessage is p
   const frame = renderElementFrame(
     searchPicker({
       id: 'commands',
-      query: '',
       searchPickerIndex: index,
+      presentation: { query: { text: '', mode: 'fuzzy' } },
       maxVisible: 3,
-      onAction: (action) => ({ kind: 'action', action })
+      onTransition: (action) => ({ kind: 'action', action })
     }),
     { columns: 48, rows: 6 }
   );
@@ -281,9 +269,10 @@ test('searchPicker emits compact controlled actions while acceptance remains cal
     update: (state, message) => ({ state: { messages: [...state.messages, message] } }),
     view: () => searchPicker({
       id: 'commands',
-      query: '',
       searchPickerIndex: index,
-      onAction: (action) => ({ kind: 'action', action })
+      presentation: { query: { text: '', mode: 'fuzzy' }, activeId: 'open-file' },
+      onTransition: (action) => ({ kind: 'action', action }),
+      onAccept: (event) => ({ kind: 'accept', event })
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
@@ -300,7 +289,7 @@ test('searchPicker emits compact controlled actions while acceptance remains cal
     { kind: 'action', action: { kind: 'insertQuery', text: 'o' } },
     { kind: 'action', action: { kind: 'insertQuery', text: 'pen' } },
     { kind: 'action', action: { kind: 'deleteQueryBackward' } },
-    { kind: 'action', action: { kind: 'moveSelection', delta: 1 } },
-    { kind: 'action', action: { kind: 'activate', entry: entries[0] } }
+    { kind: 'action', action: { kind: 'moveActive', delta: 1 } },
+    { kind: 'accept', event: { kind: 'accept', id: 'open-file' } }
   ]);
 });

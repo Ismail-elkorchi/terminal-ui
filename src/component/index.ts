@@ -46,7 +46,46 @@ export type {
   ElementMessage
 } from '../element/index.ts';
 export { ignoreMessage } from '../interaction/message.ts';
+export { mapComponentStyles } from './styles.ts';
+export type { ComponentStylePartMapping } from './styles.ts';
+export { assertComponentOptions } from './options.ts';
+export type {
+  CompleteComponentOptionFields,
+  ComponentCallbackRequirement,
+  ComponentOptionKey,
+  ComponentOptionsSchema,
+} from './options.ts';
 export type { IgnoredMessage, MessageResolution } from '../interaction/message.ts';
+export {
+  adjacentItemId,
+  collectionInteractionReducer,
+  defaultNavigationPolicy,
+  formatKeyboardBinding,
+  normalizeCollectionInteraction,
+  popupReducer,
+} from '../interaction/index.ts';
+export type {
+  CollectionInteractionAction,
+  CollectionInteractionOptions,
+  CollectionInteractionState,
+  KeyboardBinding,
+  NavigationPolicy,
+  PopupState,
+  PopupTransition,
+  SelectionPolicy,
+  SelectionState,
+} from '../interaction/index.ts';
+export {
+  matchCollectionQuery,
+  normalizeCollectionQuery,
+  queryCandidates,
+} from '../ui-model/query.ts';
+export type {
+  CollectionQuery,
+  QueryCandidate,
+  QueryMatch,
+  QueryMatchRange,
+} from '../ui-model/query.ts';
 export {
   clipRenderLine,
   clipRenderSpans,

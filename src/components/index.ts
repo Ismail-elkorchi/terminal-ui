@@ -11,16 +11,20 @@ export {
   colorSwatchPicker,
   calendar,
   dialog,
+  dataGrid,
   divider,
   disclosure,
-  dropdownMenu,
+  menuTrigger,
   field,
   form,
   meter,
   helpBar,
   heatmap,
+  link,
   label,
   list,
+  listbox,
+  listView,
   menu,
   menuBar,
   notificationHistory,
@@ -28,24 +32,26 @@ export {
   numberInput,
   passwordInput,
   searchPicker,
-  paginator,
+  pagination,
   progressBar,
   radioGroup,
   rangeSlider,
   richText,
   logViewer,
-  select,
+  combobox,
   sparkline,
   statusBar,
   slider,
   table,
   tabs,
+  toggleButton,
+  toolbar,
   text,
   textArea,
   textInput,
   tooltip,
   tree,
-  toggleSwitch
+  switchControl
 } from './factories.ts';
 export type * from '../ui-model/contracts.ts';
 export { tableColumn } from '../ui-model/content.ts';
@@ -55,7 +61,11 @@ export type {
   InlineSymbolSegment,
   InlineTextSegment
 } from '../visual/inline-content.ts';
-export type { CommandInputAction, CommandInputPresentation } from '../ui-model/command-input.ts';
+export type {
+  CommandInputPresentation,
+  CommandInputSubmitEvent,
+  CommandInputTransition,
+} from '../ui-model/command-input.ts';
 export type {
   CommandInputDisplay,
   CommandInputValidation,
@@ -69,13 +79,17 @@ export type {
   TextAreaScrollablePresentation
 } from '../ui-model/text-area.ts';
 export type { PointerSelectionAction, TextPointerAction } from '../interaction/text-pointer.ts';
+export type * from '../ui-model/foundations.ts';
+export type * from '../ui-model/semantic-list.ts';
 export type {
-  ListAction,
-  ListCollection,
-  ListCollectionRecord,
-  ListControlAction,
-  ListItemProjection,
-  ListItemProjector
+  ListboxActivateEvent,
+  ListboxCollection,
+  ListboxCollectionRecord,
+  ListboxControlTransition,
+  ListboxOption,
+  ListboxOptionProjector,
+  ListboxPresentation,
+  ListboxTransition
 } from '../ui-model/list.ts';
 export type {
   RangeSliderAction,
@@ -83,28 +97,32 @@ export type {
   RangeSliderState
 } from '../ui-model/range-slider.ts';
 export type {
-  TableAction,
+  DataGridActivateEvent,
+  DataGridCell,
+  DataGridControlTransition,
+  DataGridInteraction,
+  DataGridPresentation,
+  DataGridTransition,
   TableCollection,
   TableCollectionRecord,
-  TableControlAction,
   TablePresentation,
-  TableScrollablePresentation,
   TableSortDirection,
   TableSortState
 } from '../ui-model/table.ts';
 export type {
-  PassiveTreeAction,
-  TreeAction,
-  TreeControlAction,
-  TreeDisclosureAction,
-  TreeInteractionAction,
+  TreeActivateEvent,
+  TreeControlTransition,
+  TreeDisclosureTransition,
+  TreeLoadState,
+  TreePresentation,
+  TreeTransition,
   TreeNode,
   TreeCollection,
   TreeCollectionRecord,
   TreeVisibleRow
 } from '../ui-model/tree.ts';
 export type { NumberInputAction, NumberInputControlAction, NumberInputValidity } from '../ui-model/number-input.ts';
-export type { PaginatorAction } from '../ui-model/paginator.ts';
+export type { PaginationAction } from '../ui-model/pagination.ts';
 export type { NotificationHistoryAction } from '../ui-model/notification.ts';
 export type { DialogDismissReason, DialogDismissal, DialogFocusPolicy } from '../ui-model/dialog.ts';
 export type {
@@ -113,39 +131,59 @@ export type {
   CalendarAction,
   CalendarDay
 } from '../ui-model/calendar.ts';
-export type { SearchPickerAction } from '../ui-model/search-picker.ts';
 export type {
-  ContextMenuAction,
-  DropdownMenuAction,
-  MenuAction,
+  SearchPickerAcceptEvent,
+  SearchPickerControlTransition,
+  SearchPickerPresentation,
+  SearchPickerTransition
+} from '../ui-model/search-picker.ts';
+export type {
+  ContextMenuTransition,
+  MenuTriggerTransition,
+  MenuActivateEvent,
+  MenuTransition,
   MenuActionItem,
-  MenuBarAction,
+  MenuBarTransition,
   MenuCheckItem,
+  MenuRadioItem,
+  MenuSectionItem,
+  MenuSeparatorItem,
   MenuItem,
   MenuSubmenuItem,
-  TooltipPresentation
+  TooltipTransition
 } from '../ui-model/menu.ts';
-export type { TabAction } from '../ui-model/tabs.ts';
+export type { TabCloseEvent, TabsActivation, TabsPresentation, TabsTransition } from '../ui-model/tabs.ts';
 export type {
   LogViewerAction,
   LogViewerBodyAnchor,
   LogViewerControlAction,
   LogViewerSelection
 } from '../ui-model/log-viewer.ts';
-export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
+export type {
+  BarChartTransition,
+  ChartTransition,
+  HeatmapTransition,
+  VisualizationActivateEvent,
+  VisualizationPresentation
+} from '../ui-model/visualization.ts';
 export type { DisclosureAction } from '../ui-model/disclosure.ts';
 export type {
   CheckboxGroupAction,
   ColorSwatchPickerAction,
-  RadioGroupAction,
-  SelectAction
+  RadioGroupAction
 } from '../ui-model/choice-controls.ts';
+export type {
+  ComboboxCommitEvent,
+  ComboboxPresentation,
+  ComboboxTransition
+} from '../ui-model/combobox.ts';
 export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../element/index.ts';
 export { inspectElement } from '../element/inspection.ts';
 export type {
   ElementFactoryCategory,
   ElementFactoryIdentity,
   ComponentCapabilityInspection,
+  ComponentSemanticInspection,
   ElementFocusCapability,
   ElementInputInspection,
   ElementInspection,

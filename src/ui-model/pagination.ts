@@ -1,4 +1,4 @@
-export type PaginatorAction =
+export type PaginationAction =
   | { readonly kind: 'first' }
   | { readonly kind: 'previous' }
   | { readonly kind: 'next' }

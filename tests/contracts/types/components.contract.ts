@@ -1,7 +1,7 @@
 import {
   button,
   canvas,
-  table,
+  dataGrid,
   text,
   type CanvasPainter,
   type Element,
@@ -17,12 +17,14 @@ const drawing = canvas({
   measurement: { minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }
 });
 const save = button({ id: 'save', label: 'Save', onAction: () => ({ kind: 'save' } as const) });
-const rows = table({
+const rows = dataGrid({
   id: 'rows',
   rows: [{ id: 1, name: 'one' }],
   getRowId: (row) => String(row.id),
   columns: [{ id: 'name', value: (row) => row.name }],
-  onAction: (action) => ({ kind: 'table' as const, action })
+  presentation: { interaction: { kind: 'row',
+  selectionMode: 'single' as const, selectedRowIds: [] } },
+  onTransition: (transition) => ({ kind: 'grid' as const, transition })
 });
 const passive: Element = text({ content: 'Ready' });
 const clearUnderlay = text({ content: 'Clear', meta: { layer: { underlay: 'clear' } } });

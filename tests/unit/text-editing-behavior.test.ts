@@ -8,7 +8,6 @@ import {
   textInputReducer
 } from '../../dist/behavior/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
-import { routedPointerEvent } from '../helpers/pointer.ts';
 import { textDocumentText } from '../../dist/text/index.js';
 
 void test('textInputReducer applies edits and grapheme-aware pointer selections', () => {
@@ -39,7 +38,7 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
   const initial = createTextAreaState({
     value: 'alpha\nbeta',
     caret: { position: { offset: 0, affinity: 'downstream' } },
-    scroll: createScrollState({ contentRows: 20, viewportRows: 4 })
+    scroll: createScrollState()
   });
   const selected = textAreaReducer(initial, {
     kind: 'pointer',
@@ -49,10 +48,9 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
     kind: 'scroll',
     event: {
       action: { kind: 'scrollLines', rows: 3 },
-      scroll: initial.scroll,
+      state: createScrollState({ offsetRow: 3 }),
       source: 'wheel',
-      target: 'content',
-      pointer: routedPointerEvent({ kind: 'scroll', button: 'wheelDown', clickCount: 0 })
+      target: 'content'
     }
   });
 
@@ -84,7 +82,7 @@ void test('textAreaReducer derives its cursor from sanitized inserted text', () 
   const initial = createTextAreaState({
     value: 'ab',
     caret: { position: { offset: 1, affinity: 'downstream' } },
-    scroll: createScrollState({ contentRows: 1, viewportRows: 1 })
+    scroll: createScrollState()
   });
   const edited = textAreaReducer(initial, {
     kind: 'edit',
@@ -99,7 +97,7 @@ void test('textAreaReducer preserves identity for no-op pointer and scroll actio
   const initial = createTextAreaState({
     value: 'alpha',
     caret: { position: { offset: 0, affinity: 'downstream' } },
-    scroll: createScrollState({ contentRows: 1, viewportRows: 1 })
+    scroll: createScrollState()
   });
   const revealed = textAreaReducer(initial, {
     kind: 'pointer',
@@ -109,10 +107,9 @@ void test('textAreaReducer preserves identity for no-op pointer and scroll actio
     kind: 'scroll',
     event: {
       action: { kind: 'scrollLines', rows: 0 },
-      scroll: initial.scroll,
+      state: initial.scroll,
       source: 'wheel',
-      target: 'content',
-      pointer: routedPointerEvent({ kind: 'scroll', button: 'wheelDown', clickCount: 0 })
+      target: 'content'
     }
   });
 

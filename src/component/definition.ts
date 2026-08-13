@@ -1,4 +1,4 @@
-import type { AccessibleNode } from '../accessibility/index.ts';
+import { isAccessibleRole, type AccessibleNode } from '../accessibility/index.ts';
 import type {
   Element,
   ElementMessage,
@@ -14,6 +14,7 @@ import type {
 } from '../element/metadata.ts';
 import { elementStateFields } from '../element/metadata.ts';
 import { renderNodeId } from '../foundation/identity.ts';
+import { isImmutableIdentity } from '../immutable-identity.ts';
 import {
   findUnsupportedField,
   isNonArrayObject,
@@ -242,6 +243,10 @@ export interface ComponentPointerActions<
 }
 
 type NoComponentOptions = Readonly<Record<never, never>>;
+type KeysOfUnion<T> = T extends unknown ? keyof T : never;
+type ComponentOptionFields<TOptions extends object> = Readonly<
+  Record<Extract<KeysOfUnion<TOptions>, string>, true>
+>;
 
 interface ComponentDefinitionIdentity {
   /** A package-qualified identity such as `acme/widgets/badge`. */
@@ -283,7 +288,11 @@ type ComponentDefinitionBase<
   TStates extends readonly ComponentStateCapability[],
   TIdentity extends ComponentIdentity,
   TPart extends string
-> = ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TPrepared> & {
+> = ComponentDefinitionIdentity
+  & ComponentOptionsDefinition<TOptions, TPrepared>
+  & {
+  /** Exact runtime names for the component-specific options in `TOptions`. */
+  readonly optionFields: ComponentOptionFields<TOptions>;
   readonly identity: TIdentity;
   readonly states?: TStates;
   readonly parts?: readonly TPart[];
@@ -337,6 +346,12 @@ interface SemanticDefinition<
 >
   extends InteractiveDefinition<TPrepared, TAction, TPart> {
   readonly semantics: 'semantic';
+  readonly accessibleRole:
+    | import('../accessibility/types.ts').AccessibleRole
+    | ((
+        this: undefined,
+        input: ComponentBehaviorInput<TPrepared>
+      ) => import('../accessibility/types.ts').AccessibleRole);
   readonly focusScope?: (
     this: undefined,
     input: ComponentBehaviorInput<TPrepared>
@@ -349,6 +364,7 @@ interface SemanticDefinition<
 
 interface DecorativeDefinition {
   readonly semantics: 'decorative';
+  readonly accessibleRole?: never;
   readonly accessibility?: never;
   readonly focusTargets?: never;
   readonly hitTargets?: never;
@@ -573,6 +589,29 @@ type StateOptions<TStates extends readonly ComponentStateCapability[]> = Readonl
   Partial<Pick<Required<ElementState>, TStates[number]>>
 >;
 
+type AvailableActionState<TStates extends readonly ComponentStateCapability[]> =
+  Omit<StateOptions<TStates>, 'disabled' | 'inert'>
+  & ('disabled' extends TStates[number]
+      ? { readonly disabled?: false }
+      : Record<never, never>)
+  & ('inert' extends TStates[number]
+      ? { readonly inert?: false }
+      : Record<never, never>);
+
+type UnavailableActionState<TStates extends readonly ComponentStateCapability[]> =
+  | ('disabled' extends TStates[number]
+      ? Omit<StateOptions<TStates>, 'disabled' | 'inert'> & {
+          readonly disabled: true;
+          readonly inert?: boolean;
+        }
+      : never)
+  | ('inert' extends TStates[number]
+      ? Omit<StateOptions<TStates>, 'disabled' | 'inert'> & {
+          readonly inert: true;
+          readonly disabled?: false;
+        }
+      : never);
+
 type ActionMapper<TAction, TMessage> = [TAction] extends [never]
   ? { readonly onAction?: never }
   : { readonly onAction: (action: TAction) => MessageResolution<TMessage> };
@@ -584,10 +623,15 @@ type StatefulActionOptions<
 > = [TAction] extends [never]
   ? StateOptions<TStates> & { readonly onAction?: never }
   : 'disabled' extends TStates[number]
-    ? Omit<StateOptions<TStates>, 'disabled'> & (
-        | { readonly disabled: true; readonly onAction?: never }
-        | { readonly disabled?: false; readonly onAction: (action: TAction) => MessageResolution<TMessage> }
-      )
+    ? (UnavailableActionState<TStates> & { readonly onAction?: never })
+      | (AvailableActionState<TStates> & {
+          readonly onAction: (action: TAction) => MessageResolution<TMessage>;
+        })
+    : 'inert' extends TStates[number]
+      ? (UnavailableActionState<TStates> & { readonly onAction?: never })
+        | (AvailableActionState<TStates> & {
+            readonly onAction: (action: TAction) => MessageResolution<TMessage>;
+          })
     : StateOptions<TStates> & ActionMapper<TAction, TMessage>;
 
 type SemanticInstanceOptions<
@@ -802,6 +846,9 @@ export function defineComponent<
       requiredLayer,
       ownedDefinition.semantics === 'semantic' ? ownedDefinition.focusScope : undefined
     );
+    const accessibleRole = ownedDefinition.semantics === 'semantic'
+      ? resolveComponentAccessibleRole(ownedDefinition, behavior, instance.id)
+      : undefined;
     const slotContent = ownedDefinition.structure === 'composite' || ownedDefinition.structure === 'composed'
       ? componentSlotChildren(
           instance,
@@ -812,7 +859,8 @@ export function defineComponent<
           meta.styles,
           ownedDefinition.structure === 'composed' && requiredLayer !== undefined
             ? Object.freeze({ ...instance.meta?.layer, ...requiredLayer })
-            : undefined
+            : undefined,
+          state.disabled === true,
         )
       : emptySlotContent;
     const children = ownedDefinition.structure === 'composite' || ownedDefinition.structure === 'composed'
@@ -824,6 +872,7 @@ export function defineComponent<
       props: {
         model: prepared,
         slots: slotContent.ranges,
+        ...(accessibleRole === undefined ? {} : { accessibleRole }),
         ...(toActionMessage === undefined ? {} : { toActionMessage })
       },
       definition: runtime,
@@ -914,6 +963,7 @@ interface ComponentRuntimeContract {
   readonly slots: readonly RuntimeComponentSlot[];
   readonly partSet: ReadonlySet<string>;
   readonly actionful: boolean;
+  readonly optionFields: ReadonlySet<string>;
 }
 
 interface RuntimeComponentSlot {
@@ -993,7 +1043,8 @@ function compileDefinition<
   TMetadata,
   TSlots
 > {
-  const ownedDefinition = Object.freeze({ ...definition }) as typeof definition;
+  const optionFields = Object.freeze({ ...definition.optionFields });
+  const ownedDefinition = Object.freeze({ ...definition, optionFields }) as typeof definition;
   return Object.freeze({
     definition: ownedDefinition,
     contract: Object.freeze({
@@ -1012,7 +1063,8 @@ function compileDefinition<
         || definition.onInput !== undefined
         || definition.onPaste !== undefined
         || definition.pointer !== undefined
-      )
+      ),
+      optionFields: new Set(Object.keys(optionFields)),
     })
   });
 }
@@ -1057,6 +1109,15 @@ function assertDefinition(value: unknown): void {
   if (!isNonArrayObject(value)) throw new TypeError('Component definition must be an object.');
   const structure = value['structure'];
   const semantics = value['semantics'];
+  if (!isNonArrayObject(value['optionFields'])
+    || Object.values(value['optionFields']).some((enabled) => enabled !== true)) {
+    throw new TypeError('Component definition optionFields must map every option name to true.');
+  }
+  const reservedOption = Object.keys(value['optionFields'])
+    .find((field) => componentInstanceFields.has(field as ComponentReservedOption));
+  if (reservedOption !== undefined) {
+    throw new TypeError(`Component definition optionFields cannot redeclare reserved field "${reservedOption}".`);
+  }
   if (structure !== 'leaf' && structure !== 'composite' && structure !== 'composed') {
     throw new TypeError('Component definition structure must be "leaf", "composite", or "composed".');
   }
@@ -1119,6 +1180,14 @@ function assertDefinition(value: unknown): void {
   }
   if (semantics === 'semantic' && typeof value['accessibility'] !== 'function') {
     throw new TypeError('Semantic component definition requires accessibility().');
+  }
+  if (semantics === 'semantic'
+    && typeof value['accessibleRole'] !== 'function'
+    && !isAccessibleRole(value['accessibleRole'])) {
+    throw new TypeError('Semantic component definition accessibleRole must be an accessibility role or resolver.');
+  }
+  if (semantics === 'decorative' && value['accessibleRole'] !== undefined) {
+    throw new TypeError('Decorative component definitions cannot declare accessibleRole.');
   }
   if (semantics === 'decorative' && value['accessibility'] !== undefined) {
     throw new TypeError('Decorative component definitions cannot define accessibility().');
@@ -1202,7 +1271,10 @@ function runtimeDefinition<
       structure: definition.structure,
       semantics: definition.semantics,
       states: contract.states,
-      actions
+      actions,
+      ...(definition.semantics === 'semantic' && typeof definition.accessibleRole === 'string'
+        ? { accessibleRole: definition.accessibleRole }
+        : {}),
     }),
     renderer: adaptDefinition(compiled)
   });
@@ -1475,10 +1547,12 @@ function prepareComponentOptions<
   const customEntries = Object.entries(value)
     .filter(([field]) => !componentInstanceFields.has(field as ComponentReservedOption));
   // This is the one type-erasure boundary between framework-owned fields and
-  // the component's statically declared options.
+  // the component's statically declared options. prepare() is synchronous and
+  // receives a detached top-level record so it can project domain values before
+  // the retained model is adopted by the framework.
   const custom = Object.freeze(Object.fromEntries(customEntries)) as Readonly<TOptions & TPrepared>;
   if (definition.prepare === undefined) {
-    return custom;
+    return adoptPreparedModel<TPrepared>(custom, definition.name);
   }
   const prepared = executeComponentPhase(definition.name, value.id, 'prepare', () =>
     definition.prepare.call(undefined, custom, {
@@ -1489,14 +1563,91 @@ function prepareComponentOptions<
       inert: state.inert === true
     })
   );
-  if (!isPreparedModel(prepared)) {
-    throw new TypeError(`Component "${definition.name}" prepare must return an object.`);
-  }
-  return prepared;
+  return adoptPreparedModel<TPrepared>(prepared, definition.name);
 }
 
-function isPreparedModel(value: unknown): value is object {
-  return value !== null && (typeof value === 'object' || typeof value === 'function');
+function adoptPreparedModel<T extends object>(value: unknown, component: string): Readonly<T> {
+  if (value === null || typeof value !== 'object') {
+    throw new TypeError(`Component "${component}" prepare must return a non-callable object.`);
+  }
+  return snapshotComponentValue(value, component) as Readonly<T>;
+}
+
+function snapshotComponentValue<T>(
+  value: T,
+  component: string,
+  copies = new WeakMap<object, unknown>()
+): T {
+  if (typeof value !== 'object' || value === null) return value;
+  if (isImmutableIdentity(value)) return value;
+  const existing = copies.get(value);
+  if (existing !== undefined) return existing as T;
+  if (value instanceof Date) {
+    const copy = Object.freeze(new Date(value.getTime()));
+    copies.set(value, copy);
+    return copy as T;
+  }
+  if (value instanceof Map) {
+    const copy = new Map<unknown, unknown>();
+    copies.set(value, copy);
+    for (const [key, entry] of value) {
+      copy.set(
+        snapshotComponentValue(key, component, copies),
+        snapshotComponentValue(entry, component, copies)
+      );
+    }
+    Object.freeze(copy);
+    return copy as T;
+  }
+  if (value instanceof Set) {
+    const copy = new Set<unknown>();
+    copies.set(value, copy);
+    for (const entry of value) copy.add(snapshotComponentValue(entry, component, copies));
+    Object.freeze(copy);
+    return copy as T;
+  }
+  if (ArrayBuffer.isView(value)) {
+    const copy = (
+      value instanceof DataView
+        ? new DataView(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength))
+        : (value as unknown as { slice(): object }).slice()
+    ) as T;
+    copies.set(value, copy);
+    return copy;
+  }
+  if (value instanceof ArrayBuffer) {
+    const copy = Object.freeze(value.slice(0)) as T;
+    copies.set(value, copy);
+    return copy;
+  }
+  const source = value as object;
+  const prototype = Object.getPrototypeOf(source) as object | null;
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+    const name = (prototype as { readonly constructor?: { readonly name?: string } })
+      .constructor?.name ?? 'unknown';
+    throw new TypeError(
+      `Component "${component}" prepared model contains unsupported ${name} instance.`
+    );
+  }
+  const copy: unknown[] | Record<PropertyKey, unknown> = Array.isArray(value)
+    ? []
+    : Object.create(prototype === null ? null : Object.prototype) as Record<PropertyKey, unknown>;
+  copies.set(source, copy);
+  for (const key of Reflect.ownKeys(source)) {
+    const descriptor = Object.getOwnPropertyDescriptor(source, key);
+    if (descriptor === undefined) continue;
+    const retainedValue: unknown = 'value' in descriptor
+      ? (descriptor as PropertyDescriptor & { readonly value: unknown }).value
+      : descriptor.get?.call(source) as unknown;
+    if (!('value' in descriptor) && descriptor.get === undefined) continue;
+    Object.defineProperty(copy, key, {
+      configurable: descriptor.configurable ?? false,
+      enumerable: descriptor.enumerable ?? false,
+      writable: false,
+      value: snapshotComponentValue(retainedValue, component, copies),
+    });
+  }
+  return Object.freeze(copy) as T;
 }
 
 function componentSlotChildren<
@@ -1533,7 +1684,8 @@ function componentSlotChildren<
   behavior: ComponentBehaviorInput<TPrepared>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
   styles: ElementStyles | undefined,
-  layer: ElementLayer | undefined
+  layer: ElementLayer | undefined,
+  disabled: boolean,
 ): PreparedSlotContent {
   if (definition.structure === 'composed') {
     const supplied = callerSlotInput(value, contract);
@@ -1564,7 +1716,7 @@ function componentSlotChildren<
       })
     );
     const children = toRenderNodes([composed]).map((node) =>
-      markImplementationStructure(node, callerOwnedRoots)
+      markImplementationStructure(node, callerOwnedRoots, disabled)
     );
     return Object.freeze({
       children,
@@ -1645,7 +1797,7 @@ function componentSlotChildren<
           ));
         });
     const roots = slot.owner === 'implementation'
-      ? mapped.map((node) => markImplementationStructure(node))
+      ? mapped.map((node) => markImplementationStructure(node, new Set(), disabled))
       : mapped;
     children.push(...roots);
     if (slot.owner === 'caller') inspectionChildren.push(...mapped);
@@ -1758,6 +1910,14 @@ function adoptComponentInstanceOptions(
     throw new TypeError(`Component "${definition.name}" options must be an object.`);
   }
   const instance = { ...value };
+  const allowedFields = new Set(definition.optionFields);
+  for (const field of componentInstanceFields) allowedFields.add(field);
+  const unsupported = findUnsupportedField(instance, allowedFields);
+  if (unsupported !== undefined) {
+    throw new TypeError(
+      `Component "${definition.name}" options contain unknown field "${unsupported}".`
+    );
+  }
   if (definition.identity === 'required'
     && (typeof instance['id'] !== 'string' || instance['id'].trim() === '')) {
     throw new TypeError(`Component "${definition.name}" requires a non-empty id.`);
@@ -1794,14 +1954,15 @@ function adoptComponentInstanceOptions(
   }
   assertComponentState(instance, definition);
   const actionful = definition.actionful;
+  const unavailable = instance['disabled'] === true || instance['inert'] === true;
   if (instance['onAction'] !== undefined && typeof instance['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" onAction must be a function when provided.`);
   }
-  if (actionful && instance['disabled'] !== true && typeof instance['onAction'] !== 'function') {
+  if (actionful && !unavailable && typeof instance['onAction'] !== 'function') {
     throw new TypeError(`Component "${definition.name}" requires onAction to map its semantic actions.`);
   }
-  if (actionful && instance['disabled'] === true && instance['onAction'] !== undefined) {
-    throw new TypeError(`Disabled component "${definition.name}" cannot accept onAction.`);
+  if (actionful && unavailable && instance['onAction'] !== undefined) {
+    throw new TypeError(`Unavailable component "${definition.name}" cannot accept onAction.`);
   }
   if (!actionful && instance['onAction'] !== undefined) {
     throw new TypeError(`Component "${definition.name}" does not define actions and cannot accept onAction.`);
@@ -1822,6 +1983,28 @@ function componentBehaviorInput<TPrepared extends object>(
     readOnly: state.readOnly === true,
     inert: state.inert === true
   });
+}
+
+function resolveComponentAccessibleRole<TPrepared extends object>(
+  definition: ComponentDefinitionIdentity & {
+    readonly accessibleRole:
+      | import('../accessibility/types.ts').AccessibleRole
+      | ((
+          this: undefined,
+          input: ComponentBehaviorInput<TPrepared>
+        ) => import('../accessibility/types.ts').AccessibleRole);
+  },
+  behavior: ComponentBehaviorInput<TPrepared>,
+  instanceId: string | undefined,
+): import('../accessibility/types.ts').AccessibleRole {
+  const resolver = definition.accessibleRole;
+  if (typeof resolver !== 'function') return resolver;
+  const role = executeComponentPhase(definition.name, instanceId, 'accessibility', () =>
+    resolver.call(undefined, behavior));
+  if (!isAccessibleRole(role)) {
+    throw new TypeError(`Component "${definition.name}" accessibleRole resolver returned an invalid role.`);
+  }
+  return role;
 }
 
 function normalizeComponentState(

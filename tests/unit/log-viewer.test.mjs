@@ -27,6 +27,18 @@ function entry(index, text = `Row ${index}`) {
   return { id: `row-${index}`, text };
 }
 
+test('log viewer rejects structural lookalikes for prepared history', () => {
+  assert.throws(() => logViewer({
+    id: 'forged-log',
+    history: {
+      kind: 'log-history',
+      segments: [],
+      entryCount: 0,
+      bodyLength: 0
+    }
+  }), /must be created with prepareLogHistory/u);
+});
+
 test('log viewer follows the tail by default and marks omitted earlier rows', () => {
   const entries = Array.from({ length: 20 }, (_value, index) => entry(index));
   const frame = renderElementFrame(logViewer({ id: 'log', history: prepareLogHistory(entries) }), { columns: 36, rows: 4 });
@@ -256,7 +268,7 @@ test('wrapped log viewer search navigates by exact occurrence identity', () => {
     id: 'selected-search-occurrence',
     history,
     searchQuery: 'needle',
-    selectedMatch: matches[1],
+    activeMatch: matches[1],
     wrap: true
   }), { columns: 8, rows: 3 });
 

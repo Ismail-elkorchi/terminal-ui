@@ -24,9 +24,11 @@ function cleanString(value, subject) {
 
 export const externalText = defineComponent({
   name: 'terminal-ui-parity/components/text',
+  optionFields: { content: true },
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'text',
   metadata: ['styles', 'layer'],
   parts: ['content'],
   prepare(value) {
@@ -54,9 +56,11 @@ export const externalText = defineComponent({
 
 export const externalButton = defineComponent({
   name: 'terminal-ui-parity/components/button',
+  optionFields: { label: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'button',
   states: ['disabled', 'busy'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label'],
@@ -104,9 +108,11 @@ export const externalButton = defineComponent({
 
 export const externalTextInput = defineComponent({
   name: 'terminal-ui-parity/components/text-input',
+  optionFields: { label: true, value: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'textbox',
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'styles'],
   parts: ['value'],
@@ -166,9 +172,11 @@ export const externalTextInput = defineComponent({
 
 export const externalVirtualList = defineComponent({
   name: 'terminal-ui-parity/components/virtual-list',
+  optionFields: { items: true, offset: true, scrollbar: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'list',
   states: ['disabled'],
   metadata: ['focus', 'styles'],
   parts: ['item', 'scrollbar'],
@@ -256,37 +264,37 @@ function virtualListPlan(input) {
     scroll: {
       offsetRow: input.model.offset,
       offsetColumn: 0,
-      contentRows: input.model.items.length,
-      contentColumns: input.bounds.width,
-      viewportRows: input.bounds.height,
-      viewportColumns: input.bounds.width,
       followTail: false
     },
+    contentRows: input.model.items.length,
+    contentColumns: input.bounds.width,
     ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
     defaultAxis: 'vertical'
   });
 }
 
-export const externalSelect = defineComponent({
-  name: 'terminal-ui-parity/components/select',
+export const externalCombobox = defineComponent({
+  name: 'terminal-ui-parity/components/combobox',
+  optionFields: { label: true, items: true, selectedId: true, open: true },
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
+  accessibleRole: 'combobox',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   prepare(value) {
     const input = value;
-    if (!Array.isArray(input.items)) throw new TypeError('externalSelect items must be an array.');
-    const items = Object.freeze(input.items.map((item, index) => cleanString(item, `externalSelect item ${String(index)}`)));
-    const selectedIndex = input.selectedIndex ?? 0;
-    if (!Number.isSafeInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= Math.max(1, items.length)) {
-      throw new RangeError('externalSelect selectedIndex is outside its items.');
+    if (!Array.isArray(input.items)) throw new TypeError('externalCombobox items must be an array.');
+    const items = Object.freeze(input.items.map((item, index) => cleanString(item, `externalCombobox item ${String(index)}`)));
+    const selectedId = cleanString(input.selectedId, 'externalCombobox selectedId');
+    if (!items.includes(selectedId)) {
+      throw new RangeError('externalCombobox selectedId must identify an item.');
     }
-    if (typeof input.open !== 'boolean') throw new TypeError('externalSelect open must be a boolean.');
-    return { label: cleanString(input.label, 'externalSelect label'), items, selectedIndex, open: input.open };
+    if (typeof input.open !== 'boolean') throw new TypeError('externalCombobox open must be a boolean.');
+    return { label: cleanString(input.label, 'externalCombobox label'), items, selectedId, open: input.open };
   },
   compose({ id, model, emit, layer }) {
-    const selected = model.items[model.selectedIndex] ?? '';
+    const selected = model.selectedId;
     const trigger = externalText({
       id: `${id}:trigger`,
       content: `${model.label}: ${selected}`
@@ -295,11 +303,11 @@ export const externalSelect = defineComponent({
     const choices = externalVirtualList({
       id: `${id}:options`,
       items: model.items,
-      offset: 0,
+      offset: Math.max(0, model.items.indexOf(model.selectedId)),
       scrollbar: { visible: 'auto' },
       meta: { focus: { disabled: true } },
       onAction: (action) => action.kind === 'select'
-        ? emit({ kind: 'select', index: action.index })
+        ? emit({ kind: 'select', id: model.items[action.index] })
         : emit(action)
     });
     const popup = portal(surface(choices, { appearance: 'raised', border: { kind: 'single' }, maxHeight: 6 }), {
@@ -327,7 +335,7 @@ export const externalSelect = defineComponent({
     id,
     role: 'combobox',
     label: model.label,
-    value: model.items[model.selectedIndex] ?? '',
+    value: model.selectedId,
     expanded: model.open,
     ...(disabled ? { disabled: true } : {}),
     ...(focused || focusedTargetId === 'self' ? { focused: true } : {}),
@@ -339,7 +347,7 @@ export const externalSelect = defineComponent({
         id: `${id}:option:${String(index)}`,
         role: 'option',
         label: item,
-        selected: index === model.selectedIndex
+        selected: item === model.selectedId
       }))
     }] : []
   })
@@ -351,9 +359,11 @@ const externalDialogSlots = {
 
 export const externalDialog = defineComponent({
   name: 'terminal-ui-parity/components/dialog',
+  optionFields: { title: true, modal: true },
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
+  accessibleRole: 'dialog',
   slots: externalDialogSlots,
   metadata: ['focus', 'layer', 'styles'],
   prepare(value) {
@@ -396,9 +406,11 @@ const externalTooltipSlots = {
 
 export const externalTooltip = defineComponent({
   name: 'terminal-ui-parity/components/tooltip',
+  optionFields: { content: true, open: true },
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: externalTooltipSlots,
   prepare(value) {
     const input = value;
@@ -433,9 +445,11 @@ export const externalTooltip = defineComponent({
 
 export const externalChart = defineComponent({
   name: 'terminal-ui-parity/components/chart',
+  optionFields: { label: true, values: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'group',
   metadata: ['styles', 'layer'],
   parts: ['bar'],
   prepare(value) {

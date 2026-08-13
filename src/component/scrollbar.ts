@@ -1,4 +1,4 @@
-import { normalizeScrollState } from '../behavior/scroll.ts';
+import { normalizeScrollState, scrollReducer } from '../behavior/scroll.ts';
 import type { Rect } from '../geometry/types.ts';
 import type { RoutedPointerEvent } from '../input/pointer.ts';
 import { ignoreMessage, type MessageResolution } from '../interaction/message.ts';
@@ -7,6 +7,7 @@ import type {
   ScrollEvent,
   ScrollEventSource,
   ScrollEventTarget,
+  ScrollGeometry,
   ScrollPolicy,
   ScrollState
 } from '../interaction/scroll.ts';
@@ -29,14 +30,7 @@ export function prepareComponentScrollState(
   return Object.freeze({
     offsetRow: nonNegativeInteger(value.offsetRow, `${subject}.offsetRow`),
     offsetColumn: nonNegativeInteger(value.offsetColumn, `${subject}.offsetColumn`),
-    contentRows: nonNegativeInteger(value.contentRows, `${subject}.contentRows`),
-    contentColumns: nonNegativeInteger(value.contentColumns, `${subject}.contentColumns`),
-    viewportRows: nonNegativeInteger(value.viewportRows, `${subject}.viewportRows`),
-    viewportColumns: nonNegativeInteger(value.viewportColumns, `${subject}.viewportColumns`),
     followTail: value.followTail,
-    ...(value.selectedIndex === undefined
-      ? {}
-      : { selectedIndex: nonNegativeInteger(value.selectedIndex, `${subject}.selectedIndex`) })
   });
 }
 
@@ -105,17 +99,23 @@ export interface ComponentScrollbarPlan {
   readonly contentBounds: Rect;
   readonly layout?: ComponentScrollbarLayout;
   readonly scroll: ScrollState;
+  readonly geometry: ScrollGeometry;
+  readonly scrollbar: ScrollbarState;
 }
 
 export function prepareComponentScrollbar(input: {
   readonly bounds: Rect;
   readonly scroll: ScrollState;
+  readonly contentRows: number;
+  readonly contentColumns: number;
   readonly options?: ScrollbarOptions;
   readonly defaultAxis?: NonNullable<ScrollbarOptions['axis']>;
 }): ComponentScrollbarPlan {
-  const initial = scrollForBounds(input.scroll, input.bounds);
+  const contentRows = nonNegativeInteger(input.contentRows, 'scrollbar contentRows');
+  const contentColumns = nonNegativeInteger(input.contentColumns, 'scrollbar contentColumns');
+  const initial = scrollForBounds(input.scroll, input.bounds, contentRows, contentColumns);
   if (input.options === undefined) {
-    return Object.freeze({ contentBounds: normalizeLocalRect(input.bounds), scroll: initial });
+    return componentScrollbarPlan(normalizeLocalRect(input.bounds), undefined, initial);
   }
   const options = Object.freeze({
     ...input.options,
@@ -125,7 +125,7 @@ export function prepareComponentScrollbar(input: {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const next = componentScrollbarLayout(
       input.bounds,
-      scrollForBounds(input.scroll, layout.contentBounds),
+      scrollForBounds(input.scroll, layout.contentBounds, contentRows, contentColumns),
       options
     );
     if (sameRect(next.contentBounds, layout.contentBounds)) {
@@ -134,10 +134,33 @@ export function prepareComponentScrollbar(input: {
     }
     layout = next;
   }
-  return Object.freeze({
-    contentBounds: layout.contentBounds,
+  return componentScrollbarPlan(
+    layout.contentBounds,
     layout,
-    scroll: scrollForBounds(input.scroll, layout.contentBounds)
+    scrollForBounds(input.scroll, layout.contentBounds, contentRows, contentColumns),
+  );
+}
+
+function componentScrollbarPlan(
+  contentBounds: Rect,
+  layout: ComponentScrollbarLayout | undefined,
+  scrollbar: ScrollbarState,
+): ComponentScrollbarPlan {
+  return Object.freeze({
+    contentBounds,
+    ...(layout === undefined ? {} : { layout }),
+    scroll: Object.freeze({
+      offsetRow: scrollbar.offsetRow,
+      offsetColumn: scrollbar.offsetColumn,
+      followTail: scrollbar.followTail,
+    }),
+    geometry: Object.freeze({
+      contentRows: scrollbar.contentRows,
+      contentColumns: scrollbar.contentColumns,
+      viewportRows: scrollbar.viewportRows,
+      viewportColumns: scrollbar.viewportColumns,
+    }),
+    scrollbar,
   });
 }
 
@@ -174,12 +197,12 @@ export function componentScrollbarHitTargets<TAction>(input: {
       id: `${input.id}:scroll:content`,
       bounds: input.plan.contentBounds,
       accepts: ['scroll'],
-      message: (pointer) => emitScroll(pointer, input.plan.scroll, 'content', wheel, input.onScroll)
+      message: (pointer) => emitScroll(pointer, input.plan.scrollbar, 'content', wheel, input.onScroll)
     });
   }
   for (const track of [input.plan.layout?.verticalTrack, input.plan.layout?.horizontalTrack]) {
     if (track === undefined) continue;
-    targets.push(...componentScrollbarTrackTargets(input.id, track, input.plan.scroll, wheel, input.onScroll));
+    targets.push(...componentScrollbarTrackTargets(input.id, track, input.plan.scrollbar, wheel, input.onScroll));
   }
   return Object.freeze(targets);
 }
@@ -320,7 +343,7 @@ function scrollbarInteractionState(
 function componentScrollbarTrackTargets<TAction>(
   id: string,
   track: ComponentScrollbarTrack,
-  state: ScrollState,
+  state: ScrollbarState,
   wheel: NormalizedWheelPolicy,
   onScroll: (event: ScrollEvent) => MessageResolution<TAction>
 ): readonly HitTarget<TAction>[] {
@@ -385,7 +408,7 @@ function normalizeWheelAmount(value: number | undefined, fallback: number): numb
 
 function emitScroll<TAction>(
   pointer: RoutedPointerEvent,
-  scroll: ScrollState,
+  scroll: ScrollbarState,
   target: ScrollEventTarget,
   policy: NormalizedWheelPolicy,
   onScroll: (event: ScrollEvent) => MessageResolution<TAction>
@@ -396,14 +419,19 @@ function emitScroll<TAction>(
 
 function emitScrollAction<TAction>(
   pointer: RoutedPointerEvent,
-  scroll: ScrollState,
+  scroll: ScrollbarState,
   target: ScrollEventTarget,
   action: ScrollAction | undefined,
   onScroll: (event: ScrollEvent) => MessageResolution<TAction>
 ): MessageResolution<TAction> {
   return action === undefined
     ? ignoreMessage()
-    : onScroll({ action, scroll, source: scrollEventSource(pointer), target, pointer });
+    : onScroll({
+      action,
+      state: scrollReducer(scrollPosition(scroll), action, scrollGeometry(scroll)),
+      source: scrollEventSource(pointer),
+      target,
+    });
 }
 
 function wheelAction(
@@ -422,7 +450,7 @@ function wheelAction(
 
 function trackAction(
   track: ComponentScrollbarTrack,
-  state: ScrollState,
+  state: ScrollbarState,
   event: RoutedPointerEvent
 ): ScrollAction | undefined {
   const position = track.axis === 'vertical' ? event.localRow : event.localColumn;
@@ -438,7 +466,7 @@ function trackAction(
 
 function thumbAction(
   track: ComponentScrollbarTrack,
-  state: ScrollState,
+  state: ScrollbarState,
   event: RoutedPointerEvent
 ): ScrollAction | undefined {
   const position = track.axis === 'vertical' ? event.localRow : event.localColumn;
@@ -510,12 +538,36 @@ function scrollbarStyle(thumb: boolean, state: ScrollbarVisualState) {
       };
 }
 
-function scrollForBounds(scroll: ScrollState, bounds: Rect): ScrollState {
-  return normalizeScrollState({
-    ...scroll,
+function scrollForBounds(
+  scroll: ScrollState,
+  bounds: Rect,
+  contentRows: number,
+  contentColumns: number,
+): ScrollbarState {
+  const geometry: ScrollGeometry = {
+    contentRows,
+    contentColumns,
     viewportRows: Math.max(0, Math.floor(bounds.height)),
-    viewportColumns: Math.max(0, Math.floor(bounds.width))
-  });
+    viewportColumns: Math.max(0, Math.floor(bounds.width)),
+  };
+  return Object.freeze({ ...normalizeScrollState(scroll, geometry), ...geometry });
+}
+
+function scrollPosition(scroll: ScrollbarState): ScrollState {
+  return {
+    offsetRow: scroll.offsetRow,
+    offsetColumn: scroll.offsetColumn,
+    followTail: scroll.followTail,
+  };
+}
+
+function scrollGeometry(scroll: ScrollbarState): ScrollGeometry {
+  return {
+    contentRows: scroll.contentRows,
+    contentColumns: scroll.contentColumns,
+    viewportRows: scroll.viewportRows,
+    viewportColumns: scroll.viewportColumns,
+  };
 }
 
 function scrollEventSource(event: RoutedPointerEvent): ScrollEventSource {

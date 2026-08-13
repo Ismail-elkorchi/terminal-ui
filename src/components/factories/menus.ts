@@ -1,8 +1,7 @@
-import { defineComponent } from '../../component/index.ts';
-import type {
-  SemanticCompositeComponentFactory,
-  SemanticLeafComponentFactory,
-} from '../../component/index.ts';
+import { assertComponentOptions, defineComponent, ignoreMessage } from '../../component/index.ts';
+import type { ComponentMessage } from '../../component/index.ts';
+import type { Element } from '../../element/index.ts';
+import type { ElementMessage } from '../../element/index.ts';
 import type { DividerOptions, TooltipOptions } from '../options/menus.ts';
 import type { DividerLineKind, DividerOrientation } from '../../ui-model/menu.ts';
 import type { DividerStylePart } from '../../ui-model/style-parts.ts';
@@ -13,10 +12,10 @@ import {
   sanitizeTerminalText,
 } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import { assertOptionalEnum, isStringMember } from '../../foundation/validation.ts';
-import { portal, surface } from '../../layout/index.ts';
+import { assertOptionalEnum } from '../../foundation/validation.ts';
+import { overlay, portal, surface } from '../../layout/index.ts';
 import { text } from './content.ts';
-import type { TooltipPresentation, TooltipTone } from '../../ui-model/menu.ts';
+import type { TooltipTone, TooltipTransition } from '../../ui-model/menu.ts';
 import type { TooltipStylePart } from '../../ui-model/style-parts.ts';
 import type { BorderOptions } from '../../visual/border.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
@@ -28,14 +27,18 @@ interface PreparedDivider {
   readonly labelAlign: 'start' | 'center' | 'end';
 }
 
-export const divider: SemanticLeafComponentFactory<
-  Omit<DividerOptions, 'id' | 'meta'>,
-  never,
-  DividerStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
-> = defineComponent<
+const dividerDefinitionBase = {
+  optionFields: { orientation: true, line: true, label: true, labelAlign: true } as const,
+  identity: 'optional' as const,
+  structure: 'leaf' as const,
+  metadata: ['styles', 'layer'] as const,
+  parts: ['line', 'label'] as const,
+  prepare: prepareDivider,
+  measure: measureDivider,
+  render: renderDivider,
+};
+
+const labelledDivider = defineComponent<
   Omit<DividerOptions, 'id' | 'meta'>,
   PreparedDivider,
   never,
@@ -44,13 +47,37 @@ export const divider: SemanticLeafComponentFactory<
   'optional',
   readonly ['styles', 'layer']
 >({
+  ...dividerDefinitionBase,
   name: 'terminal-ui/components/divider',
-  identity: 'optional',
-  structure: 'leaf',
   semantics: 'semantic',
-  metadata: ['styles', 'layer'],
-  parts: ['line', 'label'],
-  prepare(value) {
+  accessibleRole: 'separator',
+  accessibility: ({ id, model }) => ({
+    id,
+    role: 'separator',
+    label: model.label,
+    orientation: model.orientation,
+  }),
+});
+
+const decorativeDivider = defineComponent<
+  Omit<DividerOptions, 'id' | 'meta'>,
+  PreparedDivider,
+  DividerStylePart,
+  'optional',
+  readonly ['styles', 'layer']
+>({
+  ...dividerDefinitionBase,
+  name: 'terminal-ui/components/divider-decoration',
+  semantics: 'decorative',
+});
+
+export function divider(options: DividerOptions): Element {
+  return options.label === undefined || sanitizeTerminalText(options.label).text.trim().length === 0
+    ? decorativeDivider(options)
+    : labelledDivider(options);
+}
+
+function prepareDivider(value: Readonly<Omit<DividerOptions, 'id' | 'meta'>>): PreparedDivider {
     const orientation = value.orientation;
     const line = value.line;
     const label = value.label;
@@ -69,8 +96,12 @@ export const divider: SemanticLeafComponentFactory<
       label: label === undefined ? '' : sanitizeTerminalText(label).text,
       labelAlign: labelAlign ?? 'start',
     };
-  },
-  measure({ model, widthProfile }) {
+}
+
+function measureDivider({ model, widthProfile }: {
+  readonly model: PreparedDivider;
+  readonly widthProfile: import('../../text/index.ts').TextWidthProfile;
+}) {
     const labelCells = measureTextCells(model.label, { widthProfile }).cells;
     return model.orientation === 'vertical'
       ? { minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: Math.max(1, labelCells) }
@@ -80,8 +111,11 @@ export const divider: SemanticLeafComponentFactory<
         preferredWidth: Math.max(1, labelCells + (labelCells === 0 ? 0 : 2)),
         preferredHeight: 1,
       };
-  },
-  render({ model, bounds, target, theme, style, source, widthProfile }) {
+}
+
+function renderDivider({ model, bounds, target, theme, style, source, widthProfile }:
+  import('../../component/index.ts').ComponentRenderInput<PreparedDivider, DividerStylePart>
+): void {
     if (bounds.width <= 0 || bounds.height <= 0) return;
     const glyphs = dividerGlyphs(model.line, theme);
     const lineStyle = style({
@@ -144,11 +178,7 @@ export const divider: SemanticLeafComponentFactory<
         },
       ].filter((span) => span.text.length > 0),
     );
-  },
-  accessibility({ id, model }) {
-    return { id, role: 'text', label: model.label.length === 0 ? id : model.label };
-  },
-});
+}
 
 function isDividerLineKind(value: unknown): value is DividerLineKind {
   return value === 'single' ||
@@ -184,7 +214,7 @@ function dividerGlyphs(
 
 interface TooltipModel {
   readonly lines: readonly string[];
-  readonly presentation: TooltipPresentation;
+  readonly open: boolean;
   readonly title: string;
   readonly tone: TooltipTone;
   readonly placement?: AnchoredSurfacePlacement;
@@ -192,37 +222,43 @@ interface TooltipModel {
   readonly border: BorderOptions;
 }
 
-export const tooltip: SemanticCompositeComponentFactory<
+const tooltipSlots = {
+  trigger: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
+} as const;
+
+const instantiateTooltip = defineComponent<
   Pick<
-    TooltipOptions,
-    'content' | 'presentation' | 'title' | 'tone' | 'placement' | 'maxWidth' | 'border'
-  >,
-  never,
-  TooltipStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles']
-> = defineComponent<
-  Pick<
-    TooltipOptions,
-    'content' | 'presentation' | 'title' | 'tone' | 'placement' | 'maxWidth' | 'border'
+    TooltipOptions<Element, ComponentMessage>,
+    'content' | 'open' | 'title' | 'tone' | 'placement' | 'maxWidth' | 'border'
   >,
   TooltipModel,
-  never,
+  TooltipTransition,
   TooltipStylePart,
   readonly [],
-  'optional',
-  readonly ['styles']
+  'required',
+  readonly ['styles'],
+  typeof tooltipSlots
 >({
   name: 'terminal-ui/components/tooltip',
-  identity: 'optional',
+  optionFields: {
+    content: true,
+    open: true,
+    title: true,
+    tone: true,
+    placement: true,
+    maxWidth: true,
+    border: true,
+  } as const,
+  identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
+  accessibleRole: 'group',
+  slots: tooltipSlots,
   metadata: ['styles'],
   parts: ['background', 'border', 'title', 'content'],
   prepare(value) {
     const content = value.content;
-    const presentation = prepareTooltipPresentation(value.presentation);
+    const open = value.open;
     const title = value.title;
     const tone = value.tone;
     const placement = value.placement;
@@ -230,6 +266,7 @@ export const tooltip: SemanticCompositeComponentFactory<
     if (typeof content !== 'string' && !isStringArray(content)) {
       throw new TypeError('tooltip content must be a string or an array of strings.');
     }
+    if (typeof open !== 'boolean') throw new TypeError('tooltip open must be a boolean.');
     if (title !== undefined && typeof title !== 'string') {
       throw new TypeError('tooltip title must be a string.');
     }
@@ -247,7 +284,7 @@ export const tooltip: SemanticCompositeComponentFactory<
       .map((line) => sanitizeTerminalText(line).text);
     return {
       lines: lines.length === 0 ? [''] : lines,
-      presentation,
+      open,
       title: title === undefined ? '' : sanitizeTerminalText(title).text,
       tone: tone ?? 'default',
       ...(placement === undefined ? {} : { placement }),
@@ -256,11 +293,28 @@ export const tooltip: SemanticCompositeComponentFactory<
     };
   },
   layer: ({ model }) => ({
-    visible: model.presentation.kind === 'visible',
+    visible: model.open,
     zIndex: 20,
     underlay: 'clear',
   }),
-  compose({ model, styles, layer }) {
+  keys: ({ model }) => model.open
+    ? { escape: () => ({ kind: 'setOpen', open: false, reason: 'escape' }) }
+    : {},
+  pointer: {
+    onAction: (action) => action.kind === 'enter'
+      ? { kind: 'setOpen', open: true, reason: 'pointer' }
+      : action.kind === 'leave'
+      ? { kind: 'setOpen', open: false, reason: 'pointer' }
+      : ignoreMessage(),
+  },
+  hitTargets: ({ id, bounds }) => [{
+    id: `${id ?? 'tooltip'}:trigger`,
+    bounds,
+    accepts: ['click'],
+    message: () => ignoreMessage(),
+  }],
+  compose({ id, model, slots, styles, layer }) {
+    if (!model.open) return slots.trigger;
     const content = text({
       content: model.lines.join('\n'),
       ...(styles?.parts?.content === undefined
@@ -281,67 +335,69 @@ export const tooltip: SemanticCompositeComponentFactory<
         },
       },
     });
-    return portal(
-      panel,
-      model.presentation.kind === 'visible'
-        ? {
-          anchor: model.presentation.anchor,
-          ...(model.placement === undefined ? {} : { placement: model.placement }),
-          ...(layer === undefined ? {} : { meta: { layer } }),
-        }
-        : {
-          anchor: { kind: 'allocation' },
-          placement: 'center',
-          ...(layer === undefined ? {} : { meta: { layer } }),
-        },
-    );
+    return overlay([
+      slots.trigger,
+      portal(panel, {
+        id: `${id ?? 'tooltip'}:popup`,
+        anchor: { kind: 'allocation' },
+        placement: model.placement ?? 'above',
+        ...(layer === undefined ? {} : { meta: { layer } }),
+      }),
+    ]);
   },
-  accessibility({ id, model }) {
+  accessibility({ id, model, slots, focused }) {
     const content = model.lines.join(' ');
     return {
       id,
-      role: 'tooltip',
-      label: model.title.length === 0 ? content || id : model.title,
-      ...(content.length === 0 || content === model.title ? {} : { description: content }),
-      live: 'polite',
-      scope: { kind: 'popover' },
+      role: 'group',
+      label: 'Tooltip owner',
+      ...(focused ? { focused: true } : {}),
+      children: [
+        ...slots.trigger,
+        ...(model.open ? [{
+          id: `${id}:tooltip`,
+          role: 'tooltip' as const,
+          label: model.title.length === 0 ? content : model.title,
+          ...(content.length === 0 || content === model.title ? {} : { description: content }),
+          live: 'polite' as const,
+          scope: { kind: 'popover' as const },
+        }] : []),
+      ],
     };
   },
 });
 
-function prepareTooltipPresentation(value: TooltipPresentation): TooltipPresentation {
-  if (!isStringMember(value.kind, ['hidden', 'visible'])) {
-    throw new TypeError('tooltip presentation must be hidden or visible.');
-  }
-  return value.kind === 'hidden'
-    ? { kind: 'hidden' }
-    : { kind: 'visible', anchor: prepareTooltipAnchor(value.anchor) };
+export function tooltip<
+  const TTrigger extends Element<ComponentMessage>,
+  const TMessage extends ComponentMessage = never,
+>(options: TooltipOptions<TTrigger, TMessage>): Element<ElementMessage<TTrigger> | TMessage> {
+  assertComponentOptions(options, 'tooltip', {
+    fields: [
+      'id', 'trigger', 'content', 'open', 'title', 'tone', 'placement', 'maxWidth', 'border',
+      'meta', 'onTransition',
+    ],
+    callbacks: { onTransition: 'required' },
+  });
+  return instantiateTooltip({
+    id: options.id,
+    content: options.content,
+    open: options.open,
+    ...(options.title === undefined ? {} : { title: options.title }),
+    ...(options.tone === undefined ? {} : { tone: options.tone }),
+    ...(options.placement === undefined ? {} : { placement: options.placement }),
+    ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
+    ...(options.border === undefined ? {} : { border: options.border }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+    slots: { trigger: options.trigger },
+    onAction: options.onTransition,
+  });
 }
 
 function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
-function prepareTooltipAnchor(
-  value: Extract<TooltipPresentation, { readonly kind: 'visible' }>['anchor'],
-): Extract<TooltipPresentation, { readonly kind: 'visible' }>['anchor'] {
-  if (value.kind === 'target') {
-    if (!isFiniteRect(value.bounds)) {
-      throw new TypeError('visible tooltip target bounds must be finite.');
-    }
-    return { kind: 'target', bounds: { ...value.bounds } };
-  }
-  if (!Number.isFinite(value.row) || !Number.isFinite(value.column)) {
-    throw new TypeError('visible tooltip cursor coordinates must be finite.');
-  }
-  return { kind: 'cursor', row: value.row, column: value.column };
-}
-
-function isFiniteRect(value: import('../../geometry/types.ts').Rect): boolean {
-  return [value.row, value.column, value.width, value.height].every(Number.isFinite);
-}
-
-function prepareTooltipBorder(value: TooltipOptions['border']): BorderOptions {
+function prepareTooltipBorder(value: TooltipOptions<Element>['border']): BorderOptions {
   if (value === undefined) return { kind: 'rounded' };
   if (!isBorderKind(value.kind)) {
     throw new TypeError('tooltip border is invalid.');

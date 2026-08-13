@@ -7,18 +7,22 @@ export interface CommandInputPresentation {
   readonly cursor: number;
   readonly suggestions: readonly SuggestionItem[];
   readonly selection?: TextSelection;
-  readonly selectedSuggestionIndex?: number;
+  readonly activeSuggestionId?: string;
   readonly historyIndex?: number;
 }
 
-export type CommandInputAction =
+export type CommandInputTransition =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }
   | { readonly kind: 'pointer'; readonly action: TextPointerAction }
   | { readonly kind: 'historyPrevious' }
   | { readonly kind: 'historyNext' }
   | { readonly kind: 'moveSuggestion'; readonly delta: 1 | -1 }
-  | { readonly kind: 'selectSuggestion'; readonly suggestionIndex: number }
+  | { readonly kind: 'setActiveSuggestion'; readonly id: string }
   | { readonly kind: 'acceptSuggestion' }
   | { readonly kind: 'dismissSuggestions' }
-  | { readonly kind: 'submit'; readonly value: string }
   | { readonly kind: 'setValue'; readonly value: string };
+
+export interface CommandInputSubmitEvent {
+  readonly kind: 'submit';
+  readonly value: string;
+}

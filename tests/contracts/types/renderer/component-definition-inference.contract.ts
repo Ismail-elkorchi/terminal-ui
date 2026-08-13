@@ -26,9 +26,11 @@ const actionRow = defineComponent<
   typeof actionRowSlots
 >({
   name: 'terminal-ui-tests/components/action-row',
+  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: actionRowSlots,
   measure: ({ slots }) => {
     const count = slots.count('actions');
@@ -73,9 +75,11 @@ const interactive = defineComponent<
   InteractiveAction
 >({
   name: 'terminal-ui-tests/components/interactive',
+  optionFields: {},
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'button',
   measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined,
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
@@ -101,6 +105,31 @@ const instanceHandlerMessageType: Assert<Equal<
 >> = true;
 void instanceHandlerMessageType;
 
+const inertInteractive = defineComponent<
+  Record<never, never>,
+  Record<never, never>,
+  { readonly kind: 'activate' },
+  never,
+  readonly ['inert']
+>({
+  name: 'terminal-ui-tests/components/inert-interactive',
+  optionFields: {},
+  identity: 'required',
+  states: ['inert'],
+  structure: 'leaf',
+  semantics: 'semantic',
+  accessibleRole: 'button',
+  measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+  render: () => undefined,
+  keys: () => ({ enter: () => ({ kind: 'activate' }) }),
+  accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
+});
+inertInteractive({ id: 'inert', inert: true });
+// @ts-expect-error inert components cannot route actions
+inertInteractive({ id: 'inert-with-handler', inert: true, onAction: () => ({ kind: 'mapped' }) });
+// @ts-expect-error available actionful components require an action mapper
+inertInteractive({ id: 'available-without-handler' });
+
 interface BadgeOptions { readonly label: string }
 interface BadgeModel { readonly label: string }
 const badge = defineComponent<
@@ -112,9 +141,11 @@ const badge = defineComponent<
   'optional'
 >({
   name: 'terminal-ui-tests/components/badge',
+  optionFields: { label: true },
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'status',
   prepare(value) {
     const typedOptions: Readonly<BadgeOptions> = value;
     void typedOptions;
@@ -141,6 +172,20 @@ badge({ id: 'identified-badge', label: 'Ready' });
 // @ts-expect-error component factories expose only declared options
 badge({ label: 'Ready', lable: 'typo' });
 
+defineComponent<BadgeOptions, BadgeModel>({
+  name: 'terminal-ui-tests/components/incomplete-badge-options',
+  // @ts-expect-error every TypeScript option must have a runtime field declaration
+  optionFields: {},
+  identity: 'required',
+  structure: 'leaf',
+  semantics: 'semantic',
+  accessibleRole: 'status',
+  prepare: (value) => ({ label: value.label }),
+  measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+  render: () => undefined,
+  accessibility: ({ id }) => ({ id, role: 'status', label: 'Badge' })
+});
+
 interface GenericBoxOptions {
   readonly values: readonly string[];
 }
@@ -161,9 +206,11 @@ const instantiateGenericBox = defineComponent<
   readonly []
 >({
   name: 'terminal-ui-tests/components/generic-box',
+  optionFields: { values: true },
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'list',
   prepare(value) {
     if (!Array.isArray(value.values)
       || value.values.some((entry) => typeof entry !== 'string')) {
@@ -194,9 +241,11 @@ genericBox({ values: [{ id: 'one' }], label: (value) => value.id });
 
 const noFactoryBuilderDefinition = {
   name: 'terminal-ui-tests/components/no-factory-builder',
+  optionFields: {},
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'text',
   measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
   render: () => undefined,
   accessibility: ({ id }: { readonly id: string }) => ({ id, role: 'text' })
@@ -206,9 +255,11 @@ defineComponent(noFactoryBuilderDefinition, () => () => 'not an element');
 
 const optionalSlotComponent = defineComponent({
   name: 'terminal-ui-tests/components/optional-slot',
+  optionFields: {},
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: {
     note: { cardinality: 'optional', owner: 'caller', messages: 'bubble' }
   } as const,
@@ -219,9 +270,11 @@ optionalSlotComponent({ id: 'optional-slot' });
 
 const composed = defineComponent({
   name: 'terminal-ui-tests/components/composed',
+  optionFields: {},
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
+  accessibleRole: 'group',
   compose: () => row([text({ content: 'ordinary public child' })]),
   accessibility: ({ id, children }) => ({ id, role: 'group', label: 'Composed', children })
 });
@@ -241,9 +294,11 @@ const capturing = defineComponent<
   typeof captureSlots
 >({
   name: 'terminal-ui-tests/components/capturing',
+  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: captureSlots,
   capture: ({ message }) => ({ kind: 'captured', message }),
   measure: ({ slots }) => slots.measure('content'),
@@ -275,9 +330,11 @@ const nonInteractiveWrapper = defineComponent<
   typeof noneSlots
 >({
   name: 'terminal-ui-tests/components/non-interactive-wrapper',
+  optionFields: {},
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: noneSlots,
   measure: ({ slots }) => slots.measure('content'),
   layout: ({ bounds }) => ({ content: bounds }),

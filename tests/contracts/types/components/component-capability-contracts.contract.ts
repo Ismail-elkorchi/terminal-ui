@@ -24,9 +24,8 @@ commandInput({
   id: 'command',
   presentation: { value: '', cursor: 0, suggestions: [] },
   validation: { message: 'Choose a command', level: validationLevel },
-  onAction: (action) => action.kind === 'submit'
-    ? ({ kind: 'submit' as const, value: action.value })
-    : ({ kind: 'command' as const, action })
+  onTransition: (transition) => ({ kind: 'command' as const, transition }),
+  onSubmit: (event) => ({ kind: 'submit' as const, value: event.value })
 });
 // @ts-expect-error disabled editable controls cannot also declare read-only state
 commandInput({

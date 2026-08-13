@@ -1,4 +1,5 @@
 import {
+  assertComponentOptions,
   clipRenderLine,
   componentScrollbarHitTargets,
   defineComponent,
@@ -19,25 +20,36 @@ import {
   scrollReducer,
 } from '../../behavior/index.ts';
 import type { Element } from '../../element/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
-import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
-import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
+import {
+  pointerVisualState,
+  preparePointerInteractionState,
+} from '../../interaction/pointer-interaction.ts';
+import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/pointer-interaction.ts';
+import type { SelectionState } from '../../interaction/collection.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import { terminalStyleHasBackground } from '../../theme/index.ts';
 import type {
-  CompleteListCollection,
-  ListAction,
-  ListCollectionRecord,
-  ListItemProjection,
-  ListItemProjector,
-  WindowedListCollection,
+  CompleteListboxCollection,
+  ListboxActivateEvent,
+  ListboxCollectionRecord,
+  ListboxOption,
+  ListboxOptionProjector,
+  ListboxTransition,
+  WindowedListboxCollection,
 } from '../../ui-model/list.ts';
+import { matchNormalizedCollectionQuery, normalizeCollectionQuery } from '../../ui-model/query.ts';
+import type { CollectionQuery, QueryMatchRange } from '../../ui-model/query.ts';
 import type { DataListStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import type { ListOptions, PassiveListOptions, ScrollableListOptions } from '../options/content.ts';
+import type {
+  ListboxOptions,
+  UnscrolledListboxOptions,
+  ScrollableListboxOptions,
+} from '../options/content.ts';
 
 interface PreparedListEntry {
   readonly id: string;
@@ -46,83 +58,101 @@ interface PreparedListEntry {
   readonly label: string;
   readonly description?: string;
   readonly disabled: boolean;
+  readonly match?: QueryMatchRange;
 }
 
-interface PreparedList {
+interface PreparedListbox {
   readonly entries: readonly PreparedListEntry[];
   readonly startIndex: number;
   readonly totalCount: number;
   readonly windowed: boolean;
-  readonly query: string;
-  readonly selectedId?: string;
+  readonly query: Required<CollectionQuery>;
+  readonly activeId?: string;
+  readonly selection: SelectionState;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly pointerState?: PointerInteractionState;
 }
 
-const listDefinitionBase = {
-  name: 'terminal-ui/components/list' as const,
+const listboxDefinitionBase = {
+  name: 'terminal-ui/components/listbox' as const,
+  optionFields: {
+    entries: true,
+    startIndex: true,
+    totalCount: true,
+    windowed: true,
+    query: true,
+    activeId: true,
+    selection: true,
+    scroll: true,
+    scrollbar: true,
+    scrollPolicy: true,
+    pointerState: true,
+  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
+  accessibleRole: 'listbox' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['marker', 'item', 'description', 'match', 'empty', 'scrollbar'] as const,
-  measure: measureList,
-  render: renderList,
-  accessibility: accessibleList,
+  states: ['disabled', 'busy', 'readOnly', 'inert'] as const,
+  measure: measureListbox,
+  render: renderListbox,
+  accessibility: accessibleListbox,
 };
 
-const passiveList = defineComponent<
-  PreparedList,
-  PreparedList,
-  never,
-  DataListStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles']
->(listDefinitionBase);
+type ListboxComponentAction =
+  | { readonly kind: 'transition'; readonly action: ListboxTransition }
+  | { readonly kind: 'activate'; readonly event: ListboxActivateEvent }
+  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
 
-const interactiveList = defineComponent<
-  PreparedList,
-  PreparedList,
-  ListAction,
+const instantiateListbox = defineComponent<
+  PreparedListbox,
+  PreparedListbox,
+  ListboxComponentAction,
   DataListStylePart,
-  readonly [],
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
-  ...listDefinitionBase,
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
-  keys({ model }) {
-    const selected = selectedEntry(model);
+  ...listboxDefinitionBase,
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointer', action }),
+  },
+  keys({ model, busy, readOnly }) {
+    if (busy) return {};
+    const active = activeEntry(model);
     return {
-      arrowUp: () => ({ kind: 'move', delta: -1 }),
-      arrowDown: () => ({ kind: 'move', delta: 1 }),
-      pageUp: () => ({ kind: 'page', delta: -1 }),
-      pageDown: () => ({ kind: 'page', delta: 1 }),
-      home: () => ({ kind: 'first' }),
-      end: () => ({ kind: 'last' }),
-      ...(selected === undefined || selected.disabled
+      arrowUp: () => transition({ kind: 'moveActive', delta: -1 }),
+      arrowDown: () => transition({ kind: 'moveActive', delta: 1 }),
+      pageUp: () => transition({ kind: 'pageActive', delta: -1 }),
+      pageDown: () => transition({ kind: 'pageActive', delta: 1 }),
+      home: () => transition({ kind: 'firstActive' }),
+      end: () => transition({ kind: 'lastActive' }),
+      ...(readOnly ? {} : { space: () => transition({ kind: 'commitActive' }) }),
+      ...(readOnly || active === undefined || active.disabled
         ? {}
-        : { enter: () => ({ kind: 'activate', id: selected.id, itemIndex: selected.itemIndex }) }),
+        : { enter: () => activate(active) }),
     };
   },
   focusTargets(input) {
     const plan = listPlan(input.model, input.bounds);
-    const selected = plan.rows.findIndex((entry) => entry.id === input.model.selectedId);
+    const active = plan.rows.findIndex((entry) => entry.id === input.model.activeId);
     return [{
       id: 'self',
       bounds: plan.scrollbar.contentBounds,
-      ...(selected < 0 ? {} : {
+      ...(active < 0 ? {} : {
         cursor: {
-          row: plan.scrollbar.contentBounds.row + selected,
+          row: plan.scrollbar.contentBounds.row + active,
           column: plan.scrollbar.contentBounds.column,
         },
       }),
     }];
   },
   hitTargets(input) {
+    if (input.busy) return [];
     const plan = listPlan(input.model, input.bounds);
     return [
       ...plan.rows.flatMap((entry, row) =>
@@ -137,55 +167,82 @@ const interactiveList = defineComponent<
           accepts: ['click'] as const,
           cursor: 'pointer' as const,
           message: (event: RoutedPointerEvent) =>
-            event.clickCount === 2
-              ? { kind: 'activate' as const, id: entry.id, itemIndex: entry.itemIndex }
-              : { kind: 'select' as const, id: entry.id, itemIndex: entry.itemIndex },
+            event.clickCount === 2 && !input.readOnly
+              ? activate(entry)
+              : transition({ kind: 'setActive', id: entry.id }),
         }]
       ),
-      ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<ListAction>({
-        id: input.id ?? 'list',
+      ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<ListboxComponentAction>({
+        id: input.id ?? 'listbox',
         plan: plan.scrollbar,
         ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
-        onScroll: (event) => ({ kind: 'scroll' as const, event }),
+        onScroll: (event) => transition({ kind: 'scroll', event }),
       })),
     ];
   },
 });
 
-export function list<TValue, const TMessage extends ComponentMessage = never>(
-  options: ScrollableListOptions<TValue, TMessage>,
+export function listbox<TValue, const TMessage extends ComponentMessage = never>(
+  options: ScrollableListboxOptions<TValue, TMessage>,
 ): Element<TMessage>;
-// The passive overload intentionally exposes ListControlAction instead of the scroll-capable ListAction.
-export function list<TValue, const TMessage extends ComponentMessage = never>(
+export function listbox<TValue, const TMessage extends ComponentMessage = never>(
   // eslint-disable-next-line @typescript-eslint/unified-signatures
-  options: PassiveListOptions<TValue, TMessage>,
+  options: UnscrolledListboxOptions<TValue, TMessage>,
 ): Element<TMessage>;
-export function list<TValue, const TMessage extends ComponentMessage = never>(
-  options: ListOptions<TValue, TMessage>,
+export function listbox<TValue, const TMessage extends ComponentMessage = never>(
+  options: ListboxOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const onAction = options.onAction;
-  const prepared = prepareList(options);
-  const componentOptions = {
+  assertComponentOptions(options, 'listbox', {
+    fields: [
+      'id', 'items', 'projectItem', 'collection', 'filterQuery', 'presentation',
+      'scroll', 'scrollbar', 'scrollPolicy', 'pointerState', 'readOnly', 'busy',
+      'inert', 'disabled', 'meta', 'onTransition', 'onActivate', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true || options.inert === true
+      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
+      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
+    ...(options.disabled === true
+      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy'] }
+      : options.inert === true
+        ? { forbiddenFields: ['readOnly'] }
+      : {}),
+  });
+  const prepared = prepareListbox(options);
+  if (options.disabled === true) return instantiateListbox({
     ...prepared,
     id: options.id,
+    disabled: true,
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
-  };
-  if (onAction === undefined) {
-    return passiveList(componentOptions);
-  }
-  if (options.scroll === undefined) {
-    return interactiveList({
-      ...componentOptions,
-      onAction: (action) =>
-        action.kind === 'scroll' ? ignoreMessage() : onAction(action),
-    });
-  }
-  return interactiveList({ ...componentOptions, onAction: options.onAction });
+  });
+  if (options.inert === true) return instantiateListbox({
+    ...prepared,
+    id: options.id,
+    inert: true,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  });
+  return instantiateListbox({
+    ...prepared,
+    id: options.id,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+    onAction: (action) => {
+      if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
+      if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      if (options.scroll === undefined) {
+        if (action.action.kind === 'scroll') return ignoreMessage();
+        return options.onTransition(action.action);
+      }
+      return options.onTransition(action.action);
+    },
+  });
 }
 
-function prepareList<TValue, TMessage extends ComponentMessage>(
-  value: Readonly<ListOptions<TValue, TMessage>>,
-): PreparedList {
+function prepareListbox<TValue, TMessage extends ComponentMessage>(
+  value: Readonly<ListboxOptions<TValue, TMessage>>,
+): PreparedListbox {
   const rawItems = value.items;
   const rawProjector = value.projectItem;
   const rawCollection = value.collection;
@@ -204,21 +261,19 @@ function prepareList<TValue, TMessage extends ComponentMessage>(
     projected = prepareProjectedCollection(rawCollection);
   }
   const requestedQuery = value.filterQuery;
-  if (requestedQuery !== undefined && typeof requestedQuery !== 'string') {
-    throw new TypeError('list filterQuery must be a string.');
-  }
   if (projected.windowed && requestedQuery !== undefined) {
     throw new TypeError('Windowed list collections own their filter query.');
   }
-  const query = projected.windowed ? projected.query : normalizedQuery(requestedQuery ?? '');
+  const query = projected.windowed
+    ? projected.query
+    : normalizeCollectionQuery(requestedQuery ?? { text: '', mode: 'contains' });
   const entries = preparedListEntries(projected, query);
-  const selectedId = optionalCleanString(value.selectedId, 'list selectedId');
+  const activeId = optionalCleanString(value.presentation.activeId, 'listbox activeId');
+  const selection = prepareSelection(value.presentation.selection);
   const scroll = prepareComponentScrollState(value.scroll, 'list scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'list scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'list scrollPolicy');
-  const pointerState = value.pointerState === undefined
-    ? undefined
-    : Object.freeze({ ...value.pointerState });
+  const pointerState = preparePointerInteractionState(value.pointerState, 'listbox pointerState');
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('list scrollbar and scrollPolicy require scroll state.');
   }
@@ -228,7 +283,8 @@ function prepareList<TValue, TMessage extends ComponentMessage>(
     totalCount: projected.windowed ? projected.totalCount : entries.length,
     windowed: projected.windowed,
     query,
-    ...(selectedId === undefined ? {} : { selectedId }),
+    ...(activeId === undefined ? {} : { activeId }),
+    selection,
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
@@ -241,29 +297,46 @@ interface ProjectedListData {
   readonly windowed: boolean;
   readonly startIndex: number;
   readonly totalCount: number;
-  readonly query: string;
+  readonly query: Required<CollectionQuery>;
 }
 
 type PreparedListSourceEntry = Omit<PreparedListEntry, 'position'> & {
   readonly searchText: string;
 };
 
-const preparedListCollections = new WeakMap<object, ProjectedListData>();
+const preparedListboxCollections = new WeakMap<object, ProjectedListData>();
 const preparedListEntryViews = new WeakMap<
   object,
-  { readonly query: string; readonly entries: readonly PreparedListEntry[] }
+  { readonly queryKey: string; readonly entries: readonly PreparedListEntry[] }
 >();
 
 function preparedListEntries(
   projected: ProjectedListData,
-  query: string,
+  query: Required<CollectionQuery>,
 ): readonly PreparedListEntry[] {
   const cached = preparedListEntryViews.get(projected);
-  if (cached?.query === query) return cached.entries;
-  const visible = projected.windowed || query.length === 0
-    ? projected.entries
-    : projected.entries.filter((entry) => entry.searchText.includes(query));
-  const entries = Object.freeze(visible.map((entry, position): PreparedListEntry =>
+  const queryKey = `${query.mode}:${query.caseSensitive ? '1' : '0'}:${query.text}`;
+  if (cached?.queryKey === queryKey) return cached.entries;
+  const matched: {
+    readonly entry: PreparedListSourceEntry;
+    readonly match?: QueryMatchRange;
+  }[] = [];
+  for (const entry of projected.entries) {
+    if (projected.windowed || query.text.length === 0) {
+      matched.push({ entry });
+      continue;
+    }
+    const match = matchNormalizedCollectionQuery({
+      id: entry.id,
+      primary: entry.label,
+      secondary: [entry.searchText],
+    }, query);
+    if (match !== undefined) {
+      const primary = match.ranges.find((range) => range.field === 'primary');
+      matched.push({ entry, ...(primary === undefined ? {} : { match: primary }) });
+    }
+  }
+  const entries = Object.freeze(matched.map(({ entry, match }, position): PreparedListEntry =>
     Object.freeze({
       id: entry.id,
       itemIndex: entry.itemIndex,
@@ -271,15 +344,16 @@ function preparedListEntries(
       label: entry.label,
       ...(entry.description === undefined ? {} : { description: entry.description }),
       disabled: entry.disabled,
+      ...(match === undefined ? {} : { match }),
     })
   ));
-  preparedListEntryViews.set(projected, Object.freeze({ query, entries }));
+  preparedListEntryViews.set(projected, Object.freeze({ queryKey, entries }));
   return entries;
 }
 
 function prepareProjectedItems<TValue>(
   items: readonly TValue[],
-  projector: ListItemProjector<TValue>,
+  projector: ListboxOptionProjector<TValue>,
 ): ProjectedListData {
   const ids = new Set<string>();
   return {
@@ -295,22 +369,25 @@ function prepareProjectedItems<TValue>(
     windowed: false,
     startIndex: 0,
     totalCount: items.length,
-    query: '',
+    query: normalizeCollectionQuery({ text: '', mode: 'contains' }),
   };
 }
 
 function prepareProjectedCollection<TValue>(
-  value: CompleteListCollection<TValue> | WindowedListCollection<TValue>,
+  value: CompleteListboxCollection<TValue> | WindowedListboxCollection<TValue>,
 ): ProjectedListData {
   if (!isCollectionProjection(value)) {
-    throw new TypeError('list collection must be prepared with prepareListCollection().');
+    throw new TypeError('list collection must be prepared with prepareListboxCollection().');
   }
-  const cached = preparedListCollections.get(value);
+  const cached = preparedListboxCollections.get(value);
   if (cached !== undefined) return cached;
   const kind = value.kind;
-  const query = kind === 'window' && value.domain.kind === 'projection'
-    ? normalizedQuery(value.domain.filterQuery ?? '')
-    : '';
+  const query = normalizeCollectionQuery({
+    text: kind === 'window' && value.domain.kind === 'projection'
+      ? value.domain.filterQuery ?? ''
+      : '',
+    mode: 'contains',
+  });
   const prepared = Object.freeze({
     entries: prepareEntries(value.records),
     windowed: kind === 'window',
@@ -318,12 +395,12 @@ function prepareProjectedCollection<TValue>(
     totalCount: value.totalCount,
     query,
   });
-  preparedListCollections.set(value, prepared);
+  preparedListboxCollections.set(value, prepared);
   return prepared;
 }
 
 function prepareEntries<TValue>(
-  records: readonly ListCollectionRecord<TValue>[],
+  records: readonly ListboxCollectionRecord<TValue>[],
 ): readonly PreparedListSourceEntry[] {
   return Object.freeze(records.map((record) => {
     const item = prepareListItem(record.item);
@@ -342,7 +419,7 @@ function prepareEntries<TValue>(
 function prepareListEntry(
   rawId: unknown,
   rawItemIndex: number,
-  rawItem: ListItemProjection,
+  rawItem: ListboxOption,
   ids: Set<string>,
 ): PreparedListSourceEntry {
   const itemIndex = nonNegativeSafeInteger(rawItemIndex, 'list record itemIndex');
@@ -361,7 +438,7 @@ function prepareListEntry(
   });
 }
 
-function prepareListItem(value: ListItemProjection): {
+function prepareListItem(value: ListboxOption): {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
@@ -396,9 +473,9 @@ function prepareListItem(value: ListItemProjection): {
   };
 }
 
-function measureList(
+function measureListbox(
   { model, widthProfile }: {
-    readonly model: PreparedList;
+    readonly model: PreparedListbox;
     readonly widthProfile: import('../../text/index.ts').TextWidthProfile;
   },
 ) {
@@ -420,8 +497,8 @@ function measureList(
   };
 }
 
-function renderList(
-  input: import('../../component/index.ts').ComponentRenderInput<PreparedList, DataListStylePart>,
+function renderListbox(
+  input: import('../../component/index.ts').ComponentRenderInput<PreparedListbox, DataListStylePart>,
 ): void {
   const plan = listPlan(input.model, input.bounds);
   if (plan.rows.length === 0 && plan.scrollbar.contentBounds.height > 0) {
@@ -430,23 +507,24 @@ function renderList(
       base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
     });
     input.target.write(0, 0, [{
-      text: input.model.query.length === 0 ? 'No items' : 'No matching items',
+      text: input.model.query.text.length === 0 ? 'No items' : 'No matching items',
       ...(emptyStyle === undefined ? {} : { style: emptyStyle }),
       source: input.source({
         cellRole: 'text',
         partName: 'empty',
         partType: 'text',
-        description: input.model.query.length === 0 ? 'empty' : 'filter.empty',
+        description: input.model.query.text.length === 0 ? 'empty' : 'filter.empty',
       }),
     }]);
   }
   for (const [row, entry] of plan.rows.entries()) {
-    const selected = entry.id === input.model.selectedId;
+    const selected = selectionContains(input.model.selection, entry.id);
+    const active = entry.id === input.model.activeId;
     const pointer = pointerVisualState(
       input.model.pointerState,
-      `${input.id ?? 'list'}:option:${entry.id}`,
+      `${input.id ?? 'listbox'}:option:${entry.id}`,
     );
-    const state = entry.disabled ? 'disabled' : pointer ?? (selected ? 'selected' : undefined);
+    const state = entry.disabled ? 'disabled' : pointer ?? (selected ? 'selected' : active ? 'active' : undefined);
     const itemStyle = input.style({
       part: 'item',
       base: selected
@@ -490,7 +568,7 @@ function renderList(
           itemIndex: entry.itemIndex,
         }),
       },
-      ...highlightedListLabel(entry.label, input.model.query, itemStyle, input, entry, state),
+      ...highlightedListLabel(entry.label, entry.match, itemStyle, input, entry, state),
       ...(entry.description === undefined ? [] : [{
         text: ` · ${entry.description}`,
         ...optionalSpanStyle(input.style({
@@ -540,8 +618,8 @@ function renderList(
   });
 }
 
-function accessibleList(
-  input: import('../../component/index.ts').ComponentAccessibilityInput<PreparedList>,
+function accessibleListbox(
+  input: import('../../component/index.ts').ComponentAccessibilityInput<PreparedListbox>,
 ) {
   const plan = listPlan(input.model, input.bounds);
   return {
@@ -554,6 +632,10 @@ function accessibleList(
         String(input.model.totalCount)
       } items.`,
     ...(input.focused ? { focused: true } : {}),
+    ...(input.model.activeId === undefined
+      ? {}
+      : { activeDescendant: `${input.id}:option:${input.model.activeId}` }),
+    ...(input.model.selection.mode === 'multiple' ? { multiSelectable: true } : {}),
     window: {
       startIndex: plan.startIndex,
       endIndexExclusive: plan.startIndex + plan.rows.length,
@@ -566,34 +648,39 @@ function accessibleList(
       role: 'option' as const,
       label: entry.label,
       ...(entry.description === undefined ? {} : { description: entry.description }),
-      selected: entry.id === input.model.selectedId,
+      selected: selectionContains(input.model.selection, entry.id),
       disabled: entry.disabled,
       position: { positionInSet: entry.position + 1, setSize: input.model.totalCount },
     })),
   };
 }
 
-function listPlan(model: PreparedList, bounds: import('../../geometry/types.ts').Rect) {
-  const selected = selectedEntry(model);
+function listPlan(model: PreparedListbox, bounds: import('../../geometry/types.ts').Rect) {
+  const active = activeEntry(model);
   const base = model.scroll === undefined
-    ? selected === undefined
-      ? createScrollState({
-        contentRows: model.totalCount,
-        viewportRows: bounds.height,
-        viewportColumns: bounds.width,
-      })
+    ? active === undefined
+      ? createScrollState()
       : scrollReducer(
-        createScrollState({
+        createScrollState(),
+        { kind: 'itemIntoView', itemIndex: active.position, alignment: 'center' },
+        {
           contentRows: model.totalCount,
+          contentColumns: bounds.width,
           viewportRows: bounds.height,
           viewportColumns: bounds.width,
-        }),
-        { kind: 'itemIntoView', itemIndex: selected.position },
+        },
       )
-    : normalizeScrollState({ ...model.scroll, contentRows: model.totalCount });
+    : normalizeScrollState(model.scroll, {
+      contentRows: model.totalCount,
+      contentColumns: bounds.width,
+      viewportRows: bounds.height,
+      viewportColumns: bounds.width,
+    });
   const scrollbar = prepareComponentScrollbar({
     bounds,
     scroll: base,
+    contentRows: model.totalCount,
+    contentColumns: bounds.width,
     ...(model.scrollbar === undefined ? {} : { options: model.scrollbar }),
     defaultAxis: 'vertical',
   });
@@ -621,15 +708,14 @@ function listPlan(model: PreparedList, bounds: import('../../geometry/types.ts')
 
 function highlightedListLabel(
   label: string,
-  query: string,
+  match: QueryMatchRange | undefined,
   base: TerminalStyle | undefined,
-  input: import('../../component/index.ts').ComponentRenderInput<PreparedList, DataListStylePart>,
+  input: import('../../component/index.ts').ComponentRenderInput<PreparedListbox, DataListStylePart>,
   entry: PreparedListEntry,
   state: import('../../element/metadata.ts').ElementVisualState | undefined,
 ): readonly RenderSpan[] {
   const sourceState = state === 'default' ? undefined : state;
-  const index = query.length === 0 ? -1 : label.toLocaleLowerCase().indexOf(query);
-  if (index < 0) {
+  if (match === undefined) {
     return [{
       text: label,
       ...(base === undefined ? {} : { style: base }),
@@ -649,9 +735,9 @@ function highlightedListLabel(
     base: { ...(base ?? {}), fg: { kind: 'theme', token: 'menu.match' }, underline: true },
   });
   return [
-    label.slice(0, index),
-    label.slice(index, index + query.length),
-    label.slice(index + query.length),
+    label.slice(0, match.start),
+    label.slice(match.start, match.end),
+    label.slice(match.end),
   ].map((text, part) => ({
     text,
     ...(part === 1
@@ -675,10 +761,51 @@ function optionalSpanStyle(style: TerminalStyle | undefined): { readonly style?:
   return style === undefined ? {} : { style };
 }
 
-function selectedEntry(model: PreparedList): PreparedListEntry | undefined {
-  return model.selectedId === undefined
+function activeEntry(model: PreparedListbox): PreparedListEntry | undefined {
+  return model.activeId === undefined
     ? undefined
-    : model.entries.find((entry) => entry.id === model.selectedId);
+    : model.entries.find((entry) => entry.id === model.activeId);
+}
+
+function selectionContains(selection: SelectionState, id: string): boolean {
+  return selection.mode === 'single'
+    ? selection.selectedId === id
+    : selection.mode === 'multiple' && selection.selectedIds.includes(id);
+}
+
+function prepareSelection(selection: SelectionState): SelectionState {
+  if (!isNonArrayObject(selection)) throw new TypeError('listbox presentation selection must be an object.');
+  if (!isStringMember(selection.mode as unknown, ['none', 'single', 'multiple'])) {
+    throw new TypeError('listbox presentation selection mode is invalid.');
+  }
+  if (selection.mode === 'none') return Object.freeze({ mode: 'none' });
+  if (selection.mode === 'single') {
+    const selectedId = optionalCleanString(selection.selectedId, 'listbox selectedId');
+    return Object.freeze({ mode: 'single', ...(selectedId === undefined ? {} : { selectedId }) });
+  }
+  if (!Array.isArray(selection.selectedIds)) {
+    throw new TypeError('listbox presentation selection is invalid.');
+  }
+  const selectedIds = Object.freeze(selection.selectedIds.map((id) =>
+    requiredCleanString(id, 'listbox selected id')
+  ));
+  if (new Set(selectedIds).size !== selectedIds.length) {
+    throw new TypeError('listbox selected ids must be unique.');
+  }
+  const anchorId = optionalCleanString(selection.anchorId, 'listbox selection anchorId');
+  return Object.freeze({
+    mode: 'multiple',
+    selectedIds,
+    ...(anchorId === undefined ? {} : { anchorId }),
+  });
+}
+
+function transition(action: ListboxTransition): ListboxComponentAction {
+  return { kind: 'transition', action };
+}
+
+function activate(entry: PreparedListEntry): ListboxComponentAction {
+  return { kind: 'activate', event: { kind: 'activate', id: entry.id, itemIndex: entry.itemIndex } };
 }
 
 function requiredString(value: unknown, subject: string): string {

@@ -76,11 +76,6 @@ export type ChartSampleAlign = 'start' | 'end';
 export type ChartInterpolation = 'nearest' | 'linear';
 export type ChartDataState = 'loading' | 'error';
 
-export interface ChartPointSelection {
-  readonly seriesId: string;
-  readonly pointId: string;
-}
-
 export type MeterVariant = 'linear' | 'dial';
 export type MeterResult = 'success' | 'warning' | 'error';
 
@@ -90,8 +85,4 @@ export interface HeatmapCell<TValue = unknown> {
   readonly value: number;
   readonly payload?: TValue;
   readonly disabled?: boolean;
-}
-
-export interface HeatmapSelection {
-  readonly id: string;
 }

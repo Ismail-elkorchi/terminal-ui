@@ -13,13 +13,13 @@ import { cyclicIndex } from '../foundation/cyclic-index.ts';
 
 interface LogViewerStateBase {
   readonly searchQuery?: string;
-  readonly selectedMatch?: LogSearchMatch;
+  readonly activeMatch?: LogSearchMatch;
   readonly foldedIds: readonly string[];
   readonly followTail: boolean;
   readonly selection?: LogViewerSelection;
 }
 
-export interface PassiveLogViewerState extends LogViewerStateBase {
+export interface UnscrolledLogViewerState extends LogViewerStateBase {
   readonly scroll?: never;
 }
 
@@ -27,16 +27,16 @@ export interface ScrollableLogViewerState extends LogViewerStateBase {
   readonly scroll: ScrollState;
 }
 
-export type LogViewerState = PassiveLogViewerState | ScrollableLogViewerState;
+export type LogViewerState = UnscrolledLogViewerState | ScrollableLogViewerState;
 
 export function logViewerReducer(
   state: ScrollableLogViewerState,
   action: LogViewerAction
 ): ScrollableLogViewerState;
 export function logViewerReducer(
-  state: PassiveLogViewerState,
+  state: UnscrolledLogViewerState,
   action: LogViewerControlAction
-): PassiveLogViewerState;
+): UnscrolledLogViewerState;
 export function logViewerReducer(state: LogViewerState, action: LogViewerAction): LogViewerState {
   switch (action.kind) {
     case 'scroll':
@@ -55,13 +55,13 @@ export function logViewerReducer(state: LogViewerState, action: LogViewerAction)
       const query = normalizedQuery(action.query);
       if (query === undefined) return withoutSearch(state);
       if (state.searchQuery === query) return state;
-      return { ...withoutSelectedMatch(state), searchQuery: query };
+      return { ...withoutActiveMatch(state), searchQuery: query };
     }
     case 'jumpMatch': {
-      const selectedMatch = adjacentMatch(action.matches, state.selectedMatch?.id, action.direction);
-      if (selectedMatch?.id === state.selectedMatch?.id) return state;
-      if (selectedMatch === undefined) return withoutSelectedMatch(state);
-      return { ...state, selectedMatch };
+      const activeMatch = adjacentMatch(action.matches, state.activeMatch?.id, action.direction);
+      if (activeMatch?.id === state.activeMatch?.id) return state;
+      if (activeMatch === undefined) return withoutActiveMatch(state);
+      return { ...state, activeMatch };
     }
     case 'toggleFold': {
       const foldedIds = state.foldedIds.includes(action.id)
@@ -95,10 +95,10 @@ export function logViewerSearchMatches(
 
 export function nextLogViewerMatch(
   matches: readonly LogSearchMatch[],
-  selectedMatchId: string | undefined,
+  activeMatchId: string | undefined,
   direction: 1 | -1
 ): LogSearchMatch | undefined {
-  return adjacentMatch(matches, selectedMatchId, direction);
+  return adjacentMatch(matches, activeMatchId, direction);
 }
 
 export function followTailScrollState(input: {
@@ -107,17 +107,16 @@ export function followTailScrollState(input: {
   readonly contentColumns?: number;
   readonly viewportColumns?: number;
 }): ScrollState {
-  return scrollReducer(createScrollState({
+  return scrollReducer(createScrollState({ followTail: true }), { kind: 'bottom' }, {
     contentRows: input.contentRows,
     viewportRows: input.viewportRows,
     contentColumns: input.contentColumns ?? 0,
     viewportColumns: input.viewportColumns ?? 0,
-    followTail: true
-  }), { kind: 'bottom' });
+  });
 }
 
 function withoutSearch(state: LogViewerState): LogViewerState {
-  if (state.searchQuery === undefined && state.selectedMatch === undefined) return state;
+  if (state.searchQuery === undefined && state.activeMatch === undefined) return state;
   return {
     foldedIds: state.foldedIds,
     followTail: state.followTail,
@@ -126,8 +125,8 @@ function withoutSearch(state: LogViewerState): LogViewerState {
   };
 }
 
-function withoutSelectedMatch(state: LogViewerState): LogViewerState {
-  if (state.selectedMatch === undefined) return state;
+function withoutActiveMatch(state: LogViewerState): LogViewerState {
+  if (state.activeMatch === undefined) return state;
   return {
     foldedIds: state.foldedIds,
     followTail: state.followTail,
@@ -148,7 +147,7 @@ function withSelection(state: LogViewerState, selection: LogViewerSelection | un
       foldedIds: state.foldedIds,
       followTail: state.followTail,
       ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
-      ...(state.selectedMatch === undefined ? {} : { selectedMatch: state.selectedMatch }),
+      ...(state.activeMatch === undefined ? {} : { activeMatch: state.activeMatch }),
       ...(state.scroll === undefined ? {} : { scroll: state.scroll })
     };
   }
@@ -190,12 +189,12 @@ function normalizedQuery(query: string | undefined): string | undefined {
 
 function adjacentMatch(
   matches: readonly LogSearchMatch[],
-  selectedId: string | undefined,
+  activeId: string | undefined,
   direction: 1 | -1
 ): LogSearchMatch | undefined {
   if (matches.length === 0) return undefined;
-  const selectedIndex = selectedId === undefined
+  const activeIndex = activeId === undefined
     ? direction > 0 ? -1 : 0
-    : matches.findIndex((match) => match.id === selectedId);
-  return matches[cyclicIndex(selectedIndex + direction, matches.length)];
+    : matches.findIndex((match) => match.id === activeId);
+  return matches[cyclicIndex(activeIndex + direction, matches.length)];
 }

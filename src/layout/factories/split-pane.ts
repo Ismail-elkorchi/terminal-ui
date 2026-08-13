@@ -39,7 +39,7 @@ export function splitPane<
     props: {
       direction: options.direction,
       sizes: options.sizes,
-      selectedDivider: options.selectedDivider ?? 0,
+      activeDivider: options.activeDivider ?? 0,
       toActionMessage: (action: SplitPaneAction) => options.onAction(action),
       ...renderNodeLayoutProps({ ...options, gap: options.gap ?? 1 })
     },
@@ -53,8 +53,8 @@ function splitPaneKeyBindings<TMessage>(
 ): ElementKeyBindings<TMessage> {
   const step = normalizedResizeStep(options.resizeStep);
   const action = options.onAction;
-  const selectPrevious = () => action({ kind: 'moveDividerSelection', delta: -1 });
-  const selectNext = () => action({ kind: 'moveDividerSelection', delta: 1 });
+  const selectPrevious = () => action({ kind: 'moveActiveDivider', delta: -1 });
+  const selectNext = () => action({ kind: 'moveActiveDivider', delta: 1 });
   const shrinkLeading = () => action({ kind: 'resizeBy', deltaShare: -step });
   const growLeading = () => action({ kind: 'resizeBy', deltaShare: step });
   return {
@@ -71,8 +71,8 @@ function splitPaneKeyBindings<TMessage>(
           arrowLeft: selectPrevious,
           arrowRight: selectNext
         }),
-    home: () => action({ kind: 'selectFirstDivider' }),
-    end: () => action({ kind: 'selectLastDivider' })
+    home: () => action({ kind: 'firstActiveDivider' }),
+    end: () => action({ kind: 'lastActiveDivider' })
   };
 }
 
@@ -87,9 +87,9 @@ function assertSplitPaneOptions<TMessage>(
   if (options.onAction === undefined) return;
   if (childCount < 2) throw new RangeError('Resizable splitPane requires at least two children.');
   if ((options.gap ?? 1) < 1) throw new RangeError('Resizable splitPane requires a gap of at least one cell.');
-  const selected = options.selectedDivider ?? 0;
-  if (!Number.isInteger(selected) || selected < 0 || selected >= childCount - 1) {
-    throw new RangeError(`splitPane selectedDivider ${String(selected)} must identify an existing divider.`);
+  const active = options.activeDivider ?? 0;
+  if (!Number.isInteger(active) || active < 0 || active >= childCount - 1) {
+    throw new RangeError(`splitPane activeDivider ${String(active)} must identify an existing divider.`);
   }
 }
 

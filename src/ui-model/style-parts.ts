@@ -1,6 +1,11 @@
 export type TextStylePart = 'content' | 'link';
+export type LinkStylePart = 'label';
+export type ToggleButtonStylePart = 'label' | 'indicator';
+export type ToolbarStylePart = 'label';
 export type DisclosureStylePart = 'marker' | 'label' | 'summary';
 export type DataListStylePart = 'marker' | 'item' | 'description' | 'match' | 'empty' | 'scrollbar';
+export type SemanticListStylePart = 'marker' | 'item';
+export type ListViewStylePart = 'marker' | 'item' | 'scrollbar';
 export type TableStylePart =
   | 'header'
   | 'headerCell'
@@ -23,7 +28,7 @@ export type TreeStylePart =
   | 'placeholder'
   | 'empty'
   | 'scrollbar';
-export type PaginatorStylePart = 'control' | 'label' | 'value' | 'separator';
+export type PaginationStylePart = 'control' | 'label' | 'value' | 'separator';
 export type TextEntryStylePart =
   | 'border'
   | 'label'

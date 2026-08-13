@@ -1,71 +1,75 @@
 import { defineComponent, measureRenderSpans, span } from '../../component/index.ts';
 import type { ComponentMessage, SemanticLeafComponentFactory } from '../../component/index.ts';
-import type { PaginatorOptions } from '../options/content.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import type { PaginationOptions } from '../options/content.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
+import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
-import type { PaginatorAction } from '../../ui-model/paginator.ts';
-import type { PaginatorStylePart } from '../../ui-model/style-parts.ts';
+import type { PaginationAction } from '../../ui-model/pagination.ts';
+import type { PaginationStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan } from '../../visual/render.ts';
 
-interface PaginatorModel {
+interface PaginationModel {
   readonly pageNumber: number;
   readonly pageCount: number;
   readonly label: string;
   readonly pointerState?: PointerInteractionState;
 }
 
-interface PaginatorControl {
+interface PaginationControl {
   readonly label: string;
-  readonly action: PaginatorAction;
+  readonly action: PaginationAction;
   readonly offset: number;
   readonly width: number;
   readonly disabled: boolean;
 }
 
-interface PaginatorVisual {
+interface PaginationVisual {
   readonly spans: readonly RenderSpan[];
-  readonly controls: readonly PaginatorControl[];
+  readonly controls: readonly PaginationControl[];
 }
 
-export const paginator: SemanticLeafComponentFactory<
-  Pick<PaginatorOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
-  PaginatorAction,
-  PaginatorStylePart,
+export const pagination: SemanticLeafComponentFactory<
+  Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
+  PaginationAction,
+  PaginationStylePart,
   readonly [],
   'required',
   readonly ['focus', 'layer', 'styles']
 > = defineComponent<
-  Pick<PaginatorOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
-  PaginatorModel,
-  PaginatorAction,
-  PaginatorStylePart,
+  Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
+  PaginationModel,
+  PaginationAction,
+  PaginationStylePart,
   readonly [],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
-  name: 'terminal-ui/components/paginator',
+  name: 'terminal-ui/components/pagination',
+  optionFields: { pageNumber: true, pageCount: true, label: true, pointerState: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'navigation',
   metadata: ['focus', 'layer', 'styles'],
   parts: ['control', 'label', 'value', 'separator'],
   prepare(value) {
     const pageNumber = value.pageNumber;
     const pageCount = value.pageCount;
     const label = value.label;
-    const pointerState = value.pointerState;
+    const pointerState = preparePointerInteractionState(
+      value.pointerState,
+      'pagination pointerState',
+    );
     if (typeof pageNumber !== 'number' || !Number.isFinite(pageNumber)) {
-      throw new TypeError('paginator pageNumber must be finite.');
+      throw new TypeError('pagination pageNumber must be finite.');
     }
     if (typeof pageCount !== 'number' || !Number.isFinite(pageCount)) {
-      throw new TypeError('paginator pageCount must be finite.');
+      throw new TypeError('pagination pageCount must be finite.');
     }
     if (label !== undefined && typeof label !== 'string') {
-      throw new TypeError('paginator label must be a string.');
+      throw new TypeError('pagination label must be a string.');
     }
-    assertPointerState(pointerState, 'paginator');
     const normalizedCount = Math.max(1, Math.floor(pageCount));
     return {
       pageNumber: Math.max(1, Math.min(normalizedCount, Math.floor(pageNumber))),
@@ -75,7 +79,7 @@ export const paginator: SemanticLeafComponentFactory<
     };
   },
   measure(input) {
-    const visual = paginatorVisual(input.model, input.widthProfile, input.id);
+    const visual = paginationVisual(input.model, input.widthProfile, input.id);
     return {
       minWidth: 0,
       minHeight: 0,
@@ -87,7 +91,7 @@ export const paginator: SemanticLeafComponentFactory<
     input.target.write(
       0,
       0,
-      paginatorVisual(
+      paginationVisual(
         input.model,
         input.widthProfile,
         input.id,
@@ -119,10 +123,10 @@ export const paginator: SemanticLeafComponentFactory<
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets(input) {
     if (input.bounds.height === 0) return [];
-    return paginatorVisual(input.model, input.widthProfile, input.id).controls
+    return paginationVisual(input.model, input.widthProfile, input.id).controls
       .flatMap((control) =>
         control.disabled ? [] : [{
-          id: `${input.id ?? 'paginator'}:${control.action.kind}`,
+          id: `${input.id ?? 'pagination'}:${control.action.kind}`,
           bounds: {
             row: 0,
             column: control.offset,
@@ -135,7 +139,7 @@ export const paginator: SemanticLeafComponentFactory<
       );
   },
   accessibility(input) {
-    const controls = paginatorVisual(input.model, input.widthProfile, input.id).controls;
+    const controls = paginationVisual(input.model, input.widthProfile, input.id).controls;
     return {
       id: input.id,
       role: 'navigation',
@@ -152,30 +156,30 @@ export const paginator: SemanticLeafComponentFactory<
   },
 });
 
-type PaginatorInteractionState = Exclude<
+type PaginationInteractionState = Exclude<
   import('../../element/metadata.ts').ElementVisualState,
   'default'
 >;
 
-function paginatorVisual(
-  model: PaginatorModel,
+function paginationVisual(
+  model: PaginationModel,
   widthProfile: import('../../text/index.ts').TextWidthProfile,
   id: string | undefined,
   decorate: (
     text: string,
     partName: string,
-    part: PaginatorStylePart,
-    state: PaginatorInteractionState | undefined,
+    part: PaginationStylePart,
+    state: PaginationInteractionState | undefined,
   ) => RenderSpan = (text) => span(text),
-): PaginatorVisual {
+): PaginationVisual {
   const spans: RenderSpan[] = [];
-  const controls: PaginatorControl[] = [];
+  const controls: PaginationControl[] = [];
   let offset = 0;
   const append = (
     text: string,
     partName: string,
-    part: PaginatorStylePart,
-    state?: PaginatorInteractionState,
+    part: PaginationStylePart,
+    state?: PaginationInteractionState,
   ): void => {
     spans.push(decorate(text, partName, part, state));
     offset += measureRenderSpans([span(text)], { widthProfile });
@@ -183,12 +187,12 @@ function paginatorVisual(
   const appendControl = (
     text: string,
     label: string,
-    action: PaginatorAction,
+    action: PaginationAction,
     disabled: boolean,
   ): void => {
     const width = measureRenderSpans([span(text)], { widthProfile });
     controls.push({ label, action, offset, width, disabled });
-    const targetId = `${id ?? 'paginator'}:${action.kind}`;
+    const targetId = `${id ?? 'pagination'}:${action.kind}`;
     const state = disabled ? 'disabled' : pointerVisualState(model.pointerState, targetId);
     append(text, `control.${action.kind}`, 'control', state);
   };
@@ -211,17 +215,4 @@ function paginatorVisual(
   append(' ', 'control.gap.last', 'control');
   appendControl(' » ', 'Last page', { kind: 'last' }, atLast);
   return { spans, controls };
-}
-
-function assertPointerState(
-  value: PointerInteractionState | undefined,
-  owner: string,
-): void {
-  if (value === undefined) return;
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      throw new TypeError(`${owner} pointerState.${field} must be a string.`);
-    }
-  }
 }

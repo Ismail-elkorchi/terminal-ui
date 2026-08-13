@@ -1,250 +1,139 @@
-import type { BarChartAction, ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
+import { collectionInteractionReducer, normalizeCollectionInteraction } from '../interaction/collection.ts';
+import type { CollectionInteractionAction, SelectionPolicy } from '../interaction/collection.ts';
+import { adjacentItemId } from '../interaction/navigation.ts';
+import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type {
   BarChartItem,
-  ChartPointSelection,
   ChartSeries,
   HeatmapCell,
-  HeatmapSelection
 } from '../ui-model/feedback.ts';
-import { cyclicIndex } from '../foundation/cyclic-index.ts';
+import type {
+  BarChartTransition,
+  ChartTransition,
+  HeatmapTransition,
+  VisualizationPresentation,
+} from '../ui-model/visualization.ts';
 
-export interface BarChartState {
-  readonly selectedId?: string;
-}
-
-export function barChartReducer(
-  state: BarChartState,
-  action: BarChartAction,
-  items: readonly BarChartItem[]
-): BarChartState {
-  if (items.length === 0) return state.selectedId === undefined ? state : {};
-  if (action.kind === 'activate') return state;
-  if (action.kind === 'select') {
-    return items.some((item) => item.id === action.id) ? { selectedId: action.id } : state;
-  }
-  if (action.kind === 'first') return barSelection(items[0]?.id);
-  if (action.kind === 'last') return barSelection(items.at(-1)?.id);
-  const current = items.findIndex((item) => item.id === state.selectedId);
-  if (current < 0) return barSelection(action.delta < 0 ? items.at(-1)?.id : items[0]?.id);
-  return barSelection(items[cyclicIndex(current + action.delta, items.length)]?.id);
-}
-
-function barSelection(selectedId: string | undefined): BarChartState {
-  return selectedId === undefined ? {} : { selectedId };
-}
-
-export interface ChartState {
-  readonly selected?: ChartPointSelection;
-}
-
-export interface ChartReducerOptions {
+export interface VisualizationReducerOptions {
+  readonly selection: SelectionPolicy;
+  readonly navigation?: NavigationPolicy;
   readonly pageSize?: number;
 }
 
+export function barChartReducer(
+  state: VisualizationPresentation,
+  transition: BarChartTransition,
+  items: readonly BarChartItem[],
+  options: VisualizationReducerOptions,
+): VisualizationPresentation {
+  return reduceCollection(state, transition, items.map((item) => item.id), options);
+}
+
 export function chartReducer(
-  state: ChartState,
-  action: ChartAction,
+  state: VisualizationPresentation,
+  transition: ChartTransition,
   series: readonly ChartSeries[],
-  options: ChartReducerOptions = {}
-): ChartState {
-  const selectable = series.filter((item) => item.points.length > 0);
-  if (selectable.length === 0) return state;
-  const currentSeriesIndex = Math.max(
-    0,
-    selectable.findIndex((item) => item.id === state.selected?.seriesId)
-  );
-  const currentSeries = selectable[currentSeriesIndex] ?? selectable[0];
-  if (currentSeries === undefined) return state;
-  const currentPointIndex = selectedPointIndex(currentSeries, state.selected);
-  switch (action.kind) {
-    case 'select':
-      return selectedChartPoint(selectable, action.seriesId, action.pointId, state);
-    case 'movePoint':
-      return chartSelection(
-        currentSeries,
-        bounded(currentPointIndex + action.delta, currentSeries.points.length)
-      );
-    case 'pagePoints':
-      return chartSelection(
-        currentSeries,
-        bounded(
-          currentPointIndex + action.delta * normalizedPageSize(options.pageSize),
-          currentSeries.points.length
-        )
-      );
-    case 'moveSeries': {
-      const next = selectable[cyclicIndex(currentSeriesIndex + action.delta, selectable.length)];
-      return next === undefined
-        ? state
-        : chartSelection(next, bounded(currentPointIndex, next.points.length));
-    }
-    case 'firstPoint':
-      return chartSelection(currentSeries, 0);
-    case 'lastPoint':
-      return chartSelection(currentSeries, currentSeries.points.length - 1);
+  options: VisualizationReducerOptions,
+): VisualizationPresentation {
+  assertGlobalPointIds(series);
+  const points = series.flatMap((item) => item.points);
+  const ids = points.map((point) => point.id);
+  if (isCollectionTransition(transition)) return reduceCollection(state, transition, ids, options);
+  const activePoint = points.find((point) => point.id === state.activeId);
+  const currentSeriesIndex = Math.max(0, series.findIndex((item) =>
+    item.points.some((point) => point.id === activePoint?.id)
+  ));
+  const currentSeries = series[currentSeriesIndex];
+  if (currentSeries === undefined) return normalizeCollectionInteraction(state, ids, options.selection);
+  const currentPointIndex = Math.max(0, currentSeries.points.findIndex((point) => point.id === activePoint?.id));
+  if (transition.kind === 'moveSeries') {
+    const enabledSeries = series.filter((item) => item.points.length > 0);
+    const nextId = adjacentItemId(
+      enabledSeries.map((item) => item.id),
+      currentSeries.id,
+      transition.delta,
+      options.navigation,
+    );
+    const next = enabledSeries.find((item) => item.id === nextId);
+    const point = next?.points[Math.min(currentPointIndex, Math.max(0, next.points.length - 1))];
+    return setActive(state, point?.id, ids, options);
   }
-}
-
-export interface HeatmapState {
-  readonly selected?: HeatmapSelection;
-}
-
-export interface HeatmapReducerOptions {
-  readonly pageRows?: number;
+  const delta = transition.kind === 'pagePoints'
+    ? transition.delta * Math.max(1, Math.floor(options.pageSize ?? 1))
+    : transition.delta;
+  const nextId = adjacentItemId(
+    currentSeries.points.map((point) => point.id),
+    activePoint?.id,
+    delta,
+    options.navigation,
+  );
+  return setActive(state, nextId, ids, options);
 }
 
 export function heatmapReducer<TValue>(
-  state: HeatmapState,
-  action: HeatmapAction,
+  state: VisualizationPresentation,
+  transition: HeatmapTransition,
   rows: readonly (readonly HeatmapCell<TValue>[])[],
-  options: HeatmapReducerOptions = {}
-): HeatmapState {
-  const cells = selectableHeatmapCells(rows);
-  if (cells.length === 0) return state;
-  switch (action.kind) {
-    case 'select':
-      return cells.some((cell) => cell.id === action.id)
-        ? { selected: { id: action.id } }
-        : state;
-    case 'move': {
-      const current = selectedHeatmapIndex(cells, state.selected);
-      const candidate = directionalHeatmapCell(cells, current, {
-        rowIndex: current.rowIndex + action.rows,
-        columnIndex: current.columnIndex + action.columns
-      });
-      return candidate === undefined ? state : { selected: { id: candidate.id } };
-    }
-    case 'pageRows': {
-      const current = selectedHeatmapIndex(cells, state.selected);
-      const candidate = directionalHeatmapCell(cells, current, {
-        rowIndex: current.rowIndex + action.delta * normalizedPageSize(options.pageRows),
-        columnIndex: current.columnIndex
-      });
-      return candidate === undefined ? state : { selected: { id: candidate.id } };
-    }
-    case 'first': {
-      const first = cells[0];
-      return first === undefined ? state : { selected: { id: first.id } };
-    }
-    case 'last': {
-      const last = cells.at(-1);
-      return last === undefined ? state : { selected: { id: last.id } };
-    }
-  }
-}
-
-function selectedChartPoint(
-  series: readonly ChartSeries[],
-  seriesId: string,
-  pointId: string,
-  fallback: ChartState
-): ChartState {
-  const selectedSeries = series.find((item) => item.id === seriesId);
-  const selectedPoint = selectedSeries?.points.find((point) => point.id === pointId);
-  return selectedSeries === undefined || selectedPoint === undefined
-    ? fallback
-    : { selected: { seriesId: selectedSeries.id, pointId: selectedPoint.id } };
-}
-
-function chartSelection(series: ChartSeries, pointIndex: number): ChartState {
-  const point = series.points[bounded(pointIndex, series.points.length)];
-  return point === undefined
-    ? {}
-    : { selected: { seriesId: series.id, pointId: point.id } };
-}
-
-function selectedPointIndex(
-  series: ChartSeries,
-  selected: ChartPointSelection | undefined
-): number {
-  const pointIndex = selected?.seriesId === series.id
-    ? series.points.findIndex((point) => point.id === selected.pointId)
-    : -1;
-  return pointIndex < 0 ? 0 : pointIndex;
-}
-
-interface HeatmapLocation {
-  readonly id: string;
-  readonly rowIndex: number;
-  readonly columnIndex: number;
-}
-
-function selectableHeatmapCells<TValue>(
-  rows: readonly (readonly HeatmapCell<TValue>[])[]
-): readonly HeatmapLocation[] {
-  return rows.flatMap((row, rowIndex) => row.flatMap((cell, columnIndex): readonly HeatmapLocation[] =>
+  options: VisualizationReducerOptions,
+): VisualizationPresentation {
+  const cells = rows.flatMap((row, rowIndex) => row.flatMap((cell, columnIndex) =>
     cell.disabled === true ? [] : [{ id: cell.id, rowIndex, columnIndex }]
   ));
-}
-
-function selectedHeatmapIndex(
-  cells: readonly HeatmapLocation[],
-  selected: HeatmapSelection | undefined
-): HeatmapLocation {
-  return (selected === undefined
-    ? undefined
-    : cells.find((cell) => cell.id === selected.id))
-    ?? cells[0]
-    ?? { id: '', rowIndex: 0, columnIndex: 0 };
-}
-
-function directionalHeatmapCell(
-  cells: readonly HeatmapLocation[],
-  current: HeatmapLocation,
-  target: Pick<HeatmapLocation, 'rowIndex' | 'columnIndex'>
-): HeatmapLocation | undefined {
-  const candidates = cells.filter((cell) => followsDirection(cell, current, target));
-  return candidates.reduce<HeatmapLocation | undefined>((nearest, cell) => {
-    if (nearest === undefined) return cell;
-    return compareDirectionalCells(cell, nearest, current, target) < 0 ? cell : nearest;
+  const ids = cells.map((cell) => cell.id);
+  if (isCollectionTransition(transition)) return reduceCollection(state, transition, ids, options);
+  const current = cells.find((cell) => cell.id === state.activeId) ?? cells[0];
+  if (current === undefined) return normalizeCollectionInteraction(state, ids, options.selection);
+  const rowsDelta = transition.kind === 'pageRows'
+    ? transition.delta * Math.max(1, Math.floor(options.pageSize ?? 1))
+    : transition.rows;
+  const columnsDelta = transition.kind === 'pageRows' ? 0 : transition.columns;
+  const targetRow = Math.max(0, current.rowIndex + rowsDelta);
+  const targetColumn = Math.max(0, current.columnIndex + columnsDelta);
+  const next = cells.reduce<typeof current | undefined>((best, cell) => {
+    if (Math.sign(cell.rowIndex - current.rowIndex) !== Math.sign(rowsDelta) && rowsDelta !== 0) return best;
+    if (Math.sign(cell.columnIndex - current.columnIndex) !== Math.sign(columnsDelta) && columnsDelta !== 0) return best;
+    if (best === undefined) return cell;
+    const distance = Math.abs(cell.rowIndex - targetRow) + Math.abs(cell.columnIndex - targetColumn);
+    const bestDistance = Math.abs(best.rowIndex - targetRow) + Math.abs(best.columnIndex - targetColumn);
+    return distance < bestDistance ? cell : best;
   }, undefined);
+  return setActive(state, next?.id, ids, options);
 }
 
-function followsDirection(
-  cell: HeatmapLocation,
-  current: HeatmapLocation,
-  target: Pick<HeatmapLocation, 'rowIndex' | 'columnIndex'>
-): boolean {
-  const rowDirection = Math.sign(target.rowIndex - current.rowIndex);
-  const columnDirection = Math.sign(target.columnIndex - current.columnIndex);
-  return (rowDirection === 0 || Math.sign(cell.rowIndex - current.rowIndex) === rowDirection || cell.rowIndex === current.rowIndex)
-    && (columnDirection === 0 || Math.sign(cell.columnIndex - current.columnIndex) === columnDirection || cell.columnIndex === current.columnIndex);
+function reduceCollection(
+  state: VisualizationPresentation,
+  transition: CollectionInteractionAction,
+  enabledIds: readonly string[],
+  options: VisualizationReducerOptions,
+): VisualizationPresentation {
+  return collectionInteractionReducer(state, transition, {
+    enabledIds,
+    selection: options.selection,
+    ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
+  });
 }
 
-function compareDirectionalCells(
-  left: HeatmapLocation,
-  right: HeatmapLocation,
-  current: HeatmapLocation,
-  target: Pick<HeatmapLocation, 'rowIndex' | 'columnIndex'>
-): number {
-  const rowMovement = target.rowIndex !== current.rowIndex;
-  const columnMovement = target.columnIndex !== current.columnIndex;
-  const leftDistance = navigationDistance(left, target, rowMovement, columnMovement);
-  const rightDistance = navigationDistance(right, target, rowMovement, columnMovement);
-  for (let index = 0; index < leftDistance.length; index += 1) {
-    const difference = (leftDistance[index] ?? 0) - (rightDistance[index] ?? 0);
-    if (difference !== 0) return difference;
+function setActive(
+  state: VisualizationPresentation,
+  id: string | undefined,
+  enabledIds: readonly string[],
+  options: VisualizationReducerOptions,
+): VisualizationPresentation {
+  return reduceCollection(state, {
+    kind: 'setActive',
+    ...(id === undefined ? {} : { id }),
+  }, enabledIds, options);
+}
+
+function isCollectionTransition(
+  transition: ChartTransition | HeatmapTransition,
+): transition is CollectionInteractionAction {
+  return !['movePoint', 'pagePoints', 'moveSeries', 'moveCell', 'pageRows'].includes(transition.kind);
+}
+
+function assertGlobalPointIds(series: readonly ChartSeries[]): void {
+  const ids = series.flatMap((item) => item.points.map((point) => point.id));
+  if (new Set(ids).size !== ids.length) {
+    throw new TypeError('chart point ids must be unique across all series.');
   }
-  return left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex;
-}
-
-function navigationDistance(
-  cell: HeatmapLocation,
-  target: Pick<HeatmapLocation, 'rowIndex' | 'columnIndex'>,
-  rowMovement: boolean,
-  columnMovement: boolean
-): readonly number[] {
-  const rowDistance = Math.abs(cell.rowIndex - target.rowIndex);
-  const columnDistance = Math.abs(cell.columnIndex - target.columnIndex);
-  if (rowMovement && !columnMovement) return [rowDistance, columnDistance];
-  if (columnMovement && !rowMovement) return [columnDistance, rowDistance];
-  return [rowDistance + columnDistance, rowDistance, columnDistance];
-}
-
-function bounded(index: number, count: number): number {
-  return Math.max(0, Math.min(Math.max(0, count - 1), Math.floor(Number.isFinite(index) ? index : 0)));
-}
-
-function normalizedPageSize(value: number | undefined): number {
-  return Math.max(1, Math.floor(Number.isFinite(value) ? value ?? 1 : 1));
 }

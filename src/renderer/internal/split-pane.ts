@@ -23,9 +23,9 @@ export function renderSplitPaneDividers<TMessage>(
   theme: TerminalTheme,
   focused: boolean
 ): void {
-  const selected = selectedDivider(renderNode, layoutNode.children.length);
+  const activeDividerIndex = activeDivider(renderNode, layoutNode.children.length);
   splitPaneDividerBounds(layoutNode, renderNode.props.direction).forEach((bounds, dividerIndex) => {
-    const active = renderNode.props.toActionMessage !== undefined && dividerIndex === selected;
+    const active = renderNode.props.toActionMessage !== undefined && dividerIndex === activeDividerIndex;
     const style = splitPaneDividerStyle(renderNode, active, focused);
     const source = renderNodeFrameSource(renderNode, {
       rendererFamily: 'layout',
@@ -72,7 +72,7 @@ export function splitPaneAccessibleNode<TMessage>(
   focused: boolean
 ): AccessibleNode {
   const dividerCount = Math.max(0, (renderNode.children?.length ?? 0) - 1);
-  const selected = selectedDivider(renderNode, renderNode.children?.length ?? 0);
+  const activeDividerIndex = activeDivider(renderNode, renderNode.children?.length ?? 0);
   return {
     id,
     role: 'text',
@@ -82,7 +82,7 @@ export function splitPaneAccessibleNode<TMessage>(
       : {
           description: dividerCount === 0
             ? 'Resizable split pane with no dividers.'
-            : `Resizable split pane. Divider ${String(selected + 1)} of ${String(dividerCount)} selected.`
+            : `Resizable split pane. Divider ${String(activeDividerIndex + 1)} of ${String(dividerCount)} active.`
         }),
     ...(focused ? { focused } : {})
   };
@@ -154,9 +154,9 @@ function splitPaneContentExtent(layoutNode: LayoutNode, direction: 'horizontal' 
   );
 }
 
-function selectedDivider<TMessage>(renderNode: SplitPaneNode<TMessage>, childCount: number): number {
+function activeDivider<TMessage>(renderNode: SplitPaneNode<TMessage>, childCount: number): number {
   return Math.min(
-    Math.max(0, renderNode.props.selectedDivider ?? 0),
+    Math.max(0, renderNode.props.activeDivider ?? 0),
     Math.max(0, childCount - 2)
   );
 }

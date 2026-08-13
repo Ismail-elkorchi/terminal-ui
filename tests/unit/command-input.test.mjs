@@ -16,7 +16,7 @@ import { column, row } from '../../dist/layout/index.js';
 
 function testCommandInput(options) {
   return commandInput({
-    onAction: () => ignoreMessage(),
+    onTransition: () => ignoreMessage(),
     ...options
   });
 }
@@ -26,8 +26,8 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
     input: { text: '', cursor: 0 },
     history: ['build', 'test'],
     suggestions: [
-      { value: 'test --watch', label: 'test --watch' },
-      { value: 'test --coverage', label: 'test --coverage' }
+      { id: 'test-watch', value: 'test --watch', label: 'test --watch' },
+      { id: 'test-coverage', value: 'test --coverage', label: 'test --coverage' }
     ]
   };
 
@@ -44,11 +44,11 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
   assert.equal(earlier.historyIndex, 0);
 
   const selected = commandInputReducer(earlier, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal(selected.selectedSuggestionIndex, 0);
+  assert.equal(selected.activeSuggestionId, 'test-watch');
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'test --watch', cursor: 12 });
-  assert.equal('selectedSuggestionIndex' in accepted, false);
+  assert.equal('activeSuggestionId' in accepted, false);
 });
 
 test('commandInputReducer skips disabled suggestions for selection and acceptance', () => {
@@ -56,23 +56,23 @@ test('commandInputReducer skips disabled suggestions for selection and acceptanc
     input: { text: '', cursor: 0 },
     history: [],
     suggestions: [
-      { value: 'deploy', label: 'Deploy', disabled: true },
-      { value: 'status', label: 'Status' },
-      { value: 'destroy', label: 'Destroy', disabled: true }
+      { id: 'deploy', value: 'deploy', label: 'Deploy', disabled: true },
+      { id: 'status', value: 'status', label: 'Status' },
+      { id: 'destroy', value: 'destroy', label: 'Destroy', disabled: true }
     ]
   };
 
   const selected = commandInputReducer(initial, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal(selected.selectedSuggestionIndex, 1);
+  assert.equal(selected.activeSuggestionId, 'status');
 
-  const selectedByIndex = commandInputReducer(initial, { kind: 'selectSuggestion', suggestionIndex: 1 });
-  assert.equal(selectedByIndex.selectedSuggestionIndex, 1);
-  assert.equal(commandInputReducer(initial, { kind: 'selectSuggestion', suggestionIndex: 0 }), initial);
+  const selectedById = commandInputReducer(initial, { kind: 'setActiveSuggestion', id: 'status' });
+  assert.equal(selectedById.activeSuggestionId, 'status');
+  assert.equal(commandInputReducer(initial, { kind: 'setActiveSuggestion', id: 'deploy' }), initial);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'status', cursor: 6 });
 
-  const manuallyDisabled = commandInputReducer({ ...initial, selectedSuggestionIndex: 0 }, { kind: 'acceptSuggestion' });
+  const manuallyDisabled = commandInputReducer({ ...initial, activeSuggestionId: 'deploy' }, { kind: 'acceptSuggestion' });
   assert.deepEqual(manuallyDisabled.input, { text: '', cursor: 0 });
 });
 
@@ -81,24 +81,24 @@ test('commandInputReducer ignores accept when every suggestion is disabled', () 
     input: { text: 'd', cursor: 1 },
     history: [],
     suggestions: [
-      { value: 'deploy', label: 'Deploy', disabled: true }
+      { id: 'deploy', value: 'deploy', label: 'Deploy', disabled: true }
     ]
   };
 
   const selected = commandInputReducer(initial, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal('selectedSuggestionIndex' in selected, false);
+  assert.equal('activeSuggestionId' in selected, false);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'd', cursor: 1 });
 });
 
-test('commandInput projects controlled state and emits all semantics through onAction', async () => {
+test('commandInput projects controlled state and separates transitions from submission', async () => {
   const command = {
     input: { text: 'te', cursor: 2, selection: { startOffset: 0, endOffsetExclusive: 1 } },
     history: ['build'],
     historyIndex: 0,
-    suggestions: [{ value: 'test', label: 'test' }],
-    selectedSuggestionIndex: 0
+    suggestions: [{ id: 'test', value: 'test', label: 'test' }],
+    activeSuggestionId: 'test'
   };
   const app = defineTui({
     id: 'command-actions',
@@ -107,7 +107,8 @@ test('commandInput projects controlled state and emits all semantics through onA
     view: (state) => testCommandInput({
       id: 'command',
       presentation: commandInputPresentation(state.command),
-      onAction: (action) => ({ kind: 'action', action })
+      onTransition: (action) => ({ kind: 'action', action }),
+      onSubmit: ({ value }) => ({ kind: 'action', action: { kind: 'submit', value } })
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
@@ -125,8 +126,8 @@ test('commandInput projects controlled state and emits all semantics through onA
     value: 'te',
     cursor: 2,
     selection: { startOffset: 0, endOffsetExclusive: 1 },
-    suggestions: [{ value: 'test', label: 'test' }],
-    selectedSuggestionIndex: 0,
+    suggestions: [{ id: 'test', value: 'test', label: 'test' }],
+    activeSuggestionId: 'test',
     historyIndex: 0
   });
   assert.deepEqual(runtime.state().messages, [
@@ -145,9 +146,9 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
       id: 'command',
       prompt: '/',
       presentation: { value: 'op', cursor: 2, suggestions: [
-        { value: 'open', label: 'open', description: 'Open item' },
-        { value: 'options', label: 'options' }
-      ], selectedSuggestionIndex: 1 },
+        { id: 'open', value: 'open', label: 'open', description: 'Open item' },
+        { id: 'options', value: 'options', label: 'options' }
+      ], activeSuggestionId: 'options' },
       display: 'expanded'
     }),
     { columns: 30, rows: 4 }
@@ -167,7 +168,7 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
   assert.equal(frame.accessibility.root.role, 'combobox');
   assert.equal(frame.accessibility.root.value, 'op');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
-  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.selected, true);
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.current, true);
 });
 
 test('commandInput popup anchors suggestions without increasing the input height', () => {
@@ -178,14 +179,14 @@ test('commandInput popup anchors suggestions without increasing the input height
       value: 'exa',
       cursor: 3,
       suggestions: [
-        { value: 'https://example.com', label: 'Example', description: 'History' },
-        { value: 'https://example.org', label: 'Example.org', description: 'Bookmark' }
+        { id: 'example-com', value: 'https://example.com', label: 'Example', description: 'History' },
+        { id: 'example-org', value: 'https://example.org', label: 'Example.org', description: 'Bookmark' }
       ],
-      selectedSuggestionIndex: 0
+      activeSuggestionId: 'example-com'
     },
     display: 'popup',
     maxVisibleSuggestions: 2,
-    onAction: (action) => action
+    onTransition: (action) => action
   });
   const frame = renderElementFrame(column([command, button({
     id: 'content',
@@ -212,13 +213,13 @@ test('read-only command input rejects pointer suggestion activation', () => {
     presentation: {
       value: 'a',
       cursor: 1,
-      suggestions: [{ value: 'alpha', label: 'Alpha' }],
-      selectedSuggestionIndex: 0
+      suggestions: [{ id: 'alpha', value: 'alpha', label: 'Alpha' }],
+      activeSuggestionId: 'alpha'
     },
     display: 'popup',
     readOnly: true,
-    onAction: (action) => action
-  }), { columns: 24, rows: 4 }), 'read-only-command:suggestions:list:option:0');
+    onTransition: (action) => action
+  }), { columns: 24, rows: 4 }), 'read-only-command:suggestions:list:option:alpha');
   const event = {
     ...pointerEvent({ row: 2, column: 1, localRow: 1, localColumn: 1 }),
     kind: 'click',
@@ -234,7 +235,7 @@ test('commandInput fills tall bounds while preserving its one-row natural size',
     prompt: '› ',
     presentation: { value: 'open', cursor: 4, suggestions: [] },
     display: 'popup',
-    onAction: (action) => ({ action })
+    onTransition: (action) => ({ action })
   });
   const layout = layoutElement(column([element, button({
     id: 'remaining-content',
@@ -277,8 +278,8 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
         value: 'exa',
         cursor: 3,
         suggestions: [
-          { value: 'https://one.example', label: 'One' },
-          { value: 'https://two.example', label: 'Two' }
+          { id: 'one', value: 'https://one.example', label: 'One' },
+          { id: 'two', value: 'https://two.example', label: 'Two' }
         ]
       },
       submitted: null
@@ -290,7 +291,7 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
             presentation: {
               ...state.presentation,
               ...(message.action.kind === 'moveSuggestion'
-                ? { selectedSuggestionIndex: message.action.delta > 0 ? 0 : 1 }
+                ? { activeSuggestionId: message.action.delta > 0 ? 'one' : 'two' }
                 : {})
             }
           }
@@ -300,9 +301,8 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
       id: 'generated-command',
       presentation: state.presentation,
       display: 'popup',
-      onAction: (action) => action.kind === 'submit'
-        ? { kind: 'submit', value: action.value }
-        : { kind: 'action', action }
+      onTransition: (action) => ({ kind: 'action', action }),
+      onSubmit: ({ value }) => ({ kind: 'submit', value })
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
@@ -336,7 +336,7 @@ test('commandInput leaves Tab available for focus traversal without suggestions'
       testCommandInput({
         id: 'command',
         presentation: { value: '', cursor: 0, suggestions: [] },
-        onAction: (action) => ({ kind: 'command', action })
+        onTransition: (action) => ({ kind: 'command', action })
       }),
       button({ id: 'next', label: 'Next', onAction: () => ({ kind: 'button' }) })
     ])
@@ -363,8 +363,8 @@ test('commandInput renders completion preview validation footer match styles and
       id: 'launcher',
       prompt: '?',
       presentation: { value: 'a🙂', cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: [
-        { value: 'a🙂bc', label: 'a🙂bc', description: 'first match' }
-      ], selectedSuggestionIndex: 0 },
+        { id: 'emoji-match', value: 'a🙂bc', label: 'a🙂bc', description: 'first match' }
+      ], activeSuggestionId: 'emoji-match' },
       completionPreview: 'bc',
       validation: { message: 'Choose a value', level: 'warning' },
       footer: 'enter accepts',
@@ -400,8 +400,8 @@ test('commandInput stays compact by default even when suggestions are provided',
       id: 'compact-command',
       prompt: '/',
       presentation: { value: '', cursor: 0, suggestions: [
-        { value: 'open', label: 'open', description: 'Open item' }
-      ], selectedSuggestionIndex: 0 },
+        { id: 'open', value: 'open', label: 'open', description: 'Open item' }
+      ], activeSuggestionId: 'open' },
       placeholder: 'Type a command',
       footer: 'Enter run'
     }),
@@ -444,7 +444,7 @@ test('commandInput maps pointer positions through the cursor-relative input wind
       id: 'windowed-command',
       prompt: '>',
       presentation: { value: 'abcdef', cursor: 6, suggestions: [] },
-      onAction: (action) => ({ action })
+      onTransition: (action) => ({ action })
     }),
     { columns: 5, rows: 1 }
   );
@@ -527,8 +527,8 @@ test('commandInput exposes prompt value selection suggestion validation and foot
       id: 'cmd-source',
       prompt: ':',
       presentation: { value: 'open file', cursor: 0, selection: { startOffset: 5, endOffsetExclusive: 9 }, suggestions: [
-        { value: 'open-file', label: 'Open file', description: 'recent' }
-      ], selectedSuggestionIndex: 0 },
+        { id: 'open-file', value: 'open-file', label: 'Open file', description: 'recent' }
+      ], activeSuggestionId: 'open-file' },
       completionPreview: 's',
       validation: { level: 'warning', message: 'Needs target' },
       footer: 'Enter run',

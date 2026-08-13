@@ -11,7 +11,7 @@ import { assertUniqueRecursiveIds } from './identity.ts';
 interface MenuItemBase extends ItemBase {
   readonly leading?: InlineContent;
   readonly trailing?: InlineContent;
-  readonly shortcut?: string;
+  readonly shortcut?: import('../interaction/key-binding.ts').KeyboardBinding;
   readonly tone?: MenuActionTone;
 }
 
@@ -26,17 +26,47 @@ export interface MenuCheckItem extends MenuItemBase {
   readonly checked: boolean;
 }
 
+export interface MenuRadioItem extends MenuItemBase {
+  readonly kind: 'radio';
+  readonly groupId: string;
+  readonly checked: boolean;
+}
+
+export interface MenuSeparatorItem {
+  readonly kind: 'separator';
+  readonly id: string;
+}
+
+export interface MenuSectionItem {
+  readonly kind: 'section';
+  readonly id: string;
+  readonly label?: string;
+  readonly children: readonly [MenuItem, ...MenuItem[]];
+}
+
 export interface MenuSubmenuItem extends MenuItemBase {
   readonly kind: 'submenu';
   readonly children: readonly [MenuItem, ...MenuItem[]];
 }
 
-export type MenuItem = MenuActionItem | MenuCheckItem | MenuSubmenuItem;
+export type MenuItem =
+  | MenuActionItem
+  | MenuCheckItem
+  | MenuRadioItem
+  | MenuSubmenuItem
+  | MenuSeparatorItem
+  | MenuSectionItem;
 
 export type MenuPresentationItem =
-  | Exclude<MenuItem, { readonly kind: 'submenu' }>
-  | Omit<Extract<MenuItem, { readonly kind: 'submenu' }>, 'children'> & {
+  | MenuActionItem
+  | MenuCheckItem
+  | MenuRadioItem
+  | MenuSeparatorItem
+  | Omit<MenuSubmenuItem, 'children'> & {
       readonly expanded?: boolean;
+      readonly children: readonly MenuPresentationItem[];
+    }
+  | Omit<MenuSectionItem, 'children'> & {
       readonly children: readonly MenuPresentationItem[];
     };
 
@@ -54,17 +84,20 @@ export type ContextMenuPresentation =
   | { readonly kind: 'closed' }
   | { readonly kind: 'open'; readonly anchor: AnchoredSurfaceAnchor; readonly menu: MenuPresentation };
 
-export type DropdownMenuPresentation =
+export type MenuTriggerPresentation =
   | { readonly kind: 'closed'; readonly active?: string }
   | { readonly kind: 'open'; readonly active?: string; readonly menu: MenuPresentation };
 
 type MenuItemStructure =
   | MenuActionItem
   | MenuCheckItem
+  | MenuRadioItem
+  | MenuSeparatorItem
+  | Omit<MenuSectionItem, 'children'> & { readonly children: readonly MenuItemStructure[] }
   | Omit<MenuSubmenuItem, 'children'> & { readonly children: readonly MenuItemStructure[] };
 
 export function menuItemChildren(item: MenuItem): readonly MenuItem[] {
-  return item.kind === 'submenu' ? item.children : [];
+  return item.kind === 'submenu' || item.kind === 'section' ? item.children : [];
 }
 
 export function assertValidMenuItems(items: readonly MenuItemStructure[]): void {
@@ -75,6 +108,18 @@ export function assertValidMenuItems(items: readonly MenuItemStructure[]): void 
         case 'check':
           if (typeof item.checked !== 'boolean') throw new TypeError(`menu check item ${item.id} requires boolean checked state.`);
           break;
+        case 'radio':
+          if (typeof item.checked !== 'boolean' || item.groupId.trim() === '') {
+            throw new TypeError(`menu radio item ${item.id} requires checked state and groupId.`);
+          }
+          break;
+        case 'separator': break;
+        case 'section':
+          if (!Array.isArray(item.children) || item.children.length === 0) {
+            throw new TypeError(`menu section ${item.id} requires at least one child.`);
+          }
+          validate(item.children);
+          break;
         case 'submenu':
           if (!Array.isArray(item.children) || item.children.length === 0) {
             throw new TypeError(`menu submenu item ${item.id} requires at least one child.`);
@@ -82,14 +127,14 @@ export function assertValidMenuItems(items: readonly MenuItemStructure[]): void 
           validate(item.children);
           break;
         default:
-          throw new TypeError('menu items require an action, check, or submenu kind.');
+          throw new TypeError('menu item kind is invalid.');
       }
     }
   };
   validate(items);
   assertUniqueRecursiveIds(items, (item) => ({
     id: item.id,
-    children: item.kind === 'submenu' ? item.children : []
+    children: item.kind === 'submenu' || item.kind === 'section' ? item.children : []
   }), 'menu');
 }
 
@@ -97,37 +142,43 @@ export type DividerOrientation = 'horizontal' | 'vertical';
 export type DividerLineKind = 'single' | 'double' | 'heavy' | 'dashed' | 'dotted' | 'ascii' | 'empty';
 export type TooltipTone = 'default' | 'info' | 'success' | 'warning' | 'error';
 
-export type MenuAction =
-  | { readonly kind: 'focus'; readonly id: string }
+export type MenuTransition =
+  | { readonly kind: 'setActive'; readonly id: string }
   | { readonly kind: 'move'; readonly delta: number }
   | { readonly kind: 'first' }
   | { readonly kind: 'last' }
   | { readonly kind: 'enter' }
   | { readonly kind: 'back' }
-  | { readonly kind: 'activate'; readonly id: string }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
 
-export type MenuBarAction =
-  | { readonly kind: 'focusHeading'; readonly id: string }
+export interface MenuActivateEvent {
+  readonly kind: 'activate';
+  readonly id: string;
+}
+
+export type MenuBarTransition =
+  | { readonly kind: 'setActiveHeading'; readonly id: string }
   | { readonly kind: 'moveHeading'; readonly delta: number }
   | { readonly kind: 'firstHeading' }
   | { readonly kind: 'lastHeading' }
   | { readonly kind: 'open'; readonly id?: string }
   | { readonly kind: 'close'; readonly reason: AnchoredSurfaceDismissReason }
   | { readonly kind: 'activateHeading'; readonly id: string }
-  | { readonly kind: 'menu'; readonly action: MenuAction };
+  | { readonly kind: 'menu'; readonly transition: MenuTransition };
 
-export type ContextMenuAction =
+export type ContextMenuTransition =
   | { readonly kind: 'open'; readonly anchor: AnchoredSurfaceAnchor }
   | { readonly kind: 'dismiss'; readonly reason: AnchoredSurfaceDismissReason }
-  | { readonly kind: 'menu'; readonly action: MenuAction };
+  | { readonly kind: 'menu'; readonly transition: MenuTransition };
 
-export type DropdownMenuAction =
+export type MenuTriggerTransition =
   | { readonly kind: 'open' }
   | { readonly kind: 'toggle' }
   | { readonly kind: 'dismiss'; readonly reason: AnchoredSurfaceDismissReason }
-  | { readonly kind: 'menu'; readonly action: MenuAction };
+  | { readonly kind: 'menu'; readonly transition: MenuTransition };
 
-export type TooltipPresentation =
-  | { readonly kind: 'hidden' }
-  | { readonly kind: 'visible'; readonly anchor: AnchoredSurfaceAnchor };
+export interface TooltipTransition {
+  readonly kind: 'setOpen';
+  readonly open: boolean;
+  readonly reason: 'pointer' | 'focus' | 'escape' | 'programmatic';
+}

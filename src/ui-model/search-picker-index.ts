@@ -1,5 +1,8 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import { registerImmutableIdentity } from '../immutable-identity.ts';
 import type { SearchEntry } from './contracts.ts';
+import { normalizeCollectionQuery, queryNormalizedCandidates } from './query.ts';
+import type { CollectionQuery, QueryMatch } from './query.ts';
 
 const searchPickerIndexBrand: unique symbol = Symbol('terminal-ui.search-picker-index');
 const queryCacheLimit = 32;
@@ -13,13 +16,14 @@ export interface SearchPickerIndex<TValue = string> {
 export interface SearchPickerQueryResult<TValue = string> {
   readonly kind: 'search-picker-query';
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
-  readonly query: string;
+  readonly query: Required<CollectionQuery>;
   readonly entries: readonly SearchEntry<TValue>[];
+  readonly matches: readonly QueryMatch[];
 }
 
 interface SearchPickerIndexData<TValue> {
   readonly entries: readonly SearchEntry<TValue>[];
-  readonly searchable: readonly (readonly string[])[];
+  readonly candidates: readonly import('./query.ts').QueryCandidate[];
   readonly queryResults: Map<string, SearchPickerQueryResult<TValue>>;
   queryEvaluations: number;
   candidateEvaluations: number;
@@ -48,20 +52,24 @@ export function prepareSearchPickerIndex<TValue>(entries: readonly SearchEntry<T
       ...(entry.keywords === undefined ? {} : { keywords: Object.freeze(entry.keywords.map(clean)) })
     });
   }));
-  const index = Object.freeze<SearchPickerIndex<TValue>>({
+  const index = registerImmutableIdentity(Object.freeze<SearchPickerIndex<TValue>>({
     [searchPickerIndexBrand]: undefined as TValue,
     kind: 'search-picker-index',
     size: normalized.length
-  });
-  const searchable = Object.freeze(normalized.map((entry) => Object.freeze([
-    entry.label,
-    entry.id,
-    entry.description,
-    ...(entry.keywords ?? [])
-  ].filter((value): value is string => value !== undefined).map((value) => value.toLocaleLowerCase()))));
+  }));
+  const candidates = Object.freeze(normalized.map((entry) => Object.freeze({
+    id: entry.id,
+    primary: entry.label,
+    secondary: Object.freeze([
+      entry.id,
+      entry.description,
+      ...(entry.keywords ?? []),
+    ].filter((value): value is string => value !== undefined)),
+    ...(entry.group === undefined ? {} : { group: entry.group }),
+  })));
   indexData.set(index, {
     entries: normalized,
-    searchable,
+    candidates,
     queryResults: new Map(),
     queryEvaluations: 0,
     candidateEvaluations: 0
@@ -72,36 +80,35 @@ export function prepareSearchPickerIndex<TValue>(entries: readonly SearchEntry<T
 
 export function querySearchPickerIndex<TValue>(
   index: SearchPickerIndex<TValue>,
-  query = ''
+  query: CollectionQuery = { text: '', mode: 'fuzzy' },
 ): SearchPickerQueryResult<TValue> {
   const data = dataFor(index);
-  const normalizedQuery = clean(query).trim().toLocaleLowerCase();
-  const cached = data.queryResults.get(normalizedQuery);
+  const normalizedQuery = normalizeCollectionQuery(query);
+  const cacheKey = `${normalizedQuery.mode}:${normalizedQuery.caseSensitive ? '1' : '0'}:${normalizedQuery.text}`;
+  const cached = data.queryResults.get(cacheKey);
   if (cached !== undefined) {
-    data.queryResults.delete(normalizedQuery);
-    data.queryResults.set(normalizedQuery, cached);
+    data.queryResults.delete(cacheKey);
+    data.queryResults.set(cacheKey, cached);
     return cached;
   }
   data.queryEvaluations += 1;
-  data.candidateEvaluations += normalizedQuery.length === 0 ? 0 : data.entries.length;
-  const entries = normalizedQuery.length === 0
+  data.candidateEvaluations += normalizedQuery.text.length === 0 ? 0 : data.entries.length;
+  const matches = queryNormalizedCandidates(data.candidates, normalizedQuery);
+  const entriesById = new Map(data.entries.map((entry) => [entry.id, entry] as const));
+  const entries = normalizedQuery.text.length === 0
     ? data.entries
-    : Object.freeze(data.entries
-        .map((entry, sourceIndex) => ({
-          entry,
-          sourceIndex,
-          score: entryScore(data.searchable[sourceIndex] ?? [], normalizedQuery)
-        }))
-        .filter((result): result is typeof result & { readonly score: number } => result.score !== undefined)
-        .sort((left, right) => left.score - right.score || left.sourceIndex - right.sourceIndex)
-        .map((result) => result.entry));
+    : Object.freeze(matches.flatMap((match) => {
+        const entry = entriesById.get(match.id);
+        return entry === undefined ? [] : [entry];
+      }));
   const result = Object.freeze({
     kind: 'search-picker-query' as const,
     searchPickerIndex: index,
     query: normalizedQuery,
-    entries
+    entries,
+    matches,
   });
-  data.queryResults.set(normalizedQuery, result);
+  data.queryResults.set(cacheKey, result);
   if (data.queryResults.size > queryCacheLimit) {
     const oldest = data.queryResults.keys().next().value;
     if (oldest !== undefined) data.queryResults.delete(oldest);
@@ -134,31 +141,6 @@ function dataFor<TValue>(index: SearchPickerIndex<TValue>): SearchPickerIndexDat
   const data = indexData.get(index) as SearchPickerIndexData<TValue> | undefined;
   if (data === undefined) throw new TypeError('Search picker indexes must be created with prepareSearchPickerIndex().');
   return data;
-}
-
-function entryScore(haystacks: readonly string[], query: string): number | undefined {
-  let best: number | undefined;
-  for (const haystack of haystacks) {
-    const score = textScore(haystack, query);
-    if (score !== undefined && (best === undefined || score < best)) best = score;
-  }
-  return best;
-}
-
-function textScore(text: string, query: string): number | undefined {
-  if (text === query) return 0;
-  if (text.startsWith(query)) return 1;
-  const includes = text.indexOf(query);
-  if (includes !== -1) return 10 + includes;
-  let offset = 0;
-  let score = 100;
-  for (const character of query) {
-    const found = text.indexOf(character, offset);
-    if (found === -1) return undefined;
-    score += found - offset;
-    offset = found + 1;
-  }
-  return score;
 }
 
 function clean(value: string): string {

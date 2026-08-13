@@ -27,7 +27,10 @@ import { prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior
 function workspaceView(state) {
   const mainPanel = tabs({
     id: 'main-tabs',
-    selected: state.searchPicker ? 'actions' : 'log',
+    presentation: {
+      activeId: state.searchPicker ? 'actions' : 'log',
+      selectedId: state.searchPicker ? 'actions' : 'log'
+    },
     tabs: [
       {
         id: 'log',
@@ -43,17 +46,19 @@ function workspaceView(state) {
         panel: searchPicker({
           id: 'searchPicker',
           title: 'Actions',
-          query: state.query,
+          presentation: {
+            query: { text: state.query, mode: 'fuzzy' },
+            activeId: 'open'
+          },
           searchPickerIndex: prepareSearchPickerIndex([
             { id: 'open', label: 'Open', value: 'open' },
             { id: 'quit', label: 'Quit', value: 'quit' }
           ]),
-          selectedId: 'open',
-          onAction: () => ({ type: 'component' })
+          onTransition: () => ({ type: 'component' })
         })
       }
     ],
-    onAction: () => ({ type: 'component' })
+    onTransition: () => ({ type: 'component' })
   });
 
   return grid([
@@ -74,7 +79,7 @@ function workspaceView(state) {
       id: 'command',
       prompt: '/',
       presentation: { value: state.query, cursor: 0, suggestions: [] },
-      onAction: () => ({ type: 'component' })
+      onTransition: () => ({ type: 'component' })
     })
   ], {
     id: 'workspace',

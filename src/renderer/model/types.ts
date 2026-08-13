@@ -68,6 +68,6 @@ export interface RenderNodeInputMap<TMessage> {
 export interface RuntimeComponentDefinition<TMessage = unknown> {
   readonly name: string;
   readonly sensitiveInput: boolean;
-  readonly inspection: import('../../element/inspection.ts').ComponentCapabilityInspection;
+  readonly inspection: import('../../element/inspection.ts').ComponentDefinitionInspection;
   readonly renderer: RenderNodeRenderer<TMessage, 'component'>;
 }

@@ -53,7 +53,7 @@ interface SplitPaneOptionsBase extends ElementOptions<SplitPaneStylePart>, Layou
 
 export interface PassiveSplitPaneOptions extends SplitPaneOptionsBase {
   readonly sizes?: readonly LayoutSize[];
-  readonly selectedDivider?: never;
+  readonly activeDivider?: never;
   readonly resizeStep?: never;
   readonly onAction?: never;
   readonly keys?: never;
@@ -62,7 +62,7 @@ export interface PassiveSplitPaneOptions extends SplitPaneOptionsBase {
 export interface ResizableSplitPaneOptions<TMessage> extends SplitPaneOptionsBase {
   readonly id: string;
   readonly sizes: readonly { readonly kind: 'percent'; readonly value: number }[];
-  readonly selectedDivider?: number;
+  readonly activeDivider?: number;
   readonly resizeStep?: number;
   readonly onAction: (action: SplitPaneAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;

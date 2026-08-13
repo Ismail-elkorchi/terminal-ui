@@ -1,42 +1,71 @@
-import type { TabAction } from '../ui-model/tabs.ts';
-import { cyclicIndex } from '../foundation/cyclic-index.ts';
+import { adjacentItemId } from '../interaction/navigation.ts';
+import type { NavigationPolicy } from '../interaction/navigation.ts';
+import type { TabsActivation, TabsPresentation, TabsTransition } from '../ui-model/tabs.ts';
 
 export interface TabBehaviorItem {
   readonly id: string;
   readonly disabled?: boolean;
 }
 
-export interface TabsState {
-  readonly selected?: string;
+export interface TabsReducerOptions {
+  readonly tabs: readonly TabBehaviorItem[];
+  readonly activation: TabsActivation;
+  readonly navigation?: NavigationPolicy;
 }
 
 export function tabsReducer(
-  state: TabsState,
-  action: TabAction,
-  tabs: readonly TabBehaviorItem[]
-): TabsState {
-  const enabled = tabs.filter((tab) => tab.disabled !== true);
+  state: TabsPresentation,
+  action: TabsTransition,
+  options: TabsReducerOptions,
+): TabsPresentation {
+  const enabled = options.tabs.filter((tab) => tab.disabled !== true).map((tab) => tab.id);
+  const activeId = validId(enabled, state.activeId);
+  const selectedId = validId(enabled, state.selectedId);
   switch (action.kind) {
+    case 'setActive':
+      return enabled.includes(action.id)
+        ? withActive(state, action.id, options.activation)
+        : normalized(state, activeId, selectedId);
+    case 'moveActive':
+      return withActive(
+        state,
+        adjacentItemId(enabled, activeId ?? selectedId, action.delta, options.navigation),
+        options.activation,
+      );
+    case 'firstActive':
+      return withActive(state, enabled[0], options.activation);
+    case 'lastActive':
+      return withActive(state, enabled.at(-1), options.activation);
     case 'select':
-      return enabled.some((tab) => tab.id === action.id) ? { selected: action.id } : state;
-    case 'close':
-      return state;
-    case 'move':
-      return adjacentTab(state, enabled, action.delta);
-    case 'first':
-      return enabled[0] === undefined ? state : { selected: enabled[0].id };
-    case 'last': {
-      const tab = enabled.at(-1);
-      return tab === undefined ? state : { selected: tab.id };
+      return enabled.includes(action.id) ? { activeId: action.id, selectedId: action.id } : state;
+    case 'selectActive': {
+      const selected = activeId ?? selectedId;
+      return selected === undefined ? state : { activeId: selected, selectedId: selected };
     }
-    case 'pointer':
-      return state;
   }
 }
 
-function adjacentTab(state: TabsState, tabs: readonly TabBehaviorItem[], delta: number): TabsState {
-  if (tabs.length === 0) return state;
-  const current = Math.max(0, tabs.findIndex((tab) => tab.id === state.selected));
-  const tab = tabs[cyclicIndex(current + delta, tabs.length)];
-  return tab === undefined ? state : { selected: tab.id };
+function withActive(
+  state: TabsPresentation,
+  activeId: string | undefined,
+  activation: TabsActivation,
+): TabsPresentation {
+  const selectedId = activation === 'automatic' ? activeId : state.selectedId;
+  return normalized(state, activeId, selectedId);
+}
+
+function normalized(
+  state: TabsPresentation,
+  activeId: string | undefined,
+  selectedId: string | undefined,
+): TabsPresentation {
+  if (state.activeId === activeId && state.selectedId === selectedId) return state;
+  return {
+    ...(activeId === undefined ? {} : { activeId }),
+    ...(selectedId === undefined ? {} : { selectedId }),
+  };
+}
+
+function validId(ids: readonly string[], id: string | undefined): string | undefined {
+  return id !== undefined && ids.includes(id) ? id : undefined;
 }

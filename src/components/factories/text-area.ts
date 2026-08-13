@@ -1,4 +1,5 @@
 import {
+  assertComponentOptions,
   componentScrollbarHitTargets,
   defineComponent,
   ignoreMessage,
@@ -20,6 +21,8 @@ import type { Element } from '../../element/index.ts';
 import type { Measurement } from '../../renderer/index.ts';
 import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
+import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
+import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import {
@@ -80,23 +83,42 @@ interface PreparedTextAreaHighlight extends TextAreaHighlight {
   readonly label: string;
 }
 
+type TextAreaComponentAction = TextAreaAction | {
+  readonly kind: 'pointerLifecycle';
+  readonly action: PointerInteractionAction;
+};
+
 type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
   options: TextAreaOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateTextArea = defineComponent<
-  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>,
+  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'>,
   TextAreaModel,
-  TextAreaAction,
+  TextAreaComponentAction,
   TextAreaStylePart,
   readonly ['disabled', 'readOnly'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/text-area',
+  optionFields: {
+    presentation: true,
+    placeholder: true,
+    highlights: true,
+    lineNumbers: true,
+    activeLine: true,
+    wrap: true,
+    required: true,
+    error: true,
+    scrollbar: true,
+    scrollPolicy: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'textbox',
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
   parts: [
@@ -136,7 +158,10 @@ const instantiateTextArea = defineComponent<
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   onPaste: ({ text, readOnly }) =>
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
+  },
   focusTargets(input) {
     const geometry = textAreaGeometry(input);
     const caret = textAreaCursorInLayout(geometry.layout, input.model.caret);
@@ -208,7 +233,7 @@ const instantiateTextArea = defineComponent<
           };
         },
       },
-      ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<TextAreaAction>({
+      ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<TextAreaComponentAction>({
         id: input.id ?? 'text-area',
         plan: geometry.scrollbar,
         ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
@@ -217,23 +242,24 @@ const instantiateTextArea = defineComponent<
     ];
   },
   accessibility(input) {
-    const { id, model, focused, disabled, readOnly } = input;
+    const { id, model, focused } = input;
     const value = textDocumentText(model.document);
     const geometry = textAreaGeometry(input);
     const scroll = geometry.scrollbar.scroll;
-    const visibleRows = Math.min(scroll.contentRows, scroll.viewportRows);
+    const scrollGeometry = geometry.scrollbar.geometry;
+    const visibleRows = Math.min(scrollGeometry.contentRows, scrollGeometry.viewportRows);
     const start = visibleRows === 0 ? 0 : scroll.offsetRow + 1;
     const end = visibleRows === 0
       ? 0
-      : Math.min(scroll.contentRows, scroll.offsetRow + visibleRows);
+      : Math.min(scrollGeometry.contentRows, scroll.offsetRow + visibleRows);
     const logicalLines = textDocumentLength(model.document) === 0
       ? 0
       : textDocumentLineCount(model.document);
     const description = `${String(logicalLines)} lines. Showing ${String(start)}-${
       String(end)
-    } of ${String(scroll.contentRows)} rows. Omitted before: ${
+    } of ${String(scrollGeometry.contentRows)} rows. Omitted before: ${
       String(scroll.offsetRow)
-    }. Omitted after: ${String(Math.max(0, scroll.contentRows - end))}. Horizontal offset: ${
+    }. Omitted after: ${String(Math.max(0, scrollGeometry.contentRows - end))}. Horizontal offset: ${
       String(scroll.offsetColumn)
     }.${model.selection === undefined ? '' : ' Selection active.'}${
       model.required ? ' Required.' : ''
@@ -244,22 +270,46 @@ const instantiateTextArea = defineComponent<
       label: id,
       value,
       description,
+      required: model.required,
+      invalid: model.error !== '',
+      ...(model.error === '' ? {} : {
+        errorMessage: `${id}:error`,
+        children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
+      }),
       ...(focused ? { focused: true } : {}),
-      ...(disabled ? { disabled: true } : {}),
-      ...(readOnly ? { readOnly: true } : {}),
     };
   },
 });
 
 export const textArea: TextAreaFactory = (options) => {
+  assertComponentOptions(options, 'textArea', {
+    fields: [
+      'id', 'presentation', 'highlights', 'placeholder', 'lineNumbers', 'activeLine',
+      'wrap', 'required', 'error', 'readOnly', 'pointerState', 'scrollbar',
+      'scrollPolicy', 'disabled', 'meta', 'onAction', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true
+      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
+      : { onAction: 'required', onPointerAction: 'optional' },
+    ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'readOnly'] } : {}),
+  });
   if (options.disabled === true) return instantiateTextArea(options);
   if (!isScrollableTextArea(options)) {
+    const { onAction, onPointerAction, ...componentOptions } = options;
     return instantiateTextArea({
-      ...options,
-      onAction: (action) => action.kind === 'scroll' ? ignoreMessage() : options.onAction(action),
+      ...componentOptions,
+      onAction: (action) => action.kind === 'pointerLifecycle'
+        ? onPointerAction?.(action.action) ?? ignoreMessage()
+        : action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  return instantiateTextArea(options);
+  const { onAction, onPointerAction, ...componentOptions } = options;
+  return instantiateTextArea({
+    ...componentOptions,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointerAction?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
 };
 
 function isScrollableTextArea<TMessage extends ComponentMessage>(
@@ -273,7 +323,7 @@ function hasScrollState(value: unknown): boolean {
 }
 
 function prepareTextArea(
-  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>>,
+  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'>>,
 ): TextAreaModel {
   if (!isNonArrayObject(value.presentation)) {
     throw new TypeError('textArea presentation must be an object.');
@@ -333,9 +383,7 @@ function prepareTextArea(
   const wrap = prepareWrap(value.wrap);
   const required = booleanOption(value.required, 'textArea required');
   const revealCaret = booleanOption(presentation.revealCaret, 'textArea revealCaret');
-  const pointerState = value.pointerState === undefined
-    ? undefined
-    : Object.freeze({ ...value.pointerState });
+  const pointerState = preparePointerInteractionState(value.pointerState, 'textArea pointerState');
   return {
     document,
     caret: normalizedCaret,
@@ -389,7 +437,7 @@ function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometr
     input.model.wrap,
     input.widthProfile,
   );
-  let scrollbar = textAreaScrollbar(input, layout, frameWidth, prefixWidth);
+  let scrollbar = textAreaScrollbar(input, layout, prefixWidth);
   if (scrollbar.contentBounds.width !== frameWidth) {
     frameWidth = scrollbar.contentBounds.width;
     layout = layoutTextAreaDocument(
@@ -398,7 +446,7 @@ function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometr
       input.model.wrap,
       input.widthProfile,
     );
-    scrollbar = textAreaScrollbar(input, layout, frameWidth, prefixWidth);
+    scrollbar = textAreaScrollbar(input, layout, prefixWidth);
   }
   return {
     document: display.document,
@@ -582,7 +630,6 @@ function textAreaDisplayDocument(model: TextAreaModel): {
 function textAreaScrollbar(
   input: ComponentInput<TextAreaModel>,
   layout: TextAreaDocumentLayout,
-  viewportColumns: number,
   prefixWidth: number,
 ) {
   const raw = input.model.scroll;
@@ -596,13 +643,10 @@ function textAreaScrollbar(
     scroll: {
       offsetRow: raw?.offsetRow ?? 0,
       offsetColumn: raw?.offsetColumn ?? 0,
-      contentRows: layout.contentRows,
-      contentColumns: layout.contentColumns,
-      viewportRows: input.bounds.height,
-      viewportColumns,
       followTail: raw?.followTail ?? false,
-      ...(raw?.selectedIndex === undefined ? {} : { selectedIndex: raw.selectedIndex }),
     },
+    contentRows: layout.contentRows,
+    contentColumns: layout.contentColumns,
     ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
     defaultAxis: 'both',
   });

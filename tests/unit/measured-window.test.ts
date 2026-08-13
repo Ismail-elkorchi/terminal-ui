@@ -26,8 +26,8 @@ void test('measuredWindow projects terminal rows rather than item counts', () =>
 });
 
 void test('measuredWindow reveals a selected item and anchors oversized items at their start', () => {
-  const fitting = measuredWindow({ items, viewportRows: 5, selectedId: 'three' });
-  const oversized = measuredWindow({ items, viewportRows: 3, selectedId: 'two' });
+  const fitting = measuredWindow({ items, viewportRows: 5, activeId: 'three' });
+  const oversized = measuredWindow({ items, viewportRows: 3, activeId: 'two' });
 
   assert.equal(fitting.offsetRow, 2);
   assert.equal(fitting.entries.at(-1)?.item.id, 'three');

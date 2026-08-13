@@ -34,6 +34,7 @@ test('dialog copies caller-owned focus paths before freezing its model', () => {
   dialog({
     slots: { content: text({ content: 'inside', id: 'inside' }) },
     id: 'owned-focus-path',
+    accessibleName: 'Owned focus path',
     modal: true,
     focusPolicy: {
       initialFocus: { kind: 'path', path },
@@ -142,7 +143,7 @@ test('dialog reserves a structurally separated action area without color', () =>
   assert.deepEqual(content?.children[2]?.bounds, { row: 6, column: 7, width: 17, height: 1 });
 
   const frame = renderElementFrame(element, { columns: 30, rows: 9 }, { theme: noColorTheme });
-  const separatorCells = frame.cells.filter((cell) => cell.source?.elementKind === 'terminal-ui/components/divider' && cell.source.partName === 'line');
+  const separatorCells = frame.cells.filter((cell) => cell.source?.elementId === 'dialog:action-separator' && cell.source.partName === 'line');
 
   assert.equal(separatorCells.length, 17);
   assert.deepEqual([...new Set(separatorCells.map((cell) => cell.text))], ['-']);

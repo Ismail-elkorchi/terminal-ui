@@ -1,156 +1,113 @@
-import type {
-  TableAction,
-  TableControlAction,
-  TablePresentation,
-  TableScrollablePresentation,
-  TableSortState
-} from '../ui-model/table.ts';
+import type { NavigationPolicy } from '../interaction/navigation.ts';
+import { defaultNavigationPolicy, navigateIndex } from '../interaction/navigation.ts';
+import type { SelectionPolicy } from '../interaction/collection.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
-import type { ScrollState } from '../interaction/scroll.ts';
-import type { TableCollection, TableCollectionRecord } from '../ui-model/table.ts';
+import type {
+  DataGridCell,
+  DataGridInteraction,
+  DataGridPresentation,
+  DataGridTransition,
+  TableCollection,
+  TableCollectionRecord,
+  TableSortState,
+} from '../ui-model/table.ts';
 import {
   collectionIds,
   collectionRecordById,
   completeCollection,
-  windowedCollection
+  windowedCollection,
 } from '../ui-model/collection.ts';
 import type { CollectionWindow } from '../ui-model/collection.ts';
-import { cyclicIndex } from '../foundation/cyclic-index.ts';
 
-interface TableStateBase {
-  readonly selectedRowId?: string;
-  readonly selectedColumnIndex?: number;
-  readonly sort?: TableSortState;
-  readonly columnWidths?: Readonly<Record<string, number>>;
-}
-
-export interface PassiveTableState extends TableStateBase {
-  readonly scroll?: never;
-}
-
-export interface ScrollableTableState extends TableStateBase {
-  readonly scroll: ScrollState;
-}
-
-export type TableState = PassiveTableState | ScrollableTableState;
-
-interface TableReducerOptionsBase {
-  readonly columnCount?: number;
+export interface DataGridReducerOptions<TRow> {
+  readonly collection: TableCollection<TRow>;
+  readonly columnIds: readonly string[];
+  readonly selection: SelectionPolicy;
+  readonly navigation?: NavigationPolicy;
   readonly minColumnWidth?: number;
+  readonly pageSize?: number;
 }
-
-export type TableReducerOptions<TRow> = TableReducerOptionsBase & (
-  | {
-      readonly rows: readonly TRow[];
-      readonly getRowId: (row: TRow, index: number) => string;
-      readonly collection?: never;
-    }
-  | {
-      readonly collection: TableCollection<TRow>;
-      readonly rows?: never;
-      readonly getRowId?: never;
-    }
-);
 
 export type TableCellValueGetter<TRow> = (row: TRow, columnId: string) => unknown;
 
-export function tableReducer<TRow>(
-  state: ScrollableTableState,
-  action: TableAction,
-  options: TableReducerOptions<TRow>
-): ScrollableTableState;
-export function tableReducer<TRow>(
-  state: PassiveTableState,
-  action: TableControlAction,
-  options: TableReducerOptions<TRow>
-): PassiveTableState;
-export function tableReducer<TRow>(
-  state: TableState,
-  action: TableAction,
-  options: TableReducerOptions<TRow>
-): TableState {
-  const collection = collectionForTableOptions(options);
-  const rowIds = collectionIds(collection);
-  switch (action.kind) {
-    case 'selectRow':
-      return collectionRecordById(collection, action.rowId) === undefined
-        ? state
-        : selectRow(state, action.rowId, collection);
-    case 'selectCell':
-      return collectionRecordById(collection, action.rowId) !== undefined
-        ? selectCell(state, action.rowId, action.columnIndex, collection, options.columnCount)
+export function dataGridReducer<TRow>(
+  state: DataGridPresentation & { readonly scroll: NonNullable<DataGridPresentation['scroll']> },
+  transition: DataGridTransition,
+  options: DataGridReducerOptions<TRow>,
+): DataGridPresentation & { readonly scroll: NonNullable<DataGridPresentation['scroll']> };
+export function dataGridReducer<TRow>(
+  state: Omit<DataGridPresentation, 'scroll'> & { readonly scroll?: never },
+  transition: Exclude<DataGridTransition, { readonly kind: 'scroll' }>,
+  options: DataGridReducerOptions<TRow>,
+): Omit<DataGridPresentation, 'scroll'> & { readonly scroll?: never };
+export function dataGridReducer<TRow>(
+  state: DataGridPresentation,
+  transition: DataGridTransition,
+  options: DataGridReducerOptions<TRow>,
+): DataGridPresentation {
+  state = normalizeGridSelectionMode(state, options.selection.mode);
+  const rowIds = collectionIds(options.collection);
+  const navigation = options.navigation ?? defaultNavigationPolicy;
+  switch (transition.kind) {
+    case 'setActiveRow':
+      return rowIds.includes(transition.rowId)
+        ? withActiveRow(state, transition.rowId, options)
+        : state;
+    case 'setActiveCell':
+      return validCell(transition.cell, rowIds, options.columnIds)
+        ? withActiveCell(state, transition.cell, options)
         : state;
     case 'moveRow':
-      return selectRowAtOffset(state, action.delta, rowIds, collection);
+      return moveRow(state, transition.delta, rowIds, options, navigation);
     case 'moveColumn':
-      return selectCell(
-        state,
-        selectedRowId(state, collection),
-        (state.selectedColumnIndex ?? 0) + action.delta,
-        collection,
-        options.columnCount
-      );
+      return moveColumn(state, transition.delta, rowIds, options, navigation);
     case 'page':
-      return selectRowAtOffset(
+      return moveRow(
         state,
-        action.delta * Math.max(1, state.scroll?.viewportRows ?? 1),
+        transition.delta * Math.max(1, options.pageSize ?? 1),
         rowIds,
-        collection
+        options,
+        navigation,
       );
     case 'firstRow':
-      return selectRow(state, rowIds[0], collection);
+      return focusAtRowIndex(state, 0, rowIds, options);
     case 'lastRow':
-      return selectRow(state, rowIds.at(-1), collection);
-    case 'activate':
-      return state;
+      return focusAtRowIndex(state, rowIds.length - 1, rowIds, options);
+    case 'commit':
+      return commitGridSelection(state, options, transition.extend === true, transition.toggle === true);
     case 'sortBy':
-      return {
-        ...state,
-        sort: nextSort(state.sort, action.columnId)
-      };
+      return { ...state, sort: nextSort(state.sort, transition.columnId) };
     case 'resizeColumnBy':
       return {
         ...state,
-        columnWidths: resizedColumns(state.columnWidths, action.columnId, action.delta, options.minColumnWidth)
+        columnWidths: resizedColumns(
+          state.columnWidths,
+          transition.columnId,
+          transition.delta,
+          options.minColumnWidth,
+        ),
       };
     case 'setColumnWidth':
       return {
         ...state,
-        columnWidths: setColumnWidth(state.columnWidths, action.columnId, action.width, options.minColumnWidth)
+        columnWidths: setColumnWidth(
+          state.columnWidths,
+          transition.columnId,
+          transition.width,
+          options.minColumnWidth,
+        ),
       };
     case 'scroll':
       return state.scroll === undefined
         ? state
-        : {
-            ...state,
-            scroll: applyScrollEvent(state.scroll, action.event)
-          };
+        : { ...state, scroll: applyScrollEvent(state.scroll, transition.event) };
   }
-}
-
-export function tablePresentation(state: PassiveTableState): TablePresentation {
-  return tablePresentationBase(state);
-}
-
-export function tableScrollablePresentation(state: ScrollableTableState): TableScrollablePresentation {
-  return { ...tablePresentationBase(state), scroll: state.scroll };
-}
-
-function tablePresentationBase(state: TableStateBase): TablePresentation {
-  return {
-    ...(state.selectedRowId === undefined ? {} : { selectedRowId: state.selectedRowId }),
-    ...(state.selectedRowId === undefined || state.selectedColumnIndex === undefined
-      ? {}
-      : { selectedCell: { rowId: state.selectedRowId, columnIndex: state.selectedColumnIndex } }),
-    ...(state.sort === undefined ? {} : { sort: state.sort }),
-    ...(state.columnWidths === undefined ? {} : { columnWidths: state.columnWidths })
-  };
 }
 
 export function prepareTableCollection<TRow>(
   rows: readonly TRow[],
   getRowId: (row: TRow, index: number) => string,
-  window?: CollectionWindow
+  window?: CollectionWindow,
 ): TableCollection<TRow> {
   const startIndex = window?.startIndex ?? 0;
   const records = rows.map((row, offset): TableCollectionRecord<TRow> => {
@@ -162,85 +119,51 @@ export function prepareTableCollection<TRow>(
     : windowedCollection({ records, window });
 }
 
-function collectionForTableOptions<TRow>(options: TableReducerOptions<TRow>): TableCollection<TRow> {
-  return options.collection ?? prepareTableCollection(options.rows, options.getRowId);
-}
-
-function selectRow(
-  state: TableState,
-  selectedRowId: string | undefined,
-  collection: TableCollection<unknown>
-): TableState {
-  if (selectedRowId === undefined) return withoutRowSelection(state);
-  const selectedRow = collectionRecordById(collection, selectedRowId)?.itemIndex;
-  if (selectedRow === undefined) return state;
-  const scroll = state.scroll === undefined
-    ? undefined
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', itemIndex: selectedRow });
-  if (state.selectedRowId === selectedRowId && state.scroll === scroll) return state;
+function normalizeGridSelectionMode(
+  state: DataGridPresentation,
+  mode: DataGridInteraction['selectionMode'],
+): DataGridPresentation {
+  const interaction = state.interaction;
+  if (interaction.kind === 'row') {
+    const selectedRowIds = mode === 'none'
+      ? interaction.selectedRowIds.length === 0 ? interaction.selectedRowIds : []
+      : mode === 'single' && interaction.selectedRowIds.length > 1
+      ? interaction.selectedRowIds.slice(0, 1)
+      : interaction.selectedRowIds;
+    if (interaction.selectionMode === mode && selectedRowIds === interaction.selectedRowIds) return state;
+    const { selectionAnchorId, ...base } = interaction;
+    return {
+      ...state,
+      interaction: {
+        ...base,
+        selectionMode: mode,
+        selectedRowIds,
+        ...(mode === 'none' || selectionAnchorId === undefined ? {} : { selectionAnchorId }),
+      },
+    };
+  }
+  const selectedCells = mode === 'none'
+    ? interaction.selectedCells.length === 0 ? interaction.selectedCells : []
+    : mode === 'single' && interaction.selectedCells.length > 1
+    ? interaction.selectedCells.slice(0, 1)
+    : interaction.selectedCells;
+  if (interaction.selectionMode === mode && selectedCells === interaction.selectedCells) return state;
+  const { selectionAnchor, ...base } = interaction;
   return {
     ...state,
-    selectedRowId,
-    ...(scroll === undefined ? {} : { scroll })
-  };
-}
-
-function selectCell(
-  state: TableState,
-  selectedRowId: string | undefined,
-  column: number,
-  collection: TableCollection<unknown>,
-  columnCount: number | undefined
-): TableState {
-  if (selectedRowId === undefined) return withoutRowSelection(state);
-  const selectedRow = collectionRecordById(collection, selectedRowId)?.itemIndex;
-  if (selectedRow === undefined) return state;
-  const selectedColumnIndex = boundedIndex(column, columnCount);
-  const scroll = state.scroll === undefined
-    ? undefined
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', itemIndex: selectedRow });
-  if (state.selectedRowId === selectedRowId
-    && state.selectedColumnIndex === selectedColumnIndex
-    && state.scroll === scroll) return state;
-  return {
-    ...state,
-    selectedRowId,
-    selectedColumnIndex,
-    ...(scroll === undefined ? {} : { scroll })
-  };
-}
-
-function selectRowAtOffset(
-  state: TableState,
-  delta: number,
-  rowIds: readonly string[],
-  collection: TableCollection<unknown>
-): TableState {
-  if (rowIds.length === 0) return withoutRowSelection(state);
-  const current = rowIds.indexOf(state.selectedRowId ?? '');
-  if (current < 0) return selectRow(state, delta < 0 ? rowIds.at(-1) : rowIds[0], collection);
-  const index = cyclicIndex(current + delta, rowIds.length);
-  return selectRow(state, rowIds[index], collection);
-}
-
-function selectedRowId(state: TableState, collection: TableCollection<unknown>): string | undefined {
-  return state.selectedRowId !== undefined && collectionRecordById(collection, state.selectedRowId) !== undefined
-    ? state.selectedRowId
-    : collectionIds(collection)[0];
-}
-
-function withoutRowSelection(state: TableState): TableState {
-  return {
-    ...(state.sort === undefined ? {} : { sort: state.sort }),
-    ...(state.columnWidths === undefined ? {} : { columnWidths: state.columnWidths }),
-    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+    interaction: {
+      ...base,
+      selectionMode: mode,
+      selectedCells,
+      ...(mode === 'none' || selectionAnchor === undefined ? {} : { selectionAnchor }),
+    },
   };
 }
 
 export function sortTableRows<TRow>(
   rows: readonly TRow[],
   sort: TableSortState | undefined,
-  valueForColumn: TableCellValueGetter<TRow>
+  valueForColumn: TableCellValueGetter<TRow>,
 ): readonly TRow[] {
   if (sort === undefined) return rows;
   const direction = sort.direction === 'ascending' ? 1 : -1;
@@ -249,45 +172,224 @@ export function sortTableRows<TRow>(
   );
 }
 
+function moveRow<TRow>(
+  state: DataGridPresentation,
+  delta: number,
+  rowIds: readonly string[],
+  options: DataGridReducerOptions<TRow>,
+  navigation: NavigationPolicy,
+): DataGridPresentation {
+  if (rowIds.length === 0) return state;
+  const activeRowId = state.interaction.kind === 'row'
+    ? state.interaction.activeRowId
+    : state.interaction.activeCell?.rowId;
+  const current = Math.max(0, rowIds.indexOf(activeRowId ?? ''));
+  return focusAtRowIndex(state, navigateIndex(current, delta, rowIds.length, navigation), rowIds, options);
+}
+
+function moveColumn<TRow>(
+  state: DataGridPresentation,
+  delta: number,
+  rowIds: readonly string[],
+  options: DataGridReducerOptions<TRow>,
+  navigation: NavigationPolicy,
+): DataGridPresentation {
+  if (state.interaction.kind !== 'cell' || options.columnIds.length === 0 || rowIds.length === 0) return state;
+  const firstRowId = rowIds[0];
+  const firstColumnId = options.columnIds[0];
+  if (firstRowId === undefined || firstColumnId === undefined) return state;
+  const active = state.interaction.activeCell ?? {
+    rowId: firstRowId,
+    columnId: firstColumnId,
+  };
+  const current = Math.max(0, options.columnIds.indexOf(active.columnId));
+  const columnId = options.columnIds[navigateIndex(current, delta, options.columnIds.length, navigation)];
+  if (columnId === undefined) return state;
+  return withActiveCell(state, {
+    rowId: active.rowId,
+    columnId,
+  }, options);
+}
+
+function focusAtRowIndex<TRow>(
+  state: DataGridPresentation,
+  index: number,
+  rowIds: readonly string[],
+  options: DataGridReducerOptions<TRow>,
+): DataGridPresentation {
+  const rowId = rowIds[index];
+  if (rowId === undefined) return state;
+  if (state.interaction.kind === 'row') return withActiveRow(state, rowId, options);
+  const columnId = state.interaction.activeCell?.columnId ?? options.columnIds[0];
+  return columnId === undefined ? state : withActiveCell(state, { rowId, columnId }, options);
+}
+
+function withActiveRow<TRow>(
+  state: DataGridPresentation,
+  rowId: string,
+  options: DataGridReducerOptions<TRow>,
+): DataGridPresentation {
+  if (state.interaction.kind !== 'row') return state;
+  const interaction: DataGridInteraction = {
+    ...state.interaction,
+    activeRowId: rowId,
+    ...(options.selection.mode !== 'none' && options.selection.commitment === 'followActive'
+      ? { selectedRowIds: [rowId], selectionAnchorId: rowId }
+      : {}),
+  };
+  return withGridScroll({ ...state, interaction }, rowId, options.collection, options.pageSize);
+}
+
+function withActiveCell<TRow>(
+  state: DataGridPresentation,
+  cell: DataGridCell,
+  options: DataGridReducerOptions<TRow>,
+): DataGridPresentation {
+  if (state.interaction.kind !== 'cell') return state;
+  const interaction: DataGridInteraction = {
+    ...state.interaction,
+    activeCell: cell,
+    ...(options.selection.mode !== 'none' && options.selection.commitment === 'followActive'
+      ? { selectedCells: [cell], selectionAnchor: cell }
+      : {}),
+  };
+  return withGridScroll({ ...state, interaction }, cell.rowId, options.collection, options.pageSize);
+}
+
+function commitGridSelection<TRow>(
+  state: DataGridPresentation,
+  options: DataGridReducerOptions<TRow>,
+  extend: boolean,
+  toggle: boolean,
+): DataGridPresentation {
+  if (options.selection.mode === 'none') return state;
+  if (state.interaction.kind === 'row') {
+    const active = state.interaction.activeRowId;
+    if (active === undefined) return state;
+    const selectedRowIds = selectedIds(
+      state.interaction.selectedRowIds,
+      active,
+      state.interaction.selectionAnchorId,
+      collectionIds(options.collection),
+      options.selection,
+      extend,
+      toggle,
+    );
+    return {
+      ...state,
+      interaction: { ...state.interaction, selectedRowIds, selectionAnchorId: active },
+    };
+  }
+  const active = state.interaction.activeCell;
+  if (active === undefined) return state;
+  const key = cellKey(active);
+  const selectedKeys = selectedIds(
+    state.interaction.selectedCells.map(cellKey),
+    key,
+    state.interaction.selectionAnchor === undefined ? undefined : cellKey(state.interaction.selectionAnchor),
+    gridCellKeys(options.collection, options.columnIds),
+    options.selection,
+    extend,
+    toggle,
+  );
+  const cells = new Map(gridCells(options.collection, options.columnIds).map((cell) => [cellKey(cell), cell]));
+  return {
+    ...state,
+    interaction: {
+      ...state.interaction,
+      selectedCells: selectedKeys.flatMap((selectedKey) => {
+        const cell = cells.get(selectedKey);
+        return cell === undefined ? [] : [cell];
+      }),
+      selectionAnchor: active,
+    },
+  };
+}
+
+function selectedIds(
+  current: readonly string[],
+  active: string,
+  anchor: string | undefined,
+  ordered: readonly string[],
+  policy: SelectionPolicy,
+  extend: boolean,
+  toggle: boolean,
+): readonly string[] {
+  if (policy.mode !== 'multiple') return policy.mode === 'single' ? [active] : [];
+  if (extend && policy.range && anchor !== undefined) {
+    const start = ordered.indexOf(anchor);
+    const end = ordered.indexOf(active);
+    if (start >= 0 && end >= 0) return ordered.slice(Math.min(start, end), Math.max(start, end) + 1);
+  }
+  if (!toggle) return [active];
+  const selected = new Set(current);
+  if (selected.has(active)) selected.delete(active);
+  else selected.add(active);
+  return ordered.filter((id) => selected.has(id));
+}
+
+function withGridScroll<TRow>(
+  state: DataGridPresentation,
+  rowId: string,
+  collection: TableCollection<TRow>,
+  pageSize: number | undefined,
+): DataGridPresentation {
+  if (state.scroll === undefined) return state;
+  const row = collectionRecordById(collection, rowId);
+  if (row === undefined) return state;
+  return { ...state, scroll: scrollReducer(
+    state.scroll,
+    { kind: 'itemIntoView', itemIndex: row.itemIndex, alignment: 'nearest' },
+    {
+      contentRows: collection.totalCount,
+      contentColumns: 0,
+      viewportRows: Math.max(1, pageSize ?? 1),
+      viewportColumns: 0,
+    },
+  ) };
+}
+
+function validCell(cell: DataGridCell, rowIds: readonly string[], columnIds: readonly string[]): boolean {
+  return rowIds.includes(cell.rowId) && columnIds.includes(cell.columnId);
+}
+
+function cellKey(cell: DataGridCell): string {
+  return `${cell.rowId}\u0000${cell.columnId}`;
+}
+
+function gridCells<TRow>(collection: TableCollection<TRow>, columnIds: readonly string[]): readonly DataGridCell[] {
+  return collectionIds(collection).flatMap((rowId) => columnIds.map((columnId) => ({ rowId, columnId })));
+}
+
+function gridCellKeys<TRow>(collection: TableCollection<TRow>, columnIds: readonly string[]): readonly string[] {
+  return gridCells(collection, columnIds).map(cellKey);
+}
+
 function nextSort(current: TableSortState | undefined, columnId: string): TableSortState {
-  if (current?.columnId !== columnId) return { columnId, direction: 'ascending' };
   return {
     columnId,
-    direction: current.direction === 'ascending' ? 'descending' : 'ascending'
+    direction: current?.columnId === columnId && current.direction === 'ascending'
+      ? 'descending'
+      : 'ascending',
   };
 }
 
 function resizedColumns(
-  widths: Readonly<Record<string, number>> | undefined,
-  column: string,
+  current: Readonly<Record<string, number>> | undefined,
+  columnId: string,
   delta: number,
-  minColumnWidth: number | undefined
+  minimum = 1,
 ): Readonly<Record<string, number>> {
-  const minimum = Math.max(1, Math.floor(minColumnWidth ?? 1));
-  const current = widths?.[column] ?? minimum;
-  return {
-    ...(widths ?? {}),
-    [column]: Math.max(minimum, Math.floor(current + delta))
-  };
+  return setColumnWidth(current, columnId, (current?.[columnId] ?? minimum) + delta, minimum);
 }
 
 function setColumnWidth(
-  widths: Readonly<Record<string, number>> | undefined,
-  column: string,
+  current: Readonly<Record<string, number>> | undefined,
+  columnId: string,
   width: number,
-  minColumnWidth: number | undefined
+  minimum = 1,
 ): Readonly<Record<string, number>> {
-  const minimum = Math.max(1, Math.floor(minColumnWidth ?? 1));
-  return {
-    ...(widths ?? {}),
-    [column]: Math.max(minimum, Math.floor(Number.isFinite(width) ? width : minimum))
-  };
-}
-
-function boundedIndex(index: number, count: number | undefined): number {
-  const value = Math.max(0, Math.floor(Number.isFinite(index) ? index : 0));
-  if (count === undefined || count <= 0) return value;
-  return Math.min(count - 1, value);
+  return Object.freeze({ ...current, [columnId]: Math.max(minimum, Math.floor(width)) });
 }
 
 function compareValues(left: unknown, right: unknown): number {

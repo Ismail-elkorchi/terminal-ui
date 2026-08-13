@@ -15,7 +15,7 @@ import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   button,
-  table,
+  dataGrid,
   text,
   textArea
 } from '../../dist/components/index.js';
@@ -81,9 +81,11 @@ test('named slots enforce cardinality, ownership, and child-message policy', () 
   };
   const capturing = defineComponent({
     name: 'terminal-ui-tests/components/capturing-slot',
+    optionFields: {},
     identity: 'required',
     structure: 'composite',
     semantics: 'semantic',
+    accessibleRole: 'group',
     slots: captureSlots,
     capture: ({ message }) => ({ kind: 'captured', message }),
     measure: ({ slots }) => slots.measure('content'),
@@ -119,9 +121,11 @@ test('named slots enforce cardinality, ownership, and child-message policy', () 
 
   const implementationOwned = defineComponent({
     name: 'terminal-ui-tests/components/implementation-slot',
+    optionFields: {},
     identity: 'required',
     structure: 'composite',
     semantics: 'semantic',
+    accessibleRole: 'group',
     slots: {
       ornament: { cardinality: 'one', owner: 'implementation', messages: 'bubble' }
     },
@@ -180,6 +184,8 @@ test('component definitions render through required definition contract', () => 
   let observedFocus;
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
+    optionFields: { label: true },
     render({ model, bounds, target, focus }) {
       observedFocus = focus;
       target.write(bounds.row, bounds.column, [{
@@ -234,6 +240,7 @@ test('component accessibility focus must agree with resolved frame focus', () =>
     id: 'focus-without-accessible-focus',
     definition: {
       ...leafComponentDefinition,
+      accessibleRole: 'button',
       render() {},
       accessibility: ({ id }) => ({ id, role: 'button', label: id }),
       focusTargets: ({ bounds }) => [{ id: 'self', bounds }]
@@ -248,6 +255,7 @@ test('component accessibility focus must agree with resolved frame focus', () =>
     id: 'passive-with-accessible-focus',
     definition: {
       ...leafComponentDefinition,
+      accessibleRole: 'button',
       render() {},
       accessibility: ({ id }) => ({
         id,
@@ -272,6 +280,7 @@ test('target-shaped component accessibility must identify the resolved focus tar
     id: 'wrong-target-focus',
     definition: {
       ...leafComponentDefinition,
+      accessibleRole: 'group',
       render() {},
       focusTargets,
       accessibility: ({ id }) => ({
@@ -298,6 +307,7 @@ test('target-shaped component accessibility must identify the resolved focus tar
     id: 'matching-target-focus',
     definition: {
       ...leafComponentDefinition,
+      accessibleRole: 'group',
       render() {},
       focusTargets,
       accessibility: ({ id, focusedTargetId }) => ({
@@ -327,6 +337,7 @@ test('target-shaped component accessibility must identify the resolved focus tar
     id: 'flattened-target-focus',
     definition: {
       ...leafComponentDefinition,
+      accessibleRole: 'application',
       render() {},
       focusTargets,
       accessibility: ({ id, focusedTargetId }) => ({
@@ -352,6 +363,7 @@ test('component accessibility validates owned focus once and final focus across 
   const composite = defineComponent({
     ...compositeComponentDefinition,
     semantics: 'semantic',
+    accessibleRole: 'group',
     layout: ({ bounds }) => ({ content: [bounds] }),
     accessibility: ({ id }) => ({
       id,
@@ -380,6 +392,7 @@ test('component accessibility validates owned focus once and final focus across 
 test('component definition output preserves metadata and sanitizes terminal controls', () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'application',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{
         text: '\u001B[31mUnsafe\u001B[0m red \u0007text',
@@ -434,6 +447,7 @@ test('component render targets are frozen write-only capabilities clipped to ele
     };
     const definition = kind === 'composite' ? {
       ...compositeComponentDefinition,
+      accessibleRole: 'text',
       layout: () => [],
       renderBeforeChildren: draw,
       accessibility: ({ id }) => ({ id, role: 'text', label: kind })
@@ -480,9 +494,23 @@ test('component render targets are frozen write-only capabilities clipped to ele
 test('component accessibility and interaction outputs are validated before publication', () => {
   assert.throws(
     () => renderElementFrame(component({
+      id: 'mismatched-accessibility-role',
+      definition: {
+        ...leafComponentDefinition,
+        accessibleRole: 'button',
+        render() {},
+        accessibility: ({ id }) => ({ id, role: 'text', label: id })
+      }
+    }), { columns: 8, rows: 1 }),
+    /declared accessibility role "button" but produced "text"/u
+  );
+
+  assert.throws(
+    () => renderElementFrame(component({
       id: 'invalid-accessibility',
       definition: {
         ...leafComponentDefinition,
+        accessibleRole: 'button',
         render() {},
         accessibility: () => ({ id: '', role: 'invalid' })
       }
@@ -495,6 +523,7 @@ test('component accessibility and interaction outputs are validated before publi
       id: 'invalid-hit-bounds',
       definition: {
       ...leafComponentDefinition,
+        accessibleRole: 'button',
         render() {},
         accessibility: ({ id }) => ({ id, role: 'button', label: id }),
         hitTargets: () => [{
@@ -512,6 +541,7 @@ test('component accessibility and interaction outputs are validated before publi
       id: 'duplicate-focus',
       definition: {
       ...leafComponentDefinition,
+        accessibleRole: 'group',
         render() {},
         accessibility: ({ id }) => ({ id, role: 'group', label: id }),
         focusTargets: ({ bounds }) => [
@@ -528,6 +558,7 @@ test('component accessibility and interaction outputs are validated before publi
       id: 'invalid-cursor-source',
       definition: {
         ...leafComponentDefinition,
+        accessibleRole: 'button',
         render() {},
         accessibility: ({ id, focused }) => ({ id, role: 'button', label: id, focused }),
         focusTargets: ({ bounds }) => [{
@@ -575,6 +606,7 @@ test('component styles reject values outside the public frame contract', () => {
         id: `${id}-cursor`,
         definition: {
       ...leafComponentDefinition,
+          accessibleRole: 'button',
           render() {},
           accessibility: ({ id: elementId, focused }) => ({
             id: elementId,
@@ -607,6 +639,7 @@ test('component styles are admitted as canonical copies', () => {
     id: 'canonical-defined-styles',
     definition: {
       ...leafComponentDefinition,
+      accessibleRole: 'button',
       render({ bounds, target }) {
         target.write(bounds.row, bounds.column, [{ text: 'XY', style: drawingStyle }]);
         drawingStyle.fg.r = Number.NaN;
@@ -651,6 +684,7 @@ test('component focus and hit targets cannot claim sibling bounds', () => {
     id: 'bounded-interaction',
     definition: {
       ...leafComponentDefinition,
+      accessibleRole: 'button',
       render() {},
       accessibility: ({ id }) => ({ id, role: 'button', label: id }),
       focusTargets: () => [{
@@ -678,6 +712,7 @@ test('component focus and hit targets cannot claim sibling bounds', () => {
 test('component definition hit targets route mouse messages', async () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'hit' }]);
     },
@@ -730,6 +765,7 @@ test('component hit targets are adopted before pointer routing', async () => {
       id: 'owned-hit-component',
       definition: {
         ...leafComponentDefinition,
+        accessibleRole: 'button',
         render() {},
         accessibility: ({ id }) => ({ id, role: 'button', label: 'Owned hit target' }),
         hitTargets: () => {
@@ -771,9 +807,11 @@ test('component hit targets are adopted before pointer routing', async () => {
 test('component definitions map keyboard text and paste through one action boundary', async () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/action-input',
+    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'textbox',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'edit' }]);
@@ -823,10 +861,12 @@ test('component definitions map keyboard text and paste through one action bound
 test('component state governs interaction and accessibility without hook duplication', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/stateful-control',
+    optionFields: {},
     identity: 'required',
     states: ['disabled', 'busy', 'readOnly'],
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'textbox',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
     render() {},
     accessibility: ({ id, focused }) => ({
@@ -856,10 +896,12 @@ test('component state governs interaction and accessibility without hook duplica
 
   const action = defineComponent({
     name: 'terminal-ui-tests/components/read-only-action',
+    optionFields: {},
     identity: 'required',
     states: ['readOnly'],
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
     render() {},
     accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
@@ -869,7 +911,7 @@ test('component state governs interaction and accessibility without hook duplica
       id: 'read-only-action',
       readOnly: true
     }), { columns: 8, rows: 1 }),
-    /cannot apply readOnly state to accessibility role "button"/u
+    /Accessible readOnly state is not valid on button nodes/u
   );
 });
 
@@ -877,9 +919,11 @@ test('inert component subtrees are absent from interaction and accessibility out
   let childAccessibilityCalls = 0;
   const child = defineComponent({
     name: 'terminal-ui-tests/components/inert-child',
+    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 4, preferredHeight: 1 }),
     render() {},
     focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
@@ -890,10 +934,12 @@ test('inert component subtrees are absent from interaction and accessibility out
   });
   const container = defineComponent({
     name: 'terminal-ui-tests/components/inert-container',
+    optionFields: {},
     identity: 'required',
     states: ['inert'],
     structure: 'composite',
     semantics: 'semantic',
+    accessibleRole: 'group',
     slots: {
       content: { cardinality: 'one', owner: 'caller', messages: 'bubble' }
     },
@@ -917,12 +963,40 @@ test('inert component subtrees are absent from interaction and accessibility out
   assert.equal(childAccessibilityCalls, 0);
 });
 
+test('inert actionful components reject unreachable action mappers', () => {
+  const actionful = defineComponent({
+    name: 'terminal-ui-tests/components/inert-actionful',
+    optionFields: {},
+    identity: 'required',
+    states: ['inert'],
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'button',
+    measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+    render() {},
+    keys: () => ({ enter: () => ({ kind: 'activate' }) }),
+    accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
+  });
+
+  assert.doesNotThrow(() => actionful({ id: 'inert-actionful', inert: true }));
+  assert.throws(
+    () => actionful({
+      id: 'invalid-inert-actionful',
+      inert: true,
+      onAction: () => ({ kind: 'mapped' })
+    }),
+    /Unavailable component .* cannot accept onAction/u
+  );
+});
+
 test('component definition key triggers are fully validated at construction', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/invalid-trigger',
+    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
     accessibility: ({ id }) => ({ id, role: 'button', label: id }),
@@ -941,9 +1015,11 @@ test('component definition key triggers are fully validated at construction', ()
 
   const sequenceControl = defineComponent({
     name: 'terminal-ui-tests/components/invalid-text-sequence',
+    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
     accessibility: ({ id }) => ({ id, role: 'button', label: id }),
@@ -960,9 +1036,11 @@ test('component definitions retain normalized trigger snapshots', async () => {
   const trigger = { kind: 'codePoint', codePoint: 97 };
   const control = defineComponent({
     name: 'terminal-ui-tests/components/owned-trigger',
+    optionFields: {},
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
     accessibility: ({ id, focused }) => ({
@@ -1332,6 +1410,19 @@ test('component composites still reject invalid sizes and relative overflow', ()
 
 test('malformed component definitions fail as programmer errors', () => {
   assert.throws(
+    () => defineComponent({
+      name: 'terminal-ui-tests/components/missing-role',
+      optionFields: {},
+      identity: 'required',
+      structure: 'leaf',
+      semantics: 'semantic',
+      measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+      render() {},
+      accessibility: ({ id }) => ({ id, role: 'text', label: id })
+    }),
+    /accessibleRole must be an accessibility role or resolver/u
+  );
+  assert.throws(
     () => defineComponent(undefined),
     /Component definition must be an object/u
   );
@@ -1340,14 +1431,32 @@ test('malformed component definitions fail as programmer errors', () => {
     /Component definition must be an object/u
   );
   assert.throws(
-    () => defineComponent([]),
-    /Component definition must be an object/u
+    () => defineComponent({
+      ...leafComponentDefinition,
+      optionFields: []
+    }),
+    /optionFields must map every option name to true/u
+  );
+  assert.throws(
+    () => defineComponent({
+      ...leafComponentDefinition,
+      optionFields: { label: false }
+    }),
+    /optionFields must map every option name to true/u
+  );
+  assert.throws(
+    () => defineComponent({
+      ...leafComponentDefinition,
+      optionFields: { disabled: true }
+    }),
+    /cannot redeclare reserved field "disabled"/u
   );
   assert.throws(
     () => component({
       id: 'unsafe-name',
       definition: {
         ...leafComponentDefinition,
+        accessibleRole: 'group',
         name: 'unsafe\u001B[31m',
         render() {},
         accessibility({ id }) {
@@ -1370,13 +1479,15 @@ test('malformed component definitions fail as programmer errors', () => {
   );
 });
 
-test('component instances prepare custom options and reject malformed shared state', () => {
+test('component instances reject unknown options and malformed shared state', () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/validated-control',
+    optionFields: {},
     identity: 'required',
     states: ['disabled'],
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
     accessibility: ({ id }) => ({ id, role: 'button', label: id })
@@ -1387,7 +1498,10 @@ test('component instances prepare custom options and reject malformed shared sta
     [{ onInput: () => undefined }, /onInput behavior must be declared by the definition/u]
   ];
 
-  assert.doesNotThrow(() => control({ id: 'extra-field', applicationData: 42 }));
+  assert.throws(
+    () => control({ id: 'extra-field', applicationData: 42 }),
+    /unknown field "applicationData"/u
+  );
   for (const [options, expected] of invalidOptions) {
     assert.throws(() => control({ id: 'invalid-instance', ...options }), expected);
   }
@@ -1424,9 +1538,11 @@ test('component instances adopt shared metadata once before retaining it', () =>
   const path = ['child'];
   const scoped = defineComponent({
     name: 'terminal-ui-tests/components/owned-focus-path',
+    optionFields: {},
     identity: 'optional',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'group',
     focusScope: () => ({
       kind: 'contain',
       initialFocus: { kind: 'path', path },
@@ -1460,6 +1576,7 @@ test('component definition hook results are not replaced with definition fallbac
 test('component definition focus targets require stable ids', () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'focus' }]);
     },
@@ -1477,9 +1594,53 @@ test('component definition focus targets require stable ids', () => {
   );
 });
 
+test('composed keyboard handlers do not create an implicit container focus target', () => {
+  const slots = {
+    content: { cardinality: 'one', owner: 'caller', messages: 'bubble' }
+  };
+  const container = defineComponent({
+    name: 'terminal-ui-tests/components/keyboard-container',
+    optionFields: {},
+    identity: 'required',
+    structure: 'composed',
+    semantics: 'semantic',
+    accessibleRole: 'group',
+    slots,
+    keys: () => ({ escape: () => ({ kind: 'dismiss' }) }),
+    compose: ({ slots: content }) => content.content,
+    accessibility: ({ id, children }) => ({
+      id,
+      role: 'group',
+      label: 'Keyboard container',
+      children
+    })
+  });
+  const element = container({
+    id: 'keyboard-container',
+    slots: {
+      content: button({
+        id: 'keyboard-container-action',
+        label: 'Action',
+        onAction: () => ignoreMessage()
+      })
+    },
+    onAction: () => ignoreMessage()
+  });
+
+  const layout = layoutElement(element, { columns: 20, rows: 1 });
+  const frame = renderElementFrame(element, { columns: 20, rows: 1 });
+
+  assert.deepEqual(layout.focusTargets, []);
+  assert.deepEqual(frame.accessibility.focusPath, [
+    'keyboard-container',
+    'keyboard-container-action'
+  ]);
+});
+
 test('component definition hit targets resolve explicitly declared focus targets', () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'group',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'focusable' }]);
     },
@@ -1518,6 +1679,8 @@ test('viewport bounds component rendering, focus, pointer, and accessibility to 
   const observedViewports = [];
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'listbox',
+    optionFields: { rows: true },
     measure({ model }) {
       return {
         minWidth: 1,
@@ -1591,6 +1754,7 @@ test('viewport bounds component rendering, focus, pointer, and accessibility to 
 test('component definition hit targets reject unavailable focus targets', () => {
   const definition = {
     ...leafComponentDefinition,
+    accessibleRole: 'button',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'invalid' }]);
     },
@@ -1747,6 +1911,7 @@ test('component composites arrange opaque children while preserving interaction 
       ],
       definition: {
         ...compositeComponentDefinition,
+        optionFields: { selected: true },
         layout({ bounds }) {
           return [
             { ...bounds, width: Math.floor(bounds.width / 2) },
@@ -1790,6 +1955,7 @@ test('component composites arrange opaque children while preserving interaction 
 test('component accessibility slots follow their render roots after inaccessible children are filtered', () => {
   const ornament = defineComponent({
     name: 'terminal-ui-tests/components/slot-ornament',
+    optionFields: {},
     identity: 'optional',
     structure: 'leaf',
     semantics: 'decorative',
@@ -1799,9 +1965,11 @@ test('component accessibility slots follow their render roots after inaccessible
   let received;
   const slotted = defineComponent({
     name: 'terminal-ui-tests/components/accessibility-slots',
+    optionFields: {},
     identity: 'required',
     structure: 'composite',
     semantics: 'semantic',
+    accessibleRole: 'group',
     slots: {
       ornament: { cardinality: 'optional', owner: 'caller', messages: 'none' },
       body: { cardinality: 'one', owner: 'caller', messages: 'bubble' }
@@ -1830,9 +1998,11 @@ test('composed component accessibility uses declared slot names and optional slo
   let received;
   const composed = defineComponent({
     name: 'terminal-ui-tests/components/composed-named-slots',
+    optionFields: {},
     identity: 'required',
     structure: 'composed',
     semantics: 'semantic',
+    accessibleRole: 'group',
     slots: {
       body: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
       note: { cardinality: 'optional', owner: 'caller', messages: 'bubble' }
@@ -1848,9 +2018,11 @@ test('composed component accessibility uses declared slot names and optional slo
   });
   const optionalOnly = defineComponent({
     name: 'terminal-ui-tests/components/optional-only-slot',
+    optionFields: {},
     identity: 'required',
     structure: 'composed',
     semantics: 'semantic',
+    accessibleRole: 'group',
     slots: {
       note: { cardinality: 'optional', owner: 'caller', messages: 'bubble' }
     },
@@ -1870,7 +2042,7 @@ test('composed component accessibility uses declared slot names and optional slo
   assert.equal('content' in received, false);
 });
 
-test('component preparation does not recursively inspect prepared models', () => {
+test('component preparation snapshots retained models at the construction boundary', () => {
   let ownKeyReads = 0;
   const retained = new Proxy({ entries: Object.freeze([Object.freeze({ id: 'one' })]) }, {
     ownKeys(target) {
@@ -1883,9 +2055,11 @@ test('component preparation does not recursively inspect prepared models', () =>
 
   const retainedModel = defineComponent({
     name: 'terminal-ui-tests/components/retained-model',
+    optionFields: { model: true },
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'group',
     prepare: (value) => value.model,
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
@@ -1895,33 +2069,105 @@ test('component preparation does not recursively inspect prepared models', () =>
   retainedModel({ id: 'first', model: retained });
   retainedModel({ id: 'second', model: retained });
 
-  assert.equal(ownKeyReads, 0);
+  assert.ok(ownKeyReads > 0);
 });
 
-test('component-owned prepared models may use domain objects', () => {
-  const domainModel = defineComponent({
-    name: 'terminal-ui-tests/components/domain-model',
+test('component preparation does not trust a frozen container with mutable descendants', () => {
+  const nested = { label: 'before' };
+  const supplied = Object.freeze({ nested });
+  const retainedModel = defineComponent({
+    name: 'terminal-ui-tests/components/frozen-retained-model',
+    optionFields: { model: true },
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'group',
+    prepare: (value) => value.model,
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render: () => undefined,
+    accessibility: ({ id, model }) => ({ id, role: 'group', label: model.nested.label })
+  });
+  const element = retainedModel({ id: 'frozen', model: supplied });
+
+  nested.label = 'after';
+
+  assert.equal(renderElementFrame(element, { columns: 1, rows: 1 }).accessibility.root.label, 'before');
+});
+
+test('component-owned prepared models detach supported domain containers', () => {
+  const domainModel = defineComponent({
+    name: 'terminal-ui-tests/components/domain-model',
+    optionFields: { model: true },
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'group',
     prepare: (value) => value.model,
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
     accessibility: ({ id, model }) => ({ id, role: 'group', label: String(model.size) })
   });
   const supplied = new Map([['one', 1]]);
+  const element = domainModel({ id: 'map', model: supplied });
 
-  assert.doesNotThrow(() => domainModel({ id: 'map', model: supplied }));
+  supplied.set('two', 2);
+
+  assert.equal(renderElementFrame(element, { columns: 1, rows: 1 }).accessibility.root.label, '1');
+});
+
+test('component preparation must project custom domain instances before retaining them', () => {
+  class DomainRecord {
+    constructor(label) {
+      this.label = label;
+    }
+  }
+  const retainedDomain = defineComponent({
+    name: 'terminal-ui-tests/components/retained-domain-instance',
+    optionFields: { model: true },
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'group',
+    prepare: (value) => ({ domain: value.model }),
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render: () => undefined,
+    accessibility: ({ id }) => ({ id, role: 'group', label: id })
+  });
+  const projectedDomain = defineComponent({
+    name: 'terminal-ui-tests/components/projected-domain-instance',
+    optionFields: { model: true },
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'group',
+    prepare: (value) => ({ label: value.model.label }),
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render: () => undefined,
+    accessibility: ({ id, model }) => ({ id, role: 'group', label: model.label })
+  });
+  const domain = new DomainRecord('Projected');
+
+  assert.throws(
+    () => retainedDomain({ id: 'retained-domain', model: domain }),
+    /prepared model contains unsupported DomainRecord instance/u
+  );
+  assert.equal(
+    renderElementFrame(
+      projectedDomain({ id: 'projected-domain', model: domain }),
+      { columns: 1, rows: 1 }
+    ).accessibility.root.label,
+    'Projected'
+  );
 });
 
 test('built-in factories reject malformed nested options where they are consumed', () => {
-  assert.throws(() => table({
-    id: 'table',
+  assert.throws(() => dataGrid({
+    id: 'dataGrid',
     rows: [],
     getRowId: () => 'row',
     presentation: null,
-    onAction: (action) => action
-  }), /table presentation/u);
+    onTransition: (transition) => transition
+  }), /dataGrid presentation/u);
   assert.throws(() => textArea({
     id: 'editor',
     presentation: null,

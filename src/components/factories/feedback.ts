@@ -42,6 +42,7 @@ import {
   sanitizeTerminalText,
 } from '../../text/index.ts';
 import { indeterminateProgressFrame } from '../../behavior/feedback.ts';
+import { formatKeyboardBinding } from '../../interaction/key-binding.ts';
 import {
   assertFiniteNumber,
   assertOptionalEnum,
@@ -74,9 +75,11 @@ export const statusBar: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/status-bar',
+  optionFields: { leading: true, center: true, trailing: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'status',
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
@@ -147,7 +150,13 @@ function prepareStatusItem(value: StatusBarItem, path: string): StatusBarItem {
 }
 
 interface HelpBarModel {
-  readonly groups: readonly HelpGroup[];
+  readonly groups: readonly PreparedHelpGroup[];
+}
+
+interface PreparedHelpGroup {
+  readonly id: string;
+  readonly label?: string;
+  readonly bindings: readonly { readonly key: string; readonly label: string }[];
 }
 
 export const helpBar: SemanticLeafComponentFactory<
@@ -167,9 +176,11 @@ export const helpBar: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/help-bar',
+  optionFields: { groups: true } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'group',
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
@@ -431,7 +442,7 @@ function statusItemAccessibleText(item: StatusBarItem): string {
   ].filter((part) => part.length > 0).join(' ');
 }
 
-function prepareHelpGroup(value: HelpGroup, index: number): HelpGroup {
+function prepareHelpGroup(value: HelpGroup, index: number): PreparedHelpGroup {
   if (!isNonArrayObject(value)) {
     throw new TypeError(`helpBar groups[${String(index)}] must be an object.`);
   }
@@ -453,16 +464,19 @@ function prepareHelpGroup(value: HelpGroup, index: number): HelpGroup {
     bindings: bindings.map((binding, bindingIndex) => {
       if (
         !isNonArrayObject(binding) ||
-        typeof binding['key'] !== 'string' ||
+        !isNonArrayObject(binding['binding']) ||
         typeof binding['label'] !== 'string'
       ) {
         throw new TypeError(
           `helpBar groups[${String(index)}].bindings[${
             String(bindingIndex)
-          }] must contain string key and label fields.`,
+          }] must contain a typed binding and string label.`,
         );
       }
-      return { key: sanitizeLine(binding['key']), label: sanitizeLine(binding['label']) };
+      return {
+        key: formatKeyboardBinding(binding['binding'] as HelpGroup['bindings'][number]['binding']),
+        label: sanitizeLine(binding['label']),
+      };
     }),
   };
 }
@@ -658,9 +672,11 @@ export const activityIndicator: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/activity-indicator',
+  optionFields: { label: true, status: true, frames: true, frameIndex: true } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'status',
   metadata: ['styles', 'layer'],
   parts: ['marker', 'label', 'value'],
   prepare(value) {
@@ -887,9 +903,21 @@ export const progressBar: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/progress-bar',
+  optionFields: {
+    label: true,
+    mode: true,
+    barWidth: true,
+    display: true,
+    labelPosition: true,
+    elapsedMs: true,
+    remainingMs: true,
+    status: true,
+    valueScale: true,
+  } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'progressbar',
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
@@ -1399,9 +1427,21 @@ export const sparkline: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/sparkline',
+  optionFields: {
+    label: true,
+    values: true,
+    min: true,
+    max: true,
+    dataState: true,
+    valueScale: true,
+    emptyText: true,
+    loadingText: true,
+    errorText: true,
+  } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'text',
   metadata: ['styles', 'layer'],
   parts: ['label', 'value', 'muted', 'axis', 'baseline', 'series', 'legend'],
   prepare(value) {
@@ -1595,9 +1635,19 @@ export const meter: SemanticLeafComponentFactory<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/meter',
+  optionFields: {
+    label: true,
+    value: true,
+    min: true,
+    max: true,
+    width: true,
+    variant: true,
+    result: true,
+  } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'meter',
   metadata: ['styles', 'layer'],
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {

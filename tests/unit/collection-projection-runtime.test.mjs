@@ -2,22 +2,28 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  completeCollection,
   createScrollState,
+  cursorCollection,
   dataWindow,
-  prepareListCollection,
+  isAnyCollectionProjection,
+  isCollectionProjection,
+  prepareListboxCollection,
   prepareTableCollection,
-  prepareTreeRows
+  prepareTreeRows,
+  sparseCollection,
+  windowedCollection
 } from '../../dist/behavior/index.js';
 
-test('dataWindow keeps selected rows visible and preserves explicit scroll windows', () => {
+test('dataWindow centers an initial active row and preserves explicit scroll windows', () => {
   assert.deepEqual(
-    dataWindow({ totalRows: 100, viewportRows: 5, selectedIndex: 40 }),
+    dataWindow({ totalRows: 100, viewportRows: 5, activeIndex: 40 }),
     {
       totalRows: 100,
       startIndex: 38,
       endIndexExclusive: 43,
-      selectedIndex: 40,
-      selectedVisibleIndex: 2,
+      activeIndex: 40,
+      activeVisibleIndex: 2,
       offsetColumn: 0,
       omittedBefore: 38,
       omittedAfter: 57
@@ -28,13 +34,11 @@ test('dataWindow keeps selected rows visible and preserves explicit scroll windo
     dataWindow({
       totalRows: 100,
       viewportRows: 5,
+      contentColumns: 20,
+      viewportColumns: 8,
       scroll: createScrollState({
         offsetRow: 10,
-        offsetColumn: 3,
-        contentRows: 100,
-        contentColumns: 20,
-        viewportRows: 5,
-        viewportColumns: 8
+        offsetColumn: 3
       })
     }),
     {
@@ -50,7 +54,7 @@ test('dataWindow keeps selected rows visible and preserves explicit scroll windo
 
 test('prepared collections reject ambiguous identity and invalid global windows', () => {
   assert.throws(
-    () => prepareListCollection(['same', 'same'], (item) => ({ id: item, label: item })),
+    () => prepareListboxCollection(['same', 'same'], (item) => ({ id: item, label: item })),
     /must be unique/u
   );
   assert.throws(
@@ -65,4 +69,41 @@ test('prepared collections reject ambiguous identity and invalid global windows'
     }),
     /must fit inside/u
   );
+});
+
+test('collection predicates recognize only projections created by collection factories', () => {
+  const complete = completeCollection([{ id: 'one', itemIndex: 0 }]);
+  const windowed = windowedCollection({
+    records: [{ id: 'two', itemIndex: 2 }],
+    window: { startIndex: 2, totalCount: 4, domain: { kind: 'source' } }
+  });
+  const sparse = sparseCollection({
+    records: [{ id: 'three', itemIndex: 3 }],
+    totalCount: 5
+  });
+  const cursor = cursorCollection({
+    records: [{ id: 'four', itemIndex: 4 }],
+    page: { hasPrevious: true, hasNext: false }
+  });
+
+  assert.equal(isCollectionProjection(complete), true);
+  assert.equal(isCollectionProjection(windowed), true);
+  assert.equal(isCollectionProjection(sparse), false);
+  assert.equal(isCollectionProjection(cursor), false);
+  assert.equal(isAnyCollectionProjection(sparse), true);
+  assert.equal(isAnyCollectionProjection(cursor), true);
+
+  assert.equal(isCollectionProjection({ ...complete }), false);
+  assert.equal(isAnyCollectionProjection({ ...sparse }), false);
+  assert.equal(isCollectionProjection(Object.fromEntries(
+    Reflect.ownKeys(complete).map((key) => [key, complete[key]])
+  )), false);
+  assert.equal(isCollectionProjection({
+    kind: 'complete',
+    records: complete.records,
+    startIndex: 0,
+    totalCount: 1,
+    status: { kind: 'ready' },
+    sections: []
+  }), false);
 });

@@ -19,10 +19,18 @@ export interface CalendarDay {
   readonly hidden?: boolean;
 }
 
+export interface CalendarPresentation {
+  readonly monthLabel: string;
+  readonly weekdays: readonly string[];
+  readonly days: readonly CalendarDay[];
+  readonly interaction: import('../interaction/collection.ts').CollectionInteractionState;
+}
+
 export type CalendarAction =
   | { readonly kind: 'select'; readonly date: CalendarDate }
-  | { readonly kind: 'focus'; readonly date: CalendarDate }
-  | { readonly kind: 'moveFocus'; readonly days: number }
+  | { readonly kind: 'setActive'; readonly date: CalendarDate }
+  | { readonly kind: 'moveActive'; readonly days: number }
+  | { readonly kind: 'commitActive' }
   | { readonly kind: 'moveMonth'; readonly months: number }
   | { readonly kind: 'startOfWeek' }
   | { readonly kind: 'endOfWeek' };

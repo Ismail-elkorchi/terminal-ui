@@ -95,9 +95,11 @@ interface BadgeOptions {
 
 const badgeComponent = defineComponent<BadgeOptions, BadgeOptions>({
   name: 'example-app/components/badge',
+  optionFields: { label: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'status',
   prepare(value) {
     if (typeof value !== 'object' || value === null || !('label' in value)
       || typeof value.label !== 'string') {

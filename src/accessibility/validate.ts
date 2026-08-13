@@ -125,19 +125,56 @@ function firstNodeIssue(
   const labelledByIssue = optionalStringIssue(candidate, 'labelledBy', id);
   if (labelledByIssue !== undefined) return labelledByIssue;
   if (candidate['labelledBy'] === '') return accessibilityFailure('Accessible node labelledBy must not be empty.', id);
+  const activeDescendantIssue = optionalStringIssue(candidate, 'activeDescendant', id);
+  if (activeDescendantIssue !== undefined) return activeDescendantIssue;
+  if (candidate['activeDescendant'] === '') {
+    return accessibilityFailure('Accessible node activeDescendant must not be empty.', id);
+  }
+  const errorMessageIssue = optionalStringIssue(candidate, 'errorMessage', id);
+  if (errorMessageIssue !== undefined) return errorMessageIssue;
+  if (candidate['errorMessage'] === '') {
+    return accessibilityFailure('Accessible node errorMessage must not be empty.', id);
+  }
   if (candidate['value'] !== undefined && !isAccessibleValue(candidate['value'])) {
     return accessibilityFailure('Accessible node value must be string, number, boolean, or null.', id);
   }
   if (typeof candidate['value'] === 'string' && sanitizeTerminalText(candidate['value']).changed) {
     return accessibilityFailure('Accessible node value must not contain terminal control sequences.', id);
   }
-  for (const field of ['focused', 'selected', 'disabled', 'busy', 'readOnly', 'expanded'] as const) {
+  for (const field of [
+    'focused',
+    'selected',
+    'disabled',
+    'busy',
+    'readOnly',
+    'expanded',
+    'multiSelectable',
+    'required',
+  ] as const) {
     if (candidate[field] !== undefined && typeof candidate[field] !== 'boolean') {
       return accessibilityFailure(`Accessible node ${field} must be a boolean.`, id);
     }
   }
   if (candidate['checked'] !== undefined && typeof candidate['checked'] !== 'boolean' && candidate['checked'] !== 'mixed') {
     return accessibilityFailure('Accessible node checked must be a boolean or "mixed".', id);
+  }
+  if (candidate['pressed'] !== undefined && typeof candidate['pressed'] !== 'boolean' && candidate['pressed'] !== 'mixed') {
+    return accessibilityFailure('Accessible node pressed must be a boolean or "mixed".', id);
+  }
+  const current = candidate['current'];
+  if (current !== undefined && typeof current !== 'boolean'
+    && current !== 'page' && current !== 'step' && current !== 'location'
+    && current !== 'date' && current !== 'time') {
+    return accessibilityFailure('Accessible node current state is invalid.', id);
+  }
+  if (candidate['orientation'] !== undefined
+    && candidate['orientation'] !== 'horizontal'
+    && candidate['orientation'] !== 'vertical') {
+    return accessibilityFailure('Accessible node orientation must be horizontal or vertical.', id);
+  }
+  if (candidate['invalid'] !== undefined && typeof candidate['invalid'] !== 'boolean'
+    && candidate['invalid'] !== 'grammar' && candidate['invalid'] !== 'spelling') {
+    return accessibilityFailure('Accessible node invalid state is invalid.', id);
   }
   const stateRoleIssue = roleStateIssue(candidate, id);
   if (stateRoleIssue !== undefined) return stateRoleIssue;
@@ -190,6 +227,20 @@ function ownedAccessibleNode(
     ...(typeof value['readOnly'] === 'boolean' ? { readOnly: value['readOnly'] } : {}),
     ...(typeof value['expanded'] === 'boolean' ? { expanded: value['expanded'] } : {}),
     ...(typeof checked === 'boolean' || checked === 'mixed' ? { checked } : {}),
+    ...(typeof value['pressed'] === 'boolean' || value['pressed'] === 'mixed'
+      ? { pressed: value['pressed'] }
+      : {}),
+    ...(typeof value['current'] === 'boolean' || ['page', 'step', 'location', 'date', 'time'].includes(String(value['current']))
+      ? { current: value['current'] as NonNullable<AccessibleNode['current']> }
+      : {}),
+    ...(value['orientation'] === 'horizontal' || value['orientation'] === 'vertical'
+      ? { orientation: value['orientation'] }
+      : {}),
+    ...(typeof value['multiSelectable'] === 'boolean' ? { multiSelectable: value['multiSelectable'] } : {}),
+    ...(typeof value['required'] === 'boolean' ? { required: value['required'] } : {}),
+    ...(typeof value['invalid'] === 'boolean' || value['invalid'] === 'grammar' || value['invalid'] === 'spelling'
+      ? { invalid: value['invalid'] }
+      : {}),
     ...ownedNumericValue(value['numericValue']),
     ...(live === 'off' || live === 'polite' || live === 'assertive' ? { live } : {}),
     ...ownedScope(value['scope']),
@@ -198,6 +249,8 @@ function ownedAccessibleNode(
     ...(typeof value['description'] === 'string' ? { description: value['description'] } : {}),
     ...(typeof value['controls'] === 'string' ? { controls: value['controls'] } : {}),
     ...(typeof value['labelledBy'] === 'string' ? { labelledBy: value['labelledBy'] } : {}),
+    ...(typeof value['activeDescendant'] === 'string' ? { activeDescendant: value['activeDescendant'] } : {}),
+    ...(typeof value['errorMessage'] === 'string' ? { errorMessage: value['errorMessage'] } : {}),
     ...(value['children'] === undefined ? {} : { children: Object.freeze([...children]) })
   });
 }
@@ -267,6 +320,12 @@ const accessibleNodeFields = new Set([
   'readOnly',
   'expanded',
   'checked',
+  'pressed',
+  'current',
+  'orientation',
+  'multiSelectable',
+  'required',
+  'invalid',
   'numericValue',
   'live',
   'scope',
@@ -275,6 +334,8 @@ const accessibleNodeFields = new Set([
   'description',
   'controls',
   'labelledBy',
+  'activeDescendant',
+  'errorMessage',
   'children'
 ]);
 
@@ -459,6 +520,18 @@ function firstRelationshipIssue(root: AccessibleNode): TerminalDiagnostic | unde
         return accessibilityFailure('Accessible tab nodes must control a tabpanel.', node.id);
       }
     }
+    for (const [field, targetId] of [
+      ['activeDescendant', node.activeDescendant],
+      ['errorMessage', node.errorMessage],
+    ] as const) {
+      if (targetId === undefined) continue;
+      if (targetId === node.id || !nodes.has(targetId)) {
+        return accessibilityFailure(
+          `Accessible node ${field} must identify a different node in the same snapshot: ${targetId}.`,
+          node.id,
+        );
+      }
+    }
   }
   return undefined;
 }
@@ -537,6 +610,21 @@ function roleStateIssue(node: Record<string, unknown>, id: string): TerminalDiag
   if (node['expanded'] !== undefined && !expandedRoles.has(role)) {
     return accessibilityFailure(`Accessible expanded state is not valid on ${role} nodes.`, id);
   }
+  if (node['pressed'] !== undefined && role !== 'button') {
+    return accessibilityFailure(`Accessible pressed state is not valid on ${role} nodes.`, id);
+  }
+  if (node['orientation'] !== undefined && !orientationRoles.has(role)) {
+    return accessibilityFailure(`Accessible orientation is not valid on ${role} nodes.`, id);
+  }
+  if (node['multiSelectable'] !== undefined && !multiSelectableRoles.has(role)) {
+    return accessibilityFailure(`Accessible multiSelectable is not valid on ${role} nodes.`, id);
+  }
+  if (node['required'] !== undefined && !requiredRoles.has(role)) {
+    return accessibilityFailure(`Accessible required state is not valid on ${role} nodes.`, id);
+  }
+  if (node['invalid'] !== undefined && !invalidRoles.has(role)) {
+    return accessibilityFailure(`Accessible invalid state is not valid on ${role} nodes.`, id);
+  }
   if (
     node['readOnly'] !== undefined
     && isAccessibleRole(role)
@@ -549,8 +637,16 @@ function roleStateIssue(node: Record<string, unknown>, id: string): TerminalDiag
 
 const checkedRoles = new Set(['checkbox', 'switch', 'radio', 'menuitemcheckbox', 'menuitemradio']);
 const mixedCheckedRoles = new Set(['checkbox', 'menuitemcheckbox']);
-const selectedRoles = new Set(['option', 'tab', 'row', 'gridcell', 'treeitem']);
+const selectedRoles = new Set(['option', 'tab', 'row', 'gridcell', 'treeitem', 'listitem']);
 const expandedRoles = new Set(['button', 'combobox', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'treeitem']);
+const orientationRoles = new Set(['separator', 'slider', 'tablist', 'toolbar']);
+const multiSelectableRoles = new Set(['grid', 'listbox', 'tree']);
+const requiredRoles = new Set([
+  'checkbox', 'combobox', 'radiogroup', 'slider', 'spinbutton', 'switch', 'textbox',
+]);
+const invalidRoles = new Set([
+  'checkbox', 'combobox', 'grid', 'listbox', 'radiogroup', 'slider', 'spinbutton', 'switch', 'textbox', 'tree',
+]);
 
 function childRoleIssue(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   const role = String(node['role']);
@@ -569,8 +665,8 @@ function childRoleIssue(node: Record<string, unknown>, id: string): TerminalDiag
 
 const requiredChildRoles: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
   listbox: new Set(['option', 'group']),
-  menu: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio', 'group']),
-  menubar: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio', 'group']),
+  menu: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio', 'group', 'separator']),
+  menubar: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio', 'group', 'separator']),
   combobox: new Set(['listbox', 'status']),
   tablist: new Set(['tab']),
   list: new Set(['listitem', 'group']),
@@ -584,7 +680,7 @@ const requiredChildRoles: Readonly<Record<string, ReadonlySet<string>>> = Object
 
 function optionalStringIssue(
   node: Record<string, unknown>,
-  field: 'label' | 'description' | 'controls' | 'labelledBy',
+  field: 'label' | 'description' | 'controls' | 'labelledBy' | 'activeDescendant' | 'errorMessage',
   id: string
 ): TerminalDiagnostic | undefined {
   if (node[field] === undefined) return undefined;

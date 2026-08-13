@@ -17,7 +17,6 @@ import type { MessageResolution } from '../../interaction/message.ts';
 
 interface DialogBaseOptions extends LayoutFlowOptions {
   readonly id: string;
-  readonly title?: BorderTitle;
   readonly border?: BorderOptions;
   readonly width?: number;
   readonly height?: number;
@@ -31,6 +30,10 @@ interface DialogBaseOptions extends LayoutFlowOptions {
     readonly styles?: ElementStyles<DialogStylePart>;
   };
 }
+
+type DialogName =
+  | { readonly title: BorderTitle; readonly accessibleName?: string }
+  | { readonly title?: never; readonly accessibleName: string };
 
 type DialogModality =
   | {
@@ -53,6 +56,7 @@ interface DismissibleDialog<TMessage extends ComponentMessage> {
 }
 
 export type DialogOptions<TMessage extends ComponentMessage = never> = DialogBaseOptions
+  & DialogName
   & DialogModality
   & (PassiveDialog | DismissibleDialog<TMessage>);
 

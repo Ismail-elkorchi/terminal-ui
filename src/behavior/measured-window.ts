@@ -20,7 +20,7 @@ export interface MeasuredWindowInput<TValue> {
   readonly items: readonly MeasuredWindowItem<TValue>[];
   readonly viewportRows: number;
   readonly offsetRow?: number;
-  readonly selectedId?: string;
+  readonly activeId?: string;
 }
 
 export interface MeasuredWindow<TValue> {
@@ -41,14 +41,14 @@ export function measuredWindow<TValue>(input: MeasuredWindowInput<TValue>): Meas
   const totalRows = starts.at(-1) ?? 0;
   const maxOffset = Math.max(0, totalRows - viewportRows);
   const requestedOffset = clamp(finiteNonNegativeIntegerOrZero(input.offsetRow ?? 0), 0, maxOffset);
-  const selectedIndex = input.selectedId === undefined
+  const activeIndex = input.activeId === undefined
     ? undefined
-    : items.findIndex((item) => item.id === input.selectedId);
-  const offsetRow = selectedIndex === undefined || selectedIndex < 0
+    : items.findIndex((item) => item.id === input.activeId);
+  const offsetRow = activeIndex === undefined || activeIndex < 0
     ? requestedOffset
     : revealItemOffset(
-        starts[selectedIndex] ?? 0,
-        starts[selectedIndex + 1] ?? 0,
+        starts[activeIndex] ?? 0,
+        starts[activeIndex + 1] ?? 0,
         requestedOffset,
         viewportRows,
         maxOffset

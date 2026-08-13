@@ -30,6 +30,7 @@ export interface ChoiceItem<TValue = string> extends ItemBase {
 }
 
 export interface SuggestionItem<TValue = string> {
+  readonly id: string;
   readonly value: TValue;
   readonly label?: string;
   readonly description?: string;
@@ -43,7 +44,7 @@ export interface SearchEntry<TValue = string> extends ChoiceItem<TValue> {
 }
 
 export interface HelpBinding {
-  readonly key: string;
+  readonly binding: import('../interaction/key-binding.ts').KeyboardBinding;
   readonly label: string;
 }
 

@@ -11,7 +11,7 @@ import {
   emptyRect, hasKeyboardOrInputMap
 } from './renderers/support/common.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
-import { accessibleRoleSupportsReadOnly } from '../../accessibility/types.ts';
+import { isAccessibleRole } from '../../accessibility/types.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -197,9 +197,12 @@ export function accessibilityForRenderNode(
     theme,
     widthProfile
   });
-  if (renderNode.state?.readOnly === true && !accessibleRoleSupportsReadOnly(accessible.role)) {
+  const declaredRole = renderNode.kind === 'component'
+    ? (renderNode.props as { readonly accessibleRole?: AccessibleNode['role'] }).accessibleRole
+    : undefined;
+  if (declaredRole !== undefined && isAccessibleRole(accessible.role) && accessible.role !== declaredRole) {
     throw new Error(
-      `RenderNode "${id}" cannot apply readOnly state to accessibility role "${accessible.role}".`
+      `RenderNode "${id}" declared accessibility role "${declaredRole}" but produced "${accessible.role}".`
     );
   }
   return {
@@ -256,7 +259,9 @@ export function focusTargetsForRenderNode(
         bounds: intersectRects(target.bounds, bounds) ?? emptyRect(target.bounds)
       }))
     : explicit;
-  const targets = bounded.length > 0 || !hasKeyboardOrInputMap(renderNode)
+  const mayInferFocusTarget = renderNode.kind !== 'component'
+    || renderNode.definition.inspection.structure === 'leaf';
+  const targets = bounded.length > 0 || !hasKeyboardOrInputMap(renderNode) || !mayInferFocusTarget
     ? bounded
     : [{ id: 'self', bounds }];
   return targets.map((target): FocusTarget => {
@@ -314,7 +319,12 @@ function withoutDisabledTargetFocus<TMessage>(
   if (focus?.kind !== 'target') return hitTarget;
   const target = focusTargets.find((candidate) => candidate.id === focus.targetId);
   if (target?.disabled !== true) return hitTarget;
-  const { focus: disabledFocus, ...withoutFocus } = hitTarget;
-  void disabledFocus;
-  return withoutFocus;
+  return {
+    id: hitTarget.id,
+    bounds: hitTarget.bounds,
+    message: (event) => hitTarget.message(event),
+    ...(hitTarget.accepts === undefined ? {} : { accepts: hitTarget.accepts }),
+    ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
+    ...(hitTarget.zIndex === undefined ? {} : { zIndex: hitTarget.zIndex }),
+  };
 }

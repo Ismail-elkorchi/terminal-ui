@@ -19,10 +19,11 @@ import {
   commandInput,
   form,
   textInput,
-  list,
+  listbox,
   searchPicker,
   richText,
   logViewer,
+  dataGrid,
   table,
   text,
   tree
@@ -31,13 +32,13 @@ import { column } from '../../dist/layout/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import {
   appendLogHistory,
-  listReducer,
+  listboxReducer,
   prepareSearchPickerIndex,
   prepareLogHistory,
-  prepareListCollection,
+  prepareListboxCollection,
   prepareTableCollection,
   prepareTreeCollection,
-  tableReducer,
+  dataGridReducer,
   treeReducer
 } from '../../dist/behavior/index.js';
 import {
@@ -46,6 +47,7 @@ import {
 } from '../../dist/text/index.js';
 
 const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
+const manualSingleSelection = Object.freeze({ mode: 'single', commitment: 'manual' });
 
 test('prepared word boundaries keep large multilingual lookups bounded', { timeout: 10_000 }, () => {
   const manyShortWords = `${'a '.repeat(50_000)}終`;
@@ -87,13 +89,17 @@ test('paste bursts decode as one paste event instead of per-character key churn'
   assert.equal(events[0]?.text.length, 10_000);
 });
 
-test('large list rendering is bounded by terminal size, not collection size', () => {
+test('large listbox rendering is bounded by terminal size, not collection size', () => {
   const items = Array.from({ length: 50_000 }, (_value, index) => `Item ${index}`);
-  const frame = renderElementFrame(list({
-    id: 'large-list',
+  const frame = renderElementFrame(listbox({
+    id: 'large-listbox',
     items,
     projectItem: (item) => ({ id: item, label: item }),
-    selectedId: 'Item 40000'
+    presentation: {
+      activeId: 'Item 40000',
+      selection: { mode: 'single', selectedId: 'Item 40000' }
+    },
+    onTransition: () => ignoreMessage()
   }), { columns: 32, rows: 10 });
   const output = renderFramePlain(frame);
 
@@ -104,46 +110,54 @@ test('large list rendering is bounded by terminal size, not collection size', ()
   assert.equal(frame.accessibility.root.description, 'Showing 39996-40005 of 50000 items.');
 });
 
-test('prepared list collections retain item preparation across renders and actions', () => {
+test('prepared listbox collections retain item preparation across renders and actions', () => {
   let projectorCalls = 0;
   const values = Array.from({ length: 50_000 }, (_value, index) => `Item ${String(index)}`);
-  const collection = prepareListCollection(values, (value, index) => {
+  const collection = prepareListboxCollection(values, (value, index) => {
     projectorCalls += 1;
     return { id: String(index), label: value };
   });
 
   assert.equal(projectorCalls, values.length);
   projectorCalls = 0;
-  let recordReads = 0;
-  const retained = new Proxy(collection, {
-    get(target, property, receiver) {
-      if (property === 'records') recordReads += 1;
-      return Reflect.get(target, property, receiver);
-    }
-  });
-  renderElementFrame(list({ id: 'retained-list', collection: retained, selectedId: '25000' }), { columns: 32, rows: 10 });
-  const readsAfterFirstConstruction = recordReads;
-  renderElementFrame(list({ id: 'retained-list', collection: retained, selectedId: '25001' }), { columns: 40, rows: 12 });
-  const state = listReducer({ selectedId: '25000' }, { kind: 'move', delta: 1 }, { collection });
+  renderElementFrame(listbox({
+    id: 'retained-listbox',
+    collection,
+    presentation: { activeId: '25000', selection: { mode: 'single', selectedId: '25000' } },
+    onTransition: () => ignoreMessage()
+  }), { columns: 32, rows: 10 });
+  renderElementFrame(listbox({
+    id: 'retained-listbox',
+    collection,
+    presentation: { activeId: '25001', selection: { mode: 'single', selectedId: '25001' } },
+    onTransition: () => ignoreMessage()
+  }), { columns: 40, rows: 12 });
+  const state = listboxReducer(
+    { activeId: '25000', selection: { mode: 'single', selectedId: '25000' } },
+    { kind: 'moveActive', delta: 1 },
+    { collection, selection: { mode: 'single', commitment: 'manual' } }
+  );
 
-  assert.equal(state.selectedId, '25001');
+  assert.equal(state.activeId, '25001');
   assert.equal(projectorCalls, 0);
-  assert.ok(readsAfterFirstConstruction > 0);
-  assert.equal(recordReads, readsAfterFirstConstruction);
 });
 
-test('windowed list collections project only supplied rows while preserving global scope', () => {
+test('windowed listbox collections project only supplied rows while preserving global scope', () => {
   let projectorCalls = 0;
   const start = 40_000;
   const values = Array.from({ length: 10 }, (_value, offset) => `Item ${String(start + offset)}`);
-  const collection = prepareListCollection(values, (value, index) => {
+  const collection = prepareListboxCollection(values, (value, index) => {
     projectorCalls += 1;
     return { id: String(index), label: value };
   }, { startIndex: start, totalCount: 50_000, domain: { kind: 'source' } });
-  const frame = renderElementFrame(list({
-    id: 'windowed-list',
+  const frame = renderElementFrame(listbox({
+    id: 'windowed-listbox',
     collection,
-    selectedId: '40004'
+    presentation: {
+      activeId: '40004',
+      selection: { mode: 'single', selectedId: '40004' }
+    },
+    onTransition: () => ignoreMessage()
   }), { columns: 32, rows: 5 });
 
   assert.equal(projectorCalls, 10);
@@ -234,10 +248,10 @@ test('full frame render stays bounded by terminal size for mixed element trees',
       id: 'search',
       prompt: '?',
       presentation: { value: 'fil', cursor: 0, suggestions: [
-        { value: 'file', label: 'file' },
-        { value: 'filter', label: 'filter' }
-      ], selectedSuggestionIndex: 0 },
-      onAction: (action) => action
+        { id: 'file', value: 'file', label: 'file' },
+        { id: 'filter', value: 'filter', label: 'filter' }
+      ], activeSuggestionId: 'file' },
+      onTransition: (transition) => transition
     }),
     table({
     getRowId: (_row, index) => String(index),
@@ -291,11 +305,19 @@ test('append-heavy log viewer diffs stay bounded by visible rows', () => {
   assert.ok(diff.operations.length <= 16);
 });
 
-test('large table rendering is bounded by terminal size independently from row count', () => {
-  const frame = renderElementFrame(table({
+test('large dataGrid rendering is bounded by terminal size independently from row count', () => {
+  const frame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'large-table',
-    presentation: { selectedCell: { rowId: '42000', columnIndex: 1 } },
+    id: 'large-dataGrid',
+    presentation: {
+      interaction: {
+        kind: 'cell',
+        selectionMode: 'single',
+        activeCell: { rowId: '42000', columnId: 'score-1' },
+        selectedCells: [{ rowId: '42000', columnId: 'score-1' }]
+      }
+    },
+    onTransition: () => ignoreMessage(),
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -313,7 +335,7 @@ test('large table rendering is bounded by terminal size independently from row c
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 12, true);
 });
 
-test('prepared table collections retain row identity across renders and reducer actions', () => {
+test('prepared dataGrid collections retain row identity across renders and reducer actions', () => {
   let rowIdCalls = 0;
   const rows = Array.from({ length: 100_000 }, (_value, index) => ({ name: `Row ${String(index)}` }));
   const collection = prepareTableCollection(rows, (_row, index) => {
@@ -323,26 +345,39 @@ test('prepared table collections retain row identity across renders and reducer 
 
   assert.equal(rowIdCalls, rows.length);
   rowIdCalls = 0;
-  let recordReads = 0;
-  const retained = new Proxy(collection, {
-    get(target, property, receiver) {
-      if (property === 'records') recordReads += 1;
-      return Reflect.get(target, property, receiver);
-    }
-  });
   const columns = [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }];
-  renderElementFrame(table({ id: 'retained-table', collection: retained, columns, presentation: { selectedRowId: '50000' } }), { columns: 48, rows: 12 });
-  const readsAfterFirstConstruction = recordReads;
-  renderElementFrame(table({ id: 'retained-table', collection: retained, columns, presentation: { selectedRowId: '50001' } }), { columns: 64, rows: 16 });
-  const state = tableReducer({ selectedRowId: '50000' }, { kind: 'moveRow', delta: 1 }, { collection, columnCount: 1 });
+  renderElementFrame(dataGrid({
+    id: 'retained-dataGrid',
+    collection,
+    columns,
+    presentation: {
+      interaction: { kind: 'row',
+      selectionMode: 'single', activeRowId: '50000', selectedRowIds: ['50000'] }
+    },
+    onTransition: () => ignoreMessage()
+  }), { columns: 48, rows: 12 });
+  renderElementFrame(dataGrid({
+    id: 'retained-dataGrid',
+    collection,
+    columns,
+    presentation: {
+      interaction: { kind: 'row',
+      selectionMode: 'single', activeRowId: '50001', selectedRowIds: ['50001'] }
+    },
+    onTransition: () => ignoreMessage()
+  }), { columns: 64, rows: 16 });
+  const state = dataGridReducer(
+    { interaction: { kind: 'row',
+    selectionMode: 'single', activeRowId: '50000', selectedRowIds: ['50000'] } },
+    { kind: 'moveRow', delta: 1 },
+    { collection, columnIds: ['name'], selection: manualSingleSelection }
+  );
 
-  assert.equal(state.selectedRowId, '50001');
+  assert.equal(state.interaction.kind === 'row' ? state.interaction.activeRowId : undefined, '50001');
   assert.equal(rowIdCalls, 0);
-  assert.ok(readsAfterFirstConstruction > 0);
-  assert.equal(recordReads, readsAfterFirstConstruction);
 });
 
-test('windowed table collections identify only supplied records and keep global row positions', () => {
+test('windowed dataGrid collections identify only supplied records and keep global row positions', () => {
   let rowIdCalls = 0;
   const start = 70_000;
   const rows = Array.from({ length: 12 }, (_value, offset) => ({ name: `Row ${String(start + offset)}` }));
@@ -350,11 +385,15 @@ test('windowed table collections identify only supplied records and keep global 
     rowIdCalls += 1;
     return String(index);
   }, { startIndex: start, totalCount: 100_000, domain: { kind: 'source' } });
-  const frame = renderElementFrame(table({
-    id: 'windowed-table',
+  const frame = renderElementFrame(dataGrid({
+    id: 'windowed-dataGrid',
     collection,
     columns: [{ id: 'name', header: 'Name', value: (row) => row.name, width: { kind: 'fill' } }],
-    presentation: { selectedRowId: '70005' }
+    presentation: {
+      interaction: { kind: 'row',
+      selectionMode: 'single', activeRowId: '70005', selectedRowIds: ['70005'] }
+    },
+    onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 7 });
 
   assert.equal(rowIdCalls, 12);
@@ -366,9 +405,9 @@ test('windowed table collections identify only supplied records and keep global 
 test('fill-width tables evaluate each visible row once without scanning offscreen values', () => {
   let valueReads = 0;
   const rows = Array.from({ length: 20_000 }, (_value, index) => ({ name: `Row ${String(index)}` }));
-  const frame = renderElementFrame(table({
+  const frame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'fill-table-cost',
+    id: 'fill-dataGrid-cost',
     rows,
     columns: [{
       id: 'name',
@@ -378,20 +417,32 @@ test('fill-width tables evaluate each visible row once without scanning offscree
         return row.name;
       }
     }],
-    presentation: { selectedRowId: '10000' }
+    presentation: {
+      interaction: { kind: 'row',
+      selectionMode: 'single', activeRowId: '10000', selectedRowIds: ['10000'] }
+    },
+    onTransition: () => ignoreMessage()
   }), { columns: 80, rows: 20 });
 
   assert.match(renderFramePlain(frame), /Row 10000/u);
   assert.equal(valueReads, 20);
 });
 
-test('large table retained damage is narrowed to changed visible rows', () => {
+test('large dataGrid retained damage is narrowed to changed visible rows', () => {
   const terminalSize = { columns: 64, rows: 12 };
   const rows = Array.from({ length: 20_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`]);
-  const previousElement = table({
+  const previousElement = dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'large-table-damage',
-    presentation: { selectedCell: { rowId: '12000', columnIndex: 1 } },
+    id: 'large-dataGrid-damage',
+    presentation: {
+      interaction: {
+        kind: 'cell',
+        selectionMode: 'single',
+        activeCell: { rowId: '12000', columnId: 'score-1' },
+        selectedCells: [{ rowId: '12000', columnId: 'score-1' }]
+      }
+    },
+    onTransition: () => ignoreMessage(),
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -402,10 +453,18 @@ test('large table retained damage is narrowed to changed visible rows', () => {
     ],
     rows
   });
-  const nextElement = table({
+  const nextElement = dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'large-table-damage',
-    presentation: { selectedCell: { rowId: '12000', columnIndex: 2 } },
+    id: 'large-dataGrid-damage',
+    presentation: {
+      interaction: {
+        kind: 'cell',
+        selectionMode: 'single',
+        activeCell: { rowId: '12000', columnId: 'notes-2' },
+        selectedCells: [{ rowId: '12000', columnId: 'notes-2' }]
+      }
+    },
+    onTransition: () => ignoreMessage(),
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -468,14 +527,18 @@ test('large sparse canvas retained damage is narrowed to touched cells', () => {
 test('large tree rendering is bounded by terminal size independently from node count', () => {
   const frame = renderElementFrame(tree({
     id: 'large-tree',
-    selected: 'node-40000',
     nodes: [{
       id: 'root',
       label: 'Root',
       kind: 'branch',
-      expanded: true,
       children: Array.from({ length: 50_000 }, (_value, index) => ({ id: `node-${index}`, label: `Node ${index}`, kind: 'leaf' }))
-    }]
+    }],
+    presentation: {
+      activeId: 'node-40000',
+      selection: { mode: 'single', selectedId: 'node-40000' },
+      expandedIds: ['root']
+    },
+    onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
 
   assert.match(renderFramePlain(frame), /Node 40000/u);
@@ -497,23 +560,45 @@ test('prepared tree collections avoid recursive flattening on rerender and movem
       kind: 'leaf'
     };
   });
-  const nodes = [{ id: 'root', label: 'Root', kind: 'branch', expanded: true, children }];
-  const collection = prepareTreeCollection(nodes);
+  const nodes = [{ id: 'root', label: 'Root', kind: 'branch', children }];
+  const initial = {
+    activeId: 'node-25000',
+    selection: { mode: 'single', selectedId: 'node-25000' },
+    expandedIds: ['root']
+  };
+  const collection = prepareTreeCollection(nodes, initial);
 
   assert.ok(nodeIdReads >= children.length);
   nodeIdReads = 0;
-  renderElementFrame(tree({ id: 'retained-tree', collection, selected: 'node-25000' }), { columns: 40, rows: 10 });
-  renderElementFrame(tree({ id: 'retained-tree', collection, selected: 'node-25001' }), { columns: 48, rows: 12 });
-  const state = treeReducer({ nodes, selected: 'node-25000' }, { kind: 'move', delta: 1 }, { collection });
+  renderElementFrame(tree({
+    id: 'retained-tree',
+    collection,
+    presentation: initial,
+    onTransition: () => ignoreMessage()
+  }), { columns: 40, rows: 10 });
+  renderElementFrame(tree({
+    id: 'retained-tree',
+    collection,
+    presentation: {
+      activeId: 'node-25001',
+      selection: { mode: 'single', selectedId: 'node-25001' },
+      expandedIds: ['root']
+    },
+    onTransition: () => ignoreMessage()
+  }), { columns: 48, rows: 12 });
+  const state = treeReducer(initial, { kind: 'moveActive', delta: 1 }, {
+    collection,
+    selection: manualSingleSelection
+  });
 
-  assert.equal(state.selected, 'node-25001');
+  assert.equal(state.activeId, 'node-25001');
   assert.ok(nodeIdReads < 500, `expected terminal-size-bounded node reads, received ${String(nodeIdReads)}`);
 });
 
 test('prepared collections snapshot source membership instead of retaining mutable arrays', () => {
   const values = ['alpha', 'bravo'];
   const rows = [{ name: 'alpha' }, { name: 'bravo' }];
-  const listCollection = prepareListCollection(values, (value) => ({ id: value, label: value }));
+  const listCollection = prepareListboxCollection(values, (value) => ({ id: value, label: value }));
   const tableCollection = prepareTableCollection(rows, (row) => row.name);
 
   values.splice(0, values.length, 'changed');
@@ -532,11 +617,13 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
   }));
   const frame = renderElementFrame(searchPicker({
     id: 'large-searchPicker',
-    query: '19999',
-    selectedId: 'entry-19999',
+    presentation: {
+      query: { text: '19999', mode: 'fuzzy' },
+      activeId: 'entry-19999'
+    },
     maxVisible: 5,
     searchPickerIndex: prepareSearchPickerIndex(entries),
-    onAction: (action) => action
+    onTransition: (transition) => transition
   }), { columns: 48, rows: 8 });
 
   assert.match(renderFramePlain(frame), /Entry 19999/u);

@@ -1,48 +1,57 @@
 import {
   paginationWindow,
-  prepareListCollection,
+  prepareListboxCollection,
   prepareTableCollection,
-  prepareTreeRows
+  prepareTreeRows,
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import { list, table, tree } from '@ismail-elkorchi/terminal-ui/components';
+import { listbox, table, tree } from '@ismail-elkorchi/terminal-ui/components';
 
-const listCollection = prepareListCollection(
+const listCollection = prepareListboxCollection(
   ['alpha', 'bravo'],
   (value, index) => ({ id: String(index), label: value }),
-  { startIndex: 100, totalCount: 1_000, domain: { kind: 'source' } }
+  { startIndex: 100, totalCount: 1_000, domain: { kind: 'source' } },
 );
 const tableCollection = prepareTableCollection(
   [{ id: 'one', value: 1 }],
   (row) => row.id,
-  { startIndex: 20, totalCount: 500, domain: { kind: 'source' } }
+  { startIndex: 20, totalCount: 500, domain: { kind: 'source' } },
 );
 const treeCollection = prepareTreeRows([{
   node: { id: 'leaf', label: 'Leaf', kind: 'leaf' },
   depth: 0,
-  path: ['leaf']
+  path: ['leaf'],
+  expanded: false,
 }], {
   startIndex: 10,
   totalCount: 100,
-  domain: { kind: 'projection', id: 'tree:query', filterQuery: 'leaf' }
+  domain: { kind: 'projection', id: 'tree:query', filterQuery: 'leaf' },
 });
+const interaction = { activeId: 'leaf', selection: { mode: 'none' as const } };
 
-list({ id: 'list', collection: listCollection });
+listbox({
+  id: 'listbox',
+  collection: listCollection,
+  presentation: { selection: { mode: 'none' } },
+  onTransition: (transition) => transition,
+});
 table({
   id: 'table',
   collection: tableCollection,
-  columns: [{ id: 'value', value: (row) => row.value }]
+  columns: [{ id: 'value', value: (row) => row.value }],
 });
-tree({ id: 'tree', collection: treeCollection });
+tree({
+  id: 'tree',
+  collection: treeCollection,
+  presentation: { ...interaction, expandedIds: [] },
+  onTransition: (transition) => transition,
+});
 paginationWindow({ pageNumber: 2, pageSize: 25, totalCount: 100 });
 
-// @ts-expect-error externally windowed lists cannot be filtered locally
-list({ id: 'filtered-window-list', collection: listCollection, filterQuery: 'alpha' });
-// @ts-expect-error externally windowed trees cannot be filtered locally
-tree({ id: 'filtered-window-tree', collection: treeCollection, filterQuery: 'leaf' });
-
-// @ts-expect-error retained list collections replace raw item/projector inputs
-list({ id: 'mixed-list', collection: listCollection, items: ['alpha'], projectItem: (value) => ({ id: value, label: value }) });
+// @ts-expect-error externally windowed listboxes cannot be filtered locally
+listbox({ id: 'filtered-window-listbox', collection: listCollection, filterQuery: { text: 'alpha', mode: 'contains' }, presentation: interaction, onTransition: (transition) => transition });
+// @ts-expect-error retained listbox collections replace raw item/projector inputs
+listbox({ id: 'mixed-listbox', collection: listCollection, items: ['alpha'], projectItem: (value: string) => ({ id: value, label: value }), presentation: interaction, onTransition: (transition) => transition });
 // @ts-expect-error retained table collections replace raw row identity inputs
-table({ id: 'mixed-table', collection: tableCollection, rows: [{ id: 'two', value: 2 }], getRowId: (row) => row.id });
+table({ id: 'mixed-table', collection: tableCollection, rows: [{ id: 'two', value: 2 }], getRowId: (row: { id: string }) => row.id });
 // @ts-expect-error retained tree collections replace raw hierarchy inputs
-tree({ id: 'mixed-tree', collection: treeCollection, nodes: [{ id: 'other', label: 'Other', kind: 'leaf' }] });
+tree({ id: 'mixed-tree', collection: treeCollection, nodes: [{ id: 'other', label: 'Other', kind: 'leaf' }], presentation: { ...interaction, expandedIds: [] }, onTransition: (transition) => transition });

@@ -65,17 +65,38 @@ export function toRenderNodes<const TChildren extends ElementChildren>(
  */
 export function markImplementationStructure<TMessage>(
   node: RenderNode<TMessage>,
-  callerOwnedRoots: ReadonlySet<object> = new Set()
+  callerOwnedRoots: ReadonlySet<object> = new Set(),
+  disabled = false,
 ): RenderNode<TMessage> {
-  if (callerOwnedRoots.has(node) || node.kind === 'component') return node;
+  if (callerOwnedRoots.has(node)) return node;
+  if (node.kind === 'component') {
+    if (!disabled) return node;
+    const unavailable = {
+      ...node,
+      state: { ...node.state, disabled: true },
+      ...(node.children === undefined
+        ? {}
+        : {
+            children: node.children.map((child) =>
+              markImplementationStructure(child, callerOwnedRoots, true)
+            ),
+          }),
+    } as RenderNode<TMessage>;
+    const componentInspection = renderNodeInspections.get(node);
+    if (componentInspection !== undefined) {
+      renderNodeInspections.set(unavailable, componentInspection);
+    }
+    return unavailable;
+  }
   const marked = {
     ...node,
     transparentFocusIdentity: true as const,
+    ...(disabled ? { state: { ...node.state, disabled: true } } : {}),
     ...(node.children === undefined
       ? {}
       : {
           children: node.children.map((child) =>
-            markImplementationStructure(child, callerOwnedRoots)
+            markImplementationStructure(child, callerOwnedRoots, disabled)
           )
         })
   } as RenderNode<TMessage>;
@@ -149,7 +170,15 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   const inspection: ElementInspection = {
     factory,
     ...(node.kind === 'component' && node.definition !== undefined
-      ? { component: node.definition.inspection }
+      ? { component: componentInspection(node as RenderNodeOfKind<unknown, 'component'>) }
+      : {}),
+    ...(node.kind === 'component'
+      ? {
+          semantic: semanticInspection(
+            (node.props as { readonly model: unknown }).model,
+            node.definition?.sensitiveInput ?? false,
+          ),
+        }
       : {}),
     ...(node.id === undefined ? {} : { id: node.id }),
     inputs: Object.freeze({
@@ -171,6 +200,95 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
     }))
   };
   return Object.freeze(inspection);
+}
+
+function componentInspection(
+  node: RenderNodeOfKind<unknown, 'component'>,
+): import('../../element/inspection.ts').ComponentCapabilityInspection {
+  const inspection = node.definition.inspection;
+  if (inspection.semantics === 'decorative') {
+    return Object.freeze({
+      identity: inspection.identity,
+      structure: inspection.structure,
+      semantics: 'decorative',
+      states: inspection.states,
+      actions: inspection.actions,
+    });
+  }
+  const accessibleRole = (node.props as {
+    readonly accessibleRole?: import('../../accessibility/types.ts').AccessibleRole;
+  }).accessibleRole;
+  if (accessibleRole === undefined) {
+    throw new Error(`Semantic component "${node.definition.name}" has no resolved accessibility role.`);
+  }
+  return Object.freeze({ ...inspection, semantics: 'semantic', accessibleRole });
+}
+
+function semanticInspection(
+  model: unknown,
+  sensitive: boolean,
+): import('../../element/inspection.ts').ComponentSemanticInspection {
+  const state: Readonly<Record<string, unknown>> = record(model) ?? Object.freeze({});
+  const interaction = record(state['interaction']);
+  const value = scalar(state['value']);
+  const active = interaction?.['activeId'] ?? state['activeId'] ?? state['active'];
+  const selection = interaction?.['selection'] ?? state['selection'];
+  const error = typeof state['error'] === 'string' && state['error'].length > 0
+    ? state['error']
+    : undefined;
+  const required = typeof state['required'] === 'boolean' ? state['required'] : undefined;
+  const entries = Array.isArray(state['entries'])
+    ? state['entries']
+    : Array.isArray(state['rows']) ? state['rows'] : undefined;
+  const startIndex = finiteNumber(state['startIndex']);
+  const totalCount = finiteNumber(state['totalCount']);
+  if (sensitive) {
+    return Object.freeze({
+      ...(error === undefined && required === undefined ? {} : {
+        validation: Object.freeze({
+          ...(required === undefined ? {} : { required }),
+          invalid: error !== undefined,
+        }),
+      }),
+      state: Object.freeze({ redacted: true }),
+    });
+  }
+  return Object.freeze({
+    ...(value === undefined ? {} : { value }),
+    ...(active === undefined ? {} : { active }),
+    ...(selection === undefined ? {} : { selection }),
+    ...(error === undefined && required === undefined ? {} : {
+      validation: Object.freeze({
+        ...(required === undefined ? {} : { required }),
+        invalid: error !== undefined,
+        ...(error === undefined ? {} : { message: error }),
+      }),
+    }),
+    ...(entries === undefined && startIndex === undefined && totalCount === undefined ? {} : {
+      collection: Object.freeze({
+        ...(startIndex === undefined ? {} : { startIndex }),
+        ...(totalCount === undefined ? {} : { totalCount }),
+        ...(entries === undefined ? {} : { visibleCount: entries.length }),
+      }),
+    }),
+    state,
+  });
+}
+
+function record(value: unknown): Readonly<Record<string, unknown>> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Readonly<Record<string, unknown>>
+    : undefined;
+}
+
+function scalar(value: unknown): string | number | boolean | undefined {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+    ? value
+    : undefined;
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function factoryIdentity<TMessage, TKind extends RenderNodeKind>(

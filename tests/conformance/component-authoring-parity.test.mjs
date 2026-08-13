@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { button, text } from '../../dist/components/index.js';
+import {
+  button,
+  chart,
+  combobox,
+  dialog,
+  listbox,
+  text,
+  textInput,
+  tooltip
+} from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { column } from '../../dist/layout/index.js';
 import { layoutElement, renderElementFrame } from '../../dist/renderer/index.js';
 import { renderElementSnapshot } from '../../dist/testing/index.js';
@@ -9,13 +19,19 @@ import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
   runButtonConformance,
-  runMessageRoutingConformance
+  runChartConformance,
+  runDialogConformance,
+  runEditableControlConformance,
+  runMessageRoutingConformance,
+  runPopupChoiceConformance,
+  runTooltipConformance,
+  runVirtualCollectionConformance
 } from '../helpers/component-conformance.mjs';
 import {
   externalButton,
   externalChart,
+  externalCombobox,
   externalDialog,
-  externalSelect,
   externalText,
   externalTextInput,
   externalTooltip,
@@ -26,6 +42,132 @@ runButtonConformance('built-in', button);
 runButtonConformance('external', externalButton);
 runMessageRoutingConformance('built-in', button);
 runMessageRoutingConformance('external', externalButton);
+
+runEditableControlConformance('built-in', {
+  active: ({ id, value, onInsert }) => textInput({
+    id,
+    presentation: { value, cursor: value.length },
+    onAction: (action) => action.kind === 'edit' && action.operation.kind === 'insert'
+      ? onInsert(action.operation.text)
+      : ignoreMessage()
+  }),
+  disabled: ({ id, value }) => textInput({
+    id,
+    presentation: { value, cursor: value.length },
+    disabled: true
+  })
+});
+runEditableControlConformance('external', {
+  active: ({ id, value, onInsert }) => externalTextInput({
+    id, label: 'Value', value,
+    onAction: (action) => action.kind === 'insert' ? onInsert(action.text) : ignoreMessage()
+  }),
+  disabled: ({ id, value }) => externalTextInput({ id, label: 'Value', value, disabled: true })
+});
+
+runVirtualCollectionConformance('built-in', {
+  active: ({ id, items, activeIndex }) => listbox({
+    id,
+    items,
+    projectItem: (item) => ({ id: item, label: item }),
+    presentation: {
+      activeId: items[activeIndex],
+      selection: { mode: 'single', selectedId: items[activeIndex] }
+    },
+    onTransition: () => ignoreMessage()
+  }),
+  disabled: ({ id, items, activeIndex }) => listbox({
+    id,
+    items,
+    projectItem: (item) => ({ id: item, label: item }),
+    presentation: {
+      activeId: items[activeIndex],
+      selection: { mode: 'single', selectedId: items[activeIndex] }
+    },
+    disabled: true
+  })
+});
+runVirtualCollectionConformance('external', {
+  active: ({ id, items, activeIndex }) => externalVirtualList({
+    id, items, offset: activeIndex, onAction: () => ignoreMessage()
+  }),
+  disabled: ({ id, items, activeIndex }) => externalVirtualList({
+    id, items, offset: activeIndex, disabled: true
+  })
+});
+
+runPopupChoiceConformance('built-in', (id) => combobox({
+  id,
+  label: 'Choice',
+  options: [
+    { id: 'one', label: 'One', value: 'one' },
+    { id: 'two', label: 'Two', value: 'two' }
+  ],
+  presentation: {
+    open: true,
+    interaction: { activeId: 'two', selection: { mode: 'single', selectedId: 'one' } }
+  },
+  onTransition: () => ignoreMessage()
+}));
+runPopupChoiceConformance('external', (id) => externalCombobox({
+  id, label: 'Choice', items: ['one', 'two'], selectedId: 'one', open: true,
+  onAction: () => ignoreMessage()
+}));
+
+runDialogConformance('built-in', (id) => dialog({
+  id,
+  title: 'Settings',
+  modal: true,
+  focusPolicy: { returnFocus: 'restore' },
+  slots: {
+    content: button({
+      id: `${id}:content`, label: 'Dialog content', onAction: () => ignoreMessage()
+    })
+  }
+}));
+runDialogConformance('external', (id) => externalDialog({
+  id,
+  title: 'Settings',
+  modal: true,
+  slots: {
+    content: externalButton({
+      id: `${id}:content`, label: 'Dialog content', onAction: () => ignoreMessage()
+    })
+  },
+  onAction: () => ignoreMessage()
+}));
+
+runTooltipConformance('built-in', (id) => tooltip({
+  id,
+  trigger: button({ id: `${id}:trigger`, label: 'Info', onAction: () => ignoreMessage() }),
+  content: 'More information',
+  open: true,
+  onTransition: () => ignoreMessage()
+}));
+runTooltipConformance('external', (id) => externalTooltip({
+  id,
+  content: 'More information',
+  open: true,
+  slots: {
+    trigger: externalButton({ id: `${id}:trigger`, label: 'Info', onAction: () => ignoreMessage() })
+  }
+}));
+
+runChartConformance('built-in', (id) => chart({
+  id,
+  label: 'Load',
+  series: [{
+    id: 'load',
+    label: 'Load',
+    points: [
+      { id: 'one', label: 'One', value: 1 },
+      { id: 'two', label: 'Two', value: 3 }
+    ]
+  }]
+}));
+runChartConformance('external', (id) => externalChart({
+  id, label: 'Load', values: [1, 3]
+}));
 
 test('external painted controls share keyboard, text, pointer, cursor, and action routing', async () => {
   const messages = [];
@@ -103,12 +245,12 @@ test('external virtual collection bounds rendering work and exposes a complete a
   });
 });
 
-test('external composed select uses public portals, layers, placement, and ordinary children', () => {
-  const element = externalSelect({
-    id: 'external-select',
+test('external composed combobox uses public portals, layers, placement, and ordinary children', () => {
+  const element = externalCombobox({
+    id: 'external-combobox',
     label: 'Choice',
     items: ['one', 'two', 'three'],
-    selectedIndex: 1,
+    selectedId: 'two',
     open: true,
     onAction: (action) => action
   });

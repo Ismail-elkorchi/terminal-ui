@@ -94,8 +94,11 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'documents',
     'drawing',
     'feedback',
+    'foundations',
     'forms',
-    'menus'
+    'menus',
+    'tabs',
+    'collections'
   ].map((name) => name === 'base'
     ? readFile(new URL('../../dist/element/metadata.d.ts', import.meta.url), 'utf8')
     : readFile(new URL(`../../dist/components/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
@@ -138,16 +141,16 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'ElementMeta',
     'ElementOptions',
     'ButtonOptions',
-    'CommandInputAction',
+    'CommandInputTransition',
     'CommandInputOptions',
     'LogEntry',
     'LogHistory',
     'LogViewerAction',
     'LogViewerOptions',
     'MenuItem',
-    'SearchPickerAction',
+    'SearchPickerTransition',
     'SearchPickerOptions',
-    'TableAction',
+    'DataGridTransition',
     'TableColumn',
     'TreeNode'
   ]) {
@@ -178,7 +181,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   }
 
   for (const typeName of [
-    'CommandInputAction',
+    'CommandInputTransition',
     'CommandInputState',
     'LogHistory',
     'LogViewerAction',
@@ -186,10 +189,10 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'NavigationStack',
     'NavigationStackAction',
     'NotificationAction',
-    'SearchPickerAction',
+    'SearchPickerTransition',
     'ScrollAction',
-    'TableAction',
-    'TreeAction'
+    'DataGridTransition',
+    'TreeTransition'
   ]) {
     assert.match(behaviorDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `behavior:${typeName}`);
   }
@@ -249,9 +252,11 @@ test('component definitions and border title slots expose usable structural cont
     }];
     const marker = defineComponent({
       name: 'terminal-ui-tests/components/marker',
+      optionFields: {},
       identity: 'required',
       structure: 'leaf',
       semantics: 'semantic',
+      accessibleRole: 'button',
       measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
       render: () => undefined,
       accessibility: ({ id, focused }) => ({ id, role: 'button', label: id, ...(focused ? { focused } : {}) }),
@@ -276,7 +281,8 @@ test('public renderer helpers accept component elements', () => {
     const panels = tabs({
       id: 'tabs',
       tabs: [{ id: 'main', label: 'Main', panel: text({ content: 'x', id: 'x' }) }],
-      onAction: (action) => action
+      presentation: { activeId: 'main', selectedId: 'main' },
+      onTransition: (action) => action
     });
     const element = column([
       dialog({
@@ -315,9 +321,11 @@ test('component packages can use the narrow authoring entrypoint', () => {
       { readonly value: number }
     >({
       name: 'terminal-ui-tests/components/meter',
+      optionFields: { value: true },
       identity: 'required',
       structure: 'leaf',
       semantics: 'semantic',
+      accessibleRole: 'meter',
       prepare(value) {
         if (typeof value.value !== 'number') {
           throw new TypeError('meter requires a numeric value');
@@ -352,9 +360,11 @@ test('component packages can use the narrow authoring entrypoint', () => {
     });
     const panelComponent = defineComponent({
       name: 'terminal-ui-tests/components/componentPanel',
+      optionFields: {},
       identity: 'required',
       structure: 'composite',
       semantics: 'semantic',
+      accessibleRole: 'group',
       slots: {
         content: { cardinality: 'many', owner: 'caller', messages: 'bubble' }
       } as const,

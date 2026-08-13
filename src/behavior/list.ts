@@ -1,119 +1,139 @@
-import type { ListAction, ListControlAction } from '../ui-model/list.ts';
+import type { ListboxControlTransition, ListboxTransition } from '../ui-model/list.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type {
-  CompleteListCollection,
-  ListCollection,
-  ListCollectionRecord,
-  ListItemProjection,
-  ListItemProjector,
-  ListViewEntry,
-  PreparedListView,
-  WindowedListCollection
+  CompleteListboxCollection,
+  ListboxCollection,
+  ListboxCollectionRecord,
+  ListboxOption,
+  ListboxOptionProjector,
+  ListboxViewEntry,
+  PreparedListboxView,
+  WindowedListboxCollection
 } from '../ui-model/list.ts';
 import {
-  listViewScrollPosition,
-  listViewSelectablePosition,
-  prepareListView
+  listboxViewScrollPosition,
+  prepareListboxView
 } from '../ui-model/list-view.ts';
 import { completeCollection, windowedCollection } from '../ui-model/collection.ts';
 import type { CollectionWindow } from '../ui-model/collection.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
-import { cyclicIndex } from '../foundation/cyclic-index.ts';
+import { collectionInteractionReducer } from '../interaction/collection.ts';
+import type {
+  CollectionInteractionState,
+  SelectionPolicy,
+} from '../interaction/collection.ts';
+import type { NavigationPolicy } from '../interaction/navigation.ts';
 
-interface ListStateBase {
-  readonly selectedId?: string;
-}
+type ListboxStateBase = CollectionInteractionState;
 
-export interface PassiveListState extends ListStateBase {
+export interface UnscrolledListboxState extends ListboxStateBase {
   readonly scroll?: never;
 }
 
-export interface ScrollableListState extends ListStateBase {
+export interface ScrollableListboxState extends ListboxStateBase {
   readonly scroll: ScrollState;
 }
 
-export type ListState = PassiveListState | ScrollableListState;
+export type ListboxState = UnscrolledListboxState | ScrollableListboxState;
 
-export type ListReducerOptions<TValue> =
+export type ListboxReducerOptions<TValue> = (
   | {
       readonly items: readonly TValue[];
-      readonly projectItem: ListItemProjector<TValue>;
+      readonly projectItem: ListboxOptionProjector<TValue>;
       readonly collection?: never;
-      readonly filterQuery?: string;
+      readonly filterQuery?: import('../ui-model/query.ts').CollectionQuery;
     }
   | {
-      readonly collection: CompleteListCollection<TValue>;
+      readonly collection: CompleteListboxCollection<TValue>;
       readonly items?: never;
       readonly projectItem?: never;
-      readonly filterQuery?: string;
+      readonly filterQuery?: import('../ui-model/query.ts').CollectionQuery;
     }
   | {
-      readonly collection: WindowedListCollection<TValue>;
+      readonly collection: WindowedListboxCollection<TValue>;
       readonly items?: never;
       readonly projectItem?: never;
       readonly filterQuery?: never;
     }
-;
+) & {
+  readonly selection: SelectionPolicy;
+  readonly navigation?: NavigationPolicy;
+  readonly pageSize?: number;
+};
 
-export function listReducer<TValue>(
-  state: ScrollableListState,
-  action: ListAction,
-  options: ListReducerOptions<TValue>
-): ScrollableListState;
-export function listReducer<TValue>(
-  state: PassiveListState,
-  action: ListControlAction,
-  options: ListReducerOptions<TValue>
-): PassiveListState;
-export function listReducer<TValue>(
-  state: ListState,
-  action: ListAction,
-  options: ListReducerOptions<TValue>
-): ListState {
+export function listboxReducer<TValue>(
+  state: ScrollableListboxState,
+  action: ListboxTransition,
+  options: ListboxReducerOptions<TValue>
+): ScrollableListboxState;
+export function listboxReducer<TValue>(
+  state: UnscrolledListboxState,
+  action: ListboxControlTransition,
+  options: ListboxReducerOptions<TValue>
+): UnscrolledListboxState;
+export function listboxReducer<TValue>(
+  state: ListboxState,
+  action: ListboxTransition,
+  options: ListboxReducerOptions<TValue>
+): ListboxState {
   if (action.kind === 'scroll') {
     return state.scroll === undefined
       ? state
       : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
   }
-  if (action.kind === 'activate') return state;
-  const view = prepareListViewForOptions(options);
-  const { selectable } = view;
-  if (selectable.length === 0) return withoutSelection(state);
-  const selectedId = selectedIdForAction(state.selectedId, action, view, state.scroll?.viewportRows);
-  if (selectedId === undefined) return state;
-  const scrollIndex = listViewScrollPosition(view, selectedId);
+  const view = prepareListboxViewForOptions(options);
+  const interactionAction = action.kind === 'pageActive'
+    ? { kind: 'moveActive' as const, delta: action.delta * Math.max(1, options.pageSize ?? 1) }
+    : action;
+  const interaction = collectionInteractionReducer(state, interactionAction, {
+    enabledIds: view.selectable.map((entry) => entry.id),
+    selection: options.selection,
+    ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
+  });
+  const scrollIndex = interaction.activeId === undefined
+    ? undefined
+    : listboxViewScrollPosition(view, interaction.activeId);
   const scroll = state.scroll === undefined || scrollIndex === undefined
     ? state.scroll
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', itemIndex: scrollIndex });
-  return state.selectedId === selectedId && state.scroll === scroll
+    : scrollReducer(state.scroll, {
+      kind: 'itemIntoView',
+      itemIndex: scrollIndex,
+      alignment: 'nearest',
+    }, {
+      contentRows: view.totalCount,
+      contentColumns: 0,
+      viewportRows: Math.max(1, options.pageSize ?? 1),
+      viewportColumns: 0,
+    });
+  return interaction === state && state.scroll === scroll
     ? state
     : {
-        selectedId,
+        ...interaction,
         ...(scroll === undefined ? {} : { scroll })
       };
 }
 
-export function visibleListEntries<TValue>(options: ListReducerOptions<TValue>): readonly ListViewEntry<TValue>[] {
-  return prepareListViewForOptions(options).entries;
+export function visibleListboxEntries<TValue>(options: ListboxReducerOptions<TValue>): readonly ListboxViewEntry<TValue>[] {
+  return prepareListboxViewForOptions(options).entries;
 }
 
-export function prepareListCollection<TValue>(
+export function prepareListboxCollection<TValue>(
   values: readonly TValue[],
-  projectItem: ListItemProjector<TValue>
-): CompleteListCollection<TValue>;
-export function prepareListCollection<TValue>(
+  projectItem: ListboxOptionProjector<TValue>
+): CompleteListboxCollection<TValue>;
+export function prepareListboxCollection<TValue>(
   values: readonly TValue[],
-  projectItem: ListItemProjector<TValue>,
+  projectItem: ListboxOptionProjector<TValue>,
   window: CollectionWindow
-): WindowedListCollection<TValue>;
-export function prepareListCollection<TValue>(
+): WindowedListboxCollection<TValue>;
+export function prepareListboxCollection<TValue>(
   values: readonly TValue[],
-  projectItem: ListItemProjector<TValue>,
+  projectItem: ListboxOptionProjector<TValue>,
   window?: CollectionWindow
-): ListCollection<TValue> {
+): ListboxCollection<TValue> {
   const startIndex = window?.startIndex ?? 0;
-  const records = values.map((value, offset): ListCollectionRecord<TValue> => {
+  const records = values.map((value, offset): ListboxCollectionRecord<TValue> => {
     const itemIndex = startIndex + offset;
     const item = normalizedListItem(projectItem(value, itemIndex));
     return { id: item.id, itemIndex, value, item };
@@ -123,7 +143,7 @@ export function prepareListCollection<TValue>(
     : windowedCollection({ records, window });
 }
 
-function normalizedListItem(item: ListItemProjection): ListCollectionRecord<unknown>['item'] {
+function normalizedListItem(item: ListboxOption): ListboxCollectionRecord<unknown>['item'] {
   const clean = (value: string): string => sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
   return Object.freeze({
     id: clean(item.id),
@@ -134,30 +154,8 @@ function normalizedListItem(item: ListItemProjection): ListCollectionRecord<unkn
   });
 }
 
-function selectedIdForAction<TValue>(
-  current: string | undefined,
-  action: Exclude<ListAction, { readonly kind: 'scroll' | 'activate' }>,
-  view: PreparedListView<TValue>,
-  viewportRows = 1
-): string | undefined {
-  const { selectable } = view;
-  if (action.kind === 'select') return listViewSelectablePosition(view, action.id) === undefined ? current : action.id;
-  if (action.kind === 'first') return selectable[0]?.item.id;
-  if (action.kind === 'last') return selectable.at(-1)?.item.id;
-  const delta = action.kind === 'page'
-    ? action.delta * Math.max(1, viewportRows)
-    : action.delta;
-  const currentPosition = current === undefined ? undefined : listViewSelectablePosition(view, current);
-  if (currentPosition === undefined) return delta < 0 ? selectable.at(-1)?.item.id : selectable[0]?.item.id;
-  return selectable[cyclicIndex(currentPosition + delta, selectable.length)]?.item.id;
-}
-
-export function prepareListViewForOptions<TValue>(options: ListReducerOptions<TValue>): PreparedListView<TValue> {
-  if (options.collection?.kind === 'window') return prepareListView(options.collection);
-  const collection = options.collection ?? prepareListCollection(options.items, options.projectItem);
-  return prepareListView(collection, options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery });
-}
-
-function withoutSelection(state: ListState): ListState {
-  return state.selectedId === undefined ? state : state.scroll === undefined ? {} : { scroll: state.scroll };
+export function prepareListboxViewForOptions<TValue>(options: ListboxReducerOptions<TValue>): PreparedListboxView<TValue> {
+  if (options.collection?.kind === 'window') return prepareListboxView(options.collection);
+  const collection = options.collection ?? prepareListboxCollection(options.items, options.projectItem);
+  return prepareListboxView(collection, options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery });
 }

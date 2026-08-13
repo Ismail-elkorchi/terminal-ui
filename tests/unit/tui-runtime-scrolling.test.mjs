@@ -16,6 +16,7 @@ import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 test('TUI wheel routing skips non-scroll child targets and reaches the scroll target', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'group',
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'child inside scroll target' }]);
     },
@@ -709,7 +710,7 @@ test('TUI routed horizontal text area scroll uses the editable viewport after gu
     });
   }
 
-  assert.equal(runtime.state().event.scroll.viewportColumns, editableViewportColumns);
+  assert.equal('scroll' in runtime.state().event, false);
   assert.equal(runtime.state().scroll.offsetColumn, value.length - editableViewportColumns);
 });
 
@@ -766,20 +767,29 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
   const app = defineTui({
     id: 'tree-scroll-pointer-tui',
     init: () => ({
-      tree: { nodes, scroll: createScrollState({}) },
+      tree: {
+        expandedIds: [],
+        selection: { mode: 'none' },
+        scroll: createScrollState({})
+      },
       event: undefined
     }),
     update: (state, message) => ({
       state: {
-        tree: treeReducer(state.tree, message.action),
+        tree: treeReducer(state.tree, message.action, {
+          nodes,
+          selection: { mode: 'none' }
+        }),
         event: message.action.kind === 'scroll' ? message.action.event : state.event
       }
     }),
     view: (state) => tree({
       id: 'tree-scroll',
-      ...state.tree,
+      nodes,
+      presentation: state.tree,
+      scroll: state.tree.scroll,
       scrollbar: { visible: 'always' },
-      onAction: (action) => ({ action })
+      onTransition: (action) => ({ action })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
@@ -802,8 +812,8 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
   });
 
   assert.equal(result.handled, true);
-  assert.equal(runtime.state().event.scroll.contentRows, nodes.length);
-  assert.equal(runtime.state().event.scroll.viewportRows, 3);
+  assert.equal(runtime.state().event.state.offsetRow, 3);
+  assert.equal('scroll' in runtime.state().event, false);
   assert.equal(runtime.state().tree.scroll.offsetRow, 3);
   assert.match(renderFramePlain(runtime.frame()), /Node 4/u);
 });
@@ -836,7 +846,9 @@ test('TUI routed context menu scroll events use a fixed title row and shared scr
       },
       scrollbar: { visible: 'always' },
       scrollPolicy: { wheel: { rows: 2 } },
-      onAction: (action) => ({ action: action.kind === 'menu' ? action.action : action })
+      onTransition: (action) => ({
+        action: action.kind === 'menu' ? action.transition : action
+      })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -859,7 +871,7 @@ test('TUI routed context menu scroll events use a fixed title row and shared scr
   });
 
   assert.equal(result.handled, true);
-  assert.equal(runtime.state().event.scroll.viewportRows, 2);
+  assert.equal(runtime.state().event.state.offsetRow, 2);
   assert.equal(runtime.state().scroll.offsetRow, 2);
   const frame = renderFramePlain(runtime.frame());
   assert.match(frame, /Actions/u);

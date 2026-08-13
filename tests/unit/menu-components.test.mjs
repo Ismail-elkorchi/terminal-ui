@@ -13,13 +13,13 @@ import {
 } from '../../dist/renderer/index.js';
 import {
   contextMenu,
-  dropdownMenu,
+  menuTrigger,
   menu,
   menuBar
 } from '../../dist/components/index.js';
 import {
   contextMenuPresentation,
-  dropdownMenuPresentation,
+  menuTriggerPresentation,
   menuBarPresentation,
   menuPresentation
 } from '../../dist/behavior/index.js';
@@ -50,7 +50,7 @@ const mouseRelease = (row, column) => ({
 });
 
 const items = [
-  { kind: 'action', id: 'new', label: 'New', description: 'Create item', shortcut: 'N' },
+  { kind: 'action', id: 'new', label: 'New', description: 'Create item', shortcut: { kind: 'key', key: 'n' } },
   {
     kind: 'submenu',
     id: 'open',
@@ -69,7 +69,7 @@ test('menu component renders nested checked disabled items with menu accessibili
   const frame = renderElementFrame(menu({
     id: 'file-menu',
     presentation: menuPresentation(items, { activePath: ['open', 'recent'] }),
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 40, rows: 8 });
   const output = renderFramePlain(frame);
 
@@ -98,7 +98,7 @@ test('simple action menus omit unused checkbox and submenu columns', () => {
   const frame = renderElementFrame(menu({
     id: 'compact-actions',
     presentation: menuPresentation(simpleItems, { activePath: ['alpha'] }),
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 20, rows: 2 });
 
   assert.equal(renderFramePlain(frame), '› Alpha\n  Beta');
@@ -127,7 +127,7 @@ test('menu models reject malformed structural item variants at the factory bound
   ], { activePath: [] }), /requires boolean checked state/u);
 });
 
-test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () => {
+test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => {
   const menuBarFrame = renderElementFrame(
     menuBar({
       id: 'main-menu',
@@ -139,7 +139,7 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
         { kind: 'action', id: 'file', label: 'File' },
         { kind: 'action', id: 'edit', label: 'Edit', disabled: true }
       ], { kind: 'closed', active: 'file' }),
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     { columns: 44, rows: 3 }
   );
@@ -152,23 +152,23 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
         anchor: { kind: 'cursor', row: 3, column: 1 },
         menu: { activePath: ['autosave'] }
       }),
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     { columns: 44, rows: 13 }
   );
   const dropdownFrame = renderElementFrame(
-    dropdownMenu({
-      id: 'theme-dropdownMenu',
+    menuTrigger({
+      id: 'theme-menuTrigger',
       label: 'Theme',
       items: [
         { kind: 'action', id: 'light', label: 'Light' },
         { kind: 'action', id: 'dark', label: 'Dark' }
       ],
-      presentation: dropdownMenuPresentation([
+      presentation: menuTriggerPresentation([
         { kind: 'action', id: 'light', label: 'Light' },
         { kind: 'action', id: 'dark', label: 'Dark' }
       ], { kind: 'open', active: 'dark', menu: { activePath: ['dark'] } }),
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     { columns: 44, rows: 8 }
   );
@@ -183,7 +183,7 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
   assert.equal(contextFrame.accessibility.root.children?.every((node) => node.role.startsWith('menuitem')), true);
   assert.equal(
     dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.elementKind,
-    'terminal-ui/components/dropdown-menu'
+    'terminal-ui/components/menu-trigger'
   );
   assert.equal(dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'value');
   assert.equal(menuBarFrame.accessibility.root.role, 'menubar');
@@ -194,7 +194,7 @@ test('closed context menus do not publish focus or implementation accessibility 
   const frame = renderElementFrame(contextMenu({
     id: 'closed-context',
     presentation: contextMenuPresentation(items, { kind: 'closed' }),
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 24, rows: 4 });
 
   assert.equal(frame.focusPath, undefined);
@@ -203,18 +203,18 @@ test('closed context menus do not publish focus or implementation accessibility 
 });
 
 test('internal popup nodes expose layout names without claiming public factory provenance', () => {
-  const element = dropdownMenu({
+  const element = menuTrigger({
     id: 'layout-dropdown',
     label: 'Layout',
     items: [
       { kind: 'action', id: 'one', label: 'One' },
       { kind: 'action', id: 'two', label: 'Two' }
     ],
-    presentation: dropdownMenuPresentation([
+    presentation: menuTriggerPresentation([
       { kind: 'action', id: 'one', label: 'One' },
       { kind: 'action', id: 'two', label: 'Two' }
     ], { kind: 'open', active: 'one', menu: { activePath: ['one'] } }),
-    onAction: (action) => action
+    onTransition: (action) => action
   });
   const layout = layoutElement(element, { columns: 24, rows: 6 });
   const nodes = collectLayoutNodes(layout);
@@ -238,7 +238,8 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
         presentation: menuPresentation(items, {
           activePath: state.action === 'recent' ? ['autosave'] : ['open', 'recent']
         }),
-        onAction: (action) => action
+        onTransition: (action) => action,
+        onActivate: (event) => event
       }),
       menuBar({
         id: 'bar',
@@ -246,7 +247,8 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
           { kind: 'action', id: 'help', label: 'Help' }
         ],
         presentation: { kind: 'closed', active: 'help' },
-        onAction: (action) => action
+        onTransition: (action) => action,
+        onActivate: (event) => event
       })
     ], {
       sizes: [{ kind: 'fill' }, { kind: 'fill' }]

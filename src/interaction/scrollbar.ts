@@ -13,6 +13,9 @@ export interface ScrollbarState {
   readonly offsetColumn: number;
   readonly contentRows: number;
   readonly contentColumns: number;
+  readonly viewportRows: number;
+  readonly viewportColumns: number;
+  readonly followTail: boolean;
 }
 
 export interface ScrollbarInteractionState {

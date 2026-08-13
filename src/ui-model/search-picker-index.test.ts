@@ -13,10 +13,11 @@ void test('searchPicker indexes snapshot entries and retain ranked query work', 
     { id: 'theme', label: 'Change theme', value: 'theme', keywords: ['view'] }
   ];
   const index = prepareSearchPickerIndex(source);
-  const first = querySearchPickerIndex(index, 'file');
+  const query = { text: 'file', mode: 'fuzzy' } as const;
+  const first = querySearchPickerIndex(index, query);
 
   source.splice(0, source.length, { id: 'mutated', label: 'Mutated', value: 'mutated', keywords: [] });
-  const retained = querySearchPickerIndex(index, 'file');
+  const retained = querySearchPickerIndex(index, query);
 
   assert.equal(retained, first);
   assert.deepEqual(retained.entries.map((entry) => entry.id), ['open', 'close']);

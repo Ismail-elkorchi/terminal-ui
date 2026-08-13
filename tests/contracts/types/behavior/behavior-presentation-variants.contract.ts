@@ -1,33 +1,20 @@
 import {
-  list,
+  dataGrid,
+  listbox,
   logViewer,
-  table,
   tree,
+  type DataGridControlTransition,
+  type DataGridTransition,
   type Element,
-  type ListAction,
-  type ListControlAction,
+  type ListboxControlTransition,
+  type ListboxTransition,
   type LogViewerAction,
   type LogViewerControlAction,
-  type TableAction,
-  type TableControlAction,
   type TextAreaControlAction,
-  type TreeInteractionAction,
-  type TreeControlAction
+  type TreeControlTransition,
+  type TreeTransition,
 } from '@ismail-elkorchi/terminal-ui/components';
-import {
-  createScrollState,
-  prepareLogHistory,
-  tablePresentation,
-  tableScrollablePresentation,
-  type PassiveListState,
-  type PassiveLogViewerState,
-  type PassiveTableState,
-  type PassiveTreeState,
-  type ScrollableListState,
-  type ScrollableLogViewerState,
-  type ScrollableTableState,
-  type ScrollableTreeState
-} from '@ismail-elkorchi/terminal-ui/behavior';
+import { createScrollState, prepareLogHistory } from '@ismail-elkorchi/terminal-ui/behavior';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Equal<TLeft, TRight> =
@@ -35,67 +22,79 @@ export type Equal<TLeft, TRight> =
   (<T>() => T extends TRight ? 1 : 2) ? true : false;
 export type Assert<TValue extends true> = TValue;
 
-const scroll = createScrollState({ contentRows: 20, viewportRows: 5 });
-const passiveListState: PassiveListState = {};
-const scrollableListState: ScrollableListState = { scroll };
-const passiveTableState: PassiveTableState = {};
-const scrollableTableState: ScrollableTableState = { scroll };
-const passiveTreeState: PassiveTreeState = { nodes: [] };
-const scrollableTreeState: ScrollableTreeState = { nodes: [], scroll };
-const passiveLogViewerState: PassiveLogViewerState = { foldedIds: [], followTail: false };
-const scrollableLogViewerState: ScrollableLogViewerState = { foldedIds: [], followTail: true, scroll };
+const scroll = createScrollState();
+const interaction = { activeId: 'one', selection: { mode: 'single' as const, selectedId: 'one' } };
+const nodes = [{ id: 'one', label: 'One', kind: 'leaf' as const }];
+const rows = [{ id: 'one' }];
 const history = prepareLogHistory([]);
 
-const passiveList = list({
-  id: 'passive-list', items: ['one'],
+const unscrolledListbox = listbox({
+  id: 'unscrolled-listbox',
+  items: ['one'],
   projectItem: (value) => ({ id: value, label: value }),
-  ...passiveListState,
-  onAction: (action) => ({ kind: 'passiveList' as const, action })
+  presentation: interaction,
+  onTransition: (transition) => ({ kind: 'unscrolledListbox' as const, transition }),
 });
-const scrollableList = list({
-  id: 'scrollable-list', items: ['one'],
+const scrollableListbox = listbox({
+  id: 'scrollable-listbox',
+  items: ['one'],
   projectItem: (value) => ({ id: value, label: value }),
-  ...scrollableListState,
+  presentation: interaction,
+  scroll,
   scrollbar: { visible: 'auto' },
-  onAction: (action) => ({ kind: 'scrollableList' as const, action })
+  onTransition: (transition) => ({ kind: 'scrollableListbox' as const, transition }),
 });
-const passiveTable = table({
-  id: 'passive-table', rows: [{ id: 'one' }], getRowId: (row) => row.id,
-  presentation: tablePresentation(passiveTableState),
-  onAction: (action) => ({ kind: 'passiveTable' as const, action })
-});
-const scrollableTable = table({
-  id: 'scrollable-table', rows: [{ id: 'one' }], getRowId: (row) => row.id,
-  presentation: tableScrollablePresentation(scrollableTableState),
-  scrollbar: { visible: 'auto' },
-  onAction: (action) => ({ kind: 'scrollableTable' as const, action })
-});
-const passiveTree = tree({
-  id: 'passive-tree', ...passiveTreeState,
-  onAction: (action) => ({ kind: 'passiveTree' as const, action })
+const unscrolledTree = tree({
+  id: 'unscrolled-tree',
+  nodes,
+  presentation: { ...interaction, expandedIds: [] },
+  onTransition: (transition) => ({ kind: 'unscrolledTree' as const, transition }),
 });
 const scrollableTree = tree({
-  id: 'scrollable-tree', ...scrollableTreeState,
+  id: 'scrollable-tree',
+  nodes,
+  presentation: { ...interaction, expandedIds: [] },
+  scroll,
   scrollbar: { visible: 'auto' },
-  onAction: (action) => ({ kind: 'scrollableTree' as const, action })
+  onTransition: (transition) => ({ kind: 'scrollableTree' as const, transition }),
 });
-const passiveLog = logViewer({
-  id: 'passive-log', history, ...passiveLogViewerState,
-  onAction: (action) => ({ kind: 'passiveLog' as const, action })
+const rowInteraction = { kind: 'row' as const,
+selectionMode: 'single' as const, activeRowId: 'one', selectedRowIds: ['one'] };
+const unscrolledGrid = dataGrid({
+  id: 'unscrolled-grid',
+  rows,
+  getRowId: (row) => row.id,
+  presentation: { interaction: rowInteraction },
+  onTransition: (transition) => ({ kind: 'unscrolledGrid' as const, transition }),
+});
+const scrollableGrid = dataGrid({
+  id: 'scrollable-grid',
+  rows,
+  getRowId: (row) => row.id,
+  presentation: { interaction: rowInteraction, scroll },
+  scrollbar: { visible: 'auto' },
+  onTransition: (transition) => ({ kind: 'scrollableGrid' as const, transition }),
+});
+const unscrolledLog = logViewer({
+  id: 'unscrolled-log',
+  history,
+  onAction: (action) => ({ kind: 'unscrolledLog' as const, action }),
 });
 const scrollableLog = logViewer({
-  id: 'scrollable-log', history, ...scrollableLogViewerState,
+  id: 'scrollable-log',
+  history,
+  scroll,
   scrollbar: { visible: 'auto' },
-  onAction: (action) => ({ kind: 'scrollableLog' as const, action })
+  onAction: (action) => ({ kind: 'scrollableLog' as const, action }),
 });
 
-export type _PassiveList = Assert<Equal<MessageOf<typeof passiveList>, { readonly kind: 'passiveList'; readonly action: ListControlAction }>>;
-export type _ScrollableList = Assert<Equal<MessageOf<typeof scrollableList>, { readonly kind: 'scrollableList'; readonly action: ListAction }>>;
-export type _PassiveTable = Assert<Equal<MessageOf<typeof passiveTable>, { readonly kind: 'passiveTable'; readonly action: TableControlAction }>>;
-export type _ScrollableTable = Assert<Equal<MessageOf<typeof scrollableTable>, { readonly kind: 'scrollableTable'; readonly action: TableAction }>>;
-export type _PassiveTree = Assert<Equal<MessageOf<typeof passiveTree>, { readonly kind: 'passiveTree'; readonly action: TreeControlAction }>>;
-export type _ScrollableTree = Assert<Equal<MessageOf<typeof scrollableTree>, { readonly kind: 'scrollableTree'; readonly action: TreeInteractionAction }>>;
-export type _PassiveLog = Assert<Equal<MessageOf<typeof passiveLog>, { readonly kind: 'passiveLog'; readonly action: LogViewerControlAction }>>;
+export type _UnscrolledListbox = Assert<Equal<MessageOf<typeof unscrolledListbox>, { readonly kind: 'unscrolledListbox'; readonly transition: ListboxControlTransition }>>;
+export type _ScrollableListbox = Assert<Equal<MessageOf<typeof scrollableListbox>, { readonly kind: 'scrollableListbox'; readonly transition: ListboxTransition }>>;
+export type _UnscrolledTree = Assert<Equal<MessageOf<typeof unscrolledTree>, { readonly kind: 'unscrolledTree'; readonly transition: TreeControlTransition }>>;
+export type _ScrollableTree = Assert<Equal<MessageOf<typeof scrollableTree>, { readonly kind: 'scrollableTree'; readonly transition: TreeTransition }>>;
+export type _UnscrolledGrid = Assert<Equal<MessageOf<typeof unscrolledGrid>, { readonly kind: 'unscrolledGrid'; readonly transition: DataGridControlTransition }>>;
+export type _ScrollableGrid = Assert<Equal<MessageOf<typeof scrollableGrid>, { readonly kind: 'scrollableGrid'; readonly transition: DataGridTransition }>>;
+export type _UnscrolledLog = Assert<Equal<MessageOf<typeof unscrolledLog>, { readonly kind: 'unscrolledLog'; readonly action: LogViewerControlAction }>>;
 export type _ScrollableLog = Assert<Equal<MessageOf<typeof scrollableLog>, { readonly kind: 'scrollableLog'; readonly action: LogViewerAction }>>;
 
 declare const textAreaControlAction: TextAreaControlAction;

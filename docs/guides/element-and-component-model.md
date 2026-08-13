@@ -183,8 +183,10 @@ They do not inspect private render-node fields through caller-supplied elements.
 Use `inspectElement(element)` when component tools or diagnostics need a stable,
 read-only description before rendering. The inspection includes caller-supplied
 identity, factory category and name, declared capabilities, focus policy,
-style metadata, and child structure; it does not expose private props, callback
-values, or drawing hooks. Focus inspection applies the same logical
+the resolved accessibility role, semantic value, active item, selection,
+validation, collection window, component-specific state, style metadata, and
+child structure; it does not expose private props, callback values, sensitive
+prepared values, or drawing hooks. Focus inspection applies the same logical
 disablement policy as rendering, including disabled controls and inert subtrees.
 Busy and read-only controls remain focusable unless separately disabled.
 It describes whether an element can produce a focus item or scope before

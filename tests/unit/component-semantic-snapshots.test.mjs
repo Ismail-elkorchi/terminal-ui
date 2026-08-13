@@ -45,7 +45,7 @@ import {
   dialog,
   disclosure,
   divider,
-  dropdownMenu,
+  menuTrigger,
   field,
   form,
   meter,
@@ -55,13 +55,13 @@ import {
   textInput,
   tabs,
   label,
-  list,
+  listbox,
   menu,
   menuBar,
   notificationRegion,
   notificationHistory,
   numberInput,
-  paginator,
+  pagination,
   passwordInput,
   searchPicker,
   progressBar,
@@ -69,20 +69,20 @@ import {
   rangeSlider,
   richText,
   logViewer,
-  select,
+  combobox,
   sparkline,
   statusBar,
   slider,
-  table,
+  dataGrid,
   text,
   textArea,
   tooltip,
   tree,
-  toggleSwitch
+  switchControl
 } from '../../dist/components/index.js';
 import {
   contextMenuPresentation,
-  dropdownMenuPresentation,
+  menuTriggerPresentation,
   menuBarPresentation,
   menuPresentation
 } from '../../dist/behavior/index.js';
@@ -109,7 +109,7 @@ const themed = defineTheme({
 });
 
 const menuItems = [
-  { kind: 'action', id: 'open', label: unsafe, shortcut: 'O' },
+  { kind: 'action', id: 'open', label: unsafe, shortcut: { kind: 'key', key: 'o' } },
   { kind: 'check', id: 'save', label: 'Save', checked: true },
   { kind: 'action', id: 'disabled', label: 'Disabled', disabled: true }
 ];
@@ -124,7 +124,6 @@ const treeNodes = [
     id: 'root',
     label: unsafe,
     kind: 'branch',
-    expanded: true,
     children: [
       { id: 'child', label: 'Child', kind: 'leaf' },
       { id: 'disabled', label: 'Disabled', kind: 'leaf', disabled: true }
@@ -189,28 +188,34 @@ const cases = [
     expectText: /Second/u
   },
   {
-    name: 'list',
-    element: () => list({
+    name: 'listbox',
+    element: () => listbox({
     projectItem: (item) => ({ id: String(item), label: String(item) }),
-    id: 'list',
+      id: 'listbox',
       items: [unsafe, 'Second', 'Third'],
-      selectedId: 'Second',
-      onAction: (action) => action
+      presentation: {
+        activeId: 'Second',
+        selection: { mode: 'single', selectedId: 'Second' }
+      },
+      onTransition: (action) => action
     }),
     expectText: /Second/u,
     expectFocus: true
   },
   {
-    name: 'table',
-    element: () => table({
+    name: 'dataGrid',
+    element: () => dataGrid({
     getRowId: (_row, index) => String(index),
-    id: 'table',
+    id: 'dataGrid',
       rows: [{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }],
-      presentation: { selectedRowId: '1' },
+      presentation: {
+        interaction: { kind: 'row',
+        selectionMode: 'single', activeRowId: '1', selectedRowIds: ['1'] }
+      },
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }, {
         id: 'status-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Status' }],
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     expectText: /Name/u
   },
@@ -219,16 +224,20 @@ const cases = [
     element: () => tree({
       id: 'tree',
       nodes: treeNodes,
-      selected: 'child',
-      onAction: (action) => ({ kind: 'tree', action })
+      presentation: {
+        expandedIds: ['root'],
+        activeId: 'child',
+        selection: { mode: 'single', selectedId: 'child' }
+      },
+      onTransition: (action) => ({ kind: 'tree', action })
     }),
     expectText: /Child/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
-    name: 'paginator',
-    element: () => paginator({
+    name: 'pagination',
+    element: () => pagination({
       id: 'pages',
       label: unsafe,
       pageNumber: 2,
@@ -263,11 +272,11 @@ const cases = [
   {
     name: 'form',
     element: () => form({ slots: { content: [
-      field({ slots: { content: [textInput({
+      field({ control: textInput({
         id: 'form-input',
         presentation: { value: unsafe, cursor: 0 },
         onAction: (action) => action
-      })] }, id: 'form-field', label: 'Name' }),
+      }), id: 'form-field', label: 'Name' }),
       button({ id: 'form-submit', label: 'Submit', onAction: () => ({ kind: 'submit' }) })
     ] }, id: 'form', title: unsafe }),
     expectText: /Submit/u,
@@ -276,11 +285,11 @@ const cases = [
   },
   {
     name: 'field',
-    element: () => field({ slots: { content: [textInput({
+    element: () => field({ control: textInput({
       id: 'field-input',
       presentation: { value: unsafe, cursor: 0 },
       onAction: (action) => action
-    })] },
+    }),
       id: 'field',
       label: unsafe,
       description: 'Description'
@@ -316,8 +325,8 @@ const cases = [
     expectHitTargets: true
   },
   {
-    name: 'toggleSwitch',
-    element: () => toggleSwitch({ id: 'toggle', label: unsafe, checked: true, onAction: () => ({ kind: 'toggle' }) }),
+    name: 'switchControl',
+    element: () => switchControl({ id: 'toggle', label: unsafe, checked: true, onAction: () => ({ kind: 'toggle' }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
@@ -351,10 +360,13 @@ const cases = [
   {
     name: 'checkboxGroup',
     element: () => checkboxGroup({
-      id: 'checkbox-list',
+      id: 'checkbox-listbox',
       label: unsafe,
       options: optionItems,
-      selected: ['alpha'],
+      presentation: {
+        activeId: 'alpha',
+        selection: { mode: 'multiple', selectedIds: ['alpha'] }
+      },
       onAction: (action) => ({ kind: 'checkboxGroup', action })
     }),
     expectText: /Beta/u,
@@ -367,7 +379,10 @@ const cases = [
       id: 'radio',
       label: 'Mode',
       options: optionItems,
-      selected: 'alpha',
+      presentation: {
+        activeId: 'alpha',
+        selection: { mode: 'single', selectedId: 'alpha' }
+      },
       onAction: (action) => ({ kind: 'radio', action })
     }),
     expectText: /Mode/u,
@@ -375,13 +390,16 @@ const cases = [
     expectHitTargets: true
   },
   {
-    name: 'select',
-    element: () => select({
-      id: 'select',
+    name: 'combobox',
+    element: () => combobox({
+      id: 'combobox',
       label: 'Choice',
       options: optionItems,
-      presentation: { kind: 'closed', selected: 'alpha' },
-      onAction: (action) => ({ kind: 'select', action })
+      presentation: {
+        open: false,
+        interaction: { selection: { mode: 'single', selectedId: 'alpha' } }
+      },
+      onTransition: (action) => ({ kind: 'combobox', action })
     }),
     expectText: /Choice/u,
     expectFocus: true,
@@ -396,7 +414,10 @@ const cases = [
         { id: 'alpha', label: unsafe, value: 'alpha', swatch: '■' },
         { id: 'beta', label: 'Beta', value: 'beta', swatch: '◆' }
       ],
-      selected: 'alpha',
+      presentation: {
+        activeId: 'alpha',
+        selection: { mode: 'single', selectedId: 'alpha' }
+      },
       onAction: (action) => ({ kind: 'color', action })
     }),
     expectText: /Beta/u,
@@ -408,8 +429,8 @@ const cases = [
     element: () => calendar({
       id: 'calendar',
       label: unsafe,
-      ...calendarFixture({
-        selected: { year: 2026, month: 6, day: 3 },
+      presentation: calendarFixture({
+        selectedDate: { year: 2026, month: 6, day: 3 },
         today: { year: 2026, month: 6, day: 2 }
       }),
       onAction: (action) => ({ kind: 'date', action })
@@ -450,33 +471,33 @@ const cases = [
   },
   {
     name: 'menu',
-    element: () => menu({ id: 'menu', presentation: menuPresentation(menuItems, { activePath: ['open'] }), onAction: (action) => ({ kind: 'menu', action }) }),
+    element: () => menu({ id: 'menu', presentation: menuPresentation(menuItems, { activePath: ['open'] }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'menuBar',
-    element: () => menuBar({ id: 'menu-bar', items: menuItems, presentation: menuBarPresentation(menuItems, { kind: 'closed', active: 'open' }), onAction: (action) => ({ kind: 'menu', action }) }),
+    element: () => menuBar({ id: 'menu-bar', items: menuItems, presentation: menuBarPresentation(menuItems, { kind: 'closed', active: 'open' }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'contextMenu',
-    element: () => contextMenu({ id: 'context-menu', title: unsafe, presentation: contextMenuPresentation(menuItems, { kind: 'open', anchor: { kind: 'cursor', row: 1, column: 1 }, menu: { activePath: ['save'] } }), onAction: (action) => ({ kind: 'menu', action }) }),
+    element: () => contextMenu({ id: 'context-menu', title: unsafe, presentation: contextMenuPresentation(menuItems, { kind: 'open', anchor: { kind: 'cursor', row: 1, column: 1 }, menu: { activePath: ['save'] } }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
-    name: 'dropdownMenu',
-    element: () => dropdownMenu({
-      id: 'dropdownMenu',
+    name: 'menuTrigger',
+    element: () => menuTrigger({
+      id: 'menuTrigger',
       label: unsafe,
       items: menuItems,
-      presentation: dropdownMenuPresentation(menuItems, { kind: 'open', active: 'save', menu: { activePath: ['save'] } }),
-      onAction: (action) => ({ kind: 'dropdownMenu', action })
+      presentation: menuTriggerPresentation(menuItems, { kind: 'open', active: 'save', menu: { activePath: ['save'] } }),
+      onTransition: (action) => ({ kind: 'menuTrigger', action })
     }),
     expectText: /Save/u,
     expectFocus: true,
@@ -490,7 +511,15 @@ const cases = [
   },
   {
     name: 'tooltip',
-    element: () => tooltip({ id: 'tooltip', title: 'Hint', content: unsafe, tone: 'warning', presentation: { kind: 'visible', anchor: { kind: 'cursor', row: 1, column: 1 } } }),
+    element: () => tooltip({
+      id: 'tooltip',
+      title: 'Hint',
+      content: unsafe,
+      tone: 'warning',
+      trigger: button({ id: 'tooltip-trigger', label: 'Trigger', onAction: () => ({ kind: 'trigger' }) }),
+      open: true,
+      onTransition: (action) => action
+    }),
     expectText: /Unsafe red text/u,
     expectStyledCells: true
   },
@@ -543,7 +572,7 @@ const cases = [
   },
   {
     name: 'helpBar',
-    element: () => helpBar({ id: 'help', groups: [{ id: 'primary', bindings: [{ key: 'Enter', label: unsafe }] }] }),
+    element: () => helpBar({ id: 'help', groups: [{ id: 'primary', bindings: [{ binding: { kind: 'key', key: 'enter' }, label: unsafe }] }] }),
     expectText: /Unsafe red text/u
   },
   {
@@ -593,8 +622,9 @@ const cases = [
     element: () => barChart({
       id: 'bar-chart',
       label: 'Bars',
-      selectedId: 'second',
-      items: [{ id: 'unsafe', label: unsafe, value: 2 }, { id: 'second', label: 'Second', value: 4 }]
+      items: [{ id: 'unsafe', label: unsafe, value: 2 }, { id: 'second', label: 'Second', value: 4 }],
+      presentation: { activeId: 'second', selection: { mode: 'single', selectedId: 'second' } },
+      onTransition: (action) => action
     }),
     expectText: /Second/u
   },
@@ -629,8 +659,8 @@ const cases = [
         [{ id: 'a', label: unsafe, value: 1 }, { id: 'b', label: 'Beta', value: 3 }],
         [{ id: 'c', label: 'Gamma', value: 5 }]
       ],
-      selected: { id: 'b' },
-      onAction: (action) => ({ kind: 'heatmap', action })
+      presentation: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
+      onTransition: (action) => ({ kind: 'heatmap', action })
     }),
     expectText: /[░▒▓█◆]/u,
     expectFocus: true,
@@ -660,9 +690,9 @@ const cases = [
     name: 'commandInput',
     element: () => commandInput({
       id: 'command-input',
-      presentation: { value: unsafe, cursor: 0, suggestions: [{ value: 'open', label: unsafe, description: 'Open action' }], selectedSuggestionIndex: 0 },
+      presentation: { value: unsafe, cursor: 0, suggestions: [{ id: 'open', value: 'open', label: unsafe, description: 'Open action' }], activeSuggestionId: 'open' },
       prompt: '>',
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true
@@ -676,8 +706,8 @@ const cases = [
         { id: 'alpha', label: unsafe, value: 'alpha', preview: 'Preview' },
         { id: 'beta', label: 'Beta', value: 'beta', disabled: true }
       ]),
-      selectedId: 'alpha',
-      onAction: (action) => action
+      presentation: { query: { text: '', mode: 'fuzzy' }, activeId: 'alpha' },
+      onTransition: (action) => action
     }),
     expectText: /Preview/u,
     expectFocus: true
@@ -721,12 +751,12 @@ const cases = [
     name: 'tabs',
     element: () => tabs({
       id: 'tabs',
-      selected: 'first',
+      presentation: { activeId: 'first', selectedId: 'first' },
       tabs: [
         { id: 'first', label: unsafe, panel: text({ content: 'Panel one', id: 'panel-one' }) },
         { id: 'second', label: 'Second', panel: text({ content: 'Panel two', id: 'panel-two' }), disabled: true }
       ],
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     expectText: /Panel one/u
   },

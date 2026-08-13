@@ -10,7 +10,7 @@ import {
   testKeyInput
 } from '../helpers/component-definition.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { button, contextMenu, dialog, dropdownMenu, list, notificationRegion, richText, table, textInput } from '../../dist/components/index.js';
+import { button, contextMenu, dialog, menuTrigger, listbox, notificationRegion, richText, dataGrid, textInput } from '../../dist/components/index.js';
 import { column, overlay, surface } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.ts';
 import { ignoreMessage } from '../../dist/component/index.js';
@@ -342,6 +342,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
 test('ambiguous initial element focus is diagnosed instead of selecting an arbitrary match', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'group',
     measure: () => ({
       minWidth: 1,
       minHeight: 1,
@@ -469,6 +470,7 @@ test('TUI runtime traps focus inside modal and scoped popover elements', async (
       dialog({
         slots: { content: focusInput({ id: 'dialog-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'dialog' }) } }) },
         id: 'dialog',
+        accessibleName: 'Modal editor',
         modal: true,
         focusPolicy: { returnFocus: 'restore' },
         width: 20,
@@ -554,6 +556,7 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
               ])
             },
             id: 'lifecycle-dialog',
+            accessibleName: 'Lifecycle dialog',
             modal: true,
             focusPolicy: {
               initialFocus: { kind: 'element', elementId: 'preferred-dialog-field' },
@@ -588,7 +591,7 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'dialog-launcher']);
 });
 
-test('TUI runtime focuses top-layer context menus and open dropdownMenus', async () => {
+test('TUI runtime focuses top-layer context menus and open menu triggers', async () => {
   const contextMenuApp = defineTui({
     id: 'context-menu-focus',
     init: () => ({ active: 'idle' }),
@@ -609,10 +612,9 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
         ]
       }
     },
-    onAction: (action) => ({
-      active: action.kind === 'menu' && action.action.kind === 'activate' && action.action.id === 'copy'
-        ? 'context-menu'
-        : action.kind
+    onTransition: (action) => ({ active: action.kind }),
+    onActivate: (event) => ({
+      active: event.id === 'copy' ? 'context-menu' : event.kind
     }),
     meta: {
         layer: {
@@ -640,14 +642,14 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   ]);
   assert.deepEqual(contextMenuRuntime.state(), { active: 'context-menu' });
 
-  const dropdownMenuApp = defineTui({
-    id: 'dropdownMenu-focus',
+  const menuTriggerApp = defineTui({
+    id: 'menuTrigger-focus',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
       focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
-      dropdownMenu({
-    id: 'theme-dropdownMenu',
+      menuTrigger({
+    id: 'theme-menuTrigger',
     label: 'Theme',
     presentation: {
       kind: 'open',
@@ -664,10 +666,9 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
         { kind: 'action', id: 'light', label: 'Light' },
         { kind: 'action', id: 'dark', label: 'Dark' }
     ],
-    onAction: (action) => ({
-      active: action.kind === 'menu' && action.action.kind === 'activate' && action.action.id === 'dark'
-        ? 'dropdownMenu'
-        : action.kind
+    onTransition: (action) => ({ active: action.kind }),
+    onActivate: (event) => ({
+      active: event.id === 'dark' ? 'menuTrigger' : event.kind
     }),
     meta: {
         layer: {
@@ -676,24 +677,24 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
     }
 })
     ], {
-      id: 'dropdownMenu-root'
+      id: 'menuTrigger-root'
     })
   });
-  const dropdownMenuRuntime = createTuiRuntime({
-    app: dropdownMenuApp,
+  const menuTriggerRuntime = createTuiRuntime({
+    app: menuTriggerApp,
     host: createTerminalHarness({ terminalSize: { columns: 24, rows: 5 } }).host
   });
 
-  await dropdownMenuRuntime.start();
-  const dropdownMenuResult = await dropdownMenuRuntime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await menuTriggerRuntime.start();
+  const menuTriggerResult = await menuTriggerRuntime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
-  assert.equal(dropdownMenuResult.handled, true);
-  assert.deepEqual(dropdownMenuRuntime.frame().focusPath, [
-    'dropdownMenu-root',
-    'theme-dropdownMenu',
-    'theme-dropdownMenu:popup:menu'
+  assert.equal(menuTriggerResult.handled, true);
+  assert.deepEqual(menuTriggerRuntime.frame().focusPath, [
+    'menuTrigger-root',
+    'theme-menuTrigger',
+    'theme-menuTrigger:popup:menu'
   ]);
-  assert.deepEqual(dropdownMenuRuntime.state(), { active: 'dropdownMenu' });
+  assert.deepEqual(menuTriggerRuntime.state(), { active: 'menuTrigger' });
 });
 
 test('TUI runtime traverses multiple defined focus targets within one element', async () => {
@@ -701,6 +702,7 @@ test('TUI runtime traverses multiple defined focus targets within one element', 
   const accessibleTargets = [];
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'application',
     render({ target, bounds, focusedTargetId }) {
       renderedTargets.push(focusedTargetId);
       target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
@@ -757,6 +759,7 @@ test('TUI runtime traverses multiple defined focus targets within one element', 
 test('TUI updates can focus a specific component target after rendering new state', async () => {
   const renderer = {
     ...leafComponentDefinition,
+    accessibleRole: 'group',
     render({ target, bounds }) {
       target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
     },
@@ -813,6 +816,8 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
         label: state.active,
         definition: {
           ...leafComponentDefinition,
+          accessibleRole: 'textbox',
+          optionFields: { label: true },
           render: ({ target, model }) => target.write(0, 0, [{ text: model.label }]),
           focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
           accessibility: ({ id, model, focused }) => ({
@@ -825,14 +830,24 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
           })
         }
       }),
-      list({
+      listbox({
         projectItem: (item) => ({ id: String(item), label: String(item) }),
         id: 'choices',
         items: ['Alpha', 'Beta'],
-        selectedId: 'Beta',
-        onAction: (action) => ({ active: ['alpha', 'beta'][action.index] ?? 'none' })
+        presentation: {
+          activeId: 'Beta',
+          selection: { mode: 'single', selectedId: 'Beta' }
+        },
+        onTransition: () => ({ active: 'none' })
       }),
-      table({ id: 'grid', rows: [['A1', 'B1']], getRowId: (_row, index) => String(index) })
+      dataGrid({
+        id: 'grid',
+        rows: [['A1', 'B1']],
+        getRowId: (_row, index) => String(index),
+        presentation: { interaction: { kind: 'row',
+        selectionMode: 'single', selectedRowIds: [] } },
+        onTransition: () => ({ active: 'none' })
+      })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 8 } });

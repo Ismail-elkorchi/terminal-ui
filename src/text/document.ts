@@ -1,4 +1,5 @@
 import { sanitizeTerminalText } from './sanitize.ts';
+import { registerImmutableIdentity } from '../immutable-identity.ts';
 import { normalizeTextCursor } from './selection-model.ts';
 import type { TextCaret, TextDocumentSelection, TextPosition, TextSelection } from './types.ts';
 
@@ -207,7 +208,7 @@ export function textDocumentSelectionRange(
 }
 
 function createDocument(root: PieceNode): TextDocument {
-  const document = Object.freeze({}) as TextDocument;
+  const document = registerImmutableIdentity(Object.freeze({})) as TextDocument;
   documents.set(document, Object.freeze({ root }));
   return document;
 }

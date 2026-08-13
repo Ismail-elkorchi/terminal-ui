@@ -1,4 +1,5 @@
 import {
+  assertComponentOptions,
   clipRenderSpans,
   componentScrollbarHitTargets,
   defineComponent,
@@ -22,30 +23,43 @@ import type { HitTarget } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import { dataWindow, isCollectionProjection, prepareTreeCollection } from '../../behavior/index.ts';
 import type { CollectionProjection, CollectionRecord } from '../../behavior/index.ts';
+import { registerImmutableIdentity } from '../../immutable-identity.ts';
 import {
   assertOptionalEnum,
   isNonArrayObject,
   isStringMember,
 } from '../../foundation/validation.ts';
-import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
-import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
+import {
+  pointerVisualState,
+  preparePointerInteractionState,
+  type PointerInteractionState,
+} from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import { terminalStyleHasBackground } from '../../theme/index.ts';
 import type {
-  TableAction,
+  DataGridActivateEvent,
+  DataGridCell,
+  DataGridPresentation,
+  DataGridTransition,
   TablePresentation,
 } from '../../ui-model/table.ts';
-import type { TreeInteractionAction } from '../../ui-model/tree.ts';
+import type {
+  TreeActivateEvent,
+  TreeTransition,
+} from '../../ui-model/tree.ts';
 import type {
   TreeCollectionRecord,
-  TreeLazyState,
+  TreeLoadState,
   TreeNode,
   TreeVisibleRow,
 } from '../../ui-model/tree.ts';
+import type { SelectionState } from '../../interaction/collection.ts';
+import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
 import type { TableColumn, TableColumnWidth } from '../../ui-model/content.ts';
 import type { TableStylePart, TreeStylePart } from '../../ui-model/style-parts.ts';
+import { matchNormalizedCollectionQuery, normalizeCollectionQuery } from '../../ui-model/query.ts';
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
@@ -55,9 +69,10 @@ import {
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import type {
-  PassiveTableOptions,
-  PassiveTreeOptions,
-  ScrollableTableOptions,
+  DataGridOptions,
+  UnscrolledDataGridOptions,
+  ScrollableDataGridOptions,
+  UnscrolledTreeOptions,
   ScrollableTreeOptions,
   TableOptions,
   TreeOptions,
@@ -78,8 +93,12 @@ interface PreparedTableColumn {
 }
 
 interface PreparedTablePresentation {
-  readonly selectedRowId?: string;
-  readonly selectedCell?: { readonly rowId: string; readonly columnIndex: number };
+  readonly interactionKind?: 'row' | 'cell';
+  readonly selectionMode?: 'none' | 'single' | 'multiple';
+  readonly activeRowId?: string;
+  readonly activeColumnId?: string;
+  readonly selectedRowIds: readonly string[];
+  readonly selectedCells: readonly DataGridCell[];
   readonly sort?: { readonly columnId: string; readonly direction: 'ascending' | 'descending' };
   readonly columnWidths: Readonly<Record<string, number>>;
   readonly scroll?: ScrollState;
@@ -97,13 +116,18 @@ interface PreparedTableCell {
 }
 
 interface TableModel {
+  readonly semanticRole: 'table' | 'grid';
   readonly columns: readonly PreparedTableColumn[];
   readonly hasHeader: boolean;
   readonly source: Readonly<Record<string, never>>;
   readonly startIndex: number;
   readonly totalCount: number;
-  readonly selectedRowId?: string;
-  readonly selectedCell?: { readonly rowId: string; readonly columnIndex: number };
+  readonly interactionKind?: 'row' | 'cell';
+  readonly selectionMode?: 'none' | 'single' | 'multiple';
+  readonly activeRowId?: string;
+  readonly activeColumnId?: string;
+  readonly selectedRowIds: readonly string[];
+  readonly selectedCells: readonly DataGridCell[];
   readonly sort?: { readonly columnId: string; readonly direction: 'ascending' | 'descending' };
   readonly columnWidths: Readonly<Record<string, number>>;
   readonly density: 'compact' | 'regular';
@@ -132,11 +156,34 @@ interface TablePreparation {
 }
 
 const tableBase = {
-  name: 'terminal-ui/components/table' as const,
+  optionFields: {
+    semanticRole: true,
+    columns: true,
+    hasHeader: true,
+    source: true,
+    startIndex: true,
+    totalCount: true,
+    interactionKind: true,
+    selectionMode: true,
+    activeRowId: true,
+    activeColumnId: true,
+    selectedRowIds: true,
+    selectedCells: true,
+    sort: true,
+    columnWidths: true,
+    density: true,
+    stickyHeader: true,
+    emptyText: true,
+    scroll: true,
+    scrollbar: true,
+    scrollPolicy: true,
+    pointerState: true,
+  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
-  metadata: ['focus', 'layer', 'styles'] as const,
+  accessibleRole: 'table' as const,
+  metadata: ['layer', 'styles'] as const,
   parts: [
     'header',
     'headerCell',
@@ -161,44 +208,79 @@ const passiveTable = defineComponent<
   TableStylePart,
   readonly [],
   'required',
-  readonly ['focus', 'layer', 'styles']
->(tableBase);
+  readonly ['layer', 'styles']
+>({ ...tableBase, name: 'terminal-ui/components/table' });
 
-const activeTable = defineComponent<
+type DataGridComponentAction =
+  | { readonly kind: 'transition'; readonly transition: DataGridTransition }
+  | { readonly kind: 'activate'; readonly event: DataGridActivateEvent }
+  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+
+const scrollableTable = defineComponent<
   TableModel,
   TableModel,
-  TableAction,
+  { readonly kind: 'scroll'; readonly event: import('../../interaction/scroll.ts').ScrollEvent },
   TableStylePart,
   readonly [],
+  'required',
+  readonly ['layer', 'styles']
+>({
+  ...tableBase,
+  name: 'terminal-ui/components/table',
+  hitTargets: tableScrollHitTargets,
+});
+
+const activeDataGrid = defineComponent<
+  TableModel,
+  TableModel,
+  DataGridComponentAction,
+  TableStylePart,
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   ...tableBase,
-  keys: ({ model }) => {
-    const selected = selectedTablePosition(model);
-    const column = model.columns[model.selectedCell?.columnIndex ?? 0];
+  name: 'terminal-ui/components/data-grid',
+  accessibleRole: 'grid',
+  metadata: ['focus', 'layer', 'styles'],
+  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  keys: ({ model, busy, readOnly }) => {
+    if (busy) return {};
+    const active = activeTablePosition(model);
+    const column = model.columns.find((candidate) => candidate.id === model.activeColumnId);
+    const transition = (value: DataGridTransition): DataGridComponentAction => ({
+      kind: 'transition',
+      transition: value,
+    });
     return {
-      arrowUp: () => ({ kind: 'moveRow', delta: -1 }),
-      arrowDown: () => ({ kind: 'moveRow', delta: 1 }),
-      arrowLeft: () => ({ kind: 'moveColumn', delta: -1 }),
-      arrowRight: () => ({ kind: 'moveColumn', delta: 1 }),
-      pageUp: () => ({ kind: 'page', delta: -1 }),
-      pageDown: () => ({ kind: 'page', delta: 1 }),
-      home: () => ({ kind: 'firstRow' }),
-      end: () => ({ kind: 'lastRow' }),
-      ...(column?.sortable === true
-        ? { space: () => ({ kind: 'sortBy' as const, columnId: column.id }) }
-        : {}),
-      ...(column?.resizable === true
+      arrowUp: () => transition({ kind: 'moveRow', delta: -1 }),
+      arrowDown: () => transition({ kind: 'moveRow', delta: 1 }),
+      ...(model.interactionKind === 'cell'
         ? {
-          triggers: [
+          arrowLeft: () => transition({ kind: 'moveColumn', delta: -1 }),
+          arrowRight: () => transition({ kind: 'moveColumn', delta: 1 }),
+        }
+        : {}),
+      pageUp: () => transition({ kind: 'page', delta: -1 }),
+      pageDown: () => transition({ kind: 'page', delta: 1 }),
+      home: () => transition({ kind: 'firstRow' }),
+      end: () => transition({ kind: 'lastRow' }),
+      ...(readOnly ? {} : { space: () => transition({ kind: 'commit' }) }),
+      ...(readOnly || (column?.sortable !== true && column?.resizable !== true)
+        ? {}
+        : { triggers: [
+          ...(column.sortable ? [{
+            trigger: { kind: 'key' as const, key: 's' as const, modifiers: { alt: true } },
+            onKey: () => transition({ kind: 'sortBy', columnId: column.id }),
+          }] : []),
+          ...(column.resizable ? [
             {
               trigger: {
                 kind: 'key' as const,
                 key: 'arrowLeft' as const,
                 modifiers: { alt: true },
               },
-              onKey: () => ({ kind: 'resizeColumnBy' as const, columnId: column.id, delta: -1 }),
+              onKey: () => transition({ kind: 'resizeColumnBy', columnId: column.id, delta: -1 }),
             },
             {
               trigger: {
@@ -206,90 +288,167 @@ const activeTable = defineComponent<
                 key: 'arrowRight' as const,
                 modifiers: { alt: true },
               },
-              onKey: () => ({ kind: 'resizeColumnBy' as const, columnId: column.id, delta: 1 }),
+              onKey: () => transition({ kind: 'resizeColumnBy', columnId: column.id, delta: 1 }),
             },
-          ],
-        }
-        : {}),
-      ...(selected === undefined ? {} : {
+          ] : []),
+        ] }),
+      ...(readOnly || active === undefined ? {} : {
         enter: () => ({
           kind: 'activate' as const,
-          rowId: selected.id,
-          rowIndex: selected.rowIndex,
-          ...(model.selectedCell === undefined
-            ? {}
-            : { columnIndex: model.selectedCell.columnIndex }),
+          event: model.interactionKind === 'cell' && model.activeColumnId !== undefined
+            ? { kind: 'activate', target: { kind: 'cell', cell: { rowId: active.id, columnId: model.activeColumnId } } }
+            : { kind: 'activate', target: { kind: 'row', rowId: active.id } },
         }),
       }),
     };
   },
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: tableHitTargets,
 });
 
 export function table<TRow, const TMessage extends ComponentMessage = never>(
-  options: ScrollableTableOptions<TRow, TMessage>,
-): Element<TMessage>;
-// The passive overload intentionally exposes TableControlAction instead of the scroll-capable TableAction.
-export function table<TRow, const TMessage extends ComponentMessage = never>(
-  // eslint-disable-next-line @typescript-eslint/unified-signatures
-  options: PassiveTableOptions<TRow, TMessage>,
-): Element<TMessage>;
-export function table<TRow, const TMessage extends ComponentMessage = never>(
   options: TableOptions<TRow, TMessage>,
 ): Element<TMessage> {
-  const onAction = options.onAction;
-  const prepared = prepareTable(options);
+  assertComponentOptions(options, 'table', {
+    fields: [
+      'id', 'rows', 'getRowId', 'collection', 'columns', 'density', 'stickyHeader',
+      'emptyText', 'presentation', 'scroll', 'scrollbar', 'scrollPolicy', 'busy', 'meta',
+    ],
+  });
+  const prepared = prepareTable(options, 'table', options.scroll?.state);
   const componentOptions = {
     ...prepared,
     id: options.id,
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (onAction === undefined) {
-    return passiveTable(componentOptions);
-  }
-  if (!isScrollableTable(options)) {
-    return activeTable({
+  const scroll = options.scroll;
+  return scroll === undefined
+    ? passiveTable(componentOptions)
+    : scrollableTable({
       ...componentOptions,
-      onAction: (action) =>
-        action.kind === 'scroll' ? ignoreMessage() : onAction(action),
+      onAction: (action) => scroll.onTransition(action.event),
     });
-  }
-  return activeTable({ ...componentOptions, onAction: options.onAction });
 }
 
-function isScrollableTable<TRow, TMessage extends ComponentMessage>(
-  options: TableOptions<TRow, TMessage>,
-): options is ScrollableTableOptions<TRow, TMessage> {
-  return isNonArrayObject(options.presentation) && 'scroll' in options.presentation;
+/* eslint-disable @typescript-eslint/unified-signatures -- overloads preserve the unscrolled transition union */
+export function dataGrid<
+  TRow,
+  const TTransitionMessage extends ComponentMessage = never,
+  const TActivateMessage extends ComponentMessage = never,
+  const TPointerMessage extends ComponentMessage = never,
+>(options: ScrollableDataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage>;
+export function dataGrid<
+  TRow,
+  const TTransitionMessage extends ComponentMessage = never,
+  const TActivateMessage extends ComponentMessage = never,
+  const TPointerMessage extends ComponentMessage = never,
+>(options: UnscrolledDataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage>;
+/* eslint-enable @typescript-eslint/unified-signatures */
+export function dataGrid<
+  TRow,
+  const TTransitionMessage extends ComponentMessage = never,
+  const TActivateMessage extends ComponentMessage = never,
+  const TPointerMessage extends ComponentMessage = never,
+>(
+  options: DataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>,
+): Element<TTransitionMessage | TActivateMessage | TPointerMessage> {
+  assertComponentOptions(options, 'dataGrid', {
+    fields: [
+      'id', 'rows', 'getRowId', 'collection', 'columns', 'density', 'stickyHeader',
+      'emptyText', 'presentation', 'scrollbar', 'scrollPolicy',
+      'pointerState', 'disabled', 'readOnly', 'busy', 'inert', 'meta', 'onTransition',
+      'onActivate', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true || options.inert === true
+      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
+      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
+    ...(
+      options.disabled === true || options.inert === true
+        ? { forbiddenFields: ['pointerState', 'readOnly'] }
+        : {}
+    ),
+  });
+  const prepared = prepareTable(options, 'grid');
+  const shared = {
+    ...prepared,
+    id: options.id,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+  if (options.disabled === true) return activeDataGrid({
+    ...shared,
+    disabled: true,
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
+  });
+  if (options.inert === true) return activeDataGrid({ ...shared, inert: true });
+  const onTransition = isScrollableDataGrid(options)
+    ? (transition: DataGridTransition) => options.onTransition(transition)
+    : (transition: DataGridTransition) => transition.kind === 'scroll'
+      ? ignoreMessage()
+      : options.onTransition(transition);
+  return activeDataGrid({
+    ...shared,
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => {
+      if (action.kind === 'transition') return onTransition(action.transition);
+      if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
+      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+    },
+  });
+}
+
+function isScrollableDataGrid<
+  TRow,
+  TTransitionMessage extends ComponentMessage,
+  TActivateMessage extends ComponentMessage,
+  TPointerMessage extends ComponentMessage,
+>(
+  options: DataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>,
+): options is ScrollableDataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage> {
+  return options.presentation.scroll !== undefined;
 }
 
 function prepareTable<TRow, TMessage extends ComponentMessage>(
-  value: Readonly<TableOptions<TRow, TMessage>>,
+  value: Readonly<TableOptions<TRow, TMessage> | DataGridOptions<TRow, ComponentMessage, ComponentMessage, ComponentMessage>>,
+  semanticRole: 'table' | 'grid',
+  passiveScroll?: ScrollState,
 ): TableModel {
   const source = tableSource(value);
   const preparation = prepareTableStructure(value.columns, source);
   const columns = preparation.columns;
-  const presentation = prepareTablePresentation(value.presentation);
+  const presentation = prepareTablePresentation(
+    value.presentation,
+    passiveScroll,
+    semanticRole === 'grid' ? 'dataGrid' : 'table',
+  );
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'table scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'table scrollPolicy');
   if (
     presentation.scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)
   ) throw new TypeError('table scrollbar and scrollPolicy require scroll state.');
-  const pointerState = preparePointerState(value.pointerState);
+  const pointerState = preparePointerInteractionState(
+    'pointerState' in value ? value.pointerState : undefined,
+    'dataGrid pointerState',
+  );
+  if (semanticRole === 'grid') {
+    validateDataGridPresentation(presentation, columns);
+  }
   const density = value.density;
   assertOptionalEnum(density, ['compact', 'regular'], 'table density');
   return {
+    semanticRole,
     columns,
     hasHeader: columns.some((column) => column.header.length > 0),
     source: preparation.source,
     startIndex: source.startIndex,
     totalCount: source.totalCount,
-    ...(presentation.selectedRowId === undefined
-      ? {}
-      : { selectedRowId: presentation.selectedRowId }),
-    ...(presentation.selectedCell === undefined ? {} : { selectedCell: presentation.selectedCell }),
+    ...(presentation.interactionKind === undefined ? {} : { interactionKind: presentation.interactionKind }),
+    ...(presentation.selectionMode === undefined ? {} : { selectionMode: presentation.selectionMode }),
+    ...(presentation.activeRowId === undefined ? {} : { activeRowId: presentation.activeRowId }),
+    ...(presentation.activeColumnId === undefined ? {} : { activeColumnId: presentation.activeColumnId }),
+    selectedRowIds: presentation.selectedRowIds,
+    selectedCells: presentation.selectedCells,
     ...(presentation.sort === undefined ? {} : { sort: presentation.sort }),
     columnWidths: presentation.columnWidths,
     density: density ?? 'regular',
@@ -304,12 +463,33 @@ function prepareTable<TRow, TMessage extends ComponentMessage>(
   };
 }
 
+function validateDataGridPresentation(
+  presentation: PreparedTablePresentation,
+  columns: readonly PreparedTableColumn[],
+): void {
+  if (presentation.selectionMode === 'none' &&
+    (presentation.selectedRowIds.length > 0 || presentation.selectedCells.length > 0)) {
+    throw new TypeError('dataGrid selection must be empty when selection mode is none.');
+  }
+  if (presentation.selectionMode === 'single' &&
+    (presentation.selectedRowIds.length > 1 || presentation.selectedCells.length > 1)) {
+    throw new TypeError('dataGrid single selection cannot contain multiple targets.');
+  }
+  const columnIds = new Set(columns.map((column) => column.id));
+  if (presentation.activeColumnId !== undefined && !columnIds.has(presentation.activeColumnId)) {
+    throw new TypeError('dataGrid active column is not present.');
+  }
+  if (presentation.selectedCells.some((cell) => !columnIds.has(cell.columnId))) {
+    throw new TypeError('dataGrid selected cells must reference present columns.');
+  }
+}
+
 function prepareTableStructure<TRow>(
   columns: readonly TableColumn<TRow>[] | undefined,
   source: TableSource<TRow>,
 ): TablePreparation {
   const preparedColumns = prepareTableColumns(columns, source.rows);
-  const sourceToken = Object.freeze({});
+  const sourceToken = registerImmutableIdentity(Object.freeze({}));
   tableSources.set(sourceToken, {
     rows: source.rows,
     ids: source.ids,
@@ -331,7 +511,7 @@ interface TableSource<TRow = unknown> {
 }
 
 function tableSource<TRow, TMessage extends ComponentMessage>(
-  value: Readonly<TableOptions<TRow, TMessage>>,
+  value: Readonly<TableOptions<TRow, TMessage> | DataGridOptions<TRow, ComponentMessage, ComponentMessage, ComponentMessage>>,
 ): TableSource<TRow> {
   if (value.collection !== undefined) {
     const collection = value.collection;
@@ -535,27 +715,41 @@ function tableCell<TRow>(
 }
 
 function prepareTablePresentation(
-  value: (TablePresentation & { readonly scroll?: ScrollState }) | null | undefined,
+  value: TablePresentation | DataGridPresentation | null | undefined,
+  tableScroll?: ScrollState,
+  owner: 'table' | 'dataGrid' = 'table',
 ): PreparedTablePresentation {
-  if (value === undefined) return { columnWidths: Object.freeze({}) };
-  if (value === null) throw new TypeError('table presentation must be an object.');
-  const scrollValue = value.scroll;
-  const selectedRowId = value.selectedRowId === undefined
-    ? undefined
-    : nonEmpty(value.selectedRowId, 'table selectedRowId');
-  let selectedCell: { readonly rowId: string; readonly columnIndex: number } | undefined;
-  if (value.selectedCell !== undefined) {
-    if (
-      !isNonArrayObject(value.selectedCell)
-    ) throw new TypeError('table selectedCell is invalid.');
-    selectedCell = {
-      rowId: nonEmpty(value.selectedCell.rowId, 'table selectedCell rowId'),
-      columnIndex: nonNegative(
-        value.selectedCell.columnIndex,
-        'table selectedCell columnIndex',
-      ),
+  if (value === undefined) {
+    const scroll = prepareComponentScrollState(tableScroll, 'table scroll');
+    return {
+      selectedRowIds: Object.freeze([]),
+      selectedCells: Object.freeze([]),
+      columnWidths: Object.freeze({}),
+      ...(scroll === undefined ? {} : { scroll }),
     };
   }
+  if (value === null) throw new TypeError(`${owner} presentation must be an object.`);
+  const grid = 'interaction' in value ? value : undefined;
+  const interaction = grid?.interaction;
+  const selectionMode = interaction === undefined
+    ? undefined
+    : isStringMember(interaction.selectionMode, ['none', 'single', 'multiple'])
+    ? interaction.selectionMode
+    : (() => { throw new TypeError('dataGrid selectionMode is invalid.'); })();
+  const activeRowId = interaction?.kind === 'row'
+    ? prepareOptionalId(interaction.activeRowId, 'dataGrid activeRowId')
+    : interaction?.activeCell === undefined
+    ? undefined
+    : nonEmpty(interaction.activeCell.rowId, 'dataGrid activeCell.rowId');
+  const activeColumnId = interaction?.kind === 'cell' && interaction.activeCell !== undefined
+    ? nonEmpty(interaction.activeCell.columnId, 'dataGrid activeCell.columnId')
+    : undefined;
+  const selectedRowIds = interaction?.kind === 'row'
+    ? prepareUniqueIds(interaction.selectedRowIds, 'dataGrid selectedRowIds')
+    : Object.freeze([]);
+  const selectedCells = interaction?.kind === 'cell'
+    ? prepareGridCells(interaction.selectedCells, 'dataGrid selectedCells')
+    : Object.freeze([]);
   let sort:
     | { readonly columnId: string; readonly direction: 'ascending' | 'descending' }
     | undefined;
@@ -580,14 +774,45 @@ function prepareTablePresentation(
       ) => [nonEmpty(id, 'table columnWidths id'), positive(width, `table columnWidths.${id}`)]),
     ),
   );
-  const scroll = prepareComponentScrollState(scrollValue, 'table scroll');
+  const scroll = prepareComponentScrollState(grid?.scroll ?? tableScroll, 'table scroll');
   return {
-    ...(selectedRowId === undefined ? {} : { selectedRowId }),
-    ...(selectedCell === undefined ? {} : { selectedCell }),
+    ...(interaction === undefined ? {} : { interactionKind: interaction.kind }),
+    ...(selectionMode === undefined ? {} : { selectionMode }),
+    ...(activeRowId === undefined ? {} : { activeRowId }),
+    ...(activeColumnId === undefined ? {} : { activeColumnId }),
+    selectedRowIds,
+    selectedCells,
     ...(sort === undefined ? {} : { sort }),
     columnWidths,
     ...(scroll === undefined ? {} : { scroll }),
   };
+}
+
+function prepareOptionalId(value: string | undefined, owner: string): string | undefined {
+  return value === undefined ? undefined : nonEmpty(value, owner);
+}
+
+function prepareUniqueIds(value: readonly string[], owner: string): readonly string[] {
+  if (!Array.isArray(value)) throw new TypeError(`${owner} must be an array.`);
+  const ids = Object.freeze(value.map((id, index) => nonEmpty(id, `${owner}[${String(index)}]`)));
+  if (new Set(ids).size !== ids.length) throw new TypeError(`${owner} must contain unique ids.`);
+  return ids;
+}
+
+function prepareGridCells(value: readonly DataGridCell[], owner: string): readonly DataGridCell[] {
+  if (!Array.isArray(value)) throw new TypeError(`${owner} must be an array.`);
+  const keys = new Set<string>();
+  return Object.freeze(value.map((cell, index) => {
+    if (!isNonArrayObject(cell)) throw new TypeError(`${owner}[${String(index)}] must be an object.`);
+    const prepared = Object.freeze({
+      rowId: nonEmpty(cell['rowId'], `${owner}[${String(index)}].rowId`),
+      columnId: nonEmpty(cell['columnId'], `${owner}[${String(index)}].columnId`),
+    });
+    const key = `${prepared.rowId}\u0000${prepared.columnId}`;
+    if (keys.has(key)) throw new TypeError(`${owner} must contain unique cells.`);
+    keys.add(key);
+    return prepared;
+  }));
 }
 
 interface TableColumnTrack {
@@ -659,7 +884,7 @@ function tableHeaderWidth(
   widthProfile: ComponentInput<TableModel>['widthProfile'],
 ): number {
   const sort = model.sort?.columnId === column.id ? tableSortMarker(model.sort.direction) : '';
-  const resize = column.resizable ? ' ↔' : '';
+  const resize = model.semanticRole === 'grid' && column.resizable ? ' ↔' : '';
   return Math.max(1, measureTextCells(`${column.header}${sort}${resize}`, { widthProfile }).cells);
 }
 
@@ -735,7 +960,7 @@ function tableContentWidth(
 
 function tablePlan(input: ComponentInput<TableModel>): TablePlan {
   const source = tableSourceFor(input.model);
-  const markerCells = 2;
+  const markerCells = input.model.semanticRole === 'grid' ? 2 : 0;
   const separatorCells = tableSeparatorCells(input.model);
   const headerHeight = input.model.hasHeader && input.model.stickyHeader ? 1 : 0;
   const scrollingBounds = headerHeight === 0 ? input.bounds : {
@@ -747,10 +972,6 @@ function tablePlan(input: ComponentInput<TableModel>): TablePlan {
     Object.freeze({
       offsetRow: 0,
       offsetColumn: 0,
-      contentRows: input.model.totalCount,
-      contentColumns: input.bounds.width,
-      viewportRows: input.bounds.height,
-      viewportColumns: input.bounds.width,
       followTail: false,
     });
   let widths = tableColumnWidths(
@@ -761,13 +982,9 @@ function tablePlan(input: ComponentInput<TableModel>): TablePlan {
   let contentColumns = tableContentWidth(widths, markerCells, separatorCells);
   let geometry = prepareComponentScrollbar({
     bounds: scrollingBounds,
-    scroll: {
-      ...baseScroll,
-      contentRows: input.model.totalCount,
-      contentColumns,
-      viewportRows: scrollingBounds.height,
-      viewportColumns: scrollingBounds.width,
-    },
+    scroll: baseScroll,
+    contentRows: input.model.totalCount,
+    contentColumns,
     ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
     defaultAxis: 'vertical',
   });
@@ -780,31 +997,21 @@ function tablePlan(input: ComponentInput<TableModel>): TablePlan {
     contentColumns = tableContentWidth(widths, markerCells, separatorCells);
     geometry = prepareComponentScrollbar({
       bounds: scrollingBounds,
-      scroll: {
-        ...baseScroll,
-        contentRows: input.model.totalCount,
-        contentColumns,
-        viewportRows: scrollingBounds.height,
-        viewportColumns: scrollingBounds.width,
-      },
+      scroll: baseScroll,
+      contentRows: input.model.totalCount,
+      contentColumns,
       ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
       defaultAxis: 'vertical',
     });
   }
   const bodyHeight = geometry.contentBounds.height;
-  const selectedIndex = selectedTablePosition(input.model)?.rowIndex;
+  const activeIndex = activeTablePosition(input.model)?.rowIndex;
   const requested = dataWindow({
     totalRows: input.model.totalCount,
     viewportRows: bodyHeight,
-    ...(selectedIndex === undefined ? {} : { selectedIndex }),
+    ...(activeIndex === undefined ? {} : { activeIndex }),
     ...(input.model.scroll === undefined ? {} : {
-      scroll: {
-        ...input.model.scroll,
-        contentRows: input.model.totalCount,
-        contentColumns,
-        viewportRows: bodyHeight,
-        viewportColumns: geometry.contentBounds.width,
-      },
+      scroll: input.model.scroll,
     }),
     contentColumns,
     viewportColumns: geometry.contentBounds.width,
@@ -835,7 +1042,7 @@ function tablePlan(input: ComponentInput<TableModel>): TablePlan {
 }
 
 function measureTable(input: ComponentMeasureInput<TableModel>) {
-  const markerCells = 2;
+  const markerCells = input.model.semanticRole === 'grid' ? 2 : 0;
   const widths = input.model.columns.map((column, index) => {
     const controlled = input.model.columnWidths[column.id];
     if (controlled !== undefined) return controlled;
@@ -921,12 +1128,14 @@ function tableHeaderSpans(
     part: 'header',
     base: { fg: { kind: 'theme', token: 'table.header' }, bold: true },
   });
-  const result: import('../../visual/render.ts').RenderSpan[] = [
+  const result: import('../../visual/render.ts').RenderSpan[] = input.model.semanticRole === 'table'
+    ? []
+    : [
     span(' '.repeat(plan.markerCells), {
       ...(headerStyle === undefined ? {} : { style: headerStyle }),
       source: tableFrameSource(input, 'header.marker', 'header', 'decoration'),
     }),
-  ];
+    ];
   input.model.columns.forEach((column, visibleIndex) => {
     if (visibleIndex > 0) result.push(tableSeparatorSpan(input, headerStyle));
     const width = plan.widths[visibleIndex] ?? 1;
@@ -975,7 +1184,7 @@ function tableHeaderSpans(
         }),
       );
     }
-    if (column.resizable) {
+    if (input.model.semanticRole === 'grid' && column.resizable) {
       labelSpans.push(
         span(' ↔', {
           ...(cellStyle === undefined ? {} : { style: cellStyle }),
@@ -1014,10 +1223,11 @@ function tableRowSpans(
   row: PreparedTableRow,
   plan: TablePlan,
 ): readonly import('../../visual/render.ts').RenderSpan[] {
-  const selected = row.id === (input.model.selectedCell?.rowId ?? input.model.selectedRowId);
+  const selected = input.model.selectedRowIds.includes(row.id);
+  const active = input.model.activeRowId === row.id;
   const rowTargetId = `${input.id ?? 'table'}:row:${row.id}`;
   const pointer = pointerVisualState(input.model.pointerState, rowTargetId);
-  const rowState = pointer ?? (selected ? 'selected' : undefined);
+  const rowState = pointer ?? (selected ? 'selected' : active ? 'active' : undefined);
   const rowStyle = input.style({
     part: 'row',
     ...(rowState === undefined ? {} : { state: rowState }),
@@ -1030,8 +1240,9 @@ function tableRowSpans(
   const marker = selected && !terminalStyleHasBackground(markerStyle, input.theme)
     ? input.theme.tokens.symbols.selected
     : input.theme.tokens.symbols.unselected;
-  const result: import('../../visual/render.ts').RenderSpan[] = [
-    span(marker, {
+  const result: import('../../visual/render.ts').RenderSpan[] = input.model.semanticRole === 'table'
+    ? []
+    : [span(marker, {
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
       source: tableFrameSource(
         input,
@@ -1054,16 +1265,18 @@ function tableRowSpans(
         row.rowIndex,
         rowState,
       ),
-    }),
-  ];
+    })];
   input.model.columns.forEach((column, visibleIndex) => {
     if (visibleIndex > 0) result.push(tableSeparatorSpan(input, rowStyle));
-    const cellSelected = input.model.selectedCell?.rowId === row.id &&
-      input.model.selectedCell.columnIndex === visibleIndex;
+    const cellSelected = input.model.selectedCells.some((cell) =>
+      cell.rowId === row.id && cell.columnId === column.id
+    );
+    const cellActive = input.model.interactionKind === 'cell' && input.model.activeRowId === row.id &&
+      input.model.activeColumnId === column.id;
     const cellTargetId = `${input.id ?? 'table'}:row:${row.id}:cell:${String(column.index)}`;
     const cellPointer = pointerVisualState(input.model.pointerState, cellTargetId);
     const cellState = cellPointer ??
-      (cellSelected ? 'selected' : input.model.selectedCell === undefined ? rowState : undefined);
+      (cellSelected ? 'selected' : cellActive ? 'active' : input.model.interactionKind === 'row' ? rowState : undefined);
     result.push(
       ...tableCellSpans(
         input,
@@ -1265,10 +1478,25 @@ function visibleTableTrack(
   return end <= start ? undefined : { start, end };
 }
 
-function tableHitTargets(input: ComponentInput<TableModel>): readonly HitTarget<TableAction>[] {
+function tableScrollHitTargets(
+  input: ComponentInput<TableModel>,
+): readonly HitTarget<{ readonly kind: 'scroll'; readonly event: import('../../interaction/scroll.ts').ScrollEvent }>[] {
+  if (input.model.scroll === undefined) return Object.freeze([]);
   const plan = tablePlan(input);
-  const targets: HitTarget<TableAction>[] = [];
-  if (plan.headerHeight > 0) {
+  return componentScrollbarHitTargets({
+    id: input.id ?? 'table',
+    plan: plan.geometry,
+    ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
+    onScroll: (event) => ({ kind: 'scroll' as const, event }),
+  });
+}
+
+function tableHitTargets(
+  input: ComponentInput<TableModel>,
+): readonly HitTarget<DataGridComponentAction>[] {
+  const plan = tablePlan(input);
+  const targets: HitTarget<DataGridComponentAction>[] = [];
+  if (input.model.semanticRole === 'grid' && !input.readOnly && plan.headerHeight > 0) {
     input.model.columns.forEach((column, index) => {
       const track = plan.tracks[index];
       if (track === undefined) return;
@@ -1285,7 +1513,10 @@ function tableHitTargets(input: ComponentInput<TableModel>): readonly HitTarget<
           accepts: ['click'],
           cursor: 'pointer',
           focus: { kind: 'target', targetId: 'self' },
-          message: () => ({ kind: 'sortBy', columnId: column.id }),
+          message: () => ({
+            kind: 'transition',
+            transition: { kind: 'sortBy', columnId: column.id },
+          }),
         });
       }
       if (column.resizable) {
@@ -1297,34 +1528,34 @@ function tableHitTargets(input: ComponentInput<TableModel>): readonly HitTarget<
           focus: { kind: 'target', targetId: 'self' },
           message: (event) =>
             event.button !== 'left' ? ignoreMessage() : ({
-              kind: 'setColumnWidth',
-              columnId: column.id,
-              width: Math.max(
-                1,
-                track.width + event.column - (event.pressColumn ?? event.column),
-              ),
+              kind: 'transition',
+              transition: {
+                kind: 'setColumnWidth',
+                columnId: column.id,
+                width: Math.max(1, track.width + event.column - (event.pressColumn ?? event.column)),
+              },
             }),
         });
       }
     });
   }
-  plan.rows.forEach((row, visibleIndex) => {
+  if (input.model.semanticRole === 'grid') plan.rows.forEach((row, visibleIndex) => {
     const rowBounds = {
       row: plan.headerHeight + visibleIndex,
       column: 0,
       width: plan.geometry.contentBounds.width,
       height: 1,
     };
-    if (input.model.selectedCell === undefined) {
+    if (input.model.interactionKind === 'row') {
       targets.push({
         id: `${input.id ?? 'table'}:row:${row.id}`,
         bounds: rowBounds,
         cursor: 'pointer',
         focus: { kind: 'target', targetId: 'self' },
         message: (event) =>
-          event.clickCount === 2
-            ? { kind: 'activate', rowId: row.id, rowIndex: row.rowIndex }
-            : { kind: 'selectRow', rowId: row.id, rowIndex: row.rowIndex },
+          event.clickCount === 2 && !input.readOnly
+            ? { kind: 'activate', event: { kind: 'activate', target: { kind: 'row', rowId: row.id } } }
+            : { kind: 'transition', transition: { kind: 'setActiveRow', rowId: row.id } },
       });
       return;
     }
@@ -1348,9 +1579,15 @@ function tableHitTargets(input: ComponentInput<TableModel>): readonly HitTarget<
         cursor: 'pointer',
         focus: { kind: 'target', targetId: 'self' },
         message: (event) =>
-          event.clickCount === 2
-            ? { kind: 'activate', rowId: row.id, rowIndex: row.rowIndex, columnIndex: index }
-            : { kind: 'selectCell', rowId: row.id, rowIndex: row.rowIndex, columnIndex: index },
+          event.clickCount === 2 && !input.readOnly
+            ? {
+              kind: 'activate',
+              event: { kind: 'activate', target: { kind: 'cell', cell: { rowId: row.id, columnId: column.id } } },
+            }
+            : {
+              kind: 'transition',
+              transition: { kind: 'setActiveCell', cell: { rowId: row.id, columnId: column.id } },
+            },
       });
     });
   });
@@ -1360,7 +1597,10 @@ function tableHitTargets(input: ComponentInput<TableModel>): readonly HitTarget<
         id: input.id ?? 'table',
         plan: plan.geometry,
         ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
-        onScroll: (event) => ({ kind: 'scroll' as const, event }),
+        onScroll: (event) => ({
+          kind: 'transition' as const,
+          transition: { kind: 'scroll' as const, event },
+        }),
       }),
     );
   }
@@ -1382,7 +1622,7 @@ function tableAccessibility(
         role: 'columnheader' as const,
         label: column.header || `Column ${String(index + 1)}`,
         value: column.header || `Column ${String(index + 1)}`,
-        ...(column.sortable || column.resizable
+        ...(input.model.semanticRole === 'grid' && (column.sortable || column.resizable)
           ? {
             description: [
               ...(column.sortable ? ['sortable'] : []),
@@ -1403,11 +1643,12 @@ function tableAccessibility(
       })),
     }]
     : [];
-  const selectedRowId = input.model.selectedCell?.rowId ?? input.model.selectedRowId;
   const body = plan.rows.map((row) => ({
     id: `${input.id}:row:${row.id}`,
     role: 'row' as const,
-    selected: row.id === selectedRowId,
+    ...(input.model.semanticRole === 'grid'
+      ? { selected: input.model.selectedRowIds.includes(row.id) }
+      : {}),
     position: {
       positionInSet: row.rowIndex + 1,
       setSize: input.model.totalCount,
@@ -1420,11 +1661,16 @@ function tableAccessibility(
       const label = column?.header ?? `Column ${String(index + 1)}`;
       return {
         id: `${input.id}:row:${row.id}:cell:${String(column?.index ?? index)}`,
-        role: 'gridcell' as const,
+        role: input.model.semanticRole === 'grid' ? 'gridcell' as const : 'cell' as const,
         label: cell.text,
         value: cell.text,
-        selected: input.model.selectedCell?.rowId === row.id &&
-          input.model.selectedCell.columnIndex === index,
+        ...(input.model.semanticRole === 'grid'
+          ? {
+            selected: input.model.selectedCells.some((selected) =>
+              selected.rowId === row.id && selected.columnId === column?.id
+            ),
+          }
+          : {}),
         position: {
           rowIndex: row.rowIndex + (input.model.hasHeader ? 2 : 1),
           rowCount,
@@ -1435,14 +1681,28 @@ function tableAccessibility(
       };
     }),
   }));
+  const activeRowVisible = input.model.activeRowId !== undefined &&
+    plan.rows.some((row) => row.id === input.model.activeRowId);
   return {
     id: input.id,
-    role: 'grid' as const,
+    role: input.model.semanticRole,
     label: input.id,
     description: `Showing ${String(plan.startIndex + 1)}-${String(plan.endIndexExclusive)} of ${
       String(input.model.totalCount)
     } rows.`,
     ...(input.focused ? { focused: true } : {}),
+    ...(input.model.semanticRole === 'grid' && input.model.selectionMode === 'multiple'
+      ? { multiSelectable: true }
+      : {}),
+    ...(input.model.semanticRole === 'grid' && activeRowVisible
+      ? {
+        activeDescendant: input.model.interactionKind === 'cell' && input.model.activeColumnId !== undefined
+          ? `${input.id}:row:${input.model.activeRowId}:cell:${String(
+            input.model.columns.find((column) => column.id === input.model.activeColumnId)?.index ?? 0
+          )}`
+          : `${input.id}:row:${input.model.activeRowId}`,
+      }
+      : {}),
     ...(rowCount === 0 && input.model.columns.length === 0 ? {} : {
       position: {
         ...(rowCount === 0 ? {} : { rowCount }),
@@ -1480,14 +1740,13 @@ function tableFrameSource(
   });
 }
 
-function selectedTablePosition(
+function activeTablePosition(
   model: TableModel,
 ): { readonly id: string; readonly rowIndex: number } | undefined {
-  const selectedId = model.selectedCell?.rowId ?? model.selectedRowId;
-  if (selectedId === undefined) return undefined;
+  if (model.activeRowId === undefined) return undefined;
   const source = tableSourceFor(model);
-  const rowIndex = source.indexes.get(selectedId);
-  return rowIndex === undefined ? undefined : { id: selectedId, rowIndex };
+  const rowIndex = source.indexes.get(model.activeRowId);
+  return rowIndex === undefined ? undefined : { id: model.activeRowId, rowIndex };
 }
 
 function tableSourceFor(model: TableModel): PreparedTableSource {
@@ -1535,8 +1794,9 @@ interface TreeModel {
   readonly source: Readonly<Record<string, never>>;
   readonly startIndex: number;
   readonly totalCount: number;
-  readonly query: string;
-  readonly selected?: string;
+  readonly query: Required<import('../../ui-model/query.ts').CollectionQuery>;
+  readonly activeId?: string;
+  readonly selection: SelectionState;
   readonly emptyText: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
@@ -1554,10 +1814,25 @@ const preparedTreeCollections = new WeakMap<object, PreparedTreeSource>();
 
 const treeBase = {
   name: 'terminal-ui/components/tree' as const,
+  optionFields: {
+    source: true,
+    startIndex: true,
+    totalCount: true,
+    query: true,
+    activeId: true,
+    selection: true,
+    emptyText: true,
+    scroll: true,
+    scrollbar: true,
+    scrollPolicy: true,
+    pointerState: true,
+  } as const,
   identity: 'required' as const,
   structure: 'leaf' as const,
   semantics: 'semantic' as const,
+  accessibleRole: 'tree' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
+  states: ['disabled', 'busy', 'readOnly', 'inert'] as const,
   parts: [
     'marker',
     'indent',
@@ -1575,50 +1850,53 @@ const treeBase = {
   accessibility: treeAccessibility,
 };
 
-const passiveTree = defineComponent<
-  TreeModel,
-  TreeModel,
-  never,
-  TreeStylePart,
-  readonly [],
-  'required',
-  readonly ['focus', 'layer', 'styles']
->(treeBase);
+type TreeComponentAction =
+  | { readonly kind: 'transition'; readonly action: TreeTransition }
+  | { readonly kind: 'activate'; readonly event: TreeActivateEvent }
+  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+
 const activeTree = defineComponent<
   TreeModel,
   TreeModel,
-  TreeInteractionAction,
+  TreeComponentAction,
   TreeStylePart,
-  readonly [],
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   ...treeBase,
-  keys: ({ model }) => {
-    const row = selectedTreeRow(model);
+  keys: ({ model, busy, readOnly }) => {
+    if (busy) return {};
+    const row = activeTreeRow(model);
     return {
-      arrowUp: () => ({ kind: 'move', delta: -1 }),
-      arrowDown: () => ({ kind: 'move', delta: 1 }),
+      arrowUp: () => treeTransition({ kind: 'moveActive', delta: -1 }),
+      arrowDown: () => treeTransition({ kind: 'moveActive', delta: 1 }),
       ...(row === undefined ? {} : {
         ...(row.kind === 'leaf' || row.expanded
           ? {}
-          : { arrowRight: () => ({ kind: 'expand' as const, id: row.id }) }),
+          : { arrowRight: () => treeTransition({ kind: 'expand', id: row.id }) }),
         ...(row.kind === 'leaf' || !row.expanded
           ? {}
-          : { arrowLeft: () => ({ kind: 'collapse' as const, id: row.id }) }),
-        enter: () => ({ kind: 'activate' as const, id: row.id }),
+          : { arrowLeft: () => treeTransition({ kind: 'collapse', id: row.id }) }),
+        ...(readOnly ? {} : {
+          space: () => treeTransition({ kind: 'commitActive' }),
+          enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: row.id } }),
+        }),
       }),
     };
   },
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointer', action }),
+  },
   focusTargets(input) {
     const plan = treePlan(input);
     return [{
       id: 'self',
       bounds: input.bounds,
-      ...(plan.selectedVisibleIndex === undefined
+      ...(plan.activeVisibleIndex === undefined
         ? {}
-        : { cursor: { row: plan.selectedVisibleIndex, column: 0 } }),
+        : { cursor: { row: plan.activeVisibleIndex, column: 0 } }),
     }];
   },
   hitTargets: treeHitTargets,
@@ -1626,43 +1904,78 @@ const activeTree = defineComponent<
 
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
-  const TMessage extends ComponentMessage = never,
->(options: ScrollableTreeOptions<TMetadata, TMessage>): Element<TMessage>;
+  const TTransitionMessage extends ComponentMessage = never,
+  const TActivateMessage extends ComponentMessage = never,
+  const TPointerMessage extends ComponentMessage = never,
+>(options: ScrollableTreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage>;
 // The passive overload intentionally excludes scroll actions.
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
-  const TMessage extends ComponentMessage = never,
+  const TTransitionMessage extends ComponentMessage = never,
+  const TActivateMessage extends ComponentMessage = never,
+  const TPointerMessage extends ComponentMessage = never,
 >(
   // eslint-disable-next-line @typescript-eslint/unified-signatures
-  options: PassiveTreeOptions<TMetadata, TMessage>
-): Element<TMessage>;
+  options: UnscrolledTreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>
+): Element<TTransitionMessage | TActivateMessage | TPointerMessage>;
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
-  const TMessage extends ComponentMessage = never,
->(options: TreeOptions<TMetadata, TMessage>): Element<TMessage> {
-  const onAction = options.onAction;
+  const TTransitionMessage extends ComponentMessage = never,
+  const TActivateMessage extends ComponentMessage = never,
+  const TPointerMessage extends ComponentMessage = never,
+>(options: TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage> {
+  assertComponentOptions(options, 'tree', {
+    fields: [
+      'id', 'nodes', 'collection', 'presentation', 'emptyText',
+      'scroll', 'scrollbar', 'scrollPolicy', 'pointerState', 'disabled', 'readOnly', 'busy',
+      'inert', 'meta', 'onTransition', 'onActivate', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true || options.inert === true
+      ? { onTransition: 'forbidden', onActivate: 'forbidden', onPointerAction: 'forbidden' }
+      : { onTransition: 'required', onActivate: 'optional', onPointerAction: 'optional' },
+    ...(options.disabled === true
+      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy'] }
+      : options.inert === true
+        ? { forbiddenFields: ['readOnly'] }
+      : {}),
+  });
   const prepared = prepareTree(options);
-  const componentOptions = {
+  const shared = {
     ...prepared,
     id: options.id,
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
-  if (onAction === undefined) return passiveTree(componentOptions);
-  if (options.scroll === undefined) {
-    return activeTree({
-      ...componentOptions,
-      onAction: (action) =>
-        action.kind === 'scroll' ? ignoreMessage() : onAction(action),
-    });
-  }
-  return activeTree({ ...componentOptions, onAction: options.onAction });
+  if (options.disabled === true) return activeTree({
+    ...shared,
+    disabled: true,
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
+  });
+  if (options.inert === true) return activeTree({ ...shared, inert: true });
+  return activeTree({
+    ...shared,
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => {
+      if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
+      if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      if (options.scroll === undefined) {
+        if (action.action.kind === 'scroll') return ignoreMessage();
+        return options.onTransition(action.action);
+      }
+      return options.onTransition(action.action);
+    },
+  });
 }
 
 function prepareTree<
   TMetadata extends Readonly<Record<string, unknown>>,
-  TMessage extends ComponentMessage,
->(value: Readonly<TreeOptions<TMetadata, TMessage>>): TreeModel {
-  const query = (text(value.filterQuery, 'tree filterQuery') ?? '').trim();
+  TTransitionMessage extends ComponentMessage,
+  TActivateMessage extends ComponentMessage,
+  TPointerMessage extends ComponentMessage,
+>(value: Readonly<TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>>): TreeModel {
+  const query = normalizeCollectionQuery(
+    value.presentation.query ?? { text: '', mode: 'contains' },
+  );
   let collection: CollectionProjection<TreeCollectionRecord<TMetadata>>;
   let startIndex: number;
   let totalCount: number;
@@ -1680,12 +1993,12 @@ function prepareTree<
     const nodes = prepareTreeNodes<TMetadata>(value.nodes);
     collection = prepareTreeCollection<TMetadata>(
       nodes,
-      query === '' ? {} : { filterQuery: query },
+      value.presentation,
     );
     startIndex = collection.startIndex;
     totalCount = collection.totalCount;
   }
-  const sourceToken = Object.freeze({});
+  const sourceToken = registerImmutableIdentity(Object.freeze({}));
   treeSources.set(sourceToken, preparedTreeSource(collection));
   const scroll = prepareComponentScrollState(value.scroll, 'tree scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'tree scrollbar');
@@ -1693,16 +2006,17 @@ function prepareTree<
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('tree scrollbar and scrollPolicy require scroll state.');
   }
-  const selected = value.selected === undefined
+  const activeId = value.presentation.activeId === undefined
     ? undefined
-    : nonEmpty(value.selected, 'tree selected');
-  const pointerState = preparePointerState(value.pointerState);
+    : nonEmpty(value.presentation.activeId, 'tree activeId');
+  const pointerState = preparePointerInteractionState(value.pointerState, 'tree pointerState');
   return {
     source: sourceToken,
     startIndex,
     totalCount,
     query,
-    ...(selected === undefined ? {} : { selected }),
+    ...(activeId === undefined ? {} : { activeId }),
+    selection: value.presentation.selection,
     emptyText: text(value.emptyText, 'tree emptyText') ?? 'No items',
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
@@ -1765,27 +2079,13 @@ function prepareTreeNode<
       : { metadata: plainObject(value.metadata, `${owner}.metadata`) }),
   };
   if (kind === 'leaf') return { ...base, kind };
-  const expanded = boolean(value.expanded, `${owner}.expanded`);
   if (kind === 'branch') {
     if (!Array.isArray(value.children)) {
       throw new TypeError(`${owner}.children must be an array.`);
     }
-    return { ...base, kind, expanded, children: prepareTreeNodes(value.children) };
+    return { ...base, kind, children: prepareTreeNodes(value.children) };
   }
-  const loading = value.loading;
-  if (!isNonArrayObject(loading)) throw new TypeError(`${owner}.loading must be an object.`);
-  const loadingKind = loading.kind;
-  if (!isStringMember(loadingKind, ['idle', 'pending', 'error', 'empty'])) {
-    throw new TypeError(`${owner}.loading.kind is invalid.`);
-  }
-  const rawMessage = 'message' in loading ? loading.message : undefined;
-  const message = rawMessage === undefined
-    ? undefined
-    : text(rawMessage, `${owner}.loading.message`);
-  if (loadingKind === 'error' && message === undefined) {
-    throw new TypeError(`${owner}.loading.message is required for errors.`);
-  }
-  return { ...base, kind, expanded, loading: preparedTreeLoading(loadingKind, message) };
+  return { ...base, kind };
 }
 
 function plainObject<TValue extends Readonly<Record<string, unknown>>>(
@@ -1814,6 +2114,8 @@ function prepareTreeRecord<
     node,
     depth,
     path: path.map((part) => sanitizeTerminalText(part as string).text),
+    expanded: boolean(value.expanded, 'tree row expanded'),
+    ...(value.loadState === undefined ? {} : { loadState: prepareTreeLoadState(value.loadState) }),
     ...(lazyPlaceholder === true ? { lazyPlaceholder: true } : {}),
   }, itemIndex);
 }
@@ -1836,33 +2138,21 @@ function prepareVisibleTreeNode(value: TreeNode, owner: string): TreeNode {
     ...(value.icon === undefined ? {} : { icon: text(value.icon, `${owner}.icon`) ?? '' }),
   };
   if (kind === 'leaf') return { ...base, kind };
-  const expanded = boolean(value.expanded, `${owner}.expanded`);
   if (kind === 'branch') {
     if (!Array.isArray(value.children)) {
       throw new TypeError(`${owner}.children must be an array.`);
     }
-    return { ...base, kind, expanded, children: [] };
+    return { ...base, kind, children: [] };
   }
-  const loading = value.loading;
-  if (!isNonArrayObject(loading)) throw new TypeError(`${owner}.loading must be an object.`);
-  const loadingKind = loading.kind;
-  if (!isStringMember(loadingKind, ['idle', 'pending', 'error', 'empty'])) {
-    throw new TypeError(`${owner}.loading.kind is invalid.`);
-  }
-  const rawMessage = 'message' in loading ? loading.message : undefined;
-  const message = rawMessage === undefined
-    ? undefined
-    : text(rawMessage, `${owner}.loading.message`);
-  if (loadingKind === 'error' && message === undefined) {
-    throw new TypeError(`${owner}.loading.message is required for errors.`);
-  }
-  return { ...base, kind, expanded, loading: preparedTreeLoading(loadingKind, message) };
+  return { ...base, kind };
 }
 
-function preparedTreeLoading(
-  kind: TreeLazyState['kind'],
-  message: string | undefined,
-): TreeLazyState {
+function prepareTreeLoadState(value: TreeLoadState): TreeLoadState {
+  if (!isNonArrayObject(value) || !isStringMember(value.kind, ['idle', 'pending', 'error', 'empty'])) {
+    throw new TypeError('tree load state is invalid.');
+  }
+  const kind = value.kind;
+  const message = 'message' in value ? text(value.message, 'tree load state message') : undefined;
   switch (kind) {
     case 'idle': {
       if (message !== undefined) {
@@ -1889,7 +2179,7 @@ function treeRow(value: TreeVisibleRow, itemIndex: number): TreeRow {
     depth: value.depth,
     path: value.path,
     kind: value.node.kind,
-    expanded: value.node.kind !== 'leaf' && value.node.expanded,
+    expanded: value.expanded,
     disabled: value.node.disabled === true,
     lazyPlaceholder: value.lazyPlaceholder === true,
     ...(value.node.description === undefined ? {} : { description: value.node.description }),
@@ -1902,20 +2192,13 @@ function treeGeometry(input: ComponentInput<TreeModel>) {
     {
       offsetRow: 0,
       offsetColumn: 0,
-      contentRows: input.model.totalCount,
-      contentColumns: input.bounds.width,
-      viewportRows: input.bounds.height,
-      viewportColumns: input.bounds.width,
       followTail: false,
     };
   return prepareComponentScrollbar({
     bounds: input.bounds,
-    scroll: {
-      ...scroll,
-      contentRows: input.model.totalCount,
-      viewportRows: input.bounds.height,
-      viewportColumns: input.bounds.width,
-    },
+    scroll,
+    contentRows: input.model.totalCount,
+    contentColumns: input.bounds.width,
     ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
     defaultAxis: 'vertical',
   });
@@ -1924,20 +2207,15 @@ function treeGeometry(input: ComponentInput<TreeModel>) {
 function treePlan(input: ComponentInput<TreeModel>) {
   const source = treeSourceFor(input.model);
   const geometry = treeGeometry(input);
-  const selectedIndex = input.model.selected === undefined
+  const activeIndex = input.model.activeId === undefined
     ? undefined
-    : source.indexes.get(input.model.selected);
+    : source.indexes.get(input.model.activeId);
   const requested = dataWindow({
     totalRows: input.model.totalCount,
     viewportRows: geometry.contentBounds.height,
-    ...(selectedIndex === undefined ? {} : { selectedIndex }),
+    ...(activeIndex === undefined ? {} : { activeIndex }),
     ...(input.model.scroll === undefined ? {} : {
-      scroll: {
-        ...input.model.scroll,
-        contentRows: input.model.totalCount,
-        viewportRows: geometry.contentBounds.height,
-        viewportColumns: geometry.contentBounds.width,
-      },
+      scroll: input.model.scroll,
     }),
   });
   const availableEnd = input.model.startIndex + source.rows.length;
@@ -1951,16 +2229,16 @@ function treePlan(input: ComponentInput<TreeModel>) {
     { length: Math.min(geometry.contentBounds.height, source.rows.length - localStart) },
     (_unused, offset) => preparedTreeRow(input.model, localStart + offset),
   );
-  const selectedVisibleIndex = selectedIndex === undefined || selectedIndex < startIndex ||
-      selectedIndex >= startIndex + rows.length
+  const activeVisibleIndex = activeIndex === undefined || activeIndex < startIndex ||
+      activeIndex >= startIndex + rows.length
     ? undefined
-    : selectedIndex - startIndex;
+    : activeIndex - startIndex;
   return {
     geometry,
     rows,
     startIndex,
     endIndexExclusive: startIndex + rows.length,
-    selectedVisibleIndex,
+    activeVisibleIndex,
   };
 }
 
@@ -2030,10 +2308,10 @@ function preparedTreeRow(model: TreeModel, localIndex: number): TreeRow {
   return row;
 }
 
-function selectedTreeRow(model: TreeModel): TreeRow | undefined {
-  if (model.selected === undefined) return undefined;
+function activeTreeRow(model: TreeModel): TreeRow | undefined {
+  if (model.activeId === undefined) return undefined;
   const source = treeSourceFor(model);
-  const itemIndex = source.indexes.get(model.selected);
+  const itemIndex = source.indexes.get(model.activeId);
   if (itemIndex === undefined) return undefined;
   return preparedTreeRow(model, itemIndex - model.startIndex);
 }
@@ -2044,37 +2322,52 @@ function paintTreeRow(
   visibleIndex: number,
   width: number,
 ): void {
-  const selected = row.id === input.model.selected;
+  const selected = treeSelectionContains(input.model.selection, row.id);
+  const active = row.id === input.model.activeId;
   const bodyId = `${input.id ?? 'tree'}:${row.id}:body`;
   const disclosureId = `${input.id ?? 'tree'}:${row.id}:disclosure`;
   const pointer = pointerVisualState(input.model.pointerState, bodyId);
-  const state: 'disabled' | 'hovered' | 'pressed' | 'selected' | 'focused' | undefined =
+  const state: 'disabled' | 'hovered' | 'pressed' | 'selected' | 'focused' | 'active' | undefined =
     row.disabled || row.lazyPlaceholder ? 'disabled' : pointer ??
-      (input.focus === 'self' && selected ? 'focused' : selected ? 'selected' : undefined);
+      (input.focus === 'self' && active ? 'focused' : selected ? 'selected' : active ? 'active' : undefined);
   const disclosurePointer = pointerVisualState(input.model.pointerState, disclosureId);
   const disclosureState: typeof state = row.disabled || row.lazyPlaceholder
     ? 'disabled'
     : disclosurePointer ?? state;
-  const markerStyle = input.style({ part: 'marker', ...(state === undefined ? {} : { state }) });
+  const selectionBase: TerminalStyle | undefined = selected
+    ? {
+      fg: { kind: 'theme', token: 'selection.foreground' },
+      bg: { kind: 'theme', token: 'selection.background' },
+    }
+    : undefined;
+  const markerStyle = input.style({
+    part: 'marker',
+    ...(selectionBase === undefined ? {} : { base: selectionBase }),
+    ...(state === undefined ? {} : { state }),
+  });
   const marker = selected && !terminalStyleHasBackground(markerStyle, input.theme)
     ? input.theme.tokens.symbols.selected
     : input.theme.tokens.symbols.unselected;
   const labelStyle = input.style({
     part: row.lazyPlaceholder ? 'placeholder' : 'label',
-    base: { fg: { kind: 'theme', token: 'text.default' } },
+    base: selectionBase ?? { fg: { kind: 'theme', token: 'text.default' } },
     ...(state === undefined ? {} : { state }),
   });
   const disclosureStyle = input.style({
     part: row.lazyPlaceholder ? 'placeholder' : 'disclosure',
-    base: { fg: { kind: 'theme', token: 'tree.branch' } },
+    base: { ...selectionBase, fg: { kind: 'theme', token: 'tree.branch' } },
     ...(disclosureState === undefined ? {} : { state: disclosureState }),
   });
   const indentStyle = input.style({
     part: 'indent',
-    base: { fg: { kind: 'theme', token: 'tree.branch' } },
+    base: { ...selectionBase, fg: { kind: 'theme', token: 'tree.branch' } },
     ...(state === undefined ? {} : { state }),
   });
-  const iconStyle = input.style({ part: 'icon', ...(state === undefined ? {} : { state }) });
+  const iconStyle = input.style({
+    part: 'icon',
+    ...(selectionBase === undefined ? {} : { base: selectionBase }),
+    ...(state === undefined ? {} : { state }),
+  });
   const itemId = `${input.id ?? 'tree'}:${row.id}`;
   const source = (
     description: string,
@@ -2154,9 +2447,9 @@ function treeLabelSpans(
     cellRole: import('../../visual/source.ts').FrameCellRole,
   ) => import('../../visual/source.ts').FrameCellSource,
 ): readonly import('../../visual/render.ts').RenderSpan[] {
-  const query = input.model.query.toLocaleLowerCase();
-  const index = query === '' ? -1 : row.label.toLocaleLowerCase().indexOf(query);
-  if (index < 0) {
+  const match = matchNormalizedCollectionQuery({ id: row.id, primary: row.label }, input.model.query)
+    ?.ranges.find((range) => range.field === 'primary');
+  if (match === undefined) {
     return [
       span(row.label, {
         ...(labelStyle === undefined ? {} : { style: labelStyle }),
@@ -2169,18 +2462,18 @@ function treeLabelSpans(
     base: { ...(labelStyle ?? {}), fg: { kind: 'theme', token: 'menu.match' }, underline: true },
   });
   return [
-    ...(index === 0 ? [] : [
-      span(row.label.slice(0, index), {
+    ...(match.start === 0 ? [] : [
+      span(row.label.slice(0, match.start), {
         ...(labelStyle === undefined ? {} : { style: labelStyle }),
         source: source(`node.${row.id}.label`, 'label', 'text'),
       }),
     ]),
-    span(row.label.slice(index, index + query.length), {
+    span(row.label.slice(match.start, match.end), {
       ...(matchStyle === undefined ? {} : { style: matchStyle }),
       source: source(`node.${row.id}.match`, 'match', 'text'),
     }),
-    ...(index + query.length >= row.label.length ? [] : [
-      span(row.label.slice(index + query.length), {
+    ...(match.end >= row.label.length ? [] : [
+      span(row.label.slice(match.end), {
         ...(labelStyle === undefined ? {} : { style: labelStyle }),
         source: source(`node.${row.id}.label`, 'label', 'text'),
       }),
@@ -2189,10 +2482,11 @@ function treeLabelSpans(
 }
 
 function treeHitTargets(input: ComponentInput<TreeModel>) {
+  if (input.busy) return [];
   const plan = treePlan(input);
-  const targets = plan.rows.flatMap((row, index): HitTarget<TreeInteractionAction>[] => {
+  const targets = plan.rows.flatMap((row, index): HitTarget<TreeComponentAction>[] => {
     if (row.disabled || row.lazyPlaceholder) return [];
-    const result: HitTarget<TreeInteractionAction>[] = [];
+    const result: HitTarget<TreeComponentAction>[] = [];
     const disclosureColumn = 2 + row.depth * 2;
     if (row.kind !== 'leaf' && disclosureColumn < plan.geometry.contentBounds.width) {
       result.push({
@@ -2205,7 +2499,7 @@ function treeHitTargets(input: ComponentInput<TreeModel>) {
         },
         cursor: 'pointer',
         focus: { kind: 'target', targetId: 'self' },
-        message: () => ({ kind: 'toggle', id: row.id }),
+        message: () => treeTransition({ kind: 'toggle', id: row.id }),
       });
     }
     const bodyColumn = row.kind === 'leaf'
@@ -2224,8 +2518,8 @@ function treeHitTargets(input: ComponentInput<TreeModel>) {
         focus: { kind: 'target', targetId: 'self' },
         message: (event) =>
           event.clickCount === 2
-            ? { kind: 'activate', id: row.id }
-            : { kind: 'select', id: row.id },
+            ? { kind: 'activate', event: { kind: 'activate', id: row.id } }
+            : treeTransition({ kind: 'setActive', id: row.id }),
       });
     }
     return result;
@@ -2233,11 +2527,11 @@ function treeHitTargets(input: ComponentInput<TreeModel>) {
   if (input.model.scroll !== undefined) {
     return [
       ...targets,
-      ...componentScrollbarHitTargets<TreeInteractionAction>({
+      ...componentScrollbarHitTargets<TreeComponentAction>({
         id: input.id ?? 'tree',
         plan: plan.geometry,
         ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
-        onScroll: (event) => ({ kind: 'scroll', event }),
+        onScroll: (event) => treeTransition({ kind: 'scroll', event }),
       }),
     ];
   }
@@ -2256,6 +2550,10 @@ function treeAccessibility(
       String(input.model.totalCount)
     } tree rows.`,
     ...(input.focused ? { focused: true } : {}),
+    ...(input.model.activeId === undefined
+      ? {}
+      : { activeDescendant: `${input.id}:${input.model.activeId}` }),
+    ...(input.model.selection.mode === 'multiple' ? { multiSelectable: true } : {}),
     window: {
       startIndex: plan.startIndex,
       endIndexExclusive: plan.endIndexExclusive,
@@ -2268,7 +2566,7 @@ function treeAccessibility(
       role: 'treeitem' as const,
       label: row.label,
       ...(row.description === undefined ? {} : { description: row.description }),
-      selected: row.id === input.model.selected,
+      selected: treeSelectionContains(input.model.selection, row.id),
       disabled: row.disabled || row.lazyPlaceholder,
       ...(row.kind === 'leaf' ? {} : { expanded: row.expanded }),
       position: {
@@ -2281,10 +2579,14 @@ function treeAccessibility(
   };
 }
 
-function preparePointerState(
-  value: PointerInteractionState | undefined,
-): PointerInteractionState | undefined {
-  return value === undefined ? undefined : Object.freeze({ ...value });
+function treeSelectionContains(selection: SelectionState, id: string): boolean {
+  return selection.mode === 'single'
+    ? selection.selectedId === id
+    : selection.mode === 'multiple' && selection.selectedIds.includes(id);
+}
+
+function treeTransition(action: TreeTransition): TreeComponentAction {
+  return { kind: 'transition', action };
 }
 function text(value: unknown, owner: string): string | undefined {
   if (value === undefined) return undefined;

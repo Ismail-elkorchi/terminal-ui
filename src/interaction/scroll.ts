@@ -1,25 +1,28 @@
-import type { RoutedPointerEvent } from '../input/pointer.ts';
-
+/** Caller-owned scroll position. Layout-derived dimensions deliberately live elsewhere. */
 export interface ScrollState {
   readonly offsetRow: number;
   readonly offsetColumn: number;
+  readonly followTail: boolean;
+}
+
+export interface ScrollGeometry {
   readonly contentRows: number;
   readonly contentColumns: number;
   readonly viewportRows: number;
   readonly viewportColumns: number;
-  readonly followTail: boolean;
-  readonly selectedIndex?: number;
 }
 
 export type ScrollAction =
-  | { readonly kind: 'setContent'; readonly rows?: number; readonly columns?: number }
-  | { readonly kind: 'setViewport'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'setOffset'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'scrollLines'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'scrollPages'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'top' }
   | { readonly kind: 'bottom' }
-  | { readonly kind: 'itemIntoView'; readonly itemIndex: number }
+  | {
+    readonly kind: 'itemIntoView';
+    readonly itemIndex: number;
+    readonly alignment: 'nearest' | 'start' | 'center' | 'end';
+  }
   | { readonly kind: 'setFollowTail'; readonly followTail: boolean };
 
 export type ScrollEventSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag';
@@ -43,23 +46,18 @@ export interface ScrollPolicy {
   readonly wheel?: ScrollWheelPolicy;
 }
 
+/** A semantic scroll transition. The routed pointer event stays inside the runtime. */
 export interface ScrollEvent {
   readonly action: ScrollAction;
-  readonly scroll: ScrollState;
+  readonly state: ScrollState;
   readonly source: ScrollEventSource;
   readonly target: ScrollEventTarget;
-  readonly pointer: RoutedPointerEvent;
 }
 
 export interface CreateScrollStateInput {
   readonly offsetRow?: number;
   readonly offsetColumn?: number;
-  readonly contentRows?: number;
-  readonly contentColumns?: number;
-  readonly viewportRows?: number;
-  readonly viewportColumns?: number;
   readonly followTail?: boolean;
-  readonly selectedIndex?: number;
 }
 
 export interface ScrollVisibleWindow {

@@ -9,8 +9,10 @@ const unitMeasurement = Object.freeze({
 
 export const leafComponentDefinition = Object.freeze({
   structure: 'leaf',
+  accessibleRole: 'text',
   identity: 'required',
   name: 'terminal-ui-tests/components/testLeaf',
+  optionFields: Object.freeze({}),
   parts: Object.freeze([]),
   prepare: (value) => value,
   measure: () => unitMeasurement
@@ -18,8 +20,10 @@ export const leafComponentDefinition = Object.freeze({
 
 export const compositeComponentDefinition = Object.freeze({
   structure: 'composite',
+  accessibleRole: 'group',
   identity: 'required',
   name: 'terminal-ui-tests/components/testComposite',
+  optionFields: Object.freeze({}),
   parts: Object.freeze([]),
   slots: Object.freeze({
     content: Object.freeze({
@@ -52,6 +56,7 @@ export function componentElement({ definition, children, ...options }) {
   const normalized = {
     semantics: 'semantic',
     ...definition,
+    ...(definition.semantics === 'decorative' ? { accessibleRole: undefined } : {}),
     ...(definition.structure === 'composite'
       ? {
           layout: (input) => ({
@@ -78,9 +83,11 @@ export function testKeyInput(options) {
   const onAction = options.onAction;
   const definition = defineComponent({
     name: 'terminal-ui-tests/components/key-input',
+    optionFields: { value: true },
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'textbox',
     metadata: ['focus', 'layer', 'styles'],
     prepare(value) {
       if (typeof value.value !== 'string') {

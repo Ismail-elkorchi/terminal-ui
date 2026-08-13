@@ -25,9 +25,11 @@ const semanticCanvas = defineComponent<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/canvas',
+  optionFields: { painter: true, measurement: true, label: true, decorative: true } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'image',
   metadata: ['styles', 'layer'],
   parts: ['content'],
   prepare(value) {
@@ -63,6 +65,7 @@ const decorativeCanvas = defineComponent<
   readonly ['styles', 'layer']
 >({
   name: 'terminal-ui/components/decorative-canvas',
+  optionFields: { painter: true, measurement: true, decorative: true } as const,
   identity: 'optional',
   structure: 'leaf',
   semantics: 'decorative',

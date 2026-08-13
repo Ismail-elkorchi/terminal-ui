@@ -1,14 +1,14 @@
-import type { PaginatorAction } from '../ui-model/paginator.ts';
+import type { PaginationAction } from '../ui-model/pagination.ts';
 
-export interface PaginatorState {
+export interface PaginationState {
   readonly pageNumber: number;
 }
 
-export interface PaginatorReducerOptions {
+export interface PaginationReducerOptions {
   readonly pageCount: number;
 }
 
-export interface PaginatorPresentation {
+export interface PaginationPresentation {
   readonly pageNumber: number;
   readonly pageCount: number;
 }
@@ -26,21 +26,21 @@ export interface PaginationWindow {
   readonly endIndexExclusive: number;
 }
 
-export function paginatorReducer(
-  state: PaginatorState,
-  action: PaginatorAction,
-  options: PaginatorReducerOptions
-): PaginatorState {
+export function paginationReducer(
+  state: PaginationState,
+  action: PaginationAction,
+  options: PaginationReducerOptions
+): PaginationState {
   const pageCount = normalizePageCount(options.pageCount);
   const current = normalizePageNumber(state.pageNumber, pageCount);
   const pageNumber = normalizePageNumber(pageNumberForAction(current, pageCount, action), pageCount);
   return pageNumber === state.pageNumber ? state : { pageNumber };
 }
 
-export function paginatorPresentation(
-  state: PaginatorState,
-  options: PaginatorReducerOptions
-): PaginatorPresentation {
+export function paginationPresentation(
+  state: PaginationState,
+  options: PaginationReducerOptions
+): PaginationPresentation {
   const pageCount = normalizePageCount(options.pageCount);
   return { pageNumber: normalizePageNumber(state.pageNumber, pageCount), pageCount };
 }
@@ -59,7 +59,7 @@ export function paginationWindow(input: PaginationInput): PaginationWindow {
   };
 }
 
-function pageNumberForAction(current: number, pageCount: number, action: PaginatorAction): number {
+function pageNumberForAction(current: number, pageCount: number, action: PaginationAction): number {
   switch (action.kind) {
     case 'first':
       return 1;

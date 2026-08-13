@@ -1,7 +1,11 @@
-import { defineComponent, ignoreMessage } from '../../component/index.ts';
+import {
+  assertComponentOptions,
+  defineComponent,
+  ignoreMessage,
+  mapComponentStyles,
+} from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
-import type { ElementStyles } from '../../element/metadata.ts';
 import {
   assertOptionalEnum,
   isNonArrayObject,
@@ -13,7 +17,7 @@ import type { InitialFocusSelector } from '../../interaction/focus.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { DialogOptions } from '../options/dialog.ts';
 import type { DialogAction, DialogDismissal, DialogFocusPolicy } from '../../ui-model/dialog.ts';
-import type { DialogStylePart, SurfaceStylePart } from '../../ui-model/style-parts.ts';
+import type { DialogStylePart } from '../../ui-model/style-parts.ts';
 import {
   type BorderOptions,
   type BorderTitle,
@@ -55,9 +59,30 @@ const instantiateDialog = defineComponent<
   typeof dialogSlots
 >({
   name: 'terminal-ui/components/dialog',
+  optionFields: {
+    title: true,
+    accessibleName: true,
+    modal: true,
+    focusPolicy: true,
+    dismissal: true,
+    border: true,
+    width: true,
+    height: true,
+    gap: true,
+    padding: true,
+    margin: true,
+    minWidth: true,
+    minHeight: true,
+    maxWidth: true,
+    maxHeight: true,
+    align: true,
+    justify: true,
+    overflow: true,
+  } as const,
   identity: 'required',
   structure: 'composed',
   semantics: 'semantic',
+  accessibleRole: 'dialog',
   slots: dialogSlots,
   metadata: ['focus', 'layer', 'styles'],
   parts: ['background', 'border', 'title', 'actionSeparator'],
@@ -65,6 +90,7 @@ const instantiateDialog = defineComponent<
     const modal = value.modal;
     if (typeof modal !== 'boolean') throw new TypeError('dialog modal must be a boolean.');
     const title = prepareDialogTitle(value.title);
+    const label = prepareDialogAccessibleName(value.accessibleName, title);
     const border = prepareDialogBorder(value.border) ?? { kind: 'single' as const };
     const width = prepareDialogDimension(value.width, 'width');
     const height = prepareDialogDimension(value.height, 'height');
@@ -85,7 +111,7 @@ const instantiateDialog = defineComponent<
     }
     return {
       ...(title === undefined ? {} : { title }),
-      label: borderTitleAccessibleText(title),
+      label,
       border,
       ...(width === undefined ? {} : { width }),
       ...(height === undefined ? {} : { height }),
@@ -123,12 +149,9 @@ const instantiateDialog = defineComponent<
       divider({
         id: `${id ?? 'dialog'}:action-separator`,
         meta: {
-          styles: {
-            ...(styles?.root === undefined ? {} : { root: styles.root }),
-            ...(styles?.parts?.actionSeparator === undefined
-              ? styles?.parts?.border === undefined ? {} : { parts: { line: styles.parts.border } }
-              : { parts: { line: styles.parts.actionSeparator } }),
-          },
+          styles: mapComponentStyles(styles, {
+            line: ['actionSeparator', 'border'] as const,
+          }) ?? {},
         },
       }),
       slots.actions,
@@ -157,7 +180,15 @@ const instantiateDialog = defineComponent<
       ...(height === undefined
         ? model.layout.maxHeight === undefined ? {} : { maxHeight: model.layout.maxHeight }
         : { maxHeight: height }),
-      ...(styles === undefined ? {} : { meta: { styles: dialogSurfaceStyles(styles) } }),
+      ...(styles === undefined ? {} : {
+        meta: {
+          styles: mapComponentStyles(styles, {
+            background: 'background',
+            border: 'border',
+            title: 'title',
+          }) ?? {},
+        },
+      }),
     });
     return portal(panel, {
       id: `${id ?? 'dialog'}:portal`,
@@ -180,7 +211,7 @@ const instantiateDialog = defineComponent<
     return {
       id,
       role: 'dialog',
-      label: model.label || id,
+      label: model.label,
       ...(model.modal
         ? { scope: { kind: 'modal' as const, trapsFocus: true, obscuresBackground: true } }
         : {}),
@@ -198,6 +229,14 @@ export function dialog<
     readonly slots: { readonly content: TContent; readonly actions?: TActions };
   },
 ): Element<ElementMessage<TContent> | ElementMessage<NonNullable<TActions>> | TMessage> {
+  assertComponentOptions(options, 'dialog', {
+    fields: [
+      'id', 'slots', 'title', 'accessibleName', 'modal', 'focusPolicy', 'dismissal', 'border',
+      'width', 'height', 'gap', 'padding', 'margin', 'minWidth', 'minHeight', 'maxWidth',
+      'maxHeight', 'align', 'justify', 'overflow', 'meta', 'onAction',
+    ],
+    callbacks: options.dismissal === undefined ? { onAction: 'forbidden' } : { onAction: 'required' },
+  });
   const actionMapper = (action: DialogAction): MessageResolution<TMessage> =>
     options.onAction === undefined ? ignoreMessage() : options.onAction(action);
   return instantiateDialog({
@@ -205,6 +244,17 @@ export function dialog<
     slots: options.slots,
     onAction: actionMapper,
   });
+}
+
+function prepareDialogAccessibleName(
+  value: string | undefined,
+  title: BorderTitle | undefined,
+): string {
+  const label = value ?? borderTitleAccessibleText(title);
+  if (typeof label !== 'string' || label.trim() === '') {
+    throw new TypeError('dialog requires a non-empty title or accessibleName.');
+  }
+  return label;
 }
 
 function prepareDialogTitle(value: DialogComponentOptions['title']): BorderTitle | undefined {
@@ -330,20 +380,4 @@ function prepareDialogDismissal(
   return escape
     ? Object.freeze({ escape: true as const, outsidePress })
     : Object.freeze({ escape: false as const, outsidePress: true as const });
-}
-
-function dialogSurfaceStyles(
-  styles: ElementStyles<DialogStylePart>,
-): ElementStyles<SurfaceStylePart> {
-  return {
-    ...(styles.root === undefined ? {} : { root: styles.root }),
-    ...(styles.states === undefined ? {} : { states: styles.states }),
-    ...(styles.parts === undefined ? {} : {
-      parts: {
-        ...(styles.parts.background === undefined ? {} : { background: styles.parts.background }),
-        ...(styles.parts.border === undefined ? {} : { border: styles.parts.border }),
-        ...(styles.parts.title === undefined ? {} : { title: styles.parts.title }),
-      },
-    }),
-  };
 }

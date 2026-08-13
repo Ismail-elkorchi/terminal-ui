@@ -1,4 +1,5 @@
 import type { ScrollEvent } from '../interaction/scroll.ts';
+import type { CollectionInteractionAction, CollectionInteractionState } from '../interaction/collection.ts';
 import type {
   CollectionProjection,
   CollectionRecord,
@@ -6,7 +7,7 @@ import type {
   WindowedCollectionProjection
 } from './collection.ts';
 
-export interface ListItemProjection {
+export interface ListboxOption {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
@@ -14,43 +15,47 @@ export interface ListItemProjection {
   readonly disabled?: boolean;
 }
 
-export type ListItemProjector<TValue> = (value: TValue, index: number) => ListItemProjection;
+export type ListboxOptionProjector<TValue> = (value: TValue, index: number) => ListboxOption;
 
-export interface ListCollectionRecord<TValue> extends CollectionRecord {
+export interface ListboxCollectionRecord<TValue> extends CollectionRecord {
   readonly value: TValue;
-  readonly item: ListItemProjection & { readonly disabled: boolean };
+  readonly item: ListboxOption & { readonly disabled: boolean };
 }
 
-export type ListCollection<TValue> = CollectionProjection<ListCollectionRecord<TValue>>;
-export type CompleteListCollection<TValue> = CompleteCollectionProjection<ListCollectionRecord<TValue>>;
-export type WindowedListCollection<TValue> = WindowedCollectionProjection<ListCollectionRecord<TValue>>;
+export type ListboxCollection<TValue> = CollectionProjection<ListboxCollectionRecord<TValue>>;
+export type CompleteListboxCollection<TValue> = CompleteCollectionProjection<ListboxCollectionRecord<TValue>>;
+export type WindowedListboxCollection<TValue> = WindowedCollectionProjection<ListboxCollectionRecord<TValue>>;
 
-export interface ListViewEntry<TValue> {
+export interface ListboxViewEntry<TValue> {
   readonly id: string;
   readonly sourceIndex: number;
   readonly visibleIndex: number;
   readonly selectableIndex?: number;
   readonly value: TValue;
-  readonly item: ListCollectionRecord<TValue>['item'];
+  readonly item: ListboxCollectionRecord<TValue>['item'];
 }
 
-export interface PreparedListView<TValue> {
-  readonly kind: 'list-view';
-  readonly source: ListCollection<TValue>;
-  readonly query: string;
-  readonly entries: readonly ListViewEntry<TValue>[];
-  readonly selectable: readonly ListViewEntry<TValue>[];
+export interface PreparedListboxView<TValue> {
+  readonly kind: 'listbox-view';
+  readonly source: ListboxCollection<TValue>;
+  readonly query: Required<import('./query.ts').CollectionQuery>;
+  readonly entries: readonly ListboxViewEntry<TValue>[];
+  readonly selectable: readonly ListboxViewEntry<TValue>[];
   readonly startIndex: number;
   readonly totalCount: number;
 }
 
-export type ListAction =
-  | { readonly kind: 'select'; readonly id: string; readonly itemIndex: number }
-  | { readonly kind: 'move'; readonly delta: number }
-  | { readonly kind: 'page'; readonly delta: -1 | 1 }
-  | { readonly kind: 'first' }
-  | { readonly kind: 'last' }
-  | { readonly kind: 'activate'; readonly id: string; readonly itemIndex: number }
+export type ListboxPresentation = CollectionInteractionState;
+
+export type ListboxTransition =
+  | CollectionInteractionAction
+  | { readonly kind: 'pageActive'; readonly delta: -1 | 1 }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
 
-export type ListControlAction = Exclude<ListAction, { readonly kind: 'scroll' }>;
+export type ListboxControlTransition = Exclude<ListboxTransition, { readonly kind: 'scroll' }>;
+
+export interface ListboxActivateEvent {
+  readonly kind: 'activate';
+  readonly id: string;
+  readonly itemIndex: number;
+}

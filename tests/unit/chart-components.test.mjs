@@ -122,7 +122,8 @@ test('sparkline renders an empty state with chart source metadata', () => {
 test('barChart windows visible bars and exposes selected accessibility', () => {
   const frame = renderElementFrame(barChart({
     id: 'bars',
-    selectedId: 'c',
+    presentation: { activeId: 'c', selection: { mode: 'single', selectedId: 'c' } },
+    onTransition: (transition) => transition,
     items: [
       { id: 'a', label: 'A', value: 1 },
       { id: 'b', label: 'B', value: 5 },
@@ -270,7 +271,8 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
     id: 'fit-selected-first',
     min: 0,
     max: 10,
-    selected: { seriesId: 'load', pointId: 'load:0' },
+    presentation: { activeId: 'load:0', selection: { mode: 'single', selectedId: 'load:0' } },
+    onTransition: (transition) => transition,
     sampleMode: 'fit',
     series: [chartSeries('load', [0, 10], { kind: 'scatter' })]
   }), { columns: 10, rows: 3 });
@@ -278,7 +280,8 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
     id: 'fit-selected-last',
     min: 0,
     max: 10,
-    selected: { seriesId: 'load', pointId: 'load:1' },
+    presentation: { activeId: 'load:1', selection: { mode: 'single', selectedId: 'load:1' } },
+    onTransition: (transition) => transition,
     sampleMode: 'fit',
     series: [chartSeries('load', [0, 10], { kind: 'scatter' })]
   }), { columns: 10, rows: 3 });
@@ -299,7 +302,8 @@ test('chart window sample mode renders a raw aligned window', () => {
       sampleMode: 'window',
       sampleAlign: 'end'
     })],
-    onAction: (action) => ({ kind: 'chart', action })
+    presentation: { selection: { mode: 'none' } },
+    onTransition: (action) => ({ kind: 'chart', action })
   }), { columns: 3, rows: 3 });
   const firstTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:0');
   const lastTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:2');
@@ -368,7 +372,8 @@ test('selected heatmap cells and fixed-grid chart glyphs remain one cell under a
   const heatmapFrame = renderElementFrame(heatmap({
     id: 'selected-wide-heatmap',
     rows: [[heatmapCell('first', 1), heatmapCell('second', 0)]],
-    selected: { id: 'first' },
+    presentation: { activeId: 'first', selection: { mode: 'single', selectedId: 'first' } },
+    onTransition: (transition) => transition,
     cellWidth: 1,
     gap: 0,
     min: 0,
@@ -376,7 +381,8 @@ test('selected heatmap cells and fixed-grid chart glyphs remain one cell under a
   }), { columns: 2, rows: 1 }, { widthProfile });
   const chartFrame = renderElementFrame(chart({
     id: 'wide-grid-chart',
-    selected: { seriesId: 'load', pointId: 'load:1' },
+    presentation: { activeId: 'load:1', selection: { mode: 'single', selectedId: 'load:1' } },
+    onTransition: (transition) => transition,
     series: [chartSeries('load', [1, 2], { kind: 'area' })]
   }), { columns: 2, rows: 2 }, { widthProfile });
 
@@ -410,7 +416,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
     legend: true,
     xLabel: 'watch cycle',
     yLabel: 'signal',
-    selected: { seriesId: 'scatter', pointId: 'scatter:2' },
+    presentation: { activeId: 'scatter:2', selection: { mode: 'single', selectedId: 'scatter:2' } },
     series: [
       chartSeries('line', [1, 3, 2, 4], {
         label: 'Line',
@@ -423,7 +429,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
         glyph: 'o'
       })
     ],
-    onAction: (action) => ({ kind: 'chart', action })
+    onTransition: (action) => ({ kind: 'chart', action })
   }), { columns: 32, rows: 7 });
 
   const output = renderFramePlain(frame);
@@ -584,8 +590,8 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     ],
     min: 0,
     max: 5,
-    selected: { id: 'b' },
-    onAction: (action) => ({ kind: 'heatmap', action })
+    presentation: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
+    onTransition: (action) => ({ kind: 'heatmap', action })
   }), { columns: 12, rows: 3 });
 
   const output = renderFramePlain(frame);
@@ -628,13 +634,15 @@ test('chart components preserve visualization meaning in high contrast and no co
   const highContrast = renderElementFrame(chart({
     id: 'contrast-chart',
     legend: true,
-    selected: { seriesId: 'alpha', pointId: 'alpha:1' },
+    presentation: { activeId: 'alpha:1', selection: { mode: 'single', selectedId: 'alpha:1' } },
+    onTransition: (transition) => transition,
     series: [chartSeries('alpha', [1, 3, 2], { label: 'Alpha', glyph: '+' })]
   }), { columns: 18, rows: 5 }, { theme: highContrastTheme });
   const noColor = renderElementFrame(heatmap({
     id: 'mono-heatmap',
     rows: [[heatmapCell('a', 1), heatmapCell('b', 4)]],
-    selected: { id: 'b' },
+    presentation: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
+    onTransition: (transition) => transition,
     min: 0,
     max: 4
   }), { columns: 10, rows: 1 }, { theme: noColorTheme });

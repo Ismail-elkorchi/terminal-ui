@@ -33,6 +33,7 @@ export interface RenderNodePropsByKind<TMessage> {
 
 export interface ComponentRenderProps {
   readonly model: unknown;
+  readonly accessibleRole?: import('../../../accessibility/types.ts').AccessibleRole;
   readonly slots: readonly {
     readonly name: string;
     readonly start: number;

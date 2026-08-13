@@ -1,9 +1,19 @@
-import type { PointerInteractionAction } from '../interaction/index.ts';
+export interface TabsPresentation {
+  readonly activeId?: string;
+  readonly selectedId?: string;
+}
 
-export type TabAction =
+export type TabsActivation = 'automatic' | 'manual';
+
+export type TabsTransition =
+  | { readonly kind: 'setActive'; readonly id: string }
+  | { readonly kind: 'moveActive'; readonly delta: number }
+  | { readonly kind: 'firstActive' }
+  | { readonly kind: 'lastActive' }
   | { readonly kind: 'select'; readonly id: string }
-  | { readonly kind: 'close'; readonly id: string }
-  | { readonly kind: 'move'; readonly delta: number }
-  | { readonly kind: 'first' }
-  | { readonly kind: 'last' }
-  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+  | { readonly kind: 'selectActive' };
+
+export interface TabCloseEvent {
+  readonly kind: 'close';
+  readonly id: string;
+}

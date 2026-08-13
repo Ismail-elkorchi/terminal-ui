@@ -14,7 +14,10 @@ import { keyNames } from '../input/types.ts';
 import { pointerEventKinds } from '../input/pointer.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
 import { decodeInputTrigger } from '../input/triggers.ts';
-import type { PointerInteractionState } from '../interaction/pointer-interaction.ts';
+import {
+  preparePointerInteractionState,
+  type PointerInteractionState,
+} from '../interaction/pointer-interaction.ts';
 import type { HitTarget } from '../renderer/contracts.ts';
 import { segmentGraphemes } from '../text/index.ts';
 import { executeComponentPhase, type ComponentDefinitionName } from './execution-error.ts';
@@ -257,31 +260,14 @@ export function normalizedPointerState(
   value: unknown,
   component: string,
 ): PointerInteractionState {
-  if (!isNonArrayObject(value)) {
+  const state = preparePointerInteractionState(
+    value,
+    `Component "${component}" pointer state`,
+  );
+  if (state === undefined) {
     throw new TypeError(`Component "${component}" pointer state must be an object.`);
   }
-  const unsupported = findUnsupportedField(
-    value,
-    new Set(['hoveredTargetId', 'pressedTargetId']),
-  );
-  if (unsupported !== undefined) {
-    throw new TypeError(
-      `Component "${component}" pointer state contains unknown field "${unsupported}".`,
-    );
-  }
-  for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      throw new TypeError(`Component "${component}" pointer state.${field} must be a string.`);
-    }
-  }
-  return Object.freeze({
-    ...(typeof value['hoveredTargetId'] === 'string'
-      ? { hoveredTargetId: value['hoveredTargetId'] }
-      : {}),
-    ...(typeof value['pressedTargetId'] === 'string'
-      ? { pressedTargetId: value['pressedTargetId'] }
-      : {}),
-  });
+  return state;
 }
 
 const triggerBindingFields = new Set(['trigger', 'onKey']);

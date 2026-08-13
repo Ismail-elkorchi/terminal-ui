@@ -1,5 +1,5 @@
 import {
-  table,
+  dataGrid,
   tableColumn,
   type Element,
   type TableCellRenderInput,
@@ -22,7 +22,7 @@ const rows: readonly ProcessRow[] = [{
   owner: { handle: 'ada' }
 }];
 const column = tableColumn<ProcessRow>();
-const processes = table({
+const processes = dataGrid({
   getRowId: (row) => String(row.pid),
   id: 'processes',
   rows,
@@ -57,10 +57,14 @@ const processes = table({
     { id: 'automatic', value: (row) => row.name }
   ],
   presentation: {
-    selectedRowId: '42',
-    selectedCell: { rowId: '42', columnIndex: 1 }
+    interaction: {
+      kind: 'cell',
+      selectionMode: 'single' as const,
+      activeCell: { rowId: '42', columnId: 'name' },
+      selectedCells: [{ rowId: '42', columnId: 'name' }]
+    }
   },
-  onAction: (action) => ({
+  onTransition: (action) => ({
     kind: 'selected' as const,
     action
   })
@@ -68,7 +72,7 @@ const processes = table({
 
 const accepted: Element<{
   readonly kind: 'selected';
-  readonly action: import('@ismail-elkorchi/terminal-ui/components').TableControlAction;
+  readonly action: import('@ismail-elkorchi/terminal-ui/components').DataGridTransition;
 }> = processes;
 void accepted;
 

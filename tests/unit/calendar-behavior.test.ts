@@ -21,8 +21,8 @@ const policy = Object.freeze({
 void test('date picker presentation creates a deterministic six-week civil calendar', () => {
   const presentation = calendarPresentation({
     visibleMonth: { year: 2024, month: 2 },
-    selected: { year: 2024, month: 2, day: 29 },
-    focused: { year: 2024, month: 2, day: 29 }
+    selectedDate: { year: 2024, month: 2, day: 29 },
+    activeDate: { year: 2024, month: 2, day: 29 }
   }, {
     ...policy,
     today: { year: 2024, month: 2, day: 20 },
@@ -32,34 +32,38 @@ void test('date picker presentation creates a deterministic six-week civil calen
   assert.equal(presentation.monthLabel, 'February 2024');
   assert.deepEqual(presentation.weekdays, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
   assert.equal(presentation.days.length, 42);
-  assert.equal(presentation.selected, '2024-02-29');
+  assert.deepEqual(presentation.interaction, {
+    activeId: '2024-02-29',
+    selection: { mode: 'single', selectedId: '2024-02-29' }
+  });
   assert.equal(presentation.days.find((day) => day.id === '2024-02-29')?.label, '29');
   assert.equal(presentation.days.find((day) => day.id === '2024-02-20')?.today, true);
   assert.equal(presentation.days[0]?.hidden, true);
 });
 
-void test('date picker reducer navigates focus across month boundaries and skips disabled dates', () => {
+void test('date picker reducer navigates its active date across month boundaries and skips disabled dates', () => {
   const state = {
     visibleMonth: { year: 2026, month: 6 },
-    focused: { year: 2026, month: 6, day: 5 }
+    activeDate: { year: 2026, month: 6, day: 5 }
   };
-  const moved = calendarReducer(state, { kind: 'moveFocus', days: 1 }, {
+  const moved = calendarReducer(state, { kind: 'moveActive', days: 1 }, {
     ...policy,
     isDisabled: (date) => date.day === 6 || date.day === 7
   });
   const nextMonth = calendarReducer(moved, { kind: 'moveMonth', months: 1 }, policy);
   const selected = calendarReducer(nextMonth, { kind: 'select', date: { year: 2026, month: 7, day: 8 } }, policy);
 
-  assert.deepEqual(moved.focused, { year: 2026, month: 6, day: 8 });
+  assert.deepEqual(moved.activeDate, { year: 2026, month: 6, day: 8 });
   assert.deepEqual(nextMonth.visibleMonth, { year: 2026, month: 7 });
-  assert.deepEqual(selected.selected, { year: 2026, month: 7, day: 8 });
-  assert.equal(calendarDateId(selected.selected), '2026-07-08');
+  assert.deepEqual(selected.selectedDate, { year: 2026, month: 7, day: 8 });
+  assert.ok(selected.selectedDate);
+  assert.equal(calendarDateId(selected.selectedDate), '2026-07-08');
 });
 
-void test('date picker month movement keeps focus inside the rendered selectable grid', () => {
+void test('date picker month movement keeps the active date inside the rendered selectable grid', () => {
   const state = {
     visibleMonth: { year: 2026, month: 6 },
-    focused: { year: 2026, month: 6, day: 30 }
+    activeDate: { year: 2026, month: 6, day: 30 }
   };
   const options = {
     ...policy,
@@ -67,26 +71,26 @@ void test('date picker month movement keeps focus inside the rendered selectable
   } satisfies CalendarBehaviorOptions;
   const moved = calendarReducer(state, { kind: 'moveMonth', months: 1 }, options);
   const presentation = calendarPresentation(moved, options);
-  const focused = presentation.days.find((day) => day.id === presentation.focused);
+  const active = presentation.days.find((day) => day.id === presentation.interaction.activeId);
 
   assert.deepEqual(moved.visibleMonth, { year: 2026, month: 7 });
-  assert.ok(focused);
-  assert.equal(focused.disabled, undefined);
-  assert.notEqual(presentation.focused, '2026-06-30');
+  assert.ok(active);
+  assert.equal(active.disabled, undefined);
+  assert.notEqual(presentation.interaction.activeId, '2026-06-30');
 });
 
-void test('date picker clears focus when its explicit search policy cannot find a selectable date', () => {
+void test('date picker clears its active date when its explicit search policy cannot find a selectable date', () => {
   const state = {
     visibleMonth: { year: 2026, month: 6 },
-    focused: { year: 2026, month: 6, day: 15 }
+    activeDate: { year: 2026, month: 6, day: 15 }
   };
-  const moved = calendarReducer(state, { kind: 'moveFocus', days: 1 }, {
+  const moved = calendarReducer(state, { kind: 'moveActive', days: 1 }, {
     ...policy,
     focusSearchLimitDays: 2,
     isDisabled: () => true
   });
 
-  assert.equal(moved.focused, undefined);
+  assert.equal(moved.activeDate, undefined);
   assert.throws(
     () => calendarPresentation(state, { ...policy, focusSearchLimitDays: -1 }),
     /non-negative safe integer/u
@@ -98,13 +102,13 @@ void test('date picker component routes keyboard and pointer through CalendarAct
     id: 'calendar-actions',
     init: () => ({
       visibleMonth: { year: 2026, month: 6 },
-      focused: { year: 2026, month: 6, day: 15 }
+      activeDate: { year: 2026, month: 6, day: 15 }
     }),
     update: (state, action) => ({ state: calendarReducer(state, action, policy) }),
     view: (state) => calendar({
       id: 'calendar',
       label: 'Deployment date',
-      ...calendarPresentation(state, policy),
+      presentation: calendarPresentation(state, policy),
       onAction: (action) => action
     })
   });
@@ -121,7 +125,7 @@ void test('date picker component routes keyboard and pointer through CalendarAct
     eventType: 'press',
     location: 'standard'
   });
-  assert.deepEqual(runtime.state().focused, { year: 2026, month: 6, day: 16 });
+  assert.deepEqual(runtime.state().activeDate, { year: 2026, month: 6, day: 16 });
   const frame = runtime.frame();
   assert.ok(frame);
   assert.match(renderFramePlain(frame), /June 2026/u);

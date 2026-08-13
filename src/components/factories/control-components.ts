@@ -1,4 +1,5 @@
 import {
+  assertComponentOptions,
   clipRenderSpans,
   defineComponent,
   ignoreMessage,
@@ -8,12 +9,13 @@ import {
 } from '../../component/index.ts';
 import type {
   ComponentMessage,
+  CompleteComponentOptionFields,
+  ComponentOptionKey,
   ComponentInput,
   ComponentMeasureInput,
   ComponentPointerActions,
   ComponentRenderInput,
   HitTarget,
-  IgnoredMessage,
   SemanticLeafComponentFactory,
 } from '../../component/index.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
@@ -24,7 +26,11 @@ import type { FocusTarget, Measurement } from '../../renderer/index.ts';
 import { isNonArrayObject, isStringMember } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
-import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
+import {
+  pointerVisualState,
+  preparePointerInteractionState,
+} from '../../interaction/pointer-interaction.ts';
+import type { CollectionInteractionState, SelectionState } from '../../interaction/collection.ts';
 import {
   clipTextCells,
   measureTextCells,
@@ -75,6 +81,35 @@ interface PointerModel {
   readonly pointerState?: PointerInteractionState;
 }
 
+interface PointerLifecycleAction {
+  readonly kind: 'pointerLifecycle';
+  readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction;
+}
+
+function assertAvailableControlOptions<
+  TOptions extends {
+    readonly disabled?: boolean;
+    readonly pointerState?: unknown;
+    readonly onAction?: unknown;
+    readonly onPointerAction?: unknown;
+  },
+  const TFields extends readonly ComponentOptionKey<TOptions>[],
+>(
+  options: TOptions,
+  component: string,
+  fields: TFields & CompleteComponentOptionFields<TOptions, TFields>,
+): void {
+  assertComponentOptions<TOptions, TFields>(options, component, {
+    fields,
+    ...(options.disabled === true
+      ? { forbiddenFields: ['pointerState' as ComponentOptionKey<TOptions>] }
+      : {}),
+    callbacks: options.disabled === true
+      ? { onAction: 'forbidden', onPointerAction: 'forbidden' }
+      : { onAction: 'required', onPointerAction: 'optional' },
+  });
+}
+
 interface SliderModel extends PointerModel {
   readonly label: string;
   readonly value: number;
@@ -87,19 +122,19 @@ interface SliderModel extends PointerModel {
 
 type SliderComponentOptions = Omit<
   SliderOptions<ComponentMessage>,
-  'id' | 'disabled' | 'onAction' | 'meta'
+  'id' | 'disabled' | 'onAction' | 'onPointerAction' | 'meta'
 >;
 type RangeSliderComponentOptions = Omit<
   RangeSliderOptions<ComponentMessage>,
-  'id' | 'disabled' | 'onAction' | 'meta'
+  'id' | 'disabled' | 'onAction' | 'onPointerAction' | 'meta'
 >;
 type CheckboxGroupComponentOptions = Omit<
   CheckboxGroupOptions<unknown, ComponentMessage>,
-  'id' | 'disabled' | 'onAction' | 'meta'
+  'id' | 'disabled' | 'onAction' | 'onPointerAction' | 'meta'
 >;
 type RadioGroupComponentOptions = Omit<
   RadioGroupOptions<unknown, ComponentMessage>,
-  'id' | 'disabled' | 'onAction' | 'meta'
+  'id' | 'disabled' | 'onAction' | 'onPointerAction' | 'meta'
 >;
 
 type SliderFactory = <const TMessage extends ComponentMessage = never>(
@@ -109,16 +144,27 @@ type SliderFactory = <const TMessage extends ComponentMessage = never>(
 const instantiateSlider = defineComponent<
   SliderComponentOptions,
   SliderModel,
-  SliderAction,
+  SliderAction | PointerLifecycleAction,
   SliderStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/slider',
+  optionFields: {
+    label: true,
+    value: true,
+    min: true,
+    max: true,
+    step: true,
+    width: true,
+    error: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'slider',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'value', 'error'],
@@ -140,22 +186,40 @@ const instantiateSlider = defineComponent<
   }),
   pointer: {
     state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: sliderHitTargets,
-  accessibility: ({ id, model, focused, disabled }) => ({
+  accessibility: ({ id, model, focused }) => ({
     id,
     role: 'slider',
     label: model.label || id,
     numericValue: { current: model.value, minimum: model.min, maximum: model.max },
-    ...(model.error === '' ? {} : { description: model.error }),
+    invalid: model.error !== '',
+    ...(model.error === '' ? {} : {
+      errorMessage: `${id}:error`,
+      children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
+    }),
     ...(focused ? { focused: true } : {}),
-    ...(disabled ? { disabled: true } : {}),
   }),
 });
 
-export const slider: SliderFactory = (options) => instantiateSlider(options);
+export const slider: SliderFactory = (options) => {
+  assertAvailableControlOptions(options, 'slider', [
+    'id', 'label', 'value', 'min', 'max', 'step', 'width', 'error', 'pointerState',
+    'disabled', 'meta', 'onAction', 'onPointerAction',
+  ]);
+  if (options.disabled === true) {
+    return instantiateSlider(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return instantiateSlider({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
+};
 
 interface RangeModel extends Omit<SliderModel, 'value'> {
   readonly start: number;
@@ -170,16 +234,26 @@ type RangeSliderFactory = <const TMessage extends ComponentMessage = never>(
 const instantiateRangeSlider = defineComponent<
   RangeSliderComponentOptions,
   RangeModel,
-  RangeSliderAction,
+  RangeSliderAction | PointerLifecycleAction,
   SliderStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/range-slider',
+  optionFields: {
+    label: true,
+    state: true,
+    range: true,
+    step: true,
+    width: true,
+    error: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'group',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'value', 'error'],
@@ -193,7 +267,10 @@ const instantiateRangeSlider = defineComponent<
     arrowLeft: () => ({ kind: 'step', direction: 'decrement' }),
     arrowRight: () => ({ kind: 'step', direction: 'increment' }),
   }),
-  pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+  pointer: {
+    state: ({ model }) => model.pointerState,
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
+  },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets(input) {
     const track = sliderTrackBounds(input, input.model.width);
@@ -211,15 +288,15 @@ const instantiateRangeSlider = defineComponent<
     id,
     role: 'group',
     label: model.label || id,
-    ...(model.error === '' ? {} : { description: model.error }),
     ...(focused ? { focused: true } : {}),
-    ...(disabled ? { disabled: true } : {}),
     children: [
       {
         id: `${id}:start`,
         role: 'slider',
         label: 'Start',
         numericValue: { current: model.start, minimum: model.min, maximum: model.max },
+        invalid: model.error !== '',
+        ...(model.error === '' ? {} : { errorMessage: `${id}:error` }),
         ...(disabled ? { disabled: true } : {}),
       },
       {
@@ -227,19 +304,36 @@ const instantiateRangeSlider = defineComponent<
         role: 'slider',
         label: 'End',
         numericValue: { current: model.end, minimum: model.min, maximum: model.max },
+        invalid: model.error !== '',
+        ...(model.error === '' ? {} : { errorMessage: `${id}:error` }),
         ...(disabled ? { disabled: true } : {}),
       },
+      ...(model.error === '' ? [] : [{ id: `${id}:error`, role: 'text' as const, value: model.error }]),
     ],
   }),
 });
 
-export const rangeSlider: RangeSliderFactory = (options) => instantiateRangeSlider(options);
+export const rangeSlider: RangeSliderFactory = (options) => {
+  assertAvailableControlOptions(options, 'rangeSlider', [
+    'id', 'label', 'state', 'range', 'step', 'width', 'error', 'pointerState',
+    'disabled', 'meta', 'onAction', 'onPointerAction',
+  ]);
+  if (options.disabled === true) {
+    return instantiateRangeSlider(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return instantiateRangeSlider({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
+};
 
 interface ChoiceModel extends PointerModel {
   readonly label: string;
   readonly options: readonly PreparedChoice[];
-  readonly selected: readonly string[];
-  readonly focused?: string;
+  readonly interaction: CollectionInteractionState;
   readonly required: boolean;
   readonly error: string;
 }
@@ -258,13 +352,14 @@ type CheckboxGroupFactory = <TValue, const TMessage extends ComponentMessage = n
 const instantiateCheckboxGroup = defineComponent<
   CheckboxGroupComponentOptions,
   ChoiceModel,
-  CheckboxGroupAction,
+  CheckboxGroupAction | PointerLifecycleAction,
   ChoiceStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   ...choiceDefinitionBase('checkbox-group'),
+  accessibleRole: 'group',
   prepare: (value) => prepareChoiceModel(value, 'checkboxGroup', true),
   render: (input) => {
     paintLines(input, choiceLines(input, 'checkbox', true));
@@ -275,7 +370,22 @@ const instantiateCheckboxGroup = defineComponent<
   accessibility: (input) => choiceAccessibility(input, 'checkbox'),
 });
 
-export const checkboxGroup: CheckboxGroupFactory = (options) => instantiateCheckboxGroup(options);
+export const checkboxGroup: CheckboxGroupFactory = (options) => {
+  assertAvailableControlOptions(options, 'checkboxGroup', [
+    'id', 'label', 'options', 'presentation', 'required', 'error', 'pointerState',
+    'disabled', 'meta', 'onAction', 'onPointerAction',
+  ]);
+  if (options.disabled === true) {
+    return instantiateCheckboxGroup(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return instantiateCheckboxGroup({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
+};
 
 type RadioGroupFactory = <TValue, const TMessage extends ComponentMessage = never>(
   options: RadioGroupOptions<TValue, TMessage>,
@@ -284,13 +394,14 @@ type RadioGroupFactory = <TValue, const TMessage extends ComponentMessage = neve
 const instantiateRadioGroup = defineComponent<
   RadioGroupComponentOptions,
   ChoiceModel,
-  RadioGroupAction,
+  RadioGroupAction | PointerLifecycleAction,
   ChoiceStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   ...choiceDefinitionBase('radio-group'),
+  accessibleRole: 'radiogroup',
   prepare: (value) => prepareChoiceModel(value, 'radioGroup', false),
   render: (input) => {
     paintLines(input, choiceLines(input, 'radio', true));
@@ -301,13 +412,27 @@ const instantiateRadioGroup = defineComponent<
   accessibility: (input) => choiceAccessibility(input, 'radio'),
 });
 
-export const radioGroup: RadioGroupFactory = (options) => instantiateRadioGroup(options);
+export const radioGroup: RadioGroupFactory = (options) => {
+  assertAvailableControlOptions(options, 'radioGroup', [
+    'id', 'label', 'options', 'presentation', 'required', 'error', 'pointerState',
+    'disabled', 'meta', 'onAction', 'onPointerAction',
+  ]);
+  if (options.disabled === true) {
+    return instantiateRadioGroup(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return instantiateRadioGroup({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
+};
 
 interface SwatchModel extends PointerModel {
   readonly label: string;
   readonly options: readonly PreparedSwatch[];
-  readonly selected?: string;
-  readonly focused?: string;
+  readonly interaction: CollectionInteractionState;
   readonly columns: number;
   readonly error: string;
 }
@@ -325,18 +450,27 @@ type ColorSwatchPickerFactory = <
 ) => Element<TMessage>;
 
 const instantiateColorSwatchPicker = defineComponent<
-  Omit<ColorSwatchPickerOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<ColorSwatchPickerOptions<unknown, ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'onPointerAction' | 'meta'>,
   SwatchModel,
-  ColorSwatchPickerAction,
+  ColorSwatchPickerAction | PointerLifecycleAction,
   PickerStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/color-swatch-picker',
+  optionFields: {
+    label: true,
+    options: true,
+    presentation: true,
+    columns: true,
+    error: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'listbox',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'summary', 'option', 'swatch', 'error'],
@@ -346,7 +480,7 @@ const instantiateColorSwatchPicker = defineComponent<
     paintLines(input, swatchLines(input, true));
   },
   keys: ({ model }) => pickerKeys(model),
-  pointer: passivePointerPolicy(),
+  pointer: pointerLifecyclePolicy(),
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets(input) {
     const rowOffset = (input.model.label === '' ? 0 : 1) +
@@ -373,29 +507,43 @@ const instantiateColorSwatchPicker = defineComponent<
       role: 'listbox',
       label: model.label || id,
       ...(selected === undefined ? {} : { value: selected.label }),
-      ...(model.error === '' ? {} : { description: model.error }),
+      invalid: model.error !== '',
+      ...(model.error === '' ? {} : { errorMessage: `${id}:error` }),
       ...(focused ? { focused: true } : {}),
-      children: model.options.map((option) => ({
+      children: [...model.options.map((option) => ({
         id: `${id}:${option.id}`,
         role: 'option' as const,
         label: option.label,
-        selected: option.id === model.selected,
+        selected: isChoiceSelected(model.interaction.selection, option.id),
         ...(disabled || option.disabled ? { disabled: true } : {}),
-      })),
+      })), ...(model.error === '' ? [] : [{ id: `${id}:error`, role: 'group' as const, label: model.error }])],
     };
   },
 });
 
-export const colorSwatchPicker: ColorSwatchPickerFactory = (options) =>
-  instantiateColorSwatchPicker(options);
+export const colorSwatchPicker: ColorSwatchPickerFactory = (options) => {
+  assertAvailableControlOptions(options, 'colorSwatchPicker', [
+    'id', 'label', 'options', 'presentation', 'columns', 'error', 'pointerState',
+    'disabled', 'meta', 'onAction', 'onPointerAction',
+  ]);
+  if (options.disabled === true) {
+    return instantiateColorSwatchPicker(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return instantiateColorSwatchPicker({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
+};
 
 interface CalendarModel extends PointerModel {
   readonly label: string;
   readonly monthLabel: string;
   readonly weekdays: readonly string[];
   readonly days: readonly PreparedDay[];
-  readonly selected?: string;
-  readonly focused?: string;
+  readonly interaction: CollectionInteractionState;
   readonly error: string;
 }
 
@@ -409,18 +557,25 @@ type CalendarFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateCalendar = defineComponent<
-  Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>,
+  Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'onPointerAction' | 'meta'>,
   CalendarModel,
-  CalendarAction,
+  CalendarAction | PointerLifecycleAction,
   PickerStylePart,
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/calendar',
+  optionFields: {
+    label: true,
+    presentation: true,
+    error: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'grid',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'option', 'month', 'weekday', 'error'],
@@ -430,22 +585,19 @@ const instantiateCalendar = defineComponent<
     paintLines(input, calendarLines(input, true));
   },
   keys: ({ model }) => ({
-    arrowLeft: () => ({ kind: 'moveFocus', days: -1 }),
-    arrowRight: () => ({ kind: 'moveFocus', days: 1 }),
-    arrowUp: () => ({ kind: 'moveFocus', days: -7 }),
-    arrowDown: () => ({ kind: 'moveFocus', days: 7 }),
+    arrowLeft: () => ({ kind: 'moveActive', days: -1 }),
+    arrowRight: () => ({ kind: 'moveActive', days: 1 }),
+    arrowUp: () => ({ kind: 'moveActive', days: -7 }),
+    arrowDown: () => ({ kind: 'moveActive', days: 7 }),
     pageUp: () => ({ kind: 'moveMonth', months: -1 }),
     pageDown: () => ({ kind: 'moveMonth', months: 1 }),
     home: () => ({ kind: 'startOfWeek' }),
     end: () => ({ kind: 'endOfWeek' }),
-    ...(focusedDay(model) === undefined ? {} : {
-      enter: () => ({
-        kind: 'select' as const,
-        date: focusedDay(model)?.date ?? { year: 1970, month: 1, day: 1 },
-      }),
+    ...(activeDay(model) === undefined ? {} : {
+      enter: () => ({ kind: 'commitActive' as const }),
     }),
   }),
-  pointer: passivePointerPolicy(),
+  pointer: pointerLifecyclePolicy(),
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: calendarHitTargets,
   accessibility({ id, model, focused, disabled }) {
@@ -455,10 +607,11 @@ const instantiateCalendar = defineComponent<
       id,
       role: 'grid',
       label: model.label || model.monthLabel || id,
-      ...(model.error === '' ? {} : { description: model.error }),
+      invalid: model.error !== '',
+      ...(model.error === '' ? {} : { errorMessage: `${id}:error` }),
       ...(focused ? { focused: true } : {}),
       ...(rowCount === 0 ? {} : { position: { rowCount, columnCount: 7 } }),
-      children: Array.from({ length: rowCount }, (_, rowIndex) => ({
+      children: [...Array.from({ length: rowCount }, (_, rowIndex) => ({
         id: `${id}:week:${String(rowIndex + 1)}`,
         role: 'row' as const,
         position: { rowIndex: rowIndex + 1, rowCount, columnCount: 7 },
@@ -466,16 +619,35 @@ const instantiateCalendar = defineComponent<
           id: `${id}:${day.id}`,
           role: 'gridcell' as const,
           label: day.id,
-          selected: day.id === model.selected,
+          selected: isChoiceSelected(model.interaction.selection, day.id),
           position: { rowIndex: rowIndex + 1, columnIndex: columnIndex + 1, columnCount: 7 },
           ...(disabled || day.disabled ? { disabled: true } : {}),
         })),
-      })),
+      })), ...(model.error === '' ? [] : [{
+        id: `${id}:error-row`,
+        role: 'row' as const,
+        children: [{ id: `${id}:error`, role: 'gridcell' as const, label: model.error }],
+      }])],
     };
   },
 });
 
-export const calendar: CalendarFactory = (options) => instantiateCalendar(options);
+export const calendar: CalendarFactory = (options) => {
+  assertAvailableControlOptions(options, 'calendar', [
+    'id', 'label', 'presentation', 'error',
+    'pointerState', 'disabled', 'meta', 'onAction', 'onPointerAction',
+  ]);
+  if (options.disabled === true) {
+    return instantiateCalendar(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return instantiateCalendar({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
+};
 
 interface TextEntryModel extends PointerModel {
   readonly presentation: TextInputPresentation;
@@ -490,21 +662,83 @@ interface TextEntryModel extends PointerModel {
 
 const textInputDefinition = textEntryDefinition<
   TextInputComponentOptions
->('text-input', false);
+>('text-input', false, {
+  presentation: true,
+  placeholder: true,
+  required: true,
+  error: true,
+  pointerState: true,
+});
 const passwordInputDefinition = textEntryDefinition<
   PasswordInputComponentOptions
->('password-input', true);
+>('password-input', true, {
+  presentation: true,
+  placeholder: true,
+  required: true,
+  error: true,
+  pointerState: true,
+  mask: true,
+});
 
 export function textInput<const TMessage extends ComponentMessage = never>(
   options: TextInputOptions<TMessage>,
 ): Element<TMessage> {
-  return textInputDefinition(options);
+  validateTextEntryOptions(options, 'textInput', false);
+  if (options.disabled === true) {
+    return textInputDefinition(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return textInputDefinition({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
 }
 
 export function passwordInput<const TMessage extends ComponentMessage = never>(
   options: PasswordInputOptions<TMessage>,
 ): Element<TMessage> {
-  return passwordInputDefinition(options);
+  validateTextEntryOptions(options, 'passwordInput', true);
+  if (options.disabled === true) {
+    return passwordInputDefinition(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return passwordInputDefinition({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
+}
+
+function validateTextEntryOptions(
+  options: TextInputOptions<ComponentMessage> | PasswordInputOptions<ComponentMessage>,
+  component: 'textInput' | 'passwordInput',
+  password: boolean,
+): void {
+  const callbacks = options.disabled === true
+    ? { onAction: 'forbidden' as const, onPointerAction: 'forbidden' as const }
+    : { onAction: 'required' as const, onPointerAction: 'optional' as const };
+  if (password) {
+    assertComponentOptions(options as PasswordInputOptions<ComponentMessage>, component, {
+      fields: [
+        'id', 'presentation', 'placeholder', 'required', 'error', 'readOnly',
+        'disabled', 'pointerState', 'meta', 'onAction', 'onPointerAction', 'mask',
+      ],
+      callbacks,
+      ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'readOnly'] } : {}),
+    });
+    return;
+  }
+  assertComponentOptions(options as TextInputOptions<ComponentMessage>, component, {
+    fields: [
+      'id', 'presentation', 'placeholder', 'required', 'error', 'readOnly',
+      'disabled', 'pointerState', 'meta', 'onAction', 'onPointerAction',
+    ],
+    callbacks,
+    ...(options.disabled === true ? { forbiddenFields: ['pointerState', 'readOnly'] } : {}),
+  });
 }
 
 interface NumberModel extends PointerModel {
@@ -519,18 +753,26 @@ type NumberInputFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateNumberInput = defineComponent<
-  Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'>,
+  Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'>,
   NumberModel,
-  NumberInputControlAction,
+  NumberInputControlAction | PointerLifecycleAction,
   NumberInputStylePart,
   readonly ['disabled', 'readOnly'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   name: 'terminal-ui/components/number-input',
+  optionFields: {
+    presentation: true,
+    placeholder: true,
+    required: true,
+    error: true,
+    pointerState: true,
+  } as const,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'spinbutton',
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['border', 'value', 'placeholder', 'selection', 'cursor', 'stepper', 'error'],
@@ -555,7 +797,7 @@ const instantiateNumberInput = defineComponent<
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   onPaste: ({ text, readOnly }) =>
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
-  pointer: passivePointerPolicy(),
+  pointer: pointerLifecyclePolicy(),
   focusTargets: (input) => {
     const bounds = numberInputGeometry(input.bounds, input.disabled || input.readOnly)?.input ?? input.bounds;
     const cursorStyle = input.style({
@@ -591,7 +833,7 @@ const instantiateNumberInput = defineComponent<
     }];
   },
   hitTargets: numberInputHitTargets,
-  accessibility: ({ id, model, focused, disabled, readOnly }) => {
+  accessibility: ({ id, model, focused }) => {
     const description = [
       model.required ? 'Required.' : '',
       model.error,
@@ -605,6 +847,12 @@ const instantiateNumberInput = defineComponent<
       role: 'spinbutton',
       label: id,
       value: model.presentation.value,
+      required: model.required,
+      invalid: model.error !== '' || model.presentation.validity === 'invalid' || model.presentation.validity === 'outOfRange',
+      ...(model.error === '' ? {} : {
+        errorMessage: `${id}:error`,
+        children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
+      }),
       ...(model.presentation.validity === 'valid' || model.presentation.validity === 'outOfRange'
         ? {
           numericValue: {
@@ -616,23 +864,44 @@ const instantiateNumberInput = defineComponent<
         : {}),
       description,
       ...(focused ? { focused: true } : {}),
-      ...(disabled ? { disabled: true } : {}),
-      ...(readOnly ? { readOnly: true } : {}),
     };
   },
 });
 
-export const numberInput: NumberInputFactory = (options) => instantiateNumberInput(options);
+export const numberInput: NumberInputFactory = (options) => {
+  assertAvailableControlOptions(options, 'numberInput', [
+    'id', 'presentation', 'placeholder', 'required', 'error', 'pointerState', 'readOnly',
+    'disabled', 'meta', 'onAction', 'onPointerAction',
+  ]);
+  if (options.disabled === true) {
+    return instantiateNumberInput(options);
+  }
+  const { onAction, onPointerAction: onPointer, ...rest } = options;
+  return instantiateNumberInput({
+    ...rest,
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? onPointer?.(action.action) ?? ignoreMessage()
+      : onAction(action),
+  });
+};
 
 interface ChoiceDefinitionBase<TName extends 'checkbox-group' | 'radio-group'> {
   readonly name: `terminal-ui/components/${TName}`;
+  readonly optionFields: Readonly<{
+    label: true;
+    options: true;
+    presentation: true;
+    required: true;
+    error: true;
+    pointerState: true;
+  }>;
   readonly identity: 'required';
   readonly structure: 'leaf';
   readonly semantics: 'semantic';
   readonly states: readonly ['disabled'];
   readonly metadata: readonly ['focus', 'layer', 'styles'];
   readonly parts: readonly ['label', 'marker', 'option', 'description', 'error'];
-  readonly pointer: ComponentPointerActions<PointerModel, never>;
+  readonly pointer: ComponentPointerActions<PointerModel, PointerLifecycleAction>;
   readonly focusTargets: (input: ComponentInput<ChoiceModel>) => readonly FocusTarget[];
 }
 
@@ -641,21 +910,29 @@ function choiceDefinitionBase<const TName extends 'checkbox-group' | 'radio-grou
 ): ChoiceDefinitionBase<TName> {
   return {
     name: `terminal-ui/components/${name}` as const,
+    optionFields: {
+      label: true,
+      options: true,
+      presentation: true,
+      required: true,
+      error: true,
+      pointerState: true,
+    } as const,
     identity: 'required' as const,
     structure: 'leaf' as const,
     semantics: 'semantic' as const,
     states: ['disabled'] as const,
     metadata: ['focus', 'layer', 'styles'] as const,
     parts: ['label', 'marker', 'option', 'description', 'error'] as const,
-    pointer: passivePointerPolicy(),
+    pointer: pointerLifecyclePolicy(),
     focusTargets: ({ bounds }: ComponentInput<ChoiceModel>) => [{ id: 'self', bounds }],
   };
 }
 
-function passivePointerPolicy(): ComponentPointerActions<PointerModel, never> {
+function pointerLifecyclePolicy(): ComponentPointerActions<PointerModel, PointerLifecycleAction> {
   return {
     state: ({ model }: { readonly model: PointerModel }) => model.pointerState,
-    onAction: (): IgnoredMessage => ignoreMessage(),
+    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   };
 }
 
@@ -663,20 +940,7 @@ function preparePointer(
   value: PointerInteractionState | undefined,
   owner: string,
 ): PointerInteractionState | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} pointerState must be an object.`);
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string') {
-    throw new TypeError(`${owner} pointerState.hoveredTargetId must be a string.`);
-  }
-  if (pressedTargetId !== undefined && typeof pressedTargetId !== 'string') {
-    throw new TypeError(`${owner} pointerState.pressedTargetId must be a string.`);
-  }
-  return {
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  };
+  return preparePointerInteractionState(value, `${owner} pointerState`);
 }
 
 function prepareNumericSlider(
@@ -928,23 +1192,88 @@ function prepareChoiceModel(
     prepareChoice(item, `${owner} options[${String(index)}]`)
   );
   assertUnique(options, owner);
-  const selectedValue = value.selected;
-  const selected = multiple
-    ? selectedValue === undefined ? [] : stringArray(selectedValue, `${owner} selected`)
-    : selectedValue === undefined
-    ? []
-    : [cleanString(selectedValue, `${owner} selected`)];
-  const focused = optionalString(value.focused, `${owner} focused`);
+  const interaction = prepareChoiceInteraction(
+    value.presentation,
+    multiple ? 'multiple' : 'single',
+    owner,
+    options.map((option) => option.id),
+  );
   const pointerState = preparePointer(value.pointerState, owner);
   return {
     label: cleanString(value.label, `${owner} label`),
     options,
-    selected,
-    ...(focused === undefined ? {} : { focused }),
+    interaction,
     required: optionalBoolean(value.required, `${owner} required`) ?? false,
     error: optionalString(value.error, `${owner} error`) ?? '',
     ...(pointerState === undefined ? {} : { pointerState }),
   };
+}
+
+function prepareChoiceInteraction(
+  value: unknown,
+  expectedMode: 'single' | 'multiple',
+  owner: string,
+  itemIds: readonly string[],
+): CollectionInteractionState {
+  if (!isNonArrayObject(value) || !isNonArrayObject(value['selection'])) {
+    throw new TypeError(`${owner} presentation must contain collection interaction state.`);
+  }
+  const activeId = optionalString(value['activeId'], `${owner} activeId`);
+  const selection = value['selection'];
+  if (selection['mode'] !== expectedMode) {
+    throw new TypeError(`${owner} selection mode must be ${expectedMode}.`);
+  }
+  let preparedSelection: SelectionState;
+  if (expectedMode === 'single') {
+    const selectedId = optionalString(selection['selectedId'], `${owner} selectedId`);
+    preparedSelection = {
+      mode: 'single',
+      ...(selectedId === undefined ? {} : { selectedId }),
+    };
+  } else {
+    if (!Array.isArray(selection['selectedIds'])) {
+      throw new TypeError(`${owner} selectedIds must be an array.`);
+    }
+    const selectedIds = stringArray(selection['selectedIds'], `${owner} selectedIds`);
+    if (new Set(selectedIds).size !== selectedIds.length) {
+      throw new TypeError(`${owner} selectedIds must be unique.`);
+    }
+    const anchorId = optionalString(selection['anchorId'], `${owner} anchorId`);
+    preparedSelection = {
+      mode: 'multiple',
+      selectedIds,
+      ...(anchorId === undefined ? {} : { anchorId }),
+    };
+  }
+  const referencedIds = [
+    ...(activeId === undefined ? [] : [activeId]),
+    ...choiceSelectedIds(preparedSelection),
+    ...(preparedSelection.mode === 'multiple' && preparedSelection.anchorId !== undefined
+      ? [preparedSelection.anchorId]
+      : []),
+  ];
+  if (referencedIds.some((id) => !itemIds.includes(id))) {
+    throw new RangeError(`${owner} interaction must reference an existing item.`);
+  }
+  return {
+    ...(activeId === undefined ? {} : { activeId }),
+    selection: preparedSelection,
+  };
+}
+
+function choiceSelectedIds(selection: SelectionState): readonly string[] {
+  if (selection.mode === 'none') return [];
+  return selection.mode === 'single'
+    ? selection.selectedId === undefined ? [] : [selection.selectedId]
+    : selection.selectedIds;
+}
+
+function singleSelectedId(selection: SelectionState): string | undefined {
+  return selection.mode === 'single' ? selection.selectedId : undefined;
+}
+
+function isChoiceSelected(selection: SelectionState, id: string): boolean {
+  return choiceSelectedIds(selection).includes(id);
 }
 
 function prepareChoice(
@@ -965,7 +1294,7 @@ function choiceLines(
   kind: 'checkbox' | 'radio',
   decorated: boolean,
 ): readonly (readonly RenderSpan[])[] {
-  const selected = new Set(input.model.selected);
+  const selected = new Set(choiceSelectedIds(input.model.interaction.selection));
   const optionLines = input.model.options.flatMap((option): readonly (readonly RenderSpan[])[] => {
     const state = input.disabled || option.disabled
       ? 'disabled' as const
@@ -1095,35 +1424,35 @@ function choiceSpan(
 }
 
 function checkboxChoiceKeys(model: ChoiceModel): ElementKeyBindings<CheckboxGroupAction> {
-  const focused = focusedChoice(model);
+  const active = activeChoice(model);
   return {
-    arrowUp: () => ({ kind: 'move' as const, delta: -1 }),
-    arrowDown: () => ({ kind: 'move' as const, delta: 1 }),
-    home: () => ({ kind: 'first' as const }),
-    end: () => ({ kind: 'last' as const }),
-    ...(focused === undefined ? {} : {
-      enter: () => ({ kind: 'toggle' as const, id: focused.id }),
-      space: () => ({ kind: 'toggle' as const, id: focused.id }),
+    arrowUp: () => ({ kind: 'moveActive' as const, delta: -1 }),
+    arrowDown: () => ({ kind: 'moveActive' as const, delta: 1 }),
+    home: () => ({ kind: 'firstActive' as const }),
+    end: () => ({ kind: 'lastActive' as const }),
+    ...(active === undefined ? {} : {
+      enter: () => ({ kind: 'toggleSelection' as const, id: active.id }),
+      space: () => ({ kind: 'toggleSelection' as const, id: active.id }),
     }),
   };
 }
 
 function radioChoiceKeys(model: ChoiceModel): ElementKeyBindings<RadioGroupAction> {
-  const focused = focusedChoice(model);
+  const active = activeChoice(model);
   return {
-    arrowUp: () => ({ kind: 'move' as const, delta: -1 }),
-    arrowDown: () => ({ kind: 'move' as const, delta: 1 }),
-    home: () => ({ kind: 'first' as const }),
-    end: () => ({ kind: 'last' as const }),
-    ...(focused === undefined ? {} : {
-      enter: () => ({ kind: 'select' as const, id: focused.id }),
-      space: () => ({ kind: 'select' as const, id: focused.id }),
+    arrowUp: () => ({ kind: 'moveActive' as const, delta: -1 }),
+    arrowDown: () => ({ kind: 'moveActive' as const, delta: 1 }),
+    home: () => ({ kind: 'firstActive' as const }),
+    end: () => ({ kind: 'lastActive' as const }),
+    ...(active === undefined ? {} : {
+      enter: () => ({ kind: 'commitActive' as const }),
+      space: () => ({ kind: 'commitActive' as const }),
     }),
   };
 }
 
-function focusedChoice(model: ChoiceModel): PreparedChoice | undefined {
-  return model.options.find((option) => option.id === model.focused && !option.disabled) ??
+function activeChoice(model: ChoiceModel): PreparedChoice | undefined {
+  return model.options.find((option) => option.id === model.interaction.activeId && !option.disabled) ??
     model.options.find((option) => !option.disabled);
 }
 
@@ -1135,7 +1464,7 @@ function checkboxChoiceHitTargets(
     bounds,
     cursor: 'pointer' as const,
     focus: { kind: 'target' as const, targetId: 'self' },
-    message: () => ({ kind: 'toggle' as const, id: option.id }),
+    message: () => ({ kind: 'toggleSelection' as const, id: option.id }),
   }));
 }
 
@@ -1172,7 +1501,7 @@ function choiceAccessibility(
   input: import('../../component/index.ts').ComponentAccessibilityInput<ChoiceModel>,
   kind: 'checkbox' | 'radio',
 ): AccessibleNode {
-  const selected = new Set(input.model.selected);
+  const selected = new Set(choiceSelectedIds(input.model.interaction.selection));
   return {
     id: input.id,
     role: kind === 'radio' ? 'radiogroup' as const : 'group' as const,
@@ -1214,14 +1543,17 @@ function prepareSwatches(
   const columns = value.columns === undefined
     ? Math.max(1, Math.min(8, options.length || 1))
     : positiveInteger(value.columns, 'colorSwatchPicker columns');
-  const selected = optionalString(value.selected, 'colorSwatchPicker selected');
-  const focused = optionalString(value.focused, 'colorSwatchPicker focused');
+  const interaction = prepareChoiceInteraction(
+    value.presentation,
+    'single',
+    'colorSwatchPicker',
+    options.map((option) => option.id),
+  );
   const pointerState = preparePointer(value.pointerState, 'colorSwatchPicker');
   return {
     label: cleanString(value.label, 'colorSwatchPicker label'),
     options,
-    ...(selected === undefined ? {} : { selected }),
-    ...(focused === undefined ? {} : { focused }),
+    interaction,
     columns,
     error: optionalString(value.error, 'colorSwatchPicker error') ?? '',
     ...(pointerState === undefined ? {} : { pointerState }),
@@ -1275,26 +1607,27 @@ function swatchLines(
 }
 
 function pickerKeys(model: SwatchModel): ElementKeyBindings<ColorSwatchPickerAction> {
-  const focused = model.options.find((option) => option.id === model.focused && !option.disabled) ??
+  const active = model.options.find((option) => option.id === model.interaction.activeId && !option.disabled) ??
     model.options.find((option) => !option.disabled);
   return {
-    arrowLeft: () => ({ kind: 'move' as const, delta: -1 }),
-    arrowRight: () => ({ kind: 'move' as const, delta: 1 }),
-    arrowUp: () => ({ kind: 'move' as const, delta: -model.columns }),
-    arrowDown: () => ({ kind: 'move' as const, delta: model.columns }),
-    home: () => ({ kind: 'first' as const }),
-    end: () => ({ kind: 'last' as const }),
-    ...(focused === undefined ? {} : {
-      enter: () => ({ kind: 'select' as const, id: focused.id }),
-      space: () => ({ kind: 'select' as const, id: focused.id }),
+    arrowLeft: () => ({ kind: 'moveActive' as const, delta: -1 }),
+    arrowRight: () => ({ kind: 'moveActive' as const, delta: 1 }),
+    arrowUp: () => ({ kind: 'moveActive' as const, delta: -model.columns }),
+    arrowDown: () => ({ kind: 'moveActive' as const, delta: model.columns }),
+    home: () => ({ kind: 'firstActive' as const }),
+    end: () => ({ kind: 'lastActive' as const }),
+    ...(active === undefined ? {} : {
+      enter: () => ({ kind: 'commitActive' as const }),
+      space: () => ({ kind: 'commitActive' as const }),
     }),
   };
 }
 
 function selectedSwatch(model: SwatchModel): PreparedSwatch | undefined {
-  return model.selected === undefined
+  const selectedId = singleSelectedId(model.interaction.selection);
+  return selectedId === undefined
     ? undefined
-    : model.options.find((option) => option.id === model.selected);
+    : model.options.find((option) => option.id === selectedId);
 }
 
 function swatchStyle(option: PreparedSwatch): TerminalStyle {
@@ -1309,7 +1642,7 @@ function swatchOptionSpans(
   option: PreparedSwatch,
   decorated: boolean,
 ): readonly RenderSpan[] {
-  const selected = option.id === input.model.selected;
+  const selected = isChoiceSelected(input.model.interaction.selection, option.id);
   const state = input.disabled || option.disabled ? 'disabled' : selected ? 'selected' : undefined;
   const label = padTextCells(
     clipTextCells(option.label, 8, { ellipsis: '…', widthProfile: input.widthProfile }).text,
@@ -1373,16 +1706,18 @@ function swatchOptionSpans(
 function prepareCalendar(
   value: Readonly<Omit<CalendarOptions<ComponentMessage>, 'id' | 'disabled' | 'onAction' | 'meta'>>,
 ): CalendarModel {
-  if (!Array.isArray(value.weekdays) || !Array.isArray(value.days)) {
+  if (!isNonArrayObject(value.presentation)
+    || !Array.isArray(value.presentation.weekdays)
+    || !Array.isArray(value.presentation.days)) {
     throw new TypeError('calendar options are invalid.');
   }
-  if (value.weekdays.length !== 7) {
+  if (value.presentation.weekdays.length !== 7) {
     throw new RangeError('calendar weekdays must contain seven labels.');
   }
-  const weekdays = value.weekdays.map((day, index) =>
+  const weekdays = value.presentation.weekdays.map((day, index) =>
     cleanString(day, `calendar weekdays[${String(index)}]`)
   );
-  const days = value.days.map((day, index): PreparedDay => {
+  const days = value.presentation.days.map((day, index): PreparedDay => {
     if (!isNonArrayObject(day) || !isNonArrayObject(day['date'])) {
       throw new TypeError(`calendar days[${String(index)}] is invalid.`);
     }
@@ -1402,16 +1737,19 @@ function prepareCalendar(
     };
   });
   assertUnique(days, 'calendar');
-  const selected = optionalString(value.selected, 'calendar selected');
-  const focused = optionalString(value.focused, 'calendar focused');
+  const interaction = prepareChoiceInteraction(
+    value.presentation.interaction,
+    'single',
+    'calendar',
+    days.map((day) => day.id),
+  );
   const pointerState = preparePointer(value.pointerState, 'calendar');
   return {
     label: cleanString(value.label, 'calendar label'),
-    monthLabel: cleanString(value.monthLabel, 'calendar monthLabel'),
+    monthLabel: cleanString(value.presentation.monthLabel, 'calendar monthLabel'),
     weekdays,
     days,
-    ...(selected === undefined ? {} : { selected }),
-    ...(focused === undefined ? {} : { focused }),
+    interaction,
     error: optionalString(value.error, 'calendar error') ?? '',
     ...(pointerState === undefined ? {} : { pointerState }),
   };
@@ -1468,12 +1806,12 @@ function calendarDaySpans(
   day: PreparedDay,
   decorated: boolean,
 ): readonly RenderSpan[] {
-  const selected = day.id === input.model.selected;
+  const selected = isChoiceSelected(input.model.interaction.selection, day.id);
   const state = input.disabled || day.disabled || day.outsideMonth === true
     ? 'disabled'
     : selected
     ? 'selected'
-    : day.id === input.model.focused || day.today === true
+    : day.id === input.model.interaction.activeId || day.today === true
     ? 'focused'
     : undefined;
   const label = padTextCells(
@@ -1508,8 +1846,10 @@ function calendarDaySpans(
   ];
 }
 
-function focusedDay(model: CalendarModel): PreparedDay | undefined {
-  return model.days.find((day) => day.id === model.focused && !day.disabled && !day.hidden);
+function activeDay(model: CalendarModel): PreparedDay | undefined {
+  return model.days.find((day) =>
+    day.id === model.interaction.activeId && !day.disabled && !day.hidden
+  );
 }
 
 function calendarHitTargets(
@@ -1559,20 +1899,25 @@ function calendarHitTargets(
 
 type TextEntryFactory<TOptions extends object> = SemanticLeafComponentFactory<
   TOptions,
-  TextInputAction,
+  TextInputAction | PointerLifecycleAction,
   TextEntryStylePart,
   readonly ['disabled', 'readOnly'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >;
 
+type OptionKeys<TOptions> = TOptions extends unknown ? keyof TOptions : never;
+type ExactOptionFields<TOptions extends object> = Readonly<
+  Record<Extract<OptionKeys<TOptions>, string>, true>
+>;
+
 type TextInputComponentOptions = Omit<
   TextInputOptions<ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'
+  'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'
 >;
 type PasswordInputComponentOptions = Omit<
   PasswordInputOptions<ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'onAction' | 'meta'
+  'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'
 >;
 
 function textEntryDefinition<
@@ -1580,20 +1925,23 @@ function textEntryDefinition<
 >(
   name: 'text-input' | 'password-input',
   password: boolean,
+  optionFields: ExactOptionFields<TOptions>,
 ): TextEntryFactory<TOptions> {
   return defineComponent<
     TOptions,
     TextEntryModel,
-    TextInputAction,
+    TextInputAction | PointerLifecycleAction,
     TextEntryStylePart,
     readonly ['disabled', 'readOnly'],
     'required',
     readonly ['focus', 'layer', 'styles']
   >({
     name: `terminal-ui/components/${name}`,
+    optionFields,
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
+    accessibleRole: 'textbox',
     states: ['disabled', 'readOnly'],
     metadata: ['focus', 'layer', 'styles'],
     parts: ['border', 'label', 'value', 'placeholder', 'selection', 'cursor', 'error'],
@@ -1627,7 +1975,10 @@ function textEntryDefinition<
       readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
     onPaste: ({ text, readOnly }) =>
       readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
-    pointer: { state: ({ model }) => model.pointerState, onAction: () => ignoreMessage() },
+    pointer: {
+      state: ({ model }) => model.pointerState,
+      onAction: (action) => ({ kind: 'pointerLifecycle', action }),
+    },
     focusTargets: (input) => {
       const cursorStyle = input.style({
         part: 'cursor',
@@ -1699,10 +2050,16 @@ function textEntryDefinition<
         },
       }];
     },
-    accessibility: ({ id, model, focused, disabled, readOnly }) => ({
+    accessibility: ({ id, model, focused }) => ({
       id,
       role: 'textbox',
       label: id,
+      required: model.required,
+      invalid: model.error !== '',
+      ...(model.error === '' ? {} : {
+        errorMessage: `${id}:error`,
+        children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
+      }),
       ...(password ? {} : { value: model.sourceValue }),
       ...(
         password || model.required || model.error !== ''
@@ -1716,8 +2073,6 @@ function textEntryDefinition<
           : {}
       ),
       ...(focused ? { focused: true } : {}),
-      ...(disabled ? { disabled: true } : {}),
-      ...(readOnly ? { readOnly: true } : {}),
     }),
   });
 }

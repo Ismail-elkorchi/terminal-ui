@@ -2,40 +2,40 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  paginatorPresentation,
-  paginatorReducer
+  paginationPresentation,
+  paginationReducer
 } from '../../dist/behavior/index.js';
-import type { PaginatorState } from '../../dist/behavior/index.js';
-import { paginator } from '../../dist/components/index.js';
-import type { PaginatorAction } from '../../dist/components/index.js';
+import type { PaginationState } from '../../dist/behavior/index.js';
+import { pagination } from '../../dist/components/index.js';
+import type { PaginationAction } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
-void test('paginator reducer bounds semantic navigation actions', () => {
+void test('pagination reducer bounds semantic navigation actions', () => {
   const options = { pageCount: 4 };
-  const previous = paginatorReducer({ pageNumber: 1 }, { kind: 'previous' }, options);
-  const next = paginatorReducer(previous, { kind: 'next' }, options);
-  const selected = paginatorReducer(next, { kind: 'select', pageNumber: 99 }, options);
-  const first = paginatorReducer(selected, { kind: 'first' }, options);
-  const last = paginatorReducer(first, { kind: 'last' }, options);
+  const previous = paginationReducer({ pageNumber: 1 }, { kind: 'previous' }, options);
+  const next = paginationReducer(previous, { kind: 'next' }, options);
+  const selected = paginationReducer(next, { kind: 'select', pageNumber: 99 }, options);
+  const first = paginationReducer(selected, { kind: 'first' }, options);
+  const last = paginationReducer(first, { kind: 'last' }, options);
 
   assert.strictEqual(previous.pageNumber, 1);
   assert.deepEqual(next, { pageNumber: 2 });
   assert.deepEqual(selected, { pageNumber: 4 });
   assert.deepEqual(first, { pageNumber: 1 });
   assert.deepEqual(last, { pageNumber: 4 });
-  assert.deepEqual(paginatorPresentation({ pageNumber: 10 }, options), { pageNumber: 4, pageCount: 4 });
+  assert.deepEqual(paginationPresentation({ pageNumber: 10 }, options), { pageNumber: 4, pageCount: 4 });
 });
 
-void test('paginator routes keyboard and pointer controls through the same action stream', async () => {
-  const app = defineTui<PaginatorState, PaginatorAction>({
-    id: 'paginator-actions',
+void test('pagination routes keyboard and pointer controls through the same action stream', async () => {
+  const app = defineTui<PaginationState, PaginationAction>({
+    id: 'pagination-actions',
     init: () => ({ pageNumber: 2 }),
-    update: (state, action) => ({ state: paginatorReducer(state, action, { pageCount: 4 }) }),
-    view: (state) => paginator({
+    update: (state, action) => ({ state: paginationReducer(state, action, { pageCount: 4 }) }),
+    view: (state) => pagination({
       id: 'pages',
-      ...paginatorPresentation(state, { pageCount: 4 }),
+      ...paginationPresentation(state, { pageCount: 4 }),
       onAction: (action) => action
     })
   });

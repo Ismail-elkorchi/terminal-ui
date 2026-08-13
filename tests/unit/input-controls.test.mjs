@@ -15,18 +15,18 @@ import {
   colorSwatchPicker,
   calendar,
   rangeSlider,
-  select,
+  combobox,
   slider,
-  toggleSwitch
+  switchControl
 } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { column } from '../../dist/layout/index.js';
 import { calendarFixture } from '../helpers/calendar.mjs';
 
-test('toggleSwitch slider and rangeSlider render caller-controlled values with keyboard and mouse affordances', () => {
+test('switchControl slider and rangeSlider render caller-controlled values with keyboard and mouse affordances', () => {
   const element = column([
-    toggleSwitch({
+    switchControl({
       id: 'switch',
       label: 'Live updates',
       checked: true,
@@ -66,7 +66,7 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.role, 'slider');
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.selected, undefined);
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.numericValue?.current, 20);
-  assert.equal(frame.cells.find((cell) => cell.source?.description === 'switch.track')?.source?.elementKind, 'terminal-ui/components/toggle-switch');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'switch.track')?.source?.elementKind, 'terminal-ui/components/switch');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'switch.track')?.text, '━');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'slider' && cell.text === '●')?.source?.description, 'track.handle');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'range' && cell.source?.description === 'track.startHandle')?.text, '●');
@@ -196,13 +196,19 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
         { id: 'email', label: 'Email', value: 'email' },
         { id: 'sms', label: 'SMS', value: 'sms' }
       ],
-      selected: ['email'],
+      presentation: {
+        activeId: 'email',
+        selection: { mode: 'multiple', selectedIds: ['email'] }
+      },
       onAction: (action) => ({ kind: 'channel', action })
     }),
     colorSwatchPicker({
       id: 'colors',
       label: 'Accent',
-      selected: 'green',
+      presentation: {
+        activeId: 'green',
+        selection: { mode: 'single', selectedId: 'green' }
+      },
       columns: 2,
       options: [
         { id: 'green', label: 'Green', value: 'green', swatch: '■' },
@@ -213,9 +219,9 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
     calendar({
       id: 'dates',
       label: 'June',
-      ...calendarFixture({
-        selected: { year: 2026, month: 6, day: 15 },
-        focused: { year: 2026, month: 6, day: 15 },
+      presentation: calendarFixture({
+        selectedDate: { year: 2026, month: 6, day: 15 },
+        activeDate: { year: 2026, month: 6, day: 15 },
         today: { year: 2026, month: 6, day: 10 }
       }),
       onAction: (action) => ({ kind: 'date', action })
@@ -278,15 +284,19 @@ test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
     id: 'wide-colors',
     label: '',
     columns: 1,
+    presentation: { selection: { mode: 'single' } },
     options: [{ id: 'dots', label: '··', value: 'dots', swatch: 'x' }],
     onAction: () => ignoreMessage()
   }), { columns: 20, rows: 2 }, { widthProfile });
   const calendarFrame = renderElementFrame(calendar({
     id: 'wide-calendar',
     label: '',
-    monthLabel: 'Month',
-    weekdays: ['··', '··', '··', '··', '··', '··', '··'],
-    days: [],
+    presentation: {
+      monthLabel: 'Month',
+      weekdays: ['··', '··', '··', '··', '··', '··', '··'],
+      days: [],
+      interaction: { selection: { mode: 'single' } }
+    },
     onAction: () => ignoreMessage()
   }), { columns: 32, rows: 3 }, { widthProfile });
 
@@ -310,11 +320,12 @@ test('picker swatches remain inside their fixed cell budget under ambiguous-wide
     id: 'wide-swatch',
     label: '',
     columns: 2,
+    presentation: { selection: { mode: 'single' } },
     options: [
       { id: 'first', label: 'First', value: 1, swatch: '■' },
       { id: 'second', label: 'Second', value: 2, swatch: '◆' }
     ],
-    onAction: () => ({ kind: 'select' })
+    onAction: () => ({ kind: 'combobox' })
   }), { columns: 24, rows: 1 }, { widthProfile });
 
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'option.first.swatch')?.text, '*');
@@ -345,19 +356,19 @@ test('form controls keep state visible in high contrast and no-color rendering m
       width: 5,
       onAction: () => ignoreMessage()
     }),
-    select({
+    combobox({
       id: 'region',
       label: 'Region',
       placeholder: 'Select region',
-      presentation: { kind: 'closed' },
+      presentation: { open: false, interaction: { selection: { mode: 'single' } } },
       options: [{ id: 'eu', label: 'Europe', value: 'eu' }],
-      onAction: () => ignoreMessage()
+      onTransition: () => ignoreMessage()
     }),
     calendar({
       id: 'calendar',
       label: '',
-      ...calendarFixture({
-        selected: { year: 2026, month: 6, day: 2 },
+      presentation: calendarFixture({
+        selectedDate: { year: 2026, month: 6, day: 2 },
         today: { year: 2026, month: 6, day: 2 }
       }),
       onAction: () => ignoreMessage()
@@ -388,18 +399,18 @@ test('form controls keep state visible in high contrast and no-color rendering m
 test('controls clipped to an empty layout region expose no pointer targets', () => {
   const frame = renderElementFrame(column([
     checkbox({ id: 'visible', label: 'Visible', checked: false, onAction: () => ignoreMessage() }),
-    select({
-      id: 'clipped-select',
+    combobox({
+      id: 'clipped-combobox',
       label: 'Clipped',
-      presentation: { kind: 'closed' },
+      presentation: { open: false, interaction: { selection: { mode: 'single' } } },
       options: [{ id: 'one', label: 'One', value: 'one' }],
-      onAction: (action) => action
+      onTransition: (action) => action
     })
   ], {
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }]
   }), { columns: 24, rows: 1 });
 
-  assert.equal(frame.hitTargets?.some((target) => target.id.startsWith('clipped-select:')) ?? false, false);
+  assert.equal(frame.hitTargets?.some((target) => target.id.startsWith('clipped-combobox:')) ?? false, false);
 });
 
 function colorCapabilities() {

@@ -16,7 +16,7 @@ import { column } from '../../dist/layout/index.js';
 test('feedback status components preserve state in high contrast and no color output', () => {
   const frame = renderElementFrame(column([
     statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
-    helpBar({ id: 'help', groups: [{ id: 'primary', bindings: [{ key: 'Enter', label: 'run' }] }] }),
+    helpBar({ id: 'help', groups: [{ id: 'primary', bindings: [{ binding: { kind: 'key', key: 'enter' }, label: 'run' }] }] }),
     activityIndicator({ id: 'activity', label: 'Indexing', status: 'warning' }),
     activityIndicator({ id: 'settled-activity', label: 'Done', status: 'success' }),
     progressBar({

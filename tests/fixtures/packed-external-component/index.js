@@ -2,9 +2,11 @@ import { defineComponent, span } from '@ismail-elkorchi/terminal-ui/component';
 
 const badge = defineComponent({
   name: 'terminal-ui-peer-component-fixture/components/badge',
+  optionFields: { label: true },
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
+  accessibleRole: 'status',
   prepare(value) {
     if (typeof value.label !== 'string') {
       throw new TypeError('peer badge requires a label.');

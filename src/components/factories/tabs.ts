@@ -1,6 +1,7 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import {
   clipRenderSpans,
+  assertComponentOptions,
   defineComponent,
   ignoreMessage,
   measureRenderSpans,
@@ -14,7 +15,7 @@ import type {
   ComponentRenderInput,
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
-import { isNonArrayObject } from '../../foundation/validation.ts';
+import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
   layoutContentBounds,
@@ -22,10 +23,10 @@ import {
   normalizeLayoutFlowOptions,
 } from '../../layout/index.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
-import type { PointerInteractionState } from '../../interaction/index.ts';
+import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/index.ts';
 import { oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
-import type { TabAction } from '../../ui-model/tabs.ts';
+import type { TabCloseEvent, TabsTransition } from '../../ui-model/tabs.ts';
 import type { TabsStylePart } from '../../ui-model/style-parts.ts';
 import {
   inlineContentAccessibleText,
@@ -49,6 +50,7 @@ interface TabModelItem {
 interface TabsModel {
   readonly tabs: readonly TabModelItem[];
   readonly selectedIndex: number;
+  readonly activeIndex: number;
   readonly maxTabWidth?: number;
   readonly pointerState?: PointerInteractionState;
   readonly layout: LayoutFlowOptions;
@@ -56,7 +58,8 @@ interface TabsModel {
 
 interface TabsOwnOptions extends LayoutFlowOptions {
   readonly tabs: readonly TabOwnOption[];
-  readonly selected?: string;
+  readonly activeId?: string;
+  readonly selectedId?: string;
   readonly maxTabWidth?: number;
   readonly pointerState?: PointerInteractionState;
 }
@@ -79,21 +82,45 @@ type TabsFactory = <TMessage extends ComponentMessage>(
   options: TabsOptions<TMessage>,
 ) => Element<TMessage>;
 
+type TabsComponentAction =
+  | { readonly kind: 'transition'; readonly action: TabsTransition }
+  | { readonly kind: 'close'; readonly event: TabCloseEvent }
+  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+
 const instantiateTabs = defineComponent<
   TabsOwnOptions,
   TabsModel,
-  TabAction,
+  TabsComponentAction,
   TabsStylePart,
-  readonly [],
+  readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
   typeof tabsSlots
 >({
   name: 'terminal-ui/components/tabs',
+  optionFields: {
+    tabs: true,
+    activeId: true,
+    selectedId: true,
+    maxTabWidth: true,
+    pointerState: true,
+    gap: true,
+    padding: true,
+    margin: true,
+    minWidth: true,
+    minHeight: true,
+    maxWidth: true,
+    maxHeight: true,
+    align: true,
+    justify: true,
+    overflow: true,
+  } as const,
   identity: 'required',
   structure: 'composite',
   semantics: 'semantic',
+  accessibleRole: 'group',
   slots: tabsSlots,
+  states: ['disabled', 'busy', 'readOnly', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['leading', 'label', 'indicator', 'badge', 'close', 'overflow'],
   prepare: prepareTabs,
@@ -148,22 +175,23 @@ const instantiateTabs = defineComponent<
     }
     input.target.write(content.row, content.column, spans);
   },
-  keys({ id, model }) {
+  keys({ id, model, busy, readOnly }) {
     const whenSelf =
-      (action: MessageResolution<TabAction>) =>
+      (action: MessageResolution<TabsComponentAction>) =>
       (event: { readonly focusPath: readonly string[] }) =>
         event.focusPath.at(-1) === id ? action : ignoreMessage();
-    const selected = model.tabs[model.selectedIndex];
+    if (busy) return {};
+    const active = model.tabs[model.activeIndex];
     return {
-      arrowLeft: whenSelf({ kind: 'move', delta: -1 }),
-      arrowRight: whenSelf({ kind: 'move', delta: 1 }),
-      home: whenSelf({ kind: 'first' }),
-      end: whenSelf({ kind: 'last' }),
-      enter: whenSelf(
-        selected === undefined ? ignoreMessage() : { kind: 'select', id: selected.id },
-      ),
+      arrowLeft: whenSelf(transition({ kind: 'moveActive', delta: -1 })),
+      arrowRight: whenSelf(transition({ kind: 'moveActive', delta: 1 })),
+      home: whenSelf(transition({ kind: 'firstActive' })),
+      end: whenSelf(transition({ kind: 'lastActive' })),
+      ...(readOnly ? {} : { enter: whenSelf(transition({ kind: 'selectActive' })) }),
       delete: whenSelf(
-        selected?.closable === true ? { kind: 'close', id: selected.id } : ignoreMessage(),
+        readOnly || active?.closable !== true
+          ? ignoreMessage()
+          : { kind: 'close', event: { kind: 'close', id: active.id } },
       ),
     };
   },
@@ -179,6 +207,7 @@ const instantiateTabs = defineComponent<
     }];
   },
   hitTargets(input) {
+    if (input.busy) return [];
     const content = layoutContentBounds(input.bounds, input.model.layout);
     if (content.width === 0 || content.height === 0) return [];
     const layout = tabHeaderLayout(input, content.width);
@@ -194,7 +223,7 @@ const instantiateTabs = defineComponent<
           bounds: { row: content.row, column: start, width: tabWidth, height: 1 },
           accepts: ['click' as const],
           focus: { kind: 'target' as const, targetId: 'self' },
-          message: () => ({ kind: 'select' as const, id: entry.tab.id }),
+          message: () => transition({ kind: 'select', id: entry.tab.id }),
           cursor: 'pointer' as const,
         }]),
         ...(entry.tab.disabled || !entry.tab.closable || closeWidth <= 0 ||
@@ -210,7 +239,10 @@ const instantiateTabs = defineComponent<
             },
             accepts: ['click' as const],
             focus: { kind: 'target' as const, targetId: 'self' },
-            message: () => ({ kind: 'close' as const, id: entry.tab.id }),
+            message: () => ({
+              kind: 'close' as const,
+              event: { kind: 'close' as const, id: entry.tab.id },
+            }),
             cursor: 'pointer' as const,
           }]),
       ];
@@ -222,9 +254,41 @@ const instantiateTabs = defineComponent<
 });
 
 export const tabs: TabsFactory = (options) => {
-  const { tabs: items, onAction, ...rest } = options;
-  return instantiateTabs({
-    ...rest,
+  assertComponentOptions(options, 'tabs', {
+    fields: [
+      'id', 'tabs', 'presentation', 'maxTabWidth', 'pointerState',
+      'readOnly', 'busy', 'inert', 'disabled', 'meta', 'gap', 'padding', 'margin',
+      'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'align', 'justify', 'overflow',
+      'onTransition', 'onClose', 'onPointerAction',
+    ],
+    callbacks: options.disabled === true || options.inert === true
+      ? { onTransition: 'forbidden', onClose: 'forbidden', onPointerAction: 'forbidden' }
+      : { onTransition: 'required', onClose: 'optional', onPointerAction: 'optional' },
+    ...(options.disabled === true
+      ? { forbiddenFields: ['pointerState', 'readOnly', 'busy'] }
+      : options.inert === true
+        ? { forbiddenFields: ['readOnly'] }
+      : {}),
+  });
+  const items = options.tabs;
+  const shared = {
+    id: options.id,
+    ...(options.presentation.activeId === undefined ? {} : { activeId: options.presentation.activeId }),
+    ...(options.presentation.selectedId === undefined ? {} : { selectedId: options.presentation.selectedId }),
+    ...(options.maxTabWidth === undefined ? {} : { maxTabWidth: options.maxTabWidth }),
+    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
+    ...(options.gap === undefined ? {} : { gap: options.gap }),
+    ...(options.padding === undefined ? {} : { padding: options.padding }),
+    ...(options.margin === undefined ? {} : { margin: options.margin }),
+    ...(options.minWidth === undefined ? {} : { minWidth: options.minWidth }),
+    ...(options.minHeight === undefined ? {} : { minHeight: options.minHeight }),
+    ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
+    ...(options.maxHeight === undefined ? {} : { maxHeight: options.maxHeight }),
+    ...(options.align === undefined ? {} : { align: options.align }),
+    ...(options.justify === undefined ? {} : { justify: options.justify }),
+    ...(options.overflow === undefined ? {} : { overflow: options.overflow }),
+    ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
     tabs: items.map((item) => ({
       id: item.id,
       label: item.label,
@@ -235,7 +299,21 @@ export const tabs: TabsFactory = (options) => {
       ...(item.closable === undefined ? {} : { closable: item.closable }),
     })),
     slots: { panels: items.map((item) => item.panel) },
-    onAction,
+  };
+  if (options.disabled === true) return instantiateTabs({
+    ...shared,
+    disabled: true,
+    ...(options.inert === undefined ? {} : { inert: options.inert }),
+  });
+  if (options.inert === true) return instantiateTabs({ ...shared, inert: true });
+  return instantiateTabs({
+    ...shared,
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => {
+      if (action.kind === 'close') return options.onClose?.(action.event) ?? ignoreMessage();
+      if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      return options.onTransition(action.action);
+    },
   });
 };
 
@@ -261,11 +339,20 @@ type TabsVisualInput =
 function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
   return input.model.tabs.map((tab, index) => {
     const selected = index === input.model.selectedIndex;
+    const active = index === input.model.activeIndex;
     const targetId = tabTargetId(input.id, tab.id);
     const pointer = pointerVisualState(input.model.pointerState, targetId);
     const state = tab.disabled
       ? 'disabled' as const
-      : pointer ?? (selected ? 'selected' as const : undefined);
+      : pointer ?? (
+        'focus' in input && input.focus === 'self' && active
+          ? 'focused' as const
+          : selected
+          ? 'selected' as const
+          : active
+          ? 'active' as const
+          : undefined
+      );
     const base: TerminalStyle = selected
       ? {
         fg: { kind: 'theme', token: 'tab.active.foreground' },
@@ -367,8 +454,9 @@ function tabHeaderLayout(
   if (width <= 0) return { spans: [], visible: [] };
   const entries = tabHeaderEntries(input);
   if (entries.length === 0) return { spans: [], visible: [] };
-  let start = input.model.selectedIndex;
-  let end = input.model.selectedIndex;
+  const headerIndex = Math.max(0, input.model.activeIndex, input.model.selectedIndex);
+  let start = headerIndex;
+  let end = headerIndex;
   const rangeWidth = (nextStart: number, nextEnd: number): number => {
     let total = 0;
     for (let index = nextStart; index <= nextEnd; index += 1) {
@@ -382,7 +470,7 @@ function tabHeaderLayout(
         (nextStart > 0 ? 2 : 0) +
         (nextEnd < entries.length - 1 ? 2 : 0) <=
       width;
-  const selected = entries[input.model.selectedIndex];
+  const selected = entries[headerIndex];
   if (selected === undefined) return { spans: [], visible: [] };
   if (!fits(start, end) && selected.width > width) {
     return {
@@ -491,7 +579,7 @@ function tabSpan(
   partName: string,
   style: TerminalStyle | undefined,
   itemId?: string,
-  interactionState?: 'disabled' | 'selected' | 'focused' | 'hovered' | 'pressed',
+  interactionState?: 'disabled' | 'selected' | 'focused' | 'hovered' | 'pressed' | 'active',
 ): RenderSpan {
   return {
     text,
@@ -515,7 +603,7 @@ function resolveTabStyle(
   input: TabsVisualInput,
   part: TabsStylePart,
   base: TerminalStyle | undefined,
-  state?: 'disabled' | 'selected' | 'focused' | 'hovered' | 'pressed',
+  state?: 'disabled' | 'selected' | 'focused' | 'hovered' | 'pressed' | 'active',
 ): TerminalStyle | undefined {
   return 'style' in input
     ? input.style({
@@ -543,6 +631,7 @@ function tabsAccessibility(
     ...(tab.badge === undefined ? {} : { value: tab.badge }),
     ...(tab.description === undefined ? {} : { description: tab.description }),
     selected: index === input.model.selectedIndex,
+    ...(input.focused && index === input.model.activeIndex ? { focused: true } : {}),
     disabled: tab.disabled,
     controls: `${input.id}:${tab.id}:panel`,
     ...(tab.closable && !tab.disabled
@@ -574,6 +663,10 @@ function tabsAccessibility(
       id: `${input.id}:tablist`,
       role: 'tablist',
       label: input.id,
+      orientation: 'horizontal',
+      ...(input.model.activeIndex < 0
+        ? {}
+        : { activeDescendant: `${input.id}:${input.model.tabs[input.model.activeIndex]?.id ?? ''}` }),
       children: tabNodes,
     }, ...panels],
   };
@@ -618,16 +711,22 @@ function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
       closable: raw.closable === true,
     };
   });
-  const selected = value.selected;
+  const selected = value.selectedId;
+  const active = value.activeId;
   if (selected !== undefined && typeof selected !== 'string') {
-    throw new TypeError('tabs selected must be a string.');
+    throw new TypeError('tabs selectedId must be a string.');
   }
+  if (active !== undefined && typeof active !== 'string') throw new TypeError('tabs activeId must be a string.');
   const selectedIndex = selected === undefined
-    ? Math.max(0, tabs.findIndex((tab) => !tab.disabled))
+    ? -1
     : tabs.findIndex((tab) => tab.id === selected);
   if (selected !== undefined && selectedIndex < 0) {
-    throw new RangeError('tabs selected must identify a tab.');
+    throw new RangeError('tabs selectedId must identify a tab.');
   }
+  const activeIndex = active === undefined
+    ? selectedIndex >= 0 ? selectedIndex : tabs.findIndex((tab) => !tab.disabled)
+    : tabs.findIndex((tab) => tab.id === active);
+  if (active !== undefined && activeIndex < 0) throw new RangeError('tabs activeId must identify a tab.');
   const maxTabWidth = value.maxTabWidth;
   if (
     maxTabWidth !== undefined &&
@@ -635,27 +734,15 @@ function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
   ) {
     throw new RangeError('tabs maxTabWidth must be a positive safe integer.');
   }
-  const pointerState = value.pointerState;
-  if (pointerState !== undefined) assertPointerState(pointerState, 'tabs pointerState');
+  const pointerState = preparePointerInteractionState(value.pointerState, 'tabs pointerState');
   return {
     tabs,
     selectedIndex,
+    activeIndex,
     ...(maxTabWidth === undefined ? {} : { maxTabWidth: maxTabWidth }),
     ...(pointerState === undefined ? {} : { pointerState }),
     layout: normalizeLayoutFlowOptions(value, 'tabs'),
   };
-}
-
-function assertPointerState(
-  value: PointerInteractionState,
-  label: string,
-): void {
-  if (!isNonArrayObject(value)) throw new TypeError(`${label} must be an object.`);
-  for (const field of ['hoveredTargetId', 'pressedTargetId'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      throw new TypeError(`${label}.${field} must be a string.`);
-    }
-  }
 }
 
 function combinedInsets(
@@ -672,4 +759,8 @@ function tabTargetId(id: string | undefined, tabId: string): string {
 
 function tabCloseTargetId(id: string | undefined, tabId: string): string {
   return `${id ?? 'tabs'}:tab:${tabId}:close`;
+}
+
+function transition(action: TabsTransition): TabsComponentAction {
+  return { kind: 'transition', action };
 }

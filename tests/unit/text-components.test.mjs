@@ -65,7 +65,7 @@ function textArea(options) {
 
 function commandInput(options) {
   return createCommandInput({
-    onAction: (action) => action,
+    onTransition: (action) => action,
     ...options
   });
 }
@@ -663,8 +663,8 @@ test('helpBar and activityIndicator provide reusable application status displays
     groups: [{
       id: 'primary',
       bindings: [
-        { key: 'Enter', label: 'open' },
-        { key: 'Esc', label: 'close' }
+        { binding: { kind: 'key', key: 'enter' }, label: 'open' },
+        { binding: { kind: 'key', key: 'escape' }, label: 'close' }
       ]
     }]
   }), { columns: 32, rows: 1 });
@@ -674,7 +674,7 @@ test('helpBar and activityIndicator provide reusable application status displays
     status: 'running'
   }), { columns: 32, rows: 1 });
 
-  assert.equal(renderFramePlain(helpFrame), 'Enter open  Esc close');
+  assert.equal(renderFramePlain(helpFrame), 'Enter open  Escape close');
   assert.equal(helpFrame.accessibility.root.role, 'group');
   assert.equal(renderFramePlain(activityFrame), '⠋ Indexing');
   assert.equal(activityFrame.accessibility.root.value, 'Indexing (running)');
@@ -686,15 +686,15 @@ test('helpBar keeps compact bindings whole instead of clipping partial labels', 
     groups: [{
       id: 'primary',
       bindings: [
-        { key: 'click', label: 'select/open file' },
-        { key: 'disclosure', label: 'toggle folder' },
-        { key: 'enter', label: 'open/toggle' }
+        { binding: { kind: 'key', key: 'enter' }, label: 'select/open file' },
+        { binding: { kind: 'key', key: 'space' }, label: 'toggle folder' },
+        { binding: { kind: 'key', key: 'escape' }, label: 'open/toggle' }
       ]
     }]
   }), { columns: 26, rows: 1 });
 
-  assert.equal(renderFramePlain(frame), 'click select/open file  …');
-  assert.doesNotMatch(renderFramePlain(frame), /dis/u);
+  assert.equal(renderFramePlain(frame), 'Enter select/open file  …');
+  assert.doesNotMatch(renderFramePlain(frame), /toggle/u);
 });
 
 test('activityIndicator renders caller-driven frames and terminal status', () => {

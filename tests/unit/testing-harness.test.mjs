@@ -278,17 +278,20 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     }),
     tree({
       id: 'tree',
-      selected: 'child',
+      presentation: {
+        expandedIds: ['root'],
+        activeId: 'child',
+        selection: { mode: 'single', selectedId: 'child' }
+      },
       nodes: [
         {
           id: 'root',
           label: 'Root',
           kind: 'branch',
-          expanded: true,
           children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
         }
       ],
-      onAction: (action) => ({ kind: 'tree', action })
+      onTransition: (action) => ({ kind: 'tree', action })
     }),
     button({
       id: 'confirm',

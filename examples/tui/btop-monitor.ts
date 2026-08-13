@@ -6,6 +6,7 @@ import {
   chart,
   column,
   createTerminalHost,
+  dataGrid,
   defineTui,
   grid,
   helpBar,
@@ -16,7 +17,6 @@ import {
   sparkline,
   statusBar,
   surface,
-  table,
   tableColumn,
   text
 } from '@ismail-elkorchi/terminal-ui';
@@ -28,11 +28,11 @@ import type { FrameHitTarget, TerminalStyle } from '@ismail-elkorchi/terminal-ui
 import type { InlineTextSegment, TableColumn, TableColumnBuilder, ValueScale } from '@ismail-elkorchi/terminal-ui';
 import {
   createScrollState,
+  dataGridReducer,
+  prepareTableCollection,
   sortTableRows,
-  tableScrollablePresentation,
-  tableReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { ScrollableTableState, TableAction } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { DataGridPresentation, DataGridTransition } from '@ismail-elkorchi/terminal-ui';
 import type { KeyEvent, MousePointerEvent } from '@ismail-elkorchi/terminal-ui/input';
 import type { ThemeColorToken } from '@ismail-elkorchi/terminal-ui/theme';
 
@@ -48,13 +48,13 @@ interface ProcessRow {
 
 interface MonitorState {
   readonly tick: number;
-  readonly processTable: ScrollableTableState;
+  readonly processTable: DataGridPresentation & { readonly scroll: NonNullable<DataGridPresentation['scroll']> };
 }
 
 type MonitorMessage =
   | { readonly kind: 'tick'; readonly tick: number }
   | { readonly kind: 'cycleSort' }
-  | { readonly kind: 'processTable'; readonly action: TableAction }
+  | { readonly kind: 'processTable'; readonly action: DataGridTransition }
   | { readonly kind: 'exit' };
 
 interface CoreSample {
@@ -142,12 +142,14 @@ function initialState(): MonitorState {
   return {
     tick: 0,
     processTable: {
-      selectedRowId,
+      interaction: {
+        kind: 'row',
+        selectionMode: 'single' as const,
+        activeRowId: selectedRowId,
+        selectedRowIds: [selectedRowId]
+      },
       sort: { columnId: 'memory', direction: 'descending' },
-      scroll: createScrollState({
-        contentRows: processRows.length,
-        selectedIndex: processRows.findIndex((row) => String(row.pid) === selectedRowId)
-      })
+      scroll: createScrollState()
     }
   };
 }
@@ -181,10 +183,11 @@ function updateMonitor(
       return {
         state: {
           ...state,
-          processTable: tableReducer(state.processTable, message.action, {
-            rows,
-            getRowId: processRowId,
-            columnCount: processColumns.length
+          processTable: dataGridReducer(state.processTable, message.action, {
+            collection: prepareTableCollection(rows, processRowId),
+            columnIds: processColumns.map((column) => column.id),
+            selection: { mode: 'single', commitment: 'followActive' },
+            pageSize: 20
           })
         }
       };
@@ -504,16 +507,16 @@ function processPanel(state: MonitorState) {
       statusBar({ id: 'proc-mode', leading: [{ id: 'mode', kind: 'text', text: `proc filter  sort=${sort?.columnId ?? 'none'} ${sort?.direction ?? ''}` }] }),
       statusBar({ id: 'proc-flags', trailing: [{ id: 'flags', kind: 'text', text: 'per-core reverse tree memory' }] })
     ], { id: 'proc-header', sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
-    table({
+    dataGrid<ProcessRow, MonitorMessage>({
       getRowId: processRowId,
       id: 'process-table',
       rows,
-      presentation: tableScrollablePresentation(state.processTable),
+      presentation: state.processTable,
       density: 'compact',
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
       columns: processColumns,
-      onAction: (action) => ({ kind: 'processTable', action })
+      onTransition: (action): MonitorMessage => ({ kind: 'processTable', action })
     })
   ], { id: 'proc-column', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
     id: 'process-panel',
@@ -529,9 +532,10 @@ function footerHelp() {
     groups: [{
       id: 'processes',
       bindings: [
-        { key: '↑/↓', label: 'select' },
-        { key: 's', label: 'sort' },
-        { key: 'q', label: 'quit' }
+        { binding: { kind: 'key', key: 'arrowUp' }, label: 'previous process' },
+        { binding: { kind: 'key', key: 'arrowDown' }, label: 'next process' },
+        { binding: { kind: 'key', key: 's' }, label: 'sort' },
+        { binding: { kind: 'key', key: 'q' }, label: 'quit' }
       ]
     }]
   });
@@ -644,9 +648,9 @@ export async function runScriptedBtopMonitor() {
 
     const selectedTarget = targetByPrefix(runtime, 'process-table:row:');
     await click(runtime, selectedTarget);
-    const selectedBeforeKeyboard = runtime.state().processTable.selectedRowId;
+    const selectedBeforeKeyboard = selectedProcessId(runtime.state().processTable);
     await runtime.handleInput(keyEvent('arrowDown'));
-    const selectedAfterKeyboard = runtime.state().processTable.selectedRowId;
+    const selectedAfterKeyboard = selectedProcessId(runtime.state().processTable);
     await runtime.handleInput({ kind: 'text', text: 's', paste: false });
     const frame = runtime.frame();
     if (frame === undefined) throw new Error('The scripted monitor did not render a frame.');
@@ -659,7 +663,7 @@ export async function runScriptedBtopMonitor() {
       hasMemory: output.includes('Total:'),
       hasNetwork: output.includes('wlp3s0') || output.includes('Kibps'),
       hasProcesses: output.includes('Program'),
-      selectedProcessId: runtime.state().processTable.selectedRowId,
+      selectedProcessId: selectedProcessId(runtime.state().processTable),
       sort: runtime.state().processTable.sort,
       wheelBatchShared: firstWheel.pending === secondWheel.pending && secondWheel.pending === thirdWheel.pending,
       offsetAfterWheel,
@@ -670,6 +674,12 @@ export async function runScriptedBtopMonitor() {
   } finally {
     await runtime.dispose();
   }
+}
+
+function selectedProcessId(presentation: DataGridPresentation): string | undefined {
+  return presentation.interaction.kind === 'row'
+    ? presentation.interaction.selectedRowIds[0]
+    : undefined;
 }
 
 function targetById(runtime: TuiRuntime<MonitorState, MonitorMessage>, id: string): FrameHitTarget {
