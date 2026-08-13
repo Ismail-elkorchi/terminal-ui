@@ -4,9 +4,35 @@ import test from 'node:test';
 import {
   createMemoryTerminalHost } from '../../dist/host/index.js';
 import {
+  ownSelectionState,
   resolveSelectedText
 } from '../../dist/interaction/index.js';
 import { copySelectedTextToClipboard } from '../../dist/tui/index.js';
+
+test('collection selection ownership detaches mutable multiple-selection state', () => {
+  const selectedIds = ['first'];
+  const supplied = {
+    mode: 'multiple',
+    selectedIds,
+    anchorId: 'first'
+  };
+  const owned = ownSelectionState(supplied, 'test selection');
+
+  selectedIds.push('second');
+  supplied.anchorId = 'second';
+
+  assert.deepEqual(owned, {
+    mode: 'multiple',
+    selectedIds: ['first'],
+    anchorId: 'first'
+  });
+  assert.equal(Object.isFrozen(owned), true);
+  assert.equal(Object.isFrozen(owned.selectedIds), true);
+  assert.throws(
+    () => ownSelectionState({ mode: 'multiple', selectedIds: ['duplicate', 'duplicate'] }, 'test selection'),
+    /test selection\.selectedIds must be unique/u
+  );
+});
 
 test('selection interaction resolves the active caller-controlled source', () => {
   const result = resolveSelectedText({

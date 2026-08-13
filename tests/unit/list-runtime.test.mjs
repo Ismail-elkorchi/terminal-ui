@@ -94,6 +94,26 @@ test('listView measures arbitrary rows and derives one active-item scroll window
   );
 });
 
+test('listView owns retained multiple-selection state at construction', () => {
+  const selectedIds = ['first'];
+  const element = listView({
+    id: 'owned-list-view-selection',
+    items: [
+      { id: 'first', content: text({ content: 'First' }) },
+      { id: 'second', content: text({ content: 'Second' }) }
+    ],
+    presentation: {
+      selection: { mode: 'multiple', selectedIds, anchorId: 'first' }
+    },
+    onTransition: (transition) => transition
+  });
+
+  selectedIds.splice(0, selectedIds.length, 'second');
+
+  const frame = renderElementFrame(element, { columns: 20, rows: 2 });
+  assert.deepEqual(frame.accessibility.root.children?.map((item) => item.selected), [true, false]);
+});
+
 test('listView reducer separates active position, committed selection, and child actions', () => {
   const state = {
     activeId: 'first',

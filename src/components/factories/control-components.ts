@@ -32,7 +32,11 @@ import {
   pointerVisualState,
   preparePointerInteractionState,
 } from '../../interaction/pointer-interaction.ts';
-import type { CollectionInteractionState, SelectionState } from '../../interaction/collection.ts';
+import {
+  ownSelectionState,
+  type CollectionInteractionState,
+  type SelectionState,
+} from '../../interaction/collection.ts';
 import {
   clipTextCells,
   measureTextCells,
@@ -1086,35 +1090,13 @@ function prepareChoiceInteraction(
   owner: string,
   itemIds: readonly string[],
 ): CollectionInteractionState {
-  if (!isNonArrayObject(value) || !isNonArrayObject(value['selection'])) {
+  if (!isNonArrayObject(value)) {
     throw new TypeError(`${owner} presentation must contain collection interaction state.`);
   }
   const activeId = optionalString(value['activeId'], `${owner} activeId`);
-  const selection = value['selection'];
-  if (selection['mode'] !== expectedMode) {
+  const preparedSelection = ownSelectionState(value['selection'], `${owner} selection`);
+  if (preparedSelection.mode !== expectedMode) {
     throw new TypeError(`${owner} selection mode must be ${expectedMode}.`);
-  }
-  let preparedSelection: SelectionState;
-  if (expectedMode === 'single') {
-    const selectedId = optionalString(selection['selectedId'], `${owner} selectedId`);
-    preparedSelection = {
-      mode: 'single',
-      ...(selectedId === undefined ? {} : { selectedId }),
-    };
-  } else {
-    if (!Array.isArray(selection['selectedIds'])) {
-      throw new TypeError(`${owner} selectedIds must be an array.`);
-    }
-    const selectedIds = stringArray(selection['selectedIds'], `${owner} selectedIds`);
-    if (new Set(selectedIds).size !== selectedIds.length) {
-      throw new TypeError(`${owner} selectedIds must be unique.`);
-    }
-    const anchorId = optionalString(selection['anchorId'], `${owner} anchorId`);
-    preparedSelection = {
-      mode: 'multiple',
-      selectedIds,
-      ...(anchorId === undefined ? {} : { anchorId }),
-    };
   }
   const referencedIds = [
     ...(activeId === undefined ? [] : [activeId]),
@@ -2630,10 +2612,6 @@ function nonNegativeInteger(value: unknown, owner: string): number {
     throw new RangeError(`${owner} must be a non-negative safe integer.`);
   }
   return value;
-}
-function stringArray(value: unknown, owner: string): readonly string[] {
-  if (!Array.isArray(value)) throw new TypeError(`${owner} must be an array.`);
-  return value.map((entry, index) => cleanString(entry, `${owner}[${String(index)}]`));
 }
 function assertUnique(values: readonly { readonly id: string }[], owner: string): void {
   const seen = new Set<string>();

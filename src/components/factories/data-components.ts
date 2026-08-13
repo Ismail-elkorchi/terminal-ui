@@ -55,7 +55,7 @@ import type {
   TreeNode,
   TreeVisibleRow,
 } from '../../ui-model/tree.ts';
-import type { SelectionState } from '../../interaction/collection.ts';
+import { ownSelectionState, type SelectionState } from '../../interaction/collection.ts';
 import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
 import type { TableColumn, TableColumnWidth } from '../../ui-model/content.ts';
 import type { TableStylePart, TreeStylePart } from '../../ui-model/style-parts.ts';
@@ -1969,7 +1969,7 @@ function prepareTree<
     totalCount,
     query,
     ...(activeId === undefined ? {} : { activeId }),
-    selection: value.presentation.selection,
+    selection: ownSelectionState(value.presentation.selection, 'tree selection'),
     emptyText: text(value.emptyText, 'tree emptyText') ?? 'No items',
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),

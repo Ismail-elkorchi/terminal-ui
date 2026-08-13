@@ -23,7 +23,6 @@ import {
   assertOptionalCallback,
   assertRequiredCallback,
   isNonArrayObject,
-  isStringMember,
 } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import {
@@ -31,7 +30,7 @@ import {
   preparePointerInteractionState,
 } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/pointer-interaction.ts';
-import type { SelectionState } from '../../interaction/collection.ts';
+import { ownSelectionState, type SelectionState } from '../../interaction/collection.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
@@ -252,7 +251,7 @@ function prepareListbox<TValue, TMessage extends ComponentMessage>(
     : normalizeCollectionQuery(requestedQuery ?? { text: '', mode: 'contains' });
   const entries = preparedListEntries(projected, query);
   const activeId = optionalCleanString(value.presentation.activeId, 'listbox activeId');
-  const selection = prepareSelection(value.presentation.selection);
+  const selection = ownSelectionState(value.presentation.selection, 'listbox selection');
   const scroll = prepareComponentScrollState(value.scroll, 'list scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'list scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'list scrollPolicy');
@@ -758,33 +757,6 @@ function selectionContains(selection: SelectionState, id: string): boolean {
   return selection.mode === 'single'
     ? selection.selectedId === id
     : selection.mode === 'multiple' && selection.selectedIds.includes(id);
-}
-
-function prepareSelection(selection: SelectionState): SelectionState {
-  if (!isNonArrayObject(selection)) throw new TypeError('listbox presentation selection must be an object.');
-  if (!isStringMember(selection.mode as unknown, ['none', 'single', 'multiple'])) {
-    throw new TypeError('listbox presentation selection mode is invalid.');
-  }
-  if (selection.mode === 'none') return Object.freeze({ mode: 'none' });
-  if (selection.mode === 'single') {
-    const selectedId = optionalCleanString(selection.selectedId, 'listbox selectedId');
-    return Object.freeze({ mode: 'single', ...(selectedId === undefined ? {} : { selectedId }) });
-  }
-  if (!Array.isArray(selection.selectedIds)) {
-    throw new TypeError('listbox presentation selection is invalid.');
-  }
-  const selectedIds = Object.freeze(selection.selectedIds.map((id) =>
-    requiredCleanString(id, 'listbox selected id')
-  ));
-  if (new Set(selectedIds).size !== selectedIds.length) {
-    throw new TypeError('listbox selected ids must be unique.');
-  }
-  const anchorId = optionalCleanString(selection.anchorId, 'listbox selection anchorId');
-  return Object.freeze({
-    mode: 'multiple',
-    selectedIds,
-    ...(anchorId === undefined ? {} : { anchorId }),
-  });
 }
 
 function transition(action: ListboxTransition): ListboxComponentAction {

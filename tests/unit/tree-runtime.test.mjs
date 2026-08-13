@@ -170,6 +170,27 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
   assert.equal(frame.accessibility.root.children?.[1]?.value, 'root/api');
 });
 
+test('tree owns retained multiple-selection state at construction', () => {
+  const selectedIds = ['first'];
+  const element = tree({
+    id: 'owned-tree-selection',
+    nodes: [
+      { id: 'first', label: 'First', kind: 'leaf' },
+      { id: 'second', label: 'Second', kind: 'leaf' }
+    ],
+    presentation: {
+      expandedIds: [],
+      selection: { mode: 'multiple', selectedIds, anchorId: 'first' }
+    },
+    onTransition: (transition) => transition
+  });
+
+  selectedIds.splice(0, selectedIds.length, 'second');
+
+  const frame = renderElementFrame(element, { columns: 20, rows: 2 });
+  assert.deepEqual(frame.accessibility.root.children?.map((item) => item.selected), [true, false]);
+});
+
 test('tree renders lazy placeholders and clips tiny viewports safely', () => {
   const frame = renderElementFrame(tree({
     id: 'lazy-tree',

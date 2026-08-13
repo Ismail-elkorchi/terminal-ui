@@ -22,7 +22,7 @@ import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import type { SelectionState } from '../../interaction/collection.ts';
+import { ownSelectionState, type SelectionState } from '../../interaction/collection.ts';
 import type {
   ListViewActivateEvent,
   ListViewItem,
@@ -426,7 +426,7 @@ export function listView<
       disabled,
     })),
     ...(options.presentation.activeId === undefined ? {} : { activeId: options.presentation.activeId }),
-    selection: options.presentation.selection,
+    selection: ownSelectionState(options.presentation.selection, 'listView selection'),
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),

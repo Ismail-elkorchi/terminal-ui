@@ -67,6 +67,7 @@ import type { ListboxTransition } from '../../ui-model/list.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
+import { ownSelectionState } from '../../interaction/collection.ts';
 import { portal, surface } from '../../layout/index.ts';
 import { listbox } from './list.ts';
 
@@ -1712,8 +1713,11 @@ function prepareComboboxPresentation(
     !isNonArrayObject(value.interaction)) {
     throw new TypeError('combobox presentation is invalid.');
   }
-  const selection = value.interaction.selection;
-  if (!isNonArrayObject(selection) || selection.mode !== 'single') {
+  const selection = ownSelectionState(
+    value.interaction.selection,
+    'combobox interaction selection',
+  );
+  if (selection.mode !== 'single') {
     throw new TypeError('combobox interaction selection must use single mode.');
   }
   const selectedId = selection.selectedId === undefined

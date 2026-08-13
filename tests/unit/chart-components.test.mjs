@@ -155,6 +155,59 @@ test('barChart owns retained item data at construction', () => {
   assert.doesNotMatch(output, /Changed|Added/u);
 });
 
+test('visualizations own retained multiple-selection state at construction', () => {
+  const selectedIds = ['a'];
+  const presentation = { selection: { mode: 'multiple', selectedIds, anchorId: 'a' } };
+  const elements = [
+    barChart({
+      id: 'owned-bar-selection',
+      items: [
+        { id: 'a', label: 'A', value: 1 },
+        { id: 'b', label: 'B', value: 2 }
+      ],
+      presentation,
+      onTransition: (transition) => transition
+    }),
+    chart({
+      id: 'owned-chart-selection',
+      series: [{
+        id: 'series',
+        label: 'Series',
+        points: [
+          { id: 'a', label: 'A', value: 1 },
+          { id: 'b', label: 'B', value: 2 }
+        ]
+      }],
+      presentation,
+      onTransition: (transition) => transition
+    }),
+    heatmap({
+      id: 'owned-heatmap-selection',
+      rows: [[
+        { id: 'a', label: 'A', value: 1 },
+        { id: 'b', label: 'B', value: 2 }
+      ]],
+      presentation,
+      onTransition: (transition) => transition
+    })
+  ];
+
+  selectedIds.splice(0, selectedIds.length, 'b');
+
+  const [barFrame, chartFrame, heatmapFrame] = elements.map((element) =>
+    renderElementFrame(element, { columns: 24, rows: 3 })
+  );
+  assert.deepEqual(barFrame.accessibility.root.children?.map((item) => item.selected), [true, false]);
+  assert.deepEqual(
+    chartFrame.accessibility.root.children?.[0]?.children?.map((item) => item.selected),
+    [true, false]
+  );
+  assert.deepEqual(
+    heatmapFrame.accessibility.root.children?.[0]?.children?.map((item) => item.selected),
+    [true, false]
+  );
+});
+
 test('barChart budgets labels and fills in terminal cells under wide profiles', () => {
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
   const frame = renderElementFrame(barChart({

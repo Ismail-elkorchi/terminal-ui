@@ -1,5 +1,6 @@
 import { adjacentItemId } from './navigation.ts';
 import type { NavigationPolicy } from './navigation.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 
 /** The committed-selection policy for an active-descendant collection. */
 export type SelectionPolicy =
@@ -52,6 +53,41 @@ export const manualSingleSelection: SelectionPolicy = Object.freeze({
   mode: 'single',
   commitment: 'manual',
 });
+
+const emptySelectionState: SelectionState = Object.freeze({ mode: 'none' });
+
+/** Validates and detaches collection selection retained by a component. */
+export function ownSelectionState(value: unknown, subject: string): SelectionState {
+  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
+  const mode = value['mode'];
+  if (mode === 'none') return emptySelectionState;
+  if (mode === 'single') {
+    const selectedId = optionalSelectionId(value['selectedId'], `${subject}.selectedId`);
+    return Object.freeze({
+      mode,
+      ...(selectedId === undefined ? {} : { selectedId }),
+    });
+  }
+  if (mode !== 'multiple') {
+    throw new TypeError(`${subject}.mode must be none, single, or multiple.`);
+  }
+  const suppliedIds = value['selectedIds'];
+  if (!Array.isArray(suppliedIds)) {
+    throw new TypeError(`${subject}.selectedIds must be an array.`);
+  }
+  const selectedIds = Object.freeze(suppliedIds.map((id, index) =>
+    selectionId(id, `${subject}.selectedIds[${String(index)}]`)
+  ));
+  if (new Set(selectedIds).size !== selectedIds.length) {
+    throw new TypeError(`${subject}.selectedIds must be unique.`);
+  }
+  const anchorId = optionalSelectionId(value['anchorId'], `${subject}.anchorId`);
+  return Object.freeze({
+    mode,
+    selectedIds,
+    ...(anchorId === undefined ? {} : { anchorId }),
+  });
+}
 
 export function collectionInteractionReducer(
   state: CollectionInteractionState,
@@ -211,7 +247,7 @@ function selectionForId(id: string, policy: Exclude<SelectionPolicy, { readonly 
 }
 
 function emptySelection(policy: SelectionPolicy): SelectionState {
-  if (policy.mode === 'none') return Object.freeze({ mode: 'none' });
+  if (policy.mode === 'none') return emptySelectionState;
   if (policy.mode === 'single') return Object.freeze({ mode: 'single' });
   return Object.freeze({ mode: 'multiple', selectedIds: Object.freeze([]) });
 }
@@ -242,4 +278,15 @@ function sameSelection(left: SelectionState, right: SelectionState): boolean {
   return left.anchorId === right.anchorId
     && left.selectedIds.length === right.selectedIds.length
     && left.selectedIds.every((id, index) => id === right.selectedIds[index]);
+}
+
+function selectionId(value: unknown, subject: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new TypeError(`${subject} must be a non-empty string.`);
+  }
+  return value;
+}
+
+function optionalSelectionId(value: unknown, subject: string): string | undefined {
+  return value === undefined ? undefined : selectionId(value, subject);
 }

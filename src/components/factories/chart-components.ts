@@ -39,7 +39,7 @@ import type {
   HeatmapTransition,
   VisualizationActivateEvent,
 } from '../../ui-model/visualization.ts';
-import type { SelectionState } from '../../interaction/collection.ts';
+import { ownSelectionState, type SelectionState } from '../../interaction/collection.ts';
 import type { ChartStylePart } from '../../ui-model/style-parts.ts';
 import { isThemeColorToken } from '../../visual/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -201,7 +201,10 @@ function prepareBarChart(
   const activeId = value.presentation?.activeId === undefined
     ? undefined
     : nonEmpty(value.presentation.activeId, 'barChart activeId');
-  const selection = value.presentation?.selection ?? { mode: 'none' as const };
+  const selection = ownSelectionState(
+    value.presentation?.selection ?? { mode: 'none' },
+    'barChart selection',
+  );
   const pointerState = preparePointerInteractionState(
     value.pointerState,
     'barChart pointerState',
@@ -540,7 +543,10 @@ function prepareChart(
   const activeId = value.presentation?.activeId === undefined
     ? undefined
     : nonEmpty(value.presentation.activeId, 'chart activeId');
-  const selection = value.presentation?.selection ?? { mode: 'none' as const };
+  const selection = ownSelectionState(
+    value.presentation?.selection ?? { mode: 'none' },
+    'chart selection',
+  );
   const pointerState = preparePointerInteractionState(
     value.pointerState,
     'chart pointerState',
@@ -1291,7 +1297,10 @@ function prepareHeatmap(
   const activeId = value.presentation?.activeId === undefined
     ? undefined
     : nonEmpty(value.presentation.activeId, 'heatmap activeId');
-  const selection = value.presentation?.selection ?? { mode: 'none' as const };
+  const selection = ownSelectionState(
+    value.presentation?.selection ?? { mode: 'none' },
+    'heatmap selection',
+  );
   const pointerState = preparePointerInteractionState(
     value.pointerState,
     'heatmap pointerState',
