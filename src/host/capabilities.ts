@@ -11,6 +11,7 @@ import type {
   TerminalFeatureSupport,
   TerminalUnicodeCapability
 } from './capability-types.ts';
+import type { TerminalCellPixels, TerminalGraphicsTransport } from '../protocol/index.ts';
 import { defineTextWidthProfile } from '../text/index.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import { inferControlCapability, protocolFloor } from './protocol-evidence.ts';
@@ -33,6 +34,14 @@ export interface EnvironmentFacts {
 
 export type ProtocolProbeFacts = Partial<Record<TerminalCapabilityName, TerminalFeatureSupport>>;
 
+export interface GraphicsProbeFacts {
+  readonly kitty: TerminalFeatureSupport;
+  readonly sixel: TerminalFeatureSupport;
+  readonly kittyTransport?: TerminalGraphicsTransport;
+  readonly sixelTransport?: TerminalGraphicsTransport;
+  readonly cellPixels?: TerminalCellPixels;
+}
+
 export interface CapabilityOverride {
   readonly support: TerminalFeatureSupport;
   readonly diagnostic?: string;
@@ -45,6 +54,7 @@ export interface TerminalCapabilityConfiguration {
   readonly overrides?: CapabilityOverrides;
   readonly colorDepth?: 0 | 1 | 4 | 8 | 24;
   readonly widthProfile?: TextWidthProfile;
+  readonly graphics?: GraphicsProbeFacts;
 }
 
 export interface TerminalCapabilityResolverInput {
@@ -54,6 +64,7 @@ export interface TerminalCapabilityResolverInput {
   readonly overrides?: CapabilityOverrides;
   readonly colorDepth?: 0 | 1 | 4 | 8 | 24;
   readonly widthProfile?: TextWidthProfile;
+  readonly graphics?: GraphicsProbeFacts;
 }
 
 interface CapabilityBasis {
@@ -181,14 +192,56 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
     })
   } satisfies Record<TerminalCapabilityName, CapabilitySupport>;
 
+  const graphics = resolveGraphics(input, outputAvailability);
+
   return {
     runtime: input.host.runtime,
     isTty: interactive,
     color: resolveColor(input),
     unicode: resolveUnicode(input),
+    graphics,
     ...capabilities,
-    diagnostics: Object.values(capabilities).flatMap((item) => item.diagnostics)
+    diagnostics: [
+      ...Object.values(capabilities).flatMap((item) => item.diagnostics),
+      ...(input.graphics === undefined
+        ? []
+        : [...graphics.kitty.diagnostics, ...graphics.sixel.diagnostics]),
+    ]
   };
+}
+
+function resolveGraphics(
+  input: TerminalCapabilityResolverInput,
+  outputAvailability: HostFeatureAvailability,
+): TerminalCapabilityProfile['graphics'] {
+  const facts = [
+    hostFact('terminalProtocols', input.host.terminalProtocols),
+    ...environmentFacts(input.environment, ['TERM', 'TERM_PROGRAM', 'TMUX', 'KITTY_WINDOW_ID']),
+  ];
+  const fallback: TerminalFeatureSupport = outputAvailability === 'available' ? 'unknown' : 'unsupported';
+  const kittySupport = input.graphics?.kitty ?? fallback;
+  const sixelSupport = input.graphics?.sixel ?? fallback;
+  return Object.freeze({
+    kitty: Object.freeze({
+      ...capability(
+        'kittyGraphics', kittySupport, outputAvailability,
+        input.graphics === undefined ? facts : [...facts, sourceFact('probe', 'kittyGraphics', kittySupport)],
+        'Kitty graphics support has not been verified.', false,
+      ),
+      ...(input.graphics?.kittyTransport === undefined ? {} : { transport: input.graphics.kittyTransport }),
+    }),
+    sixel: Object.freeze({
+      ...capability(
+        'sixelGraphics', sixelSupport, outputAvailability,
+        input.graphics === undefined ? facts : [...facts, sourceFact('probe', 'sixelGraphics', sixelSupport)],
+        'SIXEL graphics support has not been verified.', false,
+      ),
+      ...(input.graphics?.sixelTransport === undefined ? {} : { transport: input.graphics.sixelTransport }),
+    }),
+    ...(input.graphics?.cellPixels === undefined ? {} : {
+      cellPixels: Object.freeze({ ...input.graphics.cellPixels }),
+    }),
+  });
 }
 
 export function capabilityIsSupported(capability: CapabilitySupport): boolean {
@@ -219,7 +272,7 @@ function resolveCapability(
 }
 
 function capability(
-  name: TerminalCapabilityName,
+  name: string,
   support: TerminalFeatureSupport,
   hostAvailability: HostFeatureAvailability,
   facts: readonly CapabilitySourceFact[],
@@ -237,7 +290,7 @@ function capability(
 }
 
 function capabilityDiagnostic(
-  name: TerminalCapabilityName,
+  name: string,
   support: TerminalFeatureSupport,
   hostAvailability: HostFeatureAvailability,
   message: string

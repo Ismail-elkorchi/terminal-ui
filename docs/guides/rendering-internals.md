@@ -10,9 +10,9 @@ The rendering path is:
 1. Each opaque element is resolved to its private render node, then the tree is
    measured and laid out into layout nodes.
 2. Renderers write `RenderSpan` data into a `FrameBuffer`.
-3. The buffer produces a `Frame` with styled cells, source metadata, focus
-   targets, hit targets, and an accessible snapshot.
-4. `diffFrames()` compares cells and emits changed runs.
+3. The buffer produces a `Frame` with styled cells, clipped graphic placements,
+   source metadata, focus targets, hit targets, and an accessible snapshot.
+4. `diffFrames()` compares cells and graphic placements and emits changed runs.
 5. `renderFramePlain()`, `renderFrameAnsi()`, `renderFrameDebug()`, and
    `renderDiffAnsi()` serialize the chosen frame representation.
 
@@ -102,6 +102,13 @@ All component definitions receive its write-only
 
 Every component definition and `canvas()` painter uses that buffer path.
 They must not write to terminal hosts, emit raw ANSI, or bypass the frame.
+
+Raster resources are immutable, renderer-owned identities. Graphic placements
+remain separate from cells so plain snapshots and accessibility always retain
+the component fallback. Region composition clips placements against viewports
+and later layers. Terminal commit owns protocol selection, image upload caches,
+placement deletion, and session cleanup; portable frame serialization never
+guesses terminal graphics support. See [Terminal graphics](./graphics.md).
 
 ## Diff And ANSI Serialization
 

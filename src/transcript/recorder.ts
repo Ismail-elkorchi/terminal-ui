@@ -155,6 +155,10 @@ function transcriptFrame(frame: Frame): Frame {
     widthProfile: frame.widthProfile,
     ...(frame.canvasStyle === undefined ? {} : { canvasStyle: frame.canvasStyle }),
     cells: frame.cells,
+    graphics: frame.graphics.map((placement) => ({
+      ...placement,
+      image: { ...placement.image }
+    })),
     ...(frame.hitTargets === undefined ? {} : { hitTargets: frame.hitTargets }),
     ...(frame.cursor === undefined ? {} : { cursor: frame.cursor }),
     ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),

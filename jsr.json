@@ -23,6 +23,7 @@
     "./layout": "./src/layout/index.ts",
     "./behavior": "./src/behavior/index.ts",
     "./renderer": "./src/renderer/index.ts",
+    "./graphics": "./src/graphics/index.ts",
     "./accessibility": "./src/accessibility/index.ts",
     "./transcript": "./src/transcript/index.ts",
     "./testing": "./src/testing/index.ts"

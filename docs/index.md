@@ -29,6 +29,7 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 - `examples/tui/interactive-workspace.ts` demonstrates a hand-written interactive TUI using layout, components, behavior helpers, and runtime APIs.
 - `examples/tui/ide-editor.ts` demonstrates a full-screen editor whose filesystem work runs through typed effects.
 - `examples/tui/btop-monitor.ts` demonstrates a full-screen monitor using tables, charts, progress, surfaces, and subscriptions.
+- `examples/tui/graphics.ts` demonstrates an owned RGB raster with Kitty/SIXEL output and a plain-cell fallback.
 
 ## Guides
 
@@ -37,6 +38,7 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 - [Text measurement](./guides/text.md)
 - [Prompts](./guides/prompts.md)
 - [TUI rendering](./guides/tui.md)
+- [Terminal graphics](./guides/graphics.md)
 - [Building terminal apps](./guides/building-terminal-apps.md)
 - [Components](./guides/components.md)
 - [Behavior helpers](./guides/behavior.md)

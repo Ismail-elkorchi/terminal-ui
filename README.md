@@ -160,6 +160,7 @@ harnesses.
 
 - [Prompts](./docs/guides/prompts.md)
 - [Building terminal apps](./docs/guides/building-terminal-apps.md)
+- [Terminal graphics](./docs/guides/graphics.md)
 - [Reusable component definitions](./docs/guides/component-definitions.md)
 - [Testing harness](./docs/guides/testing-harness.md)
 - [API entrypoints and all guides](./docs/index.md)

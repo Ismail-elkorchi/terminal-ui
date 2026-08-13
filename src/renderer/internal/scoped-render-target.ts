@@ -37,6 +37,12 @@ export function createLocalComponentRenderTarget(
       row: bounds.row + cell.row,
       column: bounds.column + cell.column
     }); },
+    placeGraphic: (placement) => { absolute.placeGraphic({
+      ...placement,
+      id: `${owner.graphicId ?? owner.id ?? owner.name}:${placement.id}`,
+      bounds: toAbsoluteRect(placement.bounds),
+      ...(placement.clip === undefined ? {} : { clip: toAbsoluteRect(placement.clip) })
+    }); },
     clear: (rect) => { absolute.clear(rect === undefined ? undefined : toAbsoluteRect(rect)); }
   } satisfies RenderTarget);
 }
@@ -87,6 +93,13 @@ function createBoundedRenderTarget(
         ...(cell.source === undefined ? {} : { source: cell.source })
       }]);
     },
+    placeGraphic(placement): void {
+      if (writableBounds === undefined) return;
+      const requestedClip = placement.clip ?? placement.bounds;
+      const clip = intersectRects(writableBounds, requestedClip);
+      if (clip === undefined) return;
+      target.placeGraphic({ ...placement, clip });
+    },
     clear(rect?: Rect): void {
       if (writableBounds === undefined) return;
       const requested = rect === undefined ? writableBounds : validRect(rect);
@@ -99,6 +112,7 @@ function createBoundedRenderTarget(
 
 export interface ScopedRenderOwner {
   readonly id?: string;
+  readonly graphicId?: string;
   readonly name: string;
   readonly rendererFamily?: string;
 }

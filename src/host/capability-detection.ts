@@ -22,6 +22,8 @@ import {
 } from './terminal-mode-query.ts';
 import type { TerminalModeReports, TerminalModeReportState } from './terminal-mode-query.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
+import { createGraphicsResponseProtocol, graphicsQueryRequest } from './graphics-query.ts';
+import type { GraphicsProbeFacts } from './capabilities.ts';
 
 const KITTY_KEYBOARD_QUERY = '\u001B[?u\u001B[c';
 const DEFAULT_PROBE_TIMEOUT_MS = 100;
@@ -46,13 +48,17 @@ export class TerminalCapabilityDetector {
   #profile: TerminalCapabilityProfile;
   #keyboardProbe: Promise<void> | undefined;
   #modeProbe: Promise<void> | undefined;
+  #graphicsProbe: Promise<void> | undefined;
   #probeTail: Promise<void> | undefined;
   #modesObserved = false;
+  #graphicsObserved = false;
+  #graphicsFacts: GraphicsProbeFacts | undefined;
 
   constructor(options: TerminalCapabilityDetectorOptions) {
     this.#options = options;
     this.#configuredProbeFacts = { ...options.resolverInput.probes };
     this.#probeFacts = { ...this.#configuredProbeFacts };
+    this.#graphicsFacts = options.resolverInput.graphics;
     this.#profile = this.#resolve();
   }
 
@@ -96,6 +102,21 @@ export class TerminalCapabilityDetector {
     if (options.refresh === true) {
       await this.#settleActiveProbes(options.signal);
       this.#resetObservedProbes();
+    }
+    if (
+      options.activeProbes?.includes('graphics') === true
+      && this.#profile.isTty
+      && !this.#graphicsObserved
+    ) {
+      if (this.#graphicsProbe === undefined) {
+        this.#graphicsProbe = this.#runProbeExclusive(
+          () => this.#probeGraphics(options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS, options.signal)
+        ).finally(() => { this.#graphicsProbe = undefined; });
+      }
+      await waitForTerminalOperation(
+        this.#graphicsProbe,
+        options.signal === undefined ? {} : { signal: options.signal }
+      );
     }
     if (
       options.activeProbes?.includes('terminalModes') === true
@@ -143,8 +164,60 @@ export class TerminalCapabilityDetector {
 
   #resetObservedProbes(): void {
     this.#modesObserved = false;
+    this.#graphicsObserved = false;
+    this.#graphicsFacts = this.#options.resolverInput.graphics;
     this.#probeFacts = { ...this.#configuredProbeFacts };
     this.#profile = this.#resolve();
+  }
+
+  async #probeGraphics(timeoutMs: number, ownerSignal?: AbortSignal): Promise<void> {
+    await this.#options.input.settleResponseQuarantine(ownerSignal);
+    ownerSignal?.throwIfAborted();
+    const controller = probeController(timeoutMs, this.#options.clock, ownerSignal);
+    let failure: unknown;
+    let result: GraphicsProbeFacts | undefined;
+    const session = await this.#options.beginSession('terminal-graphics-probe', this.#profile);
+    try {
+      const raw = await session.enableRawInput({ signal: controller.signal });
+      if (raw.status === 'applied') {
+        result = await this.#queryGraphics('direct', controller.signal);
+        const inTmux = this.#options.resolverInput.environment?.variables?.['TMUX'] !== undefined;
+        if (inTmux && result?.kitty !== 'supported') {
+          const passthrough = await this.#queryGraphics('tmux-passthrough', controller.signal);
+          result = mergeGraphicsProbeFacts(result, passthrough);
+        }
+      }
+    } catch (cause) {
+      failure = cause;
+    } finally {
+      controller.close();
+      try {
+        const restored = await session.restore('success');
+        if (restored.status !== 'restored') failure = new Error('Graphics probing could not restore its temporary input session.');
+      } catch (cause) {
+        failure = cause;
+      }
+    }
+    if (failure !== undefined) throw terminalProbeError(failure);
+    if (result === undefined) return;
+    this.#graphicsFacts = result;
+    this.#graphicsObserved = true;
+    this.#profile = this.#resolve();
+  }
+
+  async #queryGraphics(
+    transport: import('../protocol/index.ts').TerminalGraphicsTransport,
+    signal: AbortSignal,
+  ): Promise<GraphicsProbeFacts | undefined> {
+    const result = await this.#options.input.queryTerminal({
+      signal,
+      clock: this.#options.clock,
+      protocol: createGraphicsResponseProtocol(transport),
+      send: async () => {
+        requireCommittedTerminalWrite(await this.#options.write({ text: graphicsQueryRequest(transport) }, signal));
+      },
+    });
+    return result.status === 'matched' ? result.value : undefined;
   }
 
   async #probeModes(timeoutMs: number, ownerSignal?: AbortSignal): Promise<void> {
@@ -264,7 +337,8 @@ export class TerminalCapabilityDetector {
   #resolve(): TerminalCapabilityProfile {
     return resolveTerminalCapabilities({
       ...this.#options.resolverInput,
-      probes: this.#probeFacts
+      probes: this.#probeFacts,
+      ...(this.#graphicsFacts === undefined ? {} : { graphics: this.#graphicsFacts })
     });
   }
 
@@ -282,7 +356,7 @@ export class TerminalCapabilityDetector {
   }
 
   async #settleActiveProbes(signal?: AbortSignal): Promise<void> {
-    const probes = [this.#modeProbe, this.#keyboardProbe]
+    const probes = [this.#modeProbe, this.#keyboardProbe, this.#graphicsProbe]
       .filter((probe): probe is Promise<void> => probe !== undefined);
     if (probes.length === 0) return;
     await waitForTerminalOperation(
@@ -290,6 +364,27 @@ export class TerminalCapabilityDetector {
       signal === undefined ? {} : { signal }
     );
   }
+}
+
+function mergeGraphicsProbeFacts(
+  direct: GraphicsProbeFacts | undefined,
+  passthrough: GraphicsProbeFacts | undefined,
+): GraphicsProbeFacts | undefined {
+  if (direct === undefined) return passthrough;
+  if (passthrough === undefined) return direct;
+  return Object.freeze({
+    kitty: passthrough.kitty === 'supported' ? 'supported' : direct.kitty,
+    sixel: direct.sixel === 'supported' || passthrough.sixel === 'supported' ? 'supported' : direct.sixel,
+    ...(passthrough.kitty === 'supported'
+      ? { kittyTransport: passthrough.kittyTransport }
+      : direct.kittyTransport === undefined ? {} : { kittyTransport: direct.kittyTransport }),
+    ...(direct.sixel === 'supported'
+      ? { sixelTransport: direct.sixelTransport }
+      : passthrough.sixelTransport === undefined ? {} : { sixelTransport: passthrough.sixelTransport }),
+    ...(passthrough.cellPixels ?? direct.cellPixels) === undefined
+      ? {}
+      : { cellPixels: passthrough.cellPixels ?? direct.cellPixels },
+  });
 }
 
 interface ProbeController {

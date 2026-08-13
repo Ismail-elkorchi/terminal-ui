@@ -3,6 +3,8 @@ import type { InitialFocusSelector } from '../interaction/focus.ts';
 import type { MouseReportingMode } from '../host/index.ts';
 import type { CursorVisibilityPolicy, ProtocolRequirement, SessionProtocolPolicy } from './session-policy.ts';
 import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiTheme } from './types.ts';
+import { decodeTerminalGraphicsMode } from '../graphics/index.ts';
+import type { TerminalGraphicsMode } from '../graphics/index.ts';
 
 export type NormalizedTuiLifecyclePolicy = Readonly<Required<Omit<TuiLifecyclePolicy, 'defaultTimeoutMs'>>>;
 import { decodeKeyboardProfile } from '../protocol/index.ts';
@@ -13,6 +15,7 @@ export interface NormalizedTuiRunOptions<TState> {
   readonly sessionPolicy: SessionProtocolPolicy;
   readonly lifecycle: NormalizedTuiLifecyclePolicy;
   readonly input: Readonly<Required<TuiRunInputPolicy>>;
+  readonly graphics: TerminalGraphicsMode;
 }
 
 export const defaultTuiLifecyclePolicy: NormalizedTuiLifecyclePolicy = Object.freeze({
@@ -40,7 +43,8 @@ export function normalizeTuiRunOptions<TState>(
     ...(theme === undefined ? {} : { theme }),
     sessionPolicy: normalizeSessionPolicy(supplied['sessionPolicy']),
     lifecycle: normalizeLifecyclePolicy(supplied['lifecycle']),
-    input: normalizeInputPolicy(supplied['input'])
+    input: normalizeInputPolicy(supplied['input']),
+    graphics: decodeTerminalGraphicsMode(supplied['graphics'])
   });
 }
 

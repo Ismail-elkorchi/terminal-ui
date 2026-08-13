@@ -30,6 +30,8 @@ export interface TerminalFrameOutputPlan {
 interface TerminalFramePlanOptions extends RenderSerializeOptions {
   readonly scrollRegion: boolean;
   readonly theme?: TerminalTheme;
+  readonly beforeText?: string;
+  readonly afterText?: string;
 }
 
 export function planTerminalFrameOutput(
@@ -38,11 +40,16 @@ export function planTerminalFrameOutput(
   diff: RenderDiff,
   options: TerminalFramePlanOptions
 ): TerminalFrameOutputPlan {
+  if ((options.beforeText?.length ?? 0) > 0 || (options.afterText?.length ?? 0) > 0) {
+    return graphicsFramePlan(next, diff, options);
+  }
   const baseline = planTerminalOutput(diff, options);
   if (
     previous === undefined
     || diff.fullRewrite
     || !options.scrollRegion
+    || previous.graphics.length > 0
+    || next.graphics.length > 0
   ) return baselineFramePlan(baseline);
 
   const unsynchronizedCapabilities: TerminalOutputCapabilityProfile = {
@@ -115,9 +122,42 @@ export function applyTerminalRowMovement(frame: Frame, movement: TerminalRowMove
     widthProfile: frame.widthProfile,
     ...(frame.canvasStyle === undefined ? {} : { canvasStyle: frame.canvasStyle }),
     cells: Object.freeze(cells.toSorted((left, right) => left.row - right.row || left.column - right.column)),
+    graphics: Object.freeze([]),
     accessibility: frame.accessibility,
     ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
     ...(frame.hitTargets === undefined ? {} : { hitTargets: frame.hitTargets })
+  });
+}
+
+function graphicsFramePlan(
+  frame: Frame,
+  diff: RenderDiff,
+  options: TerminalFramePlanOptions,
+): TerminalFrameOutputPlan {
+  const capabilities: TerminalOutputCapabilityProfile = {
+    ...options.capabilities,
+    synchronizedOutput: { ...options.capabilities.synchronizedOutput, support: 'unsupported' },
+  };
+  const cellPlan = planTerminalOutput(diff, { ...options, capabilities });
+  const outerPolicy = createTerminalSerializationPolicy({ capabilities: options.capabilities });
+  const synchronized = options.capabilities.synchronizedOutput.support === 'supported'
+    && options.capabilities.synchronizedOutput.availability === 'available';
+  const begin = synchronized ? outerPolicy.beginSynchronizedOutput() : '';
+  const end = synchronized ? outerPolicy.endSynchronizedOutput() : '';
+  const restoreCursor = frame.cursor === undefined ? '' : outerPolicy.cursorMove(frame.cursor.row, frame.cursor.column);
+  const payload = `${options.beforeText ?? ''}${cellPlan.text}${options.afterText ?? ''}${restoreCursor}`;
+  const text = `${begin}${payload}${end}`;
+  const protocols = Object.freeze({ ...cellPlan.protocols, synchronized });
+  const failureCleanup = frameRecoverySuffix(outerPolicy, protocols);
+  return Object.freeze({
+    text,
+    bytes: utf8Bytes(text),
+    payloadBytes: utf8Bytes(payload),
+    baselinePayloadBytes: cellPlan.baselinePayloadBytes,
+    strategy: 'diff',
+    synchronized,
+    protocols,
+    ...(failureCleanup === undefined ? {} : { failureCleanup }),
   });
 }
 

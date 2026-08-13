@@ -8,6 +8,7 @@ import {
   prepareLogHistory
 } from '../../dist/behavior/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { rasterImage } from '../../dist/graphics/index.js';
 
 import {
   decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
@@ -52,6 +53,7 @@ import {
   meter,
   helpBar,
   heatmap,
+  image,
   inspectElement,
   textInput,
   tabs,
@@ -89,6 +91,12 @@ import {
 } from '../../dist/behavior/index.js';
 
 const unsafe = 'Unsafe \u001B[31mred\u001B[0m text';
+const previewImage = rasterImage({
+  width: 2,
+  height: 1,
+  format: 'rgb8',
+  data: new Uint8Array([255, 0, 0, 0, 0, 255]),
+});
 const terminalSizeNormal = { columns: 48, rows: 10 };
 const terminalSizeWide = { columns: 64, rows: 14 };
 const terminalSizeTiny = { columns: 1, rows: 1 };
@@ -536,6 +544,16 @@ const cases = [
     }),
     expectText: /Unsafe red text/u,
     expectStyledCells: true
+  },
+  {
+    name: 'image',
+    element: () => image({
+      id: 'image',
+      image: previewImage,
+      label: unsafe,
+      measurement: { minWidth: 1, minHeight: 1, preferredWidth: 16, preferredHeight: 2 },
+    }),
+    expectText: /Unsafe red text/u,
   },
   {
     name: 'surface',

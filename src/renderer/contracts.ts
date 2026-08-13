@@ -5,6 +5,7 @@ import type {
   LayerUnderlay
 } from '../element/metadata.ts';
 import type { Rect } from '../geometry/types.ts';
+import type { GraphicOperation, GraphicPlacement, GraphicPlacementInput } from '../graphics/index.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../input/index.ts';
 import type {
   FocusPath,
@@ -68,6 +69,7 @@ export interface RenderTarget {
   writeLine(row: number, column: number, line: RenderLine): void;
   writeBlock(row: number, column: number, block: RenderBlock): void;
   writeCell(cell: RenderTargetCell): void;
+  placeGraphic(placement: GraphicPlacementInput): void;
   clear(rect?: Rect): void;
 }
 
@@ -262,6 +264,7 @@ export interface Frame {
   /** Style inherited by every cell, including otherwise empty canvas cells. */
   readonly canvasStyle?: TerminalStyle;
   readonly cells: readonly FrameCell[];
+  readonly graphics: readonly GraphicPlacement[];
   readonly hitTargets?: readonly FrameHitTarget[];
   readonly cursor?: CursorPosition;
   readonly focusPath?: FocusPath;
@@ -293,6 +296,7 @@ export interface RenderDiff {
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
   readonly operations: readonly RenderOperation[];
+  readonly graphicOperations: readonly GraphicOperation[];
   readonly cursor?: CursorPosition;
   readonly fullRewrite: boolean;
   readonly dirtyRegions?: readonly Rect[];
@@ -308,3 +312,4 @@ export type RenderOperation =
   | { readonly kind: 'clearRect'; readonly bounds: Rect; readonly style?: TerminalStyle };
 
 export type { Rect } from '../geometry/types.ts';
+export type { GraphicOperation, GraphicPlacement, GraphicPlacementInput } from '../graphics/index.ts';

@@ -9,6 +9,7 @@ import type { Frame } from '../renderer/contracts.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
 import type { MessageResolution, TuiMessageSource } from '../interaction/message.ts';
+import type { TerminalGraphicsMode } from '../graphics/index.ts';
 
 export interface TuiDefinition<TState, TMessage> {
   readonly id?: string;
@@ -183,6 +184,7 @@ export type TuiExit<TState> =
 export interface TuiRuntimeOptions<TState, TMessage> {
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;
+  readonly graphics?: TerminalGraphicsMode;
   readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
   readonly transcript?: TranscriptRecorder;
@@ -201,6 +203,7 @@ export interface TuiRunOptions<TState = unknown> {
   readonly sessionPolicy?: SessionProtocolPolicy;
   readonly lifecycle?: TuiLifecyclePolicy;
   readonly input?: TuiRunInputPolicy;
+  readonly graphics?: TerminalGraphicsMode;
 }
 
 export interface TuiRunInputPolicy {
@@ -227,7 +230,7 @@ export interface TuiRuntime<TState, TMessage> {
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
   replaceTerminalProfile(options: InputPipelineOptions & { readonly capabilities: TerminalCapabilityProfile }): void;
   resetInput(): void;
-  suspendOutput(): void;
+  suspendOutput(): Promise<void>;
   resumeOutput(): void;
   redraw(): Promise<Frame>;
   nextChange(signal?: AbortSignal): Promise<TuiRuntimeChange<TState>>;

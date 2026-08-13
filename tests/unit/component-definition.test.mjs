@@ -478,6 +478,7 @@ test('component render targets are frozen write-only capabilities clipped to ele
     assert.deepEqual(Object.keys(target).sort(), [
       'clear',
       'height',
+      'placeGraphic',
       'width',
       'widthProfile',
       'write',

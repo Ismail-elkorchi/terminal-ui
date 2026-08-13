@@ -8,12 +8,14 @@ import type { TuiInputSuspensionController } from './input-suspension.ts';
 import { inputProfileForSession } from './session-policy.ts';
 import { recordTuiRestore } from './transcript.ts';
 import { failTuiRuntimeTerminalOwnership } from './runtime.ts';
+import type { TerminalGraphicsMode } from '../graphics/index.ts';
 
 interface TerminalSuspensionOptions<TState, TMessage> {
   readonly appId: string;
   readonly host: TerminalHost;
   readonly input: TuiInputSuspensionController;
   readonly policy: SessionProtocolPolicy;
+  readonly graphics: TerminalGraphicsMode;
   readonly transcript?: TranscriptRecorder;
   readonly runtime: () => TuiRuntime<TState, TMessage>;
   readonly session: () => TerminalSession;
@@ -30,8 +32,8 @@ export function createTerminalSuspension<TState, TMessage>(
     const completion = tail.then(async () => {
       signal.throwIfAborted();
       const runtime = options.runtime();
+      await runtime.suspendOutput();
       const input = options.input.request();
-      runtime.suspendOutput();
       let inputPaused = false;
       let terminalRestored = false;
       let terminalReacquired = false;
@@ -65,7 +67,11 @@ export function createTerminalSuspension<TState, TMessage>(
         await options.host.getCapabilities({
           activeProbes: options.host.runtime === 'memory'
             ? []
-            : ['terminalModes', 'keyboardProtocol'],
+            : [
+                'terminalModes',
+                'keyboardProtocol',
+                ...(options.graphics === 'none' ? [] : ['graphics'] as const),
+              ],
           refresh: true,
           signal
         });

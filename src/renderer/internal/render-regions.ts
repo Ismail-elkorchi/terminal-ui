@@ -5,6 +5,7 @@ import type { TextWidthProfile } from '../../text/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions } from './frame-buffer.ts';
 import type { FrameCell, FrameHitTarget } from '../contracts.ts';
+import type { GraphicPlacement } from '../../graphics/index.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
 import type { ResolvedPointerFocusIntent } from '../../interaction/focus.ts';
 import type { LayerUnderlay } from '../../element/metadata.ts';
@@ -27,6 +28,7 @@ export interface RenderRegion<TMessage = unknown> {
   readonly underlay: LayerUnderlay;
   readonly backdropBounds?: Rect;
   readonly cells: readonly FrameCell[];
+  readonly graphics: readonly GraphicPlacement[];
   readonly metadata: FrameBufferSnapshotMetadata;
   readonly hitTargets: readonly RenderRegionHitTarget<TMessage>[];
   readonly focusTargets: readonly LayoutFocusTarget[];
@@ -120,9 +122,23 @@ function createRegionFrameBuffer(terminalSize: TerminalSize, bounds: Rect, width
       if (!cellInside(cell, bounds)) return;
       local.writeCell(toLocalCell(bounds, cell));
     },
+    placeGraphic(placement) {
+      local.placeGraphic({
+        ...placement,
+        bounds: toLocalRect(bounds, placement.bounds),
+        ...(placement.clip === undefined ? {} : { clip: toLocalRect(bounds, placement.clip) })
+      });
+    },
     readCell(row, column) {
       const cell = local.readCell(toLocalRow(bounds, row), toLocalColumn(bounds, column));
       return cell === undefined ? undefined : toTerminalCell(bounds, cell);
+    },
+    occludeGraphics(rect) {
+      const occlusion = intersectRects(bounds, rect);
+      if (occlusion !== undefined) local.occludeGraphics(toLocalRect(bounds, occlusion));
+    },
+    removeGraphic(id) {
+      local.removeGraphic(id);
     },
     clear(rect) {
       const clearBounds = rect === undefined ? bounds : intersectRects(bounds, rect);
@@ -136,9 +152,23 @@ function createRegionFrameBuffer(terminalSize: TerminalSize, bounds: Rect, width
         width: terminalSize.columns,
         height: terminalSize.rows,
         cells: frame.cells.map((cell) => toTerminalCell(bounds, cell)),
+        graphics: frame.graphics.map((placement) => ({
+          ...placement,
+          bounds: toTerminalRect(bounds, placement.bounds),
+          clip: toTerminalRect(bounds, placement.clip)
+        })),
         metadata: translateSnapshotMetadata(bounds, frame.metadata)
       };
     }
+  };
+}
+
+function toTerminalRect(bounds: Rect, rect: Rect): Rect {
+  return {
+    row: rect.row + bounds.row - 1,
+    column: rect.column + bounds.column - 1,
+    width: rect.width,
+    height: rect.height
   };
 }
 

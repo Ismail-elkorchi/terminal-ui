@@ -20,6 +20,7 @@ export {
   meter,
   helpBar,
   heatmap,
+  image,
   link,
   label,
   list,

@@ -14,6 +14,18 @@ export type { KittyKeyboardFlagMap, KittyKeyboardFlags, TerminalKeyboardProfile 
 import type { TerminalProtocolSink } from './types.ts';
 import { decodeKeyboardProfile } from './keyboard.ts';
 import type { TerminalKeyboardProfile } from './keyboard.ts';
+export {
+  encodeKittyImageDelete,
+  encodeKittyImageUpload,
+  encodeKittyPlacement,
+  encodeKittyPlacementDelete,
+  wrapGraphicsControl,
+} from './kitty-graphics.ts';
+export { encodeSixelImage } from './sixel-graphics.ts';
+export { resolveGraphicGeometry } from './graphics-geometry.ts';
+export type { TerminalGraphicsTransport } from './kitty-graphics.ts';
+export type { RgbColor } from './sixel-graphics.ts';
+export type { ResolvedGraphicGeometry, TerminalCellPixels } from './graphics-geometry.ts';
 
 export interface TerminalProtocolWriter {
   enableAlternateScreen(): Promise<void>;

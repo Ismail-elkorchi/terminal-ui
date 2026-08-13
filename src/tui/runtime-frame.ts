@@ -18,6 +18,7 @@ import type {
   TerminalSize
 } from '../host/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
+import type { TerminalGraphicsCommitter } from './graphics-committer.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
@@ -100,17 +101,31 @@ export async function commitFrame(
   frame: Frame,
   theme: TerminalTheme,
   capabilities: TerminalCapabilityProfile,
-  options: { readonly dirtyRegions?: DirtyRegionSet; readonly signal?: AbortSignal } = {}
+  options: {
+    readonly dirtyRegions?: DirtyRegionSet;
+    readonly signal?: AbortSignal;
+    readonly graphics?: TerminalGraphicsCommitter;
+  } = {}
 ): Promise<RenderDiff> {
   options.signal?.throwIfAborted();
-  const diff = diffFrames(previousFrame, frame, options);
+  let diff = diffFrames(previousFrame, frame, options);
+  const graphics = options.graphics?.plan(frame, diff, capabilities, theme);
+  if (options.signal?.aborted === true) {
+    options.graphics?.invalidate();
+    options.signal.throwIfAborted();
+  }
+  if (graphics?.forceFullRewrite === true && !diff.fullRewrite) {
+    diff = diffFrames(undefined, frame, options);
+  }
   options.signal?.throwIfAborted();
   const output = planTerminalFrameOutput(previousFrame, frame, diff, {
     capabilities,
     scrollRegion: capabilities.scrollRegion.support === 'supported'
       && capabilities.scrollRegion.availability === 'available',
     hyperlinks: true,
-    theme
+    theme,
+    ...(graphics?.beforeCells === undefined ? {} : { beforeText: graphics.beforeCells }),
+    ...(graphics?.afterCells === undefined ? {} : { afterText: graphics.afterCells })
   });
   const operationContext: TerminalOperationContext = options.signal === undefined
     ? {}
@@ -119,6 +134,7 @@ export async function commitFrame(
     try {
       requireCommittedTerminalWrite(await host.write({ text: output.text }, operationContext));
     } catch (error) {
+      options.graphics?.invalidate();
       await attemptOutputCleanup(host, output.failureCleanup, error);
     }
   }

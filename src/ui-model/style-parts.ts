@@ -1,4 +1,5 @@
 export type TextStylePart = 'content' | 'link';
+export type ImageStylePart = 'fallback';
 export type LinkStylePart = 'label';
 export type ToggleButtonStylePart = 'label' | 'indicator';
 export type ToolbarStylePart = 'label';

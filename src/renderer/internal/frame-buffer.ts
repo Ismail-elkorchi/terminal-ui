@@ -17,6 +17,8 @@ import type { TextWidthProfile } from '../../text/index.ts';
 import type { GraphemeSegment } from '../../text/index.ts';
 import { defaultTextWidthProfile, defineTextWidthProfile } from '../../text/index.ts';
 import { assertFrameDimensions } from './frame-limits.ts';
+import { isRasterImage } from '../../graphics/raster-image.ts';
+import type { GraphicPlacement, GraphicPlacementInput } from '../../graphics/types.ts';
 
 export interface FrameBufferOptions {
   readonly widthProfile?: TextWidthProfile;
@@ -62,7 +64,10 @@ export interface FrameBuffer extends RenderTarget {
   writeLine(row: number, column: number, line: RenderLine): void;
   writeBlock(row: number, column: number, block: RenderBlock): void;
   writeCell(cell: FrameCell): void;
+  placeGraphic(placement: GraphicPlacementInput): void;
   readCell(row: number, column: number): FrameCell | undefined;
+  occludeGraphics(rect: Rect): void;
+  removeGraphic(id: string): void;
 
   clear(rect?: Rect): void;
   snapshot(options?: FrameBufferSnapshotOptions): FrameBufferSnapshot;
@@ -105,6 +110,10 @@ export function transferFrameCell(buffer: RenderTarget, cell: FrameCell): void {
     return;
   }
   buffer.writeCell(cell);
+}
+
+export function transferGraphicPlacement(buffer: RenderTarget, placement: GraphicPlacement): void {
+  buffer.placeGraphic(placement);
 }
 
 export interface PreparedRenderSpan {
@@ -159,6 +168,7 @@ class CellFrameBuffer implements FrameBuffer {
   readonly widthProfile: TextWidthProfile;
 
   private readonly rows = new Map<number, Map<number, FrameCell>>();
+  private readonly graphics = new Map<string, GraphicPlacement>();
   private readonly inheritBackground: boolean;
   private readonly mergeableCellValues = new Set<FrameCell>();
   private readonly writtenCoverage = new DirtyCoverageAccumulator();
@@ -230,6 +240,45 @@ class CellFrameBuffer implements FrameBuffer {
     }]);
   }
 
+  placeGraphic(input: GraphicPlacementInput): void {
+    if (typeof input.id !== 'string' || input.id.length === 0) {
+      throw new TypeError('Graphic placement id must be a non-empty string.');
+    }
+    if (!isRasterImage(input.image)) {
+      throw new TypeError('Graphic placement image must be created by rasterImage().');
+    }
+    const fit = normalizeGraphicFit(input.fit);
+    const bounds = normalizeGraphicRect(input.bounds, 'bounds');
+    const requestedClip = input.clip === undefined
+      ? bounds
+      : normalizeGraphicRect(input.clip, 'clip');
+    const clip = this.clipRectIntersection(bounds, requestedClip);
+    if (clip === undefined) {
+      this.graphics.delete(input.id);
+      return;
+    }
+    this.graphics.set(input.id, Object.freeze({
+      id: input.id,
+      image: input.image,
+      bounds: Object.freeze(bounds),
+      fit,
+      clip: Object.freeze(clip),
+    }));
+    this.writtenCoverage.add(clip);
+  }
+
+  private clipRectIntersection(bounds: Rect, requestedClip: Rect): Rect | undefined {
+    const clip = this.clipRect(requestedClip);
+    if (clip === undefined) return undefined;
+    const row = Math.max(bounds.row, clip.row);
+    const column = Math.max(bounds.column, clip.column);
+    const bottom = Math.min(bounds.row + bounds.height, clip.row + clip.height);
+    const right = Math.min(bounds.column + bounds.width, clip.column + clip.width);
+    return bottom <= row || right <= column
+      ? undefined
+      : { row, column, width: right - column, height: bottom - row };
+  }
+
   readCell(row: number, column: number): FrameCell | undefined {
     return this.cellAt(row, column);
   }
@@ -240,9 +289,11 @@ class CellFrameBuffer implements FrameBuffer {
     this.clearedCoverage.add(clipped);
     if (clipped.row === 1 && clipped.column === 1 && clipped.width === this.width && clipped.height === this.height) {
       this.rows.clear();
+      this.graphics.clear();
       this.mergeableCellValues.clear();
       return;
     }
+    this.occludeGraphics(clipped);
     for (const [row, cells] of this.rows) {
       if (row < clipped.row || row >= clipped.row + clipped.height) continue;
       const affected = [...cells.values()].filter((cell) =>
@@ -251,6 +302,27 @@ class CellFrameBuffer implements FrameBuffer {
       );
       for (const cell of affected) this.clearCellGroup(row, cell.column, 'none');
     }
+  }
+
+  occludeGraphics(rect: Rect): void {
+    const clipped = this.clipRect(rect);
+    if (clipped === undefined) return;
+    for (const [id, placement] of [...this.graphics]) {
+      if (!rectsOverlap(placement.clip, clipped)) continue;
+      this.graphics.delete(id);
+      for (const fragment of subtractRect(placement.clip, clipped)) {
+        const fragmentId = `${placement.id}#${String(fragment.row)}:${String(fragment.column)}:${String(fragment.width)}:${String(fragment.height)}`;
+        this.graphics.set(fragmentId, Object.freeze({
+          ...placement,
+          id: fragmentId,
+          clip: Object.freeze(fragment),
+        }));
+      }
+    }
+  }
+
+  removeGraphic(id: string): void {
+    this.graphics.delete(id);
   }
 
   snapshot(options: FrameBufferSnapshotOptions = {}): FrameBufferSnapshot {
@@ -280,6 +352,7 @@ class CellFrameBuffer implements FrameBuffer {
       widthProfile: this.widthProfile,
       ...(canvasStyle === undefined ? {} : { canvasStyle }),
       cells,
+      graphics: Object.freeze([...this.graphics.values()]),
       accessibility,
       metadata: Object.freeze({
         writtenBounds: this.writtenCoverage.toDirtyRegionSet(),
@@ -439,6 +512,7 @@ class CellFrameBuffer implements FrameBuffer {
     column: number,
     cell: Omit<FrameCell, 'row' | 'column'>
   ): void {
+    this.occludeGraphics({ row, column, width: Math.max(1, cell.width), height: 1 });
     const existingBackground = this.inheritBackground && cell.style?.bg === undefined
       ? this.cellAt(row, column)?.style?.bg
       : undefined;
@@ -553,6 +627,58 @@ class CellFrameBuffer implements FrameBuffer {
     const end = Math.min(this.width + 1, column + width);
     if (end > start) this.writtenCoverage.addSpan(row, start, end - start);
   }
+}
+
+function normalizeGraphicRect(value: unknown, field: string): Rect {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`Graphic placement ${field} must be a rectangle.`);
+  }
+  const rect = value as Readonly<Record<string, unknown>>;
+  if (![rect['row'], rect['column'], rect['width'], rect['height']].every((part) => typeof part === 'number')) {
+    throw new TypeError(`Graphic placement ${field} must contain numeric coordinates and dimensions.`);
+  }
+  const row = Math.floor(rect['row'] as number);
+  const column = Math.floor(rect['column'] as number);
+  const width = Math.floor(rect['width'] as number);
+  const height = Math.floor(rect['height'] as number);
+  if (
+    ![row, column, width, height].every(Number.isSafeInteger)
+    || width < 1
+    || height < 1
+    || !Number.isSafeInteger(row + height)
+    || !Number.isSafeInteger(column + width)
+  ) {
+    throw new RangeError(`Graphic placement ${field} must contain safe integer coordinates and positive dimensions.`);
+  }
+  return { row, column, width, height };
+}
+
+function normalizeGraphicFit(value: unknown): GraphicPlacement['fit'] {
+  if (value === 'contain' || value === 'cover' || value === 'fill') return value;
+  throw new TypeError("Graphic placement fit must be 'contain', 'cover', or 'fill'.");
+}
+
+function rectsOverlap(left: Rect, right: Rect): boolean {
+  return left.row < right.row + right.height
+    && right.row < left.row + left.height
+    && left.column < right.column + right.width
+    && right.column < left.column + left.width;
+}
+
+function subtractRect(source: Rect, occlusion: Rect): readonly Rect[] {
+  const row = Math.max(source.row, occlusion.row);
+  const column = Math.max(source.column, occlusion.column);
+  const bottom = Math.min(source.row + source.height, occlusion.row + occlusion.height);
+  const right = Math.min(source.column + source.width, occlusion.column + occlusion.width);
+  if (bottom <= row || right <= column) return [source];
+  const sourceBottom = source.row + source.height;
+  const sourceRight = source.column + source.width;
+  return [
+    { row: source.row, column: source.column, width: source.width, height: row - source.row },
+    { row: bottom, column: source.column, width: source.width, height: sourceBottom - bottom },
+    { row, column: source.column, width: column - source.column, height: bottom - row },
+    { row, column: right, width: sourceRight - right, height: bottom - row },
+  ].filter((rect) => rect.width > 0 && rect.height > 0);
 }
 
 function effectiveCanvasCell(cell: FrameCell, canvasStyle: TerminalStyle | undefined): FrameCell {

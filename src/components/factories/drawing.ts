@@ -1,11 +1,16 @@
 import { defineComponent } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
-import type { CanvasOptions } from '../options/drawing.ts';
+import type { CanvasOptions, ImageOptions } from '../options/drawing.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
-import { adoptMeasurement, createLocalCanvas2D } from '../../renderer/index.ts';
-import type { CanvasPainter, Measurement } from '../../renderer/index.ts';
+import { adoptMeasurement, createLocalCanvas2D, span } from '../../renderer/index.ts';
+import type { CanvasPainter, Measurement, TerminalStyle } from '../../renderer/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { CanvasStylePart } from '../../ui-model/style-parts.ts';
+import type { ImageStylePart } from '../../ui-model/style-parts.ts';
+import { isRasterImage } from '../../graphics/index.ts';
+import type { ImageFit, RasterImage } from '../../graphics/index.ts';
+import { inlineSegmentText, normalizeInlineContent } from '../../visual/inline-content.ts';
+import type { InlineContent } from '../../visual/inline-content.ts';
 
 interface CanvasModel {
   readonly painter: CanvasPainter;
@@ -82,6 +87,134 @@ const decorativeCanvas = defineComponent<
 export function canvas(options: CanvasOptions): Element {
   if (!isNonArrayObject(options)) throw new TypeError('canvas options must be an object.');
   return options.decorative === true ? decorativeCanvas(options) : semanticCanvas(options);
+}
+
+interface ImageModel {
+  readonly image: RasterImage;
+  readonly measurement: Measurement;
+  readonly fit: ImageFit;
+  readonly fallback: InlineContent;
+  readonly label?: string;
+}
+
+interface SemanticImageModel extends ImageModel {
+  readonly label: string;
+}
+
+type ImageOwnOptions = Pick<ImageOptions, 'image' | 'measurement' | 'fit' | 'fallback' | 'label' | 'decorative'>;
+
+const semanticImage = defineComponent<
+  ImageOwnOptions,
+  SemanticImageModel,
+  never,
+  ImageStylePart,
+  readonly [],
+  'optional',
+  readonly ['styles', 'layer']
+>({
+  name: 'terminal-ui/components/image',
+  identity: 'optional',
+  structure: 'leaf',
+  semantics: 'semantic',
+  accessibleRole: 'image',
+  metadata: ['styles', 'layer'],
+  parts: ['fallback'],
+  prepare(value) {
+    const model = prepareImage(value);
+    if (value.decorative === true) throw new TypeError('Semantic image decorative must be false or absent.');
+    if (model.label === undefined) throw new TypeError('Semantic image requires a non-empty label.');
+    return Object.freeze({ ...model, label: model.label });
+  },
+  measure: ({ model }) => model.measurement,
+  render: renderImage,
+  accessibility({ id, model }) {
+    return { id, role: 'image', label: model.label, scope: { kind: 'document' } };
+  },
+});
+
+const decorativeImage = defineComponent<
+  Pick<ImageOwnOptions, 'image' | 'measurement' | 'fit' | 'fallback' | 'decorative'>,
+  ImageModel,
+  ImageStylePart,
+  'optional',
+  readonly ['styles', 'layer']
+>({
+  name: 'terminal-ui/components/decorative-image',
+  identity: 'optional',
+  structure: 'leaf',
+  semantics: 'decorative',
+  metadata: ['styles', 'layer'],
+  parts: ['fallback'],
+  prepare(value) {
+    if (value.decorative !== true) throw new TypeError('Decorative image requires decorative: true.');
+    return prepareImage(value);
+  },
+  measure: ({ model }) => model.measurement,
+  render: renderImage,
+});
+
+export function image(options: ImageOptions): Element {
+  if (!isNonArrayObject(options)) throw new TypeError('image options must be an object.');
+  return options.decorative === true ? decorativeImage(options) : semanticImage(options);
+}
+
+function prepareImage(value: Readonly<ImageOwnOptions>): ImageModel {
+  if (!isRasterImage(value.image)) throw new TypeError('image resource must be created by rasterImage().');
+  const measurement = adoptMeasurement(value.measurement, 'image');
+  const fit = normalizeImageFit(value.fit);
+  const label = value.label;
+  if (label !== undefined && typeof label !== 'string') throw new TypeError('image label must be a string.');
+  const normalizedLabel = label === undefined ? undefined : sanitizeTerminalText(label).text.trim();
+  if (label !== undefined && normalizedLabel?.length === 0) throw new TypeError('image label must be non-empty.');
+  const fallback = value.fallback === undefined
+    ? normalizedLabel === undefined
+      ? Object.freeze([])
+      : Object.freeze([{ kind: 'text' as const, text: normalizedLabel }])
+    : normalizeInlineContent(typeof value.fallback === 'string'
+      ? [{ kind: 'text', text: value.fallback }]
+      : value.fallback);
+  return Object.freeze({
+    image: value.image,
+    measurement,
+    fit,
+    fallback,
+    ...(normalizedLabel === undefined ? {} : { label: normalizedLabel }),
+  });
+}
+
+function normalizeImageFit(value: unknown): ImageFit {
+  if (value === undefined) return 'contain';
+  if (value === 'contain' || value === 'cover' || value === 'fill') return value;
+  throw new TypeError("image fit must be 'contain', 'cover', or 'fill'.");
+}
+
+function renderImage(
+  input: import('../../component/index.ts').ComponentRenderInput<ImageModel, ImageStylePart>,
+): void {
+  if (input.bounds.width <= 0 || input.bounds.height <= 0) return;
+  if (input.model.fallback.length > 0) {
+    input.target.write(0, 0, input.model.fallback.map((segment, index) => {
+      const linkStyle: TerminalStyle | undefined = segment.link === undefined
+        ? undefined
+        : { fg: { kind: 'theme', token: 'link.foreground' }, underline: true };
+      const style = input.style({ part: 'fallback', base: { ...linkStyle, ...segment.style } });
+      return span(inlineSegmentText(segment, input.theme.tokens.symbols.mode), {
+        ...(style === undefined ? {} : { style }),
+        ...(segment.link === undefined ? {} : { link: segment.link }),
+        source: input.source({
+          partName: 'fallback',
+          itemIndex: index,
+          description: 'image fallback',
+        }),
+      });
+    }));
+  }
+  input.target.placeGraphic({
+    id: 'content',
+    image: input.model.image,
+    bounds: { row: 0, column: 0, width: input.bounds.width, height: input.bounds.height },
+    fit: input.model.fit,
+  });
 }
 
 function prepareCanvas(

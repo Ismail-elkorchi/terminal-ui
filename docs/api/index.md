@@ -29,6 +29,7 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/layout`
 - `@ismail-elkorchi/terminal-ui/behavior`
 - `@ismail-elkorchi/terminal-ui/renderer`
+- `@ismail-elkorchi/terminal-ui/graphics`
 - `@ismail-elkorchi/terminal-ui/accessibility`
 - `@ismail-elkorchi/terminal-ui/transcript`
 - `@ismail-elkorchi/terminal-ui/testing`
@@ -52,6 +53,10 @@ pipeline explicitly: `FrameBuffer`, `FrameCellSource`, `RenderSpan`,
 and `renderDiffAnsi()`. See
 [Rendering internals](../guides/rendering-internals.md) for how those pieces
 fit together.
+
+Owned RGB/RGBA resources, image fit, and placement contracts live under the
+graphics entrypoint. The root entrypoint exposes `rasterImage()` and `image()`
+for the normal application path. See [Terminal graphics](../guides/graphics.md).
 
 Application and component APIs are described in [Building terminal apps](../guides/building-terminal-apps.md),
 [Components](../guides/components.md), and

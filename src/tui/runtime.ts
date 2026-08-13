@@ -36,6 +36,8 @@ import { createResizeCoordinator } from './resize-coordinator.ts';
 import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
 import type { PointerMotionEvent } from './pointer-motion-coordinator.ts';
 import type { TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
+import { decodeTerminalGraphicsMode } from '../graphics/index.ts';
+import type { TerminalGraphicsMode } from '../graphics/index.ts';
 import type {
   InputEvent,
   InputPendingState,
@@ -85,19 +87,20 @@ export function failTuiRuntimeTerminalOwnership(runtime: object, cause: unknown)
 export function createTuiRuntime<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>
 ): TuiRuntime<TState, TMessage> {
-  return createRuntime(options);
+  return createRuntime(options, undefined, decodeTerminalGraphicsMode(options.graphics));
 }
 
 export function createTuiRuntimeWithCapabilitySnapshot<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>,
   capabilities: TerminalCapabilityProfile
 ): TuiRuntime<TState, TMessage> {
-  return createRuntime(options, capabilities);
+  return createRuntime(options, capabilities, options.graphics ?? 'none');
 }
 
 function createRuntime<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>,
-  capabilities?: TerminalCapabilityProfile
+  capabilities: TerminalCapabilityProfile | undefined,
+  graphics: TerminalGraphicsMode,
 ): TuiRuntime<TState, TMessage> {
   let terminalExit: TuiExit<TState> | undefined;
   let inputOptions = options.input ?? {};
@@ -120,7 +123,7 @@ function createRuntime<TState, TMessage>(
   const store = createRuntimeStore(options.app.definition.update, () => {
     metrics.dispatchedMessages += 1;
   });
-  const commits = createRuntimeCommitCoordinator(options, lifecycle.signal);
+  const commits = createRuntimeCommitCoordinator({ ...options, graphics }, lifecycle.signal);
   const runtimeContext = createRuntimeContextFactory(options.host, capabilities);
   const changes = createRuntimeChangeChannel<TState>();
   const diagnostics = createRuntimeDiagnostics({
@@ -243,7 +246,7 @@ function createRuntime<TState, TMessage>(
     },
     suspendOutput() {
       lifecycle.assertOperational();
-      commits.suspendOutput();
+      return commits.suspendOutput();
     },
     resumeOutput() {
       lifecycle.assertOperational();
@@ -831,7 +834,7 @@ function createRuntime<TState, TMessage>(
           wheelInput.settle(),
           pointerMotion.settle()
         ]);
-        const cleanups = await Promise.allSettled([subscriptions.dispose(), effects.dispose()]);
+        const cleanups = await Promise.allSettled([subscriptions.dispose(), effects.dispose(), commits.dispose()]);
         for (const result of cleanups) {
           if (result.status === 'rejected') failures.push(result.reason);
         }

@@ -21,6 +21,7 @@ import type { RenderSerializeOptions } from './ansi.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
 import { frameIndex } from './frame-index.ts';
 import type { FrameIndex } from './frame-index.ts';
+import type { GraphicOperation, GraphicPlacement } from '../../graphics/index.ts';
 
 export type { CursorPosition, Frame, FrameCell, FrameHitTarget } from '../contracts.ts';
 
@@ -108,6 +109,7 @@ export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): 
     height: frame.height,
     widthProfile: frame.widthProfile,
     operations,
+    graphicOperations: frame.graphics.map((placement) => ({ kind: 'place', placement })),
     ...(frame.cursor === undefined ? {} : { cursor: frame.cursor }),
     fullRewrite: true
   }, options);
@@ -131,6 +133,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
         ...clear,
         ...frameWriteOperations(next)
       ],
+      graphicOperations: next.graphics.map((placement) => ({ kind: 'place', placement })),
       ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
       fullRewrite: true
     };
@@ -169,12 +172,46 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     height: next.height,
     widthProfile: next.widthProfile,
     operations,
+    graphicOperations: diffGraphics(previous.graphics, next.graphics),
     ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
     fullRewrite: false,
     ...(dirtyRegions === undefined ? {} : { dirtyRegions })
   };
   recordDiffWork(options.instrumentation, comparedRows, comparedCells, operations.length);
   return diff;
+}
+
+function diffGraphics(
+  previous: readonly GraphicPlacement[],
+  next: readonly GraphicPlacement[],
+): readonly GraphicOperation[] {
+  const previousById = new Map(previous.map((placement) => [placement.id, placement]));
+  const nextById = new Map(next.map((placement) => [placement.id, placement]));
+  const operations: GraphicOperation[] = [];
+  for (const placement of previous) {
+    if (!nextById.has(placement.id)) operations.push({ kind: 'remove', id: placement.id });
+  }
+  for (const placement of next) {
+    const prior = previousById.get(placement.id);
+    if (prior === undefined || !sameGraphicPlacement(prior, placement)) {
+      operations.push({ kind: 'place', placement });
+    }
+  }
+  return Object.freeze(operations);
+}
+
+function sameGraphicPlacement(left: GraphicPlacement, right: GraphicPlacement): boolean {
+  return left.image === right.image
+    && left.fit === right.fit
+    && sameRect(left.bounds, right.bounds)
+    && sameRect(left.clip, right.clip);
+}
+
+function sameRect(left: Rect, right: Rect): boolean {
+  return left.row === right.row
+    && left.column === right.column
+    && left.width === right.width
+    && left.height === right.height;
 }
 
 export function renderDiffAnsi(diff: RenderDiff, options?: RenderDiffAnsiOptions): string {

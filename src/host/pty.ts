@@ -85,7 +85,8 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
     ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile }),
-    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
+    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
+    ...(options.capabilities?.graphics === undefined ? {} : { graphics: options.capabilities.graphics })
   } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const env = new ObjectEnvironment(options.env ?? {});
   const setTerminalSize = async (nextTerminalSize: TerminalSize): Promise<void> => {

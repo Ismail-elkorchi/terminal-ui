@@ -54,6 +54,7 @@ export async function runTui<TState, TMessage>(
     host: terminalHost,
     input: inputSuspension,
     policy: normalized.sessionPolicy,
+    graphics: normalized.graphics,
     ...(transcript === undefined ? {} : { transcript }),
     runtime: () => {
       const runtime = lifecycle.runtime;
@@ -81,7 +82,11 @@ export async function runTui<TState, TMessage>(
       activeProbes: [
         ...(terminalHost.runtime === 'memory'
           ? []
-          : ['terminalModes', 'keyboardProtocol'] as const)
+          : [
+              'terminalModes',
+              'keyboardProtocol',
+              ...(normalized.graphics === 'none' ? [] : ['graphics'] as const),
+            ] as const)
       ],
       signal
     }));
@@ -97,6 +102,7 @@ export async function runTui<TState, TMessage>(
       signals.dispose();
       return withTuiTranscript(nonTtyExit, transcript);
     }
+    assertRequiredGraphics(normalized.graphics, capabilities);
     const openedSession = await startupPhase('session', async () => terminalHost.beginSession({ id: app.id }));
     lifecycle.openSession(openedSession);
     const setup = await startupPhase('setup', async (signal) =>
@@ -119,6 +125,7 @@ export async function runTui<TState, TMessage>(
       const runtime = createTuiRuntimeWithCapabilitySnapshot({
         app,
         host: terminalHost,
+        graphics: normalized.graphics,
         ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),
         ...(normalized.theme === undefined ? {} : { theme: normalized.theme }),
         withTerminalSuspended,
@@ -189,6 +196,21 @@ export async function runTui<TState, TMessage>(
     startupDiagnostics.push(outcome.diagnostic);
     throw new Error(outcome.diagnostic.message, { cause: outcome.diagnostic.cause });
   }
+}
+
+function assertRequiredGraphics(
+  mode: import('../graphics/index.ts').TerminalGraphicsMode,
+  capabilities: import('../host/index.ts').TerminalCapabilityProfile,
+): void {
+  if (mode === 'kitty' && (
+    capabilities.graphics.kitty.support !== 'supported'
+    || capabilities.graphics.kitty.availability !== 'available'
+  )) throw new Error('Kitty graphics were required but could not be verified.');
+  if (mode === 'sixel' && (
+    capabilities.graphics.sixel.support !== 'supported'
+    || capabilities.graphics.sixel.availability !== 'available'
+    || capabilities.graphics.cellPixels === undefined
+  )) throw new Error('SIXEL graphics were required but support or cell pixel geometry is unavailable.');
 }
 
 function errorExit<TState>(id: string, diagnostics: readonly DiagnosticOccurrence[]): TuiExit<TState> {

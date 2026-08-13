@@ -35,6 +35,9 @@ export type {
   Frame,
   FrameCell,
   FrameHitTarget,
+  GraphicOperation,
+  GraphicPlacement,
+  GraphicPlacementInput,
   FrameRowDiff,
   HitTarget,
   Layer,
@@ -55,6 +58,7 @@ export type {
   RenderWorkMeasurement,
   StrokeFillOptions
 } from './contracts.ts';
+export type { ImageFit } from '../graphics/index.ts';
 export {
   blockGlyph,
   blockSpan,

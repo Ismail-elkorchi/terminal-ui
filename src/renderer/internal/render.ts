@@ -56,6 +56,7 @@ import type { FocusPath } from './focus.ts';
 import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FramePass } from './frame-passes/index.ts';
 import type {
+  GraphicPlacement,
   LayoutNode,
   Rect,
   RenderInstrumentation,
@@ -522,6 +523,7 @@ function targetForRenderNode(
   return renderNode.kind === 'component'
     ? createLocalComponentRenderTarget(target, node.bounds, node.viewport, {
         ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
+        graphicId: renderNode.id ?? node.identity,
         name: renderNodeFactoryName(renderNode),
         rendererFamily: 'component'
       })
@@ -597,6 +599,7 @@ function createRegionComposer<TMessage>(
             underlay: region.underlay,
             ...(region.backdropBounds === undefined ? {} : { backdropBounds: region.backdropBounds }),
             cells: snapshot.cells,
+            graphics: snapshot.graphics,
             metadata: snapshot.metadata,
             hitTargets: frameHitTargets(
               index.layoutTargetsForRegion(region.zIndex, region.bounds),
@@ -621,6 +624,7 @@ export function compositeRegions(
   let canvasBackdropActive = false;
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
     if (region.backdropBounds !== undefined) {
+      buffer.occludeGraphics(region.backdropBounds);
       canvasBackdropActive = applyModalBackdrop(buffer, region.backdropBounds) || canvasBackdropActive;
     }
     if (region.underlay === 'clear') {
@@ -628,6 +632,7 @@ export function compositeRegions(
       for (const cell of region.cells) {
         transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
       }
+      placeRegionGraphics(buffer, region.graphics);
       continue;
     }
     if (region.underlay === 'inheritBackground') {
@@ -635,13 +640,22 @@ export function compositeRegions(
         const inherited = withInheritedBackground(cell, buffer.readCell(cell.row, cell.column));
         transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(inherited) : inherited);
       }
+      placeRegionGraphics(buffer, region.graphics);
       continue;
     }
     for (const cell of region.cells) {
       transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
     }
+    placeRegionGraphics(buffer, region.graphics);
   }
   return buffer;
+}
+
+function placeRegionGraphics(buffer: FrameBuffer, graphics: readonly GraphicPlacement[]): void {
+  for (const graphic of graphics) {
+    buffer.occludeGraphics(graphic.clip);
+    buffer.placeGraphic(graphic);
+  }
 }
 
 const backdropStyle: TerminalStyle = Object.freeze({

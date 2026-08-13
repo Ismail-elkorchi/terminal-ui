@@ -75,6 +75,7 @@ test('transcript decoding retains every successful nested adoption', () => {
     height: 1,
     widthProfile,
     cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
+    graphics: [],
     accessibility: snapshot
   };
   const diff = {
@@ -82,7 +83,8 @@ test('transcript decoding retains every successful nested adoption', () => {
     height: 1,
     widthProfile,
     fullRewrite: true,
-    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }]
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }],
+    graphicOperations: []
   };
   const source = transcript({
     id: 'nested-adoptions',
@@ -120,7 +122,7 @@ test('transcript validation accounts resources on the owned snapshot', () => {
   let stepsReads = 0;
   let diagnosticsReads = 0;
   const source = {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'single-read-boundary',
     source: 'test',
@@ -325,6 +327,7 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
+    graphics: [],
     accessibility: snapshot
   };
   const validDiff = {
@@ -332,7 +335,8 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     fullRewrite: true,
-    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }]
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }],
+    graphicOperations: []
   };
   const frames = [
     [{ ...validFrame, width: -1 }, /width and height/u],
@@ -389,6 +393,7 @@ test('transcript validation rejects unknown fields at every nested persisted bou
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [cell],
+    graphics: [],
     accessibility: snapshot
   };
   const write = { kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] };
@@ -397,7 +402,8 @@ test('transcript validation rejects unknown fields at every nested persisted bou
     height: 1,
     widthProfile: frame.widthProfile,
     fullRewrite: true,
-    operations: [write]
+    operations: [write],
+    graphicOperations: []
   };
   const commit = runtimeCommit(frame, diff);
   const target = {
@@ -443,6 +449,7 @@ test('transcript validation measures writes with the diff width profile', () => 
     height: 1,
     widthProfile,
     cells: [{ row: 1, column: 1, text: '🙂', width: 1 }],
+    graphics: [],
     accessibility: snapshot
   };
   const diff = {
@@ -450,7 +457,8 @@ test('transcript validation measures writes with the diff width profile', () => 
     height: 1,
     widthProfile,
     fullRewrite: true,
-    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: '🙂' }] }]
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: '🙂' }] }],
+    graphicOperations: []
   };
   const result = validateTranscript(transcript({
     id: 'narrow-emoji-diff',
@@ -474,6 +482,7 @@ test('transcript validation requires a replayable diff chain matching bundled fr
     height: 1,
     widthProfile,
     cells: [{ row: 1, column: 1, text, width: 1 }],
+    graphics: [],
     accessibility: snapshot
   });
   const diff = (text, fullRewrite) => ({
@@ -481,7 +490,8 @@ test('transcript validation requires a replayable diff chain matching bundled fr
     height: 1,
     widthProfile,
     fullRewrite,
-    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text }] }]
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text }] }],
+    graphicOperations: []
   });
   const commit = (id, stateVersion, committedFrame, committedDiff) => ({
     id,
@@ -599,7 +609,7 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: '',
     source: 'test',

@@ -120,7 +120,8 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
-    ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile })
+    ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile }),
+    ...(options.capabilities?.graphics === undefined ? {} : { graphics: options.capabilities.graphics })
   } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const terminalState = new TerminalStateAuthorityBinding();
   const detector = new TerminalCapabilityDetector({

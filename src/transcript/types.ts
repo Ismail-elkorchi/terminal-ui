@@ -7,7 +7,7 @@ import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../interaction/message.ts';
 import type { JsonValue } from '../foundation/json.ts';
 
-export const interactionTranscriptFormatVersion = 5 as const;
+export const interactionTranscriptFormatVersion = 6 as const;
 
 export const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const;
 
@@ -69,7 +69,9 @@ export interface TranscriptValidationLimits {
   readonly maxStringCodeUnits?: number;
   readonly maxSteps?: number;
   readonly maxFrameCells?: number;
+  readonly maxFrameGraphics?: number;
   readonly maxDiffOperations?: number;
+  readonly maxGraphicOperations?: number;
   readonly maxDiagnostics?: number;
   readonly maxRedactions?: number;
 }

@@ -34,7 +34,7 @@ export interface TerminalRestoreOptions {
   readonly operationSignal?: AbortSignal;
 }
 
-export type TerminalActiveCapabilityProbe = 'keyboardProtocol' | 'terminalModes';
+export type TerminalActiveCapabilityProbe = 'graphics' | 'keyboardProtocol' | 'terminalModes';
 
 export interface TerminalCapabilityDetectionOptions {
   readonly activeProbes?: readonly TerminalActiveCapabilityProbe[];

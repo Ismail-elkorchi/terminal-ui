@@ -22,9 +22,11 @@ import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { RenderCommitCandidate } from './runtime-frame.ts';
 import type { TuiContext, TuiRuntimeOptions } from './types.ts';
+import { createTerminalGraphicsCommitter } from './graphics-committer.ts';
+import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 
 export function createRuntimeCommitCoordinator<TState, TMessage>(
-  options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus'>,
+  options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics'>,
   signal: AbortSignal
 ) {
   let currentTerminalSize = options.host.getTerminalSize();
@@ -37,6 +39,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
   let outputBaselineKnown = false;
   let outputSuspended = false;
   let nextCommitSequence = 1;
+  const graphics = createTerminalGraphicsCommitter(options.graphics ?? 'none');
 
   const coordinator = {
     terminalSize: () => currentTerminalSize,
@@ -47,13 +50,29 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       return currentRender.frame;
     },
     focusPath: () => currentFocusPath,
-    suspendOutput() {
+    async suspendOutput() {
       outputSuspended = true;
       outputBaselineKnown = false;
+      const cleanup = graphics.cleanup();
+      if (cleanup.length > 0) {
+        try {
+          requireCommittedTerminalWrite(await options.host.write({ text: cleanup }, { signal }));
+        } catch (cause) {
+          outputSuspended = false;
+          graphics.invalidate();
+          throw cause;
+        }
+      }
     },
     resumeOutput() {
       outputSuspended = false;
       outputBaselineKnown = false;
+      graphics.invalidate();
+    },
+    async dispose() {
+      const cleanup = graphics.cleanup();
+      if (cleanup.length === 0) return;
+      requireCommittedTerminalWrite(await options.host.write({ text: cleanup }));
     },
     async initial(state: TState, context: TuiContext, stateVersion: number) {
       const theme = resolveTuiTheme(options.theme, state);
@@ -125,7 +144,8 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         : dirtyRegionsForRenderCommit(currentRender, render);
       const diff = await commitFrame(options.host, previousFrame, render.frame, theme, context.capabilities, {
         ...(dirtyRegions === undefined ? {} : { dirtyRegions }),
-        signal
+        signal,
+        graphics
       });
       outputBaselineKnown = true;
       return diff;

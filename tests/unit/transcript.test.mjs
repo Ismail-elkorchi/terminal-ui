@@ -91,6 +91,7 @@ test('transcript recording owns every retained step and redaction', () => {
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
+    graphics: [],
     accessibility
   };
   const diff = {
@@ -98,6 +99,7 @@ test('transcript recording owns every retained step and redaction', () => {
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }],
+    graphicOperations: [],
     fullRewrite: true
   };
   const restore = {
@@ -141,6 +143,7 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
+    graphics: [],
     accessibility: snapshot
   };
   const diff = {
@@ -148,7 +151,8 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     fullRewrite: true,
-    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }]
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }],
+    graphicOperations: []
   };
   const restore = {
     status: 'restored',
@@ -161,7 +165,7 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
   };
 
   const result = await replayTranscript(harness, {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'replay-all',
     source: 'test',
@@ -275,6 +279,7 @@ test('transcript commits exclude renderer optimization metadata', () => {
     height: 1,
     widthProfile: frame.widthProfile,
     operations: [],
+    graphicOperations: [],
     fullRewrite: true
   };
   const recorder = createTranscriptRecorder({ id: 'public-frame-contract', source: 'tui' });
@@ -325,7 +330,7 @@ test('transcript replay is isolated from mutations after validation', async () =
     recordRestore() {}
   };
   const source = {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'mutable-source',
     source: 'test',
@@ -372,7 +377,7 @@ function terminalState() {
 test('transcript replay returns a typed diagnostic for invalid transcripts', async () => {
   const harness = createTerminalHarness();
   const result = await replayTranscript(harness, {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: '',
     source: 'test',
@@ -394,7 +399,7 @@ test('transcript replay preserves top-level diagnostics and redaction metadata',
   const stepDiagnostic = report.report(diagnostic('INPUT_CANCELLED', 'Cancelled.'));
 
   const result = await replayTranscript(harness, {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'top-level-metadata',
     source: 'test',
@@ -455,7 +460,7 @@ test('transcript replay preserves partial restoration without upgrading its outc
     diagnostics: [diagnostic('HOST_RESTORE_FAILED', 'Raw input restoration was not confirmed.')]
   };
   const transcript = {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'partial-restore',
     source: 'test',
@@ -479,7 +484,7 @@ test('transcript validation rejects duplicate, decreasing, and post-restore comm
   const diff = validDiff(2, 1);
   const commit = runtimeCommit(frame, diff);
   const base = {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'commit-order',
     source: 'test',
@@ -512,7 +517,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
   const harness = createTerminalHarness();
   const snapshot = harness.snapshot();
   const invalidFrame = validateTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'invalid-frame',
     source: 'test',
@@ -536,7 +541,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
   assert.match(invalidFrame.error.message, /frame cells must be an array/u);
 
   const invalidDiff = validateTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'invalid-diff',
     source: 'test',
@@ -548,6 +553,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
           height: 1,
           widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
           fullRewrite: true,
+          graphicOperations: [],
           operations: [{ kind: 'write', row: 0, column: 1, spans: [{ text: 'x' }] }]
         })
       }
@@ -566,7 +572,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
   const baseFrame = validFrame(2, 1, snapshot);
   const baseDiff = validDiff(2, 1);
   const base = {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'invalid-frame-source-state',
     source: 'test',
@@ -635,7 +641,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
 
 test('transcript redaction records concrete paths for redacted strings', () => {
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'redaction',
     source: 'test',
@@ -654,7 +660,7 @@ test('transcript redaction records concrete paths for redacted strings', () => {
 
 test('transcript redaction covers existing audit paths without changing structural signals', () => {
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'signal-redaction',
     source: 'test',
@@ -678,7 +684,7 @@ test('transcript redaction covers existing audit paths without changing structur
 
 test('transcript redaction derives a safe effective replacement', () => {
   const transcript = {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'safe-replacement',
     source: 'test',
@@ -713,7 +719,7 @@ test('transcript redaction derives a safe effective replacement', () => {
 
 test('transcript redaction handles message arrays at the transcript node limit', () => {
   const transcript = {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'large-redaction',
     source: 'test',
@@ -735,7 +741,7 @@ test('transcript redaction handles message arrays at the transcript node limit',
 
 test('transcript redaction uses unambiguous paths for arbitrary JSON keys', () => {
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'key-path-redaction',
     source: 'test',
@@ -770,7 +776,7 @@ test('transcript redaction projects JSON keys without collisions or audit-path l
     }
   }));
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'json-key-redaction',
     source: 'test',
@@ -815,7 +821,7 @@ test('transcript redaction projects JSON keys without collisions or audit-path l
 
 test('transcript redaction preserves transcript and input discriminants that collide with secrets', () => {
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'test-transcript',
     source: 'test',
@@ -846,7 +852,7 @@ test('transcript redaction preserves transcript and input discriminants that col
 
 test('transcript redaction keeps accessibility identifiers unique and references aligned', () => {
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'identifier-redaction',
     source: 'test',
@@ -907,6 +913,7 @@ test('transcript redaction preserves frame geometry and the render-diff chain', 
     height: snapshot.height,
     widthProfile: snapshot.widthProfile,
     cells: snapshot.cells,
+    graphics: snapshot.graphics,
     accessibility: snapshot.accessibility
   };
   const diff = {
@@ -914,10 +921,11 @@ test('transcript redaction preserves frame geometry and the render-diff chain', 
     height: 1,
     widthProfile: frame.widthProfile,
     fullRewrite: true,
-    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'secret value', source }] }]
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'secret value', source }] }],
+    graphicOperations: []
   };
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'render-redaction',
     source: 'test',
@@ -947,7 +955,7 @@ test('transcript redaction does not audit unchanged diagnostic occurrence gramma
   const reporter = createDiagnosticOccurrenceReporter('audit-owner');
   const reported = reporter.report(diagnostic('HOST_STREAM_CLOSED', 'Plain failure.'));
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'audit',
     source: 'test',
@@ -974,7 +982,7 @@ test('transcript redaction rebuilds diagnostic fingerprints before validation an
     data: { detail: 'secret-value-data' }
   }));
   const redacted = redactTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'diagnostic-redaction',
     source: 'test',
@@ -1011,7 +1019,7 @@ test('diagnostics normalize causes into JSON-safe transcript data', () => {
   });
   const reported = occurrence('diagnostic-cause', 1, item);
   const transcript = {
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'diagnostic-cause',
     source: 'test',
@@ -1053,7 +1061,7 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
   assert.equal(encoded.includes('visible-credential'), false);
   assert.match(encoded, /\[redacted\]/u);
   assert.equal(validateTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'redacted-diagnostic',
     source: 'test',
@@ -1065,7 +1073,7 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
 
 test('transcript validation rejects unknown diagnostic codes', () => {
   const invalid = validateTranscript({
-    formatVersion: 5,
+    formatVersion: 6,
     omittedSteps: 0,
     id: 'unknown-diagnostic',
     source: 'test',
@@ -1118,6 +1126,7 @@ function validFrame(width, height, accessibility) {
     height,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [],
+    graphics: [],
     accessibility
   };
 }
@@ -1128,6 +1137,7 @@ function validDiff(width, height) {
     height,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     fullRewrite: true,
-    operations: []
+    operations: [],
+    graphicOperations: []
   };
 }

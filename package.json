@@ -88,6 +88,10 @@
       "types": "./dist/renderer/index.d.ts",
       "default": "./dist/renderer/index.js"
     },
+    "./graphics": {
+      "types": "./dist/graphics/index.d.ts",
+      "default": "./dist/graphics/index.js"
+    },
     "./accessibility": {
       "types": "./dist/accessibility/index.d.ts",
       "default": "./dist/accessibility/index.js"

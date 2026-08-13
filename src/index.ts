@@ -54,6 +54,8 @@ export type {
 } from './interaction/index.ts';
 
 export * from './components/factories.ts';
+export { rasterImage } from './graphics/index.ts';
+export type * from './graphics/index.ts';
 export { prepareCommandSuggestions } from './behavior/command-input-state.ts';
 export { tableColumn } from './ui-model/content.ts';
 export type * from './components/index.ts';

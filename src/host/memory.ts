@@ -271,6 +271,7 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
     probes,
     colorDepth,
     widthProfile,
+    graphics,
     overrides
   } = config.capabilities ?? {};
   const resolverInput = {
@@ -288,6 +289,7 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
     ...(probes === undefined ? {} : { probes }),
     ...(colorDepth === undefined ? {} : { colorDepth }),
     ...(widthProfile === undefined ? {} : { widthProfile }),
+    ...(graphics === undefined ? {} : { graphics }),
     ...(
       config.clipboardWrite === undefined && overrides === undefined
         ? {}

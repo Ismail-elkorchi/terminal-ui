@@ -41,6 +41,13 @@ session snapshot for cursor visibility, alternate screen, paste, mouse tracking
 and encoding, focus reporting, synchronized output, and Unicode grapheme mode.
 Unrelated input is replayed in its original order.
 
+When TUI graphics are enabled, startup also sends bounded Kitty, terminal-cell
+pixel-size, and primary-device-attributes queries. Graphics support is recorded
+only from the matching responses. A tmux session gets a second passthrough query
+only when direct Kitty support was not proved; successful passthrough becomes
+part of the capability evidence used by the renderer. `graphics: 'none'` skips
+this probe entirely.
+
 A caller that intends to enable the Kitty keyboard protocol may also request the
 `keyboardProtocol` active probe. The request is followed by the same device-
 attributes fence, so the result distinguishes support, unsupported, and an

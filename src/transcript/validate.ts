@@ -48,6 +48,7 @@ import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter
 import type { TextWidthProfile } from '../text/index.ts';
 import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
 import type { FrameCellSource, RenderSpan, TerminalLink, TerminalStyle } from '../visual/index.ts';
+import type { GraphicOperation, GraphicPlacement, RasterImage } from '../graphics/index.ts';
 import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type {
@@ -76,6 +77,7 @@ const transcriptFrameFields = new Set([
   'widthProfile',
   'canvasStyle',
   'cells',
+  'graphics',
   'hitTargets',
   'cursor',
   'focusPath',
@@ -125,6 +127,7 @@ const renderDiffFields = new Set([
   'height',
   'widthProfile',
   'operations',
+  'graphicOperations',
   'cursor',
   'fullRewrite',
   'dirtyRegions'
@@ -132,6 +135,10 @@ const renderDiffFields = new Set([
 const textWidthProfileFields = new Set(['emoji', 'ambiguous']);
 const writeOperationFields = new Set(['kind', 'row', 'column', 'spans']);
 const clearRectOperationFields = new Set(['kind', 'bounds', 'style']);
+const graphicPlacementFields = new Set(['id', 'image', 'bounds', 'clip', 'fit']);
+const rasterImageFields = new Set(['width', 'height', 'format', 'byteLength', 'contentFingerprint']);
+const placeGraphicOperationFields = new Set(['kind', 'placement']);
+const removeGraphicOperationFields = new Set(['kind', 'id']);
 const renderSpanFields = new Set(['text', 'style', 'link', 'source']);
 const terminalLinkFields = new Set(['href', 'id']);
 const frameHitTargetFields = new Set([
@@ -203,7 +210,9 @@ export const defaultTranscriptValidationLimits: Readonly<Required<TranscriptVali
   maxStringCodeUnits: 1_000_000,
   maxSteps: 100_000,
   maxFrameCells: 1_000_000,
+  maxFrameGraphics: 100_000,
   maxDiffOperations: 1_000_000,
+  maxGraphicOperations: 100_000,
   maxDiagnostics: 100_000,
   maxRedactions: 100_000
 });
@@ -273,10 +282,20 @@ function normalizeTranscriptValidationLimits(
       defaultTranscriptValidationLimits.maxFrameCells,
       'maxFrameCells'
     ),
+    maxFrameGraphics: transcriptLimit(
+      limits['maxFrameGraphics'],
+      defaultTranscriptValidationLimits.maxFrameGraphics,
+      'maxFrameGraphics'
+    ),
     maxDiffOperations: transcriptLimit(
       limits['maxDiffOperations'],
       defaultTranscriptValidationLimits.maxDiffOperations,
       'maxDiffOperations'
+    ),
+    maxGraphicOperations: transcriptLimit(
+      limits['maxGraphicOperations'],
+      defaultTranscriptValidationLimits.maxGraphicOperations,
+      'maxGraphicOperations'
     ),
     maxDiagnostics: transcriptLimit(
       limits['maxDiagnostics'],
@@ -297,7 +316,9 @@ const transcriptValidationLimitFields = new Set([
   'maxStringCodeUnits',
   'maxSteps',
   'maxFrameCells',
+  'maxFrameGraphics',
   'maxDiffOperations',
+  'maxGraphicOperations',
   'maxDiagnostics',
   'maxRedactions'
 ]);
@@ -356,7 +377,9 @@ function decodeTranscript(
   if (diagnosticLimitIssue !== undefined) return diagnosticLimitIssue;
 
   let frameCells = 0;
+  let frameGraphics = 0;
   let diffOperations = 0;
+  let graphicOperations = 0;
   const steps: InteractionTranscriptStep[] = [];
   for (const [index, item] of transcript['steps'].entries()) {
     if (isNonArrayObject(item) && item['kind'] === 'commit' && isNonArrayObject(item['commit'])) {
@@ -368,10 +391,22 @@ function decodeTranscript(
           return `Interaction transcript exceeds the ${String(limits.maxFrameCells)}-frame-cell limit.`;
         }
       }
+      if (isNonArrayObject(frame) && Array.isArray(frame['graphics'])) {
+        frameGraphics += frame['graphics'].length;
+        if (frameGraphics > limits.maxFrameGraphics) {
+          return `Interaction transcript exceeds the ${String(limits.maxFrameGraphics)}-frame-graphic limit.`;
+        }
+      }
       if (isNonArrayObject(diff) && Array.isArray(diff['operations'])) {
         diffOperations += diff['operations'].length;
         if (diffOperations > limits.maxDiffOperations) {
           return `Interaction transcript exceeds the ${String(limits.maxDiffOperations)}-diff-operation limit.`;
+        }
+      }
+      if (isNonArrayObject(diff) && Array.isArray(diff['graphicOperations'])) {
+        graphicOperations += diff['graphicOperations'].length;
+        if (graphicOperations > limits.maxGraphicOperations) {
+          return `Interaction transcript exceeds the ${String(limits.maxGraphicOperations)}-graphic-operation limit.`;
         }
       }
     }
@@ -681,6 +716,13 @@ function frameIssue(frame: unknown, adoptions: TranscriptAdoptions): string | un
     if (issue !== undefined) return `frame cell ${String(index)}: ${issue}`;
     if (isNonArrayObject(cell)) cells.push(decodedFrameCell(cell, adoptions));
   }
+  if (!Array.isArray(frame['graphics'])) return 'frame graphics must be an array.';
+  const graphics: GraphicPlacement[] = [];
+  for (const [index, placement] of frame['graphics'].entries()) {
+    const decoded = decodedGraphicPlacement(placement, Number(frame['width']), Number(frame['height']));
+    if (typeof decoded === 'string') return `frame graphic ${String(index)}: ${decoded}`;
+    graphics.push(decoded);
+  }
   let cursor: CursorPosition | undefined;
   if (frame['cursor'] !== undefined) {
     const issue = cursorIssue(frame['cursor'], adoptions);
@@ -716,6 +758,7 @@ function frameIssue(frame: unknown, adoptions: TranscriptAdoptions): string | un
     widthProfile: profile,
     ...(canvasStyle === undefined ? {} : { canvasStyle }),
     cells: Object.freeze(cells),
+    graphics: Object.freeze(graphics),
     ...(hitTargets === undefined ? {} : { hitTargets }),
     ...(cursor === undefined ? {} : { cursor }),
     ...(focusPath === undefined ? {} : { focusPath: Object.freeze([...focusPath]) }),
@@ -778,6 +821,7 @@ function renderDiffIssue(diff: unknown, adoptions: TranscriptAdoptions): string 
   const height = Number(diff['height']);
   if (typeof diff['fullRewrite'] !== 'boolean') return 'diff fullRewrite must be a boolean.';
   if (!Array.isArray(diff['operations'])) return 'diff operations must be an array.';
+  if (!Array.isArray(diff['graphicOperations'])) return 'diff graphicOperations must be an array.';
   if (diff['cursor'] !== undefined) {
     const issue = cursorIssue(diff['cursor'], adoptions);
     if (issue !== undefined) return `diff cursor: ${issue}`;
@@ -796,6 +840,12 @@ function renderDiffIssue(diff: unknown, adoptions: TranscriptAdoptions): string 
     const issue = renderOperationIssue(operation, width, height, normalizedWidthProfile, adoptions);
     if (issue !== undefined) return `diff operation ${String(index)}: ${issue}`;
   }
+  const graphicOperations: GraphicOperation[] = [];
+  for (const [index, operation] of diff['graphicOperations'].entries()) {
+    const decoded = decodedGraphicOperation(operation, width, height);
+    if (typeof decoded === 'string') return `diff graphic operation ${String(index)}: ${decoded}`;
+    graphicOperations.push(decoded);
+  }
   if (!isNonArrayObject(diff['widthProfile'])) return 'diff widthProfile was not adopted.';
   const operations = diff['operations'].flatMap((operation) =>
     isNonArrayObject(operation) ? [adoptions.operations.get(operation)].filter(isDefined) : []);
@@ -805,6 +855,7 @@ function renderDiffIssue(diff: unknown, adoptions: TranscriptAdoptions): string 
     height,
     widthProfile: normalizedWidthProfile,
     operations: Object.freeze(operations),
+    graphicOperations: Object.freeze(graphicOperations),
     ...(cursor === undefined ? {} : { cursor }),
     fullRewrite: diff['fullRewrite'],
     ...(Array.isArray(diff['dirtyRegions'])
@@ -1106,6 +1157,92 @@ function decodedFrameHitTarget(target: Readonly<Record<string, unknown>>): Frame
 
 function isPointerEventKind(value: unknown): value is NonNullable<FrameHitTarget['accepts']>[number] {
   return isStringMember(value, pointerEventKinds);
+}
+
+function decodedGraphicOperation(
+  value: unknown,
+  width: number,
+  height: number,
+): GraphicOperation | string {
+  if (!isNonArrayObject(value)) return 'must be an object.';
+  if (value['kind'] === 'remove') {
+    const unknown = findUnsupportedField(value, removeGraphicOperationFields);
+    if (unknown !== undefined) return `remove contains unsupported field: ${unknown}.`;
+    return isNonEmptyString(value['id'])
+      ? Object.freeze({ kind: 'remove', id: value['id'] })
+      : 'remove requires a non-empty id.';
+  }
+  if (value['kind'] !== 'place') return 'kind must be place or remove.';
+  const unknown = findUnsupportedField(value, placeGraphicOperationFields);
+  if (unknown !== undefined) return `place contains unsupported field: ${unknown}.`;
+  const placement = decodedGraphicPlacement(value['placement'], width, height);
+  return typeof placement === 'string' ? placement : Object.freeze({ kind: 'place', placement });
+}
+
+function decodedGraphicPlacement(
+  value: unknown,
+  width: number,
+  height: number,
+): GraphicPlacement | string {
+  if (!isNonArrayObject(value)) return 'placement must be an object.';
+  const unknown = findUnsupportedField(value, graphicPlacementFields);
+  if (unknown !== undefined) return `placement contains unsupported field: ${unknown}.`;
+  if (!isNonEmptyString(value['id'])) return 'placement id must be non-empty.';
+  if (value['fit'] !== 'contain' && value['fit'] !== 'cover' && value['fit'] !== 'fill') {
+    return 'placement fit must be contain, cover, or fill.';
+  }
+  const boundsIssue = graphicBoundsIssue(value['bounds']);
+  if (boundsIssue !== undefined) return `placement bounds ${boundsIssue}`;
+  const clipIssue = boundedRectIssue(value['clip'], width, height);
+  if (clipIssue !== undefined) return `placement clip ${clipIssue}`;
+  const image = decodedRasterImage(value['image']);
+  if (typeof image === 'string') return `placement image ${image}`;
+  if (!isNonArrayObject(value['bounds']) || !isNonArrayObject(value['clip'])) return 'placement rectangles were not decoded.';
+  const bounds = decodedRect(value['bounds']);
+  const clip = decodedRect(value['clip']);
+  if (!rectContains(bounds, clip)) return 'placement bounds must contain its clip.';
+  return Object.freeze({ id: value['id'], image, bounds, clip, fit: value['fit'] });
+}
+
+function decodedRasterImage(value: unknown): RasterImage | string {
+  if (!isNonArrayObject(value)) return 'must be an object.';
+  const unknown = findUnsupportedField(value, rasterImageFields);
+  if (unknown !== undefined) return `contains unsupported field: ${unknown}.`;
+  if (!isIntegerAtLeast(value['width'], 1) || !isIntegerAtLeast(value['height'], 1)) {
+    return 'dimensions must be positive integers.';
+  }
+  if (value['format'] !== 'rgb8' && value['format'] !== 'rgba8') return 'format must be rgb8 or rgba8.';
+  const expected = Number(value['width']) * Number(value['height']) * (value['format'] === 'rgb8' ? 3 : 4);
+  if (!Number.isSafeInteger(expected) || value['byteLength'] !== expected) return 'byteLength does not match dimensions and format.';
+  if (!isNonEmptyString(value['contentFingerprint'])) return 'contentFingerprint must be non-empty.';
+  return Object.freeze({
+    width: Number(value['width']),
+    height: Number(value['height']),
+    format: value['format'],
+    byteLength: expected,
+    contentFingerprint: value['contentFingerprint'],
+  });
+}
+
+function graphicBoundsIssue(value: unknown): string | undefined {
+  if (!isNonArrayObject(value)) return 'must be an object.';
+  const unknown = findUnsupportedField(value, rectFields);
+  if (unknown !== undefined) return `contain unsupported field: ${unknown}.`;
+  return Number.isSafeInteger(value['row'])
+    && Number.isSafeInteger(value['column'])
+    && isIntegerAtLeast(value['width'], 1)
+    && isIntegerAtLeast(value['height'], 1)
+    && Number.isSafeInteger(Number(value['row']) + Number(value['height']))
+    && Number.isSafeInteger(Number(value['column']) + Number(value['width']))
+    ? undefined
+    : 'must contain safe integer coordinates and positive dimensions.';
+}
+
+function rectContains(outer: Rect, inner: Rect): boolean {
+  return inner.row >= outer.row
+    && inner.column >= outer.column
+    && inner.row + inner.height <= outer.row + outer.height
+    && inner.column + inner.width <= outer.column + outer.width;
 }
 
 function frameRectIssue(rect: unknown, width: number, height: number): string | undefined {
