@@ -11,6 +11,7 @@ import {
   span,
 } from '../../component/index.ts';
 import { isIgnoredMessage } from '../../interaction/message.ts';
+import { collectionInteractionHas, collectionInteractionPosition } from '../../interaction/collection.ts';
 import type {
   ComponentMessage,
   ComponentInput,
@@ -407,7 +408,7 @@ function prepareCommandPresentation(
     ? undefined
     : nonEmpty(value.activeSuggestionId, 'commandInput activeSuggestionId');
   if (activeSuggestionId !== undefined &&
-    !suggestions.interactionIndex.positions.has(activeSuggestionId)) {
+    !collectionInteractionHas(suggestions.interactionIndex, activeSuggestionId)) {
     throw new RangeError('commandInput activeSuggestionId must reference an enabled suggestion.');
   }
   const selection = prepareTextSelection(value.selection, text.length, 'commandInput selection');
@@ -828,7 +829,7 @@ function commandInputHitTargets(
 
 function activeSuggestion(model: CommandInputModel): ListboxViewEntry<string> | undefined {
   if (model.activeSuggestionId === undefined) return undefined;
-  const position = model.suggestions.interactionIndex.positions.get(model.activeSuggestionId);
+  const position = collectionInteractionPosition(model.suggestions.interactionIndex, model.activeSuggestionId);
   return position === undefined ? undefined : model.suggestions.selectable[position];
 }
 

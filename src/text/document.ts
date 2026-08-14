@@ -59,7 +59,7 @@ export function assertTextDocument(value: unknown): asserts value is TextDocumen
 }
 
 export function isTextDocument(value: unknown): value is TextDocument {
-  return typeof value === 'object' && value !== null && documents.has(value);
+  return documents.has(value as object);
 }
 
 export function textDocumentLength(document: TextDocument): number {

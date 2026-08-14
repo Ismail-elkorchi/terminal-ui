@@ -12,10 +12,8 @@ import type { TerminalRestoreResult } from '../host/index.ts';
 import type { RecordedInputEvent } from '../input/index.ts';
 import type {
   CursorPosition,
-  Frame,
   FrameCell,
   FrameHitTarget,
-  RenderDiff,
   RenderOperation
 } from '../renderer/index.ts';
 import {
@@ -29,7 +27,9 @@ import type {
   InteractionTranscript,
   InteractionTranscriptStep,
   RedactionPolicy,
+  TranscriptFrame,
   TranscriptRedaction,
+  TranscriptRenderDiff,
   TranscriptRuntimeCommit
 } from './types.ts';
 
@@ -211,11 +211,11 @@ function redactCommit(
 }
 
 function redactFrame(
-  frame: Frame,
+  frame: TranscriptFrame,
   cells: readonly FrameCell[],
   path: string,
   context: RedactionContext
-): Frame {
+): TranscriptFrame {
   return {
     ...frame,
     cells,
@@ -236,10 +236,10 @@ function redactFrame(
 }
 
 function redactDiff(
-  diff: RenderDiff,
+  diff: TranscriptRenderDiff,
   path: string,
   context: RedactionContext
-): RenderDiff {
+): TranscriptRenderDiff {
   return {
     ...diff,
     operations: diff.operations.map((operation, index) =>

@@ -40,6 +40,31 @@ test('prompt factories create typed prompt definitions', () => {
   );
 });
 
+test('prompt factories validate and own the values retained by the runtime', async () => {
+  const choices = [{ id: 'one', label: 'One', value: 1, keywords: ['first'] }];
+  const definition = select({ label: 'Pick', choices });
+  choices[0].label = 'Changed';
+  choices[0].keywords.push('changed');
+  choices.push({ id: 'two', label: 'Two', value: 2, keywords: [] });
+
+  assert.equal(Object.isFrozen(definition), true);
+  assert.equal(Object.isFrozen(definition.choices), true);
+  assert.equal(definition.choices.length, 1);
+  assert.equal(definition.choices[0]?.label, 'One');
+  assert.deepEqual(definition.choices[0]?.keywords, ['first']);
+  assert.throws(() => input({ label: 42 }), /label must be a string/u);
+  assert.throws(() => input({ label: 'Name', timeoutMs: -1 }), /positive safe integer/u);
+  assert.throws(() => password({ label: 'Secret', mask: 'xx' }), /one terminal cell/u);
+  assert.throws(
+    () => multiselect({ label: 'Many', choices: [], minSelected: 2, maxSelected: 1 }),
+    /cannot exceed/u,
+  );
+  await assert.rejects(
+    runPrompt({ kind: 'input', label: 'Forged' }, createMemoryTerminalHost({ isTty: false })),
+    /created by a prompt factory/u,
+  );
+});
+
 test('prompt factories own partial theme definitions at construction', () => {
   const color = { kind: 'ansi', value: 1 };
   const definition = { tokens: { colors: { 'text.default': color } } };

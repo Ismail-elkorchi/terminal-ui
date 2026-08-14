@@ -1,4 +1,9 @@
-import { collectionInteractionReducer, normalizeCollectionInteraction } from '../interaction/collection.ts';
+import {
+  collectionInteractionHas,
+  collectionInteractionIds,
+  collectionInteractionReducer,
+  normalizeCollectionInteraction,
+} from '../interaction/collection.ts';
 import type { CollectionInteractionIndex } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
@@ -100,7 +105,7 @@ export function commitCombobox(
     options.index,
     selectionPolicy,
   );
-  if (!options.index.positions.has(event.id)) {
+  if (!collectionInteractionHas(options.index, event.id)) {
     return interaction === state.interaction ? state : { ...state, interaction };
   }
   const committed = collectionInteractionReducer(
@@ -125,7 +130,7 @@ function withInitialActive(
   const selected = interaction.selection.mode === 'single'
     ? interaction.selection.selectedId
     : undefined;
-  const initialId = selected ?? options.index.ids[0];
+  const initialId = selected ?? collectionInteractionIds(options.index)[0];
   return collectionInteractionReducer(interaction, {
     kind: 'setActive',
     ...(initialId === undefined ? {} : { id: initialId }),

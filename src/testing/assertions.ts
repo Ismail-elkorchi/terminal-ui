@@ -1,5 +1,5 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { Frame, FrameCell, FrameHitTarget, TerminalStyle } from '../renderer/index.ts';
+import type { FrameCell, FrameDescriptor, FrameHitTarget, TerminalStyle } from '../renderer/index.ts';
 import type {
   FocusAssertion,
   HitTargetAssertion,
@@ -15,7 +15,7 @@ export function assertFocus(snapshot: AccessibleSnapshot, assertion: FocusAssert
   }
 }
 
-export function assertVisibleText(frame: Frame, assertion: VisibleTextAssertion): void {
+export function assertVisibleText(frame: FrameDescriptor, assertion: VisibleTextAssertion): void {
   const plainText = plainFrameText(frame);
   if (!plainText.includes(assertion.text)) {
     throw new Error(`Expected visible frame text to include ${assertion.text}.`);
@@ -46,7 +46,7 @@ export function assertSelected(snapshot: AccessibleSnapshot, assertion: Selected
   }
 }
 
-export function assertHitTarget(frame: Frame, assertion: HitTargetAssertion): void {
+export function assertHitTarget(frame: FrameDescriptor, assertion: HitTargetAssertion): void {
   const targets = (frame.hitTargets ?? [])
     .filter((target) =>
       targetContains(target, assertion.row, assertion.column)
@@ -88,7 +88,7 @@ export function assertSnapshot(snapshot: AccessibleSnapshot, assertion: Snapshot
   }
 }
 
-function plainFrameText(frame: Frame): string {
+function plainFrameText(frame: FrameDescriptor): string {
   const rows = new Map<number, readonly FrameCell[]>();
   for (const cell of frame.cells) {
     if (cell.continuation === true) continue;

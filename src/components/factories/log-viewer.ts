@@ -47,7 +47,7 @@ import {
   textWidthProfileKey,
 } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import { assertLogHistory, logHistoryRecordById } from '../../ui-model/log-history.ts';
+import { assertLogHistory, logHistoryRecordById, logHistorySegments } from '../../ui-model/log-history.ts';
 import type { LogHistory, LogHistoryRecord, LogSearchMatch } from '../../ui-model/log-history.ts';
 import type {
   LogViewerAction,
@@ -274,7 +274,7 @@ function prepareLogViewer(
 function measureLogViewer(input: ComponentMeasureInput<LogViewerModel>) {
   let preferredWidth = 1;
   let sampled = 0;
-  for (const segment of input.model.history.segments) {
+  for (const segment of logHistorySegments(input.model.history)) {
     for (const record of segment.records) {
       preferredWidth = Math.max(
         preferredWidth,

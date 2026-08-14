@@ -2,6 +2,7 @@ import { textWidthProfileKey, wrapTextCells } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import {
   logHistoryRecordMatchesPrepared,
+  logHistorySegments,
   prepareLogSearchQuery,
 } from '../../ui-model/log-history.ts';
 import type {
@@ -111,7 +112,7 @@ export function logViewerLayout(
   }`;
   const segments: LogViewerSegmentLayout[] = [];
   let startRow = 0;
-  for (const segment of history.segments) {
+  for (const segment of logHistorySegments(history)) {
     const foldKey = segment.records
       .filter((record) => foldedIds.has(record.entry.id))
       .map((record) => record.entry.id)
@@ -201,7 +202,7 @@ export function searchLogViewerHistory(
   const preparedQuery = prepareLogSearchQuery(searchQuery);
   const matches: LogSearchMatch[] = [];
   let matchingEntries = 0;
-  for (const segment of history.segments) {
+  for (const segment of logHistorySegments(history)) {
     const segmentFoldKey = segment.records
       .filter((record) => foldedIds.has(record.entry.id))
       .map((record) => record.entry.id)

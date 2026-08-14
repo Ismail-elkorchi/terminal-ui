@@ -1,4 +1,5 @@
 import { adjacentItemId } from '../interaction/navigation.ts';
+import { collectionInteractionHas, collectionInteractionIds } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import { editTextBuffer } from '../text/index.ts';
@@ -95,16 +96,16 @@ export function searchPickerReducer<TValue>(
       return withActive(
         state,
         enabled,
-        adjacentItemId(enabled.ids, state.activeId, transition.delta, options.navigation),
+        adjacentItemId(collectionInteractionIds(enabled), state.activeId, transition.delta, options.navigation),
       );
     }
     case 'firstActive': {
       const enabled = enabledIndex(state, options.searchPickerIndex);
-      return withActive(state, enabled, enabled.ids[0]);
+      return withActive(state, enabled, collectionInteractionIds(enabled)[0]);
     }
     case 'lastActive': {
       const enabled = enabledIndex(state, options.searchPickerIndex);
-      return withActive(state, enabled, enabled.ids.at(-1));
+      return withActive(state, enabled, collectionInteractionIds(enabled).at(-1));
     }
     case 'scroll': {
       const scroll = applyScrollEvent(state.scroll ?? transition.event.nextState, transition.event);
@@ -197,7 +198,7 @@ function withActive(
   enabled: import('../interaction/collection.ts').CollectionInteractionIndex,
   activeId: string | undefined,
 ): SearchPickerPresentation {
-  const valid = activeId !== undefined && enabled.positions.has(activeId) ? activeId : undefined;
+  const valid = activeId !== undefined && collectionInteractionHas(enabled, activeId) ? activeId : undefined;
   if (state.activeId === valid) return state;
   return {
     query: state.query,

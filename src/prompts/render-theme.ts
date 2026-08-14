@@ -1,5 +1,4 @@
 import { minimalTheme } from '../theme/index.ts';
-import { resolveThemeInput } from '../theme/theme.ts';
 import { serializeRenderSpans } from '../renderer/internal/ansi.ts';
 import { choiceStatusLines, promptLine } from './render-line.ts';
 import type { TerminalCapabilityProfile } from '../host/index.ts';
@@ -14,9 +13,7 @@ export function renderPromptText<TChoice>(
   state: PromptRuntimeState<TChoice>,
   capabilities: TerminalCapabilityProfile
 ): string {
-  const theme = prompt.theme === undefined
-    ? minimalTheme
-    : resolveThemeInput(prompt.theme, minimalTheme);
+  const theme = prompt.theme ?? minimalTheme;
   if (prompt.kind === 'autocomplete') return renderAutocompletePrompt(prompt, state, theme, capabilities);
   return renderParts([{ text: promptLine(prompt, state, theme) }], theme, capabilities);
 }

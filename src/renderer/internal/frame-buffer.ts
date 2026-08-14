@@ -3,7 +3,6 @@ import { createAccessibleSnapshot } from '../../accessibility/index.ts';
 import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
 import { frameCellSource } from '../../visual/source.ts';
 import type { AccessibleSnapshot } from '../../accessibility/index.ts';
-import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
 import type { FocusPath } from './focus.ts';
 import type { CursorPosition } from '../contracts.ts';
@@ -19,6 +18,13 @@ import { defaultTextWidthProfile, defineTextWidthProfile } from '../../text/inde
 import { assertFrameDimensions } from './frame-limits.ts';
 import { isRasterImage } from '../../graphics/raster-image.ts';
 import type { GraphicPlacement, GraphicPlacementInput } from '../../graphics/types.ts';
+import {
+  registerFrameSnapshotMetadata,
+} from './frame-snapshot.ts';
+import type {
+  FrameRowFingerprint,
+  FrameSnapshotRowIndex,
+} from './frame-snapshot.ts';
 
 export interface FrameBufferOptions {
   readonly widthProfile?: TextWidthProfile;
@@ -32,28 +38,10 @@ export interface FrameBufferSnapshotOptions {
   readonly hitTargets?: readonly FrameHitTarget[];
 }
 
-export interface FrameRowFingerprint {
-  readonly row: number;
-  readonly fingerprint: string;
-}
-
-export interface FrameSnapshotRowIndex {
-  readonly row: number;
-  readonly cells: ReadonlyMap<number, FrameCell>;
-  readonly renderable: readonly FrameCell[];
-  readonly fingerprint: string;
-}
-
-export interface FrameBufferSnapshotMetadata {
-  readonly writtenBounds: DirtyRegionSet;
-  readonly clearedBounds: DirtyRegionSet;
-  readonly rowFingerprints: readonly FrameRowFingerprint[];
-  readonly rowIndexes: readonly FrameSnapshotRowIndex[];
-  readonly fingerprint: string;
-}
+declare const frameBufferSnapshotBrand: unique symbol;
 
 export interface FrameBufferSnapshot extends Frame {
-  readonly metadata: FrameBufferSnapshotMetadata;
+  readonly [frameBufferSnapshotBrand]: true;
 }
 
 export interface FrameBuffer extends RenderTarget {
@@ -346,7 +334,7 @@ class CellFrameBuffer implements FrameBuffer {
         ? {}
         : { source: frameCellSource(options.cursor.source) })
     });
-    const frame: FrameBufferSnapshot = {
+    const frame = Object.freeze({
       width: this.width,
       height: this.height,
       widthProfile: this.widthProfile,
@@ -354,18 +342,17 @@ class CellFrameBuffer implements FrameBuffer {
       cells,
       graphics: Object.freeze([...this.graphics.values()]),
       accessibility,
-      metadata: Object.freeze({
-        writtenBounds: this.writtenCoverage.toDirtyRegionSet(),
-        clearedBounds: this.clearedCoverage.toDirtyRegionSet(),
-        rowFingerprints,
-        rowIndexes,
-        fingerprint: bufferFingerprint(rowFingerprints)
-      }),
       ...(options.hitTargets === undefined ? {} : { hitTargets: immutableHitTargets(options.hitTargets) }),
       ...(cursor === undefined ? {} : { cursor }),
       ...(options.focusPath === undefined ? {} : { focusPath: Object.freeze([...options.focusPath]) })
-    };
-    return Object.freeze(frame);
+    }) as FrameBufferSnapshot;
+    return registerFrameSnapshotMetadata(frame, Object.freeze({
+      writtenBounds: this.writtenCoverage.toDirtyRegionSet(),
+      clearedBounds: this.clearedCoverage.toDirtyRegionSet(),
+      rowFingerprints,
+      rowIndexes,
+      fingerprint: bufferFingerprint(rowFingerprints)
+    }));
   }
 
   [blitCell](cell: FrameCell): void {

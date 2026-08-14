@@ -10,7 +10,7 @@ import {
   assertTerminalRestored,
   assertVisibleText
 } from './assertions.ts';
-import type { Frame } from '../renderer/index.ts';
+import type { FrameDescriptor } from '../renderer/index.ts';
 import type { InteractionResult, InteractionScript, TerminalHarness } from './types.ts';
 
 export { replayTranscript };
@@ -76,7 +76,7 @@ export async function runInteractionScript(
   return currentResult(harness);
 }
 
-function latestFrame(harness: TerminalHarness): Frame {
+function latestFrame(harness: TerminalHarness): FrameDescriptor {
   const frame = harness.frames().at(-1);
   if (frame === undefined) throw new Error('Expected harness to have recorded at least one frame.');
   return frame;

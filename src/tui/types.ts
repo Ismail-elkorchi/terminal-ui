@@ -24,7 +24,10 @@ export interface TuiDefinition<TState, TMessage> {
   readonly nonTty?: TuiNonTtyPolicy;
 }
 
+declare const tuiAppBrand: unique symbol;
+
 export interface TuiApp<TState, TMessage> {
+  readonly [tuiAppBrand]: true;
   readonly id: string;
   readonly definition: TuiDefinition<TState, TMessage>;
 }

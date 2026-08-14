@@ -11,7 +11,7 @@ interface GlyphShape {
   readonly directions: readonly Direction[];
 }
 
-export const boxDrawingJoinPass: FramePass = {
+export const boxDrawingJoinPass: FramePass = Object.freeze({
   id: 'box-drawing-join',
   apply(buffer) {
     for (const cell of mergeableFrameCells(buffer)) {
@@ -23,7 +23,7 @@ export const boxDrawingJoinPass: FramePass = {
       buffer.writeCell({ ...cell, text: glyph, width: 1 });
     }
   }
-};
+} satisfies FramePass);
 
 function joinedDirections(
   cell: FrameCell,

@@ -1,11 +1,15 @@
 import {
   button,
+  activityIndicator,
   canvas,
   dataGrid,
+  form,
   text,
+  type ActivityIndicatorOptions,
   type CanvasPainter,
   type Element,
-  type ElementMessage
+  type ElementMessage,
+  type FormOptions
 } from '@ismail-elkorchi/terminal-ui/components';
 
 const paint: CanvasPainter = ({ canvas: drawing }) => {
@@ -27,6 +31,28 @@ const rows = dataGrid({
   onTransition: (transition) => ({ kind: 'grid' as const, transition })
 });
 const passive: Element = text({ content: 'Ready' });
+const content = [passive] as const;
+const formOptions: FormOptions<typeof content> = {
+  title: 'Settings',
+  slots: { content },
+};
+const settings = form(formOptions);
+const runningActivity: ActivityIndicatorOptions = {
+  label: 'Loading',
+  status: 'running',
+  frames: ['.', 'o'],
+  frameIndex: 0,
+};
+activityIndicator(runningActivity);
+const settledActivity: ActivityIndicatorOptions = { label: 'Done', status: 'success' };
+activityIndicator(settledActivity);
+// @ts-expect-error settled activity indicators cannot retain animation options
+const invalidSettledActivity: ActivityIndicatorOptions = { label: 'Done', status: 'success', frames: ['.'] };
+type Equal<TLeft, TRight> = TLeft extends TRight
+  ? TRight extends TLeft ? true : false
+  : false;
+const exactActivityOptions: Equal<ActivityIndicatorOptions, Parameters<typeof activityIndicator>[0]> = true;
+const exactFormOptions: Equal<FormOptions, Parameters<typeof form>[0]> = true;
 const clearUnderlay = text({ content: 'Clear', meta: { layer: { underlay: 'clear' } } });
 const preserveUnderlay = text({ content: 'Preserve', meta: { layer: { underlay: 'preserve' } } });
 const inheritedBackground = text({ content: 'Inherit', meta: { layer: { underlay: 'inheritBackground' } } });
@@ -44,3 +70,7 @@ void preserveUnderlay;
 void inheritedBackground;
 void message;
 void save;
+void settings;
+void invalidSettledActivity;
+void exactActivityOptions;
+void exactFormOptions;

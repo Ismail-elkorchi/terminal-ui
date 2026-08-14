@@ -12,7 +12,7 @@ import {
 } from '../diagnostics.ts';
 import { snapshotCanonicalJsonValue, snapshotUnknownJsonValue } from '../foundation/json.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
-import type { Frame } from '../renderer/index.ts';
+import type { FrameDescriptor } from '../renderer/index.ts';
 import { isCanonicalDateTime } from '../foundation/validation.ts';
 import { snapshotInputEvent } from '../input/index.ts';
 import { decodeAccessibleSnapshot } from '../accessibility/index.ts';
@@ -148,7 +148,7 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
   }
 }
 
-function transcriptFrame(frame: Frame): Frame {
+function transcriptFrame(frame: FrameDescriptor): FrameDescriptor {
   return {
     width: frame.width,
     height: frame.height,

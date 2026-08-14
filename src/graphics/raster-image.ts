@@ -1,4 +1,5 @@
 import { isNonArrayObject } from '../foundation/validation.ts';
+import { sha256ContentHex } from '../diagnostic-identity.ts';
 
 export type RasterPixelFormat = 'rgb8' | 'rgba8';
 
@@ -9,12 +10,18 @@ export interface RasterImageInput {
   readonly data: Uint8Array;
 }
 
-export interface RasterImage {
+declare const rasterImageBrand: unique symbol;
+
+export interface RasterImageDescriptor {
   readonly width: number;
   readonly height: number;
   readonly format: RasterPixelFormat;
   readonly byteLength: number;
-  readonly contentFingerprint: string;
+  readonly contentDigest: string;
+}
+
+export interface RasterImage extends RasterImageDescriptor {
+  readonly [rasterImageBrand]: true;
 }
 
 const pixelsByImage = new WeakMap<object, Uint8Array>();
@@ -44,14 +51,14 @@ export function rasterImage(input: unknown): RasterImage {
     height,
     format,
     byteLength: owned.byteLength,
-    contentFingerprint: rasterFingerprint(width, height, format, owned),
-  });
+    contentDigest: rasterDigest(width, height, format, owned),
+  }) as RasterImage;
   pixelsByImage.set(image, owned);
   return image;
 }
 
 export function isRasterImage(value: unknown): value is RasterImage {
-  return isNonArrayObject(value) && pixelsByImage.has(value);
+  return pixelsByImage.has(value as object);
 }
 
 /** Framework-owned pixel access for protocol encoders. */
@@ -68,37 +75,14 @@ function positiveSafeInteger(value: unknown, field: string): number {
   return value as number;
 }
 
-function rasterFingerprint(
+function rasterDigest(
   width: number,
   height: number,
   format: RasterPixelFormat,
   data: Uint8Array,
 ): string {
-  let first = 0x811c9dc5;
-  let second = 0x9e3779b9;
-  first = hashInteger(first, width);
-  first = hashInteger(first, height);
-  first = hashInteger(first, format === 'rgb8' ? 3 : 4);
-  second = hashInteger(second, height);
-  second = hashInteger(second, width);
-  second = hashInteger(second, format === 'rgb8' ? 3 : 4);
-  for (const byte of data) {
-    first = Math.imul((first ^ byte) >>> 0, 0x01000193) >>> 0;
-    second = Math.imul((second ^ byte) >>> 0, 0x85ebca6b) >>> 0;
-  }
-  return `raster:${hex(first)}${hex(second)}`;
-}
-
-function hashInteger(hash: number, value: number): number {
-  let next = hash;
-  let remaining = value;
-  for (let index = 0; index < 8; index += 1) {
-    next = Math.imul((next ^ (remaining & 0xff)) >>> 0, 0x01000193) >>> 0;
-    remaining = Math.floor(remaining / 256);
-  }
-  return next;
-}
-
-function hex(value: number): string {
-  return value.toString(16).padStart(8, '0');
+  return `raster:sha256:${sha256ContentHex([
+    `terminal-ui-raster-v1\0${String(width)}\0${String(height)}\0${format}\0`,
+    data,
+  ])}`;
 }

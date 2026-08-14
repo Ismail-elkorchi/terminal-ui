@@ -10,17 +10,22 @@ test('progress primitive exposes accessible progress state', () => {
   const progressState = createProgress({ label: 'Loading', kind: 'determinate', value: 2, max: 5 });
   const snapshot = progressState.snapshot();
 
+  assert.equal(Object.isFrozen(progressState), true);
   assert.equal(snapshot.source, 'progress');
   assert.equal(snapshot.root.role, 'progressbar');
   assert.equal(snapshot.root.numericValue.current, 2);
 });
 
-test('progress primitive normalizes accessible progress values across updates', () => {
+test('progress primitive clamps values and rejects invalid progress domains', () => {
   const progressState = createProgress({ label: 'Sync', kind: 'determinate', value: 20, max: 10 });
-  const updated = progressState.update({ kind: 'determinate', value: -5, max: 0, status: 'retrying' });
+  const updated = progressState.update({ kind: 'determinate', value: -5, max: 100, status: 'retrying' });
 
   assert.deepEqual(progressState.snapshot().root.numericValue, { current: 10, minimum: 0, maximum: 10, indeterminate: false });
   assert.deepEqual(updated.snapshot().root.numericValue, { current: 0, minimum: 0, maximum: 100, indeterminate: false });
+  assert.throws(
+    () => progressState.update({ kind: 'determinate', value: 0, max: 0 }),
+    /positive finite number/u
+  );
   assert.equal(updated.snapshot().root.description, 'retrying');
   assert.equal(decodeAccessibleSnapshot(progressState.snapshot()).ok, true);
   assert.equal(decodeAccessibleSnapshot(updated.snapshot()).ok, true);

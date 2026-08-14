@@ -45,13 +45,13 @@ export interface TuiEffectManagerOptions<TMessage> {
   readonly policy?: TuiEffectPolicy;
 }
 
-export const defaultTuiEffectPolicy: TuiEffectPolicy = {
+export const defaultTuiEffectPolicy: TuiEffectPolicy = Object.freeze({
   maxActive: 32,
   maxActivePerId: 4,
   maxQueued: 256,
   maxQueuedPerId: 64,
   replacementGracePeriodMs: 1_000
-};
+});
 
 export function createTuiEffectManager<TMessage>(
   options: TuiEffectManagerOptions<TMessage>
@@ -392,10 +392,33 @@ function queuedCount<TMessage>(queues: ReadonlyMap<string, readonly TuiEffect<TM
 
 function normalizeEffectPolicy(policy: TuiEffectPolicy | undefined): TuiEffectPolicy {
   const result = policy ?? defaultTuiEffectPolicy;
-  for (const [key, value] of Object.entries(result)) {
-    if (!Number.isSafeInteger(value) || value < (key === 'replacementGracePeriodMs' ? 0 : 1)) {
-      throw new RangeError(`TUI effect policy ${key} must be a ${key === 'replacementGracePeriodMs' ? 'non-negative' : 'positive'} safe integer.`);
-    }
+  const maxActive = positivePolicyInteger(result.maxActive, 'maxActive');
+  const maxActivePerId = positivePolicyInteger(result.maxActivePerId, 'maxActivePerId');
+  const maxQueued = positivePolicyInteger(result.maxQueued, 'maxQueued');
+  const maxQueuedPerId = positivePolicyInteger(result.maxQueuedPerId, 'maxQueuedPerId');
+  const replacementGracePeriodMs = nonNegativePolicyInteger(
+    result.replacementGracePeriodMs,
+    'replacementGracePeriodMs',
+  );
+  return Object.freeze({
+    maxActive,
+    maxActivePerId,
+    maxQueued,
+    maxQueuedPerId,
+    replacementGracePeriodMs,
+  });
+}
+
+function positivePolicyInteger(value: unknown, field: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+    throw new RangeError(`TUI effect policy ${field} must be a positive safe integer.`);
   }
-  return result;
+  return value as number;
+}
+
+function nonNegativePolicyInteger(value: unknown, field: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new RangeError(`TUI effect policy ${field} must be a non-negative safe integer.`);
+  }
+  return value as number;
 }

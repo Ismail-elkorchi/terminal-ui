@@ -3,7 +3,9 @@ import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions } from './frame-buffer.ts';
+import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotOptions } from './frame-buffer.ts';
+import { frameSnapshotMetadata, registerFrameSnapshotMetadata } from './frame-snapshot.ts';
+import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
 import type { FrameCell, FrameHitTarget } from '../contracts.ts';
 import type { GraphicPlacement } from '../../graphics/index.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
@@ -29,7 +31,7 @@ export interface RenderRegion<TMessage = unknown> {
   readonly backdropBounds?: Rect;
   readonly cells: readonly FrameCell[];
   readonly graphics: readonly GraphicPlacement[];
-  readonly metadata: FrameBufferSnapshotMetadata;
+  readonly metadata: FrameSnapshotMetadata;
   readonly hitTargets: readonly RenderRegionHitTarget<TMessage>[];
   readonly focusTargets: readonly LayoutFocusTarget[];
 }
@@ -147,18 +149,20 @@ function createRegionFrameBuffer(terminalSize: TerminalSize, bounds: Rect, width
     },
     snapshot(options?: FrameBufferSnapshotOptions): FrameBufferSnapshot {
       const frame = local.snapshot(options);
-      return {
+      const metadata = frameSnapshotMetadata(frame);
+      if (metadata === undefined) throw new Error('Framework frame snapshot metadata is unavailable.');
+      const translated = Object.freeze({
         ...frame,
         width: terminalSize.columns,
         height: terminalSize.rows,
-        cells: frame.cells.map((cell) => toTerminalCell(bounds, cell)),
-        graphics: frame.graphics.map((placement) => ({
+        cells: Object.freeze(frame.cells.map((cell) => toTerminalCell(bounds, cell))),
+        graphics: Object.freeze(frame.graphics.map((placement) => Object.freeze({
           ...placement,
           bounds: toTerminalRect(bounds, placement.bounds),
           clip: toTerminalRect(bounds, placement.clip)
-        })),
-        metadata: translateSnapshotMetadata(bounds, frame.metadata)
-      };
+        }))),
+      }) as FrameBufferSnapshot;
+      return registerFrameSnapshotMetadata(translated, translateSnapshotMetadata(bounds, metadata));
     }
   };
 }
@@ -232,14 +236,29 @@ function toTerminalCell(bounds: Rect, cell: FrameCell): FrameCell {
   };
 }
 
-function translateSnapshotMetadata(bounds: Rect, metadata: FrameBufferSnapshotMetadata): FrameBufferSnapshotMetadata {
-  return {
+function translateSnapshotMetadata(bounds: Rect, metadata: FrameSnapshotMetadata): FrameSnapshotMetadata {
+  return Object.freeze({
     writtenBounds: translateDirtyRegionSet(bounds, metadata.writtenBounds),
     clearedBounds: translateDirtyRegionSet(bounds, metadata.clearedBounds),
-    rowFingerprints: metadata.rowFingerprints,
-    rowIndexes: Object.freeze([]),
+    rowFingerprints: Object.freeze(metadata.rowFingerprints.map((entry) => Object.freeze({
+      row: entry.row + bounds.row - 1,
+      fingerprint: entry.fingerprint,
+    }))),
+    rowIndexes: Object.freeze(metadata.rowIndexes.map((entry) => {
+      const cells = new Map<number, FrameCell>();
+      for (const cell of entry.cells.values()) {
+        const translated = toTerminalCell(bounds, cell);
+        cells.set(translated.column, translated);
+      }
+      return Object.freeze({
+        row: entry.row + bounds.row - 1,
+        cells,
+        renderable: Object.freeze(entry.renderable.map((cell) => toTerminalCell(bounds, cell))),
+        fingerprint: entry.fingerprint,
+      });
+    })),
     fingerprint: metadata.fingerprint
-  };
+  });
 }
 
 function translateDirtyRegionSet(bounds: Rect, dirtyRegions: DirtyRegionSet): DirtyRegionSet {

@@ -1,4 +1,5 @@
-import type { Frame, FrameCell } from '../contracts.ts';
+import type { FrameCell, FrameDescriptor } from '../contracts.ts';
+import { frameSnapshotMetadata } from './frame-snapshot.ts';
 
 export interface FrameRowIndex {
   readonly cells: ReadonlyMap<number, FrameCell>;
@@ -7,25 +8,13 @@ export interface FrameRowIndex {
 }
 
 export interface FrameIndex {
-  readonly frame: Frame;
+  readonly frame: FrameDescriptor;
   readonly rows: readonly (FrameRowIndex | undefined)[];
 }
 
-interface FrameWithSnapshotMetadata extends Frame {
-  readonly metadata?: {
-    readonly rowFingerprints?: readonly { readonly row: number; readonly fingerprint: string }[];
-    readonly rowIndexes?: readonly {
-      readonly row: number;
-      readonly cells: ReadonlyMap<number, FrameCell>;
-      readonly renderable: readonly FrameCell[];
-      readonly fingerprint: string;
-    }[];
-  };
-}
+const indexes = new WeakMap<FrameDescriptor, FrameIndex>();
 
-const indexes = new WeakMap<Frame, FrameIndex>();
-
-export function frameIndex(frame: Frame): FrameIndex {
+export function frameIndex(frame: FrameDescriptor): FrameIndex {
   const cached = indexes.get(frame);
   if (cached !== undefined) return cached;
   const created = createFrameIndex(frame);
@@ -33,8 +22,8 @@ export function frameIndex(frame: Frame): FrameIndex {
   return created;
 }
 
-function createFrameIndex(frame: Frame): FrameIndex {
-  const retained = (frame as FrameWithSnapshotMetadata).metadata?.rowIndexes;
+function createFrameIndex(frame: FrameDescriptor): FrameIndex {
+  const retained = frameSnapshotMetadata(frame)?.rowIndexes;
   if (retained !== undefined) {
     const rows: (FrameRowIndex | undefined)[] = Array.from({ length: frame.height });
     for (const row of retained) {
@@ -75,9 +64,9 @@ interface MutableFrameRowIndex {
   readonly renderable: FrameCell[];
 }
 
-function fingerprintRows(frame: Frame): readonly (string | undefined)[] | undefined {
-  const metadata = (frame as FrameWithSnapshotMetadata).metadata;
-  if (metadata?.rowFingerprints === undefined) return undefined;
+function fingerprintRows(frame: FrameDescriptor): readonly (string | undefined)[] | undefined {
+  const metadata = frameSnapshotMetadata(frame);
+  if (metadata === undefined) return undefined;
   const rows: (string | undefined)[] = Array.from({ length: frame.height });
   for (const entry of metadata.rowFingerprints) {
     if (Number.isInteger(entry.row) && entry.row >= 1 && entry.row <= frame.height) {
@@ -87,7 +76,7 @@ function fingerprintRows(frame: Frame): readonly (string | undefined)[] | undefi
   return Object.freeze(rows);
 }
 
-function cellInsideFrame(cell: FrameCell, frame: Frame): boolean {
+function cellInsideFrame(cell: FrameCell, frame: FrameDescriptor): boolean {
   return Number.isInteger(cell.row)
     && Number.isInteger(cell.column)
     && cell.row >= 1

@@ -40,7 +40,8 @@ returns typed timeout diagnostics.
 Async choice prompts use the data-source `offset`, `limit`, and `hasMore`
 contract. When more choices are available, PageDown requests the next page and
 focuses the first enabled choice in that page. Autocomplete pagination preserves
-the current query.
+the current query. Returned pages are validated, copied, and frozen when they
+enter the prompt runtime; malformed pages become data-source diagnostics.
 
 Choice search matches labels, descriptions, and keywords. Search keeps disabled
 choices non-selectable.
@@ -76,8 +77,8 @@ and stale requests are cancelled so older results cannot overwrite newer input.
 `rangeSelection: true` is configured. Range selection skips disabled choices and
 keeps submitted values in deterministic choice order.
 
-`createProgress()` snapshots normalize determinate values into their accessible
-range, so repeated updates cannot emit invalid progressbar state. `progress()`
+`createProgress()` clamps finite determinate values into their declared positive
+range and rejects invalid maxima or non-finite numbers. `progress()`
 uses the same value, max, status, and indeterminate contract for snapshots.
 With `task`, `progress()` gives the task a controller with `update()` and an
 abort `signal`. The prompt owns terminal rendering, cancellation, typed

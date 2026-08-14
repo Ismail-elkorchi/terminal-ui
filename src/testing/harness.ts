@@ -6,14 +6,14 @@ import { encodeHarnessInputEvent } from './input-events.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { MemoryTerminalHost } from '../host/index.ts';
 import type { RecordedInputEvent } from '../input/index.ts';
-import type { Frame, RenderDiff } from '../renderer/index.ts';
+import type { Frame, FrameDescriptor, RenderDiff, RenderDiffDescriptor } from '../renderer/index.ts';
 import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/index.ts';
 import type { TerminalHarness, TerminalHarnessOptions } from './types.ts';
 
 export function createTerminalHarness(options: TerminalHarnessOptions = {}): TerminalHarness {
   const transcript = createTranscriptRecorder({ source: 'test' });
-  const frames: Frame[] = [];
-  const diffs: RenderDiff[] = [];
+  const frames: FrameDescriptor[] = [];
+  const diffs: RenderDiffDescriptor[] = [];
   let pendingFrame: Frame | undefined;
   let commitSequence = 1;
   let replayRestorePhase: 'checkpoint' | 'shutdown' | undefined;
@@ -117,7 +117,7 @@ function deliverHarnessResize(host: MemoryTerminalHost, terminalSize: { readonly
 
 function latestHarnessSnapshot(
   steps: readonly InteractionTranscriptStep[],
-  frames: readonly Frame[]
+  frames: readonly FrameDescriptor[]
 ): AccessibleSnapshot {
   for (let index = steps.length - 1; index >= 0; index -= 1) {
     const step = steps[index];

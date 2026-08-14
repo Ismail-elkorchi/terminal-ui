@@ -1,5 +1,4 @@
 import { sanitizeTerminalText } from '../text/index.ts';
-import { isNonArrayObject } from '../foundation/validation.ts';
 import {
   findPreparedTextMatches,
   prepareTextSearchIndex,
@@ -50,10 +49,16 @@ export interface LogHistorySegment {
   readonly records: readonly LogHistoryRecord[];
 }
 
+declare const logHistoryBrand: unique symbol;
+
 export interface LogHistory {
+  readonly [logHistoryBrand]: true;
   readonly kind: 'log-history';
-  readonly segments: readonly LogHistorySegment[];
   readonly entryCount: number;
+}
+
+interface LogHistoryData {
+  readonly segments: readonly LogHistorySegment[];
   readonly bodyLength: number;
 }
 
@@ -65,33 +70,34 @@ export function appendLogHistory(
   history: LogHistory,
   entries: readonly LogEntry[]
 ): LogHistory {
-  assertLogHistory(history);
+  const data = historyData(history);
   if (entries.length === 0) return history;
-  const records = prepareRecords(history, entries);
+  const records = prepareRecords(history, data, entries);
   const segment = logHistorySegment(records);
-  const segments = appendSegment(history.segments, segment);
+  const segments = appendSegment(data.segments, segment);
   const last = records.at(-1);
-  return registerHistory(Object.freeze({
+  const next = Object.freeze({
     kind: 'log-history',
-    segments,
     entryCount: history.entryCount + records.length,
-    bodyLength: last === undefined
-      ? history.bodyLength
-      : last.bodyOffset + last.bodyText.length
-  }));
+  }) as LogHistory;
+  return registerHistory(next, {
+    segments,
+    bodyLength: last === undefined ? data.bodyLength : last.bodyOffset + last.bodyText.length,
+  });
 }
 
 export function logHistoryEntryAt(
   history: LogHistory,
   index: number
 ): LogHistoryRecord | undefined {
+  const data = historyData(history);
   if (!Number.isInteger(index) || index < 0 || index >= history.entryCount) return undefined;
-  const segment = segmentContainingIndex(history.segments, index);
+  const segment = segmentContainingIndex(data.segments, index);
   return segment?.records[index - segment.startIndex];
 }
 
 export function logHistoryEntries(history: LogHistory): readonly LogEntry[] {
-  return history.segments.flatMap((segment) => segment.records.map((record) => record.entry));
+  return logHistorySegments(history).flatMap((segment) => segment.records.map((record) => record.entry));
 }
 
 export function logHistoryRecordMatches(
@@ -140,7 +146,7 @@ export function logHistoryRecordById(
   history: LogHistory,
   id: string
 ): LogHistoryRecord | undefined {
-  for (const segment of history.segments) {
+  for (const segment of logHistorySegments(history)) {
     const record = segmentRecordsById.get(segment)?.get(id);
     if (record !== undefined) return record;
   }
@@ -148,7 +154,7 @@ export function logHistoryRecordById(
 }
 
 export function isLogHistory(value: unknown): value is LogHistory {
-  return isNonArrayObject(value) && histories.has(value);
+  return histories.has(value as object);
 }
 
 export function assertLogHistory(value: unknown): asserts value is LogHistory {
@@ -158,27 +164,27 @@ export function assertLogHistory(value: unknown): asserts value is LogHistory {
 }
 
 const histories = new WeakSet<object>();
+const dataByHistory = new WeakMap<LogHistory, LogHistoryData>();
 const segmentIds = new WeakMap<LogHistorySegment, ReadonlySet<string>>();
 const segmentRecordsById = new WeakMap<LogHistorySegment, ReadonlyMap<string, LogHistoryRecord>>();
 const searchIndexes = new WeakMap<LogSearchField, PreparedTextSearchIndex>();
 
 const emptyLogHistory: LogHistory = registerHistory(Object.freeze({
   kind: 'log-history',
-  segments: Object.freeze([]),
   entryCount: 0,
-  bodyLength: 0
-}));
+}) as LogHistory, { segments: Object.freeze([]), bodyLength: 0 });
 
 function prepareRecords(
   history: LogHistory,
+  data: LogHistoryData,
   entries: readonly LogEntry[]
 ): readonly LogHistoryRecord[] {
   const appendedIds = new Set<string>();
-  let bodyOffset = history.entryCount === 0 ? 0 : history.bodyLength + 1;
+  let bodyOffset = history.entryCount === 0 ? 0 : data.bodyLength + 1;
   return Object.freeze(entries.map((entry, offset): LogHistoryRecord => {
     const id = sanitizeTerminalText(entry.id).text;
     if (id.length === 0) throw new TypeError('log entry ids must not be empty.');
-    if (appendedIds.has(id) || history.segments.some((segment) => segmentIds.get(segment)?.has(id) === true)) {
+    if (appendedIds.has(id) || data.segments.some((segment) => segmentIds.get(segment)?.has(id) === true)) {
       throw new TypeError(`Duplicate log entry id: ${id}`);
     }
     appendedIds.add(id);
@@ -314,7 +320,18 @@ function compareCodePoints(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function registerHistory<T extends LogHistory>(history: T): T {
+export function logHistorySegments(history: LogHistory): readonly LogHistorySegment[] {
+  return historyData(history).segments;
+}
+
+function historyData(history: LogHistory): LogHistoryData {
+  const data = dataByHistory.get(history);
+  if (data === undefined) throw new TypeError('log history must be created with prepareLogHistory().');
+  return data;
+}
+
+function registerHistory<T extends LogHistory>(history: T, data: LogHistoryData): T {
   histories.add(history);
+  dataByHistory.set(history, Object.freeze(data));
   return history;
 }

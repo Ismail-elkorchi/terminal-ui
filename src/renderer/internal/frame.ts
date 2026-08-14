@@ -6,6 +6,7 @@ import type { DirtyRegionSet } from './dirty-regions.ts';
 import type {
   Frame,
   FrameCell,
+  FrameDescriptor,
   FrameRowDiff,
   RenderDiff,
   RenderOperation,
@@ -22,6 +23,7 @@ import { textWidthProfileKey } from '../../text/index.ts';
 import { frameIndex } from './frame-index.ts';
 import type { FrameIndex } from './frame-index.ts';
 import type { GraphicOperation, GraphicPlacement } from '../../graphics/index.ts';
+import { sameFrameCell } from './frame-cell-equality.ts';
 
 export type { CursorPosition, Frame, FrameCell, FrameHitTarget } from '../contracts.ts';
 
@@ -58,10 +60,7 @@ export type {
   FrameBuffer,
   FrameBufferOptions,
   FrameBufferSnapshot,
-  FrameBufferSnapshotMetadata,
   FrameBufferSnapshotOptions,
-  FrameRowFingerprint,
-  FrameSnapshotRowIndex
 } from './frame-buffer.ts';
 export { createFrameBuffer } from './frame-buffer.ts';
 export {
@@ -90,7 +89,7 @@ export {
 } from '../../visual/source.ts';
 export { serializeRenderSpansStateful } from './ansi.ts';
 
-export function renderFramePlain(frame: Frame): string {
+export function renderFramePlain(frame: FrameDescriptor): string {
   const rowsByIndex = frameIndex(frame).rows;
   const rows = Array.from({ length: frame.height }, (_value, index) =>
     rowTextFromCells(rowsByIndex[index]?.renderable ?? [], frame.width));
@@ -416,7 +415,15 @@ function runNeedsClear(
 
 function fingerprintsMatch(previous: FrameIndex, next: FrameIndex, row: number): boolean {
   const previousFingerprint = previous.rows[row - 1]?.fingerprint;
-  return previousFingerprint !== undefined && previousFingerprint === next.rows[row - 1]?.fingerprint;
+  if (previousFingerprint === undefined || previousFingerprint !== next.rows[row - 1]?.fingerprint) return false;
+  const previousRow = previous.rows[row - 1];
+  const nextRow = next.rows[row - 1];
+  if (previousRow === undefined || nextRow === undefined) return previousRow === nextRow;
+  if (previousRow.cells.size !== nextRow.cells.size) return false;
+  for (const [column, cell] of previousRow.cells) {
+    if (!sameFrameCell(cell, nextRow.cells.get(column))) return false;
+  }
+  return true;
 }
 
 function cellAt(cells: FrameIndex, row: number, column: number): FrameCell | undefined {
@@ -441,15 +448,7 @@ function sameCell(left: FrameCell | undefined, right: FrameCell | undefined): bo
   return sameFrameCell(left, right);
 }
 
-export function sameFrameCell(left: FrameCell | undefined, right: FrameCell | undefined): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  return left.text === right.text
-    && left.width === right.width
-    && (left.continuation === true) === (right.continuation === true)
-    && sameTerminalStyle(left.style, right.style)
-    && sameTerminalLink(left.link, right.link)
-    && sameFrameCellSource(left.source, right.source);
-}
+export { sameFrameCell } from './frame-cell-equality.ts';
 
 function cellToSpan(cell: FrameCell): RenderSpan {
   return span(cell.text, {

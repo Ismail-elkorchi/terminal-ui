@@ -38,6 +38,29 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.grid, 'function');
   assert.equal(typeof terminalUi.tableColumn, 'function');
   assert.equal(typeof terminalUi.behavior.textInputReducer, 'function');
+  assert.equal('gridCellRects' in terminalUi, false);
+  assert.equal('layoutContentBounds' in terminalUi, false);
+  assert.equal('normalizeLayoutFlowOptions' in terminalUi, false);
+});
+
+test('public constant catalogs and policies are immutable at runtime', async () => {
+  const diagnostics = await import('../../dist/diagnostics.js');
+  const accessibility = await import('@ismail-elkorchi/terminal-ui/accessibility');
+  const host = await import('@ismail-elkorchi/terminal-ui/host');
+  const tui = await import('@ismail-elkorchi/terminal-ui/tui');
+  const renderer = await import('@ismail-elkorchi/terminal-ui/renderer');
+
+  for (const value of [
+    diagnostics.terminalDiagnosticCodes,
+    diagnostics.terminalSeverities,
+    accessibility.accessibleRoles,
+    accessibility.accessibleSources,
+    host.terminalCapabilityNames,
+    tui.defaultTuiEffectPolicy,
+    renderer.boxDrawingJoinPass,
+  ]) {
+    assert.equal(Object.isFrozen(value), true);
+  }
 });
 
 test('transcript entrypoint exposes replay against a structural harness target', async () => {
@@ -46,7 +69,7 @@ test('transcript entrypoint exposes replay against a structural harness target',
   const harness = createTerminalHarness();
 
   const result = await replayTranscript(harness, {
-    formatVersion: 6,
+    formatVersion: 7,
     omittedSteps: 0,
     id: 'entrypoint-replay',
     source: 'test',

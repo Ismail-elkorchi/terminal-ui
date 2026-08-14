@@ -37,24 +37,28 @@ import type { Result } from '../result.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type {
   CursorPosition,
-  Frame,
   FrameCell,
   FrameHitTarget,
   Rect,
-  RenderDiff,
   RenderOperation
 } from '../renderer/index.ts';
 import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
 import type { FrameCellSource, RenderSpan, TerminalLink, TerminalStyle } from '../visual/index.ts';
-import type { GraphicOperation, GraphicPlacement, RasterImage } from '../graphics/index.ts';
+import type {
+  GraphicOperationDescriptor,
+  GraphicPlacementDescriptor,
+  RasterImageDescriptor,
+} from '../graphics/index.ts';
 import { interactionTranscriptFormatVersion, transcriptSources } from './types.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type {
   InteractionTranscript,
   InteractionTranscriptStep,
+  TranscriptFrame,
   TranscriptRedaction,
+  TranscriptRenderDiff,
   TranscriptRuntimeCommit,
   TranscriptValidationLimits
 } from './types.ts';
@@ -136,7 +140,7 @@ const textWidthProfileFields = new Set(['emoji', 'ambiguous']);
 const writeOperationFields = new Set(['kind', 'row', 'column', 'spans']);
 const clearRectOperationFields = new Set(['kind', 'bounds', 'style']);
 const graphicPlacementFields = new Set(['id', 'image', 'bounds', 'clip', 'fit']);
-const rasterImageFields = new Set(['width', 'height', 'format', 'byteLength', 'contentFingerprint']);
+const rasterImageFields = new Set(['width', 'height', 'format', 'byteLength', 'contentDigest']);
 const placeGraphicOperationFields = new Set(['kind', 'placement']);
 const removeGraphicOperationFields = new Set(['kind', 'id']);
 const renderSpanFields = new Set(['text', 'style', 'link', 'source']);
@@ -193,8 +197,8 @@ type NormalizedTranscriptValidationLimits = Readonly<Required<TranscriptValidati
 interface TranscriptAdoptions {
   readonly cursors: WeakMap<object, CursorPosition>;
   readonly diagnostics: WeakMap<object, import('../diagnostics.ts').TerminalDiagnostic>;
-  readonly diffs: WeakMap<object, RenderDiff>;
-  readonly frames: WeakMap<object, Frame>;
+  readonly diffs: WeakMap<object, TranscriptRenderDiff>;
+  readonly frames: WeakMap<object, TranscriptFrame>;
   readonly keyboardProfiles: WeakMap<object, import('../protocol/index.ts').TerminalKeyboardProfile>;
   readonly operations: WeakMap<object, RenderOperation>;
   readonly restores: WeakMap<object, TerminalRestoreResult>;
@@ -717,7 +721,7 @@ function frameIssue(frame: unknown, adoptions: TranscriptAdoptions): string | un
     if (isNonArrayObject(cell)) cells.push(decodedFrameCell(cell, adoptions));
   }
   if (!Array.isArray(frame['graphics'])) return 'frame graphics must be an array.';
-  const graphics: GraphicPlacement[] = [];
+  const graphics: GraphicPlacementDescriptor[] = [];
   for (const [index, placement] of frame['graphics'].entries()) {
     const decoded = decodedGraphicPlacement(placement, Number(frame['width']), Number(frame['height']));
     if (typeof decoded === 'string') return `frame graphic ${String(index)}: ${decoded}`;
@@ -840,7 +844,7 @@ function renderDiffIssue(diff: unknown, adoptions: TranscriptAdoptions): string 
     const issue = renderOperationIssue(operation, width, height, normalizedWidthProfile, adoptions);
     if (issue !== undefined) return `diff operation ${String(index)}: ${issue}`;
   }
-  const graphicOperations: GraphicOperation[] = [];
+  const graphicOperations: GraphicOperationDescriptor[] = [];
   for (const [index, operation] of diff['graphicOperations'].entries()) {
     const decoded = decodedGraphicOperation(operation, width, height);
     if (typeof decoded === 'string') return `diff graphic operation ${String(index)}: ${decoded}`;
@@ -1163,7 +1167,7 @@ function decodedGraphicOperation(
   value: unknown,
   width: number,
   height: number,
-): GraphicOperation | string {
+): GraphicOperationDescriptor | string {
   if (!isNonArrayObject(value)) return 'must be an object.';
   if (value['kind'] === 'remove') {
     const unknown = findUnsupportedField(value, removeGraphicOperationFields);
@@ -1183,7 +1187,7 @@ function decodedGraphicPlacement(
   value: unknown,
   width: number,
   height: number,
-): GraphicPlacement | string {
+): GraphicPlacementDescriptor | string {
   if (!isNonArrayObject(value)) return 'placement must be an object.';
   const unknown = findUnsupportedField(value, graphicPlacementFields);
   if (unknown !== undefined) return `placement contains unsupported field: ${unknown}.`;
@@ -1204,7 +1208,7 @@ function decodedGraphicPlacement(
   return Object.freeze({ id: value['id'], image, bounds, clip, fit: value['fit'] });
 }
 
-function decodedRasterImage(value: unknown): RasterImage | string {
+function decodedRasterImage(value: unknown): RasterImageDescriptor | string {
   if (!isNonArrayObject(value)) return 'must be an object.';
   const unknown = findUnsupportedField(value, rasterImageFields);
   if (unknown !== undefined) return `contains unsupported field: ${unknown}.`;
@@ -1214,13 +1218,15 @@ function decodedRasterImage(value: unknown): RasterImage | string {
   if (value['format'] !== 'rgb8' && value['format'] !== 'rgba8') return 'format must be rgb8 or rgba8.';
   const expected = Number(value['width']) * Number(value['height']) * (value['format'] === 'rgb8' ? 3 : 4);
   if (!Number.isSafeInteger(expected) || value['byteLength'] !== expected) return 'byteLength does not match dimensions and format.';
-  if (!isNonEmptyString(value['contentFingerprint'])) return 'contentFingerprint must be non-empty.';
+  if (typeof value['contentDigest'] !== 'string' || !/^raster:sha256:[0-9a-f]{64}$/u.test(value['contentDigest'])) {
+    return 'contentDigest must be a canonical raster SHA-256 identity.';
+  }
   return Object.freeze({
     width: Number(value['width']),
     height: Number(value['height']),
     format: value['format'],
     byteLength: expected,
-    contentFingerprint: value['contentFingerprint'],
+    contentDigest: value['contentDigest'],
   });
 }
 

@@ -6,11 +6,12 @@ import {
 } from '../../component/index.ts';
 import type { SemanticLeafComponentFactory } from '../../component/index.ts';
 import type {
-  ActivityIndicatorOptions,
   HelpBarOptions,
   MeterOptions,
   ProgressBarOptions,
   SparklineOptions,
+  RunningActivityIndicatorOptions,
+  SettledActivityIndicatorOptions,
   StatusBarOptions,
 } from '../options/feedback.ts';
 import {
@@ -653,15 +654,19 @@ interface ActivityIndicatorModel {
   readonly frameIndex: number;
 }
 
+type ActivityIndicatorOwnOptions =
+  | Pick<RunningActivityIndicatorOptions, 'label' | 'status' | 'frames' | 'frameIndex'>
+  | Pick<SettledActivityIndicatorOptions, 'label' | 'status' | 'frames' | 'frameIndex'>;
+
 export const activityIndicator: SemanticLeafComponentFactory<
-  Pick<ActivityIndicatorOptions, 'label' | 'status' | 'frames' | 'frameIndex'>,
+  ActivityIndicatorOwnOptions,
   never,
   StatusStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
 > = defineComponent<
-  Pick<ActivityIndicatorOptions, 'label' | 'status' | 'frames' | 'frameIndex'>,
+  ActivityIndicatorOwnOptions,
   ActivityIndicatorModel,
   never,
   StatusStylePart,

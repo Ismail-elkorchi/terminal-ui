@@ -65,6 +65,7 @@ import type { WheelInputBatch } from './wheel-input-batch.ts';
 import type { ProducerAdmissionLease } from './producer-admission.ts';
 import { segmentGraphemes } from '../text/index.ts';
 import { focusRevealMessages } from './focus-reveal.ts';
+import { assertTuiApp } from './definition.ts';
 
 type MutableTuiRuntimeMetrics = {
   -readonly [TKey in Exclude<keyof TuiRuntimeMetrics, 'effects'>]: TuiRuntimeMetrics[TKey];
@@ -88,6 +89,7 @@ export function failTuiRuntimeTerminalOwnership(runtime: object, cause: unknown)
 export function createTuiRuntime<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>
 ): TuiRuntime<TState, TMessage> {
+  assertTuiApp(options.app);
   return createRuntime(options, undefined, decodeTerminalGraphicsMode(options.graphics));
 }
 

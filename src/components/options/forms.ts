@@ -1,5 +1,5 @@
 import type { InlineContent } from '../../visual/inline-content.ts';
-import type { ComponentMessage } from '../../component/index.ts';
+import type { ComponentMessage, Element } from '../../component/index.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -45,8 +45,14 @@ import type {
 } from '../../ui-model/style-parts.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
 
-export interface FormOptions extends LayoutFlowOptions {
+export interface FormOptions<
+  TContent extends readonly Element<ComponentMessage>[] = readonly Element<ComponentMessage>[],
+> extends LayoutFlowOptions {
+  readonly id?: string;
   readonly title?: string;
+  readonly slots: { readonly content: TContent };
+  readonly onAction?: never;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], 'title'>;
 }
 
 export interface FieldOptions<

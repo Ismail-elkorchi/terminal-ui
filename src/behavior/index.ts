@@ -317,7 +317,6 @@ export {
 export type {
   LogHistory,
   LogHistoryRecord,
-  LogHistorySegment,
   LogEntry,
   LogSearchField,
   LogSearchMatch

@@ -3,11 +3,11 @@ import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts
 import type { TerminalRestoreResult, TerminalSize } from '../host/index.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { RecordedInputEvent } from '../input/index.ts';
-import type { Frame, RenderDiff } from '../renderer/index.ts';
+import type { FrameDescriptor, RenderDiffDescriptor } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../interaction/message.ts';
 import type { JsonValue } from '../foundation/json.ts';
 
-export const interactionTranscriptFormatVersion = 6 as const;
+export const interactionTranscriptFormatVersion = 7 as const;
 
 export const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const;
 
@@ -23,6 +23,10 @@ export interface InteractionTranscript {
 }
 
 export type TranscriptSource = typeof transcriptSources[number];
+
+export type TranscriptFrame = FrameDescriptor;
+
+export type TranscriptRenderDiff = RenderDiffDescriptor;
 
 export type InteractionTranscriptStep =
   | { readonly kind: 'input'; readonly event: RecordedInputEvent }
@@ -46,8 +50,8 @@ export interface TranscriptRuntimeCommit {
   readonly stateVersion: number;
   readonly terminalSize: TerminalSize;
   readonly focusPath?: FocusPath;
-  readonly frame: Frame;
-  readonly diff: RenderDiff;
+  readonly frame: TranscriptFrame;
+  readonly diff: TranscriptRenderDiff;
 }
 
 export interface TranscriptRedaction {

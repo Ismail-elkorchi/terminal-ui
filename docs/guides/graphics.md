@@ -32,7 +32,9 @@ const element = image({
 ```
 
 `rasterImage()` checks the dimensions and exact byte length, copies the pixel
-buffer, and returns an immutable resource descriptor. Retain that descriptor;
+buffer, and returns an immutable, nominal raster resource. Its SHA-256 content
+identity is retained as metadata when frames are serialized into transcripts.
+Retain that resource;
 constructing an equivalent resource during every view call creates a new image
 and requires another terminal upload.
 

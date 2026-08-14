@@ -4,13 +4,16 @@ import type { TerminalHost } from '../host/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript } from '../transcript/index.ts';
 
+declare const promptDefinitionBrand: unique symbol;
+
 interface PromptDefinitionBase<TValue> {
+  readonly [promptDefinitionBrand]: true;
   readonly id?: string;
   readonly label: string;
   readonly description?: string;
   readonly defaultValue?: TValue;
   readonly required?: boolean;
-  readonly theme?: TerminalTheme | TerminalThemeDefinition;
+  readonly theme?: TerminalTheme;
   readonly timeoutMs?: number;
   readonly nonTty?: NonTtyPromptPolicy<TValue>;
   readonly transcript?: boolean;
@@ -188,7 +191,7 @@ export interface BasePromptOptions<TValue> {
   readonly description?: string;
   readonly defaultValue?: TValue;
   readonly required?: boolean;
-  readonly theme?: TerminalThemeDefinition;
+  readonly theme?: TerminalTheme | TerminalThemeDefinition;
   readonly timeoutMs?: number;
   readonly nonTty?: NonTtyPromptPolicy<TValue>;
   readonly transcript?: boolean;

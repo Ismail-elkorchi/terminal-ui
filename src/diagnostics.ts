@@ -10,7 +10,7 @@ import type { JsonValue } from './foundation/json.ts';
 
 export type TerminalDiagnosticValue = JsonValue;
 
-export const terminalDiagnosticCodes = [
+const terminalDiagnosticCodeValues = [
   'HOST_CAPABILITY_UNAVAILABLE',
   'HOST_CAPABILITY_UNSUPPORTED',
   'HOST_CAPABILITY_UNKNOWN',
@@ -51,15 +51,19 @@ export const terminalDiagnosticCodes = [
   'ACCESSIBLE_SNAPSHOT_INVALID'
 ] as const;
 
+export const terminalDiagnosticCodes: typeof terminalDiagnosticCodeValues = Object.freeze(terminalDiagnosticCodeValues);
+
 export type TerminalDiagnosticCode = typeof terminalDiagnosticCodes[number];
 
-export const terminalSeverities = [
+const terminalSeverityValues = [
   'debug',
   'info',
   'warning',
   'error',
   'fatal'
 ] as const;
+
+export const terminalSeverities: typeof terminalSeverityValues = Object.freeze(terminalSeverityValues);
 
 export type TerminalSeverity = typeof terminalSeverities[number];
 

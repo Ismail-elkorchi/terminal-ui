@@ -13,6 +13,7 @@ import { richText } from '../../dist/components/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import { blitFrameCell } from '../../dist/renderer/internal/frame-buffer.js';
 import { createClippedRenderTarget } from '../../dist/renderer/internal/scoped-render-target.js';
+import { frameSnapshotMetadata } from '../../dist/renderer/internal/frame-snapshot.js';
 import { defineTextWidthProfile } from '../../dist/text/index.js';
 
 test('FrameBuffer records ASCII, Unicode width, emoji, CJK, and combining marks deterministically', () => {
@@ -139,7 +140,7 @@ test('FrameBuffer snapshots cannot mutate retained cells or their value objects'
   assert.throws(() => { cell.style.bold = false; }, TypeError);
   style.bold = false;
   assert.equal(buffer.readCell(1, 1)?.style?.bold, true);
-  assert.equal(buffer.snapshot().metadata.fingerprint, frame.metadata.fingerprint);
+  assert.equal(diffFrames(frame, buffer.snapshot()).operations.length, 0);
 });
 
 test('FrameBuffer rejects unsafe and unbounded dense allocations', () => {
@@ -260,10 +261,10 @@ test('FrameBuffer snapshot metadata records clipped write and clear coverage', (
   buffer.clear({ row: 2, column: 5, width: 10, height: 3 });
   const snapshot = buffer.snapshot();
 
-  assert.deepEqual(snapshot.metadata.writtenBounds.rects, [
+  assert.deepEqual(frameSnapshotMetadata(snapshot).writtenBounds.rects, [
     { row: 1, column: 2, width: 3, height: 1 }
   ]);
-  assert.deepEqual(snapshot.metadata.clearedBounds.rects, [
+  assert.deepEqual(frameSnapshotMetadata(snapshot).clearedBounds.rects, [
     { row: 2, column: 5, width: 2, height: 2 }
   ]);
 });
@@ -273,7 +274,7 @@ test('FrameBuffer snapshot metadata marks overwritten wide-glyph spans as writte
   buffer.write(1, 1, [{ text: '界' }]);
   buffer.write(1, 2, [{ text: 'A' }]);
 
-  assert.deepEqual(buffer.snapshot().metadata.writtenBounds.rects, [
+  assert.deepEqual(frameSnapshotMetadata(buffer.snapshot()).writtenBounds.rects, [
     { row: 1, column: 1, width: 2, height: 1 }
   ]);
 });
@@ -284,7 +285,7 @@ test('FrameBuffer compacts dense write coverage at snapshot time', () => {
     buffer.write(row, 1, [{ text: 'X'.repeat(40) }]);
   }
 
-  assert.deepEqual(buffer.snapshot().metadata.writtenBounds.rects, [
+  assert.deepEqual(frameSnapshotMetadata(buffer.snapshot()).writtenBounds.rects, [
     { row: 1, column: 1, width: 40, height: 10 }
   ]);
 });
@@ -302,17 +303,37 @@ test('FrameBuffer snapshot metadata fingerprints rows and full buffers determini
   const secondSnapshot = second.snapshot();
   const changedSnapshot = changed.snapshot();
 
-  assert.deepEqual(firstSnapshot.metadata.rowFingerprints, secondSnapshot.metadata.rowFingerprints);
-  assert.equal(firstSnapshot.metadata.fingerprint, secondSnapshot.metadata.fingerprint);
+  const firstMetadata = frameSnapshotMetadata(firstSnapshot);
+  const secondMetadata = frameSnapshotMetadata(secondSnapshot);
+  const changedMetadata = frameSnapshotMetadata(changedSnapshot);
+  assert.deepEqual(firstMetadata.rowFingerprints, secondMetadata.rowFingerprints);
+  assert.equal(firstMetadata.fingerprint, secondMetadata.fingerprint);
   assert.equal(
-    firstSnapshot.metadata.rowFingerprints[0]?.fingerprint,
-    changedSnapshot.metadata.rowFingerprints[0]?.fingerprint
+    firstMetadata.rowFingerprints[0]?.fingerprint,
+    changedMetadata.rowFingerprints[0]?.fingerprint
   );
   assert.notEqual(
-    firstSnapshot.metadata.rowFingerprints[1]?.fingerprint,
-    changedSnapshot.metadata.rowFingerprints[1]?.fingerprint
+    firstMetadata.rowFingerprints[1]?.fingerprint,
+    changedMetadata.rowFingerprints[1]?.fingerprint
   );
-  assert.notEqual(firstSnapshot.metadata.fingerprint, changedSnapshot.metadata.fingerprint);
+  assert.notEqual(firstMetadata.fingerprint, changedMetadata.fingerprint);
+});
+
+test('frame fingerprints never substitute for exact row equality', () => {
+  const previous = createFrameBuffer(12, 1);
+  const next = createFrameBuffer(12, 1);
+  previous.write(1, 1, [{ text: '$Hs6piQ`fhu.' }]);
+  next.write(1, 1, [{ text: '^jgw)a0+D/)I' }]);
+
+  const previousFrame = previous.snapshot();
+  const nextFrame = next.snapshot();
+  assert.equal(
+    frameSnapshotMetadata(previousFrame).rowFingerprints[0]?.fingerprint,
+    frameSnapshotMetadata(nextFrame).rowFingerprints[0]?.fingerprint,
+  );
+  assert.notEqual(renderFramePlain(previousFrame), renderFramePlain(nextFrame));
+  assert.notEqual(diffFrames(previousFrame, nextFrame).operations.length, 0);
+  assert.equal('metadata' in previousFrame, false);
 });
 
 test('richText emits styled cells through render spans', () => {

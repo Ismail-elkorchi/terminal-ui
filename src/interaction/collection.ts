@@ -48,10 +48,18 @@ export interface CollectionInteractionOptions {
   readonly navigation?: NavigationPolicy;
 }
 
+declare const collectionInteractionIndexBrand: unique symbol;
+
 export interface CollectionInteractionIndex {
+  readonly [collectionInteractionIndexBrand]: true;
+}
+
+interface CollectionInteractionIndexData {
   readonly ids: readonly string[];
   readonly positions: ReadonlyMap<string, number>;
 }
+
+const collectionIndexes = new WeakMap<CollectionInteractionIndex, CollectionInteractionIndexData>();
 
 export const noSelection: SelectionPolicy = Object.freeze({ mode: 'none' });
 export const manualSingleSelection: SelectionPolicy = Object.freeze({
@@ -69,7 +77,32 @@ export function prepareCollectionInteractionIndex(value: unknown): CollectionInt
     if (positions.has(id)) throw new TypeError('Collection interaction ids must be unique.');
     positions.set(id, position);
   }
-  return Object.freeze({ ids, positions });
+  const index = Object.freeze({}) as CollectionInteractionIndex;
+  collectionIndexes.set(index, { ids, positions });
+  return index;
+}
+
+export function collectionInteractionIds(index: CollectionInteractionIndex): readonly string[] {
+  return collectionInteractionIndexData(index).ids;
+}
+
+export function collectionInteractionHas(index: CollectionInteractionIndex, id: string): boolean {
+  return collectionInteractionIndexData(index).positions.has(id);
+}
+
+export function collectionInteractionPosition(
+  index: CollectionInteractionIndex,
+  id: string,
+): number | undefined {
+  return collectionInteractionIndexData(index).positions.get(id);
+}
+
+function collectionInteractionIndexData(index: CollectionInteractionIndex): CollectionInteractionIndexData {
+  const data = collectionIndexes.get(index);
+  if (data === undefined) {
+    throw new TypeError('Collection interaction index must be created by prepareCollectionInteractionIndex().');
+  }
+  return data;
 }
 
 const emptySelectionState: SelectionState = Object.freeze({ mode: 'none' });
@@ -112,7 +145,7 @@ export function collectionInteractionReducer(
   action: CollectionInteractionAction,
   options: CollectionInteractionOptions,
 ): CollectionInteractionState {
-  const enabledIds = options.index.ids;
+  const enabledIds = collectionInteractionIds(options.index);
   const normalized = normalizeCollectionInteractionWithIndex(state, options.index, options.selection);
   switch (action.kind) {
     case 'setActive':
@@ -132,11 +165,11 @@ export function collectionInteractionReducer(
         ? normalized
         : selectId(normalized, normalized.activeId, options.selection, false);
     case 'select':
-      return options.index.positions.has(action.id)
+      return collectionInteractionHas(options.index, action.id)
         ? selectId(normalized, action.id, options.selection, false)
         : normalized;
     case 'toggleSelection':
-      return options.index.positions.has(action.id)
+      return collectionInteractionHas(options.index, action.id)
         ? selectId(normalized, action.id, options.selection, true)
         : normalized;
     case 'selectRange':
@@ -217,14 +250,14 @@ function selectRange(
   index: CollectionInteractionIndex,
   policy: SelectionPolicy,
 ): CollectionInteractionState {
-  if (policy.mode !== 'multiple' || !policy.range || !index.positions.has(toId)) return state;
+  if (policy.mode !== 'multiple' || !policy.range || !collectionInteractionHas(index, toId)) return state;
   const anchor = state.selection.mode === 'multiple' && state.selection.anchorId !== undefined
     ? state.selection.anchorId
     : state.activeId ?? toId;
-  const from = index.positions.get(anchor) ?? -1;
-  const to = index.positions.get(toId) ?? -1;
+  const from = collectionInteractionPosition(index, anchor) ?? -1;
+  const to = collectionInteractionPosition(index, toId) ?? -1;
   if (from < 0 || to < 0) return state;
-  const selectedIds = Object.freeze(index.ids.slice(Math.min(from, to), Math.max(from, to) + 1));
+  const selectedIds = Object.freeze(collectionInteractionIds(index).slice(Math.min(from, to), Math.max(from, to) + 1));
   return Object.freeze({
     activeId: toId,
     selection: Object.freeze({ mode: 'multiple', selectedIds, anchorId: anchor }),
@@ -248,7 +281,7 @@ function normalizedSelection(
     ? state.selectedIds
     : state.mode === 'single' && state.selectedId !== undefined ? [state.selectedId] : [];
   const selected = new Set(candidates);
-  const selectedIds = Object.freeze(index.ids.filter((id) => selected.has(id)));
+  const selectedIds = Object.freeze(collectionInteractionIds(index).filter((id) => selected.has(id)));
   const anchorId = state.mode === 'multiple' ? validId(index, state.anchorId) : undefined;
   return Object.freeze({
     mode: 'multiple',
@@ -279,7 +312,7 @@ function withSelection(
 }
 
 function validId(index: CollectionInteractionIndex, id: string | undefined): string | undefined {
-  return id !== undefined && index.positions.has(id) ? id : undefined;
+  return id !== undefined && collectionInteractionHas(index, id) ? id : undefined;
 }
 
 function adjacentIndexedItemId(
@@ -288,10 +321,11 @@ function adjacentIndexedItemId(
   delta: number,
   navigation: NavigationPolicy | undefined,
 ): string | undefined {
-  if (index.ids.length === 0) return undefined;
-  const current = currentId === undefined ? undefined : index.positions.get(currentId);
-  if (current === undefined) return delta < 0 ? index.ids.at(-1) : index.ids[0];
-  return adjacentItemId(index.ids, currentId, delta, navigation);
+  const ids = collectionInteractionIds(index);
+  if (ids.length === 0) return undefined;
+  const current = currentId === undefined ? undefined : collectionInteractionPosition(index, currentId);
+  if (current === undefined) return delta < 0 ? ids.at(-1) : ids[0];
+  return adjacentItemId(ids, currentId, delta, navigation);
 }
 
 function sameSelection(left: SelectionState, right: SelectionState): boolean {

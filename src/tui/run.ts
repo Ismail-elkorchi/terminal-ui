@@ -8,6 +8,7 @@ import {
 import { createTerminalHost } from '../host/index.ts';
 import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntimeWithCapabilitySnapshot } from './runtime.ts';
+import { assertTuiApp } from './definition.ts';
 import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
 import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
 import { TuiInputSuspensionController } from './input-suspension.ts';
@@ -30,6 +31,7 @@ export async function runTui<TState, TMessage>(
   host?: TerminalHost,
   options: TuiRunOptions<TState> = {}
 ): Promise<TuiExit<TState>> {
+  assertTuiApp(app);
   const transcript = createTuiTranscript(app);
   const diagnosticReporter = createDiagnosticOccurrenceReporter(`${app.id}:run`);
   let normalized: NormalizedTuiRunOptions<TState>;

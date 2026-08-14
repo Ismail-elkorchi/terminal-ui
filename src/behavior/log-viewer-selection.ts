@@ -1,6 +1,7 @@
 import { extractTextSelection } from '../text/index.ts';
 import {
-  logHistoryRecordById
+  logHistoryRecordById,
+  logHistorySegments,
 } from '../ui-model/log-history.ts';
 import type { LogHistory, LogHistoryRecord } from '../ui-model/log-history.ts';
 import type { LogViewerBodyAnchor, LogViewerSelection } from '../ui-model/log-viewer.ts';
@@ -21,7 +22,7 @@ export function extractLogViewerSelectionText(
     && normalized.start.offset === normalized.end.offset
   ) return '';
   const selected: string[] = [];
-  for (const segment of input.history.segments) {
+  for (const segment of logHistorySegments(input.history)) {
     for (const record of segment.records) {
       if (record.entryIndex < normalized.startRecord.entryIndex) continue;
       if (record.entryIndex > normalized.endRecord.entryIndex) return selected.join('\n');

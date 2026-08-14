@@ -189,13 +189,13 @@ export function cursorCollection<TRecord extends CollectionRecord>(input: {
 export function isCollectionProjection(
   value: unknown
 ): value is CollectionProjection<CollectionRecord> {
-  return typeof value === 'object' && value !== null && collectionProjections.has(value);
+  return collectionProjections.has(value as object);
 }
 
 export function isAnyCollectionProjection(
   value: unknown,
 ): value is AnyCollectionProjection<CollectionRecord> {
-  return typeof value === 'object' && value !== null && allCollectionProjections.has(value);
+  return allCollectionProjections.has(value as object);
 }
 
 function registerCollectionProjection<T extends AnyCollectionProjection<CollectionRecord>>(

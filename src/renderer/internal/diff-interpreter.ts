@@ -2,10 +2,10 @@ import { createFrameBuffer } from './frame-buffer.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
 import { sameFrameCellSource, sameTerminalStyle } from '../../visual/render.ts';
 import { sameFrameCell } from './frame.ts';
-import type { RenderDiff } from '../contracts.ts';
+import type { FrameDescriptor, RenderDiffDescriptor } from '../contracts.ts';
 import type { CursorPosition } from '../contracts.ts';
-import type { Frame, FrameCell } from '../contracts.ts';
-import type { GraphicPlacement } from '../../graphics/index.ts';
+import type { FrameCell } from '../contracts.ts';
+import type { GraphicPlacementDescriptor } from '../../graphics/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 export interface RenderDiffProjection {
@@ -13,13 +13,13 @@ export interface RenderDiffProjection {
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
   readonly cells: readonly FrameCell[];
-  readonly graphics: readonly GraphicPlacement[];
+  readonly graphics: readonly GraphicPlacementDescriptor[];
   readonly cursor?: CursorPosition;
 }
 
 export function applyRenderDiff(
-  previous: Frame | RenderDiffProjection | undefined,
-  diff: RenderDiff
+  previous: FrameDescriptor | RenderDiffProjection | undefined,
+  diff: RenderDiffDescriptor,
 ): RenderDiffProjection {
   if (!diff.fullRewrite && previous === undefined) {
     throw new Error('An incremental render diff requires a previous frame projection.');
@@ -37,7 +37,7 @@ export function applyRenderDiff(
   }
 
   const buffer = createFrameBuffer(diff.width, diff.height, { widthProfile: diff.widthProfile });
-  const graphics = new Map<string, GraphicPlacement>();
+  const graphics = new Map<string, GraphicPlacementDescriptor>();
   if (!diff.fullRewrite && previous !== undefined) {
     for (const cell of previous.cells) buffer.writeCell(cell);
     for (const graphic of previous.graphics) graphics.set(graphic.id, graphic);
@@ -74,7 +74,7 @@ export function applyRenderDiff(
 
 export function renderDiffProjectionMatchesFrame(
   projection: RenderDiffProjection,
-  frame: Frame
+  frame: FrameDescriptor,
 ): boolean {
   if (
     projection.width !== frame.width
@@ -94,7 +94,7 @@ export function renderDiffProjectionMatchesFrame(
     const expected = frame.graphics[index];
     if (expected === undefined) return false;
     return placement.id === expected.id
-      && placement.image.contentFingerprint === expected.image.contentFingerprint
+      && placement.image.contentDigest === expected.image.contentDigest
       && placement.image.width === expected.image.width
       && placement.image.height === expected.image.height
       && placement.image.format === expected.image.format

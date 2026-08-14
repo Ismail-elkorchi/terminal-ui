@@ -12,6 +12,7 @@ import {
   applySelectEvent
 } from './choice-interaction.ts';
 import { resolvePromptChoices } from './choices.ts';
+import { assertPromptDefinition } from './definition.ts';
 import { runEditorPrompt } from './editor.ts';
 import type { PromptInteractionHooks } from './interaction-hooks.ts';
 import { nonTtyDiagnosticOptions, nonTtyMode } from './non-tty.ts';
@@ -77,6 +78,7 @@ export async function runPrompt<TChoice>(
   prompt: PromptDefinition<TChoice>,
   host?: TerminalHost
 ): Promise<PromptResult<PromptRunValue<TChoice>>> {
+  assertPromptDefinition(prompt);
   const ownsHost = host === undefined;
   const terminalHost = host ?? createTerminalHost();
   let result: PromptResult<PromptRunValue<TChoice>>;

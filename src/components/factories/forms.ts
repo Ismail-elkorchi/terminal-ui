@@ -80,12 +80,14 @@ interface FormModel {
   readonly layout: LayoutFlowOptions;
 }
 
+type FormOwnOptions = LayoutFlowOptions & Pick<FormOptions, 'title'>;
+
 const formSlots = {
   content: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
 } as const;
 
 export const form: SemanticCompositeComponentFactory<
-  FormOptions,
+  FormOwnOptions,
   never,
   'title',
   readonly [],
@@ -93,7 +95,7 @@ export const form: SemanticCompositeComponentFactory<
   readonly ['styles', 'layer'],
   typeof formSlots
 > = defineComponent<
-  FormOptions,
+  FormOwnOptions,
   FormModel,
   never,
   'title',
@@ -190,7 +192,7 @@ function formContentBounds(input: ComponentLayoutInput<FormModel, typeof formSlo
   };
 }
 
-function prepareForm(value: Readonly<FormOptions>): FormModel {
+function prepareForm(value: Readonly<FormOwnOptions>): FormModel {
   const title = value.title;
   if (title !== undefined && typeof title !== 'string') {
     throw new TypeError('form title must be a string when provided.');

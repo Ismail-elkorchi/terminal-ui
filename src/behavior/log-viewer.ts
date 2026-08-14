@@ -1,7 +1,8 @@
 import { applyScrollEvent, createScrollState, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import {
-  logHistoryRecordMatches
+  logHistoryRecordMatches,
+  logHistorySegments,
 } from '../ui-model/log-history.ts';
 import type { LogHistory, LogSearchMatch } from '../ui-model/log-history.ts';
 import type {
@@ -99,7 +100,7 @@ export function logViewerSearchMatches(
 ): readonly LogSearchMatch[] {
   const normalized = query.trim();
   if (normalized.length === 0) return [];
-  return Object.freeze(history.segments.flatMap((segment) =>
+  return Object.freeze(logHistorySegments(history).flatMap((segment) =>
     segment.records.flatMap((record) => logHistoryRecordMatches(record, normalized))
   ));
 }

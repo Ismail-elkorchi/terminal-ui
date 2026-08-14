@@ -5,6 +5,8 @@ export type {
   RedactionPolicy,
   TranscriptRecorder,
   TranscriptRecorderOptions,
+  TranscriptFrame,
+  TranscriptRenderDiff,
   TranscriptValidationLimits,
   TranscriptRuntimeCommit,
   TranscriptReplayTarget,

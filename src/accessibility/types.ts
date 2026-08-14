@@ -96,7 +96,7 @@ export interface AccessibleSnapshotInput {
   readonly diagnostics?: readonly TerminalDiagnostic[];
 }
 
-export const accessibleRoles = [
+const accessibleRoleValues = [
   'application',
   'document',
   'dialog',
@@ -148,6 +148,8 @@ export const accessibleRoles = [
   'text'
 ] as const;
 
+export const accessibleRoles: typeof accessibleRoleValues = Object.freeze(accessibleRoleValues);
+
 const accessibleRoleSet: ReadonlySet<string> = new Set(accessibleRoles);
 
 export function isAccessibleRole(value: unknown): value is AccessibleRole {
@@ -179,10 +181,12 @@ export function accessibleRoleSupportsReadOnly(role: AccessibleRole): boolean {
   return accessibleReadOnlyRoles.has(role);
 }
 
-export const accessibleSources = [
+const accessibleSourceValues = [
   'prompt',
   'tui',
   'renderer',
   'progress',
   'test_harness'
 ] as const;
+
+export const accessibleSources: typeof accessibleSourceValues = Object.freeze(accessibleSourceValues);

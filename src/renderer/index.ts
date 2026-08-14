@@ -33,6 +33,7 @@ export type {
   CursorPosition,
   FocusTarget,
   Frame,
+  FrameDescriptor,
   FrameCell,
   FrameHitTarget,
   GraphicOperation,
@@ -46,6 +47,7 @@ export type {
   Measurement,
   MeasurementInput,
   RenderDiff,
+  RenderDiffDescriptor,
   RenderFocusRelation,
   RenderInstrumentation,
   RenderOperation,
@@ -114,9 +116,7 @@ export type {
   DiffFramesOptions,
   FrameBuffer,
   FrameBufferSnapshot,
-  FrameBufferSnapshotMetadata,
   FrameBufferSnapshotOptions,
-  FrameRowFingerprint,
   RenderSerializeOptions
 } from './internal/frame.ts';
 export {

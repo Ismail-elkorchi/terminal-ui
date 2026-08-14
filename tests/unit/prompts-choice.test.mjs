@@ -6,6 +6,27 @@ import { autocomplete, multiselect, runPrompt, select } from '../../dist/prompts
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
 
+test('dynamic prompt choice pages are validated and detached at admission', async () => {
+  const sourceChoices = [{ id: 'one', label: 'One', value: 1, keywords: ['first'] }];
+  const prompt = select({
+    label: 'Pick',
+    choices: () => ({ choices: sourceChoices, total: 1, hasMore: false }),
+  });
+  const result = await prompt.choices({
+    query: '',
+    offset: 0,
+    limit: 10,
+    signal: new globalThis.AbortController().signal,
+  });
+  sourceChoices[0].label = 'Changed';
+  sourceChoices[0].keywords.push('changed');
+
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.choices), true);
+  assert.equal(result.choices[0]?.label, 'One');
+  assert.deepEqual(result.choices[0]?.keywords, ['first']);
+});
+
 test('runPrompt supports interactive select navigation and disabled choices', async () => {
   const harness = createTerminalHarness();
   const running = runPrompt(select({

@@ -170,7 +170,7 @@ export function querySearchPickerIndex<TValue>(
 }
 
 export function assertSearchPickerIndex(value: unknown): asserts value is SearchPickerIndex<unknown> {
-  if (typeof value !== 'object' || value === null || !indexData.has(value)) {
+  if (!indexData.has(value as object)) {
     throw new TypeError('Search picker indexes must be created with prepareSearchPickerIndex().');
   }
 }

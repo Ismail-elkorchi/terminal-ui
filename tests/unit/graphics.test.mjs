@@ -21,11 +21,12 @@ const encoder = new TextEncoder();
 test('raster images own their exact RGB and RGBA byte sources', () => {
   const source = new Uint8Array([255, 0, 0, 0, 255, 0]);
   const resource = rasterImage({ width: 2, height: 1, format: 'rgb8', data: source });
-  const fingerprint = resource.contentFingerprint;
+  const digest = resource.contentDigest;
   source.fill(0);
 
   assert.equal(resource.byteLength, 6);
-  assert.equal(resource.contentFingerprint, fingerprint);
+  assert.equal(resource.contentDigest, digest);
+  assert.match(digest, /^raster:sha256:[0-9a-f]{64}$/u);
   assert.equal(Object.isFrozen(resource), true);
   assert.throws(
     () => rasterImage({ width: 2, height: 1, format: 'rgba8', data: new Uint8Array(6) }),
@@ -314,7 +315,7 @@ test('transcripts retain graphic metadata without raster bytes', () => {
   const transcript = recorder.snapshot();
   const json = JSON.stringify(transcript);
   assert.doesNotMatch(json, /"data"/u);
-  assert.match(json, /contentFingerprint/u);
+  assert.match(json, /contentDigest/u);
   assert.equal(validateTranscript(JSON.parse(json)).ok, true);
 });
 

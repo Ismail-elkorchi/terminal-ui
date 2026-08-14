@@ -5,7 +5,13 @@ import type {
   LayerUnderlay
 } from '../element/metadata.ts';
 import type { Rect } from '../geometry/types.ts';
-import type { GraphicOperation, GraphicPlacement, GraphicPlacementInput } from '../graphics/index.ts';
+import type {
+  GraphicOperation,
+  GraphicOperationDescriptor,
+  GraphicPlacement,
+  GraphicPlacementDescriptor,
+  GraphicPlacementInput,
+} from '../graphics/index.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../input/index.ts';
 import type {
   FocusPath,
@@ -257,18 +263,22 @@ export interface HitTarget<TMessage = unknown> {
   readonly zIndex?: number;
 }
 
-export interface Frame {
+export interface FrameDescriptor {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
   /** Style inherited by every cell, including otherwise empty canvas cells. */
   readonly canvasStyle?: TerminalStyle;
   readonly cells: readonly FrameCell[];
-  readonly graphics: readonly GraphicPlacement[];
+  readonly graphics: readonly GraphicPlacementDescriptor[];
   readonly hitTargets?: readonly FrameHitTarget[];
   readonly cursor?: CursorPosition;
   readonly focusPath?: FocusPath;
   readonly accessibility: AccessibleSnapshot;
+}
+
+export interface Frame extends FrameDescriptor {
+  readonly graphics: readonly GraphicPlacement[];
 }
 
 export interface FrameCell {
@@ -291,15 +301,19 @@ export interface FrameHitTarget {
   readonly zIndex?: number;
 }
 
-export interface RenderDiff {
+export interface RenderDiffDescriptor {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
   readonly operations: readonly RenderOperation[];
-  readonly graphicOperations: readonly GraphicOperation[];
+  readonly graphicOperations: readonly GraphicOperationDescriptor[];
   readonly cursor?: CursorPosition;
   readonly fullRewrite: boolean;
   readonly dirtyRegions?: readonly Rect[];
+}
+
+export interface RenderDiff extends RenderDiffDescriptor {
+  readonly graphicOperations: readonly GraphicOperation[];
 }
 
 export interface FrameRowDiff {
@@ -312,4 +326,10 @@ export type RenderOperation =
   | { readonly kind: 'clearRect'; readonly bounds: Rect; readonly style?: TerminalStyle };
 
 export type { Rect } from '../geometry/types.ts';
-export type { GraphicOperation, GraphicPlacement, GraphicPlacementInput } from '../graphics/index.ts';
+export type {
+  GraphicOperation,
+  GraphicOperationDescriptor,
+  GraphicPlacement,
+  GraphicPlacementDescriptor,
+  GraphicPlacementInput,
+} from '../graphics/index.ts';

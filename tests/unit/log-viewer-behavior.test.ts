@@ -81,7 +81,10 @@ void test('log viewer append reserves a separator after an empty record', () => 
 
   assert.equal(logHistoryEntryAt(initial, 0)?.bodyOffset, 0);
   assert.equal(logHistoryEntryAt(appended, 1)?.bodyOffset, 1);
-  assert.equal(appended.bodyLength, 2);
+  assert.equal(
+    (logHistoryEntryAt(appended, 1)?.bodyOffset ?? 0) + (logHistoryEntryAt(appended, 1)?.bodyText.length ?? 0),
+    2,
+  );
 });
 
 void test('followTailScrollState returns a bottom-pinned scroll state', () => {

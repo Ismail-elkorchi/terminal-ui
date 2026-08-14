@@ -13,7 +13,7 @@ import type {
   TerminalInputReadOptions,
 } from '../host/index.ts';
 import type { RecordedInputEvent } from '../input/index.ts';
-import type { Frame, RenderDiff } from '../renderer/index.ts';
+import type { Frame, FrameDescriptor, RenderDiff, RenderDiffDescriptor } from '../renderer/index.ts';
 import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/index.ts';
 import type { PtyTerminalHarness, PtyTerminalHarnessOptions, PtyTerminalHarnessResult } from './types.ts';
 
@@ -120,8 +120,8 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
   const input = new QueuedPtyInput();
   const signals = new PtySignalBus();
   const output: string[] = [];
-  const frames: Frame[] = [];
-  const diffs: RenderDiff[] = [];
+  const frames: FrameDescriptor[] = [];
+  const diffs: RenderDiffDescriptor[] = [];
   const restores: TerminalRestoreResult[] = [];
   let pendingFrame: Frame | undefined;
   let commitSequence = 1;
@@ -267,7 +267,7 @@ function chunkText(chunk: string | Uint8Array): string {
 
 function latestPtyHarnessSnapshot(
   steps: readonly InteractionTranscriptStep[],
-  frames: readonly Frame[]
+  frames: readonly FrameDescriptor[]
 ): AccessibleSnapshot {
   for (let index = steps.length - 1; index >= 0; index -= 1) {
     const step = steps[index];

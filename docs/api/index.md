@@ -26,7 +26,14 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/theme/packs`
 - `@ismail-elkorchi/terminal-ui/prompts`
 - `@ismail-elkorchi/terminal-ui/tui`
+- `@ismail-elkorchi/terminal-ui/component`
 - `@ismail-elkorchi/terminal-ui/components`
+- `@ismail-elkorchi/terminal-ui/components/foundations`
+- `@ismail-elkorchi/terminal-ui/components/forms`
+- `@ismail-elkorchi/terminal-ui/components/collections`
+- `@ismail-elkorchi/terminal-ui/components/overlays`
+- `@ismail-elkorchi/terminal-ui/components/patterns`
+- `@ismail-elkorchi/terminal-ui/components/visualizations`
 - `@ismail-elkorchi/terminal-ui/layout`
 - `@ismail-elkorchi/terminal-ui/behavior`
 - `@ismail-elkorchi/terminal-ui/renderer`

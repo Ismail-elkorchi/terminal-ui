@@ -2,6 +2,8 @@ import { decodeInputTrigger, inputTriggerIdentity } from '../input/index.ts';
 import type { InputTrigger } from '../input/index.ts';
 import type { TuiApp, TuiDefinition, TuiInputBinding } from './types.ts';
 
+const tuiApps = new WeakSet<object>();
+
 export function defineTui<TState, TMessage extends NonNullable<unknown>>(
   definition: TuiDefinition<TState, TMessage>
 ): TuiApp<TState, TMessage>;
@@ -51,7 +53,15 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
     ...(accessibility === undefined ? {} : { accessibility }),
     ...(nonTty === undefined ? {} : { nonTty })
   }) as TuiDefinition<TState, TMessage>;
-  return Object.freeze({ id, definition: normalized });
+  const app = Object.freeze({ id, definition: normalized }) as TuiApp<TState, TMessage>;
+  tuiApps.add(app);
+  return app;
+}
+
+export function assertTuiApp(value: unknown): void {
+  if (!tuiApps.has(value as object)) {
+    throw new TypeError('TUI app must be created by defineTui().');
+  }
 }
 
 function normalizeInputBindings<TState, TMessage>(

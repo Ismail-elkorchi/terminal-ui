@@ -12,6 +12,7 @@ import { collectionRecordById } from '../ui-model/collection.ts';
 import { prepareListboxCollection } from './list.ts';
 import { prepareListboxView } from '../ui-model/list-view.ts';
 import { applyTextPointerAction } from './text-editing.ts';
+import { collectionInteractionHas, collectionInteractionPosition } from '../interaction/collection.ts';
 
 export interface CommandInputState {
   readonly input: TextEditBuffer;
@@ -72,7 +73,7 @@ function moveSuggestion(state: CommandInputState, direction: 1 | -1): CommandInp
   if (view.selectable.length === 0) return state;
   const current = state.activeSuggestionId === undefined
     ? undefined
-    : view.interactionIndex.positions.get(state.activeSuggestionId);
+    : collectionInteractionPosition(view.interactionIndex, state.activeSuggestionId);
   const start = current ?? (direction > 0 ? -1 : 0);
   const next = (start + direction + view.selectable.length) % view.selectable.length;
   const suggestion = view.selectable[next];
@@ -81,7 +82,7 @@ function moveSuggestion(state: CommandInputState, direction: 1 | -1): CommandInp
 
 function setActiveSuggestion(state: CommandInputState, id: string): CommandInputState {
   const view = prepareListboxView(state.suggestions);
-  return !view.interactionIndex.positions.has(id)
+  return !collectionInteractionHas(view.interactionIndex, id)
     ? state
     : { ...state, activeSuggestionId: id };
 }
@@ -109,7 +110,7 @@ function acceptedSuggestion(state: CommandInputState): ListboxViewEntry<string> 
   if (state.activeSuggestionId === undefined) return view.selectable[0];
   const record = collectionRecordById(view.source, state.activeSuggestionId);
   if (record?.item.disabled !== false) return undefined;
-  const position = view.interactionIndex.positions.get(record.id);
+  const position = collectionInteractionPosition(view.interactionIndex, record.id);
   return position === undefined ? undefined : view.selectable[position];
 }
 

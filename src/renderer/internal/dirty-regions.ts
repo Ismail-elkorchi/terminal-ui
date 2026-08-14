@@ -1,4 +1,6 @@
 import type { Rect } from '../contracts.ts';
+import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
+import { sameSnapshotContents, sameSnapshotRow, snapshotRow } from './frame-snapshot.ts';
 
 interface DirtyRegionSource {
   readonly id: string;
@@ -7,12 +9,7 @@ interface DirtyRegionSource {
   readonly bounds: Rect;
   readonly underlay: string;
   readonly backdropBounds?: Rect;
-  readonly metadata: {
-    readonly fingerprint: string;
-    readonly rowFingerprints: readonly { readonly row: number; readonly fingerprint: string }[];
-    readonly writtenBounds: DirtyRegionSet;
-    readonly clearedBounds: DirtyRegionSet;
-  };
+  readonly metadata: FrameSnapshotMetadata;
 }
 
 export interface DirtyRegionSet {
@@ -57,7 +54,7 @@ function dirtyRegionsForChangedRegion(previous: DirtyRegionSource, next: DirtyRe
   if (!sameRegionSurface(previous, next)) {
     return createDirtyRegionSet([effectiveRegionBounds(previous), effectiveRegionBounds(next)]);
   }
-  if (previous.metadata.fingerprint === next.metadata.fingerprint) return createDirtyRegionSet();
+  if (sameSnapshotContents(previous.metadata, next.metadata)) return createDirtyRegionSet();
 
   const changedRows = changedRowRects(previous, next);
   const coverage = previous.metadata.writtenBounds
@@ -155,12 +152,20 @@ function sameOptionalRect(left: Rect | undefined, right: Rect | undefined): bool
 function changedRowRects(previous: DirtyRegionSource, next: DirtyRegionSource): DirtyRegionSet {
   const previousRows = new Map(previous.metadata.rowFingerprints.map((row) => [row.row, row.fingerprint]));
   const nextRows = new Map(next.metadata.rowFingerprints.map((row) => [row.row, row.fingerprint]));
-  const rowCount = Math.max(previous.bounds.height, next.bounds.height);
   const rects: Rect[] = [];
-  for (let localRow = 1; localRow <= rowCount; localRow += 1) {
-    if (previousRows.get(localRow) === nextRows.get(localRow)) continue;
+  const firstRow = Math.min(previous.bounds.row, next.bounds.row);
+  const lastRow = Math.max(
+    previous.bounds.row + previous.bounds.height - 1,
+    next.bounds.row + next.bounds.height - 1,
+  );
+  for (let row = firstRow; row <= lastRow; row += 1) {
+    const fingerprintsEqual = previousRows.get(row) === nextRows.get(row);
+    if (fingerprintsEqual && sameSnapshotRow(
+      snapshotRow(previous.metadata, row),
+      snapshotRow(next.metadata, row),
+    )) continue;
     rects.push({
-      row: previous.bounds.row + localRow - 1,
+      row,
       column: previous.bounds.column,
       width: previous.bounds.width,
       height: 1

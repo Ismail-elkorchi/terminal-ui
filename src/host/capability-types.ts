@@ -4,7 +4,7 @@ import type { TerminalCellPixels, TerminalGraphicsTransport } from '../protocol/
 
 export type RuntimeTarget = 'node' | 'deno' | 'bun' | 'memory';
 
-export const terminalCapabilityNames = [
+const terminalCapabilityNameValues = [
   'rawInput',
   'resize',
   'textAttributes',
@@ -22,6 +22,8 @@ export const terminalCapabilityNames = [
   'bell',
   'clipboardWrite'
 ] as const;
+
+export const terminalCapabilityNames: typeof terminalCapabilityNameValues = Object.freeze(terminalCapabilityNameValues);
 
 export type TerminalCapabilityName = typeof terminalCapabilityNames[number];
 

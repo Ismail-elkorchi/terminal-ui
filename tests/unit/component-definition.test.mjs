@@ -2063,6 +2063,22 @@ test('component preparation may retain custom domain instances', () => {
   assert.doesNotThrow(() => retainedDomain({ id: 'retained-domain', model: domain }));
 });
 
+test('component prepared models are data objects rather than callable hooks', () => {
+  const callableModel = defineComponent({
+    name: 'terminal-ui-tests/components/callable-model',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'group',
+    prepare: () => () => 'not a data model',
+    measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
+    render: () => undefined,
+    accessibility: ({ id }) => ({ id, role: 'group', label: id })
+  });
+
+  assert.throws(() => callableModel({ id: 'callable-model' }), /prepare must return an object/u);
+});
+
 test('built-in factories reject malformed nested options where they are consumed', () => {
   assert.throws(() => dataGrid({
     id: 'dataGrid',

@@ -84,6 +84,7 @@ export interface HelpBarOptions {
 interface ActivityIndicatorOptionsBase {
   readonly id?: string;
   readonly label: string;
+  readonly onAction?: never;
   readonly meta?: import('../../component/index.ts').ComponentMetadataOptions<readonly ['styles', 'layer'], StatusStylePart>;
 }
 

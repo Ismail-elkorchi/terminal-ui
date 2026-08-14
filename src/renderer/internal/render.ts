@@ -13,6 +13,7 @@ import {
 } from './focus.ts';
 import { createRegionTargetIndex } from './region-target-index.ts';
 import type { RegionTargetIndex } from './region-target-index.ts';
+import { frameSnapshotMetadata } from './frame-snapshot.ts';
 import { createFrameBuffer } from './frame.ts';
 import {
   applyImplicitCanvasBackdrop,
@@ -591,6 +592,8 @@ function createRegionComposer<TMessage>(
         .toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)
         .map((region): RenderRegion<TMessage> => {
           const snapshot = region.buffer.snapshot();
+          const metadata = frameSnapshotMetadata(snapshot);
+          if (metadata === undefined) throw new Error('Framework frame snapshot metadata is unavailable.');
           return {
             id: region.id,
             zIndex: region.zIndex,
@@ -600,7 +603,7 @@ function createRegionComposer<TMessage>(
             ...(region.backdropBounds === undefined ? {} : { backdropBounds: region.backdropBounds }),
             cells: snapshot.cells,
             graphics: snapshot.graphics,
-            metadata: snapshot.metadata,
+            metadata,
             hitTargets: frameHitTargets(
               index.layoutTargetsForRegion(region.zIndex, region.bounds),
               theme,

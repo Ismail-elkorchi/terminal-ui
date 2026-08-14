@@ -8,7 +8,10 @@ const canonicalDesignTokens = new WeakSet<object>();
 const canonicalThemeColors = new WeakMap<object, ThemeColor>();
 const renderingIdentities = new WeakMap<object, string>();
 
+declare const terminalThemeBrand: unique symbol;
+
 export interface TerminalTheme {
+  readonly [terminalThemeBrand]: true;
   readonly name: string;
   readonly tokens: TerminalDesignTokens;
 }
@@ -30,7 +33,7 @@ export function createTheme(input: unknown): TerminalTheme {
 }
 
 function ownTheme(name: string, tokens: TerminalDesignTokens): TerminalTheme {
-  const theme = Object.freeze({ name, tokens });
+  const theme = Object.freeze({ name, tokens }) as TerminalTheme;
   canonicalThemes.add(theme);
   renderingIdentities.set(theme, renderingIdentity(tokens));
   return theme;

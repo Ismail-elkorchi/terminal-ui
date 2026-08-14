@@ -59,7 +59,8 @@ zero-based item index, interaction state, and a human-readable description when
 that information is available.
 
 Source metadata is JSON-serializable, sanitized before it enters a frame, and
-included in frame equality and fingerprinting.
+included in frame equality. Private row fingerprints may reject unequal rows
+quickly, but an equal fingerprint is always confirmed by exact cell comparison.
 Its optional interaction state is limited to focused, hovered, pressed,
 selected, disabled, and active; cleanup and transcript validation reject other
 values.
