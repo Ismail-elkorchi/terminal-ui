@@ -1,4 +1,4 @@
-import { button, richText, type Element } from '@ismail-elkorchi/terminal-ui/components';
+import { button, richText, toolbar as semanticToolbar, type Element } from '@ismail-elkorchi/terminal-ui/components';
 import { row } from '@ismail-elkorchi/terminal-ui/layout';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
@@ -18,6 +18,7 @@ const controlled = button({
   onPointerAction: (action) => ({ kind: 'pointer', action } as const)
 });
 const toolbar = row([passive, save, quit] as const);
+const wrappedToolbar = semanticToolbar(toolbar, { id: 'toolbar', label: 'Actions' });
 
 export type _Passive = Assert<Equal<MessageOf<typeof passive>, never>>;
 export type _Save = Assert<Equal<MessageOf<typeof save>, { readonly kind: 'save' }>>;
@@ -25,6 +26,7 @@ export type _Toolbar = Assert<Equal<
   MessageOf<typeof toolbar>,
   { readonly kind: 'save' } | { readonly kind: 'quit'; readonly force: true }
 >>;
+export type _WrappedToolbar = Assert<Equal<MessageOf<typeof wrappedToolbar>, MessageOf<typeof toolbar>>>;
 type ControlledExpected =
   | { readonly kind: 'activate' }
   | { readonly kind: 'pointer'; readonly action: import('@ismail-elkorchi/terminal-ui/interaction').PointerInteractionAction };

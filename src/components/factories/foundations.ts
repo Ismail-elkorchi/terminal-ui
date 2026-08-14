@@ -210,7 +210,7 @@ const instantiateToolbar = defineComponent<
   }),
 });
 
-export function toolbar<const TContent extends Element>(
+export function toolbar<const TContent extends Element<ComponentMessage>>(
   content: TContent,
   options: ToolbarOptions,
 ): Element<ElementMessage<TContent>> {
