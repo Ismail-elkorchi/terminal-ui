@@ -133,7 +133,9 @@ application decision because it changes application state outside the picker.
 Comboboxes make the same event/state distinction. Route navigation through
 `comboboxReducer()`, then handle `onCommit` with `commitCombobox()` to select the
 accepted stable ID and close the popup while performing any application value
-update alongside it. Configure the reducer `pageSize` and component
+update alongside it. Prepare the enabled option IDs once with
+`prepareCollectionInteractionIndex()` and retain that index with the option
+collection; both behavior operations consume the prepared index. Configure the reducer `pageSize` and component
 `maxVisibleOptions` from the same application constant.
 
 Hierarchical data uses the same controlled shape without moving application

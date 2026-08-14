@@ -64,6 +64,7 @@ import type {
 import type { WheelInputBatch } from './wheel-input-batch.ts';
 import type { ProducerAdmissionLease } from './producer-admission.ts';
 import { segmentGraphemes } from '../text/index.ts';
+import { focusRevealMessages } from './focus-reveal.ts';
 
 type MutableTuiRuntimeMetrics = {
   -readonly [TKey in Exclude<keyof TuiRuntimeMetrics, 'effects'>]: TuiRuntimeMetrics[TKey];
@@ -422,7 +423,7 @@ function createRuntime<TState, TMessage>(
     if (isIgnoredMessage(message)) {
       if (event.kind === 'key' && event.key === 'tab' && event.eventType === 'press') {
         const next = await moveFocus(event.modifiers.shift ? 'previous' : 'next');
-        return { handled: true, state, frame: next };
+        return { handled: true, state: store.state(), frame: next };
       }
       return { handled: false, state, frame };
     }
@@ -876,8 +877,10 @@ function createRuntime<TState, TMessage>(
 
   async function moveFocus(direction: 'next' | 'previous'): Promise<Frame> {
     const requestedFocusPath = commits.adjacentFocusPath(direction);
+    const current = commits.render();
+    const messages = focusRevealMessages(current.node, current.layout, requestedFocusPath);
     await commitRuntimeTransition({
-      messages: [],
+      messages: messages.map((message) => ({ message, source: 'input' })),
       terminalSize: commits.terminalSize(),
       requestedFocusPath
     });

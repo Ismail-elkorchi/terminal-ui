@@ -17,6 +17,7 @@ import {
   tabsReducer,
 } from '../../dist/behavior/index.js';
 import type { ChoiceItem, MenuItem } from '../../dist/components/index.js';
+import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
 
 const choices = [
   { id: 'alpha', label: 'Alpha', value: 1 },
@@ -84,9 +85,10 @@ void test('combobox focus and committed selection remain independent', () => {
     open: false,
     interaction: { activeId: 'alpha', selection: { mode: 'single', selectedId: 'alpha' } },
   } as const;
-  const opened = comboboxReducer(initial, { kind: 'open' }, { enabledIds: ['alpha', 'beta'] });
-  const moved = comboboxReducer(opened, { kind: 'moveActive', delta: 1 }, { enabledIds: ['alpha', 'beta'] });
-  const dismissed = comboboxReducer(moved, { kind: 'dismiss', reason: 'escape' }, { enabledIds: ['alpha', 'beta'] });
+  const index = prepareCollectionInteractionIndex(['alpha', 'beta']);
+  const opened = comboboxReducer(initial, { kind: 'open' }, { index });
+  const moved = comboboxReducer(opened, { kind: 'moveActive', delta: 1 }, { index });
+  const dismissed = comboboxReducer(moved, { kind: 'dismiss', reason: 'escape' }, { index });
 
   assert.equal(moved.interaction.activeId, 'beta');
   assert.deepEqual(moved.interaction.selection, { mode: 'single', selectedId: 'alpha' });
@@ -96,16 +98,17 @@ void test('combobox focus and committed selection remain independent', () => {
 
 void test('combobox page navigation preserves page intent and commitment closes the popup', () => {
   const enabledIds = ['one', 'two', 'three', 'four', 'five'];
+  const index = prepareCollectionInteractionIndex(enabledIds);
   const initial = {
     open: true,
     interaction: { activeId: 'one', selection: { mode: 'single' as const } },
   };
   const paged = comboboxReducer(initial, { kind: 'pageActive', delta: 1 }, {
-    enabledIds,
+    index,
     pageSize: 3,
   });
-  const committed = commitCombobox(paged, { kind: 'commit', id: 'four' }, { enabledIds });
-  const ignored = commitCombobox(paged, { kind: 'commit', id: 'disabled' }, { enabledIds });
+  const committed = commitCombobox(paged, { kind: 'commit', id: 'four' }, { index });
+  const ignored = commitCombobox(paged, { kind: 'commit', id: 'disabled' }, { index });
 
   assert.equal(paged.interaction.activeId, 'four');
   assert.deepEqual(paged.interaction.selection, { mode: 'single' });

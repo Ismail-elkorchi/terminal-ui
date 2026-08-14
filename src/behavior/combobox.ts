@@ -1,4 +1,5 @@
-import { collectionInteractionReducer, normalizeCollectionInteraction, prepareCollectionInteractionIndex } from '../interaction/collection.ts';
+import { collectionInteractionReducer, normalizeCollectionInteraction } from '../interaction/collection.ts';
+import type { CollectionInteractionIndex } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
 import type {
@@ -12,7 +13,7 @@ import type {
 import { popupReducer } from '../interaction/popup.ts';
 
 export interface ComboboxReducerOptions {
-  readonly enabledIds: readonly string[];
+  readonly index: CollectionInteractionIndex;
   readonly navigation?: NavigationPolicy;
   readonly pageSize?: number;
 }
@@ -36,7 +37,7 @@ export function comboboxReducer(
 ): ComboboxPresentation {
   const interaction = normalizeCollectionInteraction(
     state.interaction,
-    prepareCollectionInteractionIndex(options.enabledIds),
+    options.index,
     selectionPolicy,
   );
   switch (transition.kind) {
@@ -70,7 +71,7 @@ export function comboboxReducer(
       return {
         ...opened,
         interaction: collectionInteractionReducer(interaction, action, {
-          index: prepareCollectionInteractionIndex(options.enabledIds),
+          index: options.index,
           selection: selectionPolicy,
           ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
         }),
@@ -96,17 +97,17 @@ export function commitCombobox(
 ): ComboboxPresentation {
   const interaction = normalizeCollectionInteraction(
     state.interaction,
-    prepareCollectionInteractionIndex(options.enabledIds),
+    options.index,
     selectionPolicy,
   );
-  if (!options.enabledIds.includes(event.id)) {
+  if (!options.index.positions.has(event.id)) {
     return interaction === state.interaction ? state : { ...state, interaction };
   }
   const committed = collectionInteractionReducer(
     interaction,
     { kind: 'select', id: event.id },
     {
-      index: prepareCollectionInteractionIndex(options.enabledIds),
+      index: options.index,
       selection: selectionPolicy,
       ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
     },
@@ -124,12 +125,12 @@ function withInitialActive(
   const selected = interaction.selection.mode === 'single'
     ? interaction.selection.selectedId
     : undefined;
-  const initialId = selected ?? options.enabledIds[0];
+  const initialId = selected ?? options.index.ids[0];
   return collectionInteractionReducer(interaction, {
     kind: 'setActive',
     ...(initialId === undefined ? {} : { id: initialId }),
   }, {
-    index: prepareCollectionInteractionIndex(options.enabledIds),
+    index: options.index,
     selection: selectionPolicy,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });

@@ -24,6 +24,7 @@ import {
 } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
 import { commitCombobox, comboboxReducer } from '../../dist/behavior/index.js';
+import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
 
 const enter = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 const tab = { kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
@@ -175,7 +176,7 @@ test('controlled combobox pages and commits through its public behavior operatio
     value: index + 1,
   }));
   const enabledIds = options.map((option) => option.id);
-  const behavior = { enabledIds, pageSize: 3 };
+  const behavior = { index: prepareCollectionInteractionIndex(enabledIds), pageSize: 3 };
   const app = defineTui({
     id: 'combobox-behavior',
     init: () => ({

@@ -4,15 +4,27 @@ import { hasTransparentFocusIdentity } from './focus-identity.ts';
 import type { FocusPath, InitialFocusSelector } from '../../interaction/focus.ts';
 import type { CursorPosition } from '../contracts.ts';
 import type { RenderFocusRelation } from '../contracts.ts';
-import type { Layer, LayoutNode, Rect } from '../contracts.ts';
+import type { Layer, LayoutFocusRegion, LayoutNode, Rect } from '../contracts.ts';
 
 export type { FocusPath } from '../../interaction/focus.ts';
 
 const paintOrderedFocusLayouts = new WeakSet<LayoutNode>();
+const focusRevealLayouts = new WeakSet<LayoutNode>();
+const logicalFocusBounds = new WeakMap<LayoutFocusRegion, Rect>();
 
 export function markPaintOrderedFocusChildren(layout: LayoutNode): LayoutNode {
   paintOrderedFocusLayouts.add(layout);
   return layout;
+}
+
+export function markFocusRevealLayout(layout: LayoutNode): LayoutNode {
+  focusRevealLayouts.add(layout);
+  return layout;
+}
+
+export function markLogicalFocusBounds(region: LayoutFocusRegion, bounds: Rect): LayoutFocusRegion {
+  logicalFocusBounds.set(region, bounds);
+  return region;
 }
 
 export interface LayoutFocusTarget {
@@ -20,8 +32,10 @@ export interface LayoutFocusTarget {
   readonly elementId?: string;
   readonly targetId: string;
   readonly bounds: Rect;
+  readonly logicalBounds: Rect;
   readonly layer: Layer;
   readonly focusable: boolean;
+  readonly revealable: boolean;
   readonly disabled: boolean;
   readonly order?: number;
   readonly scopeId?: string;
@@ -81,7 +95,7 @@ export function resolveInitialFocusSelector(
 }
 
 export function nextFocusPath(layout: LayoutNode, current: FocusPath | undefined): FocusPath | undefined {
-  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout));
+  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), true);
   if (targets.length === 0) return undefined;
   if (current === undefined) return targets[0]?.path;
   const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
@@ -89,7 +103,7 @@ export function nextFocusPath(layout: LayoutNode, current: FocusPath | undefined
 }
 
 export function previousFocusPath(layout: LayoutNode, current: FocusPath | undefined): FocusPath | undefined {
-  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout));
+  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), true);
   if (targets.length === 0) return undefined;
   if (current === undefined) return targets.at(-1)?.path;
   const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
@@ -163,18 +177,29 @@ export function focusPathForLayoutTarget(
   return targetPath(target.path, focusTarget.id, index, target.layoutNode.focusTargets.length);
 }
 
-function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readonly LayoutFocusTarget[] {
+function collectLayoutTargets(
+  layout: LayoutNode,
+  parentPath: FocusPath,
+  revealableAncestor = false,
+): readonly LayoutFocusTarget[] {
   if (!layout.visible) return [];
   const path = layoutFocusPath(parentPath, layout);
   const current = layout.focusTargets.map((target, index): LayoutFocusTarget => {
+    const logicalBounds = logicalFocusBounds.get(target) ?? target.bounds;
     const focusable = !target.disabled && target.bounds.width > 0 && target.bounds.height > 0;
+    const revealable = !target.disabled
+      && revealableAncestor
+      && logicalBounds.width > 0
+      && logicalBounds.height > 0;
     return {
       path: targetPath(path, target.id, index, layout.focusTargets.length),
       ...(layout.id === undefined ? {} : { elementId: layout.id }),
       targetId: target.id,
       bounds: target.bounds,
+      logicalBounds,
       layer: layout.layer,
       focusable,
+      revealable,
       disabled: target.disabled,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
       ...(target.order === undefined ? {} : { order: target.order }),
@@ -183,7 +208,8 @@ function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readon
   });
   return [
     ...current,
-    ...orderedFocusChildren(layout).flatMap((child) => collectLayoutTargets(child, path))
+    ...orderedFocusChildren(layout).flatMap((child) =>
+      collectLayoutTargets(child, path, revealableAncestor || focusRevealLayouts.has(layout)))
   ];
 }
 
@@ -201,8 +227,10 @@ function collectRenderNodeFocusRegionTargets<TMessage>(
       ...(layout.id === undefined ? {} : { elementId: layout.id }),
       targetId: target.id,
       bounds: target.bounds,
+      logicalBounds: logicalFocusBounds.get(target) ?? target.bounds,
       layer: layout.layer,
       focusable,
+      revealable: false,
       disabled: target.disabled,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
       ...(target.order === undefined ? {} : { order: target.order }),
@@ -231,8 +259,10 @@ function collectRenderNodeLayoutTargetsRecursive<TMessage>(
     ...(layout.id === undefined ? {} : { elementId: layout.id }),
     targetId: 'self',
     bounds: layout.bounds,
+    logicalBounds: layout.bounds,
     layer: layout.layer,
     focusable: layout.focusable,
+    revealable: false,
     disabled: false,
     renderNode,
     layoutNode: layout
@@ -296,9 +326,10 @@ interface FocusScope {
 
 function scopedFocusTargets<TTarget extends LayoutFocusTarget>(
   layout: LayoutNode,
-  targets: readonly TTarget[]
+  targets: readonly TTarget[],
+  includeRevealable = false,
 ): readonly TTarget[] {
-  const enabled = targets.filter((target) => target.focusable);
+  const enabled = targets.filter((target) => target.focusable || (includeRevealable && target.revealable));
   if (enabled.length === 0) return [];
   const activeScope = activeFocusScope(collectFocusScopes(layout));
   const scoped = activeScope === undefined

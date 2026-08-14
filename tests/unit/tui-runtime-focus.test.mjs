@@ -11,14 +11,55 @@ import {
 } from '../helpers/component-definition.mjs';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, contextMenu, dialog, menuTrigger, listbox, notificationRegion, richText, dataGrid, textInput } from '../../dist/components/index.js';
-import { column, overlay, surface } from '../../dist/layout/index.js';
+import { column, overlay, surface, viewport } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.ts';
 import { ignoreMessage } from '../../dist/component/index.js';
+
+const tabKey = {
+  kind: 'key',
+  key: 'tab',
+  modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+  eventType: 'press',
+  location: 'standard'
+};
 
 function focusInput(options) {
   if (options.keys !== undefined) return testKeyInput(options);
   return textInput({ onAction: () => ignoreMessage(), ...options });
 }
+
+test('TUI focus traversal reveals logical targets in a controlled viewport', async () => {
+  const app = defineTui({
+    id: 'focus-reveal-tui',
+    init: () => ({ scroll: { offsetRow: 0, offsetColumn: 0, followTail: false } }),
+    update: (state, message) => message.kind === 'scroll'
+      ? { state: { scroll: message.event.nextState } }
+      : { state },
+    view: (state) => viewport(column(
+      Array.from({ length: 8 }, (_value, index) => button({
+        id: `action-${String(index + 1)}`,
+        label: `Action ${String(index + 1)}`,
+        onAction: () => ignoreMessage()
+      })),
+      { id: 'actions' }
+    ), {
+      id: 'actions-viewport',
+      offset: { row: state.scroll.offsetRow, column: state.scroll.offsetColumn },
+      onScroll: (event) => ({ kind: 'scroll', event })
+    })
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host });
+
+  await runtime.start();
+  await runtime.handleInput(tabKey);
+  await runtime.handleInput(tabKey);
+  await runtime.handleInput(tabKey);
+
+  assert.deepEqual(runtime.frame().focusPath, ['actions-viewport', 'actions', 'action-4']);
+  assert.equal(runtime.state().scroll.offsetRow, 1);
+  assert.equal(runtime.frame().accessibility.focusPath.at(-1), 'action-4');
+});
 
 test('TUI runtime keeps command focus when contained overlays close under passive notifications', async () => {
   const app = defineTui({

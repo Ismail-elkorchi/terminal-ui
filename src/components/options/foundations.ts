@@ -1,9 +1,11 @@
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
-import type { Element } from '../../element/index.ts';
 import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { LinkActivateEvent, ToggleButtonTransition } from '../../ui-model/foundations.ts';
-import type { LinkStylePart, ToggleButtonStylePart, ToolbarStylePart } from '../../ui-model/style-parts.ts';
+import type { ButtonStylePart, LinkStylePart } from '../../ui-model/style-parts.ts';
+import type { ButtonTone } from '../../ui-model/forms.ts';
+import type { ComponentDensity } from '../../ui-model/contracts.ts';
+import type { InlineContent } from '../../visual/inline-content.ts';
 
 interface AvailableControl {
   readonly disabled?: false;
@@ -46,13 +48,19 @@ export type LinkOptions<TMessage extends ComponentMessage = never> = LinkBaseOpt
 
 export interface ToggleButtonBaseOptions {
   readonly id: string;
-  readonly label: string;
-  readonly accessibleName?: string;
+  readonly leading?: InlineContent;
+  readonly trailing?: InlineContent;
+  readonly tone?: ButtonTone;
+  readonly density?: ComponentDensity;
   readonly pressed: boolean;
-  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ToggleButtonStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ButtonStylePart>;
 }
 
-export type ToggleButtonOptions<TMessage extends ComponentMessage = never> = ToggleButtonBaseOptions & (
+type ToggleButtonName =
+  | { readonly label: string; readonly accessibleName?: string }
+  | { readonly label?: never; readonly accessibleName: string };
+
+export type ToggleButtonOptions<TMessage extends ComponentMessage = never> = ToggleButtonBaseOptions & ToggleButtonName & (
   | AvailableControl & {
       readonly onTransition: (action: ToggleButtonTransition) => MessageResolution<TMessage>;
       readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
@@ -60,12 +68,11 @@ export type ToggleButtonOptions<TMessage extends ComponentMessage = never> = Tog
   | UnavailableControl & { readonly onTransition?: never; readonly onPointerAction?: never }
 );
 
-export interface ToolbarOptions<TItems extends readonly Element[]> {
+export interface ToolbarOptions {
   readonly id: string;
   readonly label: string;
   readonly orientation?: 'horizontal' | 'vertical';
-  readonly items: TItems;
-  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ToolbarStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer'], never>;
 }
 
 export type { LinkActivateEvent, ToggleButtonTransition } from '../../ui-model/foundations.ts';

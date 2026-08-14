@@ -1,19 +1,20 @@
 import {
   defineComponent,
   ignoreMessage,
-  measureRenderSpans,
   span,
 } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
-import type { Rect } from '../../geometry/types.ts';
-import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
+import { assertOptionalCallback, assertOptionalEnum, assertRequiredCallback } from '../../foundation/validation.ts';
 import { pointerVisualState, preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
-import type { LinkActivateEvent, ToggleButtonTransition } from '../../ui-model/foundations.ts';
-import type { LinkStylePart, ToggleButtonStylePart, ToolbarStylePart } from '../../ui-model/style-parts.ts';
+import type { LinkActivateEvent } from '../../ui-model/foundations.ts';
+import type { ElementKeyEvent } from '../../element/metadata.ts';
+import type { RoutedPointerEvent } from '../../input/index.ts';
+import type { LinkStylePart } from '../../ui-model/style-parts.ts';
 import type { LinkOptions, ToggleButtonOptions, ToolbarOptions } from '../options/foundations.ts';
+import { instantiateToggleButton } from './forms.ts';
 
 interface LinkModel {
   readonly label: string;
@@ -65,7 +66,10 @@ const instantiateLink = defineComponent<
     })]);
   },
   keys: ({ model, busy }) => busy ? {} : {
-    enter: () => ({ kind: 'activate', event: { kind: 'activate', href: model.href } }),
+    triggers: [{
+      trigger: { kind: 'key', key: 'enter', modifiers: { kind: 'any' } },
+      onKey: (event) => ({ kind: 'activate', event: keyboardLinkActivation(model.href, event) }),
+    }],
   },
   pointer: {
     state: ({ model }) => model.pointerState,
@@ -75,9 +79,11 @@ const instantiateLink = defineComponent<
   hitTargets: ({ id, model, bounds, busy }) => busy ? [] : [{
     id: `${id ?? 'link'}:link`,
     bounds,
-    accepts: ['click'],
+    accepts: ['click', 'contextMenu', 'pointerDown'],
     cursor: 'pointer',
-    message: () => ({ kind: 'activate', event: { kind: 'activate', href: model.href } }),
+    message: (event) => event.kind === 'pointerDown' && event.button !== 'middle'
+      ? ignoreMessage()
+      : ({ kind: 'activate', event: pointerLinkActivation(model.href, event) }),
   }],
   accessibility: ({ id, model, focused }) => ({
     id,
@@ -124,84 +130,6 @@ export function link<const TMessage extends ComponentMessage = never>(
   });
 }
 
-interface ToggleButtonModel {
-  readonly label: string;
-  readonly accessibleName: string;
-  readonly pressed: boolean;
-  readonly pointerState?: PointerInteractionState;
-}
-
-type ToggleButtonComponentAction =
-  | { readonly kind: 'transition'; readonly action: ToggleButtonTransition }
-  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
-
-const instantiateToggleButton = defineComponent<
-  ToggleButtonModel,
-  ToggleButtonModel,
-  ToggleButtonComponentAction,
-  ToggleButtonStylePart,
-  readonly ['disabled', 'busy', 'inert'],
-  'required',
-  readonly ['focus', 'layer', 'styles']
->({
-  name: 'terminal-ui/components/toggle-button',
-  identity: 'required',
-  structure: 'leaf',
-  semantics: 'semantic',
-  accessibleRole: 'button',
-  states: ['disabled', 'busy', 'inert'],
-  metadata: ['focus', 'layer', 'styles'],
-  parts: ['label', 'indicator'],
-  measure: ({ model, widthProfile }) => ({
-    minWidth: 0,
-    minHeight: 0,
-    preferredWidth: measureRenderSpans([span(`[${model.pressed ? 'x' : ' '}] ${model.label}`)], { widthProfile }),
-    preferredHeight: 1,
-  }),
-  render(input) {
-    const state = input.disabled ? 'disabled' : pointerVisualState(
-      input.model.pointerState,
-      `${input.id ?? 'toggle-button'}:button`,
-    )
-      ?? (input.model.pressed ? 'selected' : undefined);
-    const indicatorStyle = input.style({ part: 'indicator', ...(state === undefined ? {} : { state }) });
-    const labelStyle = input.style({ part: 'label', ...(state === undefined ? {} : { state }) });
-    input.target.write(0, 0, [
-      span(`[${input.model.pressed ? 'x' : ' '}]`, {
-        ...(indicatorStyle === undefined ? {} : { style: indicatorStyle }),
-        source: input.source({ partName: 'indicator' }),
-      }),
-      span(` ${input.model.label}`, {
-        ...(labelStyle === undefined ? {} : { style: labelStyle }),
-        source: input.source({ partName: 'label' }),
-      }),
-    ]);
-  },
-  keys: ({ model, busy }) => busy ? {} : {
-    enter: () => toggleAction(model),
-    space: () => toggleAction(model),
-  },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
-  },
-  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
-  hitTargets: ({ id, model, bounds, busy }) => busy ? [] : [{
-    id: `${id ?? 'toggle-button'}:button`,
-    bounds,
-    accepts: ['click'],
-    cursor: 'pointer',
-    message: () => toggleAction(model),
-  }],
-  accessibility: ({ id, model, focused }) => ({
-    id,
-    role: 'button',
-    label: model.accessibleName,
-    pressed: model.pressed,
-    ...(focused ? { focused: true } : {}),
-  }),
-});
-
 export function toggleButton<const TMessage extends ComponentMessage = never>(
   options: ToggleButtonOptions<TMessage>,
 ): Element<TMessage> {
@@ -211,8 +139,12 @@ export function toggleButton<const TMessage extends ComponentMessage = never>(
     options.disabled !== true && options.inert !== true,
   );
   const model = {
-    label: clean(options.label, 'toggleButton label'),
-    accessibleName: clean(options.accessibleName ?? options.label, 'toggleButton accessibleName'),
+    ...(options.label === undefined ? {} : { label: options.label }),
+    accessibleName: options.accessibleName ?? options.label ?? '',
+    ...(options.leading === undefined ? {} : { leading: options.leading }),
+    ...(options.trailing === undefined ? {} : { trailing: options.trailing }),
+    ...(options.tone === undefined ? {} : { tone: options.tone }),
+    ...(options.density === undefined ? {} : { density: options.density }),
     pressed: options.pressed,
     ...(pointerState === undefined ? {} : { pointerState }),
     id: options.id,
@@ -229,9 +161,9 @@ export function toggleButton<const TMessage extends ComponentMessage = never>(
   assertOptionalCallback(options.onPointerAction, 'toggleButton onPointerAction');
   return instantiateToggleButton({
     ...model,
-    onAction: (action) => action.kind === 'transition'
-      ? options.onTransition(action.action)
-      : options.onPointerAction?.(action.action) ?? ignoreMessage(),
+    onAction: (action) => action.kind === 'pointerLifecycle'
+      ? options.onPointerAction?.(action.action) ?? ignoreMessage()
+      : options.onTransition({ kind: 'setPressed', pressed: !options.pressed }),
   });
 }
 
@@ -241,17 +173,17 @@ interface ToolbarModel {
 }
 
 const toolbarSlots = {
-  items: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
+  content: { cardinality: 'one', owner: 'caller', messages: 'bubble' },
 } as const;
 
 const instantiateToolbar = defineComponent<
   ToolbarModel,
   ToolbarModel,
   never,
-  ToolbarStylePart,
+  never,
   readonly [],
   'required',
-  readonly ['focus', 'layer', 'styles'],
+  readonly ['focus', 'layer'],
   typeof toolbarSlots
 >({
   name: 'terminal-ui/components/toolbar',
@@ -260,35 +192,13 @@ const instantiateToolbar = defineComponent<
   semantics: 'semantic',
   accessibleRole: 'toolbar',
   slots: toolbarSlots,
-  metadata: ['focus', 'layer', 'styles'],
-  parts: ['label'],
+  metadata: ['focus', 'layer'],
   measure(input) {
-    const items = Array.from({ length: input.slots.count('items') }, (_unused, index) => input.slots.measure('items', index));
-    return input.model.orientation === 'horizontal'
-      ? {
-        minWidth: 0,
-        minHeight: 0,
-        preferredWidth: items.reduce((sum, item) => sum + item.preferredWidth, 0) + Math.max(0, items.length - 1),
-        preferredHeight: Math.max(0, ...items.map((item) => item.preferredHeight)),
-      }
-      : {
-        minWidth: 0,
-        minHeight: 0,
-        preferredWidth: Math.max(0, ...items.map((item) => item.preferredWidth)),
-        preferredHeight: items.reduce((sum, item) => sum + item.preferredHeight, 0),
-      };
+    const content = input.slots.measure('content');
+    return content;
   },
   layout(input) {
-    let offset = 0;
-    const items = Array.from({ length: input.slots.count('items') }, (_unused, index): Rect => {
-      const measured = input.slots.measure('items', index);
-      const rect = input.model.orientation === 'horizontal'
-        ? { row: 0, column: offset, width: measured.preferredWidth, height: input.bounds.height }
-        : { row: offset, column: 0, width: input.bounds.width, height: measured.preferredHeight };
-      offset += (input.model.orientation === 'horizontal' ? rect.width : rect.height) + 1;
-      return rect;
-    });
-    return { items };
+    return { content: { row: 0, column: 0, width: input.bounds.width, height: input.bounds.height } };
   },
   focusTargets: () => [],
   accessibility: ({ id, model, slots }) => ({
@@ -296,20 +206,22 @@ const instantiateToolbar = defineComponent<
     role: 'toolbar',
     label: model.label,
     orientation: model.orientation,
-    children: slots.items,
+    children: slots.content,
   }),
 });
 
-export function toolbar<const TItems extends readonly Element[]>(
-  options: ToolbarOptions<TItems>,
-): Element<ElementMessage<TItems[number]>> {
+export function toolbar<const TContent extends Element>(
+  content: TContent,
+  options: ToolbarOptions,
+): Element<ElementMessage<TContent>> {
+  assertOptionalEnum(options.orientation, ['horizontal', 'vertical'], 'toolbar orientation');
   return instantiateToolbar({
     id: options.id,
     label: clean(options.label, 'toolbar label'),
     orientation: options.orientation ?? 'horizontal',
     ...(options.meta === undefined ? {} : { meta: options.meta }),
-    slots: { items: options.items },
-  }) as Element<ElementMessage<TItems[number]>>;
+    slots: { content },
+  });
 }
 
 function clean(value: unknown, owner: string): string {
@@ -319,6 +231,17 @@ function clean(value: unknown, owner: string): string {
   return result;
 }
 
-function toggleAction(model: ToggleButtonModel): ToggleButtonComponentAction {
-  return { kind: 'transition', action: { kind: 'setPressed', pressed: !model.pressed } };
+function keyboardLinkActivation(href: string, event: ElementKeyEvent): LinkActivateEvent {
+  if (event.input.kind !== 'key') {
+    throw new TypeError('link keyboard activation requires a key event.');
+  }
+  return { kind: 'activate', href, trigger: { kind: 'keyboard', modifiers: event.input.modifiers } };
+}
+
+function pointerLinkActivation(href: string, event: RoutedPointerEvent): LinkActivateEvent {
+  return {
+    kind: 'activate',
+    href,
+    trigger: { kind: 'pointer', button: event.button, modifiers: event.modifiers },
+  };
 }

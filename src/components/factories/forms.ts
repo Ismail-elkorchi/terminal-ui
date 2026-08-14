@@ -413,12 +413,13 @@ interface ButtonModel {
   readonly tone: ButtonTone;
   readonly density: ComponentDensity;
   readonly pointerState?: PointerInteractionState;
+  readonly pressed?: boolean;
 }
 
 type ButtonOwnOptions = Pick<
   ButtonOptions<ComponentMessage, ComponentMessage>,
   'label' | 'accessibleName' | 'leading' | 'trailing' | 'tone' | 'density' | 'pointerState'
->;
+> & { readonly pressed?: boolean };
 
 interface PointerLifecycleEvent {
   readonly kind: 'pointerLifecycle';
@@ -434,28 +435,34 @@ type ButtonFactory = <
   options: ButtonOptions<TActionMessage, TPointerMessage>,
 ) => Element<TActionMessage | TPointerMessage>;
 
-const instantiateButton: SemanticLeafComponentFactory<
+type ActionButtonComponentFactory = SemanticLeafComponentFactory<
   ButtonOwnOptions,
   ButtonComponentAction,
   ButtonStylePart,
-  readonly ['disabled', 'busy'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['styles', 'layer', 'focus']
-> = defineComponent<
+>;
+
+const instantiateButton = defineActionButtonComponent('terminal-ui/components/button');
+export const instantiateToggleButton = defineActionButtonComponent('terminal-ui/components/toggle-button');
+
+function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonComponentFactory {
+  return defineComponent<
   ButtonOwnOptions,
   ButtonModel,
   ButtonComponentAction,
   ButtonStylePart,
-  readonly ['disabled', 'busy'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['styles', 'layer', 'focus']
 >({
-  name: 'terminal-ui/components/button',
+  name,
   identity: 'required',
   structure: 'leaf',
   semantics: 'semantic',
   accessibleRole: 'button',
-  states: ['disabled', 'busy'],
+  states: ['disabled', 'busy', 'inert'],
   metadata: ['styles', 'layer', 'focus'],
   parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
   prepare(value, context) {
@@ -470,6 +477,7 @@ const instantiateButton: SemanticLeafComponentFactory<
       'button pointerState',
       !context.disabled && !context.inert,
     );
+    const pressed = value.pressed;
     if (typeof label !== 'string') throw new TypeError('button label must be a string.');
     if (typeof accessibleName !== 'string' || sanitizeTerminalText(accessibleName).text.trim() === '') {
       throw new TypeError('button accessibleName must be a non-empty string.');
@@ -479,6 +487,9 @@ const instantiateButton: SemanticLeafComponentFactory<
     }
     if (tone !== undefined && !isButtonTone(tone)) throw new TypeError('button tone is invalid.');
     assertOptionalEnum(density, ['compact', 'regular'], 'button density');
+    if (pressed !== undefined && typeof pressed !== 'boolean') {
+      throw new TypeError('button pressed must be a boolean.');
+    }
     return {
       label: sanitizeTerminalText(label).text,
       accessibleName: sanitizeTerminalText(accessibleName).text,
@@ -490,6 +501,7 @@ const instantiateButton: SemanticLeafComponentFactory<
         : { trailing: normalizeInlineContent(trailing) }),
       tone: tone ?? 'default',
       density: density ?? 'regular',
+      ...(pressed === undefined ? {} : { pressed }),
       ...(pointerState === undefined ? {} : { pointerState }),
     };
   },
@@ -542,11 +554,13 @@ const instantiateButton: SemanticLeafComponentFactory<
       id,
       role: 'button',
       label: model.accessibleName,
+      ...(model.pressed === undefined ? {} : { pressed: model.pressed }),
       ...(busy ? { description: 'Busy.' } : {}),
       ...(focused ? { focused: true } : {}),
     };
   },
-});
+  });
+}
 
 export const button: ButtonFactory = (options) => {
   const own = {
@@ -596,6 +610,8 @@ function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly Rende
     input.busy
       ? input.theme.tokens.symbols.statusInfo
       : pointerState === 'pressed'
+      ? input.theme.tokens.symbols.selected
+      : input.model.pressed === true
       ? input.theme.tokens.symbols.selected
       : input.model.tone === 'destructive'
       ? input.theme.tokens.symbols.statusError

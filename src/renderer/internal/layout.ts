@@ -20,7 +20,11 @@ import {
 } from './render-node-behavior.ts';
 import type { RenderMeasurementContext } from './render-node-behavior.ts';
 import { cellInsideRect, intersectRects } from './rect.ts';
-import { markPaintOrderedFocusChildren } from './focus.ts';
+import {
+  markFocusRevealLayout,
+  markLogicalFocusBounds,
+  markPaintOrderedFocusChildren,
+} from './focus.ts';
 import { markTransparentFocusLayout } from './focus-identity.ts';
 import { renderNodeFactoryName } from '../model/node.ts';
 
@@ -115,7 +119,7 @@ function layoutNode(
     : focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile))
     .map((target): LayoutFocusRegion => {
       const clippedBounds = intersectRects(target.bounds, viewport) ?? emptyRect(target.bounds);
-      return {
+      return markLogicalFocusBounds({
         id: target.id,
         bounds: clippedBounds,
         ...(target.cursor === undefined || !cellInsideRect(target.cursor, clippedBounds)
@@ -124,7 +128,7 @@ function layoutNode(
         disabled: target.disabled === true,
         ...(target.order === undefined ? {} : { order: target.order }),
         ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
-      };
+      }, target.bounds);
     });
   const focusScope = renderNode.focus?.scope;
   const childViewport = renderNodeClipsChildren(renderNode)
@@ -156,9 +160,13 @@ function layoutNode(
         inert
       ))
   };
+  const revealable = renderNode.kind === 'viewport'
+    && typeof renderNode.props.toScrollMessage === 'function'
+      ? markFocusRevealLayout(layout)
+      : layout;
   const identified = renderNode.transparentFocusIdentity === true
-    ? markTransparentFocusLayout(layout)
-    : layout;
+    ? markTransparentFocusLayout(revealable)
+    : revealable;
   return renderNode.kind === 'overlay'
     ? markPaintOrderedFocusChildren(identified)
     : identified;

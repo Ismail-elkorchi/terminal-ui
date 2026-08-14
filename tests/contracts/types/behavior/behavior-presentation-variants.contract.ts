@@ -24,6 +24,7 @@ import {
   prepareLogHistory,
   type UnscrolledComboboxPresentation,
 } from '@ismail-elkorchi/terminal-ui/behavior';
+import { prepareCollectionInteractionIndex } from '@ismail-elkorchi/terminal-ui/interaction';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Equal<TLeft, TRight> =
@@ -43,12 +44,12 @@ const unscrolledCombobox: UnscrolledComboboxPresentation = {
 const openedCombobox = comboboxReducer(
   unscrolledCombobox,
   { kind: 'open' },
-  { enabledIds: ['one'] },
+  { index: prepareCollectionInteractionIndex(['one']) },
 );
 const committedCombobox = commitCombobox(
   openedCombobox,
   { kind: 'commit', id: 'one' },
-  { enabledIds: ['one'] },
+  { index: prepareCollectionInteractionIndex(['one']) },
 );
 
 const unscrolledListbox = listbox({

@@ -48,7 +48,9 @@ When content is larger than the bounds:
 - clip or window the visible region;
 - preserve grapheme and wide-cell topology;
 - mark omitted content in accessibility when useful;
-- keep hit and focus targets inside visible bounds;
+- keep hit targets inside visible bounds;
+- publish logical focus-target bounds for keyboard controls, including clipped
+  targets inside a controlled `viewport()` so traversal can request reveal;
 - keep diff output proportional to the visible change.
 
 ## Interaction

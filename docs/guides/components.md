@@ -27,9 +27,10 @@ useful to the consumer.
 | --- | --- | --- |
 | `text()` | Static sanitized text with an optional semantic text role. | A text editor, input, or rich styling container. |
 | `richText()` | Styled caller-supplied inline content with optional links and accessible symbol fallbacks. | A document model, markdown renderer, or source-metadata escape hatch. |
+| `image()` | Accessible raster placement with Kitty/SIXEL negotiation and a text fallback. | Image decoding, loading, caching, or application resource policy. |
 | `link()` | Focusable navigation or resource reference with a typed activation event. | A button styled like a link. |
-| `toolbar()` | Oriented semantic group of compact controls that retain their own focus and actions. | A menu, form, or arbitrary layout row. |
-| `toggleButton()` | Pressed/unpressed action control with a distinct accessible name. | A checkbox or persistent switch setting. |
+| `toolbar()` | Semantic wrapper for a caller-owned row, column, or other layout of related controls. | A geometry policy, menu, or form. |
+| `toggleButton()` | Pressed/unpressed action control with the same label, adornment, tone, and density options as a button. | A checkbox or persistent switch setting. |
 | `textArea()` | Caller-controlled multi-line editable text surface with cursor, selection, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
 | `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command picker, number parser, or multi-line editor. |
 | `passwordInput()` | Caller-controlled single-line secret entry that masks rendered content, accessibility output, and TUI transcripts. | Secret storage, validation, or authentication by itself. |

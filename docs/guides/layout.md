@@ -51,6 +51,14 @@ uses the final row and column of the surface's visual bounds.
 Without explicit sizes, `column()` stacks children at their measured heights;
 use a fill track only for content that should consume remaining rows.
 
+A `viewport()` with `onScroll` also participates in focus reveal. Components
+inside it publish logical focus targets even when those targets are currently
+clipped. When Tab or Shift+Tab reaches one of them, the runtime sends the
+viewport a `ScrollEvent` with `source: 'focus'` and the nearest controlled
+offset that reveals the target. The caller remains the sole owner of scroll
+state; a passive viewport does not become scrollable merely because it clips a
+focusable child.
+
 Rendering starts after layout. Renderers emit styled spans into a `FrameBuffer`;
 the buffer handles clipping, wide glyphs, overwrite behavior, and source
 metadata. Diffs and ANSI serialization operate on frames rather than on element
