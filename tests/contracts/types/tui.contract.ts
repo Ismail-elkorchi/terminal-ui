@@ -25,6 +25,9 @@ const app: TuiApp<State, Message> = defineTui<State, Message>({
     : { state: { count: 0 } },
   view: (state, context): Element<Message> => {
     const columns = context.terminalSize.columns;
+    // @ts-expect-error application views do not receive terminal host authority
+    const host = context.host;
+    void host;
     return text({ content: `${String(state.count)}/${String(columns)}` });
   }
 });

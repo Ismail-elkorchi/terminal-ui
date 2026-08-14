@@ -3,11 +3,11 @@ export interface RecursiveIdentityNode<TNode> {
   readonly children: readonly TNode[];
 }
 
-export function resolveStableIds<TValue>(
+export function assertStableIds<TValue>(
   values: readonly TValue[],
   getId: (value: TValue, index: number) => string,
   context: string
-): readonly string[] {
+): void {
   const ids = values.map((value, index) => getId(value, index));
   const seen = new Set<string>();
   for (const id of ids) {
@@ -15,7 +15,6 @@ export function resolveStableIds<TValue>(
     if (seen.has(id)) throw new TypeError(`${context} item ids must be unique; duplicate id: ${id}`);
     seen.add(id);
   }
-  return ids;
 }
 
 export function assertUniqueRecursiveIds<TNode>(

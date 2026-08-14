@@ -23,7 +23,7 @@ import type { TerminalGraphicsCommitter } from './graphics-committer.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
-import type { LayoutNode } from '../renderer/contracts.ts';
+import type { LayoutNode, Rect } from '../renderer/contracts.ts';
 import type { RenderRegion } from '../renderer/internal/render.ts';
 import type { TuiApp, TuiContext, TuiTheme } from './types.ts';
 
@@ -101,7 +101,7 @@ export async function commitFrame(
   theme: TerminalTheme,
   capabilities: TerminalCapabilityProfile,
   options: {
-    readonly dirtyRegions?: DirtyRegionSet;
+    readonly dirtyRegions?: readonly Rect[];
     readonly signal?: AbortSignal;
     readonly graphics?: TerminalGraphicsCommitter;
   } = {}

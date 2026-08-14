@@ -44,8 +44,10 @@ export type {
   CollectionRecord,
   CollectionSection,
   CollectionStatus,
+  CompleteCollectionProjection,
   CursorCollectionProjection,
   SparseCollectionProjection,
+  WindowedCollectionProjection,
 } from '../ui-model/collection.ts';
 export { measuredWindow } from './measured-window.ts';
 export type {
@@ -328,6 +330,7 @@ export {
   logViewerSearchMatches
 } from './log-viewer.ts';
 export type {
+  LogViewerReducerOptions,
   UnscrolledLogViewerState,
   ScrollableLogViewerState,
   LogViewerState

@@ -63,7 +63,7 @@ test('dirty diff for moved regions round-trips to the full next frame', () => {
     renderElementRegions(previousElement, terminalSize),
     renderElementRegions(nextElement, terminalSize)
   );
-  const diff = diffFrames(previous, next, { dirtyRegions });
+  const diff = diffFrames(previous, next, { dirtyRegions: dirtyRegions?.rects });
   const applied = applyDiffToFrame(previous, diff);
 
   assert.deepEqual(diff.dirtyRegions, dirtyRegions?.rects);

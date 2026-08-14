@@ -5,8 +5,10 @@ import {
   span,
 } from '../../component/index.ts';
 import type { SemanticLeafComponentFactory } from '../../component/index.ts';
+import type { Element } from '../../element/index.ts';
 import type {
   HelpBarOptions,
+  ActivityIndicatorOptions,
   MeterOptions,
   ProgressBarOptions,
   SparklineOptions,
@@ -34,7 +36,7 @@ import type { StatusBarSection } from '../../ui-model/feedback.ts';
 import type { HelpGroup } from '../../ui-model/contracts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ComponentRenderInput } from '../../component/index.ts';
-import { resolveStableIds } from '../../ui-model/identity.ts';
+import { assertStableIds } from '../../ui-model/identity.ts';
 import { isProcessStatus, isStatusBarStatus } from '../../ui-model/status.ts';
 import {
   fillTextCells,
@@ -86,7 +88,7 @@ export const statusBar: SemanticLeafComponentFactory<
     const leading = prepareStatusItems(value.leading, 'leading');
     const center = prepareStatusItems(value.center, 'center');
     const trailing = prepareStatusItems(value.trailing, 'trailing');
-    resolveStableIds([...leading, ...center, ...trailing], (item) => item.id, 'statusBar');
+    assertStableIds([...leading, ...center, ...trailing], (item) => item.id, 'statusBar');
     return { leading, center, trailing };
   },
   measure(input) {
@@ -184,7 +186,7 @@ export const helpBar: SemanticLeafComponentFactory<
   parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
   prepare(value) {
     const groups = value.groups.map((group, index) => prepareHelpGroup(group, index));
-    resolveStableIds(groups, (group) => group.id, 'helpBar');
+    assertStableIds(groups, (group) => group.id, 'helpBar');
     return { groups };
   },
   measure(input) {
@@ -658,14 +660,9 @@ type ActivityIndicatorOwnOptions =
   | Pick<RunningActivityIndicatorOptions, 'label' | 'status' | 'frames' | 'frameIndex'>
   | Pick<SettledActivityIndicatorOptions, 'label' | 'status' | 'frames' | 'frameIndex'>;
 
-export const activityIndicator: SemanticLeafComponentFactory<
-  ActivityIndicatorOwnOptions,
-  never,
-  StatusStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
-> = defineComponent<
+type ActivityIndicatorFactory = (options: ActivityIndicatorOptions) => Element;
+
+export const activityIndicator: ActivityIndicatorFactory = defineComponent<
   ActivityIndicatorOwnOptions,
   ActivityIndicatorModel,
   never,

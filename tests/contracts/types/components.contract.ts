@@ -61,6 +61,8 @@ const message: SaveMessage = { kind: 'save' };
 
 // @ts-expect-error interactive components require stable identity
 button({ label: 'Invalid', onAction: () => ({ kind: 'invalid' } as const) });
+// @ts-expect-error component options reject misspelled fields at the typed public boundary
+button({ id: 'danger', label: 'Delete', disabeld: true, onAction: () => ({ kind: 'delete' } as const) });
 
 void rows;
 void drawing;

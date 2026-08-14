@@ -13,6 +13,7 @@ import {
   span,
   type Canvas2D,
   type CanvasPainterInput,
+  type DiffFramesOptions,
   type Frame,
   type FrameCellSource,
   type FramePassContext,
@@ -57,6 +58,7 @@ declare const painterInput: CanvasPainterInput;
 drawing.brailleSubcell(0, 0);
 painterInput.canvas.point(0, 0, { text: '*' });
 const absoluteRect: Rect = { row: 1, column: 1, width: 2, height: 2 };
+const diffOptions: DiffFramesOptions = { dirtyRegions: [absoluteRect] };
 // @ts-expect-error Canvas2D uses x/y local coordinates
 drawing.rect(absoluteRect, { fill: { text: '*' } });
 drawing.rect({ x: 0, y: 0, width: 2, height: 2 }, { fill: { text: '*' } });
@@ -79,6 +81,8 @@ const writeOnly = defineComponent({
 });
 writeOnly({ id: 'write-only-component' });
 writeOnly({ id: 'inert-component', inert: true });
+// @ts-expect-error components without own options reject undeclared fields
+writeOnly({ id: 'unknown-option-component', anything: true });
 // @ts-expect-error required identity cannot be omitted
 writeOnly({});
 writeOnly({
@@ -163,6 +167,7 @@ void invalidInteractionState;
 void validInteractionState;
 void privateRenderNode;
 void privateRegions;
+void diffOptions;
 void componentRenderInput;
 void componentMeasureViewport;
 void framePassColumns;

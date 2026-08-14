@@ -192,7 +192,13 @@ export type {
   ComboboxTransition,
   UnscrolledComboboxPresentation,
 } from '../ui-model/combobox.ts';
-export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../element/index.ts';
+export type {
+  Element,
+  ElementChildren,
+  ElementChildrenMessage,
+  ElementMessage,
+  ElementValue,
+} from '../element/index.ts';
 export { inspectElement } from '../element/inspection.ts';
 export type {
   ElementFactoryCategory,

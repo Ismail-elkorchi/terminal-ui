@@ -106,7 +106,10 @@ export type {
 export { drawBorder } from './internal/border.ts';
 export type {
   BorderKind,
-  BorderStyle
+  BorderStyle,
+  BorderTitle,
+  BorderTitleContent,
+  BorderTitleSlots
 } from './internal/border.ts';
 export {
   createFrameBuffer
@@ -115,8 +118,10 @@ export type {
   AnsiStyleState,
   DiffFramesOptions,
   FrameBuffer,
+  FrameBufferOptions,
   FrameBufferSnapshot,
   FrameBufferSnapshotOptions,
+  RenderDiffAnsiOptions,
   RenderSerializeOptions
 } from './internal/frame.ts';
 export {
@@ -129,9 +134,7 @@ export type {
 } from './internal/frame-passes/index.ts';
 export {
   frameCellSource,
-  frameSourcePart,
-  sameFrameCellSource,
-  renderNodeFrameSource
+  sameFrameCellSource
 } from '../visual/source.ts';
 export type { FrameCellSource } from '../visual/source.ts';
 export {
@@ -157,7 +160,6 @@ export type {
   HighlightRenderSpansOptions
 } from './internal/text-highlight.ts';
 export {
-  compositeRegions,
   diffFrames,
   renderDiffAnsi,
   renderFrameAnsi,

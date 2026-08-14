@@ -2,7 +2,6 @@ import { serializeRenderSpans } from './ansi.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import { planTerminalOutput } from './output-planner.ts';
-import type { DirtyRegionSet } from './dirty-regions.ts';
 import type {
   Frame,
   FrameCell,
@@ -30,7 +29,7 @@ export type { CursorPosition, Frame, FrameCell, FrameHitTarget } from '../contra
 export type { FocusPath } from './focus.ts';
 
 export interface DiffFramesOptions {
-  readonly dirtyRegions?: DirtyRegionSet | readonly Rect[];
+  readonly dirtyRegions?: readonly Rect[];
   readonly instrumentation?: RenderWorkInstrumentation;
 }
 
@@ -322,14 +321,11 @@ function diffRow(
   return { row, operations: Object.freeze(operations) };
 }
 
-function dirtyRectsForFrame(frame: Frame, input: DirtyRegionSet | readonly Rect[] | undefined): readonly Rect[] | undefined {
+function dirtyRectsForFrame(frame: Frame, input: readonly Rect[] | undefined): readonly Rect[] | undefined {
   if (input === undefined) return undefined;
-  const rects = isDirtyRegionSet(input) ? input.rects : input;
-  return createDirtyRegionSet(rects).intersect({ row: 1, column: 1, width: frame.width, height: frame.height }).rects;
-}
-
-function isDirtyRegionSet(input: DirtyRegionSet | readonly Rect[]): input is DirtyRegionSet {
-  return !Array.isArray(input);
+  return createDirtyRegionSet(input)
+    .intersect({ row: 1, column: 1, width: frame.width, height: frame.height })
+    .rects;
 }
 
 interface ColumnRange {

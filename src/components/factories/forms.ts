@@ -12,10 +12,9 @@ import type {
   ComponentLayoutInput,
   ComponentMeasureInput,
   ComponentRenderInput,
-  SemanticCompositeComponentFactory,
   SemanticLeafComponentFactory,
 } from '../../component/index.ts';
-import type { Element } from '../../element/index.ts';
+import type { Element, ElementChildrenMessage } from '../../element/index.ts';
 import type {
   ButtonOptions,
   CheckboxOptions,
@@ -82,19 +81,15 @@ interface FormModel {
 
 type FormOwnOptions = LayoutFlowOptions & Pick<FormOptions, 'title'>;
 
+type FormFactory = <
+  const TContent extends readonly Element<ComponentMessage>[] = readonly Element<ComponentMessage>[],
+>(options: FormOptions<TContent>) => Element<ElementChildrenMessage<TContent>>;
+
 const formSlots = {
   content: { cardinality: 'many', owner: 'caller', messages: 'bubble' },
 } as const;
 
-export const form: SemanticCompositeComponentFactory<
-  FormOwnOptions,
-  never,
-  'title',
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer'],
-  typeof formSlots
-> = defineComponent<
+export const form: FormFactory = defineComponent<
   FormOwnOptions,
   FormModel,
   never,

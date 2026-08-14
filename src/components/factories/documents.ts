@@ -869,12 +869,6 @@ type SearchPickerComponentOptions = Omit<
   'id' | 'disabled' | 'readOnly' | 'busy' | 'inert' | 'onTransition' | 'onAccept' | 'onPointerAction' | 'meta'
 >;
 
-type SearchPickerElement<
-  TTransitionMessage extends ComponentMessage,
-  TAcceptMessage extends ComponentMessage,
-  TPointerMessage extends ComponentMessage,
-> = Element<TTransitionMessage | TAcceptMessage | TPointerMessage>;
-
 /* eslint-disable @typescript-eslint/unified-signatures -- separate overloads preserve contextual transition types */
 interface SearchPickerFactory {
   <
@@ -889,7 +883,7 @@ interface SearchPickerFactory {
       TAcceptMessage,
       TPointerMessage
     >,
-  ): SearchPickerElement<TTransitionMessage, TAcceptMessage, TPointerMessage>;
+  ): Element<TTransitionMessage | TAcceptMessage | TPointerMessage>;
   <
     TValue,
     const TTransitionMessage extends ComponentMessage = never,
@@ -902,7 +896,7 @@ interface SearchPickerFactory {
       TAcceptMessage,
       TPointerMessage
     >,
-  ): SearchPickerElement<TTransitionMessage, TAcceptMessage, TPointerMessage>;
+  ): Element<TTransitionMessage | TAcceptMessage | TPointerMessage>;
 }
 /* eslint-enable @typescript-eslint/unified-signatures */
 

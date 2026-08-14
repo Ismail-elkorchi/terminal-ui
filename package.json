@@ -121,7 +121,7 @@
     "build": "node scripts/clean.mjs && tsc -p tsconfig.json",
     "clean": "node scripts/clean.mjs",
     "lint": "eslint \"src/**/*.ts\" \"examples/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"tests/**/*.{ts,mjs}\"",
-    "check:architecture": "npm run build && node scripts/check-architecture.mjs",
+    "check:architecture": "npm run build && node scripts/check-architecture.mjs && node --test tests/architecture/check-architecture.test.mjs",
     "check:hygiene": "node scripts/check-hygiene.mjs",
     "check": "npm run check:fast && npm run check:consumer && npm run check:runtime && npm run check:jsr && npm run check:performance",
     "check:fast": "npm run check:hygiene && npm run check:architecture && npm run lint && npm run check:test-types && npm run check:examples && npm run check:acceptance && npm run check:conformance && npm run check:integration && npm run check:package && npm run check:property && npm run check:security && npm run check:unit",

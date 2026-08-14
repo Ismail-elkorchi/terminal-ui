@@ -241,8 +241,6 @@ export interface ComponentPointerActions<
   ) => MessageResolution<TAction>;
 }
 
-type NoComponentOptions = Readonly<Record<never, never>>;
-
 interface ComponentDefinitionIdentity {
   /** A package-qualified identity such as `acme/widgets/badge`. */
   readonly name: ComponentDefinitionName;
@@ -369,7 +367,7 @@ interface DecorativeDefinition {
 export type ComponentMetadataCapability = 'focus' | 'layer' | 'styles';
 
 export type SemanticLeafComponentDefinition<
-  TOptions extends object = NoComponentOptions,
+  TOptions extends object = Readonly<Record<never, never>>,
   TPrepared extends object = TOptions,
   TAction = never,
   TPart extends string = never,
@@ -395,7 +393,7 @@ export type SemanticLeafComponentDefinition<
   };
 
 export type DecorativeLeafComponentDefinition<
-  TOptions extends object = NoComponentOptions,
+  TOptions extends object = Readonly<Record<never, never>>,
   TPrepared extends object = TOptions,
   TPart extends string = never,
   TIdentity extends ComponentIdentity = 'optional',
@@ -419,7 +417,7 @@ export type DecorativeLeafComponentDefinition<
   };
 
 export type SemanticCompositeComponentDefinition<
-  TOptions extends object = NoComponentOptions,
+  TOptions extends object = Readonly<Record<never, never>>,
   TPrepared extends object = TOptions,
   TAction = never,
   TPart extends string = never,
@@ -458,7 +456,7 @@ export type SemanticCompositeComponentDefinition<
   };
 
 export type SemanticComposedComponentDefinition<
-  TOptions extends object = NoComponentOptions,
+  TOptions extends object = Readonly<Record<never, never>>,
   TPrepared extends object = TOptions,
   TAction = never,
   TPart extends string = never,
@@ -484,7 +482,7 @@ export type SemanticComposedComponentDefinition<
   };
 
 export type ComponentDefinition<
-  TOptions extends object = NoComponentOptions,
+  TOptions extends object = Readonly<Record<never, never>>,
   TPrepared extends object = TOptions,
   TAction = never,
   TPart extends string = never,
@@ -746,7 +744,7 @@ type CallerSlotsOption<
     : { readonly slots: TValues };
 
 export function defineComponent<
-  TOptions extends object = NoComponentOptions,
+  TOptions extends object = Readonly<Record<never, never>>,
   TPrepared extends object = TOptions,
   TAction = never,
   const TPart extends string = never,
@@ -755,18 +753,18 @@ export function defineComponent<
   const TMetadata extends readonly ComponentMetadataCapability[] = readonly []
 >(
   definition: SemanticLeafComponentDefinition<TOptions, TPrepared, TAction, TPart, TStates, TIdentity, TMetadata>
-): SemanticLeafComponent<TOptions, TAction, TPart, TStates, TIdentity, TMetadata>;
+): SemanticLeafComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata>;
 export function defineComponent<
-  TOptions extends object = NoComponentOptions,
+  TOptions extends object = Readonly<Record<never, never>>,
   TPrepared extends object = TOptions,
   const TPart extends string = never,
   TIdentity extends ComponentIdentity = 'optional',
   const TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly []
 >(
   definition: DecorativeLeafComponentDefinition<TOptions, TPrepared, TPart, TIdentity, TMetadata>
-): DecorativeLeafComponent<TOptions, TPart, TIdentity, TMetadata>;
+): DecorativeLeafComponentFactory<TOptions, TPart, TIdentity, TMetadata>;
 export function defineComponent<
-  TOptions extends object = NoComponentOptions,
+  TOptions extends object = Readonly<Record<never, never>>,
   TPrepared extends object = TOptions,
   TAction = never,
   const TPart extends string = never,
@@ -794,7 +792,7 @@ export function defineComponent<
     TMetadata,
     TSlots
   >
-): SemanticCompositeComponent<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TSlots>;
+): SemanticCompositeComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TSlots>;
 export function defineComponent<
   TOptions extends object,
   TPrepared extends object,

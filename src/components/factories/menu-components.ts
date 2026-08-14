@@ -29,12 +29,14 @@ import {
   isStringMember,
 } from '../../foundation/validation.ts';
 import type { Rect } from '../../geometry/types.ts';
+import { decodeInputTrigger } from '../../input/index.ts';
 import type {
   AnchoredSurfaceAnchor,
   AnchoredSurfacePlacement,
 } from '../../interaction/anchored-surface.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import { formatKeyboardBinding } from '../../interaction/key-binding.ts';
+import type { KeyboardBinding } from '../../interaction/key-binding.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
 import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
@@ -918,8 +920,10 @@ function prepareItems(
       value.description,
       `${subject}[${String(index)}].description`,
     );
-    const shortcut = value.shortcut;
-    if (shortcut !== undefined) formatKeyboardBinding(shortcut);
+    const shortcut = prepareMenuShortcut(
+      value.shortcut,
+      `${subject}[${String(index)}].shortcut`,
+    );
     if (value.disabled !== undefined && typeof value.disabled !== 'boolean') {
       throw new TypeError(`${subject}[${String(index)}].disabled must be boolean.`);
     }
@@ -976,6 +980,20 @@ function prepareItems(
       children: prepareItems(value.children, `${subject}[${String(index)}].children`),
     };
   });
+}
+
+function prepareMenuShortcut(value: unknown, subject: string): KeyboardBinding | undefined {
+  if (value === undefined) return undefined;
+  try {
+    const trigger = decodeInputTrigger(value);
+    if (trigger.kind === 'text' || trigger.kind === 'focus') {
+      throw new TypeError('must be a key, codePoint, or physicalKey trigger');
+    }
+    return trigger;
+  } catch (cause) {
+    const detail = cause instanceof Error ? ` ${cause.message}` : '';
+    throw new TypeError(`${subject} is invalid.${detail}`, { cause });
+  }
 }
 
 function flattenMenu(items: readonly PreparedMenuItem[], depth = 0): readonly MenuRow[] {

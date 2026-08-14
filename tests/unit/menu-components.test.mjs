@@ -127,6 +127,27 @@ test('menu models reject malformed structural item variants at the factory bound
   ], { activePath: [] }), /requires boolean checked state/u);
 });
 
+test('menu factories validate and own retained shortcut bindings', () => {
+  const shortcut = { kind: 'key', key: 'n' };
+  const element = menu({
+    id: 'shortcut-menu',
+    presentation: menuPresentation([
+      { kind: 'action', id: 'new', label: 'New', shortcut }
+    ], { activePath: ['new'] }),
+    onTransition: (action) => action
+  });
+
+  shortcut.key = 'x';
+  assert.match(renderFramePlain(renderElementFrame(element, { columns: 20, rows: 1 })), /N$/u);
+  assert.throws(() => menu({
+    id: 'invalid-shortcut-menu',
+    presentation: menuPresentation([
+      { kind: 'action', id: 'new', label: 'New', shortcut: { kind: 'text', text: 'n' } }
+    ], { activePath: ['new'] }),
+    onTransition: (action) => action
+  }), /shortcut is invalid/u);
+});
+
 test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => {
   const menuBarFrame = renderElementFrame(
     menuBar({

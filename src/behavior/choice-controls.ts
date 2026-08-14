@@ -14,7 +14,7 @@ import type {
   CollectionInteractionState,
   SelectionPolicy,
 } from '../interaction/collection.ts';
-import { resolveStableIds } from '../ui-model/identity.ts';
+import { assertStableIds } from '../ui-model/identity.ts';
 
 export type CheckboxGroupState = CollectionInteractionState;
 export type RadioGroupState = CollectionInteractionState;
@@ -122,6 +122,6 @@ export function colorSwatchPickerPresentation<TValue>(
 }
 
 function enabledIds<TValue>(items: readonly ChoiceItem<TValue>[], context: string): readonly string[] {
-  resolveStableIds(items, (item) => item.id, context);
+  assertStableIds(items, (item) => item.id, context);
   return items.filter((item) => item.disabled !== true).map((item) => item.id);
 }

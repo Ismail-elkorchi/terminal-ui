@@ -618,7 +618,7 @@ function createRegionComposer<TMessage>(
   };
 }
 
-export function compositeRegions(
+function compositeRegions(
   terminalSize: TerminalSize,
   regions: readonly RenderRegion[],
   widthProfile: TextWidthProfile

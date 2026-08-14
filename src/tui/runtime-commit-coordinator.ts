@@ -144,7 +144,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         ? undefined
         : dirtyRegionsForRenderCommit(currentRender, render);
       const diff = await commitFrame(options.host, previousFrame, render.frame, theme, context.capabilities, {
-        ...(dirtyRegions === undefined ? {} : { dirtyRegions }),
+        ...(dirtyRegions === undefined ? {} : { dirtyRegions: dirtyRegions.rects }),
         signal,
         graphics
       });

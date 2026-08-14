@@ -867,8 +867,13 @@ function prepareRangeSlider(
     throw new TypeError('rangeSlider range must be an object.');
   }
   const base = prepareNumericSlider({
-    ...value,
-    ...(range === undefined ? {} : { min: range.min, max: range.max }),
+    label: value.label,
+    ...(range?.min === undefined ? {} : { min: range.min }),
+    ...(range?.max === undefined ? {} : { max: range.max }),
+    ...(value.step === undefined ? {} : { step: value.step }),
+    ...(value.width === undefined ? {} : { width: value.width }),
+    ...(value.error === undefined ? {} : { error: value.error }),
+    ...(value.pointerState === undefined ? {} : { pointerState: value.pointerState }),
   }, 'rangeSlider', pointerAvailable);
   const state = value.state;
   if (

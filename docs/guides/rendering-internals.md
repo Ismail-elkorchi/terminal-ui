@@ -64,9 +64,12 @@ quickly, but an equal fingerprint is always confirmed by exact cell comparison.
 Its optional interaction state is limited to focused, hovered, pressed,
 selected, disabled, and active; cleanup and transcript validation reject other
 values.
-Use `renderNodeFrameSource()` for cells produced from a render node,
-`frameCellSource()` for cells produced by the renderer without a render node, and `frameSourcePart()` when
-deriving a more specific part from an existing source.
+Component renderers should create source metadata through
+`ComponentRenderInput.source()`, which binds the component identity and accepts
+only semantic cell and part metadata. Low-level renderer extensions can use
+`frameCellSource()` when they already own the complete provenance record.
+Render-node identity and derived-part helpers are renderer implementation
+details rather than public authoring contracts.
 
 ## Render Spans And Blocks
 

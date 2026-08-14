@@ -22,8 +22,8 @@ import type {
 import type { TextWidthProfile } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type {
+  FrameCellRole,
   FrameCellSource,
-  RenderNodeFrameSourceOptions,
   RenderBlock,
   RenderLine,
   RenderSpan,
@@ -87,10 +87,15 @@ export interface RenderStyleInput<TPart extends string> {
   readonly base?: TerminalStyle;
 }
 
-export type RenderSourceInput = Omit<
-  RenderNodeFrameSourceOptions,
-  'rendererFamily'
->;
+export interface RenderSourceInput {
+  readonly cellRole?: FrameCellRole;
+  readonly partName?: string;
+  readonly partType?: string;
+  readonly itemId?: string;
+  readonly itemIndex?: number;
+  readonly interactionState?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
+  readonly description?: string;
+}
 
 export interface CanvasPoint {
   readonly x: number;

@@ -43,7 +43,7 @@ import type {
   NotificationRegionAction,
 } from '../../ui-model/notification.ts';
 import type { NotificationStylePart } from '../../ui-model/style-parts.ts';
-import { resolveStableIds } from '../../ui-model/identity.ts';
+import { assertStableIds } from '../../ui-model/identity.ts';
 import { isNotificationTone } from '../../ui-model/status.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { NotificationHistoryOptions, NotificationRegionOptions } from '../options/feedback.ts';
@@ -222,7 +222,7 @@ function prepareNotifications(
     throw new TypeError('notification options must contain an items array.');
   }
   const items = value.items.map(prepareItem);
-  resolveStableIds(items, (item) => item.id, 'notifications');
+  assertStableIds(items, (item) => item.id, 'notifications');
   const placement = value.placement;
   assertOptionalEnum(
     placement,
