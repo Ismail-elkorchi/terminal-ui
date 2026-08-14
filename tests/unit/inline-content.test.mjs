@@ -17,7 +17,7 @@ import {
   renderFramePlain
 } from '../../dist/renderer/index.js';
 import {
-  modernTheme,
+  defaultTheme,
   noColorTheme
 } from '../../dist/theme/index.js';
 import {
@@ -137,7 +137,7 @@ test('rich text projects symbol mode and accessible text while the renderer prod
       { kind: 'symbol', unicode: '→', ascii: '->', accessibleText: 'next' }
     ]
   });
-  const unicode = renderElementFrame(element, { columns: 12, rows: 1 }, { theme: modernTheme });
+  const unicode = renderElementFrame(element, { columns: 12, rows: 1 }, { theme: defaultTheme });
   const ascii = renderElementFrame(element, { columns: 12, rows: 1 }, { theme: noColorTheme });
 
   assert.equal(renderFramePlain(unicode).trimEnd(), 'Go →');

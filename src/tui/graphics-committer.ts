@@ -9,8 +9,7 @@ import {
 import type { TerminalGraphicsTransport } from '../protocol/index.ts';
 import type { GraphicPlacement, RasterImage, TerminalGraphicsMode } from '../graphics/index.ts';
 import type { TerminalCapabilityProfile } from '../host/index.ts';
-import type { TerminalTheme } from '../theme/index.ts';
-import type { TerminalColor } from '../visual/index.ts';
+import type { TerminalTheme, ThemeColor } from '../theme/index.ts';
 import type { Frame, RenderDiff } from '../renderer/contracts.ts';
 
 const ESC = '\u001b';
@@ -194,7 +193,10 @@ function graphicsRenderProfile(
   const geometry = pixels === undefined ? 'unknown' : `${String(pixels.width)}x${String(pixels.height)}`;
   if (resolved.protocol === 'kitty') return `kitty:${resolved.transport}:${geometry}`;
   const background = backgroundColor(theme.tokens.colors['app.background']);
-  return `sixel:${resolved.transport}:${geometry}:${String(background.r)}:${String(background.g)}:${String(background.b)}`;
+  const composition = background === undefined
+    ? 'transparent'
+    : `${String(background.r)}:${String(background.g)}:${String(background.b)}`;
+  return `sixel:${resolved.transport}:${geometry}:${composition}`;
 }
 
 function resolveProtocol(
@@ -264,19 +266,7 @@ function rectKey(rect: GraphicPlacement['bounds']): string {
   return `${String(rect.row)}:${String(rect.column)}:${String(rect.width)}:${String(rect.height)}`;
 }
 
-function backgroundColor(color: TerminalColor | undefined): { readonly r: number; readonly g: number; readonly b: number } {
-  if (color?.kind === 'rgb') return { r: color.r, g: color.g, b: color.b };
-  if (color?.kind === 'ansi') return ansiColor(color.value);
-  return { r: 0, g: 0, b: 0 };
-}
-
-function ansiColor(value: number): { readonly r: number; readonly g: number; readonly b: number } {
-  const colors = [
-    [0, 0, 0], [205, 49, 49], [13, 188, 121], [229, 229, 16],
-    [36, 114, 200], [188, 63, 188], [17, 168, 205], [229, 229, 229],
-    [102, 102, 102], [241, 76, 76], [35, 209, 139], [245, 245, 67],
-    [59, 142, 234], [214, 112, 214], [41, 184, 219], [255, 255, 255],
-  ] as const;
-  const [r, g, b] = colors[Math.max(0, Math.min(15, value))] ?? colors[0];
-  return { r, g, b };
+function backgroundColor(color: ThemeColor | undefined):
+  { readonly r: number; readonly g: number; readonly b: number } | undefined {
+  return color?.kind === 'rgb' ? { r: color.r, g: color.g, b: color.b } : undefined;
 }

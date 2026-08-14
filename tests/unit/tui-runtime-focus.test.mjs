@@ -271,6 +271,40 @@ test('runTui accepts a state-derived theme', async () => {
   assert.match(host.output(), /\u001B\[32m/u);
 });
 
+test('state-derived themes repaint when their exact rendering content changes', async () => {
+  const app = defineTui({
+    id: 'run-collision-theme',
+    init: () => ({ active: false }),
+    inputBindings: [{ id: 'activate-theme', triggers: [{ kind: 'key', key: 'enter' }], message: { active: true } }],
+    update: () => ({ state: { active: true }, exit: {} }),
+    view: () => richText({
+      id: 'collision-theme-label',
+      segments: [{ kind: 'text', text: 'theme', style: { fg: { kind: 'theme', token: 'custom.x' } } }]
+    })
+  });
+  const host = createMemoryTerminalHost({
+    terminalSize: { columns: 12, rows: 2 },
+    capabilities: { colorDepth: 24 }
+  });
+  host.input('\r');
+
+  const exit = await runTui(app, host, {
+    theme: (state) => ({
+      tokens: {
+        colors: {
+          'custom.x': state.active
+            ? { kind: 'rgb', r: 190, g: 250, b: 218 }
+            : { kind: 'rgb', r: 45, g: 88, b: 140 }
+        }
+      }
+    })
+  });
+
+  assert.equal(exit.status, 'completed');
+  assert.match(host.output(), /\u001B\[38;2;45;88;140m/u);
+  assert.match(host.output(), /\u001B\[38;2;190;250;218m/u);
+});
+
 test('TUI runtime restores a serialized focus path when it still exists', async () => {
   const app = defineTui({
     id: 'focus-restore',

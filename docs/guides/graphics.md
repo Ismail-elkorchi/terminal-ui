@@ -58,6 +58,13 @@ SIXEL second, but only after an active terminal response proves support. Explici
 verified. SIXEL also requires a verified terminal cell-pixel size so cell
 geometry can be converted to pixels correctly.
 
+SIXEL preserves fully transparent pixels when the theme leaves the terminal
+background unchanged. Partially transparent pixels require an explicit RGB
+`app.background` theme token because terminal ANSI palette slots and the
+terminal's default background are user-configurable; the renderer does not
+guess a composition color. Kitty receives the original RGBA pixels and does
+not need this SIXEL composition policy.
+
 Under tmux, direct probing runs first. If Kitty is not available directly, the
 runtime tries tmux passthrough and records that transport only when the query
 response proves it works. Environment variable names are never treated as

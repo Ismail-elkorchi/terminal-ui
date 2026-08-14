@@ -1513,7 +1513,7 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
     part: valuePart,
     ...(state === undefined ? {} : { state }),
     base: selected === undefined
-      ? { fg: { kind: 'theme', token: 'input.placeholder' }, dim: true }
+      ? { fg: { kind: 'theme', token: 'input.placeholder' } }
       : { fg: { kind: 'theme', token: 'text.default' } },
   });
   const markerStyle = input.style({

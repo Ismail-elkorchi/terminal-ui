@@ -49,7 +49,9 @@ snapshots. Prompt-rendered text is sanitized before it is written to the
 terminal.
 Interactive prompts honor `theme` for prompt symbols and styled terminal
 output. Theme rendering sanitizes prompt text before adding trusted ANSI
-styling, and non-color hosts receive plain text.
+styling, and non-color hosts receive plain text. Prompts default to
+`minimalTheme`; they accept either a canonical `TerminalTheme` or a partial
+`TerminalThemeDefinition` merged onto that minimal base.
 Interactive `input()` and `password()` prompts show pending and failing
 validation status while the user types. Async validators receive an
 `AbortSignal`; stale validation results are ignored, so a slower response for an

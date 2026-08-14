@@ -36,6 +36,10 @@
       "types": "./dist/theme/index.d.ts",
       "default": "./dist/theme/index.js"
     },
+    "./theme/packs": {
+      "types": "./dist/theme/packs/index.d.ts",
+      "default": "./dist/theme/packs/index.js"
+    },
     "./prompts": {
       "types": "./dist/prompts/index.d.ts",
       "default": "./dist/prompts/index.js"
@@ -110,7 +114,8 @@
     "docs",
     "examples",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "build": "node scripts/clean.mjs && tsc -p tsconfig.json",

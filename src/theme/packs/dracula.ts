@@ -24,7 +24,6 @@ export const draculaThemeDefinition = themePackDefinition('dracula', {
   'text.default': rgb(248, 248, 242),
   'text.muted': rgb(189, 147, 249),
   'accent.primary': rgb(255, 121, 198),
-  'accent.secondary': rgb(139, 233, 253),
   'status.info': rgb(139, 233, 253),
   'status.success': rgb(80, 250, 123),
   'status.warning': rgb(241, 250, 140),

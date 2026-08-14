@@ -24,7 +24,6 @@ export const nordThemeDefinition = themePackDefinition('nord', {
   'text.default': rgb(236, 239, 244),
   'text.muted': rgb(216, 222, 233),
   'accent.primary': rgb(136, 192, 208),
-  'accent.secondary': rgb(180, 142, 173),
   'status.info': rgb(129, 161, 193),
   'status.success': rgb(163, 190, 140),
   'status.warning': rgb(235, 203, 139),

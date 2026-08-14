@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { modernTheme, noColorTheme } from '../../dist/theme/index.js';
+import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import { blockSpan,
   layoutElement,
   renderFramePlain,
@@ -176,7 +176,7 @@ test('surface appearance draws background border and shadow', () => {
     border: { kind: 'dashed' },
     shadow: true
   });
-  const frame = renderElementFrame(element, { columns: 14, rows: 4 }, { theme: modernTheme });
+  const frame = renderElementFrame(element, { columns: 14, rows: 4 }, { theme: defaultTheme });
   const output = renderFramePlain(frame);
   const backgroundCell = frame.cells.find((cell) => cell.source?.elementKind === 'surface' && cell.source.cellRole === 'decoration' && cell.style?.bg !== undefined);
   const borderCell = frame.cells.find((cell) => cell.source?.cellRole === 'border');
@@ -253,16 +253,16 @@ test('surface appearance controls fill independently from an explicit frame', ()
   const neutral = renderElementFrame(surface(text({ content: 'neutral', id: 'neutral-inner' }), {
     id: 'neutral',
     appearance: 'neutral'
-  }), { columns: 10, rows: 2 }, { theme: modernTheme });
+  }), { columns: 10, rows: 2 }, { theme: defaultTheme });
   const unframed = renderElementFrame(surface(text({ content: 'inner', id: 'unframed-inner' }), {
     id: 'unframed',
     appearance: 'raised'
-  }), { columns: 10, rows: 3 }, { theme: modernTheme });
+  }), { columns: 10, rows: 3 }, { theme: defaultTheme });
   const framed = renderElementFrame(surface(text({ content: 'inner', id: 'framed-inner' }), {
     id: 'framed',
     appearance: 'raised',
     border: { kind: 'single' }
-  }), { columns: 10, rows: 3 }, { theme: modernTheme });
+  }), { columns: 10, rows: 3 }, { theme: defaultTheme });
   const transparent = renderElementFrame(surface(text({ content: 'flush', id: 'flush' }), {
     id: 'plain'
   }), { columns: 10, rows: 3 });

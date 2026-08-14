@@ -6,6 +6,21 @@ import { createMemoryTerminalHost } from '../host/index.ts';
 import { defineTui } from './definition.ts';
 import { normalizeTuiRunOptions } from './run-configuration.ts';
 import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
+import { isTerminalTheme, resolveThemeColor } from '../theme/index.ts';
+
+void test('TUI run options own partial theme definitions at admission', () => {
+  const color = { kind: 'ansi' as const, value: 1 };
+  const options = normalizeTuiRunOptions({
+    theme: { tokens: { colors: { 'text.default': color } } }
+  });
+  color.value = 2;
+
+  assert.equal(typeof options.theme, 'object');
+  if (!isTerminalTheme(options.theme)) {
+    throw new Error('Expected a canonical TUI theme.');
+  }
+  assert.deepEqual(resolveThemeColor(options.theme, 'text.default'), { kind: 'ansi', value: 1 });
+});
 
 void test('owned host recovery bypasses a hung restore before host disposal', async () => {
   const app = defineTui({

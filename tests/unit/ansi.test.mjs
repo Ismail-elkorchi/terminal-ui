@@ -64,6 +64,10 @@ test('stateful ANSI serialization maps rgb colors through truecolor 256 color an
 
   assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(24) }), '\u001B[38;2;255;0;0mR\u001B[0m');
   assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(8) }), '\u001B[38;5;196mR\u001B[0m');
+  assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(4) }), '\u001B[91mR\u001B[0m');
+  assert.equal(serializeRenderSpansStateful([
+    { text: 'R', style: { fg: { kind: 'ansi', value: 196 } } }
+  ], { capabilities: capabilities(4) }), '\u001B[91mR\u001B[0m');
   assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(1) }), 'R');
 });
 
@@ -85,7 +89,7 @@ test('stateful ANSI serialization preserves ordered foreground and background co
 
   assert.equal(
     serializeRenderSpansStateful(spans, { capabilities: capabilities(8) }),
-    '\u001B[1;38;5;188;48;5;16mA\u001B[22;48;5;16mB\u001B[0m'
+    '\u001B[1;38;5;253;48;5;233mA\u001B[22;48;5;233mB\u001B[0m'
   );
   assert.equal(
     serializeRenderSpansStateful(spans, { capabilities: capabilities(24) }),

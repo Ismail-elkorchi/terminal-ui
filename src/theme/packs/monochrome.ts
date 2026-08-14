@@ -25,7 +25,6 @@ export const monochromeThemeDefinition = themePackDefinition('monochrome', {
   'text.muted': rgb(160, 160, 160),
   'text.strong': rgb(255, 255, 255),
   'accent.primary': rgb(255, 255, 255),
-  'accent.secondary': rgb(190, 190, 190),
   'status.info': rgb(210, 210, 210),
   'status.success': rgb(238, 238, 238),
   'status.warning': rgb(190, 190, 190),

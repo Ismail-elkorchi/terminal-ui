@@ -1,5 +1,6 @@
 import { defineTextWidthProfile } from '../../text/index.ts';
-import { defaultTheme, defineTheme, isTerminalTheme } from '../../theme/index.ts';
+import { defaultTheme } from '../../theme/index.ts';
+import { resolveThemeInput } from '../../theme/theme.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
@@ -25,7 +26,7 @@ export function createRenderEnvironment(input: RenderEnvironmentInput): RenderEn
   });
   const theme = input.theme === undefined
     ? defaultTheme
-    : isTerminalTheme(input.theme) ? input.theme : defineTheme(input.theme);
+    : resolveThemeInput(input.theme, defaultTheme);
   return Object.freeze({
     terminalSize,
     theme,

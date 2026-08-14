@@ -1,6 +1,6 @@
 import { rgb, themePackDefinition } from './shared.ts';
 
-export const solarizedThemeDefinition = themePackDefinition('solarized', {
+export const solarizedDarkThemeDefinition = themePackDefinition('solarized-dark', {
   'app.background': rgb(0, 43, 54),
   'app.foreground': rgb(238, 232, 213),
   'surface.background': rgb(7, 54, 66),
@@ -24,7 +24,6 @@ export const solarizedThemeDefinition = themePackDefinition('solarized', {
   'text.default': rgb(238, 232, 213),
   'text.muted': rgb(147, 161, 161),
   'accent.primary': rgb(38, 139, 210),
-  'accent.secondary': rgb(211, 54, 130),
   'status.info': rgb(42, 161, 152),
   'status.success': rgb(133, 153, 0),
   'status.warning': rgb(181, 137, 0),

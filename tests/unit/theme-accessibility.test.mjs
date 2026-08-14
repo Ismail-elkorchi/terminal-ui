@@ -8,13 +8,19 @@ import {
 } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagnostics.js';
-import { defaultThemes,
+import { asciiSymbols,
+  builtInThemes,
+  coreColorTokens,
   defaultTheme,
   defineTheme,
   isTerminalTheme,
+  isThemeColorToken,
   mergeThemes,
   resolveThemeColor,
-  resolveTerminalStyle } from '../../dist/theme/index.js';
+  resolveTerminalStyle,
+  themeColor,
+  unicodeSymbols } from '../../dist/theme/index.js';
+import { sameThemeRendering } from '../../dist/theme/theme.js';
 import { renderDiffAnsi,
   renderAccessibleSnapshot,
   renderFramePlain,
@@ -59,19 +65,14 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   };
 
   assert.equal(theme.name, 'custom');
-  assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
   assert.equal(theme.tokens.symbols.pointer, '>');
   assert.equal(theme.tokens.symbols.checkboxChecked, '[x]');
   assert.deepEqual(theme.tokens.symbols.spinnerFrames, ['a', 'b']);
-  assert.notEqual(merged.fingerprint, theme.fingerprint);
   assert.deepEqual(merged.tokens.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
-  assert.deepEqual(
-    resolveTerminalStyle({ fg: { kind: 'theme', token: 'missing.custom' } }, theme),
-    { fg: { kind: 'rgb', r: 218, g: 225, b: 233 } }
-  );
+  assert.equal(resolveTerminalStyle({ fg: { kind: 'theme', token: 'missing.custom' } }, theme), undefined);
   assert.match(renderDiffAnsi(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
   assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[Hbad');
-  assert.equal(defaultThemes.noColor.name, 'noColor');
+  assert.equal(builtInThemes.noColor.name, 'noColor');
   assert.deepEqual(resolveThemeColor(defaultTheme, 'app.background'), { kind: 'rgb', r: 12, g: 16, b: 22 });
   assert.deepEqual(resolveThemeColor(defaultTheme, 'surface.background'), { kind: 'rgb', r: 17, g: 23, b: 31 });
   assert.deepEqual(resolveThemeColor(defaultTheme, 'surface.bar.background'), { kind: 'rgb', r: 22, g: 29, b: 38 });
@@ -80,8 +81,8 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   assert.deepEqual(resolveThemeColor(defaultTheme, 'surface.backdrop'), { kind: 'rgb', r: 7, g: 10, b: 14 });
   assert.deepEqual(resolveThemeColor(defaultTheme, 'status.success'), { kind: 'rgb', r: 118, g: 205, b: 112 });
   assert.deepEqual(resolveThemeColor(defaultTheme, 'text.default'), { kind: 'rgb', r: 218, g: 225, b: 233 });
-  assert.deepEqual(resolveThemeColor(defaultThemes.minimal, 'accent.primary'), { kind: 'ansi', value: 14 });
-  assert.equal(resolveThemeColor(defaultThemes.minimal, 'app.background'), undefined);
+  assert.deepEqual(resolveThemeColor(builtInThemes.minimal, 'accent.primary'), { kind: 'ansi', value: 14 });
+  assert.equal(resolveThemeColor(builtInThemes.minimal, 'app.background'), undefined);
 });
 
 test('the graphical default retains an implicit canvas while minimal preserves terminal colors', () => {
@@ -92,7 +93,7 @@ test('the graphical default retains an implicit canvas while minimal preserves t
   const minimal = renderElementFrame(richText({
     id: 'minimal',
     segments: [{ kind: 'text', text: 'A' }]
-  }), { columns: 3, rows: 2 }, { theme: defaultThemes.minimal });
+  }), { columns: 3, rows: 2 }, { theme: builtInThemes.minimal });
 
   assert.equal(graphical.cells.length, 1);
   assert.equal(minimal.cells.length, 1);
@@ -103,9 +104,9 @@ test('the graphical default retains an implicit canvas while minimal preserves t
   assert.equal(graphical.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'text.default');
 });
 
-test('theme fingerprints are stable for equivalent themes and change with theme content', () => {
+test('theme rendering identity is exact, order independent, and excludes names', () => {
   const first = defineTheme({
-    name: 'ordered',
+    name: 'ordered-copy',
     tokens: {
       colors: {
         'custom.b': { kind: 'rgb', r: 1, g: 2, b: 3 },
@@ -124,11 +125,12 @@ test('theme fingerprints are stable for equivalent themes and change with theme 
   });
   const changed = mergeThemes(first, { tokens: { symbols: { pointer: '*' } } });
 
-  assert.equal(first.fingerprint, second.fingerprint);
-  assert.notEqual(changed.fingerprint, first.fingerprint);
-  for (const theme of Object.values(defaultThemes)) {
-    assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
-  }
+  const collisionLeft = defineTheme({ tokens: { colors: { 'custom.x': { kind: 'rgb', r: 45, g: 88, b: 140 } } } });
+  const collisionRight = defineTheme({ tokens: { colors: { 'custom.x': { kind: 'rgb', r: 190, g: 250, b: 218 } } } });
+
+  assert.equal(sameThemeRendering(first, second), true);
+  assert.equal(sameThemeRendering(changed, first), false);
+  assert.equal(sameThemeRendering(collisionLeft, collisionRight), false);
 });
 
 test('themes own immutable token data and only classify canonical themes', () => {
@@ -138,21 +140,46 @@ test('themes own immutable token data and only classify canonical themes', () =>
     name: 'owned-theme',
     tokens: { colors: { 'custom.owned': color }, symbols }
   });
-  const fingerprint = theme.fingerprint;
-
   color.r = 200;
   symbols.pointer = '!';
 
   assert.equal(theme.tokens.colors['custom.owned']?.r, 1);
   assert.equal(theme.tokens.symbols.pointer, '>');
-  assert.equal(theme.fingerprint, fingerprint);
   assert.equal(Object.isFrozen(theme), true);
   assert.equal(Object.isFrozen(theme.tokens), true);
   assert.equal(Object.isFrozen(theme.tokens.colors['custom.owned']), true);
   assert.equal(Object.isFrozen(theme.tokens.symbols), true);
   assert.equal(Object.isFrozen(theme.tokens.symbols.borderSingle), true);
+  assert.equal(Object.isFrozen(theme.tokens.symbols.spinnerFrames), true);
   assert.equal(isTerminalTheme(theme), true);
-  assert.equal(isTerminalTheme({ name: 'fake', fingerprint: 'fake', tokens: {} }), false);
+  assert.equal(isTerminalTheme({ name: 'fake', tokens: {} }), false);
+});
+
+test('theme catalogs are immutable and symbol mode selects a complete repertoire', () => {
+  const ascii = defineTheme({ tokens: { symbols: { mode: 'ascii' } } });
+  const unicode = defineTheme({ tokens: { symbols: { mode: 'unicode' } } }, builtInThemes.minimal);
+
+  assert.equal(ascii.tokens.symbols.checkboxChecked, asciiSymbols.checkboxChecked);
+  assert.equal(ascii.tokens.symbols.borderSingle.topLeft, asciiSymbols.borderSingle.topLeft);
+  assert.equal(unicode.tokens.symbols.checkboxChecked, unicodeSymbols.checkboxChecked);
+  assert.equal(unicode.tokens.symbols.borderSingle.topLeft, unicodeSymbols.borderSingle.topLeft);
+  assert.equal(Object.isFrozen(coreColorTokens), true);
+  assert.equal(Object.isFrozen(asciiSymbols), true);
+  assert.equal(Object.isFrozen(asciiSymbols.borderSingle), true);
+  assert.equal(Object.isFrozen(asciiSymbols.spinnerFrames), true);
+  assert.equal(Object.isFrozen(builtInThemes), true);
+  assert.equal(isThemeColorToken('accent.primary'), true);
+  assert.equal(isThemeColorToken('custom.product'), true);
+  assert.equal(isThemeColorToken(42), false);
+  assert.deepEqual(themeColor('accent.primary'), { kind: 'theme', token: 'accent.primary' });
+  assert.equal(Object.isFrozen(themeColor('accent.primary')), true);
+  assert.throws(() => themeColor('accent'), /core token/u);
+});
+
+test('undefined color overrides are rejected instead of deleting base tokens', () => {
+  assert.throws(() => defineTheme({
+    tokens: { colors: { 'text.default': undefined } }
+  }), /Theme color text\.default must be an object/u);
 });
 
 test('rich text components preserve render spans and render their plain text into frames', () => {

@@ -1,8 +1,7 @@
-export const coreColorTokens = [
+const coreColorTokenValues = [
   'app.background',
   'app.foreground',
   'surface.background',
-  'surface.foreground',
   'surface.border',
   'surface.title',
   'surface.bar.background',
@@ -27,7 +26,6 @@ export const coreColorTokens = [
   'text.disabled',
   'link.foreground',
   'accent.primary',
-  'accent.secondary',
   'status.info',
   'status.success',
   'status.warning',
@@ -84,9 +82,6 @@ export const coreColorTokens = [
   'log.timestamp',
   'scrollbar.track',
   'scrollbar.thumb',
-  'diff.add',
-  'diff.remove',
-  'diff.context',
   'chart.axis',
   'chart.label',
   'chart.value',
@@ -99,14 +94,29 @@ export const coreColorTokens = [
   'chart.series.3'
 ] as const;
 
-export type CoreColorToken = typeof coreColorTokens[number];
+export type CoreColorToken = typeof coreColorTokenValues[number];
+export const coreColorTokens: readonly CoreColorToken[] = Object.freeze(coreColorTokenValues);
 export type CustomColorToken = `custom.${string}`;
 export type ThemeColorToken = CoreColorToken | CustomColorToken;
 
+export interface ThemeColorReference {
+  readonly kind: 'theme';
+  readonly token: ThemeColorToken;
+}
+
 const coreColorTokenSet = new Set<string>(coreColorTokens);
 
-export function isThemeColorToken(value: string): value is ThemeColorToken {
-  return coreColorTokenSet.has(value) || value.startsWith('custom.') && value.length > 'custom.'.length;
+export function isThemeColorToken(value: unknown): value is ThemeColorToken {
+  return typeof value === 'string'
+    && (coreColorTokenSet.has(value) || value.startsWith('custom.') && value.length > 'custom.'.length);
+}
+
+export function themeColor(token: ThemeColorToken): ThemeColorReference;
+export function themeColor(token: unknown): ThemeColorReference {
+  if (!isThemeColorToken(token)) {
+    throw new TypeError('Theme color token must be a core token or use the custom.* namespace.');
+  }
+  return Object.freeze({ kind: 'theme', token });
 }
 
 export type ThemeColor =

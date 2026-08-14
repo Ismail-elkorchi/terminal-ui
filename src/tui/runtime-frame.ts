@@ -1,7 +1,8 @@
 import { createAccessibleSnapshot, decodeAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import type { RenderNode } from '../renderer/model/index.ts';
-import { defaultTheme, defineTheme, isTerminalTheme } from '../theme/index.ts';
+import { defaultTheme } from '../theme/index.ts';
+import { resolveThemeInput } from '../theme/theme.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
 import { diffFrames, renderElementInternal, rerenderElementInternal } from '../renderer/internal/render.ts';
 import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-planner.ts';
@@ -29,7 +30,6 @@ import type { TuiApp, TuiContext, TuiTheme } from './types.ts';
 export interface RenderCommitCandidate<TMessage> {
   readonly commitId: string;
   readonly stateVersion: number;
-  readonly themeFingerprint: string;
   readonly terminalSize: TerminalSize;
   readonly widthProfile: RenderCommitCandidate<TMessage>['frame']['widthProfile'];
   readonly node: RenderNode<TMessage>;
@@ -84,7 +84,6 @@ function candidateFromRenderResult<TState, TMessage>(
   return {
     commitId,
     stateVersion,
-    themeFingerprint: renderResult.theme.fingerprint,
     terminalSize: renderResult.terminalSize,
     widthProfile: renderResult.widthProfile,
     node: renderResult.node,
@@ -183,7 +182,7 @@ export function dirtyRegionsForRenderCommit(
 export function resolveTuiTheme<TState>(theme: TuiTheme<TState> | undefined, state: TState): TerminalTheme {
   const resolved = typeof theme === 'function' ? theme(state) : theme;
   if (resolved === undefined) return defaultTheme;
-  return isTerminalTheme(resolved) ? resolved : defineTheme(resolved);
+  return resolveThemeInput(resolved, defaultTheme);
 }
 
 function appAccessibility<TState, TMessage>(

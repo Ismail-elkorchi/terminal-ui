@@ -6,6 +6,11 @@ import type { Rect } from '../contracts.ts';
 import type { CursorPosition } from '../contracts.ts';
 import type { TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render.ts';
 import { sameTerminalColor } from '../../visual/render.ts';
+import {
+  ansi256ToBasicAnsi,
+  rgbToAnsi256,
+  rgbToBasicAnsi
+} from '../../visual/color-conversion.ts';
 
 export interface TerminalSerializationPolicyInput {
   readonly capabilities?: TerminalOutputCapabilityProfile;
@@ -289,7 +294,7 @@ function colorCodes(
 function ansiColorCodes(target: 'fg' | 'bg', value: number, depth: number): readonly string[] {
   const normalized = Math.max(0, Math.min(255, Math.floor(value)));
   if (depth >= 8) return [target === 'fg' ? '38' : '48', '5', String(normalized)];
-  const basic = normalized % 16;
+  const basic = ansi256ToBasicAnsi(normalized);
   return [String(basicAnsiCode(target, basic))];
 }
 
@@ -302,8 +307,8 @@ function rgbColorCodes(
   const g = clampByte(color.g);
   const b = clampByte(color.b);
   if (depth === 24) return [target === 'fg' ? '38' : '48', '2', String(r), String(g), String(b)];
-  if (depth >= 8) return [target === 'fg' ? '38' : '48', '5', String(rgbToAnsi256(r, g, b))];
-  if (depth >= 4) return [String(basicAnsiCode(target, rgbToBasicAnsi(r, g, b)))];
+  if (depth >= 8) return [target === 'fg' ? '38' : '48', '5', String(rgbToAnsi256({ r, g, b }))];
+  if (depth >= 4) return [String(basicAnsiCode(target, rgbToBasicAnsi({ r, g, b })))];
   return [];
 }
 
@@ -323,19 +328,6 @@ function basicAnsiCode(target: 'fg' | 'bg', value: number): number {
   const base = target === 'fg' ? 30 : 40;
   const brightBase = target === 'fg' ? 90 : 100;
   return value < 8 ? base + value : brightBase + value - 8;
-}
-
-function rgbToAnsi256(r: number, g: number, b: number): number {
-  const toCube = (value: number): number => Math.round(value / 255 * 5);
-  return 16 + 36 * toCube(r) + 6 * toCube(g) + toCube(b);
-}
-
-function rgbToBasicAnsi(r: number, g: number, b: number): number {
-  const bright = Math.max(r, g, b) > 170 ? 8 : 0;
-  const red = r >= 85 ? 1 : 0;
-  const green = g >= 85 ? 2 : 0;
-  const blue = b >= 85 ? 4 : 0;
-  return bright + red + green + blue;
 }
 
 function clampByte(value: number): number {

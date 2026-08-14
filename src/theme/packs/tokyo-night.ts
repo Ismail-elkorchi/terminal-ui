@@ -24,7 +24,6 @@ export const tokyoNightThemeDefinition = themePackDefinition('tokyo-night', {
   'text.default': rgb(192, 202, 245),
   'text.muted': rgb(122, 162, 247),
   'accent.primary': rgb(187, 154, 247),
-  'accent.secondary': rgb(125, 207, 255),
   'status.info': rgb(125, 207, 255),
   'status.success': rgb(158, 206, 106),
   'status.warning': rgb(224, 175, 104),

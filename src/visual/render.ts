@@ -5,7 +5,7 @@ import {
   sanitizeTerminalCellText
 } from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import type { ThemeColorToken } from './color.ts';
+import type { ThemeColorReference } from './color.ts';
 import { sameFrameCellSource } from './source.ts';
 import type { FrameCellSource } from './source.ts';
 import type { TextMeasurementOptions } from '../text/index.ts';
@@ -25,7 +25,7 @@ export interface TerminalStyle {
 export type TerminalColor =
   | { readonly kind: 'ansi'; readonly value: number }
   | { readonly kind: 'rgb'; readonly r: number; readonly g: number; readonly b: number }
-  | { readonly kind: 'theme'; readonly token: ThemeColorToken };
+  | ThemeColorReference;
 
 export interface TerminalLink {
   readonly href: string;

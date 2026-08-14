@@ -5,7 +5,8 @@ export type { Rect } from '../../geometry/types.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../model/element.ts';
-import { defaultTheme, defineTheme, isTerminalTheme } from '../../theme/index.ts';
+import { defaultTheme } from '../../theme/index.ts';
+import { resolveThemeInput } from '../../theme/theme.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import { defaultTextWidthProfile } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -197,5 +198,5 @@ function underlayForRenderNode(renderNode: RenderNode): LayerUnderlay {
 
 function themeForLayout(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {
   if (theme === undefined) return defaultTheme;
-  return isTerminalTheme(theme) ? theme : defineTheme(theme);
+  return resolveThemeInput(theme, defaultTheme);
 }

@@ -17,6 +17,8 @@ import type {
   SelectPromptDefinition,
   SelectPromptOptions
 } from './types.ts';
+import { minimalTheme } from '../theme/index.ts';
+import { resolveThemeInput } from '../theme/theme.ts';
 
 export function confirm(options: ConfirmPromptOptions): ConfirmPromptDefinition {
   return { kind: 'confirm', ...promptDefinition(options) };
@@ -96,7 +98,7 @@ function promptDefinition<TValue>(
     ...(options.description === undefined ? {} : { description: options.description }),
     ...(options.defaultValue === undefined ? {} : { defaultValue: options.defaultValue }),
     ...(options.required === undefined ? {} : { required: options.required }),
-    ...(options.theme === undefined ? {} : { theme: options.theme }),
+    ...(options.theme === undefined ? {} : { theme: resolveThemeInput(options.theme, minimalTheme) }),
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
     ...(options.nonTty === undefined ? {} : { nonTty: options.nonTty }),
     ...(options.transcript === undefined ? {} : { transcript: options.transcript }),

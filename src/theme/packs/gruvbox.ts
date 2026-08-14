@@ -1,6 +1,6 @@
 import { rgb, themePackDefinition } from './shared.ts';
 
-export const gruvboxThemeDefinition = themePackDefinition('gruvbox', {
+export const gruvboxDarkThemeDefinition = themePackDefinition('gruvbox-dark', {
   'app.background': rgb(40, 40, 40),
   'app.foreground': rgb(235, 219, 178),
   'surface.background': rgb(50, 48, 47),
@@ -24,7 +24,6 @@ export const gruvboxThemeDefinition = themePackDefinition('gruvbox', {
   'text.default': rgb(235, 219, 178),
   'text.muted': rgb(168, 153, 132),
   'accent.primary': rgb(250, 189, 47),
-  'accent.secondary': rgb(211, 134, 155),
   'status.info': rgb(131, 165, 152),
   'status.success': rgb(184, 187, 38),
   'status.warning': rgb(250, 189, 47),

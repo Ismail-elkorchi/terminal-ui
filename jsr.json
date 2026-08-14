@@ -10,6 +10,7 @@
     "./protocol": "./src/protocol/index.ts",
     "./text": "./src/text/index.ts",
     "./theme": "./src/theme/index.ts",
+    "./theme/packs": "./src/theme/packs/index.ts",
     "./prompts": "./src/prompts/index.ts",
     "./tui": "./src/tui/index.ts",
     "./component": "./src/component/index.ts",
@@ -32,7 +33,8 @@
     "include": [
       "src",
       "README.md",
-      "LICENSE"
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md"
     ],
     "exclude": [
       "src/**/*.test.ts"

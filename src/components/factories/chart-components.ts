@@ -1064,8 +1064,16 @@ function seriesGlyph(
   series: PreparedSeries,
   widthProfile: import('../../text/index.ts').TextWidthProfile,
 ): string {
-  const preferred = series.glyph ?? (series.kind === 'area' || series.kind === 'bar' ? '█' : '*');
-  return oneCellGlyph(preferred, series.kind === 'area' || series.kind === 'bar' ? '#' : '*', {
+  const graphical = ['█', '▓', '▒', '░'] as const;
+  const ascii = ['*', '+', 'o', 'x'] as const;
+  const index = series.seriesIndex % ascii.length;
+  const fallback = ascii[index] ?? '*';
+  const preferred = series.glyph ?? (
+    series.kind === 'area' || series.kind === 'bar'
+      ? graphical[index] ?? '█'
+      : fallback
+  );
+  return oneCellGlyph(preferred, fallback, {
     widthProfile,
   });
 }
@@ -1544,10 +1552,17 @@ function chartSpan<TModel extends object>(
   itemIndex?: number,
   state?: Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'>,
 ): RenderSpan {
+  const semanticBase = base ?? (
+    part === 'label'
+      ? { fg: { kind: 'theme', token: 'chart.label' } } as const
+      : part === 'value'
+      ? { fg: { kind: 'theme', token: 'chart.value' } } as const
+      : undefined
+  );
   const style = input.style({
     part,
     ...(state === undefined && partType !== 'selected' ? {} : { state: state ?? 'selected' }),
-    ...(base === undefined ? {} : { base }),
+    ...(semanticBase === undefined ? {} : { base: semanticBase }),
   });
   return span(text, {
     ...(style === undefined ? {} : { style }),

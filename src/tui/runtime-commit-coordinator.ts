@@ -24,6 +24,7 @@ import type { RenderCommitCandidate } from './runtime-frame.ts';
 import type { TuiContext, TuiRuntimeOptions } from './types.ts';
 import { createTerminalGraphicsCommitter } from './graphics-committer.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
+import { sameThemeRendering } from '../theme/theme.ts';
 
 export function createRuntimeCommitCoordinator<TState, TMessage>(
   options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics'>,
@@ -101,7 +102,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       focus?: TuiRuntimeOptions<TState, TMessage>['initialFocus']
     ) {
       const theme = resolveTuiTheme(options.theme, state);
-      const previousFrame = frameDiffBase(theme.fingerprint);
+      const previousFrame = frameDiffBase(theme);
       const resolution = resolveCandidate(
         state,
         context,
@@ -163,8 +164,10 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     nextCommitSequence += 1;
   }
 
-  function frameDiffBase(themeFingerprint: string): Frame | undefined {
-    return outputBaselineKnown && currentRender?.themeFingerprint === themeFingerprint
+  function frameDiffBase(theme: RenderCommitCandidate<TMessage>['theme']): Frame | undefined {
+    return outputBaselineKnown
+      && currentRender !== undefined
+      && sameThemeRendering(currentRender.theme, theme)
       ? currentRender.frame
       : undefined;
   }

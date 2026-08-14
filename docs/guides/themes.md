@@ -1,39 +1,42 @@
 # Themes
 
-Themes are named design-token collections. A `TerminalTheme` contains
-`tokens.colors` and `tokens.symbols`, plus a stable fingerprint used by render
-and runtime caches. Structural layout and component density remain explicit
-element contracts; changing a theme does not reflow the application.
-Theme construction copies and freezes token data, so later mutation of the
-definition objects cannot invalidate that fingerprint.
+Themes are canonical, immutable collections of semantic colors and symbols. A
+`TerminalThemeDefinition` is a partial input; `defineTheme()` merges it onto a
+canonical base and returns a `TerminalTheme`. Renderers and prompts recognize
+canonical themes directly instead of interpreting them again as partial
+definitions.
 
-The built-in presets are:
+The built-in themes are:
 
-- `defaultTheme`, the complete graphical default
-- `minimalTheme`, which preserves the terminal's foreground and background
-- `modernTheme`
-- `highContrastTheme`
-- `noColorTheme`
+- `defaultTheme`, the complete graphical default;
+- `minimalTheme`, which preserves the terminal foreground and background while
+  retaining a small ANSI accent vocabulary;
+- `highContrastTheme`;
+- `noColorTheme`.
 
-Optional theme packs are exported as named themes: Catppuccin, Nord, Tokyo
-Night, Solarized, Gruvbox, Dracula, and Monochrome. They are ordinary
-`TerminalTheme` values; applications choose them explicitly instead of the
-runtime hardwiring a product identity.
+They are also available through the immutable `builtInThemes` registry. TUI and
+renderer APIs default to `defaultTheme`; prompts default to `minimalTheme` for a
+restrained command-line appearance.
 
-The runtime uses `defaultTheme` when an application does not choose a theme.
-It paints the complete terminal canvas and gives surfaces, controls, inputs,
-and status regions distinct semantic colors. Use `minimalTheme` to retain the
-terminal palette with semantic ANSI accents, or `noColorTheme` for output that
-does not depend on color.
+Named palette packs live in a separate entrypoint, so applications that do not
+use them do not initialize them:
 
-Use `defineTheme()` to start from a preset-like shape and override only the
-tokens your UI needs through the `tokens` field. Built-in components use core
-semantic color tokens such as
-`text.default`, `accent.primary`, `status.error`, `selection.background`,
-`table.header`, and `chart.series.1`. Applications may add custom namespaced
-tokens; missing custom tokens fall back through `text.default` when styles are
-resolved and that fallback exists. Otherwise the terminal's current color is
-preserved.
+```ts
+import {
+  catppuccinMochaTheme,
+  draculaTheme,
+  gruvboxDarkTheme,
+  monochromeTheme,
+  nordTheme,
+  solarizedDarkTheme,
+  tokyoNightTheme
+} from '@ismail-elkorchi/terminal-ui/theme/packs';
+```
+
+Each pack supplies a complete semantic palette derived only from its own seed
+colors. It does not inherit unrelated values from the default theme.
+
+Use `defineTheme()` for an application theme or a small override:
 
 ```ts
 import { defineTheme } from '@ismail-elkorchi/terminal-ui/theme';
@@ -54,22 +57,38 @@ const theme = defineTheme({
 void theme;
 ```
 
-Symbols are separate from colors. Use `asciiSymbols` for ASCII-only terminals
-and `unicodeSymbols` for richer terminals. Components consume theme symbols
-instead of hard-coded glyph choices wherever the symbol has semantic meaning.
+Core tokens describe component behavior such as `text.default`,
+`status.error`, `selection.background`, `table.header`, and
+`chart.series.1`. Custom tokens must use the `custom.*` namespace. An
+unresolved token preserves the terminal's current color; it never falls back
+implicitly to a foreground token. If an application needs fallback, it should
+choose the semantically appropriate token before constructing the style.
 
-Theme output is resolved by the render serializer, not by component factories.
-Renderers emit semantic style data; serializers decide how that style maps to
-the current terminal capability.
+Renderer-facing code can construct a semantic color reference without
+repeating its representation:
 
-Component factories accept local `meta.styles` for stable component parts and
-interaction states. Generic states are focused, hovered, pressed, selected,
-disabled, and active. Validation, result, notification, and destructive
-styles use the component-specific parts and fields that carry those meanings.
-These slots layer over theme defaults for that component only; they do not
-create a global cascade.
+```ts
+import { themeColor } from '@ismail-elkorchi/terminal-ui/theme';
 
-For renderer-facing style behavior, see
+const style = { fg: themeColor('custom.panel.border'), bold: true };
+```
+
+Symbols are separate from colors. Changing `mode` selects the complete ASCII
+or Unicode repertoire before explicit symbol overrides are applied, so an
+ASCII theme cannot retain unspecified Unicode glyphs. Symbol changes can alter
+measurement and reflow content because equivalent ASCII and Unicode symbols
+may have different cell widths.
+
+Theme colors remain semantic through layout and frame construction. The
+serializer resolves them for the terminal's color depth. Theme data is copied
+and frozen at construction, and render reuse compares exact canonical color
+and symbol content; a theme's display name is not rendering identity.
+
+Component `meta.styles` customize stable component parts and interaction states
+locally. They layer over that component's theme defaults and do not create a
+global cascade.
+
+For renderer-facing behavior, see
 [Rendering internals](./rendering-internals.md). For state and slot guidance,
 see [Building polished components](./building-polished-components.md).
 

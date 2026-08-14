@@ -41,7 +41,7 @@ import {
   tree as createTree
 } from '../../dist/components/index.js';
 import { prepareTextDocument, terminalTextWidth, textCaretAt } from '../../dist/text/index.js';
-import { modernTheme, noColorTheme } from '../../dist/theme/index.js';
+import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import {
   row,
   column,
@@ -726,7 +726,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
 
   for (const [index, element] of elements.entries()) {
     const markerDescription = markerDescriptions[index];
-    const graphical = renderElementFrame(element, { columns: 18, rows: 2 }, { theme: modernTheme });
+    const graphical = renderElementFrame(element, { columns: 18, rows: 2 }, { theme: defaultTheme });
     const monochrome = renderElementFrame(element, { columns: 18, rows: 2 }, { theme: noColorTheme });
     const graphicalMarker = graphical.cells.find((cell) => cell.source?.description === markerDescription);
     const monochromeMarker = monochrome.cells.find((cell) => cell.source?.description === markerDescription);
@@ -815,7 +815,7 @@ test('layout surfaces do not inherit component focus state', () => {
   const focusedFrame = renderElementFrame(surface(textInput({ id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
     appearance: 'bar'
-  }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'], theme: modernTheme });
+  }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'], theme: defaultTheme });
   const customFrame = renderElementFrame(surface(textInput({ id: 'custom-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'custom-focus-surface',
     appearance: 'bar',
@@ -824,7 +824,7 @@ test('layout surfaces do not inherit component focus state', () => {
             states: { focused: { bg: { kind: 'theme', token: 'status.warning' } } }
         }
     }
-}), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'], theme: modernTheme });
+}), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'], theme: defaultTheme });
 
   assert.equal(styleFor(focusedFrame, 'P')?.bg?.token, 'control.background');
   assert.equal(styleFor(customFrame, 'P')?.bg?.token, 'control.background');

@@ -149,9 +149,38 @@ test('SIXEL encoding scales pixels, defines a palette, and terminates its DCS', 
     destination: { row: 1, column: 1, width: 2, height: 1 },
     source: { x: 0, y: 0, width: 2, height: 2 },
   }, { width: 2, height: 4 }, { r: 0, g: 0, b: 0 }, 'direct');
-  assert.match(encoded, /\u001bPq"1;1;4;4/u);
+  assert.match(encoded, /\u001bP0;0q"1;1;4;4/u);
   assert.match(encoded, /#\d+;2;/u);
   assert.ok(encoded.endsWith('\u001b\\'));
+});
+
+test('SIXEL preserves binary transparency and requires RGB composition for partial alpha', () => {
+  const transparent = rasterImage({
+    width: 2,
+    height: 1,
+    format: 'rgba8',
+    data: new Uint8Array([255, 0, 0, 255, 0, 0, 0, 0]),
+  });
+  const geometry = {
+    destination: { row: 1, column: 1, width: 2, height: 1 },
+    source: { x: 0, y: 0, width: 2, height: 1 },
+  };
+  const encoded = encodeSixelImage(transparent, geometry, { width: 1, height: 1 }, undefined, 'direct');
+  assert.match(encoded, /\u001bP0;1q/u);
+
+  const translucent = rasterImage({
+    width: 1,
+    height: 1,
+    format: 'rgba8',
+    data: new Uint8Array([255, 0, 0, 128]),
+  });
+  assert.throws(
+    () => encodeSixelImage(translucent, {
+      destination: { row: 1, column: 1, width: 1, height: 1 },
+      source: { x: 0, y: 0, width: 1, height: 1 },
+    }, { width: 1, height: 1 }, undefined, 'direct'),
+    /explicit RGB app\.background/u,
+  );
 });
 
 test('graphics probing derives Kitty, SIXEL, and cell-pixel evidence only from responses', () => {

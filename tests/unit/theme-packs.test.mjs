@@ -7,22 +7,25 @@ import {
   decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import {
-  catppuccinTheme,
+  coreColorTokens,
   contrastColor,
+  defaultTheme,
   deriveSurface,
-  draculaTheme,
   ensureContrast,
-  gruvboxTheme,
   highContrastTheme,
-  monochromeTheme,
-  modernTheme,
   noColorTheme,
+  resolveTerminalStyle
+} from '../../dist/theme/index.js';
+import {
+  catppuccinMochaTheme,
+  draculaTheme,
+  gruvboxDarkTheme,
+  monochromeTheme,
   nordTheme,
-  resolveTerminalStyle,
-  solarizedTheme,
+  solarizedDarkTheme,
   themePacks,
   tokyoNightTheme
-} from '../../dist/theme/index.js';
+} from '../../dist/theme/packs/index.js';
 import { renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
@@ -44,28 +47,28 @@ import {
 } from '../../dist/layout/index.js';
 
 const packedThemes = [
-  catppuccinTheme,
+  catppuccinMochaTheme,
   nordTheme,
   tokyoNightTheme,
-  solarizedTheme,
-  gruvboxTheme,
+  solarizedDarkTheme,
+  gruvboxDarkTheme,
   draculaTheme,
   monochromeTheme
 ];
 
 test('theme packs are exported as optional named TerminalTheme values', () => {
   assert.deepEqual(Object.keys(themePacks), [
-    'catppuccin',
+    'catppuccinMocha',
     'nord',
     'tokyoNight',
-    'solarized',
-    'gruvbox',
+    'solarizedDark',
+    'gruvboxDark',
     'dracula',
     'monochrome'
   ]);
 
   for (const theme of packedThemes) {
-    assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
+    assert.equal(Object.keys(theme.tokens.colors).length, coreColorTokens.length);
     assert.equal(resolveTerminalStyle({ fg: { kind: 'theme', token: 'accent.primary' } }, theme)?.fg?.kind, 'rgb');
     assert.equal(typeof theme.tokens.colors['surface.background'], 'object');
     assert.equal(typeof theme.tokens.colors['surface.bar.background'], 'object');
@@ -77,28 +80,37 @@ test('theme packs are exported as optional named TerminalTheme values', () => {
     assert.equal(typeof theme.tokens.colors['tab.active.foreground'], 'object');
     assert.equal(typeof theme.tokens.colors['scrollbar.thumb'], 'object');
   }
+  assert.equal(Object.isFrozen(themePacks), true);
 });
 
 test('contrast helpers preserve readable foreground choices', () => {
   assert.deepEqual(contrastColor({ kind: 'rgb', r: 250, g: 250, b: 250 }), { kind: 'rgb', r: 0, g: 0, b: 0 });
   assert.deepEqual(contrastColor({ kind: 'ansi', value: 0 }), { kind: 'ansi', value: 15 });
-  assert.deepEqual(
-    ensureContrast({ kind: 'rgb', r: 120, g: 120, b: 120 }, { kind: 'rgb', r: 118, g: 118, b: 118 }, 4.5),
-    { kind: 'rgb', r: 255, g: 255, b: 255 }
+  assert.deepEqual(contrastColor({ kind: 'ansi', value: 16 }), { kind: 'ansi', value: 15 });
+  assert.deepEqual(contrastColor({ kind: 'ansi', value: 196 }), { kind: 'ansi', value: 0 });
+  const adjusted = ensureContrast(
+    { kind: 'rgb', r: 120, g: 120, b: 120 },
+    { kind: 'rgb', r: 118, g: 118, b: 118 },
+    4.5
   );
+  assert.ok(colorContrast(adjusted, { kind: 'rgb', r: 118, g: 118, b: 118 }) >= 4.5);
+  assert.notDeepEqual(adjusted, { kind: 'rgb', r: 255, g: 255, b: 255 });
   assert.deepEqual(deriveSurface({ kind: 'rgb', r: 20, g: 20, b: 20 }, 2), { kind: 'rgb', r: 40, g: 40, b: 40 });
+  assert.throws(() => ensureContrast(
+    { kind: 'rgb', r: 0, g: 0, b: 0 },
+    { kind: 'rgb', r: 128, g: 128, b: 128 },
+    Number.NaN
+  ), /finite number/u);
+  assert.throws(() => deriveSurface({ kind: 'rgb', r: 0, g: 0, b: 0 }, Number.NaN), /finite/u);
 });
 
-test('high contrast theme keeps semantic status chart and diff tokens distinct', () => {
+test('high contrast theme keeps semantic status and chart tokens distinct', () => {
   assert.deepEqual(highContrastTheme.tokens.colors['status.error'], { kind: 'ansi', value: 9 });
   assert.deepEqual(highContrastTheme.tokens.colors['status.success'], { kind: 'ansi', value: 10 });
   assert.deepEqual(highContrastTheme.tokens.colors['status.warning'], { kind: 'ansi', value: 11 });
   assert.deepEqual(highContrastTheme.tokens.colors['status.info'], { kind: 'ansi', value: 14 });
   assert.deepEqual(highContrastTheme.tokens.colors['surface.danger.border'], highContrastTheme.tokens.colors['status.error']);
   assert.deepEqual(highContrastTheme.tokens.colors['surface.success.border'], highContrastTheme.tokens.colors['status.success']);
-  assert.deepEqual(highContrastTheme.tokens.colors['diff.remove'], highContrastTheme.tokens.colors['status.error']);
-  assert.deepEqual(highContrastTheme.tokens.colors['diff.add'], highContrastTheme.tokens.colors['status.success']);
-  assert.deepEqual(highContrastTheme.tokens.colors['diff.context'], highContrastTheme.tokens.colors['text.muted']);
   assert.notDeepEqual(highContrastTheme.tokens.colors['chart.series.1'], highContrastTheme.tokens.colors['chart.series.2']);
   assert.notDeepEqual(highContrastTheme.tokens.colors['chart.series.2'], highContrastTheme.tokens.colors['chart.series.3']);
   assert.deepEqual(resolveTerminalStyle({
@@ -268,14 +280,20 @@ test('default theme specimen composes surface control text command log and data 
     title: 'Theme specimen',
     border: { kind: 'rounded' },
     padding: 1
-  }), { columns: 72, rows: 32 }, { theme: modernTheme });
+  }), { columns: 72, rows: 32 }, { theme: defaultTheme });
 
   const tokenAt = (text, predicate = () => true) =>
     frame.cells.find((cell) => cell.text === text && predicate(cell))?.style;
+  const barFrame = renderElementFrame(barChart({
+    id: 'theme-value-bars',
+    label: 'Requests',
+    items: [{ id: 'requests', label: 'Requests', value: 42 }]
+  }), { columns: 32, rows: 1 }, { theme: defaultTheme });
 
   assert.equal(tokenAt('d')?.fg?.token, 'link.foreground');
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'tab.active.foreground'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'tab.inactive.foreground'), true);
+  assert.equal(frame.cells.some((cell) => cell.source?.partName === 'indicator' && cell.style?.fg?.token === 'tab.indicator'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.token === 'badge.background'), true);
   assert.equal(frame.cells.find((cell) => cell.text === 'P')?.style?.bg?.token, 'selection.background');
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'command.prompt'), true);
@@ -286,7 +304,69 @@ test('default theme specimen composes surface control text command log and data 
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'chart.axis'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'chart.series.1'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'chart.series.2'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'chart.label'), true);
+  assert.equal(barFrame.cells.some((cell) => cell.style?.fg?.token === 'chart.value'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'table.header'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.token === 'surface.raised.background'), true);
   assert.equal(typeof createVisualSnapshot({ frame }).plainTextFrame, 'string');
 });
+
+test('theme packs keep component text pairs readable and graphical pairs visible', () => {
+  const textPairs = [
+    ['app.foreground', 'app.background'],
+    ['text.default', 'surface.background'],
+    ['surface.title', 'surface.background'],
+    ['selection.foreground', 'selection.background'],
+    ['control.foreground', 'control.background'],
+    ['control.primary.foreground', 'control.primary.background'],
+    ['control.secondary.foreground', 'control.secondary.background'],
+    ['input.placeholder', 'surface.background'],
+    ['table.metadata', 'surface.background'],
+    ['status.error', 'surface.background']
+  ];
+  const graphicalPairs = [
+    ['surface.border', 'surface.background'],
+    ['surface.bar.border', 'surface.bar.background'],
+    ['surface.raised.border', 'surface.raised.background'],
+    ['surface.inset.border', 'surface.inset.background'],
+    ['surface.selected.border', 'surface.selected.background'],
+    ['surface.warning.border', 'surface.warning.background'],
+    ['surface.danger.border', 'surface.danger.background'],
+    ['surface.success.border', 'surface.success.background'],
+    ['focus.border', 'surface.background'],
+    ['control.border', 'control.background'],
+    ['control.primary.border', 'control.primary.background'],
+    ['control.secondary.border', 'control.secondary.background'],
+    ['control.track.filled', 'control.track'],
+    ['scrollbar.thumb', 'scrollbar.track'],
+    ['chart.axis', 'surface.background'],
+    ['chart.baseline', 'surface.background'],
+    ['chart.muted', 'surface.background'],
+    ['chart.series.1', 'surface.background'],
+    ['chart.series.2', 'surface.background'],
+    ['chart.series.3', 'surface.background']
+  ];
+  for (const theme of [defaultTheme, ...packedThemes]) {
+    for (const [foreground, background] of textPairs) {
+      assert.ok(colorContrast(theme.tokens.colors[foreground], theme.tokens.colors[background]) >= 4.5, `${theme.name}: ${foreground} on ${background}`);
+    }
+    for (const [foreground, background] of graphicalPairs) {
+      assert.ok(colorContrast(theme.tokens.colors[foreground], theme.tokens.colors[background]) >= 3, `${theme.name}: ${foreground} on ${background}`);
+    }
+  }
+});
+
+function colorContrast(foreground, background) {
+  const left = colorLuminance(foreground);
+  const right = colorLuminance(background);
+  return (Math.max(left, right) + 0.05) / (Math.min(left, right) + 0.05);
+}
+
+function colorLuminance(color) {
+  if (color?.kind !== 'rgb') throw new TypeError('Pack contrast tests require RGB colors.');
+  const linear = (channel) => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * linear(color.r) + 0.7152 * linear(color.g) + 0.0722 * linear(color.b);
+}

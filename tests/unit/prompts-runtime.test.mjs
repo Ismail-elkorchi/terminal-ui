@@ -14,6 +14,7 @@ import {
   select
 } from '../../dist/prompts/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
+import { isTerminalTheme, minimalTheme, noColorTheme, resolveThemeColor } from '../../dist/theme/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 test('prompt factories create typed prompt definitions', () => {
@@ -37,6 +38,16 @@ test('prompt factories create typed prompt definitions', () => {
     }).progress,
     { kind: 'determinate', value: 2, max: 5, status: 'Downloading' }
   );
+});
+
+test('prompt factories own partial theme definitions at construction', () => {
+  const color = { kind: 'ansi', value: 1 };
+  const definition = { tokens: { colors: { 'text.default': color } } };
+  const prompt = input({ label: 'Name', theme: definition });
+  color.value = 2;
+
+  assert.equal(isTerminalTheme(prompt.theme), true);
+  assert.deepEqual(resolveThemeColor(prompt.theme, 'text.default'), { kind: 'ansi', value: 1 });
 });
 
 test('runPrompt submits defaults, reports validation failures, and redacts password snapshots', async () => {
@@ -267,6 +278,29 @@ test('runPrompt applies prompt theme symbols and terminal styling safely', async
 
   assert.equal(plainResult.status, 'submitted');
   assert.doesNotMatch(plainHost.output(), /\u001B\[/u);
+});
+
+test('prompt rendering preserves canonical minimal and no-color themes', async () => {
+  for (const theme of [minimalTheme, noColorTheme]) {
+    const harness = createTerminalHarness();
+    const running = runPrompt(input({ label: 'Name', theme }), harness.host);
+    await waitUntil(() => harness.output().includes('Name:'));
+    assert.doesNotMatch(harness.output(), /\u001B\[(?:3[0-9]|9[0-7]|38;)/u, theme.name);
+    harness.host.input('Ada\r');
+    harness.host.endInput();
+    assert.equal((await running).status, 'submitted');
+  }
+
+  const harness = createTerminalHarness();
+  const running = runPrompt(input({
+    label: 'Name',
+    theme: { tokens: { symbols: { pointer: '>' } } }
+  }), harness.host);
+  await waitUntil(() => harness.output().includes('Name:'));
+  assert.doesNotMatch(harness.output(), /\u001B\[(?:3[0-9]|9[0-7]|38;)/u);
+  harness.host.input('Ada\r');
+  harness.host.endInput();
+  assert.equal((await running).status, 'submitted');
 });
 
 test('runPrompt enforces required interactive text input', async () => {

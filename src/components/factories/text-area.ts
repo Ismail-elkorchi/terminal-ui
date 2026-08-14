@@ -833,7 +833,6 @@ function textAreaValueSpans(
           kind: 'theme',
           token: active ? 'editor.activeLine.background' : 'control.background',
         },
-        ...(placeholder ? { dim: true } : {}),
       }
       : {
         fg: { kind: 'theme', token: 'menu.match' },

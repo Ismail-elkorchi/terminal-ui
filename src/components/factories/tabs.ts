@@ -347,7 +347,10 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
       selected ? oneCellGlyph('▏', '|', { widthProfile: input.widthProfile }) : ' ',
       'indicator',
       'indicator',
-      resolveTabStyle(input, 'indicator', labelStyle, state),
+      resolveTabStyle(input, 'indicator', {
+        ...labelStyle,
+        fg: { kind: 'theme', token: 'tab.indicator' }
+      }, state),
       tab.id,
       state,
     )];

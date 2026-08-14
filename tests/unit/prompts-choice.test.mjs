@@ -28,7 +28,7 @@ test('runPrompt supports interactive select navigation and disabled choices', as
   assert.equal(result.snapshot.root.children[0]?.disabled, true);
   assert.equal(result.snapshot.root.children[2]?.selected, true);
   assert.match(harness.output(), /Color:/);
-  assert.match(harness.output(), /›   Blue/);
+  assert.match(harness.output(), />   Blue/);
 });
 
 test('runPrompt renders choice descriptions and sanitizes prompt output', async () => {

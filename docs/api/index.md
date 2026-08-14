@@ -23,6 +23,7 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/protocol`
 - `@ismail-elkorchi/terminal-ui/text`
 - `@ismail-elkorchi/terminal-ui/theme`
+- `@ismail-elkorchi/terminal-ui/theme/packs`
 - `@ismail-elkorchi/terminal-ui/prompts`
 - `@ismail-elkorchi/terminal-ui/tui`
 - `@ismail-elkorchi/terminal-ui/components`

@@ -699,12 +699,22 @@ test('chart components preserve visualization meaning in high contrast and no co
     min: 0,
     max: 4
   }), { columns: 10, rows: 1 }, { theme: noColorTheme });
+  const noColorSeries = renderElementFrame(chart({
+    id: 'mono-series-chart',
+    legend: true,
+    series: [
+      chartSeries('alpha', [1, 3, 2], { label: 'Alpha' }),
+      chartSeries('beta', [3, 1, 2], { label: 'Beta' })
+    ]
+  }), { columns: 20, rows: 6 }, { theme: noColorTheme });
 
   assert.match(renderFramePlain(highContrast), /Alpha/u);
   assert.equal(highContrast.cells.find((cell) => cell.source?.description === 'selection.alpha.alpha:1')?.style?.bg?.token, 'selection.background');
   assert.match(renderFramePlain(noColor), /\[█\]/u);
   assert.equal(noColor.cells.find((cell) => cell.source?.description === 'cell.b.selected.open')?.text, '[');
   assert.equal(noColor.cells.find((cell) => cell.source?.description === 'cell.b.value')?.source?.cellRole, 'chart');
+  assert.match(renderFramePlain(noColorSeries), /\* Alpha/u);
+  assert.match(renderFramePlain(noColorSeries), /\+ Beta/u);
 });
 
 test('Canvas2D chart helpers draw axes line area series and bars', () => {

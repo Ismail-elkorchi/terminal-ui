@@ -1,10 +1,9 @@
 import { rgb, themePackDefinition } from './shared.ts';
 
-export const catppuccinThemeDefinition = themePackDefinition('catppuccin', {
+export const catppuccinMochaThemeDefinition = themePackDefinition('catppuccin-mocha', {
   'app.background': rgb(30, 30, 46),
   'app.foreground': rgb(205, 214, 244),
   'surface.background': rgb(24, 24, 37),
-  'surface.foreground': rgb(205, 214, 244),
   'surface.border': rgb(88, 91, 112),
   'surface.title': rgb(137, 180, 250),
   'surface.bar.background': rgb(30, 30, 46),
@@ -26,7 +25,6 @@ export const catppuccinThemeDefinition = themePackDefinition('catppuccin', {
   'text.muted': rgb(147, 153, 178),
   'text.strong': rgb(243, 244, 255),
   'accent.primary': rgb(203, 166, 247),
-  'accent.secondary': rgb(137, 220, 235),
   'status.info': rgb(137, 220, 235),
   'status.success': rgb(166, 227, 161),
   'status.warning': rgb(249, 226, 175),

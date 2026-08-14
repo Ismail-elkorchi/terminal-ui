@@ -5,6 +5,8 @@ import type { CursorVisibilityPolicy, ProtocolRequirement, SessionProtocolPolicy
 import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiTheme } from './types.ts';
 import { decodeTerminalGraphicsMode } from '../graphics/index.ts';
 import type { TerminalGraphicsMode } from '../graphics/index.ts';
+import { defaultTheme } from '../theme/index.ts';
+import { resolveThemeInput } from '../theme/theme.ts';
 
 export type NormalizedTuiLifecyclePolicy = Readonly<Required<Omit<TuiLifecyclePolicy, 'defaultTimeoutMs'>>>;
 import { decodeKeyboardProfile } from '../protocol/index.ts';
@@ -33,11 +35,7 @@ export function normalizeTuiRunOptions<TState>(
 ): NormalizedTuiRunOptions<TState> {
   const supplied = objectValue(options, 'TUI run options');
   const initialFocus = normalizeInitialFocus(supplied['initialFocus']);
-  const theme = supplied['theme'];
-  if (theme !== undefined && typeof theme !== 'function'
-    && (typeof theme !== 'object' || theme === null || Array.isArray(theme))) {
-    throw new TypeError('TUI theme must be an object or function.');
-  }
+  const theme = normalizeTheme<TState>(supplied['theme']);
   return Object.freeze({
     ...(initialFocus === undefined ? {} : { initialFocus }),
     ...(theme === undefined ? {} : { theme }),
@@ -46,6 +44,12 @@ export function normalizeTuiRunOptions<TState>(
     input: normalizeInputPolicy(supplied['input']),
     graphics: decodeTerminalGraphicsMode(supplied['graphics'])
   });
+}
+
+function normalizeTheme<TState>(value: unknown): TuiTheme<TState> | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === 'function') return value;
+  return resolveThemeInput(value, defaultTheme);
 }
 
 function normalizeInputPolicy(value: unknown): Readonly<Required<TuiRunInputPolicy>> {

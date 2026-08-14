@@ -34,6 +34,7 @@ import {
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { DataGridTransition, ScrollableDataGridPresentation } from '@ismail-elkorchi/terminal-ui';
 import type { KeyEvent, MousePointerEvent } from '@ismail-elkorchi/terminal-ui/input';
+import { themeColor } from '@ismail-elkorchi/terminal-ui/theme';
 import type { ThemeColorToken } from '@ismail-elkorchi/terminal-ui/theme';
 
 interface ProcessRow {
@@ -610,7 +611,7 @@ function inlineText(
   token: ThemeColorToken,
   style: TerminalStyle = {}
 ): InlineTextSegment {
-  return { kind: 'text', text: content, style: { ...style, fg: { kind: 'theme', token } } };
+  return { kind: 'text', text: content, style: { ...style, fg: themeColor(token) } };
 }
 
 export async function runScriptedBtopMonitor() {

@@ -1,5 +1,6 @@
 import { sanitizeTerminalCellText } from '../../text/index.ts';
-import { defaultTheme, defineTheme, isTerminalTheme, resolveTerminalStyle } from '../../theme/index.ts';
+import { defaultTheme, resolveTerminalStyle } from '../../theme/index.ts';
+import { resolveThemeInput } from '../../theme/theme.ts';
 import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
@@ -127,7 +128,7 @@ export function createRenderSpanSerializer(
 function themeForOptions(options: RenderSerializeOptions | undefined): TerminalTheme {
   const theme = options?.theme;
   if (theme === undefined) return defaultTheme;
-  return isTerminalTheme(theme) ? theme : defineTheme(theme);
+  return resolveThemeInput(theme, defaultTheme);
 }
 
 function closeStyle(state: AnsiStyleState, policy: TerminalSerializationPolicy): string {

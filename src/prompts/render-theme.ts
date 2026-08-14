@@ -1,4 +1,5 @@
-import { defineTheme } from '../theme/index.ts';
+import { minimalTheme } from '../theme/index.ts';
+import { resolveThemeInput } from '../theme/theme.ts';
 import { serializeRenderSpans } from '../renderer/internal/ansi.ts';
 import { choiceStatusLines, promptLine } from './render-line.ts';
 import type { TerminalCapabilityProfile } from '../host/index.ts';
@@ -13,23 +14,23 @@ export function renderPromptText<TChoice>(
   state: PromptRuntimeState<TChoice>,
   capabilities: TerminalCapabilityProfile
 ): string {
-  const hasThemeOverride = prompt.theme !== undefined;
-  const theme = defineTheme(prompt.theme ?? {});
-  if (prompt.kind === 'autocomplete') return renderAutocompletePrompt(prompt, state, theme, capabilities, hasThemeOverride);
-  return renderParts([{ text: promptLine(prompt, state, theme) }], theme, capabilities, hasThemeOverride);
+  const theme = prompt.theme === undefined
+    ? minimalTheme
+    : resolveThemeInput(prompt.theme, minimalTheme);
+  if (prompt.kind === 'autocomplete') return renderAutocompletePrompt(prompt, state, theme, capabilities);
+  return renderParts([{ text: promptLine(prompt, state, theme) }], theme, capabilities);
 }
 
 function renderAutocompletePrompt<TValue>(
   prompt: Extract<PromptDefinition<TValue>, { readonly kind: 'autocomplete' }>,
   state: PromptRuntimeState<TValue>,
   theme: TerminalTheme,
-  capabilities: TerminalCapabilityProfile,
-  useDefaultTextStyle: boolean
+  capabilities: TerminalCapabilityProfile
 ): string {
   return [
-    renderParts([{ text: `${prompt.label}: ${state.buffer.text}` }], theme, capabilities, useDefaultTextStyle),
-    ...choiceStatusLines(prompt, state, theme).map((line) => renderParts([{ text: line }], theme, capabilities, useDefaultTextStyle)),
-    ...state.choices.map((choice, index) => renderAutocompleteChoiceLine(choice, index, state, theme, capabilities, useDefaultTextStyle))
+    renderParts([{ text: `${prompt.label}: ${state.buffer.text}` }], theme, capabilities),
+    ...choiceStatusLines(prompt, state, theme).map((line) => renderParts([{ text: line }], theme, capabilities)),
+    ...state.choices.map((choice, index) => renderAutocompleteChoiceLine(choice, index, state, theme, capabilities))
   ].join('\n');
 }
 
@@ -38,8 +39,7 @@ function renderAutocompleteChoiceLine<TValue>(
   index: number,
   state: PromptRuntimeState<TValue>,
   theme: TerminalTheme,
-  capabilities: TerminalCapabilityProfile,
-  useDefaultTextStyle: boolean
+  capabilities: TerminalCapabilityProfile
 ): string {
   const pointer = index === state.focusedChoiceIndex ? theme.tokens.symbols.pointer : ' ';
   const suffix = choice.disabled === undefined || choice.disabled === false
@@ -55,7 +55,7 @@ function renderAutocompleteChoiceLine<TValue>(
     ]),
     { text: suffix }
   ];
-  return renderParts(parts, theme, capabilities, useDefaultTextStyle);
+  return renderParts(parts, theme, capabilities);
 }
 
 function highlightedField(text: string, query: string): RenderSpan {
@@ -69,11 +69,10 @@ function highlightedField(text: string, query: string): RenderSpan {
 function renderParts(
   parts: readonly RenderSpan[],
   theme: TerminalTheme,
-  capabilities: TerminalCapabilityProfile,
-  useDefaultTextStyle: boolean
+  capabilities: TerminalCapabilityProfile
 ): string {
   return serializeRenderSpans(
-    useDefaultTextStyle ? parts.map(defaultStyledSpan) : parts,
+    parts.map(defaultStyledSpan),
     { capabilities, theme }
   );
 }

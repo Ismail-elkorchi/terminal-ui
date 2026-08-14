@@ -87,7 +87,7 @@ export interface TerminalSymbolsDefinition {
 
 const sanitizedTerminalSymbols = new WeakMap<object, TerminalSymbols>();
 
-export const asciiSymbols: TerminalSymbols = {
+export const asciiSymbols: TerminalSymbols = ownSymbols({
   mode: 'ascii',
   borderSingle: { topLeft: '+', topRight: '+', bottomLeft: '+', bottomRight: '+', horizontal: '-', vertical: '|' },
   borderRounded: { topLeft: '+', topRight: '+', bottomLeft: '+', bottomRight: '+', horizontal: '-', vertical: '|' },
@@ -118,9 +118,9 @@ export const asciiSymbols: TerminalSymbols = {
   viewportClipLeft: '<',
   viewportClipRight: '>',
   viewportEmpty: '.'
-};
+});
 
-export const unicodeSymbols: TerminalSymbols = {
+export const unicodeSymbols: TerminalSymbols = ownSymbols({
   mode: 'unicode',
   borderSingle: { topLeft: '┌', topRight: '┐', bottomLeft: '└', bottomRight: '┘', horizontal: '─', vertical: '│' },
   borderRounded: { topLeft: '╭', topRight: '╮', bottomLeft: '╰', bottomRight: '╯', horizontal: '─', vertical: '│' },
@@ -151,42 +151,46 @@ export const unicodeSymbols: TerminalSymbols = {
   viewportClipLeft: '←',
   viewportClipRight: '→',
   viewportEmpty: '∅'
-};
+});
 
 export function mergeSymbols(base: TerminalSymbols, override: unknown): TerminalSymbols {
   if (override === undefined) return base;
   const definition = record(override, 'Terminal symbol definition');
+  const requestedMode = definition['mode'];
+  const repertoire = requestedMode === undefined || requestedMode === base.mode
+    ? base
+    : requestedMode === 'ascii' ? asciiSymbols : unicodeSymbols;
   return decodeTerminalSymbols({
-    mode: definition['mode'] ?? base.mode,
-    borderSingle: mergeBorder(base.borderSingle, definition['borderSingle']),
-    borderRounded: mergeBorder(base.borderRounded, definition['borderRounded']),
-    treeExpanded: definition['treeExpanded'] ?? base.treeExpanded,
-    treeCollapsed: definition['treeCollapsed'] ?? base.treeCollapsed,
-    pointer: definition['pointer'] ?? base.pointer,
-    selected: definition['selected'] ?? base.selected,
-    unselected: definition['unselected'] ?? base.unselected,
-    checkboxChecked: definition['checkboxChecked'] ?? base.checkboxChecked,
-    checkboxUnchecked: definition['checkboxUnchecked'] ?? base.checkboxUnchecked,
-    radioChecked: definition['radioChecked'] ?? base.radioChecked,
-    radioUnchecked: definition['radioUnchecked'] ?? base.radioUnchecked,
-    statusError: definition['statusError'] ?? base.statusError,
-    statusWarning: definition['statusWarning'] ?? base.statusWarning,
-    statusInfo: definition['statusInfo'] ?? base.statusInfo,
-    statusSuccess: definition['statusSuccess'] ?? base.statusSuccess,
-    progressFilled: definition['progressFilled'] ?? base.progressFilled,
-    progressEmpty: definition['progressEmpty'] ?? base.progressEmpty,
-    spinnerFrames: definition['spinnerFrames'] ?? base.spinnerFrames,
-    collapsed: definition['collapsed'] ?? base.collapsed,
-    expanded: definition['expanded'] ?? base.expanded,
-    scrollbarVerticalTrack: definition['scrollbarVerticalTrack'] ?? base.scrollbarVerticalTrack,
-    scrollbarVerticalThumb: definition['scrollbarVerticalThumb'] ?? base.scrollbarVerticalThumb,
-    scrollbarHorizontalTrack: definition['scrollbarHorizontalTrack'] ?? base.scrollbarHorizontalTrack,
-    scrollbarHorizontalThumb: definition['scrollbarHorizontalThumb'] ?? base.scrollbarHorizontalThumb,
-    viewportClipTop: definition['viewportClipTop'] ?? base.viewportClipTop,
-    viewportClipBottom: definition['viewportClipBottom'] ?? base.viewportClipBottom,
-    viewportClipLeft: definition['viewportClipLeft'] ?? base.viewportClipLeft,
-    viewportClipRight: definition['viewportClipRight'] ?? base.viewportClipRight,
-    viewportEmpty: definition['viewportEmpty'] ?? base.viewportEmpty
+    mode: requestedMode ?? repertoire.mode,
+    borderSingle: mergeBorder(repertoire.borderSingle, definition['borderSingle']),
+    borderRounded: mergeBorder(repertoire.borderRounded, definition['borderRounded']),
+    treeExpanded: definition['treeExpanded'] ?? repertoire.treeExpanded,
+    treeCollapsed: definition['treeCollapsed'] ?? repertoire.treeCollapsed,
+    pointer: definition['pointer'] ?? repertoire.pointer,
+    selected: definition['selected'] ?? repertoire.selected,
+    unselected: definition['unselected'] ?? repertoire.unselected,
+    checkboxChecked: definition['checkboxChecked'] ?? repertoire.checkboxChecked,
+    checkboxUnchecked: definition['checkboxUnchecked'] ?? repertoire.checkboxUnchecked,
+    radioChecked: definition['radioChecked'] ?? repertoire.radioChecked,
+    radioUnchecked: definition['radioUnchecked'] ?? repertoire.radioUnchecked,
+    statusError: definition['statusError'] ?? repertoire.statusError,
+    statusWarning: definition['statusWarning'] ?? repertoire.statusWarning,
+    statusInfo: definition['statusInfo'] ?? repertoire.statusInfo,
+    statusSuccess: definition['statusSuccess'] ?? repertoire.statusSuccess,
+    progressFilled: definition['progressFilled'] ?? repertoire.progressFilled,
+    progressEmpty: definition['progressEmpty'] ?? repertoire.progressEmpty,
+    spinnerFrames: definition['spinnerFrames'] ?? repertoire.spinnerFrames,
+    collapsed: definition['collapsed'] ?? repertoire.collapsed,
+    expanded: definition['expanded'] ?? repertoire.expanded,
+    scrollbarVerticalTrack: definition['scrollbarVerticalTrack'] ?? repertoire.scrollbarVerticalTrack,
+    scrollbarVerticalThumb: definition['scrollbarVerticalThumb'] ?? repertoire.scrollbarVerticalThumb,
+    scrollbarHorizontalTrack: definition['scrollbarHorizontalTrack'] ?? repertoire.scrollbarHorizontalTrack,
+    scrollbarHorizontalThumb: definition['scrollbarHorizontalThumb'] ?? repertoire.scrollbarHorizontalThumb,
+    viewportClipTop: definition['viewportClipTop'] ?? repertoire.viewportClipTop,
+    viewportClipBottom: definition['viewportClipBottom'] ?? repertoire.viewportClipBottom,
+    viewportClipLeft: definition['viewportClipLeft'] ?? repertoire.viewportClipLeft,
+    viewportClipRight: definition['viewportClipRight'] ?? repertoire.viewportClipRight,
+    viewportEmpty: definition['viewportEmpty'] ?? repertoire.viewportEmpty
   });
 }
 
@@ -313,6 +317,17 @@ function cleanSymbolList(values: unknown, fallback: readonly string[]): readonly
   if (!Array.isArray(values)) throw new TypeError('Terminal symbol frames must be an array.');
   const cleaned = values.map(cleanSymbol).filter((value) => value.length > 0);
   return Object.freeze(cleaned.length === 0 ? [...fallback] : cleaned);
+}
+
+function ownSymbols(symbols: TerminalSymbols): TerminalSymbols {
+  const owned = Object.freeze({
+    ...symbols,
+    borderSingle: Object.freeze({ ...symbols.borderSingle }),
+    borderRounded: Object.freeze({ ...symbols.borderRounded }),
+    spinnerFrames: Object.freeze([...symbols.spinnerFrames])
+  });
+  sanitizedTerminalSymbols.set(owned, owned);
+  return owned;
 }
 
 function record(value: unknown, subject: string): Readonly<Record<string, unknown>> {

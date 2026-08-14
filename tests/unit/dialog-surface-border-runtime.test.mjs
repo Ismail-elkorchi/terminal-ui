@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createFrameBuffer, drawBorder, layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { defaultTheme, modernTheme, noColorTheme } from '../../dist/theme/index.js';
+import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import { button, dialog, text } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { row, surface } from '../../dist/layout/index.js';
@@ -250,7 +250,7 @@ test('surface bar appearance renders one-line bars without borders', () => {
     id: 'app-bar',
     appearance: 'bar',
     padding: { left: 1, right: 1 }
-  }), { columns: 10, rows: 1 }, { theme: modernTheme });
+  }), { columns: 10, rows: 1 }, { theme: defaultTheme });
   const output = renderFramePlain(frame);
   const background = frame.cells.find((cell) =>
     cell.source?.elementKind === 'surface'

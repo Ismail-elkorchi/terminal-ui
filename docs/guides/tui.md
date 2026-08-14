@@ -138,8 +138,9 @@ an application transition. The requested target is resolved against the frame
 produced by that transition; if it is absent, normal focus fallback applies.
 
 `runTui(app, host, { theme })` and `createTuiRuntime({ theme })` accept either a
-theme object or a `(state) => theme` function. Use the function form when a
-full-screen app needs live theme changes driven by ordinary application state.
+canonical `TerminalTheme`, a partial `TerminalThemeDefinition`, or a function
+that returns either form from state. Use the function form when a full-screen
+app needs live theme changes driven by ordinary application state.
 
 For lower-level tests and custom event loops, `createTuiRuntime()` exposes the
 same reducer/render path directly. `runtime.start()` initializes the app and

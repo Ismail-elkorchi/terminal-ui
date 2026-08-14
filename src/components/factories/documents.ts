@@ -472,7 +472,7 @@ function paintCommandInput(
   if (input.model.value.length === 0) {
     const placeholderStyle = input.style({
       part: 'placeholder',
-      base: { fg: { kind: 'theme', token: 'input.placeholder' }, dim: true },
+      base: { fg: { kind: 'theme', token: 'input.placeholder' } },
     });
     line.push(
       span(
@@ -499,7 +499,7 @@ function paintCommandInput(
     if (!visual.clippedAfter && completionWidth > 0 && input.model.completionPreview.length > 0) {
       const completionStyle = input.style({
         part: 'completion',
-        base: { fg: { kind: 'theme', token: 'input.placeholder' }, dim: true },
+        base: { fg: { kind: 'theme', token: 'input.placeholder' } },
       });
       line.push(
         span(

@@ -1,7 +1,7 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
-import type { TerminalThemeDefinition } from '../theme/index.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript } from '../transcript/index.ts';
 
 interface PromptDefinitionBase<TValue> {
@@ -10,7 +10,7 @@ interface PromptDefinitionBase<TValue> {
   readonly description?: string;
   readonly defaultValue?: TValue;
   readonly required?: boolean;
-  readonly theme?: TerminalThemeDefinition;
+  readonly theme?: TerminalTheme | TerminalThemeDefinition;
   readonly timeoutMs?: number;
   readonly nonTty?: NonTtyPromptPolicy<TValue>;
   readonly transcript?: boolean;

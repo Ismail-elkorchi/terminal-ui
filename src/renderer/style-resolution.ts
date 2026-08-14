@@ -64,7 +64,7 @@ export function defaultStyleForPart(part: string): TerminalStyle | undefined {
     case 'label':
       return themeStyle('text.strong');
     case 'placeholder':
-      return themeStyle('input.placeholder', { dim: true });
+      return themeStyle('input.placeholder');
     case 'selected':
       return defaultStyleForState('selected');
     case 'focused':

@@ -13,13 +13,14 @@ export function encodeSixelImage(
   image: RasterImage,
   geometry: ResolvedGraphicGeometry,
   cellPixels: TerminalCellPixels,
-  background: RgbColor,
+  background: RgbColor | undefined,
   transport: TerminalGraphicsTransport,
 ): string {
   const width = geometry.destination.width * cellPixels.width;
   const height = geometry.destination.height * cellPixels.height;
   const indexes = resampleAndQuantize(image, geometry.source, width, height, background);
-  const used = [...new Set(indexes)].toSorted((left, right) => left - right);
+  const used = [...new Set(indexes)].filter((index) => index !== transparentIndex)
+    .toSorted((left, right) => left - right);
   const palette = used.map((index) => {
     const color = cubeColor(index);
     return `#${String(index)};2;${String(percent(color.r))};${String(percent(color.g))};${String(percent(color.b))}`;
@@ -29,6 +30,7 @@ export function encodeSixelImage(
     const rows: string[] = [];
     const bandEnd = Math.min(height, top + 6) * width;
     const bandColors = [...new Set(indexes.subarray(top * width, bandEnd))]
+      .filter((index) => index !== transparentIndex)
       .toSorted((left, right) => left - right);
     for (const color of bandColors) {
       const sixels: string[] = [];
@@ -45,7 +47,7 @@ export function encodeSixelImage(
     bands.push(rows.join('$'));
   }
   const move = `${ESC}[${String(geometry.destination.row)};${String(geometry.destination.column)}H`;
-  const sixel = `${ESC}Pq"1;1;${String(width)};${String(height)}${palette}${bands.join('-')}${ST}`;
+  const sixel = `${ESC}P0;${background === undefined ? '1' : '0'}q"1;1;${String(width)};${String(height)}${palette}${bands.join('-')}${ST}`;
   return `${move}${wrapGraphicsControl(sixel, transport)}`;
 }
 
@@ -54,7 +56,7 @@ function resampleAndQuantize(
   source: ResolvedGraphicGeometry['source'],
   width: number,
   height: number,
-  background: RgbColor,
+  background: RgbColor | undefined,
 ): Uint8Array {
   const input = rasterImagePixels(image);
   const channels = image.format === 'rgb8' ? 3 : 4;
@@ -65,9 +67,16 @@ function resampleAndQuantize(
       const sourceX = source.x + Math.min(source.width - 1, Math.floor(x * source.width / width));
       const offset = (sourceY * image.width + sourceX) * channels;
       const alpha = channels === 4 ? (input[offset + 3] ?? 0) / 255 : 1;
-      const r = composite(input[offset] ?? 0, background.r, alpha);
-      const g = composite(input[offset + 1] ?? 0, background.g, alpha);
-      const b = composite(input[offset + 2] ?? 0, background.b, alpha);
+      if (background === undefined && alpha === 0) {
+        output[y * width + x] = transparentIndex;
+        continue;
+      }
+      if (background === undefined && alpha < 1) {
+        throw new Error('Partially transparent SIXEL images require an explicit RGB app.background theme color.');
+      }
+      const r = composite(input[offset] ?? 0, background?.r, alpha);
+      const g = composite(input[offset + 1] ?? 0, background?.g, alpha);
+      const b = composite(input[offset + 2] ?? 0, background?.b, alpha);
       output[y * width + x] = cubeIndex(r, g, b);
     }
   }
@@ -86,8 +95,12 @@ function quantizeChannel(value: number): number {
   return Math.max(0, Math.min(5, Math.round(value / 51)));
 }
 
-function composite(foreground: number, background: number, alpha: number): number {
-  return Math.round(foreground * alpha + background * (1 - alpha));
+const transparentIndex = 255;
+
+function composite(foreground: number, background: number | undefined, alpha: number): number {
+  return background === undefined
+    ? foreground
+    : Math.round(foreground * alpha + background * (1 - alpha));
 }
 
 function percent(value: number): number {

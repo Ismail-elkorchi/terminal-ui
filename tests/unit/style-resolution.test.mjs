@@ -25,7 +25,7 @@ test('default part styles cover structural and interaction parts only', () => {
     ['border', foreground('surface.border')],
     ['title', foreground('surface.title', { bold: true })],
     ['label', foreground('text.strong')],
-    ['placeholder', foreground('input.placeholder', { dim: true })],
+    ['placeholder', foreground('input.placeholder')],
     ['selected', selection],
     ['focused', { bold: true }],
     ['disabled', foreground('text.disabled', { dim: true })]

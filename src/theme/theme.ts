@@ -6,10 +6,10 @@ import { isThemeColorToken } from '../visual/color.ts';
 const canonicalThemes = new WeakSet<object>();
 const canonicalDesignTokens = new WeakSet<object>();
 const canonicalThemeColors = new WeakMap<object, ThemeColor>();
+const renderingIdentities = new WeakMap<object, string>();
 
 export interface TerminalTheme {
   readonly name: string;
-  readonly fingerprint: string;
   readonly tokens: TerminalDesignTokens;
 }
 
@@ -26,27 +26,33 @@ export function createTheme(input: unknown): TerminalTheme {
     throw new TypeError('Theme name must be a non-empty string.');
   }
   const tokens = normalizeDesignTokens(supplied['tokens']);
-  const theme = Object.freeze({
-    name,
-    tokens,
-    fingerprint: themeFingerprint(name, tokens)
-  });
+  return ownTheme(name, tokens);
+}
+
+function ownTheme(name: string, tokens: TerminalDesignTokens): TerminalTheme {
+  const theme = Object.freeze({ name, tokens });
   canonicalThemes.add(theme);
+  renderingIdentities.set(theme, renderingIdentity(tokens));
   return theme;
 }
 
 export function mergeThemes(base: TerminalTheme, override: TerminalThemeDefinition): TerminalTheme;
 export function mergeThemes(base: unknown, override: unknown): TerminalTheme {
   if (!isTerminalTheme(base)) throw new TypeError('Theme base must be created by createTheme or defineTheme.');
+  return mergeThemeDefinition(base, override);
+}
+
+function mergeThemeDefinition(base: TerminalTheme, override: unknown): TerminalTheme {
   const definition = record(override, 'Theme definition');
   const name = definition['name'];
-  if (name !== undefined && typeof name !== 'string') {
-    throw new TypeError('Theme definition name must be a string.');
+  if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+    throw new TypeError('Theme definition name must be a non-empty string.');
   }
-  return createTheme({
-    name: name ?? base.name,
-    tokens: mergeDesignTokenValues(base.tokens, definition['tokens'])
-  });
+  return ownTheme(name ?? base.name, mergeDesignTokenValues(base.tokens, definition['tokens']));
+}
+
+export function resolveThemeInput(input: unknown, base: TerminalTheme): TerminalTheme {
+  return isTerminalTheme(input) ? input : mergeThemeDefinition(base, input);
 }
 
 export function mergeDesignTokens(
@@ -70,10 +76,9 @@ function mergeDesignTokenValues(base: unknown, override: unknown): TerminalDesig
 
 export function resolveThemeColor(
   theme: TerminalTheme,
-  token: ThemeColorToken,
-  fallback: ThemeColorToken = 'text.default'
+  token: ThemeColorToken
 ): ThemeColor | undefined {
-  return theme.tokens.colors[token] ?? (fallback === token ? undefined : theme.tokens.colors[fallback]);
+  return theme.tokens.colors[token];
 }
 
 export function resolveTerminalStyle(
@@ -107,7 +112,13 @@ export function terminalStyleHasBackground(
 }
 
 export function isTerminalTheme(theme: unknown): theme is TerminalTheme {
-  return typeof theme === 'object' && theme !== null && canonicalThemes.has(theme);
+  return canonicalThemes.has(theme as object);
+}
+
+export function sameThemeRendering(left: TerminalTheme, right: TerminalTheme): boolean {
+  if (left === right) return true;
+  const identity = renderingIdentities.get(left);
+  return identity !== undefined && identity === renderingIdentities.get(right);
 }
 
 function normalizeDesignTokens(value: unknown): TerminalDesignTokens {
@@ -124,33 +135,23 @@ function isCanonicalDesignTokens(value: object): value is TerminalDesignTokens {
   return canonicalDesignTokens.has(value);
 }
 
-function themeFingerprint(name: string, tokens: TerminalDesignTokens): string {
-  return `theme:${hashString(JSON.stringify([
-    name,
+function renderingIdentity(tokens: TerminalDesignTokens): string {
+  return JSON.stringify([
     colorEntries(tokens.colors),
     symbolEntries(tokens.symbols)
-  ]))}`;
+  ]);
 }
 
 function colorEntries(colors: TerminalDesignTokens['colors']): readonly unknown[] {
   return Object.entries(colors)
     .filter((entry): entry is [string, ThemeColor] => entry[1] !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
     .map(([token, color]) => [
       token,
       color.kind === 'ansi'
         ? ['ansi', color.value]
         : ['rgb', color.r, color.g, color.b]
     ]);
-}
-
-function hashString(value: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(16).padStart(8, '0');
 }
 
 function normalizeColorTokens(value: unknown): TerminalDesignTokens['colors'] {
@@ -160,7 +161,7 @@ function normalizeColorTokens(value: unknown): TerminalDesignTokens['colors'] {
     if (!isThemeColorToken(token)) {
       throw new TypeError(`Unsupported color token: ${token}. Custom color tokens must use the custom.* namespace.`);
     }
-    if (color !== undefined) entries.push([token, normalizeThemeColor(color, `Theme color ${token}`)]);
+    entries.push([token, normalizeThemeColor(color, `Theme color ${token}`)]);
   }
   return Object.freeze(Object.fromEntries(entries));
 }
