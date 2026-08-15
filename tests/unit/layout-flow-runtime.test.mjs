@@ -5,7 +5,12 @@ import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, spl
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
 import { anchored, column, flow, grid, measuredColumn, normalizeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
-import { measuredWindow, prepareCommandSuggestions, prepareSearchPickerIndex } from '../../dist/behavior/index.js';
+import {
+  measuredWindow,
+  prepareCommandSuggestions,
+  prepareMeasuredCollection,
+  prepareSearchPickerIndex
+} from '../../dist/behavior/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
   assert.deepEqual(
@@ -175,13 +180,12 @@ test('flow and anchored layouts reject invalid runtime geometry options', () => 
 });
 
 test('measuredColumn remains a semantic-neutral windowing layout', () => {
-  const window = measuredWindow({
-    items: [
+  const window = measuredWindow(prepareMeasuredCollection([
       { id: 'one', value: 'one', rows: 1 },
       { id: 'two', value: 'two', rows: 1 },
       { id: 'three', value: 'three', rows: 1 },
       { id: 'four', value: 'four', rows: 1 }
-    ],
+    ]), {
     viewportRows: 2,
     offsetRow: 2
   });
@@ -201,8 +205,9 @@ test('measuredColumn remains a semantic-neutral windowing layout', () => {
 });
 
 test('measuredColumn rejects row metadata that disagrees with child measurement', () => {
-  const window = measuredWindow({
-    items: [{ id: 'mismatch', value: 'one row', rows: 2 }],
+  const window = measuredWindow(prepareMeasuredCollection([
+    { id: 'mismatch', value: 'one row', rows: 2 }
+  ]), {
     viewportRows: 2,
     offsetRow: 0
   });

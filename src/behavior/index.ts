@@ -49,13 +49,29 @@ export type {
   SparseCollectionProjection,
   WindowedCollectionProjection,
 } from '../ui-model/collection.ts';
-export { measuredWindow } from './measured-window.ts';
-export type {
-  MeasuredWindow,
-  MeasuredWindowEntry,
-  MeasuredWindowInput,
-  MeasuredWindowItem
+export {
+  measuredAnchorAt,
+  measuredWindow
 } from './measured-window.ts';
+export type {
+  MeasuredAnchorAtOptions,
+  MeasuredWindow,
+  MeasuredWindowAnchor,
+  MeasuredWindowEntry,
+  MeasuredWindowOptions
+} from './measured-window.ts';
+export {
+  appendMeasuredItems,
+  measuredCollectionItemById,
+  prepareMeasuredCollection,
+  prependMeasuredItems,
+  removeMeasuredItems,
+  replaceMeasuredItem
+} from '../ui-model/measured-collection.ts';
+export type {
+  MeasuredCollection,
+  MeasuredCollectionItem
+} from '../ui-model/measured-collection.ts';
 export type { DataWindow, DataWindowInput } from './data-window.ts';
 export {
   commandInputPresentation

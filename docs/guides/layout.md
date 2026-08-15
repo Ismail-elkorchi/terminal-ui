@@ -14,7 +14,7 @@ scroll or resize action that changes geometry.
 | `column()` | Vertical tracks with shared flow options. | A visual panel or semantic control group by itself. |
 | `row()` | Horizontal tracks with shared flow options. | A toolbar, menu, or command model. |
 | `flow()` | Multi-line horizontal or vertical flow from measured child sizes. | A virtualized data collection or semantic list. |
-| `measuredColumn()` | A variable-height visible window projected into child elements with stable identities. | Item storage, filtering, selection policy, or a domain-specific feed. |
+| `measuredColumn()` | A prepared variable-height window projected into child elements with stable identities. | Measuring items, filtering, selection policy, or a domain-specific feed. |
 | `grid()` | Row/column tracks and named areas for spatial composition. | An accessible data grid or breakpoint policy engine. |
 | `splitPane()` | Static pane tracks or caller-controlled divider resizing. | Retaining pane content, persistence, or a window manager. |
 | `surface()` | Single-child visual containment, border and title geometry, and background construction. | Multi-child flow; compose children before wrapping. |
@@ -50,6 +50,23 @@ uses the final row and column of the surface's visual bounds.
 
 Without explicit sizes, `column()` stacks children at their measured heights;
 use a fill track only for content that should consume remaining rows.
+
+Variable-height feeds prepare their row index outside `view()` and retain it
+until item membership or measurements change. `prepareMeasuredCollection()`
+performs the initial linear preparation. Append, prepend, replacement, and
+removal operations return persistent collection versions, while
+`measuredWindow()` queries only the indexed rows intersecting the viewport.
+`measuredColumn()` then creates elements only for those visible entries.
+
+Rows are caller-owned measurements for a particular layout context. If a width,
+theme, terminal text profile, or application presentation change alters wrapping,
+rebuild or replace the affected measurements explicitly; the collection never
+retains elements or tries to infer domain changes. For stable scrolling, derive
+an item anchor from the old collection with `measuredAnchorAt()` before applying
+changes, then pass that anchor to the next `measuredWindow()` query. Omit the
+anchor while following the tail so the application remains in control of that
+policy, and pass the new `collection.totalRows` as the controlled offset to
+clamp the window to its end.
 
 A `viewport()` with `onScroll` also participates in focus reveal. Components
 inside it publish logical focus targets even when those targets are currently

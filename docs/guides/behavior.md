@@ -228,6 +228,22 @@ when rows are inserted, deleted, reordered, or reprojected. Reducers and
 renderers reuse identity and projection work while the same collection object
 is retained; they do not retain mutable application arrays implicitly.
 
+Variable-height sequential content uses `prepareMeasuredCollection()` instead
+of a transient array projection. The prepared collection owns stable IDs, row
+counts, ordering, and its prefix index while retaining each application value
+as an opaque reference. `appendMeasuredItems()`, `prependMeasuredItems()`,
+`replaceMeasuredItem()`, and `removeMeasuredItems()` return persistent versions;
+`measuredWindow()` performs an indexed visible-row query. Use
+`measuredAnchorAt()` before changing row counts when an item should remain at a
+stable viewport row. Active-item reveal is an explicit query option and takes
+precedence over anchoring.
+
+Initial preparation is `O(n)`. Appending or prepending `m` items is expected
+`O(m + log n)`, replacing one item is `O(log n)`, and removing `k` IDs is
+expected `O(k log n)`. ID lookup is expected `O(1)`, total rows are `O(1)`, and
+a window query is `O(log n + v)` for `v` intersecting items. Persistent versions
+share unchanged index structure rather than copying the complete collection.
+
 ## Index And Range Conventions
 
 Public collection positions are zero-based indexes. `itemIndex`, table

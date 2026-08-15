@@ -2,11 +2,17 @@ import {
   commandInputReducer,
   createScrollState,
   dataGridReducer,
+  appendMeasuredItems,
+  measuredAnchorAt,
+  measuredWindow,
   pointerInteractionReducer,
   prepareCommandSuggestions,
+  prepareMeasuredCollection,
   prepareTableCollection,
+  replaceMeasuredItem,
   scrollReducer,
   type CommandInputState,
+  type MeasuredCollection,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
 const command: CommandInputState = { input: { text: '', cursor: 0 }, history: [], suggestions: prepareCommandSuggestions([]) };
@@ -27,8 +33,24 @@ const grid = dataGridReducer({
   selection: { mode: 'none' },
 });
 const pointer = pointerInteractionReducer({}, { kind: 'enter', targetId: 'save:control' });
+const measured: MeasuredCollection<{ readonly label: string }> = prepareMeasuredCollection([
+  { id: 'one', value: { label: 'One' }, rows: 2 },
+]);
+const measuredAnchor = measuredAnchorAt(measured, { offsetRow: 0 });
+const measuredAppended = appendMeasuredItems(measured, [
+  { id: 'two', value: { label: 'Two' }, rows: 1 },
+]);
+const measuredReplaced = replaceMeasuredItem(measuredAppended, {
+  id: 'one',
+  value: { label: 'Changed' },
+  rows: 3,
+});
+const measuredVisible = measuredWindow(measuredReplaced, {
+  viewportRows: 4,
+  ...(measuredAnchor === undefined ? {} : { anchor: measuredAnchor }),
+});
 
 // @ts-expect-error reducer actions are discriminated contracts
 scrollReducer(scrolled, { kind: 'scrollLines', rows: 'two' });
 
-void [edited, grid, pointer];
+void [edited, grid, pointer, measuredVisible];

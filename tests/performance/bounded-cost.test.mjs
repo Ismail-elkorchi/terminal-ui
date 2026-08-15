@@ -34,12 +34,16 @@ import { column, overlay } from '../../dist/layout/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import {
   appendLogHistory,
+  appendMeasuredItems,
   listboxReducer,
+  measuredWindow,
   prepareSearchPickerIndex,
   prepareLogHistory,
   prepareListboxCollection,
+  prepareMeasuredCollection,
   prepareTableCollection,
   prepareTreeCollection,
+  replaceMeasuredItem,
   dataGridReducer,
   treeReducer
 } from '../../dist/behavior/index.js';
@@ -50,6 +54,35 @@ import {
 
 const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
 const manualSingleSelection = Object.freeze({ mode: 'single', commitment: 'manual' });
+
+test('prepared measured collection work is bounded by changes and the visible window', { timeout: 10_000 }, () => {
+  const itemCount = 100_000;
+  let collection = prepareMeasuredCollection(Array.from({ length: itemCount }, (_value, index) => ({
+    id: `measured-${String(index)}`,
+    value: index,
+    rows: (index % 5) + 1
+  })));
+
+  let visibleEntries = 0;
+  for (let query = 0; query < 5_000; query += 1) {
+    visibleEntries += measuredWindow(collection, {
+      viewportRows: 24,
+      offsetRow: (query * 53) % (collection.totalRows - 24)
+    }).entries.length;
+  }
+  for (let update = 0; update < 1_000; update += 1) {
+    const itemIndex = (update * 97) % itemCount;
+    collection = replaceMeasuredItem(collection, {
+      id: `measured-${String(itemIndex)}`,
+      value: -update,
+      rows: (update % 7) + 1
+    });
+  }
+  collection = appendMeasuredItems(collection, [{ id: 'measured-tail', value: -1, rows: 2 }]);
+
+  assert.ok(visibleEntries > 5_000);
+  assert.equal(collection.itemCount, itemCount + 1);
+});
 
 test('prepared word boundaries keep large multilingual lookups bounded', { timeout: 10_000 }, () => {
   const manyShortWords = `${'a '.repeat(50_000)}終`;

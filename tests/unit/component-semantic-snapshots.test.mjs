@@ -4,6 +4,7 @@ import { calendarFixture } from '../helpers/calendar.mjs';
 import {
   measuredWindow,
   prepareCommandSuggestions,
+  prepareMeasuredCollection,
   prepareSearchPickerIndex,
   prepareLogHistory
 } from '../../dist/behavior/index.js';
@@ -184,11 +185,10 @@ const cases = [
   {
     name: 'measuredColumn',
     element: () => measuredColumn(
-      measuredWindow({
-        items: [
+      measuredWindow(prepareMeasuredCollection([
           { id: 'first', value: unsafe, rows: 1 },
           { id: 'second', value: 'Second', rows: 1 }
-        ],
+        ]), {
         viewportRows: 2
       }),
       (entry) => text({ content: entry.item.value, id: `measured-${entry.item.id}` }),
