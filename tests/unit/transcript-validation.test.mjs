@@ -122,8 +122,10 @@ test('transcript validation accounts resources on the owned snapshot', () => {
   let stepsReads = 0;
   let diagnosticsReads = 0;
   const source = {
-    formatVersion: 7,
+    formatVersion: 8,
     omittedSteps: 0,
+    omittedDiagnostics: 0,
+    omittedRedactions: 0,
     id: 'single-read-boundary',
     source: 'test',
     get steps() {
@@ -609,8 +611,10 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    formatVersion: 7,
+    formatVersion: 8,
     omittedSteps: 0,
+    omittedDiagnostics: 0,
+    omittedRedactions: 0,
     id: '',
     source: 'test',
     steps: [],

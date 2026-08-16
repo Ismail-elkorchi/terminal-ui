@@ -213,7 +213,15 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
     target: string,
     diagnostics: TerminalDiagnostic[]
   ): void {
-    recordTuiRestore(this.#transcript, result, 'shutdown');
+    try {
+      recordTuiRestore(this.#transcript, result, 'shutdown');
+    } catch (cause) {
+      diagnostics.push(diagnostic('TRANSCRIPT_SINK_FAILED', 'Transcript restore sink failed.', {
+        severity: 'warning',
+        target,
+        cause
+      }));
+    }
     if (result.status === 'restored') return;
     diagnostics.push(...result.diagnostics);
     if (result.diagnostics.length === 0) {

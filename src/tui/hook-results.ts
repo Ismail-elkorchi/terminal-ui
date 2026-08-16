@@ -19,7 +19,8 @@ export function decodeTuiUpdateResult<TState, TMessage>(
   if (!Object.hasOwn(result, 'state')) {
     throw new TypeError('TUI update result must provide state.');
   }
-  const cancelEffects = optionalStringArray(result['cancelEffects'], 'TUI update cancelEffects');
+  const cancelEffects = optionalStringArray(result['cancelEffects'], 'TUI update cancelEffects')
+    ?.map((id) => effectExecutionId(id));
   const effects = optionalArray(result['effects'], 'TUI update effects')?.map(decodeTuiEffect<TMessage>);
   const focus = result['focus'] === undefined
     ? undefined
@@ -27,7 +28,7 @@ export function decodeTuiUpdateResult<TState, TMessage>(
   const exit = decodeExitRequest(result['exit']);
   return Object.freeze({
     state: result['state'] as TState,
-    ...(cancelEffects === undefined ? {} : { cancelEffects }),
+    ...(cancelEffects === undefined ? {} : { cancelEffects: Object.freeze(cancelEffects) }),
     ...(effects === undefined ? {} : { effects: Object.freeze(effects) }),
     ...(focus === undefined ? {} : { focus }),
     ...(exit === undefined ? {} : { exit })

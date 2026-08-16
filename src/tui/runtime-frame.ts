@@ -144,8 +144,6 @@ export async function commitFrame(
       await attemptOutputCleanup(host, output.failureCleanup, error);
     }
   }
-  options.signal?.throwIfAborted();
-  recordHostFrame(host, frame, diff);
   return diff;
 }
 
@@ -229,9 +227,4 @@ function appAccessibility<TState, TMessage>(
     ...tuiAccessibility,
     diagnostics: Object.freeze([...tuiAccessibility.diagnostics, valid.error])
   });
-}
-
-function recordHostFrame(host: TerminalHost, frame: Frame, diff: RenderDiff): void {
-  host.observer?.recordFrame?.(frame);
-  host.observer?.recordDiff?.(diff);
 }

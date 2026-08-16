@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
+  committedTerminalWrite,
   createMemoryTerminalHost,
   failedTerminalWrite,
   indeterminateTerminalWrite
@@ -11,6 +12,7 @@ import { createTranscriptRecorder, validateTranscript } from '../../dist/transcr
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { text, textInput as createTextInput } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
+import { diagnostic } from '../../dist/diagnostics.js';
 import { column, surface } from '../../dist/layout/index.js';
 import { flushAsync, waitUntil } from '../helpers/async.ts';
 
@@ -98,6 +100,22 @@ test('empty dispatchMany is an operational no-op', async () => {
   await runtime.dispose();
 });
 
+test('direct and asynchronous dispatch paths share one non-null message domain', async () => {
+  const app = defineTui({
+    id: 'non-null-message-domain',
+    init: () => ({ count: 0 }),
+    update: (state) => ({ state: { count: state.count + 1 } }),
+    view: (state) => text({ content: String(state.count) })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  await runtime.start();
+
+  await assert.rejects(runtime.dispatch(null), /cannot be null or undefined/u);
+  await assert.rejects(runtime.dispatchMany([undefined]), /cannot contain null or undefined/u);
+  assert.deepEqual(runtime.state(), { count: 0 });
+  await runtime.dispose();
+});
+
 test('TUI runtime discards a candidate when output fails before publication', async () => {
   let subscriptionStarts = 0;
   const transcript = createTranscriptRecorder({ id: 'failed-candidate-transcript', source: 'tui' });
@@ -138,6 +156,110 @@ test('TUI runtime discards a candidate when output fails before publication', as
   assert.equal(commits[0]?.commit.id, initialChange.commitId);
   assert.equal(commits[0]?.commit.stateVersion, initialChange.stateVersion);
   harness.host.write = write;
+  await runtime.dispose();
+});
+
+test('a committed terminal write publishes render and application state despite concurrent disposal', async () => {
+  const app = defineTui({
+    id: 'committed-write-publication',
+    init: () => ({ count: 0 }),
+    update: (state) => ({ state: { count: state.count + 1 }, exit: { reason: 'done' } }),
+    view: (state) => text({ content: `Count ${String(state.count)}`, id: 'committed-count' })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  await runtime.start();
+  const writeStarted = deferred();
+  const releaseWrite = deferred();
+  harness.host.write = async () => {
+    writeStarted.release();
+    await releaseWrite.promise;
+    return committedTerminalWrite();
+  };
+
+  const dispatching = runtime.dispatch({ kind: 'increment' });
+  await writeStarted.promise;
+  const disposing = runtime.dispose();
+  releaseWrite.release();
+
+  assert.deepEqual(await dispatching, { count: 1 });
+  await disposing;
+  assert.deepEqual(runtime.state(), { count: 1 });
+  assert.match(renderFramePlain(runtime.frame()), /Count 1/u);
+  assert.equal(harness.frames().length, 2);
+  await assert.rejects(runtime.dispatch({ kind: 'late' }), /disposed/u);
+});
+
+test('invalid effect cancellation identities fail before output or state publication', async () => {
+  const app = defineTui({
+    id: 'invalid-effect-cancellation',
+    init: () => ({ count: 0 }),
+    update: (state) => ({ state: { count: state.count + 1 }, cancelEffects: [''] }),
+    view: (state) => text({ content: `Count ${String(state.count)}`, id: 'invalid-cancel-count' })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  const initialFrame = await runtime.start();
+
+  await assert.rejects(runtime.dispatch({ kind: 'increment' }), /Effect id must contain visible text/u);
+
+  assert.deepEqual(runtime.state(), { count: 0 });
+  assert.equal(runtime.frame(), initialFrame);
+  assert.equal(harness.frames().length, 1);
+  await runtime.dispose();
+});
+
+test('observer and transcript sink failures cannot reject committed runtime publication', async () => {
+  const transcript = createTranscriptRecorder({
+    id: 'failing-transcript-sink',
+    source: 'tui',
+    onStep() {
+      throw new Error('transcript observer failed');
+    }
+  });
+  const host = createMemoryTerminalHost({
+    observer: {
+      recordFrame() {
+        throw new Error('frame observer failed');
+      },
+      recordDiff() {
+        throw new Error('diff observer failed');
+      }
+    }
+  });
+  const app = defineTui({
+    id: 'isolated-observers',
+    init: () => ({ count: 0 }),
+    update: (state) => ({ state: { count: state.count + 1 } }),
+    view: (state) => text({ content: String(state.count), id: 'isolated-observer-count' })
+  });
+  const runtime = createTuiRuntime({ app, host, transcript });
+
+  await runtime.start();
+  assert.deepEqual(await runtime.dispatch({ kind: 'increment' }), { count: 1 });
+
+  assert.equal(runtime.diagnostics().some((item) => item.diagnostic.code === 'TUI_RUNTIME_TASK_FAILED'), true);
+  assert.equal(transcript.snapshot().diagnostics.some(
+    (item) => item.diagnostic.code === 'TRANSCRIPT_SINK_FAILED'
+  ), true);
+  await runtime.dispose();
+});
+
+test('runtime diagnostics retain a bounded tail and expose omitted counts', async () => {
+  const app = defineTui({
+    id: 'bounded-runtime-diagnostics',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: () => text({ content: 'ready' })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  await runtime.start();
+  for (let index = 0; index < 300; index += 1) {
+    runtime.reportDiagnostic(diagnostic('INPUT_TIMEOUT', `timeout ${String(index)}`));
+  }
+
+  assert.equal(runtime.diagnostics().length, 256);
+  assert.deepEqual(runtime.metrics().diagnostics, { retained: 256, omitted: 44 });
   await runtime.dispose();
 });
 

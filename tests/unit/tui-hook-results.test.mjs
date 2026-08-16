@@ -38,6 +38,17 @@ test('TUI update results are admitted and owned at the update boundary', () => {
   assert.equal(Object.isFrozen(result.effects), true);
 });
 
+test('TUI update results validate cancellation identities before publication', () => {
+  assert.throws(
+    () => decodeTuiUpdateResult({ state: {}, cancelEffects: [''] }),
+    /Effect id must contain visible text/u
+  );
+  assert.throws(
+    () => decodeTuiUpdateResult({ state: {}, cancelEffects: ['load\u0000late'] }),
+    /Effect id must contain visible text/u
+  );
+});
+
 test('effect outputs are decoded before runtime dispatch', () => {
   assert.throws(() => decodeTuiEffectOutput({ kind: 'message' }), /cannot be null or undefined/u);
   assert.throws(

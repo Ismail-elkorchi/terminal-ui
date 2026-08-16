@@ -1,5 +1,4 @@
 import { diagnostic } from '../diagnostics.ts';
-import { subscriptionExecutionId } from '../foundation/identity.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
 import { createProducerAdmissionLease } from './producer-admission.ts';
@@ -85,10 +84,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       reconcilePrepared(prepared);
     },
     cancel() {
-      for (const source of active.values()) {
-        source.lease.revoke();
-        source.controller.abort();
-      }
+      retireAll();
     },
     async dispose() {
       if (disposed) return;
@@ -109,19 +105,19 @@ export function createTuiSubscriptionManager<TState, TMessage>(
 
   function reconcilePrepared(prepared: PreparedTuiSubscriptions<TMessage>): void {
     if (disposed) return;
-    const requestedIds = new Set(prepared.sources.map((source) => subscriptionExecutionId(source.id)));
+    const requestedIds = new Set(prepared.sources.map((source) => source.id));
     for (const id of terminal.keys()) {
       if (!requestedIds.has(id)) terminal.delete(id);
     }
     for (const [id, activeSource] of active) {
-      const requested = prepared.sources.find((source) => subscriptionExecutionId(source.id) === id);
+      const requested = prepared.sources.find((source) => source.id === id);
       if (requested?.generation !== activeSource.generation) {
         active.delete(id);
         retireSource(activeSource);
       }
     }
     for (const source of prepared.sources) {
-      const id = subscriptionExecutionId(source.id);
+      const id = source.id;
       if (active.has(id)) continue;
       const outcome = terminal.get(id);
       if (outcome?.generation === source.generation) continue;
@@ -136,7 +132,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
     baseContext: TuiContext
   ): ActiveTuiEventSource<TMessage> {
     const controller = new AbortController();
-    const id = subscriptionExecutionId(source.id);
+    const id = source.id;
     const lease = createProducerAdmissionLease('subscription', `${id}:${String(source.generation)}`, controller.signal);
     const sourceName = source.source ?? 'external';
     const channel = createTuiSourceChannel<TMessage>({
@@ -285,7 +281,7 @@ function assertUniqueSourceIds<TMessage>(
 ): void {
   const seen = new Set<string>();
   for (const source of sources) {
-    const id = subscriptionExecutionId(source.id);
+    const id = source.id;
     if (seen.has(id)) {
       const item = diagnostic('TUI_SOURCE_DUPLICATE_ID', `Duplicate TUI event source id: ${id}.`, {
         target: id,

@@ -49,14 +49,14 @@ export function createRuntimeLifecycle<TFrame>() {
       currentPhase = 'active';
     },
     beginExit() {
-      currentPhase = 'exiting';
+      if (currentPhase === 'active') currentPhase = 'exiting';
     },
     retire() {
       if (currentPhase === 'active') currentPhase = 'exiting';
       if (!lifetime.signal.aborted) lifetime.abort('tui_input_retired');
     },
     fail() {
-      currentPhase = 'failed';
+      if (currentPhase !== 'disposing' && currentPhase !== 'disposed') currentPhase = 'failed';
       if (!lifetime.signal.aborted) lifetime.abort('tui_runtime_failed');
     },
     dispose(operation: () => Promise<void>): Promise<void> {

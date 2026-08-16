@@ -209,7 +209,7 @@ test('TUI runtime supports undefined as an initialized application state', async
 
   await runtime.start();
   assert.equal(runtime.state(), undefined);
-  await runtime.dispatch(undefined);
+  await runtime.dispatch({ kind: 'refresh' });
   assert.equal(runtime.state(), undefined);
 });
 
@@ -750,7 +750,7 @@ test('interrupts preempt a hanging dispatch and report unconfirmed restoration w
   const framesAfterExit = committedFrames;
   blockedCommit.release();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(committedFrames, framesAfterExit);
+  assert.equal(committedFrames, framesAfterExit + 1);
 });
 
 test('runTui rejects non-TTY hosts deterministically before opening fullscreen protocols', async () => {

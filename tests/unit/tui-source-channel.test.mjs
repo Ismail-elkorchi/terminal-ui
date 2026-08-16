@@ -100,3 +100,70 @@ test('cadence delays only replaceable emissions and drains them as one keyed bat
   assert.equal(channel.metrics().replacements, 1);
   assert.equal(channel.metrics().cadenceFlushes, 1);
 });
+
+test('dispatch failure discards pending cadenced values and permanently fails the channel', async () => {
+  const host = createMemoryTerminalHost();
+  const failure = new Error('reliable dispatch failed');
+  let dispatches = 0;
+  const channel = createTuiSourceChannel({
+    cadence: { intervalMs: 10, clock: host.clock },
+    async dispatchMany() {
+      dispatches += 1;
+      throw failure;
+    },
+  });
+
+  await channel.admit(replaceableSourceMessage('frame', 'pending'));
+  await channel.admit(reliableSourceMessage('reliable'));
+  await new Promise((resolve) => setImmediate(resolve));
+  host.clock.advance(10);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  await assert.rejects(channel.close(), (cause) => cause === failure);
+  await assert.rejects(channel.admit(reliableSourceMessage('late')), (cause) => cause === failure);
+  assert.equal(dispatches, 1);
+});
+
+test('cadence failure releases blocked reliable admissions with one stable failure', async () => {
+  const failure = new Error('cadence clock failed');
+  const clock = {
+    monotonicNow: () => 0,
+    wallNow: () => new Date(0),
+    sleep: () => Promise.reject(failure),
+  };
+  const channel = createTuiSourceChannel({
+    capacity: 1,
+    cadence: { intervalMs: 10, clock },
+    async dispatchMany() {},
+  });
+
+  await channel.admit(replaceableSourceMessage('frame', 'pending'));
+  const blocked = channel.admit(reliableSourceMessage('blocked'));
+
+  await assert.rejects(blocked, (cause) => cause === failure);
+  await assert.rejects(channel.close(), (cause) => cause === failure);
+  await assert.rejects(channel.close(), (cause) => cause === failure);
+});
+
+test('cancellation wins a dispatch-failure race and settles later operations consistently', async () => {
+  const dispatch = deferred();
+  const channel = createTuiSourceChannel({
+    async dispatchMany() {
+      await dispatch.promise;
+      throw new Error('late dispatch failure');
+    },
+  });
+  await channel.admit(reliableSourceMessage('active'));
+  channel.cancel();
+  dispatch.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  let cancellation;
+  await assert.rejects(channel.close(), (cause) => {
+    cancellation = cause;
+    return /cancelled/u.test(cause.message);
+  });
+  await assert.rejects(channel.close(), (cause) => cause === cancellation);
+  await assert.rejects(channel.admit(reliableSourceMessage('late')), (cause) => cause === cancellation);
+  channel.cancel();
+});

@@ -1,5 +1,4 @@
 import { diagnostic } from '../diagnostics.ts';
-import { effectExecutionId } from '../foundation/identity.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalClock } from '../host/index.ts';
 import { createProducerAdmissionLease } from './producer-admission.ts';
@@ -68,7 +67,7 @@ export function createTuiEffectManager<TMessage>(
   let disposed = false;
 
   function launch(effect: TuiEffect<TMessage>): void {
-    const id = effectExecutionId(effect.id);
+    const id = effect.id;
     const controller = new AbortController();
     const lease = createProducerAdmissionLease('effect', id, controller.signal);
     const execution: ActiveEffect = { id, controller, lease, completion: Promise.resolve() };
@@ -129,7 +128,7 @@ export function createTuiEffectManager<TMessage>(
   }
 
   function schedule(effect: TuiEffect<TMessage>): void {
-    const id = effectExecutionId(effect.id);
+    const id = effect.id;
     const hasActive = activeById.has(id);
     if (effect.concurrency === 'keep-first') {
       if (!hasActive && !pendingReplacements.has(id) && (queues.get(id)?.length ?? 0) === 0) {
@@ -197,7 +196,7 @@ export function createTuiEffectManager<TMessage>(
     },
     cancelIds(ids) {
       if (disposed) return;
-      for (const value of ids) cancelId(effectExecutionId(value));
+      for (const id of ids) cancelId(id);
       launchPending();
     },
     cancel() {

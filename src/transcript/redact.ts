@@ -88,7 +88,9 @@ export function redactTranscript(
     omittedSteps: transcript.omittedSteps,
     diagnostics: transcript.diagnostics.map((occurrence, index) =>
       redactOccurrence(occurrence, `$.diagnostics[${String(index)}]`, context)),
-    redactions
+    omittedDiagnostics: transcript.omittedDiagnostics,
+    redactions,
+    omittedRedactions: transcript.omittedRedactions
   };
 }
 

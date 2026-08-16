@@ -94,8 +94,10 @@ test('transcript entrypoint exposes replay against a structural harness target',
   const harness = createTerminalHarness();
 
   const result = await replayTranscript(harness, {
-    formatVersion: 7,
+    formatVersion: 8,
     omittedSteps: 0,
+    omittedDiagnostics: 0,
+    omittedRedactions: 0,
     id: 'entrypoint-replay',
     source: 'test',
     steps: [{ kind: 'input', event: { kind: 'text', text: 'x', paste: false } }],

@@ -266,6 +266,10 @@ export interface TuiRuntimeMetrics {
   readonly wheelPackets: number;
   readonly dispatchedMessages: number;
   readonly frameCommits: number;
+  readonly diagnostics: {
+    readonly retained: number;
+    readonly omitted: number;
+  };
   readonly effects: {
     readonly active: number;
     readonly queued: number;

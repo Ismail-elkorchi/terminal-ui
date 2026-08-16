@@ -140,7 +140,9 @@ independent concerns.
 collection from the behavior entrypoint. The two inputs are mutually
 exclusive. Use raw arrays for small data; retain prepared complete or windowed
 collections when projection, identity, or hierarchy flattening must not repeat
-on every `view()` call.
+on every `view()` call. The raw `items` plus `projectItem` convenience path
+projects the complete supplied array each time the component factory is called,
+so its construction cost is `O(n)` even when only a small viewport is visible.
 
 `logViewer()` always accepts a prepared `LogHistory`. Create it with
 `prepareLogHistory()` and retain it in application state. Add log entries

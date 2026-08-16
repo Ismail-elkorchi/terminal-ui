@@ -7,7 +7,7 @@ import {
 import type { AnimationFrame } from './animation-timeline.ts';
 import { reliableSourceMessage, replaceableSourceMessage } from './source-channel.ts';
 
-export function intervalSource<TMessage>(
+export function intervalSource<TMessage extends NonNullable<unknown>>(
   id: string,
   ms: number,
   message: TMessage | ((tick: number) => TMessage)
@@ -27,7 +27,7 @@ export function intervalSource<TMessage>(
   };
 }
 
-export function timeoutSource<TMessage>(
+export function timeoutSource<TMessage extends NonNullable<unknown>>(
   id: string,
   ms: number,
   message: TMessage
@@ -44,7 +44,7 @@ export function timeoutSource<TMessage>(
   };
 }
 
-export function animationSource<TMessage>(
+export function animationSource<TMessage extends NonNullable<unknown>>(
   id: string,
   fps: number,
   message: (frame: AnimationFrame) => TMessage
@@ -81,7 +81,7 @@ async function sleepForTick(
   return !context.signal.aborted;
 }
 
-function scheduledMessage<TMessage>(
+function scheduledMessage<TMessage extends NonNullable<unknown>>(
   message: TMessage | ((tick: number) => TMessage),
   tick: number
 ): TMessage {

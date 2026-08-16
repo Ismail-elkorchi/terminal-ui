@@ -1,5 +1,6 @@
 import {
   defineTui,
+  reliableSourceMessage,
   replaceableSourceMessage,
 } from '@ismail-elkorchi/terminal-ui/tui';
 import { text } from '@ismail-elkorchi/terminal-ui/components';
@@ -49,6 +50,12 @@ defineTui({
   update: async (state: { readonly value: string }) => ({ state }),
   view: (state) => text({ content: state.value })
 });
+
+// @ts-expect-error asynchronous producer messages use the same non-null domain as component messages
+reliableSourceMessage(null);
+
+// @ts-expect-error absence is represented by an emission kind, not an undefined message
+replaceableSourceMessage('missing', undefined);
 
 defineTui({
   init: () => ({ value: '' }),

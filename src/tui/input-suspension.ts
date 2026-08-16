@@ -8,32 +8,36 @@ interface InputSuspensionRequest {
 export interface InputSuspensionLease {
   readonly paused: Promise<void>;
   resume(): Promise<void>;
+  cancel(): boolean;
 }
 
 export class TuiInputSuspensionController {
-  readonly #queued: InputSuspensionRequest[] = [];
-  #waiting: ((request: InputSuspensionRequest) => void) | undefined;
+  readonly #queued: ManagedInputSuspensionRequest[] = [];
+  #waiting: ((request: ManagedInputSuspensionRequest) => void) | undefined;
   #closed = false;
 
   request(): InputSuspensionLease {
     if (this.#closed) {
       return {
         paused: Promise.reject(new Error('TUI input suspension is unavailable after the input loop ends.')),
-        resume: () => Promise.resolve()
+        resume: () => Promise.resolve(),
+        cancel: () => true
       };
     }
     const paused = Promise.withResolvers<undefined>();
     const resume = Promise.withResolvers<undefined>();
     const resumed = Promise.withResolvers<undefined>();
     let resumeRequested = false;
-    const request: InputSuspensionRequest = {
+    let delivered = false;
+    const request: ManagedInputSuspensionRequest = {
       paused: () => { paused.resolve(undefined); },
       pauseFailed: (cause) => {
         paused.reject(cause);
         resumed.resolve(undefined);
       },
       resumeRequested: resume.promise,
-      resumed: () => { resumed.resolve(undefined); }
+      resumed: () => { resumed.resolve(undefined); },
+      delivered: () => { delivered = true; }
     };
     const waiting = this.#waiting;
     if (waiting === undefined) this.#queued.push(request);
@@ -49,16 +53,30 @@ export class TuiInputSuspensionController {
           resume.resolve(undefined);
         }
         await resumed.promise;
+      },
+      cancel: () => {
+        if (delivered) return false;
+        const queuedIndex = this.#queued.indexOf(request);
+        if (queuedIndex >= 0) this.#queued.splice(queuedIndex, 1);
+        paused.resolve(undefined);
+        resumed.resolve(undefined);
+        return true;
       }
     };
   }
 
   next(): Promise<InputSuspensionRequest> {
     const queued = this.#queued.shift();
-    if (queued !== undefined) return Promise.resolve(queued);
+    if (queued !== undefined) {
+      queued.delivered();
+      return Promise.resolve(queued);
+    }
     if (this.#closed) return new Promise(() => undefined);
     return new Promise((resolve) => {
-      this.#waiting = resolve;
+      this.#waiting = (request) => {
+        request.delivered();
+        resolve(request);
+      };
     });
   }
 
@@ -68,6 +86,10 @@ export class TuiInputSuspensionController {
     for (const request of this.#queued.splice(0)) request.pauseFailed(failure);
     this.#waiting = undefined;
   }
+}
+
+interface ManagedInputSuspensionRequest extends InputSuspensionRequest {
+  readonly delivered: () => void;
 }
 
 export type { InputSuspensionRequest };

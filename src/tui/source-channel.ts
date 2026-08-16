@@ -4,18 +4,29 @@ import type { TerminalClock } from '../host/index.ts';
 
 export const defaultTuiSourceChannelCapacity = 64;
 
-export function reliableSourceMessage<TMessage>(message: TMessage): TuiSourceEmission<TMessage> {
-  return Object.freeze({ kind: 'reliable', message });
+export function reliableSourceMessage<TMessage extends NonNullable<unknown>>(message: TMessage): TuiSourceEmission<TMessage>;
+export function reliableSourceMessage<TMessage>(message: unknown): TuiSourceEmission<TMessage> {
+  if (message === null || message === undefined) {
+    throw new TypeError('Reliable source message cannot be null or undefined.');
+  }
+  return Object.freeze({ kind: 'reliable', message: message as TMessage });
 }
 
-export function replaceableSourceMessage<TMessage>(
+export function replaceableSourceMessage<TMessage extends NonNullable<unknown>>(
   key: string,
   message: TMessage,
+): TuiSourceEmission<TMessage>;
+export function replaceableSourceMessage<TMessage>(
+  key: string,
+  message: unknown,
 ): TuiSourceEmission<TMessage> {
   if (typeof key !== 'string' || key.trim() === '') {
     throw new TypeError('Replaceable source message key must be a non-empty string.');
   }
-  return Object.freeze({ kind: 'replaceable', key, message });
+  if (message === null || message === undefined) {
+    throw new TypeError('Replaceable source message cannot be null or undefined.');
+  }
+  return Object.freeze({ kind: 'replaceable', key, message: message as TMessage });
 }
 
 export function decodeTuiSourceEmission<TMessage>(
@@ -68,15 +79,7 @@ export function createTuiSourceChannel<TMessage>(options: {
   let drain: Promise<void> | undefined;
   let cadence: Promise<void> | undefined;
   let cadenceController: AbortController | undefined;
-  const state: {
-    failure: Error | undefined;
-    closed: boolean;
-    cancelled: boolean;
-  } = {
-    failure: undefined,
-    closed: false,
-    cancelled: false,
-  };
+  let state: SourceChannelState = { kind: 'open' };
   const counters = {
     reliableAdmissions: 0,
     replaceableAdmissions: 0,
@@ -121,22 +124,19 @@ export function createTuiSourceChannel<TMessage>(options: {
       ensureDrain();
     },
     close() {
-      state.closed = true;
+      if (state.kind === 'closed') return Promise.resolve();
+      if (state.kind === 'failed' || state.kind === 'cancelled') {
+        return Promise.reject(state.error);
+      }
+      state = { kind: 'closing' };
       flushCadenced();
-      if (state.failure !== undefined) return Promise.reject(state.failure);
-      if (queue.length === 0 && drain === undefined) return Promise.resolve();
+      settleClose();
+      if (closed()) return Promise.resolve();
       return new Promise<void>((resolve, reject) => closeWaiters.push({ resolve, reject }));
     },
     cancel() {
-      if (state.cancelled) return;
-      state.cancelled = true;
-      queue.length = 0;
-      replaceableValues.clear();
-      cadencedKeys.length = 0;
-      cadencedValues.clear();
-      cadenceController?.abort();
-      releaseCapacity();
-      settleClose();
+      if (isTerminal()) return;
+      terminate({ kind: 'cancelled', error: new Error('TUI source channel was cancelled.') });
     },
     metrics() {
       return Object.freeze({ ...counters });
@@ -144,49 +144,45 @@ export function createTuiSourceChannel<TMessage>(options: {
   };
 
   function ensureDrain(): void {
-    if (drain !== undefined || state.cancelled || queue.length === 0) return;
+    if (drain !== undefined || !canDrain() || queue.length === 0) return;
     drain = drainQueued()
       .catch((cause: unknown) => {
-        state.failure = sourceChannelFailure(cause);
-        queue.length = 0;
-        replaceableValues.clear();
+        fail(cause);
       })
       .finally(() => {
         drain = undefined;
         releaseCapacity();
-        if (!state.cancelled && state.failure === undefined && queue.length > 0) ensureDrain();
+        if (canDrain() && queue.length > 0) ensureDrain();
         else settleClose();
       });
   }
 
   function assertAdmissionOpen(): void {
-    if (state.closed || state.cancelled) {
-      throw new Error('TUI source channel is closed.');
-    }
-    if (state.failure !== undefined) throw state.failure;
+    if (state.kind === 'failed' || state.kind === 'cancelled') throw state.error;
+    if (state.kind !== 'open') throw new Error('TUI source channel is closed.');
   }
 
   function ensureCadence(): void {
-    if (options.cadence === undefined || cadence !== undefined || cadencedKeys.length === 0 || state.cancelled) return;
+    if (options.cadence === undefined || cadence !== undefined || cadencedKeys.length === 0 || state.kind !== 'open') return;
     const controller = new AbortController();
     cadenceController = controller;
     cadence = options.cadence.clock.sleep(options.cadence.intervalMs, controller.signal)
       .then(() => {
-        if (!state.cancelled) flushCadenced();
+        if (state.kind === 'open') flushCadenced();
       })
       .catch((cause: unknown) => {
-        if (!controller.signal.aborted) state.failure = sourceChannelFailure(cause);
+        if (!controller.signal.aborted) fail(cause);
       })
       .finally(() => {
         if (cadenceController === controller) cadenceController = undefined;
         cadence = undefined;
-        if (!state.cancelled && state.failure === undefined && cadencedKeys.length > 0) ensureCadence();
+        if (state.kind === 'open' && cadencedKeys.length > 0) ensureCadence();
         else settleClose();
       });
   }
 
   function flushCadenced(): void {
-    if (cadencedKeys.length === 0) return;
+    if (!canDrain() || cadencedKeys.length === 0) return;
     cadenceController?.abort();
     for (const key of cadencedKeys.splice(0)) {
       const message = cadencedValues.get(key);
@@ -200,7 +196,7 @@ export function createTuiSourceChannel<TMessage>(options: {
   }
 
   async function drainQueued(): Promise<void> {
-    while (!state.cancelled && queue.length > 0) {
+    while (canDrain() && queue.length > 0) {
       const buffered = queue.splice(0, queue.length);
       const messages = buffered.flatMap((item): readonly TMessage[] => {
         if (item.kind === 'reliable') return [item.message];
@@ -225,13 +221,51 @@ export function createTuiSourceChannel<TMessage>(options: {
   }
 
   function settleClose(): void {
-    if (!state.closed && !state.cancelled) return;
+    if (state.kind === 'closing' && queue.length === 0 && cadencedKeys.length === 0 && drain === undefined) {
+      state = { kind: 'closed' };
+    }
+    if (state.kind !== 'closed' && state.kind !== 'failed' && state.kind !== 'cancelled') return;
     for (const waiter of closeWaiters.splice(0)) {
-      if (state.failure === undefined) waiter.resolve();
-      else waiter.reject(state.failure);
+      if (state.kind === 'closed') waiter.resolve();
+      else waiter.reject(state.error);
     }
   }
+
+  function canDrain(): boolean {
+    return state.kind === 'open' || state.kind === 'closing';
+  }
+
+  function isTerminal(): boolean {
+    return state.kind === 'closed' || state.kind === 'failed' || state.kind === 'cancelled';
+  }
+
+  function closed(): boolean {
+    return state.kind === 'closed';
+  }
+
+  function fail(cause: unknown): void {
+    if (isTerminal()) return;
+    terminate({ kind: 'failed', error: sourceChannelFailure(cause) });
+  }
+
+  function terminate(next: Extract<SourceChannelState, { readonly kind: 'failed' | 'cancelled' }>): void {
+    state = next;
+    cadenceController?.abort();
+    queue.length = 0;
+    replaceableValues.clear();
+    cadencedKeys.length = 0;
+    cadencedValues.clear();
+    releaseCapacity();
+    settleClose();
+  }
 }
+
+type SourceChannelState =
+  | { readonly kind: 'open' }
+  | { readonly kind: 'closing' }
+  | { readonly kind: 'closed' }
+  | { readonly kind: 'failed'; readonly error: Error }
+  | { readonly kind: 'cancelled'; readonly error: Error };
 
 function sourceChannelFailure(cause: unknown): Error {
   return cause instanceof Error ? cause : new Error('TUI source channel dispatch failed.', { cause });

@@ -42,7 +42,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
   let outputBaselineKnown = false;
   let outputSuspended = false;
   let nextCommitSequence = 1;
-  const reportedRenderDiagnostics = new Set<string>();
+  const acceptedRenderDiagnostics = new Map<string, true>();
   const graphics = createTerminalGraphicsCommitter(
     options.graphics ?? 'none',
     options.graphicsBudget,
@@ -82,7 +82,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       if (cleanup.length === 0) return;
       requireCommittedTerminalWrite(await options.host.write({ text: cleanup }));
     },
-    async initial(state: TState, context: TuiContext, stateVersion: number) {
+    async initial(state: TState, context: TuiContext, stateVersion: number, publishState: () => void) {
       const theme = resolveTuiTheme(options.theme, state);
       const resolution = resolveCandidate(
         state,
@@ -95,8 +95,9 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         candidateCommitId()
       );
       const diff = await write(undefined, resolution.render, theme, context);
-      signal.throwIfAborted();
       accept(resolution, currentTerminalSize);
+      publishState();
+      observeCommittedFrame(resolution.render.frame, diff);
       pendingInitialFocus = undefined;
       return { render: resolution.render, diff, diagnostics: resolution.diagnostics };
     },
@@ -106,7 +107,8 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       terminalSize: TerminalSize,
       requestedFocusPath: FocusPath | undefined,
       stateVersion: number,
-      focus?: TuiRuntimeOptions<TState, TMessage>['initialFocus']
+      focus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
+      publishState: () => void
     ) {
       const theme = resolveTuiTheme(options.theme, state);
       const previousFrame = frameDiffBase(theme);
@@ -121,8 +123,9 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         candidateCommitId()
       );
       const diff = await write(previousFrame, resolution.render, theme, context);
-      signal.throwIfAborted();
       accept(resolution, terminalSize);
+      publishState();
+      observeCommittedFrame(resolution.render.frame, diff);
       return { render: resolution.render, diff, diagnostics: resolution.diagnostics };
     },
     adjacentFocusPath(direction: 'next' | 'previous') {
@@ -145,6 +148,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     theme: RenderCommitCandidate<TMessage>['theme'],
     context: TuiContext
   ): Promise<RenderDiff> {
+    signal.throwIfAborted();
     if (outputSuspended) return diffFrames(previousFrame, render.frame);
     try {
       const dirtyRegions = previousFrame === undefined
@@ -168,6 +172,14 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     currentRender = resolution.render;
     currentFocusPath = resolution.focusPath;
     focusReturnPaths = [...resolution.focusReturnPaths];
+    for (const fingerprint of resolution.renderDiagnosticFingerprints) {
+      acceptedRenderDiagnostics.delete(fingerprint);
+      acceptedRenderDiagnostics.set(fingerprint, true);
+      if (acceptedRenderDiagnostics.size > 1_024) {
+        const oldest = acceptedRenderDiagnostics.keys().next().value;
+        if (oldest !== undefined) acceptedRenderDiagnostics.delete(oldest);
+      }
+    }
     nextCommitSequence += 1;
   }
 
@@ -268,17 +280,42 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     if (nextReturnPaths.length > 0 && focusPathsEqual(render.frame.focusPath, nextReturnPaths.at(-1))) {
       nextReturnPaths = nextReturnPaths.slice(0, -1);
     }
+    const renderDiagnosticFingerprints: string[] = [];
+    const candidateFingerprints = new Set<string>();
     for (const item of render.frame.accessibility.diagnostics) {
-      if (reportedRenderDiagnostics.has(item.fingerprint)) continue;
-      reportedRenderDiagnostics.add(item.fingerprint);
+      if (acceptedRenderDiagnostics.has(item.fingerprint) || candidateFingerprints.has(item.fingerprint)) continue;
+      candidateFingerprints.add(item.fingerprint);
+      renderDiagnosticFingerprints.push(item.fingerprint);
       diagnostics.push(item);
     }
     return {
       render,
       ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
       focusReturnPaths: nextReturnPaths,
+      renderDiagnosticFingerprints,
       diagnostics
     };
+  }
+
+  function observeCommittedFrame(frame: Frame, diff: RenderDiff): void {
+    notifyObserver('recordFrame', frame);
+    notifyObserver('recordDiff', diff);
+  }
+
+  function notifyObserver(method: 'recordFrame' | 'recordDiff', value: unknown): void {
+    try {
+      options.host.observer?.[method]?.(value);
+    } catch (cause) {
+      try {
+        options.reportDiagnostic?.(diagnostic(
+          'TUI_RUNTIME_TASK_FAILED',
+          `Terminal host observer ${method} failed.`,
+          { target: options.host.id, cause, data: { taskName: `host_observer_${method}` } }
+        ));
+      } catch {
+        // Observability is never part of terminal publication correctness.
+      }
+    }
   }
 }
 
@@ -286,5 +323,6 @@ interface RuntimeRenderResolution<TMessage> {
   readonly render: RenderCommitCandidate<TMessage>;
   readonly focusPath?: FocusPath;
   readonly focusReturnPaths: readonly FocusPath[];
+  readonly renderDiagnosticFingerprints: readonly string[];
   readonly diagnostics: readonly TerminalDiagnostic[];
 }

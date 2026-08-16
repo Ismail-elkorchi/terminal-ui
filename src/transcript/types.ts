@@ -7,7 +7,7 @@ import type { FrameDescriptor, RenderDiffDescriptor } from '../renderer/index.ts
 import type { TuiMessageSource } from '../interaction/message.ts';
 import type { JsonValue } from '../foundation/json.ts';
 
-export const interactionTranscriptFormatVersion = 7 as const;
+export const interactionTranscriptFormatVersion = 8 as const;
 
 export const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const;
 
@@ -19,7 +19,9 @@ export interface InteractionTranscript {
   readonly steps: readonly InteractionTranscriptStep[];
   readonly omittedSteps: number;
   readonly diagnostics: readonly DiagnosticOccurrence[];
+  readonly omittedDiagnostics: number;
   readonly redactions: readonly TranscriptRedaction[];
+  readonly omittedRedactions: number;
 }
 
 export type TranscriptSource = typeof transcriptSources[number];
@@ -63,8 +65,14 @@ export interface TranscriptRecorderOptions {
   readonly id?: string;
   readonly source?: TranscriptSource;
   readonly startedAt?: string;
-  readonly retention?: { readonly kind: 'all' } | { readonly kind: 'last'; readonly limit: number };
+  readonly retention?: TranscriptRetentionPolicy;
   readonly onStep?: (step: InteractionTranscriptStep) => void;
+}
+
+export interface TranscriptRetentionPolicy {
+  readonly maxSteps?: number;
+  readonly maxDiagnostics?: number;
+  readonly maxRedactions?: number;
 }
 
 export interface TranscriptValidationLimits {

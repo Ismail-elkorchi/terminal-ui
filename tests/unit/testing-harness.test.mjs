@@ -134,8 +134,10 @@ test('terminal harness replay delivers transcript input events back to the memor
   const harness = createTerminalHarness();
 
   await replayTranscript(harness, {
-    formatVersion: 7,
+    formatVersion: 8,
     omittedSteps: 0,
+    omittedDiagnostics: 0,
+    omittedRedactions: 0,
     id: 'replay-input',
     source: 'replay',
     startedAt: new Date(0).toISOString(),

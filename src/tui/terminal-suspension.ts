@@ -1,5 +1,6 @@
 import { setupTuiSession } from './lifecycle.ts';
 import { errorFromUnknown } from '../errors.ts';
+import { diagnostic } from '../diagnostics.ts';
 import type { TerminalHost, TerminalSession } from '../host/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
 import type { TuiRuntime } from './types.ts';
@@ -39,20 +40,30 @@ export function createTerminalSuspension<TState, TMessage>(
       await runtime.suspendOutput();
       const input = options.input.request();
       let inputPaused = false;
+      let terminalReleaseStarted = false;
       let terminalRestored = false;
       let terminalReacquired = false;
       let value: TValue | undefined;
       let operationCompleted = false;
       let failure: unknown;
       try {
-        await input.paused;
+        await waitForInputPause(input.paused, signal);
         inputPaused = true;
         signal.throwIfAborted();
+        terminalReleaseStarted = true;
         const restoration = await lifecycleRecovery('restore', async (recoverySignal) => {
           await options.host.flush({ signal: recoverySignal });
           return options.session().restore('success', { operationSignal: recoverySignal });
         });
-        recordTuiRestore(options.transcript, restoration, 'checkpoint');
+        try {
+          recordTuiRestore(options.transcript, restoration, 'checkpoint');
+        } catch (cause) {
+          runtime.reportDiagnostic(diagnostic('TRANSCRIPT_SINK_FAILED', 'Transcript restore sink failed.', {
+            severity: 'warning',
+            target: options.appId,
+            cause
+          }));
+        }
         if (restoration.status !== 'restored') {
           throw new Error(`Terminal suspension restoration completed with status ${restoration.status}.`);
         }
@@ -62,6 +73,28 @@ export function createTerminalSuspension<TState, TMessage>(
         operationCompleted = true;
       } catch (cause) {
         failure = cause;
+      }
+
+      if (!terminalReleaseStarted) {
+        let rollbackFailure: unknown;
+        try {
+          const cancelledBeforeDelivery = input.cancel();
+          if (options.canReacquire()) {
+            await lifecycleRecovery('recovery', async () => {
+              if (!cancelledBeforeDelivery) await input.resume();
+              runtime.resumeOutput();
+              await runtime.redraw();
+            });
+          }
+        } catch (cause) {
+          rollbackFailure = cause;
+          failTuiRuntimeTerminalOwnership(runtime, cause);
+        }
+        if (failure !== undefined && rollbackFailure !== undefined && failure !== rollbackFailure) {
+          throw new AggregateError([failure, rollbackFailure], 'Terminal suspension cancellation and rollback both failed.');
+        }
+        if (rollbackFailure !== undefined) throw errorFromUnknown(rollbackFailure);
+        throw errorFromUnknown(failure ?? new Error('Terminal suspension was cancelled before terminal release.'));
       }
 
       let recoveryFailure: unknown;
@@ -142,4 +175,19 @@ export function createTerminalSuspension<TState, TMessage>(
     tail = completion.then(() => undefined, () => undefined);
     return completion;
   };
+}
+
+function waitForInputPause(paused: Promise<void>, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+  const cancelled = Promise.withResolvers<never>();
+  const abort = (): void => { cancelled.reject(abortReason(signal)); };
+  signal.addEventListener('abort', abort, { once: true });
+  return Promise.race([paused, cancelled.promise])
+    .finally(() => { signal.removeEventListener('abort', abort); });
+}
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new Error('Terminal suspension was cancelled.', { cause: signal.reason });
 }

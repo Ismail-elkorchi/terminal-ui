@@ -726,7 +726,11 @@ export class TerminalStateAuthority {
 
   private recordRestore(result: TerminalRestoreResult): TerminalRestoreResult {
     const immutable = freezeRestoreResult(result);
-    this.#host.observer?.recordRestore?.(immutable);
+    try {
+      this.#host.observer?.recordRestore?.(immutable);
+    } catch {
+      // Observers cannot participate in terminal-state ownership.
+    }
     return immutable;
   }
 

@@ -6,6 +6,8 @@ interface TrackedRuntimeTask {
   completion: Promise<void>;
 }
 
+const runtimeDiagnosticLimit = 256;
+
 export function createRuntimeDiagnostics(options: {
   readonly owner: string;
   readonly initial?: readonly TerminalDiagnostic[];
@@ -16,10 +18,12 @@ export function createRuntimeDiagnostics(options: {
 }) {
   const reporter = createDiagnosticOccurrenceReporter(`${options.owner}:runtime`);
   const occurrences: DiagnosticOccurrence[] = [];
+  let omittedOccurrences = 0;
   const backgroundTasks = new Set<TrackedRuntimeTask>();
   let refreshQueued = false;
   const diagnostics = {
     values: () => [...occurrences],
+    omitted: () => omittedOccurrences,
     record,
     report(item: TerminalDiagnostic) {
       const occurrence = record(item);
@@ -40,8 +44,25 @@ export function createRuntimeDiagnostics(options: {
 
   function record(item: TerminalDiagnostic): DiagnosticOccurrence {
     const occurrence = reporter.report(item);
+    if (occurrences.length === runtimeDiagnosticLimit) {
+      occurrences.shift();
+      omittedOccurrences += 1;
+    }
     occurrences.push(occurrence);
-    options.transcript?.recordDiagnostic(occurrence);
+    try {
+      options.transcript?.recordDiagnostic(occurrence);
+    } catch (cause) {
+      const sinkFailure = reporter.report(diagnostic(
+        'TRANSCRIPT_SINK_FAILED',
+        'Transcript diagnostic sink failed.',
+        { severity: 'warning', target: options.owner, cause }
+      ));
+      if (occurrences.length === runtimeDiagnosticLimit) {
+        occurrences.shift();
+        omittedOccurrences += 1;
+      }
+      occurrences.push(sinkFailure);
+    }
     return occurrence;
   }
 

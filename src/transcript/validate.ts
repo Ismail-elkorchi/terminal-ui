@@ -95,7 +95,9 @@ const transcriptFields = new Set([
   'steps',
   'omittedSteps',
   'diagnostics',
-  'redactions'
+  'omittedDiagnostics',
+  'redactions',
+  'omittedRedactions'
 ]);
 const transcriptStepFields: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
   input: new Set(['kind', 'event']),
@@ -365,8 +367,14 @@ function decodeTranscript(
   if (!Array.isArray(transcript['diagnostics'])) {
     return 'Interaction transcript diagnostics must be an array.';
   }
+  if (!Number.isSafeInteger(transcript['omittedDiagnostics']) || Number(transcript['omittedDiagnostics']) < 0) {
+    return 'Interaction transcript omittedDiagnostics must be a non-negative safe integer.';
+  }
   if (!Array.isArray(transcript['redactions'])) {
     return 'Interaction transcript redactions must be an array.';
+  }
+  if (!Number.isSafeInteger(transcript['omittedRedactions']) || Number(transcript['omittedRedactions']) < 0) {
+    return 'Interaction transcript omittedRedactions must be a non-negative safe integer.';
   }
   if (transcript['steps'].length > limits.maxSteps) {
     return `Interaction transcript exceeds the ${String(limits.maxSteps)}-step limit.`;
@@ -453,7 +461,9 @@ function decodeTranscript(
     steps: Object.freeze(steps),
     omittedSteps: Number(transcript['omittedSteps']),
     diagnostics: Object.freeze(diagnostics),
-    redactions: Object.freeze(redactions)
+    omittedDiagnostics: Number(transcript['omittedDiagnostics']),
+    redactions: Object.freeze(redactions),
+    omittedRedactions: Number(transcript['omittedRedactions'])
   });
 }
 

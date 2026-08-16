@@ -71,7 +71,7 @@ import { focusNavigationPath } from '../renderer/internal/focus.ts';
 import { assertTuiApp } from './definition.ts';
 
 type MutableTuiRuntimeMetrics = {
-  -readonly [TKey in Exclude<keyof TuiRuntimeMetrics, 'effects' | 'sources'>]: TuiRuntimeMetrics[TKey];
+  -readonly [TKey in Exclude<keyof TuiRuntimeMetrics, 'diagnostics' | 'effects' | 'sources'>]: TuiRuntimeMetrics[TKey];
 };
 
 const inputRetirement = new WeakMap<object, () => void>();
@@ -218,6 +218,9 @@ function createRuntime<TState, TMessage>(
       return lifecycle.start(() => dispatchQueue.run(startInternal));
     },
     dispatch(message) {
+      if (message === null || message === undefined) {
+        return Promise.reject(new TypeError('TUI runtime dispatch() message cannot be null or undefined.'));
+      }
       return dispatchQueue.run(() => dispatchInternal(message, 'external'));
     },
     dispatchMany(messages) {
@@ -225,6 +228,9 @@ function createRuntime<TState, TMessage>(
       const candidate: unknown = suppliedMessages;
       if (!Array.isArray(candidate)) {
         return Promise.reject(new TypeError('TUI runtime dispatchMany() messages must be an array.'));
+      }
+      if (suppliedMessages.some((message) => message === null || message === undefined)) {
+        return Promise.reject(new TypeError('TUI runtime dispatchMany() messages cannot contain null or undefined.'));
       }
       const ownedMessages = Object.freeze([...suppliedMessages]);
       return dispatchQueue.run(() => ownedMessages.length === 0
@@ -321,7 +327,12 @@ function createRuntime<TState, TMessage>(
       return diagnostics.report(item);
     },
     metrics() {
-      return { ...metrics, effects: effects.metrics(), sources: subscriptions.metrics() };
+      return {
+        ...metrics,
+        diagnostics: { retained: diagnostics.values().length, omitted: diagnostics.omitted() },
+        effects: effects.metrics(),
+        sources: subscriptions.metrics()
+      };
     }
   };
   terminalFailure.set(runtime, (cause) => {
@@ -429,15 +440,15 @@ function createRuntime<TState, TMessage>(
     occurredAt = options.host.clock.monotonicNow()
   ): Promise<TuiInputResult<TState>> {
     if (event.kind === 'mouse') {
-      options.transcript?.record({ kind: 'input', event });
+      runInstrumentation('transcript_input', () => options.transcript?.record({ kind: 'input', event }));
       return dispatchQueue.run(() => handleMouseInputInternal(event, occurredAt));
     }
     lifecycle.assertOperational();
     const redactInput = focusedInputIsSensitive() && inputEventContainsSensitiveText(event);
-    options.transcript?.record({
+    runInstrumentation('transcript_input', () => options.transcript?.record({
       kind: 'input',
       event: redactInput ? redactSensitiveInputEvent(event) : event
-    });
+    }));
     if (event.kind === 'focus' && !event.focused) {
       const cancelled = pointerRouter.cancel(commits.render().regions)
         .flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
@@ -477,12 +488,15 @@ function createRuntime<TState, TMessage>(
       const context = await createRuntimeContext();
       const state = options.app.definition.init(context);
       const preparedSubscriptions = await subscriptions.prepare(state, context);
-      const result = await commits.initial(state, context, store.version());
-      store.initialize(state);
+      const result = await commits.initial(state, context, store.version(), () => {
+        store.initialize(state);
+        if (lifecycle.phase() === 'starting') lifecycle.activate();
+      });
       metrics.frameCommits += 1;
-      lifecycle.activate();
       recordCommittedRender(result.render, result.diff);
-      subscriptions.activate(preparedSubscriptions);
+      if (lifecycle.active()) runPostCommit('subscription_activation', () => {
+        subscriptions.activate(preparedSubscriptions);
+      });
       for (const item of result.diagnostics) diagnostics.record(item);
       changes.publish({
         kind: 'frame',
@@ -490,7 +504,7 @@ function createRuntime<TState, TMessage>(
         stateVersion: result.render.stateVersion,
         frame: result.render.frame
       });
-      const focusMessages = focusLifecycleMessages<TMessage>({
+      const focusMessages = resolvePostCommitMessages('focus_lifecycle_mapping', () => focusLifecycleMessages<TMessage>({
         next: {
           node: result.render.node,
           layout: result.render.layout,
@@ -498,8 +512,10 @@ function createRuntime<TState, TMessage>(
             ? {}
             : { focusPath: result.render.frame.focusPath }),
         },
-      });
-      if (focusMessages.length > 0) await dispatchManyInternal(focusMessages, 'input');
+      }));
+      if (focusMessages.length > 0 && lifecycle.active()) {
+        await dispatchPostCommitMessages(focusMessages, 'focus_lifecycle');
+      }
       return commits.frame();
     } catch (cause) {
       lifecycle.fail();
@@ -541,7 +557,10 @@ function createRuntime<TState, TMessage>(
 
   async function resizeInternal(terminalSize: Parameters<TuiRuntime<TState, TMessage>['resize']>[0]): Promise<Frame> {
     lifecycle.assertOperational();
-    options.transcript?.record({ kind: 'input', event: { kind: 'resize', terminalSize } });
+    runInstrumentation('transcript_input', () => options.transcript?.record({
+      kind: 'input',
+      event: { kind: 'resize', terminalSize }
+    }));
     await commitRuntimeTransition({ messages: [], terminalSize, requestedFocusPath: commits.focusPath() });
     return commits.frame();
   }
@@ -571,14 +590,15 @@ function createRuntime<TState, TMessage>(
       || focusChanged
       || reduction.focus !== undefined;
     if (!requiresFrame) {
+      store.commit(reduction);
       recordReductionMessages(reduction);
       const exit = completeReduction(reduction, commits.frame());
       if (exit !== undefined) changes.publish({ kind: 'exit', exit });
-      if (reduction.exitReason === undefined) {
-        effects.cancelIds(reduction.cancelEffects);
-        effects.start(reduction.effects);
+      if (reduction.exitReason === undefined && lifecycle.active()) {
+        runPostCommit('effect_cancellation', () => { effects.cancelIds(reduction.cancelEffects); });
+        runPostCommit('effect_start', () => { effects.start(reduction.effects); });
       }
-      return reduction.state;
+      return store.state();
     }
 
     const previousRender = commits.render();
@@ -592,10 +612,9 @@ function createRuntime<TState, TMessage>(
       input.terminalSize,
       input.requestedFocusPath,
       reduction.stateVersion,
-      reduction.focus
+      reduction.focus,
+      () => { store.commit(reduction); }
     );
-    lifecycle.assertOperational();
-    store.commit(reduction);
     metrics.frameCommits += 1;
     recordReductionMessages(reduction);
     recordCommittedRender(result.render, result.diff);
@@ -608,10 +627,12 @@ function createRuntime<TState, TMessage>(
       frame: result.render.frame
     });
     if (exit !== undefined) changes.publish({ kind: 'exit', exit });
-    if (preparedSubscriptions !== undefined) subscriptions.activate(preparedSubscriptions);
-    if (reduction.exitReason === undefined) {
-      effects.cancelIds(reduction.cancelEffects);
-      const focusMessages = focusLifecycleMessages<TMessage>({
+    if (preparedSubscriptions !== undefined && lifecycle.active()) {
+      runPostCommit('subscription_activation', () => { subscriptions.activate(preparedSubscriptions); });
+    }
+    if (reduction.exitReason === undefined && lifecycle.active()) {
+      runPostCommit('effect_cancellation', () => { effects.cancelIds(reduction.cancelEffects); });
+      const focusMessages = resolvePostCommitMessages('focus_lifecycle_mapping', () => focusLifecycleMessages<TMessage>({
         previous: {
           node: previousRender.node,
           layout: previousRender.layout,
@@ -626,19 +647,21 @@ function createRuntime<TState, TMessage>(
             ? {}
             : { focusPath: result.render.frame.focusPath }),
         },
-      });
-      if (focusMessages.length > 0) await dispatchManyInternal(focusMessages, 'input');
-      if (terminalExit === undefined) effects.start(reduction.effects);
+      }));
+      if (focusMessages.length > 0) await dispatchPostCommitMessages(focusMessages, 'focus_lifecycle');
+      if (terminalExit === undefined && lifecycle.active()) {
+        runPostCommit('effect_start', () => { effects.start(reduction.effects); });
+      }
     }
     return store.state();
   }
 
   function recordReductionMessages(reduction: RuntimeReduction<TState, TMessage>): void {
     for (const item of reduction.messages) {
-      options.transcript?.recordNormalizedMessage(
+      runInstrumentation('transcript_message', () => options.transcript?.recordNormalizedMessage(
         item.source,
         item.redacted === true ? '[redacted]' : item.message
-      );
+      ));
     }
   }
 
@@ -815,14 +838,14 @@ function createRuntime<TState, TMessage>(
   }
 
   function enqueuePointerMotion(event: PointerMotionEvent, occurredAt: number): void {
-    options.transcript?.record({ kind: 'input', event });
+    runInstrumentation('transcript_input', () => options.transcript?.record({ kind: 'input', event }));
     pointerMotion.enqueue({ event, occurredAt });
   }
 
   async function enqueueWheelInput(event: MouseWheelEvent): Promise<readonly TuiInputResult<TState>[]> {
     lifecycle.assertOperational();
     metrics.wheelPackets += 1;
-    options.transcript?.record({ kind: 'input', event });
+    runInstrumentation('transcript_input', () => options.transcript?.record({ kind: 'input', event }));
     const targetId = pointerRouter.wheelTargetId(commits.render().regions, event);
     return wheelInput.enqueue(event, targetId);
   }
@@ -975,14 +998,66 @@ function createRuntime<TState, TMessage>(
   }
 
   function recordCommittedRender(render: ReturnType<typeof commits.render>, diff: RenderDiff): void {
-    recordTuiCommit(options.transcript, {
-      id: render.commitId,
-      stateVersion: render.stateVersion,
-      terminalSize: render.terminalSize,
-      ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
-      frame: render.frame,
-      diff
+    runInstrumentation('transcript_commit', () => {
+      recordTuiCommit(options.transcript, {
+        id: render.commitId,
+        stateVersion: render.stateVersion,
+        terminalSize: render.terminalSize,
+        ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
+        frame: render.frame,
+        diff
+      });
     });
+  }
+
+  async function dispatchPostCommitMessages(messages: readonly TMessage[], taskName: string): Promise<void> {
+    try {
+      await dispatchManyInternal(messages, 'input');
+    } catch (cause) {
+      diagnostics.record(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${taskName} failed.`, {
+        target: options.app.id,
+        cause,
+        data: { taskName }
+      }));
+    }
+  }
+
+  function runPostCommit(taskName: string, operation: () => void): void {
+    try {
+      operation();
+    } catch (cause) {
+      diagnostics.record(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${taskName} failed.`, {
+        target: options.app.id,
+        cause,
+        data: { taskName }
+      }));
+    }
+  }
+
+  function resolvePostCommitMessages(taskName: string, operation: () => readonly TMessage[]): readonly TMessage[] {
+    try {
+      return operation();
+    } catch (cause) {
+      diagnostics.record(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${taskName} failed.`, {
+        target: options.app.id,
+        cause,
+        data: { taskName }
+      }));
+      return [];
+    }
+  }
+
+  function runInstrumentation(taskName: string, operation: () => void): void {
+    try {
+      operation();
+    } catch (cause) {
+      diagnostics.record(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI instrumentation ${taskName} failed.`, {
+        severity: 'warning',
+        target: options.app.id,
+        cause,
+        data: { taskName }
+      }));
+    }
   }
 }
 

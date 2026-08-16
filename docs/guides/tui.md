@@ -123,7 +123,10 @@ owned by the prompt runtime and is not a TUI execution mode.
 TUI transcript capture is opt-in with `transcript: true` on the
 TUI definition. Enabled transcripts record normalized input events, frames,
 render diffs, restore checkpoints, final diagnostics, and the final accessible
-snapshot on the returned `TuiExit`.
+snapshot on the returned `TuiExit`. Recorder retention is bounded by default:
+steps, diagnostics, and redactions have independent limits and the transcript
+reports omitted counts for each stream. Supply `retention` to
+`createTranscriptRecorder()` when a different evidence budget is required.
 
 When an update returns `exit: { reason }`, the completed `TuiExit` preserves
 that reason after terminal-text sanitization.
@@ -146,6 +149,15 @@ For lower-level tests and custom event loops, `createTuiRuntime()` exposes the
 same reducer/render path directly. `runtime.start()` initializes the app and
 returns the committed initial `Frame`; completion remains available through
 `runtime.exit()` and `runTui()`.
+
+Dispatch preparation validates update results, effects, cancellation IDs,
+subscriptions, rendering, and output planning before terminal publication.
+A failed-before-write receipt discards the candidate. An indeterminate receipt
+invalidates the output baseline. Once a receipt is committed, render state and
+application state publish synchronously and cancellation cannot reject that
+publication. Host observers, transcript streams, diagnostics consumers, and
+generated follow-up messages are isolated post-commit work; their failures are
+reported without rolling back a visible frame.
 
 `init()` and `update()` are synchronous state transitions. Asynchronous work
 is returned as a typed effect; its result is dispatched later as an ordinary
@@ -194,13 +206,19 @@ non-cooperative work; `parallel`, `keep-first`, and `enqueue` retain their
 explicit queue contracts.
 
 Subscriptions are async event sources, not one-shot effects. A source returns a
-stable `id`, an explicit `delivery` policy, and an async
-`messages(context)` iterable. `sequential` preserves every message in order.
-`latest` bounds backlog by replacing a pending uncommitted message with the
-newest value while a render commit is in progress. Source failures become
-diagnostics and may produce a caller-controlled lifecycle message through
-`onLifecycle`. The runtime starts a source once for a stable id and
-aborts/disposes it when it leaves the subscription set or when the TUI exits.
+stable `id`, an optional bounded channel policy, and an async
+`messages(context)` iterable. Reliable emissions preserve order. Replaceable
+emissions coalesce only by their explicit key and may use the source cadence.
+Channel failure and cancellation are terminal: every buffer is discarded and
+every blocked admission or close is released with the same outcome. Source
+failures become diagnostics and may produce a caller-controlled lifecycle
+message through `onLifecycle`. The runtime starts a source once for a stable id
+and fully retires its lease, signal, channel, and disposer when it leaves the
+subscription set or when the TUI exits.
+
+Runtime diagnostic history retains the latest 256 occurrences. The metrics
+snapshot reports retained and omitted counts, so repeated long-running warnings
+do not create unbounded context-copying work.
 
 `runtime.dispatch(message)` is also the canonical external entry point for
 custom event loops. Dispatches are serialized, so stream events, timers, input,

@@ -175,7 +175,6 @@ function renderReference(symbols) {
     }
     lines.push(`| \`${escapeTable(symbol.name)}\` | ${symbol.kind} | ${symbol.stability} | <code>${escapeCode(symbol.signature)}</code> | ${symbol.availability.map((entrypoint) => `\`${packageName(entrypoint)}\``).join(', ')} | [${symbol.source}](../../${symbol.source}) |`);
   }
-  lines.push('');
   return `${lines.join('\n')}\n`;
 }
 
