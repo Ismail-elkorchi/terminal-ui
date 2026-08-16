@@ -1,5 +1,6 @@
 import { isNonArrayObject } from '../foundation/validation.ts';
 
+/** @beta */
 export interface MeasuredCollectionItem<TValue> {
   readonly id: string;
   readonly value: TValue;
@@ -8,6 +9,7 @@ export interface MeasuredCollectionItem<TValue> {
 
 declare const measuredCollectionBrand: unique symbol;
 
+/** @beta */
 export interface MeasuredCollection<TValue> {
   readonly [measuredCollectionBrand]: TValue;
   readonly kind: 'measured-collection';
@@ -73,6 +75,7 @@ export interface MeasuredCollectionReader<TValue> {
 
 const measuredCollections = new WeakMap<MeasuredCollection<unknown>, MeasuredCollectionData<unknown>>();
 
+/** @beta */
 export function prepareMeasuredCollection<TValue>(
   items: readonly MeasuredCollectionItem<TValue>[]
 ): MeasuredCollection<TValue> {
@@ -83,6 +86,7 @@ export function prepareMeasuredCollection<TValue>(
   );
 }
 
+/** @beta */
 export function appendMeasuredItems<TValue>(
   collection: MeasuredCollection<TValue>,
   items: readonly MeasuredCollectionItem<TValue>[]
@@ -96,6 +100,7 @@ export function appendMeasuredItems<TValue>(
   return createMeasuredCollection(joinSequences(data.sequence, appended), prepared.ids);
 }
 
+/** @beta */
 export function prependMeasuredItems<TValue>(
   collection: MeasuredCollection<TValue>,
   items: readonly MeasuredCollectionItem<TValue>[]
@@ -110,6 +115,7 @@ export function prependMeasuredItems<TValue>(
   return createMeasuredCollection(joinSequences(prepended, data.sequence), prepared.ids);
 }
 
+/** @beta */
 export function replaceMeasuredItem<TValue>(
   collection: MeasuredCollection<TValue>,
   item: MeasuredCollectionItem<TValue>
@@ -134,6 +140,7 @@ export function replaceMeasuredItem<TValue>(
   );
 }
 
+/** @beta */
 export function removeMeasuredItems<TValue>(
   collection: MeasuredCollection<TValue>,
   ids: readonly string[]
@@ -157,6 +164,7 @@ export function removeMeasuredItems<TValue>(
   return changed ? createMeasuredCollection(sequence, idIndex) : collection;
 }
 
+/** @beta */
 export function measuredCollectionItemById<TValue>(
   collection: MeasuredCollection<TValue>,
   id: string

@@ -11,6 +11,7 @@ export interface SemanticListItem<TContent extends Element = Element> {
   readonly label?: string;
 }
 
+/** @beta */
 export interface ListViewRenderedItem<
   TContent extends Element<ElementMessageValue> = Element<ElementMessageValue>
 > {
@@ -19,6 +20,7 @@ export interface ListViewRenderedItem<
   readonly disabled?: boolean;
 }
 
+/** @beta */
 export type ListViewItemRenderer<
   TValue,
   TContent extends Element<ElementMessageValue> = Element<ElementMessageValue>
@@ -27,30 +29,37 @@ export type ListViewItemRenderer<
   itemIndex: number,
 ) => ListViewRenderedItem<TContent>;
 
+/** @beta */
 export type ListViewMeasuredWindow<TValue> = MeasuredWindow<TValue>;
 
+/** @beta */
 export interface UnscrolledListViewPresentation extends CollectionInteractionState {
   readonly scroll?: never;
 }
 
+/** @beta */
 export interface ScrollableListViewPresentation extends CollectionInteractionState {
   readonly scroll: ScrollState;
 }
 
+/** @beta */
 export type ListViewPresentation =
   | UnscrolledListViewPresentation
   | ScrollableListViewPresentation;
 
+/** @beta */
 export type ListViewTransition = CollectionInteractionAction | {
   readonly kind: 'scroll';
   readonly event: ScrollEvent;
 };
 
+/** @beta */
 export type ListViewControlTransition = Exclude<
   ListViewTransition,
   { readonly kind: 'scroll' }
 >;
 
+/** @beta */
 export interface ListViewActivateEvent {
   readonly kind: 'activate';
   readonly id: string;

@@ -38,16 +38,19 @@ interface ImageOptionsBase {
   readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], ImageStylePart>;
 }
 
+/** @experimental */
 export interface SemanticImageOptions extends ImageOptionsBase {
   readonly decorative?: false;
   readonly label: string;
 }
 
+/** @experimental */
 export interface DecorativeImageOptions extends ImageOptionsBase {
   readonly decorative: true;
   readonly label?: never;
 }
 
+/** @experimental */
 export type ImageOptions = SemanticImageOptions | DecorativeImageOptions;
 
 export type {

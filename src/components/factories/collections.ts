@@ -42,6 +42,7 @@ import type {
   UnscrolledListViewOptions,
 } from '../options/collections.ts';
 import { inspectSelection } from '../internal/inspection.ts';
+import { measuredItemViewport } from '../../layout/factories/measured-column.ts';
 
 interface PreparedSemanticListItem {
   readonly id: string;
@@ -174,8 +175,8 @@ export function list<const TItems extends readonly SemanticListItem[]>(
 interface ListViewModel {
   readonly items: readonly (PreparedSemanticListItem & {
     readonly itemIndex: number;
-    readonly startRow: number;
-    readonly rowCount: number;
+    readonly rowOffset: number;
+    readonly visibleRows: number;
     readonly disabled: boolean;
   })[];
   readonly totalCount: number;
@@ -236,26 +237,27 @@ const instantiateListView = defineComponent<
   measure(input) {
     const measurements = input.model.items.map((item, index) => {
       const measurement = input.slots.measure('items', index);
-      if (measurement.preferredHeight !== item.rowCount) {
+      if (measurement.preferredHeight !== item.visibleRows) {
         throw new RangeError(
-          `listView item "${item.id}" measured ${String(measurement.preferredHeight)} rows; its measured collection declares ${String(item.rowCount)}.`,
+          `listView item viewport "${item.id}" measured ${String(measurement.preferredHeight)} rows; its measured window declares ${String(item.visibleRows)} visible rows.`,
         );
       }
       return measurement;
     });
     return {
       minWidth: 0,
-      minHeight: 0,
+      minHeight: input.model.viewportRows,
       preferredWidth: Math.max(0, ...measurements.map((item) => item.preferredWidth + 2)),
-      preferredHeight: input.model.totalRows,
+      preferredHeight: input.model.viewportRows,
+      maxHeight: input.model.viewportRows,
     };
   },
   layout(input) {
     input.model.items.forEach((item, index) => {
       const measurement = input.slots.measure('items', index);
-      if (measurement.preferredHeight !== item.rowCount) {
+      if (measurement.preferredHeight !== item.visibleRows) {
         throw new RangeError(
-          `listView item "${item.id}" measured ${String(measurement.preferredHeight)} rows; its measured collection declares ${String(item.rowCount)}.`,
+          `listView item viewport "${item.id}" measured ${String(measurement.preferredHeight)} rows; its measured window declares ${String(item.visibleRows)} visible rows.`,
         );
       }
     });
@@ -284,19 +286,17 @@ const instantiateListView = defineComponent<
       ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
       defaultAxis: 'vertical',
     });
-    const viewportEnd = scrollbar.scroll.offsetRow + scrollbar.contentBounds.height;
     const visibleIndexes: number[] = [];
     const rects = input.model.items.map((item, index): Rect => {
-      const itemEnd = item.startRow + item.rowCount;
-      if (item.startRow >= viewportEnd || itemEnd <= scrollbar.scroll.offsetRow) {
+      if (item.visibleRows === 0 || item.rowOffset >= scrollbar.contentBounds.height) {
         return { row: 0, column: 0, width: 0, height: 0 };
       }
       visibleIndexes.push(index);
       return {
-        row: item.startRow - scrollbar.scroll.offsetRow,
+        row: item.rowOffset,
         column: 2,
         width: Math.max(0, scrollbar.contentBounds.width - 2),
-        height: item.rowCount,
+        height: Math.min(item.visibleRows, scrollbar.contentBounds.height - item.rowOffset),
       };
     });
     listViewLayouts.set(input.model, {
@@ -401,7 +401,12 @@ const instantiateListView = defineComponent<
         if (item === undefined || item.disabled || rect === undefined || rect.height === 0) return [];
         return [{
           id: `${input.id ?? 'list-view'}:item:${item.id}`,
-          bounds: { row: Math.max(0, rect.row), column: 0, width: input.bounds.width, height: rect.height },
+          bounds: {
+            row: Math.max(0, rect.row),
+            column: 0,
+            width: layout.scrollbar.contentBounds.width,
+            height: rect.height,
+          },
           accepts: ['click'] as const,
           cursor: 'pointer' as const,
           message: (event: RoutedPointerEvent) => event.clickCount === 2
@@ -430,7 +435,7 @@ const instantiateListView = defineComponent<
         selected: selectionContains(input.model.selection, item.id),
         disabled: item.disabled,
         position: { positionInSet: item.itemIndex + 1, setSize: input.model.totalCount },
-        children: child === undefined ? [] : [child],
+        children: child?.children ?? [],
       }];
     });
     return {
@@ -443,6 +448,7 @@ const instantiateListView = defineComponent<
   },
 });
 
+/** @beta */
 export function listView<
   const TValue,
   const TContent extends Element<ComponentMessage>,
@@ -479,13 +485,20 @@ export function listView<
       ...(rendered.label === undefined ? {} : { label: rendered.label }),
       disabled: rendered.disabled,
       itemIndex: entry.itemIndex,
-      startRow: entry.startRowIndex,
-      rowCount: entry.item.rows,
-      content: rendered.content,
+      rowOffset: entry.rowOffset,
+      visibleRows: entry.visibleRows,
+      content: measuredItemViewport(rendered.content, {
+        rows: entry.item.rows,
+        clippedRowsBefore: entry.clippedRowsBefore,
+        visibleRows: entry.visibleRows,
+      }),
     };
   });
   const scroll = prepareComponentScrollState(options.presentation.scroll, 'listView scroll');
   const scrollbar = prepareComponentScrollbarOptions(options.scrollbar, 'listView scrollbar');
+  if (scrollbar?.axis !== undefined && scrollbar.axis !== 'vertical') {
+    throw new TypeError('listView scrollbar axis must be vertical.');
+  }
   const scrollPolicy = prepareComponentScrollPolicy(options.scrollPolicy, 'listView scrollPolicy');
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('listView scrollbar and scrollPolicy require scroll state.');
@@ -501,14 +514,25 @@ export function listView<
     'listView pointerState',
     options.disabled !== true && options.inert !== true,
   );
+  if (options.presentation.activeId !== undefined
+    && !items.some((item) => item.id === options.presentation.activeId)) {
+    throw new RangeError('listView activeId must identify an item in the supplied measured window.');
+  }
   const model: ListViewModel = {
-    items: items.map(({ id, label, disabled, itemIndex, startRow, rowCount }) => ({
+    items: items.map(({
+      id,
+      label,
+      disabled,
+      itemIndex,
+      rowOffset,
+      visibleRows,
+    }) => ({
       id,
       ...(label === undefined ? {} : { label }),
       disabled: disabled,
       itemIndex,
-      startRow,
-      rowCount,
+      rowOffset,
+      visibleRows,
     })),
     totalCount: window.endIndexExclusive + window.omittedAfter,
     totalRows: window.totalRows,

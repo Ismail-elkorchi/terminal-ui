@@ -123,15 +123,18 @@ export interface TuiEffectPolicy {
 
 export type TuiEffectConcurrency = 'parallel' | 'keep-first' | 'replace' | 'enqueue';
 
+/** @beta */
 export type TuiSourceEmission<TMessage> =
   | { readonly kind: 'reliable'; readonly message: TMessage }
   | { readonly kind: 'replaceable'; readonly key: string; readonly message: TMessage };
 
+/** @beta */
 export interface TuiSourceChannelPolicy {
   readonly capacity: number;
   readonly cadenceMs?: number;
 }
 
+/** @beta */
 export type TuiSourceLifecycle =
   | { readonly kind: 'completed'; readonly id: string; readonly generation: string | number }
   | {
@@ -141,6 +144,7 @@ export type TuiSourceLifecycle =
       readonly diagnostic: TerminalDiagnostic;
     };
 
+/** @beta */
 export interface TuiEventSource<TMessage> {
   readonly id: string;
   readonly generation: string | number;
@@ -151,6 +155,7 @@ export interface TuiEventSource<TMessage> {
   dispose?(): void | Promise<void>;
 }
 
+/** @beta */
 export interface TuiSubscriptionContext extends TuiContext {
   readonly signal: AbortSignal;
 }
@@ -159,6 +164,7 @@ export interface TuiExitRequest {
   readonly reason?: string;
 }
 
+/** @beta */
 export type TuiSubscriptions<TState, TMessage> = (
   state: TState,
   context: TuiContext
@@ -278,6 +284,7 @@ export interface TuiRuntimeMetrics {
   readonly sources: TuiSourceChannelMetrics;
 }
 
+/** @beta */
 export interface TuiSourceChannelMetrics {
   readonly reliableAdmissions: number;
   readonly replaceableAdmissions: number;

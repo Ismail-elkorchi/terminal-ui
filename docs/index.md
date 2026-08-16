@@ -34,6 +34,7 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 ## Guides
 
 - [API overview](./api/index.md)
+- [API stability](./guides/api-stability.md)
 - [Runtime support](./guides/runtime-support.md)
 - [Text measurement](./guides/text.md)
 - [Prompts](./guides/prompts.md)

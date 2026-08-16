@@ -9,8 +9,10 @@ import type { TerminalGraphicsTransport } from './kitty-graphics.ts';
 const ESC = '\u001b';
 const ST = `${ESC}\\`;
 
+/** @experimental */
 export interface RgbColor { readonly r: number; readonly g: number; readonly b: number }
 
+/** @experimental */
 export function encodeSixelImage(
   image: RasterImage,
   geometry: ResolvedGraphicGeometry,

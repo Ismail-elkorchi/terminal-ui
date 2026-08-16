@@ -23,11 +23,13 @@ export type {
 
 const measuredWindows = new WeakSet<object>();
 
+/** @beta */
 export function isMeasuredWindow(value: unknown): value is MeasuredWindow<unknown> {
   return value !== null && (typeof value === 'object' || typeof value === 'function')
     && measuredWindows.has(value);
 }
 
+/** @beta */
 export function measuredAnchorAt<TValue>(
   collection: MeasuredCollection<TValue>,
   options: MeasuredAnchorAtOptions
@@ -47,6 +49,7 @@ export function measuredAnchorAt<TValue>(
       });
 }
 
+/** @beta */
 export function measuredWindow<TValue>(
   collection: MeasuredCollection<TValue>,
   options: MeasuredWindowOptions

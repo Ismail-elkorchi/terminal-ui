@@ -11,8 +11,10 @@ import {
   prepareListboxCollection
 } from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
+import { layoutElement } from '../../dist/renderer/internal/layout.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { button, list, listbox, listView, text } from '../../dist/components/index.js';
+import { column } from '../../dist/layout/index.js';
 import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
 
 const mousePress = (row, column) => ({
@@ -98,6 +100,131 @@ test('listView measures arbitrary rows and derives one active-item scroll window
     frame.hitTargets?.find((target) => target.id === 'activity:scrollbar:vertical:thumb')?.bounds.row,
     3
   );
+});
+
+test('listView clips partial measured items at both viewport edges', () => {
+  const collection = prepareMeasuredCollection([
+    { id: 'first', rows: 3, value: { label: 'First', content: text({ content: 'A1\nA2\nA3' }) } },
+    { id: 'second', rows: 3, value: { label: 'Second', content: text({ content: 'B1\nB2\nB3' }) } }
+  ]);
+  const window = measuredWindow(collection, { viewportRows: 3, offsetRow: 1 });
+  const frame = renderElementFrame(listView({
+    id: 'clipped-items',
+    window,
+    renderItem: (item) => item.value,
+    presentation: {
+      selection: { mode: 'none' },
+      scroll: createScrollState({ offsetRow: window.offsetRow })
+    },
+    scrollbar: { visible: 'always' },
+    onTransition: (transition) => transition
+  }), { columns: 12, rows: 3 });
+
+  assert.deepEqual(renderFramePlain(frame).split('\n').map((line) => line.slice(0, 4)), [
+    '  A2',
+    '  A3',
+    '  B1'
+  ]);
+  assert.deepEqual(frame.accessibility.root.children?.map((item) => item.id), [
+    'clipped-items:item:first',
+    'clipped-items:item:second'
+  ]);
+  assert.deepEqual(frame.hitTargets?.filter((target) => target.id.includes(':item:')).map((target) => target.bounds), [
+    { row: 1, column: 1, width: 11, height: 2 },
+    { row: 3, column: 1, width: 11, height: 1 }
+  ]);
+});
+
+test('listView translates an oversized item through its clipped viewport', () => {
+  const collection = prepareMeasuredCollection([{
+    id: 'oversized',
+    rows: 5,
+    value: { content: text({ id: 'oversized-content', content: 'one\ntwo\nthree\nfour\nfive' }) }
+  }]);
+  const window = measuredWindow(collection, { viewportRows: 3, offsetRow: 1 });
+  const frame = renderElementFrame(listView({
+    id: 'oversized-list',
+    window,
+    renderItem: (item) => item.value,
+    presentation: {
+      activeId: 'oversized',
+      selection: { mode: 'none' },
+      scroll: createScrollState({ offsetRow: window.offsetRow })
+    },
+    onTransition: (transition) => transition
+  }), { columns: 12, rows: 3 });
+
+  assert.equal(renderFramePlain(frame).split('\n').map((line) => line.trimEnd()).join('\n'), '› two\n  three\n  four');
+  assert.equal(frame.accessibility.root.activeDescendant, 'oversized-list:item:oversized');
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.id, 'oversized-content');
+});
+
+test('listView translates nested pointer targets in a clipped item', () => {
+  const collection = prepareMeasuredCollection([{
+    id: 'action',
+    rows: 2,
+    value: {
+      content: column([
+        text({ content: 'heading' }),
+        button({ id: 'clipped-action', label: 'Run', onAction: () => ({ kind: 'run' }) })
+      ])
+    }
+  }]);
+  const window = measuredWindow(collection, { viewportRows: 1, offsetRow: 1 });
+  const element = listView({
+    id: 'clipped-actions',
+    window,
+    renderItem: (item) => item.value,
+    presentation: {
+      selection: { mode: 'none' },
+      scroll: createScrollState({ offsetRow: window.offsetRow })
+    },
+    onTransition: (transition) => transition
+  });
+  const frame = renderElementFrame(element, { columns: 16, rows: 1 });
+  const target = renderElementRegions(element, { columns: 16, rows: 1 })
+    .flatMap((region) => region.hitTargets)
+    .find((candidate) => candidate.id === 'clipped-action:control');
+
+  assert.match(renderFramePlain(frame), /Run/u);
+  assert.deepEqual(target?.bounds, { row: 1, column: 3, width: 14, height: 1 });
+  assert.deepEqual(target?.message({ kind: 'click' }), { kind: 'run' });
+});
+
+test('listView intrinsic height is the supplied viewport and activeId must be rendered', () => {
+  const collection = prepareMeasuredCollection([
+    { id: 'first', rows: 50, value: { content: text({ content: Array(50).fill('first').join('\n') }) } },
+    { id: 'second', rows: 50, value: { content: text({ content: Array(50).fill('second').join('\n') }) } }
+  ]);
+  const window = measuredWindow(collection, { viewportRows: 3 });
+  const view = listView({
+    id: 'intrinsic-list',
+    window,
+    renderItem: (item) => item.value,
+    presentation: { selection: { mode: 'none' } },
+    onTransition: (transition) => transition
+  });
+  const layout = layoutElement(column([view, text({ content: 'footer' })], {
+    sizes: [{ kind: 'content' }, { kind: 'content' }]
+  }), { columns: 20, rows: 4 });
+
+  assert.equal(layout.children[0]?.bounds.height, 3);
+  assert.equal(layout.children[1]?.bounds.row, 4);
+  assert.throws(() => listView({
+    id: 'invalid-active-list',
+    window,
+    renderItem: (item) => item.value,
+    presentation: { activeId: 'second', selection: { mode: 'none' } },
+    onTransition: (transition) => transition
+  }), /activeId must identify an item in the supplied measured window/u);
+  assert.throws(() => listView({
+    id: 'invalid-horizontal-list',
+    window,
+    renderItem: (item) => item.value,
+    presentation: { selection: { mode: 'none' }, scroll: createScrollState() },
+    scrollbar: { axis: 'horizontal' },
+    onTransition: (transition) => transition
+  }), /scrollbar axis must be vertical/u);
 });
 
 test('listView owns retained multiple-selection state at construction', () => {

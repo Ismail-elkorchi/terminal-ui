@@ -141,12 +141,13 @@ function symbolStability(symbol) {
     return source.startsWith('src/graphics/')
       || (source === 'src/components/factories/drawing.ts' && symbol.name === 'image');
   });
-  if (graphicsPreview) return 'preview';
-  return declarations.some((declaration) =>
-    ts.getJSDocTags(declaration).some((tag) =>
-      tag.tagName.text === 'experimental' || tag.tagName.text === 'beta'
-    )
-  ) ? 'preview' : 'stable';
+  if (graphicsPreview) return 'experimental';
+  const tags = declarations.flatMap((declaration) =>
+    ts.getJSDocTags(declaration).map((tag) => tag.tagName.text)
+  );
+  if (tags.includes('experimental')) return 'experimental';
+  if (tags.includes('beta')) return 'beta';
+  return 'stable';
 }
 
 function sourcePath(declaration) {
@@ -165,6 +166,7 @@ function renderReference(symbols) {
     '',
     'Each public declaration is listed once under its most focused owning entrypoint.',
     'The availability column records every entrypoint that re-exports the same declaration.',
+    'Stability meanings are defined in [API stability](../guides/api-stability.md).',
     '',
   ];
   let owner;

@@ -35,6 +35,11 @@ interface ListViewBaseOptions<TValue, TContent extends import('../../element/ind
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ListViewStylePart>;
 }
 
+/** @beta */
+export type ListViewScrollbarOptions = Omit<ScrollbarOptions, 'axis'> & {
+  readonly axis?: 'vertical';
+};
+
 interface ActiveListViewOptions<TTransition, TMessage extends ComponentMessage> {
   readonly disabled?: false;
   readonly inert?: false;
@@ -61,12 +66,14 @@ interface DisabledListViewOptions {
   readonly onPointerAction?: never;
 }
 
+/** @beta */
 export type ListViewOptions<
   TValue,
   TContent extends import('../../element/index.ts').Element<ComponentMessage>,
   TMessage extends ComponentMessage = never,
 > = UnscrolledListViewOptions<TValue, TContent, TMessage> | ScrollableListViewOptions<TValue, TContent, TMessage>;
 
+/** @beta */
 export type UnscrolledListViewOptions<
   TValue,
   TContent extends import('../../element/index.ts').Element<ComponentMessage>,
@@ -77,13 +84,14 @@ export type UnscrolledListViewOptions<
   readonly scrollPolicy?: never;
 } & (ActiveListViewOptions<ListViewControlTransition, TMessage> | DisabledListViewOptions | InertListViewOptions);
 
+/** @beta */
 export type ScrollableListViewOptions<
   TValue,
   TContent extends import('../../element/index.ts').Element<ComponentMessage>,
   TMessage extends ComponentMessage = never,
 > = ListViewBaseOptions<TValue, TContent> & {
   readonly presentation: ScrollableListViewPresentation;
-  readonly scrollbar?: ScrollbarOptions;
+  readonly scrollbar?: ListViewScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 } & (ActiveListViewOptions<ListViewTransition, TMessage> | DisabledListViewOptions | InertListViewOptions);
 

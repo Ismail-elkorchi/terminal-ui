@@ -221,6 +221,22 @@ test('measuredColumn rejects row metadata that disagrees with child measurement'
   );
 });
 
+test('measuredColumn rejects unprepared window-shaped objects', () => {
+  assert.throws(
+    () => measuredColumn({
+      entries: [],
+      totalRows: 0,
+      viewportRows: 0,
+      offsetRow: 0,
+      startIndex: 0,
+      endIndexExclusive: 0,
+      omittedBefore: 0,
+      omittedAfter: 0
+    }, () => text({ content: '' })),
+    /window must be created with measuredWindow/u
+  );
+});
+
 test('interactive row fills do not inflate intrinsic content tracks', () => {
   const element = row([
     button({ id: 'back', label: 'Back', onAction: () => ignoreMessage() }),

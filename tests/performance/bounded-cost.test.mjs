@@ -5,6 +5,7 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
   createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createInputDecoder } from '../../dist/input/index.js';
+import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   diffFrames,
   renderDiffAnsi,
@@ -21,6 +22,7 @@ import {
   form,
   textInput,
   listbox,
+  listView,
   searchPicker,
   richText,
   logViewer,
@@ -35,6 +37,7 @@ import { ignoreMessage } from '../../dist/component/index.js';
 import {
   appendLogHistory,
   appendMeasuredItems,
+  createScrollState,
   listboxReducer,
   measuredWindow,
   prepareSearchPickerIndex,
@@ -52,6 +55,7 @@ import {
   createTerminalTextIndex,
   editTextBuffer
 } from '../../dist/text/index.js';
+import { waitUntil } from '../helpers/async.ts';
 
 const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
 
@@ -82,6 +86,34 @@ test('prepared measured collection work is bounded by changes and the visible wi
 
   assert.ok(visibleEntries > 5_000);
   assert.equal(collection.itemCount, itemCount + 1);
+});
+
+test('listView projects and renders only its clipped measured window', () => {
+  const collection = prepareMeasuredCollection(Array.from({ length: 100_000 }, (_value, index) => ({
+    id: `row-${String(index)}`,
+    value: `Row ${String(index)}`,
+    rows: 3
+  })));
+  const window = measuredWindow(collection, { viewportRows: 12, offsetRow: 150_001 });
+  let projections = 0;
+  const frame = renderElementFrame(listView({
+    id: 'large-measured-list',
+    window,
+    renderItem: (item) => {
+      projections += 1;
+      return { content: text({ content: `${item.value}\n${item.value}\n${item.value}` }) };
+    },
+    presentation: {
+      selection: { mode: 'none' },
+      scroll: createScrollState({ offsetRow: window.offsetRow })
+    },
+    onTransition: () => ignoreMessage()
+  }), { columns: 32, rows: 12 });
+
+  assert.equal(projections, window.entries.length);
+  assert.equal(projections <= 5, true);
+  assert.equal(frame.accessibility.root.children?.length, projections);
+  assert.ok(frame.cells.length <= frame.width * frame.height);
 });
 
 test('prepared word boundaries keep large multilingual lookups bounded', { timeout: 10_000 }, () => {
@@ -796,6 +828,52 @@ test('form navigation over many controls records one bounded frame per input', a
 
   assert.equal(host.frames().length, 21);
   assert.ok(host.frames().every((frame) => frame.cells.length <= frame.width * frame.height));
+});
+
+test('mixed subscription bursts remain source-bounded and input costs one immediate commit', async () => {
+  const sourceCount = 4;
+  const emissionsPerSource = 100;
+  const app = defineTui({
+    id: 'mixed-source-workspace',
+    init: () => ({ latest: {}, inputCount: 0 }),
+    update: (state, message) => message.kind === 'input'
+      ? { state: { ...state, inputCount: state.inputCount + 1 } }
+      : { state: { ...state, latest: { ...state.latest, [message.source]: message.value } } },
+    subscriptions: () => Array.from({ length: sourceCount }, (_value, source) => ({
+      id: `source-${String(source)}`,
+      generation: 0,
+      channel: { capacity: 8, cadenceMs: 10 },
+      async *messages() {
+        for (let value = 0; value < emissionsPerSource; value += 1) {
+          yield {
+            kind: 'replaceable',
+            key: 'latest',
+            message: { kind: 'source', source, value }
+          };
+        }
+      }
+    })),
+    view: (state) => text({
+      id: 'mixed-source-state',
+      content: `${Object.values(state.latest).join(',')}|${String(state.inputCount)}`
+    })
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 40, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await waitUntil(() => Object.keys(runtime.state().latest).length === sourceCount);
+  const beforeInput = runtime.metrics();
+  await runtime.dispatch({ kind: 'input' });
+  const afterInput = runtime.metrics();
+
+  assert.equal(runtime.state().inputCount, 1);
+  assert.equal(afterInput.sources.replaceableAdmissions, sourceCount * emissionsPerSource);
+  assert.equal(afterInput.sources.replacements, sourceCount * (emissionsPerSource - 1));
+  assert.equal(afterInput.sources.dispatchedMessages, sourceCount);
+  assert.equal(afterInput.frameCommits <= sourceCount + 2, true);
+  assert.equal(afterInput.frameCommits, beforeInput.frameCommits + 1);
+  await runtime.dispose();
 });
 
 test('custom canvas render stays bounded even when painters write outside the terminal size', () => {

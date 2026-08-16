@@ -9,8 +9,10 @@ const ST = `${ESC}\\`;
 const MAX_PAYLOAD = 4096;
 const MAX_CHUNK_BYTES = MAX_PAYLOAD / 4 * 3;
 
+/** @experimental */
 export type TerminalGraphicsTransport = 'direct' | 'tmux-passthrough';
 
+/** @experimental */
 export function encodeKittyImageUpload(
   image: RasterImage,
   imageId: number,
@@ -37,6 +39,7 @@ export function encodeKittyImageUpload(
   return chunks.join('');
 }
 
+/** @experimental */
 export function encodeKittyPlacement(
   imageId: number,
   placementId: number,
@@ -59,6 +62,7 @@ export function encodeKittyPlacement(
   );
 }
 
+/** @experimental */
 export function encodeKittyPlacementDelete(
   imageId: number,
   placementId: number,
@@ -71,6 +75,7 @@ export function encodeKittyPlacementDelete(
   ), budget);
 }
 
+/** @experimental */
 export function encodeKittyImageDelete(
   id: number,
   transport: TerminalGraphicsTransport,
@@ -85,6 +90,7 @@ function admittedControl(control: string, suppliedBudget: GraphicsBudget | undef
   return control;
 }
 
+/** @experimental */
 export function wrapGraphicsControl(control: string, transport: TerminalGraphicsTransport): string {
   return transport === 'direct'
     ? control

@@ -114,6 +114,9 @@ searchPicker({ id: 'inert-searchPicker', presentation: { query: { text: '', mode
 viewport(text({ content: 'content' }), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });
 // @ts-expect-error list view scrollbar requires presentation scroll state
 listView({ id: 'inert-list-view', window: measuredWindow(prepareMeasuredCollection([]), { viewportRows: 0 }), renderItem: () => ({ content: text({ content: '' }) }), presentation: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+
+// @ts-expect-error listView has no horizontal scrolling contract
+listView({ id: 'horizontal-list-view', window: measuredWindow(prepareMeasuredCollection([]), { viewportRows: 0 }), renderItem: () => ({ content: text({ content: '' }) }), presentation: { selection: { mode: 'none' }, scroll: createScrollState() }, scrollbar: { axis: 'horizontal' }, onTransition: (transition) => transition });
 // @ts-expect-error passive table scrollbar requires controlled scroll state and routing
 table({ id: 'inert-table', rows: [], getRowId: () => '', scrollbar: { visible: 'auto' } });
 // @ts-expect-error combobox scrollbar requires presentation scroll state

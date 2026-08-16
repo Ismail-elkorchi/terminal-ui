@@ -2,8 +2,10 @@ import { isNonArrayObject } from '../foundation/validation.ts';
 import type { TuiSourceChannelMetrics, TuiSourceEmission } from './types.ts';
 import type { TerminalClock } from '../host/index.ts';
 
+/** @beta */
 export const defaultTuiSourceChannelCapacity = 64;
 
+/** @beta */
 export function reliableSourceMessage<TMessage extends NonNullable<unknown>>(message: TMessage): TuiSourceEmission<TMessage>;
 export function reliableSourceMessage<TMessage>(message: unknown): TuiSourceEmission<TMessage> {
   if (message === null || message === undefined) {
@@ -12,6 +14,7 @@ export function reliableSourceMessage<TMessage>(message: unknown): TuiSourceEmis
   return Object.freeze({ kind: 'reliable', message: message as TMessage });
 }
 
+/** @beta */
 export function replaceableSourceMessage<TMessage extends NonNullable<unknown>>(
   key: string,
   message: TMessage,

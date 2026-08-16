@@ -1,16 +1,19 @@
 import type { GraphicPlacement } from '../graphics/index.ts';
 import type { Rect } from '../geometry/types.ts';
 
+/** @experimental */
 export interface TerminalCellPixels {
   readonly width: number;
   readonly height: number;
 }
 
+/** @experimental */
 export interface ResolvedGraphicGeometry {
   readonly destination: Rect;
   readonly source: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
 }
 
+/** @experimental */
 export function resolveGraphicGeometry(
   placement: GraphicPlacement,
   cellPixels?: TerminalCellPixels,

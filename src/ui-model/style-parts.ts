@@ -1,4 +1,5 @@
 export type TextStylePart = 'content' | 'link';
+/** @experimental */
 export type ImageStylePart = 'fallback';
 export type LinkStylePart = 'label';
 export type DisclosureStylePart = 'marker' | 'label' | 'summary';

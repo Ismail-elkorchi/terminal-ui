@@ -7,6 +7,7 @@ import {
 import type { AnimationFrame } from './animation-timeline.ts';
 import { reliableSourceMessage, replaceableSourceMessage } from './source-channel.ts';
 
+/** @beta */
 export function intervalSource<TMessage extends NonNullable<unknown>>(
   id: string,
   ms: number,
@@ -27,6 +28,7 @@ export function intervalSource<TMessage extends NonNullable<unknown>>(
   };
 }
 
+/** @beta */
 export function timeoutSource<TMessage extends NonNullable<unknown>>(
   id: string,
   ms: number,
@@ -44,6 +46,7 @@ export function timeoutSource<TMessage extends NonNullable<unknown>>(
   };
 }
 
+/** @beta */
 export function animationSource<TMessage extends NonNullable<unknown>>(
   id: string,
   fps: number,

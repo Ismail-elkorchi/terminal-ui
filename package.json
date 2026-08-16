@@ -6,6 +6,17 @@
   "types": "./dist/index.d.ts",
   "main": "./dist/index.js",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ismail-elkorchi/terminal-ui.git"
+  },
+  "homepage": "https://github.com/Ismail-elkorchi/terminal-ui#readme",
+  "bugs": {
+    "url": "https://github.com/Ismail-elkorchi/terminal-ui/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "exports": {
     ".": {

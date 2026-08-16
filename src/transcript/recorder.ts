@@ -70,10 +70,7 @@ interface RetainedEvidencePayload<TValue> {
   weight: TranscriptEvidenceWeight;
 }
 
-interface RetentionQueue<TEntry extends RetainedEvidence = RetainedEvidence> {
-  readonly entries: TEntry[];
-  head: number;
-}
+type RetentionQueue<TEntry extends RetainedEvidence = RetainedEvidence> = Set<TEntry>;
 
 export function createTranscriptRecorder(options?: TranscriptRecorderOptions): TranscriptRecorder;
 export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorder {
@@ -226,7 +223,7 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
         const payload = entry.payload;
         if (payload === undefined) return;
         activateEvidence(entry, payload.weight);
-        steps.entries.push(entry);
+        steps.add(entry);
         retainedSteps += 1;
         if (payload.value.kind === 'diagnostic') diagnosticStepIds.add(payload.value.occurrence.id);
         enforceCount(steps, retention.maxSteps, () => retainedSteps);
@@ -236,7 +233,7 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
         const payload = entry.payload;
         if (payload === undefined) return;
         activateEvidence(entry, payload.weight);
-        diagnostics.entries.push(entry);
+        diagnostics.add(entry);
         retainedDiagnostics += 1;
         diagnosticIds.add(payload.value.id);
         enforceCount(diagnostics, retention.maxDiagnostics, () => retainedDiagnostics);
@@ -246,7 +243,7 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
         const payload = entry.payload;
         if (payload === undefined) return;
         activateEvidence(entry, payload.weight);
-        redactions.entries.push(entry);
+        redactions.add(entry);
         retainedRedactions += 1;
         enforceCount(redactions, retention.maxRedactions, () => retainedRedactions);
         break;
@@ -256,7 +253,7 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
   }
 
   function activateEvidence(entry: RetainedEvidence, weight: TranscriptEvidenceWeight): void {
-    evidence.entries.push(entry);
+    evidence.add(entry);
     retainedBytes += weight.bytes;
     retainedJsonNodes += weight.jsonNodes;
     retainedStringCodeUnits += weight.stringCodeUnits;
@@ -316,7 +313,17 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
         break;
       }
     }
+    evidence.delete(entry);
+    categoryQueue(entry).delete(entry);
     delete entry.payload;
+  }
+
+  function categoryQueue(entry: RetainedEvidence): RetentionQueue {
+    switch (entry.category) {
+      case 'step': return steps;
+      case 'diagnostic': return diagnostics;
+      case 'redaction': return redactions;
+    }
   }
 
   function deactivateEvidence(entry: RetainedEvidence, weight: TranscriptEvidenceWeight): void {
@@ -413,26 +420,19 @@ function retentionLimit(value: unknown, fallback: number, field: string): number
 }
 
 function retentionQueue<TEntry extends RetainedEvidence>(): RetentionQueue<TEntry> {
-  return { entries: [], head: 0 };
+  return new Set<TEntry>();
 }
 
 function shiftActive<TEntry extends RetainedEvidence>(queue: RetentionQueue<TEntry>): TEntry | undefined {
-  while (queue.head < queue.entries.length) {
-    const entry = queue.entries[queue.head];
-    queue.head += 1;
-    if (entry?.active === true && entry.payload !== undefined) {
-      compactQueue(queue);
-      return entry;
-    }
-  }
-  compactQueue(queue);
-  return undefined;
+  const entry = queue.values().next().value;
+  if (entry !== undefined) queue.delete(entry);
+  return entry?.active === true && entry.payload !== undefined ? entry : undefined;
 }
 
 function activeSteps(
   queue: RetentionQueue<RetainedStep>
 ): (RetainedStep & { payload: RetainedEvidencePayload<InteractionTranscriptStep> })[] {
-  return queue.entries.slice(queue.head).filter(
+  return Array.from(queue).filter(
     (entry): entry is RetainedStep & { payload: RetainedEvidencePayload<InteractionTranscriptStep> } =>
       entry.active && entry.payload !== undefined
   );
@@ -441,7 +441,7 @@ function activeSteps(
 function activeDiagnostics(
   queue: RetentionQueue<RetainedDiagnostic>
 ): (RetainedDiagnostic & { payload: RetainedEvidencePayload<DiagnosticOccurrence> })[] {
-  return queue.entries.slice(queue.head).filter(
+  return Array.from(queue).filter(
     (entry): entry is RetainedDiagnostic & { payload: RetainedEvidencePayload<DiagnosticOccurrence> } =>
       entry.active && entry.payload !== undefined
   );
@@ -450,16 +450,10 @@ function activeDiagnostics(
 function activeRedactions(
   queue: RetentionQueue<RetainedRedaction>
 ): (RetainedRedaction & { payload: RetainedEvidencePayload<TranscriptRedaction> })[] {
-  return queue.entries.slice(queue.head).filter(
+  return Array.from(queue).filter(
     (entry): entry is RetainedRedaction & { payload: RetainedEvidencePayload<TranscriptRedaction> } =>
       entry.active && entry.payload !== undefined
   );
-}
-
-function compactQueue<TEntry extends RetainedEvidence>(queue: RetentionQueue<TEntry>): void {
-  if (queue.head < 1_024 || queue.head * 2 < queue.entries.length) return;
-  queue.entries.splice(0, queue.head);
-  queue.head = 0;
 }
 
 function commitExceedsRetention(

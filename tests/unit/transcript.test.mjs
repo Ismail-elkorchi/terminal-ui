@@ -122,6 +122,27 @@ test('transcript retention bounds aggregate JSON structure and string data', () 
   assert.equal(validateTranscript(snapshot).ok, true);
 });
 
+test('transcript resource eviction keeps bookkeeping proportional to retained evidence', () => {
+  const recorder = createTranscriptRecorder({
+    id: 'bounded-bookkeeping',
+    retention: {
+      maxSteps: 100_000,
+      maxRetainedBytes: 4_096,
+      maxRetainedJsonNodes: 1_000,
+      maxRetainedStringCodeUnits: 4_096,
+    }
+  });
+  const value = 'x'.repeat(256);
+  for (let index = 0; index < 100_000; index += 1) {
+    recorder.recordNormalizedMessage('external', { index, value });
+  }
+
+  const snapshot = recorder.snapshot();
+  assert.equal(snapshot.steps.length < 100, true);
+  assert.equal(snapshot.omittedSteps + snapshot.steps.length, 100_000);
+  assert.equal(validateTranscript(snapshot).ok, true);
+});
+
 test('transcript identities are bounded outside retained evidence', () => {
   assert.throws(
     () => createTranscriptRecorder({ id: 'x'.repeat(257) }),

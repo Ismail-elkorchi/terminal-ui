@@ -6,6 +6,11 @@ terminal applications.
 The package is ESM-only and supports Node `>=24`, current Deno and Bun, and
 memory-backed tests.
 
+The `0.1.x` line is a development release. Individual declarations are marked
+`stable`, `beta`, or `experimental` in the generated
+[API reference](./docs/api/reference.md); terminal graphics remain
+experimental pending physical-terminal compatibility evidence.
+
 ## Install
 
 ```bash
@@ -161,6 +166,7 @@ harnesses.
 - [Prompts](./docs/guides/prompts.md)
 - [Building terminal apps](./docs/guides/building-terminal-apps.md)
 - [Terminal graphics](./docs/guides/graphics.md)
+- [API stability](./docs/guides/api-stability.md)
 - [Reusable component definitions](./docs/guides/component-definitions.md)
 - [Testing harness](./docs/guides/testing-harness.md)
 - [API entrypoints and all guides](./docs/index.md)

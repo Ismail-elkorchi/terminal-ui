@@ -12,6 +12,7 @@ import { applyScrollEvent } from './scroll.ts';
 import { measuredWindow } from './measured-window.ts';
 import type { MeasuredCollection } from '../ui-model/measured-collection.ts';
 
+/** @beta */
 export interface ListViewReducerOptions<TValue = unknown> {
   readonly index: CollectionInteractionIndex;
   readonly collection: MeasuredCollection<TValue>;
@@ -19,6 +20,7 @@ export interface ListViewReducerOptions<TValue = unknown> {
   readonly navigation?: NavigationPolicy;
 }
 
+/** @beta */
 export function listViewReducer(
   state: ScrollableListViewPresentation,
   action: ListViewTransition,
