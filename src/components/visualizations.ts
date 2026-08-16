@@ -8,3 +8,25 @@ export type {
   MeterOptions,
   SparklineOptions,
 } from './options/feedback.ts';
+export type {
+  BarChartItem,
+  ChartDataState,
+  ChartInterpolation,
+  ChartPoint,
+  ChartSampleAlign,
+  ChartSampleMode,
+  ChartSeries,
+  ChartSeriesKind,
+  HeatmapCell,
+  MeterResult,
+  MeterVariant,
+  ValueScale,
+  ValueScaleStop,
+} from '../ui-model/feedback.ts';
+export type {
+  BarChartTransition,
+  ChartTransition,
+  HeatmapTransition,
+  VisualizationActivateEvent,
+  VisualizationPresentation,
+} from '../ui-model/visualization.ts';

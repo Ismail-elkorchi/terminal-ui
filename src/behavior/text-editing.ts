@@ -1,5 +1,12 @@
 import { applyScrollEvent } from './scroll.ts';
 import {
+  breakEditHistoryGroup,
+  createBoundedEditHistory,
+  recordEditHistory,
+  redoEditHistory,
+  undoEditHistory
+} from '../text/bounded-history.ts';
+import {
   editTextDocument,
   editTextBuffer,
   normalizeTextCaret,
@@ -12,12 +19,15 @@ import {
   textDocumentSelectionBetween
 } from '../text/index.ts';
 import type {
+  BoundedEditHistory,
+  EditHistoryPolicy,
   TextCaret,
   TextDocument,
   TextDocumentSelection,
   TextEditBuffer,
   TextSelection
 } from '../text/index.ts';
+import { textDocumentBytes } from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { TextAreaAction } from '../ui-model/text-area.ts';
@@ -29,13 +39,23 @@ export interface TextAreaState {
   readonly selection?: TextDocumentSelection;
   readonly scroll: ScrollState;
   readonly revealCaret: boolean;
+  readonly history: TextAreaEditHistory;
 }
+
+export interface TextAreaEditSnapshot {
+  readonly document: TextDocument;
+  readonly caret: TextCaret;
+  readonly selection?: TextDocumentSelection;
+}
+
+export type TextAreaEditHistory = BoundedEditHistory<TextAreaEditSnapshot, 'insert'>;
 
 export interface CreateTextAreaStateInput {
   readonly value: string;
   readonly caret?: TextCaret;
   readonly selection?: TextDocumentSelection;
   readonly scroll: ScrollState;
+  readonly historyPolicy?: EditHistoryPolicy;
 }
 
 export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaState {
@@ -47,7 +67,8 @@ export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaSt
     caret,
     ...(selection === undefined ? {} : { selection }),
     scroll: input.scroll,
-    revealCaret: true
+    revealCaret: true,
+    history: createBoundedEditHistory(input.historyPolicy)
   };
 }
 
@@ -71,18 +92,34 @@ export function textAreaReducer(state: TextAreaState, action: TextAreaAction): T
     case 'edit': {
       const edited = editTextDocument(state, action.operation);
       if (edited === state) return state;
+      const textChanged = edited.document !== state.document;
+      const group = action.operation.kind === 'insert' && state.selection === undefined
+        ? 'insert' as const
+        : undefined;
       return {
         document: edited.document,
         caret: edited.caret,
         ...(edited.selection === undefined ? {} : { selection: edited.selection }),
         scroll: state.scroll,
-        revealCaret: true
+        revealCaret: true,
+        history: textChanged
+          ? recordEditHistory(
+              state.history,
+              textAreaSnapshot(state),
+              textAreaSnapshotBytes(state),
+              group
+            )
+          : breakEditHistoryGroup(state.history)
       };
     }
+    case 'undo':
+      return restoreTextAreaHistory(state, 'undo');
+    case 'redo':
+      return restoreTextAreaHistory(state, 'redo');
     case 'pointer': {
       const offset = normalizeTextDocumentOffset(state.document, action.action.offset);
       if (action.action.kind === 'placeCaret') {
-        return textAreaStateWithSelection(state, {
+        return textAreaStateWithSelection(breakTextAreaHistoryGroup(state), {
           caret: textCaretAt(offset),
           revealCaret: true
         }, undefined);
@@ -92,7 +129,7 @@ export function textAreaReducer(state: TextAreaState, action: TextAreaAction): T
         state.document,
         textDocumentSelectionBetween(anchor, offset)
       );
-      return textAreaStateWithSelection(state, {
+      return textAreaStateWithSelection(breakTextAreaHistoryGroup(state), {
         caret: textCaretAt(offset),
         revealCaret: true
       }, selection);
@@ -103,6 +140,11 @@ export function textAreaReducer(state: TextAreaState, action: TextAreaAction): T
       return { ...state, scroll, revealCaret: false };
     }
   }
+}
+
+function breakTextAreaHistoryGroup(state: TextAreaState): TextAreaState {
+  const history = breakEditHistoryGroup(state.history);
+  return history === state.history ? state : { ...state, history };
 }
 
 function textAreaStateWithSelection(
@@ -128,6 +170,37 @@ function textAreaStateWithSelection(
     ...changes,
     ...(selection === undefined ? {} : { selection })
   };
+}
+
+function restoreTextAreaHistory(
+  state: TextAreaState,
+  direction: 'undo' | 'redo'
+): TextAreaState {
+  const current = textAreaSnapshot(state);
+  const transition = direction === 'undo'
+    ? undoEditHistory(state.history, current, textAreaSnapshotBytes(state))
+    : redoEditHistory(state.history, current, textAreaSnapshotBytes(state));
+  if (transition.snapshot === undefined) {
+    return transition.history === state.history ? state : { ...state, history: transition.history };
+  }
+  return {
+    ...transition.snapshot,
+    scroll: state.scroll,
+    revealCaret: true,
+    history: transition.history
+  };
+}
+
+function textAreaSnapshot(state: TextAreaState): TextAreaEditSnapshot {
+  return Object.freeze({
+    document: state.document,
+    caret: state.caret,
+    ...(state.selection === undefined ? {} : { selection: state.selection })
+  });
+}
+
+function textAreaSnapshotBytes(state: TextAreaState): number {
+  return textDocumentBytes(state.document) + 32;
 }
 
 function sameTextCaret(left: TextCaret, right: TextCaret): boolean {

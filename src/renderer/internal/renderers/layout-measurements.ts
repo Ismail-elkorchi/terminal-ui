@@ -4,7 +4,7 @@ import {
   combineMeasurementsOverlay,
   combineMeasurementsVertically,
   measureSize
-} from '../measurement.ts';
+} from '../../measurement.ts';
 import { numberProp } from '../render-node-props.ts';
 import { childMeasurements } from './measurement-support.ts';
 import { flowGeometry } from './support/flow.ts';

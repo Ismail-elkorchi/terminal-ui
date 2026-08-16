@@ -13,7 +13,10 @@ import { richText } from '../../dist/components/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import { blitFrameCell } from '../../dist/renderer/internal/frame-buffer.js';
 import { createClippedRenderTarget } from '../../dist/renderer/internal/scoped-render-target.js';
-import { frameSnapshotMetadata } from '../../dist/renderer/internal/frame-snapshot.js';
+import {
+  frameSnapshotMetadata,
+  withFrameAccessibility,
+} from '../../dist/renderer/internal/frame-snapshot.js';
 import { defineTextWidthProfile } from '../../dist/text/index.js';
 
 test('FrameBuffer records ASCII, Unicode width, emoji, CJK, and combining marks deterministically', () => {
@@ -319,6 +322,22 @@ test('FrameBuffer snapshot metadata fingerprints rows and full buffers determini
   assert.notEqual(firstMetadata.fingerprint, changedMetadata.fingerprint);
 });
 
+test('attaching accessibility preserves canonical frame ownership and retained metadata', () => {
+  const buffer = createFrameBuffer(6, 1);
+  buffer.write(1, 1, [{ text: 'owned' }]);
+  const frame = buffer.snapshot();
+  const metadata = frameSnapshotMetadata(frame);
+  const accessibility = Object.freeze({ ...frame.accessibility, source: 'tui' });
+
+  const adopted = withFrameAccessibility(frame, accessibility);
+
+  assert.notStrictEqual(adopted, frame);
+  assert.strictEqual(adopted.accessibility, accessibility);
+  assert.strictEqual(frameSnapshotMetadata(adopted), metadata);
+  assert.equal(Object.isFrozen(adopted), true);
+  assert.strictEqual(withFrameAccessibility(adopted, accessibility), adopted);
+});
+
 test('frame fingerprints never substitute for exact row equality', () => {
   const previous = createFrameBuffer(12, 1);
   const next = createFrameBuffer(12, 1);
@@ -402,7 +421,7 @@ test('diffFrames emits minimal style-only writes without clearing row tails', ()
   ]);
 });
 
-test('diffFrames treats link-only and source-only cell changes as minimal writes', () => {
+test('diffFrames writes link changes but keeps source-only changes semantic', () => {
   const beforeLink = createFrameBuffer(12, 1);
   beforeLink.write(1, 1, [{ text: 'doc', link: { href: 'https://old.example' } }]);
   const afterLink = createFrameBuffer(12, 1);
@@ -415,9 +434,18 @@ test('diffFrames treats link-only and source-only cell changes as minimal writes
   assert.deepEqual(diffFrames(beforeLink.snapshot(), afterLink.snapshot()).operations, [
     { kind: 'write', row: 1, column: 1, spans: [{ text: 'doc', link: { href: 'https://new.example' } }] }
   ]);
-  assert.deepEqual(diffFrames(beforeSource.snapshot(), afterSource.snapshot()).operations, [
-    { kind: 'write', row: 1, column: 1, spans: [{ text: 'src', source: { elementId: 'new', elementKind: 'test' } }] }
-  ]);
+  const beforeSourceFrame = beforeSource.snapshot();
+  const afterSourceFrame = afterSource.snapshot();
+  assert.deepEqual(diffFrames(beforeSourceFrame, afterSourceFrame).operations, []);
+  assert.equal(afterSourceFrame.cells[0]?.source?.elementId, 'new');
+  assert.notEqual(
+    frameSnapshotMetadata(beforeSourceFrame)?.fingerprint,
+    frameSnapshotMetadata(afterSourceFrame)?.fingerprint,
+  );
+  assert.equal(
+    frameSnapshotMetadata(beforeSourceFrame)?.terminalFingerprint,
+    frameSnapshotMetadata(afterSourceFrame)?.terminalFingerprint,
+  );
 });
 
 test('diffFrames clears only the changed wide-glyph run when a wide cell narrows', () => {

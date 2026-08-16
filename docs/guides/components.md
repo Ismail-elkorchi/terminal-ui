@@ -18,8 +18,11 @@ layering, or geometry-only interaction are documented in
 The public catalog is split by abstraction level. Import primitives from
 `/components/foundations`, form controls from `/components/forms`, passive and
 interactive collections from `/components/collections`, popup surfaces from
-`/components/overlays`, charts from `/components/visualizations`, and
-application-oriented composites from `/components/patterns`. The
+`/components/overlays`, progress and notification output from
+`/components/feedback`, charts from `/components/visualizations`, and
+application-oriented composites from `/components/patterns`. Each focused
+entrypoint also owns the actions, presentation types, and required typed
+constructors for its component family. The
 `/components` entrypoint is the complete catalog when that distinction is not
 useful to the consumer.
 
@@ -79,6 +82,19 @@ useful to the consumer.
 | `chart()` | Bounded multi-series chart with sampling, axes, semantic selection, and keyboard window navigation. | A charting application or data analytics engine. |
 | `meter()` | Compact scalar meter. | Progress workflow or editable value input. |
 | `heatmap()` | Grid of values with value-scale coloring and semantic cell and viewport navigation. | Spreadsheet, calendar, or matrix editor. |
+
+## Inline hyperlinks and interactive links
+
+Use a linked segment in `richText()` when the terminal emulator should own an
+inline OSC 8 hyperlink. Rich text exposes each link in accessibility output,
+but it does not create a terminal-ui focus target, pointer hit target, or
+application message. Activation behavior belongs to the terminal emulator.
+
+Use `link()` when the application owns activation. It participates in keyboard
+focus and pointer routing and reports the triggering key or pointer event,
+including pointer button and modifiers, so the application can choose normal,
+modified, context, or other navigation behavior. `link()` does not navigate or
+open a resource by itself.
 
 ## Shared Contracts
 

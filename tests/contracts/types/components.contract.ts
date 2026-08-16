@@ -26,8 +26,7 @@ const rows = dataGrid({
   rows: [{ id: 1, name: 'one' }],
   getRowId: (row) => String(row.id),
   columns: [{ id: 'name', value: (row) => row.name }],
-  presentation: { interaction: { kind: 'row',
-  selectionMode: 'single' as const, selectedRowIds: [] } },
+  presentation: { interaction: { kind: 'row', selection: { mode: 'single' as const } } },
   onTransition: (transition) => ({ kind: 'grid' as const, transition })
 });
 const passive: Element = text({ content: 'Ready' });

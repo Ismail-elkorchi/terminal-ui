@@ -130,6 +130,7 @@ const renderDiffFields = new Set([
   'width',
   'height',
   'widthProfile',
+  'canvasStyle',
   'operations',
   'graphicOperations',
   'cursor',
@@ -823,6 +824,8 @@ function renderDiffIssue(diff: unknown, adoptions: TranscriptAdoptions): string 
   if (normalizedWidthProfile === undefined) return 'diff widthProfile was not adopted.';
   const width = Number(diff['width']);
   const height = Number(diff['height']);
+  const canvasStyleIssue = terminalStyleIssue(diff['canvasStyle'], 'diff canvasStyle', adoptions);
+  if (canvasStyleIssue !== undefined) return canvasStyleIssue;
   if (typeof diff['fullRewrite'] !== 'boolean') return 'diff fullRewrite must be a boolean.';
   if (!Array.isArray(diff['operations'])) return 'diff operations must be an array.';
   if (!Array.isArray(diff['graphicOperations'])) return 'diff graphicOperations must be an array.';
@@ -854,10 +857,12 @@ function renderDiffIssue(diff: unknown, adoptions: TranscriptAdoptions): string 
   const operations = diff['operations'].flatMap((operation) =>
     isNonArrayObject(operation) ? [adoptions.operations.get(operation)].filter(isDefined) : []);
   const cursor = isNonArrayObject(diff['cursor']) ? adoptions.cursors.get(diff['cursor']) : undefined;
+  const canvasStyle = isNonArrayObject(diff['canvasStyle']) ? adoptions.styles.get(diff['canvasStyle']) : undefined;
   adoptions.diffs.set(diff, Object.freeze({
     width,
     height,
     widthProfile: normalizedWidthProfile,
+    ...(canvasStyle === undefined ? {} : { canvasStyle }),
     operations: Object.freeze(operations),
     graphicOperations: Object.freeze(graphicOperations),
     ...(cursor === undefined ? {} : { cursor }),

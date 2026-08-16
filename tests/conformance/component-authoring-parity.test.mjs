@@ -3,10 +3,13 @@ import test from 'node:test';
 
 import {
   button,
+  activityIndicator,
   chart,
   combobox,
   dialog,
   listbox,
+  progressBar,
+  statusBar,
   text,
   textInput,
   tooltip
@@ -23,6 +26,7 @@ import {
   runDialogConformance,
   runEditableControlConformance,
   runMessageRoutingConformance,
+  runPassiveFamilyConformance,
   runPopupChoiceConformance,
   runTooltipConformance,
   runVirtualCollectionConformance
@@ -104,6 +108,7 @@ runPopupChoiceConformance('built-in', (id) => combobox({
     { id: 'two', label: 'Two', value: 'two' }
   ],
   presentation: {
+    kind: 'select',
     open: true,
     interaction: { activeId: 'two', selection: { mode: 'single', selectedId: 'one' } }
   },
@@ -168,6 +173,34 @@ runChartConformance('built-in', (id) => chart({
 runChartConformance('external', (id) => externalChart({
   id, label: 'Load', values: [1, 3]
 }));
+
+runPassiveFamilyConformance('foundations', [{
+  name: 'text',
+  role: 'text',
+  create: () => text({ content: 'Ready' })
+}]);
+
+runPassiveFamilyConformance('feedback', [
+  {
+    name: 'activityIndicator',
+    role: 'status',
+    create: () => activityIndicator({ id: 'activity-conformance', label: 'Build', status: 'running' })
+  },
+  {
+    name: 'progressBar',
+    role: 'progressbar',
+    create: () => progressBar({
+      id: 'progress-conformance',
+      label: 'Build',
+      mode: { kind: 'determinate', value: 0.5, max: 1 }
+    })
+  },
+  {
+    name: 'statusBar',
+    role: 'status',
+    create: () => statusBar({ id: 'status-conformance', items: [{ id: 'ready', text: 'Ready' }] })
+  }
+]);
 
 test('external painted controls share keyboard, text, pointer, cursor, and action routing', async () => {
   const messages = [];

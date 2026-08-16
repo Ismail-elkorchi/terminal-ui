@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { prepareTreeRows, treeReducer } from '../../dist/behavior/index.js';
+import { prepareTreeSource, prepareTreeView, treeReducer } from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { tree } from '../../dist/components/index.js';
 
@@ -42,13 +42,13 @@ test('treeReducer keeps disclosure state separate from immutable input nodes', (
     children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
   }];
   const state = { expandedIds: [], selection: { mode: 'single' } };
+  const source = prepareTreeSource(nodes);
   const expanded = treeReducer(state, { kind: 'toggle', id: 'root' }, {
-    nodes,
-    selection: { mode: 'single', commitment: 'manual' }
+    view: prepareTreeView(source, state),
   });
   const frame = renderElementFrame(tree({
     id: 'tree',
-    nodes,
+    view: prepareTreeView(source, expanded),
     presentation: expanded,
     onTransition: (action) => action
   }), { columns: 24, rows: 3 });
@@ -58,10 +58,8 @@ test('treeReducer keeps disclosure state separate from immutable input nodes', (
   assert.match(renderFramePlain(frame), /Child/u);
 });
 
-test('tree factory rejects duplicate identities across nested branches', () => {
-  assert.throws(() => tree({
-    id: 'duplicate-tree',
-    nodes: [
+test('tree source rejects duplicate identities across nested branches', () => {
+  assert.throws(() => prepareTreeSource([
       {
         id: 'root',
         label: 'Root',
@@ -69,39 +67,27 @@ test('tree factory rejects duplicate identities across nested branches', () => {
         children: [{ id: 'duplicate', label: 'Nested', kind: 'leaf' }]
       },
       { id: 'duplicate', label: 'Top level', kind: 'leaf' }
-    ],
-    presentation: { expandedIds: ['root'], selection: { mode: 'none' } },
-    onTransition: (action) => action
-  }), /tree item ids must be unique; duplicate id: duplicate/u);
+    ]), /tree item ids must be unique; duplicate id: duplicate/u);
 });
 
-test('tree validates every prepared collection row during construction', () => {
-  const collection = prepareTreeRows([{
-    node: { id: 'invalid', label: 42, kind: 'leaf' },
-    depth: 0,
-    path: ['invalid']
-  }]);
-
+test('tree source validates every retained node during construction', () => {
   assert.throws(
-    () => tree({
-      id: 'invalid-tree',
-      collection,
-      presentation: { expandedIds: [], selection: { mode: 'none' } },
-      onTransition: (action) => action
-    }),
-    /tree collection row\.node\.label must be a string/u
+    () => prepareTreeSource([{ id: 'invalid', label: 42, kind: 'leaf' }]),
+    /tree nodes\[0\]\.label must be a string/u
   );
 });
 
 test('tree pointer selection and double-click activation match keyboard semantics', async () => {
+  const presentation = { expandedIds: [], selection: { mode: 'single' } };
+  const source = prepareTreeSource([{ id: 'leaf', label: 'Leaf', kind: 'leaf' }]);
   const app = defineTui({
     id: 'tree-pointer-activation',
     init: () => ({ actions: [] }),
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => tree({
       id: 'activation-tree',
-      nodes: [{ id: 'leaf', label: 'Leaf', kind: 'leaf' }],
-      presentation: { expandedIds: [], selection: { mode: 'single' } },
+      view: prepareTreeView(source, presentation),
+      presentation,
       onTransition: (action) => action,
       onActivate: (event) => event
     })
@@ -121,25 +107,27 @@ test('tree pointer selection and double-click activation match keyboard semantic
 });
 
 test('tree filters through descendants and exposes selected disabled metadata-rich nodes', () => {
+  const presentation = {
+    expandedIds: [],
+    activeId: 'api',
+    selection: { mode: 'single', selectedId: 'api' },
+    query: { text: 'server', mode: 'contains' }
+  };
+  const source = prepareTreeSource([{
+    id: 'root',
+    label: 'Workspace',
+    icon: '▣',
+    kind: 'branch',
+    children: [
+      { id: 'ui', label: 'Terminal UI', kind: 'leaf', metadata: { domain: 'components' } },
+      { id: 'api', label: 'API Layer', kind: 'leaf', description: 'Server request boundary', disabled: true, metadata: { domain: 'server' } }
+    ]
+  }]);
   const frame = renderElementFrame(tree({
     id: 'tree',
-    presentation: {
-      expandedIds: [],
-      activeId: 'api',
-      selection: { mode: 'single', selectedId: 'api' },
-      query: { text: 'server', mode: 'contains' }
-    },
+    presentation,
+    view: prepareTreeView(source, presentation),
     onTransition: (action) => action,
-    nodes: [{
-      id: 'root',
-      label: 'Workspace',
-      icon: '▣',
-      kind: 'branch',
-      children: [
-        { id: 'ui', label: 'Terminal UI', kind: 'leaf', metadata: { domain: 'components' } },
-        { id: 'api', label: 'API Layer', kind: 'leaf', description: 'Server request boundary', disabled: true, metadata: { domain: 'server' } }
-      ]
-    }]
   }), { columns: 32, rows: 4 });
 
   const output = renderFramePlain(frame);
@@ -172,16 +160,18 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
 
 test('tree owns retained multiple-selection state at construction', () => {
   const selectedIds = ['first'];
+  const presentation = {
+    expandedIds: [],
+    selection: { mode: 'multiple', selectedIds, anchorId: 'first' }
+  };
+  const source = prepareTreeSource([
+    { id: 'first', label: 'First', kind: 'leaf' },
+    { id: 'second', label: 'Second', kind: 'leaf' }
+  ]);
   const element = tree({
     id: 'owned-tree-selection',
-    nodes: [
-      { id: 'first', label: 'First', kind: 'leaf' },
-      { id: 'second', label: 'Second', kind: 'leaf' }
-    ],
-    presentation: {
-      expandedIds: [],
-      selection: { mode: 'multiple', selectedIds, anchorId: 'first' }
-    },
+    view: prepareTreeView(source, presentation),
+    presentation,
     onTransition: (transition) => transition
   });
 
@@ -192,18 +182,20 @@ test('tree owns retained multiple-selection state at construction', () => {
 });
 
 test('tree renders lazy placeholders and clips tiny viewports safely', () => {
+  const presentation = {
+    expandedIds: ['root'],
+    selection: { mode: 'none' },
+    loadStates: { root: { kind: 'pending' } }
+  };
+  const source = prepareTreeSource([{
+    id: 'root',
+    label: 'Very long root label for clipping',
+    kind: 'lazy',
+  }]);
   const frame = renderElementFrame(tree({
     id: 'lazy-tree',
-    nodes: [{
-      id: 'root',
-      label: 'Very long root label for clipping',
-      kind: 'lazy',
-    }],
-    presentation: {
-      expandedIds: ['root'],
-      selection: { mode: 'none' },
-      loadStates: { root: { kind: 'pending' } }
-    },
+    view: prepareTreeView(source, presentation),
+    presentation,
     onTransition: (action) => action
   }), { columns: 14, rows: 2 });
 

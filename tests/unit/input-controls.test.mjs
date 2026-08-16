@@ -360,7 +360,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
       id: 'region',
       label: 'Region',
       placeholder: 'Select region',
-      presentation: { open: false, interaction: { selection: { mode: 'single' } } },
+      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       options: [{ id: 'eu', label: 'Europe', value: 'eu' }],
       onTransition: () => ignoreMessage()
     }),
@@ -402,7 +402,7 @@ test('controls clipped to an empty layout region expose no pointer targets', () 
     combobox({
       id: 'clipped-combobox',
       label: 'Clipped',
-      presentation: { open: false, interaction: { selection: { mode: 'single' } } },
+      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       options: [{ id: 'one', label: 'One', value: 'one' }],
       onTransition: (action) => action
     })

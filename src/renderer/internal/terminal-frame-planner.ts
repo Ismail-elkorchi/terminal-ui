@@ -2,7 +2,8 @@ import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { Frame, FrameCell } from '../contracts.ts';
 import type { RenderDiff } from '../contracts.ts';
-import { diffFrames, sameFrameCell } from './frame.ts';
+import { diffFrames } from './frame.ts';
+import { sameTerminalFrameCell } from './frame-cell-equality.ts';
 import { frameIndex } from './frame-index.ts';
 import { frameRecoverySuffix, planTerminalOutput } from './output-planner.ts';
 import type { FrameProtocolUsage } from './output-planner.ts';
@@ -198,7 +199,7 @@ function rowsMatch(previous: Frame, previousRow: number, next: Frame, nextRow: n
   const nextCells = frameIndex(next).rows[nextRow - 1]?.cells ?? new Map<number, FrameCell>();
   if (previousCells.size !== nextCells.size) return false;
   for (const [column, cell] of previousCells) {
-    if (!sameFrameCell(cell, nextCells.get(column))) return false;
+    if (!sameTerminalFrameCell(cell, nextCells.get(column))) return false;
   }
   return true;
 }

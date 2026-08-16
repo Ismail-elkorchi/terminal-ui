@@ -1,10 +1,8 @@
-import { defineComponent, span } from '@ismail-elkorchi/terminal-ui/component';
+import { defineSemanticLeafComponent, span } from '@ismail-elkorchi/terminal-ui/component';
 
-const badge = defineComponent({
+const badge = defineSemanticLeafComponent({
   name: 'terminal-ui-peer-component-fixture/components/badge',
   identity: 'required',
-  structure: 'leaf',
-  semantics: 'semantic',
   accessibleRole: 'status',
   prepare(value) {
     if (typeof value.label !== 'string') {

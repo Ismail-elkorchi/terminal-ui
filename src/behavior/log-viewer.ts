@@ -11,9 +11,11 @@ import type {
   LogViewerSelection
 } from '../ui-model/log-viewer.ts';
 import { cyclicIndex } from '../foundation/cyclic-index.ts';
+import { prepareCollectionQuery } from '../text/query.ts';
+import type { CollectionQuery, PreparedCollectionQuery } from '../text/query.ts';
 
 interface LogViewerStateBase {
-  readonly searchQuery?: string;
+  readonly query?: PreparedCollectionQuery;
   readonly activeMatchId?: string;
   readonly foldedIds: readonly string[];
   readonly followTail: boolean;
@@ -62,14 +64,17 @@ export function logViewerReducer(
           });
       return withSelection(state, selection);
     }
-    case 'setSearchQuery': {
+    case 'setQuery': {
       const query = normalizedQuery(action.query);
       if (query === undefined) return withoutSearch(state);
-      if (state.searchQuery === query) return state;
-      return { ...withoutActiveMatch(state), searchQuery: query };
+      if (sameQuery(state.query, query)) return state;
+      return { ...withoutActiveMatch(state), query };
     }
     case 'jumpMatch': {
-      const matches = logViewerSearchMatches(options.history, state.searchQuery ?? '');
+      const matches = logViewerSearchMatches(
+        options.history,
+        state.query ?? prepareCollectionQuery({ text: '', mode: 'contains' }),
+      );
       const activeMatch = adjacentMatch(matches, state.activeMatchId, action.direction);
       if (activeMatch?.id === state.activeMatchId) return state;
       if (activeMatch === undefined) return withoutActiveMatch(state);
@@ -96,10 +101,10 @@ export function logViewerReducer(
 
 export function logViewerSearchMatches(
   history: LogHistory,
-  query: string
+  query: CollectionQuery,
 ): readonly LogSearchMatch[] {
-  const normalized = query.trim();
-  if (normalized.length === 0) return [];
+  const normalized = prepareCollectionQuery(query);
+  if (normalized.text.length === 0) return [];
   return Object.freeze(logHistorySegments(history).flatMap((segment) =>
     segment.records.flatMap((record) => logHistoryRecordMatches(record, normalized))
   ));
@@ -128,7 +133,7 @@ export function followTailScrollState(input: {
 }
 
 function withoutSearch(state: LogViewerState): LogViewerState {
-  if (state.searchQuery === undefined && state.activeMatchId === undefined) return state;
+  if (state.query === undefined && state.activeMatchId === undefined) return state;
   return {
     foldedIds: state.foldedIds,
     followTail: state.followTail,
@@ -142,7 +147,7 @@ function withoutActiveMatch(state: LogViewerState): LogViewerState {
   return {
     foldedIds: state.foldedIds,
     followTail: state.followTail,
-    ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
+    ...(state.query === undefined ? {} : { query: state.query }),
     ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
     ...(state.selection === undefined ? {} : { selection: state.selection })
   };
@@ -158,7 +163,7 @@ function withSelection(state: LogViewerState, selection: LogViewerSelection | un
     return {
       foldedIds: state.foldedIds,
       followTail: state.followTail,
-      ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
+      ...(state.query === undefined ? {} : { query: state.query }),
       ...(state.activeMatchId === undefined ? {} : { activeMatchId: state.activeMatchId }),
       ...(state.scroll === undefined ? {} : { scroll: state.scroll })
     };
@@ -194,9 +199,16 @@ function sameStrings(left: readonly string[], right: readonly string[]): boolean
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function normalizedQuery(query: string | undefined): string | undefined {
-  const normalized = query?.trim();
-  return normalized === undefined || normalized.length === 0 ? undefined : normalized;
+function normalizedQuery(query: CollectionQuery | undefined): PreparedCollectionQuery | undefined {
+  if (query === undefined) return undefined;
+  const normalized = prepareCollectionQuery(query);
+  return normalized.text.length === 0 ? undefined : normalized;
+}
+
+function sameQuery(left: PreparedCollectionQuery | undefined, right: PreparedCollectionQuery): boolean {
+  return left?.text === right.text
+    && left.mode === right.mode
+    && left.caseSensitive === right.caseSensitive;
 }
 
 function adjacentMatch(

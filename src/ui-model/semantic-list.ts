@@ -1,4 +1,6 @@
-import type { Element, ElementMessage } from '../element/index.ts';
+import type { Element, ElementMessage, ElementMessageValue } from '../element/index.ts';
+import type { MeasuredCollectionItem } from './measured-collection.ts';
+import type { MeasuredWindow } from './measured-window.ts';
 import type { CollectionInteractionAction, CollectionInteractionState } from '../interaction/collection.ts';
 import type { ScrollEvent } from '../interaction/scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
@@ -9,19 +11,23 @@ export interface SemanticListItem<TContent extends Element = Element> {
   readonly label?: string;
 }
 
-export interface ListViewRecord<TContent extends Element = Element> extends SemanticListItem<TContent> {
-  readonly itemIndex: number;
-  readonly startRow: number;
-  readonly rowCount: number;
+export interface ListViewRenderedItem<
+  TContent extends Element<ElementMessageValue> = Element<ElementMessageValue>
+> {
+  readonly content: TContent;
+  readonly label?: string;
   readonly disabled?: boolean;
 }
 
-/** A caller-owned, variable-height window over a larger list view. */
-export interface ListViewProjection<TContent extends Element = Element> {
-  readonly records: readonly ListViewRecord<TContent>[];
-  readonly totalCount: number;
-  readonly totalRows: number;
-}
+export type ListViewItemRenderer<
+  TValue,
+  TContent extends Element<ElementMessageValue> = Element<ElementMessageValue>
+> = (
+  item: MeasuredCollectionItem<TValue>,
+  itemIndex: number,
+) => ListViewRenderedItem<TContent>;
+
+export type ListViewMeasuredWindow<TValue> = MeasuredWindow<TValue>;
 
 export interface UnscrolledListViewPresentation extends CollectionInteractionState {
   readonly scroll?: never;

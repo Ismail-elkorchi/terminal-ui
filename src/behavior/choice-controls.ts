@@ -10,29 +10,12 @@ import {
   normalizeCollectionInteraction,
   prepareCollectionInteractionIndex,
 } from '../interaction/collection.ts';
-import type {
-  CollectionInteractionState,
-  SelectionPolicy,
-} from '../interaction/collection.ts';
+import type { CollectionInteractionState } from '../interaction/collection.ts';
 import { assertStableIds } from '../ui-model/identity.ts';
 
 export type CheckboxGroupState = CollectionInteractionState;
 export type RadioGroupState = CollectionInteractionState;
 export type ColorSwatchPickerState = CollectionInteractionState;
-
-const checkboxSelection: SelectionPolicy = Object.freeze({
-  mode: 'multiple',
-  commitment: 'manual',
-  range: false,
-});
-const radioSelection: SelectionPolicy = Object.freeze({
-  mode: 'single',
-  commitment: 'followActive',
-});
-const swatchSelection: SelectionPolicy = Object.freeze({
-  mode: 'single',
-  commitment: 'manual',
-});
 
 export function checkboxGroupReducer<TValue>(
   state: CheckboxGroupState,
@@ -41,7 +24,6 @@ export function checkboxGroupReducer<TValue>(
 ): CheckboxGroupState {
   return collectionInteractionReducer(state, action, {
     index: prepareCollectionInteractionIndex(enabledIds(options, 'checkboxGroup')),
-    selection: checkboxSelection,
   });
 }
 
@@ -52,7 +34,6 @@ export function normalizeCheckboxGroupState<TValue>(
   return normalizeCollectionInteraction(
     state,
     prepareCollectionInteractionIndex(enabledIds(options, 'checkboxGroup')),
-    checkboxSelection,
   );
 }
 
@@ -70,7 +51,6 @@ export function radioGroupReducer<TValue>(
 ): RadioGroupState {
   return collectionInteractionReducer(state, action, {
     index: prepareCollectionInteractionIndex(enabledIds(options, 'radioGroup')),
-    selection: radioSelection,
   });
 }
 
@@ -81,7 +61,6 @@ export function normalizeRadioGroupState<TValue>(
   return normalizeCollectionInteraction(
     state,
     prepareCollectionInteractionIndex(enabledIds(options, 'radioGroup')),
-    radioSelection,
   );
 }
 
@@ -99,7 +78,6 @@ export function colorSwatchPickerReducer<TValue>(
 ): ColorSwatchPickerState {
   return collectionInteractionReducer(state, action, {
     index: prepareCollectionInteractionIndex(enabledIds(options, 'colorSwatchPicker')),
-    selection: swatchSelection,
   });
 }
 
@@ -110,7 +88,6 @@ export function normalizeColorSwatchPickerState<TValue>(
   return normalizeCollectionInteraction(
     state,
     prepareCollectionInteractionIndex(enabledIds(options, 'colorSwatchPicker')),
-    swatchSelection,
   );
 }
 

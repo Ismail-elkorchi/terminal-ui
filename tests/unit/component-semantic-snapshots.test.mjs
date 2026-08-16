@@ -6,7 +6,9 @@ import {
   prepareCommandSuggestions,
   prepareMeasuredCollection,
   prepareSearchPickerIndex,
-  prepareLogHistory
+  prepareLogHistory,
+  prepareTreeSource,
+  prepareTreeView,
 } from '../../dist/behavior/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 import { rasterImage } from '../../dist/graphics/index.js';
@@ -218,8 +220,9 @@ const cases = [
     id: 'dataGrid',
       rows: [{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }],
       presentation: {
-        interaction: { kind: 'row',
-        selectionMode: 'single', activeRowId: '1', selectedRowIds: ['1'] }
+        interaction: {
+          kind: 'row', activeRowId: '1', selection: { mode: 'single', selectedRowId: '1' },
+        }
       },
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }, {
@@ -230,16 +233,20 @@ const cases = [
   },
   {
     name: 'tree',
-    element: () => tree({
-      id: 'tree',
-      nodes: treeNodes,
-      presentation: {
+    element: () => {
+      const presentation = {
         expandedIds: ['root'],
         activeId: 'child',
         selection: { mode: 'single', selectedId: 'child' }
-      },
-      onTransition: (action) => ({ kind: 'tree', action })
-    }),
+      };
+      const source = prepareTreeSource(treeNodes);
+      return tree({
+        id: 'tree',
+        view: prepareTreeView(source, presentation),
+        presentation,
+        onTransition: (action) => ({ kind: 'tree', action })
+      });
+    },
     expectText: /Child/u,
     expectFocus: true,
     expectHitTargets: true
@@ -405,6 +412,7 @@ const cases = [
       label: 'Choice',
       options: optionItems,
       presentation: {
+        kind: 'select',
         open: false,
         interaction: { selection: { mode: 'single', selectedId: 'alpha' } }
       },
@@ -701,7 +709,7 @@ const cases = [
         { id: 'one', text: unsafe },
         { id: 'two', text: 'Second' }
       ]),
-      searchQuery: 'Second'
+      query: { text: 'Second', mode: 'contains' }
     }),
     expectText: /Second/u
   },
@@ -709,7 +717,7 @@ const cases = [
     name: 'commandInput',
     element: () => commandInput({
       id: 'command-input',
-      presentation: { value: unsafe, cursor: 0, suggestions: prepareCommandSuggestions([{ id: 'open', value: 'open', label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
+      presentation: { value: unsafe, cursor: 0, open: true, suggestions: prepareCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: unsafe.length }, text: 'open' }, label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
       prompt: '>',
       onTransition: (action) => action
     }),

@@ -42,7 +42,8 @@ import {
   prepareListboxCollection,
   prepareMeasuredCollection,
   prepareTableCollection,
-  prepareTreeCollection,
+  prepareTreeSource,
+  prepareTreeView,
   replaceMeasuredItem,
   dataGridReducer,
   treeReducer
@@ -53,7 +54,6 @@ import {
 } from '../../dist/text/index.js';
 
 const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
-const manualSingleSelection = Object.freeze({ mode: 'single', commitment: 'manual' });
 
 test('prepared measured collection work is bounded by changes and the visible window', { timeout: 10_000 }, () => {
   const itemCount = 100_000;
@@ -170,7 +170,7 @@ test('prepared listbox collections retain item preparation across renders and ac
   const state = listboxReducer(
     { activeId: '25000', selection: { mode: 'single', selectedId: '25000' } },
     { kind: 'moveActive', delta: 1 },
-    { collection, selection: { mode: 'single', commitment: 'manual' } }
+    { collection }
   );
 
   assert.equal(state.activeId, '25001');
@@ -206,7 +206,10 @@ test('command suggestions retain only a supplied window while preserving global 
     Array.from({ length: 8 }, (_value, offset) => ({
       id: `command-${String(start + offset)}`,
       label: `Command ${String(start + offset)}`,
-      value: `command-${String(start + offset)}`,
+      completion: {
+        range: { startOffset: 0, endOffsetExclusive: 0 },
+        text: `command-${String(start + offset)}`
+      },
     })),
     { startIndex: start, totalCount: 100_000, domain: { kind: 'source' } },
   );
@@ -217,6 +220,7 @@ test('command suggestions retain only a supplied window while preserving global 
     presentation: {
       value: '',
       cursor: 0,
+      open: true,
       suggestions,
       activeSuggestionId: 'command-40003',
     },
@@ -317,9 +321,9 @@ test('full frame render stays bounded by terminal size for mixed element trees',
     commandInput({
       id: 'search',
       prompt: '?',
-      presentation: { value: 'fil', cursor: 0, suggestions: prepareCommandSuggestions([
-        { id: 'file', value: 'file', label: 'file' },
-        { id: 'filter', value: 'filter', label: 'filter' }
+      presentation: { value: 'fil', cursor: 0, open: true, suggestions: prepareCommandSuggestions([
+        { id: 'file', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'file' }, label: 'file' },
+        { id: 'filter', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'filter' }, label: 'filter' }
       ]), activeSuggestionId: 'file' },
       onTransition: (transition) => transition
     }),
@@ -382,9 +386,10 @@ test('large dataGrid rendering is bounded by terminal size independently from ro
     presentation: {
       interaction: {
         kind: 'cell',
-        selectionMode: 'single',
         activeCell: { rowId: '42000', columnId: 'score-1' },
-        selectedCells: [{ rowId: '42000', columnId: 'score-1' }]
+        selection: {
+          mode: 'single', selectedCell: { rowId: '42000', columnId: 'score-1' },
+        },
       }
     },
     onTransition: () => ignoreMessage(),
@@ -421,8 +426,9 @@ test('prepared dataGrid collections retain row identity across renders and reduc
     collection,
     columns,
     presentation: {
-      interaction: { kind: 'row',
-      selectionMode: 'single', activeRowId: '50000', selectedRowIds: ['50000'] }
+      interaction: {
+        kind: 'row', activeRowId: '50000', selection: { mode: 'single', selectedRowId: '50000' },
+      }
     },
     onTransition: () => ignoreMessage()
   }), { columns: 48, rows: 12 });
@@ -431,16 +437,18 @@ test('prepared dataGrid collections retain row identity across renders and reduc
     collection,
     columns,
     presentation: {
-      interaction: { kind: 'row',
-      selectionMode: 'single', activeRowId: '50001', selectedRowIds: ['50001'] }
+      interaction: {
+        kind: 'row', activeRowId: '50001', selection: { mode: 'single', selectedRowId: '50001' },
+      }
     },
     onTransition: () => ignoreMessage()
   }), { columns: 64, rows: 16 });
   const state = dataGridReducer(
-    { interaction: { kind: 'row',
-    selectionMode: 'single', activeRowId: '50000', selectedRowIds: ['50000'] } },
+    { interaction: {
+      kind: 'row', activeRowId: '50000', selection: { mode: 'single', selectedRowId: '50000' },
+    } },
     { kind: 'moveRow', delta: 1 },
-    { collection, columnIds: ['name'], selection: manualSingleSelection }
+    { collection, columnIds: ['name'] }
   );
 
   assert.equal(state.interaction.kind === 'row' ? state.interaction.activeRowId : undefined, '50001');
@@ -460,8 +468,9 @@ test('windowed dataGrid collections identify only supplied records and keep glob
     collection,
     columns: [{ id: 'name', header: 'Name', value: (row) => row.name, width: { kind: 'fill' } }],
     presentation: {
-      interaction: { kind: 'row',
-      selectionMode: 'single', activeRowId: '70005', selectedRowIds: ['70005'] }
+      interaction: {
+        kind: 'row', activeRowId: '70005', selection: { mode: 'single', selectedRowId: '70005' },
+      }
     },
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 7 });
@@ -488,8 +497,9 @@ test('fill-width tables evaluate each visible row once without scanning offscree
       }
     }],
     presentation: {
-      interaction: { kind: 'row',
-      selectionMode: 'single', activeRowId: '10000', selectedRowIds: ['10000'] }
+      interaction: {
+        kind: 'row', activeRowId: '10000', selection: { mode: 'single', selectedRowId: '10000' },
+      }
     },
     onTransition: () => ignoreMessage()
   }), { columns: 80, rows: 20 });
@@ -507,9 +517,10 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
     presentation: {
       interaction: {
         kind: 'cell',
-        selectionMode: 'single',
         activeCell: { rowId: '12000', columnId: 'score-1' },
-        selectedCells: [{ rowId: '12000', columnId: 'score-1' }]
+        selection: {
+          mode: 'single', selectedCell: { rowId: '12000', columnId: 'score-1' },
+        },
       }
     },
     onTransition: () => ignoreMessage(),
@@ -529,9 +540,10 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
     presentation: {
       interaction: {
         kind: 'cell',
-        selectionMode: 'single',
         activeCell: { rowId: '12000', columnId: 'notes-2' },
-        selectedCells: [{ rowId: '12000', columnId: 'notes-2' }]
+        selection: {
+          mode: 'single', selectedCell: { rowId: '12000', columnId: 'notes-2' },
+        },
       }
     },
     onTransition: () => ignoreMessage(),
@@ -649,19 +661,22 @@ test('modal viewport backdrops transform occupied cells without materializing em
 });
 
 test('large tree rendering is bounded by terminal size independently from node count', () => {
+  const nodes = [{
+    id: 'root',
+    label: 'Root',
+    kind: 'branch',
+    children: Array.from({ length: 50_000 }, (_value, index) => ({ id: `node-${index}`, label: `Node ${index}`, kind: 'leaf' }))
+  }];
+  const presentation = {
+    activeId: 'node-40000',
+    selection: { mode: 'single', selectedId: 'node-40000' },
+    expandedIds: ['root']
+  };
+  const source = prepareTreeSource(nodes);
   const frame = renderElementFrame(tree({
     id: 'large-tree',
-    nodes: [{
-      id: 'root',
-      label: 'Root',
-      kind: 'branch',
-      children: Array.from({ length: 50_000 }, (_value, index) => ({ id: `node-${index}`, label: `Node ${index}`, kind: 'leaf' }))
-    }],
-    presentation: {
-      activeId: 'node-40000',
-      selection: { mode: 'single', selectedId: 'node-40000' },
-      expandedIds: ['root']
-    },
+    view: prepareTreeView(source, presentation),
+    presentation,
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
 
@@ -690,19 +705,20 @@ test('prepared tree collections avoid recursive flattening on rerender and movem
     selection: { mode: 'single', selectedId: 'node-25000' },
     expandedIds: ['root']
   };
-  const collection = prepareTreeCollection(nodes, initial);
+  const source = prepareTreeSource(nodes);
+  const view = prepareTreeView(source, initial);
 
   assert.ok(nodeIdReads >= children.length);
   nodeIdReads = 0;
   renderElementFrame(tree({
     id: 'retained-tree',
-    collection,
+    view,
     presentation: initial,
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
   renderElementFrame(tree({
     id: 'retained-tree',
-    collection,
+    view,
     presentation: {
       activeId: 'node-25001',
       selection: { mode: 'single', selectedId: 'node-25001' },
@@ -711,8 +727,7 @@ test('prepared tree collections avoid recursive flattening on rerender and movem
     onTransition: () => ignoreMessage()
   }), { columns: 48, rows: 12 });
   const state = treeReducer(initial, { kind: 'moveActive', delta: 1 }, {
-    collection,
-    selection: manualSingleSelection
+    view,
   });
 
   assert.equal(state.activeId, 'node-25001');

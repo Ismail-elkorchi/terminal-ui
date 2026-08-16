@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   defineTui,
+  reliableSourceMessage,
   runTui
 } from '../../dist/tui/index.js';
 import { createPtyTerminalHarness } from '../../dist/testing/index.js';
@@ -42,12 +43,11 @@ test('PTY harness handles resize while async stream messages are rendering', asy
       id: 'stream',
       generation: 0,
       source: 'external',
-      delivery: 'latest',
       async *messages(context) {
         for (let index = 1; index <= 8; index += 1) {
           await new Promise((resolve) => { setImmediate(resolve); });
           if (context.signal.aborted) break;
-          yield { type: 'append', text: `stream item ${index}` };
+          yield reliableSourceMessage({ type: 'append', text: `stream item ${index}` });
         }
       }
     }],

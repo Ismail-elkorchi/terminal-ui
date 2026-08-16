@@ -1,5 +1,5 @@
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
-import type { CollectionQuery } from './query.ts';
+import type { CollectionQuery } from '../text/query.ts';
 
 interface SearchPickerPresentationBase {
   readonly query: CollectionQuery;
@@ -22,6 +22,8 @@ export type SearchPickerTransition =
   | { readonly kind: 'setQuery'; readonly query: CollectionQuery }
   | { readonly kind: 'insertQuery'; readonly text: string }
   | { readonly kind: 'deleteQueryBackward' }
+  | { readonly kind: 'undo' }
+  | { readonly kind: 'redo' }
   | { readonly kind: 'setActive'; readonly id?: string }
   | { readonly kind: 'moveActive'; readonly delta: number }
   | { readonly kind: 'firstActive' }

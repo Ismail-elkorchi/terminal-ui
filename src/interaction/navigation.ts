@@ -21,21 +21,20 @@ export function adjacentItemId<TId extends string>(
 ): TId | undefined {
   if (ids.length === 0) return undefined;
   const currentIndex = current === undefined ? -1 : ids.indexOf(current);
-  if (currentIndex < 0) return ids[initialIndex(ids.length, delta, policy.initial)];
-  const candidate = currentIndex + Math.trunc(delta);
-  const index = policy.boundary === 'wrap'
-    ? cyclicIndex(candidate, ids.length)
-    : Math.max(0, Math.min(ids.length - 1, candidate));
+  const index = navigateIndex(currentIndex < 0 ? undefined : currentIndex, delta, ids.length, policy);
   return ids[index];
 }
 
 export function navigateIndex(
-  current: number,
+  current: number | undefined,
   delta: number,
   count: number,
   policy: NavigationPolicy = defaultNavigationPolicy,
 ): number {
   if (count <= 0) return -1;
+  if (current === undefined || current < 0 || current >= count) {
+    return initialIndex(count, delta, policy.initial);
+  }
   const candidate = current + Math.trunc(delta);
   return policy.boundary === 'wrap'
     ? cyclicIndex(candidate, count)

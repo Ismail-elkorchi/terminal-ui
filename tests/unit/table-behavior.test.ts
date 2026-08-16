@@ -14,16 +14,38 @@ const collection = prepareTableCollection(rows, (row) => row);
 const rowOptions: DataGridReducerOptions<string> = {
   collection,
   columnIds: ['name', 'status', 'owner'],
-  selection: { mode: 'single', commitment: 'manual' },
 };
+
+void test('grid navigation applies the initial policy before movement', () => {
+  const rowInitial = {
+    interaction: { kind: 'row' as const, selection: { mode: 'single' as const } },
+  };
+  const firstRow = dataGridReducer(rowInitial, { kind: 'moveRow', delta: 1 }, rowOptions);
+  const lastRow = dataGridReducer(rowInitial, { kind: 'moveRow', delta: -1 }, rowOptions);
+  assert.equal(firstRow.interaction.kind === 'row' ? firstRow.interaction.activeRowId : undefined, 'row-0');
+  assert.equal(lastRow.interaction.kind === 'row' ? lastRow.interaction.activeRowId : undefined, 'row-3');
+
+  const cellInitial = {
+    interaction: { kind: 'cell' as const, selection: { mode: 'single' as const } },
+  };
+  const firstColumn = dataGridReducer(cellInitial, { kind: 'moveColumn', delta: 1 }, rowOptions);
+  const lastColumn = dataGridReducer(cellInitial, { kind: 'moveColumn', delta: -1 }, rowOptions);
+  assert.deepEqual(firstColumn.interaction.kind === 'cell' ? firstColumn.interaction.activeCell : undefined, {
+    rowId: 'row-0',
+    columnId: 'name',
+  });
+  assert.deepEqual(lastColumn.interaction.kind === 'cell' ? lastColumn.interaction.activeCell : undefined, {
+    rowId: 'row-0',
+    columnId: 'owner',
+  });
+});
 
 void test('row-grid navigation changes active position without committing selection', () => {
   const initial = {
     interaction: {
       kind: 'row' as const,
-      selectionMode: 'single' as const,
       activeRowId: 'row-0',
-      selectedRowIds: ['row-0'],
+      selection: { mode: 'single' as const, selectedRowId: 'row-0' },
     },
   };
   const moved = dataGridReducer(initial, { kind: 'moveRow', delta: 2 }, rowOptions);
@@ -32,16 +54,13 @@ void test('row-grid navigation changes active position without committing select
   assert.equal(moved.interaction.kind, 'row');
   assert.deepEqual(moved.interaction, {
     kind: 'row',
-    selectionMode: 'single' as const,
     activeRowId: 'row-2',
-    selectedRowIds: ['row-0'],
+    selection: { mode: 'single' as const, selectedRowId: 'row-0' },
   });
   assert.deepEqual(committed.interaction, {
     kind: 'row',
-    selectionMode: 'single' as const,
     activeRowId: 'row-2',
-    selectedRowIds: ['row-2'],
-    selectionAnchorId: 'row-2',
+    selection: { mode: 'single' as const, selectedRowId: 'row-2' },
   });
 });
 
@@ -49,9 +68,8 @@ void test('cell-grid mode uses stable row and column identities and clamps by de
   const initial = {
     interaction: {
       kind: 'cell' as const,
-      selectionMode: 'single' as const,
       activeCell: { rowId: 'row-0', columnId: 'name' },
-      selectedCells: [],
+      selection: { mode: 'single' as const },
     },
   };
   const column = dataGridReducer(initial, { kind: 'moveColumn', delta: 99 }, rowOptions);
@@ -68,29 +86,31 @@ void test('cell-grid mode uses stable row and column identities and clamps by de
 });
 
 void test('multiple row selection supports toggle and anchored ranges', () => {
-  const options: DataGridReducerOptions<string> = {
-    ...rowOptions,
-    selection: { mode: 'multiple', commitment: 'manual', range: true },
-  };
+  const options: DataGridReducerOptions<string> = rowOptions;
   const initial = {
     interaction: {
       kind: 'row' as const,
-      selectionMode: 'multiple' as const,
       activeRowId: 'row-1',
-      selectedRowIds: ['row-1'],
-      selectionAnchorId: 'row-1',
+      selection: {
+        mode: 'multiple' as const,
+        selectedRowIds: ['row-1'],
+        selectionAnchorId: 'row-1',
+        range: true,
+      },
     },
   };
   const moved = dataGridReducer(initial, { kind: 'moveRow', delta: 2 }, options);
   const ranged = dataGridReducer(moved, { kind: 'commit', extend: true }, options);
   const toggled = dataGridReducer(ranged, { kind: 'commit', toggle: true }, options);
 
-  assert.deepEqual(ranged.interaction.kind === 'row' ? ranged.interaction.selectedRowIds : [], [
+  assert.deepEqual(ranged.interaction.kind === 'row' && ranged.interaction.selection.mode === 'multiple'
+    ? ranged.interaction.selection.selectedRowIds : [], [
     'row-1',
     'row-2',
     'row-3',
   ]);
-  assert.deepEqual(toggled.interaction.kind === 'row' ? toggled.interaction.selectedRowIds : [], [
+  assert.deepEqual(toggled.interaction.kind === 'row' && toggled.interaction.selection.mode === 'multiple'
+    ? toggled.interaction.selection.selectedRowIds : [], [
     'row-1',
     'row-2',
   ]);
@@ -98,8 +118,7 @@ void test('multiple row selection supports toggle and anchored ranges', () => {
 
 void test('data-grid sorting and column resizing remain controlled transitions', () => {
   const initial = {
-    interaction: { kind: 'row' as const,
-    selectionMode: 'single' as const, selectedRowIds: [] },
+    interaction: { kind: 'row' as const, selection: { mode: 'single' as const } },
   };
   const first = dataGridReducer(initial, { kind: 'sortBy', columnId: 'name' }, rowOptions);
   const second = dataGridReducer(first, { kind: 'sortBy', columnId: 'name' }, rowOptions);
@@ -122,8 +141,7 @@ void test('data-grid sorting and column resizing remain controlled transitions',
 
 void test('grid scroll transitions accept renderer-derived semantic state', () => {
   const initial = {
-    interaction: { kind: 'row' as const,
-    selectionMode: 'single' as const, selectedRowIds: [] },
+    interaction: { kind: 'row' as const, selection: { mode: 'single' as const } },
     scroll: createScrollState(),
   };
   const rendered = createScrollState({ offsetRow: 2, offsetColumn: 1 });

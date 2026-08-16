@@ -222,8 +222,7 @@ test('dataGrid inline cell content preserves caller style while replacing inject
     id: 'results',
     rows: [{ id: 'one', state: 'ready' }],
     getRowId: (row) => row.id,
-    presentation: { interaction: { kind: 'row',
-    selectionMode: 'single', selectedRowIds: [] } },
+    presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (action) => action,
     columns: [tableColumn({
       id: 'state',

@@ -7,11 +7,13 @@ import type { CursorPosition } from '../contracts.ts';
 import type { FrameCell } from '../contracts.ts';
 import type { GraphicPlacementDescriptor } from '../../graphics/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
+import type { TerminalStyle } from '../../visual/render.ts';
 
 export interface RenderDiffProjection {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
+  readonly canvasStyle?: TerminalStyle;
   readonly cells: readonly FrameCell[];
   readonly graphics: readonly GraphicPlacementDescriptor[];
   readonly cursor?: CursorPosition;
@@ -60,12 +62,14 @@ export function applyRenderDiff(
     }
   }
   const snapshot = buffer.snapshot({
+    ...(diff.canvasStyle === undefined ? {} : { canvasStyle: diff.canvasStyle }),
     ...(diff.cursor === undefined ? {} : { cursor: diff.cursor })
   });
   return Object.freeze({
     width: snapshot.width,
     height: snapshot.height,
     widthProfile: snapshot.widthProfile,
+    ...(snapshot.canvasStyle === undefined ? {} : { canvasStyle: snapshot.canvasStyle }),
     cells: snapshot.cells,
     graphics: Object.freeze([...graphics.values()]),
     ...(snapshot.cursor === undefined ? {} : { cursor: snapshot.cursor })
@@ -80,6 +84,7 @@ export function renderDiffProjectionMatchesFrame(
     projection.width !== frame.width
     || projection.height !== frame.height
     || textWidthProfileKey(projection.widthProfile) !== textWidthProfileKey(frame.widthProfile)
+    || !sameTerminalStyle(projection.canvasStyle, frame.canvasStyle)
     || !sameCursor(projection.cursor, frame.cursor)
     || projection.cells.length !== frame.cells.length
     || projection.graphics.length !== frame.graphics.length

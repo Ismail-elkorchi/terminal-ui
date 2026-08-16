@@ -1,25 +1,95 @@
-import { adjacentItemId } from '../interaction/navigation.ts';
-import { collectionInteractionHas, collectionInteractionIds } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
-import { editTextBuffer } from '../text/index.ts';
+import {
+  createEditablePopupInputState,
+  editablePopupInputReducer,
+} from '../interaction/editable-popup-input.ts';
+import type { EditablePopupInputState } from '../interaction/editable-popup-input.ts';
 import type { SearchEntry } from '../ui-model/contracts.ts';
 import type {
-  SearchPickerControlTransition,
   SearchPickerPresentation,
   SearchPickerTransition,
-  ScrollableSearchPickerPresentation,
-  UnscrolledSearchPickerPresentation,
 } from '../ui-model/search-picker.ts';
 import { querySearchPickerIndex } from '../ui-model/search-picker-index.ts';
 import type { SearchPickerIndex } from '../ui-model/search-picker-index.ts';
-import type { CollectionQuery } from '../ui-model/query.ts';
+import type { CollectionQuery } from '../text/query.ts';
 import { rowWindow } from './data-window.ts';
 import { applyScrollEvent } from './scroll.ts';
 
 export interface SearchPickerReducerOptions<TValue = string> {
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
   readonly navigation?: NavigationPolicy;
+}
+
+interface SearchPickerStateBase {
+  readonly editor: EditablePopupInputState;
+  readonly mode: NonNullable<CollectionQuery['mode']>;
+  readonly caseSensitive: boolean;
+}
+
+export interface UnscrolledSearchPickerState extends SearchPickerStateBase {
+  readonly scroll?: never;
+}
+
+export interface ScrollableSearchPickerState extends SearchPickerStateBase {
+  readonly scroll: ScrollState;
+}
+
+export type SearchPickerState =
+  | UnscrolledSearchPickerState
+  | ScrollableSearchPickerState;
+
+export interface CreateSearchPickerStateInput {
+  readonly query?: CollectionQuery;
+  readonly scroll?: ScrollState;
+  readonly editHistoryPolicy?: import('../text/index.ts').EditHistoryPolicy;
+}
+
+export function createSearchPickerState<TValue>(
+  input: CreateSearchPickerStateInput & { readonly scroll: ScrollState },
+  searchPickerIndex: SearchPickerIndex<TValue>,
+): ScrollableSearchPickerState;
+export function createSearchPickerState<TValue>(
+  input: CreateSearchPickerStateInput & { readonly scroll?: never },
+  searchPickerIndex: SearchPickerIndex<TValue>,
+): UnscrolledSearchPickerState;
+export function createSearchPickerState<TValue>(
+  input: CreateSearchPickerStateInput,
+  searchPickerIndex: SearchPickerIndex<TValue>,
+): SearchPickerState;
+export function createSearchPickerState<TValue>(
+  input: CreateSearchPickerStateInput,
+  searchPickerIndex: SearchPickerIndex<TValue>,
+): SearchPickerState {
+  const query = input.query ?? { text: '', mode: 'fuzzy' };
+  const result = querySearchPickerIndex(searchPickerIndex, query);
+  const activeId = result.entries.find((entry) => entry.disabled !== true)?.id;
+  return {
+    editor: createEditablePopupInputState({
+      value: result.query.text,
+      open: true,
+      ...(activeId === undefined ? {} : { activeId }),
+      ...(input.editHistoryPolicy === undefined ? {} : {
+        editHistoryPolicy: input.editHistoryPolicy,
+      }),
+    }, result.interactionIndex),
+    mode: result.query.mode,
+    caseSensitive: result.query.caseSensitive,
+    ...(input.scroll === undefined ? {} : { scroll: input.scroll }),
+  };
+}
+
+export function searchPickerPresentation(state: ScrollableSearchPickerState):
+  Extract<SearchPickerPresentation, { readonly scroll: ScrollState }>;
+export function searchPickerPresentation(state: UnscrolledSearchPickerState):
+  Extract<SearchPickerPresentation, { readonly scroll?: never }>;
+export function searchPickerPresentation(state: SearchPickerState): SearchPickerPresentation;
+export function searchPickerPresentation(state: SearchPickerState): SearchPickerPresentation {
+  return {
+    query: searchPickerQuery(state),
+    ...(state.editor.activeId === undefined ? {} : { activeId: state.editor.activeId }),
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
+  };
 }
 
 export interface SearchPickerWindowInput<TValue = string> {
@@ -48,65 +118,49 @@ export interface SearchPickerActiveInput<TValue = string> {
 }
 
 export function searchPickerReducer<TValue>(
-  state: ScrollableSearchPickerPresentation,
+  state: ScrollableSearchPickerState,
   transition: SearchPickerTransition,
   options: SearchPickerReducerOptions<TValue>,
-): ScrollableSearchPickerPresentation;
+): ScrollableSearchPickerState;
 export function searchPickerReducer<TValue>(
-  state: UnscrolledSearchPickerPresentation,
-  transition: SearchPickerControlTransition,
+  state: UnscrolledSearchPickerState,
+  transition: Exclude<SearchPickerTransition, { readonly kind: 'scroll' }>,
   options: SearchPickerReducerOptions<TValue>,
-): UnscrolledSearchPickerPresentation;
+): UnscrolledSearchPickerState;
 export function searchPickerReducer<TValue>(
-  state: SearchPickerPresentation,
+  state: SearchPickerState,
   transition: SearchPickerTransition,
   options: SearchPickerReducerOptions<TValue>,
-): SearchPickerPresentation {
+): SearchPickerState;
+export function searchPickerReducer<TValue>(
+  state: SearchPickerState,
+  transition: SearchPickerTransition,
+  options: SearchPickerReducerOptions<TValue>,
+): SearchPickerState {
   switch (transition.kind) {
-    case 'setQuery':
-      return activeForQuery(state, transition.query, options.searchPickerIndex);
-    case 'insertQuery': {
-      const query = state.query.text;
-      const next = editTextBuffer(
-        { text: query, cursor: query.length },
-        { kind: 'insert', text: transition.text },
-      );
-      return activeForQuery(
-        state,
-        { ...state.query, text: next.text },
-        options.searchPickerIndex,
-      );
+    case 'setQuery': {
+      const next = {
+        ...state,
+        mode: transition.query.mode ?? 'fuzzy',
+        caseSensitive: transition.query.caseSensitive ?? false,
+      };
+      return withSearchEditor(next, { kind: 'setText', value: transition.query.text }, options);
     }
-    case 'deleteQueryBackward': {
-      const query = state.query.text;
-      const next = editTextBuffer(
-        { text: query, cursor: query.length },
-        { kind: 'deleteBackward' },
-      );
-      return activeForQuery(
-        state,
-        { ...state.query, text: next.text },
-        options.searchPickerIndex,
-      );
-    }
+    case 'insertQuery':
+      return withSearchEditor(state, { kind: 'edit', operation: { kind: 'insert', text: transition.text } }, options);
+    case 'deleteQueryBackward':
+      return withSearchEditor(state, { kind: 'edit', operation: { kind: 'deleteBackward' } }, options);
+    case 'undo':
+    case 'redo':
+      return withSearchEditor(state, transition, options);
     case 'setActive':
-      return withActive(state, enabledIndex(state, options.searchPickerIndex), transition.id);
-    case 'moveActive': {
-      const enabled = enabledIndex(state, options.searchPickerIndex);
-      return withActive(
-        state,
-        enabled,
-        adjacentItemId(collectionInteractionIds(enabled), state.activeId, transition.delta, options.navigation),
-      );
-    }
-    case 'firstActive': {
-      const enabled = enabledIndex(state, options.searchPickerIndex);
-      return withActive(state, enabled, collectionInteractionIds(enabled)[0]);
-    }
-    case 'lastActive': {
-      const enabled = enabledIndex(state, options.searchPickerIndex);
-      return withActive(state, enabled, collectionInteractionIds(enabled).at(-1));
-    }
+      return withSearchEditor(state, { kind: 'setActive', ...(transition.id === undefined ? {} : { id: transition.id }) }, options);
+    case 'moveActive':
+      return withSearchEditor(state, { kind: 'moveActive', delta: transition.delta }, options);
+    case 'firstActive':
+      return withSearchEditor(state, { kind: 'firstActive' }, options);
+    case 'lastActive':
+      return withSearchEditor(state, { kind: 'lastActive' }, options);
     case 'scroll': {
       const scroll = applyScrollEvent(state.scroll ?? transition.event.nextState, transition.event);
       return state.scroll === scroll ? state : { ...state, scroll };
@@ -169,41 +223,27 @@ export function activeSearchPickerEntry<TValue>(
   }).activeEntry;
 }
 
-function activeForQuery<TValue>(
-  state: SearchPickerPresentation,
-  query: CollectionQuery,
-  index: SearchPickerIndex<TValue>,
-): SearchPickerPresentation {
-  const result = querySearchPickerIndex(index, query);
-  const activeId = result.entries.find(
-    (entry) => entry.disabled !== true,
-  )?.id;
-  if (sameQuery(state.query, result.query) && state.activeId === activeId) return state;
-  return {
-    query: result.query,
-    ...(activeId === undefined ? {} : { activeId }),
-    ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
-  };
+function withSearchEditor<TValue>(
+  state: SearchPickerState,
+  transition: Parameters<typeof editablePopupInputReducer>[1],
+  options: SearchPickerReducerOptions<TValue>,
+): SearchPickerState {
+  const editor = editablePopupInputReducer(state.editor, transition, {
+    indexForText: (text) => querySearchPickerIndex(options.searchPickerIndex, {
+      text,
+      mode: state.mode,
+      ...(state.caseSensitive ? { caseSensitive: true } : {}),
+    }).interactionIndex,
+    ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
+  });
+  return editor === state.editor ? state : { ...state, editor };
 }
 
-function enabledIndex<TValue>(
-  state: SearchPickerPresentation,
-  index: SearchPickerIndex<TValue>,
-): import('../interaction/collection.ts').CollectionInteractionIndex {
-  return querySearchPickerIndex(index, state.query).interactionIndex;
-}
-
-function withActive(
-  state: SearchPickerPresentation,
-  enabled: import('../interaction/collection.ts').CollectionInteractionIndex,
-  activeId: string | undefined,
-): SearchPickerPresentation {
-  const valid = activeId !== undefined && collectionInteractionHas(enabled, activeId) ? activeId : undefined;
-  if (state.activeId === valid) return state;
+function searchPickerQuery(state: SearchPickerState): CollectionQuery {
   return {
-    query: state.query,
-    ...(valid === undefined ? {} : { activeId: valid }),
-    ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
+    text: state.editor.input.text,
+    mode: state.mode,
+    ...(state.caseSensitive ? { caseSensitive: true } : {}),
   };
 }
 
@@ -224,10 +264,4 @@ function activeIndex<TValue>(
   if (visible >= 0) return visible;
   const first = entries.findIndex((entry) => entry.disabled !== true);
   return first < 0 ? undefined : first;
-}
-
-function sameQuery(left: CollectionQuery, right: CollectionQuery): boolean {
-  return left.text === right.text
-    && left.mode === right.mode
-    && left.caseSensitive === right.caseSensitive;
 }

@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { applyScrollEvent, createScrollState, treeReducer } from '../../dist/behavior/index.js';
+import {
+  applyScrollEvent,
+  createScrollState,
+  prepareTreeSource,
+  prepareTreeView,
+  treeReducer,
+} from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   componentElement,
@@ -12,6 +18,16 @@ import { renderFramePlain } from '../../dist/renderer/index.js';
 import { contextMenu, text, textArea, tree } from '../../dist/components/index.js';
 import { column, overlay, viewport } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+
+const emptySourceMetrics = Object.freeze({
+  reliableAdmissions: 0,
+  replaceableAdmissions: 0,
+  replacements: 0,
+  dispatchedMessages: 0,
+  dispatchedBatches: 0,
+  maximumBuffered: 0,
+  cadenceFlushes: 0
+});
 
 test('TUI wheel routing skips non-scroll child targets and reaches the scroll target', async () => {
   const renderer = {
@@ -539,7 +555,8 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     wheelPackets: 3,
     dispatchedMessages: 0,
     frameCommits: 1,
-    effects: { active: 0, queued: 0, rejected: 0 }
+    effects: { active: 0, queued: 0, rejected: 0 },
+    sources: emptySourceMetrics
   });
 
   harness.clock.advance(8);
@@ -553,7 +570,8 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     wheelPackets: 3,
     dispatchedMessages: 1,
     frameCommits: 2,
-    effects: { active: 0, queued: 0, rejected: 0 }
+    effects: { active: 0, queued: 0, rejected: 0 },
+    sources: emptySourceMetrics
   });
   assert.equal(harness.frames().length, 2);
 });
@@ -597,7 +615,8 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
     wheelPackets: 1,
     dispatchedMessages: 2,
     frameCommits: 3,
-    effects: { active: 0, queued: 0, rejected: 0 }
+    effects: { active: 0, queued: 0, rejected: 0 },
+    sources: emptySourceMetrics
   });
 });
 
@@ -764,6 +783,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
     label: `Node ${String(index + 1)}`,
     kind: 'leaf'
   }));
+  const source = prepareTreeSource(nodes);
   const app = defineTui({
     id: 'tree-scroll-pointer-tui',
     init: () => ({
@@ -777,15 +797,14 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
     update: (state, message) => ({
       state: {
         tree: treeReducer(state.tree, message.action, {
-          nodes,
-          selection: { mode: 'none' }
+          view: prepareTreeView(source, state.tree)
         }),
         event: message.action.kind === 'scroll' ? message.action.event : state.event
       }
     }),
     view: (state) => tree({
       id: 'tree-scroll',
-      nodes,
+      view: prepareTreeView(source, state.tree),
       presentation: state.tree,
       scrollbar: { visible: 'always' },
       onTransition: (action) => ({ action })

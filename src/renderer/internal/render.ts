@@ -24,6 +24,7 @@ import { applyCursorStyle } from './cursor-style.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutRenderNode } from './layout.ts';
 import {
+  accountAccessibleTree,
   accessibleNode,
   inertAccessibleRoot,
   withControlLabelRelationships
@@ -51,6 +52,11 @@ import {
   decorativeSubtreeNodes
 } from './decorative.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
+import { createGraphicsBudget } from '../../graphics/index.ts';
+import { GraphicsBudgetExceededError } from '../../graphics/index.ts';
+import type { GraphicsBudgetLimits } from '../../graphics/index.ts';
+import { diagnostic } from '../../diagnostics.ts';
+import type { TerminalDiagnostic } from '../../diagnostics.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { FocusPath } from './focus.ts';
@@ -67,6 +73,8 @@ import type {
 } from '../contracts.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
+import { createRenderBudget } from './render-budget.ts';
+import type { RenderBudget, RenderBudgetLimits } from './render-budget.ts';
 
 export {
   alignRenderLine,
@@ -127,6 +135,8 @@ export interface RenderElementOptions {
   readonly framePasses?: readonly FramePass[];
   readonly disableFramePasses?: boolean;
   readonly instrumentation?: RenderInstrumentation;
+  readonly limits?: Partial<RenderBudgetLimits>;
+  readonly graphicsBudget?: Partial<GraphicsBudgetLimits>;
 }
 
 export interface InternalRenderResult<TMessage = unknown> {
@@ -137,6 +147,8 @@ export interface InternalRenderResult<TMessage = unknown> {
   readonly layout: LayoutNode;
   readonly regions: readonly RenderRegion<TMessage>[];
   readonly frame: Frame;
+  readonly limits: RenderBudgetLimits;
+  readonly graphicsBudget: GraphicsBudgetLimits;
 }
 
 export function renderElementFrame(
@@ -153,7 +165,8 @@ export function renderElementInternal<TMessage>(
   options: RenderElementOptions = {}
 ): InternalRenderResult<TMessage> {
   const renderNode = measureRenderStage(options.instrumentation, 'resolve_element', () => toRenderNode(element));
-  recordRenderWork(options.instrumentation, { kind: 'render_nodes', count: renderNodeCount(renderNode) });
+  const graphicsBudget = createGraphicsBudget(options.graphicsBudget);
+  const budget = createRenderBudget(options.limits, graphicsBudget);
   const environment = createRenderEnvironment({
     terminalSize,
     ...(options.theme === undefined ? {} : { theme: options.theme }),
@@ -161,14 +174,15 @@ export function renderElementInternal<TMessage>(
   });
   const { theme, widthProfile } = environment;
   const layout = measureRenderStage(options.instrumentation, 'layout', () =>
-    layoutRenderNode(renderNode, terminalSize, theme, widthProfile)
+    layoutRenderNode(renderNode, terminalSize, theme, widthProfile, budget)
   );
-  return materializeRenderNode(renderNode, environment.terminalSize, theme, widthProfile, layout, options);
+  recordRenderWork(options.instrumentation, { kind: 'render_nodes', count: budget.nodeCount() });
+  return materializeRenderNode(renderNode, environment.terminalSize, theme, widthProfile, layout, budget, options);
 }
 
 /** Repaints a prepared render tree when only focus-dependent output changed. */
 export function rerenderElementInternal<TMessage>(
-  prepared: Pick<InternalRenderResult<TMessage>, 'node' | 'terminalSize' | 'theme' | 'widthProfile' | 'layout'>,
+  prepared: Pick<InternalRenderResult<TMessage>, 'node' | 'terminalSize' | 'theme' | 'widthProfile' | 'layout' | 'limits' | 'graphicsBudget'>,
   options: Pick<RenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation'> = {},
 ): InternalRenderResult<TMessage> {
   return materializeRenderNode(
@@ -177,6 +191,7 @@ export function rerenderElementInternal<TMessage>(
     prepared.theme,
     prepared.widthProfile,
     prepared.layout,
+    createRenderBudget(prepared.limits, createGraphicsBudget(prepared.graphicsBudget)),
     options,
   );
 }
@@ -187,11 +202,12 @@ function materializeRenderNode<TMessage>(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   layout: LayoutNode,
+  budget: RenderBudget,
   options: Pick<RenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation'>,
 ): InternalRenderResult<TMessage> {
   const decorativeNodes = decorativeSubtreeNodes(renderNode, layout);
-  recordRenderWork(options.instrumentation, { kind: 'measured_nodes', count: layoutNodeCount(layout) });
-  recordRenderWork(options.instrumentation, { kind: 'rendered_nodes', count: visibleLayoutNodeCount(layout) });
+  recordRenderWork(options.instrumentation, { kind: 'measured_nodes', count: budget.nodeCount() });
+  recordRenderWork(options.instrumentation, { kind: 'rendered_nodes', count: budget.nodeCount() });
   const resolvedFocusPath = measureRenderStage(options.instrumentation, 'focus', () =>
     resolveFocusPath(layout, options.focusPath)
   );
@@ -203,16 +219,18 @@ function materializeRenderNode<TMessage>(
       theme,
       widthProfile,
       resolvedFocusPath,
-      decorativeNodes
+      decorativeNodes,
+      budget,
     )
   );
   recordRenderWork(options.instrumentation, {
     kind: 'hit_target_candidates',
     count: regions.reduce((total, region) => total + region.hitTargets.length, 0)
   });
-  const buffer = measureRenderStage(options.instrumentation, 'composition', () => {
-    return compositeRegions(terminalSize, regions, widthProfile);
+  const composition = measureRenderStage(options.instrumentation, 'composition', () => {
+    return compositeRegions(terminalSize, regions, widthProfile, budget);
   });
+  const buffer = composition.buffer;
   recordRenderWork(options.instrumentation, {
     kind: 'composed_cells',
     count: regions.reduce((total, region) => total + region.cells.length, 0)
@@ -235,15 +253,19 @@ function materializeRenderNode<TMessage>(
       [],
       resolvedFocusPath,
       theme,
-      widthProfile
+      widthProfile,
+      false,
+      new Map(),
+      budget,
     );
+    const relatedRoot = accessibleRoot ?? inertAccessibleRoot();
+    accountAccessibleTree(relatedRoot, budget);
     let snapshot;
     try {
       snapshot = createAccessibleSnapshot({
         source: 'renderer',
-        root: accessibleRoot === undefined
-          ? inertAccessibleRoot()
-          : withControlLabelRelationships(accessibleRoot)
+        root: withControlLabelRelationships(relatedRoot, budget),
+        ...(composition.diagnostic === undefined ? {} : { diagnostics: [composition.diagnostic] }),
       });
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : String(cause);
@@ -261,7 +283,17 @@ function materializeRenderNode<TMessage>(
   recordRenderWork(options.instrumentation, { kind: 'snapshot_rows', count: frame.height });
   recordRenderWork(options.instrumentation, { kind: 'snapshot_cells', count: frame.cells.length });
   recordRenderWork(options.instrumentation, { kind: 'emitted_cells', count: frame.cells.length });
-  return { node: renderNode, terminalSize, theme, widthProfile, layout, regions, frame };
+  return {
+    node: renderNode,
+    terminalSize,
+    theme,
+    widthProfile,
+    layout,
+    regions,
+    frame,
+    limits: budget.limits,
+    graphicsBudget: budget.graphicsLimits,
+  };
 }
 
 function recordRenderWork(
@@ -269,19 +301,6 @@ function recordRenderWork(
   measurement: RenderWorkMeasurement
 ): void {
   instrumentation?.recordWork?.(measurement);
-}
-
-function renderNodeCount(node: RenderNode): number {
-  return 1 + (node.children ?? []).reduce((total, child) => total + renderNodeCount(child), 0);
-}
-
-function layoutNodeCount(node: LayoutNode): number {
-  return 1 + node.children.reduce((total, child) => total + layoutNodeCount(child), 0);
-}
-
-function visibleLayoutNodeCount(node: LayoutNode): number {
-  if (!node.visible) return 0;
-  return 1 + node.children.reduce((total, child) => total + visibleLayoutNodeCount(child), 0);
 }
 
 function measureRenderStage<TValue>(
@@ -321,9 +340,10 @@ function renderLayoutRegions<TMessage>(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined,
-  decorativeNodes: ReadonlySet<RenderNode>
+  decorativeNodes: ReadonlySet<RenderNode>,
+  budget: RenderBudget,
 ): readonly RenderRegion<TMessage>[] {
-  const composer = createRegionComposer<TMessage>(terminalSize, widthProfile, decorativeNodes);
+  const composer = createRegionComposer<TMessage>(terminalSize, widthProfile, decorativeNodes, budget);
   const path = nodePath(layout, []);
   renderRenderNodeToRegion(
     renderNode,
@@ -343,9 +363,10 @@ function frameHitTargets<TMessage>(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   region: DraftRenderRegion,
-  decorativeNodes: ReadonlySet<RenderNode>
+  decorativeNodes: ReadonlySet<RenderNode>,
+  budget: RenderBudget,
 ): readonly RenderRegionHitTarget<TMessage>[] {
-  return targets
+  const result = targets
     .flatMap((target): RenderRegionHitTarget<TMessage>[] => {
       const hitTargets = hitTargetsForRenderNode(target.renderNode, target, theme, widthProfile);
       assertDecorativeNodeHasNoHitTargets(target.renderNode, hitTargets, decorativeNodes);
@@ -366,6 +387,8 @@ function frameHitTargets<TMessage>(
             )];
       });
     });
+  budget.addHitTargets(result.length);
+  return result;
 }
 
 function resolveHitTargetFocus<TMessage>(
@@ -559,12 +582,14 @@ interface RegionComposer<TMessage> {
 function createRegionComposer<TMessage>(
   terminalSize: TerminalSize,
   widthProfile: TextWidthProfile,
-  decorativeNodes: ReadonlySet<RenderNode>
+  decorativeNodes: ReadonlySet<RenderNode>,
+  budget: RenderBudget,
 ): RegionComposer<TMessage> {
   const regions: DraftRenderRegion[] = [];
   let regionOrder = 0;
   return {
     regionFor(renderNode, node, path) {
+      budget.addRegions();
       const backdropBounds = renderNode.layer?.backdrop === 'viewport'
         ? { row: 1, column: 1, width: terminalSize.columns, height: terminalSize.rows }
         : undefined;
@@ -609,7 +634,8 @@ function createRegionComposer<TMessage>(
               theme,
               snapshotWidthProfile,
               region,
-              decorativeNodes
+              decorativeNodes,
+              budget,
             ),
             focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds)
           };
@@ -621,9 +647,22 @@ function createRegionComposer<TMessage>(
 function compositeRegions(
   terminalSize: TerminalSize,
   regions: readonly RenderRegion[],
-  widthProfile: TextWidthProfile
-): FrameBuffer {
+  widthProfile: TextWidthProfile,
+  budget?: RenderBudget,
+): { readonly buffer: FrameBuffer; readonly diagnostic?: TerminalDiagnostic } {
   const buffer = createFrameBuffer(terminalSize.columns, terminalSize.rows, { widthProfile });
+  let graphicsAllowed = true;
+  let graphicsDiagnostic: TerminalDiagnostic | undefined;
+  if (budget !== undefined) {
+    const placementCount = regions.reduce((count, region) => count + region.graphics.length, 0);
+    try {
+      budget.addGraphicsPlacements(placementCount);
+    } catch (cause) {
+      if (!(cause instanceof GraphicsBudgetExceededError)) throw cause;
+      graphicsAllowed = false;
+      graphicsDiagnostic = graphicsLimitDiagnostic(cause);
+    }
+  }
   let canvasBackdropActive = false;
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
     if (region.backdropBounds !== undefined) {
@@ -635,7 +674,7 @@ function compositeRegions(
       for (const cell of region.cells) {
         transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
       }
-      placeRegionGraphics(buffer, region.graphics);
+      if (graphicsAllowed) placeRegionGraphics(buffer, region.graphics);
       continue;
     }
     if (region.underlay === 'inheritBackground') {
@@ -643,22 +682,43 @@ function compositeRegions(
         const inherited = withInheritedBackground(cell, buffer.readCell(cell.row, cell.column));
         transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(inherited) : inherited);
       }
-      placeRegionGraphics(buffer, region.graphics);
+      if (graphicsAllowed) placeRegionGraphics(buffer, region.graphics);
       continue;
     }
     for (const cell of region.cells) {
       transferFrameCell(buffer, canvasBackdropActive ? aboveBackdrop(cell) : cell);
     }
-    placeRegionGraphics(buffer, region.graphics);
+    if (graphicsAllowed) placeRegionGraphics(buffer, region.graphics);
   }
-  return buffer;
+  return {
+    buffer,
+    ...(graphicsDiagnostic === undefined ? {} : { diagnostic: graphicsDiagnostic }),
+  };
 }
 
-function placeRegionGraphics(buffer: FrameBuffer, graphics: readonly GraphicPlacement[]): void {
+function placeRegionGraphics(
+  buffer: FrameBuffer,
+  graphics: readonly GraphicPlacement[],
+): void {
   for (const graphic of graphics) {
     buffer.occludeGraphics(graphic.clip);
     buffer.placeGraphic(graphic);
   }
+}
+
+function graphicsLimitDiagnostic(cause: GraphicsBudgetExceededError): TerminalDiagnostic {
+  return diagnostic(
+    'TUI_GRAPHICS_LIMIT_EXCEEDED',
+    'Terminal graphics exceeded its configured resource budget; the text fallback was retained.',
+    {
+      severity: 'warning',
+      data: {
+        resource: cause.resource,
+        limit: cause.limit,
+        requested: Number.isFinite(cause.requested) ? cause.requested : String(cause.requested),
+      },
+    },
+  );
 }
 
 const backdropStyle: TerminalStyle = Object.freeze({

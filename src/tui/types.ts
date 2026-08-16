@@ -9,7 +9,7 @@ import type { Frame } from '../renderer/contracts.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
 import type { MessageResolution, TuiMessageSource } from '../interaction/message.ts';
-import type { TerminalGraphicsMode } from '../graphics/index.ts';
+import type { GraphicsBudgetLimits, TerminalGraphicsMode } from '../graphics/index.ts';
 
 export interface TuiDefinition<TState, TMessage> {
   readonly id?: string;
@@ -123,7 +123,14 @@ export interface TuiEffectPolicy {
 
 export type TuiEffectConcurrency = 'parallel' | 'keep-first' | 'replace' | 'enqueue';
 
-export type TuiEventDelivery = 'sequential' | 'latest';
+export type TuiSourceEmission<TMessage> =
+  | { readonly kind: 'reliable'; readonly message: TMessage }
+  | { readonly kind: 'replaceable'; readonly key: string; readonly message: TMessage };
+
+export interface TuiSourceChannelPolicy {
+  readonly capacity: number;
+  readonly cadenceMs?: number;
+}
 
 export type TuiSourceLifecycle =
   | { readonly kind: 'completed'; readonly id: string; readonly generation: string | number }
@@ -138,8 +145,8 @@ export interface TuiEventSource<TMessage> {
   readonly id: string;
   readonly generation: string | number;
   readonly source?: Exclude<TuiMessageSource, 'input' | 'effect'>;
-  readonly delivery: TuiEventDelivery;
-  messages(context: TuiSubscriptionContext): AsyncIterable<TMessage>;
+  readonly channel?: TuiSourceChannelPolicy;
+  messages(context: TuiSubscriptionContext): AsyncIterable<TuiSourceEmission<TMessage>>;
   onLifecycle?(event: TuiSourceLifecycle): MessageResolution<TMessage>;
   dispose?(): void | Promise<void>;
 }
@@ -188,6 +195,7 @@ export interface TuiRuntimeOptions<TState, TMessage> {
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;
   readonly graphics?: TerminalGraphicsMode;
+  readonly graphicsBudget?: Partial<GraphicsBudgetLimits>;
   readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
   readonly transcript?: TranscriptRecorder;
@@ -207,6 +215,7 @@ export interface TuiRunOptions<TState = unknown> {
   readonly lifecycle?: TuiLifecyclePolicy;
   readonly input?: TuiRunInputPolicy;
   readonly graphics?: TerminalGraphicsMode;
+  readonly graphicsBudget?: Partial<GraphicsBudgetLimits>;
 }
 
 export interface TuiRunInputPolicy {
@@ -227,6 +236,7 @@ export interface TuiLifecyclePolicy {
 export interface TuiRuntime<TState, TMessage> {
   start(): Promise<Frame>;
   dispatch(message: TMessage): Promise<TState>;
+  dispatchMany(messages: readonly TMessage[]): Promise<TState>;
   resize(terminalSize: TerminalSize): Promise<Frame>;
   handleInput(event: InputEvent): Promise<TuiInputResult<TState>>;
   handleInputChunk(chunk: TerminalInputChunk): Promise<TuiInputBatchResult<TState>>;
@@ -261,6 +271,17 @@ export interface TuiRuntimeMetrics {
     readonly queued: number;
     readonly rejected: number;
   };
+  readonly sources: TuiSourceChannelMetrics;
+}
+
+export interface TuiSourceChannelMetrics {
+  readonly reliableAdmissions: number;
+  readonly replaceableAdmissions: number;
+  readonly replacements: number;
+  readonly dispatchedMessages: number;
+  readonly dispatchedBatches: number;
+  readonly maximumBuffered: number;
+  readonly cadenceFlushes: number;
 }
 
 export interface TuiInputBatchResult<TState> {

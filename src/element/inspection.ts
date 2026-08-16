@@ -10,7 +10,7 @@ interface ComponentCapabilityInspectionBase {
   readonly identity: 'required' | 'optional';
   readonly structure: 'leaf' | 'composite' | 'composed';
   readonly states: readonly ('disabled' | 'busy' | 'readOnly' | 'inert')[];
-  readonly actions: readonly ('keyboard' | 'input' | 'paste' | 'pointer')[];
+  readonly actions: readonly ('keyboard' | 'input' | 'paste' | 'pointer' | 'focus')[];
 }
 
 export type ComponentCapabilityInspection =
@@ -28,10 +28,22 @@ export interface ComponentDefinitionInspection extends ComponentCapabilityInspec
   readonly accessibleRole?: import('../accessibility/types.ts').AccessibleRole;
 }
 
+export type ComponentInspectionValue =
+  | null
+  | string
+  | number
+  | boolean
+  | readonly ComponentInspectionValue[]
+  | ComponentInspectionRecord;
+
+export interface ComponentInspectionRecord {
+  readonly [field: string]: ComponentInspectionValue;
+}
+
 export interface ComponentSemanticInspection {
-  readonly value?: string | number | boolean;
-  readonly active?: unknown;
-  readonly selection?: unknown;
+  readonly value?: ComponentInspectionValue;
+  readonly active?: ComponentInspectionValue;
+  readonly selection?: ComponentInspectionValue;
   readonly validation?: {
     readonly required?: boolean;
     readonly invalid: boolean;
@@ -42,7 +54,8 @@ export interface ComponentSemanticInspection {
     readonly totalCount?: number;
     readonly visibleCount?: number;
   };
-  readonly state: Readonly<Record<string, unknown>>;
+  readonly redacted?: true;
+  readonly details?: ComponentInspectionRecord;
 }
 
 export interface ElementInputInspection {

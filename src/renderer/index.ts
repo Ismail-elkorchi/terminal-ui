@@ -150,7 +150,7 @@ export {
   measureText,
   normalizeMeasurement,
   zeroMeasurement
-} from './internal/measurement.ts';
+} from './measurement.ts';
 export { adoptMeasurement } from './measurement-validation.ts';
 export {
   highlightRenderSpans
@@ -175,6 +175,8 @@ export {
 export type {
   RenderElementOptions
 } from './internal/render.ts';
+export type { RenderBudgetLimits } from './internal/render-budget.ts';
+export { defaultRenderBudgetLimits } from './internal/render-budget.ts';
 export {
   layoutElement
 } from './internal/layout.ts';

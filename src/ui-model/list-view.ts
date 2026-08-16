@@ -3,9 +3,9 @@ import type {
   ListboxViewEntry,
   PreparedListboxView,
 } from './list.ts';
-import { normalizeCollectionQuery, queryNormalizedCandidates } from './query.ts';
+import { prepareCollectionQuery, prepareQueryCandidate, queryPreparedCandidates } from '../text/query.ts';
 import { prepareCollectionInteractionIndex } from '../interaction/collection.ts';
-import type { CollectionQuery } from './query.ts';
+import type { CollectionQuery, PreparedCollectionQuery } from '../text/query.ts';
 
 interface ListboxViewIndex<TValue> {
   readonly view: PreparedListboxView<TValue>;
@@ -17,12 +17,12 @@ const views = new WeakMap<object, Map<string, ListboxViewIndex<unknown>>>();
 
 export function prepareListboxView<TValue>(
   collection: ListboxCollection<TValue>,
-  options?: { readonly filterQuery?: CollectionQuery },
+  options?: { readonly query?: CollectionQuery },
 ): PreparedListboxView<TValue> {
-  if (collection.kind === 'window' && options?.filterQuery !== undefined) {
+  if (collection.kind === 'window' && options?.query !== undefined) {
     throw new TypeError('Windowed listbox collections own their filter query.');
   }
-  const query = queryFor(collection, options?.filterQuery);
+  const query = queryFor(collection, options?.query);
   return viewIndex(collection, query).view;
 }
 
@@ -42,7 +42,7 @@ export function listboxViewScrollPosition<TValue>(
 
 function viewIndex<TValue>(
   collection: ListboxCollection<TValue>,
-  query: Required<CollectionQuery>,
+  query: PreparedCollectionQuery,
 ): ListboxViewIndex<TValue> {
   let byQuery = views.get(collection);
   if (byQuery === undefined) {
@@ -58,10 +58,10 @@ function viewIndex<TValue>(
 
   function matchedRecords(
     source: ListboxCollection<TValue>,
-    normalizedQuery: Required<CollectionQuery>,
+    normalizedQuery: PreparedCollectionQuery,
   ): readonly ListboxCollection<TValue>['records'][number][] {
     const records = new Map(source.records.map((record) => [record.id, record] as const));
-    return queryNormalizedCandidates(source.records.map((record) => ({
+    return queryPreparedCandidates(source.records.map((record) => prepareQueryCandidate({
         id: record.id,
         primary: record.item.label,
         secondary: [
@@ -125,17 +125,16 @@ function retainView(
 
 function queryFor<TValue>(
   collection: ListboxCollection<TValue>,
-  filterQuery: CollectionQuery | undefined,
-): Required<CollectionQuery> {
+  requestedQuery: CollectionQuery | undefined,
+): PreparedCollectionQuery {
   if (collection.kind === 'window') {
-    return normalizeCollectionQuery({
-      text: collection.domain.kind === 'projection' ? collection.domain.filterQuery ?? '' : '',
-      mode: 'contains',
-    });
+    return collection.domain.kind === 'projection' && collection.domain.query !== undefined
+      ? collection.domain.query
+      : prepareCollectionQuery({ text: '', mode: 'contains' });
   }
-  return normalizeCollectionQuery(filterQuery ?? { text: '', mode: 'contains' });
+  return prepareCollectionQuery(requestedQuery ?? { text: '', mode: 'contains' });
 }
 
-function queryKey(query: Required<CollectionQuery>): string {
+function queryKey(query: PreparedCollectionQuery): string {
   return `${query.mode}:${query.caseSensitive ? '1' : '0'}:${query.text}`;
 }

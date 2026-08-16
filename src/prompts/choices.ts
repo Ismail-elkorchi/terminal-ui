@@ -1,6 +1,8 @@
 import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { ChoicePromptDefinition, PromptChoice, PromptDefinition } from './types.ts';
+import { matchCollectionQuery } from '../text/query.ts';
+import type { QueryMatchMode } from '../text/query.ts';
 
 export function isChoiceDisabled<TValue>(choice: PromptChoice<TValue>): boolean {
   return choice.disabled !== undefined && choice.disabled !== false;
@@ -46,13 +48,13 @@ export function findChoiceBySearch<TValue>(
   query: string,
   startIndex: number
 ): number | undefined {
-  const normalized = query.trim().toLowerCase();
-  if (normalized.length === 0 || choices.length === 0) return undefined;
-  for (const matches of [choiceStartsWithQuery, choiceIncludesQuery]) {
+  const text = query.trim();
+  if (text.length === 0 || choices.length === 0) return undefined;
+  for (const mode of ['prefix', 'contains'] as const) {
     for (let step = 0; step < choices.length; step += 1) {
       const index = (startIndex + step) % choices.length;
       const choice = choices[index];
-      if (choice !== undefined && !isChoiceDisabled(choice) && matches(choice, normalized)) return index;
+      if (choice !== undefined && !isChoiceDisabled(choice) && choiceMatchesQuery(choice, text, mode, index)) return index;
     }
   }
   return undefined;
@@ -62,9 +64,9 @@ export function filterStaticChoices<TValue>(
   choices: readonly PromptChoice<TValue>[],
   query: string
 ): readonly PromptChoice<TValue>[] {
-  const normalized = query.trim().toLowerCase();
-  if (normalized.length === 0) return choices;
-  return choices.filter((choice) => choiceMatchesQuery(choice, normalized));
+  const text = query.trim();
+  if (text.length === 0) return choices;
+  return choices.filter((choice, index) => choiceMatchesQuery(choice, text, 'contains', index));
 }
 
 export async function resolvePromptChoices<TValue>(
@@ -130,17 +132,16 @@ export type ChoiceResolution<TValue> =
       readonly diagnostics: readonly TerminalDiagnostic[];
     };
 
-function choiceMatchesQuery<TValue>(choice: PromptChoice<TValue>, normalizedQuery: string): boolean {
-  return choiceIncludesQuery(choice, normalizedQuery);
-}
-
-function choiceStartsWithQuery<TValue>(choice: PromptChoice<TValue>, normalizedQuery: string): boolean {
-  return choice.label.toLowerCase().startsWith(normalizedQuery)
-    || choice.keywords?.some((keyword) => keyword.toLowerCase().startsWith(normalizedQuery)) === true;
-}
-
-function choiceIncludesQuery<TValue>(choice: PromptChoice<TValue>, normalizedQuery: string): boolean {
-  return choice.label.toLowerCase().includes(normalizedQuery)
-    || choice.description?.toLowerCase().includes(normalizedQuery) === true
-    || choice.keywords?.some((keyword) => keyword.toLowerCase().includes(normalizedQuery)) === true;
+function choiceMatchesQuery<TValue>(
+  choice: PromptChoice<TValue>,
+  text: string,
+  mode: Extract<QueryMatchMode, 'prefix' | 'contains'>,
+  index: number,
+): boolean {
+  return matchCollectionQuery({
+    id: String(index),
+    primary: choice.label,
+    secondary: [choice.description, ...(choice.keywords ?? [])]
+      .filter((value): value is string => value !== undefined),
+  }, { text, mode }) !== undefined;
 }

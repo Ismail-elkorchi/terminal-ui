@@ -184,6 +184,26 @@ export function runChartConformance(name, createChart) {
   });
 }
 
+export function runPassiveFamilyConformance(name, fixtures) {
+  test(`${name}: passive family shares deterministic semantics, source ownership, and tiny bounds`, () => {
+    for (const fixture of fixtures) {
+      const element = fixture.create();
+      const input = { element, terminalSize: { columns: 16, rows: 3 } };
+      const first = renderElementSnapshot(input);
+      const second = renderElementSnapshot(input);
+      assert.equal(first.frameJson, second.frameJson, fixture.name);
+      assert.equal(first.frame.accessibility.root.role, fixture.role, fixture.name);
+      assert.equal(
+        first.frame.cells.some((cell) => cell.source?.rendererFamily === 'component'),
+        true,
+        fixture.name
+      );
+      const tiny = renderElementSnapshot({ element, terminalSize: { columns: 1, rows: 1 } });
+      assert.equal(tiny.frame.cells.length <= 1, true, fixture.name);
+    }
+  });
+}
+
 function flattenLayout(root) {
   const nodes = [];
   const pending = [root];

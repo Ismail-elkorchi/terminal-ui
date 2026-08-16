@@ -19,3 +19,39 @@ export type {
   TextAreaOptions,
   UnscrolledTextAreaOptions,
 } from './options/content.ts';
+export type {
+  AnyComboboxPresentation,
+  AutocompleteComboboxControlTransition,
+  AutocompleteComboboxPresentation,
+  AutocompleteComboboxState,
+  AutocompleteComboboxTransition,
+  ComboboxCommitEvent,
+  ComboboxControlTransition,
+  ComboboxPresentation,
+  ScrollableComboboxPresentation,
+  ComboboxTransition,
+  UnscrolledComboboxPresentation,
+} from '../ui-model/combobox.ts';
+export type {
+  CalendarAction,
+  CalendarDate,
+  CalendarDay,
+  CalendarMonth,
+} from '../ui-model/calendar.ts';
+export type {
+  CheckboxGroupAction,
+  ColorSwatchPickerAction,
+  RadioGroupAction,
+} from '../ui-model/choice-controls.ts';
+export type { NumberInputAction, NumberInputControlAction, NumberInputValidity } from '../ui-model/number-input.ts';
+export type { RangeSliderAction, RangeSliderHandle, RangeSliderState } from '../ui-model/range-slider.ts';
+export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
+export type {
+  TextAreaAction,
+  TextAreaControlAction,
+  TextAreaPresentation,
+  ScrollableTextAreaPresentation,
+  UnscrolledTextAreaPresentation,
+} from '../ui-model/text-area.ts';
+export type { PointerSelectionAction, TextPointerAction } from '../interaction/text-pointer.ts';
+export { isValidationLevel } from '../ui-model/status.ts';

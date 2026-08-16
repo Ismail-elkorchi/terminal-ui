@@ -1,6 +1,7 @@
 import { minimalTheme } from '../theme/index.ts';
 import { serializeRenderSpans } from '../renderer/internal/ansi.ts';
 import { choiceStatusLines, promptLine } from './render-line.ts';
+import { matchCollectionQuery } from '../text/query.ts';
 import type { TerminalCapabilityProfile } from '../host/index.ts';
 import type { PromptRuntimeState } from './state.ts';
 import type { PromptChoice } from './types.ts';
@@ -56,8 +57,11 @@ function renderAutocompleteChoiceLine<TValue>(
 }
 
 function highlightedField(text: string, query: string): RenderSpan {
-  const normalizedQuery = query.trim().toLowerCase();
-  const matches = normalizedQuery.length > 0 && text.toLowerCase().includes(normalizedQuery);
+  const normalizedQuery = query.trim();
+  const matches = normalizedQuery.length > 0 && matchCollectionQuery(
+    { id: 'prompt-choice', primary: text },
+    { text: normalizedQuery, mode: 'contains' },
+  ) !== undefined;
   return matches
     ? { text, style: { fg: { kind: 'theme', token: 'command.match' }, underline: true } }
     : { text };

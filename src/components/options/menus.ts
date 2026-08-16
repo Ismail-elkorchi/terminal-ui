@@ -30,7 +30,6 @@ interface InteractiveMenuOptions {
   readonly id: string;
   readonly pointerState?: PointerInteractionState;
   readonly disabled?: boolean;
-  readonly readOnly?: boolean;
   readonly busy?: boolean;
   readonly inert?: boolean;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], MenuStylePart>;
@@ -57,7 +56,6 @@ type MenuAvailability<TTransition, TMessage extends ComponentMessage> =
       | {
           readonly disabled: true;
           readonly pointerState?: never;
-          readonly readOnly?: never;
           readonly busy?: never;
           readonly inert?: boolean;
         }
@@ -65,7 +63,6 @@ type MenuAvailability<TTransition, TMessage extends ComponentMessage> =
           readonly disabled?: false;
           readonly inert: true;
           readonly pointerState?: never;
-          readonly readOnly?: never;
         }
     ));
 

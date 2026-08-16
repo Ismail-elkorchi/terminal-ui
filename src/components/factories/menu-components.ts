@@ -35,6 +35,12 @@ import type {
   AnchoredSurfacePlacement,
 } from '../../interaction/anchored-surface.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
+import {
+  containedPopupFocus,
+  popupAllowsDismissal,
+  popupFocusScope,
+  standardPopupDismissal,
+} from '../../interaction/popup.ts';
 import { formatKeyboardBinding } from '../../interaction/key-binding.ts';
 import type { KeyboardBinding } from '../../interaction/key-binding.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
@@ -134,7 +140,7 @@ const instantiateMenu = defineComponent<
   MenuModel,
   MenuComponentAction,
   MenuStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
@@ -144,7 +150,7 @@ const instantiateMenu = defineComponent<
   semantics: 'semantic',
   accessibleRole: 'menu',
   metadata: ['focus', 'layer', 'styles'],
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  states: ['disabled', 'busy', 'inert'],
   parts: [
     'control',
     'title',
@@ -162,7 +168,7 @@ const instantiateMenu = defineComponent<
   prepare: (value, context) => prepareMenu(value, !context.disabled && !context.inert),
   measure: measureMenu,
   render: paintMenu,
-  keys: ({ model, busy, readOnly }) => busy ? {} : ({
+  keys: ({ model, busy }) => busy ? {} : ({
     arrowUp: () => menuComponentTransition({ kind: 'move', delta: -1 }),
     arrowDown: () => menuComponentTransition({ kind: 'move', delta: 1 }),
     home: () => menuComponentTransition({ kind: 'first' }),
@@ -174,7 +180,7 @@ const instantiateMenu = defineComponent<
         ? ignoreMessage()
         : activeMenuItem(model)?.kind === 'submenu'
         ? menuComponentTransition({ kind: 'enter' })
-        : readOnly ? ignoreMessage() : {
+        : {
           kind: 'activate',
           event: { kind: 'activate', id: activeMenuItem(model)?.id ?? '' },
         },
@@ -201,7 +207,6 @@ export const menu: MenuFactory = (options) => {
   return instantiateMenu({
     ...shared,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => routeMenuComponentAction(action, options),
   });
 };
@@ -227,9 +232,7 @@ function routeMenuComponentAction<TMessage extends ComponentMessage>(
   options: MenuOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
 ) {
   if (action.kind === 'transition') return options.onTransition(action.transition);
-  if (action.kind === 'activate') {
-    return options.readOnly ? ignoreMessage() : options.onActivate?.(action.event) ?? ignoreMessage();
-  }
+  if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
   return options.onPointerAction?.(action.action) ?? ignoreMessage();
 }
 
@@ -271,7 +274,7 @@ const instantiateMenuBar = defineComponent<
   MenuBarModel,
   MenuBarComponentAction,
   MenuStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
   typeof popupSlot
@@ -283,7 +286,7 @@ const instantiateMenuBar = defineComponent<
   accessibleRole: 'menubar',
   slots: popupSlot,
   metadata: ['focus', 'layer', 'styles'],
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  states: ['disabled', 'busy', 'inert'],
   parts: [
     'control',
     'title',
@@ -307,11 +310,11 @@ const instantiateMenuBar = defineComponent<
         input.model.presentation.menu,
         input.model.maxVisibleItems,
         (action) => input.emit(menuBarChildAction(action)),
+        () => input.emit(menuBarComponentTransition({ kind: 'close', reason: 'outsidePress' })),
         input.model.scrollbar,
         input.model.scrollPolicy,
         input.styles,
         undefined,
-        input.readOnly,
         input.busy,
       ),
     };
@@ -331,7 +334,11 @@ const instantiateMenuBar = defineComponent<
       : { ...input.bounds, height: Math.min(1, input.bounds.height) },
   }),
   renderBeforeChildren: paintMenuBar,
-  keys: ({ model, busy }) => busy ? {} : ({
+  keys: ({ model, busy }) => busy
+    ? model.presentation.kind === 'open'
+      ? { escape: () => menuBarComponentTransition({ kind: 'close', reason: 'escape' }) }
+      : {}
+    : ({
     arrowLeft: () => menuBarComponentTransition({ kind: 'moveHeading', delta: -1 }),
     arrowRight: () => menuBarComponentTransition({ kind: 'moveHeading', delta: 1 }),
     home: () => menuBarComponentTransition({ kind: 'firstHeading' }),
@@ -345,7 +352,15 @@ const instantiateMenuBar = defineComponent<
     escape: () => menuBarComponentTransition({ kind: 'close', reason: 'escape' }),
   }),
   pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
-  focusScope: ({ model }) => model.presentation.kind === 'open' ? { kind: 'contain' } : undefined,
+  focusScope: ({ model }) => popupFocusScope(
+    model.presentation.kind === 'open',
+    containedPopupFocus,
+  ),
+  onFocus: (event, { model }) => event.kind === 'focusLeave'
+    && model.presentation.kind === 'open'
+    && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
+    ? menuBarComponentTransition({ kind: 'close', reason: 'focusLoss' })
+    : ignoreMessage(),
   focusTargets: (
     { bounds },
   ) => [{ id: 'self', bounds: { ...bounds, height: Math.min(1, bounds.height) } }],
@@ -369,7 +384,6 @@ export const menuBar: MenuBarFactory = (options) => {
   return instantiateMenuBar({
     ...shared,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => routeMenuBarAction(action, options),
   });
 };
@@ -402,9 +416,7 @@ function routeMenuBarAction<TMessage extends ComponentMessage>(
   options: MenuBarOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
 ) {
   if (action.kind === 'transition') return options.onTransition(action.transition);
-  if (action.kind === 'activate') {
-    return options.readOnly ? ignoreMessage() : options.onActivate?.(action.event) ?? ignoreMessage();
-  }
+  if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
   return options.onPointerAction?.(action.action) ?? ignoreMessage();
 }
 
@@ -427,7 +439,7 @@ interface ContextMenuModel {
 
 type ContextOwnOptions = Omit<
   ContextMenuOptions<ComponentMessage>,
-  'id' | 'onTransition' | 'onActivate' | 'onPointerAction' | 'meta' | 'disabled' | 'busy' | 'readOnly' | 'inert'
+  'id' | 'onTransition' | 'onActivate' | 'onPointerAction' | 'meta' | 'disabled' | 'busy' | 'inert'
 >;
 
 type ContextMenuFactory = <const TMessage extends ComponentMessage = never>(
@@ -444,7 +456,7 @@ const instantiateContextMenu = defineComponent<
   ContextMenuModel,
   ContextMenuComponentAction,
   MenuStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
@@ -454,7 +466,7 @@ const instantiateContextMenu = defineComponent<
   semantics: 'semantic',
   accessibleRole: 'menu',
   metadata: ['focus', 'layer', 'styles'],
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  states: ['disabled', 'busy', 'inert'],
   parts: [
     'control',
     'title',
@@ -481,7 +493,6 @@ const instantiateContextMenu = defineComponent<
       ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),
       ...(input.model.scrollPolicy === undefined ? {} : { scrollPolicy: input.model.scrollPolicy }),
       ...(input.styles === undefined ? {} : { meta: { styles: input.styles } }),
-      ...(input.readOnly ? { readOnly: true } : {}),
       ...(input.busy ? { busy: true } : {}),
       onTransition: (transition) => input.emit(contextMenuComponentTransition({
         kind: 'menu',
@@ -502,10 +513,12 @@ const instantiateContextMenu = defineComponent<
         id: `${input.id ?? 'context-menu'}:portal`,
         anchor: input.model.presentation.anchor,
         placement: input.model.placement,
-        onOutsidePress: () => input.emit(contextMenuComponentTransition({
-          kind: 'dismiss',
-          reason: 'outsidePress',
-        })),
+        ...(popupAllowsDismissal(standardPopupDismissal, 'outsidePress') ? {
+          onOutsidePress: () => input.emit(contextMenuComponentTransition({
+            kind: 'dismiss',
+            reason: 'outsidePress',
+          })),
+        } : {}),
         meta: {
           layer: {
             ...input.layer,
@@ -521,7 +534,15 @@ const instantiateContextMenu = defineComponent<
       ? { escape: () => contextMenuComponentTransition({ kind: 'dismiss', reason: 'escape' }) }
       : {},
   pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
-  focusScope: ({ model }) => model.presentation.kind === 'open' ? { kind: 'contain' } : undefined,
+  focusScope: ({ model }) => popupFocusScope(
+    model.presentation.kind === 'open',
+    containedPopupFocus,
+  ),
+  onFocus: (event, { model }) => event.kind === 'focusLeave'
+    && model.presentation.kind === 'open'
+    && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
+    ? contextMenuComponentTransition({ kind: 'dismiss', reason: 'focusLoss' })
+    : ignoreMessage(),
   accessibility: contextMenuAccessibility,
 });
 
@@ -541,7 +562,6 @@ export const contextMenu: ContextMenuFactory = (options) => {
   return instantiateContextMenu({
     ...shared,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => routeContextMenuAction(action, options),
   });
 };
@@ -574,9 +594,7 @@ function routeContextMenuAction<TMessage extends ComponentMessage>(
   options: ContextMenuOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
 ) {
   if (action.kind === 'transition') return options.onTransition(action.transition);
-  if (action.kind === 'activate') {
-    return options.readOnly ? ignoreMessage() : options.onActivate?.(action.event) ?? ignoreMessage();
-  }
+  if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
   return options.onPointerAction?.(action.action) ?? ignoreMessage();
 }
 
@@ -596,7 +614,7 @@ interface MenuTriggerModel {
 
 type MenuTriggerOwnOptions = Omit<
   MenuTriggerOptions<ComponentMessage>,
-  'id' | 'onTransition' | 'onActivate' | 'onPointerAction' | 'meta' | 'disabled' | 'busy' | 'readOnly' | 'inert'
+  'id' | 'onTransition' | 'onActivate' | 'onPointerAction' | 'meta' | 'disabled' | 'busy' | 'inert'
 >;
 
 type MenuTriggerFactory = <const TMessage extends ComponentMessage = never>(
@@ -613,7 +631,7 @@ const instantiateMenuTrigger = defineComponent<
   MenuTriggerModel,
   MenuTriggerComponentAction,
   MenuStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
   typeof popupSlot
@@ -625,7 +643,7 @@ const instantiateMenuTrigger = defineComponent<
   accessibleRole: 'group',
   slots: popupSlot,
   metadata: ['focus', 'layer', 'styles'],
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  states: ['disabled', 'busy', 'inert'],
   parts: [
     'control',
     'title',
@@ -649,11 +667,11 @@ const instantiateMenuTrigger = defineComponent<
         input.model.presentation.menu,
         input.model.maxVisibleItems,
         (action) => input.emit(menuTriggerChildAction(action)),
+        () => input.emit(menuTriggerComponentTransition({ kind: 'dismiss', reason: 'outsidePress' })),
         input.model.scrollbar,
         input.model.scrollPolicy,
         input.styles,
         input.model.placement,
-        input.readOnly,
         input.busy,
       ),
     };
@@ -676,7 +694,11 @@ const instantiateMenuTrigger = defineComponent<
       : { ...input.bounds, height: Math.min(1, input.bounds.height) },
   }),
   renderBeforeChildren: paintMenuTrigger,
-  keys: ({ model, busy }) => busy ? {} : ({
+  keys: ({ model, busy }) => busy
+    ? model.presentation.kind === 'open'
+      ? { escape: () => menuTriggerComponentTransition({ kind: 'dismiss', reason: 'escape' }) }
+      : {}
+    : ({
     enter: () => menuTriggerComponentTransition({ kind: 'toggle' }),
     space: () => menuTriggerComponentTransition({ kind: 'toggle' }),
     arrowDown: () =>
@@ -690,13 +712,21 @@ const instantiateMenuTrigger = defineComponent<
     escape: () => menuTriggerComponentTransition({ kind: 'dismiss', reason: 'escape' }),
   }),
   pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
-  focusScope: ({ model }) => model.presentation.kind === 'open' ? { kind: 'contain' } : undefined,
+  focusScope: ({ model }) => popupFocusScope(
+    model.presentation.kind === 'open',
+    containedPopupFocus,
+  ),
+  onFocus: (event, { model }) => event.kind === 'focusLeave'
+    && model.presentation.kind === 'open'
+    && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
+    ? menuTriggerComponentTransition({ kind: 'dismiss', reason: 'focusLoss' })
+    : ignoreMessage(),
   focusTargets: (
     { bounds },
   ) => [{ id: 'self', bounds: { ...bounds, height: Math.min(1, bounds.height) } }],
   hitTargets: (
-    { id, bounds },
-  ) => [{
+    { id, bounds, busy },
+  ) => busy ? [] : [{
     id: `${id ?? 'menu-trigger'}:trigger`,
     bounds: { ...bounds, height: Math.min(1, bounds.height) },
     accepts: ['click'],
@@ -735,7 +765,6 @@ export const menuTrigger: MenuTriggerFactory = (options) => {
   return instantiateMenuTrigger({
     ...shared,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => routeMenuTriggerAction(action, options),
   });
 };
@@ -789,9 +818,7 @@ function routeMenuTriggerAction<TMessage extends ComponentMessage>(
   options: MenuTriggerOptions<TMessage> & { readonly disabled?: false; readonly inert?: false },
 ) {
   if (action.kind === 'transition') return options.onTransition(action.transition);
-  if (action.kind === 'activate') {
-    return options.readOnly ? ignoreMessage() : options.onActivate?.(action.event) ?? ignoreMessage();
-  }
+  if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
   return options.onPointerAction?.(action.action) ?? ignoreMessage();
 }
 
@@ -1211,7 +1238,7 @@ function menuHitTargets(
         cursor: 'pointer' as const,
         message: () => item.kind === 'submenu'
           ? menuComponentTransition({ kind: 'setActive', id: item.id })
-          : input.readOnly ? ignoreMessage() : ({
+          : ({
             kind: 'activate' as const,
             event: { kind: 'activate' as const, id: item.id },
           }),
@@ -1347,6 +1374,7 @@ function paintMenuBar(input: ComponentRenderInput<MenuBarModel, MenuStylePart>):
 function menuBarHitTargets(
   input: ComponentInput<MenuBarModel>,
 ): readonly import('../../renderer/index.ts').HitTarget<MenuBarComponentAction>[] {
+  if (input.busy) return [];
   let column = 0;
   return input.model.items.flatMap((item, index) => {
     if (index > 0) column += 2;
@@ -1361,7 +1389,7 @@ function menuBarHitTargets(
       cursor: 'pointer' as const,
       message: () => item.kind === 'submenu'
         ? menuBarComponentTransition({ kind: 'activateHeading', id: item.id })
-        : input.readOnly ? ignoreMessage() : ({
+        : ({
           kind: 'activate' as const,
           event: { kind: 'activate' as const, id: item.id },
         }),
@@ -1397,11 +1425,11 @@ function menuPopup(
   emit: (
     action: MenuComponentAction,
   ) => import('../../interaction/index.ts').MessageResolution<ComponentMessage>,
+  dismissOutside: () => import('../../interaction/index.ts').MessageResolution<ComponentMessage>,
   scrollbar?: ScrollbarOptions,
   scrollPolicy?: ScrollPolicy,
   styles?: import('../../element/metadata.ts').ElementStyles<MenuStylePart>,
   placement: AnchoredSurfacePlacement = 'auto',
-  readOnly = false,
   busy = false,
 ): Element<ComponentMessage> {
   const popupMenu = menu({
@@ -1410,7 +1438,6 @@ function menuPopup(
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
     ...(styles === undefined ? {} : { meta: { styles } }),
-    ...(readOnly ? { readOnly: true } : {}),
     ...(busy ? { busy: true } : {}),
     onTransition: (transition) => emit(menuComponentTransition(transition)),
     onActivate: (event) => emit({ kind: 'activate', event }),
@@ -1429,6 +1456,9 @@ function menuPopup(
       placement,
       margin: 0,
       fit: 'available',
+      ...(popupAllowsDismissal(standardPopupDismissal, 'outsidePress')
+        ? { onOutsidePress: dismissOutside }
+        : {}),
       meta: { layer: { zIndex: 20, underlay: 'clear' } },
     },
   );

@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { prepareCommandSuggestions, prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
+import {
+  prepareCommandSuggestions,
+  prepareLogHistory,
+  prepareSearchPickerIndex,
+  prepareTreeSource,
+  prepareTreeView,
+} from '../../dist/behavior/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
@@ -149,18 +155,20 @@ function listbox(options) {
 
 function dataGrid(options) {
   return createDataGrid({
-    presentation: { interaction: { kind: 'row',
-    selectionMode: 'single', selectedRowIds: [] } },
+    presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: noMessage,
     ...options
   });
 }
 
 function tree(options) {
+  const { nodes, presentation = { expandedIds: [], selection: { mode: 'none' } }, ...rest } = options;
+  const source = prepareTreeSource(nodes);
   return createTree({
-    presentation: { expandedIds: [], selection: { mode: 'none' } },
+    presentation,
+    view: prepareTreeView(source, presentation),
     onTransition: noMessage,
-    ...options
+    ...rest
   });
 }
 
@@ -334,9 +342,10 @@ test('controlled pointer interaction resolves styles and source state across com
     presentation: {
       value: '/o',
       cursor: 0,
+      open: true,
       suggestions: prepareCommandSuggestions([
-        { id: 'open', value: '/open', label: 'Open' },
-        { id: 'save', value: '/save', label: 'Save' }
+        { id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 2 }, text: '/open' }, label: 'Open' },
+        { id: 'save', completion: { range: { startOffset: 0, endOffsetExclusive: 2 }, text: '/save' }, label: 'Save' }
       ]),
       activeSuggestionId: 'open'
     },
@@ -482,14 +491,15 @@ test('listbox dataGrid and tree share data navigation selection and match styles
       activeId: 'Atlas',
       selection: { mode: 'single', selectedId: 'Atlas' }
     },
-    filterQuery: { text: 'at', mode: 'contains' }
+    query: { text: 'at', mode: 'contains' }
   }), { columns: 18, rows: 2 });
   const tableFrame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
     id: 'styled-dataGrid',
     presentation: {
-      interaction: { kind: 'row',
-      selectionMode: 'single', activeRowId: '0', selectedRowIds: ['0'] }
+      interaction: {
+        kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
+      }
     },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
@@ -501,9 +511,10 @@ test('listbox dataGrid and tree share data navigation selection and match styles
     presentation: {
       interaction: {
         kind: 'cell',
-        selectionMode: 'single',
         activeCell: { rowId: '0', columnId: 'name-0' },
-        selectedCells: [{ rowId: '0', columnId: 'name-0' }]
+        selection: {
+          mode: 'single', selectedCell: { rowId: '0', columnId: 'name-0' },
+        },
       }
     },
     columns: [{
@@ -556,9 +567,9 @@ test('default interactive component anatomy uses theme tokens instead of termina
 }), { columns: 18, rows: 1 });
   const commandFrame = renderElementFrame(commandInput({
     id: 'command',
-    presentation: { value: '/open README.md', cursor: 0, suggestions: prepareCommandSuggestions([
-      { id: 'open', value: '/open', label: 'Open file' },
-      { id: 'save', value: '/save', label: 'Save file' }
+    presentation: { value: '/open README.md', cursor: 0, open: true, suggestions: prepareCommandSuggestions([
+      { id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/open' }, label: 'Open file' },
+      { id: 'save', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/save' }, label: 'Save file' }
     ]), activeSuggestionId: 'open' },
     display: 'expanded',
   }), { columns: 36, rows: 3 });
@@ -706,8 +717,9 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
       columns: [{ id: 'name', header: 'Name', value: (row) => row[0] }],
       getRowId: () => 'atlas',
       presentation: {
-        interaction: { kind: 'row',
-        selectionMode: 'single', activeRowId: 'atlas', selectedRowIds: ['atlas'] }
+        interaction: {
+          kind: 'row', activeRowId: 'atlas', selection: { mode: 'single', selectedRowId: 'atlas' },
+        }
       },
       meta: { focus: { disabled: true } }
     }),

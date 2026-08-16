@@ -6,6 +6,12 @@ import {
 } from '../text/search-index.ts';
 import type { PreparedTextSearchIndex, PreparedTextSearchQuery } from '../text/search-index.ts';
 import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
+import {
+  matchPreparedCollectionQuery,
+  prepareCollectionQuery,
+  prepareQueryCandidate,
+} from '../text/query.ts';
+import type { CollectionQuery, PreparedCollectionQuery } from '../text/query.ts';
 
 export interface LogEntry {
   readonly id: string;
@@ -41,6 +47,11 @@ export interface LogSearchMatch {
   readonly fieldKey?: string;
   readonly startOffset: number;
   readonly endOffsetExclusive: number;
+}
+
+export interface PreparedLogSearchQuery {
+  readonly kind: 'prepared-log-search-query';
+  readonly query: PreparedCollectionQuery;
 }
 
 export interface LogHistorySegment {
@@ -102,31 +113,47 @@ export function logHistoryEntries(history: LogHistory): readonly LogEntry[] {
 
 export function logHistoryRecordMatches(
   record: LogHistoryRecord,
-  query: string
+  query: CollectionQuery,
 ): readonly LogSearchMatch[] {
-  const searchQuery = query.trim();
-  if (searchQuery.length === 0) return [];
-  return logHistoryRecordMatchesPrepared(record, prepareLogSearchQuery(searchQuery));
+  const prepared = prepareLogSearchQuery(query);
+  if (prepared.query.text.length === 0) return [];
+  return logHistoryRecordMatchesPrepared(record, prepared);
 }
 
-export function prepareLogSearchQuery(query: string): PreparedTextSearchQuery {
-  return prepareTextSearchQuery(query.trim());
+export function prepareLogSearchQuery(query: CollectionQuery): PreparedLogSearchQuery {
+  const prepared = prepareCollectionQuery(query);
+  const result = Object.freeze({ kind: 'prepared-log-search-query' as const, query: prepared });
+  preparedLogQueries.set(result, prepareTextSearchQuery(prepared.text, {
+    caseSensitive: prepared.caseSensitive,
+  }));
+  return result;
 }
 
 export function logHistoryRecordMatchesPrepared(
   record: LogHistoryRecord,
-  query: PreparedTextSearchQuery
+  query: PreparedLogSearchQuery
 ): readonly LogSearchMatch[] {
+  const textQuery = preparedLogQueries.get(query);
+  if (textQuery === undefined) throw new TypeError('log query must be created by prepareLogSearchQuery().');
   const matches: LogSearchMatch[] = [];
   for (const field of record.searchFields) {
-    const index = searchIndexFor(field);
-    for (const match of findPreparedTextMatches(index, query)) {
+    const ranges = query.query.mode === 'contains'
+      ? findPreparedTextMatches(searchIndexFor(field, query.query.caseSensitive), textQuery).map((match) => {
+          const index = searchIndexFor(field, query.query.caseSensitive);
+          return {
+            start: index.textIndex.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex),
+            end: index.textIndex.graphemeIndexToCodeUnitOffset(match.endGraphemeIndexExclusive),
+          };
+        })
+      : matchPreparedCollectionQuery(
+          prepareQueryCandidate({ id: record.entry.id, primary: field.text }),
+          query.query,
+        )?.ranges.map((range) => ({ start: range.start, end: range.end })) ?? [];
+    for (const match of ranges) {
       const occurrenceIndex = matches.length;
       const fieldKey = 'key' in field ? field.key : undefined;
-      const startOffset = index.textIndex.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex);
-      const endOffsetExclusive = index.textIndex.graphemeIndexToCodeUnitOffset(
-        match.endGraphemeIndexExclusive
-      );
+      const startOffset = match.start;
+      const endOffsetExclusive = match.end;
       matches.push(Object.freeze({
         id: `${record.entry.id}:${String(occurrenceIndex)}:${field.kind}:${fieldKey ?? ''}:${String(startOffset)}:${String(endOffsetExclusive)}`,
         entryId: record.entry.id,
@@ -167,7 +194,11 @@ const histories = new WeakSet<object>();
 const dataByHistory = new WeakMap<LogHistory, LogHistoryData>();
 const segmentIds = new WeakMap<LogHistorySegment, ReadonlySet<string>>();
 const segmentRecordsById = new WeakMap<LogHistorySegment, ReadonlyMap<string, LogHistoryRecord>>();
-const searchIndexes = new WeakMap<LogSearchField, PreparedTextSearchIndex>();
+const searchIndexes = new WeakMap<LogSearchField, {
+  readonly sensitive: PreparedTextSearchIndex;
+  readonly insensitive: PreparedTextSearchIndex;
+}>();
+const preparedLogQueries = new WeakMap<PreparedLogSearchQuery, PreparedTextSearchQuery>();
 
 const emptyLogHistory: LogHistory = registerHistory(Object.freeze({
   kind: 'log-history',
@@ -206,12 +237,15 @@ function prepareRecords(
   }));
 }
 
-function searchIndexFor(field: LogSearchField): PreparedTextSearchIndex {
+function searchIndexFor(field: LogSearchField, caseSensitive: boolean): PreparedTextSearchIndex {
   const cached = searchIndexes.get(field);
-  if (cached !== undefined) return cached;
-  const prepared = prepareTextSearchIndex(field.text);
+  if (cached !== undefined) return caseSensitive ? cached.sensitive : cached.insensitive;
+  const prepared = Object.freeze({
+    sensitive: prepareTextSearchIndex(field.text, { caseSensitive: true }),
+    insensitive: prepareTextSearchIndex(field.text),
+  });
   searchIndexes.set(field, prepared);
-  return prepared;
+  return caseSensitive ? prepared.sensitive : prepared.insensitive;
 }
 
 function normalizeEntry(

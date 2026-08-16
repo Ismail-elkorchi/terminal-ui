@@ -14,6 +14,14 @@ import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import { column, normalizeLayoutFlowOptions, portal, surface } from '../../layout/index.ts';
 import type { InitialFocusSelector } from '../../interaction/focus.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import {
+  popupAllowsDismissal,
+  popupFocusScope,
+} from '../../interaction/popup.ts';
+import type {
+  PopupDismissalPolicy,
+  PopupFocusPolicy,
+} from '../../interaction/popup.ts';
 import type { DialogOptions } from '../options/dialog.ts';
 import type { DialogAction, DialogDismissal, DialogFocusPolicy } from '../../ui-model/dialog.ts';
 import type { DialogStylePart } from '../../ui-model/style-parts.ts';
@@ -108,17 +116,11 @@ const instantiateDialog = defineComponent<
     };
   },
   focusScope({ model }) {
-    if (!model.modal) return undefined;
-    return {
-      kind: 'contain',
-      ...(model.focusPolicy?.initialFocus === undefined
-        ? {}
-        : { initialFocus: model.focusPolicy.initialFocus }),
-      restore: model.focusPolicy?.returnFocus === 'restore',
-    };
+    return popupFocusScope(model.modal, dialogPopupFocusPolicy(model));
   },
   keys({ model }) {
-    return model.dismissal?.escape === true
+    return model.dismissal !== undefined
+      && popupAllowsDismissal(dialogPopupDismissalPolicy(model.dismissal), 'escape')
       ? { escape: () => ({ kind: 'dismiss', reason: 'escape' }) }
       : {};
   },
@@ -181,7 +183,8 @@ const instantiateDialog = defineComponent<
           ...(model.modal ? { backdrop: 'viewport' as const } : {}),
         },
       },
-      ...(model.dismissal?.outsidePress === true
+      ...(model.dismissal !== undefined
+        && popupAllowsDismissal(dialogPopupDismissalPolicy(model.dismissal), 'outsidePress')
         ? { onOutsidePress: () => emit({ kind: 'dismiss', reason: 'outsidePress' }) }
         : {}),
     });
@@ -236,6 +239,24 @@ function prepareDialogAccessibleName(
     throw new TypeError('dialog requires a non-empty title or accessibleName.');
   }
   return label;
+}
+
+function dialogPopupFocusPolicy(model: PreparedDialog): PopupFocusPolicy {
+  return {
+    contain: model.modal,
+    returnFocus: model.focusPolicy?.returnFocus ?? 'restore',
+    ...(model.focusPolicy?.initialFocus === undefined
+      ? {}
+      : { initialFocus: model.focusPolicy.initialFocus })
+  };
+}
+
+function dialogPopupDismissalPolicy(dismissal: DialogDismissal): PopupDismissalPolicy {
+  return {
+    escape: dismissal.escape,
+    outsidePress: dismissal.outsidePress,
+    focusLoss: false
+  };
 }
 
 function prepareDialogTitle(value: DialogComponentOptions['title']): BorderTitle | undefined {

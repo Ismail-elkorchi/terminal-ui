@@ -82,6 +82,7 @@ import type {
   SliderOptions,
   TextInputOptions,
 } from '../options/forms.ts';
+import { inspectTextValue, inspectValidation } from '../internal/inspection.ts';
 
 interface PointerModel {
   readonly pointerState?: PointerInteractionState;
@@ -658,6 +659,10 @@ const instantiateNumberInput = defineComponent<
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['border', 'value', 'placeholder', 'selection', 'cursor', 'stepper', 'error'],
+  inspection: ({ model }) => ({
+    value: inspectTextValue(model.presentation.value),
+    validation: inspectValidation(model.required, model.error),
+  }),
   prepare: (value, context) => prepareNumberInput(value, !context.disabled && !context.inert),
   measure: measureNumberInput,
   render: paintNumberInput,
@@ -1046,7 +1051,7 @@ function sliderValues(model: SliderModel | RangeModel): readonly number[] {
 }
 
 function sliderPartStyle(description: string, disabled: boolean, active = false): TerminalStyle {
-  const base: TerminalStyle = description.toLocaleLowerCase().endsWith('handle')
+  const base: TerminalStyle = description.toLowerCase().endsWith('handle')
     ? {
       fg: { kind: 'theme', token: 'control.handle' },
       bg: { kind: 'theme', token: 'control.track.filled' },
@@ -1799,6 +1804,10 @@ function textEntryDefinition<
     metadata: ['focus', 'layer', 'styles'],
     parts: ['border', 'label', 'value', 'placeholder', 'selection', 'cursor', 'error'],
     sensitiveInput: password,
+    inspection: ({ model }) => ({
+      ...(password ? { redacted: true as const } : { value: inspectTextValue(model.sourceValue) }),
+      validation: inspectValidation(model.required, model.error),
+    }),
     prepare: (value, context) => prepareTextEntry(
       value,
       name,
@@ -1822,12 +1831,12 @@ function textEntryDefinition<
       ...(readOnly ? {} : {
         backspace: () => edit('deleteBackward'),
         delete: () => edit('deleteForward'),
+        enter: () => ({ kind: 'submit', value: model.sourceValue }),
       }),
       arrowLeft: () => edit('moveLeft'),
       arrowRight: () => edit('moveRight'),
       home: () => edit('moveHome'),
       end: () => edit('moveEnd'),
-      enter: () => ({ kind: 'submit', value: model.sourceValue }),
     }),
     onInput: ({ text, readOnly }) =>
       readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),

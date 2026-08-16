@@ -39,7 +39,7 @@ export interface ListboxViewEntry<TValue> {
 export interface PreparedListboxView<TValue> {
   readonly kind: 'listbox-view';
   readonly source: ListboxCollection<TValue>;
-  readonly query: Required<import('./query.ts').CollectionQuery>;
+  readonly query: import('../text/query.ts').PreparedCollectionQuery;
   readonly entries: readonly ListboxViewEntry<TValue>[];
   readonly selectable: readonly ListboxViewEntry<TValue>[];
   readonly interactionIndex: CollectionInteractionIndex;

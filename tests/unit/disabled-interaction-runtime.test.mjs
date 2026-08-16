@@ -89,7 +89,7 @@ const disabledElementCases = [
       id: 'disabled-combobox',
       label: 'Tier',
       options: formOptions,
-      presentation: { open: false, interaction: { selection: { mode: 'single' } } },
+      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true
     })
   },
@@ -204,7 +204,7 @@ test('unavailable controls ignore unreachable interaction options', () => {
       id: 'invalid-disabled-combobox',
       label: 'Choice',
       options: formOptions,
-      presentation: { open: false, interaction: { selection: { mode: 'single' } } },
+      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true,
       onTransition: 'unreachable'
     }),
@@ -264,10 +264,10 @@ test('commandInput preserves disabled suggestion semantics', () => {
     commandInput({
       id: 'command',
       prompt: '>',
-      presentation: { value: 'de', cursor: 0, suggestions: prepareCommandSuggestions([
-        { id: 'deploy', value: 'deploy', label: 'Deploy', description: 'Unavailable', disabled: true }
+      presentation: { value: 'de', cursor: 0, open: true, suggestions: prepareCommandSuggestions([
+        { id: 'deploy', completion: { range: { startOffset: 0, endOffsetExclusive: 2 }, text: 'deploy' }, label: 'Deploy', description: 'Unavailable', disabled: true }
       ]) },
-      matchQuery: 'de',
+      query: { text: 'de', mode: 'contains' },
       display: 'expanded',
       onTransition: () => ignoreMessage()
     }),

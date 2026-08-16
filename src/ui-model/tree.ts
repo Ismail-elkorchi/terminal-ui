@@ -1,5 +1,6 @@
 import type { CollectionInteractionAction, CollectionInteractionState } from '../interaction/collection.ts';
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
+import type { CollectionInteractionIndex } from '../interaction/collection.ts';
 import type { ItemBase } from './contracts.ts';
 import type {
   CollectionProjection,
@@ -26,6 +27,16 @@ export type TreeNode<
     }
   | TreeNodeBase<TMetadata> & { readonly kind: 'lazy' };
 
+declare const preparedTreeSourceBrand: unique symbol;
+
+export interface PreparedTreeSource<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
+> {
+  readonly [preparedTreeSourceBrand]: TMetadata;
+  readonly kind: 'prepared-tree-source';
+  readonly nodeCount: number;
+}
+
 export type TreeLoadState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'pending'; readonly message?: string }
@@ -34,7 +45,7 @@ export type TreeLoadState =
 
 interface TreePresentationBase extends CollectionInteractionState {
   readonly expandedIds: readonly string[];
-  readonly query?: import('./query.ts').CollectionQuery;
+  readonly query?: import('../text/query.ts').CollectionQuery;
   readonly loadStates?: Readonly<Record<string, TreeLoadState>>;
 }
 
@@ -75,6 +86,15 @@ export type WindowedTreeCollection<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 > = WindowedCollectionProjection<TreeCollectionRecord<TMetadata>>;
 
+export interface PreparedTreeView<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
+> {
+  readonly kind: 'prepared-tree-view';
+  readonly source: PreparedTreeSource<TMetadata>;
+  readonly collection: CompleteTreeCollection<TMetadata>;
+  readonly interactionIndex: CollectionInteractionIndex;
+}
+
 export type TreeDisclosureTransition =
   | { readonly kind: 'toggle'; readonly id: string }
   | { readonly kind: 'expand'; readonly id: string }
@@ -85,7 +105,7 @@ export type TreeDisclosureTransition =
 export type TreeTransition =
   | CollectionInteractionAction
   | TreeDisclosureTransition
-  | { readonly kind: 'setQuery'; readonly query: import('./query.ts').CollectionQuery }
+  | { readonly kind: 'setQuery'; readonly query: import('../text/query.ts').CollectionQuery }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
 
 export type TreeControlTransition = Exclude<TreeTransition, { readonly kind: 'scroll' }>;

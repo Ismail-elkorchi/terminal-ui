@@ -145,9 +145,8 @@ function initialState(): MonitorState {
     processTable: {
       interaction: {
         kind: 'row',
-        selectionMode: 'single' as const,
         activeRowId: selectedRowId,
-        selectedRowIds: [selectedRowId]
+        selection: { mode: 'single', selectedRowId, followActive: true },
       },
       sort: { columnId: 'memory', direction: 'descending' },
       scroll: createScrollState()
@@ -187,7 +186,6 @@ function updateMonitor(
           processTable: dataGridReducer(state.processTable, message.action, {
             collection: prepareTableCollection(rows, processRowId),
             columnIds: processColumns.map((column) => column.id),
-            selection: { mode: 'single', commitment: 'followActive' },
             pageSize: 20
           })
         }
@@ -678,8 +676,8 @@ export async function runScriptedBtopMonitor() {
 }
 
 function selectedProcessId(presentation: ScrollableDataGridPresentation): string | undefined {
-  return presentation.interaction.kind === 'row'
-    ? presentation.interaction.selectedRowIds[0]
+  return presentation.interaction.kind === 'row' && presentation.interaction.selection.mode === 'single'
+    ? presentation.interaction.selection.selectedRowId
     : undefined;
 }
 

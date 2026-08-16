@@ -8,7 +8,7 @@ import { renderElementFrame } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
 
-const manual = { selection: { mode: 'single', commitment: 'manual' } as const };
+const manual = {};
 
 void test('bar charts distinguish active datum from committed selection across reorder', () => {
   const items = [
@@ -66,19 +66,16 @@ void test('chart behavior navigates points, series, and pages through globally s
   ];
   const initial = { activeId: 'cpu-2', selection: { mode: 'none' as const } };
   const paged = chartReducer(initial, { kind: 'pagePoints', delta: 1 }, series, {
-    selection: { mode: 'none' },
     pageSize: 3,
   });
-  const moved = chartReducer(paged, { kind: 'moveSeries', delta: 1 }, series, {
-    selection: { mode: 'none' },
-  });
+  const moved = chartReducer(paged, { kind: 'moveSeries', delta: 1 }, series, {});
 
   assert.equal(paged.activeId, 'cpu-5');
   assert.equal(moved.activeId, 'memory-6');
   assert.throws(() => chartReducer(initial, { kind: 'firstActive' }, [
     { id: 'one', label: 'One', points: [{ id: 'same', label: 'One', value: 1 }] },
     { id: 'two', label: 'Two', points: [{ id: 'same', label: 'Two', value: 2 }] },
-  ], { selection: { mode: 'none' } }), /unique across all series/u);
+  ], {}), /unique across all series/u);
 });
 
 void test('window charts render active and selected states through the shared presentation', () => {
@@ -108,11 +105,8 @@ void test('heatmap behavior navigates enabled cells by row and page', () => {
     [{ id: 'e', label: 'E', value: 5 }, { id: 'f', label: 'F', value: 6 }],
   ];
   const initial = { activeId: 'a', selection: { mode: 'none' as const } };
-  const moved = heatmapReducer(initial, { kind: 'moveCell', rows: 1, columns: 0 }, rows, {
-    selection: { mode: 'none' },
-  });
+  const moved = heatmapReducer(initial, { kind: 'moveCell', rows: 1, columns: 0 }, rows, {});
   const paged = heatmapReducer(moved, { kind: 'pageRows', delta: 1 }, rows, {
-    selection: { mode: 'none' },
     pageSize: 2,
   });
   assert.equal(moved.activeId, 'd');

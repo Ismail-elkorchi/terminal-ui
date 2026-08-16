@@ -4,3 +4,19 @@ export { contextMenu, menu, menuBar, menuTrigger } from './factories/menu-compon
 export { tooltip } from './factories/menus.ts';
 export type * from './options/dialog.ts';
 export type * from './options/menus.ts';
+export type { DialogDismissReason, DialogDismissal, DialogFocusPolicy } from '../ui-model/dialog.ts';
+export type {
+  ContextMenuTransition,
+  MenuActivateEvent,
+  MenuActionItem,
+  MenuBarTransition,
+  MenuCheckItem,
+  MenuItem,
+  MenuRadioItem,
+  MenuSectionItem,
+  MenuSeparatorItem,
+  MenuSubmenuItem,
+  MenuTransition,
+  MenuTriggerTransition,
+  TooltipTransition,
+} from '../ui-model/menu.ts';

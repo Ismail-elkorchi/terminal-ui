@@ -1,6 +1,5 @@
 import { collectionInteractionReducer } from '../interaction/collection.ts';
 import type { CollectionInteractionIndex } from '../interaction/collection.ts';
-import type { SelectionPolicy } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type {
   ListViewControlTransition,
@@ -10,10 +9,13 @@ import type {
   UnscrolledListViewPresentation,
 } from '../ui-model/semantic-list.ts';
 import { applyScrollEvent } from './scroll.ts';
+import { measuredWindow } from './measured-window.ts';
+import type { MeasuredCollection } from '../ui-model/measured-collection.ts';
 
-export interface ListViewReducerOptions {
+export interface ListViewReducerOptions<TValue = unknown> {
   readonly index: CollectionInteractionIndex;
-  readonly selection: SelectionPolicy;
+  readonly collection: MeasuredCollection<TValue>;
+  readonly viewportRows: number;
   readonly navigation?: NavigationPolicy;
 }
 
@@ -39,10 +41,21 @@ export function listViewReducer(
   }
   const interaction = collectionInteractionReducer(state, action, {
     index: options.index,
-    selection: options.selection,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });
-  return interaction === state
-    ? state
-    : { ...interaction, ...(state.scroll === undefined ? {} : { scroll: state.scroll }) };
+  if (interaction === state) return state;
+  if (state.scroll === undefined || interaction.activeId === undefined) return interaction;
+  const offsetRow = measuredWindow(options.collection, {
+    viewportRows: options.viewportRows,
+    offsetRow: state.scroll.offsetRow,
+    activeId: interaction.activeId,
+  }).offsetRow;
+  return {
+    ...interaction,
+    scroll: {
+      ...state.scroll,
+      offsetRow,
+      ...(offsetRow === state.scroll.offsetRow ? {} : { followTail: false }),
+    },
+  };
 }

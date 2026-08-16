@@ -57,6 +57,7 @@ export async function runTui<TState, TMessage>(
     input: inputSuspension,
     policy: normalized.sessionPolicy,
     graphics: normalized.graphics,
+    recoveryTimeoutMs: normalized.lifecycle.restorationTimeoutMs,
     ...(transcript === undefined ? {} : { transcript }),
     runtime: () => {
       const runtime = lifecycle.runtime;
@@ -70,7 +71,8 @@ export async function runTui<TState, TMessage>(
     },
     replaceSession: (nextSession) => {
       lifecycle.replaceSession(nextSession);
-    }
+    },
+    canReacquire: () => lifecycle.phase === 'runtime_active'
   });
   let exit: TuiExit<TState> | undefined;
   let failure: unknown;
@@ -128,6 +130,7 @@ export async function runTui<TState, TMessage>(
         app,
         host: terminalHost,
         graphics: normalized.graphics,
+        graphicsBudget: normalized.graphicsBudget,
         ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),
         ...(normalized.theme === undefined ? {} : { theme: normalized.theme }),
         withTerminalSuspended,

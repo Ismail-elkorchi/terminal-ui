@@ -99,6 +99,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     clock,
     resolverInput,
     beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
+    beginObservationRefresh: () => terminalState.beginObservationRefresh(),
     observeModes: (reports) => terminalState.observeModes(reports),
     observeKeyboardProfile: (profile) => terminalState.observeKeyboardProfile(profile),
     write: (chunk, signal) => output.write(chunk, { signal })

@@ -42,6 +42,12 @@ export function editTextBuffer(
         sanitizeTerminalText(operation.text).text
       );
     }
+    case 'replaceRange':
+      return replaceTextRange(
+        buffer.text,
+        operation.range,
+        sanitizeTerminalText(operation.text).text
+      );
     case 'deleteBackward':
       if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
       if (cursor === 0) return { ...buffer, cursor };

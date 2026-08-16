@@ -43,6 +43,7 @@ import { ownSelectionState, type SelectionState } from '../../interaction/collec
 import type { ChartStylePart } from '../../ui-model/style-parts.ts';
 import { isThemeColorToken } from '../../visual/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import { inspectSelection } from '../internal/inspection.ts';
 import type { BarChartOptions, ChartOptions, HeatmapOptions } from '../options/feedback.ts';
 
 interface ChartStatus {
@@ -78,7 +79,7 @@ interface BarChartModel extends ChartStatus {
 
 type BarChartComponentOptions = Omit<
   BarChartOptions<ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'busy' | 'inert' |
+  'id' | 'disabled' | 'busy' | 'inert' |
   'onTransition' | 'onActivate' | 'onPointerAction' | 'meta'
 >;
 
@@ -99,6 +100,11 @@ const barChartBase = {
   measure: measureBarChart,
   render: paintBarChart,
   accessibility: barChartAccessibility,
+  inspection: ({ model }: { readonly model: Readonly<BarChartModel> }) => ({
+    ...(model.activeId === undefined ? {} : { active: model.activeId }),
+    selection: inspectSelection(model.selection),
+    collection: { startIndex: 0, totalCount: model.items.length, visibleCount: model.items.length },
+  }),
 };
 
 const passiveBarChart = defineComponent<
@@ -116,14 +122,14 @@ const activeBarChart = defineComponent<
   BarChartModel,
   BarChartComponentAction,
   ChartStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   ...barChartBase,
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  states: ['disabled', 'busy', 'inert'],
   prepare: (value, context) => prepareBarChart(value, !context.disabled && !context.inert),
-  keys: ({ model, busy, readOnly }) => {
+  keys: ({ model, busy }) => {
     if (busy) return {};
     const active = activeBar(model);
     const transition = (value: BarChartTransition): BarChartComponentAction => ({ kind: 'transition', transition: value });
@@ -132,7 +138,7 @@ const activeBarChart = defineComponent<
       arrowDown: () => transition({ kind: 'moveActive', delta: 1 }),
       home: () => transition({ kind: 'firstActive' }),
       end: () => transition({ kind: 'lastActive' }),
-      ...(active === undefined || readOnly ? {} : {
+      ...(active === undefined ? {} : {
         enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: active.id } }),
       }),
     };
@@ -143,6 +149,7 @@ const activeBarChart = defineComponent<
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets(input) {
+    if (input.busy) return [];
     const plan = barChartPlan(input.model, input.bounds.height);
     return plan.items.map((item, row) => ({
       id: `${input.id ?? 'bar-chart'}:bar:${item.id}`,
@@ -386,7 +393,7 @@ interface ChartModel extends ChartStatus {
 
 type ChartComponentOptions = Omit<
   ChartOptions<ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'busy' | 'inert' |
+  'id' | 'disabled' | 'busy' | 'inert' |
   'onTransition' | 'onActivate' | 'onPointerAction' | 'meta'
 >;
 
@@ -407,6 +414,15 @@ const chartBase = {
   measure: measureChart,
   render: paintChart,
   accessibility: chartAccessibility,
+  inspection: ({ model }: { readonly model: Readonly<ChartModel> }) => ({
+    ...(model.activeId === undefined ? {} : { active: model.activeId }),
+    selection: inspectSelection(model.selection),
+    collection: {
+      startIndex: 0,
+      totalCount: model.series.reduce((total, series) => total + series.points.length, 0),
+      visibleCount: model.series.reduce((total, series) => total + series.points.length, 0),
+    },
+  }),
 };
 
 const passiveChart = defineComponent<
@@ -424,14 +440,14 @@ const activeChart = defineComponent<
   ChartModel,
   ChartComponentAction,
   ChartStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   ...chartBase,
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  states: ['disabled', 'busy', 'inert'],
   prepare: (value, context) => prepareChart(value, !context.disabled && !context.inert),
-  keys: ({ model, busy, readOnly }) => {
+  keys: ({ model, busy }) => {
     if (busy) return {};
     const transition = (value: ChartTransition): ChartComponentAction => ({ kind: 'transition', transition: value });
     return {
@@ -443,7 +459,7 @@ const activeChart = defineComponent<
       pageDown: () => transition({ kind: 'pagePoints', delta: 1 }),
       home: () => transition({ kind: 'firstActive' }),
       end: () => transition({ kind: 'lastActive' }),
-      ...(model.activeId === undefined || readOnly ? {} : {
+      ...(model.activeId === undefined ? {} : {
         enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: model.activeId ?? '' } }),
       }),
     };
@@ -453,7 +469,7 @@ const activeChart = defineComponent<
     onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
-  hitTargets: chartHitTargets,
+  hitTargets: (input) => input.busy ? [] : chartHitTargets(input),
 });
 
 export function chart<const TMessage extends ComponentMessage = never>(
@@ -1131,7 +1147,7 @@ interface HeatmapModel extends ChartStatus {
 
 type HeatmapComponentOptions = Omit<
   HeatmapOptions<unknown, ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'busy' | 'inert' |
+  'id' | 'disabled' | 'busy' | 'inert' |
   'onTransition' | 'onActivate' | 'onPointerAction' | 'meta'
 >;
 
@@ -1152,6 +1168,15 @@ const heatmapBase = {
   measure: measureHeatmap,
   render: paintHeatmap,
   accessibility: heatmapAccessibility,
+  inspection: ({ model }: { readonly model: Readonly<HeatmapModel> }) => ({
+    ...(model.activeId === undefined ? {} : { active: model.activeId }),
+    selection: inspectSelection(model.selection),
+    collection: {
+      startIndex: 0,
+      totalCount: model.rows.reduce((total, row) => total + row.length, 0),
+      visibleCount: model.rows.reduce((total, row) => total + row.length, 0),
+    },
+  }),
 };
 
 const passiveHeatmap = defineComponent<
@@ -1169,14 +1194,14 @@ const activeHeatmap = defineComponent<
   HeatmapModel,
   HeatmapComponentAction,
   ChartStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   ...heatmapBase,
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  states: ['disabled', 'busy', 'inert'],
   prepare: (value, context) => prepareHeatmap(value, !context.disabled && !context.inert),
-  keys: ({ model, busy, readOnly }) => {
+  keys: ({ model, busy }) => {
     if (busy) return {};
     const transition = (value: HeatmapTransition): HeatmapComponentAction => ({ kind: 'transition', transition: value });
     return {
@@ -1188,7 +1213,7 @@ const activeHeatmap = defineComponent<
       pageDown: () => transition({ kind: 'pageRows', delta: 1 }),
       home: () => transition({ kind: 'firstActive' }),
       end: () => transition({ kind: 'lastActive' }),
-      ...(model.activeId === undefined || readOnly ? {} : {
+      ...(model.activeId === undefined ? {} : {
         enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: model.activeId ?? '' } }),
       }),
     };
@@ -1199,6 +1224,7 @@ const activeHeatmap = defineComponent<
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets(input) {
+    if (input.busy) return [];
     const plan = heatmapPlan(input.model, input.bounds.height);
     return plan.rows.flatMap((row, rowOffset) =>
       row.flatMap((cell) => {

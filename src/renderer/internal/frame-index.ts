@@ -5,6 +5,7 @@ export interface FrameRowIndex {
   readonly cells: ReadonlyMap<number, FrameCell>;
   readonly renderable: readonly FrameCell[];
   readonly fingerprint?: string;
+  readonly terminalFingerprint?: string;
 }
 
 export interface FrameIndex {
@@ -48,12 +49,20 @@ function createFrameIndex(frame: FrameDescriptor): FrameIndex {
       if (row === undefined) {
         return fingerprint === undefined
           ? undefined
-          : Object.freeze({ cells: new Map(), renderable: Object.freeze([]), fingerprint });
+          : Object.freeze({
+              cells: new Map(),
+              renderable: Object.freeze([]),
+              fingerprint: fingerprint.fingerprint,
+              terminalFingerprint: fingerprint.terminalFingerprint,
+            });
       }
       return Object.freeze({
         cells: row.cells,
         renderable: Object.freeze(row.renderable.toSorted((left, right) => left.column - right.column)),
-        ...(fingerprint === undefined ? {} : { fingerprint })
+        ...(fingerprint === undefined ? {} : {
+          fingerprint: fingerprint.fingerprint,
+          terminalFingerprint: fingerprint.terminalFingerprint,
+        })
       });
     }))
   });
@@ -64,13 +73,15 @@ interface MutableFrameRowIndex {
   readonly renderable: FrameCell[];
 }
 
-function fingerprintRows(frame: FrameDescriptor): readonly (string | undefined)[] | undefined {
+function fingerprintRows(
+  frame: FrameDescriptor,
+): readonly ({ readonly fingerprint: string; readonly terminalFingerprint: string } | undefined)[] | undefined {
   const metadata = frameSnapshotMetadata(frame);
   if (metadata === undefined) return undefined;
-  const rows: (string | undefined)[] = Array.from({ length: frame.height });
+  const rows: ({ readonly fingerprint: string; readonly terminalFingerprint: string } | undefined)[] = Array.from({ length: frame.height });
   for (const entry of metadata.rowFingerprints) {
     if (Number.isInteger(entry.row) && entry.row >= 1 && entry.row <= frame.height) {
-      rows[entry.row - 1] = entry.fingerprint;
+      rows[entry.row - 1] = entry;
     }
   }
   return Object.freeze(rows);

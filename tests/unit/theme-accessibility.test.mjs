@@ -391,7 +391,13 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       role: 'group',
       children: [
         { id: 'name-label', role: 'text', label: 'Name' },
-        { id: 'name-input', role: 'textbox', labelledBy: 'name-label' }
+        { id: 'name-help', role: 'text', label: 'Use your full name' },
+        {
+          id: 'name-input',
+          role: 'textbox',
+          labelledBy: 'name-label',
+          describedBy: ['name-help']
+        }
       ]
     },
     {
@@ -475,6 +481,16 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     { id: 'rowgroup', role: 'rowgroup', children: [{ id: 'cell', role: 'gridcell' }] },
     { id: 'missing-label-reference', role: 'textbox', labelledBy: 'missing-label' },
     { id: 'self-label-reference', role: 'textbox', labelledBy: 'self-label-reference' },
+    { id: 'missing-description-reference', role: 'textbox', describedBy: ['missing-description'] },
+    { id: 'self-description-reference', role: 'textbox', describedBy: ['self-description-reference'] },
+    {
+      id: 'cyclic-description-reference',
+      role: 'group',
+      children: [
+        { id: 'description-a', role: 'text', describedBy: ['description-b'] },
+        { id: 'description-b', role: 'text', describedBy: ['description-a'] }
+      ]
+    },
     { id: 'missing-control-reference', role: 'tab', controls: 'missing-panel' },
     {
       id: 'wrong-control-role',

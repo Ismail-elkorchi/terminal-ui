@@ -238,7 +238,7 @@ test('text components map Unicode cursor positions through the shared text contr
   const commandFrame = renderElementFrame(commandInput({
     id: 'unicode-command',
     prompt: '> ',
-    presentation: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: prepareCommandSuggestions([]) }
+    presentation: { value, cursor: 'a🙂'.length, open: false, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: prepareCommandSuggestions([]) }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 6 });
@@ -404,7 +404,7 @@ test('editable text controls remain readable in high contrast and no-color rende
     commandInput({
       id: 'contrast-command',
       prompt: '/',
-      presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
+      presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
       placeholder: 'command',
       validation: { level: 'warning', message: 'Waiting' }
     })
@@ -441,7 +441,7 @@ test('editable text controls remain identifiable when the theme has no field fil
     commandInput({
       id: 'no-color-command',
       prompt: '› ',
-      presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
+      presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
       placeholder: '/open',
       meta: { focus: { disabled: true } }
     })

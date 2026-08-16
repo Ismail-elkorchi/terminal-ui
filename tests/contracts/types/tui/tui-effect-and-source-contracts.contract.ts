@@ -1,4 +1,7 @@
-import { defineTui } from '@ismail-elkorchi/terminal-ui/tui';
+import {
+  defineTui,
+  replaceableSourceMessage,
+} from '@ismail-elkorchi/terminal-ui/tui';
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 
 export type Message =
@@ -26,9 +29,8 @@ defineTui<{ readonly value: string }, Message>({
   subscriptions: () => [{
     id: 'refresh',
     generation: 0,
-    delivery: 'latest',
     async *messages() {
-      yield { kind: 'loaded' as const, value: 'fresh' };
+      yield replaceableSourceMessage('refresh', { kind: 'loaded' as const, value: 'fresh' });
     }
   }],
   view: (state) => text({ content: state.value })
@@ -51,9 +53,9 @@ defineTui({
 defineTui({
   init: () => ({ value: '' }),
   update: (state: { readonly value: string }) => ({ state }),
-  // @ts-expect-error event sources must declare their backlog semantics
+  // @ts-expect-error event-source emissions must declare reliable or keyed replaceable admission
   subscriptions: () => [{
-    id: 'missing-delivery',
+    id: 'raw-message',
     generation: 0,
     async *messages() {
       yield { kind: 'loaded' as const, value: 'fresh' };

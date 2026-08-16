@@ -23,7 +23,14 @@ import {
   textInput
 } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
-import { commitCombobox, comboboxReducer } from '../../dist/behavior/index.js';
+import {
+  autocompleteComboboxPresentation,
+  autocompleteComboboxReducer,
+  commitAutocompleteCombobox,
+  commitCombobox,
+  comboboxReducer,
+  createAutocompleteComboboxState,
+} from '../../dist/behavior/index.js';
 import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
 
 const enter = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
@@ -77,7 +84,7 @@ test('form components render settings and setup-wizard shapes with scoped state'
     combobox({
       id: 'region',
       label: 'Region',
-      presentation: { open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
+      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
       options: [
         { id: 'eu', label: 'Europe', value: 'eu' },
         { id: 'us', label: 'United States', value: 'us' }
@@ -118,6 +125,7 @@ test('open combobox renders a bounded popup with painted option targets only', (
     id: 'region',
     label: 'Region',
     presentation: {
+      kind: 'select',
       open: true,
       interaction: {
         activeId: 'us',
@@ -148,14 +156,14 @@ test('open combobox renders a bounded popup with painted option targets only', (
   assert.equal(frame.accessibility.root.value, 'Europe');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.disabled, true);
-  assert.equal(frame.accessibility.root.activeDescendant, 'region:us');
+  assert.equal(frame.accessibility.root.activeDescendant, 'region:popup:item:us');
 });
 
 test('closed combobox renders only its trigger and hides popup accessibility children', () => {
   const frame = renderElementFrame(combobox({
     id: 'region',
     label: 'Region',
-    presentation: { open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
+    presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
     options: [
       { id: 'eu', label: 'Europe', value: 'eu' },
       { id: 'us', label: 'United States', value: 'us' }
@@ -167,6 +175,52 @@ test('closed combobox renders only its trigger and hides popup accessibility chi
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['region:trigger']);
   assert.equal(frame.accessibility.root.expanded, false);
   assert.deepEqual(frame.accessibility.root.children, []);
+});
+
+test('autocomplete combobox shares editable popup state without changing select-only behavior', () => {
+  const options = [
+    { id: 'alpha', label: 'Alpha', value: 'alpha' },
+    { id: 'beta', label: 'Beta', value: 'beta' },
+  ];
+  const indexForText = (text) => prepareCollectionInteractionIndex(
+    options
+      .filter((option) => option.label.toLowerCase().includes(text.toLowerCase()))
+      .map((option) => option.id),
+  );
+  const behavior = {
+    indexForText,
+    completionForId: (id, input) => ({
+      range: { startOffset: 0, endOffsetExclusive: input.text.length },
+      text: options.find((option) => option.id === id)?.label ?? '',
+    }),
+  };
+  const initial = createAutocompleteComboboxState(
+    { value: '', open: true },
+    indexForText(''),
+  );
+  const typed = autocompleteComboboxReducer(initial, { kind: 'setText', value: 'be' }, behavior);
+  const presentation = autocompleteComboboxPresentation(typed);
+  const frame = renderElementFrame(combobox({
+    id: 'language',
+    label: 'Language',
+    options: [options[1]],
+    presentation,
+    onTransition: () => ({ kind: 'transition' }),
+    onCommit: () => ({ kind: 'commit' }),
+  }), { columns: 24, rows: 6 });
+  const committed = commitAutocompleteCombobox(
+    typed,
+    { kind: 'commit', id: 'beta' },
+    behavior,
+  );
+
+  assert.match(renderFramePlain(frame), /Language: be/u);
+  assert.equal(frame.accessibility.root.role, 'combobox');
+  assert.equal(frame.accessibility.root.value, 'be');
+  assert.equal(presentation.activeId, 'beta');
+  assert.equal(autocompleteComboboxPresentation(committed).input.text, 'Beta');
+  assert.deepEqual(committed.selection, { mode: 'single', selectedId: 'beta' });
+  assert.equal(committed.editor.open, false);
 });
 
 test('controlled combobox pages and commits through its public behavior operations', async () => {
@@ -181,6 +235,7 @@ test('controlled combobox pages and commits through its public behavior operatio
     id: 'combobox-behavior',
     init: () => ({
       presentation: {
+        kind: 'select',
         open: true,
         interaction: { activeId: 'option-1', selection: { mode: 'single' } },
       },
@@ -257,6 +312,13 @@ test('form fields expose label required description and validation source anatom
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-input' && cell.text === 'N' && cell.source.description === 'validation.error')?.style?.fg?.token, 'status.error');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'terms' && cell.text === '*')?.source?.description, 'label.required');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'terms' && cell.text === 'R')?.source?.description, 'validation.error');
+  const nameField = frame.accessibility.root.children?.[0];
+  const description = nameField?.children?.find((node) => node.id === 'name-field:description');
+  const control = nameField?.children?.find((node) => node.id === 'name-input');
+  assert.equal(description?.value, 'Shown in reports');
+  assert.equal(control?.labelledBy, 'name-field:label');
+  assert.deepEqual(control?.describedBy, ['name-field:description']);
+  assert.equal(control?.errorMessage, 'name-input:error');
 });
 
 test('form accessibility exposes labels, values, validation, required, disabled, and focus state', () => {
@@ -307,6 +369,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
   assert.equal(emailField?.labelledBy, 'email-field:label');
   assert.equal(emailField?.children?.[0]?.controls, 'email');
   assert.equal(emailField?.children?.[1]?.role, 'textbox');
+  assert.equal(emailField?.children?.[1]?.labelledBy, 'email-field:label');
   assert.equal(emailField?.children?.[1]?.value, 'user@example.test');
   assert.equal(emailField?.children?.[1]?.required, true);
   assert.equal(terms?.role, 'checkbox');

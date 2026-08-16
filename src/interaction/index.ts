@@ -17,7 +17,22 @@ export { pointerVisualState } from './pointer-interaction.ts';
 export type * from './scroll.ts';
 export type * from './scrollbar.ts';
 export type * from './popup.ts';
-export { popupReducer } from './popup.ts';
+export {
+  containedPopupFocus,
+  popupActiveDescendantId,
+  popupAllowsDismissal,
+  popupFocusScope,
+  popupReducer,
+  popupRelationship,
+  standardPopupDismissal,
+  standardPopupFocus,
+} from './popup.ts';
+export type * from './editable-popup-input.ts';
+export {
+  acceptEditablePopupCompletion,
+  createEditablePopupInputState,
+  editablePopupInputReducer,
+} from './editable-popup-input.ts';
 export type * from './key-binding.ts';
 export { formatKeyboardBinding } from './key-binding.ts';
 export type * from './text-pointer.ts';

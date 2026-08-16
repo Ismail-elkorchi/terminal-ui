@@ -542,7 +542,6 @@ test('runTui restores after non-cooperative source cleanup times out', async () 
     subscriptions: () => [{
       id: 'non-cooperative',
       generation: 0,
-      delivery: 'sequential',
       async *messages() {
         sourceStarted = true;
         await new Promise(() => undefined);
@@ -671,7 +670,6 @@ test('runTui bounds a hanging source disposer and reports restoration truthfully
     subscriptions: () => [{
       id: 'hanging-disposer',
       generation: 0,
-      delivery: 'sequential',
       async *messages(context) {
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
       },
@@ -874,10 +872,9 @@ test('TUI runtime exposes diagnostics to subscription sources', async () => {
     subscriptions: () => [{
       id: 'diagnostic-source',
       generation: 0,
-      delivery: 'sequential',
       async *messages(context) {
         observed = `${context.diagnostics[0]?.diagnostic.code ?? 'none'}:${context.diagnostics[0]?.diagnostic.data?.operation ?? 'none'}`;
-        yield { label: observed };
+        yield { kind: 'reliable', message: { label: observed } };
       }
     }],
     view: (state) => text({ content: state.label, id: 'diagnostic-label' })
@@ -1130,6 +1127,75 @@ test('TUI effects can suspend the terminal for an external operation and resume 
   assert.equal(harness.restores().length, 2);
   assert.equal(harness.frames().at(-1)?.width, 24);
   assert.ok(harness.frames().length >= 3);
+});
+
+test('effect cancellation cannot cancel terminal reacquisition after release', async () => {
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
+  const beginSession = host.beginSession.bind(host);
+  let sessionCount = 0;
+  host.beginSession = async (options) => {
+    sessionCount += 1;
+    return beginSession(options);
+  };
+  const operationStarted = deferred();
+  const app = defineTui({
+    id: 'cancelled-suspension-reacquires',
+    init: () => ({ phase: 'idle' }),
+    update: (state, message) => {
+      if (message.kind === 'start') {
+        return {
+          state: { phase: 'suspending' },
+          effects: [{
+            id: 'suspension',
+            concurrency: 'replace',
+            async run(context) {
+              await context.withTerminalSuspended(async () => {
+                operationStarted.release();
+                if (!context.signal.aborted) {
+                  await new Promise((resolve) => {
+                    context.signal.addEventListener('abort', resolve, { once: true });
+                  });
+                }
+              });
+              return { kind: 'none' };
+            }
+          }, {
+            id: 'replace-suspension',
+            concurrency: 'parallel',
+            async run() {
+              await operationStarted.promise;
+              return { kind: 'message', message: { kind: 'replace' } };
+            }
+          }]
+        };
+      }
+      if (message.kind === 'replace') {
+        return {
+          state: { phase: 'replacing' },
+          effects: [{
+            id: 'suspension',
+            concurrency: 'replace',
+            async run() {
+              return { kind: 'message', message: { kind: 'done' } };
+            }
+          }]
+        };
+      }
+      return { state: { phase: 'done' }, exit: { reason: 'recovered' } };
+    },
+    view: (state) => textInput({
+      id: 'cancelled-suspension-field',
+      presentation: { value: state.phase, cursor: 0 },
+      onAction: submitMessage({ kind: 'start' })
+    })
+  });
+
+  host.input('\r');
+  const exit = await runTui(app, host);
+
+  assert.equal(exit.status, 'completed');
+  assert.equal(sessionCount, 2);
+  assert.equal(exit.reason, 'recovered');
 });
 
 test('failure to reacquire terminal ownership after suspension terminates the runtime', async () => {
@@ -1601,7 +1667,6 @@ test('TUI runtime disposal awaits aborted subscription pumps and source cleanup'
     subscriptions: () => [{
       id: 'blocking-source',
       generation: 0,
-      delivery: 'sequential',
       async *messages(context) {
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
         pumpAborted = true;
@@ -1637,7 +1702,6 @@ test('TUI runtime disposal remains bounded when the cleanup clock rejects', asyn
     subscriptions: () => [{
       id: 'non-cooperative-clock-source',
       generation: 0,
-      delivery: 'sequential',
       async *messages() {
         sourceStarted = true;
         await new Promise(() => undefined);
@@ -1672,7 +1736,6 @@ test('TUI runtime disposal preserves its timeout when a caller signal is supplie
     subscriptions: () => [{
       id: 'non-cooperative-signal-and-timeout-source',
       generation: 0,
-      delivery: 'sequential',
       async *messages() {
         sourceStarted = true;
         await new Promise(() => undefined);
@@ -1708,7 +1771,6 @@ test('pre-aborted TUI runtime disposal still observes later cleanup failures', a
     subscriptions: () => [{
       id: 'late-cleanup-failure',
       generation: 0,
-      delivery: 'sequential',
       async *messages(context) {
         sourceStarted = true;
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
@@ -1753,7 +1815,6 @@ test('runTui restores terminal state after runtime and exit-handler cleanup fail
     subscriptions: () => [{
       id: 'cleanup-failure-source',
       generation: 0,
-      delivery: 'sequential',
       async *messages() {},
       dispose() {
         throw new Error('source cleanup failed');

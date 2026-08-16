@@ -291,8 +291,7 @@ test('menuTrigger renders above dataGrid content in a higher region', () => {
         ['Theme', 'System'],
         ['Mode', 'Compact']
     ],
-    presentation: { interaction: { kind: 'row',
-    selectionMode: 'single', selectedRowIds: [] } },
+    presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (action) => action,
     meta: {
         layer: {

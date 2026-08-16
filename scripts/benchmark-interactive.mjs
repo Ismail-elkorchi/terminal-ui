@@ -24,7 +24,8 @@ import {
   prepareSearchPickerIndex,
   prepareLogHistory,
   prepareTableCollection,
-  prepareTreeCollection
+  prepareTreeSource,
+  prepareTreeView
 } from '../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../dist/host/index.js';
 import {
@@ -126,7 +127,8 @@ function renderScenarios(realApps) {
     selection: { mode: 'single' },
     expandedIds: []
   };
-  const treeCollection = prepareTreeCollection(treeNodes, treePresentation);
+  const treeSource = prepareTreeSource(treeNodes);
+  const treeView = prepareTreeView(treeSource, treePresentation);
   const selectionDocument = prepareTextDocument(Array.from(
     { length: quick ? 2_000 : 20_000 },
     (_value, index) => `line ${String(index)} contains selectable text`
@@ -183,12 +185,12 @@ function renderScenarios(realApps) {
     },
     {
       name: 'scrolling-tree',
-      scale: treeCollection.records.length,
-      setupWork: { normalized_records: treeCollection.records.length },
+      scale: treeView.collection.records.length,
+      setupWork: { normalized_records: treeView.collection.records.length },
       createElement(index) {
         return tree({
           id: 'scrolling-tree',
-          collection: treeCollection,
+          view: treeView,
           presentation: {
             ...treePresentation,
             scroll: createScrollState({ offsetRow: index + 100 })
@@ -241,9 +243,8 @@ function renderScenarios(realApps) {
           presentation: {
             interaction: {
               kind: 'row',
-              selectionMode: 'single',
               activeRowId: String(index % smallTableCollection.records.length),
-              selectedRowIds: []
+              selection: { mode: 'single' }
             }
           },
           onTransition: (transition) => transition
@@ -263,9 +264,8 @@ function renderScenarios(realApps) {
           presentation: {
             interaction: {
               kind: 'row',
-              selectionMode: 'single',
               activeRowId: String(selected),
-              selectedRowIds: []
+              selection: { mode: 'single' }
             }
           },
           onTransition: (transition) => transition
@@ -473,9 +473,8 @@ async function runInputToCommitScenario() {
       presentation: {
         interaction: {
           kind: 'row',
-          selectionMode: 'single',
           activeRowId: String(state.selected),
-          selectedRowIds: []
+          selection: { mode: 'single' }
         }
       },
       onTransition: (transition) => ({
@@ -515,9 +514,8 @@ async function runPointerRoutingScenario() {
       presentation: {
         interaction: {
           kind: 'row',
-          selectionMode: 'single',
           activeRowId: state.selected,
-          selectedRowIds: []
+          selection: { mode: 'single' }
         }
       },
       onTransition: (transition) => ({

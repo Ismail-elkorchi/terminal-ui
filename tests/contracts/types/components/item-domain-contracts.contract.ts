@@ -14,7 +14,11 @@ const action: MenuActionItem = { kind: 'action', id: 'open', label: 'Open' };
 const check: MenuCheckItem = { kind: 'check', id: 'autosave', label: 'Autosave', checked: true };
 const submenu: MenuSubmenuItem = { kind: 'submenu', id: 'file', label: 'File', children: [action] };
 const menuItems: readonly MenuItem[] = [action, check, submenu];
-const suggestion: CommandSuggestion = { id: 'open', value: '/open', label: 'Open' };
+const suggestion: CommandSuggestion = {
+  id: 'open',
+  completion: { range: { startOffset: 0, endOffsetExclusive: 0 }, text: '/open' },
+  label: 'Open'
+};
 const search: SearchEntry<number> = {
   id: 'file', label: 'File', value: 1, keywords: ['open']
 };

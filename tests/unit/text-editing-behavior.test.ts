@@ -73,8 +73,36 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
       focus: { offset: 10, affinity: 'downstream' }
     },
     scroll: scrolled.scroll,
-    revealCaret: false
+    revealCaret: false,
+    history: scrolled.history
   });
+});
+
+void test('textAreaReducer shares bounded multiline undo and preserves controlled scroll', () => {
+  const initial = createTextAreaState({
+    value: 'alpha\nbeta',
+    caret: { position: { offset: 5, affinity: 'downstream' } },
+    scroll: createScrollState({ offsetRow: 4 }),
+    historyPolicy: { maxEntries: 2, maxRetainedBytes: 1_000 }
+  });
+  const edited = textAreaReducer(initial, {
+    kind: 'edit',
+    operation: {
+      kind: 'replaceRange',
+      range: { startOffset: 0, endOffsetExclusive: 5 },
+      text: '🙂'
+    }
+  });
+  const undone = textAreaReducer(edited, { kind: 'undo' });
+  const redone = textAreaReducer(undone, { kind: 'redo' });
+
+  assert.equal(textDocumentText(edited.document), '🙂\nbeta');
+  assert.equal(edited.caret.position.offset, 2);
+  assert.equal(textDocumentText(undone.document), 'alpha\nbeta');
+  assert.equal(undone.scroll, initial.scroll);
+  assert.equal(textDocumentText(redone.document), '🙂\nbeta');
+  assert.equal(redone.scroll, initial.scroll);
+  assert.ok(redone.history.retainedBytes <= redone.history.policy.maxRetainedBytes);
 });
 
 void test('textAreaReducer derives its cursor from sanitized inserted text', () => {

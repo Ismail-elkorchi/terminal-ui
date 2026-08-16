@@ -34,6 +34,14 @@ capabilities such as `disabled`, `busy`, `readOnly`, and `inert` are independent
 top-level fields. Domain models may group values when several fields describe
 one valid combination. `presentation` is reserved for normalized data already
 shaped for rendering.
+`readOnly` is an editable-value contract, not a generic way to suppress commands.
+It remains available on text/document inputs and editable popup inputs, where
+navigation, caret movement, selection, scrolling, and dismissal still work but
+editing, value commitment, submission, and acceptance do not. Menus, tabs,
+collections, trees, data grids, and visualizations instead expose their real
+availability and interaction contracts; they do not pretend command suppression
+is read-only data.
+
 Computed wrapping, rows, carets, selection geometry, and similar coordinates
 are layout. Retained search and collection indexes use `prepare...` names.
 
@@ -89,12 +97,14 @@ the same pattern:
 import {
   searchPicker,
   type SearchPickerControlTransition,
-  type UnscrolledSearchPickerPresentation,
   type SearchEntry
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
+  createSearchPickerState,
+  searchPickerPresentation,
   searchPickerReducer,
-  prepareSearchPickerIndex
+  prepareSearchPickerIndex,
+  type UnscrolledSearchPickerState
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
 const entries = [
@@ -103,7 +113,11 @@ const entries = [
 const searchPickerIndex = prepareSearchPickerIndex(entries);
 
 type SearchPickerMessage = { kind: 'searchPicker'; transition: SearchPickerControlTransition };
-type SearchPickerState = UnscrolledSearchPickerPresentation;
+type SearchPickerState = UnscrolledSearchPickerState;
+const initialSearchPickerState = createSearchPickerState(
+  { query: { text: '', mode: 'fuzzy' } },
+  searchPickerIndex
+);
 
 function updateSearchPicker(
   state: SearchPickerState,
@@ -116,7 +130,7 @@ function searchPickerView(state: SearchPickerState) {
   return searchPicker<string, SearchPickerMessage>({
     id: 'commands',
     searchPickerIndex,
-    presentation: state,
+    presentation: searchPickerPresentation(state),
     onTransition: (transition: SearchPickerControlTransition): SearchPickerMessage => ({
       kind: 'searchPicker',
       transition
@@ -149,24 +163,28 @@ import {
   type UnscrolledTreePresentation
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
-  treeReducer
+  treeReducer,
+  prepareTreeSource,
+  prepareTreeView
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
 const nodes: readonly TreeNode[] = [
   { id: 'readme', label: 'README.md', kind: 'leaf' }
 ];
-const selection = { mode: 'single', commitment: 'manual' } as const;
+const treeSource = prepareTreeSource(nodes);
 type Message = { kind: 'tree'; transition: TreeControlTransition };
 type TreeState = UnscrolledTreePresentation;
 
 function updateTree(state: TreeState, message: Message): TreeState {
-  return treeReducer(state, message.transition, { nodes, selection });
+  return treeReducer(state, message.transition, {
+    view: prepareTreeView(treeSource, state)
+  });
 }
 
 function treeView(state: TreeState) {
   return tree({
     id: 'navigation',
-    nodes,
+    view: prepareTreeView(treeSource, state),
     presentation: state,
     onTransition: (transition): Message => ({ kind: 'tree', transition })
   });
@@ -190,7 +208,9 @@ lossless decimal scale must own that domain value separately.
 
 ## Large Collections
 
-`listbox()`, `dataGrid()`, and `tree()` accept ordinary arrays for small, local data.
+`listbox()` and `dataGrid()` accept ordinary arrays for small, local data. Trees
+use a retained `PreparedTreeSource` because hierarchy, disclosure, and query
+projection share one structural index.
 For large or remotely windowed data, prepare an immutable collection outside
 `view()` and retain it until its source data changes:
 

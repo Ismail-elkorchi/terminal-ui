@@ -6,6 +6,8 @@ import {
   createScrollState,
   listboxReducer,
   listViewReducer,
+  measuredWindow,
+  prepareMeasuredCollection,
   prepareListboxCollection
 } from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
@@ -59,21 +61,20 @@ test('passive list preserves arbitrary child semantics without interaction', () 
 });
 
 test('listView measures arbitrary rows and derives one active-item scroll window', () => {
+  const collection = prepareMeasuredCollection([
+    { id: 'first', rows: 2, value: { label: 'First', content: text({ content: 'First A\nFirst B' }) } },
+    { id: 'second', rows: 1, value: { label: 'Second', content: text({ content: 'Second' }) } },
+    { id: 'third', rows: 2, value: { label: 'Third', content: text({ content: 'Third A\nThird B' }) } }
+  ]);
+  const window = measuredWindow(collection, { viewportRows: 3, activeId: 'third' });
   const frame = renderElementFrame(listView({
     id: 'activity',
-    projection: {
-      records: [
-        { id: 'first', itemIndex: 0, startRow: 0, rowCount: 2, label: 'First', content: text({ content: 'First A\nFirst B' }) },
-        { id: 'second', itemIndex: 1, startRow: 2, rowCount: 1, label: 'Second', content: text({ content: 'Second' }) },
-        { id: 'third', itemIndex: 2, startRow: 3, rowCount: 2, label: 'Third', content: text({ content: 'Third A\nThird B' }) }
-      ],
-      totalCount: 3,
-      totalRows: 5
-    },
+    window,
+    renderItem: (item) => item.value,
     presentation: {
       activeId: 'third',
       selection: { mode: 'single', selectedId: 'first' },
-      scroll: createScrollState()
+      scroll: createScrollState({ offsetRow: window.offsetRow })
     },
     scrollbar: { visible: 'always' },
     onTransition: (transition) => transition
@@ -101,16 +102,14 @@ test('listView measures arbitrary rows and derives one active-item scroll window
 
 test('listView owns retained multiple-selection state at construction', () => {
   const selectedIds = ['first'];
+  const window = measuredWindow(prepareMeasuredCollection([
+    { id: 'first', rows: 1, value: { content: text({ content: 'First' }) } },
+    { id: 'second', rows: 1, value: { content: text({ content: 'Second' }) } }
+  ]), { viewportRows: 2 });
   const element = listView({
     id: 'owned-list-view-selection',
-    projection: {
-      records: [
-        { id: 'first', itemIndex: 0, startRow: 0, rowCount: 1, content: text({ content: 'First' }) },
-        { id: 'second', itemIndex: 1, startRow: 1, rowCount: 1, content: text({ content: 'Second' }) }
-      ],
-      totalCount: 2,
-      totalRows: 2
-    },
+    window,
+    renderItem: (item) => item.value,
     presentation: {
       selection: { mode: 'multiple', selectedIds, anchorId: 'first' }
     },
@@ -129,24 +128,28 @@ test('listView reducer separates active position, committed selection, and child
     selection: { mode: 'single', selectedId: 'first' }
   };
   const index = prepareCollectionInteractionIndex(['first', 'second']);
+  const collection = prepareMeasuredCollection([
+    { id: 'first', rows: 1, value: 'First' },
+    { id: 'second', rows: 1, value: 'Second' }
+  ]);
   const moved = listViewReducer(state, { kind: 'moveActive', delta: 1 }, {
     index,
-    selection: { mode: 'single', commitment: 'manual' }
+    collection,
+    viewportRows: 1,
   });
   const committed = listViewReducer(moved, { kind: 'commitActive' }, {
     index,
-    selection: { mode: 'single', commitment: 'manual' }
+    collection,
+    viewportRows: 1,
   });
+  const actionWindow = measuredWindow(prepareMeasuredCollection([{
+    id: 'row', rows: 1,
+    value: { content: button({ id: 'row-action', label: 'Run', onAction: () => ({ kind: 'run' }) }) }
+  }]), { viewportRows: 1 });
   const actionList = listView({
     id: 'actions',
-    projection: {
-      records: [{
-        id: 'row', itemIndex: 0, startRow: 0, rowCount: 1,
-        content: button({ id: 'row-action', label: 'Run', onAction: () => ({ kind: 'run' }) })
-      }],
-      totalCount: 1,
-      totalRows: 1
-    },
+    window: actionWindow,
+    renderItem: (item) => item.value,
     presentation: { activeId: 'row', selection: { mode: 'none' } },
     onTransition: (transition) => transition
   });
@@ -163,6 +166,36 @@ test('listView reducer separates active position, committed selection, and child
   );
 });
 
+test('listView reducer returns controlled reveal scroll and rejects conflicting row geometry', () => {
+  const collection = prepareMeasuredCollection([
+    { id: 'first', rows: 2, value: 'First' },
+    { id: 'second', rows: 2, value: 'Second' }
+  ]);
+  const moved = listViewReducer({
+    activeId: 'first',
+    selection: { mode: 'none' },
+    scroll: createScrollState()
+  }, { kind: 'moveActive', delta: 1 }, {
+    index: prepareCollectionInteractionIndex(['first', 'second']),
+    collection,
+    viewportRows: 2
+  });
+  assert.equal(moved.activeId, 'second');
+  assert.equal(moved.scroll.offsetRow, 2);
+
+  const window = measuredWindow(collection, {
+    viewportRows: 2,
+    offsetRow: moved.scroll.offsetRow
+  });
+  assert.throws(() => renderElementFrame(listView({
+    id: 'height-mismatch',
+    window,
+    renderItem: (item) => ({ content: text({ content: item.value }) }),
+    presentation: { selection: { mode: 'none' }, scroll: moved.scroll },
+    onTransition: (transition) => transition
+  }), { columns: 20, rows: 2 }), /declares 2/u);
+});
+
 test('windowed collection uses its declared external projection query', () => {
   const collection = prepareListboxCollection(
     ['Item 100'],
@@ -170,7 +203,7 @@ test('windowed collection uses its declared external projection query', () => {
     {
       startIndex: 100,
       totalCount: 1_000,
-      domain: { kind: 'projection', id: 'items:item', filterQuery: 'item' }
+      domain: { kind: 'projection', query: { text: 'item', mode: 'contains' } }
     }
   );
   const frame = renderElementFrame(listbox({
@@ -188,7 +221,7 @@ test('listbox component filters items and can use explicit shared scroll state',
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'filtered-listbox',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
-    filterQuery: { text: 'a' },
+    query: { text: 'a' },
     presentation: {
       selection: { mode: 'none' },
       scroll: createScrollState({ offsetRow: 1 })
@@ -209,7 +242,7 @@ test('listbox component exposes source-aware row values matches and empty filter
     id: 'items',
     items: ['Atlas', 'Pulse'],
     presentation: { activeId: 'Atlas', selection: { mode: 'single', selectedId: 'Atlas' } },
-    filterQuery: { text: 'at' },
+    query: { text: 'at' },
     onTransition: (transition) => transition
   }), { columns: 24, rows: 2 });
   const emptyFrame = renderElementFrame(listbox({
@@ -217,7 +250,7 @@ test('listbox component exposes source-aware row values matches and empty filter
     id: 'empty-items',
     items: [],
     presentation: { selection: { mode: 'none' } },
-    filterQuery: { text: 'missing' },
+    query: { text: 'missing' },
     onTransition: (transition) => transition
   }), { columns: 24, rows: 2 });
 
@@ -244,7 +277,7 @@ test('listbox projects object values once for visible text filtering and accessi
       keywords: item.aliases
     }),
     presentation: { selection: { mode: 'none' } },
-    filterQuery: { text: 'metrics' },
+    query: { text: 'metrics' },
     onTransition: (transition) => transition
   }), { columns: 32, rows: 3 });
 
@@ -261,7 +294,7 @@ test('listbox cursor and mouse hit targets use the filtered visible rows', async
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-listbox',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
-    filterQuery: { text: 'br' },
+    query: { text: 'br' },
     presentation: { activeId: 'bravo', selection: { mode: 'single', selectedId: 'bravo' } },
     onTransition: (action) => ({ kind: 'chosen', action })
   }), { columns: 24, rows: 2 });
@@ -311,23 +344,21 @@ test('listbox cursor and mouse hit targets use the filtered visible rows', async
 test('listbox active position and committed selection use stable identity across data changes', () => {
   const items = ['alpha', 'bravo', 'charlie'];
   const projectItem = (item) => ({ id: item, label: item });
-  const policy = { mode: 'single', commitment: 'manual' };
   const selected = listboxReducer(
     { activeId: 'bravo', selection: { mode: 'single', selectedId: 'bravo' } },
     { kind: 'commitActive' },
-    { items, projectItem, selection: policy }
+    { items, projectItem }
   );
   const reordered = [items[2], items[1], items[0]];
-  const moved = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: reordered, projectItem, selection: policy });
+  const moved = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: reordered, projectItem });
   const inserted = ['delta', ...reordered];
   const filtered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, {
     items: inserted,
     projectItem,
-    filterQuery: { text: 'bravo' },
-    selection: policy
+    query: { text: 'bravo' }
   });
   const deleted = inserted.filter((item) => item !== 'bravo');
-  const recovered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: deleted, projectItem, selection: policy });
+  const recovered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: deleted, projectItem });
 
   assert.equal(selected.selection.selectedId, 'bravo');
   assert.equal(moved.activeId, 'alpha');
@@ -356,15 +387,13 @@ test('filtered listbox scrolling uses visible positions instead of sparse source
   const first = listboxReducer(base, { kind: 'commitActive' }, {
     items,
     projectItem,
-    filterQuery: { text: 'visible' },
-    selection: { mode: 'single', commitment: 'manual' },
+    query: { text: 'visible' },
     pageSize: 1
   });
   const paged = listboxReducer(first, { kind: 'pageActive', delta: 1 }, {
     items,
     projectItem,
-    filterQuery: { text: 'visible' },
-    selection: { mode: 'single', commitment: 'manual' },
+    query: { text: 'visible' },
     pageSize: 1
   });
 
@@ -389,7 +418,6 @@ test('windowed listbox active position keeps global collection identity while sc
 
   const selected = listboxReducer(state, { kind: 'commitActive' }, {
     collection,
-    selection: { mode: 'single', commitment: 'manual' },
     pageSize: 10
   });
 

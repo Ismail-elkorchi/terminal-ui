@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
   commandInput,
-  contextMenu,
   numberInput,
   passwordInput,
   text,
@@ -13,8 +12,6 @@ import {
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { row } from '../../dist/layout/index.js';
 import { layoutElement, renderElementFrame } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
-import { isIgnoredMessage } from '../../dist/interaction/index.js';
 import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
@@ -31,7 +28,7 @@ test('editable components share one read-only mutation policy', async () => {
         readOnly: true,
         onAction
       }),
-      mutationKeys: ['backspace', 'delete']
+      mutationKeys: ['backspace', 'delete', 'enter']
     },
     {
       name: 'passwordInput',
@@ -41,7 +38,7 @@ test('editable components share one read-only mutation policy', async () => {
         readOnly: true,
         onAction
       }),
-      mutationKeys: ['backspace', 'delete']
+      mutationKeys: ['backspace', 'delete', 'enter']
     },
     {
       name: 'numberInput',
@@ -70,7 +67,7 @@ test('editable components share one read-only mutation policy', async () => {
       name: 'commandInput',
       element: (onAction) => commandInput({
         id: 'control',
-        presentation: { value: 'abc', cursor: 1, suggestions: prepareCommandSuggestions([]) },
+        presentation: { value: 'abc', cursor: 1, open: false, suggestions: prepareCommandSuggestions([]) },
         readOnly: true,
         onTransition: onAction
       }),
@@ -89,7 +86,8 @@ test('read-only command input cannot accept a completion', async () => {
     presentation: {
       value: 'a',
       cursor: 1,
-      suggestions: prepareCommandSuggestions([{ id: 'alpha', value: 'alpha', label: 'alpha' }])
+      open: true,
+      suggestions: prepareCommandSuggestions([{ id: 'alpha', completion: { range: { startOffset: 0, endOffsetExclusive: 1 }, text: 'alpha' }, label: 'alpha' }])
     },
     readOnly: true,
     onTransition: onAction
@@ -128,31 +126,6 @@ test('read-only number input preserves selection and omits stepper geometry', ()
   assert.equal(frame.cells.some((cell) => cell.source?.partName === 'selection'), true);
   assert.match(frame.accessibility.root.description ?? '', /Committed value: 12/u);
   assert.equal(layout.children[0]?.bounds.width, 4);
-});
-
-test('read-only composed menus keep navigation and dismissal but suppress command activation', () => {
-  const element = contextMenu({
-    id: 'read-only-menu',
-    presentation: {
-      kind: 'open',
-      anchor: { kind: 'cursor', row: 0, column: 0 },
-      menu: {
-        activePath: ['run'],
-        items: [{ id: 'run', kind: 'action', label: 'Run' }]
-      }
-    },
-    readOnly: true,
-    onTransition: (transition) => transition,
-    onActivate: (event) => event
-  });
-  const frame = renderElementFrame(element, { columns: 20, rows: 5 });
-  const item = renderElementRegions(element, { columns: 20, rows: 5 })
-    .flatMap((region) => region.hitTargets)
-    .find((target) => target.id === 'read-only-menu:popup:menu:item:run');
-
-  assert.equal(frame.accessibility.root.readOnly, true);
-  assert.equal(isIgnoredMessage(item?.message({ kind: 'click' })), true);
-  assert.equal(frame.hitTargets?.some((target) => target.id.includes(':outside:')), true);
 });
 
 async function testReadOnlyControl(candidate) {

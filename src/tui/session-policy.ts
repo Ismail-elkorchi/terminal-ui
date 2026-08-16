@@ -90,7 +90,13 @@ export function createSessionProtocolPlan(
     { kind: 'bracketedPaste', requirement: policy.bracketedPaste, target: true },
     { kind: 'rawInput', requirement: policy.rawInput, target: true },
     { kind: 'unicodeGraphemeMode', requirement: policy.unicodeGraphemeMode, target: true },
-    { kind: 'keyboardProfile', requirement: policy.keyboard.requirement, target: policy.keyboard.profile },
+    {
+      kind: 'keyboardProfile',
+      requirement: policy.keyboard.requirement,
+      target: policy.keyboard.requirement === 'disabled'
+        ? LEGACY_KEYBOARD_PROFILE
+        : policy.keyboard.profile
+    },
     { kind: 'mouseReporting', requirement: policy.mouseReporting.requirement, target: policy.mouseReporting.mode },
     { kind: 'focusReporting', requirement: policy.focusReporting, target: true },
     { kind: 'cursorVisibility', requirement: policy.cursorVisibility.requirement, target: policy.cursorVisibility.state }
@@ -109,7 +115,7 @@ export async function applySessionProtocolPolicy(
   let ok = true;
   for (const item of planned) {
     if (
-      item.requirement === 'disabled'
+      (item.requirement === 'disabled' && item.kind !== 'keyboardProfile')
       || item.target === 'unchanged'
       || item.target === 'none'
     ) {
@@ -126,6 +132,7 @@ export async function applySessionProtocolPolicy(
     diagnostics.push(operationFailureDiagnostic(session, item, result.diagnostic), ...result.diagnostics);
     skipped.push(item);
     if (item.requirement === 'required' || result.status === 'indeterminate') ok = false;
+    if (result.status === 'indeterminate') break;
   }
   const resultingState = await session.currentState();
   if (

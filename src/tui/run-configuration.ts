@@ -5,11 +5,14 @@ import type { CursorVisibilityPolicy, ProtocolRequirement, SessionProtocolPolicy
 import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiTheme } from './types.ts';
 import { decodeTerminalGraphicsMode } from '../graphics/index.ts';
 import type { TerminalGraphicsMode } from '../graphics/index.ts';
+import { normalizeGraphicsBudgetLimits } from '../graphics/index.ts';
+import type { GraphicsBudgetLimits } from '../graphics/index.ts';
 import { defaultTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
 
 export type NormalizedTuiLifecyclePolicy = Readonly<Required<Omit<TuiLifecyclePolicy, 'defaultTimeoutMs'>>>;
-import { decodeKeyboardProfile } from '../protocol/index.ts';
+import { decodeKeyboardProfile, KITTY_KEYBOARD_FLAGS } from '../protocol/index.ts';
+import type { TerminalKeyboardProfile } from '../protocol/index.ts';
 
 export interface NormalizedTuiRunOptions<TState> {
   readonly initialFocus?: InitialFocusSelector;
@@ -18,6 +21,7 @@ export interface NormalizedTuiRunOptions<TState> {
   readonly lifecycle: NormalizedTuiLifecyclePolicy;
   readonly input: Readonly<Required<TuiRunInputPolicy>>;
   readonly graphics: TerminalGraphicsMode;
+  readonly graphicsBudget: GraphicsBudgetLimits;
 }
 
 export const defaultTuiLifecyclePolicy: NormalizedTuiLifecyclePolicy = Object.freeze({
@@ -42,7 +46,8 @@ export function normalizeTuiRunOptions<TState>(
     sessionPolicy: normalizeSessionPolicy(supplied['sessionPolicy']),
     lifecycle: normalizeLifecyclePolicy(supplied['lifecycle']),
     input: normalizeInputPolicy(supplied['input']),
-    graphics: decodeTerminalGraphicsMode(supplied['graphics'])
+    graphics: decodeTerminalGraphicsMode(supplied['graphics']),
+    graphicsBudget: normalizeGraphicsBudgetLimits(supplied['graphicsBudget']),
   });
 }
 
@@ -97,6 +102,7 @@ function normalizeSessionPolicy(value: unknown): SessionProtocolPolicy {
   const keyboard = objectValue(policy['keyboard'], 'TUI session policy keyboard');
   const cursor = objectValue(policy['cursorVisibility'], 'TUI session policy cursorVisibility');
   const mouse = objectValue(policy['mouseReporting'], 'TUI session policy mouseReporting');
+  const keyboardProfile = managedTuiKeyboardProfile(keyboard['profile']);
   return Object.freeze({
     alternateScreen: protocolRequirement(policy['alternateScreen'], 'alternateScreen'),
     rawInput: protocolRequirement(policy['rawInput'], 'rawInput'),
@@ -104,7 +110,7 @@ function normalizeSessionPolicy(value: unknown): SessionProtocolPolicy {
     focusReporting: protocolRequirement(policy['focusReporting'], 'focusReporting'),
     unicodeGraphemeMode: protocolRequirement(policy['unicodeGraphemeMode'], 'unicodeGraphemeMode'),
     keyboard: Object.freeze({
-      profile: decodeKeyboardProfile(keyboard['profile']),
+      profile: keyboardProfile,
       requirement: protocolRequirement(keyboard['requirement'], 'keyboard.requirement')
     }),
     cursorVisibility: Object.freeze({
@@ -116,6 +122,20 @@ function normalizeSessionPolicy(value: unknown): SessionProtocolPolicy {
       requirement: protocolRequirement(mouse['requirement'], 'mouseReporting.requirement')
     })
   });
+}
+
+function managedTuiKeyboardProfile(value: unknown): TerminalKeyboardProfile {
+  const profile = decodeKeyboardProfile(value);
+  if (
+    profile.kind === 'kitty'
+    && (profile.flags & KITTY_KEYBOARD_FLAGS.reportAllKeysAsEscapeCodes) !== 0
+    && (profile.flags & KITTY_KEYBOARD_FLAGS.reportAssociatedText) === 0
+  ) {
+    throw new RangeError(
+      'Managed TUI Kitty keyboard profiles that report all keys must also report associated text.'
+    );
+  }
+  return profile;
 }
 
 function normalizeInitialFocus(value: unknown): InitialFocusSelector | undefined {

@@ -1,9 +1,9 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { SearchEntry } from './contracts.ts';
-import { normalizeCollectionQuery, prepareQueryCandidate, queryNormalizedCandidates } from './query.ts';
+import { prepareCollectionQuery, prepareQueryCandidate, queryPreparedCandidates } from '../text/query.ts';
 import { prepareCollectionInteractionIndex } from '../interaction/collection.ts';
 import type { CollectionInteractionIndex } from '../interaction/collection.ts';
-import type { CollectionQuery, QueryMatch } from './query.ts';
+import type { CollectionQuery, PreparedCollectionQuery, PreparedQueryCandidate, QueryMatch } from '../text/query.ts';
 
 const searchPickerIndexBrand: unique symbol = Symbol('terminal-ui.search-picker-index');
 const queryCacheLimit = 8;
@@ -18,7 +18,7 @@ export interface SearchPickerIndex<TValue = string> {
 export interface SearchPickerQueryResult<TValue = string> {
   readonly kind: 'search-picker-query';
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
-  readonly query: Required<CollectionQuery>;
+  readonly query: PreparedCollectionQuery;
   readonly entries: readonly SearchEntry<TValue>[];
   readonly matches: readonly QueryMatch[];
   readonly interactionIndex: CollectionInteractionIndex;
@@ -27,7 +27,7 @@ export interface SearchPickerQueryResult<TValue = string> {
 interface SearchPickerIndexData<TValue> {
   readonly entries: readonly SearchEntry<TValue>[];
   readonly entriesById: ReadonlyMap<string, SearchEntry<TValue>>;
-  readonly candidates: readonly import('./query.ts').QueryCandidate[];
+  readonly candidates: readonly PreparedQueryCandidate[];
   readonly queryResults: Map<string, SearchPickerQueryResult<TValue>>;
   queryEvaluations: number;
   candidateEvaluations: number;
@@ -129,7 +129,7 @@ export function querySearchPickerIndex<TValue>(
   query: CollectionQuery = { text: '', mode: 'fuzzy' },
 ): SearchPickerQueryResult<TValue> {
   const data = dataFor(index);
-  const normalizedQuery = normalizeCollectionQuery(query);
+  const normalizedQuery = prepareCollectionQuery(query);
   const cacheKey = `${normalizedQuery.mode}:${normalizedQuery.caseSensitive ? '1' : '0'}:${normalizedQuery.text}`;
   const cached = data.queryResults.get(cacheKey);
   if (cached !== undefined) {
@@ -139,7 +139,7 @@ export function querySearchPickerIndex<TValue>(
   }
   data.queryEvaluations += 1;
   data.candidateEvaluations += normalizedQuery.text.length === 0 ? 0 : data.entries.length;
-  const matches = queryNormalizedCandidates(data.candidates, normalizedQuery);
+  const matches = queryPreparedCandidates(data.candidates, normalizedQuery);
   const entries = normalizedQuery.text.length === 0
     ? data.entries
     : Object.freeze(matches.flatMap((match) => {

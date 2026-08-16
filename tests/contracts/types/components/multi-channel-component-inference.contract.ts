@@ -13,7 +13,7 @@ import {
   type TreeActivateEvent,
   type TreeControlTransition,
 } from '@ismail-elkorchi/terminal-ui/components';
-import { prepareSearchPickerIndex } from '@ismail-elkorchi/terminal-ui/behavior';
+import { prepareSearchPickerIndex, prepareTreeSource, prepareTreeView } from '@ismail-elkorchi/terminal-ui/behavior';
 import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
@@ -21,7 +21,7 @@ export type Assert<TValue extends true> = TValue;
 
 const explorer = tree({
   id: 'explorer',
-  nodes: [{ id: 'src', label: 'src', kind: 'lazy' }],
+  view: prepareTreeView(prepareTreeSource([{ id: 'src', label: 'src', kind: 'lazy' }]), { activeId: 'src', selection: { mode: 'none' }, expandedIds: [] }),
   presentation: { activeId: 'src', selection: { mode: 'none' }, expandedIds: [] },
   onTransition: (transition) => ({ kind: 'treeTransition' as const, transition }),
   onActivate: (event) => ({ kind: 'treeActivate' as const, event }),
@@ -35,7 +35,7 @@ const editor = textArea({
 
 const commands = commandInput({
   id: 'commands',
-  presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
+  presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
   onTransition: (transition) => ({ kind: 'commandTransition' as const, transition }),
   onSubmit: (event) => ({ kind: 'commandSubmit' as const, event }),
 });

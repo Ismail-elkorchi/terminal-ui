@@ -65,6 +65,7 @@ import type { TextAreaStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ScrollableTextAreaOptions, TextAreaOptions } from '../options/content.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
+import { inspectTextDocumentValue, inspectValidation } from '../internal/inspection.ts';
 
 interface TextAreaModel {
   readonly document: TextDocument;
@@ -128,10 +129,17 @@ const instantiateTextArea = defineComponent<
     'scrollbar',
   ],
   prepare: (value, context) => prepareTextArea(value, !context.disabled && !context.inert),
+  inspection: ({ model }) => ({
+    value: inspectTextDocumentValue(model.document),
+    validation: inspectValidation(model.required, model.error),
+  }),
   measure: measureTextArea,
   render: paintTextArea,
   keys: ({ readOnly }) => ({
-    triggers: textEditingTriggers(readOnly, true),
+    triggers: [
+      ...textEditingTriggers(readOnly, true),
+      ...(readOnly ? [] : textAreaHistoryTriggers())
+    ],
     ...(readOnly ? {} : {
       backspace: () => edit('deleteBackward'),
       delete: () => edit('deleteForward'),
@@ -1095,6 +1103,27 @@ function edit(
     case 'moveEnd':
       return { kind: 'edit', operation: { kind } };
   }
+}
+
+function textAreaHistoryTriggers() {
+  return [
+    {
+      trigger: { kind: 'key' as const, key: 'z' as const, modifiers: { ctrl: true } },
+      onKey: () => ({ kind: 'undo' as const })
+    },
+    {
+      trigger: { kind: 'key' as const, key: 'y' as const, modifiers: { ctrl: true } },
+      onKey: () => ({ kind: 'redo' as const })
+    },
+    {
+      trigger: {
+        kind: 'key' as const,
+        key: 'z' as const,
+        modifiers: { ctrl: true, shift: true }
+      },
+      onKey: () => ({ kind: 'redo' as const })
+    }
+  ];
 }
 
 function textOption(value: unknown, owner: string): string | undefined {

@@ -81,5 +81,7 @@ function normalizedSearchText(text: string, options: TextHighlightOptions): stri
     : text.normalize('NFC');
   return options.caseSensitive === true
     ? accentNormalized
-    : accentNormalized.toLocaleLowerCase(options.locale);
+    : options.locale === undefined
+      ? accentNormalized.toLowerCase()
+      : accentNormalized.toLocaleLowerCase(options.locale);
 }

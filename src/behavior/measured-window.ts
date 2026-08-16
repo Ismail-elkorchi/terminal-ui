@@ -3,47 +3,29 @@ import {
 } from '../ui-model/measured-collection.ts';
 import type {
   MeasuredCollection,
-  MeasuredCollectionItem,
   MeasuredCollectionReader
 } from '../ui-model/measured-collection.ts';
+import type {
+  MeasuredAnchorAtOptions,
+  MeasuredWindow,
+  MeasuredWindowAnchor,
+  MeasuredWindowEntry,
+  MeasuredWindowOptions,
+} from '../ui-model/measured-window.ts';
 
-export interface MeasuredWindowAnchor {
-  readonly itemId: string;
-  readonly rowWithinItem: number;
-  readonly viewportRow: number;
-}
+export type {
+  MeasuredAnchorAtOptions,
+  MeasuredWindow,
+  MeasuredWindowAnchor,
+  MeasuredWindowEntry,
+  MeasuredWindowOptions,
+} from '../ui-model/measured-window.ts';
 
-export interface MeasuredWindowEntry<TValue> {
-  readonly item: MeasuredCollectionItem<TValue>;
-  readonly itemIndex: number;
-  readonly startRowIndex: number;
-  readonly endRowIndexExclusive: number;
-  readonly rowOffset: number;
-  readonly clippedRowsBefore: number;
-  readonly visibleRows: number;
-}
+const measuredWindows = new WeakSet<object>();
 
-export interface MeasuredWindowOptions {
-  readonly viewportRows: number;
-  readonly offsetRow?: number;
-  readonly activeId?: string;
-  readonly anchor?: MeasuredWindowAnchor;
-}
-
-export interface MeasuredWindow<TValue> {
-  readonly entries: readonly MeasuredWindowEntry<TValue>[];
-  readonly totalRows: number;
-  readonly viewportRows: number;
-  readonly offsetRow: number;
-  readonly startIndex: number;
-  readonly endIndexExclusive: number;
-  readonly omittedBefore: number;
-  readonly omittedAfter: number;
-}
-
-export interface MeasuredAnchorAtOptions {
-  readonly offsetRow: number;
-  readonly viewportRow?: number;
+export function isMeasuredWindow(value: unknown): value is MeasuredWindow<unknown> {
+  return value !== null && (typeof value === 'object' || typeof value === 'function')
+    && measuredWindows.has(value);
 }
 
 export function measuredAnchorAt<TValue>(
@@ -105,7 +87,7 @@ export function measuredWindow<TValue>(
     }));
   const startIndex = entries[0]?.itemIndex ?? 0;
   const endIndexExclusive = (entries.at(-1)?.itemIndex ?? -1) + 1;
-  return Object.freeze({
+  const window = Object.freeze({
     entries,
     totalRows: reader.totalRows,
     viewportRows,
@@ -115,6 +97,8 @@ export function measuredWindow<TValue>(
     omittedBefore: startIndex,
     omittedAfter: Math.max(0, reader.itemCount - endIndexExclusive)
   });
+  measuredWindows.add(window);
+  return window;
 }
 
 function offsetForAnchor<TValue>(

@@ -27,29 +27,39 @@ import {
 } from './focus.ts';
 import { markTransparentFocusLayout } from './focus-identity.ts';
 import { renderNodeFactoryName } from '../model/node.ts';
+import { createRenderBudget } from './render-budget.ts';
+import type { RenderBudget, RenderBudgetLimits } from './render-budget.ts';
 
 export function layoutElement(
   element: Element<unknown>,
   terminalSizeOrBounds: TerminalSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition,
-  widthProfile: TextWidthProfile = defaultTextWidthProfile
+  widthProfile: TextWidthProfile = defaultTextWidthProfile,
+  limits?: Partial<RenderBudgetLimits>,
 ): LayoutNode {
-  return layoutRenderNode(toRenderNode(element), terminalSizeOrBounds, themeInput, widthProfile);
+  return layoutRenderNode(
+    toRenderNode(element),
+    terminalSizeOrBounds,
+    themeInput,
+    widthProfile,
+    createRenderBudget(limits),
+  );
 }
 
 export function layoutRenderNode(
   renderNode: RenderNode,
   terminalSizeOrBounds: TerminalSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition,
-  widthProfile: TextWidthProfile = defaultTextWidthProfile
+  widthProfile: TextWidthProfile = defaultTextWidthProfile,
+  budget: RenderBudget = createRenderBudget(),
 ): LayoutNode {
   const theme = themeForLayout(themeInput);
   const bounds = 'columns' in terminalSizeOrBounds
     ? { row: 1, column: 1, width: terminalSizeOrBounds.columns, height: terminalSizeOrBounds.rows }
     : terminalSizeOrBounds;
   const viewportBounds = clampRect(bounds);
-  const measurements = createRenderMeasurementContext(theme, widthProfile);
-  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, 0, 0, [], false);
+  const measurements = createRenderMeasurementContext(theme, widthProfile, budget);
+  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, budget, 0, 0, 0, [], false);
 }
 
 function layoutNode(
@@ -59,17 +69,20 @@ function layoutNode(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   measurements: RenderMeasurementContext,
+  budget: RenderBudget,
+  depth: number,
   ordinal: number,
   parentZIndex: number,
   parentIdentity: readonly string[],
   ancestorInert: boolean
 ): LayoutNode {
+  budget.visitNode(depth);
   const children = renderNode.children ?? [];
   const measureChild = (index: number): import('../contracts.ts').Measurement => {
     const child = children[index];
     return child === undefined
       ? { minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }
-      : measurements.measure(child, bounds);
+      : measurements.measure(child, bounds, depth + 1);
   };
   const placedBounds = placeRenderNode(
     renderNode,
@@ -77,7 +90,7 @@ function layoutNode(
     viewport,
     theme,
     widthProfile,
-    () => measurements.measure(renderNode, bounds),
+    () => measurements.measure(renderNode, bounds, depth),
     children.length,
     measureChild
   );
@@ -113,7 +126,7 @@ function layoutNode(
       ? markPaintOrderedFocusChildren(identified)
       : identified;
   }
-  const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements);
+  const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements, depth);
   const focusTargets = (inert
     ? []
     : focusTargetsForRenderNode(renderNode, placedBounds, viewport, theme, widthProfile))
@@ -145,6 +158,7 @@ function layoutNode(
     inert,
     focusable: focusTargets.some((target) => !target.disabled && target.bounds.width > 0 && target.bounds.height > 0),
     ...(focusScope === undefined ? {} : { focusScope }),
+    ...(renderNode.focusNavigation === undefined ? {} : { focusNavigation: renderNode.focusNavigation }),
     focusTargets,
     children: (renderNode.children ?? [])
       .map((child, index) => layoutNode(
@@ -154,6 +168,8 @@ function layoutNode(
         theme,
         widthProfile,
         measurements,
+        budget,
+        depth + 1,
         index,
         zIndex,
         identityPath,
@@ -176,10 +192,17 @@ function boundsForChildren(
   renderNode: RenderNode,
   bounds: Rect,
   viewport: Rect,
-  measurements: RenderMeasurementContext
+  measurements: RenderMeasurementContext,
+  depth: number,
 ): readonly Rect[] {
   const children = renderNode.children ?? [];
-  return children.length === 0 ? [] : layoutChildBounds(renderNode, bounds, viewport, measurements);
+  return children.length === 0 ? [] : layoutChildBounds(
+    renderNode,
+    bounds,
+    viewport,
+    measurements,
+    depth,
+  );
 }
 
 function emptyRect(bounds: Rect): Rect {

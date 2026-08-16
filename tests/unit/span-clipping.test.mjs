@@ -115,8 +115,9 @@ test('dataGrid clipping keeps multi-span cell styles instead of flattening to pl
     getRowId: (_row, index) => String(index),
     id: 'styled-dataGrid',
     presentation: {
-      interaction: { kind: 'row',
-      selectionMode: 'single', activeRowId: '0', selectedRowIds: ['0'] }
+      interaction: {
+        kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
+      }
     },
     onTransition: (action) => action,
     rows: [{ value: 'unused' }],
@@ -156,8 +157,9 @@ test('dataGrid horizontal scrolling keeps span styles after clipped cells are sh
     getRowId: (_row, index) => String(index),
     id: 'scrolled-styled-dataGrid',
     presentation: {
-      interaction: { kind: 'row',
-      selectionMode: 'single', activeRowId: '0', selectedRowIds: ['0'] },
+      interaction: {
+        kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
+      },
       scroll: createScrollState({ offsetColumn: 4 })
     },
     rows: [{ value: 'unused' }],

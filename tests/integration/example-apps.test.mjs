@@ -57,7 +57,7 @@ test('IDE filesystem effects leave command input and resize responsive', async (
 
     assert.equal(resized.width, 96);
     assert.equal(runtime.state().operation.kind, 'pending');
-    assert.equal(runtime.state().command.input.text, '/save');
+    assert.equal(runtime.state().command.editor.input.text, '/save');
 
     release.release();
     await waitUntil(() => runtime.state().operation.kind === 'idle');

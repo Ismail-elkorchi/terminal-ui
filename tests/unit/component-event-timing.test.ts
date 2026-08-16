@@ -18,6 +18,7 @@ import type { TabCloseEvent } from '../../dist/components/index.js';
 import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import type { InputEvent } from '../../dist/input/index.js';
+import { row } from '../../dist/layout/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
@@ -32,12 +33,13 @@ void test('component construction and rendering do not execute event handlers', 
     checkbox({ id: 'check', label: 'Check', checked: false, onAction: message }),
     slider({ id: 'slider', label: 'Value', value: 4, onAction: message }),
     listbox({ id: 'listbox', items: ['a'], projectItem: (item) => ({ id: item, label: item }), presentation: { activeId: 'a', selection: { mode: 'single', selectedId: 'a' } }, onTransition: message }),
-    dataGrid({ id: 'grid', rows: ['a'], getRowId: (row) => row, presentation: { interaction: { kind: 'row',
-    selectionMode: 'single' as const, activeRowId: 'a', selectedRowIds: ['a'] } }, onTransition: message }),
+    dataGrid({ id: 'grid', rows: ['a'], getRowId: (row) => row, presentation: { interaction: {
+      kind: 'row', activeRowId: 'a', selection: { mode: 'single' as const, selectedRowId: 'a' },
+    } }, onTransition: message }),
     textArea({ id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
     commandInput({
       id: 'command',
-      presentation: { value: 'a', cursor: 0, suggestions: prepareCommandSuggestions([]) },
+      presentation: { value: 'a', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: message
     }),
     searchPicker({ id: 'searchPicker', presentation: { query: { text: '', mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
@@ -110,6 +112,60 @@ void test('component key handlers run at dispatch time with the normalized event
   assert.equal(observed[0]?.input.kind, 'key');
   assert.deepEqual(observed[0].focusPath, ['field']);
   assert.deepEqual(runtime.state(), { value: 'handled' });
+  await runtime.dispose();
+});
+
+void test('component focus lifecycle reports enter and leave transitions in order', async () => {
+  interface Message { readonly event: string }
+  const observed: string[] = [];
+  const focusable = defineComponent<Record<never, never>, Record<never, never>, string>({
+    name: 'terminal-ui-tests/components/focus-lifecycle',
+    identity: 'required',
+    structure: 'leaf',
+    semantics: 'semantic',
+    accessibleRole: 'button',
+    measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+    render: () => undefined,
+    focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+    onFocus: (event) => event.kind,
+    accessibility: ({ id, focused }) => ({
+      id,
+      role: 'button',
+      label: id,
+      ...(focused ? { focused: true } : {})
+    })
+  });
+  const app = defineTui<undefined, Message>({
+    id: 'component-focus-lifecycle',
+    init: () => undefined,
+    update: (state, message) => {
+      observed.push(message.event);
+      return { state };
+    },
+    view: () => row([
+      focusable({ id: 'first', onAction: (event) => ({ event: `first:${event}` }) }),
+      focusable({ id: 'second', onAction: (event) => ({ event: `second:${event}` }) })
+    ])
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 8, rows: 1 } })
+  });
+
+  await runtime.start();
+  assert.deepEqual(observed, ['first:focusEnter']);
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'tab',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+  assert.deepEqual(observed, [
+    'first:focusEnter',
+    'first:focusLeave',
+    'second:focusEnter'
+  ]);
   await runtime.dispose();
 });
 

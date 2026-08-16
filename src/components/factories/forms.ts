@@ -3,6 +3,7 @@ import {
   defineComponent,
   ignoreMessage,
   mapComponentStyles,
+  measureConstrainedBox,
   measureRenderSpans,
   span,
 } from '../../component/index.ts';
@@ -15,10 +16,14 @@ import type {
   SemanticLeafComponentFactory,
 } from '../../component/index.ts';
 import type { Element, ElementChildrenMessage } from '../../element/index.ts';
+import type { AccessibleNode } from '../../accessibility/index.ts';
 import type {
   ButtonOptions,
   CheckboxOptions,
   ActiveComboboxOptions,
+  ActiveAutocompleteComboboxOptions,
+  AutocompleteComboboxOptions,
+  AnyComboboxOptions,
   ComboboxOptions,
   FieldOptions,
   FormOptions,
@@ -40,6 +45,8 @@ import type {
 import type { ButtonStylePart } from '../../ui-model/style-parts.ts';
 import type { ChoiceStylePart } from '../../ui-model/style-parts.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
+import { allowsComponentAction } from '../internal/action-capability.ts';
+import { inspectTextValue, inspectValidation } from '../internal/inspection.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import {
   pointerVisualState,
@@ -50,7 +57,6 @@ import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
   layoutContentBounds,
-  layoutInsetSize,
   normalizeLayoutFlowOptions,
   splitTracks,
 } from '../../layout/index.ts';
@@ -61,8 +67,9 @@ import {
   isNonArrayObject,
 } from '../../foundation/validation.ts';
 import type {
+  AnyComboboxPresentation,
+  AutocompleteComboboxTransition,
   ComboboxCommitEvent,
-  ComboboxPresentation,
   ScrollableComboboxPresentation,
   ComboboxTransition,
 } from '../../ui-model/combobox.ts';
@@ -70,6 +77,12 @@ import type { ListboxTransition } from '../../ui-model/list.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
+import {
+  popupActiveDescendantId,
+  popupAllowsDismissal,
+  popupRelationship,
+  standardPopupDismissal,
+} from '../../interaction/popup.ts';
 import { ownSelectionState } from '../../interaction/collection.ts';
 import { portal, surface } from '../../layout/index.ts';
 import { listbox } from './list.ts';
@@ -117,19 +130,17 @@ export const form: FormFactory = defineComponent<
       (_unused, index) => input.slots.measure('content', index),
     );
     const gap = input.model.layout.gap ?? 0;
-    const padding = layoutInsetSize(input.model.layout.padding);
-    const margin = layoutInsetSize(input.model.layout.margin);
     const titleRows = input.model.title.length === 0 ? 0 : 1;
-    return {
-      minWidth: 0,
-      minHeight: 0,
+    return measureConstrainedBox({
+      minWidth: Math.max(titleWidth, ...measurements.map((item) => item.minWidth), 0),
+      minHeight: titleRows + measurements.reduce((height, item) => height + item.minHeight, 0) +
+        Math.max(0, count - 1) * gap,
       preferredWidth: Math.max(titleWidth, ...measurements.map((item) => item.preferredWidth), 0) +
-        padding.width + margin.width,
+        0,
       preferredHeight: titleRows +
         measurements.reduce((height, item) => height + item.preferredHeight, 0) +
-        Math.max(0, count - 1) * gap +
-        padding.height + margin.height,
-    };
+        Math.max(0, count - 1) * gap,
+    }, input.model.layout);
   },
   layout(input) {
     const content = formContentBounds(input);
@@ -251,14 +262,15 @@ const instantiateField = defineComponent<
       0,
     );
     const height = header.length + input.slots.measure('control').preferredHeight;
-    const inset = layoutInsetSize(input.model.layout.padding);
-    const margin = layoutInsetSize(input.model.layout.margin);
-    return {
-      minWidth: 0,
-      minHeight: 0,
-      preferredWidth: width + inset.width + margin.width,
-      preferredHeight: height + inset.height + margin.height,
-    };
+    const control = input.slots.measure('control');
+    return measureConstrainedBox({
+      minWidth: control.minWidth,
+      minHeight: header.length + control.minHeight,
+      preferredWidth: width,
+      preferredHeight: height,
+      ...(control.maxWidth === undefined ? {} : { maxWidth: control.maxWidth }),
+      ...(control.maxHeight === undefined ? {} : { maxHeight: header.length + control.maxHeight }),
+    }, input.model.layout);
   },
   layout(input) {
     const content = layoutContentBounds(input.bounds, input.model.layout);
@@ -306,18 +318,39 @@ const instantiateField = defineComponent<
     });
   },
   accessibility(input) {
+    const control = input.slots.control[0];
+    if (control === undefined) {
+      throw new Error('field accessibility requires its control slot.');
+    }
+    const labelId = `${input.id}:label`;
+    const descriptionId = `${input.id}:description`;
+    const describedBy = input.model.description.length === 0
+      ? control.describedBy
+      : [...(control.describedBy ?? []), descriptionId];
+    const relatedControl: AccessibleNode = {
+      ...control,
+      labelledBy: labelId,
+      ...(describedBy === undefined ? {} : { describedBy }),
+    };
     return {
       id: input.id,
       role: 'group',
-      labelledBy: `${input.id}:label`,
-      ...(input.model.description.length === 0 ? {} : { description: input.model.description }),
+      labelledBy: labelId,
       ...(input.focused ? { focused: true } : {}),
-      children: [{
-        id: `${input.id}:label`,
-        role: 'text',
-        value: input.model.label,
-        ...(input.slots.control[0] === undefined ? {} : { controls: input.slots.control[0].id }),
-      }, ...input.slots.control],
+      children: [
+        {
+          id: labelId,
+          role: 'text',
+          value: input.model.label,
+          controls: control.id,
+        },
+        ...(input.model.description.length === 0 ? [] : [{
+          id: descriptionId,
+          role: 'text' as const,
+          value: input.model.description,
+        }]),
+        relatedControl,
+      ],
     };
   },
 });
@@ -1260,7 +1293,7 @@ interface ComboboxOptionModel {
 interface ComboboxModel {
   readonly label: string;
   readonly options: readonly ComboboxOptionModel[];
-  readonly presentation: ComboboxPresentation;
+  readonly presentation: AnyComboboxPresentation;
   readonly placeholder: string;
   readonly placement: AnchoredSurfacePlacement;
   readonly maxVisibleOptions: number;
@@ -1277,6 +1310,9 @@ const comboboxSlots = {
 /* eslint-disable @typescript-eslint/unified-signatures -- overloads preserve mode-specific transition inference */
 interface ComboboxFactory {
   <TValue, const TMessage extends ComponentMessage = never>(
+    options: AutocompleteComboboxOptions<TValue, TMessage>,
+  ): Element<TMessage>;
+  <TValue, const TMessage extends ComponentMessage = never>(
     options: ScrollableComboboxOptions<TValue, TMessage>,
   ): Element<TMessage>;
   <TValue, const TMessage extends ComponentMessage = never>(
@@ -1286,7 +1322,7 @@ interface ComboboxFactory {
 /* eslint-enable @typescript-eslint/unified-signatures */
 
 type ComboboxComponentAction =
-  | { readonly kind: 'transition'; readonly transition: ComboboxTransition }
+  | { readonly kind: 'transition'; readonly transition: AutocompleteComboboxTransition }
   | { readonly kind: 'commit'; readonly event: ComboboxCommitEvent }
   | { readonly kind: 'pointer'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
 
@@ -1309,10 +1345,30 @@ const instantiateCombobox = defineComponent<
   states: ['disabled', 'busy', 'readOnly', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
+  inspection: ({ model }) => {
+    const activeId = comboboxActiveId(model.presentation);
+    const selectedId = comboboxSelectedId(model.presentation);
+    return {
+      value: model.presentation.kind === 'autocomplete'
+        ? inspectTextValue(model.presentation.input.text)
+        : null,
+      ...(activeId === undefined ? {} : { active: activeId }),
+      selection: {
+        mode: 'single',
+        ...(selectedId === undefined ? {} : { selectedId }),
+      },
+      validation: inspectValidation(model.required, model.error),
+      collection: {
+        startIndex: 0,
+        totalCount: model.options.length,
+        visibleCount: model.options.length,
+      },
+    };
+  },
   implementationSlots(input) {
     if (!input.model.presentation.open) return { popup: undefined };
     const id = input.id ?? 'combobox';
-    const highlighted = input.model.presentation.interaction.activeId;
+    const highlighted = comboboxActiveId(input.model.presentation);
     const selectedId = comboboxSelectedId(input.model.presentation);
     const common = {
       id: `${id}:popup:list`,
@@ -1323,7 +1379,8 @@ const instantiateCombobox = defineComponent<
         ...(input.styles === undefined ? {} : { styles: comboboxPopupStyles(input.styles) }),
       },
     };
-    const popupList = input.model.presentation.scroll === undefined
+    const scroll = comboboxScroll(input.model.presentation);
+    const popupList = scroll === undefined
       ? listbox<ComboboxOptionModel, ComponentMessage>({
         ...common,
         presentation: {
@@ -1333,7 +1390,7 @@ const instantiateCombobox = defineComponent<
             : { mode: 'single' as const, selectedId },
         },
         onTransition: (action) => input.emit(comboboxTransitionForListbox(action)),
-        onActivate: (event) => input.readOnly
+        onActivate: (event) => !allowsComponentAction(input, 'commitSelection')
           ? ignoreMessage()
           : input.emit({ kind: 'commit', event: { kind: 'commit', id: event.id } }),
       })
@@ -1344,11 +1401,11 @@ const instantiateCombobox = defineComponent<
           selection: selectedId === undefined
             ? { mode: 'single' as const }
             : { mode: 'single' as const, selectedId },
-          scroll: input.model.presentation.scroll,
+          scroll,
         },
         ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),
         onTransition: (action) => input.emit(comboboxTransitionForListbox(action)),
-        onActivate: (event) => input.readOnly
+        onActivate: (event) => !allowsComponentAction(input, 'commitSelection')
           ? ignoreMessage()
           : input.emit({ kind: 'commit', event: { kind: 'commit', id: event.id } }),
       });
@@ -1393,59 +1450,130 @@ const instantiateCombobox = defineComponent<
     renderCombobox(input);
   },
   keys({ id, model, busy, readOnly }) {
-    if (busy) return {};
+    const availability = { busy, readOnly };
+    if (!allowsComponentAction(availability, 'navigate')) return {};
+    const canEdit = allowsComponentAction(availability, 'edit');
+    const canCommitSelection = allowsComponentAction(availability, 'commitSelection');
     const whenSelf =
       (action: import('../../interaction/index.ts').MessageResolution<ComboboxComponentAction>) =>
       (event: { readonly focusPath: readonly string[] }) =>
         event.focusPath.at(-1) === id ? action : ignoreMessage();
     const highlighted = model.presentation.open
-      ? model.presentation.interaction.activeId
+      ? comboboxActiveId(model.presentation)
       : undefined;
     return {
       arrowDown: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: 1 })),
       arrowUp: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: -1 })),
       pageDown: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: 1 })),
       pageUp: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: -1 })),
-      home: whenSelf(comboboxComponentTransition({ kind: 'firstActive' })),
-      end: whenSelf(comboboxComponentTransition({ kind: 'lastActive' })),
-      space: whenSelf(comboboxComponentTransition({ kind: 'toggle' })),
+      ...(model.presentation.kind === 'select'
+        ? {
+            home: whenSelf(comboboxComponentTransition({ kind: 'firstActive' })),
+            end: whenSelf(comboboxComponentTransition({ kind: 'lastActive' })),
+            space: whenSelf(comboboxComponentTransition({ kind: 'toggle' })),
+          }
+        : {
+            ...(canEdit ? {
+              triggers: [{
+                trigger: { kind: 'key' as const, key: 'z' as const, modifiers: { ctrl: true } },
+                onKey: () => comboboxComponentTransition({ kind: 'undo' }),
+              }, {
+                trigger: { kind: 'key' as const, key: 'y' as const, modifiers: { ctrl: true } },
+                onKey: () => comboboxComponentTransition({ kind: 'redo' }),
+              }],
+              backspace: whenSelf(comboboxComponentTransition({
+                kind: 'edit',
+                operation: { kind: 'deleteBackward' },
+              })),
+              delete: whenSelf(comboboxComponentTransition({
+                kind: 'edit',
+                operation: { kind: 'deleteForward' },
+              })),
+            } : {}),
+            arrowLeft: whenSelf(comboboxComponentTransition({ kind: 'edit', operation: { kind: 'moveLeft' } })),
+            arrowRight: whenSelf(comboboxComponentTransition({ kind: 'edit', operation: { kind: 'moveRight' } })),
+            home: whenSelf(comboboxComponentTransition({ kind: 'edit', operation: { kind: 'moveHome' } })),
+            end: whenSelf(comboboxComponentTransition({ kind: 'edit', operation: { kind: 'moveEnd' } })),
+          }),
       enter: whenSelf(
         !model.presentation.open
           ? comboboxComponentTransition({ kind: 'open' })
         : highlighted === undefined
           ? ignoreMessage()
-          : readOnly ? ignoreMessage() : {
+          : !canCommitSelection ? ignoreMessage() : {
             kind: 'commit',
             event: { kind: 'commit', id: highlighted },
           },
       ),
       escape: whenSelf(
-        model.presentation.open
+        model.presentation.open && popupAllowsDismissal(standardPopupDismissal, 'escape')
           ? comboboxComponentTransition({ kind: 'dismiss', reason: 'escape' })
           : ignoreMessage(),
       ),
     };
   },
+  onInput: ({ model, text, readOnly }) => model.presentation.kind === 'select'
+    || !allowsComponentAction({ readOnly }, 'edit')
+    ? ignoreMessage()
+    : comboboxComponentTransition({ kind: 'edit', operation: { kind: 'insert', text } }),
+  onPaste: ({ model, text, readOnly }) => model.presentation.kind === 'select'
+    || !allowsComponentAction({ readOnly }, 'edit')
+    ? ignoreMessage()
+    : comboboxComponentTransition({ kind: 'edit', operation: { kind: 'insert', text } }),
   pointer: {
     state: ({ model }) => model.pointerState,
     onAction: (action) => ({ kind: 'pointer', action }),
   },
-  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
-  hitTargets: ({ id, bounds, model }) => [{
-    id: `${id ?? 'combobox'}:trigger`,
-    bounds: { ...bounds, height: Math.min(1, bounds.height) },
-    accepts: ['click'],
-    focus: { kind: 'target', targetId: 'self' },
-    message: () => comboboxComponentTransition({ kind: 'toggle' }),
-    cursor: 'pointer',
-    ...(model.presentation.open ? { zIndex: 21 } : {}),
+  onFocus: (event, { model }) => event.kind === 'focusLeave'
+    && model.presentation.open
+    && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
+    ? comboboxComponentTransition({ kind: 'dismiss', reason: 'focusLoss' })
+    : ignoreMessage(),
+  focusTargets: ({ bounds, model, widthProfile }) => [{
+    id: 'self',
+    bounds,
+    ...(model.presentation.kind === 'select' ? {} : {
+      cursor: {
+        row: 0,
+        column: Math.min(
+          Math.max(0, bounds.width - 1),
+          measureTextCells(
+            `${model.required ? `${model.label} *` : model.label}: ${model.presentation.input.text.slice(0, model.presentation.input.cursor)}`,
+            { widthProfile },
+          ).cells,
+        ),
+      },
+    }),
   }],
+  hitTargets: ({ id, bounds, model, busy }) => busy ? [] : [{
+      id: popupRelationship(id ?? 'combobox').triggerId,
+      bounds: { ...bounds, height: Math.min(1, bounds.height) },
+      accepts: ['click'],
+      focus: { kind: 'target', targetId: 'self' },
+      message: () => comboboxComponentTransition({ kind: 'toggle' }),
+      cursor: 'pointer',
+      ...(model.presentation.open ? { zIndex: 21 } : {}),
+    }],
   accessibility(input) {
     return comboboxAccessibility(input);
   },
 });
 
 export const combobox: ComboboxFactory = (options) => {
+  return isAutocompleteComboboxOptions(options)
+    ? createAutocompleteCombobox(options)
+    : createSelectCombobox(options);
+};
+
+function isAutocompleteComboboxOptions<TValue, TMessage extends ComponentMessage>(
+  options: AnyComboboxOptions<TValue, TMessage>,
+): options is AutocompleteComboboxOptions<TValue, TMessage> {
+  return options.presentation.kind === 'autocomplete';
+}
+
+function createSelectCombobox<TValue, TMessage extends ComponentMessage>(
+  options: ComboboxOptions<TValue, TMessage>,
+): Element<TMessage> {
   const model = prepareCombobox(
     options,
     options.disabled !== true && options.inert !== true,
@@ -1473,16 +1601,69 @@ export const combobox: ComboboxFactory = (options) => {
       return options.onPointerAction?.(action.action) ?? ignoreMessage();
     },
   });
-};
+}
+
+function createAutocompleteCombobox<TValue, TMessage extends ComponentMessage>(
+  options: AutocompleteComboboxOptions<TValue, TMessage>,
+): Element<TMessage> {
+  const model = prepareCombobox(options, options.disabled !== true && options.inert !== true);
+  const common = {
+    ...model,
+    id: options.id,
+    ...(options.meta === undefined ? {} : { meta: options.meta }),
+  };
+  if (options.disabled === true) return instantiateCombobox({ ...common, disabled: true });
+  const shared = { ...common, ...(options.busy === undefined ? {} : { busy: options.busy }) };
+  if (options.inert === true) return instantiateCombobox({ ...shared, inert: true });
+  assertRequiredCallback(options.onTransition, 'combobox onTransition');
+  assertOptionalCallback(options.onCommit, 'combobox onCommit');
+  assertOptionalCallback(options.onPointerAction, 'combobox onPointerAction');
+  return instantiateCombobox({
+    ...shared,
+    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    onAction: (action) => {
+      if (action.kind === 'transition') {
+        return emitAutocompleteComboboxTransition(options, action.transition);
+      }
+      if (action.kind === 'commit') return options.onCommit?.(action.event) ?? ignoreMessage();
+      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+    },
+  });
+}
 
 function emitComboboxTransition<TValue, TMessage extends ComponentMessage>(
   options: ActiveComboboxOptions<TValue, TMessage>,
-  transition: ComboboxTransition,
+  transition: AutocompleteComboboxTransition,
 ): import('../../interaction/message.ts').MessageResolution<TMessage> {
+  if (isAutocompleteOnlyTransition(transition)) return ignoreMessage();
   if (isScrollableComboboxOptions(options)) return options.onTransition(transition);
   return transition.kind === 'scroll'
     ? ignoreMessage()
     : options.onTransition(transition);
+}
+
+function emitAutocompleteComboboxTransition<TValue, TMessage extends ComponentMessage>(
+  options: ActiveAutocompleteComboboxOptions<TValue, TMessage>,
+  transition: AutocompleteComboboxTransition,
+): import('../../interaction/message.ts').MessageResolution<TMessage> {
+  if (isScrollableAutocompleteComboboxOptions(options)) return options.onTransition(transition);
+  return transition.kind === 'scroll'
+    ? ignoreMessage()
+    : options.onTransition(transition);
+}
+
+function isScrollableAutocompleteComboboxOptions<
+  TValue,
+  TMessage extends ComponentMessage,
+>(
+  options: ActiveAutocompleteComboboxOptions<TValue, TMessage>,
+): options is ActiveAutocompleteComboboxOptions<TValue, TMessage> & {
+  readonly presentation: Extract<AnyComboboxPresentation, { readonly kind: 'autocomplete'; readonly scroll: unknown }>;
+  readonly onTransition: (
+    transition: AutocompleteComboboxTransition,
+  ) => import('../../interaction/message.ts').MessageResolution<TMessage>;
+} {
+  return options.presentation.scroll !== undefined;
 }
 
 function isScrollableComboboxOptions<TValue, TMessage extends ComponentMessage>(
@@ -1494,6 +1675,16 @@ function isScrollableComboboxOptions<TValue, TMessage extends ComponentMessage>(
   ) => import('../../interaction/message.ts').MessageResolution<TMessage>;
 } {
   return options.presentation.scroll !== undefined;
+}
+
+function isAutocompleteOnlyTransition(
+  transition: AutocompleteComboboxTransition,
+): transition is Exclude<AutocompleteComboboxTransition, ComboboxTransition> {
+  return transition.kind === 'edit'
+    || transition.kind === 'undo'
+    || transition.kind === 'redo'
+    || transition.kind === 'pointer'
+    || transition.kind === 'setText';
 }
 
 function assertActionCallbacks(
@@ -1510,7 +1701,9 @@ function selectedComboboxOption(model: ComboboxModel): ComboboxOptionModel | und
 
 function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePart>): void {
   const selected = selectedComboboxOption(input.model);
-  const value = selected?.label ?? input.model.placeholder;
+  const value = input.model.presentation.kind === 'autocomplete'
+    ? input.model.presentation.input.text || input.model.placeholder
+    : selected?.label ?? input.model.placeholder;
   const state = input.disabled
     ? 'disabled' as const
     : pointerVisualState(input.model.pointerState, `${input.id ?? 'combobox'}:trigger`) ??
@@ -1521,11 +1714,14 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
     ...(state === undefined ? {} : { state }),
     base: { fg: { kind: 'theme', token: 'text.strong' }, bold: true },
   });
-  const valuePart: ChoiceStylePart = selected === undefined ? 'description' : 'option';
+  const hasValue = input.model.presentation.kind === 'autocomplete'
+    ? input.model.presentation.input.text.length > 0
+    : selected !== undefined;
+  const valuePart: ChoiceStylePart = hasValue ? 'option' : 'description';
   const valueStyle = input.style({
     part: valuePart,
     ...(state === undefined ? {} : { state }),
-    base: selected === undefined
+    base: !hasValue
       ? { fg: { kind: 'theme', token: 'input.placeholder' } }
       : { fg: { kind: 'theme', token: 'text.default' } },
   });
@@ -1541,7 +1737,7 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
       input,
       value,
       valuePart,
-      selected === undefined ? 'value.placeholder' : 'value.selected',
+      hasValue ? 'value.selected' : 'value.placeholder',
       valueStyle,
     ),
     comboboxSpan(input, ' ', 'marker', 'value.separator', markerStyle),
@@ -1588,6 +1784,8 @@ function comboboxAccessibility(
     .filter((part) => part.length > 0)
     .join(' ');
   const open = input.model.presentation.open ? input.model.presentation : undefined;
+  const activeId = open === undefined ? undefined : comboboxActiveId(open);
+  const relationship = popupRelationship(input.id);
   return {
     id: input.id,
     role: 'combobox',
@@ -1596,10 +1794,13 @@ function comboboxAccessibility(
     invalid: input.model.error !== undefined,
     ...(input.model.error === undefined ? {} : { errorMessage: `${input.id}:error` }),
     expanded: input.model.presentation.open,
-    ...(open?.interaction.activeId === undefined
+    ...(open === undefined ? {} : { controls: relationship.popupId }),
+    ...(activeId === undefined
       ? {}
-      : { activeDescendant: `${input.id}:${open.interaction.activeId}` }),
-    ...(selected === undefined ? {} : { value: selected.label }),
+      : { activeDescendant: popupActiveDescendantId(relationship, activeId) }),
+    ...(input.model.presentation.kind === 'autocomplete'
+      ? { value: input.model.presentation.input.text }
+      : selected === undefined ? {} : { value: selected.label }),
     ...(description.length === 0 ? {} : { description }),
     ...(input.focused ? { focused: true } : {}),
     ...(open === undefined ? {
@@ -1608,11 +1809,11 @@ function comboboxAccessibility(
         : [{ id: `${input.id}:error`, role: 'status' as const, label: input.model.error }],
     } : {
       children: [{
-        id: `${input.id}:options`,
+        id: relationship.popupId,
         role: 'listbox' as const,
         label: `${input.model.label || input.id} options`,
         children: input.model.options.map((option) => ({
-          id: `${input.id}:${option.id}`,
+          id: `${relationship.popupId}:item:${option.id}`,
           role: 'option' as const,
           label: option.label,
           selected: option.id === comboboxSelectedId(open),
@@ -1652,7 +1853,7 @@ function comboboxTransitionForListbox(action: ListboxTransition): ComboboxCompon
   }
 }
 
-function comboboxComponentTransition(transition: ComboboxTransition): ComboboxComponentAction {
+function comboboxComponentTransition(transition: AutocompleteComboboxTransition): ComboboxComponentAction {
   return { kind: 'transition', transition };
 }
 
@@ -1669,7 +1870,7 @@ function comboboxPopupStyles(
 }
 
 function prepareCombobox<TValue, TMessage extends ComponentMessage>(
-  value: Readonly<ComboboxOptions<TValue, TMessage>>,
+  value: Readonly<AnyComboboxOptions<TValue, TMessage>>,
   pointerAvailable: boolean,
 ): ComboboxModel {
   const label = value.label;
@@ -1744,7 +1945,7 @@ function prepareCombobox<TValue, TMessage extends ComponentMessage>(
     pointerAvailable,
   );
   const scrollbar = prepareScrollbar(value.scrollbar);
-  if (presentation.scroll === undefined && scrollbar !== undefined) {
+  if (comboboxScroll(presentation) === undefined && scrollbar !== undefined) {
     throw new TypeError('combobox scrollbar requires presentation scroll state.');
   }
   return {
@@ -1762,12 +1963,55 @@ function prepareCombobox<TValue, TMessage extends ComponentMessage>(
 }
 
 function prepareComboboxPresentation(
-  value: ComboboxPresentation,
+  value: AnyComboboxPresentation,
   options: readonly ComboboxOptionModel[],
-): ComboboxPresentation {
-  if (!isNonArrayObject(value) || typeof value.open !== 'boolean' ||
-    !isNonArrayObject(value.interaction)) {
+): AnyComboboxPresentation {
+  const candidate: unknown = value;
+  if (!isNonArrayObject(candidate) || typeof candidate['open'] !== 'boolean' ||
+    (candidate['kind'] !== 'select' && candidate['kind'] !== 'autocomplete')) {
     throw new TypeError('combobox presentation is invalid.');
+  }
+  if (value.kind === 'autocomplete') {
+    if (!isNonArrayObject(value.input) || typeof value.input.text !== 'string' ||
+      typeof value.input.cursor !== 'number' || !Number.isSafeInteger(value.input.cursor) ||
+      value.input.cursor < 0 || value.input.cursor > value.input.text.length) {
+      throw new TypeError('autocomplete combobox input is invalid.');
+    }
+    const cleanInput = sanitizeTerminalText(value.input.text).text;
+    if (cleanInput !== value.input.text) {
+      throw new TypeError('autocomplete combobox input must contain sanitized terminal text.');
+    }
+    const selection = ownSelectionState(value.selection, 'autocomplete combobox selection');
+    if (selection.mode !== 'single') {
+      throw new TypeError('autocomplete combobox selection must use single mode.');
+    }
+    const selectedId = selection.selectedId === undefined
+      ? undefined
+      : nonEmptyId(selection.selectedId, 'autocomplete combobox selectedId');
+    const activeId = value.activeId === undefined
+      ? undefined
+      : nonEmptyId(value.activeId, 'autocomplete combobox activeId');
+    if (activeId !== undefined && !options.some((option) => option.id === activeId && !option.disabled)) {
+      throw new TypeError('autocomplete combobox activeId must reference an enabled option.');
+    }
+    const scroll = prepareScrollState(value.scroll, 'autocomplete combobox presentation scroll');
+    return {
+      kind: 'autocomplete',
+      open: value.open,
+      input: Object.freeze({
+        text: value.input.text,
+        cursor: value.input.cursor,
+        ...(value.input.selection === undefined
+          ? {}
+          : { selection: prepareComboboxTextSelection(value.input.selection, value.input.text.length) }),
+      }),
+      ...(activeId === undefined ? {} : { activeId }),
+      selection: Object.freeze({ mode: 'single' as const, ...(selectedId === undefined ? {} : { selectedId }) }),
+      ...(scroll === undefined ? {} : { scroll }),
+    };
+  }
+  if (!isNonArrayObject(value.interaction)) {
+    throw new TypeError('combobox interaction is invalid.');
   }
   const selection = ownSelectionState(
     value.interaction.selection,
@@ -1790,6 +2034,7 @@ function prepareComboboxPresentation(
   }
   const scroll = prepareScrollState(value.scroll, 'combobox presentation scroll');
   return {
+    kind: 'select',
     open: value.open,
     interaction: Object.freeze({
       ...(activeId === undefined ? {} : { activeId }),
@@ -1802,10 +2047,37 @@ function prepareComboboxPresentation(
   };
 }
 
-function comboboxSelectedId(presentation: ComboboxPresentation): string | undefined {
-  return presentation.interaction.selection.mode === 'single'
-    ? presentation.interaction.selection.selectedId
-    : undefined;
+function comboboxSelectedId(presentation: AnyComboboxPresentation): string | undefined {
+  return presentation.kind === 'autocomplete'
+    ? presentation.selection.selectedId
+    : presentation.interaction.selection.mode === 'single'
+      ? presentation.interaction.selection.selectedId
+      : undefined;
+}
+
+function comboboxActiveId(presentation: AnyComboboxPresentation): string | undefined {
+  return presentation.kind === 'autocomplete'
+    ? presentation.activeId
+    : presentation.interaction.activeId;
+}
+
+function comboboxScroll(presentation: AnyComboboxPresentation): ScrollState | undefined {
+  return presentation.scroll;
+}
+
+function prepareComboboxTextSelection(
+  value: unknown,
+  textLength: number,
+): import('../../text/index.ts').TextSelection {
+  if (!isNonArrayObject(value)) throw new TypeError('autocomplete combobox input selection must be an object.');
+  const startOffset = value['startOffset'];
+  const endOffsetExclusive = value['endOffsetExclusive'];
+  if (typeof startOffset !== 'number' || !Number.isSafeInteger(startOffset) || startOffset < 0 ||
+    typeof endOffsetExclusive !== 'number' || !Number.isSafeInteger(endOffsetExclusive) ||
+    endOffsetExclusive < startOffset || endOffsetExclusive > textLength) {
+    throw new RangeError('autocomplete combobox input selection is outside the input text.');
+  }
+  return Object.freeze({ startOffset, endOffsetExclusive });
 }
 
 function nonEmptyId(value: unknown, owner: string): string {

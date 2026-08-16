@@ -13,6 +13,8 @@ import type {
   ElementStyles
 } from '../element/metadata.ts';
 import { elementStateFields } from '../element/metadata.ts';
+import { adoptComponentSemanticInspection } from '../element/semantic-inspection.ts';
+import type { ComponentSemanticInspection } from '../element/inspection.ts';
 import { renderNodeId } from '../foundation/identity.ts';
 import {
   findUnsupportedField,
@@ -26,6 +28,7 @@ import type {
   PointerInteractionOptions,
   PointerInteractionState
 } from '../interaction/index.ts';
+import type { FocusLifecycleEvent, FocusNavigation } from '../interaction/focus.ts';
 import {
   componentElementFromRenderNode,
   markImplementationStructure,
@@ -135,6 +138,9 @@ interface ComponentBehaviorInput<TPrepared extends object> {
   readonly readOnly: boolean;
   readonly inert: boolean;
 }
+
+export type ComponentInspectionInput<TPrepared extends object> =
+  ComponentBehaviorInput<TPrepared>;
 
 interface ComponentBaseInput<TPrepared extends object>
   extends ComponentBehaviorInput<TPrepared> {
@@ -324,6 +330,15 @@ interface InteractiveDefinition<TPrepared extends object, TAction, TPart extends
     this: undefined,
     input: ComponentTextActionInput<TPrepared>
   ) => MessageResolution<TAction>;
+  readonly onFocus?: (
+    this: undefined,
+    event: FocusLifecycleEvent,
+    input: ComponentBehaviorInput<TPrepared>
+  ) => MessageResolution<TAction>;
+  readonly focusNavigation?: (
+    this: undefined,
+    input: ComponentBehaviorInput<TPrepared>
+  ) => FocusNavigation;
   readonly pointer?: ComponentPointerActions<TPrepared, TAction>;
 }
 
@@ -349,12 +364,17 @@ interface SemanticDefinition<
     this: undefined,
     input: ComponentAccessibilityInput<TPrepared, TSlots>
   ) => AccessibleNode;
+  readonly inspection?: (
+    this: undefined,
+    input: ComponentInspectionInput<TPrepared>
+  ) => ComponentSemanticInspection;
 }
 
 interface DecorativeDefinition {
   readonly semantics: 'decorative';
   readonly accessibleRole?: never;
   readonly accessibility?: never;
+  readonly inspection?: never;
   readonly focusTargets?: never;
   readonly hitTargets?: never;
   readonly keys?: never;
@@ -415,6 +435,40 @@ export type DecorativeLeafComponentDefinition<
       input: ComponentRenderInput<TPrepared, TPart>
     ) => void;
   };
+
+/** A semantic leaf definition with invariant structure fields supplied by the authoring helper. */
+export type SemanticLeafDefinition<
+  TOptions extends object = Readonly<Record<never, never>>,
+  TPrepared extends object = TOptions,
+  TAction = never,
+  TPart extends string = never,
+  TStates extends readonly ComponentStateCapability[] = readonly [],
+  TIdentity extends ComponentIdentity = 'required',
+  TMetadata extends readonly ComponentMetadataCapability[] = readonly []
+> = Omit<
+  SemanticLeafComponentDefinition<
+    TOptions,
+    TPrepared,
+    TAction,
+    TPart,
+    TStates,
+    TIdentity,
+    TMetadata
+  >,
+  'structure' | 'semantics'
+>;
+
+/** A decorative leaf definition with invariant structure fields supplied by the authoring helper. */
+export type DecorativeLeafDefinition<
+  TOptions extends object = Readonly<Record<never, never>>,
+  TPrepared extends object = TOptions,
+  TPart extends string = never,
+  TIdentity extends ComponentIdentity = 'optional',
+  TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly []
+> = Omit<
+  DecorativeLeafComponentDefinition<TOptions, TPrepared, TPart, TIdentity, TMetadata>,
+  'structure' | 'semantics'
+>;
 
 export type SemanticCompositeComponentDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
@@ -828,6 +882,14 @@ export function defineComponent<
     const prepared = prepareComponentOptions(instance, ownedDefinition, state);
     const toActionMessage = instance.onAction;
     const behavior = componentBehaviorInput(instance.id, prepared, state);
+    const inspection = ownedDefinition.semantics === 'semantic'
+      ? ownedDefinition.inspection
+      : undefined;
+    const semanticInspection = inspection === undefined
+      ? undefined
+      : executeComponentPhase(ownedDefinition.name, instance.id, 'inspection', () =>
+          adoptComponentSemanticInspection(inspection.call(undefined, behavior))
+        );
     const requiredLayer = componentDefinitionLayer(instance.id, ownedDefinition, behavior);
     const meta = componentInstanceMeta(
       instance,
@@ -839,6 +901,17 @@ export function defineComponent<
     const accessibleRole = ownedDefinition.semantics === 'semantic'
       ? resolveComponentAccessibleRole(ownedDefinition, behavior, instance.id)
       : undefined;
+    const focusNavigationHook = ownedDefinition.semantics === 'semantic'
+      ? ownedDefinition.focusNavigation
+      : undefined;
+    const focusNavigation = focusNavigationHook === undefined
+      ? undefined
+      : adoptFocusNavigation(executeComponentPhase(
+          ownedDefinition.name,
+          instance.id,
+          'focus',
+          () => focusNavigationHook.call(undefined, behavior),
+        ));
     const slotContent = ownedDefinition.structure === 'composite' || ownedDefinition.structure === 'composed'
       ? componentSlotChildren(
           instance,
@@ -866,11 +939,26 @@ export function defineComponent<
         ...(toActionMessage === undefined ? {} : { toActionMessage })
       },
       definition: runtime,
+      ...(semanticInspection === undefined ? {} : { semanticInspection }),
       ...(Object.keys(state).length === 0 ? {} : { state }),
       ...(children === undefined ? {} : { children }),
       ...(ownedDefinition.structure === 'leaf'
         ? {}
         : { inspectionChildren: slotContent.inspectionChildren }),
+      ...(ownedDefinition.semantics !== 'semantic' || ownedDefinition.onFocus === undefined
+        ? {}
+        : {
+            focusLifecycle: (event: FocusLifecycleEvent) => executeComponentPhase(
+              ownedDefinition.name,
+              instance.id,
+              'focus',
+              () => mapComponentAction(
+                ownedDefinition.onFocus?.call(undefined, event, behavior),
+                toActionMessage,
+              ),
+            ),
+          }),
+      ...(focusNavigation === undefined ? {} : { focusNavigation }),
       ...renderNodeInteraction({
         keys: ownedDefinition.semantics === 'semantic'
           ? mappedKeyBindings(
@@ -907,6 +995,58 @@ export function defineComponent<
     return componentElementFromRenderNode<'component', unknown>(renderNode);
   };
   return Object.freeze(component);
+}
+
+export function defineSemanticLeafComponent<
+  TOptions extends object = Readonly<Record<never, never>>,
+  TPrepared extends object = TOptions,
+  TAction = never,
+  const TPart extends string = never,
+  const TStates extends readonly ComponentStateCapability[] = readonly [],
+  TIdentity extends ComponentIdentity = 'required',
+  const TMetadata extends readonly ComponentMetadataCapability[] = readonly []
+>(definition: SemanticLeafDefinition<
+  TOptions,
+  TPrepared,
+  TAction,
+  TPart,
+  TStates,
+  TIdentity,
+  TMetadata
+>): SemanticLeafComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata>;
+export function defineSemanticLeafComponent(definition: unknown): unknown {
+  if (!isNonArrayObject(definition)) {
+    throw new TypeError('Semantic leaf component definition must be an object.');
+  }
+  return (defineComponent as (value: unknown) => unknown)({
+    ...definition,
+    structure: 'leaf',
+    semantics: 'semantic',
+  });
+}
+
+export function defineDecorativeLeafComponent<
+  TOptions extends object = Readonly<Record<never, never>>,
+  TPrepared extends object = TOptions,
+  const TPart extends string = never,
+  TIdentity extends ComponentIdentity = 'optional',
+  const TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly []
+>(definition: DecorativeLeafDefinition<
+  TOptions,
+  TPrepared,
+  TPart,
+  TIdentity,
+  TMetadata
+>): DecorativeLeafComponentFactory<TOptions, TPart, TIdentity, TMetadata>;
+export function defineDecorativeLeafComponent(definition: unknown): unknown {
+  if (!isNonArrayObject(definition)) {
+    throw new TypeError('Decorative leaf component definition must be an object.');
+  }
+  return (defineComponent as (value: unknown) => unknown)({
+    ...definition,
+    structure: 'leaf',
+    semantics: 'decorative',
+  });
 }
 
 interface ComponentInstanceOptions {
@@ -1050,6 +1190,7 @@ function compileDefinition<
         || definition.keys !== undefined
         || definition.onInput !== undefined
         || definition.onPaste !== undefined
+        || definition.onFocus !== undefined
         || definition.pointer !== undefined
       )
     })
@@ -1066,6 +1207,17 @@ function normalizeSlots(
     owner: slot.owner,
     messages: slot.messages
   })));
+}
+
+function adoptFocusNavigation(value: unknown): FocusNavigation {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('Component focusNavigation() must return an object.');
+  }
+  const orientation = (value as Record<string, unknown>)['orientation'];
+  if (orientation !== 'horizontal' && orientation !== 'vertical') {
+    throw new TypeError('Component focusNavigation() orientation is invalid.');
+  }
+  return Object.freeze({ orientation });
 }
 
 function assertSlotDefinitions(value: unknown, structure: 'leaf' | 'composite' | 'composed'): void {
@@ -1159,6 +1311,9 @@ function assertDefinition(value: unknown): void {
   if (semantics === 'semantic' && typeof value['accessibility'] !== 'function') {
     throw new TypeError('Semantic component definition requires accessibility().');
   }
+  if (value['inspection'] !== undefined && typeof value['inspection'] !== 'function') {
+    throw new TypeError('Component definition inspection must be a function when provided.');
+  }
   if (semantics === 'semantic'
     && typeof value['accessibleRole'] !== 'function'
     && !isAccessibleRole(value['accessibleRole'])) {
@@ -1170,11 +1325,16 @@ function assertDefinition(value: unknown): void {
   if (semantics === 'decorative' && value['accessibility'] !== undefined) {
     throw new TypeError('Decorative component definitions cannot define accessibility().');
   }
+  if (semantics === 'decorative' && value['inspection'] !== undefined) {
+    throw new TypeError('Decorative component definitions cannot define inspection().');
+  }
   if (semantics === 'decorative' && (
     value['states'] !== undefined
     || value['keys'] !== undefined
     || value['onInput'] !== undefined
     || value['onPaste'] !== undefined
+    || value['onFocus'] !== undefined
+    || value['focusNavigation'] !== undefined
     || value['pointer'] !== undefined
     || value['focusTargets'] !== undefined
     || value['hitTargets'] !== undefined
@@ -1193,7 +1353,9 @@ function assertDefinition(value: unknown): void {
     'hitTargets',
     'keys',
     'onInput',
-    'onPaste'
+    'onPaste',
+    'onFocus',
+    'focusNavigation'
   ]) {
     if (value[hook] !== undefined && typeof value[hook] !== 'function') {
       throw new TypeError(`Component definition ${hook} must be a function when provided.`);
@@ -1237,6 +1399,7 @@ function runtimeDefinition<
         ...(definition.keys === undefined ? [] : ['keyboard' as const]),
         ...(definition.onInput === undefined ? [] : ['input' as const]),
         ...(definition.onPaste === undefined ? [] : ['paste' as const]),
+        ...(definition.onFocus === undefined ? [] : ['focus' as const]),
         ...(definition.hitTargets === undefined && definition.pointer === undefined
           ? []
           : ['pointer' as const])

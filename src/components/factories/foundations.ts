@@ -200,6 +200,7 @@ const instantiateToolbar = defineComponent<
   layout(input) {
     return { content: { row: 0, column: 0, width: input.bounds.width, height: input.bounds.height } };
   },
+  focusNavigation: ({ model }) => ({ orientation: model.orientation }),
   focusTargets: () => [],
   accessibility: ({ id, model, slots }) => ({
     id,

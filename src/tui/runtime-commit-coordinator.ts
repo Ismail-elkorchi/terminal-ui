@@ -27,7 +27,9 @@ import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { sameThemeRendering } from '../theme/theme.ts';
 
 export function createRuntimeCommitCoordinator<TState, TMessage>(
-  options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics'>,
+  options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics' | 'graphicsBudget'> & {
+    readonly reportDiagnostic?: (item: TerminalDiagnostic) => void;
+  },
   signal: AbortSignal
 ) {
   let currentTerminalSize = options.host.getTerminalSize();
@@ -40,7 +42,12 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
   let outputBaselineKnown = false;
   let outputSuspended = false;
   let nextCommitSequence = 1;
-  const graphics = createTerminalGraphicsCommitter(options.graphics ?? 'none');
+  const reportedRenderDiagnostics = new Set<string>();
+  const graphics = createTerminalGraphicsCommitter(
+    options.graphics ?? 'none',
+    options.graphicsBudget,
+    options.reportDiagnostic,
+  );
 
   const coordinator = {
     terminalSize: () => currentTerminalSize,
@@ -195,7 +202,8 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       desiredFocusPath,
       theme,
       stateVersion,
-      commitId
+      commitId,
+      options.graphicsBudget,
     );
     if (initialFocus !== undefined) {
       const resolution = resolveInitialFocusSelector(render.layout, initialFocus);
@@ -259,6 +267,11 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     }
     if (nextReturnPaths.length > 0 && focusPathsEqual(render.frame.focusPath, nextReturnPaths.at(-1))) {
       nextReturnPaths = nextReturnPaths.slice(0, -1);
+    }
+    for (const item of render.frame.accessibility.diagnostics) {
+      if (reportedRenderDiagnostics.has(item.fingerprint)) continue;
+      reportedRenderDiagnostics.add(item.fingerprint);
+      diagnostics.push(item);
     }
     return {
       render,

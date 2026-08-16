@@ -58,6 +58,7 @@ function nodeState(node: AccessibleNode): string {
     ...(node.live === undefined || node.live === 'off' ? [] : [`live:${node.live}`]),
     ...(node.scope === undefined ? [] : [`scope:${node.scope.kind}`]),
     ...(node.labelledBy === undefined ? [] : [`labelled-by:${node.labelledBy}`]),
+    ...(node.describedBy === undefined ? [] : [`described-by:${node.describedBy.join(',')}`]),
     ...(node.window === undefined ? [] : [windowState(node.window)]),
     ...(node.position === undefined ? [] : [positionState(node.position)])
   ];

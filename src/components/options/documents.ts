@@ -34,7 +34,7 @@ interface LogViewerBaseOptions {
   readonly id: string;
   readonly history: LogHistory;
   readonly wrap?: boolean;
-  readonly searchQuery?: string;
+  readonly query?: import('../../text/query.ts').CollectionQuery;
   readonly activeMatchId?: string;
   readonly foldedIds?: readonly string[];
   readonly selection?: LogViewerSelection;
@@ -78,7 +78,7 @@ interface CommandInputOptionsBase {
   readonly completionPreview?: string;
   readonly validation?: CommandInputValidation;
   readonly footer?: string;
-  readonly matchQuery?: string;
+  readonly query?: import('../../text/query.ts').CollectionQuery;
   readonly display?: CommandInputDisplay;
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleSuggestions?: number;

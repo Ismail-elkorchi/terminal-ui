@@ -44,8 +44,12 @@ import type {
   ListboxTransition,
   WindowedListboxCollection,
 } from '../../ui-model/list.ts';
-import { matchNormalizedCollectionQuery, normalizeCollectionQuery } from '../../ui-model/query.ts';
-import type { CollectionQuery, QueryMatchRange } from '../../ui-model/query.ts';
+import { matchPreparedCollectionQuery, prepareCollectionQuery, prepareQueryCandidate } from '../../text/query.ts';
+import type {
+  PreparedCollectionQuery,
+  PreparedQueryCandidate,
+  QueryMatchRange,
+} from '../../text/query.ts';
 import type { DataListStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type {
@@ -53,6 +57,7 @@ import type {
   UnscrolledListboxOptions,
   ScrollableListboxOptions,
 } from '../options/content.ts';
+import { inspectSelection } from '../internal/inspection.ts';
 
 interface PreparedListEntry {
   readonly id: string;
@@ -61,7 +66,7 @@ interface PreparedListEntry {
   readonly label: string;
   readonly description?: string;
   readonly disabled: boolean;
-  readonly match?: QueryMatchRange;
+  readonly matches?: readonly QueryMatchRange[];
 }
 
 interface PreparedListbox {
@@ -69,7 +74,7 @@ interface PreparedListbox {
   readonly startIndex: number;
   readonly totalCount: number;
   readonly windowed: boolean;
-  readonly query: Required<CollectionQuery>;
+  readonly query: PreparedCollectionQuery;
   readonly activeId?: string;
   readonly selection: SelectionState;
   readonly scroll?: ScrollState;
@@ -86,10 +91,19 @@ const listboxDefinitionBase = {
   accessibleRole: 'listbox' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['marker', 'item', 'description', 'match', 'empty', 'scrollbar'] as const,
-  states: ['disabled', 'busy', 'readOnly', 'inert'] as const,
+  states: ['disabled', 'busy', 'inert'] as const,
   measure: measureListbox,
   render: renderListbox,
   accessibility: accessibleListbox,
+  inspection: ({ model }: { readonly model: Readonly<PreparedListbox> }) => ({
+    ...(model.activeId === undefined ? {} : { active: model.activeId }),
+    selection: inspectSelection(model.selection),
+    collection: {
+      startIndex: model.startIndex,
+      totalCount: model.totalCount,
+      visibleCount: model.entries.length,
+    },
+  }),
 };
 
 type ListboxComponentAction =
@@ -102,7 +116,7 @@ const instantiateListbox = defineComponent<
   PreparedListbox,
   ListboxComponentAction,
   DataListStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
@@ -111,7 +125,7 @@ const instantiateListbox = defineComponent<
     state: ({ model }) => model.pointerState,
     onAction: (action) => ({ kind: 'pointer', action }),
   },
-  keys({ model, busy, readOnly }) {
+  keys({ model, busy }) {
     if (busy) return {};
     const active = activeEntry(model);
     return {
@@ -121,8 +135,8 @@ const instantiateListbox = defineComponent<
       pageDown: () => transition({ kind: 'pageActive', delta: 1 }),
       home: () => transition({ kind: 'firstActive' }),
       end: () => transition({ kind: 'lastActive' }),
-      ...(readOnly ? {} : { space: () => transition({ kind: 'commitActive' }) }),
-      ...(readOnly || active === undefined || active.disabled
+      space: () => transition({ kind: 'commitActive' }),
+      ...(active === undefined || active.disabled
         ? {}
         : { enter: () => activate(active) }),
     };
@@ -157,7 +171,7 @@ const instantiateListbox = defineComponent<
           accepts: ['click'] as const,
           cursor: 'pointer' as const,
           message: (event: RoutedPointerEvent) =>
-            event.clickCount === 2 && !input.readOnly
+            event.clickCount === 2
               ? activate(entry)
               : transition({ kind: 'setActive', id: entry.id }),
         }]
@@ -207,7 +221,6 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
     ...prepared,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
-    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
@@ -247,13 +260,13 @@ function prepareListbox<TValue, TMessage extends ComponentMessage>(
   } else {
     projected = prepareProjectedCollection(rawCollection);
   }
-  const requestedQuery = value.filterQuery;
+  const requestedQuery = value.query;
   if (projected.windowed && requestedQuery !== undefined) {
     throw new TypeError('Windowed list collections own their filter query.');
   }
   const query = projected.windowed
     ? projected.query
-    : normalizeCollectionQuery(requestedQuery ?? { text: '', mode: 'contains' });
+    : prepareCollectionQuery(requestedQuery ?? { text: '', mode: 'contains' });
   const entries = preparedListEntries(projected, query);
   const activeId = optionalCleanString(value.presentation.activeId, 'listbox activeId');
   const selection = ownSelectionState(value.presentation.selection, 'listbox selection');
@@ -288,11 +301,12 @@ interface ProjectedListData {
   readonly windowed: boolean;
   readonly startIndex: number;
   readonly totalCount: number;
-  readonly query: Required<CollectionQuery>;
+  readonly query: PreparedCollectionQuery;
 }
 
 type PreparedListSourceEntry = Omit<PreparedListEntry, 'position'> & {
   readonly searchText: string;
+  readonly candidate: PreparedQueryCandidate;
 };
 
 const preparedListboxCollections = new WeakMap<object, ProjectedListData>();
@@ -303,31 +317,27 @@ const preparedListEntryViews = new WeakMap<
 
 function preparedListEntries(
   projected: ProjectedListData,
-  query: Required<CollectionQuery>,
+  query: PreparedCollectionQuery,
 ): readonly PreparedListEntry[] {
   const cached = preparedListEntryViews.get(projected);
   const queryKey = `${query.mode}:${query.caseSensitive ? '1' : '0'}:${query.text}`;
   if (cached?.queryKey === queryKey) return cached.entries;
   const matched: {
     readonly entry: PreparedListSourceEntry;
-    readonly match?: QueryMatchRange;
+    readonly matches?: readonly QueryMatchRange[];
   }[] = [];
   for (const entry of projected.entries) {
     if (projected.windowed || query.text.length === 0) {
       matched.push({ entry });
       continue;
     }
-    const match = matchNormalizedCollectionQuery({
-      id: entry.id,
-      primary: entry.label,
-      secondary: [entry.searchText],
-    }, query);
+    const match = matchPreparedCollectionQuery(entry.candidate, query);
     if (match !== undefined) {
-      const primary = match.ranges.find((range) => range.field === 'primary');
-      matched.push({ entry, ...(primary === undefined ? {} : { match: primary }) });
+      const primary = Object.freeze(match.ranges.filter((range) => range.field === 'primary'));
+      matched.push({ entry, ...(primary.length === 0 ? {} : { matches: primary }) });
     }
   }
-  const entries = Object.freeze(matched.map(({ entry, match }, position): PreparedListEntry =>
+  const entries = Object.freeze(matched.map(({ entry, matches }, position): PreparedListEntry =>
     Object.freeze({
       id: entry.id,
       itemIndex: entry.itemIndex,
@@ -335,7 +345,7 @@ function preparedListEntries(
       label: entry.label,
       ...(entry.description === undefined ? {} : { description: entry.description }),
       disabled: entry.disabled,
-      ...(match === undefined ? {} : { match }),
+      ...(matches === undefined ? {} : { matches }),
     })
   ));
   preparedListEntryViews.set(projected, Object.freeze({ queryKey, entries }));
@@ -360,7 +370,7 @@ function prepareProjectedItems<TValue>(
     windowed: false,
     startIndex: 0,
     totalCount: items.length,
-    query: normalizeCollectionQuery({ text: '', mode: 'contains' }),
+    query: prepareCollectionQuery({ text: '', mode: 'contains' }),
   };
 }
 
@@ -373,12 +383,11 @@ function prepareProjectedCollection<TValue>(
   const cached = preparedListboxCollections.get(value);
   if (cached !== undefined) return cached;
   const kind = value.kind;
-  const query = normalizeCollectionQuery({
-    text: kind === 'window' && value.domain.kind === 'projection'
-      ? value.domain.filterQuery ?? ''
-      : '',
-    mode: 'contains',
-  });
+  const query = kind === 'window'
+    && value.domain.kind === 'projection'
+    && value.domain.query !== undefined
+    ? value.domain.query
+    : prepareCollectionQuery({ text: '', mode: 'contains' });
   const prepared = Object.freeze({
     entries: prepareEntries(value.records),
     windowed: kind === 'window',
@@ -403,6 +412,11 @@ function prepareEntries<TValue>(
       ...(item.description === undefined ? {} : { description: item.description }),
       disabled: item.disabled,
       searchText: item.searchText,
+      candidate: prepareQueryCandidate({
+        id: record.id,
+        primary: item.label,
+        secondary: [item.searchText],
+      }),
     });
   }));
 }
@@ -426,6 +440,7 @@ function prepareListEntry(
     ...(item.description === undefined ? {} : { description: item.description }),
     disabled: item.disabled,
     searchText: item.searchText,
+    candidate: prepareQueryCandidate({ id, primary: item.label, secondary: [item.searchText] }),
   });
 }
 
@@ -458,7 +473,7 @@ function prepareListItem(value: ListboxOption): {
     label: cleanLabel,
     ...(cleanDescription === undefined ? {} : { description: cleanDescription }),
     disabled: value.disabled === true,
-    searchText: normalizedQuery(
+    searchText: searchableText(
       [cleanLabel, cleanDescription, ...keywords].filter(Boolean).join(' '),
     ),
   };
@@ -559,7 +574,7 @@ function renderListbox(
           itemIndex: entry.itemIndex,
         }),
       },
-      ...highlightedListLabel(entry.label, entry.match, itemStyle, input, entry, state),
+      ...highlightedListLabel(entry.label, entry.matches, itemStyle, input, entry, state),
       ...(entry.description === undefined ? [] : [{
         text: ` · ${entry.description}`,
         ...optionalSpanStyle(input.style({
@@ -699,14 +714,14 @@ function listPlan(model: PreparedListbox, bounds: import('../../geometry/types.t
 
 function highlightedListLabel(
   label: string,
-  match: QueryMatchRange | undefined,
+  matches: readonly QueryMatchRange[] | undefined,
   base: TerminalStyle | undefined,
   input: import('../../component/index.ts').ComponentRenderInput<PreparedListbox, DataListStylePart>,
   entry: PreparedListEntry,
   state: import('../../element/metadata.ts').ElementVisualState | undefined,
 ): readonly RenderSpan[] {
   const sourceState = state === 'default' ? undefined : state;
-  if (match === undefined) {
+  if (matches === undefined || matches.length === 0) {
     return [{
       text: label,
       ...(base === undefined ? {} : { style: base }),
@@ -725,27 +740,33 @@ function highlightedListLabel(
     part: 'match',
     base: { ...(base ?? {}), fg: { kind: 'theme', token: 'menu.match' }, underline: true },
   });
-  return [
-    label.slice(0, match.start),
-    label.slice(match.start, match.end),
-    label.slice(match.end),
-  ].map((text, part) => ({
-    text,
-    ...(part === 1
-      ? matchStyle === undefined ? {} : { style: matchStyle }
-      : base === undefined
-      ? {}
-      : { style: base }),
-    source: input.source({
-      cellRole: 'text',
-      partName: part === 1 ? 'match' : 'item',
-      partType: 'text',
-      description: `item.${entry.id}.${part === 1 ? 'match' : 'value'}`,
-      itemId: entry.id,
-      itemIndex: entry.itemIndex,
-      ...(sourceState === undefined ? {} : { interactionState: sourceState }),
-    }),
-  })).filter((span) => span.text.length > 0);
+  const spans: RenderSpan[] = [];
+  let cursor = 0;
+  for (const match of matches) {
+    if (match.start > cursor) spans.push(labelSpan(label.slice(cursor, match.start), false));
+    if (match.end > match.start) spans.push(labelSpan(label.slice(match.start, match.end), true));
+    cursor = Math.max(cursor, match.end);
+  }
+  if (cursor < label.length) spans.push(labelSpan(label.slice(cursor), false));
+  return spans;
+
+  function labelSpan(text: string, matched: boolean): RenderSpan {
+    return {
+      text,
+      ...(matched
+        ? matchStyle === undefined ? {} : { style: matchStyle }
+        : base === undefined ? {} : { style: base }),
+      source: input.source({
+        cellRole: 'text',
+        partName: matched ? 'match' : 'item',
+        partType: 'text',
+        description: `item.${entry.id}.${matched ? 'match' : 'value'}`,
+        itemId: entry.id,
+        itemIndex: entry.itemIndex,
+        ...(sourceState === undefined ? {} : { interactionState: sourceState }),
+      }),
+    };
+  }
 }
 
 function optionalSpanStyle(style: TerminalStyle | undefined): { readonly style?: TerminalStyle } {
@@ -795,8 +816,8 @@ function cleanLine(value: string): string {
   return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
 }
 
-function normalizedQuery(value: string): string {
-  return cleanLine(value).trim().toLocaleLowerCase();
+function searchableText(value: string): string {
+  return cleanLine(value).trim();
 }
 
 function nonNegativeSafeInteger(value: unknown, subject: string): number {

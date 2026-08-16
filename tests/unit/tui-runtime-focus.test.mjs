@@ -918,8 +918,7 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
         id: 'grid',
         rows: [['A1', 'B1']],
         getRowId: (_row, index) => String(index),
-        presentation: { interaction: { kind: 'row',
-        selectionMode: 'single', selectedRowIds: [] } },
+        presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
         onTransition: () => ({ active: 'none' })
       })
     ])

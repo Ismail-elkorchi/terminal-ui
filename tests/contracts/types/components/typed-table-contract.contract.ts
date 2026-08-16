@@ -59,9 +59,11 @@ const processes = dataGrid({
   presentation: {
     interaction: {
       kind: 'cell',
-      selectionMode: 'single' as const,
       activeCell: { rowId: '42', columnId: 'name' },
-      selectedCells: [{ rowId: '42', columnId: 'name' }]
+      selection: {
+        mode: 'single' as const,
+        selectedCell: { rowId: '42', columnId: 'name' },
+      },
     }
   },
   onTransition: (action) => ({

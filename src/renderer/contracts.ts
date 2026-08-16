@@ -15,6 +15,7 @@ import type {
 import type { PointerEventKind, RoutedPointerEvent } from '../input/index.ts';
 import type {
   FocusPath,
+  FocusNavigation,
   MessageResolution,
   PointerFocusIntent,
   ResolvedPointerFocusIntent
@@ -195,6 +196,7 @@ export interface LayoutNode {
   readonly inert: boolean;
   readonly focusable: boolean;
   readonly focusScope?: ElementFocusScope;
+  readonly focusNavigation?: FocusNavigation;
   readonly focusTargets: readonly LayoutFocusRegion[];
   readonly children: readonly LayoutNode[];
 }
@@ -310,6 +312,8 @@ export interface RenderDiffDescriptor {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
+  /** Canvas style of the target frame after this diff is applied. */
+  readonly canvasStyle?: TerminalStyle;
   readonly operations: readonly RenderOperation[];
   readonly graphicOperations: readonly GraphicOperationDescriptor[];
   readonly cursor?: CursorPosition;

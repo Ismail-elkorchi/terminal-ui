@@ -28,6 +28,7 @@ import type { MessageResolution } from '../../interaction/index.ts';
 import { oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type { TabCloseEvent, TabsTransition } from '../../ui-model/tabs.ts';
 import type { TabsStylePart } from '../../ui-model/style-parts.ts';
+import type { ComponentInspectionValue } from '../../component/index.ts';
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
@@ -95,7 +96,7 @@ const instantiateTabs = defineComponent<
   TabsModel,
   TabsComponentAction,
   TabsStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
   typeof tabsSlots
@@ -106,9 +107,17 @@ const instantiateTabs = defineComponent<
   semantics: 'semantic',
   accessibleRole: 'group',
   slots: tabsSlots,
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
+  states: ['disabled', 'busy', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['leading', 'label', 'indicator', 'badge', 'close', 'overflow'],
+  inspection: ({ model }) => ({
+    active: model.tabs[model.activeIndex]?.id ?? null,
+    selection: Object.freeze({
+      mode: 'single',
+      selectedId: model.tabs[model.selectedIndex]?.id ?? null,
+    }) satisfies ComponentInspectionValue,
+    collection: { startIndex: 0, totalCount: model.tabs.length, visibleCount: model.tabs.length },
+  }),
   prepare: (value, context) => prepareTabs(value, !context.disabled && !context.inert),
   measure(input) {
     const headerWidth = tabHeaderEntries(input)
@@ -161,7 +170,7 @@ const instantiateTabs = defineComponent<
     }
     input.target.write(content.row, content.column, spans);
   },
-  keys({ id, model, busy, readOnly }) {
+  keys({ id, model, busy }) {
     const whenSelf =
       (action: MessageResolution<TabsComponentAction>) =>
       (event: { readonly focusPath: readonly string[] }) =>
@@ -173,9 +182,9 @@ const instantiateTabs = defineComponent<
       arrowRight: whenSelf(transition({ kind: 'moveActive', delta: 1 })),
       home: whenSelf(transition({ kind: 'firstActive' })),
       end: whenSelf(transition({ kind: 'lastActive' })),
-      ...(readOnly ? {} : { enter: whenSelf(transition({ kind: 'selectActive' })) }),
+      enter: whenSelf(transition({ kind: 'selectActive' })),
       delete: whenSelf(
-        readOnly || active?.closable !== true
+        active?.closable !== true
           ? ignoreMessage()
           : { kind: 'close', event: { kind: 'close', id: active.id } },
       ),
@@ -284,7 +293,6 @@ export const tabs: TabsFactory = <
   assertOptionalCallback(options.onPointerAction, 'tabs onPointerAction');
   return instantiateTabs({
     ...shared,
-    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => {
       if (action.kind === 'close') {
         return options.onClose?.(action.event as TabCloseEvent<TId>) ?? ignoreMessage();

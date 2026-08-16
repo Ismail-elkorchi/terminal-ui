@@ -351,7 +351,8 @@ class CellFrameBuffer implements FrameBuffer {
       clearedBounds: this.clearedCoverage.toDirtyRegionSet(),
       rowFingerprints,
       rowIndexes,
-      fingerprint: bufferFingerprint(rowFingerprints)
+      fingerprint: bufferFingerprint(rowFingerprints, 'semantic'),
+      terminalFingerprint: bufferFingerprint(rowFingerprints, 'terminal'),
     }));
   }
 
@@ -464,6 +465,7 @@ class CellFrameBuffer implements FrameBuffer {
     const rowIndexes: FrameSnapshotRowIndex[] = [];
     for (let row = 1; row <= this.height; row += 1) {
       let rowHash = fnvOffset;
+      let terminalRowHash = fnvOffset;
       const cells = this.rows.get(row);
       const indexedCells = new Map<number, FrameCell>();
       const renderable: FrameCell[] = [];
@@ -475,15 +477,18 @@ class CellFrameBuffer implements FrameBuffer {
         indexedCells.set(cell.column, cell);
         if (cell.continuation !== true) renderable.push(cell);
         rowHash = hashFrameCell(rowHash, cell);
+        terminalRowHash = hashTerminalFrameCell(terminalRowHash, cell);
       }
       const fingerprint = hashToString(rowHash);
-      rowFingerprints.push(Object.freeze({ row, fingerprint }));
+      const terminalFingerprint = hashToString(terminalRowHash);
+      rowFingerprints.push(Object.freeze({ row, fingerprint, terminalFingerprint }));
       if (indexedCells.size > 0) {
         rowIndexes.push(Object.freeze({
           row,
           cells: indexedCells,
           renderable: Object.freeze(renderable),
-          fingerprint
+          fingerprint,
+          terminalFingerprint,
         }));
       }
     }
@@ -697,11 +702,14 @@ function isMergeableFrameCell(cell: FrameCell): boolean {
     && (cell.source?.cellRole === 'border' || cell.source?.cellRole === 'separator');
 }
 
-function bufferFingerprint(rows: readonly FrameRowFingerprint[]): string {
+function bufferFingerprint(
+  rows: readonly FrameRowFingerprint[],
+  kind: 'semantic' | 'terminal',
+): string {
   let hash = fnvOffset;
   for (const row of rows) {
     hash = hashNumber(hash, row.row);
-    hash = hashText(hash, row.fingerprint);
+    hash = hashText(hash, kind === 'semantic' ? row.fingerprint : row.terminalFingerprint);
   }
   return hashToString(hash);
 }
@@ -728,14 +736,17 @@ const styleFingerprintCache = new WeakMap<TerminalStyle, number>();
 const linkFingerprintCache = new WeakMap<TerminalLink, number>();
 
 function hashFrameCell(hash: number, cell: FrameCell): number {
+  return hashFrameCellSource(hashTerminalFrameCell(hash, cell), cell.source);
+}
+
+function hashTerminalFrameCell(hash: number, cell: FrameCell): number {
   let next = hashCodeUnit(hash, hashTagCell);
   next = hashNumber(next, cell.column);
   next = hashText(next, cell.text);
   next = hashNumber(next, cell.width);
   next = hashBoolean(next, cell.continuation === true);
   next = hashTerminalStyle(next, cell.style);
-  next = hashTerminalLink(next, cell.link);
-  return hashFrameCellSource(next, cell.source);
+  return hashTerminalLink(next, cell.link);
 }
 
 function hashTerminalStyle(hash: number, style: TerminalStyle | undefined): number {

@@ -22,6 +22,8 @@ import {
   commitCombobox,
   createScrollState,
   prepareLogHistory,
+  prepareTreeSource,
+  prepareTreeView,
   type UnscrolledComboboxPresentation,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import { prepareCollectionInteractionIndex } from '@ismail-elkorchi/terminal-ui/interaction';
@@ -35,9 +37,11 @@ export type Assert<TValue extends true> = TValue;
 const scroll = createScrollState();
 const interaction = { activeId: 'one', selection: { mode: 'single' as const, selectedId: 'one' } };
 const nodes = [{ id: 'one', label: 'One', kind: 'leaf' as const }];
+const treeSource = prepareTreeSource(nodes);
 const rows = [{ id: 'one' }];
 const history = prepareLogHistory([]);
 const unscrolledCombobox: UnscrolledComboboxPresentation = {
+  kind: 'select',
   open: false,
   interaction: { selection: { mode: 'single' } },
 };
@@ -69,19 +73,22 @@ const scrollableListbox = listbox({
 });
 const unscrolledTree = tree({
   id: 'unscrolled-tree',
-  nodes,
+  view: prepareTreeView(treeSource, { ...interaction, expandedIds: [] }),
   presentation: { ...interaction, expandedIds: [] },
   onTransition: (transition) => ({ kind: 'unscrolledTree' as const, transition }),
 });
 const scrollableTree = tree({
   id: 'scrollable-tree',
-  nodes,
+  view: prepareTreeView(treeSource, { ...interaction, expandedIds: [], scroll }),
   presentation: { ...interaction, expandedIds: [], scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'scrollableTree' as const, transition }),
 });
-const rowInteraction = { kind: 'row' as const,
-selectionMode: 'single' as const, activeRowId: 'one', selectedRowIds: ['one'] };
+const rowInteraction = {
+  kind: 'row' as const,
+  activeRowId: 'one',
+  selection: { mode: 'single' as const, selectedRowId: 'one' },
+};
 const unscrolledGrid = dataGrid({
   id: 'unscrolled-grid',
   rows,

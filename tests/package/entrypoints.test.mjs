@@ -43,6 +43,31 @@ test('root exposes the primary vertical path', async () => {
   assert.equal('normalizeLayoutFlowOptions' in terminalUi, false);
 });
 
+test('focused component entrypoints own their factories and companion contracts', () => {
+  assertNoTypeDiagnostics(`
+    import { link, type DisclosureAction } from '@ismail-elkorchi/terminal-ui/components/foundations';
+    import { textInput, type TextInputAction } from '@ismail-elkorchi/terminal-ui/components/forms';
+    import { dataGrid, tableColumn, type DataGridTransition } from '@ismail-elkorchi/terminal-ui/components/collections';
+    import { menuTrigger, type MenuTriggerTransition } from '@ismail-elkorchi/terminal-ui/components/overlays';
+    import { progressBar, type NotificationHistoryAction } from '@ismail-elkorchi/terminal-ui/components/feedback';
+    import { commandInput, prepareCommandSuggestions, type CommandInputTransition } from '@ismail-elkorchi/terminal-ui/components/patterns';
+    import { chart, type ChartTransition } from '@ismail-elkorchi/terminal-ui/components/visualizations';
+
+    void link;
+    void textInput;
+    void dataGrid;
+    void tableColumn;
+    void menuTrigger;
+    void progressBar;
+    void commandInput;
+    void prepareCommandSuggestions;
+    void chart;
+    type Contracts = DisclosureAction | TextInputAction | DataGridTransition |
+      MenuTriggerTransition | NotificationHistoryAction | CommandInputTransition | ChartTransition;
+    type _Use = Contracts;
+  `);
+});
+
 test('public constant catalogs and policies are immutable at runtime', async () => {
   const diagnostics = await import('../../dist/diagnostics.js');
   const accessibility = await import('@ismail-elkorchi/terminal-ui/accessibility');
@@ -160,25 +185,6 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'ValidationLevel'
   ]) {
     assert.match(componentContractsDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
-  }
-  for (const typeName of [
-    'ElementMeta',
-    'ElementOptions',
-    'ButtonOptions',
-    'CommandInputTransition',
-    'CommandInputOptions',
-    'LogEntry',
-    'LogHistory',
-    'LogViewerAction',
-    'LogViewerOptions',
-    'MenuItem',
-    'SearchPickerTransition',
-    'SearchPickerOptions',
-    'DataGridTransition',
-    'TableColumn',
-    'TreeNode'
-  ]) {
-    assert.match(componentOptionDeclarations, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
   }
   assert.doesNotMatch(componentOptionDeclarations, /\bFrameBuffer\b/u);
 
@@ -429,6 +435,41 @@ test('component packages can use the narrow authoring entrypoint', () => {
     });
 
     void snapshot.accessibilityJson;
+  `);
+});
+
+test('leaf authoring helpers preserve inferred options and actions', () => {
+  assertNoTypeDiagnostics(`
+    import {
+      defineDecorativeLeafComponent,
+      defineSemanticLeafComponent
+    } from '@ismail-elkorchi/terminal-ui/component';
+
+    const status = defineSemanticLeafComponent<
+      { readonly label: string },
+      { readonly label: string },
+      { readonly kind: 'activate' }
+    >({
+      name: 'terminal-ui-tests/components/status',
+      identity: 'required',
+      accessibleRole: 'status',
+      prepare: (value) => ({ label: value.label }),
+      measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+      render: () => undefined,
+      accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),
+      keys: () => ({ enter: () => ({ kind: 'activate' }) })
+    });
+    const spacer = defineDecorativeLeafComponent({
+      name: 'terminal-ui-tests/components/spacer',
+      identity: 'optional',
+      measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }),
+      render: () => undefined
+    });
+
+    void status({ id: 'status', label: 'Ready', onAction: (action) => action.kind });
+    void spacer({});
+    // @ts-expect-error actionful semantic factories require an action mapper
+    void status({ id: 'missing-action', label: 'Ready' });
   `);
 });
 

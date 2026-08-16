@@ -1,5 +1,7 @@
 # API Overview
 
+The complete generated export graph is in the [API reference](./reference.md).
+
 `terminal-ui` publishes one root entrypoint and focused subpath entrypoints.
 The root entrypoint exposes the main vertical path:
 
@@ -32,6 +34,7 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/components/forms`
 - `@ismail-elkorchi/terminal-ui/components/collections`
 - `@ismail-elkorchi/terminal-ui/components/overlays`
+- `@ismail-elkorchi/terminal-ui/components/feedback`
 - `@ismail-elkorchi/terminal-ui/components/patterns`
 - `@ismail-elkorchi/terminal-ui/components/visualizations`
 - `@ismail-elkorchi/terminal-ui/layout`

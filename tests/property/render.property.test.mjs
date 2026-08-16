@@ -107,7 +107,7 @@ test('log viewer cached prepared data produces the same frames as fresh data acr
         id: 'history',
         history,
         wrap: current.wrap,
-        searchQuery: current.searchQuery
+        query: { text: current.searchQuery, mode: 'contains' }
       };
       renderElementFrame(logViewer(options), current, { widthProfile });
       const cached = renderElementFrame(logViewer(options), current, { widthProfile });

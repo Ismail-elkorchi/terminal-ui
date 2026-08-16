@@ -4,6 +4,11 @@ export { runTui } from './run.ts';
 export { defaultTuiLifecyclePolicy } from './run-configuration.ts';
 export { defaultTuiEffectPolicy } from './effects.ts';
 export { animationSource, intervalSource, timeoutSource } from './scheduler.ts';
+export {
+  defaultTuiSourceChannelCapacity,
+  reliableSourceMessage,
+  replaceableSourceMessage,
+} from './source-channel.ts';
 export { advanceAnimationTimeline, createAnimationTimeline, nextAnimationDeadline } from './animation-timeline.ts';
 export type { AnimationFrame, AnimationTimeline } from './animation-timeline.ts';
 export { copySelectedTextToClipboard } from './selection.ts';

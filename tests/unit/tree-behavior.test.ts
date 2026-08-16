@@ -4,6 +4,8 @@ import test from 'node:test';
 import {
   createScrollState,
   prepareTreeCollection,
+  prepareTreeSource,
+  prepareTreeView,
   prepareTreeRows,
   selectableTreeRows,
   treeDisclosureTransition,
@@ -40,10 +42,8 @@ const initial = {
   selection: { mode: 'single', selectedId: 'src' },
 } as const satisfies UnscrolledTreePresentation;
 
-const options = {
-  nodes,
-  selection: { mode: 'single', commitment: 'manual' } as const,
-};
+const source = prepareTreeSource(nodes);
+const options = { view: prepareTreeView(source, initial) };
 
 void test('tree navigation changes active row without changing application selection', () => {
   const moved = treeReducer(initial, { kind: 'moveActive', delta: 1 }, options);
@@ -76,8 +76,8 @@ void test('tree navigation keeps the active row inside the controlled viewport',
 
 void test('tree disclosure state is independent from immutable node data', () => {
   const collapsed = treeReducer(initial, { kind: 'collapse', id: 'src' }, options);
-  const expanded = treeReducer(collapsed, { kind: 'expandAll' }, options);
-  const reset = treeReducer(expanded, { kind: 'collapseAll' }, options);
+  const expanded = treeReducer(collapsed, { kind: 'expandAll' }, { view: prepareTreeView(source, collapsed) });
+  const reset = treeReducer(expanded, { kind: 'collapseAll' }, { view: prepareTreeView(source, expanded) });
 
   assert.deepEqual(collapsed.expandedIds, []);
   assert.deepEqual(expanded.expandedIds, ['src', 'remote']);
@@ -94,14 +94,14 @@ void test('tree disclosure events describe intent and lazy loading stays applica
 
 void test('shared collection queries reveal matching descendants and their ancestors', () => {
   const query = { text: 'index', mode: 'contains' } as const;
-  const rows = visibleTreeRows(nodes, { expandedIds: [], query });
+  const rows = visibleTreeRows(source, { expandedIds: [], query });
   assert.deepEqual(rows.map((row) => row.node.id), ['src', 'index']);
   assert.equal(treeNodeMatches(sourceNode, query), false);
   assert.equal(treeNodeMatches(indexNode, query), true);
 });
 
 void test('lazy presentation state belongs to TreePresentation and produces a nonselectable status row', () => {
-  const rows = visibleTreeRows(nodes, {
+  const rows = visibleTreeRows(source, {
     expandedIds: ['remote'],
     loadStates: { remote: { kind: 'pending', message: 'Fetching' } },
   });
@@ -110,7 +110,7 @@ void test('lazy presentation state belongs to TreePresentation and produces a no
 });
 
 void test('tree collections preserve stable row identity and window metadata', () => {
-  const collection = prepareTreeCollection(nodes, initial);
+  const collection = prepareTreeCollection(source, initial);
   const windowed = prepareTreeRows(collection.records.map((record) => record.row), {
     startIndex: 10,
     totalCount: 20,
@@ -123,8 +123,8 @@ void test('tree collections preserve stable row identity and window metadata', (
 });
 
 void test('tree rejects duplicate application identities at the projection boundary', () => {
-  assert.throws(() => visibleTreeRows([
+  assert.throws(() => prepareTreeSource([
     { id: 'same', label: 'One', kind: 'leaf' },
     { id: 'same', label: 'Two', kind: 'leaf' },
-  ], { expandedIds: [] }), /must be unique/u);
+  ]), /must be unique/u);
 });

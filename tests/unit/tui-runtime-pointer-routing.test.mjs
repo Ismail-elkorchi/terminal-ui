@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { pointerInteractionReducer } from '../../dist/behavior/index.js';
+import {
+  pointerInteractionReducer,
+  prepareTreeSource,
+  prepareTreeView,
+} from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   componentElement,
@@ -701,22 +705,27 @@ test('an abandoned second click clears the previous double-click candidate', asy
 });
 
 test('TUI runtime routes tree row hit targets to node messages', async () => {
+  const nodes = [
+    { id: 'root', label: 'Root', kind: 'branch', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
+  ];
+  const source = prepareTreeSource(nodes);
   const app = defineTui({
     id: 'tree-mouse-routing',
     init: () => ({ activeId: undefined }),
     update: (_state, message) => ({ state: { activeId: message.id } }),
-    view: (state) => tree({
-      id: 'tree',
-      presentation: {
+    view: (state) => {
+      const presentation = {
         expandedIds: ['root'],
         ...(state.activeId === undefined ? {} : { activeId: state.activeId }),
         selection: { mode: 'none' }
-      },
-      nodes: [
-        { id: 'root', label: 'Root', kind: 'branch', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
-      ],
-      onTransition: (action) => action.kind === 'setActive' ? { id: action.id } : undefined
-    })
+      };
+      return tree({
+        id: 'tree',
+        presentation,
+        view: prepareTreeView(source, presentation),
+        onTransition: (action) => action.kind === 'setActive' ? { id: action.id } : undefined
+      });
+    }
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host, input: { mouseReporting: 'drag' } });
@@ -732,20 +741,23 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
 });
 
 test('TUI runtime routes tree disclosure and body hit targets separately', async () => {
+  const nodes = [
+    { id: 'root', label: 'Root', kind: 'branch', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
+  ];
+  const presentation = {
+    expandedIds: ['root'],
+    activeId: 'root',
+    selection: { mode: 'none' }
+  };
+  const source = prepareTreeSource(nodes);
   const app = defineTui({
     id: 'tree-disclosure-routing',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => tree({
       id: 'tree',
-      presentation: {
-        expandedIds: ['root'],
-        activeId: 'root',
-        selection: { mode: 'none' }
-      },
-      nodes: [
-        { id: 'root', label: 'Root', kind: 'branch', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
-      ],
+      presentation,
+      view: prepareTreeView(source, presentation),
       onTransition: (action) => ({ kind: 'tree', action })
     })
   });

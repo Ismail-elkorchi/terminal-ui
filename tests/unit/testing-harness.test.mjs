@@ -21,6 +21,7 @@ import {
 import { column } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.ts';
 import { ignoreMessage } from '../../dist/component/index.js';
+import { prepareTreeSource, prepareTreeView } from '../../dist/behavior/index.js';
 
 test('testing harness records input and output deterministically', async () => {
   const harness = createTerminalHarness();
@@ -272,6 +273,17 @@ test('terminal harness resize events drive active TUI resize handling', async ()
 
 test('interaction scripts assert styled text focus selection and hit targets against recorded frames', async () => {
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 9 } });
+  const treePresentation = {
+    expandedIds: ['root'],
+    activeId: 'child',
+    selection: { mode: 'single', selectedId: 'child' }
+  };
+  const treeSource = prepareTreeSource([{
+    id: 'root',
+    label: 'Root',
+    kind: 'branch',
+    children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
+  }]);
   const frame = renderElementFrame(column([
     richText({
       id: 'styled-line',
@@ -279,19 +291,8 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     }),
     tree({
       id: 'tree',
-      presentation: {
-        expandedIds: ['root'],
-        activeId: 'child',
-        selection: { mode: 'single', selectedId: 'child' }
-      },
-      nodes: [
-        {
-          id: 'root',
-          label: 'Root',
-          kind: 'branch',
-          children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
-        }
-      ],
+      presentation: treePresentation,
+      view: prepareTreeView(treeSource, treePresentation),
       onTransition: (action) => ({ kind: 'tree', action })
     }),
     button({

@@ -25,6 +25,7 @@ type PieceNode = PieceLeaf | PieceBranch;
 
 interface PieceMetrics {
   readonly length: number;
+  readonly bytes: number;
   readonly lineBreaks: number;
   readonly height: number;
 }
@@ -46,7 +47,14 @@ interface TextDocumentData {
   readonly change?: Omit<TextDocumentChange, 'document'>;
 }
 
-const EMPTY_LEAF: PieceLeaf = Object.freeze({ kind: 'leaf', text: '', length: 0, lineBreaks: 0, height: 1 });
+const EMPTY_LEAF: PieceLeaf = Object.freeze({
+  kind: 'leaf',
+  text: '',
+  length: 0,
+  bytes: 0,
+  lineBreaks: 0,
+  height: 1
+});
 const MAX_INITIAL_PIECE_LENGTH = 4_096;
 const documents = new WeakMap<object, TextDocumentData>();
 
@@ -64,6 +72,10 @@ export function isTextDocument(value: unknown): value is TextDocument {
 
 export function textDocumentLength(document: TextDocument): number {
   return dataFor(document).root.length;
+}
+
+export function textDocumentBytes(document: TextDocument): number {
+  return dataFor(document).root.bytes;
 }
 
 export function textDocumentLineCount(document: TextDocument): number {
@@ -269,7 +281,14 @@ function leaf(text: string): PieceLeaf {
   for (let index = 0; index < text.length; index += 1) {
     if (text.charCodeAt(index) === 10) lineBreaks += 1;
   }
-  return Object.freeze({ kind: 'leaf', text, length: text.length, lineBreaks, height: 1 });
+  return Object.freeze({
+    kind: 'leaf',
+    text,
+    length: text.length,
+    bytes: new TextEncoder().encode(text).byteLength,
+    lineBreaks,
+    height: 1
+  });
 }
 
 function branch(left: PieceNode, right: PieceNode): PieceNode {
@@ -280,6 +299,7 @@ function branch(left: PieceNode, right: PieceNode): PieceNode {
     left,
     right,
     length: left.length + right.length,
+    bytes: left.bytes + right.bytes,
     lineBreaks: left.lineBreaks + right.lineBreaks,
     height: Math.max(left.height, right.height) + 1
   });

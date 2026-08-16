@@ -43,6 +43,61 @@ test('TUI runtime dispatch updates state and records incremental render diffs', 
   assert.match(renderFramePlain(runtime.frame()), /Count 2/);
 });
 
+test('dispatchMany reduces one ordered transaction and commits once', async () => {
+  const observed = [];
+  const transcript = createTranscriptRecorder({ id: 'dispatch-many', source: 'tui' });
+  const app = defineTui({
+    id: 'dispatch-many',
+    init: () => ({ values: [] }),
+    update: (state, message) => {
+      observed.push(message.value);
+      return message.exit === true
+        ? { state: { values: [...state.values, message.value] }, exit: { reason: 'complete' } }
+        : { state: { values: [...state.values, message.value] } };
+    },
+    view: (state) => text({ content: state.values.join(','), id: 'values' }),
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, transcript });
+  await runtime.start();
+  const framesBefore = runtime.metrics().frameCommits;
+
+  const result = await runtime.dispatchMany([
+    { value: 'one' },
+    { value: 'two' },
+    { value: 'three', exit: true },
+    { value: 'ignored' },
+  ]);
+
+  assert.deepEqual(result.values, ['one', 'two', 'three']);
+  assert.deepEqual(observed, ['one', 'two', 'three']);
+  assert.equal(runtime.metrics().frameCommits, framesBefore + 1);
+  assert.deepEqual(
+    transcript.snapshot().steps
+      .filter((step) => step.kind === 'message')
+      .map((step) => step.message.value),
+    ['one', 'two', 'three'],
+  );
+  await runtime.dispose();
+});
+
+test('empty dispatchMany is an operational no-op', async () => {
+  const initial = { count: 0 };
+  const app = defineTui({
+    id: 'empty-dispatch-many',
+    init: () => initial,
+    update: (state) => ({ state: { count: state.count + 1 } }),
+    view: (state) => text({ content: String(state.count) }),
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  await runtime.start();
+  const framesBefore = runtime.metrics().frameCommits;
+  assert.equal(await runtime.dispatchMany([]), initial);
+  assert.equal(runtime.metrics().frameCommits, framesBefore);
+  assert.equal(runtime.metrics().dispatchedMessages, 0);
+  await runtime.dispose();
+});
+
 test('TUI runtime discards a candidate when output fails before publication', async () => {
   let subscriptionStarts = 0;
   const transcript = createTranscriptRecorder({ id: 'failed-candidate-transcript', source: 'tui' });
@@ -242,10 +297,9 @@ test('TUI runtime consumes async subscription sources without duplicate restarts
       id: 'timer-source',
       generation: 0,
       source: 'timer',
-      delivery: 'sequential',
       async *messages() {
         starts += 1;
-        yield { delta: 1 };
+        yield { kind: 'reliable', message: { delta: 1 } };
       }
     }],
     view: (state) => text({ content: `Count ${state.count}`, id: 'subscription-count' })
@@ -274,7 +328,6 @@ test('TUI runtime records subscription source failures and stops the failed sour
       id: 'failed-source',
       generation: 0,
       source: 'external',
-      delivery: 'sequential',
       async *messages() {
         starts += 1;
         throw new Error('source failed');
@@ -298,7 +351,7 @@ test('TUI runtime records subscription source failures and stops the failed sour
   );
 });
 
-test('latest subscription delivery keeps one replaceable pending message', async () => {
+test('keyed replaceable subscription emissions keep one pending value per key', async () => {
   const app = defineTui({
     id: 'latest-subscription',
     init: () => ({ values: [] }),
@@ -306,9 +359,11 @@ test('latest subscription delivery keeps one replaceable pending message', async
     subscriptions: () => [{
       id: 'samples',
       generation: 0,
-      delivery: 'latest',
+      channel: { capacity: 4 },
       async *messages() {
-        for (let value = 1; value <= 100; value += 1) yield { value };
+        for (let value = 1; value <= 100; value += 1) {
+          yield { kind: 'replaceable', key: 'sample', message: { value } };
+        }
       }
     }],
     view: (state) => text({ content: state.values.join(','), id: 'latest-values' })
@@ -337,10 +392,9 @@ test('subscription generations replace completed and failed executions without d
     subscriptions: (state) => [{
       id: 'versioned-source',
       generation: state.generation,
-      delivery: 'sequential',
       async *messages() {
         starts.push(state.generation);
-        yield { kind: 'value', value: state.generation };
+        yield { kind: 'reliable', message: { kind: 'value', value: state.generation } };
       },
       dispose() {
         disposals.push(state.generation);
@@ -371,7 +425,6 @@ test('duplicate subscription ids fail startup before publishing runtime state', 
     subscriptions: () => [0, 1].map(() => ({
       id: 'duplicate',
       generation: 0,
-      delivery: 'sequential',
       async *messages() {}
     })),
     view: () => text({ content: 'ready', id: 'duplicate-subscriptions-view' })
@@ -397,7 +450,6 @@ test('TUI runtime cancels subscription sources when they leave the definition', 
       ? [{
           id: 'long-source',
           generation: 0,
-          delivery: 'sequential',
           async *messages(context) {
             sourceSignal = context.signal;
             await new Promise(() => undefined);
@@ -437,11 +489,10 @@ test('retired subscription output already queued behind its retirement is ignore
     subscriptions: (state) => state.enabled ? [{
       id: 'retired-source',
       generation: 0,
-      delivery: 'sequential',
       async *messages() {
         sourceStarted = true;
         await sourceGate.promise;
-        yield { kind: 'stale-source-output' };
+        yield { kind: 'reliable', message: { kind: 'stale-source-output' } };
       }
     }] : [],
     view: (state) => text({ content: `${state.phase}:${String(state.staleMessages)}`, id: 'source-admission-state' })
@@ -773,10 +824,9 @@ test('TUI subscriptions may dispatch terminal exit without deadlocking disposal'
     subscriptions: () => [{
       id: 'exit-source',
       generation: 0,
-      delivery: 'sequential',
       async *messages() {
         try {
-          yield { kind: 'finish' };
+          yield { kind: 'reliable', message: { kind: 'finish' } };
         } finally {
           sourceCompleted();
         }

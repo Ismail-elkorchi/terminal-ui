@@ -20,24 +20,24 @@ const history = prepareLogHistory(entries);
 
 void test('logViewerReducer owns search match fold and follow-tail state', () => {
   const initial = { foldedIds: [], followTail: true };
-  const matches = logViewerSearchMatches(history, 'needle');
+  const matches = logViewerSearchMatches(history, { text: 'needle', mode: 'contains' });
   const options = { history };
-  const searching = logViewerReducer(initial, { kind: 'setSearchQuery', query: 'needle' }, options);
+  const searching = logViewerReducer(initial, { kind: 'setQuery', query: { text: 'needle' } }, options);
   const jumped = logViewerReducer(searching, { kind: 'jumpMatch', direction: 1 }, options);
   const folded = logViewerReducer(jumped, { kind: 'toggleFold', id: 'a' }, options);
   const unfollowed = logViewerReducer(folded, { kind: 'setFollowTail', followTail: false }, options);
-  const cleared = logViewerReducer(unfollowed, { kind: 'setSearchQuery', query: '' }, options);
+  const cleared = logViewerReducer(unfollowed, { kind: 'setQuery', query: { text: '' } }, options);
 
-  assert.deepEqual(searching, { foldedIds: [], followTail: true, searchQuery: 'needle' });
+  assert.equal(searching.query?.text, 'needle');
   assert.equal(jumped.activeMatchId, matches[0]?.id);
   assert.deepEqual(folded.foldedIds, ['a']);
   assert.equal(unfollowed.followTail, false);
-  assert.equal(cleared.searchQuery, undefined);
+  assert.equal(cleared.query, undefined);
   assert.equal(cleared.activeMatchId, undefined);
 });
 
 void test('logViewerSearchMatches and nextLogViewerMatch expose one ordered occurrence domain', () => {
-  const matches = logViewerSearchMatches(history, 'needle');
+  const matches = logViewerSearchMatches(history, { text: 'needle', mode: 'contains' });
 
   assert.equal(matches.length, 3);
   assert.deepEqual(matches.map(({
@@ -69,10 +69,10 @@ void test('log viewer search uses one grapheme-aware contract across every searc
     text: 'body'
   }]);
 
-  assert.deepEqual(logViewerSearchMatches(searchableHistory, 'owner').map((match) => match.field), [
+  assert.deepEqual(logViewerSearchMatches(searchableHistory, { text: 'owner' }).map((match) => match.field), [
     'metadataKey'
   ]);
-  assert.deepEqual(logViewerSearchMatches(searchableHistory, '👨'), []);
+  assert.deepEqual(logViewerSearchMatches(searchableHistory, { text: '👨' }), []);
 });
 
 void test('log viewer append reserves a separator after an empty record', () => {
@@ -118,15 +118,20 @@ void test('logViewerReducer owns pointer selection without retaining an empty ra
 
 void test('logViewerReducer preserves identity for no-op query fold scroll and navigation actions', () => {
   const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
-  const state = logViewerReducer({ foldedIds: ['a'], followTail: true, searchQuery: 'needle', scroll }, {
+  const state = logViewerReducer({
+    foldedIds: ['a'],
+    followTail: true,
+    query: { kind: 'prepared-collection-query', text: 'needle', mode: 'contains', caseSensitive: false },
+    scroll,
+  }, {
     kind: 'jumpMatch',
     direction: 1
   }, { history });
 
-  assert.equal(logViewerReducer(state, { kind: 'setSearchQuery', query: ' needle ' }, { history }), state);
+  assert.equal(logViewerReducer(state, { kind: 'setQuery', query: { text: ' needle ' } }, { history }), state);
   assert.equal(logViewerReducer(state, { kind: 'fold', id: 'a' }, { history }), state);
   assert.equal(logViewerReducer(state, { kind: 'setFollowTail', followTail: true }, { history }), state);
   assert.notEqual(state.activeMatchId, undefined);
-  const cleared = logViewerReducer(state, { kind: 'setSearchQuery', query: '' }, { history });
+  const cleared = logViewerReducer(state, { kind: 'setQuery', query: { text: '' } }, { history });
   assert.equal(cleared.activeMatchId, undefined);
 });

@@ -118,6 +118,22 @@ test('menu models reject duplicate identities across nested branches', () => {
   ], { activePath: [] }), /menu item ids must be unique; duplicate id: duplicate/u);
 });
 
+test('menu radio groups permit at most one checked sibling', () => {
+  assert.doesNotThrow(() => menuPresentation([
+    { kind: 'radio', id: 'light', groupId: 'theme', label: 'Light', checked: false },
+    { kind: 'radio', id: 'dark', groupId: 'theme', label: 'Dark', checked: true, disabled: true },
+    {
+      kind: 'submenu', id: 'nested', label: 'Nested', children: [
+        { kind: 'radio', id: 'nested-light', groupId: 'theme', label: 'Nested light', checked: true }
+      ]
+    }
+  ], { activePath: [] }));
+  assert.throws(() => menuPresentation([
+    { kind: 'radio', id: 'first', groupId: 'theme', label: 'First', checked: true },
+    { kind: 'radio', id: 'second', groupId: 'theme', label: 'Second', checked: true }
+  ], { activePath: [] }), /cannot contain more than one checked item/u);
+});
+
 test('menu models reject malformed structural item variants at the factory boundary', () => {
   assert.throws(() => menuPresentation([
     { kind: 'submenu', id: 'empty', label: 'Empty', children: [] }

@@ -58,14 +58,17 @@ function view(state: State): Element<Message> {
       { id: 'id', header: 'ID', value: (row) => row.id },
       { id: 'name', header: 'Name', value: (row) => row.name }
     ],
-    presentation: { interaction: { kind: 'row',
-    selectionMode: 'single' as const, selectedRowIds: [] } },
+    presentation: { interaction: { kind: 'row', selection: { mode: 'single' as const } } },
     onTransition: (transition) => ({ kind: 'selectRow' as const, transition })
   });
+  const treePresentation = { selection: { mode: 'single' as const }, expandedIds: [] };
   const files: Element<{ readonly kind: 'tree'; readonly transition: TreeTransition }> = tree({
     id: 'files',
-    nodes: [{ id: 'src', label: 'src', kind: 'leaf' }],
-    presentation: { selection: { mode: 'single' }, expandedIds: [] },
+    view: behavior.prepareTreeView(
+      behavior.prepareTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]),
+      treePresentation,
+    ),
+    presentation: treePresentation,
     onTransition: (transition) => ({ kind: 'tree' as const, transition })
   });
   const commands: Element<
@@ -73,11 +76,13 @@ function view(state: State): Element<Message> {
     | { readonly kind: 'submit' }
   > = commandInput({
     id: 'commands',
-    presentation: behavior.commandInputPresentation({
-      input: { text: '', cursor: 0 },
-      history: [],
-      suggestions: prepareCommandSuggestions([{ id: 'open', label: 'Open', value: 'open' }])
-    }),
+    presentation: behavior.commandInputPresentation(behavior.createCommandInputState({
+      suggestions: prepareCommandSuggestions([{
+        id: 'open',
+        label: 'Open',
+        completion: { range: { startOffset: 0, endOffsetExclusive: 0 }, text: 'open' }
+      }])
+    })),
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 4,
@@ -130,11 +135,9 @@ const scroll = behavior.scrollReducer(
   { kind: 'scrollLines', rows: 2 },
   scrollGeometry
 );
-const command = behavior.commandInputReducer({
-  input: { text: '', cursor: 0 },
-  history: [],
+const command = behavior.commandInputReducer(behavior.createCommandInputState({
   suggestions: prepareCommandSuggestions([])
-}, { kind: 'edit', operation: { kind: 'insert', text: 'open' } });
+}), { kind: 'edit', operation: { kind: 'insert', text: 'open' } });
 const split = behavior.splitPaneReducer(behavior.createSplitPaneState(2), {
   kind: 'resizeBy',
   deltaShare: 0.1
@@ -282,7 +285,7 @@ if (renderedView.accessibility.source !== 'renderer') {
   throw new Error('The packed renderer entrypoint returned an invalid snapshot source.');
 }
 if (scroll.offsetRow !== 2) throw new Error('The behavior entrypoint did not update controlled state.');
-if (command.input.text !== 'open') throw new Error('The behavior entrypoint did not update command state.');
+if (command.editor.input.text !== 'open') throw new Error('The behavior entrypoint did not update command state.');
 if (!renderFramePlain(renderElementFrame(panes, { columns: 20, rows: 2 })).includes('Left')) {
   throw new Error('The packed layout and behavior entrypoints did not render a controlled split pane.');
 }

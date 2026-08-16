@@ -16,6 +16,7 @@ export function createTerminalRestorePlan(snapshot: TerminalStateSnapshot): Term
       { kind: 'keyboardProfile', enabled: snapshot.keyboardProfile },
       { kind: 'bracketedPaste', enabled: snapshot.bracketedPaste },
       { kind: 'alternateScreen', enabled: snapshot.alternateScreen },
+      { kind: 'keyboardProfile', enabled: snapshot.keyboardProfile },
       { kind: 'rawInput', enabled: snapshot.rawInput }
     ]
   };

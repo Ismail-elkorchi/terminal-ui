@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ignoreMessage } from '../../dist/component/index.js';
+import { ignoreMessage, measureConstrainedBox } from '../../dist/component/index.js';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
 import { anchored, column, flow, grid, measuredColumn, normalizeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
@@ -96,7 +96,7 @@ test('grid and splitPane layouts arrange common app frames', () => {
     text({ content: 'status', id: 'status' }),
     commandInput({
       id: 'command',
-      presentation: { value: '/help', cursor: 0, suggestions: prepareCommandSuggestions([]) },
+      presentation: { value: '/help', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: (action) => action
     })
   ], {
@@ -227,7 +227,7 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
     button({ id: 'forward', label: 'Forward', onAction: () => ignoreMessage() }),
     surface(commandInput({
       id: 'address',
-      presentation: { value: 'example.test', cursor: 12, suggestions: prepareCommandSuggestions([]) },
+      presentation: { value: 'example.test', cursor: 12, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: (action) => action
     }), { appearance: 'inset' }),
     button({ id: 'menu', label: 'Menu', onAction: () => ignoreMessage() })
@@ -270,6 +270,63 @@ test('form content tracks include field labels and control gaps', () => {
   assert.equal(layout.children[0]?.bounds.height, 4);
   assert.equal(layout.children[0]?.children[0]?.bounds.height, 2);
   assert.equal(layout.children[0]?.children[0]?.children[0]?.bounds.height, 1);
+});
+
+test('constrained component boxes apply intrinsic content padding margin and limits once', () => {
+  assert.deepEqual(measureConstrainedBox({
+    minWidth: 2,
+    minHeight: 1,
+    preferredWidth: 20,
+    preferredHeight: 8,
+    maxWidth: 30,
+    maxHeight: 12
+  }, {
+    padding: { left: 1, right: 2, top: 1, bottom: 1 },
+    margin: 1,
+    minWidth: 8,
+    maxWidth: 12,
+    maxHeight: 6
+  }), {
+    minWidth: 10,
+    minHeight: 5,
+    preferredWidth: 14,
+    preferredHeight: 8,
+    maxWidth: 14,
+    maxHeight: 8
+  });
+  assert.throws(
+    () => normalizeLayoutFlowOptions({ minWidth: 10, maxWidth: 4 }, 'fixture'),
+    /minWidth must not exceed maxWidth/u
+  );
+
+  const constrained = form({
+    id: 'constrained-form',
+    minWidth: 12,
+    maxWidth: 14,
+    maxHeight: 3,
+    padding: 1,
+    slots: { content: [
+      field({
+        id: 'constrained-field',
+        label: 'Name',
+        minWidth: 10,
+        control: textInput({
+          id: 'constrained-input',
+          presentation: { value: '', cursor: 0 },
+          onAction: (action) => action
+        })
+      })
+    ] }
+  });
+  const layout = layoutElement(row([constrained], { sizes: [{ kind: 'content' }] }), {
+    columns: 30,
+    rows: 6
+  });
+  assert.equal(layout.children[0]?.bounds.width, 12);
+  const verticalLayout = layoutElement(column([constrained], {
+    sizes: [{ kind: 'content' }]
+  }), { columns: 30, rows: 6 });
+  assert.equal(verticalLayout.children[0]?.bounds.height, 3);
 });
 
 test('wrapped text-area content tracks retain intrinsic width', () => {

@@ -22,6 +22,7 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import { logViewer } from '../../dist/components/index.js';
+import { prepareCollectionQuery } from '../../dist/component/index.js';
 
 function entry(index, text = `Row ${index}`) {
   return { id: `row-${index}`, text };
@@ -88,8 +89,9 @@ test('log viewer search reuses retained segment results and invalidates only app
     { length: 100 },
     (_value, index) => entry(index, `record ${index} searchable`)
   ));
-  const first = searchLogViewerHistory(history, 'searchable', new Set());
-  const second = searchLogViewerHistory(history, 'searchable', new Set());
+  const query = prepareCollectionQuery({ text: 'searchable', mode: 'contains' });
+  const first = searchLogViewerHistory(history, query, new Set());
+  const second = searchLogViewerHistory(history, query, new Set());
 
   assert.equal(second.matches.length, 100);
   second.matches.forEach((match, index) => {
@@ -97,7 +99,7 @@ test('log viewer search reuses retained segment results and invalidates only app
   });
 
   const appended = appendLogHistory(history, [{ id: 'new-record', text: 'searchable append' }]);
-  const afterAppend = searchLogViewerHistory(appended, 'searchable', new Set());
+  const afterAppend = searchLogViewerHistory(appended, query, new Set());
 
   assert.equal(afterAppend.matches.length, 101);
   first.matches.forEach((match, index) => {
@@ -228,7 +230,7 @@ test('log viewer wraps visible rows when requested', () => {
 
 test('log viewer search navigates to the first match and exposes match segments', () => {
   const entries = Array.from({ length: 12 }, (_value, index) => entry(index, index === 8 ? 'needle row' : `plain ${index}`));
-  const element = logViewer({ id: 'search-log', history: prepareLogHistory(entries), searchQuery: 'needle' });
+  const element = logViewer({ id: 'search-log', history: prepareLogHistory(entries), query: { text: 'needle' } });
   const frame = renderElementFrame(element, { columns: 40, rows: 5 });
 
   const matchedCells = frame.cells.filter((cell) => cell.source?.description === 'body.match');
@@ -250,7 +252,7 @@ test('wrapped log viewer search centers the row containing the first highlight',
       id: 'long-record',
       text: `${'prefix '.repeat(12)}needle suffix`
     }]),
-    searchQuery: 'needle',
+    query: { text: 'needle' },
     wrap: true
   }), { columns: 8, rows: 5 });
   const matches = frame.cells.filter((cell) => cell.source?.partType === 'match');
@@ -263,11 +265,11 @@ test('wrapped log viewer search navigates by exact occurrence identity', () => {
     id: 'long-record',
     text: `needle ${'padding '.repeat(8)}needle suffix`
   }]);
-  const matches = logViewerSearchMatches(history, 'needle');
+  const matches = logViewerSearchMatches(history, { text: 'needle', mode: 'contains' });
   const frame = renderElementFrame(logViewer({
     id: 'selected-search-occurrence',
     history,
-    searchQuery: 'needle',
+    query: { text: 'needle' },
     activeMatchId: matches[1]?.id,
     wrap: true
   }), { columns: 8, rows: 3 });
@@ -284,7 +286,7 @@ test('log viewer counts only queries represented by highlighted spans', () => {
   const frame = renderElementFrame(logViewer({
     id: 'span-scoped-search',
     history: prepareLogHistory([{ id: 'split-boundary', timestamp: 'a', text: 'b' }]),
-    searchQuery: '] b'
+    query: { text: '] b' }
   }), { columns: 40, rows: 2 });
 
   assert.equal(renderFramePlain(frame), '[a] b');
@@ -300,7 +302,7 @@ test('log viewer search rejects code-unit substrings inside one grapheme', () =>
   const frame = renderElementFrame(logViewer({
     id: 'grapheme-scoped-search',
     history: prepareLogHistory([{ id: 'family', text: 'team 👨‍👩‍👧‍👦' }]),
-    searchQuery: '👨'
+    query: { text: '👨' }
   }), { columns: 40, rows: 2 });
 
   assert.equal(frame.cells.some((cell) => cell.source?.partType === 'match'), false);

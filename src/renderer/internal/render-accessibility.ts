@@ -18,6 +18,7 @@ import type { TextWidthProfile } from '../../text/index.ts';
 import { intersectRects } from './rect.ts';
 import { isDecorativeAccessibility } from './decorative.ts';
 import { assertComponentAccessibilityFocus } from './component-output.ts';
+import type { RenderBudget } from './render-budget.ts';
 
 export function accessibleNode(
   renderNode: RenderNode,
@@ -27,7 +28,9 @@ export function accessibleNode(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   clippedByViewport = false,
-  accessibleNodes = new Map<RenderNode, AccessibleNode>()
+  accessibleNodes = new Map<RenderNode, AccessibleNode>(),
+  budget?: RenderBudget,
+  depth = 0,
 ): AccessibleNode | undefined {
   if (node.inert) return undefined;
   if (!node.visible) {
@@ -54,7 +57,9 @@ export function accessibleNode(
     theme,
     widthProfile,
     clippedByViewport,
-    accessibleNodes
+    accessibleNodes,
+    budget,
+    depth,
   ) ?? [];
   const focus = renderFocusRelation(focusPath, path);
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
@@ -78,7 +83,11 @@ export function accessibleNode(
       focusedTargetId,
       focusTargetIds: node.focusTargets.map((target) => target.id),
       excludedSubtreeIds: accessibleDescendantIds(renderedChildren),
-      owner: renderNode.id ?? renderNodeFactoryName(renderNode)
+      owner: renderNode.id ?? renderNodeFactoryName(renderNode),
+      ...(budget === undefined ? {} : {
+        maxNodes: budget.limits.accessibilityNodes,
+        maxDepth: budget.limits.depth,
+      }),
     });
   }
   accessibleNodes.set(renderNode, result);
@@ -87,16 +96,19 @@ export function accessibleNode(
 
 function accessibleDescendantIds(children: readonly AccessibleNode[]): ReadonlySet<string> {
   const ids = new Set<string>();
-  const visit = (node: AccessibleNode): void => {
+  const pending = [...children];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined) continue;
     ids.add(node.id);
-    for (const child of node.children ?? []) visit(child);
-  };
-  for (const child of children) visit(child);
+    pending.push(...(node.children ?? []));
+  }
   return ids;
 }
 
 export function withControlLabelRelationships(
-  root: AccessibleNode
+  root: AccessibleNode,
+  budget?: RenderBudget,
 ): AccessibleNode {
   const accessibleNodes = new Map<string, AccessibleNode>();
   collectAccessibleNodes(root, accessibleNodes);
@@ -125,7 +137,30 @@ export function withControlLabelRelationships(
     }
     labelsByTarget.set(targetId, labelId);
   }
+  budget?.addAccessibilityRelationships(labelsByTarget.size);
   return applyControlLabels(root, labelsByTarget);
+}
+
+export function accountAccessibleTree(root: AccessibleNode, budget: RenderBudget): void {
+  const pending: { readonly node: AccessibleNode; readonly depth: number }[] = [{ node: root, depth: 0 }];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) continue;
+    budget.addAccessibilityNode(current.depth, relationshipCount(current.node));
+    const children = current.node.children ?? [];
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index];
+      if (child !== undefined) pending.push({ node: child, depth: current.depth + 1 });
+    }
+  }
+}
+
+function relationshipCount(node: AccessibleNode): number {
+  return (node.controls === undefined ? 0 : 1)
+    + (node.labelledBy === undefined ? 0 : 1)
+    + (node.describedBy?.length ?? 0)
+    + (node.activeDescendant === undefined ? 0 : 1)
+    + (node.errorMessage === undefined ? 0 : 1);
 }
 
 export function inertAccessibleRoot(): AccessibleNode {
@@ -136,23 +171,29 @@ export function inertAccessibleRoot(): AccessibleNode {
 }
 
 function collectControlLabels(
-  node: AccessibleNode
+  root: AccessibleNode
 ): readonly { readonly labelId: string; readonly targetId: string }[] {
-  const labels = node.role === 'text' && node.controls !== undefined
-    ? [{
-        labelId: node.id,
-        targetId: node.controls
-      }]
-    : [];
-  return [
-    ...labels,
-    ...(node.children ?? []).flatMap(collectControlLabels)
-  ];
+  const labels: { labelId: string; targetId: string }[] = [];
+  const pending = [root];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined) continue;
+    if (node.role === 'text' && node.controls !== undefined) {
+      labels.push({ labelId: node.id, targetId: node.controls });
+    }
+    pending.push(...(node.children ?? []));
+  }
+  return labels;
 }
 
-function collectAccessibleNodes(node: AccessibleNode, nodes: Map<string, AccessibleNode>): void {
-  nodes.set(node.id, node);
-  for (const child of node.children ?? []) collectAccessibleNodes(child, nodes);
+function collectAccessibleNodes(root: AccessibleNode, nodes: Map<string, AccessibleNode>): void {
+  const pending = [root];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined) continue;
+    nodes.set(node.id, node);
+    pending.push(...(node.children ?? []));
+  }
 }
 
 function applyControlLabels(
@@ -176,7 +217,9 @@ function accessibleChildren(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   clippedByViewport: boolean,
-  accessibleNodes: Map<RenderNode, AccessibleNode>
+  accessibleNodes: Map<RenderNode, AccessibleNode>,
+  budget: RenderBudget | undefined,
+  depth: number,
 ): readonly AccessibleNode[] | undefined {
   const children = renderNode.children ?? [];
   if (children.length === 0) return undefined;
@@ -193,7 +236,9 @@ function accessibleChildren(
       theme,
       widthProfile,
       clipsDescendants,
-      accessibleNodes
+      accessibleNodes,
+      budget,
+      depth + 1,
     );
     return accessible === undefined ? [] : [accessible];
   });

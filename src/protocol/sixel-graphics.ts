@@ -1,5 +1,7 @@
 import { rasterImagePixels } from '../graphics/raster-image.ts';
+import { createGraphicsBudget } from '../graphics/index.ts';
 import type { RasterImage } from '../graphics/index.ts';
+import type { GraphicsBudget } from '../graphics/index.ts';
 import type { ResolvedGraphicGeometry, TerminalCellPixels } from './graphics-geometry.ts';
 import { wrapGraphicsControl } from './kitty-graphics.ts';
 import type { TerminalGraphicsTransport } from './kitty-graphics.ts';
@@ -15,9 +17,14 @@ export function encodeSixelImage(
   cellPixels: TerminalCellPixels,
   background: RgbColor | undefined,
   transport: TerminalGraphicsTransport,
+  suppliedBudget?: GraphicsBudget,
 ): string {
+  const budget = suppliedBudget ?? createGraphicsBudget();
+  budget.admitSource(image);
+  budget.admitCellPixels(cellPixels);
   const width = geometry.destination.width * cellPixels.width;
   const height = geometry.destination.height * cellPixels.height;
+  budget.admitFittedPixels(width, height);
   const indexes = resampleAndQuantize(image, geometry.source, width, height, background);
   const used = [...new Set(indexes)].filter((index) => index !== transparentIndex)
     .toSorted((left, right) => left - right);
@@ -25,14 +32,19 @@ export function encodeSixelImage(
     const color = cubeColor(index);
     return `#${String(index)};2;${String(percent(color.r))};${String(percent(color.g))};${String(percent(color.b))}`;
   }).join('');
-  const bands: string[] = [];
+  const move = `${ESC}[${String(geometry.destination.row)};${String(geometry.destination.column)}H`;
+  const header = `${move}${ESC}P0;${background === undefined ? '1' : '0'}q"1;1;${String(width)};${String(height)}${palette}`;
+  const parts: string[] = [];
+  let directBytes = 0;
+  append(header);
   for (let top = 0; top < height; top += 6) {
-    const rows: string[] = [];
+    if (top > 0) append('-');
     const bandEnd = Math.min(height, top + 6) * width;
     const bandColors = [...new Set(indexes.subarray(top * width, bandEnd))]
       .filter((index) => index !== transparentIndex)
       .toSorted((left, right) => left - right);
-    for (const color of bandColors) {
+    for (const [colorIndex, color] of bandColors.entries()) {
+      if (colorIndex > 0) append('$');
       const sixels: string[] = [];
       for (let x = 0; x < width; x += 1) {
         let bits = 0;
@@ -42,13 +54,22 @@ export function encodeSixelImage(
         }
         sixels.push(String.fromCharCode(63 + bits));
       }
-      rows.push(`#${String(color)}${runLengthEncode(sixels)}`);
+      append(`#${String(color)}${runLengthEncode(sixels)}`);
     }
-    bands.push(rows.join('$'));
   }
-  const move = `${ESC}[${String(geometry.destination.row)};${String(geometry.destination.column)}H`;
-  const sixel = `${ESC}P0;${background === undefined ? '1' : '0'}q"1;1;${String(width)};${String(height)}${palette}${bands.join('-')}${ST}`;
-  return `${move}${wrapGraphicsControl(sixel, transport)}`;
+  append(ST);
+  const direct = parts.join('');
+  const encoded = transport === 'direct' ? direct : wrapGraphicsControl(direct.slice(move.length), transport);
+  const output = transport === 'direct' ? encoded : `${move}${encoded}`;
+  budget.assertUploadBytes(output.length);
+  budget.addCommitBytes(output.length);
+  return output;
+
+  function append(part: string): void {
+    directBytes += part.length;
+    budget.assertUploadBytes(transport === 'direct' ? directBytes : directBytes + 16);
+    parts.push(part);
+  }
 }
 
 function resampleAndQuantize(

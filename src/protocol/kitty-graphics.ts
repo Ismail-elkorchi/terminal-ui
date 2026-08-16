@@ -1,5 +1,7 @@
 import { rasterImagePixels } from '../graphics/raster-image.ts';
+import { createGraphicsBudget } from '../graphics/index.ts';
 import type { RasterImage } from '../graphics/index.ts';
+import type { GraphicsBudget } from '../graphics/index.ts';
 import type { ResolvedGraphicGeometry } from './graphics-geometry.ts';
 
 const ESC = '\u001b';
@@ -13,16 +15,24 @@ export function encodeKittyImageUpload(
   image: RasterImage,
   imageId: number,
   transport: TerminalGraphicsTransport,
+  suppliedBudget?: GraphicsBudget,
 ): string {
+  const budget = suppliedBudget ?? createGraphicsBudget();
+  budget.admitSource(image);
   const pixels = rasterImagePixels(image);
   const chunks: string[] = [];
+  let uploadBytes = 0;
   for (let offset = 0; offset < pixels.length; offset += MAX_CHUNK_BYTES) {
     const chunk = base64(pixels.subarray(offset, offset + MAX_CHUNK_BYTES));
     const more = offset + MAX_CHUNK_BYTES < pixels.length ? 1 : 0;
     const command = offset === 0
       ? `a=t,t=d,f=${image.format === 'rgb8' ? '24' : '32'},s=${String(image.width)},v=${String(image.height)},i=${String(imageId)},q=2,m=${String(more)}`
       : `m=${String(more)}`;
-    chunks.push(wrapGraphicsControl(`${ESC}_G${command};${chunk}${ST}`, transport));
+    const control = wrapGraphicsControl(`${ESC}_G${command};${chunk}${ST}`, transport);
+    uploadBytes += control.length;
+    budget.assertUploadBytes(uploadBytes);
+    budget.addCommitBytes(control.length);
+    chunks.push(control);
   }
   return chunks.join('');
 }
@@ -32,6 +42,7 @@ export function encodeKittyPlacement(
   placementId: number,
   geometry: ResolvedGraphicGeometry,
   transport: TerminalGraphicsTransport,
+  budget?: GraphicsBudget,
 ): string {
   const source = geometry.source;
   const destination = geometry.destination;
@@ -42,22 +53,36 @@ export function encodeKittyPlacement(
     `c=${String(destination.width)}`, `r=${String(destination.height)}`,
     'C=1', 'z=1', 'q=2',
   ].join(',');
-  return `${cursorMove(destination.row, destination.column)}${wrapGraphicsControl(`${ESC}_G${command}${ST}`, transport)}`;
+  return admittedControl(
+    `${cursorMove(destination.row, destination.column)}${wrapGraphicsControl(`${ESC}_G${command}${ST}`, transport)}`,
+    budget,
+  );
 }
 
 export function encodeKittyPlacementDelete(
   imageId: number,
   placementId: number,
   transport: TerminalGraphicsTransport,
+  budget?: GraphicsBudget,
 ): string {
-  return wrapGraphicsControl(
+  return admittedControl(wrapGraphicsControl(
     `${ESC}_Ga=d,d=i,i=${String(imageId)},p=${String(placementId)},q=2${ST}`,
     transport,
-  );
+  ), budget);
 }
 
-export function encodeKittyImageDelete(id: number, transport: TerminalGraphicsTransport): string {
-  return wrapGraphicsControl(`${ESC}_Ga=d,d=I,i=${String(id)},q=2${ST}`, transport);
+export function encodeKittyImageDelete(
+  id: number,
+  transport: TerminalGraphicsTransport,
+  budget?: GraphicsBudget,
+): string {
+  return admittedControl(wrapGraphicsControl(`${ESC}_Ga=d,d=I,i=${String(id)},q=2${ST}`, transport), budget);
+}
+
+function admittedControl(control: string, suppliedBudget: GraphicsBudget | undefined): string {
+  const budget = suppliedBudget ?? createGraphicsBudget();
+  budget.addCommitBytes(control.length);
+  return control;
 }
 
 export function wrapGraphicsControl(control: string, transport: TerminalGraphicsTransport): string {

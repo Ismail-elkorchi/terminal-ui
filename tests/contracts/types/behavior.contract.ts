@@ -1,5 +1,6 @@
 import {
   commandInputReducer,
+  createCommandInputState,
   createScrollState,
   dataGridReducer,
   appendMeasuredItems,
@@ -15,7 +16,7 @@ import {
   type MeasuredCollection,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
-const command: CommandInputState = { input: { text: '', cursor: 0 }, history: [], suggestions: prepareCommandSuggestions([]) };
+const command: CommandInputState = createCommandInputState({ suggestions: prepareCommandSuggestions([]) });
 const edited = commandInputReducer(command, { kind: 'edit', operation: { kind: 'insert', text: 'x' } });
 const scrolled = scrollReducer(createScrollState(), { kind: 'scrollLines', rows: 2 }, {
   contentRows: 20,
@@ -25,12 +26,10 @@ const scrolled = scrollReducer(createScrollState(), { kind: 'scrollLines', rows:
 });
 const rows = [{ id: 'one' }, { id: 'two' }];
 const grid = dataGridReducer({
-  interaction: { kind: 'row',
-  selectionMode: 'single' as const, activeRowId: 'one', selectedRowIds: [] },
+  interaction: { kind: 'row', activeRowId: 'one', selection: { mode: 'single' as const } },
 }, { kind: 'moveRow', delta: 1 }, {
   collection: prepareTableCollection(rows, (row) => row.id),
   columnIds: [],
-  selection: { mode: 'none' },
 });
 const pointer = pointerInteractionReducer({}, { kind: 'enter', targetId: 'save:control' });
 const measured: MeasuredCollection<{ readonly label: string }> = prepareMeasuredCollection([

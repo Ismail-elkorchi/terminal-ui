@@ -17,7 +17,7 @@ import {
   type TextAreaAction,
   type TreeTransition,
 } from '@ismail-elkorchi/terminal-ui/components';
-import { createScrollState, prepareLogHistory, prepareSearchPickerIndex } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createScrollState, measuredWindow, prepareMeasuredCollection, prepareLogHistory, prepareSearchPickerIndex, prepareTreeSource, prepareTreeView } from '@ismail-elkorchi/terminal-ui/behavior';
 import { viewport } from '@ismail-elkorchi/terminal-ui/layout';
 import type { ScrollEvent } from '@ismail-elkorchi/terminal-ui/interaction';
 import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
@@ -39,7 +39,7 @@ const controlledListbox = listbox({
 });
 const controlledTree = tree({
   id: 'tree',
-  nodes: [{ id: 'one', label: 'One', kind: 'leaf' }],
+  view: prepareTreeView(prepareTreeSource([{ id: 'one', label: 'One', kind: 'leaf' }]), { activeId: 'one', selection: { mode: 'none' }, expandedIds: [], scroll }),
   presentation: { activeId: 'one', selection: { mode: 'none' }, expandedIds: [], scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'tree' as const, transition }),
@@ -72,11 +72,10 @@ const controlledViewport = viewport(text({ content: 'content' }), {
 });
 const controlledListView = listView({
   id: 'list-view',
-  projection: {
-    records: [{ id: 'one', itemIndex: 0, startRow: 0, rowCount: 1, content: text({ content: 'One' }) }],
-    totalCount: 1,
-    totalRows: 1,
-  },
+  window: measuredWindow(prepareMeasuredCollection([
+    { id: 'one', rows: 1, value: 'One' }
+  ]), { viewportRows: 1 }),
+  renderItem: (item) => ({ content: text({ content: item.value }) }),
   presentation: { selection: { mode: 'none' }, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'listView' as const, transition }),
@@ -85,7 +84,7 @@ const controlledCombobox = combobox({
   id: 'combobox',
   label: 'Choice',
   options: [{ id: 'one', label: 'One', value: 1 }],
-  presentation: { open: false, interaction: { selection: { mode: 'single' } }, scroll },
+  presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } }, scroll },
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'combobox' as const, transition }),
 });
@@ -114,8 +113,8 @@ searchPicker({ id: 'inert-searchPicker', presentation: { query: { text: '', mode
 // @ts-expect-error viewport scrollbar requires event routing
 viewport(text({ content: 'content' }), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });
 // @ts-expect-error list view scrollbar requires presentation scroll state
-listView({ id: 'inert-list-view', projection: { records: [], totalCount: 0, totalRows: 0 }, presentation: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+listView({ id: 'inert-list-view', window: measuredWindow(prepareMeasuredCollection([]), { viewportRows: 0 }), renderItem: () => ({ content: text({ content: '' }) }), presentation: { selection: { mode: 'none' } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error passive table scrollbar requires controlled scroll state and routing
 table({ id: 'inert-table', rows: [], getRowId: () => '', scrollbar: { visible: 'auto' } });
 // @ts-expect-error combobox scrollbar requires presentation scroll state
-combobox({ id: 'inert-combobox', label: 'Choice', options: [], presentation: { open: false, interaction: { selection: { mode: 'single' } } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+combobox({ id: 'inert-combobox', label: 'Choice', options: [], presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } }, scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });

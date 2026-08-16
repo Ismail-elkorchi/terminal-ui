@@ -102,6 +102,7 @@ export function menuItemChildren(item: MenuItem): readonly MenuItem[] {
 
 export function assertValidMenuItems(items: readonly MenuItemStructure[]): void {
   const validate = (siblings: readonly MenuItemStructure[]): void => {
+    const selectedRadioGroups = new Set<string>();
     for (const item of siblings) {
       switch (item.kind) {
         case 'action': break;
@@ -112,6 +113,10 @@ export function assertValidMenuItems(items: readonly MenuItemStructure[]): void 
           if (typeof item.checked !== 'boolean' || item.groupId.trim() === '') {
             throw new TypeError(`menu radio item ${item.id} requires checked state and groupId.`);
           }
+          if (item.checked && selectedRadioGroups.has(item.groupId)) {
+            throw new TypeError(`menu radio group ${item.groupId} cannot contain more than one checked item.`);
+          }
+          if (item.checked) selectedRadioGroups.add(item.groupId);
           break;
         case 'separator': break;
         case 'section':

@@ -5,6 +5,7 @@ import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { textInput } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { defineTui, runTui } from '../../dist/tui/index.js';
+import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
 
 void test('invalid run configuration is rejected before terminal mutation', async () => {
   const host = createMemoryTerminalHost();
@@ -18,6 +19,27 @@ void test('invalid run configuration is rejected before terminal mutation', asyn
   assert.equal(host.output(), '');
   assert.equal(host.stdin.isRawModeEnabled(), false);
   assert.equal(host.restores().length, 0);
+});
+
+void test('managed TUI rejects Kitty profiles that suppress ordinary text', async () => {
+  const host = createMemoryTerminalHost();
+  const exit = await runTui(exitOnSubmitApp('text-incapable-kitty-profile'), host, {
+    sessionPolicy: sessionPolicyWithKeyboard(kittyKeyboardProfile(8))
+  });
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_RUN_FAILED'), true);
+  assert.equal(host.output(), '');
+});
+
+void test('managed TUI accepts Kitty all-keys profiles with associated text', async () => {
+  const host = createMemoryTerminalHost();
+  host.input('\r');
+  const exit = await runTui(exitOnSubmitApp('text-capable-kitty-profile'), host, {
+    sessionPolicy: sessionPolicyWithKeyboard(kittyKeyboardProfile(24))
+  });
+
+  assert.equal(exit.status, 'completed');
 });
 
 void test('startup clock failure prevents terminal mutation', async () => {
@@ -78,4 +100,17 @@ function exitOnSubmitApp(id: string) {
         : ignoreMessage()
     })
   });
+}
+
+function sessionPolicyWithKeyboard(profile: ReturnType<typeof kittyKeyboardProfile>) {
+  return {
+    alternateScreen: 'disabled' as const,
+    rawInput: 'disabled' as const,
+    bracketedPaste: 'disabled' as const,
+    focusReporting: 'disabled' as const,
+    unicodeGraphemeMode: 'disabled' as const,
+    keyboard: { profile, requirement: 'disabled' as const },
+    cursorVisibility: { state: 'unchanged' as const, requirement: 'disabled' as const },
+    mouseReporting: { mode: 'none' as const, requirement: 'disabled' as const }
+  };
 }

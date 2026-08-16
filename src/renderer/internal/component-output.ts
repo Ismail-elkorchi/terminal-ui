@@ -72,9 +72,17 @@ export function assertComponentAccessibilityFocus(
     readonly focusTargetIds: readonly string[];
     readonly excludedSubtreeIds: ReadonlySet<string>;
     readonly owner: string;
+    readonly maxNodes?: number;
+    readonly maxDepth?: number;
   }
 ): void {
-  const nodes = collectAccessibleNodes(node, options.excludedSubtreeIds);
+  const nodes = collectAccessibleNodes(
+    node,
+    options.excludedSubtreeIds,
+    options.owner,
+    options.maxNodes,
+    options.maxDepth,
+  );
   const focusedNodes = nodes.filter((candidate) => candidate.focused === true);
   const accessibilityFocused = focusedNodes.length > 0;
   if (options.runtimeFocused !== accessibilityFocused) {
@@ -109,17 +117,33 @@ export function assertComponentAccessibilityFocus(
 
 function collectAccessibleNodes(
   root: AccessibleNode,
-  excludedSubtreeIds: ReadonlySet<string>
+  excludedSubtreeIds: ReadonlySet<string>,
+  owner: string,
+  maxNodes = Number.MAX_SAFE_INTEGER,
+  maxDepth = Number.MAX_SAFE_INTEGER,
 ): readonly AccessibleNode[] {
   const nodes: AccessibleNode[] = [];
-  visit(root, true);
-  return nodes;
-
-  function visit(node: AccessibleNode, isRoot = false): void {
-    if (!isRoot && excludedSubtreeIds.has(node.id)) return;
-    nodes.push(node);
-    for (const child of node.children ?? []) visit(child);
+  const pending: { readonly node: AccessibleNode; readonly depth: number; readonly isRoot: boolean }[] = [
+    { node: root, depth: 0, isRoot: true },
+  ];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) continue;
+    if (!current.isRoot && excludedSubtreeIds.has(current.node.id)) continue;
+    if (current.depth > maxDepth) {
+      throw new RangeError(`Component "${owner}" accessibility exceeded depth limit of ${String(maxDepth)}.`);
+    }
+    nodes.push(current.node);
+    if (nodes.length > maxNodes) {
+      throw new RangeError(`Component "${owner}" accessibility exceeded node limit of ${String(maxNodes)}.`);
+    }
+    const children = current.node.children ?? [];
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index];
+      if (child !== undefined) pending.push({ node: child, depth: current.depth + 1, isRoot: false });
+    }
   }
+  return nodes;
 }
 
 function normalizeComponentCursor(value: unknown, subject: string): CursorPosition {

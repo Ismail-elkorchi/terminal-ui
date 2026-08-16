@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   commandInputPresentation,
   commandInputReducer,
+  createCommandInputState,
   prepareCommandSuggestions
 } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
@@ -21,88 +22,138 @@ import { column, row } from '../../dist/layout/index.js';
 function testCommandInput(options) {
   return commandInput({
     onTransition: () => ignoreMessage(),
-    ...options
+    ...options,
+    presentation: {
+      open: options.presentation.suggestions.totalCount > 0,
+      ...options.presentation
+    }
   });
 }
 
-test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
-  const initial = {
-    input: { text: '', cursor: 0 },
-    history: ['build', 'test'],
-    suggestions: prepareCommandSuggestions([
-      { id: 'test-watch', value: 'test --watch', label: 'test --watch' },
-      { id: 'test-coverage', value: 'test --coverage', label: 'test --coverage' }
-    ])
+function commandSuggestion(id, text, endOffsetExclusive, options = {}, startOffset = 0) {
+  return {
+    id,
+    completion: {
+      range: { startOffset, endOffsetExclusive },
+      text
+    },
+    label: text,
+    ...options
   };
+}
+
+test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
+  const initial = createCommandInputState({
+    submissions: ['build', 'test'],
+    suggestions: prepareCommandSuggestions([
+      commandSuggestion('test-watch', 'test --watch', 1),
+      commandSuggestion('test-coverage', 'test --coverage', 1)
+    ])
+  });
 
   const typed = commandInputReducer(initial, { kind: 'edit', operation: { kind: 'insert', text: 't' } });
-  assert.deepEqual(typed.input, { text: 't', cursor: 1 });
-  assert.equal('historyIndex' in typed, false);
+  assert.deepEqual(typed.editor.input, { text: 't', cursor: 1 });
+  assert.equal('submissionIndex' in typed, false);
 
   const previous = commandInputReducer(typed, { kind: 'historyPrevious' });
-  assert.deepEqual(previous.input, { text: 'test', cursor: 4 });
-  assert.equal(previous.historyIndex, 1);
+  assert.deepEqual(previous.editor.input, { text: 'test', cursor: 4 });
+  assert.equal(previous.submissionIndex, 1);
 
   const earlier = commandInputReducer(previous, { kind: 'historyPrevious' });
-  assert.deepEqual(earlier.input, { text: 'build', cursor: 5 });
-  assert.equal(earlier.historyIndex, 0);
+  assert.deepEqual(earlier.editor.input, { text: 'build', cursor: 5 });
+  assert.equal(earlier.submissionIndex, 0);
 
-  const selected = commandInputReducer(earlier, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal(selected.activeSuggestionId, 'test-watch');
+  const forward = commandInputReducer(earlier, { kind: 'historyNext' });
+  const restoredDraft = commandInputReducer(forward, { kind: 'historyNext' });
+  assert.deepEqual(restoredDraft.editor.input, { text: 't', cursor: 1 });
+  assert.equal('submissionIndex' in restoredDraft, false);
+
+  const refreshed = commandInputReducer(earlier, {
+    kind: 'setSuggestions',
+    suggestions: prepareCommandSuggestions([
+      commandSuggestion('test-watch', 'test --watch', 5),
+      commandSuggestion('test-coverage', 'test --coverage', 5)
+    ])
+  });
+  const selected = commandInputReducer(refreshed, { kind: 'moveSuggestion', delta: 1 });
+  assert.equal(selected.editor.activeId, 'test-coverage');
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
-  assert.deepEqual(accepted.input, { text: 'test --watch', cursor: 12 });
-  assert.equal('activeSuggestionId' in accepted, false);
+  assert.deepEqual(accepted.editor.input, { text: 'test --coverage', cursor: 15 });
+  assert.equal('activeId' in accepted.editor, true);
+});
+
+test('commandInputReducer bounds submissions independently from edit history', () => {
+  let state = createCommandInputState({
+    submissionLimit: 2,
+    editHistoryPolicy: { maxEntries: 1, maxRetainedBytes: 100 },
+    suggestions: prepareCommandSuggestions([])
+  });
+  for (const value of ['one', 'two', 'three']) {
+    state = commandInputReducer(state, { kind: 'recordSubmission', value });
+  }
+  assert.deepEqual(state.submissions, ['two', 'three']);
+  state = commandInputReducer(state, { kind: 'edit', operation: { kind: 'insert', text: 'draft' } });
+  state = commandInputReducer(state, { kind: 'undo' });
+  assert.equal(state.editor.input.text, '');
+  assert.ok(state.editor.editHistory.retainedBytes <= 100);
 });
 
 test('commandInputReducer skips disabled suggestions for selection and acceptance', () => {
-  const initial = {
-    input: { text: '', cursor: 0 },
-    history: [],
+  const initial = createCommandInputState({
     suggestions: prepareCommandSuggestions([
-      { id: 'deploy', value: 'deploy', label: 'Deploy', disabled: true },
-      { id: 'status', value: 'status', label: 'Status' },
-      { id: 'destroy', value: 'destroy', label: 'Destroy', disabled: true }
+      commandSuggestion('deploy', 'deploy', 0, { label: 'Deploy', disabled: true }),
+      commandSuggestion('status', 'status', 0, { label: 'Status' }),
+      commandSuggestion('destroy', 'destroy', 0, { label: 'Destroy', disabled: true })
     ])
-  };
+  });
 
   const selected = commandInputReducer(initial, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal(selected.activeSuggestionId, 'status');
+  assert.equal(selected.editor.activeId, 'status');
 
   const selectedById = commandInputReducer(initial, { kind: 'setActiveSuggestion', id: 'status' });
-  assert.equal(selectedById.activeSuggestionId, 'status');
+  assert.equal(selectedById.editor.activeId, 'status');
   assert.equal(commandInputReducer(initial, { kind: 'setActiveSuggestion', id: 'deploy' }), initial);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
-  assert.deepEqual(accepted.input, { text: 'status', cursor: 6 });
+  assert.deepEqual(accepted.editor.input, { text: 'status', cursor: 6 });
 
-  const manuallyDisabled = commandInputReducer({ ...initial, activeSuggestionId: 'deploy' }, { kind: 'acceptSuggestion' });
-  assert.deepEqual(manuallyDisabled.input, { text: '', cursor: 0 });
+  const manuallyDisabled = commandInputReducer({
+    ...initial,
+    editor: { ...initial.editor, activeId: 'deploy' }
+  }, { kind: 'acceptSuggestion' });
+  assert.deepEqual(manuallyDisabled.editor.input, { text: '', cursor: 0 });
 });
 
 test('commandInputReducer ignores accept when every suggestion is disabled', () => {
-  const initial = {
-    input: { text: 'd', cursor: 1 },
-    history: [],
+  const initial = createCommandInputState({
+    value: 'd',
     suggestions: prepareCommandSuggestions([
-      { id: 'deploy', value: 'deploy', label: 'Deploy', disabled: true }
+      commandSuggestion('deploy', 'deploy', 1, { label: 'Deploy', disabled: true })
     ])
-  };
+  });
 
   const selected = commandInputReducer(initial, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal('activeSuggestionId' in selected, false);
+  assert.equal('activeId' in selected.editor, false);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
-  assert.deepEqual(accepted.input, { text: 'd', cursor: 1 });
+  assert.deepEqual(accepted.editor.input, { text: 'd', cursor: 1 });
 });
 
 test('commandInput projects controlled state and separates transitions from submission', async () => {
+  const createdCommand = createCommandInputState({
+      value: 'te',
+      submissions: ['build'],
+      suggestions: prepareCommandSuggestions([commandSuggestion('test', 'test', 2)])
+    });
   const command = {
-    input: { text: 'te', cursor: 2, selection: { startOffset: 0, endOffsetExclusive: 1 } },
-    history: ['build'],
-    historyIndex: 0,
-    suggestions: prepareCommandSuggestions([{ id: 'test', value: 'test', label: 'test' }]),
-    activeSuggestionId: 'test'
+    ...createdCommand,
+    editor: {
+      ...createdCommand.editor,
+      input: { text: 'te', cursor: 2, selection: { startOffset: 0, endOffsetExclusive: 1 } },
+      activeId: 'test'
+    },
+    submissionIndex: 0,
   };
   const app = defineTui({
     id: 'command-actions',
@@ -129,10 +180,11 @@ test('commandInput projects controlled state and separates transitions from subm
   assert.deepEqual(commandInputPresentation(command), {
     value: 'te',
     cursor: 2,
+    open: true,
     selection: { startOffset: 0, endOffsetExclusive: 1 },
-    suggestions: prepareCommandSuggestions([{ id: 'test', value: 'test', label: 'test' }]),
+    suggestions: prepareCommandSuggestions([commandSuggestion('test', 'test', 2)]),
     activeSuggestionId: 'test',
-    historyIndex: 0
+    submissionIndex: 0
   });
   assert.deepEqual(runtime.state().messages, [
     { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'x' } } },
@@ -140,7 +192,8 @@ test('commandInput projects controlled state and separates transitions from subm
     { kind: 'action', action: { kind: 'edit', operation: { kind: 'deleteBackward' } } },
     { kind: 'action', action: { kind: 'moveSuggestion', delta: -1 } },
     { kind: 'action', action: { kind: 'acceptSuggestion' } },
-    { kind: 'action', action: { kind: 'submit', value: 'test' } }
+    { kind: 'action', action: { kind: 'submit', value: 'test' } },
+    { kind: 'action', action: { kind: 'dismissSuggestions', reason: 'escape' } }
   ]);
 });
 
@@ -150,8 +203,8 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
       id: 'command',
       prompt: '/',
       presentation: { value: 'op', cursor: 2, suggestions: prepareCommandSuggestions([
-        { id: 'open', value: 'open', label: 'open', description: 'Open item' },
-        { id: 'options', value: 'options', label: 'options' }
+        commandSuggestion('open', 'open', 2, { description: 'Open item' }),
+        commandSuggestion('options', 'options', 2)
       ]), activeSuggestionId: 'options' },
       display: 'expanded'
     }),
@@ -183,8 +236,8 @@ test('commandInput popup anchors suggestions without increasing the input height
       value: 'exa',
       cursor: 3,
       suggestions: prepareCommandSuggestions([
-        { id: 'example-com', value: 'https://example.com', label: 'Example', description: 'History' },
-        { id: 'example-org', value: 'https://example.org', label: 'Example.org', description: 'Bookmark' }
+        commandSuggestion('example-com', 'https://example.com', 3, { label: 'Example', description: 'History' }),
+        commandSuggestion('example-org', 'https://example.org', 3, { label: 'Example.org', description: 'Bookmark' })
       ]),
       activeSuggestionId: 'example-com'
     },
@@ -207,7 +260,7 @@ test('commandInput popup anchors suggestions without increasing the input height
   assert.match(output, /History/u);
   assert.equal(accessibleInput?.role, 'combobox');
   assert.equal(accessibleInput?.expanded, true);
-  assert.equal(accessibleInput?.controls, 'omnibox:suggestions');
+  assert.equal(accessibleInput?.controls, 'omnibox:popup');
   assert.equal(accessibleInput?.children?.[0]?.role, 'listbox');
 });
 
@@ -217,7 +270,8 @@ test('read-only command input rejects pointer suggestion activation', () => {
     presentation: {
       value: 'a',
       cursor: 1,
-      suggestions: prepareCommandSuggestions([{ id: 'alpha', value: 'alpha', label: 'Alpha' }]),
+      open: true,
+      suggestions: prepareCommandSuggestions([commandSuggestion('alpha', 'alpha', 1, { label: 'Alpha' })]),
       activeSuggestionId: 'alpha'
     },
     display: 'popup',
@@ -282,8 +336,8 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
         value: 'exa',
         cursor: 3,
         suggestions: prepareCommandSuggestions([
-          { id: 'one', value: 'https://one.example', label: 'One' },
-          { id: 'two', value: 'https://two.example', label: 'Two' }
+          commandSuggestion('one', 'https://one.example', 3, { label: 'One' }),
+          commandSuggestion('two', 'https://two.example', 3, { label: 'Two' })
         ])
       },
       submitted: null
@@ -367,7 +421,7 @@ test('commandInput renders completion preview validation footer match styles and
       id: 'launcher',
       prompt: '?',
       presentation: { value: 'a🙂', cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: prepareCommandSuggestions([
-        { id: 'emoji-match', value: 'a🙂bc', label: 'a🙂bc', description: 'first match' }
+        commandSuggestion('emoji-match', 'a🙂bc', 'a🙂'.length, { description: 'first match' })
       ]), activeSuggestionId: 'emoji-match' },
       completionPreview: 'bc',
       validation: { message: 'Choose a value', level: 'warning' },
@@ -393,7 +447,7 @@ test('commandInput renders completion preview validation footer match styles and
   assert.equal(matchCell?.style?.fg?.token, 'command.match');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => [node.id, node.value]), [
     ['launcher:validation', 'Choose a value'],
-    ['launcher:suggestions', undefined]
+    ['launcher:popup', undefined]
   ]);
   assert.equal(frame.accessibility.root.children?.[1]?.children?.[0]?.value, 'a🙂bc');
 });
@@ -404,7 +458,7 @@ test('commandInput stays compact by default even when suggestions are provided',
       id: 'compact-command',
       prompt: '/',
       presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([
-        { id: 'open', value: 'open', label: 'open', description: 'Open item' }
+        commandSuggestion('open', 'open', 0, { description: 'Open item' })
       ]), activeSuggestionId: 'open' },
       placeholder: 'Type a command',
       footer: 'Enter run'
@@ -531,7 +585,7 @@ test('commandInput exposes prompt value selection suggestion validation and foot
       id: 'cmd-source',
       prompt: ':',
       presentation: { value: 'open file', cursor: 0, selection: { startOffset: 5, endOffsetExclusive: 9 }, suggestions: prepareCommandSuggestions([
-        { id: 'open-file', value: 'open-file', label: 'Open file', description: 'recent' }
+        commandSuggestion('open-file', 'open-file', 9, { label: 'Open file', description: 'recent' }, 5)
       ]), activeSuggestionId: 'open-file' },
       completionPreview: 's',
       validation: { level: 'warning', message: 'Needs target' },

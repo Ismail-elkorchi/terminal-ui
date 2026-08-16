@@ -26,6 +26,9 @@ import type {
 } from '../../ui-model/choice-controls.ts';
 import type { RangeSliderAction, RangeSliderState } from '../../ui-model/range-slider.ts';
 import type {
+  AutocompleteComboboxControlTransition,
+  AutocompleteComboboxPresentation,
+  AutocompleteComboboxTransition,
   ComboboxCommitEvent,
   ComboboxControlTransition,
   ScrollableComboboxPresentation,
@@ -429,6 +432,46 @@ export type ComboboxOptions<TValue = string, TMessage extends ComponentMessage =
   | UnscrolledComboboxOptions<TValue, TMessage>
   | ScrollableComboboxOptions<TValue, TMessage>;
 
+type UnscrolledAutocompleteComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
+  readonly presentation: Extract<AutocompleteComboboxPresentation, { readonly scroll?: never }>;
+  readonly scrollbar?: never;
+};
+
+type ScrollableAutocompleteComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
+  readonly presentation: Extract<AutocompleteComboboxPresentation, { readonly scroll: unknown }>;
+  readonly scrollbar?: ScrollbarOptions;
+};
+
+export type ActiveAutocompleteComboboxOptions<
+  TValue,
+  TMessage extends ComponentMessage,
+> =
+  | UnscrolledAutocompleteComboboxBase<TValue>
+    & ActiveComboboxCallbacks<AutocompleteComboboxControlTransition, TMessage>
+  | ScrollableAutocompleteComboboxBase<TValue>
+    & ActiveComboboxCallbacks<AutocompleteComboboxTransition, TMessage>;
+
+export type AutocompleteComboboxOptions<
+  TValue = string,
+  TMessage extends ComponentMessage = never,
+> =
+  | ActiveAutocompleteComboboxOptions<TValue, TMessage>
+  | UnscrolledAutocompleteComboboxBase<TValue> & InertComboboxAvailability
+  | ScrollableAutocompleteComboboxBase<TValue> & InertComboboxAvailability
+  | UnscrolledAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability & {
+      readonly presentation: Extract<AutocompleteComboboxPresentation, { readonly scroll?: never }>
+        & { readonly open: false };
+    }
+  | ScrollableAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability & {
+      readonly presentation: Extract<AutocompleteComboboxPresentation, { readonly scroll: unknown }>
+        & { readonly open: false };
+    };
+
+export type AnyComboboxOptions<
+  TValue = string,
+  TMessage extends ComponentMessage = never,
+> = ComboboxOptions<TValue, TMessage> | AutocompleteComboboxOptions<TValue, TMessage>;
+
 interface TextInputOptionsBase {
   readonly id: string;
   readonly presentation: TextInputPresentation;
@@ -503,6 +546,9 @@ export type {
 } from '../../ui-model/forms.ts';
 export type { RangeSliderState } from '../../ui-model/range-slider.ts';
 export type {
+  AutocompleteComboboxControlTransition,
+  AutocompleteComboboxPresentation,
+  AutocompleteComboboxTransition,
   ComboboxCommitEvent,
   ComboboxPresentation,
   ComboboxTransition,

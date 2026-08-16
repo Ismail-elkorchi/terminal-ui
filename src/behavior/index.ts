@@ -19,39 +19,50 @@ export type {
   CalendarPresentation,
 } from '../ui-model/calendar.ts';
 export { dataWindow, rowWindow } from './data-window.ts';
-export { commitCombobox, comboboxReducer } from './combobox.ts';
-export type { ComboboxReducerOptions } from './combobox.ts';
+export {
+  autocompleteComboboxPresentation,
+  autocompleteComboboxReducer,
+  commitAutocompleteCombobox,
+  commitCombobox,
+  comboboxReducer,
+  createAutocompleteComboboxState,
+} from './combobox.ts';
 export type {
+  AutocompleteComboboxCommitOptions,
+  AutocompleteComboboxReducerOptions,
+  ComboboxReducerOptions,
+  CreateAutocompleteComboboxStateInput,
+} from './combobox.ts';
+export type {
+  AutocompleteComboboxControlTransition,
+  AutocompleteComboboxPresentation,
+  AutocompleteComboboxState,
+  AutocompleteComboboxTransition,
+  AnyComboboxPresentation,
   ComboboxCommitEvent,
   ComboboxControlTransition,
   ComboboxPresentation,
   ScrollableComboboxPresentation,
   ComboboxTransition,
   UnscrolledComboboxPresentation,
+  ScrollableAutocompleteComboboxPresentation,
+  UnscrolledAutocompleteComboboxPresentation,
 } from '../ui-model/combobox.ts';
 export {
   completeCollection,
-  cursorCollection,
-  isAnyCollectionProjection,
   isCollectionProjection,
-  sparseCollection,
   windowedCollection,
 } from '../ui-model/collection.ts';
 export type {
-  AnyCollectionProjection,
-  CollectionMetadata,
   CollectionProjection,
   CollectionRecord,
-  CollectionSection,
-  CollectionStatus,
   CompleteCollectionProjection,
-  CursorCollectionProjection,
-  SparseCollectionProjection,
   WindowedCollectionProjection,
 } from '../ui-model/collection.ts';
 export {
+  isMeasuredWindow,
   measuredAnchorAt,
-  measuredWindow
+  measuredWindow,
 } from './measured-window.ts';
 export type {
   MeasuredAnchorAtOptions,
@@ -80,15 +91,18 @@ export type {
   CommandInputPresentation
 } from '../ui-model/command-input.ts';
 export {
+  createCommandInputState,
   commandInputReducer,
   prepareCommandSuggestions
 } from './command-input-state.ts';
 export type {
+  CreateCommandInputStateInput,
   CommandInputState
 } from './command-input-state.ts';
 export type {
   CommandInputSubmitEvent,
   CommandInputTransition,
+  CommandCompletion,
   CommandSuggestion,
 } from '../ui-model/command-input.ts';
 export {
@@ -99,7 +113,12 @@ export {
   textInputPresentation,
   textInputReducer
 } from './text-editing.ts';
-export type { CreateTextAreaStateInput, TextAreaState } from './text-editing.ts';
+export type {
+  CreateTextAreaStateInput,
+  TextAreaEditHistory,
+  TextAreaEditSnapshot,
+  TextAreaState
+} from './text-editing.ts';
 export type {
   TextAreaAction,
   TextAreaControlAction,
@@ -203,14 +222,21 @@ export type {
   NotificationRecord,
   NotificationState
 } from './notifications.ts';
+export type { NotificationItem, NotificationTone } from '../ui-model/feedback.ts';
 export {
+  createSearchPickerState,
+  searchPickerPresentation,
   searchPickerReducer,
   searchPickerWindow,
   activeSearchPickerEntry
 } from './search-picker.ts';
 export type {
+  CreateSearchPickerStateInput,
   SearchPickerActiveInput,
   SearchPickerReducerOptions,
+  SearchPickerState,
+  ScrollableSearchPickerState,
+  UnscrolledSearchPickerState,
   SearchPickerWindow,
   SearchPickerWindowInput
 } from './search-picker.ts';
@@ -275,6 +301,18 @@ export type {
   VisualizationActivateEvent,
   VisualizationPresentation
 } from '../ui-model/visualization.ts';
+export type {
+  BarChartItem,
+  ChartInterpolation,
+  ChartPoint,
+  ChartSampleAlign,
+  ChartSampleMode,
+  ChartSeries,
+  ChartSeriesKind,
+  HeatmapCell,
+  ValueScale,
+  ValueScaleStop,
+} from '../ui-model/feedback.ts';
 export {
   checkboxGroupPresentation,
   checkboxGroupReducer,
@@ -392,11 +430,16 @@ export type {
   DataGridTransition,
   TableCollection,
   TableCollectionRecord,
+  CompleteTableCollection,
+  WindowedTableCollection,
   TablePresentation,
   TableSortState,
   UnscrolledDataGridPresentation,
 } from '../ui-model/table.ts';
 export {
+  isPreparedTreeView,
+  prepareTreeSource,
+  prepareTreeView,
   prepareTreeCollection,
   prepareTreeRows,
   selectableTreeRows,
@@ -420,6 +463,10 @@ export type {
   UnscrolledTreePresentation,
   WindowedTreeCollection
 } from '../ui-model/tree.ts';
-export type { CollectionWindow, CollectionWindowDomain } from '../ui-model/collection.ts';
+export type {
+  CollectionWindow,
+  CollectionWindowDomain,
+  CollectionWindowDomainInput,
+} from '../ui-model/collection.ts';
 export { extractLogViewerSelectionText } from './log-viewer-selection.ts';
 export type { ExtractLogViewerSelectionTextInput } from './log-viewer-selection.ts';

@@ -1,5 +1,7 @@
 import { isNonArrayObject } from '../foundation/validation.ts';
 import { sha256ContentHex } from '../diagnostic-identity.ts';
+import { createGraphicsBudget } from './budget.ts';
+import type { GraphicsBudgetLimits } from './budget.ts';
 
 export type RasterPixelFormat = 'rgb8' | 'rgba8';
 
@@ -26,8 +28,8 @@ export interface RasterImage extends RasterImageDescriptor {
 
 const pixelsByImage = new WeakMap<object, Uint8Array>();
 
-export function rasterImage(input: RasterImageInput): RasterImage;
-export function rasterImage(input: unknown): RasterImage {
+export function rasterImage(input: RasterImageInput, limits?: Partial<GraphicsBudgetLimits>): RasterImage;
+export function rasterImage(input: unknown, limits?: unknown): RasterImage {
   if (!isNonArrayObject(input)) throw new TypeError('Raster image input must be an object.');
   const width = positiveSafeInteger(input['width'], 'width');
   const height = positiveSafeInteger(input['height'], 'height');
@@ -42,6 +44,13 @@ export function rasterImage(input: unknown): RasterImage {
   if (!Number.isSafeInteger(pixels)) throw new RangeError('Raster image dimensions are too large.');
   const expectedLength = pixels * channels;
   if (!Number.isSafeInteger(expectedLength)) throw new RangeError('Raster image byte length is too large.');
+  createGraphicsBudget(limits).admitSource({
+    width,
+    height,
+    format,
+    byteLength: expectedLength,
+    contentDigest: '',
+  });
   if (data.byteLength !== expectedLength) {
     throw new RangeError(`Raster image data must contain exactly ${String(expectedLength)} bytes.`);
   }
@@ -66,6 +75,23 @@ export function rasterImagePixels(image: RasterImage): Uint8Array {
   const pixels = pixelsByImage.get(image);
   if (pixels === undefined) throw new TypeError('Raster image must be created by rasterImage().');
   return pixels;
+}
+
+export function rasterImageResourceKey(image: RasterImageDescriptor): string {
+  return [
+    image.contentDigest,
+    String(image.width),
+    String(image.height),
+    image.format,
+    String(image.byteLength),
+  ].join(':');
+}
+
+export function sameRasterImageContent(
+  left: RasterImageDescriptor,
+  right: RasterImageDescriptor,
+): boolean {
+  return rasterImageResourceKey(left) === rasterImageResourceKey(right);
 }
 
 function positiveSafeInteger(value: unknown, field: string): number {

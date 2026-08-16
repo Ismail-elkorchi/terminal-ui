@@ -20,6 +20,8 @@ import type {
   HitTarget,
 } from '../../component/index.ts';
 import { listbox } from './list.ts';
+import { allowsComponentAction } from '../internal/action-capability.ts';
+import { inspectTextValue, inspectValidation } from '../internal/inspection.ts';
 import { portal, surface } from '../../layout/index.ts';
 import {
   assertOptionalCallback,
@@ -37,19 +39,28 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import {
   clipTextCells,
   createTerminalTextIndex,
+  editTextBuffer,
   measureTextCells,
   sanitizeTerminalText,
   segmentGraphemes,
 } from '../../text/index.ts';
 import type { TextSelection } from '../../text/index.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
+import {
+  popupActiveDescendantId,
+  popupAllowsDismissal,
+  popupRelationship,
+  standardPopupDismissal,
+} from '../../interaction/popup.ts';
 import type {
+  CommandCompletion,
   CommandInputPresentation,
   CommandInputSubmitEvent,
   CommandInputTransition,
 } from '../../ui-model/command-input.ts';
 import type { ListboxViewEntry, PreparedListboxView } from '../../ui-model/list.ts';
 import { prepareListboxView } from '../../ui-model/list-view.ts';
+import { prepareListboxCollection } from '../../behavior/list.ts';
 import { isCollectionProjection } from '../../ui-model/collection.ts';
 import type { CommandInputValidation } from '../../ui-model/documents.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
@@ -60,7 +71,12 @@ import type {
 } from '../../ui-model/search-picker.ts';
 import { searchPickerWindow } from '../../behavior/search-picker.ts';
 import { assertSearchPickerIndex } from '../../ui-model/search-picker-index.ts';
-import { normalizeCollectionQuery } from '../../ui-model/query.ts';
+import {
+  matchPreparedCollectionQuery,
+  prepareCollectionQuery,
+  prepareQueryCandidate,
+} from '../../text/query.ts';
+import type { PreparedCollectionQuery, QueryMatchRange } from '../../text/query.ts';
 import type { CommandInputStylePart, SearchPickerStylePart } from '../../ui-model/style-parts.ts';
 import type {
   CommandInputOptions,
@@ -74,15 +90,15 @@ interface CommandInputModel {
   readonly value: string;
   readonly cursor: number;
   readonly selection?: TextSelection;
-  readonly historyIndex?: number;
-  readonly suggestions: PreparedListboxView<string>;
+  readonly submissionIndex?: number;
+  readonly suggestions: PreparedListboxView<CommandCompletion>;
   readonly activeSuggestionId?: string;
   readonly prompt: string;
   readonly placeholder: string;
   readonly completionPreview: string;
   readonly validation?: CommandInputValidation;
   readonly footer: string;
-  readonly matchQuery: string;
+  readonly query: PreparedCollectionQuery;
   readonly display: 'compact' | 'expanded' | 'popup';
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleSuggestions: number;
@@ -142,6 +158,16 @@ const instantiateCommandInput = defineComponent<
     'footer',
   ],
   prepare: (value, context) => prepareCommandInput(value, !context.disabled && !context.inert),
+  inspection: ({ model }) => ({
+    value: inspectTextValue(model.value),
+    ...(model.activeSuggestionId === undefined ? {} : { active: model.activeSuggestionId }),
+    validation: inspectValidation(false, model.validation?.message),
+    collection: {
+      startIndex: model.suggestions.startIndex,
+      totalCount: model.suggestions.totalCount,
+      visibleCount: model.suggestions.entries.length,
+    },
+  }),
   implementationSlots(input) {
     if (input.model.display !== 'popup' || input.model.suggestions.entries.length === 0) {
       return { suggestions: undefined };
@@ -158,7 +184,7 @@ const instantiateCommandInput = defineComponent<
         action.kind === 'setActive' && action.id !== undefined
           ? input.emit(commandTransition({ kind: 'setActiveSuggestion', id: action.id }))
           : ignoreMessage(),
-      onActivate: () => input.readOnly
+      onActivate: () => !allowsComponentAction(input, 'commitSelection')
         ? ignoreMessage()
         : input.emit(commandTransition({ kind: 'acceptSuggestion' })),
       meta: { focus: { disabled: true } },
@@ -174,7 +200,10 @@ const instantiateCommandInput = defineComponent<
           anchor: { kind: 'allocation' },
           placement: input.model.placement ?? 'below',
           margin: 0,
-          onOutsidePress: () => input.emit(commandTransition({ kind: 'dismissSuggestions' })),
+          onOutsidePress: () => input.emit(commandTransition({
+            kind: 'dismissSuggestions',
+            reason: 'outsidePress'
+          })),
           meta: { layer: { zIndex: 20, underlay: 'clear' } },
         },
       ),
@@ -199,6 +228,7 @@ const instantiateCommandInput = defineComponent<
   layout: ({ bounds }) => ({ suggestions: bounds }),
   renderBeforeChildren: paintCommandInput,
   accessibility(input) {
+    const relationship = popupRelationship(input.id);
     const suggestions = input.model.display === 'compact' ? [] : input.model.suggestions.entries;
     const children = [
       ...(input.model.validation === undefined ? [] : [{
@@ -208,7 +238,7 @@ const instantiateCommandInput = defineComponent<
         value: input.model.validation.message,
       }]),
       ...(suggestions.length === 0 ? [] : [{
-        id: `${input.id}:suggestions`,
+        id: relationship.popupId,
         role: 'listbox' as const,
         label: 'Suggestions',
         window: {
@@ -222,10 +252,10 @@ const instantiateCommandInput = defineComponent<
           ),
         },
         children: suggestions.map((suggestion) => ({
-          id: `${input.id}:suggestion:${suggestion.id}`,
+          id: `${relationship.popupId}:item:${suggestion.id}`,
           role: 'option' as const,
           label: suggestion.item.label,
-          value: suggestion.value,
+          value: suggestion.value.text,
           current: suggestion.id === input.model.activeSuggestionId,
           disabled: suggestion.item.disabled,
           position: {
@@ -241,10 +271,10 @@ const instantiateCommandInput = defineComponent<
       label: input.model.prompt || input.id,
       value: input.model.value,
       expanded: suggestions.length > 0,
-      ...(suggestions.length === 0 ? {} : { controls: `${input.id}:suggestions` }),
+      ...(suggestions.length === 0 ? {} : { controls: relationship.popupId }),
       ...(suggestions.length === 0 || input.model.activeSuggestionId === undefined
         ? {}
-        : { activeDescendant: `${input.id}:suggestion:${input.model.activeSuggestionId}` }),
+        : { activeDescendant: popupActiveDescendantId(relationship, input.model.activeSuggestionId) }),
       disabled: input.disabled,
       readOnly: input.readOnly,
       ...(input.focused ? { focused: true } : {}),
@@ -252,47 +282,72 @@ const instantiateCommandInput = defineComponent<
     };
   },
   keys: ({ model, readOnly }) => {
+    const availability = { readOnly };
+    const canEdit = allowsComponentAction(availability, 'edit');
+    const canCommitSelection = allowsComponentAction(availability, 'commitSelection');
+    const canActivate = allowsComponentAction(availability, 'activate');
+    const canChangeStructure = allowsComponentAction(availability, 'changeStructure');
     const active = activeSuggestion(model);
-    const submitted = active?.item.disabled === true ? model.value : active?.value ?? model.value;
+    const submitted = active === undefined || active.item.disabled
+      ? model.value
+      : editTextBuffer(
+          { text: model.value, cursor: model.cursor, ...(model.selection === undefined ? {} : { selection: model.selection }) },
+          { kind: 'replaceRange', range: active.value.range, text: active.value.text }
+        ).text;
     return {
-      triggers: textEditingTriggers(readOnly, false).map((binding) => ({
-        trigger: binding.trigger,
-        onKey: (event: Parameters<typeof binding.onKey>[0]) => {
-          const action = binding.onKey(event);
-          return isIgnoredMessage(action)
-            ? action
-            : commandTransition(action);
-        },
-      })),
-      ...(readOnly ? {} : {
+      triggers: [
+        ...textEditingTriggers(!canEdit, false).map((binding) => ({
+          trigger: binding.trigger,
+          onKey: (event: Parameters<typeof binding.onKey>[0]) => {
+            const action = binding.onKey(event);
+            return isIgnoredMessage(action)
+              ? action
+              : commandTransition(action);
+          },
+        })),
+        ...(canChangeStructure ? commandInputHistoryTriggers() : [])
+      ],
+      ...(canEdit ? {
         backspace: () => ({
           kind: 'transition' as const,
           transition: { kind: 'edit' as const, operation: { kind: 'deleteBackward' as const } },
         }),
         delete: () => commandTransition({ kind: 'edit', operation: { kind: 'deleteForward' } }),
-      }),
+      } : {}),
       arrowLeft: () => commandTransition({ kind: 'edit', operation: { kind: 'moveLeft' } }),
       arrowRight: () => commandTransition({ kind: 'edit', operation: { kind: 'moveRight' } }),
       home: () => commandTransition({ kind: 'edit', operation: { kind: 'moveHome' } }),
       end: () => commandTransition({ kind: 'edit', operation: { kind: 'moveEnd' } }),
       arrowUp: () =>
         model.suggestions.entries.length === 0
-          ? readOnly ? ignoreMessage() : commandTransition({ kind: 'historyPrevious' })
+          ? canEdit ? commandTransition({ kind: 'historyPrevious' }) : ignoreMessage()
           : commandTransition({ kind: 'moveSuggestion', delta: -1 }),
       arrowDown: () =>
         model.suggestions.entries.length === 0
-          ? readOnly ? ignoreMessage() : commandTransition({ kind: 'historyNext' })
+          ? canEdit ? commandTransition({ kind: 'historyNext' }) : ignoreMessage()
           : commandTransition({ kind: 'moveSuggestion', delta: 1 }),
-      ...(readOnly || model.suggestions.entries.length === 0
+      ...(!canCommitSelection || model.suggestions.entries.length === 0
         ? {}
         : { tab: () => commandTransition({ kind: 'acceptSuggestion' }) }),
-      ...(readOnly ? {} : { enter: () => ({ kind: 'submit' as const, event: { kind: 'submit' as const, value: submitted } }) }),
+      ...(model.suggestions.entries.length === 0 || !popupAllowsDismissal(standardPopupDismissal, 'escape')
+        ? {}
+        : { escape: () => commandTransition({ kind: 'dismissSuggestions', reason: 'escape' }) }),
+      ...(canActivate ? { enter: () => ({ kind: 'submit' as const, event: { kind: 'submit' as const, value: submitted } }) } : {}),
     };
   },
   onInput: ({ text, readOnly }) =>
-    readOnly ? ignoreMessage() : commandTransition({ kind: 'edit', operation: { kind: 'insert', text } }),
+    allowsComponentAction({ readOnly }, 'edit')
+      ? commandTransition({ kind: 'edit', operation: { kind: 'insert', text } })
+      : ignoreMessage(),
   onPaste: ({ text, readOnly }) =>
-    readOnly ? ignoreMessage() : commandTransition({ kind: 'edit', operation: { kind: 'insert', text } }),
+    allowsComponentAction({ readOnly }, 'edit')
+      ? commandTransition({ kind: 'edit', operation: { kind: 'insert', text } })
+      : ignoreMessage(),
+  onFocus: (event, { model }) => event.kind === 'focusLeave'
+    && model.suggestions.entries.length > 0
+    && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
+    ? commandTransition({ kind: 'dismissSuggestions', reason: 'focusLoss' })
+    : ignoreMessage(),
   pointer: {
     state: ({ model }) => model.pointerState,
     onAction: (action) => ({ kind: 'pointerLifecycle', action }),
@@ -334,7 +389,7 @@ export const commandInput: CommandInputFactory = (options) => {
     ...(options.completionPreview === undefined ? {} : { completionPreview: options.completionPreview }),
     ...(options.validation === undefined ? {} : { validation: options.validation }),
     ...(options.footer === undefined ? {} : { footer: options.footer }),
-    ...(options.matchQuery === undefined ? {} : { matchQuery: options.matchQuery }),
+    ...(options.query === undefined ? {} : { query: options.query }),
     ...(options.display === undefined ? {} : { display: options.display }),
     ...(options.placement === undefined ? {} : { placement: options.placement }),
     ...(options.maxVisibleSuggestions === undefined ? {} : { maxVisibleSuggestions: options.maxVisibleSuggestions }),
@@ -383,7 +438,7 @@ function prepareCommandInput(
     completionPreview: clean(value.completionPreview, 'commandInput completionPreview') ?? '',
     ...(validation === undefined ? {} : { validation }),
     footer: clean(value.footer, 'commandInput footer') ?? '',
-    matchQuery: clean(value.matchQuery, 'commandInput matchQuery') ?? presentation.value,
+    query: prepareCollectionQuery(value.query ?? { text: presentation.value, mode: 'contains' }),
     display: display ?? 'compact',
     ...(placement === undefined ? {} : { placement }),
     maxVisibleSuggestions,
@@ -395,7 +450,7 @@ function prepareCommandPresentation(
   value: CommandInputPresentation,
 ): Pick<
   CommandInputModel,
-  'value' | 'cursor' | 'selection' | 'historyIndex' | 'suggestions' | 'activeSuggestionId'
+  'value' | 'cursor' | 'selection' | 'submissionIndex' | 'suggestions' | 'activeSuggestionId'
 > {
   const text = clean(value.value, 'commandInput value') ?? '';
   const cursor = nonNegativeInteger(value.cursor, 'commandInput cursor');
@@ -403,7 +458,10 @@ function prepareCommandPresentation(
   if (!isCollectionProjection(value.suggestions)) {
     throw new TypeError('commandInput suggestions must be a prepared listbox collection.');
   }
-  const suggestions = prepareListboxView(value.suggestions);
+  if (typeof value.open !== 'boolean') throw new TypeError('commandInput open must be a boolean.');
+  const suggestions = value.open
+    ? prepareListboxView(value.suggestions)
+    : emptyCommandInputSuggestions;
   const activeSuggestionId = value.activeSuggestionId === undefined
     ? undefined
     : nonEmpty(value.activeSuggestionId, 'commandInput activeSuggestionId');
@@ -411,20 +469,29 @@ function prepareCommandPresentation(
     !collectionInteractionHas(suggestions.interactionIndex, activeSuggestionId)) {
     throw new RangeError('commandInput activeSuggestionId must reference an enabled suggestion.');
   }
+  if (!value.open && activeSuggestionId !== undefined) {
+    throw new RangeError('commandInput activeSuggestionId requires an open popup.');
+  }
   const selection = prepareTextSelection(value.selection, text.length, 'commandInput selection');
-  const historyIndex = optionalNonNegativeInteger(
-    value.historyIndex,
-    'commandInput historyIndex',
+  const submissionIndex = optionalNonNegativeInteger(
+    value.submissionIndex,
+    'commandInput submissionIndex',
   );
   return {
     value: text,
     cursor,
     ...(selection === undefined ? {} : { selection }),
-    ...(historyIndex === undefined ? {} : { historyIndex }),
+    ...(submissionIndex === undefined ? {} : { submissionIndex }),
     suggestions,
     ...(activeSuggestionId === undefined ? {} : { activeSuggestionId }),
   };
 }
+
+const emptyCommandInputSuggestions = prepareListboxView(
+  prepareListboxCollection<never>([], () => {
+    throw new Error('Empty command suggestions cannot project an item.');
+  }),
+);
 
 function paintCommandInput(
   input: ComponentRenderInput<CommandInputModel, CommandInputStylePart>,
@@ -674,12 +741,12 @@ function commandValueSpans(
       }),
     }));
   }
-  if (input.model.historyIndex !== undefined) {
+  if (input.model.submissionIndex !== undefined) {
     const style = input.style({
       part: 'placeholder',
       base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
     });
-    spans.push(span(`  #${String(input.model.historyIndex + 1)}`, {
+    spans.push(span(`  #${String(input.model.submissionIndex + 1)}`, {
       ...(style === undefined ? {} : { style }),
       source: input.source({ partName: 'history', partType: 'history', cellRole: 'text' }),
     }));
@@ -689,7 +756,7 @@ function commandValueSpans(
 
 function commandSuggestionSpans(
   input: ComponentRenderInput<CommandInputModel, CommandInputStylePart>,
-  suggestion: ListboxViewEntry<string>,
+  suggestion: ListboxViewEntry<CommandCompletion>,
   index: number,
 ): import('../../visual/render.ts').RenderSpan[] {
   const selected = suggestion.id === input.model.activeSuggestionId;
@@ -711,9 +778,11 @@ function commandSuggestionSpans(
     ...(state === undefined ? {} : { state }),
   });
   const label = suggestion.item.label;
-  const matches = input.model.matchQuery.trim().length > 0 &&
-    label.toLocaleLowerCase().includes(input.model.matchQuery.trim().toLocaleLowerCase());
-  const matchStyle = matches
+  const matches = matchPreparedCollectionQuery(
+    prepareQueryCandidate({ id: suggestion.id, primary: label }),
+    input.model.query,
+  )?.ranges.filter((range) => range.field === 'primary') ?? [];
+  const matchStyle = matches.length > 0
     ? input.style({
       part: 'suggestion',
       base: { fg: { kind: 'theme', token: 'command.match' }, underline: true },
@@ -734,21 +803,18 @@ function commandSuggestionSpans(
         }),
       },
     ),
-    span(label, {
-      ...(matchStyle === undefined ? {} : { style: matchStyle }),
-      source: input.source({
-        partName: matches
-          ? `suggestion.${String(index)}.match`
-          : `suggestion.${String(index)}.label`,
-        partType: matches ? 'match' : 'label',
-        description: matches
-          ? `suggestion.${String(index)}.match`
-          : `suggestion.${String(index)}.label`,
-        cellRole: 'text',
-        itemIndex: index,
-        ...(state === undefined ? {} : { interactionState: state }),
-      }),
-    }),
+    ...queryLabelSpans(label, matches, rowStyle, matchStyle, (matched) => input.source({
+      partName: matched
+        ? `suggestion.${String(index)}.match`
+        : `suggestion.${String(index)}.label`,
+      partType: matched ? 'match' : 'label',
+      description: matched
+        ? `suggestion.${String(index)}.match`
+        : `suggestion.${String(index)}.label`,
+      cellRole: 'text',
+      itemIndex: index,
+      ...(state === undefined ? {} : { interactionState: state }),
+    })),
     ...(suggestion.item.description === undefined ? [] : [span(` · ${suggestion.item.description}`, {
       ...(rowStyle === undefined ? {} : { style: rowStyle }),
       source: input.source({
@@ -775,6 +841,45 @@ function commandSuggestionSpans(
         itemIndex: index,
         ...(state === undefined ? {} : { interactionState: state }),
       }),
+    }));
+  }
+  return spans;
+}
+
+function queryLabelSpans(
+  label: string,
+  ranges: readonly QueryMatchRange[],
+  baseStyle: TerminalStyle | undefined,
+  matchStyle: TerminalStyle | undefined,
+  source: (matched: boolean) => import('../../visual/source.ts').FrameCellSource,
+): import('../../visual/render.ts').RenderSpan[] {
+  if (ranges.length === 0) {
+    return [span(label, {
+      ...(baseStyle === undefined ? {} : { style: baseStyle }),
+      source: source(false),
+    })];
+  }
+  const spans: import('../../visual/render.ts').RenderSpan[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      spans.push(span(label.slice(cursor, range.start), {
+        ...(baseStyle === undefined ? {} : { style: baseStyle }),
+        source: source(false),
+      }));
+    }
+    if (range.end > range.start) {
+      spans.push(span(label.slice(range.start, range.end), {
+        ...(matchStyle === undefined ? {} : { style: matchStyle }),
+        source: source(true),
+      }));
+    }
+    cursor = Math.max(cursor, range.end);
+  }
+  if (cursor < label.length) {
+    spans.push(span(label.slice(cursor), {
+      ...(baseStyle === undefined ? {} : { style: baseStyle }),
+      source: source(false),
     }));
   }
   return spans;
@@ -827,10 +932,31 @@ function commandInputHitTargets(
   ];
 }
 
-function activeSuggestion(model: CommandInputModel): ListboxViewEntry<string> | undefined {
+function activeSuggestion(model: CommandInputModel): ListboxViewEntry<CommandCompletion> | undefined {
   if (model.activeSuggestionId === undefined) return undefined;
   const position = collectionInteractionPosition(model.suggestions.interactionIndex, model.activeSuggestionId);
   return position === undefined ? undefined : model.suggestions.selectable[position];
+}
+
+function commandInputHistoryTriggers() {
+  return [
+    {
+      trigger: { kind: 'key' as const, key: 'z' as const, modifiers: { ctrl: true } },
+      onKey: () => commandTransition({ kind: 'undo' })
+    },
+    {
+      trigger: { kind: 'key' as const, key: 'y' as const, modifiers: { ctrl: true } },
+      onKey: () => commandTransition({ kind: 'redo' })
+    },
+    {
+      trigger: {
+        kind: 'key' as const,
+        key: 'z' as const,
+        modifiers: { ctrl: true, shift: true }
+      },
+      onKey: () => commandTransition({ kind: 'redo' })
+    }
+  ];
 }
 
 interface PreparedSearchEntry {
@@ -841,6 +967,7 @@ interface PreparedSearchEntry {
   readonly preview?: string;
   readonly group?: string;
   readonly disabled: boolean;
+  readonly matches: readonly QueryMatchRange[];
 }
 
 type SearchPickerInternalAction =
@@ -850,7 +977,7 @@ type SearchPickerInternalAction =
 
 interface SearchPickerModel {
   readonly title: string;
-  readonly query: Required<import('../../ui-model/query.ts').CollectionQuery>;
+  readonly query: PreparedCollectionQuery;
   readonly rows: readonly PreparedSearchEntry[];
   readonly activeIndex?: number;
   readonly totalCount: number;
@@ -977,6 +1104,20 @@ const instantiateSearchPicker = defineComponent<
     'scrollbar',
   ],
   prepare: (value, context) => prepareSearchPicker(value, !context.disabled && !context.inert),
+  inspection: ({ model }) => {
+    const activeRow = model.activeIndex === undefined
+      ? undefined
+      : model.rows[model.activeIndex];
+    return {
+      value: inspectTextValue(model.query.text),
+      ...(activeRow === undefined ? {} : { active: activeRow.id }),
+      collection: {
+        startIndex: model.startIndex,
+        totalCount: model.totalCount,
+        visibleCount: model.rows.length,
+      },
+    };
+  },
   measure(input) {
     return {
       minWidth: 1,
@@ -1042,27 +1183,30 @@ const instantiateSearchPicker = defineComponent<
     };
   },
   keys: ({ model, readOnly, busy }) => {
-    if (busy) return {};
+    const availability = { busy, readOnly };
+    if (!allowsComponentAction(availability, 'navigate')) return {};
+    const canEdit = allowsComponentAction(availability, 'edit');
+    const canActivate = allowsComponentAction(availability, 'activate');
     const active = model.activeIndex === undefined
       ? undefined
       : model.rows[model.activeIndex];
     return {
-      ...(readOnly ? {} : {
+      ...(canEdit ? {
         backspace: () => searchPickerTransition({ kind: 'deleteQueryBackward' }),
-      }),
+      } : {}),
       arrowUp: () => searchPickerTransition({ kind: 'moveActive', delta: -1 }),
       arrowDown: () => searchPickerTransition({ kind: 'moveActive', delta: 1 }),
-      ...(active === undefined || active.disabled || readOnly
+      ...(active === undefined || active.disabled || !canActivate
         ? {}
         : { enter: () => ({ kind: 'accept' as const, event: { kind: 'accept' as const, id: active.id } }) }),
     };
   },
-  onInput: ({ text, readOnly }) => readOnly
-    ? ignoreMessage()
-    : searchPickerTransition({ kind: 'insertQuery', text }),
-  onPaste: ({ text, readOnly }) => readOnly
-    ? ignoreMessage()
-    : searchPickerTransition({ kind: 'insertQuery', text }),
+  onInput: ({ text, readOnly }) => allowsComponentAction({ readOnly }, 'edit')
+    ? searchPickerTransition({ kind: 'insertQuery', text })
+    : ignoreMessage(),
+  onPaste: ({ text, readOnly }) => allowsComponentAction({ readOnly }, 'edit')
+    ? searchPickerTransition({ kind: 'insertQuery', text })
+    : ignoreMessage(),
   pointer: {
     state: ({ model }) => model.pointerState,
     onAction: (action) => ({ kind: 'pointerLifecycle', action }),
@@ -1070,10 +1214,10 @@ const instantiateSearchPicker = defineComponent<
   focusTargets: ({ bounds }) => [{ id: 'self', bounds, cursor: { row: 1, column: 2 } }],
   hitTargets(input) {
     const plan = searchPickerPlan(input);
-    const entryTargets = input.model.rows.slice(
+    const entryTargets = (input.busy ? [] : input.model.rows.slice(
       0,
       searchPickerVisibleEntryCount(input.model, plan.contentBounds.height),
-    ).flatMap((row, index) =>
+    )).flatMap((row, index) =>
       row.disabled ? [] : [{
         id: `${input.id ?? 'search-picker'}:${row.id}`,
         bounds: {
@@ -1084,7 +1228,9 @@ const instantiateSearchPicker = defineComponent<
         },
         cursor: 'pointer' as const,
         focus: { kind: 'target' as const, targetId: 'self' },
-        message: () => ({ kind: 'accept' as const, event: { kind: 'accept' as const, id: row.id } }),
+        message: () => allowsComponentAction(input, 'activate')
+          ? ({ kind: 'accept' as const, event: { kind: 'accept' as const, id: row.id } })
+          : searchPickerTransition({ kind: 'setActive', id: row.id }),
       }]
     );
     return [
@@ -1128,8 +1274,14 @@ function prepareSearchPicker(
     limit,
   });
   const rows = Object.freeze(
-    window.entries.map((entry, position): PreparedSearchEntry =>
-      Object.freeze({
+    window.entries.map((entry, position): PreparedSearchEntry => {
+      const matches = matchPreparedCollectionQuery(prepareQueryCandidate({
+        id: entry.id,
+        primary: entry.label,
+        secondary: [entry.description, ...(entry.keywords ?? [])]
+          .filter((item): item is string => item !== undefined),
+      }), query)?.ranges.filter((range) => range.field === 'primary') ?? [];
+      return Object.freeze({
         id: entry.id,
         itemIndex: window.startIndex + position,
         label: entry.label,
@@ -1137,8 +1289,9 @@ function prepareSearchPicker(
         ...(entry.preview === undefined ? {} : { preview: entry.preview }),
         ...(entry.group === undefined ? {} : { group: entry.group }),
         disabled: entry.disabled === true,
-      })
-    ),
+        matches: Object.freeze(matches),
+      });
+    }),
   );
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'searchPicker scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(
@@ -1172,11 +1325,11 @@ function prepareSearchPicker(
 
 function prepareSearchPickerPresentation(
   value: SearchPickerPresentation,
-): SearchPickerPresentation & { readonly query: Required<import('../../ui-model/query.ts').CollectionQuery> } {
+): SearchPickerPresentation & { readonly query: PreparedCollectionQuery } {
   if (!isNonArrayObject(value)) {
     throw new TypeError('searchPicker presentation must be an object.');
   }
-  const query = normalizeCollectionQuery(value.query);
+  const query = prepareCollectionQuery(value.query);
   const activeId = value.activeId === undefined
     ? undefined
     : nonEmpty(value.activeId, 'searchPicker activeId');
@@ -1293,56 +1446,18 @@ function paintSearchPicker(
     });
     const prefix = active ? input.theme.tokens.symbols.pointer : ' ';
     const group = row.group === undefined ? '' : `[${row.group}] `;
-    const matchIndex = input.model.query.text === ''
-      ? -1
-      : row.label.toLocaleLowerCase().indexOf(input.model.query.text.toLocaleLowerCase());
-    const labelSpans = matchIndex < 0
-      ? [span(row.label, {
-        ...(style === undefined ? {} : { style }),
-        source: input.source({
-          partName: `entry.${row.id}.label`,
-          cellRole: 'text',
-          itemId: row.id,
-          itemIndex: row.itemIndex,
-          ...(state === undefined ? {} : { interactionState: state }),
-          description: `entry.${row.id}.label`,
-        }),
-      })]
-      : [
-        span(row.label.slice(0, matchIndex), {
-          ...(style === undefined ? {} : { style }),
-          source: input.source({
-            partName: `entry.${row.id}.label`,
-            cellRole: 'text',
-            itemId: row.id,
-            itemIndex: row.itemIndex,
-            ...(state === undefined ? {} : { interactionState: state }),
-            description: `entry.${row.id}.label`,
-          }),
-        }),
-        span(row.label.slice(matchIndex, matchIndex + input.model.query.text.length), {
-          style: { ...(style ?? {}), fg: { kind: 'theme', token: 'command.match' }, bold: true },
-          source: input.source({
-            partName: `entry.${row.id}.match`,
-            cellRole: 'text',
-            itemId: row.id,
-            itemIndex: row.itemIndex,
-            ...(state === undefined ? {} : { interactionState: state }),
-            description: `entry.${row.id}.match`,
-          }),
-        }),
-        span(row.label.slice(matchIndex + input.model.query.text.length), {
-          ...(style === undefined ? {} : { style }),
-          source: input.source({
-            partName: `entry.${row.id}.label`,
-            cellRole: 'text',
-            itemId: row.id,
-            itemIndex: row.itemIndex,
-            ...(state === undefined ? {} : { interactionState: state }),
-            description: `entry.${row.id}.label`,
-          }),
-        }),
-      ];
+    const matchStyle: TerminalStyle | undefined = row.matches.length === 0
+      ? style
+      : { ...(style ?? {}), fg: { kind: 'theme', token: 'command.match' }, bold: true };
+    const labelSpans = queryLabelSpans(row.label, row.matches, style, matchStyle, (matched) =>
+      input.source({
+        partName: `entry.${row.id}.${matched ? 'match' : 'label'}`,
+        cellRole: 'text',
+        itemId: row.id,
+        itemIndex: row.itemIndex,
+        ...(state === undefined ? {} : { interactionState: state }),
+        description: `entry.${row.id}.${matched ? 'match' : 'label'}`,
+      }));
     const spans = [
       span(`${prefix} `, {
         ...(style === undefined ? {} : { style }),

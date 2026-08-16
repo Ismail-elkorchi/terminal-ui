@@ -14,7 +14,8 @@ test('collection selection ownership detaches mutable multiple-selection state',
   const supplied = {
     mode: 'multiple',
     selectedIds,
-    anchorId: 'first'
+    anchorId: 'first',
+    range: true
   };
   const owned = ownSelectionState(supplied, 'test selection');
 
@@ -24,13 +25,18 @@ test('collection selection ownership detaches mutable multiple-selection state',
   assert.deepEqual(owned, {
     mode: 'multiple',
     selectedIds: ['first'],
-    anchorId: 'first'
+    anchorId: 'first',
+    range: true
   });
   assert.equal(Object.isFrozen(owned), true);
   assert.equal(Object.isFrozen(owned.selectedIds), true);
   assert.throws(
     () => ownSelectionState({ mode: 'multiple', selectedIds: ['duplicate', 'duplicate'] }, 'test selection'),
     /test selection\.selectedIds must be unique/u
+  );
+  assert.throws(
+    () => ownSelectionState({ mode: 'single', followActive: 'yes' }, 'test selection'),
+    /test selection\.followActive must be a boolean/u
   );
 });
 

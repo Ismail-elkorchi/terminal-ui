@@ -23,6 +23,8 @@ export type TextAreaPresentation =
 
 export type TextAreaAction =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }
+  | { readonly kind: 'undo' }
+  | { readonly kind: 'redo' }
   | { readonly kind: 'pointer'; readonly action: TextPointerAction }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
 

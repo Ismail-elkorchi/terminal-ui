@@ -1,6 +1,9 @@
 import type { Rect } from '../contracts.ts';
 import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
-import { sameSnapshotContents, sameSnapshotRow, snapshotRow } from './frame-snapshot.ts';
+import {
+  sameTerminalSnapshotRow,
+  snapshotRow,
+} from './frame-snapshot.ts';
 
 interface DirtyRegionSource {
   readonly id: string;
@@ -54,7 +57,10 @@ function dirtyRegionsForChangedRegion(previous: DirtyRegionSource, next: DirtyRe
   if (!sameRegionSurface(previous, next)) {
     return createDirtyRegionSet([effectiveRegionBounds(previous), effectiveRegionBounds(next)]);
   }
-  if (sameSnapshotContents(previous.metadata, next.metadata)) return createDirtyRegionSet();
+  if (
+    previous.metadata.terminalFingerprint === next.metadata.terminalFingerprint
+    && sameTerminalContents(previous.metadata, next.metadata)
+  ) return createDirtyRegionSet();
 
   const changedRows = changedRowRects(previous, next);
   const coverage = previous.metadata.writtenBounds
@@ -150,8 +156,8 @@ function sameOptionalRect(left: Rect | undefined, right: Rect | undefined): bool
 }
 
 function changedRowRects(previous: DirtyRegionSource, next: DirtyRegionSource): DirtyRegionSet {
-  const previousRows = new Map(previous.metadata.rowFingerprints.map((row) => [row.row, row.fingerprint]));
-  const nextRows = new Map(next.metadata.rowFingerprints.map((row) => [row.row, row.fingerprint]));
+  const previousRows = new Map(previous.metadata.rowFingerprints.map((row) => [row.row, row.terminalFingerprint]));
+  const nextRows = new Map(next.metadata.rowFingerprints.map((row) => [row.row, row.terminalFingerprint]));
   const rects: Rect[] = [];
   const firstRow = Math.min(previous.bounds.row, next.bounds.row);
   const lastRow = Math.max(
@@ -160,7 +166,7 @@ function changedRowRects(previous: DirtyRegionSource, next: DirtyRegionSource): 
   );
   for (let row = firstRow; row <= lastRow; row += 1) {
     const fingerprintsEqual = previousRows.get(row) === nextRows.get(row);
-    if (fingerprintsEqual && sameSnapshotRow(
+    if (fingerprintsEqual && sameTerminalSnapshotRow(
       snapshotRow(previous.metadata, row),
       snapshotRow(next.metadata, row),
     )) continue;
@@ -172,6 +178,20 @@ function changedRowRects(previous: DirtyRegionSource, next: DirtyRegionSource): 
     });
   }
   return createDirtyRegionSet(rects);
+}
+
+function sameTerminalContents(
+  previous: FrameSnapshotMetadata,
+  next: FrameSnapshotMetadata,
+): boolean {
+  const rows = new Set([
+    ...previous.rowIndexes.map((entry) => entry.row),
+    ...next.rowIndexes.map((entry) => entry.row),
+  ]);
+  for (const row of rows) {
+    if (!sameTerminalSnapshotRow(snapshotRow(previous, row), snapshotRow(next, row))) return false;
+  }
+  return true;
 }
 
 function intersectRegionSets(left: DirtyRegionSet, right: DirtyRegionSet): DirtyRegionSet {

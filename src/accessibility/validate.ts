@@ -165,6 +165,23 @@ function firstNodeIssue(
   const labelledByIssue = optionalStringIssue(candidate, 'labelledBy', id);
   if (labelledByIssue !== undefined) return labelledByIssue;
   if (candidate['labelledBy'] === '') return accessibilityFailure('Accessible node labelledBy must not be empty.', id);
+  const describedBy = candidate['describedBy'];
+  if (describedBy !== undefined) {
+    if (!Array.isArray(describedBy) || describedBy.length === 0) {
+      return accessibilityFailure('Accessible node describedBy must contain unique non-empty node ids.', id);
+    }
+    const ownedTargets: string[] = [];
+    for (const target of describedBy as readonly unknown[]) {
+      if (typeof target !== 'string' || target.length === 0 || ownedTargets.includes(target)) {
+        return accessibilityFailure('Accessible node describedBy must contain unique non-empty node ids.', id);
+      }
+      ownedTargets.push(sanitizeText ? sanitizeTerminalText(target).text : target);
+    }
+    if (ownedTargets.some((target) => target === '')) {
+      return accessibilityFailure('Accessible node describedBy ids must not contain terminal controls.', id);
+    }
+    candidate['describedBy'] = ownedTargets;
+  }
   const activeDescendantIssue = optionalStringIssue(candidate, 'activeDescendant', id);
   if (activeDescendantIssue !== undefined) return activeDescendantIssue;
   if (candidate['activeDescendant'] === '') {
@@ -263,6 +280,7 @@ function sanitizeNodeText(node: Record<string, unknown>): void {
     'description',
     'controls',
     'labelledBy',
+    'describedBy',
     'activeDescendant',
     'errorMessage'
   ] as const) {
@@ -322,6 +340,9 @@ function ownedAccessibleNode(
     ...(typeof value['description'] === 'string' ? { description: value['description'] } : {}),
     ...(typeof value['controls'] === 'string' ? { controls: value['controls'] } : {}),
     ...(typeof value['labelledBy'] === 'string' ? { labelledBy: value['labelledBy'] } : {}),
+    ...(Array.isArray(value['describedBy'])
+      ? { describedBy: Object.freeze([...value['describedBy'] as string[]]) }
+      : {}),
     ...(typeof value['activeDescendant'] === 'string' ? { activeDescendant: value['activeDescendant'] } : {}),
     ...(typeof value['errorMessage'] === 'string' ? { errorMessage: value['errorMessage'] } : {}),
     ...(value['children'] === undefined ? {} : { children: Object.freeze([...children]) })
@@ -407,6 +428,7 @@ const accessibleNodeFields = new Set([
   'description',
   'controls',
   'labelledBy',
+  'describedBy',
   'activeDescendant',
   'errorMessage',
   'children'
@@ -605,6 +627,14 @@ function firstRelationshipIssue(nodes: ReadonlyMap<string, AccessibleNode>): Ter
         return accessibilityFailure('Accessible tab nodes must control a tabpanel.', node.id);
       }
     }
+    for (const targetId of node.describedBy ?? []) {
+      if (targetId === node.id || !nodes.has(targetId)) {
+        return accessibilityFailure(
+          `Accessible node describedBy must identify a different node in the same snapshot: ${targetId}.`,
+          node.id,
+        );
+      }
+    }
     for (const [field, targetId] of [
       ['activeDescendant', node.activeDescendant],
       ['errorMessage', node.errorMessage],
@@ -616,6 +646,30 @@ function firstRelationshipIssue(nodes: ReadonlyMap<string, AccessibleNode>): Ter
           node.id,
         );
       }
+    }
+  }
+  return firstDescriptionCycle(nodes);
+}
+
+function firstDescriptionCycle(nodes: ReadonlyMap<string, AccessibleNode>): TerminalDiagnostic | undefined {
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (id: string): string | undefined => {
+    if (visiting.has(id)) return id;
+    if (visited.has(id)) return undefined;
+    visiting.add(id);
+    for (const target of nodes.get(id)?.describedBy ?? []) {
+      const cycle = visit(target);
+      if (cycle !== undefined) return cycle;
+    }
+    visiting.delete(id);
+    visited.add(id);
+    return undefined;
+  };
+  for (const id of nodes.keys()) {
+    const cycle = visit(id);
+    if (cycle !== undefined) {
+      return accessibilityFailure('Accessible node describedBy relationships must not form a cycle.', cycle);
     }
   }
   return undefined;

@@ -3,7 +3,7 @@ import {
   combineMeasurementsOverlay,
   measurement,
   measureSize
-} from '../measurement.ts';
+} from '../../measurement.ts';
 import { layoutInsetSize } from '../../../geometry/layout.ts';
 import { numberProp } from '../render-node-props.ts';
 import { surfaceBorderForLayout } from '../surface.ts';

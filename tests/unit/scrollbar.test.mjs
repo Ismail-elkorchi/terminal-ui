@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage } from '../../dist/component/index.js';
 
-import { createScrollState, prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
+import {
+  createScrollState,
+  prepareLogHistory,
+  prepareSearchPickerIndex,
+  prepareTreeSource,
+  prepareTreeView,
+} from '../../dist/behavior/index.js';
 import {
   asciiSymbols,
   defaultTheme,
@@ -294,8 +300,7 @@ test('dataGrid scrollbar can expose vertical and horizontal scroll scope togethe
         id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: { kind: 'fixed', cells: 10 } }
     ],
     presentation: {
-      interaction: { kind: 'row',
-      selectionMode: 'single', selectedRowIds: [] },
+      interaction: { kind: 'row', selection: { mode: 'single' } },
       scroll: createScrollState({ offsetRow: 1, offsetColumn: 8 })
     },
     scrollbar: { axis: 'both' },
@@ -331,19 +336,22 @@ test('menu scrollbar windows menu rows instead of drawing a fixed decoration onl
 });
 
 test('tree scrollbar follows explicit tree scroll state', () => {
+  const nodes = [
+    { id: 'a', label: 'Alpha', kind: 'leaf' },
+    { id: 'b', label: 'Bravo', kind: 'leaf' },
+    { id: 'c', label: 'Charlie', kind: 'leaf' },
+    { id: 'd', label: 'Delta', kind: 'leaf' }
+  ];
+  const presentation = {
+    expandedIds: [],
+    selection: { mode: 'none' },
+    scroll: createScrollState({ offsetRow: 1 })
+  };
+  const source = prepareTreeSource(nodes);
   const frame = renderElementFrame(tree({
     id: 'tree',
-    nodes: [
-      { id: 'a', label: 'Alpha', kind: 'leaf' },
-      { id: 'b', label: 'Bravo', kind: 'leaf' },
-      { id: 'c', label: 'Charlie', kind: 'leaf' },
-      { id: 'd', label: 'Delta', kind: 'leaf' }
-    ],
-    presentation: {
-      expandedIds: [],
-      selection: { mode: 'none' },
-      scroll: createScrollState({ offsetRow: 1 })
-    },
+    view: prepareTreeView(source, presentation),
+    presentation,
     scrollbar: {},
     onTransition: () => ignoreMessage()
   }), { columns: 16, rows: 2 });

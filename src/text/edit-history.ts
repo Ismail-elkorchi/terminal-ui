@@ -1,13 +1,17 @@
 import { editTextBuffer } from './edit.ts';
+import {
+  breakEditHistoryGroup,
+  createBoundedEditHistory,
+  recordEditHistory,
+  redoEditHistory,
+  undoEditHistory
+} from './bounded-history.ts';
+import type { BoundedEditHistory, EditHistoryPolicy } from './bounded-history.ts';
 import type { TextEditBuffer, TextEditOperation } from './types.ts';
 
 export type TextEditHistoryGroup = 'insert';
 
-export interface TextEditHistory {
-  readonly undo: readonly TextEditBuffer[];
-  readonly redo: readonly TextEditBuffer[];
-  readonly currentGroup?: TextEditHistoryGroup;
-}
+export type TextEditHistory = BoundedEditHistory<TextEditBuffer, TextEditHistoryGroup>;
 
 export type TextEditHistoryOperation =
   | TextEditOperation
@@ -19,11 +23,12 @@ export interface TextEditHistoryResult {
   readonly history: TextEditHistory;
 }
 
-export function emptyTextEditHistory(): TextEditHistory {
-  return {
-    undo: [],
-    redo: []
-  };
+export function emptyTextEditHistory(policy?: EditHistoryPolicy): TextEditHistory {
+  return createBoundedEditHistory(policy);
+}
+
+export function breakTextEditHistoryGroup(history: TextEditHistory): TextEditHistory {
+  return breakEditHistoryGroup(history);
 }
 
 export function applyTextEditWithHistory(
@@ -42,64 +47,58 @@ export function applyTextEditWithHistory(
     };
   }
 
-  const group = historyGroupForOperation(operation);
-  const undo = group !== undefined && history.currentGroup === group
-    ? history.undo
-    : [...history.undo, buffer];
-
+  if (buffer.text === next.text) {
+    return {
+      buffer: next,
+      history: breakEditHistoryGroup(history)
+    };
+  }
+  const group = historyGroupForOperation(operation, buffer);
   return {
     buffer: next,
-    history: {
-      undo,
-      redo: [],
-      ...(group === undefined ? {} : { currentGroup: group })
-    }
+    history: recordEditHistory(history, ownTextEditBuffer(buffer), textEditBufferBytes(buffer), group)
   };
 }
 
 function undoTextEdit(buffer: TextEditBuffer, history: TextEditHistory): TextEditHistoryResult {
-  const previous = history.undo[history.undo.length - 1];
-  if (previous === undefined) {
-    return {
-      buffer,
-      history: clearGroup(history)
-    };
-  }
+  const transition = undoEditHistory(history, ownTextEditBuffer(buffer), textEditBufferBytes(buffer));
+  if (transition.snapshot === undefined) return { buffer, history: transition.history };
   return {
-    buffer: previous,
-    history: {
-      undo: history.undo.slice(0, -1),
-      redo: [...history.redo, buffer]
-    }
+    buffer: transition.snapshot,
+    history: transition.history
   };
 }
 
 function redoTextEdit(buffer: TextEditBuffer, history: TextEditHistory): TextEditHistoryResult {
-  const next = history.redo[history.redo.length - 1];
-  if (next === undefined) {
-    return {
-      buffer,
-      history: clearGroup(history)
-    };
-  }
+  const transition = redoEditHistory(history, ownTextEditBuffer(buffer), textEditBufferBytes(buffer));
+  if (transition.snapshot === undefined) return { buffer, history: transition.history };
   return {
-    buffer: next,
-    history: {
-      undo: [...history.undo, buffer],
-      redo: history.redo.slice(0, -1)
-    }
+    buffer: transition.snapshot,
+    history: transition.history
   };
 }
 
-function historyGroupForOperation(operation: TextEditOperation): TextEditHistoryGroup | undefined {
-  return operation.kind === 'insert' ? 'insert' : undefined;
+function historyGroupForOperation(
+  operation: TextEditOperation,
+  buffer: TextEditBuffer
+): TextEditHistoryGroup | undefined {
+  return operation.kind === 'insert' && buffer.selection === undefined
+    ? 'insert'
+    : undefined;
 }
 
-function clearGroup(history: TextEditHistory): TextEditHistory {
-  return {
-    undo: history.undo,
-    redo: history.redo
-  };
+function ownTextEditBuffer(buffer: TextEditBuffer): TextEditBuffer {
+  return Object.freeze({
+    text: buffer.text,
+    cursor: buffer.cursor,
+    ...(buffer.selection === undefined ? {} : {
+      selection: Object.freeze({ ...buffer.selection })
+    })
+  });
+}
+
+function textEditBufferBytes(buffer: TextEditBuffer): number {
+  return new TextEncoder().encode(buffer.text).byteLength + 24;
 }
 
 function sameBuffer(left: TextEditBuffer, right: TextEditBuffer): boolean {

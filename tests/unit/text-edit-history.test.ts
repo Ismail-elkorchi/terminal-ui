@@ -37,12 +37,10 @@ void test('text edit history starts a new undo group after navigation or deletio
   const moved = applyTextEditWithHistory(typed.buffer, typed.history, { kind: 'moveLeft' });
   const deleted = applyTextEditWithHistory(moved.buffer, moved.history, { kind: 'deleteBackward' });
   const undoDelete = applyTextEditWithHistory(deleted.buffer, deleted.history, { kind: 'undo' });
-  const undoMove = applyTextEditWithHistory(undoDelete.buffer, undoDelete.history, { kind: 'undo' });
-  const undoTyping = applyTextEditWithHistory(undoMove.buffer, undoMove.history, { kind: 'undo' });
+  const undoTyping = applyTextEditWithHistory(undoDelete.buffer, undoDelete.history, { kind: 'undo' });
 
   assert.deepEqual(deleted.buffer, { text: 'ac', cursor: 1 });
   assert.deepEqual(undoDelete.buffer, moved.buffer);
-  assert.deepEqual(undoMove.buffer, typed.buffer);
   assert.deepEqual(undoTyping.buffer, initial);
 });
 
@@ -54,10 +52,47 @@ void test('text edit history restores selection and respects grapheme-safe edits
   };
   const replaced = applyTextEditWithHistory(initial, emptyTextEditHistory(), { kind: 'insert', text: 'é' });
   const moved = applyTextEditWithHistory(replaced.buffer, replaced.history, { kind: 'moveWordRight', select: true });
-  const undoMove = applyTextEditWithHistory(moved.buffer, moved.history, { kind: 'undo' });
-  const undoReplace = applyTextEditWithHistory(undoMove.buffer, undoMove.history, { kind: 'undo' });
+  const undoReplace = applyTextEditWithHistory(moved.buffer, moved.history, { kind: 'undo' });
 
   assert.deepEqual(replaced.buffer, { text: 'aéb', cursor: 2 });
-  assert.deepEqual(undoMove.buffer, replaced.buffer);
   assert.deepEqual(undoReplace.buffer, initial);
+});
+
+void test('text edit history evicts by entry count and retained UTF-8 bytes', () => {
+  let countResult = applyTextEditWithHistory(
+    { text: '', cursor: 0 },
+    emptyTextEditHistory({ maxEntries: 2, maxRetainedBytes: 1_000 }),
+    { kind: 'insert', text: 'a' }
+  );
+  countResult = applyTextEditWithHistory(countResult.buffer, countResult.history, { kind: 'moveHome' });
+  countResult = applyTextEditWithHistory(countResult.buffer, countResult.history, { kind: 'insert', text: 'b' });
+  countResult = applyTextEditWithHistory(countResult.buffer, countResult.history, { kind: 'moveEnd' });
+  countResult = applyTextEditWithHistory(countResult.buffer, countResult.history, { kind: 'insert', text: 'c' });
+  assert.equal(countResult.history.undo.length, 2);
+
+  const byteResult = applyTextEditWithHistory(
+    { text: '🙂🙂', cursor: 4 },
+    emptyTextEditHistory({ maxEntries: 10, maxRetainedBytes: 31 }),
+    { kind: 'deleteBackward' }
+  );
+  assert.equal(byteResult.history.undo.length, 0);
+  assert.equal(byteResult.history.retainedBytes, 0);
+});
+
+void test('range replacement is grapheme-safe and undo branching clears redo', () => {
+  const initial = { text: 'a🙂b', cursor: 0 };
+  const replaced = applyTextEditWithHistory(initial, emptyTextEditHistory(), {
+    kind: 'replaceRange',
+    range: { startOffset: 2, endOffsetExclusive: 3 },
+    text: 'X'
+  });
+  assert.deepEqual(replaced.buffer, { text: 'aXb', cursor: 2 });
+  const undone = applyTextEditWithHistory(replaced.buffer, replaced.history, { kind: 'undo' });
+  const branched = applyTextEditWithHistory(undone.buffer, undone.history, {
+    kind: 'replaceRange',
+    range: { startOffset: 1, endOffsetExclusive: 3 },
+    text: 'Y'
+  });
+  assert.equal(branched.history.redo.length, 0);
+  assert.deepEqual(branched.buffer, { text: 'aYb', cursor: 2 });
 });

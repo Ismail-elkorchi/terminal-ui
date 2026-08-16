@@ -34,6 +34,7 @@ export interface TerminalCapabilityDetectorOptions {
   readonly clock: TerminalClock;
   readonly resolverInput: TerminalCapabilityResolverInput;
   readonly beginSession: (id: string, capabilities: TerminalCapabilityProfile) => Promise<TerminalSession>;
+  readonly beginObservationRefresh: () => Promise<void>;
   readonly observeModes: (reports: TerminalModeReports) => Promise<void>;
   readonly observeKeyboardProfile: (profile: TerminalKeyboardProfile) => Promise<void>;
   readonly write: (output: TerminalOutputChunk, signal: AbortSignal) => Promise<TerminalWriteReceipt>;
@@ -101,6 +102,7 @@ export class TerminalCapabilityDetector {
     options.signal?.throwIfAborted();
     if (options.refresh === true) {
       await this.#settleActiveProbes(options.signal);
+      await this.#options.beginObservationRefresh();
       this.#resetObservedProbes();
     }
     if (

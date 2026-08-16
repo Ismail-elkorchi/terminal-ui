@@ -1,6 +1,21 @@
-import { editTextBuffer } from '../text/index.ts';
-import type { TextEditBuffer } from '../text/index.ts';
-import type { CommandInputTransition, CommandSuggestion } from '../ui-model/command-input.ts';
+import {
+  acceptEditablePopupCompletion,
+  createEditablePopupInputState,
+  editablePopupInputReducer,
+} from '../interaction/editable-popup-input.ts';
+import type {
+  EditablePopupInputState,
+  EditablePopupInputTransition,
+} from '../interaction/editable-popup-input.ts';
+import {
+  sanitizeTerminalText
+} from '../text/index.ts';
+import type { EditHistoryPolicy, TextEditBuffer } from '../text/index.ts';
+import type {
+  CommandCompletion,
+  CommandInputTransition,
+  CommandSuggestion
+} from '../ui-model/command-input.ts';
 import type {
   CompleteListboxCollection,
   ListboxCollection,
@@ -11,144 +26,267 @@ import type { CollectionWindow } from '../ui-model/collection.ts';
 import { collectionRecordById } from '../ui-model/collection.ts';
 import { prepareListboxCollection } from './list.ts';
 import { prepareListboxView } from '../ui-model/list-view.ts';
-import { applyTextPointerAction } from './text-editing.ts';
-import { collectionInteractionHas, collectionInteractionPosition } from '../interaction/collection.ts';
+import { collectionInteractionPosition } from '../interaction/collection.ts';
+
+const DEFAULT_SUBMISSION_LIMIT = 100;
 
 export interface CommandInputState {
-  readonly input: TextEditBuffer;
-  readonly history: readonly string[];
-  readonly historyIndex?: number;
-  readonly suggestions: ListboxCollection<string>;
-  readonly activeSuggestionId?: string;
+  readonly editor: EditablePopupInputState;
+  readonly submissions: readonly string[];
+  readonly submissionLimit: number;
+  readonly draft?: TextEditBuffer;
+  readonly submissionIndex?: number;
+  readonly suggestions: ListboxCollection<CommandCompletion>;
 }
 
-export function commandInputReducer(state: CommandInputState, action: CommandInputTransition): CommandInputState {
+export interface CreateCommandInputStateInput {
+  readonly value?: string;
+  readonly cursor?: number;
+  readonly submissions?: readonly string[];
+  readonly submissionLimit?: number;
+  readonly suggestions: ListboxCollection<CommandCompletion>;
+  readonly editHistoryPolicy?: EditHistoryPolicy;
+}
+
+export function createCommandInputState(input: CreateCommandInputStateInput): CommandInputState {
+  const submissionLimit = boundedCount(
+    input.submissionLimit ?? DEFAULT_SUBMISSION_LIMIT,
+    'command input submissionLimit'
+  );
+  const suggestions = prepareListboxView(input.suggestions);
+  return {
+    editor: createEditablePopupInputState({
+      ...(input.value === undefined ? {} : { value: input.value }),
+      ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+      open: suggestions.selectable.length > 0,
+      ...(input.editHistoryPolicy === undefined ? {} : {
+        editHistoryPolicy: input.editHistoryPolicy
+      })
+    }, suggestions.interactionIndex),
+    submissions: ownSubmissions(input.submissions ?? [], submissionLimit),
+    submissionLimit,
+    suggestions: input.suggestions
+  };
+}
+
+export function commandInputReducer(
+  state: CommandInputState,
+  action: CommandInputTransition
+): CommandInputState {
   switch (action.kind) {
     case 'edit':
-      return withClearedHistory({
-        ...state,
-        input: editTextBuffer(state.input, action.operation)
-      });
+      return applyCommandTransition(state, action);
+    case 'undo':
+    case 'redo':
     case 'pointer':
-      return withClearedHistory({ ...state, input: applyTextPointerAction(state.input, action.action) });
+      return applyCommandTransition(state, action);
     case 'setValue':
-      return withClearedHistory({ ...state, input: { text: action.value, cursor: action.value.length } });
+      return applyCommandTransition(state, { kind: 'setText', value: action.value });
+    case 'recordSubmission':
+      return recordSubmission(state, action.value);
+    case 'setSuggestions':
+      return setCommandSuggestions(state, action.suggestions);
     case 'historyPrevious':
       return commandInputHistory(state, -1);
     case 'historyNext':
       return commandInputHistory(state, 1);
     case 'moveSuggestion':
-      return moveSuggestion(state, action.delta);
+      return applyCommandTransition(state, { kind: 'moveActive', delta: action.delta });
     case 'setActiveSuggestion':
-      return setActiveSuggestion(state, action.id);
+      return applyCommandTransition(state, { kind: 'setActive', id: action.id });
     case 'acceptSuggestion': {
       const suggestion = acceptedSuggestion(state);
-      return suggestion === undefined || suggestion.item.disabled
-        ? state
-        : withClearedSuggestion({ ...state, input: { text: suggestion.value, cursor: suggestion.value.length } });
+      if (suggestion === undefined || suggestion.item.disabled) return state;
+      const editor = acceptEditablePopupCompletion(
+        state.editor,
+        suggestion.value,
+        commandEditorOptions(state.suggestions),
+      );
+      return leaveSubmissionHistory({ ...state, editor });
     }
     case 'dismissSuggestions':
       return {
-        input: state.input,
-        history: state.history,
-        suggestions: emptyCommandSuggestions,
-        ...(state.historyIndex === undefined ? {} : { historyIndex: state.historyIndex })
+        ...state,
+        editor: editablePopupInputReducer(
+          state.editor,
+          { kind: 'dismiss', reason: action.reason },
+          commandEditorOptions(state.suggestions),
+        ),
       };
   }
 }
 
+function applyCommandTransition(
+  state: CommandInputState,
+  transition: EditablePopupInputTransition,
+): CommandInputState {
+  const editor = editablePopupInputReducer(
+    state.editor,
+    transition,
+    commandEditorOptions(state.suggestions),
+  );
+  return editor === state.editor ? state : leaveSubmissionHistory({ ...state, editor });
+}
+
 function commandInputHistory(state: CommandInputState, direction: 1 | -1): CommandInputState {
-  if (state.history.length === 0) return state;
-  const current = state.historyIndex ?? state.history.length;
-  const next = clampIndex(current + direction, state.history.length + 1);
-  if (next >= state.history.length) {
-    return withClearedHistory({ ...state, input: { text: '', cursor: 0 } });
+  if (state.submissions.length === 0) return state;
+  const current = state.submissionIndex ?? state.submissions.length;
+  const next = Math.max(0, Math.min(state.submissions.length, current + direction));
+  if (next === current) return state;
+  if (next === state.submissions.length) {
+    const draft = state.draft ?? { text: '', cursor: 0 };
+    return withoutSubmissionTraversal({
+      ...state,
+      editor: createEditablePopupInputState({
+        value: draft.text,
+        cursor: draft.cursor,
+        open: state.editor.open,
+        editHistoryPolicy: state.editor.editHistory.policy,
+      }, prepareListboxView(state.suggestions).interactionIndex),
+    });
   }
-  const value = state.history[next] ?? '';
-  return { ...state, input: { text: value, cursor: value.length }, historyIndex: next };
-}
-
-function moveSuggestion(state: CommandInputState, direction: 1 | -1): CommandInputState {
-  const view = prepareListboxView(state.suggestions);
-  if (view.selectable.length === 0) return state;
-  const current = state.activeSuggestionId === undefined
-    ? undefined
-    : collectionInteractionPosition(view.interactionIndex, state.activeSuggestionId);
-  const start = current ?? (direction > 0 ? -1 : 0);
-  const next = (start + direction + view.selectable.length) % view.selectable.length;
-  const suggestion = view.selectable[next];
-  return suggestion === undefined ? state : { ...state, activeSuggestionId: suggestion.id };
-}
-
-function setActiveSuggestion(state: CommandInputState, id: string): CommandInputState {
-  const view = prepareListboxView(state.suggestions);
-  return !collectionInteractionHas(view.interactionIndex, id)
-    ? state
-    : { ...state, activeSuggestionId: id };
-}
-
-function withClearedHistory(state: CommandInputState): CommandInputState {
+  const value = state.submissions[next];
+  if (value === undefined) return state;
   return {
-    input: state.input,
-    history: state.history,
-    suggestions: state.suggestions,
-    ...(state.activeSuggestionId === undefined ? {} : { activeSuggestionId: state.activeSuggestionId })
+    ...state,
+    editor: createEditablePopupInputState({
+      value,
+      open: state.editor.open,
+      editHistoryPolicy: state.editor.editHistory.policy,
+    }, prepareListboxView(state.suggestions).interactionIndex),
+    draft: state.draft ?? ownBuffer(state.editor.input),
+    submissionIndex: next
   };
 }
 
-function withClearedSuggestion(state: CommandInputState): CommandInputState {
-  return {
-    input: state.input,
-    history: state.history,
-    suggestions: state.suggestions,
-    ...(state.historyIndex === undefined ? {} : { historyIndex: state.historyIndex })
-  };
+function recordSubmission(state: CommandInputState, rawValue: string): CommandInputState {
+  const value = sanitizeTerminalText(rawValue).text;
+  const submissions = value.length === 0 || state.submissionLimit === 0
+    ? state.submissions
+    : Object.freeze([...state.submissions, value].slice(-state.submissionLimit));
+  return withoutSubmissionTraversal({
+    ...state,
+    editor: createEditablePopupInputState({
+      editHistoryPolicy: state.editor.editHistory.policy,
+    }, prepareListboxView(state.suggestions).interactionIndex),
+    submissions
+  });
 }
 
-function acceptedSuggestion(state: CommandInputState): ListboxViewEntry<string> | undefined {
+function setCommandSuggestions(
+  state: CommandInputState,
+  suggestions: ListboxCollection<CommandCompletion>,
+): CommandInputState {
+  const view = prepareListboxView(suggestions);
+  let editor = editablePopupInputReducer(
+    state.editor,
+    { kind: 'setActive', ...(state.editor.activeId === undefined ? {} : { id: state.editor.activeId }) },
+    commandEditorOptions(suggestions),
+  );
+  editor = editablePopupInputReducer(
+    editor,
+    view.selectable.length === 0
+      ? { kind: 'dismiss', reason: 'programmatic' }
+      : { kind: 'open' },
+    commandEditorOptions(suggestions),
+  );
+  return { ...state, suggestions, editor };
+}
+
+function acceptedSuggestion(
+  state: CommandInputState
+): ListboxViewEntry<CommandCompletion> | undefined {
   const view = prepareListboxView(state.suggestions);
-  if (state.activeSuggestionId === undefined) return view.selectable[0];
-  const record = collectionRecordById(view.source, state.activeSuggestionId);
+  if (state.editor.activeId === undefined) return view.selectable[0];
+  const record = collectionRecordById(view.source, state.editor.activeId);
   if (record?.item.disabled !== false) return undefined;
   const position = collectionInteractionPosition(view.interactionIndex, record.id);
   return position === undefined ? undefined : view.selectable[position];
 }
 
-function clampIndex(index: number, count: number): number {
-  return Math.max(0, Math.min(count - 1, Math.floor(index)));
+function leaveSubmissionHistory(state: CommandInputState): CommandInputState {
+  if (state.submissionIndex === undefined && state.draft === undefined) return state;
+  return withoutSubmissionTraversal(state);
+}
+
+function withoutSubmissionTraversal(state: CommandInputState): CommandInputState {
+  const { draft, submissionIndex, ...rest } = state;
+  void draft;
+  void submissionIndex;
+  return rest;
+}
+
+function commandEditorOptions(
+  suggestions: ListboxCollection<CommandCompletion>,
+) {
+  const index = prepareListboxView(suggestions).interactionIndex;
+  return {
+    indexForText: () => index,
+    openOnEdit: suggestions.totalCount > 0,
+  };
+}
+
+function ownBuffer(buffer: TextEditBuffer): TextEditBuffer {
+  return Object.freeze({
+    text: buffer.text,
+    cursor: buffer.cursor,
+    ...(buffer.selection === undefined ? {} : {
+      selection: Object.freeze({ ...buffer.selection })
+    })
+  });
+}
+
+function ownSubmissions(values: readonly string[], limit: number): readonly string[] {
+  const owned = values.map((value) => sanitizeTerminalText(value).text);
+  return Object.freeze(limit === 0 ? [] : owned.slice(-limit));
+}
+
+function boundedCount(value: number, owner: string): number {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(`${owner} must be a non-negative safe integer.`);
+  }
+  return value;
 }
 
 export function prepareCommandSuggestions(
   suggestions: readonly CommandSuggestion[],
-): CompleteListboxCollection<string>;
+): CompleteListboxCollection<CommandCompletion>;
 export function prepareCommandSuggestions(
   suggestions: readonly CommandSuggestion[],
   window: CollectionWindow,
-): WindowedListboxCollection<string>;
+): WindowedListboxCollection<CommandCompletion>;
 export function prepareCommandSuggestions(
   suggestions: readonly CommandSuggestion[],
   window?: CollectionWindow,
-): ListboxCollection<string> {
-  const values = suggestions.map((suggestion) => {
-    if (typeof suggestion.value !== 'string') {
-      throw new TypeError('command suggestion value must be a string.');
-    }
-    return suggestion.value;
-  });
+): ListboxCollection<CommandCompletion> {
+  const values = suggestions.map((suggestion) => ownCompletion(suggestion.completion));
   const startIndex = window?.startIndex ?? 0;
-  const projector = (_value: string, itemIndex: number) => {
+  const projector = (_value: CommandCompletion, itemIndex: number) => {
     const suggestion = suggestions[itemIndex - startIndex];
-    if (suggestion === undefined) throw new RangeError('command suggestion window index is invalid.');
-    return ({
-    id: suggestion.id,
-    label: suggestion.label ?? suggestion.value,
-    ...(suggestion.description === undefined ? {} : { description: suggestion.description }),
-    disabled: suggestion.disabled === true,
-    });
+    const completion = values[itemIndex - startIndex];
+    if (suggestion === undefined || completion === undefined) {
+      throw new RangeError('command suggestion window index is invalid.');
+    }
+    return {
+      id: suggestion.id,
+      label: suggestion.label ?? completion.text,
+      ...(suggestion.description === undefined ? {} : { description: suggestion.description }),
+      disabled: suggestion.disabled === true,
+    };
   };
   return window === undefined
     ? prepareListboxCollection(values, projector)
     : prepareListboxCollection(values, projector, window);
 }
 
-const emptyCommandSuggestions = prepareCommandSuggestions([]);
+function ownCompletion(completion: CommandCompletion): CommandCompletion {
+  const startOffset = boundedCount(completion.range.startOffset, 'command completion range startOffset');
+  const endOffsetExclusive = boundedCount(
+    completion.range.endOffsetExclusive,
+    'command completion range endOffsetExclusive'
+  );
+  return Object.freeze({
+    range: Object.freeze({ startOffset, endOffsetExclusive }),
+    text: sanitizeTerminalText(completion.text).text
+  });
+}

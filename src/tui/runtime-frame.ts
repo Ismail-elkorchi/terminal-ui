@@ -4,6 +4,7 @@ import type { RenderNode } from '../renderer/model/index.ts';
 import { defaultTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
+import { withFrameAccessibility } from '../renderer/internal/frame-snapshot.ts';
 import { diffFrames, renderElementInternal, rerenderElementInternal } from '../renderer/internal/render.ts';
 import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-planner.ts';
 import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
@@ -25,6 +26,8 @@ import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
 import type { LayoutNode, Rect } from '../renderer/contracts.ts';
 import type { RenderRegion } from '../renderer/internal/render.ts';
+import type { RenderBudgetLimits } from '../renderer/internal/render-budget.ts';
+import type { GraphicsBudgetLimits } from '../graphics/index.ts';
 import type { TuiApp, TuiContext, TuiTheme } from './types.ts';
 
 export interface RenderCommitCandidate<TMessage> {
@@ -37,6 +40,8 @@ export interface RenderCommitCandidate<TMessage> {
   readonly regions: readonly RenderRegion<TMessage>[];
   readonly frame: Frame;
   readonly theme: TerminalTheme;
+  readonly limits: RenderBudgetLimits;
+  readonly graphicsBudget: GraphicsBudgetLimits;
 }
 
 export function renderCurrentFrame<TState, TMessage>(
@@ -46,12 +51,14 @@ export function renderCurrentFrame<TState, TMessage>(
   focusPath: FocusPath | undefined,
   theme: TerminalTheme,
   stateVersion: number,
-  commitId: string
+  commitId: string,
+  graphicsBudget?: Partial<GraphicsBudgetLimits>,
 ): RenderCommitCandidate<TMessage> {
   const renderResult = renderElementInternal(app.definition.view(state, context), context.terminalSize, {
     ...(focusPath === undefined ? {} : { focusPath }),
     theme,
-    widthProfile: context.capabilities.unicode.widthProfile
+    widthProfile: context.capabilities.unicode.widthProfile,
+    ...(graphicsBudget === undefined ? {} : { graphicsBudget }),
   });
   return candidateFromRenderResult(app, state, renderResult, stateVersion, commitId);
 }
@@ -78,9 +85,7 @@ function candidateFromRenderResult<TState, TMessage>(
   commitId: string,
 ): RenderCommitCandidate<TMessage> {
   const accessibility = appAccessibility(app, state, renderResult.frame);
-  const frame = accessibility === renderResult.frame.accessibility
-    ? renderResult.frame
-    : { ...renderResult.frame, accessibility };
+  const frame = withFrameAccessibility(renderResult.frame, accessibility);
   return {
     commitId,
     stateVersion,
@@ -90,7 +95,9 @@ function candidateFromRenderResult<TState, TMessage>(
     layout: renderResult.layout,
     regions: renderResult.regions,
     frame,
-    theme: renderResult.theme
+    theme: renderResult.theme,
+    limits: renderResult.limits,
+    graphicsBudget: renderResult.graphicsBudget,
   };
 }
 
@@ -200,7 +207,11 @@ function appAccessibility<TState, TMessage>(
   try {
     normalized = createAccessibleSnapshot({
       ...described,
-      source: 'tui'
+      source: 'tui',
+      diagnostics: [
+        ...frame.accessibility.diagnostics,
+        ...described.diagnostics,
+      ],
     });
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : String(cause);

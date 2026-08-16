@@ -1,4 +1,9 @@
-export { ComponentExecutionError, defineComponent } from './definition.ts';
+export {
+  ComponentExecutionError,
+  defineComponent,
+  defineDecorativeLeafComponent,
+  defineSemanticLeafComponent,
+} from './definition.ts';
 export type {
   ComponentAccessibilityInput,
   ComponentCapturedMessageInput,
@@ -8,6 +13,7 @@ export type {
   ComponentExecutionPhase,
   ComponentIdentity,
   ComponentInput,
+  ComponentInspectionInput,
   ComponentInteractionInput,
   ComponentLayoutInput,
   ComponentMeasureConstraints,
@@ -32,21 +38,34 @@ export type {
   ComponentStyleInput,
   ComponentTextActionInput,
   DecorativeLeafComponentFactory,
+  DecorativeLeafDefinition,
   DecorativeLeafComponentDefinition,
   SemanticCompositeComponentFactory,
   SemanticCompositeComponentDefinition,
   SemanticComposedComponentDefinition,
   SemanticLeafComponentFactory,
-  SemanticLeafComponentDefinition
+  SemanticLeafComponentDefinition,
+  SemanticLeafDefinition,
 } from './definition.ts';
+export type { FocusLifecycleEvent, FocusNavigation } from '../interaction/focus.ts';
+export type {
+  ComponentInspectionRecord,
+  ComponentInspectionValue,
+  ComponentSemanticInspection,
+} from '../element/inspection.ts';
 export type {
   Element,
   ElementChildren,
   ElementChildrenMessage,
   ElementMessage
 } from '../element/index.ts';
+export type {
+  ElementStyles,
+  ElementVisualState,
+} from '../element/metadata.ts';
 export { ignoreMessage } from '../interaction/message.ts';
 export { mapComponentStyles } from './styles.ts';
+export { measureConstrainedBox } from './measurement.ts';
 export type { ComponentStylePartMapping } from './styles.ts';
 export type { IgnoredMessage, MessageResolution } from '../interaction/message.ts';
 export {
@@ -65,20 +84,22 @@ export type {
   NavigationPolicy,
   PopupState,
   PopupTransition,
-  SelectionPolicy,
   SelectionState,
 } from '../interaction/index.ts';
 export {
+  compareCollectionText,
   matchCollectionQuery,
-  normalizeCollectionQuery,
+  prepareCollectionQuery,
   queryCandidates,
-} from '../ui-model/query.ts';
+} from '../text/query.ts';
 export type {
   CollectionQuery,
+  PreparedCollectionQuery,
+  PreparedQueryCandidate,
   QueryCandidate,
   QueryMatch,
   QueryMatchRange,
-} from '../ui-model/query.ts';
+} from '../text/query.ts';
 export {
   clipRenderLine,
   clipRenderSpans,

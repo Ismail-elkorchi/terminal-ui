@@ -57,6 +57,8 @@ import type {
 import type { LogViewerStylePart } from '../../ui-model/style-parts.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import { matchCollectionQuery, prepareCollectionQuery } from '../../text/query.ts';
+import type { PreparedCollectionQuery } from '../../text/query.ts';
 import type {
   LogViewerOptions,
   UnscrolledLogViewerOptions,
@@ -73,7 +75,7 @@ import {
 interface LogViewerModel {
   readonly history: LogHistory;
   readonly wrap: boolean;
-  readonly searchQuery: string;
+  readonly query: PreparedCollectionQuery;
   readonly activeMatchId?: string;
   readonly foldedIds: readonly string[];
   readonly selection?: LogViewerSelection;
@@ -177,7 +179,7 @@ const activeLogViewer = defineComponent<
   keys: ({ model }) => {
     const search = searchLogViewerHistory(
       model.history,
-      model.searchQuery,
+      model.query,
       new Set(model.foldedIds),
     );
     return {
@@ -237,7 +239,7 @@ function prepareLogViewer(
   const history = value.history;
   assertLogHistory(history);
   const wrap = optionalBoolean(value.wrap, 'logViewer wrap') ?? false;
-  const searchQuery = cleanLine(value.searchQuery, 'logViewer searchQuery')?.trim() ?? '';
+  const query = prepareCollectionQuery(value.query ?? { text: '', mode: 'contains' });
   const activeMatchId = value.activeMatchId === undefined
     ? undefined
     : nonEmpty(value.activeMatchId, 'logViewer activeMatchId');
@@ -260,7 +262,7 @@ function prepareLogViewer(
   return {
     history,
     wrap,
-    searchQuery,
+    query,
     foldedIds,
     ...(activeMatchId === undefined ? {} : { activeMatchId }),
     ...(selection === undefined ? {} : { selection }),
@@ -347,7 +349,7 @@ function logViewerWindow(
     input.widthProfile,
     foldedIds,
   );
-  const search = searchLogViewerHistory(input.model.history, input.model.searchQuery, foldedIds);
+  const search = searchLogViewerHistory(input.model.history, input.model.query, foldedIds);
   const activeMatch = input.model.activeMatchId === undefined
     ? search.matches[0]
     : search.matches.find((match) => match.id === input.model.activeMatchId) ??
@@ -404,7 +406,7 @@ function logViewerWindow(
       recordRows(
         input,
         logViewerRecordModel(record, foldedIds.has(record.entry.id)),
-        input.model.searchQuery,
+        input.model.query,
         selectionForRecord(input.model.history, record, input.model.selection),
         scrollbar.contentBounds.width,
         styled,
@@ -455,7 +457,7 @@ function matchingLogViewerRow(
   const entryStart = logViewerRowForEntry(layout, match.entryIndex);
   if (record === undefined || entryStart === undefined) return undefined;
   const model = logViewerRecordModel(record, foldedIds.has(record.entry.id));
-  const spans = fullLineSpans(input, model, input.model.searchQuery, undefined, false);
+  const spans = fullLineSpans(input, model, input.model.query, undefined, false);
   const rows: number[] = [];
   let row = 0;
   let used = 0;
@@ -490,7 +492,7 @@ function recordRows(
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   record: ReturnType<typeof logViewerRecordModel>,
-  query: string,
+  query: PreparedCollectionQuery,
   selection: { readonly start: number; readonly end: number } | undefined,
   width: number,
   styled: boolean,
@@ -526,7 +528,7 @@ function fullLineSpans(
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   record: ReturnType<typeof logViewerRecordModel>,
-  query: string,
+  query: PreparedCollectionQuery,
   selection: { readonly start: number; readonly end: number } | undefined,
   styled: boolean,
 ): readonly LogViewerTextSegment[] {
@@ -599,7 +601,7 @@ function bodySegments(
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   record: ReturnType<typeof logViewerRecordModel>,
-  query: string,
+  query: PreparedCollectionQuery,
   selection: { readonly start: number; readonly end: number } | undefined,
   styled: boolean,
 ): readonly LogViewerTextSegment[] {
@@ -648,7 +650,7 @@ function highlightSegments(
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   text: string,
-  query: string,
+  query: PreparedCollectionQuery,
   part: LogViewerStylePart,
   partName: string,
   record: LogHistoryRecord,
@@ -656,17 +658,25 @@ function highlightSegments(
   body = false,
 ): readonly LogViewerTextSegment[] {
   const index = createTerminalTextIndex(text, { widthProfile: input.widthProfile });
-  const matches = query.length === 0
+  const ranges = query.text.length === 0
     ? []
-    : findTextHighlightMatches(text, query, { widthProfile: input.widthProfile });
-  if (matches.length === 0) {
+    : query.mode === 'contains'
+      ? findTextHighlightMatches(text, query.text, {
+          widthProfile: input.widthProfile,
+          caseSensitive: query.caseSensitive,
+        }).map((match) => ({
+          start: index.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex),
+          end: index.graphemeIndexToCodeUnitOffset(match.endGraphemeIndexExclusive),
+        }))
+      : matchCollectionQuery({ id: record.entry.id, primary: text }, query)?.ranges ?? [];
+  if (ranges.length === 0) {
     return [segment(input, text, part, partName, part, record, styled, body)];
   }
   const output: LogViewerTextSegment[] = [];
   let cursor = 0;
-  for (const match of matches) {
-    const start = index.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex);
-    const end = index.graphemeIndexToCodeUnitOffset(match.endGraphemeIndexExclusive);
+  for (const match of ranges) {
+    const start = match.start;
+    const end = match.end;
     if (start > cursor) {
       output.push(
         segment(input, text.slice(cursor, start), part, partName, part, record, styled, body),
@@ -1045,9 +1055,9 @@ function defaultScrollState(
 }
 
 function logViewerDescription(model: LogViewerModel, window: LogViewerWindow): string {
-  const query = model.searchQuery.length === 0
+  const query = model.query.text.length === 0
     ? ''
-    : ` Search query: ${model.searchQuery}. Matching entries: ${String(window.matchCount)}.`;
+    : ` Search query: ${model.query.text}. Matching entries: ${String(window.matchCount)}.`;
   const selection = window.selectedText === undefined
     ? ''
     : ` Selection length: ${String(window.selectedText.length)}.`;

@@ -21,7 +21,6 @@ import { completeCollection, windowedCollection } from '../ui-model/collection.t
 import type { CollectionWindow } from '../ui-model/collection.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import { collectionInteractionReducer } from '../interaction/collection.ts';
-import type { SelectionPolicy } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 
 export type ListboxReducerOptions<TValue> = (
@@ -29,22 +28,21 @@ export type ListboxReducerOptions<TValue> = (
       readonly items: readonly TValue[];
       readonly projectItem: ListboxOptionProjector<TValue>;
       readonly collection?: never;
-      readonly filterQuery?: import('../ui-model/query.ts').CollectionQuery;
+      readonly query?: import('../text/query.ts').CollectionQuery;
     }
   | {
       readonly collection: CompleteListboxCollection<TValue>;
       readonly items?: never;
       readonly projectItem?: never;
-      readonly filterQuery?: import('../ui-model/query.ts').CollectionQuery;
+      readonly query?: import('../text/query.ts').CollectionQuery;
     }
   | {
       readonly collection: WindowedListboxCollection<TValue>;
       readonly items?: never;
       readonly projectItem?: never;
-      readonly filterQuery?: never;
+      readonly query?: never;
     }
 ) & {
-  readonly selection: SelectionPolicy;
   readonly navigation?: NavigationPolicy;
   readonly pageSize?: number;
 };
@@ -75,7 +73,6 @@ export function listboxReducer<TValue>(
     : action;
   const interaction = collectionInteractionReducer(state, interactionAction, {
     index: view.interactionIndex,
-    selection: options.selection,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });
   const scrollIndex = interaction.activeId === undefined
@@ -144,5 +141,5 @@ function normalizedListItem(item: ListboxOption): ListboxCollectionRecord<unknow
 export function prepareListboxViewForOptions<TValue>(options: ListboxReducerOptions<TValue>): PreparedListboxView<TValue> {
   if (options.collection?.kind === 'window') return prepareListboxView(options.collection);
   const collection = options.collection ?? prepareListboxCollection(options.items, options.projectItem);
-  return prepareListboxView(collection, options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery });
+  return prepareListboxView(collection, options.query === undefined ? {} : { query: options.query });
 }

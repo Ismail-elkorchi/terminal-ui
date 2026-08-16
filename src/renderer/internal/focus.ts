@@ -99,7 +99,11 @@ export function nextFocusPath(layout: LayoutNode, current: FocusPath | undefined
   if (targets.length === 0) return undefined;
   if (current === undefined) return targets[0]?.path;
   const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
-  return targets[(index + 1 + targets.length) % targets.length]?.path;
+  const group = focusNavigationGroupForPath(layout, current);
+  const groupEnd = group === undefined
+    ? index
+    : targets.findLastIndex((target) => pathStartsWith(target.path, group.path));
+  return targets[(groupEnd + 1 + targets.length) % targets.length]?.path;
 }
 
 export function previousFocusPath(layout: LayoutNode, current: FocusPath | undefined): FocusPath | undefined {
@@ -107,7 +111,33 @@ export function previousFocusPath(layout: LayoutNode, current: FocusPath | undef
   if (targets.length === 0) return undefined;
   if (current === undefined) return targets.at(-1)?.path;
   const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
-  return targets[(index - 1 + targets.length) % targets.length]?.path;
+  const group = focusNavigationGroupForPath(layout, current);
+  const groupStart = group === undefined
+    ? index
+    : targets.findIndex((target) => pathStartsWith(target.path, group.path));
+  return targets[(groupStart - 1 + targets.length) % targets.length]?.path;
+}
+
+export function focusNavigationPath(
+  layout: LayoutNode,
+  current: FocusPath | undefined,
+  key: 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'home' | 'end',
+): FocusPath | undefined {
+  if (current === undefined) return undefined;
+  const group = focusNavigationGroupForPath(layout, current);
+  if (group === undefined) return undefined;
+  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout), true)
+    .filter((target) => pathStartsWith(target.path, group.path));
+  if (targets.length === 0) return undefined;
+  if (key === 'home') return targets[0]?.path;
+  if (key === 'end') return targets.at(-1)?.path;
+  const delta = group.orientation === 'horizontal'
+    ? key === 'arrowRight' ? 1 : key === 'arrowLeft' ? -1 : 0
+    : key === 'arrowDown' ? 1 : key === 'arrowUp' ? -1 : 0;
+  if (delta === 0) return undefined;
+  const index = targets.findIndex((target) => focusPathsEqual(target.path, current));
+  if (index < 0) return delta > 0 ? targets[0]?.path : targets.at(-1)?.path;
+  return targets[(index + delta + targets.length) % targets.length]?.path;
 }
 
 export function findAnyLayoutFocusTarget(
@@ -322,6 +352,36 @@ interface FocusScope {
   readonly sequence: number;
   readonly initialFocus?: InitialFocusSelector;
   readonly restore: boolean;
+}
+
+interface FocusNavigationGroup {
+  readonly path: FocusPath;
+  readonly orientation: 'horizontal' | 'vertical';
+}
+
+function focusNavigationGroupForPath(
+  layout: LayoutNode,
+  path: FocusPath,
+): FocusNavigationGroup | undefined {
+  return collectFocusNavigationGroups(layout)
+    .filter((group) => pathStartsWith(path, group.path))
+    .toSorted((left, right) => right.path.length - left.path.length)
+    .at(0);
+}
+
+function collectFocusNavigationGroups(
+  layout: LayoutNode,
+  parentPath: FocusPath = [],
+): readonly FocusNavigationGroup[] {
+  if (!layout.visible) return [];
+  const path = layoutFocusPath(parentPath, layout);
+  return [
+    ...(layout.focusNavigation === undefined ? [] : [{
+      path,
+      orientation: layout.focusNavigation.orientation,
+    }]),
+    ...layout.children.flatMap((child) => collectFocusNavigationGroups(child, path)),
+  ];
 }
 
 function scopedFocusTargets<TTarget extends LayoutFocusTarget>(

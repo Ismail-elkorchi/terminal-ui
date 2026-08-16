@@ -12,6 +12,7 @@ import type {
   LogSearchField,
   LogSearchMatch,
 } from '../../ui-model/log-history.ts';
+import type { PreparedCollectionQuery } from '../../text/query.ts';
 
 export interface LogViewerRecordModel {
   readonly source: LogHistoryRecord;
@@ -189,17 +190,17 @@ export function logViewerRowForEntry(
 
 export function searchLogViewerHistory(
   history: LogHistory,
-  query: string,
+  query: PreparedCollectionQuery,
   foldedIds: ReadonlySet<string>,
 ): LogViewerSearchResults {
-  const searchQuery = query.trim();
-  if (searchQuery.length === 0) return { matchingEntries: 0, matches: [] };
+  if (query.text.length === 0) return { matchingEntries: 0, matches: [] };
+  const searchQuery = `${query.mode}:${query.caseSensitive ? '1' : '0'}:${query.text}`;
   const foldKey = [...foldedIds].toSorted().join('\u0000');
   const key = `${searchQuery}:${foldKey}`;
   const cache = cacheFor(historySearchCache, history);
   const cached = touch(cache, key);
   if (cached !== undefined) return cached;
-  const preparedQuery = prepareLogSearchQuery(searchQuery);
+  const preparedQuery = prepareLogSearchQuery(query);
   const matches: LogSearchMatch[] = [];
   let matchingEntries = 0;
   for (const segment of logHistorySegments(history)) {

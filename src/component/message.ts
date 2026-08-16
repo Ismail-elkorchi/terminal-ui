@@ -1,7 +1,8 @@
 import type { MessageResolution } from '../interaction/message.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
+import type { ElementMessageValue } from '../element/types.ts';
 
-export type ComponentMessage = NonNullable<unknown>;
+export type ComponentMessage = ElementMessageValue;
 
 export function mapComponentAction(
   action: unknown,

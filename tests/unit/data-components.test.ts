@@ -9,27 +9,30 @@ import {
   pagination,
   tree
 } from '../../dist/components/index.js';
+import { prepareTreeSource, prepareTreeView } from '../../dist/behavior/index.js';
 
 void test('tree component renders expanded visible nodes and accessible selection state', () => {
+  const presentation = {
+    expandedIds: ['root'],
+    activeId: 'root',
+    selection: { mode: 'single' as const, selectedId: 'child' }
+  };
+  const source = prepareTreeSource([
+    {
+      id: 'root',
+      label: 'Root',
+      kind: 'branch',
+      children: [
+        { id: 'child', label: 'Child', kind: 'leaf' },
+        { id: 'hidden-parent', label: 'Hidden parent', kind: 'branch', children: [{ id: 'hidden', label: 'Hidden', kind: 'leaf' }] }
+      ]
+    }
+  ]);
   const frame = renderElementFrame(tree({
     id: 'tree',
-    presentation: {
-      expandedIds: ['root'],
-      activeId: 'root',
-      selection: { mode: 'single', selectedId: 'child' }
-    },
+    presentation,
+    view: prepareTreeView(source, presentation),
     onTransition: (transition) => transition,
-    nodes: [
-      {
-        id: 'root',
-        label: 'Root',
-        kind: 'branch',
-        children: [
-          { id: 'child', label: 'Child', kind: 'leaf' },
-          { id: 'hidden-parent', label: 'Hidden parent', kind: 'branch', children: [{ id: 'hidden', label: 'Hidden', kind: 'leaf' }] }
-        ]
-      }
-    ]
   }), { columns: 32, rows: 4 });
 
   const output = renderFramePlain(frame);

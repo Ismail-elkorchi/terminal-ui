@@ -53,6 +53,13 @@ export function editTextDocument(
     case 'insert':
     case 'replaceSelection':
       return replaceRange(state, caret, selection, operation.text);
+    case 'replaceRange':
+      return replaceOffsets(
+        state,
+        operation.range.startOffset,
+        operation.range.endOffsetExclusive,
+        operation.text
+      );
     case 'deleteBackward': {
       if (selection !== undefined) return replaceRange(state, caret, selection, '');
       if (caret.position.offset === 0) return unchanged(state, caret, selection);

@@ -1,7 +1,12 @@
 export { clipTextCells } from './clip.ts';
 export { fillTextCells, oneCellGlyph, padTextCells } from './cell-geometry.ts';
 export { textCaretAt, textDocumentSelectionBetween, textPositionAt } from './coordinates.ts';
-export { applyTextEditWithHistory, emptyTextEditHistory } from './edit-history.ts';
+export {
+  applyTextEditWithHistory,
+  breakTextEditHistoryGroup,
+  emptyTextEditHistory
+} from './edit-history.ts';
+export { defaultEditHistoryPolicy } from './bounded-history.ts';
 export { editTextBuffer } from './edit.ts';
 export { editTextDocument } from './document-edit.ts';
 export type { TextDocumentEditResult, TextDocumentEditState } from './document-edit.ts';
@@ -15,6 +20,7 @@ export {
   normalizeTextPosition,
   prepareTextDocument,
   textDocumentEdit,
+  textDocumentBytes,
   textDocumentLength,
   textDocumentLineAt,
   textDocumentLineCount,
@@ -29,6 +35,24 @@ export { segmentGraphemes } from './graphemes.ts';
 export { measureTerminalCellText, measureTextCells } from './measure.ts';
 export { sanitizeTerminalCellText, sanitizeTerminalText } from './sanitize.ts';
 export { findTextHighlightMatches } from './search-highlight.ts';
+export {
+  compareCollectionText,
+  matchCollectionQuery,
+  matchPreparedCollectionQuery,
+  prepareCollectionQuery,
+  prepareQueryCandidate,
+  queryCandidates,
+  queryPreparedCandidates,
+} from './query.ts';
+export type {
+  CollectionQuery,
+  PreparedCollectionQuery,
+  PreparedQueryCandidate,
+  QueryCandidate,
+  QueryMatch,
+  QueryMatchMode,
+  QueryMatchRange,
+} from './query.ts';
 export {
   clampTextOffset,
   nextGraphemeBoundary,
@@ -60,5 +84,11 @@ export type {
   TextEditHistoryOperation,
   TextEditHistoryResult
 } from './edit-history.ts';
+export type {
+  BoundedEditHistory,
+  EditHistoryEntry,
+  EditHistoryPolicy,
+  EditHistoryTransition
+} from './bounded-history.ts';
 export type { ExtractTextSelectionInput } from './selection.ts';
 export type { TextHighlightMatch, TextHighlightOptions } from './search-index.ts';

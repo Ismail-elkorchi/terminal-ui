@@ -166,8 +166,7 @@ test('TUI rendering windows large listbox and dataGrid components to visible hei
       id: 'many-rows',
       rows: manyItems.map((item) => [item, 'value']),
       getRowId: (_row, index) => String(index),
-      presentation: { interaction: { kind: 'row',
-      selectionMode: 'single', selectedRowIds: [] } },
+      presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
       onTransition: (action) => action
     })
   ], {

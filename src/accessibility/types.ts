@@ -36,6 +36,7 @@ export interface AccessibleNode {
   readonly description?: string;
   readonly controls?: string;
   readonly labelledBy?: string;
+  readonly describedBy?: readonly string[];
   readonly activeDescendant?: string;
   readonly errorMessage?: string;
   readonly children?: readonly AccessibleNode[];

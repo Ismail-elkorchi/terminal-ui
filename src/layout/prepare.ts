@@ -29,6 +29,12 @@ export function normalizeLayoutFlowOptions(
     }
     result[field] = member;
   }
+  if (result.minWidth !== undefined && result.maxWidth !== undefined && result.minWidth > result.maxWidth) {
+    throw new RangeError(`${owner} minWidth must not exceed maxWidth.`);
+  }
+  if (result.minHeight !== undefined && result.maxHeight !== undefined && result.minHeight > result.maxHeight) {
+    throw new RangeError(`${owner} minHeight must not exceed maxHeight.`);
+  }
   for (const field of ['padding', 'margin'] as const) {
     const member = options[field];
     if (member === undefined) continue;

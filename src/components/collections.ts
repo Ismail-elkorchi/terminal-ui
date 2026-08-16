@@ -21,3 +21,63 @@ export type {
   UnscrolledTableOptions,
 } from './options/content.ts';
 export type * from './options/tabs.ts';
+export { tableColumn } from '../ui-model/content.ts';
+export type {
+  TableCellRenderInput,
+  TableColumn,
+  TableColumnAlignment,
+  TableColumnBuilder,
+  TableColumnDefinition,
+  TableColumnSemantic,
+  TableColumnWidth,
+  TableRenderedColumn,
+  TableValueColumn,
+} from '../ui-model/content.ts';
+export type * from '../ui-model/semantic-list.ts';
+export type {
+  ListboxActivateEvent,
+  ListboxCollection,
+  ListboxCollectionRecord,
+  ListboxControlTransition,
+  ListboxOption,
+  ListboxOptionProjector,
+  ListboxPresentation,
+  ScrollableListboxPresentation,
+  ListboxTransition,
+  UnscrolledListboxPresentation,
+} from '../ui-model/list.ts';
+export type {
+  CompleteTableCollection,
+  DataGridActivateEvent,
+  DataGridCell,
+  DataGridControlTransition,
+  DataGridInteraction,
+  DataGridPresentation,
+  ScrollableDataGridPresentation,
+  DataGridTransition,
+  TableCollection,
+  TableCollectionRecord,
+  TablePresentation,
+  TableSortDirection,
+  TableSortState,
+  UnscrolledDataGridPresentation,
+  WindowedTableCollection,
+} from '../ui-model/table.ts';
+export type {
+  PreparedTreeSource,
+  PreparedTreeView,
+  ScrollableTreePresentation,
+  TreeActivateEvent,
+  TreeCollection,
+  TreeCollectionRecord,
+  TreeControlTransition,
+  TreeDisclosureTransition,
+  TreeLoadState,
+  TreeNode,
+  TreePresentation,
+  TreeTransition,
+  TreeVisibleRow,
+  UnscrolledTreePresentation,
+} from '../ui-model/tree.ts';
+export type { PaginationAction } from '../ui-model/pagination.ts';
+export type { TabCloseEvent, TabsActivation, TabsPresentation, TabsTransition } from '../ui-model/tabs.ts';

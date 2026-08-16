@@ -5,6 +5,7 @@ import {
   nextAnimationDeadline
 } from './animation-timeline.ts';
 import type { AnimationFrame } from './animation-timeline.ts';
+import { reliableSourceMessage, replaceableSourceMessage } from './source-channel.ts';
 
 export function intervalSource<TMessage>(
   id: string,
@@ -16,11 +17,10 @@ export function intervalSource<TMessage>(
     id,
     generation: 0,
     source: 'timer',
-    delivery: 'sequential',
     async *messages(context) {
       let tick = 0;
       while (await sleepForTick(context, ms)) {
-        yield scheduledMessage(message, tick);
+        yield reliableSourceMessage(scheduledMessage(message, tick));
         tick += 1;
       }
     }
@@ -37,10 +37,9 @@ export function timeoutSource<TMessage>(
     id,
     generation: 0,
     source: 'timer',
-    delivery: 'sequential',
     async *messages(context) {
       await context.clock.sleep(ms, context.signal);
-      if (!context.signal.aborted) yield message;
+      if (!context.signal.aborted) yield reliableSourceMessage(message);
     }
   };
 }
@@ -55,7 +54,6 @@ export function animationSource<TMessage>(
     id,
     generation: 0,
     source: 'timer',
-    delivery: 'latest',
     async *messages(context) {
       let timeline = createAnimationTimeline(context.clock.monotonicNow(), fps);
       while (!context.signal.aborted) {
@@ -64,7 +62,7 @@ export function animationSource<TMessage>(
         if (signalAborted(context.signal)) return;
         const advanced = advanceAnimationTimeline(timeline, context.clock.monotonicNow());
         timeline = advanced.timeline;
-        yield message(advanced.frame);
+        yield replaceableSourceMessage('animation-frame', message(advanced.frame));
       }
     }
   };

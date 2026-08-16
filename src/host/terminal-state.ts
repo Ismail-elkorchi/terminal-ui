@@ -35,6 +35,18 @@ import type {
 } from './types.ts';
 
 type TerminalStateKey = keyof Omit<TerminalStateSnapshot, 'provenance'>;
+type TerminalScreen = 'main' | 'alternate';
+
+interface KeyboardScreenState {
+  readonly profile: TerminalKeyboardProfile;
+  readonly knowledge: TerminalStateKnowledge;
+  readonly uncertain: boolean;
+}
+
+interface KeyboardFrame {
+  readonly state: KeyboardFrameState;
+  readonly previous: KeyboardScreenState;
+}
 
 export interface TerminalStateAuthorityOptions {
   readonly rawInputKnowledge: TerminalStateKnowledge;
@@ -63,6 +75,10 @@ export class TerminalStateAuthorityBinding {
 
   observeKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void> {
     return this.authority().observeKeyboardProfile(profile);
+  }
+
+  beginObservationRefresh(): Promise<void> {
+    return this.authority().beginObservationRefresh();
   }
 
   restoreAll(
@@ -105,6 +121,8 @@ export class TerminalStateAuthority {
   readonly #leases: TerminalSessionLease[] = [];
   readonly #uncertain = new Set<TerminalStateKey>();
   readonly #initial: TerminalStateSnapshot;
+  readonly #initialKeyboardByScreen: Readonly<Record<TerminalScreen, KeyboardScreenState>>;
+  readonly #keyboardByScreen: Record<TerminalScreen, KeyboardScreenState>;
   #modeReports: TerminalModeReports = Object.freeze({});
   #current: TerminalStateSnapshot;
   #generation = 0;
@@ -116,6 +134,21 @@ export class TerminalStateAuthority {
     this.#verifyKeyboardProfile = options.verifyKeyboardProfile;
     this.#initial = initialTerminalState(host, options);
     this.#current = this.#initial;
+    const initialScreen = terminalScreen(this.#initial.alternateScreen);
+    const inactiveScreen = otherTerminalScreen(initialScreen);
+    const initialActiveKeyboard = keyboardScreenState(
+      this.#initial.keyboardProfile,
+      this.#initial.provenance.keyboardProfile
+    );
+    const initialInactiveKeyboard = keyboardScreenState(LEGACY_KEYBOARD_PROFILE, 'assumed');
+    this.#initialKeyboardByScreen = Object.freeze({
+      [initialScreen]: initialActiveKeyboard,
+      [inactiveScreen]: initialInactiveKeyboard
+    }) as Readonly<Record<TerminalScreen, KeyboardScreenState>>;
+    this.#keyboardByScreen = {
+      main: this.#initialKeyboardByScreen.main,
+      alternate: this.#initialKeyboardByScreen.alternate
+    };
   }
 
   beginLease(id: string, capabilities: TerminalCapabilityProfile): Promise<TerminalSession> {
@@ -127,6 +160,17 @@ export class TerminalStateAuthority {
       const lease = new TerminalSessionLease(id, this.#host, capabilities, this, this.snapshot());
       this.#leases.push(lease);
       return Promise.resolve(lease);
+    });
+  }
+
+  beginObservationRefresh(): Promise<void> {
+    return this.runExclusive(() => {
+      if (this.#leases.length > 0) {
+        throw new Error('Terminal observations cannot be refreshed while a terminal session is active.');
+      }
+      this.resetObservedState();
+      this.#modeReports = Object.freeze({});
+      return Promise.resolve();
     });
   }
 
@@ -236,9 +280,13 @@ export class TerminalStateAuthority {
       if (inactive !== undefined) return terminalOperationRejected(inactive);
       const normalized = decodeKeyboardProfile(profile);
       const change = { kind: 'keyboardProfile', enabled: normalized } as const;
+      const screen = this.activeScreen();
+      const frameState = lease.keyboardFrameState(screen);
       const cancellation = cancelledOperationDiagnostic(lease, context);
       if (cancellation !== undefined) return terminalOperationRejected(cancellation);
       if (
+        frameState === 'owned'
+        &&
         keyboardProfilesEqual(this.#current.keyboardProfile, normalized)
         && !this.#uncertain.has('keyboardProfile')
         && this.#current.provenance.keyboardProfile !== 'assumed'
@@ -248,21 +296,22 @@ export class TerminalStateAuthority {
           assuranceForKnowledge(this.#current.provenance.keyboardProfile)
         );
       }
-      const previousProfile = this.#current.keyboardProfile;
+      const previousState = this.#keyboardByScreen[screen];
+      const previousProfile = previousState.profile;
       this.#uncertain.add('keyboardProfile');
       let assurance: 'observed' | 'sent' = 'sent';
       let terminalMayHaveChanged = false;
       try {
-        if (lease.keyboardFrameState === 'none') {
-          lease.beginKeyboardFramePush();
+        if (frameState === 'none') {
+          lease.beginKeyboardFramePush(screen, previousState);
           await this.protocol(context).pushKeyboardProfile(normalized);
           terminalMayHaveChanged = true;
-          lease.confirmKeyboardFramePush();
-        } else if (lease.keyboardFrameState === 'owned') {
+          lease.confirmKeyboardFramePush(screen);
+        } else if (frameState === 'owned') {
           await this.protocol(context).setKeyboardProfile(normalized);
           terminalMayHaveChanged = true;
         } else {
-          throw new Error(`Keyboard frame state is indeterminate: ${lease.keyboardFrameState}.`);
+          throw new Error(`Keyboard frame state is indeterminate on the ${screen} screen: ${frameState}.`);
         }
         if (normalized.kind === 'kitty' && this.#verifyKeyboardProfile !== undefined) {
           const verification = await this.#verifyKeyboardProfile(normalized.flags, context);
@@ -307,7 +356,8 @@ export class TerminalStateAuthority {
           && cause.receipt.status === 'failed_before_write'
         ) {
           this.#uncertain.delete('keyboardProfile');
-          lease.cancelKeyboardFramePush();
+          lease.cancelKeyboardFramePush(screen);
+          this.setKeyboardScreenState(screen, previousState);
           return terminalOperationRejected(cause.receipt.diagnostic);
         }
         this.markIndeterminate('keyboardProfile');
@@ -430,17 +480,21 @@ export class TerminalStateAuthority {
         diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
         break;
       }
-      const stateMatches = operation.kind === 'keyboardProfile'
-        ? keyboardProfilesEqual(this.#current.keyboardProfile, operation.enabled)
-        : operation.kind === 'mouseReporting'
+      const stateMatches = operation.kind === 'mouseReporting'
           ? sameMouseReportingState(this.#current.mouseReporting, operation.enabled)
         : Object.is(this.#current[operation.kind], operation.enabled);
       const hasKeyboardFrame = operation.kind === 'keyboardProfile'
-        && lease.keyboardFrameState !== 'none';
-      if (stateMatches && !hasKeyboardFrame && !this.#uncertain.has(operation.kind)) continue;
+        && lease.keyboardFrameState(this.activeScreen()) !== 'none';
+      if (operation.kind === 'keyboardProfile' && !hasKeyboardFrame) continue;
+      if (operation.kind !== 'keyboardProfile' && stateMatches && !this.#uncertain.has(operation.kind)) continue;
       attempted.push(operation);
       try {
-        await this.applyRestoreOperation(lease, operation, context);
+        const restoredKeyboard = operation.kind === 'keyboardProfile'
+          ? await lease.restoreKeyboardFrame(this.activeScreen(), this.recoveryProtocol(context))
+          : undefined;
+        if (operation.kind !== 'keyboardProfile') {
+          await this.applyRestoreOperation(operation, context);
+        }
         if (!this.isCurrentGeneration(generation)) {
           diagnostics.push(supersededRestoreDiagnostic(lease, operation.kind));
           break;
@@ -453,13 +507,22 @@ export class TerminalStateAuthority {
             continue;
           }
         }
-        this.setKnown(
-          operation.kind,
-          operation.enabled,
-          knowledgeAfterMutation(operation.kind, this.#rawInputKnowledge)
-        );
+        if (operation.kind === 'keyboardProfile') {
+          if (restoredKeyboard === undefined) {
+            throw new Error('The active screen did not own a keyboard frame to restore.');
+          }
+          this.setKeyboardScreenState(restoredKeyboard.screen, restoredKeyboard.previous);
+        } else {
+          this.setKnown(
+            operation.kind,
+            operation.enabled,
+            knowledgeAfterMutation(operation.kind, this.#rawInputKnowledge)
+          );
+        }
         completed.push(Object.freeze({
-          ...operation,
+          ...(operation.kind === 'keyboardProfile' && restoredKeyboard !== undefined
+            ? { kind: 'keyboardProfile' as const, enabled: restoredKeyboard.previous.profile }
+            : operation),
           assurance: operation.kind === 'rawInput' && this.#rawInputKnowledge === 'observed'
             ? 'observed'
             : 'sent'
@@ -505,8 +568,7 @@ export class TerminalStateAuthority {
   }
 
   private async applyRestoreOperation(
-    lease: TerminalSessionLease,
-    operation: TerminalStateChange,
+    operation: Exclude<TerminalStateChange, { readonly kind: 'keyboardProfile' }>,
     context: TerminalOperationContext
   ): Promise<void> {
     const protocol = this.recoveryProtocol(context);
@@ -519,9 +581,6 @@ export class TerminalStateAuthority {
         break;
       case 'unicodeGraphemeMode':
         await (operation.enabled ? protocol.enableUnicodeGraphemeMode() : protocol.disableUnicodeGraphemeMode());
-        break;
-      case 'keyboardProfile':
-        await lease.restoreKeyboardFrame(protocol);
         break;
       case 'mouseReporting':
         await protocol.setMouseReporting(operation.enabled);
@@ -543,12 +602,20 @@ export class TerminalStateAuthority {
     value: TerminalStateSnapshot[K],
     knowledge: TerminalStateKnowledge
   ): void {
+    if (kind === 'keyboardProfile') {
+      this.setKeyboardScreenState(
+        this.activeScreen(),
+        keyboardScreenState(value as TerminalKeyboardProfile, knowledge)
+      );
+      return;
+    }
     this.#current = freezeTerminalState({
       ...this.#current,
       [kind]: value,
       provenance: { ...this.#current.provenance, [kind]: knowledge }
     });
     this.#uncertain.delete(kind);
+    if (kind === 'alternateScreen') this.syncActiveKeyboardState();
   }
 
   private observeBooleanMode(
@@ -598,12 +665,55 @@ export class TerminalStateAuthority {
     }
   }
 
+  private resetObservedState(): void {
+    this.resetObservedModes();
+    this.#keyboardByScreen.main = this.#initialKeyboardByScreen.main;
+    this.#keyboardByScreen.alternate = this.#initialKeyboardByScreen.alternate;
+    this.syncActiveKeyboardState();
+  }
+
   private markIndeterminate(kind: TerminalStateKey): void {
+    if (kind === 'keyboardProfile') {
+      const screen = this.activeScreen();
+      this.setKeyboardScreenState(screen, {
+        ...this.#keyboardByScreen[screen],
+        knowledge: 'indeterminate',
+        uncertain: true
+      });
+      return;
+    }
     this.#uncertain.add(kind);
     this.#current = freezeTerminalState({
       ...this.#current,
       provenance: { ...this.#current.provenance, [kind]: 'indeterminate' }
     });
+  }
+
+  private activeScreen(): TerminalScreen {
+    return terminalScreen(this.#current.alternateScreen);
+  }
+
+  private setKeyboardScreenState(screen: TerminalScreen, state: KeyboardScreenState): void {
+    this.#keyboardByScreen[screen] = keyboardScreenState(
+      state.profile,
+      state.knowledge,
+      state.uncertain
+    );
+    if (screen === this.activeScreen()) this.syncActiveKeyboardState();
+  }
+
+  private syncActiveKeyboardState(): void {
+    const keyboard = this.#keyboardByScreen[this.activeScreen()];
+    this.#current = freezeTerminalState({
+      ...this.#current,
+      keyboardProfile: keyboard.profile,
+      provenance: {
+        ...this.#current.provenance,
+        keyboardProfile: keyboard.knowledge
+      }
+    });
+    if (keyboard.uncertain) this.#uncertain.add('keyboardProfile');
+    else this.#uncertain.delete('keyboardProfile');
   }
 
   private inactiveLeaseDiagnostic(lease: TerminalSessionLease): TerminalDiagnostic | undefined {
@@ -674,7 +784,7 @@ class TerminalSessionLease implements TerminalSession {
   readonly #authority: TerminalStateAuthority;
   #completedRestore: Promise<TerminalRestoreResult> | undefined;
   #restoreAttempt: RestoreAttempt | undefined;
-  #keyboardFrameState: KeyboardFrameState = 'none';
+  readonly #keyboardFrames = new Map<TerminalScreen, KeyboardFrame>();
 
   constructor(
     id: string,
@@ -741,36 +851,43 @@ class TerminalSessionLease implements TerminalSession {
     return this.#authority.setKeyboardProfile(this, profile, context);
   }
 
-  get keyboardFrameState(): KeyboardFrameState {
-    return this.#keyboardFrameState;
+  keyboardFrameState(screen: TerminalScreen): KeyboardFrameState {
+    return this.#keyboardFrames.get(screen)?.state ?? 'none';
   }
 
-  beginKeyboardFramePush(): void {
-    if (this.#keyboardFrameState !== 'none') {
-      throw new Error(`Cannot push a keyboard frame from state ${this.#keyboardFrameState}.`);
+  beginKeyboardFramePush(screen: TerminalScreen, previous: KeyboardScreenState): void {
+    const state = this.keyboardFrameState(screen);
+    if (state !== 'none') {
+      throw new Error(`Cannot push a keyboard frame on the ${screen} screen from state ${state}.`);
     }
-    this.#keyboardFrameState = 'push_uncertain';
+    this.#keyboardFrames.set(screen, { state: 'push_uncertain', previous });
   }
 
-  confirmKeyboardFramePush(): void {
-    if (this.#keyboardFrameState !== 'push_uncertain') {
-      throw new Error(`Cannot confirm a keyboard frame from state ${this.#keyboardFrameState}.`);
+  confirmKeyboardFramePush(screen: TerminalScreen): void {
+    const frame = this.#keyboardFrames.get(screen);
+    if (frame?.state !== 'push_uncertain') {
+      throw new Error(`Cannot confirm a keyboard frame on the ${screen} screen from state ${frame?.state ?? 'none'}.`);
     }
-    this.#keyboardFrameState = 'owned';
+    this.#keyboardFrames.set(screen, { ...frame, state: 'owned' });
   }
 
-  cancelKeyboardFramePush(): void {
-    if (this.#keyboardFrameState === 'push_uncertain') this.#keyboardFrameState = 'none';
+  cancelKeyboardFramePush(screen: TerminalScreen): void {
+    if (this.keyboardFrameState(screen) === 'push_uncertain') this.#keyboardFrames.delete(screen);
   }
 
-  async restoreKeyboardFrame(protocol: ReturnType<typeof createProtocolWriter>): Promise<void> {
-    if (this.#keyboardFrameState === 'none') return;
-    if (this.#keyboardFrameState === 'pop_uncertain') {
-      throw new Error('Keyboard frame pop has an indeterminate outcome and cannot be repeated safely.');
+  async restoreKeyboardFrame(
+    screen: TerminalScreen,
+    protocol: ReturnType<typeof createProtocolWriter>
+  ): Promise<{ readonly screen: TerminalScreen; readonly previous: KeyboardScreenState } | undefined> {
+    const frame = this.#keyboardFrames.get(screen);
+    if (frame === undefined) return undefined;
+    if (frame.state === 'pop_uncertain') {
+      throw new Error(`Keyboard frame pop on the ${screen} screen has an indeterminate outcome and cannot be repeated safely.`);
     }
-    this.#keyboardFrameState = 'pop_uncertain';
+    this.#keyboardFrames.set(screen, { ...frame, state: 'pop_uncertain' });
     await protocol.popKeyboardProfile();
-    this.#keyboardFrameState = 'none';
+    this.#keyboardFrames.delete(screen);
+    return { screen, previous: frame.previous };
   }
 
   hideCursor(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
@@ -837,6 +954,26 @@ interface RestoreAttempt {
 }
 
 type KeyboardFrameState = 'none' | 'push_uncertain' | 'owned' | 'pop_uncertain';
+
+function terminalScreen(alternateScreen: boolean): TerminalScreen {
+  return alternateScreen ? 'alternate' : 'main';
+}
+
+function otherTerminalScreen(screen: TerminalScreen): TerminalScreen {
+  return screen === 'main' ? 'alternate' : 'main';
+}
+
+function keyboardScreenState(
+  profile: TerminalKeyboardProfile,
+  knowledge: TerminalStateKnowledge,
+  uncertain = false
+): KeyboardScreenState {
+  return Object.freeze({
+    profile: Object.isFrozen(profile) ? profile : Object.freeze({ ...profile }),
+    knowledge,
+    uncertain
+  });
+}
 
 function initialTerminalState(
   host: TerminalHost,

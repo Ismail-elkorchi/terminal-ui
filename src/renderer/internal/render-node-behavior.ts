@@ -1,5 +1,5 @@
 import { structuralNodeRenderers } from './renderers/index.ts';
-import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
+import { normalizeMeasurement, zeroMeasurement } from '../measurement.ts';
 import {
   renderNodeFactoryName,
   renderNodeFocusUnavailable,
@@ -14,6 +14,7 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import { isAccessibleRole } from '../../accessibility/types.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
+import type { RenderBudget } from './render-budget.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { RenderNodeLayoutTarget } from './focus.ts';
 import type { LayoutNode, Rect, RenderFocusRelation } from '../contracts.ts';
@@ -47,7 +48,8 @@ export function layoutChildBounds(
   renderNode: RenderNode,
   bounds: Rect,
   viewport: Rect,
-  measurements: RenderMeasurementContext
+  measurements: RenderMeasurementContext,
+  depth = 0,
 ): readonly Rect[] {
   const children = renderNode.children ?? [];
   if (children.length === 0) return [];
@@ -56,7 +58,7 @@ export function layoutChildBounds(
   if (renderer.layout === undefined) {
     throw new Error(`RenderNode "${renderNode.kind}" has children but does not define layout.`);
   }
-  const measureChild = childMeasurer(children, bounds, measurements);
+  const measureChild = childMeasurer(children, bounds, measurements, depth);
   return renderer.layout({
     renderNode: renderNode,
     bounds,
@@ -93,29 +95,31 @@ export function placeRenderNode(
 export interface RenderMeasurementContext {
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
-  measure(renderNode: RenderNode, bounds: Rect): Measurement;
+  measure(renderNode: RenderNode, bounds: Rect, depth?: number): Measurement;
 }
 
 export function createRenderMeasurementContext(
   theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  budget?: RenderBudget,
 ): RenderMeasurementContext {
   const cache = new WeakMap<RenderNode, Map<string, Measurement>>();
   const context: RenderMeasurementContext = {
     theme,
     widthProfile,
-    measure(renderNode, bounds) {
+    measure(renderNode, bounds, depth = 0) {
       const key = `${String(bounds.width)}:${String(bounds.height)}`;
       const byConstraint = cache.get(renderNode) ?? new Map<string, Measurement>();
       cache.set(renderNode, byConstraint);
       const cached = byConstraint.get(key);
       if (cached !== undefined) return cached;
+      budget?.measureNode(depth);
       const measurement = measureRenderNode(renderNode, {
         row: 1,
         column: 1,
         width: bounds.width,
         height: bounds.height
-      }, context);
+      }, context, depth);
       byConstraint.set(key, measurement);
       return measurement;
     }
@@ -126,7 +130,8 @@ export function createRenderMeasurementContext(
 function measureRenderNode(
   renderNode: RenderNode,
   bounds: Rect,
-  context: RenderMeasurementContext
+  context: RenderMeasurementContext,
+  depth: number,
 ): Measurement {
   const renderer = rendererForRenderNode(renderNode);
   const children = renderNode.children ?? [];
@@ -135,7 +140,7 @@ function measureRenderNode(
     bounds,
     theme: context.theme,
     childCount: children.length,
-    measureChild: childMeasurer(children, bounds, context),
+    measureChild: childMeasurer(children, bounds, context, depth),
     widthProfile: context.widthProfile
   });
   if (renderNode.kind === 'component') {
@@ -147,7 +152,8 @@ function measureRenderNode(
 function childMeasurer(
   children: readonly RenderNode[],
   bounds: Rect,
-  measurements: RenderMeasurementContext
+  measurements: RenderMeasurementContext,
+  depth: number,
 ): (index: number) => Measurement {
   const measured = new Map<number, Measurement>();
   return (index): Measurement => {
@@ -156,7 +162,7 @@ function childMeasurer(
     if (cached !== undefined) return cached;
     const child = children[index];
     if (child === undefined) return zeroMeasurement();
-    const measurement = measurements.measure(child, bounds);
+    const measurement = measurements.measure(child, bounds, depth + 1);
     measured.set(index, measurement);
     return measurement;
   };

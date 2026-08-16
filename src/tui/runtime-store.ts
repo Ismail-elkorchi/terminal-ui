@@ -1,6 +1,7 @@
 import type { InitialFocusSelector } from '../interaction/focus.ts';
 import type { TuiContext, TuiEffect, TuiUpdate } from './types.ts';
 import type { TuiMessageSource } from '../interaction/message.ts';
+import { decodeTuiUpdateResult } from './hook-results.ts';
 
 export interface PendingTuiMessage<TMessage> {
   readonly message: TMessage;
@@ -43,7 +44,7 @@ export function createRuntimeStore<TState, TMessage>(
       for (const item of messages) {
         if (exitReason !== undefined) break;
         messageDispatched();
-        const result = update(state, item.message, context);
+        const result = decodeTuiUpdateResult<TState, TMessage>(update(state, item.message, context));
         applied.push(item);
         for (const id of result.cancelEffects ?? []) cancelEffects.add(id);
         effects.push(...(result.effects ?? []));

@@ -91,6 +91,7 @@ export interface TextEditBuffer {
 
 export type TextEditOperation =
   | { readonly kind: 'insert'; readonly text: string }
+  | { readonly kind: 'replaceRange'; readonly range: TextSelection; readonly text: string }
   | { readonly kind: 'deleteBackward' }
   | { readonly kind: 'deleteForward' }
   | { readonly kind: 'deleteWordBackward' }

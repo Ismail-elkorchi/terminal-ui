@@ -2,6 +2,7 @@ import { defineComponent, ignoreMessage } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementMessage } from '../../element/index.ts';
+import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { DividerOptions, TooltipOptions } from '../options/menus.ts';
 import type { DividerLineKind, DividerOrientation } from '../../ui-model/menu.ts';
 import type { DividerStylePart } from '../../ui-model/style-parts.ts';
@@ -290,6 +291,11 @@ const instantiateTooltip = defineComponent<
   keys: ({ model }) => model.open
     ? { escape: () => ({ kind: 'setOpen', open: false, reason: 'escape' }) }
     : {},
+  onFocus: (event) => ({
+    kind: 'setOpen',
+    open: event.kind === 'focusEnter',
+    reason: 'focus',
+  }),
   pointer: {
     onAction: (action) => action.kind === 'enter'
       ? { kind: 'setOpen', open: true, reason: 'pointer' }
@@ -337,15 +343,23 @@ const instantiateTooltip = defineComponent<
   },
   accessibility({ id, model, slots, focused }) {
     const content = model.lines.join(' ');
+    const tooltipId = `${id}:tooltip`;
+    const triggerNode = slots.trigger[0];
+    if (triggerNode === undefined) {
+      throw new Error('tooltip accessibility requires its trigger slot.');
+    }
+    const trigger: AccessibleNode = model.open
+      ? { ...triggerNode, describedBy: [...(triggerNode.describedBy ?? []), tooltipId] }
+      : triggerNode;
     return {
       id,
       role: 'group',
       label: 'Tooltip owner',
       ...(focused ? { focused: true } : {}),
       children: [
-        ...slots.trigger,
+        trigger,
         ...(model.open ? [{
-          id: `${id}:tooltip`,
+          id: tooltipId,
           role: 'tooltip' as const,
           label: model.title.length === 0 ? content : model.title,
           ...(content.length === 0 || content === model.title ? {} : { description: content }),

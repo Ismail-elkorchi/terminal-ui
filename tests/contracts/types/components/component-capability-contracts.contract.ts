@@ -1,6 +1,7 @@
 import {
   button,
   commandInput,
+  contextMenu,
   label,
   prepareCommandSuggestions,
   text,
@@ -23,7 +24,7 @@ button({
 label({ id: 'query-label', forId: 'query', text: 'Query' });
 commandInput({
   id: 'command',
-  presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
+  presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
   validation: { message: 'Choose a command', level: validationLevel },
   onTransition: (transition) => ({ kind: 'command' as const, transition }),
   onSubmit: (event) => ({ kind: 'submit' as const, value: event.value })
@@ -31,7 +32,7 @@ commandInput({
 // @ts-expect-error disabled editable controls cannot also declare read-only state
 commandInput({
   id: 'invalid-disabled-read-only-command',
-  presentation: { value: '', cursor: 0, suggestions: prepareCommandSuggestions([]) },
+  presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
   disabled: true,
   readOnly: true
 });
@@ -45,6 +46,13 @@ textInput({
       states: { focused: { bold: true } }
     }
   }
+});
+contextMenu({
+  id: 'invalid-read-only-menu',
+  presentation: { kind: 'closed' },
+  // @ts-expect-error command-only menus do not expose editable read-only semantics
+  readOnly: true,
+  onTransition: (transition) => transition
 });
 // @ts-expect-error interactive components require caller-supplied identity
 button({ label: 'Save' });

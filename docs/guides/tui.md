@@ -321,6 +321,7 @@ track count must match the child count.
 ```ts
 import { helpBar, text, tree, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
 import { ignoreMessage } from '@ismail-elkorchi/terminal-ui/component';
+import { prepareTreeSource, prepareTreeView } from '@ismail-elkorchi/terminal-ui/behavior';
 import { column, surface } from '@ismail-elkorchi/terminal-ui/layout';
 
 const nodes: readonly TreeNode[] = [
@@ -331,18 +332,20 @@ const nodes: readonly TreeNode[] = [
     children: [{ id: 'index', label: 'index.ts', kind: 'leaf' }]
   }
 ];
+const treePresentation = {
+  expandedIds: ['src'],
+  activeId: 'src',
+  selection: { mode: 'none' as const }
+};
+const treeSource = prepareTreeSource(nodes);
 const bindings = [{ binding: { kind: 'key', key: 'enter' } as const, label: 'Open' }];
 
 surface(column([
   text({ content: 'Explorer', textRole: 'heading' }),
   tree({
     id: 'explorer-tree',
-    nodes,
-    presentation: {
-      expandedIds: ['src'],
-      activeId: 'src',
-      selection: { mode: 'none' }
-    },
+    view: prepareTreeView(treeSource, treePresentation),
+    presentation: treePresentation,
     onTransition: () => ignoreMessage()
   }),
   helpBar({ id: 'explorer-help', groups: [{ id: 'explorer', bindings }] })

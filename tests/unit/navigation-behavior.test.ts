@@ -18,12 +18,23 @@ import {
 } from '../../dist/behavior/index.js';
 import type { ChoiceItem, MenuItem } from '../../dist/components/index.js';
 import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
+import { adjacentItemId } from '../../dist/behavior/index.js';
 
 const choices = [
   { id: 'alpha', label: 'Alpha', value: 1 },
   { id: 'disabled', label: 'Disabled', value: 2, disabled: true },
   { id: 'beta', label: 'Beta', value: 3 },
 ] satisfies readonly ChoiceItem<number>[];
+
+void test('shared navigation applies initial policy before movement', () => {
+  const ids = ['one', 'two', 'three'] as const;
+  assert.equal(adjacentItemId(ids, undefined, 1), 'one');
+  assert.equal(adjacentItemId(ids, undefined, -1), 'three');
+  assert.equal(adjacentItemId(ids, undefined, 1, { boundary: 'wrap', initial: 'last' }), 'three');
+  assert.equal(adjacentItemId(ids, 'missing', -1, { boundary: 'clamp', initial: 'first' }), 'one');
+  const emptyResult: string | undefined = adjacentItemId([] as readonly string[], undefined, 1);
+  assert.equal(emptyResult, undefined);
+});
 
 void test('menu behavior owns nested active position but not application activation', () => {
   const items = [
@@ -82,6 +93,7 @@ void test('tabs support automatic and manual activation without conflating close
 
 void test('combobox focus and committed selection remain independent', () => {
   const initial = {
+    kind: 'select' as const,
     open: false,
     interaction: { activeId: 'alpha', selection: { mode: 'single', selectedId: 'alpha' } },
   } as const;
@@ -96,10 +108,36 @@ void test('combobox focus and committed selection remain independent', () => {
   assert.deepEqual(dismissed.interaction.selection, { mode: 'single', selectedId: 'alpha' });
 });
 
+void test('selection commitment is carried by controlled selection state', () => {
+  const index = prepareCollectionInteractionIndex(['alpha', 'beta']);
+  const manual = comboboxReducer({
+    kind: 'select',
+    open: true,
+    interaction: {
+      activeId: 'alpha',
+      selection: { mode: 'single', selectedId: 'alpha' },
+    },
+  }, { kind: 'moveActive', delta: 1 }, { index });
+  const following = comboboxReducer({
+    kind: 'select',
+    open: true,
+    interaction: {
+      activeId: 'alpha',
+      selection: { mode: 'single', selectedId: 'alpha', followActive: true },
+    },
+  }, { kind: 'moveActive', delta: 1 }, { index });
+
+  assert.deepEqual(manual.interaction.selection, { mode: 'single', selectedId: 'alpha' });
+  assert.deepEqual(following.interaction.selection, {
+    mode: 'single', selectedId: 'beta', followActive: true,
+  });
+});
+
 void test('combobox page navigation preserves page intent and commitment closes the popup', () => {
   const enabledIds = ['one', 'two', 'three', 'four', 'five'];
   const index = prepareCollectionInteractionIndex(enabledIds);
   const initial = {
+    kind: 'select' as const,
     open: true,
     interaction: { activeId: 'one', selection: { mode: 'single' as const } },
   };
@@ -113,6 +151,7 @@ void test('combobox page navigation preserves page intent and commitment closes 
   assert.equal(paged.interaction.activeId, 'four');
   assert.deepEqual(paged.interaction.selection, { mode: 'single' });
   assert.deepEqual(committed, {
+    kind: 'select',
     open: false,
     interaction: {
       activeId: 'four',

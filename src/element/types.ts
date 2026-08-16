@@ -1,6 +1,8 @@
 declare const elementBrand: unique symbol;
 declare const elementMessageBrand: unique symbol;
 
+export type ElementMessageValue = NonNullable<unknown>;
+
 export interface ElementValue {
   readonly [elementBrand]: true;
 }

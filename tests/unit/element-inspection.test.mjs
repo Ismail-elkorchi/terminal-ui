@@ -10,6 +10,7 @@ import {
   passwordInput,
   combobox,
   text,
+  textArea,
   textInput
 } from '../../dist/components/index.js';
 import { column, row, surface, viewport } from '../../dist/layout/index.js';
@@ -20,6 +21,7 @@ import {
   leafComponentDefinition
 } from '../helpers/component-definition.mjs';
 import { renderElementFrame } from '../../dist/renderer/index.js';
+import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 test('element inspection exposes an immutable factory description without implementation payloads', () => {
   const element = surface(column([
@@ -48,9 +50,9 @@ test('element inspection exposes an immutable factory description without implem
   assert.equal(query?.component?.accessibleRole, 'textbox');
   assert.deepEqual(query?.component?.actions, ['keyboard', 'input', 'paste', 'pointer']);
   assert.deepEqual(query?.semantic?.validation, { required: false, invalid: false });
-  assert.deepEqual(query?.semantic?.state.presentation, { value: '', cursor: 0 });
+  assert.equal(query?.semantic?.value, '');
   assert.equal(submit?.component?.accessibleRole, 'button');
-  assert.equal(submit?.semantic?.state.accessibleName, 'Search');
+  assert.equal(submit?.semantic, undefined);
   assert.equal(Object.isFrozen(inspection), true);
   assert.equal(Object.isFrozen(inspection.children), true);
   assert.equal('props' in inspection, false);
@@ -87,8 +89,82 @@ test('element inspection never exposes sensitive prepared input', () => {
   const serialized = JSON.stringify(inspection);
 
   assert.doesNotMatch(serialized, /correct horse battery staple/u);
-  assert.deepEqual(inspection.semantic?.state, { redacted: true });
+  assert.equal(inspection.semantic?.redacted, true);
   assert.deepEqual(inspection.semantic?.validation, { required: true, invalid: false });
+});
+
+test('built-in inspection summarizes valid values larger than its tooling budget', () => {
+  const value = 'x'.repeat(5_000);
+  const inputInspection = inspectElement(textInput({
+    id: 'large-input',
+    presentation: { value, cursor: value.length },
+    disabled: true
+  }));
+  const areaInspection = inspectElement(textArea({
+    id: 'large-area',
+    presentation: {
+      document: prepareTextDocument(value),
+      caret: textCaretAt(value.length)
+    },
+    disabled: true
+  }));
+  const summary = { kind: 'text-summary', codeUnitLength: value.length, truncated: true };
+
+  assert.deepEqual(inputInspection.semantic?.value, summary);
+  assert.deepEqual(areaInspection.semantic?.value, summary);
+});
+
+test('element inspection adopts explicit definition-owned projections', () => {
+  const active = { id: 'one' };
+  const element = componentElement({
+    id: 'projected',
+    secret: 'private model value',
+    definition: {
+      ...leafComponentDefinition,
+      prepare: (value) => ({ renamedPrivateField: value.secret }),
+      inspection: () => ({ active }),
+      render() {},
+      accessibility: ({ id }) => ({ id, role: 'text', label: id })
+    }
+  });
+
+  active.id = 'changed';
+  const inspection = inspectElement(element);
+  assert.deepEqual(inspection.semantic, { active: { id: 'one' } });
+  assert.equal(Object.isFrozen(inspection.semantic.active), true);
+  assert.doesNotMatch(JSON.stringify(inspection), /private model value/u);
+});
+
+test('element inspection validates hook output at the component boundary', () => {
+  const cyclic = {};
+  cyclic.self = cyclic;
+  assert.throws(
+    () => componentElement({
+      id: 'cyclic-inspection',
+      definition: {
+        ...leafComponentDefinition,
+        inspection: () => ({ details: cyclic }),
+        render() {},
+        accessibility: ({ id }) => ({ id, role: 'text', label: id })
+      }
+    }),
+    /inspection.*cycles/u
+  );
+
+  let details = { leaf: true };
+  for (let depth = 0; depth < 10; depth += 1) details = { nested: details };
+  assert.throws(
+    () => componentElement({
+      id: 'deep-inspection',
+      definition: {
+        ...leafComponentDefinition,
+        inspection: () => ({ details }),
+        render() {},
+        accessibility: ({ id }) => ({ id, role: 'text', label: id })
+      }
+    }),
+    /inspection.*levels/u
+  );
 });
 
 test('element inspection resolves model-dependent accessibility roles', () => {
@@ -233,6 +309,7 @@ test('element inspection omits private implementation children with no public fa
     label: 'Choice',
     options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
     presentation: {
+      kind: 'select',
       open: true,
       interaction: { activeId: 'alpha', selection: { mode: 'single', selectedId: 'alpha' } }
     },

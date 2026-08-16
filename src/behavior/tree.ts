@@ -1,9 +1,10 @@
 import { collectionInteractionReducer, prepareCollectionInteractionIndex } from '../interaction/collection.ts';
-import type { SelectionPolicy } from '../interaction/collection.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import type { CollectionWindow } from '../ui-model/collection.ts';
 import { collectionRecordById, completeCollection, windowedCollection } from '../ui-model/collection.ts';
 import { assertUniqueRecursiveIds } from '../ui-model/identity.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
+import { sanitizeTerminalText } from '../text/index.ts';
 import type {
   TreeCollection,
   TreeCollectionRecord,
@@ -11,6 +12,8 @@ import type {
   TreeDisclosureTransition,
   TreeLoadState,
   TreeNode,
+  PreparedTreeSource,
+  PreparedTreeView,
   TreePresentation,
   ScrollableTreePresentation,
   TreeTransition,
@@ -19,17 +22,77 @@ import type {
 } from '../ui-model/tree.ts';
 import { treeNodeChildren } from '../ui-model/tree.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
-import { matchNormalizedCollectionQuery, normalizeCollectionQuery } from '../ui-model/query.ts';
-import type { CollectionQuery } from '../ui-model/query.ts';
+import { matchPreparedCollectionQuery, prepareCollectionQuery, prepareQueryCandidate } from '../text/query.ts';
+import type { CollectionQuery, PreparedCollectionQuery } from '../text/query.ts';
 
 export interface TreeReducerOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 > {
-  readonly nodes?: readonly TreeNode<TMetadata>[];
-  readonly collection?: TreeCollection<TMetadata>;
-  readonly selection: SelectionPolicy;
+  readonly view: PreparedTreeView<TMetadata>;
   readonly navigation?: NavigationPolicy;
   readonly pageSize?: number;
+}
+
+interface PreparedTreeSourceData<TMetadata extends Readonly<Record<string, unknown>>> {
+  readonly nodes: readonly TreeNode<TMetadata>[];
+  readonly nodesById: ReadonlyMap<string, TreeNode<TMetadata>>;
+  readonly expandableIds: ReadonlySet<string>;
+}
+
+const preparedTreeSources = new WeakMap<PreparedTreeSource, PreparedTreeSourceData<Readonly<Record<string, unknown>>>>();
+const preparedTreeViews = new WeakSet<PreparedTreeView>();
+
+export function prepareTreeSource<
+  TMetadata extends Readonly<Record<string, unknown>>,
+>(nodes: readonly TreeNode<TMetadata>[]): PreparedTreeSource<TMetadata> {
+  if (!Array.isArray(nodes)) throw new TypeError('Tree source nodes must be an array.');
+  const owned: readonly TreeNode<TMetadata>[] = ownTreeNodes<TMetadata>(nodes, 'tree nodes');
+  assertUniqueRecursiveIds(owned, (node) => ({ id: node.id, children: treeNodeChildren(node) }), 'tree');
+  const nodesById = new Map<string, TreeNode<TMetadata>>();
+  const expandable = new Set<string>();
+  const pending: TreeNode<TMetadata>[] = [...owned].reverse();
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined) continue;
+    nodesById.set(node.id, node);
+    if (node.kind !== 'leaf') expandable.add(node.id);
+    pending.push(...treeNodeChildren(node).toReversed());
+  }
+  const source = Object.freeze({
+    kind: 'prepared-tree-source' as const,
+    nodeCount: nodesById.size,
+  }) as PreparedTreeSource<TMetadata>;
+  preparedTreeSources.set(
+    source,
+    Object.freeze({ nodes: owned, nodesById, expandableIds: expandable }),
+  );
+  return source;
+}
+
+export function prepareTreeView<
+  TMetadata extends Readonly<Record<string, unknown>>,
+>(
+  source: PreparedTreeSource<TMetadata>,
+  presentation: TreePresentation,
+): PreparedTreeView<TMetadata> {
+  const rows = visibleTreeRows(source, presentation);
+  const collection = prepareTreeRows(rows);
+  const interactionIndex = prepareCollectionInteractionIndex(collection.records
+    .filter((record) => record.row.node.disabled !== true && record.row.lazyPlaceholder !== true)
+    .map((record) => record.id));
+  const view = Object.freeze({
+    kind: 'prepared-tree-view' as const,
+    source,
+    collection,
+    interactionIndex,
+  });
+  preparedTreeViews.add(view);
+  return view;
+}
+
+export function isPreparedTreeView(value: unknown): value is PreparedTreeView {
+  return value !== null && (typeof value === 'object' || typeof value === 'function')
+    && preparedTreeViews.has(value as PreparedTreeView);
 }
 
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
@@ -51,16 +114,16 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
     return state.scroll === undefined ? state : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
   }
   if (action.kind === 'setQuery') {
-    const query = normalizeCollectionQuery(action.query);
+    const query = prepareCollectionQuery(action.query);
     return query.text.length === 0 ? withoutQuery(state) : { ...state, query };
   }
-  if (isDisclosure(action)) return reduceDisclosure(state, action, options.nodes);
-  const collection = treeCollectionFor(state, options);
+  if (!isPreparedTreeView(options.view)) {
+    throw new TypeError('treeReducer view must be created with prepareTreeView().');
+  }
+  if (isDisclosure(action)) return reduceDisclosure(state, action, options.view.source);
+  const collection = options.view.collection;
   const interaction = collectionInteractionReducer(state, action, {
-    index: prepareCollectionInteractionIndex(collection.records
-      .filter((record) => record.row.node.disabled !== true && record.row.lazyPlaceholder !== true)
-      .map((record) => record.id)),
-    selection: options.selection,
+    index: options.view.interactionIndex,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });
   const itemIndex = interaction.activeId === undefined
@@ -86,12 +149,12 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
 }
 
 export function visibleTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(
-  nodes: readonly TreeNode<TMetadata>[],
+  source: PreparedTreeSource<TMetadata>,
   presentation: Pick<TreePresentation, 'expandedIds' | 'query' | 'loadStates'>,
 ): readonly TreeVisibleRow<TMetadata>[] {
-  assertUniqueRecursiveIds(nodes, (node) => ({ id: node.id, children: treeNodeChildren(node) }), 'tree');
+  const nodes = treeSourceData(source).nodes;
   const expanded = new Set(presentation.expandedIds);
-  const query = normalizeCollectionQuery(presentation.query ?? { text: '', mode: 'contains' });
+  const query = prepareCollectionQuery(presentation.query ?? { text: '', mode: 'contains' });
   return query.text.length === 0
     ? visibleExpandedRows(nodes, expanded, presentation.loadStates ?? {})
     : visibleMatchedRows(nodes, query, presentation.loadStates ?? {});
@@ -101,28 +164,35 @@ export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknow
   node: TreeNode<TMetadata>,
   query: CollectionQuery,
 ): boolean {
-  return treeNodeMatchesNormalized(node, normalizeCollectionQuery(query));
+  return treeNodeMatchesNormalized(node, prepareCollectionQuery(query));
 }
 
 function treeNodeMatchesNormalized<TMetadata extends Readonly<Record<string, unknown>>>(
   node: TreeNode<TMetadata>,
-  query: Required<CollectionQuery>,
+  query: PreparedCollectionQuery,
 ): boolean {
-  return matchNormalizedCollectionQuery({
+  return matchPreparedCollectionQuery(prepareQueryCandidate({
     id: node.id,
     primary: node.label,
     secondary: [node.id, node.description, node.icon]
       .filter((value): value is string => value !== undefined),
-  }, query) !== undefined;
+  }), query) !== undefined;
 }
 
 export function prepareTreeCollection<TMetadata extends Readonly<Record<string, unknown>>>(
-  nodes: readonly TreeNode<TMetadata>[],
+  source: PreparedTreeSource<TMetadata>,
   presentation: Pick<TreePresentation, 'expandedIds' | 'query' | 'loadStates'>,
 ): TreeCollection<TMetadata> {
-  return prepareTreeRows(visibleTreeRows(nodes, presentation));
+  return prepareTreeRows(visibleTreeRows(source, presentation));
 }
 
+export function prepareTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(
+  rows: readonly TreeVisibleRow<TMetadata>[],
+): import('../ui-model/tree.ts').CompleteTreeCollection<TMetadata>;
+export function prepareTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(
+  rows: readonly TreeVisibleRow<TMetadata>[],
+  window: CollectionWindow,
+): import('../ui-model/tree.ts').WindowedTreeCollection<TMetadata>;
 export function prepareTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(
   rows: readonly TreeVisibleRow<TMetadata>[],
   window?: CollectionWindow,
@@ -153,28 +223,18 @@ export function treeDisclosureTransition(
   return { kind: intent, id: node.id };
 }
 
-function treeCollectionFor<TMetadata extends Readonly<Record<string, unknown>>>(
-  state: TreePresentation,
-  options: TreeReducerOptions<TMetadata>,
-): TreeCollection<TMetadata> {
-  if (options.collection !== undefined) return options.collection;
-  if (options.nodes === undefined) throw new TypeError('treeReducer requires nodes or collection.');
-  return prepareTreeCollection(options.nodes, state);
-}
-
 function reduceDisclosure<TMetadata extends Readonly<Record<string, unknown>>>(
   state: TreePresentation,
   action: TreeDisclosureTransition,
-  nodes: readonly TreeNode<TMetadata>[] | undefined,
+  source: PreparedTreeSource<TMetadata>,
 ): TreePresentation {
-  const expandable = nodes === undefined ? undefined : expandableIds(nodes);
+  const expandable = treeSourceData(source).expandableIds;
   const current = new Set(state.expandedIds);
   if (action.kind === 'expandAll') {
-    if (expandable === undefined) return state;
     return { ...state, expandedIds: Object.freeze([...expandable]) };
   }
   if (action.kind === 'collapseAll') return { ...state, expandedIds: Object.freeze([]) };
-  if (expandable !== undefined && !expandable.has(action.id)) return state;
+  if (!expandable.has(action.id)) return state;
   if (action.kind === 'collapse' || action.kind === 'toggle' && current.has(action.id)) current.delete(action.id);
   else current.add(action.id);
   return { ...state, expandedIds: Object.freeze([...current]) };
@@ -225,7 +285,7 @@ function visibleExpandedRows<TMetadata extends Readonly<Record<string, unknown>>
 
 function visibleMatchedRows<TMetadata extends Readonly<Record<string, unknown>>>(
   nodes: readonly TreeNode<TMetadata>[],
-  query: Required<CollectionQuery>,
+  query: PreparedCollectionQuery,
   loadStates: Readonly<Record<string, TreeLoadState>>,
 ): readonly TreeVisibleRow<TMetadata>[] {
   const matched = new WeakSet<object>();
@@ -313,16 +373,63 @@ function snapshotRow<TMetadata extends Readonly<Record<string, unknown>>>(
   });
 }
 
-function expandableIds(nodes: readonly TreeNode[]): ReadonlySet<string> {
-  const ids = new Set<string>();
-  const pending = nodes.toReversed();
-  while (pending.length > 0) {
-    const item = pending.pop();
-    if (item === undefined) continue;
-    if (item.kind !== 'leaf') ids.add(item.id);
-    pending.push(...treeNodeChildren(item).toReversed());
+function treeSourceData<TMetadata extends Readonly<Record<string, unknown>>>(
+  source: PreparedTreeSource<TMetadata>,
+): PreparedTreeSourceData<TMetadata> {
+  const data = preparedTreeSources.get(source);
+  if (data === undefined) {
+    throw new TypeError('Tree source must be created with prepareTreeSource().');
   }
-  return ids;
+  return data as PreparedTreeSourceData<TMetadata>;
+}
+
+function ownTreeNodes<TMetadata extends Readonly<Record<string, unknown>>>(
+  nodes: readonly TreeNode<TMetadata>[],
+  owner: string,
+): readonly TreeNode<TMetadata>[] {
+  return Object.freeze(nodes.map((node, index) => ownTreeNode(node, `${owner}[${String(index)}]`)));
+}
+
+function ownTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
+  value: TreeNode<TMetadata>,
+  owner: string,
+): TreeNode<TMetadata> {
+  const candidate: unknown = value;
+  if (!isNonArrayObject(candidate)) throw new TypeError(`${owner} must be an object.`);
+  const kind = candidate['kind'];
+  if (kind !== 'leaf' && kind !== 'branch' && kind !== 'lazy') {
+    throw new TypeError(`${owner}.kind is invalid.`);
+  }
+  const id = ownedTreeText(value.id, `${owner}.id`, true);
+  const label = ownedTreeText(value.label, `${owner}.label`, false);
+  if (value.disabled !== undefined && typeof value.disabled !== 'boolean') {
+    throw new TypeError(`${owner}.disabled must be a boolean.`);
+  }
+  if (value.metadata !== undefined && !isNonArrayObject(value.metadata)) {
+    throw new TypeError(`${owner}.metadata must be an object.`);
+  }
+  const base = {
+    id,
+    label,
+    ...(value.description === undefined ? {} : {
+      description: ownedTreeText(value.description, `${owner}.description`, false),
+    }),
+    ...(value.icon === undefined ? {} : { icon: ownedTreeText(value.icon, `${owner}.icon`, false) }),
+    ...(value.disabled === undefined ? {} : { disabled: value.disabled }),
+    ...(value.metadata === undefined ? {} : { metadata: Object.freeze({ ...value.metadata }) }),
+  };
+  if (value.kind === 'branch') {
+    if (!Array.isArray(value.children)) throw new TypeError(`${owner}.children must be an array.`);
+    return Object.freeze({ ...base, kind: 'branch' as const, children: ownTreeNodes<TMetadata>(value.children, `${owner}.children`) });
+  }
+  return Object.freeze({ ...base, kind: value.kind });
+}
+
+function ownedTreeText(value: unknown, owner: string, required: boolean): string {
+  if (typeof value !== 'string') throw new TypeError(`${owner} must be a string.`);
+  const text = sanitizeTerminalText(value).text;
+  if (required && text.trim().length === 0) throw new TypeError(`${owner} must not be empty.`);
+  return required ? text.trim() : text;
 }
 
 function isDisclosure(action: TreeTransition): action is TreeDisclosureTransition {

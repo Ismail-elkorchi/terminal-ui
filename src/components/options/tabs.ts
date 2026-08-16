@@ -32,7 +32,6 @@ interface TabsBaseOptions<TId extends string, TMessage extends ComponentMessage>
   readonly presentation: TabsPresentation<TId>;
   readonly maxTabWidth?: number;
   readonly pointerState?: PointerInteractionState;
-  readonly readOnly?: boolean;
   readonly busy?: boolean;
   readonly inert?: boolean;
   readonly meta?: Pick<ElementMeta<TabsStylePart>, 'focus' | 'layer' | 'styles'>;
@@ -50,7 +49,6 @@ interface InertTabsOptions {
   readonly disabled?: false;
   readonly inert: true;
   readonly pointerState?: never;
-  readonly readOnly?: never;
   readonly onTransition?: never;
   readonly onClose?: never;
   readonly onPointerAction?: never;
@@ -59,7 +57,6 @@ interface InertTabsOptions {
 interface DisabledTabsOptions {
   readonly disabled: true;
   readonly pointerState?: never;
-  readonly readOnly?: never;
   readonly busy?: never;
   readonly onTransition?: never;
   readonly onClose?: never;

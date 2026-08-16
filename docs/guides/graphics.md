@@ -1,5 +1,9 @@
 # Terminal Graphics
 
+Terminal graphics are a preview API until the physical-terminal compatibility
+matrix in the project stabilization ledger is complete. Text fallback remains
+the stable behavior when graphics capability is absent or rejected.
+
 `terminal-ui` renders owned RGB and RGBA raster resources through the Kitty
 graphics protocol or SIXEL. Graphics remain part of the renderer's frame model;
 components never write protocol sequences themselves.

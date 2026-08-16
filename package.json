@@ -68,6 +68,10 @@
       "types": "./dist/components/overlays.d.ts",
       "default": "./dist/components/overlays.js"
     },
+    "./components/feedback": {
+      "types": "./dist/components/feedback.d.ts",
+      "default": "./dist/components/feedback.js"
+    },
     "./components/patterns": {
       "types": "./dist/components/patterns.d.ts",
       "default": "./dist/components/patterns.js"
@@ -124,7 +128,8 @@
     "check:architecture": "npm run build && node scripts/check-architecture.mjs && node --test tests/architecture/check-architecture.test.mjs",
     "check:hygiene": "node scripts/check-hygiene.mjs",
     "check": "npm run check:fast && npm run check:consumer && npm run check:runtime && npm run check:jsr && npm run check:performance",
-    "check:fast": "npm run check:hygiene && npm run check:architecture && npm run lint && npm run check:test-types && npm run check:examples && npm run check:acceptance && npm run check:conformance && npm run check:integration && npm run check:package && npm run check:property && npm run check:security && npm run check:unit",
+    "check:fast": "npm run check:hygiene && npm run check:architecture && npm run check:api && npm run lint && npm run check:test-types && npm run check:examples && npm run check:acceptance && npm run check:conformance && npm run check:integration && npm run check:package && npm run check:property && npm run check:security && npm run check:unit",
+    "check:api": "node scripts/generate-api-reference.mjs --check",
     "check:acceptance": "node scripts/run-test-lane.mjs acceptance",
     "check:conformance": "node scripts/run-test-lane.mjs conformance",
     "check:examples": "tsc --project tsconfig.examples.json",
@@ -141,6 +146,7 @@
     "benchmark:interactive": "npm run build && node scripts/benchmark-interactive.mjs",
     "benchmark:baseline": "npm run build && node scripts/capture-performance-baseline.mjs",
     "benchmark:compare": "node scripts/check-performance-report.mjs",
+    "docs:api": "npm run build && node scripts/generate-api-reference.mjs",
     "test": "npm run check",
     "prepare": "npm run build"
   },

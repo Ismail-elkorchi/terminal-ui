@@ -16,18 +16,16 @@ the returned factory supplies current input, declared state capabilities, and
 an action mapper.
 
 ```ts
-import { defineComponent } from '@ismail-elkorchi/terminal-ui/component';
+import { defineSemanticLeafComponent } from '@ismail-elkorchi/terminal-ui/component';
 import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
 
 interface BadgeOptions {
   readonly label: string;
 }
 
-const badge = defineComponent<BadgeOptions, BadgeOptions>({
+const badge = defineSemanticLeafComponent<BadgeOptions, BadgeOptions>({
   name: 'example-app/components/badge',
   identity: 'required',
-  structure: 'leaf',
-  semantics: 'semantic',
   accessibleRole: 'status',
   prepare(value) {
     if (typeof value.label !== 'string') throw new TypeError('badge requires a string label');
@@ -54,6 +52,12 @@ const badge = defineComponent<BadgeOptions, BadgeOptions>({
 
 const ready = badge({ id: 'build-status', label: 'Ready' });
 ```
+
+`defineSemanticLeafComponent()` and `defineDecorativeLeafComponent()` only
+supply the invariant leaf structure fields. They use the same component kernel,
+preparation, constrained measurement, inspection, and hook-result boundaries as
+`defineComponent()`. Use `defineComponent()` directly for composite or composed
+components.
 
 The optional `parts` array declares stable local style slots. `style()` rejects
 undeclared slots at runtime, while TypeScript restricts `meta.styles.parts` to

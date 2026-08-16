@@ -4,14 +4,11 @@ import test from 'node:test';
 import {
   completeCollection,
   createScrollState,
-  cursorCollection,
   dataWindow,
-  isAnyCollectionProjection,
   isCollectionProjection,
   prepareListboxCollection,
   prepareTableCollection,
   prepareTreeRows,
-  sparseCollection,
   windowedCollection
 } from '../../dist/behavior/index.js';
 
@@ -71,30 +68,16 @@ test('prepared collections reject ambiguous identity and invalid global windows'
   );
 });
 
-test('collection predicates recognize only projections created by collection factories', () => {
+test('collection predicates recognize only complete and windowed factory projections', () => {
   const complete = completeCollection([{ id: 'one', itemIndex: 0 }]);
   const windowed = windowedCollection({
     records: [{ id: 'two', itemIndex: 2 }],
     window: { startIndex: 2, totalCount: 4, domain: { kind: 'source' } }
   });
-  const sparse = sparseCollection({
-    records: [{ id: 'three', itemIndex: 3 }],
-    totalCount: 5
-  });
-  const cursor = cursorCollection({
-    records: [{ id: 'four', itemIndex: 4 }],
-    page: { hasPrevious: true, hasNext: false }
-  });
-
   assert.equal(isCollectionProjection(complete), true);
   assert.equal(isCollectionProjection(windowed), true);
-  assert.equal(isCollectionProjection(sparse), false);
-  assert.equal(isCollectionProjection(cursor), false);
-  assert.equal(isAnyCollectionProjection(sparse), true);
-  assert.equal(isAnyCollectionProjection(cursor), true);
 
   assert.equal(isCollectionProjection({ ...complete }), false);
-  assert.equal(isAnyCollectionProjection({ ...sparse }), false);
   assert.equal(isCollectionProjection(Object.fromEntries(
     Reflect.ownKeys(complete).map((key) => [key, complete[key]])
   )), false);
@@ -103,7 +86,5 @@ test('collection predicates recognize only projections created by collection fac
     records: complete.records,
     startIndex: 0,
     totalCount: 1,
-    status: { kind: 'ready' },
-    sections: []
   }), false);
 });

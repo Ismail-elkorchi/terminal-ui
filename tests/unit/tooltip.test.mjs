@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
+import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { placeAnchoredSurface } from '../../dist/interaction/index.js';
@@ -11,6 +12,7 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import { button, tooltip } from '../../dist/components/index.js';
+import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 function trigger(id) {
   return button({ id: `${id}-trigger`, label: 'Trigger', onAction: () => ({ kind: 'trigger' }) });
@@ -58,8 +60,46 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   assert.match(noColor.plainTextFrame, /Hint/u);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   const accessibleTooltip = frame.accessibility.root.children?.find((node) => node.role === 'tooltip');
+  const accessibleTrigger = frame.accessibility.root.children?.find((node) => node.role === 'button');
   assert.equal(accessibleTooltip?.scope?.kind, 'popover');
   assert.equal(accessibleTooltip?.live, 'polite');
+  assert.deepEqual(accessibleTrigger?.describedBy, ['tip:tooltip']);
+});
+
+test('tooltip follows trigger keyboard focus and Escape dismisses without moving focus', async () => {
+  const transitions = [];
+  const app = defineTui({
+    id: 'tooltip-focus',
+    init: () => ({ open: false }),
+    update: (_state, transition) => {
+      transitions.push(transition);
+      return { state: { open: transition.open } };
+    },
+    view: (state) => tooltip({
+      id: 'focus-tip',
+      trigger: trigger('focus-tip'),
+      content: 'Keyboard help',
+      open: state.open,
+      onTransition: (transition) => transition
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 5 } })
+  });
+
+  await runtime.start();
+  assert.deepEqual(transitions, [{ kind: 'setOpen', open: true, reason: 'focus' }]);
+  assert.deepEqual(runtime.frame().accessibility.root.children?.[0]?.describedBy, ['focus-tip:tooltip']);
+  await runtime.handleInput({
+    kind: 'key', key: 'escape',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press', location: 'standard'
+  });
+  assert.deepEqual(transitions.at(-1), { kind: 'setOpen', open: false, reason: 'escape' });
+  assert.deepEqual(runtime.frame().focusPath, ['focus-tip', 'focus-tip-trigger']);
+  assert.equal(runtime.frame().accessibility.root.children?.[0]?.describedBy, undefined);
+  await runtime.dispose();
 });
 
 test('tooltip visibility and anchor determine painted geometry', () => {

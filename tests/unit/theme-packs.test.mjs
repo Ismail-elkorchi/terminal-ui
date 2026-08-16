@@ -152,8 +152,9 @@ test('theme matrix snapshots cover core components with packs high contrast and 
           value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'value', header: 'Value' }],
         rows: [{ key: 'focus', value: 'visible' }],
         presentation: {
-          interaction: { kind: 'row',
-          selectionMode: 'single', activeRowId: '0', selectedRowIds: ['0'] }
+          interaction: {
+            kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
+          }
         },
         onTransition: (action) => action
       })
@@ -195,7 +196,8 @@ test('default theme specimen composes surface control text command log and data 
       presentation: {
         value: '/open readme',
         cursor: 0,
-        suggestions: prepareCommandSuggestions([{ id: 'open', value: '/open', label: 'Open File' }]),
+        open: true,
+        suggestions: prepareCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 12 }, text: '/open' }, label: 'Open File' }]),
         activeSuggestionId: 'open'
       },
       display: 'expanded',
@@ -245,8 +247,9 @@ test('default theme specimen composes surface control text command log and data 
     getRowId: (_row, index) => String(index),
     id: 'specimen-dataGrid',
       presentation: {
-        interaction: { kind: 'row',
-        selectionMode: 'single', activeRowId: '0', selectedRowIds: ['0'] }
+        interaction: {
+          kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
+        }
       },
       onTransition: (action) => action,
       columns: [{

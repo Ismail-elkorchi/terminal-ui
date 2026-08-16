@@ -47,6 +47,18 @@ export type {
   LayoutOverflow,
   LayoutSize
 } from '../geometry/types.ts';
+export type {
+  ElementAccessibility,
+  ElementFocus,
+  ElementFocusScope,
+  ElementLayer,
+  ElementMeta,
+  ElementOptions,
+  ElementOverflowPriority,
+  ElementStyles,
+  ElementVisualState,
+  LayerUnderlay,
+} from '../element/metadata.ts';
 export {
   gridCellRects,
   layoutBoxBounds,

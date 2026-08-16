@@ -243,6 +243,7 @@ function translateSnapshotMetadata(bounds: Rect, metadata: FrameSnapshotMetadata
     rowFingerprints: Object.freeze(metadata.rowFingerprints.map((entry) => Object.freeze({
       row: entry.row + bounds.row - 1,
       fingerprint: entry.fingerprint,
+      terminalFingerprint: entry.terminalFingerprint,
     }))),
     rowIndexes: Object.freeze(metadata.rowIndexes.map((entry) => {
       const cells = new Map<number, FrameCell>();
@@ -255,9 +256,11 @@ function translateSnapshotMetadata(bounds: Rect, metadata: FrameSnapshotMetadata
         cells,
         renderable: Object.freeze(entry.renderable.map((cell) => toTerminalCell(bounds, cell))),
         fingerprint: entry.fingerprint,
+        terminalFingerprint: entry.terminalFingerprint,
       });
     })),
-    fingerprint: metadata.fingerprint
+    fingerprint: metadata.fingerprint,
+    terminalFingerprint: metadata.terminalFingerprint,
   });
 }
 

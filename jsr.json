@@ -19,6 +19,7 @@
     "./components/forms": "./src/components/forms.ts",
     "./components/foundations": "./src/components/foundations.ts",
     "./components/overlays": "./src/components/overlays.ts",
+    "./components/feedback": "./src/components/feedback.ts",
     "./components/patterns": "./src/components/patterns.ts",
     "./components/visualizations": "./src/components/visualizations.ts",
     "./layout": "./src/layout/index.ts",

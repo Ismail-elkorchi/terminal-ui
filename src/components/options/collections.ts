@@ -9,7 +9,8 @@ import type { MessageResolution } from '../../interaction/message.ts';
 import type {
   ListViewActivateEvent,
   ListViewControlTransition,
-  ListViewProjection,
+  ListViewItemRenderer,
+  ListViewMeasuredWindow,
   ListViewTransition,
   ScrollableListViewPresentation,
   SemanticListItem,
@@ -24,11 +25,11 @@ export interface ListOptions<TItems extends readonly SemanticListItem[]> {
   readonly meta?: ComponentMetadataOptions<readonly ['layer', 'styles'], SemanticListStylePart>;
 }
 
-interface ListViewBaseOptions<TProjection extends ListViewProjection> {
+interface ListViewBaseOptions<TValue, TContent extends import('../../element/index.ts').Element<ComponentMessage>> {
   readonly id: string;
-  readonly projection: TProjection;
+  readonly window: ListViewMeasuredWindow<TValue>;
+  readonly renderItem: ListViewItemRenderer<TValue, TContent>;
   readonly pointerState?: PointerInteractionState;
-  readonly readOnly?: boolean;
   readonly busy?: boolean;
   readonly inert?: boolean;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ListViewStylePart>;
@@ -46,7 +47,6 @@ interface InertListViewOptions {
   readonly disabled?: false;
   readonly inert: true;
   readonly pointerState?: never;
-  readonly readOnly?: never;
   readonly onTransition?: never;
   readonly onActivate?: never;
   readonly onPointerAction?: never;
@@ -55,7 +55,6 @@ interface InertListViewOptions {
 interface DisabledListViewOptions {
   readonly disabled: true;
   readonly pointerState?: never;
-  readonly readOnly?: never;
   readonly busy?: never;
   readonly onTransition?: never;
   readonly onActivate?: never;
@@ -63,23 +62,26 @@ interface DisabledListViewOptions {
 }
 
 export type ListViewOptions<
-  TProjection extends ListViewProjection,
+  TValue,
+  TContent extends import('../../element/index.ts').Element<ComponentMessage>,
   TMessage extends ComponentMessage = never,
-> = UnscrolledListViewOptions<TProjection, TMessage> | ScrollableListViewOptions<TProjection, TMessage>;
+> = UnscrolledListViewOptions<TValue, TContent, TMessage> | ScrollableListViewOptions<TValue, TContent, TMessage>;
 
 export type UnscrolledListViewOptions<
-  TProjection extends ListViewProjection,
+  TValue,
+  TContent extends import('../../element/index.ts').Element<ComponentMessage>,
   TMessage extends ComponentMessage = never,
-> = ListViewBaseOptions<TProjection> & {
+> = ListViewBaseOptions<TValue, TContent> & {
   readonly presentation: UnscrolledListViewPresentation;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 } & (ActiveListViewOptions<ListViewControlTransition, TMessage> | DisabledListViewOptions | InertListViewOptions);
 
 export type ScrollableListViewOptions<
-  TProjection extends ListViewProjection,
+  TValue,
+  TContent extends import('../../element/index.ts').Element<ComponentMessage>,
   TMessage extends ComponentMessage = never,
-> = ListViewBaseOptions<TProjection> & {
+> = ListViewBaseOptions<TValue, TContent> & {
   readonly presentation: ScrollableListViewPresentation;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
@@ -88,8 +90,9 @@ export type ScrollableListViewOptions<
 export type {
   ListViewActivateEvent,
   ListViewControlTransition,
-  ListViewProjection,
-  ListViewRecord,
+  ListViewItemRenderer,
+  ListViewMeasuredWindow,
+  ListViewRenderedItem,
   ListViewPresentation,
   ListViewTransition,
   ScrollableListViewPresentation,

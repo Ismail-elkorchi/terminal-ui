@@ -13,6 +13,14 @@ export type ResolvedPointerFocusIntent =
   | { readonly kind: 'focus'; readonly path: FocusPath }
   | { readonly kind: 'preserve' };
 
+export type FocusLifecycleEvent =
+  | { readonly kind: 'focusEnter' }
+  | { readonly kind: 'focusLeave' };
+
+export interface FocusNavigation {
+  readonly orientation: 'horizontal' | 'vertical';
+}
+
 export function focusPathsEqual(
   left: FocusPath | undefined,
   right: FocusPath | undefined

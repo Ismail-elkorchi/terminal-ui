@@ -20,7 +20,7 @@ import type {
 } from '../../component/index.ts';
 import type { HitTarget } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
-import { dataWindow, isCollectionProjection, prepareTreeCollection } from '../../behavior/index.ts';
+import { dataWindow, isCollectionProjection, isPreparedTreeView } from '../../behavior/index.ts';
 import type { CollectionProjection, CollectionRecord } from '../../behavior/index.ts';
 import {
   assertOptionalCallback,
@@ -59,7 +59,8 @@ import { ownSelectionState, type SelectionState } from '../../interaction/collec
 import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
 import type { TableColumn, TableColumnWidth } from '../../ui-model/content.ts';
 import type { TableStylePart, TreeStylePart } from '../../ui-model/style-parts.ts';
-import { matchNormalizedCollectionQuery, normalizeCollectionQuery } from '../../ui-model/query.ts';
+import { matchPreparedCollectionQuery, prepareCollectionQuery, prepareQueryCandidate } from '../../text/query.ts';
+import type { PreparedCollectionQuery } from '../../text/query.ts';
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
@@ -77,6 +78,7 @@ import type {
   TableOptions,
   TreeOptions,
 } from '../options/content.ts';
+import { inspectCollectionValues, inspectSelection } from '../internal/inspection.ts';
 
 interface PreparedTableColumn {
   readonly id: string;
@@ -149,6 +151,7 @@ interface PreparedTableSource {
 
 const tableSources = new WeakMap<object, PreparedTableSource>();
 const tableCollectionSources = new WeakMap<object, TableSource>();
+const inferredTableColumns = new WeakMap<object, readonly PreparedTableColumn[]>();
 
 interface TablePreparation {
   readonly columns: readonly PreparedTableColumn[];
@@ -176,6 +179,30 @@ const tableBase = {
   measure: measureTable,
   render: paintTable,
   accessibility: tableAccessibility,
+  inspection: ({ model }: { readonly model: Readonly<TableModel> }) => ({
+    ...(model.activeRowId === undefined ? {} : {
+      active: model.activeColumnId === undefined
+        ? model.activeRowId
+        : { rowId: model.activeRowId, columnId: model.activeColumnId },
+    }),
+    selection: model.interactionKind === 'cell'
+      ? {
+          mode: model.selectionMode ?? 'none',
+          cells: inspectCollectionValues(model.selectedCells, (cell) => ({
+            rowId: cell.rowId,
+            columnId: cell.columnId,
+          })),
+        }
+      : {
+          mode: model.selectionMode ?? 'none',
+          rowIds: inspectCollectionValues(model.selectedRowIds, (id) => id),
+        },
+    collection: {
+      startIndex: model.startIndex,
+      totalCount: model.totalCount,
+      visibleCount: tableSourceFor(model).rows.length,
+    },
+  }),
 };
 
 const passiveTable = defineComponent<
@@ -212,7 +239,7 @@ const activeDataGrid = defineComponent<
   TableModel,
   DataGridComponentAction,
   TableStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
@@ -220,8 +247,8 @@ const activeDataGrid = defineComponent<
   name: 'terminal-ui/components/data-grid',
   accessibleRole: 'grid',
   metadata: ['focus', 'layer', 'styles'],
-  states: ['disabled', 'busy', 'readOnly', 'inert'],
-  keys: ({ model, busy, readOnly }) => {
+  states: ['disabled', 'busy', 'inert'],
+  keys: ({ model, busy }) => {
     if (busy) return {};
     const active = activeTablePosition(model);
     const column = model.columns.find((candidate) => candidate.id === model.activeColumnId);
@@ -242,8 +269,8 @@ const activeDataGrid = defineComponent<
       pageDown: () => transition({ kind: 'page', delta: 1 }),
       home: () => transition({ kind: 'firstRow' }),
       end: () => transition({ kind: 'lastRow' }),
-      ...(readOnly ? {} : { space: () => transition({ kind: 'commit' }) }),
-      ...(readOnly || (column?.sortable !== true && column?.resizable !== true)
+      space: () => transition({ kind: 'commit' }),
+      ...(column?.sortable !== true && column?.resizable !== true
         ? {}
         : { triggers: [
           ...(column.sortable ? [{
@@ -269,7 +296,7 @@ const activeDataGrid = defineComponent<
             },
           ] : []),
         ] }),
-      ...(readOnly || active === undefined ? {} : {
+      ...(active === undefined ? {} : {
         enter: () => ({
           kind: 'activate' as const,
           event: model.interactionKind === 'cell' && model.activeColumnId !== undefined
@@ -281,7 +308,7 @@ const activeDataGrid = defineComponent<
   },
   pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
-  hitTargets: tableHitTargets,
+  hitTargets: (input) => input.busy ? [] : tableHitTargets(input),
 });
 
 export function table<TRow, const TMessage extends ComponentMessage = never>(
@@ -355,7 +382,6 @@ export function dataGrid<
       : options.onTransition(transition);
   return activeDataGrid({
     ...shared,
-    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => {
       if (action.kind === 'transition') return onTransition(action.transition);
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
@@ -456,7 +482,7 @@ function prepareTableStructure<TRow>(
   columns: readonly TableColumn<TRow>[] | undefined,
   source: TableSource<TRow>,
 ): TablePreparation {
-  const preparedColumns = prepareTableColumns(columns, source.rows);
+  const preparedColumns = prepareTableColumns(columns, source);
   const sourceToken = Object.freeze({});
   tableSources.set(sourceToken, {
     rows: source.rows,
@@ -471,11 +497,13 @@ function prepareTableStructure<TRow>(
 }
 
 interface TableSource<TRow = unknown> {
+  readonly kind: 'raw' | 'complete' | 'window';
   readonly rows: readonly TRow[];
   readonly ids: readonly string[];
   readonly startIndex: number;
   readonly totalCount: number;
   readonly indexes?: ReadonlyMap<string, number>;
+  readonly collection?: CollectionProjection<CollectionRecord>;
 }
 
 function tableSource<TRow, TMessage extends ComponentMessage>(
@@ -493,11 +521,13 @@ function tableSource<TRow, TMessage extends ComponentMessage>(
     ));
     const ids = Object.freeze(collection.records.map((record) => record.id));
     const prepared = Object.freeze({
+      kind: collection.kind,
       rows,
       ids,
       startIndex: collection.startIndex,
       totalCount: collection.totalCount,
       indexes: new Map(ids.map((id, index) => [id, collection.startIndex + index])),
+      collection,
     });
     tableCollectionSources.set(collection, prepared);
     return prepared;
@@ -508,7 +538,7 @@ function tableSource<TRow, TMessage extends ComponentMessage>(
     nonEmpty(getRowId(row, index), `table row ${String(index)} id`)
   );
   assertUniqueIds(ids, 'table rows');
-  return { rows, ids, startIndex: 0, totalCount: rows.length };
+  return { kind: 'raw', rows, ids, startIndex: 0, totalCount: rows.length };
 }
 
 function tableCollectionRow<TRow>(
@@ -523,10 +553,17 @@ function tableCollectionRow<TRow>(
 
 function prepareTableColumns<TRow>(
   value: readonly TableColumn<TRow>[] | undefined,
-  rows: readonly TRow[],
+  source: TableSource<TRow>,
 ): readonly PreparedTableColumn[] {
   if (value === undefined) {
-    const count = rows.reduce<number>((maximum, row) => Math.max(maximum, rowCells(row).length), 0);
+    if (source.kind === 'window') {
+      throw new TypeError('windowed table collections require explicit columns.');
+    }
+    const cached = source.collection === undefined
+      ? undefined
+      : inferredTableColumns.get(source.collection);
+    if (cached !== undefined) return cached;
+    const count = source.rows.reduce<number>((maximum, row) => Math.max(maximum, rowCells(row).length), 0);
     const columns: readonly TableColumn<TRow>[] = Array.from(
       { length: count },
       (_unused, index) =>
@@ -535,7 +572,7 @@ function prepareTableColumns<TRow>(
           value: (row: TRow) => rowCells(row)[index],
         }),
     );
-    return Object.freeze(columns.map((column, index): PreparedTableColumn =>
+    const inferred = Object.freeze(columns.map((column, index): PreparedTableColumn =>
       Object.freeze({
         id: nonEmpty(column.id, 'inferred table column id'),
         index,
@@ -547,6 +584,8 @@ function prepareTableColumns<TRow>(
         cell: compiledTableCell(column),
       })
     ));
+    if (source.collection !== undefined) inferredTableColumns.set(source.collection, inferred);
+    return inferred;
   }
   const visible = value.flatMap((column, index) =>
     column.hidden === true ? [] : [{ column, index }]
@@ -701,8 +740,8 @@ function prepareTablePresentation(
   const interaction = grid?.interaction;
   const selectionMode = interaction === undefined
     ? undefined
-    : isStringMember(interaction.selectionMode, ['none', 'single', 'multiple'])
-    ? interaction.selectionMode
+    : isStringMember(interaction.selection.mode, ['none', 'single', 'multiple'])
+    ? interaction.selection.mode
     : (() => { throw new TypeError('dataGrid selectionMode is invalid.'); })();
   const activeRowId = interaction?.kind === 'row'
     ? prepareOptionalId(interaction.activeRowId, 'dataGrid activeRowId')
@@ -713,10 +752,18 @@ function prepareTablePresentation(
     ? nonEmpty(interaction.activeCell.columnId, 'dataGrid activeCell.columnId')
     : undefined;
   const selectedRowIds = interaction?.kind === 'row'
-    ? prepareUniqueIds(interaction.selectedRowIds, 'dataGrid selectedRowIds')
+    ? interaction.selection.mode === 'multiple'
+      ? prepareUniqueIds(interaction.selection.selectedRowIds, 'dataGrid selectedRowIds')
+      : interaction.selection.mode === 'single' && interaction.selection.selectedRowId !== undefined
+        ? Object.freeze([nonEmpty(interaction.selection.selectedRowId, 'dataGrid selectedRowId')])
+        : Object.freeze([])
     : Object.freeze([]);
   const selectedCells = interaction?.kind === 'cell'
-    ? prepareGridCells(interaction.selectedCells, 'dataGrid selectedCells')
+    ? interaction.selection.mode === 'multiple'
+      ? prepareGridCells(interaction.selection.selectedCells, 'dataGrid selectedCells')
+      : interaction.selection.mode === 'single' && interaction.selection.selectedCell !== undefined
+        ? prepareGridCells([interaction.selection.selectedCell], 'dataGrid selectedCell')
+        : Object.freeze([])
     : Object.freeze([]);
   let sort:
     | { readonly columnId: string; readonly direction: 'ascending' | 'descending' }
@@ -1473,7 +1520,7 @@ function tableHitTargets(
 ): readonly HitTarget<DataGridComponentAction>[] {
   const plan = tablePlan(input);
   const targets: HitTarget<DataGridComponentAction>[] = [];
-  if (input.model.semanticRole === 'grid' && !input.readOnly && plan.headerHeight > 0) {
+  if (input.model.semanticRole === 'grid' && plan.headerHeight > 0) {
     input.model.columns.forEach((column, index) => {
       const track = plan.tracks[index];
       if (track === undefined) return;
@@ -1530,7 +1577,7 @@ function tableHitTargets(
         cursor: 'pointer',
         focus: { kind: 'target', targetId: 'self' },
         message: (event) =>
-          event.clickCount === 2 && !input.readOnly
+          event.clickCount === 2
             ? { kind: 'activate', event: { kind: 'activate', target: { kind: 'row', rowId: row.id } } }
             : { kind: 'transition', transition: { kind: 'setActiveRow', rowId: row.id } },
       });
@@ -1556,7 +1603,7 @@ function tableHitTargets(
         cursor: 'pointer',
         focus: { kind: 'target', targetId: 'self' },
         message: (event) =>
-          event.clickCount === 2 && !input.readOnly
+          event.clickCount === 2
             ? {
               kind: 'activate',
               event: { kind: 'activate', target: { kind: 'cell', cell: { rowId: row.id, columnId: column.id } } },
@@ -1771,7 +1818,7 @@ interface TreeModel {
   readonly source: Readonly<Record<string, never>>;
   readonly startIndex: number;
   readonly totalCount: number;
-  readonly query: Required<import('../../ui-model/query.ts').CollectionQuery>;
+  readonly query: PreparedCollectionQuery;
   readonly activeId?: string;
   readonly selection: SelectionState;
   readonly emptyText: string;
@@ -1796,7 +1843,7 @@ const treeBase = {
   semantics: 'semantic' as const,
   accessibleRole: 'tree' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
-  states: ['disabled', 'busy', 'readOnly', 'inert'] as const,
+  states: ['disabled', 'busy', 'inert'] as const,
   parts: [
     'marker',
     'indent',
@@ -1812,6 +1859,15 @@ const treeBase = {
   measure: measureTree,
   render: paintTree,
   accessibility: treeAccessibility,
+  inspection: ({ model }: { readonly model: Readonly<TreeModel> }) => ({
+    ...(model.activeId === undefined ? {} : { active: model.activeId }),
+    selection: inspectSelection(model.selection),
+    collection: {
+      startIndex: model.startIndex,
+      totalCount: model.totalCount,
+      visibleCount: treeSourceFor(model).rows.length,
+    },
+  }),
 };
 
 type TreeComponentAction =
@@ -1824,12 +1880,12 @@ const activeTree = defineComponent<
   TreeModel,
   TreeComponentAction,
   TreeStylePart,
-  readonly ['disabled', 'busy', 'readOnly', 'inert'],
+  readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles']
 >({
   ...treeBase,
-  keys: ({ model, busy, readOnly }) => {
+  keys: ({ model, busy }) => {
     if (busy) return {};
     const row = activeTreeRow(model);
     return {
@@ -1842,10 +1898,8 @@ const activeTree = defineComponent<
         ...(row.kind === 'leaf' || !row.expanded
           ? {}
           : { arrowLeft: () => treeTransition({ kind: 'collapse', id: row.id }) }),
-        ...(readOnly ? {} : {
-          space: () => treeTransition({ kind: 'commitActive' }),
-          enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: row.id } }),
-        }),
+        space: () => treeTransition({ kind: 'commitActive' }),
+        enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: row.id } }),
       }),
     };
   },
@@ -1909,7 +1963,6 @@ export function tree<
   assertOptionalCallback(options.onPointerAction, 'tree onPointerAction');
   return activeTree({
     ...shared,
-    ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
       if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
@@ -1930,31 +1983,15 @@ function prepareTree<
   value: Readonly<TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>>,
   pointerAvailable: boolean,
 ): TreeModel {
-  const query = normalizeCollectionQuery(
+  const query = prepareCollectionQuery(
     value.presentation.query ?? { text: '', mode: 'contains' },
   );
-  let collection: CollectionProjection<TreeCollectionRecord<TMetadata>>;
-  let startIndex: number;
-  let totalCount: number;
-  if (value.collection !== undefined) {
-    const supplied = value.collection;
-    if (!isCollectionProjection(supplied)) {
-      throw new TypeError(
-        'tree collection must be prepared with prepareTreeCollection() or prepareTreeRows().',
-      );
-    }
-    collection = supplied;
-    startIndex = supplied.startIndex;
-    totalCount = supplied.totalCount;
-  } else {
-    const nodes = prepareTreeNodes<TMetadata>(value.nodes);
-    collection = prepareTreeCollection<TMetadata>(
-      nodes,
-      value.presentation,
-    );
-    startIndex = collection.startIndex;
-    totalCount = collection.totalCount;
+  if (!isPreparedTreeView(value.view)) {
+    throw new TypeError('tree view must be created with prepareTreeView().');
   }
+  const collection = value.view.collection as CollectionProjection<TreeCollectionRecord<TMetadata>>;
+  const startIndex = collection.startIndex;
+  const totalCount = collection.totalCount;
   const sourceToken = Object.freeze({});
   treeSources.set(sourceToken, preparedTreeSource(collection));
   const scroll = prepareComponentScrollState(value.presentation.scroll, 'tree scroll');
@@ -2020,52 +2057,6 @@ function preparedTreeSource<
   });
   preparedTreeCollections.set(collection, source);
   return source;
-}
-
-function prepareTreeNodes<
-  TMetadata extends Readonly<Record<string, unknown>>,
->(values: readonly TreeNode<TMetadata>[]): readonly TreeNode<TMetadata>[] {
-  return values.map((value, index) => prepareTreeNode(value, `tree nodes[${String(index)}]`));
-}
-
-function prepareTreeNode<
-  TMetadata extends Readonly<Record<string, unknown>>,
->(value: TreeNode<TMetadata>, owner: string): TreeNode<TMetadata> {
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be an object.`);
-  const kind = value.kind;
-  if (!isStringMember(kind, ['leaf', 'branch', 'lazy'])) {
-    throw new TypeError(`${owner}.kind is invalid.`);
-  }
-  const base = {
-    id: nonEmpty(value.id, `${owner}.id`),
-    label: text(value.label, `${owner}.label`) ?? '',
-    ...(value.description === undefined
-      ? {}
-      : { description: text(value.description, `${owner}.description`) ?? '' }),
-    ...(value.disabled === undefined
-      ? {}
-      : { disabled: boolean(value.disabled, `${owner}.disabled`) }),
-    ...(value.icon === undefined ? {} : { icon: text(value.icon, `${owner}.icon`) ?? '' }),
-    ...(value.metadata === undefined
-      ? {}
-      : { metadata: plainObject(value.metadata, `${owner}.metadata`) }),
-  };
-  if (kind === 'leaf') return { ...base, kind };
-  if (kind === 'branch') {
-    if (!Array.isArray(value.children)) {
-      throw new TypeError(`${owner}.children must be an array.`);
-    }
-    return { ...base, kind, children: prepareTreeNodes(value.children) };
-  }
-  return { ...base, kind };
-}
-
-function plainObject<TValue extends Readonly<Record<string, unknown>>>(
-  value: TValue,
-  owner: string,
-): TValue {
-  if (!isNonArrayObject(value)) throw new TypeError(`${owner} must be a plain object.`);
-  return Object.freeze({ ...value });
 }
 
 function prepareTreeRecord<
@@ -2419,7 +2410,10 @@ function treeLabelSpans(
     cellRole: import('../../visual/source.ts').FrameCellRole,
   ) => import('../../visual/source.ts').FrameCellSource,
 ): readonly import('../../visual/render.ts').RenderSpan[] {
-  const match = matchNormalizedCollectionQuery({ id: row.id, primary: row.label }, input.model.query)
+  const match = matchPreparedCollectionQuery(
+    prepareQueryCandidate({ id: row.id, primary: row.label }),
+    input.model.query,
+  )
     ?.ranges.find((range) => range.field === 'primary');
   if (match === undefined) {
     return [

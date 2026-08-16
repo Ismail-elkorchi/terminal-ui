@@ -296,6 +296,70 @@ test('an assumed legacy keyboard profile is established inside an owned stack fr
   }]);
 });
 
+test('main-screen keyboard observations cannot suppress alternate-screen frame ownership', async () => {
+  const host = createMemoryTerminalHost({
+    capabilities: {
+      probes: { keyboardProtocol: 'supported' },
+      overrides: { alternateScreen: true }
+    },
+    initialState: { keyboardProfile: kittyEvents }
+  });
+  const session = await host.beginSession({ id: 'screen-keyboard-ownership' });
+
+  const alternate = await session.enableAlternateScreen();
+  const keyboard = await session.enableKeyboardProfile(kittyEvents);
+
+  assert.equal(alternate.status, 'applied');
+  assert.equal(keyboard.status, 'applied');
+  assert.equal(host.output(), '\u001B[?1049h\u001B[>3u');
+
+  const restored = await session.restore('success');
+  assert.equal(restored.status, 'restored');
+  assert.equal(host.output(), '\u001B[?1049h\u001B[>3u\u001B[<u\u001B[?1049l');
+  assert.deepEqual(restored.resultingState.keyboardProfile, kittyEvents);
+});
+
+test('one lease owns and restores independent keyboard frames on both terminal screens', async () => {
+  const host = createMemoryTerminalHost({
+    capabilities: { probes: { keyboardProtocol: 'supported' } }
+  });
+  const session = await host.beginSession({ id: 'two-screen-keyboard-frames' });
+
+  await session.enableKeyboardProfile(kittyEvents);
+  await session.enableAlternateScreen();
+  await session.enableKeyboardProfile(LEGACY_KEYBOARD_PROFILE);
+  const restored = await session.restore('success');
+
+  assert.equal(restored.status, 'restored');
+  assert.equal(
+    host.output(),
+    '\u001B[>3u\u001B[?1049h\u001B[>0u\u001B[<u\u001B[?1049l\u001B[<u'
+  );
+  assert.deepEqual(
+    restored.completed.map((operation) => operation.kind),
+    ['keyboardProfile', 'alternateScreen', 'keyboardProfile']
+  );
+});
+
+test('nested leases push and pop keyboard frames on the active screen independently', async () => {
+  const host = createMemoryTerminalHost({
+    capabilities: { probes: { keyboardProtocol: 'supported' } }
+  });
+  const outer = await host.beginSession({ id: 'outer-screen-frame' });
+  await outer.enableAlternateScreen();
+  await outer.enableKeyboardProfile(kittyEvents);
+
+  const inner = await host.beginSession({ id: 'inner-screen-frame' });
+  await inner.enableKeyboardProfile(kittyEvents);
+  await inner.restore('success');
+  await outer.restore('success');
+
+  assert.equal(
+    host.output(),
+    '\u001B[?1049h\u001B[>3u\u001B[>3u\u001B[<u\u001B[<u\u001B[?1049l'
+  );
+});
+
 test('active Kitty discovery uses primary device attributes as an unsupported fence', async () => {
   const host = createMemoryTerminalHost();
   host.input('before\u001B[?1;2cafter');
@@ -381,6 +445,31 @@ test('a refreshed Kitty probe receives a full timeout budget after response quar
   await session.restore('success');
 });
 
+test('an inconclusive refreshed Kitty probe cannot retain the previous endpoint profile', async () => {
+  const host = createMemoryTerminalHost();
+  host.input('\u001B[?3u');
+  await host.getCapabilities({ activeProbes: ['keyboardProtocol'], probeTimeoutMs: 25 });
+
+  const refreshedDetection = host.getCapabilities({
+    activeProbes: ['keyboardProtocol'],
+    probeTimeoutMs: 25,
+    refresh: true,
+  });
+  for (
+    let attempt = 0;
+    attempt < 50 && (host.output().match(/\u001B\[\?u/gu)?.length ?? 0) < 2;
+    attempt += 1
+  ) await Promise.resolve();
+  host.clock.advance(25);
+  const refreshed = await refreshedDetection;
+  const session = await host.beginSession({ id: 'inconclusive-refreshed-kitty' });
+
+  assert.equal(refreshed.keyboardProtocol.support, 'unknown');
+  assert.deepEqual(session.initialState.keyboardProfile, { kind: 'legacy' });
+  assert.equal(session.initialState.provenance.keyboardProfile, 'assumed');
+  await session.restore('success');
+});
+
 test('terminal mode discovery observes outer state and enables only safely owned features', async () => {
   const host = createMemoryTerminalHost();
   const reports = [
@@ -437,6 +526,17 @@ test('a refreshed mode observation replaces omitted values from the previous ter
   assert.equal(refreshed.unicodeGraphemeMode.support, 'unknown');
   assert.equal(session.initialState.unicodeGraphemeMode, false);
   assert.equal(session.initialState.provenance.unicodeGraphemeMode, 'assumed');
+  await session.restore('success');
+});
+
+test('capability refresh is rejected while an application terminal lease is active', async () => {
+  const host = createMemoryTerminalHost();
+  const session = await host.beginSession({ id: 'active-during-refresh' });
+
+  await assert.rejects(
+    host.getCapabilities({ refresh: true }),
+    /cannot be refreshed while a terminal session is active/u,
+  );
   await session.restore('success');
 });
 
@@ -713,20 +813,49 @@ test('session protocol policies plan and apply only requested operations', async
 
   assert.equal(plan.length, 8);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.applied.map((item) => item.kind), ['rawInput', 'mouseReporting']);
+  assert.deepEqual(result.applied.map((item) => item.kind), [
+    'rawInput',
+    'keyboardProfile',
+    'mouseReporting'
+  ]);
   assert.equal(result.resultingState.rawInput, true);
   assert.deepEqual(result.resultingState.mouseReporting, { tracking: 'drag', encoding: 'sgr' });
   assert.deepEqual(result.skipped.map((item) => item.kind), [
     'alternateScreen',
     'bracketedPaste',
     'unicodeGraphemeMode',
-    'keyboardProfile',
     'focusReporting',
     'cursorVisibility'
   ]);
   assert.equal(result.diagnostics.some((item) => item.code === 'HOST_PROTOCOL_SKIPPED'), true);
   assert.match(host.output(), /\u001B\[\?1002h/u);
   assert.doesNotMatch(host.output(), /\u001B\[\?1049h/u);
+});
+
+test('disabled keyboard enhancement still owns a legacy frame on the alternate screen', async () => {
+  const host = createMemoryTerminalHost({
+    initialState: { keyboardProfile: kittyEvents }
+  });
+  const session = await host.beginSession({ id: 'alternate-legacy-keyboard-frame' });
+  const result = await applySessionProtocolPolicy(session, {
+    alternateScreen: 'required',
+    rawInput: 'disabled',
+    bracketedPaste: 'disabled',
+    focusReporting: 'disabled',
+    unicodeGraphemeMode: 'disabled',
+    keyboard: { profile: kittyEvents, requirement: 'disabled' },
+    cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
+    mouseReporting: { mode: 'none', requirement: 'disabled' }
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.resultingState.keyboardProfile, LEGACY_KEYBOARD_PROFILE);
+  assert.equal(host.output(), '\u001B[?1049h\u001B[>0u');
+
+  const restored = await session.restore('success');
+  assert.equal(restored.status, 'restored');
+  assert.equal(host.output(), '\u001B[?1049h\u001B[>0u\u001B[<u\u001B[?1049l');
+  assert.deepEqual(restored.resultingState.keyboardProfile, kittyEvents);
 });
 
 test('session protocol policies fail only required unavailable operations', async () => {
@@ -747,13 +876,15 @@ test('session protocol policies fail only required unavailable operations', asyn
   });
 
   assert.equal(result.ok, false);
-  assert.deepEqual(result.applied, []);
+  assert.deepEqual(result.applied, [{
+    kind: 'keyboardProfile',
+    enabled: LEGACY_KEYBOARD_PROFILE
+  }]);
   assert.deepEqual(result.skipped.map((item) => item.kind), [
     'alternateScreen',
     'bracketedPaste',
     'rawInput',
     'unicodeGraphemeMode',
-    'keyboardProfile',
     'mouseReporting',
     'focusReporting',
     'cursorVisibility'
@@ -779,13 +910,15 @@ test('session protocol diagnostics preserve requested operation and mouse mode',
   });
 
   assert.equal(result.ok, true);
-  assert.deepEqual(result.applied, []);
+  assert.deepEqual(result.applied, [{
+    kind: 'keyboardProfile',
+    enabled: LEGACY_KEYBOARD_PROFILE
+  }]);
   assert.deepEqual(result.skipped.map((item) => item.kind), [
     'alternateScreen',
     'bracketedPaste',
     'rawInput',
     'unicodeGraphemeMode',
-    'keyboardProfile',
     'mouseReporting',
     'focusReporting',
     'cursorVisibility'
@@ -1125,6 +1258,39 @@ test('stream hosts revert to legacy input when requested Kitty flags are not ver
   assert.equal(output.join(''), '\u001B[>3u\u001B[?u\u001B[c\u001B[=0u');
   const restored = await session.restore('error');
   assert.equal(restored.status, 'restored');
+  await host.dispose();
+});
+
+test('failed alternate-screen keyboard verification restores its screen-local frame', async () => {
+  const output = [];
+  const inheritedMain = kittyKeyboardProfile(5);
+  const host = createBunTerminalHost({
+    stdin: { source: runtimeInput(['\u001B[?1u']), isTty: true },
+    stdout: {
+      write: (chunk) => output.push(String(chunk)),
+      recoveryWrite: (chunk) => output.push(String(chunk)),
+      isTty: true
+    },
+    capabilities: {
+      probes: { keyboardProtocol: 'supported' },
+      overrides: { alternateScreen: true }
+    },
+    initialState: { keyboardProfile: inheritedMain }
+  });
+  const session = await host.beginSession({ id: 'alternate-verification-failure' });
+
+  await session.enableAlternateScreen();
+  const result = await session.enableKeyboardProfile(kittyEvents);
+
+  assert.equal(result.status, 'rejected');
+  assert.deepEqual((await session.currentState()).keyboardProfile, LEGACY_KEYBOARD_PROFILE);
+  const restored = await session.restore('error');
+  assert.equal(restored.status, 'restored');
+  assert.deepEqual(restored.resultingState.keyboardProfile, inheritedMain);
+  assert.equal(
+    output.join(''),
+    '\u001B[?1049h\u001B[>3u\u001B[?u\u001B[c\u001B[=0u\u001B[<u\u001B[?1049l'
+  );
   await host.dispose();
 });
 

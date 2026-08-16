@@ -4,6 +4,7 @@ import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalClock } from '../host/index.ts';
 import { createProducerAdmissionLease } from './producer-admission.ts';
 import type { ProducerAdmissionLease } from './producer-admission.ts';
+import { decodeTuiEffectOutput } from './hook-results.ts';
 import type {
   TuiContext,
   TuiEffect,
@@ -313,7 +314,7 @@ async function executeEffect<TMessage>(
       }
     };
     if (signalIsAborted(controller.signal)) return;
-    output = await effect.run(context);
+    output = decodeTuiEffectOutput<TMessage>(await effect.run(context));
   } catch (cause) {
     if (signalIsAborted(controller.signal)) return;
     await recoverEffect(effect, cause, 'run', lease, options);
@@ -352,7 +353,12 @@ async function recoverEffect<TMessage>(
   let output: TuiEffectOutput<TMessage> | undefined;
   const initial = effectFailure(effect, cause, phase);
   try {
-    output = effect.onError?.({ id: effect.id, diagnostic: initial });
+    output = effect.onError === undefined
+      ? undefined
+      : decodeTuiEffectOutput<TMessage>(
+          effect.onError({ id: effect.id, diagnostic: initial }),
+          `TUI effect ${effect.id} onError output`
+        );
   } catch (handlerCause) {
     failureCause = new AggregateError([cause, handlerCause], 'TUI effect and its error mapper failed.');
     failurePhase = 'onError';

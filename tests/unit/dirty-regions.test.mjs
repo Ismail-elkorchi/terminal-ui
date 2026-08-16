@@ -11,6 +11,7 @@ import {
   dirtyRegionsForRegionChanges
 } from '../../dist/renderer/internal/dirty-regions.js';
 import { applyRenderDiff } from '../../dist/renderer/internal/diff-interpreter.js';
+import { createFrameBuffer } from '../../dist/renderer/internal/frame-buffer.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import {
   absolute,
@@ -89,6 +90,26 @@ test('incremental diff projections reject width-profile changes', () => {
   const rewritten = renderElementFrame(text({ content: '🙂' }), { columns: 4, rows: 1 }, { widthProfile: narrow });
   const projection = applyRenderDiff(undefined, diffFrames(undefined, rewritten));
   assert.deepEqual(projection.widthProfile, narrow);
+});
+
+test('diff replay preserves the target canvas style explicitly', () => {
+  const previousBuffer = createFrameBuffer(4, 1);
+  previousBuffer.write(1, 1, [{ text: 'old' }]);
+  const nextBuffer = createFrameBuffer(4, 1);
+  nextBuffer.write(1, 1, [{ text: 'new' }]);
+  const previous = previousBuffer.snapshot({ canvasStyle: { bg: { kind: 'ansi', value: 1 } } });
+  const next = nextBuffer.snapshot({ canvasStyle: { bg: { kind: 'ansi', value: 4 } } });
+
+  const diff = diffFrames(previous, next);
+  const replayed = applyRenderDiff(previous, diff);
+
+  assert.deepEqual(diff.canvasStyle, next.canvasStyle);
+  assert.deepEqual(replayed.canvasStyle, next.canvasStyle);
+  assert.deepEqual(replayed.cells, next.cells);
+
+  const withoutCanvas = nextBuffer.snapshot();
+  const cleared = applyRenderDiff(replayed, diffFrames(next, withoutCanvas));
+  assert.equal(cleared.canvasStyle, undefined);
 });
 
 test('region fingerprints skip unchanged regions', () => {

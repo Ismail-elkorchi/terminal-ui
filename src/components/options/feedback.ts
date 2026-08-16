@@ -214,7 +214,6 @@ type VisualizationOptions<
       readonly presentation?: never;
       readonly pointerState?: never;
       readonly disabled?: never;
-      readonly readOnly?: never;
       readonly busy?: boolean;
       readonly inert?: never;
       readonly onTransition?: never;
@@ -225,7 +224,6 @@ type VisualizationOptions<
       readonly presentation: VisualizationPresentation;
       readonly pointerState?: PointerInteractionState;
       readonly disabled?: false;
-      readonly readOnly?: boolean;
       readonly busy?: boolean;
       readonly inert?: false;
       readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
@@ -236,7 +234,6 @@ type VisualizationOptions<
       readonly presentation: VisualizationPresentation;
       readonly pointerState?: never;
       readonly disabled?: false;
-      readonly readOnly?: never;
       readonly busy?: boolean;
       readonly inert: true;
       readonly onTransition?: never;
@@ -247,7 +244,6 @@ type VisualizationOptions<
       readonly presentation: VisualizationPresentation;
       readonly pointerState?: never;
       readonly disabled: true;
-      readonly readOnly?: never;
       readonly busy?: boolean;
       readonly inert?: boolean;
       readonly onTransition?: never;

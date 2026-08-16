@@ -4,6 +4,14 @@ export { disclosure, richText, text } from './factories/content.ts';
 export { divider } from './factories/menus.ts';
 export { link, toggleButton, toolbar } from './factories/foundations.ts';
 export type * from './options/drawing.ts';
-export type { DisclosureOptions, RichTextOptions, TextOptions } from './options/content.ts';
+export type {
+  ActiveDisclosureOptions,
+  DisabledDisclosureOptions,
+  DisclosureMessage,
+  DisclosureOptions,
+  RichTextOptions,
+  TextOptions,
+} from './options/content.ts';
 export type { DividerOptions } from './options/menus.ts';
 export type * from './options/foundations.ts';
+export type { DisclosureAction } from '../ui-model/disclosure.ts';

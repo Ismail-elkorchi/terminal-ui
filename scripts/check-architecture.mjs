@@ -38,6 +38,10 @@ const timerRestrictedLayers = new Set([...deterministicGlobalLayers, 'tui']);
 const componentDefinitionPrivateRendererDependencies = new Set([
   'renderer/model/component-node.ts'
 ]);
+const componentSharedRendererDependencies = new Set([
+  'renderer/contracts.ts',
+  'renderer/measurement.ts',
+]);
 const runtimeGlobalNames = new Set(['Bun', 'Deno', 'globalThis', 'process']);
 const ambientRuntimeNames = new Set([
   ...runtimeGlobalNames,
@@ -88,7 +92,7 @@ const architectureDependencies = new Map([
   ])],
   ['protocol', new Set(['diagnostics.ts', 'foundation', 'geometry', 'graphics', 'text'])],
   ['renderer', new Set([
-    'accessibility', 'behavior', 'element', 'foundation', 'geometry', 'graphics',
+    'accessibility', 'behavior', 'diagnostics.ts', 'element', 'foundation', 'geometry', 'graphics',
     'input', 'interaction', 'protocol', 'text', 'theme', 'ui-model', 'visual'
   ])],
   ['result.ts', new Set(['diagnostics.ts'])],
@@ -504,7 +508,7 @@ function forbiddenPrivateDependency(sourceFile, sourceLayer, targetFile) {
   const targetPath = sourceRelative(targetFile);
   if (sourcePath.startsWith('renderer/model/') && targetPath.startsWith('renderer/internal/')) return true;
   if (sourceLayer === 'component' && targetPath.startsWith('renderer/')) {
-    if (targetPath === 'renderer/contracts.ts') return false;
+    if (componentSharedRendererDependencies.has(targetPath)) return false;
     return sourcePath !== 'component/definition.ts'
       || !componentDefinitionPrivateRendererDependencies.has(targetPath);
   }

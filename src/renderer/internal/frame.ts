@@ -22,7 +22,8 @@ import { textWidthProfileKey } from '../../text/index.ts';
 import { frameIndex } from './frame-index.ts';
 import type { FrameIndex } from './frame-index.ts';
 import type { GraphicOperation, GraphicPlacement } from '../../graphics/index.ts';
-import { sameFrameCell } from './frame-cell-equality.ts';
+import { sameRasterImageContent } from '../../graphics/raster-image.ts';
+import { sameTerminalFrameCell } from './frame-cell-equality.ts';
 
 export type { CursorPosition, Frame, FrameCell, FrameHitTarget } from '../contracts.ts';
 
@@ -106,6 +107,7 @@ export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): 
     width: frame.width,
     height: frame.height,
     widthProfile: frame.widthProfile,
+    ...(frame.canvasStyle === undefined ? {} : { canvasStyle: frame.canvasStyle }),
     operations,
     graphicOperations: frame.graphics.map((placement) => ({ kind: 'place', placement })),
     ...(frame.cursor === undefined ? {} : { cursor: frame.cursor }),
@@ -127,6 +129,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
       width: next.width,
       height: next.height,
       widthProfile: next.widthProfile,
+      ...(next.canvasStyle === undefined ? {} : { canvasStyle: next.canvasStyle }),
       operations: [
         ...clear,
         ...frameWriteOperations(next)
@@ -169,6 +172,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     width: next.width,
     height: next.height,
     widthProfile: next.widthProfile,
+    ...(next.canvasStyle === undefined ? {} : { canvasStyle: next.canvasStyle }),
     operations,
     graphicOperations: diffGraphics(previous.graphics, next.graphics),
     ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
@@ -199,7 +203,7 @@ function diffGraphics(
 }
 
 function sameGraphicPlacement(left: GraphicPlacement, right: GraphicPlacement): boolean {
-  return left.image === right.image
+  return sameRasterImageContent(left.image, right.image)
     && left.fit === right.fit
     && sameRect(left.bounds, right.bounds)
     && sameRect(left.clip, right.clip);
@@ -410,14 +414,14 @@ function runNeedsClear(
 }
 
 function fingerprintsMatch(previous: FrameIndex, next: FrameIndex, row: number): boolean {
-  const previousFingerprint = previous.rows[row - 1]?.fingerprint;
-  if (previousFingerprint === undefined || previousFingerprint !== next.rows[row - 1]?.fingerprint) return false;
+  const previousFingerprint = previous.rows[row - 1]?.terminalFingerprint;
+  if (previousFingerprint === undefined || previousFingerprint !== next.rows[row - 1]?.terminalFingerprint) return false;
   const previousRow = previous.rows[row - 1];
   const nextRow = next.rows[row - 1];
   if (previousRow === undefined || nextRow === undefined) return previousRow === nextRow;
   if (previousRow.cells.size !== nextRow.cells.size) return false;
   for (const [column, cell] of previousRow.cells) {
-    if (!sameFrameCell(cell, nextRow.cells.get(column))) return false;
+    if (!sameTerminalFrameCell(cell, nextRow.cells.get(column))) return false;
   }
   return true;
 }
@@ -441,7 +445,7 @@ function pushSpan(spans: RenderSpan[], next: RenderSpan): void {
 }
 
 function sameCell(left: FrameCell | undefined, right: FrameCell | undefined): boolean {
-  return sameFrameCell(left, right);
+  return sameTerminalFrameCell(left, right);
 }
 
 export { sameFrameCell } from './frame-cell-equality.ts';

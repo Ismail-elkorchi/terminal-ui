@@ -2,6 +2,7 @@ export type ComponentDefinitionName = `${string}/${string}`;
 
 export type ComponentExecutionPhase =
   | 'prepare'
+  | 'inspection'
   | 'compose'
   | 'measure'
   | 'layout'

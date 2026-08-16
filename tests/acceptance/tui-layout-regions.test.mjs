@@ -78,7 +78,7 @@ function workspaceView(state) {
     commandInput({
       id: 'command',
       prompt: '/',
-      presentation: { value: state.query, cursor: 0, suggestions: prepareCommandSuggestions([]) },
+      presentation: { value: state.query, cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: () => ({ type: 'component' })
     })
   ], {

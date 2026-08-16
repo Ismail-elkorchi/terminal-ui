@@ -40,6 +40,7 @@ import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import {
   commandInputPresentation,
+  createCommandInputState,
   createTextAreaState,
   commandInputReducer,
   createScrollState,
@@ -48,8 +49,11 @@ import {
   tabsReducer,
   textAreaReducer,
   treeReducer,
+  prepareTreeSource,
+  prepareTreeView,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputState, MenuBarState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { PreparedTreeSource } from '@ismail-elkorchi/terminal-ui';
 import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TuiEffect, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
 import { textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
@@ -94,6 +98,7 @@ interface ChooserState {
 interface EditorState {
   readonly root?: string;
   readonly nodes: readonly TreeNode<EntryMetadata>[];
+  readonly treeSource: PreparedTreeSource<EntryMetadata>;
   readonly tree: ScrollableTreePresentation;
   readonly buffers: readonly EditorBuffer[];
   readonly activePath?: string;
@@ -152,9 +157,10 @@ const menuItems: readonly MenuItem[] = [{
 function initialState(): EditorState {
   return {
     nodes: [],
+    treeSource: prepareTreeSource<EntryMetadata>([]),
     tree: {
       expandedIds: [],
-      selection: { mode: 'none' },
+      selection: { mode: 'single', followActive: true },
       scroll: createScrollState()
     },
     buffers: [],
@@ -167,7 +173,7 @@ function initialState(): EditorState {
 }
 
 function emptyCommand(): CommandInputState {
-  return { input: { text: '', cursor: 0 }, history: [], suggestions: prepareCommandSuggestions([]) };
+  return createCommandInputState({ suggestions: prepareCommandSuggestions([]) });
 }
 
 export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorOperations) {
@@ -214,8 +220,7 @@ function updateEditor(
       return commandResult(state, message.id, operations);
     case 'tree': {
       const treeState = treeReducer(state.tree, message.action, {
-        nodes: state.nodes,
-        selection: { mode: 'single', commitment: 'followActive' },
+        view: prepareTreeView(state.treeSource, state.tree),
       });
       return result({ ...state, tree: treeState });
     }
@@ -260,6 +265,7 @@ function updateEditor(
         ...state,
         root: message.root,
         nodes: message.nodes,
+        treeSource: prepareTreeSource(message.nodes),
         tree: {
           expandedIds: message.nodes.filter((node) => node.kind !== 'leaf').map((node) => node.id),
           ...(message.nodes[0]?.id === undefined ? {} : { activeId: message.nodes[0].id }),
@@ -519,7 +525,7 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
     text({ content: state.root === undefined ? 'No folder open' : path.basename(state.root), id: 'explorer-root', textRole: 'metadata' }),
     tree({
       id: 'editor-tree',
-      nodes: state.nodes,
+      view: prepareTreeView(state.treeSource, state.tree),
       presentation: state.tree,
       emptyText: 'Use /folder <path>',
       onTransition: (action): EditorMessage => ({ kind: 'tree', action }),

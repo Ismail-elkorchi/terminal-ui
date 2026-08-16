@@ -1,7 +1,7 @@
 import type {
   MeasuredWindow,
   MeasuredWindowEntry
-} from '../../behavior/measured-window.ts';
+} from '../../ui-model/measured-window.ts';
 import type {
   Element,
   ElementMessage

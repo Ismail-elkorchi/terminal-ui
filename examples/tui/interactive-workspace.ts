@@ -28,15 +28,20 @@ import type { TuiUpdateResult } from '@ismail-elkorchi/terminal-ui';
 import {
   commandInputPresentation,
   commandInputReducer,
+  createCommandInputState,
+  createSearchPickerState,
   createScrollState,
   dataGridReducer,
   prepareTableCollection,
   searchPickerReducer,
+  searchPickerPresentation,
   prepareSearchPickerIndex,
   tabsReducer,
+  prepareTreeSource,
+  prepareTreeView,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { CommandInputState } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { CommandInputState, SearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import type {
   CommandInputTransition,
@@ -70,8 +75,8 @@ interface WorkspaceState {
   readonly tree: ScrollableTreePresentation;
   readonly table: ScrollableDataGridPresentation;
   readonly command: CommandInputState;
-  readonly searchPicker: UnscrolledSearchPickerPresentation & {
-    readonly open: boolean;
+  readonly searchPicker: {
+    readonly state: SearchPickerState;
     readonly used: boolean;
   };
   readonly resolved: ReadonlySet<string>;
@@ -121,9 +126,17 @@ const searchPickerEntries: readonly SearchEntry[] = [
   { id: 'notes', label: 'Open notes', value: '/notes', group: 'Navigation' }
 ];
 const workspaceSearchPickerIndex = prepareSearchPickerIndex(searchPickerEntries);
+const navigationTreeSource = prepareTreeSource(navigationNodes());
 
 const suggestions = prepareCommandSuggestions(
-  searchPickerEntries.map((entry) => ({ id: entry.id, label: entry.label, value: entry.value })),
+  searchPickerEntries.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    completion: {
+      range: { startOffset: 0, endOffsetExclusive: entry.value.length },
+      text: entry.value
+    }
+  })),
 );
 
 function navigationNodes(): readonly TreeNode<NavigationMetadata>[] {
@@ -145,20 +158,22 @@ function initialState(): WorkspaceState {
     tree: {
       expandedIds: ['workspace'],
       activeId: 'queue:triage',
-      selection: { mode: 'single', selectedId: 'queue:triage' },
+      selection: { mode: 'single', selectedId: 'queue:triage', followActive: true },
       scroll: createScrollState()
     },
     table: {
-      interaction: { kind: 'row',
-      selectionMode: 'single' as const, activeRowId: 'T-101', selectedRowIds: ['T-101'] },
+      interaction: {
+        kind: 'row',
+        activeRowId: 'T-101',
+        selection: { mode: 'single', selectedRowId: 'T-101', followActive: true },
+      },
       scroll: createScrollState()
     },
-    command: {
-      input: { text: '', cursor: 0 },
-      history: [],
-      suggestions
+    command: createCommandInputState({ suggestions }),
+    searchPicker: {
+      state: createSearchPickerState({ query: { text: '', mode: 'fuzzy' } }, workspaceSearchPickerIndex),
+      used: false,
     },
-    searchPicker: { open: false, used: false, query: { text: '', mode: 'fuzzy' }, activeId: 'issues' },
     resolved: new Set<string>(),
     activity: ['Workspace started.', 'Loaded six controlled ticket records.'],
     pointer: { tree: false, table: false, searchPicker: false }
@@ -188,8 +203,7 @@ function updateWorkspace(
   switch (message.kind) {
     case 'tree': {
       const nextTree = treeReducer(state.tree, message.action, {
-        nodes: navigationNodes(),
-        selection: { mode: 'single', commitment: 'followActive' },
+        view: prepareTreeView(navigationTreeSource, state.tree),
       });
       const queue = queueFromSelection(selectedTreeId(nextTree));
       const rows = ticketsForQueue(queue);
@@ -205,9 +219,8 @@ function updateWorkspace(
           ...state.table,
           interaction: {
             kind: 'row',
-            selectionMode: 'single' as const,
             activeRowId: selectedRowId,
-            selectedRowIds: [selectedRowId],
+            selection: { mode: 'single', selectedRowId, followActive: true },
           },
         },
         pointer: { ...state.pointer, tree: message.action.kind === 'setActive' || state.pointer.tree }
@@ -225,7 +238,6 @@ function updateWorkspace(
         table: dataGridReducer(state.table, message.action, {
           collection: prepareTableCollection(visibleTickets(state), (ticket) => ticket.id),
           columnIds: tableColumns.map((column) => column.id),
-          selection: { mode: 'single', commitment: 'followActive' },
           pageSize: 12,
         }),
         pointer: { ...state.pointer, table: message.action.kind === 'setActiveRow' || state.pointer.table }
@@ -243,15 +255,29 @@ function updateWorkspace(
     case 'submit':
       return updateResult(applyCommand(state, message.value));
     case 'openSearchPicker':
-      return updateResult({ ...state, searchPicker: { ...state.searchPicker, open: true } });
+      return updateResult({
+        ...state,
+        searchPicker: {
+          ...state.searchPicker,
+          state: { ...state.searchPicker.state, editor: { ...state.searchPicker.state.editor, open: true } },
+        },
+      });
     case 'closeSearchPicker':
-      return updateResult({ ...state, searchPicker: { ...state.searchPicker, open: false, query: { text: '', mode: 'fuzzy' } } });
+      return updateResult({
+        ...state,
+        searchPicker: {
+          ...state.searchPicker,
+          state: createSearchPickerState({ query: { text: '', mode: 'fuzzy' } }, workspaceSearchPickerIndex),
+        },
+      });
     case 'searchPicker':
       return updateResult({
         ...state,
         searchPicker: {
           ...state.searchPicker,
-          ...searchPickerReducer(state.searchPicker, message.action, { searchPickerIndex: workspaceSearchPickerIndex }),
+          state: searchPickerReducer(state.searchPicker.state, message.action, {
+            searchPickerIndex: workspaceSearchPickerIndex,
+          }),
           ...(message.action.kind === 'setActive'
             ? { used: true }
             : {}),
@@ -261,7 +287,11 @@ function updateWorkspace(
       const entry = searchPickerEntries.find((candidate) => candidate.id === message.id);
       return updateResult(entry === undefined ? state : applyCommand({
         ...state,
-        searchPicker: { ...state.searchPicker, open: false, used: true },
+        searchPicker: {
+          ...state.searchPicker,
+          state: { ...state.searchPicker.state, editor: { ...state.searchPicker.state.editor, open: false } },
+          used: true,
+        },
       }, entry.value));
     }
     case 'resolve': {
@@ -283,14 +313,16 @@ function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
   const command = raw.trim();
   const cleared = {
     ...state,
-    command: {
-      ...state.command,
-      input: { text: '', cursor: 0 },
-      history: command.length === 0 ? state.command.history : [...state.command.history, command]
-    }
+    command: commandInputReducer(state.command, { kind: 'recordSubmission', value: command })
   };
   switch (command) {
-    case '/palette': return { ...cleared, searchPicker: { ...state.searchPicker, open: true } };
+    case '/palette': return {
+      ...cleared,
+      searchPicker: {
+        ...state.searchPicker,
+        state: { ...state.searchPicker.state, editor: { ...state.searchPicker.state.editor, open: true } },
+      },
+    };
     case '/issues': return { ...cleared, tab: 'issues' };
     case '/activity': return { ...cleared, tab: 'activity' };
     case '/notes': return { ...cleared, tab: 'notes' };
@@ -332,14 +364,14 @@ function workspaceView(state: WorkspaceState) {
       { kind: 'fixed', cells: 1 }
     ]
   });
-  return overlay([base, ...(state.searchPicker.open ? [searchPickerLayer(state)] : [])], { id: 'workspace-root' });
+  return overlay([base, ...(state.searchPicker.state.editor.open ? [searchPickerLayer(state)] : [])], { id: 'workspace-root' });
 }
 
 function navigationPane(state: WorkspaceState) {
   return surface(column([
     tree({
       id: 'workspace-tree',
-      nodes: navigationNodes(),
+      view: prepareTreeView(navigationTreeSource, state.tree),
       presentation: state.tree,
       scrollbar: { visible: 'auto' },
       onTransition: (action): WorkspaceMessage => ({ kind: 'tree', action }),
@@ -422,7 +454,7 @@ function workspaceStatus(state: WorkspaceState) {
 
 function commandPane(state: WorkspaceState) {
   const presentation = commandInputPresentation(state.command);
-  const showSuggestions = state.command.input.text.length > 0;
+  const showSuggestions = state.command.editor.input.text.length > 0;
   return surface(commandInput({
     id: 'workspace-command',
     prompt: '› ',
@@ -446,10 +478,7 @@ function searchPickerLayer(state: WorkspaceState) {
       content: searchPicker<string, WorkspaceMessage, WorkspaceMessage>({
         id: 'workspace-search-picker',
         searchPickerIndex: workspaceSearchPickerIndex,
-        presentation: {
-          query: state.searchPicker.query,
-          ...(state.searchPicker.activeId === undefined ? {} : { activeId: state.searchPicker.activeId }),
-        },
+        presentation: searchPickerPresentation(state.searchPicker.state) as UnscrolledSearchPickerPresentation,
         onTransition: (action): WorkspaceMessage => ({ kind: 'searchPicker', action }),
         onAccept: (event): WorkspaceMessage => ({ kind: 'acceptSearchPicker', id: event.id }),
       })
@@ -499,7 +528,9 @@ function selectedTreeId(state: ScrollableTreePresentation): string | undefined {
 }
 
 function selectedTableRowId(state: ScrollableDataGridPresentation): string | undefined {
-  return state.interaction.kind === 'row' ? state.interaction.selectedRowIds[0] : undefined;
+  return state.interaction.kind === 'row' && state.interaction.selection.mode === 'single'
+    ? state.interaction.selection.selectedRowId
+    : undefined;
 }
 
 function firstTicket(): Ticket {
@@ -519,7 +550,7 @@ export async function runScriptedWorkspace() {
     await runtime.start();
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput({ kind: 'text', text: 'resolve', paste: false });
-    const keyboardSearchPickerQuery = runtime.state().searchPicker.query.text;
+    const keyboardSearchPickerQuery = searchPickerPresentation(runtime.state().searchPicker.state).query.text;
     await runtime.handleInput(keyEvent('enter'));
     await click(runtime, targetById(runtime, 'workspace-tree:queue:review:body'));
     await click(runtime, targetByPrefix(runtime, 'ticket-table:row:T-103'));

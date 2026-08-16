@@ -1,11 +1,18 @@
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
-import type { CollectionProjection, CollectionRecord } from './collection.ts';
+import type {
+  CollectionProjection,
+  CollectionRecord,
+  CompleteCollectionProjection,
+  WindowedCollectionProjection,
+} from './collection.ts';
 
 export interface TableCollectionRecord<TRow> extends CollectionRecord {
   readonly row: TRow;
 }
 
 export type TableCollection<TRow> = CollectionProjection<TableCollectionRecord<TRow>>;
+export type CompleteTableCollection<TRow> = CompleteCollectionProjection<TableCollectionRecord<TRow>>;
+export type WindowedTableCollection<TRow> = WindowedCollectionProjection<TableCollectionRecord<TRow>>;
 
 export type TableSortDirection = 'ascending' | 'descending';
 
@@ -24,20 +31,36 @@ export interface DataGridCell {
   readonly columnId: string;
 }
 
+export type DataGridRowSelection =
+  | { readonly mode: 'none' }
+  | { readonly mode: 'single'; readonly selectedRowId?: string; readonly followActive?: boolean }
+  | {
+      readonly mode: 'multiple';
+      readonly selectedRowIds: readonly string[];
+      readonly selectionAnchorId?: string;
+      readonly range?: boolean;
+    };
+
+export type DataGridCellSelection =
+  | { readonly mode: 'none' }
+  | { readonly mode: 'single'; readonly selectedCell?: DataGridCell; readonly followActive?: boolean }
+  | {
+      readonly mode: 'multiple';
+      readonly selectedCells: readonly DataGridCell[];
+      readonly selectionAnchor?: DataGridCell;
+      readonly range?: boolean;
+    };
+
 export type DataGridInteraction =
   | {
       readonly kind: 'row';
-      readonly selectionMode: 'none' | 'single' | 'multiple';
       readonly activeRowId?: string;
-      readonly selectedRowIds: readonly string[];
-      readonly selectionAnchorId?: string;
+      readonly selection: DataGridRowSelection;
     }
   | {
       readonly kind: 'cell';
-      readonly selectionMode: 'none' | 'single' | 'multiple';
       readonly activeCell?: DataGridCell;
-      readonly selectedCells: readonly DataGridCell[];
-      readonly selectionAnchor?: DataGridCell;
+      readonly selection: DataGridCellSelection;
     };
 
 interface DataGridPresentationBase extends TablePresentation {
