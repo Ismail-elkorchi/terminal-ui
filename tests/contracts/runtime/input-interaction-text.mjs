@@ -29,7 +29,7 @@ const wordCases = [
 
 invariant(decoded.events[0]?.kind === 'key' && decoded.events[0].key === 'enter', 'input decoding failed');
 invariant(placed.width === 5 && placed.height === 2, 'anchored placement failed');
-invariant(selected.ok && selected.text === 'term', 'selection resolution failed');
+invariant(selected.status === 'resolved' && selected.text === 'term', 'selection resolution failed');
 invariant(width === 3, 'terminal width measurement failed');
 invariant(!sanitized.text.includes('\u001B'), 'terminal sanitization failed');
 for (const [value, offset, expected] of wordCases) {
@@ -65,7 +65,7 @@ invariant(
   'Unicode word movement failed'
 );
 
-console.log(JSON.stringify({ scenario: 'input-interaction-text', ok: true }));
+console.log(JSON.stringify({ scenario: 'input-interaction-text', status: 'passed' }));
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message);

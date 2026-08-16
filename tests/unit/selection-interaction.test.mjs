@@ -50,7 +50,7 @@ test('selection interaction resolves the active caller-controlled source', () =>
   });
 
   assert.deepEqual(result, {
-    ok: true,
+    status: 'resolved',
     mode: 'application',
     sourceId: 'details',
     label: 'Details',
@@ -69,7 +69,7 @@ test('selection interaction falls back to the highest-priority selected source',
   });
 
   assert.deepEqual(result, {
-    ok: true,
+    status: 'resolved',
     mode: 'application',
     sourceId: 'high',
     text: 'high',
@@ -83,7 +83,7 @@ test('selection interaction reports terminal-native delegation as non-copyable a
     sources: [{ id: 'source', text: 'selected', selection: { startOffset: 0, endOffsetExclusive: 8 } }]
   });
 
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'unavailable');
   assert.equal(result.mode, 'terminalNative');
   assert.equal(result.diagnostic.code, 'SELECTION_UNAVAILABLE');
   assert.equal(result.diagnostic.severity, 'info');
@@ -98,7 +98,7 @@ test('selection interaction returns a typed diagnostic when no source has select
     ]
   });
 
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'unavailable');
   assert.equal(result.mode, 'application');
   assert.equal(result.diagnostic.code, 'SELECTION_UNAVAILABLE');
   assert.deepEqual(result.diagnostic.data, {
@@ -115,9 +115,9 @@ test('selection interaction writes clipboard text only through explicit policy a
     sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
   });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.ok ? result.selection.text : undefined, 'copy');
-  assert.equal(result.ok ? result.clipboard.byteLength : undefined, 4);
+  assert.equal(result.status, 'copied');
+  assert.equal(result.status === 'copied' ? result.selection.text : undefined, 'copy');
+  assert.equal(result.status === 'copied' ? result.clipboard.byteLength : undefined, 4);
   assert.equal(host.output().includes('\u001B]52;c;Y29weQ==\u0007'), true);
 });
 
@@ -129,8 +129,8 @@ test('selection interaction permits an explicitly authorized bounded attempt whe
     sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
   });
 
-  assert.equal(result.ok, true);
-  assert.equal(result.ok ? result.clipboard.assurance : undefined, 'sent');
+  assert.equal(result.status, 'copied');
+  assert.equal(result.status === 'copied' ? result.clipboard.assurance : undefined, 'sent');
   assert.equal(host.output().includes('\u001B]52;c;Y29weQ==\u0007'), true);
 });
 
@@ -142,7 +142,7 @@ test('selection interaction rejects clipboard writes when terminal support is ex
     sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
   });
 
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'unavailable');
   assert.equal(result.diagnostic.code, 'HOST_PROTOCOL_UNSUPPORTED');
   assert.equal(host.output(), '');
 });
@@ -155,7 +155,7 @@ test('selection interaction does not write clipboard output when selection is mi
     sources: [{ id: 'field', text: 'copy this' }]
   });
 
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'unavailable');
   assert.equal(result.diagnostic.code, 'SELECTION_UNAVAILABLE');
   assert.equal(host.output(), '');
 });

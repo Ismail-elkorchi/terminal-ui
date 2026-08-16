@@ -222,7 +222,7 @@ function appAccessibility<TState, TMessage>(
     });
   }
   const valid = decodeAccessibleSnapshot(normalized);
-  if (valid.ok) return valid.value;
+  if (valid.status === 'success') return valid.value;
   return Object.freeze({
     ...tuiAccessibility,
     diagnostics: Object.freeze([...tuiAccessibility.diagnostics, valid.error])

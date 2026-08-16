@@ -1,6 +1,11 @@
 import { sanitizeTerminalCellText } from '../text/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-export type { ClipboardWritePolicy, ClipboardWriteResult } from './clipboard.ts';
+export type {
+  ClipboardWritePolicy,
+  ClipboardWriteRejection,
+  ClipboardWriteResult,
+  ClipboardWriteSequenceResult,
+} from './clipboard.ts';
 export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
 export type { TerminalProtocolSink } from './types.ts';
 export {

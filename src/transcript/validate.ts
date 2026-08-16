@@ -14,7 +14,7 @@ import {
   isStringMember
 } from '../foundation/validation.ts';
 import { tuiMessageSources } from '../interaction/message.ts';
-import { err, ok } from '../result.ts';
+import { failure, success } from '../result.ts';
 import { defineTextWidthProfile, measureTextCells } from '../text/index.ts';
 import { isFrameCellInteractionState, isFrameCellRole } from '../visual/source.ts';
 import {
@@ -256,7 +256,7 @@ export function validateTranscript(
   };
   try {
     const result = decodeTranscript(decoded, adoptions, normalizedLimits);
-    return typeof result === 'string' ? transcriptFailure(result) : ok(result);
+    return typeof result === 'string' ? transcriptFailure(result) : success(result);
   } catch (cause) {
     return transcriptFailure(errorMessage(cause));
   }
@@ -1326,7 +1326,7 @@ function pointFits(point: Record<string, unknown>, width: number, height: number
 
 function decodeSnapshot(snapshot: unknown): AccessibleSnapshot | string {
   const result = decodeAccessibleSnapshot(snapshot);
-  if (!result.ok) return result.error.message;
+  if (result.status === 'failure') return result.error.message;
   return result.value;
 }
 
@@ -1626,7 +1626,7 @@ function terminalKeyboardProfileIssue(
 }
 
 function transcriptFailure(message: string): Result<never> {
-  return err(diagnostic('TRANSCRIPT_REPLAY_FAILED', message));
+  return failure(diagnostic('TRANSCRIPT_REPLAY_FAILED', message));
 }
 
 function isStringArray(value: unknown): value is readonly string[] {

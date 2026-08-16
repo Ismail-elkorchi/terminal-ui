@@ -979,7 +979,7 @@ test('TUI runtime uses app-level accessibility descriptions for frames and exits
   assert.equal(harness.frames()[0].accessibility.root.id, 'custom-root');
   assert.equal(harness.frames()[0].accessibility.root.label, 'Accessible ready');
   assert.deepEqual(harness.frames()[0].accessibility.focusPath, ['custom-root', 'custom-status']);
-  assert.equal(decodeAccessibleSnapshot(harness.frames()[0].accessibility).ok, true);
+  assert.equal(decodeAccessibleSnapshot(harness.frames()[0].accessibility).status, 'success');
 
   harness.host.input('\r');
   const exit = await running;
@@ -1012,5 +1012,5 @@ test('TUI runtime falls back when app-level accessibility is structurally invali
 
   assert.equal(snapshot.root.id, 'safe-field');
   assert.equal(snapshot.diagnostics[0]?.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
-  assert.equal(decodeAccessibleSnapshot(snapshot).ok, true);
+  assert.equal(decodeAccessibleSnapshot(snapshot).status, 'success');
 });

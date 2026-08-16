@@ -5,7 +5,6 @@ import { decodeInputChunk, decodeInputEvent } from '../input/index.ts';
 import { createTranscriptRecorder } from '../transcript/index.ts';
 import { encodeHarnessInputEvent } from './input-events.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type {
   TerminalSignal,
   TerminalRestoreResult,
@@ -105,7 +104,7 @@ class PtySignalBus {
 export function createPtyTerminalHarness(options: PtyTerminalHarnessOptions = {}): PtyTerminalHarnessResult {
   if (options.available === false) {
     return {
-      ok: false,
+      status: 'unavailable',
       diagnostic: diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'PTY test adapter is unavailable.', {
         severity: 'warning',
         target: options.id ?? 'pty-harness',
@@ -113,7 +112,7 @@ export function createPtyTerminalHarness(options: PtyTerminalHarnessOptions = {}
       })
     };
   }
-  return { ok: true, harness: createAvailablePtyTerminalHarness(options) };
+  return { status: 'available', harness: createAvailablePtyTerminalHarness(options) };
 }
 
 function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): PtyTerminalHarness {
@@ -298,9 +297,8 @@ function ptyHarnessCommit(
   };
 }
 
-export function isPtyHarnessUnavailable(result: PtyTerminalHarnessResult): result is {
-  readonly ok: false;
-  readonly diagnostic: TerminalDiagnostic;
-} {
-  return !result.ok;
+export function isPtyHarnessUnavailable(
+  result: PtyTerminalHarnessResult,
+): result is Extract<PtyTerminalHarnessResult, { readonly status: 'unavailable' }> {
+  return result.status === 'unavailable';
 }

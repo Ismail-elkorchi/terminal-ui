@@ -43,8 +43,8 @@ export interface PtyTerminalHarnessOptions {
 }
 
 export type PtyTerminalHarnessResult =
-  | { readonly ok: true; readonly harness: PtyTerminalHarness }
-  | { readonly ok: false; readonly diagnostic: TerminalDiagnostic };
+  | { readonly status: 'available'; readonly harness: PtyTerminalHarness }
+  | { readonly status: 'unavailable'; readonly diagnostic: TerminalDiagnostic };
 
 export interface PtyTerminalHarness extends TranscriptReplayTarget {
   readonly host: PtyTerminalHost;

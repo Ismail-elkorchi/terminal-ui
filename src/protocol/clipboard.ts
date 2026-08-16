@@ -9,29 +9,38 @@ export interface ClipboardWritePolicy {
   readonly maxBytes?: number;
 }
 
-export type ClipboardWriteResult =
+export interface ClipboardWriteRejection {
+  readonly status: 'rejected';
+  readonly diagnostic: TerminalDiagnostic;
+}
+
+export type ClipboardWriteSequenceResult =
   | {
-      readonly ok: true;
-      readonly assurance: 'sent';
+      readonly status: 'prepared';
       readonly sequence: string;
       readonly byteLength: number;
     }
+  | ClipboardWriteRejection;
+
+export type ClipboardWriteResult =
   | {
-      readonly ok: false;
-      readonly diagnostic: TerminalDiagnostic;
-    };
+      readonly status: 'written';
+      readonly assurance: 'sent';
+      readonly byteLength: number;
+    }
+  | ClipboardWriteRejection;
 
 export function createClipboardWriteSequence(
   text: string,
   policy: ClipboardWritePolicy
-): ClipboardWriteResult {
+): ClipboardWriteSequenceResult {
   const maxBytes = clipboardMaxBytes(policy.maxBytes);
   if (!policy.allowed) return clipboardDenied();
   const sanitized = sanitizeTerminalText(text).text;
   const bytes = new TextEncoder().encode(sanitized);
   if (bytes.byteLength > maxBytes) {
     return {
-      ok: false,
+      status: 'rejected',
       diagnostic: diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Clipboard payload exceeds configured policy.', {
         severity: 'warning',
         target: 'clipboard',
@@ -40,8 +49,7 @@ export function createClipboardWriteSequence(
     };
   }
   return {
-    ok: true,
-    assurance: 'sent',
+    status: 'prepared',
     sequence: `\u001B]52;c;${base64(bytes)}\u0007`,
     byteLength: bytes.byteLength
   };
@@ -52,15 +60,19 @@ export async function writeClipboardText(
   text: string,
   policy: ClipboardWritePolicy
 ): Promise<ClipboardWriteResult> {
-  const result = createClipboardWriteSequence(text, policy);
-  if (!result.ok) return result;
-  await sink.write(result.sequence);
-  return result;
+  const preparation = createClipboardWriteSequence(text, policy);
+  if (preparation.status === 'rejected') return preparation;
+  await sink.write(preparation.sequence);
+  return {
+    status: 'written',
+    assurance: 'sent',
+    byteLength: preparation.byteLength,
+  };
 }
 
-function clipboardDenied(): ClipboardWriteResult {
+function clipboardDenied(): ClipboardWriteRejection {
   return {
-    ok: false,
+    status: 'rejected',
     diagnostic: diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Clipboard write requires explicit caller policy.', {
       severity: 'warning',
       target: 'clipboard'

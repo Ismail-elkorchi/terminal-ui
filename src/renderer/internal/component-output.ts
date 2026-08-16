@@ -53,7 +53,7 @@ export function adoptRenderedAccessibility(
   frameFocused: boolean
 ): AccessibleSnapshot {
   const result = decodeAccessibleSnapshot(snapshot);
-  if (!result.ok) {
+  if (result.status === 'failure') {
     throw new TypeError(`Renderer returned invalid accessibility: ${result.error.message}`);
   }
   if ((result.value.focusPath.length > 0) !== frameFocused) {

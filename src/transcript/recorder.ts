@@ -497,7 +497,7 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
       } as const, 'Transcript message step');
     case 'snapshot': {
       const snapshot = decodeAccessibleSnapshot(step.snapshot);
-      if (!snapshot.ok) throw new TypeError(snapshot.error.message);
+      if (snapshot.status === 'failure') throw new TypeError(snapshot.error.message);
       return Object.freeze({ kind: 'snapshot', snapshot: snapshot.value });
     }
     case 'diagnostic':

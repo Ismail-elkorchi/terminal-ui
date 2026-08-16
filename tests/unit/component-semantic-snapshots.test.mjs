@@ -824,7 +824,7 @@ for (const current of cases) {
 
     assert.equal(frame.width, terminalSizeNormal.columns);
     assert.equal(frame.height, terminalSizeNormal.rows);
-    assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(frame.accessibility).status, 'success');
     assert.match(plain, current.expectText);
     assert.doesNotMatch(plain, /\u001B/u);
     assert.doesNotMatch(accessibilityJson, /\u001B/u);
@@ -844,22 +844,22 @@ for (const current of cases) {
 
     const resized = renderElementFrame(current.element(), terminalSizeWide);
     assert.equal(resized.width, terminalSizeWide.columns);
-    assert.equal(decodeAccessibleSnapshot(resized.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(resized.accessibility).status, 'success');
     assertCellsAreInsideFrame(resized);
 
     const tiny = renderElementFrame(current.element(), terminalSizeTiny);
     assert.equal(tiny.width, terminalSizeTiny.columns);
     assert.equal(tiny.height, terminalSizeTiny.rows);
-    assert.equal(decodeAccessibleSnapshot(tiny.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(tiny.accessibility).status, 'success');
     assertCellsAreInsideFrame(tiny);
     assert.doesNotMatch(renderFramePlain(tiny), /\u001B/u);
 
     const themedFrame = renderElementFrame(current.element(), terminalSizeNormal, { theme: themed });
-    assert.equal(decodeAccessibleSnapshot(themedFrame.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(themedFrame.accessibility).status, 'success');
     assertCellsAreInsideFrame(themedFrame);
 
     const highContrastFrame = renderElementFrame(current.element(), terminalSizeNormal, { theme: highContrastTheme });
-    assert.equal(decodeAccessibleSnapshot(highContrastFrame.accessibility).ok, true);
+    assert.equal(decodeAccessibleSnapshot(highContrastFrame.accessibility).status, 'success');
     assertCellsAreInsideFrame(highContrastFrame);
     assertElementVisualSnapshot(
       createVisualSnapshot({ frame: highContrastFrame, ansi: { capabilities: colorCapabilities(), theme: highContrastTheme } }),

@@ -29,9 +29,14 @@ export interface PromptRuntimeState<TChoice = never> {
 
 export function initialPromptState<TChoice>(
   prompt: PromptDefinition<TChoice>,
-  resolution: ChoiceResolution<TChoice> = { ok: true, choices: [], diagnostics: [], hasMore: false }
+  resolution: ChoiceResolution<TChoice> = {
+    status: 'resolved',
+    choices: [],
+    diagnostics: [],
+    hasMore: false,
+  }
 ): PromptRuntimeState<TChoice> {
-  const choices = resolution.ok ? resolution.choices : [];
+  const choices = resolution.status === 'resolved' ? resolution.choices : [];
   const selectedChoiceIndexes = initialSelectedChoiceIndexes(prompt, choices);
   const selectedChoiceIndex = selectedChoiceIndexes.values().next().value;
   const focusedChoiceIndex = selectedChoiceIndex
@@ -88,9 +93,11 @@ function basePromptState<TChoice>(
     choiceSearchAt: Number.NEGATIVE_INFINITY,
     choiceLoading: false,
     choiceLoadVersion: 0,
-    choiceDiagnostics: resolution.ok ? resolution.diagnostics : resolution.diagnostics,
-    choiceHasMore: resolution.ok ? resolution.hasMore : false,
-    ...(resolution.ok && resolution.total !== undefined ? { choiceTotal: resolution.total } : {}),
+    choiceDiagnostics: resolution.diagnostics,
+    choiceHasMore: resolution.status === 'resolved' ? resolution.hasMore : false,
+    ...(resolution.status === 'resolved' && resolution.total !== undefined
+      ? { choiceTotal: resolution.total }
+      : {}),
     validationStatus: 'idle',
     validationVersion: 0,
     completed: false

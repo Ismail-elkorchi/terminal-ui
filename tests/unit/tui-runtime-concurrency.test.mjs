@@ -1023,8 +1023,8 @@ test('TUI runtime records external dispatch messages in transcripts', async () =
   const snapshot = transcript.snapshot();
   const serialized = JSON.parse(JSON.stringify(snapshot));
 
-  assert.equal(validateTranscript(snapshot).ok, true);
-  assert.equal(validateTranscript(serialized).ok, true);
+  assert.equal(validateTranscript(snapshot).status, 'success');
+  assert.equal(validateTranscript(serialized).status, 'success');
   assert.ok(snapshot.steps.some((step) => step.kind === 'message'
     && step.source === 'external'
     && step.message.delta === 4

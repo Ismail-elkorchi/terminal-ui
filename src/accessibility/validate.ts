@@ -4,7 +4,7 @@ import {
   isNonArrayObject,
   isNonEmptyString
 } from '../foundation/validation.ts';
-import { err, ok } from '../result.ts';
+import { failure, success } from '../result.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import {
   accessibleRoles,
@@ -35,43 +35,43 @@ export function adoptAccessibleSnapshot(
 ): Result<AccessibleSnapshot> {
   if (typeof snapshot === 'object' && snapshot !== null) {
     const existing = decodedAccessibleSnapshots.get(snapshot);
-    if (existing !== undefined) return ok(existing);
+    if (existing !== undefined) return success(existing);
   }
-  if (!isNonArrayObject(snapshot)) return err(accessibilityFailure('Accessible snapshot must be an object.'));
+  if (!isNonArrayObject(snapshot)) return failure(accessibilityFailure('Accessible snapshot must be an object.'));
   const candidate = { ...snapshot };
   const unknownField = findUnsupportedField(candidate, accessibleSnapshotFields);
   if (unknownField !== undefined) {
-    return err(accessibilityFailure(`Accessible snapshot contains unsupported field: ${unknownField}.`));
+    return failure(accessibilityFailure(`Accessible snapshot contains unsupported field: ${unknownField}.`));
   }
   if (!isAccessibleSource(candidate['source'])) {
-    return err(accessibilityFailure(`Unsupported accessible snapshot source: ${String(candidate['source'])}.`));
+    return failure(accessibilityFailure(`Unsupported accessible snapshot source: ${String(candidate['source'])}.`));
   }
   const source = candidate['source'];
   let title = candidate['title'];
   if (title !== undefined && typeof title !== 'string') {
-    return err(accessibilityFailure('Accessible snapshot title must be a string.'));
+    return failure(accessibilityFailure('Accessible snapshot title must be a string.'));
   }
   if (typeof title === 'string') {
     const sanitizedTitle = sanitizeTerminalText(title);
     if (!sanitizeText && sanitizedTitle.changed) {
-      return err(accessibilityFailure('Accessible snapshot title must not contain terminal control sequences.'));
+      return failure(accessibilityFailure('Accessible snapshot title must not contain terminal control sequences.'));
     }
     title = sanitizedTitle.text;
   }
   const suppliedFocusPath = candidate['focusPath'];
   if (!sanitizeText && suppliedFocusPath === undefined) {
-    return err(accessibilityFailure('Accessible snapshot focusPath must be a string array.'));
+    return failure(accessibilityFailure('Accessible snapshot focusPath must be a string array.'));
   }
   if (suppliedFocusPath !== undefined
     && (!Array.isArray(suppliedFocusPath) || !suppliedFocusPath.every((item) => typeof item === 'string'))) {
-    return err(accessibilityFailure('Accessible snapshot focusPath must be a string array.'));
+    return failure(accessibilityFailure('Accessible snapshot focusPath must be a string array.'));
   }
   const suppliedDiagnostics = candidate['diagnostics'];
   if (!sanitizeText && suppliedDiagnostics === undefined) {
-    return err(accessibilityFailure('Accessible snapshot diagnostics must be an array.'));
+    return failure(accessibilityFailure('Accessible snapshot diagnostics must be an array.'));
   }
   if (suppliedDiagnostics !== undefined && !Array.isArray(suppliedDiagnostics)) {
-    return err(accessibilityFailure('Accessible snapshot diagnostics must be an array.'));
+    return failure(accessibilityFailure('Accessible snapshot diagnostics must be an array.'));
   }
   const diagnostics = [];
   for (const [index, item] of (suppliedDiagnostics ?? []).entries()) {
@@ -79,7 +79,7 @@ export function adoptAccessibleSnapshot(
       diagnostics.push(adoptTerminalDiagnostic(item));
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : String(cause);
-      return err(accessibilityFailure(`Invalid accessible snapshot diagnostic at index ${String(index)}: ${detail}`));
+      return failure(accessibilityFailure(`Invalid accessible snapshot diagnostic at index ${String(index)}: ${detail}`));
     }
   }
   const nodes = new WeakMap<object, AccessibleNode>();
@@ -95,12 +95,12 @@ export function adoptAccessibleSnapshot(
     [],
     (path) => { if (actualFocusPath.length === 0) actualFocusPath = path; },
   );
-  if (nodeIssue !== undefined) return err(nodeIssue);
+  if (nodeIssue !== undefined) return failure(nodeIssue);
   if (!isNonArrayObject(rootValue)) {
-    return err(accessibilityFailure('Accessible node must be an object.'));
+    return failure(accessibilityFailure('Accessible node must be an object.'));
   }
   const root = nodes.get(rootValue);
-  if (root === undefined) return err(accessibilityFailure('Accessible snapshot root was not adopted.'));
+  if (root === undefined) return failure(accessibilityFailure('Accessible snapshot root was not adopted.'));
   const ownedTitle = typeof title === 'string' ? title : undefined;
   const focusPath = Object.freeze([
     ...(suppliedFocusPath ?? actualFocusPath)
@@ -113,12 +113,12 @@ export function adoptAccessibleSnapshot(
     diagnostics: Object.freeze(diagnostics)
   });
   const focusIssue = firstFocusIssue(owned, actualFocusPath);
-  if (focusIssue !== undefined) return err(focusIssue);
+  if (focusIssue !== undefined) return failure(focusIssue);
   const relationshipIssue = firstRelationshipIssue(nodesById);
-  if (relationshipIssue !== undefined) return err(relationshipIssue);
+  if (relationshipIssue !== undefined) return failure(relationshipIssue);
   decodedAccessibleSnapshots.set(snapshot, owned);
   decodedAccessibleSnapshots.set(owned, owned);
-  return ok(owned);
+  return success(owned);
 }
 
 function firstNodeIssue(

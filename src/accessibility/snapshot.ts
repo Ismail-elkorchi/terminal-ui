@@ -7,7 +7,7 @@ import type {
 
 export function createAccessibleSnapshot(input: AccessibleSnapshotInput): AccessibleSnapshot {
   const result = adoptAccessibleSnapshot(input, true);
-  if (result.ok) return result.value;
+  if (result.status === 'success') return result.value;
   throw new TypeError(result.error.message);
 }
 

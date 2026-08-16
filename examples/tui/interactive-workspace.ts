@@ -565,7 +565,7 @@ export async function runScriptedWorkspace() {
     if (frame === undefined) throw new Error('The scripted workspace did not render.');
     const state = runtime.state();
     return {
-      status: 'ok',
+      status: 'completed',
       frames: host.frames().length,
       selectedNode: selectedTreeId(state.tree),
       selectedTicket: selectedTicket(state).id,

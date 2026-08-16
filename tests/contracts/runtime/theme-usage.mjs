@@ -24,7 +24,7 @@ invariant(
 invariant(state.offsetRow === 2, 'behavior reducer failed');
 invariant(accent !== undefined, 'theme token resolution failed');
 
-console.log(JSON.stringify({ scenario: 'theme-usage', ok: true }));
+console.log(JSON.stringify({ scenario: 'theme-usage', status: 'passed' }));
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message);

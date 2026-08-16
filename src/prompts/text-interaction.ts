@@ -61,7 +61,7 @@ function scheduleTextValidation<TChoice>(
       signal: controller.signal
     });
     if (controller.signal.aborted || state.completed || version !== state.validationVersion) return;
-    if (validation.ok) {
+    if (validation.status === 'valid') {
       state.validationStatus = 'valid';
       delete state.validationDiagnostic;
     } else {

@@ -107,8 +107,8 @@ export interface PromptValidationContext {
 }
 
 export type PromptValidationResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly message: string; readonly code?: string };
+  | { readonly status: 'valid' }
+  | { readonly status: 'invalid'; readonly message: string; readonly code?: string };
 
 export type PromptResult<TValue> = PromptSubmitResult<TValue> | PromptAbortResult;
 

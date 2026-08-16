@@ -22,7 +22,7 @@ export interface ResolveSelectedTextInput {
 
 export type ResolveSelectedTextResult =
   | {
-      readonly ok: true;
+      readonly status: 'resolved';
       readonly mode: SelectionInteractionMode;
       readonly sourceId: string;
       readonly label?: string;
@@ -30,7 +30,7 @@ export type ResolveSelectedTextResult =
       readonly byteLength: number;
     }
   | {
-      readonly ok: false;
+      readonly status: 'unavailable';
       readonly mode: SelectionInteractionMode;
       readonly diagnostic: TerminalDiagnostic;
     };
@@ -39,7 +39,7 @@ export function resolveSelectedText(input: ResolveSelectedTextInput): ResolveSel
   const mode = input.mode ?? 'application';
   if (mode === 'terminalNative') {
     return {
-      ok: false,
+      status: 'unavailable',
       mode,
       diagnostic: diagnostic('SELECTION_UNAVAILABLE', 'Selection is delegated to the terminal native selection model.', {
         severity: 'info',
@@ -51,7 +51,7 @@ export function resolveSelectedText(input: ResolveSelectedTextInput): ResolveSel
   const selected = selectedSource(input.sources, input.activeSourceId);
   if (selected === undefined) {
     return {
-      ok: false,
+      status: 'unavailable',
       mode,
       diagnostic: diagnostic('SELECTION_UNAVAILABLE', 'No caller-controlled text selection is active.', {
         severity: 'info',
@@ -64,7 +64,7 @@ export function resolveSelectedText(input: ResolveSelectedTextInput): ResolveSel
     };
   }
   return {
-    ok: true,
+    status: 'resolved',
     mode,
     sourceId: selected.source.id,
     ...(selected.source.label === undefined ? {} : { label: selected.source.label }),

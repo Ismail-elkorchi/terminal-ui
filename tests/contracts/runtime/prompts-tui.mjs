@@ -21,7 +21,7 @@ invariant(
   'default-host non-TTY TUI handling failed'
 );
 
-console.log(JSON.stringify({ scenario: 'prompts-tui', ok: true }));
+console.log(JSON.stringify({ scenario: 'prompts-tui', status: 'passed' }));
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message);

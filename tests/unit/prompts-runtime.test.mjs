@@ -93,7 +93,7 @@ test('runPrompt submits defaults, reports validation failures, and redacts passw
   const invalid = await runPrompt(input({
     label: 'Name',
     defaultValue: '',
-    validate: () => ({ ok: false, message: 'Name is required.', code: 'required' })
+    validate: () => ({ status: 'invalid', message: 'Name is required.', code: 'required' })
   }), host);
   assert.equal(invalid.status, 'aborted');
   assert.equal(invalid.reason, 'validation_failed');
@@ -115,7 +115,7 @@ test('runPrompt submits defaults, reports validation failures, and redacts passw
     label: 'Token',
     defaultValue: 'super-secret',
     validate: (value) => ({
-      ok: false,
+      status: 'invalid',
       message: `Rejected password value: ${value}`,
       code: `invalid-${value}`
     })
@@ -595,11 +595,11 @@ test('runPrompt suppresses stale interactive validation results', async () => {
   const aRequest = requests.find((request) => request.value === 'a');
   const abRequest = requests.find((request) => request.value === 'ab');
   assert.equal(aRequest.signal.aborted, true);
-  aRequest.resolve({ ok: false, message: 'Stale one-character value.' });
+  aRequest.resolve({ status: 'invalid', message: 'Stale one-character value.' });
   await flushAsync();
   assert.doesNotMatch(harness.output(), /Stale one-character value/u);
 
-  abRequest.resolve({ ok: false, message: 'Use a longer value.' });
+  abRequest.resolve({ status: 'invalid', message: 'Use a longer value.' });
   await waitUntil(() => /Use a longer value\./u.test(harness.output()));
   assert.doesNotMatch(harness.output(), /Stale one-character value/u);
 
@@ -615,7 +615,7 @@ test('runPrompt redacts password values from live validation feedback', async ()
   const running = runPrompt(password({
     label: 'Token',
     validate: (value) => ({
-      ok: false,
+      status: 'invalid',
       message: `Rejected password value: ${value}`
     })
   }), harness.host);

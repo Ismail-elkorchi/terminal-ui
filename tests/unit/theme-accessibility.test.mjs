@@ -209,7 +209,7 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
     }
   });
 
-  assert.equal(decodeAccessibleSnapshot(snapshot).ok, true);
+  assert.equal(decodeAccessibleSnapshot(snapshot).status, 'success');
   assert.equal(findAccessibleNode(snapshot, 'field')?.role, 'textbox');
   assert.deepEqual(snapshot.focusPath, ['app', 'field']);
 
@@ -225,11 +225,11 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
     },
     focusPath: []
   });
-  assert.equal(duplicate.ok, false);
+  assert.equal(duplicate.status, 'failure');
   assert.equal(duplicate.error.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
 
   const wrongFocus = decodeAccessibleSnapshot({ ...snapshot, focusPath: ['app', 'title'] });
-  assert.equal(wrongFocus.ok, false);
+  assert.equal(wrongFocus.status, 'failure');
   assert.equal(wrongFocus.error.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
 
   const invalidProgress = decodeAccessibleSnapshot({
@@ -241,7 +241,7 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
     },
     focusPath: []
   });
-  assert.equal(invalidProgress.ok, false);
+  assert.equal(invalidProgress.status, 'failure');
   assert.equal(invalidProgress.error.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
 });
 
@@ -285,7 +285,11 @@ test('accessible snapshot validation returns the retained owned value', () => {
   };
 
   const result = decodeAccessibleSnapshot(input);
-  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+  assert.equal(
+    result.status,
+    'success',
+    result.status === 'success' ? undefined : result.error.message,
+  );
   assert.notEqual(result.value, input);
   assert.notEqual(result.value.root, input.root);
   assert.notEqual(result.value.root.children, children);
@@ -430,7 +434,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       root,
       focusPath: [],
       diagnostics: []
-    }).ok, true, root.id);
+    }).status, 'success', root.id);
   }
   assert.match(renderAccessibleSnapshot(createAccessibleSnapshot({
     source: 'renderer',
@@ -517,7 +521,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       focusPath: [],
       diagnostics: []
     });
-    assert.equal(result.ok, false, root.id);
+    assert.equal(result.status, 'failure', root.id);
   }
 });
 
@@ -547,11 +551,11 @@ test('accessible snapshot validation returns diagnostics for malformed public pa
     focusPath: [],
     diagnostics: []
   });
-  assert.equal(underShaped.ok, false);
+  assert.equal(underShaped.status, 'failure');
   assert.match(underShaped.error.message, /id/u);
-  assert.equal(invalidDiagnostic.ok, false);
+  assert.equal(invalidDiagnostic.status, 'failure');
   assert.match(invalidDiagnostic.error.message, /unsupported diagnostic code/u);
-  assert.equal(invalidState.ok, false);
+  assert.equal(invalidState.status, 'failure');
   assert.match(invalidState.error.message, /selected/u);
 });
 
@@ -567,12 +571,12 @@ test('accessible snapshots accept diagnostic content, not occurrence metadata', 
   assert.equal(decodeAccessibleSnapshot({
     ...snapshot,
     diagnostics: [occurrence.diagnostic]
-  }).ok, true);
+  }).status, 'success');
   const invalid = decodeAccessibleSnapshot({
     ...snapshot,
     diagnostics: [occurrence]
   });
-  assert.equal(invalid.ok, false);
+  assert.equal(invalid.status, 'failure');
   assert.match(invalid.error.message, /unsupported field: id/u);
 });
 
@@ -608,7 +612,7 @@ test('accessible snapshot validation rejects unknown fields throughout its objec
       focusPath: [],
       diagnostics: []
     });
-    assert.equal(result.ok, false, root.id);
+    assert.equal(result.status, 'failure', root.id);
     assert.match(result.error.message, /unsupported/u);
   }
 });
@@ -633,7 +637,7 @@ test('accessible snapshots sanitize exported text and validation rejects raw con
   assert.equal(snapshot.root.value, 'Ada');
   assert.equal(snapshot.root.description, 'Prompt');
   assert.equal(snapshot.root.children[0]?.label, 'Child');
-  assert.equal(decodeAccessibleSnapshot(snapshot).ok, true);
+  assert.equal(decodeAccessibleSnapshot(snapshot).status, 'success');
 
   const raw = decodeAccessibleSnapshot({
     source: 'prompt',
@@ -645,6 +649,6 @@ test('accessible snapshots sanitize exported text and validation rejects raw con
       label: 'Name\u001B[32m'
     }
   });
-  assert.equal(raw.ok, false);
+  assert.equal(raw.status, 'failure');
   assert.match(raw.error.message, /control sequences/u);
 });

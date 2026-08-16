@@ -313,8 +313,8 @@ async function runPromptLoop<TChoice>(
   const input = promptInputEvents(host, inputController.signal, { bracketedPaste })[Symbol.asyncIterator]();
   const choices = isChoicePrompt(prompt)
     ? await resolvePromptChoices(prompt)
-    : { ok: true as const, choices: [], diagnostics: [], hasMore: false };
-  if (!choices.ok) {
+    : { status: 'resolved' as const, choices: [], diagnostics: [], hasMore: false };
+  if (choices.status === 'failed') {
     return {
       status: 'aborted',
       reason: 'host_error',

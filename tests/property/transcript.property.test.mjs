@@ -48,6 +48,10 @@ test('renderer frames within a transcript evidence budget remain replayable afte
     const firstCommit = transcript.steps.find((step) => step.kind === 'commit');
     assert.equal(firstCommit?.commit.diff.fullRewrite, true);
     const validated = validateTranscript(transcript);
-    assert.equal(validated.ok, true, validated.ok ? undefined : validated.error.message);
+    assert.equal(
+      validated.status,
+      'success',
+      validated.status === 'success' ? undefined : validated.error.message,
+    );
   }
 });

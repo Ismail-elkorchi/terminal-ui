@@ -37,8 +37,8 @@ interface JsonTraversalBudget {
 }
 
 type JsonInspection =
-  | { readonly ok: true; readonly snapshot?: JsonValue }
-  | { readonly ok: false; readonly issue: string };
+  | { readonly status: 'valid'; readonly snapshot?: JsonValue }
+  | { readonly status: 'invalid'; readonly issue: string };
 
 export function jsonValueIssue(value: unknown): string | undefined {
   const result = inspectJsonValue(
@@ -50,7 +50,7 @@ export function jsonValueIssue(value: unknown): string | undefined {
     defaultJsonSnapshotLimits,
     false
   );
-  return result.ok ? undefined : result.issue;
+  return result.status === 'valid' ? undefined : result.issue;
 }
 
 export function snapshotJsonValue(
@@ -68,7 +68,7 @@ export function snapshotJsonValue(
     normalizedLimits,
     false
   );
-  if (!result.ok) throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);
+  if (result.status === 'invalid') throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);
   return result.snapshot as JsonValue;
 }
 
@@ -87,7 +87,7 @@ export function snapshotCanonicalJsonValue<T>(
     normalizedLimits,
     true
   );
-  if (!result.ok) throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);
+  if (result.status === 'invalid') throw new TypeError(`${subject} must be JSON-safe: ${result.issue}.`);
   return result.snapshot as T & JsonValue;
 }
 
@@ -106,33 +106,37 @@ function inspectJsonValue(
 ): JsonInspection {
   budget.nodes += 1;
   if (budget.nodes > limits.maxNodes) {
-    return { ok: false, issue: `value exceeds the ${String(limits.maxNodes)}-node limit` };
+    return { status: 'invalid', issue: `value exceeds the ${String(limits.maxNodes)}-node limit` };
   }
   if (depth > limits.maxDepth) {
-    return { ok: false, issue: `value exceeds the ${String(limits.maxDepth)}-level nesting limit` };
+    return { status: 'invalid', issue: `value exceeds the ${String(limits.maxDepth)}-level nesting limit` };
   }
   if (typeof value === 'string') {
     const issue = addStringCodeUnits(value.length, budget, limits);
-    if (issue !== undefined) return { ok: false, issue };
+    if (issue !== undefined) return { status: 'invalid', issue };
   }
   if (value === null || typeof value === 'string' || typeof value === 'boolean') {
-    return snapshot ? { ok: true, snapshot: value } : { ok: true };
+    return snapshot ? { status: 'valid', snapshot: value } : { status: 'valid' };
   }
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) return { ok: false, issue: 'numbers must be finite' };
-    return snapshot ? { ok: true, snapshot: value } : { ok: true };
+    if (!Number.isFinite(value)) return { status: 'invalid', issue: 'numbers must be finite' };
+    return snapshot ? { status: 'valid', snapshot: value } : { status: 'valid' };
   }
-  if (typeof value !== 'object') return { ok: false, issue: `unsupported ${typeof value} value` };
-  if (ancestors.has(value)) return { ok: false, issue: 'cyclic references are not supported' };
+  if (typeof value !== 'object') {
+    return { status: 'invalid', issue: `unsupported ${typeof value} value` };
+  }
+  if (ancestors.has(value)) {
+    return { status: 'invalid', issue: 'cyclic references are not supported' };
+  }
 
   let arrayValue: unknown[] | undefined;
   try {
     arrayValue = Array.isArray(value) ? value : undefined;
     if (arrayValue === undefined && !isPlainObject(value)) {
-      return { ok: false, issue: 'objects must use plain JSON object semantics' };
+      return { status: 'invalid', issue: 'objects must use plain JSON object semantics' };
     }
   } catch {
-    return { ok: false, issue: 'object properties could not be read' };
+    return { status: 'invalid', issue: 'object properties could not be read' };
   }
 
   ancestors.add(value);
@@ -143,7 +147,7 @@ function inspectJsonValue(
       length = arrayValue.length;
     } catch {
       ancestors.delete(value);
-      return { ok: false, issue: 'object properties could not be read' };
+      return { status: 'invalid', issue: 'object properties could not be read' };
     }
     for (let index = 0; index < length; index += 1) {
       let item: unknown;
@@ -151,10 +155,10 @@ function inspectJsonValue(
         item = arrayValue[index];
       } catch {
         ancestors.delete(value);
-        return { ok: false, issue: 'object properties could not be read' };
+        return { status: 'invalid', issue: 'object properties could not be read' };
       }
       const result = inspectJsonValue(item, ancestors, depth + 1, budget, snapshot, limits, canonical);
-      if (!result.ok) {
+      if (result.status === 'invalid') {
         ancestors.delete(value);
         return result;
       }
@@ -162,8 +166,8 @@ function inspectJsonValue(
     }
     ancestors.delete(value);
     return snapshot
-      ? { ok: true, snapshot: canonical ? Object.freeze(arraySnapshot ?? []) : arraySnapshot ?? [] }
-      : { ok: true };
+      ? { status: 'valid', snapshot: canonical ? Object.freeze(arraySnapshot ?? []) : arraySnapshot ?? [] }
+      : { status: 'valid' };
   }
 
   const objectValue = value as Record<string, unknown>;
@@ -174,7 +178,7 @@ function inspectJsonValue(
       const keyIssue = addStringCodeUnits(key.length, budget, limits);
       if (keyIssue !== undefined) {
         ancestors.delete(value);
-        return { ok: false, issue: keyIssue };
+        return { status: 'invalid', issue: keyIssue };
       }
       const result = inspectJsonValue(
         objectValue[key],
@@ -185,7 +189,7 @@ function inspectJsonValue(
         limits,
         canonical
       );
-      if (!result.ok) {
+      if (result.status === 'invalid') {
         ancestors.delete(value);
         return result;
       }
@@ -193,13 +197,16 @@ function inspectJsonValue(
     }
   } catch {
     ancestors.delete(value);
-    return { ok: false, issue: 'object properties could not be read' };
+    return { status: 'invalid', issue: 'object properties could not be read' };
   }
   ancestors.delete(value);
-  if (!snapshot) return { ok: true };
+  if (!snapshot) return { status: 'valid' };
   if (canonical) objectSnapshot?.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
   const valueSnapshot = Object.fromEntries(objectSnapshot ?? []);
-  return { ok: true, snapshot: canonical ? Object.freeze(valueSnapshot) : valueSnapshot };
+  return {
+    status: 'valid',
+    snapshot: canonical ? Object.freeze(valueSnapshot) : valueSnapshot,
+  };
 }
 
 function addStringCodeUnits(

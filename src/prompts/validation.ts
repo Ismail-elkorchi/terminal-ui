@@ -4,8 +4,8 @@ import type { TerminalHost } from '../host/index.ts';
 import type { PromptValueContract } from './types.ts';
 
 export type PromptValidationOutcome =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly diagnostic: TerminalDiagnostic };
+  | { readonly status: 'valid' }
+  | { readonly status: 'invalid'; readonly diagnostic: TerminalDiagnostic };
 
 export interface PromptValidationRequest<TValue> {
   readonly prompt: PromptValueContract<TValue>;
@@ -20,7 +20,7 @@ export async function validatePromptValue<TValue>(
   const { prompt, value, host, signal } = request;
   if (prompt.required === true && isEmptyRequiredValue(value)) {
     return {
-      ok: false,
+      status: 'invalid',
       diagnostic: diagnostic('PROMPT_VALIDATION_FAILED', 'Prompt value is required.', {
         data: { validationCode: 'required' }
       })
@@ -31,9 +31,9 @@ export async function validatePromptValue<TValue>(
       ...(host === undefined ? {} : { host }),
       ...(signal === undefined ? {} : { signal })
     });
-    if (validation !== undefined && !validation.ok) {
+    if (validation?.status === 'invalid') {
       return {
-        ok: false,
+        status: 'invalid',
         diagnostic: diagnostic(
           'PROMPT_VALIDATION_FAILED',
           redactPromptSecret(prompt, value, validation.message),
@@ -45,11 +45,11 @@ export async function validatePromptValue<TValue>(
     }
   } catch {
     return {
-      ok: false,
+      status: 'invalid',
       diagnostic: diagnostic('PROMPT_VALIDATION_FAILED', 'Prompt validation failed before submission.')
     };
   }
-  return { ok: true };
+  return { status: 'valid' };
 }
 
 function isEmptyRequiredValue(value: unknown): boolean {

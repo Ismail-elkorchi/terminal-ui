@@ -27,8 +27,8 @@ test('progress primitive clamps values and rejects invalid progress domains', ()
     /positive finite number/u
   );
   assert.equal(updated.snapshot().root.description, 'retrying');
-  assert.equal(decodeAccessibleSnapshot(progressState.snapshot()).ok, true);
-  assert.equal(decodeAccessibleSnapshot(updated.snapshot()).ok, true);
+  assert.equal(decodeAccessibleSnapshot(progressState.snapshot()).status, 'success');
+  assert.equal(decodeAccessibleSnapshot(updated.snapshot()).status, 'success');
 });
 
 test('runPrompt supports transcript-only non-TTY progress results', async () => {

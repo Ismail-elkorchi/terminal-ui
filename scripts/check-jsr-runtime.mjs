@@ -30,7 +30,9 @@ try {
       scenarioPath
     ]);
     const payload = JSON.parse(result.stdout.trim());
-    if (payload.ok !== true) throw new Error(`JSR scenario ${scenarioPath} did not report success.`);
+    if (payload.status !== 'passed') {
+      throw new Error(`JSR scenario ${scenarioPath} did not report success.`);
+    }
   }
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });

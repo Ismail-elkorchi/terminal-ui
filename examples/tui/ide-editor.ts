@@ -783,7 +783,7 @@ export async function runScriptedIdeEditor() {
     await runtime.dispatch({ kind: 'dismissChooser' });
     const frame = await runtime.resize({ columns: 96, rows: 30 });
     return {
-      status: 'ok',
+      status: 'completed',
       rootOpened: runtime.state().root === fixture,
       activeFile: path.basename(runtime.state().activePath ?? ''),
       savedPlan: (await readFile(planPath, 'utf8')).startsWith('planned: '),

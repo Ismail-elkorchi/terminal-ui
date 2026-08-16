@@ -77,7 +77,7 @@ try {
       const scenarioResult = await run(runtime.command, runtimeArgs(runtime.name, scenario), consumerRoot);
       const payload = JSON.parse(scenarioResult.stdout.trim());
       const expectedResult = scenario.replace(/\.mjs$/u, '').split('/').at(-1);
-      if (payload.ok !== true || payload.scenario !== expectedResult) {
+      if (payload.status !== 'passed' || payload.scenario !== expectedResult) {
         throw new Error(`${runtime.name} returned an invalid contract result for ${scenario}.\n${scenarioResult.stdout}`);
       }
     }

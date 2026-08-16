@@ -45,7 +45,7 @@ test('transcript retention bounds diagnostics and redactions and reports omissio
   assert.equal(snapshot.omittedDiagnostics, 1);
   assert.deepEqual(snapshot.redactions, [{ path: '$.second', reason: 'secret' }]);
   assert.equal(snapshot.omittedRedactions, 1);
-  assert.equal(validateTranscript(snapshot).ok, true);
+  assert.equal(validateTranscript(snapshot).status, 'success');
 });
 
 test('transcript retention bounds total evidence weight and preserves a replay checkpoint', () => {
@@ -80,7 +80,11 @@ test('transcript retention bounds total evidence weight and preserves a replay c
   assert.equal(snapshot.steps.length, 1);
   assert.equal(snapshot.steps[0]?.commit.diff.fullRewrite, true);
   const validated = validateTranscript(snapshot);
-  assert.equal(validated.ok, true, validated.ok ? undefined : validated.error.message);
+  assert.equal(
+    validated.status,
+    'success',
+    validated.status === 'success' ? undefined : validated.error.message,
+  );
 });
 
 test('transcript retention applies one byte budget across steps diagnostics and redactions', () => {
@@ -101,7 +105,7 @@ test('transcript retention applies one byte budget across steps diagnostics and 
 
   const snapshot = recorder.snapshot();
   assert.equal(snapshot.omittedSteps + snapshot.omittedDiagnostics + snapshot.omittedRedactions > 0, true);
-  assert.equal(validateTranscript(snapshot).ok, true);
+  assert.equal(validateTranscript(snapshot).status, 'success');
 });
 
 test('transcript retention bounds aggregate JSON structure and string data', () => {
@@ -119,7 +123,7 @@ test('transcript retention bounds aggregate JSON structure and string data', () 
   const snapshot = recorder.snapshot();
   assert.equal(snapshot.omittedSteps, 1);
   assert.equal(snapshot.steps.length, 1);
-  assert.equal(validateTranscript(snapshot).ok, true);
+  assert.equal(validateTranscript(snapshot).status, 'success');
 });
 
 test('transcript resource eviction keeps bookkeeping proportional to retained evidence', () => {
@@ -140,7 +144,7 @@ test('transcript resource eviction keeps bookkeeping proportional to retained ev
   const snapshot = recorder.snapshot();
   assert.equal(snapshot.steps.length < 100, true);
   assert.equal(snapshot.omittedSteps + snapshot.steps.length, 100_000);
-  assert.equal(validateTranscript(snapshot).ok, true);
+  assert.equal(validateTranscript(snapshot).status, 'success');
 });
 
 test('transcript identities are bounded outside retained evidence', () => {
@@ -347,7 +351,11 @@ test('terminal harness transcripts represent nested lease restoration', async ()
   const validation = validateTranscript(transcript);
 
   assert.equal(restores.length, 2);
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
 });
 
 test('recorded messages remain valid after JSON serialization', () => {
@@ -364,7 +372,11 @@ test('recorded messages remain valid after JSON serialization', () => {
   const parsed = JSON.parse(JSON.stringify(recorder.snapshot()));
   const validation = validateTranscript(parsed);
 
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
   assert.deepEqual(parsed.steps[0].message, { command: 'open', arguments: [1, true, null] });
   assert.throws(
     () => recorder.record({
@@ -381,7 +393,7 @@ test('recorded messages remain valid after JSON serialization', () => {
   let deeplyNested = { value: null };
   for (let depth = 0; depth < 20_000; depth += 1) deeplyNested = { next: deeplyNested };
   recorder.recordNormalizedMessage('external', deeplyNested);
-  assert.equal(validateTranscript(recorder.snapshot()).ok, true);
+  assert.equal(validateTranscript(recorder.snapshot()).status, 'success');
 
   const oversizedString = 'x'.repeat(1_000_001);
   recorder.recordNormalizedMessage('external', {
@@ -391,7 +403,7 @@ test('recorded messages remain valid after JSON serialization', () => {
   const normalized = recorder.snapshot().steps.at(-1)?.message;
   assert.equal(normalized.value.endsWith('[Truncated]'), true);
   assert.equal(Object.keys(normalized)[1]?.endsWith('[Truncated]'), true);
-  assert.equal(validateTranscript(recorder.snapshot()).ok, true);
+  assert.equal(validateTranscript(recorder.snapshot()).status, 'success');
 });
 
 test('arbitrary message normalization stops reading when its node budget is exhausted', () => {
@@ -441,7 +453,7 @@ test('transcript commits exclude renderer optimization metadata', () => {
   assert.deepEqual(recorded.commit.frame.accessibility, frame.accessibility);
   assert.notEqual(recorded.commit.diff, diff);
   assert.deepEqual(recorded.commit.diff, diff);
-  assert.equal(validateTranscript(transcript).ok, true);
+  assert.equal(validateTranscript(transcript).status, 'success');
 });
 
 test('transcript replay is isolated from mutations after validation', async () => {
@@ -618,7 +630,7 @@ test('transcript replay preserves partial restoration without upgrading its outc
     redactions: []
   };
 
-  assert.equal(validateTranscript(transcript).ok, true);
+  assert.equal(validateTranscript(transcript).status, 'success');
   const result = await replayTranscript(harness, transcript);
 
   assert.equal(harness.restores()[0]?.status, 'partial');
@@ -690,7 +702,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
     redactions: []
   });
 
-  assert.equal(invalidFrame.ok, false);
+  assert.equal(invalidFrame.status, 'failure');
   assert.match(invalidFrame.error.message, /frame cells must be an array/u);
 
   const invalidDiff = validateTranscript({
@@ -717,7 +729,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
     redactions: []
   });
 
-  assert.equal(invalidDiff.ok, false);
+  assert.equal(invalidDiff.status, 'failure');
   assert.match(invalidDiff.error.message, /diff operation 0/u);
 });
 
@@ -751,14 +763,14 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
       source: { interactionState: 'busy' }
     }]
   }, baseDiff);
-  assert.equal(cell.ok, false);
+  assert.equal(cell.status, 'failure');
   assert.match(cell.error.message, /frame cell 0.*interactionState must be focused/u);
 
   const cursor = validateCommit({
     ...baseFrame,
     cursor: { row: 1, column: 1, source: { interactionState: 'busy' } }
   }, baseDiff);
-  assert.equal(cursor.ok, false);
+  assert.equal(cursor.status, 'failure');
   assert.match(cursor.error.message, /frame cursor source.*interactionState must be focused/u);
 
   const span = validateCommit(baseFrame, {
@@ -770,7 +782,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
       spans: [{ text: 'x', source: { interactionState: 'busy' } }]
     }]
   });
-  assert.equal(span.ok, false);
+  assert.equal(span.status, 'failure');
   assert.match(span.error.message, /write span source.*interactionState must be focused/u);
 
   const valid = validateCommit({
@@ -793,7 +805,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
       spans: [{ text: 'x', source: { interactionState: 'active' } }]
     }]
   });
-  assert.equal(valid.ok, true, valid.ok ? undefined : valid.error.message);
+  assert.equal(valid.status, 'success', valid.status === 'success' ? undefined : valid.error.message);
 });
 
 test('transcript redaction records concrete paths for redacted strings', () => {
@@ -840,7 +852,11 @@ test('transcript redaction covers existing audit paths without changing structur
   ]);
   assert.equal(JSON.stringify(redacted).includes('private-marker'), false);
   const validation = validateTranscript(redacted);
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
 });
 
 test('transcript redaction derives a safe effective replacement', () => {
@@ -863,7 +879,7 @@ test('transcript redaction derives a safe effective replacement', () => {
   assert.deepEqual(redacted.redactions, [
     { path: '$.steps[0].event.text', reason: 'secret' }
   ]);
-  assert.equal(validateTranscript(redacted).ok, true);
+  assert.equal(validateTranscript(redacted).status, 'success');
   assert.throws(
     () => redactTranscript(transcript, {
       secrets: ['private-marker'],
@@ -898,10 +914,10 @@ test('transcript redaction handles message arrays at the transcript node limit',
     redactions: []
   };
 
-  assert.equal(validateTranscript(transcript).ok, true);
+  assert.equal(validateTranscript(transcript).status, 'success');
   const redacted = redactTranscript(transcript, { secrets: ['private-marker'] });
   assert.equal(redacted.steps[0]?.message.length, 200_000);
-  assert.equal(validateTranscript(redacted).ok, true);
+  assert.equal(validateTranscript(redacted).status, 'success');
 });
 
 test('transcript redaction uses unambiguous paths for arbitrary JSON keys', () => {
@@ -931,7 +947,7 @@ test('transcript redaction uses unambiguous paths for arbitrary JSON keys', () =
     { path: '$.steps[0].message["a"]["b"]', reason: 'secret' },
     { path: '$.steps[0].message["a.b"]', reason: 'secret' }
   ]);
-  assert.equal(validateTranscript(redacted).ok, true);
+  assert.equal(validateTranscript(redacted).status, 'success');
 });
 
 test('transcript redaction projects JSON keys without collisions or audit-path leaks', () => {
@@ -985,7 +1001,11 @@ test('transcript redaction projects JSON keys without collisions or audit-path l
   );
   assert.equal(redacted.redactions.some((redaction) => redaction.path === '$.startedAt'), true);
   const validation = validateTranscript(redacted);
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
 });
 
 test('transcript redaction preserves transcript and input discriminants that collide with secrets', () => {
@@ -1018,7 +1038,11 @@ test('transcript redaction preserves transcript and input discriminants that col
   assert.equal(redacted.steps[1]?.source, 'input');
   assert.equal(redacted.steps[0]?.event.text.includes('test'), false);
   const validation = validateTranscript(redacted);
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
 });
 
 test('transcript redaction keeps accessibility identifiers unique and references aligned', () => {
@@ -1064,7 +1088,11 @@ test('transcript redaction keeps accessibility identifiers unique and references
   assert.equal(child?.labelledBy, root.id);
   assert.deepEqual(step.snapshot.focusPath, [root.id, child?.id]);
   const validation = validateTranscript(redacted);
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
 });
 
 test('transcript redaction preserves frame geometry and the render-diff chain', () => {
@@ -1123,7 +1151,11 @@ test('transcript redaction preserves frame geometry and the render-diff chain', 
   assert.equal(commit?.frame.cells[0]?.source?.cellRole, 'text');
   assert.equal(commit?.frame.cells[0]?.source?.interactionState, 'focused');
   const validation = validateTranscript(redacted);
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
 });
 
 test('transcript redaction does not audit unchanged diagnostic occurrence grammar', () => {
@@ -1147,7 +1179,11 @@ test('transcript redaction does not audit unchanged diagnostic occurrence gramma
   assert.equal(redacted.diagnostics[0]?.id, 'audit-owner:diagnostic:1');
   assert.deepEqual(redacted.redactions, []);
   const validation = validateTranscript(redacted);
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
 });
 
 test('transcript redaction rebuilds diagnostic fingerprints before validation and replay', async () => {
@@ -1182,14 +1218,18 @@ test('transcript redaction rebuilds diagnostic fingerprints before validation an
     `${redacted.diagnostics[0]?.owner}:diagnostic:1`
   );
   const validation = validateTranscript(redacted);
-  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+  assert.equal(
+    validation.status,
+    'success',
+    validation.status === 'success' ? undefined : validation.error.message,
+  );
 
   const replayed = await replayTranscript(createTerminalHarness(), redacted);
   assert.equal(
     replayed.transcript.diagnostics[0]?.diagnostic.code,
     'HOST_STREAM_CLOSED'
   );
-  assert.equal(validateTranscript(replayed.transcript).ok, true);
+  assert.equal(validateTranscript(replayed.transcript).status, 'success');
 });
 
 test('diagnostics normalize causes into JSON-safe transcript data', () => {
@@ -1217,8 +1257,8 @@ test('diagnostics normalize causes into JSON-safe transcript data', () => {
   });
 
   assert.deepEqual(item.cause, { name: 'Error', message: 'socket closed' });
-  assert.equal(validateTranscript(transcript).ok, true);
-  assert.equal(invalid.ok, false);
+  assert.equal(validateTranscript(transcript).status, 'success');
+  assert.equal(invalid.status, 'failure');
   assert.match(invalid.error.message, /numbers must be finite/u);
 });
 
@@ -1251,7 +1291,7 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
     steps: [{ kind: 'diagnostic', occurrence: reported }],
     diagnostics: [reported],
     redactions: []
-  }).ok, true);
+  }).status, 'success');
 });
 
 test('transcript validation rejects unknown diagnostic codes', () => {
@@ -1282,7 +1322,7 @@ test('transcript validation rejects unknown diagnostic codes', () => {
     redactions: []
   });
 
-  assert.equal(invalid.ok, false);
+  assert.equal(invalid.status, 'failure');
   assert.match(invalid.error.message, /unsupported diagnostic code/u);
 });
 

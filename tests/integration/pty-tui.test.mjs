@@ -17,7 +17,7 @@ const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: fal
 
 test('PTY harness runs full-screen TUI and captures protocol restoration on success', async () => {
   const result = createPtyTerminalHarness({ terminalSize: { columns: 32, rows: 5 } });
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'available');
   const harness = result.harness;
   assert.equal(harness.snapshot().source, 'test_harness');
   assert.equal(harness.snapshot().root.role, 'group');
@@ -63,7 +63,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
 
 test('PTY harness restores full-screen protocols on interrupt signals', async () => {
   const result = createPtyTerminalHarness({ terminalSize: { columns: 24, rows: 4 } });
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'available');
   const harness = result.harness;
   const app = defineTui({
     id: 'pty-interrupt',
@@ -87,7 +87,7 @@ test('PTY harness restores full-screen protocols on interrupt signals', async ()
 test('PTY harness reports a typed unavailable result when no adapter is available', () => {
   const result = createPtyTerminalHarness({ available: false });
 
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'unavailable');
   assert.equal(result.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
   assert.equal(result.diagnostic.target, 'pty-harness');
 });

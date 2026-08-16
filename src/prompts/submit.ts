@@ -11,7 +11,7 @@ export async function submitPrompt<TValue>(
   host?: TerminalHost
 ): Promise<PromptSubmitResult<TValue> | PromptAbortResult> {
   const validation = await validatePromptValue({ prompt, value, ...(host === undefined ? {} : { host }) });
-  if (!validation.ok) return validationFailure(snapshot, validation.diagnostic);
+  if (validation.status === 'invalid') return validationFailure(snapshot, validation.diagnostic);
   return { status: 'submitted', value, diagnostics: [], snapshot };
 }
 

@@ -19,7 +19,7 @@ for (const example of exampleScripts) {
     assert.notEqual(result.stdout.trim(), '');
     if (example.endsWith('/ide-editor.ts')) {
       const summary = JSON.parse(result.stdout);
-      assert.equal(summary.status, 'ok');
+      assert.equal(summary.status, 'completed');
       assert.equal(summary.rootOpened, true);
       assert.equal(summary.activeFile, 'README.md');
       assert.equal(summary.savedPlan, true);
@@ -32,7 +32,7 @@ for (const example of exampleScripts) {
     }
     if (example.endsWith('/interactive-workspace.ts')) {
       const summary = JSON.parse(result.stdout);
-      assert.equal(summary.status, 'ok');
+      assert.equal(summary.status, 'completed');
       assert.equal(summary.selectedNode, 'queue:review');
       assert.equal(summary.activeTab, 'issues');
       assert.equal(summary.tabSelectedByPointer, true);
@@ -49,7 +49,7 @@ for (const example of exampleScripts) {
     }
     if (example.endsWith('/btop-monitor.ts')) {
       const summary = JSON.parse(result.stdout);
-      assert.equal(summary.status, 'ok');
+      assert.equal(summary.status, 'completed');
       assert.equal(summary.wheelBatchShared, true);
       assert.equal(summary.offsetAfterWheel > 0, true);
       assert.equal(summary.offsetAfterDrag > summary.offsetAfterWheel, true);

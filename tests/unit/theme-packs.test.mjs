@@ -160,7 +160,7 @@ test('theme matrix snapshots cover core components with packs high contrast and 
       })
     ], { id: `matrix-${theme.name}`, gap: 1 }), { columns: 48, rows: 14 }, { theme });
 
-    assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true, theme.name);
+    assert.equal(decodeAccessibleSnapshot(frame.accessibility).status, 'success', theme.name);
     assert.equal(frame.cells.every((cell) => cell.row >= 1 && cell.row <= frame.height && cell.column >= 1 && cell.column <= frame.width), true);
     assert.equal(typeof createVisualSnapshot({ frame }).plainTextFrame, 'string');
   }

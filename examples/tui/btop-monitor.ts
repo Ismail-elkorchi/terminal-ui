@@ -655,7 +655,7 @@ export async function runScriptedBtopMonitor() {
     if (frame === undefined) throw new Error('The scripted monitor did not render a frame.');
     const output = renderFramePlain(frame);
     return {
-      status: 'ok',
+      status: 'completed',
       frames: host.frames().length,
       rows: output.split('\n').length,
       hasCpu: output.includes('cpu'),

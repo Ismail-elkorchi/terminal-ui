@@ -179,17 +179,17 @@ test('testing harnesses reject invalid events before delivery or transcript reco
     /supported terminal signal/u
   );
   assert.equal(memory.transcript.snapshot().steps.length, 0);
-  assert.equal(validateTranscript(memory.transcript.snapshot()).ok, true);
+  assert.equal(validateTranscript(memory.transcript.snapshot()).status, 'success');
 
   const ptyResult = createPtyTerminalHarness();
-  if (!ptyResult.ok) return;
+  if (ptyResult.status === 'unavailable') return;
   try {
     assert.throws(
       () => ptyResult.harness.input({ kind: 'signal', signal: 'SIGUSR1' }),
       /supported terminal signal/u
     );
     assert.equal(ptyResult.harness.transcript.snapshot().steps.length, 0);
-    assert.equal(validateTranscript(ptyResult.harness.transcript.snapshot()).ok, true);
+    assert.equal(validateTranscript(ptyResult.harness.transcript.snapshot()).status, 'success');
   } finally {
     await ptyResult.harness.dispose();
   }

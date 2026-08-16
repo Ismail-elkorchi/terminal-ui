@@ -22,9 +22,9 @@ const validation = decodeAccessibleSnapshot(snapshot);
 
 invariant(plain.includes('Portable renderer'), 'plain rendering failed');
 invariant(frame.accessibility.source === 'renderer', 'direct renderer snapshot source was not renderer');
-invariant(validation.ok, 'accessibility validation failed');
+invariant(validation.status === 'success', 'accessibility validation failed');
 
-console.log(JSON.stringify({ scenario: 'renderer-accessibility', ok: true }));
+console.log(JSON.stringify({ scenario: 'renderer-accessibility', status: 'passed' }));
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message);

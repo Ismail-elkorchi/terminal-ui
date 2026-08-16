@@ -5,7 +5,7 @@ import {
   column,
   createTerminalHost,
   defineTui,
-  ok,
+  success,
   prepareCommandSuggestions,
   passwordInput,
   splitPane,
@@ -231,7 +231,7 @@ const peerComponentSnapshot = renderElementSnapshot({
   element: peerBadge({ id: 'peer-badge', label: 'Shared package instance' }),
   terminalSize: { columns: 24, rows: 1 }
 });
-const result = ok('root-entrypoint');
+const result = success('root-entrypoint');
 const protocolWrites: string[] = [];
 const protocol = createProtocolWriter({
   write: (value) => {
@@ -261,14 +261,14 @@ const accessible = createAccessibleSnapshot({
 const transcript = createTranscriptRecorder({ id: 'consumer', source: 'test' }).snapshot();
 
 if (app.id !== 'packed-consumer') throw new Error('The TUI entrypoint did not create the app.');
-if (rootHost.runtime !== 'memory' || !result.ok || result.value !== 'root-entrypoint') {
+if (rootHost.runtime !== 'memory' || result.status !== 'success' || result.value !== 'root-entrypoint') {
   throw new Error('The root entrypoint did not expose its documented runtime contracts.');
 }
 if (memoryHost.output() !== 'ordered output') throw new Error('The host entrypoint did not flush output.');
 if (decoded.events[0]?.kind !== 'key' || decoded.events[0].key !== 'enter') {
   throw new Error('The input entrypoint did not decode terminal input.');
 }
-if (!selected.ok || selected.text !== 'selected') {
+if (selected.status !== 'resolved' || selected.text !== 'selected') {
   throw new Error('The interaction entrypoint did not resolve controlled selection.');
 }
 if (harness.host.runtime !== 'memory') throw new Error('The testing entrypoint did not create a harness.');
@@ -298,7 +298,10 @@ if (measureTextCells('A界').cells !== 3 || resolveThemeColor(defaultTheme, 'acc
 if (protocolWrites[0] !== '\u001B[?2004h' || promptResult.status !== 'submitted') {
   throw new Error('The packed protocol or prompt entrypoint failed.');
 }
-if (!decodeAccessibleSnapshot(accessible).ok || !validateTranscript(transcript).ok) {
+if (
+  decodeAccessibleSnapshot(accessible).status !== 'success'
+  || validateTranscript(transcript).status !== 'success'
+) {
   throw new Error('The packed accessibility or transcript entrypoint failed.');
 }
 

@@ -74,7 +74,9 @@ export async function resolvePromptChoices<TValue>(
 ): Promise<ChoiceResolution<TValue>> {
   const source = prompt.choices;
   try {
-    if (typeof source !== 'function') return { ok: true, choices: source, diagnostics: [], hasMore: false };
+    if (typeof source !== 'function') {
+      return { status: 'resolved', choices: source, diagnostics: [], hasMore: false };
+    }
     const controller = new AbortController();
     const result = await source({
       query: '',
@@ -83,7 +85,7 @@ export async function resolvePromptChoices<TValue>(
       signal: controller.signal
     });
     return {
-      ok: true,
+      status: 'resolved',
       choices: result.choices,
       diagnostics: result.diagnostics ?? [],
       hasMore: result.hasMore ?? false,
@@ -91,7 +93,7 @@ export async function resolvePromptChoices<TValue>(
     };
   } catch (cause) {
     return {
-      ok: false,
+      status: 'failed',
       diagnostics: [
         diagnostic('PROMPT_DATA_SOURCE_FAILED', 'Prompt choice data source failed.', {
           cause,
@@ -121,14 +123,14 @@ export function initialSelectedChoiceIndexes<TValue>(
 
 export type ChoiceResolution<TValue> =
   | {
-      readonly ok: true;
+      readonly status: 'resolved';
       readonly choices: readonly PromptChoice<TValue>[];
       readonly diagnostics: readonly TerminalDiagnostic[];
       readonly hasMore: boolean;
       readonly total?: number;
     }
   | {
-      readonly ok: false;
+      readonly status: 'failed';
       readonly diagnostics: readonly TerminalDiagnostic[];
     };
 

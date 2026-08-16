@@ -115,7 +115,7 @@ export async function runTuiInputLoop<TState, TMessage>(
       }
       if (event.kind === 'input') {
         inputNext = undefined;
-        if (!event.outcome.ok) throw event.outcome.cause;
+        if (event.outcome.status === 'rejected') throw event.outcome.cause;
         inputWorkNext = event.outcome.value.done === true
           ? settle(runtime.flushInput()).then((outcome) => ({ outcome, endAfter: true }))
           : settle(runtime.handleInputChunk(event.outcome.value.value))
@@ -124,7 +124,7 @@ export async function runTuiInputLoop<TState, TMessage>(
       }
       if (event.kind === 'inputWork') {
         inputWorkNext = undefined;
-        if (!event.outcome.outcome.ok) throw event.outcome.outcome.cause;
+        if (event.outcome.outcome.status === 'rejected') throw event.outcome.outcome.cause;
         const batch = normalizeInputWork(event.outcome.outcome.value);
         const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
         if (exit !== undefined) return exit;
@@ -139,14 +139,14 @@ export async function runTuiInputLoop<TState, TMessage>(
       }
       if (event.kind === 'inputBatch') {
         inputBatchNext = undefined;
-        if (!event.outcome.ok) throw event.outcome.cause;
+        if (event.outcome.status === 'rejected') throw event.outcome.cause;
         const exit = event.outcome.value.find((result) => result.exit !== undefined)?.exit;
         if (exit !== undefined) return exit;
         continue;
       }
       if (event.kind === 'resize') {
         resizeNext = undefined;
-        if (!event.outcome.ok) throw event.outcome.cause;
+        if (event.outcome.status === 'rejected') throw event.outcome.cause;
         if (resizeQueued) {
           resizeQueued = false;
           resizeNext = settle(runtime.resize(host.getTerminalSize()));
@@ -208,7 +208,7 @@ export async function runTuiInputLoop<TState, TMessage>(
     if (inputWorkNext !== undefined) {
       const work = await inputWorkNext;
       inputWorkNext = undefined;
-      if (!work.outcome.ok) throw work.outcome.cause;
+      if (work.outcome.status === 'rejected') throw work.outcome.cause;
       const batch = normalizeInputWork(work.outcome.value);
       const immediateExit = batch.results.find((result) => result.exit !== undefined)?.exit;
       if (immediateExit !== undefined) return immediateExit;
@@ -270,8 +270,8 @@ function handleTuiSignal<TState, TMessage>(
 }
 
 type Settled<TValue> =
-  | { readonly ok: true; readonly value: TValue }
-  | { readonly ok: false; readonly cause: unknown };
+  | { readonly status: 'fulfilled'; readonly value: TValue }
+  | { readonly status: 'rejected'; readonly cause: unknown };
 
 interface InputWorkOutcome<TState> {
   readonly outcome: Settled<TuiInputBatchResult<TState> | readonly TuiInputResult<TState>[]>;
@@ -290,8 +290,8 @@ type InputLoopEvent<TState> =
 
 function settle<TValue>(operation: Promise<TValue>): Promise<Settled<TValue>> {
   return operation.then(
-    (value) => ({ ok: true, value }),
-    (cause: unknown) => ({ ok: false, cause })
+    (value) => ({ status: 'fulfilled', value }),
+    (cause: unknown) => ({ status: 'rejected', cause })
   );
 }
 

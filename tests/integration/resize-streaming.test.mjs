@@ -19,7 +19,7 @@ const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: fal
 
 test('PTY harness handles resize while async stream messages are rendering', async () => {
   const result = createPtyTerminalHarness({ terminalSize: { columns: 36, rows: 8 } });
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'available');
   const harness = result.harness;
   const app = defineTui({
     id: 'pty-resize-streaming',

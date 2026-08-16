@@ -57,7 +57,11 @@ test('transcript validation returns a detached canonical value', () => {
 
   const result = validateTranscript(source);
 
-  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+  assert.equal(
+    result.status,
+    'success',
+    result.status === 'success' ? undefined : result.error.message,
+  );
   assert.notEqual(result.value, source);
   assert.notEqual(result.value.steps, source.steps);
   assert.notEqual(result.value.steps[0].event, source.steps[0].event);
@@ -98,7 +102,11 @@ test('transcript decoding retains every successful nested adoption', () => {
   });
 
   const result = validateTranscript(source);
-  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+  assert.equal(
+    result.status,
+    'success',
+    result.status === 'success' ? undefined : result.error.message,
+  );
   const input = result.value.steps[0].event;
   const stepOccurrence = result.value.steps[1].occurrence;
   const commit = result.value.steps[2].commit;
@@ -140,7 +148,7 @@ test('transcript validation accounts resources on the owned snapshot', () => {
   };
 
   const result = validateTranscript(source);
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'success');
   assert.equal(stepsReads, 1);
   assert.equal(diagnosticsReads, 1);
 });
@@ -175,7 +183,7 @@ test('transcript validation rejects duplicate and conflicting diagnostic occurre
     steps: [{ kind: 'diagnostic', occurrence: first }],
     diagnostics: [first]
   }));
-  assert.equal(valid.ok, true, valid.ok ? undefined : valid.error.message);
+  assert.equal(valid.status, 'success', valid.status === 'success' ? undefined : valid.error.message);
 });
 
 test('transcript validation rejects over-nested JSON messages without overflowing the runtime stack', () => {
@@ -187,7 +195,7 @@ test('transcript validation rejects over-nested JSON messages without overflowin
     steps: [{ kind: 'message', source: 'external', fidelity: 'exact', message }]
   }));
 
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'failure');
   assert.match(result.error.message, /nesting limit/u);
 });
 
@@ -233,7 +241,7 @@ test('transcript validation enforces caller-selected aggregate resource limits',
 
   const recorder = createTranscriptRecorder({ id: 'bounded-recorder' });
   recorder.reportDiagnostic(diagnostic('INPUT_TIMEOUT', 'Timed out.'));
-  assert.equal(validateTranscript(recorder.snapshot(), { maxDiagnostics: 1 }).ok, true);
+  assert.equal(validateTranscript(recorder.snapshot(), { maxDiagnostics: 1 }).status, 'success');
 
   const largeString = 'x'.repeat(600_000);
   assertInvalidWithLimits(
@@ -319,7 +327,7 @@ test('transcript validation rejects malformed input-event variants', () => {
   assert.equal(validateTranscript(transcript({
     id: 'valid-wheel-input',
     steps: [{ kind: 'input', event: validWheel }]
-  })).ok, true);
+  })).status, 'success');
 });
 
 test('transcript validation rejects malformed frame and render-diff payloads', () => {
@@ -473,7 +481,11 @@ test('transcript validation measures writes with the diff width profile', () => 
     }]
   }));
 
-  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+  assert.equal(
+    result.status,
+    'success',
+    result.status === 'success' ? undefined : result.error.message,
+  );
 });
 
 test('transcript validation requires a replayable diff chain matching bundled frames', () => {
@@ -543,7 +555,7 @@ test('transcript validation requires a replayable diff chain matching bundled fr
       { kind: 'commit', commit: commit('commit:2', 1, frame('y'), diff('y', false)) }
     ]
   }));
-  assert.equal(valid.ok, true, valid.ok ? undefined : valid.error.message);
+  assert.equal(valid.status, 'success', valid.status === 'success' ? undefined : valid.error.message);
 });
 
 test('transcript validation accepts an ordered terminal restore sequence', () => {
@@ -556,7 +568,11 @@ test('transcript validation accepts an ordered terminal restore sequence', () =>
     ]
   }));
 
-  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+  assert.equal(
+    result.status,
+    'success',
+    result.status === 'success' ? undefined : result.error.message,
+  );
 });
 
 test('transcript validation rejects malformed structured restore results', () => {
@@ -626,13 +642,13 @@ function transcript(overrides = {}) {
 
 function assertInvalid(value, pattern) {
   const result = validateTranscript(value);
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'failure');
   assert.match(result.error.message, pattern);
 }
 
 function assertInvalidWithLimits(value, limits, pattern) {
   const result = validateTranscript(value, limits);
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'failure');
   assert.match(result.error.message, pattern);
 }
 

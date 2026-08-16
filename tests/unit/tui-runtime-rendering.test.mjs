@@ -129,7 +129,7 @@ test('TUI status, progress, and activity components render accessible status sta
   ]);
   assert.deepEqual([spinnerNode?.role, spinnerNode?.value], ['status', 'Working (running)']);
   assert.deepEqual([statusNode?.live, progressNode?.live, pendingNode?.live, spinnerNode?.live], ['polite', 'polite', 'polite', 'polite']);
-  assert.equal(decodeAccessibleSnapshot(frame.accessibility).ok, true);
+  assert.equal(decodeAccessibleSnapshot(frame.accessibility).status, 'success');
 });
 
 test('renderDiffAnsi serializes clear, write, and structural cursor state', () => {

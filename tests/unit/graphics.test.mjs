@@ -655,7 +655,7 @@ test('transcripts retain graphic metadata without raster bytes', () => {
   const json = JSON.stringify(transcript);
   assert.doesNotMatch(json, /"data"/u);
   assert.match(json, /contentDigest/u);
-  assert.equal(validateTranscript(JSON.parse(json)).ok, true);
+  assert.equal(validateTranscript(JSON.parse(json)).status, 'success');
 });
 
 function inputText(value) {

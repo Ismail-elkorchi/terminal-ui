@@ -44,7 +44,7 @@ test('runTui emits deterministic transcripts when enabled', async () => {
   assert.equal(exit.status, 'completed');
   assert.equal(exit.transcript?.source, 'tui');
   assert.equal(exit.transcript?.id, 'transcript-tui-transcript');
-  assert.equal(validateTranscript(exit.transcript).ok, true);
+  assert.equal(validateTranscript(exit.transcript).status, 'success');
   assert.equal(exit.transcript?.steps.filter((step) => step.kind === 'input').length, 1);
   assert.ok(exit.transcript?.steps.some((step) => step.kind === 'commit'));
   assert.ok(exit.transcript?.steps.some((step) => step.kind === 'restore'));
