@@ -75,6 +75,7 @@ const frameCellSourceFields = new Set([
   'interactionState',
   'description'
 ]);
+const maximumTranscriptIdCodeUnits = 256;
 const transcriptFrameFields = new Set([
   'width',
   'height',
@@ -213,11 +214,11 @@ interface TranscriptAdoptions {
 
 export const defaultTranscriptValidationLimits: Readonly<Required<TranscriptValidationLimits>> = Object.freeze({
   maxDepth: 128,
-  maxJsonNodes: 1_000_000,
-  maxStringCodeUnits: 1_000_000,
+  maxJsonNodes: 2_000_000,
+  maxStringCodeUnits: 2_000_000,
   maxSteps: 100_000,
-  maxFrameCells: 1_000_000,
-  maxFrameGraphics: 100_000,
+  maxFrameCells: 100_000,
+  maxFrameGraphics: 10_000,
   maxDiffOperations: 1_000_000,
   maxGraphicOperations: 100_000,
   maxDiagnostics: 100_000,
@@ -353,6 +354,9 @@ function decodeTranscript(
   }
   if (!isNonEmptyString(transcript['id'])) {
     return 'Interaction transcript id must not be empty.';
+  }
+  if (transcript['id'].length > maximumTranscriptIdCodeUnits) {
+    return `Interaction transcript id exceeds ${String(maximumTranscriptIdCodeUnits)} code units.`;
   }
   if (!isStringMember(transcript['source'], transcriptSources)) {
     return `Unsupported interaction transcript source: ${String(transcript['source'])}.`;

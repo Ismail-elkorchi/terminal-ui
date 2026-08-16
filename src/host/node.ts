@@ -15,6 +15,7 @@ import type {
   TerminalEnvironment,
   TerminalHost,
   TerminalSignal,
+  TerminalSleepOutcome,
   TerminalSignalSource,
   TerminalSize,
   Unsubscribe
@@ -65,7 +66,7 @@ class NodeClock implements TerminalClock {
     return globalThis.performance.now();
   }
 
-  sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  sleep(ms: number, signal?: AbortSignal): Promise<TerminalSleepOutcome> {
     return abortableSleep(ms, signal);
   }
 }

@@ -73,6 +73,11 @@ export interface TranscriptRetentionPolicy {
   readonly maxSteps?: number;
   readonly maxDiagnostics?: number;
   readonly maxRedactions?: number;
+  readonly maxRetainedBytes?: number;
+  readonly maxRetainedJsonNodes?: number;
+  readonly maxRetainedStringCodeUnits?: number;
+  readonly maxRetainedCells?: number;
+  readonly maxRetainedGraphics?: number;
 }
 
 export interface TranscriptValidationLimits {

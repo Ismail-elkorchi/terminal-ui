@@ -15,17 +15,65 @@ import {
 import { snapshotCanonicalJsonValue, snapshotUnknownJsonValue } from '../foundation/json.ts';
 import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type { FrameDescriptor } from '../renderer/index.ts';
+import { fullRewriteDiffFromFrame } from '../renderer/internal/diff-interpreter.ts';
 import { isCanonicalDateTime } from '../foundation/validation.ts';
 import { snapshotInputEvent } from '../input/index.ts';
 import { decodeAccessibleSnapshot } from '../accessibility/index.ts';
 import { isNonArrayObject, isStringMember } from '../foundation/validation.ts';
 import { transcriptSources } from './types.ts';
+import {
+  transcriptDiagnosticWeight,
+  transcriptRedactionWeight,
+  transcriptStepWeight
+} from './retention.ts';
+import type { TranscriptEvidenceWeight } from './retention.ts';
+
+const maximumTranscriptIdCodeUnits = 256;
 
 export const defaultTranscriptRetentionPolicy: Readonly<Required<TranscriptRetentionPolicy>> = Object.freeze({
   maxSteps: 10_000,
   maxDiagnostics: 1_000,
-  maxRedactions: 1_000
+  maxRedactions: 1_000,
+  maxRetainedBytes: 32 * 1_024 * 1_024,
+  maxRetainedJsonNodes: 1_000_000,
+  maxRetainedStringCodeUnits: 1_100_000,
+  maxRetainedCells: 100_000,
+  maxRetainedGraphics: 10_000
 });
+
+type RetainedEvidence =
+  | RetainedStep
+  | RetainedDiagnostic
+  | RetainedRedaction;
+
+interface RetainedStep extends RetainedEvidenceBase {
+  readonly category: 'step';
+  payload?: RetainedEvidencePayload<InteractionTranscriptStep>;
+}
+
+interface RetainedDiagnostic extends RetainedEvidenceBase {
+  readonly category: 'diagnostic';
+  payload?: RetainedEvidencePayload<DiagnosticOccurrence>;
+}
+
+interface RetainedRedaction extends RetainedEvidenceBase {
+  readonly category: 'redaction';
+  payload?: RetainedEvidencePayload<TranscriptRedaction>;
+}
+
+interface RetainedEvidenceBase {
+  active: boolean;
+}
+
+interface RetainedEvidencePayload<TValue> {
+  value: TValue;
+  weight: TranscriptEvidenceWeight;
+}
+
+interface RetentionQueue<TEntry extends RetainedEvidence = RetainedEvidence> {
+  readonly entries: TEntry[];
+  head: number;
+}
 
 export function createTranscriptRecorder(options?: TranscriptRecorderOptions): TranscriptRecorder;
 export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorder {
@@ -36,8 +84,14 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
     throw new TypeError('Transcript source is invalid.');
   }
   const suppliedIdValue = options['id'];
-  if (suppliedIdValue !== undefined && (typeof suppliedIdValue !== 'string' || suppliedIdValue.trim() === '')) {
-    throw new TypeError('Transcript id must be a non-empty string when provided.');
+  if (suppliedIdValue !== undefined && (
+    typeof suppliedIdValue !== 'string'
+    || suppliedIdValue.trim() === ''
+    || suppliedIdValue.length > maximumTranscriptIdCodeUnits
+  )) {
+    throw new TypeError(
+      `Transcript id must contain 1-${String(maximumTranscriptIdCodeUnits)} code units when provided.`
+    );
   }
   const startedAtValue = options['startedAt'] ?? new Date(0).toISOString();
   if (typeof startedAtValue !== 'string') throw new TypeError('Transcript startedAt must be a string.');
@@ -57,19 +111,30 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
     throw new TypeError('Transcript startedAt must be a canonical ISO 8601 date-time.');
   }
   const id = suppliedId ?? 'transcript';
-  const steps: InteractionTranscriptStep[] = [];
-  const retainedStepLimit = retention.maxSteps;
+  const steps = retentionQueue<RetainedStep>();
+  const diagnostics = retentionQueue<RetainedDiagnostic>();
+  const redactions = retentionQueue<RetainedRedaction>();
+  const evidence = retentionQueue();
+  let retainedSteps = 0;
+  let retainedDiagnostics = 0;
+  let retainedRedactions = 0;
+  let retainedBytes = 0;
+  let retainedJsonNodes = 0;
+  let retainedStringCodeUnits = 0;
+  let retainedCells = 0;
+  let retainedGraphics = 0;
   let omittedSteps = 0;
-  let oldestStepIndex = 0;
-  const diagnostics: DiagnosticOccurrence[] = [];
   const diagnosticIds = new Set<string>();
   const diagnosticStepIds = new Set<string>();
   let omittedDiagnostics = 0;
   const reporter = createDiagnosticOccurrenceReporter(`${id}:transcript`);
-  const redactions: TranscriptRedaction[] = [];
   let omittedRedactions = 0;
   return {
     record(step) {
+      if (commitExceedsRetention(step, retention)) {
+        omittedSteps += 1;
+        return;
+      }
       const recorded = recordedTranscriptStep(step);
       if (recorded.kind === 'diagnostic') recordOccurrence(recorded.occurrence);
       else appendStep(recorded);
@@ -92,27 +157,24 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
     },
     recordRedaction(redaction) {
       const item = snapshotCanonicalJsonValue(redaction, 'Transcript redaction');
-      if (retention.maxRedactions === 0) {
-        omittedRedactions += 1;
-      } else {
-        if (redactions.length === retention.maxRedactions) {
-          redactions.shift();
-          omittedRedactions += 1;
-        }
-        redactions.push(item);
-      }
+      retainEvidence({
+        category: 'redaction',
+        active: true,
+        payload: { value: item, weight: transcriptRedactionWeight(item) }
+      });
     },
     snapshot(): InteractionTranscript {
+      ensureReplayCheckpoint();
       return Object.freeze({
         formatVersion: interactionTranscriptFormatVersion,
         id,
         source,
         startedAt,
-        steps: orderedSteps(),
+        steps: Object.freeze(activeSteps(steps).map((entry) => entry.payload.value)),
         omittedSteps,
-        diagnostics: Object.freeze([...diagnostics]),
+        diagnostics: Object.freeze(activeDiagnostics(diagnostics).map((entry) => entry.payload.value)),
         omittedDiagnostics,
-        redactions: Object.freeze([...redactions]),
+        redactions: Object.freeze(activeRedactions(redactions).map((entry) => entry.payload.value)),
         omittedRedactions
       });
     }
@@ -143,52 +205,159 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
   }
 
   function retainStep(step: InteractionTranscriptStep): void {
-    if (retainedStepLimit === 0) {
-      omittedSteps += 1;
-      return;
-    }
-    if (steps.length < retainedStepLimit) {
-      steps.push(step);
-      retainDiagnosticStepId(step);
-      return;
-    }
-    releaseDiagnosticStepId(steps[oldestStepIndex]);
-    steps[oldestStepIndex] = step;
-    retainDiagnosticStepId(step);
-    oldestStepIndex = (oldestStepIndex + 1) % retainedStepLimit;
-    omittedSteps += 1;
-  }
-
-  function orderedSteps(): readonly InteractionTranscriptStep[] {
-    if (oldestStepIndex === 0 || steps.length < retainedStepLimit) {
-      return Object.freeze([...steps]);
-    }
-    return Object.freeze([
-      ...steps.slice(oldestStepIndex),
-      ...steps.slice(0, oldestStepIndex),
-    ]);
+    retainEvidence({
+      category: 'step',
+      active: true,
+      payload: { value: step, weight: transcriptStepWeight(step) }
+    });
   }
 
   function retainDiagnostic(item: DiagnosticOccurrence): void {
-    if (retention.maxDiagnostics === 0) {
-      omittedDiagnostics += 1;
-      return;
-    }
-    if (diagnostics.length === retention.maxDiagnostics) {
-      const removed = diagnostics.shift();
-      if (removed !== undefined) diagnosticIds.delete(removed.id);
-      omittedDiagnostics += 1;
-    }
-    diagnosticIds.add(item.id);
-    diagnostics.push(item);
+    retainEvidence({
+      category: 'diagnostic',
+      active: true,
+      payload: { value: item, weight: transcriptDiagnosticWeight(item) }
+    });
   }
 
-  function retainDiagnosticStepId(step: InteractionTranscriptStep): void {
-    if (step.kind === 'diagnostic') diagnosticStepIds.add(step.occurrence.id);
+  function retainEvidence(entry: RetainedEvidence): void {
+    switch (entry.category) {
+      case 'step': {
+        const payload = entry.payload;
+        if (payload === undefined) return;
+        activateEvidence(entry, payload.weight);
+        steps.entries.push(entry);
+        retainedSteps += 1;
+        if (payload.value.kind === 'diagnostic') diagnosticStepIds.add(payload.value.occurrence.id);
+        enforceCount(steps, retention.maxSteps, () => retainedSteps);
+        break;
+      }
+      case 'diagnostic': {
+        const payload = entry.payload;
+        if (payload === undefined) return;
+        activateEvidence(entry, payload.weight);
+        diagnostics.entries.push(entry);
+        retainedDiagnostics += 1;
+        diagnosticIds.add(payload.value.id);
+        enforceCount(diagnostics, retention.maxDiagnostics, () => retainedDiagnostics);
+        break;
+      }
+      case 'redaction': {
+        const payload = entry.payload;
+        if (payload === undefined) return;
+        activateEvidence(entry, payload.weight);
+        redactions.entries.push(entry);
+        retainedRedactions += 1;
+        enforceCount(redactions, retention.maxRedactions, () => retainedRedactions);
+        break;
+      }
+    }
+    enforceResourceLimits();
   }
 
-  function releaseDiagnosticStepId(step: InteractionTranscriptStep | undefined): void {
-    if (step?.kind === 'diagnostic') diagnosticStepIds.delete(step.occurrence.id);
+  function activateEvidence(entry: RetainedEvidence, weight: TranscriptEvidenceWeight): void {
+    evidence.entries.push(entry);
+    retainedBytes += weight.bytes;
+    retainedJsonNodes += weight.jsonNodes;
+    retainedStringCodeUnits += weight.stringCodeUnits;
+    retainedCells += weight.cells;
+    retainedGraphics += weight.graphics;
+  }
+
+  function enforceCount(queue: RetentionQueue, limit: number, count: () => number): void {
+    while (count() > limit) {
+      const entry = shiftActive(queue);
+      if (entry === undefined) return;
+      evict(entry);
+    }
+  }
+
+  function enforceResourceLimits(): void {
+    while (
+      retainedBytes > retention.maxRetainedBytes
+      || retainedJsonNodes > retention.maxRetainedJsonNodes
+      || retainedStringCodeUnits > retention.maxRetainedStringCodeUnits
+      || retainedCells > retention.maxRetainedCells
+      || retainedGraphics > retention.maxRetainedGraphics
+    ) {
+      const entry = shiftActive(evidence);
+      if (entry === undefined) return;
+      evict(entry);
+    }
+  }
+
+  function evict(entry: RetainedEvidence): void {
+    if (!entry.active) return;
+    switch (entry.category) {
+      case 'step': {
+        const payload = entry.payload;
+        if (payload === undefined) return;
+        deactivateEvidence(entry, payload.weight);
+        retainedSteps -= 1;
+        omittedSteps += 1;
+        if (payload.value.kind === 'diagnostic') diagnosticStepIds.delete(payload.value.occurrence.id);
+        break;
+      }
+      case 'diagnostic': {
+        const payload = entry.payload;
+        if (payload === undefined) return;
+        deactivateEvidence(entry, payload.weight);
+        retainedDiagnostics -= 1;
+        omittedDiagnostics += 1;
+        diagnosticIds.delete(payload.value.id);
+        break;
+      }
+      case 'redaction': {
+        const payload = entry.payload;
+        if (payload === undefined) return;
+        deactivateEvidence(entry, payload.weight);
+        retainedRedactions -= 1;
+        omittedRedactions += 1;
+        break;
+      }
+    }
+    delete entry.payload;
+  }
+
+  function deactivateEvidence(entry: RetainedEvidence, weight: TranscriptEvidenceWeight): void {
+    entry.active = false;
+    retainedBytes -= weight.bytes;
+    retainedJsonNodes -= weight.jsonNodes;
+    retainedStringCodeUnits -= weight.stringCodeUnits;
+    retainedCells -= weight.cells;
+    retainedGraphics -= weight.graphics;
+  }
+
+  function ensureReplayCheckpoint(): void {
+    let firstCommit = activeSteps(steps).find((entry) => entry.payload.value.kind === 'commit');
+    while (
+      firstCommit?.payload.value.kind === 'commit'
+      && !firstCommit.payload.value.commit.diff.fullRewrite
+    ) {
+      const commit = firstCommit.payload.value.commit;
+      const checkpoint = Object.freeze({
+        kind: 'commit' as const,
+        commit: Object.freeze({ ...commit, diff: fullRewriteDiffFromFrame(commit.frame) })
+      });
+      const previousWeight = firstCommit.payload.weight;
+      firstCommit.payload.value = checkpoint;
+      firstCommit.payload.weight = transcriptStepWeight(checkpoint);
+      replaceEvidenceWeight(previousWeight, firstCommit.payload.weight);
+      enforceResourceLimits();
+      if (firstCommit.active) return;
+      firstCommit = activeSteps(steps).find((entry) => entry.payload.value.kind === 'commit');
+    }
+  }
+
+  function replaceEvidenceWeight(
+    previous: TranscriptEvidenceWeight,
+    next: TranscriptEvidenceWeight
+  ): void {
+    retainedBytes += next.bytes - previous.bytes;
+    retainedJsonNodes += next.jsonNodes - previous.jsonNodes;
+    retainedStringCodeUnits += next.stringCodeUnits - previous.stringCodeUnits;
+    retainedCells += next.cells - previous.cells;
+    retainedGraphics += next.graphics - previous.graphics;
   }
 }
 
@@ -206,6 +375,31 @@ function prepareRetention(value: unknown): Readonly<Required<TranscriptRetention
       value['maxRedactions'],
       defaultTranscriptRetentionPolicy.maxRedactions,
       'maxRedactions'
+    ),
+    maxRetainedBytes: retentionLimit(
+      value['maxRetainedBytes'],
+      defaultTranscriptRetentionPolicy.maxRetainedBytes,
+      'maxRetainedBytes'
+    ),
+    maxRetainedJsonNodes: retentionLimit(
+      value['maxRetainedJsonNodes'],
+      defaultTranscriptRetentionPolicy.maxRetainedJsonNodes,
+      'maxRetainedJsonNodes'
+    ),
+    maxRetainedStringCodeUnits: retentionLimit(
+      value['maxRetainedStringCodeUnits'],
+      defaultTranscriptRetentionPolicy.maxRetainedStringCodeUnits,
+      'maxRetainedStringCodeUnits'
+    ),
+    maxRetainedCells: retentionLimit(
+      value['maxRetainedCells'],
+      defaultTranscriptRetentionPolicy.maxRetainedCells,
+      'maxRetainedCells'
+    ),
+    maxRetainedGraphics: retentionLimit(
+      value['maxRetainedGraphics'],
+      defaultTranscriptRetentionPolicy.maxRetainedGraphics,
+      'maxRetainedGraphics'
     )
   });
 }
@@ -216,6 +410,72 @@ function retentionLimit(value: unknown, fallback: number, field: string): number
     throw new RangeError(`Transcript retention ${field} must be a non-negative safe integer.`);
   }
   return value as number;
+}
+
+function retentionQueue<TEntry extends RetainedEvidence>(): RetentionQueue<TEntry> {
+  return { entries: [], head: 0 };
+}
+
+function shiftActive<TEntry extends RetainedEvidence>(queue: RetentionQueue<TEntry>): TEntry | undefined {
+  while (queue.head < queue.entries.length) {
+    const entry = queue.entries[queue.head];
+    queue.head += 1;
+    if (entry?.active === true && entry.payload !== undefined) {
+      compactQueue(queue);
+      return entry;
+    }
+  }
+  compactQueue(queue);
+  return undefined;
+}
+
+function activeSteps(
+  queue: RetentionQueue<RetainedStep>
+): (RetainedStep & { payload: RetainedEvidencePayload<InteractionTranscriptStep> })[] {
+  return queue.entries.slice(queue.head).filter(
+    (entry): entry is RetainedStep & { payload: RetainedEvidencePayload<InteractionTranscriptStep> } =>
+      entry.active && entry.payload !== undefined
+  );
+}
+
+function activeDiagnostics(
+  queue: RetentionQueue<RetainedDiagnostic>
+): (RetainedDiagnostic & { payload: RetainedEvidencePayload<DiagnosticOccurrence> })[] {
+  return queue.entries.slice(queue.head).filter(
+    (entry): entry is RetainedDiagnostic & { payload: RetainedEvidencePayload<DiagnosticOccurrence> } =>
+      entry.active && entry.payload !== undefined
+  );
+}
+
+function activeRedactions(
+  queue: RetentionQueue<RetainedRedaction>
+): (RetainedRedaction & { payload: RetainedEvidencePayload<TranscriptRedaction> })[] {
+  return queue.entries.slice(queue.head).filter(
+    (entry): entry is RetainedRedaction & { payload: RetainedEvidencePayload<TranscriptRedaction> } =>
+      entry.active && entry.payload !== undefined
+  );
+}
+
+function compactQueue<TEntry extends RetainedEvidence>(queue: RetentionQueue<TEntry>): void {
+  if (queue.head < 1_024 || queue.head * 2 < queue.entries.length) return;
+  queue.entries.splice(0, queue.head);
+  queue.head = 0;
+}
+
+function commitExceedsRetention(
+  step: InteractionTranscriptStep,
+  retention: Readonly<Required<TranscriptRetentionPolicy>>
+): boolean {
+  if (step.kind !== 'commit') return false;
+  const frame = step.commit.frame;
+  const diff = step.commit.diff;
+  return Array.isArray(frame.cells)
+    && Array.isArray(frame.graphics)
+    && Array.isArray(diff.graphicOperations)
+    && (
+      frame.cells.length > retention.maxRetainedCells
+      || frame.graphics.length + diff.graphicOperations.length > retention.maxRetainedGraphics
+    );
 }
 
 function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTranscriptStep {

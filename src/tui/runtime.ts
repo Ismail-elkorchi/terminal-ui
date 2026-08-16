@@ -497,7 +497,7 @@ function createRuntime<TState, TMessage>(
       if (lifecycle.active()) runPostCommit('subscription_activation', () => {
         subscriptions.activate(preparedSubscriptions);
       });
-      for (const item of result.diagnostics) diagnostics.record(item);
+      for (const item of result.diagnostics) diagnostics.report(item);
       changes.publish({
         kind: 'frame',
         commitId: result.render.commitId,
@@ -618,7 +618,7 @@ function createRuntime<TState, TMessage>(
     metrics.frameCommits += 1;
     recordReductionMessages(reduction);
     recordCommittedRender(result.render, result.diff);
-    for (const item of result.diagnostics) diagnostics.record(item);
+    for (const item of result.diagnostics) diagnostics.report(item);
     const exit = completeReduction(reduction, result.render.frame);
     changes.publish({
       kind: 'frame',
@@ -953,8 +953,8 @@ function createRuntime<TState, TMessage>(
     else callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
     void Promise.resolve()
       .then(() => options.host.clock.sleep(timeoutMs, controller.signal))
-      .then(() => {
-        if (!controller.signal.aborted) controller.abort(RUNTIME_DISPOSAL_TIMEOUT);
+      .then((outcome) => {
+        if (outcome === 'elapsed') controller.abort(RUNTIME_DISPOSAL_TIMEOUT);
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) {

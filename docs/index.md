@@ -39,6 +39,7 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 - [Prompts](./guides/prompts.md)
 - [TUI rendering](./guides/tui.md)
 - [Terminal graphics](./guides/graphics.md)
+- [Graphics compatibility](./guides/graphics-compatibility.md)
 - [Building terminal apps](./guides/building-terminal-apps.md)
 - [Components](./guides/components.md)
 - [Behavior helpers](./guides/behavior.md)

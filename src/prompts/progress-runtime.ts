@@ -183,7 +183,8 @@ async function progressTimeoutOutcome(
   signal: AbortSignal
 ): Promise<ProgressOutcome> {
   if (prompt.timeoutMs === undefined || host === undefined) return never();
-  await host.clock.sleep(prompt.timeoutMs, signal);
+  const outcome = await host.clock.sleep(prompt.timeoutMs, signal);
+  if (outcome === 'aborted') return never();
   return { kind: 'timeout' };
 }
 

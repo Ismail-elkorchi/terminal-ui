@@ -391,8 +391,8 @@ export class TerminalInputAuthority implements TerminalInput {
     };
     this.#lateResponseFilter = filter;
     void clock.sleep(LATE_PROBE_QUARANTINE_MS, controller.signal).then(
-      () => {
-        this.#expireLateProbeQuarantine(filter, controller);
+      (outcome) => {
+        if (outcome === 'elapsed') this.#expireLateProbeQuarantine(filter, controller);
       },
       () => {
         if (!controller.signal.aborted) this.#expireLateProbeQuarantine(filter, controller);
@@ -405,8 +405,8 @@ export class TerminalInputAuthority implements TerminalInput {
     const controller = new AbortController();
     filter.prefixDeadline = controller;
     void filter.clock.sleep(LATE_PROBE_AMBIGUITY_MS, controller.signal).then(
-      () => {
-        this.#expireLateProbeFilter(filter, controller);
+      (outcome) => {
+        if (outcome === 'elapsed') this.#expireLateProbeFilter(filter, controller);
       },
       () => {
         if (!controller.signal.aborted) this.#expireLateProbeFilter(filter, controller);

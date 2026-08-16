@@ -1,7 +1,7 @@
 # Terminal Graphics
 
-Terminal graphics are a preview API until the physical-terminal compatibility
-matrix in the project stabilization ledger is complete. Text fallback remains
+Terminal graphics are a preview API until the checked-in
+[physical-terminal compatibility matrix](./graphics-compatibility.md) is complete. Text fallback remains
 the stable behavior when graphics capability is absent or rejected.
 
 `terminal-ui` renders owned RGB and RGBA raster resources through the Kitty

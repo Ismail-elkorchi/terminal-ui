@@ -157,8 +157,8 @@ async function attemptOutputCleanup(
   const controller = new AbortController();
   const timer = Promise.resolve()
     .then(() => host.clock.sleep(defaultTuiLifecyclePolicy.runtimeDisposalTimeoutMs, controller.signal))
-    .then(() => {
-      if (!controller.signal.aborted) controller.abort(new Error('Terminal output cleanup timed out.'));
+    .then((outcome) => {
+      if (outcome === 'elapsed') controller.abort(new Error('Terminal output cleanup timed out.'));
     }, (cause: unknown) => {
       if (!controller.signal.aborted) controller.abort(cause);
     });

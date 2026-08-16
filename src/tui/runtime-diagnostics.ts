@@ -20,19 +20,17 @@ export function createRuntimeDiagnostics(options: {
   const occurrences: DiagnosticOccurrence[] = [];
   let omittedOccurrences = 0;
   const backgroundTasks = new Set<TrackedRuntimeTask>();
-  let refreshQueued = false;
+  let reportedGeneration = 0;
+  let renderedGeneration = 0;
+  let refreshRunning = false;
   const diagnostics = {
     values: () => [...occurrences],
     omitted: () => omittedOccurrences,
     record,
     report(item: TerminalDiagnostic) {
       const occurrence = record(item);
-      if (options.active() && options.canRefresh() && !refreshQueued) {
-        refreshQueued = true;
-        track(options.refresh(), 'diagnostic_refresh', () => {
-          refreshQueued = false;
-        });
-      }
+      reportedGeneration += 1;
+      ensureRefresh();
       return occurrence;
     },
     async settle() {
@@ -64,6 +62,36 @@ export function createRuntimeDiagnostics(options: {
       occurrences.push(sinkFailure);
     }
     return occurrence;
+  }
+
+  function ensureRefresh(): void {
+    if (
+      refreshRunning
+      || renderedGeneration >= reportedGeneration
+      || !options.active()
+      || !options.canRefresh()
+    ) return;
+    refreshRunning = true;
+    track(refreshLoop(), 'diagnostic_refresh', () => {
+      refreshRunning = false;
+      ensureRefresh();
+    });
+  }
+
+  async function refreshLoop(): Promise<void> {
+    while (
+      renderedGeneration < reportedGeneration
+      && options.active()
+      && options.canRefresh()
+    ) {
+      const targetGeneration = reportedGeneration;
+      try {
+        await options.refresh();
+      } finally {
+        // A failed redraw is retried only when a later diagnostic advances the generation.
+        renderedGeneration = targetGeneration;
+      }
+    }
   }
 
   function track(task: Promise<unknown>, taskName: string, settled: () => void): void {

@@ -405,8 +405,8 @@ function probeController(
   const operation = new AbortController();
   const timer = new AbortController();
   void clock.sleep(timeoutMs, timer.signal).then(
-    () => {
-      if (!timer.signal.aborted) operation.abort('terminal_capability_probe_timeout');
+    (outcome) => {
+      if (outcome === 'elapsed') operation.abort('terminal_capability_probe_timeout');
     },
     (cause: unknown) => {
       if (!timer.signal.aborted) operation.abort(cause);

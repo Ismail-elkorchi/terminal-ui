@@ -63,9 +63,10 @@ one-shot overrides remain separate public validation boundaries. Base CSI-u
 code-point packets are recognized without enabling optional Kitty fields;
 event types, alternate keys,
 and associated text require their negotiated flags. Associated text is accepted only with the
-report-all-keys flag required by the protocol. Report-all-keys is also valid
-without associated text; that profile deliberately reports key identity without
-committed text. Even when associated text is enabled, shortcuts such as Ctrl+A
+report-all-keys flag required by the protocol. The low-level protocol decoder accepts
+report-all-keys without associated text and deliberately reports key identity without
+committed text. Managed TUI sessions reject that profile because editable controls require
+a negotiated source of committed text. Even when associated text is enabled, shortcuts such as Ctrl+A
 need not carry text. Optional fields that were not negotiated remain one
 unknown event rather than being downgraded into a press or a partial key event.
 Ambiguous Escape, CSI, mouse, Kitty, and control-string prefixes remain pending
@@ -124,7 +125,10 @@ TUI transcript capture is opt-in with `transcript: true` on the
 TUI definition. Enabled transcripts record normalized input events, frames,
 render diffs, restore checkpoints, final diagnostics, and the final accessible
 snapshot on the returned `TuiExit`. Recorder retention is bounded by default:
-steps, diagnostics, and redactions have independent limits and the transcript
+steps, diagnostics, and redactions have independent count limits, while one
+shared byte, JSON-node, and string-data budgets plus aggregate frame-cell and
+graphics limits bound retained evidence weight. When eviction removes the original render baseline, the oldest
+retained commit is promoted to a complete replay checkpoint. The transcript
 reports omitted counts for each stream. Supply `retention` to
 `createTranscriptRecorder()` when a different evidence budget is required.
 

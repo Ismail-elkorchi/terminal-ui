@@ -167,8 +167,8 @@ export function createTuiSourceChannel<TMessage>(options: {
     const controller = new AbortController();
     cadenceController = controller;
     cadence = options.cadence.clock.sleep(options.cadence.intervalMs, controller.signal)
-      .then(() => {
-        if (state.kind === 'open') flushCadenced();
+      .then((outcome) => {
+        if (outcome === 'elapsed' && state.kind === 'open') flushCadenced();
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) fail(cause);

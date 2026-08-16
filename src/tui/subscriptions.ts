@@ -64,6 +64,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   const active = new Map<string, ActiveTuiEventSource<TMessage>>();
   const terminal = new Map<string, TerminalSourceGeneration>();
   const retiring = new Set<Promise<void>>();
+  const retiringSources = new Set<ActiveTuiEventSource<TMessage>>();
   const retirementFailures: unknown[] = [];
   const retainedMetrics = emptySourceMetrics();
   let disposed = false;
@@ -97,6 +98,9 @@ export function createTuiSubscriptionManager<TState, TMessage>(
     metrics() {
       const result = { ...retainedMetrics };
       for (const source of active.values()) {
+        if (!source.metricsRetained) addSourceMetrics(result, source.channel.metrics());
+      }
+      for (const source of retiringSources) {
         if (!source.metricsRetained) addSourceMetrics(result, source.channel.metrics());
       }
       return Object.freeze(result);
@@ -165,7 +169,11 @@ export function createTuiSubscriptionManager<TState, TMessage>(
         if (active.get(id) === activeSource) active.delete(id);
         retirementFailures.push(cause);
       })
-      .finally(() => { activeSource.lease.revoke(); });
+      .finally(() => {
+        activeSource.lease.revoke();
+        retainSourceMetrics(activeSource);
+        retiringSources.delete(activeSource);
+      });
     return activeSource;
   }
 
@@ -224,6 +232,8 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   }
 
   function retireSource(source: ActiveTuiEventSource<TMessage>): void {
+    if (source.metricsRetained || retiringSources.has(source)) return;
+    retiringSources.add(source);
     source.lease.revoke();
     source.controller.abort();
     source.channel.cancel();
@@ -236,7 +246,6 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   }
 
   function disposeSource(source: ActiveTuiEventSource<TMessage>): Promise<void> {
-    retainSourceMetrics(source);
     source.disposal ??= invokeSourceDisposer(source).catch((cause: unknown) => {
       retirementFailures.push(cause);
       options.reportDiagnostic(diagnostic('TUI_SOURCE_FAILED', `TUI event source ${source.id} cleanup failed.`, {

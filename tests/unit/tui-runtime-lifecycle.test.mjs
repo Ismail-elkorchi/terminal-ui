@@ -1750,6 +1750,7 @@ test('TUI runtime disposal preserves its timeout when a caller signal is supplie
   let requestedTimeout;
   host.clock.sleep = async (timeoutMs) => {
     requestedTimeout = timeoutMs;
+    return 'elapsed';
   };
   const caller = new globalThis.AbortController();
 

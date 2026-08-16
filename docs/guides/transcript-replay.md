@@ -6,6 +6,11 @@ diagnostics, and terminal restore checkpoints.
 The recorder adopts every retained step and redaction. Mutating a frame,
 snapshot, restore result, or redaction object after `record()` returns cannot
 change the recorded evidence.
+Default retention is bounded by counts and by total serialized evidence bytes,
+JSON nodes, string data, frame cells, and graphics descriptors. Resource eviction is chronological
+across steps, diagnostics, and redactions. The first retained commit is always
+a complete rewrite checkpoint, so a retained suffix remains replayable after
+older commits are omitted.
 
 Transcript capture is opt-in for interactive prompts and TUI sessions with
 `transcript: true`; prompt `transcript_only`

@@ -72,8 +72,10 @@ export interface TerminalSignalSource {
 
 export interface TerminalClock {
   monotonicNow(): number;
-  sleep(ms: number, signal?: AbortSignal): Promise<void>;
+  sleep(ms: number, signal?: AbortSignal): Promise<TerminalSleepOutcome>;
 }
+
+export type TerminalSleepOutcome = 'elapsed' | 'aborted';
 
 export interface ControlledTerminalClock extends TerminalClock {
   advance(ms: number): void;

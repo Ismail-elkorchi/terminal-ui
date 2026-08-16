@@ -18,6 +18,9 @@ interface TrackedWheelTask<TResult> {
   completion: Promise<readonly TResult[]>;
 }
 
+const WHEEL_FLUSH = Symbol('terminal-ui.wheel-flush');
+const WHEEL_RESET = Symbol('terminal-ui.wheel-reset');
+
 export interface WheelInputCoordinatorOptions<TResult> {
   readonly clock: TerminalClock;
   readonly execute: (batch: WheelInputBatch) => Promise<readonly TResult[]>;
@@ -58,7 +61,9 @@ export function createWheelInputCoordinator<TResult>(
       next.completion = trackTask(
         options.clock
           .sleep(batchWindowMs, controller.signal)
-          .then(() => executePending(next))
+          .then((outcome) => outcome === 'elapsed' || controller.signal.reason === WHEEL_FLUSH
+            ? executePending(next)
+            : [])
       );
       return flushed;
     },
@@ -87,7 +92,7 @@ export function createWheelInputCoordinator<TResult>(
 
   function flush(): Promise<readonly TResult[]> {
     if (pending === undefined) return Promise.resolve([]);
-    pending.controller.abort();
+    pending.controller.abort(WHEEL_FLUSH);
     return pending.completion;
   }
 
@@ -100,6 +105,6 @@ export function createWheelInputCoordinator<TResult>(
   function reset(): void {
     const candidate = pending;
     pending = undefined;
-    candidate?.controller.abort();
+    candidate?.controller.abort(WHEEL_RESET);
   }
 }

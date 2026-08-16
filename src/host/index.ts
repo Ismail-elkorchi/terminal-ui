@@ -54,6 +54,7 @@ export type {
   TerminalSessionOptions,
   TerminalSignal,
   TerminalSignalSource,
+  TerminalSleepOutcome,
   TerminalStateChange,
   TerminalStateKnowledge,
   TerminalStateProvenanceSnapshot,

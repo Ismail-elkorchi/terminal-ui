@@ -17,8 +17,8 @@ export function createInputAmbiguityDeadline<TResult>(
       const controller = new AbortController();
       active = controller;
       return clock.sleep(delayMs, controller.signal).then(
-        async () => {
-          if (active !== controller || controller.signal.aborted) return undefined;
+        async (outcome) => {
+          if (outcome === 'aborted' || active !== controller) return undefined;
           active = undefined;
           return operation();
         },

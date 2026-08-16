@@ -258,8 +258,8 @@ export function createTuiEffectManager<TMessage>(
       completion: Promise.resolve()
     };
     deadline.completion = options.clock.sleep(policy.replacementGracePeriodMs, controller.signal)
-      .then(() => {
-        if (controller.signal.aborted || pendingReplacements.get(id) !== effect) return;
+      .then((outcome) => {
+        if (outcome === 'aborted' || pendingReplacements.get(id) !== effect) return;
         pendingReplacements.delete(id);
         rejectEffect(effect, 'replacement_timeout');
       })

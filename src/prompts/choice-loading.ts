@@ -22,8 +22,8 @@ export function scheduleAutocompleteChoiceRefresh<TValue>(
   const controller = new AbortController();
   state.choiceDebounceController = controller;
   void (async () => {
-    await host.clock.sleep(delayMs, controller.signal);
-    if (controller.signal.aborted || state.completed || state.choiceDebounceController !== controller) return;
+    const outcome = await host.clock.sleep(delayMs, controller.signal);
+    if (outcome === 'aborted' || state.completed || state.choiceDebounceController !== controller) return;
     await refreshAutocompleteChoices(prompt, host, state, hooks);
   })();
 }

@@ -930,6 +930,7 @@ The availability column records every entrypoint that re-exports the same declar
 | `TerminalSignal` | type | stable | <code>type TerminalSignal = TerminalSignal</code> | `@ismail-elkorchi/terminal-ui/host` | [src/host/types.ts](../../src/host/types.ts) |
 | `TerminalSignalSource` | interface | stable | <code>interface TerminalSignalSource</code> | `@ismail-elkorchi/terminal-ui/host` | [src/host/types.ts](../../src/host/types.ts) |
 | `TerminalSize` | interface | stable | <code>interface TerminalSize</code> | `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/host` | [src/geometry/types.ts](../../src/geometry/types.ts) |
+| `TerminalSleepOutcome` | type | stable | <code>type TerminalSleepOutcome = TerminalSleepOutcome</code> | `@ismail-elkorchi/terminal-ui/host` | [src/host/types.ts](../../src/host/types.ts) |
 | `TerminalStateChange` | type | stable | <code>type TerminalStateChange = TerminalStateChange</code> | `@ismail-elkorchi/terminal-ui/host` | [src/host/types.ts](../../src/host/types.ts) |
 | `TerminalStateKnowledge` | type | stable | <code>type TerminalStateKnowledge = TerminalStateKnowledge</code> | `@ismail-elkorchi/terminal-ui/host` | [src/host/types.ts](../../src/host/types.ts) |
 | `TerminalStateProvenanceSnapshot` | interface | stable | <code>interface TerminalStateProvenanceSnapshot</code> | `@ismail-elkorchi/terminal-ui/host` | [src/host/types.ts](../../src/host/types.ts) |

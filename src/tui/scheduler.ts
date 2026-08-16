@@ -38,8 +38,8 @@ export function timeoutSource<TMessage extends NonNullable<unknown>>(
     generation: 0,
     source: 'timer',
     async *messages(context) {
-      await context.clock.sleep(ms, context.signal);
-      if (!context.signal.aborted) yield reliableSourceMessage(message);
+      const outcome = await context.clock.sleep(ms, context.signal);
+      if (outcome === 'elapsed') yield reliableSourceMessage(message);
     }
   };
 }
@@ -58,8 +58,8 @@ export function animationSource<TMessage extends NonNullable<unknown>>(
       let timeline = createAnimationTimeline(context.clock.monotonicNow(), fps);
       while (!context.signal.aborted) {
         const delay = Math.max(0, nextAnimationDeadline(timeline) - context.clock.monotonicNow());
-        await context.clock.sleep(delay, context.signal);
-        if (signalAborted(context.signal)) return;
+        const outcome = await context.clock.sleep(delay, context.signal);
+        if (outcome === 'aborted') return;
         const advanced = advanceAnimationTimeline(timeline, context.clock.monotonicNow());
         timeline = advanced.timeline;
         yield replaceableSourceMessage('animation-frame', message(advanced.frame));
@@ -68,17 +68,12 @@ export function animationSource<TMessage extends NonNullable<unknown>>(
   };
 }
 
-function signalAborted(signal: AbortSignal): boolean {
-  return signal.aborted;
-}
-
 async function sleepForTick(
   context: TuiSubscriptionContext,
   ms: number
 ): Promise<boolean> {
   if (context.signal.aborted) return false;
-  await context.clock.sleep(ms, context.signal);
-  return !context.signal.aborted;
+  return await context.clock.sleep(ms, context.signal) === 'elapsed';
 }
 
 function scheduledMessage<TMessage extends NonNullable<unknown>>(

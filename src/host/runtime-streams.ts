@@ -22,6 +22,7 @@ import type {
   TerminalOperationContext,
   TerminalSignal,
   TerminalSignalSource,
+  TerminalSleepOutcome,
   TerminalSize,
   Unsubscribe
 } from './types.ts';
@@ -257,7 +258,7 @@ export class RuntimeClock implements TerminalClock {
     return globalThis.performance.now();
   }
 
-  sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  sleep(ms: number, signal?: AbortSignal): Promise<TerminalSleepOutcome> {
     return abortableSleep(ms, signal);
   }
 }

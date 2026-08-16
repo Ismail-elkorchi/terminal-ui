@@ -76,6 +76,10 @@ adapters retain one writer and await each write, and memory/PTY adapters expose
 the same completion semantics. Runtime scheduling uses the host's monotonic
 clock; wall-clock changes do not affect pointer timing, animation deadlines, or
 cleanup bounds.
+`TerminalClock.sleep()` resolves to `elapsed` when its deadline expires and
+`aborted` when its signal is cancelled. Ordinary cancellation must not reject;
+a rejection means the clock itself failed. Timer consumers use the tagged
+outcome rather than inferring cancellation from promise settlement.
 An `applied` terminal operation also reports assurance: `sent` means the
 transport committed its sequence, `observed` means the host subsequently
 confirmed the state, and `assumed` describes an unchanged outer-state fact.

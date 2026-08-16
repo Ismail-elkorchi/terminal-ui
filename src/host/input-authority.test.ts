@@ -10,7 +10,7 @@ import type { TerminalClock, TerminalInputChunk } from './types.ts';
 
 const probeClock: TerminalClock = {
   monotonicNow: () => 0,
-  sleep: (_ms, signal) => new Promise<void>((_resolve, reject) => {
+  sleep: (_ms, signal) => new Promise<'elapsed' | 'aborted'>((_resolve, reject) => {
     signal?.addEventListener('abort', () => {
       reject(new Error('Probe clock wait was cancelled.', { cause: signal.reason }));
     }, { once: true });
@@ -388,17 +388,17 @@ function controlledClock(): TerminalClock & { advance(ms: number): void } {
   const sleeps: {
     readonly target: number;
     readonly signal?: AbortSignal;
-    readonly resolve: () => void;
+    readonly resolve: (outcome: 'elapsed' | 'aborted') => void;
   }[] = [];
   return {
     monotonicNow: () => now,
     sleep(ms, signal) {
-      if (signal?.aborted === true) return Promise.resolve();
+      if (signal?.aborted === true) return Promise.resolve('aborted' as const);
       return new Promise((resolve) => {
         const sleep = { target: now + ms, ...(signal === undefined ? {} : { signal }), resolve };
         sleeps.push(sleep);
         signal?.addEventListener('abort', () => {
-          resolve();
+          resolve('aborted');
         }, { once: true });
       });
     },
@@ -408,7 +408,7 @@ function controlledClock(): TerminalClock & { advance(ms: number): void } {
         const sleep = sleeps[index];
         if (sleep === undefined || (sleep.target > now && sleep.signal?.aborted !== true)) continue;
         sleeps.splice(index, 1);
-        sleep.resolve();
+        sleep.resolve(sleep.signal?.aborted === true ? 'aborted' : 'elapsed');
       }
     }
   };

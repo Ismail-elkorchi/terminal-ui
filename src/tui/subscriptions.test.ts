@@ -43,9 +43,13 @@ void test('subscription cancellation retires a source blocked on channel capacit
   manager.cancel();
 
   await disposed.promise;
+  assert.equal(manager.metrics().dispatchedMessages, 0);
+  assert.equal(manager.metrics().dispatchedBatches, 0);
   assert.equal(manager.metrics().maximumBuffered, 1);
   dispatchRelease.resolve();
   await manager.dispose();
+  assert.equal(manager.metrics().dispatchedMessages, 1);
+  assert.equal(manager.metrics().dispatchedBatches, 1);
 });
 
 async function managerContext(host: ReturnType<typeof createMemoryTerminalHost>) {

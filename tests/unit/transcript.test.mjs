@@ -5,7 +5,7 @@ import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagn
 import { restoreTerminalState } from '../../dist/host/index.js';
 import { createTerminalHarness, replayTranscript } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, redactTranscript, validateTranscript } from '../../dist/transcript/index.js';
-import { createFrameBuffer } from '../../dist/renderer/index.js';
+import { createFrameBuffer, diffFrames } from '../../dist/renderer/index.js';
 import { decodeInputEvent } from '../../dist/input/index.js';
 
 test('transcript retention uses a bounded chronological ring and streams every owned step', () => {
@@ -46,6 +46,87 @@ test('transcript retention bounds diagnostics and redactions and reports omissio
   assert.deepEqual(snapshot.redactions, [{ path: '$.second', reason: 'secret' }]);
   assert.equal(snapshot.omittedRedactions, 1);
   assert.equal(validateTranscript(snapshot).ok, true);
+});
+
+test('transcript retention bounds total evidence weight and preserves a replay checkpoint', () => {
+  const accessibility = createTerminalHarness().snapshot();
+  const firstBuffer = createFrameBuffer(2, 1);
+  firstBuffer.writeCell({ row: 1, column: 1, text: 'a', width: 1 });
+  const firstFrame = { ...firstBuffer.snapshot(), accessibility };
+  const secondBuffer = createFrameBuffer(2, 1);
+  secondBuffer.writeCell({ row: 1, column: 1, text: 'b', width: 1 });
+  const secondFrame = { ...secondBuffer.snapshot(), accessibility };
+  const recorder = createTranscriptRecorder({
+    id: 'weighted-checkpoint',
+    retention: {
+      maxSteps: 1,
+      maxRetainedBytes: 1_000_000,
+      maxRetainedCells: 2,
+      maxRetainedGraphics: 0
+    }
+  });
+
+  recorder.record({
+    kind: 'commit',
+    commit: runtimeCommit(firstFrame, diffFrames(undefined, firstFrame))
+  });
+  recorder.record({
+    kind: 'commit',
+    commit: runtimeCommit(secondFrame, diffFrames(firstFrame, secondFrame))
+  });
+
+  const snapshot = recorder.snapshot();
+  assert.equal(snapshot.omittedSteps, 1);
+  assert.equal(snapshot.steps.length, 1);
+  assert.equal(snapshot.steps[0]?.commit.diff.fullRewrite, true);
+  const validated = validateTranscript(snapshot);
+  assert.equal(validated.ok, true, validated.ok ? undefined : validated.error.message);
+});
+
+test('transcript retention applies one byte budget across steps diagnostics and redactions', () => {
+  const recorder = createTranscriptRecorder({
+    id: 'weighted-categories',
+    retention: {
+      maxSteps: 10,
+      maxDiagnostics: 10,
+      maxRedactions: 10,
+      maxRetainedBytes: 300,
+      maxRetainedCells: 10,
+      maxRetainedGraphics: 10
+    }
+  });
+  recorder.recordNormalizedMessage('external', { value: 'x'.repeat(180) });
+  recorder.reportDiagnostic(diagnostic('INPUT_TIMEOUT', 'y'.repeat(180)));
+  recorder.recordRedaction({ path: `$.${'z'.repeat(180)}`, reason: 'secret' });
+
+  const snapshot = recorder.snapshot();
+  assert.equal(snapshot.omittedSteps + snapshot.omittedDiagnostics + snapshot.omittedRedactions > 0, true);
+  assert.equal(validateTranscript(snapshot).ok, true);
+});
+
+test('transcript retention bounds aggregate JSON structure and string data', () => {
+  const recorder = createTranscriptRecorder({
+    id: 'weighted-json',
+    retention: {
+      maxRetainedBytes: 10_000,
+      maxRetainedJsonNodes: 20,
+      maxRetainedStringCodeUnits: 180
+    }
+  });
+  recorder.recordNormalizedMessage('external', { value: 'a'.repeat(80) });
+  recorder.recordNormalizedMessage('external', { value: 'b'.repeat(80) });
+
+  const snapshot = recorder.snapshot();
+  assert.equal(snapshot.omittedSteps, 1);
+  assert.equal(snapshot.steps.length, 1);
+  assert.equal(validateTranscript(snapshot).ok, true);
+});
+
+test('transcript identities are bounded outside retained evidence', () => {
+  assert.throws(
+    () => createTranscriptRecorder({ id: 'x'.repeat(257) }),
+    /1-256 code units/u
+  );
 });
 
 test('transcript step observers are isolated and recorded as bounded diagnostics', () => {

@@ -47,8 +47,10 @@ export async function runTuiLifecyclePhase<TValue>(input: {
   let closed = false;
   const timeout = Promise.resolve()
     .then(() => input.clock.sleep(input.timeoutMs, timerController.signal))
-    .then<TuiLifecyclePhaseOutcome<TValue>>(() => {
-      if (closed) return new Promise<TuiLifecyclePhaseOutcome<TValue>>(() => undefined);
+    .then<TuiLifecyclePhaseOutcome<TValue>>((outcome) => {
+      if (outcome === 'aborted' || closed) {
+        return new Promise<TuiLifecyclePhaseOutcome<TValue>>(() => undefined);
+      }
       operationController.abort('lifecycle_phase_timeout');
       return {
         phase: input.phase,

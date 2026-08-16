@@ -24,6 +24,36 @@ test('runtime host constructors expose stable runtime identities with explicit s
   assert.equal(createTerminalHost({ runtime: 'memory' }).runtime, 'memory');
 });
 
+test('runtime host clocks distinguish elapsed deadlines from cancellation', async () => {
+  const hosts = [
+    createNodeTerminalHost({ stdout: immediateNodeOutput() }),
+    createDenoTerminalHost({ stdout: { write: () => {}, isTty: () => false } }),
+    createBunTerminalHost({ stdout: { write: () => {}, isTty: () => false } }),
+    createMemoryTerminalHost(),
+    createPtyTerminalHost({
+      id: 'clock-pty',
+      terminalSize: { columns: 8, rows: 2 },
+      stdout: { write: () => {} }
+    })
+  ];
+  const controller = new globalThis.AbortController();
+  controller.abort('test-cancellation');
+
+  for (const host of hosts) {
+    assert.equal(await host.clock.sleep(0), 'elapsed');
+    assert.equal(await host.clock.sleep(10, controller.signal), 'aborted');
+    await host.dispose();
+  }
+});
+
+test('controlled clocks reject non-finite time instead of corrupting their timeline', () => {
+  const host = createMemoryTerminalHost();
+  assert.throws(() => host.clock.advance(Number.NaN), /finite non-negative/u);
+  assert.throws(() => host.clock.advance(Number.POSITIVE_INFINITY), /finite non-negative/u);
+  assert.throws(() => host.clock.sleep(Number.NaN), /finite non-negative/u);
+  assert.equal(host.clock.monotonicNow(), 0);
+});
+
 test('generic host factory rejects untyped invalid selector objects', () => {
   assert.throws(() => createTerminalHost({}), /must select a runtime or PTY adapter/u);
   assert.throws(() => createTerminalHost({ adapter: 'unknown' }), /Unsupported terminal host adapter/u);

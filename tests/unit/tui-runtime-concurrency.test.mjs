@@ -263,6 +263,40 @@ test('runtime diagnostics retain a bounded tail and expose omitted counts', asyn
   await runtime.dispose();
 });
 
+test('diagnostics reported during a blocked diagnostic redraw receive a following frame', async () => {
+  const firstDiagnosticRendered = deferred();
+  const app = defineTui({
+    id: 'diagnostic-refresh-generations',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: (_state, context) => {
+      const messages = context.diagnostics.map((item) => item.diagnostic.message);
+      if (messages.includes('first') && !messages.includes('second')) firstDiagnosticRendered.release();
+      return text({ content: messages.join('|') || 'ready' });
+    }
+  });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  await runtime.start();
+  const write = harness.host.write.bind(harness.host);
+  const writeStarted = deferred();
+  const releaseWrite = deferred();
+  harness.host.write = async (chunk, options) => {
+    writeStarted.release();
+    await releaseWrite.promise;
+    return write(chunk, options);
+  };
+
+  runtime.reportDiagnostic(diagnostic('INPUT_TIMEOUT', 'first'));
+  await Promise.all([firstDiagnosticRendered.promise, writeStarted.promise]);
+  runtime.reportDiagnostic(diagnostic('INPUT_TIMEOUT', 'second'));
+  releaseWrite.release();
+
+  await waitUntil(() => harness.frames().length === 3);
+  assert.match(renderFramePlain(runtime.frame()), /first\|second/u);
+  await runtime.dispose();
+});
+
 test('TUI runtime preserves unchanged same-reference state when a focus render candidate fails', async () => {
   const initialState = { count: 0 };
   const app = defineTui({

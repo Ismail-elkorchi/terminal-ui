@@ -62,9 +62,9 @@ void test('startup clock failure prevents terminal mutation', async () => {
 
 void test('intentional finalization timer cancellation is not a clock failure', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
-  host.clock.sleep = (_ms, signal) => new Promise<void>((_resolve, reject) => {
+  host.clock.sleep = (_ms, signal) => new Promise<'elapsed' | 'aborted'>((resolve) => {
     const abort = (): void => {
-      reject(new Error('timer cancelled', { cause: signal?.reason }));
+      resolve('aborted');
     };
     if (signal?.aborted === true) abort();
     else signal?.addEventListener('abort', abort, { once: true });

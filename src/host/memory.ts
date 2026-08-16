@@ -8,6 +8,7 @@ import { TerminalInputAuthority } from './input-authority.ts';
 import { TerminalCapabilityDetector } from './capability-detection.ts';
 import type {
   ControlledTerminalClock,
+  TerminalSleepOutcome,
   MemoryTerminalHostOptions,
   TerminalEnvironment,
   TerminalHost,
@@ -168,7 +169,7 @@ class MemorySignals implements TerminalSignalSource {
 interface MemorySleep {
   readonly target: number;
   readonly signal?: AbortSignal;
-  readonly resolve: () => void;
+  readonly resolve: (outcome: TerminalSleepOutcome) => void;
   readonly detach: () => void;
 }
 
@@ -181,20 +182,21 @@ class MemoryClock implements ControlledTerminalClock {
   }
 
   advance(ms: number): void {
-    if (ms < 0) throw new RangeError('ms must be non-negative.');
+    if (!Number.isFinite(ms) || ms < 0) throw new RangeError('ms must be a finite non-negative number.');
     this.#now += ms;
     this.#resolveSleepers();
   }
 
-  sleep(ms: number, signal?: AbortSignal): Promise<void> {
-    if (ms < 0) throw new RangeError('ms must be non-negative.');
-    if (signal?.aborted === true || ms === 0) return Promise.resolve();
+  sleep(ms: number, signal?: AbortSignal): Promise<TerminalSleepOutcome> {
+    if (!Number.isFinite(ms) || ms < 0) throw new RangeError('ms must be a finite non-negative number.');
+    if (signal?.aborted === true) return Promise.resolve('aborted');
+    if (ms === 0) return Promise.resolve('elapsed');
     const target = this.#now + ms;
     return new Promise((resolve) => {
       const abort = (): void => {
         this.#sleepers = this.#sleepers.filter((item) => item !== sleeper);
         sleeper.detach();
-        sleeper.resolve();
+        sleeper.resolve('aborted');
       };
       const sleeper: MemorySleep = {
         target,
@@ -220,7 +222,7 @@ class MemoryClock implements ControlledTerminalClock {
         continue;
       }
       sleeper.detach();
-      sleeper.resolve();
+      sleeper.resolve('elapsed');
     }
   }
 }

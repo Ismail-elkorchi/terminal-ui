@@ -376,7 +376,9 @@ async function readPromptInput(
   const immediate = await Promise.race([inputRead, Promise.resolve<undefined>(undefined)]);
   if (immediate !== undefined) return immediate;
   const timeout = host.clock.sleep(timeoutMs, timeoutController.signal)
-    .then((): PromptInputRead => ({ kind: 'timeout' }));
+    .then((outcome): Promise<PromptInputRead> | PromptInputRead => outcome === 'elapsed'
+      ? { kind: 'timeout' }
+      : new Promise<PromptInputRead>(() => undefined));
   const result = await Promise.race([inputRead, timeout]);
   if (result.kind === 'input') timeoutController.abort();
   return result;

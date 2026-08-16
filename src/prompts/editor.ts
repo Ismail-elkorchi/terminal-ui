@@ -69,7 +69,9 @@ async function raceEditorResult(
   if (prompt.timeoutMs === undefined || host === undefined) return editorRun;
   const timeoutMs = prompt.timeoutMs;
   const timeout = host.clock.sleep(timeoutMs, controller.signal).then(
-    (): PromptEditorResult => ({
+    (outcome): Promise<PromptEditorResult> | PromptEditorResult => outcome === 'aborted'
+      ? new Promise<PromptEditorResult>(() => undefined)
+      : ({
       status: 'failed',
       diagnostics: [
         diagnostic('INPUT_TIMEOUT', 'Editor prompt timed out before the editor adapter returned.', {

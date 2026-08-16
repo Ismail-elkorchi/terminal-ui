@@ -2,12 +2,43 @@ import { createFrameBuffer } from './frame-buffer.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
 import { sameFrameCellSource, sameTerminalStyle } from '../../visual/render.ts';
 import { sameFrameCell } from './frame.ts';
-import type { FrameDescriptor, RenderDiffDescriptor } from '../contracts.ts';
+import type { FrameDescriptor, RenderDiffDescriptor, RenderOperation } from '../contracts.ts';
 import type { CursorPosition } from '../contracts.ts';
 import type { FrameCell } from '../contracts.ts';
 import type { GraphicPlacementDescriptor } from '../../graphics/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
+
+export function fullRewriteDiffFromFrame(frame: FrameDescriptor): RenderDiffDescriptor {
+  const operations: RenderOperation[] = [];
+  for (const cell of frame.cells) {
+    if (cell.continuation === true) continue;
+    operations.push(Object.freeze({
+      kind: 'write',
+      row: cell.row,
+      column: cell.column,
+      spans: Object.freeze([Object.freeze({
+        text: cell.text,
+        ...(cell.style === undefined ? {} : { style: cell.style }),
+        ...(cell.link === undefined ? {} : { link: cell.link }),
+        ...(cell.source === undefined ? {} : { source: cell.source })
+      })])
+    }));
+  }
+  return Object.freeze({
+    width: frame.width,
+    height: frame.height,
+    widthProfile: frame.widthProfile,
+    ...(frame.canvasStyle === undefined ? {} : { canvasStyle: frame.canvasStyle }),
+    operations: Object.freeze(operations),
+    graphicOperations: Object.freeze(frame.graphics.map((placement) => Object.freeze({
+      kind: 'place' as const,
+      placement
+    }))),
+    ...(frame.cursor === undefined ? {} : { cursor: frame.cursor }),
+    fullRewrite: true
+  });
+}
 
 export interface RenderDiffProjection {
   readonly width: number;
