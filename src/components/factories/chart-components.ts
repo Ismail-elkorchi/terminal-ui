@@ -380,7 +380,7 @@ interface ChartModel extends ChartStatus {
   readonly maximum: number;
   readonly activeId?: string;
   readonly selection: SelectionState;
-  readonly legend: boolean;
+  readonly showLegend: boolean;
   readonly signedDomain: boolean;
   readonly xLabel?: string;
   readonly yLabel?: string;
@@ -577,7 +577,7 @@ function prepareChart(
     maximum: range.max,
     ...(activeId === undefined ? {} : { activeId }),
     selection,
-    legend: optionalBoolean(value.legend, 'chart legend') ?? false,
+    showLegend: optionalBoolean(value.showLegend, 'chart showLegend') ?? false,
     signedDomain: optionalBoolean(value.signedDomain, 'chart signedDomain') ?? false,
     ...(xLabel === undefined ? {} : { xLabel }),
     ...(yLabel === undefined ? {} : { yLabel }),
@@ -601,7 +601,7 @@ function prepareChart(
 
 function measureChart(input: ComponentMeasureInput<ChartModel>) {
   const widestSeries = Math.max(1, ...input.model.series.map((series) => series.points.length));
-  const legendWidth = input.model.legend
+  const legendWidth = input.model.showLegend
     ? measureTextCells(
       input.model.series.map((series) =>
         `${seriesGlyph(series, input.widthProfile)} ${series.label}`
@@ -619,7 +619,7 @@ function measureChart(input: ComponentMeasureInput<ChartModel>) {
       40,
       Math.max(
         1,
-        8 + Number(input.model.legend) + Number(input.model.xLabel !== undefined) +
+        8 + Number(input.model.showLegend) + Number(input.model.xLabel !== undefined) +
           Number(input.model.yLabel !== undefined),
       ),
     ),
@@ -709,7 +709,7 @@ function paintChartLabels(
   layout: ChartLayout,
 ): void {
   let row = 0;
-  if (input.model.legend) {
+  if (input.model.showLegend) {
     const spans = input.model.series.flatMap((series, index): readonly RenderSpan[] => [
       ...(index === 0 ? [] : [
         chartSpan(input, '  ', 'muted', `legend.${series.id}.separator.beforeGlyph`, 'separator'),
@@ -917,7 +917,7 @@ interface ChartLayout {
 }
 
 function chartLayout(model: ChartModel, width: number, height: number): ChartLayout {
-  const headerRows = Number(model.legend) + Number(model.yLabel !== undefined);
+  const headerRows = Number(model.showLegend) + Number(model.yLabel !== undefined);
   const footerRows = Number(model.xLabel !== undefined);
   return {
     plotRow: headerRows,

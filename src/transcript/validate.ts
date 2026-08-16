@@ -190,8 +190,8 @@ const terminalStateProvenanceFields = new Set([
   'keyboardProfile',
   'cursorVisible'
 ]);
-const terminalStateChangeFields = new Set(['kind', 'enabled']);
-const terminalRestoreCompletionFields = new Set(['kind', 'enabled', 'assurance']);
+const terminalStateChangeFields = new Set(['kind', 'state']);
+const terminalRestoreCompletionFields = new Set(['kind', 'state', 'assurance']);
 const mouseReportingStateFields = new Set(['tracking', 'encoding']);
 const legacyKeyboardProfileFields = new Set(['kind']);
 const kittyKeyboardProfileFields = new Set(['kind', 'flags']);
@@ -1434,15 +1434,15 @@ function isOrderedTerminalStateChangeSubset(
 function terminalStateChangesEqual(left: TerminalStateChange, right: TerminalStateChange): boolean {
   if (left.kind !== right.kind) return false;
   if (left.kind === 'keyboardProfile' && right.kind === 'keyboardProfile') {
-    return left.enabled.kind === right.enabled.kind
-      && (left.enabled.kind === 'legacy'
-        || (right.enabled.kind === 'kitty' && left.enabled.flags === right.enabled.flags));
+    return left.state.kind === right.state.kind
+      && (left.state.kind === 'legacy'
+        || (right.state.kind === 'kitty' && left.state.flags === right.state.flags));
   }
   if (left.kind === 'mouseReporting' && right.kind === 'mouseReporting') {
-    return left.enabled.tracking === right.enabled.tracking
-      && left.enabled.encoding === right.enabled.encoding;
+    return left.state.tracking === right.state.tracking
+      && left.state.encoding === right.state.encoding;
   }
-  return left.enabled === right.enabled;
+  return left.state === right.state;
 }
 
 function terminalStateSnapshotIssue(
@@ -1524,23 +1524,23 @@ function terminalStateChangeIssue(
     case 'focusReporting':
     case 'unicodeGraphemeMode':
     case 'cursorVisible':
-      if (typeof typed.enabled !== 'boolean') return `${typed.kind} requires a boolean value.`;
-      change = Object.freeze({ kind: typed.kind, enabled: typed.enabled });
+      if (typeof typed.state !== 'boolean') return `${typed.kind} requires a boolean state.`;
+      change = Object.freeze({ kind: typed.kind, state: typed.state });
       break;
     case 'mouseReporting': {
-      const issue = mouseReportingStateIssue(typed.enabled);
+      const issue = mouseReportingStateIssue(typed.state);
       if (issue !== undefined) return issue;
-      if (!isNonArrayObject(typed.enabled)) return 'mouseReporting requires an object.';
-      change = Object.freeze({ kind: typed.kind, enabled: decodedMouseReportingState(typed.enabled) });
+      if (!isNonArrayObject(typed.state)) return 'mouseReporting requires an object.';
+      change = Object.freeze({ kind: typed.kind, state: decodedMouseReportingState(typed.state) });
       break;
     }
     case 'keyboardProfile': {
-      const issue = terminalKeyboardProfileIssue(typed.enabled, adoptions);
+      const issue = terminalKeyboardProfileIssue(typed.state, adoptions);
       if (issue !== undefined) return issue;
-      if (!isNonArrayObject(typed.enabled)) return 'keyboardProfile requires an object.';
-      const profile = adoptions.keyboardProfiles.get(typed.enabled);
+      if (!isNonArrayObject(typed.state)) return 'keyboardProfile requires an object.';
+      const profile = adoptions.keyboardProfiles.get(typed.state);
       if (profile === undefined) return 'keyboardProfile was not adopted.';
-      change = Object.freeze({ kind: typed.kind, enabled: profile });
+      change = Object.freeze({ kind: typed.kind, state: profile });
       break;
     }
     default:

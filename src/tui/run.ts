@@ -112,7 +112,7 @@ export async function runTui<TState, TMessage>(
     const setup = await startupPhase('setup', async (signal) =>
       setupTuiSession(openedSession, normalized.sessionPolicy, { signal }));
     setupDiagnostics.push(...setup.diagnostics);
-    if (!setup.ok) {
+    if (setup.status === 'failed') {
       setupFailed = true;
       setupFailureDiagnostic = diagnostic(
         'HOST_PROTOCOL_UNSUPPORTED',

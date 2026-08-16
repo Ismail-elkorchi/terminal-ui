@@ -597,7 +597,7 @@ test('transcript replay preserves partial restoration without upgrading its outc
     status: 'partial',
     reason: 'error',
     requested: terminalState(),
-    attempted: [{ kind: 'rawInput', enabled: false }],
+    attempted: [{ kind: 'rawInput', state: false }],
     completed: [],
     resultingState: {
       ...terminalState(),

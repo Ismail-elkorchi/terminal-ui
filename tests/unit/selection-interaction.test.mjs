@@ -15,7 +15,7 @@ test('collection selection ownership detaches mutable multiple-selection state',
     mode: 'multiple',
     selectedIds,
     anchorId: 'first',
-    range: true
+    rangeSelectionEnabled: true
   };
   const owned = ownSelectionState(supplied, 'test selection');
 
@@ -26,7 +26,7 @@ test('collection selection ownership detaches mutable multiple-selection state',
     mode: 'multiple',
     selectedIds: ['first'],
     anchorId: 'first',
-    range: true
+    rangeSelectionEnabled: true
   });
   assert.equal(Object.isFrozen(owned), true);
   assert.equal(Object.isFrozen(owned.selectedIds), true);
@@ -35,8 +35,8 @@ test('collection selection ownership detaches mutable multiple-selection state',
     /test selection\.selectedIds must be unique/u
   );
   assert.throws(
-    () => ownSelectionState({ mode: 'single', followActive: 'yes' }, 'test selection'),
-    /test selection\.followActive must be a boolean/u
+    () => ownSelectionState({ mode: 'single', selectionFollowsActive: 'yes' }, 'test selection'),
+    /test selection\.selectionFollowsActive must be a boolean/u
   );
 });
 
@@ -108,10 +108,10 @@ test('selection interaction returns a typed diagnostic when no source has select
 });
 
 test('selection interaction writes clipboard text only through explicit policy and host capability', async () => {
-  const host = createMemoryTerminalHost({ clipboardWrite: true });
+  const host = createMemoryTerminalHost({ supportsClipboardWrite: true });
   const result = await copySelectedTextToClipboard({
     host,
-    policy: { allow: true },
+    policy: { allowed: true },
     sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
   });
 
@@ -125,7 +125,7 @@ test('selection interaction permits an explicitly authorized bounded attempt whe
   const host = createMemoryTerminalHost();
   const result = await copySelectedTextToClipboard({
     host,
-    policy: { allow: true },
+    policy: { allowed: true },
     sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
   });
 
@@ -135,10 +135,10 @@ test('selection interaction permits an explicitly authorized bounded attempt whe
 });
 
 test('selection interaction rejects clipboard writes when terminal support is explicitly absent', async () => {
-  const host = createMemoryTerminalHost({ clipboardWrite: false });
+  const host = createMemoryTerminalHost({ supportsClipboardWrite: false });
   const result = await copySelectedTextToClipboard({
     host,
-    policy: { allow: true },
+    policy: { allowed: true },
     sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
   });
 
@@ -148,10 +148,10 @@ test('selection interaction rejects clipboard writes when terminal support is ex
 });
 
 test('selection interaction does not write clipboard output when selection is missing', async () => {
-  const host = createMemoryTerminalHost({ clipboardWrite: true });
+  const host = createMemoryTerminalHost({ supportsClipboardWrite: true });
   const result = await copySelectedTextToClipboard({
     host,
-    policy: { allow: true },
+    policy: { allowed: true },
     sources: [{ id: 'field', text: 'copy this' }]
   });
 

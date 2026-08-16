@@ -96,9 +96,9 @@ export function editTextDocument(
         ''
       );
     case 'moveLeft':
-      return move(state, caret, selection, leftOffset(state.document, caret, selection, operation.select), 'upstream', operation.select);
+      return move(state, caret, selection, leftOffset(state.document, caret, selection, operation.extendSelection), 'upstream', operation.extendSelection);
     case 'moveRight':
-      return move(state, caret, selection, rightOffset(state.document, caret, selection, operation.select), 'downstream', operation.select);
+      return move(state, caret, selection, rightOffset(state.document, caret, selection, operation.extendSelection), 'downstream', operation.extendSelection);
     case 'moveWordLeft':
       return move(
         state,
@@ -106,7 +106,7 @@ export function editTextDocument(
         selection,
         previousWordOffset(state.document, caret.position.offset, options),
         'upstream',
-        operation.select
+        operation.extendSelection
       );
     case 'moveWordRight':
       return move(
@@ -115,24 +115,24 @@ export function editTextDocument(
         selection,
         nextWordOffset(state.document, caret.position.offset, options),
         'downstream',
-        operation.select
+        operation.extendSelection
       );
     case 'moveHome': {
       const line = lineContaining(state.document, caret.position.offset);
-      return move(state, caret, selection, line.startOffset, 'downstream', operation.select);
+      return move(state, caret, selection, line.startOffset, 'downstream', operation.extendSelection);
     }
     case 'moveEnd': {
       const line = lineContaining(state.document, caret.position.offset);
-      return move(state, caret, selection, line.endOffsetExclusive, 'upstream', operation.select);
+      return move(state, caret, selection, line.endOffsetExclusive, 'upstream', operation.extendSelection);
     }
     case 'moveLineUp':
-      return moveByLine(state, caret, selection, -1, operation.select);
+      return moveByLine(state, caret, selection, -1, operation.extendSelection);
     case 'moveLineDown':
-      return moveByLine(state, caret, selection, 1, operation.select);
+      return moveByLine(state, caret, selection, 1, operation.extendSelection);
     case 'movePageUp':
-      return moveByLine(state, caret, selection, -PAGE_LINE_DELTA, operation.select);
+      return moveByLine(state, caret, selection, -PAGE_LINE_DELTA, operation.extendSelection);
     case 'movePageDown':
-      return moveByLine(state, caret, selection, PAGE_LINE_DELTA, operation.select);
+      return moveByLine(state, caret, selection, PAGE_LINE_DELTA, operation.extendSelection);
     case 'selectAll': {
       const length = textDocumentLength(state.document);
       if (length === 0) return unchanged(state, caret, selection);

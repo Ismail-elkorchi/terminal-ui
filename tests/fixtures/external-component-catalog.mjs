@@ -366,7 +366,7 @@ export const externalDialog = defineComponent({
     return { title: cleanString(input.title, 'externalDialog title'), modal: input.modal };
   },
   layer: ({ model }) => ({ zIndex: 30, underlay: 'clear', ...(model.modal ? { backdrop: 'viewport' } : {}) }),
-  focusScope: ({ model }) => model.modal ? { kind: 'contain', restore: true } : undefined,
+  focusScope: ({ model }) => model.modal ? { kind: 'contain', restoreFocus: true } : undefined,
   keys: () => ({ escape: () => ({ kind: 'dismiss' }) }),
   compose({ id, model, slots, emit, layer }) {
     return portal(surface(slots.content, {

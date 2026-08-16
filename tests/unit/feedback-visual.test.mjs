@@ -72,7 +72,7 @@ function colorCapabilities() {
       runtime: 'memory',
       inputIsTty: true,
       outputIsTty: true,
-      rawInput: true
+      supportsRawInput: true
     }
   });
 }

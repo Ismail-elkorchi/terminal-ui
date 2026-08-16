@@ -29,9 +29,9 @@ function hostFacts(overrides = {}) {
     runtime: 'node',
     inputIsTty: true,
     outputIsTty: true,
-    rawInput: true,
-    resizeEvents: true,
-    terminalProtocols: true,
+    supportsRawInput: true,
+    supportsResizeEvents: true,
+    supportsTerminalProtocols: true,
     ...overrides
   };
 }
@@ -47,8 +47,8 @@ test('memory host validates the public option fields it consumes', () => {
   assert.doesNotThrow(() => createMemoryTerminalHost({ unknownOption: true }));
   assert.throws(() => createMemoryTerminalHost(null), /options must be an object/u);
   assert.throws(
-    () => createMemoryTerminalHost({ clipboardWrite: 'yes' }),
-    /clipboardWrite must be a boolean/u
+    () => createMemoryTerminalHost({ supportsClipboardWrite: 'yes' }),
+    /supportsClipboardWrite must be a boolean/u
   );
   assert.throws(
     () => createMemoryTerminalHost({ terminalSize: { columns: 0, rows: 1 } }),
@@ -68,9 +68,9 @@ test('host capability helper distinguishes input and output protocol support', (
       runtime: 'node',
       inputIsTty: true,
       outputIsTty: true,
-      rawInput: false,
-      resizeEvents: false,
-      terminalProtocols: true,
+      supportsRawInput: false,
+      supportsResizeEvents: false,
+      supportsTerminalProtocols: true,
       columns: 80
     }
   });
@@ -94,7 +94,7 @@ test('capability resolution distinguishes support, adapter availability, and env
     ['unsupported', 'unavailable']
   );
 
-  const unknown = resolveTerminalCapabilities({ host: hostFacts({ resizeEvents: false }) });
+  const unknown = resolveTerminalCapabilities({ host: hostFacts({ supportsResizeEvents: false }) });
   assert.deepEqual([unknown.alternateScreen.support, unknown.alternateScreen.availability], ['unknown', 'available']);
   assert.deepEqual([unknown.resize.support, unknown.resize.availability], ['supported', 'unavailable']);
 
@@ -221,9 +221,9 @@ test('synchronized output requires an explicit probe or override', () => {
     runtime: 'node',
     inputIsTty: true,
     outputIsTty: true,
-    rawInput: true,
-    resizeEvents: true,
-    terminalProtocols: true
+    supportsRawInput: true,
+    supportsResizeEvents: true,
+    supportsTerminalProtocols: true
   };
   const probed = resolveTerminalCapabilities({ host, probes: { synchronizedOutput: 'supported' } });
   const forced = resolveTerminalCapabilities({ host, overrides: { synchronizedOutput: true } });
@@ -291,7 +291,7 @@ test('an assumed legacy keyboard profile is established inside an owned stack fr
   assert.equal(Object.isFrozen(restored.completed[0]), true);
   assert.deepEqual(restored.completed, [{
     kind: 'keyboardProfile',
-    enabled: LEGACY_KEYBOARD_PROFILE,
+    state: LEGACY_KEYBOARD_PROFILE,
     assurance: 'sent'
   }]);
 });
@@ -804,7 +804,7 @@ test('session protocol policies plan and apply only requested operations', async
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
     keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
-    cursorVisibility: { state: 'hide', requirement: 'disabled' },
+    cursorVisibility: { visibility: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'drag', requirement: 'optional' }
   };
 
@@ -812,7 +812,7 @@ test('session protocol policies plan and apply only requested operations', async
   const result = await applySessionProtocolPolicy(session, policy);
 
   assert.equal(plan.length, 8);
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'ready');
   assert.deepEqual(result.applied.map((item) => item.kind), [
     'rawInput',
     'keyboardProfile',
@@ -844,11 +844,11 @@ test('disabled keyboard enhancement still owns a legacy frame on the alternate s
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
     keyboard: { profile: kittyEvents, requirement: 'disabled' },
-    cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
+    cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
   });
 
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'ready');
   assert.deepEqual(result.resultingState.keyboardProfile, LEGACY_KEYBOARD_PROFILE);
   assert.equal(host.output(), '\u001B[?1049h\u001B[>0u');
 
@@ -871,14 +871,14 @@ test('session protocol policies fail only required unavailable operations', asyn
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
     keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
-    cursorVisibility: { state: 'hide', requirement: 'disabled' },
+    cursorVisibility: { visibility: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
   });
 
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'failed');
   assert.deepEqual(result.applied, [{
     kind: 'keyboardProfile',
-    enabled: LEGACY_KEYBOARD_PROFILE
+    state: LEGACY_KEYBOARD_PROFILE
   }]);
   assert.deepEqual(result.skipped.map((item) => item.kind), [
     'alternateScreen',
@@ -905,14 +905,14 @@ test('session protocol diagnostics preserve requested operation and mouse mode',
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
     keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
-    cursorVisibility: { state: 'hide', requirement: 'disabled' },
+    cursorVisibility: { visibility: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'drag', requirement: 'optional' }
   });
 
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'ready');
   assert.deepEqual(result.applied, [{
     kind: 'keyboardProfile',
-    enabled: LEGACY_KEYBOARD_PROFILE
+    state: LEGACY_KEYBOARD_PROFILE
   }]);
   assert.deepEqual(result.skipped.map((item) => item.kind), [
     'alternateScreen',
@@ -942,11 +942,11 @@ test('session setup rejects an inherited active mouse encoding the decoder canno
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
     keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
-    cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
+    cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
   });
 
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'failed');
   assert.equal(result.diagnostics.at(-1)?.code, 'HOST_PROTOCOL_UNSUPPORTED');
   assert.deepEqual(result.resultingState.mouseReporting, { tracking: 'drag', encoding: 'default' });
   await session.restore('success');
@@ -1047,7 +1047,7 @@ test('restoration reports observed assurance only for adapter-confirmed raw inpu
 
   assert.deepEqual(restored.completed, [{
     kind: 'rawInput',
-    enabled: false,
+    state: false,
     assurance: 'observed'
   }]);
   await host.dispose();
@@ -1198,19 +1198,19 @@ test('session policy enables and restores a supported Kitty keyboard profile', a
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
     keyboard: { profile: kittyEvents, requirement: 'required' },
-    cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
+    cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
   });
 
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.applied, [{ kind: 'keyboardProfile', enabled: kittyEvents }]);
+  assert.equal(result.status, 'ready');
+  assert.deepEqual(result.applied, [{ kind: 'keyboardProfile', state: kittyEvents }]);
   assert.match(host.output(), /\u001B\[>3u/u);
 
   const restored = await session.restore('success');
   assert.equal(restored.status, 'restored');
   assert.deepEqual(restored.completed, [{
     kind: 'keyboardProfile',
-    enabled: LEGACY_KEYBOARD_PROFILE,
+    state: LEGACY_KEYBOARD_PROFILE,
     assurance: 'sent'
   }]);
   assert.match(host.output(), /\u001B\[>3u\u001B\[<u/u);
@@ -1315,11 +1315,11 @@ test('session setup uses the authoritative profile restored after Kitty verifica
     focusReporting: 'disabled',
     unicodeGraphemeMode: 'disabled',
     keyboard: { profile: kittyEvents, requirement: 'optional' },
-    cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
+    cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
   });
 
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'ready');
   assert.deepEqual(result.resultingState.keyboardProfile, inherited);
   assert.equal(result.resultingState.provenance.keyboardProfile, 'library_known');
   assert.match(output.join(''), /\u001B\[=5u/u);
@@ -1374,7 +1374,7 @@ test('terminal sessions update one Kitty profile without growing the terminal st
   assert.equal(host.output(), '\u001B[>3u\u001B[=7u\u001B[<u');
   assert.deepEqual(restored.completed, [{
     kind: 'keyboardProfile',
-    enabled: LEGACY_KEYBOARD_PROFILE,
+    state: LEGACY_KEYBOARD_PROFILE,
     assurance: 'sent'
   }]);
 });
@@ -1412,7 +1412,7 @@ test('terminal sessions apply legacy input inside an owned Kitty stack frame', a
   assert.equal(host.output(), '\u001B[>3u\u001B[=0u\u001B[<u');
   assert.deepEqual(restored.completed, [{
     kind: 'keyboardProfile',
-    enabled: LEGACY_KEYBOARD_PROFILE,
+    state: LEGACY_KEYBOARD_PROFILE,
     assurance: 'sent'
   }]);
 });

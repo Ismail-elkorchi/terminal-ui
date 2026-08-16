@@ -7,13 +7,13 @@ export type SelectionState =
   | {
       readonly mode: 'single';
       readonly selectedId?: string;
-      readonly followActive?: boolean;
+      readonly selectionFollowsActive?: boolean;
     }
   | {
       readonly mode: 'multiple';
       readonly selectedIds: readonly string[];
       readonly anchorId?: string;
-      readonly range?: boolean;
+      readonly rangeSelectionEnabled?: boolean;
     };
 
 export interface CollectionInteractionState {
@@ -101,11 +101,14 @@ export function ownSelectionState(value: unknown, subject: string): SelectionSta
   if (mode === 'none') return emptySelectionState;
   if (mode === 'single') {
     const selectedId = optionalSelectionId(value['selectedId'], `${subject}.selectedId`);
-    const followActive = optionalBoolean(value['followActive'], `${subject}.followActive`);
+    const selectionFollowsActive = optionalBoolean(
+      value['selectionFollowsActive'],
+      `${subject}.selectionFollowsActive`,
+    );
     return Object.freeze({
       mode,
       ...(selectedId === undefined ? {} : { selectedId }),
-      ...(followActive === undefined ? {} : { followActive }),
+      ...(selectionFollowsActive === undefined ? {} : { selectionFollowsActive }),
     });
   }
   if (mode !== 'multiple') {
@@ -122,12 +125,15 @@ export function ownSelectionState(value: unknown, subject: string): SelectionSta
     throw new TypeError(`${subject}.selectedIds must be unique.`);
   }
   const anchorId = optionalSelectionId(value['anchorId'], `${subject}.anchorId`);
-  const range = optionalBoolean(value['range'], `${subject}.range`);
+  const rangeSelectionEnabled = optionalBoolean(
+    value['rangeSelectionEnabled'],
+    `${subject}.rangeSelectionEnabled`,
+  );
   return Object.freeze({
     mode,
     selectedIds,
     ...(anchorId === undefined ? {} : { anchorId }),
-    ...(range === undefined ? {} : { range }),
+    ...(rangeSelectionEnabled === undefined ? {} : { rangeSelectionEnabled }),
   });
 }
 
@@ -193,7 +199,9 @@ function setActive(
   state: CollectionInteractionState,
   activeId: string | undefined,
 ): CollectionInteractionState {
-  const selection = activeId !== undefined && state.selection.mode === 'single' && state.selection.followActive === true
+  const selection = activeId !== undefined
+    && state.selection.mode === 'single'
+    && state.selection.selectionFollowsActive === true
     ? selectionForId(activeId)
     : state.selection;
   if (state.activeId === activeId && sameSelection(state.selection, selection)) return state;
@@ -214,7 +222,9 @@ function selectId(
     return withSelection(activeState, Object.freeze({
       mode: 'single',
       ...(selectedId === undefined ? {} : { selectedId }),
-      ...(state.selection.followActive === undefined ? {} : { followActive: state.selection.followActive }),
+      ...(state.selection.selectionFollowsActive === undefined
+        ? {}
+        : { selectionFollowsActive: state.selection.selectionFollowsActive }),
     }));
   }
   const selected = new Set(activeState.selection.mode === 'multiple' ? activeState.selection.selectedIds : []);
@@ -228,7 +238,9 @@ function selectId(
     mode: 'multiple',
     selectedIds: Object.freeze([...selected]),
     anchorId: id,
-    ...(state.selection.range === undefined ? {} : { range: state.selection.range }),
+    ...(state.selection.rangeSelectionEnabled === undefined
+      ? {}
+      : { rangeSelectionEnabled: state.selection.rangeSelectionEnabled }),
   }));
 }
 
@@ -237,7 +249,11 @@ function selectRange(
   toId: string,
   index: CollectionInteractionIndex,
 ): CollectionInteractionState {
-  if (state.selection.mode !== 'multiple' || state.selection.range !== true || !collectionInteractionHas(index, toId)) {
+  if (
+    state.selection.mode !== 'multiple'
+    || state.selection.rangeSelectionEnabled !== true
+    || !collectionInteractionHas(index, toId)
+  ) {
     return state;
   }
   const anchor = state.selection.anchorId ?? state.activeId ?? toId;
@@ -247,7 +263,12 @@ function selectRange(
   const selectedIds = Object.freeze(collectionInteractionIds(index).slice(Math.min(from, to), Math.max(from, to) + 1));
   return Object.freeze({
     activeId: toId,
-    selection: Object.freeze({ mode: 'multiple', selectedIds, anchorId: anchor, range: true }),
+    selection: Object.freeze({
+      mode: 'multiple',
+      selectedIds,
+      anchorId: anchor,
+      rangeSelectionEnabled: true,
+    }),
   });
 }
 
@@ -261,7 +282,9 @@ function normalizedSelection(
     return Object.freeze({
       mode: 'single',
       ...(selectedId === undefined ? {} : { selectedId }),
-      ...(state.followActive === undefined ? {} : { followActive: state.followActive }),
+      ...(state.selectionFollowsActive === undefined
+        ? {}
+        : { selectionFollowsActive: state.selectionFollowsActive }),
     });
   }
   const candidates = state.selectedIds;
@@ -272,12 +295,14 @@ function normalizedSelection(
     mode: 'multiple',
     selectedIds,
     ...(anchorId === undefined ? {} : { anchorId }),
-    ...(state.range === undefined ? {} : { range: state.range }),
+    ...(state.rangeSelectionEnabled === undefined
+      ? {}
+      : { rangeSelectionEnabled: state.rangeSelectionEnabled }),
   });
 }
 
 function selectionForId(id: string): SelectionState {
-  return Object.freeze({ mode: 'single', selectedId: id, followActive: true });
+  return Object.freeze({ mode: 'single', selectedId: id, selectionFollowsActive: true });
 }
 
 function emptySelection(selection: SelectionState): SelectionState {
@@ -285,13 +310,17 @@ function emptySelection(selection: SelectionState): SelectionState {
   if (selection.mode === 'single') {
     return Object.freeze({
       mode: 'single',
-      ...(selection.followActive === undefined ? {} : { followActive: selection.followActive }),
+      ...(selection.selectionFollowsActive === undefined
+        ? {}
+        : { selectionFollowsActive: selection.selectionFollowsActive }),
     });
   }
   return Object.freeze({
     mode: 'multiple',
     selectedIds: Object.freeze([]),
-    ...(selection.range === undefined ? {} : { range: selection.range }),
+    ...(selection.rangeSelectionEnabled === undefined
+      ? {}
+      : { rangeSelectionEnabled: selection.rangeSelectionEnabled }),
   });
 }
 
@@ -322,11 +351,12 @@ function sameSelection(left: SelectionState, right: SelectionState): boolean {
   if (left.mode !== right.mode) return false;
   if (left.mode === 'none') return true;
   if (left.mode === 'single' && right.mode === 'single') {
-    return left.selectedId === right.selectedId && left.followActive === right.followActive;
+    return left.selectedId === right.selectedId
+      && left.selectionFollowsActive === right.selectionFollowsActive;
   }
   if (left.mode !== 'multiple' || right.mode !== 'multiple') return false;
   return left.anchorId === right.anchorId
-    && left.range === right.range
+    && left.rangeSelectionEnabled === right.rangeSelectionEnabled
     && left.selectedIds.length === right.selectedIds.length
     && left.selectedIds.every((id, index) => id === right.selectedIds[index]);
 }

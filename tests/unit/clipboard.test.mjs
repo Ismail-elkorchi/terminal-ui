@@ -15,9 +15,9 @@ test('extractTextSelection is pure and sanitizes terminal controls by default', 
 });
 
 test('clipboard OSC 52 sequence is gated by explicit policy', () => {
-  const denied = createClipboardWriteSequence('copy me', { allow: false });
-  const allowed = createClipboardWriteSequence('copy me', { allow: true });
-  const oversized = createClipboardWriteSequence('copy me', { allow: true, maxBytes: 2 });
+  const denied = createClipboardWriteSequence('copy me', { allowed: false });
+  const allowed = createClipboardWriteSequence('copy me', { allowed: true });
+  const oversized = createClipboardWriteSequence('copy me', { allowed: true, maxBytes: 2 });
 
   assert.equal(denied.ok, false);
   assert.equal(denied.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
@@ -38,16 +38,16 @@ test('clipboard OSC 52 Base64 output covers complete UTF-8 byte groups and paddi
   ];
 
   for (const [value, encoded] of cases) {
-    const result = createClipboardWriteSequence(value, { allow: true });
+    const result = createClipboardWriteSequence(value, { allowed: true });
     assert.equal(result.ok, true);
     assert.equal(result.sequence, `\u001B]52;c;${encoded}\u0007`);
   }
 });
 
 test('clipboard limits apply to sanitized UTF-8 bytes before Base64 encoding', () => {
-  const exact = createClipboardWriteSequence('界🙂', { allow: true, maxBytes: 7 });
-  const oversized = createClipboardWriteSequence('界🙂', { allow: true, maxBytes: 6 });
-  const sanitized = createClipboardWriteSequence('\u001B[31mf', { allow: true, maxBytes: 1 });
+  const exact = createClipboardWriteSequence('界🙂', { allowed: true, maxBytes: 7 });
+  const oversized = createClipboardWriteSequence('界🙂', { allowed: true, maxBytes: 6 });
+  const sanitized = createClipboardWriteSequence('\u001B[31mf', { allowed: true, maxBytes: 1 });
 
   assert.equal(exact.ok, true);
   assert.equal(exact.byteLength, 7);
@@ -67,19 +67,19 @@ test('clipboard limits must be finite non-negative safe integers', () => {
     Number.MAX_SAFE_INTEGER + 1
   ]) {
     assert.throws(
-      () => createClipboardWriteSequence('copy', { allow: true, maxBytes }),
+      () => createClipboardWriteSequence('copy', { allowed: true, maxBytes }),
       /maxBytes must be a finite non-negative safe integer/u
     );
   }
   assert.equal(
-    createClipboardWriteSequence('', { allow: true, maxBytes: Number.MAX_SAFE_INTEGER }).ok,
+    createClipboardWriteSequence('', { allowed: true, maxBytes: Number.MAX_SAFE_INTEGER }).ok,
     true
   );
 });
 
 test('writeClipboardText writes through an explicit protocol sink', async () => {
   const host = createMemoryTerminalHost();
-  const copied = await writeClipboardText(protocolSink(host), 'copy me', { allow: true });
+  const copied = await writeClipboardText(protocolSink(host), 'copy me', { allowed: true });
 
   assert.equal(copied.ok, true);
   assert.match(host.output(), /^\u001B\]52;c;Y29weSBtZQ==\u0007$/u);
@@ -87,7 +87,7 @@ test('writeClipboardText writes through an explicit protocol sink', async () => 
 
 test('writeClipboardText preserves explicit caller policy at the protocol boundary', async () => {
   const host = createMemoryTerminalHost();
-  const copied = await writeClipboardText(protocolSink(host), 'copy me', { allow: false });
+  const copied = await writeClipboardText(protocolSink(host), 'copy me', { allowed: false });
 
   assert.equal(copied.ok, false);
   assert.equal(host.output(), '');

@@ -160,7 +160,7 @@ function initialState(): EditorState {
     treeSource: prepareTreeSource<EntryMetadata>([]),
     tree: {
       expandedIds: [],
-      selection: { mode: 'single', followActive: true },
+      selection: { mode: 'single', selectionFollowsActive: true },
       scroll: createScrollState()
     },
     buffers: [],
@@ -559,7 +559,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
         id: `editor:${buffer.path}`,
         presentation: buffer.editor,
         lineNumbers: true,
-        activeLine: true,
+        highlightActiveLine: true,
         scrollbar: { visible: 'auto' },
         onAction: (action: TextAreaAction): EditorMessage => ({ kind: 'edit', path: buffer.path, action })
       })
@@ -634,7 +634,7 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
     title: chooser.mode === 'folder' ? 'Open Folder' : 'Open File',
     modal: true,
     focusPolicy: { initialFocus: { kind: 'element', elementId: 'path-chooser-input' }, returnFocus: 'restore' },
-    dismissal: { escape: true, outsidePress: true },
+    dismissal: { dismissOnEscape: true, dismissOnOutsidePress: true },
     onAction: (): EditorMessage => ({ kind: 'dismissChooser' }),
     width: 72,
     padding: { left: 1, right: 1 }
@@ -823,7 +823,7 @@ if (isMain) {
           focusReporting: 'optional',
           unicodeGraphemeMode: 'optional',
           keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
-          cursorVisibility: { state: 'hide', requirement: 'optional' },
+          cursorVisibility: { visibility: 'hide', requirement: 'optional' },
           mouseReporting: { mode: 'drag', requirement: 'optional' }
         }
       });

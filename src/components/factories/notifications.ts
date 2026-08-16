@@ -54,7 +54,7 @@ interface NotificationModel {
   readonly maxWidth: number;
   readonly selectedId?: string;
   readonly pointerState?: PointerInteractionState;
-  readonly dismissActions: boolean;
+  readonly showDismissActions: boolean;
 }
 
 interface NotificationOwnOptions {
@@ -216,7 +216,7 @@ export function notificationHistory<const TMessage extends ComponentMessage = ne
 function prepareNotifications(
   value: Readonly<NotificationOwnOptions>,
   acceptsSelection: boolean,
-  dismissActions: boolean,
+  showDismissActions: boolean,
 ): NotificationModel {
   if (!Array.isArray(value.items)) {
     throw new TypeError('notification options must contain an items array.');
@@ -247,13 +247,13 @@ function prepareNotifications(
   const pointerState = preparePointerInteractionState(
     value.pointerState,
     'notification pointerState',
-    dismissActions,
+    showDismissActions,
   );
   return {
     items,
     placement: placement ?? 'top-right',
     maxWidth: maxWidth ?? 44,
-    dismissActions,
+    showDismissActions,
     ...(selectedId === undefined ? {} : { selectedId: clean(selectedId) }),
     ...(pointerState === undefined ? {} : { pointerState }),
   };
@@ -458,7 +458,7 @@ function paintCard(
       progressSpans(input, card.item, contentWidth, tone, state),
     );
   }
-  if (input.model.dismissActions && card.item.dismissible !== false && bounds.width >= 3) {
+  if (input.model.showDismissActions && card.item.dismissible !== false && bounds.width >= 3) {
     const dismissState =
       pointerVisualState(input.model.pointerState, dismissTargetId(input.id, card.item.id)) ??
         state;

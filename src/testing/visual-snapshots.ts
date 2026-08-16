@@ -87,9 +87,9 @@ function defaultAnsiOptions(): RenderSerializeOptions {
         runtime: 'memory',
         inputIsTty: true,
         outputIsTty: true,
-        rawInput: true,
-        resizeEvents: true,
-        terminalProtocols: true
+        supportsRawInput: true,
+        supportsResizeEvents: true,
+        supportsTerminalProtocols: true
       }
     })
   };

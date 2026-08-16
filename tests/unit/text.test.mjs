@@ -307,7 +307,7 @@ test('text editing supports word operations and selection movement', () => {
     { text: 'alpha bravo', cursor: 'alpha '.length }
   );
   assert.deepEqual(
-    editTextBuffer({ text: 'alpha bravo', cursor: 0 }, { kind: 'moveWordRight', select: true }),
+    editTextBuffer({ text: 'alpha bravo', cursor: 0 }, { kind: 'moveWordRight', extendSelection: true }),
     { text: 'alpha bravo', cursor: 'alpha'.length, selection: { startOffset: 0, endOffsetExclusive: 'alpha'.length } }
   );
   assert.deepEqual(
@@ -351,7 +351,7 @@ test('text area editing handles multiline inserts and line/page movement', () =>
     { text: pasted.text, cursor: 'alpha\nbravo'.length }
   );
   assert.deepEqual(
-    editTextBuffer({ text: pasted.text, cursor: 'alpha\nbra'.length }, { kind: 'moveLineDown', select: true }),
+    editTextBuffer({ text: pasted.text, cursor: 'alpha\nbra'.length }, { kind: 'moveLineDown', extendSelection: true }),
     {
       text: pasted.text,
       cursor: 'alpha\nbravo\ncha'.length,

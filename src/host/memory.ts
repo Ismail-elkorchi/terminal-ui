@@ -283,9 +283,9 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
       outputIsTty: stdout.isTty(),
       columns: terminalSize.columns,
       rows: terminalSize.rows,
-      rawInput: true,
-      resizeEvents: true,
-      terminalProtocols: isTty
+      supportsRawInput: true,
+      supportsResizeEvents: true,
+      supportsTerminalProtocols: isTty
     },
     environment: { variables: config.env ?? {} },
     ...(probes === undefined ? {} : { probes }),
@@ -293,12 +293,14 @@ export function createMemoryTerminalHost(options: unknown = {}): MemoryTerminalH
     ...(widthProfile === undefined ? {} : { widthProfile }),
     ...(graphics === undefined ? {} : { graphics }),
     ...(
-      config.clipboardWrite === undefined && overrides === undefined
+      config.supportsClipboardWrite === undefined && overrides === undefined
         ? {}
         : {
             overrides: {
               ...(overrides ?? {}),
-              ...(config.clipboardWrite === undefined ? {} : { clipboardWrite: config.clipboardWrite })
+              ...(config.supportsClipboardWrite === undefined
+                ? {}
+                : { clipboardWrite: config.supportsClipboardWrite })
             }
           }
     )
@@ -383,15 +385,15 @@ function decodeMemoryTerminalHostOptions(value: unknown): MemoryTerminalHostOpti
   const options = value as Readonly<Record<string, unknown>>;
   const id = options['id'];
   const isTty = options['isTty'];
-  const clipboardWrite = options['clipboardWrite'];
+  const supportsClipboardWrite = options['supportsClipboardWrite'];
   if (id !== undefined && typeof id !== 'string') {
     throw new TypeError('Memory terminal host id must be a string when provided.');
   }
   if (isTty !== undefined && typeof isTty !== 'boolean') {
     throw new TypeError('Memory terminal host isTty must be a boolean when provided.');
   }
-  if (clipboardWrite !== undefined && typeof clipboardWrite !== 'boolean') {
-    throw new TypeError('Memory terminal host clipboardWrite must be a boolean when provided.');
+  if (supportsClipboardWrite !== undefined && typeof supportsClipboardWrite !== 'boolean') {
+    throw new TypeError('Memory terminal host supportsClipboardWrite must be a boolean when provided.');
   }
   const terminalSize = decodeTerminalSize(options['terminalSize']);
   const env = decodeMemoryEnvironment(options['env']);
@@ -406,7 +408,7 @@ function decodeMemoryTerminalHostOptions(value: unknown): MemoryTerminalHostOpti
     ...(id === undefined ? {} : { id }),
     ...(terminalSize === undefined ? {} : { terminalSize }),
     ...(isTty === undefined ? {} : { isTty }),
-    ...(clipboardWrite === undefined ? {} : { clipboardWrite }),
+    ...(supportsClipboardWrite === undefined ? {} : { supportsClipboardWrite }),
     ...(env === undefined ? {} : { env }),
     ...(observer === undefined ? {} : { observer }),
     ...(capabilities === undefined

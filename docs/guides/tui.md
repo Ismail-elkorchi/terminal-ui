@@ -392,7 +392,7 @@ component that owns the behavior, then wrap it in a surface when it also needs
 visual containment.
 
 Use `textArea({ lineNumbers: true })` or
-`textArea({ lineNumbers: { startNumber, minWidth }, activeLine: true })` when a
+`textArea({ lineNumbers: { startNumber, minWidth }, highlightActiveLine: true })` when a
 multi-line text region needs editor-like anatomy. The renderer emits the gutter,
 line-number, active-line, value, placeholder, selection, caller-controlled highlight,
 cursor, and frame parts with structured source metadata and ordinary style

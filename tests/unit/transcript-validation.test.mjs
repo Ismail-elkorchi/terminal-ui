@@ -566,11 +566,11 @@ test('transcript validation rejects malformed structured restore results', () =>
     [null, /must be an object/u],
     [{ ...restore, requested: { ...state, provenance: { ...state.provenance, extra: true } } }, /unsupported field/u],
     [{ ...restore, requested: { ...state, keyboardProfile: { ...state.keyboardProfile, extra: true } } }, /unsupported field/u],
-    [{ ...restore, attempted: [{ kind: 'rawInput', enabled: false, extra: true }] }, /unsupported field/u],
+    [{ ...restore, attempted: [{ kind: 'rawInput', state: false, extra: true }] }, /unsupported field/u],
     [{
       ...restore,
-      attempted: [{ kind: 'rawInput', enabled: false }],
-      completed: [{ kind: 'rawInput', enabled: false, assurance: 'assumed' }]
+      attempted: [{ kind: 'rawInput', state: false }],
+      completed: [{ kind: 'rawInput', state: false, assurance: 'assumed' }]
     }, /requires assurance/u],
     [{ ...restore, requested: { ...state, rawInput: 'no' } }, /rawInput/u],
     [{ ...restore, requested: { ...state, alternateScreen: 'no' } }, /alternateScreen/u],
@@ -581,22 +581,22 @@ test('transcript validation rejects malformed structured restore results', () =>
     [{ ...restore, requested: { ...state, cursorVisible: 'yes' } }, /cursorVisible/u],
     [{
       ...restore,
-      completed: [{ kind: 'rawInput', enabled: false, assurance: 'sent' }]
+      completed: [{ kind: 'rawInput', state: false, assurance: 'sent' }]
     }, /completed operations must be an ordered subset of attempted operations/u],
     [{
       ...restore,
-      attempted: [{ kind: 'rawInput', enabled: false }],
-      completed: [{ kind: 'rawInput', enabled: true, assurance: 'sent' }]
+      attempted: [{ kind: 'rawInput', state: false }],
+      completed: [{ kind: 'rawInput', state: true, assurance: 'sent' }]
     }, /completed operations must be an ordered subset of attempted operations/u],
     [{
       ...restore,
       attempted: [
-        { kind: 'rawInput', enabled: false },
-        { kind: 'cursorVisible', enabled: true }
+        { kind: 'rawInput', state: false },
+        { kind: 'cursorVisible', state: true }
       ],
       completed: [
-        { kind: 'cursorVisible', enabled: true, assurance: 'sent' },
-        { kind: 'rawInput', enabled: false, assurance: 'observed' }
+        { kind: 'cursorVisible', state: true, assurance: 'sent' },
+        { kind: 'rawInput', state: false, assurance: 'observed' }
       ]
     }, /completed operations must be an ordered subset of attempted operations/u]
   ];

@@ -200,8 +200,8 @@ test('dialog exposes outside-press dismissal only outside its painted bounds', (
     modal: true,
     focusPolicy: { returnFocus: 'restore' },
     dismissal: {
-      escape: false,
-      outsidePress: true
+      dismissOnEscape: false,
+      dismissOnOutsidePress: true
     },
     onAction: (action) => action,
     width: 12,

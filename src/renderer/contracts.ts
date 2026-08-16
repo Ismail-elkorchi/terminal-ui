@@ -83,8 +83,8 @@ export interface RenderTarget {
 export interface RenderStyleInput<TPart extends string> {
   readonly part: 'root' | TPart;
   readonly state?: ElementVisualState;
-  /** Omits the framework's generic state style while retaining caller state overrides. */
-  readonly defaultState?: boolean;
+  /** Controls whether the framework's generic visual-state style is applied. */
+  readonly applyDefaultStateStyle?: boolean;
   readonly base?: TerminalStyle;
 }
 

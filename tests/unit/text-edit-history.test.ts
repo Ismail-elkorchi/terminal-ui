@@ -51,7 +51,7 @@ void test('text edit history restores selection and respects grapheme-safe edits
     selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }
   };
   const replaced = applyTextEditWithHistory(initial, emptyTextEditHistory(), { kind: 'insert', text: 'é' });
-  const moved = applyTextEditWithHistory(replaced.buffer, replaced.history, { kind: 'moveWordRight', select: true });
+  const moved = applyTextEditWithHistory(replaced.buffer, replaced.history, { kind: 'moveWordRight', extendSelection: true });
   const undoReplace = applyTextEditWithHistory(moved.buffer, moved.history, { kind: 'undo' });
 
   assert.deepEqual(replaced.buffer, { text: 'aéb', cursor: 2 });

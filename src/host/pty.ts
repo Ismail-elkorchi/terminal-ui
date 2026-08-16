@@ -77,9 +77,9 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
       outputIsTty: stdout.isTty(),
       columns: terminalSize.columns,
       rows: terminalSize.rows,
-      rawInput: options.stdin?.setRawMode !== undefined,
-      resizeEvents: options.subscribeSignals !== undefined,
-      terminalProtocols: stdout.isTty()
+      supportsRawInput: options.stdin?.setRawMode !== undefined,
+      supportsResizeEvents: options.subscribeSignals !== undefined,
+      supportsTerminalProtocols: stdout.isTty()
     },
     environment: { variables: options.env ?? {} },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),

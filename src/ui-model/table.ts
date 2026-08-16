@@ -33,22 +33,22 @@ export interface DataGridCell {
 
 export type DataGridRowSelection =
   | { readonly mode: 'none' }
-  | { readonly mode: 'single'; readonly selectedRowId?: string; readonly followActive?: boolean }
+  | { readonly mode: 'single'; readonly selectedRowId?: string; readonly selectionFollowsActive?: boolean }
   | {
       readonly mode: 'multiple';
       readonly selectedRowIds: readonly string[];
       readonly selectionAnchorId?: string;
-      readonly range?: boolean;
+      readonly rangeSelectionEnabled?: boolean;
     };
 
 export type DataGridCellSelection =
   | { readonly mode: 'none' }
-  | { readonly mode: 'single'; readonly selectedCell?: DataGridCell; readonly followActive?: boolean }
+  | { readonly mode: 'single'; readonly selectedCell?: DataGridCell; readonly selectionFollowsActive?: boolean }
   | {
       readonly mode: 'multiple';
       readonly selectedCells: readonly DataGridCell[];
       readonly selectionAnchor?: DataGridCell;
-      readonly range?: boolean;
+      readonly rangeSelectionEnabled?: boolean;
     };
 
 export type DataGridInteraction =
@@ -87,7 +87,11 @@ export type DataGridTransition =
   | { readonly kind: 'page'; readonly delta: -1 | 1 }
   | { readonly kind: 'firstRow' }
   | { readonly kind: 'lastRow' }
-  | { readonly kind: 'commit'; readonly extend?: boolean; readonly toggle?: boolean }
+  | {
+      readonly kind: 'commit';
+      readonly extendSelection?: boolean;
+      readonly toggleSelection?: boolean;
+    }
   | { readonly kind: 'sortBy'; readonly columnId: string }
   | { readonly kind: 'resizeColumnBy'; readonly columnId: string; readonly delta: number }
   | { readonly kind: 'setColumnWidth'; readonly columnId: string; readonly width: number }

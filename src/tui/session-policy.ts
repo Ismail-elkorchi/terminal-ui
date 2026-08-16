@@ -26,7 +26,7 @@ export interface SessionProtocolPolicy {
     readonly requirement: ProtocolRequirement;
   };
   readonly cursorVisibility: {
-    readonly state: CursorVisibilityPolicy;
+    readonly visibility: CursorVisibilityPolicy;
     readonly requirement: ProtocolRequirement;
   };
   readonly mouseReporting: {
@@ -36,7 +36,7 @@ export interface SessionProtocolPolicy {
 }
 
 export type SessionProtocolOperation =
-  | BooleanSessionProtocolOperation
+  | EnableSessionProtocolOperation
   | {
       readonly kind: 'cursorVisibility';
       readonly requirement: ProtocolRequirement;
@@ -53,7 +53,7 @@ export type SessionProtocolOperation =
       readonly target: TerminalKeyboardProfile;
     };
 
-interface BooleanSessionProtocolOperation {
+interface EnableSessionProtocolOperation {
   readonly kind: 'alternateScreen' | 'rawInput' | 'bracketedPaste' | 'focusReporting' | 'unicodeGraphemeMode';
   readonly requirement: ProtocolRequirement;
   readonly target: true;
@@ -62,7 +62,7 @@ interface BooleanSessionProtocolOperation {
 export type SessionProtocolOperationKind = SessionProtocolOperation['kind'];
 
 export interface SessionProtocolSetupResult {
-  readonly ok: boolean;
+  readonly status: 'ready' | 'failed';
   readonly policy: SessionProtocolPolicy;
   readonly planned: readonly SessionProtocolOperation[];
   readonly applied: readonly TerminalStateChange[];
@@ -78,7 +78,7 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = Object.freeze
   focusReporting: 'optional',
   unicodeGraphemeMode: 'optional',
   keyboard: Object.freeze({ profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' }),
-  cursorVisibility: Object.freeze({ state: 'hide', requirement: 'optional' }),
+  cursorVisibility: Object.freeze({ visibility: 'hide', requirement: 'optional' }),
   mouseReporting: Object.freeze({ mode: 'drag', requirement: 'optional' })
 });
 
@@ -99,7 +99,7 @@ export function createSessionProtocolPlan(
     },
     { kind: 'mouseReporting', requirement: policy.mouseReporting.requirement, target: policy.mouseReporting.mode },
     { kind: 'focusReporting', requirement: policy.focusReporting, target: true },
-    { kind: 'cursorVisibility', requirement: policy.cursorVisibility.requirement, target: policy.cursorVisibility.state }
+    { kind: 'cursorVisibility', requirement: policy.cursorVisibility.requirement, target: policy.cursorVisibility.visibility }
   ];
 }
 
@@ -112,7 +112,7 @@ export async function applySessionProtocolPolicy(
   const applied: TerminalStateChange[] = [];
   const skipped: SessionProtocolOperation[] = [];
   const diagnostics: TerminalDiagnostic[] = [];
-  let ok = true;
+  let status: SessionProtocolSetupResult['status'] = 'ready';
   for (const item of planned) {
     if (
       (item.requirement === 'disabled' && item.kind !== 'keyboardProfile')
@@ -131,7 +131,7 @@ export async function applySessionProtocolPolicy(
     }
     diagnostics.push(operationFailureDiagnostic(session, item, result.diagnostic), ...result.diagnostics);
     skipped.push(item);
-    if (item.requirement === 'required' || result.status === 'indeterminate') ok = false;
+    if (item.requirement === 'required' || result.status === 'indeterminate') status = 'failed';
     if (result.status === 'indeterminate') break;
   }
   const resultingState = await session.currentState();
@@ -139,7 +139,7 @@ export async function applySessionProtocolPolicy(
     resultingState.mouseReporting.tracking !== 'none'
     && resultingState.mouseReporting.encoding !== 'sgr'
   ) {
-    ok = false;
+    status = 'failed';
     diagnostics.push(diagnostic(
       'HOST_PROTOCOL_UNSUPPORTED',
       'The active terminal mouse encoding is not supported by the input decoder.',
@@ -153,7 +153,7 @@ export async function applySessionProtocolPolicy(
       }
     ));
   }
-  return { ok, policy, planned, applied, skipped, resultingState, diagnostics };
+  return { status, policy, planned, applied, skipped, resultingState, diagnostics };
 }
 
 export function inputProfileForSession(

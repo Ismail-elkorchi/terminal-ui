@@ -217,7 +217,7 @@ test('default theme specimen composes surface control text command log and data 
     chart({
       id: 'specimen-chart',
       label: 'System load',
-      legend: true,
+      showLegend: true,
       xLabel: 'time',
       yLabel: 'load',
       series: [

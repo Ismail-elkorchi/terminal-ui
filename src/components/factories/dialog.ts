@@ -243,7 +243,7 @@ function prepareDialogAccessibleName(
 
 function dialogPopupFocusPolicy(model: PreparedDialog): PopupFocusPolicy {
   return {
-    contain: model.modal,
+    trapFocus: model.modal,
     returnFocus: model.focusPolicy?.returnFocus ?? 'restore',
     ...(model.focusPolicy?.initialFocus === undefined
       ? {}
@@ -253,9 +253,9 @@ function dialogPopupFocusPolicy(model: PreparedDialog): PopupFocusPolicy {
 
 function dialogPopupDismissalPolicy(dismissal: DialogDismissal): PopupDismissalPolicy {
   return {
-    escape: dismissal.escape,
-    outsidePress: dismissal.outsidePress,
-    focusLoss: false
+    dismissOnEscape: dismissal.dismissOnEscape,
+    dismissOnOutsidePress: dismissal.dismissOnOutsidePress,
+    dismissOnFocusLoss: false
   };
 }
 
@@ -372,14 +372,16 @@ function prepareDialogDismissal(
 ): DialogDismissal | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('dialog dismissal must be an object.');
-  const escape = value.escape;
-  const outsidePress = value.outsidePress;
+  const dismissOnEscape = value.dismissOnEscape;
+  const dismissOnOutsidePress = value.dismissOnOutsidePress;
   if (
-    typeof escape !== 'boolean' || typeof outsidePress !== 'boolean' || (!escape && !outsidePress)
+    typeof dismissOnEscape !== 'boolean'
+    || typeof dismissOnOutsidePress !== 'boolean'
+    || (!dismissOnEscape && !dismissOnOutsidePress)
   ) {
-    throw new TypeError('dialog dismissal must enable escape, outsidePress, or both.');
+    throw new TypeError('dialog dismissal must enable dismissOnEscape, dismissOnOutsidePress, or both.');
   }
-  return escape
-    ? Object.freeze({ escape: true as const, outsidePress })
-    : Object.freeze({ escape: false as const, outsidePress: true as const });
+  return dismissOnEscape
+    ? Object.freeze({ dismissOnEscape: true as const, dismissOnOutsidePress })
+    : Object.freeze({ dismissOnEscape: false as const, dismissOnOutsidePress: true as const });
 }

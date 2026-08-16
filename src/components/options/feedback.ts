@@ -155,7 +155,7 @@ interface ChartOptionsBase {
   readonly series: readonly ChartSeries[];
   readonly min?: number;
   readonly max?: number;
-  readonly legend?: boolean;
+  readonly showLegend?: boolean;
   readonly signedDomain?: boolean;
   readonly xLabel?: string;
   readonly yLabel?: string;

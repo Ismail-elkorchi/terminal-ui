@@ -1507,7 +1507,7 @@ test('component instances adopt shared metadata once before retaining it', () =>
     focusScope: () => ({
       kind: 'contain',
       initialFocus: { kind: 'path', path },
-      restore: true
+      restoreFocus: true
     }),
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render() {},

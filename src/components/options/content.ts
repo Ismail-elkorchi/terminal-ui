@@ -410,7 +410,7 @@ interface TextAreaBaseOptions {
   readonly highlights?: readonly TextAreaHighlight[];
   readonly placeholder?: string;
   readonly lineNumbers?: boolean | TextAreaLineNumberOptions;
-  readonly activeLine?: boolean;
+  readonly highlightActiveLine?: boolean;
   readonly wrap?: boolean | TextAreaWrapOptions;
   readonly required?: boolean;
   readonly error?: string;

@@ -222,7 +222,7 @@ export class TerminalStateAuthority {
   async mutate<K extends TerminalStateKey>(
     lease: TerminalSessionLease,
     kind: K,
-    enabled: TerminalStateSnapshot[K],
+    nextState: TerminalStateSnapshot[K],
     apply: (context: TerminalOperationContext) => void | Promise<void>,
     context: TerminalOperationContext = {},
     equal: (current: TerminalStateSnapshot[K], next: TerminalStateSnapshot[K]) => boolean = Object.is
@@ -230,10 +230,10 @@ export class TerminalStateAuthority {
     return this.runExclusive(async (generation) => {
       const inactive = this.inactiveLeaseDiagnostic(lease);
       if (inactive !== undefined) return terminalOperationRejected(inactive);
-      const change = { kind, enabled } as TerminalStateChange;
+      const change = { kind, state: nextState } as TerminalStateChange;
       const cancellation = cancelledOperationDiagnostic(lease, context);
       if (cancellation !== undefined) return terminalOperationRejected(cancellation);
-      if (equal(this.#current[kind], enabled) && !this.#uncertain.has(kind)) {
+      if (equal(this.#current[kind], nextState) && !this.#uncertain.has(kind)) {
         return terminalOperationApplied(change, assuranceForKnowledge(this.#current.provenance[kind]));
       }
       const fixedMode = permanentModeTransitionDiagnostic(lease, change, this.#modeReports);
@@ -259,13 +259,13 @@ export class TerminalStateAuthority {
       }
       if (kind === 'rawInput' && this.#rawInputKnowledge === 'observed') {
         const observed = this.#host.stdin.isRawModeEnabled?.();
-        if (observed !== undefined && !Object.is(observed, enabled)) {
+        if (observed !== undefined && !Object.is(observed, nextState)) {
           this.setKnown('rawInput', observed, 'observed');
           return terminalOperationRejected(rawInputObservationMismatchDiagnostic(lease, observed));
         }
       }
       const knowledge = knowledgeAfterMutation(kind, this.#rawInputKnowledge);
-      this.setKnown(kind, enabled, knowledge);
+      this.setKnown(kind, nextState, knowledge);
       return terminalOperationApplied(change, knowledge === 'observed' ? 'observed' : 'sent');
     });
   }
@@ -279,7 +279,7 @@ export class TerminalStateAuthority {
       const inactive = this.inactiveLeaseDiagnostic(lease);
       if (inactive !== undefined) return terminalOperationRejected(inactive);
       const normalized = decodeKeyboardProfile(profile);
-      const change = { kind: 'keyboardProfile', enabled: normalized } as const;
+      const change = { kind: 'keyboardProfile', state: normalized } as const;
       const screen = this.activeScreen();
       const frameState = lease.keyboardFrameState(screen);
       const cancellation = cancelledOperationDiagnostic(lease, context);
@@ -481,8 +481,8 @@ export class TerminalStateAuthority {
         break;
       }
       const stateMatches = operation.kind === 'mouseReporting'
-          ? sameMouseReportingState(this.#current.mouseReporting, operation.enabled)
-        : Object.is(this.#current[operation.kind], operation.enabled);
+        ? sameMouseReportingState(this.#current.mouseReporting, operation.state)
+        : Object.is(this.#current[operation.kind], operation.state);
       const hasKeyboardFrame = operation.kind === 'keyboardProfile'
         && lease.keyboardFrameState(this.activeScreen()) !== 'none';
       if (operation.kind === 'keyboardProfile' && !hasKeyboardFrame) continue;
@@ -501,7 +501,7 @@ export class TerminalStateAuthority {
         }
         if (operation.kind === 'rawInput' && this.#rawInputKnowledge === 'observed') {
           const observed = this.#host.stdin.isRawModeEnabled?.();
-          if (observed !== undefined && observed !== operation.enabled) {
+          if (observed !== undefined && observed !== operation.state) {
             this.setKnown('rawInput', observed, 'observed');
             diagnostics.push(rawInputObservationMismatchDiagnostic(lease, observed));
             continue;
@@ -515,13 +515,13 @@ export class TerminalStateAuthority {
         } else {
           this.setKnown(
             operation.kind,
-            operation.enabled,
+            operation.state,
             knowledgeAfterMutation(operation.kind, this.#rawInputKnowledge)
           );
         }
         completed.push(Object.freeze({
           ...(operation.kind === 'keyboardProfile' && restoredKeyboard !== undefined
-            ? { kind: 'keyboardProfile' as const, enabled: restoredKeyboard.previous.profile }
+            ? { kind: 'keyboardProfile' as const, state: restoredKeyboard.previous.profile }
             : operation),
           assurance: operation.kind === 'rawInput' && this.#rawInputKnowledge === 'observed'
             ? 'observed'
@@ -574,25 +574,25 @@ export class TerminalStateAuthority {
     const protocol = this.recoveryProtocol(context);
     switch (operation.kind) {
       case 'cursorVisible':
-        await (operation.enabled ? protocol.showCursor() : protocol.hideCursor());
+        await (operation.state ? protocol.showCursor() : protocol.hideCursor());
         break;
       case 'focusReporting':
-        await (operation.enabled ? protocol.enableFocusReporting() : protocol.disableFocusReporting());
+        await (operation.state ? protocol.enableFocusReporting() : protocol.disableFocusReporting());
         break;
       case 'unicodeGraphemeMode':
-        await (operation.enabled ? protocol.enableUnicodeGraphemeMode() : protocol.disableUnicodeGraphemeMode());
+        await (operation.state ? protocol.enableUnicodeGraphemeMode() : protocol.disableUnicodeGraphemeMode());
         break;
       case 'mouseReporting':
-        await protocol.setMouseReporting(operation.enabled);
+        await protocol.setMouseReporting(operation.state);
         break;
       case 'bracketedPaste':
-        await (operation.enabled ? protocol.enableBracketedPaste() : protocol.disableBracketedPaste());
+        await (operation.state ? protocol.enableBracketedPaste() : protocol.disableBracketedPaste());
         break;
       case 'alternateScreen':
-        await (operation.enabled ? protocol.enableAlternateScreen() : protocol.disableAlternateScreen());
+        await (operation.state ? protocol.enableAlternateScreen() : protocol.disableAlternateScreen());
         break;
       case 'rawInput':
-        await this.#host.stdin.setRawMode?.(operation.enabled);
+        await this.#host.stdin.setRawMode?.(operation.state);
         break;
     }
   }
@@ -932,12 +932,12 @@ class TerminalSessionLease implements TerminalSession {
 
   private mutate<K extends TerminalStateKey>(
     kind: K,
-    enabled: TerminalStateSnapshot[K],
+    nextState: TerminalStateSnapshot[K],
     apply: (context: TerminalOperationContext) => void | Promise<void>,
     context: TerminalOperationContext,
     equal: (current: TerminalStateSnapshot[K], next: TerminalStateSnapshot[K]) => boolean = Object.is
   ): Promise<TerminalOperationOutcome> {
-    return this.#authority.mutate(this, kind, enabled, apply, context, equal);
+    return this.#authority.mutate(this, kind, nextState, apply, context, equal);
   }
 
   private requireCapability(kind: TerminalCapabilityName): TerminalOperationOutcome | undefined {
@@ -1132,13 +1132,13 @@ function requestedPrivateModes(
   change: TerminalStateChange
 ): readonly (readonly [keyof TerminalModeReports, boolean])[] {
   switch (change.kind) {
-    case 'alternateScreen': return [[1049, change.enabled]];
-    case 'bracketedPaste': return [[2004, change.enabled]];
-    case 'cursorVisible': return [[25, change.enabled]];
-    case 'focusReporting': return [[1004, change.enabled]];
-    case 'unicodeGraphemeMode': return [[2027, change.enabled]];
+    case 'alternateScreen': return [[1049, change.state]];
+    case 'bracketedPaste': return [[2004, change.state]];
+    case 'cursorVisible': return [[25, change.state]];
+    case 'focusReporting': return [[1004, change.state]];
+    case 'unicodeGraphemeMode': return [[2027, change.state]];
     case 'mouseReporting': {
-      const mouse = change.enabled;
+      const mouse = change.state;
       return [
         [1000, mouse.tracking === 'click'],
         [1002, mouse.tracking === 'drag'],

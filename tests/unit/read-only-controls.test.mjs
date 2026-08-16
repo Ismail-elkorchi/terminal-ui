@@ -151,7 +151,7 @@ async function testReadOnlyControl(candidate) {
   assert.equal(wordMovement.handled, true, `${candidate.name} word movement`);
   assert.deepEqual(runtime.state().actions, [
     { kind: 'edit', operation: { kind: 'moveRight' } },
-    { kind: 'edit', operation: { kind: 'moveRight', select: true } },
+    { kind: 'edit', operation: { kind: 'moveRight', extendSelection: true } },
     { kind: 'edit', operation: { kind: 'moveWordRight' } }
   ], candidate.name);
 }

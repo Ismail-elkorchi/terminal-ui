@@ -96,16 +96,16 @@ export type TextEditOperation =
   | { readonly kind: 'deleteForward' }
   | { readonly kind: 'deleteWordBackward' }
   | { readonly kind: 'deleteWordForward' }
-  | { readonly kind: 'moveLeft'; readonly select?: boolean }
-  | { readonly kind: 'moveRight'; readonly select?: boolean }
-  | { readonly kind: 'moveWordLeft'; readonly select?: boolean }
-  | { readonly kind: 'moveWordRight'; readonly select?: boolean }
-  | { readonly kind: 'moveHome'; readonly select?: boolean }
-  | { readonly kind: 'moveEnd'; readonly select?: boolean }
-  | { readonly kind: 'moveLineUp'; readonly select?: boolean }
-  | { readonly kind: 'moveLineDown'; readonly select?: boolean }
-  | { readonly kind: 'movePageUp'; readonly select?: boolean }
-  | { readonly kind: 'movePageDown'; readonly select?: boolean }
+  | { readonly kind: 'moveLeft'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveRight'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveWordLeft'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveWordRight'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveHome'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveEnd'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveLineUp'; readonly extendSelection?: boolean }
+  | { readonly kind: 'moveLineDown'; readonly extendSelection?: boolean }
+  | { readonly kind: 'movePageUp'; readonly extendSelection?: boolean }
+  | { readonly kind: 'movePageDown'; readonly extendSelection?: boolean }
   | { readonly kind: 'selectAll' }
   | { readonly kind: 'replaceSelection'; readonly text: string };
 

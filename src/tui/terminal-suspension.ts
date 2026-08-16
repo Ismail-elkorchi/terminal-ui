@@ -126,7 +126,7 @@ export function createTerminalSuspension<TState, TMessage>(
               throw new Error('Terminal runtime ended before suspension recovery completed.');
             }
             const setup = await setupTuiSession(session, options.policy, { signal: recoverySignal });
-            if (!setup.ok) {
+            if (setup.status === 'failed') {
               throw new Error('Terminal session could not be reconfigured after suspension.');
             }
             options.replaceSession(session);

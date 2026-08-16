@@ -351,7 +351,7 @@ interface FocusScope {
   readonly layer: Layer;
   readonly sequence: number;
   readonly initialFocus?: InitialFocusSelector;
-  readonly restore: boolean;
+  readonly restoreFocus: boolean;
 }
 
 interface FocusNavigationGroup {
@@ -409,7 +409,7 @@ function scopedFocusTargets<TTarget extends LayoutFocusTarget>(
 }
 
 export function activeFocusScopeRestores(layout: LayoutNode): boolean {
-  return activeFocusScope(collectFocusScopes(layout))?.restore ?? true;
+  return activeFocusScope(collectFocusScopes(layout))?.restoreFocus ?? true;
 }
 
 function collectFocusScopes(layout: LayoutNode, parentPath: FocusPath = [], sequence = { value: 0 }): readonly FocusScope[] {
@@ -421,7 +421,7 @@ function collectFocusScopes(layout: LayoutNode, parentPath: FocusPath = [], sequ
         layer: layout.layer,
         sequence: sequence.value,
         ...(layout.focusScope.initialFocus === undefined ? {} : { initialFocus: layout.focusScope.initialFocus }),
-        restore: layout.focusScope.restore !== false
+        restoreFocus: layout.focusScope.restoreFocus !== false
       }]
     : [];
   sequence.value += 1;

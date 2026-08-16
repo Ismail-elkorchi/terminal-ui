@@ -638,8 +638,8 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
               returnFocus: 'restore'
             },
             dismissal: {
-              escape: true,
-              outsidePress: true
+              dismissOnEscape: true,
+              dismissOnOutsidePress: true
             },
             onAction: (action) => action,
             width: 24,

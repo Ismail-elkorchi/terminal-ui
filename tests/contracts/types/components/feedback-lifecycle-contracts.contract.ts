@@ -30,8 +30,8 @@ dialog({
   modal: true,
   focusPolicy: { initialFocus: { kind: 'element', elementId: 'confirm' }, returnFocus: 'restore' },
   dismissal: {
-    escape: true,
-    outsidePress: false
+    dismissOnEscape: true,
+    dismissOnOutsidePress: false
   },
   onAction: (action) => ({ kind: 'dismiss' as const, action })
 });

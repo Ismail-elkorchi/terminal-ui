@@ -114,7 +114,7 @@ function normalizeSessionPolicy(value: unknown): SessionProtocolPolicy {
       requirement: protocolRequirement(keyboard['requirement'], 'keyboard.requirement')
     }),
     cursorVisibility: Object.freeze({
-      state: cursorVisibility(cursor['state']),
+      visibility: cursorVisibility(cursor['visibility']),
       requirement: protocolRequirement(cursor['requirement'], 'cursorVisibility.requirement')
     }),
     mouseReporting: Object.freeze({
@@ -172,7 +172,7 @@ function protocolRequirement(
 
 function cursorVisibility(value: unknown): CursorVisibilityPolicy {
   if (value === 'hide' || value === 'show' || value === 'unchanged') return value;
-  throw new TypeError('TUI session policy cursorVisibility.state is invalid.');
+  throw new TypeError('TUI session policy cursorVisibility.visibility is invalid.');
 }
 
 function mouseReportingMode(value: unknown): MouseReportingMode {

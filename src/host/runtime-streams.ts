@@ -62,9 +62,9 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
       outputIsTty: stdout.isTty(),
       columns: initialTerminalSize.columns,
       rows: initialTerminalSize.rows,
-      rawInput: options.stdin?.setRawMode !== undefined,
-      resizeEvents: options.subscribeSignals !== undefined,
-      terminalProtocols: stdout.isTty()
+      supportsRawInput: options.stdin?.setRawMode !== undefined,
+      supportsResizeEvents: options.subscribeSignals !== undefined,
+      supportsTerminalProtocols: stdout.isTty()
     },
     environment: { variables: options.env ?? {} },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),

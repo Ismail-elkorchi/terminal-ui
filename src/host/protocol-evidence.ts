@@ -3,7 +3,7 @@ import type { RuntimeTarget, TerminalCapabilityName, TerminalFeatureSupport } fr
 export interface TerminalProtocolEvidence {
   readonly runtime: RuntimeTarget;
   readonly outputIsTty: boolean;
-  readonly terminalProtocols: boolean;
+  readonly supportsTerminalProtocols: boolean;
   readonly term?: string;
   readonly termProgram?: string;
 }
@@ -62,6 +62,6 @@ export function inferControlCapability(
 }
 
 export function protocolFloor(evidence: TerminalProtocolEvidence): TerminalFeatureSupport {
-  if (!evidence.outputIsTty || !evidence.terminalProtocols) return 'unsupported';
+  if (!evidence.outputIsTty || !evidence.supportsTerminalProtocols) return 'unsupported';
   return evidence.term?.trim().toLowerCase() === 'dumb' ? 'unsupported' : 'unknown';
 }

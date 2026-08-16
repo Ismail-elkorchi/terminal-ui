@@ -2274,15 +2274,15 @@ function normalizeFocusScope(
   if (!isNonArrayObject(value)) {
     throw new TypeError(`Component "${component}" focusScope must return an object or undefined.`);
   }
-  const unsupported = findUnsupportedField(value, new Set(['kind', 'initialFocus', 'restore']));
+  const unsupported = findUnsupportedField(value, new Set(['kind', 'initialFocus', 'restoreFocus']));
   if (unsupported !== undefined) {
     throw new TypeError(`Component "${component}" focusScope contains unknown field "${unsupported}".`);
   }
   if (value['kind'] !== 'contain') {
     throw new TypeError(`Component "${component}" focusScope.kind must be "contain".`);
   }
-  if (value['restore'] !== undefined && typeof value['restore'] !== 'boolean') {
-    throw new TypeError(`Component "${component}" focusScope.restore must be a boolean.`);
+  if (value['restoreFocus'] !== undefined && typeof value['restoreFocus'] !== 'boolean') {
+    throw new TypeError(`Component "${component}" focusScope.restoreFocus must be a boolean.`);
   }
   const initialFocus = value['initialFocus'] === undefined
     ? undefined
@@ -2290,7 +2290,7 @@ function normalizeFocusScope(
   return Object.freeze({
     kind: 'contain' as const,
     ...(initialFocus === undefined ? {} : { initialFocus }),
-    ...(value['restore'] === undefined ? {} : { restore: value['restore'] })
+    ...(value['restoreFocus'] === undefined ? {} : { restoreFocus: value['restoreFocus'] })
   });
 }
 

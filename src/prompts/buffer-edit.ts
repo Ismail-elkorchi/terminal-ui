@@ -26,25 +26,25 @@ export function editPromptBufferForEvent(state: PromptTextBufferState, event: In
       return true;
     case 'arrowLeft':
       state.buffer = editTextBuffer(state.buffer, event.modifiers.alt || event.modifiers.ctrl
-        ? { kind: 'moveWordLeft', select: event.modifiers.shift }
-        : { kind: 'moveLeft', select: event.modifiers.shift });
+        ? { kind: 'moveWordLeft', extendSelection: event.modifiers.shift }
+        : { kind: 'moveLeft', extendSelection: event.modifiers.shift });
       return true;
     case 'arrowRight':
       state.buffer = editTextBuffer(state.buffer, event.modifiers.alt || event.modifiers.ctrl
-        ? { kind: 'moveWordRight', select: event.modifiers.shift }
-        : { kind: 'moveRight', select: event.modifiers.shift });
+        ? { kind: 'moveWordRight', extendSelection: event.modifiers.shift }
+        : { kind: 'moveRight', extendSelection: event.modifiers.shift });
       return true;
     case 'home':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'moveHome', select: event.modifiers.shift });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'moveHome', extendSelection: event.modifiers.shift });
       return true;
     case 'end':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'moveEnd', select: event.modifiers.shift });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'moveEnd', extendSelection: event.modifiers.shift });
       return true;
     case 'pageUp':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageUp', select: event.modifiers.shift });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageUp', extendSelection: event.modifiers.shift });
       return true;
     case 'pageDown':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageDown', select: event.modifiers.shift });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageDown', extendSelection: event.modifiers.shift });
       return true;
     case 'space':
       state.buffer = editTextBuffer(state.buffer, { kind: 'insert', text: ' ' });

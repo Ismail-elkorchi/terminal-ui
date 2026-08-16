@@ -78,7 +78,7 @@ export interface ElementStyles<TPart extends string = string> {
 export interface ElementFocusScope {
   readonly kind: 'contain';
   readonly initialFocus?: InitialFocusSelector;
-  readonly restore?: boolean;
+  readonly restoreFocus?: boolean;
 }
 
 export interface ElementFocus {

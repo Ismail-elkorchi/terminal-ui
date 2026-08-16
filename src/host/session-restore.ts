@@ -9,15 +9,15 @@ export function createTerminalRestorePlan(snapshot: TerminalStateSnapshot): Term
   return {
     snapshot,
     operations: [
-      { kind: 'cursorVisible', enabled: snapshot.cursorVisible },
-      { kind: 'focusReporting', enabled: snapshot.focusReporting },
-      { kind: 'unicodeGraphemeMode', enabled: snapshot.unicodeGraphemeMode },
-      { kind: 'mouseReporting', enabled: snapshot.mouseReporting },
-      { kind: 'keyboardProfile', enabled: snapshot.keyboardProfile },
-      { kind: 'bracketedPaste', enabled: snapshot.bracketedPaste },
-      { kind: 'alternateScreen', enabled: snapshot.alternateScreen },
-      { kind: 'keyboardProfile', enabled: snapshot.keyboardProfile },
-      { kind: 'rawInput', enabled: snapshot.rawInput }
+      { kind: 'cursorVisible', state: snapshot.cursorVisible },
+      { kind: 'focusReporting', state: snapshot.focusReporting },
+      { kind: 'unicodeGraphemeMode', state: snapshot.unicodeGraphemeMode },
+      { kind: 'mouseReporting', state: snapshot.mouseReporting },
+      { kind: 'keyboardProfile', state: snapshot.keyboardProfile },
+      { kind: 'bracketedPaste', state: snapshot.bracketedPaste },
+      { kind: 'alternateScreen', state: snapshot.alternateScreen },
+      { kind: 'keyboardProfile', state: snapshot.keyboardProfile },
+      { kind: 'rawInput', state: snapshot.rawInput }
     ]
   };
 }

@@ -110,7 +110,7 @@ function sessionPolicyWithKeyboard(profile: ReturnType<typeof kittyKeyboardProfi
     focusReporting: 'disabled' as const,
     unicodeGraphemeMode: 'disabled' as const,
     keyboard: { profile, requirement: 'disabled' as const },
-    cursorVisibility: { state: 'unchanged' as const, requirement: 'disabled' as const },
+    cursorVisibility: { visibility: 'unchanged' as const, requirement: 'disabled' as const },
     mouseReporting: { mode: 'none' as const, requirement: 'disabled' as const }
   };
 }

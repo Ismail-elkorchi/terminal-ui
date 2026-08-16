@@ -23,9 +23,9 @@ const capabilities = resolveTerminalCapabilities({
     runtime,
     inputIsTty: false,
     outputIsTty: false,
-    rawInput: false,
-    resizeEvents: true,
-    terminalProtocols: false
+    supportsRawInput: false,
+    supportsResizeEvents: true,
+    supportsTerminalProtocols: false
   },
   environment: {},
   probes: { keyboardProtocol: 'unknown' }

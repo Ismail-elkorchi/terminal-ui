@@ -22,9 +22,9 @@ export interface TerminalHostFacts {
   readonly outputIsTty: boolean;
   readonly columns?: number;
   readonly rows?: number;
-  readonly rawInput: boolean;
-  readonly resizeEvents: boolean;
-  readonly terminalProtocols: boolean;
+  readonly supportsRawInput: boolean;
+  readonly supportsResizeEvents: boolean;
+  readonly supportsTerminalProtocols: boolean;
   readonly colorDepth?: 0 | 1 | 4 | 8 | 24;
 }
 
@@ -78,21 +78,21 @@ interface CapabilityBasis {
 
 export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInput): TerminalCapabilityProfile {
   const interactive = input.host.inputIsTty && input.host.outputIsTty;
-  const outputAvailability = availability(input.host.outputIsTty && input.host.terminalProtocols);
-  const interactiveAvailability = availability(interactive && input.host.terminalProtocols);
+  const outputAvailability = availability(input.host.outputIsTty && input.host.supportsTerminalProtocols);
+  const interactiveAvailability = availability(interactive && input.host.supportsTerminalProtocols);
   const capabilities = {
     rawInput: resolveCapability(input, 'rawInput', {
       support: input.host.inputIsTty ? 'supported' : 'unsupported',
-      availability: availability(input.host.rawInput && input.host.inputIsTty),
+      availability: availability(input.host.supportsRawInput && input.host.inputIsTty),
       unavailable: 'Input adapter cannot enter raw mode.',
       requiresSessionOperation: true,
-      facts: [hostFact('rawInput', input.host.rawInput), hostFact('inputIsTty', input.host.inputIsTty)]
+      facts: [hostFact('supportsRawInput', input.host.supportsRawInput), hostFact('inputIsTty', input.host.inputIsTty)]
     }),
     resize: resolveCapability(input, 'resize', {
       support: input.host.outputIsTty ? 'supported' : 'unsupported',
-      availability: availability(input.host.resizeEvents),
+      availability: availability(input.host.supportsResizeEvents),
       unavailable: 'Host adapter cannot report resize events.',
-      facts: [hostFact('resizeEvents', input.host.resizeEvents), hostFact('outputIsTty', input.host.outputIsTty)]
+      facts: [hostFact('supportsResizeEvents', input.host.supportsResizeEvents), hostFact('outputIsTty', input.host.outputIsTty)]
     }),
     textAttributes: resolveCapability(input, 'textAttributes', protocolBasis(
       controlSupport(input, 'textAttributes'),
@@ -105,7 +105,7 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       availability: outputAvailability,
       unavailable: 'Host output cannot emit terminal hyperlinks.',
       unknown: 'Terminal hyperlink support is unknown.',
-      facts: [hostFact('terminalProtocols', input.host.terminalProtocols), ...environmentFacts(input.environment, ['TERM_PROGRAM', 'VTE_VERSION'])]
+      facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols), ...environmentFacts(input.environment, ['TERM_PROGRAM', 'VTE_VERSION'])]
     }),
     keyboardProtocol: resolveCapability(input, 'keyboardProtocol', {
       support: kittySupport(input),
@@ -113,7 +113,7 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       unavailable: 'Host cannot negotiate an enhanced keyboard protocol.',
       unknown: 'Kitty keyboard protocol support is unknown.',
       requiresSessionOperation: true,
-      facts: [hostFact('terminalProtocols', input.host.terminalProtocols), ...environmentFacts(input.environment, ['KITTY_WINDOW_ID', 'TERM'])]
+      facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols), ...environmentFacts(input.environment, ['KITTY_WINDOW_ID', 'TERM'])]
     }),
     bracketedPaste: resolveCapability(input, 'bracketedPaste', protocolBasis(
       controlSupport(input, 'bracketedPaste'),
@@ -156,14 +156,14 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       unavailable: 'Host output cannot establish terminal grapheme mode.',
       unknown: 'Terminal grapheme mode support has not been established.',
       requiresSessionOperation: true,
-      facts: [hostFact('terminalProtocols', input.host.terminalProtocols)]
+      facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols)]
     }),
     synchronizedOutput: resolveCapability(input, 'synchronizedOutput', {
       support: 'unknown',
       availability: outputAvailability,
       unavailable: 'Host output cannot emit synchronized output.',
       unknown: 'Synchronized output support has not been established.',
-      facts: [hostFact('terminalProtocols', input.host.terminalProtocols), ...environmentFacts(input.environment, ['TERM', 'TERM_PROGRAM'])]
+      facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols), ...environmentFacts(input.environment, ['TERM', 'TERM_PROGRAM'])]
     }),
     scrollRegion: resolveCapability(input, 'scrollRegion', protocolBasis(
       controlSupport(input, 'scrollRegion'),
@@ -188,7 +188,7 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       availability: outputAvailability,
       unavailable: 'Host output cannot emit clipboard-write protocol.',
       unknown: 'Clipboard-write support requires explicit policy or evidence.',
-      facts: [hostFact('terminalProtocols', input.host.terminalProtocols)]
+      facts: [hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols)]
     })
   } satisfies Record<TerminalCapabilityName, CapabilitySupport>;
 
@@ -215,7 +215,7 @@ function resolveGraphics(
   outputAvailability: HostFeatureAvailability,
 ): TerminalCapabilityProfile['graphics'] {
   const facts = [
-    hostFact('terminalProtocols', input.host.terminalProtocols),
+    hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols),
     ...environmentFacts(input.environment, ['TERM', 'TERM_PROGRAM', 'TMUX', 'KITTY_WINDOW_ID']),
   ];
   const fallback: TerminalFeatureSupport = outputAvailability === 'available' ? 'unknown' : 'unsupported';
@@ -321,7 +321,7 @@ function protocolBasis(
     unknown: 'Terminal protocol support is unknown.',
     requiresSessionOperation,
     facts: [
-      hostFact('terminalProtocols', input.host.terminalProtocols),
+      hostFact('supportsTerminalProtocols', input.host.supportsTerminalProtocols),
       ...environmentFacts(input.environment, ['TERM', 'TERM_PROGRAM'])
     ]
   };
@@ -357,7 +357,7 @@ function protocolEvidence(input: TerminalCapabilityResolverInput): Parameters<ty
   return {
     runtime: input.host.runtime,
     outputIsTty: input.host.outputIsTty,
-    terminalProtocols: input.host.terminalProtocols,
+    supportsTerminalProtocols: input.host.supportsTerminalProtocols,
     ...(term === undefined ? {} : { term }),
     ...(termProgram === undefined ? {} : { termProgram })
   };

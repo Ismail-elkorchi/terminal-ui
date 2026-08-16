@@ -1,8 +1,8 @@
 export type DialogDismissReason = 'escape' | 'outsidePress';
 
 export type DialogDismissal =
-  | { readonly escape: true; readonly outsidePress: boolean }
-  | { readonly escape: false; readonly outsidePress: true };
+  | { readonly dismissOnEscape: true; readonly dismissOnOutsidePress: boolean }
+  | { readonly dismissOnEscape: false; readonly dismissOnOutsidePress: true };
 
 export interface DialogAction {
   readonly kind: 'dismiss';

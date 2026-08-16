@@ -85,16 +85,16 @@ export function editTextBuffer(
         cursor
       };
     case 'moveLeft':
-      return moveTo(buffer.text, cursor, selection, leftTarget(buffer.text, cursor, selection, operation.select), operation.select);
+      return moveTo(buffer.text, cursor, selection, leftTarget(buffer.text, cursor, selection, operation.extendSelection), operation.extendSelection);
     case 'moveRight':
-      return moveTo(buffer.text, cursor, selection, rightTarget(buffer.text, cursor, selection, operation.select), operation.select);
+      return moveTo(buffer.text, cursor, selection, rightTarget(buffer.text, cursor, selection, operation.extendSelection), operation.extendSelection);
     case 'moveWordLeft':
       return moveTo(
         buffer.text,
         cursor,
         selection,
-        wordLeftTarget(requiredWordIndex(words), cursor, selection, operation.select),
-        operation.select,
+        wordLeftTarget(requiredWordIndex(words), cursor, selection, operation.extendSelection),
+        operation.extendSelection,
         words
       );
     case 'moveWordRight':
@@ -102,22 +102,22 @@ export function editTextBuffer(
         buffer.text,
         cursor,
         selection,
-        wordRightTarget(requiredWordIndex(words), cursor, selection, operation.select),
-        operation.select,
+        wordRightTarget(requiredWordIndex(words), cursor, selection, operation.extendSelection),
+        operation.extendSelection,
         words
       );
     case 'moveHome':
-      return moveTo(buffer.text, cursor, selection, lineStartOffset(buffer.text, cursor), operation.select);
+      return moveTo(buffer.text, cursor, selection, lineStartOffset(buffer.text, cursor), operation.extendSelection);
     case 'moveEnd':
-      return moveTo(buffer.text, cursor, selection, lineEndOffset(buffer.text, cursor), operation.select);
+      return moveTo(buffer.text, cursor, selection, lineEndOffset(buffer.text, cursor), operation.extendSelection);
     case 'moveLineUp':
-      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -1), operation.select);
+      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -1), operation.extendSelection);
     case 'moveLineDown':
-      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, 1), operation.select);
+      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, 1), operation.extendSelection);
     case 'movePageUp':
-      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -PAGE_LINE_DELTA), operation.select);
+      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, -PAGE_LINE_DELTA), operation.extendSelection);
     case 'movePageDown':
-      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, PAGE_LINE_DELTA), operation.select);
+      return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, PAGE_LINE_DELTA), operation.extendSelection);
     case 'selectAll': {
       const normalized = normalizeTextSelection(buffer.text, { startOffset: 0, endOffsetExclusive: buffer.text.length });
       return {
@@ -144,13 +144,13 @@ function moveTo(
   cursor: number,
   selection: TextSelection | undefined,
   target: number,
-  select: boolean | undefined,
+  extendSelection: boolean | undefined,
   index?: TerminalTextIndex
 ): TextEditBuffer {
   const nextCursor = index === undefined
     ? normalizeTextCursor(text, target)
     : normalizeIndexedOffset(index, target);
-  if (select !== true) return { text, cursor: nextCursor };
+  if (extendSelection !== true) return { text, cursor: nextCursor };
   const anchor = selectionAnchor(selection, cursor);
   const nextSelection = index === undefined
     ? normalizeTextSelection(text, { startOffset: anchor, endOffsetExclusive: nextCursor })
@@ -173,9 +173,9 @@ function leftTarget(
   text: string,
   cursor: number,
   selection: TextSelection | undefined,
-  select: boolean | undefined
+  extendSelection: boolean | undefined
 ): number {
-  if (select !== true && selection !== undefined) return selection.startOffset;
+  if (extendSelection !== true && selection !== undefined) return selection.startOffset;
   return previousGraphemeBoundary(text, cursor);
 }
 
@@ -183,9 +183,9 @@ function rightTarget(
   text: string,
   cursor: number,
   selection: TextSelection | undefined,
-  select: boolean | undefined
+  extendSelection: boolean | undefined
 ): number {
-  if (select !== true && selection !== undefined) return selection.endOffsetExclusive;
+  if (extendSelection !== true && selection !== undefined) return selection.endOffsetExclusive;
   return nextGraphemeBoundary(text, cursor);
 }
 
@@ -193,9 +193,9 @@ function wordLeftTarget(
   index: TerminalTextIndex,
   cursor: number,
   selection: TextSelection | undefined,
-  select: boolean | undefined
+  extendSelection: boolean | undefined
 ): number {
-  if (select !== true && selection !== undefined) return selection.startOffset;
+  if (extendSelection !== true && selection !== undefined) return selection.startOffset;
   return index.previousWordBoundary(cursor);
 }
 
@@ -203,9 +203,9 @@ function wordRightTarget(
   index: TerminalTextIndex,
   cursor: number,
   selection: TextSelection | undefined,
-  select: boolean | undefined
+  extendSelection: boolean | undefined
 ): number {
-  if (select !== true && selection !== undefined) return selection.endOffsetExclusive;
+  if (extendSelection !== true && selection !== undefined) return selection.endOffsetExclusive;
   return index.nextWordBoundary(cursor);
 }
 

@@ -123,13 +123,13 @@ void test('selection commitment is carried by controlled selection state', () =>
     open: true,
     interaction: {
       activeId: 'alpha',
-      selection: { mode: 'single', selectedId: 'alpha', followActive: true },
+      selection: { mode: 'single', selectedId: 'alpha', selectionFollowsActive: true },
     },
   }, { kind: 'moveActive', delta: 1 }, { index });
 
   assert.deepEqual(manual.interaction.selection, { mode: 'single', selectedId: 'alpha' });
   assert.deepEqual(following.interaction.selection, {
-    mode: 'single', selectedId: 'beta', followActive: true,
+    mode: 'single', selectedId: 'beta', selectionFollowsActive: true,
   });
 });
 

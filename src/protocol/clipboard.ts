@@ -5,7 +5,7 @@ import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalProtocolSink } from './types.ts';
 
 export interface ClipboardWritePolicy {
-  readonly allow: boolean;
+  readonly allowed: boolean;
   readonly maxBytes?: number;
 }
 
@@ -26,7 +26,7 @@ export function createClipboardWriteSequence(
   policy: ClipboardWritePolicy
 ): ClipboardWriteResult {
   const maxBytes = clipboardMaxBytes(policy.maxBytes);
-  if (!policy.allow) return clipboardDenied();
+  if (!policy.allowed) return clipboardDenied();
   const sanitized = sanitizeTerminalText(text).text;
   const bytes = new TextEncoder().encode(sanitized);
   if (bytes.byteLength > maxBytes) {

@@ -205,14 +205,14 @@ export interface TerminalStateProvenanceSnapshot {
 export type TerminalInitialState = Partial<Omit<TerminalStateSnapshot, 'provenance'>>;
 
 export type TerminalStateChange =
-  | { readonly kind: 'rawInput'; readonly enabled: boolean }
-  | { readonly kind: 'alternateScreen'; readonly enabled: boolean }
-  | { readonly kind: 'bracketedPaste'; readonly enabled: boolean }
-  | { readonly kind: 'mouseReporting'; readonly enabled: MouseReportingState }
-  | { readonly kind: 'focusReporting'; readonly enabled: boolean }
-  | { readonly kind: 'unicodeGraphemeMode'; readonly enabled: boolean }
-  | { readonly kind: 'keyboardProfile'; readonly enabled: TerminalKeyboardProfile }
-  | { readonly kind: 'cursorVisible'; readonly enabled: boolean };
+  | { readonly kind: 'rawInput'; readonly state: boolean }
+  | { readonly kind: 'alternateScreen'; readonly state: boolean }
+  | { readonly kind: 'bracketedPaste'; readonly state: boolean }
+  | { readonly kind: 'mouseReporting'; readonly state: MouseReportingState }
+  | { readonly kind: 'focusReporting'; readonly state: boolean }
+  | { readonly kind: 'unicodeGraphemeMode'; readonly state: boolean }
+  | { readonly kind: 'keyboardProfile'; readonly state: TerminalKeyboardProfile }
+  | { readonly kind: 'cursorVisible'; readonly state: boolean };
 
 export type TerminalRestoreCompletion = TerminalStateChange & {
   /** Evidence for this restored state, independent of output transport completion. */
@@ -286,7 +286,7 @@ export interface MemoryTerminalHostOptions {
   readonly id?: string;
   readonly terminalSize?: TerminalSize;
   readonly isTty?: boolean;
-  readonly clipboardWrite?: boolean;
+  readonly supportsClipboardWrite?: boolean;
   readonly env?: Record<string, string>;
   readonly observer?: TerminalHostObserver;
   readonly capabilities?: TerminalCapabilityConfiguration;

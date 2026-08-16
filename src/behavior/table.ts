@@ -77,7 +77,12 @@ export function dataGridReducer<TRow>(
     case 'lastRow':
       return focusAtRowIndex(state, rowIds.length - 1, rowIds, options);
     case 'commit':
-      return commitGridSelection(state, options, transition.extend === true, transition.toggle === true);
+      return commitGridSelection(
+        state,
+        options,
+        transition.extendSelection === true,
+        transition.toggleSelection === true,
+      );
     case 'sortBy':
       return { ...state, sort: nextSort(state.sort, transition.columnId) };
     case 'resizeColumnBy':
@@ -204,8 +209,9 @@ function withActiveRow<TRow>(
   const interaction: DataGridInteraction = {
     ...state.interaction,
     activeRowId: rowId,
-    ...(state.interaction.selection.mode === 'single' && state.interaction.selection.followActive === true
-      ? { selection: { mode: 'single', selectedRowId: rowId, followActive: true } }
+    ...(state.interaction.selection.mode === 'single'
+      && state.interaction.selection.selectionFollowsActive === true
+      ? { selection: { mode: 'single', selectedRowId: rowId, selectionFollowsActive: true } }
       : {}),
   };
   return withGridScroll({ ...state, interaction }, rowId, options.collection, options.pageSize);
@@ -220,8 +226,9 @@ function withActiveCell<TRow>(
   const interaction: DataGridInteraction = {
     ...state.interaction,
     activeCell: cell,
-    ...(state.interaction.selection.mode === 'single' && state.interaction.selection.followActive === true
-      ? { selection: { mode: 'single', selectedCell: cell, followActive: true } }
+    ...(state.interaction.selection.mode === 'single'
+      && state.interaction.selection.selectionFollowsActive === true
+      ? { selection: { mode: 'single', selectedCell: cell, selectionFollowsActive: true } }
       : {}),
   };
   return withGridScroll({ ...state, interaction }, cell.rowId, options.collection, options.pageSize);
@@ -256,17 +263,17 @@ function commitGridSelection<TRow>(
           ? {
               mode: 'single',
               ...(selectedRowIds[0] === undefined ? {} : { selectedRowId: selectedRowIds[0] }),
-              ...(state.interaction.selection.followActive === undefined
+              ...(state.interaction.selection.selectionFollowsActive === undefined
                 ? {}
-                : { followActive: state.interaction.selection.followActive }),
+                : { selectionFollowsActive: state.interaction.selection.selectionFollowsActive }),
             }
           : {
               mode: 'multiple',
               selectedRowIds,
               selectionAnchorId: active,
-              ...(state.interaction.selection.range === undefined
+              ...(state.interaction.selection.rangeSelectionEnabled === undefined
                 ? {}
-                : { range: state.interaction.selection.range }),
+                : { rangeSelectionEnabled: state.interaction.selection.rangeSelectionEnabled }),
             },
       },
     };
@@ -293,17 +300,17 @@ function commitGridSelection<TRow>(
         ? {
             mode: 'single',
             ...(selectedCells[0] === undefined ? {} : { selectedCell: selectedCells[0] }),
-            ...(state.interaction.selection.followActive === undefined
+            ...(state.interaction.selection.selectionFollowsActive === undefined
               ? {}
-              : { followActive: state.interaction.selection.followActive }),
+              : { selectionFollowsActive: state.interaction.selection.selectionFollowsActive }),
           }
         : {
             mode: 'multiple',
             selectedCells,
             selectionAnchor: active,
-            ...(state.interaction.selection.range === undefined
+            ...(state.interaction.selection.rangeSelectionEnabled === undefined
               ? {}
-              : { range: state.interaction.selection.range }),
+              : { rangeSelectionEnabled: state.interaction.selection.rangeSelectionEnabled }),
           },
     },
   };
@@ -319,7 +326,7 @@ function selectedGridCells<TRow>(
   toggle: boolean,
 ): readonly DataGridCell[] {
   if (selection.mode === 'single') return Object.freeze([active]);
-  if (extend && selection.range === true && anchor !== undefined) {
+  if (extend && selection.rangeSelectionEnabled === true && anchor !== undefined) {
     const rowIds = collectionIds(options.collection);
     const anchorRow = rowIds.indexOf(anchor.rowId);
     const activeRow = rowIds.indexOf(active.rowId);
@@ -356,7 +363,7 @@ function selectedIds(
   toggle: boolean,
 ): readonly string[] {
   if (selection.mode !== 'multiple') return [active];
-  if (extend && selection.range === true && anchor !== undefined) {
+  if (extend && selection.rangeSelectionEnabled === true && anchor !== undefined) {
     const start = ordered.indexOf(anchor);
     const end = ordered.indexOf(active);
     if (start >= 0 && end >= 0) return ordered.slice(Math.min(start, end), Math.max(start, end) + 1);

@@ -23,7 +23,7 @@ const colorCapabilities = resolveTerminalCapabilities({
     runtime: 'memory',
     inputIsTty: true,
     outputIsTty: true,
-    rawInput: true
+    supportsRawInput: true
   },
   environment: {
     variables: {

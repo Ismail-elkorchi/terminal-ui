@@ -16,7 +16,6 @@ export interface ChartPoint {
 export interface ChartAxesOptions {
   readonly xTicks?: readonly number[];
   readonly yTicks?: readonly number[];
-  readonly labels?: boolean;
   readonly span?: RenderSpan;
   readonly tickSpan?: RenderSpan;
 }

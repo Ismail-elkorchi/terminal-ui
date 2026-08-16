@@ -857,10 +857,10 @@ interface ProgressBarModel {
 }
 
 interface ProgressParts {
-  readonly label: boolean;
-  readonly value: boolean;
-  readonly percentage: boolean;
-  readonly timing: boolean;
+  readonly showLabel: boolean;
+  readonly showValue: boolean;
+  readonly showPercentage: boolean;
+  readonly showTiming: boolean;
 }
 
 export const progressBar: SemanticLeafComponentFactory<
@@ -1018,10 +1018,10 @@ function progressSpansFor(
   const initial = progressParts(input.model);
   const candidates: readonly ProgressParts[] = [
     initial,
-    { ...initial, label: false },
-    { ...initial, label: false, timing: false },
-    { ...initial, label: false, timing: false, value: false },
-    { ...initial, label: false, timing: false, value: false, percentage: false },
+    { ...initial, showLabel: false },
+    { ...initial, showLabel: false, showTiming: false },
+    { ...initial, showLabel: false, showTiming: false, showValue: false },
+    { ...initial, showLabel: false, showTiming: false, showValue: false, showPercentage: false },
   ];
   for (const parts of candidates) {
     const spans = progressSpans(input, parts, maxCells, decorated);
@@ -1042,12 +1042,12 @@ function progressSpans(
   const barWidth = fittedProgressBarWidth(input, parts, maxCells, decorated);
   return [
     ...progressStatusSpans(input, decorated),
-    ...(parts.label && input.model.label.length > 0 && input.model.labelPosition === 'start'
+    ...(parts.showLabel && input.model.label.length > 0 && input.model.labelPosition === 'start'
       ? [progressPartSpan(input, `${input.model.label} `, 'label', 'label', decorated)]
       : []),
     ...progressTrackSpans(input, barWidth, decorated),
     ...progressMetricSpans(input, parts, decorated),
-    ...(parts.label && input.model.label.length > 0 && input.model.labelPosition === 'end'
+    ...(parts.showLabel && input.model.label.length > 0 && input.model.labelPosition === 'end'
       ? [progressPartSpan(input, ` ${input.model.label}`, 'label', 'label', decorated)]
       : []),
   ];
@@ -1062,11 +1062,11 @@ function fittedProgressBarWidth(
   if (maxCells === undefined) return input.model.barWidth;
   const withoutBar = [
     ...progressStatusSpans(input, decorated),
-    ...(parts.label && input.model.label.length > 0 && input.model.labelPosition === 'start'
+    ...(parts.showLabel && input.model.label.length > 0 && input.model.labelPosition === 'start'
       ? [progressPartSpan(input, `${input.model.label} `, 'label', 'label', decorated)]
       : []),
     ...progressMetricSpans(input, parts, decorated),
-    ...(parts.label && input.model.label.length > 0 && input.model.labelPosition === 'end'
+    ...(parts.showLabel && input.model.label.length > 0 && input.model.labelPosition === 'end'
       ? [progressPartSpan(input, ` ${input.model.label}`, 'label', 'label', decorated)]
       : []),
   ];
@@ -1081,10 +1081,10 @@ function fittedProgressBarWidth(
 
 function progressParts(model: ProgressBarModel): ProgressParts {
   return {
-    label: model.labelPosition !== 'none',
-    value: model.display === 'bar+value' || model.display === 'bar+value+percent',
-    percentage: model.display === 'bar+percent' || model.display === 'bar+value+percent',
-    timing: model.elapsedMs !== undefined || model.remainingMs !== undefined,
+    showLabel: model.labelPosition !== 'none',
+    showValue: model.display === 'bar+value' || model.display === 'bar+value+percent',
+    showPercentage: model.display === 'bar+percent' || model.display === 'bar+value+percent',
+    showTiming: model.elapsedMs !== undefined || model.remainingMs !== undefined,
   };
 }
 
@@ -1229,13 +1229,13 @@ function progressMetricSpans(
 ): readonly RenderSpan[] {
   if (input.model.indeterminate) {
     const timing = timingText(input.model);
-    return parts.timing && timing.length > 0
+    return parts.showTiming && timing.length > 0
       ? [progressPartSpan(input, ` ${timing}`, 'value', 'timing', decorated)]
       : [];
   }
   const timing = timingText(input.model);
   return [
-    ...(parts.value
+    ...(parts.showValue
       ? [progressPartSpan(
         input,
         ` ${String(input.model.value)}/${String(input.model.max)}`,
@@ -1244,7 +1244,7 @@ function progressMetricSpans(
         decorated,
       )]
       : []),
-    ...(parts.percentage
+    ...(parts.showPercentage
       ? [progressPartSpan(
         input,
         ` ${String(input.model.percentage)}%`,
@@ -1253,7 +1253,7 @@ function progressMetricSpans(
         decorated,
       )]
       : []),
-    ...(parts.timing && timing.length > 0
+    ...(parts.showTiming && timing.length > 0
       ? [progressPartSpan(input, ` ${timing}`, 'value', 'timing', decorated)]
       : []),
   ];

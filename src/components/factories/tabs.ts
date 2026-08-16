@@ -599,7 +599,7 @@ function resolveTabStyle(
       part,
       ...(base === undefined ? {} : { base }),
       ...(state === undefined ? {} : { state }),
-      ...(state === 'selected' ? { defaultState: false } : {}),
+      ...(state === 'selected' ? { applyDefaultStateStyle: false } : {}),
     })
     : base;
 }

@@ -74,7 +74,7 @@ interface TextAreaModel {
   readonly selection?: TextDocumentSelection;
   readonly highlights: readonly PreparedTextAreaHighlight[];
   readonly lineNumbers?: { readonly startNumber: number; readonly minWidth: number };
-  readonly activeLine: boolean;
+  readonly highlightActiveLine: boolean;
   readonly wrap: boolean;
   readonly revealCaret: boolean;
   readonly required: boolean;
@@ -371,7 +371,10 @@ function prepareTextArea(
     throw new TypeError('textArea scrollbar and scrollPolicy require scroll state.');
   }
   const lineNumbers = prepareLineNumbers(value.lineNumbers);
-  const activeLine = booleanOption(value.activeLine, 'textArea activeLine');
+  const highlightActiveLine = booleanOption(
+    value.highlightActiveLine,
+    'textArea highlightActiveLine',
+  );
   const wrap = prepareWrap(value.wrap);
   const required = booleanOption(value.required, 'textArea required');
   const revealCaret = booleanOption(presentation.revealCaret, 'textArea revealCaret');
@@ -387,7 +390,7 @@ function prepareTextArea(
     highlights,
     placeholder: textOption(value.placeholder, 'textArea placeholder') ?? '',
     ...(lineNumbers === undefined ? {} : { lineNumbers }),
-    activeLine,
+    highlightActiveLine,
     wrap,
     revealCaret,
     required,
@@ -468,7 +471,7 @@ function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStyleP
     const rowIndex = geometry.scrollbar.scroll.offsetRow + visibleRow;
     const line = geometry.layout.lines[rowIndex];
     if (line === undefined) break;
-    const isActive = input.model.activeLine && line.logicalLineIndex === active;
+    const isActive = input.model.highlightActiveLine && line.logicalLineIndex === active;
     const prefix = textAreaPrefixSpans(input, geometry, line, visibleRow, isActive);
     const window = visibleTextWindow(
       line,

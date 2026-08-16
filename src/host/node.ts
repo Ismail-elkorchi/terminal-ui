@@ -112,9 +112,9 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       outputIsTty: stdout.isTty(),
       columns: getTerminalSize().columns,
       rows: getTerminalSize().rows,
-      rawInput: typeof inputStream.setRawMode === 'function',
-      resizeEvents: typeof outputStream.on === 'function' && typeof outputStream.off === 'function',
-      terminalProtocols: stdout.isTty(),
+      supportsRawInput: typeof inputStream.setRawMode === 'function',
+      supportsResizeEvents: typeof outputStream.on === 'function' && typeof outputStream.off === 'function',
+      supportsTerminalProtocols: stdout.isTty(),
       ...(colorDepth === undefined ? {} : { colorDepth })
     },
     environment: { variables: environment },

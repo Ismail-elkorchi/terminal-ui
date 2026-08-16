@@ -158,14 +158,14 @@ function initialState(): WorkspaceState {
     tree: {
       expandedIds: ['workspace'],
       activeId: 'queue:triage',
-      selection: { mode: 'single', selectedId: 'queue:triage', followActive: true },
+      selection: { mode: 'single', selectedId: 'queue:triage', selectionFollowsActive: true },
       scroll: createScrollState()
     },
     table: {
       interaction: {
         kind: 'row',
         activeRowId: 'T-101',
-        selection: { mode: 'single', selectedRowId: 'T-101', followActive: true },
+        selection: { mode: 'single', selectedRowId: 'T-101', selectionFollowsActive: true },
       },
       scroll: createScrollState()
     },
@@ -220,7 +220,7 @@ function updateWorkspace(
           interaction: {
             kind: 'row',
             activeRowId: selectedRowId,
-            selection: { mode: 'single', selectedRowId, followActive: true },
+            selection: { mode: 'single', selectedRowId, selectionFollowsActive: true },
           },
         },
         pointer: { ...state.pointer, tree: message.action.kind === 'setActive' || state.pointer.tree }
@@ -491,8 +491,8 @@ function searchPickerLayer(state: WorkspaceState) {
       returnFocus: 'restore'
     },
     dismissal: {
-      escape: true,
-      outsidePress: true
+      dismissOnEscape: true,
+      dismissOnOutsidePress: true
     },
     onAction: (): WorkspaceMessage => ({ kind: 'closeSearchPicker' }),
     padding: { left: 1, right: 1 },

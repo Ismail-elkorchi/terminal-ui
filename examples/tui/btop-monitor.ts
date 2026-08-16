@@ -146,7 +146,7 @@ function initialState(): MonitorState {
       interaction: {
         kind: 'row',
         activeRowId: selectedRowId,
-        selection: { mode: 'single', selectedRowId, followActive: true },
+        selection: { mode: 'single', selectedRowId, selectionFollowsActive: true },
       },
       sort: { columnId: 'memory', direction: 'descending' },
       scroll: createScrollState()
@@ -303,7 +303,7 @@ function cpuPanel(state: MonitorState) {
           valueScale: monitorScale,
           xLabel: `last ${String(cpuValues.length)} samples`,
           yLabel: 'CPU',
-          legend: false
+          showLegend: false
         })
       ], {
         id: 'cpu-graph-column',
@@ -471,7 +471,7 @@ function networkPanel(state: MonitorState) {
         max: 50,
         sampleMode: 'fit',
         interpolation: 'nearest',
-        legend: false,
+        showLegend: false,
         yLabel: '10K',
         xLabel: 'wlp3s0'
       }),

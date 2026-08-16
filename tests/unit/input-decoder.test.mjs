@@ -392,9 +392,9 @@ test('input pipeline activates an explicitly supported Kitty keyboard profile', 
       runtime: 'memory',
       inputIsTty: true,
       outputIsTty: true,
-      rawInput: true,
-      resizeEvents: true,
-      terminalProtocols: true
+      supportsRawInput: true,
+      supportsResizeEvents: true,
+      supportsTerminalProtocols: true
     },
     overrides: {
       keyboardProtocol: true
@@ -412,9 +412,9 @@ test('input pipeline reports Kitty keyboard fallback instead of faking support',
       runtime: 'memory',
       inputIsTty: true,
       outputIsTty: true,
-      rawInput: true,
-      resizeEvents: true,
-      terminalProtocols: true
+      supportsRawInput: true,
+      supportsResizeEvents: true,
+      supportsTerminalProtocols: true
     }
   });
   const profile = resolveInputPipelineProfile({ capabilities, keyboard: kittyEvents });
@@ -484,9 +484,9 @@ test('input pipeline disables bracketed paste when capabilities do not support i
       runtime: 'memory',
       inputIsTty: false,
       outputIsTty: true,
-      rawInput: true,
-      resizeEvents: false,
-      terminalProtocols: true
+      supportsRawInput: true,
+      supportsResizeEvents: false,
+      supportsTerminalProtocols: true
     }
   });
   const profile = resolveInputPipelineProfile({ capabilities });

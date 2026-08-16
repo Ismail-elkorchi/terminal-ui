@@ -466,7 +466,7 @@ test('chart valueScale styles area series values without local renderer code', (
 test('chart renders scatter points legends axis labels and selectable point hit targets', () => {
   const frame = renderElementFrame(chart({
     id: 'scatter-chart',
-    legend: true,
+    showLegend: true,
     xLabel: 'watch cycle',
     yLabel: 'signal',
     presentation: { activeId: 'scatter:2', selection: { mode: 'single', selectedId: 'scatter:2' } },
@@ -686,7 +686,7 @@ test('heatmap renders empty state through chart state contract', () => {
 test('chart components preserve visualization meaning in high contrast and no color themes', () => {
   const highContrast = renderElementFrame(chart({
     id: 'contrast-chart',
-    legend: true,
+    showLegend: true,
     presentation: { activeId: 'alpha:1', selection: { mode: 'single', selectedId: 'alpha:1' } },
     onTransition: (transition) => transition,
     series: [chartSeries('alpha', [1, 3, 2], { label: 'Alpha', glyph: '+' })]
@@ -701,7 +701,7 @@ test('chart components preserve visualization meaning in high contrast and no co
   }), { columns: 10, rows: 1 }, { theme: noColorTheme });
   const noColorSeries = renderElementFrame(chart({
     id: 'mono-series-chart',
-    legend: true,
+    showLegend: true,
     series: [
       chartSeries('alpha', [1, 3, 2], { label: 'Alpha' }),
       chartSeries('beta', [3, 1, 2], { label: 'Beta' })

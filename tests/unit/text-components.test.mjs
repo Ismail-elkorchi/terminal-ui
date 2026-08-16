@@ -295,7 +295,7 @@ test('textArea can opt into line number gutter and active line anatomy', () => {
     id: 'editor',
     presentation: { document: prepareTextDocument('alpha\nbeta'), caret: textCaretAt('alpha\nb'.length) },
     lineNumbers: { minWidth: 2 },
-    activeLine: true
+    highlightActiveLine: true
   }), { columns: 24, rows: 2 }, { focusPath: ['editor'] });
   const activeContent = frame.cells.find((cell) => cell.row === 2 && cell.text === 'b');
 
@@ -364,7 +364,7 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
     id: 'wrapped-editor',
     presentation: { document: prepareTextDocument('alpha beta gamma'), caret: textCaretAt('alpha beta'.length) },
     lineNumbers: { minWidth: 2 },
-    activeLine: true,
+    highlightActiveLine: true,
     wrap: true
   }), { columns: 12, rows: 3 }, { focusPath: ['wrapped-editor'] });
 
@@ -641,7 +641,7 @@ function colorCapabilities() {
       runtime: 'memory',
       inputIsTty: true,
       outputIsTty: true,
-      rawInput: true
+      supportsRawInput: true
     }
   });
 }

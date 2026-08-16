@@ -6,7 +6,7 @@ import type { TerminalStyle } from '../visual/render.ts';
 export interface RenderNodeStyleInput {
   readonly part: string;
   readonly state?: ElementVisualState;
-  readonly defaultState?: boolean;
+  readonly applyDefaultStateStyle?: boolean;
   readonly base?: TerminalStyle;
 }
 
@@ -14,7 +14,7 @@ export function resolveRenderNodeStyle(renderNode: RenderNode, input: RenderNode
   return mergeStyles(
     defaultStyleForPart(input.part),
     input.base,
-    input.defaultState === false || input.state === undefined || input.state === 'default'
+    input.applyDefaultStateStyle === false || input.state === undefined || input.state === 'default'
       ? undefined
       : defaultStyleForState(input.state),
     input.part === 'root' ? renderNode.styles?.root : renderNode.styles?.parts?.[input.part],

@@ -41,7 +41,9 @@ export function inspectSelection(selection: SelectionState): ComponentInspection
   if (selection.mode === 'single') {
     return Object.freeze({
       mode: 'single',
-      ...(selection.followActive === undefined ? {} : { followActive: selection.followActive }),
+      ...(selection.selectionFollowsActive === undefined
+        ? {}
+        : { selectionFollowsActive: selection.selectionFollowsActive }),
       ...(selection.selectedId === undefined ? {} : { selectedId: selection.selectedId }),
     });
   }
@@ -51,7 +53,9 @@ export function inspectSelection(selection: SelectionState): ComponentInspection
       ? { selectedIds: Object.freeze([...selection.selectedIds]) }
       : { selectedCount: selection.selectedIds.length }),
     ...(selection.anchorId === undefined ? {} : { anchorId: selection.anchorId }),
-    ...(selection.range === undefined ? {} : { range: selection.range }),
+    ...(selection.rangeSelectionEnabled === undefined
+      ? {}
+      : { rangeSelectionEnabled: selection.rangeSelectionEnabled }),
   });
 }
 

@@ -12,20 +12,20 @@ export type PopupTransition =
   | { readonly kind: 'dismiss'; readonly reason: AnchoredSurfaceDismissReason };
 
 export interface PopupDismissalPolicy {
-  readonly escape: boolean;
-  readonly outsidePress: boolean;
-  readonly focusLoss: boolean;
+  readonly dismissOnEscape: boolean;
+  readonly dismissOnOutsidePress: boolean;
+  readonly dismissOnFocusLoss: boolean;
 }
 
 export interface PopupFocusPolicy {
-  readonly contain: boolean;
+  readonly trapFocus: boolean;
   readonly returnFocus: 'restore' | 'none';
   readonly initialFocus?: InitialFocusSelector;
 }
 
 export interface PopupFocusScope {
   readonly kind: 'contain';
-  readonly restore: boolean;
+  readonly restoreFocus: boolean;
   readonly initialFocus?: InitialFocusSelector;
 }
 
@@ -35,18 +35,18 @@ export interface PopupRelationship {
 }
 
 export const standardPopupDismissal: PopupDismissalPolicy = Object.freeze({
-  escape: true,
-  outsidePress: true,
-  focusLoss: true
+  dismissOnEscape: true,
+  dismissOnOutsidePress: true,
+  dismissOnFocusLoss: true
 });
 
 export const standardPopupFocus: PopupFocusPolicy = Object.freeze({
-  contain: false,
+  trapFocus: false,
   returnFocus: 'restore'
 });
 
 export const containedPopupFocus: PopupFocusPolicy = Object.freeze({
-  contain: true,
+  trapFocus: true,
   returnFocus: 'restore'
 });
 
@@ -65,9 +65,9 @@ export function popupAllowsDismissal(
   policy: PopupDismissalPolicy,
   reason: AnchoredSurfaceDismissReason
 ): boolean {
-  if (reason === 'escape') return policy.escape;
-  if (reason === 'outsidePress') return policy.outsidePress;
-  if (reason === 'focusLoss') return policy.focusLoss;
+  if (reason === 'escape') return policy.dismissOnEscape;
+  if (reason === 'outsidePress') return policy.dismissOnOutsidePress;
+  if (reason === 'focusLoss') return policy.dismissOnFocusLoss;
   return true;
 }
 
@@ -75,10 +75,10 @@ export function popupFocusScope(
   open: boolean,
   policy: PopupFocusPolicy
 ): PopupFocusScope | undefined {
-  if (!open || !policy.contain) return undefined;
+  if (!open || !policy.trapFocus) return undefined;
   return Object.freeze({
     kind: 'contain',
-    restore: policy.returnFocus === 'restore',
+    restoreFocus: policy.returnFocus === 'restore',
     ...(policy.initialFocus === undefined ? {} : { initialFocus: policy.initialFocus })
   });
 }

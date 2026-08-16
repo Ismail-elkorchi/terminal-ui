@@ -76,26 +76,26 @@ function repeat(
 
 function movement(
   keyName: 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'pageUp' | 'pageDown' | 'home' | 'end',
-  kind: Extract<TextEditOperation, { readonly select?: boolean }>['kind'],
+  kind: Extract<TextEditOperation, { readonly extendSelection?: boolean }>['kind'],
   modifiers: { readonly shift: true }
 ): ElementKeyTriggerBinding<TextEditingAction> {
   return key(keyName, modifiers, selectedMovement(kind));
 }
 
 function selectedMovement(
-  kind: Extract<TextEditOperation, { readonly select?: boolean }>['kind']
+  kind: Extract<TextEditOperation, { readonly extendSelection?: boolean }>['kind']
 ): TextEditOperation {
   switch (kind) {
-    case 'moveLeft': return { kind: 'moveLeft', select: true };
-    case 'moveRight': return { kind: 'moveRight', select: true };
-    case 'moveWordLeft': return { kind: 'moveWordLeft', select: true };
-    case 'moveWordRight': return { kind: 'moveWordRight', select: true };
-    case 'moveHome': return { kind: 'moveHome', select: true };
-    case 'moveEnd': return { kind: 'moveEnd', select: true };
-    case 'moveLineUp': return { kind: 'moveLineUp', select: true };
-    case 'moveLineDown': return { kind: 'moveLineDown', select: true };
-    case 'movePageUp': return { kind: 'movePageUp', select: true };
-    case 'movePageDown': return { kind: 'movePageDown', select: true };
+    case 'moveLeft': return { kind: 'moveLeft', extendSelection: true };
+    case 'moveRight': return { kind: 'moveRight', extendSelection: true };
+    case 'moveWordLeft': return { kind: 'moveWordLeft', extendSelection: true };
+    case 'moveWordRight': return { kind: 'moveWordRight', extendSelection: true };
+    case 'moveHome': return { kind: 'moveHome', extendSelection: true };
+    case 'moveEnd': return { kind: 'moveEnd', extendSelection: true };
+    case 'moveLineUp': return { kind: 'moveLineUp', extendSelection: true };
+    case 'moveLineDown': return { kind: 'moveLineDown', extendSelection: true };
+    case 'movePageUp': return { kind: 'movePageUp', extendSelection: true };
+    case 'movePageDown': return { kind: 'movePageDown', extendSelection: true };
   }
 }
 
@@ -106,8 +106,8 @@ function wordMovement(
   return [
     key(keyName, { ctrl: true }, { kind }),
     key(keyName, { alt: true }, { kind }),
-    key(keyName, { ctrl: true, shift: true }, { kind, select: true }),
-    key(keyName, { alt: true, shift: true }, { kind, select: true })
+    key(keyName, { ctrl: true, shift: true }, { kind, extendSelection: true }),
+    key(keyName, { alt: true, shift: true }, { kind, extendSelection: true })
   ];
 }
 

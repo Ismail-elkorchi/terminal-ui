@@ -12,12 +12,16 @@ import type { SelectionState } from '@ismail-elkorchi/terminal-ui/interaction';
 const rangeSelection: SelectionState = {
   mode: 'multiple',
   selectedIds: [],
-  range: true,
+  rangeSelectionEnabled: true,
 };
 void rangeSelection;
 
-// @ts-expect-error multiple selection cannot follow the active item
-const contradictorySelection: SelectionState = { mode: 'multiple', selectedIds: [], followActive: true };
+const contradictorySelection: SelectionState = {
+  mode: 'multiple',
+  selectedIds: [],
+  // @ts-expect-error multiple selection cannot follow the active item
+  selectionFollowsActive: true,
+};
 void contradictorySelection;
 
 const listCollection = prepareListboxCollection(

@@ -95,13 +95,13 @@ void test('multiple row selection supports toggle and anchored ranges', () => {
         mode: 'multiple' as const,
         selectedRowIds: ['row-1'],
         selectionAnchorId: 'row-1',
-        range: true,
+        rangeSelectionEnabled: true,
       },
     },
   };
   const moved = dataGridReducer(initial, { kind: 'moveRow', delta: 2 }, options);
-  const ranged = dataGridReducer(moved, { kind: 'commit', extend: true }, options);
-  const toggled = dataGridReducer(ranged, { kind: 'commit', toggle: true }, options);
+  const ranged = dataGridReducer(moved, { kind: 'commit', extendSelection: true }, options);
+  const toggled = dataGridReducer(ranged, { kind: 'commit', toggleSelection: true }, options);
 
   assert.deepEqual(ranged.interaction.kind === 'row' && ranged.interaction.selection.mode === 'multiple'
     ? ranged.interaction.selection.selectedRowIds : [], [
