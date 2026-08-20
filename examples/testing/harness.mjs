@@ -28,10 +28,16 @@ const result = await runInteractionScript(harness, {
   ]
 });
 
+if (result.diagnostics.length > 0) {
+  const diagnostic = result.diagnostics[0];
+  throw new Error(diagnostic?.diagnostic.message ?? 'The interaction script reported a diagnostic.');
+}
+
 console.log(JSON.stringify({
   steps: result.transcript.steps.length,
   source: result.snapshot.source,
   emptySource: emptySnapshot.source,
   emptyRole: emptySnapshot.root.role,
-  frameCount: harness.frames().length
+  frameCount: harness.frames().length,
+  diagnosticCount: result.diagnostics.length
 }));

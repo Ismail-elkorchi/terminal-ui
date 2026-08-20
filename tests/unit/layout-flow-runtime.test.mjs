@@ -12,6 +12,20 @@ import {
   prepareSearchPickerIndex
 } from '../../dist/behavior/index.js';
 
+test('anonymous accessibility identities remain unique when layout collapses siblings', () => {
+  const frame = renderElementFrame(column([
+    text({ content: 'A' }),
+    text({ content: 'B' }),
+    text({ content: 'C' }),
+  ]), { columns: 1, rows: 1 });
+  const children = frame.accessibility.root.children ?? [];
+  const ids = children.map((node) => node.id);
+
+  assert.equal(ids.length, 3);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(ids.every((id) => id.startsWith('anonymous:')), true);
+});
+
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
   assert.deepEqual(
     splitTracks(

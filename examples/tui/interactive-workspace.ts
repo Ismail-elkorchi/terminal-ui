@@ -24,7 +24,7 @@ import {
 } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
-import type { TuiUpdateResult } from '@ismail-elkorchi/terminal-ui';
+import type { TuiContext, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui';
 import {
   commandInputPresentation,
   commandInputReducer,
@@ -41,7 +41,7 @@ import {
   prepareTreeView,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { CommandInputState, SearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { CommandInputState, UnscrolledSearchPickerState } from '@ismail-elkorchi/terminal-ui/behavior';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import type {
   CommandInputTransition,
@@ -49,7 +49,6 @@ import type {
   DataGridTransition,
   SearchEntry,
   SearchPickerControlTransition,
-  UnscrolledSearchPickerPresentation,
   TableColumn,
   TabsTransition,
   TreeNode,
@@ -76,21 +75,15 @@ interface WorkspaceState {
   readonly table: ScrollableDataGridPresentation;
   readonly command: CommandInputState;
   readonly searchPicker: {
-    readonly state: SearchPickerState;
-    readonly used: boolean;
+    readonly open: boolean;
+    readonly state: UnscrolledSearchPickerState;
   };
   readonly resolved: ReadonlySet<string>;
   readonly activity: readonly string[];
-  readonly pointer: {
-    readonly tree: boolean;
-    readonly table: boolean;
-    readonly searchPicker: boolean;
-  };
 }
 
 type WorkspaceMessage =
   | { readonly kind: 'tree'; readonly action: TreeTransition }
-  | { readonly kind: 'treeActivate'; readonly id: string }
   | { readonly kind: 'table'; readonly action: DataGridTransition }
   | { readonly kind: 'tabs'; readonly action: TabsTransition<WorkspaceTab> }
   | { readonly kind: 'command'; readonly action: CommandInputTransition }
@@ -128,16 +121,7 @@ const searchPickerEntries: readonly SearchEntry[] = [
 const workspaceSearchPickerIndex = prepareSearchPickerIndex(searchPickerEntries);
 const navigationTreeSource = prepareTreeSource(navigationNodes());
 
-const suggestions = prepareCommandSuggestions(
-  searchPickerEntries.map((entry) => ({
-    id: entry.id,
-    label: entry.label,
-    completion: {
-      range: { startOffset: 0, endOffsetExclusive: entry.value.length },
-      text: entry.value
-    }
-  })),
-);
+const emptyCommandSuggestions = prepareCommandSuggestions([]);
 
 function navigationNodes(): readonly TreeNode<NavigationMetadata>[] {
   return [{
@@ -169,14 +153,13 @@ function initialState(): WorkspaceState {
       },
       scroll: createScrollState()
     },
-    command: createCommandInputState({ suggestions }),
+    command: createCommandInputState({ suggestions: emptyCommandSuggestions }),
     searchPicker: {
+      open: false,
       state: createSearchPickerState({ query: { text: '', mode: 'fuzzy' } }, workspaceSearchPickerIndex),
-      used: false,
     },
     resolved: new Set<string>(),
-    activity: ['Workspace started.', 'Loaded six controlled ticket records.'],
-    pointer: { tree: false, table: false, searchPicker: false }
+    activity: ['Workspace started.', 'Loaded six controlled ticket records.']
   };
 }
 
@@ -222,14 +205,7 @@ function updateWorkspace(
             activeRowId: selectedRowId,
             selection: { mode: 'single', selectedRowId, selectionFollowsActive: true },
           },
-        },
-        pointer: { ...state.pointer, tree: message.action.kind === 'setActive' || state.pointer.tree }
-      });
-    }
-    case 'treeActivate': {
-      return updateResult({
-        ...state,
-        activity: [...state.activity, `Activated ${message.id}.`],
+        }
       });
     }
     case 'table':
@@ -239,8 +215,7 @@ function updateWorkspace(
           collection: prepareTableCollection(visibleTickets(state), (ticket) => ticket.id),
           columnIds: tableColumns.map((column) => column.id),
           pageSize: 12,
-        }),
-        pointer: { ...state.pointer, table: message.action.kind === 'setActiveRow' || state.pointer.table }
+        })
       });
     case 'tabs': {
       const selected = tabsReducer(
@@ -250,8 +225,15 @@ function updateWorkspace(
       ).selectedId;
       return updateResult(selected === undefined ? state : { ...state, tab: selected });
     }
-    case 'command':
-      return updateResult({ ...state, command: commandInputReducer(state.command, message.action) });
+    case 'command': {
+      const command = commandInputReducer(state.command, message.action);
+      return updateResult({
+        ...state,
+        command: transitionChangesCommandText(message.action)
+          ? withCommandSuggestions(command)
+          : command,
+      });
+    }
     case 'submit':
       return updateResult(applyCommand(state, message.value));
     case 'openSearchPicker':
@@ -259,14 +241,14 @@ function updateWorkspace(
         ...state,
         searchPicker: {
           ...state.searchPicker,
-          state: { ...state.searchPicker.state, editor: { ...state.searchPicker.state.editor, open: true } },
+          open: true,
         },
       });
     case 'closeSearchPicker':
       return updateResult({
         ...state,
         searchPicker: {
-          ...state.searchPicker,
+          open: false,
           state: createSearchPickerState({ query: { text: '', mode: 'fuzzy' } }, workspaceSearchPickerIndex),
         },
       });
@@ -278,9 +260,6 @@ function updateWorkspace(
           state: searchPickerReducer(state.searchPicker.state, message.action, {
             searchPickerIndex: workspaceSearchPickerIndex,
           }),
-          ...(message.action.kind === 'setActive'
-            ? { used: true }
-            : {}),
         }
       });
     case 'acceptSearchPicker': {
@@ -289,13 +268,13 @@ function updateWorkspace(
         ...state,
         searchPicker: {
           ...state.searchPicker,
-          state: { ...state.searchPicker.state, editor: { ...state.searchPicker.state.editor, open: false } },
-          used: true,
+          open: false,
         },
       }, entry.value));
     }
     case 'resolve': {
       const ticket = selectedTicket(state);
+      if (state.resolved.has(ticket.id)) return updateResult(state);
       const resolved = new Set(state.resolved);
       resolved.add(ticket.id);
       return updateResult({
@@ -313,14 +292,16 @@ function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
   const command = raw.trim();
   const cleared = {
     ...state,
-    command: commandInputReducer(state.command, { kind: 'recordSubmission', value: command })
+    command: withCommandSuggestions(
+      commandInputReducer(state.command, { kind: 'recordSubmission', value: command }),
+    )
   };
   switch (command) {
     case '/palette': return {
       ...cleared,
       searchPicker: {
         ...state.searchPicker,
-        state: { ...state.searchPicker.state, editor: { ...state.searchPicker.state.editor, open: true } },
+        open: true,
       },
     };
     case '/issues': return { ...cleared, tab: 'issues' };
@@ -331,7 +312,10 @@ function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
   }
 }
 
-function workspaceView(state: WorkspaceState) {
+function workspaceView(state: WorkspaceState, context: TuiContext) {
+  if (context.terminalSize.columns < 72 || context.terminalSize.rows < 18) {
+    return workspaceMinimumSizeNotice();
+  }
   const body = splitPane([
     navigationPane(state),
     mainPane(state),
@@ -364,7 +348,19 @@ function workspaceView(state: WorkspaceState) {
       { kind: 'fixed', cells: 1 }
     ]
   });
-  return overlay([base, ...(state.searchPicker.state.editor.open ? [searchPickerLayer(state)] : [])], { id: 'workspace-root' });
+  return overlay([base, ...(state.searchPicker.open ? [searchPickerLayer(state)] : [])], { id: 'workspace-root' });
+}
+
+function workspaceMinimumSizeNotice() {
+  return surface(column([
+    text({ id: 'workspace-size-title', content: 'Interactive Workspace', textRole: 'title' }),
+    text({ id: 'workspace-size-message', content: 'This example requires at least 72 columns and 18 rows.' }),
+  ], { id: 'workspace-size-content', gap: 1 }), {
+    id: 'workspace-root',
+    appearance: 'inset',
+    padding: 1,
+    meta: { accessibility: { role: 'application', label: 'Workspace size requirement' } },
+  });
 }
 
 function navigationPane(state: WorkspaceState) {
@@ -375,9 +371,11 @@ function navigationPane(state: WorkspaceState) {
       presentation: state.tree,
       scrollbar: { visible: 'auto' },
       onTransition: (action): WorkspaceMessage => ({ kind: 'tree', action }),
-      onActivate: (event): WorkspaceMessage => ({ kind: 'treeActivate', id: event.id }),
     }),
-    helpBar({ id: 'navigation-help', groups: [{ id: 'nav', bindings: [{ binding: { kind: 'key', key: 'enter' }, label: 'open queue' }] }] })
+    helpBar({ id: 'navigation-help', groups: [{ id: 'nav', bindings: [
+      { binding: { kind: 'key', key: 'arrowUp' }, label: 'previous queue' },
+      { binding: { kind: 'key', key: 'arrowDown' }, label: 'next queue' },
+    ] }] })
   ], { sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 1 }] }), {
     id: 'workspace-navigation',
     appearance: 'inset',
@@ -426,15 +424,18 @@ function notesPanel() {
 
 function inspectorPane(state: WorkspaceState) {
   const ticket = selectedTicket(state);
+  const resolved = state.resolved.has(ticket.id);
   return surface(column([
     column([
       text({ content: ticket.title, textRole: 'heading' }),
-      text({ content: `${ticket.id} · ${state.resolved.has(ticket.id) ? 'resolved' : ticket.status}`, textRole: 'metadata' }),
+      text({ content: `${ticket.id} · ${resolved ? 'resolved' : ticket.status}`, textRole: 'metadata' }),
       text({ content: `Owner     ${ticket.owner}` }),
       text({ content: `Queue     ${ticket.queue}` }),
       text({ content: `Severity  ${ticket.severity}` })
     ], { id: 'ticket-inspector', gap: 1 }),
-    button({ id: 'resolve-button', label: 'Resolve selected', tone: 'primary', onAction: (): WorkspaceMessage => ({ kind: 'resolve' }) })
+    resolved
+      ? button({ id: 'resolve-button', label: 'Resolved', tone: 'primary', disabled: true })
+      : button({ id: 'resolve-button', label: 'Resolve selected', tone: 'primary', onAction: (): WorkspaceMessage => ({ kind: 'resolve' }) })
   ], { gap: 1 }), {
     id: 'workspace-inspector',
     appearance: 'inset',
@@ -454,12 +455,11 @@ function workspaceStatus(state: WorkspaceState) {
 
 function commandPane(state: WorkspaceState) {
   const presentation = commandInputPresentation(state.command);
-  const showSuggestions = state.command.editor.input.text.length > 0;
   return surface(commandInput({
     id: 'workspace-command',
     prompt: '› ',
     placeholder: 'Type /command',
-    presentation: { ...presentation, suggestions: showSuggestions ? presentation.suggestions : prepareCommandSuggestions([]) },
+    presentation,
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 6,
@@ -478,7 +478,7 @@ function searchPickerLayer(state: WorkspaceState) {
       content: searchPicker<string, WorkspaceMessage, WorkspaceMessage>({
         id: 'workspace-search-picker',
         searchPickerIndex: workspaceSearchPickerIndex,
-        presentation: searchPickerPresentation(state.searchPicker.state) as UnscrolledSearchPickerPresentation,
+        presentation: searchPickerPresentation(state.searchPicker.state),
         onTransition: (action): WorkspaceMessage => ({ kind: 'searchPicker', action }),
         onAccept: (event): WorkspaceMessage => ({ kind: 'acceptSearchPicker', id: event.id }),
       })
@@ -539,6 +539,38 @@ function firstTicket(): Ticket {
   return ticket;
 }
 
+function withCommandSuggestions(command: CommandInputState): CommandInputState {
+  const value = command.editor.input.text;
+  const normalized = value.toLocaleLowerCase('en-US');
+  const entries = normalized.length === 0
+    ? []
+    : searchPickerEntries
+      .filter((entry) => entry.value.toLocaleLowerCase('en-US').startsWith(normalized))
+      .map((entry) => ({
+        id: entry.id,
+        label: entry.label,
+        completion: {
+          range: { startOffset: 0, endOffsetExclusive: value.length },
+          text: entry.value,
+        },
+      }));
+  return commandInputReducer(command, {
+    kind: 'setSuggestions',
+    suggestions: entries.length === 0
+      ? emptyCommandSuggestions
+      : prepareCommandSuggestions(entries),
+  });
+}
+
+function transitionChangesCommandText(action: CommandInputTransition): boolean {
+  return action.kind === 'edit'
+    || action.kind === 'undo'
+    || action.kind === 'redo'
+    || action.kind === 'historyPrevious'
+    || action.kind === 'historyNext'
+    || action.kind === 'setValue';
+}
+
 function updateResult(state: WorkspaceState): TuiUpdateResult<WorkspaceState, WorkspaceMessage> {
   return { state };
 }
@@ -548,6 +580,10 @@ export async function runScriptedWorkspace() {
   const runtime = createTuiRuntime({ app: interactiveWorkspaceApp, host });
   try {
     await runtime.start();
+    const pickerInitiallyClosed = !runtime.state().searchPicker.open;
+    await runtime.dispatch({ kind: 'openSearchPicker' });
+    await runtime.handleInput(keyEvent('escape'));
+    const pickerClosedByDismissal = !runtime.state().searchPicker.open;
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput({ kind: 'text', text: 'resolve', paste: false });
     const keyboardSearchPickerQuery = searchPickerPresentation(runtime.state().searchPicker.state).query.text;
@@ -570,10 +606,9 @@ export async function runScriptedWorkspace() {
       selectedNode: selectedTreeId(state.tree),
       selectedTicket: selectedTicket(state).id,
       activeTab: state.tab,
-      searchPickerUsed: state.searchPicker.used,
-      pointerTree: state.pointer.tree,
-      pointerTable: state.pointer.table,
-      pointerSearchPicker: state.pointer.searchPicker,
+      pickerInitiallyClosed,
+      pickerClosedByDismissal,
+      paletteCommandApplied: state.resolved.has('T-101'),
       tabSelectedByPointer,
       tabSelectedByKeyboard,
       keyboardSearchPickerQuery,

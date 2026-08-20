@@ -100,7 +100,7 @@ function layoutNode(
   const identityPath = [...parentIdentity, identity];
   const inert = ancestorInert || renderNode.state?.inert === true;
   const layer = {
-    id: identityPath.join('/'),
+    id: encodedIdentityPath(identityPath),
     zIndex,
     bounds: placedBounds,
     underlay: underlayForRenderNode(renderNode)
@@ -186,6 +186,10 @@ function layoutNode(
   return renderNode.kind === 'overlay'
     ? markPaintOrderedFocusChildren(identified)
     : identified;
+}
+
+function encodedIdentityPath(path: readonly string[]): string {
+  return path.map((segment) => `${String(segment.length)}:${segment}`).join('');
 }
 
 function boundsForChildren(

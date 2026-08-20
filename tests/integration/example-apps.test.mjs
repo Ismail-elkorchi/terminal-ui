@@ -24,8 +24,10 @@ for (const example of examples) {
     for (const rendered of [highContrast, noColor]) {
       assert.equal(rendered.wide.includes(example.anchor), true);
       assert.equal(rendered.narrow.trim().length > 0, true);
+      assert.match(rendered.tiny, /requires at least/u);
       assert.equal(rendered.wideRows, 42);
       assert.equal(rendered.narrowRows, 28);
+      assert.equal(rendered.tinyRows, 6);
     }
   });
 }
@@ -68,17 +70,154 @@ test('IDE filesystem effects leave command input and resize responsive', async (
   }
 });
 
+test('workspace picker lifecycle and command completion remain controlled', async () => {
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 112, rows: 32 } });
+  const runtime = createTuiRuntime({ app: interactiveWorkspaceApp, host });
+  try {
+    await runtime.start();
+    assert.equal(runtime.state().searchPicker.open, false);
+    await runtime.dispatch({ kind: 'openSearchPicker' });
+    assert.equal(runtime.state().searchPicker.open, true);
+    await runtime.dispatch({ kind: 'closeSearchPicker' });
+    assert.equal(runtime.state().searchPicker.open, false);
+
+    await runtime.dispatch({
+      kind: 'command',
+      action: { kind: 'edit', operation: { kind: 'insert', text: '/i' } },
+    });
+    await runtime.dispatch({ kind: 'command', action: { kind: 'acceptSuggestion' } });
+    assert.equal(runtime.state().command.editor.input.text, '/issues');
+  } finally {
+    await runtime.dispose();
+  }
+});
+
+test('IDE file operations replace earlier work through one effect lane', async () => {
+  const calls = [];
+  const app = createIdeEditorApp({
+    async open(_mode, targetPath, signal) {
+      const pending = deferred();
+      calls.push({ targetPath, signal, pending });
+      await pending.promise;
+      signal.throwIfAborted();
+      return { kind: 'file', path: targetPath, content: targetPath };
+    },
+    async save() {},
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 36 } });
+  const runtime = createTuiRuntime({ app, host });
+  try {
+    await runtime.start();
+    await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: '/virtual/first.txt' });
+    await waitUntil(() => calls.length === 1);
+    await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: '/virtual/second.txt' });
+    await waitUntil(() => calls.length === 2);
+
+    assert.equal(calls[0].signal.aborted, true);
+    calls[0].pending.release();
+    calls[1].pending.release();
+    await waitUntil(() => runtime.state().operation.kind === 'idle');
+    assert.equal(runtime.state().activePath, '/virtual/second.txt');
+  } finally {
+    for (const call of calls) call.pending.release();
+    await runtime.dispose();
+  }
+});
+
+test('IDE preserves the active tab and refuses to discard dirty buffers', async () => {
+  const app = createIdeEditorApp({
+    async open(_mode, targetPath) {
+      return { kind: 'file', path: targetPath, content: targetPath };
+    },
+    async save() {},
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 36 } });
+  const runtime = createTuiRuntime({ app, host });
+  try {
+    await runtime.start();
+    for (const targetPath of ['/virtual/a.txt', '/virtual/b.txt', '/virtual/c.txt']) {
+      await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: targetPath });
+      await waitUntil(() => runtime.state().operation.kind === 'idle');
+    }
+    await runtime.dispatch({ kind: 'closeTab', event: { kind: 'close', id: '/virtual/a.txt' } });
+    assert.equal(runtime.state().activePath, '/virtual/c.txt');
+
+    await runtime.dispatch({
+      kind: 'edit',
+      path: '/virtual/c.txt',
+      action: { kind: 'edit', operation: { kind: 'insert', text: 'changed' } },
+    });
+    await runtime.dispatch({ kind: 'closeActive' });
+    assert.equal(runtime.state().activePath, '/virtual/c.txt');
+    assert.match(runtime.state().notice, /Save c\.txt before closing/u);
+
+    await runtime.dispatch({ kind: 'exit' });
+    assert.equal(runtime.exit(), undefined);
+    assert.match(runtime.state().notice, /Save 1 unsaved buffer before exiting/u);
+  } finally {
+    await runtime.dispose();
+  }
+});
+
+test('IDE workspace selection continues to follow tree navigation', async () => {
+  const nodes = [{
+    id: '/virtual',
+    label: 'virtual',
+    kind: 'branch',
+    children: [
+      { id: '/virtual/a.txt', label: 'a.txt', kind: 'leaf', metadata: { path: '/virtual/a.txt', entryKind: 'file' } },
+      { id: '/virtual/b.txt', label: 'b.txt', kind: 'leaf', metadata: { path: '/virtual/b.txt', entryKind: 'file' } },
+    ],
+    metadata: { path: '/virtual', entryKind: 'directory' },
+  }];
+  const app = createIdeEditorApp({
+    async open() { return { kind: 'folder', root: '/virtual', nodes }; },
+    async save() {},
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 36 } });
+  const runtime = createTuiRuntime({ app, host });
+  try {
+    await runtime.start();
+    await runtime.dispatch({ kind: 'requestOpen', mode: 'folder', path: '/virtual' });
+    await waitUntil(() => runtime.state().operation.kind === 'idle');
+    await runtime.dispatch({ kind: 'tree', action: { kind: 'setActive', id: '/virtual/a.txt' } });
+    assert.equal(runtime.state().tree.selection.selectedId, '/virtual/a.txt');
+    await runtime.dispatch({ kind: 'tree', action: { kind: 'moveActive', delta: 1 } });
+    assert.equal(runtime.state().tree.activeId, '/virtual/b.txt');
+    assert.equal(runtime.state().tree.selection.selectedId, '/virtual/b.txt');
+  } finally {
+    await runtime.dispose();
+  }
+});
+
+test('btop clock and uptime normalize minute and hour boundaries', async () => {
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 160, rows: 42 } });
+  const runtime = createTuiRuntime({ app: btopMonitorApp, host });
+  try {
+    await runtime.start();
+    await runtime.dispatch({ kind: 'tick', tick: 42 });
+    assert.match(renderFramePlain(runtime.frame()), /22:17:00/u);
+    await runtime.dispatch({ kind: 'tick', tick: 3_600 });
+    assert.match(renderFramePlain(runtime.frame()), /Up 02:18:00/u);
+  } finally {
+    await runtime.dispose();
+  }
+});
+
 async function renderExample(app, theme) {
   const host = createMemoryTerminalHost({ terminalSize: { columns: 160, rows: 42 } });
   const runtime = createTuiRuntime({ app, host, theme });
   try {
     const wide = await runtime.start();
     const narrow = await runtime.resize({ columns: 88, rows: 28 });
+    const tiny = await runtime.resize({ columns: 40, rows: 6 });
     return {
       wide: renderFramePlain(wide),
       narrow: renderFramePlain(narrow),
+      tiny: renderFramePlain(tiny),
       wideRows: wide.height,
-      narrowRows: narrow.height
+      narrowRows: narrow.height,
+      tinyRows: tiny.height,
     };
   } finally {
     await runtime.dispose();

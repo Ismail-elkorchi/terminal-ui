@@ -6,6 +6,7 @@ import {
   column,
   createTerminalHost,
   defineTui,
+  helpBar,
   image as terminalImage,
   rasterImage,
   runTui,
@@ -25,14 +26,16 @@ for (let y = 0; y < height; y += 1) {
 }
 
 const gradient = rasterImage({ width, height, format: 'rgb8', data: pixels });
+const quitKey = { kind: 'key', key: 'q' } as const;
 
 export const graphicsApp = defineTui<undefined, 'quit'>({
   id: 'graphics-example',
   init: () => undefined,
   update: (state) => ({ state, exit: { reason: 'quit' } }),
   view: () => column([
-    text({ content: 'Verified Kitty/SIXEL raster graphics' }),
+    text({ id: 'graphics-title', content: 'Kitty/SIXEL raster graphics with terminal fallback', textRole: 'title' }),
     terminalImage({
+      id: 'graphics-gradient',
       image: gradient,
       label: 'A blue, red, and green gradient',
       fallback: 'Gradient preview (terminal graphics unavailable)',
@@ -44,11 +47,18 @@ export const graphicsApp = defineTui<undefined, 'quit'>({
         preferredHeight: 12,
       },
     }),
-    text({ content: 'Press q to quit.' }),
-  ]),
+    helpBar({
+      id: 'graphics-help',
+      groups: [{ id: 'graphics-actions', bindings: [{ binding: quitKey, label: 'quit' }] }],
+    }),
+  ], {
+    id: 'graphics-root',
+    sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }],
+    meta: { accessibility: { role: 'application', label: 'Terminal graphics example' } },
+  }),
   inputBindings: [{
     id: 'quit',
-    triggers: [{ kind: 'key', key: 'q' }],
+    triggers: [quitKey, { kind: 'text', text: 'q' }],
     message: 'quit',
   }],
   nonTty: { mode: 'last_frame' },

@@ -34,12 +34,13 @@ for (const example of exampleScripts) {
       const summary = JSON.parse(result.stdout);
       assert.equal(summary.status, 'completed');
       assert.equal(summary.selectedNode, 'queue:review');
+      assert.equal(summary.selectedTicket, 'T-103');
       assert.equal(summary.activeTab, 'issues');
       assert.equal(summary.tabSelectedByPointer, true);
       assert.equal(summary.tabSelectedByKeyboard, true);
-      assert.equal(summary.searchPickerUsed, true);
-      assert.equal(summary.pointerTree, true);
-      assert.equal(summary.pointerTable, true);
+      assert.equal(summary.pickerInitiallyClosed, true);
+      assert.equal(summary.pickerClosedByDismissal, true);
+      assert.equal(summary.paletteCommandApplied, true);
       assert.equal(summary.keyboardSearchPickerQuery, 'resolve');
       assert.equal(summary.visible, true);
       assert.equal(summary.tableHitTargets > 0, true);
@@ -55,6 +56,16 @@ for (const example of exampleScripts) {
       assert.equal(summary.offsetAfterDrag > summary.offsetAfterWheel, true);
       assert.equal(summary.keyboardSelectionMoved, true);
       assert.equal(summary.metrics.wheelPackets, 3);
+    }
+    if (example.endsWith('/graphics.ts')) {
+      assert.match(result.stdout, /Kitty\/SIXEL raster graphics with terminal fallback/u);
+      assert.match(result.stdout, /Gradient preview \(terminal graphics unavailable\)/u);
+      assert.doesNotMatch(result.stdout, /Verified/u);
+    }
+    if (example.endsWith('/testing/harness.mjs')) {
+      const summary = JSON.parse(result.stdout);
+      assert.equal(summary.diagnosticCount, 0);
+      assert.equal(summary.frameCount, 1);
     }
   });
 }

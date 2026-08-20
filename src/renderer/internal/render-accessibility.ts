@@ -33,9 +33,10 @@ export function accessibleNode(
   depth = 0,
 ): AccessibleNode | undefined {
   if (node.inert) return undefined;
+  const id = renderNode.id ?? `anonymous:${node.layer.id}`;
   if (!node.visible) {
     const result = {
-      id: renderNode.id ?? `${renderNode.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`,
+      id,
       role: 'text' as const,
       label: renderNode.id ?? renderNode.kind
     };
@@ -43,7 +44,6 @@ export function accessibleNode(
     return result;
   }
   const path = layoutFocusPath(parentPath, node);
-  const id = renderNode.id ?? `${renderNode.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`;
   if (isDecorativeAccessibility(renderNode.accessibility)) {
     const result = decorativeRootNode(id, renderNode.accessibility);
     accessibleNodes.set(renderNode, result);

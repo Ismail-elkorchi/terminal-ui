@@ -25,7 +25,13 @@ import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TuiContext, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import type { FrameHitTarget, TerminalStyle } from '@ismail-elkorchi/terminal-ui/renderer';
-import type { InlineTextSegment, TableColumn, TableColumnBuilder, ValueScale } from '@ismail-elkorchi/terminal-ui';
+import type {
+  CompleteTableCollection,
+  InlineTextSegment,
+  TableColumn,
+  TableColumnBuilder,
+  ValueScale,
+} from '@ismail-elkorchi/terminal-ui';
 import {
   createScrollState,
   dataGridReducer,
@@ -50,6 +56,7 @@ interface ProcessRow {
 interface MonitorState {
   readonly tick: number;
   readonly processTable: ScrollableDataGridPresentation;
+  readonly processes: CompleteTableCollection<ProcessRow>;
 }
 
 type MonitorMessage =
@@ -116,7 +123,11 @@ const cpuBase = Object.freeze(Array.from({ length: 180 }, (_value, index) => {
 const netDown = Object.freeze([0, 1, 0, 2, 0, 4, 2, 8, 10, 4, 2, 0, 12, 26, 4, 0, 18, 5, 3, 0, 10, 2, 44, 9, 0, 3, 20, 2, 0, 1, 18, 4, 0, 0, 3, 2]);
 const netUp = Object.freeze([0, -1, 0, -4, -2, -8, -14, -6, -2, 0, -10, -22, -8, -3, 0, -6, -16, -26, -9, 0, -5, -12, -7, -2, 0, -4, -9, -3, 0, -1, -7, -18, -5, 0, -2, -1]);
 
-const commandFocusPath = Object.freeze(['btop-root']);
+const monitorFocusPath = Object.freeze(['btop-root']);
+const quitKey = { kind: 'key', key: 'q' } as const;
+const sortKey = { kind: 'key', key: 's' } as const;
+const nextProcessKey = { kind: 'key', key: 'arrowDown' } as const;
+const previousProcessKey = { kind: 'key', key: 'arrowUp' } as const;
 
 export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
   id: 'btop-monitor',
@@ -125,13 +136,13 @@ export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
   inputBindings: [
     {
       id: 'exit',
-      triggers: [{ kind: 'text', text: 'q' }, { kind: 'key', key: 'c', modifiers: { ctrl: true } }],
+      triggers: [quitKey, { kind: 'text', text: 'q' }, { kind: 'key', key: 'c', modifiers: { ctrl: true } }],
       label: 'Quit',
       message: { kind: 'exit' }
     },
-    { id: 'next-sort', triggers: [{ kind: 'text', text: 's' }], label: 'Sort', message: { kind: 'cycleSort' } },
-    { id: 'next-process', triggers: [{ kind: 'key', key: 'arrowDown' }, { kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: 1 } } },
-    { id: 'previous-process', triggers: [{ kind: 'key', key: 'arrowUp' }, { kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: -1 } } }
+    { id: 'next-sort', triggers: [sortKey, { kind: 'text', text: 's' }], label: 'Sort', message: { kind: 'cycleSort' } },
+    { id: 'next-process', triggers: [nextProcessKey, { kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: 1 } } },
+    { id: 'previous-process', triggers: [previousProcessKey, { kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: -1 } } }
   ],
   update: updateMonitor,
   view: monitorView,
@@ -140,15 +151,17 @@ export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
 
 function initialState(): MonitorState {
   const selectedRowId = String(processRows[9]?.pid ?? processRows[0]?.pid ?? '');
+  const sort = { columnId: 'memory', direction: 'descending' } as const;
   return {
     tick: 0,
+    processes: prepareProcessCollection(sort),
     processTable: {
       interaction: {
         kind: 'row',
         activeRowId: selectedRowId,
         selection: { mode: 'single', selectedRowId, selectionFollowsActive: true },
       },
-      sort: { columnId: 'memory', direction: 'descending' },
+      sort,
       scroll: createScrollState()
     }
   };
@@ -168,26 +181,33 @@ function updateMonitor(
       };
     case 'cycleSort': {
       const columnId = state.processTable.sort?.columnId === 'memory' ? 'cpu' : 'memory';
+      const sort = { columnId, direction: 'descending' } as const;
       return {
         state: {
           ...state,
+          processes: prepareProcessCollection(sort),
           processTable: {
             ...state.processTable,
-            sort: { columnId, direction: 'descending' }
+            sort,
           }
         }
       };
     }
     case 'processTable': {
-      const rows = sortedProcesses(state);
+      const processTable = dataGridReducer(state.processTable, message.action, {
+        collection: state.processes,
+        columnIds: processColumns.map((column) => column.id),
+        pageSize: 20
+      });
+      const sortChanged = processTable.sort?.columnId !== state.processTable.sort?.columnId
+        || processTable.sort?.direction !== state.processTable.sort?.direction;
       return {
         state: {
           ...state,
-          processTable: dataGridReducer(state.processTable, message.action, {
-            collection: prepareTableCollection(rows, processRowId),
-            columnIds: processColumns.map((column) => column.id),
-            pageSize: 20
-          })
+          processTable,
+          processes: sortChanged && processTable.sort !== undefined
+            ? prepareProcessCollection(processTable.sort)
+            : state.processes,
         }
       };
     }
@@ -197,8 +217,23 @@ function updateMonitor(
 }
 
 function monitorView(state: MonitorState, context: TuiContext) {
+  if (context.terminalSize.columns < 60 || context.terminalSize.rows < 18) {
+    return monitorMinimumSizeNotice();
+  }
   const wide = context.terminalSize.columns >= 120;
   return wide ? wideMonitor(state) : compactMonitor(state);
+}
+
+function monitorMinimumSizeNotice() {
+  return surface(column([
+    text({ id: 'btop-size-title', content: 'System Monitor', textRole: 'title' }),
+    text({ id: 'btop-size-message', content: 'This example requires at least 60 columns and 18 rows.' }),
+  ], { id: 'btop-size-content', gap: 1 }), {
+    id: 'btop-root',
+    appearance: 'inset',
+    padding: 1,
+    meta: { accessibility: { role: 'application', label: 'Monitor size requirement' } },
+  });
 }
 
 function wideMonitor(state: MonitorState) {
@@ -499,7 +534,6 @@ function structuredLine(label: string, first: string, second: string) {
 }
 
 function processPanel(state: MonitorState) {
-  const rows = sortedProcesses(state);
   const sort = state.processTable.sort;
   return surface(column([
     row([
@@ -507,9 +541,8 @@ function processPanel(state: MonitorState) {
       statusBar({ id: 'proc-flags', trailing: [{ id: 'flags', kind: 'text', text: 'per-core reverse tree memory' }] })
     ], { id: 'proc-header', sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     dataGrid<ProcessRow, MonitorMessage>({
-      getRowId: processRowId,
       id: 'process-table',
-      rows,
+      collection: state.processes,
       presentation: state.processTable,
       density: 'compact',
       stickyHeader: true,
@@ -519,7 +552,7 @@ function processPanel(state: MonitorState) {
     })
   ], { id: 'proc-column', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
     id: 'process-panel',
-    title: panelTitle('proc', `sort=${sort?.columnId ?? 'none'}`, `${String(rows.length)} rows`),
+    title: panelTitle('proc', `sort=${sort?.columnId ?? 'none'}`, `${String(state.processes.totalCount)} rows`),
     appearance: 'inset',
     padding: 1
   });
@@ -531,17 +564,22 @@ function footerHelp() {
     groups: [{
       id: 'processes',
       bindings: [
-        { binding: { kind: 'key', key: 'arrowUp' }, label: 'previous process' },
-        { binding: { kind: 'key', key: 'arrowDown' }, label: 'next process' },
-        { binding: { kind: 'key', key: 's' }, label: 'sort' },
-        { binding: { kind: 'key', key: 'q' }, label: 'quit' }
+        { binding: previousProcessKey, label: 'previous process' },
+        { binding: nextProcessKey, label: 'next process' },
+        { binding: sortKey, label: 'sort' },
+        { binding: quitKey, label: 'quit' }
       ]
     }]
   });
 }
 
-function sortedProcesses(state: MonitorState): readonly ProcessRow[] {
-  return sortTableRows(processRows, state.processTable.sort, processValueForColumn);
+function prepareProcessCollection(
+  sort: NonNullable<ScrollableDataGridPresentation['sort']>,
+): CompleteTableCollection<ProcessRow> {
+  return prepareTableCollection(
+    sortTableRows(processRows, sort, processValueForColumn),
+    processRowId,
+  );
 }
 
 const processColumn: TableColumnBuilder<ProcessRow> = tableColumn<ProcessRow>();
@@ -561,8 +599,16 @@ function processRowId(row: ProcessRow): string {
 }
 
 function processValueForColumn(row: ProcessRow, column: string): unknown {
-  if (column === 'memory') return Number.parseFloat(row.memory);
-  return processColumns.find((candidate) => candidate.id === column)?.value(row, processRows.indexOf(row));
+  switch (column) {
+    case 'pid': return row.pid;
+    case 'program': return row.program;
+    case 'command': return row.command;
+    case 'threads': return row.threads;
+    case 'user': return row.user;
+    case 'memory': return Number.parseFloat(row.memory);
+    case 'cpu': return row.cpu;
+    default: return undefined;
+  }
 }
 
 function rotate(values: readonly number[], offset: number): readonly number[] {
@@ -582,14 +628,21 @@ function coreSpark(load: number): readonly number[] {
 }
 
 function formatClock(tick: number): string {
-  const seconds = 18 + tick;
-  return `22:16:${String(seconds % 60).padStart(2, '0')}`;
+  return formatDuration((22 * 60 * 60 + 16 * 60 + 18 + tick) % (24 * 60 * 60));
 }
 
 function formatUptime(tick: number): string {
-  const minutes = 18 + Math.floor(tick / 60);
-  const seconds = tick % 60;
-  return `01:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return formatDuration(60 * 60 + 18 * 60 + tick);
+}
+
+function formatDuration(totalSeconds: number): string {
+  const normalized = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(normalized / (60 * 60));
+  const minutes = Math.floor(normalized / 60) % 60;
+  const seconds = normalized % 60;
+  return [hours, minutes, seconds]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':');
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -617,7 +670,7 @@ export async function runScriptedBtopMonitor() {
   const runtime = createTuiRuntime({
     app: btopMonitorApp,
     host,
-    initialFocus: { kind: 'path', path: commandFocusPath },
+    initialFocus: { kind: 'path', path: monitorFocusPath },
     input: { mouseReporting: 'drag' }
   });
   try {
@@ -739,7 +792,7 @@ if (isMain) {
     const host = createTerminalHost({ runtime: 'node' });
     try {
       const exit = await runTui(btopMonitorApp, host, {
-        initialFocus: { kind: 'path', path: commandFocusPath }
+        initialFocus: { kind: 'path', path: monitorFocusPath }
       });
       if (exit.status !== 'completed') {
         process.exitCode = 1;

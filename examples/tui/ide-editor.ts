@@ -1,4 +1,5 @@
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { Buffer } from 'node:buffer';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -35,6 +36,7 @@ import type {
   TreeNode,
   ScrollableTreePresentation,
   TreeTransition,
+  TuiContext,
 } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
@@ -56,7 +58,8 @@ import type { CommandInputState, MenuBarState, TextAreaState } from '@ismail-elk
 import type { PreparedTreeSource } from '@ismail-elkorchi/terminal-ui';
 import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TuiEffect, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
-import { textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
+import { textDocumentBytes, textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
+import type { TextDocument } from '@ismail-elkorchi/terminal-ui/text';
 
 type EntryMetadata = Readonly<{
   path: string;
@@ -67,7 +70,7 @@ interface EditorBuffer {
   readonly path: string;
   readonly label: string;
   readonly editor: TextAreaState;
-  readonly savedText: string;
+  readonly savedDocument: TextDocument;
 }
 
 type OpenMode = 'file' | 'folder';
@@ -87,8 +90,16 @@ export interface IdeEditorOperations {
 
 type EditorOperation =
   | { readonly kind: 'idle' }
-  | { readonly kind: 'pending'; readonly id: string; readonly label: string }
-  | { readonly kind: 'failed'; readonly id: string; readonly message: string };
+  | { readonly kind: 'pending'; readonly operation: 'open'; readonly requestId: string; readonly label: string }
+  | {
+      readonly kind: 'pending';
+      readonly operation: 'save';
+      readonly requestId: string;
+      readonly label: string;
+      readonly path: string;
+      readonly document: TextDocument;
+    }
+  | { readonly kind: 'failed'; readonly requestId: string; readonly message: string };
 
 interface ChooserState {
   readonly mode: OpenMode;
@@ -125,10 +136,10 @@ type EditorMessage =
   | { readonly kind: 'submitChooser'; readonly value: string }
   | { readonly kind: 'dismissChooser' }
   | { readonly kind: 'requestOpen'; readonly mode: OpenMode; readonly path: string }
-  | { readonly kind: 'workspaceLoaded'; readonly id: string; readonly root: string; readonly nodes: readonly TreeNode<EntryMetadata>[] }
-  | { readonly kind: 'fileLoaded'; readonly id: string; readonly path: string; readonly content: string }
-  | { readonly kind: 'fileSaved'; readonly id: string; readonly path: string; readonly content: string }
-  | { readonly kind: 'operationFailed'; readonly id: string; readonly message: string }
+  | { readonly kind: 'workspaceLoaded'; readonly requestId: string; readonly root: string; readonly nodes: readonly TreeNode<EntryMetadata>[] }
+  | { readonly kind: 'fileLoaded'; readonly requestId: string; readonly path: string; readonly content: string }
+  | { readonly kind: 'fileSaved'; readonly requestId: string; readonly path: string }
+  | { readonly kind: 'operationFailed'; readonly requestId: string; readonly message: string }
   | { readonly kind: 'saveActive' }
   | { readonly kind: 'closeActive' }
   | { readonly kind: 'exit' };
@@ -144,15 +155,11 @@ const menuItems: readonly MenuItem[] = [{
     { id: 'close', kind: 'action', label: 'Close Buffer' },
     { id: 'quit', kind: 'action', label: 'Quit', shortcut: { kind: 'key', key: 'q', modifiers: { ctrl: true } } }
   ]
-}, {
-  id: 'view',
-  kind: 'submenu',
-  label: 'View',
-  children: [
-    { id: 'focus-explorer', kind: 'action', label: 'Focus Explorer' },
-    { id: 'focus-editor', kind: 'action', label: 'Focus Editor' }
-  ]
 }];
+
+const EDITOR_OPERATION_EFFECT_ID = 'editor-operation';
+const MAX_EDITOR_BUFFERS = 32;
+const MAX_EDITOR_FILE_BYTES = 4 * 1_024 * 1_024;
 
 function initialState(): EditorState {
   return {
@@ -233,11 +240,15 @@ function updateEditor(
       return updateTabs(state, message.action);
     case 'closeTab':
       return result(closeBuffer(state, message.event.id));
-    case 'edit':
-      return result(updateBuffer(state, message.path, (buffer) => ({
-        ...buffer,
-        editor: textAreaReducer(buffer.editor, message.action)
-      })));
+    case 'edit': {
+      const buffer = state.buffers.find((candidate) => candidate.path === message.path);
+      if (buffer === undefined) return result(state);
+      const editor = textAreaReducer(buffer.editor, message.action);
+      if (textDocumentBytes(editor.document) > MAX_EDITOR_FILE_BYTES) {
+        return result({ ...state, notice: `Files are limited to ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} in this example.` });
+      }
+      return result(updateBuffer(state, message.path, (candidate) => ({ ...candidate, editor })));
+    }
     case 'command':
       return result({ ...state, command: commandInputReducer(state.command, message.action) });
     case 'submitCommand':
@@ -260,7 +271,7 @@ function updateEditor(
     case 'requestOpen':
       return requestOpen(state, message.mode, message.path, operations);
     case 'workspaceLoaded':
-      if (!isCurrentOperation(state, message.id)) return result(state);
+      if (!isCurrentOperation(state, message.requestId, 'open')) return result(state);
       return result({
         ...state,
         root: message.root,
@@ -270,32 +281,43 @@ function updateEditor(
           expandedIds: message.nodes.filter((node) => node.kind !== 'leaf').map((node) => node.id),
           ...(message.nodes[0]?.id === undefined ? {} : { activeId: message.nodes[0].id }),
           selection: message.nodes[0]?.id === undefined
-            ? { mode: 'single' }
-            : { mode: 'single', selectedId: message.nodes[0].id },
+            ? { mode: 'single', selectionFollowsActive: true }
+            : { mode: 'single', selectedId: message.nodes[0].id, selectionFollowsActive: true },
           scroll: createScrollState()
         },
         operation: { kind: 'idle' },
         notice: `Opened workspace ${message.root}`
       });
     case 'fileLoaded':
-      if (!isCurrentOperation(state, message.id)) return result(state);
+      if (!isCurrentOperation(state, message.requestId, 'open')) return result(state);
       return result(openBuffer(state, message.path, message.content));
-    case 'fileSaved':
-      if (!isCurrentOperation(state, message.id)) return result(state);
+    case 'fileSaved': {
+      if (state.operation.kind !== 'pending'
+        || state.operation.operation !== 'save'
+        || state.operation.requestId !== message.requestId
+        || state.operation.path !== message.path) {
+        return result(state);
+      }
+      const savedDocument = state.operation.document;
       return result({
-        ...updateBuffer(state, message.path, (buffer) => ({ ...buffer, savedText: message.content })),
+        ...updateBuffer(state, message.path, (buffer) => ({ ...buffer, savedDocument })),
         operation: { kind: 'idle' },
         notice: `Saved ${shortPath(state.root, message.path)}`
       });
+    }
     case 'operationFailed':
-      if (!isCurrentOperation(state, message.id)) return result(state);
-      return result({ ...state, operation: { kind: 'failed', id: message.id, message: message.message }, notice: message.message });
+      if (!isCurrentOperation(state, message.requestId)) return result(state);
+      return result({
+        ...state,
+        operation: { kind: 'failed', requestId: message.requestId, message: message.message },
+        notice: message.message,
+      });
     case 'saveActive':
       return saveActive(state, operations);
     case 'closeActive':
       return result(closeActive(state));
     case 'exit':
-      return { state, exit: { reason: 'user requested exit' } };
+      return requestExit(state, 'user requested exit');
   }
 }
 
@@ -309,8 +331,8 @@ function commandResult(
     case 'open-folder': return result({ ...state, chooser: { mode: 'folder', command: emptyCommand() } });
     case 'save': return saveActive(state, operations);
     case 'close': return result(closeActive(state));
-    case 'quit': return { state, exit: { reason: 'menu quit' } };
-    default: return result({ ...state, notice: `${command} is a focus command in this example.` });
+    case 'quit': return requestExit(state, 'menu quit');
+    default: return result({ ...state, notice: `Unknown menu action: ${command}` });
   }
 }
 
@@ -339,15 +361,20 @@ function requestOpen(
   requestedPath: string,
   operations: IdeEditorOperations
 ): TuiUpdateResult<EditorState, EditorMessage> {
-  const id = `open-${String(state.nextOperation)}`;
+  const requestId = `open-${String(state.nextOperation)}`;
   const resolved = resolveRequestedPath(state.root, requestedPath);
+  if (mode === 'file'
+    && !state.buffers.some((buffer) => buffer.path === resolved)
+    && state.buffers.length >= MAX_EDITOR_BUFFERS) {
+    return result({ ...state, notice: `Close a buffer before opening more than ${String(MAX_EDITOR_BUFFERS)} files.` });
+  }
   return {
     state: {
       ...state,
-      operation: { kind: 'pending', id, label: `Opening ${resolved}` },
+      operation: { kind: 'pending', operation: 'open', requestId, label: `Opening ${resolved}` },
       nextOperation: state.nextOperation + 1
     },
-    effects: [openEffect(id, mode, resolved, operations)]
+    effects: [openEffect(requestId, mode, resolved, operations)]
   };
 }
 
@@ -357,59 +384,68 @@ function saveActive(
 ): TuiUpdateResult<EditorState, EditorMessage> {
   const buffer = activeBuffer(state);
   if (buffer === undefined) return result({ ...state, notice: 'No active buffer to save.' });
-  const id = `save-${String(state.nextOperation)}`;
+  if (!isDirty(buffer)) return result({ ...state, notice: `${buffer.label} is already saved.` });
+  const requestId = `save-${String(state.nextOperation)}`;
+  const document = buffer.editor.document;
   return {
     state: {
       ...state,
-      operation: { kind: 'pending', id, label: `Saving ${buffer.path}` },
+      operation: {
+        kind: 'pending',
+        operation: 'save',
+        requestId,
+        label: `Saving ${buffer.path}`,
+        path: buffer.path,
+        document,
+      },
       nextOperation: state.nextOperation + 1
     },
-    effects: [saveEffect(id, buffer.path, textDocumentText(buffer.editor.document), operations)]
+    effects: [saveEffect(requestId, buffer.path, textDocumentText(document), operations)]
   };
 }
 
 function openEffect(
-  id: string,
+  requestId: string,
   mode: OpenMode,
   targetPath: string,
   operations: IdeEditorOperations
 ): TuiEffect<EditorMessage> {
   return {
-    id,
+    id: EDITOR_OPERATION_EFFECT_ID,
     concurrency: 'replace',
     async run(context) {
       context.signal.throwIfAborted();
       const opened = await operations.open(mode, targetPath, context.signal);
       context.signal.throwIfAborted();
       return opened.kind === 'folder'
-        ? { kind: 'message', message: { kind: 'workspaceLoaded', id, root: opened.root, nodes: opened.nodes } }
-        : { kind: 'message', message: { kind: 'fileLoaded', id, path: opened.path, content: opened.content } };
+        ? { kind: 'message', message: { kind: 'workspaceLoaded', requestId, root: opened.root, nodes: opened.nodes } }
+        : { kind: 'message', message: { kind: 'fileLoaded', requestId, path: opened.path, content: opened.content } };
     },
     onError: ({ diagnostic }) => ({
       kind: 'message',
-      message: { kind: 'operationFailed', id, message: diagnostic.message }
+      message: { kind: 'operationFailed', requestId, message: diagnostic.message }
     })
   };
 }
 
 function saveEffect(
-  id: string,
+  requestId: string,
   targetPath: string,
   content: string,
   operations: IdeEditorOperations
 ): TuiEffect<EditorMessage> {
   return {
-    id,
+    id: EDITOR_OPERATION_EFFECT_ID,
     concurrency: 'replace',
     async run(context) {
       context.signal.throwIfAborted();
       await operations.save(targetPath, content, context.signal);
       context.signal.throwIfAborted();
-      return { kind: 'message', message: { kind: 'fileSaved', id, path: targetPath, content } };
+      return { kind: 'message', message: { kind: 'fileSaved', requestId, path: targetPath } };
     },
     onError: ({ diagnostic }) => ({
       kind: 'message',
-      message: { kind: 'operationFailed', id, message: diagnostic.message }
+      message: { kind: 'operationFailed', requestId, message: diagnostic.message }
     })
   };
 }
@@ -423,13 +459,16 @@ const nodeEditorOperations: IdeEditorOperations = {
       return { kind: 'folder', root: targetPath, nodes: await readDirectoryTree(targetPath, signal) };
     }
     if (!info.isFile()) throw new Error(`${targetPath} is not a file`);
-    const content = await readFile(targetPath, 'utf8');
+    if (info.size > MAX_EDITOR_FILE_BYTES) {
+      throw new Error(`${targetPath} exceeds the ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} example file limit`);
+    }
+    const content = await readFile(targetPath, { encoding: 'utf8', signal });
     signal.throwIfAborted();
     return { kind: 'file', path: targetPath, content };
   },
   async save(targetPath, content, signal) {
     signal.throwIfAborted();
-    await writeFile(targetPath, content, 'utf8');
+    await writeFile(targetPath, content, { encoding: 'utf8', signal });
     signal.throwIfAborted();
   }
 };
@@ -473,7 +512,10 @@ async function readDirectoryTree(root: string, signal: AbortSignal): Promise<rea
   return visit(root, 0);
 }
 
-function editorView(state: EditorState): Element<EditorMessage> {
+function editorView(state: EditorState, context: TuiContext): Element<EditorMessage> {
+  if (context.terminalSize.columns < 80 || context.terminalSize.rows < 16) {
+    return editorMinimumSizeNotice();
+  }
   const main = splitPane([
     explorerPane(state),
     editorPane(state),
@@ -507,6 +549,18 @@ function editorView(state: EditorState): Element<EditorMessage> {
     ]
   });
   return state.chooser === undefined ? base : overlay([base, chooserDialog(state.chooser)]);
+}
+
+function editorMinimumSizeNotice(): Element<EditorMessage> {
+  return surface(column([
+    text({ id: 'editor-size-title', content: 'IDE Editor', textRole: 'title' }),
+    text({ id: 'editor-size-message', content: 'This example requires at least 80 columns and 16 rows.' }),
+  ], { id: 'editor-size-content', gap: 1 }), {
+    id: 'editor-root',
+    appearance: 'inset',
+    padding: 1,
+    meta: { accessibility: { role: 'application', label: 'Editor size requirement' } },
+  });
 }
 
 function topMenu(state: EditorState): Element<EditorMessage> {
@@ -553,7 +607,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
     maxTabWidth: 28,
     tabs: state.buffers.map((buffer) => ({
       id: buffer.path,
-      label: `${buffer.label}${textDocumentText(buffer.editor.document) === buffer.savedText ? '' : ' •'}`,
+      label: `${buffer.label}${isDirty(buffer) ? ' •' : ''}`,
       closable: true,
       panel: textArea({
         id: `editor:${buffer.path}`,
@@ -660,15 +714,30 @@ function openBuffer(state: EditorState, targetPath: string, content: string): Ed
   if (existing !== undefined) {
     return { ...state, activePath: targetPath, operation: { kind: 'idle' }, notice: `Selected ${existing.label}` };
   }
+  if (Buffer.byteLength(content, 'utf8') > MAX_EDITOR_FILE_BYTES) {
+    return {
+      ...state,
+      operation: { kind: 'idle' },
+      notice: `${targetPath} exceeds the ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} example file limit.`,
+    };
+  }
+  if (state.buffers.length >= MAX_EDITOR_BUFFERS) {
+    return {
+      ...state,
+      operation: { kind: 'idle' },
+      notice: `Close a buffer before opening more than ${String(MAX_EDITOR_BUFFERS)} files.`,
+    };
+  }
+  const editor = createTextAreaState({
+    value: content,
+    caret: { position: { offset: 0, affinity: 'downstream' } },
+    scroll: createScrollState()
+  });
   const buffer: EditorBuffer = {
     path: targetPath,
     label: path.basename(targetPath),
-    editor: createTextAreaState({
-      value: content,
-      caret: { position: { offset: 0, affinity: 'downstream' } },
-      scroll: createScrollState()
-    }),
-    savedText: content
+    editor,
+    savedDocument: editor.document,
   };
   return {
     ...state,
@@ -686,7 +755,14 @@ function closeActive(state: EditorState): EditorState {
 function closeBuffer(state: EditorState, targetPath: string): EditorState {
   const index = state.buffers.findIndex((buffer) => buffer.path === targetPath);
   if (index < 0) return state;
+  const target = state.buffers[index];
+  if (target !== undefined && isDirty(target)) {
+    return { ...state, notice: `Save ${target.label} before closing it.` };
+  }
   const buffers = state.buffers.filter((buffer) => buffer.path !== targetPath);
+  if (state.activePath !== targetPath) {
+    return { ...state, buffers, notice: `Closed ${path.basename(targetPath)}` };
+  }
   const fallback = buffers[Math.min(index, Math.max(0, buffers.length - 1))];
   const next = {
     ...state,
@@ -712,11 +788,31 @@ function activeBuffer(state: EditorState): EditorBuffer | undefined {
 }
 
 function isDirty(buffer: EditorBuffer): boolean {
-  return textDocumentText(buffer.editor.document) !== buffer.savedText;
+  return buffer.editor.document !== buffer.savedDocument;
 }
 
-function isCurrentOperation(state: EditorState, id: string): boolean {
-  return state.operation.kind === 'pending' && state.operation.id === id;
+function isCurrentOperation(
+  state: EditorState,
+  requestId: string,
+  operation?: 'open' | 'save',
+): boolean {
+  return state.operation.kind === 'pending'
+    && state.operation.requestId === requestId
+    && (operation === undefined || state.operation.operation === operation);
+}
+
+function requestExit(
+  state: EditorState,
+  reason: string,
+): TuiUpdateResult<EditorState, EditorMessage> {
+  const dirtyCount = state.buffers.filter(isDirty).length;
+  return dirtyCount === 0
+    ? { state, exit: { reason } }
+    : result({ ...state, notice: `Save ${String(dirtyCount)} unsaved buffer${dirtyCount === 1 ? '' : 's'} before exiting.` });
+}
+
+function formatByteLimit(bytes: number): string {
+  return `${String(bytes / (1_024 * 1_024))} MiB`;
 }
 
 function withoutChooser(state: EditorState): EditorState {

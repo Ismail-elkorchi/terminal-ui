@@ -935,7 +935,8 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
 
   assert.equal(snapshot.source, 'tui');
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'choices']);
-  assert.deepEqual(snapshot.focusPath, ['column-1-1', 'choices']);
+  assert.equal(snapshot.root.id.startsWith('anonymous:'), true);
+  assert.deepEqual(snapshot.focusPath, [snapshot.root.id, 'choices']);
   assert.equal(first?.label, 'First field');
   assert.equal(first?.description, 'Primary input');
   assert.equal(first?.focused, undefined);
