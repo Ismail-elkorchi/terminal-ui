@@ -19,9 +19,10 @@ test('host smoke CI runs only the installed Node runtime coverage', () => {
   assert.match(linuxFull, /npm run check:runtime/u);
 });
 
-test('registry publication is gated by a verified GitHub release', () => {
+test('registry publication is gated by a verified immutable release tag', () => {
   assert.match(publishWorkflow, /^  release:\n    types: \[published\]$/mu);
-  assert.doesNotMatch(publishWorkflow, /^  (?:push|pull_request|workflow_dispatch):/mu);
+  assert.doesNotMatch(publishWorkflow, /^  (?:push|pull_request):/mu);
+  assert.match(publishWorkflow, /^  workflow_dispatch:\n    inputs:\n      release_tag:/mu);
 
   const verification = workflowJob(publishWorkflow, 'verify');
   const npmPublication = workflowJob(publishWorkflow, 'publish-npm');
@@ -29,13 +30,15 @@ test('registry publication is gated by a verified GitHub release', () => {
 
   assert.match(verification, /npm run check:release/u);
   assert.match(verification, /npm run check$/mu);
-  assert.match(verification, /ref: \$\{\{ github\.event\.release\.tag_name \}\}/u);
+  assert.match(verification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
   assert.match(npmPublication, /needs: verify/u);
+  assert.match(npmPublication, /if: github\.event_name == 'release'/u);
   assert.match(npmPublication, /id-token: write/u);
   assert.match(npmPublication, /npm publish --provenance --access public/u);
   assert.match(npmPublication, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/u);
   assert.match(jsrPublication, /needs: verify/u);
   assert.match(jsrPublication, /id-token: write/u);
+  assert.match(jsrPublication, /npm ci --ignore-scripts/u);
   assert.match(jsrPublication, /deno publish/u);
   assert.doesNotMatch(jsrPublication, /NPM_TOKEN|JSR_TOKEN/u);
 });
