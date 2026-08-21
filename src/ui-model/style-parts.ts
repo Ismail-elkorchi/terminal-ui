@@ -1,11 +1,12 @@
-export type TextStylePart = 'content' | 'link';
+export type TextStylePart = 'content';
+export type RichTextStylePart = 'content' | 'link';
 /** @experimental */
 export type ImageStylePart = 'fallback';
 export type LinkStylePart = 'label';
 export type DisclosureStylePart = 'marker' | 'label' | 'summary';
-export type DataListStylePart = 'marker' | 'item' | 'description' | 'match' | 'empty' | 'scrollbar';
+export type DataListStylePart = 'marker' | 'item' | 'description' | 'match' | 'empty' | 'scrollbarTrack' | 'scrollbarThumb';
 export type SemanticListStylePart = 'marker' | 'item';
-export type ListViewStylePart = 'marker' | 'item' | 'scrollbar';
+export type ListViewStylePart = 'marker' | 'item' | 'scrollbarTrack' | 'scrollbarThumb';
 export type TableStylePart =
   | 'header'
   | 'headerCell'
@@ -16,7 +17,8 @@ export type TableStylePart =
   | 'metric'
   | 'metadata'
   | 'empty'
-  | 'scrollbar';
+  | 'scrollbarTrack'
+  | 'scrollbarThumb';
 export type TreeStylePart =
   | 'marker'
   | 'indent'
@@ -27,7 +29,8 @@ export type TreeStylePart =
   | 'match'
   | 'placeholder'
   | 'empty'
-  | 'scrollbar';
+  | 'scrollbarTrack'
+  | 'scrollbarThumb';
 export type PaginationStylePart = 'control' | 'label' | 'value' | 'separator';
 export type TextEntryStylePart =
   | 'border'
@@ -38,7 +41,7 @@ export type TextEntryStylePart =
   | 'cursor'
   | 'error';
 export type TextAreaStylePart = TextEntryStylePart |
-  'gutter' | 'lineNumber' | 'activeLine' | 'highlight' | 'scrollbar';
+  'gutter' | 'lineNumber' | 'activeLine' | 'highlight' | 'scrollbarTrack' | 'scrollbarThumb';
 export type LogViewerStylePart =
   | 'body'
   | 'timestamp'
@@ -48,18 +51,24 @@ export type LogViewerStylePart =
   | 'empty'
   | 'selection'
   | 'highlight'
-  | 'scrollbar';
+  | 'scrollbarTrack'
+  | 'scrollbarThumb';
 export type NumberInputStylePart = Exclude<TextEntryStylePart, 'label'> | 'stepper';
-export type FormGroupStylePart = 'title' | 'label' | 'description' | 'error';
+export type FormStylePart = 'title';
+export type FieldStylePart = 'label' | 'description';
+export type LabelStylePart = 'label';
 export type ButtonStylePart = 'frame' | 'marker' | 'leading' | 'label' | 'trailing';
 export type ToggleStylePart = 'label' | 'track' | 'handle' | 'onLabel' | 'offLabel' | 'error';
 export type SliderStylePart = 'label' | 'track' | 'fill' | 'handle' | 'value' | 'error';
 export type ChoiceStylePart = 'label' | 'marker' | 'option' | 'description' | 'error';
-export type PickerStylePart =
+export type ColorSwatchPickerStylePart =
   | 'label'
   | 'summary'
   | 'swatch'
-  | 'navigation'
+  | 'option'
+  | 'error';
+export type CalendarStylePart =
+  | 'label'
   | 'month'
   | 'weekday'
   | 'option'
@@ -76,7 +85,8 @@ export type MenuStylePart =
   | 'separator'
   | 'placeholder'
   | 'empty'
-  | 'scrollbar';
+  | 'scrollbarTrack'
+  | 'scrollbarThumb';
 export type DividerStylePart = 'line' | 'label';
 export type TooltipStylePart = 'background' | 'border' | 'title' | 'content';
 export type NotificationStylePart =
@@ -87,17 +97,26 @@ export type NotificationStylePart =
   | 'detail'
   | 'progress'
   | 'dismiss';
-export type StatusStylePart = 'marker' | 'leading' | 'label' | 'value' | 'trailing' | 'track' | 'fill';
-export type ChartStylePart =
+export type NotificationHistoryStylePart =
+  | NotificationStylePart
+  | 'scrollbarTrack'
+  | 'scrollbarThumb';
+export type StatusBarStylePart = 'marker' | 'leading' | 'value' | 'trailing';
+export type HelpBarStylePart = 'marker' | 'label' | 'value';
+export type ActivityIndicatorStylePart = 'marker' | 'label' | 'value';
+export type ProgressBarStylePart = 'marker' | 'label' | 'value' | 'track' | 'fill';
+export type MeterStylePart = 'marker' | 'label' | 'value' | 'track' | 'fill';
+export type SparklineStylePart = 'value' | 'muted' | 'series';
+export type BarChartStylePart =
   | 'label'
   | 'value'
   | 'muted'
   | 'axis'
-  | 'baseline'
   | 'series'
-  | 'legend'
-  | 'empty';
-export type SurfaceStylePart = 'background' | 'border' | 'title' | 'shadow';
+  | 'legend';
+export type ChartStylePart = BarChartStylePart | 'baseline';
+export type HeatmapStylePart = BarChartStylePart;
+export type SurfaceStylePart = 'border' | 'title';
 export type SplitPaneStylePart = 'divider' | 'dividerActive';
 export type TabsStylePart = 'leading' | 'label' | 'indicator' | 'badge' | 'close' | 'overflow';
 export type DialogStylePart = 'background' | 'border' | 'title' | 'actionSeparator';
@@ -122,5 +141,6 @@ export type SearchPickerStylePart =
   | 'help'
   | 'status'
   | 'empty'
-  | 'scrollbar';
+  | 'scrollbarTrack'
+  | 'scrollbarThumb';
 export type CanvasStylePart = 'content';

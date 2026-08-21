@@ -11,7 +11,7 @@ export type Message =
 
 defineTui<{ readonly value: string }, Message>({
   id: 'typed-effects',
-  init: () => ({ value: '' }),
+  init: () => ({ state: ({ value: '' }) }),
   update: (state, message) => message.kind === 'load'
     ? {
         state,
@@ -30,8 +30,8 @@ defineTui<{ readonly value: string }, Message>({
   subscriptions: () => [{
     id: 'refresh',
     generation: 0,
-    async *messages() {
-      yield replaceableSourceMessage('refresh', { kind: 'loaded' as const, value: 'fresh' });
+    async run(_context, sink) {
+      await sink.emit(replaceableSourceMessage('refresh', { kind: 'loaded' as const, value: 'fresh' }));
     }
   }],
   view: (state) => text({ content: state.value })
@@ -39,13 +39,13 @@ defineTui<{ readonly value: string }, Message>({
 
 defineTui<{ readonly value: string }, { readonly kind: 'noop' }>({
   // @ts-expect-error initialization is a synchronous state transition
-  init: async () => ({ value: '' }),
+  init: async () => ({ state: ({ value: '' }) }),
   update: (state) => ({ state }),
   view: (state) => text({ content: state.value })
 });
 
 defineTui({
-  init: () => ({ value: '' }),
+  init: () => ({ state: ({ value: '' }) }),
   // @ts-expect-error updates cannot hold the serialized transition queue with a promise
   update: async (state: { readonly value: string }) => ({ state }),
   view: (state) => text({ content: state.value })
@@ -58,14 +58,14 @@ reliableSourceMessage(null);
 replaceableSourceMessage('missing', undefined);
 
 defineTui({
-  init: () => ({ value: '' }),
+  init: () => ({ state: ({ value: '' }) }),
   update: (state: { readonly value: string }) => ({ state }),
-  // @ts-expect-error event-source emissions must declare reliable or keyed replaceable admission
   subscriptions: () => [{
     id: 'raw-message',
     generation: 0,
-    async *messages() {
-      yield { kind: 'loaded' as const, value: 'fresh' };
+    async run(_context, sink) {
+      // @ts-expect-error event-source emissions must declare reliable or keyed replaceable admission
+      await sink.emit({ kind: 'loaded' as const, value: 'fresh' });
     }
   }],
   view: (state) => text({ content: state.value })

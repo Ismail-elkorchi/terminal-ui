@@ -160,6 +160,7 @@ test('large listbox rendering is bounded by terminal size, not collection size',
   const items = Array.from({ length: 50_000 }, (_value, index) => `Item ${index}`);
   const frame = renderElementFrame(listbox({
     id: 'large-listbox',
+    meta: { accessibleName: 'Large list' },
     items,
     projectItem: (item) => ({ id: item, label: item }),
     presentation: {
@@ -189,12 +190,14 @@ test('prepared listbox collections retain item preparation across renders and ac
   projectorCalls = 0;
   renderElementFrame(listbox({
     id: 'retained-listbox',
+    meta: { accessibleName: 'Retained list' },
     collection,
     presentation: { activeId: '25000', selection: { mode: 'single', selectedId: '25000' } },
     onTransition: () => ignoreMessage()
   }), { columns: 32, rows: 10 });
   renderElementFrame(listbox({
     id: 'retained-listbox',
+    meta: { accessibleName: 'Retained list' },
     collection,
     presentation: { activeId: '25001', selection: { mode: 'single', selectedId: '25001' } },
     onTransition: () => ignoreMessage()
@@ -219,6 +222,7 @@ test('windowed listbox collections project only supplied rows while preserving g
   }, { startIndex: start, totalCount: 50_000, domain: { kind: 'source' } });
   const frame = renderElementFrame(listbox({
     id: 'windowed-listbox',
+    meta: { accessibleName: 'Windowed list' },
     collection,
     presentation: {
       activeId: '40004',
@@ -247,6 +251,7 @@ test('command suggestions retain only a supplied window while preserving global 
   );
   const frame = renderElementFrame(commandInput({
     id: 'windowed-command',
+    meta: { accessibleName: 'Command' },
     display: 'expanded',
     maxVisibleSuggestions: 8,
     presentation: {
@@ -306,11 +311,13 @@ test('prepared log history pays source normalization once and rendering does not
 test('small local frame updates produce bounded render diffs', () => {
   const previous = renderElementFrame(textInput({
     id: 'field',
+    meta: { accessibleName: 'Field' },
     presentation: { value: 'alpha', cursor: 0 },
     onAction: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
   const next = renderElementFrame(textInput({
     id: 'field',
+    meta: { accessibleName: 'Field' },
     presentation: { value: 'alpha!', cursor: 0 },
     onAction: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
@@ -352,6 +359,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
   const frame = renderElementFrame(column([
     commandInput({
       id: 'search',
+      meta: { accessibleName: 'Search' },
       prompt: '?',
       presentation: { value: 'fil', cursor: 0, open: true, suggestions: prepareCommandSuggestions([
         { id: 'file', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'file' }, label: 'file' },
@@ -362,6 +370,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
     table({
     getRowId: (_row, index) => String(index),
     id: 'summary',
+      meta: { accessibleName: 'Summary' },
       columns: [
         {
           id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 12 } },
@@ -415,6 +424,7 @@ test('large dataGrid rendering is bounded by terminal size independently from ro
   const frame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
     id: 'large-dataGrid',
+    meta: { accessibleName: 'Large data grid' },
     presentation: {
       interaction: {
         kind: 'cell',
@@ -455,6 +465,7 @@ test('prepared dataGrid collections retain row identity across renders and reduc
   const columns = [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }];
   renderElementFrame(dataGrid({
     id: 'retained-dataGrid',
+    meta: { accessibleName: 'Retained data grid' },
     collection,
     columns,
     presentation: {
@@ -466,6 +477,7 @@ test('prepared dataGrid collections retain row identity across renders and reduc
   }), { columns: 48, rows: 12 });
   renderElementFrame(dataGrid({
     id: 'retained-dataGrid',
+    meta: { accessibleName: 'Retained data grid' },
     collection,
     columns,
     presentation: {
@@ -497,6 +509,7 @@ test('windowed dataGrid collections identify only supplied records and keep glob
   }, { startIndex: start, totalCount: 100_000, domain: { kind: 'source' } });
   const frame = renderElementFrame(dataGrid({
     id: 'windowed-dataGrid',
+    meta: { accessibleName: 'Windowed data grid' },
     collection,
     columns: [{ id: 'name', header: 'Name', value: (row) => row.name, width: { kind: 'fill' } }],
     presentation: {
@@ -519,6 +532,7 @@ test('fill-width tables evaluate each visible row once without scanning offscree
   const frame = renderElementFrame(dataGrid({
     getRowId: (_row, index) => String(index),
     id: 'fill-dataGrid-cost',
+    meta: { accessibleName: 'Fill data grid' },
     rows,
     columns: [{
       id: 'name',
@@ -546,6 +560,7 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
   const previousElement = dataGrid({
     getRowId: (_row, index) => String(index),
     id: 'large-dataGrid-damage',
+    meta: { accessibleName: 'Damage data grid' },
     presentation: {
       interaction: {
         kind: 'cell',
@@ -569,6 +584,7 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
   const nextElement = dataGrid({
     getRowId: (_row, index) => String(index),
     id: 'large-dataGrid-damage',
+    meta: { accessibleName: 'Damage data grid' },
     presentation: {
       interaction: {
         kind: 'cell',
@@ -707,6 +723,7 @@ test('large tree rendering is bounded by terminal size independently from node c
   const source = prepareTreeSource(nodes);
   const frame = renderElementFrame(tree({
     id: 'large-tree',
+    meta: { accessibleName: 'Large tree' },
     view: prepareTreeView(source, presentation),
     presentation,
     onTransition: () => ignoreMessage()
@@ -744,12 +761,14 @@ test('prepared tree collections avoid recursive flattening on rerender and movem
   nodeIdReads = 0;
   renderElementFrame(tree({
     id: 'retained-tree',
+    meta: { accessibleName: 'Retained tree' },
     view,
     presentation: initial,
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
   renderElementFrame(tree({
     id: 'retained-tree',
+    meta: { accessibleName: 'Retained tree' },
     view,
     presentation: {
       activeId: 'node-25001',
@@ -788,6 +807,7 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
   }));
   const frame = renderElementFrame(searchPicker({
     id: 'large-searchPicker',
+    meta: { accessibleName: 'Large search' },
     presentation: {
       query: { text: '19999', mode: 'fuzzy' },
       activeId: 'entry-19999'
@@ -805,11 +825,12 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
 test('form navigation over many controls records one bounded frame per input', async () => {
   const app = defineTui({
     id: 'large-form-navigation',
-    init: () => ({ active: 'editing' }),
+    init: () => ({ state: ({ active: 'editing' }) }),
     update: (state, message) => ({ state: { ...state, active: message.kind } }),
     view: (state) => form({ slots: { content: [
       ...Array.from({ length: 25 }, (_value, index) => textInput({
         id: `field-${index}`,
+        meta: { accessibleName: `Field ${String(index + 1)}` },
         presentation: { value: state.active, cursor: 0 },
         onAction: (action) => action.kind === 'submit'
           ? { kind: `field-${index}` }
@@ -835,7 +856,7 @@ test('mixed subscription bursts remain source-bounded and input costs one immedi
   const emissionsPerSource = 100;
   const app = defineTui({
     id: 'mixed-source-workspace',
-    init: () => ({ latest: {}, inputCount: 0 }),
+    init: () => ({ state: ({ latest: {}, inputCount: 0 }) }),
     update: (state, message) => message.kind === 'input'
       ? { state: { ...state, inputCount: state.inputCount + 1 } }
       : { state: { ...state, latest: { ...state.latest, [message.source]: message.value } } },
@@ -843,13 +864,13 @@ test('mixed subscription bursts remain source-bounded and input costs one immedi
       id: `source-${String(source)}`,
       generation: 0,
       channel: { capacity: 8, cadenceMs: 10 },
-      async *messages() {
+      async run(_context, sink) {
         for (let value = 0; value < emissionsPerSource; value += 1) {
-          yield {
+          await sink.emit({
             kind: 'replaceable',
             key: 'latest',
             message: { kind: 'source', source, value }
-          };
+          });
         }
       }
     })),
@@ -900,7 +921,7 @@ test('custom canvas render stays bounded even when painters write outside the te
 test('resize storms skip unchanged terminal sizes and commit each distinct sequential resize', async () => {
   const app = defineTui({
     id: 'resize-bounds',
-    init: () => ({ label: 'ready' }),
+    init: () => ({ state: ({ label: 'ready' }) }),
     update: (state) => ({ state }),
     view: (state) => text({ content: state.label, id: 'status' })
   });

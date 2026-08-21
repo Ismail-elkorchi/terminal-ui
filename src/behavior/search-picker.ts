@@ -15,10 +15,12 @@ import type { SearchPickerIndex } from '../ui-model/search-picker-index.ts';
 import type { CollectionQuery } from '../text/query.ts';
 import { rowWindow } from './data-window.ts';
 import { applyScrollEvent } from './scroll.ts';
+import { scrollReducer } from './scroll.ts';
 
 export interface SearchPickerReducerOptions<TValue = string> {
   readonly searchPickerIndex: SearchPickerIndex<TValue>;
   readonly navigation?: NavigationPolicy;
+  readonly pageSize?: number;
 }
 
 interface SearchPickerStateBase {
@@ -236,7 +238,29 @@ function withSearchEditor<TValue>(
     }).interactionIndex,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });
-  return editor === state.editor ? state : { ...state, editor };
+  if (editor === state.editor) return state;
+  if (state.scroll === undefined || editor.activeId === undefined) return { ...state, editor };
+  const entries = querySearchPickerIndex(options.searchPickerIndex, {
+    text: editor.input.text,
+    mode: state.mode,
+    ...(state.caseSensitive ? { caseSensitive: true } : {}),
+  }).entries;
+  const itemIndex = entries.findIndex((entry) => entry.id === editor.activeId);
+  if (itemIndex < 0) return { ...state, editor };
+  return {
+    ...state,
+    editor,
+    scroll: scrollReducer(state.scroll, {
+      kind: 'itemIntoView',
+      itemIndex,
+      alignment: 'nearest',
+    }, {
+      contentRows: entries.length,
+      contentColumns: 0,
+      viewportRows: Math.max(1, options.pageSize ?? 8),
+      viewportColumns: 0,
+    }),
+  };
 }
 
 function searchPickerQuery(state: SearchPickerState): CollectionQuery {

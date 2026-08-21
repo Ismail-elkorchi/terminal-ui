@@ -25,7 +25,7 @@ export type {
 export function tuiSnapshot(id: string): AccessibleSnapshot {
   return createAccessibleSnapshot({
     source: 'tui',
-    root: { id, role: 'application', label: id }
+    root: { id, role: 'application', label: 'Terminal application' }
   });
 }
 

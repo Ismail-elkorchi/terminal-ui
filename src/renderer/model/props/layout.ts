@@ -18,7 +18,7 @@ export interface MeasuredColumnRenderEntry {
 
 export interface MeasuredColumnRenderProps {
   readonly entries: readonly MeasuredColumnRenderEntry[];
-  readonly viewportRows: number;
+  readonly totalRows: number;
 }
 
 export interface GridRenderProps extends RenderNodeLayoutProps {

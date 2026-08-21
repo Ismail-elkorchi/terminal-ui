@@ -26,7 +26,7 @@ async function clickAt(runtime, row, column) {
 }
 
 test('listbox and data grid reject invalid stable identities and interaction targets', () => {
-  assert.throws(() => listbox({
+  assert.throws(() => listbox({ meta: { accessibleName: "List" },
     id: 'duplicate-listbox',
     items: ['alpha', 'alpha'],
     projectItem: (item) => ({ id: item, label: item }),
@@ -34,7 +34,7 @@ test('listbox and data grid reject invalid stable identities and interaction tar
     onTransition: (transition) => transition
   }), /ids must be unique/u);
 
-  assert.throws(() => dataGrid({
+  assert.throws(() => dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'empty-grid-id',
     rows: [['alpha']],
     getRowId: () => '',
@@ -43,7 +43,7 @@ test('listbox and data grid reject invalid stable identities and interaction tar
     onTransition: (transition) => transition
   }), /id must be non-empty/u);
 
-  assert.throws(() => dataGrid({
+  assert.throws(() => dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'invalid-cell',
     rows: [['alpha']],
     getRowId: () => 'alpha',
@@ -60,7 +60,7 @@ test('listbox and data grid reject invalid stable identities and interaction tar
 });
 
 test('passive table renders tabular information without focus or selection targets', () => {
-  const frame = renderElementFrame(table({
+  const frame = renderElementFrame(table({ meta: { accessibleName: "Table" },
     id: 'summary',
     rows: [{ id: 'alpha', name: 'Alpha', score: 10 }],
     getRowId: (row) => row.id,
@@ -77,7 +77,7 @@ test('passive table renders tabular information without focus or selection targe
 });
 
 test('data grid renders stable row selection independently from active position', () => {
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'fleet-grid',
     rows: [
       { id: 'alpha', name: 'Alpha', score: 10 },
@@ -109,7 +109,7 @@ test('data grid renders stable row selection independently from active position'
 });
 
 test('cell grids address cells with stable row and column ids', () => {
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'cell-grid',
     rows: [{ id: 'atlas', name: 'Atlas', score: 89 }],
     getRowId: (row) => row.id,
@@ -142,9 +142,9 @@ test('cell grids address cells with stable row and column ids', () => {
 test('pointer focus transitions and activation events use separate callbacks', async () => {
   const app = defineTui({
     id: 'grid-pointer-flow',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, event) => ({ state: { events: [...state.events, event] } }),
-    view: () => dataGrid({
+    view: () => dataGrid({ meta: { accessibleName: "Data grid" },
       id: 'pointer-grid',
       rows: [{ id: 'alpha', name: 'Alpha' }],
       getRowId: (row) => row.id,
@@ -172,7 +172,7 @@ test('pointer focus transitions and activation events use separate callbacks', a
 
 test('data grid evaluates cells once per instance and preserves renderer spans', () => {
   let calls = 0;
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'cell-evaluation',
     rows: [{ id: 'row', value: 7 }],
     getRowId: (row) => row.id,
@@ -194,7 +194,7 @@ test('data grid evaluates cells once per instance and preserves renderer spans',
 });
 
 test('data grid renders sorting, controlled widths, sticky headers, and both-axis scrolling', () => {
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'scroll-grid',
     rows: Array.from({ length: 8 }, (_value, index) => ({
       id: `row-${String(index)}`,
@@ -236,7 +236,7 @@ test('windowed table collections retain global accessibility windows', () => {
     (row) => row.id,
     { startIndex: 100, totalCount: 1_000, domain: { kind: 'source' } }
   );
-  const frame = renderElementFrame(table({
+  const frame = renderElementFrame(table({ meta: { accessibleName: "Table" },
     id: 'windowed-table',
     collection,
     columns: [{ id: 'name', value: (row) => row.name }]
@@ -264,8 +264,8 @@ test('complete table collections retain inferred structure by collection identit
   ));
   const collection = prepareTableCollection(rows, (_row, index) => String(index));
 
-  renderElementFrame(table({ id: 'inferred-once', collection }), { columns: 24, rows: 4 });
-  renderElementFrame(table({ id: 'inferred-again', collection }), { columns: 30, rows: 5 });
+  renderElementFrame(table({ meta: { accessibleName: "Table" }, id: 'inferred-once', collection }), { columns: 24, rows: 4 });
+  renderElementFrame(table({ meta: { accessibleName: "Table" }, id: 'inferred-again', collection }), { columns: 30, rows: 5 });
 
   assert.equal(shapeReads, rows.length);
 });
@@ -285,10 +285,10 @@ test('windowed table collections require explicit structure without scanning row
   });
 
   assert.throws(
-    () => table({ id: 'missing-window-columns', collection }),
+    () => table({ meta: { accessibleName: "Table" }, id: 'missing-window-columns', collection }),
     /windowed table collections require explicit columns/u,
   );
-  renderElementFrame(table({
+  renderElementFrame(table({ meta: { accessibleName: "Table" },
     id: 'explicit-window-columns',
     collection,
     columns: [{ id: 'value', value: (row) => row[0] }],
@@ -300,13 +300,13 @@ test('table and pagination compose explicitly over a bounded page', () => {
   const rows = ['Aster', 'Atlas', 'Pulse', 'Lumen', 'Vector'];
   const page = paginationWindow({ pageNumber: 2, pageSize: 2, totalCount: rows.length });
   const frame = renderElementFrame(column([
-    table({
+    table({ meta: { accessibleName: "Table" },
       id: 'page-table',
       rows: rows.slice(page.startIndex, page.endIndexExclusive),
       getRowId: (row) => row,
       columns: [{ id: 'name', header: 'Name', value: (row) => row }]
     }),
-    pagination({
+    pagination({ meta: { accessibleName: "Pagination" },
       id: 'page-navigation',
       label: 'Fleet',
       pageNumber: page.pageNumber,
@@ -322,7 +322,7 @@ test('table and pagination compose explicitly over a bounded page', () => {
 });
 
 test('data grid disabled state removes semantic and pointer interaction', () => {
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'disabled-grid',
     rows: [{ id: 'row', name: 'Row' }],
     getRowId: (row) => row.id,

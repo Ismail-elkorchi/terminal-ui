@@ -168,11 +168,19 @@ place with `preserve`, or copies a lower background into an upper cell that has
 none with `inheritBackground`. Higher visible layers render above lower layers
 and receive pointer hits first.
 
-`meta.styles` is a semantic slot map for local visual overrides. Generic state
-slots describe interaction: `focused`, `hovered`, `pressed`, `selected`,
-`disabled`, and `active`. Result, validation, notification, and destructive
-styling is carried by the component-specific field and part that owns that
-meaning.
+Top-level `styles` is the local visual override matrix. `root` is the common
+base for every rendered part, `parts` targets the component's exact anatomy,
+and `states` can override the whole component or individual parts while that
+state is active. Components expose only states they can render, including
+`focused`, `hovered`, `pressed`, `selected`, `active`, `disabled`, `busy`, or
+`readOnly` as appropriate. Result, validation, notification, and destructive
+styling remains owned by the component-specific field and part that carries
+that meaning.
+
+The generated [component styling anatomy](../api/reference.md#component-styling-anatomy)
+lists the exact parts and visual states accepted by every built-in factory.
+`inspectElement()` exposes the same available contract separately from the
+overrides configured on one element instance.
 
 `textRole` describes structure only: title, heading, body, caption, metadata,
 metric, or badge. Validation, warning, failure, and success are not text roles.

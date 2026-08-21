@@ -5,6 +5,7 @@ export {
   flow,
   grid,
   measuredColumn,
+  measuredViewport,
   overlay,
   portal,
   row,
@@ -23,6 +24,8 @@ export type {
   PortalOptions,
   SplitPaneOptions,
   SurfaceOptions,
+  ScrollableViewportOptions,
+  ViewportOffset,
   ViewportOptions
 } from './options.ts';
 export type { SplitPaneAction } from '../ui-model/split-pane.ts';
@@ -48,6 +51,10 @@ export type {
   LayoutSize
 } from '../geometry/types.ts';
 export type {
+  ElementKeyBindings,
+  ElementKeyEvent,
+  ElementKeyHandler,
+  ElementKeyTriggerBinding,
   ElementAccessibility,
   ElementFocus,
   ElementFocusScope,
@@ -57,7 +64,9 @@ export type {
   ElementOverflowPriority,
   ElementStyles,
   ElementVisualState,
+  InteractiveElementOptions,
   LayerUnderlay,
+  StructuralElementOptions,
 } from '../element/metadata.ts';
 export {
   gridCellRects,

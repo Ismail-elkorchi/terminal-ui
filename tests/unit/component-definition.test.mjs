@@ -13,6 +13,7 @@ import {
 } from '../../dist/renderer/index.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
+import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import {
   button,
   dataGrid,
@@ -723,7 +724,7 @@ test('component definition hit targets route mouse messages', async () => {
   };
   const app = defineTui({
     id: 'component-hit-tui',
-    init: () => ({ clicked: false }),
+    init: () => ({ state: ({ clicked: false }) }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
     view: () => component({
       id: 'component-hit',
@@ -741,7 +742,7 @@ test('component definition hit targets route mouse messages', async () => {
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(press.results[0]?.handled, false);
+  assert.equal(press.results[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.state(), { clicked: true });
   assert.match(renderFramePlain(runtime.frame()), /hit/);
@@ -757,7 +758,7 @@ test('component hit targets are adopted before pointer routing', async () => {
   let returned;
   const app = defineTui({
     id: 'owned-hit-tui',
-    init: () => ({ clicked: false }),
+    init: () => ({ state: ({ clicked: false }) }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
     view: () => component({
       id: 'owned-hit-component',
@@ -825,7 +826,7 @@ test('component definitions map keyboard text and paste through one action bound
   });
   const app = defineTui({
     id: 'defined-action-input',
-    init: () => [],
+    init: () => ({ state: [] }),
     update: (state, message) => ({ state: [...state, message.action] }),
     view: () => control({
       id: 'action-input',
@@ -980,7 +981,7 @@ test('inert actionful components ignore unreachable action mappers', () => {
   );
 });
 
-test('component definition key triggers are fully validated at construction', () => {
+test('component definition key triggers are validated at their committed input boundary', async () => {
   const control = defineComponent({
     name: 'terminal-ui-tests/components/invalid-trigger',
     identity: 'required',
@@ -989,7 +990,13 @@ test('component definition key triggers are fully validated at construction', ()
     accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
-    accessibility: ({ id }) => ({ id, role: 'button', label: id }),
+    focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+    accessibility: ({ id, focused }) => ({
+      id,
+      role: 'button',
+      label: id,
+      ...(focused ? { focused: true } : {})
+    }),
     keys: () => ({
       triggers: [{
         trigger: { kind: 'key', key: 'not-a-key' },
@@ -998,10 +1005,20 @@ test('component definition key triggers are fully validated at construction', ()
     })
   });
 
-  assert.throws(
-    () => control({ id: 'invalid-trigger', onAction: (action) => action }),
-    /bindable key name/u
-  );
+  const invalidTriggerRuntime = createTuiRuntime({
+    app: defineTui({
+      init: () => ({ state: 0 }),
+      update: (state) => ({ state }),
+      view: () => control({ id: 'invalid-trigger', onAction: (action) => action }),
+    }),
+    host: createMemoryTerminalHost(),
+  });
+  await invalidTriggerRuntime.start();
+  await assert.rejects(invalidTriggerRuntime.handleInput({
+    kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press', location: 'standard',
+  }), /bindable key name/u);
+  await invalidTriggerRuntime.dispose();
 
   const sequenceControl = defineComponent({
     name: 'terminal-ui-tests/components/invalid-text-sequence',
@@ -1011,17 +1028,33 @@ test('component definition key triggers are fully validated at construction', ()
     accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
-    accessibility: ({ id }) => ({ id, role: 'button', label: id }),
+    focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
+    accessibility: ({ id, focused }) => ({
+      id,
+      role: 'button',
+      label: id,
+      ...(focused ? { focused: true } : {})
+    }),
     keys: () => ({ text: { quit: () => ({ kind: 'activate' }) } })
   });
 
-  assert.throws(
-    () => sequenceControl({ id: 'invalid-text-sequence', onAction: (action) => action }),
-    /exactly one grapheme/u
-  );
+  const invalidSequenceRuntime = createTuiRuntime({
+    app: defineTui({
+      init: () => ({ state: 0 }),
+      update: (state) => ({ state }),
+      view: () => sequenceControl({ id: 'invalid-text-sequence', onAction: (action) => action }),
+    }),
+    host: createMemoryTerminalHost(),
+  });
+  await invalidSequenceRuntime.start();
+  await assert.rejects(invalidSequenceRuntime.handleInput({
+    kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press', location: 'standard',
+  }), /exactly one grapheme/u);
+  await invalidSequenceRuntime.dispose();
 });
 
-test('component definitions retain normalized trigger snapshots', async () => {
+test('component definitions adopt each executable trigger result before dispatch', async () => {
   const trigger = { kind: 'codePoint', codePoint: 97 };
   const control = defineComponent({
     name: 'terminal-ui-tests/components/owned-trigger',
@@ -1031,6 +1064,7 @@ test('component definitions retain normalized trigger snapshots', async () => {
     accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
+    focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
     accessibility: ({ id, focused }) => ({
       id,
       role: 'button',
@@ -1040,7 +1074,10 @@ test('component definitions retain normalized trigger snapshots', async () => {
     keys: () => ({
       triggers: [{
         trigger,
-        onKey: () => ({ kind: 'activate' })
+        onKey: () => {
+          trigger.codePoint = 98;
+          return { kind: 'activate' };
+        }
       }]
     })
   });
@@ -1048,10 +1085,9 @@ test('component definitions retain normalized trigger snapshots', async () => {
     id: 'owned-trigger',
     onAction: (action) => action
   });
-  trigger.codePoint = 98;
   const app = defineTui({
     id: 'owned-component-trigger',
-    init: () => ({ activations: 0 }),
+    init: () => ({ state: ({ activations: 0 }) }),
     update: (state) => ({ state: { activations: state.activations + 1 } }),
     view: () => element
   });
@@ -1069,6 +1105,16 @@ test('component definitions retain normalized trigger snapshots', async () => {
   });
 
   assert.equal(runtime.state().activations, 1);
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'a',
+    keyCodePoint: 97,
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+  assert.equal(runtime.state().activations, 1);
+  await runtime.dispose();
 });
 
 test('component definition measurement participates in content track layout', () => {
@@ -1476,20 +1522,18 @@ test('component instances adopt shared metadata once before retaining it', () =>
     id: 'adopted-metadata',
     label: 'Action',
     onAction: () => ignoreMessage(),
-    meta: {
-      layer: {
-        get zIndex() {
-          layerReads += 1;
-          return layerReads === 1 ? 20 : 'invalid-after-validation';
-        }
-      },
-      styles: {
+    styles: {
         get root() {
           rootStyleReads += 1;
           return { bold: true };
         }
-      }
-    }
+      },
+    meta: { layer: {
+        get zIndex() {
+          layerReads += 1;
+          return layerReads === 1 ? 20 : 'invalid-after-validation';
+        }
+      } }
   });
 
   const regions = renderElementRegions(element, { columns: 10, rows: 1 });
@@ -1819,16 +1863,7 @@ test('decorative elements reject interaction throughout their subtree', () => {
       id: 'decorative-parent',
       meta: { accessibility: { decorative: true } }
     }), { columns: 12, rows: 1 }),
-    /Decorative renderNode "decorative-child-button" cannot define keyboard interaction/u
-  );
-
-  assert.throws(
-    () => renderElementFrame(component({
-      id: 'decorative-pointer',
-      definition: { ...leafComponentDefinition, semantics: 'decorative', render() {} },
-      pointer: { onAction: () => ({ kind: 'pointer' }) }
-    }), { columns: 12, rows: 1 }),
-    /pointer behavior must be declared by the definition/u
+    /Decorative renderNode "decorative-child-button" cannot expose focus targets/u
   );
 });
 
@@ -1851,7 +1886,7 @@ test('component composites arrange opaque children while preserving interaction 
   let accessibleChildIds = [];
   const app = defineTui({
     id: 'component-composite-tui',
-    init: () => ({ selected: 'none' }),
+    init: () => ({ state: ({ selected: 'none' }) }),
     update: (_state, message) => ({ state: { selected: message.kind } }),
     view: (state) => component({
       id: 'component-actions',
@@ -2080,14 +2115,14 @@ test('component prepared models are data objects rather than callable hooks', ()
 });
 
 test('built-in factories reject malformed nested options where they are consumed', () => {
-  assert.throws(() => dataGrid({
+  assert.throws(() => dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'dataGrid',
     rows: [],
     getRowId: () => 'row',
     presentation: null,
     onTransition: (transition) => transition
   }), /dataGrid presentation/u);
-  assert.throws(() => textArea({
+  assert.throws(() => textArea({ meta: { accessibleName: "Text area" },
     id: 'editor',
     presentation: null,
     onAction: (action) => action

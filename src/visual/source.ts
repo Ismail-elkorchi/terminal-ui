@@ -11,6 +11,18 @@ export type FrameCellRole =
   | 'chart'
   | 'content';
 
+/** Visual conditions that can independently affect an element's anatomy. */
+export type ElementVisualState =
+  | 'default'
+  | 'focused'
+  | 'hovered'
+  | 'pressed'
+  | 'selected'
+  | 'disabled'
+  | 'active'
+  | 'busy'
+  | 'readOnly';
+
 const frameCellRoles = [
   'text',
   'border',
@@ -31,7 +43,7 @@ export interface FrameCellSource {
   readonly partType?: string;
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly interactionState?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
+  readonly interactionState?: Exclude<ElementVisualState, 'default'>;
   readonly description?: string;
 }
 
@@ -42,7 +54,7 @@ export interface RenderNodeFrameSourceOptions {
   readonly partType?: string;
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly interactionState?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
+  readonly interactionState?: Exclude<ElementVisualState, 'default'>;
   readonly description?: string;
 }
 
@@ -155,7 +167,9 @@ const interactionStates = [
   'pressed',
   'selected',
   'disabled',
-  'active'
+  'active',
+  'busy',
+  'readOnly'
 ] as const satisfies readonly NonNullable<FrameCellSource['interactionState']>[];
 
 function optionalInteractionState(value: unknown): Pick<FrameCellSource, 'interactionState'> {

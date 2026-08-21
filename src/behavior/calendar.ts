@@ -5,6 +5,7 @@ import type {
   CalendarDay,
   CalendarPresentation,
 } from '../ui-model/calendar.ts';
+import { adoptCalendarDate } from '../ui-model/calendar.ts';
 
 export interface CalendarState {
   readonly visibleMonth: CalendarMonth;
@@ -245,19 +246,5 @@ function assertOptions(options: CalendarBehaviorOptions): void {
 }
 
 function assertCalendarDate(date: CalendarDate): void {
-  if (!Number.isInteger(date.year) || !Number.isInteger(date.month) || !Number.isInteger(date.day)) {
-    throw new RangeError('calendar date fields must be integers.');
-  }
-  if (date.month < 1 || date.month > 12 || date.day < 1 || date.day > daysInMonthUnchecked(date.year, date.month)) {
-    throw new RangeError(`invalid calendar date ${String(date.year)}-${String(date.month)}-${String(date.day)}.`);
-  }
-}
-
-function daysInMonthUnchecked(year: number, month: number): number {
-  if (month === 2) return isLeapYear(year) ? 29 : 28;
-  return [4, 6, 9, 11].includes(month) ? 30 : 31;
-}
-
-function isLeapYear(year: number): boolean {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  adoptCalendarDate(date);
 }

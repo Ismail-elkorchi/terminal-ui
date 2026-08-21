@@ -29,14 +29,8 @@ import type {
   Element,
   HitTarget,
 } from '../../component/index.ts';
-import {
-  assertOptionalCallback,
-  assertRequiredCallback,
-} from '../../foundation/validation.ts';
+import { assertRequiredCallback } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
-import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
-import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
-import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import {
@@ -82,18 +76,14 @@ interface LogViewerModel {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly pointerState?: PointerInteractionState;
 }
 
 type LogViewerComponentOptions = Omit<
   LogViewerOptions<ComponentMessage>,
-  'id' | 'onAction' | 'onPointerAction' | 'meta'
+  'id' | 'onAction' | 'styles' | 'meta'
 >;
 
-type LogViewerComponentAction = LogViewerAction | {
-  readonly kind: 'pointerLifecycle';
-  readonly action: PointerInteractionAction;
-};
+type LogViewerComponentAction = LogViewerAction;
 
 interface LogViewerTextSegment extends RenderSpan {
   readonly body?: boolean;
@@ -112,6 +102,7 @@ interface LogViewerVisibleRow {
   readonly text: string;
   readonly spans: readonly RenderSpan[];
   readonly matched: boolean;
+  readonly activeMatch: boolean;
   readonly bodyPositions?: readonly LogViewerBodyPosition[];
 }
 
@@ -139,7 +130,7 @@ const parts = [
   'empty',
   'selection',
   'highlight',
-  'scrollbar',
+  'scrollbarTrack', 'scrollbarThumb',
 ] as const;
 
 const baseDefinition = {
@@ -150,6 +141,7 @@ const baseDefinition = {
   accessibleRole: 'text' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts,
+  visualStates: ['focused', 'hovered', 'active', 'selected', 'disabled'] as const,
   measure: measureLogViewer,
   render: renderLogViewer,
   accessibility: logViewerAccessibility,
@@ -162,8 +154,9 @@ const passiveLogViewer = defineComponent<
   LogViewerStylePart,
   readonly [],
   'required',
-  readonly ['focus', 'layer', 'styles']
->({ ...baseDefinition, prepare: (value) => prepareLogViewer(value, false) });
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'active', 'selected', 'disabled']
+>({ ...baseDefinition, prepare: prepareLogViewer });
 
 const activeLogViewer = defineComponent<
   LogViewerComponentOptions,
@@ -172,10 +165,11 @@ const activeLogViewer = defineComponent<
   LogViewerStylePart,
   readonly [],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'active', 'selected', 'disabled']
 >({
   ...baseDefinition,
-  prepare: (value) => prepareLogViewer(value, true),
+  prepare: prepareLogViewer,
   keys: ({ model }) => {
     const search = searchLogViewerHistory(
       model.history,
@@ -188,10 +182,6 @@ const activeLogViewer = defineComponent<
         arrowDown: () => ({ kind: 'jumpMatch' as const, direction: 1 as const }),
       }),
     };
-  },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: (
     input,
@@ -212,30 +202,21 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
     return passiveLogViewer(options);
   }
   assertRequiredCallback(options.onAction, 'logViewer onAction');
-  assertOptionalCallback(options.onPointerAction, 'logViewer onPointerAction');
   if (options.scroll === undefined) {
-    const { onAction, onPointerAction, ...componentOptions } = options;
+    const { onAction, ...componentOptions } = options;
     return activeLogViewer({
       ...componentOptions,
-      onAction: (action) =>
-        action.kind === 'pointerLifecycle'
-          ? onPointerAction?.(action.action) ?? ignoreMessage()
-          : action.kind === 'scroll' ? ignoreMessage() : onAction(action),
+      onAction: (action) => action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  const { onAction, onPointerAction, ...componentOptions } = options;
+  const { onAction, ...componentOptions } = options;
   return activeLogViewer({
     ...componentOptions,
-    onAction: (action) => action.kind === 'pointerLifecycle'
-      ? onPointerAction?.(action.action) ?? ignoreMessage()
-      : onAction(action),
+    onAction,
   });
 }
 
-function prepareLogViewer(
-  value: Readonly<LogViewerComponentOptions>,
-  pointerAvailable: boolean,
-): LogViewerModel {
+function prepareLogViewer(value: Readonly<LogViewerComponentOptions>): LogViewerModel {
   const history = value.history;
   assertLogHistory(history);
   const wrap = optionalBoolean(value.wrap, 'logViewer wrap') ?? false;
@@ -244,17 +225,18 @@ function prepareLogViewer(
     ? undefined
     : nonEmpty(value.activeMatchId, 'logViewer activeMatchId');
   const foldedIds = prepareStringArray(value.foldedIds);
+  if (activeMatchId !== undefined) {
+    const search = searchLogViewerHistory(history, query, new Set(foldedIds));
+    if (!search.matches.some((match) => match.id === activeMatchId)) {
+      throw new RangeError('logViewer activeMatchId must identify a match for the current query.');
+    }
+  }
   const selection = prepareSelection(value.selection);
   const scroll = prepareComponentScrollState(value.scroll, 'logViewer scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'logViewer scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(
     value.scrollPolicy,
     'logViewer scrollPolicy',
-  );
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'logViewer pointerState',
-    pointerAvailable,
   );
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('logViewer scrollbar and scrollPolicy require scroll state.');
@@ -269,7 +251,6 @@ function prepareLogViewer(
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -306,6 +287,7 @@ function renderLogViewer(input: ComponentRenderInput<LogViewerModel, LogViewerSt
     target: input.target,
     plan: window.scrollbar,
     theme: input.theme,
+    style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     source: (sourceInput) => input.source(sourceInput),
   });
 }
@@ -317,7 +299,6 @@ function logViewerAccessibility(
   return {
     id: input.id,
     role: 'text',
-    label: input.id,
     description: logViewerDescription(input.model, window),
     ...(input.focused ? { focused: true } : {}),
     children: window.rows.map((row) => ({
@@ -325,7 +306,8 @@ function logViewerAccessibility(
       role: 'text' as const,
       label: row.text,
       value: row.text,
-      ...(row.matched ? { description: 'Search match.' } : {}),
+      ...(row.activeMatch ? { current: true, description: 'Current search match.' } :
+        row.matched ? { description: 'Search match.' } : {}),
     })),
   };
 }
@@ -352,8 +334,7 @@ function logViewerWindow(
   const search = searchLogViewerHistory(input.model.history, input.model.query, foldedIds);
   const activeMatch = input.model.activeMatchId === undefined
     ? search.matches[0]
-    : search.matches.find((match) => match.id === input.model.activeMatchId) ??
-      search.matches[0];
+    : search.matches.find((match) => match.id === input.model.activeMatchId);
   const firstMatchRow = activeMatch === undefined
     ? undefined
     : matchingLogViewerRow(input, initialLayout, activeMatch, foldedIds);
@@ -407,6 +388,7 @@ function logViewerWindow(
         input,
         logViewerRecordModel(record, foldedIds.has(record.entry.id)),
         input.model.query,
+        activeMatch,
         selectionForRecord(input.model.history, record, input.model.selection),
         scrollbar.contentBounds.width,
         styled,
@@ -457,7 +439,7 @@ function matchingLogViewerRow(
   const entryStart = logViewerRowForEntry(layout, match.entryIndex);
   if (record === undefined || entryStart === undefined) return undefined;
   const model = logViewerRecordModel(record, foldedIds.has(record.entry.id));
-  const spans = fullLineSpans(input, model, input.model.query, undefined, false);
+  const spans = fullLineSpans(input, model, input.model.query, undefined, undefined, false);
   const rows: number[] = [];
   let row = 0;
   let used = 0;
@@ -493,11 +475,12 @@ function recordRows(
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   record: ReturnType<typeof logViewerRecordModel>,
   query: PreparedCollectionQuery,
+  activeMatch: LogSearchMatch | undefined,
   selection: { readonly start: number; readonly end: number } | undefined,
   width: number,
   styled: boolean,
 ): readonly LogViewerVisibleRow[] {
-  const spans = fullLineSpans(input, record, query, selection, styled);
+  const spans = fullLineSpans(input, record, query, activeMatch, selection, styled);
   const lines = input.model.wrap && width > 0
     ? wrapRenderSpans(spans, width, { widthProfile: input.widthProfile })
     : [{ spans }];
@@ -518,6 +501,7 @@ function recordRows(
       text: line.spans.map((current) => current.text).join(''),
       spans: line.spans,
       matched: line.spans.some((current) => current.source?.partType === 'match'),
+      activeMatch: line.spans.some((current) => current.source?.interactionState === 'active'),
       ...(positions.positions.length === 0 ? {} : { bodyPositions: positions.positions }),
     });
   }));
@@ -529,6 +513,7 @@ function fullLineSpans(
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   record: ReturnType<typeof logViewerRecordModel>,
   query: PreparedCollectionQuery,
+  activeMatch: LogSearchMatch | undefined,
   selection: { readonly start: number; readonly end: number } | undefined,
   styled: boolean,
 ): readonly LogViewerTextSegment[] {
@@ -548,6 +533,8 @@ function fullLineSpans(
         'timestamp.value',
         record.source,
         styled,
+        activeMatch,
+        'timestamp',
       ),
     );
     output.push(
@@ -566,6 +553,9 @@ function fullLineSpans(
         `metadata.${token}.key`,
         record.source,
         styled,
+        activeMatch,
+        'metadataKey',
+        key,
       ),
     );
     output.push(
@@ -588,11 +578,14 @@ function fullLineSpans(
         `metadata.${token}.value`,
         record.source,
         styled,
+        activeMatch,
+        'metadataValue',
+        key,
       ),
     );
   }
   appendGap(output, input, styled);
-  output.push(...bodySegments(input, record, query, selection, styled));
+  output.push(...bodySegments(input, record, query, activeMatch, selection, styled));
   return Object.freeze(output.filter((current) => current.text.length > 0));
 }
 
@@ -602,12 +595,26 @@ function bodySegments(
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   record: ReturnType<typeof logViewerRecordModel>,
   query: PreparedCollectionQuery,
+  activeMatch: LogSearchMatch | undefined,
   selection: { readonly start: number; readonly end: number } | undefined,
   styled: boolean,
 ): readonly LogViewerTextSegment[] {
   const body = record.bodyText;
   if (selection === undefined) {
-    return highlightSegments(input, body, query, 'body', 'body', record.source, styled, true);
+    return highlightSegments(
+      input,
+      body,
+      query,
+      'body',
+      'body',
+      record.source,
+      styled,
+      activeMatch,
+      'body',
+      undefined,
+      true,
+      0,
+    );
   }
   const start = Math.max(0, Math.min(body.length, selection.start));
   const end = Math.max(start, Math.min(body.length, selection.end));
@@ -620,7 +627,11 @@ function bodySegments(
       'body',
       record.source,
       styled,
+      activeMatch,
+      'body',
+      undefined,
       true,
+      0,
     ),
     ...highlightSegments(
       input,
@@ -630,7 +641,11 @@ function bodySegments(
       'body.selection',
       record.source,
       styled,
+      activeMatch,
+      'body',
+      undefined,
       true,
+      start,
     ),
     ...highlightSegments(
       input,
@@ -640,7 +655,11 @@ function bodySegments(
       'body',
       record.source,
       styled,
+      activeMatch,
+      'body',
+      undefined,
       true,
+      end,
     ),
   ];
 }
@@ -655,7 +674,11 @@ function highlightSegments(
   partName: string,
   record: LogHistoryRecord,
   styled: boolean,
+  activeMatch: LogSearchMatch | undefined,
+  field: LogSearchMatch['field'],
+  fieldKey?: string,
   body = false,
+  sourceOffset = 0,
 ): readonly LogViewerTextSegment[] {
   const index = createTerminalTextIndex(text, { widthProfile: input.widthProfile });
   const ranges = query.text.length === 0
@@ -693,6 +716,11 @@ function highlightSegments(
         styled,
         body,
         true,
+        activeMatch?.entryId === record.entry.id &&
+          activeMatch.field === field &&
+          activeMatch.fieldKey === fieldKey &&
+          activeMatch.startOffset === sourceOffset + start &&
+          activeMatch.endOffsetExclusive === sourceOffset + end,
       ),
     );
     cursor = end;
@@ -715,8 +743,11 @@ function segment(
   styled: boolean,
   body = false,
   matched = false,
+  active = false,
 ): LogViewerTextSegment {
-  const style = styled && 'style' in input ? segmentStyle(input, part, record, matched) : undefined;
+  const style = styled && 'style' in input
+    ? segmentStyle(input, part, record, matched, active)
+    : undefined;
   const source = 'source' in input
     ? input.source({
       cellRole: partType === 'delimiter' || part === 'marker' || part === 'empty'
@@ -729,7 +760,9 @@ function segment(
       description: partName,
       itemId: record.entry.id,
       itemIndex: record.entryIndex,
-      ...(part === 'selection' ? { interactionState: 'selected' as const } : {}),
+      ...(active
+        ? { interactionState: 'active' as const }
+        : part === 'selection' ? { interactionState: 'selected' as const } : {}),
     })
     : placeholderSource(partName, partType, record, part === 'selection');
   return {
@@ -745,12 +778,19 @@ function segmentStyle(
   part: LogViewerStylePart,
   record: LogHistoryRecord,
   matched: boolean,
+  active: boolean,
 ): TerminalStyle | undefined {
   const entryStyle = record.entry.style;
   if (matched) {
     return input.style({
       part: 'highlight',
-      base: { ...(entryStyle ?? {}), fg: { kind: 'theme', token: 'menu.match' }, underline: true },
+      ...(active ? { states: ['active'] } : {}),
+      base: {
+        ...(entryStyle ?? {}),
+        fg: { kind: 'theme', token: 'menu.match' },
+        ...(active ? { bg: { kind: 'theme', token: 'selection.background' as const }, bold: true } : {}),
+        underline: true,
+      },
     });
   }
   if (part === 'timestamp') {
@@ -762,7 +802,7 @@ function segmentStyle(
   if (part === 'selection') {
     return input.style({
       part,
-      state: 'selected',
+      states: ['selected'],
       base: { ...(entryStyle ?? {}), bg: { kind: 'theme', token: 'selection.background' } },
     });
   }
@@ -808,6 +848,7 @@ function emptyRow(
     text: current.text,
     spans: [current],
     matched: false,
+    activeMatch: false,
   };
 }
 
@@ -825,6 +866,7 @@ function omissionRow(
     text,
     spans: [current],
     matched: false,
+    activeMatch: false,
   };
 }
 

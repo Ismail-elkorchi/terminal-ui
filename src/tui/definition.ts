@@ -1,8 +1,9 @@
 import { decodeInputTrigger, inputTriggerIdentity } from '../input/index.ts';
+import type { TuiBindingHelpItem } from './types.ts';
 import type { InputTrigger } from '../input/index.ts';
 import type { TuiApp, TuiDefinition, TuiInputBinding } from './types.ts';
 
-const tuiApps = new WeakSet<object>();
+const tuiDefinitions = new WeakMap<object, object>();
 
 export function defineTui<TState, TMessage extends NonNullable<unknown>>(
   definition: TuiDefinition<TState, TMessage>
@@ -22,7 +23,6 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
   const subscriptions = supplied['subscriptions'];
   const onExit = supplied['onExit'];
   const transcript = supplied['transcript'];
-  const suppliedAccessibility = supplied['accessibility'];
   const suppliedNonTty = supplied['nonTty'];
   const id = suppliedId ?? 'tui-app';
   if (typeof id !== 'string' || id.trim() === '') throw new TypeError('TUI id must be a non-empty string.');
@@ -39,7 +39,6 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
     throw new TypeError('TUI transcript must be a boolean when provided.');
   }
   const inputBindings = normalizeInputBindings(suppliedInputBindings);
-  const accessibility = normalizeAccessibility(suppliedAccessibility);
   const nonTty = normalizeNonTty(suppliedNonTty);
   const normalized = Object.freeze({
     id,
@@ -50,18 +49,46 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
     ...(subscriptions === undefined ? {} : { subscriptions }),
     ...(onExit === undefined ? {} : { onExit }),
     ...(transcript === undefined ? {} : { transcript }),
-    ...(accessibility === undefined ? {} : { accessibility }),
     ...(nonTty === undefined ? {} : { nonTty })
   }) as TuiDefinition<TState, TMessage>;
-  const app = Object.freeze({ id, definition: normalized }) as TuiApp<TState, TMessage>;
-  tuiApps.add(app);
+  const app = Object.freeze({ id }) as TuiApp<TState, TMessage>;
+  tuiDefinitions.set(app, normalized);
   return app;
 }
 
 export function assertTuiApp(value: unknown): void {
-  if (!tuiApps.has(value as object)) {
+  if (!tuiDefinitions.has(value as object)) {
     throw new TypeError('TUI app must be created by defineTui().');
   }
+}
+
+export function tuiDefinition<TState, TMessage>(
+  app: TuiApp<TState, TMessage>,
+): TuiDefinition<TState, TMessage> {
+  const definition = tuiDefinitions.get(app);
+  if (definition === undefined) {
+    throw new TypeError('TUI app must be created by defineTui().');
+  }
+  return definition as TuiDefinition<TState, TMessage>;
+}
+
+export function projectTuiBindingHelp<TState, TMessage>(
+  app: TuiApp<TState, TMessage>,
+): readonly TuiBindingHelpItem[] {
+  return Object.freeze((tuiDefinition(app).inputBindings ?? []).flatMap((binding) => {
+    if (binding.label === undefined) return [];
+    const triggers = binding.triggers.filter((trigger): trigger is import('../interaction/key-binding.ts').KeyboardBinding =>
+      trigger.kind === 'key' || trigger.kind === 'codePoint' || trigger.kind === 'physicalKey');
+    if (triggers.length === 0) return [];
+    return [Object.freeze({
+      id: binding.id,
+      label: binding.label,
+      bindings: Object.freeze(triggers.map((trigger) => Object.freeze({
+        binding: trigger,
+        label: binding.label ?? '',
+      }))),
+    })];
+  }));
 }
 
 function normalizeInputBindings<TState, TMessage>(
@@ -164,23 +191,6 @@ function normalizeBindingTriggers(id: string, values: readonly unknown[]): reado
     identities.add(identity);
     return trigger;
   }));
-}
-
-function normalizeAccessibility<TState>(
-  value: unknown,
-): TuiDefinition<TState, unknown>['accessibility'] {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError('TUI accessibility must be an object.');
-  }
-  const describe = (value as Readonly<Record<string, unknown>>)['describe'];
-  if (describe !== undefined && typeof describe !== 'function') {
-    throw new TypeError('TUI accessibility describe must be a function.');
-  }
-  if (describe === undefined) return Object.freeze({});
-  return Object.freeze({
-    describe: describe as NonNullable<NonNullable<TuiDefinition<TState, unknown>['accessibility']>['describe']>,
-  });
 }
 
 function normalizeNonTty(value: unknown): TuiDefinition<unknown, unknown>['nonTty'] {

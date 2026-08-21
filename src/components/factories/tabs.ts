@@ -15,7 +15,6 @@ import type {
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
-import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
   layoutContentBounds,
@@ -23,7 +22,6 @@ import {
   normalizeLayoutFlowOptions,
 } from '../../layout/index.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
-import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/index.ts';
 import { oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type { TabCloseEvent, TabsTransition } from '../../ui-model/tabs.ts';
@@ -53,7 +51,6 @@ interface TabsModel {
   readonly selectedIndex: number;
   readonly activeIndex: number;
   readonly maxTabWidth?: number;
-  readonly pointerState?: PointerInteractionState;
   readonly layout: LayoutFlowOptions;
 }
 
@@ -62,7 +59,6 @@ interface TabsOwnOptions extends LayoutFlowOptions {
   readonly activeId?: string;
   readonly selectedId?: string;
   readonly maxTabWidth?: number;
-  readonly pointerState?: PointerInteractionState;
 }
 
 interface TabOwnOption {
@@ -88,8 +84,7 @@ type TabsFactory = <
 
 type TabsComponentAction =
   | { readonly kind: 'transition'; readonly action: TabsTransition }
-  | { readonly kind: 'close'; readonly event: TabCloseEvent }
-  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+  | { readonly kind: 'close'; readonly event: TabCloseEvent };
 
 const instantiateTabs = defineComponent<
   TabsOwnOptions,
@@ -99,7 +94,8 @@ const instantiateTabs = defineComponent<
   readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
-  typeof tabsSlots
+  typeof tabsSlots,
+  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
 >({
   name: 'terminal-ui/components/tabs',
   identity: 'required',
@@ -110,6 +106,7 @@ const instantiateTabs = defineComponent<
   states: ['disabled', 'busy', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['leading', 'label', 'indicator', 'badge', 'close', 'overflow'],
+  visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'],
   inspection: ({ model }) => ({
     active: model.tabs[model.activeIndex]?.id ?? null,
     selection: Object.freeze({
@@ -118,7 +115,7 @@ const instantiateTabs = defineComponent<
     }) satisfies ComponentInspectionValue,
     collection: { startIndex: 0, totalCount: model.tabs.length, visibleCount: model.tabs.length },
   }),
-  prepare: (value, context) => prepareTabs(value, !context.disabled && !context.inert),
+  prepare: prepareTabs,
   measure(input) {
     const headerWidth = tabHeaderEntries(input)
       .reduce((width, entry, index) => width + entry.width + (index === 0 ? 0 : 1), 0);
@@ -190,10 +187,6 @@ const instantiateTabs = defineComponent<
       ),
     };
   },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
-  },
   focusTargets(input) {
     const content = layoutContentBounds(input.bounds, input.model.layout);
     return content.width === 0 || content.height === 0 ? [] : [{
@@ -258,7 +251,6 @@ export const tabs: TabsFactory = <
     ...(options.presentation.activeId === undefined ? {} : { activeId: options.presentation.activeId }),
     ...(options.presentation.selectedId === undefined ? {} : { selectedId: options.presentation.selectedId }),
     ...(options.maxTabWidth === undefined ? {} : { maxTabWidth: options.maxTabWidth }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
     ...(options.gap === undefined ? {} : { gap: options.gap }),
     ...(options.padding === undefined ? {} : { padding: options.padding }),
     ...(options.margin === undefined ? {} : { margin: options.margin }),
@@ -270,6 +262,7 @@ export const tabs: TabsFactory = <
     ...(options.justify === undefined ? {} : { justify: options.justify }),
     ...(options.overflow === undefined ? {} : { overflow: options.overflow }),
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     tabs: items.map((item) => ({
       id: item.id,
@@ -290,14 +283,12 @@ export const tabs: TabsFactory = <
   if (options.inert === true) return instantiateTabs({ ...shared, inert: true });
   assertRequiredCallback(options.onTransition, 'tabs onTransition');
   assertOptionalCallback(options.onClose, 'tabs onClose');
-  assertOptionalCallback(options.onPointerAction, 'tabs onPointerAction');
   return instantiateTabs({
     ...shared,
     onAction: (action) => {
       if (action.kind === 'close') {
         return options.onClose?.(action.event as TabCloseEvent<TId>) ?? ignoreMessage();
       }
-      if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
       return options.onTransition(action.action as TabsTransition<TId>);
     },
   });
@@ -327,18 +318,16 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
     const selected = index === input.model.selectedIndex;
     const active = index === input.model.activeIndex;
     const targetId = tabTargetId(input.id, tab.id);
-    const pointer = pointerVisualState(input.model.pointerState, targetId);
-    const state = tab.disabled
-      ? 'disabled' as const
-      : pointer ?? (
-        'focus' in input && input.focus === 'self' && active
-          ? 'focused' as const
-          : selected
-          ? 'selected' as const
-          : active
-          ? 'active' as const
-          : undefined
-      );
+    const pointer = pointerVisualState(input.pointerState, targetId);
+    const states = tab.disabled
+      ? ['disabled' as const]
+      : [
+        ...(selected ? ['selected' as const] : []),
+        ...(active ? ['active' as const] : []),
+        ...('focus' in input && input.focus === 'self' && active ? ['focused' as const] : []),
+        ...(pointer === undefined ? [] : [pointer]),
+      ];
+    const state = states.at(-1);
     const base: TerminalStyle = selected
       ? {
         fg: { kind: 'theme', token: 'tab.active.foreground' },
@@ -349,7 +338,7 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
         fg: { kind: 'theme', token: 'tab.inactive.foreground' },
         bg: { kind: 'theme', token: 'surface.background' },
       };
-    const labelStyle = resolveTabStyle(input, 'label', base, state);
+    const labelStyle = resolveTabStyle(input, 'label', base, states);
     const spans: RenderSpan[] = [tabSpan(
       input,
       selected ? oneCellGlyph('▏', '|', { widthProfile: input.widthProfile }) : ' ',
@@ -358,7 +347,7 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
       resolveTabStyle(input, 'indicator', {
         ...labelStyle,
         fg: { kind: 'theme', token: 'tab.indicator' }
-      }, state),
+      }, states),
       tab.id,
       state,
     )];
@@ -369,7 +358,7 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
           inlineSegmentText(segment, input.theme.tokens.symbols.mode),
           'leading',
           `leading.${String(leadingIndex)}`,
-          resolveTabStyle(input, 'leading', segment.style ?? labelStyle, state),
+          resolveTabStyle(input, 'leading', segment.style ?? labelStyle, states),
           tab.id,
           state,
         ));
@@ -387,7 +376,7 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
           fg: { kind: 'theme', token: 'badge.foreground' },
           bg: { kind: 'theme', token: 'badge.background' },
           bold: true,
-        }, state),
+        }, states),
         tab.id,
         state,
       ));
@@ -399,7 +388,7 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
         ' ',
         'close',
         'close.separator',
-        resolveTabStyle(input, 'close', labelStyle, state),
+        resolveTabStyle(input, 'close', labelStyle, states),
         tab.id,
         state,
       ));
@@ -409,7 +398,7 @@ function tabHeaderEntries(input: TabsVisualInput): readonly TabHeaderEntry[] {
         oneCellGlyph('×', 'x', { widthProfile: input.widthProfile }),
         'close',
         'close',
-        resolveTabStyle(input, 'close', labelStyle, state),
+        resolveTabStyle(input, 'close', labelStyle, states),
         tab.id,
         state,
       ));
@@ -592,14 +581,14 @@ function resolveTabStyle(
   input: TabsVisualInput,
   part: TabsStylePart,
   base: TerminalStyle | undefined,
-  state?: 'disabled' | 'selected' | 'focused' | 'hovered' | 'pressed' | 'active',
+  states: readonly ('disabled' | 'selected' | 'focused' | 'hovered' | 'pressed' | 'active')[] = [],
 ): TerminalStyle | undefined {
   return 'style' in input
     ? input.style({
       part,
       ...(base === undefined ? {} : { base }),
-      ...(state === undefined ? {} : { state }),
-      ...(state === 'selected' ? { applyDefaultStateStyle: false } : {}),
+      applyDefaultStateStyle: false,
+      ...(states.length === 0 ? {} : { states }),
     })
     : base;
 }
@@ -645,13 +634,12 @@ function tabsAccessibility(
   return {
     id: input.id,
     role: 'group',
-    label: input.id,
     value: input.model.tabs[input.model.selectedIndex]?.id ?? '',
     ...(input.focused ? { focused: true } : {}),
     children: [{
       id: `${input.id}:tablist`,
       role: 'tablist',
-      label: input.id,
+      ...(input.accessibleName === undefined ? {} : { label: input.accessibleName }),
       orientation: 'horizontal',
       ...(input.model.activeIndex < 0
         ? {}
@@ -661,7 +649,7 @@ function tabsAccessibility(
   };
 }
 
-function prepareTabs(value: Readonly<TabsOwnOptions>, pointerAvailable: boolean): TabsModel {
+function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
   const rawTabs = value.tabs;
   if (rawTabs.length === 0) {
     throw new TypeError('tabs tabs must be a non-empty array.');
@@ -723,17 +711,11 @@ function prepareTabs(value: Readonly<TabsOwnOptions>, pointerAvailable: boolean)
   ) {
     throw new RangeError('tabs maxTabWidth must be a positive safe integer.');
   }
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'tabs pointerState',
-    pointerAvailable,
-  );
   return {
     tabs,
     selectedIndex,
     activeIndex,
     ...(maxTabWidth === undefined ? {} : { maxTabWidth: maxTabWidth }),
-    ...(pointerState === undefined ? {} : { pointerState }),
     layout: normalizeLayoutFlowOptions(value, 'tabs'),
   };
 }

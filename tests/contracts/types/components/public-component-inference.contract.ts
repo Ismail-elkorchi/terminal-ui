@@ -10,13 +10,6 @@ export type Assert<TValue extends true> = TValue;
 const passive = richText({ segments: [] });
 const save = button({ id: 'save', label: 'Save', onAction: () => ({ kind: 'save' } as const) });
 const quit = button({ id: 'quit', label: 'Quit', onAction: () => ({ kind: 'quit', force: true } as const) });
-const controlled = button({
-  id: 'controlled',
-  label: 'Controlled',
-  pointerState: { hoveredTargetId: 'controlled:control' },
-  onAction: () => ({ kind: 'activate' } as const),
-  onPointerAction: (action) => ({ kind: 'pointer', action } as const)
-});
 const toolbar = row([passive, save, quit] as const);
 const wrappedToolbar = semanticToolbar(toolbar, { id: 'toolbar', label: 'Actions' });
 
@@ -27,8 +20,3 @@ export type _Toolbar = Assert<Equal<
   { readonly kind: 'save' } | { readonly kind: 'quit'; readonly force: true }
 >>;
 export type _WrappedToolbar = Assert<Equal<MessageOf<typeof wrappedToolbar>, MessageOf<typeof toolbar>>>;
-type ControlledExpected =
-  | { readonly kind: 'activate' }
-  | { readonly kind: 'pointer'; readonly action: import('@ismail-elkorchi/terminal-ui/interaction').PointerInteractionAction };
-export type _ControlledActual = Assert<MessageOf<typeof controlled> extends ControlledExpected ? true : false>;
-export type _ControlledExpected = Assert<ControlledExpected extends MessageOf<typeof controlled> ? true : false>;

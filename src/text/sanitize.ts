@@ -1,4 +1,5 @@
 import type { RemovedControlSequence, SanitizedTerminalText, SanitizeTerminalTextOptions } from './types.ts';
+import { segmentGraphemesForMeasurement } from './graphemes.ts';
 
 const escape = '\u001B';
 const stringTerminator = String.raw`(?:\u001B\\|\u009C)`;
@@ -11,10 +12,7 @@ const unsafeTerminalSequenceParts = [
   String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]`
 ];
 const unsafeTerminalSequence = new RegExp(unsafeTerminalSequenceParts.join('|'), 'gu');
-const unsafeTerminalCellSequence = new RegExp([
-  ...unsafeTerminalSequenceParts,
-  String.raw`[\u0009\u000A\u000D]`
-].join('|'), 'gu');
+const terminalTabSize = 4;
 const sanitizeCacheWeightLimit = 65_536;
 const sanitizeCacheMaxTextLength = 256;
 const sanitizeCache = new Map<string, SanitizedTerminalText>();
@@ -24,7 +22,15 @@ export function sanitizeTerminalText(
   text: string,
   options: SanitizeTerminalTextOptions = {}
 ): SanitizedTerminalText {
-  return sanitize(text, options, false);
+  return sanitize(text, options, 'multiline');
+}
+
+/** Sanitizes and canonicalizes editable content that must remain on one line. */
+export function sanitizeTerminalSingleLineText(
+  text: string,
+  options: SanitizeTerminalTextOptions = {}
+): SanitizedTerminalText {
+  return sanitize(text, options, 'single-line');
 }
 
 /**
@@ -37,20 +43,19 @@ export function sanitizeTerminalCellText(
   text: string,
   options: SanitizeTerminalTextOptions = {}
 ): SanitizedTerminalText {
-  return sanitize(text, options, true);
+  return sanitize(text, options, 'cell');
 }
 
 function sanitize(
   text: string,
   options: SanitizeTerminalTextOptions,
-  cellText: boolean
+  mode: 'multiline' | 'single-line' | 'cell'
 ): SanitizedTerminalText {
   const replacement = options.replacement ?? '';
-  const isUnsafe = cellText ? hasUnsafeTerminalCellText : hasUnsafeTerminalText;
-  if (isUnsafe(replacement)) {
+  if (hasUnsafeTerminalText(replacement) || /[\t\r\n]/u.test(replacement)) {
     throw new TypeError('Terminal text replacement must not contain control characters or terminal sequences.');
   }
-  const cacheKey = sanitizeCacheKey(text, replacement, cellText);
+  const cacheKey = sanitizeCacheKey(text, replacement, mode);
   if (cacheKey !== undefined) {
     const cached = sanitizeCache.get(cacheKey);
     if (cached !== undefined) {
@@ -59,7 +64,7 @@ function sanitize(
       return cached;
     }
   }
-  if (!isUnsafe(text)) {
+  if (!hasUnsafeTerminalText(text) && !/[\t\r]/u.test(text) && (mode === 'multiline' || !text.includes('\n'))) {
     const result = Object.freeze({
       text,
       changed: false,
@@ -73,8 +78,7 @@ function sanitize(
     return result;
   }
   const removedControlSequences: RemovedControlSequence[] = [];
-  const pattern = cellText ? unsafeTerminalCellSequence : unsafeTerminalSequence;
-  const sanitized = text.replace(pattern, (sequence: string, codeUnitOffset: number) => {
+  const stripped = text.replace(unsafeTerminalSequence, (sequence: string, codeUnitOffset: number) => {
     removedControlSequences.push({
       sequence,
       codeUnitOffset,
@@ -82,9 +86,11 @@ function sanitize(
     });
     return replacement;
   });
+  const multiline = expandTerminalTabs(stripped.replace(/\r\n?/gu, '\n'));
+  const sanitized = mode === 'multiline' ? multiline : multiline.replace(/\n/gu, mode === 'single-line' ? ' ' : '');
   const result = Object.freeze({
     text: sanitized,
-    changed: removedControlSequences.length > 0,
+    changed: removedControlSequences.length > 0 || sanitized !== text,
     removedControlSequences: Object.freeze(removedControlSequences.map((entry) => Object.freeze(entry)))
   });
   if (cacheKey !== undefined) {
@@ -93,10 +99,6 @@ function sanitize(
     trimSanitizeCache();
   }
   return result;
-}
-
-function hasUnsafeTerminalCellText(text: string): boolean {
-  return hasUnsafeTerminalText(text) || /[\t\n\r]/u.test(text);
 }
 
 function hasUnsafeTerminalText(text: string): boolean {
@@ -126,9 +128,35 @@ function isTerminalEscape(sequence: string): boolean {
     || code === 0x9f;
 }
 
-function sanitizeCacheKey(text: string, replacement: string, cellText: boolean): string | undefined {
+function sanitizeCacheKey(
+  text: string,
+  replacement: string,
+  mode: 'multiline' | 'single-line' | 'cell'
+): string | undefined {
   if (text.length > sanitizeCacheMaxTextLength || replacement.length > 16) return undefined;
-  return `${cellText ? 'c' : 't'}:${String(replacement.length)}:${replacement}${String(text.length)}:${text}`;
+  return `${mode}:${String(replacement.length)}:${replacement}${String(text.length)}:${text}`;
+}
+
+function expandTerminalTabs(text: string): string {
+  if (!text.includes('\t')) return text;
+  let column = 0;
+  let result = '';
+  for (const segment of segmentGraphemesForMeasurement(text, {})) {
+    if (segment.text === '\n') {
+      result += '\n';
+      column = 0;
+      continue;
+    }
+    if (segment.text === '\t') {
+      const spaces = terminalTabSize - column % terminalTabSize;
+      result += ' '.repeat(spaces);
+      column += spaces;
+      continue;
+    }
+    result += segment.text;
+    column += segment.cells;
+  }
+  return result;
 }
 
 function trimSanitizeCache(): void {

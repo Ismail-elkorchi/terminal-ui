@@ -11,7 +11,7 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 test('passwordInput masks graphemes and omits its value from accessibility', () => {
   const secret = 'a🙂e\u0301';
-  const frame = renderElementFrame(passwordInput({
+  const frame = renderElementFrame(passwordInput({ meta: { accessibleName: "Password input" },
     id: 'secret',
     presentation: { value: secret, cursor: secret.length },
     onAction: (action) => action
@@ -25,7 +25,7 @@ test('passwordInput masks graphemes and omits its value from accessibility', () 
 });
 
 test('passwordInput maps masked pointer offsets back to source grapheme boundaries', () => {
-  const regions = renderElementRegions(passwordInput({
+  const regions = renderElementRegions(passwordInput({ meta: { accessibleName: "Password input" },
     id: 'secret-pointer',
     presentation: { value: 'a🙂e\u0301', cursor: 0 },
     onAction: (action) => action
@@ -45,9 +45,9 @@ test('passwordInput redacts typed secrets from TUI transcripts', async () => {
   const transcript = createTranscriptRecorder({ id: 'password-input', source: 'tui' });
   const app = defineTui({
     id: 'password-app',
-    init: () => ({ buffer: { text: '', cursor: 0 } }),
+    init: () => ({ state: ({ buffer: { text: '', cursor: 0 } }) }),
     update: (state, action) => ({ state: { buffer: textInputReducer(state.buffer, action) } }),
-    view: (state) => passwordInput({
+    view: (state) => passwordInput({ meta: { accessibleName: "Password input" },
       id: 'password',
       presentation: { value: state.buffer.text, cursor: state.buffer.cursor },
       onAction: (action) => action

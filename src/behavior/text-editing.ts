@@ -1,4 +1,4 @@
-import { applyScrollEvent } from './scroll.ts';
+import { applyScrollEvent, createScrollState } from './scroll.ts';
 import {
   breakEditHistoryGroup,
   createBoundedEditHistory,
@@ -54,7 +54,7 @@ export interface CreateTextAreaStateInput {
   readonly value: string;
   readonly caret?: TextCaret;
   readonly selection?: TextDocumentSelection;
-  readonly scroll: ScrollState;
+  readonly scroll?: ScrollState;
   readonly historyPolicy?: EditHistoryPolicy;
 }
 
@@ -66,7 +66,7 @@ export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaSt
     document,
     caret,
     ...(selection === undefined ? {} : { selection }),
-    scroll: input.scroll,
+    scroll: input.scroll ?? createScrollState(),
     revealCaret: true,
     history: createBoundedEditHistory(input.historyPolicy)
   };

@@ -1,5 +1,3 @@
-import { createAccessibleSnapshot, decodeAccessibleSnapshot } from '../accessibility/index.ts';
-import { diagnostic } from '../diagnostics.ts';
 import type { RenderNode } from '../renderer/model/index.ts';
 import { defaultTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
@@ -23,12 +21,14 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { TerminalGraphicsCommitter } from './graphics-committer.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { FocusPath } from '../interaction/focus.ts';
+import type { PointerVisualSnapshot } from '../interaction/pointer-interaction.ts';
 import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
 import type { LayoutNode, Rect } from '../renderer/contracts.ts';
 import type { RenderRegion } from '../renderer/internal/render.ts';
 import type { RenderBudgetLimits } from '../renderer/internal/render-budget.ts';
 import type { GraphicsBudgetLimits } from '../graphics/index.ts';
 import type { TuiApp, TuiContext, TuiTheme } from './types.ts';
+import { tuiDefinition } from './definition.ts';
 
 export interface RenderCommitCandidate<TMessage> {
   readonly commitId: string;
@@ -53,12 +53,14 @@ export function renderCurrentFrame<TState, TMessage>(
   stateVersion: number,
   commitId: string,
   graphicsBudget?: Partial<GraphicsBudgetLimits>,
+  pointerVisuals?: PointerVisualSnapshot,
 ): RenderCommitCandidate<TMessage> {
-  const renderResult = renderElementInternal(app.definition.view(state, context), context.terminalSize, {
+  const renderResult = renderElementInternal(tuiDefinition(app).view(state, context), context.terminalSize, {
     ...(focusPath === undefined ? {} : { focusPath }),
     theme,
     widthProfile: context.capabilities.unicode.widthProfile,
     ...(graphicsBudget === undefined ? {} : { graphicsBudget }),
+    ...(pointerVisuals === undefined ? {} : { pointerVisuals }),
   });
   return candidateFromRenderResult(app, state, renderResult, stateVersion, commitId);
 }
@@ -70,9 +72,11 @@ export function rerenderCurrentFrame<TState, TMessage>(
   focusPath: FocusPath | undefined,
   stateVersion: number,
   commitId: string,
+  pointerVisuals?: PointerVisualSnapshot,
 ): RenderCommitCandidate<TMessage> {
   const renderResult = rerenderElementInternal<TMessage>(prepared, {
     ...(focusPath === undefined ? {} : { focusPath }),
+    ...(pointerVisuals === undefined ? {} : { pointerVisuals }),
   });
   return candidateFromRenderResult<TState, TMessage>(app, state, renderResult, stateVersion, commitId);
 }
@@ -191,40 +195,12 @@ export function resolveTuiTheme<TState>(theme: TuiTheme<TState> | undefined, sta
 }
 
 function appAccessibility<TState, TMessage>(
-  app: TuiApp<TState, TMessage>,
-  state: TState,
+  _app: TuiApp<TState, TMessage>,
+  _state: TState,
   frame: Frame
 ): AccessibleSnapshot {
-  const tuiAccessibility = Object.freeze({
+  return Object.freeze({
     ...frame.accessibility,
     source: 'tui' as const
-  });
-  const described = app.definition.accessibility?.describe?.(state);
-  if (described === undefined) return tuiAccessibility;
-  let normalized;
-  try {
-    normalized = createAccessibleSnapshot({
-      ...described,
-      source: 'tui',
-      diagnostics: [
-        ...frame.accessibility.diagnostics,
-        ...described.diagnostics,
-      ],
-    });
-  } catch (cause) {
-    const detail = cause instanceof Error ? cause.message : String(cause);
-    return Object.freeze({
-      ...tuiAccessibility,
-      diagnostics: Object.freeze([
-        ...tuiAccessibility.diagnostics,
-        diagnostic('ACCESSIBLE_SNAPSHOT_INVALID', detail),
-      ]),
-    });
-  }
-  const valid = decodeAccessibleSnapshot(normalized);
-  if (valid.status === 'success') return valid.value;
-  return Object.freeze({
-    ...tuiAccessibility,
-    diagnostics: Object.freeze([...tuiAccessibility.diagnostics, valid.error])
   });
 }

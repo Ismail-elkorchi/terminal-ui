@@ -145,8 +145,9 @@ a full rewrite. Render diffs and transcripts remain terminal-neutral.
 
 Themes resolve semantic tokens to terminal styles. Theme symbols provide
 terminal glyph choices for borders, progress, status, and scrollbars.
-Components may accept typed root, part, and visual-state styles through
-`meta.styles`; each component contract defines its available part names.
+Components may accept typed root, part, and visual-state styles through their
+top-level `styles` option; each component contract defines its available part
+and state names.
 Scrollbar helpers use one shared grammar: track cells, thumb cells,
 axis, producing element, and interaction state are source-marked in the frame,
 while the theme supplies only the generic track/thumb symbols and tokens.

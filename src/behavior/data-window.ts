@@ -40,13 +40,7 @@ export function dataWindow(input: DataWindowInput): DataWindow {
         viewportColumns,
         ...(activeIndex === undefined ? {} : { activeIndex })
       })
-    : activeIndex === undefined
-      ? normalizeScrollState(input.scroll, geometry)
-      : scrollReducer(input.scroll, {
-        kind: 'itemIntoView',
-        itemIndex: activeIndex,
-        alignment: 'nearest',
-      }, geometry);
+    : normalizeScrollState(input.scroll, geometry);
   const window = visibleWindowFromScroll(scroll, geometry);
   const activeVisibleIndex = activeIndex === undefined
     || activeIndex < window.startIndex

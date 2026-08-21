@@ -5,27 +5,29 @@ import type { TerminalStyle } from '../visual/render.ts';
 
 export interface RenderNodeStyleInput {
   readonly part: string;
-  readonly state?: ElementVisualState;
+  readonly states?: readonly Exclude<ElementVisualState, 'default'>[];
   readonly applyDefaultStateStyle?: boolean;
   readonly base?: TerminalStyle;
 }
 
 export function resolveRenderNodeStyle(renderNode: RenderNode, input: RenderNodeStyleInput): TerminalStyle | undefined {
+  const activeStates = input.states ?? [];
   return mergeStyles(
-    defaultStyleForPart(input.part),
     input.base,
-    input.applyDefaultStateStyle === false || input.state === undefined || input.state === 'default'
-      ? undefined
-      : defaultStyleForState(input.state),
-    input.part === 'root' ? renderNode.styles?.root : renderNode.styles?.parts?.[input.part],
-    input.state === undefined || input.state === 'default' ? undefined : renderNode.styles?.states?.[input.state]
+    renderNode.styles?.root,
+    input.part === 'root' ? undefined : renderNode.styles?.parts?.[input.part],
+    ...activeStates.flatMap((state) => [
+      input.applyDefaultStateStyle === false ? undefined : defaultStyleForState(state),
+      renderNode.styles?.states?.[state]?.root,
+      input.part === 'root' ? undefined : renderNode.styles?.states?.[state]?.parts?.[input.part],
+    ]),
   );
 }
 
 export function renderNodeStyle(renderNode: RenderNode, part: string, state?: ElementVisualState): TerminalStyle | undefined {
   return resolveRenderNodeStyle(renderNode, {
     part,
-    ...(state === undefined ? {} : { state })
+    ...(state === undefined || state === 'default' ? {} : { states: [state] })
   });
 }
 
@@ -48,31 +50,6 @@ export function defaultStyleForTextRole(role: ElementTextRole): TerminalStyle | 
         bg: { kind: 'theme', token: 'badge.background' },
         bold: true
       };
-  }
-}
-
-export function defaultStyleForPart(part: string): TerminalStyle | undefined {
-  switch (part) {
-    case 'root':
-    case 'content':
-    case 'value':
-      return themeStyle('text.default');
-    case 'border':
-      return themeStyle('surface.border');
-    case 'title':
-      return themeStyle('surface.title', { bold: true });
-    case 'label':
-      return themeStyle('text.strong');
-    case 'placeholder':
-      return themeStyle('input.placeholder');
-    case 'selected':
-      return defaultStyleForState('selected');
-    case 'focused':
-      return defaultStyleForState('focused');
-    case 'disabled':
-      return defaultStyleForState('disabled');
-    default:
-      return undefined;
   }
 }
 
@@ -102,6 +79,10 @@ export function defaultStyleForState(state: ElementVisualState): TerminalStyle |
       return themeStyle('text.disabled', { dim: true });
     case 'active':
       return { bold: true };
+    case 'busy':
+      return { fg: { kind: 'theme', token: 'status.pending' }, bold: true };
+    case 'readOnly':
+      return { fg: { kind: 'theme', token: 'text.muted' } };
   }
 }
 

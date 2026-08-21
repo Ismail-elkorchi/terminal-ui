@@ -16,6 +16,7 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
   type Message = ElementMessage<TChild> | TMessage;
   const childNode = toRenderNode(child);
   const interactive = options.onScroll !== undefined;
+  const keyboardScroll = 'keyboardScroll' in options ? options.keyboardScroll : undefined;
   return layoutElementFromRenderNode<'viewport', Message>({
     ...(interactive
       ? requiredRenderNodeId(options.id, 'viewport')
@@ -28,6 +29,9 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
         : { offsetColumn: options.offset.column }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(keyboardScroll === undefined
+        ? {}
+        : { keyboardScroll }),
       ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
       ...renderNodeLayoutProps(options)
     },

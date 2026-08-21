@@ -19,6 +19,7 @@ import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { measureTextCells } from '../../dist/text/index.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
+import { createScrollState } from '../../dist/behavior/index.js';
 
 test('notificationRegion is a live region with focusable explicit dismiss actions', () => {
   const element = notificationRegion({
@@ -49,9 +50,10 @@ test('notificationRegion is a live region with focusable explicit dismiss action
 });
 
 test('notificationHistory is a controlled listbox over completed notifications', () => {
-  const element = notificationHistory({
+  const element = notificationHistory({ meta: { accessibleName: "Notification history" },
     id: 'history',
     selectedId: 'build',
+    scroll: createScrollState(),
     items: [{
       id: 'build',
       title: 'Build complete',
@@ -218,7 +220,7 @@ test('notification regions omit cards from undersized bounds', () => {
 });
 
 test('notification history keeps tone, progress, and selection meaningful without color', () => {
-  const frame = renderElementFrame(notificationHistory({
+  const frame = renderElementFrame(notificationHistory({ meta: { accessibleName: "Notification history" },
     id: 'history-output',
     items: [{
       id: 'failure',
@@ -228,6 +230,7 @@ test('notification history keeps tone, progress, and selection meaningful withou
       progress: 75
     }],
     selectedId: 'failure',
+    scroll: createScrollState(),
     maxWidth: 28,
     onAction: (action) => action
   }), { columns: 40, rows: 8 }, { theme: highContrastTheme });
@@ -249,7 +252,7 @@ test('notification history keeps tone, progress, and selection meaningful withou
 });
 
 test('notificationHistory rejects invalid runtime contracts during construction', () => {
-  assert.throws(() => notificationHistory({
+  assert.throws(() => notificationHistory({ meta: { accessibleName: "Notification history" },
     id: 'missing-handler',
     items: []
   }), /onAction must be a function/u);

@@ -41,7 +41,7 @@ export const layoutMeasurements = {
       (largest, child) => Math.max(largest, child.preferredWidth),
       0
     );
-    return measureSize(preferredWidth, renderNode.props.viewportRows);
+    return measureSize(preferredWidth, renderNode.props.totalRows);
   },
   viewport: ({ childCount, measureChild }) =>
     combineMeasurementsOverlay(childMeasurements(childCount, measureChild)),

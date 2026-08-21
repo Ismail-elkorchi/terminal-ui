@@ -6,7 +6,6 @@ import {
   button,
   column,
   commandInput,
-  createTerminalHost,
   defineTui,
   dialog,
   dataGrid,
@@ -55,7 +54,7 @@ import type {
   ScrollableTreePresentation,
   TreeTransition,
 } from '@ismail-elkorchi/terminal-ui';
-import type { InputEvent, KeyEvent, MousePointerEvent } from '@ismail-elkorchi/terminal-ui/input';
+import { keyInput, pointerInput } from '@ismail-elkorchi/terminal-ui/testing';
 
 interface Ticket {
   readonly id: string;
@@ -165,7 +164,13 @@ function initialState(): WorkspaceState {
 
 export const interactiveWorkspaceApp = defineTui<WorkspaceState, WorkspaceMessage>({
   id: 'interactive-workspace',
-  init: initialState,
+  init: () => ({
+    state: initialState(),
+    focus: {
+      kind: 'path',
+      path: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command'],
+    },
+  }),
   update: updateWorkspace,
   view: workspaceView,
   inputBindings: [{
@@ -367,6 +372,7 @@ function navigationPane(state: WorkspaceState) {
   return surface(column([
     tree({
       id: 'workspace-tree',
+      meta: { accessibleName: 'Project navigation' },
       view: prepareTreeView(navigationTreeSource, state.tree),
       presentation: state.tree,
       scrollbar: { visible: 'auto' },
@@ -386,6 +392,7 @@ function navigationPane(state: WorkspaceState) {
 function mainPane(state: WorkspaceState) {
   return tabs({
     id: 'workspace-tabs',
+    meta: { accessibleName: 'Workspace panels' },
     maxTabWidth: 28,
     presentation: { activeId: state.tab, selectedId: state.tab },
     tabs: [
@@ -401,6 +408,7 @@ function issuesPanel(state: WorkspaceState) {
   const rows = visibleTickets(state);
   return surface(dataGrid({
     id: 'ticket-table',
+    meta: { accessibleName: 'Issues' },
     rows,
     getRowId: (ticket) => ticket.id,
     columns: tableColumns,
@@ -463,6 +471,7 @@ function commandPane(state: WorkspaceState) {
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 6,
+    meta: { accessibleName: 'Command input' },
     onTransition: (action): WorkspaceMessage => ({ kind: 'command', action }),
     onSubmit: (event): WorkspaceMessage => ({ kind: 'submit', value: event.value })
   }), {
@@ -479,6 +488,7 @@ function searchPickerLayer(state: WorkspaceState) {
         id: 'workspace-search-picker',
         searchPickerIndex: workspaceSearchPickerIndex,
         presentation: searchPickerPresentation(state.searchPicker.state),
+        meta: { accessibleName: 'Command search' },
         onTransition: (action): WorkspaceMessage => ({ kind: 'searchPicker', action }),
         onAccept: (event): WorkspaceMessage => ({ kind: 'acceptSearchPicker', id: event.id }),
       })
@@ -582,17 +592,17 @@ export async function runScriptedWorkspace() {
     await runtime.start();
     const pickerInitiallyClosed = !runtime.state().searchPicker.open;
     await runtime.dispatch({ kind: 'openSearchPicker' });
-    await runtime.handleInput(keyEvent('escape'));
+    await runtime.handleInput(keyInput('escape'));
     const pickerClosedByDismissal = !runtime.state().searchPicker.open;
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput({ kind: 'text', text: 'resolve', paste: false });
     const keyboardSearchPickerQuery = searchPickerPresentation(runtime.state().searchPicker.state).query.text;
-    await runtime.handleInput(keyEvent('enter'));
+    await runtime.handleInput(keyInput('enter'));
     await click(runtime, targetById(runtime, 'workspace-tree:queue:review:body'));
     await click(runtime, targetByPrefix(runtime, 'ticket-table:row:T-103'));
     await click(runtime, targetById(runtime, 'workspace-tabs:tab:activity'));
     const tabSelectedByPointer = runtime.state().tab === 'activity';
-    await runtime.handleInput(keyEvent('arrowLeft'));
+    await runtime.handleInput(keyInput('arrowLeft'));
     const tabSelectedByKeyboard = runtime.state().tab === 'issues';
     await runtime.resize({ columns: 88, rows: 24 });
     const focusValidAfterResize = (runtime.frame()?.focusPath?.length ?? 0) > 0;
@@ -638,38 +648,12 @@ async function click(
   runtime: ReturnType<typeof createTuiRuntime<WorkspaceState, WorkspaceMessage>>,
   target: ReturnType<typeof targetById>
 ): Promise<void> {
-  await runtime.handleInput(mouseEvent('press', target.bounds.row, target.bounds.column, 'left'));
-  await runtime.handleInput(mouseEvent('release', target.bounds.row, target.bounds.column, 'none'));
-}
-
-function keyEvent(key: KeyEvent['key']): KeyEvent {
-  return {
-    kind: 'key',
-    key,
-    sequence: '',
-    modifiers: { shift: false, alt: false, ctrl: false, meta: false },
-    eventType: 'press',
-    location: 'standard'
-  };
-}
-
-function mouseEvent(
-  action: 'press' | 'release',
-  row: number,
-  column: number,
-  button: MousePointerEvent['button']
-): InputEvent {
-  return {
-    kind: 'mouse',
-    sequence: '',
-    encoding: 'sgr',
-    action,
-    button,
-    row,
-    column,
-    rawCode: 0,
-    modifiers: { shift: false, alt: false, ctrl: false }
-  };
+  await runtime.handleInput(pointerInput({
+    action: 'press', row: target.bounds.row, column: target.bounds.column, button: 'left',
+  }));
+  await runtime.handleInput(pointerInput({
+    action: 'release', row: target.bounds.row, column: target.bounds.column, button: 'none',
+  }));
 }
 
 const isMain = process.argv[1] !== undefined
@@ -677,15 +661,8 @@ const isMain = process.argv[1] !== undefined
 
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY && !process.argv.includes('--scripted')) {
-    const host = createTerminalHost({ runtime: 'node' });
-    try {
-      const exit = await runTui(interactiveWorkspaceApp, host, {
-        initialFocus: { kind: 'path', path: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command'] }
-      });
-      if (exit.status !== 'completed') process.exitCode = 1;
-    } finally {
-      await host.dispose();
-    }
+    const exit = await runTui(interactiveWorkspaceApp);
+    if (exit.status !== 'completed') process.exitCode = 1;
   } else {
     console.log(JSON.stringify(await runScriptedWorkspace()));
   }

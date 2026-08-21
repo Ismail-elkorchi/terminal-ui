@@ -22,19 +22,18 @@ import {
 } from '../helpers/component-definition.mjs';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { createScrollState } from '../../dist/behavior/index.js';
 
 test('element inspection exposes an immutable factory description without implementation payloads', () => {
   const element = surface(column([
-    textInput({
+    textInput({ meta: { accessibleName: "Text input" },
       id: 'query',
       presentation: { value: '', cursor: 0 },
       onAction: (action) => ({ kind: 'query', action }),
-      meta: {
-        styles: {
+      styles: {
           parts: { value: { bold: true } },
-          states: { focused: { underline: true } }
+          states: { focused: { root: { underline: true } } }
         }
-      }
     }),
     button({ id: 'submit', label: 'Search', onAction: () => ({ kind: 'submit' }) })
   ], { id: 'controls' }), { id: 'panel', appearance: 'raised' });
@@ -49,9 +48,24 @@ test('element inspection exposes an immutable factory description without implem
   assert.equal(controls?.factory.name, 'column');
   assert.equal(query?.component?.accessibleRole, 'textbox');
   assert.deepEqual(query?.component?.actions, ['keyboard', 'input', 'paste', 'pointer']);
+  assert.deepEqual(
+    query?.component?.styleParts,
+    ['border', 'label', 'value', 'placeholder', 'selection', 'cursor', 'error'],
+  );
+  assert.deepEqual(
+    query?.component?.visualStates,
+    ['focused', 'selected', 'disabled', 'readOnly'],
+  );
+  assert.deepEqual(query?.meta.configuredStyleParts, ['value']);
+  assert.deepEqual(query?.meta.configuredStyleStates, ['focused']);
   assert.deepEqual(query?.semantic?.validation, { required: false, invalid: false });
   assert.equal(query?.semantic?.value, '');
   assert.equal(submit?.component?.accessibleRole, 'button');
+  assert.deepEqual(submit?.component?.styleParts, ['frame', 'marker', 'leading', 'label', 'trailing']);
+  assert.deepEqual(
+    submit?.component?.visualStates,
+    ['focused', 'hovered', 'pressed', 'disabled', 'busy'],
+  );
   assert.equal(submit?.semantic, undefined);
   assert.equal(Object.isFrozen(inspection), true);
   assert.equal(Object.isFrozen(inspection.children), true);
@@ -80,7 +94,7 @@ test('element inspection identifies defined components without exposing their de
 });
 
 test('element inspection never exposes sensitive prepared input', () => {
-  const inspection = inspectElement(passwordInput({
+  const inspection = inspectElement(passwordInput({ meta: { accessibleName: "Password input" },
     id: 'secret',
     presentation: { value: 'correct horse battery staple', cursor: 28 },
     required: true,
@@ -95,12 +109,12 @@ test('element inspection never exposes sensitive prepared input', () => {
 
 test('built-in inspection summarizes valid values larger than its tooling budget', () => {
   const value = 'x'.repeat(5_000);
-  const inputInspection = inspectElement(textInput({
+  const inputInspection = inspectElement(textInput({ meta: { accessibleName: "Text input" },
     id: 'large-input',
     presentation: { value, cursor: value.length },
     disabled: true
   }));
-  const areaInspection = inspectElement(textArea({
+  const areaInspection = inspectElement(textArea({ meta: { accessibleName: "Text area" },
     id: 'large-area',
     presentation: {
       document: prepareTextDocument(value),
@@ -282,9 +296,10 @@ test('element inspection reports factory-declared focus capability instead of ge
     items: [{ id: 'one', title: 'One' }],
     onAction: (action) => action
   });
-  const notificationArchive = notificationHistory({
+  const notificationArchive = notificationHistory({ meta: { accessibleName: "Notification history" },
     id: 'notification-archive',
     items: [],
+    scroll: createScrollState(),
     onAction: (action) => action
   });
   assert.equal(inspectElement(dismissibleNotifications).inputs.focus, 'item');

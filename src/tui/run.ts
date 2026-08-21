@@ -6,6 +6,7 @@ import {
   tuiSnapshot
 } from './lifecycle.ts';
 import { createTerminalHost } from '../host/index.ts';
+import { TerminalUiError } from '../errors.ts';
 import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntimeWithCapabilitySnapshot } from './runtime.ts';
 import { assertTuiApp } from './definition.ts';
@@ -21,14 +22,12 @@ import type {
   DiagnosticOccurrenceReporter,
   TerminalDiagnostic
 } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
 import type { TuiLifecyclePhase } from './lifecycle-phase.ts';
 import type { NormalizedTuiRunOptions } from './run-configuration.ts';
 import type { TuiApp, TuiExit, TuiRunOptions, TuiRuntime } from './types.ts';
 
 export async function runTui<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
-  host?: TerminalHost,
   options: TuiRunOptions<TState> = {}
 ): Promise<TuiExit<TState>> {
   assertTuiApp(app);
@@ -38,16 +37,16 @@ export async function runTui<TState, TMessage>(
   try {
     normalized = normalizeTuiRunOptions(options);
   } catch (cause) {
-    return withTuiTranscript(errorExit(app.id, reportDiagnostics(diagnosticReporter, [
+    throw new TuiRunError(withTuiTranscript(errorExit(app.id, reportDiagnostics(diagnosticReporter, [
       diagnostic('TUI_RUN_FAILED', 'TUI run configuration is invalid.', {
         target: app.id,
         cause,
         data: { phase: 'configuration' }
       })
-    ])), transcript);
+    ])), transcript));
   }
-  const ownsHost = host === undefined;
-  const terminalHost = host ?? createTerminalHost();
+  const ownsHost = normalized.host === undefined;
+  const terminalHost = normalized.host ?? createTerminalHost();
   const signals = createTuiSignalQueue(terminalHost.signals.subscribe.bind(terminalHost.signals));
   const lifecycle = new TuiRunLifecycleOwner(app, terminalHost, ownsHost, normalized, transcript);
   const inputSuspension = new TuiInputSuspensionController();
@@ -75,6 +74,7 @@ export async function runTui<TState, TMessage>(
     canReacquire: () => lifecycle.phase === 'runtime_active'
   });
   let exit: TuiExit<TState> | undefined;
+  let nonTtyExit: TuiExit<TState> | undefined;
   let failure: unknown;
   let setupFailed = false;
   let setupFailureDiagnostic: TerminalDiagnostic | undefined;
@@ -94,7 +94,7 @@ export async function runTui<TState, TMessage>(
       ],
       signal
     }));
-    const nonTtyExit = await runTuiNonTty(
+    const nonTtyResult = await runTuiNonTty(
       app,
       terminalHost,
       ownsHost,
@@ -102,55 +102,60 @@ export async function runTui<TState, TMessage>(
       normalized,
       capabilities
     );
-    if (nonTtyExit !== undefined) {
+    if (nonTtyResult !== undefined) {
       signals.dispose();
-      return withTuiTranscript(nonTtyExit, transcript);
-    }
-    assertRequiredGraphics(normalized.graphics, capabilities);
-    const openedSession = await startupPhase('session', async () => terminalHost.beginSession({ id: app.id }));
-    lifecycle.openSession(openedSession);
-    const setup = await startupPhase('setup', async (signal) =>
-      setupTuiSession(openedSession, normalized.sessionPolicy, { signal }));
-    setupDiagnostics.push(...setup.diagnostics);
-    if (setup.status === 'failed') {
-      setupFailed = true;
-      setupFailureDiagnostic = diagnostic(
-        'HOST_PROTOCOL_UNSUPPORTED',
-        'Required terminal session protocol setup failed.',
-        {
-          target: app.id,
-          data: {
-            applied: setup.applied.map((item) => item.kind),
-            skipped: setup.skipped.map((item) => item.kind)
-          }
-        }
-      );
+      nonTtyExit = nonTtyResult;
     } else {
-      const runtime = createTuiRuntimeWithCapabilitySnapshot({
-        app,
-        host: terminalHost,
-        graphics: normalized.graphics,
-        graphicsBudget: normalized.graphicsBudget,
-        ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),
-        ...(normalized.theme === undefined ? {} : { theme: normalized.theme }),
-        withTerminalSuspended,
-        input: {
-          capabilities: openedSession.capabilities,
-          ...inputProfileForSession(setup),
-          escapeDelayMs: normalized.input.escapeDelayMs
-        },
-        diagnostics: setupDiagnostics,
-        ...(transcript === undefined ? {} : { transcript })
-      }, openedSession.capabilities);
-      lifecycle.activateRuntime(runtime);
-      await startupPhase('runtime_start', async () => runtime.start());
-      exit = await runTuiInputLoop(runtime, terminalHost, app.id, transcript, (retirement) => {
-        lifecycle.retireInput(retirement);
-      }, inputSuspension, signals);
-      lifecycle.complete(exit);
+      assertRequiredGraphics(normalized.graphics, capabilities);
+      const openedSession = await startupPhase('session', async () => terminalHost.beginSession({ id: app.id }));
+      lifecycle.openSession(openedSession);
+      const setup = await startupPhase('setup', async (signal) =>
+        setupTuiSession(openedSession, normalized.sessionPolicy, { signal }));
+      setupDiagnostics.push(...setup.diagnostics);
+      if (setup.status === 'failed') {
+        setupFailed = true;
+        setupFailureDiagnostic = diagnostic(
+          'HOST_PROTOCOL_UNSUPPORTED',
+          'Required terminal session protocol setup failed.',
+          {
+            target: app.id,
+            data: {
+              applied: setup.applied.map((item) => item.kind),
+              skipped: setup.skipped.map((item) => item.kind)
+            }
+          }
+        );
+      } else {
+        const runtime = createTuiRuntimeWithCapabilitySnapshot({
+          app,
+          host: terminalHost,
+          graphics: normalized.graphics,
+          graphicsBudget: normalized.graphicsBudget,
+          ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),
+          ...(normalized.theme === undefined ? {} : { theme: normalized.theme }),
+          withTerminalSuspended,
+          input: {
+            capabilities: openedSession.capabilities,
+            ...inputProfileForSession(setup),
+            escapeDelayMs: normalized.input.escapeDelayMs
+          },
+          diagnostics: setupDiagnostics,
+          ...(transcript === undefined ? {} : { transcript })
+        }, openedSession.capabilities);
+        lifecycle.activateRuntime(runtime);
+        await startupPhase('runtime_start', async () => runtime.start());
+        exit = await runTuiInputLoop(runtime, terminalHost, app.id, transcript, (retirement) => {
+          lifecycle.retireInput(retirement);
+        }, inputSuspension, signals);
+        lifecycle.complete(exit);
+      }
     }
   } catch (cause) {
     failure = cause;
+  }
+
+  if (nonTtyExit !== undefined) {
+    return operationalExit(withTuiTranscript(nonTtyExit, transcript));
   }
 
   const finalization = await lifecycle.finalize(
@@ -176,15 +181,18 @@ export async function runTui<TState, TMessage>(
         ...finalization.diagnostics
       ])
     );
-    return withTuiTranscript(errorExitFromRuntime(app.id, lifecycle.runtime, exit, terminalDiagnostics), transcript);
+    throw new TuiRunError(withTuiTranscript(
+      errorExitFromRuntime(app.id, lifecycle.runtime, exit, terminalDiagnostics),
+      transcript,
+    ));
   }
-  return withTuiTranscript({
+  return operationalExit(withTuiTranscript({
     ...exit,
     diagnostics: mergeOccurrences(
       exit.diagnostics,
       reportDiagnostics(diagnosticReporter, finalization.diagnostics)
     )
-  }, transcript);
+  }, transcript));
 
   async function startupPhase<TValue>(
     phase: Extract<TuiLifecyclePhase, 'capabilities' | 'session' | 'setup' | 'runtime_start'>,
@@ -203,6 +211,33 @@ export async function runTui<TState, TMessage>(
   }
 }
 
+export class TuiRunError<TState = unknown> extends TerminalUiError {
+  override readonly name = 'TuiRunError';
+  readonly exit: Extract<TuiExit<TState>, { readonly status: 'error' }>;
+
+  constructor(exit: Extract<TuiExit<TState>, { readonly status: 'error' }>) {
+    super(primaryRunFailureMessage(exit), { cause: primaryRunFailureCause(exit) });
+    this.exit = exit;
+  }
+}
+
+function operationalExit<TState>(exit: TuiExit<TState>): TuiExit<TState> {
+  if (exit.status === 'error') throw new TuiRunError(exit);
+  return exit;
+}
+
+function primaryRunFailureMessage<TState>(exit: TuiExit<TState>): string {
+  const occurrence = [...exit.diagnostics].reverse().find(({ diagnostic: item }) =>
+    item.severity === 'fatal' || item.severity === 'error');
+  return occurrence?.diagnostic.message ?? 'TUI run failed.';
+}
+
+function primaryRunFailureCause<TState>(exit: TuiExit<TState>): unknown {
+  const occurrence = [...exit.diagnostics].reverse().find(({ diagnostic: item }) =>
+    item.severity === 'fatal' || item.severity === 'error');
+  return occurrence?.diagnostic.cause;
+}
+
 function assertRequiredGraphics(
   mode: import('../graphics/index.ts').TerminalGraphicsMode,
   capabilities: import('../host/index.ts').TerminalCapabilityProfile,
@@ -218,7 +253,10 @@ function assertRequiredGraphics(
   )) throw new Error('SIXEL graphics were required but support or cell pixel geometry is unavailable.');
 }
 
-function errorExit<TState>(id: string, diagnostics: readonly DiagnosticOccurrence[]): TuiExit<TState> {
+function errorExit<TState>(
+  id: string,
+  diagnostics: readonly DiagnosticOccurrence[],
+): Extract<TuiExit<TState>, { readonly status: 'error' }> {
   return { status: 'error', diagnostics, snapshot: tuiSnapshot(id) };
 }
 
@@ -227,7 +265,7 @@ function errorExitFromRuntime<TState, TMessage>(
   runtime: TuiRuntime<TState, TMessage> | undefined,
   exit: TuiExit<TState> | undefined,
   diagnostics: readonly DiagnosticOccurrence[]
-): TuiExit<TState> {
+): Extract<TuiExit<TState>, { readonly status: 'error' }> {
   if (exit !== undefined && 'state' in exit) {
     return { status: 'error', state: exit.state, diagnostics, snapshot: exit.snapshot };
   }

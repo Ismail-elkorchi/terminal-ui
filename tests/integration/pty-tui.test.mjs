@@ -23,13 +23,14 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
   assert.equal(harness.snapshot().root.role, 'group');
   const app = defineTui({
     id: 'pty-success',
-    init: () => ({ submitted: false }),
+    init: () => ({ state: ({ submitted: false }) }),
     update: (_state, message) => ({
       state: { submitted: message.submitted },
       ...(message.submitted ? { exit: { reason: 'submitted' } } : {})
     }),
     view: (state) => textInput({
       id: 'submit',
+      meta: { accessibleName: 'Submission' },
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onAction: (action) => action.kind === 'submit'
         ? { submitted: true }
@@ -37,7 +38,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
     })
   });
 
-  const running = runTui(app, harness.host);
+  const running = runTui(app, { host: harness.host });
   await waitUntil(() => harness.frames().length === 1);
   await harness.input(enterKey);
   const exit = await running;
@@ -67,12 +68,12 @@ test('PTY harness restores full-screen protocols on interrupt signals', async ()
   const harness = result.harness;
   const app = defineTui({
     id: 'pty-interrupt',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'waiting', id: 'waiting' })
   });
 
-  const running = runTui(app, harness.host);
+  const running = runTui(app, { host: harness.host });
   await waitUntil(() => harness.frames().length === 1);
   await harness.input({ kind: 'signal', signal: 'SIGINT' });
   const exit = await running;

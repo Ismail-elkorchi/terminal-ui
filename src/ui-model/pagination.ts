@@ -4,3 +4,5 @@ export type PaginationAction =
   | { readonly kind: 'next' }
   | { readonly kind: 'last' }
   | { readonly kind: 'select'; readonly pageNumber: number };
+
+export type PaginationTransition = Exclude<PaginationAction, { readonly kind: 'select' }>;

@@ -173,6 +173,23 @@ export function renderNodeKeyChainForFocus<TMessage>(
   return uniqueRenderNodes([focused.renderNode, ...ancestors]);
 }
 
+export function renderNodeLayoutKeyChainForFocus<TMessage>(
+  renderNode: RenderNode<TMessage>,
+  layout: LayoutNode,
+  path: FocusPath | undefined
+): readonly RenderNodeLayoutTarget<TMessage>[] {
+  if (path === undefined || findRenderNodeFocusTarget(renderNode, layout, path) === undefined) return [];
+  const seen = new Set<RenderNode<TMessage>>();
+  return collectRenderNodeLayoutTargets(renderNode, layout)
+    .filter((target) => pathStartsWith(path, target.path))
+    .toSorted((left, right) => right.path.length - left.path.length)
+    .filter((target) => {
+      if (seen.has(target.renderNode)) return false;
+      seen.add(target.renderNode);
+      return true;
+    });
+}
+
 export function focusPathIncludes(left: FocusPath | undefined, right: FocusPath): boolean {
   return left !== undefined && focusPathsEqual(left, right);
 }

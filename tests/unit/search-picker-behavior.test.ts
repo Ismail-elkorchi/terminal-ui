@@ -80,7 +80,7 @@ void test('activeSearchPickerEntry returns stable-id activation rather than arra
   assert.equal(activeSearchPickerEntry({ searchPickerIndex: index, presentation })?.id, 'close');
 });
 
-void test('windowing derives geometry and keeps an offscreen active id visible', () => {
+void test('windowing preserves explicit scroll with an offscreen active id', () => {
   const manyIndex = prepareSearchPickerIndex(Array.from({ length: 5 }, (_, entryIndex) => ({
     id: String(entryIndex),
     label: `Entry ${String(entryIndex)}`,
@@ -93,8 +93,9 @@ void test('windowing derives geometry and keeps an offscreen active id visible',
     scroll: createScrollState(),
     limit: 3,
   });
-  assert.deepEqual(window.entries.map((entry) => entry.id), ['2', '3', '4']);
-  assert.equal(window.activeIndex, 2);
+  assert.deepEqual(window.entries.map((entry) => entry.id), ['0', '1', '2']);
+  assert.equal(window.activeIndex, undefined);
+  assert.equal(window.activeEntry?.id, '4');
   assert.equal(window.totalCount, 5);
 });
 

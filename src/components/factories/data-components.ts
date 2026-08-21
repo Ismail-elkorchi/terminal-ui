@@ -31,8 +31,6 @@ import {
 } from '../../foundation/validation.ts';
 import {
   pointerVisualState,
-  preparePointerInteractionState,
-  type PointerInteractionState,
 } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -56,7 +54,6 @@ import type {
   TreeVisibleRow,
 } from '../../ui-model/tree.ts';
 import { ownSelectionState, type SelectionState } from '../../interaction/collection.ts';
-import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
 import type { TableColumn, TableColumnWidth } from '../../ui-model/content.ts';
 import type { TableStylePart, TreeStylePart } from '../../ui-model/style-parts.ts';
 import { matchPreparedCollectionQuery, prepareCollectionQuery, prepareQueryCandidate } from '../../text/query.ts';
@@ -138,7 +135,6 @@ interface TableModel {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly pointerState?: PointerInteractionState;
 }
 
 interface PreparedTableSource {
@@ -174,8 +170,9 @@ const tableBase = {
     'metric',
     'metadata',
     'empty',
-    'scrollbar',
+    'scrollbarTrack', 'scrollbarThumb',
   ] as const,
+  visualStates: ['active', 'selected'] as const,
   measure: measureTable,
   render: paintTable,
   accessibility: tableAccessibility,
@@ -212,13 +209,13 @@ const passiveTable = defineComponent<
   TableStylePart,
   readonly [],
   'required',
-  readonly ['layer', 'styles']
+  readonly ['layer', 'styles'],
+  readonly ['active', 'selected']
 >({ ...tableBase, name: 'terminal-ui/components/table' });
 
 type DataGridComponentAction =
   | { readonly kind: 'transition'; readonly transition: DataGridTransition }
-  | { readonly kind: 'activate'; readonly event: DataGridActivateEvent }
-  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+  | { readonly kind: 'activate'; readonly event: DataGridActivateEvent };
 
 const scrollableTable = defineComponent<
   TableModel,
@@ -227,7 +224,8 @@ const scrollableTable = defineComponent<
   TableStylePart,
   readonly [],
   'required',
-  readonly ['layer', 'styles']
+  readonly ['layer', 'styles'],
+  readonly ['active', 'selected']
 >({
   ...tableBase,
   name: 'terminal-ui/components/table',
@@ -241,13 +239,15 @@ const activeDataGrid = defineComponent<
   TableStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
 >({
   ...tableBase,
   name: 'terminal-ui/components/data-grid',
   accessibleRole: 'grid',
   metadata: ['focus', 'layer', 'styles'],
   states: ['disabled', 'busy', 'inert'],
+  visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'],
   keys: ({ model, busy }) => {
     if (busy) return {};
     const active = activeTablePosition(model);
@@ -306,7 +306,6 @@ const activeDataGrid = defineComponent<
       }),
     };
   },
-  pointer: { state: ({ model }) => model.pointerState, onAction: (action) => ({ kind: 'pointer', action }) },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: (input) => input.busy ? [] : tableHitTargets(input),
 });
@@ -314,10 +313,11 @@ const activeDataGrid = defineComponent<
 export function table<TRow, const TMessage extends ComponentMessage = never>(
   options: TableOptions<TRow, TMessage>,
 ): Element<TMessage> {
-  const prepared = prepareTable(options, 'table', options.scroll?.state, false);
+  const prepared = prepareTable(options, 'table', options.scroll?.state);
   const componentOptions = {
     ...prepared,
     id: options.id,
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   const scroll = options.scroll;
@@ -337,33 +337,26 @@ export function dataGrid<
   TRow,
   const TTransitionMessage extends ComponentMessage = never,
   const TActivateMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
->(options: ScrollableDataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage>;
+>(options: ScrollableDataGridOptions<TRow, TTransitionMessage, TActivateMessage>): Element<TTransitionMessage | TActivateMessage>;
 export function dataGrid<
   TRow,
   const TTransitionMessage extends ComponentMessage = never,
   const TActivateMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
->(options: UnscrolledDataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage>;
+>(options: UnscrolledDataGridOptions<TRow, TTransitionMessage, TActivateMessage>): Element<TTransitionMessage | TActivateMessage>;
 /* eslint-enable @typescript-eslint/unified-signatures */
 export function dataGrid<
   TRow,
   const TTransitionMessage extends ComponentMessage = never,
   const TActivateMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
 >(
-  options: DataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>,
-): Element<TTransitionMessage | TActivateMessage | TPointerMessage> {
-  const prepared = prepareTable(
-    options,
-    'grid',
-    undefined,
-    options.disabled !== true && options.inert !== true,
-  );
+  options: DataGridOptions<TRow, TTransitionMessage, TActivateMessage>,
+): Element<TTransitionMessage | TActivateMessage> {
+  const prepared = prepareTable(options, 'grid');
   const shared = {
     ...prepared,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return activeDataGrid({
@@ -374,7 +367,6 @@ export function dataGrid<
   if (options.inert === true) return activeDataGrid({ ...shared, inert: true });
   assertRequiredCallback(options.onTransition, 'dataGrid onTransition');
   assertOptionalCallback(options.onActivate, 'dataGrid onActivate');
-  assertOptionalCallback(options.onPointerAction, 'dataGrid onPointerAction');
   const onTransition = isScrollableDataGrid(options)
     ? (transition: DataGridTransition) => options.onTransition(transition)
     : (transition: DataGridTransition) => transition.kind === 'scroll'
@@ -384,8 +376,7 @@ export function dataGrid<
     ...shared,
     onAction: (action) => {
       if (action.kind === 'transition') return onTransition(action.transition);
-      if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
-      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      return options.onActivate?.(action.event) ?? ignoreMessage();
     },
   });
 }
@@ -394,20 +385,18 @@ function isScrollableDataGrid<
   TRow,
   TTransitionMessage extends ComponentMessage,
   TActivateMessage extends ComponentMessage,
-  TPointerMessage extends ComponentMessage,
 >(
-  options: DataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage>,
-): options is ScrollableDataGridOptions<TRow, TTransitionMessage, TActivateMessage, TPointerMessage> {
+  options: DataGridOptions<TRow, TTransitionMessage, TActivateMessage>,
+): options is ScrollableDataGridOptions<TRow, TTransitionMessage, TActivateMessage> {
   return options.presentation.scroll !== undefined;
 }
 
 function prepareTable<TRow, TMessage extends ComponentMessage>(
-  value: Readonly<TableOptions<TRow, TMessage> | DataGridOptions<TRow, ComponentMessage, ComponentMessage, ComponentMessage>>,
+  value: Readonly<TableOptions<TRow, TMessage> | DataGridOptions<TRow, ComponentMessage, ComponentMessage>>,
   semanticRole: 'table' | 'grid',
   passiveScroll?: ScrollState,
-  pointerAvailable = true,
 ): TableModel {
-  const source = tableSource(value);
+  const source = tableSource<TRow, TMessage>(value);
   const preparation = prepareTableStructure(value.columns, source);
   const columns = preparation.columns;
   const presentation = prepareTablePresentation(
@@ -420,11 +409,6 @@ function prepareTable<TRow, TMessage extends ComponentMessage>(
   if (
     presentation.scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)
   ) throw new TypeError('table scrollbar and scrollPolicy require scroll state.');
-  const pointerState = preparePointerInteractionState(
-    'pointerState' in value ? value.pointerState : undefined,
-    'dataGrid pointerState',
-    pointerAvailable,
-  );
   if (semanticRole === 'grid') {
     validateDataGridPresentation(presentation, columns);
   }
@@ -453,7 +437,6 @@ function prepareTable<TRow, TMessage extends ComponentMessage>(
     ...(presentation.scroll === undefined ? {} : { scroll: presentation.scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -507,7 +490,7 @@ interface TableSource<TRow = unknown> {
 }
 
 function tableSource<TRow, TMessage extends ComponentMessage>(
-  value: Readonly<TableOptions<TRow, TMessage> | DataGridOptions<TRow, ComponentMessage, ComponentMessage, ComponentMessage>>,
+  value: Readonly<TableOptions<TRow, TMessage> | DataGridOptions<TRow, ComponentMessage, ComponentMessage>>,
 ): TableSource<TRow> {
   if (value.collection !== undefined) {
     const collection = value.collection;
@@ -1131,6 +1114,7 @@ function paintTable(input: ComponentRenderInput<TableModel, TableStylePart>): vo
     target: input.target,
     plan: plan.geometry,
     theme: input.theme,
+    style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     source: (sourceInput) => input.source(sourceInput),
   });
 }
@@ -1241,16 +1225,21 @@ function tableRowSpans(
   const selected = input.model.selectedRowIds.includes(row.id);
   const active = input.model.activeRowId === row.id;
   const rowTargetId = `${input.id ?? 'table'}:row:${row.id}`;
-  const pointer = pointerVisualState(input.model.pointerState, rowTargetId);
-  const rowState = pointer ?? (selected ? 'selected' : active ? 'active' : undefined);
+  const pointer = pointerVisualState(input.pointerState, rowTargetId);
+  const rowStates = [
+    ...(selected ? ['selected' as const] : []),
+    ...(active ? ['active' as const] : []),
+    ...(pointer === undefined ? [] : [pointer]),
+  ];
+  const rowState = rowStates.at(-1);
   const rowStyle = input.style({
     part: 'row',
-    ...(rowState === undefined ? {} : { state: rowState }),
+    ...(rowStates.length === 0 ? {} : { states: rowStates }),
   });
   const markerStyle = input.style({
     part: 'marker',
     ...(rowStyle === undefined ? {} : { base: rowStyle }),
-    ...(rowState === undefined ? {} : { state: rowState }),
+    ...(rowStates.length === 0 ? {} : { states: rowStates }),
   });
   const marker = selected && !terminalStyleHasBackground(markerStyle, input.theme)
     ? input.theme.tokens.symbols.selected
@@ -1289,9 +1278,14 @@ function tableRowSpans(
     const cellActive = input.model.interactionKind === 'cell' && input.model.activeRowId === row.id &&
       input.model.activeColumnId === column.id;
     const cellTargetId = `${input.id ?? 'table'}:row:${row.id}:cell:${String(column.index)}`;
-    const cellPointer = pointerVisualState(input.model.pointerState, cellTargetId);
-    const cellState = cellPointer ??
-      (cellSelected ? 'selected' : cellActive ? 'active' : input.model.interactionKind === 'row' ? rowState : undefined);
+    const cellPointer = pointerVisualState(input.pointerState, cellTargetId);
+    const cellStates = input.model.interactionKind === 'row'
+      ? rowStates
+      : [
+        ...(cellSelected ? ['selected' as const] : []),
+        ...(cellActive ? ['active' as const] : []),
+        ...(cellPointer === undefined ? [] : [cellPointer]),
+      ];
     result.push(
       ...tableCellSpans(
         input,
@@ -1300,7 +1294,7 @@ function tableRowSpans(
         plan.widths[visibleIndex] ?? 1,
         column,
         rowStyle,
-        cellState,
+        cellStates,
       ),
     );
   });
@@ -1314,8 +1308,9 @@ function tableCellSpans(
   width: number,
   column: PreparedTableColumn,
   rowStyle: TerminalStyle | undefined,
-  state: 'active' | 'disabled' | 'focused' | 'hovered' | 'pressed' | 'selected' | undefined,
+  states: readonly ('active' | 'disabled' | 'focused' | 'hovered' | 'pressed' | 'selected')[],
 ): readonly import('../../visual/render.ts').RenderSpan[] {
+  const state = states.at(-1);
   const cell = row.cells[columnIndex] ?? { content: Object.freeze([]), text: '' };
   const part: TableStylePart = column.semantic === 'metric'
     ? 'metric'
@@ -1343,7 +1338,7 @@ function tableCellSpans(
       input.style({
         part,
         base: { ...(rowStyle ?? {}), ...semanticStyle, ...explicit },
-        ...(state === undefined ? {} : { state }),
+        ...(states.length === 0 ? {} : { states }),
       }),
       explicit,
     );
@@ -1356,7 +1351,7 @@ function tableCellSpans(
   const paddingStyle = input.style({
     part,
     base: { ...(rowStyle ?? {}), ...semanticStyle, ...(column.style ?? {}) },
-    ...(state === undefined ? {} : { state }),
+    ...(states.length === 0 ? {} : { states }),
   });
   return tableSizedSpans(
     rendered,
@@ -1710,7 +1705,6 @@ function tableAccessibility(
   return {
     id: input.id,
     role: input.model.semanticRole,
-    label: input.id,
     description: `Showing ${String(plan.startIndex + 1)}-${String(plan.endIndexExclusive)} of ${
       String(input.model.totalCount)
     } rows.`,
@@ -1825,7 +1819,6 @@ interface TreeModel {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly pointerState?: PointerInteractionState;
 }
 
 interface PreparedTreeSource {
@@ -1854,8 +1847,9 @@ const treeBase = {
     'match',
     'placeholder',
     'empty',
-    'scrollbar',
+    'scrollbarTrack', 'scrollbarThumb',
   ] as const,
+  visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'] as const,
   measure: measureTree,
   render: paintTree,
   accessibility: treeAccessibility,
@@ -1872,8 +1866,7 @@ const treeBase = {
 
 type TreeComponentAction =
   | { readonly kind: 'transition'; readonly action: TreeTransition }
-  | { readonly kind: 'activate'; readonly event: TreeActivateEvent }
-  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+  | { readonly kind: 'activate'; readonly event: TreeActivateEvent };
 
 const activeTree = defineComponent<
   TreeModel,
@@ -1882,7 +1875,8 @@ const activeTree = defineComponent<
   TreeStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
 >({
   ...treeBase,
   keys: ({ model, busy }) => {
@@ -1903,10 +1897,6 @@ const activeTree = defineComponent<
       }),
     };
   },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
-  },
   focusTargets(input) {
     const plan = treePlan(input);
     return [{
@@ -1924,32 +1914,27 @@ export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
   const TTransitionMessage extends ComponentMessage = never,
   const TActivateMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
->(options: ScrollableTreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage>;
+>(options: ScrollableTreeOptions<TMetadata, TTransitionMessage, TActivateMessage>): Element<TTransitionMessage | TActivateMessage>;
 // The passive overload intentionally excludes scroll actions.
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
   const TTransitionMessage extends ComponentMessage = never,
   const TActivateMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
 >(
   // eslint-disable-next-line @typescript-eslint/unified-signatures
-  options: UnscrolledTreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>
-): Element<TTransitionMessage | TActivateMessage | TPointerMessage>;
+  options: UnscrolledTreeOptions<TMetadata, TTransitionMessage, TActivateMessage>
+): Element<TTransitionMessage | TActivateMessage>;
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
   const TTransitionMessage extends ComponentMessage = never,
   const TActivateMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
->(options: TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>): Element<TTransitionMessage | TActivateMessage | TPointerMessage> {
-  const prepared = prepareTree(
-    options,
-    options.disabled !== true && options.inert !== true,
-  );
+>(options: TreeOptions<TMetadata, TTransitionMessage, TActivateMessage>): Element<TTransitionMessage | TActivateMessage> {
+  const prepared = prepareTree(options);
   const shared = {
     ...prepared,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return activeTree({
@@ -1960,12 +1945,10 @@ export function tree<
   if (options.inert === true) return activeTree({ ...shared, inert: true });
   assertRequiredCallback(options.onTransition, 'tree onTransition');
   assertOptionalCallback(options.onActivate, 'tree onActivate');
-  assertOptionalCallback(options.onPointerAction, 'tree onPointerAction');
   return activeTree({
     ...shared,
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
-      if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
       if (isScrollableTreeOptions(options)) return options.onTransition(action.action);
       return action.action.kind === 'scroll'
         ? ignoreMessage()
@@ -1978,10 +1961,8 @@ function prepareTree<
   TMetadata extends Readonly<Record<string, unknown>>,
   TTransitionMessage extends ComponentMessage,
   TActivateMessage extends ComponentMessage,
-  TPointerMessage extends ComponentMessage,
 >(
-  value: Readonly<TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>>,
-  pointerAvailable: boolean,
+  value: Readonly<TreeOptions<TMetadata, TTransitionMessage, TActivateMessage>>,
 ): TreeModel {
   const query = prepareCollectionQuery(
     value.presentation.query ?? { text: '', mode: 'contains' },
@@ -2003,11 +1984,6 @@ function prepareTree<
   const activeId = value.presentation.activeId === undefined
     ? undefined
     : nonEmpty(value.presentation.activeId, 'tree activeId');
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'tree pointerState',
-    pointerAvailable,
-  );
   return {
     source: sourceToken,
     startIndex,
@@ -2019,7 +1995,6 @@ function prepareTree<
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -2027,10 +2002,9 @@ function isScrollableTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>>,
   TTransitionMessage extends ComponentMessage,
   TActivateMessage extends ComponentMessage,
-  TPointerMessage extends ComponentMessage,
 >(
-  options: TreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage>,
-): options is ScrollableTreeOptions<TMetadata, TTransitionMessage, TActivateMessage, TPointerMessage> {
+  options: TreeOptions<TMetadata, TTransitionMessage, TActivateMessage>,
+): options is ScrollableTreeOptions<TMetadata, TTransitionMessage, TActivateMessage> {
   return options.presentation.scroll !== undefined;
 }
 
@@ -2254,6 +2228,7 @@ function paintTree(input: ComponentRenderInput<TreeModel, TreeStylePart>) {
     target: input.target,
     plan: plan.geometry,
     theme: input.theme,
+    style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     source: (sourceInput) => input.source(sourceInput),
   });
 }
@@ -2289,14 +2264,23 @@ function paintTreeRow(
   const active = row.id === input.model.activeId;
   const bodyId = `${input.id ?? 'tree'}:${row.id}:body`;
   const disclosureId = `${input.id ?? 'tree'}:${row.id}:disclosure`;
-  const pointer = pointerVisualState(input.model.pointerState, bodyId);
-  const state: 'disabled' | 'hovered' | 'pressed' | 'selected' | 'focused' | 'active' | undefined =
-    row.disabled || row.lazyPlaceholder ? 'disabled' : pointer ??
-      (input.focus === 'self' && active ? 'focused' : selected ? 'selected' : active ? 'active' : undefined);
-  const disclosurePointer = pointerVisualState(input.model.pointerState, disclosureId);
-  const disclosureState: typeof state = row.disabled || row.lazyPlaceholder
-    ? 'disabled'
-    : disclosurePointer ?? state;
+  const pointer = pointerVisualState(input.pointerState, bodyId);
+  const states: readonly ('disabled' | 'hovered' | 'pressed' | 'selected' | 'focused' | 'active')[] =
+    row.disabled || row.lazyPlaceholder
+      ? ['disabled']
+      : [
+        ...(selected ? ['selected' as const] : []),
+        ...(active ? ['active' as const] : []),
+        ...(input.focus === 'self' && active ? ['focused' as const] : []),
+        ...(pointer === undefined ? [] : [pointer]),
+      ];
+  const state = states.at(-1);
+  const disclosurePointer = pointerVisualState(input.pointerState, disclosureId);
+  const disclosureStates = row.disabled || row.lazyPlaceholder
+    ? ['disabled' as const]
+    : [...states.filter((item) => item !== 'hovered' && item !== 'pressed'),
+      ...(disclosurePointer === undefined ? [] : [disclosurePointer])];
+  const disclosureState = disclosureStates.at(-1);
   const selectionBase: TerminalStyle | undefined = selected
     ? {
       fg: { kind: 'theme', token: 'selection.foreground' },
@@ -2306,7 +2290,7 @@ function paintTreeRow(
   const markerStyle = input.style({
     part: 'marker',
     ...(selectionBase === undefined ? {} : { base: selectionBase }),
-    ...(state === undefined ? {} : { state }),
+    ...(states.length === 0 ? {} : { states }),
   });
   const marker = selected && !terminalStyleHasBackground(markerStyle, input.theme)
     ? input.theme.tokens.symbols.selected
@@ -2314,22 +2298,22 @@ function paintTreeRow(
   const labelStyle = input.style({
     part: row.lazyPlaceholder ? 'placeholder' : 'label',
     base: selectionBase ?? { fg: { kind: 'theme', token: 'text.default' } },
-    ...(state === undefined ? {} : { state }),
+    ...(states.length === 0 ? {} : { states }),
   });
   const disclosureStyle = input.style({
     part: row.lazyPlaceholder ? 'placeholder' : 'disclosure',
     base: { ...selectionBase, fg: { kind: 'theme', token: 'tree.branch' } },
-    ...(disclosureState === undefined ? {} : { state: disclosureState }),
+    ...(disclosureStates.length === 0 ? {} : { states: disclosureStates }),
   });
   const indentStyle = input.style({
     part: 'indent',
     base: { ...selectionBase, fg: { kind: 'theme', token: 'tree.branch' } },
-    ...(state === undefined ? {} : { state }),
+    ...(states.length === 0 ? {} : { states }),
   });
   const iconStyle = input.style({
     part: 'icon',
     ...(selectionBase === undefined ? {} : { base: selectionBase }),
-    ...(state === undefined ? {} : { state }),
+    ...(states.length === 0 ? {} : { states }),
   });
   const itemId = `${input.id ?? 'tree'}:${row.id}`;
   const source = (
@@ -2511,12 +2495,11 @@ function treeAccessibility(
   return {
     id: input.id,
     role: 'tree' as const,
-    label: input.id,
     description: `Showing ${String(plan.startIndex + 1)}-${String(plan.endIndexExclusive)} of ${
       String(input.model.totalCount)
     } tree rows.`,
     ...(input.focused ? { focused: true } : {}),
-    ...(input.model.activeId === undefined
+    ...(input.model.activeId === undefined || !plan.rows.some((row) => row.id === input.model.activeId)
       ? {}
       : { activeDescendant: `${input.id}:${input.model.activeId}` }),
     ...(input.model.selection.mode === 'multiple' ? { multiSelectable: true } : {}),

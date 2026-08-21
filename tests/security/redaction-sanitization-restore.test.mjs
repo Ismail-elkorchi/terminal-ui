@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { defineTui, runTui } from '../../dist/tui/index.js';
+import { defineTui, runTui, TuiRunError } from '../../dist/tui/index.js';
 import {
   createMemoryTerminalHost } from '../../dist/host/index.js';
 import { password,
@@ -42,9 +42,15 @@ test('security lane proves terminal sessions restore after TUI failures', async 
     view: () => text({ content: 'unreachable' })
   });
 
-  const result = await runTui(app, host);
+  let exit;
+  await assert.rejects(runTui(app, { host }), (error) => {
+    assert.ok(error instanceof TuiRunError);
+    exit = error.exit;
+    return true;
+  });
 
-  assert.equal(result.status, 'error');
+  assert.notEqual(exit, undefined);
+  assert.equal(exit.status, 'error');
   assert.equal(host.stdin.isRawModeEnabled(), false);
   assert.ok(host.restores().length > 0);
 });

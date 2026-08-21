@@ -20,7 +20,6 @@ import type {
   TooltipTone
 } from '../../ui-model/menu.ts';
 import type { Element } from '../../element/index.ts';
-import type { PointerInteractionState } from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { DividerStylePart, MenuStylePart, TooltipStylePart } from '../../ui-model/style-parts.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
@@ -28,23 +27,21 @@ import type { ComponentMetadataOptions } from '../../component/index.ts';
 
 interface InteractiveMenuOptions {
   readonly id: string;
-  readonly pointerState?: PointerInteractionState;
   readonly disabled?: boolean;
   readonly busy?: boolean;
   readonly inert?: boolean;
-  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], MenuStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<MenuStylePart, 'focused' | 'hovered' | 'pressed' | 'active' | 'selected' | 'disabled' | 'busy'>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 }
 
 interface MenuCallbacks<TTransition, TMessage extends ComponentMessage> {
   readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
   readonly onActivate?: (event: MenuActivateEvent) => MessageResolution<TMessage>;
-  readonly onPointerAction?: (action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction) => MessageResolution<TMessage>;
 }
 
 interface DisabledMenuCallbacks {
   readonly onTransition?: never;
   readonly onActivate?: never;
-  readonly onPointerAction?: never;
 }
 
 type MenuAvailability<TTransition, TMessage extends ComponentMessage> =
@@ -55,14 +52,12 @@ type MenuAvailability<TTransition, TMessage extends ComponentMessage> =
   | (DisabledMenuCallbacks & (
       | {
           readonly disabled: true;
-          readonly pointerState?: never;
           readonly busy?: never;
           readonly inert?: boolean;
         }
       | {
           readonly disabled?: false;
           readonly inert: true;
-          readonly pointerState?: never;
         }
     ));
 
@@ -109,7 +104,8 @@ export interface DividerOptions {
   readonly line?: DividerLineKind;
   readonly label?: string;
   readonly labelAlign?: 'start' | 'center' | 'end';
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], DividerStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<DividerStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 export interface TooltipOptions<
@@ -125,7 +121,8 @@ export interface TooltipOptions<
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxWidth?: number;
   readonly border?: BorderOptions;
-  readonly meta?: ComponentMetadataOptions<readonly ['styles'], TooltipStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<TooltipStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles']>;
   readonly onTransition: (action: TooltipTransition) => MessageResolution<TMessage>;
 }
 

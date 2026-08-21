@@ -14,8 +14,7 @@ export function hasKeyboardOrInputMap(renderNode: RenderNode): boolean {
 export function groupAccessibleNode(id: string, focused: boolean): AccessibleNode {
   return {
     id,
-    role: 'text',
-    label: id,
+    role: 'group',
     ...(focused ? { focused } : {})
   };
 }

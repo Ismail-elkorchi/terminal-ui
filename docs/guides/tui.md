@@ -27,7 +27,7 @@ Restoration still runs through the same session path and restores only state
 that was actually changed.
 
 `runTui(app)` creates and disposes a runtime host for the current platform.
-Passing a host is useful for adapters and tests; the caller retains ownership
+Passing `{ host }` is useful for adapters and tests; the caller retains ownership
 of that host after the runtime releases its input lease and restores the
 terminal session. The caller must dispose the host when it is no longer needed.
 Use `createTuiRuntime()` when a custom event loop needs a longer-lived,
@@ -144,7 +144,7 @@ An update may return `focus` with the same selector shape to move focus after
 an application transition. The requested target is resolved against the frame
 produced by that transition; if it is absent, normal focus fallback applies.
 
-`runTui(app, host, { theme })` and `createTuiRuntime({ theme })` accept either a
+`runTui(app, { theme })` and `createTuiRuntime({ theme })` accept either a
 canonical `TerminalTheme`, a partial `TerminalThemeDefinition`, or a function
 that returns either form from state. Use the function form when a full-screen
 app needs live theme changes driven by ordinary application state.
@@ -152,7 +152,10 @@ app needs live theme changes driven by ordinary application state.
 For lower-level tests and custom event loops, `createTuiRuntime()` exposes the
 same reducer/render path directly. `runtime.start()` initializes the app and
 returns the committed initial `Frame`; completion remains available through
-`runtime.exit()` and `runTui()`.
+`runtime.exit()` and `runTui()`. Operational failures reject `runTui()` with a
+`TuiRunError` whose `exit` retains the complete diagnostics and final snapshot;
+ordinary completion, application cancellation, and host interruption remain
+resolved exits.
 
 Dispatch preparation validates update results, effects, cancellation IDs,
 subscriptions, rendering, and output planning before terminal publication.
@@ -163,10 +166,12 @@ publication. Host observers, transcript streams, diagnostics consumers, and
 generated follow-up messages are isolated post-commit work; their failures are
 reported without rolling back a visible frame.
 
-`init()` and `update()` are synchronous state transitions. Asynchronous work
-is returned as a typed effect; its result is dispatched later as an ordinary
-application message. Effects have stable ids, receive an abort signal, report
-failures as diagnostics, and may map failures back to a message through
+`init()` and `update()` are synchronous state transitions. `init()` returns an
+initial result with `state` and may also request initial `focus`, `effects`, or
+`exit`; the first frame is published before initial effects start. Asynchronous
+work is returned as a typed effect whose result is dispatched later as an
+ordinary application message. Effects have stable ids, receive an abort signal,
+report failures as diagnostics, and may map failures back to a message through
 `onError`. Promises therefore stay outside the serialized state-transition
 critical section.
 
@@ -209,10 +214,12 @@ generation. `replace` effects keep a bounded handoff deadline for
 non-cooperative work; `parallel`, `keep-first`, and `enqueue` retain their
 explicit queue contracts.
 
-Subscriptions are async event sources, not one-shot effects. A source returns a
-stable `id`, an optional bounded channel policy, and an async
-`messages(context)` iterable. Reliable emissions preserve order. Replaceable
-emissions coalesce only by their explicit key and may use the source cadence.
+Subscriptions are push event sources, not one-shot effects. A source returns a
+stable `id`, an optional bounded channel policy, and a `run(context, sink)`
+producer. Await `sink.emit()` so the framework owns admission, capacity,
+cadence, cancellation, and failure from the first queued message. Reliable
+emissions preserve order. Replaceable emissions coalesce only by their explicit
+key and may use the source cadence.
 Channel failure and cancellation are terminal: every buffer is discarded and
 every blocked admission or close is released with the same outcome. Source
 failures become diagnostics and may produce a caller-controlled lifecycle

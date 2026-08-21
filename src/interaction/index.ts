@@ -12,7 +12,7 @@ export type * from './navigation.ts';
 export { adjacentItemId, defaultNavigationPolicy } from './navigation.ts';
 export type { IgnoredMessage, MessageResolution } from './message.ts';
 export { ignoreMessage, isIgnoredMessage } from './message.ts';
-export type * from './pointer-interaction.ts';
+export type { PointerInteractionState, PointerVisualState } from './pointer-interaction.ts';
 export { pointerVisualState } from './pointer-interaction.ts';
 export type * from './scroll.ts';
 export type * from './scrollbar.ts';

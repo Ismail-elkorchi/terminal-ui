@@ -7,7 +7,7 @@ import { activityIndicator, canvas, listbox, progressBar, statusBar, dataGrid, t
 import { column, row, viewport } from '../../dist/layout/index.js';
 
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
-  const frame = renderElementFrame(textInput({
+  const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'addressed-field',
     presentation: { value: 'Go', cursor: 0 },
     onAction: () => ignoreMessage()
@@ -67,7 +67,7 @@ test('one width profile governs nested buffers and incompatible profiles force a
 
 test('TUI frame cursor follows the centered active listbox item', () => {
   const items = Array.from({ length: 10 }, (_value, index) => `Item ${index}`);
-  const frame = renderElementFrame(listbox({
+  const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     id: 'cursor-listbox',
     items,
     projectItem: (item) => ({ id: item, label: item }),
@@ -134,7 +134,7 @@ test('TUI status, progress, and activity components render accessible status sta
 
 test('renderDiffAnsi serializes clear, write, and structural cursor state', () => {
   const previous = renderElementFrame(text({ content: 'Longer text', id: 'before' }), { columns: 16, rows: 2 });
-  const next = renderElementFrame(textInput({
+  const next = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'after',
     presentation: { value: 'Go', cursor: 0 },
     onAction: () => ignoreMessage()
@@ -152,7 +152,7 @@ test('renderDiffAnsi serializes clear, write, and structural cursor state', () =
 test('TUI rendering windows large listbox and dataGrid components to visible height', () => {
   const manyItems = Array.from({ length: 1000 }, (_value, index) => `Item ${index}`);
   const frame = renderElementFrame(column([
-    listbox({
+    listbox({ meta: { accessibleName: "List" },
       id: 'many-items',
       items: manyItems,
       projectItem: (item) => ({ id: item, label: item }),
@@ -162,7 +162,7 @@ test('TUI rendering windows large listbox and dataGrid components to visible hei
       },
       onTransition: (action) => action
     }),
-    dataGrid({
+    dataGrid({ meta: { accessibleName: "Data grid" },
       id: 'many-rows',
       rows: manyItems.map((item) => [item, 'value']),
       getRowId: (_row, index) => String(index),

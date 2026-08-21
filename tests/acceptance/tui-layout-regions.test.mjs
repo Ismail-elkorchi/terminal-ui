@@ -27,6 +27,7 @@ import { prepareCommandSuggestions, prepareSearchPickerIndex, prepareLogHistory 
 function workspaceView(state) {
   const mainPanel = tabs({
     id: 'main-tabs',
+    meta: { accessibleName: 'Workspace views' },
     presentation: {
       activeId: state.searchPicker ? 'actions' : 'log',
       selectedId: state.searchPicker ? 'actions' : 'log'
@@ -91,7 +92,7 @@ function workspaceView(state) {
 test('layout regions compose log viewer, activity, tabs, searchPicker, status, and command bar', async () => {
   const app = defineTui({
     id: 'layout-regions',
-    init: () => ({ searchPicker: false, query: '', items: ['one', 'two'] }),
+    init: () => ({ state: ({ searchPicker: false, query: '', items: ['one', 'two'] }) }),
     inputBindings: [
       { id: 'open-searchPicker', triggers: [{ kind: 'text', text: 'p' }], message: { type: 'searchPicker' } },
       { id: 'exit', triggers: [{ kind: 'key', key: 'enter' }], message: { type: 'exit' } }
@@ -106,7 +107,7 @@ test('layout regions compose log viewer, activity, tabs, searchPicker, status, a
   const harness = createTerminalHarness({ terminalSize: { columns: 64, rows: 12 } });
   harness.host.input('p');
   harness.host.input('\r');
-  const exit = await runTui(app, harness.host);
+  const exit = await runTui(app, { host: harness.host });
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.state.searchPicker, true);

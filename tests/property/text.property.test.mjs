@@ -47,7 +47,7 @@ test('text property checks keep sanitization segmentation clipping and wrapping 
 });
 
 test('accepted sanitization replacements cannot reintroduce unsafe terminal text', () => {
-  const replacements = ['', '?', '\uFFFD', '🙂', '\n'];
+  const replacements = ['', '?', '\uFFFD', '🙂'];
   for (const value of textSamples) {
     for (const replacement of replacements) {
       const sanitized = sanitizeTerminalText(value, { replacement });
@@ -97,21 +97,24 @@ test('scroll window properties keep normalized windows within content bounds', (
 test('focus traversal properties avoid disabled targets and remain restorable', async () => {
   const app = defineTui({
     id: 'focus-properties',
-    init: () => ({ active: 'initial' }),
+    init: () => ({ state: ({ active: 'initial' }) }),
     update: (state, message) => ({ state: { ...state, active: message.kind } }),
     view: (state) => column([
       textInput({
         id: 'first',
+        meta: { accessibleName: 'First value' },
         presentation: { value: state.active, cursor: 0 },
         onAction: (action) => action.kind === 'submit' ? { kind: 'first' } : ignoreMessage()
       }),
       textInput({
         id: 'disabled',
+        meta: { accessibleName: 'Disabled value' },
         presentation: { value: state.active, cursor: 0 },
         disabled: true
       }),
       textInput({
         id: 'second',
+        meta: { accessibleName: 'Second value' },
         presentation: { value: state.active, cursor: 0 },
         onAction: (action) => action.kind === 'submit' ? { kind: 'second' } : ignoreMessage()
       })

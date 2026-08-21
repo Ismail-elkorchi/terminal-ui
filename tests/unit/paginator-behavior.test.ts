@@ -31,9 +31,9 @@ void test('pagination reducer bounds semantic navigation actions', () => {
 void test('pagination routes keyboard and pointer controls through the same action stream', async () => {
   const app = defineTui<PaginationState, PaginationAction>({
     id: 'pagination-actions',
-    init: () => ({ pageNumber: 2 }),
+    init: () => ({ state: ({ pageNumber: 2 }) }),
     update: (state, action) => ({ state: paginationReducer(state, action, { pageCount: 4 }) }),
-    view: (state) => pagination({
+    view: (state) => pagination({ meta: { accessibleName: "Pagination" },
       id: 'pages',
       ...paginationPresentation(state, { pageCount: 4 }),
       onAction: (action) => action

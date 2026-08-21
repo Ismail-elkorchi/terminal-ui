@@ -50,7 +50,7 @@ test('text controls reject every malformed provided handler', () => {
 test('form components render settings and setup-wizard shapes with scoped state', () => {
   const element = form({ slots: { content: [
     field({
-      control: textInput({
+      control: textInput({ meta: { accessibleName: "Text input" },
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
       onAction: (action) => action,
@@ -68,7 +68,7 @@ test('form components render settings and setup-wizard shapes with scoped state'
       checked: true,
       onAction: () => ({ kind: 'toggleTelemetry' })
     }),
-    radioGroup({
+    radioGroup({ meta: { accessibleName: "Choices" },
       id: 'mode',
       label: 'Install mode',
       presentation: {
@@ -91,7 +91,7 @@ test('form components render settings and setup-wizard shapes with scoped state'
       ],
       onTransition: (action) => ({ kind: 'region', action })
     }),
-    numberInput({
+    numberInput({ meta: { accessibleName: "Number input" },
       id: 'workers',
       presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4, min: 1, max: 8 },
       onAction: (action) => action
@@ -233,13 +233,13 @@ test('controlled combobox pages and commits through its public behavior operatio
   const behavior = { index: prepareCollectionInteractionIndex(enabledIds), pageSize: 3 };
   const app = defineTui({
     id: 'combobox-behavior',
-    init: () => ({
+    init: () => ({ state: ({
       presentation: {
         kind: 'select',
         open: true,
         interaction: { activeId: 'option-1', selection: { mode: 'single' } },
       },
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         presentation: message.kind === 'transition'
@@ -278,9 +278,9 @@ test('controlled combobox pages and commits through its public behavior operatio
 });
 
 test('form fields expose label required description and validation source anatomy', () => {
-  const element = form({ slots: { content: [
+  const element = form({ meta: { accessibleName: "Form" }, slots: { content: [
     field({
-      control: textInput({
+      control: textInput({ meta: { accessibleName: "Text input" },
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
       onAction: (action) => action,
@@ -324,7 +324,7 @@ test('form fields expose label required description and validation source anatom
 test('form accessibility exposes labels, values, validation, required, disabled, and focus state', () => {
   const element = form({ slots: { content: [
     field({
-      control: textInput({
+      control: textInput({ meta: { accessibleName: "Text input" },
       id: 'email',
       presentation: { value: 'user@example.test', cursor: 0 },
       onAction: (action) => action,
@@ -341,7 +341,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
       error: 'Required before submit',
       onAction: () => ({ kind: 'toggleTerms' })
     }),
-    radioGroup({
+    radioGroup({ meta: { accessibleName: "Choices" },
       id: 'tier',
       label: 'Tier',
       presentation: {
@@ -383,9 +383,9 @@ test('form accessibility exposes labels, values, validation, required, disabled,
 });
 
 test('control labels create a structural accessible-name relationship', () => {
-  const frame = renderElementFrame(form({ slots: { content: [
+  const frame = renderElementFrame(form({ meta: { accessibleName: "Form" }, slots: { content: [
     label({ id: 'email-label', forId: 'email-input', text: 'Email' }),
-    textInput({
+    textInput({ meta: { accessibleName: "Text input" },
       id: 'email-input',
       presentation: { value: 'user@example.test', cursor: 0 },
       onAction: (action) => action
@@ -418,10 +418,10 @@ test('control labels reject missing accessible targets', () => {
 test('form controls emit submit and cancel messages while app state owns values', async () => {
   const app = defineTui({
     id: 'form-flow',
-    init: () => ({ result: 'editing' }),
+    init: () => ({ state: ({ result: 'editing' }) }),
     update: (state, message) => ({ state: { ...state, result: message.kind }, exit: {} }),
-    view: (state) => form({ slots: { content: [
-      textInput({
+    view: (state) => form({ meta: { accessibleName: "Form" }, slots: { content: [
+      textInput({ meta: { accessibleName: "Text input" },
         id: 'query',
         presentation: { value: state.result, cursor: 0 },
         onAction: (action) => ({

@@ -66,7 +66,7 @@ const items = [
 ];
 
 test('menu component renders nested checked disabled items with menu accessibility', () => {
-  const frame = renderElementFrame(menu({
+  const frame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },
     id: 'file-menu',
     presentation: menuPresentation(items, { activePath: ['open', 'recent'] }),
     onTransition: (action) => action
@@ -95,7 +95,7 @@ test('simple action menus omit unused checkbox and submenu columns', () => {
     { kind: 'action', id: 'alpha', label: 'Alpha' },
     { kind: 'action', id: 'beta', label: 'Beta' }
   ];
-  const frame = renderElementFrame(menu({
+  const frame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },
     id: 'compact-actions',
     presentation: menuPresentation(simpleItems, { activePath: ['alpha'] }),
     onTransition: (action) => action
@@ -145,7 +145,7 @@ test('menu models reject malformed structural item variants at the factory bound
 
 test('menu factories validate and own retained shortcut bindings', () => {
   const shortcut = { kind: 'key', key: 'n' };
-  const element = menu({
+  const element = menu({ meta: { accessibleName: "Menu" },
     id: 'shortcut-menu',
     presentation: menuPresentation([
       { kind: 'action', id: 'new', label: 'New', shortcut }
@@ -155,7 +155,7 @@ test('menu factories validate and own retained shortcut bindings', () => {
 
   shortcut.key = 'x';
   assert.match(renderFramePlain(renderElementFrame(element, { columns: 20, rows: 1 })), /N$/u);
-  assert.throws(() => menu({
+  assert.throws(() => menu({ meta: { accessibleName: "Menu" },
     id: 'invalid-shortcut-menu',
     presentation: menuPresentation([
       { kind: 'action', id: 'new', label: 'New', shortcut: { kind: 'text', text: 'n' } }
@@ -166,7 +166,7 @@ test('menu factories validate and own retained shortcut bindings', () => {
 
 test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => {
   const menuBarFrame = renderElementFrame(
-    menuBar({
+    menuBar({ meta: { accessibleName: "Menu bar" },
       id: 'main-menu',
       items: [
         { kind: 'action', id: 'file', label: 'File' },
@@ -181,7 +181,7 @@ test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => 
     { columns: 44, rows: 3 }
   );
   const contextFrame = renderElementFrame(
-    contextMenu({
+    contextMenu({ meta: { accessibleName: "Context menu" },
       id: 'context',
       title: 'Actions',
       presentation: contextMenuPresentation(items, {
@@ -194,7 +194,7 @@ test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => 
     { columns: 44, rows: 13 }
   );
   const dropdownFrame = renderElementFrame(
-    menuTrigger({
+    menuTrigger({ meta: { accessibleName: "Menu" },
       id: 'theme-menuTrigger',
       label: 'Theme',
       items: [
@@ -228,7 +228,7 @@ test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => 
 });
 
 test('closed context menus do not publish focus or implementation accessibility scaffolding', () => {
-  const frame = renderElementFrame(contextMenu({
+  const frame = renderElementFrame(contextMenu({ meta: { accessibleName: "Context menu" },
     id: 'closed-context',
     presentation: contextMenuPresentation(items, { kind: 'closed' }),
     onTransition: (action) => action
@@ -240,7 +240,7 @@ test('closed context menus do not publish focus or implementation accessibility 
 });
 
 test('internal popup nodes expose layout names without claiming public factory provenance', () => {
-  const element = menuTrigger({
+  const element = menuTrigger({ meta: { accessibleName: "Menu" },
     id: 'layout-dropdown',
     label: 'Layout',
     items: [
@@ -267,10 +267,10 @@ test('internal popup nodes expose layout names without claiming public factory p
 test('menus route keyboard and mouse interaction through generic focus and hit targets', async () => {
   const app = defineTui({
     id: 'menu-flow',
-    init: () => ({ action: 'idle' }),
+    init: () => ({ state: ({ action: 'idle' }) }),
     update: (_state, message) => ({ state: { action: message.id ?? message.kind } }),
     view: (state) => column([
-      menu({
+      menu({ meta: { accessibleName: "Menu" },
         id: 'actions',
         presentation: menuPresentation(items, {
           activePath: state.action === 'recent' ? ['autosave'] : ['open', 'recent']
@@ -278,7 +278,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
         onTransition: (action) => action,
         onActivate: (event) => event
       }),
-      menuBar({
+      menuBar({ meta: { accessibleName: "Menu bar" },
         id: 'bar',
         items: [
           { kind: 'action', id: 'help', label: 'Help' }

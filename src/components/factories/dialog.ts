@@ -47,7 +47,7 @@ interface PreparedDialog {
 
 type DialogComponentOptions = Omit<
   DialogOptions<ComponentMessage>,
-  'id' | 'slots' | 'meta' | 'onAction'
+  'id' | 'slots' | 'styles' | 'meta' | 'onAction'
 >;
 
 const dialogSlots = {
@@ -129,11 +129,9 @@ const instantiateDialog = defineComponent<
       slots.content,
       divider({
         id: `${id ?? 'dialog'}:action-separator`,
-        meta: {
-          styles: mapComponentStyles(styles, {
-            line: ['actionSeparator', 'border'] as const,
-          }) ?? {},
-        },
+        styles: mapComponentStyles(styles, {
+          line: ['actionSeparator', 'border'] as const,
+        }) ?? {},
       }),
       slots.actions,
     ], {
@@ -162,13 +160,11 @@ const instantiateDialog = defineComponent<
         ? model.layout.maxHeight === undefined ? {} : { maxHeight: model.layout.maxHeight }
         : { maxHeight: height }),
       ...(styles === undefined ? {} : {
-        meta: {
-          styles: mapComponentStyles(styles, {
-            background: 'background',
-            border: 'border',
-            title: 'title',
-          }) ?? {},
-        },
+        styles: mapComponentStyles(styles, {
+          background: 'background',
+          border: 'border',
+          title: 'title',
+        }) ?? {},
       }),
     });
     return portal(panel, {

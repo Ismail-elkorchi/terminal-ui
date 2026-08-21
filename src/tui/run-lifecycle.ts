@@ -2,6 +2,7 @@ import { restoreTuiSession } from './lifecycle.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { recordTuiRestore } from './transcript.ts';
 import { lifecyclePhaseResult, runTuiLifecyclePhase } from './lifecycle-phase.ts';
+import { tuiDefinition } from './definition.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type {
   TerminalHost,
@@ -139,7 +140,7 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
         async (signal) => this.#runtime?.dispose({ signal, timeoutMs: this.#options.lifecycle.runtimeDisposalTimeoutMs })
       )));
     }
-    const onExit = this.#app.definition.onExit;
+    const onExit = tuiDefinition(this.#app).onExit;
     if (this.#exit !== undefined && 'state' in this.#exit && onExit !== undefined) {
       const state = this.#exit.state;
       phases.push(lifecyclePhaseResult(await this.runPhase(

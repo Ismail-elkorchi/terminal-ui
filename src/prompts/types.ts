@@ -11,36 +11,38 @@ interface PromptDefinitionBase<TValue> {
   readonly id?: string;
   readonly label: string;
   readonly description?: string;
-  readonly defaultValue?: TValue;
-  readonly required?: boolean;
-  readonly theme?: TerminalTheme;
   readonly timeoutMs?: number;
   readonly nonTty?: NonTtyPromptPolicy<TValue>;
-  readonly transcript?: boolean;
-  readonly validate?: PromptValidator<TValue>;
-  readonly render?: PromptRenderer;
   readonly accessibility?: PromptAccessibilityOptions;
 }
 
-export interface ConfirmPromptDefinition extends PromptDefinitionBase<boolean> {
+interface ValuePromptDefinitionBase<TValue> extends PromptDefinitionBase<TValue> {
+  readonly defaultValue?: TValue;
+  readonly required?: boolean;
+  readonly theme?: TerminalTheme;
+  readonly transcript?: boolean;
+  readonly validate?: PromptValidator<TValue>;
+}
+
+export interface ConfirmPromptDefinition extends ValuePromptDefinitionBase<boolean> {
   readonly kind: 'confirm';
 }
 
-export interface InputPromptDefinition extends PromptDefinitionBase<string> {
+export interface InputPromptDefinition extends ValuePromptDefinitionBase<string> {
   readonly kind: 'input';
 }
 
-export interface PasswordPromptDefinition extends PromptDefinitionBase<string> {
+export interface PasswordPromptDefinition extends ValuePromptDefinitionBase<string> {
   readonly kind: 'password';
   readonly mask?: string;
 }
 
-export interface SelectPromptDefinition<TValue> extends PromptDefinitionBase<TValue> {
+export interface SelectPromptDefinition<TValue> extends ValuePromptDefinitionBase<TValue> {
   readonly kind: 'select';
   readonly choices: PromptDataSource<TValue>;
 }
 
-export interface MultiSelectPromptDefinition<TValue> extends PromptDefinitionBase<readonly TValue[]> {
+export interface MultiSelectPromptDefinition<TValue> extends ValuePromptDefinitionBase<readonly TValue[]> {
   readonly kind: 'multiselect';
   readonly choices: PromptDataSource<TValue>;
   readonly minSelected?: number;
@@ -48,7 +50,7 @@ export interface MultiSelectPromptDefinition<TValue> extends PromptDefinitionBas
   readonly rangeSelection?: boolean;
 }
 
-export interface AutocompletePromptDefinition<TValue> extends PromptDefinitionBase<TValue> {
+export interface AutocompletePromptDefinition<TValue> extends ValuePromptDefinitionBase<TValue> {
   readonly kind: 'autocomplete';
   readonly choices: PromptDataSource<TValue>;
   readonly debounceMs?: number;
@@ -56,12 +58,16 @@ export interface AutocompletePromptDefinition<TValue> extends PromptDefinitionBa
 
 export interface EditorPromptDefinition extends PromptDefinitionBase<string> {
   readonly kind: 'editor';
+  readonly defaultValue?: string;
+  readonly required?: boolean;
+  readonly validate?: PromptValidator<string>;
   readonly editorCommand?: readonly string[];
   readonly editorAdapter?: PromptEditorAdapter;
 }
 
 export interface ProgressPromptDefinition extends PromptDefinitionBase<ProgressResult> {
   readonly kind: 'progress';
+  readonly transcript?: boolean;
   readonly progress: ProgressSnapshot;
   readonly progressTask?: ProgressTask;
 }
@@ -177,10 +183,6 @@ export type NonTtyPromptPolicy<TValue> =
       readonly diagnosticHint?: string;
     };
 
-export interface PromptRenderer {
-  render<TChoice>(prompt: PromptDefinition<TChoice>): string;
-}
-
 export interface PromptAccessibilityOptions {
   readonly id?: string;
 }
@@ -189,41 +191,46 @@ export interface BasePromptOptions<TValue> {
   readonly id?: string;
   readonly label: string;
   readonly description?: string;
-  readonly defaultValue?: TValue;
-  readonly required?: boolean;
-  readonly theme?: TerminalTheme | TerminalThemeDefinition;
   readonly timeoutMs?: number;
   readonly nonTty?: NonTtyPromptPolicy<TValue>;
-  readonly transcript?: boolean;
-  readonly validate?: PromptValidator<TValue>;
-  readonly render?: PromptRenderer;
   readonly accessibility?: PromptAccessibilityOptions;
 }
 
-export type ConfirmPromptOptions = BasePromptOptions<boolean>;
-export type InputPromptOptions = BasePromptOptions<string>;
+export interface ValuePromptOptions<TValue> extends BasePromptOptions<TValue> {
+  readonly defaultValue?: TValue;
+  readonly required?: boolean;
+  readonly theme?: TerminalTheme | TerminalThemeDefinition;
+  readonly transcript?: boolean;
+  readonly validate?: PromptValidator<TValue>;
+}
 
-export interface PasswordPromptOptions extends BasePromptOptions<string> {
+export type ConfirmPromptOptions = ValuePromptOptions<boolean>;
+export type InputPromptOptions = ValuePromptOptions<string>;
+
+export interface PasswordPromptOptions extends ValuePromptOptions<string> {
   readonly mask?: string;
 }
 
-export interface SelectPromptOptions<TValue> extends BasePromptOptions<TValue> {
+export interface SelectPromptOptions<TValue> extends ValuePromptOptions<TValue> {
   readonly choices: PromptDataSource<TValue>;
 }
 
-export interface MultiSelectPromptOptions<TValue> extends BasePromptOptions<readonly TValue[]> {
+export interface MultiSelectPromptOptions<TValue> extends ValuePromptOptions<readonly TValue[]> {
   readonly choices: PromptDataSource<TValue>;
   readonly minSelected?: number;
   readonly maxSelected?: number;
   readonly rangeSelection?: boolean;
 }
 
-export interface AutocompletePromptOptions<TValue> extends BasePromptOptions<TValue> {
+export interface AutocompletePromptOptions<TValue> extends ValuePromptOptions<TValue> {
   readonly choices: PromptDataSource<TValue>;
   readonly debounceMs?: number;
 }
 
 export interface EditorPromptOptions extends BasePromptOptions<string> {
+  readonly defaultValue?: string;
+  readonly required?: boolean;
+  readonly validate?: PromptValidator<string>;
   readonly editorCommand?: readonly string[];
   readonly editorAdapter?: PromptEditorAdapter;
 }
@@ -258,7 +265,8 @@ export interface PromptEditorAdapter {
   edit(request: PromptEditorRequest): Promise<PromptEditorResult>;
 }
 
-export interface ProgressPromptOptions extends Omit<BasePromptOptions<ProgressResult>, 'defaultValue'> {
+export interface ProgressPromptOptions extends BasePromptOptions<ProgressResult> {
+  readonly transcript?: boolean;
   readonly progress: ProgressSnapshot;
   readonly task?: ProgressTask;
 }
@@ -275,7 +283,6 @@ export interface DeterminateProgress extends ProgressCommon {
 
 export interface IndeterminateProgress extends ProgressCommon {
   readonly kind: 'indeterminate';
-  readonly frame?: number;
 }
 
 export type ProgressSnapshot = DeterminateProgress | IndeterminateProgress;

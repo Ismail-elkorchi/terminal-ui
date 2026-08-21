@@ -11,7 +11,7 @@ import {
   lineStartOffset
 } from './word-boundaries.ts';
 import { createTerminalTextIndex } from './terminal-text-index.ts';
-import { sanitizeTerminalText } from './sanitize.ts';
+import { sanitizeTerminalSingleLineText } from './sanitize.ts';
 import type {
   TerminalTextIndex,
   TextBoundaryOptions,
@@ -39,14 +39,14 @@ export function editTextBuffer(
       return replaceTextRange(
         buffer.text,
         selectedRange(selection, cursor),
-        sanitizeTerminalText(operation.text).text
+        sanitizeTerminalSingleLineText(operation.text).text
       );
     }
     case 'replaceRange':
       return replaceTextRange(
         buffer.text,
         operation.range,
-        sanitizeTerminalText(operation.text).text
+        sanitizeTerminalSingleLineText(operation.text).text
       );
     case 'deleteBackward':
       if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
@@ -130,7 +130,7 @@ export function editTextBuffer(
       return replaceTextRange(
         buffer.text,
         selectedRange(selection, cursor),
-        sanitizeTerminalText(operation.text).text
+        sanitizeTerminalSingleLineText(operation.text).text
       );
   }
 }

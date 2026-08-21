@@ -84,7 +84,7 @@ serializer resolves them for the terminal's color depth. Theme data is copied
 and frozen at construction, and render reuse compares exact canonical color
 and symbol content; a theme's display name is not rendering identity.
 
-Component `meta.styles` customize stable component parts and interaction states
+Component `styles` customize the component's declared anatomy and visual states
 locally. They layer over that component's theme defaults and do not create a
 global cascade.
 

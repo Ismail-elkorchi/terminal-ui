@@ -6,7 +6,6 @@ import {
   renderNodeInteractionUnavailable,
   resolveRenderNodeMessage
 } from '../model/node.ts';
-import { pointerInteractionHitTargets } from './pointer-interaction.ts';
 import {
   emptyRect, hasKeyboardOrInputMap
 } from './renderers/support/common.ts';
@@ -302,7 +301,7 @@ export function hitTargetsForRenderNode<TMessage>(
     theme,
     widthProfile
   }) ?? [];
-  const interactionTargets = pointerInteractionHitTargets(renderNode, target.bounds, targets)
+  const interactionTargets = targets
     .map((hitTarget) => withoutDisabledTargetFocus({
       ...hitTarget,
       message: (event) => resolveRenderNodeMessage(renderNode, hitTarget.message(event)) as TMessage

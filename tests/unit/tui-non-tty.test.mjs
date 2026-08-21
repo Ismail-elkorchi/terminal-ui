@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { runTui } from '../../dist/tui/index.js';
+import { runTui, TuiRunError } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { defineTui } from '../../dist/tui/index.js';
 import {
@@ -9,17 +9,27 @@ import {
   text
 } from '../../dist/components/index.js';
 
+async function errorExit(operation) {
+  try {
+    await operation;
+  } catch (error) {
+    assert.ok(error instanceof TuiRunError);
+    return error.exit;
+  }
+  assert.fail('Expected runTui() to reject with TuiRunError.');
+}
+
 test('TUI non-TTY reject mode returns a typed diagnostic without control sequences', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
   const app = defineTui({
     id: 'non-tty-reject',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready' }),
     nonTty: { mode: 'reject', diagnosticHint: 'Use last_frame for CI.' }
   });
 
-  const result = await runTui(app, host);
+  const result = await errorExit(runTui(app, { host: host }));
 
   assert.equal(result.status, 'error');
   assert.equal(result.diagnostics[0]?.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
@@ -33,13 +43,13 @@ test('TUI non-TTY transcript_only mode renders a snapshot without terminal outpu
   const app = defineTui({
     id: 'non-tty-transcript',
     transcript: true,
-    init: () => ({ label: 'ready' }),
+    init: () => ({ state: ({ label: 'ready' }) }),
     update: (state) => ({ state }),
     view: (state) => statusBar({ id: 'status', leading: [{ id: 'state', kind: 'text', text: state.label }] }),
     nonTty: { mode: 'transcript_only' }
   });
 
-  const result = await runTui(app, host);
+  const result = await runTui(app, { host: host });
 
   assert.equal(result.status, 'completed');
   assert.equal(result.reason, 'transcript_only');
@@ -53,18 +63,17 @@ test('TUI non-TTY last_frame mode writes readable text without control sequences
   const host = createMemoryTerminalHost({ isTty: false });
   const app = defineTui({
     id: 'non-tty-last-frame',
-    init: () => ({ label: 'ready' }),
+    init: () => ({ state: ({ label: 'ready' }) }),
     update: (state) => ({ state }),
     view: (state) => statusBar({ id: 'status', leading: [{ id: 'state', kind: 'text', text: state.label }] }),
     nonTty: { mode: 'last_frame' }
   });
 
-  const result = await runTui(app, host);
+  const result = await runTui(app, { host: host });
 
   assert.equal(result.status, 'completed');
   assert.equal(result.reason, 'last_frame');
-  assert.match(host.output(), /# status/u);
-  assert.match(host.output(), /- status: status = ready/u);
+  assert.match(host.output(), /- status = ready \[live:polite\]/u);
   assert.match(host.output(), /\n\nready\n$/u);
   assert.doesNotMatch(host.output(), /\u001B\[/u);
 });
@@ -85,7 +94,7 @@ test('TUI non-TTY run reports initialization failures without disposing an injec
     nonTty: { mode: 'transcript_only' }
   });
 
-  const result = await runTui(app, host);
+  const result = await errorExit(runTui(app, { host: host }));
 
   assert.equal(result.status, 'error');
   assert.equal(result.diagnostics[0]?.diagnostic.code, 'TUI_INITIALIZATION_FAILED');
@@ -96,7 +105,7 @@ test('TUI non-TTY render failures preserve an initialized undefined state', asyn
   const host = createMemoryTerminalHost({ isTty: false });
   const app = defineTui({
     id: 'non-tty-undefined-state-failure',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: () => ({ state: undefined }),
     view: () => {
       throw new Error('render failed');
@@ -104,7 +113,7 @@ test('TUI non-TTY render failures preserve an initialized undefined state', asyn
     nonTty: { mode: 'transcript_only' }
   });
 
-  const result = await runTui(app, host);
+  const result = await errorExit(runTui(app, { host: host }));
 
   assert.equal(result.status, 'error');
   assert.equal(result.diagnostics[0]?.diagnostic.code, 'TUI_RENDER_FAILED');

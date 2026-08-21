@@ -37,7 +37,11 @@ export function initialPromptState<TChoice>(
   }
 ): PromptRuntimeState<TChoice> {
   const choices = resolution.status === 'resolved' ? resolution.choices : [];
-  const selectedChoiceIndexes = initialSelectedChoiceIndexes(prompt, choices);
+  const selectedChoiceIndexes = prompt.kind === 'select'
+      || prompt.kind === 'multiselect'
+      || prompt.kind === 'autocomplete'
+    ? initialSelectedChoiceIndexes(prompt, choices)
+    : new Set<number>();
   const selectedChoiceIndex = selectedChoiceIndexes.values().next().value;
   const focusedChoiceIndex = selectedChoiceIndex
     ?? firstEnabledChoiceIndex(choices)
@@ -51,7 +55,9 @@ export function initialPromptState<TChoice>(
       ...(typeof prompt.defaultValue === 'boolean' ? { confirmValue: prompt.defaultValue } : {})
     };
   }
-  const initial = typeof prompt.defaultValue === 'string' ? prompt.defaultValue : '';
+  const initial = prompt.kind !== 'progress' && typeof prompt.defaultValue === 'string'
+    ? prompt.defaultValue
+    : '';
   return {
     ...basePromptState(resolution, choices, focusedChoiceIndex, selectedChoiceIndexes, choiceRangeAnchorIndex),
     buffer: { text: initial, cursor: initial.length }

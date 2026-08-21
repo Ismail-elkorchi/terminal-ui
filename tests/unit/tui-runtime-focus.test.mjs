@@ -2,17 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui, runTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   componentElement,
   leafComponentDefinition,
   testKeyInput
 } from '../helpers/component-definition.mjs';
-import { renderFramePlain } from '../../dist/renderer/index.js';
 import { button, contextMenu, dialog, menuTrigger, listbox, notificationRegion, richText, dataGrid, textInput } from '../../dist/components/index.js';
 import { column, overlay, surface, viewport } from '../../dist/layout/index.js';
-import { waitUntil } from '../helpers/async.ts';
 import { ignoreMessage } from '../../dist/component/index.js';
 
 const tabKey = {
@@ -25,13 +22,13 @@ const tabKey = {
 
 function focusInput(options) {
   if (options.keys !== undefined) return testKeyInput(options);
-  return textInput({ onAction: () => ignoreMessage(), ...options });
+  return textInput({ meta: { accessibleName: "Text input" }, onAction: () => ignoreMessage(), ...options });
 }
 
 test('TUI focus traversal reveals logical targets in a controlled viewport', async () => {
   const app = defineTui({
     id: 'focus-reveal-tui',
-    init: () => ({ scroll: { offsetRow: 0, offsetColumn: 0, followTail: false } }),
+    init: () => ({ state: ({ scroll: { offsetRow: 0, offsetColumn: 0, followTail: false } }) }),
     update: (state, message) => message.kind === 'scroll'
       ? { state: { scroll: message.event.nextState } }
       : { state },
@@ -64,7 +61,7 @@ test('TUI focus traversal reveals logical targets in a controlled viewport', asy
 test('TUI runtime keeps command focus when contained overlays close under passive notifications', async () => {
   const app = defineTui({
     id: 'overlay-focus-return-tui',
-    init: () => ({ command: '', searchPickerOpen: false, notifications: [] }),
+    init: () => ({ state: ({ command: '', searchPickerOpen: false, notifications: [] }) }),
     update: (state, message) => {
       if (message.kind === 'text') {
         return { state: { ...state, command: `${state.command}${message.text}` } };
@@ -147,7 +144,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
 test('TUI runtime unwinds nested contained overlay focus to the original field', async () => {
   const app = defineTui({
     id: 'nested-overlay-focus-return-tui',
-    init: () => ({ command: '', modal: 'none' }),
+    init: () => ({ state: ({ command: '', modal: 'none' }) }),
     update: (state, message) => {
       if (message.kind === 'text') {
         return { state: { ...state, command: `${state.command}${message.text}` } };
@@ -236,7 +233,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
 test('anonymous container focus identity survives terminal resize', async () => {
   const app = defineTui({
     id: 'structural-focus-resize',
-    init: () => ({ value: '' }),
+    init: () => ({ state: ({ value: '' }) }),
     update: (state) => ({ state }),
     view: (state) => column([
       focusInput({ id: 'first', presentation: { value: state.value, cursor: 0 } }),
@@ -265,7 +262,7 @@ test('anonymous container focus identity survives terminal resize', async () => 
 test('runTui accepts an initial focus path', async () => {
   const app = defineTui({
     id: 'run-focus-restore',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
     view: (state) => column([
       focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
@@ -275,7 +272,7 @@ test('runTui accepts an initial focus path', async () => {
   const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 4 } });
   host.input('\r');
 
-  const exit = await runTui(app, host, { initialFocus: { kind: 'path', path: ['column:0', 'second'] } });
+  const exit = await runTui(app, { host: host, initialFocus: { kind: 'path', path: ['column:0', 'second'] } });
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { active: 'second' });
@@ -284,7 +281,7 @@ test('runTui accepts an initial focus path', async () => {
 test('runTui accepts a state-derived theme', async () => {
   const app = defineTui({
     id: 'run-state-theme',
-    init: () => ({ active: false }),
+    init: () => ({ state: ({ active: false }) }),
     inputBindings: [{ id: 'activate-theme', triggers: [{ kind: 'key', key: 'enter' }], message: { active: true } }],
     update: () => ({ state: { active: true }, exit: {} }),
     view: () => richText({
@@ -295,8 +292,7 @@ test('runTui accepts a state-derived theme', async () => {
   const host = createMemoryTerminalHost({ terminalSize: { columns: 12, rows: 2 } });
   host.input('\r');
 
-  const exit = await runTui(app, host, {
-    theme: (state) => ({
+  const exit = await runTui(app, { host: host, theme: (state) => ({
       tokens: {
         colors: {
           'accent.primary': state.active
@@ -304,8 +300,7 @@ test('runTui accepts a state-derived theme', async () => {
             : { kind: 'ansi', value: 1 }
         }
       }
-    })
-  });
+    }) });
 
   assert.equal(exit.status, 'completed');
   assert.match(host.output(), /\u001B\[31m/u);
@@ -315,7 +310,7 @@ test('runTui accepts a state-derived theme', async () => {
 test('state-derived themes repaint when their exact rendering content changes', async () => {
   const app = defineTui({
     id: 'run-collision-theme',
-    init: () => ({ active: false }),
+    init: () => ({ state: ({ active: false }) }),
     inputBindings: [{ id: 'activate-theme', triggers: [{ kind: 'key', key: 'enter' }], message: { active: true } }],
     update: () => ({ state: { active: true }, exit: {} }),
     view: () => richText({
@@ -329,8 +324,7 @@ test('state-derived themes repaint when their exact rendering content changes', 
   });
   host.input('\r');
 
-  const exit = await runTui(app, host, {
-    theme: (state) => ({
+  const exit = await runTui(app, { host: host, theme: (state) => ({
       tokens: {
         colors: {
           'custom.x': state.active
@@ -338,8 +332,7 @@ test('state-derived themes repaint when their exact rendering content changes', 
             : { kind: 'rgb', r: 45, g: 88, b: 140 }
         }
       }
-    })
-  });
+    }) });
 
   assert.equal(exit.status, 'completed');
   assert.match(host.output(), /\u001B\[38;2;45;88;140m/u);
@@ -349,7 +342,7 @@ test('state-derived themes repaint when their exact rendering content changes', 
 test('TUI runtime restores a serialized focus path when it still exists', async () => {
   const app = defineTui({
     id: 'focus-restore',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
       focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
@@ -386,7 +379,7 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
 test('TUI runtime falls back when restored focus path is stale', async () => {
   const app = defineTui({
     id: 'stale-focus-restore',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
       focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
@@ -441,7 +434,7 @@ test('ambiguous initial element focus is diagnosed instead of selecting an arbit
   };
   const app = defineTui({
     id: 'ambiguous-initial-focus',
-    init: () => ({}),
+    init: () => ({ state: ({}) }),
     update: (state) => ({ state }),
     view: () => column([
       componentElement({ id: 'duplicate', definition: renderer })
@@ -466,7 +459,7 @@ test('ambiguous initial element focus is diagnosed instead of selecting an arbit
 test('TUI runtime traverses focus backward with shifted tab', async () => {
   const app = defineTui({
     id: 'reverse-focus',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
       focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
@@ -491,7 +484,7 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
 test('TUI runtime respects explicit focus order and disabled focus targets', async () => {
   const app = defineTui({
     id: 'ordered-focus',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
       focusInput({
@@ -538,7 +531,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
 test('TUI runtime traps focus inside modal and scoped popover elements', async () => {
   const modalApp = defineTui({
     id: 'modal-focus-scope',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
       focusInput({ id: 'background', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'background' }) } }),
@@ -572,7 +565,7 @@ test('TUI runtime traps focus inside modal and scoped popover elements', async (
 
   const popoverApp = defineTui({
     id: 'popover-focus-scope',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
       focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
@@ -605,7 +598,7 @@ test('TUI runtime traps focus inside modal and scoped popover elements', async (
 test('dialog owns escape dismissal, initial focus, and focus restoration', async () => {
   const app = defineTui({
     id: 'dialog-lifecycle',
-    init: () => ({ open: false, dismissedBy: undefined }),
+    init: () => ({ state: ({ open: false, dismissedBy: undefined }) }),
     update: (state, message) => {
       if (message.kind === 'open') return { state: { ...state, open: true } };
       if (message.kind === 'dismiss') {
@@ -669,7 +662,7 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
 test('TUI runtime focuses top-layer context menus and open menu triggers', async () => {
   const contextMenuApp = defineTui({
     id: 'context-menu-focus',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
       focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
@@ -691,7 +684,7 @@ test('TUI runtime focuses top-layer context menus and open menu triggers', async
     onActivate: (event) => ({
       active: event.id === 'copy' ? 'context-menu' : event.kind
     }),
-    meta: {
+    meta: { accessibleName: "Context menu",
         layer: {
             zIndex: 10
         }
@@ -719,7 +712,7 @@ test('TUI runtime focuses top-layer context menus and open menu triggers', async
 
   const menuTriggerApp = defineTui({
     id: 'menuTrigger-focus',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
       focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
@@ -745,7 +738,7 @@ test('TUI runtime focuses top-layer context menus and open menu triggers', async
     onActivate: (event) => ({
       active: event.id === 'dark' ? 'menuTrigger' : event.kind
     }),
-    meta: {
+    meta: { accessibleName: "Menu",
         layer: {
             zIndex: 10
         }
@@ -813,7 +806,7 @@ test('TUI runtime traverses multiple defined focus targets within one element', 
   };
   const app = defineTui({
     id: 'defined-focus-targets',
-    init: () => ({}),
+    init: () => ({ state: ({}) }),
     update: (state) => ({ state }),
     view: () => componentElement({ id: 'component-board', definition: renderer })
   });
@@ -859,7 +852,7 @@ test('TUI updates can focus a specific component target after rendering new stat
   };
   const app = defineTui({
     id: 'programmatic-defined-focus',
-    init: () => ({ active: 'left' }),
+    init: () => ({ state: ({ active: 'left' }) }),
     update: (_state, message) => ({
       state: { active: message.targetId },
       focus: {
@@ -883,7 +876,7 @@ test('TUI updates can focus a specific component target after rendering new stat
 test('TUI frame accessibility uses element metadata and marks only the active focus target', async () => {
   const app = defineTui({
     id: 'a11y-frame',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
       componentElement({
@@ -904,7 +897,7 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
           })
         }
       }),
-      listbox({
+      listbox({ meta: { accessibleName: "List" },
         projectItem: (item) => ({ id: String(item), label: String(item) }),
         id: 'choices',
         items: ['Alpha', 'Beta'],
@@ -914,7 +907,7 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
         },
         onTransition: () => ({ active: 'none' })
       }),
-      dataGrid({
+      dataGrid({ meta: { accessibleName: "Data grid" },
         id: 'grid',
         rows: [['A1', 'B1']],
         getRowId: (_row, index) => String(index),
@@ -948,70 +941,4 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
   ]);
   assert.equal(tableNode?.role, 'grid');
   assert.equal(tableNode?.children?.[0]?.children?.[1]?.value, 'B1');
-});
-
-test('TUI runtime uses app-level accessibility descriptions for frames and exits', async () => {
-  const app = defineTui({
-    id: 'custom-a11y',
-    init: () => ({ label: 'ready' }),
-    update: (state) => ({ state, exit: {} }),
-    view: (state) => focusInput({ id: 'custom-field', presentation: { value: state.label, cursor: 0 }, onAction: (action) => action.kind === 'submit' ? { done: true } : ignoreMessage() }),
-    accessibility: {
-      describe: (state) => ({
-        source: 'tui',
-        title: 'Custom \u001B[31maccessibility\u001B[0m',
-        root: {
-          id: 'custom-root',
-          role: 'application',
-          label: `Accessible \u001B[31m${state.label}\u001B[0m`,
-          children: [{ id: 'custom-status', role: 'status', label: state.label }]
-        },
-        focusPath: ['custom-root', 'custom-status'],
-        diagnostics: []
-      })
-    }
-  });
-  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const running = runTui(app, harness.host);
-
-  await waitUntil(() => harness.frames().length === 1);
-  assert.match(renderFramePlain(harness.frames()[0]), /ready/);
-  assert.equal(harness.frames()[0].accessibility.title, 'Custom accessibility');
-  assert.equal(harness.frames()[0].accessibility.root.id, 'custom-root');
-  assert.equal(harness.frames()[0].accessibility.root.label, 'Accessible ready');
-  assert.deepEqual(harness.frames()[0].accessibility.focusPath, ['custom-root', 'custom-status']);
-  assert.equal(decodeAccessibleSnapshot(harness.frames()[0].accessibility).status, 'success');
-
-  harness.host.input('\r');
-  const exit = await running;
-
-  assert.equal(exit.status, 'completed');
-  assert.equal(exit.snapshot.root.id, 'custom-root');
-  assert.equal(exit.snapshot.root.label, 'Accessible ready');
-});
-
-test('TUI runtime falls back when app-level accessibility is structurally invalid', async () => {
-  const app = defineTui({
-    id: 'invalid-custom-a11y',
-    init: () => ({ label: 'ready' }),
-    update: (state) => ({ state }),
-    view: (state) => focusInput({ id: 'safe-field', presentation: { value: state.label, cursor: 0 } }),
-    accessibility: {
-      describe: () => ({
-        source: 'tui',
-        root: { id: 'custom-root', role: 'application', label: 'Custom root' },
-        focusPath: ['missing-root'],
-        diagnostics: []
-      })
-    }
-  });
-  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
-
-  await runtime.start();
-  const snapshot = runtime.frame().accessibility;
-
-  assert.equal(snapshot.root.id, 'safe-field');
-  assert.equal(snapshot.diagnostics[0]?.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
-  assert.equal(decodeAccessibleSnapshot(snapshot).status, 'success');
 });

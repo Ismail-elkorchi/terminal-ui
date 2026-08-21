@@ -5,9 +5,8 @@ import {
 } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
-import { assertOptionalCallback, assertOptionalEnum, assertRequiredCallback } from '../../foundation/validation.ts';
-import { pointerVisualState, preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
-import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/pointer-interaction.ts';
+import { assertOptionalEnum, assertRequiredCallback } from '../../foundation/validation.ts';
+import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import type { LinkActivateEvent } from '../../ui-model/foundations.ts';
 import type { ElementKeyEvent } from '../../element/metadata.ts';
@@ -20,12 +19,12 @@ interface LinkModel {
   readonly label: string;
   readonly accessibleName: string;
   readonly href: string;
-  readonly pointerState?: PointerInteractionState;
 }
 
-type LinkComponentAction =
-  | { readonly kind: 'activate'; readonly event: LinkActivateEvent }
-  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+interface LinkComponentAction {
+  readonly kind: 'activate';
+  readonly event: LinkActivateEvent;
+}
 
 const instantiateLink = defineComponent<
   LinkModel,
@@ -34,7 +33,8 @@ const instantiateLink = defineComponent<
   LinkStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled', 'busy']
 >({
   name: 'terminal-ui/components/link',
   identity: 'required',
@@ -44,6 +44,7 @@ const instantiateLink = defineComponent<
   states: ['disabled', 'busy', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label'],
+  visualStates: ['focused', 'hovered', 'pressed', 'disabled', 'busy'],
   measure: ({ model, widthProfile }) => ({
     minWidth: 0,
     minHeight: 0,
@@ -53,11 +54,11 @@ const instantiateLink = defineComponent<
   render(input) {
     const state = input.disabled
       ? 'disabled'
-      : pointerVisualState(input.model.pointerState, `${input.id ?? 'link'}:link`);
+      : pointerVisualState(input.pointerState, `${input.id ?? 'link'}:link`);
     const style = input.style({
       part: 'label',
       base: { fg: { kind: 'theme', token: 'link.foreground' }, underline: true },
-      ...(state === undefined ? {} : { state }),
+      ...(state === undefined ? {} : { states: [state] }),
     });
     input.target.write(0, 0, [span(input.model.label, {
       ...(style === undefined ? {} : { style }),
@@ -70,10 +71,6 @@ const instantiateLink = defineComponent<
       trigger: { kind: 'key', key: 'enter', modifiers: { kind: 'any' } },
       onKey: (event) => ({ kind: 'activate', event: keyboardLinkActivation(model.href, event) }),
     }],
-  },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: ({ id, model, bounds, busy }) => busy ? [] : [{
@@ -100,18 +97,13 @@ export function link<const TMessage extends ComponentMessage = never>(
   const label = clean(options.label, 'link label');
   const accessibleName = clean(options.accessibleName ?? options.label, 'link accessibleName');
   const href = clean(options.href, 'link href');
-  const pointerState = preparePointerInteractionState(
-    options.pointerState,
-    'link pointerState',
-    options.disabled !== true && options.inert !== true,
-  );
   const model = {
     label,
     accessibleName,
     href,
-    ...(pointerState === undefined ? {} : { pointerState }),
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateLink({
@@ -121,23 +113,15 @@ export function link<const TMessage extends ComponentMessage = never>(
   });
   if (options.inert === true) return instantiateLink({ ...model, inert: true });
   assertRequiredCallback(options.onActivate, 'link onActivate');
-  assertOptionalCallback(options.onPointerAction, 'link onPointerAction');
   return instantiateLink({
     ...model,
-    onAction: (action) => action.kind === 'activate'
-      ? options.onActivate(action.event)
-      : options.onPointerAction?.(action.action) ?? ignoreMessage(),
+    onAction: (action) => options.onActivate(action.event),
   });
 }
 
 export function toggleButton<const TMessage extends ComponentMessage = never>(
   options: ToggleButtonOptions<TMessage>,
 ): Element<TMessage> {
-  const pointerState = preparePointerInteractionState(
-    options.pointerState,
-    'toggleButton pointerState',
-    options.disabled !== true && options.inert !== true,
-  );
   const model = {
     ...(options.label === undefined ? {} : { label: options.label }),
     accessibleName: options.accessibleName ?? options.label ?? '',
@@ -146,9 +130,9 @@ export function toggleButton<const TMessage extends ComponentMessage = never>(
     ...(options.tone === undefined ? {} : { tone: options.tone }),
     ...(options.density === undefined ? {} : { density: options.density }),
     pressed: options.pressed,
-    ...(pointerState === undefined ? {} : { pointerState }),
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateToggleButton({
@@ -158,12 +142,9 @@ export function toggleButton<const TMessage extends ComponentMessage = never>(
   });
   if (options.inert === true) return instantiateToggleButton({ ...model, inert: true });
   assertRequiredCallback(options.onTransition, 'toggleButton onTransition');
-  assertOptionalCallback(options.onPointerAction, 'toggleButton onPointerAction');
   return instantiateToggleButton({
     ...model,
-    onAction: (action) => action.kind === 'pointerLifecycle'
-      ? options.onPointerAction?.(action.action) ?? ignoreMessage()
-      : options.onTransition({ kind: 'setPressed', pressed: !options.pressed }),
+    onAction: () => options.onTransition({ kind: 'setPressed', pressed: !options.pressed }),
   });
 }
 

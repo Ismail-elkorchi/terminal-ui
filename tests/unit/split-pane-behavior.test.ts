@@ -61,7 +61,7 @@ void test('resizable split pane routes keyboard and captured pointer drag action
     { readonly action: SplitPaneAction }
   >({
     id: 'resizable-split-pane',
-    init: () => ({ split: createSplitPaneState(2, [0.5, 0.5]) }),
+    init: () => ({ state: ({ split: createSplitPaneState(2, [0.5, 0.5]) }) }),
     update: (state, message) => ({
       state: { split: splitPaneReducer(state.split, message.action) }
     }),

@@ -229,7 +229,7 @@ async function submitDefaultValue<TChoice>(
     case 'editor':
       return prompt.defaultValue === undefined ? undefined : submitPrompt(prompt, prompt.defaultValue, snapshot, host);
     case 'progress':
-      return prompt.defaultValue === undefined ? undefined : submitPrompt(prompt, prompt.defaultValue, snapshot, host);
+      return submitPrompt(prompt, { completed: false }, snapshot, host);
   }
 }
 

@@ -9,19 +9,33 @@ export function promptLine<TChoice>(
   state: PromptRuntimeState<TChoice>,
   theme: TerminalTheme = defaultTheme
 ): string {
-  if (prompt.render !== undefined) return prompt.render.render(prompt);
-  if (prompt.kind === 'confirm') return `${prompt.label}${confirmHint(prompt)} `;
+  if (prompt.kind === 'confirm') return withPromptDescription(prompt, `${prompt.label}${confirmHint(prompt)} `);
   if (prompt.kind === 'select' || prompt.kind === 'multiselect' || prompt.kind === 'autocomplete') {
-    return [
+    return withPromptDescription(prompt, [
       prompt.kind === 'autocomplete' ? `${prompt.label}: ${state.buffer.text}` : `${prompt.label}:`,
       ...choiceStatusLines(prompt, state, theme),
       ...state.choices.map((choice, index) => choiceLine(prompt, state, choice, index, theme))
-    ].join('\n');
+    ].join('\n'));
   }
   if (prompt.kind === 'password') {
-    return promptWithValidationStatus(`${prompt.label}: ${passwordMask(prompt, state.buffer.text)}`, state);
+    return withPromptDescription(
+      prompt,
+      promptWithValidationStatus(`${prompt.label}: ${passwordMask(prompt, state.buffer.text)}`, state),
+    );
   }
-  return promptWithValidationStatus(`${prompt.label}: ${state.buffer.text}`, state);
+  return withPromptDescription(
+    prompt,
+    promptWithValidationStatus(`${prompt.label}: ${state.buffer.text}`, state),
+  );
+}
+
+function withPromptDescription(
+  prompt: Pick<PromptDefinition<unknown>, 'description'>,
+  text: string,
+): string {
+  if (prompt.description === undefined) return text;
+  const [first = '', ...rest] = text.split('\n');
+  return [first, `  ${prompt.description}`, ...rest].join('\n');
 }
 
 function promptWithValidationStatus<TChoice>(line: string, state: PromptRuntimeState<TChoice>): string {

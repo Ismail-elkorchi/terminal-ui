@@ -141,8 +141,9 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
   const output = renderFramePlain(frame);
 
   assert.equal(output, 'base-TOPe\nwide界!ail');
-  assert.equal(frame.accessibility.root.label, 'surface');
-  assert.equal(frame.accessibility.root.children?.[0]?.role, 'application');
+  assert.equal(frame.accessibility.root.label, undefined);
+  assert.equal(frame.accessibility.root.role, 'group');
+  assert.equal(frame.accessibility.root.children?.[0]?.role, 'group');
 });
 
 test('surface is a single-child visual wrapper, not a layout container', () => {

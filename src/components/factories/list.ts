@@ -27,9 +27,7 @@ import {
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import {
   pointerVisualState,
-  preparePointerInteractionState,
 } from '../../interaction/pointer-interaction.ts';
-import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import { ownSelectionState, type SelectionState } from '../../interaction/collection.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -80,7 +78,6 @@ interface PreparedListbox {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly pointerState?: PointerInteractionState;
 }
 
 const listboxDefinitionBase = {
@@ -90,7 +87,8 @@ const listboxDefinitionBase = {
   semantics: 'semantic' as const,
   accessibleRole: 'listbox' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
-  parts: ['marker', 'item', 'description', 'match', 'empty', 'scrollbar'] as const,
+  parts: ['marker', 'item', 'description', 'match', 'empty', 'scrollbarTrack', 'scrollbarThumb'] as const,
+  visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'] as const,
   states: ['disabled', 'busy', 'inert'] as const,
   measure: measureListbox,
   render: renderListbox,
@@ -108,8 +106,7 @@ const listboxDefinitionBase = {
 
 type ListboxComponentAction =
   | { readonly kind: 'transition'; readonly action: ListboxTransition }
-  | { readonly kind: 'activate'; readonly event: ListboxActivateEvent }
-  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+  | { readonly kind: 'activate'; readonly event: ListboxActivateEvent };
 
 const instantiateListbox = defineComponent<
   PreparedListbox,
@@ -118,13 +115,10 @@ const instantiateListbox = defineComponent<
   DataListStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
 >({
   ...listboxDefinitionBase,
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
-  },
   keys({ model, busy }) {
     if (busy) return {};
     const active = activeEntry(model);
@@ -196,15 +190,13 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
 export function listbox<TValue, const TMessage extends ComponentMessage = never>(
   options: ListboxOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const prepared = prepareListbox(
-    options,
-    options.disabled !== true && options.inert !== true,
-  );
+  const prepared = prepareListbox(options);
   if (options.disabled === true) return instantiateListbox({
     ...prepared,
     id: options.id,
     disabled: true,
     ...(options.inert === undefined ? {} : { inert: options.inert }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   });
   if (options.inert === true) return instantiateListbox({
@@ -212,19 +204,19 @@ export function listbox<TValue, const TMessage extends ComponentMessage = never>
     id: options.id,
     inert: true,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   });
   assertRequiredCallback(options.onTransition, 'listbox onTransition');
   assertOptionalCallback(options.onActivate, 'listbox onActivate');
-  assertOptionalCallback(options.onPointerAction, 'listbox onPointerAction');
   return instantiateListbox({
     ...prepared,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
-      if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
       if (isScrollableListboxOptions(options)) return options.onTransition(action.action);
       return action.action.kind === 'scroll'
         ? ignoreMessage()
@@ -241,7 +233,6 @@ function isScrollableListboxOptions<TValue, TMessage extends ComponentMessage>(
 
 function prepareListbox<TValue, TMessage extends ComponentMessage>(
   value: Readonly<ListboxOptions<TValue, TMessage>>,
-  pointerAvailable: boolean,
 ): PreparedListbox {
   const rawItems = value.items;
   const rawProjector = value.projectItem;
@@ -273,11 +264,6 @@ function prepareListbox<TValue, TMessage extends ComponentMessage>(
   const scroll = prepareComponentScrollState(value.presentation.scroll, 'list scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'list scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'list scrollPolicy');
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'listbox pointerState',
-    pointerAvailable,
-  );
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('list scrollbar and scrollPolicy require scroll state.');
   }
@@ -292,7 +278,6 @@ function prepareListbox<TValue, TMessage extends ComponentMessage>(
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -527,10 +512,17 @@ function renderListbox(
     const selected = selectionContains(input.model.selection, entry.id);
     const active = entry.id === input.model.activeId;
     const pointer = pointerVisualState(
-      input.model.pointerState,
+      input.pointerState,
       `${input.id ?? 'listbox'}:option:${entry.id}`,
     );
-    const state = entry.disabled ? 'disabled' : pointer ?? (selected ? 'selected' : active ? 'active' : undefined);
+    const states = entry.disabled
+      ? ['disabled' as const]
+      : [
+        ...(selected ? ['selected' as const] : []),
+        ...(active ? ['active' as const] : []),
+        ...(pointer === undefined ? [] : [pointer]),
+      ];
+    const state = states.at(-1);
     const itemStyle = input.style({
       part: 'item',
       base: selected
@@ -539,11 +531,11 @@ function renderListbox(
           bg: { kind: 'theme', token: 'selection.background' },
         }
         : { fg: { kind: 'theme', token: 'text.default' } },
-      ...(state === undefined ? {} : { state }),
+      ...(states.length === 0 ? {} : { states }),
     });
     const markerStyle = input.style({
       part: 'marker',
-      ...(state === undefined ? {} : { state }),
+      ...(states.length === 0 ? {} : { states }),
       ...(itemStyle === undefined ? {} : { base: itemStyle }),
     });
     const spans: RenderSpan[] = [
@@ -574,12 +566,13 @@ function renderListbox(
           itemIndex: entry.itemIndex,
         }),
       },
-      ...highlightedListLabel(entry.label, entry.matches, itemStyle, input, entry, state),
+      ...highlightedListLabel(entry.label, entry.matches, itemStyle, input, entry, states),
       ...(entry.description === undefined ? [] : [{
         text: ` · ${entry.description}`,
         ...optionalSpanStyle(input.style({
           part: 'description',
           base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
+          ...(states.length === 0 ? {} : { states }),
         })),
         source: input.source({
           cellRole: 'text',
@@ -620,6 +613,7 @@ function renderListbox(
     target: input.target,
     plan: plan.scrollbar,
     theme: input.theme,
+    style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     source: (sourceInput) => input.source(sourceInput),
   });
 }
@@ -631,7 +625,6 @@ function accessibleListbox(
   return {
     id: input.id,
     role: 'listbox' as const,
-    label: input.id,
     description: input.model.totalCount === 0
       ? 'Showing 0 items.'
       : `Showing ${String(plan.startIndex + 1)}-${String(plan.startIndex + plan.rows.length)} of ${
@@ -640,7 +633,9 @@ function accessibleListbox(
     ...(input.focused ? { focused: true } : {}),
     ...(input.model.activeId === undefined
       ? {}
-      : { activeDescendant: `${input.id}:option:${input.model.activeId}` }),
+      : input.model.entries.some((item) => item.id === input.model.activeId)
+        ? { activeDescendant: `${input.id}:option:${input.model.activeId}` }
+        : {}),
     ...(input.model.selection.mode === 'multiple' ? { multiSelectable: true } : {}),
     window: {
       startIndex: plan.startIndex,
@@ -718,9 +713,10 @@ function highlightedListLabel(
   base: TerminalStyle | undefined,
   input: import('../../component/index.ts').ComponentRenderInput<PreparedListbox, DataListStylePart>,
   entry: PreparedListEntry,
-  state: import('../../element/metadata.ts').ElementVisualState | undefined,
+  states: readonly Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'>[],
 ): readonly RenderSpan[] {
-  const sourceState = state === 'default' ? undefined : state;
+  const state = states.at(-1);
+  const sourceState = state;
   if (matches === undefined || matches.length === 0) {
     return [{
       text: label,
@@ -739,6 +735,8 @@ function highlightedListLabel(
   const matchStyle = input.style({
     part: 'match',
     base: { ...(base ?? {}), fg: { kind: 'theme', token: 'menu.match' }, underline: true },
+    applyDefaultStateStyle: false,
+    ...(states.length === 0 ? {} : { states }),
   });
   const spans: RenderSpan[] = [];
   let cursor = 0;

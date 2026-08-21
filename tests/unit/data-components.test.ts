@@ -28,7 +28,7 @@ void test('tree component renders expanded visible nodes and accessible selectio
       ]
     }
   ]);
-  const frame = renderElementFrame(tree({
+  const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
     presentation,
     view: prepareTreeView(source, presentation),

@@ -47,9 +47,7 @@ const state = { saving: false };
 const saveButtonOptions = {
   id: 'save',
   label: 'Save',
-  meta: {
-    styles: { states: { focused: { bold: true } } }
-  }
+  styles: { states: { focused: { root: { bold: true } } } }
 } as const;
 
 const saveButton = state.saving

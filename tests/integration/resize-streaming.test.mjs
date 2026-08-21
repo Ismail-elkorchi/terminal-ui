@@ -23,7 +23,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
   const harness = result.harness;
   const app = defineTui({
     id: 'pty-resize-streaming',
-    init: () => ({ history: prepareLogHistory([]) }),
+    init: () => ({ state: ({ history: prepareLogHistory([]) }) }),
     inputBindings: [{
       id: 'finish-stream',
       triggers: [{ kind: 'key', key: 'enter' }],
@@ -43,11 +43,11 @@ test('PTY harness handles resize while async stream messages are rendering', asy
       id: 'stream',
       generation: 0,
       source: 'external',
-      async *messages(context) {
+      async run(context, sink) {
         for (let index = 1; index <= 8; index += 1) {
           await new Promise((resolve) => { setImmediate(resolve); });
           if (context.signal.aborted) break;
-          yield reliableSourceMessage({ type: 'append', text: `stream item ${index}` });
+          await sink.emit(reliableSourceMessage({ type: 'append', text: `stream item ${index}` }));
         }
       }
     }],
@@ -64,7 +64,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
     ], { id: 'root' })
   });
 
-  const running = runTui(app, harness.host);
+  const running = runTui(app, { host: harness.host });
   await waitUntil(() => harness.frames().length >= 2);
   await harness.resize({ columns: 52, rows: 8 });
   await waitUntil(() => harness.frames().at(-1)?.width === 52);

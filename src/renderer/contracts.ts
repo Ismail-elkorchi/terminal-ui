@@ -82,7 +82,7 @@ export interface RenderTarget {
 
 export interface RenderStyleInput<TPart extends string> {
   readonly part: 'root' | TPart;
-  readonly state?: ElementVisualState;
+  readonly states?: readonly Exclude<ElementVisualState, 'default'>[];
   /** Controls whether the framework's generic visual-state style is applied. */
   readonly applyDefaultStateStyle?: boolean;
   readonly base?: TerminalStyle;
@@ -94,7 +94,7 @@ export interface RenderSourceInput {
   readonly partType?: string;
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly interactionState?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
+  readonly interactionState?: Exclude<ElementVisualState, 'default'>;
   readonly description?: string;
 }
 

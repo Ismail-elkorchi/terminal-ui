@@ -54,10 +54,12 @@ export async function maybeLoadNextChoicePage<TValue>(
       signal: controller.signal
     });
     if (controller.signal.aborted || state.completed || version !== state.choiceLoadVersion) return true;
-    state.choices = [...state.choices, ...result.choices];
+    assertAccumulatedChoiceIds(state.choices, result.choices);
+    const nextChoices = [...state.choices, ...result.choices];
+    setChoiceTotal(state, result.total);
+    state.choices = nextChoices;
     state.choiceDiagnostics = result.diagnostics ?? [];
     state.choiceHasMore = result.hasMore ?? false;
-    setChoiceTotal(state, result.total);
     state.focusedChoiceIndex = firstEnabledChoiceIndexFrom(state.choices, previousLength)
       ?? firstEnabledChoiceIndex(state.choices)
       ?? 0;
@@ -76,6 +78,20 @@ export async function maybeLoadNextChoicePage<TValue>(
     }
   }
   return true;
+}
+
+function assertAccumulatedChoiceIds<TValue>(
+  retained: readonly PromptChoice<TValue>[],
+  added: readonly PromptChoice<TValue>[],
+): void {
+  const ids = new Set(retained.flatMap((choice) => choice.id === undefined ? [] : [choice.id]));
+  for (const choice of added) {
+    if (choice.id === undefined) continue;
+    if (ids.has(choice.id)) {
+      throw new TypeError(`Prompt choice id ${JSON.stringify(choice.id)} is duplicated across pages.`);
+    }
+    ids.add(choice.id);
+  }
 }
 
 async function refreshAutocompleteChoices<TValue>(

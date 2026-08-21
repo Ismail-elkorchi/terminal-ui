@@ -25,7 +25,9 @@ export type ScrollAction =
   }
   | { readonly kind: 'setFollowTail'; readonly followTail: boolean };
 
-export type ScrollEventSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag' | 'focus';
+export type ScrollEventSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag' | 'focus' | 'keyboard';
+
+export type ScrollKeyboardPolicy = 'vertical' | 'horizontal' | 'both';
 
 export type ScrollEventTarget =
   | 'content'

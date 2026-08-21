@@ -75,8 +75,7 @@ export function splitPaneAccessibleNode<TMessage>(
   const activeDividerIndex = activeDivider(renderNode, renderNode.children?.length ?? 0);
   return {
     id,
-    role: 'text',
-    label: id,
+    role: 'group',
     ...(renderNode.props.toActionMessage === undefined
       ? {}
       : {

@@ -3,7 +3,6 @@ import type { ComponentMessage, SemanticLeafComponentFactory } from '../../compo
 import type { PaginationOptions } from '../options/content.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { PointerInteractionState } from '../../interaction/index.ts';
-import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { PaginationAction } from '../../ui-model/pagination.ts';
 import type { PaginationStylePart } from '../../ui-model/style-parts.ts';
@@ -13,7 +12,6 @@ interface PaginationModel {
   readonly pageNumber: number;
   readonly pageCount: number;
   readonly label: string;
-  readonly pointerState?: PointerInteractionState;
 }
 
 interface PaginationControl {
@@ -30,20 +28,22 @@ interface PaginationVisual {
 }
 
 export const pagination: SemanticLeafComponentFactory<
-  Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
+  Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label'>,
   PaginationAction,
   PaginationStylePart,
   readonly [],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled']
 > = defineComponent<
-  Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label' | 'pointerState'>,
+  Pick<PaginationOptions<ComponentMessage>, 'pageNumber' | 'pageCount' | 'label'>,
   PaginationModel,
   PaginationAction,
   PaginationStylePart,
   readonly [],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled']
 >({
   name: 'terminal-ui/components/pagination',
   identity: 'required',
@@ -52,14 +52,11 @@ export const pagination: SemanticLeafComponentFactory<
   accessibleRole: 'navigation',
   metadata: ['focus', 'layer', 'styles'],
   parts: ['control', 'label', 'value', 'separator'],
+  visualStates: ['focused', 'hovered', 'pressed', 'disabled'],
   prepare(value) {
     const pageNumber = value.pageNumber;
     const pageCount = value.pageCount;
     const label = value.label;
-    const pointerState = preparePointerInteractionState(
-      value.pointerState,
-      'pagination pointerState',
-    );
     if (typeof pageNumber !== 'number' || !Number.isFinite(pageNumber)) {
       throw new TypeError('pagination pageNumber must be finite.');
     }
@@ -74,7 +71,6 @@ export const pagination: SemanticLeafComponentFactory<
       pageNumber: Math.max(1, Math.min(normalizedCount, Math.floor(pageNumber))),
       pageCount: normalizedCount,
       label: label === undefined ? '' : sanitizeTerminalText(label).text,
-      ...(pointerState === undefined ? {} : { pointerState }),
     };
   },
   measure(input) {
@@ -94,8 +90,9 @@ export const pagination: SemanticLeafComponentFactory<
         input.model,
         input.widthProfile,
         input.id,
+        input.pointerState,
         (text, partName, part, state) => {
-          const style = input.style({ part, ...(state === undefined ? {} : { state }) });
+          const style = input.style({ part, ...(state === undefined ? {} : { states: [state] }) });
           return span(text, {
             ...(style === undefined ? {} : { style }),
             source: input.source({
@@ -142,7 +139,7 @@ export const pagination: SemanticLeafComponentFactory<
     return {
       id: input.id,
       role: 'navigation',
-      label: input.model.label || input.id,
+      ...(input.model.label === '' ? {} : { label: input.model.label }),
       value: `Page ${String(input.model.pageNumber)} of ${String(input.model.pageCount)}`,
       ...(input.focused ? { focused: true } : {}),
       children: controls.map((control) => ({
@@ -164,6 +161,7 @@ function paginationVisual(
   model: PaginationModel,
   widthProfile: import('../../text/index.ts').TextWidthProfile,
   id: string | undefined,
+  pointerState?: PointerInteractionState,
   decorate: (
     text: string,
     partName: string,
@@ -192,7 +190,7 @@ function paginationVisual(
     const width = measureRenderSpans([span(text)], { widthProfile });
     controls.push({ label, action, offset, width, disabled });
     const targetId = `${id ?? 'pagination'}:${action.kind}`;
-    const state = disabled ? 'disabled' : pointerVisualState(model.pointerState, targetId);
+    const state = disabled ? 'disabled' : pointerVisualState(pointerState, targetId);
     append(text, `control.${action.kind}`, 'control', state);
   };
   if (model.label.length > 0) {

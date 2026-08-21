@@ -15,8 +15,12 @@ import type { LayoutNode, Rect } from '../contracts.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import type { HitTarget } from '../contracts.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import {
+  scrollRouteDescriptor,
+  type ScrollRoutable,
+} from '../../interaction/scroll-route.ts';
 
-export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget {
+export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget, ScrollRoutable<TMessage> {
   readonly ownerIdentity: string;
   readonly accepts?: readonly PointerEventKind[];
   message(event: RoutedPointerEvent): MessageResolution<TMessage>;
@@ -49,6 +53,9 @@ export function toRegionHitTarget<TMessage>(
     ...(hitTarget.accepts === undefined ? {} : { accepts: hitTarget.accepts }),
     ...(focus === undefined ? {} : { focus }),
     message: (event) => hitTarget.message(event),
+    ...((hitTarget as ScrollRoutable<TMessage>)[scrollRouteDescriptor] === undefined ? {} : {
+      [scrollRouteDescriptor]: (hitTarget as ScrollRoutable<TMessage>)[scrollRouteDescriptor],
+    }),
     ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
     zIndex: hitTarget.zIndex ?? region.zIndex
   };

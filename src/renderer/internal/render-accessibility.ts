@@ -34,15 +34,7 @@ export function accessibleNode(
 ): AccessibleNode | undefined {
   if (node.inert) return undefined;
   const id = renderNode.id ?? `anonymous:${node.layer.id}`;
-  if (!node.visible) {
-    const result = {
-      id,
-      role: 'text' as const,
-      label: renderNode.id ?? renderNode.kind
-    };
-    accessibleNodes.set(renderNode, result);
-    return result;
-  }
+  if (!node.visible) return undefined;
   const path = layoutFocusPath(parentPath, node);
   if (isDecorativeAccessibility(renderNode.accessibility)) {
     const result = decorativeRootNode(id, renderNode.accessibility);

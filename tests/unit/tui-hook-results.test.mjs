@@ -62,10 +62,10 @@ test('effect outputs are decoded before runtime dispatch', () => {
   });
 });
 
-test('subscription descriptors and their executable results are decoded once', () => {
+test('subscription descriptors and their executable results are decoded once', async () => {
   assert.throws(() => decodeTuiEventSources({}), /subscriptions result must be an array/u);
   assert.throws(
-    () => decodeTuiEventSources([{ id: 'source', generation: Number.NaN, messages() {} }]),
+    () => decodeTuiEventSources([{ id: 'source', generation: Number.NaN, run() {} }]),
     /generation must be a string or finite number/u
   );
 
@@ -74,10 +74,10 @@ test('subscription descriptors and their executable results are decoded once', (
     generation: 1,
     source: 'external',
     channel: { capacity: 4 },
-    messages: () => [],
+    run: () => undefined,
     onLifecycle: () => undefined
   }]);
-  assert.throws(() => source.messages({}), /must be an async iterable/u);
+  await source.run({}, { emit: async () => undefined });
   assert.throws(() => source.onLifecycle({ kind: 'completed', id: 'source', generation: 1 }), /ignoreMessage/u);
   assert.throws(() => decodeMessageResolution(null, 'mapper'), /ignoreMessage/u);
 });

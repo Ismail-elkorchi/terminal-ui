@@ -49,9 +49,9 @@ renderElementFrame(text({ content: 'Invalid' }), { columns: '20', rows: 2 });
 
 const invalidInteractionState: FrameCellSource = {
   // @ts-expect-error frame-cell interaction state is a closed contract
-  interactionState: 'busy'
+  interactionState: 'unknown'
 };
-const validInteractionState: FrameCellSource = { interactionState: 'focused' };
+const validInteractionState: FrameCellSource = { interactionState: 'busy' };
 
 declare const drawing: Canvas2D;
 declare const painterInput: CanvasPainterInput;

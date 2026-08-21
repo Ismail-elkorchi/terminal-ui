@@ -70,7 +70,7 @@ test('tooltip follows trigger keyboard focus and Escape dismisses without moving
   const transitions = [];
   const app = defineTui({
     id: 'tooltip-focus',
-    init: () => ({ open: false }),
+    init: () => ({ state: ({ open: false }) }),
     update: (_state, transition) => {
       transitions.push(transition);
       return { state: { open: transition.open } };

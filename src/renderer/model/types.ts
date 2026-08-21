@@ -4,22 +4,14 @@ import type {
   ElementKeyBindings,
   ElementLayer,
   ElementState,
-  ElementStyles
+  ElementStyles,
+  ElementVisualState,
 } from '../../element/metadata.ts';
 import type { RenderNodeRenderer } from './renderer.ts';
 import type { RenderNodePropsByKind } from './props/index.ts';
-import type {
-  PointerInteractionAction,
-  PointerInteractionState
-} from '../../interaction/pointer-interaction.ts';
 import type { RenderNodeKind } from '../contracts.ts';
 
 export type { RenderNodeKind } from '../contracts.ts';
-
-export interface RenderNodePointerInteraction<TMessage> {
-  readonly state?: PointerInteractionState;
-  readonly toActionMessage?: (action: PointerInteractionAction) => TMessage;
-}
 
 interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly id?: string;
@@ -27,7 +19,7 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly props: RenderNodePropsByKind<TMessage>[TKind];
   readonly layer?: ElementLayer;
   readonly focus?: ElementFocus;
-  readonly styles?: ElementStyles;
+  readonly styles?: ElementStyles<string, Exclude<ElementVisualState, 'default'>>;
   readonly children?: readonly RenderNode<TMessage>[];
   /** Children visible to public element inspection. */
   readonly inspectionChildren?: readonly RenderNode<TMessage>[];
@@ -35,7 +27,6 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly semanticInspection?: import('../../element/inspection.ts').ComponentSemanticInspection;
   readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
-  readonly pointer?: RenderNodePointerInteraction<TMessage>;
   readonly focusLifecycle?: (
     event: import('../../interaction/focus.ts').FocusLifecycleEvent
   ) => unknown;

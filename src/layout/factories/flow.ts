@@ -29,7 +29,7 @@ export function column<const TChildren extends ElementChildren>(
       ...renderNodeLayoutProps(options)
     },
     children: childList,
-    ...componentMetaProps(options.meta)
+    ...componentMetaProps(options)
   });
 }
 
@@ -52,7 +52,7 @@ export function row<const TChildren extends ElementChildren>(
       ...renderNodeLayoutProps(options)
     },
     children: childList,
-    ...componentMetaProps(options.meta)
+    ...componentMetaProps(options)
   });
 }
 
@@ -79,6 +79,6 @@ export function flow<const TChildren extends ElementChildren>(
       ...(options.lineGap === undefined ? {} : { lineGap: options.lineGap })
     },
     children: childList,
-    ...componentMetaProps(options.meta)
+    ...componentMetaProps(options)
   });
 }

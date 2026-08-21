@@ -1,6 +1,6 @@
 import { defaultSessionProtocolPolicy } from './session-policy.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
-import type { MouseReportingMode } from '../host/index.ts';
+import type { MouseReportingMode, TerminalHost } from '../host/index.ts';
 import type { CursorVisibilityPolicy, ProtocolRequirement, SessionProtocolPolicy } from './session-policy.ts';
 import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiTheme } from './types.ts';
 import { decodeTerminalGraphicsMode } from '../graphics/index.ts';
@@ -15,6 +15,7 @@ import { decodeKeyboardProfile, KITTY_KEYBOARD_FLAGS } from '../protocol/index.t
 import type { TerminalKeyboardProfile } from '../protocol/index.ts';
 
 export interface NormalizedTuiRunOptions<TState> {
+  readonly host?: TerminalHost;
   readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
   readonly sessionPolicy: SessionProtocolPolicy;
@@ -38,9 +39,11 @@ export function normalizeTuiRunOptions<TState>(
   options: unknown,
 ): NormalizedTuiRunOptions<TState> {
   const supplied = objectValue(options, 'TUI run options');
+  const host = normalizeHost(supplied['host']);
   const initialFocus = normalizeInitialFocus(supplied['initialFocus']);
   const theme = normalizeTheme<TState>(supplied['theme']);
   return Object.freeze({
+    ...(host === undefined ? {} : { host }),
     ...(initialFocus === undefined ? {} : { initialFocus }),
     ...(theme === undefined ? {} : { theme }),
     sessionPolicy: normalizeSessionPolicy(supplied['sessionPolicy']),
@@ -49,6 +52,39 @@ export function normalizeTuiRunOptions<TState>(
     graphics: decodeTerminalGraphicsMode(supplied['graphics']),
     graphicsBudget: normalizeGraphicsBudgetLimits(supplied['graphicsBudget']),
   });
+}
+
+function normalizeHost(value: unknown): TerminalHost | undefined {
+  if (value === undefined) return undefined;
+  const host = objectValue(value, 'TUI run host');
+  const methods = [
+    'getTerminalSize',
+    'getCapabilities',
+    'beginSession',
+    'restoreTerminalState',
+    'recoverTerminalState',
+    'write',
+    'writeRecovery',
+    'flush',
+    'dispose',
+  ] as const;
+  for (const method of methods) {
+    if (typeof host[method] !== 'function') {
+      throw new TypeError(`TUI run host ${method} must be a function.`);
+    }
+  }
+  for (const member of ['stdin', 'stdout', 'signals', 'clock', 'env'] as const) {
+    if (typeof host[member] !== 'object' || host[member] === null) {
+      throw new TypeError(`TUI run host ${member} must be an object.`);
+    }
+  }
+  if (typeof host['id'] !== 'string' || host['id'].trim() === '') {
+    throw new TypeError('TUI run host id must be a non-empty string.');
+  }
+  if (host['runtime'] !== 'node' && host['runtime'] !== 'deno' && host['runtime'] !== 'bun' && host['runtime'] !== 'memory') {
+    throw new TypeError('TUI run host runtime is invalid.');
+  }
+  return value as TerminalHost;
 }
 
 function normalizeTheme<TState>(value: unknown): TuiTheme<TState> | undefined {

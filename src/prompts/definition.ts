@@ -1,6 +1,7 @@
 import type {
   AutocompletePromptOptions,
   BasePromptOptions,
+  ValuePromptOptions,
   AutocompletePromptDefinition,
   ConfirmPromptDefinition,
   ConfirmPromptOptions,
@@ -28,7 +29,6 @@ import type {
   PromptDataSource,
   PromptDataSourceQuery,
   PromptDataSourceResult,
-  PromptRenderer,
   PromptValidator,
 } from './types.ts';
 
@@ -41,14 +41,14 @@ export function confirm(options: unknown): ConfirmPromptDefinition {
   if (defaultValue !== undefined && typeof defaultValue !== 'boolean') {
     throw new TypeError('Confirm prompt defaultValue must be a boolean when provided.');
   }
-  return registerPrompt(Object.freeze({ kind: 'confirm', ...promptDefinition(supplied) }) as ConfirmPromptDefinition);
+  return registerPrompt(Object.freeze({ kind: 'confirm', ...valuePromptDefinition(supplied) }) as ConfirmPromptDefinition);
 }
 
 export function input(options: InputPromptOptions): InputPromptDefinition;
 export function input(options: unknown): InputPromptDefinition {
   const supplied = promptOptions(options);
   assertOptionalString(supplied['defaultValue'], 'Input prompt defaultValue');
-  return registerPrompt(Object.freeze({ kind: 'input', ...promptDefinition(supplied) }) as InputPromptDefinition);
+  return registerPrompt(Object.freeze({ kind: 'input', ...valuePromptDefinition(supplied) }) as InputPromptDefinition);
 }
 
 export function password(options: PasswordPromptOptions): PasswordPromptDefinition;
@@ -58,7 +58,7 @@ export function password(options: unknown): PasswordPromptDefinition {
   const mask = prepareMask(supplied['mask']);
   return registerPrompt(Object.freeze({
     kind: 'password',
-    ...promptDefinition(supplied),
+    ...valuePromptDefinition(supplied),
     ...(mask === undefined ? {} : { mask })
   }) as PasswordPromptDefinition);
 }
@@ -68,7 +68,7 @@ export function select<TValue>(options: unknown): SelectPromptDefinition<TValue>
   const supplied = promptOptions(options);
   return registerPrompt(Object.freeze({
     kind: 'select',
-    ...promptDefinition<TValue>(supplied),
+    ...valuePromptDefinition<TValue>(supplied),
     choices: prepareChoiceSource<TValue>(supplied['choices']),
   }) as SelectPromptDefinition<TValue>);
 }
@@ -93,7 +93,7 @@ export function multiselect<TValue>(options: unknown): MultiSelectPromptDefiniti
     : { ...supplied, defaultValue: Object.freeze(assertArray(defaultValue, 'Multiselect defaultValue').slice()) };
   return registerPrompt(Object.freeze({
     kind: 'multiselect',
-    ...promptDefinition<readonly TValue[]>(owned),
+    ...valuePromptDefinition<readonly TValue[]>(owned),
     choices: prepareChoiceSource<TValue>(supplied['choices']),
     ...(minSelected === undefined ? {} : { minSelected }),
     ...(maxSelected === undefined ? {} : { maxSelected }),
@@ -109,7 +109,7 @@ export function autocomplete<TValue>(options: unknown): AutocompletePromptDefini
   const debounceMs = optionalNonNegativeSafeInteger(supplied['debounceMs'], 'Autocomplete debounceMs');
   return registerPrompt(Object.freeze({
     kind: 'autocomplete',
-    ...promptDefinition<TValue>(supplied),
+    ...valuePromptDefinition<TValue>(supplied),
     choices: prepareChoiceSource<TValue>(supplied['choices']),
     ...(debounceMs === undefined ? {} : { debounceMs })
   }) as AutocompletePromptDefinition<TValue>);
@@ -126,7 +126,9 @@ export function editor(options: unknown): EditorPromptDefinition {
   }
   return registerPrompt(Object.freeze({
     kind: 'editor',
-    ...promptDefinition(supplied),
+    ...commonPromptDefinition<string>(supplied),
+    ...(supplied['defaultValue'] === undefined ? {} : { defaultValue: supplied['defaultValue'] as string }),
+    ...prepareValidationOptions<string>(supplied),
     ...(editorCommand === undefined ? {} : { editorCommand }),
     ...(editorAdapter === undefined ? {} : { editorAdapter })
   }) as unknown as EditorPromptDefinition);
@@ -141,52 +143,68 @@ export function progress(options: unknown): ProgressPromptDefinition {
   }
   return registerPrompt(Object.freeze({
     kind: 'progress',
-    ...promptDefinition({
+    ...commonPromptDefinition<import('./types.ts').ProgressResult>({
       ...supplied,
-      defaultValue: { completed: false },
-      nonTty: supplied['nonTty'] ?? { mode: 'transcript_only' }
+      nonTty: supplied['nonTty'] ?? { mode: 'transcript_only' },
     }),
+    ...prepareTranscriptOption(supplied),
     ...(task === undefined ? {} : { progressTask: task }),
     progress: prepareProgressSnapshot(supplied['progress'])
   }) as ProgressPromptDefinition);
 }
 
-function promptDefinition<TValue>(
+function valuePromptDefinition<TValue>(
   options: Readonly<Record<string, unknown>>
+): Omit<ValuePromptOptions<TValue>, 'id'> & { readonly id?: string } {
+  return {
+    ...commonPromptDefinition<TValue>(options),
+    ...(options['defaultValue'] === undefined ? {} : { defaultValue: options['defaultValue'] as TValue }),
+    ...prepareValidationOptions<TValue>(options),
+    ...(options['theme'] === undefined ? {} : { theme: resolveThemeInput(options['theme'], minimalTheme) }),
+    ...prepareTranscriptOption(options),
+  };
+}
+
+function commonPromptDefinition<TValue>(
+  options: Readonly<Record<string, unknown>>,
 ): Omit<BasePromptOptions<TValue>, 'id'> & { readonly id?: string } {
   const id = optionalNonEmptyText(options['id'], 'Prompt id');
   const label = requiredNonEmptyText(options['label'], 'Prompt label');
   const description = optionalText(options['description'], 'Prompt description');
-  const required = options['required'];
-  if (required !== undefined && typeof required !== 'boolean') {
-    throw new TypeError('Prompt required must be a boolean when provided.');
-  }
   const timeoutMs = optionalPositiveSafeInteger(options['timeoutMs'], 'Prompt timeoutMs');
-  const transcript = options['transcript'];
-  if (transcript !== undefined && typeof transcript !== 'boolean') {
-    throw new TypeError('Prompt transcript must be a boolean when provided.');
-  }
-  const validate = options['validate'];
-  if (validate !== undefined && typeof validate !== 'function') {
-    throw new TypeError('Prompt validate must be a function when provided.');
-  }
-  const render = prepareRenderer(options['render']);
   const accessibility = prepareAccessibility(options['accessibility']);
   const nonTty = prepareNonTtyPolicy<TValue>(options['nonTty']);
   return {
     ...(id === undefined ? {} : { id }),
     label,
     ...(description === undefined ? {} : { description }),
-    ...(options['defaultValue'] === undefined ? {} : { defaultValue: options['defaultValue'] as TValue }),
-    ...(required === undefined ? {} : { required }),
-    ...(options['theme'] === undefined ? {} : { theme: resolveThemeInput(options['theme'], minimalTheme) }),
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
     ...(nonTty === undefined ? {} : { nonTty }),
-    ...(transcript === undefined ? {} : { transcript }),
-    ...(validate === undefined ? {} : { validate: validate as PromptValidator<TValue> }),
-    ...(render === undefined ? {} : { render }),
     ...(accessibility === undefined ? {} : { accessibility })
   };
+}
+
+function prepareValidationOptions<TValue>(options: Readonly<Record<string, unknown>>) {
+  const required = options['required'];
+  if (required !== undefined && typeof required !== 'boolean') {
+    throw new TypeError('Prompt required must be a boolean when provided.');
+  }
+  const validate = options['validate'];
+  if (validate !== undefined && typeof validate !== 'function') {
+    throw new TypeError('Prompt validate must be a function when provided.');
+  }
+  return {
+    ...(required === undefined ? {} : { required }),
+    ...(validate === undefined ? {} : { validate: validate as PromptValidator<TValue> }),
+  };
+}
+
+function prepareTranscriptOption(options: Readonly<Record<string, unknown>>) {
+  const transcript = options['transcript'];
+  if (transcript !== undefined && typeof transcript !== 'boolean') {
+    throw new TypeError('Prompt transcript must be a boolean when provided.');
+  }
+  return transcript === undefined ? {} : { transcript };
 }
 
 export function assertPromptDefinition(value: unknown): void {
@@ -258,14 +276,6 @@ function prepareMask(value: unknown): string | undefined {
     throw new TypeError('Password prompt mask must be exactly one terminal cell.');
   }
   return mask;
-}
-
-function prepareRenderer(value: unknown): PromptRenderer | undefined {
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value) || typeof value['render'] !== 'function') {
-    throw new TypeError('Prompt renderer must provide a render() function.');
-  }
-  return value as unknown as PromptRenderer;
 }
 
 function prepareAccessibility(value: unknown): { readonly id?: string } | undefined {

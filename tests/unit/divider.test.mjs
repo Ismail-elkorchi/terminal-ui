@@ -14,11 +14,9 @@ test('divider renders labelled horizontal separators with semantic source roles'
     line: 'dashed',
     label: 'Operations',
     labelAlign: 'center',
-    meta: {
-        styles: {
+    styles: {
             parts: { label: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }
         }
-    }
 }), { columns: 24, rows: 1 });
   const separatorCells = frame.cells.filter((cell) => cell.source?.cellRole === 'separator');
   const labelCells = frame.cells.filter((cell) => cell.source?.elementKind === 'terminal-ui/components/divider' && cell.source.partName === 'label');

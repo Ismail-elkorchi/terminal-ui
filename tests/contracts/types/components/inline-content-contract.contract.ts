@@ -12,7 +12,7 @@ button({
   label: 'Open',
   onAction: ignoreMessage,
   leading: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
-  meta: { styles: { parts: { label: { fg: { kind: 'theme', token: 'custom.brand' } } } } }
+  styles: { parts: { label: { fg: { kind: 'theme', token: 'custom.brand' } } } }
 });
 surface(text({ content: 'body' }), {
   title: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
@@ -31,10 +31,8 @@ button({
   id: 'invalid-token',
   label: 'Invalid',
   onAction: ignoreMessage,
-  meta: {
-    styles: {
+  styles: {
       // @ts-expect-error custom color tokens require the custom.* namespace
       parts: { label: { fg: { kind: 'theme', token: 'brand.accent' } } }
     }
-  }
 });

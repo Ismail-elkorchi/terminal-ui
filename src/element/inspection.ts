@@ -11,6 +11,8 @@ interface ComponentCapabilityInspectionBase {
   readonly structure: 'leaf' | 'composite' | 'composed';
   readonly states: readonly ('disabled' | 'busy' | 'readOnly' | 'inert')[];
   readonly actions: readonly ('keyboard' | 'input' | 'paste' | 'pointer' | 'focus')[];
+  readonly styleParts: readonly string[];
+  readonly visualStates: readonly Exclude<import('./metadata.ts').ElementVisualState, 'default'>[];
 }
 
 export type ComponentCapabilityInspection =
@@ -68,8 +70,8 @@ export interface ElementInputInspection {
 export interface ElementMetaInspection {
   readonly accessibility: boolean;
   readonly styled: boolean;
-  readonly styleParts: readonly string[];
-  readonly styleStates: readonly string[];
+  readonly configuredStyleParts: readonly string[];
+  readonly configuredStyleStates: readonly string[];
   readonly layered: boolean;
 }
 

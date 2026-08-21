@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url';
 import {
   column,
   commandInput,
-  createTerminalHost,
   defineTui,
   dialog,
   grid,
@@ -186,7 +185,7 @@ function emptyCommand(): CommandInputState {
 export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorOperations) {
   return defineTui<EditorState, EditorMessage>({
     id: 'ide-editor',
-    init: initialState,
+    init: () => ({ state: initialState() }),
     update: (state, message) => updateEditor(state, message, operations),
     view: editorView,
     inputBindings: [
@@ -566,6 +565,7 @@ function editorMinimumSizeNotice(): Element<EditorMessage> {
 function topMenu(state: EditorState): Element<EditorMessage> {
   return surface(menuBar({
     id: 'editor-menu',
+    meta: { accessibleName: 'Application menu' },
     items: menuItems,
     presentation: menuBarPresentation(menuItems, state.menu),
     onTransition: (action): EditorMessage => ({ kind: 'menu', action }),
@@ -579,6 +579,7 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
     text({ content: state.root === undefined ? 'No folder open' : path.basename(state.root), id: 'explorer-root', textRole: 'metadata' }),
     tree({
       id: 'editor-tree',
+      meta: { accessibleName: 'File explorer' },
       view: prepareTreeView(state.treeSource, state.tree),
       presentation: state.tree,
       emptyText: 'Use /folder <path>',
@@ -604,6 +605,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
   }
   return tabs({
     id: 'editor-tabs',
+    meta: { accessibleName: 'Open editors' },
     maxTabWidth: 28,
     tabs: state.buffers.map((buffer) => ({
       id: buffer.path,
@@ -611,6 +613,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
       closable: true,
       panel: textArea({
         id: `editor:${buffer.path}`,
+        meta: { accessibleName: `Editor ${buffer.label}` },
         presentation: buffer.editor,
         lineNumbers: true,
         highlightActiveLine: true,
@@ -909,24 +912,17 @@ const isMain = process.argv[1] !== undefined
 
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY) {
-    const host = createTerminalHost();
-    try {
-      const exit = await runTui(ideEditorApp, host, {
-        sessionPolicy: {
-          alternateScreen: 'required',
-          rawInput: 'required',
-          bracketedPaste: 'optional',
-          focusReporting: 'optional',
-          unicodeGraphemeMode: 'optional',
-          keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
-          cursorVisibility: { visibility: 'hide', requirement: 'optional' },
-          mouseReporting: { mode: 'drag', requirement: 'optional' }
-        }
-      });
-      process.exitCode = exit.status === 'error' ? 1 : 0;
-    } finally {
-      await host.dispose();
-    }
+    const exit = await runTui(ideEditorApp, { sessionPolicy: {
+      alternateScreen: 'required',
+      rawInput: 'required',
+      bracketedPaste: 'optional',
+      focusReporting: 'optional',
+      unicodeGraphemeMode: 'optional',
+      keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
+      cursorVisibility: { visibility: 'hide', requirement: 'optional' },
+      mouseReporting: { mode: 'drag', requirement: 'optional' }
+    } });
+    process.exitCode = exit.status === 'error' ? 1 : 0;
   } else {
     process.stdout.write(`${JSON.stringify(await runScriptedIdeEditor(), null, 2)}\n`);
   }

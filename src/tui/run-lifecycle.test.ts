@@ -25,7 +25,7 @@ void test('TUI run options own partial theme definitions at admission', () => {
 void test('owned host recovery bypasses a hung restore before host disposal', async () => {
   const app = defineTui({
     id: 'owned-host-emergency-recovery',
-    init: () => ({ ready: true }),
+    init: () => ({ state: { ready: true } }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready' })
   });

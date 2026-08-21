@@ -23,12 +23,12 @@ test('public acceptance path covers prompt, TUI, and testing surfaces', async ()
   const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 3 } });
   const app = defineTui({
     id: 'acceptance',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'accepted', id: 'accepted-text' })
   });
   harness.host.endInput();
-  const tuiResult = await runTui(app, harness.host);
+  const tuiResult = await runTui(app, { host: harness.host });
   assert.equal(tuiResult.status, 'completed');
   assert.equal(harness.snapshot().root.id, 'accepted-text');
 

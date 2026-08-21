@@ -67,10 +67,11 @@ test('searchPickerWindow bounds visible entries around stable id selection and s
     },
     limit: 2
   });
-  assert.deepEqual(scrolled.entries.map((entry) => entry.id), ['toggle-terminal', 'run-tests']);
-  assert.equal(scrolled.activeIndex, 1);
-  assert.equal(scrolled.omittedBefore, 1);
-  assert.equal(scrolled.omittedAfter, 0);
+  assert.deepEqual(scrolled.entries.map((entry) => entry.id), ['open-file', 'toggle-terminal']);
+  assert.equal(scrolled.activeIndex, undefined);
+  assert.equal(scrolled.activeEntry?.id, 'run-tests');
+  assert.equal(scrolled.omittedBefore, 0);
+  assert.equal(scrolled.omittedAfter, 1);
 
   const scrolledWithoutSelection = searchPickerWindow({
     searchPickerIndex: windowIndex,
@@ -101,7 +102,7 @@ test('searchPickerWindow rejects disabled or stale active identity in favor of a
 
 test('searchPicker component renders query matches disabled entries preview help empty state and accessibility', () => {
   const frame = renderElementFrame(
-    searchPicker({
+    searchPicker({ meta: { accessibleName: "Search" },
       id: 'searchPicker',
       title: 'Things',
       searchPickerIndex: index,
@@ -152,7 +153,7 @@ test('searchPicker component renders query matches disabled entries preview help
   assert.equal(selectedOption?.value, undefined);
 });
 
-test('searchPicker keeps a controlled active item visible before accepting it', async () => {
+test('searchPicker preserves explicit scroll while accepting an off-window active item', async () => {
   const manyEntries = Array.from({ length: 5 }, (_, entryIndex) => ({
     id: String(entryIndex),
     label: `Entry ${String(entryIndex)}`,
@@ -166,9 +167,9 @@ test('searchPicker keeps a controlled active item visible before accepting it', 
   };
   const app = defineTui({
     id: 'windowed-search-picker',
-    init: () => ({ actions: [] }),
+    init: () => ({ state: ({ actions: [] }) }),
     update: (state, action) => ({ state: { actions: [...state.actions, action] } }),
-    view: () => searchPicker({
+    view: () => searchPicker({ meta: { accessibleName: "Search" },
       id: 'windowed-picker',
       searchPickerIndex: manyIndex,
       presentation: { query: { text: '', mode: 'fuzzy' }, activeId: '4', scroll },
@@ -194,10 +195,10 @@ test('searchPicker keeps a controlled active item visible before accepting it', 
     location: 'standard'
   });
 
-  assert.deepEqual([...visibleIds], ['2', '3', '4']);
+  assert.deepEqual([...visibleIds], ['0', '1', '2']);
   assert.equal(runtime.frame().cells.some((cell) =>
     cell.source?.itemId === '4' && cell.source.interactionState === 'active'
-  ), true);
+  ), false);
   assert.deepEqual(runtime.state().actions[0], { kind: 'accept', id: '4' });
   await runtime.dispose();
 });
@@ -213,7 +214,7 @@ test('searchPicker reuses normalized entries across repeated factory calls', () 
     value: index
   }));
   const measuredIndex = prepareSearchPickerIndex(measuredEntries);
-  const elementForQuery = (query) => searchPicker({
+  const elementForQuery = (query) => searchPicker({ meta: { accessibleName: "Search" },
     id: 'measured-searchPicker',
       searchPickerIndex: measuredIndex,
     presentation: { query: { text: query, mode: 'fuzzy' } },
@@ -228,7 +229,7 @@ test('searchPicker reuses normalized entries across repeated factory calls', () 
 
 test('searchPicker component renders empty states for unrelated queries', () => {
   const frame = renderElementFrame(
-    searchPicker({
+    searchPicker({ meta: { accessibleName: "Search" },
       id: 'searchPicker',
       searchPickerIndex: index,
       presentation: { query: { text: 'zz', mode: 'fuzzy' } },
@@ -245,7 +246,7 @@ test('searchPicker component renders empty states for unrelated queries', () => 
 
 test('searchPicker exposes enabled visible entry hit targets when toMessage is provided', () => {
   const frame = renderElementFrame(
-    searchPicker({
+    searchPicker({ meta: { accessibleName: "Search" },
       id: 'commands',
       searchPickerIndex: index,
       presentation: { query: { text: '', mode: 'fuzzy' } },
@@ -265,9 +266,9 @@ test('searchPicker exposes enabled visible entry hit targets when toMessage is p
 test('searchPicker emits compact controlled actions while acceptance remains caller-controlled', async () => {
   const app = defineTui({
     id: 'searchPicker-actions',
-    init: () => ({ messages: [] }),
+    init: () => ({ state: ({ messages: [] }) }),
     update: (state, message) => ({ state: { messages: [...state.messages, message] } }),
-    view: () => searchPicker({
+    view: () => searchPicker({ meta: { accessibleName: "Search" },
       id: 'commands',
       searchPickerIndex: index,
       presentation: { query: { text: '', mode: 'fuzzy' }, activeId: 'open-file' },

@@ -1,45 +1,37 @@
-import { isNonArrayObject } from '../foundation/validation.ts';
-
+/** Runtime-owned hover and press relation supplied to component render hooks. */
 export interface PointerInteractionState {
   readonly hoveredTargetId?: string;
   readonly pressedTargetId?: string;
 }
 
-export type PointerInteractionAction =
-  | { readonly kind: 'enter'; readonly targetId: string }
-  | { readonly kind: 'leave'; readonly targetId: string }
-  | { readonly kind: 'press'; readonly targetId: string }
-  | { readonly kind: 'release'; readonly targetId: string };
-
-export interface PointerInteractionOptions<TMessage> {
-  readonly state?: PointerInteractionState;
-  readonly onAction?: (action: PointerInteractionAction) => TMessage;
-}
-
 export type PointerVisualState = 'hovered' | 'pressed';
 
-/** Adopt caller-owned pointer state once at the boundary that first consumes it. */
-export function preparePointerInteractionState(
-  value: unknown,
-  subject: string,
-  available = true,
+export interface PointerVisualTarget {
+  readonly ownerIdentity: string;
+  readonly targetId: string;
+}
+
+export interface PointerVisualSnapshot {
+  readonly hovered?: PointerVisualTarget;
+  readonly pressed?: PointerVisualTarget;
+}
+
+export function pointerStateForOwner(
+  snapshot: PointerVisualSnapshot | undefined,
+  ownerIdentity: string,
 ): PointerInteractionState | undefined {
-  if (!available) return undefined;
-  if (value === undefined) return undefined;
-  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
-  const hoveredTargetId = value['hoveredTargetId'];
-  const pressedTargetId = value['pressedTargetId'];
-  if (hoveredTargetId !== undefined && typeof hoveredTargetId !== 'string') {
-    throw new TypeError(`${subject}.hoveredTargetId must be a string.`);
-  }
-  if (pressedTargetId !== undefined && typeof pressedTargetId !== 'string') {
-    throw new TypeError(`${subject}.pressedTargetId must be a string.`);
-  }
-  const state = Object.freeze({
-    ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
-    ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
-  });
-  return state;
+  const hoveredTargetId = snapshot?.hovered?.ownerIdentity === ownerIdentity
+    ? snapshot.hovered.targetId
+    : undefined;
+  const pressedTargetId = snapshot?.pressed?.ownerIdentity === ownerIdentity
+    ? snapshot.pressed.targetId
+    : undefined;
+  return hoveredTargetId === undefined && pressedTargetId === undefined
+    ? undefined
+    : Object.freeze({
+        ...(hoveredTargetId === undefined ? {} : { hoveredTargetId }),
+        ...(pressedTargetId === undefined ? {} : { pressedTargetId }),
+      });
 }
 
 export function pointerVisualState(

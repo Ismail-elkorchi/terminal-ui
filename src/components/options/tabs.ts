@@ -1,10 +1,6 @@
-import type { Element, ElementMeta } from '../../element/index.ts';
-import type { ComponentMessage } from '../../component/index.ts';
+import type { Element } from '../../element/index.ts';
+import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
-import type {
-  PointerInteractionAction,
-  PointerInteractionState,
-} from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { ItemBase } from '../../ui-model/contracts.ts';
 import type {
@@ -31,10 +27,10 @@ interface TabsBaseOptions<TId extends string, TMessage extends ComponentMessage>
   readonly tabs: readonly TabItem<TId, TMessage>[];
   readonly presentation: TabsPresentation<TId>;
   readonly maxTabWidth?: number;
-  readonly pointerState?: PointerInteractionState;
   readonly busy?: boolean;
   readonly inert?: boolean;
-  readonly meta?: Pick<ElementMeta<TabsStylePart>, 'focus' | 'layer' | 'styles'>;
+  readonly styles?: import('../../element/metadata.ts').ElementStyles<TabsStylePart, 'focused' | 'hovered' | 'pressed' | 'active' | 'selected' | 'disabled' | 'busy'>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 }
 
 interface ActiveTabsOptions<TId extends string, TMessage extends ComponentMessage> {
@@ -42,25 +38,20 @@ interface ActiveTabsOptions<TId extends string, TMessage extends ComponentMessag
   readonly inert?: false;
   readonly onTransition: (action: TabsTransition<TId>) => MessageResolution<TMessage>;
   readonly onClose?: (event: TabCloseEvent<TId>) => MessageResolution<TMessage>;
-  readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
 }
 
 interface InertTabsOptions {
   readonly disabled?: false;
   readonly inert: true;
-  readonly pointerState?: never;
   readonly onTransition?: never;
   readonly onClose?: never;
-  readonly onPointerAction?: never;
 }
 
 interface DisabledTabsOptions {
   readonly disabled: true;
-  readonly pointerState?: never;
   readonly busy?: never;
   readonly onTransition?: never;
   readonly onClose?: never;
-  readonly onPointerAction?: never;
 }
 
 export type TabsOptions<

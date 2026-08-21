@@ -1,6 +1,6 @@
 import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { ChoicePromptDefinition, PromptChoice, PromptDefinition } from './types.ts';
+import type { ChoicePromptDefinition, PromptChoice } from './types.ts';
 import { matchCollectionQuery } from '../text/query.ts';
 import type { QueryMatchMode } from '../text/query.ts';
 
@@ -105,7 +105,7 @@ export async function resolvePromptChoices<TValue>(
 }
 
 export function initialSelectedChoiceIndexes<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: ChoicePromptDefinition<TValue>,
   choices: readonly PromptChoice<TValue>[]
 ): Set<number> {
   const selected = new Set<number>();

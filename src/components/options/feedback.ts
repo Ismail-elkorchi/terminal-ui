@@ -20,13 +20,9 @@ import type {
   StatusBarItem,
   ValueScale
 } from '../../ui-model/feedback.ts';
-import type {
-  PointerInteractionAction,
-  PointerInteractionState,
-} from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
-import type { NotificationHistoryAction, NotificationRegionAction } from '../../ui-model/notification.ts';
+import type { NotificationHistoryTransition, NotificationRegionAction } from '../../ui-model/notification.ts';
 import type {
   BarChartTransition,
   ChartTransition,
@@ -34,37 +30,55 @@ import type {
   VisualizationActivateEvent,
   VisualizationPresentation,
 } from '../../ui-model/visualization.ts';
-import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../../ui-model/style-parts.ts';
+import type {
+  ActivityIndicatorStylePart,
+  BarChartStylePart,
+  ChartStylePart,
+  HeatmapStylePart,
+  HelpBarStylePart,
+  MeterStylePart,
+  NotificationHistoryStylePart,
+  NotificationStylePart,
+  ProgressBarStylePart,
+  SparklineStylePart,
+  StatusBarStylePart,
+} from '../../ui-model/style-parts.ts';
 
-interface NotificationOptionsBase {
+interface NotificationOptionsBase<
+  TPart extends string,
+  TVisualState extends import('../../component/index.ts').ComponentVisualState,
+> {
   readonly id: string;
   readonly placement?: NotificationPlacement;
   readonly maxWidth?: number;
-  readonly pointerState?: PointerInteractionState;
-  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], NotificationStylePart>;
+  readonly styles?: import('../../element/metadata.ts').ElementStyles<TPart, TVisualState>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 }
 
-interface NotificationRegionOptionsBase extends NotificationOptionsBase {
+interface NotificationRegionOptionsBase<TVisualState extends import('../../component/index.ts').ComponentVisualState>
+  extends NotificationOptionsBase<NotificationStylePart, TVisualState> {
   readonly items: readonly import('../../ui-model/feedback.ts').NotificationItem[];
 }
 
 export type NotificationRegionOptions<TMessage extends ComponentMessage = never> =
-  | (NotificationRegionOptionsBase & {
+  | (NotificationRegionOptionsBase<'hovered' | 'pressed'> & {
       readonly onAction: (action: NotificationRegionAction) => MessageResolution<TMessage>;
-      readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
     })
-  | (NotificationRegionOptionsBase & {
+  | (NotificationRegionOptionsBase<never> & {
       readonly onAction?: never;
-      readonly onPointerAction?: never;
-      readonly pointerState?: never;
     });
 
 export interface NotificationHistoryOptions<TMessage extends ComponentMessage = never>
-  extends NotificationOptionsBase {
+  extends NotificationOptionsBase<
+    NotificationHistoryStylePart,
+    'hovered' | 'pressed' | 'active' | 'selected' | 'disabled'
+  > {
   readonly items: readonly import('../../ui-model/feedback.ts').NotificationItem[];
   readonly selectedId?: string;
-  readonly onAction: (action: NotificationHistoryAction) => MessageResolution<TMessage>;
-  readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
+  readonly scroll: import('../../interaction/scroll.ts').ScrollState;
+  readonly scrollbar?: import('../../interaction/scrollbar.ts').ScrollbarOptions;
+  readonly scrollPolicy?: import('../../interaction/scroll.ts').ScrollPolicy;
+  readonly onAction: (transition: NotificationHistoryTransition) => MessageResolution<TMessage>;
 }
 
 export interface StatusBarOptions {
@@ -72,20 +86,23 @@ export interface StatusBarOptions {
   readonly leading?: readonly StatusBarItem[];
   readonly center?: readonly StatusBarItem[];
   readonly trailing?: readonly StatusBarItem[];
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], StatusStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<StatusBarStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 export interface HelpBarOptions {
   readonly id: string;
   readonly groups: readonly HelpGroup[];
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], StatusStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<HelpBarStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 interface ActivityIndicatorOptionsBase {
   readonly id?: string;
   readonly label: string;
   readonly onAction?: never;
-  readonly meta?: import('../../component/index.ts').ComponentMetadataOptions<readonly ['styles', 'layer'], StatusStylePart>;
+  readonly styles?: import('../../element/metadata.ts').ElementStyles<ActivityIndicatorStylePart>;
+  readonly meta?: import('../../component/index.ts').ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 export interface RunningActivityIndicatorOptions
@@ -117,7 +134,8 @@ export interface ProgressBarOptions {
   readonly remainingMs?: number;
   readonly status?: ProcessStatus;
   readonly valueScale?: ValueScale;
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], StatusStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<ProgressBarStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 export interface SparklineOptions {
@@ -131,7 +149,8 @@ export interface SparklineOptions {
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], ChartStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<SparklineStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 interface BarChartOptionsBase {
@@ -143,7 +162,8 @@ interface BarChartOptionsBase {
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<BarChartStylePart, 'active' | 'selected' | 'disabled' | 'busy'>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 }
 
 export type BarChartOptions<TMessage extends ComponentMessage = never> = BarChartOptionsBase &
@@ -167,7 +187,8 @@ interface ChartOptionsBase {
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<ChartStylePart, 'active' | 'selected' | 'disabled' | 'busy'>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 }
 
 export type ChartOptions<TMessage extends ComponentMessage = never> = ChartOptionsBase &
@@ -182,7 +203,8 @@ export interface MeterOptions {
   readonly width?: number;
   readonly variant?: MeterVariant;
   readonly result?: MeterResult;
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], StatusStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<MeterStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 interface HeatmapOptionsBase<TValue> {
@@ -198,7 +220,8 @@ interface HeatmapOptionsBase<TValue> {
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ChartStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<HeatmapStylePart, 'active' | 'selected' | 'disabled' | 'busy'>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 }
 
 export type HeatmapOptions<
@@ -212,43 +235,35 @@ type VisualizationOptions<
 > =
   | {
       readonly presentation?: never;
-      readonly pointerState?: never;
       readonly disabled?: never;
       readonly busy?: boolean;
       readonly inert?: never;
       readonly onTransition?: never;
       readonly onActivate?: never;
-      readonly onPointerAction?: never;
     }
   | {
       readonly presentation: VisualizationPresentation;
-      readonly pointerState?: PointerInteractionState;
       readonly disabled?: false;
       readonly busy?: boolean;
       readonly inert?: false;
       readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
       readonly onActivate?: (event: VisualizationActivateEvent) => MessageResolution<TMessage>;
-      readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
     }
   | {
       readonly presentation: VisualizationPresentation;
-      readonly pointerState?: never;
       readonly disabled?: false;
       readonly busy?: boolean;
       readonly inert: true;
       readonly onTransition?: never;
       readonly onActivate?: never;
-      readonly onPointerAction?: never;
     }
   | {
       readonly presentation: VisualizationPresentation;
-      readonly pointerState?: never;
       readonly disabled: true;
       readonly busy?: boolean;
       readonly inert?: boolean;
       readonly onTransition?: never;
       readonly onActivate?: never;
-      readonly onPointerAction?: never;
     };
 
 export type {
@@ -273,6 +288,6 @@ export type {
   ValueScaleStop
 } from '../../ui-model/feedback.ts';
 export type {
-  NotificationHistoryAction,
+  NotificationHistoryTransition,
   NotificationRegionAction
 } from '../../ui-model/notification.ts';

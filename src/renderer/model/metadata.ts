@@ -5,7 +5,7 @@ import type {
   ElementLayer,
   ElementMeta,
   ElementStyles,
-  InteractiveElementOptions
+  ElementVisualState,
 } from '../../element/metadata.ts';
 import type { RenderNode } from './types.ts';
 
@@ -13,52 +13,40 @@ export function renderNodeInteraction<TMessage, TPart extends string = never>(op
   readonly keys?: ElementKeyBindings<TMessage> | undefined;
   readonly onInput?: ((text: string) => TMessage) | undefined;
   readonly onPaste?: ((text: string) => TMessage) | undefined;
-  readonly meta?: ElementMeta<TPart> | undefined;
-  readonly pointer?: InteractiveElementOptions<TPart, TMessage>['pointer'] | undefined;
+  readonly meta?: ElementMeta | undefined;
+  readonly styles?: ElementStyles<TPart, Exclude<ElementVisualState, 'default'>> | undefined;
 }): {
   readonly layer?: ElementLayer;
   readonly focus?: ElementFocus;
-  readonly styles?: ElementStyles;
+  readonly styles?: ElementStyles<string, Exclude<ElementVisualState, 'default'>>;
   readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: NonNullable<RenderNode<TMessage>['inputMap']>;
-  readonly pointer?: NonNullable<RenderNode<TMessage>['pointer']>;
   readonly accessibility?: ElementAccessibility;
 } {
   const keyMap = normalizedKeyBindings(options.keys);
   const inputMap = renderNodeInputMap(options);
-  const pointer = options.pointer;
   return {
-    ...renderNodeMeta(options.meta),
+    ...renderNodeMeta(options),
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...(inputMap === undefined ? {} : { inputMap }),
-    ...(pointer === undefined ? {} : {
-      pointer: {
-        ...(pointer.state === undefined ? {} : { state: pointer.state }),
-        ...(pointer.onAction === undefined ? {} : { toActionMessage: pointer.onAction })
-      }
-    })
+    ...(inputMap === undefined ? {} : { inputMap })
   };
 }
 
-export function renderNodeMeta<TPart extends string>(meta: ElementMeta<TPart> | undefined): {
+export function renderNodeMeta(options: {
+  readonly meta?: ElementMeta | undefined;
+  readonly styles?: ElementStyles<string, Exclude<ElementVisualState, 'default'>> | undefined;
+}): {
   readonly layer?: ElementLayer;
   readonly focus?: ElementFocus;
-  readonly styles?: ElementStyles;
+  readonly styles?: ElementStyles<string, Exclude<ElementVisualState, 'default'>>;
   readonly accessibility?: ElementAccessibility;
 } {
+  const meta = options.meta;
   return {
     ...(meta?.layer === undefined ? {} : { layer: meta.layer }),
     ...(meta?.focus === undefined ? {} : { focus: meta.focus }),
-    ...(meta?.styles === undefined ? {} : { styles: normalizedStyles(meta.styles) }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(meta?.accessibility === undefined ? {} : { accessibility: meta.accessibility })
-  };
-}
-
-function normalizedStyles<TPart extends string>(styles: ElementStyles<TPart>): ElementStyles {
-  return {
-    ...(styles.root === undefined ? {} : { root: styles.root }),
-    ...(styles.parts === undefined ? {} : { parts: { ...styles.parts } }),
-    ...(styles.states === undefined ? {} : { states: { ...styles.states } })
   };
 }
 

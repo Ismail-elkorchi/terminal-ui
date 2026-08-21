@@ -31,7 +31,14 @@ import type {
   ValueScaleStop,
 } from '../../ui-model/feedback.ts';
 import type { ProcessStatus } from '../../ui-model/contracts.ts';
-import type { ChartStylePart, StatusStylePart } from '../../ui-model/style-parts.ts';
+import type {
+  ActivityIndicatorStylePart,
+  HelpBarStylePart,
+  MeterStylePart,
+  ProgressBarStylePart,
+  SparklineStylePart,
+  StatusBarStylePart,
+} from '../../ui-model/style-parts.ts';
 import type { StatusBarSection } from '../../ui-model/feedback.ts';
 import type { HelpGroup } from '../../ui-model/contracts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -46,6 +53,7 @@ import {
 } from '../../text/index.ts';
 import { indeterminateProgressFrame } from '../../behavior/feedback.ts';
 import { formatKeyboardBinding } from '../../interaction/key-binding.ts';
+import { decodeInputTrigger } from '../../input/index.ts';
 import {
   assertFiniteNumber,
   assertOptionalEnum,
@@ -64,7 +72,7 @@ interface StatusBarModel {
 export const statusBar: SemanticLeafComponentFactory<
   Pick<StatusBarOptions, 'leading' | 'center' | 'trailing'>,
   never,
-  StatusStylePart,
+  StatusBarStylePart,
   readonly [],
   'required',
   readonly ['styles', 'layer']
@@ -72,7 +80,7 @@ export const statusBar: SemanticLeafComponentFactory<
   Pick<StatusBarOptions, 'leading' | 'center' | 'trailing'>,
   StatusBarModel,
   never,
-  StatusStylePart,
+  StatusVisualPart,
   readonly [],
   'required',
   readonly ['styles', 'layer']
@@ -83,7 +91,7 @@ export const statusBar: SemanticLeafComponentFactory<
   semantics: 'semantic',
   accessibleRole: 'status',
   metadata: ['styles', 'layer'],
-  parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
+  parts: ['marker', 'leading', 'value', 'trailing'],
   prepare(value) {
     const leading = prepareStatusItems(value.leading, 'leading');
     const center = prepareStatusItems(value.center, 'center');
@@ -107,7 +115,6 @@ export const statusBar: SemanticLeafComponentFactory<
     return {
       id,
       role: 'status',
-      label: id,
       value: [model.leading, model.center, model.trailing]
         .flatMap((section) => section.map(statusItemAccessibleText))
         .join('  '),
@@ -164,7 +171,7 @@ interface PreparedHelpGroup {
 export const helpBar: SemanticLeafComponentFactory<
   Pick<HelpBarOptions, 'groups'>,
   never,
-  StatusStylePart,
+  HelpBarStylePart,
   readonly [],
   'required',
   readonly ['styles', 'layer']
@@ -172,7 +179,7 @@ export const helpBar: SemanticLeafComponentFactory<
   Pick<HelpBarOptions, 'groups'>,
   HelpBarModel,
   never,
-  StatusStylePart,
+  StatusVisualPart,
   readonly [],
   'required',
   readonly ['styles', 'layer']
@@ -183,7 +190,7 @@ export const helpBar: SemanticLeafComponentFactory<
   semantics: 'semantic',
   accessibleRole: 'group',
   metadata: ['styles', 'layer'],
-  parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
+  parts: ['marker', 'label', 'value'],
   prepare(value) {
     const groups = value.groups.map((group, index) => prepareHelpGroup(group, index));
     assertStableIds(groups, (group) => group.id, 'helpBar');
@@ -215,7 +222,7 @@ export const helpBar: SemanticLeafComponentFactory<
       children: model.groups.map((group) => ({
         id: `${id}:${group.id}`,
         role: 'group' as const,
-        label: group.label ?? group.id,
+        ...(group.label === undefined ? {} : { label: group.label }),
         children: group.bindings.map((binding, index) => ({
           id: `${id}:${group.id}:${String(index)}`,
           role: 'text' as const,
@@ -227,8 +234,10 @@ export const helpBar: SemanticLeafComponentFactory<
   },
 });
 
+type StatusVisualPart = StatusBarStylePart | HelpBarStylePart;
+
 type StatusVisualInput = Pick<
-  ComponentRenderInput<StatusBarModel | HelpBarModel, StatusStylePart>,
+  ComponentRenderInput<StatusBarModel | HelpBarModel, StatusVisualPart>,
   'id' | 'model' | 'theme' | 'widthProfile' | 'style' | 'source'
 >;
 
@@ -411,7 +420,7 @@ function fillSpans(input: StatusVisualInput, cells: number): readonly RenderSpan
 function statusSpan(
   input: StatusVisualInput,
   textValue: string,
-  part: StatusStylePart,
+  part: StatusVisualPart,
   partName: string,
   options: {
     readonly itemId?: string;
@@ -465,7 +474,6 @@ function prepareHelpGroup(value: HelpGroup, index: number): PreparedHelpGroup {
     bindings: bindings.map((binding, bindingIndex) => {
       if (
         !isNonArrayObject(binding) ||
-        !isNonArrayObject(binding['binding']) ||
         typeof binding['label'] !== 'string'
       ) {
         throw new TypeError(
@@ -474,8 +482,12 @@ function prepareHelpGroup(value: HelpGroup, index: number): PreparedHelpGroup {
           }] must contain a typed binding and string label.`,
         );
       }
+      const trigger = decodeInputTrigger(binding['binding']);
+      if (trigger.kind === 'text' || trigger.kind === 'focus') {
+        throw new TypeError('helpBar bindings must use key, codePoint, or physicalKey triggers.');
+      }
       return {
-        key: formatKeyboardBinding(binding['binding'] as HelpGroup['bindings'][number]['binding']),
+        key: formatKeyboardBinding(trigger),
         label: sanitizeLine(binding['label']),
       };
     }),
@@ -666,7 +678,7 @@ export const activityIndicator: ActivityIndicatorFactory = defineComponent<
   ActivityIndicatorOwnOptions,
   ActivityIndicatorModel,
   never,
-  StatusStylePart,
+  ActivityIndicatorStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -730,7 +742,6 @@ export const activityIndicator: ActivityIndicatorFactory = defineComponent<
     return {
       id,
       role: 'status',
-      label: id,
       value: `${model.label} (${model.status})`,
       live: 'polite',
     };
@@ -742,7 +753,7 @@ function activityIndicatorSpans(
     readonly model: ActivityIndicatorModel;
     readonly theme: import('../../theme/index.ts').TerminalTheme;
     readonly style?: (
-      input: import('../../component/index.ts').ComponentStyleInput<StatusStylePart>,
+      input: import('../../component/index.ts').ComponentStyleInput<ActivityIndicatorStylePart>,
     ) => import('../../visual/render.ts').TerminalStyle | undefined;
     readonly source?: (
       input?: import('../../component/index.ts').ComponentSourceInput,
@@ -877,7 +888,7 @@ export const progressBar: SemanticLeafComponentFactory<
     | 'valueScale'
   >,
   never,
-  StatusStylePart,
+  ProgressBarStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -896,7 +907,7 @@ export const progressBar: SemanticLeafComponentFactory<
   >,
   ProgressBarModel,
   never,
-  StatusStylePart,
+  ProgressBarStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -907,7 +918,7 @@ export const progressBar: SemanticLeafComponentFactory<
   semantics: 'semantic',
   accessibleRole: 'progressbar',
   metadata: ['styles', 'layer'],
-  parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
+  parts: ['marker', 'label', 'value', 'track', 'fill'],
   prepare(value) {
     const label = value.label;
     const mode = value.mode;
@@ -956,7 +967,7 @@ export const progressBar: SemanticLeafComponentFactory<
     return {
       id,
       role: 'progressbar',
-      label: model.label || id,
+      ...(model.label === '' ? {} : { label: model.label }),
       numericValue: model.indeterminate
         ? { indeterminate: true }
         : { current: model.value, minimum: 0, maximum: model.max },
@@ -1005,8 +1016,8 @@ interface ProgressVisualInput {
   readonly model: ProgressBarModel;
   readonly theme: import('../../theme/index.ts').TerminalTheme;
   readonly widthProfile: import('../../text/index.ts').TextWidthProfile;
-  readonly style?: ComponentRenderInput<ProgressBarModel, StatusStylePart>['style'];
-  readonly source?: ComponentRenderInput<ProgressBarModel, StatusStylePart>['source'];
+  readonly style?: ComponentRenderInput<ProgressBarModel, ProgressBarStylePart>['style'];
+  readonly source?: ComponentRenderInput<ProgressBarModel, ProgressBarStylePart>['source'];
 }
 
 function progressSpansFor(
@@ -1262,7 +1273,7 @@ function progressMetricSpans(
 function progressPartSpan(
   input: ProgressVisualInput,
   textValue: string,
-  part: StatusStylePart,
+  part: ProgressBarStylePart,
   partName: string,
   decorated: boolean,
   base?: TerminalStyle,
@@ -1390,7 +1401,7 @@ export const sparkline: SemanticLeafComponentFactory<
     | 'errorText'
   >,
   never,
-  ChartStylePart,
+  SparklineStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -1409,7 +1420,7 @@ export const sparkline: SemanticLeafComponentFactory<
   >,
   SparklineModel,
   never,
-  ChartStylePart,
+  SparklineStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -1420,7 +1431,7 @@ export const sparkline: SemanticLeafComponentFactory<
   semantics: 'semantic',
   accessibleRole: 'text',
   metadata: ['styles', 'layer'],
-  parts: ['label', 'value', 'muted', 'axis', 'baseline', 'series', 'legend'],
+  parts: ['value', 'muted', 'series'],
   prepare(value) {
     const label = value.label;
     const values = value.values;
@@ -1482,8 +1493,8 @@ export const sparkline: SemanticLeafComponentFactory<
 interface SparklineVisualInput {
   readonly model: SparklineModel;
   readonly theme: import('../../theme/index.ts').TerminalTheme;
-  readonly style?: ComponentRenderInput<SparklineModel, ChartStylePart>['style'];
-  readonly source?: ComponentRenderInput<SparklineModel, ChartStylePart>['source'];
+  readonly style?: ComponentRenderInput<SparklineModel, SparklineStylePart>['style'];
+  readonly source?: ComponentRenderInput<SparklineModel, SparklineStylePart>['source'];
 }
 
 const sparkGlyphs = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;
@@ -1555,11 +1566,11 @@ function sparklineSpans(input: SparklineVisualInput, decorated: boolean): readon
 
 function chartPartSpan<TModel extends object>(
   input: {
-    readonly style?: ComponentRenderInput<TModel, ChartStylePart>['style'];
-    readonly source?: ComponentRenderInput<TModel, ChartStylePart>['source'];
+    readonly style?: ComponentRenderInput<TModel, SparklineStylePart>['style'];
+    readonly source?: ComponentRenderInput<TModel, SparklineStylePart>['source'];
   },
   textValue: string,
-  part: ChartStylePart,
+  part: SparklineStylePart,
   partName: string,
   decorated: boolean,
   base?: TerminalStyle,
@@ -1598,7 +1609,7 @@ interface MeterModel {
 export const meter: SemanticLeafComponentFactory<
   Pick<MeterOptions, 'label' | 'value' | 'min' | 'max' | 'width' | 'variant' | 'result'>,
   never,
-  StatusStylePart,
+  MeterStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -1606,7 +1617,7 @@ export const meter: SemanticLeafComponentFactory<
   Pick<MeterOptions, 'label' | 'value' | 'min' | 'max' | 'width' | 'variant' | 'result'>,
   MeterModel,
   never,
-  StatusStylePart,
+  MeterStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -1617,7 +1628,7 @@ export const meter: SemanticLeafComponentFactory<
   semantics: 'semantic',
   accessibleRole: 'meter',
   metadata: ['styles', 'layer'],
-  parts: ['marker', 'leading', 'label', 'value', 'trailing', 'track', 'fill'],
+  parts: ['marker', 'label', 'value', 'track', 'fill'],
   prepare(value) {
     const label = value.label;
     const current = value.value;
@@ -1669,7 +1680,7 @@ export const meter: SemanticLeafComponentFactory<
     return {
       id,
       role: 'meter',
-      label: model.label || id,
+      ...(model.label === '' ? {} : { label: model.label }),
       value: model.value,
       numericValue: { current: model.value, minimum: model.min, maximum: model.max },
       description: `Meter from ${String(model.min)} to ${String(model.max)}.`,
@@ -1681,8 +1692,8 @@ interface MeterVisualInput {
   readonly model: MeterModel;
   readonly theme: import('../../theme/index.ts').TerminalTheme;
   readonly widthProfile: import('../../text/index.ts').TextWidthProfile;
-  readonly style?: ComponentRenderInput<MeterModel, StatusStylePart>['style'];
-  readonly source?: ComponentRenderInput<MeterModel, StatusStylePart>['source'];
+  readonly style?: ComponentRenderInput<MeterModel, MeterStylePart>['style'];
+  readonly source?: ComponentRenderInput<MeterModel, MeterStylePart>['source'];
 }
 
 function meterLines(
@@ -1880,7 +1891,7 @@ function meterDialLines(
 function meterPartSpan(
   input: MeterVisualInput,
   textValue: string,
-  part: StatusStylePart,
+  part: MeterStylePart,
   partName: string,
   decorated: boolean,
   base?: TerminalStyle,

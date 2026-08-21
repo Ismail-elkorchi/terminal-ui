@@ -69,7 +69,7 @@ test('listView measures arbitrary rows and derives one active-item scroll window
     { id: 'third', rows: 2, value: { label: 'Third', content: text({ content: 'Third A\nThird B' }) } }
   ]);
   const window = measuredWindow(collection, { viewportRows: 3, activeId: 'third' });
-  const frame = renderElementFrame(listView({
+  const frame = renderElementFrame(listView({ meta: { accessibleName: "List" },
     id: 'activity',
     window,
     renderItem: (item) => item.value,
@@ -108,7 +108,7 @@ test('listView clips partial measured items at both viewport edges', () => {
     { id: 'second', rows: 3, value: { label: 'Second', content: text({ content: 'B1\nB2\nB3' }) } }
   ]);
   const window = measuredWindow(collection, { viewportRows: 3, offsetRow: 1 });
-  const frame = renderElementFrame(listView({
+  const frame = renderElementFrame(listView({ meta: { accessibleName: "List" },
     id: 'clipped-items',
     window,
     renderItem: (item) => item.value,
@@ -142,7 +142,7 @@ test('listView translates an oversized item through its clipped viewport', () =>
     value: { content: text({ id: 'oversized-content', content: 'one\ntwo\nthree\nfour\nfive' }) }
   }]);
   const window = measuredWindow(collection, { viewportRows: 3, offsetRow: 1 });
-  const frame = renderElementFrame(listView({
+  const frame = renderElementFrame(listView({ meta: { accessibleName: "List" },
     id: 'oversized-list',
     window,
     renderItem: (item) => item.value,
@@ -171,7 +171,7 @@ test('listView translates nested pointer targets in a clipped item', () => {
     }
   }]);
   const window = measuredWindow(collection, { viewportRows: 1, offsetRow: 1 });
-  const element = listView({
+  const element = listView({ meta: { accessibleName: "List" },
     id: 'clipped-actions',
     window,
     renderItem: (item) => item.value,
@@ -191,13 +191,13 @@ test('listView translates nested pointer targets in a clipped item', () => {
   assert.deepEqual(target?.message({ kind: 'click' }), { kind: 'run' });
 });
 
-test('listView intrinsic height is the supplied viewport and activeId must be rendered', () => {
+test('listView intrinsic height is the supplied viewport and off-window activity remains valid', () => {
   const collection = prepareMeasuredCollection([
     { id: 'first', rows: 50, value: { content: text({ content: Array(50).fill('first').join('\n') }) } },
     { id: 'second', rows: 50, value: { content: text({ content: Array(50).fill('second').join('\n') }) } }
   ]);
   const window = measuredWindow(collection, { viewportRows: 3 });
-  const view = listView({
+  const view = listView({ meta: { accessibleName: "List" },
     id: 'intrinsic-list',
     window,
     renderItem: (item) => item.value,
@@ -210,14 +210,18 @@ test('listView intrinsic height is the supplied viewport and activeId must be re
 
   assert.equal(layout.children[0]?.bounds.height, 3);
   assert.equal(layout.children[1]?.bounds.row, 4);
-  assert.throws(() => listView({
+  const offWindowActive = listView({ meta: { accessibleName: "List" },
     id: 'invalid-active-list',
     window,
     renderItem: (item) => item.value,
     presentation: { activeId: 'second', selection: { mode: 'none' } },
     onTransition: (transition) => transition
-  }), /activeId must identify an item in the supplied measured window/u);
-  assert.throws(() => listView({
+  });
+  assert.equal(
+    renderElementFrame(offWindowActive, { columns: 20, rows: 3 }).accessibility.root.activeDescendant,
+    undefined,
+  );
+  assert.throws(() => listView({ meta: { accessibleName: "List" },
     id: 'invalid-horizontal-list',
     window,
     renderItem: (item) => item.value,
@@ -233,7 +237,7 @@ test('listView owns retained multiple-selection state at construction', () => {
     { id: 'first', rows: 1, value: { content: text({ content: 'First' }) } },
     { id: 'second', rows: 1, value: { content: text({ content: 'Second' }) } }
   ]), { viewportRows: 2 });
-  const element = listView({
+  const element = listView({ meta: { accessibleName: "List" },
     id: 'owned-list-view-selection',
     window,
     renderItem: (item) => item.value,
@@ -273,7 +277,7 @@ test('listView reducer separates active position, committed selection, and child
     id: 'row', rows: 1,
     value: { content: button({ id: 'row-action', label: 'Run', onAction: () => ({ kind: 'run' }) }) }
   }]), { viewportRows: 1 });
-  const actionList = listView({
+  const actionList = listView({ meta: { accessibleName: "List" },
     id: 'actions',
     window: actionWindow,
     renderItem: (item) => item.value,
@@ -314,7 +318,7 @@ test('listView reducer returns controlled reveal scroll and rejects conflicting 
     viewportRows: 2,
     offsetRow: moved.scroll.offsetRow
   });
-  assert.throws(() => renderElementFrame(listView({
+  assert.throws(() => renderElementFrame(listView({ meta: { accessibleName: "List" },
     id: 'height-mismatch',
     window,
     renderItem: (item) => ({ content: text({ content: item.value }) }),
@@ -333,7 +337,7 @@ test('windowed collection uses its declared external projection query', () => {
       domain: { kind: 'projection', query: { text: 'item', mode: 'contains' } }
     }
   );
-  const frame = renderElementFrame(listbox({
+  const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     id: 'window-filter',
     collection,
     presentation: { selection: { mode: 'none' } },
@@ -344,7 +348,7 @@ test('windowed collection uses its declared external projection query', () => {
 });
 
 test('listbox component filters items and can use explicit shared scroll state', () => {
-  const frame = renderElementFrame(listbox({
+  const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'filtered-listbox',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
@@ -364,7 +368,7 @@ test('listbox component filters items and can use explicit shared scroll state',
 });
 
 test('listbox component exposes source-aware row values matches and empty filter state', () => {
-  const frame = renderElementFrame(listbox({
+  const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'items',
     items: ['Atlas', 'Pulse'],
@@ -372,7 +376,7 @@ test('listbox component exposes source-aware row values matches and empty filter
     query: { text: 'at' },
     onTransition: (transition) => transition
   }), { columns: 24, rows: 2 });
-  const emptyFrame = renderElementFrame(listbox({
+  const emptyFrame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'empty-items',
     items: [],
@@ -391,7 +395,7 @@ test('listbox component exposes source-aware row values matches and empty filter
 });
 
 test('listbox projects object values once for visible text filtering and accessibility', () => {
-  const frame = renderElementFrame(listbox({
+  const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     id: 'object-listbox',
     items: [
       { key: 'atlas', title: 'Atlas', detail: 'Primary workspace', aliases: ['north'] },
@@ -417,7 +421,7 @@ test('listbox projects object values once for visible text filtering and accessi
 });
 
 test('listbox cursor and mouse hit targets use the filtered visible rows', async () => {
-  const frame = renderElementFrame(listbox({
+  const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-listbox',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
@@ -446,11 +450,11 @@ test('listbox cursor and mouse hit targets use the filtered visible rows', async
 
   const app = defineTui({
     id: 'listbox-click-flow',
-    init: () => ({ selected: 'none' }),
+    init: () => ({ state: ({ selected: 'none' }) }),
     update: (_state, message) => ({
       state: { selected: message.action.id }
     }),
-    view: () => listbox({
+    view: () => listbox({ meta: { accessibleName: "List" },
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-listbox',
       items: ['alpha', 'bravo'],
@@ -464,7 +468,7 @@ test('listbox cursor and mouse hit targets use the filtered visible rows', async
   const press = await runtime.handleInput(mousePress(2, 1));
   const release = await runtime.handleInput(mouseRelease(2, 1));
 
-  assert.equal(press.handled, false);
+  assert.equal(press.handled, true);
   assert.equal(release.state.selected, 'bravo');
 });
 
@@ -555,9 +559,9 @@ test('windowed listbox active position keeps global collection identity while sc
 test('listbox pointer selection and double-click activation match keyboard semantics', async () => {
   const app = defineTui({
     id: 'listbox-pointer-activation',
-    init: () => ({ actions: [] }),
+    init: () => ({ state: ({ actions: [] }) }),
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
-    view: () => listbox({
+    view: () => listbox({ meta: { accessibleName: "List" },
       id: 'activation-listbox',
       items: ['alpha'],
       projectItem: (item) => ({ id: item, label: item }),
@@ -581,9 +585,9 @@ test('listbox pointer selection and double-click activation match keyboard seman
 test('listbox preserves the component runtime rejection of null application messages', async () => {
   const app = defineTui({
     id: 'listbox-null-message',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state) => ({ state }),
-    view: () => listbox({
+    view: () => listbox({ meta: { accessibleName: "List" },
       id: 'null-listbox',
       items: ['alpha'],
       projectItem: (item) => ({ id: item, label: item }),

@@ -760,7 +760,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
       column: 1,
       text: 'x',
       width: 1,
-      source: { interactionState: 'busy' }
+      source: { interactionState: 'unknown' }
     }]
   }, baseDiff);
   assert.equal(cell.status, 'failure');
@@ -768,7 +768,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
 
   const cursor = validateCommit({
     ...baseFrame,
-    cursor: { row: 1, column: 1, source: { interactionState: 'busy' } }
+    cursor: { row: 1, column: 1, source: { interactionState: 'unknown' } }
   }, baseDiff);
   assert.equal(cursor.status, 'failure');
   assert.match(cursor.error.message, /frame cursor source.*interactionState must be focused/u);
@@ -779,7 +779,7 @@ test('transcript validation rejects unknown frame-cell interaction states', () =
       kind: 'write',
       row: 1,
       column: 1,
-      spans: [{ text: 'x', source: { interactionState: 'busy' } }]
+      spans: [{ text: 'x', source: { interactionState: 'unknown' } }]
     }]
   });
   assert.equal(span.status, 'failure');
@@ -1060,6 +1060,7 @@ test('transcript redaction keeps accessibility identifiers unique and references
         root: {
           id: 'secret-node',
           role: 'application',
+          label: 'secret application',
           controls: '[redacted]-node',
           children: [{
             id: '[redacted]-node',

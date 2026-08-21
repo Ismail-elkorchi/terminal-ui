@@ -183,20 +183,18 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   ): Promise<'completed' | 'failed'> {
     const sourceName = activeSource.source.source ?? 'external';
     try {
-      const messages = activeSource.source.messages(context);
       let emissionIndex = 0;
-      for await (const value of messages) {
-        if (context.signal.aborted) {
-          activeSource.channel.cancel();
-          return 'completed';
-        }
-        const emission = decodeTuiSourceEmission<TMessage>(
-          value,
-          `TUI event source ${activeSource.id} emission ${String(emissionIndex)}`,
-        );
-        emissionIndex += 1;
-        await activeSource.channel.admit(emission);
-      }
+      await activeSource.source.run(context, Object.freeze({
+        emit: async (value: import('./types.ts').TuiSourceEmission<TMessage>) => {
+          if (context.signal.aborted) return;
+          const emission = decodeTuiSourceEmission<TMessage>(
+            value,
+            `TUI event source ${activeSource.id} emission ${String(emissionIndex)}`,
+          );
+          emissionIndex += 1;
+          await activeSource.channel.admit(emission);
+        },
+      }));
       await activeSource.channel.close();
       if (context.signal.aborted) return 'completed';
       await dispatchLifecycle(activeSource.source, {

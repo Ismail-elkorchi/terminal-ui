@@ -52,11 +52,11 @@ const disabledElementCases = [
   },
   {
     name: 'slider',
-    element: () => slider({ id: 'disabled-slider', label: 'Volume', value: 4, disabled: true })
+    element: () => slider({ meta: { accessibleName: "Slider" }, id: 'disabled-slider', label: 'Volume', value: 4, disabled: true })
   },
   {
     name: 'rangeSlider',
-    element: () => rangeSlider({
+    element: () => rangeSlider({ meta: { accessibleName: "Range" },
       id: 'disabled-range',
       label: 'Window',
       state: { value: { start: 2, end: 8 }, activeHandle: 'start' },
@@ -65,7 +65,7 @@ const disabledElementCases = [
   },
   {
     name: 'checkboxGroup',
-    element: () => checkboxGroup({
+    element: () => checkboxGroup({ meta: { accessibleName: "Choices" },
       id: 'disabled-checkbox-list',
       label: 'Channels',
       options: formOptions,
@@ -75,7 +75,7 @@ const disabledElementCases = [
   },
   {
     name: 'radioGroup',
-    element: () => radioGroup({
+    element: () => radioGroup({ meta: { accessibleName: "Choices" },
       id: 'disabled-radio',
       label: 'Tier',
       options: formOptions,
@@ -95,7 +95,7 @@ const disabledElementCases = [
   },
   {
     name: 'colorSwatchPicker',
-    element: () => colorSwatchPicker({
+    element: () => colorSwatchPicker({ meta: { accessibleName: "Colors" },
       id: 'disabled-colors',
       label: 'Accent',
       options: formOptions,
@@ -105,7 +105,7 @@ const disabledElementCases = [
   },
   {
     name: 'calendar',
-    element: () => calendar({
+    element: () => calendar({ meta: { accessibleName: "Calendar" },
       id: 'disabled-date',
       label: 'Date',
       presentation: calendarFixture(),
@@ -114,11 +114,11 @@ const disabledElementCases = [
   },
   {
     name: 'textInput',
-    element: () => textInput({ id: 'disabled-text-input', presentation: { value: 'locked', cursor: 0 }, disabled: true })
+    element: () => textInput({ meta: { accessibleName: "Text input" }, id: 'disabled-text-input', presentation: { value: 'locked', cursor: 0 }, disabled: true })
   },
   {
     name: 'numberInput',
-    element: () => numberInput({
+    element: () => numberInput({ meta: { accessibleName: "Number input" },
       id: 'disabled-number-input',
       presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4 },
       disabled: true
@@ -126,11 +126,11 @@ const disabledElementCases = [
   },
   {
     name: 'textArea',
-    element: () => textArea({ id: 'disabled-text-area', presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) }, disabled: true })
+    element: () => textArea({ meta: { accessibleName: "Text area" }, id: 'disabled-text-area', presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) }, disabled: true })
   },
   {
     name: 'open contextMenu',
-    element: () => contextMenu({
+    element: () => contextMenu({ meta: { accessibleName: "Context menu" },
       id: 'disabled-context-menu',
       presentation: {
         kind: 'open',
@@ -158,7 +158,7 @@ for (const current of disabledElementCases) {
 test('disabled components expose no keyboard or mouse dispatch', async () => {
   const app = defineTui({
     id: 'disabled-interaction-runtime',
-    init: () => ({ active: 'idle' }),
+    init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => button({
       id: 'disabled-action',
@@ -192,7 +192,7 @@ test('unavailable controls ignore unreachable interaction options', () => {
     }),
   );
   assert.doesNotThrow(
-    () => textInput({
+    () => textInput({ meta: { accessibleName: "Text input" },
       id: 'invalid-disabled-input',
       presentation: { value: '', cursor: 0 },
       disabled: true,
@@ -210,21 +210,11 @@ test('unavailable controls ignore unreachable interaction options', () => {
     }),
   );
   assert.doesNotThrow(
-    () => textArea({
+    () => textArea({ meta: { accessibleName: "Text area" },
       id: 'invalid-disabled-editor',
       presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) },
       disabled: true,
       onAction: 'unreachable'
-    }),
-  );
-  assert.doesNotThrow(
-    () => button({
-      id: 'invalid-disabled-pointer',
-      label: 'Disabled',
-      disabled: true,
-      pointerState: new Proxy({}, {
-        get() { throw new Error('unreachable pointer state was read'); }
-      })
     }),
   );
   assert.doesNotThrow(
@@ -238,30 +228,9 @@ test('unavailable controls ignore unreachable interaction options', () => {
   );
 });
 
-test('pointer state reads each consumed field once and ignores unrelated fields', () => {
-  const reads = new Map();
-  const pointerState = new Proxy({ hoveredTargetId: 'submit:control', typo: true }, {
-    get(target, field, receiver) {
-      reads.set(field, (reads.get(field) ?? 0) + 1);
-      return Reflect.get(target, field, receiver);
-    }
-  });
-
-  button({
-    id: 'submit',
-    label: 'Submit',
-    pointerState,
-    onAction: () => ignoreMessage()
-  });
-
-  assert.equal(reads.get('hoveredTargetId'), 1);
-  assert.equal(reads.get('pressedTargetId'), 1);
-  assert.equal(reads.get('typo'), undefined);
-});
-
 test('commandInput preserves disabled suggestion semantics', () => {
   const frame = renderElementFrame(
-    commandInput({
+    commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
       prompt: '>',
       presentation: { value: 'de', cursor: 0, open: true, suggestions: prepareCommandSuggestions([

@@ -4,8 +4,6 @@ import {
   pointerVisualState,
   resolveSelectedText,
   type AnchoredSurfacePlacement,
-  type PointerInteractionAction,
-  type PointerInteractionOptions,
   type PointerInteractionState
 } from '@ismail-elkorchi/terminal-ui/interaction';
 
@@ -21,11 +19,6 @@ const selected = resolveSelectedText({
 });
 const ignored = ignoreMessage();
 const pointerState: PointerInteractionState = { hoveredTargetId: 'save:control' };
-const pointerAction: PointerInteractionAction = { kind: 'press', targetId: 'save:control' };
-const pointerOptions: PointerInteractionOptions<PointerInteractionAction> = {
-  state: pointerState,
-  onAction: (action) => action
-};
 const pointerStyle = pointerVisualState(pointerState, 'save:control');
 
 // @ts-expect-error placement vocabulary is closed
@@ -34,7 +27,5 @@ const invalidPlacement: AnchoredSurfacePlacement = 'center';
 void bounds;
 void selected;
 void ignored;
-void pointerAction;
-void pointerOptions;
 void pointerStyle;
 void invalidPlacement;

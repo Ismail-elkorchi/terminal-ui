@@ -28,7 +28,7 @@ interface State { readonly saved: boolean; }
 
 const app = defineTui<State, Message>({
   id: 'terminal-app-example',
-  init: () => ({ saved: false }),
+  init: () => ({ state: { saved: false } }),
   update: (state, message) => {
     if (message.kind === 'save') return { state: { saved: true } };
     return { state, exit: { reason: 'quit' } };
@@ -56,12 +56,12 @@ button({
   id: 'save',
   label: 'Save',
   onAction: (): Message => ({ kind: 'save' }),
+  styles: {
+    states: { focused: { root: { bold: true } } }
+  },
   meta: {
     focus: { order: 10 },
-    layer: { overflowPriority: 'important' },
-    styles: {
-      states: { focused: { bold: true } }
-    }
+    layer: { overflowPriority: 'important' }
   }
 });
 ```

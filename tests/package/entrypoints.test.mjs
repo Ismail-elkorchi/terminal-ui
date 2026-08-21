@@ -49,7 +49,7 @@ test('focused component entrypoints own their factories and companion contracts'
     import { textInput, type TextInputAction } from '@ismail-elkorchi/terminal-ui/components/forms';
     import { dataGrid, tableColumn, type DataGridTransition } from '@ismail-elkorchi/terminal-ui/components/collections';
     import { menuTrigger, type MenuTriggerTransition } from '@ismail-elkorchi/terminal-ui/components/overlays';
-    import { progressBar, type NotificationHistoryAction } from '@ismail-elkorchi/terminal-ui/components/feedback';
+    import { progressBar, type NotificationHistoryTransition } from '@ismail-elkorchi/terminal-ui/components/feedback';
     import { commandInput, prepareCommandSuggestions, type CommandInputTransition } from '@ismail-elkorchi/terminal-ui/components/patterns';
     import { chart, type ChartTransition } from '@ismail-elkorchi/terminal-ui/components/visualizations';
 
@@ -63,7 +63,7 @@ test('focused component entrypoints own their factories and companion contracts'
     void prepareCommandSuggestions;
     void chart;
     type Contracts = DisclosureAction | TextInputAction | DataGridTransition |
-      MenuTriggerTransition | NotificationHistoryAction | CommandInputTransition | ChartTransition;
+      MenuTriggerTransition | NotificationHistoryTransition | CommandInputTransition | ChartTransition;
     type _Use = Contracts;
   `);
 });

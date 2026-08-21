@@ -59,9 +59,10 @@ preparation, constrained measurement, inspection, and hook-result boundaries as
 `defineComponent()`. Use `defineComponent()` directly for composite or composed
 components.
 
-The optional `parts` array declares stable local style slots. `style()` rejects
-undeclared slots at runtime, while TypeScript restricts `meta.styles.parts` to
-the declared names.
+The optional `parts` and `visualStates` arrays declare the exact local styling
+contract. `style()` rejects undeclared slots at runtime, while TypeScript
+restricts the factory's top-level `styles.parts` and `styles.states` to those
+names.
 
 ## Leaf And Composite Components
 

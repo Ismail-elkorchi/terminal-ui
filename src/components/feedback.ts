@@ -17,5 +17,5 @@ export type {
   ProgressBarMode,
   StatusBarItem,
 } from '../ui-model/feedback.ts';
-export type { NotificationHistoryAction } from '../ui-model/notification.ts';
+export type { NotificationHistoryTransition } from '../ui-model/notification.ts';
 export { isNotificationTone, isProcessStatus, isStatusBarStatus } from '../ui-model/status.ts';

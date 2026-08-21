@@ -64,7 +64,7 @@ test('TUI wheel routing skips non-scroll child targets and reaches the scroll ta
   };
   const app = defineTui({
     id: 'wheel-scroll-target-tui',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => componentElement({ id: 'wheel-scroll-target', definition: renderer })
   });
@@ -88,10 +88,10 @@ test('TUI wheel routing skips non-scroll child targets and reaches the scroll ta
 test('TUI press routing keeps scroll-only content targets from swallowing text pointer targets', async () => {
   const app = defineTui({
     id: 'scroll-content-text-pointer-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({ contentRows: 2, viewportRows: 1 }),
       events: []
-    }),
+    }) }),
     update: (state, message) => {
       if (message.kind === 'scroll') {
         return {
@@ -104,7 +104,7 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
       }
       return { state: { ...state, events: [...state.events, message] } };
     },
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'scrolling-text-pointer',
       presentation: { document: prepareTextDocument('alpha\nbeta'), caret: textCaretAt(0), scroll: state.scroll },
       scrollbar: { visible: 'always' },
@@ -147,11 +147,11 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
   );
   const app = defineTui({
     id: 'scroll-layer-routing-tui',
-    init: () => ({
+    init: () => ({ state: ({
       background: createScrollState({ contentRows: 20, viewportRows: 1 }),
       foreground: createScrollState({ contentRows: 20, viewportRows: 1 }),
       events: []
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         ...state,
@@ -160,7 +160,7 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
       }
     }),
     view: (state) => overlay([
-      textArea({
+      textArea({ meta: { accessibleName: "Text area" },
         id: 'background-scroll',
         presentation: { document: prepareTextDocument(backgroundValue), caret: textCaretAt(0), scroll: state.background },
         scrollbar: { visible: 'always' },
@@ -205,17 +205,17 @@ test('TUI pointer scrolling and scrollbar track input route to controlled text a
   const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
   const app = defineTui({
     id: 'text-area-scroll-pointer-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({ contentRows: 40, viewportRows: 1 }),
       events: []
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         scroll: applyScrollEvent(state.scroll, message.event),
         events: [...state.events, `${message.event.source}:${message.event.target}`]
       }
     }),
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'scroll-editor',
 presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
       scrollbar: { visible: 'always' },
@@ -297,17 +297,17 @@ test('TUI scrollbar thumb drag preserves the press anchor', async () => {
   const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
   const app = defineTui({
     id: 'text-area-thumb-scroll-pointer-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({ offsetRow: 12, contentRows: 40, viewportRows: 1 }),
       events: []
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         scroll: applyScrollEvent(state.scroll, message.event),
         events: [...state.events, `${message.event.source}:${message.event.target}`]
       }
     }),
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'thumb-editor',
 presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
       scrollbar: { visible: 'always' },
@@ -356,10 +356,10 @@ test('TUI scrollbar thumb routing stays above its track inside elevated regions'
   const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
   const app = defineTui({
     id: 'elevated-thumb-scroll-pointer-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({ offsetRow: 12, contentRows: 40, viewportRows: 1 }),
       events: []
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         scroll: applyScrollEvent(state.scroll, message.event),
@@ -371,7 +371,7 @@ test('TUI scrollbar thumb routing stays above its track inside elevated regions'
 presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
     scrollbar: { visible: 'always' },
     onAction: (action) => ({ event: action.event }),
-    meta: {
+    meta: { accessibleName: "Text area",
         layer: {
             zIndex: 10
         }
@@ -403,15 +403,15 @@ test('TUI runtime batches decoded wheel bursts into one accelerated frame update
   const value = Array.from({ length: 80 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
   const app = defineTui({
     id: 'text-area-scroll-burst-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({ contentRows: 80, viewportRows: 1 })
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         scroll: applyScrollEvent(state.scroll, message.event)
       }
     }),
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'scroll-editor',
 presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
       scrollbar: { visible: 'always' },
@@ -442,7 +442,7 @@ test('viewport wheel bursts and thumb dragging keep scrolled composite children 
   );
   const app = defineTui({
     id: 'composite-viewport-scroll-tui',
-    init: () => ({ scroll: createScrollState({ contentRows: children.length, viewportRows: 1 }) }),
+    init: () => ({ state: ({ scroll: createScrollState({ contentRows: children.length, viewportRows: 1 }) }) }),
     update: (state, message) => ({
       state: { scroll: applyScrollEvent(state.scroll, message.event) }
     }),
@@ -527,9 +527,9 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
   const value = Array.from({ length: 80 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
   const app = defineTui({
     id: 'cross-read-wheel-batch-tui',
-    init: () => ({ scroll: createScrollState({ contentRows: 80, viewportRows: 1 }) }),
+    init: () => ({ state: ({ scroll: createScrollState({ contentRows: 80, viewportRows: 1 }) }) }),
     update: (state, message) => ({ state: { scroll: applyScrollEvent(state.scroll, message.event) } }),
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'cross-read-editor',
       presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
       scrollbar: { visible: 'always' },
@@ -582,7 +582,7 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
   const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
   const app = defineTui({
     id: 'wheel-key-barrier-tui',
-    init: () => ({ scroll: createScrollState({ contentRows: 40, viewportRows: 1 }), keys: 0 }),
+    init: () => ({ state: ({ scroll: createScrollState({ contentRows: 40, viewportRows: 1 }), keys: 0 }) }),
     update: (state, message) => message.kind === 'scroll'
       ? { state: { ...state, scroll: applyScrollEvent(state.scroll, message.event) } }
       : { state: { ...state, keys: state.keys + 1 } },
@@ -592,7 +592,7 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
       triggers: [{ kind: 'key', key: 'enter' }],
       message: { kind: 'key' }
     }],
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'barrier-editor',
       presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
       onAction: (action) => action.kind === 'scroll' ? { kind: 'scroll', event: action.event } : undefined
@@ -629,17 +629,17 @@ test('TUI routed wheel events honor scroll-target line steps', async () => {
   ).join('\n');
   const app = defineTui({
     id: 'text-area-scroll-policy-lines-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({ contentRows: 40, contentColumns: 80, viewportRows: 1, viewportColumns: 1 }),
       event: undefined
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         scroll: applyScrollEvent(state.scroll, message.event),
         event: message.event
       }
     }),
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'scroll-editor',
 presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
       scrollbar: { visible: 'always' },
@@ -691,17 +691,17 @@ test('TUI routed horizontal text area scroll uses the editable viewport after gu
   const value = '01234567890123456789';
   const app = defineTui({
     id: 'text-area-horizontal-gutter-scroll-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({}),
       event: undefined
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         scroll: applyScrollEvent(state.scroll, message.event),
         event: message.event
       }
     }),
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'horizontal-gutter-editor',
       lineNumbers: true,
       presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
@@ -740,15 +740,15 @@ test('TUI routed wheel events support page-based scroll-target policy', async ()
   const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
   const app = defineTui({
     id: 'text-area-scroll-policy-pages-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({ contentRows: 40, viewportRows: 1 })
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         scroll: applyScrollEvent(state.scroll, message.event)
       }
     }),
-    view: (state) => textArea({
+    view: (state) => textArea({ meta: { accessibleName: "Text area" },
       id: 'scroll-editor',
 presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scroll: state.scroll },
       scrollbar: { visible: 'always' },
@@ -789,14 +789,14 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
   const source = prepareTreeSource(nodes);
   const app = defineTui({
     id: 'tree-scroll-pointer-tui',
-    init: () => ({
+    init: () => ({ state: ({
       tree: {
         expandedIds: [],
         selection: { mode: 'none' },
         scroll: createScrollState({})
       },
       event: undefined
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         tree: treeReducer(state.tree, message.action, {
@@ -805,7 +805,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
         event: message.action.kind === 'scroll' ? message.action.event : state.event
       }
     }),
-    view: (state) => tree({
+    view: (state) => tree({ meta: { accessibleName: "Tree" },
       id: 'tree-scroll',
       view: prepareTreeView(source, state.tree),
       presentation: state.tree,
@@ -847,17 +847,17 @@ test('TUI routed context menu scroll events use a fixed title row and shared scr
   }));
   const app = defineTui({
     id: 'context-menu-scroll-pointer-tui',
-    init: () => ({
+    init: () => ({ state: ({
       scroll: createScrollState({ contentRows: items.length, viewportRows: 1 }),
       event: undefined
-    }),
+    }) }),
     update: (state, message) => ({
       state: {
         scroll: message.action.kind === 'scroll' ? applyScrollEvent(state.scroll, message.action.event) : state.scroll,
         event: message.action.kind === 'scroll' ? message.action.event : state.event
       }
     }),
-    view: (state) => contextMenu({
+    view: (state) => contextMenu({ meta: { accessibleName: "Context menu" },
       id: 'context-scroll',
       title: 'Actions',
       presentation: {

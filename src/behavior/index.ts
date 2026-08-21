@@ -137,13 +137,8 @@ export type {
   ProgressFrame,
   ProgressFrameCell
 } from './feedback.ts';
-export { pointerInteractionReducer } from './pointer-interaction.ts';
 export { listViewReducer } from './list-view.ts';
 export type { ListViewReducerOptions } from './list-view.ts';
-export type {
-  PointerInteractionAction,
-  PointerInteractionState
-} from '../interaction/pointer-interaction.ts';
 export {
   prepareListboxCollection,
   listboxReducer,

@@ -285,6 +285,7 @@ function colorCodes(
   forceColor: boolean | undefined
 ): readonly string[] {
   if (color === undefined || color.kind === 'theme') return [];
+  if (color.kind === 'default') return [target === 'fg' ? '39' : '49'];
   const depth = forceColor === true ? Math.max(capabilities.color.depth, 8) : capabilities.color.depth;
   if (depth < 4) return [];
   if (color.kind === 'ansi') return ansiColorCodes(target, color.value, depth);

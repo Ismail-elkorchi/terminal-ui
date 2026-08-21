@@ -54,7 +54,7 @@ const semanticCanvas = defineComponent<
     return {
       id,
       role: 'image',
-      label: model.label ?? id,
+      ...(model.label === undefined ? {} : { label: model.label }),
       scope: { kind: 'document' },
       ...(focused ? { focused: true } : {}),
     };

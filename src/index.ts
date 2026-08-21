@@ -14,6 +14,10 @@ export type {
   TerminalSeverity
 } from './diagnostics.ts';
 export type { JsonPrimitive, JsonValue } from './foundation/json.ts';
+export { mergeElementStyles } from './element/styles.ts';
+export { mergeTerminalStyles } from './visual/terminal-style.ts';
+export type { ElementStyles, ElementVisualState } from './element/metadata.ts';
+export type { TerminalColor, TerminalStyle } from './visual/render.ts';
 export { TerminalUiError } from './errors.ts';
 export { failure, success } from './result.ts';
 export type { Result } from './result.ts';
@@ -31,6 +35,7 @@ export {
   defineTui,
   intervalSource,
   runTui,
+  TuiRunError,
   timeoutSource
 } from './tui/index.ts';
 export { resolveSelectedText } from './interaction/index.ts';
@@ -73,6 +78,7 @@ export {
   flow,
   grid,
   measuredColumn,
+  measuredViewport,
   overlay,
   portal,
   responsive,
@@ -91,6 +97,11 @@ export type {
   GridAreasOptions,
   GridLayoutOptions,
   GridOptions,
+  ElementKeyBindings,
+  ElementKeyEvent,
+  ElementKeyHandler,
+  ElementKeyTriggerBinding,
+  InteractiveElementOptions,
   LayoutAlignment,
   LayoutFlowOptions,
   LayoutInsetInput,
@@ -102,9 +113,12 @@ export type {
   ResponsiveBreakpointMap,
   ResponsiveVariants,
   RowOptions,
+  ScrollableViewportOptions,
   SplitPaneAction,
   SplitPaneOptions,
   SurfaceOptions,
+  StructuralElementOptions,
+  ViewportOffset,
   ViewportDimensions,
   ViewportOptions,
 } from './layout/index.ts';

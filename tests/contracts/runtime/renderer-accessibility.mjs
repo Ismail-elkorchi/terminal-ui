@@ -9,6 +9,7 @@ const snapshot = createAccessibleSnapshot({
   root: {
     id: 'root',
     role: 'listbox',
+    label: 'Portable results',
     window: { startIndex: 0, endIndexExclusive: 1, totalCount: 1 },
     children: [{
       id: 'item',

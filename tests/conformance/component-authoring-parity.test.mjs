@@ -50,6 +50,7 @@ runMessageRoutingConformance('external', externalButton);
 runEditableControlConformance('built-in', {
   active: ({ id, value, onInsert }) => textInput({
     id,
+    meta: { accessibleName: 'Value' },
     presentation: { value, cursor: value.length },
     onAction: (action) => action.kind === 'edit' && action.operation.kind === 'insert'
       ? onInsert(action.operation.text)
@@ -57,6 +58,7 @@ runEditableControlConformance('built-in', {
   }),
   disabled: ({ id, value }) => textInput({
     id,
+    meta: { accessibleName: 'Value' },
     presentation: { value, cursor: value.length },
     disabled: true
   })
@@ -72,6 +74,7 @@ runEditableControlConformance('external', {
 runVirtualCollectionConformance('built-in', {
   active: ({ id, items, activeIndex }) => listbox({
     id,
+    meta: { accessibleName: 'Rows' },
     items,
     projectItem: (item) => ({ id: item, label: item }),
     presentation: {
@@ -82,6 +85,7 @@ runVirtualCollectionConformance('built-in', {
   }),
   disabled: ({ id, items, activeIndex }) => listbox({
     id,
+    meta: { accessibleName: 'Rows' },
     items,
     projectItem: (item) => ({ id: item, label: item }),
     presentation: {
@@ -206,7 +210,7 @@ test('external painted controls share keyboard, text, pointer, cursor, and actio
   const messages = [];
   const app = defineTui({
     id: 'external-control-parity',
-    init: () => ({ value: '' }),
+    init: () => ({ state: ({ value: '' }) }),
     update: (state, message) => {
       messages.push(message);
       return message.kind === 'input' && message.action.kind === 'insert'
@@ -340,7 +344,7 @@ test('external chart painting is bounded, deterministic, styled, and sourced', (
     id: 'external-chart',
     label: 'Load',
     values: [1, 3, 2, 4],
-    meta: { styles: { parts: { bar: { underline: true } } } }
+    styles: { parts: { bar: { underline: true } } }
   });
   const first = renderElementSnapshot({ element, terminalSize: { columns: 3, rows: 2 } });
   const second = renderElementSnapshot({ element, terminalSize: { columns: 3, rows: 2 } });

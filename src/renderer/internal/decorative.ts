@@ -58,9 +58,6 @@ function assertNoStaticInteraction(renderNode: RenderNode, layoutNode: LayoutNod
   if (renderNode.inputMap?.text !== undefined || renderNode.inputMap?.paste !== undefined) {
     throw new Error(`Decorative renderNode "${owner}" cannot define text input interaction.`);
   }
-  if (renderNode.pointer?.toActionMessage !== undefined) {
-    throw new Error(`Decorative renderNode "${owner}" cannot define pointer interaction.`);
-  }
   if (layoutNode.focusTargets.length > 0) {
     throw new Error(`Decorative renderNode "${owner}" cannot expose focus targets.`);
   }

@@ -1,8 +1,12 @@
 export interface NotificationRegionAction { readonly kind: 'dismiss'; readonly id: string }
 
-export type NotificationHistoryAction =
-  | { readonly kind: 'select'; readonly id: string }
-  | { readonly kind: 'move'; readonly delta: -1 | 1 }
-  | { readonly kind: 'first' }
-  | { readonly kind: 'last' }
+import type { ScrollState } from '../interaction/scroll.ts';
+
+export type NotificationHistoryTransition =
+  | {
+      readonly kind: 'selection';
+      readonly selectedId: string;
+      readonly scroll: ScrollState;
+    }
+  | { readonly kind: 'scroll'; readonly scroll: ScrollState }
   | { readonly kind: 'remove'; readonly id: string };

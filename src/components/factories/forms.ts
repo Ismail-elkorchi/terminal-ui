@@ -43,14 +43,13 @@ import type {
   SwitchAction,
 } from '../../ui-model/forms.ts';
 import type { ButtonStylePart } from '../../ui-model/style-parts.ts';
-import type { ChoiceStylePart } from '../../ui-model/style-parts.ts';
+import type { ChoiceStylePart, FieldStylePart, LabelStylePart } from '../../ui-model/style-parts.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
 import { allowsComponentAction } from '../internal/action-capability.ts';
 import { inspectTextValue, inspectValidation } from '../internal/inspection.ts';
 import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import {
   pointerVisualState,
-  preparePointerInteractionState,
 } from '../../interaction/pointer-interaction.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -180,7 +179,7 @@ export const form: FormFactory = defineComponent<
     return {
       id: input.id,
       role: 'form',
-      label: input.model.title || input.id,
+      ...(input.model.title === '' ? {} : { label: input.model.title }),
       ...(input.focused ? { focused: true } : {}),
       children: input.slots.content,
     };
@@ -227,7 +226,7 @@ const instantiateField = defineComponent<
   { readonly label: string; readonly description?: string } & LayoutFlowOptions,
   FieldModel,
   never,
-  import('../../ui-model/style-parts.ts').FormGroupStylePart,
+  FieldStylePart,
   readonly [],
   'required',
   readonly ['styles', 'layer'],
@@ -375,7 +374,7 @@ interface LabelModel {
 export const label: SemanticLeafComponentFactory<
   Pick<LabelOptions, 'text' | 'forId'>,
   never,
-  import('../../ui-model/style-parts.ts').FormGroupStylePart,
+  LabelStylePart,
   readonly [],
   'required',
   readonly ['styles', 'layer']
@@ -383,7 +382,7 @@ export const label: SemanticLeafComponentFactory<
   Pick<LabelOptions, 'text' | 'forId'>,
   LabelModel,
   never,
-  import('../../ui-model/style-parts.ts').FormGroupStylePart,
+  LabelStylePart,
   readonly [],
   'required',
   readonly ['styles', 'layer']
@@ -394,7 +393,7 @@ export const label: SemanticLeafComponentFactory<
   semantics: 'semantic',
   accessibleRole: 'text',
   metadata: ['styles', 'layer'],
-  parts: ['label', 'description'],
+  parts: ['label'],
   prepare(value) {
     const textValue = value.text;
     const forId = value.forId;
@@ -431,7 +430,12 @@ export const label: SemanticLeafComponentFactory<
     );
   },
   accessibility({ id, model }) {
-    return { id, role: 'text', label: model.text || id, controls: model.forId };
+    return {
+      id,
+      role: 'text',
+      ...(model.text === '' ? {} : { label: model.text }),
+      controls: model.forId,
+    };
   },
 });
 
@@ -442,28 +446,24 @@ interface ButtonModel {
   readonly trailing?: InlineContent;
   readonly tone: ButtonTone;
   readonly density: ComponentDensity;
-  readonly pointerState?: PointerInteractionState;
   readonly pressed?: boolean;
 }
 
-type ButtonOwnOptions = Pick<
-  ButtonOptions<ComponentMessage, ComponentMessage>,
-  'label' | 'accessibleName' | 'leading' | 'trailing' | 'tone' | 'density' | 'pointerState'
-> & { readonly pressed?: boolean };
-
-interface PointerLifecycleEvent {
-  readonly kind: 'pointerLifecycle';
-  readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction;
+export interface ButtonOwnOptions {
+  readonly label?: string;
+  readonly accessibleName?: string;
+  readonly leading?: InlineContent;
+  readonly trailing?: InlineContent;
+  readonly tone?: ButtonTone;
+  readonly density?: ComponentDensity;
+  readonly pressed?: boolean;
 }
 
-type ButtonComponentAction = ButtonAction | PointerLifecycleEvent;
+type ButtonComponentAction = ButtonAction;
 
-type ButtonFactory = <
-  const TActionMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
->(
-  options: ButtonOptions<TActionMessage, TPointerMessage>,
-) => Element<TActionMessage | TPointerMessage>;
+type ButtonFactory = <const TMessage extends ComponentMessage = never>(
+  options: ButtonOptions<TMessage>,
+) => Element<TMessage>;
 
 type ActionButtonComponentFactory = SemanticLeafComponentFactory<
   ButtonOwnOptions,
@@ -471,7 +471,8 @@ type ActionButtonComponentFactory = SemanticLeafComponentFactory<
   ButtonStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['styles', 'layer', 'focus']
+  readonly ['styles', 'layer', 'focus'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled', 'busy']
 >;
 
 const instantiateButton = defineActionButtonComponent('terminal-ui/components/button');
@@ -485,7 +486,8 @@ function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonC
   ButtonStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['styles', 'layer', 'focus']
+  readonly ['styles', 'layer', 'focus'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled', 'busy']
 >({
   name,
   identity: 'required',
@@ -495,18 +497,14 @@ function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonC
   states: ['disabled', 'busy', 'inert'],
   metadata: ['styles', 'layer', 'focus'],
   parts: ['frame', 'marker', 'leading', 'label', 'trailing'],
-  prepare(value, context) {
+  visualStates: ['focused', 'hovered', 'pressed', 'disabled', 'busy'],
+  prepare(value) {
     const label = value.label ?? '';
     const accessibleName = value.accessibleName ?? label;
     const leading = value.leading;
     const trailing = value.trailing;
     const tone = value.tone;
     const density = value.density;
-    const pointerState = preparePointerInteractionState(
-      value.pointerState,
-      'button pointerState',
-      !context.disabled && !context.inert,
-    );
     const pressed = value.pressed;
     if (typeof label !== 'string') throw new TypeError('button label must be a string.');
     if (typeof accessibleName !== 'string' || sanitizeTerminalText(accessibleName).text.trim() === '') {
@@ -532,7 +530,6 @@ function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonC
       tone: tone ?? 'default',
       density: density ?? 'regular',
       ...(pressed === undefined ? {} : { pressed }),
-      ...(pointerState === undefined ? {} : { pointerState }),
     };
   },
   measure(input) {
@@ -547,10 +544,10 @@ function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonC
   render(input) {
     const spans = buttonSpans(input, input.focus === 'self');
     const used = measureSpans(spans, input.widthProfile);
-    const visualState = buttonVisualState(input, input.focus === 'self');
+    const visualStates = buttonVisualStates(input, input.focus === 'self');
     const frameStyle = input.style({
       part: 'frame',
-      ...(visualState === undefined ? {} : { state: visualState }),
+      ...(visualStates.length === 0 ? {} : { states: visualStates }),
       base: buttonToneStyle(input.model.tone, true, input.busy),
     });
     input.target.write(0, 0, [
@@ -566,10 +563,6 @@ function defineActionButtonComponent(name: `${string}/${string}`): ActionButtonC
     enter: () => ({ kind: 'press' }),
     space: () => ({ kind: 'press' }),
   }),
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
-  },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: ({ id, bounds }) => [{
     id: `${id ?? 'button'}:control`,
@@ -602,16 +595,14 @@ export const button: ButtonFactory = (options) => {
     ...(options.tone === undefined ? {} : { tone: options.tone }),
     ...(options.density === undefined ? {} : { density: options.density }),
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateButton({ ...own, disabled: true });
   assertActionCallbacks(options, 'button');
   return instantiateButton({
     ...own,
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-    onAction: (action) => action.kind === 'pointerLifecycle'
-      ? options.onPointerAction?.(action.action) ?? ignoreMessage()
-      : options.onAction(action),
+    onAction: options.onAction,
   });
 };
 
@@ -620,22 +611,23 @@ type ButtonVisualInput =
   | ComponentRenderInput<ButtonModel, ButtonStylePart>;
 
 function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly RenderSpan[] {
-  const state = buttonVisualState(input, focused);
+  const states = buttonVisualStates(input, focused);
+  const state = states.at(-1);
   const frameStyle = resolveButtonStyle(
     input,
     'frame',
     buttonToneStyle(input.model.tone, true, input.busy),
-    state,
+    states,
   );
   const labelStyle = resolveButtonStyle(
     input,
     'label',
     buttonToneStyle(input.model.tone, false, input.busy),
-    state,
+    states,
   );
   const compact = input.model.density === 'compact';
   const targetId = `${input.id ?? 'button'}:control`;
-  const pointerState = pointerVisualState(input.model.pointerState, targetId);
+  const pointerState = pointerVisualState(input.pointerState, targetId);
   const marker = oneCellGlyph(
     input.busy
       ? input.theme.tokens.symbols.statusInfo
@@ -660,7 +652,7 @@ function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly Rende
     state,
   )];
   if (input.model.leading !== undefined) {
-    spans.push(...buttonInlineSpans(input, input.model.leading, 'leading', labelStyle, state));
+    spans.push(...buttonInlineSpans(input, input.model.leading, 'leading', labelStyle, states));
     spans.push(componentSpan(input, ' ', 'frame', 'separator.leading', frameStyle, state));
   }
   spans.push(
@@ -670,7 +662,7 @@ function buttonSpans(input: ButtonVisualInput, focused: boolean): readonly Rende
   );
   if (input.model.trailing !== undefined) {
     spans.push(componentSpan(input, ' ', 'frame', 'separator.trailing', frameStyle, state));
-    spans.push(...buttonInlineSpans(input, input.model.trailing, 'trailing', labelStyle, state));
+    spans.push(...buttonInlineSpans(input, input.model.trailing, 'trailing', labelStyle, states));
   }
   spans.push(
     componentSpan(input, compact ? ' ' : '  ', 'frame', 'padding.trailing', frameStyle, state),
@@ -683,8 +675,9 @@ function buttonInlineSpans(
   content: InlineContent,
   part: 'leading' | 'trailing',
   base: TerminalStyle | undefined,
-  state: ElementVisualState | undefined,
+  states: readonly Exclude<ElementVisualState, 'default'>[],
 ): readonly RenderSpan[] {
+  const state = states.at(-1);
   return content.map((segment, index) => {
     const style = resolveButtonStyle(
       input,
@@ -696,7 +689,7 @@ function buttonInlineSpans(
           : { fg: { kind: 'theme', token: 'link.foreground' }, underline: true },
         segment.style,
       ),
-      state,
+      states,
     );
     return {
       text: inlineSegmentText(segment, input.theme.tokens.symbols.mode),
@@ -746,8 +739,9 @@ function resolveButtonStyle(
   input: ButtonVisualInput,
   part: ButtonStylePart,
   base: TerminalStyle | undefined,
-  state: ElementVisualState | undefined,
+  states: readonly Exclude<ElementVisualState, 'default'>[],
 ): TerminalStyle | undefined {
+  const state = states.at(-1);
   const resolvedBase = mergeStyles(
     base,
     input.model.tone === 'ghost' &&
@@ -759,20 +753,22 @@ function resolveButtonStyle(
     ? input.style({
       part,
       ...(resolvedBase === undefined ? {} : { base: resolvedBase }),
-      ...(state === undefined ? {} : { state }),
+      ...(states.length === 0 ? {} : { states }),
     })
     : resolvedBase;
 }
 
-function buttonVisualState(
+function buttonVisualStates(
   input: ButtonVisualInput,
   focused: boolean,
-): ElementVisualState | undefined {
-  if (input.disabled) return 'disabled';
-  const pointer = pointerVisualState(input.model.pointerState, `${input.id ?? 'button'}:control`);
-  if (pointer === 'pressed') return 'pressed';
-  if (focused) return 'focused';
-  return pointer;
+): readonly Exclude<ElementVisualState, 'default'>[] {
+  if (input.disabled) return ['disabled'];
+  const pointer = pointerVisualState(input.pointerState, `${input.id ?? 'button'}:control`);
+  return [
+    ...(focused ? ['focused' as const] : []),
+    ...(input.busy ? ['busy' as const] : []),
+    ...(pointer === undefined ? [] : [pointer]),
+  ];
 }
 
 function buttonToneStyle(tone: ButtonTone, frame: boolean, busy: boolean): TerminalStyle {
@@ -829,30 +825,31 @@ interface CheckboxModel {
   readonly checked: boolean;
   readonly required: boolean;
   readonly error: string;
-  readonly pointerState?: PointerInteractionState;
 }
 
-type CheckboxComponentAction = CheckboxAction | PointerLifecycleEvent;
+type CheckboxComponentAction = CheckboxAction;
 
 type CheckboxFactory = <const TMessage extends ComponentMessage = never>(
   options: CheckboxOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateCheckbox: SemanticLeafComponentFactory<
-  Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
+  Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error'>,
   CheckboxComponentAction,
   ChoiceStylePart,
   readonly ['disabled'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled']
 > = defineComponent<
-  Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error' | 'pointerState'>,
+  Pick<CheckboxOptions<ComponentMessage>, 'label' | 'checked' | 'required' | 'error'>,
   CheckboxModel,
   CheckboxComponentAction,
   ChoiceStylePart,
   readonly ['disabled'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled']
 >({
   name: 'terminal-ui/components/checkbox',
   identity: 'required',
@@ -862,16 +859,12 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
-  prepare(value, context) {
+  visualStates: ['focused', 'hovered', 'pressed', 'disabled'],
+  prepare(value) {
     const label = value.label;
     const checked = value.checked;
     const required = value.required;
     const error = value.error;
-    const pointerState = preparePointerInteractionState(
-      value.pointerState,
-      'checkbox pointerState',
-      !context.disabled && !context.inert,
-    );
     if (typeof label !== 'string') throw new TypeError('checkbox label must be a string.');
     if (typeof checked !== 'boolean') throw new TypeError('checkbox checked must be a boolean.');
     if (required !== undefined && typeof required !== 'boolean') {
@@ -885,7 +878,6 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
       checked,
       required: required === true,
       error: error === undefined ? '' : sanitizeTerminalText(error).text,
-      ...(pointerState === undefined ? {} : { pointerState }),
     };
   },
   measure(input) {
@@ -899,10 +891,6 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
     enter: () => ({ kind: 'change', checked: !model.checked }),
     space: () => ({ kind: 'change', checked: !model.checked }),
   }),
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
-  },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: ({ id, model, bounds }) => [{
     id: `${id ?? 'checkbox'}:control`,
@@ -917,7 +905,7 @@ const instantiateCheckbox: SemanticLeafComponentFactory<
     return {
       id,
       role: 'checkbox',
-      label: model.label || id,
+      ...(model.label === '' ? {} : { label: model.label }),
       checked: model.checked,
       required: model.required,
       invalid: model.error !== '',
@@ -938,16 +926,14 @@ export const checkbox: CheckboxFactory = (options) => {
     checked: options.checked,
     ...(options.required === undefined ? {} : { required: options.required }),
     ...(options.error === undefined ? {} : { error: options.error }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateCheckbox({ ...own, disabled: true });
   assertActionCallbacks(options, 'checkbox');
   return instantiateCheckbox({
     ...own,
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-    onAction: (action) => action.kind === 'pointerLifecycle'
-      ? options.onPointerAction?.(action.action) ?? ignoreMessage()
-      : options.onAction(action),
+    onAction: options.onAction,
   });
 };
 
@@ -957,10 +943,9 @@ interface ToggleModel {
   readonly onLabel: string;
   readonly offLabel: string;
   readonly error: string;
-  readonly pointerState?: PointerInteractionState;
 }
 
-type SwitchComponentAction = SwitchAction | PointerLifecycleEvent;
+type SwitchComponentAction = SwitchAction;
 
 type SwitchFactory = <const TMessage extends ComponentMessage = never>(
   options: SwitchOptions<TMessage>,
@@ -969,24 +954,26 @@ type SwitchFactory = <const TMessage extends ComponentMessage = never>(
 const instantiateSwitch: SemanticLeafComponentFactory<
   Pick<
     SwitchOptions<ComponentMessage>,
-    'label' | 'checked' | 'onLabel' | 'offLabel' | 'error' | 'pointerState'
+    'label' | 'checked' | 'onLabel' | 'offLabel' | 'error'
   >,
   SwitchComponentAction,
   import('../../ui-model/style-parts.ts').ToggleStylePart,
   readonly ['disabled'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled']
 > = defineComponent<
   Pick<
     SwitchOptions<ComponentMessage>,
-    'label' | 'checked' | 'onLabel' | 'offLabel' | 'error' | 'pointerState'
+    'label' | 'checked' | 'onLabel' | 'offLabel' | 'error'
   >,
   ToggleModel,
   SwitchComponentAction,
   import('../../ui-model/style-parts.ts').ToggleStylePart,
   readonly ['disabled'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'disabled']
 >({
   name: 'terminal-ui/components/switch',
   identity: 'required',
@@ -996,17 +983,13 @@ const instantiateSwitch: SemanticLeafComponentFactory<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'track', 'handle', 'onLabel', 'offLabel', 'error'],
-  prepare(value, context) {
+  visualStates: ['focused', 'hovered', 'pressed', 'disabled'],
+  prepare(value) {
     const label = value.label;
     const checked = value.checked;
     const onLabel = value.onLabel;
     const offLabel = value.offLabel;
     const error = value.error;
-    const pointerState = preparePointerInteractionState(
-      value.pointerState,
-      'switchControl pointerState',
-      !context.disabled && !context.inert,
-    );
     if (typeof label !== 'string') throw new TypeError('switchControl label must be a string.');
     if (typeof checked !== 'boolean') {
       throw new TypeError('switchControl checked must be a boolean.');
@@ -1026,7 +1009,6 @@ const instantiateSwitch: SemanticLeafComponentFactory<
       onLabel: onLabel === undefined ? 'On' : sanitizeTerminalText(onLabel).text,
       offLabel: offLabel === undefined ? 'Off' : sanitizeTerminalText(offLabel).text,
       error: error === undefined ? '' : sanitizeTerminalText(error).text,
-      ...(pointerState === undefined ? {} : { pointerState }),
     };
   },
   measure(input) {
@@ -1039,10 +1021,6 @@ const instantiateSwitch: SemanticLeafComponentFactory<
     enter: () => ({ kind: 'change', checked: !model.checked }),
     space: () => ({ kind: 'change', checked: !model.checked }),
   }),
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
-  },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: ({ id, model, bounds }) => [{
     id: `${id ?? 'switchControl'}:control`,
@@ -1055,7 +1033,7 @@ const instantiateSwitch: SemanticLeafComponentFactory<
     return {
       id,
       role: 'switch',
-      label: model.label || id,
+      ...(model.label === '' ? {} : { label: model.label }),
       value: model.checked ? model.onLabel : model.offLabel,
       checked: model.checked,
       invalid: model.error !== '',
@@ -1076,16 +1054,14 @@ export const switchControl: SwitchFactory = (options) => {
     ...(options.onLabel === undefined ? {} : { onLabel: options.onLabel }),
     ...(options.offLabel === undefined ? {} : { offLabel: options.offLabel }),
     ...(options.error === undefined ? {} : { error: options.error }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateSwitch({ ...own, disabled: true });
   assertActionCallbacks(options, 'switchControl');
   return instantiateSwitch({
     ...own,
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
-    onAction: (action) => action.kind === 'pointerLifecycle'
-      ? options.onPointerAction?.(action.action) ?? ignoreMessage()
-      : options.onAction(action),
+    onAction: options.onAction,
   });
 };
 
@@ -1096,6 +1072,7 @@ interface ControlVisualInput<TModel extends object, TPart extends string> {
   readonly theme: import('../../theme/index.ts').TerminalTheme;
   readonly widthProfile: TextWidthProfile;
   readonly focus?: import('../../renderer/index.ts').RenderFocusRelation;
+  readonly pointerState?: PointerInteractionState;
   readonly style?: (
     input: import('../../component/index.ts').ComponentStyleInput<TPart>,
   ) => TerminalStyle | undefined;
@@ -1108,7 +1085,7 @@ function checkboxLines(
   input: ControlVisualInput<CheckboxModel, ChoiceStylePart>,
   decorated: boolean,
 ): readonly (readonly RenderSpan[])[] {
-  const state = controlVisualState(input, `${input.id ?? 'checkbox'}:control`);
+  const states = controlVisualStates(input, `${input.id ?? 'checkbox'}:control`);
   const marker = input.model.checked
     ? input.theme.tokens.symbols.checkboxChecked
     : input.theme.tokens.symbols.checkboxUnchecked;
@@ -1119,29 +1096,29 @@ function checkboxLines(
       marker,
       'marker',
       'marker',
-      state,
+      states,
       decorated,
       input.model.checked
         ? { fg: { kind: 'theme', token: 'accent.primary' }, bold: true }
         : undefined,
     ),
-    controlVisualSpan(input, ' ', 'option', 'separator', state, decorated),
+    controlVisualSpan(input, ' ', 'option', 'separator', states, decorated),
     controlVisualSpan(
       input,
       label,
       'label',
       input.model.required ? 'label.required' : 'label.text',
-      state,
+      states,
       decorated,
     ),
-  ], ...controlErrorLine(input, input.model.error, 'error', state, decorated)];
+  ], ...controlErrorLine(input, input.model.error, 'error', states, decorated)];
 }
 
 function toggleLines(
   input: ControlVisualInput<ToggleModel, import('../../ui-model/style-parts.ts').ToggleStylePart>,
   decorated: boolean,
 ): readonly (readonly RenderSpan[])[] {
-  const state = controlVisualState(input, `${input.id ?? 'switchControl'}:control`);
+  const states = controlVisualStates(input, `${input.id ?? 'switchControl'}:control`);
   const thumb = oneCellGlyph(input.theme.tokens.symbols.radioChecked, '*', {
     widthProfile: input.widthProfile,
   });
@@ -1161,35 +1138,35 @@ function toggleLines(
   const valuePart = input.model.checked ? 'onLabel' as const : 'offLabel' as const;
   return [[
     ...(input.model.label.length === 0 ? [] : [
-      controlVisualSpan(input, `${input.model.label}: `, 'label', 'label.text', state, decorated),
+      controlVisualSpan(input, `${input.model.label}: `, 'label', 'label.text', states, decorated),
     ]),
     controlVisualSpan(
       input,
       input.model.checked ? `${track}${thumb}` : `${thumb}${track}`,
       'track',
       'switch.track',
-      state,
+      states,
       decorated,
       trackStyle,
     ),
-    controlVisualSpan(input, ' ', 'track', 'separator', state, decorated),
+    controlVisualSpan(input, ' ', 'track', 'separator', states, decorated),
     controlVisualSpan(
       input,
       input.model.checked ? input.model.onLabel : input.model.offLabel,
       valuePart,
       input.model.checked ? 'value.on' : 'value.off',
-      state,
+      states,
       decorated,
       trackStyle,
     ),
-  ], ...controlErrorLine(input, input.model.error, 'error', state, decorated)];
+  ], ...controlErrorLine(input, input.model.error, 'error', states, decorated)];
 }
 
 function controlErrorLine<TModel extends object, TPart extends string>(
   input: ControlVisualInput<TModel, TPart>,
   error: string,
   part: TPart,
-  state: Exclude<ElementVisualState, 'default'> | undefined,
+  states: readonly Exclude<ElementVisualState, 'default'>[],
   decorated: boolean,
 ): readonly (readonly RenderSpan[])[] {
   return error.length === 0 ? [] : [[controlVisualSpan(
@@ -1197,7 +1174,7 @@ function controlErrorLine<TModel extends object, TPart extends string>(
     error,
     part,
     'validation.error',
-    state,
+    states,
     decorated,
     { fg: { kind: 'theme', token: 'status.error' }, bold: true },
   )]];
@@ -1208,7 +1185,7 @@ function controlVisualSpan<TModel extends object, TPart extends string>(
   textValue: string,
   part: TPart,
   partName: string,
-  state: Exclude<ElementVisualState, 'default'> | undefined,
+  states: readonly Exclude<ElementVisualState, 'default'>[],
   decorated: boolean,
   base?: TerminalStyle,
 ): RenderSpan {
@@ -1218,8 +1195,9 @@ function controlVisualSpan<TModel extends object, TPart extends string>(
   const style = input.style({
     part,
     ...(base === undefined ? {} : { base }),
-    ...(state === undefined ? {} : { state }),
+    ...(states.length === 0 ? {} : { states }),
   });
+  const state = states.at(-1);
   return {
     text: textValue,
     ...(style === undefined ? {} : { style }),
@@ -1233,13 +1211,16 @@ function controlVisualSpan<TModel extends object, TPart extends string>(
   };
 }
 
-function controlVisualState<TModel extends { readonly pointerState?: PointerInteractionState }>(
-  input: Pick<ControlVisualInput<TModel, string>, 'id' | 'model' | 'disabled' | 'focus'>,
+function controlVisualStates<TModel extends object>(
+  input: Pick<ControlVisualInput<TModel, string>, 'id' | 'model' | 'disabled' | 'focus' | 'pointerState'>,
   targetId: string,
-): Exclude<ElementVisualState, 'default'> | undefined {
-  if (input.disabled) return 'disabled';
-  if (input.focus === 'self') return 'focused';
-  return pointerVisualState(input.model.pointerState, targetId);
+): readonly Exclude<ElementVisualState, 'default'>[] {
+  if (input.disabled) return ['disabled'];
+  const pointer = pointerVisualState(input.pointerState, targetId);
+  return [
+    ...(input.focus === 'self' ? ['focused' as const] : []),
+    ...(pointer === undefined ? [] : [pointer]),
+  ];
 }
 
 function controlMeasurement(
@@ -1300,7 +1281,6 @@ interface ComboboxModel {
   readonly scrollbar?: ScrollbarOptions;
   readonly required: boolean;
   readonly error?: string;
-  readonly pointerState?: PointerInteractionState;
 }
 
 const comboboxSlots = {
@@ -1323,8 +1303,7 @@ interface ComboboxFactory {
 
 type ComboboxComponentAction =
   | { readonly kind: 'transition'; readonly transition: AutocompleteComboboxTransition }
-  | { readonly kind: 'commit'; readonly event: ComboboxCommitEvent }
-  | { readonly kind: 'pointer'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+  | { readonly kind: 'commit'; readonly event: ComboboxCommitEvent };
 
 const instantiateCombobox = defineComponent<
   ComboboxModel,
@@ -1334,7 +1313,8 @@ const instantiateCombobox = defineComponent<
   readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
-  typeof comboboxSlots
+  typeof comboboxSlots,
+  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly']
 >({
   name: 'terminal-ui/components/combobox',
   identity: 'required',
@@ -1345,6 +1325,7 @@ const instantiateCombobox = defineComponent<
   states: ['disabled', 'busy', 'readOnly', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label', 'marker', 'option', 'description', 'error'],
+  visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly'],
   inspection: ({ model }) => {
     const activeId = comboboxActiveId(model.presentation);
     const selectedId = comboboxSelectedId(model.presentation);
@@ -1374,9 +1355,9 @@ const instantiateCombobox = defineComponent<
       id: `${id}:popup:list`,
       items: input.model.options,
       projectItem: (option: ComboboxOptionModel) => option,
+      ...(input.styles === undefined ? {} : { styles: comboboxPopupStyles(input.styles) }),
       meta: {
         focus: { disabled: true },
-        ...(input.styles === undefined ? {} : { styles: comboboxPopupStyles(input.styles) }),
       },
     };
     const scroll = comboboxScroll(input.model.presentation);
@@ -1520,10 +1501,6 @@ const instantiateCombobox = defineComponent<
     || !allowsComponentAction({ readOnly }, 'edit')
     ? ignoreMessage()
     : comboboxComponentTransition({ kind: 'edit', operation: { kind: 'insert', text } }),
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
-  },
   onFocus: (event, { model }) => event.kind === 'focusLeave'
     && model.presentation.open
     && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
@@ -1574,13 +1551,11 @@ function isAutocompleteComboboxOptions<TValue, TMessage extends ComponentMessage
 function createSelectCombobox<TValue, TMessage extends ComponentMessage>(
   options: ComboboxOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const model = prepareCombobox(
-    options,
-    options.disabled !== true && options.inert !== true,
-  );
+  const model = prepareCombobox(options);
   const common = {
     ...model,
     id: options.id,
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateCombobox({ ...common, disabled: true });
@@ -1591,14 +1566,12 @@ function createSelectCombobox<TValue, TMessage extends ComponentMessage>(
   if (options.inert === true) return instantiateCombobox({ ...shared, inert: true });
   assertRequiredCallback(options.onTransition, 'combobox onTransition');
   assertOptionalCallback(options.onCommit, 'combobox onCommit');
-  assertOptionalCallback(options.onPointerAction, 'combobox onPointerAction');
   return instantiateCombobox({
     ...shared,
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => {
       if (action.kind === 'transition') return emitComboboxTransition(options, action.transition);
-      if (action.kind === 'commit') return options.onCommit?.(action.event) ?? ignoreMessage();
-      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      return options.onCommit?.(action.event) ?? ignoreMessage();
     },
   });
 }
@@ -1606,10 +1579,11 @@ function createSelectCombobox<TValue, TMessage extends ComponentMessage>(
 function createAutocompleteCombobox<TValue, TMessage extends ComponentMessage>(
   options: AutocompleteComboboxOptions<TValue, TMessage>,
 ): Element<TMessage> {
-  const model = prepareCombobox(options, options.disabled !== true && options.inert !== true);
+  const model = prepareCombobox(options);
   const common = {
     ...model,
     id: options.id,
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateCombobox({ ...common, disabled: true });
@@ -1617,7 +1591,6 @@ function createAutocompleteCombobox<TValue, TMessage extends ComponentMessage>(
   if (options.inert === true) return instantiateCombobox({ ...shared, inert: true });
   assertRequiredCallback(options.onTransition, 'combobox onTransition');
   assertOptionalCallback(options.onCommit, 'combobox onCommit');
-  assertOptionalCallback(options.onPointerAction, 'combobox onPointerAction');
   return instantiateCombobox({
     ...shared,
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
@@ -1625,8 +1598,7 @@ function createAutocompleteCombobox<TValue, TMessage extends ComponentMessage>(
       if (action.kind === 'transition') {
         return emitAutocompleteComboboxTransition(options, action.transition);
       }
-      if (action.kind === 'commit') return options.onCommit?.(action.event) ?? ignoreMessage();
-      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      return options.onCommit?.(action.event) ?? ignoreMessage();
     },
   });
 }
@@ -1688,11 +1660,10 @@ function isAutocompleteOnlyTransition(
 }
 
 function assertActionCallbacks(
-  options: { readonly onAction?: unknown; readonly onPointerAction?: unknown },
+  options: { readonly onAction?: unknown },
   component: string,
 ): void {
   assertRequiredCallback(options.onAction, `${component} onAction`);
-  assertOptionalCallback(options.onPointerAction, `${component} onPointerAction`);
 }
 
 function selectedComboboxOption(model: ComboboxModel): ComboboxOptionModel | undefined {
@@ -1706,12 +1677,12 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
     : selected?.label ?? input.model.placeholder;
   const state = input.disabled
     ? 'disabled' as const
-    : pointerVisualState(input.model.pointerState, `${input.id ?? 'combobox'}:trigger`) ??
+    : pointerVisualState(input.pointerState, `${input.id ?? 'combobox'}:trigger`) ??
       (input.focus === 'self' ? 'focused' as const : undefined);
   const label = input.model.required ? `${input.model.label} *` : input.model.label;
   const labelStyle = input.style({
     part: 'label',
-    ...(state === undefined ? {} : { state }),
+    ...(state === undefined ? {} : { states: [state] }),
     base: { fg: { kind: 'theme', token: 'text.strong' }, bold: true },
   });
   const hasValue = input.model.presentation.kind === 'autocomplete'
@@ -1720,14 +1691,14 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
   const valuePart: ChoiceStylePart = hasValue ? 'option' : 'description';
   const valueStyle = input.style({
     part: valuePart,
-    ...(state === undefined ? {} : { state }),
+    ...(state === undefined ? {} : { states: [state] }),
     base: !hasValue
       ? { fg: { kind: 'theme', token: 'input.placeholder' } }
       : { fg: { kind: 'theme', token: 'text.default' } },
   });
   const markerStyle = input.style({
     part: 'marker',
-    ...(state === undefined ? {} : { state }),
+    ...(state === undefined ? {} : { states: [state] }),
     base: { fg: { kind: 'theme', token: 'control.foreground' } },
   });
   input.target.write(0, 0, [
@@ -1811,7 +1782,7 @@ function comboboxAccessibility(
       children: [{
         id: relationship.popupId,
         role: 'listbox' as const,
-        label: `${input.model.label || input.id} options`,
+        ...(input.model.label === '' ? {} : { label: `${input.model.label} options` }),
         children: input.model.options.map((option) => ({
           id: `${relationship.popupId}:item:${option.id}`,
           role: 'option' as const,
@@ -1871,7 +1842,6 @@ function comboboxPopupStyles(
 
 function prepareCombobox<TValue, TMessage extends ComponentMessage>(
   value: Readonly<AnyComboboxOptions<TValue, TMessage>>,
-  pointerAvailable: boolean,
 ): ComboboxModel {
   const label = value.label;
   if (typeof label !== 'string') throw new TypeError('combobox label must be a string.');
@@ -1939,11 +1909,6 @@ function prepareCombobox<TValue, TMessage extends ComponentMessage>(
   if (error !== undefined && typeof error !== 'string') {
     throw new TypeError('combobox error must be a string.');
   }
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'combobox pointerState',
-    pointerAvailable,
-  );
   const scrollbar = prepareScrollbar(value.scrollbar);
   if (comboboxScroll(presentation) === undefined && scrollbar !== undefined) {
     throw new TypeError('combobox scrollbar requires presentation scroll state.');
@@ -1958,7 +1923,6 @@ function prepareCombobox<TValue, TMessage extends ComponentMessage>(
     ...(scrollbar === undefined ? {} : { scrollbar }),
     required: value.required === true,
     ...(error === undefined ? {} : { error: sanitizeTerminalText(error).text }),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 

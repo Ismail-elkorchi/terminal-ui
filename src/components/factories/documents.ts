@@ -31,8 +31,6 @@ import {
 } from '../../foundation/validation.ts';
 import {
   pointerVisualState,
-  preparePointerInteractionState,
-  type PointerInteractionState,
 } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -102,12 +100,11 @@ interface CommandInputModel {
   readonly display: 'compact' | 'expanded' | 'popup';
   readonly placement?: AnchoredSurfacePlacement;
   readonly maxVisibleSuggestions: number;
-  readonly pointerState?: PointerInteractionState;
 }
 
 type CommandInputComponentOptions = Omit<
-  CommandInputOptions<ComponentMessage, ComponentMessage, ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onSubmit' | 'onPointerAction' | 'meta'
+  CommandInputOptions<ComponentMessage, ComponentMessage>,
+  'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onSubmit' | 'styles' | 'meta'
 >;
 
 const commandSlots = {
@@ -117,15 +114,13 @@ const commandSlots = {
 type CommandInputFactory = <
   const TTransitionMessage extends ComponentMessage = never,
   const TSubmitMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
 >(
-  options: CommandInputOptions<TTransitionMessage, TSubmitMessage, TPointerMessage>,
-) => Element<TTransitionMessage | TSubmitMessage | TPointerMessage>;
+  options: CommandInputOptions<TTransitionMessage, TSubmitMessage>,
+) => Element<TTransitionMessage | TSubmitMessage>;
 
 type CommandInputComponentAction =
   | { readonly kind: 'transition'; readonly transition: CommandInputTransition }
-  | { readonly kind: 'submit'; readonly event: CommandInputSubmitEvent }
-  | { readonly kind: 'pointerLifecycle'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+  | { readonly kind: 'submit'; readonly event: CommandInputSubmitEvent };
 
 const instantiateCommandInput = defineComponent<
   CommandInputComponentOptions,
@@ -135,7 +130,8 @@ const instantiateCommandInput = defineComponent<
   readonly ['disabled', 'readOnly'],
   'required',
   readonly ['focus', 'layer', 'styles'],
-  typeof commandSlots
+  typeof commandSlots,
+  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'readOnly']
 >({
   name: 'terminal-ui/components/command-input',
   identity: 'required',
@@ -157,7 +153,8 @@ const instantiateCommandInput = defineComponent<
     'status',
     'footer',
   ],
-  prepare: (value, context) => prepareCommandInput(value, !context.disabled && !context.inert),
+  visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'readOnly'],
+  prepare: prepareCommandInput,
   inspection: ({ model }) => ({
     value: inspectTextValue(model.value),
     ...(model.activeSuggestionId === undefined ? {} : { active: model.activeSuggestionId }),
@@ -268,7 +265,7 @@ const instantiateCommandInput = defineComponent<
     return {
       id: input.id,
       role: 'combobox',
-      label: input.model.prompt || input.id,
+      ...(input.model.prompt === '' ? {} : { label: input.model.prompt }),
       value: input.model.value,
       expanded: suggestions.length > 0,
       ...(suggestions.length === 0 ? {} : { controls: relationship.popupId }),
@@ -348,15 +345,11 @@ const instantiateCommandInput = defineComponent<
     && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
     ? commandTransition({ kind: 'dismissSuggestions', reason: 'focusLoss' })
     : ignoreMessage(),
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
-  },
   focusTargets: (input) => {
     const visual = commandInputVisual(input.model, input.bounds.width, input.widthProfile);
     const cursorStyle = input.style({
       part: 'cursor',
-      state: 'focused',
+      states: ['focused'],
       base: {
         fg: { kind: 'theme', token: 'input.cursor' },
         bold: true,
@@ -393,20 +386,18 @@ export const commandInput: CommandInputFactory = (options) => {
     ...(options.display === undefined ? {} : { display: options.display }),
     ...(options.placement === undefined ? {} : { placement: options.placement }),
     ...(options.maxVisibleSuggestions === undefined ? {} : { maxVisibleSuggestions: options.maxVisibleSuggestions }),
-    ...(options.pointerState === undefined ? {} : { pointerState: options.pointerState }),
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
   };
   if (options.disabled === true) return instantiateCommandInput({ ...shared, disabled: true });
   assertRequiredCallback(options.onTransition, 'commandInput onTransition');
   assertOptionalCallback(options.onSubmit, 'commandInput onSubmit');
-  assertOptionalCallback(options.onPointerAction, 'commandInput onPointerAction');
   return instantiateCommandInput({
     ...shared,
     onAction: (action) => {
       if (action.kind === 'transition') return options.onTransition(action.transition);
-      if (action.kind === 'submit') return options.onSubmit?.(action.event) ?? ignoreMessage();
-      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      return options.onSubmit?.(action.event) ?? ignoreMessage();
     },
   });
 };
@@ -415,21 +406,13 @@ function commandTransition(transition: CommandInputTransition): CommandInputComp
   return { kind: 'transition', transition };
 }
 
-function prepareCommandInput(
-  value: Readonly<CommandInputComponentOptions>,
-  pointerAvailable: boolean,
-): CommandInputModel {
+function prepareCommandInput(value: Readonly<CommandInputComponentOptions>): CommandInputModel {
   const presentation = prepareCommandPresentation(value.presentation);
   const display = value.display;
   assertOptionalEnum(display, ['compact', 'expanded', 'popup'], 'commandInput display');
   const maxVisibleSuggestions =
     positiveInteger(value.maxVisibleSuggestions, 'commandInput maxVisibleSuggestions') ?? 8;
   const validation = prepareValidation(value.validation);
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'commandInput pointerState',
-    pointerAvailable,
-  );
   const placement = preparePlacement(value.placement, 'commandInput placement');
   return {
     ...presentation,
@@ -442,7 +425,6 @@ function prepareCommandInput(
     display: display ?? 'compact',
     ...(placement === undefined ? {} : { placement }),
     maxVisibleSuggestions,
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -505,9 +487,9 @@ function paintCommandInput(
     part: 'value',
     base: fieldBase,
     ...(input.disabled
-      ? { state: 'disabled' }
+      ? { states: ['disabled'] as const }
       : input.focus === 'self'
-      ? { state: 'focused' }
+      ? { states: ['focused'] as const }
       : {}),
   });
   for (let row = 0; row < input.bounds.height; row += 1) {
@@ -726,9 +708,9 @@ function commandValueSpans(
           bg: { kind: 'theme', token: 'control.background' },
         },
       ...(input.disabled
-        ? { state: 'disabled' }
+        ? { states: ['disabled'] as const }
         : input.focus === 'self'
-        ? { state: 'focused' }
+        ? { states: ['focused'] as const }
         : {}),
     });
     spans.push(span(grapheme.text, {
@@ -761,7 +743,7 @@ function commandSuggestionSpans(
 ): import('../../visual/render.ts').RenderSpan[] {
   const selected = suggestion.id === input.model.activeSuggestionId;
   const pointer = pointerVisualState(
-    input.model.pointerState,
+    input.pointerState,
     `${input.id ?? 'command-input'}:suggestion:${suggestion.id}`,
   );
   const state = suggestion.item.disabled
@@ -775,7 +757,7 @@ function commandSuggestionSpans(
         bg: { kind: 'theme', token: 'selection.background' },
       }
       : { fg: { kind: 'theme', token: 'text.default' } },
-    ...(state === undefined ? {} : { state }),
+    ...(state === undefined ? {} : { states: [state] }),
   });
   const label = suggestion.item.label;
   const matches = matchPreparedCollectionQuery(
@@ -972,14 +954,15 @@ interface PreparedSearchEntry {
 
 type SearchPickerInternalAction =
   | { readonly kind: 'transition'; readonly transition: SearchPickerTransition }
-  | { readonly kind: 'accept'; readonly event: SearchPickerAcceptEvent }
-  | { readonly kind: 'pointerLifecycle'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+  | { readonly kind: 'accept'; readonly event: SearchPickerAcceptEvent };
 
 interface SearchPickerModel {
   readonly title: string;
   readonly query: PreparedCollectionQuery;
   readonly rows: readonly PreparedSearchEntry[];
   readonly activeIndex?: number;
+  readonly activeId?: string;
+  readonly activeDisabled: boolean;
   readonly totalCount: number;
   readonly sourceCount: number;
   readonly startIndex: number;
@@ -988,12 +971,11 @@ interface SearchPickerModel {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly pointerState?: PointerInteractionState;
 }
 
 type SearchPickerComponentOptions = Omit<
-  SearchPickerOptions<unknown, ComponentMessage, ComponentMessage, ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'busy' | 'inert' | 'onTransition' | 'onAccept' | 'onPointerAction' | 'meta'
+  SearchPickerOptions<unknown, ComponentMessage, ComponentMessage>,
+  'id' | 'disabled' | 'readOnly' | 'busy' | 'inert' | 'onTransition' | 'onAccept' | 'styles' | 'meta'
 >;
 
 /* eslint-disable @typescript-eslint/unified-signatures -- separate overloads preserve contextual transition types */
@@ -1002,28 +984,24 @@ interface SearchPickerFactory {
     TValue,
     const TTransitionMessage extends ComponentMessage = never,
     const TAcceptMessage extends ComponentMessage = never,
-    const TPointerMessage extends ComponentMessage = never,
   >(
     options: ScrollableSearchPickerOptions<
       TValue,
       TTransitionMessage,
-      TAcceptMessage,
-      TPointerMessage
+      TAcceptMessage
     >,
-  ): Element<TTransitionMessage | TAcceptMessage | TPointerMessage>;
+  ): Element<TTransitionMessage | TAcceptMessage>;
   <
     TValue,
     const TTransitionMessage extends ComponentMessage = never,
     const TAcceptMessage extends ComponentMessage = never,
-    const TPointerMessage extends ComponentMessage = never,
   >(
     options: UnscrolledSearchPickerOptions<
       TValue,
       TTransitionMessage,
-      TAcceptMessage,
-      TPointerMessage
+      TAcceptMessage
     >,
-  ): Element<TTransitionMessage | TAcceptMessage | TPointerMessage>;
+  ): Element<TTransitionMessage | TAcceptMessage>;
 }
 /* eslint-enable @typescript-eslint/unified-signatures */
 
@@ -1031,17 +1009,15 @@ const createSearchPicker: SearchPickerFactory = <
   TValue,
   const TTransitionMessage extends ComponentMessage = never,
   const TAcceptMessage extends ComponentMessage = never,
-  const TPointerMessage extends ComponentMessage = never,
 >(
-  options: SearchPickerOptions<TValue, TTransitionMessage, TAcceptMessage, TPointerMessage>,
+  options: SearchPickerOptions<TValue, TTransitionMessage, TAcceptMessage>,
 ) => {
   if (options.disabled === true || options.inert === true) {
     return instantiateSearchPicker(withoutSearchPickerCallbacks(options));
   }
   assertRequiredCallback(options.onTransition, 'searchPicker onTransition');
   assertOptionalCallback(options.onAccept, 'searchPicker onAccept');
-  assertOptionalCallback(options.onPointerAction, 'searchPicker onPointerAction');
-  const { onTransition, onAccept, onPointerAction, ...componentOptions } = options;
+  const { onTransition, onAccept, ...componentOptions } = options;
   return instantiateSearchPicker({
     ...componentOptions,
     onAction: (action) => {
@@ -1053,23 +1029,21 @@ const createSearchPicker: SearchPickerFactory = <
         }
         return onTransition(action.transition);
       }
-      if (action.kind === 'accept') return onAccept?.(action.event) ?? ignoreMessage();
-      return onPointerAction?.(action.action) ?? ignoreMessage();
+      return onAccept?.(action.event) ?? ignoreMessage();
     },
   });
 };
 
 type SearchPickerWithoutCallbacks<TOptions> = TOptions extends unknown
-  ? Omit<TOptions, 'onTransition' | 'onAccept' | 'onPointerAction'>
+  ? Omit<TOptions, 'onTransition' | 'onAccept'>
   : never;
 
 function withoutSearchPickerCallbacks<TOptions extends {
   readonly onTransition?: unknown;
   readonly onAccept?: unknown;
-  readonly onPointerAction?: unknown;
 }>(options: TOptions): SearchPickerWithoutCallbacks<TOptions> {
   return Object.fromEntries(Object.entries(options).filter(([field]) =>
-    field !== 'onTransition' && field !== 'onAccept' && field !== 'onPointerAction'
+    field !== 'onTransition' && field !== 'onAccept'
   )) as SearchPickerWithoutCallbacks<TOptions>;
 }
 
@@ -1080,7 +1054,8 @@ const instantiateSearchPicker = defineComponent<
   SearchPickerStylePart,
   readonly ['disabled', 'readOnly', 'busy', 'inert'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly']
 >({
   name: 'terminal-ui/components/search-picker',
   identity: 'required',
@@ -1101,16 +1076,14 @@ const instantiateSearchPicker = defineComponent<
     'help',
     'status',
     'empty',
-    'scrollbar',
+    'scrollbarTrack', 'scrollbarThumb',
   ],
-  prepare: (value, context) => prepareSearchPicker(value, !context.disabled && !context.inert),
+  visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly'],
+  prepare: prepareSearchPicker,
   inspection: ({ model }) => {
-    const activeRow = model.activeIndex === undefined
-      ? undefined
-      : model.rows[model.activeIndex];
     return {
       value: inspectTextValue(model.query.text),
-      ...(activeRow === undefined ? {} : { active: activeRow.id }),
+      ...(model.activeId === undefined ? {} : { active: model.activeId }),
       collection: {
         startIndex: model.startIndex,
         totalCount: model.totalCount,
@@ -1141,7 +1114,7 @@ const instantiateSearchPicker = defineComponent<
     return {
       id: input.id,
       role: 'combobox',
-      label: input.model.title || input.id,
+      ...(input.model.title === '' ? {} : { label: input.model.title }),
       value: input.model.query.text,
       disabled: input.disabled,
       expanded: true,
@@ -1187,18 +1160,16 @@ const instantiateSearchPicker = defineComponent<
     if (!allowsComponentAction(availability, 'navigate')) return {};
     const canEdit = allowsComponentAction(availability, 'edit');
     const canActivate = allowsComponentAction(availability, 'activate');
-    const active = model.activeIndex === undefined
-      ? undefined
-      : model.rows[model.activeIndex];
+    const activeId = model.activeId;
     return {
       ...(canEdit ? {
         backspace: () => searchPickerTransition({ kind: 'deleteQueryBackward' }),
       } : {}),
       arrowUp: () => searchPickerTransition({ kind: 'moveActive', delta: -1 }),
       arrowDown: () => searchPickerTransition({ kind: 'moveActive', delta: 1 }),
-      ...(active === undefined || active.disabled || !canActivate
+      ...(activeId === undefined || model.activeDisabled || !canActivate
         ? {}
-        : { enter: () => ({ kind: 'accept' as const, event: { kind: 'accept' as const, id: active.id } }) }),
+        : { enter: () => ({ kind: 'accept' as const, event: { kind: 'accept' as const, id: activeId } }) }),
     };
   },
   onInput: ({ text, readOnly }) => allowsComponentAction({ readOnly }, 'edit')
@@ -1207,10 +1178,6 @@ const instantiateSearchPicker = defineComponent<
   onPaste: ({ text, readOnly }) => allowsComponentAction({ readOnly }, 'edit')
     ? searchPickerTransition({ kind: 'insertQuery', text })
     : ignoreMessage(),
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
-  },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds, cursor: { row: 1, column: 2 } }],
   hitTargets(input) {
     const plan = searchPickerPlan(input);
@@ -1251,15 +1218,11 @@ function isScrollableSearchPicker<
   TValue,
   TTransitionMessage extends ComponentMessage,
   TAcceptMessage extends ComponentMessage,
-  TPointerMessage extends ComponentMessage,
->(options: SearchPickerOptions<TValue, TTransitionMessage, TAcceptMessage, TPointerMessage>): options is ScrollableSearchPickerOptions<TValue, TTransitionMessage, TAcceptMessage, TPointerMessage> {
+>(options: SearchPickerOptions<TValue, TTransitionMessage, TAcceptMessage>): options is ScrollableSearchPickerOptions<TValue, TTransitionMessage, TAcceptMessage> {
   return options.presentation.scroll !== undefined;
 }
 
-function prepareSearchPicker(
-  value: Readonly<SearchPickerComponentOptions>,
-  pointerAvailable: boolean,
-): SearchPickerModel {
+function prepareSearchPicker(value: Readonly<SearchPickerComponentOptions>): SearchPickerModel {
   const index = value.searchPickerIndex;
   assertSearchPickerIndex(index);
   const presentation = prepareSearchPickerPresentation(value.presentation);
@@ -1301,16 +1264,13 @@ function prepareSearchPicker(
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('searchPicker scrollbar and scrollPolicy require scroll state.');
   }
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'searchPicker pointerState',
-    pointerAvailable,
-  );
   return {
     title: clean(value.title, 'searchPicker title') ?? '',
     query,
     rows,
     ...(window.activeIndex === undefined ? {} : { activeIndex: window.activeIndex }),
+    ...(window.activeEntry === undefined ? {} : { activeId: window.activeEntry.id }),
+    activeDisabled: window.activeEntry?.disabled === true,
     totalCount: window.totalCount,
     sourceCount: index.size,
     startIndex: window.startIndex,
@@ -1319,7 +1279,6 @@ function prepareSearchPicker(
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -1397,7 +1356,7 @@ function paintSearchPicker(
   );
   const inputStyle = input.style({
     part: 'value',
-    ...(input.focus === 'self' ? { state: 'focused' } : {}),
+    ...(input.focus === 'self' ? { states: ['focused'] as const } : {}),
   });
   const markerStyle = input.style({
     part: 'placeholder',
@@ -1442,7 +1401,7 @@ function paintSearchPicker(
     const style = input.style({
       part: 'entry',
       base: { fg: { kind: 'theme', token: 'text.default' } },
-      ...(state === undefined ? {} : { state }),
+      ...(state === undefined ? {} : { states: [state] }),
     });
     const prefix = active ? input.theme.tokens.symbols.pointer : ' ';
     const group = row.group === undefined ? '' : `[${row.group}] `;
@@ -1544,6 +1503,7 @@ function paintSearchPicker(
     target: input.target,
     plan,
     theme: input.theme,
+    style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     source: (sourceInput) => input.source(sourceInput),
   });
 }

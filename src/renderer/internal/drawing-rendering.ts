@@ -44,8 +44,7 @@ export function overlayChildBounds(renderNode: OverlayNode, bounds: Rect): reado
 export function surfaceAccessibleBase(id: string, focused: boolean): AccessibleNode {
   return {
     id,
-    role: 'text',
-    label: id,
+    role: 'group',
     ...(focused ? { focused } : {})
   };
 }
@@ -53,9 +52,7 @@ export function surfaceAccessibleBase(id: string, focused: boolean): AccessibleN
 export function absoluteAccessibleBase(id: string, focused: boolean): AccessibleNode {
   return {
     id,
-    role: 'application',
-    label: id,
-    scope: { kind: 'document' },
+    role: 'group',
     ...(focused ? { focused } : {})
   };
 }
@@ -63,9 +60,7 @@ export function absoluteAccessibleBase(id: string, focused: boolean): Accessible
 export function overlayAccessibleBase(id: string, focused: boolean): AccessibleNode {
   return {
     id,
-    role: 'application',
-    label: id,
-    scope: { kind: 'popover' },
+    role: 'group',
     ...(focused ? { focused } : {})
   };
 }

@@ -48,7 +48,7 @@ test('disclosure composition models heterogeneous activity without a domain-spec
   ];
   const app = defineTui({
     id: 'disclosure-composition-slice',
-    init: () => ({ items, expandedId: 'one' }),
+    init: () => ({ state: ({ items, expandedId: 'one' }) }),
     update: (state, message) => ({
       state: { ...state, expandedId: message.id === 'one' ? 'two' : message.id },
       exit: {}
@@ -57,7 +57,7 @@ test('disclosure composition models heterogeneous activity without a domain-spec
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 32, rows: 8 } });
   harness.host.input('\r');
-  const exit = await runTui(app, harness.host);
+  const exit = await runTui(app, { host: harness.host });
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.state?.expandedId, 'two');

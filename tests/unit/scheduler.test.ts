@@ -22,7 +22,7 @@ void test('intervalSource emits deterministic ticks through the terminal clock',
   }
   const app = defineTui<State, Message>({
     id: 'interval-source',
-    init: () => ({ ticks: [] }),
+    init: () => ({ state: ({ ticks: [] }) }),
     update: (state, message) => ({ state: { ticks: [...state.ticks, message.tick] } }),
     subscriptions: () => [intervalSource('interval', 10, (tick) => ({ tick }))],
     view: (state) => text({ content: state.ticks.join(','), id: 'ticks' })
@@ -51,7 +51,7 @@ void test('timeoutSource emits once after the configured clock delay', async () 
   }
   const app = defineTui<State, Message>({
     id: 'timeout-source',
-    init: () => ({ ready: false, count: 0 }),
+    init: () => ({ state: ({ ready: false, count: 0 }) }),
     update: (state) => ({ state: { ready: true, count: state.count + 1 } }),
     subscriptions: () => [timeoutSource('timeout', 5, { ready: true })],
     view: (state) => text({ content: state.ready ? 'ready' : 'waiting', id: 'ready-state' })
@@ -81,7 +81,7 @@ void test('animationSource maps frames from fps to clock-driven intervals', asyn
   }
   const app = defineTui<State, Message>({
     id: 'animation-source',
-    init: () => ({ frames: [] }),
+    init: () => ({ state: ({ frames: [] }) }),
     update: (state, message) => ({ state: { frames: [...state.frames, message.frame] } }),
     subscriptions: () => [animationSource('animation', 20, (frame) => ({ frame }))],
     view: (state) => text({ content: state.frames.map((frame) => frame.frameIndex).join(','), id: 'frames' })
@@ -115,7 +115,7 @@ void test('animationSource coalesces overruns to the latest due frame', async ()
   }
   const app = defineTui<State, Message>({
     id: 'animation-overrun',
-    init: () => ({ frames: [] }),
+    init: () => ({ state: ({ frames: [] }) }),
     update: (state, message) => ({ state: { frames: [...state.frames, message.frame] } }),
     subscriptions: () => [animationSource('animation', 20, (frame) => ({ frame }))],
     view: (state) => text({ content: String(state.frames.length), id: 'frame-count' })

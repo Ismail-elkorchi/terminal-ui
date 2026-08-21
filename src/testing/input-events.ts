@@ -1,4 +1,92 @@
-import type { InputEvent, KeyEvent } from '../input/index.ts';
+import type {
+  InputEvent,
+  KeyEvent,
+  KeyEventLike,
+  MouseModifiers,
+  MousePointerButton,
+  MousePointerEvent,
+  MouseAction,
+  MouseWheelButton,
+  MouseWheelEvent,
+  PasteEvent,
+} from '../input/index.ts';
+
+const noKeyModifiers = Object.freeze({ ctrl: false, alt: false, shift: false, meta: false });
+const noMouseModifiers = Object.freeze({ ctrl: false, alt: false, shift: false });
+
+export function keyInput(
+  key: KeyEventLike['key'],
+  options: Omit<KeyEventLike, 'key'> = {},
+): KeyEvent {
+  return Object.freeze({
+    kind: 'key',
+    key,
+    modifiers: Object.freeze({ ...noKeyModifiers, ...options.modifiers }),
+    eventType: options.eventType ?? 'press',
+    location: options.location ?? 'standard',
+    ...(options.keyCodePoint === undefined ? {} : { keyCodePoint: options.keyCodePoint }),
+    ...(options.sequence === undefined ? {} : { sequence: options.sequence }),
+    ...(options.alternateCodePoints === undefined ? {} : {
+      alternateCodePoints: Object.freeze({ ...options.alternateCodePoints }),
+    }),
+    ...(options.committedText === undefined ? {} : { committedText: options.committedText }),
+  });
+}
+
+export function pasteInput(text: string, bracketed = true): PasteEvent {
+  return Object.freeze({ kind: 'paste', text, bracketed });
+}
+
+export function pointerInput(input: {
+  readonly action: Exclude<MouseAction, 'wheel'>;
+  readonly row: number;
+  readonly column: number;
+  readonly button?: MousePointerButton;
+  readonly modifiers?: Partial<MouseModifiers>;
+}): MousePointerEvent {
+  return Object.freeze({
+    kind: 'mouse',
+    action: input.action,
+    row: input.row,
+    column: input.column,
+    button: input.button ?? (input.action === 'move' ? 'none' : 'left'),
+    modifiers: Object.freeze({ ...noMouseModifiers, ...input.modifiers }),
+    encoding: 'sgr',
+    sequence: '',
+    rawCode: 0,
+  });
+}
+
+export function wheelInput(input: {
+  readonly row: number;
+  readonly column: number;
+  readonly deltaRows?: number;
+  readonly deltaColumns?: number;
+  readonly button?: MouseWheelButton;
+  readonly modifiers?: Partial<MouseModifiers>;
+}): MouseWheelEvent {
+  const deltaRows = input.deltaRows ?? 0;
+  const deltaColumns = input.deltaColumns ?? 0;
+  return Object.freeze({
+    kind: 'mouse',
+    action: 'wheel',
+    row: input.row,
+    column: input.column,
+    button: input.button ?? (deltaRows < 0
+      ? 'wheelUp'
+      : deltaRows > 0
+        ? 'wheelDown'
+        : deltaColumns < 0
+          ? 'wheelLeft'
+          : 'wheelRight'),
+    deltaRows,
+    deltaColumns,
+    modifiers: Object.freeze({ ...noMouseModifiers, ...input.modifiers }),
+    encoding: 'sgr',
+    sequence: '',
+    rawCode: 0,
+  });
+}
 
 const keySequences = new Map<string, string>([
   ['enter', '\r'],

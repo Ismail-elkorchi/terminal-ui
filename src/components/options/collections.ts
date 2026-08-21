@@ -1,7 +1,5 @@
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type {
-  PointerInteractionAction,
-  PointerInteractionState,
   ScrollPolicy,
   ScrollbarOptions,
 } from '../../interaction/index.ts';
@@ -22,17 +20,18 @@ export interface ListOptions<TItems extends readonly SemanticListItem[]> {
   readonly id?: string;
   readonly items: TItems;
   readonly ordered?: boolean;
-  readonly meta?: ComponentMetadataOptions<readonly ['layer', 'styles'], SemanticListStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<SemanticListStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['layer', 'styles']>;
 }
 
 interface ListViewBaseOptions<TValue, TContent extends import('../../element/index.ts').Element<ComponentMessage>> {
   readonly id: string;
   readonly window: ListViewMeasuredWindow<TValue>;
   readonly renderItem: ListViewItemRenderer<TValue, TContent>;
-  readonly pointerState?: PointerInteractionState;
   readonly busy?: boolean;
   readonly inert?: boolean;
-  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles'], ListViewStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<ListViewStylePart, 'focused' | 'hovered' | 'pressed' | 'active' | 'selected' | 'disabled' | 'busy'>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
 }
 
 /** @beta */
@@ -45,25 +44,20 @@ interface ActiveListViewOptions<TTransition, TMessage extends ComponentMessage> 
   readonly inert?: false;
   readonly onTransition: (action: TTransition) => MessageResolution<TMessage>;
   readonly onActivate?: (event: ListViewActivateEvent) => MessageResolution<TMessage>;
-  readonly onPointerAction?: (action: PointerInteractionAction) => MessageResolution<TMessage>;
 }
 
 interface InertListViewOptions {
   readonly disabled?: false;
   readonly inert: true;
-  readonly pointerState?: never;
   readonly onTransition?: never;
   readonly onActivate?: never;
-  readonly onPointerAction?: never;
 }
 
 interface DisabledListViewOptions {
   readonly disabled: true;
-  readonly pointerState?: never;
   readonly busy?: never;
   readonly onTransition?: never;
   readonly onActivate?: never;
-  readonly onPointerAction?: never;
 }
 
 /** @beta */

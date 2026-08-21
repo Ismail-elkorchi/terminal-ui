@@ -16,3 +16,15 @@ export type RadioGroupAction = NavigationAction | Extract<
 >;
 
 export type ColorSwatchPickerAction = RadioGroupAction;
+
+export type CheckboxGroupTransition = Extract<
+  CheckboxGroupAction,
+  { readonly kind: 'moveActive' | 'firstActive' | 'lastActive' | 'toggleSelection' }
+>;
+
+export type RadioGroupTransition = Extract<
+  RadioGroupAction,
+  { readonly kind: 'moveActive' | 'firstActive' | 'lastActive' | 'commitActive' | 'select' }
+>;
+
+export type ColorSwatchPickerTransition = RadioGroupTransition;

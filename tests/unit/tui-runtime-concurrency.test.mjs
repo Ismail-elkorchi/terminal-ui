@@ -27,7 +27,7 @@ function textInput(options) {
 test('TUI runtime dispatch updates state and records incremental render diffs', async () => {
   const app = defineTui({
     id: 'counter',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     view: (state) => surface(text({ content: `Count ${state.count}`, id: 'count' }), { id: 'counter-surface' })
   });
@@ -50,7 +50,7 @@ test('dispatchMany reduces one ordered transaction and commits once', async () =
   const transcript = createTranscriptRecorder({ id: 'dispatch-many', source: 'tui' });
   const app = defineTui({
     id: 'dispatch-many',
-    init: () => ({ values: [] }),
+    init: () => ({ state: ({ values: [] }) }),
     update: (state, message) => {
       observed.push(message.value);
       return message.exit === true
@@ -87,7 +87,7 @@ test('empty dispatchMany is an operational no-op', async () => {
   const initial = { count: 0 };
   const app = defineTui({
     id: 'empty-dispatch-many',
-    init: () => initial,
+    init: () => ({ state: initial }),
     update: (state) => ({ state: { count: state.count + 1 } }),
     view: (state) => text({ content: String(state.count) }),
   });
@@ -103,7 +103,7 @@ test('empty dispatchMany is an operational no-op', async () => {
 test('direct and asynchronous dispatch paths share one non-null message domain', async () => {
   const app = defineTui({
     id: 'non-null-message-domain',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state) => ({ state: { count: state.count + 1 } }),
     view: (state) => text({ content: String(state.count) })
   });
@@ -121,12 +121,12 @@ test('TUI runtime discards a candidate when output fails before publication', as
   const transcript = createTranscriptRecorder({ id: 'failed-candidate-transcript', source: 'tui' });
   const app = defineTui({
     id: 'failed-candidate',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     subscriptions: (state) => [{
       id: 'state-generation',
       generation: state.count,
-      async *messages(context) {
+      async run(context) {
         subscriptionStarts += 1;
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
       }
@@ -162,7 +162,7 @@ test('TUI runtime discards a candidate when output fails before publication', as
 test('a committed terminal write publishes render and application state despite concurrent disposal', async () => {
   const app = defineTui({
     id: 'committed-write-publication',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state) => ({ state: { count: state.count + 1 }, exit: { reason: 'done' } }),
     view: (state) => text({ content: `Count ${String(state.count)}`, id: 'committed-count' })
   });
@@ -193,7 +193,7 @@ test('a committed terminal write publishes render and application state despite 
 test('invalid effect cancellation identities fail before output or state publication', async () => {
   const app = defineTui({
     id: 'invalid-effect-cancellation',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state) => ({ state: { count: state.count + 1 }, cancelEffects: [''] }),
     view: (state) => text({ content: `Count ${String(state.count)}`, id: 'invalid-cancel-count' })
   });
@@ -229,7 +229,7 @@ test('observer and transcript sink failures cannot reject committed runtime publ
   });
   const app = defineTui({
     id: 'isolated-observers',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state) => ({ state: { count: state.count + 1 } }),
     view: (state) => text({ content: String(state.count), id: 'isolated-observer-count' })
   });
@@ -248,7 +248,7 @@ test('observer and transcript sink failures cannot reject committed runtime publ
 test('runtime diagnostics retain a bounded tail and expose omitted counts', async () => {
   const app = defineTui({
     id: 'bounded-runtime-diagnostics',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready' })
   });
@@ -267,7 +267,7 @@ test('diagnostics reported during a blocked diagnostic redraw receive a followin
   const firstDiagnosticRendered = deferred();
   const app = defineTui({
     id: 'diagnostic-refresh-generations',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: (_state, context) => {
       const messages = context.diagnostics.map((item) => item.diagnostic.message);
@@ -301,17 +301,17 @@ test('TUI runtime preserves unchanged same-reference state when a focus render c
   const initialState = { count: 0 };
   const app = defineTui({
     id: 'failed-same-reference-candidate',
-    init: () => initialState,
+    init: () => ({ state: initialState }),
     update: (state) => ({
       state,
       focus: { kind: 'element', elementId: 'second-same-reference-field' }
     }),
     view: () => column([
-      textInput({
+      textInput({ meta: { accessibleName: "Text input" },
         id: 'first-same-reference-field',
         presentation: { value: 'first', cursor: 0 }
       }),
-      textInput({
+      textInput({ meta: { accessibleName: "Text input" },
         id: 'second-same-reference-field',
         presentation: { value: 'second', cursor: 0 }
       })
@@ -339,7 +339,7 @@ test('TUI runtime preserves unchanged same-reference state when a focus render c
 test('TUI runtime establishes a full baseline after an indeterminate frame write', async () => {
   const app = defineTui({
     id: 'indeterminate-frame-baseline',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     view: (state) => text({ content: `Count ${String(state.count)}`, id: 'indeterminate-count' })
   });
@@ -365,7 +365,7 @@ test('TUI runtime establishes a full baseline after an indeterminate frame write
 test('a failed-before-write frame keeps the committed terminal baseline', async () => {
   const app = defineTui({
     id: 'rejected-frame-baseline',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     view: (state) => text({ content: `Count ${String(state.count)}`, id: 'rejected-count' })
   });
@@ -391,7 +391,7 @@ test('a failed-before-write frame keeps the committed terminal baseline', async 
 test('direct runtime resize coalesces an active request and retains only the latest queued terminal size', async () => {
   const app = defineTui({
     id: 'direct-resize-coalescing',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: (_state, context) => text({ content: `columns:${String(context.terminalSize.columns)}`, id: 'resize-width' })
   });
@@ -429,7 +429,7 @@ test('direct runtime resize coalesces an active request and retains only the lat
 test('TUI runtime start returns the committed initial frame', async () => {
   const app = defineTui({
     id: 'start-frame',
-    init: () => ({ label: 'ready' }),
+    init: () => ({ state: ({ label: 'ready' }) }),
     update: (state) => ({ state }),
     view: (state) => text({ content: state.label, id: 'start-label' })
   });
@@ -447,15 +447,15 @@ test('TUI runtime consumes async subscription sources without duplicate restarts
   let starts = 0;
   const app = defineTui({
     id: 'subscription-init',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     subscriptions: () => [{
       id: 'timer-source',
       generation: 0,
       source: 'timer',
-      async *messages() {
+      async run(_context, sink) {
         starts += 1;
-        yield { kind: 'reliable', message: { delta: 1 } };
+        await sink.emit({ kind: 'reliable', message: { delta: 1 } });
       }
     }],
     view: (state) => text({ content: `Count ${state.count}`, id: 'subscription-count' })
@@ -476,7 +476,7 @@ test('TUI runtime records subscription source failures and stops the failed sour
   let starts = 0;
   const app = defineTui({
     id: 'subscription-failure',
-    init: () => ({ count: 0, status: 'active' }),
+    init: () => ({ state: ({ count: 0, status: 'active' }) }),
     update: (state, message) => message.kind === 'failed'
       ? { state: { ...state, status: 'failed' } }
       : { state: { ...state, count: state.count + message.delta } },
@@ -484,7 +484,7 @@ test('TUI runtime records subscription source failures and stops the failed sour
       id: 'failed-source',
       generation: 0,
       source: 'external',
-      async *messages() {
+      async run() {
         starts += 1;
         throw new Error('source failed');
       },
@@ -510,15 +510,15 @@ test('TUI runtime records subscription source failures and stops the failed sour
 test('keyed replaceable subscription emissions keep one pending value per key', async () => {
   const app = defineTui({
     id: 'latest-subscription',
-    init: () => ({ values: [] }),
+    init: () => ({ state: ({ values: [] }) }),
     update: (state, message) => ({ state: { values: [...state.values, message.value] } }),
     subscriptions: () => [{
       id: 'samples',
       generation: 0,
       channel: { capacity: 4 },
-      async *messages() {
+      async run(_context, sink) {
         for (let value = 1; value <= 100; value += 1) {
-          yield { kind: 'replaceable', key: 'sample', message: { value } };
+          await sink.emit({ kind: 'replaceable', key: 'sample', message: { value } });
         }
       }
     }],
@@ -541,16 +541,16 @@ test('subscription generations replace completed and failed executions without d
   const disposals = [];
   const app = defineTui({
     id: 'subscription-generations',
-    init: () => ({ generation: 0, values: [] }),
+    init: () => ({ state: ({ generation: 0, values: [] }) }),
     update: (state, message) => message.kind === 'advance'
       ? { state: { ...state, generation: state.generation + 1 } }
       : { state: { ...state, values: [...state.values, message.value] } },
     subscriptions: (state) => [{
       id: 'versioned-source',
       generation: state.generation,
-      async *messages() {
+      async run(_context, sink) {
         starts.push(state.generation);
-        yield { kind: 'reliable', message: { kind: 'value', value: state.generation } };
+        await sink.emit({ kind: 'reliable', message: { kind: 'value', value: state.generation } });
       },
       dispose() {
         disposals.push(state.generation);
@@ -576,12 +576,12 @@ test('subscription generations replace completed and failed executions without d
 test('duplicate subscription ids fail startup before publishing runtime state', async () => {
   const app = defineTui({
     id: 'duplicate-subscriptions',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     subscriptions: () => [0, 1].map(() => ({
       id: 'duplicate',
       generation: 0,
-      async *messages() {}
+      run() {}
     })),
     view: () => text({ content: 'ready', id: 'duplicate-subscriptions-view' })
   });
@@ -600,13 +600,13 @@ test('TUI runtime cancels subscription sources when they leave the definition', 
   let disposeCount = 0;
   const app = defineTui({
     id: 'subscription-cancel',
-    init: () => ({ enabled: true }),
+    init: () => ({ state: ({ enabled: true }) }),
     update: (_state, message) => ({ state: { enabled: message.enabled } }),
     subscriptions: (state) => state.enabled
       ? [{
           id: 'long-source',
           generation: 0,
-          async *messages(context) {
+          async run(context) {
             sourceSignal = context.signal;
             await new Promise(() => undefined);
           },
@@ -636,7 +636,7 @@ test('retired subscription output already queued behind its retirement is ignore
   let sourceStarted = false;
   const app = defineTui({
     id: 'retired-queued-source-output',
-    init: () => ({ enabled: true, phase: 'idle', staleMessages: 0 }),
+    init: () => ({ state: ({ enabled: true, phase: 'idle', staleMessages: 0 }) }),
     update: (state, message) => {
       if (message.kind === 'block') return { state: { ...state, phase: 'blocking' } };
       if (message.kind === 'disable') return { state: { ...state, enabled: false, phase: 'disabled' } };
@@ -645,10 +645,10 @@ test('retired subscription output already queued behind its retirement is ignore
     subscriptions: (state) => state.enabled ? [{
       id: 'retired-source',
       generation: 0,
-      async *messages() {
+      async run(_context, sink) {
         sourceStarted = true;
         await sourceGate.promise;
-        yield { kind: 'reliable', message: { kind: 'stale-source-output' } };
+        await sink.emit({ kind: 'reliable', message: { kind: 'stale-source-output' } });
       }
     }] : [],
     view: (state) => text({ content: `${state.phase}:${String(state.staleMessages)}`, id: 'source-admission-state' })
@@ -689,7 +689,7 @@ test('TUI effects do not block later input or external dispatches', async () => 
   });
   const app = defineTui({
     id: 'async-effect',
-    init: () => ({ count: 0, phase: 'idle' }),
+    init: () => ({ state: ({ count: 0, phase: 'idle' }) }),
     update: (state, message) => {
       if (message.kind === 'start') {
         return {
@@ -730,7 +730,7 @@ test('replaced effect output and recovery output already queued behind replaceme
   let effectsStarted = 0;
   const app = defineTui({
     id: 'replaced-queued-effect-output',
-    init: () => ({ phase: 'idle', staleOutput: false, staleRecovery: false }),
+    init: () => ({ state: ({ phase: 'idle', staleOutput: false, staleRecovery: false }) }),
     update: (state, message) => {
       if (message.kind === 'start') {
         return {
@@ -809,7 +809,7 @@ test('multi-message effect output commits one atomic state transition', async ()
   const release = deferred();
   const app = defineTui({
     id: 'effect-message-batch',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => message.kind === 'start'
       ? {
           state,
@@ -853,7 +853,7 @@ test('TUI updates cancel one effect id without cancelling unrelated or later eff
   const unrelated = deferred();
   const app = defineTui({
     id: 'selective-effect-cancellation',
-    init: () => ({ phase: 'idle' }),
+    init: () => ({ state: ({ phase: 'idle' }) }),
     update: (state, message) => {
       if (message.kind === 'start') {
         return {
@@ -930,7 +930,7 @@ function deferred() {
 test('TUI effects may dispatch terminal exit without deadlocking disposal', async () => {
   const app = defineTui({
     id: 'effect-exit',
-    init: () => ({ phase: 'idle' }),
+    init: () => ({ state: ({ phase: 'idle' }) }),
     update: (state, message) => {
       if (message.kind === 'start') {
         return {
@@ -973,16 +973,16 @@ test('TUI subscriptions may dispatch terminal exit without deadlocking disposal'
   });
   const app = defineTui({
     id: 'subscription-exit',
-    init: () => ({ phase: 'waiting' }),
+    init: () => ({ state: ({ phase: 'waiting' }) }),
     update: (_state, message) => message.kind === 'finish'
       ? { state: { phase: 'done' }, exit: { reason: 'subscription completed' } }
       : { state: { phase: 'waiting' } },
     subscriptions: () => [{
       id: 'exit-source',
       generation: 0,
-      async *messages() {
+      async run(_context, sink) {
         try {
-          yield { kind: 'reliable', message: { kind: 'finish' } };
+          await sink.emit({ kind: 'reliable', message: { kind: 'finish' } });
         } finally {
           sourceCompleted();
         }
@@ -1011,7 +1011,7 @@ test('TUI runtime records external dispatch messages in transcripts', async () =
   const transcript = createTranscriptRecorder({ id: 'external-message-transcript', source: 'tui' });
   const app = defineTui({
     id: 'external-message',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     view: (state) => text({ content: `Count ${state.count}`, id: 'external-count' })
   });
@@ -1042,7 +1042,7 @@ test('TUI runtime records resize input before the frame commit it causes', async
   const transcript = createTranscriptRecorder({ id: 'resize-order-transcript', source: 'tui' });
   const app = defineTui({
     id: 'resize-order',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready', id: 'resize-order-content' })
   });
@@ -1069,7 +1069,7 @@ test('TUI runtime records resize input before the frame commit it causes', async
 test('TUI runtime publishes a terminal transition frame before its exit', async () => {
   const app = defineTui({
     id: 'frame-before-exit',
-    init: () => ({ status: 'waiting' }),
+    init: () => ({ state: ({ status: 'waiting' }) }),
     update: () => ({ state: { status: 'finished' }, exit: { reason: 'done' } }),
     view: (state) => text({ content: state.status, id: 'terminal-status' })
   });
@@ -1092,7 +1092,7 @@ test('TUI runtime publishes a terminal transition frame before its exit', async 
 test('TUI runtime coalesces unobserved frame changes', async () => {
   const app = defineTui({
     id: 'coalesced-frame-changes',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     view: (state) => text({ content: `Count ${String(state.count)}`, id: 'count' })
   });
@@ -1126,7 +1126,7 @@ test('TUI runtime does not render or advance state version for identity no-op me
   let viewCalls = 0;
   const app = defineTui({
     id: 'identity-noop-frame-changes',
-    init: () => initialState,
+    init: () => ({ state: initialState }),
     update: (state, message) => message.kind === 'noop'
       ? { state }
       : { state: { count: state.count + 1 } },
@@ -1167,7 +1167,7 @@ test('TUI runtime does not render or advance state version for identity no-op me
 test('TUI runtime reports effect failures and can map them to application messages', async () => {
   const app = defineTui({
     id: 'effect-failure',
-    init: () => ({ status: 'idle' }),
+    init: () => ({ state: ({ status: 'idle' }) }),
     update: (state, message) => message.kind === 'start'
       ? {
           state: { status: 'loading' },
@@ -1197,7 +1197,7 @@ test('TUI runtime reports effect failures and can map them to application messag
 test('TUI runtime resize re-renders against the memory host terminal size', async () => {
   const app = defineTui({
     id: 'resizable',
-    init: () => ({ label: 'Wide label' }),
+    init: () => ({ state: ({ label: 'Wide label' }) }),
     update: (state) => ({ state }),
     view: (state) => surface(text({ content: state.label, id: 'label' }), { id: 'surface' })
   });

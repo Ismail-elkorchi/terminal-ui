@@ -774,6 +774,8 @@ function terminalStyleFingerprint(style: TerminalStyle): number {
 function hashTerminalColor(hash: number, color: TerminalColor | undefined): number {
   if (color === undefined) return hashCodeUnit(hash, hashTagColorNone);
   switch (color.kind) {
+    case 'default':
+      return hashCodeUnit(hash, hashTagColorNone);
     case 'ansi':
       return hashNumber(hashCodeUnit(hash, hashTagColorAnsi), color.value);
     case 'rgb': {

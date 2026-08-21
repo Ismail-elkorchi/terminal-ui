@@ -39,7 +39,7 @@ export function grid(
         ...renderNodeLayoutProps(options)
       },
       children: renderNodeChildren(childrenOrOptions as ElementChildren),
-      ...componentMetaProps(options.meta)
+      ...componentMetaProps(options)
     });
   }
 
@@ -71,6 +71,6 @@ export function grid(
         .map((name) => areaOptions.children[name])
         .filter((child): child is ElementValue => child !== undefined)
     ),
-    ...componentMetaProps(areaOptions.meta)
+    ...componentMetaProps(areaOptions)
   });
 }

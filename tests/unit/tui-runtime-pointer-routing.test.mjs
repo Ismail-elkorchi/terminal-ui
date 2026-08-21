@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
-  pointerInteractionReducer,
   prepareTreeSource,
   prepareTreeView,
 } from '../../dist/behavior/index.js';
@@ -18,7 +17,7 @@ import { overlay, row } from '../../dist/layout/index.js';
 test('TUI runtime routes mouse events to elements under the pointer', async () => {
   const app = defineTui({
     id: 'mouse-routing',
-    init: () => ({ clicked: false }),
+    init: () => ({ state: ({ clicked: false }) }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
     view: (state) => button({
       id: 'mouse-field',
@@ -41,7 +40,7 @@ test('TUI runtime routes mouse events to elements under the pointer', async () =
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(press.results[0]?.handled, false);
+  assert.equal(press.results[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.state(), { clicked: true });
   assert.match(renderFramePlain(runtime.frame()), /clicked/);
@@ -50,7 +49,7 @@ test('TUI runtime routes mouse events to elements under the pointer', async () =
 test('TUI pointer click activates once on left release and ignores right click or wheel', async () => {
   const app = defineTui({
     id: 'pointer-router-events',
-    init: () => ({ clicks: 0 }),
+    init: () => ({ state: ({ clicks: 0 }) }),
     update: (state, message) => ({ state: { clicks: state.clicks + message.clicks } }),
     view: (state) => button({
       id: 'pointer-field',
@@ -67,7 +66,7 @@ test('TUI pointer click activates once on left release and ignores right click o
   const rightPress = await runtime.handleInputChunk({ data: '\u001B[<2;1;1M' });
   const wheel = await runtime.handleInputChunk({ data: '\u001B[<64;1;1M' });
 
-  assert.equal(leftPress.results[0]?.handled, false);
+  assert.equal(leftPress.results[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
   assert.equal(rightPress.results[0]?.handled, false);
   assert.notEqual(wheel.pending, undefined);
@@ -76,19 +75,15 @@ test('TUI pointer click activates once on left release and ignores right click o
   assert.deepEqual(runtime.state(), { clicks: 1 });
 });
 
-test('built-in controls expose controlled pointer interaction without duplicate activation', async () => {
+test('runtime owns built-in hover and press presentation without application messages', async () => {
   const app = defineTui({
-    id: 'controlled-pointer-interaction',
-    init: () => ({ pointer: {}, activations: 0 }),
-    update: (state, message) => message.kind === 'pointer'
-      ? { state: { ...state, pointer: pointerInteractionReducer(state.pointer, message.action) } }
-      : { state: { ...state, activations: state.activations + 1 } },
-    view: (state) => button({
-      id: 'controlled-button',
+    id: 'runtime-pointer-interaction',
+    init: () => ({ state: ({ activations: 0 }) }),
+    update: (state) => ({ state: { activations: state.activations + 1 } }),
+    view: () => button({
+      id: 'runtime-button',
       label: 'Run',
-      pointerState: state.pointer,
-      onAction: () => ({ kind: 'activate' }),
-      onPointerAction: (action) => ({ kind: 'pointer', action })
+      onAction: () => ({ kind: 'activate' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
@@ -96,28 +91,26 @@ test('built-in controls expose controlled pointer interaction without duplicate 
 
   await runtime.start();
   await handleInputChunkAndSettle(runtime, '\u001B[<35;2;1M');
-  assert.deepEqual(runtime.state().pointer, { hoveredTargetId: 'controlled-button:control' });
+  assert.equal(runtime.state().activations, 0);
+  assert.equal(runtime.frame().cells.find((cell) => cell.text === 'R')?.source?.interactionState, 'hovered');
 
   await runtime.handleInputChunk({ data: '\u001B[<0;2;1M' });
-  assert.deepEqual(runtime.state().pointer, {
-    hoveredTargetId: 'controlled-button:control',
-    pressedTargetId: 'controlled-button:control'
-  });
+  assert.equal(runtime.state().activations, 0);
+  assert.equal(runtime.frame().cells.find((cell) => cell.text === 'R')?.source?.interactionState, 'pressed');
 
   await runtime.handleInputChunk({ data: '\u001B[<0;2;1m' });
-  assert.deepEqual(runtime.state(), {
-    pointer: { hoveredTargetId: 'controlled-button:control' },
-    activations: 1
-  });
+  assert.deepEqual(runtime.state(), { activations: 1 });
+  assert.equal(runtime.frame().cells.find((cell) => cell.text === 'R')?.source?.interactionState, 'hovered');
 
   await handleInputChunkAndSettle(runtime, '\u001B[<35;20;2M');
-  assert.deepEqual(runtime.state().pointer, {});
+  assert.deepEqual(runtime.state(), { activations: 1 });
+  assert.equal(runtime.frame().cells.find((cell) => cell.text === 'R')?.source?.interactionState, 'focused');
 });
 
 test('disabled controls expose neither activation nor synthetic pointer lifecycle targets', async () => {
   const app = defineTui({
     id: 'disabled-pointer-interaction',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => button({
       id: 'disabled-button',
@@ -163,7 +156,7 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
   };
   const app = defineTui({
     id: 'pointer-lifecycle-tui',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => componentElement({ id: 'pointer-lifecycle', definition: renderer })
   });
@@ -225,7 +218,7 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
   };
   const app = defineTui({
     id: 'pointer-click-counts',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => componentElement({ id: 'pointer-click-count-targets', definition: renderer })
   });
@@ -299,7 +292,7 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
   };
   const app = defineTui({
     id: 'hover-lifecycle-tui',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => componentElement({ id: 'hover-lifecycle', definition: renderer })
   });
@@ -355,7 +348,7 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
   };
   const app = defineTui({
     id: 'event-aware-pointer-tui',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => componentElement({ id: 'event-aware-pointer', definition: renderer })
   });
@@ -406,7 +399,7 @@ test('TUI pointer drag routes to the captured origin target', async () => {
   };
   const app = defineTui({
     id: 'drag-pointer-tui',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => componentElement({ id: 'drag-pointer', definition: renderer })
   });
@@ -418,7 +411,7 @@ test('TUI pointer drag routes to the captured origin target', async () => {
   const drag = await handleInputChunkAndSettle(runtime, '\u001B[<32;10;1M');
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;10;1m' });
 
-  assert.equal(press.results[0]?.handled, false);
+  assert.equal(press.results[0]?.handled, true);
   assert.equal(drag[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.state(), {
@@ -451,7 +444,7 @@ test('TUI pointer motion drops stale drag samples before routing release', async
   };
   const app = defineTui({
     id: 'coalesced-drag-tui',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: (state) => componentElement({
       id: 'coalesced-drag',
@@ -515,7 +508,7 @@ test('pointer capture resolves the latest target callback after a render', async
   };
   const app = defineTui({
     id: 'latest-pointer-target',
-    init: () => ({ version: 0, events: [] }),
+    init: () => ({ state: ({ version: 0, events: [] }) }),
     update: (state, message) => ({
       state: {
         version: message.kind === 'pointerDown' ? state.version + 1 : state.version,
@@ -563,7 +556,7 @@ test('pointer identity includes the owning element when local target ids collide
   };
   const app = defineTui({
     id: 'qualified-pointer-targets',
-    init: () => ({ clicks: [] }),
+    init: () => ({ state: ({ clicks: [] }) }),
     update: (state, message) => ({ state: { clicks: [...state.clicks, message.clicked] } }),
     view: () => row([
       componentElement({ id: 'left', definition, label: 'L' }),
@@ -601,7 +594,7 @@ test('wheel batches retain their ingestion target across intervening renders', a
   };
   const app = defineTui({
     id: 'wheel-ingestion-target',
-    init: () => ({ owner: 'old', events: [] }),
+    init: () => ({ state: ({ owner: 'old', events: [] }) }),
     update: (state, message) => message.kind === 'replace'
       ? { state: { ...state, owner: 'new' } }
       : { state: { ...state, events: [...state.events, message.owner] } },
@@ -627,16 +620,12 @@ test('wheel batches retain their ingestion target across intervening renders', a
 test('terminal focus loss cancels pressed and hovered pointer state', async () => {
   const app = defineTui({
     id: 'pointer-focus-loss',
-    init: () => ({ pointer: {} }),
-    update: (state, message) => ({
-      state: { pointer: pointerInteractionReducer(state.pointer, message.action) }
-    }),
-    view: (state) => button({
+    init: () => ({ state: ({ activations: 0 }) }),
+    update: (state) => ({ state: { activations: state.activations + 1 } }),
+    view: () => button({
       id: 'focus-loss-button',
       label: 'Button',
-      pointerState: state.pointer,
-      onAction: () => ({ action: { kind: 'release', targetId: 'focus-loss-button:control' } }),
-      onPointerAction: (action) => ({ action })
+      onAction: () => ({ kind: 'activate' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 1 } });
@@ -649,13 +638,11 @@ test('terminal focus loss cancels pressed and hovered pointer state', async () =
   await runtime.start();
   await handleInputChunkAndSettle(runtime, '\u001B[<35;1;1M');
   await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
-  assert.deepEqual(runtime.state().pointer, {
-    hoveredTargetId: 'focus-loss-button:control',
-    pressedTargetId: 'focus-loss-button:control'
-  });
+  assert.equal(runtime.frame().cells.find((cell) => cell.text === 'B')?.source?.interactionState, 'pressed');
 
   await runtime.handleInputChunk({ data: '\u001B[O' });
-  assert.deepEqual(runtime.state().pointer, {});
+  assert.deepEqual(runtime.state(), { activations: 0 });
+  assert.equal(runtime.frame().cells.find((cell) => cell.text === 'B')?.source?.interactionState, 'focused');
 });
 
 test('an abandoned second click clears the previous double-click candidate', async () => {
@@ -675,7 +662,7 @@ test('an abandoned second click clears the previous double-click candidate', asy
   };
   const app = defineTui({
     id: 'failed-double-click',
-    init: () => ({ counts: [] }),
+    init: () => ({ state: ({ counts: [] }) }),
     update: (state, count) => ({ state: { counts: [...state.counts, count] } }),
     view: () => componentElement({ id: 'click', definition })
   });
@@ -711,7 +698,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
   const source = prepareTreeSource(nodes);
   const app = defineTui({
     id: 'tree-mouse-routing',
-    init: () => ({ activeId: undefined }),
+    init: () => ({ state: ({ activeId: undefined }) }),
     update: (_state, message) => ({ state: { activeId: message.id } }),
     view: (state) => {
       const presentation = {
@@ -719,7 +706,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
         ...(state.activeId === undefined ? {} : { activeId: state.activeId }),
         selection: { mode: 'none' }
       };
-      return tree({
+      return tree({ meta: { accessibleName: "Tree" },
         id: 'tree',
         presentation,
         view: prepareTreeView(source, presentation),
@@ -734,7 +721,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;2M' });
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;2m' });
 
-  assert.equal(press.results[0]?.handled, false);
+  assert.equal(press.results[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.state(), { activeId: 'child' });
   assert.match(renderFramePlain(runtime.frame()), /Child/);
@@ -752,9 +739,9 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
   const source = prepareTreeSource(nodes);
   const app = defineTui({
     id: 'tree-disclosure-routing',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: () => tree({
+    view: () => tree({ meta: { accessibleName: "Tree" },
       id: 'tree',
       presentation,
       view: prepareTreeView(source, presentation),
@@ -783,7 +770,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
 test('TUI runtime routes overlapping mouse events to the topmost layer', async () => {
   const app = defineTui({
     id: 'layered-mouse-routing',
-    init: () => ({ clicked: 'none' }),
+    init: () => ({ state: ({ clicked: 'none' }) }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
     view: () => overlay([
       button({
@@ -821,7 +808,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(press.results[0]?.handled, false);
+  assert.equal(press.results[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.state(), { clicked: 'upper' });
 });
@@ -829,7 +816,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
 test('TUI runtime routes same-layer overlay mouse events to the last visible child', async () => {
   const app = defineTui({
     id: 'overlay-same-layer-mouse-routing',
-    init: () => ({ clicked: 'none' }),
+    init: () => ({ state: ({ clicked: 'none' }) }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
     view: () => overlay([
       button({
@@ -855,7 +842,7 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(press.results[0]?.handled, false);
+  assert.equal(press.results[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.state(), { clicked: 'upper' });
 });

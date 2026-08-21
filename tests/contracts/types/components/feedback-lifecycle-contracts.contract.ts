@@ -11,6 +11,7 @@ import {
   statusBar,
   text
 } from '@ismail-elkorchi/terminal-ui/components';
+import { createScrollState } from '@ismail-elkorchi/terminal-ui/behavior';
 
 statusBar({ id: 'status' });
 const notifications = createNotificationState();
@@ -22,6 +23,7 @@ notificationRegion({
 notificationHistory({
   id: 'history',
   items: notificationHistoryItems(notifications),
+  scroll: createScrollState(),
   onAction: (action) => ({ kind: 'notification' as const, action })
 });
 dialog({
@@ -49,7 +51,7 @@ progressBar({
 // @ts-expect-error status bars require stable identity
 statusBar({});
 // @ts-expect-error navigable history requires an action handler
-notificationHistory({ id: 'invalid-history', items: [] });
+notificationHistory({ id: 'invalid-history', items: [], scroll: createScrollState() });
 // @ts-expect-error dialog modal policy is required
 dialog({ slots: { content: text({ content: 'Body' }) }, id: 'implicit-dialog' });
 progressBar({

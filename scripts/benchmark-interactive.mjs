@@ -75,8 +75,11 @@ const metadata = Object.freeze({
 });
 
 const results = [];
-for (const scenario of renderScenarios([btopMonitorApp, ideEditorApp, interactiveWorkspaceApp])) {
+for (const scenario of renderScenarios()) {
   results.push(runRenderScenario(scenario));
+}
+for (const app of [btopMonitorApp, ideEditorApp, interactiveWorkspaceApp]) {
+  results.push(await runApplicationRenderScenario(app));
 }
 results.push(await runHostWriteScenario());
 results.push(await runInputToCommitScenario());
@@ -93,7 +96,7 @@ const report = Object.freeze({
 if (outputPath !== undefined) await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 process.stdout.write(`${JSON.stringify(report)}\n`);
 
-function renderScenarios(realApps) {
+function renderScenarios() {
   const tableRows = Array.from({ length: quick ? 5_000 : 100_000 }, (_value, index) => ({
     id: String(index),
     name: `Process ${String(index)}`,
@@ -140,6 +143,7 @@ function renderScenarios(realApps) {
       createElement(index) {
         return textArea({
           id: 'scrolling-editor',
+          meta: { accessibleName: 'Scrolling editor' },
           presentation: {
             document: selectionDocument,
             caret: textCaretAt(0),
@@ -174,6 +178,7 @@ function renderScenarios(realApps) {
       createElement(index) {
         return table({
           id: 'scrolling-processes',
+          meta: { accessibleName: 'Scrolling processes' },
           collection: tableCollection,
           columns: tableColumns,
           scroll: {
@@ -190,6 +195,7 @@ function renderScenarios(realApps) {
       createElement(index) {
         return tree({
           id: 'scrolling-tree',
+          meta: { accessibleName: 'Scrolling tree' },
           view: treeView,
           presentation: {
             ...treePresentation,
@@ -205,6 +211,7 @@ function renderScenarios(realApps) {
       createElement(index) {
         return textArea({
           id: 'editor',
+          meta: { accessibleName: 'Editor' },
           presentation: {
             document: prepareTextDocument(`${'line\n'.repeat(200)}edit-${String(index)}`),
             caret: textCaretAt(index)
@@ -220,6 +227,7 @@ function renderScenarios(realApps) {
         const end = Math.min(textDocumentLength(selectionDocument), 1_000 + index);
         return textArea({
           id: 'large-editor',
+          meta: { accessibleName: 'Large editor' },
           presentation: {
             document: selectionDocument,
             caret: textCaretAt(end),
@@ -238,6 +246,7 @@ function renderScenarios(realApps) {
       createElement(index) {
         return dataGrid({
           id: 'small-processes',
+          meta: { accessibleName: 'Small processes' },
           collection: smallTableCollection,
           columns: tableColumns,
           presentation: {
@@ -259,6 +268,7 @@ function renderScenarios(realApps) {
         const selected = Math.min(tableRows.length - 1, Math.floor(tableRows.length / 2) + index);
         return dataGrid({
           id: 'processes',
+          meta: { accessibleName: 'Processes' },
           collection: tableCollection,
           columns: tableColumns,
           presentation: {
@@ -310,6 +320,7 @@ function renderScenarios(realApps) {
       createElement(index) {
         return searchPicker({
           id: 'commands',
+          meta: { accessibleName: 'Commands' },
           searchPickerIndex,
           presentation: {
             query: { text: String(entries.length - 1 - index), mode: 'fuzzy' }
@@ -353,17 +364,7 @@ function renderScenarios(realApps) {
           text({ content: `frame ${String(index)}` })
         ]);
       }
-    },
-    ...realApps.map((app) => {
-      const state = app.definition.init(benchmarkContext);
-      return {
-        name: `real-example-${app.id}`,
-        scale: 1,
-        createElement() {
-          return app.definition.view(state, benchmarkContext);
-        }
-      };
-    })
+    }
   ];
 }
 
@@ -459,14 +460,34 @@ async function runHostWriteScenario() {
   });
 }
 
+async function runApplicationRenderScenario(app) {
+  const host = createMemoryTerminalHost({ terminalSize });
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  const samples = [];
+  for (let index = -warmupCount; index < sampleCount; index += 1) {
+    const started = performance.now();
+    await runtime.redraw();
+    if (index >= 0) samples.push(performance.now() - started);
+  }
+  await runtime.dispose();
+  return Object.freeze({
+    kind: 'runtime',
+    name: `real-example-${app.id}`,
+    scale: 1,
+    stages: { redraw: summarizeSamples(samples) }
+  });
+}
+
 async function runInputToCommitScenario() {
   const rows = Array.from({ length: 2_000 }, (_value, index) => ({ id: String(index), name: `Row ${String(index)}` }));
   const app = defineTui({
     id: 'benchmark-input-commit',
-    init: () => ({ selected: 0 }),
+    init: () => ({ state: { selected: 0 } }),
     update: (state, message) => ({ state: { selected: Math.max(0, Math.min(rows.length - 1, state.selected + message.delta)) } }),
     view: (state) => dataGrid({
       id: 'rows',
+      meta: { accessibleName: 'Rows' },
       rows,
       getRowId: (row) => row.id,
       columns: [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }],
@@ -504,10 +525,11 @@ async function runPointerRoutingScenario() {
   const rows = Array.from({ length: 2_000 }, (_value, index) => ({ id: String(index), name: `Row ${String(index)}` }));
   const app = defineTui({
     id: 'benchmark-pointer-routing',
-    init: () => ({ selected: '0' }),
+    init: () => ({ state: { selected: '0' } }),
     update: (state, message) => ({ state: { selected: message.rowId } }),
     view: (state) => dataGrid({
       id: 'pointer-rows',
+      meta: { accessibleName: 'Pointer rows' },
       rows,
       getRowId: (row) => row.id,
       columns: [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }],
@@ -546,7 +568,7 @@ async function runPointerRoutingScenario() {
 async function runResizeStormScenario() {
   const app = defineTui({
     id: 'benchmark-resize-storm',
-    init: () => ({ label: 'resize' }),
+    init: () => ({ state: { label: 'resize' } }),
     update: (state) => ({ state }),
     view: (state) => text({ content: state.label })
   });

@@ -16,6 +16,7 @@ import type {
 } from '../interaction/editable-popup-input.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
+import { scrollReducer } from './scroll.ts';
 import type {
   ComboboxCommitEvent,
   ComboboxControlTransition,
@@ -100,7 +101,25 @@ export function autocompleteComboboxReducer(
       }
     : transition;
   const editor = editablePopupInputReducer(state.editor, editorTransition, options);
-  return editor === state.editor ? state : { ...state, editor };
+  if (editor === state.editor) return state;
+  if (state.scroll === undefined || editor.activeId === undefined) return { ...state, editor };
+  const index = options.indexForText(editor.input.text);
+  const itemIndex = collectionInteractionIds(index).indexOf(editor.activeId);
+  if (itemIndex < 0) return { ...state, editor };
+  return {
+    ...state,
+    editor,
+    scroll: scrollReducer(state.scroll, {
+      kind: 'itemIntoView',
+      itemIndex,
+      alignment: 'nearest',
+    }, {
+      contentRows: collectionInteractionIds(index).length,
+      contentColumns: 0,
+      viewportRows: Math.max(1, options.pageSize ?? 8),
+      viewportColumns: 0,
+    }),
+  };
 }
 
 export function commitAutocompleteCombobox(
@@ -170,12 +189,26 @@ export function comboboxReducer(
             delta: transition.delta * Math.max(1, options.pageSize ?? 8),
           }
         : transition;
+      const nextInteraction = collectionInteractionReducer(interaction, action, {
+        index: options.index,
+        ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
+      });
+      const nextScroll = opened.scroll === undefined || nextInteraction.activeId === undefined
+        ? opened.scroll
+        : scrollReducer(opened.scroll, {
+            kind: 'itemIntoView',
+            itemIndex: collectionInteractionIds(options.index).indexOf(nextInteraction.activeId),
+            alignment: 'nearest',
+          }, {
+            contentRows: collectionInteractionIds(options.index).length,
+            contentColumns: 0,
+            viewportRows: Math.max(1, options.pageSize ?? 8),
+            viewportColumns: 0,
+          });
       return {
         ...opened,
-        interaction: collectionInteractionReducer(interaction, action, {
-          index: options.index,
-          ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
-        }),
+        interaction: nextInteraction,
+        ...(nextScroll === undefined ? {} : { scroll: nextScroll }),
       };
     }
   }

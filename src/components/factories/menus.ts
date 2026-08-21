@@ -39,7 +39,7 @@ const dividerDefinitionBase = {
 };
 
 const labelledDivider = defineComponent<
-  Omit<DividerOptions, 'id' | 'meta'>,
+  Omit<DividerOptions, 'id' | 'styles' | 'meta'>,
   PreparedDivider,
   never,
   DividerStylePart,
@@ -60,7 +60,7 @@ const labelledDivider = defineComponent<
 });
 
 const decorativeDivider = defineComponent<
-  Omit<DividerOptions, 'id' | 'meta'>,
+  Omit<DividerOptions, 'id' | 'styles' | 'meta'>,
   PreparedDivider,
   DividerStylePart,
   'optional',
@@ -77,7 +77,7 @@ export function divider(options: DividerOptions): Element {
     : labelledDivider(options);
 }
 
-function prepareDivider(value: Readonly<Omit<DividerOptions, 'id' | 'meta'>>): PreparedDivider {
+function prepareDivider(value: Readonly<Omit<DividerOptions, 'id' | 'styles' | 'meta'>>): PreparedDivider {
     const orientation = value.orientation;
     const line = value.line;
     const label = value.label;
@@ -296,18 +296,15 @@ const instantiateTooltip = defineComponent<
     open: event.kind === 'focusEnter',
     reason: 'focus',
   }),
-  pointer: {
-    onAction: (action) => action.kind === 'enter'
-      ? { kind: 'setOpen', open: true, reason: 'pointer' }
-      : action.kind === 'leave'
-      ? { kind: 'setOpen', open: false, reason: 'pointer' }
-      : ignoreMessage(),
-  },
   hitTargets: ({ id, bounds }) => [{
     id: `${id ?? 'tooltip'}:trigger`,
     bounds,
-    accepts: ['click'],
-    message: () => ignoreMessage(),
+    accepts: ['enter', 'leave'],
+    message: (event) => event.kind === 'enter'
+      ? { kind: 'setOpen', open: true, reason: 'pointer' }
+      : event.kind === 'leave'
+        ? { kind: 'setOpen', open: false, reason: 'pointer' }
+        : ignoreMessage(),
   }],
   compose({ id, model, slots, styles, layer }) {
     if (!model.open) return slots.trigger;
@@ -315,19 +312,17 @@ const instantiateTooltip = defineComponent<
       content: model.lines.join('\n'),
       ...(styles?.parts?.content === undefined
         ? {}
-        : { meta: { styles: { root: styles.parts.content } } }),
+        : { styles: { root: styles.parts.content } }),
     });
     const panel = surface(content, {
       ...(model.title.length === 0 ? {} : { title: model.title }),
       border: model.border,
       maxWidth: model.maxWidth,
-      meta: {
-        styles: {
-          root: tooltipBackgroundStyle(model.tone, styles?.parts?.background),
-          parts: {
-            border: tooltipBorderStyle(model.tone, styles?.parts?.border),
-            ...(styles?.parts?.title === undefined ? {} : { title: styles.parts.title }),
-          },
+      styles: {
+        root: tooltipBackgroundStyle(model.tone, styles?.parts?.background),
+        parts: {
+          border: tooltipBorderStyle(model.tone, styles?.parts?.border),
+          ...(styles?.parts?.title === undefined ? {} : { title: styles.parts.title }),
         },
       },
     });
@@ -354,7 +349,6 @@ const instantiateTooltip = defineComponent<
     return {
       id,
       role: 'group',
-      label: 'Tooltip owner',
       ...(focused ? { focused: true } : {}),
       children: [
         trigger,

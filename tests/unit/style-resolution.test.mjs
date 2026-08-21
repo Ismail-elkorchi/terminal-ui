@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  defaultStyleForPart,
   defaultStyleForState,
   defaultStyleForTextRole
 } from '../../dist/renderer/style-resolution.js';
@@ -10,34 +9,6 @@ import {
 const foreground = (token, extra = {}) => ({
   fg: { kind: 'theme', token },
   ...extra
-});
-
-test('default part styles cover structural and interaction parts only', () => {
-  const selection = {
-    fg: { kind: 'theme', token: 'selection.foreground' },
-    bg: { kind: 'theme', token: 'selection.background' },
-    bold: true
-  };
-  const cases = [
-    ['root', foreground('text.default')],
-    ['content', foreground('text.default')],
-    ['value', foreground('text.default')],
-    ['border', foreground('surface.border')],
-    ['title', foreground('surface.title', { bold: true })],
-    ['label', foreground('text.strong')],
-    ['placeholder', foreground('input.placeholder')],
-    ['selected', selection],
-    ['focused', { bold: true }],
-    ['disabled', foreground('text.disabled', { dim: true })]
-  ];
-
-  for (const [part, expected] of cases) {
-    assert.deepEqual(defaultStyleForPart(part), expected, part);
-  }
-  for (const outcome of ['error', 'warning', 'success']) {
-    assert.equal(defaultStyleForPart(outcome), undefined, outcome);
-  }
-  assert.equal(defaultStyleForPart('caller-defined'), undefined);
 });
 
 test('default state styles cover interaction branches without result styling', () => {

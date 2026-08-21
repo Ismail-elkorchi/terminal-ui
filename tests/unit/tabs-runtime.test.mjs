@@ -5,14 +5,14 @@ import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import { tabs, text, textInput } from '../../dist/components/index.js';
 
 test('tabs render only the selected panel as focusable content', () => {
-  const element = tabs({
+  const element = tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
     presentation: { activeId: 'second', selectedId: 'second' },
     tabs: [
       {
         id: 'first',
         label: 'First',
-        panel: textInput({
+        panel: textInput({ meta: { accessibleName: "Text input" },
           id: 'first-input',
           presentation: { value: 'hidden', cursor: 0 },
           onAction: (action) => action
@@ -22,7 +22,7 @@ test('tabs render only the selected panel as focusable content', () => {
         id: 'second',
         label: 'Second',
         description: 'Visible editor panel',
-        panel: textInput({
+        panel: textInput({ meta: { accessibleName: "Text input" },
           id: 'second-input',
           presentation: { value: 'visible', cursor: 0 },
           onAction: (action) => action
@@ -57,7 +57,7 @@ test('tabs render only the selected panel as focusable content', () => {
 });
 
 test('tabs keep active markers disabled targets and overflow visible without color', () => {
-  const frame = renderElementFrame(tabs({
+  const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
     presentation: { activeId: 'alpha', selectedId: 'alpha' },
     tabs: [
@@ -76,7 +76,7 @@ test('tabs keep active markers disabled targets and overflow visible without col
 });
 
 test('tabs keep the selected tab visible when headers overflow', () => {
-  const frame = renderElementFrame(tabs({
+  const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
     presentation: { activeId: 'gamma', selectedId: 'gamma' },
     tabs: [
@@ -110,7 +110,7 @@ test('tabs keep the selected tab visible when headers overflow', () => {
 });
 
 test('tabs paint a complete strip and raise the selected tab', () => {
-  const frame = renderElementFrame(tabs({
+  const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'painted-tabs',
     presentation: { activeId: 'second', selectedId: 'second' },
     tabs: [
@@ -145,7 +145,7 @@ test('tabs paint a complete strip and raise the selected tab', () => {
 });
 
 test('tabs bound individual labels without losing close actions or accessible names', () => {
-  const frame = renderElementFrame(tabs({
+  const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'bounded-tabs',
     presentation: { activeId: 'long', selectedId: 'long' },
     maxTabWidth: 12,
@@ -171,7 +171,7 @@ test('tabs bound individual labels without losing close actions or accessible na
 });
 
 test('a one-cell tab limit prioritizes the close action over decoration', () => {
-  const frame = renderElementFrame(tabs({
+  const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'minimal-tab',
     presentation: { activeId: 'only', selectedId: 'only' },
     maxTabWidth: 1,
@@ -184,7 +184,7 @@ test('a one-cell tab limit prioritizes the close action over decoration', () => 
 });
 
 test('tab controls preserve one-cell geometry under ambiguous-wide profiles', () => {
-  const element = tabs({
+  const element = tabs({ meta: { accessibleName: "Tabs" },
     id: 'fixed-cell-tabs',
     presentation: { activeId: 'second', selectedId: 'second' },
     tabs: [

@@ -105,9 +105,9 @@ test('terminal harness delivers normalized input events to prompt runtimes', asy
 test('terminal harness delivers normalized key events to TUI runtimes', async () => {
   const app = defineTui({
     id: 'harness-key-events',
-    init: () => ({ submitted: false }),
+    init: () => ({ state: ({ submitted: false }) }),
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'submit',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onAction: (action) => action.kind === 'submit' ? { submitted: true } : ignoreMessage()
@@ -121,7 +121,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
       { kind: 'input', event: { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' } }
     ]
   });
-  const result = await runTui(app, harness.host);
+  const result = await runTui(app, { host: harness.host });
 
   assert.equal(result.status, 'completed');
   assert.deepEqual(result.state, { submitted: true });
@@ -244,16 +244,16 @@ test('terminal harness encodes normalized text key pointer paste and focus event
 test('terminal harness resize events drive active TUI resize handling', async () => {
   const app = defineTui({
     id: 'harness-resize',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
-    view: (_state, context) => textInput({
+    view: (_state, context) => textInput({ meta: { accessibleName: "Text input" },
       id: 'resize-field',
       presentation: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onAction: (action) => action.kind === 'submit' ? { done: true } : ignoreMessage()
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const running = runTui(app, harness.host);
+  const running = runTui(app, { host: harness.host });
 
   await waitUntil(() => harness.frames().length === 1);
   await harness.resize({ columns: 12, rows: 3 });
@@ -291,7 +291,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
       id: 'styled-line',
       segments: [{ kind: 'text', text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
     }),
-    tree({
+    tree({ meta: { accessibleName: "Tree" },
       id: 'tree',
       presentation: treePresentation,
       view: prepareTreeView(treeSource, treePresentation),

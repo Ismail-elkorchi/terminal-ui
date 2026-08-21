@@ -57,7 +57,7 @@ type Message = 'increment' | 'quit';
 
 const app = defineTui<{ readonly count: number }, Message>({
   id: 'counter',
-  init: () => ({ count: 0 }),
+  init: () => ({ state: { count: 0 } }),
   update: (state, message) => message === 'quit'
     ? { state, exit: { reason: 'quit' } }
     : { state: { count: state.count + 1 } },

@@ -18,9 +18,9 @@ function textInput(options) {
 test('TUI runtime does not reserve escape or ctrlC key events', async () => {
   const app = defineTui({
     id: 'unreserved-keys',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({ id: 'exit-field', presentation: { value: 'ready', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'exit-field', presentation: { value: 'ready', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -53,9 +53,9 @@ test('TUI runtime does not reserve escape or ctrlC key events', async () => {
 test('TUI runtime decodes input chunks before routing them', async () => {
   const app = defineTui({
     id: 'chunk-input',
-    init: () => ({ committed: false }),
+    init: () => ({ state: ({ committed: false }) }),
     update: (_state, message) => ({ state: { committed: message.committed } }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'commit-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
       onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
@@ -76,9 +76,9 @@ test('TUI runtime decodes input chunks before routing them', async () => {
 test('TUI runtime buffers split input chunks before routing them', async () => {
   const app = defineTui({
     id: 'split-chunk-input',
-    init: () => ({ committed: false }),
+    init: () => ({ state: ({ committed: false }) }),
     update: (_state, message) => ({ state: { committed: message.committed } }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'split-commit-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
       onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
@@ -106,7 +106,7 @@ test('TUI runtime buffers split input chunks before routing them', async () => {
 test('decoded input resolves earlier raw input before it is admitted', async () => {
   const app = defineTui({
     id: 'mixed-input-order',
-    init: () => [],
+    init: () => ({ state: [] }),
     update: (state, message) => ({ state: [...state, message] }),
     inputBindings: [{
       id: 'text',
@@ -148,9 +148,9 @@ test('decoded input resolves earlier raw input before it is admitted', async () 
 test('TUI runtime expires every incomplete terminal token before unrelated input arrives', async () => {
   const app = defineTui({
     id: 'incomplete-token-deadline',
-    init: () => ({ committed: false }),
+    init: () => ({ state: ({ committed: false }) }),
     update: (_state, message) => ({ state: { committed: message.committed } }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'deadline-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
       onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
@@ -177,13 +177,13 @@ test('TUI runtime expires every incomplete terminal token before unrelated input
 test('TUI runtime does not expire an active bracketed paste as Escape ambiguity', async () => {
   const app = defineTui({
     id: 'slow-paste',
-    init: () => '',
+    init: () => ({ state: '' }),
     update: (state, message) => ({
       state: message.operation.kind === 'insert'
         ? state.slice(0, message.operation.at) + message.operation.text + state.slice(message.operation.at)
         : state
     }),
-    view: (value) => textInput({
+    view: (value) => textInput({ meta: { accessibleName: "Text input" },
       id: 'slow-paste-field',
       presentation: { value, cursor: value.length },
       onAction: (action) => action.kind === 'edit'
@@ -212,9 +212,9 @@ test('TUI runtime does not expire an active bracketed paste as Escape ambiguity'
 test('TUI runtime ignores non-command paste, focus, and mouse events without corrupting state', async () => {
   const app = defineTui({
     id: 'protocol-input',
-    init: () => ({ committed: false }),
+    init: () => ({ state: ({ committed: false }) }),
     update: (_state, message) => ({ state: { committed: message.committed } }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'protocol-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
       onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
@@ -262,7 +262,7 @@ test('multi-code-point grapheme bindings do not depend on host chunk boundaries'
 async function actionsForChunks(chunks) {
   const app = defineTui({
     id: 'partition-invariant-input',
-    init: () => ({ actions: [] }),
+    init: () => ({ state: ({ actions: [] }) }),
     update: (state, message) => ({ state: { actions: [...state.actions, message.kind] } }),
     inputBindings: [{
       id: 'q',
@@ -288,7 +288,7 @@ async function actionsForChunks(chunks) {
 async function graphemeActions(chunks, binding) {
   const app = defineTui({
     id: 'grapheme-partition-input',
-    init: () => [],
+    init: () => ({ state: [] }),
     update: (state, message) => ({ state: [...state, message] }),
     inputBindings: [{
       id: 'grapheme',

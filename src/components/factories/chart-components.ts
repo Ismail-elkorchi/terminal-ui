@@ -13,10 +13,6 @@ import {
   assertRequiredCallback,
   isStringMember,
 } from '../../foundation/validation.ts';
-import {
-  preparePointerInteractionState,
-  type PointerInteractionState,
-} from '../../interaction/pointer-interaction.ts';
 import { createLocalCanvas2D, drawAreaSeries, drawLineSeries } from '../../renderer/index.ts';
 import {
   fillTextCells,
@@ -39,7 +35,12 @@ import type {
   HeatmapTransition,
   VisualizationActivateEvent,
 } from '../../ui-model/visualization.ts';
-import { ownSelectionState, type SelectionState } from '../../interaction/collection.ts';
+import {
+  assertCollectionInteractionReferences,
+  ownSelectionState,
+  prepareCollectionInteractionIndex,
+  type SelectionState,
+} from '../../interaction/collection.ts';
 import type { ChartStylePart } from '../../ui-model/style-parts.ts';
 import { isThemeColorToken } from '../../visual/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -74,19 +75,17 @@ interface BarChartModel extends ChartStatus {
   readonly maximum: number;
   readonly activeId?: string;
   readonly selection: SelectionState;
-  readonly pointerState?: PointerInteractionState;
 }
 
 type BarChartComponentOptions = Omit<
   BarChartOptions<ComponentMessage>,
   'id' | 'disabled' | 'busy' | 'inert' |
-  'onTransition' | 'onActivate' | 'onPointerAction' | 'meta'
+  'onTransition' | 'onActivate' | 'styles' | 'meta'
 >;
 
 type BarChartComponentAction =
   | { readonly kind: 'transition'; readonly transition: BarChartTransition }
-  | { readonly kind: 'activate'; readonly event: VisualizationActivateEvent }
-  | { readonly kind: 'pointerLifecycle'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+  | { readonly kind: 'activate'; readonly event: VisualizationActivateEvent };
 
 const barChartBase = {
   name: 'terminal-ui/components/bar-chart' as const,
@@ -97,6 +96,7 @@ const barChartBase = {
   accessibleRole: 'listbox' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
+  visualStates: ['active', 'selected', 'disabled', 'busy'] as const,
   measure: measureBarChart,
   render: paintBarChart,
   accessibility: barChartAccessibility,
@@ -114,8 +114,9 @@ const passiveBarChart = defineComponent<
   ChartStylePart,
   readonly ['busy'],
   'required',
-  readonly ['focus', 'layer', 'styles']
->({ ...barChartBase, prepare: (value) => prepareBarChart(value, false) });
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['active', 'selected', 'disabled', 'busy']
+>({ ...barChartBase, prepare: prepareBarChart });
 
 const activeBarChart = defineComponent<
   BarChartComponentOptions,
@@ -124,11 +125,12 @@ const activeBarChart = defineComponent<
   ChartStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['active', 'selected', 'disabled', 'busy']
 >({
   ...barChartBase,
   states: ['disabled', 'busy', 'inert'],
-  prepare: (value, context) => prepareBarChart(value, !context.disabled && !context.inert),
+  prepare: prepareBarChart,
   keys: ({ model, busy }) => {
     if (busy) return {};
     const active = activeBar(model);
@@ -142,10 +144,6 @@ const activeBarChart = defineComponent<
         enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: active.id } }),
       }),
     };
-  },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets(input) {
@@ -179,16 +177,12 @@ export function barChart<const TMessage extends ComponentMessage = never>(
     ...componentOptions,
     onAction: (action) => {
       if (action.kind === 'transition') return options.onTransition(action.transition);
-      if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
-      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      return options.onActivate?.(action.event) ?? ignoreMessage();
     },
   });
 }
 
-function prepareBarChart(
-  value: Readonly<BarChartComponentOptions>,
-  pointerAvailable: boolean,
-): BarChartModel {
+function prepareBarChart(value: Readonly<BarChartComponentOptions>): BarChartModel {
   const label = nonEmpty(value.label, 'barChart label');
   const ids = new Set<string>();
   const items = Object.freeze(value.items.map((candidate, itemIndex): PreparedBar => {
@@ -212,10 +206,10 @@ function prepareBarChart(
     value.presentation?.selection ?? { mode: 'none' },
     'barChart selection',
   );
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'barChart pointerState',
-    pointerAvailable,
+  assertCollectionInteractionReferences(
+    { ...(activeId === undefined ? {} : { activeId }), selection },
+    prepareCollectionInteractionIndex(items.map((item) => item.id)),
+    'barChart presentation',
   );
   return {
     label,
@@ -224,7 +218,6 @@ function prepareBarChart(
     ...(activeId === undefined ? {} : { activeId }),
     selection,
     ...prepareStatus(value, 'barChart', items.length === 0),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -251,6 +244,10 @@ function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart
   for (const [row, item] of plan.items.entries()) {
     const active = item.id === input.model.activeId;
     const selected = selectionContains(input.model.selection, item.id);
+    const states = [
+      ...(selected ? ['selected' as const] : []),
+      ...(active ? ['active' as const] : []),
+    ];
     const prefix = active
       ? input.theme.tokens.symbols.pointer
       : input.theme.tokens.symbols.unselected;
@@ -276,7 +273,7 @@ function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart
         'marker',
         visualStyle,
         undefined,
-        selected ? 'selected' : active ? 'active' : undefined,
+        states,
       ),
       chartSpan(input, ' ', 'muted', `bar.${item.id}.separator.beforeLabel`, 'separator'),
       chartSpan(
@@ -287,7 +284,7 @@ function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart
         'label',
         visualStyle,
         undefined,
-        selected ? 'selected' : active ? 'active' : undefined,
+        states,
       ),
       chartSpan(input, ' ', 'muted', `bar.${item.id}.separator.beforeFill`, 'separator'),
       chartSpan(
@@ -300,7 +297,7 @@ function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart
         'bar',
         visualStyle ?? seriesStyle(item.itemIndex),
         item.itemIndex,
-        selected ? 'selected' : active ? 'active' : undefined,
+        states,
       ),
       chartSpan(input, ' ', 'muted', `bar.${item.id}.separator.beforeValue`, 'separator'),
       chartSpan(
@@ -311,7 +308,7 @@ function paintBarChart(input: ComponentRenderInput<BarChartModel, ChartStylePart
         'metric',
         visualStyle,
         undefined,
-        selected ? 'selected' : active ? 'active' : undefined,
+        states,
       ),
     ]);
   }
@@ -388,19 +385,17 @@ interface ChartModel extends ChartStatus {
   readonly sampleMode: ChartSampleMode;
   readonly sampleAlign: ChartSampleAlign;
   readonly interpolation: ChartInterpolation;
-  readonly pointerState?: PointerInteractionState;
 }
 
 type ChartComponentOptions = Omit<
   ChartOptions<ComponentMessage>,
   'id' | 'disabled' | 'busy' | 'inert' |
-  'onTransition' | 'onActivate' | 'onPointerAction' | 'meta'
+  'onTransition' | 'onActivate' | 'styles' | 'meta'
 >;
 
 type ChartComponentAction =
   | { readonly kind: 'transition'; readonly transition: ChartTransition }
-  | { readonly kind: 'activate'; readonly event: VisualizationActivateEvent }
-  | { readonly kind: 'pointerLifecycle'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+  | { readonly kind: 'activate'; readonly event: VisualizationActivateEvent };
 
 const chartBase = {
   name: 'terminal-ui/components/chart' as const,
@@ -411,6 +406,7 @@ const chartBase = {
   accessibleRole: 'listbox' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted', 'baseline'] as const,
+  visualStates: ['active', 'selected', 'disabled', 'busy'] as const,
   measure: measureChart,
   render: paintChart,
   accessibility: chartAccessibility,
@@ -432,8 +428,9 @@ const passiveChart = defineComponent<
   ChartStylePart,
   readonly ['busy'],
   'required',
-  readonly ['focus', 'layer', 'styles']
->({ ...chartBase, prepare: (value) => prepareChart(value, false) });
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['active', 'selected', 'disabled', 'busy']
+>({ ...chartBase, prepare: prepareChart });
 
 const activeChart = defineComponent<
   ChartComponentOptions,
@@ -442,11 +439,12 @@ const activeChart = defineComponent<
   ChartStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['active', 'selected', 'disabled', 'busy']
 >({
   ...chartBase,
   states: ['disabled', 'busy', 'inert'],
-  prepare: (value, context) => prepareChart(value, !context.disabled && !context.inert),
+  prepare: prepareChart,
   keys: ({ model, busy }) => {
     if (busy) return {};
     const transition = (value: ChartTransition): ChartComponentAction => ({ kind: 'transition', transition: value });
@@ -463,10 +461,6 @@ const activeChart = defineComponent<
         enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: model.activeId ?? '' } }),
       }),
     };
-  },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets: (input) => input.busy ? [] : chartHitTargets(input),
@@ -487,16 +481,12 @@ export function chart<const TMessage extends ComponentMessage = never>(
     ...componentOptions,
     onAction: (action) => {
       if (action.kind === 'transition') return options.onTransition(action.transition);
-      if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
-      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      return options.onActivate?.(action.event) ?? ignoreMessage();
     },
   });
 }
 
-function prepareChart(
-  value: Readonly<ChartComponentOptions>,
-  pointerAvailable: boolean,
-): ChartModel {
+function prepareChart(value: Readonly<ChartComponentOptions>): ChartModel {
   const label = nonEmpty(value.label, 'chart label');
   const seriesIds = new Set<string>();
   const globalPointIds = new Set<string>();
@@ -563,10 +553,10 @@ function prepareChart(
     value.presentation?.selection ?? { mode: 'none' },
     'chart selection',
   );
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'chart pointerState',
-    pointerAvailable,
+  assertCollectionInteractionReferences(
+    { ...(activeId === undefined ? {} : { activeId }), selection },
+    prepareCollectionInteractionIndex(series.flatMap((item) => item.points.map((point) => point.id))),
+    'chart presentation',
   );
   const xLabel = optionalText(value.xLabel, 'chart xLabel');
   const yLabel = optionalText(value.yLabel, 'chart yLabel');
@@ -595,7 +585,6 @@ function prepareChart(
       'chart interpolation',
     ) ?? 'nearest',
     ...prepareStatus(value, 'chart', values.length === 0),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -665,12 +654,12 @@ function paintChart(input: ComponentRenderInput<ChartModel, ChartStylePart>): vo
       selected,
       layout.plotWidth,
       layout.plotHeight,
-      'selection',
+      selected.point.id === input.model.activeId ? ['selected', 'active'] : ['selected'],
     );
   }
   const active = activeChartPoint(input.model);
   if (active === undefined || selectionContains(input.model.selection, active.point.id)) return;
-  paintChartPointMarker(input, canvas, active, layout.plotWidth, layout.plotHeight, 'active');
+  paintChartPointMarker(input, canvas, active, layout.plotWidth, layout.plotHeight, ['active']);
 }
 
 function paintChartPointMarker(
@@ -679,7 +668,7 @@ function paintChartPointMarker(
   target: { readonly series: PreparedSeries; readonly point: PreparedPoint },
   plotWidth: number,
   plotHeight: number,
-  state: 'active' | 'selection',
+  states: readonly ('active' | 'selected')[],
 ): void {
   const projected = projectedSelection(
     input.model,
@@ -688,18 +677,19 @@ function paintChartPointMarker(
     target.point.pointIndex,
   );
   if (projected === undefined) return;
+  const selected = states.includes('selected');
   canvas.point(
     projected.column,
     yForValue(projected.value, { min: input.model.minimum, max: input.model.maximum }, plotHeight),
     chartSpan(
       input,
-      oneCellGlyph(state === 'selection' ? '◆' : '◇', '*', { widthProfile: input.widthProfile }),
+      oneCellGlyph(selected ? '◆' : '◇', '*', { widthProfile: input.widthProfile }),
       'series',
-      `${state}.${target.series.id}.${target.point.id}`,
-      state === 'selection' ? 'selected' : 'active',
-      state === 'selection' ? selectedStyle() : seriesStyle(target.series.seriesIndex),
+      `${selected ? 'selection' : 'active'}.${target.series.id}.${target.point.id}`,
+      selected ? 'selected' : 'active',
+      selected ? selectedStyle() : seriesStyle(target.series.seriesIndex),
       target.point.pointIndex,
-      state === 'selection' ? 'selected' : 'active',
+      states,
     ),
   );
 }
@@ -1142,19 +1132,17 @@ interface HeatmapModel extends ChartStatus {
   readonly cellWidth: number;
   readonly gap: number;
   readonly valueScale: readonly ValueScaleStop[];
-  readonly pointerState?: PointerInteractionState;
 }
 
 type HeatmapComponentOptions = Omit<
   HeatmapOptions<unknown, ComponentMessage>,
   'id' | 'disabled' | 'busy' | 'inert' |
-  'onTransition' | 'onActivate' | 'onPointerAction' | 'meta'
+  'onTransition' | 'onActivate' | 'styles' | 'meta'
 >;
 
 type HeatmapComponentAction =
   | { readonly kind: 'transition'; readonly transition: HeatmapTransition }
-  | { readonly kind: 'activate'; readonly event: VisualizationActivateEvent }
-  | { readonly kind: 'pointerLifecycle'; readonly action: import('../../interaction/pointer-interaction.ts').PointerInteractionAction };
+  | { readonly kind: 'activate'; readonly event: VisualizationActivateEvent };
 
 const heatmapBase = {
   name: 'terminal-ui/components/heatmap' as const,
@@ -1165,6 +1153,7 @@ const heatmapBase = {
   accessibleRole: 'grid' as const,
   metadata: ['focus', 'layer', 'styles'] as const,
   parts: ['label', 'axis', 'series', 'value', 'legend', 'muted'] as const,
+  visualStates: ['active', 'selected', 'disabled', 'busy'] as const,
   measure: measureHeatmap,
   render: paintHeatmap,
   accessibility: heatmapAccessibility,
@@ -1186,8 +1175,9 @@ const passiveHeatmap = defineComponent<
   ChartStylePart,
   readonly ['busy'],
   'required',
-  readonly ['focus', 'layer', 'styles']
->({ ...heatmapBase, prepare: (value) => prepareHeatmap(value, false) });
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['active', 'selected', 'disabled', 'busy']
+>({ ...heatmapBase, prepare: prepareHeatmap });
 
 const activeHeatmap = defineComponent<
   HeatmapComponentOptions,
@@ -1196,11 +1186,12 @@ const activeHeatmap = defineComponent<
   ChartStylePart,
   readonly ['disabled', 'busy', 'inert'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['active', 'selected', 'disabled', 'busy']
 >({
   ...heatmapBase,
   states: ['disabled', 'busy', 'inert'],
-  prepare: (value, context) => prepareHeatmap(value, !context.disabled && !context.inert),
+  prepare: prepareHeatmap,
   keys: ({ model, busy }) => {
     if (busy) return {};
     const transition = (value: HeatmapTransition): HeatmapComponentAction => ({ kind: 'transition', transition: value });
@@ -1217,10 +1208,6 @@ const activeHeatmap = defineComponent<
         enter: () => ({ kind: 'activate' as const, event: { kind: 'activate' as const, id: model.activeId ?? '' } }),
       }),
     };
-  },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   hitTargets(input) {
@@ -1266,8 +1253,7 @@ export function heatmap<TValue, const TMessage extends ComponentMessage = never>
     ...componentOptions,
     onAction: (action) => {
       if (action.kind === 'transition') return options.onTransition(action.transition);
-      if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
-      return options.onPointerAction?.(action.action) ?? ignoreMessage();
+      return options.onActivate?.(action.event) ?? ignoreMessage();
     },
   });
 }
@@ -1276,33 +1262,27 @@ function assertVisualizationCallbacks(
   options: {
     readonly onTransition?: unknown;
     readonly onActivate?: unknown;
-    readonly onPointerAction?: unknown;
   },
   component: string,
 ): void {
   assertRequiredCallback(options.onTransition, `${component} onTransition`);
   assertOptionalCallback(options.onActivate, `${component} onActivate`);
-  assertOptionalCallback(options.onPointerAction, `${component} onPointerAction`);
 }
 
 type WithoutVisualizationBehavior<TOptions> = TOptions extends unknown
-  ? Omit<TOptions, 'onTransition' | 'onActivate' | 'onPointerAction'>
+  ? Omit<TOptions, 'onTransition' | 'onActivate'>
   : never;
 
 function withoutVisualizationBehavior<TOptions extends {
   readonly onTransition?: unknown;
   readonly onActivate?: unknown;
-  readonly onPointerAction?: unknown;
 }>(options: TOptions): WithoutVisualizationBehavior<TOptions> {
   return Object.fromEntries(Object.entries(options).filter(([field]) =>
-    field !== 'onTransition' && field !== 'onActivate' && field !== 'onPointerAction'
+    field !== 'onTransition' && field !== 'onActivate'
   )) as WithoutVisualizationBehavior<TOptions>;
 }
 
-function prepareHeatmap(
-  value: Readonly<HeatmapComponentOptions>,
-  pointerAvailable: boolean,
-): HeatmapModel {
+function prepareHeatmap(value: Readonly<HeatmapComponentOptions>): HeatmapModel {
   const label = nonEmpty(value.label, 'heatmap label');
   const ids = new Set<string>();
   const values: number[] = [];
@@ -1335,11 +1315,19 @@ function prepareHeatmap(
     value.presentation?.selection ?? { mode: 'none' },
     'heatmap selection',
   );
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'heatmap pointerState',
-    pointerAvailable,
+  const cells = rows.flat();
+  assertCollectionInteractionReferences(
+    { selection },
+    prepareCollectionInteractionIndex(cells.map((cell) => cell.id)),
+    'heatmap presentation',
   );
+  if (activeId !== undefined) {
+    assertCollectionInteractionReferences(
+      { activeId, selection: { mode: 'none' } },
+      prepareCollectionInteractionIndex(cells.filter((cell) => !cell.disabled).map((cell) => cell.id)),
+      'heatmap presentation',
+    );
+  }
   return {
     label,
     rows,
@@ -1351,7 +1339,6 @@ function prepareHeatmap(
     gap: boundedInteger(value.gap, 0, 4, 1, 'heatmap gap'),
     valueScale: prepareValueScale(value.valueScale, 'heatmap valueScale'),
     ...prepareStatus(value, 'heatmap', values.length === 0),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -1400,6 +1387,10 @@ function heatmapCellSpans(
   const glyph = glyphs[intensity] ?? glyphs[0];
   const active = cell.id === input.model.activeId;
   const selected = selectionContains(input.model.selection, cell.id);
+  const states = [
+    ...(selected ? ['selected' as const] : []),
+    ...(active ? ['active' as const] : []),
+  ];
   const style = heatmapStyle(input.model, cell.value, intensity, active || selected);
   const id = `cell.${cell.id}`;
   if (!active && !selected) {
@@ -1411,6 +1402,7 @@ function heatmapCellSpans(
       'cell',
       style,
       cell.itemIndex,
+      states,
     )];
   }
   if (input.model.cellWidth === 1) {
@@ -1422,11 +1414,12 @@ function heatmapCellSpans(
       'selected',
       style,
       cell.itemIndex,
+      states,
     )];
   }
   if (input.model.cellWidth === 2) {
     return [
-      chartSpan(input, '›', 'series', `${id}.selected.marker`, 'marker', style),
+      chartSpan(input, '›', 'series', `${id}.selected.marker`, 'marker', style, undefined, states),
       chartSpan(
         input,
         fillTextCells(glyph, 1, { widthProfile: input.widthProfile }),
@@ -1435,11 +1428,12 @@ function heatmapCellSpans(
         'cell',
         style,
         cell.itemIndex,
+        states,
       ),
     ];
   }
   return [
-    chartSpan(input, '[', 'series', `${id}.selected.open`, 'marker', style),
+    chartSpan(input, '[', 'series', `${id}.selected.open`, 'marker', style, undefined, states),
     chartSpan(
       input,
       fillTextCells(glyph, Math.max(1, input.model.cellWidth - 2), {
@@ -1450,8 +1444,9 @@ function heatmapCellSpans(
       'cell',
       style,
       cell.itemIndex,
+      states,
     ),
-    chartSpan(input, ']', 'series', `${id}.selected.close`, 'marker', style),
+    chartSpan(input, ']', 'series', `${id}.selected.close`, 'marker', style, undefined, states),
   ];
 }
 
@@ -1576,8 +1571,13 @@ function chartSpan<TModel extends object>(
   partType: string,
   base?: TerminalStyle,
   itemIndex?: number,
-  state?: Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'>,
+  stateOrStates?: Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'> |
+    readonly Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'>[],
 ): RenderSpan {
+  const states = stateOrStates === undefined
+    ? (partType === 'selected' ? ['selected' as const] : [])
+    : typeof stateOrStates === 'string' ? [stateOrStates] : stateOrStates;
+  const state = states.at(-1);
   const semanticBase = base ?? (
     part === 'label'
       ? { fg: { kind: 'theme', token: 'chart.label' } } as const
@@ -1587,7 +1587,7 @@ function chartSpan<TModel extends object>(
   );
   const style = input.style({
     part,
-    ...(state === undefined && partType !== 'selected' ? {} : { state: state ?? 'selected' }),
+    ...(states.length === 0 ? {} : { states }),
     ...(semanticBase === undefined ? {} : { base: semanticBase }),
   });
   return span(text, {
@@ -1605,6 +1605,7 @@ function chartSpan<TModel extends object>(
       partType,
       description,
       ...(itemIndex === undefined ? {} : { itemIndex }),
+      ...(state === undefined ? {} : { interactionState: state }),
     }),
   });
 }

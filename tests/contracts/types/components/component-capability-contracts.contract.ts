@@ -36,16 +36,14 @@ commandInput({
   disabled: true,
   readOnly: true
 });
-textInput({
+textInput<{ readonly kind: 'query'; readonly action: import('@ismail-elkorchi/terminal-ui/components').TextInputAction }>({
   id: 'query',
   presentation: { value: 'term', cursor: 0 },
   onAction: (action) => ({ kind: 'query' as const, action }),
-  meta: {
-    styles: {
+  styles: {
       parts: { value: { bold: true }, cursor: { underline: true } },
-      states: { focused: { bold: true } }
+      states: { focused: { root: { bold: true } } }
     }
-  }
 });
 contextMenu({
   id: 'invalid-read-only-menu',
@@ -89,10 +87,28 @@ textInput({
   onAction: () => {
     throw new Error('type-only contract');
   },
-  meta: {
-    styles: {
+  styles: {
       // @ts-expect-error text inputs do not expose table anatomy
       parts: { headerCell: { bold: true } }
+    }
+});
+text({
+  content: 'Passive',
+  styles: {
+    // @ts-expect-error passive text exposes no visual states
+    states: {
+      focused: { root: { bold: true } }
+    }
+  }
+});
+button({
+  id: 'invalid-selected-button-style',
+  label: 'Save',
+  onAction: () => ({ kind: 'save' as const }),
+  styles: {
+    states: {
+      // @ts-expect-error buttons do not expose collection selection styling
+      selected: { root: { bold: true } }
     }
   }
 });

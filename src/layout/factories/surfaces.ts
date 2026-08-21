@@ -1,6 +1,13 @@
 import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import type { RenderNode } from '../../renderer/model/index.ts';
-import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementOptions } from '../../element/index.ts';
+import type {
+  Element,
+  ElementChildren,
+  ElementChildrenMessage,
+  ElementMessage,
+  StructuralElementOptions
+} from '../../element/index.ts';
+import { adoptElementStyles } from '../../element/styles.ts';
 import type {
   AbsoluteOptions,
   AnchoredOptions,
@@ -43,7 +50,16 @@ export function surface<const TChild extends Element<unknown>>(
       ...surfaceLayoutProps(options)
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
-    ...componentMetaProps(options.meta)
+    ...componentMetaProps({
+      ...options,
+      ...(options.styles === undefined ? {} : {
+        styles: adoptElementStyles(options.styles, {
+          subject: 'surface() styles',
+          parts: new Set(['border', 'title']),
+          states: new Set(),
+        }),
+      }),
+    })
   });
 }
 
@@ -70,17 +86,17 @@ export function absolute<const TChild extends Element<unknown>>(
       ...(options.height === undefined ? {} : { height: options.height })
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
-    ...componentMetaProps(options.meta)
+    ...componentMetaProps(options)
   });
 }
 
 export function overlay<const TChildren extends ElementChildren>(
   children: TChildren,
-  options?: ElementOptions
+  options?: StructuralElementOptions
 ): Element<ElementChildrenMessage<TChildren>>;
 export function overlay<const TChildren extends ElementChildren>(
   children: TChildren,
-  options: ElementOptions = {}
+  options: StructuralElementOptions = {}
 ): Element<ElementChildrenMessage<TChildren>> {
   type Message = ElementChildrenMessage<TChildren>;
   return layoutElementFromRenderNode<'overlay', Message>({
@@ -88,7 +104,7 @@ export function overlay<const TChildren extends ElementChildren>(
     kind: 'overlay',
     props: {},
     children: renderNodeChildren(children),
-    ...componentMetaProps(options.meta)
+    ...componentMetaProps(options)
   });
 }
 
@@ -109,7 +125,7 @@ export function anchored<const TChild extends Element<unknown>>(
       ...(options.fit === undefined ? {} : { fit: options.fit })
     },
     children: [toRenderNode(child)],
-    ...componentMetaProps(options.meta)
+    ...componentMetaProps(options)
   });
 }
 
@@ -146,7 +162,7 @@ export function portal<
       ...(options.onOutsidePress === undefined ? {} : { toOutsideMessage: options.onOutsidePress })
     },
     children: [toRenderNode(child)],
-    ...componentMetaProps(options.meta)
+    ...componentMetaProps(options)
   });
 }
 

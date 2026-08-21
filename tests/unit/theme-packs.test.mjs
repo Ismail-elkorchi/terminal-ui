@@ -144,7 +144,7 @@ test('theme matrix snapshots cover core components with packs high contrast and 
           { id: 'c', label: 'c', value: 80 }
         ]
       }),
-      dataGrid({
+      dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: `dataGrid-${theme.name}`,
         columns: [{
@@ -175,7 +175,7 @@ test('default theme specimen composes surface control text command log and data 
         { kind: 'text', text: 'docs', link: { href: 'https://example.test/docs' } }
       ]
     }),
-    tabs({
+    tabs({ meta: { accessibleName: "Tabs" },
       id: 'specimen-tabs',
       presentation: { activeId: 'one', selectedId: 'one' },
       tabs: [
@@ -188,10 +188,9 @@ test('default theme specimen composes surface control text command log and data 
       id: 'specimen-button',
       label: 'Primary',
       tone: 'primary',
-      onAction: () => ignoreMessage(),
-      pointerState: { pressedTargetId: 'specimen-button:control' }
+      onAction: () => ignoreMessage()
     }),
-    commandInput({
+    commandInput({ meta: { accessibleName: "Command input" },
       id: 'specimen-command',
       presentation: {
         value: '/open readme',
@@ -243,7 +242,7 @@ test('default theme specimen composes surface control text command log and data 
         }
       ]
     }),
-    dataGrid({
+    dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'specimen-dataGrid',
       presentation: {
@@ -298,7 +297,7 @@ test('default theme specimen composes surface control text command log and data 
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'tab.inactive.foreground'), true);
   assert.equal(frame.cells.some((cell) => cell.source?.partName === 'indicator' && cell.style?.fg?.token === 'tab.indicator'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.token === 'badge.background'), true);
-  assert.equal(frame.cells.find((cell) => cell.text === 'P')?.style?.bg?.token, 'selection.background');
+  assert.equal(frame.cells.find((cell) => cell.text === 'P')?.style?.bg?.token, 'control.primary.background');
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'command.prompt'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.info'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.warning'), true);

@@ -19,7 +19,6 @@ export type {
   ComponentMeasureConstraints,
   ComponentMeasureInput,
   ComponentMessage,
-  ComponentPointerActions,
   ComponentPreparationContext,
   ComponentRenderInput,
   ComponentSlotCardinality,
@@ -37,6 +36,7 @@ export type {
   ComponentStateCapability,
   ComponentStyleInput,
   ComponentTextActionInput,
+  ComponentVisualState,
   DecorativeLeafComponentFactory,
   DecorativeLeafDefinition,
   DecorativeLeafComponentDefinition,
@@ -65,6 +65,7 @@ export type {
 } from '../element/metadata.ts';
 export { ignoreMessage } from '../interaction/message.ts';
 export { mapComponentStyles } from './styles.ts';
+export { mergeElementStyles } from '../element/styles.ts';
 export { measureConstrainedBox } from './measurement.ts';
 export type { ComponentStylePartMapping } from './styles.ts';
 export type { IgnoredMessage, MessageResolution } from '../interaction/message.ts';

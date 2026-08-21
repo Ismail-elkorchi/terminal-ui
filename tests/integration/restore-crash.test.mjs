@@ -3,7 +3,8 @@ import test from 'node:test';
 
 import {
   defineTui,
-  runTui
+  runTui,
+  TuiRunError,
 } from '../../dist/tui/index.js';
 import { createPtyTerminalHarness } from '../../dist/testing/index.js';
 
@@ -13,15 +14,21 @@ test('PTY harness restores terminal protocols when a TUI throws during rendering
   const harness = result.harness;
   const app = defineTui({
     id: 'pty-crash-restore',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => {
       throw new Error('render exploded');
     }
   });
 
-  const exit = await runTui(app, harness.host);
+  let exit;
+  await assert.rejects(runTui(app, { host: harness.host }), (error) => {
+    assert.ok(error instanceof TuiRunError);
+    exit = error.exit;
+    return true;
+  });
 
+  assert.notEqual(exit, undefined);
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_STARTUP_FAILED'), true);
   assert.equal(harness.host.stdin.isRawModeEnabled?.(), false);

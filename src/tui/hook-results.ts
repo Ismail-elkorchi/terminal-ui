@@ -7,10 +7,31 @@ import type {
   TuiEffectContext,
   TuiEffectOutput,
   TuiEventSource,
+  TuiInitialResult,
   TuiSubscriptionContext,
+  TuiSourceSink,
   TuiUpdateResult
 } from './types.ts';
-import type { TuiSourceEmission } from './types.ts';
+
+export function decodeTuiInitialResult<TState, TMessage>(
+  value: unknown,
+): TuiInitialResult<TState, TMessage> {
+  const result = objectResult(value, 'TUI initial result');
+  if (!Object.hasOwn(result, 'state')) {
+    throw new TypeError('TUI initial result must provide state.');
+  }
+  const effects = optionalArray(result['effects'], 'TUI initial effects')?.map(decodeTuiEffect<TMessage>);
+  const focus = result['focus'] === undefined
+    ? undefined
+    : decodeInitialFocusSelector(result['focus'], 'TUI initial focus');
+  const exit = decodeExitRequest(result['exit'], 'TUI initial exit');
+  return Object.freeze({
+    state: result['state'] as TState,
+    ...(effects === undefined ? {} : { effects: Object.freeze(effects) }),
+    ...(focus === undefined ? {} : { focus }),
+    ...(exit === undefined ? {} : { exit }),
+  });
+}
 
 export function decodeTuiUpdateResult<TState, TMessage>(
   value: unknown
@@ -25,7 +46,7 @@ export function decodeTuiUpdateResult<TState, TMessage>(
   const focus = result['focus'] === undefined
     ? undefined
     : decodeInitialFocusSelector(result['focus'], 'TUI update focus');
-  const exit = decodeExitRequest(result['exit']);
+  const exit = decodeExitRequest(result['exit'], 'TUI update exit');
   return Object.freeze({
     state: result['state'] as TState,
     ...(cancelEffects === undefined ? {} : { cancelEffects: Object.freeze(cancelEffects) }),
@@ -132,8 +153,8 @@ function decodeTuiEventSource<TMessage>(value: unknown, index: number): TuiEvent
       cadenceMs = cadenceCandidate;
     }
   }
-  const messages = source['messages'];
-  if (typeof messages !== 'function') throw new TypeError(`${label} messages must be a function.`);
+  const run = source['run'];
+  if (typeof run !== 'function') throw new TypeError(`${label} run must be a function.`);
   const onLifecycle = source['onLifecycle'];
   if (onLifecycle !== undefined && typeof onLifecycle !== 'function') {
     throw new TypeError(`${label} onLifecycle must be a function when provided.`);
@@ -149,28 +170,14 @@ function decodeTuiEventSource<TMessage>(value: unknown, index: number): TuiEvent
     ...(capacity === undefined ? {} : {
       channel: Object.freeze({ capacity, ...(cadenceMs === undefined ? {} : { cadenceMs }) }),
     }),
-    messages: (context: TuiSubscriptionContext) =>
-      decodeAsyncIterable<TuiSourceEmission<TMessage>>(
-        messages.call(source, context),
-        `${label} messages result`,
-      ),
+    run: (context: TuiSubscriptionContext, sink: TuiSourceSink<TMessage>) =>
+      Promise.resolve(run.call(source, context, sink)) as Promise<void>,
     ...(onLifecycle === undefined ? {} : {
       onLifecycle: (event: Parameters<NonNullable<TuiEventSource<TMessage>['onLifecycle']>>[0]) =>
         decodeMessageResolution<TMessage>(onLifecycle.call(source, event), `${label} onLifecycle`)
     }),
     ...(dispose === undefined ? {} : { dispose: () => dispose.call(source) as void | Promise<void> })
   });
-}
-
-function decodeAsyncIterable<TValue>(value: unknown, label: string): AsyncIterable<TValue> {
-  if (
-    (typeof value !== 'object' && typeof value !== 'function')
-    || value === null
-    || typeof (value as { readonly [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] !== 'function'
-  ) {
-    throw new TypeError(`${label} must be an async iterable.`);
-  }
-  return value as AsyncIterable<TValue>;
 }
 
 function decodeInitialFocusSelector(value: unknown, label: string): InitialFocusSelector {
@@ -194,12 +201,12 @@ function decodeInitialFocusSelector(value: unknown, label: string): InitialFocus
   throw new TypeError(`${label} kind is invalid.`);
 }
 
-function decodeExitRequest(value: unknown): { readonly reason?: string } | undefined {
+function decodeExitRequest(value: unknown, label: string): { readonly reason?: string } | undefined {
   if (value === undefined) return undefined;
-  const exit = objectResult(value, 'TUI update exit');
+  const exit = objectResult(value, label);
   const reason = exit['reason'];
   if (reason !== undefined && typeof reason !== 'string') {
-    throw new TypeError('TUI update exit reason must be a string when provided.');
+    throw new TypeError(`${label} reason must be a string when provided.`);
   }
   return Object.freeze(reason === undefined ? {} : { reason });
 }

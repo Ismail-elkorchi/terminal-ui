@@ -61,13 +61,8 @@ export function prepareProgressSnapshot(progress: unknown): ProgressSnapshot {
   }
   const ownedStatus = status === undefined ? undefined : sanitizeTerminalText(status).text;
   if (progress['kind'] === 'indeterminate') {
-    const frame = progress['frame'];
-    if (frame !== undefined && (!Number.isSafeInteger(frame) || (frame as number) < 0)) {
-      throw new RangeError('Indeterminate progress frame must be a non-negative safe integer.');
-    }
     return Object.freeze({
       kind: 'indeterminate',
-      ...(frame === undefined ? {} : { frame: frame as number }),
       ...(ownedStatus === undefined ? {} : { status: ownedStatus })
     });
   }

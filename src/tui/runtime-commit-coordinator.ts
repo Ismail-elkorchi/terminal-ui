@@ -25,10 +25,12 @@ import type { TuiContext, TuiRuntimeOptions } from './types.ts';
 import { createTerminalGraphicsCommitter } from './graphics-committer.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { sameThemeRendering } from '../theme/theme.ts';
+import type { PointerVisualSnapshot } from '../interaction/pointer-interaction.ts';
 
 export function createRuntimeCommitCoordinator<TState, TMessage>(
   options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics' | 'graphicsBudget'> & {
     readonly reportDiagnostic?: (item: TerminalDiagnostic) => void;
+    readonly pointerVisuals?: () => PointerVisualSnapshot;
   },
   signal: AbortSignal
 ) {
@@ -82,7 +84,13 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       if (cleanup.length === 0) return;
       requireCommittedTerminalWrite(await options.host.write({ text: cleanup }));
     },
-    async initial(state: TState, context: TuiContext, stateVersion: number, publishState: () => void) {
+    async initial(
+      state: TState,
+      context: TuiContext,
+      stateVersion: number,
+      publishState: () => void,
+      focus = pendingInitialFocus,
+    ) {
       const theme = resolveTuiTheme(options.theme, state);
       const resolution = resolveCandidate(
         state,
@@ -90,7 +98,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         theme,
         currentFocusPath,
         focusReturnPaths,
-        pendingInitialFocus,
+        focus,
         stateVersion,
         candidateCommitId()
       );
@@ -216,6 +224,7 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       stateVersion,
       commitId,
       options.graphicsBudget,
+      options.pointerVisuals?.(),
     );
     if (initialFocus !== undefined) {
       const resolution = resolveInitialFocusSelector(render.layout, initialFocus);
@@ -227,7 +236,8 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
           render,
           desiredFocusPath,
           stateVersion,
-          commitId
+          commitId,
+          options.pointerVisuals?.(),
         );
       } else if (resolution.kind !== 'matched') {
         diagnostics.push(diagnostic(
@@ -263,7 +273,8 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
         render,
         focusReturnPath,
         stateVersion,
-        commitId
+        commitId,
+        options.pointerVisuals?.(),
       );
       if (focusPathsEqual(recovered.frame.focusPath, focusReturnPath)) render = recovered;
     }

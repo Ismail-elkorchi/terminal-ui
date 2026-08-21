@@ -13,7 +13,7 @@ export function runButtonConformance(name, createButton) {
       id: `${name}-button`,
       label: `Go\u001b[31m界`,
       onAction: () => ({ kind: 'activate' }),
-      meta: { styles: { parts: { label: { underline: true } } } }
+      styles: { parts: { label: { underline: true } } }
     });
     const input = {
       element,
@@ -70,7 +70,7 @@ export function runEditableControlConformance(name, adapter) {
   test(`${name}: editable control shares value, focus, input, disabled, and tiny-bounds contracts`, async () => {
     const app = defineTui({
       id: `${name}-editable-conformance`,
-      init: () => ({ value: 'A' }),
+      init: () => ({ state: ({ value: 'A' }) }),
       update: (state, message) => ({ state: { value: state.value + message.text } }),
       view: (state) => adapter.active({
         id: `${name}-editable`,
@@ -219,7 +219,7 @@ function flattenLayout(root) {
 async function runButtonAction(name, createButton, onAction) {
   const app = defineTui({
     id: `${name}-message-routing`,
-    init: () => ({ messages: [] }),
+    init: () => ({ state: ({ messages: [] }) }),
     update: (state, message) => ({ state: { messages: [...state.messages, message] } }),
     view: () => createButton({
       id: `${name}-message-button`,

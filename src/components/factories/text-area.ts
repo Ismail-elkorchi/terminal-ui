@@ -19,14 +19,10 @@ import type {
 import type { Element } from '../../element/index.ts';
 import type { Measurement } from '../../renderer/index.ts';
 import {
-  assertOptionalCallback,
   assertRequiredCallback,
   isNonArrayObject,
   isStringMember,
 } from '../../foundation/validation.ts';
-import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
-import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
-import { preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import {
@@ -82,30 +78,27 @@ interface TextAreaModel {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly pointerState?: PointerInteractionState;
 }
 
 interface PreparedTextAreaHighlight extends TextAreaHighlight {
   readonly label: string;
 }
 
-type TextAreaComponentAction = TextAreaAction | {
-  readonly kind: 'pointerLifecycle';
-  readonly action: PointerInteractionAction;
-};
+type TextAreaComponentAction = TextAreaAction;
 
 type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
   options: TextAreaOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateTextArea = defineComponent<
-  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'>,
+  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'styles' | 'meta'>,
   TextAreaModel,
   TextAreaComponentAction,
   TextAreaStylePart,
   readonly ['disabled', 'readOnly'],
   'required',
-  readonly ['focus', 'layer', 'styles']
+  readonly ['focus', 'layer', 'styles'],
+  readonly ['focused', 'hovered', 'active', 'selected', 'disabled', 'readOnly']
 >({
   name: 'terminal-ui/components/text-area',
   identity: 'required',
@@ -126,9 +119,10 @@ const instantiateTextArea = defineComponent<
     'lineNumber',
     'activeLine',
     'highlight',
-    'scrollbar',
+    'scrollbarTrack', 'scrollbarThumb',
   ],
-  prepare: (value, context) => prepareTextArea(value, !context.disabled && !context.inert),
+  visualStates: ['focused', 'hovered', 'active', 'selected', 'disabled', 'readOnly'],
+  prepare: prepareTextArea,
   inspection: ({ model }) => ({
     value: inspectTextDocumentValue(model.document),
     validation: inspectValidation(model.required, model.error),
@@ -158,10 +152,6 @@ const instantiateTextArea = defineComponent<
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   onPaste: ({ text, readOnly }) =>
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointerLifecycle', action }),
-  },
   focusTargets(input) {
     const geometry = textAreaGeometry(input);
     const caret = textAreaCursorInLayout(geometry.layout, input.model.caret);
@@ -171,7 +161,7 @@ const instantiateTextArea = defineComponent<
       geometry.scrollbar.scroll.offsetColumn;
     const cursorStyle = input.style({
       part: 'cursor',
-      state: 'focused',
+      states: ['focused'],
       base: {
         fg: { kind: 'theme', token: 'input.cursor' },
         bold: true,
@@ -267,7 +257,6 @@ const instantiateTextArea = defineComponent<
     return {
       id,
       role: 'textbox',
-      label: id,
       value,
       description,
       required: model.required,
@@ -284,22 +273,17 @@ const instantiateTextArea = defineComponent<
 export const textArea: TextAreaFactory = (options) => {
   if (options.disabled === true) return instantiateTextArea(options);
   assertRequiredCallback(options.onAction, 'textArea onAction');
-  assertOptionalCallback(options.onPointerAction, 'textArea onPointerAction');
   if (!isScrollableTextArea(options)) {
-    const { onAction, onPointerAction, ...componentOptions } = options;
+    const { onAction, ...componentOptions } = options;
     return instantiateTextArea({
       ...componentOptions,
-      onAction: (action) => action.kind === 'pointerLifecycle'
-        ? onPointerAction?.(action.action) ?? ignoreMessage()
-        : action.kind === 'scroll' ? ignoreMessage() : onAction(action),
+      onAction: (action) => action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  const { onAction, onPointerAction, ...componentOptions } = options;
+  const { onAction, ...componentOptions } = options;
   return instantiateTextArea({
     ...componentOptions,
-    onAction: (action) => action.kind === 'pointerLifecycle'
-      ? onPointerAction?.(action.action) ?? ignoreMessage()
-      : onAction(action),
+    onAction,
   });
 };
 
@@ -314,8 +298,7 @@ function hasScrollState(value: unknown): boolean {
 }
 
 function prepareTextArea(
-  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onPointerAction' | 'meta'>>,
-  pointerAvailable: boolean,
+  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'styles' | 'meta'>>,
 ): TextAreaModel {
   if (!isNonArrayObject(value.presentation)) {
     throw new TypeError('textArea presentation must be an object.');
@@ -378,11 +361,6 @@ function prepareTextArea(
   const wrap = prepareWrap(value.wrap);
   const required = booleanOption(value.required, 'textArea required');
   const revealCaret = booleanOption(presentation.revealCaret, 'textArea revealCaret');
-  const pointerState = preparePointerInteractionState(
-    value.pointerState,
-    'textArea pointerState',
-    pointerAvailable,
-  );
   return {
     document,
     caret: normalizedCaret,
@@ -398,7 +376,6 @@ function prepareTextArea(
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
 }
 
@@ -506,6 +483,7 @@ function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStyleP
     target: input.target,
     plan: geometry.scrollbar,
     theme: input.theme,
+    style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     source: (sourceInput) => input.source(sourceInput),
   });
 }
@@ -707,7 +685,7 @@ function textAreaPrefixSpans(
         },
         bg: { kind: 'theme', token: 'editor.gutter.background' },
       },
-    ...(input.disabled ? { state: 'disabled' as const } : {}),
+    ...(input.disabled ? { states: ['disabled'] as const } : {}),
   });
   if (input.model.lineNumbers === undefined) {
     return [span(`${marker} `, {
@@ -854,9 +832,9 @@ function textAreaValueSpans(
       part,
       base,
       ...(selected
-        ? { state: 'selected' as const }
+        ? { states: ['selected'] as const }
         : input.disabled
-        ? { state: 'disabled' as const }
+        ? { states: ['disabled'] as const }
         : {}),
     });
     const description = selected ? 'selection' : highlight?.label ??

@@ -53,6 +53,7 @@ function view(state: State): Element<Message> {
   const processes: Element<{ readonly kind: 'selectRow'; readonly transition: DataGridTransition }> = dataGrid({
     getRowId: (row) => String(row.id),
     id: 'processes',
+    meta: { accessibleName: 'Processes' },
     rows: [{ id: 7, name: 'worker' }],
     columns: [
       { id: 'id', header: 'ID', value: (row) => row.id },
@@ -64,6 +65,7 @@ function view(state: State): Element<Message> {
   const treePresentation = { selection: { mode: 'single' as const }, expandedIds: [] };
   const files: Element<{ readonly kind: 'tree'; readonly transition: TreeTransition }> = tree({
     id: 'files',
+    meta: { accessibleName: 'Files' },
     view: behavior.prepareTreeView(
       behavior.prepareTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]),
       treePresentation,
@@ -76,6 +78,7 @@ function view(state: State): Element<Message> {
     | { readonly kind: 'submit' }
   > = commandInput({
     id: 'commands',
+    meta: { accessibleName: 'Commands' },
     presentation: behavior.commandInputPresentation(behavior.createCommandInputState({
       suggestions: prepareCommandSuggestions([{
         id: 'open',
@@ -91,6 +94,7 @@ function view(state: State): Element<Message> {
   });
   const secret: Element<{ readonly kind: 'secret'; readonly action: TextInputAction }> = passwordInput({
     id: 'secret',
+    meta: { accessibleName: 'Secret' },
     presentation: { value: 'private', cursor: 7 },
     onAction: (action) => ({ kind: 'secret', action })
   });
@@ -117,7 +121,7 @@ function view(state: State): Element<Message> {
 
 const app = defineTui<State, Message>({
   id: 'packed-consumer',
-  init: () => ({ count: 1 }),
+  init: () => ({ state: ({ count: 1 }) }),
   update: (state, message) => message.kind === 'increment'
     ? { state: { count: state.count + 1 } }
     : { state },

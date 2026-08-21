@@ -185,8 +185,8 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
     meta: Object.freeze({
       accessibility: node.accessibility !== undefined,
       styled: node.styles !== undefined,
-      styleParts: Object.freeze(styleParts),
-      styleStates: Object.freeze(styleStates),
+      configuredStyleParts: Object.freeze(styleParts),
+      configuredStyleStates: Object.freeze(styleStates),
       layered: node.layer !== undefined
     }),
     children: Object.freeze((node.inspectionChildren ?? node.children ?? []).flatMap((child) => {
@@ -208,6 +208,8 @@ function componentInspection(
       semantics: 'decorative',
       states: inspection.states,
       actions: inspection.actions,
+      styleParts: inspection.styleParts,
+      visualStates: inspection.visualStates,
     });
   }
   const accessibleRole = (node.props as {

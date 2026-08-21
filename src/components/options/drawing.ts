@@ -12,7 +12,8 @@ interface CanvasOptionsBase {
   readonly id?: string;
   readonly painter: CanvasPainter;
   readonly measurement: Measurement;
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], CanvasStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<CanvasStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 export interface SemanticCanvasOptions extends CanvasOptionsBase {
@@ -35,7 +36,8 @@ interface ImageOptionsBase {
   readonly measurement: Measurement;
   readonly fit?: ImageFit;
   readonly fallback?: string | InlineContent;
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer'], ImageStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<ImageStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
 /** @experimental */

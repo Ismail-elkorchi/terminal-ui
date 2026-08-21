@@ -34,6 +34,7 @@ function dashboardElement(state) {
         text({ content: 'Left pane', id: 'left-pane' }),
         textInput({
           id: 'action-field',
+          meta: { accessibleName: 'Action' },
           presentation: { value: state.submitted ? 'Submitted' : 'Press enter', cursor: 0 },
           onAction: (action) => action.kind === 'submit'
             ? { type: 'submit' }
@@ -99,7 +100,7 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
 
   const app = defineTui({
     id: 'vertical-slice-runtime',
-    init: () => ({ submitted: false }),
+    init: () => ({ state: ({ submitted: false }) }),
     update: (_state, message) => ({
       state: { submitted: message.type === 'submit' },
       ...(message.type === 'submit' ? { exit: {} } : {})
@@ -108,7 +109,7 @@ test('vertical TUI slice turns element tree into layout, frame, diff, and runtim
   });
   const harness = createTerminalHarness({ terminalSize });
   harness.host.input('\r');
-  const exit = await runTui(app, harness.host);
+  const exit = await runTui(app, { host: harness.host });
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { submitted: true });

@@ -24,10 +24,10 @@ interface DialogBaseOptions extends LayoutFlowOptions {
     readonly content: Element<ComponentMessage>;
     readonly actions?: Element<ComponentMessage>;
   };
+  readonly styles?: ElementStyles<DialogStylePart>;
   readonly meta?: {
     readonly focus?: Pick<ElementFocus, 'disabled' | 'order'>;
     readonly layer?: ElementLayer;
-    readonly styles?: ElementStyles<DialogStylePart>;
   };
 }
 

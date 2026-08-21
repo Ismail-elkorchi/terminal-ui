@@ -11,6 +11,7 @@ import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
+import type { PointerInteractionState } from '../../interaction/pointer-interaction.ts';
 
 export interface RenderNodeMeasureInput<
   TMessage = unknown,
@@ -62,6 +63,7 @@ export interface RenderNodeRenderInput<
   readonly widthProfile: TextWidthProfile;
   readonly focus: RenderFocusRelation;
   readonly focusedTargetId?: string;
+  readonly pointerState?: PointerInteractionState;
   readonly renderChildren: (target?: RenderTarget) => void;
 }
 
@@ -104,11 +106,22 @@ export interface RenderNodeHitInput<
   readonly widthProfile: TextWidthProfile;
 }
 
+export interface RenderNodeKeyInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RenderNodeOfKind<TMessage, TKind>;
+  readonly layoutNode: LayoutNode;
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+}
+
 export interface RenderNodeRenderer<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
   readonly clipChildren?: boolean;
+  keyMap?(input: RenderNodeKeyInput<TMessage, TKind>): import('../../element/metadata.ts').ElementKeyBindings<TMessage> | undefined;
   place?(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
   measure(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;
   layout?(input: RenderNodeLayoutInput<TMessage, TKind>): readonly Rect[];

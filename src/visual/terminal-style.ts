@@ -14,6 +14,7 @@ const terminalStyleFlagFields = [
 
 const terminalStyleFields = new Set<string>(['fg', 'bg', ...terminalStyleFlagFields]);
 const ansiColorFields = new Set(['kind', 'value']);
+const defaultColorFields = new Set(['kind']);
 const rgbColorFields = new Set(['kind', 'r', 'g', 'b']);
 const themeColorFields = new Set(['kind', 'token']);
 
@@ -48,6 +49,9 @@ function normalizeTerminalColor(value: unknown, subject: string): TerminalColor 
   if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
   const kind = ownValue(value, 'kind');
   switch (kind) {
+    case 'default':
+      assertSupportedFields(value, defaultColorFields, subject);
+      return Object.freeze({ kind });
     case 'ansi': {
       assertSupportedFields(value, ansiColorFields, subject);
       const index = ownValue(value, 'value');
@@ -75,8 +79,21 @@ function normalizeTerminalColor(value: unknown, subject: string): TerminalColor 
       return Object.freeze({ kind, token });
     }
     default:
-      throw new TypeError(`${subject}.kind must be "ansi", "rgb", or "theme".`);
+      throw new TypeError(`${subject}.kind must be "default", "ansi", "rgb", or "theme".`);
   }
+}
+
+/** Returns an owned, immutable, right-biased composition of terminal styles. */
+export function mergeTerminalStyles(
+  ...values: readonly (TerminalStyle | undefined)[]
+): TerminalStyle | undefined {
+  const merged = values.reduce<Record<string, unknown>>(
+    (current, value) => value === undefined ? current : { ...current, ...value },
+    {},
+  );
+  return Object.keys(merged).length === 0
+    ? undefined
+    : normalizeTerminalStyle(merged, 'Terminal style composition');
 }
 
 function assertSupportedFields(

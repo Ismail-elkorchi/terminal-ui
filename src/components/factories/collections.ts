@@ -16,8 +16,7 @@ import { isRegisteredElement } from '../../element/registry.ts';
 import type { Rect } from '../../geometry/types.ts';
 import { assertOptionalCallback, assertRequiredCallback } from '../../foundation/validation.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
-import { pointerVisualState, preparePointerInteractionState } from '../../interaction/pointer-interaction.ts';
-import type { PointerInteractionAction, PointerInteractionState } from '../../interaction/pointer-interaction.ts';
+import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
@@ -189,13 +188,11 @@ interface ListViewModel {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly pointerState?: PointerInteractionState;
 }
 
 type ListViewComponentAction =
   | { readonly kind: 'transition'; readonly action: ListViewTransition }
-  | { readonly kind: 'activate'; readonly event: ListViewActivateEvent }
-  | { readonly kind: 'pointer'; readonly action: PointerInteractionAction };
+  | { readonly kind: 'activate'; readonly event: ListViewActivateEvent };
 
 interface ListViewLayout {
   readonly rects: readonly Rect[];
@@ -213,7 +210,8 @@ const instantiateListView = defineComponent<
   readonly ['disabled', 'busy', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
-  typeof listSlots
+  typeof listSlots,
+  readonly ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy']
 >({
   name: 'terminal-ui/components/list-view',
   identity: 'required',
@@ -223,7 +221,8 @@ const instantiateListView = defineComponent<
   slots: listSlots,
   states: ['disabled', 'busy', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
-  parts: ['marker', 'item', 'scrollbar'],
+  parts: ['marker', 'item', 'scrollbarTrack', 'scrollbarThumb'],
+  visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy'],
   inspection: ({ model }) => ({
     ...(model.activeId === undefined ? {} : { active: model.activeId }),
     selection: inspectSelection(model.selection),
@@ -316,12 +315,19 @@ const instantiateListView = defineComponent<
       const active = item.id === input.model.activeId;
       const selected = selectionContains(input.model.selection, item.id);
       const pointer = pointerVisualState(
-        input.model.pointerState,
+        input.pointerState,
         `${input.id ?? 'list-view'}:item:${item.id}`,
       );
-      const state = item.disabled ? 'disabled' : pointer ?? (active ? 'active' : selected ? 'selected' : undefined);
-      const markerStyle = input.style({ part: 'marker', ...(state === undefined ? {} : { state }) });
-      const itemStyle = input.style({ part: 'item', ...(state === undefined ? {} : { state }) });
+      const states = item.disabled
+        ? ['disabled' as const]
+        : [
+          ...(selected ? ['selected' as const] : []),
+          ...(active ? ['active' as const] : []),
+          ...(pointer === undefined ? [] : [pointer]),
+        ];
+      const state = states.at(-1);
+      const markerStyle = input.style({ part: 'marker', ...(states.length === 0 ? {} : { states }) });
+      const itemStyle = input.style({ part: 'item', ...(states.length === 0 ? {} : { states }) });
       for (let row = Math.max(0, rect.row); row < Math.min(input.bounds.height, rect.row + rect.height); row += 1) {
         input.target.write(row, rect.column, [{
           text: ' '.repeat(rect.width),
@@ -354,6 +360,7 @@ const instantiateListView = defineComponent<
       target: input.target,
       plan: layout.scrollbar,
       theme: input.theme,
+      style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
       source: (sourceInput) => input.source(sourceInput),
     });
   },
@@ -373,10 +380,6 @@ const instantiateListView = defineComponent<
         ? {}
         : { enter: () => activate(active.id, active.itemIndex) }),
     };
-  },
-  pointer: {
-    state: ({ model }) => model.pointerState,
-    onAction: (action) => ({ kind: 'pointer', action }),
   },
   focusTargets(input) {
     const layout = listViewLayouts.get(input.model);
@@ -442,7 +445,10 @@ const instantiateListView = defineComponent<
       id: input.id,
       role: 'list',
       ...(input.focused ? { focused: true } : {}),
-      ...(input.model.activeId === undefined ? {} : { activeDescendant: `${input.id}:item:${input.model.activeId}` }),
+      ...(input.model.activeId === undefined || !input.model.items.some((item, index) =>
+        item.id === input.model.activeId && visible.has(index))
+        ? {}
+        : { activeDescendant: `${input.id}:item:${input.model.activeId}` }),
       children,
     };
   },
@@ -509,15 +515,6 @@ export function listView<
   if (scroll !== undefined && scroll.offsetRow !== window.offsetRow) {
     throw new TypeError('listView scroll offset must equal its measured window offset.');
   }
-  const pointerState = preparePointerInteractionState(
-    options.pointerState,
-    'listView pointerState',
-    options.disabled !== true && options.inert !== true,
-  );
-  if (options.presentation.activeId !== undefined
-    && !items.some((item) => item.id === options.presentation.activeId)) {
-    throw new RangeError('listView activeId must identify an item in the supplied measured window.');
-  }
   const model: ListViewModel = {
     items: items.map(({
       id,
@@ -544,12 +541,12 @@ export function listView<
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
-    ...(pointerState === undefined ? {} : { pointerState }),
   };
   const shared = {
     ...model,
     id: options.id,
     ...(options.busy === undefined ? {} : { busy: options.busy }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     slots: { items: items.map((item) => item.content) },
   };
@@ -561,12 +558,10 @@ export function listView<
   if (options.inert === true) return instantiateListView({ ...shared, inert: true });
   assertRequiredCallback(options.onTransition, 'listView onTransition');
   assertOptionalCallback(options.onActivate, 'listView onActivate');
-  assertOptionalCallback(options.onPointerAction, 'listView onPointerAction');
   return instantiateListView({
     ...shared,
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
-      if (action.kind === 'pointer') return options.onPointerAction?.(action.action) ?? ignoreMessage();
       if (isScrollableListViewOptions(options)) return options.onTransition(action.action);
       return action.action.kind === 'scroll'
         ? ignoreMessage()

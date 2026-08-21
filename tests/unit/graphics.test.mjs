@@ -407,7 +407,7 @@ test('runtime commits upload and clean up Kitty resources around the cell frame'
   });
   const app = defineTui({
     id: 'kitty-commit',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state) => ({ state }),
     view: () => image({
       image: resource,
@@ -443,7 +443,7 @@ test('Kitty resources are shared by exact raster content and deleted after their
   });
   const app = defineTui({
     id: 'content-addressed-kitty',
-    init: () => 2,
+    init: () => ({ state: 2 }),
     update: (_state, count) => ({ state: count }),
     view: (count) => row([
       ...(count >= 1 ? [image({
@@ -487,7 +487,7 @@ test('Kitty content identity includes raster shape and survives application reco
   });
   const app = defineTui({
     id: 'shaped-kitty-resources',
-    init: () => 0,
+    init: () => ({ state: 0 }),
     update: (_state, next) => ({ state: next }),
     view: (revision) => row([
       image({
@@ -540,7 +540,7 @@ test('runtime replaces graphics when terminal cell geometry changes', async () =
   });
   const app = defineTui({
     id: 'geometry-replacement',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state) => ({ state }),
     view: () => image({
       image: resource,
@@ -569,7 +569,7 @@ test('runtime graphics budget failures retain text fallback without partial prot
   });
   const app = defineTui({
     id: 'graphics-budget-fallback',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state) => ({ state }),
     view: () => image({
       image: resource,
@@ -616,7 +616,7 @@ test('malicious terminal cell geometry is rejected before SIXEL allocation', asy
   });
   const app = defineTui({
     id: 'malicious-cell-geometry',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state) => ({ state }),
     view: () => image({
       image: resource,

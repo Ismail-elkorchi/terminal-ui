@@ -1,7 +1,10 @@
 import type { MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../../input/index.ts';
 import type { PointerClickCount, PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
-import { ignoreMessage } from '../../interaction/message.ts';
+import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import type { PointerVisualSnapshot } from '../../interaction/pointer-interaction.ts';
+import { scrollRouteDescriptor } from '../../interaction/scroll-route.ts';
+import type { ScrollState } from '../../interaction/scroll.ts';
 import type { Rect } from '../contracts.ts';
 import type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 
@@ -24,6 +27,8 @@ export interface PointerRouter<TMessage> {
   ): readonly PointerRouteResult<TMessage>[];
   wheelTargetId(regions: readonly RenderRegion<TMessage>[], event: MouseWheelEvent): string | undefined;
   cancel(regions: readonly RenderRegion<TMessage>[]): readonly PointerRouteResult<TMessage>[];
+  visuals(): PointerVisualSnapshot;
+  revision(): number;
   reset(): void;
 }
 
@@ -40,6 +45,7 @@ interface QualifiedHit<TMessage> {
 
 interface PointerPress {
   readonly identity: string;
+  readonly ownerIdentity: string;
   readonly targetId: string;
   readonly button: TerminalMouseEvent['button'];
   readonly row: number;
@@ -60,6 +66,8 @@ interface CompletedPointerClick {
 
 interface PointerHover {
   readonly identity: string;
+  readonly ownerIdentity: string;
+  readonly targetId: string;
   readonly sourceEvent: TerminalMouseEvent;
 }
 
@@ -69,19 +77,28 @@ export function createPointerRouter<TMessage>(options: PointerRouterOptions): Po
   let press: PointerPress | undefined;
   let hover: PointerHover | undefined;
   let previousClick: CompletedPointerClick | undefined;
+  let visualRevision = 0;
 
   return {
     route(regions, event, occurredAt = options.now()) {
-      const pointerHit = topHitAt(regions, event.row, event.column, acceptedKindsForEvent(event));
+      const pointerHit = topHitAt(
+        regions,
+        event.row,
+        event.column,
+        event.action === 'move' ? [...acceptedKindsForEvent(event), 'click'] : acceptedKindsForEvent(event),
+      );
       if (event.action === 'press') {
         if (event.button !== 'left' || pointerHit?.identity !== previousClick?.identity) previousClick = undefined;
-        press = pointerHit === undefined ? undefined : pointerPress(event, pointerHit);
+        const nextPress = pointerHit === undefined ? undefined : pointerPress(event, pointerHit);
+        if (press?.identity !== nextPress?.identity) visualRevision += 1;
+        press = nextPress;
         return pressResults(event, pointerHit, press);
       }
       if (event.action === 'drag' && press !== undefined) {
         const captured = hitByIdentity(regions, press.identity);
         if (captured === undefined) {
           press = undefined;
+          visualRevision += 1;
           previousClick = undefined;
           return [];
         }
@@ -92,6 +109,7 @@ export function createPointerRouter<TMessage>(options: PointerRouterOptions): Po
       if (event.action === 'release') {
         const activePress = press;
         press = undefined;
+        if (activePress !== undefined) visualRevision += 1;
         const captured = activePress === undefined ? undefined : hitByIdentity(regions, activePress.identity);
         if (activePress?.dragging === true) previousClick = undefined;
         const clickCount = completedClickCount(
@@ -120,15 +138,21 @@ export function createPointerRouter<TMessage>(options: PointerRouterOptions): Po
       if (event.action === 'move') {
         const previous = hover === undefined ? undefined : hitByIdentity(regions, hover.identity);
         const results = hoverResults(event, previous, pointerHit);
-        hover = pointerHit === undefined ? undefined : { identity: pointerHit.identity, sourceEvent: event };
+        const nextHover = pointerHit === undefined ? undefined : {
+          identity: pointerHit.identity,
+          ownerIdentity: pointerHit.target.ownerIdentity,
+          targetId: pointerHit.target.id,
+          sourceEvent: event,
+        };
+        if (hover?.identity !== nextHover?.identity) visualRevision += 1;
+        hover = nextHover;
         return results;
       }
       if (event.action === 'wheel') return [routeResult(event, pointerHit, 'scroll', press)];
       return [];
     },
     routeWheel(regions, event, targetIdentity) {
-      const hit = targetIdentity === undefined ? undefined : hitByIdentity(regions, targetIdentity);
-      return [routeResult(event, hit, 'scroll', press)];
+      return routeWheelThroughAncestors(regions, event, targetIdentity, press);
     },
     wheelTargetId(regions, event) {
       return topHitAt(regions, event.row, event.column, ['scroll'])?.identity;
@@ -139,6 +163,7 @@ export function createPointerRouter<TMessage>(options: PointerRouterOptions): Po
       press = undefined;
       hover = undefined;
       previousClick = undefined;
+      if (activePress !== undefined || activeHover !== undefined) visualRevision += 1;
       const captured = activePress === undefined ? undefined : hitByIdentity(regions, activePress.identity);
       const hovered = activeHover === undefined ? undefined : hitByIdentity(regions, activeHover.identity);
       return [
@@ -150,7 +175,25 @@ export function createPointerRouter<TMessage>(options: PointerRouterOptions): Po
           : [routeResult(activeHover.sourceEvent, hovered, 'leave')])
       ];
     },
+    visuals() {
+      return Object.freeze({
+        ...(hover === undefined ? {} : {
+          hovered: Object.freeze({
+            ownerIdentity: hover.ownerIdentity,
+            targetId: hover.targetId,
+          }),
+        }),
+        ...(press === undefined ? {} : {
+          pressed: Object.freeze({
+            ownerIdentity: press.ownerIdentity,
+            targetId: press.targetId,
+          }),
+        }),
+      });
+    },
+    revision: () => visualRevision,
     reset() {
+      if (press !== undefined || hover !== undefined) visualRevision += 1;
       press = undefined;
       hover = undefined;
       previousClick = undefined;
@@ -162,6 +205,7 @@ function pointerPress<TMessage>(event: TerminalMouseEvent, hit: QualifiedHit<TMe
   const local = localPoint(hit.target.bounds, event.row, event.column);
   return {
     identity: hit.identity,
+    ownerIdentity: hit.target.ownerIdentity,
     targetId: hit.target.id,
     button: event.button,
     row: event.row,
@@ -330,6 +374,15 @@ function topHitAt<TMessage>(
   column: number,
   acceptedKinds: readonly PointerEventKind[]
 ): QualifiedHit<TMessage> | undefined {
+  return hitsAt(regions, row, column, acceptedKinds).at(0);
+}
+
+function hitsAt<TMessage>(
+  regions: readonly RenderRegion<TMessage>[],
+  row: number,
+  column: number,
+  acceptedKinds: readonly PointerEventKind[],
+): readonly QualifiedHit<TMessage>[] {
   return regions.flatMap((region) => region.hitTargets
     .filter((target) => containsPoint(target.bounds, row, column))
     .filter((target) => acceptedKinds.some((kind) => targetAccepts(target, kind)))
@@ -344,7 +397,86 @@ function topHitAt<TMessage>(
       || right.region.zIndex - left.region.zIndex
       || right.region.order - left.region.order
       || right.index - left.index)
-    .at(0);
+    ;
+}
+
+function routeWheelThroughAncestors<TMessage>(
+  regions: readonly RenderRegion<TMessage>[],
+  event: MouseWheelEvent,
+  targetIdentity: string | undefined,
+  press: PointerPress | undefined,
+): readonly PointerRouteResult<TMessage>[] {
+  const candidates = hitsAt(regions, event.row, event.column, ['scroll']);
+  const deepest = targetIdentity === undefined
+    ? candidates[0]
+    : candidates.find((candidate) => candidate.identity === targetIdentity);
+  if (deepest === undefined) return [routeResult(event, undefined, 'scroll', press)];
+  const chain = candidates.filter((candidate) =>
+    deepest.target.ownerIdentity.startsWith(candidate.target.ownerIdentity)
+  ).filter((candidate, index, values) =>
+    values.findIndex((other) => other.target.ownerIdentity === candidate.target.ownerIdentity) === index
+  ).toSorted((left, right) => right.target.ownerIdentity.length - left.target.ownerIdentity.length);
+  const stateByIdentity = new Map<string, ScrollState>();
+  const resultByIdentity = new Map<string, PointerRouteResult<TMessage>>();
+  const orderedIdentities: string[] = [];
+  for (const delta of wheelUnits(event)) {
+    for (const hit of chain) {
+      const descriptor = hit.target[scrollRouteDescriptor];
+      if (descriptor === undefined) {
+        const result = routeResult({ ...event, ...delta }, hit, 'scroll', press);
+        if (!isIgnoredMessage(result.message)) {
+          rememberWheelResult(hit.identity, result, orderedIdentities, resultByIdentity);
+          break;
+        }
+        continue;
+      }
+      const current = stateByIdentity.get(hit.identity) ?? descriptor.state;
+      const routedEvent = routedPointerEvent({ ...event, ...delta }, hit.target, 'scroll', press, 0);
+      const step = descriptor.route(routedEvent, current);
+      if (sameScrollState(step.nextState, current) || isIgnoredMessage(step.message)) continue;
+      stateByIdentity.set(hit.identity, step.nextState);
+      rememberWheelResult(hit.identity, {
+        event: routedEvent,
+        hit: hit.target,
+        message: step.message,
+      }, orderedIdentities, resultByIdentity);
+      break;
+    }
+  }
+  return orderedIdentities.flatMap((identity) => {
+    const result = resultByIdentity.get(identity);
+    return result === undefined ? [] : [result];
+  });
+}
+
+function wheelUnits(event: MouseWheelEvent): readonly {
+  readonly deltaRows: number;
+  readonly deltaColumns: number;
+}[] {
+  const units: { deltaRows: number; deltaColumns: number }[] = [];
+  for (let count = 0; count < Math.abs(event.deltaRows); count += 1) {
+    units.push({ deltaRows: Math.sign(event.deltaRows), deltaColumns: 0 });
+  }
+  for (let count = 0; count < Math.abs(event.deltaColumns); count += 1) {
+    units.push({ deltaRows: 0, deltaColumns: Math.sign(event.deltaColumns) });
+  }
+  return units;
+}
+
+function rememberWheelResult<TMessage>(
+  identity: string,
+  result: PointerRouteResult<TMessage>,
+  order: string[],
+  results: Map<string, PointerRouteResult<TMessage>>,
+): void {
+  if (!results.has(identity)) order.push(identity);
+  results.set(identity, result);
+}
+
+function sameScrollState(left: ScrollState, right: ScrollState): boolean {
+  return left.offsetRow === right.offsetRow
+    && left.offsetColumn === right.offsetColumn
+    && left.followTail === right.followTail;
 }
 
 function hitByIdentity<TMessage>(

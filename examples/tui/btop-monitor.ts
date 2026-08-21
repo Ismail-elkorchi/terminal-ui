@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import {
   chart,
   column,
-  createTerminalHost,
   dataGrid,
   defineTui,
   grid,
@@ -39,7 +38,7 @@ import {
   sortTableRows,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { DataGridTransition, ScrollableDataGridPresentation } from '@ismail-elkorchi/terminal-ui';
-import type { KeyEvent, MousePointerEvent } from '@ismail-elkorchi/terminal-ui/input';
+import { keyInput, pointerInput } from '@ismail-elkorchi/terminal-ui/testing';
 import { themeColor } from '@ismail-elkorchi/terminal-ui/theme';
 import type { ThemeColorToken } from '@ismail-elkorchi/terminal-ui/theme';
 
@@ -131,7 +130,7 @@ const previousProcessKey = { kind: 'key', key: 'arrowUp' } as const;
 
 export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
   id: 'btop-monitor',
-  init: () => initialState(),
+  init: () => ({ state: initialState(), focus: { kind: 'path', path: monitorFocusPath } }),
   subscriptions: () => [intervalSource('btop-tick', 1000, (tick) => ({ kind: 'tick', tick }))],
   inputBindings: [
     {
@@ -542,6 +541,7 @@ function processPanel(state: MonitorState) {
     ], { id: 'proc-header', sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     dataGrid<ProcessRow, MonitorMessage>({
       id: 'process-table',
+      meta: { accessibleName: 'Processes' },
       collection: state.processes,
       presentation: state.processTable,
       density: 'compact',
@@ -688,20 +688,27 @@ export async function runScriptedBtopMonitor() {
     const thumbTarget = targetById(runtime, 'process-table:scrollbar:vertical:thumb');
     const trackTarget = targetById(runtime, 'process-table:scrollbar:vertical:track');
     const thumbPressRow = thumbTarget.bounds.row;
-    await runtime.handleInput(pointerEvent('press', thumbTarget.bounds.column, thumbPressRow, 'left'));
-    await runtime.handleInput(pointerEvent(
-      'drag',
-      thumbTarget.bounds.column,
-      Math.min(trackTarget.bounds.row + trackTarget.bounds.height - 1, thumbPressRow + 3),
-      'left'
-    ));
-    await runtime.handleInput(pointerEvent('release', thumbTarget.bounds.column, thumbPressRow + 3, 'none'));
+    await runtime.handleInput(pointerInput({
+      action: 'press', column: thumbTarget.bounds.column, row: thumbPressRow, button: 'left',
+    }));
+    await runtime.handleInput(pointerInput({
+      action: 'drag',
+      column: thumbTarget.bounds.column,
+      row: Math.min(trackTarget.bounds.row + trackTarget.bounds.height - 1, thumbPressRow + 3),
+      button: 'left',
+    }));
+    await runtime.handleInput(pointerInput({
+      action: 'release',
+      column: thumbTarget.bounds.column,
+      row: thumbPressRow + 3,
+      button: 'none',
+    }));
     const offsetAfterDrag = runtime.state().processTable.scroll.offsetRow;
 
     const selectedTarget = targetByPrefix(runtime, 'process-table:row:');
     await click(runtime, selectedTarget);
     const selectedBeforeKeyboard = selectedProcessId(runtime.state().processTable);
-    await runtime.handleInput(keyEvent('arrowDown'));
+    await runtime.handleInput(keyInput('arrowDown'));
     const selectedAfterKeyboard = selectedProcessId(runtime.state().processTable);
     await runtime.handleInput({ kind: 'text', text: 's', paste: false });
     const frame = runtime.frame();
@@ -750,38 +757,12 @@ async function click(
   runtime: TuiRuntime<MonitorState, MonitorMessage>,
   target: FrameHitTarget
 ): Promise<void> {
-  await runtime.handleInput(pointerEvent('press', target.bounds.column, target.bounds.row, 'left'));
-  await runtime.handleInput(pointerEvent('release', target.bounds.column, target.bounds.row, 'none'));
-}
-
-function pointerEvent(
-  action: 'press' | 'drag' | 'release',
-  column: number,
-  row: number,
-  button: 'left' | 'none'
-): MousePointerEvent {
-  return {
-    kind: 'mouse',
-    sequence: '',
-    encoding: 'sgr',
-    action,
-    button,
-    row,
-    column,
-    rawCode: action === 'drag' ? 32 : 0,
-    modifiers: { shift: false, alt: false, ctrl: false }
-  };
-}
-
-function keyEvent(key: KeyEvent['key']): KeyEvent {
-  return {
-    kind: 'key',
-    key,
-    sequence: '',
-    modifiers: { shift: false, alt: false, ctrl: false, meta: false },
-    eventType: 'press',
-    location: 'standard'
-  };
+  await runtime.handleInput(pointerInput({
+    action: 'press', column: target.bounds.column, row: target.bounds.row, button: 'left',
+  }));
+  await runtime.handleInput(pointerInput({
+    action: 'release', column: target.bounds.column, row: target.bounds.row, button: 'none',
+  }));
 }
 
 const isMain = process.argv[1] !== undefined
@@ -789,16 +770,9 @@ const isMain = process.argv[1] !== undefined
 
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY && !process.argv.includes('--scripted')) {
-    const host = createTerminalHost({ runtime: 'node' });
-    try {
-      const exit = await runTui(btopMonitorApp, host, {
-        initialFocus: { kind: 'path', path: monitorFocusPath }
-      });
-      if (exit.status !== 'completed') {
-        process.exitCode = 1;
-      }
-    } finally {
-      await host.dispose();
+    const exit = await runTui(btopMonitorApp);
+    if (exit.status !== 'completed') {
+      process.exitCode = 1;
     }
   } else {
     const result = await runScriptedBtopMonitor();

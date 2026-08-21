@@ -23,11 +23,6 @@ const fakePrompt: PromptDefinition = { kind: 'input', label: 'Name' };
 // @ts-expect-error TUI applications are prepared by defineTui()
 const fakeApp: TuiApp<undefined, string> = {
   id: 'fake',
-  definition: {
-    init: () => undefined,
-    update: (state) => ({ state }),
-    view: () => { throw new Error('unused'); },
-  },
 };
 
 // @ts-expect-error log history is prepared by prepareLogHistory()

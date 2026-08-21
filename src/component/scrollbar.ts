@@ -21,6 +21,10 @@ import { oneCellGlyph } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { FrameCellSource } from '../visual/source.ts';
 import { assertOptionalEnum } from '../foundation/validation.ts';
+import {
+  scrollRouteDescriptor,
+  type ScrollRoutable,
+} from '../interaction/scroll-route.ts';
 
 export function prepareComponentScrollState(
   value: ScrollState | undefined,
@@ -168,6 +172,11 @@ export function paintComponentScrollbar(input: {
   readonly target: RenderTarget;
   readonly plan: ComponentScrollbarPlan;
   readonly theme: TerminalTheme;
+  readonly style?: (
+    part: 'scrollbarTrack' | 'scrollbarThumb',
+    state: 'hovered' | 'disabled' | 'active' | undefined,
+    base: import('../visual/render.ts').TerminalStyle,
+  ) => import('../visual/render.ts').TerminalStyle | undefined;
   readonly source: (input: {
     readonly cellRole: 'scrollbar';
     readonly partName: string;
@@ -177,10 +186,10 @@ export function paintComponentScrollbar(input: {
   }) => FrameCellSource;
 }): void {
   if (input.plan.layout?.verticalTrack !== undefined) {
-    paintTrack(input.target, input.plan.layout.verticalTrack, input.theme, input.source);
+    paintTrack(input.target, input.plan.layout.verticalTrack, input.theme, input.source, input.style);
   }
   if (input.plan.layout?.horizontalTrack !== undefined) {
-    paintTrack(input.target, input.plan.layout.horizontalTrack, input.theme, input.source);
+    paintTrack(input.target, input.plan.layout.horizontalTrack, input.theme, input.source, input.style);
   }
 }
 
@@ -191,13 +200,20 @@ export function componentScrollbarHitTargets<TAction>(input: {
   readonly onScroll: (event: ScrollEvent) => MessageResolution<TAction>;
 }): readonly HitTarget<TAction>[] {
   const wheel = normalizedWheelPolicy(input.policy);
-  const targets: HitTarget<TAction>[] = [];
+  const targets: (HitTarget<TAction> & ScrollRoutable<TAction>)[] = [];
   if (input.plan.contentBounds.width > 0 && input.plan.contentBounds.height > 0) {
     targets.push({
       id: `${input.id}:scroll:content`,
       bounds: input.plan.contentBounds,
       accepts: ['scroll'],
-      message: (pointer) => emitScroll(pointer, input.plan.scrollbar, 'content', wheel, input.onScroll)
+      message: (pointer) => emitScroll(pointer, input.plan.scrollbar, 'content', wheel, input.onScroll),
+      [scrollRouteDescriptor]: wheelRoute(
+        input.plan.scroll,
+        input.plan.scrollbar,
+        'content',
+        wheel,
+        input.onScroll,
+      ),
     });
   }
   for (const track of [input.plan.layout?.verticalTrack, input.plan.layout?.horizontalTrack]) {
@@ -301,7 +317,12 @@ function paintTrack(
     readonly partType: 'track' | 'thumb';
     readonly interactionState?: 'hovered' | 'disabled' | 'active';
     readonly description: string;
-  }) => FrameCellSource
+  }) => FrameCellSource,
+  resolveStyle?: (
+    part: 'scrollbarTrack' | 'scrollbarThumb',
+    state: 'hovered' | 'disabled' | 'active' | undefined,
+    base: import('../visual/render.ts').TerminalStyle,
+  ) => import('../visual/render.ts').TerminalStyle | undefined,
 ): void {
   const size = track.axis === 'vertical' ? track.bounds.height : track.bounds.width;
   for (let offset = 0; offset < size; offset += 1) {
@@ -319,7 +340,11 @@ function paintTrack(
           track.axis === 'vertical' ? '|' : '-',
           { widthProfile: target.widthProfile }
         ),
-        style: scrollbarStyle(thumb, track.state),
+        style: resolveStyle?.(
+          thumb ? 'scrollbarThumb' : 'scrollbarTrack',
+          interactionState,
+          scrollbarStyle(thumb, track.state),
+        ) ?? scrollbarStyle(thumb, track.state),
         source: source({
           cellRole: 'scrollbar',
           partName: `scrollbar.${track.axis}.${partType}`,
@@ -347,7 +372,7 @@ function componentScrollbarTrackTargets<TAction>(
   wheel: NormalizedWheelPolicy,
   onScroll: (event: ScrollEvent) => MessageResolution<TAction>
 ): readonly HitTarget<TAction>[] {
-  const trackTarget: HitTarget<TAction> = {
+  const trackTarget: HitTarget<TAction> & ScrollRoutable<TAction> = {
     id: `${id}:scrollbar:${track.axis}:track`,
     bounds: track.bounds,
     accepts: ['scroll', 'pointerDown', 'dragStart', 'drag'],
@@ -366,7 +391,14 @@ function componentScrollbarTrackTargets<TAction>(
           track.axis === 'vertical' ? 'verticalScrollbarTrack' : 'horizontalScrollbarTrack',
           trackAction(track, state, pointer),
           onScroll
-        )
+        ),
+    [scrollRouteDescriptor]: wheelRoute(
+      scrollPosition(state),
+      state,
+      track.axis === 'vertical' ? 'verticalScrollbarTrack' : 'horizontalScrollbarTrack',
+      wheel,
+      onScroll,
+    ),
   };
   const thumbBounds = componentScrollbarThumbBounds(track);
   if (thumbBounds === undefined) return [trackTarget];
@@ -415,6 +447,34 @@ function emitScroll<TAction>(
 ): MessageResolution<TAction> {
   const action = wheelAction(pointer, policy);
   return emitScrollAction(pointer, scroll, target, action, onScroll);
+}
+
+function wheelRoute<TAction>(
+  initial: ScrollState,
+  geometry: ScrollbarState,
+  target: ScrollEventTarget,
+  policy: NormalizedWheelPolicy,
+  onScroll: (event: ScrollEvent) => MessageResolution<TAction>,
+) {
+  return Object.freeze({
+    state: initial,
+    route(pointer: RoutedPointerEvent, state: ScrollState) {
+      const action = wheelAction(pointer, policy);
+      const nextState = action === undefined
+        ? state
+        : scrollReducer(state, action, scrollGeometry(geometry));
+      return Object.freeze({
+        nextState,
+        message: action === undefined
+          ? ignoreMessage()
+          : onScroll({
+              nextState,
+              source: scrollEventSource(pointer),
+              target,
+            }),
+      });
+    },
+  });
 }
 
 function emitScrollAction<TAction>(

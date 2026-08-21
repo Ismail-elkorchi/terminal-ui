@@ -25,6 +25,7 @@ export function createPromptSnapshot<TChoice>(
       id: prompt.accessibility?.id ?? prompt.id ?? `prompt-${prompt.kind}`,
       role: promptRole(prompt.kind),
       label: prompt.label,
+      ...(prompt.description === undefined ? {} : { description: prompt.description }),
       value: snapshotValue,
       ...confirmCheckedState(prompt, snapshotValue),
       focused: true,
@@ -43,7 +44,11 @@ function createProgressPromptSnapshot(
   }).snapshot();
   return createAccessibleSnapshot({
     source: snapshot.source,
-    root: { ...snapshot.root, focused: true }
+    root: {
+      ...snapshot.root,
+      ...(prompt.description === undefined ? {} : { description: prompt.description }),
+      focused: true,
+    }
   });
 }
 
@@ -127,6 +132,7 @@ function confirmCheckedState<TChoice>(
 }
 
 function promptSnapshotValue<TChoice>(prompt: PromptDefinition<TChoice>): AccessibleValue {
+  if (prompt.kind === 'progress') return null;
   if (prompt.defaultValue === undefined || prompt.kind === 'password') return null;
   if (prompt.kind === 'confirm' && typeof prompt.defaultValue === 'boolean') return prompt.defaultValue;
   return typeof prompt.defaultValue === 'object'

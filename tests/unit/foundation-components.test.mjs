@@ -13,7 +13,7 @@ const noModifiers = { ctrl: false, alt: false, shift: false, meta: false };
 test('toolbar preserves caller-owned flexible layout', () => {
   const frame = renderElementFrame(toolbar(row([
     button({ id: 'back', label: 'Back', onAction: () => ignoreMessage() }),
-    textInput({
+    textInput({ meta: { accessibleName: "Text input" },
       id: 'location',
       presentation: { value: 'example.test', cursor: 0 },
       onAction: () => ignoreMessage()
@@ -39,7 +39,7 @@ test('toolbar preserves caller-owned flexible layout', () => {
 test('toolbar is one tab stop and provides orientation-aware roving focus', async () => {
   const app = defineTui({
     id: 'toolbar-focus',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state) => ({ state }),
     view: () => column([
       button({ id: 'before', label: 'Before', onAction: () => ignoreMessage() }),
@@ -83,7 +83,7 @@ test('toolbar is one tab stop and provides orientation-aware roving focus', asyn
 test('vertical toolbar uses up and down rather than left and right', async () => {
   const app = defineTui({
     id: 'vertical-toolbar-focus',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state) => ({ state }),
     view: () => toolbar(column([
       button({ id: 'top', label: 'Top', onAction: () => ignoreMessage() }),
@@ -126,7 +126,7 @@ test('toggle button shares compact adornment presentation while retaining presse
 test('link activation preserves keyboard and pointer intent', async () => {
   const app = defineTui({
     id: 'link-intent',
-    init: () => ({ events: [] }),
+    init: () => ({ state: ({ events: [] }) }),
     update: (state, event) => ({ state: { events: [...state.events, event] } }),
     view: () => link({
       id: 'documentation',

@@ -3,6 +3,7 @@ import { optionalRenderNodeId, requiredRenderNodeId, renderNodeChildren } from '
 import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
+import { adoptElementStyles } from '../../element/styles.ts';
 import { layoutElementFromRenderNode } from '../../renderer/model/element.ts';
 import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
 import type { SplitPaneAction } from '../../ui-model/split-pane.ts';
@@ -18,6 +19,13 @@ export function splitPane<
   type Message = ElementChildrenMessage<TChildren> | TActionMessage;
   const renderChildren = renderNodeChildren(children);
   assertSplitPaneOptions(renderChildren.length, options);
+  const styles = options.styles === undefined
+    ? undefined
+    : adoptElementStyles(options.styles, {
+        subject: 'splitPane() styles',
+        parts: new Set(['divider', 'dividerActive']),
+        states: new Set(),
+      });
   if (options.onAction === undefined) {
     return layoutElementFromRenderNode<'splitPane', Message>({
       ...optionalRenderNodeId(options.id),
@@ -28,7 +36,7 @@ export function splitPane<
         ...renderNodeLayoutProps(options)
       },
       children: renderChildren,
-      ...interactionProps({ meta: options.meta })
+      ...interactionProps({ meta: options.meta, styles })
     });
   }
 
@@ -44,7 +52,7 @@ export function splitPane<
       ...renderNodeLayoutProps({ ...options, gap: options.gap ?? 1 })
     },
     children: renderChildren,
-    ...interactionProps({ keys, meta: options.meta })
+    ...interactionProps({ keys, meta: options.meta, styles })
   });
 }
 

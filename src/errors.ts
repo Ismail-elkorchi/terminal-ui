@@ -1,5 +1,5 @@
 export class TerminalUiError extends Error {
-  override readonly name = 'TerminalUiError';
+  override readonly name: string = 'TerminalUiError';
 }
 
 export function errorFromUnknown(cause: unknown): Error {

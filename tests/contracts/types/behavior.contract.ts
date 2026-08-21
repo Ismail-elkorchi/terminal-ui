@@ -6,7 +6,6 @@ import {
   appendMeasuredItems,
   measuredAnchorAt,
   measuredWindow,
-  pointerInteractionReducer,
   prepareCommandSuggestions,
   prepareMeasuredCollection,
   prepareTableCollection,
@@ -31,7 +30,6 @@ const grid = dataGridReducer({
   collection: prepareTableCollection(rows, (row) => row.id),
   columnIds: [],
 });
-const pointer = pointerInteractionReducer({}, { kind: 'enter', targetId: 'save:control' });
 const measured: MeasuredCollection<{ readonly label: string }> = prepareMeasuredCollection([
   { id: 'one', value: { label: 'One' }, rows: 2 },
 ]);
@@ -52,4 +50,4 @@ const measuredVisible = measuredWindow(measuredReplaced, {
 // @ts-expect-error reducer actions are discriminated contracts
 scrollReducer(scrolled, { kind: 'scrollLines', rows: 'two' });
 
-void [edited, grid, pointer, measuredVisible];
+void [edited, grid, measuredVisible];

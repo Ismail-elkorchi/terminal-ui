@@ -6,7 +6,8 @@ import type {
   Element,
   ElementMessage
 } from '../../element/index.ts';
-import type { ElementOptions } from '../../element/metadata.ts';
+import type { StructuralElementOptions } from '../../element/metadata.ts';
+import type { ScrollableViewportOptions } from '../options.ts';
 import {
   layoutElementFromRenderNode,
   optionalRenderNodeId,
@@ -14,6 +15,7 @@ import {
 } from '../../renderer/model/element.ts';
 import { renderNodeMeta } from '../../renderer/model/metadata.ts';
 import { isMeasuredWindow } from '../../behavior/measured-window.ts';
+import { viewport } from './viewport.ts';
 
 /** @beta */
 export function measuredColumn<
@@ -22,7 +24,7 @@ export function measuredColumn<
 >(
   window: MeasuredWindow<TValue>,
   renderEntry: (entry: MeasuredWindowEntry<TValue>) => TElement,
-  options: ElementOptions = {}
+  options: StructuralElementOptions = {}
 ): Element<ElementMessage<TElement>> {
   if (!isMeasuredWindow(window)) {
     throw new TypeError('measuredColumn() window must be created with measuredWindow().');
@@ -36,14 +38,14 @@ export function measuredColumn<
     kind: 'measuredColumn',
     props: {
       entries: window.entries.map((entry) => ({
-        rowOffset: entry.rowOffset,
+        rowOffset: window.offsetRow + entry.rowOffset,
         clippedRowsBefore: entry.clippedRowsBefore,
         rows: entry.item.rows
       })),
-      viewportRows: window.viewportRows
+      totalRows: window.totalRows
     },
     children,
-    ...renderNodeMeta(options.meta)
+    ...renderNodeMeta(options)
   });
 }
 
@@ -63,8 +65,29 @@ export function measuredItemViewport<const TElement extends Element<unknown>>(
         clippedRowsBefore: geometry.clippedRowsBefore,
         rows: geometry.rows
       }],
-      viewportRows: geometry.visibleRows
+      totalRows: geometry.visibleRows
     },
     children: [toRenderNode(child)]
+  });
+}
+
+/**
+ * Projects a prepared measured window into a passive, controlled virtual
+ * viewport without adding collection selection or activation semantics.
+ *
+ * @beta
+ */
+export function measuredViewport<
+  TValue,
+  const TElement extends Element<unknown>,
+  const TMessage,
+>(
+  window: MeasuredWindow<TValue>,
+  renderEntry: (entry: MeasuredWindowEntry<TValue>) => TElement,
+  options: Omit<ScrollableViewportOptions<TMessage>, 'offset'>,
+): Element<ElementMessage<TElement> | TMessage> {
+  return viewport(measuredColumn(window, renderEntry), {
+    ...options,
+    offset: { row: window.offsetRow },
   });
 }

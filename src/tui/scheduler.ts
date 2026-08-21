@@ -18,10 +18,10 @@ export function intervalSource<TMessage extends NonNullable<unknown>>(
     id,
     generation: 0,
     source: 'timer',
-    async *messages(context) {
+    async run(context, sink) {
       let tick = 0;
       while (await sleepForTick(context, ms)) {
-        yield reliableSourceMessage(scheduledMessage(message, tick));
+        await sink.emit(reliableSourceMessage(scheduledMessage(message, tick)));
         tick += 1;
       }
     }
@@ -39,9 +39,9 @@ export function timeoutSource<TMessage extends NonNullable<unknown>>(
     id,
     generation: 0,
     source: 'timer',
-    async *messages(context) {
+    async run(context, sink) {
       const outcome = await context.clock.sleep(ms, context.signal);
-      if (outcome === 'elapsed') yield reliableSourceMessage(message);
+      if (outcome === 'elapsed') await sink.emit(reliableSourceMessage(message));
     }
   };
 }
@@ -57,7 +57,7 @@ export function animationSource<TMessage extends NonNullable<unknown>>(
     id,
     generation: 0,
     source: 'timer',
-    async *messages(context) {
+    async run(context, sink) {
       let timeline = createAnimationTimeline(context.clock.monotonicNow(), fps);
       while (!context.signal.aborted) {
         const delay = Math.max(0, nextAnimationDeadline(timeline) - context.clock.monotonicNow());
@@ -65,7 +65,7 @@ export function animationSource<TMessage extends NonNullable<unknown>>(
         if (outcome === 'aborted') return;
         const advanced = advanceAnimationTimeline(timeline, context.clock.monotonicNow());
         timeline = advanced.timeline;
-        yield replaceableSourceMessage('animation-frame', message(advanced.frame));
+        await sink.emit(replaceableSourceMessage('animation-frame', message(advanced.frame)));
       }
     }
   };

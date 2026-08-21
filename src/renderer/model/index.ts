@@ -5,6 +5,5 @@ export type {
   RenderNodesOfKind,
   RenderNodeChildren,
   RenderNodeInputMap,
-  RenderNodePointerInteraction,
   RenderNodeKind
 } from './types.ts';

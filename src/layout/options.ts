@@ -3,9 +3,10 @@ import type { ElementValue } from '../element/index.ts';
 import type {
   ElementKeyBindings,
   ElementOptions,
-  InteractiveElementOptions
+  InteractiveElementOptions,
+  StructuralElementOptions
 } from '../element/metadata.ts';
-import type { DataListStylePart, SurfaceStylePart } from '../ui-model/style-parts.ts';
+import type { SurfaceStylePart } from '../ui-model/style-parts.ts';
 import type { BorderOptions, BorderTitle } from '../visual/border.ts';
 import type { ScrollbarOptions } from '../interaction/scrollbar.ts';
 import type { SurfaceAppearance } from '../visual/surface.ts';
@@ -19,28 +20,28 @@ import type {
   AnchoredSurfaceSide
 } from '../interaction/anchored-surface.ts';
 
-export interface ColumnOptions extends ElementOptions, LayoutFlowOptions {
+export interface ColumnOptions extends StructuralElementOptions, LayoutFlowOptions {
   readonly sizes?: readonly LayoutSize[];
 }
 
-export interface RowOptions extends ElementOptions, LayoutFlowOptions {
+export interface RowOptions extends StructuralElementOptions, LayoutFlowOptions {
   readonly sizes?: readonly LayoutSize[];
 }
 
-export interface FlowOptions extends ElementOptions {
+export interface FlowOptions extends StructuralElementOptions {
   readonly direction: 'horizontal' | 'vertical';
   readonly gap?: number;
   readonly lineGap?: number;
 }
 
-export interface GridOptions extends ElementOptions, GridLayoutOptions {
+export interface GridOptions extends StructuralElementOptions, GridLayoutOptions {
   readonly rows: readonly LayoutSize[];
   readonly columns: readonly LayoutSize[];
 }
 
 export interface GridAreasOptions<
   TChildren extends Readonly<Record<string, ElementValue>> = Readonly<Record<string, ElementValue>>
-> extends ElementOptions, GridLayoutOptions {
+> extends StructuralElementOptions, GridLayoutOptions {
   readonly areas: string;
   readonly children: TChildren;
   readonly rows: readonly LayoutSize[];
@@ -80,7 +81,7 @@ export type ViewportOptions<TMessage = never> =
   | ScrollableViewportOptions<TMessage>;
 
 export interface PassiveViewportOptions
-  extends ElementOptions<DataListStylePart>, LayoutFlowOptions {
+  extends StructuralElementOptions, LayoutFlowOptions {
   readonly offset?: ViewportOffset;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
@@ -90,10 +91,12 @@ export interface PassiveViewportOptions
 }
 
 export interface ScrollableViewportOptions<TMessage = never>
-  extends InteractiveElementOptions<DataListStylePart, TMessage>, LayoutFlowOptions {
+  extends InteractiveElementOptions<never>, LayoutFlowOptions {
+  readonly styles?: never;
   readonly offset?: ViewportOffset;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
+  readonly keyboardScroll?: import('../interaction/scroll.ts').ScrollKeyboardPolicy;
   readonly onScroll: (event: ScrollEvent) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
@@ -105,14 +108,14 @@ export interface SurfaceOptions extends ElementOptions<SurfaceStylePart>, Omit<L
   readonly shadow?: boolean;
 }
 
-export interface AbsoluteOptions extends ElementOptions {
+export interface AbsoluteOptions extends StructuralElementOptions {
   readonly row: number;
   readonly column: number;
   readonly width?: number;
   readonly height?: number;
 }
 
-export interface AnchoredOptions extends ElementOptions {
+export interface AnchoredOptions extends StructuralElementOptions {
   readonly anchor: AnchoredSurfaceAnchor;
   readonly placement?: AnchoredSurfacePlacement;
   readonly fallback?: readonly AnchoredSurfaceSide[];
@@ -120,7 +123,7 @@ export interface AnchoredOptions extends ElementOptions {
   readonly fit?: AnchoredSurfaceFit;
 }
 
-export interface PortalOptions<TMessage = never> extends ElementOptions {
+export interface PortalOptions<TMessage = never> extends StructuralElementOptions {
   readonly anchor: AnchoredSurfaceAnchor | { readonly kind: 'allocation' };
   readonly placement?: AnchoredSurfacePlacement | 'center';
   readonly fallback?: readonly AnchoredSurfaceSide[];

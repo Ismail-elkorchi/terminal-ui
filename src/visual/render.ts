@@ -8,7 +8,7 @@ import { isNonArrayObject } from '../foundation/validation.ts';
 import type { ThemeColorReference } from './color.ts';
 import { sameFrameCellSource } from './source.ts';
 import type { FrameCellSource } from './source.ts';
-import type { TextMeasurementOptions } from '../text/index.ts';
+import type { TextMeasurementOptions, TextWrapOptions } from '../text/index.ts';
 
 export interface TerminalStyle {
   readonly fg?: TerminalColor;
@@ -23,6 +23,7 @@ export interface TerminalStyle {
 }
 
 export type TerminalColor =
+  | { readonly kind: 'default' }
   | { readonly kind: 'ansi'; readonly value: number }
   | { readonly kind: 'rgb'; readonly r: number; readonly g: number; readonly b: number }
   | ThemeColorReference;
@@ -221,7 +222,7 @@ export function compactRenderSpans(spans: readonly RenderSpan[]): readonly Rende
 export function wrapRenderSpans(
   spans: readonly RenderSpan[],
   width: number,
-  options: TextMeasurementOptions = {}
+  options: TextWrapOptions = {}
 ): readonly RenderLine[] {
   if (width <= 0) throw new RangeError('width must be positive.');
   const lines: RenderLine[] = [];
@@ -245,6 +246,21 @@ export function wrapRenderSpans(
         continue;
       }
       if (usedCells > 0 && usedCells + segment.cells > width) {
+        if (options.preserveWords === true && /^\s+$/u.test(segment.text)) {
+          pushLine();
+          continue;
+        }
+        if (options.preserveWords === true) {
+          const split = styledWordSplit(current);
+          if (split !== undefined) {
+            const remainder = split.rest;
+            current = split.line;
+            pushLine();
+            current = [...remainder, { text: segment.text, options: spanMetadata, cells: segment.cells }];
+            usedCells = current.reduce((total, item) => total + item.cells, 0);
+            continue;
+          }
+        }
         pushLine();
       }
       current.push({ text: segment.text, options: spanMetadata, cells: segment.cells });
@@ -254,6 +270,25 @@ export function wrapRenderSpans(
 
   pushLine();
   return Object.freeze(lines);
+}
+
+function styledWordSplit<TSegment extends { readonly text: string }>(
+  segments: readonly TSegment[],
+): { readonly line: TSegment[]; readonly rest: TSegment[] } | undefined {
+  let whitespaceEnd = segments.length;
+  while (whitespaceEnd > 0 && !/^\s+$/u.test(segments[whitespaceEnd - 1]?.text ?? '')) {
+    whitespaceEnd -= 1;
+  }
+  if (whitespaceEnd === 0 || whitespaceEnd === segments.length) return undefined;
+  let whitespaceStart = whitespaceEnd;
+  while (whitespaceStart > 0 && /^\s+$/u.test(segments[whitespaceStart - 1]?.text ?? '')) {
+    whitespaceStart -= 1;
+  }
+  if (whitespaceStart === 0) return undefined;
+  return {
+    line: segments.slice(0, whitespaceStart),
+    rest: segments.slice(whitespaceEnd),
+  };
 }
 
 export function sameTerminalStyle(left: TerminalStyle | undefined, right: TerminalStyle | undefined): boolean {
@@ -273,6 +308,8 @@ export function sameTerminalColor(left: TerminalColor | undefined, right: Termin
   if (left === undefined || right === undefined) return left === right;
   if (left.kind !== right.kind) return false;
   switch (left.kind) {
+    case 'default':
+      return right.kind === 'default';
     case 'ansi':
       return right.kind === 'ansi' && left.value === right.value;
     case 'rgb':

@@ -7,6 +7,8 @@ import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { renderCurrentFrame, resolveTuiTheme } from './runtime-frame.ts';
 import { recordTuiCommit } from './transcript.ts';
+import { tuiDefinition } from './definition.ts';
+import { decodeTuiInitialResult } from './hook-results.ts';
 import type { DiagnosticOccurrence, DiagnosticOccurrenceReporter, TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile, TerminalHost } from '../host/index.ts';
 import type { Frame } from '../renderer/contracts.ts';
@@ -25,7 +27,8 @@ export async function runTuiNonTty<TState, TMessage>(
 ): Promise<TuiExit<TState> | undefined> {
   if (capabilities.isTty) return undefined;
   const reporter = createDiagnosticOccurrenceReporter(`${app.id}:non-tty`);
-  const policy = app.definition.nonTty ?? { mode: 'reject' as const };
+  const definition = tuiDefinition(app);
+  const policy = definition.nonTty ?? { mode: 'reject' as const };
   if (policy.mode === 'reject') {
     const diagnostics = [diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Full-screen TUI requires a TTY terminal host.', {
       target: app.id,
@@ -45,7 +48,7 @@ export async function runTuiNonTty<TState, TMessage>(
   const context = nonTtyContext(host, capabilities);
   let state: TState;
   try {
-    state = app.definition.init(context);
+    state = decodeTuiInitialResult<TState, TMessage>(definition.init(context)).state;
   } catch (cause) {
     return finalizeNonTtyFailureWithoutState(
       app.id,
@@ -121,8 +124,8 @@ export async function runTuiNonTty<TState, TMessage>(
       }
     ));
   }
-  if (app.definition.onExit !== undefined) {
-    const onExit = app.definition.onExit;
+  if (definition.onExit !== undefined) {
+    const onExit = definition.onExit;
     const exitHook = await runTuiLifecyclePhase({
       clock: host.clock,
       target: app.id,

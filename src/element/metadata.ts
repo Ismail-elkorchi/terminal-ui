@@ -1,9 +1,11 @@
 import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
 import type { BindableKeyName, InputEvent, InputTrigger } from '../input/index.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
-import type { PointerInteractionOptions } from '../interaction/pointer-interaction.ts';
 import type { MessageResolution } from '../interaction/message.ts';
 import type { TerminalStyle } from '../visual/render.ts';
+import type { ElementVisualState } from '../visual/source.ts';
+
+export type { ElementVisualState } from '../visual/source.ts';
 
 export const elementStateFields = ['disabled', 'busy', 'readOnly', 'inert'] as const;
 
@@ -51,14 +53,10 @@ export interface ElementLayer {
   readonly overflowPriority?: ElementOverflowPriority;
 }
 
-export type ElementVisualState =
-  | 'default'
-  | 'focused'
-  | 'hovered'
-  | 'pressed'
-  | 'selected'
-  | 'disabled'
-  | 'active';
+export interface ElementStateStyles<TPart extends string = string> {
+  readonly root?: TerminalStyle;
+  readonly parts?: Readonly<Partial<Record<TPart, TerminalStyle>>>;
+}
 
 export type ElementTextRole =
   | 'title'
@@ -69,10 +67,15 @@ export type ElementTextRole =
   | 'metric'
   | 'badge';
 
-export interface ElementStyles<TPart extends string = string> {
+export interface ElementStyles<
+  TPart extends string = string,
+  TState extends Exclude<ElementVisualState, 'default'> = never,
+> {
   readonly root?: TerminalStyle;
   readonly parts?: Readonly<Partial<Record<TPart, TerminalStyle>>>;
-  readonly states?: Readonly<Partial<Record<Exclude<ElementVisualState, 'default'>, TerminalStyle>>>;
+  readonly states?: [TState] extends [never]
+    ? never
+    : Readonly<Partial<Record<TState, ElementStateStyles<TPart>>>>;
 }
 
 export interface ElementFocusScope {
@@ -89,22 +92,30 @@ export interface ElementFocus {
 
 export type ElementAccessibility = AccessibleNode | AccessibilityOptions;
 
-export interface ElementMeta<TPart extends string = string> {
+export interface ElementMeta {
   readonly accessibility?: ElementAccessibility;
   readonly focus?: ElementFocus;
   readonly layer?: ElementLayer;
-  readonly styles?: ElementStyles<TPart>;
 }
 
-export interface ElementOptions<TPart extends string = string> {
+export interface ElementOptions<
+  TPart extends string = string,
+  TState extends Exclude<ElementVisualState, 'default'> = never,
+> {
   readonly id?: string;
-  readonly meta?: ElementMeta<TPart>;
+  readonly meta?: ElementMeta;
+  readonly styles?: ElementStyles<TPart, TState>;
+}
+
+/** Identity and semantic metadata for elements that do not paint a styleable anatomy. */
+export interface StructuralElementOptions {
+  readonly id?: string;
+  readonly meta?: ElementMeta;
 }
 
 export interface InteractiveElementOptions<
   TPart extends string = string,
-  TMessage = never
-> extends ElementOptions<TPart> {
+  TState extends Exclude<ElementVisualState, 'default'> = never,
+> extends ElementOptions<TPart, TState> {
   readonly id: string;
-  readonly pointer?: PointerInteractionOptions<TMessage>;
 }

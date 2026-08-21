@@ -17,19 +17,22 @@ For each component:
 - expose focus targets only when keyboard interaction exists;
 - expose hit targets only for pointer interaction regions;
 - provide accessibility or mark pure decoration as decorative;
-- support theme tokens and local `meta.styles` slots for visible states;
+- support theme tokens and exact top-level `styles` contracts for visible states;
 - test plain text, ANSI, frame cells, focus, hit targets, and accessibility.
 
 ## Visual States
 
-Use semantic component states instead of hardcoded colors. Generic state slots
-are `focused`, `hovered`, `pressed`, `selected`, `disabled`, and `active`.
+Use semantic component states instead of hardcoded colors. A definition
+declares only the states it can render, such as `focused`, `hovered`, `pressed`,
+`selected`, `active`, `disabled`, `busy`, and `readOnly`.
 Stable component parts such as `root`, `border`, `title`, `label`, `value`,
 and `placeholder` remain separate from those states.
 
-Theme defaults should make ordinary components readable. Local `meta.styles`
-overrides should affect only the component that receives them and the stable
-slots that the definition declares. There is no global style cascade.
+Theme defaults should make ordinary components readable. Local `styles`
+overrides affect only the component that receives them and the stable slots and
+states that the definition declares. Root styles form the common base; part and
+state-part styles refine it with deterministic right-biased precedence. There
+is no global style cascade.
 
 Selected and pressed content uses selection colors; focus and active states
 add emphasis; hovered content uses the focus background; and disabled content

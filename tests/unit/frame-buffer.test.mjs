@@ -68,8 +68,8 @@ test('FrameBuffer excludes terminal movement controls from cell text and geometr
   buffer.write(1, 1, [{ text: 'a\tb\nc\rd' }]);
   const frame = buffer.snapshot();
 
-  assert.equal(renderFramePlain(frame), 'abcd');
-  assert.deepEqual(frame.cells.map((cell) => cell.text), ['a', 'b', 'c', 'd']);
+  assert.equal(renderFramePlain(frame), 'a   bcd');
+  assert.deepEqual(frame.cells.map((cell) => cell.text), ['a', ' ', ' ', ' ', 'b', 'c', 'd']);
 });
 
 test('FrameBuffer clips writes to bounds without leaking partial wide glyphs', () => {
@@ -226,13 +226,13 @@ test('FrameCellSource rejects unknown interaction values at every frame-buffer e
     /Frame cell source cellRole/u
   );
   assert.throws(
-    () => frameCellSource({ elementId: 'invalid', interactionState: 'busy' }),
+    () => frameCellSource({ elementId: 'invalid', interactionState: 'unknown' }),
     /Frame cell source interactionState/u
   );
 
   const written = createFrameBuffer(1, 1);
   assert.throws(
-    () => written.write(1, 1, [{ text: 'x', source: { interactionState: 'busy' } }]),
+    () => written.write(1, 1, [{ text: 'x', source: { interactionState: 'unknown' } }]),
     /Frame cell source interactionState/u
   );
 
@@ -243,7 +243,7 @@ test('FrameCellSource rejects unknown interaction values at every frame-buffer e
       column: 1,
       text: 'x',
       width: 1,
-      source: { interactionState: 'busy' }
+      source: { interactionState: 'unknown' }
     }),
     /Frame cell source interactionState/u
   );
@@ -251,7 +251,7 @@ test('FrameCellSource rejects unknown interaction values at every frame-buffer e
   const cursor = createFrameBuffer(1, 1);
   assert.throws(
     () => cursor.snapshot({
-      cursor: { row: 1, column: 1, source: { interactionState: 'busy' } }
+      cursor: { row: 1, column: 1, source: { interactionState: 'unknown' } }
     }),
     /Frame cell source interactionState/u
   );

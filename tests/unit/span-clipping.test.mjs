@@ -111,7 +111,7 @@ test('render span utilities measure compact pad clip and align while preserving 
 });
 
 test('dataGrid clipping keeps multi-span cell styles instead of flattening to plain text', () => {
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'styled-dataGrid',
     presentation: {
@@ -153,7 +153,7 @@ test('dataGrid clipping keeps multi-span cell styles instead of flattening to pl
 });
 
 test('dataGrid horizontal scrolling keeps span styles after clipped cells are shifted', () => {
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'scrolled-styled-dataGrid',
     presentation: {

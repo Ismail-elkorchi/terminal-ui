@@ -65,8 +65,7 @@ type InteractiveAction =
   | { readonly kind: 'hit' }
   | { readonly kind: 'input' }
   | { readonly kind: 'paste' }
-  | { readonly kind: 'key' }
-  | { readonly kind: 'pointer' };
+  | { readonly kind: 'key' };
 
 const interactive = defineComponent<
   Record<never, never>,
@@ -85,7 +84,6 @@ const interactive = defineComponent<
   keys: () => ({ enter: () => ({ kind: 'key' }) }),
   onInput: () => ({ kind: 'input' }),
   onPaste: () => ({ kind: 'paste' }),
-  pointer: { onAction: () => ({ kind: 'pointer' }) },
   accessibility: ({ id, focused }) => ({
     id,
     role: 'button',

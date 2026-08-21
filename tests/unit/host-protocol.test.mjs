@@ -680,7 +680,7 @@ test('protocol writer emits typed mouse mode and sanitized title sequences', asy
   assert.match(host.output(), /^\u001B\[\?1003l\u001B\[\?1002l\u001B\[\?1000l\u001B\[\?1006h\u001B\[\?1002h/u);
   assert.match(host.output(), /\u001B\[\?1003l\u001B\[\?1002l\u001B\[\?1000l\u001B\[\?1006l/u);
   assert.match(host.output(), /\u001B\[>3u\u001B\[=7u\u001B\[<u/u);
-  assert.equal(host.output().includes('\u001B]0;Build\u0007'), true);
+  assert.equal(host.output().includes('\u001B]0;Build   \u0007'), true);
   assert.doesNotMatch(host.output(), /\u001B\[31m/u);
   await assert.rejects(() => protocol.setTitle('x'.repeat(4097)), /must not exceed 4096 code units/u);
 });

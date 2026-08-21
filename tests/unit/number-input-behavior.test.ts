@@ -114,7 +114,7 @@ void test('number input commit can clamp out-of-range text only when requested',
 
 void test('number input renders controlled text validity and pointer step controls', () => {
   const messages: NumberInputControlAction[] = [];
-  const element = numberInput({
+  const element = numberInput({ meta: { accessibleName: "Number input" },
     id: 'workers',
     presentation: numberInputPresentation({
       input: { text: '-.', cursor: 2 },

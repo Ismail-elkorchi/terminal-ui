@@ -8,7 +8,12 @@ import { testCanvas as canvas } from '../helpers/canvas.mjs';
 import { absolute, overlay, surface } from '../../dist/layout/index.js';
 
 function focusInput(options) {
-  return textInput({ onAction: () => ignoreMessage(), ...options });
+  const { meta, ...rest } = options;
+  return textInput({
+    onAction: () => ignoreMessage(),
+    ...rest,
+    meta: { accessibleName: 'Text input', ...meta }
+  });
 }
 
 test('absolute clips child bounds without leaking outside its parent', () => {
@@ -293,7 +298,7 @@ test('menuTrigger renders above dataGrid content in a higher region', () => {
     ],
     presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (action) => action,
-    meta: {
+    meta: { accessibleName: "Data grid",
         layer: {
             zIndex: 0
         }
@@ -318,7 +323,7 @@ test('menuTrigger renders above dataGrid content in a higher region', () => {
         { kind: 'action', id: 'dark', label: 'Dark' }
     ],
     onTransition: (action) => ({ kind: 'theme', action }),
-    meta: {
+    meta: { accessibleName: "Menu",
         layer: {
             zIndex: 15
         }
@@ -371,7 +376,7 @@ test('context menu renders above canvas content in a higher region', () => {
       }
     },
     onTransition: (transition) => ({ kind: 'context', transition }),
-    meta: {
+    meta: { accessibleName: "Context menu",
         layer: {
             zIndex: 12
         }

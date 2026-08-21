@@ -142,8 +142,7 @@ export const layoutRenderers = {
     },
     accessibility: ({ renderNode, layoutNode, id }) => ({
       id,
-      role: 'text',
-      label: id,
+      role: 'group',
       description: viewportAccessibleDescription(renderNode, layoutNode)
     }),
     hitTargets: ({ renderNode, bounds, layoutNode }) => {

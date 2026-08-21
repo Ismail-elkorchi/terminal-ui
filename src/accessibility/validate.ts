@@ -116,9 +116,55 @@ export function adoptAccessibleSnapshot(
   if (focusIssue !== undefined) return failure(focusIssue);
   const relationshipIssue = firstRelationshipIssue(nodesById);
   if (relationshipIssue !== undefined) return failure(relationshipIssue);
+  const nameIssue = firstRequiredNameIssue(nodesById);
+  if (nameIssue !== undefined) return failure(nameIssue);
   decodedAccessibleSnapshots.set(snapshot, owned);
   decodedAccessibleSnapshots.set(owned, owned);
   return success(owned);
+}
+
+const namedRoles = new Set<AccessibleNode['role']>([
+  'application',
+  'dialog',
+  'form',
+  'link',
+  'navigation',
+  'toolbar',
+  'search',
+  'textbox',
+  'button',
+  'checkbox',
+  'switch',
+  'radio',
+  'radiogroup',
+  'slider',
+  'spinbutton',
+  'combobox',
+  'listbox',
+  'menu',
+  'menubar',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'tablist',
+  'tab',
+  'table',
+  'grid',
+  'tree',
+]);
+
+function firstRequiredNameIssue(
+  nodes: ReadonlyMap<string, AccessibleNode>,
+): TerminalDiagnostic | undefined {
+  for (const node of nodes.values()) {
+    if (namedRoles.has(node.role) && node.label === undefined && node.labelledBy === undefined) {
+      return accessibilityFailure(
+        `Accessible ${node.role} nodes require a label or labelledBy relationship.`,
+        node.id,
+      );
+    }
+  }
+  return undefined;
 }
 
 function firstNodeIssue(

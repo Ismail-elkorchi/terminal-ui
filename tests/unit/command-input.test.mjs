@@ -20,7 +20,7 @@ import { ignoreMessage } from '../../dist/component/index.js';
 import { column, row } from '../../dist/layout/index.js';
 
 function testCommandInput(options) {
-  return commandInput({
+  return commandInput({ meta: { accessibleName: "Command input" },
     onTransition: () => ignoreMessage(),
     ...options,
     presentation: {
@@ -157,7 +157,7 @@ test('commandInput projects controlled state and separates transitions from subm
   };
   const app = defineTui({
     id: 'command-actions',
-    init: () => ({ command, messages: [] }),
+    init: () => ({ state: ({ command, messages: [] }) }),
     update: (state, message) => ({ state: { ...state, messages: [...state.messages, message] } }),
     view: (state) => testCommandInput({
       id: 'command',
@@ -265,7 +265,7 @@ test('commandInput popup anchors suggestions without increasing the input height
 });
 
 test('read-only command input rejects pointer suggestion activation', () => {
-  const target = targetById(renderElementRegions(commandInput({
+  const target = targetById(renderElementRegions(commandInput({ meta: { accessibleName: "Command input" },
     id: 'read-only-command',
     presentation: {
       value: 'a',
@@ -331,7 +331,7 @@ test('commandInput fills tall bounds while preserving its one-row natural size',
 test('commandInput generated keys navigate and submit the selected suggestion', async () => {
   const app = defineTui({
     id: 'command-generated-keys',
-    init: () => ({
+    init: () => ({ state: ({
       presentation: {
         value: 'exa',
         cursor: 3,
@@ -341,7 +341,7 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
         ])
       },
       submitted: null
-    }),
+    }) }),
     update: (state, message) => message.kind === 'action'
       ? {
           state: {
@@ -388,7 +388,7 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
 test('commandInput leaves Tab available for focus traversal without suggestions', async () => {
   const app = defineTui({
     id: 'command-tab-traversal',
-    init: () => ({ actions: [] }),
+    init: () => ({ state: ({ actions: [] }) }),
     update: (state, action) => ({ state: { actions: [...state.actions, action] } }),
     view: () => row([
       testCommandInput({

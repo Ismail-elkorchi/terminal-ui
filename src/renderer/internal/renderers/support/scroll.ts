@@ -11,6 +11,7 @@ import { viewportVisualState } from './viewport.ts';
 import type { RenderTarget } from '../../../contracts.ts';
 import type { LayoutNode, Rect } from '../../../contracts.ts';
 import type { RoutedPointerEvent } from '../../../../input/pointer.ts';
+import type { InputEvent } from '../../../../input/index.ts';
 import { ignoreMessage } from '../../../../interaction/message.ts';
 import type { MessageResolution } from '../../../../interaction/message.ts';
 import type {
@@ -28,6 +29,10 @@ import type {
   ScrollbarVisualState
 } from '../../scrollbar.ts';
 import type { HitTarget } from '../../../contracts.ts';
+import {
+  scrollRouteDescriptor,
+  type ScrollRoutable,
+} from '../../../../interaction/scroll-route.ts';
 
 const WHEEL_SCROLL_LINES = 3;
 const WHEEL_SCROLL_COLUMNS = 3;
@@ -156,7 +161,7 @@ function scrollContentHitTarget<TMessage>(
   state: ScrollbarState,
   wheel: NormalizedScrollWheelPolicy,
   factory: (event: ScrollEvent) => MessageResolution<TMessage>
-): HitTarget<TMessage> {
+): HitTarget<TMessage> & ScrollRoutable<TMessage> {
   return {
     id: `${id}:scroll:content`,
     bounds,
@@ -164,7 +169,8 @@ function scrollContentHitTarget<TMessage>(
     message: (event) => {
       const action = scrollActionForWheel(event, wheel);
       return action === undefined ? ignoreMessage() : factory(scrollEvent(action, state, event, 'content'));
-    }
+    },
+    [scrollRouteDescriptor]: wheelRoute(state, wheel, factory, 'content'),
   };
 }
 
@@ -176,7 +182,7 @@ function scrollbarTrackHitTargets<TMessage>(
   wheel: NormalizedScrollWheelPolicy,
   factory: (event: ScrollEvent) => MessageResolution<TMessage>
 ): readonly HitTarget<TMessage>[] {
-  const trackTarget: HitTarget<TMessage> = {
+  const trackTarget: HitTarget<TMessage> & ScrollRoutable<TMessage> = {
     id: `${id}:scrollbar:${axis}:track`,
     bounds: track.bounds,
     accepts: ['scroll', 'pointerDown', 'dragStart', 'drag'],
@@ -191,7 +197,13 @@ function scrollbarTrackHitTargets<TMessage>(
         event,
         axis === 'vertical' ? 'verticalScrollbarTrack' : 'horizontalScrollbarTrack'
       ));
-    }
+    },
+    [scrollRouteDescriptor]: wheelRoute(
+      state,
+      wheel,
+      factory,
+      axis === 'vertical' ? 'verticalScrollbarTrack' : 'horizontalScrollbarTrack',
+    ),
   };
   const thumbBounds = scrollbarThumbBounds(track);
   return thumbBounds === undefined
@@ -214,6 +226,29 @@ function scrollbarTrackHitTargets<TMessage>(
           }
         }
       ];
+}
+
+function wheelRoute<TMessage>(
+  initial: ScrollbarState,
+  policy: NormalizedScrollWheelPolicy,
+  factory: (event: ScrollEvent) => MessageResolution<TMessage>,
+  target: ScrollEventTarget,
+) {
+  return Object.freeze({
+    state: scrollPosition(initial),
+    route(pointer: RoutedPointerEvent, state: ScrollState) {
+      const action = scrollActionForWheel(pointer, policy);
+      const nextState = action === undefined
+        ? state
+        : scrollReducer(state, action, scrollGeometry(initial));
+      return Object.freeze({
+        nextState,
+        message: action === undefined
+          ? ignoreMessage()
+          : factory({ nextState, source: scrollEventSource(pointer), target }),
+      });
+    },
+  });
 }
 
 function scrollEvent(
@@ -411,6 +446,59 @@ export function viewportScrollbarState(
     }, geometry),
     ...geometry,
   };
+}
+
+export function viewportKeyboardScrollMessage<TMessage>(
+  renderNode: RenderNodeOfKind<TMessage, 'viewport'>,
+  layout: LayoutNode,
+  event: InputEvent,
+): MessageResolution<TMessage> {
+  if (event.kind !== 'key' || event.eventType !== 'press' || !noModifiers(event)) {
+    return ignoreMessage();
+  }
+  const policy = renderNode.props.keyboardScroll;
+  if (policy === undefined) return ignoreMessage();
+  const action = keyboardScrollAction(event.key, policy);
+  const factory = scrollMessageFactory(renderNode);
+  if (action === undefined || factory === undefined) return ignoreMessage();
+  const plan = scrollbarsForRenderNode(
+    renderNode,
+    layout.bounds,
+    (bounds) => viewportScrollbarState(renderNode, bounds, layout),
+    'both',
+  );
+  const state = plan.state;
+  const nextState = scrollReducer(scrollPosition(state), action, scrollGeometry(state));
+  if (nextState.offsetRow === state.offsetRow && nextState.offsetColumn === state.offsetColumn) {
+    return ignoreMessage();
+  }
+  return factory({ nextState, source: 'keyboard', target: 'content' });
+}
+
+function keyboardScrollAction(
+  key: Extract<InputEvent, { readonly kind: 'key' }>['key'],
+  policy: NonNullable<RenderNodeOfKind<unknown, 'viewport'>['props']['keyboardScroll']>,
+): ScrollAction | undefined {
+  const vertical = policy === 'vertical' || policy === 'both';
+  const horizontal = policy === 'horizontal' || policy === 'both';
+  if (vertical && key === 'arrowUp') return { kind: 'scrollLines', rows: -1 };
+  if (vertical && key === 'arrowDown') return { kind: 'scrollLines', rows: 1 };
+  if (vertical && key === 'pageUp') return { kind: 'scrollPages', rows: -1 };
+  if (vertical && key === 'pageDown') return { kind: 'scrollPages', rows: 1 };
+  if (vertical && key === 'home') return { kind: 'top' };
+  if (vertical && key === 'end') return { kind: 'bottom' };
+  if (horizontal && key === 'arrowLeft') return { kind: 'scrollLines', columns: -1 };
+  if (horizontal && key === 'arrowRight') return { kind: 'scrollLines', columns: 1 };
+  return undefined;
+}
+
+function noModifiers(event: Extract<InputEvent, { readonly kind: 'key' }>): boolean {
+  return !event.modifiers.ctrl
+    && !event.modifiers.alt
+    && !event.modifiers.shift
+    && !event.modifiers.meta
+    && event.modifiers.super !== true
+    && event.modifiers.hyper !== true;
 }
 
 function scrollPosition(state: ScrollbarState): ScrollState {

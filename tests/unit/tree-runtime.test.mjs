@@ -46,7 +46,7 @@ test('treeReducer keeps disclosure state separate from immutable input nodes', (
   const expanded = treeReducer(state, { kind: 'toggle', id: 'root' }, {
     view: prepareTreeView(source, state),
   });
-  const frame = renderElementFrame(tree({
+  const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
     view: prepareTreeView(source, expanded),
     presentation: expanded,
@@ -82,9 +82,9 @@ test('tree pointer selection and double-click activation match keyboard semantic
   const source = prepareTreeSource([{ id: 'leaf', label: 'Leaf', kind: 'leaf' }]);
   const app = defineTui({
     id: 'tree-pointer-activation',
-    init: () => ({ actions: [] }),
+    init: () => ({ state: ({ actions: [] }) }),
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
-    view: () => tree({
+    view: () => tree({ meta: { accessibleName: "Tree" },
       id: 'activation-tree',
       view: prepareTreeView(source, presentation),
       presentation,
@@ -123,7 +123,7 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
       { id: 'api', label: 'API Layer', kind: 'leaf', description: 'Server request boundary', disabled: true, metadata: { domain: 'server' } }
     ]
   }]);
-  const frame = renderElementFrame(tree({
+  const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
     presentation,
     view: prepareTreeView(source, presentation),
@@ -168,7 +168,7 @@ test('tree owns retained multiple-selection state at construction', () => {
     { id: 'first', label: 'First', kind: 'leaf' },
     { id: 'second', label: 'Second', kind: 'leaf' }
   ]);
-  const element = tree({
+  const element = tree({ meta: { accessibleName: "Tree" },
     id: 'owned-tree-selection',
     view: prepareTreeView(source, presentation),
     presentation,
@@ -192,7 +192,7 @@ test('tree renders lazy placeholders and clips tiny viewports safely', () => {
     label: 'Very long root label for clipping',
     kind: 'lazy',
   }]);
-  const frame = renderElementFrame(tree({
+  const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'lazy-tree',
     view: prepareTreeView(source, presentation),
     presentation,

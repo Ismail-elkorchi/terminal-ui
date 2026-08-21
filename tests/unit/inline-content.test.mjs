@@ -167,10 +167,8 @@ test('inline adornments use component part styles and source anatomy', () => {
       onAction: () => ignoreMessage(),
       leading: [symbol],
       trailing: [{ kind: 'text', text: 'S' }],
-      meta: {
-        focus: { disabled: true },
-        styles: { parts: { leading: leadingStyle, trailing: trailingStyle } }
-      }
+      styles: { parts: { leading: leadingStyle, trailing: trailingStyle } },
+      meta: { focus: { disabled: true } }
     }), { columns: 20, rows: 1 }),
     renderElementFrame(menu({
       id: 'actions',
@@ -179,20 +177,22 @@ test('inline adornments use component part styles and source anatomy', () => {
         items: [{ kind: 'action', id: 'open', label: 'Open', leading: [symbol], trailing: [{ kind: 'text', text: 'O' }] }]
       },
       onTransition: (action) => action,
-      meta: {
-        focus: { disabled: true },
-        styles: { parts: { leading: leadingStyle, trailing: trailingStyle } }
-      }
+      styles: {
+        parts: { leading: leadingStyle, trailing: trailingStyle },
+        states: { active: { parts: { leading: leadingStyle, trailing: trailingStyle } } }
+      },
+      meta: { accessibleName: "Menu", focus: { disabled: true } }
     }), { columns: 24, rows: 1 }),
     renderElementFrame(tabs({
       id: 'views',
       presentation: { activeId: 'main', selectedId: 'main' },
       tabs: [{ id: 'main', label: 'Main', leading: [symbol], panel: text({ content: 'Panel' }) }],
       onTransition: (action) => action,
-      meta: {
-        focus: { disabled: true },
-        styles: { parts: { leading: leadingStyle } }
-      }
+      styles: {
+        parts: { leading: leadingStyle },
+        states: { selected: { parts: { leading: leadingStyle } } }
+      },
+      meta: { accessibleName: "Tabs", focus: { disabled: true } }
     }), { columns: 24, rows: 2 }),
     renderElementFrame(statusBar({
       id: 'status',
@@ -203,7 +203,7 @@ test('inline adornments use component part styles and source anatomy', () => {
         leading: [symbol],
         trailing: [{ kind: 'text', text: 'M' }]
       }],
-      meta: { styles: { parts: { leading: leadingStyle, trailing: trailingStyle } } }
+      styles: { parts: { leading: leadingStyle, trailing: trailingStyle } }
     }), { columns: 24, rows: 1 })
   ];
 
@@ -218,7 +218,7 @@ test('inline adornments use component part styles and source anatomy', () => {
 });
 
 test('dataGrid inline cell content preserves caller style while replacing injected source metadata', () => {
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'results',
     rows: [{ id: 'one', state: 'ready' }],
     getRowId: (row) => row.id,

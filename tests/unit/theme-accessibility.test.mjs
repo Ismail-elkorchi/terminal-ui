@@ -101,7 +101,7 @@ test('the graphical default retains an implicit canvas while minimal preserves t
   assert.equal(graphical.canvasStyle?.fg?.token, 'app.foreground');
   assert.equal(minimal.canvasStyle, undefined);
   assert.equal(graphical.cells.every((cell) => cell.style?.bg?.token === 'app.background'), true);
-  assert.equal(graphical.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'text.default');
+  assert.equal(graphical.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'app.foreground');
 });
 
 test('theme rendering identity is exact, order independent, and excludes names', () => {
@@ -202,6 +202,7 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
     root: {
       id: 'app',
       role: 'application',
+      label: 'Application',
       children: [
         { id: 'title', role: 'text', label: 'Title' },
         { id: 'field', role: 'textbox', label: 'Name', focused: true }
@@ -279,7 +280,7 @@ test('accessible snapshot validation returns the retained owned value', () => {
   const children = [child];
   const input = {
     source: 'renderer',
-    root: { id: 'root', role: 'application', children },
+    root: { id: 'root', role: 'application', label: 'Application', children },
     focusPath: [],
     diagnostics: []
   };
@@ -309,6 +310,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     {
       id: 'document',
       role: 'document',
+      label: 'Documentation',
       children: [
         { id: 'heading', role: 'heading', label: 'Documentation', position: { level: 1 } },
         { id: 'link', role: 'link', label: 'Next page' },
@@ -324,7 +326,8 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
             {
               id: 'tablist',
               role: 'tablist',
-              children: [{ id: 'tab', role: 'tab', controls: 'panel', selected: true }]
+              label: 'Sections',
+              children: [{ id: 'tab', role: 'tab', label: 'Overview', controls: 'panel', selected: true }]
             },
             { id: 'panel', role: 'tabpanel', labelledBy: 'tab' }
           ]
@@ -334,16 +337,19 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     {
       id: 'form',
       role: 'form',
-      children: [{ id: 'switch', role: 'switch', checked: true }]
+      label: 'Preferences',
+      children: [{ id: 'switch', role: 'switch', label: 'Enabled', checked: true }]
     },
     {
       id: 'choices',
       role: 'radiogroup',
-      children: [{ id: 'choice', role: 'radio', checked: true }]
+      label: 'Choices',
+      children: [{ id: 'choice', role: 'radio', label: 'First choice', checked: true }]
     },
     {
       id: 'files',
       role: 'tree',
+      label: 'Files',
       window: { startIndex: 0, endIndexExclusive: 1, totalCount: 3, omittedBefore: 0, omittedAfter: 2 },
       children: [{
         id: 'file',
@@ -356,6 +362,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     {
       id: 'calendar',
       role: 'grid',
+      label: 'Calendar',
       children: [{
         id: 'calendar-body',
         role: 'rowgroup',
@@ -379,6 +386,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     {
       id: 'grouped-choices',
       role: 'listbox',
+      label: 'Grouped choices',
       children: [{
         id: 'preferred',
         role: 'group',
@@ -388,6 +396,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     {
       id: 'volume',
       role: 'slider',
+      label: 'Volume',
       numericValue: { current: 5, minimum: 0, maximum: 10 }
     },
     {
@@ -407,15 +416,18 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     {
       id: 'browser',
       role: 'application',
+      label: 'Browser',
       children: [
         {
           id: 'browser-toolbar',
           role: 'toolbar',
+          label: 'Browser navigation',
           children: [{ id: 'back', role: 'button', label: 'Back' }]
         },
         {
           id: 'browser-search',
           role: 'search',
+          label: 'Address search',
           children: [{ id: 'location', role: 'combobox', label: 'Address' }]
         },
         {
@@ -534,7 +546,7 @@ test('accessible snapshot validation returns diagnostics for malformed public pa
   });
   const invalidDiagnostic = decodeAccessibleSnapshot({
     source: 'tui',
-    root: { id: 'root', role: 'application' },
+    root: { id: 'root', role: 'application', label: 'Application' },
     focusPath: [],
     diagnostics: [
       {
@@ -564,7 +576,7 @@ test('accessible snapshots accept diagnostic content, not occurrence metadata', 
     .report(diagnostic('INPUT_TIMEOUT', 'Timed out.'));
   const snapshot = {
     source: 'tui',
-    root: { id: 'root', role: 'application' },
+    root: { id: 'root', role: 'application', label: 'Application' },
     focusPath: []
   };
 

@@ -70,15 +70,16 @@ const architectureDependencies = new Map([
   ])],
   ['diagnostic-identity.ts', new Set()],
   ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'foundation', 'text'])],
-  ['element', new Set(['accessibility', 'input', 'interaction', 'visual'])],
+  ['element', new Set(['accessibility', 'foundation', 'input', 'interaction', 'visual'])],
   ['errors.ts', new Set()],
   ['foundation', new Set()],
   ['geometry', new Set(['foundation'])],
   ['graphics', new Set(['diagnostic-identity.ts', 'foundation', 'geometry'])],
   ['host', new Set(['diagnostics.ts', 'errors.ts', 'geometry', 'protocol', 'text'])],
   ['index.ts', new Set([
-    'behavior', 'components', 'diagnostics.ts', 'errors.ts', 'foundation', 'graphics',
-    'host', 'interaction', 'layout', 'result.ts', 'tui', 'ui-model'
+    'behavior', 'component', 'components', 'diagnostics.ts', 'element', 'errors.ts',
+    'foundation', 'graphics', 'host', 'interaction', 'layout', 'result.ts', 'tui',
+    'ui-model', 'visual'
   ])],
   ['input', new Set(['diagnostics.ts', 'foundation', 'host', 'protocol', 'text'])],
   ['interaction', new Set(['diagnostics.ts', 'foundation', 'geometry', 'input', 'text'])],

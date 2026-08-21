@@ -11,7 +11,7 @@ import type { DisclosureOptions, RichTextOptions, TextOptions } from '../options
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import type { ElementTextRole } from '../../element/metadata.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
-import type { TextStylePart } from '../../ui-model/style-parts.ts';
+import type { RichTextStylePart, TextStylePart } from '../../ui-model/style-parts.ts';
 import {
   inlineContentAccessibleText,
   inlineSegmentText,
@@ -20,6 +20,7 @@ import {
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { RenderSpan } from '../../visual/render.ts';
 import type { ElementMessage } from '../../element/index.ts';
+import { isNonArrayObject } from '../../foundation/validation.ts';
 
 interface PreparedText {
   readonly content: string;
@@ -50,7 +51,7 @@ export const text: SemanticLeafComponentFactory<
   accessibleRole: ({ model }) =>
     model.textRole === 'heading' || model.textRole === 'title' ? 'heading' : 'text',
   metadata: ['styles', 'layer'],
-  parts: ['content', 'link'],
+  parts: ['content'],
   prepare(value) {
     const content = value.content;
     const textRole = value.textRole;
@@ -86,7 +87,7 @@ export const text: SemanticLeafComponentFactory<
   },
   render({ model, target, style, source }) {
     const contentStyle = style({
-      part: 'root',
+      part: 'content',
       base: textRoleStyle(model.textRole),
     });
     target.writeBlock(0, 0, {
@@ -149,13 +150,13 @@ function textRoleStyle(role: ElementTextRole): TerminalStyle {
 
 interface PreparedRichText {
   readonly segments: InlineContent;
-  readonly wrap: boolean;
+  readonly wrap?: { readonly preserveWords: boolean };
 }
 
 export const richText: SemanticLeafComponentFactory<
   Pick<RichTextOptions, 'segments' | 'wrap'>,
   never,
-  TextStylePart,
+  RichTextStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -163,7 +164,7 @@ export const richText: SemanticLeafComponentFactory<
   Pick<RichTextOptions, 'segments' | 'wrap'>,
   PreparedRichText,
   never,
-  TextStylePart,
+  RichTextStylePart,
   readonly [],
   'optional',
   readonly ['styles', 'layer']
@@ -178,16 +179,26 @@ export const richText: SemanticLeafComponentFactory<
   prepare(value) {
     const segments = value.segments;
     const wrap = value.wrap;
-    if (wrap !== undefined && typeof wrap !== 'boolean') {
-      throw new TypeError('richText wrap must be a boolean.');
+    if (wrap !== undefined && typeof wrap !== 'boolean' && !isNonArrayObject(wrap)) {
+      throw new TypeError('richText wrap must be a boolean or options object.');
     }
-    return { segments: normalizeInlineContent(segments), wrap: wrap === true };
+    const preserveWords = typeof wrap === 'object' ? wrap['preserveWords'] : undefined;
+    if (preserveWords !== undefined && typeof preserveWords !== 'boolean') {
+      throw new TypeError('richText wrap preserveWords must be a boolean.');
+    }
+    return {
+      segments: normalizeInlineContent(segments),
+      ...(wrap === true || typeof wrap === 'object'
+        ? { wrap: Object.freeze({ preserveWords: preserveWords === true }) }
+        : {}),
+    };
   },
   measure(input) {
     const spans = richTextMeasureSpans(input.model, input.theme);
-    if (input.model.wrap && input.constraints.width > 0) {
+    if (input.model.wrap !== undefined && input.constraints.width > 0) {
       const lines = wrapRenderSpans(spans, input.constraints.width, {
         widthProfile: input.widthProfile,
+        preserveWords: input.model.wrap.preserveWords,
       });
       return {
         minWidth: 0,
@@ -216,8 +227,11 @@ export const richText: SemanticLeafComponentFactory<
   render(input) {
     if (input.bounds.width === 0 || input.bounds.height === 0) return;
     const spans = richTextSpans(input);
-    const lines = input.model.wrap
-      ? wrapRenderSpans(spans, input.bounds.width, { widthProfile: input.widthProfile })
+    const lines = input.model.wrap !== undefined
+      ? wrapRenderSpans(spans, input.bounds.width, {
+          widthProfile: input.widthProfile,
+          preserveWords: input.model.wrap.preserveWords,
+        })
       : [line(spans)];
     input.target.writeBlock(0, 0, { lines: lines.slice(0, input.bounds.height) });
   },
@@ -241,7 +255,7 @@ function richTextSpans(input: {
   readonly model: PreparedRichText;
   readonly theme: import('../../theme/index.ts').TerminalTheme;
   readonly style: (
-    input: { readonly part: TextStylePart; readonly base?: TerminalStyle },
+    input: { readonly part: RichTextStylePart; readonly base?: TerminalStyle },
   ) => TerminalStyle | undefined;
   readonly source: (
     input?: import('../../component/index.ts').ComponentSourceInput,
@@ -307,7 +321,8 @@ export const disclosure: DisclosureFactory = defineComponent<
   readonly ['disabled'],
   'required',
   readonly ['focus', 'layer', 'styles'],
-  typeof disclosureSlots
+  typeof disclosureSlots,
+  readonly ['focused', 'hovered', 'pressed', 'disabled']
 >({
   name: 'terminal-ui/components/disclosure',
   identity: 'required',
@@ -318,6 +333,7 @@ export const disclosure: DisclosureFactory = defineComponent<
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['marker', 'label', 'summary'],
+  visualStates: ['focused', 'hovered', 'pressed', 'disabled'],
   prepare(value) {
     const label = value.label;
     const summary = value.summary;

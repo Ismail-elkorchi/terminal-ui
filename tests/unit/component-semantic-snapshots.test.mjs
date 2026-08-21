@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
 import {
+  createScrollState,
   measuredWindow,
   prepareCommandSuggestions,
   prepareMeasuredCollection,
@@ -200,7 +201,7 @@ const cases = [
   },
   {
     name: 'listbox',
-    element: () => listbox({
+    element: () => listbox({ meta: { accessibleName: "List" },
     projectItem: (item) => ({ id: String(item), label: String(item) }),
       id: 'listbox',
       items: [unsafe, 'Second', 'Third'],
@@ -215,7 +216,7 @@ const cases = [
   },
   {
     name: 'dataGrid',
-    element: () => dataGrid({
+    element: () => dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'dataGrid',
       rows: [{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }],
@@ -240,7 +241,7 @@ const cases = [
         selection: { mode: 'single', selectedId: 'child' }
       };
       const source = prepareTreeSource(treeNodes);
-      return tree({
+      return tree({ meta: { accessibleName: "Tree" },
         id: 'tree',
         view: prepareTreeView(source, presentation),
         presentation,
@@ -253,7 +254,7 @@ const cases = [
   },
   {
     name: 'pagination',
-    element: () => pagination({
+    element: () => pagination({ meta: { accessibleName: "Pagination" },
       id: 'pages',
       label: unsafe,
       pageNumber: 2,
@@ -264,7 +265,7 @@ const cases = [
   },
   {
     name: 'textArea',
-    element: () => textArea({
+    element: () => textArea({ meta: { accessibleName: "Text area" },
       id: 'text-area',
       presentation: { document: prepareTextDocument(`${unsafe}\nSecond`), caret: textCaretAt(3 )},
       onAction: (action) => action
@@ -287,8 +288,8 @@ const cases = [
   },
   {
     name: 'form',
-    element: () => form({ slots: { content: [
-      field({ control: textInput({
+    element: () => form({ meta: { accessibleName: "Form" }, slots: { content: [
+      field({ control: textInput({ meta: { accessibleName: "Text input" },
         id: 'form-input',
         presentation: { value: unsafe, cursor: 0 },
         onAction: (action) => action
@@ -301,7 +302,7 @@ const cases = [
   },
   {
     name: 'field',
-    element: () => field({ control: textInput({
+    element: () => field({ control: textInput({ meta: { accessibleName: "Text input" },
       id: 'field-input',
       presentation: { value: unsafe, cursor: 0 },
       onAction: (action) => action
@@ -315,9 +316,9 @@ const cases = [
   },
   {
     name: 'label',
-    element: () => form({ slots: { content: [
+    element: () => form({ meta: { accessibleName: "Form" }, slots: { content: [
       label({ id: 'label', forId: 'label-target', text: unsafe }),
-      textInput({
+      textInput({ meta: { accessibleName: "Text input" },
         id: 'label-target',
         presentation: { value: '', cursor: 0 },
         onAction: (action) => action
@@ -349,7 +350,7 @@ const cases = [
   },
   {
     name: 'slider',
-    element: () => slider({
+    element: () => slider({ meta: { accessibleName: "Slider" },
       id: 'slider',
       label: unsafe,
       value: 5,
@@ -362,7 +363,7 @@ const cases = [
   },
   {
     name: 'rangeSlider',
-    element: () => rangeSlider({
+    element: () => rangeSlider({ meta: { accessibleName: "Range" },
       id: 'range-slider',
       label: unsafe,
       state: { value: { start: 2, end: 8 }, activeHandle: 'end' },
@@ -375,7 +376,7 @@ const cases = [
   },
   {
     name: 'checkboxGroup',
-    element: () => checkboxGroup({
+    element: () => checkboxGroup({ meta: { accessibleName: "Choices" },
       id: 'checkbox-listbox',
       label: unsafe,
       options: optionItems,
@@ -391,7 +392,7 @@ const cases = [
   },
   {
     name: 'radioGroup',
-    element: () => radioGroup({
+    element: () => radioGroup({ meta: { accessibleName: "Choices" },
       id: 'radio',
       label: 'Mode',
       options: optionItems,
@@ -424,7 +425,7 @@ const cases = [
   },
   {
     name: 'colorSwatchPicker',
-    element: () => colorSwatchPicker({
+    element: () => colorSwatchPicker({ meta: { accessibleName: "Colors" },
       id: 'color-picker',
       label: unsafe,
       options: [
@@ -443,7 +444,7 @@ const cases = [
   },
   {
     name: 'calendar',
-    element: () => calendar({
+    element: () => calendar({ meta: { accessibleName: "Calendar" },
       id: 'calendar',
       label: unsafe,
       presentation: calendarFixture({
@@ -458,7 +459,7 @@ const cases = [
   },
   {
     name: 'textInput',
-    element: () => textInput({
+    element: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'text-input',
       presentation: { value: unsafe, cursor: 2 },
       onAction: (action) => action
@@ -468,7 +469,7 @@ const cases = [
   },
   {
     name: 'passwordInput',
-    element: () => passwordInput({
+    element: () => passwordInput({ meta: { accessibleName: "Password input" },
       id: 'password-input',
       presentation: { value: 'secret', cursor: 6 },
       onAction: (action) => action
@@ -478,7 +479,7 @@ const cases = [
   },
   {
     name: 'numberInput',
-    element: () => numberInput({
+    element: () => numberInput({ meta: { accessibleName: "Number input" },
       id: 'number-input',
       presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42, min: 1, max: 99 },
       onAction: (action) => action
@@ -488,28 +489,28 @@ const cases = [
   },
   {
     name: 'menu',
-    element: () => menu({ id: 'menu', presentation: menuPresentation(menuItems, { activePath: ['open'] }), onTransition: (action) => ({ kind: 'menu', action }) }),
+    element: () => menu({ meta: { accessibleName: "Menu" }, id: 'menu', presentation: menuPresentation(menuItems, { activePath: ['open'] }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'menuBar',
-    element: () => menuBar({ id: 'menu-bar', items: menuItems, presentation: menuBarPresentation(menuItems, { kind: 'closed', active: 'open' }), onTransition: (action) => ({ kind: 'menu', action }) }),
+    element: () => menuBar({ meta: { accessibleName: "Menu bar" }, id: 'menu-bar', items: menuItems, presentation: menuBarPresentation(menuItems, { kind: 'closed', active: 'open' }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'contextMenu',
-    element: () => contextMenu({ id: 'context-menu', title: unsafe, presentation: contextMenuPresentation(menuItems, { kind: 'open', anchor: { kind: 'cursor', row: 1, column: 1 }, menu: { activePath: ['save'] } }), onTransition: (action) => ({ kind: 'menu', action }) }),
+    element: () => contextMenu({ meta: { accessibleName: "Context menu" }, id: 'context-menu', title: unsafe, presentation: contextMenuPresentation(menuItems, { kind: 'open', anchor: { kind: 'cursor', row: 1, column: 1 }, menu: { activePath: ['save'] } }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'menuTrigger',
-    element: () => menuTrigger({
+    element: () => menuTrigger({ meta: { accessibleName: "Menu" },
       id: 'menuTrigger',
       label: unsafe,
       items: menuItems,
@@ -626,8 +627,9 @@ const cases = [
   },
   {
     name: 'notificationHistory',
-    element: () => notificationHistory({
+    element: () => notificationHistory({ meta: { accessibleName: "Notification history" },
       id: 'notification-history',
+      scroll: createScrollState(),
       items: [{
         id: 'completed',
         title: unsafe
@@ -715,7 +717,7 @@ const cases = [
   },
   {
     name: 'commandInput',
-    element: () => commandInput({
+    element: () => commandInput({ meta: { accessibleName: "Command input" },
       id: 'command-input',
       presentation: { value: unsafe, cursor: 0, open: true, suggestions: prepareCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: unsafe.length }, text: 'open' }, label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
       prompt: '>',
@@ -726,7 +728,7 @@ const cases = [
   },
   {
     name: 'searchPicker',
-    element: () => searchPicker({
+    element: () => searchPicker({ meta: { accessibleName: "Search" },
       id: 'searchPicker',
       title: unsafe,
       searchPickerIndex: prepareSearchPickerIndex([
@@ -776,7 +778,7 @@ const cases = [
   },
   {
     name: 'tabs',
-    element: () => tabs({
+    element: () => tabs({ meta: { accessibleName: "Tabs" },
       id: 'tabs',
       presentation: { activeId: 'first', selectedId: 'first' },
       tabs: [

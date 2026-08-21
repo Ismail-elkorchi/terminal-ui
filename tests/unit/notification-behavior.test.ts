@@ -70,10 +70,21 @@ void test('notification controller pauses deadlines, resumes them, expires recor
 });
 
 void test('notification history actions convert to controller actions with explicit time', () => {
-  assert.deepEqual(notificationHistoryAction({ kind: 'move', delta: 1 }, 50), {
-    kind: 'moveHistorySelection',
-    delta: 1,
-    now: 50
+  const scroll = { offsetRow: 3, offsetColumn: 0, followTail: false };
+  assert.deepEqual(notificationHistoryAction({
+    kind: 'selection',
+    selectedId: 'b',
+    scroll,
+  }, 50), {
+    kind: 'setHistoryView',
+    selectedId: 'b',
+    scroll,
+    now: 50,
+  });
+  assert.deepEqual(notificationHistoryAction({ kind: 'scroll', scroll }, 50), {
+    kind: 'scrollHistory',
+    scroll,
+    now: 50,
   });
   assert.deepEqual(notificationHistoryAction({ kind: 'remove', id: 'a' }, 50), {
     kind: 'removeHistory',

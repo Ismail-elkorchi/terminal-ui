@@ -12,14 +12,26 @@ export function formatKeyboardBinding(binding: KeyboardBinding): string {
     ...(exact?.ctrl === true ? ['Ctrl'] : []),
     ...(exact?.alt === true ? ['Alt'] : []),
     ...(exact?.shift === true ? ['Shift'] : []),
+    ...(exact?.meta === true ? ['Meta'] : []),
     ...(exact?.super === true ? ['Super'] : []),
+    ...(exact?.hyper === true ? ['Hyper'] : []),
+    ...(exact?.capsLock === true ? ['Caps Lock'] : []),
+    ...(exact?.numLock === true ? ['Num Lock'] : []),
   ];
   const key = binding.kind === 'key'
     ? binding.key.length === 1 ? binding.key.toUpperCase() : readableKey(binding.key)
     : binding.kind === 'codePoint'
     ? String.fromCodePoint(binding.codePoint)
-    : `Physical ${String(binding.codePoint)}`;
-  return [...prefix, key].join('+');
+    : `Physical U+${binding.codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
+  const details = [
+    ...(binding.kind === 'codePoint' && binding.source === 'shifted' ? ['shifted code point'] : []),
+    ...(binding.eventType !== undefined && binding.eventType !== 'press' ? [binding.eventType] : []),
+    ...(binding.location !== undefined && binding.location !== 'standard'
+      ? [binding.location === 'numpad' ? 'numpad' : 'unknown location']
+      : []),
+  ];
+  const chord = [...prefix, key].join('+');
+  return details.length === 0 ? chord : `${chord} (${details.join(', ')})`;
 }
 
 function readableKey(key: string): string {

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { ignoreMessage, measureConstrainedBox } from '../../dist/component/index.js';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
-import { anchored, column, flow, grid, measuredColumn, normalizeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
+import { anchored, column, flow, grid, measuredColumn, measuredViewport, normalizeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 import {
   measuredWindow,
@@ -108,7 +108,7 @@ test('grid and splitPane layouts arrange common app frames', () => {
       sizes: [{ kind: 'fixed', cells: 10 }, { kind: 'fill' }, { kind: 'fixed', cells: 8 }]
     }),
     text({ content: 'status', id: 'status' }),
-    commandInput({
+    commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
       presentation: { value: '/help', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: (action) => action
@@ -193,7 +193,7 @@ test('flow and anchored layouts reject invalid runtime geometry options', () => 
   );
 });
 
-test('measuredColumn remains a semantic-neutral windowing layout', () => {
+test('measuredViewport remains a semantic-neutral controlled windowing layout', () => {
   const window = measuredWindow(prepareMeasuredCollection([
       { id: 'one', value: 'one', rows: 1 },
       { id: 'two', value: 'two', rows: 1 },
@@ -203,19 +203,24 @@ test('measuredColumn remains a semantic-neutral windowing layout', () => {
     viewportRows: 2,
     offsetRow: 2
   });
-  const frame = renderElementFrame(measuredColumn(
+  const frame = renderElementFrame(measuredViewport(
     window,
     (entry) => text({ content: entry.item.value, id: entry.item.id }),
-    { id: 'measured-window' }
+    { id: 'measured-window', onScroll: () => ignoreMessage() }
   ), { columns: 8, rows: 2 });
 
   assert.equal(renderFramePlain(frame), 'three\nfour');
-  assert.equal(frame.accessibility.root.role, 'text');
+  assert.equal(frame.accessibility.root.role, 'group');
   assert.deepEqual(
-    frame.accessibility.root.children?.map((child) => child.id),
+    frame.accessibility.root.children?.flatMap((child) => child.children ?? []).map((child) => child.id),
     ['three', 'four']
   );
-  assert.equal(frame.accessibility.root.children?.some((child) => child.role === 'listitem'), false);
+  assert.equal(
+    frame.accessibility.root.children
+      ?.flatMap((child) => child.children ?? [])
+      .some((child) => child.role === 'listitem'),
+    false
+  );
 });
 
 test('measuredColumn rejects row metadata that disagrees with child measurement', () => {
@@ -255,7 +260,7 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
   const element = row([
     button({ id: 'back', label: 'Back', onAction: () => ignoreMessage() }),
     button({ id: 'forward', label: 'Forward', onAction: () => ignoreMessage() }),
-    surface(commandInput({
+    surface(commandInput({ meta: { accessibleName: "Command input" },
       id: 'address',
       presentation: { value: 'example.test', cursor: 12, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: (action) => action
@@ -282,8 +287,8 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
 
 test('form content tracks include field labels and control gaps', () => {
   const element = column([
-    form({ slots: { content: [
-      field({ control: textInput({
+    form({ meta: { accessibleName: "Form" }, slots: { content: [
+      field({ control: textInput({ meta: { accessibleName: "Text input" },
           id: 'name',
           presentation: { value: '', cursor: 0 },
           onAction: (action) => action
@@ -329,7 +334,7 @@ test('constrained component boxes apply intrinsic content padding margin and lim
     /minWidth must not exceed maxWidth/u
   );
 
-  const constrained = form({
+  const constrained = form({ meta: { accessibleName: "Form" },
     id: 'constrained-form',
     minWidth: 12,
     maxWidth: 14,
@@ -340,7 +345,7 @@ test('constrained component boxes apply intrinsic content padding margin and lim
         id: 'constrained-field',
         label: 'Name',
         minWidth: 10,
-        control: textInput({
+        control: textInput({ meta: { accessibleName: "Text input" },
           id: 'constrained-input',
           presentation: { value: '', cursor: 0 },
           onAction: (action) => action
@@ -361,7 +366,7 @@ test('constrained component boxes apply intrinsic content padding margin and lim
 
 test('wrapped text-area content tracks retain intrinsic width', () => {
   const element = row([
-    textArea({
+    textArea({ meta: { accessibleName: "Text area" },
       id: 'wrapped-content-editor',
       presentation: { document: prepareTextDocument('x'), caret: textCaretAt(0 )},
       wrap: true,
@@ -381,7 +386,7 @@ test('wrapped text-area content tracks retain intrinsic width', () => {
 
 test('searchPicker content tracks use the active text-width profile', () => {
   const element = row([
-    searchPicker({
+    searchPicker({ meta: { accessibleName: "Search" },
       id: 'profiled-searchPicker',
       searchPickerIndex: prepareSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
       presentation: { query: { text: '', mode: 'fuzzy' } },

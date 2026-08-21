@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import process from 'node:process';
 import test from 'node:test';
-import { createTuiRuntime, defineTui, runTui } from '../../dist/tui/index.js';
+import { createTuiRuntime, defineTui, runTui, TuiRunError } from '../../dist/tui/index.js';
 import { diagnostic } from '../../dist/diagnostics.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
@@ -25,13 +25,23 @@ function submitMessage(message) {
   return (action) => action.kind === 'submit' ? message : ignoreMessage();
 }
 
+async function errorExit(operation) {
+  try {
+    await operation;
+  } catch (error) {
+    assert.ok(error instanceof TuiRunError);
+    return error.exit;
+  }
+  assert.fail('Expected runTui() to reject with TuiRunError.');
+}
+
 test('runTui emits deterministic transcripts when enabled', async () => {
   const app = defineTui({
     id: 'transcript-tui',
     transcript: true,
-    init: () => ({ submitted: false }),
+    init: () => ({ state: ({ submitted: false }) }),
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'transcript-field',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onAction: submitMessage({ submitted: true })
@@ -39,7 +49,7 @@ test('runTui emits deterministic transcripts when enabled', async () => {
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } });
   host.input('\r');
-  const exit = await runTui(app, host);
+  const exit = await runTui(app, { host: host });
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.transcript?.source, 'tui');
@@ -55,9 +65,9 @@ test('runTui fails and records final diagnostics when terminal restoration is un
   const app = defineTui({
     id: 'failed-restoration',
     transcript: true,
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'failed-restoration-input',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: 'exit' })
@@ -71,7 +81,7 @@ test('runTui fails and records final diagnostics when terminal restoration is un
   };
   host.input('\r');
 
-  const exit = await runTui(app, host);
+  const exit = await errorExit(runTui(app, { host: host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'HOST_RESTORE_FAILED'), true);
@@ -104,7 +114,7 @@ test('TUI runtime startup is one transactional terminal outcome', async () => {
 test('TUI runtime requires explicit startup before operational methods', async () => {
   const app = defineTui({
     id: 'explicit-startup',
-    init: () => 0,
+    init: () => ({ state: 0 }),
     update: (state, message) => ({ state: state + message }),
     view: (state) => text({ content: String(state) })
   });
@@ -134,7 +144,7 @@ test('TUI runtime requires explicit startup before operational methods', async (
 test('TUI runtime validates disposal options before changing runtime state', async () => {
   const app = defineTui({
     id: 'dispose-validation',
-    init: () => 0,
+    init: () => ({ state: 0 }),
     update: (state, message) => ({ state: state + message }),
     view: (state) => text({ content: String(state) })
   });
@@ -154,7 +164,7 @@ test('TUI runtime does not publish state frame or transcript when the first host
   };
   const app = defineTui({
     id: 'failed-first-commit',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready', id: 'failed-first-commit-view' })
   });
@@ -185,7 +195,7 @@ test('TUI runtime attempts synchronized-output cleanup after a failed frame writ
   };
   const app = defineTui({
     id: 'failed-synchronized-frame',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready', id: 'failed-synchronized-frame-view' })
   });
@@ -201,7 +211,7 @@ test('TUI runtime attempts synchronized-output cleanup after a failed frame writ
 test('TUI runtime supports undefined as an initialized application state', async () => {
   const app = defineTui({
     id: 'undefined-state-tui',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: () => ({ state: undefined }),
     view: () => text({ content: 'undefined is state' })
   });
@@ -216,14 +226,14 @@ test('TUI runtime supports undefined as an initialized application state', async
 test('runTui completes when undefined is the initialized application state', async () => {
   const app = defineTui({
     id: 'undefined-state-run',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: () => ({ state: undefined }),
     view: () => text({ content: 'undefined is state' })
   });
   const host = createMemoryTerminalHost();
   host.endInput();
 
-  const exit = await runTui(app, host);
+  const exit = await runTui(app, { host: host });
 
   assert.equal(exit.status, 'completed');
   assert.equal(Object.hasOwn(exit, 'state'), true);
@@ -242,7 +252,7 @@ test('TUI runtime resolves one capability snapshot for context and output', asyn
   };
   const app = defineTui({
     id: 'capability-snapshot-tui',
-    init: () => 0,
+    init: () => ({ state: 0 }),
     update: (state) => ({ state: state + 1 }),
     view: (state) => text({ content: String(state) })
   });
@@ -259,9 +269,9 @@ test('TUI runtime resolves one capability snapshot for context and output', asyn
 test('runTui retires partially acquired input resources when initial next throws synchronously', async () => {
   const app = defineTui({
     id: 'synchronous-input-startup-failure',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'synchronous-input-startup-failure-field',
       presentation: { value: 'ready', cursor: 0 }
     })
@@ -295,7 +305,7 @@ test('runTui retires partially acquired input resources when initial next throws
     };
   };
 
-  const exit = await runTui(app, host);
+  const exit = await errorExit(runTui(app, { host: host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_RUN_FAILED'), true);
@@ -309,7 +319,7 @@ test('runTui retires partially acquired input resources when initial next throws
 test('runTui does not release a borrowed reader when its own input acquisition fails', async () => {
   const app = defineTui({
     id: 'borrowed-reader-acquisition-failure',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready' })
   });
@@ -323,7 +333,7 @@ test('runTui does not release a borrowed reader when its own input acquisition f
     await release();
   };
 
-  const exit = await runTui(app, host);
+  const exit = await errorExit(runTui(app, { host: host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(releaseCalls, 0);
@@ -338,9 +348,9 @@ test('runTui reserves restoration time after a hanging exit handler', async () =
   let exitHandlerStarted = false;
   const app = defineTui({
     id: 'bounded-exit-cleanup-tui',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-exit-field',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: 'exit' })
@@ -352,7 +362,7 @@ test('runTui reserves restoration time after a hanging exit handler', async () =
   });
   const host = createMemoryTerminalHost();
   host.input('\r');
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => exitHandlerStarted);
   host.clock.advance(5);
   const exit = await running;
@@ -369,9 +379,9 @@ test('runTui bounds an input iterator whose return operation never settles', asy
   let releaseCalls = 0;
   const app = defineTui({
     id: 'bounded-input-retirement',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-input-retirement-field',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: 'exit' })
@@ -399,7 +409,7 @@ test('runTui bounds an input iterator whose return operation never settles', asy
     };
   };
   host.input('\r');
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => returnStarted);
   host.clock.advance(5);
 
@@ -424,9 +434,9 @@ test('runTui recovery bypasses a borrowed host restore blocked inside its state 
   let recoveryWrites = 0;
   const app = defineTui({
     id: 'bounded-restore',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-restore-field',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: 'exit' })
@@ -440,7 +450,7 @@ test('runTui recovery bypasses a borrowed host restore blocked inside its state 
     return writeRecovery(output, context);
   };
   host.input('\r');
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => recoveryWrites === 1);
   host.clock.advance(5);
   await waitUntil(() => recoveryWrites >= 2);
@@ -462,9 +472,9 @@ test('runTui bounds an output flush that ignores cancellation', async () => {
   let flushStarted = false;
   const app = defineTui({
     id: 'bounded-flush',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-flush-field',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: 'exit' })
@@ -476,7 +486,7 @@ test('runTui bounds an output flush that ignores cancellation', async () => {
     return new Promise(() => undefined);
   };
   host.input('\r');
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => flushStarted);
   host.clock.advance(5);
 
@@ -494,7 +504,7 @@ test('runTui restores after non-cooperative effect cleanup times out', async () 
   let exitHandlerStarted = false;
   const app = defineTui({
     id: 'bounded-effect-cleanup-tui',
-    init: () => ({ running: false }),
+    init: () => ({ state: ({ running: false }) }),
     update: (state, message) => message.kind === 'start'
       ? {
           state: { running: true },
@@ -508,7 +518,7 @@ test('runTui restores after non-cooperative effect cleanup times out', async () 
           }]
         }
       : { state, exit: {} },
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-effect-field',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: state.running ? 'exit' : 'start' })
@@ -519,7 +529,7 @@ test('runTui restores after non-cooperative effect cleanup times out', async () 
   });
   const host = createMemoryTerminalHost();
   host.input('\r\r');
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => effectStarted);
   host.clock.advance(5);
   await waitUntil(() => exitHandlerStarted);
@@ -537,17 +547,17 @@ test('runTui restores after non-cooperative source cleanup times out', async () 
   let exitHandlerStarted = false;
   const app = defineTui({
     id: 'bounded-source-cleanup-tui',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
     subscriptions: () => [{
       id: 'non-cooperative',
       generation: 0,
-      async *messages() {
+      async run() {
         sourceStarted = true;
         await new Promise(() => undefined);
       }
     }],
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-source-field',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: 'exit' })
@@ -558,7 +568,7 @@ test('runTui restores after non-cooperative source cleanup times out', async () 
   });
   const host = createMemoryTerminalHost();
   host.input('\r');
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => sourceStarted);
   host.clock.advance(5);
   await waitUntil(() => exitHandlerStarted);
@@ -574,7 +584,7 @@ test('runTui restores after non-cooperative source cleanup times out', async () 
 test('runTui reports capability and session acquisition failures as typed exits', async () => {
   const app = defineTui({
     id: 'host-acquisition-failure',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready' })
   });
@@ -587,8 +597,8 @@ test('runTui reports capability and session acquisition failures as typed exits'
     throw new Error('session creation failed');
   };
 
-  const capabilityExit = await runTui(app, capabilityHost);
-  const sessionExit = await runTui(app, sessionHost);
+  const capabilityExit = await errorExit(runTui(app, { host: capabilityHost }));
+  const sessionExit = await errorExit(runTui(app, { host: sessionHost }));
 
   for (const exit of [capabilityExit, sessionExit]) {
     assert.equal(exit.status, 'error');
@@ -601,7 +611,7 @@ test('runTui reports capability and session acquisition failures as typed exits'
 test('runTui restores earlier and uncertain mutations after partial setup failure', async () => {
   const app = defineTui({
     id: 'partial-session-setup',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'unreachable' })
   });
@@ -612,7 +622,7 @@ test('runTui restores earlier and uncertain mutations after partial setup failur
     if (enabled) throw new Error('raw input failed after mutation');
   };
 
-  const exit = await runTui(app, host);
+  const exit = await errorExit(runTui(app, { host: host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'HOST_OUTPUT_INDETERMINATE'
@@ -628,7 +638,7 @@ test('runTui restores earlier and uncertain mutations after partial setup failur
 test('termination signals own setup before the first terminal mutation settles', async () => {
   const app = defineTui({
     id: 'signal-during-terminal-setup',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready' })
   });
@@ -650,7 +660,7 @@ test('termination signals own setup before the first terminal mutation settles',
     });
   };
 
-  const running = runTui(app, host);
+  const running = errorExit(runTui(app, { host: host }));
   await mutationStarted.promise;
   host.signals.emit('SIGTERM');
   const exit = await running;
@@ -665,12 +675,12 @@ test('runTui bounds a hanging source disposer and reports restoration truthfully
   let disposerStarted = false;
   const app = defineTui({
     id: 'bounded-source-disposer',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
     subscriptions: () => [{
       id: 'hanging-disposer',
       generation: 0,
-      async *messages(context) {
+      async run(context) {
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
       },
       dispose() {
@@ -678,7 +688,7 @@ test('runTui bounds a hanging source disposer and reports restoration truthfully
         return new Promise(() => undefined);
       }
     }],
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'bounded-disposer-field',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: 'exit' })
@@ -686,7 +696,7 @@ test('runTui bounds a hanging source disposer and reports restoration truthfully
   });
   const host = createMemoryTerminalHost();
   host.input('\r');
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => disposerStarted);
   host.clock.advance(5);
 
@@ -702,9 +712,9 @@ test('runTui bounds a hanging source disposer and reports restoration truthfully
 test('interrupts preempt a hanging dispatch and report unconfirmed restoration within the deadline', async () => {
   const app = defineTui({
     id: 'interrupt-hanging-dispatch',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state) => ({ state: { count: state.count + 1 } }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'interrupt-hanging-field',
       presentation: { value: String(state.count), cursor: 0 },
       onAction: submitMessage({ kind: 'increment' })
@@ -714,7 +724,7 @@ test('interrupts preempt a hanging dispatch and report unconfirmed restoration w
   const host = createMemoryTerminalHost({
     observer: { recordFrame: () => { committedFrames += 1; } }
   });
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => committedFrames === 1);
   let blockedCommitStarted = false;
   let blockNextWrite = true;
@@ -756,13 +766,13 @@ test('interrupts preempt a hanging dispatch and report unconfirmed restoration w
 test('runTui rejects non-TTY hosts deterministically before opening fullscreen protocols', async () => {
   const app = defineTui({
     id: 'non-tty-tui',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready' })
   });
   const host = createMemoryTerminalHost({ isTty: false });
 
-  const exit = await runTui(app, host);
+  const exit = await errorExit(runTui(app, { host: host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics[0]?.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
@@ -776,7 +786,7 @@ test('runTui rejects non-TTY hosts deterministically before opening fullscreen p
 test('runTui leaves an injected terminal host under caller ownership', async () => {
   const app = defineTui({
     id: 'caller-owned-host-tui',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: () => text({ content: 'ready' })
   });
@@ -790,7 +800,7 @@ test('runTui leaves an injected terminal host under caller ownership', async () 
     }
   };
 
-  const exit = await runTui(app, host);
+  const exit = await errorExit(runTui(app, { host: host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics[0]?.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
@@ -801,9 +811,9 @@ test('runTui leaves an injected terminal host under caller ownership', async () 
 test('runTui releases borrowed full-TTY input for the next consumer', async () => {
   const app = defineTui({
     id: 'borrowed-input-release',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'borrowed-input-release-field',
       presentation: { value: '', cursor: 0 },
       onAction: submitMessage({ kind: 'exit' })
@@ -818,7 +828,7 @@ test('runTui releases borrowed full-TTY input for the next consumer', async () =
   };
   host.input('\r');
 
-  const exit = await runTui(app, host);
+  const exit = await runTui(app, { host: host });
 
   assert.equal(exit.status, 'completed');
   assert.equal(releaseCalls, 1);
@@ -841,7 +851,7 @@ test('TUI runtime exposes diagnostics to app views', async () => {
   });
   const app = defineTui({
     id: 'diagnostic-view',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: (_state, context) => {
       const item = context.diagnostics[0]?.diagnostic;
@@ -867,14 +877,14 @@ test('TUI runtime exposes diagnostics to subscription sources', async () => {
   let observed;
   const app = defineTui({
     id: 'diagnostic-subscription',
-    init: () => ({ label: 'pending' }),
+    init: () => ({ state: ({ label: 'pending' }) }),
     update: (_state, message) => ({ state: { label: message.label } }),
     subscriptions: () => [{
       id: 'diagnostic-source',
       generation: 0,
-      async *messages(context) {
+      async run(context, sink) {
         observed = `${context.diagnostics[0]?.diagnostic.code ?? 'none'}:${context.diagnostics[0]?.diagnostic.data?.operation ?? 'none'}`;
-        yield { kind: 'reliable', message: { label: observed } };
+        await sink.emit({ kind: 'reliable', message: { label: observed } });
       }
     }],
     view: (state) => text({ content: state.label, id: 'diagnostic-label' })
@@ -893,7 +903,7 @@ test('TUI runtime exposes diagnostics to subscription sources', async () => {
 test('runTui exposes setup diagnostics to app views', async () => {
   const app = defineTui({
     id: 'setup-diagnostic-view',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     view: (_state, context) => {
       const item = context.diagnostics[0]?.diagnostic;
@@ -901,8 +911,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
     }
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 52, rows: 3 } });
-  const running = runTui(app, harness.host, {
-    sessionPolicy: {
+  const running = runTui(app, { host: harness.host, sessionPolicy: {
       alternateScreen: 'disabled',
       rawInput: 'disabled',
       bracketedPaste: 'disabled',
@@ -911,8 +920,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
       keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
       cursorVisibility: { visibility: 'hide', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
-    }
-  });
+    } });
 
   await waitUntil(() => harness.frames().length === 1);
   assert.match(renderFramePlain(harness.frames()[0]), /HOST_PROTOCOL_SKIPPED:alternateScreen:true/u);
@@ -927,9 +935,9 @@ test('runTui exposes setup diagnostics to app views', async () => {
 test('runTui decodes input protocols inherited from the outer terminal session', async () => {
   const app = defineTui({
     id: 'inherited-input-protocols',
-    init: () => ({ text: '', cursor: 0 }),
+    init: () => ({ state: ({ text: '', cursor: 0 }) }),
     update: (state, action) => ({ state: textInputReducer(state, action) }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'inherited-paste-field',
       presentation: { value: state.text, cursor: state.cursor },
       onAction: (action) => action
@@ -941,8 +949,7 @@ test('runTui decodes input protocols inherited from the outer terminal session',
   host.input('\u001B[200~inherited\u001B[201~');
   host.endInput();
 
-  const exit = await runTui(app, host, {
-    sessionPolicy: {
+  const exit = await runTui(app, { host: host, sessionPolicy: {
       alternateScreen: 'disabled',
       rawInput: 'disabled',
       bracketedPaste: 'disabled',
@@ -951,8 +958,7 @@ test('runTui decodes input protocols inherited from the outer terminal session',
       keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
       cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
-    }
-  });
+    } });
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.state.text, 'inherited');
@@ -961,7 +967,7 @@ test('runTui decodes input protocols inherited from the outer terminal session',
 test('runTui decodes legacy input when optional Kitty setup was not applied', async () => {
   const app = defineTui({
     id: 'skipped-kitty-decoding',
-    init: () => ({ decodedAsKitty: false }),
+    init: () => ({ state: ({ decodedAsKitty: false }) }),
     inputBindings: [{
       id: 'kitty-a',
       triggers: [{ kind: 'key', key: 'a' }],
@@ -982,8 +988,7 @@ test('runTui decodes legacy input when optional Kitty setup was not applied', as
   harness.host.input('\u001B[97;1:1u');
   harness.host.endInput();
 
-  const exit = await runTui(app, harness.host, {
-    sessionPolicy: {
+  const exit = await runTui(app, { host: harness.host, sessionPolicy: {
       alternateScreen: 'disabled',
       rawInput: 'disabled',
       bracketedPaste: 'disabled',
@@ -992,8 +997,7 @@ test('runTui decodes legacy input when optional Kitty setup was not applied', as
       keyboard: { profile: kittyKeyboardProfile(3), requirement: 'optional' },
       cursorVisibility: { visibility: 'unchanged', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
-    }
-  });
+    } });
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { decodedAsKitty: false });
@@ -1003,13 +1007,13 @@ test('runTui decodes legacy input when optional Kitty setup was not applied', as
 test('runTui restores terminal protocols on successful exit', async () => {
   const app = defineTui({
     id: 'restored-success',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({ id: 'field', presentation: { value: 'ready', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'field', presentation: { value: 'ready', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 3 } });
   harness.host.endInput();
-  const exit = await runTui(app, harness.host);
+  const exit = await runTui(app, { host: harness.host });
   const result = { transcript: harness.transcript.snapshot(), output: harness.output(), snapshot: harness.snapshot() };
 
   assert.equal(exit.status, 'completed');
@@ -1038,9 +1042,9 @@ test('runTui restores terminal protocols on successful exit', async () => {
 test('runTui processes host input chunks until the app exits', async () => {
   const app = defineTui({
     id: 'run-loop-update',
-    init: () => ({ submitted: false }),
+    init: () => ({ state: ({ submitted: false }) }),
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'submit-field',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onAction: submitMessage({ submitted: true })
@@ -1048,7 +1052,7 @@ test('runTui processes host input chunks until the app exits', async () => {
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   harness.host.input('\r');
-  const exit = await runTui(app, harness.host);
+  const exit = await runTui(app, { host: harness.host });
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { submitted: true });
@@ -1088,7 +1092,7 @@ test('TUI effects can suspend the terminal for an external operation and resume 
   let rawModeDuringOperation;
   const app = defineTui({
     id: 'terminal-suspension',
-    init: () => ({ phase: 'idle' }),
+    init: () => ({ state: ({ phase: 'idle' }) }),
     update: (state, message) => {
       if (message.kind === 'start') {
         return {
@@ -1108,14 +1112,14 @@ test('TUI effects can suspend the terminal for an external operation and resume 
       }
       return { state: { phase: 'done' }, exit: { reason: 'done' } };
     },
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'suspension-input',
       presentation: { value: state.phase, cursor: 0 },
       onAction: submitMessage({ kind: 'start' })
     })
   });
 
-  const running = runTui(app, harness.host);
+  const running = runTui(app, { host: harness.host });
   await waitUntil(() => harness.frames().length > 0);
   await harness.input('\r');
   const exit = await running;
@@ -1140,7 +1144,7 @@ test('effect cancellation cannot cancel terminal reacquisition after release', a
   const operationStarted = deferred();
   const app = defineTui({
     id: 'cancelled-suspension-reacquires',
-    init: () => ({ phase: 'idle' }),
+    init: () => ({ state: ({ phase: 'idle' }) }),
     update: (state, message) => {
       if (message.kind === 'start') {
         return {
@@ -1183,7 +1187,7 @@ test('effect cancellation cannot cancel terminal reacquisition after release', a
       }
       return { state: { phase: 'done' }, exit: { reason: 'recovered' } };
     },
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'cancelled-suspension-field',
       presentation: { value: state.phase, cursor: 0 },
       onAction: submitMessage({ kind: 'start' })
@@ -1191,7 +1195,7 @@ test('effect cancellation cannot cancel terminal reacquisition after release', a
   });
 
   host.input('\r');
-  const exit = await runTui(app, host);
+  const exit = await runTui(app, { host: host });
 
   assert.equal(exit.status, 'completed');
   assert.equal(sessionCount, 2);
@@ -1209,7 +1213,7 @@ test('failure to reacquire terminal ownership after suspension terminates the ru
   };
   const app = defineTui({
     id: 'terminal-suspension-recovery-failure',
-    init: () => ({ phase: 'idle' }),
+    init: () => ({ state: ({ phase: 'idle' }) }),
     update: (state, message) => message.kind !== 'start'
       ? { state }
       : {
@@ -1223,7 +1227,7 @@ test('failure to reacquire terminal ownership after suspension terminates the ru
             }
           }]
         },
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'terminal-suspension-recovery-failure-field',
       presentation: { value: state.phase, cursor: 0 },
       onAction: submitMessage({ kind: 'start' })
@@ -1231,7 +1235,7 @@ test('failure to reacquire terminal ownership after suspension terminates the ru
   });
 
   host.input('\r');
-  const exit = await runTui(app, host);
+  const exit = await errorExit(runTui(app, { host: host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(
@@ -1270,7 +1274,7 @@ test('failed suspension restoration terminates without redrawing or resuming inp
   };
   const app = defineTui({
     id: 'terminal-suspension-initial-restore-failure',
-    init: () => ({ phase: 'idle' }),
+    init: () => ({ state: ({ phase: 'idle' }) }),
     update: (state, message) => message.kind !== 'start'
       ? { state }
       : {
@@ -1286,7 +1290,7 @@ test('failed suspension restoration terminates without redrawing or resuming inp
             }
           }]
         },
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'terminal-suspension-initial-restore-failure-field',
       presentation: { value: state.phase, cursor: 0 },
       onAction: submitMessage({ kind: 'start' })
@@ -1294,7 +1298,7 @@ test('failed suspension restoration terminates without redrawing or resuming inp
   });
 
   host.input('\r');
-  const exit = await runTui(app, host);
+  const exit = await errorExit(runTui(app, { host: host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(operationRan, false);
@@ -1313,7 +1317,7 @@ test('exiting during terminal suspension preserves input acquired by the externa
   let externalRead;
   const app = defineTui({
     id: 'suspended-external-input-ownership',
-    init: () => ({ phase: 'idle' }),
+    init: () => ({ state: ({ phase: 'idle' }) }),
     update: (state, message) => {
       if (message.kind !== 'start') return { state };
       return {
@@ -1337,14 +1341,14 @@ test('exiting during terminal suspension preserves input acquired by the externa
         }]
       };
     },
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'suspended-external-input-field',
       presentation: { value: state.phase, cursor: 0 },
       onAction: submitMessage({ kind: 'start' })
     })
   });
 
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } });
   await waitUntil(() => host.stdin.isRawModeEnabled());
   host.input('\r');
   await operationStarted.promise;
@@ -1378,7 +1382,7 @@ test('cancelled terminal suspension cannot open a replacement session after runT
   let suspensionSettled = false;
   const app = defineTui({
     id: 'cancelled-late-terminal-resume',
-    init: () => ({ phase: 'idle' }),
+    init: () => ({ state: ({ phase: 'idle' }) }),
     update: (state, message) => {
       if (message.kind !== 'start') return { state };
       return {
@@ -1400,14 +1404,14 @@ test('cancelled terminal suspension cannot open a replacement session after runT
         }]
       };
     },
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'cancelled-late-terminal-resume-field',
       presentation: { value: state.phase, cursor: 0 },
       onAction: submitMessage({ kind: 'start' })
     })
   });
 
-  const running = runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const running = errorExit(runTui(app, { host: host, lifecycle: { defaultTimeoutMs: 5 } }));
   await waitUntil(() => host.stdin.isRawModeEnabled());
   host.input('\r');
   await operationStarted.promise;
@@ -1433,12 +1437,12 @@ test('cancelled terminal suspension cannot open a replacement session after runT
 test('runTui preserves sanitized completed exit reasons', async () => {
   const app = defineTui({
     id: 'exit-reason',
-    init: () => ({ submitted: false }),
+    init: () => ({ state: ({ submitted: false }) }),
     update: (_state, message) => ({
       state: { submitted: message.submitted },
       exit: { reason: 'Submitted \u001B[31mnow\u001B[0m' }
     }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'reason-field',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onAction: submitMessage({ submitted: true })
@@ -1446,7 +1450,7 @@ test('runTui preserves sanitized completed exit reasons', async () => {
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   harness.host.input('\r');
-  const exit = await runTui(app, harness.host);
+  const exit = await runTui(app, { host: harness.host });
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.reason, 'Submitted now');
@@ -1457,9 +1461,9 @@ test('runTui preserves sanitized completed exit reasons', async () => {
 test('runTui lets apps own escape and ctrlC key bindings', async () => {
   const app = defineTui({
     id: 'run-loop-key-exit',
-    init: () => ({ active: 'ready' }),
+    init: () => ({ state: ({ active: 'ready' }) }),
     update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
-    view: (state) => textInput({
+    view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'exit-field',
       presentation: { value: state.active, cursor: 0 }
     }),
@@ -1477,7 +1481,7 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
     ]
   });
   const escapeHarness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const escapeRunning = runTui(app, escapeHarness.host, { input: { escapeDelayMs: 1 } });
+  const escapeRunning = runTui(app, { host: escapeHarness.host, input: { escapeDelayMs: 1 } });
   await waitUntil(() => escapeHarness.frames().length === 1);
   escapeHarness.host.input('\u001B');
   await flushAsync();
@@ -1486,7 +1490,7 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
 
   const ctrlCHarness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   ctrlCHarness.host.input('\u0003');
-  const ctrlC = await runTui(app, ctrlCHarness.host);
+  const ctrlC = await runTui(app, { host: ctrlCHarness.host });
 
   assert.equal(escape.status, 'completed');
   assert.equal(ctrlC.status, 'completed');
@@ -1501,16 +1505,16 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
 test('runTui re-renders when the host emits resize signals', async () => {
   const app = defineTui({
     id: 'run-loop-resize',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
-    view: (_state, context) => textInput({
+    view: (_state, context) => textInput({ meta: { accessibleName: "Text input" },
       id: 'resize-field',
       presentation: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onAction: submitMessage({ done: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const running = runTui(app, harness.host);
+  const running = runTui(app, { host: harness.host });
 
   await waitUntil(() => harness.frames().length === 1);
   harness.host.terminalSizeControl?.setTerminalSize({ columns: 12, rows: 3 });
@@ -1530,9 +1534,9 @@ test('runTui re-renders when the host emits resize signals', async () => {
 test('runTui coalesces resize storms to one active and one latest commit', async () => {
   const app = defineTui({
     id: 'run-loop-resize-storm',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: (_state, message) => ({ state: { done: message.done }, exit: message.done ? {} : undefined }),
-    view: (_state, context) => textInput({
+    view: (_state, context) => textInput({ meta: { accessibleName: "Text input" },
       id: 'resize-storm-field',
       presentation: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onAction: submitMessage({ done: true })
@@ -1564,7 +1568,7 @@ test('runTui coalesces resize storms to one active and one latest commit', async
     }
     return originalWrite(output);
   };
-  const running = runTui(app, harness.host);
+  const running = runTui(app, { host: harness.host });
 
   await Promise.all([
     waitUntil(() => harness.frames().length === 1),
@@ -1593,12 +1597,12 @@ test('runTui coalesces resize storms to one active and one latest commit', async
 test('runTui exits and restores when the host emits interruption signals', async () => {
   const app = defineTui({
     id: 'run-loop-signal',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({ id: 'signal-field', presentation: { value: 'ready', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'signal-field', presentation: { value: 'ready', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
-  const running = runTui(app, harness.host);
+  const running = runTui(app, { host: harness.host });
 
   await waitUntil(() => harness.frames().length === 1);
   harness.host.signals.emit('SIGTERM');
@@ -1616,10 +1620,10 @@ test('runTui restores terminal protocols after initialization failure', async ()
       throw new Error('boom');
     },
     update: (state) => ({ state }),
-    view: () => textInput({ id: 'field', presentation: { value: 'unused', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'field', presentation: { value: 'unused', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 3 } });
-  const exit = await runTui(app, harness.host);
+  const exit = await errorExit(runTui(app, { host: harness.host }));
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_STARTUP_FAILED'), true);
@@ -1633,7 +1637,7 @@ test('runTui restores terminal protocols after initialization failure', async ()
 test('TUI runtime rejects operations after disposal and keeps disposal idempotent', async () => {
   const app = defineTui({
     id: 'disposed-runtime',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     view: (state) => text({ content: String(state.count), id: 'disposed-count' })
   });
@@ -1662,12 +1666,12 @@ test('TUI runtime disposal awaits aborted subscription pumps and source cleanup'
   let sourceDisposed = false;
   const app = defineTui({
     id: 'subscription-disposal-barrier',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     subscriptions: () => [{
       id: 'blocking-source',
       generation: 0,
-      async *messages(context) {
+      async run(context) {
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
         pumpAborted = true;
         await pumpCleanup;
@@ -1697,12 +1701,12 @@ test('TUI runtime disposal remains bounded when the cleanup clock rejects', asyn
   let sourceStarted = false;
   const app = defineTui({
     id: 'runtime-disposal-clock-failure',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     subscriptions: () => [{
       id: 'non-cooperative-clock-source',
       generation: 0,
-      async *messages() {
+      async run() {
         sourceStarted = true;
         await new Promise(() => undefined);
       }
@@ -1731,12 +1735,12 @@ test('TUI runtime disposal preserves its timeout when a caller signal is supplie
   let sourceStarted = false;
   const app = defineTui({
     id: 'runtime-disposal-signal-and-timeout',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     subscriptions: () => [{
       id: 'non-cooperative-signal-and-timeout-source',
       generation: 0,
-      async *messages() {
+      async run() {
         sourceStarted = true;
         await new Promise(() => undefined);
       }
@@ -1767,12 +1771,12 @@ test('pre-aborted TUI runtime disposal still observes later cleanup failures', a
   let sourceStarted = false;
   const app = defineTui({
     id: 'pre-aborted-disposal-cleanup',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
     subscriptions: () => [{
       id: 'late-cleanup-failure',
       generation: 0,
-      async *messages(context) {
+      async run(context) {
         sourceStarted = true;
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
       },
@@ -1811,12 +1815,12 @@ test('pre-aborted TUI runtime disposal still observes later cleanup failures', a
 test('runTui restores terminal state after runtime and exit-handler cleanup failures', async () => {
   const app = defineTui({
     id: 'cleanup-failure-restore',
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: { reason: 'done' } }),
     subscriptions: () => [{
       id: 'cleanup-failure-source',
       generation: 0,
-      async *messages() {},
+      run() {},
       dispose() {
         throw new Error('source cleanup failed');
       }
@@ -1824,12 +1828,12 @@ test('runTui restores terminal state after runtime and exit-handler cleanup fail
     onExit() {
       throw new Error('exit cleanup failed');
     },
-    view: () => textInput({ id: 'cleanup-submit', presentation: { value: '', cursor: 0 }, onAction: submitMessage({ kind: 'submit' }) })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'cleanup-submit', presentation: { value: '', cursor: 0 }, onAction: submitMessage({ kind: 'submit' }) })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   harness.input('\r');
 
-  const exit = await runTui(app, harness.host);
+  const exit = await errorExit(runTui(app, { host: harness.host }));
 
   assert.equal(exit.status, 'error');
   assert.deepEqual(exit.state, { done: true });

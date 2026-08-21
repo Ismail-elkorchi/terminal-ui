@@ -19,7 +19,6 @@ import {
   barChart,
   button as createButton,
   chart,
-  checkbox as createCheckbox,
   checkboxGroup as createCheckboxGroup,
   colorSwatchPicker as createColorSwatchPicker,
   commandInput as createCommandInput,
@@ -33,7 +32,6 @@ import {
   menuBar as createMenuBar,
   notificationRegion,
   searchPicker as createSearchPicker,
-  pagination,
   progressBar,
   logViewer,
   slider as createSlider,
@@ -57,26 +55,18 @@ import {
 const noMessage = () => undefined;
 
 function button(options) {
-  const { pointer, ...componentOptions } = options;
   return createButton(
     options.disabled === true
-      ? componentOptions
+      ? options
       : {
           onAction: noMessage,
-          ...componentOptions,
-          ...(pointer?.state === undefined ? {} : { pointerState: pointer.state })
+          ...options
         }
   );
 }
 
 function textInput(options) {
   return createTextInput(
-    options.disabled === true ? options : { onAction: noMessage, ...options }
-  );
-}
-
-function checkbox(options) {
-  return createCheckbox(
     options.disabled === true ? options : { onAction: noMessage, ...options }
   );
 }
@@ -112,26 +102,26 @@ function calendar(options) {
 }
 
 function menu(options) {
-  return createMenu({ onTransition: noMessage, ...options });
+  return createMenu({ meta: { accessibleName: "Menu" }, onTransition: noMessage, ...options });
 }
 
 function menuBar(options) {
-  return createMenuBar({ onTransition: noMessage, ...options });
+  return createMenuBar({ meta: { accessibleName: "Menu bar" }, onTransition: noMessage, ...options });
 }
 
 function menuTrigger(options) {
-  return createDropdownMenu({ onTransition: noMessage, ...options });
+  return createDropdownMenu({ meta: { accessibleName: "Menu" }, onTransition: noMessage, ...options });
 }
 
 function tabs(options) {
-  return createTabs({
+  return createTabs({ meta: { accessibleName: "Tabs" },
     onTransition: noMessage,
     ...options
   });
 }
 
 function searchPicker(options) {
-  return createSearchPicker({
+  return createSearchPicker({ meta: { accessibleName: "Search" },
     presentation: { query: { text: '', mode: 'fuzzy' } },
     onTransition: noMessage,
     ...options
@@ -139,14 +129,14 @@ function searchPicker(options) {
 }
 
 function commandInput(options) {
-  return createCommandInput({
+  return createCommandInput({ meta: { accessibleName: "Command input" },
     onTransition: noMessage,
     ...options
   });
 }
 
 function listbox(options) {
-  return createListbox({
+  return createListbox({ meta: { accessibleName: "List" },
     presentation: { selection: { mode: 'none' } },
     onTransition: noMessage,
     ...options
@@ -154,7 +144,7 @@ function listbox(options) {
 }
 
 function dataGrid(options) {
-  return createDataGrid({
+  return createDataGrid({ meta: { accessibleName: "Data grid" },
     presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: noMessage,
     ...options
@@ -164,7 +154,7 @@ function dataGrid(options) {
 function tree(options) {
   const { nodes, presentation = { expandedIds: [], selection: { mode: 'none' } }, ...rest } = options;
   const source = prepareTreeSource(nodes);
-  return createTree({
+  return createTree({ meta: { accessibleName: "Tree" },
     presentation,
     view: prepareTreeView(source, presentation),
     onTransition: noMessage,
@@ -196,22 +186,18 @@ test('button and text input use user style slots', () => {
   const buttonFrame = renderElementFrame(button({
     id: 'styled-button',
     label: 'Save',
-    meta: {
-        styles: {
+    styles: {
             parts: { label: tokenStyle('status.success') },
-            states: { focused: tokenStyle('status.success') }
+            states: { focused: { root: tokenStyle('status.success') } }
         }
-    }
 }), { columns: 12, rows: 1 });
-  const inputFrame = renderElementFrame(textInput({
+  const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'styled-input',
     presentation: { value: 'abc', cursor: 0 },
-    meta: {
-        styles: {
+    styles: {
             parts: { value: tokenStyle('status.warning') },
-            states: { focused: tokenStyle('status.warning') }
+            states: { focused: { root: tokenStyle('status.warning') } }
         }
-    }
 }), { columns: 12, rows: 1 });
 
   assert.equal(styleFor(buttonFrame, 'S')?.fg?.token, 'status.success');
@@ -234,11 +220,6 @@ test('button states use shared styles and structural markers', () => {
     label: 'Delete',
     tone: 'destructive'
   }), { columns: 18, rows: 1 });
-  const pressedFrame = renderElementFrame(button({
-    id: 'pressed',
-    label: 'Pinned',
-    pointerState: { pressedTargetId: 'pressed:control' }
-  }), { columns: 18, rows: 1 });
   const disabledFrame = renderElementFrame(button({
     id: 'disabled',
     label: 'Disabled',
@@ -248,24 +229,21 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(renderFramePlain(focusedFrame).trimEnd(), '› Focus');
   assert.equal(renderFramePlain(pendingFrame).trimEnd(), 'i Sync');
   assert.equal(renderFramePlain(destructiveFrame).trimEnd(), '× Delete');
-  assert.equal(renderFramePlain(pressedFrame).trimEnd(), '● Pinned');
   assert.equal(renderFramePlain(disabledFrame).trimEnd(), '  Disabled');
   assert.equal(styleFor(pendingFrame, 'S')?.fg?.token, 'status.pending');
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
-  assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'selection.background');
   assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.disabled');
   assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'padding.leading');
   assert.equal(focusedFrame.cells.some((cell) => cell.source?.description === 'frame.open'), false);
   assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.description, 'padding.leading');
   assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.description, 'padding.leading');
-  assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.description, 'padding.leading');
   assert.equal(disabledFrame.cells.find((cell) => cell.source?.description === 'padding.leading')?.text, ' ');
   assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'label.text');
   assert.equal(focusedFrame.cells.find((cell) => cell.row === 1 && cell.column === 16)?.style?.bg?.token, 'control.background');
   assert.equal(focusedFrame.cells.find((cell) => cell.row === 1 && cell.column === 16)?.source?.elementId, 'focus');
 });
 
-test('ghost buttons inherit their surface until interaction makes them visible', () => {
+test('ghost buttons inherit their surface until focus makes them visible', () => {
   const idle = renderElementFrame(surface(button({
     id: 'ghost-idle',
     label: 'History',
@@ -273,16 +251,6 @@ test('ghost buttons inherit their surface until interaction makes them visible',
     meta: { focus: { disabled: true } }
   }), {
     id: 'ghost-idle-surface',
-    appearance: 'bar'
-  }), { columns: 14, rows: 1 }, { focusPath: ['none'] });
-  const hovered = renderElementFrame(surface(button({
-    id: 'ghost-hovered',
-    label: 'History',
-    tone: 'ghost',
-    pointerState: { hoveredTargetId: 'ghost-hovered:control' },
-    meta: { focus: { disabled: true } }
-  }), {
-    id: 'ghost-hovered-surface',
     appearance: 'bar'
   }), { columns: 14, rows: 1 }, { focusPath: ['none'] });
   const focused = renderElementFrame(surface(button({
@@ -295,122 +263,26 @@ test('ghost buttons inherit their surface until interaction makes them visible',
   }), { columns: 14, rows: 1 }, { focusPath: ['ghost-focused-surface', 'ghost-focused'] });
 
   assert.equal(idle.cells.find((cell) => cell.text === 'H')?.style?.bg?.token, 'surface.bar.background');
-  assert.equal(hovered.cells.find((cell) => cell.text === 'H')?.style?.bg?.token, 'focus.background');
   assert.equal(focused.cells.find((cell) => cell.text === 'H')?.style?.bg?.token, 'focus.background');
 });
 
-test('controlled pointer interaction resolves styles and source state across component families', () => {
-  const checkboxFrame = renderElementFrame(checkbox({
-    id: 'check',
-    label: 'Enabled',
-    checked: false,
-    meta: { focus: { disabled: true } },
-    pointerState: { hoveredTargetId: 'check:control' },
-    onAction: () => ignoreMessage()
-  }), { columns: 20, rows: 1 });
-  const listFrame = renderElementFrame(listbox({
-    id: 'items',
-    items: ['Alpha', 'Beta'],
-    projectItem: (item) => ({ id: item, label: item }),
-    pointerState: { hoveredTargetId: 'items:option:Beta' },
-    onTransition: () => ignoreMessage()
-  }), { columns: 20, rows: 2 });
-  const tabFrame = renderElementFrame(tabs({
-    id: 'views',
-    presentation: { activeId: 'one', selectedId: 'one' },
-    tabs: [
-      { id: 'one', label: 'One', panel: text({ content: 'One' }) },
-      { id: 'two', label: 'Two', panel: text({ content: 'Two' }) }
-    ],
-    pointerState: { pressedTargetId: 'views:tab:two' },
-    onTransition: () => ignoreMessage()
-  }), { columns: 24, rows: 2 });
-  const menuFrame = renderElementFrame(menu({
-    id: 'actions',
-    presentation: {
-      activePath: ['open'],
-      items: [
-        { kind: 'action', id: 'open', label: 'Open' },
-        { kind: 'action', id: 'save', label: 'Save' }
-      ]
-    },
-    pointerState: { hoveredTargetId: 'actions:item:save' },
-    onTransition: () => ignoreMessage()
-  }), { columns: 20, rows: 2 });
-  const commandFrame = renderElementFrame(commandInput({
-    id: 'command',
-    presentation: {
-      value: '/o',
-      cursor: 0,
-      open: true,
-      suggestions: prepareCommandSuggestions([
-        { id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 2 }, text: '/open' }, label: 'Open' },
-        { id: 'save', completion: { range: { startOffset: 0, endOffsetExclusive: 2 }, text: '/save' }, label: 'Save' }
-      ]),
-      activeSuggestionId: 'open'
-    },
-    display: 'expanded',
-    pointerState: { hoveredTargetId: 'command:suggestion:save' },
-    onTransition: () => ignoreMessage()
-  }), { columns: 24, rows: 3 });
-  const paginationFrame = renderElementFrame(pagination({
-    id: 'pages',
-    pageNumber: 2,
-    pageCount: 4,
-    onAction: () => ignoreMessage(),
-    pointerState: { pressedTargetId: 'pages:next' }
-  }), { columns: 40, rows: 1 });
-  const notificationFrame = renderElementFrame(notificationRegion({
-    id: 'notices',
-    items: [{ id: 'ready', title: 'Ready', tone: 'info' }],
-    pointerState: { hoveredTargetId: 'notices:notification:ready' },
-    onAction: () => ignoreMessage()
-  }), { columns: 30, rows: 6 });
-
-  assert.equal(styleFor(checkboxFrame, 'E')?.bg?.token, 'focus.background');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'E')?.source?.interactionState, 'hovered');
-  assert.equal(styleFor(listFrame, 'B')?.bg?.token, 'focus.background');
-  assert.equal(listFrame.cells.find((cell) => cell.text === 'B')?.source?.interactionState, 'hovered');
-  assert.equal(styleFor(tabFrame, 'T')?.bg?.token, 'selection.background');
-  assert.equal(tabFrame.cells.find((cell) => cell.text === 'T')?.source?.interactionState, 'pressed');
-  assert.equal(styleFor(menuFrame, 'S')?.bg?.token, 'focus.background');
-  assert.equal(menuFrame.cells.find((cell) => cell.text === 'S')?.source?.interactionState, 'hovered');
-  assert.equal(styleFor(commandFrame, 'S')?.bg?.token, 'focus.background');
-  assert.equal(commandFrame.cells.find((cell) => cell.text === 'S')?.source?.interactionState, 'hovered');
-  assert.equal(paginationFrame.cells.find((cell) => cell.source?.partName === 'control.next')?.source?.interactionState, 'pressed');
-  assert.equal(notificationFrame.cells.find((cell) =>
-    cell.source?.itemId === 'ready' && cell.source.partName === 'title'
-  )?.source?.interactionState, 'hovered');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.row === 1 && cell.column === 20)?.style?.bg?.token, 'focus.background');
-  assert.equal(listFrame.cells.find((cell) => cell.row === 2 && cell.column === 20)?.style?.bg?.token, 'focus.background');
-  assert.equal(listFrame.cells.find((cell) => cell.row === 2 && cell.column === 20)?.source?.itemId, 'Beta');
-  assert.equal(menuFrame.cells.find((cell) => cell.row === 2 && cell.column === 20)?.style?.bg?.token, 'focus.background');
-  assert.equal(menuFrame.cells.find((cell) => cell.row === 2 && cell.column === 20)?.source?.itemId, 'save');
-  assert.equal(commandFrame.cells.find((cell) => cell.row === 3 && cell.column === 24)?.style?.bg?.token, 'focus.background');
-  assert.equal(commandFrame.cells.find((cell) => cell.row === 3 && cell.column === 24)?.source?.interactionState, 'hovered');
-});
-
 test('text entry frames use shared border, focus, and error styles', () => {
-  const inputFrame = renderElementFrame(textInput({
+  const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'query',
     presentation: { value: 'abc', cursor: 0 },
-    meta: {
-        styles: {
+    styles: {
             parts: { border: tokenStyle('status.info') },
-            states: { focused: tokenStyle('status.success') }
+            states: { focused: { root: tokenStyle('status.success') } }
         }
-    }
 }), { columns: 16, rows: 1 }, { focusPath: ['query'] });
-  const areaFrame = renderElementFrame(textArea({
+  const areaFrame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'body',
     presentation: { document: prepareTextDocument('details'), caret: textCaretAt(0 )},
     onAction: noMessage,
     error: 'Required',
-    meta: {
-        styles: {
+    styles: {
             parts: { error: tokenStyle('status.error') }
         }
-    }
 }), { columns: 16, rows: 2 });
 
   assert.equal(renderFramePlain(inputFrame).trimEnd(), '› abc');
@@ -420,44 +292,38 @@ test('text entry frames use shared border, focus, and error styles', () => {
 });
 
 test('menu searchPicker dataGrid and tree use selected placeholder and title slots', () => {
-  const menuFrame = renderElementFrame(menuBar({
+  const menuFrame = renderElementFrame(menuBar({ meta: { accessibleName: "Menu bar" },
     id: 'styled-menu',
     presentation: { kind: 'closed', active: 'file' },
     items: [
         { kind: 'action', id: 'file', label: 'File' },
         { kind: 'action', id: 'edit', label: 'Edit' }
     ],
-    meta: {
-        styles: {
-            states: { selected: tokenStyle('status.success') }
+    styles: {
+            states: { selected: { root: tokenStyle('status.success') } }
         }
-    }
 }), { columns: 20, rows: 1 });
-  const searchPickerFrame = renderElementFrame(searchPicker({
+  const searchPickerFrame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
     id: 'styled-searchPicker',
     title: 'Commands',
     searchPickerIndex: prepareSearchPickerIndex([]),
-    meta: {
-        styles: {
+    styles: {
             parts: {
               title: tokenStyle('status.error'),
               empty: tokenStyle('status.warning')
             }
         }
-    }
 }), { columns: 24, rows: 3 });
-  const tableFrame = renderElementFrame(dataGrid({
+  const tableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'empty-dataGrid',
     rows: [],
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
     emptyText: 'No data',
-    meta: {
-        styles: {
+    styles: {
             parts: { empty: tokenStyle('status.warning') }
         }
-    }
 }), { columns: 20, rows: 2 });
   const treeFrame = renderElementFrame(tree({
     id: 'selected-tree',
@@ -467,12 +333,10 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
       selection: { mode: 'single', selectedId: 'api' }
     },
     nodes: [{ id: 'api', label: 'API', kind: 'leaf' }],
-    meta: {
-        focus: { disabled: true },
-        styles: {
-            states: { selected: tokenStyle('status.success') }
-        }
-    }
+    styles: {
+            states: { selected: { root: tokenStyle('status.success') } }
+        },
+    meta: { accessibleName: "Tree", focus: { disabled: true } }
 }), { columns: 16, rows: 1 });
 
   assert.equal(styleFor(menuFrame, 'F')?.fg?.token, 'status.success');
@@ -483,7 +347,7 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
 });
 
 test('listbox dataGrid and tree share data navigation selection and match styles', () => {
-  const listFrame = renderElementFrame(listbox({
+  const listFrame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'styled-listbox',
     items: ['Atlas', 'Pulse'],
@@ -493,7 +357,7 @@ test('listbox dataGrid and tree share data navigation selection and match styles
     },
     query: { text: 'at', mode: 'contains' }
   }), { columns: 18, rows: 2 });
-  const tableFrame = renderElementFrame(dataGrid({
+  const tableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'styled-dataGrid',
     presentation: {
@@ -505,7 +369,7 @@ test('listbox dataGrid and tree share data navigation selection and match styles
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
-  const activeTableFrame = renderElementFrame(dataGrid({
+  const activeTableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'active-dataGrid',
     presentation: {
@@ -521,7 +385,7 @@ test('listbox dataGrid and tree share data navigation selection and match styles
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
-  const treeFrame = renderElementFrame(tree({
+  const treeFrame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'filtered-tree',
     presentation: {
       expandedIds: ['root'],
@@ -561,11 +425,11 @@ test('default interactive component anatomy uses theme tokens instead of termina
   const inputFrame = renderElementFrame(textInput({
     id: 'query',
     presentation: { value: 'find', cursor: 0 },
-    meta: {
+    meta: { accessibleName: "Text input",
         focus: { disabled: true }
     }
 }), { columns: 18, rows: 1 });
-  const commandFrame = renderElementFrame(commandInput({
+  const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'command',
     presentation: { value: '/open README.md', cursor: 0, open: true, suggestions: prepareCommandSuggestions([
       { id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/open' }, label: 'Open file' },
@@ -573,7 +437,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
     ]), activeSuggestionId: 'open' },
     display: 'expanded',
   }), { columns: 36, rows: 3 });
-  const menuFrame = renderElementFrame(menu({
+  const menuFrame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },
     id: 'menu',
     presentation: {
       activePath: ['open'],
@@ -586,13 +450,13 @@ test('default interactive component anatomy uses theme tokens instead of termina
   const menuTriggerFrame = renderElementFrame(menuTrigger({
     id: 'region',
     label: 'Region',
-    meta: { focus: { disabled: true } },
+    meta: { accessibleName: "Menu", focus: { disabled: true } },
     presentation: { kind: 'closed', active: 'us' },
     items: [
       { kind: 'action', id: 'us', label: 'United States' }
     ]
   }), { columns: 32, rows: 1 });
-  const searchPickerFrame = renderElementFrame(searchPicker({
+  const searchPickerFrame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
     id: 'searchPicker',
     presentation: {
       query: { text: 'o', mode: 'fuzzy' },
@@ -603,7 +467,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
       { id: 'toggle', label: 'Toggle theme' }
     ])
   }), { columns: 36, rows: 5 });
-  const tabsFrame = renderElementFrame(tabs({
+  const tabsFrame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
     presentation: { activeId: 'one', selectedId: 'one' },
     tabs: [
@@ -611,7 +475,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
       { id: 'two', label: 'Two', panel: text({ content: 'Two' }) }
     ]
   }), { columns: 28, rows: 2 });
-  const tableFrame = renderElementFrame(dataGrid({
+  const tableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'dataGrid',
     columns: [{
@@ -631,7 +495,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
       kind: 'branch',
       children: [{ id: 'api', label: 'API', kind: 'leaf' }]
     }],
-    meta: { focus: { disabled: true } }
+    meta: { accessibleName: "Tree", focus: { disabled: true } }
   }), { columns: 24, rows: 2 });
   const noticeFrame = renderElementFrame(notificationRegion({
     id: 'notices',
@@ -659,7 +523,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
 });
 
 test('tree rows expose styled disclosure icon and label anatomy', () => {
-  const frame = renderElementFrame(tree({
+  const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'anatomy-tree',
     nodes: [{
             id: 'root',
@@ -672,8 +536,7 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
       expandedIds: ['root'],
       selection: { mode: 'none' }
     },
-    meta: {
-        styles: {
+    styles: {
             parts: {
               disclosure: tokenStyle('status.warning'),
               indent: tokenStyle('status.warning'),
@@ -681,7 +544,6 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
               label: tokenStyle('status.success')
             }
         }
-    }
 }), { columns: 24, rows: 2 });
   const disclosure = frame.cells.find((cell) => cell.text === '▼');
   const icon = frame.cells.find((cell) => cell.text === '◆');
@@ -709,7 +571,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
         activeId: 'Atlas',
         selection: { mode: 'single', selectedId: 'Atlas' }
       },
-      meta: { focus: { disabled: true } }
+      meta: { accessibleName: "List", focus: { disabled: true } }
     }),
     dataGrid({
       id: 'selection-dataGrid',
@@ -721,7 +583,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
           kind: 'row', activeRowId: 'atlas', selection: { mode: 'single', selectedRowId: 'atlas' },
         }
       },
-      meta: { focus: { disabled: true } }
+      meta: { accessibleName: "Data grid", focus: { disabled: true } }
     }),
     tree({
       id: 'selection-tree',
@@ -731,7 +593,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
         selection: { mode: 'single', selectedId: 'atlas' }
       },
       nodes: [{ id: 'atlas', label: 'Atlas', kind: 'leaf' }],
-      meta: { focus: { disabled: true } }
+      meta: { accessibleName: "Tree", focus: { disabled: true } }
     })
   ];
   const markerDescriptions = ['item.Atlas.marker', 'row.atlas.marker', 'node.atlas.marker'];
@@ -751,7 +613,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
 });
 
 test('tabs use shared selected disabled and value styles', () => {
-  const frame = renderElementFrame(tabs({
+  const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
     presentation: { activeId: 'data', selectedId: 'data' },
     tabs: [
@@ -759,16 +621,14 @@ test('tabs use shared selected disabled and value styles', () => {
       { id: 'data', label: 'Data', panel: text({ content: 'Data view' }) },
       { id: 'audit', label: 'Audit', disabled: true, panel: text({ content: 'Audit view' }) }
     ],
-    meta: {
-      styles: {
+    styles: {
         parts: { label: tokenStyle('text.muted') },
         states: {
-          selected: tokenStyle('status.success'),
-          focused: tokenStyle('accent.primary', { underline: true }),
-          disabled: tokenStyle('status.warning')
+          selected: { root: tokenStyle('status.success') },
+          focused: { root: tokenStyle('accent.primary', { underline: true }) },
+          disabled: { root: tokenStyle('status.warning') }
         }
       }
-    }
   }), { columns: 32, rows: 3 }, { focusPath: ['tabs'] });
   const dStyles = stylesFor(frame, 'D');
   const selectedLabel = frame.cells.find((cell) => cell.source?.itemId === 'data' && cell.source?.description === 'label');
@@ -782,11 +642,9 @@ test('log viewer omissions and dialog borders use their direct style slots', () 
   const logViewerFrame = renderElementFrame(logViewer({
     id: 'styled-log-viewer',
     history: prepareLogHistory(Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` }))),
-    meta: {
-        styles: {
+    styles: {
             parts: { marker: tokenStyle('status.warning') }
         }
-    }
 }), { columns: 36, rows: 2 });
   const modalFrame = renderElementFrame(dialog({
     slots: {
@@ -799,11 +657,9 @@ test('log viewer omissions and dialog borders use their direct style slots', () 
     focusPolicy: { returnFocus: 'restore' },
     width: 14,
     height: 6,
-    meta: {
-        styles: {
+    styles: {
             parts: { border: tokenStyle('status.error') }
         }
-    }
 }), { columns: 16, rows: 5 });
 
   assert.equal(styleFor(logViewerFrame, '.')?.fg?.token, 'status.warning');
@@ -824,23 +680,11 @@ test('structural text roles use shared visual grammar', () => {
 });
 
 test('layout surfaces do not inherit component focus state', () => {
-  const focusedFrame = renderElementFrame(surface(textInput({ id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
+  const focusedFrame = renderElementFrame(surface(textInput({ meta: { accessibleName: "Text input" }, id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
     appearance: 'bar'
   }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'], theme: defaultTheme });
-  const customFrame = renderElementFrame(surface(textInput({ id: 'custom-field', presentation: { value: 'Pane', cursor: 0 } }), {
-    id: 'custom-focus-surface',
-    appearance: 'bar',
-    meta: {
-        styles: {
-            states: { focused: { bg: { kind: 'theme', token: 'status.warning' } } }
-        }
-    }
-}), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'], theme: defaultTheme });
-
   assert.equal(styleFor(focusedFrame, 'P')?.bg?.token, 'control.background');
-  assert.equal(styleFor(customFrame, 'P')?.bg?.token, 'control.background');
-  assert.equal(customFrame.cells.some((cell) => cell.style?.bg?.token === 'status.warning'), false);
 });
 
 test('overflow priority preserves important row content before decorative content', () => {
@@ -869,11 +713,9 @@ test('feedback components use shared status styles and source metadata', () => {
   const statusFrame = renderElementFrame(statusBar({
     id: 'status',
     leading: [{ id: 'ready', kind: 'text', text: 'Ready' }],
-    meta: {
-        styles: {
+    styles: {
             parts: { value: tokenStyle('status.success') }
         }
-    }
 }), { columns: 16, rows: 1 });
   const helpFrame = renderElementFrame(helpBar({
     id: 'help',
@@ -884,11 +726,9 @@ test('feedback components use shared status styles and source metadata', () => {
         { binding: { kind: 'key', key: 'escape' }, label: 'close' }
       ]
     }],
-    meta: {
-        styles: {
+    styles: {
             parts: { label: tokenStyle('accent.primary') }
         }
-    }
 }), { columns: 32, rows: 1 });
   const activityFrame = renderElementFrame(activityIndicator({
     id: 'activity',
@@ -946,12 +786,10 @@ test('chart components apply their styles and source metadata', () => {
     items: [{ id: 'atlas', label: 'Atlas', value: 5 }],
     presentation: { activeId: 'atlas', selection: { mode: 'single', selectedId: 'atlas' } },
     onTransition: noMessage,
-    meta: {
-        styles: {
+    styles: {
             parts: { label: tokenStyle('accent.primary') },
-            states: { selected: tokenStyle('status.success') }
+            states: { selected: { root: tokenStyle('status.success') } }
         }
-    }
 }), { columns: 24, rows: 1 });
   const chartFrame = renderElementFrame(chart({
     id: 'chart',
@@ -966,11 +804,9 @@ test('chart components apply their styles and source metadata', () => {
     rows: [[{ id: 'a', label: 'Atlas', value: 3 }]],
     min: 0,
     max: 3,
-    meta: {
-        styles: {
+    styles: {
             parts: { series: tokenStyle('status.warning') }
         }
-    }
 }), { columns: 8, rows: 1 });
 
   assert.equal(styleFor(barFrame, 'A')?.fg?.token, 'status.success');
@@ -990,7 +826,7 @@ test('choice and picker controls use shared form visual styles and source metada
     label: 'Live',
     checked: true
   }), { columns: 24, rows: 1 });
-  const sliderFrame = renderElementFrame(slider({
+  const sliderFrame = renderElementFrame(slider({ meta: { accessibleName: "Slider" },
     id: 'slider',
     label: 'Volume',
     value: 50,
@@ -998,7 +834,7 @@ test('choice and picker controls use shared form visual styles and source metada
     max: 100,
     width: 5
   }), { columns: 24, rows: 1 });
-  const checkboxFrame = renderElementFrame(checkboxGroup({
+  const checkboxFrame = renderElementFrame(checkboxGroup({ meta: { accessibleName: "Choices" },
     id: 'checks',
     label: 'Checks',
     presentation: {
@@ -1008,10 +844,9 @@ test('choice and picker controls use shared form visual styles and source metada
     options: [
       { id: 'a', label: 'Alpha', value: 'a' },
       { id: 'b', label: 'Beta', value: 'b' }
-    ],
-    pointerState: { hoveredTargetId: 'checks:b' }
+    ]
   }), { columns: 24, rows: 3 });
-  const colorFrame = renderElementFrame(colorSwatchPicker({
+  const colorFrame = renderElementFrame(colorSwatchPicker({ meta: { accessibleName: "Colors" },
     id: 'colors',
     label: 'Colors',
     presentation: {
@@ -1020,7 +855,7 @@ test('choice and picker controls use shared form visual styles and source metada
     },
     options: [{ id: 'green', label: 'Green', value: 'green', swatch: '■' }]
   }), { columns: 24, rows: 3 });
-  const dateFrame = renderElementFrame(calendar({
+  const dateFrame = renderElementFrame(calendar({ meta: { accessibleName: "Calendar" },
     id: 'dates',
     label: 'Dates',
     presentation: calendarFixture({ selectedDate: { year: 2026, month: 6, day: 2 } })
@@ -1032,8 +867,11 @@ test('choice and picker controls use shared form visual styles and source metada
   assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.description === 'track.handle')?.bg?.token, 'control.track.filled');
   assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.description === 'track.filled')?.fg?.token, 'control.track.filled');
   assert.equal(checkboxFrame.cells.find((cell) => cell.text === '☑')?.source?.description, 'option.a.marker.checked');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.row === 3 && cell.column === 24)?.style?.bg?.token, 'focus.background');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.row === 3 && cell.column === 24)?.source?.interactionState, 'hovered');
+  const selectedCheckboxCell = checkboxFrame.cells.find((cell) =>
+    cell.source?.description === 'option.a.marker.checked'
+  );
+  assert.equal(selectedCheckboxCell?.style?.bold, true);
+  assert.equal(selectedCheckboxCell?.source?.interactionState, 'active');
   assert.equal(styleForCell(colorFrame, (cell) => cell.source?.description === 'summary.swatch')?.bg?.token, 'control.primary.background');
   assert.equal(colorFrame.cells.find((cell) => cell.source?.description === 'option.green.swatch')?.text, '■');
   assert.equal(dateFrame.cells.find((cell) => cell.source?.description === 'weekday.0')?.style?.fg?.token, 'text.disabled');

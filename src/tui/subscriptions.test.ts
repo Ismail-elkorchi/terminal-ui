@@ -15,10 +15,10 @@ void test('subscription cancellation retires a source blocked on channel capacit
       id: 'bounded-source',
       generation: 1,
       channel: { capacity: 1 },
-      async *messages() {
-        yield reliableSourceMessage(1);
-        yield reliableSourceMessage(2);
-        yield reliableSourceMessage(3);
+      async run(_context, sink) {
+        await sink.emit(reliableSourceMessage(1));
+        await sink.emit(reliableSourceMessage(2));
+        await sink.emit(reliableSourceMessage(3));
       },
       dispose() {
         disposed.resolve();

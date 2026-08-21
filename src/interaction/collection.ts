@@ -84,6 +84,32 @@ export function collectionInteractionPosition(
   return collectionInteractionIndexData(index).positions.get(id);
 }
 
+export function assertCollectionInteractionReferences(
+  state: CollectionInteractionState,
+  index: CollectionInteractionIndex,
+  subject: string,
+): void {
+  if (state.activeId !== undefined && !collectionInteractionHas(index, state.activeId)) {
+    throw new RangeError(`${subject}.activeId must identify an available item.`);
+  }
+  if (state.selection.mode === 'single') {
+    if (state.selection.selectedId !== undefined && !collectionInteractionHas(index, state.selection.selectedId)) {
+      throw new RangeError(`${subject}.selection.selectedId must identify an available item.`);
+    }
+    return;
+  }
+  if (state.selection.mode === 'multiple') {
+    for (const id of state.selection.selectedIds) {
+      if (!collectionInteractionHas(index, id)) {
+        throw new RangeError(`${subject}.selection.selectedIds must identify available items.`);
+      }
+    }
+    if (state.selection.anchorId !== undefined && !collectionInteractionHas(index, state.selection.anchorId)) {
+      throw new RangeError(`${subject}.selection.anchorId must identify an available item.`);
+    }
+  }
+}
+
 function collectionInteractionIndexData(index: CollectionInteractionIndex): CollectionInteractionIndexData {
   const data = collectionIndexes.get(index);
   if (data === undefined) {

@@ -14,11 +14,11 @@ import { keyNames } from '../input/types.ts';
 import { pointerEventKinds } from '../input/pointer.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
 import { decodeInputTrigger } from '../input/triggers.ts';
-import {
-  preparePointerInteractionState,
-  type PointerInteractionState,
-} from '../interaction/pointer-interaction.ts';
 import type { HitTarget } from '../renderer/contracts.ts';
+import {
+  scrollRouteDescriptor,
+  type ScrollRoutable,
+} from '../interaction/scroll-route.ts';
 import { segmentGraphemes } from '../text/index.ts';
 import { executeComponentPhase, type ComponentDefinitionName } from './execution-error.ts';
 import { mapComponentAction } from './message.ts';
@@ -143,6 +143,7 @@ export function normalizeComponentHitTargets(
     if (zIndex !== undefined && (typeof zIndex !== 'number' || !Number.isSafeInteger(zIndex))) {
       throw new TypeError(`Component "${component}" hit target "${id}" zIndex must be a safe integer.`);
     }
+    const scrollRoute = (item as ScrollRoutable<unknown>)[scrollRouteDescriptor];
     return Object.freeze({
       id,
       bounds,
@@ -150,6 +151,18 @@ export function normalizeComponentHitTargets(
       ...(focus === undefined ? {} : { focus }),
       message: (event: RoutedPointerEvent) => executeComponentPhase(component, instanceId, 'pointer', () =>
         mapComponentAction(message(event), mapper)),
+      ...(scrollRoute === undefined ? {} : {
+        [scrollRouteDescriptor]: Object.freeze({
+          state: scrollRoute.state,
+          route: (event: RoutedPointerEvent, state: import('../interaction/scroll.ts').ScrollState) => {
+            const step = scrollRoute.route(event, state);
+            return Object.freeze({
+              nextState: step.nextState,
+              message: mapComponentAction(step.message, mapper),
+            });
+          },
+        }),
+      }),
       ...(cursor === undefined ? {} : { cursor }),
       ...(zIndex === undefined ? {} : { zIndex }),
     });
@@ -235,39 +248,6 @@ function normalizePointerFocusIntent(
 
 function isNonNegativeSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
-}
-
-export function assertPointerDefinition(value: unknown): void {
-  if (value === undefined) return;
-  if (!isNonArrayObject(value)) {
-    throw new TypeError('Component definition pointer must be an object.');
-  }
-  const unsupported = findUnsupportedField(value, new Set(['state', 'onAction']));
-  if (unsupported !== undefined) {
-    throw new TypeError(
-      `Component definition pointer contains unknown field "${unsupported}".`,
-    );
-  }
-  if (value['state'] !== undefined && typeof value['state'] !== 'function') {
-    throw new TypeError('Component definition pointer.state must be a function when provided.');
-  }
-  if (typeof value['onAction'] !== 'function') {
-    throw new TypeError('Component definition pointer requires onAction().');
-  }
-}
-
-export function normalizedPointerState(
-  value: unknown,
-  component: string,
-): PointerInteractionState {
-  const state = preparePointerInteractionState(
-    value,
-    `Component "${component}" pointer state`,
-  );
-  if (state === undefined) {
-    throw new TypeError(`Component "${component}" pointer state must be an object.`);
-  }
-  return state;
 }
 
 const triggerBindingFields = new Set(['trigger', 'onKey']);

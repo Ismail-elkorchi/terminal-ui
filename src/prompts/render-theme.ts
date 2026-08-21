@@ -14,9 +14,24 @@ export function renderPromptText<TChoice>(
   state: PromptRuntimeState<TChoice>,
   capabilities: TerminalCapabilityProfile
 ): string {
-  const theme = prompt.theme ?? minimalTheme;
+  const theme = promptTheme(prompt);
   if (prompt.kind === 'autocomplete') return renderAutocompletePrompt(prompt, state, theme, capabilities);
   return renderParts([{ text: promptLine(prompt, state, theme) }], theme, capabilities);
+}
+
+function promptTheme<TChoice>(prompt: PromptDefinition<TChoice>): TerminalTheme {
+  switch (prompt.kind) {
+    case 'confirm':
+    case 'input':
+    case 'password':
+    case 'select':
+    case 'multiselect':
+    case 'autocomplete':
+      return prompt.theme ?? minimalTheme;
+    case 'editor':
+    case 'progress':
+      return minimalTheme;
+  }
 }
 
 function renderAutocompletePrompt<TValue>(
@@ -27,6 +42,9 @@ function renderAutocompletePrompt<TValue>(
 ): string {
   return [
     renderParts([{ text: `${prompt.label}: ${state.buffer.text}` }], theme, capabilities),
+    ...(prompt.description === undefined
+      ? []
+      : [renderParts([{ text: `  ${prompt.description}` }], theme, capabilities)]),
     ...choiceStatusLines(prompt, state, theme).map((line) => renderParts([{ text: line }], theme, capabilities)),
     ...state.choices.map((choice, index) => renderAutocompleteChoiceLine(choice, index, state, theme, capabilities))
   ].join('\n');

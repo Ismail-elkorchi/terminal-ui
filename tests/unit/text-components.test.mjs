@@ -65,7 +65,7 @@ function textArea(options) {
 }
 
 function commandInput(options) {
-  return createCommandInput({
+  return createCommandInput({ meta: { accessibleName: "Command input" },
     onTransition: (action) => action,
     ...options
   });
@@ -91,11 +91,9 @@ test('richText component renders sanitized styled segments as plain frame text',
 test('text renders through shared role styles and source metadata', () => {
   const frame = renderElementFrame(text({ content: 'Badge', id: 'badge-text',
     textRole: 'badge',
-    meta: {
-        styles: {
+    styles: {
             root: { underline: true }
-        }
-    } }), { columns: 12, rows: 1 });
+        } }), { columns: 12, rows: 1 });
   const first = frame.cells.find((cell) => cell.text === 'B');
 
   assert.deepEqual(first?.style, {
@@ -175,7 +173,7 @@ test('richText gives linked spans the default link style without overriding expl
 });
 
 test('textArea renders multiline windows and exposes cursor/accessibility state', () => {
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'body',
     presentation: {
       document: prepareTextDocument('line one\nline two'),
@@ -200,16 +198,16 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
 });
 
 test('editable text controls expose source metadata for frame, value, placeholder, and selection', () => {
-  const inputFrame = renderElementFrame(textInput({
+  const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'email',
     presentation: { value: 'abc', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 2 } },
   }), { columns: 12, rows: 1 });
-  const placeholderFrame = renderElementFrame(textInput({
+  const placeholderFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'empty',
     presentation: { value: '', cursor: 0 },
     placeholder: 'Email'
   }), { columns: 12, rows: 1 });
-  const numberFrame = renderElementFrame(numberInput({
+  const numberFrame = renderElementFrame(numberInput({ meta: { accessibleName: "Number input" },
     id: 'qty',
     presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42 }
   }), { columns: 12, rows: 1 });
@@ -227,15 +225,15 @@ test('editable text controls expose source metadata for frame, value, placeholde
 
 test('text components map Unicode cursor positions through the shared text contract', () => {
   const value = 'a🙂界b';
-  const textInputFrame = renderElementFrame(textInput({
+  const textInputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'unicode-input',
     presentation: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-input'] });
-  const secondaryInputFrame = renderElementFrame(textInput({
+  const secondaryInputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'unicode-field',
     presentation: { value: 'go🙂', cursor: 'go🙂'.length }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-field'] });
-  const commandFrame = renderElementFrame(commandInput({
+  const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'unicode-command',
     prompt: '> ',
     presentation: { value, cursor: 'a🙂'.length, open: false, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: prepareCommandSuggestions([]) }
@@ -268,7 +266,7 @@ test('text components map Unicode cursor positions through the shared text contr
 });
 
 test('textArea editable cells expose gutter, value, placeholder, and selection source metadata', () => {
-  const selectedFrame = renderElementFrame(textArea({
+  const selectedFrame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'notes',
     presentation: {
       document: prepareTextDocument('alpha\nbeta'),
@@ -276,7 +274,7 @@ test('textArea editable cells expose gutter, value, placeholder, and selection s
       selection: textDocumentSelectionBetween(1, 4)
     },
   }), { columns: 12, rows: 2 });
-  const placeholderFrame = renderElementFrame(textArea({
+  const placeholderFrame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'notes-empty',
     presentation: { document: prepareTextDocument(''), caret: textCaretAt(0) },
     placeholder: 'Write notes'
@@ -291,7 +289,7 @@ test('textArea editable cells expose gutter, value, placeholder, and selection s
 });
 
 test('textArea can opt into line number gutter and active line anatomy', () => {
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'editor',
     presentation: { document: prepareTextDocument('alpha\nbeta'), caret: textCaretAt('alpha\nb'.length) },
     lineNumbers: { minWidth: 2 },
@@ -318,7 +316,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
   const lines = Array.from({ length: 12 }, (_item, index) => `line ${String(index + 1)}`);
   const value = lines.join('\n');
   const cursor = lines.slice(0, 9).join('\n').length + 1;
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'wide-gutter-editor',
     presentation: { document: prepareTextDocument(value), caret: textCaretAt(cursor) },
     lineNumbers: true
@@ -331,7 +329,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
 });
 
 test('textArea renders caller-controlled highlight ranges without overriding selection', () => {
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'searchable',
     presentation: {
       document: prepareTextDocument('alpha beta gamma'),
@@ -360,7 +358,7 @@ test('textArea renders caller-controlled highlight ranges without overriding sel
 });
 
 test('textArea can soft-wrap long logical lines while preserving editor anatomy', () => {
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'wrapped-editor',
     presentation: { document: prepareTextDocument('alpha beta gamma'), caret: textCaretAt('alpha beta'.length) },
     lineNumbers: { minWidth: 2 },
@@ -379,7 +377,7 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
 });
 
 test('wrapped textArea exposes scrollbar scope over visual rows', () => {
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'wrapped-scroll',
     presentation: { document: prepareTextDocument('alpha beta gamma delta'), caret: textCaretAt(0), scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0, followTail: false } },
     wrap: true,
@@ -396,12 +394,12 @@ test('wrapped textArea exposes scrollbar scope over visual rows', () => {
 
 test('editable text controls remain readable in high contrast and no-color rendering modes', () => {
   const element = column([
-    textInput({
+    textInput({ meta: { accessibleName: "Text input" },
       id: 'contrast-input',
       presentation: { value: 'alpha', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 4 } },
       error: 'Invalid value'
     }),
-    commandInput({
+    commandInput({ meta: { accessibleName: "Command input" },
       id: 'contrast-command',
       prompt: '/',
       presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
@@ -436,14 +434,14 @@ test('editable text controls remain identifiable when the theme has no field fil
     textInput({
       id: 'no-color-input',
       presentation: { value: 'alpha', cursor: 0 },
-      meta: { focus: { disabled: true } }
+      meta: { accessibleName: "Text input", focus: { disabled: true } }
     }),
     commandInput({
       id: 'no-color-command',
       prompt: '› ',
       presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
       placeholder: '/open',
-      meta: { focus: { disabled: true } }
+      meta: { accessibleName: "Command input", focus: { disabled: true } }
     })
   ]), { columns: 20, rows: 2 }, {
     theme: noColorTheme
@@ -454,7 +452,7 @@ test('editable text controls remain identifiable when the theme has no field fil
 });
 
 test('disabled textInput exposes no mouse hit target', () => {
-  const frame = renderElementFrame(textInput({
+  const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'disabled-input',
     presentation: { value: 'locked', cursor: 0 },
     disabled: true
@@ -464,7 +462,7 @@ test('disabled textInput exposes no mouse hit target', () => {
 });
 
 test('textInput maps pointer positions to text offsets when opted in', () => {
-  const regions = renderElementRegions(textInput({
+  const regions = renderElementRegions(textInput({ meta: { accessibleName: "Text input" },
     id: 'editable-input',
     presentation: { value: 'alpha', cursor: 0 },
     onAction: (action) => ({ action })
@@ -485,7 +483,7 @@ test('textInput maps pointer positions to text offsets when opted in', () => {
 });
 
 test('disabled textInput exposes no editable pointer targets', () => {
-  const frame = renderElementFrame(textInput({
+  const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'disabled-editable-input',
     presentation: { value: 'locked', cursor: 0 },
     disabled: true
@@ -495,7 +493,7 @@ test('disabled textInput exposes no editable pointer targets', () => {
 });
 
 test('textArea maps pointer positions through gutters visual rows and selection drag actions', () => {
-  const regions = renderElementRegions(textArea({
+  const regions = renderElementRegions(textArea({ meta: { accessibleName: "Text area" },
     id: 'editable-area',
     presentation: { document: prepareTextDocument('alpha\nbeta'), caret: textCaretAt(0) },
     lineNumbers: true,
@@ -547,7 +545,7 @@ test('textArea maps pointer positions through gutters visual rows and selection 
 });
 
 test('textArea horizontal windows use visual cells without splitting graphemes', () => {
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'unicode-area',
     presentation: { document: prepareTextDocument('a🙂界b\nplain'), caret: textCaretAt('a🙂界'.length), scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0, followTail: false } },
   }), { columns: 5, rows: 2 }, { focusPath: ['unicode-area'] });

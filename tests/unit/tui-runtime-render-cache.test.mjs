@@ -14,9 +14,9 @@ import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 test('TUI tabs expose clickable tab hit targets', async () => {
   const app = defineTui({
     id: 'tabs-click-tui',
-    init: () => ({ selected: 'left' }),
+    init: () => ({ state: ({ selected: 'left' }) }),
     update: (_state, message) => ({ state: { selected: message.selected } }),
-    view: (state) => tabs({
+    view: (state) => tabs({ meta: { accessibleName: "Tabs" },
       id: 'click-tabs',
       presentation: { activeId: state.selected, selectedId: state.selected },
       tabs: [
@@ -43,17 +43,17 @@ test('TUI tabs expose clickable tab hit targets', async () => {
 test('TUI pointer presses focus the declared target before application actions', async () => {
   const app = defineTui({
     id: 'pointer-focus-tui',
-    init: () => ({ pointerActions: 0 }),
+    init: () => ({ state: ({ pointerActions: 0 }) }),
     update: (state, message) => message.kind === 'pointer'
       ? { state: { ...state, pointerActions: state.pointerActions + 1 } }
       : { state },
     view: (state) => row([
-      textInput({
+      textInput({ meta: { accessibleName: "Text input" },
         id: 'first-field',
         presentation: { value: `first ${String(state.pointerActions)}`, cursor: 0 },
         onAction: () => ({ kind: 'pointer' })
       }),
-      textInput({
+      textInput({ meta: { accessibleName: "Text input" },
         id: 'second-field',
         presentation: { value: 'second', cursor: 0 },
         onAction: () => ({ kind: 'pointer' })
@@ -91,9 +91,9 @@ test('TUI pointer presses focus the declared target before application actions',
 test('TUI wheel input preserves the current focus path', async () => {
   const app = defineTui({
     id: 'wheel-preserves-focus-tui',
-    init: () => ({ scrolls: 0 }),
+    init: () => ({ state: ({ scrolls: 0 }) }),
     update: (state) => ({ state: { scrolls: state.scrolls + 1 } }),
-    view: () => textArea({
+    view: () => textArea({ meta: { accessibleName: "Text area" },
       id: 'wheel-field',
       presentation: { document: prepareTextDocument('one\ntwo\nthree\nfour'), caret: textCaretAt(0), scroll: createScrollState({ contentRows: 4, viewportRows: 2 }) },
       onAction: () => ({ kind: 'scroll' })
@@ -126,7 +126,7 @@ test('TUI runtime routes mouse input through the committed render cache', async 
   let viewCalls = 0;
   const app = defineTui({
     id: 'cached-routing-tui',
-    init: () => ({ count: 0 }),
+    init: () => ({ state: ({ count: 0 }) }),
     update: (state) => ({ state: { count: state.count + 1 } }),
     view: (state) => {
       viewCalls += 1;
@@ -142,11 +142,11 @@ test('TUI runtime routes mouse input through the committed render cache', async 
   assert.notEqual(target, undefined);
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
   assert.equal(runtime.state()?.count, 0);
-  assert.equal(viewCalls, 1);
+  assert.equal(viewCalls, 2);
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
   assert.equal(runtime.state()?.count, 1);
-  assert.equal(viewCalls, 2);
+  assert.equal(viewCalls, 3);
 });
 
 test('TUI runtime uses committed hit targets without recomputing renderer hit targets', async () => {
@@ -167,7 +167,7 @@ test('TUI runtime uses committed hit targets without recomputing renderer hit ta
   };
   const app = defineTui({
     id: 'committed-hit-target-routing-tui',
-    init: () => ({ clicked: false }),
+    init: () => ({ state: ({ clicked: false }) }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
     view: () => componentElement({
       id: 'cached-region-hit',
@@ -186,5 +186,5 @@ test('TUI runtime uses committed hit targets without recomputing renderer hit ta
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
   assert.deepEqual(runtime.state(), { clicked: true });
-  assert.equal(hitTargetCalls, 2);
+  assert.equal(hitTargetCalls, 3);
 });

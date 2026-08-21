@@ -32,7 +32,7 @@ test('switchControl slider and rangeSlider render caller-controlled values with 
       checked: true,
       onAction: () => ({ kind: 'toggle' })
     }),
-    slider({
+    slider({ meta: { accessibleName: "Slider" },
       id: 'slider',
       label: 'Volume',
       value: 50,
@@ -41,7 +41,7 @@ test('switchControl slider and rangeSlider render caller-controlled values with 
       width: 11,
       onAction: (action) => ({ kind: 'volume', action })
     }),
-    rangeSlider({
+    rangeSlider({ meta: { accessibleName: "Range" },
       id: 'range',
       label: 'Window',
       state: { value: { start: 20, end: 80 }, activeHandle: 'start' },
@@ -75,20 +75,20 @@ test('switchControl slider and rangeSlider render caller-controlled values with 
 
 test('slider controls reject invalid caller-supplied numeric contracts consistently', () => {
   const validRangeState = { value: { start: 10, end: 20 }, activeHandle: 'start' };
-  assert.throws(() => slider({ id: 'nan-slider', label: '', value: Number.NaN, onAction: () => ignoreMessage() }), /value must be finite/u);
-  assert.throws(() => slider({ id: 'bounds-slider', label: '', value: 1, min: 2, max: 1, onAction: () => ignoreMessage() }), /finite ordered bounds/u);
-  assert.throws(() => slider({ id: 'step-slider', label: '', value: 1, step: 0, onAction: () => ignoreMessage() }), /step must be finite and greater than zero/u);
-  assert.throws(() => slider({ id: 'width-slider', label: '', value: 1, width: 1.5, onAction: () => ignoreMessage() }), /width must be a positive safe integer/u);
+  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'nan-slider', label: '', value: Number.NaN, onAction: () => ignoreMessage() }), /value must be finite/u);
+  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'bounds-slider', label: '', value: 1, min: 2, max: 1, onAction: () => ignoreMessage() }), /finite ordered bounds/u);
+  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'step-slider', label: '', value: 1, step: 0, onAction: () => ignoreMessage() }), /step must be finite and greater than zero/u);
+  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'width-slider', label: '', value: 1, width: 1.5, onAction: () => ignoreMessage() }), /width must be a positive safe integer/u);
   assert.throws(
-    () => rangeSlider({ id: 'nan-range', label: '', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
+    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'nan-range', label: '', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
     /value must be finite/u
   );
   assert.throws(
-    () => rangeSlider({ id: 'ordered-range', label: '', state: { value: { start: 20, end: 10 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
+    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'ordered-range', label: '', state: { value: { start: 20, end: 10 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
     /start value must be less than or equal/u
   );
   assert.throws(
-    () => rangeSlider({ id: 'width-range', label: '', state: validRangeState, width: 0, onAction: () => ignoreMessage() }),
+    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'width-range', label: '', state: validRangeState, width: 0, onAction: () => ignoreMessage() }),
     /width must be a positive safe integer/u
   );
 });
@@ -96,9 +96,9 @@ test('slider controls reject invalid caller-supplied numeric contracts consisten
 test('slider generated bindings use normalized arrow-key identities', async () => {
   const app = defineTui({
     id: 'slider-arrow-identity',
-    init: () => ({ value: 5 }),
+    init: () => ({ state: ({ value: 5 }) }),
     update: (_state, message) => ({ state: { value: message.value } }),
-    view: (state) => slider({
+    view: (state) => slider({ meta: { accessibleName: "Slider" },
       id: 'volume',
       label: '',
       value: state.value,
@@ -136,11 +136,11 @@ test('rangeSlider pointer capture preserves the pressed handle and arrow keys us
   const options = { range: { min: 0, max: 100 }, step: 10 };
   const app = defineTui({
     id: 'range-slider-interaction',
-    init: () => ({ range: { value: { start: 20, end: 80 }, activeHandle: 'end' } }),
+    init: () => ({ state: ({ range: { value: { start: 20, end: 80 }, activeHandle: 'end' } }) }),
     update: (state, message) => ({
       state: { range: rangeSliderReducer(state.range, message.action, options) }
     }),
-    view: (state) => rangeSlider({
+    view: (state) => rangeSlider({ meta: { accessibleName: "Range" },
       id: 'window',
       label: '',
       state: state.range,
@@ -189,7 +189,7 @@ test('rangeSlider pointer capture preserves the pressed handle and arrow keys us
 
 test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit targets and accessibility', () => {
   const element = column([
-    checkboxGroup({
+    checkboxGroup({ meta: { accessibleName: "Choices" },
       id: 'check-list',
       label: 'Channels',
       options: [
@@ -202,7 +202,7 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
       },
       onAction: (action) => ({ kind: 'channel', action })
     }),
-    colorSwatchPicker({
+    colorSwatchPicker({ meta: { accessibleName: "Colors" },
       id: 'colors',
       label: 'Accent',
       presentation: {
@@ -216,7 +216,7 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
       ],
       onAction: (action) => ({ kind: 'color', action })
     }),
-    calendar({
+    calendar({ meta: { accessibleName: "Calendar" },
       id: 'dates',
       label: 'June',
       presentation: calendarFixture({
@@ -280,7 +280,7 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
 
 test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
-  const colorFrame = renderElementFrame(colorSwatchPicker({
+  const colorFrame = renderElementFrame(colorSwatchPicker({ meta: { accessibleName: "Colors" },
     id: 'wide-colors',
     label: '',
     columns: 1,
@@ -288,7 +288,7 @@ test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
     options: [{ id: 'dots', label: '··', value: 'dots', swatch: 'x' }],
     onAction: () => ignoreMessage()
   }), { columns: 20, rows: 2 }, { widthProfile });
-  const calendarFrame = renderElementFrame(calendar({
+  const calendarFrame = renderElementFrame(calendar({ meta: { accessibleName: "Calendar" },
     id: 'wide-calendar',
     label: '',
     presentation: {
@@ -316,7 +316,7 @@ test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
 
 test('picker swatches remain inside their fixed cell budget under ambiguous-wide profiles', () => {
   const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
-  const frame = renderElementFrame(colorSwatchPicker({
+  const frame = renderElementFrame(colorSwatchPicker({ meta: { accessibleName: "Colors" },
     id: 'wide-swatch',
     label: '',
     columns: 2,
@@ -347,7 +347,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
       required: true,
       onAction: () => ignoreMessage()
     }),
-    slider({
+    slider({ meta: { accessibleName: "Slider" },
       id: 'volume',
       label: 'Volume',
       value: 50,
@@ -364,7 +364,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
       options: [{ id: 'eu', label: 'Europe', value: 'eu' }],
       onTransition: () => ignoreMessage()
     }),
-    calendar({
+    calendar({ meta: { accessibleName: "Calendar" },
       id: 'calendar',
       label: '',
       presentation: calendarFixture({

@@ -250,7 +250,7 @@ test('log viewer scrollbar is opt-in and preserves scoped visible-window accessi
 });
 
 test('textArea scrollbar follows explicit text scroll state', () => {
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'body',
     presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: {},
@@ -265,7 +265,7 @@ test('textArea scrollbar follows explicit text scroll state', () => {
 });
 
 test('component scrollbars expose producing-element metadata and visual state', () => {
-  const frame = renderElementFrame(textArea({
+  const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'body',
     presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: { visible: 'always', visualState: 'hover' },
@@ -285,7 +285,7 @@ test('component scrollbars expose producing-element metadata and visual state', 
 });
 
 test('dataGrid scrollbar can expose vertical and horizontal scroll scope together', () => {
-  const frame = renderElementFrame(dataGrid({
+  const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'wide',
     rows: [
@@ -312,7 +312,7 @@ test('dataGrid scrollbar can expose vertical and horizontal scroll scope togethe
 });
 
 test('menu scrollbar windows menu rows instead of drawing a fixed decoration only', () => {
-  const frame = renderElementFrame(menu({
+  const frame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },
     id: 'menu',
     presentation: {
       activePath: ['save'],
@@ -348,7 +348,7 @@ test('tree scrollbar follows explicit tree scroll state', () => {
     scroll: createScrollState({ offsetRow: 1 })
   };
   const source = prepareTreeSource(nodes);
-  const frame = renderElementFrame(tree({
+  const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
     view: prepareTreeView(source, presentation),
     presentation,
@@ -364,7 +364,7 @@ test('tree scrollbar follows explicit tree scroll state', () => {
 });
 
 test('searchPicker scrollbar renders beside the filtered result window', () => {
-  const frame = renderElementFrame(searchPicker({
+  const frame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
     id: 'searchPicker',
     title: 'Actions',
     searchPickerIndex: prepareSearchPickerIndex([

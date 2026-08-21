@@ -75,6 +75,10 @@ import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './r
 import type { TerminalStyle } from '../../visual/render.ts';
 import { createRenderBudget } from './render-budget.ts';
 import type { RenderBudget, RenderBudgetLimits } from './render-budget.ts';
+import {
+  pointerStateForOwner,
+  type PointerVisualSnapshot,
+} from '../../interaction/pointer-interaction.ts';
 
 export {
   alignRenderLine,
@@ -139,6 +143,10 @@ export interface RenderElementOptions {
   readonly graphicsBudget?: Partial<GraphicsBudgetLimits>;
 }
 
+interface InternalRenderElementOptions extends RenderElementOptions {
+  readonly pointerVisuals?: PointerVisualSnapshot;
+}
+
 export interface InternalRenderResult<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
   readonly terminalSize: TerminalSize;
@@ -162,7 +170,7 @@ export function renderElementFrame(
 export function renderElementInternal<TMessage>(
   element: Element<TMessage>,
   terminalSize: TerminalSize,
-  options: RenderElementOptions = {}
+  options: InternalRenderElementOptions = {}
 ): InternalRenderResult<TMessage> {
   const renderNode = measureRenderStage(options.instrumentation, 'resolve_element', () => toRenderNode(element));
   const graphicsBudget = createGraphicsBudget(options.graphicsBudget);
@@ -183,7 +191,7 @@ export function renderElementInternal<TMessage>(
 /** Repaints a prepared render tree when only focus-dependent output changed. */
 export function rerenderElementInternal<TMessage>(
   prepared: Pick<InternalRenderResult<TMessage>, 'node' | 'terminalSize' | 'theme' | 'widthProfile' | 'layout' | 'limits' | 'graphicsBudget'>,
-  options: Pick<RenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation'> = {},
+  options: Pick<InternalRenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation' | 'pointerVisuals'> = {},
 ): InternalRenderResult<TMessage> {
   return materializeRenderNode(
     prepared.node,
@@ -203,7 +211,7 @@ function materializeRenderNode<TMessage>(
   widthProfile: TextWidthProfile,
   layout: LayoutNode,
   budget: RenderBudget,
-  options: Pick<RenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation'>,
+  options: Pick<InternalRenderElementOptions, 'focusPath' | 'framePasses' | 'disableFramePasses' | 'instrumentation' | 'pointerVisuals'>,
 ): InternalRenderResult<TMessage> {
   const decorativeNodes = decorativeSubtreeNodes(renderNode, layout);
   recordRenderWork(options.instrumentation, { kind: 'measured_nodes', count: budget.nodeCount() });
@@ -221,6 +229,7 @@ function materializeRenderNode<TMessage>(
       resolvedFocusPath,
       decorativeNodes,
       budget,
+      options.pointerVisuals,
     )
   );
   recordRenderWork(options.instrumentation, {
@@ -342,6 +351,7 @@ function renderLayoutRegions<TMessage>(
   focusPath: FocusPath | undefined,
   decorativeNodes: ReadonlySet<RenderNode>,
   budget: RenderBudget,
+  pointerVisuals: PointerVisualSnapshot | undefined,
 ): readonly RenderRegion<TMessage>[] {
   const composer = createRegionComposer<TMessage>(terminalSize, widthProfile, decorativeNodes, budget);
   const path = nodePath(layout, []);
@@ -353,7 +363,8 @@ function renderLayoutRegions<TMessage>(
     composer,
     theme,
     widthProfile,
-    focusPath
+    focusPath,
+    pointerVisuals,
   );
   return composer.snapshot(createRegionTargetIndex(renderNode, layout), theme, widthProfile);
 }
@@ -424,10 +435,15 @@ function renderRenderNodeToRegion<TMessage>(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined,
+  pointerVisuals: PointerVisualSnapshot | undefined,
   target: RenderTarget = region.buffer
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
+  const pointerState = pointerStateForOwner(
+    pointerVisuals,
+    hitTargetOwnerIdentity(path, node.identity),
+  );
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
   const renderTarget = targetForRenderNode(renderNode, node, target);
   const childrenTarget = renderNodeClipsChildren(renderNode)
@@ -440,6 +456,7 @@ function renderRenderNodeToRegion<TMessage>(
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
     ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
+    ...(pointerState === undefined ? {} : { pointerState }),
     renderChildren(requestedTarget = childrenTarget) {
       renderRenderNodeChildrenToRegions(
         renderNode,
@@ -451,7 +468,8 @@ function renderRenderNodeToRegion<TMessage>(
         composer,
         theme,
         widthProfile,
-        focusPath
+        focusPath,
+        pointerVisuals,
       );
     }
   });
@@ -467,7 +485,8 @@ function renderRenderNodeChildrenToRegions<TMessage>(
   composer: RegionComposer<TMessage>,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focusPath: FocusPath | undefined
+  focusPath: FocusPath | undefined,
+  pointerVisuals: PointerVisualSnapshot | undefined,
 ): void {
   const children = renderNode.children ?? [];
   for (const { child, childNode } of orderedChildren(children, node)) {
@@ -479,7 +498,8 @@ function renderRenderNodeChildrenToRegions<TMessage>(
         buffer,
         theme,
         widthProfile,
-        focusPath
+        focusPath,
+        pointerVisuals,
       );
       continue;
     }
@@ -495,6 +515,7 @@ function renderRenderNodeChildrenToRegions<TMessage>(
       theme,
       widthProfile,
       focusPath,
+      pointerVisuals,
       childRegion === region ? buffer : childRegion.buffer
     );
   }
@@ -507,10 +528,15 @@ function renderRenderNodeToBuffer<TMessage>(
   buffer: RenderTarget,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  focusPath: FocusPath | undefined
+  focusPath: FocusPath | undefined,
+  pointerVisuals: PointerVisualSnapshot | undefined,
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
+  const pointerState = pointerStateForOwner(
+    pointerVisuals,
+    hitTargetOwnerIdentity(path, node.identity),
+  );
   const focusedTargetId = focusedTargetIdForLayoutNode(node, path, focusPath);
   const renderTarget = targetForRenderNode(renderNode, node, buffer);
   renderRenderNode(renderNode, {
@@ -520,6 +546,7 @@ function renderRenderNodeToBuffer<TMessage>(
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
     ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
+    ...(pointerState === undefined ? {} : { pointerState }),
     renderChildren(target = buffer) {
       const childTarget = renderNodeClipsChildren(renderNode)
         ? createClippedRenderTarget(target, node.bounds, node.viewport)
@@ -532,7 +559,8 @@ function renderRenderNodeToBuffer<TMessage>(
           childTarget,
           theme,
           widthProfile,
-          focusPath
+          focusPath,
+          pointerVisuals,
         );
       }
     }

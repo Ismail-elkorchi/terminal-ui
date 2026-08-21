@@ -4,18 +4,17 @@ import test from 'node:test';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { textInput } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
-import { defineTui, runTui } from '../../dist/tui/index.js';
+import { defineTui, runTui, TuiRunError } from '../../dist/tui/index.js';
 import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
 
 void test('invalid run configuration is rejected before terminal mutation', async () => {
   const host = createMemoryTerminalHost();
   host.input('\r');
-  const exit = await runTui(exitOnSubmitApp('invalid-cleanup-policy'), host, {
+  await assert.rejects(runTui(exitOnSubmitApp('invalid-cleanup-policy'), {
+    host,
     lifecycle: { defaultTimeoutMs: Number.NaN }
-  });
-
-  assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_RUN_FAILED'), true);
+  }), (error) => error instanceof TuiRunError &&
+    error.exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_RUN_FAILED'));
   assert.equal(host.output(), '');
   assert.equal(host.stdin.isRawModeEnabled(), false);
   assert.equal(host.restores().length, 0);
@@ -23,19 +22,19 @@ void test('invalid run configuration is rejected before terminal mutation', asyn
 
 void test('managed TUI rejects Kitty profiles that suppress ordinary text', async () => {
   const host = createMemoryTerminalHost();
-  const exit = await runTui(exitOnSubmitApp('text-incapable-kitty-profile'), host, {
+  await assert.rejects(runTui(exitOnSubmitApp('text-incapable-kitty-profile'), {
+    host,
     sessionPolicy: sessionPolicyWithKeyboard(kittyKeyboardProfile(8))
-  });
-
-  assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_RUN_FAILED'), true);
+  }), (error) => error instanceof TuiRunError &&
+    error.exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_RUN_FAILED'));
   assert.equal(host.output(), '');
 });
 
 void test('managed TUI accepts Kitty all-keys profiles with associated text', async () => {
   const host = createMemoryTerminalHost();
   host.input('\r');
-  const exit = await runTui(exitOnSubmitApp('text-capable-kitty-profile'), host, {
+  const exit = await runTui(exitOnSubmitApp('text-capable-kitty-profile'), {
+    host,
     sessionPolicy: sessionPolicyWithKeyboard(kittyKeyboardProfile(24))
   });
 
@@ -46,15 +45,13 @@ void test('startup clock failure prevents terminal mutation', async () => {
   const host = createMemoryTerminalHost();
   host.input('\r');
   host.clock.sleep = () => Promise.reject(new Error('cleanup clock failed'));
-  const app = defineTui({
-    ...exitOnSubmitApp('cleanup-clock-failure').definition,
-    onExit: () => new Promise(() => undefined)
-  });
+  const app = exitOnSubmitApp('cleanup-clock-failure', () => new Promise(() => undefined));
 
-  const exit = await runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
-
-  assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_FAILED'), true);
+  await assert.rejects(runTui(app, {
+    host,
+    lifecycle: { defaultTimeoutMs: 5 },
+  }), (error) => error instanceof TuiRunError &&
+    error.exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_FAILED'));
   const restorations = host.restores();
   assert.equal(restorations.length, 0);
   assert.equal(host.stdin.isRawModeEnabled(), false);
@@ -71,9 +68,9 @@ void test('intentional finalization timer cancellation is not a clock failure', 
   });
   const app = defineTui({
     id: 'abort-rejecting-finalization-clock',
-    init: () => ({ ready: true }),
+    init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'abort-rejecting-clock-output',
       presentation: { value: 'ready', cursor: 0 },
       onAction: () => ({})
@@ -81,24 +78,25 @@ void test('intentional finalization timer cancellation is not a clock failure', 
     nonTty: { mode: 'last_frame' }
   });
 
-  const exit = await runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
+  const exit = await runTui(app, { host, lifecycle: { defaultTimeoutMs: 5 } });
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.diagnostics.some((item) => item.diagnostic.code === 'TUI_CLEANUP_FAILED'), false);
 });
 
-function exitOnSubmitApp(id: string) {
+function exitOnSubmitApp(id: string, onExit?: () => void | Promise<void>) {
   return defineTui<{ readonly done: boolean }, { readonly kind: 'exit' }>({
     id,
-    init: () => ({ done: false }),
+    init: () => ({ state: ({ done: false }) }),
     update: () => ({ state: { done: true }, exit: {} }),
-    view: () => textInput({
+    view: () => textInput({ meta: { accessibleName: "Text input" },
       id: `${id}-input`,
       presentation: { value: '', cursor: 0 },
       onAction: (action) => action.kind === 'submit'
         ? { kind: 'exit' as const }
         : ignoreMessage()
-    })
+    }),
+    ...(onExit === undefined ? {} : { onExit }),
   });
 }
 

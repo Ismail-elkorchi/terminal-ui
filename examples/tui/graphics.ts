@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 import {
   column,
-  createTerminalHost,
   defineTui,
   helpBar,
   image as terminalImage,
@@ -30,7 +29,7 @@ const quitKey = { kind: 'key', key: 'q' } as const;
 
 export const graphicsApp = defineTui<undefined, 'quit'>({
   id: 'graphics-example',
-  init: () => undefined,
+  init: () => ({ state: undefined }),
   update: (state) => ({ state, exit: { reason: 'quit' } }),
   view: () => column([
     text({ id: 'graphics-title', content: 'Kitty/SIXEL raster graphics with terminal fallback', textRole: 'title' }),
@@ -68,11 +67,6 @@ const isMain = process.argv[1] !== undefined
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
-  const host = createTerminalHost({ runtime: 'node' });
-  try {
-    const exit = await runTui(graphicsApp, host, { graphics: 'auto' });
-    if (exit.status !== 'completed') process.exitCode = 1;
-  } finally {
-    await host.dispose();
-  }
+  const exit = await runTui(graphicsApp, { graphics: 'auto' });
+  if (exit.status !== 'completed') process.exitCode = 1;
 }

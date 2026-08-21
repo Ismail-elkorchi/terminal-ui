@@ -1,4 +1,5 @@
-import type { NotificationHistoryAction } from '../ui-model/notification.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
+import type { NotificationHistoryTransition } from '../ui-model/notification.ts';
 import type { NotificationItem, NotificationTone } from '../ui-model/feedback.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 
@@ -40,6 +41,7 @@ export interface NotificationState {
   readonly queued: readonly NotificationRecord[];
   readonly history: readonly NotificationHistoryEntry[];
   readonly selectedHistoryId?: string;
+  readonly historyScroll: ScrollState;
 }
 
 export type NotificationConflictPolicy = 'keep-existing' | 'replace-existing';
@@ -71,6 +73,13 @@ export type NotificationAction =
   | { readonly kind: 'moveHistorySelection'; readonly delta: -1 | 1; readonly now: number }
   | { readonly kind: 'firstHistory'; readonly now: number }
   | { readonly kind: 'lastHistory'; readonly now: number }
+  | {
+      readonly kind: 'setHistoryView';
+      readonly selectedId: string;
+      readonly scroll: ScrollState;
+      readonly now: number;
+    }
+  | { readonly kind: 'scrollHistory'; readonly scroll: ScrollState; readonly now: number }
   | { readonly kind: 'removeHistory'; readonly id: string; readonly now: number }
   | { readonly kind: 'clear'; readonly now: number }
   | { readonly kind: 'clearHistory'; readonly now: number };
@@ -91,7 +100,12 @@ export interface NotificationPolicy {
 }
 
 export function createNotificationState(): NotificationState {
-  return { active: [], queued: [], history: [] };
+  return {
+    active: [],
+    queued: [],
+    history: [],
+    historyScroll: { offsetRow: 0, offsetColumn: 0, followTail: false },
+  };
 }
 
 export function notificationReducer(
@@ -131,6 +145,16 @@ export function notificationReducer(
         normalized,
         normalized.history.at(-1)?.notification.id
       );
+    case 'setHistoryView':
+      return normalized.history.some((entry) => entry.notification.id === action.selectedId)
+        ? {
+            ...normalized,
+            selectedHistoryId: action.selectedId,
+            historyScroll: ownScroll(action.scroll),
+          }
+        : normalized;
+    case 'scrollHistory':
+      return { ...normalized, historyScroll: ownScroll(action.scroll) };
     case 'removeHistory':
       return removeHistory(normalized, action.id);
     case 'clear':
@@ -141,25 +165,37 @@ export function notificationReducer(
 }
 
 export function notificationHistoryAction(
-  action: NotificationHistoryAction,
+  action: NotificationHistoryTransition,
   now: number
 ): NotificationAction {
   switch (action.kind) {
-    case 'select':
-      return { kind: 'selectHistory', id: action.id, now: finiteTime(now) };
-    case 'move':
+    case 'selection':
       return {
-        kind: 'moveHistorySelection',
-        delta: action.delta,
-        now: finiteTime(now)
+        kind: 'setHistoryView',
+        selectedId: action.selectedId,
+        scroll: ownScroll(action.scroll),
+        now: finiteTime(now),
       };
-    case 'first':
-      return { kind: 'firstHistory', now: finiteTime(now) };
-    case 'last':
-      return { kind: 'lastHistory', now: finiteTime(now) };
+    case 'scroll':
+      return { kind: 'scrollHistory', scroll: ownScroll(action.scroll), now: finiteTime(now) };
     case 'remove':
       return { kind: 'removeHistory', id: action.id, now: finiteTime(now) };
   }
+}
+
+function ownScroll(scroll: ScrollState): ScrollState {
+  if (
+    typeof scroll.offsetRow !== 'number' ||
+    !Number.isSafeInteger(scroll.offsetRow) ||
+    scroll.offsetRow < 0 ||
+    typeof scroll.offsetColumn !== 'number' ||
+    !Number.isSafeInteger(scroll.offsetColumn) ||
+    scroll.offsetColumn < 0 ||
+    typeof scroll.followTail !== 'boolean'
+  ) {
+    throw new TypeError('Notification history scroll must be a valid ScrollState.');
+  }
+  return Object.freeze({ ...scroll });
 }
 
 export function activeNotificationItems(
@@ -394,6 +430,7 @@ function withHistorySelection(
     active: state.active,
     queued: state.queued,
     history: state.history,
+    historyScroll: state.historyScroll,
     ...(selectedHistoryId === undefined ? {} : { selectedHistoryId })
   };
 }

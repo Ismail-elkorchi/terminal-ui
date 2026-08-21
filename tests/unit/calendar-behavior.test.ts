@@ -100,12 +100,12 @@ void test('date picker clears its active date when its explicit search policy ca
 void test('date picker component routes keyboard and pointer through CalendarAction', async () => {
   const app = defineTui<CalendarState, CalendarAction>({
     id: 'calendar-actions',
-    init: () => ({
+    init: () => ({ state: ({
       visibleMonth: { year: 2026, month: 6 },
       activeDate: { year: 2026, month: 6, day: 15 }
-    }),
+    }) }),
     update: (state, action) => ({ state: calendarReducer(state, action, policy) }),
-    view: (state) => calendar({
+    view: (state) => calendar({ meta: { accessibleName: "Calendar" },
       id: 'calendar',
       label: 'Deployment date',
       presentation: calendarPresentation(state, policy),

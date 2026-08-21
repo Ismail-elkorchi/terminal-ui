@@ -31,18 +31,18 @@ void test('component construction and rendering do not execute event handlers', 
   };
   const elements = [
     checkbox({ id: 'check', label: 'Check', checked: false, onAction: message }),
-    slider({ id: 'slider', label: 'Value', value: 4, onAction: message }),
-    listbox({ id: 'listbox', items: ['a'], projectItem: (item) => ({ id: item, label: item }), presentation: { activeId: 'a', selection: { mode: 'single', selectedId: 'a' } }, onTransition: message }),
-    dataGrid({ id: 'grid', rows: ['a'], getRowId: (row) => row, presentation: { interaction: {
+    slider({ meta: { accessibleName: "Slider" }, id: 'slider', label: 'Value', value: 4, onAction: message }),
+    listbox({ meta: { accessibleName: "List" }, id: 'listbox', items: ['a'], projectItem: (item) => ({ id: item, label: item }), presentation: { activeId: 'a', selection: { mode: 'single', selectedId: 'a' } }, onTransition: message }),
+    dataGrid({ meta: { accessibleName: "Data grid" }, id: 'grid', rows: ['a'], getRowId: (row) => row, presentation: { interaction: {
       kind: 'row', activeRowId: 'a', selection: { mode: 'single' as const, selectedRowId: 'a' },
     } }, onTransition: message }),
-    textArea({ id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
-    commandInput({
+    textArea({ meta: { accessibleName: "Text area" }, id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
+    commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
       presentation: { value: 'a', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: message
     }),
-    searchPicker({ id: 'searchPicker', presentation: { query: { text: '', mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
+    searchPicker({ meta: { accessibleName: "Search" }, id: 'searchPicker', presentation: { query: { text: '', mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
   ];
 
   for (const element of elements) renderElementFrame(element, { columns: 40, rows: 6 });
@@ -81,7 +81,7 @@ void test('component key handlers run at dispatch time with the normalized event
   });
   const app = defineTui<State, Message>({
     id: 'deferred-component-key',
-    init: () => ({ value: 'idle' }),
+    init: () => ({ state: ({ value: 'idle' }) }),
     update: (_state, message) => ({ state: { value: message.value } }),
     view: () => {
       return field({
@@ -137,7 +137,7 @@ void test('component focus lifecycle reports enter and leave transitions in orde
   });
   const app = defineTui<undefined, Message>({
     id: 'component-focus-lifecycle',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state, message) => {
       observed.push(message.event);
       return { state };
@@ -180,12 +180,12 @@ void test('tabs route delete to the selected close action without selecting twic
   const messages: Message[] = [];
   const app = defineTui<State, Message>({
     id: 'tabs-close-contract',
-    init: () => ({ selected: 'second' }),
+    init: () => ({ state: ({ selected: 'second' }) }),
     update: (state, message) => {
       messages.push(message);
       return { state };
     },
-    view: (state) => tabs({
+    view: (state) => tabs<string, Message>({ meta: { accessibleName: "Tabs" },
       id: 'tabs',
       presentation: { activeId: state.selected, selectedId: state.selected },
       tabs: [
@@ -237,12 +237,12 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
   });
   const app = defineTui<undefined, Message>({
     id: 'tabs-panel-keys',
-    init: () => undefined,
+    init: () => ({ state: undefined }),
     update: (state, message) => {
       messages.push(message);
       return { state };
     },
-    view: () => tabs({
+    view: () => tabs<'current', Message>({ meta: { accessibleName: "Tabs" },
       id: 'tabs',
       presentation: { activeId: 'current', selectedId: 'current' },
       tabs: [{
@@ -288,7 +288,7 @@ void test('checkbox keyboard and pointer activation evaluate the same handler at
   const actionKinds: string[] = [];
   const app = defineTui<State, Message>({
     id: 'deferred-checkbox',
-    init: () => ({ checked: false }),
+    init: () => ({ state: ({ checked: false }) }),
     update: (_state, message) => ({ state: { checked: message.checked } }),
     view: (state) => checkbox({
       id: 'check',

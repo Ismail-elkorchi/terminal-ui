@@ -5,16 +5,20 @@ import { stripVTControlCharacters } from 'node:util';
 import {
   clipTextCells,
   createTerminalTextIndex,
+  editTextDocument,
   editTextBuffer,
   fillTextCells,
   lineSelectionAt,
   measureTextCells,
   oneCellGlyph,
   padTextCells,
+  prepareTextDocument,
   sanitizeTerminalCellText,
   sanitizeTerminalText,
   segmentGraphemes,
   selectedText,
+  textCaretAt,
+  textDocumentText,
   terminalTextWidth,
   wordSelectionAt,
   wrapTextCells
@@ -39,11 +43,11 @@ test('text measurement sanitizes control sequences and measures visible cells', 
   assert.equal(measureTextCells('a🙂').cells, 3);
 });
 
-test('terminal cell sanitization rejects cursor-moving text controls without changing multiline text policy', () => {
+test('terminal text canonicalizes structural whitespace before measurement and cell rendering', () => {
   const value = 'a\tb\nc\rd';
 
-  assert.equal(sanitizeTerminalText(value).text, value);
-  assert.equal(sanitizeTerminalCellText(value).text, 'abcd');
+  assert.equal(sanitizeTerminalText(value).text, 'a   b\nc\nd');
+  assert.equal(sanitizeTerminalCellText(value).text, 'a   bcd');
   assert.throws(
     () => sanitizeTerminalCellText('safe', { replacement: '\n' }),
     /replacement must not contain control characters or terminal sequences/u
@@ -339,30 +343,38 @@ test('word editing uses Unicode word boundaries for punctuation and multilingual
   );
 });
 
-test('text area editing handles multiline inserts and line/page movement', () => {
-  const pasted = editTextBuffer({ text: 'alpha', cursor: 5 }, { kind: 'insert', text: '\nbravo\ncharlie' });
-  assert.deepEqual(pasted, { text: 'alpha\nbravo\ncharlie', cursor: 'alpha\nbravo\ncharlie'.length });
-  assert.deepEqual(
-    editTextBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveHome' }),
-    { text: pasted.text, cursor: 'alpha\n'.length }
+test('text document editing handles multiline inserts and line/page movement', () => {
+  const pasted = editTextDocument({
+    document: prepareTextDocument('alpha'),
+    caret: textCaretAt(5)
+  }, { kind: 'insert', text: '\nbravo\ncharlie' });
+  assert.equal(textDocumentText(pasted.document), 'alpha\nbravo\ncharlie');
+  assert.equal(pasted.caret.position.offset, 'alpha\nbravo\ncharlie'.length);
+  const home = editTextDocument(
+    { document: pasted.document, caret: textCaretAt('alpha\nbr'.length) },
+    { kind: 'moveHome' }
   );
-  assert.deepEqual(
-    editTextBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveEnd' }),
-    { text: pasted.text, cursor: 'alpha\nbravo'.length }
+  assert.equal(home.caret.position.offset, 'alpha\n'.length);
+  const end = editTextDocument(
+    { document: pasted.document, caret: textCaretAt('alpha\nbr'.length) },
+    { kind: 'moveEnd' }
   );
-  assert.deepEqual(
-    editTextBuffer({ text: pasted.text, cursor: 'alpha\nbra'.length }, { kind: 'moveLineDown', extendSelection: true }),
-    {
-      text: pasted.text,
-      cursor: 'alpha\nbravo\ncha'.length,
-      selection: { startOffset: 'alpha\nbra'.length, endOffsetExclusive: 'alpha\nbravo\ncha'.length }
-    }
+  assert.equal(end.caret.position.offset, 'alpha\nbravo'.length);
+  const down = editTextDocument(
+    { document: pasted.document, caret: textCaretAt('alpha\nbra'.length) },
+    { kind: 'moveLineDown', extendSelection: true }
   );
+  assert.equal(down.caret.position.offset, 'alpha\nbravo\ncha'.length);
+  assert.deepEqual(down.selection, {
+    anchor: { offset: 'alpha\nbra'.length, affinity: 'downstream' },
+    focus: { offset: 'alpha\nbravo\ncha'.length, affinity: 'downstream' }
+  });
   const twelveLines = Array.from({ length: 12 }, (_, index) => `line${String(index)}`).join('\n');
-  assert.deepEqual(
-    editTextBuffer({ text: twelveLines, cursor: 'line0'.length }, { kind: 'movePageDown' }),
-    { text: twelveLines, cursor: twelveLines.indexOf('line10') + 'line1'.length }
-  );
+  const page = editTextDocument({
+    document: prepareTextDocument(twelveLines),
+    caret: textCaretAt('line0'.length)
+  }, { kind: 'movePageDown' });
+  assert.equal(page.caret.position.offset, twelveLines.indexOf('line10') + 'line1'.length);
 });
 
 test('text wrapping can preserve word boundaries within cell width', () => {
