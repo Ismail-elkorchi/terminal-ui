@@ -1695,7 +1695,7 @@ A dash means the component does not expose local cell styling.
 | `createTranscriptRecorder` | function | beta | <code>(options?: TranscriptRecorderOptions): TranscriptRecorder</code> | `@ismail-elkorchi/terminal-ui/transcript` | [src/transcript/recorder.ts](../../src/transcript/recorder.ts) |
 | `defaultTranscriptRetentionPolicy` | value | beta | <code>Readonly&lt;Required&lt;TranscriptRetentionPolicy&gt;&gt;</code> | `@ismail-elkorchi/terminal-ui/transcript` | [src/transcript/recorder.ts](../../src/transcript/recorder.ts) |
 | `defaultTranscriptValidationLimits` | value | beta | <code>Readonly&lt;Required&lt;TranscriptValidationLimits&gt;&gt;</code> | `@ismail-elkorchi/terminal-ui/transcript` | [src/transcript/validate.ts](../../src/transcript/validate.ts) |
-| `interactionTranscriptFormatVersion` | value | beta | <code>8</code> | `@ismail-elkorchi/terminal-ui/transcript` | [src/transcript/types.ts](../../src/transcript/types.ts) |
+| `interactionTranscriptFormatVersion` | value | beta | <code>1</code> | `@ismail-elkorchi/terminal-ui/transcript` | [src/transcript/types.ts](../../src/transcript/types.ts) |
 | `redactTranscript` | function | beta | <code>(transcript: InteractionTranscript, policy?: RedactionPolicy): InteractionTranscript</code> | `@ismail-elkorchi/terminal-ui/transcript` | [src/transcript/redact.ts](../../src/transcript/redact.ts) |
 | `validateTranscript` | function | beta | <code>(transcript: unknown, limits?: TranscriptValidationLimits): Result&lt;InteractionTranscript&gt;</code> | `@ismail-elkorchi/terminal-ui/transcript` | [src/transcript/validate.ts](../../src/transcript/validate.ts) |
 ## `@ismail-elkorchi/terminal-ui/tui`

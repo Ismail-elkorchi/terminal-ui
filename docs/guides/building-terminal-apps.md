@@ -4,6 +4,12 @@
 elements from `view()`. The renderer performs layout, frame construction, focus
 targets, hit targets, accessibility snapshots, and terminal output.
 
+Install the npm package with `npm install @ismail-elkorchi/terminal-ui` (or
+`bun add @ismail-elkorchi/terminal-ui`). Deno projects can use
+`deno add jsr:@ismail-elkorchi/terminal-ui`. The root entrypoint contains the
+ordinary application path; focused entrypoints are for lower-level or
+specialized work.
+
 Normal application code should think in layers:
 
 - app runtime: `defineTui()`, `runTui()`, subscriptions, and effects;
@@ -40,8 +46,28 @@ const app = defineTui<State, Message>({
   ])
 });
 
-await runTui(app);
+const exit = await runTui(app);
+if (exit.status === 'interrupted') {
+  console.error('The terminal session was interrupted.');
+}
 ```
+
+Save the example as `app.ts` and run it with `node app.ts`,
+`deno run app.ts`, or `bun app.ts`. Tab and Shift+Tab move focus; Enter
+activates the focused button.
+
+## Run Outcomes
+
+`runTui()` resolves with a discriminated `TuiExit` for application completion,
+cancellation, or host interruption. Operational failures reject with
+`TuiRunError`; its `exit` retains diagnostics and the final accessible
+snapshot. Full-screen applications reject non-TTY execution by default. Set an
+explicit `nonTty` policy on the TUI definition only when transcript or
+last-frame output is meaningful for that application.
+
+The runtime owns a host it creates. When `runTui()` receives a caller-supplied
+host, it releases terminal protocols and input ownership but leaves disposal
+to the caller.
 
 ## Component Options
 
@@ -93,6 +119,19 @@ Use this pattern:
 
 See [Components](./components.md) for component roles and
 [Behavior helpers](./behavior.md) for reducer state boundaries.
+
+## Asynchronous Work
+
+Keep `init()` and `update()` synchronous. Return effects for one-shot work such
+as saving a file or making a request. Return subscriptions for continuing
+sources such as process output, file-system events, timers, and metrics. Both
+receive abort signals and deliver ordinary typed messages back through the
+serialized update path.
+
+Use the built-in `timeoutSource()`, `intervalSource()`, and
+`animationSource()` helpers before building a custom event source. See
+[TUI runtime](./tui.md) for concurrency, cancellation, cadence, and terminal
+suspension contracts.
 
 ## Rendering Boundary
 

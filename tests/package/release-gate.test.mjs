@@ -3,6 +3,7 @@ import { access, readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const ciWorkflow = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+const publishWorkflow = await readFile(new URL('../../.github/workflows/publish.yml', import.meta.url), 'utf8');
 const sourceRoot = new URL('../../src/', import.meta.url);
 const repositoryRoot = new URL('../../', import.meta.url);
 
@@ -16,6 +17,27 @@ test('host smoke CI runs only the installed Node runtime coverage', () => {
   assert.match(linuxFull, /denoland\/setup-deno/u);
   assert.match(linuxFull, /oven-sh\/setup-bun/u);
   assert.match(linuxFull, /npm run check:runtime/u);
+});
+
+test('registry publication is gated by a verified GitHub release', () => {
+  assert.match(publishWorkflow, /^  release:\n    types: \[published\]$/mu);
+  assert.doesNotMatch(publishWorkflow, /^  (?:push|pull_request|workflow_dispatch):/mu);
+
+  const verification = workflowJob(publishWorkflow, 'verify');
+  const npmPublication = workflowJob(publishWorkflow, 'publish-npm');
+  const jsrPublication = workflowJob(publishWorkflow, 'publish-jsr');
+
+  assert.match(verification, /npm run check:release/u);
+  assert.match(verification, /npm run check$/mu);
+  assert.match(verification, /ref: \$\{\{ github\.event\.release\.tag_name \}\}/u);
+  assert.match(npmPublication, /needs: verify/u);
+  assert.match(npmPublication, /id-token: write/u);
+  assert.match(npmPublication, /npm publish --provenance --access public/u);
+  assert.match(npmPublication, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/u);
+  assert.match(jsrPublication, /needs: verify/u);
+  assert.match(jsrPublication, /id-token: write/u);
+  assert.match(jsrPublication, /deno publish/u);
+  assert.doesNotMatch(jsrPublication, /NPM_TOKEN|JSR_TOKEN/u);
 });
 
 test('element and renderer modules do not write through terminal hosts', async () => {

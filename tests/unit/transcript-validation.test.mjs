@@ -21,7 +21,7 @@ test('transcript validation rejects malformed top-level and step discriminants',
   const cases = [
     [null, /must be an object/u],
     [{}, /format version/u],
-    [transcript({ formatVersion: 1 }), /format version/u],
+    [transcript({ formatVersion: 2 }), /format version/u],
     [transcript(), /id must not be empty/u],
     [transcript({ id: 'valid', source: 'other' }), /source/u],
     [transcript({ id: 'valid', startedAt: 1 }), /startedAt/u],
@@ -130,7 +130,7 @@ test('transcript validation accounts resources on the owned snapshot', () => {
   let stepsReads = 0;
   let diagnosticsReads = 0;
   const source = {
-    formatVersion: 8,
+    formatVersion: 1,
     omittedSteps: 0,
     omittedDiagnostics: 0,
     omittedRedactions: 0,
@@ -627,7 +627,7 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    formatVersion: 8,
+    formatVersion: 1,
     omittedSteps: 0,
     omittedDiagnostics: 0,
     omittedRedactions: 0,

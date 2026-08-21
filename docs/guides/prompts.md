@@ -1,5 +1,21 @@
 # Prompts
 
+Use a prompt when the application needs one typed interaction rather than a
+long-lived full-screen state machine.
+
+```ts
+import { confirm, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
+
+const result = await runPrompt(confirm({
+  label: 'Continue?',
+  defaultValue: false
+}));
+
+if (result.status === 'submitted' && result.value) {
+  console.log('Continuing');
+}
+```
+
 Prompts return typed results instead of throwing for ordinary cancellation,
 timeout, validation failure, or deterministic non-TTY denial.
 `runPrompt(prompt)` creates and disposes a runtime host for the call. An
@@ -21,6 +37,15 @@ Available prompt primitives include:
 - `autocomplete()`
 - `editor()`
 - `progress()`
+
+| Need | Primitive |
+| --- | --- |
+| Boolean confirmation | `confirm()` |
+| One line of text or a secret | `input()` or `password()` |
+| One or several choices | `select()` or `multiselect()` |
+| Search-backed choice | `autocomplete()` |
+| External multiline editing | `editor()` |
+| Managed task progress | `progress()` |
 
 `password()` masks rendered input with `mask` when configured and keeps the
 submitted value out of snapshots, transcripts, diagnostics, and terminal

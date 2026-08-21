@@ -7,7 +7,7 @@ import type { FrameDescriptor, RenderDiffDescriptor } from '../renderer/index.ts
 import type { TuiMessageSource } from '../interaction/message.ts';
 import type { JsonValue } from '../foundation/json.ts';
 
-export const interactionTranscriptFormatVersion = 8 as const;
+export const interactionTranscriptFormatVersion = 1 as const;
 
 export const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const;
 

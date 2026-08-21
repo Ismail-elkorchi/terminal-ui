@@ -18,7 +18,7 @@ const transcript: InteractionTranscript = recorder.snapshot();
 const validation = validateTranscript(transcript);
 const message: JsonValue = { command: 'open', arguments: [1, true, null] };
 recorder.record({ kind: 'message', source: 'external', fidelity: 'exact', message });
-const formatVersion: 8 = interactionTranscriptFormatVersion;
+const formatVersion: 1 = interactionTranscriptFormatVersion;
 const retention: TranscriptRetentionPolicy = {
   maxRetainedBytes: 1_000_000,
   maxRetainedJsonNodes: 100_000,

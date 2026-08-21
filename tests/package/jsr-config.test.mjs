@@ -29,5 +29,13 @@ test('JSR manifest mirrors package identity and source entrypoints', async () =>
 });
 
 test('JSR publication excludes source-local test modules', () => {
+  assert.deepEqual(jsrJson.publish?.include, [
+    'src',
+    'docs',
+    'examples',
+    'README.md',
+    'LICENSE',
+    'THIRD_PARTY_NOTICES.md'
+  ]);
   assert.deepEqual(jsrJson.publish?.exclude, ['src/**/*.test.ts']);
 });

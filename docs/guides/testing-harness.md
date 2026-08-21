@@ -4,6 +4,31 @@ The testing harness provides a memory terminal host, deterministic clock,
 transcript recorder, input injection, resize events, frames, render diffs,
 accessible snapshots, restore checkpoints, and output capture.
 
+For a component or composed element, start with a direct deterministic
+snapshot:
+
+```ts
+import { button } from '@ismail-elkorchi/terminal-ui';
+import { renderElementSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
+
+const rendered = renderElementSnapshot({
+  element: button({
+    id: 'save',
+    label: 'Save',
+    onAction: () => ({ kind: 'save' })
+  }),
+  terminalSize: { columns: 20, rows: 3 }
+});
+
+if (!rendered.accessibleText.includes('Save')) {
+  throw new Error('The button is missing from accessible output.');
+}
+```
+
+Use `createTerminalHarness()` when a test needs runtime state, input, resize,
+clock, or transcript control. Use `createPtyTerminalHarness()` only when the
+host boundary itself is under test.
+
 Use it to test prompts and TUI apps without private imports.
 Pass `terminalSize` to `createTerminalHarness()` or
 `createPtyTerminalHarness()` to set the initial row and column dimensions.
