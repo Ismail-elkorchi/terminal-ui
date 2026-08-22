@@ -21,7 +21,7 @@ test('default state styles cover interaction branches without result styling', (
     ['default', undefined],
     ['focused', { bold: true }],
     ['hovered', { bg: { kind: 'theme', token: 'focus.background' } }],
-    ['pressed', selection],
+    ['pressed', { bold: true }],
     ['selected', selection],
     ['disabled', foreground('text.disabled', { dim: true })],
     ['active', { bold: true }]

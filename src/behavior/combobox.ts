@@ -162,24 +162,31 @@ export function comboboxReducer(
     options.index,
   );
   switch (transition.kind) {
-    case 'open':
-      return {
-        ...state,
-        ...popupReducer(state, transition),
-        interaction: withInitialActive(interaction, options),
-      };
-    case 'toggle':
-      return {
-        ...state,
-        ...popupReducer(state, transition),
-        interaction: state.open ? interaction : withInitialActive(interaction, options),
-      };
-    case 'dismiss':
-      return { ...state, ...popupReducer(state, transition), interaction };
+    case 'open': {
+      const popup = popupReducer(state, transition);
+      const nextInteraction = withInitialActive(interaction, options);
+      return popup === state && nextInteraction === state.interaction
+        ? state
+        : { ...state, ...popup, interaction: nextInteraction };
+    }
+    case 'toggle': {
+      const nextInteraction = state.open ? interaction : withInitialActive(interaction, options);
+      return { ...state, ...popupReducer(state, transition), interaction: nextInteraction };
+    }
+    case 'dismiss': {
+      const popup = popupReducer(state, transition);
+      return popup === state && interaction === state.interaction
+        ? state
+        : { ...state, ...popup, interaction };
+    }
     case 'scroll':
-      return state.open && state.scroll !== undefined
-        ? { ...state, interaction, scroll: applyScrollEvent(state.scroll, transition.event) }
-        : state;
+      if (!state.open || state.scroll === undefined) return state;
+      {
+        const scroll = applyScrollEvent(state.scroll, transition.event);
+        return interaction === state.interaction && scroll === state.scroll
+          ? state
+          : { ...state, interaction, scroll };
+      }
     default: {
       if (!state.open && transition.kind !== 'moveActive' && transition.kind !== 'pageActive') return state;
       const opened = state.open ? state : { ...state, open: true };
@@ -205,6 +212,7 @@ export function comboboxReducer(
             viewportRows: Math.max(1, options.pageSize ?? 8),
             viewportColumns: 0,
           });
+      if (opened === state && nextInteraction === state.interaction && nextScroll === state.scroll) return state;
       return {
         ...opened,
         interaction: nextInteraction,

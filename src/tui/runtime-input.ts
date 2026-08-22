@@ -159,7 +159,9 @@ function componentKeyMessage<TMessage>(
   const handler = event.kind === 'key'
     ? keyMap?.triggers?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
       ?? (
-        event.key !== 'unknown' && event.eventType === 'press' && hasNoKeyModifiers(event)
+        event.key !== 'unknown'
+          && (event.eventType === 'press' || event.eventType === 'repeat' && isRepeatableNavigationKey(event.key))
+          && hasNoKeyModifiers(event)
           ? keyMap?.[event.key]
           : undefined
       )
@@ -193,4 +195,9 @@ function hasNoKeyModifiers(event: Extract<InputEvent, { readonly kind: 'key' }>)
     && !event.modifiers.meta
     && event.modifiers.super !== true
     && event.modifiers.hyper !== true;
+}
+
+export function isRepeatableNavigationKey(key: Extract<InputEvent, { readonly kind: 'key' }>['key']): boolean {
+  return key === 'arrowLeft' || key === 'arrowRight' || key === 'arrowUp' || key === 'arrowDown'
+    || key === 'pageUp' || key === 'pageDown' || key === 'home' || key === 'end';
 }

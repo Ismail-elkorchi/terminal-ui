@@ -111,7 +111,9 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
   options: TreeReducerOptions<TMetadata>,
 ): TreePresentation {
   if (action.kind === 'scroll') {
-    return state.scroll === undefined ? state : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
+    if (state.scroll === undefined) return state;
+    const scroll = applyScrollEvent(state.scroll, action.event);
+    return scroll === state.scroll ? state : { ...state, scroll };
   }
   if (action.kind === 'setQuery') {
     const query = prepareCollectionQuery(action.query);
@@ -141,6 +143,7 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
       viewportRows: Math.max(1, options.pageSize ?? 1),
       viewportColumns: 0,
     });
+  if (interaction === state && scroll === state.scroll) return state;
   return {
     ...state,
     ...interaction,
@@ -231,11 +234,21 @@ function reduceDisclosure<TMetadata extends Readonly<Record<string, unknown>>>(
   const expandable = treeSourceData(source).expandableIds;
   const current = new Set(state.expandedIds);
   if (action.kind === 'expandAll') {
+    if (current.size === expandable.size && [...expandable].every((id) => current.has(id))) return state;
     return { ...state, expandedIds: Object.freeze([...expandable]) };
   }
-  if (action.kind === 'collapseAll') return { ...state, expandedIds: Object.freeze([]) };
+  if (action.kind === 'collapseAll') {
+    return current.size === 0 ? state : { ...state, expandedIds: Object.freeze([]) };
+  }
   if (!expandable.has(action.id)) return state;
-  if (action.kind === 'collapse' || action.kind === 'toggle' && current.has(action.id)) current.delete(action.id);
+  const expanded = current.has(action.id);
+  if (action.kind === 'collapse') {
+    if (!expanded) return state;
+    current.delete(action.id);
+  } else if (action.kind === 'expand') {
+    if (expanded) return state;
+    current.add(action.id);
+  } else if (expanded) current.delete(action.id);
   else current.add(action.id);
   return { ...state, expandedIds: Object.freeze([...current]) };
 }

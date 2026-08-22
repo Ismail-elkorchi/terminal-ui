@@ -2,6 +2,7 @@ import { measureTerminalCellText } from '../../text/index.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import {
+  deriveFrameCellSource,
   frameCellSource
 } from '../../visual/source.ts';
 import type { FrameCellSource } from '../../visual/source.ts';
@@ -121,12 +122,12 @@ export function scopedFrameSource(
   owner: ScopedRenderOwner,
   source?: FrameCellSource
 ): FrameCellSource {
-  return frameCellSource({
-    ...source,
+  const admittedSource = source === undefined ? undefined : frameCellSource(source);
+  return deriveFrameCellSource(admittedSource, {
     ...(owner.id === undefined ? {} : { elementId: owner.id }),
     elementKind: owner.name,
     rendererFamily: owner.rendererFamily ?? 'component',
-    cellRole: source?.cellRole ?? 'content'
+    cellRole: admittedSource?.cellRole ?? 'content'
   });
 }
 

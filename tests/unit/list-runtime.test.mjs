@@ -313,6 +313,14 @@ test('listView reducer returns controlled reveal scroll and rejects conflicting 
   });
   assert.equal(moved.activeId, 'second');
   assert.equal(moved.scroll.offsetRow, 2);
+  assert.equal(listViewReducer(moved, {
+    kind: 'scroll',
+    event: { nextState: moved.scroll, source: 'wheel', target: 'content' }
+  }, {
+    index: prepareCollectionInteractionIndex(['first', 'second']),
+    collection,
+    viewportRows: 2
+  }), moved);
 
   const window = measuredWindow(collection, {
     viewportRows: 2,
@@ -469,6 +477,7 @@ test('listbox cursor and mouse hit targets use the filtered visible rows', async
   const release = await runtime.handleInput(mouseRelease(2, 1));
 
   assert.equal(press.handled, true);
+  assert.equal(press.state.selected, 'bravo');
   assert.equal(release.state.selected, 'bravo');
 });
 
@@ -578,6 +587,7 @@ test('listbox pointer selection and double-click activation match keyboard seman
 
   assert.deepEqual(runtime.state().actions, [
     { kind: 'setActive', id: 'alpha' },
+    { kind: 'setActive', id: 'alpha' },
     { kind: 'activate', id: 'alpha', itemIndex: 0 }
   ]);
 });
@@ -602,9 +612,8 @@ test('listbox preserves the component runtime rejection of null application mess
 
   try {
     await runtime.start();
-    await runtime.handleInput(mousePress(1, 1));
     await assert.rejects(
-      runtime.handleInput(mouseRelease(1, 1)),
+      runtime.handleInput(mousePress(1, 1)),
       /onAction returned null or undefined.*ignoreMessage/u
     );
   } finally {

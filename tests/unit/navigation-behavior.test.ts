@@ -51,6 +51,7 @@ void test('menu behavior owns nested active position but not application activat
   const fileItem = presentation.items[0];
   assert.equal(fileItem?.kind === 'submenu' ? fileItem.expanded : undefined, true);
   assert.equal(menuReducer(returned, { kind: 'setActive', id: 'disabled' }, items), returned);
+  assert.equal(menuReducer(returned, { kind: 'move', delta: 1 }, items), returned);
 });
 
 void test('menu trigger reuses the menu foundation and keeps activation out of its reducer', () => {
@@ -106,6 +107,9 @@ void test('combobox focus and committed selection remain independent', () => {
   assert.deepEqual(moved.interaction.selection, { mode: 'single', selectedId: 'alpha' });
   assert.equal(dismissed.open, false);
   assert.deepEqual(dismissed.interaction.selection, { mode: 'single', selectedId: 'alpha' });
+  assert.equal(comboboxReducer(opened, { kind: 'open' }, { index }), opened);
+  assert.equal(comboboxReducer(dismissed, { kind: 'dismiss', reason: 'escape' }, { index }), dismissed);
+  assert.equal(comboboxReducer(moved, { kind: 'moveActive', delta: 1 }, { index }), moved);
 });
 
 void test('selection commitment is carried by controlled selection state', () => {

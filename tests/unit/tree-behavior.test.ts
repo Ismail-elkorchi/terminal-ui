@@ -59,6 +59,7 @@ void test('tree navigation clamps and skips disabled rows by default', () => {
   const stillLast = treeReducer(last, { kind: 'moveActive', delta: 1 }, options);
   assert.equal(last.activeId, 'remote');
   assert.equal(stillLast.activeId, 'remote');
+  assert.equal(stillLast, last);
 });
 
 void test('tree navigation keeps the active row inside the controlled viewport', () => {
@@ -76,12 +77,18 @@ void test('tree navigation keeps the active row inside the controlled viewport',
 
 void test('tree disclosure state is independent from immutable node data', () => {
   const collapsed = treeReducer(initial, { kind: 'collapse', id: 'src' }, options);
+  const stillCollapsed = treeReducer(collapsed, { kind: 'collapse', id: 'src' }, {
+    view: prepareTreeView(source, collapsed)
+  });
   const expanded = treeReducer(collapsed, { kind: 'expandAll' }, { view: prepareTreeView(source, collapsed) });
+  const stillExpanded = treeReducer(expanded, { kind: 'expandAll' }, { view: prepareTreeView(source, expanded) });
   const reset = treeReducer(expanded, { kind: 'collapseAll' }, { view: prepareTreeView(source, expanded) });
 
   assert.deepEqual(collapsed.expandedIds, []);
   assert.deepEqual(expanded.expandedIds, ['src', 'remote']);
   assert.deepEqual(reset.expandedIds, []);
+  assert.equal(stillCollapsed, collapsed);
+  assert.equal(stillExpanded, expanded);
   assert.equal('expanded' in sourceNode, false);
 });
 

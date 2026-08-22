@@ -39,25 +39,27 @@ export function menuReducer(
   items: readonly MenuItem[]
 ): MenuState {
   const activePath = normalizedActivePath(items, state.activePath);
+  const normalized = withActivePath(state, activePath);
   switch (action.kind) {
     case 'setActive': {
       const path = enabledPathForId(items, action.id);
-      return path === undefined ? state : { ...state, activePath: path };
+      return path === undefined ? normalized : withActivePath(normalized, path);
     }
     case 'move':
-      return moveMenuSelection({ ...state, activePath }, items, action.delta);
+      return moveMenuSelection(normalized, items, action.delta);
     case 'first':
-      return selectMenuEdge({ ...state, activePath }, items, 'first');
+      return selectMenuEdge(normalized, items, 'first');
     case 'last':
-      return selectMenuEdge({ ...state, activePath }, items, 'last');
+      return selectMenuEdge(normalized, items, 'last');
     case 'enter':
-      return enterMenuItem({ ...state, activePath }, items);
+      return enterMenuItem(normalized, items);
     case 'back':
-      return activePath.length <= 1 ? { ...state, activePath } : { ...state, activePath: activePath.slice(0, -1) };
-    case 'scroll':
-      return state.scroll === undefined
-        ? state
-        : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
+      return activePath.length <= 1 ? normalized : withActivePath(normalized, activePath.slice(0, -1));
+    case 'scroll': {
+      if (normalized.scroll === undefined) return normalized;
+      const scroll = applyScrollEvent(normalized.scroll, action.event);
+      return scroll === normalized.scroll ? normalized : { ...normalized, scroll };
+    }
   }
 }
 
@@ -82,27 +84,37 @@ export function menuBarReducer(
     case 'setActiveHeading':
       return enabledItem(items, action.id) === undefined
         ? state
+        : action.id === state.active
+          ? state
         : state.kind === 'open'
           ? openMenuBar(items, action.id)
           : { kind: 'closed', active: action.id };
     case 'moveHeading': {
       const next = adjacentItemId(headings.map((item) => item.id), active, action.delta);
-      return next === undefined ? state : state.kind === 'open' ? openMenuBar(items, next) : { kind: 'closed', active: next };
+      return next === undefined || next === state.active
+        ? state
+        : state.kind === 'open' ? openMenuBar(items, next) : { kind: 'closed', active: next };
     }
     case 'firstHeading': {
       const first = headings[0]?.id;
-      return first === undefined ? state : state.kind === 'open' ? openMenuBar(items, first) : { kind: 'closed', active: first };
+      return first === undefined || first === state.active
+        ? state
+        : state.kind === 'open' ? openMenuBar(items, first) : { kind: 'closed', active: first };
     }
     case 'lastHeading': {
       const last = headings.at(-1)?.id;
-      return last === undefined ? state : state.kind === 'open' ? openMenuBar(items, last) : { kind: 'closed', active: last };
+      return last === undefined || last === state.active
+        ? state
+        : state.kind === 'open' ? openMenuBar(items, last) : { kind: 'closed', active: last };
     }
     case 'open': {
       const heading = validId(headings, action.id ?? active);
       return heading === undefined ? state : openMenuBar(items, heading);
     }
     case 'close':
-      return active === undefined ? { kind: 'closed' } : { kind: 'closed', active };
+      return state.kind === 'closed' && state.active === active
+        ? state
+        : active === undefined ? { kind: 'closed' } : { kind: 'closed', active };
     case 'activateHeading': {
       const item = enabledItem(items, action.id);
       if (item === undefined) return state;
@@ -112,7 +124,8 @@ export function menuBarReducer(
       if (state.kind !== 'open') return state;
       const heading = enabledItem(items, state.active);
       if (heading?.kind !== 'submenu') return state;
-      return { ...state, menu: menuReducer(state.menu, action.transition, heading.children) };
+      const menu = menuReducer(state.menu, action.transition, heading.children);
+      return menu === state.menu ? state : { ...state, menu };
     }
   }
 }
@@ -134,10 +147,11 @@ export function contextMenuReducer(
 ): ContextMenuState {
   switch (action.kind) {
     case 'open': return { kind: 'open', anchor: action.anchor, menu: initialMenuState(items) };
-    case 'dismiss': return { kind: 'closed' };
+    case 'dismiss': return state.kind === 'closed' ? state : { kind: 'closed' };
     case 'menu': {
       if (state.kind !== 'open') return state;
-      return { ...state, menu: menuReducer(state.menu, action.transition, items) };
+      const menu = menuReducer(state.menu, action.transition, items);
+      return menu === state.menu ? state : { ...state, menu };
     }
   }
 }
@@ -158,10 +172,11 @@ export function menuTriggerReducer(
     case 'toggle': return state.kind === 'open'
       ? closedMenuTrigger(state.active)
       : openMenuTrigger(items, state.active);
-    case 'dismiss': return closedMenuTrigger(state.active);
+    case 'dismiss': return state.kind === 'closed' ? state : closedMenuTrigger(state.active);
     case 'menu': {
       if (state.kind !== 'open') return state;
-      return { ...state, menu: menuReducer(state.menu, action.transition, items) };
+      const menu = menuReducer(state.menu, action.transition, items);
+      return menu === state.menu ? state : { ...state, menu };
     }
   }
 }
@@ -206,7 +221,7 @@ function closedMenuTrigger(active: string | undefined): MenuTriggerState {
 function enterMenuItem(state: MenuState, items: readonly MenuItem[]): MenuState {
   const item = itemAtPath(items, state.activePath);
   const firstChild = item === undefined ? undefined : enabledItems(menuItemChildren(item))[0];
-  return firstChild === undefined ? state : { ...state, activePath: [...state.activePath, firstChild.id] };
+  return firstChild === undefined ? state : withActivePath(state, [...state.activePath, firstChild.id]);
 }
 
 function moveMenuSelection(state: MenuState, items: readonly MenuItem[], delta: number): MenuState {
@@ -214,14 +229,14 @@ function moveMenuSelection(state: MenuState, items: readonly MenuItem[], delta: 
   const siblings = enabledItems(itemsAtPath(items, parentPath));
   const current = state.activePath.at(-1);
   const next = adjacentItemId(siblings.map((item) => item.id), current, delta);
-  return next === undefined ? state : { ...state, activePath: [...parentPath, next] };
+  return next === undefined ? state : withActivePath(state, [...parentPath, next]);
 }
 
 function selectMenuEdge(state: MenuState, items: readonly MenuItem[], edge: 'first' | 'last'): MenuState {
   const parentPath = state.activePath.slice(0, -1);
   const siblings = enabledItems(itemsAtPath(items, parentPath));
   const next = edge === 'first' ? siblings[0] : siblings.at(-1);
-  return next === undefined ? state : { ...state, activePath: [...parentPath, next.id] };
+  return next === undefined ? state : withActivePath(state, [...parentPath, next.id]);
 }
 
 function normalizedActivePath(items: readonly MenuItem[], path: readonly string[]): readonly string[] {
@@ -233,9 +248,18 @@ function normalizedActivePath(items: readonly MenuItem[], path: readonly string[
     normalized.push(id);
     siblings = menuItemChildren(item);
   }
+  if (normalized.length === path.length) return path;
   if (normalized.length > 0 || path.length === 0) return normalized;
   const first = enabledItems(items)[0];
   return first === undefined ? [] : [first.id];
+}
+
+function withActivePath(state: MenuState, activePath: readonly string[]): MenuState {
+  return samePath(state.activePath, activePath) ? state : { ...state, activePath };
+}
+
+function samePath(left: readonly string[], right: readonly string[]): boolean {
+  return left === right || left.length === right.length && left.every((id, index) => id === right[index]);
 }
 
 function projectMenuItems(

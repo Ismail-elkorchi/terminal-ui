@@ -2,10 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui, projectTuiBindingHelp } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { listboxReducer } from '../../dist/behavior/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
-import { button, textInput as createTextInput } from '../../dist/components/index.js';
+import { button, listbox, textInput as createTextInput } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
 import { InputDecodeError } from '../../dist/input/index.js';
@@ -179,6 +180,107 @@ test('editable controls opt cursor movement into Kitty key repeat', async () => 
   assert.deepEqual(runtime.state().actions, [
     { kind: 'edit', operation: { kind: 'moveRight' } }
   ]);
+});
+
+test('TUI runtime reduces Kitty repeat bursts before the render boundary', async () => {
+  const items = Array.from({ length: 10 }, (_value, index) => `item-${String(index)}`);
+  const reducerOptions = { items, projectItem: (item) => ({ id: item, label: item }) };
+  const app = defineTui({
+    id: 'kitty-repeat-burst',
+    init: () => ({
+      state: {
+        activeId: 'item-0',
+        selection: { mode: 'single', selectedId: 'item-0', selectionFollowsActive: true }
+      },
+      focus: { kind: 'element', elementId: 'repeat-listbox' }
+    }),
+    update: (state, transition) => ({ state: listboxReducer(state, transition, reducerOptions) }),
+    view: (presentation) => listbox({
+      id: 'repeat-listbox',
+      meta: { accessibleName: 'Repeat navigation' },
+      items,
+      projectItem: reducerOptions.projectItem,
+      presentation,
+      onTransition: (transition) => transition
+    })
+  });
+  const host = createMemoryTerminalHost({
+    terminalSize: { columns: 10, rows: 1 },
+    capabilities: { probes: { keyboardProtocol: 'supported' } }
+  });
+  const capabilities = await host.getCapabilities();
+  const runtime = createTuiRuntime({
+    app,
+    host,
+    input: { capabilities, keyboard: kittyKeyboardProfile(3) }
+  });
+
+  await runtime.start();
+  const burst = await runtime.handleInputChunk({
+    data: `\u001B[B${'\u001B[1;1:2B'.repeat(99)}`
+  });
+  assert.equal(burst.results.length, 1);
+  assert.equal(runtime.state().activeId, 'item-9');
+  assert.equal(runtime.metrics().frameCommits, 2);
+
+  const released = await runtime.handleInputChunk({
+    data: `${'\u001B[1;1:2B'.repeat(100)}\u001B[1;1:3B`
+  });
+  assert.equal(released.results.length, 2);
+  assert.equal(released.results.at(-1)?.handled, false);
+  assert.equal(runtime.state().activeId, 'item-9');
+  assert.equal(runtime.metrics().frameCommits, 2);
+  assert.equal(runtime.metrics().decodedInputEvents, 201);
+});
+
+test('application navigation bindings retain every admitted transition', async () => {
+  const app = defineTui({
+    id: 'legacy-navigation-burst',
+    init: () => ({ state: 0 }),
+    update: (state) => ({ state: state + 1 }),
+    inputBindings: [{
+      id: 'move',
+      triggers: [{ kind: 'key', key: 'arrowDown' }],
+      message: 'move'
+    }],
+    view: (state) => button({ id: 'count', label: String(state), onAction: () => ignoreMessage() })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 10, rows: 1 } })
+  });
+
+  await runtime.start();
+  const burst = await runtime.handleInputChunk({ data: '\u001B[B'.repeat(3) });
+
+  assert.equal(burst.results.length, 3);
+  assert.equal(runtime.state(), 3);
+  assert.equal(runtime.metrics().frameCommits, 4);
+  assert.equal(runtime.metrics().decodedInputEvents, 3);
+});
+
+test('state-dependent navigation bindings retain sequential routing semantics', async () => {
+  const app = defineTui({
+    id: 'state-dependent-navigation',
+    init: () => ({ state: 0 }),
+    update: (_state, message) => ({ state: message }),
+    inputBindings: [{
+      id: 'move',
+      triggers: [{ kind: 'key', key: 'arrowDown' }],
+      toMessage: ({ state }) => state + 1
+    }],
+    view: (state) => button({ id: 'count', label: String(state), onAction: () => ignoreMessage() })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 10, rows: 1 } })
+  });
+
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '\u001B[B'.repeat(3) });
+
+  assert.equal(runtime.state(), 3);
+  assert.equal(runtime.metrics().frameCommits, 4);
 });
 
 test('TUI runtime exposes input-profile fallback diagnostics', async () => {

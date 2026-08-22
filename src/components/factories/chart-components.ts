@@ -14,6 +14,7 @@ import {
   isStringMember,
 } from '../../foundation/validation.ts';
 import { createLocalCanvas2D, drawAreaSeries, drawLineSeries } from '../../renderer/index.ts';
+import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import {
   fillTextCells,
   measureTextCells,
@@ -152,12 +153,18 @@ const activeBarChart = defineComponent<
     return plan.items.map((item, row) => ({
       id: `${input.id ?? 'bar-chart'}:bar:${item.id}`,
       bounds: { row, column: 0, width: input.bounds.width, height: 1 },
+      accepts: ['pointerDown', 'click'] as const,
       cursor: 'pointer' as const,
       focus: { kind: 'target' as const, targetId: 'self' },
-      message: (event: { readonly clickCount: number }): BarChartComponentAction =>
-        event.clickCount === 2
+      message: (event: RoutedPointerEvent) => {
+        if (event.button !== 'left') return ignoreMessage();
+        if (event.kind === 'pointerDown') {
+          return { kind: 'transition', transition: { kind: 'setActive', id: item.id } };
+        }
+        return event.clickCount === 2
           ? { kind: 'activate', event: { kind: 'activate', id: item.id } }
-          : { kind: 'transition', transition: { kind: 'setActive', id: item.id } },
+          : ignoreMessage();
+      },
     }));
   },
 });
@@ -889,12 +896,16 @@ function chartHitTargets(input: ComponentInput<ChartModel>) {
         width: 1,
         height: 1,
       },
+      accepts: ['pointerDown'] as const,
       cursor: 'pointer' as const,
       focus: { kind: 'target' as const, targetId: 'self' },
-      message: (): ChartComponentAction => ({
-        kind: 'transition',
-        transition: { kind: 'setActive', id: point.pointId },
-      }),
+      message: (event: RoutedPointerEvent) =>
+        event.button !== 'left'
+          ? ignoreMessage()
+          : {
+            kind: 'transition' as const,
+            transition: { kind: 'setActive' as const, id: point.pointId },
+          },
     }))
   );
 }
@@ -1226,12 +1237,16 @@ const activeHeatmap = defineComponent<
             width: Math.min(input.model.cellWidth, input.bounds.width - column),
             height: 1,
           },
+          accepts: ['pointerDown'] as const,
           cursor: 'pointer' as const,
           focus: { kind: 'target' as const, targetId: 'self' },
-          message: (): HeatmapComponentAction => ({
-            kind: 'transition',
-            transition: { kind: 'setActive', id: cell.id },
-          }),
+          message: (event: RoutedPointerEvent) =>
+            event.button !== 'left'
+              ? ignoreMessage()
+              : {
+                kind: 'transition' as const,
+                transition: { kind: 'setActive' as const, id: cell.id },
+              },
         }];
       })
     );

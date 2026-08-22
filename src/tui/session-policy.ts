@@ -9,7 +9,7 @@ import type {
   TerminalStateSnapshot
 } from '../host/index.ts';
 import type { InputPipelineOptions } from '../input/index.ts';
-import { LEGACY_KEYBOARD_PROFILE } from '../protocol/keyboard.ts';
+import { KITTY_KEYBOARD_FLAGS, LEGACY_KEYBOARD_PROFILE, kittyKeyboardProfile } from '../protocol/keyboard.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
 export type ProtocolRequirement = 'required' | 'optional' | 'disabled';
@@ -77,7 +77,12 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = Object.freeze
   bracketedPaste: 'optional',
   focusReporting: 'optional',
   unicodeGraphemeMode: 'optional',
-  keyboard: Object.freeze({ profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' }),
+  keyboard: Object.freeze({
+    profile: kittyKeyboardProfile(
+      KITTY_KEYBOARD_FLAGS.disambiguateEscapeCodes | KITTY_KEYBOARD_FLAGS.reportEventTypes,
+    ),
+    requirement: 'optional',
+  }),
   cursorVisibility: Object.freeze({ visibility: 'hide', requirement: 'optional' }),
   mouseReporting: Object.freeze({ mode: 'drag', requirement: 'optional' })
 });

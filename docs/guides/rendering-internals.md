@@ -132,10 +132,13 @@ snapshot text, and diagnostic control-sequence views do not share hidden flags.
 Runtime frame commits pass the portable `RenderDiff` through a private terminal
 output planner. The planner compares absolute and relative cursor movement and
 safe line-clear encodings by UTF-8 byte size, then writes one selected payload.
-Synchronized output is conservative: it is used only when a host probe or
-explicit capability override reports support. A failed synchronized write
-that may have committed bytes causes the runtime to use recovery output for a
-frame-local cleanup suffix. The suffix closes only state that the selected plan
+Direct ANSI serialization uses synchronized output only when a host probe or
+explicit capability override reports support. Managed full-screen frame commits
+also attempt it when support is unknown but terminal-protocol output is available;
+unsupported terminals ignore the private mode, while capable terminals avoid
+displaying partially applied frames. An explicit unsupported result remains
+authoritative. A failed synchronized write that may have committed bytes causes
+the runtime to use recovery output for a frame-local cleanup suffix. The suffix closes only state that the selected plan
 could have opened: synchronization, a scrolling region, OSC 8, or SGR. A write
 reported as failed before starting does not emit cleanup. The terminal baseline
 remains untrusted after an indeterminate write and the next successful commit is

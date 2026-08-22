@@ -37,9 +37,9 @@ export function listViewReducer(
   options: ListViewReducerOptions,
 ): ListViewPresentation {
   if (action.kind === 'scroll') {
-    return state.scroll === undefined
-      ? state
-      : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
+    if (state.scroll === undefined) return state;
+    const scroll = applyScrollEvent(state.scroll, action.event);
+    return scroll === state.scroll ? state : { ...state, scroll };
   }
   const interaction = collectionInteractionReducer(state, action, {
     index: options.index,

@@ -102,6 +102,7 @@ test('tree pointer selection and double-click activation match keyboard semantic
 
   assert.deepEqual(runtime.state().actions, [
     { kind: 'setActive', id: 'leaf' },
+    { kind: 'setActive', id: 'leaf' },
     { kind: 'activate', id: 'leaf' }
   ]);
 });

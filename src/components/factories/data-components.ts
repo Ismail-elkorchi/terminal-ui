@@ -1569,12 +1569,18 @@ function tableHitTargets(
       targets.push({
         id: `${input.id ?? 'table'}:row:${row.id}`,
         bounds: rowBounds,
+        accepts: ['pointerDown', 'click'],
         cursor: 'pointer',
         focus: { kind: 'target', targetId: 'self' },
-        message: (event) =>
-          event.clickCount === 2
+        message: (event) => {
+          if (event.button !== 'left') return ignoreMessage();
+          if (event.kind === 'pointerDown') {
+            return { kind: 'transition', transition: { kind: 'setActiveRow', rowId: row.id } };
+          }
+          return event.clickCount === 2
             ? { kind: 'activate', event: { kind: 'activate', target: { kind: 'row', rowId: row.id } } }
-            : { kind: 'transition', transition: { kind: 'setActiveRow', rowId: row.id } },
+            : ignoreMessage();
+        },
       });
       return;
     }
@@ -1595,18 +1601,24 @@ function tableHitTargets(
           width: visible.end - visible.start,
           height: 1,
         },
+        accepts: ['pointerDown', 'click'],
         cursor: 'pointer',
         focus: { kind: 'target', targetId: 'self' },
-        message: (event) =>
-          event.clickCount === 2
+        message: (event) => {
+          if (event.button !== 'left') return ignoreMessage();
+          if (event.kind === 'pointerDown') {
+            return {
+              kind: 'transition',
+              transition: { kind: 'setActiveCell', cell: { rowId: row.id, columnId: column.id } },
+            };
+          }
+          return event.clickCount === 2
             ? {
               kind: 'activate',
               event: { kind: 'activate', target: { kind: 'cell', cell: { rowId: row.id, columnId: column.id } } },
             }
-            : {
-              kind: 'transition',
-              transition: { kind: 'setActiveCell', cell: { rowId: row.id, columnId: column.id } },
-            },
+            : ignoreMessage();
+        },
       });
     });
   });
@@ -2464,12 +2476,16 @@ function treeHitTargets(input: ComponentInput<TreeModel>) {
           width: plan.geometry.contentBounds.width - bodyColumn,
           height: 1,
         },
+        accepts: ['pointerDown', 'click'],
         cursor: 'pointer',
         focus: { kind: 'target', targetId: 'self' },
-        message: (event) =>
-          event.clickCount === 2
+        message: (event) => {
+          if (event.button !== 'left') return ignoreMessage();
+          if (event.kind === 'pointerDown') return treeTransition({ kind: 'setActive', id: row.id });
+          return event.clickCount === 2
             ? { kind: 'activate', event: { kind: 'activate', id: row.id } }
-            : treeTransition({ kind: 'setActive', id: row.id }),
+            : ignoreMessage();
+        },
       });
     }
     return result;

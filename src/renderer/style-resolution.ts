@@ -2,6 +2,7 @@ import type { ElementTextRole, ElementVisualState } from '../element/metadata.ts
 import type { ThemeColorToken } from '../theme/index.ts';
 import type { RenderNode } from './model/index.ts';
 import type { TerminalStyle } from '../visual/render.ts';
+import { mergeTerminalStyles } from '../visual/terminal-style.ts';
 
 export interface RenderNodeStyleInput {
   readonly part: string;
@@ -65,8 +66,6 @@ export function defaultStyleForState(state: ElementVisualState): TerminalStyle |
       };
     case 'pressed':
       return {
-        fg: { kind: 'theme', token: 'selection.foreground' },
-        bg: { kind: 'theme', token: 'selection.background' },
         bold: true
       };
     case 'selected':
@@ -94,6 +93,5 @@ export function themeStyle(token: ThemeColorToken, options: Omit<TerminalStyle, 
 }
 
 export function mergeStyles(...styles: readonly (TerminalStyle | undefined)[]): TerminalStyle | undefined {
-  const merged = styles.reduce<TerminalStyle>((current, style) => style === undefined ? current : { ...current, ...style }, {});
-  return Object.keys(merged).length === 0 ? undefined : merged;
+  return mergeTerminalStyles(...styles);
 }

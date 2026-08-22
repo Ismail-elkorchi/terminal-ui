@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { createScrollState, paginationWindow, prepareTableCollection } from '../../dist/behavior/index.js';
+import { createScrollState, dataGridReducer, paginationWindow, prepareTableCollection } from '../../dist/behavior/index.js';
 import { dataGrid, listbox, pagination, table, tableColumn } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
@@ -108,6 +108,50 @@ test('data grid renders stable row selection independently from active position'
   );
 });
 
+test('pressing another row commits its selection before transient pressed styling renders', async () => {
+  const rows = [{ id: 'alpha', name: 'Alpha' }, { id: 'bravo', name: 'Bravo' }];
+  const collection = prepareTableCollection(rows, (row) => row.id);
+  const options = { collection, columnIds: ['name'] };
+  const app = defineTui({
+    id: 'grid-pressed-state',
+    init: () => ({ state: {
+      interaction: {
+        kind: 'row',
+        activeRowId: 'alpha',
+        selection: { mode: 'single', selectedRowId: 'alpha', selectionFollowsActive: true }
+      }
+    } }),
+    update: (state, transition) => ({ state: dataGridReducer(state, transition, options) }),
+    view: (presentation) => dataGrid({
+      id: 'pressed-grid',
+      meta: { accessibleName: 'Data grid' },
+      collection,
+      columns: [{ id: 'name', value: (row) => row.name }],
+      presentation,
+      onTransition: (transition) => transition
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } })
+  });
+
+  await runtime.start();
+  const target = runtime.frame().hitTargets.find((item) => item.id === 'pressed-grid:row:bravo');
+  assert.ok(target !== undefined);
+  await runtime.handleInput(mouse('press', target.bounds.row, target.bounds.column));
+  const alpha = runtime.frame().cells.find((cell) => cell.source?.itemId === 'alpha' && cell.text === 'A');
+  const bravo = runtime.frame().cells.find((cell) => cell.source?.itemId === 'bravo' && cell.text === 'B');
+  assert.notEqual(alpha?.style?.bg?.token, 'selection.background');
+  assert.equal(bravo?.style?.bg?.token, 'selection.background');
+  assert.equal(bravo?.style?.bold, true);
+  assert.equal(runtime.state().interaction.selection.selectedRowId, 'bravo');
+
+  await runtime.handleInput(mouse('release', target.bounds.row, target.bounds.column));
+  assert.equal(runtime.state().interaction.selection.selectedRowId, 'bravo');
+  await runtime.dispose();
+});
+
 test('cell grids address cells with stable row and column ids', () => {
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     id: 'cell-grid',
@@ -164,6 +208,7 @@ test('pointer focus transitions and activation events use separate callbacks', a
   await clickAt(runtime, 1, 1);
 
   assert.deepEqual(runtime.state().events, [
+    { channel: 'transition', transition: { kind: 'setActiveRow', rowId: 'alpha' } },
     { channel: 'transition', transition: { kind: 'setActiveRow', rowId: 'alpha' } },
     { channel: 'activate', event: { kind: 'activate', target: { kind: 'row', rowId: 'alpha' } } }
   ]);

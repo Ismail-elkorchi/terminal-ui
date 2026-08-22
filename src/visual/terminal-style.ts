@@ -20,6 +20,11 @@ const themeColorFields = new Set(['kind', 'token']);
 
 type TerminalStyleFlagField = typeof terminalStyleFlagFields[number];
 const normalizedTerminalStyles = new WeakMap<object, TerminalStyle>();
+const canonicalTerminalStyles = new Map<string, TerminalStyle>();
+const maximumCanonicalTerminalStyles = 4_096;
+const maximumCanonicalTerminalStyleKeyLength = 1_024;
+const maximumCanonicalTerminalStyleWeight = 262_144;
+let canonicalTerminalStyleWeight = 0;
 
 export function normalizeTerminalStyle(value: unknown, subject: string): TerminalStyle {
   if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
@@ -35,11 +40,26 @@ export function normalizeTerminalStyle(value: unknown, subject: string): Termina
     if (typeof flag !== 'boolean') throw new TypeError(`${subject}.${field} must be a boolean.`);
     flags[field] = flag;
   }
-  const normalized = Object.freeze({
+  const candidate = {
     ...(fg === undefined ? {} : { fg: normalizeTerminalColor(fg, `${subject}.fg`) }),
     ...(bg === undefined ? {} : { bg: normalizeTerminalColor(bg, `${subject}.bg`) }),
     ...flags
-  });
+  };
+  const key = terminalStyleKey(candidate);
+  const normalized = canonicalTerminalStyles.get(key) ?? Object.freeze(candidate);
+  if (!canonicalTerminalStyles.has(key) && key.length <= maximumCanonicalTerminalStyleKeyLength) {
+    canonicalTerminalStyles.set(key, normalized);
+    canonicalTerminalStyleWeight += key.length;
+    while (
+      canonicalTerminalStyles.size > maximumCanonicalTerminalStyles
+      || canonicalTerminalStyleWeight > maximumCanonicalTerminalStyleWeight
+    ) {
+      const oldest = canonicalTerminalStyles.keys().next().value;
+      if (oldest === undefined) break;
+      canonicalTerminalStyles.delete(oldest);
+      canonicalTerminalStyleWeight -= oldest.length;
+    }
+  }
   normalizedTerminalStyles.set(normalized, normalized);
   if (Object.isFrozen(value)) normalizedTerminalStyles.set(value, normalized);
   return normalized;
@@ -111,4 +131,28 @@ function ownValue(value: Readonly<Record<string, unknown>>, field: string): unkn
 
 function isColorChannel(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255;
+}
+
+function terminalStyleKey(style: TerminalStyle): string {
+  return JSON.stringify([
+    terminalColorKey(style.fg),
+    terminalColorKey(style.bg),
+    style.bold ?? null,
+    style.dim ?? null,
+    style.italic ?? null,
+    style.underline ?? null,
+    style.strikethrough ?? null,
+    style.inverse ?? null,
+    style.hidden ?? null,
+  ]);
+}
+
+function terminalColorKey(color: TerminalColor | undefined): unknown {
+  if (color === undefined) return null;
+  switch (color.kind) {
+    case 'default': return ['default'];
+    case 'ansi': return ['ansi', color.value];
+    case 'rgb': return ['rgb', color.r, color.g, color.b];
+    case 'theme': return ['theme', color.token];
+  }
 }

@@ -69,6 +69,15 @@ committed text. Managed TUI sessions reject that profile because editable contro
 a negotiated source of committed text. Even when associated text is enabled, shortcuts such as Ctrl+A
 need not carry text. Optional fields that were not negotiated remain one
 unknown event rather than being downgraded into a press or a partial key event.
+Managed sessions request Kitty key disambiguation and event types when the terminal
+supports them, and otherwise retain legacy input. The managed input loop reads ahead
+within a fixed byte budget. Consecutive identical navigation events handled by a focused
+component and accumulated while a frame is being committed are reduced in order before the
+next render. Every admitted transition is reduced, but intermediate frames are
+not produced for states that the terminal could not display in time. This keeps held navigation
+responsive without creating work that continues after key release. The input event-batch limit
+bounds each reduction. Application input bindings and programmatic `dispatch()` or
+`dispatchMany()` messages remain reliable.
 Ambiguous Escape, CSI, mouse, Kitty, and control-string prefixes remain pending
 for the configured ambiguity delay. Once the bracketed-paste opener is complete,
 the token is framed rather than ambiguous and remains open until its closing

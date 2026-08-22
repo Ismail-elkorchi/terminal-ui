@@ -41,22 +41,23 @@ export function planTerminalFrameOutput(
   diff: RenderDiff,
   options: TerminalFramePlanOptions
 ): TerminalFrameOutputPlan {
-  if ((options.beforeText?.length ?? 0) > 0 || (options.afterText?.length ?? 0) > 0) {
-    return graphicsFramePlan(next, diff, options);
+  const managedOptions = synchronizedFrameOptions(options);
+  if ((managedOptions.beforeText?.length ?? 0) > 0 || (managedOptions.afterText?.length ?? 0) > 0) {
+    return graphicsFramePlan(next, diff, managedOptions);
   }
-  const baseline = planTerminalOutput(diff, options);
+  const baseline = planTerminalOutput(diff, managedOptions);
   if (
     previous === undefined
     || diff.fullRewrite
-    || !options.scrollRegion
+    || !managedOptions.scrollRegion
     || previous.graphics.length > 0
     || next.graphics.length > 0
   ) return baselineFramePlan(baseline);
 
   const unsynchronizedCapabilities: TerminalOutputCapabilityProfile = {
-    ...options.capabilities,
+    ...managedOptions.capabilities,
     synchronizedOutput: {
-      ...options.capabilities.synchronizedOutput,
+      ...managedOptions.capabilities.synchronizedOutput,
       support: 'unsupported'
     }
   };
@@ -66,7 +67,7 @@ export function planTerminalFrameOutput(
     const projected = applyTerminalRowMovement(previous, movement);
     const repair = diffFrames(projected, next);
     const repairPlan = planTerminalOutput(repair, {
-      ...options,
+      ...managedOptions,
       capabilities: unsynchronizedCapabilities
     });
     const movementText = [
@@ -77,9 +78,9 @@ export function planTerminalFrameOutput(
     ].join('');
     const candidatePayload = utf8Bytes(movementText) + repairPlan.payloadBytes;
     if (candidatePayload >= baseline.payloadBytes) continue;
-    const synchronized = options.capabilities.synchronizedOutput.support === 'supported'
-      && options.capabilities.synchronizedOutput.availability === 'available';
-    const outerPolicy = createTerminalSerializationPolicy({ capabilities: options.capabilities });
+    const synchronized = managedOptions.capabilities.synchronizedOutput.support === 'supported'
+      && managedOptions.capabilities.synchronizedOutput.availability === 'available';
+    const outerPolicy = createTerminalSerializationPolicy({ capabilities: managedOptions.capabilities });
     const begin = synchronized ? outerPolicy.beginSynchronizedOutput() : '';
     const end = synchronized ? outerPolicy.endSynchronizedOutput() : '';
     const text = `${begin}${movementText}${repairPlan.text}${end}`;
@@ -104,6 +105,18 @@ export function planTerminalFrameOutput(
     if (selected === undefined || candidate.payloadBytes < selected.payloadBytes) selected = candidate;
   }
   return selected ?? baselineFramePlan(baseline);
+}
+
+function synchronizedFrameOptions(options: TerminalFramePlanOptions): TerminalFramePlanOptions {
+  const capability = options.capabilities.synchronizedOutput;
+  if (capability.support !== 'unknown' || capability.availability !== 'available') return options;
+  return {
+    ...options,
+    capabilities: {
+      ...options.capabilities,
+      synchronizedOutput: { ...capability, support: 'supported' },
+    },
+  };
 }
 
 export function applyTerminalRowMovement(frame: Frame, movement: TerminalRowMovement): Frame {

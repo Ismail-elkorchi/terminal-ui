@@ -116,6 +116,12 @@ void test('notification history keeps completion data in behavior state and proj
   assert.equal('reason' in (item ?? {}), false);
   assert.equal('endedAt' in (item ?? {}), false);
   assert.equal(item?.detail, undefined);
+  assert.equal(notificationReducer(state, { kind: 'firstHistory', now: 2 }), state);
+  assert.equal(notificationReducer(state, {
+    kind: 'scrollHistory',
+    scroll: state.historyScroll,
+    now: 2,
+  }), state);
 });
 
 function enqueue(

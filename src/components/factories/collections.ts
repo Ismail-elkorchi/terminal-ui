@@ -410,11 +410,15 @@ const instantiateListView = defineComponent<
             width: layout.scrollbar.contentBounds.width,
             height: rect.height,
           },
-          accepts: ['click'] as const,
+          accepts: ['pointerDown', 'click'] as const,
           cursor: 'pointer' as const,
-          message: (event: RoutedPointerEvent) => event.clickCount === 2
-            ? activate(item.id, item.itemIndex)
-            : transition({ kind: 'setActive', id: item.id }),
+          message: (event: RoutedPointerEvent) => {
+            if (event.button !== 'left') return ignoreMessage();
+            if (event.kind === 'pointerDown') return transition({ kind: 'setActive', id: item.id });
+            return event.clickCount === 2
+              ? activate(item.id, item.itemIndex)
+              : ignoreMessage();
+          },
         }];
       }),
       ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<ListViewComponentAction>({

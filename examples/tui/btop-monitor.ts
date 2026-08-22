@@ -122,7 +122,6 @@ const cpuBase = Object.freeze(Array.from({ length: 180 }, (_value, index) => {
 const netDown = Object.freeze([0, 1, 0, 2, 0, 4, 2, 8, 10, 4, 2, 0, 12, 26, 4, 0, 18, 5, 3, 0, 10, 2, 44, 9, 0, 3, 20, 2, 0, 1, 18, 4, 0, 0, 3, 2]);
 const netUp = Object.freeze([0, -1, 0, -4, -2, -8, -14, -6, -2, 0, -10, -22, -8, -3, 0, -6, -16, -26, -9, 0, -5, -12, -7, -2, 0, -4, -9, -3, 0, -1, -7, -18, -5, 0, -2, -1]);
 
-const monitorFocusPath = Object.freeze(['btop-root']);
 const quitKey = { kind: 'key', key: 'q' } as const;
 const sortKey = { kind: 'key', key: 's' } as const;
 const nextProcessKey = { kind: 'key', key: 'arrowDown' } as const;
@@ -130,7 +129,10 @@ const previousProcessKey = { kind: 'key', key: 'arrowUp' } as const;
 
 export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
   id: 'btop-monitor',
-  init: () => ({ state: initialState(), focus: { kind: 'path', path: monitorFocusPath } }),
+  init: () => ({
+    state: initialState(),
+    focus: { kind: 'element', elementId: 'process-table' },
+  }),
   subscriptions: () => [intervalSource('btop-tick', 1000, (tick) => ({ kind: 'tick', tick }))],
   inputBindings: [
     {
@@ -140,8 +142,8 @@ export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
       message: { kind: 'exit' }
     },
     { id: 'next-sort', triggers: [sortKey, { kind: 'text', text: 's' }], label: 'Sort', message: { kind: 'cycleSort' } },
-    { id: 'next-process', triggers: [nextProcessKey, { kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: 1 } } },
-    { id: 'previous-process', triggers: [previousProcessKey, { kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: -1 } } }
+    { id: 'next-process', triggers: [{ kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: 1 } } },
+    { id: 'previous-process', triggers: [{ kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: -1 } } }
   ],
   update: updateMonitor,
   view: monitorView,
@@ -200,6 +202,7 @@ function updateMonitor(
       });
       const sortChanged = processTable.sort?.columnId !== state.processTable.sort?.columnId
         || processTable.sort?.direction !== state.processTable.sort?.direction;
+      if (processTable === state.processTable) return { state };
       return {
         state: {
           ...state,
@@ -670,7 +673,7 @@ export async function runScriptedBtopMonitor() {
   const runtime = createTuiRuntime({
     app: btopMonitorApp,
     host,
-    initialFocus: { kind: 'path', path: monitorFocusPath },
+    initialFocus: { kind: 'element', elementId: 'process-table' },
     input: { mouseReporting: 'drag' }
   });
   try {

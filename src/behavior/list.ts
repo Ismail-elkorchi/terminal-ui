@@ -63,9 +63,9 @@ export function listboxReducer<TValue>(
   options: ListboxReducerOptions<TValue>
 ): ListboxPresentation {
   if (action.kind === 'scroll') {
-    return state.scroll === undefined
-      ? state
-      : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
+    if (state.scroll === undefined) return state;
+    const scroll = applyScrollEvent(state.scroll, action.event);
+    return scroll === state.scroll ? state : { ...state, scroll };
   }
   const view = prepareListboxViewForOptions(options);
   const interactionAction = action.kind === 'pageActive'

@@ -36,23 +36,30 @@ export async function runTuiInputLoop<TState, TMessage>(
   const events = createInputLoopEventMultiplexer<TState>();
   let inputController = new AbortController();
   let input: AsyncIterator<TerminalInputChunk> | undefined;
+  const queuedInput: TerminalInputChunk[] = [];
+  let queuedInputBytes = 0;
+  let inputReadPending = false;
+  let inputEnded = false;
+  let inputDispatchQueued = false;
   let inputWorkNext: Promise<InputWorkOutcome<TState>> | undefined;
   let inputBatchNext: Promise<readonly TuiInputResult<TState>[]> | undefined;
+  let endAfterInputBatch = false;
   let resizeQueued = false;
   let resizeNext: Promise<unknown> | undefined;
   let suspendedRequest: InputSuspensionRequest | undefined;
   try {
     input = host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
-    const firstInput = input.next();
     watchSignal();
     watchRuntimeChange();
-    watchInput(firstInput);
+    watchInput(input.next());
     watchSuspension();
     for (;;) {
       const event = await events.next();
       if (event.kind === 'suspend') {
         let inputReleaseStarted = false;
         try {
+          events.cancel('inputReady');
+          inputDispatchQueued = false;
           events.cancel('inputWork');
           events.cancel('inputBatch');
           const exit = await settleInputWork();
@@ -67,6 +74,7 @@ export async function runTuiInputLoop<TState, TMessage>(
           }
           inputReleaseStarted = true;
           events.cancel('input');
+          inputReadPending = false;
           inputController.abort('terminal_input_suspended');
           await releaseTerminalInput(suspendingInput, releaseInput);
           input = undefined;
@@ -89,11 +97,20 @@ export async function runTuiInputLoop<TState, TMessage>(
         continue;
       }
       if (event.kind === 'input') {
-        inputWorkNext = event.value.done === true
-          ? runtime.flushInput().then((work) => ({ work, endAfter: true }))
-          : runtime.handleInputChunk(event.value.value)
-              .then((work) => ({ work, endAfter: false }));
-        events.watch('inputWork', inputWorkNext, (outcome) => ({ kind: 'inputWork', outcome }));
+        inputReadPending = false;
+        if (event.value.done === true) {
+          inputEnded = true;
+          if (inputWorkNext === undefined) scheduleQueuedInputOrFlush();
+        } else {
+          enqueueInput(event.value.value);
+          watchInputIfAvailable();
+          if (inputWorkNext === undefined) scheduleQueuedInputOrFlush();
+        }
+        continue;
+      }
+      if (event.kind === 'inputReady') {
+        inputDispatchQueued = false;
+        startQueuedInputOrFlush();
         continue;
       }
       if (event.kind === 'inputWork') {
@@ -102,14 +119,13 @@ export async function runTuiInputLoop<TState, TMessage>(
         const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
         if (exit !== undefined) return exit;
         inputBatchNext = batch.pending;
-        if (event.outcome.endAfter) break;
-        const activeInput = input;
-        if (activeInput === undefined) {
-          throw new Error('Terminal input is unavailable while processing input.');
-        }
-        watchInput(activeInput.next());
         if (inputBatchNext !== undefined) {
+          endAfterInputBatch = event.outcome.endAfter;
           events.watch('inputBatch', inputBatchNext, (results) => ({ kind: 'inputBatch', results }));
+        } else if (event.outcome.endAfter) break;
+        else {
+          startQueuedInputOrFlush();
+          watchInputIfAvailable();
         }
         continue;
       }
@@ -117,6 +133,9 @@ export async function runTuiInputLoop<TState, TMessage>(
         inputBatchNext = undefined;
         const exit = event.results.find((result) => result.exit !== undefined)?.exit;
         if (exit !== undefined) return exit;
+        if (endAfterInputBatch) break;
+        startQueuedInputOrFlush();
+        watchInputIfAvailable();
         continue;
       }
       if (event.kind === 'resize') {
@@ -175,11 +194,63 @@ export async function runTuiInputLoop<TState, TMessage>(
     inputController = new AbortController();
     const nextInput = host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
     input = nextInput;
+    inputEnded = false;
     watchInput(nextInput.next());
   }
 
   function watchInput(operation: Promise<IteratorResult<TerminalInputChunk>>): void {
+    inputReadPending = true;
     events.watch('input', operation, (value) => ({ kind: 'input', value }));
+  }
+
+  function watchInputIfAvailable(): void {
+    if (inputReadPending || inputEnded || queuedInputBytes >= MAX_INPUT_READ_AHEAD_BYTES) return;
+    const activeInput = input;
+    if (activeInput === undefined) return;
+    watchInput(activeInput.next());
+  }
+
+  function enqueueInput(chunk: TerminalInputChunk): void {
+    const owned = ownInputChunk(chunk);
+    queuedInput.push(owned);
+    queuedInputBytes += inputChunkBytes(owned);
+  }
+
+  function startQueuedInputOrFlush(): void {
+    if (inputWorkNext !== undefined || inputBatchNext !== undefined) return;
+    const chunk = takeQueuedInput();
+    inputWorkNext = chunk === undefined
+      ? inputEnded
+        ? runtime.flushInput().then((work) => ({ work, endAfter: true }))
+        : undefined
+      : runtime.handleInputChunk(chunk).then((work) => ({ work, endAfter: false }));
+    if (inputWorkNext !== undefined) {
+      events.watch('inputWork', inputWorkNext, (outcome) => ({ kind: 'inputWork', outcome }));
+    }
+  }
+
+  function scheduleQueuedInputOrFlush(): void {
+    if (inputDispatchQueued || inputWorkNext !== undefined || inputBatchNext !== undefined) return;
+    inputDispatchQueued = true;
+    events.watch('inputReady', Promise.resolve(), () => ({ kind: 'inputReady' }));
+  }
+
+  function takeQueuedInput(): TerminalInputChunk | undefined {
+    const first = queuedInput.shift();
+    if (first === undefined) return undefined;
+    let bytes = inputChunkBytes(first);
+    const chunks = [first];
+    while (queuedInput.length > 0) {
+      const next = queuedInput[0];
+      if (next === undefined || typeof next.data !== typeof first.data) break;
+      const nextBytes = inputChunkBytes(next);
+      if (bytes + nextBytes > MAX_INPUT_READ_AHEAD_BYTES) break;
+      queuedInput.shift();
+      chunks.push(next);
+      bytes += nextBytes;
+    }
+    queuedInputBytes -= bytes;
+    return combineInputChunks(chunks);
   }
 
   function watchSignal(): void {
@@ -209,22 +280,71 @@ export async function runTuiInputLoop<TState, TMessage>(
   }
 
   async function settleInputWork(): Promise<TuiExit<TState> | undefined> {
-    if (inputWorkNext !== undefined) {
-      const work = await inputWorkNext;
-      inputWorkNext = undefined;
-      const batch = normalizeInputWork(work.work);
-      const immediateExit = batch.results.find((result) => result.exit !== undefined)?.exit;
-      if (immediateExit !== undefined) return immediateExit;
-      inputBatchNext = batch.pending;
-    }
     if (inputBatchNext !== undefined) {
       const batch = await inputBatchNext;
       inputBatchNext = undefined;
       const exit = batch.find((result) => result.exit !== undefined)?.exit;
       if (exit !== undefined) return exit;
     }
+    while (inputWorkNext !== undefined || queuedInput.length > 0) {
+      let work: InputWorkOutcome<TState>;
+      if (inputWorkNext !== undefined) work = await inputWorkNext;
+      else {
+        const queued = takeQueuedInput();
+        if (queued === undefined) break;
+        work = await runtime.handleInputChunk(queued).then((value) => ({ work: value, endAfter: false }));
+      }
+      inputWorkNext = undefined;
+      const batch = normalizeInputWork(work.work);
+      const immediateExit = batch.results.find((result) => result.exit !== undefined)?.exit;
+      if (immediateExit !== undefined) return immediateExit;
+      if (batch.pending !== undefined) {
+        const pending = await batch.pending;
+        const exit = pending.find((result) => result.exit !== undefined)?.exit;
+        if (exit !== undefined) return exit;
+      }
+    }
     return undefined;
   }
+}
+
+const MAX_INPUT_READ_AHEAD_BYTES = 4_096;
+
+function ownInputChunk(chunk: TerminalInputChunk): TerminalInputChunk {
+  return { data: typeof chunk.data === 'string' ? chunk.data : chunk.data.slice() };
+}
+
+function inputChunkBytes(chunk: TerminalInputChunk): number {
+  return typeof chunk.data === 'string'
+    ? new TextEncoder().encode(chunk.data).byteLength
+    : chunk.data.byteLength;
+}
+
+function combineInputChunks(chunks: readonly TerminalInputChunk[]): TerminalInputChunk {
+  const first = chunks[0];
+  if (first === undefined) throw new Error('Cannot combine an empty terminal input batch.');
+  if (chunks.length === 1) return first;
+  if (typeof first.data === 'string') {
+    let data = '';
+    for (const chunk of chunks) {
+      if (typeof chunk.data !== 'string') throw new Error('Cannot combine mixed terminal input chunk types.');
+      data += chunk.data;
+    }
+    return { data };
+  }
+  let length = 0;
+  for (const chunk of chunks) {
+    if (!(chunk.data instanceof Uint8Array)) throw new Error('Cannot combine mixed terminal input chunk types.');
+    length += chunk.data.byteLength;
+  }
+  const data = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    if (!(chunk.data instanceof Uint8Array)) throw new Error('Cannot combine mixed terminal input chunk types.');
+    data.set(chunk.data, offset);
+    offset += chunk.data.byteLength;
+  }
+  return { data };
 }
 
 async function retireTerminalInput(
@@ -279,6 +399,7 @@ interface InputWorkOutcome<TState> {
 
 type InputLoopEvent<TState> =
   | { readonly kind: 'input'; readonly value: IteratorResult<TerminalInputChunk> }
+  | { readonly kind: 'inputReady' }
   | { readonly kind: 'inputWork'; readonly outcome: InputWorkOutcome<TState> }
   | { readonly kind: 'inputBatch'; readonly results: readonly TuiInputResult<TState>[] }
   | { readonly kind: 'resize' }
@@ -293,6 +414,7 @@ const inputLoopEventPriority: readonly InputLoopEventKind[] = Object.freeze([
   'signal',
   'runtime',
   'input',
+  'inputReady',
   'inputWork',
   'inputBatch',
   'resize',

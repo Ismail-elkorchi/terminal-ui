@@ -83,6 +83,8 @@ void test('cell-grid mode uses stable row and column identities and clamps by de
     rowId: 'row-0',
     columnId: 'owner',
   });
+  assert.equal(dataGridReducer(column, { kind: 'moveColumn', delta: 99 }, rowOptions), column);
+  assert.equal(dataGridReducer(row, { kind: 'moveRow', delta: -99 }, rowOptions), row);
 });
 
 void test('multiple row selection supports toggle and anchored ranges', () => {
@@ -154,6 +156,10 @@ void test('grid scroll transitions accept renderer-derived semantic state', () =
     },
   }, rowOptions);
   assert.equal(state.scroll, rendered);
+  assert.equal(dataGridReducer(state, {
+    kind: 'scroll',
+    event: { nextState: rendered, source: 'wheel', target: 'content' },
+  }, rowOptions), state);
 });
 
 void test('sortTableRows sorts with caller-controlled column accessors', () => {

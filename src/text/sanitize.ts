@@ -58,11 +58,7 @@ function sanitize(
   const cacheKey = sanitizeCacheKey(text, replacement, mode);
   if (cacheKey !== undefined) {
     const cached = sanitizeCache.get(cacheKey);
-    if (cached !== undefined) {
-      sanitizeCache.delete(cacheKey);
-      sanitizeCache.set(cacheKey, cached);
-      return cached;
-    }
+    if (cached !== undefined) return cached;
   }
   if (!hasUnsafeTerminalText(text) && !/[\t\r]/u.test(text) && (mode === 'multiline' || !text.includes('\n'))) {
     const result = Object.freeze({

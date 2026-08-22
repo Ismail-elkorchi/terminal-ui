@@ -88,6 +88,19 @@ void test('unchanged frame commits return an empty diff without entering the hos
   assert.equal(host.diffs().length, 0);
 });
 
+void test('managed frame commits attempt synchronized output when support is unknown', async () => {
+  const host = createMemoryTerminalHost();
+  const capabilities = await host.getCapabilities();
+  const frame = renderElementFrame(text({ content: 'atomic frame' }), { columns: 20, rows: 1 });
+
+  assert.equal(capabilities.synchronizedOutput.support, 'unknown');
+  assert.equal(capabilities.synchronizedOutput.availability, 'available');
+  await commitFrame(host, undefined, frame, defineTheme(), capabilities);
+
+  assert.match(host.output(), /^\u001B\[\?2026h/u);
+  assert.match(host.output(), /\u001B\[\?2026l$/u);
+});
+
 function waitUntilAborted(signal: AbortSignal | undefined): Promise<void> {
   if (signal === undefined) return new Promise(() => undefined);
   if (signal.aborted) return Promise.resolve();

@@ -751,6 +751,13 @@ test('default session protocol requests drag mouse reporting for pointer capture
   });
 });
 
+test('default session protocol requests event-aware keyboard input when available', () => {
+  assert.deepEqual(defaultSessionProtocolPolicy.keyboard, {
+    profile: kittyEvents,
+    requirement: 'optional'
+  });
+});
+
 test('terminal sessions restore state in protocol-safe order', async () => {
   const snapshot = {
     rawInput: false,

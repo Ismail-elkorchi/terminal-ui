@@ -59,6 +59,11 @@ export interface RenderNodeFrameSourceOptions {
 }
 
 const sanitizedFrameSources = new WeakMap<object, FrameCellSource>();
+const canonicalFrameSources = new Map<string, FrameCellSource>();
+const maximumCanonicalFrameSources = 16_384;
+const maximumCanonicalFrameSourceKeyLength = 2_048;
+const maximumCanonicalFrameSourceWeight = 1_048_576;
+let canonicalFrameSourceWeight = 0;
 
 export function renderNodeFrameSource(
   renderNode: { readonly id?: string; readonly kind: string },
@@ -86,6 +91,14 @@ export function frameSourcePart(
   });
 }
 
+/** Combines a source already admitted at a render boundary with framework-owned fields. */
+export function deriveFrameCellSource(
+  source: FrameCellSource | undefined,
+  fields: FrameCellSource,
+): FrameCellSource {
+  return canonicalFrameCellSource({ ...source, ...fields });
+}
+
 export function normalizeUntrustedFrameCellSource(source: unknown): FrameCellSource {
   if (!isNonArrayObject(source)) {
     throw new TypeError('Frame cell source must be an object.');
@@ -104,8 +117,8 @@ export function normalizeUntrustedFrameCellSource(source: unknown): FrameCellSou
     ...optionalInteractionState(source['interactionState']),
     ...optionalTextField('description', source['description'])
   };
-  const sanitized = Object.freeze(normalized);
-  sanitizedFrameSources.set(sanitized, sanitized);
+  const sanitized = canonicalFrameCellSource(normalized);
+  if (Object.isFrozen(source)) sanitizedFrameSources.set(source, sanitized);
   return sanitized;
 }
 
@@ -147,6 +160,38 @@ function optionalIndex(value: unknown): Pick<FrameCellSource, 'itemIndex'> {
     throw new TypeError('Frame cell source itemIndex must be a non-negative integer.');
   }
   return { itemIndex: value };
+}
+
+function canonicalFrameCellSource(source: FrameCellSource): FrameCellSource {
+  const key = JSON.stringify([
+    source.elementId ?? null,
+    source.elementKind ?? null,
+    source.rendererFamily ?? null,
+    source.cellRole ?? null,
+    source.partName ?? null,
+    source.partType ?? null,
+    source.itemId ?? null,
+    source.itemIndex ?? null,
+    source.interactionState ?? null,
+    source.description ?? null,
+  ]);
+  const existing = canonicalFrameSources.get(key);
+  if (existing !== undefined) return existing;
+  const canonical = Object.freeze({ ...source });
+  sanitizedFrameSources.set(canonical, canonical);
+  if (key.length > maximumCanonicalFrameSourceKeyLength) return canonical;
+  canonicalFrameSources.set(key, canonical);
+  canonicalFrameSourceWeight += key.length;
+  while (
+    canonicalFrameSources.size > maximumCanonicalFrameSources
+    || canonicalFrameSourceWeight > maximumCanonicalFrameSourceWeight
+  ) {
+    const oldest = canonicalFrameSources.keys().next().value;
+    if (oldest === undefined) break;
+    canonicalFrameSources.delete(oldest);
+    canonicalFrameSourceWeight -= oldest.length;
+  }
+  return canonical;
 }
 
 function optionalCellRole(value: unknown): Pick<FrameCellSource, 'cellRole'> {

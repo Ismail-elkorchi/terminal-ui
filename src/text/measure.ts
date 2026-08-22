@@ -12,31 +12,29 @@ export function measureTextCells(
   text: string,
   options: TextMeasurementOptions = {}
 ): TextCellMetrics {
-  return measureSanitizedText(text, sanitizeTerminalText(text), options, 'text');
+  return measureText(text, options, 'text');
 }
 
 export function measureTerminalCellText(
   text: string,
   options: TextMeasurementOptions = {},
 ): TextCellMetrics {
-  return measureSanitizedText(text, sanitizeTerminalCellText(text), options, 'cell');
+  return measureText(text, options, 'cell');
 }
 
-function measureSanitizedText(
-  source: string,
-  sanitized: ReturnType<typeof sanitizeTerminalText>,
+function measureText(
+  text: string,
   options: TextMeasurementOptions,
   mode: 'text' | 'cell',
 ): TextCellMetrics {
-  const cacheKey = measurementCacheKey(source, options, mode);
+  const cacheKey = measurementCacheKey(text, options, mode);
   if (cacheKey !== undefined) {
     const cached = measurementCache.get(cacheKey);
-    if (cached !== undefined) {
-      measurementCache.delete(cacheKey);
-      measurementCache.set(cacheKey, cached);
-      return cached;
-    }
+    if (cached !== undefined) return cached;
   }
+  const sanitized = mode === 'cell'
+    ? sanitizeTerminalCellText(text)
+    : sanitizeTerminalText(text);
   const graphemes = segmentGraphemesForMeasurement(sanitized.text, options);
   const measured = Object.freeze({
     text: sanitized.text,

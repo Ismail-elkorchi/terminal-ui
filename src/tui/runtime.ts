@@ -2,7 +2,8 @@ import {
   createInputAmbiguityDeadline,
   createInputPipeline,
   decodeInputEvent,
-  InputDecodeError
+  InputDecodeError,
+  matchesInputTrigger,
 } from '../input/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
@@ -28,6 +29,7 @@ import { createRuntimeDiagnostics } from './runtime-diagnostics.ts';
 import { createRuntimeContextFactory } from './runtime-context.ts';
 import {
   inputEventContainsSensitiveText,
+  isRepeatableNavigationKey,
   redactSensitiveInputEvent,
   resolveRuntimeInputMessage,
   resolvedRenderNodeKeyMap,
@@ -468,9 +470,16 @@ function createRuntime<TState, TMessage>(
         });
       }
     }
+    return handleResolvedInput(event, messageForInput(store.state(), event), redactInput);
+  }
+
+  async function handleResolvedInput(
+    event: InputEvent,
+    message: ReturnType<typeof messageForInput>,
+    redactInput: boolean,
+  ): Promise<TuiInputResult<TState>> {
     const state = store.state();
     const frame = commits.frame();
-    const message = messageForInput(state, event);
     if (isIgnoredMessage(message)) {
       if (event.kind === 'key' && event.eventType === 'press') {
         const key = event.key;
@@ -742,19 +751,33 @@ function createRuntime<TState, TMessage>(
     lifecycle.assertOperational();
     const results: TuiInputResult<TState>[] = [];
     const routedEvents = routingInputEvents(events, flushCharacterText);
-    for (const routedEvent of routedEvents) {
-      const event = routedEvent;
+    for (let index = 0; index < routedEvents.length;) {
+      const event = routedEvents[index];
+      if (event === undefined) break;
+      const navigationRun = repeatedNavigationRun(routedEvents, index);
+      if (navigationRun.length > 1 && navigationRun.every(navigationInputCanBatch)) {
+        results.push(...await wheelInput.flush());
+        if (results.at(-1)?.exit !== undefined) break;
+        results.push(...await pointerMotion.flush());
+        if (results.at(-1)?.exit !== undefined) break;
+        results.push(await handleNavigationInputRun(navigationRun));
+        if (results.at(-1)?.exit !== undefined) break;
+        index += navigationRun.length;
+        continue;
+      }
       if (isWheelInputEvent(event)) {
         results.push(...await pointerMotion.flush());
         if (results.at(-1)?.exit !== undefined) break;
         results.push(...await enqueueWheelInput(event));
         if (results.at(-1)?.exit !== undefined) break;
+        index += 1;
         continue;
       }
       if (isPointerMotionEvent(event)) {
         results.push(...await wheelInput.flush());
         if (results.at(-1)?.exit !== undefined) break;
         enqueuePointerMotion(event, occurredAt);
+        index += 1;
         continue;
       }
       results.push(...await wheelInput.flush());
@@ -767,12 +790,39 @@ function createRuntime<TState, TMessage>(
       );
       results.push(result);
       if (result.exit !== undefined) break;
+      index += 1;
     }
     const pending = combinePendingInput(wheelInput.pending(), pointerMotion.pending());
     return {
       results,
       ...(pending === undefined ? {} : { pending })
     };
+  }
+
+  async function handleNavigationInputRun(
+    events: readonly Extract<InputEvent, { readonly kind: 'key' }>[],
+  ): Promise<TuiInputResult<TState>> {
+    lifecycle.assertOperational();
+    const state = store.state();
+    for (const event of events) {
+      runInstrumentation('transcript_input', () => options.transcript?.record({ kind: 'input', event }));
+    }
+    const sampled = events[0];
+    if (sampled === undefined) return { handled: false, state, frame: commits.frame() };
+    const message = messageForInput(state, sampled);
+    if (isIgnoredMessage(message)) return handleResolvedInput(sampled, message, false);
+    const messages = Array.from({ length: events.length }, () => message);
+    const nextState = await dispatchQueue.run(() => dispatchManyInternal(messages, 'input'));
+    const frame = commits.frame();
+    return terminalExit === undefined
+      ? { handled: true, state: nextState, frame }
+      : { handled: true, state: nextState, frame, exit: terminalExit };
+  }
+
+  function navigationInputCanBatch(event: Extract<InputEvent, { readonly kind: 'key' }>): boolean {
+    return (definition.inputBindings ?? []).every((binding) =>
+      !binding.triggers.some((trigger) => matchesInputTrigger(trigger, event))
+    );
   }
 
   function routingInputEvents(
@@ -1138,6 +1188,51 @@ function isPointerMotionEvent(event: InputEvent): event is PointerMotionEvent {
 
 function isAmbiguousInput(kind: InputPendingState['kind']): boolean {
   return kind === 'escape' || kind === 'sequence';
+}
+
+function repeatedNavigationRun(
+  events: readonly InputEvent[],
+  start: number,
+): readonly Extract<InputEvent, { readonly kind: 'key' }>[] {
+  const first = events[start];
+  if (!isBatchableNavigationKey(first)) return [];
+  const run: Extract<InputEvent, { readonly kind: 'key' }>[] = [first];
+  let end = start + 1;
+  while (end < events.length) {
+    const candidate = events[end];
+    if (!sameNavigationKey(first, candidate)) break;
+    run.push(candidate);
+    end += 1;
+  }
+  return run;
+}
+
+function isBatchableNavigationKey(
+  event: InputEvent | undefined,
+): event is Extract<InputEvent, { readonly kind: 'key' }> {
+  return event?.kind === 'key'
+    && (event.eventType === 'press' || event.eventType === 'repeat')
+    && isRepeatableNavigationKey(event.key);
+}
+
+function sameNavigationKey(
+  left: Extract<InputEvent, { readonly kind: 'key' }>,
+  right: InputEvent | undefined,
+): right is Extract<InputEvent, { readonly kind: 'key' }> {
+  return isBatchableNavigationKey(right)
+    && right.key === left.key
+    && right.keyCodePoint === left.keyCodePoint
+    && right.location === left.location
+    && sameKeyModifiers(right.modifiers, left.modifiers);
+}
+
+function sameKeyModifiers(
+  left: Extract<InputEvent, { readonly kind: 'key' }>['modifiers'],
+  right: Extract<InputEvent, { readonly kind: 'key' }>['modifiers'],
+): boolean {
+  return left.ctrl === right.ctrl && left.alt === right.alt && left.shift === right.shift
+    && left.meta === right.meta && left.super === right.super && left.hyper === right.hyper
+    && left.capsLock === right.capsLock && left.numLock === right.numLock;
 }
 
 function combinePendingInput<TState>(

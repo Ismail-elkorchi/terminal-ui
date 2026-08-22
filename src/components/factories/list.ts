@@ -162,12 +162,15 @@ const instantiateListbox = defineComponent<
             width: plan.scrollbar.contentBounds.width,
             height: 1,
           },
-          accepts: ['click'] as const,
+          accepts: ['pointerDown', 'click'] as const,
           cursor: 'pointer' as const,
-          message: (event: RoutedPointerEvent) =>
-            event.clickCount === 2
+          message: (event: RoutedPointerEvent) => {
+            if (event.button !== 'left') return ignoreMessage();
+            if (event.kind === 'pointerDown') return transition({ kind: 'setActive', id: entry.id });
+            return event.clickCount === 2
               ? activate(entry)
-              : transition({ kind: 'setActive', id: entry.id }),
+              : ignoreMessage();
+          },
         }]
       ),
       ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<ListboxComponentAction>({

@@ -142,6 +142,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     return diff;
   }
 
+  const releasedInteractionOperations: RenderOperation[] = [];
   const operations: RenderOperation[] = [];
   let comparedRows = 0;
   let comparedCells = 0;
@@ -155,7 +156,10 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
       comparedRows += 1;
       if (fingerprintsMatch(previousCells, nextCells, row)) continue;
       comparedCells += next.width;
-      operations.push(...diffRow(previousCells, nextCells, next.width, row, 1, next.width).operations);
+      const rowDiff = diffRow(previousCells, nextCells, next.width, row, 1, next.width);
+      (releasesInteractionEmphasis(previousCells, nextCells, row, 1, next.width)
+        ? releasedInteractionOperations
+        : operations).push(...rowDiff.operations);
     }
   } else {
     for (const [row, ranges] of dirtyRanges ?? []) {
@@ -163,7 +167,10 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
       if (fingerprintsMatch(previousCells, nextCells, row)) continue;
       for (const range of ranges) {
         comparedCells += range.toColumn - range.fromColumn + 1;
-        operations.push(...diffRow(previousCells, nextCells, next.width, row, range.fromColumn, range.toColumn).operations);
+        const rowDiff = diffRow(previousCells, nextCells, next.width, row, range.fromColumn, range.toColumn);
+        (releasesInteractionEmphasis(previousCells, nextCells, row, range.fromColumn, range.toColumn)
+          ? releasedInteractionOperations
+          : operations).push(...rowDiff.operations);
       }
     }
   }
@@ -173,13 +180,18 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     height: next.height,
     widthProfile: next.widthProfile,
     ...(next.canvasStyle === undefined ? {} : { canvasStyle: next.canvasStyle }),
-    operations,
+    operations: [...releasedInteractionOperations, ...operations],
     graphicOperations: diffGraphics(previous.graphics, next.graphics),
     ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
     fullRewrite: false,
     ...(dirtyRegions === undefined ? {} : { dirtyRegions })
   };
-  recordDiffWork(options.instrumentation, comparedRows, comparedCells, operations.length);
+  recordDiffWork(
+    options.instrumentation,
+    comparedRows,
+    comparedCells,
+    releasedInteractionOperations.length + operations.length,
+  );
   return diff;
 }
 
@@ -411,6 +423,34 @@ function runNeedsClear(
     if ((previous.continuation === true) !== (next.continuation === true)) return true;
   }
   return false;
+}
+
+function releasesInteractionEmphasis(
+  previousCells: FrameIndex,
+  nextCells: FrameIndex,
+  row: number,
+  fromColumn: number,
+  toColumn: number,
+): boolean {
+  for (let column = fromColumn; column <= toColumn; column += 1) {
+    const previous = cellAt(previousCells, row, column)?.source?.interactionState;
+    const next = cellAt(nextCells, row, column)?.source?.interactionState;
+    if (interactionEmphasis(previous) > interactionEmphasis(next)) return true;
+  }
+  return false;
+}
+
+function interactionEmphasis(
+  state: NonNullable<FrameCell['source']>['interactionState'] | undefined,
+): number {
+  switch (state) {
+    case 'selected': return 4;
+    case 'pressed': return 3;
+    case 'hovered': return 2;
+    case 'focused':
+    case 'active': return 1;
+    default: return 0;
+  }
 }
 
 function fingerprintsMatch(previous: FrameIndex, next: FrameIndex, row: number): boolean {

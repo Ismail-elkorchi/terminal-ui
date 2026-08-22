@@ -131,7 +131,7 @@ export function notificationReducer(
       return expire(normalized, action.now, policy);
     case 'selectHistory':
       return normalized.history.some((entry) => entry.notification.id === action.id)
-        ? { ...normalized, selectedHistoryId: action.id }
+        ? withHistorySelection(normalized, action.id)
         : normalized;
     case 'moveHistorySelection':
       return moveHistorySelection(normalized, action.delta);
@@ -146,21 +146,18 @@ export function notificationReducer(
         normalized.history.at(-1)?.notification.id
       );
     case 'setHistoryView':
-      return normalized.history.some((entry) => entry.notification.id === action.selectedId)
-        ? {
-            ...normalized,
-            selectedHistoryId: action.selectedId,
-            historyScroll: ownScroll(action.scroll),
-          }
-        : normalized;
+      if (!normalized.history.some((entry) => entry.notification.id === action.selectedId)) return normalized;
+      return withHistoryScroll(withHistorySelection(normalized, action.selectedId), ownScroll(action.scroll));
     case 'scrollHistory':
-      return { ...normalized, historyScroll: ownScroll(action.scroll) };
+      return withHistoryScroll(normalized, ownScroll(action.scroll));
     case 'removeHistory':
       return removeHistory(normalized, action.id);
     case 'clear':
       return clear(normalized, action.now, policy);
     case 'clearHistory':
-      return withHistorySelection({ ...normalized, history: [] }, undefined);
+      return normalized.history.length === 0 && normalized.selectedHistoryId === undefined
+        ? normalized
+        : withHistorySelection({ ...normalized, history: [] }, undefined);
   }
 }
 
@@ -426,6 +423,7 @@ function withHistorySelection(
   state: NotificationState,
   selectedHistoryId: string | undefined
 ): NotificationState {
+  if (state.selectedHistoryId === selectedHistoryId) return state;
   return {
     active: state.active,
     queued: state.queued,
@@ -433,6 +431,15 @@ function withHistorySelection(
     historyScroll: state.historyScroll,
     ...(selectedHistoryId === undefined ? {} : { selectedHistoryId })
   };
+}
+
+function withHistoryScroll(state: NotificationState, historyScroll: ScrollState): NotificationState {
+  const current = state.historyScroll;
+  return current.offsetRow === historyScroll.offsetRow
+      && current.offsetColumn === historyScroll.offsetColumn
+      && current.followTail === historyScroll.followTail
+    ? state
+    : { ...state, historyScroll };
 }
 
 function removeHistory(

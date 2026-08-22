@@ -40,7 +40,10 @@ void test('bar chart pointer targets emit stable active-id transitions', () => {
     onTransition: (transition) => transition,
   }), { columns: 20, rows: 2 });
   const targets = regions.flatMap((region) => region.hitTargets);
-  assert.deepEqual(targets[1]?.message(routedPointerEvent()), { kind: 'setActive', id: 'memory' });
+  assert.deepEqual(targets[1]?.message(routedPointerEvent({ kind: 'pointerDown' })), {
+    kind: 'setActive',
+    id: 'memory',
+  });
 });
 
 void test('chart behavior navigates points, series, and pages through globally stable point ids', () => {
@@ -132,11 +135,15 @@ void test('chart and heatmap pointer transitions follow the same active-datum co
     presentation: { selection: { mode: 'none' } },
     onTransition: (transition) => transition,
   }), { columns: 4, rows: 1 });
-  assert.deepEqual(chartRegions.flatMap((region) => region.hitTargets)[0]?.message(routedPointerEvent()), {
+  assert.deepEqual(chartRegions.flatMap((region) => region.hitTargets)[0]?.message(routedPointerEvent({
+    kind: 'pointerDown',
+  })), {
     kind: 'setActive',
     id: 'first',
   });
-  assert.deepEqual(heatmapRegions.flatMap((region) => region.hitTargets)[0]?.message(routedPointerEvent()), {
+  assert.deepEqual(heatmapRegions.flatMap((region) => region.hitTargets)[0]?.message(routedPointerEvent({
+    kind: 'pointerDown',
+  })), {
     kind: 'setActive',
     id: 'one',
   });

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { text } from '../../dist/components/index.js';
+import { listbox, text } from '../../dist/components/index.js';
+import { listboxReducer } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
@@ -59,6 +60,83 @@ test('the interactive input loop watches each pending event source exactly once'
   await runtime.dispose();
 
   assert.equal(exit.status, 'completed');
+});
+
+test('the interactive input loop reduces separately chunked navigation before rendering', async () => {
+  const items = Array.from({ length: 10 }, (_value, index) => `item-${String(index)}`);
+  const reducerOptions = { items, projectItem: (item) => ({ id: item, label: item }) };
+  const app = defineTui({
+    id: 'read-ahead-navigation',
+    init: () => ({
+      state: {
+        presentation: {
+          activeId: 'item-0',
+          selection: { mode: 'single', selectedId: 'item-0', selectionFollowsActive: true }
+        }
+      },
+      focus: { kind: 'element', elementId: 'read-ahead-listbox' }
+    }),
+    update: (state, message) => message === 'exit'
+      ? { state, exit: {} }
+      : {
+        state: {
+          presentation: listboxReducer(state.presentation, message, reducerOptions)
+        }
+      },
+    inputBindings: [
+      { id: 'exit', triggers: [{ kind: 'text', text: 'q' }], message: 'exit' }
+    ],
+    view: (state) => listbox({
+      id: 'read-ahead-listbox',
+      meta: { accessibleName: 'Read-ahead navigation' },
+      items,
+      projectItem: reducerOptions.projectItem,
+      presentation: state.presentation,
+      onTransition: (transition) => transition
+    })
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host });
+  const signals = createTuiSignalQueue(host.signals.subscribe.bind(host.signals));
+  let inputRetirement = Promise.resolve();
+
+  await runtime.start();
+  const write = host.write.bind(host);
+  const writeStarted = Promise.withResolvers();
+  const releaseWrite = Promise.withResolvers();
+  let blockNextWrite = true;
+  host.write = async (output, context) => {
+    if (blockNextWrite) {
+      blockNextWrite = false;
+      writeStarted.resolve();
+      await releaseWrite.promise;
+    }
+    return write(output, context);
+  };
+  const loop = runTuiInputLoop(
+    runtime,
+    host,
+    app.id,
+    undefined,
+    (retirement) => { inputRetirement = retirement; },
+    undefined,
+    signals
+  );
+  for (let index = 0; index < 100; index += 1) host.input('\u001B[B');
+  host.input('q');
+  host.endInput();
+  await writeStarted.promise;
+  await new Promise((resolve) => setImmediate(resolve));
+  releaseWrite.resolve();
+
+  const exit = await loop;
+  await inputRetirement;
+  signals.dispose();
+
+  assert.equal(exit.status, 'completed');
+  assert.equal(exit.state.presentation.activeId, 'item-9');
+  assert.ok(runtime.metrics().frameCommits <= 4, `frame commits: ${String(runtime.metrics().frameCommits)}`);
+  await runtime.dispose();
 });
 
 test('the signal queue rejects pending and future reads when disposed', async () => {

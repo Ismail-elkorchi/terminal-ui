@@ -912,16 +912,7 @@ const isMain = process.argv[1] !== undefined
 
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY) {
-    const exit = await runTui(ideEditorApp, { sessionPolicy: {
-      alternateScreen: 'required',
-      rawInput: 'required',
-      bracketedPaste: 'optional',
-      focusReporting: 'optional',
-      unicodeGraphemeMode: 'optional',
-      keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
-      cursorVisibility: { visibility: 'hide', requirement: 'optional' },
-      mouseReporting: { mode: 'drag', requirement: 'optional' }
-    } });
+    const exit = await runTui(ideEditorApp);
     process.exitCode = exit.status === 'error' ? 1 : 0;
   } else {
     process.stdout.write(`${JSON.stringify(await runScriptedIdeEditor(), null, 2)}\n`);

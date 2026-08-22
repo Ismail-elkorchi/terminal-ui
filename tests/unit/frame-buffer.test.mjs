@@ -463,6 +463,22 @@ test('diffFrames clears only the changed wide-glyph run when a wide cell narrows
   ]);
 });
 
+test('diffFrames retires stale interaction emphasis before painting its replacement', () => {
+  const selectedStyle = { bg: { kind: 'ansi', value: 4 }, bold: true };
+  const selectedSource = frameCellSource({ interactionState: 'selected' });
+  const defaultSource = frameCellSource({ interactionState: 'focused' });
+  const before = createFrameBuffer(8, 2);
+  before.write(1, 1, [{ text: 'new', source: defaultSource }]);
+  before.write(2, 1, [{ text: 'old', style: selectedStyle, source: selectedSource }]);
+  const after = createFrameBuffer(8, 2);
+  after.write(1, 1, [{ text: 'new', style: selectedStyle, source: selectedSource }]);
+  after.write(2, 1, [{ text: 'old', source: defaultSource }]);
+
+  const diff = diffFrames(before.snapshot(), after.snapshot());
+
+  assert.deepEqual(diff.operations.map((operation) => operation.row ?? operation.bounds.row), [2, 1]);
+});
+
 test('renderFrameAnsi serializes full frames as row runs instead of per-cell cursor moves', () => {
   const buffer = createFrameBuffer(10, 3);
   buffer.write(1, 1, [

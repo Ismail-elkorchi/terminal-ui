@@ -677,8 +677,21 @@ function effectiveCanvasCell(cell: FrameCell, canvasStyle: TerminalStyle | undef
   if (canvasStyle === undefined) return cell;
   return Object.freeze({
     ...cell,
-    style: normalizeTerminalStyle({ ...canvasStyle, ...cell.style }, 'Frame effective cell style')
+    style: effectiveCellStyle(canvasStyle, cell.style)
   });
+}
+
+const effectiveCanvasStyles = new WeakMap<TerminalStyle, WeakMap<TerminalStyle, TerminalStyle>>();
+
+function effectiveCellStyle(canvasStyle: TerminalStyle, cellStyle: TerminalStyle | undefined): TerminalStyle {
+  if (cellStyle === undefined) return canvasStyle;
+  const cachedByCellStyle = effectiveCanvasStyles.get(canvasStyle) ?? new WeakMap<TerminalStyle, TerminalStyle>();
+  effectiveCanvasStyles.set(canvasStyle, cachedByCellStyle);
+  const cached = cachedByCellStyle.get(cellStyle);
+  if (cached !== undefined) return cached;
+  const effective = normalizeTerminalStyle({ ...canvasStyle, ...cellStyle }, 'Frame effective cell style');
+  cachedByCellStyle.set(cellStyle, effective);
+  return effective;
 }
 
 function immutableHitTargets(hitTargets: readonly FrameHitTarget[]): readonly FrameHitTarget[] {

@@ -106,9 +106,8 @@ export function dataGridReducer<TRow>(
         ),
       };
     case 'scroll':
-      return state.scroll === undefined
-        ? state
-        : { ...state, scroll: applyScrollEvent(state.scroll, transition.event) };
+      if (state.scroll === undefined) return state;
+      return withGridScrollState(state, applyScrollEvent(state.scroll, transition.event));
   }
 }
 
@@ -206,15 +205,18 @@ function withActiveRow<TRow>(
   options: DataGridReducerOptions<TRow>,
 ): DataGridPresentation {
   if (state.interaction.kind !== 'row') return state;
-  const interaction: DataGridInteraction = {
-    ...state.interaction,
-    activeRowId: rowId,
-    ...(state.interaction.selection.mode === 'single'
-      && state.interaction.selection.selectionFollowsActive === true
-      ? { selection: { mode: 'single', selectedRowId: rowId, selectionFollowsActive: true } }
-      : {}),
-  };
-  return withGridScroll({ ...state, interaction }, rowId, options.collection, options.pageSize);
+  const current = state.interaction;
+  const selection = current.selection.mode === 'single'
+    && current.selection.selectionFollowsActive === true
+    ? current.selection.selectedRowId === rowId
+      ? current.selection
+      : { mode: 'single' as const, selectedRowId: rowId, selectionFollowsActive: true }
+    : current.selection;
+  const interaction: DataGridInteraction = current.activeRowId === rowId && selection === current.selection
+    ? current
+    : { ...current, activeRowId: rowId, selection };
+  const next = interaction === current ? state : { ...state, interaction };
+  return withGridScroll(next, rowId, options.collection, options.pageSize);
 }
 
 function withActiveCell<TRow>(
@@ -223,15 +225,19 @@ function withActiveCell<TRow>(
   options: DataGridReducerOptions<TRow>,
 ): DataGridPresentation {
   if (state.interaction.kind !== 'cell') return state;
-  const interaction: DataGridInteraction = {
-    ...state.interaction,
-    activeCell: cell,
-    ...(state.interaction.selection.mode === 'single'
-      && state.interaction.selection.selectionFollowsActive === true
-      ? { selection: { mode: 'single', selectedCell: cell, selectionFollowsActive: true } }
-      : {}),
-  };
-  return withGridScroll({ ...state, interaction }, cell.rowId, options.collection, options.pageSize);
+  const current = state.interaction;
+  const activeCell = sameCell(current.activeCell, cell) ? current.activeCell ?? cell : cell;
+  const selection = current.selection.mode === 'single'
+    && current.selection.selectionFollowsActive === true
+    ? sameCell(current.selection.selectedCell, cell)
+      ? current.selection
+      : { mode: 'single' as const, selectedCell: cell, selectionFollowsActive: true }
+    : current.selection;
+  const interaction: DataGridInteraction = activeCell === current.activeCell && selection === current.selection
+    ? current
+    : { ...current, activeCell, selection };
+  const next = interaction === current ? state : { ...state, interaction };
+  return withGridScroll(next, cell.rowId, options.collection, options.pageSize);
 }
 
 function commitGridSelection<TRow>(
@@ -384,7 +390,7 @@ function withGridScroll<TRow>(
   if (state.scroll === undefined) return state;
   const row = collectionRecordById(collection, rowId);
   if (row === undefined) return state;
-  return { ...state, scroll: scrollReducer(
+  return withGridScrollState(state, scrollReducer(
     state.scroll,
     { kind: 'itemIntoView', itemIndex: row.itemIndex, alignment: 'nearest' },
     {
@@ -393,7 +399,14 @@ function withGridScroll<TRow>(
       viewportRows: Math.max(1, pageSize ?? 1),
       viewportColumns: 0,
     },
-  ) };
+  ));
+}
+
+function withGridScrollState(
+  state: DataGridPresentation,
+  scroll: NonNullable<DataGridPresentation['scroll']>,
+): DataGridPresentation {
+  return state.scroll === scroll ? state : { ...state, scroll };
 }
 
 function validCell(cell: DataGridCell, rowIds: readonly string[], columnIds: readonly string[]): boolean {
@@ -402,6 +415,11 @@ function validCell(cell: DataGridCell, rowIds: readonly string[], columnIds: rea
 
 function cellKey(cell: DataGridCell): string {
   return `${cell.rowId}\u0000${cell.columnId}`;
+}
+
+function sameCell(left: DataGridCell | undefined, right: DataGridCell | undefined): boolean {
+  return left === right
+    || left?.rowId === right?.rowId && left?.columnId === right?.columnId;
 }
 
 function nextSort(current: TableSortState | undefined, columnId: string): TableSortState {
@@ -428,7 +446,10 @@ function setColumnWidth(
   width: number,
   minimum = 1,
 ): Readonly<Record<string, number>> {
-  return Object.freeze({ ...current, [columnId]: Math.max(minimum, Math.floor(width)) });
+  const next = Math.max(minimum, Math.floor(width));
+  return current?.[columnId] === next
+    ? current
+    : Object.freeze({ ...current, [columnId]: next });
 }
 
 function compareTableValues(left: unknown, right: unknown): number {
