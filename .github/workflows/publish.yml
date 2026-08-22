@@ -6,9 +6,16 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing release tag to retry on JSR
+        description: Existing release tag to retry
         required: true
         type: string
+      registry:
+        description: Registry to retry
+        required: true
+        type: choice
+        options:
+          - npm
+          - jsr
 
 permissions:
   contents: read
@@ -47,7 +54,7 @@ jobs:
   publish-npm:
     name: publish-npm
     needs: verify
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || inputs.registry == 'npm'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -71,6 +78,7 @@ jobs:
   publish-jsr:
     name: publish-jsr
     needs: verify
+    if: github.event_name == 'release' || inputs.registry == 'jsr'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

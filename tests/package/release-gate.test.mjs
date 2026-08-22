@@ -23,6 +23,7 @@ test('registry publication is gated by a verified immutable release tag', () => 
   assert.match(publishWorkflow, /^  release:\n    types: \[published\]$/mu);
   assert.doesNotMatch(publishWorkflow, /^  (?:push|pull_request):/mu);
   assert.match(publishWorkflow, /^  workflow_dispatch:\n    inputs:\n      release_tag:/mu);
+  assert.match(publishWorkflow, /registry:\n        description: Registry to retry[\s\S]*?options:\n          - npm\n          - jsr/u);
 
   const verification = workflowJob(publishWorkflow, 'verify');
   const npmPublication = workflowJob(publishWorkflow, 'publish-npm');
@@ -32,13 +33,14 @@ test('registry publication is gated by a verified immutable release tag', () => 
   assert.match(verification, /npm run check$/mu);
   assert.match(verification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
   assert.match(npmPublication, /needs: verify/u);
-  assert.match(npmPublication, /if: github\.event_name == 'release'/u);
+  assert.match(npmPublication, /if: github\.event_name == 'release' \|\| inputs\.registry == 'npm'/u);
   assert.match(npmPublication, /runs-on: ubuntu-latest/u);
   assert.match(npmPublication, /id-token: write/u);
   assert.match(npmPublication, /registry-url: https:\/\/registry\.npmjs\.org/u);
   assert.match(npmPublication, /npm publish --access public/u);
   assert.doesNotMatch(npmPublication, /NODE_AUTH_TOKEN|NPM_TOKEN/u);
   assert.match(jsrPublication, /needs: verify/u);
+  assert.match(jsrPublication, /if: github\.event_name == 'release' \|\| inputs\.registry == 'jsr'/u);
   assert.match(jsrPublication, /id-token: write/u);
   assert.match(jsrPublication, /npm ci --ignore-scripts/u);
   assert.match(jsrPublication, /deno publish/u);
