@@ -1,5 +1,10 @@
 import { text, type Element } from '@ismail-elkorchi/terminal-ui/components';
-import { defineTui, type TuiApp } from '@ismail-elkorchi/terminal-ui/tui';
+import {
+  defineTui,
+  runTui,
+  type TuiApp,
+  type TuiRunResult
+} from '@ismail-elkorchi/terminal-ui/tui';
 
 interface IncrementMessage { readonly kind: 'increment' }
 interface ResetMessage { readonly kind: 'reset' }
@@ -54,7 +59,16 @@ const nullMessageApp = defineTui<State, null>({
   view: (state) => text({ content: String(state.count) })
 });
 
+const runResult = runTui(app);
+type AppRunResult = Awaited<typeof runResult>;
+declare const resolvedRun: AppRunResult;
+const publicRunResult: TuiRunResult<State> = resolvedRun;
+// @ts-expect-error operational failures reject instead of resolving from runTui
+const resolvedError: Extract<AppRunResult, { readonly status: 'error' }> = resolvedRun;
+
 void app;
 void invalidApp;
 void arrayStateApp;
 void nullMessageApp;
+void publicRunResult;
+void resolvedError;

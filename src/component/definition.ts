@@ -904,7 +904,12 @@ export function defineComponent<
       : normalizeComponentState(instance, contract.states);
     const prepared = prepareComponentOptions(instance, ownedDefinition, state);
     const toActionMessage = instance.onAction;
-    const behavior = componentBehaviorInput(instance.id, prepared, state);
+    const behavior = componentBehaviorInput(
+      instance.id,
+      instance.meta?.accessibleName,
+      prepared,
+      state
+    );
     const inspection = ownedDefinition.semantics === 'semantic'
       ? ownedDefinition.inspection
       : undefined;
@@ -2134,11 +2139,13 @@ function adoptComponentInstanceOptions(
 
 function componentBehaviorInput<TPrepared extends object>(
   id: string | undefined,
+  accessibleName: string | undefined,
   model: Readonly<TPrepared>,
   state: Readonly<ElementState>
 ): ComponentBehaviorInput<TPrepared> {
   return Object.freeze({
     ...(id === undefined ? {} : { id }),
+    ...(accessibleName === undefined ? {} : { accessibleName }),
     model,
     disabled: state.disabled === true,
     busy: state.busy === true,

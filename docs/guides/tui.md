@@ -133,7 +133,7 @@ owned by the prompt runtime and is not a TUI execution mode.
 TUI transcript capture is opt-in with `transcript: true` on the
 TUI definition. Enabled transcripts record normalized input events, frames,
 render diffs, restore checkpoints, final diagnostics, and the final accessible
-snapshot on the returned `TuiExit`. Recorder retention is bounded by default:
+snapshot on the returned `TuiRunResult`. Recorder retention is bounded by default:
 steps, diagnostics, and redactions have independent count limits, while one
 shared byte, JSON-node, and string-data budgets plus aggregate frame-cell and
 graphics limits bound retained evidence weight. When eviction removes the original render baseline, the oldest
@@ -141,7 +141,7 @@ retained commit is promoted to a complete replay checkpoint. The transcript
 reports omitted counts for each stream. Supply `retention` to
 `createTranscriptRecorder()` when a different evidence budget is required.
 
-When an update returns `exit: { reason }`, the completed `TuiExit` preserves
+When an update returns `exit: { reason }`, the completed `TuiRunResult` preserves
 that reason after terminal-text sanitization.
 
 `Frame.focusPath` is serializable. Pass a previously captured path to

@@ -45,6 +45,7 @@ export type {
   TuiContext,
   TuiDefinition,
   TuiExit,
+  TuiRunResult,
   TuiRunOptions,
   TuiUpdate,
   TuiUpdateResult,

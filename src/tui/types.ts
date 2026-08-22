@@ -227,6 +227,11 @@ export type TuiExit<TState> =
       readonly snapshot: AccessibleSnapshot;
     };
 
+export type TuiRunResult<TState> = Exclude<
+  TuiExit<TState>,
+  { readonly status: 'error' }
+>;
+
 export interface TuiRuntimeOptions<TState, TMessage> {
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;

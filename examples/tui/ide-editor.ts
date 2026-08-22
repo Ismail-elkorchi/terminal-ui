@@ -913,7 +913,7 @@ const isMain = process.argv[1] !== undefined
 if (isMain) {
   if (process.stdin.isTTY && process.stdout.isTTY) {
     const exit = await runTui(ideEditorApp);
-    process.exitCode = exit.status === 'error' ? 1 : 0;
+    if (exit.status !== 'completed') process.exitCode = 1;
   } else {
     process.stdout.write(`${JSON.stringify(await runScriptedIdeEditor(), null, 2)}\n`);
   }

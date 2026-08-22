@@ -229,6 +229,28 @@ test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => 
   assert.equal(dropdownFrame.accessibility.root.children?.[0]?.expanded, true);
 });
 
+test('open icon-only menu triggers preserve their caller-supplied accessible name', () => {
+  const frame = renderElementFrame(menuTrigger({
+    id: 'application-menu',
+    placeholder: '☰',
+    items: [
+      { kind: 'action', id: 'settings', label: 'Settings' }
+    ],
+    presentation: menuTriggerPresentation([
+      { kind: 'action', id: 'settings', label: 'Settings' }
+    ], { kind: 'open', active: 'settings', menu: { activePath: ['settings'] } }),
+    onTransition: (action) => action,
+    meta: { accessibleName: 'Application menu' }
+  }), { columns: 24, rows: 4 });
+
+  assert.equal(frame.accessibility.root.label, 'Application menu');
+  assert.equal(frame.accessibility.root.children?.[0]?.label, 'Application menu');
+  assert.equal(
+    findAccessibleNode(frame.accessibility, 'application-menu:popup:menu')?.label,
+    'Application menu'
+  );
+});
+
 test('open menu bars name their popup from the active heading', () => {
   const frame = renderElementFrame(menuBar({
     id: 'main-menu',

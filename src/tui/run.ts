@@ -24,12 +24,18 @@ import type {
 } from '../diagnostics.ts';
 import type { TuiLifecyclePhase } from './lifecycle-phase.ts';
 import type { NormalizedTuiRunOptions } from './run-configuration.ts';
-import type { TuiApp, TuiExit, TuiRunOptions, TuiRuntime } from './types.ts';
+import type {
+  TuiApp,
+  TuiExit,
+  TuiRunOptions,
+  TuiRunResult,
+  TuiRuntime
+} from './types.ts';
 
 export async function runTui<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   options: TuiRunOptions<TState> = {}
-): Promise<TuiExit<TState>> {
+): Promise<TuiRunResult<TState>> {
   assertTuiApp(app);
   const transcript = createTuiTranscript(app);
   const diagnosticReporter = createDiagnosticOccurrenceReporter(`${app.id}:run`);
@@ -221,7 +227,7 @@ export class TuiRunError<TState = unknown> extends TerminalUiError {
   }
 }
 
-function operationalExit<TState>(exit: TuiExit<TState>): TuiExit<TState> {
+function operationalExit<TState>(exit: TuiExit<TState>): TuiRunResult<TState> {
   if (exit.status === 'error') throw new TuiRunError(exit);
   return exit;
 }
