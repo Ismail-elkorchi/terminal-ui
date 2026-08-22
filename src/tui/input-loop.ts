@@ -1,4 +1,5 @@
 import { diagnostic } from '../diagnostics.ts';
+import { errorFromUnknown } from '../errors.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { completedExit, exitWithStatus } from './exit.ts';
 import { retireTuiRuntimeInput } from './runtime.ts';
@@ -32,55 +33,28 @@ export async function runTuiInputLoop<TState, TMessage>(
   signals: TuiSignalQueue
 ): Promise<TuiExit<TState>> {
   const changeController = new AbortController();
+  const events = createInputLoopEventMultiplexer<TState>();
   let inputController = new AbortController();
   let input: AsyncIterator<TerminalInputChunk> | undefined;
-  let inputNext: Promise<IteratorResult<TerminalInputChunk>> | undefined;
-  let signalNext: Promise<TerminalSignal>;
-  let runtimeChangeNext: Promise<TuiRuntimeChange<TState>>;
   let inputWorkNext: Promise<InputWorkOutcome<TState>> | undefined;
   let inputBatchNext: Promise<readonly TuiInputResult<TState>[]> | undefined;
   let resizeQueued = false;
-  let resizeNext: Promise<Settled<unknown>> | undefined;
-  let suspensionNext: Promise<InputSuspensionRequest> | undefined;
+  let resizeNext: Promise<unknown> | undefined;
   let suspendedRequest: InputSuspensionRequest | undefined;
   try {
     input = host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
-    inputNext = input.next();
-    signalNext = signals.next();
-    runtimeChangeNext = runtime.nextChange(changeController.signal);
-    suspensionNext = suspension?.next();
+    const firstInput = input.next();
+    watchSignal();
+    watchRuntimeChange();
+    watchInput(firstInput);
+    watchSuspension();
     for (;;) {
-      const resumeRequest = suspendedRequest;
-      const candidates: Promise<InputLoopEvent<TState>>[] = [
-        signalNext.then((signal) => ({ kind: 'signal' as const, signal })),
-        runtimeChangeNext.then((change) => ({ kind: 'runtime' as const, change })),
-        ...(inputNext === undefined
-          ? []
-          : [settle(inputNext).then((outcome) => ({ kind: 'input' as const, outcome }))]),
-        ...(inputWorkNext === undefined
-          ? []
-          : [inputWorkNext.then((outcome) => ({ kind: 'inputWork' as const, outcome }))]),
-        ...(inputBatchNext === undefined
-          ? []
-          : [settle(inputBatchNext).then((outcome) => ({ kind: 'inputBatch' as const, outcome }))]),
-        ...(resizeNext === undefined
-          ? []
-          : [resizeNext.then((outcome) => ({ kind: 'resize' as const, outcome }))]),
-        ...(suspensionNext === undefined
-          ? []
-          : [suspensionNext.then((request) => ({ kind: 'suspend' as const, request }))]),
-        ...(resumeRequest === undefined
-          ? []
-          : [resumeRequest.resumeRequested.then(() => ({
-              kind: 'resume' as const,
-              request: resumeRequest
-            }))])
-      ];
-      const event = await Promise.race(candidates);
+      const event = await events.next();
       if (event.kind === 'suspend') {
-        suspensionNext = undefined;
         let inputReleaseStarted = false;
         try {
+          events.cancel('inputWork');
+          events.cancel('inputBatch');
           const exit = await settleInputWork();
           if (exit !== undefined) return exit;
           const releaseInput = host.stdin.release?.bind(host.stdin);
@@ -92,17 +66,18 @@ export async function runTuiInputLoop<TState, TMessage>(
             throw new Error('Terminal input is unavailable during suspension.');
           }
           inputReleaseStarted = true;
+          events.cancel('input');
           inputController.abort('terminal_input_suspended');
-          inputNext = undefined;
           await releaseTerminalInput(suspendingInput, releaseInput);
           input = undefined;
           runtime.resetInput();
           suspendedRequest = event.request;
           event.request.paused();
+          watchResume(event.request);
         } catch (cause) {
           event.request.pauseFailed(cause);
           if (inputReleaseStarted) throw cause;
-          suspensionNext = suspension?.next();
+          watchSuspension();
         }
         continue;
       }
@@ -110,22 +85,20 @@ export async function runTuiInputLoop<TState, TMessage>(
         suspendedRequest = undefined;
         openInput();
         event.request.resumed();
-        suspensionNext = suspension?.next();
+        watchSuspension();
         continue;
       }
       if (event.kind === 'input') {
-        inputNext = undefined;
-        if (event.outcome.status === 'rejected') throw event.outcome.cause;
-        inputWorkNext = event.outcome.value.done === true
-          ? settle(runtime.flushInput()).then((outcome) => ({ outcome, endAfter: true }))
-          : settle(runtime.handleInputChunk(event.outcome.value.value))
-              .then((outcome) => ({ outcome, endAfter: false }));
+        inputWorkNext = event.value.done === true
+          ? runtime.flushInput().then((work) => ({ work, endAfter: true }))
+          : runtime.handleInputChunk(event.value.value)
+              .then((work) => ({ work, endAfter: false }));
+        events.watch('inputWork', inputWorkNext, (outcome) => ({ kind: 'inputWork', outcome }));
         continue;
       }
       if (event.kind === 'inputWork') {
         inputWorkNext = undefined;
-        if (event.outcome.outcome.status === 'rejected') throw event.outcome.outcome.cause;
-        const batch = normalizeInputWork(event.outcome.outcome.value);
+        const batch = normalizeInputWork(event.outcome.work);
         const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
         if (exit !== undefined) return exit;
         inputBatchNext = batch.pending;
@@ -134,43 +107,44 @@ export async function runTuiInputLoop<TState, TMessage>(
         if (activeInput === undefined) {
           throw new Error('Terminal input is unavailable while processing input.');
         }
-        inputNext = activeInput.next();
+        watchInput(activeInput.next());
+        if (inputBatchNext !== undefined) {
+          events.watch('inputBatch', inputBatchNext, (results) => ({ kind: 'inputBatch', results }));
+        }
         continue;
       }
       if (event.kind === 'inputBatch') {
         inputBatchNext = undefined;
-        if (event.outcome.status === 'rejected') throw event.outcome.cause;
-        const exit = event.outcome.value.find((result) => result.exit !== undefined)?.exit;
+        const exit = event.results.find((result) => result.exit !== undefined)?.exit;
         if (exit !== undefined) return exit;
         continue;
       }
       if (event.kind === 'resize') {
         resizeNext = undefined;
-        if (event.outcome.status === 'rejected') throw event.outcome.cause;
         if (resizeQueued) {
           resizeQueued = false;
-          resizeNext = settle(runtime.resize(host.getTerminalSize()));
+          watchResize(runtime.resize(host.getTerminalSize()));
         }
         continue;
       }
       if (event.kind === 'runtime') {
         if (event.change.kind === 'exit') return event.change.exit;
-        runtimeChangeNext = runtime.nextChange(changeController.signal);
+        watchRuntimeChange();
         continue;
       }
-      signalNext = signals.next();
+      watchSignal();
       transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });
       if (event.signal === 'resize') {
-        if (resizeNext === undefined) resizeNext = settle(runtime.resize(host.getTerminalSize()));
+        if (resizeNext === undefined) watchResize(runtime.resize(host.getTerminalSize()));
         else resizeQueued = true;
         continue;
       }
       inputController.abort(`terminal_signal:${event.signal}`);
-      inputNext = undefined;
       retireTuiRuntimeInput(runtime);
       return handleTuiSignal(runtime, appId, event.signal);
     }
   } finally {
+    events.close();
     inputController.abort();
     changeController.abort();
     const retirement = input === undefined
@@ -201,15 +175,44 @@ export async function runTuiInputLoop<TState, TMessage>(
     inputController = new AbortController();
     const nextInput = host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
     input = nextInput;
-    inputNext = nextInput.next();
+    watchInput(nextInput.next());
+  }
+
+  function watchInput(operation: Promise<IteratorResult<TerminalInputChunk>>): void {
+    events.watch('input', operation, (value) => ({ kind: 'input', value }));
+  }
+
+  function watchSignal(): void {
+    events.watch('signal', signals.next(), (signal) => ({ kind: 'signal', signal }));
+  }
+
+  function watchRuntimeChange(): void {
+    events.watch(
+      'runtime',
+      runtime.nextChange(changeController.signal),
+      (change) => ({ kind: 'runtime', change })
+    );
+  }
+
+  function watchSuspension(): void {
+    if (suspension === undefined) return;
+    events.watch('suspend', suspension.next(), (request) => ({ kind: 'suspend', request }));
+  }
+
+  function watchResume(request: InputSuspensionRequest): void {
+    events.watch('resume', request.resumeRequested, () => ({ kind: 'resume', request }));
+  }
+
+  function watchResize(operation: Promise<unknown>): void {
+    resizeNext = operation;
+    events.watch('resize', operation, () => ({ kind: 'resize' }));
   }
 
   async function settleInputWork(): Promise<TuiExit<TState> | undefined> {
     if (inputWorkNext !== undefined) {
       const work = await inputWorkNext;
       inputWorkNext = undefined;
-      if (work.outcome.status === 'rejected') throw work.outcome.cause;
-      const batch = normalizeInputWork(work.outcome.value);
+      const batch = normalizeInputWork(work.work);
       const immediateExit = batch.results.find((result) => result.exit !== undefined)?.exit;
       if (immediateExit !== undefined) return immediateExit;
       inputBatchNext = batch.pending;
@@ -269,30 +272,124 @@ function handleTuiSignal<TState, TMessage>(
   return { ...exitWithStatus('interrupted', runtime.state(), frame), diagnostics: runtime.diagnostics() };
 }
 
-type Settled<TValue> =
-  | { readonly status: 'fulfilled'; readonly value: TValue }
-  | { readonly status: 'rejected'; readonly cause: unknown };
-
 interface InputWorkOutcome<TState> {
-  readonly outcome: Settled<TuiInputBatchResult<TState> | readonly TuiInputResult<TState>[]>;
+  readonly work: TuiInputBatchResult<TState> | readonly TuiInputResult<TState>[];
   readonly endAfter: boolean;
 }
 
 type InputLoopEvent<TState> =
-  | { readonly kind: 'input'; readonly outcome: Settled<IteratorResult<TerminalInputChunk>> }
+  | { readonly kind: 'input'; readonly value: IteratorResult<TerminalInputChunk> }
   | { readonly kind: 'inputWork'; readonly outcome: InputWorkOutcome<TState> }
-  | { readonly kind: 'inputBatch'; readonly outcome: Settled<readonly TuiInputResult<TState>[]> }
-  | { readonly kind: 'resize'; readonly outcome: Settled<unknown> }
+  | { readonly kind: 'inputBatch'; readonly results: readonly TuiInputResult<TState>[] }
+  | { readonly kind: 'resize' }
   | { readonly kind: 'runtime'; readonly change: TuiRuntimeChange<TState> }
   | { readonly kind: 'signal'; readonly signal: TerminalSignal }
   | { readonly kind: 'suspend'; readonly request: InputSuspensionRequest }
   | { readonly kind: 'resume'; readonly request: InputSuspensionRequest };
 
-function settle<TValue>(operation: Promise<TValue>): Promise<Settled<TValue>> {
-  return operation.then(
-    (value) => ({ status: 'fulfilled', value }),
-    (cause: unknown) => ({ status: 'rejected', cause })
-  );
+type InputLoopEventKind = InputLoopEvent<unknown>['kind'];
+
+const inputLoopEventPriority: readonly InputLoopEventKind[] = Object.freeze([
+  'signal',
+  'runtime',
+  'input',
+  'inputWork',
+  'inputBatch',
+  'resize',
+  'suspend',
+  'resume'
+]);
+
+type InputLoopEventOutcome<TState> =
+  | { readonly status: 'fulfilled'; readonly event: InputLoopEvent<TState> }
+  | { readonly status: 'rejected'; readonly cause: unknown };
+
+function createInputLoopEventMultiplexer<TState>() {
+  const watched = new Map<InputLoopEventKind, symbol>();
+  const pending = new Map<InputLoopEventKind, InputLoopEventOutcome<TState>>();
+  let waiter: PromiseWithResolvers<InputLoopEvent<TState>> | undefined;
+  let closed = false;
+
+  return {
+    watch<TValue>(
+      kind: InputLoopEventKind,
+      operation: Promise<TValue>,
+      project: (value: TValue) => InputLoopEvent<TState>
+    ): void {
+      if (closed) throw new Error('TUI input event multiplexer is closed.');
+      if (watched.has(kind) || pending.has(kind)) {
+        throw new Error(`TUI input event lane already has pending work: ${kind}.`);
+      }
+      const token = Symbol(kind);
+      watched.set(kind, token);
+      void operation.then(
+        (value) => { publish(kind, token, { status: 'fulfilled', event: project(value) }); },
+        (cause: unknown) => { publish(kind, token, { status: 'rejected', cause }); }
+      );
+    },
+    cancel(kind: InputLoopEventKind): void {
+      watched.delete(kind);
+      pending.delete(kind);
+    },
+    next(): Promise<InputLoopEvent<TState>> {
+      if (closed) return Promise.reject(new Error('TUI input event multiplexer is closed.'));
+      const outcome = takePending();
+      if (outcome !== undefined) return outcomePromise(outcome);
+      if (waiter !== undefined) {
+        return Promise.reject(new Error('TUI input event multiplexer already has a pending consumer.'));
+      }
+      waiter = Promise.withResolvers<InputLoopEvent<TState>>();
+      return waiter.promise;
+    },
+    close(): void {
+      if (closed) return;
+      closed = true;
+      watched.clear();
+      pending.clear();
+      const activeWaiter = waiter;
+      waiter = undefined;
+      activeWaiter?.reject(new Error('TUI input event multiplexer is closed.'));
+    }
+  };
+
+  function publish(
+    kind: InputLoopEventKind,
+    token: symbol,
+    outcome: InputLoopEventOutcome<TState>
+  ): void {
+    if (closed || watched.get(kind) !== token) return;
+    watched.delete(kind);
+    pending.set(kind, outcome);
+    settleWaiter();
+  }
+
+  function settleWaiter(): void {
+    const activeWaiter = waiter;
+    if (activeWaiter === undefined) return;
+    const outcome = takePending();
+    if (outcome === undefined) return;
+    waiter = undefined;
+    if (outcome.status === 'fulfilled') activeWaiter.resolve(outcome.event);
+    else activeWaiter.reject(errorFromUnknown(outcome.cause));
+  }
+
+  function takePending(): InputLoopEventOutcome<TState> | undefined {
+    for (const kind of inputLoopEventPriority) {
+      const outcome = pending.get(kind);
+      if (outcome === undefined) continue;
+      pending.delete(kind);
+      return outcome;
+    }
+    return undefined;
+  }
+}
+
+function outcomePromise<TState>(
+  outcome: InputLoopEventOutcome<TState>
+): Promise<InputLoopEvent<TState>> {
+  return outcome.status === 'fulfilled'
+    ? Promise.resolve(outcome.event)
+    : Promise.reject(errorFromUnknown(outcome.cause));
 }
 
 function normalizeInputWork<TState>(
@@ -311,10 +408,12 @@ export function createTuiSignalQueue(
   subscribe: (listener: (signal: TerminalSignal) => void) => Unsubscribe
 ): TuiSignalQueue {
   const queued: TerminalSignal[] = [];
-  const waiters: ((signal: TerminalSignal) => void)[] = [];
+  const waiters: PromiseWithResolvers<TerminalSignal>[] = [];
   const interruption = new AbortController();
   let resizeQueued = false;
+  let closed: Error | undefined;
   const unsubscribe = subscribe((signal) => {
+    if (closed !== undefined) return;
     if (signal !== 'resize' && !interruption.signal.aborted) interruption.abort(signal);
     const waiter = waiters.shift();
     if (waiter === undefined) {
@@ -323,21 +422,26 @@ export function createTuiSignalQueue(
       if (signal === 'resize') resizeQueued = true;
       return;
     }
-    waiter(signal);
+    waiter.resolve(signal);
   });
   return {
     interruption: interruption.signal,
     next() {
+      if (closed !== undefined) return Promise.reject(closed);
       const queuedSignal = queued.shift();
       if (queuedSignal !== undefined) {
         if (queuedSignal === 'resize') resizeQueued = false;
         return Promise.resolve(queuedSignal);
       }
-      return new Promise((resolve) => waiters.push(resolve));
+      const waiter = Promise.withResolvers<TerminalSignal>();
+      waiters.push(waiter);
+      return waiter.promise;
     },
     dispose() {
+      if (closed !== undefined) return;
+      closed = new Error('TUI signal queue is disposed.');
       unsubscribe();
-      waiters.splice(0);
+      for (const waiter of waiters.splice(0)) waiter.reject(closed);
       queued.splice(0);
       resizeQueued = false;
     }

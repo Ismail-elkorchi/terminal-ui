@@ -13,7 +13,7 @@ export interface InputSuspensionLease {
 
 export class TuiInputSuspensionController {
   readonly #queued: ManagedInputSuspensionRequest[] = [];
-  #waiting: ((request: ManagedInputSuspensionRequest) => void) | undefined;
+  #waiting: PromiseWithResolvers<InputSuspensionRequest> | undefined;
   #closed = false;
 
   request(): InputSuspensionLease {
@@ -43,7 +43,8 @@ export class TuiInputSuspensionController {
     if (waiting === undefined) this.#queued.push(request);
     else {
       this.#waiting = undefined;
-      waiting(request);
+      request.delivered();
+      waiting.resolve(request);
     }
     return {
       paused: paused.promise,
@@ -71,19 +72,22 @@ export class TuiInputSuspensionController {
       queued.delivered();
       return Promise.resolve(queued);
     }
-    if (this.#closed) return new Promise(() => undefined);
-    return new Promise((resolve) => {
-      this.#waiting = (request) => {
-        request.delivered();
-        resolve(request);
-      };
-    });
+    if (this.#closed) {
+      return Promise.reject(new Error('TUI input suspension is unavailable after the input loop ends.'));
+    }
+    if (this.#waiting !== undefined) {
+      return Promise.reject(new Error('TUI input suspension already has a pending consumer.'));
+    }
+    this.#waiting = Promise.withResolvers<InputSuspensionRequest>();
+    return this.#waiting.promise;
   }
 
   close(): void {
+    if (this.#closed) return;
     this.#closed = true;
     const failure = new Error('TUI input loop ended during terminal suspension.');
     for (const request of this.#queued.splice(0)) request.pauseFailed(failure);
+    this.#waiting?.reject(failure);
     this.#waiting = undefined;
   }
 }
