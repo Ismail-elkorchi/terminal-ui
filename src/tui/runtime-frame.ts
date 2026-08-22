@@ -38,6 +38,7 @@ export interface RenderCommitCandidate<TMessage> {
   readonly node: RenderNode<TMessage>;
   readonly layout: LayoutNode;
   readonly regions: readonly RenderRegion<TMessage>[];
+  readonly postCompositionDamage: DirtyRegionSet;
   readonly frame: Frame;
   readonly theme: TerminalTheme;
   readonly limits: RenderBudgetLimits;
@@ -98,6 +99,7 @@ function candidateFromRenderResult<TState, TMessage>(
     node: renderResult.node,
     layout: renderResult.layout,
     regions: renderResult.regions,
+    postCompositionDamage: renderResult.postCompositionDamage,
     frame,
     theme: renderResult.theme,
     limits: renderResult.limits,
@@ -185,7 +187,11 @@ export function dirtyRegionsForRenderCommit(
   previous: RenderCommitCandidate<unknown> | undefined,
   next: RenderCommitCandidate<unknown>
 ): DirtyRegionSet | undefined {
-  return dirtyRegionsForRegionChanges(previous?.regions, next.regions);
+  const regionDamage = dirtyRegionsForRegionChanges(previous?.regions, next.regions);
+  if (regionDamage === undefined || previous === undefined) return undefined;
+  return regionDamage
+    .union(previous.postCompositionDamage)
+    .union(next.postCompositionDamage);
 }
 
 export function resolveTuiTheme<TState>(theme: TuiTheme<TState> | undefined, state: TState): TerminalTheme {

@@ -14,6 +14,7 @@ import {
   renderElementFrame,
   renderFramePlain
 } from '../../dist/renderer/index.js';
+import { applyRenderDiff } from '../../dist/renderer/internal/diff-interpreter.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { button, commandInput } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
@@ -412,6 +413,62 @@ test('commandInput leaves Tab available for focus traversal without suggestions'
 
   assert.equal(runtime.frame().focusPath?.at(-1), 'next');
   assert.deepEqual(runtime.state().actions, []);
+  await runtime.dispose();
+});
+
+test('commandInput cursor-only keyboard and pointer transitions repaint the committed cursor cells', async () => {
+  const app = defineTui({
+    id: 'command-cursor-damage',
+    init: () => ({
+      state: createCommandInputState({
+        value: 'abcd',
+        suggestions: prepareCommandSuggestions([])
+      })
+    }),
+    update: (state, action) => ({ state: commandInputReducer(state, action) }),
+    view: (state) => testCommandInput({
+      id: 'command-cursor',
+      presentation: commandInputPresentation(state),
+      onTransition: (action) => action
+    })
+  });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 12, rows: 1 } });
+  const runtime = createTuiRuntime({ app, host, input: { mouseReporting: 'drag' } });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'arrowLeft',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+  assert.equal(runtime.state().editor.input.cursor, 3);
+
+  const pointer = await runtime.handleInputChunk({ data: '\u001B[<0;4;1M' });
+  assert.equal(pointer.results[0]?.handled, true);
+  assert.equal(runtime.state().editor.input.cursor, 1);
+
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'backspace',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+  assert.deepEqual(runtime.state().editor.input, { text: 'bcd', cursor: 0 });
+
+  const frames = host.frames();
+  const diffs = host.diffs();
+  assert.equal(frames.length, 4);
+  assert.equal(diffs.length, frames.length);
+  for (let index = 1; index < frames.length; index += 1) {
+    const replayed = applyRenderDiff(frames[index - 1], diffs[index]);
+    assert.deepEqual(replayed.cells, frames[index].cells);
+    assert.deepEqual(replayed.cursor, frames[index].cursor);
+    assert.equal(frames[index].cells.filter((cell) => cell.style?.inverse === true).length, 1);
+  }
+
   await runtime.dispose();
 });
 

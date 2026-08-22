@@ -25,6 +25,7 @@ import type {
   FrameRowFingerprint,
   FrameSnapshotRowIndex,
 } from './frame-snapshot.ts';
+import type { DirtyRegionSet } from './dirty-regions.ts';
 
 export interface FrameBufferOptions {
   readonly widthProfile?: TextWidthProfile;
@@ -144,11 +145,19 @@ export function mergeableFrameCells(buffer: FrameBuffer): readonly FrameCell[] {
   return buffer.snapshot().cells.filter(isMergeableFrameCell);
 }
 
+export function captureFrameBufferDamage(buffer: FrameBuffer, operation: () => void): DirtyRegionSet {
+  if (!(buffer instanceof CellFrameBuffer)) {
+    throw new TypeError('Frame-buffer damage can only be captured for a framework-owned buffer.');
+  }
+  return buffer[captureDamage](operation);
+}
+
 const blitCell = Symbol('terminal-ui.blit-frame-cell');
 const transferCell = Symbol('terminal-ui.transfer-frame-cell');
 const transferSpans = Symbol('terminal-ui.transfer-render-spans');
 const applyBackdrop = Symbol('terminal-ui.apply-canvas-backdrop');
 const mergeableCells = Symbol('terminal-ui.mergeable-frame-cells');
+const captureDamage = Symbol('terminal-ui.capture-frame-buffer-damage');
 
 class CellFrameBuffer implements FrameBuffer {
   readonly width: number;
@@ -161,6 +170,7 @@ class CellFrameBuffer implements FrameBuffer {
   private readonly mergeableCellValues = new Set<FrameCell>();
   private readonly writtenCoverage = new DirtyCoverageAccumulator();
   private readonly clearedCoverage = new DirtyCoverageAccumulator();
+  private readonly damageScopes: DirtyCoverageAccumulator[] = [];
   private canvasStyleOverride: TerminalStyle | undefined;
 
   constructor(
@@ -252,7 +262,7 @@ class CellFrameBuffer implements FrameBuffer {
       fit,
       clip: Object.freeze(clip),
     }));
-    this.writtenCoverage.add(clip);
+    this.recordWrite(clip);
   }
 
   private clipRectIntersection(bounds: Rect, requestedClip: Rect): Rect | undefined {
@@ -274,7 +284,7 @@ class CellFrameBuffer implements FrameBuffer {
   clear(rect?: Rect): void {
     const clipped = this.clipRect(rect ?? { row: 1, column: 1, width: this.width, height: this.height });
     if (clipped === undefined) return;
-    this.clearedCoverage.add(clipped);
+    this.recordClear(clipped);
     if (clipped.row === 1 && clipped.column === 1 && clipped.width === this.width && clipped.height === this.height) {
       this.rows.clear();
       this.graphics.clear();
@@ -437,6 +447,17 @@ class CellFrameBuffer implements FrameBuffer {
       .toSorted((left, right) => left.row - right.row || left.column - right.column));
   }
 
+  [captureDamage](operation: () => void): DirtyRegionSet {
+    const damage = new DirtyCoverageAccumulator();
+    this.damageScopes.push(damage);
+    try {
+      operation();
+      return damage.toDirtyRegionSet();
+    } finally {
+      this.damageScopes.pop();
+    }
+  }
+
   private containsRow(row: number): boolean {
     return Number.isInteger(row) && row >= 1 && row <= this.height;
   }
@@ -513,7 +534,7 @@ class CellFrameBuffer implements FrameBuffer {
         this.clearCellGroup(row, column + offset, 'write');
       }
     }
-    this.writtenCoverage.addSpan(row, column, Math.max(1, cell.width));
+    this.recordWriteSpan(row, column, Math.max(1, cell.width));
     const style = existingBackground === undefined
       ? cell.style
       : Object.freeze({ ...cell.style, bg: existingBackground });
@@ -617,7 +638,22 @@ class CellFrameBuffer implements FrameBuffer {
     if (!this.containsRow(row)) return;
     const start = Math.max(1, column);
     const end = Math.min(this.width + 1, column + width);
-    if (end > start) this.writtenCoverage.addSpan(row, start, end - start);
+    if (end > start) this.recordWriteSpan(row, start, end - start);
+  }
+
+  private recordWrite(rect: Rect): void {
+    this.writtenCoverage.add(rect);
+    for (const damage of this.damageScopes) damage.add(rect);
+  }
+
+  private recordWriteSpan(row: number, column: number, width: number): void {
+    this.writtenCoverage.addSpan(row, column, width);
+    for (const damage of this.damageScopes) damage.addSpan(row, column, width);
+  }
+
+  private recordClear(rect: Rect): void {
+    this.clearedCoverage.add(rect);
+    for (const damage of this.damageScopes) damage.add(rect);
   }
 }
 

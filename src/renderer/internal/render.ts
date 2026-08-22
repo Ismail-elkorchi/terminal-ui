@@ -18,6 +18,7 @@ import { createFrameBuffer } from './frame.ts';
 import {
   applyImplicitCanvasBackdrop,
   blitFrameCell,
+  captureFrameBufferDamage,
   transferFrameCell,
 } from './frame-buffer.ts';
 import { applyCursorStyle } from './cursor-style.ts';
@@ -72,6 +73,7 @@ import type {
   RenderWorkMeasurement
 } from '../contracts.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
+import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import { createRenderBudget } from './render-budget.ts';
 import type { RenderBudget, RenderBudgetLimits } from './render-budget.ts';
@@ -154,6 +156,7 @@ export interface InternalRenderResult<TMessage = unknown> {
   readonly widthProfile: TextWidthProfile;
   readonly layout: LayoutNode;
   readonly regions: readonly RenderRegion<TMessage>[];
+  readonly postCompositionDamage: DirtyRegionSet;
   readonly frame: Frame;
   readonly limits: RenderBudgetLimits;
   readonly graphicsBudget: GraphicsBudgetLimits;
@@ -244,13 +247,16 @@ function materializeRenderNode<TMessage>(
     kind: 'composed_cells',
     count: regions.reduce((total, region) => total + region.cells.length, 0)
   });
-  measureRenderStage(options.instrumentation, 'frame_passes', () => {
-    applyFramePasses(buffer, framePassesForOptions(options), { theme, terminalSize, widthProfile });
-  });
-  const cursor = measureRenderStage(options.instrumentation, 'cursor', () => {
-    const next = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath);
-    applyCursorStyle(buffer, next);
-    return next;
+  let cursor: ReturnType<typeof cursorForFocusedRenderNode> = undefined;
+  const postCompositionDamage = captureFrameBufferDamage(buffer, () => {
+    measureRenderStage(options.instrumentation, 'frame_passes', () => {
+      applyFramePasses(buffer, framePassesForOptions(options), { theme, terminalSize, widthProfile });
+    });
+    cursor = measureRenderStage(options.instrumentation, 'cursor', () => {
+      const next = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath);
+      applyCursorStyle(buffer, next);
+      return next;
+    });
   });
   const hitTargets = measureRenderStage(options.instrumentation, 'hit_targets', () =>
     regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion))
@@ -299,6 +305,7 @@ function materializeRenderNode<TMessage>(
     widthProfile,
     layout,
     regions,
+    postCompositionDamage,
     frame,
     limits: budget.limits,
     graphicsBudget: budget.graphicsLimits,

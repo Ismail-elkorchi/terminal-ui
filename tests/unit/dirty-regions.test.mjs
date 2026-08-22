@@ -12,7 +12,8 @@ import {
 } from '../../dist/renderer/internal/dirty-regions.js';
 import { applyRenderDiff } from '../../dist/renderer/internal/diff-interpreter.js';
 import { createFrameBuffer } from '../../dist/renderer/internal/frame-buffer.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementInternal, renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { dirtyRegionsForRenderCommit } from '../../dist/tui/runtime-frame.js';
 import {
   absolute,
   overlay,
@@ -20,8 +21,10 @@ import {
 } from '../../dist/layout/index.js';
 import {
   dialog,
-  text
+  text,
+  textInput
 } from '../../dist/components/index.js';
+import { ignoreMessage } from '../../dist/component/index.js';
 import { testCanvas as canvas } from '../helpers/canvas.mjs';
 
 test('DirtyRegionSet adds unions intersects and normalizes rectangles', () => {
@@ -71,6 +74,80 @@ test('dirty diff for moved regions round-trips to the full next frame', () => {
   assert.equal(diff.fullRewrite, false);
   assert.equal(renderFramePlain(applied), renderFramePlain(next));
   assert.equal(diff.dirtyRegions?.some((rect) => rect.width === terminalSize.columns && rect.height === terminalSize.rows), false);
+});
+
+test('retained commit damage includes styled cursor cells outside region snapshots', () => {
+  const terminalSize = { columns: 8, rows: 1 };
+  const previous = renderElementInternal(cursorInput(4), terminalSize, { focusPath: ['cursor-input'] });
+  const next = renderElementInternal(cursorInput(3), terminalSize, { focusPath: ['cursor-input'] });
+  const regionDamage = dirtyRegionsForRegionChanges(previous.regions, next.regions);
+  const commitDamage = dirtyRegionsForRenderCommit(previous, next);
+  const diff = diffFrames(previous.frame, next.frame, { dirtyRegions: commitDamage?.rects });
+  const replayed = applyRenderDiff(previous.frame, diff);
+
+  assert.deepEqual(regionDamage?.rects, []);
+  assert.deepEqual(previous.postCompositionDamage.rects, [{ row: 1, column: 7, width: 1, height: 1 }]);
+  assert.deepEqual(next.postCompositionDamage.rects, [{ row: 1, column: 6, width: 1, height: 1 }]);
+  assert.deepEqual(commitDamage?.rects, [{ row: 1, column: 6, width: 2, height: 1 }]);
+  assert.deepEqual(replayed.cells, next.frame.cells);
+  assert.deepEqual(replayed.cursor, next.frame.cursor);
+});
+
+test('styled cursor damage covers complete wide graphemes', () => {
+  const terminalSize = { columns: 8, rows: 1 };
+  const previous = renderElementInternal(cursorInput(0, '🙂', 'wide-cursor-input'), terminalSize, {
+    focusPath: ['wide-cursor-input']
+  });
+  const next = renderElementInternal(cursorInput(2, '🙂', 'wide-cursor-input'), terminalSize, {
+    focusPath: ['wide-cursor-input']
+  });
+  const damage = dirtyRegionsForRenderCommit(previous, next);
+  const replayed = applyRenderDiff(previous.frame, diffFrames(previous.frame, next.frame, {
+    dirtyRegions: damage?.rects
+  }));
+
+  assert.deepEqual(previous.postCompositionDamage.rects, [{ row: 1, column: 3, width: 2, height: 1 }]);
+  assert.deepEqual(next.postCompositionDamage.rects, [{ row: 1, column: 5, width: 1, height: 1 }]);
+  assert.deepEqual(damage?.rects, [{ row: 1, column: 3, width: 3, height: 1 }]);
+  assert.deepEqual(replayed.cells, next.frame.cells);
+});
+
+test('retained commit damage includes neighboring cells changed by frame passes', () => {
+  const horizontal = absolute(borderGlyph('horizontal-border', '─'), {
+    id: 'horizontal-border-placement',
+    row: 2,
+    column: 2,
+    width: 1,
+    height: 1
+  });
+  const vertical = absolute(borderGlyph('vertical-border', '│'), {
+    id: 'vertical-border-placement',
+    row: 1,
+    column: 2,
+    width: 1,
+    height: 1
+  });
+  const terminalSize = { columns: 4, rows: 3 };
+  const previous = renderElementInternal(overlay([horizontal], { id: 'joined-border-root' }), terminalSize);
+  const next = renderElementInternal(overlay([horizontal, vertical], { id: 'joined-border-root' }), terminalSize);
+  const regionDamage = dirtyRegionsForRegionChanges(previous.regions, next.regions);
+  const commitDamage = dirtyRegionsForRenderCommit(previous, next);
+  const diff = diffFrames(previous.frame, next.frame, { dirtyRegions: commitDamage?.rects });
+  const replayed = applyRenderDiff(previous.frame, diff);
+  const removalDamage = dirtyRegionsForRenderCommit(next, previous);
+  const removalReplay = applyRenderDiff(next.frame, diffFrames(next.frame, previous.frame, {
+    dirtyRegions: removalDamage?.rects
+  }));
+
+  assert.deepEqual(regionDamage?.rects, [{ row: 1, column: 2, width: 1, height: 1 }]);
+  assert.deepEqual(commitDamage?.rects, [
+    { row: 1, column: 2, width: 1, height: 1 },
+    { row: 2, column: 2, width: 1, height: 1 }
+  ]);
+  assert.equal(renderFramePlain(replayed), renderFramePlain(next.frame));
+  assert.equal(renderFramePlain(next.frame), ' │\n ┴');
+  assert.deepEqual(removalDamage?.rects, commitDamage?.rects);
+  assert.equal(renderFramePlain(removalReplay), renderFramePlain(previous.frame));
 });
 
 test('incremental diff projections reject width-profile changes', () => {
@@ -313,6 +390,27 @@ function movingOverlay(row, column) {
     ], { id: 'moving-overlay' }),
     { id: 'moving-surface' }
   );
+}
+
+function borderGlyph(id, content) {
+  return canvas({
+    id,
+    painter({ canvas: target, source }) {
+      target.text(0, 0, [{
+        text: content,
+        source: source({ cellRole: 'border', partName: 'border', partType: 'border' })
+      }]);
+    }
+  });
+}
+
+function cursorInput(cursor, value = 'abcd', id = 'cursor-input') {
+  return textInput({
+    id,
+    meta: { accessibleName: 'Cursor input' },
+    presentation: { value, cursor },
+    onAction: () => ignoreMessage()
+  });
 }
 
 const applyDiffToFrame = applyRenderDiff;
