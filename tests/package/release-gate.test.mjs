@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { access, readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const ciWorkflow = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
-const publishWorkflow = await readFile(new URL('../../.github/workflows/publish.yml', import.meta.url), 'utf8');
+const ciWorkflow = await workflowSource(new URL('../../.github/workflows/ci.yml', import.meta.url));
+const publishWorkflow = await workflowSource(new URL('../../.github/workflows/publish.yml', import.meta.url));
 const sourceRoot = new URL('../../src/', import.meta.url);
 const repositoryRoot = new URL('../../', import.meta.url);
 
@@ -177,8 +177,12 @@ async function sourceFiles(directory, extension = '.ts') {
   return files.sort((left, right) => left.pathname.localeCompare(right.pathname));
 }
 
+async function workflowSource(file) {
+  return (await readFile(file, 'utf8')).replace(/\r\n?/gu, '\n');
+}
+
 function workflowJob(source, jobId) {
-  const lines = source.split(/\r?\n/u);
+  const lines = source.split('\n');
   const start = lines.findIndex((line) => line === `  ${jobId}:`);
   assert.notEqual(start, -1, `Missing CI job ${jobId}.`);
   const followingJob = lines.slice(start + 1).findIndex((line) => /^  [a-z][a-z0-9-]*:$/u.test(line));

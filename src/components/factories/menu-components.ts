@@ -239,7 +239,12 @@ interface MenuBarModel {
   readonly items: readonly PreparedMenuItem[];
   readonly presentation:
     | { readonly kind: 'closed'; readonly active?: string }
-    | { readonly kind: 'open'; readonly active: string; readonly menu: PreparedMenuPresentation };
+    | {
+      readonly kind: 'open';
+      readonly active: string;
+      readonly popupAccessibleName: string;
+      readonly menu: PreparedMenuPresentation;
+    };
   readonly maxVisibleItems: number;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
@@ -299,18 +304,23 @@ const instantiateMenuBar = defineComponent<
   implementationSlots(input) {
     if (input.model.presentation.kind === 'closed') return { popup: undefined };
     return {
-      popup: menuPopup(
-        input.id,
-        input.model.presentation.menu,
-        input.model.maxVisibleItems,
-        (action) => input.emit(menuBarChildAction(action)),
-        () => input.emit(menuBarComponentTransition({ kind: 'close', reason: 'outsidePress' })),
-        input.model.scrollbar,
-        input.model.scrollPolicy,
-        input.styles,
-        undefined,
-        input.busy,
-      ),
+      popup: menuPopup({
+        ...(input.id === undefined ? {} : { id: input.id }),
+        presentation: input.model.presentation.menu,
+        accessibleName: input.model.presentation.popupAccessibleName,
+        maxVisibleItems: input.model.maxVisibleItems,
+        emit: (action) => input.emit(menuBarChildAction(action)),
+        dismissOutside: () => input.emit(menuBarComponentTransition({
+          kind: 'close',
+          reason: 'outsidePress',
+        })),
+        ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),
+        ...(input.model.scrollPolicy === undefined
+          ? {}
+          : { scrollPolicy: input.model.scrollPolicy }),
+        ...(input.styles === undefined ? {} : { styles: input.styles }),
+        busy: input.busy,
+      }),
     };
   },
   measure(input) {
@@ -652,19 +662,24 @@ const instantiateMenuTrigger = defineComponent<
   implementationSlots(input) {
     if (input.model.presentation.kind === 'closed') return { popup: undefined };
     return {
-      popup: menuPopup(
-        input.id,
-        input.model.presentation.menu,
-        input.model.maxVisibleItems,
-        (action) => input.emit(menuTriggerChildAction(action)),
-        () => input.emit(menuTriggerComponentTransition({ kind: 'dismiss', reason: 'outsidePress' })),
-        input.model.scrollbar,
-        input.model.scrollPolicy,
-        input.styles,
-        input.model.placement,
-        input.busy,
-        input.model.label === '' ? input.accessibleName : input.model.label,
-      ),
+      popup: menuPopup({
+        ...(input.id === undefined ? {} : { id: input.id }),
+        presentation: input.model.presentation.menu,
+        accessibleName: menuTriggerAccessibleName(input.model, input.accessibleName),
+        maxVisibleItems: input.model.maxVisibleItems,
+        emit: (action) => input.emit(menuTriggerChildAction(action)),
+        dismissOutside: () => input.emit(menuTriggerComponentTransition({
+          kind: 'dismiss',
+          reason: 'outsidePress',
+        })),
+        ...(input.model.scrollbar === undefined ? {} : { scrollbar: input.model.scrollbar }),
+        ...(input.model.scrollPolicy === undefined
+          ? {}
+          : { scrollPolicy: input.model.scrollPolicy }),
+        ...(input.styles === undefined ? {} : { styles: input.styles }),
+        placement: input.model.placement,
+        busy: input.busy,
+      }),
     };
   },
   measure(input) {
@@ -1297,7 +1312,7 @@ function prepareMenuBar(value: Readonly<MenuBarOwnOptions>): MenuBarModel {
     throw new TypeError('menuBar items must be an array.');
   }
   const items = prepareItems(value.items, 'menuBar items');
-  const presentation = prepareMenuBarPresentation(value.presentation);
+  const presentation = prepareMenuBarPresentation(value.presentation, items);
   const maxVisibleItems = positiveInteger(value.maxVisibleItems, 12, 'menuBar maxVisibleItems');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'menuBar scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'menuBar scrollPolicy');
@@ -1310,7 +1325,10 @@ function prepareMenuBar(value: Readonly<MenuBarOwnOptions>): MenuBarModel {
   };
 }
 
-function prepareMenuBarPresentation(value: MenuBarPresentation): MenuBarModel['presentation'] {
+function prepareMenuBarPresentation(
+  value: MenuBarPresentation,
+  items: readonly PreparedMenuItem[],
+): MenuBarModel['presentation'] {
   if (!isNonArrayObject(value) || !isStringMember(value.kind, ['closed', 'open'])) {
     throw new TypeError('menuBar presentation is invalid.');
   }
@@ -1319,8 +1337,21 @@ function prepareMenuBarPresentation(value: MenuBarPresentation): MenuBarModel['p
     return { kind: 'closed', ...(active === undefined ? {} : { active: clean(active) }) };
   }
   if (active === undefined) throw new TypeError('Open menuBar requires active.');
+  const activeId = clean(active);
+  const heading = items.find((item) => item.id === activeId);
+  if (heading?.kind !== 'submenu' || heading.disabled) {
+    throw new TypeError('Open menuBar active must identify an enabled submenu heading.');
+  }
+  if (heading.label.trim() === '') {
+    throw new TypeError('Open menuBar heading must have a non-empty label.');
+  }
   const menuValue = prepareMenuPresentation(value.menu, 'menuBar menu');
-  return { kind: 'open', active: clean(active), menu: menuValue };
+  return {
+    kind: 'open',
+    active: activeId,
+    popupAccessibleName: heading.label,
+    menu: menuValue,
+  };
 }
 
 function paintMenuBar(input: ComponentRenderInput<MenuBarModel, MenuStylePart>): void {
@@ -1411,28 +1442,43 @@ function menuBarAccessibility(
   };
 }
 
-function menuPopup(
-  id: string | undefined,
-  presentation: PreparedMenuPresentation,
-  maxVisibleItems: number,
-  emit: (
+interface MenuPopupOptions {
+  readonly id?: string;
+  readonly presentation: PreparedMenuPresentation;
+  readonly accessibleName: string;
+  readonly maxVisibleItems: number;
+  readonly emit: (
     action: MenuComponentAction,
-  ) => import('../../interaction/index.ts').MessageResolution<ComponentMessage>,
-  dismissOutside: () => import('../../interaction/index.ts').MessageResolution<ComponentMessage>,
-  scrollbar?: ScrollbarOptions,
-  scrollPolicy?: ScrollPolicy,
-  styles?: import('../../element/metadata.ts').ElementStyles<MenuStylePart>,
-  placement: AnchoredSurfacePlacement = 'auto',
-  busy = false,
-  accessibleName?: string,
-): Element<ComponentMessage> {
+  ) => import('../../interaction/index.ts').MessageResolution<ComponentMessage>;
+  readonly dismissOutside: () => import('../../interaction/index.ts').MessageResolution<ComponentMessage>;
+  readonly scrollbar?: ScrollbarOptions;
+  readonly scrollPolicy?: ScrollPolicy;
+  readonly styles?: import('../../element/metadata.ts').ElementStyles<MenuStylePart>;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly busy?: boolean;
+}
+
+function menuPopup(options: MenuPopupOptions): Element<ComponentMessage> {
+  const {
+    id,
+    presentation,
+    accessibleName,
+    maxVisibleItems,
+    emit,
+    dismissOutside,
+    scrollbar,
+    scrollPolicy,
+    styles,
+    placement = 'auto',
+    busy = false,
+  } = options;
   const popupMenu = menu({
     id: `${id ?? 'menu'}:popup:menu`,
     presentation: publicMenuPresentation(presentation),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
     ...(styles === undefined ? {} : { styles }),
-    ...(accessibleName === undefined ? {} : { meta: { accessibleName } }),
+    meta: { accessibleName },
     ...(busy ? { busy: true } : {}),
     onTransition: (transition) => emit(menuComponentTransition(transition)),
     onActivate: (event) => emit({ kind: 'activate', event }),
@@ -1456,6 +1502,15 @@ function menuPopup(
       meta: { layer: { zIndex: 20, underlay: 'clear' } },
     },
   );
+}
+
+function menuTriggerAccessibleName(
+  model: MenuTriggerModel,
+  callerAccessibleName: string | undefined,
+): string {
+  if (model.label.trim() !== '') return model.label;
+  if (callerAccessibleName !== undefined) return callerAccessibleName;
+  throw new TypeError('menuTrigger requires a non-empty label or accessibleName.');
 }
 
 function contextMenuAccessibility(

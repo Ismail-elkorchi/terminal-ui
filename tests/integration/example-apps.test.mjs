@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { findAccessibleNode } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { highContrastTheme, noColorTheme } from '../../dist/theme/index.js';
@@ -31,6 +32,24 @@ for (const example of examples) {
     }
   });
 }
+
+test('IDE File menu opens with a valid named popup', async () => {
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 36 } });
+  const runtime = createTuiRuntime({ app: ideEditorApp, host });
+  try {
+    await runtime.start();
+    await runtime.dispatch({ kind: 'menu', action: { kind: 'activateHeading', id: 'file' } });
+
+    assert.equal(runtime.state().menu.kind, 'open');
+    const frame = runtime.frame();
+    assert.notEqual(frame, undefined);
+    const popup = findAccessibleNode(frame.accessibility, 'editor-menu:popup:menu');
+    assert.equal(popup?.role, 'menu');
+    assert.equal(popup?.label, 'File');
+  } finally {
+    await runtime.dispose();
+  }
+});
 
 test('IDE filesystem effects leave command input and resize responsive', async () => {
   const opened = deferred();

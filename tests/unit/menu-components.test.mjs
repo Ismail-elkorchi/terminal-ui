@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import { defineTui } from '../../dist/tui/index.js';
 import {
-  decodeAccessibleSnapshot } from '../../dist/accessibility/index.js';
+  decodeAccessibleSnapshot,
+  findAccessibleNode
+} from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime } from '../../dist/tui/index.js';
 import {
@@ -225,6 +227,39 @@ test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => 
   assert.equal(dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'value');
   assert.equal(menuBarFrame.accessibility.root.role, 'menubar');
   assert.equal(dropdownFrame.accessibility.root.children?.[0]?.expanded, true);
+});
+
+test('open menu bars name their popup from the active heading', () => {
+  const frame = renderElementFrame(menuBar({
+    id: 'main-menu',
+    meta: { accessibleName: 'Application menu' },
+    items,
+    presentation: menuBarPresentation(items, {
+      kind: 'open',
+      active: 'open',
+      menu: { activePath: ['recent'] }
+    }),
+    onTransition: (action) => action
+  }), { columns: 44, rows: 8 });
+
+  const popup = findAccessibleNode(frame.accessibility, 'main-menu:popup:menu');
+  assert.equal(popup?.role, 'menu');
+  assert.equal(popup?.label, 'Open');
+  assert.equal(decodeAccessibleSnapshot(frame.accessibility).status, 'success');
+});
+
+test('open menu bars require an enabled submenu heading', () => {
+  assert.throws(() => menuBar({
+    id: 'invalid-menu',
+    meta: { accessibleName: 'Application menu' },
+    items,
+    presentation: {
+      kind: 'open',
+      active: 'new',
+      menu: menuPresentation(items, { activePath: ['new'] })
+    },
+    onTransition: (action) => action
+  }), /active must identify an enabled submenu heading/u);
 });
 
 test('closed context menus do not publish focus or implementation accessibility scaffolding', () => {
