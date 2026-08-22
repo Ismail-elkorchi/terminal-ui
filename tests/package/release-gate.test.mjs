@@ -33,9 +33,11 @@ test('registry publication is gated by a verified immutable release tag', () => 
   assert.match(verification, /ref: \$\{\{ env\.RELEASE_TAG \}\}/u);
   assert.match(npmPublication, /needs: verify/u);
   assert.match(npmPublication, /if: github\.event_name == 'release'/u);
+  assert.match(npmPublication, /runs-on: ubuntu-latest/u);
   assert.match(npmPublication, /id-token: write/u);
-  assert.match(npmPublication, /npm publish --provenance --access public/u);
-  assert.match(npmPublication, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/u);
+  assert.match(npmPublication, /registry-url: https:\/\/registry\.npmjs\.org/u);
+  assert.match(npmPublication, /npm publish --access public/u);
+  assert.doesNotMatch(npmPublication, /NODE_AUTH_TOKEN|NPM_TOKEN/u);
   assert.match(jsrPublication, /needs: verify/u);
   assert.match(jsrPublication, /id-token: write/u);
   assert.match(jsrPublication, /npm ci --ignore-scripts/u);
