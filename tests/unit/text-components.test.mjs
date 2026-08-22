@@ -24,7 +24,7 @@ import { activityIndicator,
   textArea as createTextArea,
   textInput as createTextInput
 } from '../../dist/components/index.js';
-import { column } from '../../dist/layout/index.js';
+import { column, surface } from '../../dist/layout/index.js';
 import {
   prepareTextDocument,
   textCaretAt,
@@ -286,6 +286,78 @@ test('textArea editable cells expose gutter, value, placeholder, and selection s
   assert.equal(selectedFrame.cells.find((cell) => cell.row === 2 && cell.text === 'b')?.source?.description, 'value');
   assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'W')?.source?.description, 'placeholder');
   assert.equal(placeholderFrame.accessibility.root.value, '');
+});
+
+test('textArea content inherits its containing surface instead of painting glyph backgrounds', () => {
+  const createArea = (extra = {}) => textArea({
+    meta: { accessibleName: 'Text area' },
+    id: 'inherited-editor',
+    presentation: { document: prepareTextDocument('alpha'), caret: textCaretAt(0) },
+    ...extra
+  });
+  const bare = renderElementFrame(createArea(), { columns: 16, rows: 3 });
+  const embedded = renderElementFrame(surface(createArea(), {
+    id: 'editor-surface',
+    appearance: 'neutral'
+  }), { columns: 16, rows: 3 });
+  const opaque = renderElementFrame(createArea({
+    styles: { root: { bg: { kind: 'theme', token: 'status.warning' } } }
+  }), { columns: 16, rows: 3 });
+
+  assert.equal(bare.cells.find((cell) => cell.text === 'l')?.style?.bg?.token, 'app.background');
+  assert.equal(
+    embedded.cells.find((cell) => cell.text === 'l')?.style?.bg?.token,
+    'surface.background'
+  );
+  assert.equal(
+    embedded.cells.find((cell) => cell.row === 1 && cell.column === 12)?.style?.bg?.token,
+    'surface.background'
+  );
+  assert.equal(
+    bare.cells.some((cell) =>
+      cell.source?.partName === 'value' && cell.style?.bg?.token === 'control.background'
+    ),
+    false
+  );
+  assert.equal(opaque.cells.find((cell) => cell.text === 'l')?.style?.bg?.token, 'status.warning');
+  assert.equal(
+    opaque.cells.find((cell) => cell.row === 3 && cell.column === 12)?.style?.bg?.token,
+    'status.warning'
+  );
+  assert.equal(
+    opaque.cells.find((cell) => cell.row === 3 && cell.column === 12)?.source?.description,
+    'root.background'
+  );
+});
+
+test('textArea paints active lines gutters highlights and validation as coherent planes', () => {
+  const frame = renderElementFrame(textArea({
+    meta: { accessibleName: 'Text area' },
+    id: 'plane-editor',
+    presentation: {
+      document: prepareTextDocument('alpha\nbeta'),
+      caret: textCaretAt(0)
+    },
+    lineNumbers: true,
+    highlightActiveLine: true,
+    highlights: [{ startOffset: 1, endOffsetExclusive: 4, label: 'search.match' }],
+    error: 'Required'
+  }), { columns: 20, rows: 4 });
+  const highlight = frame.cells.find((cell) => cell.text === 'l');
+  const activeFill = frame.cells.find((cell) =>
+    cell.row === 1 && cell.source?.description === 'activeLine.background'
+  );
+  const unusedGutter = frame.cells.find((cell) => cell.row === 3 && cell.column === 1);
+  const error = frame.cells.find((cell) => cell.row === 4 && cell.text === 'R');
+
+  assert.equal(highlight?.source?.partType, 'highlight');
+  assert.equal(highlight?.style?.bg?.token, 'editor.activeLine.background');
+  assert.equal(activeFill?.style?.bg?.token, 'editor.activeLine.background');
+  assert.equal(unusedGutter?.source?.description, 'gutter.background');
+  assert.equal(unusedGutter?.style?.bg?.token, 'editor.gutter.background');
+  assert.equal(error?.source?.description, 'validation.error');
+  assert.equal(error?.style?.fg?.token, 'status.error');
+  assert.equal(error?.style?.bg?.token, 'app.background');
 });
 
 test('textArea can opt into line number gutter and active line anatomy', () => {

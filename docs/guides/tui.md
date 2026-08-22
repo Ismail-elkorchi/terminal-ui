@@ -402,7 +402,7 @@ Use `textArea({ lineNumbers: true })` or
 `textArea({ lineNumbers: { startNumber, minWidth }, highlightActiveLine: true })` when a
 multi-line text region needs editor-like anatomy. The renderer emits the gutter,
 line-number, active-line, value, placeholder, selection, caller-controlled highlight,
-cursor, and frame parts with structured source metadata and ordinary style
+cursor, scrollbar, and validation parts with structured source metadata and ordinary style
 slots. `highlights: [{ startOffset, endOffsetExclusive, label, style }]` uses
 zero-based UTF-16 code-unit offsets for generic text ranges such as search
 matches; selection remains visually stronger. `wrap: true` or
@@ -410,6 +410,11 @@ matches; selection remains visually stronger. `wrap: true` or
 with the same scroll state, scrollbar, cursor, and accessibility contracts. The
 cursor uses the generic `input.cursor` token in frame metadata. The component does
 not own editing policy, syntax highlighting, file paths, or language semantics.
+Ordinary value and placeholder cells inherit the containing surface so an editor
+does not paint a separate rectangle behind every text run. Set a background on
+`styles.root` when the text area should instead own an opaque content plane.
+Gutter and active-line backgrounds cover their complete visual planes, and a
+non-empty `error` uses one trailing row when the allocation has room for it.
 Pass the text-area state as `presentation` and map `onAction` to an
 application message. The `TextAreaAction` union covers standard edits,
 grapheme-aware pointer selection, and scrolling; `textAreaReducer()` provides

@@ -40,8 +40,18 @@ export type TextEntryStylePart =
   | 'selection'
   | 'cursor'
   | 'error';
-export type TextAreaStylePart = TextEntryStylePart |
-  'gutter' | 'lineNumber' | 'activeLine' | 'highlight' | 'scrollbarTrack' | 'scrollbarThumb';
+export type TextAreaStylePart =
+  | 'value'
+  | 'placeholder'
+  | 'selection'
+  | 'cursor'
+  | 'error'
+  | 'gutter'
+  | 'lineNumber'
+  | 'activeLine'
+  | 'highlight'
+  | 'scrollbarTrack'
+  | 'scrollbarThumb';
 export type LogViewerStylePart =
   | 'body'
   | 'timestamp'

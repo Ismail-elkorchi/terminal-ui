@@ -17,7 +17,7 @@ import type {
   ComponentRenderInput,
 } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
-import type { Measurement } from '../../renderer/index.ts';
+import type { Measurement, Rect } from '../../renderer/index.ts';
 import {
   assertRequiredCallback,
   isNonArrayObject,
@@ -51,6 +51,7 @@ import type {
   TextSelection,
   TextWidthProfile,
 } from '../../text/index.ts';
+import { terminalStyleHasBackground } from '../../theme/index.ts';
 import type { TextAreaAction } from '../../ui-model/text-area.ts';
 import type {
   TextAreaHighlight,
@@ -108,8 +109,6 @@ const instantiateTextArea = defineComponent<
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'layer', 'styles'],
   parts: [
-    'border',
-    'label',
     'value',
     'placeholder',
     'selection',
@@ -389,7 +388,7 @@ function measureTextArea(input: ComponentMeasureInput<TextAreaModel>): Measureme
     minWidth: prefix,
     minHeight: 1,
     preferredWidth: layout.intrinsicColumns + prefix,
-    preferredHeight: layout.contentRows,
+    preferredHeight: layout.contentRows + Number(input.model.error !== ''),
   };
 }
 
@@ -437,6 +436,25 @@ function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometr
 function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>): void {
   const geometry = textAreaGeometry(input);
   const content = geometry.scrollbar.contentBounds;
+  const availabilityStates = textAreaAvailabilityStates(input);
+  paintTextAreaPlane(input, input.bounds, input.style({
+    part: 'root',
+    ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
+  }), 'root.background', 'root');
+  const gutterStyle = input.style({
+    part: 'gutter',
+    base: {
+      fg: { kind: 'theme', token: 'editor.gutter.foreground' },
+      bg: { kind: 'theme', token: 'editor.gutter.background' },
+    },
+    ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
+  });
+  paintTextAreaPlane(input, {
+    row: input.bounds.row,
+    column: input.bounds.column,
+    width: geometry.prefixWidth,
+    height: textAreaEditorHeight(input.model, input.bounds.height),
+  }, gutterStyle, 'gutter.background', 'gutter');
   const active = textDocumentLineIndexAtOffset(
     input.model.document,
     input.model.caret.position.offset,
@@ -456,28 +474,20 @@ function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStyleP
       content.width,
     );
     const valueSpans = textAreaValueSpans(input, geometry, line, window, selection, isActive);
-    const occupied = valueSpans.reduce(
-      (total, current) =>
-        total + measureTextCells(current.text, { widthProfile: input.widthProfile }).cells,
-      0,
-    );
-    const activeFillStyle = input.style({
-      part: 'activeLine',
-      base: { bg: { kind: 'theme', token: 'editor.activeLine.background' } },
-    });
-    const fill = isActive && occupied < content.width
-      ? [span(' '.repeat(Math.max(0, content.width - occupied)), {
-        ...(activeFillStyle === undefined ? {} : { style: activeFillStyle }),
-        source: input.source({
-          cellRole: 'content',
-          partName: 'activeLine',
-          partType: 'activeLine',
-          description: 'activeLine.background',
-        }),
-      })]
-      : [];
-    input.target.write(visibleRow, 0, prefix);
-    input.target.write(visibleRow, geometry.prefixWidth, [...valueSpans, ...fill]);
+    if (isActive) {
+      paintTextAreaPlane(input, {
+        row: content.row + visibleRow,
+        column: content.column,
+        width: content.width,
+        height: 1,
+      }, input.style({
+        part: 'activeLine',
+        base: { bg: { kind: 'theme', token: 'editor.activeLine.background' } },
+        ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
+      }), 'activeLine.background', 'activeLine');
+    }
+    input.target.write(content.row + visibleRow, input.bounds.column, prefix);
+    input.target.write(content.row + visibleRow, content.column, valueSpans);
   }
   paintComponentScrollbar({
     target: input.target,
@@ -486,6 +496,64 @@ function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStyleP
     style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     source: (sourceInput) => input.source(sourceInput),
   });
+  paintTextAreaError(input);
+}
+
+function paintTextAreaPlane(
+  input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>,
+  bounds: Rect,
+  style: TerminalStyle | undefined,
+  description: string,
+  partName: 'root' | 'gutter' | 'activeLine',
+): void {
+  if (
+    bounds.width <= 0 ||
+    bounds.height <= 0 ||
+    !terminalStyleHasBackground(style, input.theme)
+  ) return;
+  for (let row = 0; row < bounds.height; row += 1) {
+    input.target.write(bounds.row + row, bounds.column, [span(' '.repeat(bounds.width), {
+      ...(style === undefined ? {} : { style }),
+      source: input.source({
+        cellRole: 'decoration',
+        partName,
+        partType: 'background',
+        description,
+      }),
+    })]);
+  }
+}
+
+function paintTextAreaError(
+  input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>,
+): void {
+  const row = textAreaEditorHeight(input.model, input.bounds.height);
+  if (input.model.error === '' || row >= input.bounds.height) return;
+  const style = input.style({
+    part: 'error',
+    base: { fg: { kind: 'theme', token: 'status.error' }, bold: true },
+  });
+  input.target.write(row, input.bounds.column, [span(input.model.error, {
+    ...(style === undefined ? {} : { style }),
+    source: input.source({
+      cellRole: 'text',
+      partName: 'error',
+      partType: 'error',
+      description: 'validation.error',
+    }),
+  })]);
+}
+
+function textAreaAvailabilityStates(
+  input: Pick<ComponentInput<TextAreaModel>, 'disabled' | 'readOnly'>,
+): readonly ('disabled' | 'readOnly')[] {
+  if (input.disabled) return ['disabled'];
+  if (input.readOnly) return ['readOnly'];
+  return [];
+}
+
+function textAreaEditorHeight(model: TextAreaModel, height: number): number {
+  return Math.max(0, height - Number(model.error !== '' && height > 1));
 }
 
 function pointerOffset(input: ComponentInput<TextAreaModel>, row: number, column: number): number {
@@ -615,7 +683,7 @@ function textAreaScrollbar(
       row: input.bounds.row,
       column: input.bounds.column + prefixWidth,
       width: Math.max(0, input.bounds.width - prefixWidth),
-      height: input.bounds.height,
+      height: textAreaEditorHeight(input.model, input.bounds.height),
     },
     scroll: {
       offsetRow: raw?.offsetRow ?? 0,
@@ -655,6 +723,7 @@ function textAreaPrefixSpans(
   visibleRow: number,
   active: boolean,
 ): readonly RenderSpan[] {
+  const availabilityStates = textAreaAvailabilityStates(input);
   const marker = active
     ? input.focus === 'self'
       ? input.theme.tokens.symbols.pointer
@@ -666,9 +735,7 @@ function textAreaPrefixSpans(
       ? input.theme.tokens.symbols.statusError
       : input.focus === 'self'
       ? input.theme.tokens.symbols.pointer
-      : input.theme.tokens.colors['control.background'] === undefined
-      ? input.theme.tokens.symbols.borderSingle.vertical
-      : ' '
+      : input.theme.tokens.symbols.borderSingle.vertical
     : input.theme.tokens.symbols.borderSingle.vertical;
   const markerStyle = input.style({
     part: active ? 'activeLine' : 'gutter',
@@ -685,7 +752,7 @@ function textAreaPrefixSpans(
         },
         bg: { kind: 'theme', token: 'editor.gutter.background' },
       },
-    ...(input.disabled ? { states: ['disabled'] as const } : {}),
+    ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
   });
   if (input.model.lineNumbers === undefined) {
     return [span(`${marker} `, {
@@ -718,6 +785,7 @@ function textAreaPrefixSpans(
         fg: { kind: 'theme', token: 'editor.gutter.foreground' },
         bg: { kind: 'theme', token: 'editor.gutter.background' },
       },
+    ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
   });
   return [
     span(marker, {
@@ -818,24 +886,30 @@ function textAreaValueSpans(
       : highlight === undefined
       ? {
         fg: { kind: 'theme', token: placeholder ? 'input.placeholder' : 'text.default' },
-        bg: {
-          kind: 'theme',
-          token: active ? 'editor.activeLine.background' : 'control.background',
-        },
+        ...(active
+          ? { bg: { kind: 'theme' as const, token: 'editor.activeLine.background' as const } }
+          : {}),
       }
       : {
+        ...(active
+          ? { bg: { kind: 'theme' as const, token: 'editor.activeLine.background' as const } }
+          : {}),
         fg: { kind: 'theme', token: 'menu.match' },
         underline: true,
         ...highlight.style,
       };
+    const availability = textAreaAvailabilityStates(input);
     const style = input.style({
       part,
       base,
       ...(selected
-        ? { states: ['selected'] as const }
-        : input.disabled
-        ? { states: ['disabled'] as const }
-        : {}),
+        ? {
+          states: [
+            ...availability,
+            'selected' as const,
+          ],
+        }
+        : availability.length === 0 ? {} : { states: availability }),
     });
     const description = selected ? 'selection' : highlight?.label ??
       (placeholder ? 'placeholder' : active ? 'activeLine.value' : 'value');
