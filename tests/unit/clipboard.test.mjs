@@ -11,7 +11,7 @@ test('extractTextSelection is pure and sanitizes terminal controls by default', 
     selection: { startOffset: 6, endOffsetExclusive: 17 }
   });
 
-  assert.equal(selected, 'bravo charl');
+  assert.equal(selected, 'bravo');
 });
 
 test('clipboard OSC 52 sequence is gated by explicit policy', () => {

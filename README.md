@@ -122,7 +122,8 @@ contains diagnostics and the final accessible snapshot.
 - Components own interaction and accessibility while application state remains
   controlled by the caller.
 - The `behavior` namespace provides pure reducers and prepared collections
-  for editing, selection, navigation, scrolling, and large data.
+  for editing, keyboard and pointer text selection, paste, navigation,
+  scrolling, and large data.
 - Semantic themes adapt to terminal color capabilities; top-level component
   `styles` provide typed local anatomy and state overrides.
 - Effects and subscriptions perform asynchronous work outside the serialized

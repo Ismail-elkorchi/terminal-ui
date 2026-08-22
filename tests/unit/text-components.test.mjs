@@ -236,7 +236,7 @@ test('text components map Unicode cursor positions through the shared text contr
   const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'unicode-command',
     prompt: '> ',
-    presentation: { value, cursor: 'a🙂'.length, open: false, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: prepareCommandSuggestions([]) }
+    presentation: { input: { text: value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: false, suggestions: prepareCommandSuggestions([]) }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 6 });
@@ -474,7 +474,7 @@ test('editable text controls remain readable in high contrast and no-color rende
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'contrast-command',
       prompt: '/',
-      presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
+      presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
       placeholder: 'command',
       validation: { level: 'warning', message: 'Waiting' }
     })
@@ -511,7 +511,7 @@ test('editable text controls remain identifiable when the theme has no field fil
     commandInput({
       id: 'no-color-command',
       prompt: '› ',
-      presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
+      presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
       placeholder: '/open',
       meta: { accessibleName: "Command input", focus: { disabled: true } }
     })
@@ -551,6 +551,116 @@ test('textInput maps pointer positions to text offsets when opted in', () => {
   assert.deepEqual(message?.action, {
     kind: 'pointer',
     action: { kind: 'placeCaret', offset: 2 }
+  });
+});
+
+test('editable text targets share word selection and non-mutating context menus', () => {
+  const regions = renderElementRegions(createTextInput({ meta: { accessibleName: 'Text input' },
+    id: 'shared-text-pointer',
+    presentation: {
+      value: 'alpha bravo',
+      cursor: 3,
+      selection: { startOffset: 0, endOffsetExclusive: 5 },
+    },
+    onAction: (action) => ({ action }),
+    onContextMenu: (event) => ({ context: event }),
+  }), { columns: 20, rows: 1 });
+  const target = targetById(regions, 'shared-text-pointer:text');
+  const doubleClick = target.message({
+    ...pointerEvent({ kind: 'click', row: 1, column: 11, localRow: 1, localColumn: 11 }),
+    clickCount: 2,
+  });
+  const contextMenu = target.message({
+    ...pointerEvent({ kind: 'contextMenu', row: 1, column: 11, localRow: 1, localColumn: 11 }),
+    button: 'right',
+  });
+
+  assert.deepEqual(doubleClick?.action, {
+    kind: 'pointer',
+    action: { kind: 'endSelection', anchor: 6, offset: 11 },
+  });
+  assert.deepEqual(contextMenu?.context, {
+    kind: 'contextMenu',
+    offset: 8,
+    selection: { startOffset: 0, endOffsetExclusive: 5 },
+    row: 1,
+    column: 11,
+    modifiers: { shift: false, alt: false, ctrl: false },
+  });
+});
+
+test('numberInput exposes the shared text pointer editing contract', () => {
+  const regions = renderElementRegions(createNumberInput({ meta: { accessibleName: 'Number input' },
+    id: 'number-pointer',
+    presentation: { value: '12345', cursor: 0, validity: 'valid', parsedValue: 12345 },
+    onAction: (action) => ({ action }),
+  }), { columns: 16, rows: 1 });
+  const target = targetById(regions, 'number-pointer:input');
+  const placed = target.message(pointerEvent({
+    kind: 'pointerDown',
+    row: 1,
+    column: 6,
+    localRow: 1,
+    localColumn: 6,
+  }));
+
+  assert.deepEqual(placed?.action, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 3 },
+  });
+});
+
+test('single-line text controls share cursor-relative rendering and pointer geometry', () => {
+  const textElement = createTextInput({ meta: { accessibleName: 'Text input' },
+    id: 'windowed-text-input',
+    presentation: { value: 'abcdef', cursor: 6 },
+    onAction: (action) => ({ action }),
+  });
+  const textFrame = renderElementFrame(textElement, { columns: 6, rows: 1 }, {
+    focusPath: ['windowed-text-input'],
+  });
+  const textTarget = targetById(
+    renderElementRegions(textElement, { columns: 6, rows: 1 }),
+    'windowed-text-input:text',
+  );
+  const textMessage = textTarget.message(pointerEvent({
+    kind: 'pointerDown',
+    row: 1,
+    column: 4,
+    localRow: 1,
+    localColumn: 4,
+  }));
+
+  assert.match(renderFramePlain(textFrame), /‹def/u);
+  assert.deepEqual(textMessage?.action, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 3 },
+  });
+
+  const numberElement = createNumberInput({ meta: { accessibleName: 'Number input' },
+    id: 'windowed-number-input',
+    presentation: { value: '12345', cursor: 5, validity: 'valid', parsedValue: 12345 },
+    onAction: (action) => ({ action }),
+  });
+  const numberFrame = renderElementFrame(numberElement, { columns: 12, rows: 1 }, {
+    focusPath: ['windowed-number-input'],
+  });
+  const numberTarget = targetById(
+    renderElementRegions(numberElement, { columns: 12, rows: 1 }),
+    'windowed-number-input:input',
+  );
+  const numberMessage = numberTarget.message(pointerEvent({
+    kind: 'pointerDown',
+    row: 1,
+    column: 4,
+    localRow: 1,
+    localColumn: 4,
+  }));
+
+  assert.match(renderFramePlain(numberFrame), /‹5/u);
+  assert.deepEqual(numberMessage?.action, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 4 },
   });
 });
 
@@ -613,6 +723,37 @@ test('textArea maps pointer positions through gutters visual rows and selection 
   assert.deepEqual(dragEnd?.action, {
     kind: 'pointer',
     action: { kind: 'endSelection', anchor: 8, offset: 10 }
+  });
+});
+
+test('scrollable textArea couples captured drag selection with one controlled scroll step', () => {
+  const regions = renderElementRegions(textArea({ meta: { accessibleName: 'Text area' },
+    id: 'drag-scroll-area',
+    presentation: {
+      document: prepareTextDocument('one\ntwo\nthree\nfour'),
+      caret: textCaretAt(0),
+      scroll: { offsetRow: 0, offsetColumn: 0, followTail: false },
+    },
+    onAction: (action) => ({ action }),
+  }), { columns: 16, rows: 2 });
+  const target = targetById(regions, 'drag-scroll-area:text');
+  const message = target.message(pointerEvent({
+    kind: 'drag',
+    row: 3,
+    column: 4,
+    localRow: 3,
+    localColumn: 4,
+    pressRow: 1,
+    pressColumn: 2,
+    pressLocalRow: 1,
+    pressLocalColumn: 2,
+  }));
+
+  assert.equal(message?.action.kind, 'pointer');
+  assert.deepEqual(message?.action.scroll, {
+    nextState: { offsetRow: 1, offsetColumn: 0, followTail: false },
+    source: 'drag',
+    target: 'content',
   });
 });
 

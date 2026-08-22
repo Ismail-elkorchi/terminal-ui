@@ -67,7 +67,7 @@ test('editable components share one read-only mutation policy', async () => {
       name: 'commandInput',
       element: (onAction) => commandInput({ meta: { accessibleName: "Command input" },
         id: 'control',
-        presentation: { value: 'abc', cursor: 1, open: false, suggestions: prepareCommandSuggestions([]) },
+        presentation: { input: { text: 'abc', cursor: 1 }, open: false, suggestions: prepareCommandSuggestions([]) },
         readOnly: true,
         onTransition: onAction
       }),
@@ -84,8 +84,7 @@ test('read-only command input cannot accept a completion', async () => {
   const runtime = runtimeFor((onAction) => commandInput({ meta: { accessibleName: "Command input" },
     id: 'control',
     presentation: {
-      value: 'a',
-      cursor: 1,
+      input: { text: 'a', cursor: 1 },
       open: true,
       suggestions: prepareCommandSuggestions([{ id: 'alpha', completion: { range: { startOffset: 0, endOffsetExclusive: 1 }, text: 'alpha' }, label: 'alpha' }])
     },

@@ -1,5 +1,6 @@
 import type { ComponentInspectionValue } from '../../component/index.ts';
 import type { SelectionState } from '../../interaction/collection.ts';
+import type { TextSelection } from '../../text/index.ts';
 import {
   maximumComponentInspectionArrayLength,
   maximumComponentInspectionStringLength,
@@ -56,6 +57,13 @@ export function inspectSelection(selection: SelectionState): ComponentInspection
     ...(selection.rangeSelectionEnabled === undefined
       ? {}
       : { rangeSelectionEnabled: selection.rangeSelectionEnabled }),
+  });
+}
+
+export function inspectTextSelection(selection: TextSelection): ComponentInspectionValue {
+  return Object.freeze({
+    startOffset: selection.startOffset,
+    endOffsetExclusive: selection.endOffsetExclusive,
   });
 }
 

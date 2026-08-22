@@ -10,6 +10,7 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import {
   button,
   checkbox,
@@ -221,6 +222,121 @@ test('autocomplete combobox shares editable popup state without changing select-
   assert.equal(autocompleteComboboxPresentation(committed).input.text, 'Beta');
   assert.deepEqual(committed.selection, { mode: 'single', selectedId: 'beta' });
   assert.equal(committed.editor.open, false);
+});
+
+test('autocomplete combobox exposes shared word-selection and context-menu semantics', () => {
+  const regions = renderElementRegions(combobox({
+    id: 'autocomplete-pointer-semantics',
+    label: 'Language',
+    options: [],
+    presentation: {
+      kind: 'autocomplete',
+      open: false,
+      input: {
+        text: 'alpha bravo',
+        cursor: 0,
+        selection: { startOffset: 0, endOffsetExclusive: 5 },
+      },
+      selection: { mode: 'single' },
+    },
+    onTransition: (transition) => ({ transition }),
+    onContextMenu: (event) => ({ context: event }),
+  }), { columns: 32, rows: 2 });
+  const target = regions.flatMap((region) => region.hitTargets)
+    .find((candidate) => candidate.id === 'autocomplete-pointer-semantics:trigger');
+  assert.ok(target);
+  const base = {
+    source: 'mouse',
+    row: target.bounds.row,
+    column: target.bounds.column + 17,
+    localRow: 1,
+    localColumn: 18,
+    modifiers: { shift: false, alt: false, ctrl: false },
+    deltaRows: 0,
+    deltaColumns: 0,
+    targetId: target.id,
+    raw: {
+      kind: 'mouse',
+      sequence: '',
+      encoding: 'sgr',
+      action: 'release',
+      button: 'left',
+      row: target.bounds.row,
+      column: target.bounds.column + 17,
+      rawCode: 0,
+      modifiers: { shift: false, alt: false, ctrl: false },
+    },
+  };
+
+  assert.deepEqual(target.message({
+    ...base,
+    kind: 'click',
+    clickCount: 2,
+    button: 'left',
+  })?.transition, {
+    kind: 'pointer',
+    action: { kind: 'endSelection', anchor: 6, offset: 11 },
+  });
+  assert.deepEqual(target.message({ ...base, kind: 'contextMenu', button: 'right' })?.context, {
+    kind: 'contextMenu',
+    offset: 7,
+    selection: { startOffset: 0, endOffsetExclusive: 5 },
+    row: target.bounds.row,
+    column: target.bounds.column + 17,
+    modifiers: { shift: false, alt: false, ctrl: false },
+  });
+});
+
+test('autocomplete combobox keeps long input rendering cursor and pointer geometry aligned', () => {
+  const options = {
+    id: 'windowed-autocomplete',
+    label: 'Q',
+    options: [],
+    presentation: {
+      kind: 'autocomplete',
+      open: false,
+      input: { text: 'abcdefgh', cursor: 8 },
+      selection: { mode: 'single' },
+    },
+    onTransition: (transition) => ({ transition }),
+  };
+  const frame = renderElementFrame(combobox(options), { columns: 10, rows: 1 }, {
+    focusPath: ['windowed-autocomplete'],
+  });
+  const regions = renderElementRegions(combobox(options), { columns: 10, rows: 1 });
+  const target = regions.flatMap((region) => region.hitTargets)
+    .find((candidate) => candidate.id === 'windowed-autocomplete:trigger');
+  assert.ok(target);
+  const message = target.message({
+    source: 'mouse',
+    kind: 'pointerDown',
+    button: 'left',
+    row: 1,
+    column: 5,
+    localRow: 1,
+    localColumn: 5,
+    modifiers: { shift: false, alt: false, ctrl: false },
+    deltaRows: 0,
+    deltaColumns: 0,
+    targetId: target.id,
+    raw: {
+      kind: 'mouse',
+      sequence: '',
+      encoding: 'sgr',
+      action: 'press',
+      button: 'left',
+      row: 1,
+      column: 5,
+      rawCode: 0,
+      modifiers: { shift: false, alt: false, ctrl: false },
+    },
+  });
+
+  assert.match(renderFramePlain(frame), /^Q: ‹efgh/u);
+  assert.deepEqual(message?.transition, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 4 },
+  });
 });
 
 test('controlled combobox pages and commits through its public behavior operations', async () => {

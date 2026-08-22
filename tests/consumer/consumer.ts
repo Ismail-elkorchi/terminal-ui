@@ -22,9 +22,8 @@ import { defineComponent, type Element } from '@ismail-elkorchi/terminal-ui/comp
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { createInputDecoder } from '@ismail-elkorchi/terminal-ui/input';
-import { resolveSelectedText } from '@ismail-elkorchi/terminal-ui/interaction';
 import { createProtocolWriter } from '@ismail-elkorchi/terminal-ui/protocol';
-import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
+import { extractTextBufferSelection, measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
 import { defaultTheme, resolveThemeColor } from '@ismail-elkorchi/terminal-ui/theme';
 import { confirm, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
 import { createAccessibleSnapshot, decodeAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
@@ -162,8 +161,8 @@ const memoryHost = createMemoryTerminalHost();
 await memoryHost.write({ text: 'ordered output' });
 await memoryHost.flush();
 const decoded = createInputDecoder().decode({ data: '\r' });
-const selected = resolveSelectedText({
-  sources: [{ id: 'consumer-source', text: 'selected text', selection: { startOffset: 0, endOffsetExclusive: 8 } }]
+const selected = extractTextBufferSelection({
+  buffer: { text: 'selected text', cursor: 8, selection: { startOffset: 0, endOffsetExclusive: 8 } }
 });
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const packedComponent = defineComponent({
@@ -272,8 +271,8 @@ if (memoryHost.output() !== 'ordered output') throw new Error('The host entrypoi
 if (decoded.events[0]?.kind !== 'key' || decoded.events[0].key !== 'enter') {
   throw new Error('The input entrypoint did not decode terminal input.');
 }
-if (selected.status !== 'resolved' || selected.text !== 'selected') {
-  throw new Error('The interaction entrypoint did not resolve controlled selection.');
+if (selected !== 'selected') {
+  throw new Error('The text entrypoint did not extract controlled selection.');
 }
 if (harness.host.runtime !== 'memory') throw new Error('The testing entrypoint did not create a harness.');
 if (harness.snapshot().source !== 'test_harness' || harness.snapshot().root.role !== 'group') {

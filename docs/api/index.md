@@ -14,8 +14,8 @@ The root entrypoint exposes the main vertical path:
 - layout factories such as `column()`, `row()`, `grid()`, `surface()`,
   and `viewport()`
 - the `behavior` namespace for controlled-state reducers and prepared views
-- `resolveSelectedText()` and `copySelectedTextToClipboard()` for
-  caller-controlled TUI text selection flows
+- the runtime-owned `copySelectedText()` operation for caller-controlled TUI
+  clipboard output
 
 The subpath entrypoints are:
 
@@ -45,17 +45,23 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/transcript`
 - `@ismail-elkorchi/terminal-ui/testing`
 
+Use the `text` entrypoint's `extractTextBufferSelection()` and
+`extractTextDocumentSelection()` helpers to obtain text from controlled
+selection state before passing one selected source to the TUI runtime's copy
+operation.
+
 All public results use typed data for ordinary cancellation, validation
 failure, non-TTY denial, transcript replay mismatch, and terminal capability
 problems.
 
 Clipboard sequence and sink helpers live under the protocol entrypoint and are
 gated by explicit caller policy; they do not import or inspect terminal hosts.
-TUI selection helpers resolve selected text from caller-controlled source state,
-reject explicitly unavailable clipboard output, and then delegate an authorized
-bounded protocol write. A successful write reports transport submission, not
-clipboard observation. Clipboard reading is not exposed by the protocol API.
-Components never write to the clipboard directly.
+TUI selection helpers extract text from one caller-chosen controlled source.
+`TuiEffectContext.copySelectedText()` and `TuiRuntime.copySelectedText()` reject
+unavailable clipboard output and serialize an authorized bounded write through
+the runtime's terminal-output authority. A successful write reports transport
+submission, not clipboard observation. Clipboard reading is not exposed by the
+protocol API. Components never choose copy policy or write to the clipboard.
 
 Rendering APIs live under the renderer entrypoint and expose the current frame
 pipeline explicitly: `FrameBuffer`, `FrameCellSource`, `RenderSpan`,

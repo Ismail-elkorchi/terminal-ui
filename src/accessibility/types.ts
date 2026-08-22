@@ -33,6 +33,7 @@ export interface AccessibleNode {
   readonly scope?: AccessibleScope;
   readonly window?: AccessibleWindow;
   readonly position?: AccessiblePosition;
+  readonly textPosition?: AccessibleTextPosition;
   readonly description?: string;
   readonly controls?: string;
   readonly labelledBy?: string;
@@ -85,6 +86,16 @@ export interface AccessiblePosition {
   readonly columnCount?: number;
   readonly columnLabel?: string;
   readonly group?: string;
+}
+
+export interface AccessibleTextPosition {
+  readonly caretOffset: number;
+  readonly selection?: AccessibleTextSelection;
+}
+
+export interface AccessibleTextSelection {
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
 }
 
 export type AccessibleRole = typeof accessibleRoles[number];

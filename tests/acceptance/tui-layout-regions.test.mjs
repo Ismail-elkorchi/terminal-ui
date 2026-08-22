@@ -48,7 +48,8 @@ function workspaceView(state) {
           id: 'searchPicker',
           title: 'Actions',
           presentation: {
-            query: { text: state.query, mode: 'fuzzy' },
+            input: { text: state.query, cursor: state.query.length },
+            query: { mode: 'fuzzy' },
             activeId: 'open'
           },
           searchPickerIndex: prepareSearchPickerIndex([
@@ -79,7 +80,7 @@ function workspaceView(state) {
     commandInput({
       id: 'command',
       prompt: '/',
-      presentation: { value: state.query, cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
+      presentation: { input: { text: state.query, cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: () => ({ type: 'component' })
     })
   ], {

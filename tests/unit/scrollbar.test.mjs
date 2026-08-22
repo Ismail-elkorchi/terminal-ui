@@ -374,7 +374,8 @@ test('searchPicker scrollbar renders beside the filtered result window', () => {
       { id: 'four', label: 'Four', value: 'four' }
     ]),
     presentation: {
-      query: { text: '', mode: 'fuzzy' },
+      input: { text: '', cursor: 0 },
+      query: { mode: 'fuzzy' },
       scroll: createScrollState({ offsetRow: 1 })
     },
     scrollbar: { visible: 'always' },

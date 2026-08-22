@@ -35,14 +35,14 @@ const editor = textArea({
 
 const commands = commandInput({
   id: 'commands',
-  presentation: { value: '', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
+  presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
   onTransition: (transition) => ({ kind: 'commandTransition' as const, transition }),
   onSubmit: (event) => ({ kind: 'commandSubmit' as const, event }),
 });
 
 const search = searchPicker({
   id: 'search',
-  presentation: { query: { text: '', mode: 'fuzzy' } },
+  presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
   searchPickerIndex: prepareSearchPickerIndex([{ id: 'open', label: 'Open', value: 1 }]),
   onTransition: (transition) => ({ kind: 'searchTransition' as const, transition }),
   onAccept: (event) => ({ kind: 'searchAccept' as const, event }),

@@ -233,7 +233,7 @@ test('commandInput preserves disabled suggestion semantics', () => {
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
       prompt: '>',
-      presentation: { value: 'de', cursor: 0, open: true, suggestions: prepareCommandSuggestions([
+      presentation: { input: { text: 'de', cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([
         { id: 'deploy', completion: { range: { startOffset: 0, endOffsetExclusive: 2 }, text: 'deploy' }, label: 'Deploy', description: 'Unavailable', disabled: true }
       ]) },
       query: { text: 'de', mode: 'contains' },

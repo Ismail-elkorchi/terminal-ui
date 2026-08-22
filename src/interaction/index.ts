@@ -36,10 +36,3 @@ export {
 export type * from './key-binding.ts';
 export { formatKeyboardBinding } from './key-binding.ts';
 export type * from './text-pointer.ts';
-export { resolveSelectedText } from './selection.ts';
-export type {
-  ResolveSelectedTextInput,
-  ResolveSelectedTextResult,
-  SelectableTextSource,
-  SelectionInteractionMode
-} from './selection.ts';

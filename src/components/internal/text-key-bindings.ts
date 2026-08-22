@@ -44,8 +44,7 @@ export function textEditingTriggers(
     );
   }
   return bindings.flatMap((binding) =>
-    binding.trigger.eventType === 'repeat'
-      || (binding.trigger.kind === 'key' && binding.trigger.key === 'a')
+    binding.trigger.kind === 'key' && binding.trigger.key === 'a'
       ? [binding]
       : [binding, repeat(binding)]);
 }
@@ -61,8 +60,7 @@ function repeatingEdit(
   keyName: Parameters<typeof trigger>[0],
   operation: TextEditOperation
 ): ElementKeyTriggerBinding<TextEditingAction> {
-  const binding = key(keyName, {}, operation);
-  return repeat(binding);
+  return key(keyName, {}, operation);
 }
 
 function repeat(

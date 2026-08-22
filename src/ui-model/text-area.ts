@@ -25,7 +25,11 @@ export type TextAreaAction =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }
   | { readonly kind: 'undo' }
   | { readonly kind: 'redo' }
-  | { readonly kind: 'pointer'; readonly action: TextPointerAction }
+  | {
+    readonly kind: 'pointer';
+    readonly action: TextPointerAction;
+    readonly scroll?: ScrollEvent;
+  }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
 
 export type TextAreaControlAction = Exclude<TextAreaAction, { readonly kind: 'scroll' }>;

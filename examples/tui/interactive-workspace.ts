@@ -596,7 +596,7 @@ export async function runScriptedWorkspace() {
     const pickerClosedByDismissal = !runtime.state().searchPicker.open;
     await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput({ kind: 'text', text: 'resolve', paste: false });
-    const keyboardSearchPickerQuery = searchPickerPresentation(runtime.state().searchPicker.state).query.text;
+    const keyboardSearchPickerQuery = searchPickerPresentation(runtime.state().searchPicker.state).input.text;
     await runtime.handleInput(keyInput('enter'));
     await click(runtime, targetById(runtime, 'workspace-tree:queue:review:body'));
     await click(runtime, targetByPrefix(runtime, 'ticket-table:row:T-103'));

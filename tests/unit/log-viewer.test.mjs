@@ -369,7 +369,8 @@ test('log viewer maps pointer selection through metadata to canonical body offse
       { id: 'bravo', text: 'bravo' }
     ]),
     scroll: createScrollState({ offsetRow: 0, contentRows: 2, viewportRows: 2 }),
-    onAction: (action) => ({ action })
+    onAction: (action) => ({ action }),
+    onContextMenu: (event) => ({ context: event }),
   }), { columns: 48, rows: 2 });
   const target = targetById(regions, 'selectable-log:text');
   const frame = renderElementFrame(logViewer({
@@ -387,6 +388,14 @@ test('log viewer maps pointer selection through metadata to canonical body offse
   assert.ok(bravo);
   const press = pointerAt(target, 'pointerDown', alpha.row, alpha.column);
   const drag = pointerAt(target, 'drag', bravo.row, bravo.column, alpha);
+  const doubleClick = target.message({
+    ...pointerAt(target, 'click', bravo.row, bravo.column),
+    clickCount: 2,
+  });
+  const contextMenu = target.message({
+    ...pointerAt(target, 'contextMenu', bravo.row, bravo.column),
+    button: 'right',
+  });
 
   assert.deepEqual(target.focus, { kind: 'focus', path: ['selectable-log'] });
   assert.deepEqual(target.message(press)?.action, {
@@ -400,6 +409,54 @@ test('log viewer maps pointer selection through metadata to canonical body offse
       anchor: { entryId: 'alpha', offset: 2 },
       position: { entryId: 'bravo', offset: 2 }
     }
+  });
+  assert.deepEqual(doubleClick?.action, {
+    kind: 'pointer',
+    action: {
+      kind: 'endSelection',
+      anchor: { entryId: 'bravo', offset: 0 },
+      position: { entryId: 'bravo', offset: 5 },
+    },
+  });
+  assert.deepEqual(contextMenu?.context, {
+    kind: 'contextMenu',
+    position: { entryId: 'bravo', offset: 2 },
+    row: bravo.row,
+    column: bravo.column,
+    modifiers: { shift: false, alt: false, ctrl: false },
+  });
+});
+
+test('scrollable log viewer couples captured drag selection with one controlled scroll step', () => {
+  const regions = renderElementRegions(logViewer({
+    id: 'drag-scroll-log',
+    history: prepareLogHistory([
+      { id: 'one', text: 'one' },
+      { id: 'two', text: 'two' },
+      { id: 'three', text: 'three' },
+      { id: 'four', text: 'four' },
+    ]),
+    scroll: createScrollState(),
+    onAction: (action) => ({ action }),
+  }), { columns: 16, rows: 2 });
+  const target = targetById(regions, 'drag-scroll-log:text');
+  const press = {
+    row: target.bounds.row,
+    column: target.bounds.column + 1,
+  };
+  const message = target.message(pointerAt(
+    target,
+    'drag',
+    target.bounds.row + target.bounds.height,
+    target.bounds.column + 1,
+    press,
+  ));
+
+  assert.equal(message?.action.kind, 'pointer');
+  assert.deepEqual(message?.action.scroll, {
+    nextState: { offsetRow: 1, offsetColumn: 0, followTail: false },
+    source: 'drag',
+    target: 'content',
   });
 });
 

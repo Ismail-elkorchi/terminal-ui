@@ -118,21 +118,27 @@ export function textAreaReducer(state: TextAreaState, action: TextAreaAction): T
       return restoreTextAreaHistory(state, 'redo');
     case 'pointer': {
       const offset = normalizeTextDocumentOffset(state.document, action.action.offset);
-      if (action.action.kind === 'placeCaret') {
-        return textAreaStateWithSelection(breakTextAreaHistoryGroup(state), {
+      const selected = action.action.kind === 'placeCaret'
+        ? textAreaStateWithSelection(breakTextAreaHistoryGroup(state), {
           caret: textCaretAt(offset),
           revealCaret: true
-        }, undefined);
-      }
-      const anchor = normalizeTextDocumentOffset(state.document, action.action.anchor);
-      const selection = normalizeTextDocumentSelectionModel(
-        state.document,
-        textDocumentSelectionBetween(anchor, offset)
-      );
-      return textAreaStateWithSelection(breakTextAreaHistoryGroup(state), {
-        caret: textCaretAt(offset),
-        revealCaret: true
-      }, selection);
+        }, undefined)
+        : textAreaStateWithSelection(breakTextAreaHistoryGroup(state), {
+          caret: textCaretAt(offset),
+          revealCaret: true
+        }, normalizeTextDocumentSelectionModel(
+          state.document,
+          textDocumentSelectionBetween(
+            normalizeTextDocumentOffset(state.document, action.action.anchor),
+            offset,
+          ),
+        ));
+      if (action.scroll === undefined) return selected;
+      return {
+        ...selected,
+        scroll: applyScrollEvent(selected.scroll, action.scroll),
+        revealCaret: false,
+      };
     }
     case 'scroll': {
       const scroll = applyScrollEvent(state.scroll, action.event);

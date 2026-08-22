@@ -97,9 +97,11 @@ export function editablePopupInputReducer(
     case 'pointer': {
       const input = pointerBuffer(state.input, transition.action);
       const editHistory = breakTextEditHistoryGroup(state.editHistory);
-      return input === state.input && editHistory === state.editHistory
+      const index = options.indexForText(input.text);
+      const activeId = validOrFirst(index, state.activeId);
+      return input === state.input && editHistory === state.editHistory && state.open && activeId === state.activeId
         ? state
-        : { ...state, input, editHistory };
+        : stateValue(state, input, editHistory, true, activeId);
     }
     case 'setText':
       return updateText(state, {

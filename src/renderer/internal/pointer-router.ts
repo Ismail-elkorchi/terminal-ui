@@ -92,7 +92,7 @@ export function createPointerRouter<TMessage>(options: PointerRouterOptions): Po
         const nextPress = pointerHit === undefined ? undefined : pointerPress(event, pointerHit);
         if (press?.identity !== nextPress?.identity) visualRevision += 1;
         press = nextPress;
-        return pressResults(event, pointerHit, press);
+        return pressResults(regions, event, pointerHit, press);
       }
       if (event.action === 'drag' && press !== undefined) {
         const captured = hitByIdentity(regions, press.identity);
@@ -218,6 +218,7 @@ function pointerPress<TMessage>(event: TerminalMouseEvent, hit: QualifiedHit<TMe
 }
 
 function pressResults<TMessage>(
+  regions: readonly RenderRegion<TMessage>[],
   event: TerminalMouseEvent,
   hit: QualifiedHit<TMessage> | undefined,
   activePress: PointerPress | undefined
@@ -225,7 +226,7 @@ function pressResults<TMessage>(
   if (hit === undefined) return [routeResult(event, undefined, 'pointerDown', activePress)];
   const results = [routeResult(event, hit, 'pointerDown', activePress)];
   return event.button === 'right'
-    ? [...results, routeResult(event, hit, 'contextMenu', activePress)]
+    ? [...results, ...routeContextMenuThroughAncestors(regions, event, activePress)]
     : results;
 }
 
@@ -398,6 +399,26 @@ function hitsAt<TMessage>(
       || right.region.order - left.region.order
       || right.index - left.index)
     ;
+}
+
+function routeContextMenuThroughAncestors<TMessage>(
+  regions: readonly RenderRegion<TMessage>[],
+  event: TerminalMouseEvent,
+  press: PointerPress | undefined,
+): readonly PointerRouteResult<TMessage>[] {
+  const candidates = hitsAt(regions, event.row, event.column, ['contextMenu']);
+  const deepest = candidates[0];
+  if (deepest === undefined) return [];
+  const chain = candidates.filter((candidate) =>
+    deepest.target.ownerIdentity.startsWith(candidate.target.ownerIdentity)
+  ).filter((candidate, index, values) =>
+    values.findIndex((other) => other.target.ownerIdentity === candidate.target.ownerIdentity) === index
+  ).toSorted((left, right) => right.target.ownerIdentity.length - left.target.ownerIdentity.length);
+  for (const candidate of chain) {
+    const result = routeResult(event, candidate, 'contextMenu', press);
+    if (!isIgnoredMessage(result.message)) return [result];
+  }
+  return [];
 }
 
 function routeWheelThroughAncestors<TMessage>(

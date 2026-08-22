@@ -2,6 +2,7 @@ import type { InlineContent } from '../../visual/inline-content.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type {
   CompleteListboxCollection,
@@ -417,6 +418,7 @@ export type UnscrolledTextAreaOptions<TMessage extends ComponentMessage = never>
     readonly scrollbar?: never;
     readonly scrollPolicy?: never;
     readonly onAction: (action: TextAreaControlAction) => MessageResolution<TMessage>;
+    readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
   };
 
 export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never> =
@@ -427,12 +429,14 @@ export type ScrollableTextAreaOptions<TMessage extends ComponentMessage = never>
     readonly scrollbar?: ScrollbarOptions;
     readonly scrollPolicy?: ScrollPolicy;
     readonly onAction: (action: TextAreaAction) => MessageResolution<TMessage>;
+    readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
   };
 
 export type DisabledTextAreaOptions = TextAreaBaseOptions & {
   readonly disabled: true;
   readonly readOnly?: never;
   readonly onAction?: never;
+  readonly onContextMenu?: never;
 } & (
   | {
       readonly presentation: UnscrolledTextAreaPresentation;

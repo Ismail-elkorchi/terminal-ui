@@ -11,8 +11,7 @@ export {
 } from './source-channel.ts';
 export { advanceAnimationTimeline, createAnimationTimeline, nextAnimationDeadline } from './animation-timeline.ts';
 export type { AnimationFrame, AnimationTimeline } from './animation-timeline.ts';
-export { copySelectedTextToClipboard } from './selection.ts';
-export type { CopySelectedTextInput, CopySelectedTextResult } from './selection.ts';
+export type { CopySelectedTextInput, CopySelectedTextResult, SelectedText } from './selection.ts';
 export {
   applySessionProtocolPolicy,
   createSessionProtocolPlan,

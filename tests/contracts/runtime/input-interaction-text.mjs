@@ -1,8 +1,9 @@
 import { createInputDecoder } from '@ismail-elkorchi/terminal-ui/input';
-import { placeAnchoredSurface, resolveSelectedText } from '@ismail-elkorchi/terminal-ui/interaction';
+import { placeAnchoredSurface } from '@ismail-elkorchi/terminal-ui/interaction';
 import {
   createTerminalTextIndex,
   editTextBuffer,
+  extractTextBufferSelection,
   measureTextCells,
   sanitizeTerminalText,
   selectedText,
@@ -15,8 +16,8 @@ const placed = placeAnchoredSurface({
   anchor: { kind: 'cursor', row: 1, column: 2 },
   size: { width: 5, height: 2 }
 });
-const selected = resolveSelectedText({
-  sources: [{ id: 'source', text: 'terminal', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
+const selected = extractTextBufferSelection({
+  buffer: { text: 'terminal', cursor: 4, selection: { startOffset: 0, endOffsetExclusive: 4 } }
 });
 const width = measureTextCells('A界').cells;
 const sanitized = sanitizeTerminalText('\u001B[31mtext');
@@ -29,7 +30,7 @@ const wordCases = [
 
 invariant(decoded.events[0]?.kind === 'key' && decoded.events[0].key === 'enter', 'input decoding failed');
 invariant(placed.width === 5 && placed.height === 2, 'anchored placement failed');
-invariant(selected.status === 'resolved' && selected.text === 'term', 'selection resolution failed');
+invariant(selected === 'term', 'selection extraction failed');
 invariant(width === 3, 'terminal width measurement failed');
 invariant(!sanitized.text.includes('\u001B'), 'terminal sanitization failed');
 for (const [value, offset, expected] of wordCases) {

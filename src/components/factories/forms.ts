@@ -34,7 +34,7 @@ import type {
 } from '../options/forms.ts';
 import { inlineSegmentText, normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
-import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
+import { createTerminalTextIndex, measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type {
   ButtonAction,
@@ -43,7 +43,12 @@ import type {
   SwitchAction,
 } from '../../ui-model/forms.ts';
 import type { ButtonStylePart } from '../../ui-model/style-parts.ts';
-import type { ChoiceStylePart, FieldStylePart, LabelStylePart } from '../../ui-model/style-parts.ts';
+import type {
+  ChoiceStylePart,
+  ComboboxStylePart,
+  FieldStylePart,
+  LabelStylePart,
+} from '../../ui-model/style-parts.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
 import { allowsComponentAction } from '../internal/action-capability.ts';
 import { inspectTextValue, inspectValidation } from '../internal/inspection.ts';
@@ -85,6 +90,14 @@ import {
 import { ownSelectionState } from '../../interaction/collection.ts';
 import { portal, surface } from '../../layout/index.ts';
 import { listbox } from './list.ts';
+import { textEditingTriggers } from '../internal/text-key-bindings.ts';
+import { textPointerTarget } from '../internal/text-pointer-target.ts';
+import {
+  prepareSingleLineTextWindow,
+} from '../internal/single-line-text-window.ts';
+import type { SingleLineTextWindow } from '../internal/single-line-text-window.ts';
+import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
+import { isIgnoredMessage } from '../../interaction/message.ts';
 
 interface FormModel {
   readonly title: string;
@@ -1303,13 +1316,14 @@ interface ComboboxFactory {
 
 type ComboboxComponentAction =
   | { readonly kind: 'transition'; readonly transition: AutocompleteComboboxTransition }
-  | { readonly kind: 'commit'; readonly event: ComboboxCommitEvent };
+  | { readonly kind: 'commit'; readonly event: ComboboxCommitEvent }
+  | { readonly kind: 'contextMenu'; readonly event: TextContextMenuEvent };
 
 const instantiateCombobox = defineComponent<
   ComboboxModel,
   ComboboxModel,
   ComboboxComponentAction,
-  ChoiceStylePart,
+  ComboboxStylePart,
   readonly ['disabled', 'busy', 'readOnly', 'inert'],
   'required',
   readonly ['focus', 'layer', 'styles'],
@@ -1324,7 +1338,17 @@ const instantiateCombobox = defineComponent<
   slots: comboboxSlots,
   states: ['disabled', 'busy', 'readOnly', 'inert'],
   metadata: ['focus', 'layer', 'styles'],
-  parts: ['label', 'marker', 'option', 'description', 'error'],
+  parts: [
+    'label',
+    'marker',
+    'option',
+    'description',
+    'value',
+    'placeholder',
+    'selection',
+    'cursor',
+    'error',
+  ],
   visualStates: ['focused', 'hovered', 'pressed', 'active', 'selected', 'disabled', 'busy', 'readOnly'],
   inspection: ({ model }) => {
     const activeId = comboboxActiveId(model.presentation);
@@ -1338,6 +1362,17 @@ const instantiateCombobox = defineComponent<
         mode: 'single',
         ...(selectedId === undefined ? {} : { selectedId }),
       },
+      ...(model.presentation.kind === 'autocomplete'
+        ? { details: {
+          caretOffset: model.presentation.input.cursor,
+          ...(model.presentation.input.selection === undefined
+            ? {}
+            : { textSelection: {
+              startOffset: model.presentation.input.selection.startOffset,
+              endOffsetExclusive: model.presentation.input.selection.endOffsetExclusive,
+            } }),
+        } }
+        : {}),
       validation: inspectValidation(model.required, model.error),
       collection: {
         startIndex: 0,
@@ -1414,7 +1449,9 @@ const instantiateCombobox = defineComponent<
   },
   measure(input) {
     const selected = selectedComboboxOption(input.model);
-    const value = selected?.label ?? input.model.placeholder;
+    const value = input.model.presentation.kind === 'autocomplete'
+      ? input.model.presentation.input.text || input.model.placeholder
+      : selected?.label ?? input.model.placeholder;
     const label = input.model.required ? `${input.model.label} *` : input.model.label;
     return {
       minWidth: 1,
@@ -1442,7 +1479,29 @@ const instantiateCombobox = defineComponent<
     const highlighted = model.presentation.open
       ? comboboxActiveId(model.presentation)
       : undefined;
+    const triggers = model.presentation.kind !== 'autocomplete'
+      ? undefined
+      : [
+          ...textEditingTriggers(!canEdit, false).map((binding) => ({
+            trigger: binding.trigger,
+            onKey: (event: Parameters<typeof binding.onKey>[0]) => {
+              if (event.focusPath.at(-1) !== id) return ignoreMessage();
+              const action = binding.onKey(event);
+              return isIgnoredMessage(action)
+                ? action
+                : comboboxComponentTransition(action);
+            },
+          })),
+          ...(canEdit ? [{
+            trigger: { kind: 'key' as const, key: 'z' as const, modifiers: { ctrl: true } },
+            onKey: () => comboboxComponentTransition({ kind: 'undo' as const }),
+          }, {
+            trigger: { kind: 'key' as const, key: 'y' as const, modifiers: { ctrl: true } },
+            onKey: () => comboboxComponentTransition({ kind: 'redo' as const }),
+          }] : []),
+        ];
     return {
+      ...(triggers === undefined ? {} : { triggers }),
       arrowDown: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: 1 })),
       arrowUp: whenSelf(comboboxComponentTransition({ kind: 'moveActive', delta: -1 })),
       pageDown: whenSelf(comboboxComponentTransition({ kind: 'pageActive', delta: 1 })),
@@ -1453,29 +1512,7 @@ const instantiateCombobox = defineComponent<
             end: whenSelf(comboboxComponentTransition({ kind: 'lastActive' })),
             space: whenSelf(comboboxComponentTransition({ kind: 'toggle' })),
           }
-        : {
-            ...(canEdit ? {
-              triggers: [{
-                trigger: { kind: 'key' as const, key: 'z' as const, modifiers: { ctrl: true } },
-                onKey: () => comboboxComponentTransition({ kind: 'undo' }),
-              }, {
-                trigger: { kind: 'key' as const, key: 'y' as const, modifiers: { ctrl: true } },
-                onKey: () => comboboxComponentTransition({ kind: 'redo' }),
-              }],
-              backspace: whenSelf(comboboxComponentTransition({
-                kind: 'edit',
-                operation: { kind: 'deleteBackward' },
-              })),
-              delete: whenSelf(comboboxComponentTransition({
-                kind: 'edit',
-                operation: { kind: 'deleteForward' },
-              })),
-            } : {}),
-            arrowLeft: whenSelf(comboboxComponentTransition({ kind: 'edit', operation: { kind: 'moveLeft' } })),
-            arrowRight: whenSelf(comboboxComponentTransition({ kind: 'edit', operation: { kind: 'moveRight' } })),
-            home: whenSelf(comboboxComponentTransition({ kind: 'edit', operation: { kind: 'moveHome' } })),
-            end: whenSelf(comboboxComponentTransition({ kind: 'edit', operation: { kind: 'moveEnd' } })),
-          }),
+        : {}),
       enter: whenSelf(
         !model.presentation.open
           ? comboboxComponentTransition({ kind: 'open' })
@@ -1506,31 +1543,84 @@ const instantiateCombobox = defineComponent<
     && popupAllowsDismissal(standardPopupDismissal, 'focusLoss')
     ? comboboxComponentTransition({ kind: 'dismiss', reason: 'focusLoss' })
     : ignoreMessage(),
-  focusTargets: ({ bounds, model, widthProfile }) => [{
-    id: 'self',
-    bounds,
-    ...(model.presentation.kind === 'select' ? {} : {
+  focusTargets(input) {
+    const { bounds, model, widthProfile } = input;
+    if (model.presentation.kind === 'select') return [{ id: 'self', bounds }];
+    const visual = autocompleteComboboxInputVisual(
+      model,
+      model.presentation,
+      bounds.width,
+      widthProfile,
+    );
+    const cursorStyle = input.style({
+      part: 'cursor',
+      states: ['focused'],
+      base: {
+        fg: { kind: 'theme', token: 'input.cursor' },
+        bold: true,
+        inverse: true,
+      },
+    });
+    return [{
+      id: 'self',
+      bounds,
       cursor: {
         row: 0,
         column: Math.min(
           Math.max(0, bounds.width - 1),
-          measureTextCells(
-            `${model.required ? `${model.label} *` : model.label}: ${model.presentation.input.text.slice(0, model.presentation.input.cursor)}`,
-            { widthProfile },
-          ).cells,
+          visual.labelCells + visual.window.cursorColumn,
         ),
+        ...(cursorStyle === undefined ? {} : { style: cursorStyle }),
+        source: input.source({ cellRole: 'cursor', partName: 'cursor', partType: 'cursor' }),
       },
-    }),
-  }],
-  hitTargets: ({ id, bounds, model, busy }) => busy ? [] : [{
+    }];
+  },
+  hitTargets(input) {
+    const { id, bounds, model, busy } = input;
+    if (busy) return [];
+    const targetBounds = { ...bounds, height: Math.min(1, bounds.height) };
+    if (model.presentation.kind === 'select') {
+      return [{
+        id: popupRelationship(id ?? 'combobox').triggerId,
+        bounds: targetBounds,
+        accepts: ['click'],
+        focus: { kind: 'target', targetId: 'self' },
+        message: () => comboboxComponentTransition({ kind: 'toggle' }),
+        cursor: 'pointer',
+        ...(model.presentation.open ? { zIndex: 21 } : {}),
+      }];
+    }
+    const index = createTerminalTextIndex(model.presentation.input.text, {
+      widthProfile: input.widthProfile,
+    });
+    const visual = autocompleteComboboxInputVisual(
+      model,
+      model.presentation,
+      input.bounds.width,
+      input.widthProfile,
+    );
+    return [textPointerTarget<ComboboxComponentAction>({
       id: popupRelationship(id ?? 'combobox').triggerId,
-      bounds: { ...bounds, height: Math.min(1, bounds.height) },
-      accepts: ['click'],
-      focus: { kind: 'target', targetId: 'self' },
-      message: () => comboboxComponentTransition({ kind: 'toggle' }),
-      cursor: 'pointer',
-      ...(model.presentation.open ? { zIndex: 21 } : {}),
-    }],
+      bounds: targetBounds,
+      ...(model.presentation.input.selection === undefined
+        ? {}
+        : { selection: model.presentation.input.selection }),
+      focusTargetId: 'self',
+      offsetAt(event, origin) {
+        const local = origin === 'press'
+          ? event.pressLocalColumn ?? event.localColumn ?? 1
+          : event.localColumn ?? 1;
+        const column = visual.window.offsetCells + Math.max(
+          0,
+          local - 1 - visual.labelCells - Number(visual.window.clippedBefore),
+        );
+        return index.graphemeIndexToCodeUnitOffset(index.visualColumnToGraphemeIndex(column));
+      },
+      wordSelectionAt: (offset) => index.wordSelectionAt(offset),
+      onPointer: (action) => comboboxComponentTransition({ kind: 'pointer', action }),
+      onContextMenu: (event) => ({ kind: 'contextMenu', event }),
+    })];
+  },
   accessibility(input) {
     return comboboxAccessibility(input);
   },
@@ -1571,6 +1661,7 @@ function createSelectCombobox<TValue, TMessage extends ComponentMessage>(
     ...(options.readOnly === undefined ? {} : { readOnly: options.readOnly }),
     onAction: (action) => {
       if (action.kind === 'transition') return emitComboboxTransition(options, action.transition);
+      if (action.kind === 'contextMenu') return ignoreMessage();
       return options.onCommit?.(action.event) ?? ignoreMessage();
     },
   });
@@ -1597,6 +1688,9 @@ function createAutocompleteCombobox<TValue, TMessage extends ComponentMessage>(
     onAction: (action) => {
       if (action.kind === 'transition') {
         return emitAutocompleteComboboxTransition(options, action.transition);
+      }
+      if (action.kind === 'contextMenu') {
+        return options.onContextMenu?.(action.event) ?? ignoreMessage();
       }
       return options.onCommit?.(action.event) ?? ignoreMessage();
     },
@@ -1670,7 +1764,34 @@ function selectedComboboxOption(model: ComboboxModel): ComboboxOptionModel | und
   return model.options.find((option) => option.id === comboboxSelectedId(model.presentation));
 }
 
-function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePart>): void {
+interface AutocompleteComboboxInputVisual {
+  readonly labelCells: number;
+  readonly contentWidth: number;
+  readonly window: SingleLineTextWindow;
+}
+
+function autocompleteComboboxInputVisual(
+  model: ComboboxModel,
+  presentation: Extract<AnyComboboxPresentation, { readonly kind: 'autocomplete' }>,
+  width: number,
+  widthProfile: TextWidthProfile,
+): AutocompleteComboboxInputVisual {
+  const label = model.required ? `${model.label} *` : model.label;
+  const labelCells = measureTextCells(`${label}: `, { widthProfile }).cells;
+  const contentWidth = Math.max(0, width - labelCells - 2);
+  return {
+    labelCells,
+    contentWidth,
+    window: prepareSingleLineTextWindow(
+      presentation.input.text,
+      presentation.input.cursor,
+      contentWidth,
+      widthProfile,
+    ),
+  };
+}
+
+function renderCombobox(input: ComponentRenderInput<ComboboxModel, ComboboxStylePart>): void {
   const selected = selectedComboboxOption(input.model);
   const value = input.model.presentation.kind === 'autocomplete'
     ? input.model.presentation.input.text || input.model.placeholder
@@ -1680,6 +1801,8 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
     : pointerVisualState(input.pointerState, `${input.id ?? 'combobox'}:trigger`) ??
       (input.focus === 'self' ? 'focused' as const : undefined);
   const label = input.model.required ? `${input.model.label} *` : input.model.label;
+  const labelCells = measureTextCells(`${label}: `, { widthProfile: input.widthProfile }).cells;
+  const valueWidth = Math.max(0, input.bounds.width - labelCells - 2);
   const labelStyle = input.style({
     part: 'label',
     ...(state === undefined ? {} : { states: [state] }),
@@ -1688,7 +1811,9 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
   const hasValue = input.model.presentation.kind === 'autocomplete'
     ? input.model.presentation.input.text.length > 0
     : selected !== undefined;
-  const valuePart: ChoiceStylePart = hasValue ? 'option' : 'description';
+  const valuePart: ComboboxStylePart = input.model.presentation.kind === 'autocomplete'
+    ? hasValue ? 'value' : 'placeholder'
+    : hasValue ? 'option' : 'description';
   const valueStyle = input.style({
     part: valuePart,
     ...(state === undefined ? {} : { states: [state] }),
@@ -1701,16 +1826,48 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
     ...(state === undefined ? {} : { states: [state] }),
     base: { fg: { kind: 'theme', token: 'control.foreground' } },
   });
+  let valueSpans: readonly RenderSpan[];
+  if (input.model.presentation.kind === 'select') {
+    valueSpans = clipRenderSpans([comboboxSpan(
+        input,
+        value,
+        valuePart,
+        hasValue ? 'value.selected' : 'value.placeholder',
+        valueStyle,
+      )], valueWidth, { widthProfile: input.widthProfile });
+  } else {
+    const presentation = input.model.presentation;
+    const visual = autocompleteComboboxInputVisual(
+      input.model,
+      presentation,
+      input.bounds.width,
+      input.widthProfile,
+    );
+    valueSpans = !hasValue
+      ? clipRenderSpans([comboboxSpan(
+        input,
+        value,
+        valuePart,
+        'value.placeholder',
+        valueStyle,
+      )], visual.contentWidth, { widthProfile: input.widthProfile })
+      : [
+        ...(visual.window.clippedBefore
+          ? [comboboxSpan(input, '‹', 'marker', 'value.window', markerStyle)]
+          : []),
+        ...comboboxSelectedValueSpans(
+          input,
+          presentation.input.text,
+          presentation.input.selection,
+          visual.window,
+          valueStyle,
+        ),
+      ];
+  }
   input.target.write(0, 0, [
     comboboxSpan(input, label, 'label', 'label', labelStyle),
     comboboxSpan(input, ': ', 'label', 'label.separator', labelStyle),
-    comboboxSpan(
-      input,
-      value,
-      valuePart,
-      hasValue ? 'value.selected' : 'value.placeholder',
-      valueStyle,
-    ),
+    ...valueSpans,
     comboboxSpan(input, ' ', 'marker', 'value.separator', markerStyle),
     comboboxSpan(
       input,
@@ -1733,10 +1890,54 @@ function renderCombobox(input: ComponentRenderInput<ComboboxModel, ChoiceStylePa
   }
 }
 
+function comboboxSelectedValueSpans(
+  input: ComponentRenderInput<ComboboxModel, ComboboxStylePart>,
+  value: string,
+  selection: import('../../text/index.ts').TextSelection | undefined,
+  window: SingleLineTextWindow,
+  valueStyle: TerminalStyle | undefined,
+): readonly RenderSpan[] {
+  const selectedStyle = input.style({
+    part: 'selection',
+    states: ['selected'],
+    base: {
+      fg: { kind: 'theme', token: 'selection.foreground' },
+      bg: { kind: 'theme', token: 'selection.background' },
+    },
+  });
+  return [
+    {
+      start: window.startOffset,
+      end: selection?.startOffset ?? window.endOffsetExclusive,
+      selected: false,
+    },
+    ...(selection === undefined ? [] : [{
+      start: selection.startOffset,
+      end: selection.endOffsetExclusive,
+      selected: true,
+    }]),
+    {
+      start: selection?.endOffsetExclusive ?? window.endOffsetExclusive,
+      end: window.endOffsetExclusive,
+      selected: false,
+    },
+  ].flatMap((range) => {
+    const start = Math.max(window.startOffset, range.start);
+    const end = Math.min(window.endOffsetExclusive, range.end);
+    return end <= start ? [] : [comboboxSpan(
+    input,
+    value.slice(start, end),
+    range.selected ? 'selection' : 'value',
+    range.selected ? 'value.selection' : 'value',
+    range.selected ? selectedStyle : valueStyle,
+    )];
+  });
+}
+
 function comboboxSpan(
-  input: ComponentRenderInput<ComboboxModel, ChoiceStylePart>,
+  input: ComponentRenderInput<ComboboxModel, ComboboxStylePart>,
   text: string,
-  part: ChoiceStylePart,
+  part: ComboboxStylePart,
   partName: string,
   style: TerminalStyle | undefined,
 ): RenderSpan {
@@ -1770,7 +1971,15 @@ function comboboxAccessibility(
       ? {}
       : { activeDescendant: popupActiveDescendantId(relationship, activeId) }),
     ...(input.model.presentation.kind === 'autocomplete'
-      ? { value: input.model.presentation.input.text }
+      ? {
+        value: input.model.presentation.input.text,
+        textPosition: {
+          caretOffset: input.model.presentation.input.cursor,
+          ...(input.model.presentation.input.selection === undefined
+            ? {}
+            : { selection: input.model.presentation.input.selection }),
+        },
+      }
       : selected === undefined ? {} : { value: selected.label }),
     ...(description.length === 0 ? {} : { description }),
     ...(input.focused ? { focused: true } : {}),
@@ -1829,7 +2038,7 @@ function comboboxComponentTransition(transition: AutocompleteComboboxTransition)
 }
 
 function comboboxPopupStyles(
-  styles: import('../../element/index.ts').ElementStyles<ChoiceStylePart>,
+  styles: import('../../element/index.ts').ElementStyles<ComboboxStylePart>,
 ): import('../../element/index.ts').ElementStyles<
   import('../../ui-model/style-parts.ts').DataListStylePart
 > {

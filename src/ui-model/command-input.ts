@@ -1,4 +1,4 @@
-import type { TextEditOperation, TextSelection } from '../text/index.ts';
+import type { TextEditBuffer, TextEditOperation, TextSelection } from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
 import type { ListboxCollection } from './list.ts';
 
@@ -16,11 +16,9 @@ export interface CommandCompletion {
 }
 
 export interface CommandInputPresentation {
-  readonly value: string;
-  readonly cursor: number;
+  readonly input: TextEditBuffer;
   readonly open: boolean;
   readonly suggestions: ListboxCollection<CommandCompletion>;
-  readonly selection?: TextSelection;
   readonly activeSuggestionId?: string;
   readonly submissionIndex?: number;
 }

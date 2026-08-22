@@ -59,7 +59,7 @@ const controlledLog = logViewer({
 });
 const controlledSearchPicker = searchPicker({
   id: 'searchPicker',
-  presentation: { query: { text: '', mode: 'fuzzy' }, scroll },
+  presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, scroll },
   searchPickerIndex: prepareSearchPickerIndex([{ id: 'one', label: 'One', value: 1 }]),
   scrollbar: { visible: 'auto' },
   onTransition: (transition) => ({ kind: 'searchPicker' as const, transition }),
@@ -109,7 +109,7 @@ textArea({ id: 'inert-editor', presentation: { document: prepareTextDocument('')
 // @ts-expect-error log viewer scrollbar requires scroll state
 logViewer({ id: 'inert-log', history: prepareLogHistory([]), scrollbar: { visible: 'auto' }, onAction: (action) => action });
 // @ts-expect-error search picker scrollbar requires presentation scroll state
-searchPicker({ id: 'inert-searchPicker', presentation: { query: { text: '', mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([]), scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
+searchPicker({ id: 'inert-searchPicker', presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([]), scrollbar: { visible: 'auto' }, onTransition: (transition) => transition });
 // @ts-expect-error viewport scrollbar requires event routing
 viewport(text({ content: 'content' }), { id: 'inert-viewport', scrollbar: { visible: 'auto' } });
 // @ts-expect-error list view scrollbar requires presentation scroll state

@@ -278,6 +278,7 @@ export type { TabCloseEvent, TabsActivation, TabsPresentation, TabsTransition } 
 export type {
   LogViewerAction,
   LogViewerBodyAnchor,
+  LogViewerContextMenuEvent,
   LogViewerControlAction,
   LogViewerSelection
 } from '../ui-model/log-viewer.ts';

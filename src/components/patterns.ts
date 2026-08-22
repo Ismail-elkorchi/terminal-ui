@@ -23,6 +23,7 @@ export type {
 export type {
   LogViewerAction,
   LogViewerBodyAnchor,
+  LogViewerContextMenuEvent,
   LogViewerControlAction,
   LogViewerSelection,
 } from '../ui-model/log-viewer.ts';

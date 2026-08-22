@@ -34,7 +34,7 @@ useful to the consumer.
 | `link()` | Focusable navigation or resource reference with a typed activation event. | A button styled like a link. |
 | `toolbar()` | Semantic wrapper for a caller-owned row, column, or other layout of related controls. | A geometry policy, menu, or form. |
 | `toggleButton()` | Pressed/unpressed action control with the same label, adornment, tone, and density options as a button. | A checkbox or persistent switch setting. |
-| `textArea()` | Caller-controlled multi-line editable text surface with cursor, selection, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
+| `textArea()` | Caller-controlled multi-line editable text surface with cursor, keyboard/pointer selection, context-menu events, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
 | `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command picker, number parser, or multi-line editor. |
 | `passwordInput()` | Caller-controlled single-line secret entry that masks rendered content, accessibility output, and TUI transcripts. | Secret storage, validation, or authentication by itself. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
@@ -51,7 +51,7 @@ useful to the consumer.
 | `rangeSlider()` | Two numeric endpoints with a caller-controlled active handle on one track. | Two unrelated sliders or a progress meter. |
 | `checkboxGroup()` | Multiple independent choices with an active item and committed multi-selection. | A tree, table, or form validator. |
 | `radioGroup()` | One committed choice with selection following the active item. | A menu or arbitrary command list. |
-| `combobox()` | Form value popup with independent active option, committed selection, and dismissal state. | A searchable picker, command menu, or context menu. |
+| `combobox()` | Form value popup with independent active option, committed selection, and an autocomplete mode using the shared editable-text contract. | A command menu or context menu. |
 | `colorSwatchPicker()` | Compact caller-controlled color choice with semantic navigation and selection actions. | A full color-management tool. |
 | `calendar()` | Compact caller-controlled date choice control. | Calendar scheduling or date arithmetic. |
 | `menu()` | Inline command/action list with semantic navigation, activation, hierarchy, and scroll actions. | A form value selector or searchable command surface. |
@@ -67,7 +67,7 @@ useful to the consumer.
 | `dataGrid()` | Row- or cell-navigation grid with explicit active position, selection policy, sorting, resizing, and scrolling. | A spreadsheet engine or database. |
 | `tree()` | Expandable immutable hierarchy with caller-owned disclosure, active position, selection, filtering, loading, and scrolling state. | A filesystem API or data-loading state machine. |
 | `pagination()` | Page navigation control paired with caller-controlled paging state. | Data loading or page storage. |
-| `logViewer()` | Append-heavy structured log viewer with severity, timestamps, metadata, search, folding, selection, and follow-tail actions. | Terminal scrollback, a command input, or a session transcript. |
+| `logViewer()` | Append-heavy structured log viewer with severity, timestamps, metadata, search, pointer selection, context-menu events, and follow-tail actions. | Terminal scrollback, a command input, or a session transcript. |
 | `disclosure()` | One caller-controlled expandable section composed from an arbitrary child element. | Durable expansion storage, heterogeneous feed policy, or data loading. |
 | `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. | A command bar, menu bar, or interactive layout frame. |
 | `helpBar()` | Grouped keybinding hints with deterministic constrained-width projection. | Keybinding registration or command routing. |

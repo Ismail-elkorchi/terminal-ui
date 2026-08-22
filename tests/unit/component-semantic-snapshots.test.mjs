@@ -719,7 +719,7 @@ const cases = [
     name: 'commandInput',
     element: () => commandInput({ meta: { accessibleName: "Command input" },
       id: 'command-input',
-      presentation: { value: unsafe, cursor: 0, open: true, suggestions: prepareCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: unsafe.length }, text: 'open' }, label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
+      presentation: { input: { text: unsafe, cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: unsafe.length }, text: 'open' }, label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
       prompt: '>',
       onTransition: (action) => action
     }),
@@ -735,7 +735,7 @@ const cases = [
         { id: 'alpha', label: unsafe, value: 'alpha', preview: 'Preview' },
         { id: 'beta', label: 'Beta', value: 'beta', disabled: true }
       ]),
-      presentation: { query: { text: '', mode: 'fuzzy' }, activeId: 'alpha' },
+      presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, activeId: 'alpha' },
       onTransition: (action) => action
     }),
     expectText: /Preview/u,

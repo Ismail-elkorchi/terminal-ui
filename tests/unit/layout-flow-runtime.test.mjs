@@ -110,7 +110,7 @@ test('grid and splitPane layouts arrange common app frames', () => {
     text({ content: 'status', id: 'status' }),
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
-      presentation: { value: '/help', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
+      presentation: { input: { text: '/help', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: (action) => action
     })
   ], {
@@ -262,7 +262,7 @@ test('interactive row fills do not inflate intrinsic content tracks', () => {
     button({ id: 'forward', label: 'Forward', onAction: () => ignoreMessage() }),
     surface(commandInput({ meta: { accessibleName: "Command input" },
       id: 'address',
-      presentation: { value: 'example.test', cursor: 12, open: false, suggestions: prepareCommandSuggestions([]) },
+      presentation: { input: { text: 'example.test', cursor: 12 }, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: (action) => action
     }), { appearance: 'inset' }),
     button({ id: 'menu', label: 'Menu', onAction: () => ignoreMessage() })
@@ -389,7 +389,7 @@ test('searchPicker content tracks use the active text-width profile', () => {
     searchPicker({ meta: { accessibleName: "Search" },
       id: 'profiled-searchPicker',
       searchPickerIndex: prepareSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
-      presentation: { query: { text: '', mode: 'fuzzy' } },
+      presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
       onTransition: (action) => action
     }),
     text({ content: 'remaining', id: 'profiled-searchPicker-sibling' })

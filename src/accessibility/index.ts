@@ -10,6 +10,8 @@ export type {
   AccessibleSnapshot,
   AccessibleSnapshotInput,
   AccessibleSnapshotSource,
+  AccessibleTextPosition,
+  AccessibleTextSelection,
   AccessibleValue,
   AccessibleWindow
 } from './types.ts';

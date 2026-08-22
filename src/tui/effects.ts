@@ -11,6 +11,7 @@ import type {
   TuiEffectOutput,
   TuiEffectPolicy
 } from './types.ts';
+import { prepareCopySelectedTextInput } from './selection.ts';
 
 interface ActiveEffect {
   readonly id: string;
@@ -38,6 +39,10 @@ export interface TuiEffectManagerOptions<TMessage> {
   readonly context: () => Promise<TuiContext>;
   readonly dispatch: (messages: readonly TMessage[], lease: ProducerAdmissionLease) => Promise<void>;
   readonly reportDiagnostic: (item: TerminalDiagnostic) => void;
+  readonly copySelectedText: (
+    input: import('./selection.ts').CopySelectedTextInput,
+    signal: AbortSignal,
+  ) => Promise<import('./selection.ts').CopySelectedTextResult>;
   readonly withTerminalSuspended?: <TValue>(
     operation: () => Promise<TValue>,
     signal: AbortSignal
@@ -310,7 +315,11 @@ async function executeEffect<TMessage>(
         return suspend === undefined
           ? Promise.reject(new Error('Terminal suspension is only available to runtimes owned by runTui().'))
           : suspend(operation, controller.signal);
-      }
+      },
+      copySelectedText: (input) => options.copySelectedText(
+        prepareCopySelectedTextInput(input),
+        controller.signal,
+      ),
     };
     if (signalIsAborted(controller.signal)) return;
     output = decodeTuiEffectOutput<TMessage>(await effect.run(context));

@@ -3,6 +3,7 @@ import { diagnostic } from '../diagnostics.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalProtocolSink } from './types.ts';
+import { isNonArrayObject } from '../foundation/validation.ts';
 
 export interface ClipboardWritePolicy {
   readonly allowed: boolean;
@@ -30,12 +31,44 @@ export type ClipboardWriteResult =
     }
   | ClipboardWriteRejection;
 
+const clipboardWritePolicies = new WeakSet<object>();
+
+export function decodeClipboardWritePolicy(value: unknown): ClipboardWritePolicy {
+  if (!isNonArrayObject(value)) {
+    throw new TypeError('Clipboard write policy must be an object.');
+  }
+  if (isClipboardWritePolicy(value)) return value;
+  if (typeof value['allowed'] !== 'boolean') {
+    throw new TypeError('Clipboard write policy allowed must be a boolean.');
+  }
+  const maxBytes = value['maxBytes'];
+  if (
+    maxBytes !== undefined
+    && (typeof maxBytes !== 'number' || !Number.isSafeInteger(maxBytes) || maxBytes < 0)
+  ) {
+    throw new RangeError(
+      'Clipboard write policy maxBytes must be a finite non-negative safe integer.',
+    );
+  }
+  const policy = Object.freeze({
+    allowed: value['allowed'],
+    ...(maxBytes === undefined ? {} : { maxBytes }),
+  });
+  clipboardWritePolicies.add(policy);
+  return policy;
+}
+
+function isClipboardWritePolicy(value: object): value is ClipboardWritePolicy {
+  return clipboardWritePolicies.has(value);
+}
+
 export function createClipboardWriteSequence(
   text: string,
   policy: ClipboardWritePolicy
 ): ClipboardWriteSequenceResult {
-  const maxBytes = clipboardMaxBytes(policy.maxBytes);
-  if (!policy.allowed) return clipboardDenied();
+  const preparedPolicy = decodeClipboardWritePolicy(policy);
+  const maxBytes = preparedPolicy.maxBytes ?? 1_000_000;
+  if (!preparedPolicy.allowed) return clipboardDenied();
   const sanitized = sanitizeTerminalText(text).text;
   const bytes = new TextEncoder().encode(sanitized);
   if (bytes.byteLength > maxBytes) {
@@ -78,14 +111,6 @@ function clipboardDenied(): ClipboardWriteRejection {
       target: 'clipboard'
     })
   };
-}
-
-function clipboardMaxBytes(value: number | undefined): number {
-  if (value === undefined) return 1_000_000;
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new RangeError('Clipboard maxBytes must be a finite non-negative safe integer.');
-  }
-  return value;
 }
 
 function base64(bytes: Uint8Array): string {

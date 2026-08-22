@@ -46,6 +46,7 @@ import type { LogHistory, LogHistoryRecord, LogSearchMatch } from '../../ui-mode
 import type {
   LogViewerAction,
   LogViewerBodyAnchor,
+  LogViewerContextMenuEvent,
   LogViewerSelection,
 } from '../../ui-model/log-viewer.ts';
 import type { LogViewerStylePart } from '../../ui-model/style-parts.ts';
@@ -80,10 +81,13 @@ interface LogViewerModel {
 
 type LogViewerComponentOptions = Omit<
   LogViewerOptions<ComponentMessage>,
-  'id' | 'onAction' | 'styles' | 'meta'
+  'id' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'
 >;
 
-type LogViewerComponentAction = LogViewerAction;
+type LogViewerComponentAction = LogViewerAction | {
+  readonly kind: 'contextMenu';
+  readonly event: LogViewerContextMenuEvent;
+};
 
 interface LogViewerTextSegment extends RenderSpan {
   readonly body?: boolean;
@@ -203,16 +207,20 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
   }
   assertRequiredCallback(options.onAction, 'logViewer onAction');
   if (options.scroll === undefined) {
-    const { onAction, ...componentOptions } = options;
+    const { onAction, onContextMenu, ...componentOptions } = options;
     return activeLogViewer({
       ...componentOptions,
-      onAction: (action) => action.kind === 'scroll' ? ignoreMessage() : onAction(action),
+      onAction: (action) => action.kind === 'contextMenu'
+        ? onContextMenu?.(action.event) ?? ignoreMessage()
+        : action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  const { onAction, ...componentOptions } = options;
+  const { onAction, onContextMenu, ...componentOptions } = options;
   return activeLogViewer({
     ...componentOptions,
-    onAction,
+    onAction: (action) => action.kind === 'contextMenu'
+      ? onContextMenu?.(action.event) ?? ignoreMessage()
+      : onAction(action),
   });
 }
 
@@ -946,19 +954,19 @@ function withOmissionMarkers(
 
 function logViewerHitTargets(
   input: ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
-): readonly HitTarget<LogViewerAction>[] {
+): readonly HitTarget<LogViewerComponentAction>[] {
   const window = logViewerWindow(input, true);
-  const textTarget: HitTarget<LogViewerAction> = {
+  const textTarget: HitTarget<LogViewerComponentAction> = {
     id: `${input.id ?? 'log-viewer'}:text`,
     bounds: window.scrollbar.contentBounds,
-    accepts: ['pointerDown', 'dragStart', 'drag', 'dragEnd'],
+    accepts: ['pointerDown', 'click', 'dragStart', 'drag', 'dragEnd', 'contextMenu'],
     focus: { kind: 'target', targetId: 'self' },
     cursor: 'text',
-    message: (event) => pointerAction(window.rows, event),
+    message: (event) => pointerAction(input.model, window, event),
   };
   return [
     textTarget,
-    ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<LogViewerAction>({
+    ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<LogViewerComponentAction>({
       id: input.id ?? 'log-viewer',
       plan: window.scrollbar,
       ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
@@ -968,37 +976,102 @@ function logViewerHitTargets(
 }
 
 function pointerAction(
-  rows: readonly LogViewerVisibleRow[],
+  model: LogViewerModel,
+  window: LogViewerWindow,
   event: RoutedPointerEvent,
-): ReturnType<HitTarget<LogViewerAction>['message']> {
-  const position = pointerAnchor(rows, event);
+): ReturnType<HitTarget<LogViewerComponentAction>['message']> {
+  const position = pointerAnchor(window.rows, event);
   if (position === undefined) return ignoreMessage();
+  if (event.kind === 'contextMenu') {
+    return {
+      kind: 'contextMenu',
+      event: {
+        kind: 'contextMenu',
+        position,
+        ...(model.selection === undefined ? {} : { selection: model.selection }),
+        row: event.row,
+        column: event.column,
+        modifiers: event.modifiers,
+      },
+    };
+  }
+  if (event.button !== 'left') return ignoreMessage();
   if (event.kind === 'pointerDown') {
-    return { kind: 'pointer', action: { kind: 'placeCaret', position } };
+    return logViewerPointerMessage(model, window, event, { kind: 'placeCaret', position });
+  }
+  if (event.kind === 'click') {
+    if (event.clickCount !== 2) return ignoreMessage();
+    const record = logHistoryRecordById(model.history, position.entryId);
+    if (record === undefined) return ignoreMessage();
+    const word = createTerminalTextIndex(record.bodyText).wordSelectionAt(position.offset);
+    return logViewerPointerMessage(model, window, event, {
+        kind: 'endSelection',
+        anchor: { entryId: position.entryId, offset: word.startOffset },
+        position: { entryId: position.entryId, offset: word.endOffsetExclusive },
+    });
   }
   if (event.kind !== 'dragStart' && event.kind !== 'drag' && event.kind !== 'dragEnd') {
     return ignoreMessage();
   }
-  const anchor = pointerAnchor(rows, {
+  const anchor = pointerAnchor(window.rows, {
     ...event,
     ...(event.pressLocalRow === undefined ? {} : { localRow: event.pressLocalRow }),
     ...(event.pressLocalColumn === undefined ? {} : { localColumn: event.pressLocalColumn }),
   }) ?? position;
-  return {
-    kind: 'pointer',
-    action: {
+  return logViewerPointerMessage(model, window, event, {
       kind: event.kind === 'dragEnd' ? 'endSelection' : 'extendSelection',
       anchor,
       position,
-    },
+  });
+}
+
+function logViewerPointerMessage(
+  model: LogViewerModel,
+  window: LogViewerWindow,
+  event: RoutedPointerEvent,
+  action: import('../../interaction/text-pointer.ts').PointerSelectionAction<LogViewerBodyAnchor>,
+): Extract<LogViewerComponentAction, { readonly kind: 'pointer' }> {
+  const scroll = logViewerDragScrollEvent(model, window, action, event);
+  return {
+    kind: 'pointer',
+    action,
+    ...(scroll === undefined ? {} : { scroll }),
   };
+}
+
+function logViewerDragScrollEvent(
+  model: LogViewerModel,
+  window: LogViewerWindow,
+  action: import('../../interaction/text-pointer.ts').PointerSelectionAction<LogViewerBodyAnchor>,
+  event: RoutedPointerEvent,
+): import('../../interaction/scroll.ts').ScrollEvent | undefined {
+  if (model.scroll === undefined || action.kind !== 'extendSelection') return undefined;
+  const localRow = event.localRow ?? event.row - window.scrollbar.contentBounds.row + 1;
+  const rows = localRow < 1
+    ? -1
+    : localRow > window.scrollbar.contentBounds.height
+    ? 1
+    : 0;
+  if (rows === 0) return undefined;
+  const nextState = scrollReducer(
+    window.scrollbar.scroll,
+    { kind: 'scrollLines', rows },
+    window.scrollbar.geometry,
+  );
+  return nextState === window.scrollbar.scroll
+    ? undefined
+    : { nextState, source: 'drag', target: 'content' };
 }
 
 function pointerAnchor(
   rows: readonly LogViewerVisibleRow[],
   event: RoutedPointerEvent,
 ): LogViewerBodyAnchor | undefined {
-  const positions = rows[(event.localRow ?? 0) - 1]?.bodyPositions;
+  if (rows.length === 0) return undefined;
+  const requested = Math.max(0, Math.min(rows.length - 1, (event.localRow ?? 1) - 1));
+  const row = rows[requested];
+  const positions = row?.bodyPositions
+    ?? nearestBodyPositions(rows, requested);
   if (positions === undefined || positions.length === 0) return undefined;
   const column = Math.max(0, (event.localColumn ?? 1) - 1);
   const containing = positions.find((position) =>
@@ -1019,6 +1092,19 @@ function pointerAnchor(
   }
   const first = positions[0];
   return first === undefined ? undefined : { entryId: first.entryId, offset: first.offset };
+}
+
+function nearestBodyPositions(
+  rows: readonly LogViewerVisibleRow[],
+  requested: number,
+): readonly LogViewerBodyPosition[] | undefined {
+  for (let distance = 1; distance < rows.length; distance += 1) {
+    const before = rows[requested - distance]?.bodyPositions;
+    if (before !== undefined && before.length > 0) return before;
+    const after = rows[requested + distance]?.bodyPositions;
+    if (after !== undefined && after.length > 0) return after;
+  }
+  return undefined;
 }
 
 function bodyPositionsForLine(

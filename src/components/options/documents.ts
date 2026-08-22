@@ -20,9 +20,13 @@ import type {
 } from '../../ui-model/search-picker.ts';
 import type { SearchPickerIndex } from '../../ui-model/search-picker-index.ts';
 import type { LogViewerAction, LogViewerControlAction } from '../../ui-model/log-viewer.ts';
-import type { LogViewerSelection } from '../../ui-model/log-viewer.ts';
+import type {
+  LogViewerContextMenuEvent,
+  LogViewerSelection,
+} from '../../ui-model/log-viewer.ts';
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import type {
   CommandInputStylePart,
   LogViewerStylePart,
@@ -52,9 +56,11 @@ export type UnscrolledLogViewerOptions<TMessage extends ComponentMessage = never
 } & (
   | {
       readonly onAction: (action: LogViewerControlAction) => MessageResolution<TMessage>;
+      readonly onContextMenu?: (event: LogViewerContextMenuEvent) => MessageResolution<TMessage>;
     }
   | {
       readonly onAction?: never;
+      readonly onContextMenu?: never;
     }
 );
 
@@ -63,6 +69,7 @@ export interface ScrollableLogViewerOptions<TMessage extends ComponentMessage = 
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly onAction: (action: LogViewerAction) => MessageResolution<TMessage>;
+  readonly onContextMenu?: (event: LogViewerContextMenuEvent) => MessageResolution<TMessage>;
 }
 
 interface CommandInputOptionsBase {
@@ -90,12 +97,14 @@ export type CommandInputOptions<
       readonly readOnly?: never;
       readonly onTransition?: never;
       readonly onSubmit?: never;
+      readonly onContextMenu?: never;
     }
   | {
       readonly disabled?: false;
       readonly readOnly?: boolean;
       readonly onTransition: (transition: CommandInputTransition) => MessageResolution<TTransitionMessage>;
       readonly onSubmit?: (event: CommandInputSubmitEvent) => MessageResolution<TSubmitMessage>;
+      readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TTransitionMessage>;
     }
 );
 
@@ -121,6 +130,7 @@ interface ActiveSearchPickerCallbacks<
   readonly inert?: false;
   readonly onTransition: (transition: TTransition) => MessageResolution<TTransitionMessage>;
   readonly onAccept?: (event: SearchPickerAcceptEvent) => MessageResolution<TAcceptMessage>;
+  readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TTransitionMessage>;
 }
 
 interface InertSearchPickerCallbacks {
@@ -130,6 +140,7 @@ interface InertSearchPickerCallbacks {
   readonly inert: true;
   readonly onTransition?: never;
   readonly onAccept?: never;
+  readonly onContextMenu?: never;
 }
 
 interface DisabledSearchPickerCallbacks {
@@ -139,6 +150,7 @@ interface DisabledSearchPickerCallbacks {
   readonly inert?: never;
   readonly onTransition?: never;
   readonly onAccept?: never;
+  readonly onContextMenu?: never;
 }
 
 export type UnscrolledSearchPickerOptions<

@@ -39,10 +39,10 @@ void test('component construction and rendering do not execute event handlers', 
     textArea({ meta: { accessibleName: "Text area" }, id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
-      presentation: { value: 'a', cursor: 0, open: false, suggestions: prepareCommandSuggestions([]) },
+      presentation: { input: { text: 'a', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
       onTransition: message
     }),
-    searchPicker({ meta: { accessibleName: "Search" }, id: 'searchPicker', presentation: { query: { text: '', mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
+    searchPicker({ meta: { accessibleName: "Search" }, id: 'searchPicker', presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
   ];
 
   for (const element of elements) renderElementFrame(element, { columns: 40, rows: 6 });

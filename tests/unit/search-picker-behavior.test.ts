@@ -38,7 +38,8 @@ void test('search picker owns query and active position but acceptance stays an 
   });
 
   assert.deepEqual(searchPickerPresentation(queried), {
-    query: { text: 'file', mode: 'contains' },
+    input: { text: 'file', cursor: 4 },
+    query: { mode: 'contains' },
     activeId: 'open',
   });
   assert.equal(searchPickerPresentation(moved).activeId, 'close');
@@ -47,16 +48,16 @@ void test('search picker owns query and active position but acceptance stays an 
 
 void test('search picker query editing is Unicode-safe and reselects the first enabled match', () => {
   const initial = createSearchPickerState({ query: emptyQuery }, index);
-  const typed = searchPickerReducer(initial, { kind: 'insertQuery', text: 'file🙂' }, {
+  const typed = searchPickerReducer(initial, { kind: 'edit', operation: { kind: 'insert', text: 'file🙂' } }, {
     searchPickerIndex: index,
   });
-  const shortened = searchPickerReducer(typed, { kind: 'deleteQueryBackward' }, {
+  const shortened = searchPickerReducer(typed, { kind: 'edit', operation: { kind: 'deleteBackward' } }, {
     searchPickerIndex: index,
   });
 
-  assert.equal(searchPickerPresentation(typed).query.text, 'file🙂');
+  assert.equal(searchPickerPresentation(typed).input.text, 'file🙂');
   assert.equal(searchPickerPresentation(typed).activeId, undefined);
-  assert.equal(searchPickerPresentation(shortened).query.text, 'file');
+  assert.equal(searchPickerPresentation(shortened).input.text, 'file');
   assert.equal(searchPickerPresentation(shortened).activeId, 'open');
 });
 
@@ -74,7 +75,8 @@ void test('disabled matches never become active', () => {
 
 void test('activeSearchPickerEntry returns stable-id activation rather than array position', () => {
   const presentation = {
-    query: { text: 'file', mode: 'contains' } as const,
+    input: { text: 'file', cursor: 4 },
+    query: { mode: 'contains' } as const,
     activeId: 'close',
   };
   assert.equal(activeSearchPickerEntry({ searchPickerIndex: index, presentation })?.id, 'close');
@@ -144,7 +146,7 @@ void test('editable popup adapters share text editing and active-result transiti
   );
   const search = searchPickerReducer(
     createSearchPickerState({ query: emptyQuery }, index),
-    { kind: 'insertQuery', text: 'f' },
+    { kind: 'edit', operation: { kind: 'insert', text: 'f' } },
     { searchPickerIndex: index },
   );
   const autocompleteIndex = prepareCollectionInteractionIndex(['open', 'close']);
@@ -156,8 +158,8 @@ void test('editable popup adapters share text editing and active-result transiti
     },
   );
 
-  assert.equal(commandInputPresentation(command).value, 'f');
-  assert.equal(searchPickerPresentation(search).query.text, 'f');
+  assert.equal(commandInputPresentation(command).input.text, 'f');
+  assert.equal(searchPickerPresentation(search).input.text, 'f');
   assert.equal(autocompleteComboboxPresentation(autocomplete).input.text, 'f');
   assert.equal(commandInputPresentation(command).open, true);
   assert.equal(autocomplete.editor.open, true);

@@ -2,7 +2,6 @@ import {
   ignoreMessage,
   placeAnchoredSurface,
   pointerVisualState,
-  resolveSelectedText,
   type AnchoredSurfacePlacement,
   type PointerInteractionState
 } from '@ismail-elkorchi/terminal-ui/interaction';
@@ -14,9 +13,6 @@ const bounds = placeAnchoredSurface({
   size: { width: 10, height: 3 },
   placement
 });
-const selected = resolveSelectedText({
-  sources: [{ id: 'document', text: 'terminal', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
-});
 const ignored = ignoreMessage();
 const pointerState: PointerInteractionState = { hoveredTargetId: 'save:control' };
 const pointerStyle = pointerVisualState(pointerState, 'save:control');
@@ -25,7 +21,6 @@ const pointerStyle = pointerVisualState(pointerState, 'save:control');
 const invalidPlacement: AnchoredSurfacePlacement = 'center';
 
 void bounds;
-void selected;
 void ignored;
 void pointerStyle;
 void invalidPlacement;

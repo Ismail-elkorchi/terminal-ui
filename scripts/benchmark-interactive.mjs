@@ -323,7 +323,11 @@ function renderScenarios() {
           meta: { accessibleName: 'Commands' },
           searchPickerIndex,
           presentation: {
-            query: { text: String(entries.length - 1 - index), mode: 'fuzzy' }
+            input: {
+              text: String(entries.length - 1 - index),
+              cursor: String(entries.length - 1 - index).length
+            },
+            query: { mode: 'fuzzy' }
           },
           maxVisible: 8,
           onTransition: (transition) => transition

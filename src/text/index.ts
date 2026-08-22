@@ -68,7 +68,16 @@ export {
 } from './selection-model.ts';
 export { createTerminalTextIndex } from './terminal-text-index.ts';
 export { terminalTextWidth } from './terminal-width.ts';
-export { extractTextSelection } from './selection.ts';
+export {
+  extractTextBufferSelection,
+  extractTextDocumentSelection,
+  extractTextSelection,
+} from './selection.ts';
+export type {
+  ExtractTextBufferSelectionInput,
+  ExtractTextDocumentSelectionInput,
+  ExtractTextSelectionInput,
+} from './selection.ts';
 export {
   lineEndOffset,
   lineOffsetByDelta,
@@ -94,5 +103,4 @@ export type {
   EditHistoryPolicy,
   EditHistoryTransition
 } from './bounded-history.ts';
-export type { ExtractTextSelectionInput } from './selection.ts';
 export type { TextHighlightMatch, TextHighlightOptions } from './search-index.ts';

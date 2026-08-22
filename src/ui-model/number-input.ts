@@ -1,7 +1,9 @@
 import type { TextEditOperation, TextSelection } from '../text/index.ts';
+import type { TextPointerAction } from '../interaction/text-pointer.ts';
 
 export type NumberInputControlAction =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }
+  | { readonly kind: 'pointer'; readonly action: TextPointerAction }
   | { readonly kind: 'step'; readonly direction: 'decrement' | 'increment' }
   | { readonly kind: 'commit' };
 

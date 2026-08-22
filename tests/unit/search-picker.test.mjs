@@ -6,6 +6,7 @@ import {
   searchPickerWindow
 } from '../../dist/behavior/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render.js';
 import { searchPicker } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
@@ -106,7 +107,7 @@ test('searchPicker component renders query matches disabled entries preview help
       id: 'searchPicker',
       title: 'Things',
       searchPickerIndex: index,
-      presentation: { query: { text: 'run', mode: 'fuzzy' }, activeId: 'run-tests' },
+      presentation: { input: { text: 'run', cursor: 3 }, query: { mode: 'fuzzy' }, activeId: 'run-tests' },
       maxVisible: 2,
       helpText: 'enter accepts, escape closes',
       emptyText: 'Nothing here',
@@ -172,7 +173,7 @@ test('searchPicker preserves explicit scroll while accepting an off-window activ
     view: () => searchPicker({ meta: { accessibleName: "Search" },
       id: 'windowed-picker',
       searchPickerIndex: manyIndex,
-      presentation: { query: { text: '', mode: 'fuzzy' }, activeId: '4', scroll },
+      presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, activeId: '4', scroll },
       maxVisible: 3,
       onTransition: (action) => action,
       onAccept: (event) => event
@@ -217,7 +218,7 @@ test('searchPicker reuses normalized entries across repeated factory calls', () 
   const elementForQuery = (query) => searchPicker({ meta: { accessibleName: "Search" },
     id: 'measured-searchPicker',
       searchPickerIndex: measuredIndex,
-    presentation: { query: { text: query, mode: 'fuzzy' } },
+    presentation: { input: { text: query, cursor: query.length }, query: { mode: 'fuzzy' } },
     onTransition: (action) => action
   });
 
@@ -232,7 +233,7 @@ test('searchPicker component renders empty states for unrelated queries', () => 
     searchPicker({ meta: { accessibleName: "Search" },
       id: 'searchPicker',
       searchPickerIndex: index,
-      presentation: { query: { text: 'zz', mode: 'fuzzy' } },
+      presentation: { input: { text: 'zz', cursor: 2 }, query: { mode: 'fuzzy' } },
       emptyText: 'No available entries',
       onTransition: (action) => action
     }),
@@ -249,7 +250,7 @@ test('searchPicker exposes enabled visible entry hit targets when toMessage is p
     searchPicker({ meta: { accessibleName: "Search" },
       id: 'commands',
       searchPickerIndex: index,
-      presentation: { query: { text: '', mode: 'fuzzy' } },
+      presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
       maxVisible: 3,
       onTransition: (action) => ({ kind: 'action', action })
     }),
@@ -257,10 +258,82 @@ test('searchPicker exposes enabled visible entry hit targets when toMessage is p
   );
 
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), [
+    'commands:query',
     'commands:open-file',
     'commands:toggle-terminal',
     'commands:scroll:content'
   ]);
+});
+
+test('busy searchPicker exposes no editable, option, or scrollbar hit targets', () => {
+  const frame = renderElementFrame(searchPicker({
+    id: 'busy-search',
+    meta: { accessibleName: 'Search' },
+    searchPickerIndex: index,
+    presentation: { input: { text: 'open', cursor: 4 }, query: { mode: 'fuzzy' } },
+    busy: true,
+    onTransition: (transition) => transition,
+  }), { columns: 48, rows: 6 });
+
+  assert.deepEqual(frame.hitTargets ?? [], []);
+});
+
+test('searchPicker query exposes shared word-selection and context-menu semantics', () => {
+  const regions = renderElementRegions(searchPicker({ meta: { accessibleName: 'Search' },
+    id: 'search-pointer-semantics',
+    searchPickerIndex: index,
+    presentation: {
+      input: {
+        text: 'alpha bravo',
+        cursor: 0,
+        selection: { startOffset: 0, endOffsetExclusive: 5 },
+      },
+      query: { mode: 'fuzzy' },
+    },
+    onTransition: (transition) => ({ transition }),
+    onContextMenu: (event) => ({ context: event }),
+  }), { columns: 32, rows: 5 });
+  const target = regions.flatMap((region) => region.hitTargets)
+    .find((candidate) => candidate.id === 'search-pointer-semantics:query');
+  assert.ok(target);
+  const event = {
+    kind: 'click',
+    clickCount: 2,
+    source: 'mouse',
+    row: target.bounds.row,
+    column: target.bounds.column + 9,
+    localRow: 1,
+    localColumn: 10,
+    button: 'left',
+    modifiers: { shift: false, alt: false, ctrl: false },
+    deltaRows: 0,
+    deltaColumns: 0,
+    targetId: target.id,
+    raw: {
+      kind: 'mouse',
+      sequence: '',
+      encoding: 'sgr',
+      action: 'release',
+      button: 'left',
+      row: target.bounds.row,
+      column: target.bounds.column + 9,
+      rawCode: 0,
+      modifiers: { shift: false, alt: false, ctrl: false },
+    },
+  };
+
+  assert.deepEqual(target.message(event)?.transition, {
+    kind: 'pointer',
+    action: { kind: 'endSelection', anchor: 6, offset: 11 },
+  });
+  assert.deepEqual(target.message({ ...event, kind: 'contextMenu', button: 'right' })?.context, {
+    kind: 'contextMenu',
+    offset: 7,
+    selection: { startOffset: 0, endOffsetExclusive: 5 },
+    row: target.bounds.row,
+    column: target.bounds.column + 9,
+    modifiers: { shift: false, alt: false, ctrl: false },
+  });
 });
 
 test('searchPicker emits compact controlled actions while acceptance remains caller-controlled', async () => {
@@ -271,7 +344,7 @@ test('searchPicker emits compact controlled actions while acceptance remains cal
     view: () => searchPicker({ meta: { accessibleName: "Search" },
       id: 'commands',
       searchPickerIndex: index,
-      presentation: { query: { text: '', mode: 'fuzzy' }, activeId: 'open-file' },
+      presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, activeId: 'open-file' },
       onTransition: (action) => ({ kind: 'action', action }),
       onAccept: (event) => ({ kind: 'accept', event })
     })
@@ -287,9 +360,9 @@ test('searchPicker emits compact controlled actions while acceptance remains cal
   await runtime.handleInput({ kind: 'key', key: 'escape', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.deepEqual(runtime.state().messages, [
-    { kind: 'action', action: { kind: 'insertQuery', text: 'o' } },
-    { kind: 'action', action: { kind: 'insertQuery', text: 'pen' } },
-    { kind: 'action', action: { kind: 'deleteQueryBackward' } },
+    { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'o' } } },
+    { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'pen' } } },
+    { kind: 'action', action: { kind: 'edit', operation: { kind: 'deleteBackward' } } },
     { kind: 'action', action: { kind: 'moveActive', delta: 1 } },
     { kind: 'accept', event: { kind: 'accept', id: 'open-file' } }
   ]);

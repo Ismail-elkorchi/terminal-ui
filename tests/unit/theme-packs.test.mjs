@@ -193,8 +193,7 @@ test('default theme specimen composes surface control text command log and data 
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'specimen-command',
       presentation: {
-        value: '/open readme',
-        cursor: 0,
+        input: { text: '/open readme', cursor: 0 },
         open: true,
         suggestions: prepareCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 12 }, text: '/open' }, label: 'Open File' }]),
         activeSuggestionId: 'open'

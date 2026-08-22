@@ -13,6 +13,7 @@ import type {
 } from '../../ui-model/forms.ts';
 import type { SwitchAction } from '../../ui-model/forms.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
 import type { NumberInputControlAction, NumberInputPresentation } from '../../ui-model/number-input.ts';
 import type { TextInputAction, TextInputPresentation } from '../../ui-model/text-input.ts';
@@ -39,6 +40,7 @@ import type {
   ButtonStylePart,
   CalendarStylePart,
   ChoiceStylePart,
+  ComboboxStylePart,
   ColorSwatchPickerStylePart,
   FieldStylePart,
   LabelStylePart,
@@ -320,13 +322,14 @@ interface ComboboxOptionsBase<TValue> {
   readonly maxVisibleOptions?: number;
   readonly required?: boolean;
   readonly error?: string;
-  readonly styles?: import('../../element/metadata.ts').ElementStyles<ChoiceStylePart, 'focused' | 'hovered' | 'pressed' | 'active' | 'selected' | 'disabled' | 'busy' | 'readOnly'>;
+  readonly styles?: import('../../element/metadata.ts').ElementStyles<ComboboxStylePart, 'focused' | 'hovered' | 'pressed' | 'active' | 'selected' | 'disabled' | 'busy' | 'readOnly'>;
   readonly meta?: Pick<ElementMeta, 'focus' | 'layer'>;
 }
 
 interface ActiveComboboxCallbacks<TTransition, TMessage extends ComponentMessage> {
   readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
   readonly onCommit?: (event: ComboboxCommitEvent) => MessageResolution<TMessage>;
+  readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
   readonly disabled?: false;
   readonly readOnly?: boolean;
   readonly busy?: boolean;
@@ -350,6 +353,7 @@ export type ActiveComboboxOptions<TValue, TMessage extends ComponentMessage> =
 interface InertComboboxAvailability {
   readonly onTransition?: never;
   readonly onCommit?: never;
+  readonly onContextMenu?: never;
   readonly disabled?: false;
   readonly readOnly?: never;
   readonly busy?: boolean;
@@ -363,6 +367,7 @@ export type InertComboboxOptions<TValue> =
 interface DisabledComboboxAvailability {
   readonly onTransition?: never;
   readonly onCommit?: never;
+  readonly onContextMenu?: never;
   readonly disabled: true;
   readonly readOnly?: never;
   readonly busy?: never;
@@ -461,10 +466,12 @@ export type TextInputOptions<TMessage extends ComponentMessage = never> =
 export type ActiveTextInputOptions<TMessage extends ComponentMessage> = TextInputOptionsBase & {
   readonly disabled?: false;
   readonly onAction: (action: TextInputAction) => MessageResolution<TMessage>;
+  readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
 };
 
 export type DisabledTextInputOptions = TextInputOptionsBase & {
   readonly onAction?: never;
+  readonly onContextMenu?: never;
   readonly disabled: true;
   readonly readOnly?: never;
 };
@@ -488,12 +495,14 @@ export type NumberInputOptions<TMessage extends ComponentMessage = never> =
 
 export interface ActiveNumberInputOptions<TMessage extends ComponentMessage> extends NumberInputOptionsBase {
   readonly onAction: (action: NumberInputControlAction) => MessageResolution<TMessage>;
+  readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
   readonly disabled?: false;
   readonly readOnly?: boolean;
 }
 
 export type DisabledNumberInputOptions = NumberInputOptionsBase & {
   readonly onAction?: never;
+  readonly onContextMenu?: never;
   readonly disabled: true;
   readonly readOnly?: never;
 };

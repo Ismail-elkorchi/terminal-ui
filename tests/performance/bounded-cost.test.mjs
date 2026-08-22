@@ -255,8 +255,7 @@ test('command suggestions retain only a supplied window while preserving global 
     display: 'expanded',
     maxVisibleSuggestions: 8,
     presentation: {
-      value: '',
-      cursor: 0,
+      input: { text: '', cursor: 0 },
       open: true,
       suggestions,
       activeSuggestionId: 'command-40003',
@@ -361,7 +360,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
       id: 'search',
       meta: { accessibleName: 'Search' },
       prompt: '?',
-      presentation: { value: 'fil', cursor: 0, open: true, suggestions: prepareCommandSuggestions([
+      presentation: { input: { text: 'fil', cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([
         { id: 'file', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'file' }, label: 'file' },
         { id: 'filter', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'filter' }, label: 'filter' }
       ]), activeSuggestionId: 'file' },
@@ -809,7 +808,8 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
     id: 'large-searchPicker',
     meta: { accessibleName: 'Large search' },
     presentation: {
-      query: { text: '19999', mode: 'fuzzy' },
+      input: { text: '19999', cursor: 5 },
+      query: { mode: 'fuzzy' },
       activeId: 'entry-19999'
     },
     maxVisible: 5,

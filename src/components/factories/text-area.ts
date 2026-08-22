@@ -25,6 +25,7 @@ import {
 } from '../../foundation/validation.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
+import { scrollReducer } from '../../behavior/scroll.ts';
 import {
   assertTextDocument,
   createTerminalTextIndex,
@@ -62,7 +63,13 @@ import type { TextAreaStylePart } from '../../ui-model/style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { ScrollableTextAreaOptions, TextAreaOptions } from '../options/content.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
-import { inspectTextDocumentValue, inspectValidation } from '../internal/inspection.ts';
+import { textPointerTarget } from '../internal/text-pointer-target.ts';
+import {
+  inspectTextDocumentValue,
+  inspectTextSelection,
+  inspectValidation,
+} from '../internal/inspection.ts';
+import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 
 interface TextAreaModel {
   readonly document: TextDocument;
@@ -85,14 +92,17 @@ interface PreparedTextAreaHighlight extends TextAreaHighlight {
   readonly label: string;
 }
 
-type TextAreaComponentAction = TextAreaAction;
+type TextAreaComponentAction = TextAreaAction | {
+  readonly kind: 'contextMenu';
+  readonly event: TextContextMenuEvent;
+};
 
 type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
   options: TextAreaOptions<TMessage>,
 ) => Element<TMessage>;
 
 const instantiateTextArea = defineComponent<
-  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'styles' | 'meta'>,
+  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'>,
   TextAreaModel,
   TextAreaComponentAction,
   TextAreaStylePart,
@@ -122,10 +132,17 @@ const instantiateTextArea = defineComponent<
   ],
   visualStates: ['focused', 'hovered', 'active', 'selected', 'disabled', 'readOnly'],
   prepare: prepareTextArea,
-  inspection: ({ model }) => ({
-    value: inspectTextDocumentValue(model.document),
-    validation: inspectValidation(model.required, model.error),
-  }),
+  inspection: ({ model }) => {
+    const selection = model.selection === undefined
+      ? undefined
+      : textDocumentSelectionRange(model.document, model.selection, model.caret);
+    return {
+      value: inspectTextDocumentValue(model.document),
+      ...(selection === undefined ? {} : { selection: inspectTextSelection(selection) }),
+      details: { caretOffset: model.caret.position.offset },
+      validation: inspectValidation(model.required, model.error),
+    };
+  },
   measure: measureTextArea,
   render: paintTextArea,
   keys: ({ readOnly }) => ({
@@ -134,18 +151,8 @@ const instantiateTextArea = defineComponent<
       ...(readOnly ? [] : textAreaHistoryTriggers())
     ],
     ...(readOnly ? {} : {
-      backspace: () => edit('deleteBackward'),
-      delete: () => edit('deleteForward'),
       enter: () => ({ kind: 'edit' as const, operation: { kind: 'insert' as const, text: '\n' } }),
     }),
-    arrowLeft: () => edit('moveLeft'),
-    arrowRight: () => edit('moveRight'),
-    arrowUp: () => edit('moveLineUp'),
-    arrowDown: () => edit('moveLineDown'),
-    pageUp: () => edit('movePageUp'),
-    pageDown: () => edit('movePageDown'),
-    home: () => edit('moveHome'),
-    end: () => edit('moveEnd'),
   }),
   onInput: ({ text, readOnly }) =>
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
@@ -188,40 +195,37 @@ const instantiateTextArea = defineComponent<
   },
   hitTargets(input) {
     const geometry = textAreaGeometry(input);
+    const selectionRange = input.model.selection === undefined
+      ? undefined
+      : textDocumentSelectionRange(input.model.document, input.model.selection, input.model.caret);
     return [
-      {
+      textPointerTarget<TextAreaComponentAction>({
         id: `${input.id ?? 'text-area'}:text`,
         bounds: geometry.scrollbar.contentBounds,
-        cursor: 'text',
-        focus: { kind: 'target', targetId: 'self' },
-        accepts: ['pointerDown', 'dragStart', 'drag', 'dragEnd'],
-        message(event) {
-          const offset = pointerOffset(
+        ...(selectionRange === undefined ? {} : { selection: selectionRange }),
+        focusTargetId: 'self',
+        offsetAt(event, origin) {
+          return pointerOffset(
             input,
-            event.localRow ?? event.row,
-            event.localColumn ?? event.column,
+            origin === 'press'
+              ? event.pressLocalRow ?? event.localRow ?? event.row
+              : event.localRow ?? event.row,
+            origin === 'press'
+              ? event.pressLocalColumn ?? event.localColumn ?? event.column
+              : event.localColumn ?? event.column,
           );
-          if (event.kind === 'pointerDown') {
-            return { kind: 'pointer', action: { kind: 'placeCaret', offset } };
-          }
-          if (event.kind !== 'dragStart' && event.kind !== 'drag' && event.kind !== 'dragEnd') {
-            return ignoreMessage();
-          }
-          const anchor = pointerOffset(
-            input,
-            event.pressLocalRow ?? event.localRow ?? event.row,
-            event.pressLocalColumn ?? event.localColumn ?? event.column,
-          );
+        },
+        wordSelectionAt: (offset) => textAreaWordSelectionAt(input.model.document, offset, input.widthProfile),
+        onPointer: (action, event) => {
+          const scroll = textAreaDragScrollEvent(input, geometry, action, event);
           return {
             kind: 'pointer',
-            action: {
-              kind: event.kind === 'dragEnd' ? 'endSelection' : 'extendSelection',
-              anchor,
-              offset,
-            },
+            action,
+            ...(scroll === undefined ? {} : { scroll }),
           };
         },
-      },
+        onContextMenu: (event) => ({ kind: 'contextMenu', event }),
+      }),
       ...(input.model.scroll === undefined ? [] : componentScrollbarHitTargets<TextAreaComponentAction>({
         id: input.id ?? 'text-area',
         plan: geometry.scrollbar,
@@ -253,10 +257,17 @@ const instantiateTextArea = defineComponent<
     }.${model.selection === undefined ? '' : ' Selection active.'}${
       model.required ? ' Required.' : ''
     }${model.error === '' ? '' : ` ${model.error}`}`;
+    const selection = model.selection === undefined
+      ? undefined
+      : textDocumentSelectionRange(model.document, model.selection, model.caret);
     return {
       id,
       role: 'textbox',
       value,
+      textPosition: {
+        caretOffset: model.caret.position.offset,
+        ...(selection === undefined ? {} : { selection }),
+      },
       description,
       required: model.required,
       invalid: model.error !== '',
@@ -273,16 +284,20 @@ export const textArea: TextAreaFactory = (options) => {
   if (options.disabled === true) return instantiateTextArea(options);
   assertRequiredCallback(options.onAction, 'textArea onAction');
   if (!isScrollableTextArea(options)) {
-    const { onAction, ...componentOptions } = options;
+    const { onAction, onContextMenu, ...componentOptions } = options;
     return instantiateTextArea({
       ...componentOptions,
-      onAction: (action) => action.kind === 'scroll' ? ignoreMessage() : onAction(action),
+      onAction: (action) => action.kind === 'contextMenu'
+        ? onContextMenu?.(action.event) ?? ignoreMessage()
+        : action.kind === 'scroll' ? ignoreMessage() : onAction(action),
     });
   }
-  const { onAction, ...componentOptions } = options;
+  const { onAction, onContextMenu, ...componentOptions } = options;
   return instantiateTextArea({
     ...componentOptions,
-    onAction,
+    onAction: (action) => action.kind === 'contextMenu'
+      ? onContextMenu?.(action.event) ?? ignoreMessage()
+      : onAction(action),
   });
 };
 
@@ -297,7 +312,7 @@ function hasScrollState(value: unknown): boolean {
 }
 
 function prepareTextArea(
-  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'styles' | 'meta'>>,
+  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'>>,
 ): TextAreaModel {
   if (!isNonArrayObject(value.presentation)) {
     throw new TypeError('textArea presentation must be an object.');
@@ -576,6 +591,48 @@ function pointerOffset(input: ComponentInput<TextAreaModel>, row: number, column
     input.model.document,
     line.start + line.index.graphemeIndexToCodeUnitOffset(grapheme),
   );
+}
+
+function textAreaDragScrollEvent(
+  input: ComponentInput<TextAreaModel>,
+  geometry: TextAreaGeometry,
+  action: import('../../interaction/text-pointer.ts').TextPointerAction,
+  event: import('../../input/pointer.ts').RoutedPointerEvent,
+): import('../../interaction/scroll.ts').ScrollEvent | undefined {
+  if (input.model.scroll === undefined || action.kind !== 'extendSelection') return undefined;
+  const localRow = event.localRow ?? event.row - geometry.scrollbar.contentBounds.row + 1;
+  const rows = localRow < 1
+    ? -1
+    : localRow > geometry.scrollbar.contentBounds.height
+    ? 1
+    : 0;
+  if (rows === 0) return undefined;
+  const nextState = scrollReducer(
+    geometry.scrollbar.scroll,
+    { kind: 'scrollLines', rows },
+    geometry.scrollbar.geometry,
+  );
+  return nextState === geometry.scrollbar.scroll
+    ? undefined
+    : { nextState, source: 'drag', target: 'content' };
+}
+
+function textAreaWordSelectionAt(
+  document: TextDocument,
+  offset: number,
+  widthProfile: TextWidthProfile,
+): TextSelection {
+  const normalized = normalizeTextDocumentOffset(document, offset);
+  const lineIndex = textDocumentLineIndexAtOffset(document, normalized);
+  const line = textDocumentLineAt(document, lineIndex);
+  if (line === undefined) return { startOffset: normalized, endOffsetExclusive: normalized };
+  const local = createTerminalTextIndex(line.text, { widthProfile }).wordSelectionAt(
+    normalized - line.startOffset,
+  );
+  return {
+    startOffset: line.startOffset + local.startOffset,
+    endOffsetExclusive: line.startOffset + local.endOffsetExclusive,
+  };
 }
 
 function prepareTextPosition(value: TextCaret['position'], owner: string): TextCaret['position'] {
@@ -1121,43 +1178,6 @@ function textAreaCursorInLayout(
   const localOffset = Math.max(0, Math.min(line.text.length, offset - line.start));
   const grapheme = line.index.codeUnitOffsetToGraphemeIndex(localOffset);
   return { rowIndex, columnCells: line.index.graphemeIndexToVisualColumn(grapheme) };
-}
-
-function edit(
-  kind:
-    | 'deleteBackward'
-    | 'deleteForward'
-    | 'moveLeft'
-    | 'moveRight'
-    | 'moveLineUp'
-    | 'moveLineDown'
-    | 'movePageUp'
-    | 'movePageDown'
-    | 'moveHome'
-    | 'moveEnd',
-): TextAreaAction {
-  switch (kind) {
-    case 'deleteBackward':
-      return { kind: 'edit', operation: { kind } };
-    case 'deleteForward':
-      return { kind: 'edit', operation: { kind } };
-    case 'moveLeft':
-      return { kind: 'edit', operation: { kind } };
-    case 'moveRight':
-      return { kind: 'edit', operation: { kind } };
-    case 'moveLineUp':
-      return { kind: 'edit', operation: { kind } };
-    case 'moveLineDown':
-      return { kind: 'edit', operation: { kind } };
-    case 'movePageUp':
-      return { kind: 'edit', operation: { kind } };
-    case 'movePageDown':
-      return { kind: 'edit', operation: { kind } };
-    case 'moveHome':
-      return { kind: 'edit', operation: { kind } };
-    case 'moveEnd':
-      return { kind: 'edit', operation: { kind } };
-  }
 }
 
 function textAreaHistoryTriggers() {

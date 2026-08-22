@@ -30,6 +30,7 @@ function manager<TMessage = never>(
       clock: host.clock
     })),
     dispatch,
+    copySelectedText: async () => { throw new Error('Unexpected clipboard operation.'); },
     reportDiagnostic: options.reportDiagnostic ?? (() => {}),
     ...(options.policy === undefined ? {} : { policy: options.policy })
   });
@@ -232,6 +233,7 @@ void test('effect failures are enclosed across context run recovery and dispatch
       clock: host.clock
     }),
     dispatch: async () => { throw new Error('dispatch failed'); },
+    copySelectedText: async () => { throw new Error('Unexpected clipboard operation.'); },
     reportDiagnostic: (item) => diagnostics.push(item)
   });
   effects.start([

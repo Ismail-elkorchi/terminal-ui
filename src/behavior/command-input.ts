@@ -3,10 +3,8 @@ import type { CommandInputPresentation } from '../ui-model/command-input.ts';
 
 export function commandInputPresentation(state: CommandInputState): CommandInputPresentation {
   return {
-    value: state.editor.input.text,
-    cursor: state.editor.input.cursor,
+    input: state.editor.input,
     open: state.editor.open,
-    ...(state.editor.input.selection === undefined ? {} : { selection: state.editor.input.selection }),
     suggestions: state.suggestions,
     ...(!state.editor.open || state.editor.activeId === undefined
       ? {}

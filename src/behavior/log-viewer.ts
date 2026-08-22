@@ -62,7 +62,10 @@ export function logViewerReducer(
             anchor: action.action.anchor,
             focus: action.action.position
           });
-      return withSelection(state, selection);
+      const selected = withSelection(state, selection);
+      if (action.scroll === undefined || selected.scroll === undefined) return selected;
+      const scroll = applyScrollEvent(selected.scroll, action.scroll);
+      return scroll === selected.scroll ? selected : { ...selected, scroll };
     }
     case 'setQuery': {
       const query = normalizedQuery(action.query);

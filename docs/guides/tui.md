@@ -329,18 +329,39 @@ ids, and the raw terminal mouse event for tests and richer components.
 Application text selection is caller-controlled state. Editable components expose
 grapheme-aware caret placement and selection start/extend/end through their
 typed `onAction` union. Route those actions through `textInputReducer()`,
-`textAreaReducer()`, or `commandInputReducer()` for standard controlled
+`textAreaReducer()`, `commandInputReducer()`, `searchPickerReducer()`, or the
+editable combobox reducer for standard controlled
 behavior, or interpret them in application state directly. The renderer maps
-press, drag, and release gestures to stable anchor/current text offsets. Use
-`resolveSelectedText()` to turn explicit selectable text
-sources and ranges into copyable text, or `copySelectedTextToClipboard()` to
-run that selected text through the capability- and policy-gated OSC 52
-clipboard protocol. Explicit authorization permits a bounded write attempt when
-terminal support is unknown; the successful result says `sent` and does not
-claim that the clipboard contents were observed. Clipboard reading is not
-exposed by terminal-ui. Terminal-native selection remains a separate mode: the app
-can delegate to it, but the runtime does not invent selected text from terminal
-emulator state.
+left press, captured drag, release, and double-click gestures to stable
+caret, range, and word offsets. Shift-modified movement extends the controlled
+selection; ordinary movement collapses it. Read-only controls retain navigation
+and selection while suppressing text mutation.
+
+An optional `onContextMenu` callback receives a right-click position and the
+current controlled selection without changing either one. The application owns
+the menu contents and decides whether commands apply to the existing selection
+or the clicked position. terminal-ui does not synthesize editor commands from a
+right click. An ignored context-menu message continues through the component
+owner ancestry, so an enclosing editor or workspace can provide the fallback
+menu without each nested text control forwarding it.
+
+Use
+`extractTextBufferSelection()` or `extractTextDocumentSelection()` to extract
+one explicitly chosen controlled selection. Pass it as one `SelectedText` value
+to `TuiEffectContext.copySelectedText()` from an application effect, or to
+`TuiRuntime.copySelectedText()` from an external controller. The runtime owns
+capability checks, output ordering, and the policy-gated OSC 52 write; the
+application owns the command, source choice, and authorization policy.
+Explicit authorization permits a bounded write attempt when terminal support is
+unknown. A successful result says `sent` and does not claim that the clipboard
+contents were observed. Clipboard reading is not exposed by terminal-ui.
+
+Decoded bracketed-paste input is delivered through each editable component's
+paste channel and becomes the same typed edit transition as keyboard insertion.
+The application reducer remains the authority for the resulting value.
+Terminal-native selection remains outside application state: an app may leave
+selection to the emulator, but the runtime does not invent selected text from
+terminal emulator state.
 
 Layout regions are structural element data. Layout elements such as `grid()`
 and `splitPane()`, and interactive components such as `tabs()` and `dialog()`,

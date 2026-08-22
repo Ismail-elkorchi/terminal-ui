@@ -15,6 +15,11 @@ import type {
   SemanticLeafComponentFactory,
 } from '../../component/index.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
+import { textPointerTarget } from '../internal/text-pointer-target.ts';
+import {
+  prepareSingleLineTextWindow,
+} from '../internal/single-line-text-window.ts';
+import type { SingleLineTextWindow } from '../internal/single-line-text-window.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
@@ -35,6 +40,7 @@ import {
 } from '../../interaction/collection.ts';
 import {
   clipTextCells,
+  createTerminalTextIndex,
   measureTextCells,
   normalizeTextSelection,
   oneCellGlyph,
@@ -43,8 +49,8 @@ import {
   segmentGraphemes,
   terminalTextWidth,
 } from '../../text/index.ts';
-import type { TextEditOperation } from '../../text/index.ts';
-import type { TextSelection } from '../../text/index.ts';
+import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
+import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import type { CalendarAction, CalendarDay } from '../../ui-model/calendar.ts';
 import { adoptCalendarDate } from '../../ui-model/calendar.ts';
 import type { ChoiceItem } from '../../ui-model/contracts.ts';
@@ -80,7 +86,11 @@ import type {
   SliderOptions,
   TextInputOptions,
 } from '../options/forms.ts';
-import { inspectTextValue, inspectValidation } from '../internal/inspection.ts';
+import {
+  inspectTextSelection,
+  inspectTextValue,
+  inspectValidation,
+} from '../internal/inspection.ts';
 
 interface SliderModel {
   readonly label: string;
@@ -615,10 +625,12 @@ export function textInput<const TMessage extends ComponentMessage = never>(
     return textInputDefinition(options);
   }
   assertControlCallbacks(options, 'textInput');
-  const { onAction, ...rest } = options;
+  const { onAction, onContextMenu, ...rest } = options;
   return textInputDefinition({
     ...rest,
-    onAction,
+    onAction: (action) => action.kind === 'contextMenu'
+      ? onContextMenu?.(action.event) ?? ignoreMessage()
+      : onAction(action),
   });
 }
 
@@ -629,10 +641,12 @@ export function passwordInput<const TMessage extends ComponentMessage = never>(
     return passwordInputDefinition(options);
   }
   assertControlCallbacks(options, 'passwordInput');
-  const { onAction, ...rest } = options;
+  const { onAction, onContextMenu, ...rest } = options;
   return passwordInputDefinition({
     ...rest,
-    onAction,
+    onAction: (action) => action.kind === 'contextMenu'
+      ? onContextMenu?.(action.event) ?? ignoreMessage()
+      : onAction(action),
   });
 }
 
@@ -648,9 +662,9 @@ type NumberInputFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateNumberInput = defineComponent<
-  Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'styles' | 'meta'>,
+  Omit<NumberInputOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'>,
   NumberModel,
-  NumberInputControlAction,
+  NumberInputComponentAction,
   NumberInputStylePart,
   readonly ['disabled', 'readOnly'],
   'required',
@@ -668,6 +682,10 @@ const instantiateNumberInput = defineComponent<
   visualStates: ['focused', 'selected', 'disabled', 'readOnly'],
   inspection: ({ model }) => ({
     value: inspectTextValue(model.presentation.value),
+    ...(model.presentation.selection === undefined
+      ? {}
+      : { selection: inspectTextSelection(model.presentation.selection) }),
+    details: { caretOffset: model.presentation.cursor },
     validation: inspectValidation(model.required, model.error),
   }),
   prepare: prepareNumberInput,
@@ -676,16 +694,10 @@ const instantiateNumberInput = defineComponent<
   keys: ({ readOnly }) => ({
     triggers: textEditingTriggers(readOnly, false),
     ...(readOnly ? {} : {
-      backspace: () => edit('deleteBackward'),
-      delete: () => edit('deleteForward'),
       arrowUp: () => ({ kind: 'step' as const, direction: 'increment' as const }),
       arrowDown: () => ({ kind: 'step' as const, direction: 'decrement' as const }),
       enter: () => ({ kind: 'commit' as const }),
     }),
-    arrowLeft: () => edit('moveLeft'),
-    arrowRight: () => edit('moveRight'),
-    home: () => edit('moveHome'),
-    end: () => edit('moveEnd'),
   }),
   onInput: ({ text, readOnly }) =>
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
@@ -693,6 +705,7 @@ const instantiateNumberInput = defineComponent<
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   focusTargets: (input) => {
     const bounds = numberInputGeometry(input.bounds, input.disabled || input.readOnly)?.input ?? input.bounds;
+    const visual = numberInputVisual(input.model, bounds.width, input.widthProfile);
     const cursorStyle = input.style({
       part: 'cursor',
       states: ['focused'],
@@ -707,12 +720,7 @@ const instantiateNumberInput = defineComponent<
           0,
           Math.min(
             Math.max(0, bounds.width - 1),
-            2 +
-              textPrefixCells(
-                input.model.presentation.value,
-                input.model.presentation.cursor,
-                input.widthProfile,
-              ),
+            2 + visual.cursorColumn,
           ),
         ),
         ...(cursorStyle === undefined ? {} : { style: cursorStyle }),
@@ -739,6 +747,12 @@ const instantiateNumberInput = defineComponent<
       id,
       role: 'spinbutton',
       value: model.presentation.value,
+      textPosition: {
+        caretOffset: model.presentation.cursor,
+        ...(model.presentation.selection === undefined
+          ? {}
+          : { selection: model.presentation.selection }),
+      },
       required: model.required,
       invalid: model.error !== '' || model.presentation.validity === 'invalid' || model.presentation.validity === 'outOfRange',
       ...(model.error === '' ? {} : {
@@ -765,10 +779,12 @@ export const numberInput: NumberInputFactory = (options) => {
     return instantiateNumberInput(options);
   }
   assertControlCallbacks(options, 'numberInput');
-  const { onAction, ...rest } = options;
+  const { onAction, onContextMenu, ...rest } = options;
   return instantiateNumberInput({
     ...rest,
-    onAction,
+    onAction: (action) => action.kind === 'contextMenu'
+      ? onContextMenu?.(action.event) ?? ignoreMessage()
+      : onAction(action),
   });
 };
 
@@ -1760,7 +1776,7 @@ function calendarHitTargets(
 
 type TextEntryFactory<TOptions extends object> = SemanticLeafComponentFactory<
   TOptions,
-  TextInputAction,
+  TextEntryComponentAction,
   TextEntryStylePart,
   readonly ['disabled', 'readOnly'],
   'required',
@@ -1770,12 +1786,22 @@ type TextEntryFactory<TOptions extends object> = SemanticLeafComponentFactory<
 
 type TextInputComponentOptions = Omit<
   TextInputOptions<ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'onAction' | 'styles' | 'meta'
+  'id' | 'disabled' | 'readOnly' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'
 >;
 type PasswordInputComponentOptions = Omit<
   PasswordInputOptions<ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'onAction' | 'styles' | 'meta'
+  'id' | 'disabled' | 'readOnly' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'
 >;
+
+type TextEntryComponentAction = TextInputAction | {
+  readonly kind: 'contextMenu';
+  readonly event: TextContextMenuEvent;
+};
+
+type NumberInputComponentAction = NumberInputControlAction | {
+  readonly kind: 'contextMenu';
+  readonly event: TextContextMenuEvent;
+};
 
 function textEntryDefinition<
   TOptions extends TextInputComponentOptions | PasswordInputComponentOptions,
@@ -1786,7 +1812,7 @@ function textEntryDefinition<
   return defineComponent<
     TOptions,
     TextEntryModel,
-    TextInputAction,
+    TextEntryComponentAction,
     TextEntryStylePart,
     readonly ['disabled', 'readOnly'],
     'required',
@@ -1804,7 +1830,13 @@ function textEntryDefinition<
     visualStates: ['focused', 'selected', 'disabled', 'readOnly'],
     sensitiveInput: password,
     inspection: ({ model }) => ({
-      ...(password ? { redacted: true as const } : { value: inspectTextValue(model.sourceValue) }),
+      ...(password ? { redacted: true as const } : {
+        value: inspectTextValue(model.sourceValue),
+        ...(model.presentation.selection === undefined
+          ? {}
+          : { selection: inspectTextSelection(model.presentation.selection) }),
+        details: { caretOffset: model.presentation.cursor },
+      }),
       validation: inspectValidation(model.required, model.error),
     }),
     prepare: (value) => prepareTextEntry(
@@ -1827,20 +1859,15 @@ function textEntryDefinition<
     keys: ({ model, readOnly }) => ({
       triggers: textEditingTriggers(readOnly, false),
       ...(readOnly ? {} : {
-        backspace: () => edit('deleteBackward'),
-        delete: () => edit('deleteForward'),
         enter: () => ({ kind: 'submit', value: model.sourceValue }),
       }),
-      arrowLeft: () => edit('moveLeft'),
-      arrowRight: () => edit('moveRight'),
-      home: () => edit('moveHome'),
-      end: () => edit('moveEnd'),
     }),
     onInput: ({ text, readOnly }) =>
       readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
     onPaste: ({ text, readOnly }) =>
       readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
     focusTargets: (input) => {
+      const visual = textEntryVisual(input.model, input.bounds.width, input.widthProfile);
       const cursorStyle = input.style({
         part: 'cursor',
         states: ['focused'],
@@ -1859,12 +1886,7 @@ function textEntryDefinition<
             0,
             Math.min(
               Math.max(0, input.bounds.width - 1),
-              2 +
-                textPrefixCells(
-                  input.model.displayedValue,
-                  input.model.presentation.cursor,
-                  input.widthProfile,
-                ),
+              2 + visual.cursorColumn,
             ),
           ),
           ...(cursorStyle === undefined ? {} : { style: cursorStyle }),
@@ -1875,41 +1897,44 @@ function textEntryDefinition<
     hitTargets(input) {
       const bounds = { ...input.bounds, height: Math.min(1, input.bounds.height) };
       if (bounds.width === 0 || bounds.height === 0) return [];
+      const visual = textEntryVisual(input.model, bounds.width, input.widthProfile);
       const offsetAt = (event: RoutedPointerEvent): number =>
         sourceOffsetAtColumn(
           input.model,
-          Math.max(0, (event.localColumn ?? event.column + 1) - 3),
+          visual.offsetCells + Math.max(
+            0,
+            (event.localColumn ?? event.column + 1)
+              - 3
+              - Number(visual.clippedBefore),
+          ),
           input.widthProfile,
         );
-      return [{
+      return [textPointerTarget<TextEntryComponentAction>({
         id: `${input.id ?? name}:text`,
         bounds,
-        accepts: ['pointerDown', 'dragStart', 'drag', 'dragEnd'],
-        cursor: 'text',
-        focus: { kind: 'target', targetId: 'self' },
-        message(event) {
-          const offset = offsetAt(event);
-          if (event.kind === 'pointerDown') {
-            return { kind: 'pointer', action: { kind: 'placeCaret', offset } };
-          }
-          if (event.kind !== 'dragStart' && event.kind !== 'drag' && event.kind !== 'dragEnd') {
-            return ignoreMessage();
-          }
-          const anchor = sourceOffsetAtColumn(
+        ...(input.model.presentation.selection === undefined
+          ? {}
+          : { selection: input.model.presentation.selection }),
+        focusTargetId: 'self',
+        offsetAt(event, origin) {
+          if (origin === 'current') return offsetAt(event);
+          return sourceOffsetAtColumn(
             input.model,
-            Math.max(0, (event.pressLocalColumn ?? event.localColumn ?? event.column + 1) - 3),
+            visual.offsetCells + Math.max(
+              0,
+              (event.pressLocalColumn ?? event.localColumn ?? event.column + 1)
+                - 3
+                - Number(visual.clippedBefore),
+            ),
             input.widthProfile,
           );
-          return {
-            kind: 'pointer',
-            action: {
-              kind: event.kind === 'dragEnd' ? 'endSelection' : 'extendSelection',
-              anchor,
-              offset,
-            },
-          };
         },
-      }];
+        wordSelectionAt: (offset) => createTerminalTextIndex(input.model.sourceValue, {
+          widthProfile: input.widthProfile,
+        }).wordSelectionAt(offset),
+        onPointer: (action) => ({ kind: 'pointer', action }),
+        onContextMenu: (event) => ({ kind: 'contextMenu', event }),
+      })];
     },
     accessibility: ({ id, model, focused }) => ({
       id,
@@ -1920,7 +1945,15 @@ function textEntryDefinition<
         errorMessage: `${id}:error`,
         children: [{ id: `${id}:error`, role: 'text' as const, value: model.error }],
       }),
-      ...(password ? {} : { value: model.sourceValue }),
+      ...(password ? {} : {
+        value: model.sourceValue,
+        textPosition: {
+          caretOffset: model.presentation.cursor,
+          ...(model.presentation.selection === undefined
+            ? {}
+            : { selection: model.presentation.selection }),
+        },
+      }),
       ...(
         password || model.required || model.error !== ''
           ? {
@@ -2041,6 +2074,7 @@ function paintTextEntry(input: ComponentRenderInput<TextEntryModel, TextEntrySty
   });
   const usesPlaceholder = input.model.displayedValue === '' && input.model.placeholder !== '';
   const shown = usesPlaceholder ? input.model.placeholder : input.model.displayedValue;
+  const visual = textEntryVisual(input.model, input.bounds.width, input.widthProfile);
   const valueStyle = input.style({
     part: usesPlaceholder ? 'placeholder' : 'value',
     base: {
@@ -2067,25 +2101,50 @@ function paintTextEntry(input: ComponentRenderInput<TextEntryModel, TextEntrySty
       description: 'frame.prefix',
     }),
   })];
-  if (usesPlaceholder || input.model.displayedSelection === undefined) {
+  if (usesPlaceholder) {
     spans.push(span(shown, {
       ...(valueStyle === undefined ? {} : { style: valueStyle }),
       source: input.source({
         cellRole: 'text',
-        partName: usesPlaceholder ? 'placeholder' : 'value',
-        partType: usesPlaceholder ? 'placeholder' : 'value',
-        description: usesPlaceholder ? 'placeholder' : 'value',
+        partName: 'placeholder',
+        partType: 'placeholder',
+        description: 'placeholder',
       }),
     }));
   } else {
+    if (visual.clippedBefore) {
+      spans.push(span('‹', {
+        ...(borderStyle === undefined ? {} : { style: borderStyle }),
+        source: input.source({
+          cellRole: 'decoration',
+          partName: 'border',
+          partType: 'frame',
+          description: 'value.window',
+        }),
+      }));
+    }
     const selection = input.model.displayedSelection;
     const records = [
-      { start: 0, end: selection.startOffset, selected: false },
-      { start: selection.startOffset, end: selection.endOffsetExclusive, selected: true },
-      { start: selection.endOffsetExclusive, end: shown.length, selected: false },
+      {
+        start: visual.startOffset,
+        end: selection?.startOffset ?? visual.endOffsetExclusive,
+        selected: false,
+      },
+      ...(selection === undefined ? [] : [{
+        start: selection.startOffset,
+        end: selection.endOffsetExclusive,
+        selected: true,
+      }]),
+      {
+        start: selection?.endOffsetExclusive ?? visual.endOffsetExclusive,
+        end: visual.endOffsetExclusive,
+        selected: false,
+      },
     ];
     for (const record of records) {
-      const current = shown.slice(record.start, record.end);
+      const start = Math.max(visual.startOffset, record.start);
+      const end = Math.min(visual.endOffsetExclusive, record.end);
+      const current = shown.slice(start, end);
       if (current === '') continue;
       spans.push(span(current, {
         ...(record.selected
@@ -2102,7 +2161,10 @@ function paintTextEntry(input: ComponentRenderInput<TextEntryModel, TextEntrySty
       }));
     }
   }
-  const occupied = 2 + measureTextCells(shown, { widthProfile: input.widthProfile }).cells;
+  const occupied = 2 + Number(!usesPlaceholder && visual.clippedBefore) + measureTextCells(
+    usesPlaceholder ? shown : visual.visibleText,
+    { widthProfile: input.widthProfile },
+  ).cells;
   const padding = Math.max(0, input.bounds.width - occupied);
   if (padding > 0) {
     spans.push(span(' '.repeat(padding), {
@@ -2135,6 +2197,19 @@ function paintTextEntry(input: ComponentRenderInput<TextEntryModel, TextEntrySty
       }),
     })]);
   }
+}
+
+function textEntryVisual(
+  model: TextEntryModel,
+  width: number,
+  widthProfile: TextWidthProfile,
+): SingleLineTextWindow {
+  return prepareSingleLineTextWindow(
+    model.displayedValue,
+    model.presentation.cursor,
+    Math.max(0, width - 2),
+    widthProfile,
+  );
 }
 
 function sourceOffsetAtColumn(
@@ -2226,6 +2301,7 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
   const inputBounds = geometry?.input ?? input.bounds;
   const usesPlaceholder = input.model.presentation.value === '' && input.model.placeholder !== '';
   const shown = usesPlaceholder ? input.model.placeholder : input.model.presentation.value;
+  const visual = numberInputVisual(input.model, inputBounds.width, input.widthProfile);
   const marker = input.disabled
     ? ' '
     : input.model.error !== ''
@@ -2266,23 +2342,48 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
   });
   const contentSpans: RenderSpan[] = [];
   const selection = usesPlaceholder ? undefined : input.model.presentation.selection;
-  if (selection === undefined) {
+  if (usesPlaceholder) {
     contentSpans.push(span(shown, {
       ...(valueStyle === undefined ? {} : { style: valueStyle }),
       source: input.source({
         cellRole: 'text',
-        partName: usesPlaceholder ? 'placeholder' : 'value',
-        partType: usesPlaceholder ? 'placeholder' : 'value',
-        description: usesPlaceholder ? 'placeholder' : 'value',
+        partName: 'placeholder',
+        partType: 'placeholder',
+        description: 'placeholder',
       }),
     }));
   } else {
+    if (visual.clippedBefore) {
+      contentSpans.push(span('‹', {
+        ...(borderStyle === undefined ? {} : { style: borderStyle }),
+        source: input.source({
+          cellRole: 'decoration',
+          partName: 'border',
+          partType: 'frame',
+          description: 'value.window',
+        }),
+      }));
+    }
     for (const range of [
-      { start: 0, end: selection.startOffset, selected: false },
-      { start: selection.startOffset, end: selection.endOffsetExclusive, selected: true },
-      { start: selection.endOffsetExclusive, end: shown.length, selected: false },
+      {
+        start: visual.startOffset,
+        end: selection?.startOffset ?? visual.endOffsetExclusive,
+        selected: false,
+      },
+      ...(selection === undefined ? [] : [{
+        start: selection.startOffset,
+        end: selection.endOffsetExclusive,
+        selected: true,
+      }]),
+      {
+        start: selection?.endOffsetExclusive ?? visual.endOffsetExclusive,
+        end: visual.endOffsetExclusive,
+        selected: false,
+      },
     ]) {
-      const text = shown.slice(range.start, range.end);
+      const start = Math.max(visual.startOffset, range.start);
+      const end = Math.min(visual.endOffsetExclusive, range.end);
+      const text = shown.slice(start, end);
       if (text === '') continue;
       contentSpans.push(span(text, {
         ...(range.selected
@@ -2403,16 +2504,34 @@ function paintNumberInput(input: ComponentRenderInput<NumberModel, NumberInputSt
 
 function numberInputHitTargets(
   input: ComponentInput<NumberModel>,
-): readonly HitTarget<NumberInputControlAction>[] {
+): readonly HitTarget<NumberInputComponentAction>[] {
   const geometry = numberInputGeometry(input.bounds, input.disabled || input.readOnly);
   const inputBounds = geometry?.input ?? input.bounds;
-  const focusTarget = {
+  const index = createTerminalTextIndex(input.model.presentation.value, {
+    widthProfile: input.widthProfile,
+  });
+  const visual = numberInputVisual(input.model, inputBounds.width, input.widthProfile);
+  const focusTarget = textPointerTarget<NumberInputComponentAction>({
     id: `${input.id ?? 'number-input'}:input`,
     bounds: inputBounds,
-    cursor: 'text' as const,
-    focus: { kind: 'target' as const, targetId: 'self' },
-    message: () => ignoreMessage(),
-  };
+    ...(input.model.presentation.selection === undefined
+      ? {}
+      : { selection: input.model.presentation.selection }),
+    focusTargetId: 'self',
+    offsetAt(event, origin) {
+      const localColumn = origin === 'press'
+        ? event.pressLocalColumn ?? event.localColumn ?? event.column + 1
+        : event.localColumn ?? event.column + 1;
+      const column = visual.offsetCells + Math.max(
+        0,
+        localColumn - 3 - Number(visual.clippedBefore),
+      );
+      return index.graphemeIndexToCodeUnitOffset(index.visualColumnToGraphemeIndex(column));
+    },
+    wordSelectionAt: (offset) => index.wordSelectionAt(offset),
+    onPointer: (action) => ({ kind: 'pointer', action }),
+    onContextMenu: (event) => ({ kind: 'contextMenu', event }),
+  });
   if (geometry === undefined) {
     return inputBounds.width === 0 || inputBounds.height === 0 ? [] : [focusTarget];
   }
@@ -2435,6 +2554,19 @@ function numberInputHitTargets(
   ];
 }
 
+function numberInputVisual(
+  model: NumberModel,
+  width: number,
+  widthProfile: TextWidthProfile,
+): SingleLineTextWindow {
+  return prepareSingleLineTextWindow(
+    model.presentation.value,
+    model.presentation.cursor,
+    Math.max(0, width - 2),
+    widthProfile,
+  );
+}
+
 function numberInputGeometry(bounds: ComponentInput<NumberModel>['bounds'], disabled: boolean) {
   if (disabled || bounds.width < numberStepperWidth || bounds.height === 0) return undefined;
   return {
@@ -2452,32 +2584,6 @@ function numberInputGeometry(bounds: ComponentInput<NumberModel>['bounds'], disa
       height: 1,
     },
   };
-}
-
-type SimpleEditKind =
-  | 'deleteBackward'
-  | 'deleteForward'
-  | 'moveLeft'
-  | 'moveRight'
-  | 'moveHome'
-  | 'moveEnd';
-function edit(
-  kind: SimpleEditKind,
-): { readonly kind: 'edit'; readonly operation: TextEditOperation } {
-  switch (kind) {
-    case 'deleteBackward':
-      return { kind: 'edit', operation: { kind: 'deleteBackward' } };
-    case 'deleteForward':
-      return { kind: 'edit', operation: { kind: 'deleteForward' } };
-    case 'moveLeft':
-      return { kind: 'edit', operation: { kind: 'moveLeft' } };
-    case 'moveRight':
-      return { kind: 'edit', operation: { kind: 'moveRight' } };
-    case 'moveHome':
-      return { kind: 'edit', operation: { kind: 'moveHome' } };
-    case 'moveEnd':
-      return { kind: 'edit', operation: { kind: 'moveEnd' } };
-  }
 }
 
 function styled<TModel extends object, TPart extends string>(
@@ -2582,16 +2688,6 @@ function paintLines<TModel extends object, TPart extends string>(
       clipRenderSpans(current, input.bounds.width, { widthProfile: input.widthProfile }),
     );
   });
-}
-
-function textPrefixCells(
-  value: string,
-  offset: number,
-  widthProfile: import('../../text/index.ts').TextWidthProfile,
-): number {
-  return measureTextCells(value.slice(0, Math.max(0, Math.min(value.length, offset))), {
-    widthProfile,
-  }).cells;
 }
 
 function cleanString(value: unknown, owner: string): string {

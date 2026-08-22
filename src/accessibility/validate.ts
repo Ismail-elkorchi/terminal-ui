@@ -19,6 +19,7 @@ import type {
   AccessiblePosition,
   AccessibleScope,
   AccessibleSnapshot,
+  AccessibleTextPosition,
   AccessibleValue,
   AccessibleWindow
 } from './types.ts';
@@ -179,8 +180,14 @@ function firstNodeIssue(
   if (!isNonArrayObject(node)) return accessibilityFailure('Accessible node must be an object.');
   const original = node;
   const candidate = { ...node };
-  for (const field of ['numericValue', 'scope', 'window', 'position'] as const) {
+  for (const field of ['numericValue', 'scope', 'window', 'position', 'textPosition'] as const) {
     if (isNonArrayObject(candidate[field])) candidate[field] = { ...candidate[field] };
+  }
+  if (isNonArrayObject(candidate['textPosition'])) {
+    const textPosition = candidate['textPosition'] as Record<string, unknown>;
+    if (isNonArrayObject(textPosition['selection'])) {
+      textPosition['selection'] = { ...textPosition['selection'] };
+    }
   }
   if (Array.isArray(candidate['children'])) {
     const children: unknown[] = [];
@@ -291,6 +298,8 @@ function firstNodeIssue(
   if (windowIssue !== undefined) return windowIssue;
   const positionIssue = positionIssueForNode(candidate, id);
   if (positionIssue !== undefined) return positionIssue;
+  const textPositionIssue = textPositionIssueForNode(candidate, id);
+  if (textPositionIssue !== undefined) return textPositionIssue;
   if (candidate['children'] !== undefined && !Array.isArray(candidate['children'])) {
     return accessibilityFailure('Accessible node children must be an array.', id);
   }
@@ -383,6 +392,7 @@ function ownedAccessibleNode(
     ...ownedScope(value['scope']),
     ...ownedWindow(value['window']),
     ...ownedPosition(value['position']),
+    ...ownedTextPosition(value['textPosition']),
     ...(typeof value['description'] === 'string' ? { description: value['description'] } : {}),
     ...(typeof value['controls'] === 'string' ? { controls: value['controls'] } : {}),
     ...(typeof value['labelledBy'] === 'string' ? { labelledBy: value['labelledBy'] } : {}),
@@ -448,6 +458,22 @@ function ownedPosition(value: unknown): { readonly position?: AccessiblePosition
   }) };
 }
 
+function ownedTextPosition(value: unknown): { readonly textPosition?: AccessibleTextPosition } {
+  if (!isNonArrayObject(value) || !isNonNegativeInteger(value['caretOffset'])) return {};
+  const selection = value['selection'];
+  return { textPosition: Object.freeze({
+    caretOffset: value['caretOffset'] as number,
+    ...(isNonArrayObject(selection)
+      && isNonNegativeInteger(selection['startOffset'])
+      && isNonNegativeInteger(selection['endOffsetExclusive'])
+      ? { selection: Object.freeze({
+        startOffset: selection['startOffset'] as number,
+        endOffsetExclusive: selection['endOffsetExclusive'] as number,
+      }) }
+      : {}),
+  }) };
+}
+
 const accessibleNodeFields = new Set([
   'id',
   'role',
@@ -471,6 +497,7 @@ const accessibleNodeFields = new Set([
   'scope',
   'window',
   'position',
+  'textPosition',
   'description',
   'controls',
   'labelledBy',
@@ -607,6 +634,67 @@ const positionFields = new Set([
   'columnLabel',
   'group'
 ]);
+
+function textPositionIssueForNode(
+  node: Record<string, unknown>,
+  id: string,
+): TerminalDiagnostic | undefined {
+  const textPosition = node['textPosition'];
+  if (textPosition === undefined) return undefined;
+  if (!isNonArrayObject(textPosition)) {
+    return accessibilityFailure('Accessible node textPosition must be an object.', id);
+  }
+  const unknownField = findUnsupportedField(textPosition, textPositionFields);
+  if (unknownField !== undefined) {
+    return accessibilityFailure(`Accessible node textPosition field is unsupported: ${unknownField}.`, id);
+  }
+  if (!isNonNegativeInteger(textPosition['caretOffset'])) {
+    return accessibilityFailure('Accessible node textPosition caretOffset must be a non-negative integer.', id);
+  }
+  const selection = textPosition['selection'];
+  if (selection !== undefined) {
+    if (!isNonArrayObject(selection)) {
+      return accessibilityFailure('Accessible node textPosition selection must be an object.', id);
+    }
+    const selectionUnknownField = findUnsupportedField(selection, textSelectionFields);
+    if (selectionUnknownField !== undefined) {
+      return accessibilityFailure(
+        `Accessible node textPosition selection field is unsupported: ${selectionUnknownField}.`,
+        id,
+      );
+    }
+    if (!isNonNegativeInteger(selection['startOffset'])
+      || !isNonNegativeInteger(selection['endOffsetExclusive'])) {
+      return accessibilityFailure(
+        'Accessible node textPosition selection offsets must be non-negative integers.',
+        id,
+      );
+    }
+    if (Number(selection['endOffsetExclusive']) < Number(selection['startOffset'])) {
+      return accessibilityFailure(
+        'Accessible node textPosition selection endOffsetExclusive must not be before startOffset.',
+        id,
+      );
+    }
+  }
+  const value = node['value'];
+  if (typeof value === 'string') {
+    const valueLength = value.length;
+    if (Number(textPosition['caretOffset']) > valueLength) {
+      return accessibilityFailure('Accessible node textPosition caretOffset must not exceed its value length.', id);
+    }
+    if (isNonArrayObject(selection) && Number(selection['endOffsetExclusive']) > valueLength) {
+      return accessibilityFailure(
+        'Accessible node textPosition selection must not exceed its value length.',
+        id,
+      );
+    }
+  }
+  return undefined;
+}
+
+const textPositionFields = new Set(['caretOffset', 'selection']);
+const textSelectionFields = new Set(['startOffset', 'endOffsetExclusive']);
 
 function firstFocusIssue(
   snapshot: Pick<AccessibleSnapshot, 'root' | 'focusPath'>,

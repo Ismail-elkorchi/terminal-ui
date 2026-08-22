@@ -1,8 +1,13 @@
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
 import type { CollectionQuery } from '../text/query.ts';
+import type { TextEditBuffer, TextEditOperation } from '../text/index.ts';
+import type { TextPointerAction } from '../interaction/text-pointer.ts';
+
+export type SearchPickerQueryOptions = Omit<CollectionQuery, 'text'>;
 
 interface SearchPickerPresentationBase {
-  readonly query: CollectionQuery;
+  readonly input: TextEditBuffer;
+  readonly query?: SearchPickerQueryOptions;
   readonly activeId?: string;
 }
 
@@ -20,8 +25,8 @@ export type SearchPickerPresentation =
 
 export type SearchPickerTransition =
   | { readonly kind: 'setQuery'; readonly query: CollectionQuery }
-  | { readonly kind: 'insertQuery'; readonly text: string }
-  | { readonly kind: 'deleteQueryBackward' }
+  | { readonly kind: 'edit'; readonly operation: TextEditOperation }
+  | { readonly kind: 'pointer'; readonly action: TextPointerAction }
   | { readonly kind: 'undo' }
   | { readonly kind: 'redo' }
   | { readonly kind: 'setActive'; readonly id?: string }

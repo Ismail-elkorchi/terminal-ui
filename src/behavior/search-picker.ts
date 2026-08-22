@@ -88,7 +88,11 @@ export function searchPickerPresentation(state: UnscrolledSearchPickerState):
 export function searchPickerPresentation(state: SearchPickerState): SearchPickerPresentation;
 export function searchPickerPresentation(state: SearchPickerState): SearchPickerPresentation {
   return {
-    query: searchPickerQuery(state),
+    input: state.editor.input,
+    query: {
+      mode: state.mode,
+      ...(state.caseSensitive ? { caseSensitive: true } : {}),
+    },
     ...(state.editor.activeId === undefined ? {} : { activeId: state.editor.activeId }),
     ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
   };
@@ -148,10 +152,9 @@ export function searchPickerReducer<TValue>(
       };
       return withSearchEditor(next, { kind: 'setText', value: transition.query.text }, options);
     }
-    case 'insertQuery':
-      return withSearchEditor(state, { kind: 'edit', operation: { kind: 'insert', text: transition.text } }, options);
-    case 'deleteQueryBackward':
-      return withSearchEditor(state, { kind: 'edit', operation: { kind: 'deleteBackward' } }, options);
+    case 'edit':
+    case 'pointer':
+      return withSearchEditor(state, transition, options);
     case 'undo':
     case 'redo':
       return withSearchEditor(state, transition, options);
@@ -218,7 +221,10 @@ export function activeSearchPickerEntry<TValue>(
   const scroll = input.presentation.scroll;
   return searchPickerWindow({
     searchPickerIndex: input.searchPickerIndex,
-    query: input.presentation.query,
+    query: {
+      text: input.presentation.input.text,
+      ...input.presentation.query,
+    },
     ...(input.presentation.activeId === undefined ? {} : { activeId: input.presentation.activeId }),
     ...(scroll === undefined ? {} : { scroll }),
     ...(input.limit === undefined ? {} : { limit: input.limit }),
@@ -260,14 +266,6 @@ function withSearchEditor<TValue>(
       viewportRows: Math.max(1, options.pageSize ?? 8),
       viewportColumns: 0,
     }),
-  };
-}
-
-function searchPickerQuery(state: SearchPickerState): CollectionQuery {
-  return {
-    text: state.editor.input.text,
-    mode: state.mode,
-    ...(state.caseSensitive ? { caseSensitive: true } : {}),
   };
 }
 

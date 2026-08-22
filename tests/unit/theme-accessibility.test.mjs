@@ -246,6 +246,51 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
   assert.equal(invalidProgress.error.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
 });
 
+test('accessible text positions are owned and bounded by exposed text values', () => {
+  const textPosition = {
+    caretOffset: 3,
+    selection: { startOffset: 1, endOffsetExclusive: 3 },
+  };
+  const snapshot = createAccessibleSnapshot({
+    source: 'tui',
+    root: {
+      id: 'field',
+      role: 'textbox',
+      label: 'Query',
+      value: 'a🙂b',
+      textPosition,
+    },
+  });
+
+  textPosition.caretOffset = 0;
+  textPosition.selection.endOffsetExclusive = 1;
+  assert.deepEqual(snapshot.root.textPosition, {
+    caretOffset: 3,
+    selection: { startOffset: 1, endOffsetExclusive: 3 },
+  });
+  assert.equal(Object.isFrozen(snapshot.root.textPosition), true);
+  assert.equal(Object.isFrozen(snapshot.root.textPosition.selection), true);
+  assert.equal(decodeAccessibleSnapshot(snapshot).status, 'success');
+
+  const beyondValue = decodeAccessibleSnapshot({
+    ...snapshot,
+    root: { ...snapshot.root, textPosition: { caretOffset: 5 } },
+  });
+  assert.equal(beyondValue.status, 'failure');
+
+  const reversedSelection = decodeAccessibleSnapshot({
+    ...snapshot,
+    root: {
+      ...snapshot.root,
+      textPosition: {
+        caretOffset: 1,
+        selection: { startOffset: 3, endOffsetExclusive: 1 },
+      },
+    },
+  });
+  assert.equal(reversedSelection.status, 'failure');
+});
+
 test('accessible snapshots detach and freeze nested semantic state', () => {
   const numericValue = { current: 1, minimum: 0, maximum: 2 };
   const scope = { kind: 'modal', trapsFocus: true };

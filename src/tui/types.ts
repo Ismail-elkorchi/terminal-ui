@@ -113,6 +113,9 @@ export interface TuiNonTtyPolicy {
 export interface TuiEffectContext extends TuiContext {
   readonly signal: AbortSignal;
   readonly withTerminalSuspended: <TValue>(operation: () => Promise<TValue>) => Promise<TValue>;
+  readonly copySelectedText: (
+    input: import('./selection.ts').CopySelectedTextInput,
+  ) => Promise<import('./selection.ts').CopySelectedTextResult>;
 }
 
 export interface TuiEffectFailure {
@@ -271,6 +274,9 @@ export interface TuiRuntime<TState, TMessage> {
   start(): Promise<Frame>;
   dispatch(message: TMessage): Promise<TState>;
   dispatchMany(messages: readonly TMessage[]): Promise<TState>;
+  copySelectedText(
+    input: import('./selection.ts').CopySelectedTextInput,
+  ): Promise<import('./selection.ts').CopySelectedTextResult>;
   resize(terminalSize: TerminalSize): Promise<Frame>;
   handleInput(event: InputEvent): Promise<TuiInputResult<TState>>;
   handleInputChunk(chunk: TerminalInputChunk): Promise<TuiInputBatchResult<TState>>;

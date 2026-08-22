@@ -21,7 +21,11 @@ import type {
 } from '../../component/index.ts';
 import { listbox } from './list.ts';
 import { allowsComponentAction } from '../internal/action-capability.ts';
-import { inspectTextValue, inspectValidation } from '../internal/inspection.ts';
+import {
+  inspectTextSelection,
+  inspectTextValue,
+  inspectValidation,
+} from '../internal/inspection.ts';
 import { portal, surface } from '../../layout/index.ts';
 import {
   assertOptionalCallback,
@@ -83,6 +87,11 @@ import type {
   UnscrolledSearchPickerOptions,
 } from '../options/documents.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
+import { textPointerTarget } from '../internal/text-pointer-target.ts';
+import {
+  prepareSingleLineTextWindow,
+} from '../internal/single-line-text-window.ts';
+import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 
 interface CommandInputModel {
   readonly value: string;
@@ -104,7 +113,7 @@ interface CommandInputModel {
 
 type CommandInputComponentOptions = Omit<
   CommandInputOptions<ComponentMessage, ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onSubmit' | 'styles' | 'meta'
+  'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onSubmit' | 'onContextMenu' | 'styles' | 'meta'
 >;
 
 const commandSlots = {
@@ -120,7 +129,8 @@ type CommandInputFactory = <
 
 type CommandInputComponentAction =
   | { readonly kind: 'transition'; readonly transition: CommandInputTransition }
-  | { readonly kind: 'submit'; readonly event: CommandInputSubmitEvent };
+  | { readonly kind: 'submit'; readonly event: CommandInputSubmitEvent }
+  | { readonly kind: 'contextMenu'; readonly event: TextContextMenuEvent };
 
 const instantiateCommandInput = defineComponent<
   CommandInputComponentOptions,
@@ -157,6 +167,8 @@ const instantiateCommandInput = defineComponent<
   prepare: prepareCommandInput,
   inspection: ({ model }) => ({
     value: inspectTextValue(model.value),
+    ...(model.selection === undefined ? {} : { selection: inspectTextSelection(model.selection) }),
+    details: { caretOffset: model.cursor },
     ...(model.activeSuggestionId === undefined ? {} : { active: model.activeSuggestionId }),
     validation: inspectValidation(false, model.validation?.message),
     collection: {
@@ -267,6 +279,10 @@ const instantiateCommandInput = defineComponent<
       role: 'combobox',
       ...(input.model.prompt === '' ? {} : { label: input.model.prompt }),
       value: input.model.value,
+      textPosition: {
+        caretOffset: input.model.cursor,
+        ...(input.model.selection === undefined ? {} : { selection: input.model.selection }),
+      },
       expanded: suggestions.length > 0,
       ...(suggestions.length === 0 ? {} : { controls: relationship.popupId }),
       ...(suggestions.length === 0 || input.model.activeSuggestionId === undefined
@@ -304,17 +320,6 @@ const instantiateCommandInput = defineComponent<
         })),
         ...(canChangeStructure ? commandInputHistoryTriggers() : [])
       ],
-      ...(canEdit ? {
-        backspace: () => ({
-          kind: 'transition' as const,
-          transition: { kind: 'edit' as const, operation: { kind: 'deleteBackward' as const } },
-        }),
-        delete: () => commandTransition({ kind: 'edit', operation: { kind: 'deleteForward' } }),
-      } : {}),
-      arrowLeft: () => commandTransition({ kind: 'edit', operation: { kind: 'moveLeft' } }),
-      arrowRight: () => commandTransition({ kind: 'edit', operation: { kind: 'moveRight' } }),
-      home: () => commandTransition({ kind: 'edit', operation: { kind: 'moveHome' } }),
-      end: () => commandTransition({ kind: 'edit', operation: { kind: 'moveEnd' } }),
       arrowUp: () =>
         model.suggestions.entries.length === 0
           ? canEdit ? commandTransition({ kind: 'historyPrevious' }) : ignoreMessage()
@@ -363,7 +368,10 @@ const instantiateCommandInput = defineComponent<
         row: commandInputRow(input.model, input.bounds.height),
         column: Math.max(
           0,
-          Math.min(Math.max(0, input.bounds.width - 1), visual.promptCells + visual.cursorColumn),
+          Math.min(
+            Math.max(0, input.bounds.width - 1),
+            visual.promptCells + visual.window.cursorColumn,
+          ),
         ),
         ...(cursorStyle === undefined ? {} : { style: cursorStyle }),
         source: input.source({ cellRole: 'cursor', partName: 'cursor', partType: 'cursor' }),
@@ -397,6 +405,7 @@ export const commandInput: CommandInputFactory = (options) => {
     ...shared,
     onAction: (action) => {
       if (action.kind === 'transition') return options.onTransition(action.transition);
+      if (action.kind === 'contextMenu') return options.onContextMenu?.(action.event) ?? ignoreMessage();
       return options.onSubmit?.(action.event) ?? ignoreMessage();
     },
   });
@@ -434,8 +443,9 @@ function prepareCommandPresentation(
   CommandInputModel,
   'value' | 'cursor' | 'selection' | 'submissionIndex' | 'suggestions' | 'activeSuggestionId'
 > {
-  const text = clean(value.value, 'commandInput value') ?? '';
-  const cursor = nonNegativeInteger(value.cursor, 'commandInput cursor');
+  if (!isNonArrayObject(value.input)) throw new TypeError('commandInput input must be an object.');
+  const text = clean(value.input.text, 'commandInput input text') ?? '';
+  const cursor = nonNegativeInteger(value.input.cursor, 'commandInput input cursor');
   if (cursor > text.length) throw new RangeError('commandInput cursor is outside the value.');
   if (!isCollectionProjection(value.suggestions)) {
     throw new TypeError('commandInput suggestions must be a prepared listbox collection.');
@@ -454,7 +464,7 @@ function prepareCommandPresentation(
   if (!value.open && activeSuggestionId !== undefined) {
     throw new RangeError('commandInput activeSuggestionId requires an open popup.');
   }
-  const selection = prepareTextSelection(value.selection, text.length, 'commandInput selection');
+  const selection = prepareTextSelection(value.input.selection, text.length, 'commandInput input selection');
   const submissionIndex = optionalNonNegativeInteger(
     value.submissionIndex,
     'commandInput submissionIndex',
@@ -543,10 +553,14 @@ function paintCommandInput(
   } else {
     line.push(...commandValueSpans(input, visual));
     const visibleCells =
-      measureTextCells(visual.visibleText, { widthProfile: input.widthProfile }).cells +
-      Number(visual.clippedBefore);
+      measureTextCells(visual.window.visibleText, { widthProfile: input.widthProfile }).cells +
+      Number(visual.window.clippedBefore);
     const completionWidth = Math.max(0, visual.contentWidth - visibleCells);
-    if (!visual.clippedAfter && completionWidth > 0 && input.model.completionPreview.length > 0) {
+    if (
+      !visual.window.clippedAfter
+      && completionWidth > 0
+      && input.model.completionPreview.length > 0
+    ) {
       const completionStyle = input.style({
         part: 'completion',
         base: { fg: { kind: 'theme', token: 'input.placeholder' } },
@@ -624,13 +638,20 @@ function paintCommandInput(
 interface CommandInputVisual {
   readonly promptCells: number;
   readonly contentWidth: number;
-  readonly offsetCells: number;
-  readonly cursorColumn: number;
-  readonly startOffset: number;
-  readonly endOffsetExclusive: number;
-  readonly visibleText: string;
-  readonly clippedBefore: boolean;
-  readonly clippedAfter: boolean;
+  readonly window: import('../internal/single-line-text-window.ts').SingleLineTextWindow;
+}
+
+function searchPickerInputVisual(
+  model: SearchPickerModel,
+  width: number,
+  widthProfile: import('../../text/index.ts').TextWidthProfile,
+): import('../internal/single-line-text-window.ts').SingleLineTextWindow {
+  return prepareSingleLineTextWindow(
+    model.input.text,
+    model.input.cursor,
+    Math.max(0, width - 2),
+    widthProfile,
+  );
 }
 
 function commandInputVisual(
@@ -640,35 +661,10 @@ function commandInputVisual(
 ): CommandInputVisual {
   const promptCells = measureTextCells(model.prompt, { widthProfile }).cells;
   const contentWidth = Math.max(0, width - promptCells);
-  const index = createTerminalTextIndex(model.value, { widthProfile });
-  const cursorGrapheme = index.codeUnitOffsetToGraphemeIndex(model.cursor);
-  const cursorCells = index.graphemeIndexToVisualColumn(cursorGrapheme);
-  const offsetCells = Math.max(0, cursorCells - Math.max(0, contentWidth - 1));
-  const clippedBefore = offsetCells > 0;
-  const textBudget = Math.max(0, contentWidth - Number(clippedBefore));
-  const startGrapheme = index.visualColumnToGraphemeIndex(offsetCells);
-  const endGrapheme = index.visualColumnToGraphemeIndex(offsetCells + textBudget);
-  const startOffset = index.graphemeIndexToCodeUnitOffset(startGrapheme);
-  let endOffsetExclusive = index.graphemeIndexToCodeUnitOffset(endGrapheme);
-  if (endOffsetExclusive < model.value.length) {
-    const next = index.graphemeIndexToCodeUnitOffset(
-      Math.min(index.graphemes.length, endGrapheme + 1),
-    );
-    const candidate = model.value.slice(startOffset, next);
-    if (measureTextCells(candidate, { widthProfile }).cells <= textBudget) {
-      endOffsetExclusive = next;
-    }
-  }
   return {
     promptCells,
     contentWidth,
-    offsetCells,
-    cursorColumn: Math.max(0, cursorCells - offsetCells + Number(clippedBefore)),
-    startOffset,
-    endOffsetExclusive,
-    visibleText: model.value.slice(startOffset, endOffsetExclusive),
-    clippedBefore,
-    clippedAfter: endOffsetExclusive < model.value.length,
+    window: prepareSingleLineTextWindow(model.value, model.cursor, contentWidth, widthProfile),
   };
 }
 
@@ -683,7 +679,7 @@ function commandValueSpans(
   visual: CommandInputVisual,
 ): import('../../visual/render.ts').RenderSpan[] {
   const spans: import('../../visual/render.ts').RenderSpan[] = [];
-  if (visual.clippedBefore) {
+  if (visual.window.clippedBefore) {
     spans.push(span('‹', {
       source: input.source({ partName: 'window', partType: 'window', cellRole: 'decoration' }),
     }));
@@ -691,7 +687,8 @@ function commandValueSpans(
   const selection = input.model.selection;
   for (const grapheme of segmentGraphemes(input.model.value)) {
     if (
-      grapheme.startOffset < visual.startOffset || grapheme.startOffset >= visual.endOffsetExclusive
+      grapheme.startOffset < visual.window.startOffset
+      || grapheme.startOffset >= visual.window.endOffsetExclusive
     ) continue;
     const selected = selection !== undefined &&
       grapheme.startOffset < selection.endOffsetExclusive &&
@@ -871,24 +868,30 @@ function commandInputHitTargets(
   input: ComponentInput<CommandInputModel>,
 ): readonly HitTarget<CommandInputComponentAction>[] {
   const visual = commandInputVisual(input.model, input.bounds.width, input.widthProfile);
-  const textTarget: HitTarget<CommandInputComponentAction> = {
+  const textIndex = createTerminalTextIndex(input.model.value, {
+    widthProfile: input.widthProfile,
+  });
+  const textTarget = textPointerTarget<CommandInputComponentAction>({
     id: `${input.id ?? 'command-input'}:text`,
     bounds: input.bounds,
-    accepts: ['pointerDown'],
-    cursor: 'text',
-    focus: { kind: 'target', targetId: 'self' },
-    message: (event) => {
-      const localColumn = event.localColumn ?? 1;
-      const column = visual.offsetCells + Math.max(0, localColumn - 1 - visual.promptCells);
-      const textIndex = createTerminalTextIndex(input.model.value, {
-        widthProfile: input.widthProfile,
-      });
-      const offset = textIndex.graphemeIndexToCodeUnitOffset(
+    ...(input.model.selection === undefined ? {} : { selection: input.model.selection }),
+    focusTargetId: 'self',
+    offsetAt(event, origin) {
+      const localColumn = origin === 'press'
+        ? event.pressLocalColumn ?? event.localColumn ?? 1
+        : event.localColumn ?? 1;
+      const column = visual.window.offsetCells + Math.max(
+        0,
+        localColumn - 1 - visual.promptCells - Number(visual.window.clippedBefore),
+      );
+      return textIndex.graphemeIndexToCodeUnitOffset(
         textIndex.visualColumnToGraphemeIndex(column),
       );
-      return commandTransition({ kind: 'pointer', action: { kind: 'placeCaret', offset } });
     },
-  };
+    wordSelectionAt: (offset) => textIndex.wordSelectionAt(offset),
+    onPointer: (action) => commandTransition({ kind: 'pointer', action }),
+    onContextMenu: (event) => ({ kind: 'contextMenu', event }),
+  });
   if (input.model.display !== 'expanded') return [textTarget];
   const row = commandInputRow(input.model, input.bounds.height) + 1 +
     Number(input.model.validation !== undefined);
@@ -954,10 +957,12 @@ interface PreparedSearchEntry {
 
 type SearchPickerInternalAction =
   | { readonly kind: 'transition'; readonly transition: SearchPickerTransition }
-  | { readonly kind: 'accept'; readonly event: SearchPickerAcceptEvent };
+  | { readonly kind: 'accept'; readonly event: SearchPickerAcceptEvent }
+  | { readonly kind: 'contextMenu'; readonly event: TextContextMenuEvent };
 
 interface SearchPickerModel {
   readonly title: string;
+  readonly input: import('../../text/index.ts').TextEditBuffer;
   readonly query: PreparedCollectionQuery;
   readonly rows: readonly PreparedSearchEntry[];
   readonly activeIndex?: number;
@@ -975,7 +980,7 @@ interface SearchPickerModel {
 
 type SearchPickerComponentOptions = Omit<
   SearchPickerOptions<unknown, ComponentMessage, ComponentMessage>,
-  'id' | 'disabled' | 'readOnly' | 'busy' | 'inert' | 'onTransition' | 'onAccept' | 'styles' | 'meta'
+  'id' | 'disabled' | 'readOnly' | 'busy' | 'inert' | 'onTransition' | 'onAccept' | 'onContextMenu' | 'styles' | 'meta'
 >;
 
 /* eslint-disable @typescript-eslint/unified-signatures -- separate overloads preserve contextual transition types */
@@ -1017,7 +1022,7 @@ const createSearchPicker: SearchPickerFactory = <
   }
   assertRequiredCallback(options.onTransition, 'searchPicker onTransition');
   assertOptionalCallback(options.onAccept, 'searchPicker onAccept');
-  const { onTransition, onAccept, ...componentOptions } = options;
+  const { onTransition, onAccept, onContextMenu, ...componentOptions } = options;
   return instantiateSearchPicker({
     ...componentOptions,
     onAction: (action) => {
@@ -1029,21 +1034,25 @@ const createSearchPicker: SearchPickerFactory = <
         }
         return onTransition(action.transition);
       }
+      if (action.kind === 'contextMenu') {
+        return onContextMenu?.(action.event) ?? ignoreMessage();
+      }
       return onAccept?.(action.event) ?? ignoreMessage();
     },
   });
 };
 
 type SearchPickerWithoutCallbacks<TOptions> = TOptions extends unknown
-  ? Omit<TOptions, 'onTransition' | 'onAccept'>
+  ? Omit<TOptions, 'onTransition' | 'onAccept' | 'onContextMenu'>
   : never;
 
 function withoutSearchPickerCallbacks<TOptions extends {
   readonly onTransition?: unknown;
   readonly onAccept?: unknown;
+  readonly onContextMenu?: unknown;
 }>(options: TOptions): SearchPickerWithoutCallbacks<TOptions> {
   return Object.fromEntries(Object.entries(options).filter(([field]) =>
-    field !== 'onTransition' && field !== 'onAccept'
+    field !== 'onTransition' && field !== 'onAccept' && field !== 'onContextMenu'
   )) as SearchPickerWithoutCallbacks<TOptions>;
 }
 
@@ -1082,7 +1091,11 @@ const instantiateSearchPicker = defineComponent<
   prepare: prepareSearchPicker,
   inspection: ({ model }) => {
     return {
-      value: inspectTextValue(model.query.text),
+      value: inspectTextValue(model.input.text),
+      ...(model.input.selection === undefined
+        ? {}
+        : { selection: inspectTextSelection(model.input.selection) }),
+      details: { caretOffset: model.input.cursor },
       ...(model.activeId === undefined ? {} : { active: model.activeId }),
       collection: {
         startIndex: model.startIndex,
@@ -1098,7 +1111,7 @@ const instantiateSearchPicker = defineComponent<
       preferredWidth: Math.max(
         16,
         measureTextCells(input.model.title, { widthProfile: input.widthProfile }).cells,
-        measureTextCells(input.model.query.text, { widthProfile: input.widthProfile }).cells + 2,
+        measureTextCells(input.model.input.text, { widthProfile: input.widthProfile }).cells + 2,
         ...input.model.rows.map((row) =>
           measureTextCells(row.label, { widthProfile: input.widthProfile }).cells + 2
         ),
@@ -1115,7 +1128,13 @@ const instantiateSearchPicker = defineComponent<
       id: input.id,
       role: 'combobox',
       ...(input.model.title === '' ? {} : { label: input.model.title }),
-      value: input.model.query.text,
+      value: input.model.input.text,
+      textPosition: {
+        caretOffset: input.model.input.cursor,
+        ...(input.model.input.selection === undefined
+          ? {}
+          : { selection: input.model.input.selection }),
+      },
       disabled: input.disabled,
       expanded: true,
       ...(input.focused ? { focused: true } : {}),
@@ -1162,9 +1181,22 @@ const instantiateSearchPicker = defineComponent<
     const canActivate = allowsComponentAction(availability, 'activate');
     const activeId = model.activeId;
     return {
-      ...(canEdit ? {
-        backspace: () => searchPickerTransition({ kind: 'deleteQueryBackward' }),
-      } : {}),
+      triggers: [
+        ...textEditingTriggers(!canEdit, false).map((binding) => ({
+          trigger: binding.trigger,
+          onKey: (event: Parameters<typeof binding.onKey>[0]) => {
+            const action = binding.onKey(event);
+            return isIgnoredMessage(action) ? action : searchPickerTransition(action);
+          },
+        })),
+        ...(canEdit ? [{
+          trigger: { kind: 'key' as const, key: 'z' as const, modifiers: { ctrl: true } },
+          onKey: () => searchPickerTransition({ kind: 'undo' as const }),
+        }, {
+          trigger: { kind: 'key' as const, key: 'y' as const, modifiers: { ctrl: true } },
+          onKey: () => searchPickerTransition({ kind: 'redo' as const }),
+        }] : []),
+      ],
       arrowUp: () => searchPickerTransition({ kind: 'moveActive', delta: -1 }),
       arrowDown: () => searchPickerTransition({ kind: 'moveActive', delta: 1 }),
       ...(activeId === undefined || model.activeDisabled || !canActivate
@@ -1173,18 +1205,55 @@ const instantiateSearchPicker = defineComponent<
     };
   },
   onInput: ({ text, readOnly }) => allowsComponentAction({ readOnly }, 'edit')
-    ? searchPickerTransition({ kind: 'insertQuery', text })
+    ? searchPickerTransition({ kind: 'edit', operation: { kind: 'insert', text } })
     : ignoreMessage(),
   onPaste: ({ text, readOnly }) => allowsComponentAction({ readOnly }, 'edit')
-    ? searchPickerTransition({ kind: 'insertQuery', text })
+    ? searchPickerTransition({ kind: 'edit', operation: { kind: 'insert', text } })
     : ignoreMessage(),
-  focusTargets: ({ bounds }) => [{ id: 'self', bounds, cursor: { row: 1, column: 2 } }],
+  focusTargets(input) {
+    const visual = searchPickerInputVisual(input.model, input.bounds.width, input.widthProfile);
+    return [{
+      id: 'self',
+      bounds: input.bounds,
+      cursor: {
+        row: 1,
+        column: Math.max(0, Math.min(Math.max(0, input.bounds.width - 1), 2 + visual.cursorColumn)),
+      },
+    }];
+  },
   hitTargets(input) {
+    if (input.busy) return [];
     const plan = searchPickerPlan(input);
-    const entryTargets = (input.busy ? [] : input.model.rows.slice(
+    const visual = searchPickerInputVisual(input.model, plan.contentBounds.width, input.widthProfile);
+    const index = createTerminalTextIndex(input.model.input.text, { widthProfile: input.widthProfile });
+    const queryTarget = textPointerTarget<SearchPickerInternalAction>({
+      id: `${input.id ?? 'search-picker'}:query`,
+      bounds: {
+        row: plan.contentBounds.row + 1,
+        column: plan.contentBounds.column,
+        width: plan.contentBounds.width,
+        height: Math.min(1, plan.contentBounds.height),
+      },
+      ...(input.model.input.selection === undefined ? {} : { selection: input.model.input.selection }),
+      focusTargetId: 'self',
+      offsetAt(event, origin) {
+        const local = origin === 'press'
+          ? event.pressLocalColumn ?? event.localColumn ?? 1
+          : event.localColumn ?? 1;
+        const column = visual.offsetCells + Math.max(
+          0,
+          local - 3 - Number(visual.clippedBefore),
+        );
+        return index.graphemeIndexToCodeUnitOffset(index.visualColumnToGraphemeIndex(column));
+      },
+      wordSelectionAt: (offset) => index.wordSelectionAt(offset),
+      onPointer: (action) => searchPickerTransition({ kind: 'pointer', action }),
+      onContextMenu: (event) => ({ kind: 'contextMenu', event }),
+    });
+    const entryTargets = input.model.rows.slice(
       0,
       searchPickerVisibleEntryCount(input.model, plan.contentBounds.height),
-    )).flatMap((row, index) =>
+    ).flatMap((row, index) =>
       row.disabled ? [] : [{
         id: `${input.id ?? 'search-picker'}:${row.id}`,
         bounds: {
@@ -1201,6 +1270,7 @@ const instantiateSearchPicker = defineComponent<
       }]
     );
     return [
+      queryTarget,
       ...entryTargets,
       ...componentScrollbarHitTargets<SearchPickerInternalAction>({
         id: input.id ?? 'search-picker',
@@ -1266,6 +1336,7 @@ function prepareSearchPicker(value: Readonly<SearchPickerComponentOptions>): Sea
   }
   return {
     title: clean(value.title, 'searchPicker title') ?? '',
+    input: presentation.input,
     query,
     rows,
     ...(window.activeIndex === undefined ? {} : { activeIndex: window.activeIndex }),
@@ -1284,16 +1355,38 @@ function prepareSearchPicker(value: Readonly<SearchPickerComponentOptions>): Sea
 
 function prepareSearchPickerPresentation(
   value: SearchPickerPresentation,
-): SearchPickerPresentation & { readonly query: PreparedCollectionQuery } {
+): {
+  readonly input: import('../../text/index.ts').TextEditBuffer;
+  readonly query: PreparedCollectionQuery;
+  readonly activeId?: string;
+  readonly scroll?: ScrollState;
+} {
   if (!isNonArrayObject(value)) {
     throw new TypeError('searchPicker presentation must be an object.');
   }
-  const query = prepareCollectionQuery(value.query);
+  if (!isNonArrayObject(value.input)) {
+    throw new TypeError('searchPicker presentation input must be an object.');
+  }
+  const text = clean(value.input.text, 'searchPicker input text') ?? '';
+  const cursor = nonNegativeInteger(value.input.cursor, 'searchPicker input cursor');
+  if (cursor > text.length) throw new RangeError('searchPicker input cursor is outside the text.');
+  const selection = prepareTextSelection(
+    value.input.selection,
+    text.length,
+    'searchPicker input selection',
+  );
+  const input = Object.freeze({
+    text,
+    cursor,
+    ...(selection === undefined ? {} : { selection }),
+  });
+  const query = prepareCollectionQuery({ text, ...value.query });
   const activeId = value.activeId === undefined
     ? undefined
     : nonEmpty(value.activeId, 'searchPicker activeId');
   const scroll = prepareComponentScrollState(value.scroll, 'searchPicker scroll');
   return {
+    input,
     query,
     ...(activeId === undefined ? {} : { activeId }),
     ...(scroll === undefined ? {} : { scroll }),
@@ -1362,6 +1455,7 @@ function paintSearchPicker(
     part: 'placeholder',
     base: { fg: { kind: 'theme', token: 'command.prompt' } },
   });
+  const visual = searchPickerInputVisual(input.model, plan.contentBounds.width, input.widthProfile);
   input.target.write(
     1,
     0,
@@ -1375,10 +1469,7 @@ function paintSearchPicker(
             description: 'query.marker',
           }),
         }),
-        span(input.model.query.text, {
-          ...(inputStyle === undefined ? {} : { style: inputStyle }),
-          source: input.source({ partName: 'query', cellRole: 'text', description: 'query' }),
-        }),
+        ...searchPickerQuerySpans(input, visual, inputStyle),
       ],
       plan.contentBounds.width,
       { widthProfile: input.widthProfile },
@@ -1508,8 +1599,47 @@ function paintSearchPicker(
   });
 }
 
+function searchPickerQuerySpans(
+  input: ComponentRenderInput<SearchPickerModel, SearchPickerStylePart>,
+  visual: import('../internal/single-line-text-window.ts').SingleLineTextWindow,
+  inputStyle: TerminalStyle | undefined,
+): import('../../visual/render.ts').RenderSpan[] {
+  const output: import('../../visual/render.ts').RenderSpan[] = [];
+  if (visual.clippedBefore) {
+    output.push(span('‹', {
+      source: input.source({ partName: 'query.window', cellRole: 'decoration', description: 'query.window' }),
+    }));
+  }
+  for (const grapheme of segmentGraphemes(input.model.input.text)) {
+    if (grapheme.startOffset < visual.startOffset || grapheme.startOffset >= visual.endOffsetExclusive) continue;
+    const selected = input.model.input.selection !== undefined
+      && grapheme.startOffset < input.model.input.selection.endOffsetExclusive
+      && grapheme.endOffsetExclusive > input.model.input.selection.startOffset;
+    const style = selected
+      ? input.style({
+          part: 'selection',
+          states: ['selected'],
+          base: {
+            fg: { kind: 'theme', token: 'selection.foreground' },
+            bg: { kind: 'theme', token: 'selection.background' },
+          },
+        })
+      : inputStyle;
+    output.push(span(grapheme.text, {
+      ...(style === undefined ? {} : { style }),
+      source: input.source({
+        partName: selected ? 'query.selection' : 'query',
+        partType: selected ? 'selection' : 'value',
+        cellRole: 'text',
+        description: selected ? 'query.selection' : 'query',
+      }),
+    }));
+  }
+  return output;
+}
+
 function searchPickerSummary(model: SearchPickerModel): string {
-  return model.query.text.length === 0
+  return model.input.text.length === 0
     ? `${String(model.totalCount)} options`
     : `${String(model.totalCount)}/${String(model.sourceCount)} ${
       model.totalCount === 1 ? 'match' : 'matches'

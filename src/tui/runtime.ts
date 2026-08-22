@@ -74,6 +74,7 @@ import { focusLifecycleMessages } from './focus-lifecycle.ts';
 import { focusNavigationPath } from '../renderer/internal/focus.ts';
 import { assertTuiApp, tuiDefinition } from './definition.ts';
 import { decodeTuiInitialResult } from './hook-results.ts';
+import { prepareCopySelectedTextInput } from './selection.ts';
 
 type MutableTuiRuntimeMetrics = {
   -readonly [TKey in Exclude<keyof TuiRuntimeMetrics, 'diagnostics' | 'effects' | 'sources'>]: TuiRuntimeMetrics[TKey];
@@ -211,6 +212,12 @@ function createRuntime<TState, TMessage>(
     clock: options.host.clock,
     context: createRuntimeContext,
     reportDiagnostic: (item) => diagnostics.report(item),
+    copySelectedText(input, signal) {
+      return dispatchQueue.run(async () => {
+        const context = await createRuntimeContext();
+        return commits.copySelectedText(input, context.capabilities, signal);
+      });
+    },
     dispatch(messages, lease) {
       return dispatchQueue.run(() => dispatchManyAdmitted(messages, 'effect', lease)).then(() => undefined);
     },
@@ -243,6 +250,19 @@ function createRuntime<TState, TMessage>(
       return dispatchQueue.run(() => ownedMessages.length === 0
         ? operationalState()
         : dispatchManyInternal(ownedMessages, 'external'));
+    },
+    copySelectedText(input) {
+      let prepared: ReturnType<typeof prepareCopySelectedTextInput>;
+      try {
+        prepared = prepareCopySelectedTextInput(input);
+      } catch (cause) {
+        return Promise.reject(errorFromUnknown(cause));
+      }
+      return dispatchQueue.run(async () => {
+        lifecycle.assertOperational();
+        const context = await createRuntimeContext();
+        return commits.copySelectedText(prepared, context.capabilities);
+      });
     },
     resize(terminalSize) {
       return resizeCoordinator.request(terminalSize);

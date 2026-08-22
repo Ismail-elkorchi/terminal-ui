@@ -31,17 +31,16 @@ export type {
 
 export {
   animationSource,
-  copySelectedTextToClipboard,
   defineTui,
   intervalSource,
   runTui,
   TuiRunError,
   timeoutSource
 } from './tui/index.ts';
-export { resolveSelectedText } from './interaction/index.ts';
 export type {
   CopySelectedTextInput,
   CopySelectedTextResult,
+  SelectedText,
   TuiApp,
   TuiContext,
   TuiDefinition,
@@ -51,12 +50,6 @@ export type {
   TuiUpdateResult,
   TuiView
 } from './tui/index.ts';
-export type {
-  ResolveSelectedTextInput,
-  ResolveSelectedTextResult,
-  SelectableTextSource,
-  SelectionInteractionMode
-} from './interaction/index.ts';
 
 export * from './components/factories.ts';
 export { rasterImage } from './graphics/index.ts';

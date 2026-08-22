@@ -26,6 +26,11 @@ import { createTerminalGraphicsCommitter } from './graphics-committer.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { sameThemeRendering } from '../theme/theme.ts';
 import type { PointerVisualSnapshot } from '../interaction/pointer-interaction.ts';
+import {
+  copySelectedTextToClipboard,
+  suspendedClipboardSelection,
+} from './selection.ts';
+import type { CopySelectedTextInput } from './selection.ts';
 
 export function createRuntimeCommitCoordinator<TState, TMessage>(
   options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics' | 'graphicsBudget'> & {
@@ -60,6 +65,22 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       return currentRender.frame;
     },
     focusPath: () => currentFocusPath,
+    copySelectedText(
+      input: CopySelectedTextInput,
+      capabilities: TuiContext['capabilities'],
+      operationSignal?: AbortSignal,
+    ) {
+      if (outputSuspended) return Promise.resolve(suspendedClipboardSelection(input.selection));
+      const writeSignal = operationSignal === undefined
+        ? signal
+        : AbortSignal.any([signal, operationSignal]);
+      return copySelectedTextToClipboard(
+        options.host,
+        capabilities,
+        input,
+        writeSignal,
+      );
+    },
     async suspendOutput() {
       outputSuspended = true;
       outputBaselineKnown = false;

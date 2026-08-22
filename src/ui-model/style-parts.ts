@@ -71,6 +71,12 @@ export type ButtonStylePart = 'frame' | 'marker' | 'leading' | 'label' | 'traili
 export type ToggleStylePart = 'label' | 'track' | 'handle' | 'onLabel' | 'offLabel' | 'error';
 export type SliderStylePart = 'label' | 'track' | 'fill' | 'handle' | 'value' | 'error';
 export type ChoiceStylePart = 'label' | 'marker' | 'option' | 'description' | 'error';
+export type ComboboxStylePart =
+  | ChoiceStylePart
+  | 'value'
+  | 'placeholder'
+  | 'selection'
+  | 'cursor';
 export type ColorSwatchPickerStylePart =
   | 'label'
   | 'summary'

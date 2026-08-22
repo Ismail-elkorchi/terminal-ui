@@ -122,7 +122,7 @@ function tabs(options) {
 
 function searchPicker(options) {
   return createSearchPicker({ meta: { accessibleName: "Search" },
-    presentation: { query: { text: '', mode: 'fuzzy' } },
+    presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
     onTransition: noMessage,
     ...options
   });
@@ -431,7 +431,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
 }), { columns: 18, rows: 1 });
   const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'command',
-    presentation: { value: '/open README.md', cursor: 0, open: true, suggestions: prepareCommandSuggestions([
+    presentation: { input: { text: '/open README.md', cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([
       { id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/open' }, label: 'Open file' },
       { id: 'save', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/save' }, label: 'Save file' }
     ]), activeSuggestionId: 'open' },
@@ -459,7 +459,8 @@ test('default interactive component anatomy uses theme tokens instead of termina
   const searchPickerFrame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
     id: 'searchPicker',
     presentation: {
-      query: { text: 'o', mode: 'fuzzy' },
+      input: { text: 'o', cursor: 1 },
+      query: { mode: 'fuzzy' },
       activeId: 'toggle'
     },
     searchPickerIndex: prepareSearchPickerIndex([

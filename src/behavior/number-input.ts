@@ -5,6 +5,7 @@ import type {
 } from '../ui-model/number-input.ts';
 import { editTextBuffer } from '../text/index.ts';
 import type { TextEditBuffer, TextEditOperation } from '../text/index.ts';
+import { applyTextPointerAction } from './text-editing.ts';
 
 export type { NumberInputAnalysis, NumberInputPresentation } from '../ui-model/number-input.ts';
 
@@ -94,6 +95,10 @@ export function numberInputReducer(
   switch (action.kind) {
     case 'edit': {
       const input = editTextBuffer(state.input, singleLineOperation(action.operation));
+      return input === state.input ? state : { ...state, input };
+    }
+    case 'pointer': {
+      const input = applyTextPointerAction(state.input, action.action);
       return input === state.input ? state : { ...state, input };
     }
     case 'step':
