@@ -113,6 +113,7 @@ export {
 export type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../visual/render.ts';
 export type { HitTarget } from '../renderer/contracts.ts';
 export { normalizeTerminalStyle as prepareTerminalStyle } from '../visual/terminal-style.ts';
+export { mergeTerminalStyles } from '../visual/terminal-style.ts';
 export {
   componentScrollbarHitTargets,
   paintComponentScrollbar,

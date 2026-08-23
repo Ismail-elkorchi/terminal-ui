@@ -23,6 +23,7 @@ export type {
   TerminalLink,
   TerminalStyle
 } from '../visual/render.ts';
+export { mergeTerminalStyles } from '../visual/terminal-style.ts';
 export type {
   Canvas2D,
   CanvasPainter,

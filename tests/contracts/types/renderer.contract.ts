@@ -1,6 +1,7 @@
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 import {
   defineComponent,
+  mergeTerminalStyles as mergeComponentTerminalStyles,
   type ComponentInput,
   type ComponentMeasureInput,
   type ComponentRenderInput,
@@ -8,6 +9,7 @@ import {
   type SemanticLeafComponentDefinition
 } from '@ismail-elkorchi/terminal-ui/component';
 import {
+  mergeTerminalStyles as mergeRendererTerminalStyles,
   renderElementFrame,
   renderFramePlain,
   span,
@@ -24,6 +26,10 @@ import {
   type RenderStage,
   type RenderWorkMeasurement
 } from '@ismail-elkorchi/terminal-ui/renderer';
+
+const componentComposedStyle = mergeComponentTerminalStyles({ bold: true }, { italic: true });
+const rendererComposedStyle = mergeRendererTerminalStyles(componentComposedStyle, { underline: true });
+void rendererComposedStyle;
 
 const renderSpan: RenderSpan = span('ready', { style: { bold: true } });
 const frame: Frame = renderElementFrame(text({ content: 'Ready' }), { columns: 20, rows: 2 });

@@ -814,6 +814,7 @@ test('component definitions map keyboard text and paste through one action bound
     render({ bounds, target }) {
       target.write(bounds.row, bounds.column, [{ text: 'edit' }]);
     },
+    focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
     accessibility: ({ id, focused }) => ({
       id,
       role: 'textbox',
@@ -967,6 +968,7 @@ test('inert actionful components ignore unreachable action mappers', () => {
     accessibleRole: 'button',
     measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
     render() {},
+    focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
     keys: () => ({ enter: () => ({ kind: 'activate' }) }),
     accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
   });
@@ -1852,6 +1854,23 @@ test('decorative component definitions cannot expose interaction targets', () =>
         definition: interactiveComponent
       }), { columns: 12, rows: 1 }),
     /cannot declare state or interaction/u
+  );
+});
+
+test('semantic leaf definitions reject unreachable focus-owned behavior', () => {
+  assert.throws(
+    () => defineComponent({
+      name: 'terminal-ui-tests/components/unfocusable-keyboard-leaf',
+      identity: 'required',
+      structure: 'leaf',
+      semantics: 'semantic',
+      accessibleRole: 'button',
+      measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
+      render: () => undefined,
+      keys: () => ({ enter: () => ({ kind: 'activate' }) }),
+      accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
+    }),
+    /must declare focusTargets/u
   );
 });
 

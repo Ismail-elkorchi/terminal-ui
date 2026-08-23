@@ -93,7 +93,7 @@ strategies once. Instance handlers only map the resulting semantic action.
 
 | Entrypoint | Contract |
 | --- | --- |
-| `./component` | `defineComponent()`, opaque elements, authoring contracts, bounded painting helpers, and component interaction helpers. |
+| `./component` | `defineComponent()`, opaque elements, authoring contracts, bounded painting and terminal-style composition helpers, and component interaction helpers. |
 | `./components` | Built-in catalog and component-domain public data contracts. It consumes `./component`. |
 | `./layout` | Layout and composition factories plus responsive view selection. |
 | `./behavior` | Pure reducers and controlled-state helpers. |

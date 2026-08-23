@@ -159,6 +159,9 @@ behavior in terms of one reusable action type. Each instance supplies
 `ignoreMessage()` from the same `/component` entrypoint when an action is
 intentionally ignored. Component messages are non-null values; returning
 `undefined` or `null` is rejected so ignored actions are always explicit.
+Semantic leaf definitions that own keyboard, text, paste, or focus behavior
+must also declare `focusTargets()`. Without a logical target, those hooks could
+never receive focused input. Pointer-only leaves may remain unfocusable.
 
 A pointer declaration without `state` always emits its declared pointer
 actions. When `state` is provided, returning `undefined` disables that optional
@@ -199,6 +202,10 @@ targets explicitly. The runtime resolves that ID to the committed focus path.
 Hit-target bounds, accepted event kinds, and focus intent are copied and
 validated together before pointer routing; later mutation of hook-owned data
 cannot change the committed interaction regions.
+
+Use `mergeTerminalStyles()` from `/component` when a custom component needs
+right-biased style composition. The helper validates, owns, and freezes the
+result rather than retaining mutable caller style objects.
 Accessibility focus must agree with the resolved target; when accessible node
 IDs match focus-target IDs, the matching accessible node must be focused.
 

@@ -1400,6 +1400,21 @@ function assertDefinition(value: unknown): void {
   if (value['sensitiveInput'] === true && value['onInput'] === undefined && value['onPaste'] === undefined) {
     throw new TypeError('A sensitive-input component must declare onInput or onPaste.');
   }
+  if (structure === 'leaf'
+    && semantics === 'semantic'
+    && value['focusTargets'] === undefined
+    && (
+      value['keys'] !== undefined
+      || value['onInput'] !== undefined
+      || value['onPaste'] !== undefined
+      || value['onFocus'] !== undefined
+      || value['focusNavigation'] !== undefined
+      || value['sensitiveInput'] === true
+    )) {
+    throw new TypeError(
+      'A semantic leaf component with keyboard, text, paste, or focus-owned behavior must declare focusTargets().'
+    );
+  }
   if (value['clipChildren'] !== undefined && typeof value['clipChildren'] !== 'boolean') {
     throw new TypeError('Component definition clipChildren must be a boolean.');
   }

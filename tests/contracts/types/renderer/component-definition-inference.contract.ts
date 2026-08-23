@@ -116,6 +116,7 @@ const inertInteractive = defineComponent<
   accessibleRole: 'button',
   measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
   render: () => undefined,
+  focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   keys: () => ({ enter: () => ({ kind: 'activate' }) }),
   accessibility: ({ id }) => ({ id, role: 'button', label: 'Action' })
 });
