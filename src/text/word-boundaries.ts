@@ -65,14 +65,18 @@ export function lineSelectionAt(text: string, offset: number): TextSelection {
 }
 
 export function lineStartOffset(text: string, offset: number): number {
-  const cursor = clampTextOffset(offset, text.length);
-  return text.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1;
+  const cursor = normalizeLogicalLineOffset(text, offset);
+  const starts = lineStartOffsets(text);
+  return starts[currentLineIndex(starts, cursor)] ?? 0;
 }
 
 export function lineEndOffset(text: string, offset: number): number {
-  const cursor = clampTextOffset(offset, text.length);
-  const next = text.indexOf('\n', cursor);
-  return next === -1 ? text.length : next;
+  const cursor = normalizeLogicalLineOffset(text, offset);
+  for (let index = cursor; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    if (code === 10 || code === 13) return index;
+  }
+  return text.length;
 }
 
 export function previousWordBoundary(
@@ -92,7 +96,7 @@ export function nextWordBoundary(
 }
 
 export function lineOffsetByDelta(text: string, offset: number, delta: number): number {
-  const cursor = normalizeTextCursor(text, offset);
+  const cursor = normalizeLogicalLineOffset(text, normalizeTextCursor(text, offset));
   const starts = lineStartOffsets(text);
   const current = currentLineIndex(starts, cursor);
   const target = Math.max(0, Math.min(starts.length - 1, current + Math.trunc(delta)));
@@ -195,9 +199,25 @@ function upperBound(values: readonly number[], target: number): number {
 function lineStartOffsets(text: string): readonly number[] {
   const offsets = [0];
   for (let index = 0; index < text.length; index += 1) {
-    if (text[index] === '\n') offsets.push(index + 1);
+    const code = text.charCodeAt(index);
+    if (code === 13) {
+      if (text.charCodeAt(index + 1) === 10) index += 1;
+      offsets.push(index + 1);
+    } else if (code === 10) {
+      offsets.push(index + 1);
+    }
   }
   return offsets;
+}
+
+function normalizeLogicalLineOffset(text: string, offset: number): number {
+  const cursor = clampTextOffset(offset, text.length);
+  return cursor > 0
+    && cursor < text.length
+    && text.charCodeAt(cursor - 1) === 13
+    && text.charCodeAt(cursor) === 10
+    ? cursor - 1
+    : cursor;
 }
 
 function currentLineIndex(starts: readonly number[], cursor: number): number {

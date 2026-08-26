@@ -4,6 +4,11 @@ import {
   sanitizeTerminalText,
   textDocumentLength,
   textDocumentLineCount,
+  textDocumentLineAt,
+  textDocumentLineIndexAtOffset,
+  textDocumentLines,
+  normalizeTextDocumentOffset,
+  textDocumentSlice,
   textDocumentText,
   textWidthProfileKey,
   type TextDocument,
@@ -11,13 +16,20 @@ import {
 } from '../../text/index.ts';
 import {
   textDocumentCanRenderDirectly,
+  textDocumentCanProjectLines,
+  textDocumentApplyChangesExact,
   textDocumentEditExact,
   textDocumentPreviousMutation,
 } from '../../text/document.ts';
+import { textDocumentChangedLineRanges } from './text-document-change-ranges.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
 import type {
   TextAreaDecorationModel,
   TextAreaReplacementDecorationModel,
+} from '../text-area-decorations.ts';
+import {
+  textAreaDecorationIntersectsChange,
+  textAreaDecorationMapping,
 } from '../text-area-decorations.ts';
 
 type TextAreaContentDecorationModel =
@@ -45,18 +57,34 @@ interface OffsetProjection {
   readonly sourceSegments: readonly MappingSegment[];
   readonly targetSegments: readonly MappingSegment[];
   readonly virtualSegments: readonly MappingSegment[];
+  readonly segments: readonly MappingSegment[];
 }
 
 export interface TextAreaProjection {
   readonly widthProfileKey: string;
   readonly document: TextDocument;
-  readonly materializedText?: string;
   readonly styleRanges: readonly ProjectedTextStyleRange[];
-  accessibilityText(): string;
+  accessibilityWindow(centerOffset: number, maximumCodeUnits: number): TextAreaAccessibilityWindow;
   accessibilityLineCount(): number;
   displayOffsetAtSourceOffset(offset: number, affinity?: 'upstream' | 'downstream'): number;
   sourceOffsetAtDisplayOffset(offset: number, affinity?: 'upstream' | 'downstream'): number;
   accessibilityOffsetAtSourceOffset(offset: number, affinity?: 'upstream' | 'downstream'): number;
+}
+
+interface RetainedProjectionData {
+  readonly sourceDocument: TextDocument;
+  readonly decorations: readonly TextAreaDecorationModel[];
+  readonly displayDocument: TextDocument;
+  readonly accessibilityDocument: TextDocument;
+  readonly displayOffsets: OffsetProjection;
+  readonly accessibilityOffsets: OffsetProjection;
+}
+
+export interface TextAreaAccessibilityWindow {
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
+  readonly totalLength: number;
+  readonly text: string;
 }
 
 interface ProjectionBuilder {
@@ -95,10 +123,12 @@ const projectionCache = new WeakMap<
   TextDocument,
   WeakMap<readonly TextAreaDecorationModel[], Map<string, TextAreaProjection>>
 >();
-const recentMaterializedProjections = new WeakMap<
+const recentDisplayProjections = new WeakMap<
   TextDocument,
   Map<string, WeakRef<TextAreaProjection>>
 >();
+const lineProjectableProjections = new WeakSet<TextAreaProjection>();
+const retainedProjectionData = new WeakMap<TextAreaProjection, RetainedProjectionData>();
 const CACHE_LIMIT = 8;
 const TAB_SIZE = 4;
 const terminalStyleFields: readonly TerminalStyleField[] = Object.freeze([
@@ -125,12 +155,84 @@ export function createTextAreaProjection(
       directProjection(document, decorations, profileKey),
     );
   }
+  if (
+    decorations.every((decoration) => decoration.kind === 'style')
+    && textDocumentCanProjectLines(document)
+  ) {
+    return retainProjection(
+      document,
+      decorations,
+      profileKey,
+      lineProjection(document, decorations, widthProfile, profileKey),
+    );
+  }
+  const updated = incrementalMaterializedProjection(
+    document,
+    decorations,
+    widthProfile,
+    profileKey,
+  );
+  if (updated !== undefined) {
+    return retainProjection(document, decorations, profileKey, updated);
+  }
   const source = textDocumentText(document);
-  const sanitizedSource = sanitizeTerminalText(source);
-  const removedSourceRanges = sanitizedSource.removedControlSequences.map((entry) => ({
-    start: entry.codeUnitOffset,
-    end: entry.codeUnitOffset + entry.sequence.length
+  const built = buildMaterializedProjection(source, decorations, widthProfile);
+  const displayDocument = createTextDocument(built.text);
+  const accessibilityDocument = createTextDocument(built.accessibilityText);
+  const created: TextAreaProjection = Object.freeze({
+    widthProfileKey: profileKey,
+    document: displayDocument,
+    styleRanges: built.styleRanges,
+    accessibilityWindow: (centerOffset: number, maximumCodeUnits: number) => (
+      accessibilityWindow(accessibilityDocument, centerOffset, maximumCodeUnits)
+    ),
+    accessibilityLineCount: () => built.accessibilityText.length === 0
+      ? 0
+      : textDocumentLineCount(accessibilityDocument),
+    displayOffsetAtSourceOffset(
+      offset: number,
+      affinity: 'upstream' | 'downstream' = 'downstream'
+    ) {
+      return projectSourceOffset(built.displayOffsets, offset, affinity);
+    },
+    sourceOffsetAtDisplayOffset(
+      offset: number,
+      affinity: 'upstream' | 'downstream' = 'downstream'
+    ) {
+      return projectTargetOffset(built.displayOffsets, offset, affinity);
+    },
+    accessibilityOffsetAtSourceOffset(
+      offset: number,
+      affinity: 'upstream' | 'downstream' = 'downstream'
+    ) {
+      return projectSourceOffset(built.accessibilityOffsets, offset, affinity);
+    }
+  });
+  retainedProjectionData.set(created, Object.freeze({
+    sourceDocument: document,
+    decorations,
+    displayDocument,
+    accessibilityDocument,
+    displayOffsets: built.displayOffsets,
+    accessibilityOffsets: built.accessibilityOffsets,
   }));
+  return retainProjection(document, decorations, profileKey, created);
+}
+
+interface BuiltMaterializedProjection {
+  readonly text: string;
+  readonly accessibilityText: string;
+  readonly displayOffsets: OffsetProjection;
+  readonly accessibilityOffsets: OffsetProjection;
+  readonly styleRanges: readonly ProjectedTextStyleRange[];
+}
+
+function buildMaterializedProjection(
+  source: string,
+  decorations: readonly TextAreaDecorationModel[],
+  widthProfile: TextWidthProfile,
+): BuiltMaterializedProjection {
+  const sanitizedSource = sanitizeTerminalText(source);
   const builder: ProjectionBuilder = {
     widthProfile,
     textParts: [],
@@ -138,53 +240,310 @@ export function createTextAreaProjection(
     displayMappings: [],
     accessibilityMappings: [],
     styleRanges: [],
-    removedSourceRanges,
+    removedSourceRanges: sanitizedSource.removedControlSequences.map((entry) => ({
+      start: entry.codeUnitOffset,
+      end: entry.codeUnitOffset + entry.sequence.length,
+    })),
     removedSourceIndex: 0,
     displayLength: 0,
     accessibilityLength: 0,
-    column: 0
+    column: 0,
   };
   projectSource(builder, source, decorations);
-
   const text = builder.textParts.join('');
   const accessibilityText = builder.accessibilityParts.join('');
-  const displayProjection = createOffsetProjection(
-    source.length,
-    text.length,
-    builder.displayMappings
-  );
-  const accessibilityProjection = createOffsetProjection(
-    source.length,
-    accessibilityText.length,
-    builder.accessibilityMappings
-  );
-  const created: TextAreaProjection = Object.freeze({
-    widthProfileKey: profileKey,
-    document: inheritedProjectedDocument(document, text, profileKey),
-    materializedText: text,
+  return Object.freeze({
+    text,
+    accessibilityText,
+    displayOffsets: createOffsetProjection(source.length, text.length, builder.displayMappings),
+    accessibilityOffsets: createOffsetProjection(
+      source.length,
+      accessibilityText.length,
+      builder.accessibilityMappings,
+    ),
     styleRanges: Object.freeze(builder.styleRanges),
-    accessibilityText: () => accessibilityText,
-    accessibilityLineCount: () => textLineCount(accessibilityText),
-    displayOffsetAtSourceOffset(
-      offset: number,
-      affinity: 'upstream' | 'downstream' = 'downstream'
-    ) {
-      return projectSourceOffset(displayProjection, offset, affinity);
-    },
-    sourceOffsetAtDisplayOffset(
-      offset: number,
-      affinity: 'upstream' | 'downstream' = 'downstream'
-    ) {
-      return projectTargetOffset(displayProjection, offset, affinity);
-    },
-    accessibilityOffsetAtSourceOffset(
-      offset: number,
-      affinity: 'upstream' | 'downstream' = 'downstream'
-    ) {
-      return projectSourceOffset(accessibilityProjection, offset, affinity);
-    }
   });
-  return retainProjection(document, decorations, profileKey, created);
+}
+
+function incrementalMaterializedProjection(
+  document: TextDocument,
+  decorations: readonly TextAreaDecorationModel[],
+  widthProfile: TextWidthProfile,
+  profileKey: string,
+): TextAreaProjection | undefined {
+  if (!textDocumentCanProjectLines(document)) return undefined;
+  const mutation = textDocumentPreviousMutation(document);
+  const decorationMapping = textAreaDecorationMapping(decorations);
+  if (
+    mutation === undefined
+    || decorationMapping?.changes !== mutation.changes
+  ) return undefined;
+  const previousProjection = recentDisplayProjections
+    .get(mutation.document)?.get(profileKey)?.deref();
+  const previous = previousProjection === undefined
+    ? undefined
+    : retainedProjectionData.get(previousProjection);
+  if (
+    previous?.sourceDocument !== mutation.document
+    || previous.decorations !== decorationMapping.previous
+  ) return undefined;
+  const firstChange = mutation.changes[0];
+  const lastChange = mutation.changes.at(-1);
+  if (firstChange === undefined || lastChange === undefined) return previousProjection;
+
+  const intersectedContent = decorationMapping.previous.filter((decoration) => (
+    decoration.kind !== 'style'
+    && mutation.changes.some((change) => textAreaDecorationIntersectsChange(decoration, change))
+  ));
+  const changedStart = Math.min(
+    firstChange.startOffset,
+    ...intersectedContent.map((decoration) => decoration.startOffset),
+  );
+  const changedEnd = Math.max(
+    lastChange.endOffsetExclusive,
+    ...intersectedContent.map((decoration) => decoration.endOffsetExclusive),
+  );
+  const sourceDelta = mutation.changes.reduce((total, change) => (
+    total + change.insertedText.length
+      - (change.endOffsetExclusive - change.startOffset)
+  ), 0);
+  const previousRange = completeMaterializedSourceRange(
+    mutation.document,
+    changedStart,
+    changedEnd,
+    decorationMapping.previous,
+  );
+  const previousSourceStart = previousRange.startOffset;
+  const previousSourceEnd = previousRange.endOffsetExclusive;
+  const nextSourceStart = previousSourceStart;
+  const nextSourceEnd = previousSourceEnd + sourceDelta;
+  const localDecorations = decorationsWithinRange(
+    decorations,
+    nextSourceStart,
+    nextSourceEnd,
+    textDocumentLength(document),
+  );
+  const local = buildMaterializedProjection(
+    textDocumentSlice(document, nextSourceStart, nextSourceEnd),
+    localDecorations,
+    widthProfile,
+  );
+
+  const previousDisplayStart = projectSourceOffset(
+    previous.displayOffsets,
+    previousSourceStart,
+    'upstream',
+  );
+  const previousDisplayEnd = projectSourceOffset(
+    previous.displayOffsets,
+    previousSourceEnd,
+    'upstream',
+  );
+  const previousAccessibilityStart = projectSourceOffset(
+    previous.accessibilityOffsets,
+    previousSourceStart,
+    'upstream',
+  );
+  const previousAccessibilityEnd = projectSourceOffset(
+    previous.accessibilityOffsets,
+    previousSourceEnd,
+    'upstream',
+  );
+  const displayDocument = textDocumentEditExact(
+    previous.displayDocument,
+    previousDisplayStart,
+    previousDisplayEnd,
+    local.text,
+  ).document;
+  const accessibilityDocument = textDocumentEditExact(
+    previous.accessibilityDocument,
+    previousAccessibilityStart,
+    previousAccessibilityEnd,
+    local.accessibilityText,
+  ).document;
+  const displayOffsets = replaceOffsetRange({
+    previous: previous.displayOffsets,
+    local: local.displayOffsets,
+    previousSourceStart,
+    previousSourceEnd,
+    nextSourceEnd,
+    previousTargetStart: previousDisplayStart,
+    previousTargetEnd: previousDisplayEnd,
+  });
+  const accessibilityOffsets = replaceOffsetRange({
+    previous: previous.accessibilityOffsets,
+    local: local.accessibilityOffsets,
+    previousSourceStart,
+    previousSourceEnd,
+    nextSourceEnd,
+    previousTargetStart: previousAccessibilityStart,
+    previousTargetEnd: previousAccessibilityEnd,
+  });
+  const styleRanges = directStyleRanges(
+    decorations.filter((decoration) => decoration.kind === 'style'),
+    textDocumentLength(document),
+    (offset, affinity = 'downstream') => projectSourceOffset(displayOffsets, offset, affinity),
+  );
+  const result: TextAreaProjection = Object.freeze({
+    widthProfileKey: profileKey,
+    document: displayDocument,
+    styleRanges,
+    accessibilityWindow: (centerOffset: number, maximumCodeUnits: number) => (
+      accessibilityWindow(accessibilityDocument, centerOffset, maximumCodeUnits)
+    ),
+    accessibilityLineCount: () => textDocumentLength(accessibilityDocument) === 0
+      ? 0
+      : textDocumentLineCount(accessibilityDocument),
+    displayOffsetAtSourceOffset: (
+      offset: number,
+      affinity: 'upstream' | 'downstream' = 'downstream',
+    ) => (
+      projectSourceOffset(displayOffsets, offset, affinity)
+    ),
+    sourceOffsetAtDisplayOffset: (
+      offset: number,
+      affinity: 'upstream' | 'downstream' = 'downstream',
+    ) => (
+      projectTargetOffset(displayOffsets, offset, affinity)
+    ),
+    accessibilityOffsetAtSourceOffset: (
+      offset: number,
+      affinity: 'upstream' | 'downstream' = 'downstream',
+    ) => (
+      projectSourceOffset(accessibilityOffsets, offset, affinity)
+    ),
+  });
+  retainedProjectionData.set(result, Object.freeze({
+    sourceDocument: document,
+    decorations,
+    displayDocument,
+    accessibilityDocument,
+    displayOffsets,
+    accessibilityOffsets,
+  }));
+  return result;
+}
+
+function completeMaterializedSourceRange(
+  document: TextDocument,
+  changedStart: number,
+  changedEnd: number,
+  decorations: readonly TextAreaDecorationModel[],
+): { readonly startOffset: number; readonly endOffsetExclusive: number } {
+  let startOffset = changedStart;
+  let endOffsetExclusive = changedEnd;
+  let expanded = true;
+  while (expanded) {
+    const startLine = textDocumentLineIndexAtOffset(document, startOffset);
+    const endAnchor = endOffsetExclusive > startOffset
+      ? endOffsetExclusive - 1
+      : endOffsetExclusive;
+    const endLine = textDocumentLineIndexAtOffset(document, endAnchor) + 1;
+    const lineStart = textDocumentLineAt(document, startLine)?.startOffset ?? 0;
+    const lineEnd = textDocumentLineAt(document, endLine)?.startOffset
+      ?? textDocumentLength(document);
+    expanded = lineStart !== startOffset || lineEnd !== endOffsetExclusive;
+    startOffset = lineStart;
+    endOffsetExclusive = lineEnd;
+    for (const decoration of decorations) {
+      if (decoration.kind === 'style') continue;
+      const point = decoration.startOffset === decoration.endOffsetExclusive;
+      const overlaps = point
+        ? decoration.startOffset >= startOffset
+          && decoration.startOffset < endOffsetExclusive
+        : decoration.startOffset < endOffsetExclusive
+          && decoration.endOffsetExclusive > startOffset;
+      if (!overlaps) continue;
+      const nextStart = Math.min(startOffset, decoration.startOffset);
+      const nextEnd = Math.max(endOffsetExclusive, decoration.endOffsetExclusive);
+      expanded ||= nextStart !== startOffset || nextEnd !== endOffsetExclusive;
+      startOffset = nextStart;
+      endOffsetExclusive = nextEnd;
+    }
+  }
+  return Object.freeze({ startOffset, endOffsetExclusive });
+}
+
+function decorationsWithinRange(
+  decorations: readonly TextAreaDecorationModel[],
+  startOffset: number,
+  endOffsetExclusive: number,
+  documentLength: number,
+): readonly TextAreaDecorationModel[] {
+  return Object.freeze(decorations.flatMap((decoration) => {
+    const point = decoration.startOffset === decoration.endOffsetExclusive;
+    const inside = point
+      ? decoration.startOffset >= startOffset
+        && (decoration.startOffset < endOffsetExclusive
+          || endOffsetExclusive === documentLength && decoration.startOffset === endOffsetExclusive)
+      : decoration.startOffset >= startOffset
+        && decoration.endOffsetExclusive <= endOffsetExclusive;
+    return inside
+      ? [Object.freeze({
+          ...decoration,
+          startOffset: decoration.startOffset - startOffset,
+          endOffsetExclusive: decoration.endOffsetExclusive - startOffset,
+        })]
+      : [];
+  }));
+}
+
+interface ReplaceOffsetRangeInput {
+  readonly previous: OffsetProjection;
+  readonly local: OffsetProjection;
+  readonly previousSourceStart: number;
+  readonly previousSourceEnd: number;
+  readonly nextSourceEnd: number;
+  readonly previousTargetStart: number;
+  readonly previousTargetEnd: number;
+}
+
+function replaceOffsetRange(input: ReplaceOffsetRangeInput): OffsetProjection {
+  const sourceDelta = input.nextSourceEnd - input.previousSourceEnd;
+  const targetDelta = input.local.targetLength
+    - (input.previousTargetEnd - input.previousTargetStart);
+  const mappings: MappingSegment[] = [];
+  for (const segment of input.previous.segments) {
+    if (segment.sourceStart < input.previousSourceStart) {
+      const sourceEnd = Math.min(segment.sourceEnd, input.previousSourceStart);
+      const targetEnd = segment.linear
+        ? segment.targetStart + sourceEnd - segment.sourceStart
+        : segment.targetEnd;
+      appendMapping(mappings, { ...segment, sourceEnd, targetEnd });
+    }
+  }
+  for (const segment of input.local.segments) {
+    appendMapping(mappings, {
+      ...segment,
+      sourceStart: segment.sourceStart + input.previousSourceStart,
+      sourceEnd: segment.sourceEnd + input.previousSourceStart,
+      targetStart: segment.targetStart + input.previousTargetStart,
+      targetEnd: segment.targetEnd + input.previousTargetStart,
+    });
+  }
+  for (const segment of input.previous.segments) {
+    if (
+      segment.sourceEnd < input.previousSourceEnd
+      || segment.sourceEnd === input.previousSourceEnd
+        && segment.sourceStart < input.previousSourceEnd
+    ) continue;
+    const sourceStart = Math.max(segment.sourceStart, input.previousSourceEnd);
+    const targetStart = segment.linear
+      ? segment.targetEnd - (segment.sourceEnd - sourceStart)
+      : segment.targetStart;
+    appendMapping(mappings, {
+      ...segment,
+      sourceStart: sourceStart + sourceDelta,
+      sourceEnd: segment.sourceEnd + sourceDelta,
+      targetStart: targetStart + targetDelta,
+      targetEnd: segment.targetEnd + targetDelta,
+    });
+  }
+  return createOffsetProjection(
+    input.previous.sourceLength + sourceDelta,
+    input.previous.targetLength + targetDelta,
+    mappings,
+  );
 }
 
 function retainProjection(
@@ -204,19 +563,224 @@ function retainProjection(
   }
   documentCache.set(decorations, cache);
   projectionCache.set(document, documentCache);
-  if (projection.materializedText !== undefined) {
-    const recent = recentMaterializedProjections.get(document)
-      ?? new Map<string, WeakRef<TextAreaProjection>>();
-    recent.delete(profileKey);
-    recent.set(profileKey, new WeakRef(projection));
-    while (recent.size > CACHE_LIMIT) {
-      const oldest = recent.keys().next().value;
-      if (oldest === undefined) break;
-      recent.delete(oldest);
-    }
-    recentMaterializedProjections.set(document, recent);
+  const recentDisplay = recentDisplayProjections.get(document)
+    ?? new Map<string, WeakRef<TextAreaProjection>>();
+  recentDisplay.delete(profileKey);
+  recentDisplay.set(profileKey, new WeakRef(projection));
+  while (recentDisplay.size > CACHE_LIMIT) {
+    const oldest = recentDisplay.keys().next().value;
+    if (oldest === undefined) break;
+    recentDisplay.delete(oldest);
   }
+  recentDisplayProjections.set(document, recentDisplay);
   return projection;
+}
+
+function lineProjection(
+  sourceDocument: TextDocument,
+  decorations: readonly TextAreaDecorationModel[],
+  widthProfile: TextWidthProfile,
+  profileKey: string,
+): TextAreaProjection {
+  const displayDocument = lineProjectedDocument(sourceDocument, widthProfile, profileKey);
+  const lineMaps = new Map<number, OffsetProjection>();
+  const mapForLine = (lineIndex: number): OffsetProjection => {
+    const existing = lineMaps.get(lineIndex);
+    if (existing !== undefined) return existing;
+    const sourceLine = textDocumentLineAt(sourceDocument, lineIndex);
+    const displayLine = textDocumentLineAt(displayDocument, lineIndex);
+    const created = lineOffsetProjection(sourceLine?.text ?? '', displayLine?.text ?? '', widthProfile);
+    lineMaps.set(lineIndex, created);
+    return created;
+  };
+  const displayOffsetAtSourceOffset = (
+    offset: number,
+    affinity: 'upstream' | 'downstream' = 'downstream',
+  ): number => {
+    const sourceLength = textDocumentLength(sourceDocument);
+    const bounded = boundedOffset(offset, sourceLength);
+    if (bounded === sourceLength) return textDocumentLength(displayDocument);
+    const lineIndex = textDocumentLineIndexAtOffset(sourceDocument, bounded);
+    const sourceLine = textDocumentLineAt(sourceDocument, lineIndex);
+    const displayLine = textDocumentLineAt(displayDocument, lineIndex);
+    if (sourceLine === undefined || displayLine === undefined) return 0;
+    if (bounded > sourceLine.endOffsetExclusive) {
+      return affinity === 'upstream'
+        ? displayLine.endOffsetExclusive
+        : textDocumentLineAt(displayDocument, lineIndex + 1)?.startOffset
+          ?? displayLine.endOffsetExclusive;
+    }
+    return displayLine.startOffset + projectSourceOffset(
+      mapForLine(lineIndex),
+      bounded - sourceLine.startOffset,
+      affinity,
+    );
+  };
+  const sourceOffsetAtDisplayOffset = (
+    offset: number,
+    affinity: 'upstream' | 'downstream' = 'downstream',
+  ): number => {
+    const displayLength = textDocumentLength(displayDocument);
+    const bounded = boundedOffset(offset, displayLength);
+    if (bounded === displayLength) return textDocumentLength(sourceDocument);
+    const lineIndex = textDocumentLineIndexAtOffset(displayDocument, bounded);
+    const sourceLine = textDocumentLineAt(sourceDocument, lineIndex);
+    const displayLine = textDocumentLineAt(displayDocument, lineIndex);
+    if (sourceLine === undefined || displayLine === undefined) return 0;
+    if (bounded > displayLine.endOffsetExclusive) {
+      return affinity === 'upstream'
+        ? sourceLine.endOffsetExclusive
+        : textDocumentLineAt(sourceDocument, lineIndex + 1)?.startOffset
+          ?? sourceLine.endOffsetExclusive;
+    }
+    return sourceLine.startOffset + projectTargetOffset(
+      mapForLine(lineIndex),
+      bounded - displayLine.startOffset,
+      affinity,
+    );
+  };
+  const result = Object.freeze({
+    widthProfileKey: profileKey,
+    document: displayDocument,
+    styleRanges: directStyleRanges(
+      decorations,
+      textDocumentLength(sourceDocument),
+      displayOffsetAtSourceOffset,
+    ),
+    accessibilityWindow: (centerOffset: number, maximumCodeUnits: number) => (
+      accessibilityWindow(displayDocument, centerOffset, maximumCodeUnits)
+    ),
+    accessibilityLineCount: () => textDocumentLength(displayDocument) === 0
+      ? 0
+      : textDocumentLineCount(displayDocument),
+    displayOffsetAtSourceOffset,
+    sourceOffsetAtDisplayOffset,
+    accessibilityOffsetAtSourceOffset: displayOffsetAtSourceOffset,
+  });
+  lineProjectableProjections.add(result);
+  return result;
+}
+
+function lineProjectedDocument(
+  sourceDocument: TextDocument,
+  widthProfile: TextWidthProfile,
+  profileKey: string,
+): TextDocument {
+  const mutation = textDocumentPreviousMutation(sourceDocument);
+  const previousProjection = mutation === undefined
+    ? undefined
+    : recentDisplayProjections.get(mutation.document)?.get(profileKey)?.deref();
+  if (
+    mutation === undefined
+    || previousProjection === undefined
+    || !lineProjectableProjections.has(previousProjection)
+  ) {
+    return createTextDocument(projectLineRange(
+      sourceDocument,
+      0,
+      textDocumentLineCount(sourceDocument),
+      widthProfile,
+    ));
+  }
+  const ranges = textDocumentChangedLineRanges(
+    mutation.document,
+    sourceDocument,
+    mutation.changes,
+  );
+  return textDocumentApplyChangesExact(
+    previousProjection.document,
+    ranges.map((range) => Object.freeze({
+      startOffset: textDocumentLineAt(
+        previousProjection.document,
+        range.previousStart,
+      )?.startOffset ?? textDocumentLength(previousProjection.document),
+      endOffsetExclusive: textDocumentLineAt(
+        previousProjection.document,
+        range.previousEndExclusive,
+      )?.startOffset ?? textDocumentLength(previousProjection.document),
+      insertedText: projectLineRange(
+        sourceDocument,
+        range.nextStart,
+        range.nextEndExclusive,
+        widthProfile,
+      ),
+    })),
+  );
+}
+
+function projectLineRange(
+  document: TextDocument,
+  startLine: number,
+  endLineExclusive: number,
+  widthProfile: TextWidthProfile,
+): string {
+  const lineCount = textDocumentLineCount(document);
+  const parts: string[] = [];
+  if (startLine === 0 && endLineExclusive >= lineCount) {
+    for (const line of textDocumentLines(document)) {
+      parts.push(projectEditableLine(line.text, widthProfile));
+      if (line.lineIndex + 1 < lineCount) parts.push('\n');
+    }
+    return parts.join('');
+  }
+  for (let lineIndex = startLine; lineIndex < Math.min(lineCount, endLineExclusive); lineIndex += 1) {
+    const line = textDocumentLineAt(document, lineIndex);
+    if (line === undefined) continue;
+    parts.push(projectEditableLine(line.text, widthProfile));
+    if (lineIndex + 1 < lineCount) parts.push('\n');
+  }
+  return parts.join('');
+}
+
+function projectEditableLine(text: string, widthProfile: TextWidthProfile): string {
+  if (!text.includes('\t')) return text;
+  let column = 0;
+  let projected = '';
+  for (const grapheme of segmentGraphemesForMeasurement(text, { widthProfile })) {
+    if (grapheme.text === '\t') {
+      const spaces = TAB_SIZE - column % TAB_SIZE;
+      projected += ' '.repeat(spaces);
+      column += spaces;
+    } else {
+      projected += grapheme.text;
+      column += grapheme.cells;
+    }
+  }
+  return projected;
+}
+
+function lineOffsetProjection(
+  source: string,
+  display: string,
+  widthProfile: TextWidthProfile,
+): OffsetProjection {
+  if (!source.includes('\t')) {
+    return createOffsetProjection(source.length, display.length, [{
+      sourceStart: 0,
+      sourceEnd: source.length,
+      targetStart: 0,
+      targetEnd: display.length,
+      linear: true,
+    }]);
+  }
+  const mappings: MappingSegment[] = [];
+  let targetOffset = 0;
+  let column = 0;
+  for (const grapheme of segmentGraphemesForMeasurement(source, { widthProfile })) {
+    const targetLength = grapheme.text === '\t'
+      ? TAB_SIZE - column % TAB_SIZE
+      : grapheme.text.length;
+    appendMapping(mappings, {
+      sourceStart: grapheme.startOffset,
+      sourceEnd: grapheme.endOffsetExclusive,
+      targetStart: targetOffset,
+      targetEnd: targetOffset + targetLength,
+      linear: grapheme.text !== '\t',
+    });
+    targetOffset += targetLength;
+    column += grapheme.text === '\t' ? targetLength : grapheme.cells;
+  }
+  return createOffsetProjection(source.length, display.length, mappings);
 }
 
 function directProjection(
@@ -225,7 +789,6 @@ function directProjection(
   profileKey: string,
 ): TextAreaProjection {
   const sourceLength = textDocumentLength(document);
-  let retainedAccessibilityText: string | undefined;
   const segment: MappingSegment = Object.freeze({
     sourceStart: 0,
     sourceEnd: sourceLength,
@@ -234,14 +797,13 @@ function directProjection(
     linear: true,
   });
   const projection = createOffsetProjection(sourceLength, sourceLength, [segment]);
-  return Object.freeze({
+  const result = Object.freeze({
     widthProfileKey: profileKey,
     document,
     styleRanges: directStyleRanges(decorations, sourceLength),
-    accessibilityText: () => {
-      retainedAccessibilityText ??= textDocumentText(document);
-      return retainedAccessibilityText;
-    },
+    accessibilityWindow: (centerOffset: number, maximumCodeUnits: number) => (
+      accessibilityWindow(document, centerOffset, maximumCodeUnits)
+    ),
     accessibilityLineCount: () => sourceLength === 0 ? 0 : textDocumentLineCount(document),
     displayOffsetAtSourceOffset(offset: number, affinity: 'upstream' | 'downstream' = 'downstream') {
       return projectSourceOffset(projection, offset, affinity);
@@ -253,60 +815,50 @@ function directProjection(
       return projectSourceOffset(projection, offset, affinity);
     },
   });
+  lineProjectableProjections.add(result);
+  return result;
 }
 
-function inheritedProjectedDocument(
-  sourceDocument: TextDocument,
-  text: string,
-  profileKey: string,
-): TextDocument {
-  const lineage = textDocumentPreviousMutation(sourceDocument);
-  const parent = lineage === undefined
-    ? undefined
-    : recentMaterializedProjections.get(lineage.document)?.get(profileKey)?.deref();
-  if (parent === undefined) return createTextDocument(text);
-  const parentText = parent.materializedText;
-  if (parentText === undefined) return createTextDocument(text);
-  if (parentText === text) return parent.document;
-  const prefix = commonPrefixLength(parentText, text);
-  const suffix = commonSuffixLength(parentText, text, prefix);
-  return textDocumentEditExact(
-    parent.document,
-    prefix,
-    parentText.length - suffix,
-    text.slice(prefix, text.length - suffix),
-  ).document;
-}
-
-function textLineCount(value: string): number {
-  if (value.length === 0) return 0;
-  let lineBreaks = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    if (value.charCodeAt(index) === 10) lineBreaks += 1;
+function accessibilityWindow(
+  document: TextDocument,
+  centerOffset: number,
+  maximumCodeUnits: number,
+): TextAreaAccessibilityWindow {
+  const totalLength = textDocumentLength(document);
+  const limit = Number.isSafeInteger(maximumCodeUnits) && maximumCodeUnits > 0
+    ? maximumCodeUnits
+    : 1;
+  const center = normalizeTextDocumentOffset(document, centerOffset);
+  let startOffset = normalizeTextDocumentOffset(
+    document,
+    Math.max(0, center - Math.floor(limit / 2)),
+  );
+  let endOffsetExclusive = normalizeTextDocumentOffset(
+    document,
+    Math.min(totalLength, startOffset + limit),
+  );
+  if (endOffsetExclusive < center) endOffsetExclusive = center;
+  if (endOffsetExclusive - startOffset < limit && endOffsetExclusive === totalLength) {
+    startOffset = normalizeTextDocumentOffset(
+      document,
+      Math.max(0, endOffsetExclusive - limit),
+    );
   }
-  return lineBreaks + 1;
-}
-
-function commonPrefixLength(left: string, right: string): number {
-  const maximum = Math.min(left.length, right.length);
-  let index = 0;
-  while (index < maximum && left.charCodeAt(index) === right.charCodeAt(index)) index += 1;
-  return index;
-}
-
-function commonSuffixLength(left: string, right: string, prefix: number): number {
-  const maximum = Math.min(left.length, right.length) - prefix;
-  let length = 0;
-  while (
-    length < maximum
-    && left.charCodeAt(left.length - length - 1) === right.charCodeAt(right.length - length - 1)
-  ) length += 1;
-  return length;
+  return Object.freeze({
+    startOffset,
+    endOffsetExclusive,
+    totalLength,
+    text: textDocumentSlice(document, startOffset, endOffsetExclusive),
+  });
 }
 
 function directStyleRanges(
   decorations: readonly TextAreaDecorationModel[],
   sourceLength: number,
+  displayOffsetAtSourceOffset: (
+    offset: number,
+    affinity?: 'upstream' | 'downstream',
+  ) => number = (offset) => offset,
 ): readonly ProjectedTextStyleRange[] {
   if (decorations.length === 0) return Object.freeze([]);
   const starts = new Map<number, TextAreaDecorationModel[]>();
@@ -330,19 +882,20 @@ function directStyleRanges(
     const resolved = active.resolve();
     if (!resolved.decorated) continue;
     const range: ProjectedTextStyleRange = Object.freeze({
-      startOffset: start,
-      endOffsetExclusive: end,
+      startOffset: displayOffsetAtSourceOffset(start, 'downstream'),
+      endOffsetExclusive: displayOffsetAtSourceOffset(end, 'upstream'),
       label: resolved.label,
       ...(resolved.style === undefined ? {} : { style: resolved.style }),
     });
     const previous = ranges.at(-1);
     if (
-      previous?.endOffsetExclusive === range.startOffset
+      range.endOffsetExclusive > range.startOffset
+      && previous?.endOffsetExclusive === range.startOffset
       && previous.label === range.label
       && sameTerminalStyle(previous.style, range.style)
     ) {
       ranges[ranges.length - 1] = Object.freeze({ ...range, startOffset: previous.startOffset });
-    } else {
+    } else if (range.endOffsetExclusive > range.startOffset) {
       ranges.push(range);
     }
   }
@@ -687,12 +1240,14 @@ function createOffsetProjection(
   targetLength: number,
   mappings: readonly MappingSegment[]
 ): OffsetProjection {
+  const segments = Object.freeze([...mappings]);
   return Object.freeze({
     sourceLength,
     targetLength,
-    sourceSegments: Object.freeze(mappings.filter((segment) => segment.sourceEnd > segment.sourceStart)),
-    targetSegments: Object.freeze(mappings.filter((segment) => segment.targetEnd > segment.targetStart)),
-    virtualSegments: Object.freeze(mappings.filter((segment) => (
+    segments,
+    sourceSegments: Object.freeze(segments.filter((segment) => segment.sourceEnd > segment.sourceStart)),
+    targetSegments: Object.freeze(segments.filter((segment) => segment.targetEnd > segment.targetStart)),
+    virtualSegments: Object.freeze(segments.filter((segment) => (
       segment.sourceStart === segment.sourceEnd && segment.targetEnd > segment.targetStart
     )))
   });

@@ -31,6 +31,7 @@ export {
   textDocumentLineAt,
   textDocumentLineCount,
   textDocumentLineIndexAtOffset,
+  textDocumentLines,
   textDocumentSlice,
   textDocumentSelectionRange,
   textDocumentText

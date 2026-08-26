@@ -1,6 +1,12 @@
 import { normalizeTextCursor } from './text-range.ts';
-import { isTerminalTextSafe } from './sanitize.ts';
-import type { TextCaret, TextDocumentSelection, TextPosition, TextSelection } from './types.ts';
+import { isTerminalControlTextSafe, isTerminalTextSafe } from './sanitize.ts';
+import type {
+  TextCaret,
+  TextDocumentChange,
+  TextDocumentSelection,
+  TextPosition,
+  TextSelection,
+} from './types.ts';
 
 declare const textDocumentBrand: unique symbol;
 
@@ -21,54 +27,71 @@ export interface TextDocumentMutation {
   readonly insertedLength: number;
 }
 
-type PieceNode = PieceLeaf | PieceBranch;
+type TextChunkNode = TextChunkLeaf | TextChunkBranch;
 
-interface PieceMetrics {
+interface TextChunkMetrics {
   readonly length: number;
   readonly bytes: number;
   readonly lineBreaks: number;
+  readonly chunkCount: number;
+  readonly startsWithLf: boolean;
+  readonly endsWithCr: boolean;
   readonly terminalTextSafe: boolean;
+  readonly terminalControlTextSafe: boolean;
   readonly height: number;
 }
 
-interface PieceLeaf extends PieceMetrics {
+interface TextChunkLeaf extends TextChunkMetrics {
   readonly kind: 'leaf';
   readonly text: string;
 }
 
-interface PieceBranch extends PieceMetrics {
+interface TextChunkBranch extends TextChunkMetrics {
   readonly kind: 'branch';
-  readonly left: PieceNode;
-  readonly right: PieceNode;
+  readonly left: TextChunkNode;
+  readonly right: TextChunkNode;
 }
 
 interface TextDocumentData {
-  readonly root: PieceNode;
+  readonly root: TextChunkNode;
+  readonly revision: object;
   readonly previousMutation?: TextDocumentMutationLineage;
 }
 
 export interface TextDocumentPreviousMutation {
   readonly document: TextDocument;
-  readonly replaced: { readonly startOffset: number; readonly endOffsetExclusive: number };
-  readonly insertedLength: number;
+  readonly changes: readonly TextDocumentChange[];
 }
 
 interface TextDocumentMutationLineage {
   readonly previousDocument: WeakRef<TextDocument>;
-  readonly replaced: { readonly startOffset: number; readonly endOffsetExclusive: number };
-  readonly insertedLength: number;
+  readonly changes: readonly TextDocumentChange[];
 }
 
-const EMPTY_LEAF: PieceLeaf = Object.freeze({
+export interface TextDocumentChunkMetrics {
+  readonly chunkCount: number;
+  readonly treeHeight: number;
+  readonly minimumChunkLength: number;
+  readonly maximumChunkLength: number;
+  readonly meanChunkLength: number;
+  readonly underfilledChunkCount: number;
+}
+
+const EMPTY_LEAF: TextChunkLeaf = Object.freeze({
   kind: 'leaf',
   text: '',
   length: 0,
   bytes: 0,
   lineBreaks: 0,
+  chunkCount: 0,
+  startsWithLf: false,
+  endsWithCr: false,
   terminalTextSafe: true,
+  terminalControlTextSafe: true,
   height: 1
 });
-const MAX_INITIAL_PIECE_LENGTH = 4_096;
+const MAX_CHUNK_LENGTH = 4_096;
+const MIN_CHUNK_LENGTH = 1_024;
 const documents = new WeakMap<object, TextDocumentData>();
 
 export function createTextDocument(value: string): TextDocument {
@@ -103,6 +126,11 @@ export function textDocumentText(document: TextDocument): string {
 /** Whether multiline terminal sanitization can preserve this document verbatim. */
 export function textDocumentCanRenderDirectly(document: TextDocument): boolean {
   return dataFor(document).root.terminalTextSafe;
+}
+
+/** Whether line-local whitespace projection can render this document safely. */
+export function textDocumentCanProjectLines(document: TextDocument): boolean {
+  return dataFor(document).root.terminalControlTextSafe;
 }
 
 export function textDocumentSlice(
@@ -160,14 +188,18 @@ function textDocumentEditAtOffsets(
     };
   }
   const root = dataFor(document).root;
-  const [before, remainder] = split(root, start);
-  const [, after] = split(remainder, end - start);
-  const next = concat(concat(before, treeFromText(insertion)), after);
+  const [before, remainder] = splitChunks(root, start);
+  const [, after] = splitChunks(remainder, end - start);
+  const next = compactFragmentedChunks(
+    joinChunks(joinChunks(before, treeFromText(insertion)), after),
+  );
+  const changes = Object.freeze([Object.freeze({
+    startOffset: start,
+    endOffsetExclusive: end,
+    insertedText: insertion,
+  })]);
   return {
-    document: createDocument(next, document, {
-      replaced: { startOffset: start, endOffsetExclusive: end },
-      insertedLength: insertion.length,
-    }),
+    document: createDocument(next, document, changes),
     replaced: { startOffset: start, endOffsetExclusive: end },
     insertedLength: insertion.length
   };
@@ -180,7 +212,7 @@ export function textDocumentLineAt(document: TextDocument, lineIndex: number): T
   const startOffset = lineIndex === 0 ? 0 : offsetAfterLineBreak(root, lineIndex - 1);
   const afterBreak = lineIndex < root.lineBreaks ? offsetAfterLineBreak(root, lineIndex) : root.length;
   const endOffsetExclusive = lineIndex < root.lineBreaks
-    ? Math.max(startOffset, afterBreak - 1)
+    ? Math.max(startOffset, afterBreak - lineTerminatorLength(root, afterBreak))
     : afterBreak;
   return {
     lineIndex,
@@ -188,6 +220,17 @@ export function textDocumentLineAt(document: TextDocument, lineIndex: number): T
     endOffsetExclusive,
     text: textDocumentSlice(document, startOffset, endOffsetExclusive)
   };
+}
+
+/**
+ * Iterates logical lines in source order without repeated indexed tree lookups.
+ * @beta
+ */
+export function textDocumentLines(document: TextDocument): Iterable<TextDocumentLine> {
+  const root = dataFor(document).root;
+  return Object.freeze({
+    [Symbol.iterator]: () => iterateDocumentLines(root),
+  });
 }
 
 export function textDocumentLineIndexAtOffset(document: TextDocument, offset: number): number {
@@ -274,36 +317,110 @@ export function textDocumentPreviousMutation(
     ? undefined
     : {
         document: previousDocument,
-        replaced: lineage.replaced,
-        insertedLength: lineage.insertedLength,
+        changes: lineage.changes,
       };
 }
 
+/** Internal identity for binding retained operations to one exact document revision. */
+export function textDocumentRevision(document: TextDocument): object {
+  return dataFor(document).revision;
+}
+
+/** Internal storage evidence used by performance and fragmentation tests. */
+export function textDocumentChunkMetrics(document: TextDocument): TextDocumentChunkMetrics {
+  const root = dataFor(document).root;
+  let chunkCount = 0;
+  let minimumChunkLength = Number.POSITIVE_INFINITY;
+  let maximumChunkLength = 0;
+  let underfilledChunkCount = 0;
+  const pending = [root];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined) continue;
+    if (node.kind === 'branch') {
+      pending.push(node.left, node.right);
+      continue;
+    }
+    if (node.length === 0) continue;
+    chunkCount += 1;
+    minimumChunkLength = Math.min(minimumChunkLength, node.length);
+    maximumChunkLength = Math.max(maximumChunkLength, node.length);
+    if (node.length < MIN_CHUNK_LENGTH) underfilledChunkCount += 1;
+  }
+  return Object.freeze({
+    chunkCount,
+    treeHeight: root.height,
+    minimumChunkLength: chunkCount === 0 ? 0 : minimumChunkLength,
+    maximumChunkLength,
+    meanChunkLength: chunkCount === 0 ? 0 : root.length / chunkCount,
+    underfilledChunkCount,
+  });
+}
+
+/** Applies an admitted ordered change list as one document transition. */
+export function textDocumentApplyChangesExact(
+  document: TextDocument,
+  changes: readonly TextDocumentChange[],
+): TextDocument {
+  if (changes.length === 0) return document;
+  const effective = changes.filter((change) => (
+    change.insertedText !== textDocumentSlice(
+      document,
+      change.startOffset,
+      change.endOffsetExclusive,
+    )
+  ));
+  if (effective.length === 0) return document;
+  let sourceOffset = 0;
+  let remainder = dataFor(document).root;
+  let result: TextChunkNode = EMPTY_LEAF;
+  for (const change of effective) {
+    const [unchanged, afterUnchanged] = splitChunks(
+      remainder,
+      change.startOffset - sourceOffset,
+    );
+    const [, afterChange] = splitChunks(
+      afterUnchanged,
+      change.endOffsetExclusive - change.startOffset,
+    );
+    result = joinChunks(result, unchanged);
+    result = joinChunks(result, treeFromText(change.insertedText));
+    remainder = afterChange;
+    sourceOffset = change.endOffsetExclusive;
+  }
+  result = compactFragmentedChunks(joinChunks(result, remainder));
+  return createDocument(
+    result,
+    document,
+    Object.freeze(effective.map((change) => Object.freeze({ ...change }))),
+  );
+}
+
 function createDocument(
-  root: PieceNode,
+  root: TextChunkNode,
   previousDocument?: TextDocument,
-  change?: Omit<TextDocumentMutation, 'document'>,
+  changes?: readonly TextDocumentChange[],
 ): TextDocument {
   const document = Object.freeze({}) as TextDocument;
   documents.set(document, Object.freeze({
     root,
-    ...(previousDocument === undefined || change === undefined ? {} : {
+    revision: Object.freeze({}),
+    ...(previousDocument === undefined || changes === undefined ? {} : {
       previousMutation: Object.freeze({
         previousDocument: new WeakRef(previousDocument),
-        replaced: Object.freeze({ ...change.replaced }),
-        insertedLength: change.insertedLength,
+        changes,
       }),
     }),
   }));
   return document;
 }
 
-function treeFromText(text: string): PieceNode {
+function treeFromText(text: string): TextChunkNode {
   if (text.length === 0) return EMPTY_LEAF;
-  const leaves: PieceNode[] = [];
+  const leaves: TextChunkNode[] = [];
   let start = 0;
   while (start < text.length) {
-    let end = Math.min(text.length, start + MAX_INITIAL_PIECE_LENGTH);
+    let end = Math.min(text.length, start + MAX_CHUNK_LENGTH);
     if (end < text.length && isLowSurrogate(text.charCodeAt(end))) end -= 1;
     leaves.push(leaf(text.slice(start, end)));
     start = end;
@@ -311,7 +428,11 @@ function treeFromText(text: string): PieceNode {
   return balancedTree(leaves, 0, leaves.length);
 }
 
-function balancedTree(nodes: readonly PieceNode[], startIndex: number, endIndexExclusive: number): PieceNode {
+function balancedTree(
+  nodes: readonly TextChunkNode[],
+  startIndex: number,
+  endIndexExclusive: number,
+): TextChunkNode {
   const count = endIndexExclusive - startIndex;
   if (count <= 0) return EMPTY_LEAF;
   if (count === 1) return nodes[startIndex] ?? EMPTY_LEAF;
@@ -322,12 +443,15 @@ function balancedTree(nodes: readonly PieceNode[], startIndex: number, endIndexE
   );
 }
 
-function leaf(text: string): PieceLeaf {
+function leaf(text: string): TextChunkLeaf {
   if (text.length === 0) return EMPTY_LEAF;
   let lineBreaks = 0;
+  let previousWasCr = false;
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
-    if (code === 10) lineBreaks += 1;
+    if (code === 13) lineBreaks += 1;
+    else if (code === 10 && !previousWasCr) lineBreaks += 1;
+    previousWasCr = code === 13;
   }
   return Object.freeze({
     kind: 'leaf',
@@ -335,12 +459,16 @@ function leaf(text: string): PieceLeaf {
     length: text.length,
     bytes: new TextEncoder().encode(text).byteLength,
     lineBreaks,
+    chunkCount: 1,
+    startsWithLf: text.charCodeAt(0) === 10,
+    endsWithCr: text.charCodeAt(text.length - 1) === 13,
     terminalTextSafe: isTerminalTextSafe(text),
+    terminalControlTextSafe: isTerminalControlTextSafe(text),
     height: 1
   });
 }
 
-function branch(left: PieceNode, right: PieceNode): PieceNode {
+function branch(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
   if (left.length === 0) return right;
   if (right.length === 0) return left;
   return Object.freeze({
@@ -349,25 +477,54 @@ function branch(left: PieceNode, right: PieceNode): PieceNode {
     right,
     length: left.length + right.length,
     bytes: left.bytes + right.bytes,
-    lineBreaks: left.lineBreaks + right.lineBreaks,
+    lineBreaks: left.lineBreaks + right.lineBreaks
+      - Number(left.endsWithCr && right.startsWithLf),
+    chunkCount: left.chunkCount + right.chunkCount,
+    startsWithLf: left.startsWithLf,
+    endsWithCr: right.endsWithCr,
     terminalTextSafe: left.terminalTextSafe && right.terminalTextSafe,
+    terminalControlTextSafe: left.terminalControlTextSafe && right.terminalControlTextSafe,
     height: Math.max(left.height, right.height) + 1
   });
 }
 
-function concat(left: PieceNode, right: PieceNode): PieceNode {
+function joinChunks(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
   if (left.length === 0) return right;
   if (right.length === 0) return left;
-  if (left.height > right.height + 1 && left.kind === 'branch') {
-    return balance(left.left, concat(left.right, right));
+  const leftBoundary = rightmostLeaf(left);
+  const rightBoundary = leftmostLeaf(right);
+  if (
+    leftBoundary.length + rightBoundary.length <= MAX_CHUNK_LENGTH
+    && leftBoundary.length === rightBoundary.length
+  ) {
+    // Equal-size joining acts like a binary carry. It prevents one-character
+    // appends from copying a growing boundary chunk on every edit while still
+    // keeping the number of retained chunks proportional to document length.
+    const removedLeft = removeRightmostLeaf(left);
+    const removedRight = removeLeftmostLeaf(right);
+    const boundary = boundaryChunks(leftBoundary.text + rightBoundary.text);
+    return joinChunks(joinChunks(removedLeft, boundary), removedRight);
   }
-  if (right.height > left.height + 1 && right.kind === 'branch') {
-    return balance(concat(left, right.left), right.right);
-  }
-  return balance(left, right);
+  return joinBalancedChunks(left, right);
 }
 
-function balance(left: PieceNode, right: PieceNode): PieceNode {
+function joinBalancedChunks(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
+  if (left.length === 0) return right;
+  if (right.length === 0) return left;
+  if (left.kind === 'leaf' && right.kind === 'leaf'
+    && left.length + right.length <= MAX_CHUNK_LENGTH) {
+    return leaf(left.text + right.text);
+  }
+  if (left.height > right.height + 1 && left.kind === 'branch') {
+    return balanceChunks(left.left, joinBalancedChunks(left.right, right));
+  }
+  if (right.height > left.height + 1 && right.kind === 'branch') {
+    return balanceChunks(joinBalancedChunks(left, right.left), right.right);
+  }
+  return balanceChunks(left, right);
+}
+
+function balanceChunks(left: TextChunkNode, right: TextChunkNode): TextChunkNode {
   if (left.height > right.height + 1 && left.kind === 'branch') {
     if (left.left.height >= left.right.height) return branch(left.left, branch(left.right, right));
     if (left.right.kind === 'branch') {
@@ -383,20 +540,28 @@ function balance(left: PieceNode, right: PieceNode): PieceNode {
   return branch(left, right);
 }
 
-function split(node: PieceNode, offset: number): readonly [PieceNode, PieceNode] {
+function splitChunks(
+  node: TextChunkNode,
+  offset: number,
+): readonly [TextChunkNode, TextChunkNode] {
   const bounded = clampOffset(offset, node.length);
   if (bounded === 0) return [EMPTY_LEAF, node];
   if (bounded === node.length) return [node, EMPTY_LEAF];
   if (node.kind === 'leaf') return [leaf(node.text.slice(0, bounded)), leaf(node.text.slice(bounded))];
   if (bounded < node.left.length) {
-    const [before, after] = split(node.left, bounded);
-    return [before, concat(after, node.right)];
+    const [before, after] = splitChunks(node.left, bounded);
+    return [before, joinBalancedChunks(after, node.right)];
   }
-  const [before, after] = split(node.right, bounded - node.left.length);
-  return [concat(node.left, before), after];
+  const [before, after] = splitChunks(node.right, bounded - node.left.length);
+  return [joinBalancedChunks(node.left, before), after];
 }
 
-function collectSlice(node: PieceNode, startOffset: number, endOffsetExclusive: number, output: string[]): void {
+function collectSlice(
+  node: TextChunkNode,
+  startOffset: number,
+  endOffsetExclusive: number,
+  output: string[],
+): void {
   if (startOffset >= endOffsetExclusive || endOffsetExclusive <= 0 || startOffset >= node.length) return;
   if (node.kind === 'leaf') {
     output.push(node.text.slice(
@@ -414,32 +579,185 @@ function collectSlice(node: PieceNode, startOffset: number, endOffsetExclusive: 
   );
 }
 
-function lineBreaksBefore(node: PieceNode, offset: number): number {
-  if (offset <= 0) return 0;
-  if (offset >= node.length) return node.lineBreaks;
-  if (node.kind === 'leaf') {
-    let count = 0;
-    for (let index = 0; index < offset; index += 1) if (node.text.charCodeAt(index) === 10) count += 1;
-    return count;
+function* iterateDocumentLines(root: TextChunkNode): Generator<TextDocumentLine> {
+  let absoluteOffset = 0;
+  let lineIndex = 0;
+  let lineStartOffset = 0;
+  let lineParts: string[] = [];
+  let carriageReturnAtChunkEnd = false;
+
+  for (const text of chunkTexts(root)) {
+    let index = 0;
+    if (carriageReturnAtChunkEnd) {
+      yield {
+        lineIndex,
+        startOffset: lineStartOffset,
+        endOffsetExclusive: absoluteOffset - 1,
+        text: lineParts.join(''),
+      };
+      lineIndex += 1;
+      const startsWithLf = text.charCodeAt(0) === 10;
+      index = startsWithLf ? 1 : 0;
+      lineStartOffset = absoluteOffset + index;
+      lineParts = [];
+      carriageReturnAtChunkEnd = false;
+    }
+
+    let segmentStart = index;
+    for (; index < text.length; index += 1) {
+      const code = text.charCodeAt(index);
+      if (code !== 10 && code !== 13) continue;
+      lineParts.push(text.slice(segmentStart, index));
+      if (code === 13 && index + 1 === text.length) {
+        carriageReturnAtChunkEnd = true;
+        segmentStart = text.length;
+        break;
+      }
+      const terminatorLength = code === 13 && text.charCodeAt(index + 1) === 10 ? 2 : 1;
+      yield {
+        lineIndex,
+        startOffset: lineStartOffset,
+        endOffsetExclusive: absoluteOffset + index,
+        text: lineParts.join(''),
+      };
+      lineIndex += 1;
+      index += terminatorLength - 1;
+      lineStartOffset = absoluteOffset + index + 1;
+      lineParts = [];
+      segmentStart = index + 1;
+    }
+    if (!carriageReturnAtChunkEnd && segmentStart < text.length) {
+      lineParts.push(text.slice(segmentStart));
+    }
+    absoluteOffset += text.length;
   }
-  return offset <= node.left.length
-    ? lineBreaksBefore(node.left, offset)
-    : node.left.lineBreaks + lineBreaksBefore(node.right, offset - node.left.length);
+
+  if (carriageReturnAtChunkEnd) {
+    yield {
+      lineIndex,
+      startOffset: lineStartOffset,
+      endOffsetExclusive: absoluteOffset - 1,
+      text: lineParts.join(''),
+    };
+    lineIndex += 1;
+    lineStartOffset = absoluteOffset;
+    lineParts = [];
+  }
+  yield {
+    lineIndex,
+    startOffset: lineStartOffset,
+    endOffsetExclusive: absoluteOffset,
+    text: lineParts.join(''),
+  };
 }
 
-function offsetAfterLineBreak(node: PieceNode, breakIndex: number): number {
-  if (node.kind === 'leaf') {
-    let current = 0;
-    for (let index = 0; index < node.text.length; index += 1) {
-      if (node.text.charCodeAt(index) !== 10) continue;
-      if (current === breakIndex) return index + 1;
-      current += 1;
+function* chunkTexts(root: TextChunkNode): Generator<string> {
+  const pending: TextChunkNode[] = [root];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node === undefined) continue;
+    if (node.kind === 'leaf') {
+      if (node.length > 0) yield node.text;
+      continue;
     }
-    return node.length;
+    pending.push(node.right, node.left);
   }
-  return breakIndex < node.left.lineBreaks
-    ? offsetAfterLineBreak(node.left, breakIndex)
-    : node.left.length + offsetAfterLineBreak(node.right, breakIndex - node.left.lineBreaks);
+}
+
+function lineBreaksBefore(node: TextChunkNode, offset: number): number {
+  const bounded = clampOffset(offset, node.length);
+  if (bounded === 0) return 0;
+  return prefixLineBreakCount(node, bounded)
+    - Number(
+      characterCodeAt(node, bounded - 1) === 13
+      && characterCodeAt(node, bounded) === 10,
+    );
+}
+
+function prefixLineBreakCount(node: TextChunkNode, offset: number): number {
+  if (offset >= node.length) return node.lineBreaks;
+  if (node.kind === 'leaf') {
+    let lineBreaks = 0;
+    let previousWasCr = false;
+    for (let index = 0; index < Math.max(0, offset); index += 1) {
+      const code = node.text.charCodeAt(index);
+      if (code === 13) lineBreaks += 1;
+      else if (code === 10 && !previousWasCr) lineBreaks += 1;
+      previousWasCr = code === 13;
+    }
+    return lineBreaks;
+  }
+  if (offset <= node.left.length) return prefixLineBreakCount(node.left, offset);
+  const rightOffset = offset - node.left.length;
+  return node.left.lineBreaks
+    + prefixLineBreakCount(node.right, rightOffset)
+    - Number(node.left.endsWithCr && node.right.startsWithLf && rightOffset > 0);
+}
+
+function offsetAfterLineBreak(node: TextChunkNode, breakIndex: number): number {
+  let low = 1;
+  let high = node.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (lineBreaksBefore(node, middle) > breakIndex) high = middle;
+    else low = middle + 1;
+  }
+  return low;
+}
+
+function lineTerminatorLength(node: TextChunkNode, offsetAfter: number): number {
+  return characterCodeAt(node, offsetAfter - 1) === 10
+    && characterCodeAt(node, offsetAfter - 2) === 13
+    ? 2
+    : 1;
+}
+
+function characterCodeAt(node: TextChunkNode, offset: number): number | undefined {
+  if (offset < 0 || offset >= node.length) return undefined;
+  if (node.kind === 'leaf') return node.text.charCodeAt(offset);
+  return offset < node.left.length
+    ? characterCodeAt(node.left, offset)
+    : characterCodeAt(node.right, offset - node.left.length);
+}
+
+function leftmostLeaf(node: TextChunkNode): TextChunkLeaf {
+  let current = node;
+  while (current.kind === 'branch') current = current.left;
+  return current;
+}
+
+function rightmostLeaf(node: TextChunkNode): TextChunkLeaf {
+  let current = node;
+  while (current.kind === 'branch') current = current.right;
+  return current;
+}
+
+function removeLeftmostLeaf(node: TextChunkNode): TextChunkNode {
+  if (node.kind === 'leaf') return EMPTY_LEAF;
+  return joinBalancedChunks(removeLeftmostLeaf(node.left), node.right);
+}
+
+function removeRightmostLeaf(node: TextChunkNode): TextChunkNode {
+  if (node.kind === 'leaf') return EMPTY_LEAF;
+  return joinBalancedChunks(node.left, removeRightmostLeaf(node.right));
+}
+
+function boundaryChunks(text: string): TextChunkNode {
+  if (text.length <= MAX_CHUNK_LENGTH) return leaf(text);
+  let middle = Math.floor(text.length / 2);
+  if (isLowSurrogate(text.charCodeAt(middle))) middle -= 1;
+  return branch(leaf(text.slice(0, middle)), leaf(text.slice(middle)));
+}
+
+function compactFragmentedChunks(root: TextChunkNode): TextChunkNode {
+  const maximumChunkCount = Math.max(
+    64,
+    Math.ceil(root.length / MIN_CHUNK_LENGTH),
+  );
+  if (root.chunkCount <= maximumChunkCount) return root;
+  const parts: string[] = [];
+  collectSlice(root, 0, root.length, parts);
+  return treeFromText(parts.join(''));
 }
 
 function dataFor(document: TextDocument): TextDocumentData {

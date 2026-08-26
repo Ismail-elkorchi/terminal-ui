@@ -291,6 +291,43 @@ test('accessible text positions are owned and bounded by exposed text values', (
   assert.equal(reversedSelection.status, 'failure');
 });
 
+test('accessible text windows retain absolute editor offsets without retaining complete values', () => {
+  const textWindow = { startOffset: 100, endOffsetExclusive: 105, totalLength: 1_000_000 };
+  const snapshot = createAccessibleSnapshot({
+    source: 'tui',
+    root: {
+      id: 'editor',
+      role: 'textbox',
+      label: 'Editor',
+      value: 'alpha',
+      textWindow,
+      textPosition: { caretOffset: 103 },
+    },
+  });
+
+  textWindow.totalLength = 5;
+  assert.deepEqual(snapshot.root.textWindow, {
+    startOffset: 100,
+    endOffsetExclusive: 105,
+    totalLength: 1_000_000,
+  });
+  assert.equal(Object.isFrozen(snapshot.root.textWindow), true);
+  assert.equal(decodeAccessibleSnapshot(snapshot).status, 'success');
+
+  assert.equal(decodeAccessibleSnapshot({
+    ...snapshot,
+    root: { ...snapshot.root, value: 'short', textWindow: {
+      startOffset: 100,
+      endOffsetExclusive: 106,
+      totalLength: 1_000_000,
+    } },
+  }).status, 'failure');
+  assert.equal(decodeAccessibleSnapshot({
+    ...snapshot,
+    root: { ...snapshot.root, textPosition: { caretOffset: 1_000_001 } },
+  }).status, 'failure');
+});
+
 test('accessible snapshots detach and freeze nested semantic state', () => {
   const numericValue = { current: 1, minimum: 0, maximum: 2 };
   const scope = { kind: 'modal', trapsFocus: true };

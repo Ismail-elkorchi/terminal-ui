@@ -1,5 +1,5 @@
 import {
-  textDocumentEditExact,
+  textDocumentApplyChangesExact,
   textDocumentLength,
   textDocumentSlice,
   type TextDocument
@@ -54,18 +54,7 @@ export function applyTextChangePlan(
   plan: TextChangePlan
 ): TextDocument {
   const changeSet = textChangePlanData(document, plan).changeSet;
-  let next = document;
-  for (let index = changeSet.changes.length - 1; index >= 0; index -= 1) {
-    const change = changeSet.changes[index];
-    if (change === undefined) continue;
-    next = textDocumentEditExact(
-      next,
-      change.startOffset,
-      change.endOffsetExclusive,
-      change.insertedText
-    ).document;
-  }
-  return next;
+  return textDocumentApplyChangesExact(document, changeSet.changes);
 }
 
 export function invertTextChangeSet(

@@ -22,6 +22,7 @@ import { activityIndicator,
   richText,
   text,
   createTextAreaDecorations,
+  mapTextAreaDecorationsThroughChanges,
   createTextAreaRowOffsetMap,
   textArea as createTextArea,
   textInput as createTextInput
@@ -29,6 +30,7 @@ import { activityIndicator,
 import { column, surface } from '../../dist/layout/index.js';
 import {
   createTextDocument,
+  textDocumentEdit,
   textCaretAt,
   textDocumentSelectionBetween,
   textDocumentText
@@ -636,6 +638,72 @@ test('textArea decorations are immutable retained values scoped to one document'
     state: { document: createTextDocument('alpha'), caret: textCaretAt(0) },
     decorations,
   }), /must be created for the current text document/u);
+});
+
+test('textArea decorations map unaffected ranges through one exact document change', () => {
+  const document = createTextDocument('alpha beta gamma');
+  const decorations = createTextAreaDecorations({
+    document,
+    decorations: [
+      { kind: 'style', startOffset: 0, endOffsetExclusive: 5, style: { bold: true }, label: 'alpha' },
+      { kind: 'style', startOffset: 6, endOffsetExclusive: 10, style: { italic: true }, label: 'beta' },
+      { kind: 'style', startOffset: 11, endOffsetExclusive: 16, style: { underline: true }, label: 'gamma' },
+    ],
+  });
+  const changed = textDocumentEdit(document, {
+    startOffset: 8,
+    endOffsetExclusive: 9,
+  }, 'XYZ').document;
+  const mapped = mapTextAreaDecorationsThroughChanges({ decorations, document: changed });
+  const frame = renderElementFrame(textArea({
+    id: 'mapped-decoration-editor',
+    meta: { accessibleName: 'Mapped decorations' },
+    state: { document: changed, caret: textCaretAt(0) },
+    decorations: mapped,
+  }), { columns: 24, rows: 1 });
+
+  assert.equal(mapped.count, 2);
+  assert.equal(frame.cells.find((cell) => cell.text === 'a')?.style?.bold, true);
+  assert.equal(frame.cells.find((cell) => cell.text === 'g')?.style?.underline, true);
+  assert.equal(frame.cells.find((cell) => cell.text === 'b')?.style?.italic, undefined);
+  assert.throws(() => mapTextAreaDecorationsThroughChanges({
+    decorations,
+    document: createTextDocument('unrelated'),
+  }), /created directly from their source/u);
+});
+
+test('mapped replacement projection keeps multiline decoration boundaries atomic', () => {
+  let document = createTextDocument('abXX\nYYcd');
+  let decorations = createTextAreaDecorations({
+    document,
+    decorations: [{
+      kind: 'replace',
+      startOffset: 2,
+      endOffsetExclusive: 7,
+      replacementText: 'Z',
+    }],
+  });
+  renderElementFrame(textArea({
+    id: 'multiline-decoration-before-edit',
+    meta: { accessibleName: 'Multiline decorated editor' },
+    state: { document, caret: textCaretAt(0) },
+    decorations,
+  }), { columns: 20, rows: 1 });
+
+  document = textDocumentEdit(document, {
+    startOffset: 1,
+    endOffsetExclusive: 1,
+  }, '!').document;
+  decorations = mapTextAreaDecorationsThroughChanges({ decorations, document });
+  const frame = renderElementFrame(textArea({
+    id: 'multiline-decoration-after-edit',
+    meta: { accessibleName: 'Multiline decorated editor' },
+    state: { document, caret: textCaretAt(0) },
+    decorations,
+  }), { columns: 20, rows: 1 });
+
+  assert.equal(renderFramePlain(frame), '› a!bZcd');
+  assert.equal(frame.accessibility.root.value, 'a!bZcd');
 });
 
 test('textArea can soft-wrap long logical lines while preserving editor anatomy', () => {

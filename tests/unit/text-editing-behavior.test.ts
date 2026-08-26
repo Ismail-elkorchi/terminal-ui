@@ -8,7 +8,7 @@ import {
   textInputReducer
 } from '../../dist/behavior/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
-import { textDocumentText } from '../../dist/text/index.js';
+import { createTextDocument, textDocumentText } from '../../dist/text/index.js';
 
 void test('textInputReducer applies edits and grapheme-aware pointer selections', () => {
   const initial = { text: 'a🙂bc', cursor: 0 };
@@ -56,6 +56,59 @@ void test('textAreaReducer preserves exact boundaries in long ASCII lines and co
   });
   assert.equal(combining.state.caret.position.offset, 0);
   assert.equal(crlf.state.caret.position.offset, 1);
+});
+
+void test('textAreaReducer navigates CR, LF, and CRLF as the displayed logical lines', () => {
+  let state = createTextAreaState({
+    value: 'one\rtwo\r\nthree\nfour',
+    caret: { position: { offset: 1, affinity: 'downstream' } },
+  });
+  state = textAreaReducer(state, {
+    kind: 'edit',
+    operation: { kind: 'moveLineDown' },
+  }).state;
+  assert.equal(state.caret.position.offset, 5);
+  state = textAreaReducer(state, {
+    kind: 'edit',
+    operation: { kind: 'moveLineDown' },
+  }).state;
+  assert.equal(state.caret.position.offset, 10);
+  state = textAreaReducer(state, {
+    kind: 'edit',
+    operation: { kind: 'moveLineDown' },
+  }).state;
+  assert.equal(state.caret.position.offset, 16);
+
+  const crlfStart = createTextAreaState({
+    value: 'one\r\ntwo',
+    caret: { position: { offset: 5, affinity: 'downstream' } },
+  });
+  const movedLeft = textAreaReducer(crlfStart, {
+    kind: 'edit',
+    operation: { kind: 'moveLeft' },
+  }).state;
+  assert.equal(movedLeft.caret.position.offset, 3);
+  const movedRight = textAreaReducer(movedLeft, {
+    kind: 'edit',
+    operation: { kind: 'moveRight' },
+  }).state;
+  assert.equal(movedRight.caret.position.offset, 5);
+  const joined = textAreaReducer(crlfStart, {
+    kind: 'edit',
+    operation: { kind: 'deleteBackward' },
+  }).state;
+  assert.equal(textDocumentText(joined.document), 'onetwo');
+  assert.equal(joined.caret.position.offset, 3);
+
+  const joinedForward = textAreaReducer(createTextAreaState({
+    value: 'one\r\ntwo',
+    caret: { position: { offset: 3, affinity: 'downstream' } },
+  }), {
+    kind: 'edit',
+    operation: { kind: 'deleteForward' },
+  }).state;
+  assert.equal(textDocumentText(joinedForward.document), 'onetwo');
+  assert.equal(joinedForward.caret.position.offset, 3);
 });
 
 void test('textAreaReducer owns editing selection and normalized scroll in one action channel', () => {
@@ -326,4 +379,17 @@ void test('textAreaReducer applies one exact multi-range change set with one und
   assert.equal(textDocumentText(redone.state.document), '1 two 1');
   assert.deepEqual(redone.changeSet, changed.changeSet);
   assert.equal(redone.state.scroll, initial.scroll);
+});
+
+void test('textAreaReducer rejects history carried into a different document revision', () => {
+  const initial = createTextAreaState({ value: 'first' });
+  const changed = textAreaReducer(initial, {
+    kind: 'edit',
+    operation: { kind: 'insert', text: '!' },
+  }).state;
+
+  assert.throws(() => textAreaReducer({
+    ...changed,
+    document: createTextDocument('unrelated'),
+  }, { kind: 'undo' }), /history does not belong to the current document revision/u);
 });

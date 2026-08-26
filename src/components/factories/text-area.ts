@@ -265,7 +265,6 @@ const instantiateTextArea = defineComponent<
   },
   accessibility(input) {
     const { id, model, focused } = input;
-    const value = textDocumentText(model.document);
     const geometry = textAreaGeometry(input);
     const scroll = geometry.scrollbar.scroll;
     const scrollGeometry = geometry.scrollbar.geometry;
@@ -307,10 +306,26 @@ const instantiateTextArea = defineComponent<
             'upstream'
           )
         };
+    const accessibilityWindow = geometry.usesPlaceholder
+      ? undefined
+      : geometry.projection.accessibilityWindow(
+          accessibilityCaret,
+          Math.min(
+            65_536,
+            Math.max(4_096, scrollGeometry.viewportRows * input.bounds.width * 8),
+          ),
+        );
     return {
       id,
       role: 'textbox',
-      value: geometry.usesPlaceholder ? value : geometry.projection.accessibilityText(),
+      value: accessibilityWindow?.text ?? textDocumentText(model.document),
+      ...(accessibilityWindow === undefined ? {} : {
+        textWindow: {
+          startOffset: accessibilityWindow.startOffset,
+          endOffsetExclusive: accessibilityWindow.endOffsetExclusive,
+          totalLength: accessibilityWindow.totalLength,
+        },
+      }),
       textPosition: {
         caretOffset: accessibilityCaret,
         ...(accessibilitySelection === undefined ? {} : { selection: accessibilitySelection }),

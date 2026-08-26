@@ -2,10 +2,11 @@ import {
   createTerminalTextIndex,
   textDocumentLineAt,
   textDocumentLineCount,
-  textDocumentLineIndexAtOffset,
+  textDocumentLines,
   textWidthProfileKey,
 } from '../../text/index.ts';
 import { textDocumentPreviousMutation } from '../../text/document.ts';
+import { textDocumentChangedLineRanges } from './text-document-change-ranges.ts';
 import type { TerminalTextIndex, TextDocument, TextWidthProfile } from '../../text/index.ts';
 
 export interface TextAreaLayoutLine {
@@ -112,32 +113,33 @@ function updatedLayoutRoot(
   if (mutation === undefined || previousRoot === undefined) {
     return buildLayoutRange(document, 0, lineCount, width, wrap, widthProfile);
   }
-  const prefixLineCount = textDocumentLineIndexAtOffset(
+  const changedLineRanges = textDocumentChangedLineRanges(
     mutation.document,
-    mutation.replaced.startOffset,
-  );
-  const previousSuffixStart = textDocumentLineIndexAtOffset(
-    mutation.document,
-    mutation.replaced.endOffsetExclusive,
-  ) + 1;
-  const nextSuffixStart = textDocumentLineIndexAtOffset(
     document,
-    mutation.replaced.startOffset + mutation.insertedLength,
-  ) + 1;
-  const [prefix, changedAndSuffix] = splitLayout(previousRoot, prefixLineCount);
-  const [, suffix] = splitLayout(
-    changedAndSuffix,
-    Math.max(0, previousSuffixStart - prefixLineCount),
+    mutation.changes,
   );
-  const changed = buildLayoutRange(
-    document,
-    prefixLineCount,
-    Math.min(lineCount, nextSuffixStart),
-    width,
-    wrap,
-    widthProfile,
-  );
-  const updated = joinLayouts(joinLayouts(prefix, changed), suffix);
+  if (changedLineRanges.length === 0) {
+    return buildLayoutRange(document, 0, lineCount, width, wrap, widthProfile);
+  }
+  let updated: LayoutNode | undefined = previousRoot;
+  for (let index = changedLineRanges.length - 1; index >= 0; index -= 1) {
+    const range = changedLineRanges[index];
+    if (range === undefined) continue;
+    const [prefix, changedAndSuffix] = splitLayout(updated, range.previousStart);
+    const [, suffix] = splitLayout(
+      changedAndSuffix,
+      range.previousEndExclusive - range.previousStart,
+    );
+    const changed = buildLayoutRange(
+      document,
+      range.nextStart,
+      Math.min(lineCount, range.nextEndExclusive),
+      width,
+      wrap,
+      widthProfile,
+    );
+    updated = joinLayouts(joinLayouts(prefix, changed), suffix);
+  }
   return nodeLineCount(updated) === lineCount
     ? updated
     : buildLayoutRange(document, 0, lineCount, width, wrap, widthProfile);
@@ -196,6 +198,12 @@ function buildLayoutRange(
   widthProfile: TextWidthProfile,
 ): LayoutNode | undefined {
   const lines: LogicalLineLayout[] = [];
+  if (startLineIndex === 0 && endLineIndexExclusive === textDocumentLineCount(document)) {
+    for (const line of textDocumentLines(document)) {
+      lines.push(layoutLogicalLine(line.text, width, wrap, widthProfile));
+    }
+    return buildBalancedLayout(lines, 0, lines.length);
+  }
   for (let lineIndex = startLineIndex; lineIndex < endLineIndexExclusive; lineIndex += 1) {
     const line = textDocumentLineAt(document, lineIndex);
     if (line !== undefined) lines.push(layoutLogicalLine(line.text, width, wrap, widthProfile));

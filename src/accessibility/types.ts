@@ -34,6 +34,7 @@ export interface AccessibleNode {
   readonly window?: AccessibleWindow;
   readonly position?: AccessiblePosition;
   readonly textPosition?: AccessibleTextPosition;
+  readonly textWindow?: AccessibleTextWindow;
   readonly description?: string;
   readonly controls?: string;
   readonly labelledBy?: string;
@@ -91,6 +92,16 @@ export interface AccessiblePosition {
 export interface AccessibleTextPosition {
   readonly caretOffset: number;
   readonly selection?: AccessibleTextSelection;
+}
+
+/**
+ * Identifies the complete-text offsets represented by a windowed string value.
+ * @beta
+ */
+export interface AccessibleTextWindow {
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
+  readonly totalLength: number;
 }
 
 export interface AccessibleTextSelection {

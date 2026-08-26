@@ -435,7 +435,11 @@ line-number, active-line, value, placeholder, selection, caller-controlled decor
 cursor, scrollbar, and validation parts with structured source metadata and ordinary style
 slots. Create retained decoration data with
 `createTextAreaDecorations({ document, decorations })`, then pass the result as
-`decorations`. Recreate it when the source document or decoration data changes.
+`decorations`. After an exact document edit,
+`mapTextAreaDecorationsThroughChanges({ decorations, document })` shifts
+unaffected ranges to the new revision and discards ranges intersecting changed
+text. Replace those discarded ranges with current parser or application data.
+Build a new decoration set when the decoration semantics themselves change.
 This performs structural and grapheme-boundary validation once and gives
 unchanged syntax data a stable identity across renders. Decoration entries use
 zero-based UTF-16 code-unit offsets and an explicit operation kind:
@@ -467,11 +471,26 @@ not the complete document. When one edit cannot be admitted under
 assuming the step is undoable. Initialize state with
 `createTextAreaState()` and retain it in application state. Its retained text
 document keeps line, grapheme, wrapping, cursor, and pointer mappings stable
-across selection and scroll updates. When the preceding layout remains available,
-changed lines update a persistent visual-row index, while visible rendering queries
-only the viewport rows. Replacing the
-document inside `view()` discards that work. Explicit local `keys` may override
-generated bindings.
+across selection and scroll updates. Keep its history with that exact document
+revision; carrying history into an unrelated document is rejected. CR, LF, and
+CRLF remain exact source text but share one logical-line model for navigation and
+display. When the preceding layout remains available, changed lines update a
+persistent visual-row index, while visible rendering queries only the viewport
+rows. Tab expansion and mapped concealment or replacement decorations retain
+the same local-update path. Replacing the document inside `view()` discards that
+work.
+
+The first layout of a document and layout at a new wrap width measure the
+complete logical-line set. `createTextAreaRowOffsetMap()` deliberately
+materializes every visual-row start because its returned map is complete. Use
+those operations when their complete result is required; ordinary text-area
+frames retain layout and expose only a bounded, caret-centered accessible text
+window with absolute caret, selection, and total-length metadata. Explicit local
+`keys` may override generated bindings.
+
+For a complete sequential source scan, iterate `textDocumentLines(document)`.
+Use `textDocumentLineAt(document, index)` for isolated indexed lookup; repeatedly
+calling the indexed operation for every line performs unnecessary tree searches.
 
 Executable example:
 

@@ -60,9 +60,14 @@ function nodeState(node: AccessibleNode): string {
     ...(node.labelledBy === undefined ? [] : [`labelled-by:${node.labelledBy}`]),
     ...(node.describedBy === undefined ? [] : [`described-by:${node.describedBy.join(',')}`]),
     ...(node.window === undefined ? [] : [windowState(node.window)]),
+    ...(node.textWindow === undefined ? [] : [textWindowState(node.textWindow)]),
     ...(node.position === undefined ? [] : [positionState(node.position)])
   ];
   return state.length === 0 ? '' : ` [${state.join(', ')}]`;
+}
+
+function textWindowState(window: NonNullable<AccessibleNode['textWindow']>): string {
+  return `text-window:${String(window.startOffset)}-${String(window.endOffsetExclusive)}/${String(window.totalLength)}`;
 }
 
 function numericValueState(numericValue: NonNullable<AccessibleNode['numericValue']>): string {

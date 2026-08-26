@@ -1,4 +1,4 @@
-import { isNonArrayObject } from '../foundation/validation.ts';
+import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
 import { createGraphicsBudget } from '../graphics/index.ts';
 import type { GraphicsBudget } from '../graphics/index.ts';
 
@@ -10,6 +10,7 @@ export interface RenderBudgetLimits {
   readonly hitTargets: number;
   readonly accessibilityNodes: number;
   readonly accessibilityRelationships: number;
+  readonly accessibilityStringCodeUnits: number;
 }
 
 export const defaultRenderBudgetLimits: RenderBudgetLimits = Object.freeze({
@@ -20,6 +21,7 @@ export const defaultRenderBudgetLimits: RenderBudgetLimits = Object.freeze({
   hitTargets: 100_000,
   accessibilityNodes: 100_000,
   accessibilityRelationships: 400_000,
+  accessibilityStringCodeUnits: 4_194_304,
 });
 
 export interface RenderBudget {
@@ -31,6 +33,7 @@ export interface RenderBudget {
   addHitTargets(count: number): void;
   addAccessibilityNode(depth: number, relationships: number): void;
   addAccessibilityRelationships(count: number): void;
+  addAccessibilityStrings(codeUnits: number): void;
   addGraphicsPlacements(count: number): void;
   nodeCount(): number;
 }
@@ -44,6 +47,7 @@ export function createRenderBudget(value?: unknown, graphics = createGraphicsBud
     hitTargets: 0,
     accessibilityNodes: 0,
     accessibilityRelationships: 0,
+    accessibilityStringCodeUnits: 0,
   };
   return Object.freeze({
     limits,
@@ -70,6 +74,9 @@ export function createRenderBudget(value?: unknown, graphics = createGraphicsBud
     addAccessibilityRelationships(count: number) {
       add('accessibilityRelationships', count, limits.accessibilityRelationships);
     },
+    addAccessibilityStrings(codeUnits: number) {
+      add('accessibilityStringCodeUnits', codeUnits, limits.accessibilityStringCodeUnits);
+    },
     addGraphicsPlacements(count: number) {
       graphics.addPlacement(count);
     },
@@ -91,6 +98,10 @@ function resolveRenderBudgetLimits(value: unknown): RenderBudgetLimits {
   if (value === undefined) return defaultRenderBudgetLimits;
   if (!isNonArrayObject(value)) throw new TypeError('Render budget limits must be an object.');
   const fields = Object.keys(defaultRenderBudgetLimits) as readonly (keyof RenderBudgetLimits)[];
+  const unsupported = findUnsupportedField(value, new Set(fields));
+  if (unsupported !== undefined) {
+    throw new TypeError(`Render budget limits contains unsupported field: ${unsupported}.`);
+  }
   const limits = { ...defaultRenderBudgetLimits };
   for (const field of fields) {
     const candidate = value[field];

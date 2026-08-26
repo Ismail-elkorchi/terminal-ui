@@ -99,10 +99,11 @@ function sanitize(
 
 /** Whether multiline terminal sanitization preserves a string byte-for-byte. */
 export function isTerminalTextSafe(text: string): boolean {
-  return !hasUnsafeTerminalText(text) && !/[\t\r]/u.test(text);
+  return isTerminalControlTextSafe(text) && !/[\t\r]/u.test(text);
 }
 
-function hasUnsafeTerminalText(text: string): boolean {
+/** Whether text is free of terminal control sequences, excluding editable whitespace. */
+export function isTerminalControlTextSafe(text: string): boolean {
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
     if (code === 0x1b
@@ -111,11 +112,13 @@ function hasUnsafeTerminalText(text: string): boolean {
       || code === 0x0c
       || (code >= 0x0e && code <= 0x1f)
       || (code >= 0x7f && code <= 0x9f)) {
-      return true;
+      return false;
     }
   }
-  return false;
+  return true;
 }
+
+const hasUnsafeTerminalText = (text: string): boolean => !isTerminalControlTextSafe(text);
 
 function isTerminalEscape(sequence: string): boolean {
   if (sequence.startsWith(escape)) return true;

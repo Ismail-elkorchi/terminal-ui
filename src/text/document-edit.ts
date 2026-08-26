@@ -64,6 +64,17 @@ export function editTextDocument(
       if (selection !== undefined) return replaceRange(state, caret, selection, '');
       if (caret.position.offset === 0) return unchanged(state, caret, selection);
       const line = lineContaining(state.document, caret.position.offset);
+      if (caret.position.offset === line.startOffset && line.lineIndex > 0) {
+        const previousLine = textDocumentLineAt(state.document, line.lineIndex - 1);
+        if (previousLine !== undefined) {
+          return replaceOffsets(
+            state,
+            previousLine.endOffsetExclusive,
+            line.startOffset,
+            '',
+          );
+        }
+      }
       const local = caret.position.offset - line.startOffset;
       const previous = line.startOffset + previousGraphemeBoundary(line.text, local);
       return replaceOffsets(state, previous, caret.position.offset, '');
@@ -74,7 +85,10 @@ export function editTextDocument(
       const line = lineContaining(state.document, caret.position.offset);
       if (caret.position.offset === line.endOffsetExclusive
         && line.lineIndex < textDocumentLineCount(state.document) - 1) {
-        return replaceOffsets(state, caret.position.offset, caret.position.offset + 1, '');
+        const nextLine = textDocumentLineAt(state.document, line.lineIndex + 1);
+        return nextLine === undefined
+          ? unchanged(state, caret, selection)
+          : replaceOffsets(state, caret.position.offset, nextLine.startOffset, '');
       }
       const local = caret.position.offset - line.startOffset;
       return replaceOffsets(state, caret.position.offset, line.startOffset + nextGraphemeBoundary(line.text, local), '');
@@ -229,7 +243,10 @@ function leftOffset(
   const range = textDocumentSelectionRange(document, selection, caret);
   if (selecting !== true && selection !== undefined) return range.startOffset;
   const line = lineContaining(document, caret.position.offset);
-  if (caret.position.offset === line.startOffset && line.lineIndex > 0) return caret.position.offset - 1;
+  if (caret.position.offset === line.startOffset && line.lineIndex > 0) {
+    return textDocumentLineAt(document, line.lineIndex - 1)?.endOffsetExclusive
+      ?? caret.position.offset;
+  }
   return line.startOffset + previousGraphemeBoundary(line.text, caret.position.offset - line.startOffset);
 }
 
@@ -244,7 +261,8 @@ function rightOffset(
   const line = lineContaining(document, caret.position.offset);
   if (caret.position.offset === line.endOffsetExclusive
     && line.lineIndex < textDocumentLineCount(document) - 1) {
-    return caret.position.offset + 1;
+    return textDocumentLineAt(document, line.lineIndex + 1)?.startOffset
+      ?? caret.position.offset;
   }
   return line.startOffset + nextGraphemeBoundary(line.text, caret.position.offset - line.startOffset);
 }
@@ -255,7 +273,9 @@ function previousWordOffset(
   options: TextBoundaryOptions
 ): number {
   const line = lineContaining(document, offset);
-  if (offset === line.startOffset && line.lineIndex > 0) return offset - 1;
+  if (offset === line.startOffset && line.lineIndex > 0) {
+    return textDocumentLineAt(document, line.lineIndex - 1)?.endOffsetExclusive ?? offset;
+  }
   return line.startOffset + textIndexForLine(document, line, options).previousWordBoundary(
     offset - line.startOffset
   );
@@ -268,7 +288,9 @@ function nextWordOffset(
 ): number {
   const line = lineContaining(document, offset);
   if (offset === line.endOffsetExclusive
-    && line.lineIndex < textDocumentLineCount(document) - 1) return offset + 1;
+    && line.lineIndex < textDocumentLineCount(document) - 1) {
+    return textDocumentLineAt(document, line.lineIndex + 1)?.startOffset ?? offset;
+  }
   return line.startOffset + textIndexForLine(document, line, options).nextWordBoundary(
     offset - line.startOffset
   );

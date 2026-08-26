@@ -9,7 +9,6 @@ import { createInputDecoder } from '../../dist/input/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   diffFrames,
-  layoutElement,
   renderDiffAnsi,
   renderFramePlain,
   renderElementFrame
@@ -23,6 +22,7 @@ import {
   canvas,
   commandInput,
   createTextAreaDecorations,
+  mapTextAreaDecorationsThroughChanges,
   form,
   textInput,
   listbox,
@@ -44,7 +44,13 @@ import {
   createTextDocument,
   textCaretAt,
   textDocumentEdit,
+  textDocumentLength,
 } from '../../dist/text/index.js';
+import {
+  textDocumentChunkMetrics,
+  textDocumentPreviousMutation,
+} from '../../dist/text/document.js';
+import { readTextAreaDecorations } from '../../dist/components/text-area-decorations.js';
 import {
   appendLogHistory,
   createScrollState,
@@ -949,7 +955,7 @@ test('text area projection cost remains subquadratic for large decoration sets',
   );
   const durationMs = performance.now() - started;
 
-  assert.equal(projection.accessibilityText(), source);
+  assert.equal(projection.accessibilityWindow(0, source.length).text, source);
   assert.equal(projection.styleRanges.length, count);
   assert.ok(durationMs < 4_000, `projection took ${durationMs.toFixed(1)}ms`);
 
@@ -978,7 +984,81 @@ test('text area projection cost remains subquadratic for large decoration sets',
   assert.ok(componentDurationMs < 4_000, `component projection took ${componentDurationMs.toFixed(1)}ms`);
 });
 
-test('large text area edits retain line geometry instead of rebuilding the document', { timeout: 10_000 }, () => {
+test('tab and CR projection updates only the changed logical-line range', { timeout: 10_000 }, () => {
+  const source = Array.from(
+    { length: 20_000 },
+    (_value, index) => `line\t${String(index).padStart(5, '0')}\r\n`,
+  ).join('');
+  const decorations = Object.freeze([]);
+  let document = createTextDocument(source);
+  const previous = createTextAreaProjection(document, decorations, defaultTextWidthProfile);
+  document = textDocumentEdit(document, { startOffset: 2, endOffsetExclusive: 2 }, 'X').document;
+
+  const started = performance.now();
+  const next = createTextAreaProjection(document, decorations, defaultTextWidthProfile);
+  const durationMs = performance.now() - started;
+
+  assert.equal(textDocumentPreviousMutation(next.document)?.document, previous.document);
+  assert.equal(next.accessibilityWindow(0, 32).text.startsWith('liXne'), true);
+  assert.ok(durationMs < 750, `line-local text projection took ${durationMs.toFixed(1)}ms`);
+});
+
+test('mapped replacement decorations retain projected documents and offset maps', { timeout: 10_000 }, () => {
+  const source = Array.from(
+    { length: 20_000 },
+    (_value, index) => `line ${String(index).padStart(5, '0')} value`,
+  ).join('\n');
+  let document = createTextDocument(source);
+  let decorations = createTextAreaDecorations({
+    document,
+    decorations: [{
+      kind: 'replace',
+      startOffset: source.lastIndexOf('value'),
+      endOffsetExclusive: source.lastIndexOf('value') + 5,
+      replacementText: 'result',
+    }],
+  });
+  const previous = createTextAreaProjection(
+    document,
+    readTextAreaDecorations(decorations).decorations,
+    defaultTextWidthProfile,
+  );
+  document = textDocumentEdit(document, { startOffset: 2, endOffsetExclusive: 2 }, 'X').document;
+  decorations = mapTextAreaDecorationsThroughChanges({ decorations, document });
+
+  const started = performance.now();
+  const next = createTextAreaProjection(
+    document,
+    readTextAreaDecorations(decorations).decorations,
+    defaultTextWidthProfile,
+  );
+  const durationMs = performance.now() - started;
+
+  assert.equal(textDocumentPreviousMutation(next.document)?.document, previous.document);
+  assert.equal(next.accessibilityWindow(0, 32).text.startsWith('liXne'), true);
+  assert.equal(
+    next.accessibilityWindow(textDocumentLength(document), 32).text.endsWith('result'),
+    true,
+  );
+  assert.ok(durationMs < 750, `decorated text projection took ${durationMs.toFixed(1)}ms`);
+});
+
+test('long typing sessions keep document chunk bookkeeping proportional to text size', { timeout: 30_000 }, () => {
+  let document = createTextDocument('');
+  for (let index = 0; index < 100_000; index += 1) {
+    document = textDocumentEdit(document, {
+      startOffset: index,
+      endOffsetExclusive: index,
+    }, 'x').document;
+  }
+  const metrics = textDocumentChunkMetrics(document);
+
+  assert.ok(metrics.chunkCount <= 52, JSON.stringify(metrics));
+  assert.ok(metrics.treeHeight <= 10, JSON.stringify(metrics));
+  assert.ok(metrics.underfilledChunkCount <= 25, JSON.stringify(metrics));
+});
+
+test('large text area edits keep complete frame work bounded', { timeout: 10_000 }, () => {
   const source = Array.from(
     { length: 20_000 },
     (_value, index) => `line ${String(index).padStart(5, '0')} ${'x'.repeat(25)}`,
@@ -997,10 +1077,12 @@ test('large text area edits retain line geometry instead of rebuilding the docum
     endOffsetExclusive: 10,
   }, 'z').document;
   const started = performance.now();
-  layoutElement(element(), { columns: 80, rows: 20 });
+  const frame = renderElementFrame(element(), { columns: 80, rows: 20 });
   const durationMs = performance.now() - started;
 
-  assert.ok(durationMs < 750, `incremental text area layout took ${durationMs.toFixed(1)}ms`);
+  assert.ok(String(frame.accessibility.root.value).length <= 65_536);
+  assert.equal(frame.accessibility.root.textWindow.totalLength, source.length + 1);
+  assert.ok(durationMs < 750, `incremental text area frame took ${durationMs.toFixed(1)}ms`);
 });
 
 test('resize storms skip unchanged terminal sizes and commit each distinct sequential resize', async () => {

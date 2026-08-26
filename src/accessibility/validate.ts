@@ -20,6 +20,7 @@ import type {
   AccessibleScope,
   AccessibleSnapshot,
   AccessibleTextPosition,
+  AccessibleTextWindow,
   AccessibleValue,
   AccessibleWindow
 } from './types.ts';
@@ -256,7 +257,7 @@ function firstNodeIssue(
 
 function copyAccessibleNode(node: Readonly<Record<string, unknown>>): Record<string, unknown> {
   const candidate = { ...node };
-  for (const field of ['numericValue', 'scope', 'window', 'position', 'textPosition'] as const) {
+  for (const field of ['numericValue', 'scope', 'window', 'position', 'textPosition', 'textWindow'] as const) {
     if (isNonArrayObject(candidate[field])) candidate[field] = { ...candidate[field] };
   }
   if (isNonArrayObject(candidate['textPosition'])) {
@@ -399,6 +400,7 @@ const nodeStructuredValueValidators = [
   scopeIssueForNode,
   windowIssueForNode,
   positionIssueForNode,
+  textWindowIssueForNode,
   textPositionIssueForNode,
 ] as const;
 
@@ -520,13 +522,17 @@ function ownedAccessibleEnumeratedStates(
 
 function ownedAccessibleStructuredValues(
   value: Readonly<Record<string, unknown>>,
-): Pick<AccessibleNode, 'numericValue' | 'scope' | 'window' | 'position' | 'textPosition'> {
+): Pick<
+  AccessibleNode,
+  'numericValue' | 'scope' | 'window' | 'position' | 'textPosition' | 'textWindow'
+> {
   return {
     ...ownedNumericValue(value['numericValue']),
     ...ownedScope(value['scope']),
     ...ownedWindow(value['window']),
     ...ownedPosition(value['position']),
     ...ownedTextPosition(value['textPosition']),
+    ...ownedTextWindow(value['textWindow']),
   };
 }
 
@@ -618,6 +624,21 @@ function ownedTextPosition(value: unknown): { readonly textPosition?: Accessible
   }) };
 }
 
+function ownedTextWindow(value: unknown): { readonly textWindow?: AccessibleTextWindow } {
+  if (!isNonArrayObject(value)) return {};
+  const { startOffset, endOffsetExclusive, totalLength } = value;
+  if (
+    !isNonNegativeInteger(startOffset)
+    || !isNonNegativeInteger(endOffsetExclusive)
+    || !isNonNegativeInteger(totalLength)
+  ) return {};
+  return { textWindow: Object.freeze({
+    startOffset: startOffset as number,
+    endOffsetExclusive: endOffsetExclusive as number,
+    totalLength: totalLength as number,
+  }) };
+}
+
 const accessibleNodeFields = new Set([
   'id',
   'role',
@@ -642,6 +663,7 @@ const accessibleNodeFields = new Set([
   'window',
   'position',
   'textPosition',
+  'textWindow',
   'description',
   'controls',
   'labelledBy',
@@ -779,6 +801,38 @@ const positionFields = new Set([
   'group'
 ]);
 
+function textWindowIssueForNode(
+  node: Record<string, unknown>,
+  id: string,
+): TerminalDiagnostic | undefined {
+  const textWindow = node['textWindow'];
+  if (textWindow === undefined) return undefined;
+  if (!isNonArrayObject(textWindow)) {
+    return accessibilityFailure('Accessible node textWindow must be an object.', id);
+  }
+  const unknownField = findUnsupportedField(textWindow, textWindowFields);
+  if (unknownField !== undefined) {
+    return accessibilityFailure(`Accessible node textWindow field is unsupported: ${unknownField}.`, id);
+  }
+  for (const field of ['startOffset', 'endOffsetExclusive', 'totalLength'] as const) {
+    if (!isNonNegativeInteger(textWindow[field])) {
+      return accessibilityFailure(`Accessible node textWindow ${field} must be a non-negative integer.`, id);
+    }
+  }
+  const start = Number(textWindow['startOffset']);
+  const end = Number(textWindow['endOffsetExclusive']);
+  const total = Number(textWindow['totalLength']);
+  if (end < start || end > total) {
+    return accessibilityFailure('Accessible node textWindow range must be ordered within totalLength.', id);
+  }
+  if (typeof node['value'] !== 'string' || node['value'].length !== end - start) {
+    return accessibilityFailure('Accessible node textWindow must exactly describe its string value.', id);
+  }
+  return undefined;
+}
+
+const textWindowFields = new Set(['startOffset', 'endOffsetExclusive', 'totalLength']);
+
 function textPositionIssueForNode(
   node: Record<string, unknown>,
   id: string,
@@ -823,7 +877,10 @@ function textPositionIssueForNode(
   }
   const value = node['value'];
   if (typeof value === 'string') {
-    const valueLength = value.length;
+    const textWindow = node['textWindow'];
+    const valueLength = isNonArrayObject(textWindow)
+      ? Number(textWindow['totalLength'])
+      : value.length;
     if (Number(textPosition['caretOffset']) > valueLength) {
       return accessibilityFailure('Accessible node textPosition caretOffset must not exceed its value length.', id);
     }

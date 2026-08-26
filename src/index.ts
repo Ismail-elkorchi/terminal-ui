@@ -59,7 +59,10 @@ export {
   createTextAreaRowOffsetMap,
   type TextAreaRowOffsetMapOptions
 } from './components/factories/text-area.ts';
-export { createTextAreaDecorations } from './components/text-area-decorations.ts';
+export {
+  createTextAreaDecorations,
+  mapTextAreaDecorationsThroughChanges,
+} from './components/text-area-decorations.ts';
 export { rasterImage } from './graphics/index.ts';
 export type {
   ImageFit,

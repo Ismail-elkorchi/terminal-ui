@@ -8,7 +8,8 @@ import {
   textDocumentLineIndexAtOffset,
   textDocumentSlice,
 } from '../text/index.ts';
-import type { TerminalTextIndex, TextDocument } from '../text/index.ts';
+import { textDocumentPreviousMutation } from '../text/document.ts';
+import type { TerminalTextIndex, TextDocument, TextDocumentChange } from '../text/index.ts';
 import { decodeTerminalStyle } from '../visual/terminal-style.ts';
 import type { TerminalStyle } from '../visual/render-content.ts';
 import type { TextAreaDecoration } from './text-area.ts';
@@ -25,6 +26,11 @@ export interface TextAreaDecorations {
 export interface CreateTextAreaDecorationsInput {
   readonly document: TextDocument;
   readonly decorations: readonly TextAreaDecoration[];
+}
+
+export interface MapTextAreaDecorationsThroughChangesInput {
+  readonly decorations: TextAreaDecorations;
+  readonly document: TextDocument;
 }
 
 interface TextAreaDecorationModelBase {
@@ -65,7 +71,13 @@ export interface TextAreaDecorationsData {
   readonly decorations: readonly TextAreaDecorationModel[];
 }
 
+export interface TextAreaDecorationMapping {
+  readonly previous: readonly TextAreaDecorationModel[];
+  readonly changes: readonly TextDocumentChange[];
+}
+
 const decorationData = new WeakMap<object, TextAreaDecorationsData>();
+const decorationMappings = new WeakMap<readonly TextAreaDecorationModel[], TextAreaDecorationMapping>();
 const emptyDecorations = new WeakMap<TextDocument, TextAreaDecorations>();
 const lineIndexes = new Map<string, TerminalTextIndex>();
 const lineIndexWeightLimit = 1_048_576;
@@ -123,6 +135,47 @@ export function emptyTextAreaDecorations(document: TextDocument): TextAreaDecora
   return created;
 }
 
+/**
+ * Carries unaffected decoration ranges through the exact changes that created
+ * the next document revision. Decorations intersecting changed text are
+ * discarded so a parser or other owner can replace them with current data.
+ * @beta
+ */
+export function mapTextAreaDecorationsThroughChanges(
+  input: MapTextAreaDecorationsThroughChangesInput,
+): TextAreaDecorations {
+  if (!isNonArrayObject(input)) {
+    throw new TypeError('Text area decoration mapping input must be an object.');
+  }
+  assertTextDocument(input.document);
+  const source = readTextAreaDecorations(input.decorations);
+  const mutation = textDocumentPreviousMutation(input.document);
+  if (mutation?.document !== source.document) {
+    throw new TypeError(
+      'Text area decorations can only be mapped to the document revision created directly from their source.',
+    );
+  }
+  const mapped = source.decorations.flatMap((decoration) => {
+    const range = mapDecorationRange(decoration, mutation.changes);
+    return range === undefined
+      ? []
+      : [decorationFromModel(decoration, range)];
+  });
+  const result = createTextAreaDecorations({ document: input.document, decorations: mapped });
+  const next = readTextAreaDecorations(result).decorations;
+  decorationMappings.set(next, Object.freeze({
+    previous: source.decorations,
+    changes: mutation.changes,
+  }));
+  return result;
+}
+
+export function textAreaDecorationMapping(
+  decorations: readonly TextAreaDecorationModel[],
+): TextAreaDecorationMapping | undefined {
+  return decorationMappings.get(decorations);
+}
+
 function registerDecorations(
   document: TextDocument,
   decorations: readonly TextAreaDecorationModel[],
@@ -133,6 +186,72 @@ function registerDecorations(
   }) as TextAreaDecorations;
   decorationData.set(value, Object.freeze({ document, decorations }));
   return value;
+}
+
+function mapDecorationRange(
+  decoration: TextAreaDecorationModel,
+  changes: readonly TextDocumentChange[],
+): Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'> | undefined {
+  let delta = 0;
+  for (const change of changes) {
+    if (textAreaDecorationIntersectsChange(decoration, change)) return undefined;
+    if (change.endOffsetExclusive <= decoration.startOffset) {
+      delta += change.insertedText.length
+        - (change.endOffsetExclusive - change.startOffset);
+    }
+  }
+  return {
+    startOffset: decoration.startOffset + delta,
+    endOffsetExclusive: decoration.endOffsetExclusive + delta,
+  };
+}
+
+export function textAreaDecorationIntersectsChange(
+  decoration: TextAreaDecorationModel,
+  change: TextDocumentChange,
+): boolean {
+  const point = decoration.startOffset === decoration.endOffsetExclusive;
+  if (change.startOffset === change.endOffsetExclusive) {
+    return point
+      ? decoration.startOffset === change.startOffset
+      : decoration.startOffset < change.startOffset
+        && change.startOffset < decoration.endOffsetExclusive;
+  }
+  return point
+    ? change.startOffset <= decoration.startOffset
+      && decoration.startOffset < change.endOffsetExclusive
+    : decoration.startOffset < change.endOffsetExclusive
+      && change.startOffset < decoration.endOffsetExclusive;
+}
+
+function decorationFromModel(
+  decoration: TextAreaDecorationModel,
+  range: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'>,
+): TextAreaDecoration {
+  const base = {
+    ...range,
+    label: decoration.label,
+  };
+  switch (decoration.kind) {
+    case 'style':
+      return {
+        ...base,
+        kind: decoration.kind,
+        ...(decoration.style === undefined ? {} : { style: decoration.style }),
+      };
+    case 'replace':
+      return {
+        ...base,
+        kind: decoration.kind,
+        replacementText: decoration.replacementText,
+        ...(decoration.style === undefined ? {} : { style: decoration.style }),
+        ...(decoration.accessibilityText === undefined
+          ? {}
+          : { accessibilityText: decoration.accessibilityText }),
+      };
+    case 'conceal':
+      return { ...base, kind: decoration.kind };
+  }
 }
 
 function assertReplacementRelationships(

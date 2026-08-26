@@ -254,6 +254,11 @@ test('terminal text index handles wide cells, lines, tabs, and standalone helper
     6
   );
   assert.equal(selectedText(multiline, line), 'βeta🙂');
+  const mixedLines = 'first\rsecond\r\nthird\nfourth';
+  assert.equal(
+    selectedText(mixedLines, lineSelectionAt(mixedLines, mixedLines.indexOf('third'))),
+    'third',
+  );
   assert.equal(selectedText('one\tأربعة two', wordSelectionAt('one\tأربعة two', 5)), 'أربعة');
 });
 

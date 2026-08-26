@@ -41,6 +41,7 @@ import type { TextPointerTransition } from '../interaction/text-pointer.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { TextAreaTransition } from './text-area.ts';
 import type { TextInputTransition, TextInputState } from './text-input.ts';
+import { textDocumentRevision } from '../text/document.ts';
 
 const utf8Encoder = new TextEncoder();
 
@@ -66,6 +67,8 @@ export interface TextAreaEditRecord {
 }
 
 export type TextAreaEditHistory = BoundedEditHistory<TextAreaEditRecord, 'insert'>;
+
+const textAreaHistoryRevisions = new WeakMap<object, object>();
 
 export interface TextAreaReduction {
   readonly state: TextAreaState;
@@ -97,7 +100,7 @@ export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaSt
     ...(selection === undefined ? {} : { selection }),
     scroll: input.scroll ?? createScrollState(),
     revealCaret: true,
-    history: createBoundedEditHistory(input.historyPolicy)
+    history: bindTextAreaHistory(createBoundedEditHistory(input.historyPolicy), document)
   };
 }
 
@@ -117,6 +120,7 @@ export function textInputReducer(state: TextEditBuffer, transition: TextInputTra
 }
 
 export function textAreaReducer(state: TextAreaState, transition: TextAreaTransition): TextAreaReduction {
+  assertTextAreaHistoryRevision(state);
   switch (transition.kind) {
     case 'edit': {
       const edited = editTextDocument(state, transition.operation);
@@ -447,11 +451,26 @@ function textAreaReduction(
   changeSet: TextChangeSet,
   historyRejection?: TextAreaHistoryRejection,
 ): TextAreaReduction {
+  bindTextAreaHistory(state.history, state.document);
   return Object.freeze({
     state,
     changeSet,
     ...(historyRejection === undefined ? {} : { historyRejection }),
   });
+}
+
+function bindTextAreaHistory(
+  history: TextAreaEditHistory,
+  document: TextDocument,
+): TextAreaEditHistory {
+  textAreaHistoryRevisions.set(history, textDocumentRevision(document));
+  return history;
+}
+
+function assertTextAreaHistoryRevision(state: TextAreaState): void {
+  if (textAreaHistoryRevisions.get(state.history) !== textDocumentRevision(state.document)) {
+    throw new TypeError('Text area history does not belong to the current document revision.');
+  }
 }
 
 function unchangedTextAreaReduction(state: TextAreaState): TextAreaReduction {

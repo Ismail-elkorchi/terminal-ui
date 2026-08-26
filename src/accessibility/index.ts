@@ -2,6 +2,7 @@ export type {
   AccessibilityOptions,
   AccessibleLiveRegion,
   AccessibleNode,
+  AccessibleTextWindow,
   AccessiblePosition,
   AccessibleNumericValue,
   AccessibleRole,

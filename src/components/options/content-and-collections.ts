@@ -485,5 +485,6 @@ export type {
 } from '../text-area.ts';
 export type {
   CreateTextAreaDecorationsInput,
+  MapTextAreaDecorationsThroughChangesInput,
   TextAreaDecorations,
 } from '../text-area-decorations.ts';

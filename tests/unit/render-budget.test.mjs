@@ -88,6 +88,19 @@ test('published hit targets and accessibility trees share the render budget', ()
     () => renderElementFrame(described, size, { limits: { accessibilityRelationships: 1 } }),
     /accessibilityRelationships limit of 1/u,
   );
+
+  const verbose = component({
+    id: 'verbose',
+    definition: {
+      ...compositeComponentDefinition,
+      accessibleRole: 'group',
+      accessibility: ({ id }) => ({ id, role: 'group', description: 'x'.repeat(100) }),
+    },
+  });
+  assert.throws(
+    () => renderElementFrame(verbose, size, { limits: { accessibilityStringCodeUnits: 50 } }),
+    /accessibilityStringCodeUnits limit of 50/u,
+  );
 });
 
 test('graphics placements fall back atomically before frame retention', () => {
@@ -123,5 +136,9 @@ test('budget limits validate their public input', () => {
   assert.throws(
     () => renderElementFrame(text({ content: 'x' }), size, { limits: [] }),
     /limits must be an object/u,
+  );
+  assert.throws(
+    () => renderElementFrame(text({ content: 'x' }), size, { limits: { nodez: 1 } }),
+    /contains unsupported field: nodez/u,
   );
 });

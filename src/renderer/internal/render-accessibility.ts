@@ -139,12 +139,30 @@ export function accountAccessibleTree(root: AccessibleNode, budget: RenderBudget
     const current = pending.pop();
     if (current === undefined) continue;
     budget.addAccessibilityNode(current.depth, relationshipCount(current.node));
+    budget.addAccessibilityStrings(accessibleStringCodeUnits(current.node));
     const children = current.node.children ?? [];
     for (let index = children.length - 1; index >= 0; index -= 1) {
       const child = children[index];
       if (child !== undefined) pending.push({ node: child, depth: current.depth + 1 });
     }
   }
+}
+
+function accessibleStringCodeUnits(node: AccessibleNode): number {
+  const strings = [
+    node.id,
+    node.label,
+    typeof node.value === 'string' ? node.value : undefined,
+    node.description,
+    node.controls,
+    node.labelledBy,
+    node.activeDescendant,
+    node.errorMessage,
+    node.position?.columnLabel,
+    node.position?.group,
+    ...(node.describedBy ?? []),
+  ];
+  return strings.reduce((total, value) => total + (value?.length ?? 0), 0);
 }
 
 function relationshipCount(node: AccessibleNode): number {
