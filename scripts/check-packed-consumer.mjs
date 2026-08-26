@@ -13,12 +13,15 @@ const contractRuntimeRoot = join(projectRoot, 'tests', 'contracts', 'runtime');
 const temporaryRoot = await mkdtemp(join(tmpdir(), 'terminal-ui-packed-consumer-'));
 const packRoot = join(temporaryRoot, 'package');
 const consumerRoot = join(temporaryRoot, 'consumer');
+const npmCli = process.env.npm_execpath;
+if (npmCli === undefined) throw new Error('npm_execpath is required to verify packed consumers.');
 const packedContractScenarios = (await globFiles(contractRuntimeRoot, ['**/*.mjs']))
   .map((path) => relative(contractRuntimeRoot, path).split('\\').join('/'));
 
 try {
   await mkdir(packRoot, { recursive: true });
-  const packed = await run('npm', [
+  const packed = await run(process.execPath, [
+    npmCli,
     'pack',
     '--ignore-scripts',
     '--json',
@@ -30,7 +33,8 @@ try {
   if (typeof filename !== 'string' || filename.length === 0) {
     throw new Error(`npm pack did not report a tarball filename.\n${packed.stdout}`);
   }
-  const externalPacked = await run('npm', [
+  const externalPacked = await run(process.execPath, [
+    npmCli,
     'pack',
     '--ignore-scripts',
     '--json',
@@ -55,7 +59,7 @@ try {
     'utf8'
   );
 
-  await run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], consumerRoot);
+  await run(process.execPath, [npmCli, 'install', '--ignore-scripts', '--no-audit', '--no-fund'], consumerRoot);
   await assertPeerComponentInstallation(consumerRoot);
   await run(process.execPath, [
     join(projectRoot, 'node_modules', 'typescript', 'bin', 'tsc'),
