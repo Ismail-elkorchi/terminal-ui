@@ -23,12 +23,15 @@ export {
   textArea,
   type TextAreaRowOffsetMapOptions
 } from './factories/text-area.ts';
+export { createTextAreaDecorations } from './text-area-decorations.ts';
 export type * from './options/forms.ts';
 export type {
   DisabledTextAreaOptions,
   ScrollableTextAreaOptions,
   TextAreaConcealDecoration,
+  CreateTextAreaDecorationsInput,
   TextAreaDecoration,
+  TextAreaDecorations,
   TextAreaReplacementDecoration,
   TextAreaStyleDecoration,
   TextAreaOptions,

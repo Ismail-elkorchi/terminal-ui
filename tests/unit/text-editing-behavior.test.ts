@@ -147,6 +147,47 @@ void test('textAreaReducer shares bounded multiline undo and preserves controlle
   assert.ok(redone.history.retainedBytes <= redone.history.policy.maxRetainedBytes);
 });
 
+void test('textArea history accounts for retained changes instead of complete documents', () => {
+  const value = 'x'.repeat(1_200_000);
+  const initial = createTextAreaState({
+    value,
+    caret: { position: { offset: value.length, affinity: 'downstream' } },
+  });
+  const edited = textAreaReducer(initial, {
+    kind: 'edit',
+    operation: { kind: 'insert', text: 'y' },
+  });
+
+  assert.equal(edited.state.history.undo.length, 1);
+  assert.ok(edited.state.history.retainedBytes < 256);
+  assert.equal(edited.historyRejection, undefined);
+  const undone = textAreaReducer(edited.state, { kind: 'undo' });
+  assert.equal(textDocumentText(undone.state.document), value);
+});
+
+void test('textArea history reports a rejected edit record without rejecting the edit', () => {
+  const initial = createTextAreaState({
+    value: 'abcdef',
+    historyPolicy: { maxEntries: 10, maxRetainedBytes: 100 },
+  });
+  const edited = textAreaReducer(initial, {
+    kind: 'edit',
+    operation: {
+      kind: 'replaceRange',
+      range: { startOffset: 0, endOffsetExclusive: 6 },
+      text: '',
+    },
+  });
+
+  assert.equal(textDocumentText(edited.state.document), '');
+  assert.equal(edited.state.history.undo.length, 0);
+  assert.deepEqual(edited.historyRejection, {
+    reason: 'retained-byte-limit',
+    entryRetainedBytes: 118,
+    limit: 100,
+  });
+});
+
 void test('textAreaReducer groups consecutive insertions into one exact undo step', () => {
   let state = createTextAreaState({ value: '' });
   for (const text of ['h', 'e', 'l', 'l', 'o']) {

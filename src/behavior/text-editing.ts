@@ -4,11 +4,10 @@ import {
   createBoundedEditHistory,
   recordEditHistory,
   replaceEditHistoryGroup,
-  redoEditHistory,
-  undoEditHistory
 } from '../text/bounded-history.ts';
 import {
   editTextDocument,
+  applyTextChangeSet,
   createTextChangeSet,
   emptyTextChangeSet,
   editTextBuffer,
@@ -38,11 +37,12 @@ import type {
   TextEditBuffer,
   TextSelection
 } from '../text/index.ts';
-import { textDocumentBytes } from '../text/index.ts';
 import type { TextPointerTransition } from '../interaction/text-pointer.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { TextAreaTransition } from './text-area.ts';
 import type { TextInputTransition, TextInputState } from './text-input.ts';
+
+const utf8Encoder = new TextEncoder();
 
 export interface TextAreaState {
   readonly document: TextDocument;
@@ -53,19 +53,30 @@ export interface TextAreaState {
   readonly history: TextAreaEditHistory;
 }
 
-export interface TextAreaEditSnapshot {
-  readonly document: TextDocument;
+export interface TextAreaEditPoint {
   readonly caret: TextCaret;
   readonly selection?: TextDocumentSelection;
+}
+
+export interface TextAreaEditRecord {
+  readonly before: TextAreaEditPoint;
+  readonly after: TextAreaEditPoint;
   readonly forwardChanges: TextChangeSet;
   readonly inverseChanges: TextChangeSet;
 }
 
-export type TextAreaEditHistory = BoundedEditHistory<TextAreaEditSnapshot, 'insert'>;
+export type TextAreaEditHistory = BoundedEditHistory<TextAreaEditRecord, 'insert'>;
 
 export interface TextAreaReduction {
   readonly state: TextAreaState;
   readonly changeSet: TextChangeSet;
+  readonly historyRejection?: TextAreaHistoryRejection;
+}
+
+export interface TextAreaHistoryRejection {
+  readonly reason: 'entry-count-limit' | 'retained-byte-limit';
+  readonly entryRetainedBytes: number;
+  readonly limit: number;
 }
 
 export interface CreateTextAreaStateInput {
@@ -120,17 +131,18 @@ export function textAreaReducer(state: TextAreaState, transition: TextAreaTransi
       const group = transition.operation.kind === 'insert' && state.selection === undefined
         ? 'insert' as const
         : undefined;
+      const historyResult = textChanged
+        ? recordTextAreaHistory(state, edited, changeSet, inverseChanges, group)
+        : undefined;
       const next: TextAreaState = {
         document: edited.document,
         caret: edited.caret,
         ...(edited.selection === undefined ? {} : { selection: edited.selection }),
         scroll: state.scroll,
         revealCaret: true,
-        history: textChanged
-          ? recordTextAreaHistory(state, changeSet, inverseChanges, group)
-          : breakEditHistoryGroup(state.history)
+        history: historyResult?.history ?? breakEditHistoryGroup(state.history)
       };
-      return textAreaReduction(next, changeSet);
+      return textAreaReduction(next, changeSet, historyResult?.rejection);
     }
     case 'applyChanges': {
       const changePlan = createTextChangePlan(state.document, transition.changeSet);
@@ -139,18 +151,17 @@ export function textAreaReducer(state: TextAreaState, transition: TextAreaTransi
       if (document === state.document) return unchangedTextAreaReduction(state);
       const inverseChanges = invertTextChangePlan(state.document, changePlan);
       const requestedCaret = transition.caretOffset ?? caretAfterChanges(changePlan);
+      const after = { caret: textCaretAt(normalizeTextDocumentOffset(document, requestedCaret)) };
+      const record = textAreaEditRecord(state, after, changePlan, inverseChanges);
+      const historyResult = recordTextAreaEdit(state.history, record);
       const next: TextAreaState = {
         document,
-        caret: textCaretAt(normalizeTextDocumentOffset(document, requestedCaret)),
+        caret: after.caret,
         scroll: state.scroll,
         revealCaret: true,
-        history: recordEditHistory(
-          state.history,
-          textAreaSnapshot(state, changePlan, inverseChanges),
-          textAreaSnapshotBytes(state, changePlan, inverseChanges)
-        )
+        history: historyResult.history,
       };
-      return textAreaReduction(next, changePlan);
+      return textAreaReduction(next, changePlan, historyResult.rejection);
     }
     case 'undo':
       return restoreTextAreaHistory(state, 'undo');
@@ -227,98 +238,144 @@ function restoreTextAreaHistory(
     const history = breakEditHistoryGroup(state.history);
     return unchangedTextAreaReduction(history === state.history ? state : { ...state, history });
   }
-  const current = textAreaSnapshot(
-    state,
-    entry.snapshot.forwardChanges,
-    entry.snapshot.inverseChanges
-  );
-  const transition = direction === 'undo'
-    ? undoEditHistory(
-        state.history,
-        current,
-        textAreaSnapshotBytes(state, current.forwardChanges, current.inverseChanges)
-      )
-    : redoEditHistory(
-        state.history,
-        current,
-        textAreaSnapshotBytes(state, current.forwardChanges, current.inverseChanges)
-      );
-  if (transition.snapshot === undefined) {
-    return unchangedTextAreaReduction(
-      transition.history === state.history ? state : { ...state, history: transition.history }
-    );
-  }
-  const snapshot = transition.snapshot;
+  const record = entry.snapshot;
+  const changeSet = direction === 'undo' ? record.inverseChanges : record.forwardChanges;
+  const document = applyTextChangeSet(state.document, changeSet);
+  const point = direction === 'undo' ? record.before : record.after;
   return textAreaReduction({
-    document: snapshot.document,
-    caret: snapshot.caret,
-    ...(snapshot.selection === undefined ? {} : { selection: snapshot.selection }),
+    document,
+    caret: point.caret,
+    ...(point.selection === undefined ? {} : { selection: point.selection }),
     scroll: state.scroll,
     revealCaret: true,
-    history: transition.history
-  }, direction === 'undo' ? snapshot.inverseChanges : snapshot.forwardChanges);
+    history: moveTextAreaHistoryEntry(state.history, direction),
+  }, changeSet);
 }
 
-function textAreaSnapshot(
-  state: Pick<TextAreaState, 'document' | 'caret' | 'selection'>,
+function textAreaEditRecord(
+  before: Pick<TextAreaState, 'caret' | 'selection'>,
+  after: Pick<TextAreaState, 'caret' | 'selection'>,
   forwardChanges: TextChangeSet,
   inverseChanges: TextChangeSet
-): TextAreaEditSnapshot {
+): TextAreaEditRecord {
   return Object.freeze({
-    document: state.document,
-    caret: state.caret,
-    ...(state.selection === undefined ? {} : { selection: state.selection }),
+    before: textAreaEditPoint(before),
+    after: textAreaEditPoint(after),
     forwardChanges,
     inverseChanges
   });
 }
 
-function textAreaSnapshotBytes(
-  state: Pick<TextAreaState, 'document'>,
+function textAreaEditPoint(
+  state: Pick<TextAreaState, 'caret' | 'selection'>,
+): TextAreaEditPoint {
+  const caret = Object.freeze({
+    position: Object.freeze({ ...state.caret.position }),
+    ...(state.caret.preferredColumnCells === undefined
+      ? {}
+      : { preferredColumnCells: state.caret.preferredColumnCells }),
+  });
+  const selection = state.selection === undefined
+    ? undefined
+    : Object.freeze({
+        anchor: Object.freeze({ ...state.selection.anchor }),
+        focus: Object.freeze({ ...state.selection.focus }),
+      });
+  return Object.freeze({
+    caret,
+    ...(selection === undefined ? {} : { selection }),
+  });
+}
+
+function textAreaEditRecordBytes(
   forwardChanges: TextChangeSet,
   inverseChanges: TextChangeSet
 ): number {
   const changeBytes = [...forwardChanges.changes, ...inverseChanges.changes]
-    .reduce((total, change) => total + change.insertedText.length * 2 + 24, 0);
-  return textDocumentBytes(state.document) + changeBytes + 32;
+    .reduce((total, change) => (
+      total + utf8Encoder.encode(change.insertedText).byteLength + 24
+    ), 0);
+  return changeBytes + 64;
 }
 
 function recordTextAreaHistory(
   state: TextAreaState,
+  after: Pick<TextAreaState, 'caret' | 'selection'>,
   forwardChanges: TextChangeSet,
   inverseChanges: TextChangeSet,
   group: 'insert' | undefined
-): TextAreaEditHistory {
+): TextAreaHistoryRecordResult {
   if (group === 'insert' && state.history.currentGroup === group) {
     const previous = state.history.undo.at(-1)?.snapshot;
     const merged = previous === undefined
       ? undefined
-      : mergeInsertionSnapshot(previous, forwardChanges);
+      : mergeInsertionRecord(previous, after, forwardChanges);
     if (merged !== undefined) {
-      return replaceEditHistoryGroup(
+      const retainedBytes = textAreaEditRecordBytes(
+        merged.forwardChanges,
+        merged.inverseChanges,
+      );
+      const history = replaceEditHistoryGroup(
         state.history,
         merged,
-        textAreaSnapshotBytes(merged, merged.forwardChanges, merged.inverseChanges),
+        retainedBytes,
         group
       );
+      return textAreaHistoryRecordResult(history, merged, retainedBytes);
     }
   }
-  return recordEditHistory(
-    state.history,
-    textAreaSnapshot(state, forwardChanges, inverseChanges),
-    textAreaSnapshotBytes(state, forwardChanges, inverseChanges),
-    group
+  const record = textAreaEditRecord(state, after, forwardChanges, inverseChanges);
+  return recordTextAreaEdit(state.history, record, group);
+}
+
+interface TextAreaHistoryRecordResult {
+  readonly history: TextAreaEditHistory;
+  readonly rejection?: TextAreaHistoryRejection;
+}
+
+function recordTextAreaEdit(
+  history: TextAreaEditHistory,
+  record: TextAreaEditRecord,
+  group?: 'insert',
+): TextAreaHistoryRecordResult {
+  const retainedBytes = textAreaEditRecordBytes(record.forwardChanges, record.inverseChanges);
+  return textAreaHistoryRecordResult(
+    recordEditHistory(history, record, retainedBytes, group),
+    record,
+    retainedBytes,
   );
 }
 
-function mergeInsertionSnapshot(
-  snapshot: TextAreaEditSnapshot,
+function textAreaHistoryRecordResult(
+  history: TextAreaEditHistory,
+  record: TextAreaEditRecord,
+  entryRetainedBytes: number,
+): TextAreaHistoryRecordResult {
+  if (history.undo.at(-1)?.snapshot === record) return { history };
+  const reason = history.policy.maxEntries === 0
+    ? 'entry-count-limit' as const
+    : 'retained-byte-limit' as const;
+  return {
+    history,
+    rejection: Object.freeze({
+      reason,
+      entryRetainedBytes,
+      limit: reason === 'entry-count-limit'
+        ? history.policy.maxEntries
+        : history.policy.maxRetainedBytes,
+    }),
+  };
+}
+
+function mergeInsertionRecord(
+  record: TextAreaEditRecord,
+  after: Pick<TextAreaState, 'caret' | 'selection'>,
   nextChanges: TextChangeSet
-): TextAreaEditSnapshot | undefined {
-  const previous = snapshot.forwardChanges.changes[0];
+): TextAreaEditRecord | undefined {
+  const previous = record.forwardChanges.changes[0];
   const next = nextChanges.changes[0];
   if (
-    snapshot.forwardChanges.changes.length !== 1
+    record.forwardChanges.changes.length !== 1
     || nextChanges.changes.length !== 1
     || previous === undefined
     || next === undefined
@@ -332,14 +389,39 @@ function mergeInsertionSnapshot(
     endOffsetExclusive: previous.endOffsetExclusive,
     insertedText
   }]);
-  const inverse = snapshot.inverseChanges.changes[0];
-  if (inverse === undefined || snapshot.inverseChanges.changes.length !== 1) return undefined;
+  const inverse = record.inverseChanges.changes[0];
+  if (inverse === undefined || record.inverseChanges.changes.length !== 1) return undefined;
   const inverseChanges = createTextChangeSet([{
     startOffset: inverse.startOffset,
     endOffsetExclusive: inverse.endOffsetExclusive + next.insertedText.length,
     insertedText: inverse.insertedText
   }]);
-  return textAreaSnapshot(snapshot, forwardChanges, inverseChanges);
+  return Object.freeze({
+    before: record.before,
+    after: textAreaEditPoint(after),
+    forwardChanges,
+    inverseChanges,
+  });
+}
+
+function moveTextAreaHistoryEntry(
+  history: TextAreaEditHistory,
+  direction: 'undo' | 'redo',
+): TextAreaEditHistory {
+  const entry = direction === 'undo' ? history.undo.at(-1) : history.redo.at(-1);
+  if (entry === undefined) return breakEditHistoryGroup(history);
+  const undo = direction === 'undo'
+    ? history.undo.slice(0, -1)
+    : [...history.undo, entry];
+  const redo = direction === 'undo'
+    ? [...history.redo, entry]
+    : history.redo.slice(0, -1);
+  return Object.freeze({
+    policy: history.policy,
+    undo: Object.freeze(undo),
+    redo: Object.freeze(redo),
+    retainedBytes: history.retainedBytes,
+  });
 }
 
 function changeSetFromEdit(
@@ -360,8 +442,16 @@ function changeSetFromEdit(
   }]);
 }
 
-function textAreaReduction(state: TextAreaState, changeSet: TextChangeSet): TextAreaReduction {
-  return Object.freeze({ state, changeSet });
+function textAreaReduction(
+  state: TextAreaState,
+  changeSet: TextChangeSet,
+  historyRejection?: TextAreaHistoryRejection,
+): TextAreaReduction {
+  return Object.freeze({
+    state,
+    changeSet,
+    ...(historyRejection === undefined ? {} : { historyRejection }),
+  });
 }
 
 function unchangedTextAreaReduction(state: TextAreaState): TextAreaReduction {

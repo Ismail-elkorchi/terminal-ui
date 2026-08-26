@@ -83,8 +83,10 @@ export {
 } from './text-editing.ts';
 export type {
   CreateTextAreaStateInput,
+  TextAreaEditPoint,
+  TextAreaEditRecord,
   TextAreaEditHistory,
-  TextAreaEditSnapshot,
+  TextAreaHistoryRejection,
   TextAreaReduction,
   TextAreaState
 } from './text-editing.ts';

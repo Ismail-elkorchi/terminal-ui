@@ -7,7 +7,6 @@ import {
   decodeComponentScrollbarOptions,
   decodeComponentScrollPolicy,
   decodeComponentScrollState,
-  decodeTerminalStyle,
   span,
 } from '../../component/index.ts';
 import type {
@@ -41,14 +40,11 @@ import {
   textDocumentLineAt,
   textDocumentLineCount,
   textDocumentLineIndexAtOffset,
-  textDocumentParentChange,
   textDocumentSelectionRange,
   textDocumentText,
-  textWidthProfileKey,
 } from '../../text/index.ts';
 import type {
   RowOffsetMap,
-  TerminalTextIndex,
   TextCaret,
   TextDocument,
   TextDocumentSelection,
@@ -62,10 +58,14 @@ import {
 } from '../../theme/index.ts';
 import type { TextAreaTransition } from '../../behavior/text-area.ts';
 import type {
-  TextAreaDecoration,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions,
 } from '../text-area.ts';
+import {
+  emptyTextAreaDecorations,
+  readTextAreaDecorations,
+  type TextAreaDecorations,
+} from '../text-area-decorations.ts';
 import type { TextAreaStylePart } from '../style-parts.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import type { ScrollableTextAreaOptions, TextAreaOptions } from '../options/content-and-collections.ts';
@@ -79,16 +79,20 @@ import {
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import {
   createTextAreaProjection,
-  type TextAreaDecorationModel,
   type ProjectedTextStyleRange,
   type TextAreaProjection
 } from '../internal/text-area-projection.ts';
+import {
+  layoutTextAreaDocument,
+  type TextAreaDocumentLayout,
+  type TextAreaLayoutLine,
+} from '../internal/text-area-layout.ts';
 
 export interface TextAreaRowOffsetMapOptions {
   readonly document: TextDocument;
   readonly terminalWidth: number;
   readonly terminalRows: number;
-  readonly decorations?: readonly TextAreaDecoration[];
+  readonly decorations?: TextAreaDecorations;
   readonly lineNumbers?: boolean | TextAreaLineNumberOptions;
   readonly wrap?: boolean | TextAreaWrapOptions;
   readonly scrollbar?: ScrollbarOptions;
@@ -101,7 +105,7 @@ interface TextAreaModel {
   readonly caret: TextCaret;
   readonly placeholder: string;
   readonly selection?: TextDocumentSelection;
-  readonly decorations: readonly TextAreaDecorationModel[];
+  readonly decorations: TextAreaDecorations;
   readonly lineNumbers?: { readonly startNumber: number; readonly minWidth: number };
   readonly highlightActiveLine: boolean;
   readonly wrap: boolean;
@@ -112,8 +116,6 @@ interface TextAreaModel {
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 }
-
-const textAreaDecorationBoundaryIndexes = new WeakMap<TextDocument, TerminalTextIndex>();
 
 type TextAreaComponentAction = TextAreaTransition | {
   readonly kind: 'contextMenu';
@@ -183,9 +185,10 @@ const instantiateTextArea = defineComponent<
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   focusTargets(input) {
     const geometry = textAreaGeometry(input);
-    const caret = textAreaCursorInLayout(
-      geometry.layout,
-      projectedCaret(geometry.projection, input.model.caret)
+    const displayCaret = projectedCaret(geometry.projection, input.model.caret);
+    const caret = geometry.layout.cursorAt(
+      displayCaret.position.offset,
+      displayCaret.position.affinity,
     );
     const row = caret.rowIndex - geometry.scrollbar.scroll.offsetRow;
     const column = geometry.prefixWidth +
@@ -271,9 +274,9 @@ const instantiateTextArea = defineComponent<
     const end = visibleRows === 0
       ? 0
       : Math.min(scrollGeometry.contentRows, scroll.offsetRow + visibleRows);
-    const logicalLines = textDocumentLength(model.document) === 0
+    const logicalLines = geometry.usesPlaceholder
       ? 0
-      : textDocumentLineCount(model.document);
+      : geometry.projection.accessibilityLineCount();
     const description = `${String(logicalLines)} lines. Showing ${String(start)}-${
       String(end)
     } of ${String(scrollGeometry.contentRows)} rows. Omitted before: ${
@@ -307,7 +310,7 @@ const instantiateTextArea = defineComponent<
     return {
       id,
       role: 'textbox',
-      value: geometry.usesPlaceholder ? value : geometry.projection.accessibilityText,
+      value: geometry.usesPlaceholder ? value : geometry.projection.accessibilityText(),
       textPosition: {
         caretOffset: accessibilityCaret,
         ...(accessibilitySelection === undefined ? {} : { selection: accessibilitySelection }),
@@ -404,7 +407,7 @@ function createTextAreaModel(
       focus: decodeTextPosition(candidate.focus, 'textArea selection.focus'),
     });
   }
-  const decorations = createTextAreaModelDecorations(value.decorations, document);
+  const decorations = textAreaDecorationsForDocument(value.decorations, document);
   const scroll = decodeComponentScrollState(state.scroll, 'textArea scroll');
   const scrollbar = decodeComponentScrollbarOptions(value.scrollbar, 'textArea scrollbar');
   const scrollPolicy = decodeComponentScrollPolicy(value.scrollPolicy, 'textArea scrollPolicy');
@@ -437,6 +440,17 @@ function createTextAreaModel(
   };
 }
 
+function textAreaDecorationsForDocument(
+  decorations: TextAreaDecorations | undefined,
+  document: TextDocument,
+): TextAreaDecorations {
+  const value = decorations ?? emptyTextAreaDecorations(document);
+  if (readTextAreaDecorations(value).document !== document) {
+    throw new TypeError('Text area decorations must be created for the current text document.');
+  }
+  return value;
+}
+
 export function createTextAreaRowOffsetMap(
   options: TextAreaRowOffsetMapOptions
 ): RowOffsetMap {
@@ -450,8 +464,12 @@ export function createTextAreaRowOffsetMap(
   const theme = options.theme ?? defaultTheme;
   const lineNumbers = decodeLineNumbers(options.lineNumbers);
   const wrap = decodeWrap(options.wrap);
-  const decorations = createTextAreaModelDecorations(options.decorations, options.document);
-  const projection = createTextAreaProjection(options.document, decorations, widthProfile);
+  const decorations = textAreaDecorationsForDocument(options.decorations, options.document);
+  const projection = createTextAreaProjection(
+    options.document,
+    readTextAreaDecorations(decorations).decorations,
+    widthProfile,
+  );
   const lineCount = textDocumentLineCount(projection.document);
   const prefixWidth = textAreaPrefixWidth(
     lineNumbers === undefined ? {} : { lineNumbers },
@@ -482,8 +500,8 @@ export function createTextAreaRowOffsetMap(
     contentWidth = plan.contentBounds.width;
     layout = layoutTextAreaDocument(projection.document, contentWidth, wrap, widthProfile);
   }
-  return createRowOffsetMap(layout.lines.map((line) => (
-    projection.sourceOffsetAtDisplayOffset(line.start, 'upstream')
+  return createRowOffsetMap(layout.allRowStartOffsets().map((displayOffset) => (
+    projection.sourceOffsetAtDisplayOffset(displayOffset, 'upstream')
   )));
 }
 
@@ -573,9 +591,10 @@ function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStyleP
     width: geometry.prefixWidth,
     height: textAreaEditorHeight(input.model, input.bounds.height),
   }, gutterStyle, 'gutter.background', 'gutter');
-  const active = textDocumentLineIndexAtOffset(
-    input.model.document,
-    input.model.caret.position.offset,
+  const displayCaret = projectedCaret(geometry.projection, input.model.caret);
+  const activeDisplayLine = textDocumentLineIndexAtOffset(
+    geometry.document,
+    displayCaret.position.offset,
   );
   const sourceSelection = geometry.usesPlaceholder || input.model.selection === undefined
     ? undefined
@@ -594,9 +613,10 @@ function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStyleP
       };
   for (let visibleRow = 0; visibleRow < content.height; visibleRow += 1) {
     const rowIndex = geometry.scrollbar.scroll.offsetRow + visibleRow;
-    const line = geometry.layout.lines[rowIndex];
+    const line = geometry.layout.lineAtRow(rowIndex);
     if (line === undefined) break;
-    const isActive = input.model.highlightActiveLine && line.logicalLineIndex === active;
+    const isActive = input.model.highlightActiveLine
+      && line.logicalLineIndex === activeDisplayLine;
     const prefix = textAreaPrefixSpans(input, geometry, line, visibleRow, isActive);
     const window = visibleTextWindow(
       line,
@@ -691,11 +711,11 @@ function pointerOffset(input: ComponentInput<TextAreaModel>, row: number, column
   const rowIndex = Math.max(
     0,
     Math.min(
-      geometry.layout.lines.length - 1,
+      geometry.layout.contentRows - 1,
       geometry.scrollbar.scroll.offsetRow + row - 1,
     ),
   );
-  const line = geometry.layout.lines[rowIndex];
+  const line = geometry.layout.lineAtRow(rowIndex);
   if (line === undefined) return textDocumentLength(input.model.document);
   const visualColumn = Math.max(
     0,
@@ -765,196 +785,6 @@ function decodeTextPosition(value: TextCaret['position'], owner: string): TextCa
   return { offset, affinity };
 }
 
-function createTextAreaModelDecorations(
-  value: readonly TextAreaDecoration[] | undefined,
-  document: TextDocument,
-): readonly TextAreaDecorationModel[] {
-  if (value === undefined) return Object.freeze([]);
-  if (!Array.isArray(value)) throw new TypeError('textArea decorations must be an array.');
-  if (value.length === 0) return Object.freeze([]);
-  const boundaryIndex = textAreaDecorationBoundaryIndex(document);
-  const decorationModels = value.map((candidate, index) =>
-    decodeTextAreaDecoration(candidate, index, document, boundaryIndex)
-  );
-  const replacements = decorationModels
-    .filter((decoration) => decoration.kind === 'replace')
-    .toSorted((left, right) => left.startOffset - right.startOffset || left.endOffsetExclusive - right.endOffsetExclusive);
-  let previousEnd = 0;
-  for (let index = 0; index < replacements.length; index += 1) {
-    const replacement = replacements[index];
-    if (replacement === undefined) continue;
-    if (index > 0 && replacement.startOffset < previousEnd) {
-      throw new RangeError('textArea replacement decorations must not overlap.');
-    }
-    previousEnd = Math.max(previousEnd, replacement.endOffsetExclusive);
-  }
-  for (const decoration of decorationModels) {
-    if (decoration.kind !== 'style') continue;
-    if (
-      replacementContainingInteriorOffset(replacements, decoration.startOffset) !== undefined
-      || replacementContainingInteriorOffset(replacements, decoration.endOffsetExclusive) !== undefined
-    ) {
-      throw new RangeError('textArea style decorations must not partially overlap replacement decorations.');
-    }
-  }
-  const conceals = mergeTextAreaConcealments(decorationModels.filter((decoration) => decoration.kind === 'conceal'));
-  for (const conceal of conceals) {
-    if (replacements.some((replacement) => rangesOverlap(conceal, replacement))) {
-      throw new RangeError('textArea conceal and replacement decorations must not overlap.');
-    }
-  }
-  return Object.freeze([
-    ...decorationModels.filter((decoration) => decoration.kind !== 'conceal'),
-    ...conceals,
-  ]);
-}
-
-function decodeTextAreaDecoration(
-  candidate: unknown,
-  index: number,
-  document: TextDocument,
-  boundaryIndex: TerminalTextIndex,
-): TextAreaDecorationModel {
-  if (!isNonArrayObject(candidate)) {
-    throw new TypeError(`textArea decorations[${String(index)}] is invalid.`);
-  }
-  const kind = candidate['kind'];
-  if (!isStringMember(kind, ['style', 'replace', 'conceal'])) {
-    throw new TypeError(`textArea decorations[${String(index)}].kind is invalid.`);
-  }
-  const range = decodeTextAreaDecorationRange(candidate, index, kind, document, boundaryIndex);
-  const label = textOption(candidate['label'], `textArea decorations[${String(index)}].label`) ??
-    `decoration.${String(index)}`;
-  const style = candidate['style'] === undefined
-    ? undefined
-    : decodeTerminalStyle(candidate['style'], `textArea decorations[${String(index)}].style`);
-  const base = { ...range, order: index, label };
-  return decodeTextAreaDecorationKind(candidate, index, kind, base, style);
-}
-
-function decodeTextAreaDecorationRange(
-  candidate: Readonly<Record<string, unknown>>,
-  index: number,
-  kind: TextAreaDecoration['kind'],
-  document: TextDocument,
-  boundaryIndex: TerminalTextIndex,
-): Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'> {
-  const startOffset = candidate['startOffset'];
-  const endOffsetExclusive = candidate['endOffsetExclusive'];
-  if (typeof startOffset !== 'number' || typeof endOffsetExclusive !== 'number' ||
-    !Number.isSafeInteger(startOffset) || !Number.isSafeInteger(endOffsetExclusive) ||
-    startOffset < 0 || endOffsetExclusive < startOffset ||
-    (endOffsetExclusive === startOffset && kind !== 'replace') ||
-    endOffsetExclusive > textDocumentLength(document)) {
-    throw new RangeError(`textArea decorations[${String(index)}] range is invalid.`);
-  }
-  if (!terminalTextIndexHasBoundary(boundaryIndex, startOffset)
-    || !terminalTextIndexHasBoundary(boundaryIndex, endOffsetExclusive)) {
-    throw new RangeError(`textArea decorations[${String(index)}] must align with text grapheme boundaries.`);
-  }
-  return { startOffset, endOffsetExclusive };
-}
-
-function decodeTextAreaDecorationKind(
-  candidate: Readonly<Record<string, unknown>>,
-  index: number,
-  kind: TextAreaDecoration['kind'],
-  base: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive' | 'order' | 'label'>,
-  style: TerminalStyle | undefined,
-): TextAreaDecorationModel {
-  const replacementText = candidate['replacementText'];
-  const accessibilityText = candidate['accessibilityText'];
-  if (accessibilityText !== undefined && typeof accessibilityText !== 'string') {
-    throw new TypeError(`textArea decorations[${String(index)}].accessibilityText must be a string.`);
-  }
-  switch (kind) {
-    case 'style':
-      if (replacementText !== undefined || accessibilityText !== undefined) {
-        throw new TypeError(`textArea style decoration ${String(index)} cannot replace or relabel content.`);
-      }
-      return Object.freeze({ ...base, kind, ...(style === undefined ? {} : { style }) });
-    case 'replace':
-      if (typeof replacementText !== 'string' || replacementText.length === 0) {
-        throw new TypeError(`textArea replacement decoration ${String(index)} requires non-empty replacementText.`);
-      }
-      return Object.freeze({
-        ...base,
-        kind,
-        replacementText,
-        ...(style === undefined ? {} : { style }),
-        ...(accessibilityText === undefined ? {} : { accessibilityText }),
-      });
-    case 'conceal':
-      if (replacementText !== undefined || accessibilityText !== undefined || style !== undefined) {
-        throw new TypeError(`textArea conceal decoration ${String(index)} cannot replace, style, or relabel content.`);
-      }
-      return Object.freeze({ ...base, kind });
-  }
-}
-
-function mergeTextAreaConcealments(
-  decorations: readonly TextAreaDecorationModel[],
-): readonly TextAreaDecorationModel[] {
-  const ordered = decorations.toSorted((left, right) => (
-    left.startOffset - right.startOffset || left.endOffsetExclusive - right.endOffsetExclusive
-  ));
-  const merged: TextAreaDecorationModel[] = [];
-  for (const decoration of ordered) {
-    const previous = merged.at(-1);
-    if (previous === undefined || decoration.startOffset > previous.endOffsetExclusive) {
-      merged.push(decoration);
-      continue;
-    }
-    merged[merged.length - 1] = Object.freeze({
-      kind: 'conceal',
-      startOffset: previous.startOffset,
-      endOffsetExclusive: Math.max(previous.endOffsetExclusive, decoration.endOffsetExclusive),
-      order: Math.min(previous.order, decoration.order),
-      label: previous.label,
-    });
-  }
-  return Object.freeze(merged);
-}
-
-function rangesOverlap(
-  left: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'>,
-  right: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'>,
-): boolean {
-  return left.startOffset < right.endOffsetExclusive
-    && right.startOffset < left.endOffsetExclusive;
-}
-
-function replacementContainingInteriorOffset(
-  replacements: readonly TextAreaDecorationModel[],
-  offset: number,
-): TextAreaDecorationModel | undefined {
-  let low = 0;
-  let high = replacements.length;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    if ((replacements[middle]?.startOffset ?? Number.POSITIVE_INFINITY) < offset) low = middle + 1;
-    else high = middle;
-  }
-  const candidate = replacements[low - 1];
-  return candidate !== undefined
-    && candidate.startOffset < offset
-    && offset < candidate.endOffsetExclusive
-    ? candidate
-    : undefined;
-}
-
-function terminalTextIndexHasBoundary(index: TerminalTextIndex, offset: number): boolean {
-  return index.graphemeIndexToCodeUnitOffset(index.codeUnitOffsetToGraphemeIndex(offset)) === offset;
-}
-
-function textAreaDecorationBoundaryIndex(document: TextDocument): TerminalTextIndex {
-  const existing = textAreaDecorationBoundaryIndexes.get(document);
-  if (existing !== undefined) return existing;
-  const created = createTerminalTextIndex(textDocumentText(document));
-  textAreaDecorationBoundaryIndexes.set(document, created);
-  return created;
-}
-
 function decodeLineNumbers(
   value: boolean | TextAreaLineNumberOptions | undefined,
 ): { readonly startNumber: number; readonly minWidth: number } | undefined {
@@ -995,7 +825,9 @@ function textAreaDisplayDocument(model: TextAreaModel, widthProfile: TextWidthPr
   const source = usesPlaceholder ? createTextDocument(model.placeholder) : model.document;
   const projection = createTextAreaProjection(
     source,
-    usesPlaceholder ? [] : model.decorations,
+    usesPlaceholder
+      ? readTextAreaDecorations(emptyTextAreaDecorations(source)).decorations
+      : readTextAreaDecorations(model.decorations).decorations,
     widthProfile
   );
   return {
@@ -1349,240 +1181,6 @@ function projectedStyleRangesBetween(
   let end = low;
   while ((ranges[end]?.startOffset ?? Number.POSITIVE_INFINITY) < endOffsetExclusive) end += 1;
   return ranges.slice(low, end);
-}
-
-interface TextAreaLayoutLine {
-  readonly text: string;
-  readonly start: number;
-  readonly logicalLineIndex: number;
-  readonly firstVisualLine: boolean;
-  readonly index: TerminalTextIndex;
-}
-
-interface TextAreaDocumentLayout {
-  readonly lines: readonly TextAreaLayoutLine[];
-  readonly logicalLineRowStarts: readonly number[];
-  readonly contentRows: number;
-  readonly intrinsicColumns: number;
-  readonly contentColumns: number;
-}
-
-interface TextAreaLogicalLineLayout {
-  readonly text: string;
-  readonly intrinsicColumns: number;
-  readonly visualLines: readonly {
-    readonly text: string;
-    readonly localStart: number;
-    readonly firstVisualLine: boolean;
-    readonly index: TerminalTextIndex;
-  }[];
-}
-
-const textAreaLayouts = new WeakMap<TextDocument, Map<string, TextAreaDocumentLayout>>();
-const textAreaLogicalLayouts = new WeakMap<TextDocument, Map<string, readonly TextAreaLogicalLineLayout[]>>();
-const sharedLogicalLineLayouts = new Map<string, TextAreaLogicalLineLayout>();
-const sharedLogicalLineLayoutMaximumTextLength = 4_096;
-const sharedLogicalLineLayoutWeightLimit = 1_048_576;
-let sharedLogicalLineLayoutWeight = 0;
-
-function layoutTextAreaDocument(
-  document: TextDocument,
-  width: number,
-  wrap: boolean,
-  widthProfile: TextWidthProfile,
-): TextAreaDocumentLayout {
-  const normalizedWidth = Math.max(0, Math.floor(width));
-  const key = `${wrap ? 'wrap' : 'single'}:${String(normalizedWidth)}:${
-    textWidthProfileKey(widthProfile)
-  }`;
-  let cache = textAreaLayouts.get(document);
-  if (cache === undefined) {
-    cache = new Map();
-    textAreaLayouts.set(document, cache);
-  }
-  const cached = cache.get(key);
-  if (cached !== undefined) {
-    cache.delete(key);
-    cache.set(key, cached);
-    return cached;
-  }
-  const lines: TextAreaLayoutLine[] = [];
-  const logicalLineRowStarts: number[] = [];
-  let intrinsicColumns = 0;
-  const logicalLines = logicalLineLayouts(document, normalizedWidth, wrap, widthProfile, key);
-  let logicalLineStart = 0;
-  for (let lineIndex = 0; lineIndex < logicalLines.length; lineIndex += 1) {
-    logicalLineRowStarts.push(lines.length);
-    const logical = logicalLines[lineIndex];
-    if (logical === undefined) continue;
-    intrinsicColumns = Math.max(intrinsicColumns, logical.intrinsicColumns);
-    for (const visual of logical.visualLines) {
-      lines.push({
-        text: visual.text,
-        start: logicalLineStart + visual.localStart,
-        logicalLineIndex: lineIndex,
-        firstVisualLine: visual.firstVisualLine,
-        index: visual.index,
-      });
-    }
-    logicalLineStart += logical.text.length + (lineIndex < logicalLines.length - 1 ? 1 : 0);
-  }
-  const created = Object.freeze({
-    lines: Object.freeze(lines),
-    logicalLineRowStarts: Object.freeze(logicalLineRowStarts),
-    contentRows: lines.length,
-    intrinsicColumns,
-    contentColumns: wrap ? Math.min(intrinsicColumns, normalizedWidth) : intrinsicColumns,
-  });
-  while (cache.size >= 8) {
-    const oldest = cache.keys().next().value;
-    if (oldest === undefined) break;
-    cache.delete(oldest);
-  }
-  cache.set(key, created);
-  return created;
-}
-
-function logicalLineLayouts(
-  document: TextDocument,
-  width: number,
-  wrap: boolean,
-  widthProfile: TextWidthProfile,
-  key: string,
-): readonly TextAreaLogicalLineLayout[] {
-  const cached = textAreaLogicalLayouts.get(document)?.get(key);
-  if (cached !== undefined) return cached;
-  const count = textDocumentLineCount(document);
-  const result: (TextAreaLogicalLineLayout | undefined)[] = Array.from({ length: count });
-  const lineage = textDocumentParentChange(document);
-  const parent = lineage === undefined ? undefined : textAreaLogicalLayouts.get(lineage.parent)?.get(key);
-  let prefixEnd = 0;
-  let suffixStart = count;
-  let parentSuffixStart = parent?.length ?? 0;
-  if (lineage !== undefined && parent !== undefined) {
-    prefixEnd = textDocumentLineIndexAtOffset(lineage.parent, lineage.replaced.startOffset);
-    parentSuffixStart = textDocumentLineIndexAtOffset(
-      lineage.parent,
-      lineage.replaced.endOffsetExclusive,
-    ) + 1;
-    suffixStart = textDocumentLineIndexAtOffset(
-      document,
-      lineage.replaced.startOffset + lineage.insertedLength,
-    ) + 1;
-  }
-  for (let lineIndex = 0; lineIndex < count; lineIndex += 1) {
-    const inherited = lineIndex < prefixEnd
-      ? parent?.[lineIndex]
-      : lineIndex >= suffixStart
-        ? parent?.[parentSuffixStart + lineIndex - suffixStart]
-        : undefined;
-    if (inherited !== undefined) {
-      result[lineIndex] = inherited;
-      continue;
-    }
-    const line = textDocumentLineAt(document, lineIndex);
-    if (line !== undefined) result[lineIndex] = layoutLogicalLine(line.text, width, wrap, widthProfile);
-  }
-  const owned = Object.freeze(result.filter((line): line is TextAreaLogicalLineLayout => line !== undefined));
-  const byKey = textAreaLogicalLayouts.get(document) ?? new Map<string, readonly TextAreaLogicalLineLayout[]>();
-  byKey.set(key, owned);
-  while (byKey.size > 8) {
-    const oldest = byKey.keys().next().value;
-    if (oldest === undefined) break;
-    byKey.delete(oldest);
-  }
-  textAreaLogicalLayouts.set(document, byKey);
-  return owned;
-}
-
-function layoutLogicalLine(
-  text: string,
-  width: number,
-  wrap: boolean,
-  widthProfile: TextWidthProfile,
-): TextAreaLogicalLineLayout {
-  const cacheKey = text.length <= sharedLogicalLineLayoutMaximumTextLength
-    ? `${wrap ? 'wrap' : 'single'}:${String(width)}:${textWidthProfileKey(widthProfile)}\u0000${text}`
-    : undefined;
-  if (cacheKey !== undefined) {
-    const cached = sharedLogicalLineLayouts.get(cacheKey);
-    if (cached !== undefined) {
-      sharedLogicalLineLayouts.delete(cacheKey);
-      sharedLogicalLineLayouts.set(cacheKey, cached);
-      return cached;
-    }
-  }
-  const index = createTerminalTextIndex(text, { widthProfile });
-  if (!wrap || width <= 0 || index.cells <= width || text === '') {
-    return retainSharedLogicalLineLayout(cacheKey, Object.freeze({
-      text,
-      intrinsicColumns: index.cells,
-      visualLines: Object.freeze([{ text, localStart: 0, firstVisualLine: true, index }]),
-    }));
-  }
-  const visualLines: TextAreaLogicalLineLayout['visualLines'][number][] = [];
-  let visualColumn = 0;
-  while (visualColumn < index.cells) {
-    const startGrapheme = index.visualColumnToGraphemeIndex(visualColumn);
-    const endGrapheme = Math.max(
-      startGrapheme + 1,
-      index.visualColumnToGraphemeIndex(visualColumn + width),
-    );
-    const startOffset = index.graphemeIndexToCodeUnitOffset(startGrapheme);
-    const endOffset = index.graphemeIndexToCodeUnitOffset(endGrapheme);
-    const visualText = text.slice(startOffset, endOffset);
-    visualLines.push(Object.freeze({
-      text: visualText,
-      localStart: startOffset,
-      firstVisualLine: startOffset === 0,
-      index: createTerminalTextIndex(visualText, { widthProfile }),
-    }));
-    visualColumn = index.graphemeIndexToVisualColumn(endGrapheme);
-    if (endOffset >= text.length) break;
-  }
-  return retainSharedLogicalLineLayout(cacheKey, Object.freeze({
-    text,
-    intrinsicColumns: index.cells,
-    visualLines: Object.freeze(visualLines),
-  }));
-}
-
-function retainSharedLogicalLineLayout(
-  key: string | undefined,
-  layout: TextAreaLogicalLineLayout,
-): TextAreaLogicalLineLayout {
-  if (key === undefined) return layout;
-  sharedLogicalLineLayouts.set(key, layout);
-  sharedLogicalLineLayoutWeight += key.length;
-  while (sharedLogicalLineLayoutWeight > sharedLogicalLineLayoutWeightLimit) {
-    const oldest = sharedLogicalLineLayouts.keys().next().value;
-    if (oldest === undefined) break;
-    sharedLogicalLineLayouts.delete(oldest);
-    sharedLogicalLineLayoutWeight -= oldest.length;
-  }
-  return layout;
-}
-
-function textAreaCursorInLayout(
-  layout: TextAreaDocumentLayout,
-  caret: TextCaret,
-): { readonly rowIndex: number; readonly columnCells: number } {
-  const offset = caret.position.offset;
-  let low = 0;
-  let high = layout.lines.length;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    if ((layout.lines[middle]?.start ?? Number.POSITIVE_INFINITY) <= offset) low = middle + 1;
-    else high = middle;
-  }
-  let rowIndex = Math.max(0, Math.min(layout.lines.length - 1, low - 1));
-  const next = layout.lines[rowIndex + 1];
-  if (next?.start === offset && caret.position.affinity !== 'upstream') rowIndex += 1;
-  const line = layout.lines[rowIndex];
-  if (line === undefined) return { rowIndex: 0, columnCells: 0 };
-  const localOffset = Math.max(0, Math.min(line.text.length, offset - line.start));
-  const grapheme = line.index.codeUnitOffsetToGraphemeIndex(localOffset);
-  return { rowIndex, columnCells: line.index.graphemeIndexToVisualColumn(grapheme) };
 }
 
 function textAreaHistoryTriggers() {

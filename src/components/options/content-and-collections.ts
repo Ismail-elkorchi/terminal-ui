@@ -42,10 +42,10 @@ import type {
 } from '../../behavior/text-area.ts';
 import type { TableColumn } from '../table-column.ts';
 import type {
-  TextAreaDecoration,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../text-area.ts';
+import type { TextAreaDecorations } from '../text-area-decorations.ts';
 import type { ElementTextRole } from '../../element/metadata.ts';
 import type {
   DataListStylePart,
@@ -407,7 +407,7 @@ export interface PaginationOptions<TMessage extends ComponentMessage = never> {
 
 interface TextAreaBaseOptions {
   readonly id: string;
-  readonly decorations?: readonly TextAreaDecoration[];
+  readonly decorations?: TextAreaDecorations;
   readonly placeholder?: string;
   readonly lineNumbers?: boolean | TextAreaLineNumberOptions;
   readonly highlightActiveLine?: boolean;
@@ -483,3 +483,7 @@ export type {
   TextAreaStyleDecoration,
   TextAreaWrapOptions
 } from '../text-area.ts';
+export type {
+  CreateTextAreaDecorationsInput,
+  TextAreaDecorations,
+} from '../text-area-decorations.ts';

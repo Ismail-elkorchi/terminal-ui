@@ -22,6 +22,7 @@ import {
   button,
   canvas,
   commandInput,
+  createTextAreaDecorations,
   form,
   textInput,
   listbox,
@@ -948,7 +949,7 @@ test('text area projection cost remains subquadratic for large decoration sets',
   );
   const durationMs = performance.now() - started;
 
-  assert.equal(projection.text, source);
+  assert.equal(projection.accessibilityText(), source);
   assert.equal(projection.styleRanges.length, count);
   assert.ok(durationMs < 4_000, `projection took ${durationMs.toFixed(1)}ms`);
 
@@ -967,7 +968,10 @@ test('text area projection cost remains subquadratic for large decoration sets',
     id: 'decorated-performance-editor',
     meta: { accessibleName: 'Decorated performance editor' },
     state: { document: complexDocument, caret: textCaretAt(0) },
-    decorations: complexDecorations,
+    decorations: createTextAreaDecorations({
+      document: complexDocument,
+      decorations: complexDecorations,
+    }),
     onTransition: ignoreMessage,
   }), { columns: 80, rows: 2 });
   const componentDurationMs = performance.now() - componentStarted;

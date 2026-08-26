@@ -34,7 +34,7 @@ useful to the consumer.
 | `link()` | Focusable navigation or resource reference with a typed activation event. | A button styled like a link. |
 | `toolbar()` | Semantic wrapper for a caller-owned row, column, or other layout of related controls. | A geometry policy, menu, or form. |
 | `toggleButton()` | Pressed/unpressed action control with the same label, adornment, tone, and density options as a button. | A checkbox or persistent switch setting. |
-| `textArea()` | Caller-controlled multi-line editable text surface with cursor, keyboard/pointer selection, context-menu events, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
+| `textArea()` | Caller-controlled multi-line editable text surface with cursor, keyboard/pointer selection, bounded undo history, context-menu events, gutter, wrapping, and scroll state. | Syntax services, file ownership, or application persistence. |
 | `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command picker, number parser, or multi-line editor. |
 | `passwordInput()` | Caller-controlled single-line secret entry that masks rendered content, accessibility output, and TUI transcripts. | Secret storage, validation, or authentication by itself. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |

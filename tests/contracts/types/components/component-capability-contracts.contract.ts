@@ -2,6 +2,7 @@ import {
   button,
   commandInput,
   contextMenu,
+  createTextAreaDecorations,
   label,
   createCommandSuggestions,
   text,
@@ -63,6 +64,23 @@ textArea({
   id: 'disabled-editor',
   state: { document: createTextDocument('locked'), caret: textCaretAt(0) },
   disabled: true
+});
+const decoratedDocument = createTextDocument('decorated');
+textArea({
+  id: 'decorated-editor',
+  state: { document: decoratedDocument, caret: textCaretAt(0) },
+  decorations: createTextAreaDecorations({
+    document: decoratedDocument,
+    decorations: [{ kind: 'style', startOffset: 0, endOffsetExclusive: 9 }],
+  }),
+  onTransition: () => ({ kind: 'edit' as const }),
+});
+textArea({
+  id: 'raw-decorated-editor',
+  state: { document: decoratedDocument, caret: textCaretAt(0) },
+  // @ts-expect-error text areas consume retained document-scoped decorations
+  decorations: [{ kind: 'style', startOffset: 0, endOffsetExclusive: 9 }],
+  onTransition: () => ({ kind: 'edit' as const }),
 });
 const invalidDisabledEditor: TextAreaOptions = {
   id: 'invalid-disabled-editor-options',

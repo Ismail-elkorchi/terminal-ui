@@ -21,6 +21,7 @@ import { activityIndicator,
   numberInput as createNumberInput,
   richText,
   text,
+  createTextAreaDecorations,
   createTextAreaRowOffsetMap,
   textArea as createTextArea,
   textInput as createTextInput
@@ -59,10 +60,19 @@ function numberInput(options) {
 }
 
 function textArea(options) {
+  const ownedOptions = Array.isArray(options.decorations)
+    ? {
+        ...options,
+        decorations: createTextAreaDecorations({
+          document: options.state.document,
+          decorations: options.decorations,
+        }),
+      }
+    : options;
   return createTextArea(
-    options.disabled === true
-      ? options
-      : { onTransition: (action) => action, ...options }
+    ownedOptions.disabled === true
+      ? ownedOptions
+      : { onTransition: (action) => action, ...ownedOptions }
   );
 }
 
@@ -474,6 +484,79 @@ test('textArea can opt into line number gutter and active line anatomy', () => {
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'activeLine.background')?.style?.bg?.token, 'editor.activeLine.background');
 });
 
+test('textArea active-line and accessibility geometry use their projected coordinate domains', () => {
+  const insertedBreak = renderElementFrame(textArea({
+    meta: { accessibleName: 'Inserted line editor' },
+    id: 'inserted-line-editor',
+    state: { document: createTextDocument('ab'), caret: textCaretAt(2) },
+    lineNumbers: true,
+    highlightActiveLine: true,
+    decorations: [{
+      kind: 'replace',
+      startOffset: 1,
+      endOffsetExclusive: 1,
+      replacementText: '\n',
+    }],
+  }), { columns: 12, rows: 2 }, { focusPath: ['inserted-line-editor'] });
+
+  assert.equal(renderFramePlain(insertedBreak), '›1 │ a\n›2 │ b');
+  assert.equal(
+    insertedBreak.cells.find((cell) => cell.text === 'b')?.source?.description,
+    'activeLine.value',
+  );
+  assert.match(insertedBreak.accessibility.root.description, /^2 lines\./u);
+
+  const concealedBreak = renderElementFrame(textArea({
+    meta: { accessibleName: 'Concealed line editor' },
+    id: 'concealed-line-editor',
+    state: { document: createTextDocument('a\nb'), caret: textCaretAt(2) },
+    lineNumbers: true,
+    highlightActiveLine: true,
+    decorations: [{ kind: 'conceal', startOffset: 1, endOffsetExclusive: 2 }],
+  }), { columns: 12, rows: 1 });
+
+  assert.equal(renderFramePlain(concealedBreak), '›1 │ ab');
+  assert.equal(
+    concealedBreak.cells.find((cell) => cell.text === 'b')?.source?.description,
+    'activeLine.value',
+  );
+  assert.match(concealedBreak.accessibility.root.description, /^1 lines\./u);
+
+  const accessibilityBreak = renderElementFrame(textArea({
+    meta: { accessibleName: 'Accessibility lines editor' },
+    id: 'accessibility-lines-editor',
+    state: { document: createTextDocument('x'), caret: textCaretAt(1) },
+    decorations: [{
+      kind: 'replace',
+      startOffset: 0,
+      endOffsetExclusive: 1,
+      replacementText: 'X',
+      accessibilityText: 'first\nsecond',
+    }],
+  }), { columns: 12, rows: 1 });
+
+  assert.equal(accessibilityBreak.accessibility.root.value, 'first\nsecond');
+  assert.match(accessibilityBreak.accessibility.root.description, /^2 lines\./u);
+
+  for (const [id, source, caretOffset] of [
+    ['carriage-return-editor', 'a\rb', 2],
+    ['crlf-editor', 'a\r\nb', 3],
+  ]) {
+    const canonicalizedBreak = renderElementFrame(textArea({
+      meta: { accessibleName: 'Canonicalized line editor' },
+      id,
+      state: { document: createTextDocument(source), caret: textCaretAt(caretOffset) },
+      lineNumbers: true,
+      highlightActiveLine: true,
+    }), { columns: 12, rows: 2 });
+    assert.equal(
+      canonicalizedBreak.cells.find((cell) => cell.text === 'b')?.source?.description,
+      'activeLine.value',
+    );
+    assert.match(canonicalizedBreak.accessibility.root.description, /^2 lines\./u);
+  }
+});
+
 test('textArea cursor uses the actual line-number gutter width', () => {
   const lines = Array.from({ length: 12 }, (_item, index) => `line ${String(index + 1)}`);
   const value = lines.join('\n');
@@ -517,6 +600,42 @@ test('textArea renders caller-controlled decoration ranges without overriding se
   assert.equal(custom?.source?.description, 'custom.match');
   assert.equal(custom?.style?.fg?.token, 'status.warning');
   assert.equal(custom?.style?.bold, true);
+});
+
+test('textArea decorations are immutable retained values scoped to one document', () => {
+  const document = createTextDocument('alpha');
+  const supplied = [{
+    kind: 'style',
+    startOffset: 0,
+    endOffsetExclusive: 5,
+    style: { bold: true },
+  }];
+  const decorations = createTextAreaDecorations({ document, decorations: supplied });
+  supplied[0].style.bold = false;
+  supplied.push({ kind: 'style', startOffset: 0, endOffsetExclusive: 1 });
+
+  const frame = renderElementFrame(textArea({
+    meta: { accessibleName: 'Retained decoration editor' },
+    id: 'retained-decoration-editor',
+    state: { document, caret: textCaretAt(0) },
+    decorations,
+  }), { columns: 10, rows: 1 });
+
+  assert.equal(decorations.count, 1);
+  assert.equal(frame.cells.find((cell) => cell.text === 'a')?.style?.bold, true);
+  assert.throws(() => createTextArea({
+    meta: { accessibleName: 'Raw decoration editor' },
+    id: 'raw-decoration-editor',
+    state: { document, caret: textCaretAt(0) },
+    decorations: [],
+    onTransition: (transition) => transition,
+  }), /must be created with createTextAreaDecorations/u);
+  assert.throws(() => textArea({
+    meta: { accessibleName: 'Mismatched decoration editor' },
+    id: 'mismatched-decoration-editor',
+    state: { document: createTextDocument('alpha'), caret: textCaretAt(0) },
+    decorations,
+  }), /must be created for the current text document/u);
 });
 
 test('textArea can soft-wrap long logical lines while preserving editor anatomy', () => {
@@ -566,6 +685,29 @@ test('textArea row-offset maps come from decorated terminal layout geometry', ()
   assert.deepEqual(
     Array.from({ length: wide.rowCount }, (_value, row) => wide.sourceOffsetAtRow(row)),
     [0, 12]
+  );
+
+  const lineChangingDocument = createTextDocument('ab');
+  const lineChanging = createTextAreaRowOffsetMap({
+    document: lineChangingDocument,
+    terminalWidth: 12,
+    terminalRows: 2,
+    decorations: createTextAreaDecorations({
+      document: lineChangingDocument,
+      decorations: [{
+        kind: 'replace',
+        startOffset: 1,
+        endOffsetExclusive: 1,
+        replacementText: '\n',
+      }],
+    }),
+  });
+  assert.deepEqual(
+    Array.from(
+      { length: lineChanging.rowCount },
+      (_value, row) => lineChanging.sourceOffsetAtRow(row),
+    ),
+    [0, 1],
   );
 });
 
@@ -1005,6 +1147,32 @@ test('textArea maps pointer positions through gutters visual rows and selection 
   assert.deepEqual(dragEnd?.action, {
     kind: 'pointer',
     transition: { kind: 'endSelection', anchor: 8, offset: 10 }
+  });
+
+  const projectedRegions = renderElementRegions(textArea({
+    meta: { accessibleName: 'Projected text area' },
+    id: 'projected-editable-area',
+    state: { document: createTextDocument('ab'), caret: textCaretAt(0) },
+    lineNumbers: true,
+    decorations: [{
+      kind: 'replace',
+      startOffset: 1,
+      endOffsetExclusive: 1,
+      replacementText: '\n',
+    }],
+    onTransition: (action) => ({ action }),
+  }), { columns: 24, rows: 2 });
+  const projectedTarget = targetById(projectedRegions, 'projected-editable-area:text');
+  const projectedPlace = projectedTarget.message(pointerEvent({
+    kind: 'pointerDown',
+    row: 2,
+    column: 6,
+    localRow: 2,
+    localColumn: 6,
+  }));
+  assert.deepEqual(projectedPlace?.action, {
+    kind: 'pointer',
+    transition: { kind: 'placeCaret', offset: 1 },
   });
 });
 

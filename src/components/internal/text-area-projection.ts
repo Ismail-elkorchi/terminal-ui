@@ -2,51 +2,27 @@ import { segmentGraphemesForMeasurement } from '../../text/graphemes.ts';
 import {
   createTextDocument,
   sanitizeTerminalText,
-  textDocumentParentChange,
+  textDocumentLength,
+  textDocumentLineCount,
   textDocumentText,
   textWidthProfileKey,
   type TextDocument,
   type TextWidthProfile
 } from '../../text/index.ts';
-import { textDocumentCanRenderDirectly, textDocumentEditExact } from '../../text/document.ts';
+import {
+  textDocumentCanRenderDirectly,
+  textDocumentEditExact,
+  textDocumentPreviousMutation,
+} from '../../text/document.ts';
 import type { TerminalStyle } from '../../visual/render-content.ts';
-
-interface TextAreaDecorationModelBase {
-  readonly startOffset: number;
-  readonly endOffsetExclusive: number;
-  readonly order: number;
-  readonly label: string;
-}
-
-interface TextAreaStyleDecorationModel extends TextAreaDecorationModelBase {
-  readonly kind: 'style';
-  readonly style?: TerminalStyle;
-  readonly replacementText?: never;
-  readonly accessibilityText?: never;
-}
-
-interface TextAreaReplacementDecorationModel extends TextAreaDecorationModelBase {
-  readonly kind: 'replace';
-  readonly style?: TerminalStyle;
-  readonly replacementText: string;
-  readonly accessibilityText?: string;
-}
-
-interface TextAreaConcealDecorationModel extends TextAreaDecorationModelBase {
-  readonly kind: 'conceal';
-  readonly style?: never;
-  readonly replacementText?: never;
-  readonly accessibilityText?: never;
-}
-
-export type TextAreaDecorationModel =
-  | TextAreaStyleDecorationModel
-  | TextAreaReplacementDecorationModel
-  | TextAreaConcealDecorationModel;
+import type {
+  TextAreaDecorationModel,
+  TextAreaReplacementDecorationModel,
+} from '../text-area-decorations.ts';
 
 type TextAreaContentDecorationModel =
   | TextAreaReplacementDecorationModel
-  | TextAreaConcealDecorationModel;
+  | Extract<TextAreaDecorationModel, { readonly kind: 'conceal' }>;
 
 export interface ProjectedTextStyleRange {
   readonly startOffset: number;
@@ -74,9 +50,10 @@ interface OffsetProjection {
 export interface TextAreaProjection {
   readonly widthProfileKey: string;
   readonly document: TextDocument;
-  readonly text: string;
-  readonly accessibilityText: string;
+  readonly materializedText?: string;
   readonly styleRanges: readonly ProjectedTextStyleRange[];
+  accessibilityText(): string;
+  accessibilityLineCount(): number;
   displayOffsetAtSourceOffset(offset: number, affinity?: 'upstream' | 'downstream'): number;
   sourceOffsetAtDisplayOffset(offset: number, affinity?: 'upstream' | 'downstream'): number;
   accessibilityOffsetAtSourceOffset(offset: number, affinity?: 'upstream' | 'downstream'): number;
@@ -114,7 +91,14 @@ interface HeapEntry<TValue> {
   readonly value: TValue;
 }
 
-const projectionCache = new WeakMap<TextDocument, Map<string, TextAreaProjection>>();
+const projectionCache = new WeakMap<
+  TextDocument,
+  WeakMap<readonly TextAreaDecorationModel[], Map<string, TextAreaProjection>>
+>();
+const recentMaterializedProjections = new WeakMap<
+  TextDocument,
+  Map<string, WeakRef<TextAreaProjection>>
+>();
 const CACHE_LIMIT = 8;
 const TAB_SIZE = 4;
 const terminalStyleFields: readonly TerminalStyleField[] = Object.freeze([
@@ -126,18 +110,22 @@ export function createTextAreaProjection(
   decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile
 ): TextAreaProjection {
-  const key = projectionKey(decorations, widthProfile);
   const profileKey = textWidthProfileKey(widthProfile);
-  const existing = projectionCache.get(document)?.get(key);
+  const existing = projectionCache.get(document)?.get(decorations)?.get(profileKey);
   if (existing !== undefined) return existing;
 
-  const source = textDocumentText(document);
   if (
     decorations.every((decoration) => decoration.kind === 'style')
     && textDocumentCanRenderDirectly(document)
   ) {
-    return retainProjection(document, key, directProjection(document, source, decorations, profileKey));
+    return retainProjection(
+      document,
+      decorations,
+      profileKey,
+      directProjection(document, decorations, profileKey),
+    );
   }
+  const source = textDocumentText(document);
   const sanitizedSource = sanitizeTerminalText(source);
   const removedSourceRanges = sanitizedSource.removedControlSequences.map((entry) => ({
     start: entry.codeUnitOffset,
@@ -173,9 +161,10 @@ export function createTextAreaProjection(
   const created: TextAreaProjection = Object.freeze({
     widthProfileKey: profileKey,
     document: inheritedProjectedDocument(document, text, profileKey),
-    text,
-    accessibilityText,
+    materializedText: text,
     styleRanges: Object.freeze(builder.styleRanges),
+    accessibilityText: () => accessibilityText,
+    accessibilityLineCount: () => textLineCount(accessibilityText),
     displayOffsetAtSourceOffset(
       offset: number,
       affinity: 'upstream' | 'downstream' = 'downstream'
@@ -195,45 +184,65 @@ export function createTextAreaProjection(
       return projectSourceOffset(accessibilityProjection, offset, affinity);
     }
   });
-  return retainProjection(document, key, created);
+  return retainProjection(document, decorations, profileKey, created);
 }
 
 function retainProjection(
   document: TextDocument,
-  key: string,
+  decorations: readonly TextAreaDecorationModel[],
+  profileKey: string,
   projection: TextAreaProjection,
 ): TextAreaProjection {
-  const cache = projectionCache.get(document) ?? new Map<string, TextAreaProjection>();
-  cache.set(key, projection);
+  const documentCache = projectionCache.get(document)
+    ?? new WeakMap<readonly TextAreaDecorationModel[], Map<string, TextAreaProjection>>();
+  const cache = documentCache.get(decorations) ?? new Map<string, TextAreaProjection>();
+  cache.set(profileKey, projection);
   while (cache.size > CACHE_LIMIT) {
     const oldest = cache.keys().next().value;
     if (oldest === undefined) break;
     cache.delete(oldest);
   }
-  projectionCache.set(document, cache);
+  documentCache.set(decorations, cache);
+  projectionCache.set(document, documentCache);
+  if (projection.materializedText !== undefined) {
+    const recent = recentMaterializedProjections.get(document)
+      ?? new Map<string, WeakRef<TextAreaProjection>>();
+    recent.delete(profileKey);
+    recent.set(profileKey, new WeakRef(projection));
+    while (recent.size > CACHE_LIMIT) {
+      const oldest = recent.keys().next().value;
+      if (oldest === undefined) break;
+      recent.delete(oldest);
+    }
+    recentMaterializedProjections.set(document, recent);
+  }
   return projection;
 }
 
 function directProjection(
   document: TextDocument,
-  source: string,
   decorations: readonly TextAreaDecorationModel[],
   profileKey: string,
 ): TextAreaProjection {
+  const sourceLength = textDocumentLength(document);
+  let retainedAccessibilityText: string | undefined;
   const segment: MappingSegment = Object.freeze({
     sourceStart: 0,
-    sourceEnd: source.length,
+    sourceEnd: sourceLength,
     targetStart: 0,
-    targetEnd: source.length,
+    targetEnd: sourceLength,
     linear: true,
   });
-  const projection = createOffsetProjection(source.length, source.length, [segment]);
+  const projection = createOffsetProjection(sourceLength, sourceLength, [segment]);
   return Object.freeze({
     widthProfileKey: profileKey,
     document,
-    text: source,
-    accessibilityText: source,
-    styleRanges: directStyleRanges(decorations, source.length),
+    styleRanges: directStyleRanges(decorations, sourceLength),
+    accessibilityText: () => {
+      retainedAccessibilityText ??= textDocumentText(document);
+      return retainedAccessibilityText;
+    },
+    accessibilityLineCount: () => sourceLength === 0 ? 0 : textDocumentLineCount(document),
     displayOffsetAtSourceOffset(offset: number, affinity: 'upstream' | 'downstream' = 'downstream') {
       return projectSourceOffset(projection, offset, affinity);
     },
@@ -251,23 +260,31 @@ function inheritedProjectedDocument(
   text: string,
   profileKey: string,
 ): TextDocument {
-  const lineage = textDocumentParentChange(sourceDocument);
-  const parentCache = lineage === undefined ? undefined : projectionCache.get(lineage.parent);
-  const parent = parentCache === undefined
+  const lineage = textDocumentPreviousMutation(sourceDocument);
+  const parent = lineage === undefined
     ? undefined
-    : [...parentCache.values()].toReversed().find((candidate) => (
-        candidate.widthProfileKey === profileKey
-      ));
+    : recentMaterializedProjections.get(lineage.document)?.get(profileKey)?.deref();
   if (parent === undefined) return createTextDocument(text);
-  if (parent.text === text) return parent.document;
-  const prefix = commonPrefixLength(parent.text, text);
-  const suffix = commonSuffixLength(parent.text, text, prefix);
+  const parentText = parent.materializedText;
+  if (parentText === undefined) return createTextDocument(text);
+  if (parentText === text) return parent.document;
+  const prefix = commonPrefixLength(parentText, text);
+  const suffix = commonSuffixLength(parentText, text, prefix);
   return textDocumentEditExact(
     parent.document,
     prefix,
-    parent.text.length - suffix,
+    parentText.length - suffix,
     text.slice(prefix, text.length - suffix),
   ).document;
+}
+
+function textLineCount(value: string): number {
+  if (value.length === 0) return 0;
+  let lineBreaks = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charCodeAt(index) === 10) lineBreaks += 1;
+  }
+  return lineBreaks + 1;
 }
 
 function commonPrefixLength(left: string, right: string): number {
@@ -769,11 +786,4 @@ function boundedOffset(value: number, maximum: number): number {
 function sameTerminalStyle(left: TerminalStyle | undefined, right: TerminalStyle | undefined): boolean {
   if (left === undefined || right === undefined) return left === right;
   return terminalStyleFields.every((field) => left[field] === right[field]);
-}
-
-function projectionKey(
-  decorations: readonly TextAreaDecorationModel[],
-  widthProfile: TextWidthProfile
-): string {
-  return `${textWidthProfileKey(widthProfile)}:${JSON.stringify(decorations)}`;
 }

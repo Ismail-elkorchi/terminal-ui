@@ -433,8 +433,13 @@ Use `textArea({ lineNumbers: true })` or
 multi-line text region needs editor-like anatomy. The renderer emits the gutter,
 line-number, active-line, value, placeholder, selection, caller-controlled decoration,
 cursor, scrollbar, and validation parts with structured source metadata and ordinary style
-slots. `decorations` uses zero-based UTF-16 code-unit offsets and an explicit
-operation kind: `{ kind: 'style' }`, `{ kind: 'replace', replacementText }`, or
+slots. Create retained decoration data with
+`createTextAreaDecorations({ document, decorations })`, then pass the result as
+`decorations`. Recreate it when the source document or decoration data changes.
+This performs structural and grapheme-boundary validation once and gives
+unchanged syntax data a stable identity across renders. Decoration entries use
+zero-based UTF-16 code-unit offsets and an explicit operation kind:
+`{ kind: 'style' }`, `{ kind: 'replace', replacementText }`, or
 `{ kind: 'conceal' }`. A style entry may override the component's decoration
 style; a zero-length replacement inserts virtual text.
 Concealments may overlap or nest and are unioned; they are distinct from
@@ -454,11 +459,19 @@ non-empty `error` uses one trailing row when the allocation has room for it.
 Pass the text-area state as `state` and map `onTransition` to an
 application message. The `TextAreaTransition` union covers standard edits,
 grapheme-aware pointer selection, and scrolling; `textAreaReducer()` provides
-the next state and the exact UTF-16 `TextChangeSet` for each transition. Initialize that state with
+the next state and the exact UTF-16 `TextChangeSet` for each transition. Edit
+history accounts for the change text and edit metadata it actually retains,
+not the complete document. When one edit cannot be admitted under
+`historyPolicy`, the edit still succeeds and the reduction reports a typed
+`historyRejection`; callers can surface that condition instead of silently
+assuming the step is undoable. Initialize state with
 `createTextAreaState()` and retain it in application state. Its retained text
 document keeps line, grapheme, wrapping, cursor, and pointer mappings stable
-across selection and scroll updates; replacing it inside `view()` discards that
-work. Explicit local `keys` may override generated bindings.
+across selection and scroll updates. When the preceding layout remains available,
+changed lines update a persistent visual-row index, while visible rendering queries
+only the viewport rows. Replacing the
+document inside `view()` discards that work. Explicit local `keys` may override
+generated bindings.
 
 Executable example:
 

@@ -44,8 +44,19 @@ interface PieceBranch extends PieceMetrics {
 
 interface TextDocumentData {
   readonly root: PieceNode;
-  readonly parent?: TextDocument;
-  readonly change?: Omit<TextDocumentMutation, 'document'>;
+  readonly previousMutation?: TextDocumentMutationLineage;
+}
+
+export interface TextDocumentPreviousMutation {
+  readonly document: TextDocument;
+  readonly replaced: { readonly startOffset: number; readonly endOffsetExclusive: number };
+  readonly insertedLength: number;
+}
+
+interface TextDocumentMutationLineage {
+  readonly previousDocument: WeakRef<TextDocument>;
+  readonly replaced: { readonly startOffset: number; readonly endOffsetExclusive: number };
+  readonly insertedLength: number;
 }
 
 const EMPTY_LEAF: PieceLeaf = Object.freeze({
@@ -253,30 +264,36 @@ export function textDocumentSelectionRange(
   };
 }
 
-export function textDocumentParentChange(document: TextDocument): {
-  readonly parent: TextDocument;
-  readonly replaced: { readonly startOffset: number; readonly endOffsetExclusive: number };
-  readonly insertedLength: number;
-} | undefined {
+export function textDocumentPreviousMutation(
+  document: TextDocument,
+): TextDocumentPreviousMutation | undefined {
   const data = dataFor(document);
-  return data.parent === undefined || data.change === undefined
+  const lineage = data.previousMutation;
+  const previousDocument = lineage?.previousDocument.deref();
+  return previousDocument === undefined || lineage === undefined
     ? undefined
-    : { parent: data.parent, ...data.change };
+    : {
+        document: previousDocument,
+        replaced: lineage.replaced,
+        insertedLength: lineage.insertedLength,
+      };
 }
 
 function createDocument(
   root: PieceNode,
-  parent?: TextDocument,
+  previousDocument?: TextDocument,
   change?: Omit<TextDocumentMutation, 'document'>,
 ): TextDocument {
   const document = Object.freeze({}) as TextDocument;
   documents.set(document, Object.freeze({
     root,
-    ...(parent === undefined ? {} : { parent }),
-    ...(change === undefined ? {} : { change: Object.freeze({
-      replaced: Object.freeze({ ...change.replaced }),
-      insertedLength: change.insertedLength,
-    }) }),
+    ...(previousDocument === undefined || change === undefined ? {} : {
+      previousMutation: Object.freeze({
+        previousDocument: new WeakRef(previousDocument),
+        replaced: Object.freeze({ ...change.replaced }),
+        insertedLength: change.insertedLength,
+      }),
+    }),
   }));
   return document;
 }
