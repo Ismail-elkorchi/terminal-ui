@@ -27,7 +27,7 @@ const badge = defineSemanticLeafComponent<BadgeOptions, BadgeOptions>({
   name: 'example-app/components/badge',
   identity: 'required',
   accessibleRole: 'status',
-  prepare(value) {
+  createModel(value) {
     if (typeof value.label !== 'string') throw new TypeError('badge requires a string label');
     return { label: value.label };
   },
@@ -55,7 +55,7 @@ const ready = badge({ id: 'build-status', label: 'Ready' });
 
 `defineSemanticLeafComponent()` and `defineDecorativeLeafComponent()` only
 supply the invariant leaf structure fields. They use the same component kernel,
-preparation, constrained measurement, inspection, and hook-result boundaries as
+model construction, constrained measurement, inspection, and hook-result boundaries as
 `defineComponent()`. Use `defineComponent()` directly for composite or composed
 components.
 
@@ -143,7 +143,7 @@ viewport so large content can be windowed.
 ## Semantics And Interaction
 
 Semantic definitions require an exact `accessibleRole` and an accessibility
-hook. Use a role resolver when the prepared model changes the root role, as
+hook. Use a role resolver when the component model changes the root role, as
 `text()` does for headings. Rendering rejects a hook whose root role disagrees
 with the declaration, so inspection and rendered accessibility cannot drift.
 Decorative definitions are
@@ -182,18 +182,18 @@ Disabled, busy, and read-only state is added to accessibility output by the
 framework. Definition hooks should not duplicate it. Decorative definitions
 cannot accept state or actions.
 
-Component-specific inputs are top-level instance fields. `prepare()` is their
+Component-specific inputs are top-level instance fields. `createModel()` is their
 typed construction step. Validate values the component consumes when JavaScript
 callers could otherwise corrupt behavior, enforce cross-field rules, and build
 the model used by every later phase. Do not maintain a second list of option
 names just to reject unused properties. TypeScript checks the declared option
 type for typed callers, while the framework validates its shared fields.
 
-Preparation owns retained data. Copy caller arrays or objects that later hooks
+Model construction owns retained data. Copy caller arrays or objects that later hooks
 will retain; freeze those owned values when mutation would violate the
 component's behavior. The framework does not recursively inspect or freeze a
-prepared model, and models may use domain objects rather than only plain JSON
-records. Omit `prepare()` only when the supplied component options already are
+component model, and models may use domain objects rather than only plain JSON
+records. Omit `createModel()` only when the supplied component options already are
 the owned model.
 
 Focus targets and hit targets use stable IDs and bounded rectangles. A hit

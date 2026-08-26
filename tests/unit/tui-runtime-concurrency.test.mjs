@@ -18,9 +18,9 @@ import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 function textInput(options) {
   return createTextInput(
-    options.onAction !== undefined
+    options.onTransition !== undefined
       ? options
-      : { onAction: () => ignoreMessage(), ...options }
+      : { onTransition: () => ignoreMessage(), ...options }
   );
 }
 
@@ -309,11 +309,11 @@ test('TUI runtime preserves unchanged same-reference state when a focus render c
     view: () => column([
       textInput({ meta: { accessibleName: "Text input" },
         id: 'first-same-reference-field',
-        presentation: { value: 'first', cursor: 0 }
+        state: { value: 'first', cursor: 0 }
       }),
       textInput({ meta: { accessibleName: "Text input" },
         id: 'second-same-reference-field',
-        presentation: { value: 'second', cursor: 0 }
+        state: { value: 'second', cursor: 0 }
       })
     ])
   });

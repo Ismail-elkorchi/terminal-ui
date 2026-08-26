@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { prepareTreeSource, prepareTreeView, treeReducer } from '../../dist/behavior/index.js';
+import { createTreeSource, createTreeView, treeReducer } from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { tree } from '../../dist/components/index.js';
 
@@ -42,14 +42,14 @@ test('treeReducer keeps disclosure state separate from immutable input nodes', (
     children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
   }];
   const state = { expandedIds: [], selection: { mode: 'single' } };
-  const source = prepareTreeSource(nodes);
+  const source = createTreeSource(nodes);
   const expanded = treeReducer(state, { kind: 'toggle', id: 'root' }, {
-    view: prepareTreeView(source, state),
+    view: createTreeView(source, state),
   });
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
-    view: prepareTreeView(source, expanded),
-    presentation: expanded,
+    view: createTreeView(source, expanded),
+    state: expanded,
     onTransition: (action) => action
   }), { columns: 24, rows: 3 });
 
@@ -59,7 +59,7 @@ test('treeReducer keeps disclosure state separate from immutable input nodes', (
 });
 
 test('tree source rejects duplicate identities across nested branches', () => {
-  assert.throws(() => prepareTreeSource([
+  assert.throws(() => createTreeSource([
       {
         id: 'root',
         label: 'Root',
@@ -72,22 +72,22 @@ test('tree source rejects duplicate identities across nested branches', () => {
 
 test('tree source validates every retained node during construction', () => {
   assert.throws(
-    () => prepareTreeSource([{ id: 'invalid', label: 42, kind: 'leaf' }]),
+    () => createTreeSource([{ id: 'invalid', label: 42, kind: 'leaf' }]),
     /tree nodes\[0\]\.label must be a string/u
   );
 });
 
 test('tree pointer selection and double-click activation match keyboard semantics', async () => {
-  const presentation = { expandedIds: [], selection: { mode: 'single' } };
-  const source = prepareTreeSource([{ id: 'leaf', label: 'Leaf', kind: 'leaf' }]);
+  const treeState = { expandedIds: [], selection: { mode: 'single' } };
+  const source = createTreeSource([{ id: 'leaf', label: 'Leaf', kind: 'leaf' }]);
   const app = defineTui({
     id: 'tree-pointer-activation',
     init: () => ({ state: ({ actions: [] }) }),
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => tree({ meta: { accessibleName: "Tree" },
       id: 'activation-tree',
-      view: prepareTreeView(source, presentation),
-      presentation,
+      view: createTreeView(source, treeState),
+      state: treeState,
       onTransition: (action) => action,
       onActivate: (event) => event
     })
@@ -108,13 +108,13 @@ test('tree pointer selection and double-click activation match keyboard semantic
 });
 
 test('tree filters through descendants and exposes selected disabled metadata-rich nodes', () => {
-  const presentation = {
+  const treeState = {
     expandedIds: [],
     activeId: 'api',
     selection: { mode: 'single', selectedId: 'api' },
     query: { text: 'server', mode: 'contains' }
   };
-  const source = prepareTreeSource([{
+  const source = createTreeSource([{
     id: 'root',
     label: 'Workspace',
     icon: '▣',
@@ -126,8 +126,8 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
   }]);
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
-    presentation,
-    view: prepareTreeView(source, presentation),
+    state: treeState,
+    view: createTreeView(source, treeState),
     onTransition: (action) => action,
   }), { columns: 32, rows: 4 });
 
@@ -161,18 +161,18 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
 
 test('tree owns retained multiple-selection state at construction', () => {
   const selectedIds = ['first'];
-  const presentation = {
+  const treeState = {
     expandedIds: [],
     selection: { mode: 'multiple', selectedIds, anchorId: 'first' }
   };
-  const source = prepareTreeSource([
+  const source = createTreeSource([
     { id: 'first', label: 'First', kind: 'leaf' },
     { id: 'second', label: 'Second', kind: 'leaf' }
   ]);
   const element = tree({ meta: { accessibleName: "Tree" },
     id: 'owned-tree-selection',
-    view: prepareTreeView(source, presentation),
-    presentation,
+    view: createTreeView(source, treeState),
+    state: treeState,
     onTransition: (transition) => transition
   });
 
@@ -183,20 +183,20 @@ test('tree owns retained multiple-selection state at construction', () => {
 });
 
 test('tree renders lazy placeholders and clips tiny viewports safely', () => {
-  const presentation = {
+  const treeState = {
     expandedIds: ['root'],
     selection: { mode: 'none' },
-    loadStates: { root: { kind: 'pending' } }
+    loadStatusById: { root: { kind: 'pending' } }
   };
-  const source = prepareTreeSource([{
+  const source = createTreeSource([{
     id: 'root',
     label: 'Very long root label for clipping',
     kind: 'lazy',
   }]);
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'lazy-tree',
-    view: prepareTreeView(source, presentation),
-    presentation,
+    view: createTreeView(source, treeState),
+    state: treeState,
     onTransition: (action) => action
   }), { columns: 14, rows: 2 });
 

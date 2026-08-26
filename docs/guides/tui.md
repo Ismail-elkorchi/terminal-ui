@@ -250,10 +250,10 @@ resizes. Components whose focus or interaction state must survive sibling
 reordering still need an explicit top-level `id`.
 
 Scrollable components share the same `ScrollState`, `scrollReducer()`, and
-`applyScrollEvent()` primitives. Use `scrollReducer()` for direct keyboard or
+`applyScrollRequest()` primitives. Use `scrollReducer()` for direct keyboard or
 application actions such as line/page/top/bottom movement, item-into-view
 behavior, horizontal offsets, and follow-tail log views. Use
-`applyScrollEvent(currentScroll, event)` for routed wheel, scrollbar, or drag
+`applyScrollRequest(currentScroll, event)` for routed wheel, scrollbar, or drag
 messages. The event carries the normalized next state plus semantic source and
 target; content and viewport geometry remain renderer-derived. Use
 `scrollPolicy` on scrollable
@@ -269,7 +269,7 @@ geometry, and `visualState: 'active' | 'hover' | 'disabled' | 'inactive' |
 stable `idle` or `inactive` states from scrollability.
 
 Tree components keep hierarchy state caller-controlled. Send `onTransition`
-through `treeReducer()` and render its `TreePresentation`. Component interaction
+through `treeReducer()` and render its `TreeState`. Component interaction
 emits active-position, selection, disclosure, query, and scrolling transitions;
 activation is delivered separately through `onActivate`. Loading and editing
 remain application state and effects; immutable `TreeNode` data never embeds UI
@@ -281,7 +281,7 @@ routing keeps disclosure and row-body regions separate while both produce the
 same `TreeTransition` vocabulary, so keyboard and pointer paths cannot drift.
 Tree row rendering uses typed style parts for `indent`, `disclosure`, `icon`,
 `label`, `metadata`, `match`, `placeholder`, `empty`, and `scrollbar` anatomy;
-selected and disabled presentation use visual-state styles. Frame source metadata
+selected and disabled appearance use visual-state styles. Frame source metadata
 marks disclosure, indent, icon, label, match, and selection-marker parts
 separately for snapshots and debugging.
 
@@ -328,7 +328,7 @@ ids, and the raw terminal mouse event for tests and richer components.
 
 Application text selection is caller-controlled state. Editable components expose
 grapheme-aware caret placement and selection start/extend/end through their
-typed `onAction` union. Route those actions through `textInputReducer()`,
+typed `onTransition` union. Route those transitions through `textInputReducer()`,
 `textAreaReducer()`, `commandInputReducer()`, `searchPickerReducer()`, or the
 editable combobox reducer for standard controlled
 behavior, or interpret them in application state directly. The renderer maps
@@ -380,7 +380,7 @@ track count must match the child count.
 ```ts
 import { helpBar, text, tree, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
 import { ignoreMessage } from '@ismail-elkorchi/terminal-ui/component';
-import { prepareTreeSource, prepareTreeView } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createTreeSource, createTreeView } from '@ismail-elkorchi/terminal-ui/behavior';
 import { column, surface } from '@ismail-elkorchi/terminal-ui/layout';
 
 const nodes: readonly TreeNode[] = [
@@ -391,20 +391,20 @@ const nodes: readonly TreeNode[] = [
     children: [{ id: 'index', label: 'index.ts', kind: 'leaf' }]
   }
 ];
-const treePresentation = {
+const treeState = {
   expandedIds: ['src'],
   activeId: 'src',
   selection: { mode: 'none' as const }
 };
-const treeSource = prepareTreeSource(nodes);
+const treeSource = createTreeSource(nodes);
 const bindings = [{ binding: { kind: 'key', key: 'enter' } as const, label: 'Open' }];
 
 surface(column([
   text({ content: 'Explorer', textRole: 'heading' }),
   tree({
     id: 'explorer-tree',
-    view: prepareTreeView(treeSource, treePresentation),
-    presentation: treePresentation,
+    view: createTreeView(treeSource, treeState),
+    state: treeState,
     onTransition: () => ignoreMessage()
   }),
   helpBar({ id: 'explorer-help', groups: [{ id: 'explorer', bindings }] })
@@ -451,12 +451,12 @@ does not paint a separate rectangle behind every text run. Set a background on
 `styles.root` when the text area should instead own an opaque content plane.
 Gutter and active-line backgrounds cover their complete visual planes, and a
 non-empty `error` uses one trailing row when the allocation has room for it.
-Pass the text-area state as `presentation` and map `onAction` to an
-application message. The `TextAreaAction` union covers standard edits,
+Pass the text-area state as `state` and map `onTransition` to an
+application message. The `TextAreaTransition` union covers standard edits,
 grapheme-aware pointer selection, and scrolling; `textAreaReducer()` provides
-the next state and the exact UTF-16 `TextChangeSet` for each action. Initialize that state with
-`createTextAreaState()` and retain it in application state. Its prepared text
-document keeps line, grapheme, wrapping, cursor, and pointer projections stable
+the next state and the exact UTF-16 `TextChangeSet` for each transition. Initialize that state with
+`createTextAreaState()` and retain it in application state. Its retained text
+document keeps line, grapheme, wrapping, cursor, and pointer mappings stable
 across selection and scroll updates; replacing it inside `view()` discards that
 work. Explicit local `keys` may override generated bindings.
 

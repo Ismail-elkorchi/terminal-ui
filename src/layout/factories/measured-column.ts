@@ -1,7 +1,7 @@
 import type {
   MeasuredWindow,
   MeasuredWindowEntry
-} from '../../ui-model/measured-window.ts';
+} from '../../collection/measured-window.ts';
 import type {
   Element,
   ElementMessage
@@ -12,9 +12,9 @@ import {
   layoutElementFromRenderNode,
   optionalRenderNodeId,
   toRenderNode
-} from '../../renderer/model/element.ts';
-import { renderNodeMeta } from '../../renderer/model/metadata.ts';
-import { isMeasuredWindow } from '../../behavior/measured-window.ts';
+} from '../../renderer/internal/render-tree/element.ts';
+import { renderNodeMeta } from '../../renderer/internal/render-tree/metadata.ts';
+import { isMeasuredWindow } from '../../collection/measured-window-operations.ts';
 import { viewport } from './viewport.ts';
 
 /** @beta */
@@ -72,7 +72,7 @@ export function measuredItemViewport<const TElement extends Element<unknown>>(
 }
 
 /**
- * Projects a prepared measured window into a passive, controlled virtual
+ * Projects a measured window into a passive, controlled virtual
  * viewport without adding collection selection or activation semantics.
  *
  * @beta

@@ -114,7 +114,7 @@ test('dataGrid clipping keeps multi-span cell styles instead of flattening to pl
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'styled-dataGrid',
-    presentation: {
+    state: {
       interaction: {
         kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
       }
@@ -156,7 +156,7 @@ test('dataGrid horizontal scrolling keeps span styles after clipped cells are sh
   const frame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'scrolled-styled-dataGrid',
-    presentation: {
+    state: {
       interaction: {
         kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
       },

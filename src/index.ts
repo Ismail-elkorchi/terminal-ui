@@ -17,10 +17,12 @@ export type { JsonPrimitive, JsonValue } from './foundation/json.ts';
 export { mergeElementStyles } from './element/styles.ts';
 export { mergeTerminalStyles } from './visual/terminal-style.ts';
 export type { ElementStyles, ElementVisualState } from './element/metadata.ts';
-export type { TerminalColor, TerminalStyle } from './visual/render.ts';
+export type { TerminalColor, TerminalStyle } from './visual/render-content.ts';
 export { TerminalUiError } from './errors.ts';
 export { failure, success } from './result.ts';
 export type { Result } from './result.ts';
+
+export * as collection from './collection/index.ts';
 
 export { createTerminalHost } from './host/index.ts';
 export type {
@@ -65,8 +67,8 @@ export type {
   RasterPixelFormat,
   TerminalGraphicsMode,
 } from './graphics/index.ts';
-export { prepareCommandSuggestions } from './behavior/command-input-state.ts';
-export { tableColumn } from './ui-model/content.ts';
+export { createCommandSuggestions } from './behavior/command-input-operations.ts';
+export { tableColumn } from './components/table-column.ts';
 export type * from './components/index.ts';
 export {
   absolute,
@@ -112,7 +114,7 @@ export type {
   ResponsiveVariants,
   RowOptions,
   ScrollableViewportOptions,
-  SplitPaneAction,
+  SplitPaneTransition,
   SplitPaneOptions,
   SurfaceOptions,
   StructuralElementOptions,

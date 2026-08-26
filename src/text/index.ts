@@ -20,11 +20,11 @@ export {
   assertTextDocument,
   isTextDocument,
   normalizeTextDocumentOffset,
+  normalizeTextDocumentRange,
   normalizeTextDocumentSelection,
-  normalizeTextDocumentSelectionModel,
   normalizeTextCaret,
   normalizeTextPosition,
-  prepareTextDocument,
+  createTextDocument,
   textDocumentEdit,
   textDocumentBytes,
   textDocumentLength,
@@ -48,16 +48,16 @@ export { findTextHighlightMatches } from './search-highlight.ts';
 export {
   compareCollectionText,
   matchCollectionQuery,
-  matchPreparedCollectionQuery,
-  prepareCollectionQuery,
-  prepareQueryCandidate,
+  matchCompiledCollectionQuery,
+  compileCollectionQuery,
+  indexQueryCandidate,
   queryCandidates,
-  queryPreparedCandidates,
+  queryIndexedCandidates,
 } from './query.ts';
 export type {
   CollectionQuery,
-  PreparedCollectionQuery,
-  PreparedQueryCandidate,
+  CompiledCollectionQuery,
+  IndexedQueryCandidate,
   QueryCandidate,
   QueryMatch,
   QueryMatchMode,
@@ -71,7 +71,7 @@ export {
   previousGraphemeBoundary,
   replaceTextRange,
   selectedText
-} from './selection-model.ts';
+} from './text-range.ts';
 export { createTerminalTextIndex } from './terminal-text-index.ts';
 export { createRowOffsetMap } from './row-offset-map.ts';
 export { terminalTextWidth } from './terminal-width.ts';

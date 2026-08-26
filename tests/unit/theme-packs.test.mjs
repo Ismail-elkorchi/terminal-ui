@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createScrollState, prepareCommandSuggestions, prepareLogHistory } from '../../dist/behavior/index.js';
+import { createScrollState, createCommandSuggestions, createLogHistory } from '../../dist/behavior/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
@@ -151,7 +151,7 @@ test('theme matrix snapshots cover core components with packs high contrast and 
           value: (row) => Array.isArray(row) ? row[0] : row, id: 'key', header: 'Key' }, {
           value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'value', header: 'Value' }],
         rows: [{ key: 'focus', value: 'visible' }],
-        presentation: {
+        state: {
           interaction: {
             kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
           }
@@ -177,7 +177,7 @@ test('default theme specimen composes surface control text command log and data 
     }),
     tabs({ meta: { accessibleName: "Tabs" },
       id: 'specimen-tabs',
-      presentation: { activeId: 'one', selectedId: 'one' },
+      state: { activeId: 'one', selectedId: 'one' },
       tabs: [
         { id: 'one', label: 'tab one', badge: '3', panel: text({ content: 'First panel' }) },
         { id: 'two', label: 'tab two', panel: text({ content: 'Second panel' }) }
@@ -188,14 +188,14 @@ test('default theme specimen composes surface control text command log and data 
       id: 'specimen-button',
       label: 'Primary',
       tone: 'primary',
-      onAction: () => ignoreMessage()
+      onPress: () => ignoreMessage()
     }),
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'specimen-command',
-      presentation: {
+      view: {
         input: { text: '/open readme', cursor: 0 },
         open: true,
-        suggestions: prepareCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 12 }, text: '/open' }, label: 'Open File' }]),
+        suggestions: createCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 12 }, text: '/open' }, label: 'Open File' }]),
         activeSuggestionId: 'open'
       },
       display: 'expanded',
@@ -203,13 +203,13 @@ test('default theme specimen composes surface control text command log and data 
     }),
     logViewer({
       id: 'specimen-log',
-      history: prepareLogHistory([
+      history: createLogHistory([
         { id: 'info', level: 'info', text: 'Ready' },
         { id: 'warn', level: 'warning', text: 'High memory' },
         { id: 'err', level: 'error', text: 'Failed request' }
       ]),
       scroll: createScrollState({ offsetRow: 0 }),
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     progressBar({ id: 'specimen-progress', mode: { kind: 'determinate', value: 72 }, label: 'coverage' }),
     chart({
@@ -244,7 +244,7 @@ test('default theme specimen composes surface control text command log and data 
     dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'specimen-dataGrid',
-      presentation: {
+      state: {
         interaction: {
           kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
         }

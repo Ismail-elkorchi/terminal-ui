@@ -1,8 +1,8 @@
 import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
 import type { ElementStyles, ElementVisualState } from './metadata.ts';
-import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
+import { decodeTerminalStyle } from '../visual/terminal-style.ts';
 import { mergeTerminalStyles } from '../visual/terminal-style.ts';
-import type { TerminalStyle } from '../visual/render.ts';
+import type { TerminalStyle } from '../visual/render-content.ts';
 
 const allVisualStates = new Set<Exclude<ElementVisualState, 'default'>>([
   'focused',
@@ -21,7 +21,7 @@ export interface ElementStyleContract {
   readonly states?: ReadonlySet<Exclude<ElementVisualState, 'default'>>;
 }
 
-export function adoptElementStyles(
+export function decodeElementStyles(
   value: unknown,
   contract: ElementStyleContract,
 ): ElementStyles<string, Exclude<ElementVisualState, 'default'>> {
@@ -89,7 +89,7 @@ function mergeStyleRecords<TPart extends string>(
 }
 
 function optionalStyle(value: unknown, subject: string): TerminalStyle | undefined {
-  return value === undefined ? undefined : normalizeTerminalStyle(value, subject);
+  return value === undefined ? undefined : decodeTerminalStyle(value, subject);
 }
 
 function styleMap(
@@ -103,7 +103,7 @@ function styleMap(
   if (unsupported !== undefined) throw new TypeError(`${subject} contains unknown field "${unsupported}".`);
   return Object.freeze(Object.fromEntries(Object.entries(value).map(([name, style]) => [
     name,
-    normalizeTerminalStyle(style, `${subject}.${name}`),
+    decodeTerminalStyle(style, `${subject}.${name}`),
   ])));
 }
 

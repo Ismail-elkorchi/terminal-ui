@@ -1,8 +1,8 @@
 /** Passive collections and interaction-managed collection controls. */
 export { list, listView } from './factories/collections.ts';
-export { listbox } from './factories/list.ts';
-export { dataGrid, table, tree } from './factories/data-components.ts';
-export { pagination } from './factories/data.ts';
+export { listbox } from './factories/listbox.ts';
+export { dataGrid, table, tree } from './factories/structured-collections.ts';
+export { pagination } from './factories/pagination.ts';
 export { tabs } from './factories/tabs.ts';
 export type * from './options/collections.ts';
 export type {
@@ -19,9 +19,9 @@ export type {
   UnscrolledDataGridOptions,
   UnscrolledTreeOptions,
   UnscrolledTableOptions,
-} from './options/content.ts';
+} from './options/content-and-collections.ts';
 export type * from './options/tabs.ts';
-export { tableColumn } from '../ui-model/content.ts';
+export { tableColumn } from './table-column.ts';
 export type {
   TableCellRenderInput,
   TableColumn,
@@ -30,54 +30,62 @@ export type {
   TableColumnDefinition,
   TableColumnSemantic,
   TableColumnWidth,
-  TableRenderedColumn,
+  TableCustomColumn,
   TableValueColumn,
-} from '../ui-model/content.ts';
-export type * from '../ui-model/semantic-list.ts';
+} from './table-column.ts';
+export type * from './list-item.ts';
+export type {
+  ListViewActivateEvent,
+  ListViewControlTransition,
+  ListViewState,
+  ListViewTransition,
+  ScrollableListViewState,
+  UnscrolledListViewState,
+} from '../behavior/list-view.ts';
 export type {
   ListboxActivateEvent,
   ListboxCollection,
-  ListboxCollectionRecord,
+  ListboxCollectionItem,
   ListboxControlTransition,
   ListboxOption,
-  ListboxOptionProjector,
-  ListboxPresentation,
-  ScrollableListboxPresentation,
+  ListboxOptionMapper,
+  ListboxState,
+  ScrollableListboxState,
   ListboxTransition,
-  UnscrolledListboxPresentation,
-} from '../ui-model/list.ts';
+  UnscrolledListboxState,
+} from '../behavior/listbox.ts';
 export type {
   CompleteTableCollection,
   DataGridActivateEvent,
   DataGridCell,
   DataGridControlTransition,
   DataGridInteraction,
-  DataGridPresentation,
-  ScrollableDataGridPresentation,
+  DataGridState,
+  ScrollableDataGridState,
   DataGridTransition,
   TableCollection,
-  TableCollectionRecord,
-  TablePresentation,
+  TableCollectionRow,
+  TableState,
   TableSortDirection,
   TableSortState,
-  UnscrolledDataGridPresentation,
+  UnscrolledDataGridState,
   WindowedTableCollection,
-} from '../ui-model/table.ts';
+} from '../behavior/table.ts';
 export type {
-  PreparedTreeSource,
-  PreparedTreeView,
-  ScrollableTreePresentation,
+  TreeSource,
+  TreeView,
+  ScrollableTreeState,
   TreeActivateEvent,
   TreeCollection,
-  TreeCollectionRecord,
+  TreeCollectionRow,
   TreeControlTransition,
   TreeDisclosureTransition,
-  TreeLoadState,
+  TreeLoadStatus,
   TreeNode,
-  TreePresentation,
+  TreeState,
   TreeTransition,
   TreeVisibleRow,
-  UnscrolledTreePresentation,
-} from '../ui-model/tree.ts';
-export type { PaginationAction } from '../ui-model/pagination.ts';
-export type { TabCloseEvent, TabsActivation, TabsPresentation, TabsTransition } from '../ui-model/tabs.ts';
+  UnscrolledTreeState,
+} from '../behavior/tree.ts';
+export type { PaginationTransition } from '../behavior/pagination.ts';
+export type { TabCloseEvent, TabsActivation, TabsState, TabsTransition } from '../behavior/tabs.ts';

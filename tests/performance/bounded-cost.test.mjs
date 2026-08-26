@@ -14,9 +14,9 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
+import { createCommandSuggestions } from '../../dist/behavior/index.js';
 import { dirtyRegionsForRegionChanges } from '../../dist/renderer/internal/dirty-regions.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { createTextAreaProjection } from '../../dist/components/internal/text-area-projection.js';
 import {
   button,
@@ -40,27 +40,29 @@ import { column, overlay } from '../../dist/layout/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import {
   defaultTextWidthProfile,
-  prepareTextDocument,
+  createTextDocument,
   textCaretAt,
   textDocumentEdit,
 } from '../../dist/text/index.js';
 import {
   appendLogHistory,
-  appendMeasuredItems,
   createScrollState,
   listboxReducer,
-  measuredWindow,
-  prepareSearchPickerIndex,
-  prepareLogHistory,
-  prepareListboxCollection,
-  prepareMeasuredCollection,
-  prepareTableCollection,
-  prepareTreeSource,
-  prepareTreeView,
-  replaceMeasuredItem,
+  createSearchPickerIndex,
+  createLogHistory,
+  createListboxCollection,
+  createTableCollection,
+  createTreeSource,
+  createTreeView,
   dataGridReducer,
   treeReducer
 } from '../../dist/behavior/index.js';
+import {
+  appendMeasuredItems,
+  createMeasuredCollection,
+  measuredWindow,
+  replaceMeasuredItem,
+} from '../../dist/collection/index.js';
 import {
   createTerminalTextIndex,
   editTextBuffer
@@ -69,9 +71,9 @@ import { waitUntil } from '../helpers/async.ts';
 
 const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
 
-test('prepared measured collection work is bounded by changes and the visible window', { timeout: 10_000 }, () => {
+test('retained measured collection work is bounded by changes and the visible window', { timeout: 10_000 }, () => {
   const itemCount = 100_000;
-  let collection = prepareMeasuredCollection(Array.from({ length: itemCount }, (_value, index) => ({
+  let collection = createMeasuredCollection(Array.from({ length: itemCount }, (_value, index) => ({
     id: `measured-${String(index)}`,
     value: index,
     rows: (index % 5) + 1
@@ -98,35 +100,35 @@ test('prepared measured collection work is bounded by changes and the visible wi
   assert.equal(collection.itemCount, itemCount + 1);
 });
 
-test('listView projects and renders only its clipped measured window', () => {
-  const collection = prepareMeasuredCollection(Array.from({ length: 100_000 }, (_value, index) => ({
+test('listView renders only its clipped measured window', () => {
+  const collection = createMeasuredCollection(Array.from({ length: 100_000 }, (_value, index) => ({
     id: `row-${String(index)}`,
     value: `Row ${String(index)}`,
     rows: 3
   })));
   const window = measuredWindow(collection, { viewportRows: 12, offsetRow: 150_001 });
-  let projections = 0;
+  let renderedItems = 0;
   const frame = renderElementFrame(listView({
     id: 'large-measured-list',
     window,
     renderItem: (item) => {
-      projections += 1;
+      renderedItems += 1;
       return { content: text({ content: `${item.value}\n${item.value}\n${item.value}` }) };
     },
-    presentation: {
+    state: {
       selection: { mode: 'none' },
       scroll: createScrollState({ offsetRow: window.offsetRow })
     },
     onTransition: () => ignoreMessage()
   }), { columns: 32, rows: 12 });
 
-  assert.equal(projections, window.entries.length);
-  assert.equal(projections <= 5, true);
-  assert.equal(frame.accessibility.root.children?.length, projections);
+  assert.equal(renderedItems, window.entries.length);
+  assert.equal(renderedItems <= 5, true);
+  assert.equal(frame.accessibility.root.children?.length, renderedItems);
   assert.ok(frame.cells.length <= frame.width * frame.height);
 });
 
-test('prepared word boundaries keep large multilingual lookups bounded', { timeout: 10_000 }, () => {
+test('retained word-boundary index keep large multilingual lookups bounded', { timeout: 10_000 }, () => {
   const manyShortWords = `${'a '.repeat(50_000)}終`;
   const cjk = '你好世界'.repeat(25_000);
   const combining = 'e\u0301lan '.repeat(16_667);
@@ -172,8 +174,8 @@ test('large listbox rendering is bounded by terminal size, not collection size',
     id: 'large-listbox',
     meta: { accessibleName: 'Large list' },
     items,
-    projectItem: (item) => ({ id: item, label: item }),
-    presentation: {
+    toOption: (item) => ({ id: item, label: item }),
+    state: {
       activeId: 'Item 40000',
       selection: { mode: 'single', selectedId: 'Item 40000' }
     },
@@ -188,28 +190,28 @@ test('large listbox rendering is bounded by terminal size, not collection size',
   assert.equal(frame.accessibility.root.description, 'Showing 39996-40005 of 50000 items.');
 });
 
-test('prepared listbox collections retain item preparation across renders and actions', () => {
-  let projectorCalls = 0;
+test('retained listbox collections retain item decoding across renders and actions', () => {
+  let mapperCalls = 0;
   const values = Array.from({ length: 50_000 }, (_value, index) => `Item ${String(index)}`);
-  const collection = prepareListboxCollection(values, (value, index) => {
-    projectorCalls += 1;
+  const collection = createListboxCollection(values, (value, index) => {
+    mapperCalls += 1;
     return { id: String(index), label: value };
   });
 
-  assert.equal(projectorCalls, values.length);
-  projectorCalls = 0;
+  assert.equal(mapperCalls, values.length);
+  mapperCalls = 0;
   renderElementFrame(listbox({
     id: 'retained-listbox',
     meta: { accessibleName: 'Retained list' },
     collection,
-    presentation: { activeId: '25000', selection: { mode: 'single', selectedId: '25000' } },
+    state: { activeId: '25000', selection: { mode: 'single', selectedId: '25000' } },
     onTransition: () => ignoreMessage()
   }), { columns: 32, rows: 10 });
   renderElementFrame(listbox({
     id: 'retained-listbox',
     meta: { accessibleName: 'Retained list' },
     collection,
-    presentation: { activeId: '25001', selection: { mode: 'single', selectedId: '25001' } },
+    state: { activeId: '25001', selection: { mode: 'single', selectedId: '25001' } },
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 12 });
   const state = listboxReducer(
@@ -219,36 +221,36 @@ test('prepared listbox collections retain item preparation across renders and ac
   );
 
   assert.equal(state.activeId, '25001');
-  assert.equal(projectorCalls, 0);
+  assert.equal(mapperCalls, 0);
 });
 
-test('windowed listbox collections project only supplied rows while preserving global scope', () => {
-  let projectorCalls = 0;
+test('windowed listbox collections map only supplied rows while preserving global scope', () => {
+  let mapperCalls = 0;
   const start = 40_000;
   const values = Array.from({ length: 10 }, (_value, offset) => `Item ${String(start + offset)}`);
-  const collection = prepareListboxCollection(values, (value, index) => {
-    projectorCalls += 1;
+  const collection = createListboxCollection(values, (value, index) => {
+    mapperCalls += 1;
     return { id: String(index), label: value };
-  }, { startIndex: start, totalCount: 50_000, domain: { kind: 'source' } });
+  }, { startIndex: start, totalCount: 50_000, scope: { kind: 'source' } });
   const frame = renderElementFrame(listbox({
     id: 'windowed-listbox',
     meta: { accessibleName: 'Windowed list' },
     collection,
-    presentation: {
+    state: {
       activeId: '40004',
       selection: { mode: 'single', selectedId: '40004' }
     },
     onTransition: () => ignoreMessage()
   }), { columns: 32, rows: 5 });
 
-  assert.equal(projectorCalls, 10);
+  assert.equal(mapperCalls, 10);
   assert.match(renderFramePlain(frame), /Item 40004/u);
   assert.equal(frame.accessibility.root.description, 'Showing 40003-40007 of 50000 items.');
 });
 
 test('command suggestions retain only a supplied window while preserving global accessibility', () => {
   const start = 40_000;
-  const suggestions = prepareCommandSuggestions(
+  const suggestions = createCommandSuggestions(
     Array.from({ length: 8 }, (_value, offset) => ({
       id: `command-${String(start + offset)}`,
       label: `Command ${String(start + offset)}`,
@@ -257,14 +259,14 @@ test('command suggestions retain only a supplied window while preserving global 
         text: `command-${String(start + offset)}`
       },
     })),
-    { startIndex: start, totalCount: 100_000, domain: { kind: 'source' } },
+    { startIndex: start, totalCount: 100_000, scope: { kind: 'source' } },
   );
   const frame = renderElementFrame(commandInput({
     id: 'windowed-command',
     meta: { accessibleName: 'Command' },
     display: 'expanded',
     maxVisibleSuggestions: 8,
-    presentation: {
+    view: {
       input: { text: '', cursor: 0 },
       open: true,
       suggestions,
@@ -287,7 +289,7 @@ test('command suggestions retain only a supplied window while preserving global 
 
 test('large log viewer rendering is bounded by terminal size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
-  const history = prepareLogHistory(items);
+  const history = createLogHistory(items);
   const frame = renderElementFrame(logViewer({ id: 'large-log-viewer', history }), { columns: 48, rows: 12 });
   const output = renderFramePlain(frame);
 
@@ -298,7 +300,7 @@ test('large log viewer rendering is bounded by terminal size, not collection siz
   assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 log rows. Omitted before: 99988. Omitted after: 0. Follow tail: true.');
 });
 
-test('prepared log history pays source normalization once and rendering does not reread entries', () => {
+test('retained log history pays source normalization once and rendering does not reread entries', () => {
   let textReads = 0;
   const items = Array.from({ length: 20_000 }, (_value, index) => ({
     id: `line-${String(index)}`,
@@ -308,7 +310,7 @@ test('prepared log history pays source normalization once and rendering does not
     }
   }));
 
-  const history = prepareLogHistory(items);
+  const history = createLogHistory(items);
   assert.equal(textReads, items.length);
   textReads = 0;
   renderElementFrame(logViewer({ id: 'bounded-history', history }), { columns: 48, rows: 12 });
@@ -321,14 +323,14 @@ test('small local frame updates produce bounded render diffs', () => {
   const previous = renderElementFrame(textInput({
     id: 'field',
     meta: { accessibleName: 'Field' },
-    presentation: { value: 'alpha', cursor: 0 },
-    onAction: () => ignoreMessage()
+    state: { value: 'alpha', cursor: 0 },
+    onTransition: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
   const next = renderElementFrame(textInput({
     id: 'field',
     meta: { accessibleName: 'Field' },
-    presentation: { value: 'alpha!', cursor: 0 },
-    onAction: () => ignoreMessage()
+    state: { value: 'alpha!', cursor: 0 },
+    onTransition: () => ignoreMessage()
   }), { columns: 24, rows: 3 });
   const diff = diffFrames(previous, next);
 
@@ -370,7 +372,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
       id: 'search',
       meta: { accessibleName: 'Search' },
       prompt: '?',
-      presentation: { input: { text: 'fil', cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([
+      view: { input: { text: 'fil', cursor: 0 }, open: true, suggestions: createCommandSuggestions([
         { id: 'file', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'file' }, label: 'file' },
         { id: 'filter', completion: { range: { startOffset: 0, endOffsetExclusive: 3 }, text: 'filter' }, label: 'filter' }
       ]), activeSuggestionId: 'file' },
@@ -390,7 +392,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
     }),
     logViewer({
       id: 'events',
-      history: prepareLogHistory(Array.from({ length: 1_000 }, (_value, index) => ({ id: `event-${index}`, text: `Event ${index}` })))
+      history: createLogHistory(Array.from({ length: 1_000 }, (_value, index) => ({ id: `event-${index}`, text: `Event ${index}` })))
     })
   ]), { columns: 60, rows: 16 });
 
@@ -417,7 +419,7 @@ test('style-only diffs are incremental and preserve visual dimensions', () => {
 
 test('append-heavy log viewer diffs stay bounded by visible rows', () => {
   const beforeItems = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
-  const beforeHistory = prepareLogHistory(beforeItems);
+  const beforeHistory = createLogHistory(beforeItems);
   const afterHistory = appendLogHistory(beforeHistory, [{ id: 'line-100000', text: 'Line 100000' }]);
   const previous = renderElementFrame(logViewer({ id: 'append-log', history: beforeHistory }), { columns: 48, rows: 8 });
   const next = renderElementFrame(logViewer({ id: 'append-log', history: afterHistory }), { columns: 48, rows: 8 });
@@ -434,7 +436,7 @@ test('large dataGrid rendering is bounded by terminal size independently from ro
     getRowId: (_row, index) => String(index),
     id: 'large-dataGrid',
     meta: { accessibleName: 'Large data grid' },
-    presentation: {
+    state: {
       interaction: {
         kind: 'cell',
         activeCell: { rowId: '42000', columnId: 'score-1' },
@@ -461,10 +463,10 @@ test('large dataGrid rendering is bounded by terminal size independently from ro
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 12, true);
 });
 
-test('prepared dataGrid collections retain row identity across renders and reducer actions', () => {
+test('retained dataGrid collections retain row identity across renders and reducer actions', () => {
   let rowIdCalls = 0;
   const rows = Array.from({ length: 100_000 }, (_value, index) => ({ name: `Row ${String(index)}` }));
-  const collection = prepareTableCollection(rows, (_row, index) => {
+  const collection = createTableCollection(rows, (_row, index) => {
     rowIdCalls += 1;
     return String(index);
   });
@@ -477,7 +479,7 @@ test('prepared dataGrid collections retain row identity across renders and reduc
     meta: { accessibleName: 'Retained data grid' },
     collection,
     columns,
-    presentation: {
+    state: {
       interaction: {
         kind: 'row', activeRowId: '50000', selection: { mode: 'single', selectedRowId: '50000' },
       }
@@ -489,7 +491,7 @@ test('prepared dataGrid collections retain row identity across renders and reduc
     meta: { accessibleName: 'Retained data grid' },
     collection,
     columns,
-    presentation: {
+    state: {
       interaction: {
         kind: 'row', activeRowId: '50001', selection: { mode: 'single', selectedRowId: '50001' },
       }
@@ -508,20 +510,20 @@ test('prepared dataGrid collections retain row identity across renders and reduc
   assert.equal(rowIdCalls, 0);
 });
 
-test('windowed dataGrid collections identify only supplied records and keep global row positions', () => {
+test('windowed dataGrid collections identify only supplied items and keep global row positions', () => {
   let rowIdCalls = 0;
   const start = 70_000;
   const rows = Array.from({ length: 12 }, (_value, offset) => ({ name: `Row ${String(start + offset)}` }));
-  const collection = prepareTableCollection(rows, (_row, index) => {
+  const collection = createTableCollection(rows, (_row, index) => {
     rowIdCalls += 1;
     return String(index);
-  }, { startIndex: start, totalCount: 100_000, domain: { kind: 'source' } });
+  }, { startIndex: start, totalCount: 100_000, scope: { kind: 'source' } });
   const frame = renderElementFrame(dataGrid({
     id: 'windowed-dataGrid',
     meta: { accessibleName: 'Windowed data grid' },
     collection,
     columns: [{ id: 'name', header: 'Name', value: (row) => row.name, width: { kind: 'fill' } }],
-    presentation: {
+    state: {
       interaction: {
         kind: 'row', activeRowId: '70005', selection: { mode: 'single', selectedRowId: '70005' },
       }
@@ -551,7 +553,7 @@ test('fill-width tables evaluate each visible row once without scanning offscree
         return row.name;
       }
     }],
-    presentation: {
+    state: {
       interaction: {
         kind: 'row', activeRowId: '10000', selection: { mode: 'single', selectedRowId: '10000' },
       }
@@ -570,7 +572,7 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
     getRowId: (_row, index) => String(index),
     id: 'large-dataGrid-damage',
     meta: { accessibleName: 'Damage data grid' },
-    presentation: {
+    state: {
       interaction: {
         kind: 'cell',
         activeCell: { rowId: '12000', columnId: 'score-1' },
@@ -594,7 +596,7 @@ test('large dataGrid retained damage is narrowed to changed visible rows', () =>
     getRowId: (_row, index) => String(index),
     id: 'large-dataGrid-damage',
     meta: { accessibleName: 'Damage data grid' },
-    presentation: {
+    state: {
       interaction: {
         kind: 'cell',
         activeCell: { rowId: '12000', columnId: 'notes-2' },
@@ -724,17 +726,17 @@ test('large tree rendering is bounded by terminal size independently from node c
     kind: 'branch',
     children: Array.from({ length: 50_000 }, (_value, index) => ({ id: `node-${index}`, label: `Node ${index}`, kind: 'leaf' }))
   }];
-  const presentation = {
+  const treeState = {
     activeId: 'node-40000',
     selection: { mode: 'single', selectedId: 'node-40000' },
     expandedIds: ['root']
   };
-  const source = prepareTreeSource(nodes);
+  const source = createTreeSource(nodes);
   const frame = renderElementFrame(tree({
     id: 'large-tree',
     meta: { accessibleName: 'Large tree' },
-    view: prepareTreeView(source, presentation),
-    presentation,
+    view: createTreeView(source, treeState),
+    state: treeState,
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
 
@@ -744,7 +746,7 @@ test('large tree rendering is bounded by terminal size independently from node c
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 10, true);
 });
 
-test('prepared tree collections avoid recursive flattening on rerender and movement', () => {
+test('retained tree collections avoid recursive flattening on rerender and movement', () => {
   let nodeIdReads = 0;
   const children = Array.from({ length: 50_000 }, (_value, index) => {
     const id = `node-${String(index)}`;
@@ -763,8 +765,8 @@ test('prepared tree collections avoid recursive flattening on rerender and movem
     selection: { mode: 'single', selectedId: 'node-25000' },
     expandedIds: ['root']
   };
-  const source = prepareTreeSource(nodes);
-  const view = prepareTreeView(source, initial);
+  const source = createTreeSource(nodes);
+  const view = createTreeView(source, initial);
 
   assert.ok(nodeIdReads >= children.length);
   nodeIdReads = 0;
@@ -772,14 +774,14 @@ test('prepared tree collections avoid recursive flattening on rerender and movem
     id: 'retained-tree',
     meta: { accessibleName: 'Retained tree' },
     view,
-    presentation: initial,
+    state: initial,
     onTransition: () => ignoreMessage()
   }), { columns: 40, rows: 10 });
   renderElementFrame(tree({
     id: 'retained-tree',
     meta: { accessibleName: 'Retained tree' },
     view,
-    presentation: {
+    state: {
       activeId: 'node-25001',
       selection: { mode: 'single', selectedId: 'node-25001' },
       expandedIds: ['root']
@@ -794,17 +796,17 @@ test('prepared tree collections avoid recursive flattening on rerender and movem
   assert.ok(nodeIdReads < 500, `expected terminal-size-bounded node reads, received ${String(nodeIdReads)}`);
 });
 
-test('prepared collections snapshot source membership instead of retaining mutable arrays', () => {
+test('collection snapshots copy source membership instead of retaining mutable arrays', () => {
   const values = ['alpha', 'bravo'];
   const rows = [{ name: 'alpha' }, { name: 'bravo' }];
-  const listCollection = prepareListboxCollection(values, (value) => ({ id: value, label: value }));
-  const tableCollection = prepareTableCollection(rows, (row) => row.name);
+  const listCollection = createListboxCollection(values, (value) => ({ id: value, label: value }));
+  const tableCollection = createTableCollection(rows, (row) => row.name);
 
   values.splice(0, values.length, 'changed');
   rows.splice(0, rows.length, { name: 'changed' });
 
-  assert.deepEqual(listCollection.records.map((record) => record.id), ['alpha', 'bravo']);
-  assert.deepEqual(tableCollection.records.map((record) => record.id), ['alpha', 'bravo']);
+  assert.deepEqual(listCollection.items.map((item) => item.id), ['alpha', 'bravo']);
+  assert.deepEqual(tableCollection.items.map((item) => item.id), ['alpha', 'bravo']);
 });
 
 test('searchPicker filtering returns bounded windows for large entry sets', () => {
@@ -817,13 +819,13 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
   const frame = renderElementFrame(searchPicker({
     id: 'large-searchPicker',
     meta: { accessibleName: 'Large search' },
-    presentation: {
+    view: {
       input: { text: '19999', cursor: 5 },
       query: { mode: 'fuzzy' },
       activeId: 'entry-19999'
     },
     maxVisible: 5,
-    searchPickerIndex: prepareSearchPickerIndex(entries),
+    searchPickerIndex: createSearchPickerIndex(entries),
     onTransition: (transition) => transition
   }), { columns: 48, rows: 8 });
 
@@ -832,7 +834,7 @@ test('searchPicker filtering returns bounded windows for large entry sets', () =
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 5, true);
 });
 
-test('form navigation over many controls records one bounded frame per input', async () => {
+test('form navigation over many controls items one bounded frame per input', async () => {
   const app = defineTui({
     id: 'large-form-navigation',
     init: () => ({ state: ({ active: 'editing' }) }),
@@ -841,12 +843,11 @@ test('form navigation over many controls records one bounded frame per input', a
       ...Array.from({ length: 25 }, (_value, index) => textInput({
         id: `field-${index}`,
         meta: { accessibleName: `Field ${String(index + 1)}` },
-        presentation: { value: state.active, cursor: 0 },
-        onAction: (action) => action.kind === 'submit'
-          ? { kind: `field-${index}` }
-          : ignoreMessage()
+        state: { value: state.active, cursor: 0 },
+        onTransition: () => ignoreMessage(),
+        onSubmit: () => ({ kind: `field-${index}` })
       })),
-      button({ id: 'done', label: 'Done', onAction: () => ({ kind: 'done' }) })
+      button({ id: 'done', label: 'Done', onPress: () => ({ kind: 'done' }) })
     ] }, id: 'many-fields', title: 'Many fields' })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 32, rows: 12 } });
@@ -941,7 +942,7 @@ test('text area projection cost remains subquadratic for large decoration sets',
   }));
   const started = performance.now();
   const projection = createTextAreaProjection(
-    prepareTextDocument(source),
+    createTextDocument(source),
     decorations,
     defaultTextWidthProfile,
   );
@@ -953,7 +954,7 @@ test('text area projection cost remains subquadratic for large decoration sets',
 
   const graphemeCount = 4_000;
   const complexSource = 'e\u0301'.repeat(graphemeCount);
-  const complexDocument = prepareTextDocument(complexSource);
+  const complexDocument = createTextDocument(complexSource);
   const complexDecorations = Array.from({ length: graphemeCount }, (_value, index) => ({
     kind: 'style',
     startOffset: index * 2,
@@ -965,9 +966,9 @@ test('text area projection cost remains subquadratic for large decoration sets',
   renderElementFrame(textArea({
     id: 'decorated-performance-editor',
     meta: { accessibleName: 'Decorated performance editor' },
-    presentation: { document: complexDocument, caret: textCaretAt(0) },
+    state: { document: complexDocument, caret: textCaretAt(0) },
     decorations: complexDecorations,
-    onAction: ignoreMessage,
+    onTransition: ignoreMessage,
   }), { columns: 80, rows: 2 });
   const componentDurationMs = performance.now() - componentStarted;
   assert.ok(componentDurationMs < 4_000, `component projection took ${componentDurationMs.toFixed(1)}ms`);
@@ -978,12 +979,12 @@ test('large text area edits retain line geometry instead of rebuilding the docum
     { length: 20_000 },
     (_value, index) => `line ${String(index).padStart(5, '0')} ${'x'.repeat(25)}`,
   ).join('\n');
-  let document = prepareTextDocument(source);
+  let document = createTextDocument(source);
   const element = () => textArea({
     id: 'incremental-large-editor',
     meta: { accessibleName: 'Incremental large editor' },
-    presentation: { document, caret: textCaretAt(0) },
-    onAction: ignoreMessage,
+    state: { document, caret: textCaretAt(0) },
+    onTransition: ignoreMessage,
   });
 
   renderElementFrame(element(), { columns: 80, rows: 20 });

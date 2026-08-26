@@ -1,4 +1,4 @@
-import { adoptTerminalDiagnostic, diagnostic } from '../diagnostics.ts';
+import { decodeTerminalDiagnostic, diagnostic } from '../diagnostics.ts';
 import {
   findUnsupportedField,
   isNonArrayObject,
@@ -27,10 +27,10 @@ import type {
 const decodedAccessibleSnapshots = new WeakMap<object, AccessibleSnapshot>();
 
 export function decodeAccessibleSnapshot(snapshot: unknown): Result<AccessibleSnapshot> {
-  return adoptAccessibleSnapshot(snapshot, false);
+  return decodeAccessibleSnapshotWithPolicy(snapshot, false);
 }
 
-export function adoptAccessibleSnapshot(
+export function decodeAccessibleSnapshotWithPolicy(
   snapshot: unknown,
   sanitizeText: boolean
 ): Result<AccessibleSnapshot> {
@@ -77,7 +77,7 @@ export function adoptAccessibleSnapshot(
   const diagnostics = [];
   for (const [index, item] of (suppliedDiagnostics ?? []).entries()) {
     try {
-      diagnostics.push(adoptTerminalDiagnostic(item));
+      diagnostics.push(decodeTerminalDiagnostic(item));
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : String(cause);
       return failure(accessibilityFailure(`Invalid accessible snapshot diagnostic at index ${String(index)}: ${detail}`));

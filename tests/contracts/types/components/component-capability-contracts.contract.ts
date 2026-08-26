@@ -3,7 +3,7 @@ import {
   commandInput,
   contextMenu,
   label,
-  prepareCommandSuggestions,
+  createCommandSuggestions,
   text,
   textArea,
   textInput,
@@ -11,7 +11,7 @@ import {
   type MenuActionTone,
   type ValidationLevel
 } from '@ismail-elkorchi/terminal-ui/components';
-import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
+import { createTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
 
 const validationLevel: ValidationLevel = 'warning';
 const menuActionTone: MenuActionTone = 'destructive';
@@ -19,12 +19,12 @@ button({
   id: 'save',
   label: 'Save',
   tone: 'primary',
-  onAction: () => ({ kind: 'save' as const })
+  onPress: () => ({ kind: 'save' as const })
 });
 label({ id: 'query-label', forId: 'query', text: 'Query' });
 commandInput({
   id: 'command',
-  presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+  view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
   validation: { message: 'Choose a command', level: validationLevel },
   onTransition: (transition) => ({ kind: 'command' as const, transition }),
   onSubmit: (event) => ({ kind: 'submit' as const, value: event.value })
@@ -32,14 +32,14 @@ commandInput({
 // @ts-expect-error disabled editable controls cannot also declare read-only state
 commandInput({
   id: 'invalid-disabled-read-only-command',
-  presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+  view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
   disabled: true,
   readOnly: true
 });
-textInput<{ readonly kind: 'query'; readonly action: import('@ismail-elkorchi/terminal-ui/components').TextInputAction }>({
+textInput<{ readonly kind: 'query'; readonly action: import('@ismail-elkorchi/terminal-ui/components').TextInputTransition }>({
   id: 'query',
-  presentation: { value: 'term', cursor: 0 },
-  onAction: (action) => ({ kind: 'query' as const, action }),
+  state: { value: 'term', cursor: 0 },
+  onTransition: (action) => ({ kind: 'query' as const, action }),
   styles: {
       parts: { value: { bold: true }, cursor: { underline: true } },
       states: { focused: { root: { bold: true } } }
@@ -47,7 +47,7 @@ textInput<{ readonly kind: 'query'; readonly action: import('@ismail-elkorchi/te
 });
 contextMenu({
   id: 'invalid-read-only-menu',
-  presentation: { kind: 'closed' },
+  view: { kind: 'closed' },
   // @ts-expect-error command-only menus do not expose editable read-only semantics
   readOnly: true,
   onTransition: (transition) => transition
@@ -61,30 +61,30 @@ label({ forId: 'query', text: 'Query' });
 button({ id: 'disabled-button', label: 'Save', disabled: true });
 textArea({
   id: 'disabled-editor',
-  presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) },
+  state: { document: createTextDocument('locked'), caret: textCaretAt(0) },
   disabled: true
 });
 const invalidDisabledEditor: TextAreaOptions = {
   id: 'invalid-disabled-editor-options',
-  presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) },
+  state: { document: createTextDocument('locked'), caret: textCaretAt(0) },
   disabled: true,
   // @ts-expect-error disabled editor options cannot expose unreachable handlers
-  onAction: () => ({ kind: 'edit' })
+  onPress: () => ({ kind: 'edit' })
 };
 void invalidDisabledEditor;
 // @ts-expect-error disabled editors cannot expose unreachable handlers
 textArea({
   id: 'invalid-disabled-editor',
-  presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) },
+  state: { document: createTextDocument('locked'), caret: textCaretAt(0) },
   disabled: true,
-  onAction: () => ({ kind: 'edit' })
+  onTransition: () => ({ kind: 'edit' })
 });
 // @ts-expect-error passive text cannot own local input bindings
 text({ content: 'Passive', keys: { enter: () => ({ kind: 'invalid' }) } });
 textInput({
   id: 'invalid-style',
-  presentation: { value: '', cursor: 0 },
-  onAction: () => {
+  state: { value: '', cursor: 0 },
+  onTransition: () => {
     throw new Error('type-only contract');
   },
   styles: {
@@ -104,7 +104,7 @@ text({
 button({
   id: 'invalid-selected-button-style',
   label: 'Save',
-  onAction: () => ({ kind: 'save' as const }),
+  onPress: () => ({ kind: 'save' as const }),
   styles: {
     states: {
       // @ts-expect-error buttons do not expose collection selection styling

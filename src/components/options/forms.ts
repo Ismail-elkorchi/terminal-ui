@@ -3,38 +3,38 @@ import type { ComponentMessage, Element } from '../../component/index.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
-import type { ChoiceItem } from '../../ui-model/contracts.ts';
+import type { ChoiceItem } from '../../collection/item.ts';
 import type {
-  ButtonAction,
+  ButtonPressEvent,
   ButtonTone,
-  CheckboxAction,
-  ColorSwatchPickerOption,
-  NumericRange
-} from '../../ui-model/forms.ts';
-import type { SwitchAction } from '../../ui-model/forms.ts';
+  CheckboxTransition,
+  ColorSwatchPickerOption
+} from '../form-controls.ts';
+import type { SwitchTransition } from '../form-controls.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
-import type { ComponentDensity } from '../../ui-model/contracts.ts';
-import type { NumberInputControlAction, NumberInputPresentation } from '../../ui-model/number-input.ts';
-import type { TextInputAction, TextInputPresentation } from '../../ui-model/text-input.ts';
-import type { CalendarPresentation, CalendarTransition } from '../../ui-model/calendar.ts';
-import type { CollectionInteractionState } from '../../interaction/collection.ts';
+import type { ComponentDensity } from '../density.ts';
+import type { NumberInputControlTransition, NumberInputView } from '../../behavior/number-input.ts';
+import type { NumericRange } from '../../behavior/range-slider.ts';
+import type { TextInputSubmitEvent, TextInputTransition, TextInputState } from '../../behavior/text-input.ts';
+import type { CalendarView, CalendarControlTransition } from '../../behavior/calendar.ts';
+import type { CollectionInteractionState } from '../../interaction/collection-interaction.ts';
 import type {
-  CheckboxGroupTransition,
-  ColorSwatchPickerTransition,
-  RadioGroupTransition,
-} from '../../ui-model/choice-controls.ts';
-import type { RangeSliderAction, RangeSliderState } from '../../ui-model/range-slider.ts';
+  CheckboxGroupControlTransition,
+  ColorSwatchPickerControlTransition,
+  RadioGroupControlTransition,
+} from '../../behavior/choice-controls.ts';
+import type { RangeSliderTransition, RangeSliderState } from '../../behavior/range-slider.ts';
 import type {
   AutocompleteComboboxControlTransition,
-  AutocompleteComboboxPresentation,
+  AutocompleteComboboxView,
   AutocompleteComboboxTransition,
   ComboboxCommitEvent,
   ComboboxControlTransition,
-  ScrollableComboboxPresentation,
+  ScrollableComboboxState,
   ComboboxTransition,
-  UnscrolledComboboxPresentation,
-} from '../../ui-model/combobox.ts';
+  UnscrolledComboboxState,
+} from '../../behavior/combobox.ts';
 import type { ElementMeta } from '../../element/metadata.ts';
 import type {
   ButtonStylePart,
@@ -48,7 +48,7 @@ import type {
   SliderStylePart,
   TextEntryStylePart,
   ToggleStylePart
-} from '../../ui-model/style-parts.ts';
+} from '../style-parts.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
 
 export interface FormOptions<
@@ -57,7 +57,7 @@ export interface FormOptions<
   readonly id?: string;
   readonly title?: string;
   readonly slots: { readonly content: TContent };
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly styles?: import("../../element/metadata.ts").ElementStyles<'title'>;
   readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
@@ -98,15 +98,15 @@ type ButtonName =
   | { readonly label?: never; readonly accessibleName: string };
 
 export type ButtonOptions<
-  TActionMessage extends ComponentMessage = never,
+  TPressMessage extends ComponentMessage = never,
 > = ButtonOptionsBase & ButtonName & (
   | {
       readonly disabled: true;
-      readonly onAction?: never;
+      readonly onPress?: never;
     }
   | {
       readonly disabled?: false;
-      readonly onAction: (action: ButtonAction) => MessageResolution<TActionMessage>;
+      readonly onPress: (event: ButtonPressEvent) => MessageResolution<TPressMessage>;
     }
 );
 
@@ -125,12 +125,12 @@ export type CheckboxOptions<TMessage extends ComponentMessage = never> =
   | DisabledCheckboxOptions;
 
 export interface ActiveCheckboxOptions<TMessage extends ComponentMessage> extends CheckboxOptionsBase {
-  readonly onAction: (action: CheckboxAction) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: CheckboxTransition) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
 
 export type DisabledCheckboxOptions = CheckboxOptionsBase & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly disabled: true;
 };
 
@@ -150,12 +150,12 @@ export type SwitchOptions<TMessage extends ComponentMessage = never> =
   | DisabledSwitchOptions;
 
 export interface ActiveSwitchOptions<TMessage extends ComponentMessage> extends SwitchOptionsBase {
-  readonly onAction: (action: SwitchAction) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: SwitchTransition) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
 
 export type DisabledSwitchOptions = SwitchOptionsBase & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly disabled: true;
 };
 
@@ -177,12 +177,12 @@ export type SliderOptions<TMessage extends ComponentMessage = never> =
   | DisabledSliderOptions;
 
 export interface ActiveSliderOptions<TMessage extends ComponentMessage> extends SliderOptionsBase {
-  readonly onAction: (action: import('../../ui-model/forms.ts').SliderAction) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: import('../../components/form-controls.ts').SliderTransition) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
 
 export type DisabledSliderOptions = SliderOptionsBase & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly disabled: true;
 };
 
@@ -203,12 +203,12 @@ export type RangeSliderOptions<TMessage extends ComponentMessage = never> =
   | DisabledRangeSliderOptions;
 
 export interface ActiveRangeSliderOptions<TMessage extends ComponentMessage> extends RangeSliderOptionsBase {
-  readonly onAction: (action: RangeSliderAction) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: RangeSliderTransition) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
 
 export type DisabledRangeSliderOptions = RangeSliderOptionsBase & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly disabled: true;
 };
 
@@ -216,7 +216,7 @@ interface CheckboxGroupOptionsBase<TValue> {
   readonly id: string;
   readonly label: string;
   readonly options: readonly ChoiceItem<TValue>[];
-  readonly presentation: CollectionInteractionState;
+  readonly state: CollectionInteractionState;
   readonly required?: boolean;
   readonly error?: string;
   readonly styles?: import("../../element/metadata.ts").ElementStyles<ChoiceStylePart, 'focused' | 'active' | 'selected' | 'disabled'>;
@@ -229,12 +229,12 @@ export type CheckboxGroupOptions<TValue = string, TMessage extends ComponentMess
 
 export interface ActiveCheckboxGroupOptions<TValue, TMessage extends ComponentMessage>
   extends CheckboxGroupOptionsBase<TValue> {
-  readonly onAction: (action: CheckboxGroupTransition) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: CheckboxGroupControlTransition) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
 
 export type DisabledCheckboxGroupOptions<TValue> = CheckboxGroupOptionsBase<TValue> & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly disabled: true;
 };
 
@@ -242,7 +242,7 @@ interface ColorSwatchPickerOptionsBase<TValue> {
   readonly id: string;
   readonly label: string;
   readonly options: readonly ColorSwatchPickerOption<TValue>[];
-  readonly presentation: CollectionInteractionState;
+  readonly state: CollectionInteractionState;
   readonly columns?: number;
   readonly error?: string;
   readonly styles?: import("../../element/metadata.ts").ElementStyles<ColorSwatchPickerStylePart, 'focused' | 'active' | 'selected' | 'disabled'>;
@@ -255,19 +255,19 @@ export type ColorSwatchPickerOptions<TValue = string, TMessage extends Component
 
 export interface ActiveColorSwatchPickerOptions<TValue, TMessage extends ComponentMessage>
   extends ColorSwatchPickerOptionsBase<TValue> {
-  readonly onAction: (action: ColorSwatchPickerTransition) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: ColorSwatchPickerControlTransition) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
 
 export type DisabledColorSwatchPickerOptions<TValue> = ColorSwatchPickerOptionsBase<TValue> & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly disabled: true;
 };
 
 interface CalendarOptionsBase {
   readonly id: string;
   readonly label: string;
-  readonly presentation: CalendarPresentation;
+  readonly view: CalendarView;
   readonly error?: string;
   readonly styles?: import("../../element/metadata.ts").ElementStyles<CalendarStylePart, 'focused' | 'selected' | 'disabled'>;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer', 'styles']>;
@@ -278,12 +278,12 @@ export type CalendarOptions<TMessage extends ComponentMessage = never> =
   | DisabledCalendarOptions;
 
 export interface ActiveCalendarOptions<TMessage extends ComponentMessage> extends CalendarOptionsBase {
-  readonly onAction: (action: CalendarTransition) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: CalendarControlTransition) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
 
 export type DisabledCalendarOptions = CalendarOptionsBase & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly disabled: true;
 };
 
@@ -291,7 +291,7 @@ interface RadioGroupOptionsBase<TValue> {
   readonly id: string;
   readonly label: string;
   readonly options: readonly ChoiceItem<TValue>[];
-  readonly presentation: CollectionInteractionState;
+  readonly state: CollectionInteractionState;
   readonly required?: boolean;
   readonly error?: string;
   readonly styles?: import("../../element/metadata.ts").ElementStyles<ChoiceStylePart, 'focused' | 'active' | 'selected' | 'disabled'>;
@@ -304,12 +304,12 @@ export type RadioGroupOptions<TValue = string, TMessage extends ComponentMessage
 
 export interface ActiveRadioGroupOptions<TValue, TMessage extends ComponentMessage>
   extends RadioGroupOptionsBase<TValue> {
-  readonly onAction: (action: RadioGroupTransition) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: RadioGroupControlTransition) => MessageResolution<TMessage>;
   readonly disabled?: false;
 }
 
 export type DisabledRadioGroupOptions<TValue> = RadioGroupOptionsBase<TValue> & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly disabled: true;
 };
 
@@ -337,12 +337,12 @@ interface ActiveComboboxCallbacks<TTransition, TMessage extends ComponentMessage
 }
 
 type UnscrolledComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
-  readonly presentation: UnscrolledComboboxPresentation;
+  readonly state: UnscrolledComboboxState;
   readonly scrollbar?: never;
 };
 
 type ScrollableComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
-  readonly presentation: ScrollableComboboxPresentation;
+  readonly state: ScrollableComboboxState;
   readonly scrollbar?: ScrollbarOptions;
 };
 
@@ -376,10 +376,10 @@ interface DisabledComboboxAvailability {
 
 export type DisabledComboboxOptions<TValue> =
   | UnscrolledComboboxBase<TValue> & DisabledComboboxAvailability & {
-      readonly presentation: UnscrolledComboboxPresentation & { readonly open: false };
+      readonly state: UnscrolledComboboxState & { readonly open: false };
     }
   | ScrollableComboboxBase<TValue> & DisabledComboboxAvailability & {
-      readonly presentation: ScrollableComboboxPresentation & { readonly open: false };
+      readonly state: ScrollableComboboxState & { readonly open: false };
     };
 
 export type UnscrolledComboboxOptions<
@@ -389,7 +389,7 @@ export type UnscrolledComboboxOptions<
   | ActiveComboboxCallbacks<ComboboxControlTransition, TMessage>
   | InertComboboxAvailability
   | DisabledComboboxAvailability & {
-      readonly presentation: UnscrolledComboboxPresentation & { readonly open: false };
+      readonly state: UnscrolledComboboxState & { readonly open: false };
     }
 );
 
@@ -400,7 +400,7 @@ export type ScrollableComboboxOptions<
   | ActiveComboboxCallbacks<ComboboxTransition, TMessage>
   | InertComboboxAvailability
   | DisabledComboboxAvailability & {
-      readonly presentation: ScrollableComboboxPresentation & { readonly open: false };
+      readonly state: ScrollableComboboxState & { readonly open: false };
     }
 );
 
@@ -409,12 +409,12 @@ export type ComboboxOptions<TValue = string, TMessage extends ComponentMessage =
   | ScrollableComboboxOptions<TValue, TMessage>;
 
 type UnscrolledAutocompleteComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
-  readonly presentation: Extract<AutocompleteComboboxPresentation, { readonly scroll?: never }>;
+  readonly view: Extract<AutocompleteComboboxView, { readonly scroll?: never }>;
   readonly scrollbar?: never;
 };
 
 type ScrollableAutocompleteComboboxBase<TValue> = ComboboxOptionsBase<TValue> & {
-  readonly presentation: Extract<AutocompleteComboboxPresentation, { readonly scroll: unknown }>;
+  readonly view: Extract<AutocompleteComboboxView, { readonly scroll: unknown }>;
   readonly scrollbar?: ScrollbarOptions;
 };
 
@@ -435,11 +435,11 @@ export type AutocompleteComboboxOptions<
   | UnscrolledAutocompleteComboboxBase<TValue> & InertComboboxAvailability
   | ScrollableAutocompleteComboboxBase<TValue> & InertComboboxAvailability
   | UnscrolledAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability & {
-      readonly presentation: Extract<AutocompleteComboboxPresentation, { readonly scroll?: never }>
+      readonly view: Extract<AutocompleteComboboxView, { readonly scroll?: never }>
         & { readonly open: false };
     }
   | ScrollableAutocompleteComboboxBase<TValue> & DisabledComboboxAvailability & {
-      readonly presentation: Extract<AutocompleteComboboxPresentation, { readonly scroll: unknown }>
+      readonly view: Extract<AutocompleteComboboxView, { readonly scroll: unknown }>
         & { readonly open: false };
     };
 
@@ -450,7 +450,7 @@ export type AnyComboboxOptions<
 
 interface TextInputOptionsBase {
   readonly id: string;
-  readonly presentation: TextInputPresentation;
+  readonly state: TextInputState;
   readonly placeholder?: string;
   readonly required?: boolean;
   readonly error?: string;
@@ -465,12 +465,14 @@ export type TextInputOptions<TMessage extends ComponentMessage = never> =
 
 export type ActiveTextInputOptions<TMessage extends ComponentMessage> = TextInputOptionsBase & {
   readonly disabled?: false;
-  readonly onAction: (action: TextInputAction) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: TextInputTransition) => MessageResolution<TMessage>;
+  readonly onSubmit?: (event: TextInputSubmitEvent) => MessageResolution<TMessage>;
   readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
 };
 
 export type DisabledTextInputOptions = TextInputOptionsBase & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
+  readonly onSubmit?: never;
   readonly onContextMenu?: never;
   readonly disabled: true;
   readonly readOnly?: never;
@@ -481,7 +483,7 @@ export type PasswordInputOptions<TMessage extends ComponentMessage = never> =
 
 interface NumberInputOptionsBase {
   readonly id: string;
-  readonly presentation: NumberInputPresentation;
+  readonly view: NumberInputView;
   readonly placeholder?: string;
   readonly required?: boolean;
   readonly error?: string;
@@ -494,36 +496,38 @@ export type NumberInputOptions<TMessage extends ComponentMessage = never> =
   | DisabledNumberInputOptions;
 
 export interface ActiveNumberInputOptions<TMessage extends ComponentMessage> extends NumberInputOptionsBase {
-  readonly onAction: (action: NumberInputControlAction) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: NumberInputControlTransition) => MessageResolution<TMessage>;
   readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;
   readonly disabled?: false;
   readonly readOnly?: boolean;
 }
 
 export type DisabledNumberInputOptions = NumberInputOptionsBase & {
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly onContextMenu?: never;
   readonly disabled: true;
   readonly readOnly?: never;
 };
 
 export type {
-  ButtonAction,
+  ButtonPressEvent,
   ButtonTone,
-  CheckboxAction,
+  CheckboxTransition,
   ColorSwatchPickerOption,
+  SliderTransition,
+  SwitchTransition
+} from '../form-controls.ts';
+export type {
   NumericRange,
+  RangeSliderState,
+  RangeSliderStepDirection,
   RangeSliderValue,
-  SliderAction,
-  SliderStepDirection,
-  SwitchAction
-} from '../../ui-model/forms.ts';
-export type { RangeSliderState } from '../../ui-model/range-slider.ts';
+} from '../../behavior/range-slider.ts';
 export type {
   AutocompleteComboboxControlTransition,
-  AutocompleteComboboxPresentation,
+  AutocompleteComboboxView,
   AutocompleteComboboxTransition,
   ComboboxCommitEvent,
-  ComboboxPresentation,
+  ComboboxState,
   ComboboxTransition,
-} from '../../ui-model/combobox.ts';
+} from '../../behavior/combobox.ts';

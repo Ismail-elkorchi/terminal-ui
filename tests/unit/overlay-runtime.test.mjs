@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { contextMenu, dialog, menuTrigger, richText, dataGrid, text, textInput } from '../../dist/components/index.js';
 import { testCanvas as canvas } from '../helpers/canvas.mjs';
 import { absolute, overlay, surface } from '../../dist/layout/index.js';
@@ -10,7 +10,7 @@ import { absolute, overlay, surface } from '../../dist/layout/index.js';
 function focusInput(options) {
   const { meta, ...rest } = options;
   return textInput({
-    onAction: () => ignoreMessage(),
+    onTransition: () => ignoreMessage(),
     ...rest,
     meta: { accessibleName: 'Text input', ...meta }
   });
@@ -96,8 +96,8 @@ test('overlay preserves declaration order within one layer and z-order across la
 
 test('overlay accessibility and initial focus follow topmost visual order', () => {
   const element = overlay([
-    focusInput({ id: 'lower-field', presentation: { value: 'lower', cursor: 0 } }),
-    focusInput({ id: 'upper-field', presentation: { value: 'upper', cursor: 0 } })
+    focusInput({ id: 'lower-field', state: { value: 'lower', cursor: 0 } }),
+    focusInput({ id: 'upper-field', state: { value: 'upper', cursor: 0 } })
   ], { id: 'focus-overlay' });
   const zElement = overlay([
     text({ content: 'LOW', id: 'low-layer',
@@ -163,7 +163,7 @@ test('layers render top z-index content last and hide invisible elements', () =>
 test('focus is scoped to the topmost visible focus layer', () => {
   const element = overlay([
     focusInput({
-    id: 'lower-input', presentation: { value: 'lower', cursor: 0 },
+    id: 'lower-input', state: { value: 'lower', cursor: 0 },
     meta: {
         layer: {
             zIndex: 0
@@ -171,7 +171,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
     }
 }),
     focusInput({
-    id: 'upper-input', presentation: { value: 'upper', cursor: 0 },
+    id: 'upper-input', state: { value: 'upper', cursor: 0 },
     meta: {
         layer: {
             zIndex: 8
@@ -296,8 +296,8 @@ test('menuTrigger renders above dataGrid content in a higher region', () => {
         ['Theme', 'System'],
         ['Mode', 'Compact']
     ],
-    presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
-    onTransition: (action) => action,
+    state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
+    onTransition: (transition) => transition,
     meta: { accessibleName: "Data grid",
         layer: {
             zIndex: 0
@@ -307,7 +307,7 @@ test('menuTrigger renders above dataGrid content in a higher region', () => {
     menuTrigger({
     id: 'theme-menuTrigger-layer',
     label: 'Theme',
-    presentation: {
+    view: {
       kind: 'open',
       active: 'dark',
       menu: {
@@ -364,7 +364,7 @@ test('context menu renders above canvas content in a higher region', () => {
     contextMenu({
     id: 'canvas-context-menu',
     title: 'Actions',
-    presentation: {
+    view: {
       kind: 'open',
       anchor: { kind: 'cursor', row: 1, column: 1 },
       menu: {

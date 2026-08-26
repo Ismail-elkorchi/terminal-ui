@@ -3,17 +3,17 @@ import test from 'node:test';
 
 import {
   createScrollState,
-  prepareTreeCollection,
-  prepareTreeSource,
-  prepareTreeView,
-  prepareTreeRows,
+  createTreeCollection,
+  createTreeSource,
+  createTreeView,
+  createTreeCollectionFromRows,
   selectableTreeRows,
   treeDisclosureTransition,
   treeNodeMatches,
   treeReducer,
   visibleTreeRows,
 } from '../../dist/behavior/index.js';
-import type { TreeNode, UnscrolledTreePresentation } from '../../dist/components/index.js';
+import type { TreeNode, UnscrolledTreeState } from '../../dist/components/index.js';
 
 const nodes: readonly TreeNode<{ readonly path: string }>[] = [
   {
@@ -40,10 +40,10 @@ const initial = {
   expandedIds: ['src'],
   activeId: 'src',
   selection: { mode: 'single', selectedId: 'src' },
-} as const satisfies UnscrolledTreePresentation;
+} as const satisfies UnscrolledTreeState;
 
-const source = prepareTreeSource(nodes);
-const options = { view: prepareTreeView(source, initial) };
+const source = createTreeSource(nodes);
+const options = { view: createTreeView(source, initial) };
 
 void test('tree navigation changes active row without changing application selection', () => {
   const moved = treeReducer(initial, { kind: 'moveActive', delta: 1 }, options);
@@ -78,11 +78,11 @@ void test('tree navigation keeps the active row inside the controlled viewport',
 void test('tree disclosure state is independent from immutable node data', () => {
   const collapsed = treeReducer(initial, { kind: 'collapse', id: 'src' }, options);
   const stillCollapsed = treeReducer(collapsed, { kind: 'collapse', id: 'src' }, {
-    view: prepareTreeView(source, collapsed)
+    view: createTreeView(source, collapsed)
   });
-  const expanded = treeReducer(collapsed, { kind: 'expandAll' }, { view: prepareTreeView(source, collapsed) });
-  const stillExpanded = treeReducer(expanded, { kind: 'expandAll' }, { view: prepareTreeView(source, expanded) });
-  const reset = treeReducer(expanded, { kind: 'collapseAll' }, { view: prepareTreeView(source, expanded) });
+  const expanded = treeReducer(collapsed, { kind: 'expandAll' }, { view: createTreeView(source, collapsed) });
+  const stillExpanded = treeReducer(expanded, { kind: 'expandAll' }, { view: createTreeView(source, expanded) });
+  const reset = treeReducer(expanded, { kind: 'collapseAll' }, { view: createTreeView(source, expanded) });
 
   assert.deepEqual(collapsed.expandedIds, []);
   assert.deepEqual(expanded.expandedIds, ['src', 'remote']);
@@ -107,30 +107,30 @@ void test('shared collection queries reveal matching descendants and their ances
   assert.equal(treeNodeMatches(indexNode, query), true);
 });
 
-void test('lazy presentation state belongs to TreePresentation and produces a nonselectable status row', () => {
+void test('lazy loading state belongs to TreeState and produces a nonselectable status row', () => {
   const rows = visibleTreeRows(source, {
     expandedIds: ['remote'],
-    loadStates: { remote: { kind: 'pending', message: 'Fetching' } },
+    loadStatusById: { remote: { kind: 'pending', message: 'Fetching' } },
   });
   assert.deepEqual(rows.map((row) => row.node.id), ['src', 'remote', 'remote:status']);
   assert.deepEqual(selectableTreeRows(rows).map((row) => row.node.id), ['src', 'remote']);
 });
 
 void test('tree collections preserve stable row identity and window metadata', () => {
-  const collection = prepareTreeCollection(source, initial);
-  const windowed = prepareTreeRows(collection.records.map((record) => record.row), {
+  const collection = createTreeCollection(source, initial);
+  const windowed = createTreeCollectionFromRows(collection.items.map((item) => item.row), {
     startIndex: 10,
     totalCount: 20,
-    domain: { kind: 'source' },
+    scope: { kind: 'source' },
   });
-  assert.deepEqual(collection.records.map((record) => record.id), ['src', 'index', 'disabled', 'remote']);
+  assert.deepEqual(collection.items.map((item) => item.id), ['src', 'index', 'disabled', 'remote']);
   assert.equal(windowed.kind, 'window');
-  assert.equal(windowed.records[0]?.itemIndex, 10);
+  assert.equal(windowed.items[0]?.itemIndex, 10);
   assert.equal(windowed.totalCount, 20);
 });
 
-void test('tree rejects duplicate application identities at the projection boundary', () => {
-  assert.throws(() => prepareTreeSource([
+void test('tree rejects duplicate application identities at the view boundary', () => {
+  assert.throws(() => createTreeSource([
     { id: 'same', label: 'One', kind: 'leaf' },
     { id: 'same', label: 'Two', kind: 'leaf' },
   ]), /must be unique/u);

@@ -9,15 +9,15 @@ import {
   pagination,
   tree
 } from '../../dist/components/index.js';
-import { prepareTreeSource, prepareTreeView } from '../../dist/behavior/index.js';
+import { createTreeSource, createTreeView } from '../../dist/behavior/index.js';
 
 void test('tree component renders expanded visible nodes and accessible selection state', () => {
-  const presentation = {
+  const state = {
     expandedIds: ['root'],
     activeId: 'root',
     selection: { mode: 'single' as const, selectedId: 'child' }
   };
-  const source = prepareTreeSource([
+  const source = createTreeSource([
     {
       id: 'root',
       label: 'Root',
@@ -30,8 +30,8 @@ void test('tree component renders expanded visible nodes and accessible selectio
   ]);
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
-    presentation,
-    view: prepareTreeView(source, presentation),
+    state,
+    view: createTreeView(source, state),
     onTransition: (transition) => transition,
   }), { columns: 32, rows: 4 });
 
@@ -56,7 +56,7 @@ void test('pagination normalizes page bounds and renders navigation controls', (
       label: 'Results',
       pageNumber: 20,
       pageCount: 4,
-      onAction: (action) => action
+      onTransition: (action) => action
   }), { columns: 40, rows: 1 });
 
   assert.equal(renderFramePlain(frame), 'Results  «   ‹  Page 4 of 4  ›   »');

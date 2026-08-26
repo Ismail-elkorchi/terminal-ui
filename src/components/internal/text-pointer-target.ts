@@ -2,7 +2,7 @@ import { ignoreMessage } from '../../interaction/message.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type {
   TextContextMenuEvent,
-  TextPointerAction,
+  TextPointerTransition,
 } from '../../interaction/text-pointer.ts';
 import type { TextSelection } from '../../text/types.ts';
 import type { HitTarget, Rect } from '../../renderer/contracts.ts';
@@ -15,7 +15,7 @@ export interface TextPointerTargetInput<TMessage> {
   readonly offsetAt: (event: RoutedPointerEvent, origin: 'current' | 'press') => number;
   readonly wordSelectionAt?: (offset: number) => TextSelection;
   readonly onPointer: (
-    action: TextPointerAction,
+    transition: TextPointerTransition,
     event: RoutedPointerEvent,
   ) => MessageResolution<TMessage>;
   readonly onContextMenu?: (event: TextContextMenuEvent) => MessageResolution<TMessage>;

@@ -28,7 +28,7 @@ export function decodeInputTrigger(value: unknown): InputTrigger {
   if (value['kind'] !== 'key' && value['kind'] !== 'codePoint' && value['kind'] !== 'physicalKey') {
     throw new TypeError('Input trigger kind is unsupported.');
   }
-  const modifiers = normalizeModifierTrigger(value['modifiers']);
+  const modifiers = decodeModifierTrigger(value['modifiers']);
   const eventType = value['eventType'];
   const location = value['location'];
   if (eventType !== undefined && !isStringMember(eventType, keyEventTypes)) {
@@ -133,7 +133,7 @@ function unicodeScalar(value: number): number {
   return value;
 }
 
-function normalizeModifierTrigger(value: unknown): KeyModifierTrigger | undefined {
+function decodeModifierTrigger(value: unknown): KeyModifierTrigger | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('Input trigger modifiers must be an object.');
   if (value['kind'] === 'any') {

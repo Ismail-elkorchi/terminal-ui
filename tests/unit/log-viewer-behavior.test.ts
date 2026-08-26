@@ -5,18 +5,19 @@ import {
   appendLogHistory,
   followTailScrollState,
   nextLogViewerMatch,
-  prepareLogHistory,
+  createLogHistory,
   logViewerReducer,
   logViewerSearchMatches,
   logHistoryEntryAt
 } from '../../dist/behavior/index.js';
+import { compileCollectionQuery } from '../../dist/text/index.js';
 
 const entries = [
   { id: 'a', text: 'alpha\nmore alpha' },
   { id: 'b', text: 'bravo needle' },
   { id: 'c', text: 'charlie needle needle' }
 ];
-const history = prepareLogHistory(entries);
+const history = createLogHistory(entries);
 
 void test('logViewerReducer owns search match fold and follow-tail state', () => {
   const initial = { foldedIds: [], followTail: true };
@@ -62,7 +63,7 @@ void test('logViewerSearchMatches and nextLogViewerMatch expose one ordered occu
 });
 
 void test('log viewer search uses one grapheme-aware contract across every searchable field', () => {
-  const searchableHistory = prepareLogHistory([{
+  const searchableHistory = createLogHistory([{
     id: 'metadata',
     timestamp: '10:30',
     metadata: { owner: 'family 👨‍👩‍👧‍👦' },
@@ -76,7 +77,7 @@ void test('log viewer search uses one grapheme-aware contract across every searc
 });
 
 void test('log viewer append reserves a separator after an empty record', () => {
-  const initial = prepareLogHistory([{ id: 'empty', text: '' }]);
+  const initial = createLogHistory([{ id: 'empty', text: '' }]);
   const appended = appendLogHistory(initial, [{ id: 'next', text: 'x' }]);
 
   assert.equal(logHistoryEntryAt(initial, 0)?.bodyOffset, 0);
@@ -98,7 +99,7 @@ void test('logViewerReducer owns pointer selection without retaining an empty ra
   const initial = { foldedIds: [], followTail: true };
   const selected = logViewerReducer(initial, {
     kind: 'pointer',
-    action: {
+    transition: {
       kind: 'extendSelection',
       anchor: { entryId: 'b', offset: 8 },
       position: { entryId: 'a', offset: 2 }
@@ -106,7 +107,7 @@ void test('logViewerReducer owns pointer selection without retaining an empty ra
   }, { history });
   const cleared = logViewerReducer(selected, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', position: { entryId: 'a', offset: 4 } }
+    transition: { kind: 'placeCaret', position: { entryId: 'a', offset: 4 } }
   }, { history });
 
   assert.deepEqual(selected.selection, {
@@ -116,12 +117,12 @@ void test('logViewerReducer owns pointer selection without retaining an empty ra
   assert.equal('selection' in cleared, false);
 });
 
-void test('logViewerReducer preserves identity for no-op query fold scroll and navigation actions', () => {
+void test('logViewerReducer preserves identity for no-op query, fold, scroll, and navigation transitions', () => {
   const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
   const state = logViewerReducer({
     foldedIds: ['a'],
     followTail: true,
-    query: { kind: 'prepared-collection-query', text: 'needle', mode: 'contains', caseSensitive: false },
+    query: compileCollectionQuery({ text: 'needle', mode: 'contains' }),
     scroll,
   }, {
     kind: 'jumpMatch',

@@ -40,7 +40,7 @@ test('IDE File menu opens with a valid named popup', async () => {
   const runtime = createTuiRuntime({ app: ideEditorApp, host });
   try {
     await runtime.start();
-    await runtime.dispatch({ kind: 'menu', action: { kind: 'activateHeading', id: 'file' } });
+    await runtime.dispatch({ kind: 'menu', transition: { kind: 'activateHeading', id: 'file' } });
 
     assert.equal(runtime.state().menu.kind, 'open');
     const frame = runtime.frame();
@@ -75,7 +75,7 @@ test('IDE filesystem effects leave command input and resize responsive', async (
     const resized = await runtime.resize({ columns: 96, rows: 30 });
     await runtime.dispatch({
       kind: 'command',
-      action: { kind: 'edit', operation: { kind: 'insert', text: '/save' } }
+      transition: { kind: 'edit', operation: { kind: 'insert', text: '/save' } }
     });
 
     assert.equal(resized.width, 96);
@@ -104,9 +104,9 @@ test('workspace picker lifecycle and command completion remain controlled', asyn
 
     await runtime.dispatch({
       kind: 'command',
-      action: { kind: 'edit', operation: { kind: 'insert', text: '/i' } },
+      transition: { kind: 'edit', operation: { kind: 'insert', text: '/i' } },
     });
-    await runtime.dispatch({ kind: 'command', action: { kind: 'acceptSuggestion' } });
+    await runtime.dispatch({ kind: 'command', transition: { kind: 'acceptSuggestion' } });
     assert.equal(runtime.state().command.editor.input.text, '/issues');
   } finally {
     await runtime.dispose();
@@ -166,7 +166,7 @@ test('IDE preserves the active tab and refuses to discard dirty buffers', async 
     await runtime.dispatch({
       kind: 'edit',
       path: virtualFile('c.txt'),
-      action: { kind: 'edit', operation: { kind: 'insert', text: 'changed' } },
+      transition: { kind: 'edit', operation: { kind: 'insert', text: 'changed' } },
     });
     await runtime.dispatch({ kind: 'closeActive' });
     assert.equal(runtime.state().activePath, virtualFile('c.txt'));
@@ -201,9 +201,9 @@ test('IDE workspace selection continues to follow tree navigation', async () => 
     await runtime.start();
     await runtime.dispatch({ kind: 'requestOpen', mode: 'folder', path: '/virtual' });
     await waitUntil(() => runtime.state().operation.kind === 'idle');
-    await runtime.dispatch({ kind: 'tree', action: { kind: 'setActive', id: '/virtual/a.txt' } });
+    await runtime.dispatch({ kind: 'tree', transition: { kind: 'setActive', id: '/virtual/a.txt' } });
     assert.equal(runtime.state().tree.selection.selectedId, '/virtual/a.txt');
-    await runtime.dispatch({ kind: 'tree', action: { kind: 'moveActive', delta: 1 } });
+    await runtime.dispatch({ kind: 'tree', transition: { kind: 'moveActive', delta: 1 } });
     assert.equal(runtime.state().tree.activeId, '/virtual/b.txt');
     assert.equal(runtime.state().tree.selection.selectedId, '/virtual/b.txt');
   } finally {

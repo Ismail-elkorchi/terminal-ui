@@ -15,7 +15,7 @@ const rendered = renderElementSnapshot({
   element: button({
     id: 'save',
     label: 'Save',
-    onAction: () => ({ kind: 'save' })
+    onPress: () => ({ kind: 'save' })
   }),
   terminalSize: { columns: 20, rows: 3 }
 });
@@ -63,7 +63,7 @@ targets, accessibility, and cost bounded by terminal size. See
 
 The testing entrypoint deliberately contains harnesses, interaction scripts,
 visual snapshots, and public assertions only. Dirty-region planners, render
-regions, diff interpreters, notification placement, prepared search indexes,
+regions, diff interpreters, notification placement, retained search indexes,
 and scrollbar implementation details are package-private and are not testing
 contracts.
 

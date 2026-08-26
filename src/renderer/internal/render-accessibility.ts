@@ -8,17 +8,17 @@ import {
   accessibilityForRenderNode,
   renderNodeClipsChildren
 } from './render-node-behavior.ts';
-import { renderNodeFactoryName } from '../model/node.ts';
+import { renderNodeFactoryName } from './render-tree/node.ts';
 import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { RenderNode } from '../model/index.ts';
+import type { RenderNode } from './render-tree/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { LayoutNode } from '../contracts.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { intersectRects } from './rect.ts';
 import { isDecorativeAccessibility } from './decorative.ts';
 import { assertComponentAccessibilityFocus } from './component-output.ts';
-import type { RenderBudget } from './render-budget.ts';
+import type { RenderBudget } from '../render-budget.ts';
 
 export function accessibleNode(
   renderNode: RenderNode,

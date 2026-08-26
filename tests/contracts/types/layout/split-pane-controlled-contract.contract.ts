@@ -1,8 +1,8 @@
 import { text, type Element } from '@ismail-elkorchi/terminal-ui/components';
-import { splitPane, type SplitPaneAction } from '@ismail-elkorchi/terminal-ui/layout';
+import { splitPane, type SplitPaneTransition } from '@ismail-elkorchi/terminal-ui/layout';
 import {
   createSplitPaneState,
-  splitPanePresentation,
+  splitPaneLayout,
   splitPaneReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
@@ -17,14 +17,14 @@ const state = splitPaneReducer(
 const interactive = splitPane([text({ content: 'A' }), text({ content: 'B' })], {
   id: 'panes',
   direction: 'horizontal',
-  ...splitPanePresentation(state),
-  onAction: (action) => ({ kind: 'split' as const, action })
+  ...splitPaneLayout(state),
+  onTransition: (action) => ({ kind: 'split' as const, action })
 });
 
 const acceptedPassive: Element = passive;
 const acceptedInteractive: Element<{
   readonly kind: 'split';
-  readonly action: SplitPaneAction;
+  readonly action: SplitPaneTransition;
 }> = interactive;
 void [acceptedPassive, acceptedInteractive];
 
@@ -32,5 +32,5 @@ void [acceptedPassive, acceptedInteractive];
 splitPane([text({ content: 'A' }), text({ content: 'B' })], {
   direction: 'horizontal',
   sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
-  onAction: (_action: SplitPaneAction) => ({ kind: 'split' as const })
+  onTransition: (_action: SplitPaneTransition) => ({ kind: 'split' as const })
 });

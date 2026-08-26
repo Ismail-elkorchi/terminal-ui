@@ -5,9 +5,9 @@ import type {
   BorderTitleContent as BorderTitleContentInput,
   BorderTitleSlots as BorderTitleSlotsInput
 } from '../../visual/border.ts';
-import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
-import { span } from '../../visual/render.ts';
-import type { BorderTitle, BorderTitleContent, BorderTitleSlots } from './border.ts';
+import type { FrameCellSource, TerminalStyle } from '../../visual/render-content.ts';
+import { span } from '../../visual/render-content.ts';
+import type { BorderTitle, BorderTitleContent, BorderTitleSlots } from '../border.ts';
 import { renderInlineContent } from './inline-content.ts';
 
 export interface BorderTitleRenderOptions {

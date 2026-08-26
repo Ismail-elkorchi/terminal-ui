@@ -3,14 +3,14 @@ import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { SplitPaneAction } from '../../ui-model/split-pane.ts';
+import type { SplitPaneTransition } from '../../behavior/split-pane.ts';
 import type { Rect } from '../contracts.ts';
 import type { HitTarget } from '../contracts.ts';
-import type { RenderNodeOfKind } from '../model/types.ts';
+import type { RenderNodeOfKind } from './render-tree/types.ts';
 import type { RenderTarget } from '../contracts.ts';
 import type { LayoutNode } from '../contracts.ts';
-import type { TerminalStyle } from '../../visual/render.ts';
-import { renderNodeFrameSource } from '../../visual/source.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
+import { renderNodeFrameSource } from '../../visual/frame-source.ts';
 import { oneCellGlyph } from '../../text/index.ts';
 import { mergeStyles, renderNodeStyle, themeStyle } from '../style-resolution.ts';
 
@@ -62,7 +62,7 @@ export function splitPaneHitTargets<TMessage>(
     bounds,
     accepts: ['pointerDown', 'pointerUp', 'dragStart', 'drag', 'dragEnd'],
     cursor: 'pointer',
-    message: (event) => splitPanePointerAction(event, dividerIndex, renderNode.props.direction, contentExtent, toMessage)
+    message: (event) => splitPanePointerMessage(event, dividerIndex, renderNode.props.direction, contentExtent, toMessage)
   }));
 }
 
@@ -115,12 +115,12 @@ export function splitPaneDividerBounds(
   });
 }
 
-function splitPanePointerAction<TMessage>(
+function splitPanePointerMessage<TMessage>(
   event: RoutedPointerEvent,
   dividerIndex: number,
   direction: 'horizontal' | 'vertical',
   contentExtent: number,
-  toMessage: (action: SplitPaneAction) => TMessage
+  toMessage: (transition: SplitPaneTransition) => TMessage
 ): MessageResolution<TMessage> {
   switch (event.kind) {
     case 'pointerDown':

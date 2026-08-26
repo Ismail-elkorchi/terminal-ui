@@ -7,7 +7,11 @@ export * from './feedback.ts';
 export * from './patterns.ts';
 export * from './visualizations.ts';
 
-export type * from '../ui-model/contracts.ts';
+export type * from '../collection/item.ts';
+export type * from './density.ts';
+export type * from './help.ts';
+export type * from './status-bar.ts';
+export type * from './validation.ts';
 export type {
   InlineContent,
   InlineContentSegment,
@@ -34,4 +38,4 @@ export type {
   ElementInspection,
   ElementMetaInspection,
 } from '../element/inspection.ts';
-export type * from '../ui-model/style-parts.ts';
+export type * from './style-parts.ts';

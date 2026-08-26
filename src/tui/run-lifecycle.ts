@@ -20,7 +20,7 @@ import type { NormalizedTuiRunOptions } from './run-configuration.ts';
 import type { TuiApp, TuiExit, TuiRuntime } from './types.ts';
 
 export type TuiRunPhase =
-  | 'prepared'
+  | 'created'
   | 'session_open'
   | 'runtime_active'
   | 'cleaning'
@@ -39,7 +39,7 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
   readonly #ownsHost: boolean;
   readonly #options: NormalizedTuiRunOptions<TState>;
   readonly #transcript: TranscriptRecorder | undefined;
-  #phase: TuiRunPhase = 'prepared';
+  #phase: TuiRunPhase = 'created';
   #session: TerminalSession | undefined;
   #runtime: TuiRuntime<TState, TMessage> | undefined;
   #exit: TuiExit<TState> | undefined;
@@ -74,7 +74,7 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
   }
 
   openSession(session: TerminalSession): void {
-    this.expectPhase('prepared');
+    this.expectPhase('created');
     this.#session = session;
     this.#phase = 'session_open';
   }

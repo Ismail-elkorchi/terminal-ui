@@ -11,7 +11,7 @@ export interface SingleLineTextWindow {
   readonly clippedAfter: boolean;
 }
 
-export function prepareSingleLineTextWindow(
+export function layoutSingleLineTextWindow(
   text: string,
   cursor: number,
   width: number,

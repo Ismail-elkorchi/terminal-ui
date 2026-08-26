@@ -4,13 +4,13 @@ import test from 'node:test';
 import {
   createScrollState,
   dataGridReducer,
-  prepareTableCollection,
+  createTableCollection,
   sortTableRows,
 } from '../../dist/behavior/index.js';
 import type { DataGridReducerOptions } from '../../dist/behavior/index.js';
 
 const rows = ['row-0', 'row-1', 'row-2', 'row-3'];
-const collection = prepareTableCollection(rows, (row) => row);
+const collection = createTableCollection(rows, (row) => row);
 const rowOptions: DataGridReducerOptions<string> = {
   collection,
   columnIds: ['name', 'status', 'owner'],
@@ -149,7 +149,7 @@ void test('grid scroll transitions accept renderer-derived semantic state', () =
   const rendered = createScrollState({ offsetRow: 2, offsetColumn: 1 });
   const state = dataGridReducer(initial, {
     kind: 'scroll',
-    event: {
+    request: {
       nextState: rendered,
       source: 'wheel',
       target: 'content',
@@ -158,7 +158,7 @@ void test('grid scroll transitions accept renderer-derived semantic state', () =
   assert.equal(state.scroll, rendered);
   assert.equal(dataGridReducer(state, {
     kind: 'scroll',
-    event: { nextState: rendered, source: 'wheel', target: 'content' },
+    request: { nextState: rendered, source: 'wheel', target: 'content' },
   }, rowOptions), state);
 });
 

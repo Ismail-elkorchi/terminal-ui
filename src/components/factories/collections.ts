@@ -5,10 +5,10 @@ import {
   defineComponent,
   ignoreMessage,
   paintComponentScrollbar,
-  prepareComponentScrollbar,
-  prepareComponentScrollbarOptions,
-  prepareComponentScrollPolicy,
-  prepareComponentScrollState,
+  layoutComponentScrollbar,
+  decodeComponentScrollbarOptions,
+  decodeComponentScrollPolicy,
+  decodeComponentScrollState,
 } from '../../component/index.ts';
 import type { ComponentMessage } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
@@ -22,18 +22,17 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { measureTextCells, oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import {
-  ownSelectionState,
+  decodeSelectionState,
   type SelectionState,
-} from '../../interaction/collection.ts';
+} from '../../interaction/collection-interaction.ts';
 import type {
   ListViewActivateEvent,
-  ListViewRenderedItem,
   ListViewTransition,
-  SemanticListItem,
-} from '../../ui-model/semantic-list.ts';
-import { isMeasuredWindow } from '../../behavior/measured-window.ts';
-import type { MeasuredWindow } from '../../behavior/measured-window.ts';
-import type { ListViewStylePart, SemanticListStylePart } from '../../ui-model/style-parts.ts';
+} from '../../behavior/list-view.ts';
+import type { ListViewItemContent, SemanticListItem } from '../list-item.ts';
+import { isMeasuredWindow } from '../../collection/measured-window-operations.ts';
+import type { MeasuredWindow } from '../../collection/measured-window.ts';
+import type { ListViewStylePart, SemanticListStylePart } from '../style-parts.ts';
 import type {
   ListOptions,
   ListViewOptions,
@@ -43,13 +42,13 @@ import type {
 import { inspectSelection } from '../internal/inspection.ts';
 import { measuredItemViewport } from '../../layout/factories/measured-column.ts';
 
-interface PreparedSemanticListItem {
+interface SemanticListItemModel {
   readonly id: string;
   readonly label?: string;
 }
 
 interface SemanticListModel {
-  readonly items: readonly PreparedSemanticListItem[];
+  readonly items: readonly SemanticListItemModel[];
   readonly ordered: boolean;
 }
 
@@ -60,7 +59,7 @@ const listSlots = {
 const listLayouts = new WeakMap<SemanticListModel, readonly Rect[]>();
 
 const instantiateList = defineComponent<
-  { readonly items: readonly PreparedSemanticListItem[]; readonly ordered?: boolean },
+  { readonly items: readonly SemanticListItemModel[]; readonly ordered?: boolean },
   SemanticListModel,
   never,
   SemanticListStylePart,
@@ -77,9 +76,9 @@ const instantiateList = defineComponent<
   slots: listSlots,
   metadata: ['layer', 'styles'],
   parts: ['marker', 'item'],
-  prepare(value) {
+  createModel(value) {
     return {
-      items: prepareItems(value.items, 'list'),
+      items: decodeSemanticListItems(value.items, 'list'),
       ordered: value.ordered === true,
     };
   },
@@ -125,7 +124,7 @@ const instantiateList = defineComponent<
         input.target.write(row, rect.column, [{
           text: ' '.repeat(rect.width),
           ...(itemStyle === undefined ? {} : { style: itemStyle }),
-          source: input.source({
+          source: input.frameSource({
             partName: 'item',
             itemId: item.id,
             itemIndex: index,
@@ -135,7 +134,7 @@ const instantiateList = defineComponent<
       input.target.write(rect.row, 0, [{
         text: `${marker}${' '.repeat(Math.max(1, markerWidth - measureTextCells(marker, { widthProfile: input.widthProfile }).cells))}`,
         ...(markerStyle === undefined ? {} : { style: markerStyle }),
-        source: input.source({
+        source: input.frameSource({
           partName: 'marker',
           itemId: item.id,
           itemIndex: index,
@@ -161,7 +160,7 @@ const instantiateList = defineComponent<
 export function list<const TItems extends readonly SemanticListItem[]>(
   options: ListOptions<TItems>,
 ): Element<ElementMessage<TItems[number]['content']>> {
-  const items = preparePublicItems(options.items, 'list');
+  const items = decodeSemanticListItemsWithContent(options.items, 'list');
   return instantiateList({
     ...(options.id === undefined ? {} : { id: options.id }),
     items: items.map(({ id, label }) => ({ id, ...(label === undefined ? {} : { label }) })),
@@ -172,7 +171,7 @@ export function list<const TItems extends readonly SemanticListItem[]>(
 }
 
 interface ListViewModel {
-  readonly items: readonly (PreparedSemanticListItem & {
+  readonly items: readonly (SemanticListItemModel & {
     readonly itemIndex: number;
     readonly rowOffset: number;
     readonly visibleRows: number;
@@ -191,13 +190,13 @@ interface ListViewModel {
 }
 
 type ListViewComponentAction =
-  | { readonly kind: 'transition'; readonly action: ListViewTransition }
+  | { readonly kind: 'transition'; readonly transition: ListViewTransition }
   | { readonly kind: 'activate'; readonly event: ListViewActivateEvent };
 
 interface ListViewLayout {
   readonly rects: readonly Rect[];
   readonly visibleIndexes: readonly number[];
-  readonly scrollbar: ReturnType<typeof prepareComponentScrollbar>;
+  readonly scrollbar: ReturnType<typeof layoutComponentScrollbar>;
 }
 
 const listViewLayouts = new WeakMap<ListViewModel, ListViewLayout>();
@@ -265,8 +264,8 @@ const instantiateListView = defineComponent<
         `listView measured window has ${String(input.model.viewportRows)} viewport rows but received ${String(input.bounds.height)} layout rows.`,
       );
     }
-    const scroll = prepareListViewScroll(input.model.scroll, input.model.totalRows, input.bounds);
-    const initialScrollbar = prepareComponentScrollbar({
+    const scroll = normalizeListViewScroll(input.model.scroll, input.model.totalRows, input.bounds);
+    const initialScrollbar = layoutComponentScrollbar({
       bounds: input.bounds,
       scroll,
       contentRows: input.model.totalRows,
@@ -274,7 +273,7 @@ const instantiateListView = defineComponent<
       ...(input.model.scrollbar === undefined ? {} : { options: input.model.scrollbar }),
       defaultAxis: 'vertical',
     });
-    const scrollbar = prepareComponentScrollbar({
+    const scrollbar = layoutComponentScrollbar({
       bounds: input.bounds,
       scroll: {
         ...initialScrollbar.scroll,
@@ -332,7 +331,7 @@ const instantiateListView = defineComponent<
         input.target.write(row, rect.column, [{
           text: ' '.repeat(rect.width),
           ...(itemStyle === undefined ? {} : { style: itemStyle }),
-          source: input.source({
+          source: input.frameSource({
             partName: 'item',
             itemId: item.id,
             itemIndex: item.itemIndex,
@@ -348,7 +347,7 @@ const instantiateListView = defineComponent<
       input.target.write(Math.max(0, rect.row), 0, [{
         text: `${marker} `,
         ...(markerStyle === undefined ? {} : { style: markerStyle }),
-        source: input.source({
+        source: input.frameSource({
           partName: 'marker',
           itemId: item.id,
           itemIndex: item.itemIndex,
@@ -361,7 +360,7 @@ const instantiateListView = defineComponent<
       plan: layout.scrollbar,
       theme: input.theme,
       style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
-      source: (sourceInput) => input.source(sourceInput),
+      frameSource: (sourceInput) => input.frameSource(sourceInput),
     });
   },
   keys({ model, busy }) {
@@ -425,7 +424,7 @@ const instantiateListView = defineComponent<
         id: input.id ?? 'list-view',
         plan: layout.scrollbar,
         ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
-        onScroll: (event) => transition({ kind: 'scroll', event }),
+        onScroll: (request) => transition({ kind: 'scroll', request }),
       })),
     ];
   },
@@ -481,12 +480,12 @@ export function listView<
 >(
   options: ListViewOptions<TValue, TContent, TMessage>,
 ): Element<TMessage | ElementMessage<TContent>> {
-  const window = prepareListViewWindow(options.window);
+  const window = decodeMeasuredWindow(options.window);
   if (typeof options.renderItem !== 'function') {
     throw new TypeError('listView renderItem must be a function.');
   }
   const items = window.entries.map((entry) => {
-    const rendered = prepareRenderedListViewItem(
+    const rendered = decodeListViewItem(
       options.renderItem(entry.item, entry.itemIndex),
       entry.item.id,
     );
@@ -504,12 +503,12 @@ export function listView<
       }),
     };
   });
-  const scroll = prepareComponentScrollState(options.presentation.scroll, 'listView scroll');
-  const scrollbar = prepareComponentScrollbarOptions(options.scrollbar, 'listView scrollbar');
+  const scroll = decodeComponentScrollState(options.state.scroll, 'listView scroll');
+  const scrollbar = decodeComponentScrollbarOptions(options.scrollbar, 'listView scrollbar');
   if (scrollbar?.axis !== undefined && scrollbar.axis !== 'vertical') {
     throw new TypeError('listView scrollbar axis must be vertical.');
   }
-  const scrollPolicy = prepareComponentScrollPolicy(options.scrollPolicy, 'listView scrollPolicy');
+  const scrollPolicy = decodeComponentScrollPolicy(options.scrollPolicy, 'listView scrollPolicy');
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('listView scrollbar and scrollPolicy require scroll state.');
   }
@@ -540,8 +539,8 @@ export function listView<
     viewportRows: window.viewportRows,
     offsetRow: window.offsetRow,
     positions: new Map(items.map((item, index) => [item.id, index])),
-    ...(options.presentation.activeId === undefined ? {} : { activeId: options.presentation.activeId }),
-    selection: ownSelectionState(options.presentation.selection, 'listView selection'),
+    ...(options.state.activeId === undefined ? {} : { activeId: options.state.activeId }),
+    selection: decodeSelectionState(options.state.selection, 'listView selection'),
     ...(scroll === undefined ? {} : { scroll }),
     ...(scrollbar === undefined ? {} : { scrollbar }),
     ...(scrollPolicy === undefined ? {} : { scrollPolicy }),
@@ -566,10 +565,10 @@ export function listView<
     ...shared,
     onAction: (action) => {
       if (action.kind === 'activate') return options.onActivate?.(action.event) ?? ignoreMessage();
-      if (isScrollableListViewOptions(options)) return options.onTransition(action.action);
-      return action.action.kind === 'scroll'
+      if (isScrollableListViewOptions(options)) return options.onTransition(action.transition);
+      return action.transition.kind === 'scroll'
         ? ignoreMessage()
-        : options.onTransition(action.action);
+        : options.onTransition(action.transition);
     },
   });
 }
@@ -581,13 +580,13 @@ function isScrollableListViewOptions<
 >(
   options: ListViewOptions<TValue, TContent, TMessage>,
 ): options is ScrollableListViewOptions<TValue, TContent, TMessage> {
-  return options.presentation.scroll !== undefined;
+  return options.state.scroll !== undefined;
 }
 
-function prepareItems(
-  items: readonly PreparedSemanticListItem[],
+function decodeSemanticListItems(
+  items: readonly SemanticListItemModel[],
   owner: string,
-): readonly PreparedSemanticListItem[] {
+): readonly SemanticListItemModel[] {
   const ids = new Set<string>();
   return Object.freeze(items.map((item) => {
     const id = cleanId(item.id, `${owner} item id`);
@@ -607,7 +606,7 @@ function semanticListMarkerWidth(
   return measureTextCells(marker, { widthProfile }).cells + 1;
 }
 
-function preparePublicItems<TItems extends readonly SemanticListItem[]>(
+function decodeSemanticListItemsWithContent<TItems extends readonly SemanticListItem[]>(
   items: TItems,
   owner: string,
 ): readonly {
@@ -616,25 +615,25 @@ function preparePublicItems<TItems extends readonly SemanticListItem[]>(
   readonly content: TItems[number]['content'];
 }[] {
   if (!Array.isArray(items)) throw new TypeError(`${owner} items must be an array.`);
-  const prepared = prepareItems(items, owner);
+  const models = decodeSemanticListItems(items, owner);
   return Object.freeze(items.map((item, index) => Object.freeze({
-    id: prepared[index]?.id ?? item.id,
-    ...(prepared[index]?.label === undefined ? {} : { label: prepared[index].label }),
+    id: models[index]?.id ?? item.id,
+    ...(models[index]?.label === undefined ? {} : { label: models[index].label }),
     content: item.content,
   })));
 }
 
-function prepareListViewWindow<TValue>(value: MeasuredWindow<TValue>): MeasuredWindow<TValue> {
+function decodeMeasuredWindow<TValue>(value: MeasuredWindow<TValue>): MeasuredWindow<TValue> {
   if (!isMeasuredWindow(value)) {
     throw new TypeError('listView window must be created with measuredWindow().');
   }
   return value;
 }
 
-function prepareRenderedListViewItem<TContent extends Element<ComponentMessage>>(
-  value: ListViewRenderedItem<TContent>,
+function decodeListViewItem<TContent extends Element<ComponentMessage>>(
+  value: ListViewItemContent<TContent>,
   id: string,
-): ListViewRenderedItem<TContent> & { readonly disabled: boolean } {
+): ListViewItemContent<TContent> & { readonly disabled: boolean } {
   const candidate: unknown = value;
   if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)) {
     throw new TypeError(`listView renderItem for "${id}" must return an object.`);
@@ -662,7 +661,7 @@ function cleanId(value: unknown, label: string): string {
   return id;
 }
 
-function prepareListViewScroll(scroll: ScrollState | undefined, totalRows: number, bounds: Rect): ScrollState {
+function normalizeListViewScroll(scroll: ScrollState | undefined, totalRows: number, bounds: Rect): ScrollState {
   return scroll === undefined
     ? createScrollState()
     : normalizeScrollState(scroll, {
@@ -679,8 +678,8 @@ function selectionContains(selection: SelectionState, id: string): boolean {
     : selection.mode === 'multiple' && selection.selectedIds.includes(id);
 }
 
-function transition(action: ListViewTransition): ListViewComponentAction {
-  return { kind: 'transition', action };
+function transition(transition: ListViewTransition): ListViewComponentAction {
+  return { kind: 'transition', transition };
 }
 
 function activate(id: string, itemIndex: number): ListViewComponentAction {

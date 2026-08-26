@@ -15,7 +15,7 @@ export function createProgress(options: unknown): ProgressState {
   return makeProgressState(
     id,
     label,
-    prepareProgressSnapshot(options),
+    decodeProgressSnapshot(options),
   );
 }
 
@@ -33,7 +33,7 @@ function makeProgressState(
 ): ProgressState {
   const methods = {
     update(next: ProgressSnapshot) {
-      return makeProgressState(id, label, prepareProgressSnapshot(next));
+      return makeProgressState(id, label, decodeProgressSnapshot(next));
     },
     snapshot(): AccessibleSnapshot {
       return createAccessibleSnapshot({
@@ -53,7 +53,7 @@ function makeProgressState(
   return Object.freeze({ id, label, ...progress, ...methods });
 }
 
-export function prepareProgressSnapshot(progress: unknown): ProgressSnapshot {
+export function decodeProgressSnapshot(progress: unknown): ProgressSnapshot {
   if (!isNonArrayObject(progress)) throw new TypeError('Progress snapshot must be an object.');
   const status = progress['status'];
   if (status !== undefined && typeof status !== 'string') {

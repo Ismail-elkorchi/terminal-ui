@@ -4,8 +4,8 @@ import { renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
 
 const content = column([
   text({ content: 'Actions' }),
-  button({ id: 'save', label: 'Save', onAction: () => ({ kind: 'save' } as const) }),
-  button({ id: 'quit', label: 'Quit', onAction: () => ({ kind: 'quit' } as const) })
+  button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) }),
+  button({ id: 'quit', label: 'Quit', onPress: () => ({ kind: 'quit' } as const) })
 ] as const);
 
 renderElementFrame(content, { columns: 20, rows: 4 });

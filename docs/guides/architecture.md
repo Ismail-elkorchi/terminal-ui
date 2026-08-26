@@ -3,17 +3,35 @@
 The source tree is organized by responsibility, not by a minimum file count.
 A directory remains useful when it establishes a stable dependency boundary:
 
+- `foundation` contains package-wide identity, validation, and bounded JSON
+  operations that depend on no UI subsystem.
 - `geometry` contains terminal rectangles, sizes, layout tracks, and inset
   contracts shared without depending on rendering.
-- `ui-model` contains component-domain data and prepared views shared by
-  components, behavior, and rendering.
+- `text` owns terminal-aware documents, edits, selections, grapheme indexes,
+  wrapping, search, and width measurement.
+- `visual` owns renderer-neutral terminal styles, styled render content, borders,
+  surface appearance, and cell-source identity.
+- `collection` owns reusable collection identity, snapshots, measured
+  collections, and visible-window queries.
+- `interaction` owns renderer-neutral input, focus, navigation, selection, and
+  scrolling contracts.
+- `behavior` owns controlled component state, transitions, reducers, and
+  derived views.
 - `element` contains opaque public element and metadata contracts.
 - `component` owns `defineComponent()`, the component-authoring contracts, and
   bounded helpers shared by built-in and package components.
 - `components` is the built-in catalog and component-domain contracts. It is an
   ordinary consumer of `component`.
-- `renderer/model` contains the private typed representation consumed by the
-  renderer implementation.
+- `layout` owns public element composition and geometry factories.
+- `renderer` exposes frame, measurement, drawing, and serialization contracts;
+  its `internal` subtree contains the private render tree and render pipeline.
+- `protocol`, `input`, and `host` own terminal protocol encoding, input
+  decoding, and terminal endpoint authority respectively.
+- `tui` coordinates application state, input, rendering, effects, sources, and
+  terminal publication. `prompts` builds short-lived prompt sessions on the
+  lower-level host and input contracts.
+- `transcript` and `testing` own persisted interaction evidence and deterministic
+  consumer-facing test tools.
 
 Single-purpose contracts that do not establish such a boundary stay beside
 their consumers. In particular, the TUI message-source vocabulary lives with
@@ -26,10 +44,10 @@ re-exported where a focused entrypoint needs them.
 The principal dependency flow is:
 
 ```text
-geometry, interaction, text, visual, and UI model
+geometry, collection, interaction, text, visual, and behavior
   -> public component, renderer, and layout contracts
   -> component definitions and layout factories
-  -> one private node construction boundary and private renderer model
+  -> one private node construction boundary and private render tree
   -> renderer implementation
   -> TUI runtime
   -> public testing harness
@@ -49,14 +67,14 @@ component or layout capability.
 
 Frames, measurements, layout results, render targets, focus targets, hit
 targets, canvas drawing, and render instrumentation are owned by the public
-renderer-contract module. Component options and the private renderer model both
+renderer contracts. Component options and the private render tree both
 consume those contracts; neither defines public renderer facade types.
 The renderer entrypoint is the facade. It names each public symbol it promotes
 from renderer internals, so information hiding is enforced at the declaration
 boundary. Architecture checks emit the package declarations in memory, resolve
 the actual exports of every entrypoint declared in `package.json`, and follow
 the referenced declaration graph. Any public declaration path reaching
-`renderer/model` fails regardless of source filenames, type syntax, or
+`renderer/internal/render-tree` fails regardless of source filenames, type syntax, or
 re-export depth.
 
 ## Element Factories And Rendering

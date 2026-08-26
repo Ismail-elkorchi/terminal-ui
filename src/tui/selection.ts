@@ -31,11 +31,11 @@ export type CopySelectedTextResult =
       readonly diagnostic: TerminalDiagnostic;
     };
 
-export function prepareCopySelectedTextInput(value: unknown): CopySelectedTextInput {
+export function decodeCopySelectedTextInput(value: unknown): CopySelectedTextInput {
   if (!isNonArrayObject(value)) {
     throw new TypeError('Copy selected text input must be an object.');
   }
-  const selection = prepareSelectedText(value['selection']);
+  const selection = decodeSelectedText(value['selection']);
   return Object.freeze({
     policy: decodeClipboardWritePolicy(value['policy']),
     ...(selection === undefined ? {} : { selection }),
@@ -96,7 +96,7 @@ export function suspendedClipboardSelection(
   };
 }
 
-function prepareSelectedText(value: unknown): SelectedText | undefined {
+function decodeSelectedText(value: unknown): SelectedText | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('Selected text must be an object.');
   if (typeof value['sourceId'] !== 'string' || value['sourceId'].trim() === '') {

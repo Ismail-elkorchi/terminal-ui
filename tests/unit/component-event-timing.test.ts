@@ -6,7 +6,7 @@ import {
   commandInput,
   dataGrid,
   listbox,
-  prepareCommandSuggestions,
+  createCommandSuggestions,
   searchPicker,
   slider,
   tabs,
@@ -15,13 +15,13 @@ import {
 } from '../../dist/components/index.js';
 import { defineComponent, ignoreMessage } from '../../dist/component/index.js';
 import type { TabCloseEvent } from '../../dist/components/index.js';
-import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
+import { createSearchPickerIndex } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import type { InputEvent } from '../../dist/input/index.js';
 import { row } from '../../dist/layout/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 void test('component construction and rendering do not execute event handlers', () => {
   let calls = 0;
@@ -30,19 +30,19 @@ void test('component construction and rendering do not execute event handlers', 
     return { kind: 'event' };
   };
   const elements = [
-    checkbox({ id: 'check', label: 'Check', checked: false, onAction: message }),
-    slider({ meta: { accessibleName: "Slider" }, id: 'slider', label: 'Value', value: 4, onAction: message }),
-    listbox({ meta: { accessibleName: "List" }, id: 'listbox', items: ['a'], projectItem: (item) => ({ id: item, label: item }), presentation: { activeId: 'a', selection: { mode: 'single', selectedId: 'a' } }, onTransition: message }),
-    dataGrid({ meta: { accessibleName: "Data grid" }, id: 'grid', rows: ['a'], getRowId: (row) => row, presentation: { interaction: {
+    checkbox({ id: 'check', label: 'Check', checked: false, onTransition: message }),
+    slider({ meta: { accessibleName: "Slider" }, id: 'slider', label: 'Value', value: 4, onTransition: message }),
+    listbox({ meta: { accessibleName: "List" }, id: 'listbox', items: ['a'], toOption: (item) => ({ id: item, label: item }), state: { activeId: 'a', selection: { mode: 'single', selectedId: 'a' } }, onTransition: message }),
+    dataGrid({ meta: { accessibleName: "Data grid" }, id: 'grid', rows: ['a'], getRowId: (row) => row, state: { interaction: {
       kind: 'row', activeRowId: 'a', selection: { mode: 'single' as const, selectedRowId: 'a' },
     } }, onTransition: message }),
-    textArea({ meta: { accessibleName: "Text area" }, id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
+    textArea({ meta: { accessibleName: "Text area" }, id: 'area', state: { document: createTextDocument('a'), caret: textCaretAt(0 )}, onTransition: message }),
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
-      presentation: { input: { text: 'a', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+      view: { input: { text: 'a', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
       onTransition: message
     }),
-    searchPicker({ meta: { accessibleName: "Search" }, id: 'searchPicker', presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
+    searchPicker({ meta: { accessibleName: "Search" }, id: 'searchPicker', view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } }, searchPickerIndex: createSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onTransition: message })
   ];
 
   for (const element of elements) renderElementFrame(element, { columns: 40, rows: 6 });
@@ -187,7 +187,7 @@ void test('tabs route delete to the selected close action without selecting twic
     },
     view: (state) => tabs<string, Message>({ meta: { accessibleName: "Tabs" },
       id: 'tabs',
-      presentation: { activeId: state.selected, selectedId: state.selected },
+      state: { activeId: state.selected, selectedId: state.selected },
       tabs: [
         { id: 'first', label: 'First', panel: text({ content: 'First' }) },
         { id: 'second', label: 'Second', closable: true, panel: text({ content: 'Second' }) }
@@ -244,7 +244,7 @@ void test('tabs do not consume keys handled by the selected panel', async () => 
     },
     view: () => tabs<'current', Message>({ meta: { accessibleName: "Tabs" },
       id: 'tabs',
-      presentation: { activeId: 'current', selectedId: 'current' },
+      state: { activeId: 'current', selectedId: 'current' },
       tabs: [{
         id: 'current',
         label: 'Current',
@@ -294,7 +294,7 @@ void test('checkbox keyboard and pointer activation evaluate the same handler at
       id: 'check',
       label: 'Check',
       checked: state.checked,
-      onAction: (action) => {
+      onTransition: (action) => {
         actionKinds.push(action.kind);
         return { checked: action.checked };
       }

@@ -3,12 +3,12 @@ import test from 'node:test';
 
 import {
   calendarDateId,
-  calendarPresentation,
+  calendarView,
   calendarReducer
 } from '../../dist/behavior/index.js';
 import type { CalendarBehaviorOptions, CalendarState } from '../../dist/behavior/index.js';
 import { calendar } from '../../dist/components/index.js';
-import type { CalendarAction } from '../../dist/components/index.js';
+import type { CalendarTransition } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
@@ -18,8 +18,8 @@ const policy = Object.freeze({
   weekStartsOn: 1
 } satisfies CalendarBehaviorOptions);
 
-void test('date picker presentation creates a deterministic six-week civil calendar', () => {
-  const presentation = calendarPresentation({
+void test('date picker view creates a deterministic six-week civil calendar', () => {
+  const view = calendarView({
     visibleMonth: { year: 2024, month: 2 },
     selectedDate: { year: 2024, month: 2, day: 29 },
     activeDate: { year: 2024, month: 2, day: 29 }
@@ -29,16 +29,16 @@ void test('date picker presentation creates a deterministic six-week civil calen
     outsideMonth: 'hidden'
   });
 
-  assert.equal(presentation.monthLabel, 'February 2024');
-  assert.deepEqual(presentation.weekdays, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
-  assert.equal(presentation.days.length, 42);
-  assert.deepEqual(presentation.interaction, {
+  assert.equal(view.monthLabel, 'February 2024');
+  assert.deepEqual(view.weekdays, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+  assert.equal(view.days.length, 42);
+  assert.deepEqual(view.interaction, {
     activeId: '2024-02-29',
     selection: { mode: 'single', selectedId: '2024-02-29' }
   });
-  assert.equal(presentation.days.find((day) => day.id === '2024-02-29')?.label, '29');
-  assert.equal(presentation.days.find((day) => day.id === '2024-02-20')?.today, true);
-  assert.equal(presentation.days[0]?.hidden, true);
+  assert.equal(view.days.find((day) => day.id === '2024-02-29')?.label, '29');
+  assert.equal(view.days.find((day) => day.id === '2024-02-20')?.today, true);
+  assert.equal(view.days[0]?.hidden, true);
 });
 
 void test('date picker reducer navigates its active date across month boundaries and skips disabled dates', () => {
@@ -70,13 +70,13 @@ void test('date picker month movement keeps the active date inside the rendered 
     isDisabled: (date) => date.month === 7 && date.day === 30
   } satisfies CalendarBehaviorOptions;
   const moved = calendarReducer(state, { kind: 'moveMonth', months: 1 }, options);
-  const presentation = calendarPresentation(moved, options);
-  const active = presentation.days.find((day) => day.id === presentation.interaction.activeId);
+  const view = calendarView(moved, options);
+  const active = view.days.find((day) => day.id === view.interaction.activeId);
 
   assert.deepEqual(moved.visibleMonth, { year: 2026, month: 7 });
   assert.ok(active);
   assert.equal(active.disabled, undefined);
-  assert.notEqual(presentation.interaction.activeId, '2026-06-30');
+  assert.notEqual(view.interaction.activeId, '2026-06-30');
 });
 
 void test('date picker clears its active date when its explicit search policy cannot find a selectable date', () => {
@@ -92,13 +92,13 @@ void test('date picker clears its active date when its explicit search policy ca
 
   assert.equal(moved.activeDate, undefined);
   assert.throws(
-    () => calendarPresentation(state, { ...policy, focusSearchLimitDays: -1 }),
+    () => calendarView(state, { ...policy, focusSearchLimitDays: -1 }),
     /non-negative safe integer/u
   );
 });
 
-void test('date picker component routes keyboard and pointer through CalendarAction', async () => {
-  const app = defineTui<CalendarState, CalendarAction>({
+void test('date picker component routes keyboard and pointer through CalendarTransition', async () => {
+  const app = defineTui<CalendarState, CalendarTransition>({
     id: 'calendar-actions',
     init: () => ({ state: ({
       visibleMonth: { year: 2026, month: 6 },
@@ -108,8 +108,8 @@ void test('date picker component routes keyboard and pointer through CalendarAct
     view: (state) => calendar({ meta: { accessibleName: "Calendar" },
       id: 'calendar',
       label: 'Deployment date',
-      presentation: calendarPresentation(state, policy),
-      onAction: (action) => action
+      view: calendarView(state, policy),
+      onTransition: (action) => action
     })
   });
   const runtime = createTuiRuntime({
@@ -135,14 +135,14 @@ void test('date picker component routes keyboard and pointer through CalendarAct
 
 void test('date picker validates civil dates and explicit locale policy', () => {
   assert.throws(
-    () => calendarPresentation({ visibleMonth: { year: 2023, month: 2 } }, {
+    () => calendarView({ visibleMonth: { year: 2023, month: 2 } }, {
       ...policy,
       min: { year: 2023, month: 2, day: 29 }
     }),
     /invalid calendar date/u
   );
   assert.throws(
-    () => calendarPresentation({ visibleMonth: { year: 2026, month: 6 } }, { locale: '', weekStartsOn: 1 }),
+    () => calendarView({ visibleMonth: { year: 2026, month: 6 } }, { locale: '', weekStartsOn: 1 }),
     /locale must not be empty/u
   );
 });

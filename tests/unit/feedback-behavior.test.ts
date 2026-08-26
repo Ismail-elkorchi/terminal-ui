@@ -3,21 +3,21 @@ import test from 'node:test';
 
 import {
   indeterminateProgressFrame,
-  progressCompletionState
+  progressValueStatus
 } from '../../dist/behavior/index.js';
 
-void test('progressCompletionState classifies bounded values deterministically', () => {
-  assert.equal(progressCompletionState(0, 10), 'empty');
-  assert.equal(progressCompletionState(-1, 10), 'empty');
-  assert.equal(progressCompletionState(5, 10), 'partial');
-  assert.equal(progressCompletionState(10, 10), 'complete');
-  assert.equal(progressCompletionState(11, 10), 'overflow');
+void test('progressValueStatus classifies bounded values deterministically', () => {
+  assert.equal(progressValueStatus(0, 10), 'empty');
+  assert.equal(progressValueStatus(-1, 10), 'empty');
+  assert.equal(progressValueStatus(5, 10), 'partial');
+  assert.equal(progressValueStatus(10, 10), 'complete');
+  assert.equal(progressValueStatus(11, 10), 'overflow');
 });
 
-void test('progressCompletionState normalizes invalid maxima without hidden state', () => {
-  assert.equal(progressCompletionState(50, 0), 'partial');
-  assert.equal(progressCompletionState(100, Number.NaN), 'complete');
-  assert.equal(progressCompletionState(101, Number.NaN), 'overflow');
+void test('progressValueStatus normalizes invalid maxima without hidden state', () => {
+  assert.equal(progressValueStatus(50, 0), 'partial');
+  assert.equal(progressValueStatus(100, Number.NaN), 'complete');
+  assert.equal(progressValueStatus(101, Number.NaN), 'overflow');
 });
 
 void test('indeterminateProgressFrame derives a bounded active window from frame and width', () => {

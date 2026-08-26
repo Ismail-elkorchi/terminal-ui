@@ -1,9 +1,9 @@
-import { createCompositingFrameBuffer } from './frame-buffer.ts';
+import { createCompositingFrameBuffer } from '../frame-buffer.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotOptions } from './frame-buffer.ts';
+import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotOptions } from '../frame-buffer.ts';
 import { frameSnapshotMetadata, registerFrameSnapshotMetadata } from './frame-snapshot.ts';
 import type { FrameSnapshotMetadata } from './frame-snapshot.ts';
 import type { FrameCell, FrameHitTarget } from '../contracts.ts';

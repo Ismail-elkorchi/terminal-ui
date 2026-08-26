@@ -17,7 +17,7 @@ export interface ClipboardWriteRejection {
 
 export type ClipboardWriteSequenceResult =
   | {
-      readonly status: 'prepared';
+      readonly status: 'encoded';
       readonly sequence: string;
       readonly byteLength: number;
     }
@@ -66,9 +66,9 @@ export function createClipboardWriteSequence(
   text: string,
   policy: ClipboardWritePolicy
 ): ClipboardWriteSequenceResult {
-  const preparedPolicy = decodeClipboardWritePolicy(policy);
-  const maxBytes = preparedPolicy.maxBytes ?? 1_000_000;
-  if (!preparedPolicy.allowed) return clipboardDenied();
+  const writePolicy = decodeClipboardWritePolicy(policy);
+  const maxBytes = writePolicy.maxBytes ?? 1_000_000;
+  if (!writePolicy.allowed) return clipboardDenied();
   const sanitized = sanitizeTerminalText(text).text;
   const bytes = new TextEncoder().encode(sanitized);
   if (bytes.byteLength > maxBytes) {
@@ -82,7 +82,7 @@ export function createClipboardWriteSequence(
     };
   }
   return {
-    status: 'prepared',
+    status: 'encoded',
     sequence: `\u001B]52;c;${base64(bytes)}\u0007`,
     byteLength: bytes.byteLength
   };

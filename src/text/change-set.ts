@@ -6,16 +6,29 @@ import {
 } from './document.ts';
 import type { TextChangeSet, TextDocumentChange } from './types.ts';
 
-const preparedChangeSets = new WeakSet<object>();
+declare const textChangePlanBrand: unique symbol;
+
+/** A validated change set bound to the exact source document it can edit. */
+export interface TextChangePlan extends TextChangeSet {
+  readonly [textChangePlanBrand]: true;
+}
+
+interface TextChangePlanData {
+  readonly document: TextDocument;
+  readonly changeSet: TextChangeSet;
+}
+
+const ownedChangeSets = new WeakSet<object>();
+const textChangePlans = new WeakMap<TextChangePlan, TextChangePlanData>();
 export const emptyTextChangeSet: TextChangeSet = Object.freeze({ changes: Object.freeze([]) });
-preparedChangeSets.add(emptyTextChangeSet);
+ownedChangeSets.add(emptyTextChangeSet);
 
 export function createTextChangeSet(
   changes: readonly TextDocumentChange[]
 ): TextChangeSet {
   if (!Array.isArray(changes)) throw new TypeError('Text changes must be an array.');
   const owned = changes
-    .map((change, index) => prepareChange(change, index))
+    .map((change, index) => decodeTextDocumentChange(change, index))
     .filter((change) => change.startOffset !== change.endOffsetExclusive || change.insertedText.length > 0);
   for (let index = 1; index < owned.length; index += 1) {
     const previous = owned[index - 1];
@@ -32,14 +45,15 @@ export function applyTextChangeSet(
   document: TextDocument,
   changeSet: TextChangeSet
 ): TextDocument {
-  const prepared = prepareTextChangeSetForDocument(document, changeSet);
-  return applyPreparedTextChangeSet(document, prepared);
+  const plan = createTextChangePlan(document, changeSet);
+  return applyTextChangePlan(document, plan);
 }
 
-export function applyPreparedTextChangeSet(
+export function applyTextChangePlan(
   document: TextDocument,
-  changeSet: TextChangeSet
+  plan: TextChangePlan
 ): TextDocument {
+  const changeSet = textChangePlanData(document, plan).changeSet;
   let next = document;
   for (let index = changeSet.changes.length - 1; index >= 0; index -= 1) {
     const change = changeSet.changes[index];
@@ -58,14 +72,15 @@ export function invertTextChangeSet(
   document: TextDocument,
   changeSet: TextChangeSet
 ): TextChangeSet {
-  const prepared = prepareTextChangeSetForDocument(document, changeSet);
-  return invertPreparedTextChangeSet(document, prepared);
+  const plan = createTextChangePlan(document, changeSet);
+  return invertTextChangePlan(document, plan);
 }
 
-export function invertPreparedTextChangeSet(
+export function invertTextChangePlan(
   document: TextDocument,
-  changeSet: TextChangeSet
+  plan: TextChangePlan
 ): TextChangeSet {
+  const changeSet = textChangePlanData(document, plan).changeSet;
   let delta = 0;
   const inverted = changeSet.changes.map((change) => {
     const startOffset = change.startOffset + delta;
@@ -82,10 +97,10 @@ export function invertPreparedTextChangeSet(
   return ownChangeSet(inverted);
 }
 
-export function prepareTextChangeSetForDocument(
+export function createTextChangePlan(
   document: TextDocument,
   changeSet: unknown
-): TextChangeSet {
+): TextChangePlan {
   if (
     changeSet === null
     || typeof changeSet !== 'object'
@@ -96,19 +111,19 @@ export function prepareTextChangeSetForDocument(
   const candidate = changeSet as { readonly changes: readonly unknown[] };
   const changes = candidate.changes;
   const sourceLength = textDocumentLength(document);
-  if (preparedChangeSets.has(candidate)) {
+  if (ownedChangeSets.has(candidate)) {
     for (let index = 0; index < changes.length; index += 1) {
       const change = changes[index] as TextDocumentChange | undefined;
       if (change !== undefined && change.endOffsetExclusive > sourceLength) {
         throw new RangeError(`Text changes[${String(index)}] exceeds the source document.`);
       }
     }
-    return changeSet as TextChangeSet;
+    return textChangePlan(document, changeSet as TextChangeSet);
   }
   const owned: TextDocumentChange[] = [];
   let previousEnd = 0;
   for (let index = 0; index < changes.length; index += 1) {
-    const change = prepareChange(changes[index], index);
+    const change = decodeTextDocumentChange(changes[index], index);
     if (change.endOffsetExclusive > sourceLength) {
       throw new RangeError(`Text changes[${String(index)}] exceeds the source document.`);
     }
@@ -120,17 +135,39 @@ export function prepareTextChangeSetForDocument(
       owned.push(change);
     }
   }
-  return ownChangeSet(owned);
+  return textChangePlan(document, ownChangeSet(owned));
 }
 
 function ownChangeSet(changes: readonly TextDocumentChange[]): TextChangeSet {
   if (changes.length === 0) return emptyTextChangeSet;
   const owned = Object.freeze({ changes: Object.freeze(changes) });
-  preparedChangeSets.add(owned);
+  ownedChangeSets.add(owned);
   return owned;
 }
 
-function prepareChange(value: unknown, index: number): TextDocumentChange {
+function textChangePlan(
+  document: TextDocument,
+  changeSet: TextChangeSet,
+): TextChangePlan {
+  const plan = Object.freeze({ changes: changeSet.changes }) as TextChangePlan;
+  textChangePlans.set(plan, { document, changeSet });
+  return plan;
+}
+
+function textChangePlanData(
+  document: TextDocument,
+  plan: TextChangePlan,
+): TextChangePlanData {
+  const data = textChangePlans.get(plan);
+  if (data?.document !== document) {
+    throw new TypeError(
+      'Text change plan must be created for this document by createTextChangePlan().',
+    );
+  }
+  return data;
+}
+
+function decodeTextDocumentChange(value: unknown, index: number): TextDocumentChange {
   if (value === null || typeof value !== 'object') {
     throw new TypeError(`Text changes[${String(index)}] must be an object.`);
   }

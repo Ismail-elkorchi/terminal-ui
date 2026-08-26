@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createFrameBuffer, drawBorder, layoutElement, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import { button, dialog, text } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
@@ -125,8 +125,8 @@ test('dialog reserves a structurally separated action area without color', () =>
     slots: {
       content: text({ content: 'Dialog body', id: 'body' }),
       actions: row([
-        button({ id: 'cancel', label: 'Cancel', onAction: () => ignoreMessage() }),
-        button({ id: 'confirm', label: 'OK', onAction: () => ignoreMessage() })
+        button({ id: 'cancel', label: 'Cancel', onPress: () => ignoreMessage() }),
+        button({ id: 'confirm', label: 'OK', onPress: () => ignoreMessage() })
       ], { gap: 1 })
     },
     id: 'dialog',
@@ -156,7 +156,7 @@ test('dialog action separators preserve one-cell geometry under ambiguous-wide p
   const frame = renderElementFrame(dialog({
     slots: {
       content: text({ content: 'Body' }),
-      actions: button({ id: 'confirm', label: 'OK', onAction: () => ignoreMessage() })
+      actions: button({ id: 'confirm', label: 'OK', onPress: () => ignoreMessage() })
     },
     id: 'wide-dialog',
     title: 'Confirm',
@@ -203,7 +203,7 @@ test('dialog exposes outside-press dismissal only outside its painted bounds', (
       dismissOnEscape: false,
       dismissOnOutsidePress: true
     },
-    onAction: (action) => action,
+    onDismiss: (action) => action,
     width: 12,
     height: 5
   });

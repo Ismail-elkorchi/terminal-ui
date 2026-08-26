@@ -22,13 +22,13 @@ import {
   grid,
   splitPane
 } from '../../dist/layout/index.js';
-import { prepareCommandSuggestions, prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
+import { createCommandSuggestions, createSearchPickerIndex, createLogHistory } from '../../dist/behavior/index.js';
 
 function workspaceView(state) {
   const mainPanel = tabs({
     id: 'main-tabs',
     meta: { accessibleName: 'Workspace views' },
-    presentation: {
+    state: {
       activeId: state.searchPicker ? 'actions' : 'log',
       selectedId: state.searchPicker ? 'actions' : 'log'
     },
@@ -38,7 +38,7 @@ function workspaceView(state) {
         label: 'Log',
         panel: logViewer({
           id: 'log',
-          history: prepareLogHistory(state.items.map((item, index) => ({ id: String(index), text: item })))
+          history: createLogHistory(state.items.map((item, index) => ({ id: String(index), text: item })))
         })
       },
       {
@@ -47,12 +47,12 @@ function workspaceView(state) {
         panel: searchPicker({
           id: 'searchPicker',
           title: 'Actions',
-          presentation: {
+          view: {
             input: { text: state.query, cursor: state.query.length },
             query: { mode: 'fuzzy' },
             activeId: 'open'
           },
-          searchPickerIndex: prepareSearchPickerIndex([
+          searchPickerIndex: createSearchPickerIndex([
             { id: 'open', label: 'Open', value: 'open' },
             { id: 'quit', label: 'Quit', value: 'quit' }
           ]),
@@ -80,7 +80,7 @@ function workspaceView(state) {
     commandInput({
       id: 'command',
       prompt: '/',
-      presentation: { input: { text: state.query, cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+      view: { input: { text: state.query, cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
       onTransition: () => ({ type: 'component' })
     })
   ], {

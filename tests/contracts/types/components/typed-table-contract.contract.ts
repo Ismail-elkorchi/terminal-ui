@@ -56,7 +56,7 @@ const processes = dataGrid({
     }),
     { id: 'automatic', value: (row) => row.name }
   ],
-  presentation: {
+  state: {
     interaction: {
       kind: 'cell',
       activeCell: { rowId: '42', columnId: 'name' },

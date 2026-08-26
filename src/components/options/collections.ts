@@ -7,14 +7,13 @@ import type { MessageResolution } from '../../interaction/message.ts';
 import type {
   ListViewActivateEvent,
   ListViewControlTransition,
-  ListViewItemRenderer,
-  ListViewMeasuredWindow,
   ListViewTransition,
-  ScrollableListViewPresentation,
-  SemanticListItem,
-  UnscrolledListViewPresentation,
-} from '../../ui-model/semantic-list.ts';
-import type { ListViewStylePart, SemanticListStylePart } from '../../ui-model/style-parts.ts';
+  ScrollableListViewState,
+  UnscrolledListViewState,
+} from '../../behavior/list-view.ts';
+import type { ListViewItemRenderer, SemanticListItem } from '../list-item.ts';
+import type { MeasuredWindow } from '../../collection/measured-window.ts';
+import type { ListViewStylePart, SemanticListStylePart } from '../style-parts.ts';
 
 export interface ListOptions<TItems extends readonly SemanticListItem[]> {
   readonly id?: string;
@@ -26,7 +25,7 @@ export interface ListOptions<TItems extends readonly SemanticListItem[]> {
 
 interface ListViewBaseOptions<TValue, TContent extends import('../../element/index.ts').Element<ComponentMessage>> {
   readonly id: string;
-  readonly window: ListViewMeasuredWindow<TValue>;
+  readonly window: MeasuredWindow<TValue>;
   readonly renderItem: ListViewItemRenderer<TValue, TContent>;
   readonly busy?: boolean;
   readonly inert?: boolean;
@@ -42,7 +41,7 @@ export type ListViewScrollbarOptions = Omit<ScrollbarOptions, 'axis'> & {
 interface ActiveListViewOptions<TTransition, TMessage extends ComponentMessage> {
   readonly disabled?: false;
   readonly inert?: false;
-  readonly onTransition: (action: TTransition) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: TTransition) => MessageResolution<TMessage>;
   readonly onActivate?: (event: ListViewActivateEvent) => MessageResolution<TMessage>;
 }
 
@@ -73,7 +72,7 @@ export type UnscrolledListViewOptions<
   TContent extends import('../../element/index.ts').Element<ComponentMessage>,
   TMessage extends ComponentMessage = never,
 > = ListViewBaseOptions<TValue, TContent> & {
-  readonly presentation: UnscrolledListViewPresentation;
+  readonly state: UnscrolledListViewState;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
 } & (ActiveListViewOptions<ListViewControlTransition, TMessage> | DisabledListViewOptions | InertListViewOptions);
@@ -84,7 +83,7 @@ export type ScrollableListViewOptions<
   TContent extends import('../../element/index.ts').Element<ComponentMessage>,
   TMessage extends ComponentMessage = never,
 > = ListViewBaseOptions<TValue, TContent> & {
-  readonly presentation: ScrollableListViewPresentation;
+  readonly state: ScrollableListViewState;
   readonly scrollbar?: ListViewScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 } & (ActiveListViewOptions<ListViewTransition, TMessage> | DisabledListViewOptions | InertListViewOptions);
@@ -92,12 +91,14 @@ export type ScrollableListViewOptions<
 export type {
   ListViewActivateEvent,
   ListViewControlTransition,
-  ListViewItemRenderer,
-  ListViewMeasuredWindow,
-  ListViewRenderedItem,
-  ListViewPresentation,
+  ListViewState,
   ListViewTransition,
-  ScrollableListViewPresentation,
+  ScrollableListViewState,
+  UnscrolledListViewState,
+} from '../../behavior/list-view.ts';
+export type {
+  ListViewItemRenderer,
+  ListViewItemContent,
   SemanticListItem,
-  UnscrolledListViewPresentation,
-} from '../../ui-model/semantic-list.ts';
+} from '../list-item.ts';
+export type { MeasuredWindow } from '../../collection/measured-window.ts';

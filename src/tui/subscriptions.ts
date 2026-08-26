@@ -33,14 +33,15 @@ interface TerminalSourceGeneration {
   readonly outcome: 'completed' | 'failed';
 }
 
-export interface PreparedTuiSubscriptions<TMessage> {
+/** The source set calculated for a state and ready for post-commit activation. */
+export interface TuiSubscriptionPlan<TMessage> {
   readonly context: TuiContext;
   readonly sources: readonly TuiEventSource<TMessage>[];
 }
 
 export interface TuiSubscriptionManager<TState, TMessage> {
-  prepare(state: TState, context?: TuiContext): Promise<PreparedTuiSubscriptions<TMessage>>;
-  activate(prepared: PreparedTuiSubscriptions<TMessage>): void;
+  plan(state: TState, context?: TuiContext): Promise<TuiSubscriptionPlan<TMessage>>;
+  activate(plan: TuiSubscriptionPlan<TMessage>): void;
   reconcile(state: TState): Promise<void>;
   cancel(): void;
   dispose(): Promise<void>;
@@ -70,19 +71,19 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   let disposed = false;
 
   return {
-    async prepare(state, suppliedContext) {
+    async plan(state, suppliedContext) {
       const context = suppliedContext ?? await options.context();
       const supplied: unknown = options.subscriptions?.(state, context) ?? [];
       const sources = decodeTuiEventSources<TMessage>(supplied);
       assertUniqueSourceIds(sources, options.reportDiagnostic);
       return { context, sources };
     },
-    activate(prepared) {
-      reconcilePrepared(prepared);
+    activate(plan) {
+      applyPlan(plan);
     },
     async reconcile(state) {
-      const prepared = await this.prepare(state);
-      reconcilePrepared(prepared);
+      const plan = await this.plan(state);
+      applyPlan(plan);
     },
     cancel() {
       retireAll();
@@ -107,26 +108,26 @@ export function createTuiSubscriptionManager<TState, TMessage>(
     },
   };
 
-  function reconcilePrepared(prepared: PreparedTuiSubscriptions<TMessage>): void {
+  function applyPlan(plan: TuiSubscriptionPlan<TMessage>): void {
     if (disposed) return;
-    const requestedIds = new Set(prepared.sources.map((source) => source.id));
+    const requestedIds = new Set(plan.sources.map((source) => source.id));
     for (const id of terminal.keys()) {
       if (!requestedIds.has(id)) terminal.delete(id);
     }
     for (const [id, activeSource] of active) {
-      const requested = prepared.sources.find((source) => source.id === id);
+      const requested = plan.sources.find((source) => source.id === id);
       if (requested?.generation !== activeSource.generation) {
         active.delete(id);
         retireSource(activeSource);
       }
     }
-    for (const source of prepared.sources) {
+    for (const source of plan.sources) {
       const id = source.id;
       if (active.has(id)) continue;
       const outcome = terminal.get(id);
       if (outcome?.generation === source.generation) continue;
       terminal.delete(id);
-      const activeSource = startSource(source, prepared.context);
+      const activeSource = startSource(source, plan.context);
       active.set(id, activeSource);
     }
   }

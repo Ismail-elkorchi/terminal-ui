@@ -3,15 +3,17 @@ import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
 import {
   createScrollState,
-  measuredWindow,
-  prepareCommandSuggestions,
-  prepareMeasuredCollection,
-  prepareSearchPickerIndex,
-  prepareLogHistory,
-  prepareTreeSource,
-  prepareTreeView,
+  createCommandSuggestions,
+  createSearchPickerIndex,
+  createLogHistory,
+  createTreeSource,
+  createTreeView,
 } from '../../dist/behavior/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import {
+  createMeasuredCollection,
+  measuredWindow,
+} from '../../dist/collection/index.js';
+import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 import { rasterImage } from '../../dist/graphics/index.js';
 
 import {
@@ -88,10 +90,10 @@ import {
   switchControl
 } from '../../dist/components/index.js';
 import {
-  contextMenuPresentation,
-  menuTriggerPresentation,
-  menuBarPresentation,
-  menuPresentation
+  contextMenuView,
+  menuTriggerView,
+  menuBarView,
+  menuView
 } from '../../dist/behavior/index.js';
 
 const unsafe = 'Unsafe \u001B[31mred\u001B[0m text';
@@ -188,7 +190,7 @@ const cases = [
   {
     name: 'measuredColumn',
     element: () => measuredColumn(
-      measuredWindow(prepareMeasuredCollection([
+      measuredWindow(createMeasuredCollection([
           { id: 'first', value: unsafe, rows: 1 },
           { id: 'second', value: 'Second', rows: 1 }
         ]), {
@@ -202,10 +204,10 @@ const cases = [
   {
     name: 'listbox',
     element: () => listbox({ meta: { accessibleName: "List" },
-    projectItem: (item) => ({ id: String(item), label: String(item) }),
+    toOption: (item) => ({ id: String(item), label: String(item) }),
       id: 'listbox',
       items: [unsafe, 'Second', 'Third'],
-      presentation: {
+      state: {
         activeId: 'Second',
         selection: { mode: 'single', selectedId: 'Second' }
       },
@@ -220,7 +222,7 @@ const cases = [
     getRowId: (_row, index) => String(index),
     id: 'dataGrid',
       rows: [{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }],
-      presentation: {
+      state: {
         interaction: {
           kind: 'row', activeRowId: '1', selection: { mode: 'single', selectedRowId: '1' },
         }
@@ -235,16 +237,16 @@ const cases = [
   {
     name: 'tree',
     element: () => {
-      const presentation = {
+      const treeState = {
         expandedIds: ['root'],
         activeId: 'child',
         selection: { mode: 'single', selectedId: 'child' }
       };
-      const source = prepareTreeSource(treeNodes);
+      const source = createTreeSource(treeNodes);
       return tree({ meta: { accessibleName: "Tree" },
         id: 'tree',
-        view: prepareTreeView(source, presentation),
-        presentation,
+        view: createTreeView(source, treeState),
+        state: treeState,
         onTransition: (action) => ({ kind: 'tree', action })
       });
     },
@@ -259,7 +261,7 @@ const cases = [
       label: unsafe,
       pageNumber: 2,
       pageCount: 3,
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     expectText: /Page 2 of 3/u
   },
@@ -267,8 +269,8 @@ const cases = [
     name: 'textArea',
     element: () => textArea({ meta: { accessibleName: "Text area" },
       id: 'text-area',
-      presentation: { document: prepareTextDocument(`${unsafe}\nSecond`), caret: textCaretAt(3 )},
-      onAction: (action) => action
+      state: { document: createTextDocument(`${unsafe}\nSecond`), caret: textCaretAt(3 )},
+      onTransition: (action) => action
     }),
     expectText: /Second/u,
     expectFocus: true
@@ -279,7 +281,7 @@ const cases = [
         id: 'disclosure',
         label: unsafe,
         expanded: true,
-        onAction: (action) => action,
+        onTransition: (action) => action,
         slots: { content: text({ content: 'Details', id: 'disclosure-panel' }) }
       }),
     expectText: /Details/u,
@@ -291,10 +293,10 @@ const cases = [
     element: () => form({ meta: { accessibleName: "Form" }, slots: { content: [
       field({ control: textInput({ meta: { accessibleName: "Text input" },
         id: 'form-input',
-        presentation: { value: unsafe, cursor: 0 },
-        onAction: (action) => action
+        state: { value: unsafe, cursor: 0 },
+        onTransition: (action) => action
       }), id: 'form-field', label: 'Name' }),
-      button({ id: 'form-submit', label: 'Submit', onAction: () => ({ kind: 'submit' }) })
+      button({ id: 'form-submit', label: 'Submit', onPress: () => ({ kind: 'submit' }) })
     ] }, id: 'form', title: unsafe }),
     expectText: /Submit/u,
     expectFocus: true,
@@ -304,8 +306,8 @@ const cases = [
     name: 'field',
     element: () => field({ control: textInput({ meta: { accessibleName: "Text input" },
       id: 'field-input',
-      presentation: { value: unsafe, cursor: 0 },
-      onAction: (action) => action
+      state: { value: unsafe, cursor: 0 },
+      onTransition: (action) => action
     }),
       id: 'field',
       label: unsafe,
@@ -320,8 +322,8 @@ const cases = [
       label({ id: 'label', forId: 'label-target', text: unsafe }),
       textInput({ meta: { accessibleName: "Text input" },
         id: 'label-target',
-        presentation: { value: '', cursor: 0 },
-        onAction: (action) => action
+        state: { value: '', cursor: 0 },
+        onTransition: (action) => action
       })
     ] }, id: 'label-form' }),
     expectText: /Unsafe red text/u,
@@ -329,21 +331,21 @@ const cases = [
   },
   {
     name: 'button',
-    element: () => button({ id: 'button', label: unsafe, onAction: () => ({ kind: 'button' }) }),
+    element: () => button({ id: 'button', label: unsafe, onPress: () => ({ kind: 'button' }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'checkbox',
-    element: () => checkbox({ id: 'checkbox', label: unsafe, checked: true, onAction: () => ({ kind: 'check' }) }),
+    element: () => checkbox({ id: 'checkbox', label: unsafe, checked: true, onTransition: () => ({ kind: 'check' }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'switchControl',
-    element: () => switchControl({ id: 'toggle', label: unsafe, checked: true, onAction: () => ({ kind: 'toggle' }) }),
+    element: () => switchControl({ id: 'toggle', label: unsafe, checked: true, onTransition: () => ({ kind: 'toggle' }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
@@ -355,7 +357,7 @@ const cases = [
       label: unsafe,
       value: 5,
       max: 10,
-      onAction: (action) => ({ kind: 'slider', action })
+      onTransition: (action) => ({ kind: 'slider', action })
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
@@ -368,7 +370,7 @@ const cases = [
       label: unsafe,
       state: { value: { start: 2, end: 8 }, activeHandle: 'end' },
       range: { min: 0, max: 10 },
-      onAction: (action) => ({ kind: 'range', action })
+      onTransition: (action) => ({ kind: 'range', action })
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
@@ -380,11 +382,11 @@ const cases = [
       id: 'checkbox-listbox',
       label: unsafe,
       options: optionItems,
-      presentation: {
+      state: {
         activeId: 'alpha',
         selection: { mode: 'multiple', selectedIds: ['alpha'] }
       },
-      onAction: (action) => ({ kind: 'checkboxGroup', action })
+      onTransition: (action) => ({ kind: 'checkboxGroup', action })
     }),
     expectText: /Beta/u,
     expectFocus: true,
@@ -396,11 +398,11 @@ const cases = [
       id: 'radio',
       label: 'Mode',
       options: optionItems,
-      presentation: {
+      state: {
         activeId: 'alpha',
         selection: { mode: 'single', selectedId: 'alpha' }
       },
-      onAction: (action) => ({ kind: 'radio', action })
+      onTransition: (action) => ({ kind: 'radio', action })
     }),
     expectText: /Mode/u,
     expectFocus: true,
@@ -412,7 +414,7 @@ const cases = [
       id: 'combobox',
       label: 'Choice',
       options: optionItems,
-      presentation: {
+      state: {
         kind: 'select',
         open: false,
         interaction: { selection: { mode: 'single', selectedId: 'alpha' } }
@@ -432,11 +434,11 @@ const cases = [
         { id: 'alpha', label: unsafe, value: 'alpha', swatch: '■' },
         { id: 'beta', label: 'Beta', value: 'beta', swatch: '◆' }
       ],
-      presentation: {
+      state: {
         activeId: 'alpha',
         selection: { mode: 'single', selectedId: 'alpha' }
       },
-      onAction: (action) => ({ kind: 'color', action })
+      onTransition: (action) => ({ kind: 'color', action })
     }),
     expectText: /Beta/u,
     expectFocus: true,
@@ -447,11 +449,11 @@ const cases = [
     element: () => calendar({ meta: { accessibleName: "Calendar" },
       id: 'calendar',
       label: unsafe,
-      presentation: calendarFixture({
+      view: calendarFixture({
         selectedDate: { year: 2026, month: 6, day: 3 },
         today: { year: 2026, month: 6, day: 2 }
       }),
-      onAction: (action) => ({ kind: 'date', action })
+      onTransition: (action) => ({ kind: 'date', action })
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
@@ -461,8 +463,8 @@ const cases = [
     name: 'textInput',
     element: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'text-input',
-      presentation: { value: unsafe, cursor: 2 },
-      onAction: (action) => action
+      state: { value: unsafe, cursor: 2 },
+      onTransition: (action) => action
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true
@@ -471,8 +473,8 @@ const cases = [
     name: 'passwordInput',
     element: () => passwordInput({ meta: { accessibleName: "Password input" },
       id: 'password-input',
-      presentation: { value: 'secret', cursor: 6 },
-      onAction: (action) => action
+      state: { value: 'secret', cursor: 6 },
+      onTransition: (action) => action
     }),
     expectText: /••••••/u,
     expectFocus: true
@@ -481,29 +483,29 @@ const cases = [
     name: 'numberInput',
     element: () => numberInput({ meta: { accessibleName: "Number input" },
       id: 'number-input',
-      presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42, min: 1, max: 99 },
-      onAction: (action) => action
+      view: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42, min: 1, max: 99 },
+      onTransition: (action) => action
     }),
     expectText: /42/u,
     expectFocus: true
   },
   {
     name: 'menu',
-    element: () => menu({ meta: { accessibleName: "Menu" }, id: 'menu', presentation: menuPresentation(menuItems, { activePath: ['open'] }), onTransition: (action) => ({ kind: 'menu', action }) }),
+    element: () => menu({ meta: { accessibleName: "Menu" }, id: 'menu', view: menuView(menuItems, { activePath: ['open'] }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'menuBar',
-    element: () => menuBar({ meta: { accessibleName: "Menu bar" }, id: 'menu-bar', items: menuItems, presentation: menuBarPresentation(menuItems, { kind: 'closed', active: 'open' }), onTransition: (action) => ({ kind: 'menu', action }) }),
+    element: () => menuBar({ meta: { accessibleName: "Menu bar" }, id: 'menu-bar', items: menuItems, view: menuBarView(menuItems, { kind: 'closed', active: 'open' }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'contextMenu',
-    element: () => contextMenu({ meta: { accessibleName: "Context menu" }, id: 'context-menu', title: unsafe, presentation: contextMenuPresentation(menuItems, { kind: 'open', anchor: { kind: 'cursor', row: 1, column: 1 }, menu: { activePath: ['save'] } }), onTransition: (action) => ({ kind: 'menu', action }) }),
+    element: () => contextMenu({ meta: { accessibleName: "Context menu" }, id: 'context-menu', title: unsafe, view: contextMenuView(menuItems, { kind: 'open', anchor: { kind: 'cursor', row: 1, column: 1 }, menu: { activePath: ['save'] } }), onTransition: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
@@ -514,7 +516,7 @@ const cases = [
       id: 'menuTrigger',
       label: unsafe,
       items: menuItems,
-      presentation: menuTriggerPresentation(menuItems, { kind: 'open', active: 'save', menu: { activePath: ['save'] } }),
+      view: menuTriggerView(menuItems, { kind: 'open', active: 'save', menu: { activePath: ['save'] } }),
       onTransition: (action) => ({ kind: 'menuTrigger', action })
     }),
     expectText: /Save/u,
@@ -534,7 +536,7 @@ const cases = [
       title: 'Hint',
       content: unsafe,
       tone: 'warning',
-      trigger: button({ id: 'tooltip-trigger', label: 'Trigger', onAction: () => ({ kind: 'trigger' }) }),
+      trigger: button({ id: 'tooltip-trigger', label: 'Trigger', onPress: () => ({ kind: 'trigger' }) }),
       open: true,
       onTransition: (action) => action
     }),
@@ -635,7 +637,7 @@ const cases = [
         title: unsafe
       }],
       selectedId: 'completed',
-      onAction: (action) => action
+      onTransition: (transition) => transition
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
@@ -652,7 +654,7 @@ const cases = [
       id: 'bar-chart',
       label: 'Bars',
       items: [{ id: 'unsafe', label: unsafe, value: 2 }, { id: 'second', label: 'Second', value: 4 }],
-      presentation: { activeId: 'second', selection: { mode: 'single', selectedId: 'second' } },
+      state: { activeId: 'second', selection: { mode: 'single', selectedId: 'second' } },
       onTransition: (action) => action
     }),
     expectText: /Second/u
@@ -688,7 +690,7 @@ const cases = [
         [{ id: 'a', label: unsafe, value: 1 }, { id: 'b', label: 'Beta', value: 3 }],
         [{ id: 'c', label: 'Gamma', value: 5 }]
       ],
-      presentation: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
+      state: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
       onTransition: (action) => ({ kind: 'heatmap', action })
     }),
     expectText: /[░▒▓█◆]/u,
@@ -707,7 +709,7 @@ const cases = [
     name: 'logViewer',
     element: () => logViewer({
       id: 'logViewer',
-      history: prepareLogHistory([
+      history: createLogHistory([
         { id: 'one', text: unsafe },
         { id: 'two', text: 'Second' }
       ]),
@@ -719,7 +721,7 @@ const cases = [
     name: 'commandInput',
     element: () => commandInput({ meta: { accessibleName: "Command input" },
       id: 'command-input',
-      presentation: { input: { text: unsafe, cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: unsafe.length }, text: 'open' }, label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
+      view: { input: { text: unsafe, cursor: 0 }, open: true, suggestions: createCommandSuggestions([{ id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: unsafe.length }, text: 'open' }, label: unsafe, description: 'Open action' }]), activeSuggestionId: 'open' },
       prompt: '>',
       onTransition: (action) => action
     }),
@@ -731,11 +733,11 @@ const cases = [
     element: () => searchPicker({ meta: { accessibleName: "Search" },
       id: 'searchPicker',
       title: unsafe,
-      searchPickerIndex: prepareSearchPickerIndex([
+      searchPickerIndex: createSearchPickerIndex([
         { id: 'alpha', label: unsafe, value: 'alpha', preview: 'Preview' },
         { id: 'beta', label: 'Beta', value: 'beta', disabled: true }
       ]),
-      presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, activeId: 'alpha' },
+      view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' }, activeId: 'alpha' },
       onTransition: (action) => action
     }),
     expectText: /Preview/u,
@@ -780,7 +782,7 @@ const cases = [
     name: 'tabs',
     element: () => tabs({ meta: { accessibleName: "Tabs" },
       id: 'tabs',
-      presentation: { activeId: 'first', selectedId: 'first' },
+      state: { activeId: 'first', selectedId: 'first' },
       tabs: [
         { id: 'first', label: unsafe, panel: text({ content: 'Panel one', id: 'panel-one' }) },
         { id: 'second', label: 'Second', panel: text({ content: 'Panel two', id: 'panel-two' }), disabled: true }
@@ -792,7 +794,7 @@ const cases = [
   {
     name: 'dialog',
     element: () => dialog({
-      slots: { content: button({ id: 'dialog-button', label: 'Confirm', onAction: () => ({ kind: 'confirm' }) }) },
+      slots: { content: button({ id: 'dialog-button', label: 'Confirm', onPress: () => ({ kind: 'confirm' }) }) },
       id: 'dialog',
       title: unsafe,
       modal: true,

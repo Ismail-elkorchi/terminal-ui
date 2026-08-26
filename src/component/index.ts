@@ -20,7 +20,7 @@ export type {
   ComponentMeasureConstraints,
   ComponentMeasureInput,
   ComponentMessage,
-  ComponentPreparationContext,
+  ComponentModelContext,
   ComponentRenderInput,
   ComponentSlotCardinality,
   ComponentSlotDefinition,
@@ -31,12 +31,12 @@ export type {
   ComponentSlotsDefinition,
   ComponentCallerSlotValues,
   ComponentImplementationSlotValues,
-  ComponentSourceInput,
+  ComponentFrameSourceInput,
   ComponentMetadataCapability,
   ComponentMetadataOptions,
   ComponentStateCapability,
   ComponentStyleInput,
-  ComponentTextActionInput,
+  ComponentTextInput,
   ComponentVisualState,
   DecorativeLeafComponentFactory,
   DecorativeLeafDefinition,
@@ -79,7 +79,7 @@ export {
   popupReducer,
 } from '../interaction/index.ts';
 export type {
-  CollectionInteractionAction,
+  CollectionInteractionTransition,
   CollectionInteractionOptions,
   CollectionInteractionState,
   KeyboardBinding,
@@ -91,13 +91,13 @@ export type {
 export {
   compareCollectionText,
   matchCollectionQuery,
-  prepareCollectionQuery,
+  compileCollectionQuery,
   queryCandidates,
 } from '../text/query.ts';
 export type {
   CollectionQuery,
-  PreparedCollectionQuery,
-  PreparedQueryCandidate,
+  CompiledCollectionQuery,
+  IndexedQueryCandidate,
   QueryCandidate,
   QueryMatch,
   QueryMatchRange,
@@ -110,18 +110,18 @@ export {
   padRenderLine,
   span,
   wrapRenderSpans
-} from '../visual/render.ts';
-export type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../visual/render.ts';
+} from '../visual/render-content.ts';
+export type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../visual/render-content.ts';
 export type { HitTarget } from '../renderer/contracts.ts';
-export { normalizeTerminalStyle as prepareTerminalStyle } from '../visual/terminal-style.ts';
+export { decodeTerminalStyle } from '../visual/terminal-style.ts';
 export { mergeTerminalStyles } from '../visual/terminal-style.ts';
 export {
   componentScrollbarHitTargets,
   paintComponentScrollbar,
-  prepareComponentScrollbar,
-  prepareComponentScrollbarOptions,
-  prepareComponentScrollPolicy,
-  prepareComponentScrollState
+  layoutComponentScrollbar,
+  decodeComponentScrollbarOptions,
+  decodeComponentScrollPolicy,
+  decodeComponentScrollState
 } from './scrollbar.ts';
 export type {
   ComponentScrollbarLayout,

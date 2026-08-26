@@ -5,7 +5,7 @@ import { textInputReducer } from '../../dist/behavior/index.js';
 import { passwordInput } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { createTranscriptRecorder } from '../../dist/transcript/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
@@ -13,8 +13,8 @@ test('passwordInput masks graphemes and omits its value from accessibility', () 
   const secret = 'a🙂e\u0301';
   const frame = renderElementFrame(passwordInput({ meta: { accessibleName: "Password input" },
     id: 'secret',
-    presentation: { value: secret, cursor: secret.length },
-    onAction: (action) => action
+    state: { value: secret, cursor: secret.length },
+    onTransition: (action) => action
   }), { columns: 16, rows: 1 });
 
   assert.equal(renderFramePlain(frame), '› •••');
@@ -27,8 +27,8 @@ test('passwordInput masks graphemes and omits its value from accessibility', () 
 test('passwordInput maps masked pointer offsets back to source grapheme boundaries', () => {
   const regions = renderElementRegions(passwordInput({ meta: { accessibleName: "Password input" },
     id: 'secret-pointer',
-    presentation: { value: 'a🙂e\u0301', cursor: 0 },
-    onAction: (action) => action
+    state: { value: 'a🙂e\u0301', cursor: 0 },
+    onTransition: (action) => action
   }), { columns: 16, rows: 1 });
   const target = regions.flatMap((region) => region.hitTargets)
     .find((candidate) => candidate.id === 'secret-pointer:text');
@@ -37,7 +37,7 @@ test('passwordInput maps masked pointer offsets back to source grapheme boundari
   const message = target.message(pointerEvent(5));
   assert.deepEqual(message, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 3 }
+    transition: { kind: 'placeCaret', offset: 3 }
   });
 });
 
@@ -49,8 +49,8 @@ test('passwordInput redacts typed secrets from TUI transcripts', async () => {
     update: (state, action) => ({ state: { buffer: textInputReducer(state.buffer, action) } }),
     view: (state) => passwordInput({ meta: { accessibleName: "Password input" },
       id: 'password',
-      presentation: { value: state.buffer.text, cursor: state.buffer.cursor },
-      onAction: (action) => action
+      state: { value: state.buffer.text, cursor: state.buffer.cursor },
+      onTransition: (action) => action
     }),
     transcript: true
   });

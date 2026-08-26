@@ -436,7 +436,7 @@ function createInputLoopEventMultiplexer<TState>() {
     watch<TValue>(
       kind: InputLoopEventKind,
       operation: Promise<TValue>,
-      project: (value: TValue) => InputLoopEvent<TState>
+      mapValue: (value: TValue) => InputLoopEvent<TState>
     ): void {
       if (closed) throw new Error('TUI input event multiplexer is closed.');
       if (watched.has(kind) || pending.has(kind)) {
@@ -445,7 +445,7 @@ function createInputLoopEventMultiplexer<TState>() {
       const token = Symbol(kind);
       watched.set(kind, token);
       void operation.then(
-        (value) => { publish(kind, token, { status: 'fulfilled', event: project(value) }); },
+        (value) => { publish(kind, token, { status: 'fulfilled', event: mapValue(value) }); },
         (cause: unknown) => { publish(kind, token, { status: 'rejected', cause }); }
       );
     },

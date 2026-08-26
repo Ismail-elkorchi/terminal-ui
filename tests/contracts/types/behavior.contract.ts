@@ -3,19 +3,21 @@ import {
   createCommandInputState,
   createScrollState,
   dataGridReducer,
-  appendMeasuredItems,
-  measuredAnchorAt,
-  measuredWindow,
-  prepareCommandSuggestions,
-  prepareMeasuredCollection,
-  prepareTableCollection,
-  replaceMeasuredItem,
+  createCommandSuggestions,
+  createTableCollection,
   scrollReducer,
   type CommandInputState,
-  type MeasuredCollection,
 } from '@ismail-elkorchi/terminal-ui/behavior';
+import {
+  appendMeasuredItems,
+  createMeasuredCollection,
+  measuredAnchorAt,
+  measuredWindow,
+  replaceMeasuredItem,
+  type MeasuredCollection,
+} from '@ismail-elkorchi/terminal-ui/collection';
 
-const command: CommandInputState = createCommandInputState({ suggestions: prepareCommandSuggestions([]) });
+const command: CommandInputState = createCommandInputState({ suggestions: createCommandSuggestions([]) });
 const edited = commandInputReducer(command, { kind: 'edit', operation: { kind: 'insert', text: 'x' } });
 const scrolled = scrollReducer(createScrollState(), { kind: 'scrollLines', rows: 2 }, {
   contentRows: 20,
@@ -27,10 +29,10 @@ const rows = [{ id: 'one' }, { id: 'two' }];
 const grid = dataGridReducer({
   interaction: { kind: 'row', activeRowId: 'one', selection: { mode: 'single' as const } },
 }, { kind: 'moveRow', delta: 1 }, {
-  collection: prepareTableCollection(rows, (row) => row.id),
+  collection: createTableCollection(rows, (row) => row.id),
   columnIds: [],
 });
-const measured: MeasuredCollection<{ readonly label: string }> = prepareMeasuredCollection([
+const measured: MeasuredCollection<{ readonly label: string }> = createMeasuredCollection([
   { id: 'one', value: { label: 'One' }, rows: 2 },
 ]);
 const measuredAnchor = measuredAnchorAt(measured, { offsetRow: 0 });

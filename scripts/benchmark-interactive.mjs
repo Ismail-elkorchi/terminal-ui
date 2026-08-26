@@ -21,16 +21,16 @@ import { column, overlay } from '../dist/layout/index.js';
 import {
   appendLogHistory,
   createScrollState,
-  prepareSearchPickerIndex,
-  prepareLogHistory,
-  prepareTableCollection,
-  prepareTreeSource,
-  prepareTreeView
+  createSearchPickerIndex,
+  createLogHistory,
+  createTableCollection,
+  createTreeSource,
+  createTreeView
 } from '../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../dist/host/index.js';
 import {
   defaultTextWidthProfile,
-  prepareTextDocument,
+  createTextDocument,
   textCaretAt,
   textDocumentLength,
   textDocumentLineCount,
@@ -38,7 +38,7 @@ import {
 } from '../dist/text/index.js';
 import { defaultTheme } from '../dist/theme/index.js';
 import { createTuiRuntime, defineTui } from '../dist/tui/index.js';
-import { searchPickerIndexStatistics } from '../dist/ui-model/search-picker-index.js';
+import { searchPickerIndexStatistics } from '../dist/behavior/search-picker-index.js';
 import { summarizeSamples } from './benchmark-statistics.mjs';
 
 const quick = process.env['TERMINAL_UI_BENCHMARK_QUICK'] === '1';
@@ -102,8 +102,8 @@ function renderScenarios() {
     name: `Process ${String(index)}`,
     value: index
   }));
-  const tableCollection = prepareTableCollection(tableRows, (row) => row.id);
-  const smallTableCollection = prepareTableCollection(tableRows.slice(0, Math.min(1_000, tableRows.length)), (row) => row.id);
+  const tableCollection = createTableCollection(tableRows, (row) => row.id);
+  const smallTableCollection = createTableCollection(tableRows.slice(0, Math.min(1_000, tableRows.length)), (row) => row.id);
   const tableColumns = [
     { id: 'name', header: 'Name', value: (row) => row.name, width: { kind: 'fill' } },
     { id: 'value', header: 'Value', value: (row) => row.value, width: { kind: 'fixed', cells: 12 }, align: 'end' }
@@ -113,26 +113,26 @@ function renderScenarios() {
     id: String(index),
     text: `Log line ${String(index)} contains deterministic searchable text ${String(index % 17)}`
   }));
-  const history = prepareLogHistory(historyItems);
+  const history = createLogHistory(historyItems);
   const entries = Array.from({ length: quick ? 1_000 : 20_000 }, (_value, index) => ({
     id: `entry-${String(index)}`,
     label: `Command ${String(index)}`,
     value: index,
     keywords: [`group-${String(index % 25)}`]
   }));
-  const searchPickerIndex = prepareSearchPickerIndex(entries);
+  const searchPickerIndex = createSearchPickerIndex(entries);
   const treeNodes = Array.from({ length: quick ? 2_000 : 50_000 }, (_value, index) => ({
     id: `node-${String(index)}`,
     kind: 'leaf',
     label: `Node ${String(index)}`
   }));
-  const treePresentation = {
+  const treeState = {
     selection: { mode: 'single' },
     expandedIds: []
   };
-  const treeSource = prepareTreeSource(treeNodes);
-  const treeView = prepareTreeView(treeSource, treePresentation);
-  const selectionDocument = prepareTextDocument(Array.from(
+  const treeSource = createTreeSource(treeNodes);
+  const treeView = createTreeView(treeSource, treeState);
+  const selectionDocument = createTextDocument(Array.from(
     { length: quick ? 2_000 : 20_000 },
     (_value, index) => `line ${String(index)} contains selectable text`
   ).join('\n'));
@@ -144,7 +144,7 @@ function renderScenarios() {
         return textArea({
           id: 'scrolling-editor',
           meta: { accessibleName: 'Scrolling editor' },
-          presentation: {
+          state: {
             document: selectionDocument,
             caret: textCaretAt(0),
             scroll: createScrollState({
@@ -152,7 +152,7 @@ function renderScenarios() {
             })
           },
           lineNumbers: true,
-          onAction: (action) => action
+          onTransition: (transition) => transition
         });
       }
     },
@@ -167,14 +167,14 @@ function renderScenarios() {
           scroll: createScrollState({
             offsetRow: index + 100
           }),
-          onAction: (action) => action
+          onTransition: (transition) => transition
         });
       }
     },
     {
       name: 'scrolling-table',
-      scale: tableCollection.records.length,
-      setupWork: { normalized_records: tableCollection.records.length },
+      scale: tableCollection.items.length,
+      setupWork: { normalized_records: tableCollection.items.length },
       createElement(index) {
         return table({
           id: 'scrolling-processes',
@@ -183,22 +183,22 @@ function renderScenarios() {
           columns: tableColumns,
           scroll: {
             state: createScrollState({ offsetRow: index + 100 }),
-            onTransition: (event) => event
+            onScroll: (request) => request
           },
         });
       }
     },
     {
       name: 'scrolling-tree',
-      scale: treeView.collection.records.length,
-      setupWork: { normalized_records: treeView.collection.records.length },
+      scale: treeView.collection.items.length,
+      setupWork: { normalized_records: treeView.collection.items.length },
       createElement(index) {
         return tree({
           id: 'scrolling-tree',
           meta: { accessibleName: 'Scrolling tree' },
           view: treeView,
-          presentation: {
-            ...treePresentation,
+          state: {
+            ...treeState,
             scroll: createScrollState({ offsetRow: index + 100 })
           },
           onTransition: (transition) => transition
@@ -212,11 +212,11 @@ function renderScenarios() {
         return textArea({
           id: 'editor',
           meta: { accessibleName: 'Editor' },
-          presentation: {
-            document: prepareTextDocument(`${'line\n'.repeat(200)}edit-${String(index)}`),
+          state: {
+            document: createTextDocument(`${'line\n'.repeat(200)}edit-${String(index)}`),
             caret: textCaretAt(index)
           },
-          onAction: (action) => action
+          onTransition: (transition) => transition
         });
       }
     },
@@ -228,31 +228,31 @@ function renderScenarios() {
         return textArea({
           id: 'large-editor',
           meta: { accessibleName: 'Large editor' },
-          presentation: {
+          state: {
             document: selectionDocument,
             caret: textCaretAt(end),
             selection: textDocumentSelectionBetween(1_000, end)
           },
           lineNumbers: true,
           activeLine: true,
-          onAction: (action) => action
+          onTransition: (transition) => transition
         });
       }
     },
     {
-      name: 'prepared-small-table',
-      scale: smallTableCollection.records.length,
-      setupWork: { normalized_records: smallTableCollection.records.length },
+      name: 'retained-small-table',
+      scale: smallTableCollection.items.length,
+      setupWork: { normalized_records: smallTableCollection.items.length },
       createElement(index) {
         return dataGrid({
           id: 'small-processes',
           meta: { accessibleName: 'Small processes' },
           collection: smallTableCollection,
           columns: tableColumns,
-          presentation: {
+          state: {
             interaction: {
               kind: 'row',
-              activeRowId: String(index % smallTableCollection.records.length),
+              activeRowId: String(index % smallTableCollection.items.length),
               selection: { mode: 'single' }
             }
           },
@@ -261,9 +261,9 @@ function renderScenarios() {
       }
     },
     {
-      name: 'prepared-large-table',
+      name: 'retained-large-table',
       scale: tableRows.length,
-      setupWork: { normalized_records: tableCollection.records.length },
+      setupWork: { normalized_records: tableCollection.items.length },
       createElement(index) {
         const selected = Math.min(tableRows.length - 1, Math.floor(tableRows.length / 2) + index);
         return dataGrid({
@@ -271,7 +271,7 @@ function renderScenarios() {
           meta: { accessibleName: 'Processes' },
           collection: tableCollection,
           columns: tableColumns,
-          presentation: {
+          state: {
             interaction: {
               kind: 'row',
               activeRowId: String(selected),
@@ -322,7 +322,7 @@ function renderScenarios() {
           id: 'commands',
           meta: { accessibleName: 'Commands' },
           searchPickerIndex,
-          presentation: {
+          view: {
             input: {
               text: String(entries.length - 1 - index),
               cursor: String(entries.length - 1 - index).length
@@ -495,7 +495,7 @@ async function runInputToCommitScenario() {
       rows,
       getRowId: (row) => row.id,
       columns: [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }],
-      presentation: {
+      state: {
         interaction: {
           kind: 'row',
           activeRowId: String(state.selected),
@@ -537,7 +537,7 @@ async function runPointerRoutingScenario() {
       rows,
       getRowId: (row) => row.id,
       columns: [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }],
-      presentation: {
+      state: {
         interaction: {
           kind: 'row',
           activeRowId: state.selected,

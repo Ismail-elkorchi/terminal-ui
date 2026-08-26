@@ -4,7 +4,7 @@ const badge = defineSemanticLeafComponent({
   name: 'terminal-ui-peer-component-fixture/components/badge',
   identity: 'required',
   accessibleRole: 'status',
-  prepare(value) {
+  createModel(value) {
     if (typeof value.label !== 'string') {
       throw new TypeError('peer badge requires a label.');
     }

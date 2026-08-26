@@ -1,6 +1,6 @@
 import {
   normalizeTextCaret,
-  normalizeTextDocumentSelectionModel,
+  normalizeTextDocumentSelection,
   textDocumentEdit,
   textDocumentLength,
   textDocumentLineAt,
@@ -12,7 +12,7 @@ import { createTerminalTextIndex } from './terminal-text-index.ts';
 import {
   nextGraphemeBoundary,
   previousGraphemeBoundary
-} from './selection-model.ts';
+} from './text-range.ts';
 import type {
   TextCaret,
   TextBoundaryOptions,
@@ -48,7 +48,7 @@ export function editTextDocument(
   options: TextBoundaryOptions = {}
 ): TextDocumentEditResult {
   const caret = normalizeTextCaret(state.document, state.caret);
-  const selection = normalizeTextDocumentSelectionModel(state.document, state.selection);
+  const selection = normalizeTextDocumentSelection(state.document, state.selection);
   switch (operation.kind) {
     case 'insert':
     case 'replaceSelection':
@@ -193,7 +193,7 @@ function move(
   });
   if (selecting !== true) return stateResult(state.document, nextCaret, undefined, state);
   const anchor = selectionAnchor(selection, caret);
-  const nextSelection = normalizeTextDocumentSelectionModel(state.document, { anchor, focus: nextCaret.position });
+  const nextSelection = normalizeTextDocumentSelection(state.document, { anchor, focus: nextCaret.position });
   return stateResult(state.document, nextCaret, nextSelection, state);
 }
 

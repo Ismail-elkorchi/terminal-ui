@@ -14,8 +14,8 @@ import type {
   ElementVisualState,
 } from '../element/metadata.ts';
 import { elementStateFields } from '../element/metadata.ts';
-import { adoptComponentSemanticInspection } from '../element/semantic-inspection.ts';
-import { adoptElementStyles } from '../element/styles.ts';
+import { decodeComponentSemanticInspection } from '../element/semantic-inspection.ts';
+import { decodeElementStyles } from '../element/styles.ts';
 import type { ComponentSemanticInspection } from '../element/inspection.ts';
 import { renderNodeId } from '../foundation/identity.ts';
 import {
@@ -39,27 +39,27 @@ import {
   toRenderNode,
   toMappedRenderNodes,
   toRenderNodes
-} from '../renderer/model/component-node.ts';
+} from '../renderer/internal/render-tree/component-node.ts';
 import type {
   RenderNode,
   RenderNodeOfKind,
   RenderNodeRenderer,
   RuntimeComponentDefinition
-} from '../renderer/model/component-node.ts';
+} from '../renderer/internal/render-tree/component-node.ts';
 import type {
   FocusTarget,
   HitTarget,
   Measurement,
   RenderFocusRelation,
-  RenderSourceInput,
+  FrameSourceInput,
   RenderStyleInput,
   RenderTarget
 } from '../renderer/contracts.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextWidthProfile } from '../text/index.ts';
-import type { TerminalStyle } from '../visual/render.ts';
-import type { FrameCellSource } from '../visual/source.ts';
-import { renderNodeFrameSource } from '../visual/source.ts';
+import type { TerminalStyle } from '../visual/render-content.ts';
+import type { FrameCellSource } from '../visual/frame-source.ts';
+import { renderNodeFrameSource } from '../visual/frame-source.ts';
 import {
   executeComponentPhase,
   type ComponentDefinitionName
@@ -67,7 +67,7 @@ import {
 import { mapComponentAction, type ComponentMessage } from './message.ts';
 import {
   mappedKeyBindings,
-  normalizeComponentHitTargets
+  decodeComponentHitTargets
 } from './action-routing.ts';
 
 export {
@@ -78,7 +78,7 @@ export {
 export type { ComponentMessage } from './message.ts';
 
 export type ComponentStyleInput<TPart extends string> = RenderStyleInput<TPart>;
-export type ComponentSourceInput = RenderSourceInput;
+export type ComponentFrameSourceInput = FrameSourceInput;
 export type ComponentStateCapability = keyof ElementState;
 export type ComponentVisualState = Exclude<ElementVisualState, 'default'>;
 export type ComponentIdentity = 'required' | 'optional';
@@ -129,53 +129,53 @@ export type ComponentSlotLayout<TSlots extends ComponentSlotShape> = {
       : Rect;
 };
 
-interface ComponentBehaviorInput<TPrepared extends object> {
+interface ComponentBehaviorInput<TModel extends object> {
   readonly id?: string;
   /** Caller-supplied human-facing name for compound semantic anatomy. */
   readonly accessibleName?: string;
-  readonly model: Readonly<TPrepared>;
+  readonly model: Readonly<TModel>;
   readonly disabled: boolean;
   readonly busy: boolean;
   readonly readOnly: boolean;
   readonly inert: boolean;
 }
 
-export type ComponentInspectionInput<TPrepared extends object> =
-  ComponentBehaviorInput<TPrepared>;
+export type ComponentInspectionInput<TModel extends object> =
+  ComponentBehaviorInput<TModel>;
 
-interface ComponentBaseInput<TPrepared extends object>
-  extends ComponentBehaviorInput<TPrepared> {
+interface ComponentBaseInput<TModel extends object>
+  extends ComponentBehaviorInput<TModel> {
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
-  /** Runtime-owned transient pointer presentation; present during painting only. */
+  /** Runtime-owned transient pointer state; present during painting only. */
   readonly pointerState?: PointerInteractionState;
 }
 
-export interface ComponentInput<TPrepared extends object>
-  extends ComponentBaseInput<TPrepared> {
+export interface ComponentInput<TModel extends object>
+  extends ComponentBaseInput<TModel> {
   readonly bounds: Rect;
   readonly viewport: Rect;
 }
 
-export interface ComponentKeyInput<TPrepared extends object>
-  extends ComponentInput<TPrepared> {
+export interface ComponentKeyInput<TModel extends object>
+  extends ComponentInput<TModel> {
   readonly focus: RenderFocusRelation;
   readonly focusedTargetId?: string;
 }
 
 export interface ComponentInteractionInput<
-  TPrepared extends object,
+  TModel extends object,
   TPart extends string = string
-> extends ComponentInput<TPrepared> {
+> extends ComponentInput<TModel> {
   readonly style: (input: ComponentStyleInput<TPart>) => TerminalStyle | undefined;
-  readonly source: (input?: ComponentSourceInput) => FrameCellSource;
+  readonly frameSource: (input?: ComponentFrameSourceInput) => FrameCellSource;
 }
 
 export interface ComponentMeasureInput<
-  TPrepared extends object,
+  TModel extends object,
   TSlots extends ComponentSlotShape = ComponentSlotShape
 >
-  extends ComponentBaseInput<TPrepared> {
+  extends ComponentBaseInput<TModel> {
   readonly constraints: ComponentMeasureConstraints;
   readonly childCount: number;
   readonly measureChild: (index: number) => Measurement;
@@ -183,48 +183,48 @@ export interface ComponentMeasureInput<
 }
 
 export interface ComponentLayoutInput<
-  TPrepared extends object,
+  TModel extends object,
   TSlots extends ComponentSlotShape = ComponentSlotShape
 >
-  extends ComponentInput<TPrepared> {
+  extends ComponentInput<TModel> {
   readonly childCount: number;
   readonly measureChild: (index: number) => Measurement;
   readonly slots: ComponentSlotMeasurements<TSlots>;
 }
 
 export interface ComponentCompositionInput<
-  TPrepared extends object,
+  TModel extends object,
   TSlots extends ComponentSlotShape,
   TAction,
   TPart extends string = string,
   TVisualState extends ComponentVisualState = ComponentVisualState,
-> extends ComponentBehaviorInput<TPrepared> {
+> extends ComponentBehaviorInput<TModel> {
   readonly slots: ComponentCallerSlotValues<TSlots>;
   readonly emit: (action: TAction) => MessageResolution<ComponentMessage>;
   readonly styles?: ElementStyles<TPart, TVisualState>;
   readonly layer?: ElementLayer;
 }
 
-export interface ComponentCapturedMessageInput<TPrepared extends object>
-  extends ComponentBehaviorInput<TPrepared> {
+export interface ComponentCapturedMessageInput<TModel extends object>
+  extends ComponentBehaviorInput<TModel> {
   readonly slot: string;
   readonly message: unknown;
 }
 
 export interface ComponentRenderInput<
-  TPrepared extends object,
+  TModel extends object,
   TPart extends string = string
-> extends ComponentInteractionInput<TPrepared, TPart> {
+> extends ComponentInteractionInput<TModel, TPart> {
   readonly target: RenderTarget;
   readonly focus: RenderFocusRelation;
   readonly focusedTargetId?: string;
 }
 
 export interface ComponentAccessibilityInput<
-  TPrepared extends object,
+  TModel extends object,
   TSlots extends ComponentSlotShape = ComponentSlotShape
 >
-  extends ComponentInput<TPrepared> {
+  extends ComponentInput<TModel> {
   readonly id: string;
   readonly focused: boolean;
   readonly focus: RenderFocusRelation;
@@ -237,8 +237,8 @@ export type ComponentAccessibleSlotValues<TSlots extends ComponentSlotShape> = {
   readonly [TName in keyof TSlots]: readonly AccessibleNode[];
 };
 
-export interface ComponentTextActionInput<TPrepared extends object>
-  extends ComponentBehaviorInput<TPrepared> {
+export interface ComponentTextInput<TModel extends object>
+  extends ComponentBehaviorInput<TModel> {
   readonly text: string;
 }
 
@@ -247,18 +247,18 @@ interface ComponentDefinitionIdentity {
   readonly name: ComponentDefinitionName;
 }
 
-interface PreparedComponentOptionsDefinition<
+interface ComponentModelDefinition<
   TOptions extends object,
-  TPrepared extends object
+  TModel extends object
 > {
-  readonly prepare: (
+  readonly createModel: (
     this: undefined,
     value: Readonly<TOptions>,
-    context: ComponentPreparationContext
-  ) => TPrepared;
+    context: ComponentModelContext
+  ) => TModel;
 }
 
-export interface ComponentPreparationContext {
+export interface ComponentModelContext {
   readonly id?: string;
   readonly disabled: boolean;
   readonly busy: boolean;
@@ -268,101 +268,101 @@ export interface ComponentPreparationContext {
 
 type ComponentOptionsDefinition<
   TOptions extends object,
-  TPrepared extends object
-> = PreparedComponentOptionsDefinition<TOptions, TPrepared>
-  | ([TOptions] extends [TPrepared]
-      ? [TPrepared] extends [TOptions]
-        ? { readonly prepare?: never }
+  TModel extends object
+> = ComponentModelDefinition<TOptions, TModel>
+  | ([TOptions] extends [TModel]
+      ? [TModel] extends [TOptions]
+        ? { readonly createModel?: never }
         : never
       : never);
 
 type ComponentDefinitionBase<
   TOptions extends object,
-  TPrepared extends object,
+  TModel extends object,
   TStates extends readonly ComponentStateCapability[],
   TIdentity extends ComponentIdentity,
   TPart extends string,
   TVisualStates extends readonly ComponentVisualState[]
-> = ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TPrepared> & {
+> = ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TModel> & {
   readonly identity: TIdentity;
   readonly states?: TStates;
   readonly parts?: readonly TPart[];
   readonly visualStates?: TVisualStates;
   readonly layer?: (
     this: undefined,
-    input: ComponentBehaviorInput<TPrepared>
+    input: ComponentBehaviorInput<TModel>
   ) => ElementLayer | undefined;
 };
 
 interface MeasuredComponentDefinition<
-  TPrepared extends object,
+  TModel extends object,
   TSlots extends ComponentSlotShape
 > {
   readonly measure: (
     this: undefined,
-    input: ComponentMeasureInput<TPrepared, TSlots>
+    input: ComponentMeasureInput<TModel, TSlots>
   ) => Measurement;
 }
 
-interface InteractiveDefinition<TPrepared extends object, TAction, TPart extends string> {
+interface InteractiveDefinition<TModel extends object, TAction, TPart extends string> {
   /** Prevents raw text events from being recorded while this component owns focus. */
   readonly sensitiveInput?: boolean;
   readonly focusTargets?: (
     this: undefined,
-    input: ComponentInteractionInput<TPrepared, TPart>
+    input: ComponentInteractionInput<TModel, TPart>
   ) => readonly FocusTarget[];
   readonly hitTargets?: (
     this: undefined,
-    input: ComponentInteractionInput<TPrepared, TPart>
+    input: ComponentInteractionInput<TModel, TPart>
   ) => readonly HitTarget<TAction>[];
   readonly keys?: (
     this: undefined,
-    input: ComponentKeyInput<TPrepared>
+    input: ComponentKeyInput<TModel>
   ) => ElementKeyBindings<TAction>;
   readonly onInput?: (
     this: undefined,
-    input: ComponentTextActionInput<TPrepared>
+    input: ComponentTextInput<TModel>
   ) => MessageResolution<TAction>;
   readonly onPaste?: (
     this: undefined,
-    input: ComponentTextActionInput<TPrepared>
+    input: ComponentTextInput<TModel>
   ) => MessageResolution<TAction>;
   readonly onFocus?: (
     this: undefined,
     event: FocusLifecycleEvent,
-    input: ComponentBehaviorInput<TPrepared>
+    input: ComponentBehaviorInput<TModel>
   ) => MessageResolution<TAction>;
   readonly focusNavigation?: (
     this: undefined,
-    input: ComponentBehaviorInput<TPrepared>
+    input: ComponentBehaviorInput<TModel>
   ) => FocusNavigation;
 }
 
 interface SemanticDefinition<
-  TPrepared extends object,
+  TModel extends object,
   TAction,
   TSlots extends ComponentSlotShape,
   TPart extends string
 >
-  extends InteractiveDefinition<TPrepared, TAction, TPart> {
+  extends InteractiveDefinition<TModel, TAction, TPart> {
   readonly semantics: 'semantic';
   readonly accessibleRole:
     | import('../accessibility/types.ts').AccessibleRole
     | ((
         this: undefined,
-        input: ComponentBehaviorInput<TPrepared>
+        input: ComponentBehaviorInput<TModel>
       ) => import('../accessibility/types.ts').AccessibleRole);
   readonly focusScope?: (
     this: undefined,
-    input: ComponentBehaviorInput<TPrepared>
+    input: ComponentBehaviorInput<TModel>
   ) => ElementFocusScope | undefined;
   readonly accessibility: (
     this: undefined,
-    input: ComponentAccessibilityInput<TPrepared, TSlots>
+    input: ComponentAccessibilityInput<TModel, TSlots>
   ) => AccessibleNode;
   readonly inspection?: (
     this: undefined,
-    input: ComponentInspectionInput<TPrepared>
+    input: ComponentInspectionInput<TModel>
   ) => ComponentSemanticInspection;
 }
 
@@ -383,7 +383,7 @@ export type ComponentMetadataCapability = 'focus' | 'layer' | 'styles';
 
 export type SemanticLeafComponentDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TAction = never,
   TPart extends string = never,
   TStates extends readonly ComponentStateCapability[] = readonly [],
@@ -392,38 +392,38 @@ export type SemanticLeafComponentDefinition<
   TVisualStates extends readonly ComponentVisualState[] = readonly []
 > = ComponentDefinitionBase<
   TOptions,
-  TPrepared,
+  TModel,
   TStates,
   TIdentity,
   TPart,
   TVisualStates
-> & MeasuredComponentDefinition<TPrepared, Readonly<Record<never, never>>>
-  & SemanticDefinition<TPrepared, TAction, Readonly<Record<never, never>>, TPart>
+> & MeasuredComponentDefinition<TModel, Readonly<Record<never, never>>>
+  & SemanticDefinition<TModel, TAction, Readonly<Record<never, never>>, TPart>
   & {
     readonly metadata?: TMetadata;
     readonly slots?: never;
     readonly structure: 'leaf';
     readonly render: (
       this: undefined,
-      input: ComponentRenderInput<TPrepared, TPart>
+      input: ComponentRenderInput<TModel, TPart>
     ) => void;
   };
 
 export type DecorativeLeafComponentDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TPart extends string = never,
   TIdentity extends ComponentIdentity = 'optional',
   TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [],
   TVisualStates extends readonly ComponentVisualState[] = readonly []
 > = ComponentDefinitionBase<
   TOptions,
-  TPrepared,
+  TModel,
   readonly [],
   TIdentity,
   TPart,
   TVisualStates
-> & MeasuredComponentDefinition<TPrepared, Readonly<Record<never, never>>>
+> & MeasuredComponentDefinition<TModel, Readonly<Record<never, never>>>
   & DecorativeDefinition
   & {
     readonly metadata?: TMetadata;
@@ -431,14 +431,14 @@ export type DecorativeLeafComponentDefinition<
     readonly structure: 'leaf';
     readonly render: (
       this: undefined,
-      input: ComponentRenderInput<TPrepared, TPart>
+      input: ComponentRenderInput<TModel, TPart>
     ) => void;
   };
 
 /** A semantic leaf definition with invariant structure fields supplied by the authoring helper. */
 export type SemanticLeafDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TAction = never,
   TPart extends string = never,
   TStates extends readonly ComponentStateCapability[] = readonly [],
@@ -448,7 +448,7 @@ export type SemanticLeafDefinition<
 > = Omit<
   SemanticLeafComponentDefinition<
     TOptions,
-    TPrepared,
+    TModel,
     TAction,
     TPart,
     TStates,
@@ -462,19 +462,19 @@ export type SemanticLeafDefinition<
 /** A decorative leaf definition with invariant structure fields supplied by the authoring helper. */
 export type DecorativeLeafDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TPart extends string = never,
   TIdentity extends ComponentIdentity = 'optional',
   TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [],
   TVisualStates extends readonly ComponentVisualState[] = readonly []
 > = Omit<
-  DecorativeLeafComponentDefinition<TOptions, TPrepared, TPart, TIdentity, TMetadata, TVisualStates>,
+  DecorativeLeafComponentDefinition<TOptions, TModel, TPart, TIdentity, TMetadata, TVisualStates>,
   'structure' | 'semantics'
 >;
 
 export type SemanticCompositeComponentDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TAction = never,
   TPart extends string = never,
   TStates extends readonly ComponentStateCapability[] = readonly [],
@@ -482,39 +482,39 @@ export type SemanticCompositeComponentDefinition<
   TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
   TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>,
   TVisualStates extends readonly ComponentVisualState[] = readonly []
-> = ComponentDefinitionBase<TOptions, TPrepared, TStates, TIdentity, TPart, TVisualStates>
-  & MeasuredComponentDefinition<TPrepared, TSlots>
-  & SemanticDefinition<TPrepared, TAction, TSlots, TPart>
+> = ComponentDefinitionBase<TOptions, TModel, TStates, TIdentity, TPart, TVisualStates>
+  & MeasuredComponentDefinition<TModel, TSlots>
+  & SemanticDefinition<TModel, TAction, TSlots, TPart>
   & {
     readonly metadata?: TMetadata;
     readonly slots: TSlots;
     readonly structure: 'composite';
     readonly capture?: (
       this: undefined,
-      input: ComponentCapturedMessageInput<TPrepared>
+      input: ComponentCapturedMessageInput<TModel>
     ) => MessageResolution<TAction>;
     readonly implementationSlots?: (
       this: undefined,
-      input: ComponentCompositionInput<TPrepared, TSlots, TAction, TPart, TVisualStates[number]>
+      input: ComponentCompositionInput<TModel, TSlots, TAction, TPart, TVisualStates[number]>
     ) => ComponentImplementationSlotValues<TSlots>;
     readonly clipChildren?: boolean;
     readonly layout: (
       this: undefined,
-      input: ComponentLayoutInput<TPrepared, TSlots>
+      input: ComponentLayoutInput<TModel, TSlots>
     ) => ComponentSlotLayout<TSlots>;
     readonly renderBeforeChildren?: (
       this: undefined,
-      input: ComponentRenderInput<TPrepared, TPart>
+      input: ComponentRenderInput<TModel, TPart>
     ) => void;
     readonly renderAfterChildren?: (
       this: undefined,
-      input: ComponentRenderInput<TPrepared, TPart>
+      input: ComponentRenderInput<TModel, TPart>
     ) => void;
   };
 
 export type SemanticComposedComponentDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TAction = never,
   TPart extends string = never,
   TStates extends readonly ComponentStateCapability[] = readonly [],
@@ -522,26 +522,26 @@ export type SemanticComposedComponentDefinition<
   TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
   TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>,
   TVisualStates extends readonly ComponentVisualState[] = readonly []
-> = ComponentDefinitionBase<TOptions, TPrepared, TStates, TIdentity, TPart, TVisualStates>
-  & SemanticDefinition<TPrepared, TAction, TSlots, TPart>
+> = ComponentDefinitionBase<TOptions, TModel, TStates, TIdentity, TPart, TVisualStates>
+  & SemanticDefinition<TModel, TAction, TSlots, TPart>
   & {
     readonly metadata?: TMetadata;
     readonly slots?: TSlots;
     readonly structure: 'composed';
     readonly capture?: (
       this: undefined,
-      input: ComponentCapturedMessageInput<TPrepared>
+      input: ComponentCapturedMessageInput<TModel>
     ) => MessageResolution<TAction>;
     readonly compose: (
       this: undefined,
-      input: ComponentCompositionInput<TPrepared, TSlots, TAction, TPart, TVisualStates[number]>
+      input: ComponentCompositionInput<TModel, TSlots, TAction, TPart, TVisualStates[number]>
     ) => Element<ComponentMessage>;
     readonly clipChildren?: boolean;
   };
 
 export type ComponentDefinition<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TAction = never,
   TPart extends string = never,
   TStates extends readonly ComponentStateCapability[] = readonly [],
@@ -550,10 +550,10 @@ export type ComponentDefinition<
   TSlots extends ComponentSlotsDefinition = Readonly<Record<never, never>>,
   TVisualStates extends readonly ComponentVisualState[] = readonly []
 > =
-  | SemanticLeafComponentDefinition<TOptions, TPrepared, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>
-  | DecorativeLeafComponentDefinition<TOptions, TPrepared, TPart, TIdentity, Extract<TMetadata, readonly ('layer' | 'styles')[]>, TVisualStates>
-  | SemanticCompositeComponentDefinition<TOptions, TPrepared, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>
-  | SemanticComposedComponentDefinition<TOptions, TPrepared, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>;
+  | SemanticLeafComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>
+  | DecorativeLeafComponentDefinition<TOptions, TModel, TPart, TIdentity, Extract<TMetadata, readonly ('layer' | 'styles')[]>, TVisualStates>
+  | SemanticCompositeComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>
+  | SemanticComposedComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>;
 
 type ComponentReservedOption =
   | 'id'
@@ -821,7 +821,7 @@ type CallerSlotsOption<
 
 export function defineComponent<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TAction = never,
   const TPart extends string = never,
   const TStates extends readonly ComponentStateCapability[] = readonly [],
@@ -829,21 +829,21 @@ export function defineComponent<
   const TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
   const TVisualStates extends readonly ComponentVisualState[] = readonly []
 >(
-  definition: SemanticLeafComponentDefinition<TOptions, TPrepared, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>
+  definition: SemanticLeafComponentDefinition<TOptions, TModel, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>
 ): SemanticLeafComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TVisualStates>;
 export function defineComponent<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   const TPart extends string = never,
   TIdentity extends ComponentIdentity = 'optional',
   const TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [],
   const TVisualStates extends readonly ComponentVisualState[] = readonly []
 >(
-  definition: DecorativeLeafComponentDefinition<TOptions, TPrepared, TPart, TIdentity, TMetadata, TVisualStates>
+  definition: DecorativeLeafComponentDefinition<TOptions, TModel, TPart, TIdentity, TMetadata, TVisualStates>
 ): DecorativeLeafComponentFactory<TOptions, TPart, TIdentity, TMetadata, TVisualStates>;
 export function defineComponent<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TAction = never,
   const TPart extends string = never,
   const TStates extends readonly ComponentStateCapability[] = readonly [],
@@ -854,7 +854,7 @@ export function defineComponent<
 >(
   definition: SemanticCompositeComponentDefinition<
     TOptions,
-    TPrepared,
+    TModel,
     TAction,
     TPart,
     TStates,
@@ -864,7 +864,7 @@ export function defineComponent<
     TVisualStates
   > | SemanticComposedComponentDefinition<
     TOptions,
-    TPrepared,
+    TModel,
     TAction,
     TPart,
     TStates,
@@ -876,7 +876,7 @@ export function defineComponent<
 ): SemanticCompositeComponentFactory<TOptions, TAction, TPart, TStates, TIdentity, TMetadata, TSlots, TVisualStates>;
 export function defineComponent<
   TOptions extends object,
-  TPrepared extends object,
+  TModel extends object,
   TAction,
   TPart extends string,
   TStates extends readonly ComponentStateCapability[],
@@ -890,7 +890,7 @@ export function defineComponent<
   assertDefinition(definition);
   const suppliedDefinition = definition as ComponentDefinition<
     TOptions,
-    TPrepared,
+    TModel,
     TAction,
     TPart,
     TStates,
@@ -904,16 +904,16 @@ export function defineComponent<
   const ownedDefinition = compiled.definition;
   const runtime = runtimeDefinition(compiled);
   const component = (value: unknown): Element<unknown> => {
-    const instance = adoptComponentInstanceOptions(value, contract);
+    const instance = extractComponentOptions(value, contract);
     const state = ownedDefinition.semantics === 'decorative'
       ? emptyComponentState
       : normalizeComponentState(instance, contract.states);
-    const prepared = prepareComponentOptions(instance, ownedDefinition, state);
+    const model = createComponentModel(instance, ownedDefinition, state);
     const toActionMessage = instance.onAction;
     const behavior = componentBehaviorInput(
       instance.id,
       instance.meta?.accessibleName,
-      prepared,
+      model,
       state
     );
     const inspection = ownedDefinition.semantics === 'semantic'
@@ -922,7 +922,7 @@ export function defineComponent<
     const semanticInspection = inspection === undefined
       ? undefined
       : executeComponentPhase(ownedDefinition.name, instance.id, 'inspection', () =>
-          adoptComponentSemanticInspection(inspection.call(undefined, behavior))
+          decodeComponentSemanticInspection(inspection.call(undefined, behavior))
         );
     const requiredLayer = componentDefinitionLayer(instance.id, ownedDefinition, behavior);
     const meta = componentInstanceMeta(
@@ -940,7 +940,7 @@ export function defineComponent<
       : undefined;
     const focusNavigation = focusNavigationHook === undefined
       ? undefined
-      : adoptFocusNavigation(executeComponentPhase(
+      : decodeFocusNavigation(executeComponentPhase(
           ownedDefinition.name,
           instance.id,
           'focus',
@@ -959,7 +959,7 @@ export function defineComponent<
             : undefined,
           state.disabled === true,
         )
-      : emptySlotContent;
+      : emptyComponentSlotContent;
     const children = ownedDefinition.structure === 'composite' || ownedDefinition.structure === 'composed'
       ? slotContent.children
       : undefined;
@@ -967,7 +967,7 @@ export function defineComponent<
       ...(instance.id === undefined ? {} : { id: renderNodeId(instance.id, ownedDefinition.name) }),
       kind: 'component',
       props: {
-        model: prepared,
+        model,
         slots: slotContent.ranges,
         ...(accessibleRole === undefined ? {} : { accessibleRole }),
         ...(meta.accessibleName === undefined ? {} : { accessibleName: meta.accessibleName }),
@@ -1022,7 +1022,7 @@ export function defineComponent<
 
 export function defineSemanticLeafComponent<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   TAction = never,
   const TPart extends string = never,
   const TStates extends readonly ComponentStateCapability[] = readonly [],
@@ -1031,7 +1031,7 @@ export function defineSemanticLeafComponent<
   const TVisualStates extends readonly ComponentVisualState[] = readonly []
 >(definition: SemanticLeafDefinition<
   TOptions,
-  TPrepared,
+  TModel,
   TAction,
   TPart,
   TStates,
@@ -1052,14 +1052,14 @@ export function defineSemanticLeafComponent(definition: unknown): unknown {
 
 export function defineDecorativeLeafComponent<
   TOptions extends object = Readonly<Record<never, never>>,
-  TPrepared extends object = TOptions,
+  TModel extends object = TOptions,
   const TPart extends string = never,
   TIdentity extends ComponentIdentity = 'optional',
   const TMetadata extends readonly Extract<ComponentMetadataCapability, 'layer' | 'styles'>[] = readonly [],
   const TVisualStates extends readonly ComponentVisualState[] = readonly []
 >(definition: DecorativeLeafDefinition<
   TOptions,
-  TPrepared,
+  TModel,
   TPart,
   TIdentity,
   TMetadata,
@@ -1092,7 +1092,7 @@ interface ComponentInstanceOptions {
   };
 }
 
-interface PreparedSlotContent {
+interface ComponentSlotContent {
   readonly children: readonly RenderNode[];
   readonly inspectionChildren: readonly RenderNode[];
   readonly ranges: readonly ComponentSlotRange[];
@@ -1105,7 +1105,7 @@ interface ComponentSlotRange {
   readonly accessiblePaths: readonly (readonly number[])[];
 }
 
-const emptySlotContent: PreparedSlotContent = Object.freeze({
+const emptyComponentSlotContent: ComponentSlotContent = Object.freeze({
   children: Object.freeze([]),
   inspectionChildren: Object.freeze([]),
   ranges: Object.freeze([])
@@ -1133,7 +1133,7 @@ interface RuntimeComponentSlot {
 
 interface CompiledComponentDefinition<
   TOptions extends object,
-  TPrepared extends object,
+  TModel extends object,
   TAction,
   TPart extends string,
   TStates extends readonly ComponentStateCapability[],
@@ -1144,7 +1144,7 @@ interface CompiledComponentDefinition<
 > {
   readonly definition: ComponentDefinition<
     TOptions,
-    TPrepared,
+    TModel,
     TAction,
     TPart,
     TStates,
@@ -1176,7 +1176,7 @@ const componentInstanceFields = new Set<ComponentReservedOption>([
 
 function compileDefinition<
   TOptions extends object,
-  TPrepared extends object,
+  TModel extends object,
   TAction,
   TPart extends string,
   TStates extends readonly ComponentStateCapability[],
@@ -1187,7 +1187,7 @@ function compileDefinition<
 >(
   definition: ComponentDefinition<
     TOptions,
-    TPrepared,
+    TModel,
     TAction,
     TPart,
     TStates,
@@ -1198,7 +1198,7 @@ function compileDefinition<
   >
 ): CompiledComponentDefinition<
   TOptions,
-  TPrepared,
+  TModel,
   TAction,
   TPart,
   TStates,
@@ -1244,7 +1244,7 @@ function normalizeSlots(
   })));
 }
 
-function adoptFocusNavigation(value: unknown): FocusNavigation {
+function decodeFocusNavigation(value: unknown): FocusNavigation {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError('Component focusNavigation() must return an object.');
   }
@@ -1345,8 +1345,8 @@ function assertDefinition(value: unknown): void {
   for (const hook of requiredHooks) {
     if (typeof value[hook] !== 'function') throw new TypeError(`Component definition requires ${hook}().`);
   }
-  if (value['prepare'] !== undefined && typeof value['prepare'] !== 'function') {
-    throw new TypeError('Component definition prepare must be a function when provided.');
+  if (value['createModel'] !== undefined && typeof value['createModel'] !== 'function') {
+    throw new TypeError('Component definition createModel must be a function when provided.');
   }
   if (semantics === 'semantic' && typeof value['accessibility'] !== 'function') {
     throw new TypeError('Semantic component definition requires accessibility().');
@@ -1428,7 +1428,7 @@ function assertDefinition(value: unknown): void {
 
 function runtimeDefinition<
   TOptions extends object,
-  TPrepared extends object,
+  TModel extends object,
   TAction,
   TPart extends string,
   TStates extends readonly ComponentStateCapability[],
@@ -1438,7 +1438,7 @@ function runtimeDefinition<
   TVisualStates extends readonly ComponentVisualState[]
 >(compiled: CompiledComponentDefinition<
   TOptions,
-  TPrepared,
+  TModel,
   TAction,
   TPart,
   TStates,
@@ -1480,7 +1480,7 @@ function runtimeDefinition<
 
 function adaptDefinition<
   TOptions extends object,
-  TPrepared extends object,
+  TModel extends object,
   TAction,
   TPart extends string,
   TStates extends readonly ComponentStateCapability[],
@@ -1490,7 +1490,7 @@ function adaptDefinition<
   TVisualStates extends readonly ComponentVisualState[]
 >(compiled: CompiledComponentDefinition<
   TOptions,
-  TPrepared,
+  TModel,
   TAction,
   TPart,
   TStates,
@@ -1510,7 +1510,7 @@ function adaptDefinition<
             'keyboard',
             () => mappedKeyBindings(
               definition.keys?.call(undefined, {
-                ...componentInput<TPrepared>(
+                ...componentInput<TModel>(
                   input.renderNode,
                   input.layoutNode.bounds,
                   input.layoutNode.viewport,
@@ -1533,7 +1533,7 @@ function adaptDefinition<
       definition.structure === 'composed'
         ? input.measureChild(0)
         : definition.measure.call(undefined, {
-            ...componentBaseInput<TPrepared>(input.renderNode, input.theme, input.widthProfile),
+            ...componentBaseInput<TModel>(input.renderNode, input.theme, input.widthProfile),
             constraints: { width: input.bounds.width, height: input.bounds.height },
             childCount: input.childCount,
             measureChild: input.measureChild,
@@ -1544,8 +1544,8 @@ function adaptDefinition<
       layout: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'layout', () =>
         definition.structure === 'composed'
           ? [input.bounds]
-          : normalizeComponentLayout(definition.layout.call(undefined, {
-              ...componentInput<TPrepared>(input.renderNode, input.bounds, input.viewport, input.theme, input.widthProfile),
+          : decodeComponentLayout(definition.layout.call(undefined, {
+              ...componentInput<TModel>(input.renderNode, input.bounds, input.viewport, input.theme, input.widthProfile),
               childCount: input.childCount,
               measureChild: input.measureChild,
               slots: componentSlotMeasurements(input.renderNode.props.slots, input.measureChild)
@@ -1554,7 +1554,7 @@ function adaptDefinition<
       )
     }),
     render: (input) => {
-      const renderInput = componentRenderInput<TPrepared, TPart>(contract, input);
+      const renderInput = componentRenderInput<TModel, TPart>(contract, input);
       if (definition.structure === 'leaf') {
         executeComponentPhase(definition.name, input.renderNode.id, 'paint', () =>
           { definition.render.call(undefined, renderInput); }
@@ -1584,7 +1584,7 @@ function adaptDefinition<
         'accessibility',
         () => {
           const accessible = definition.accessibility.call(undefined, {
-            ...componentInput<TPrepared>(
+            ...componentInput<TModel>(
               input.renderNode,
               input.layoutNode.bounds,
               input.layoutNode.viewport,
@@ -1621,7 +1621,7 @@ function adaptDefinition<
       }),
       ...(definition.hitTargets === undefined ? {} : {
         hitTargets: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'pointer', () =>
-          normalizeComponentHitTargets(
+          decodeComponentHitTargets(
             definition.hitTargets?.call(undefined, componentInteractionInput(
               contract,
               input.renderNode,
@@ -1670,7 +1670,7 @@ function renderNodeAtPath(
   return current;
 }
 
-function componentBaseInput<TPrepared extends object>(
+function componentBaseInput<TModel extends object>(
   renderNode: {
     readonly id?: string;
     readonly props: { readonly model: unknown; readonly accessibleName?: string };
@@ -1678,13 +1678,13 @@ function componentBaseInput<TPrepared extends object>(
   },
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
-): ComponentBaseInput<TPrepared> {
+): ComponentBaseInput<TModel> {
   return {
     ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
     ...(renderNode.props.accessibleName === undefined
       ? {}
       : { accessibleName: renderNode.props.accessibleName }),
-    model: renderNode.props.model as Readonly<TPrepared>,
+    model: renderNode.props.model as Readonly<TModel>,
     disabled: renderNode.state?.disabled === true,
     busy: renderNode.state?.busy === true,
     readOnly: renderNode.state?.readOnly === true,
@@ -1694,7 +1694,7 @@ function componentBaseInput<TPrepared extends object>(
   };
 }
 
-function componentInput<TPrepared extends object>(
+function componentInput<TModel extends object>(
   renderNode: {
     readonly id?: string;
     readonly props: { readonly model: unknown; readonly accessibleName?: string };
@@ -1704,20 +1704,20 @@ function componentInput<TPrepared extends object>(
   viewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
-): ComponentInput<TPrepared> {
+): ComponentInput<TModel> {
   return {
-    ...componentBaseInput<TPrepared>(renderNode, theme, widthProfile),
+    ...componentBaseInput<TModel>(renderNode, theme, widthProfile),
     bounds: localBounds(bounds),
     viewport: localViewport(bounds, viewport)
   };
 }
 
-function componentRenderInput<TPrepared extends object, TPart extends string>(
+function componentRenderInput<TModel extends object, TPart extends string>(
   contract: ComponentRuntimeContract,
   input: Parameters<RenderNodeRenderer<unknown, 'component'>['render']>[0]
-): ComponentRenderInput<TPrepared, TPart> {
+): ComponentRenderInput<TModel, TPart> {
   return {
-    ...componentInteractionInput<TPrepared, TPart>(
+    ...componentInteractionInput<TModel, TPart>(
       contract,
       input.renderNode,
       input.layoutNode.bounds,
@@ -1732,7 +1732,7 @@ function componentRenderInput<TPrepared extends object, TPart extends string>(
   };
 }
 
-function componentInteractionInput<TPrepared extends object, TPart extends string>(
+function componentInteractionInput<TModel extends object, TPart extends string>(
   contract: ComponentRuntimeContract,
   renderNode: Parameters<typeof resolveRenderNodeStyle>[0] & {
     readonly props: { readonly model: unknown };
@@ -1742,9 +1742,9 @@ function componentInteractionInput<TPrepared extends object, TPart extends strin
   viewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
-): ComponentInteractionInput<TPrepared, TPart> {
+): ComponentInteractionInput<TModel, TPart> {
   return {
-    ...componentInput<TPrepared>(renderNode, bounds, viewport, theme, widthProfile),
+    ...componentInput<TModel>(renderNode, bounds, viewport, theme, widthProfile),
     ...componentHelpers<TPart>(renderNode, contract)
   };
 }
@@ -1752,7 +1752,7 @@ function componentInteractionInput<TPrepared extends object, TPart extends strin
 function componentHelpers<TPart extends string>(
   renderNode: Parameters<typeof resolveRenderNodeStyle>[0],
   contract: ComponentRuntimeContract
-): Pick<ComponentRenderInput<object, TPart>, 'style' | 'source'> {
+): Pick<ComponentRenderInput<object, TPart>, 'style' | 'frameSource'> {
   const cachedByContract = componentHelperCache.get(renderNode) ?? new WeakMap<object, ComponentHelpers>();
   componentHelperCache.set(renderNode, cachedByContract);
   const cached = cachedByContract.get(contract);
@@ -1776,7 +1776,7 @@ function componentHelpers<TPart extends string>(
       styles.set(key, style);
       return style;
     },
-    source(input = {}) {
+    frameSource(input = {}) {
       const description = input.description ?? input.partName;
       const key = JSON.stringify({ ...input, description });
       const cachedSource = sources.get(key);
@@ -1798,27 +1798,27 @@ function componentHelpers<TPart extends string>(
   return helpers;
 }
 
-type ComponentHelpers = Pick<ComponentRenderInput<object>, 'style' | 'source'>;
+type ComponentHelpers = Pick<ComponentRenderInput<object>, 'style' | 'frameSource'>;
 const componentHelperCache = new WeakMap<object, WeakMap<object, ComponentHelpers>>();
 
-function prepareComponentOptions<
+function createComponentModel<
   TOptions extends object,
-  TPrepared extends object
+  TModel extends object
 >(
   value: ComponentInstanceOptions,
-  definition: ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TPrepared>,
+  definition: ComponentDefinitionIdentity & ComponentOptionsDefinition<TOptions, TModel>,
   state: Readonly<ElementState>
-): Readonly<TPrepared> {
+): Readonly<TModel> {
   const customEntries = Object.entries(value)
     .filter(([field]) => !componentInstanceFields.has(field as ComponentReservedOption));
   // This is the one type-erasure boundary between framework-owned fields and
   // the component's statically declared options.
-  const custom = Object.freeze(Object.fromEntries(customEntries)) as Readonly<TOptions & TPrepared>;
-  if (definition.prepare === undefined) {
+  const custom = Object.freeze(Object.fromEntries(customEntries)) as Readonly<TOptions & TModel>;
+  if (definition.createModel === undefined) {
     return custom;
   }
-  const prepared = executeComponentPhase(definition.name, value.id, 'prepare', () =>
-    definition.prepare.call(undefined, custom, {
+  const model = executeComponentPhase(definition.name, value.id, 'createModel', () =>
+    definition.createModel.call(undefined, custom, {
       ...(value.id === undefined ? {} : { id: value.id }),
       disabled: state.disabled === true,
       busy: state.busy === true,
@@ -1826,19 +1826,19 @@ function prepareComponentOptions<
       inert: state.inert === true
     })
   );
-  if (!isPreparedModel(prepared)) {
-    throw new TypeError(`Component "${definition.name}" prepare must return an object.`);
+  if (!isComponentModel(model)) {
+    throw new TypeError(`Component "${definition.name}" createModel must return an object.`);
   }
-  return prepared;
+  return model;
 }
 
-function isPreparedModel(value: unknown): value is object {
+function isComponentModel(value: unknown): value is object {
   return value !== null && typeof value === 'object';
 }
 
 function componentSlotChildren<
   TOptions extends object,
-  TPrepared extends object,
+  TModel extends object,
   TAction,
   TPart extends string,
   TStates extends readonly ComponentStateCapability[],
@@ -1850,7 +1850,7 @@ function componentSlotChildren<
   value: ComponentInstanceOptions,
   definition: SemanticCompositeComponentDefinition<
     TOptions,
-    TPrepared,
+    TModel,
     TAction,
     TPart,
     TStates,
@@ -1860,7 +1860,7 @@ function componentSlotChildren<
     TVisualStates
   > | SemanticComposedComponentDefinition<
     TOptions,
-    TPrepared,
+    TModel,
     TAction,
     TPart,
     TStates,
@@ -1870,12 +1870,12 @@ function componentSlotChildren<
     TVisualStates
   >,
   contract: ComponentRuntimeContract,
-  behavior: ComponentBehaviorInput<TPrepared>,
+  behavior: ComponentBehaviorInput<TModel>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
   styles: ElementStyles<string, ComponentVisualState> | undefined,
   layer: ElementLayer | undefined,
   disabled: boolean,
-): PreparedSlotContent {
+): ComponentSlotContent {
   if (definition.structure === 'composed') {
     const supplied = callerSlotInput(value, contract);
     const mappedRecord = Object.freeze(Object.fromEntries(contract.slots.map((slot) => [
@@ -2050,15 +2050,15 @@ function callerSlotInput(
   return supplied;
 }
 
-function mappedComposedSlotValue<TPrepared extends object, TAction>(
+function mappedComposedSlotValue<TModel extends object, TAction>(
   value: unknown,
   slot: RuntimeComponentSlot,
   component: ComponentDefinitionName,
   capture: ((
     this: undefined,
-    input: ComponentCapturedMessageInput<TPrepared>
+    input: ComponentCapturedMessageInput<TModel>
   ) => MessageResolution<TAction>) | undefined,
-  behavior: ComponentBehaviorInput<TPrepared>,
+  behavior: ComponentBehaviorInput<TModel>,
   toActionMessage: ((action: unknown) => unknown) | undefined,
   instanceId: string | undefined
 ): unknown {
@@ -2099,7 +2099,7 @@ function slotElements(
   return [value as ElementValue];
 }
 
-function adoptComponentInstanceOptions(
+function extractComponentOptions(
   value: unknown,
   definition: ComponentRuntimeContract
 ): ComponentInstanceOptions {
@@ -2122,13 +2122,13 @@ function adoptComponentInstanceOptions(
   if (definition.structure === 'leaf' && instance['slots'] !== undefined) {
     throw new TypeError(`Component "${definition.name}" is a leaf and cannot contain slots.`);
   }
-  const meta = normalizeComponentMetadata(instance['meta'], definition);
+  const meta = decodeComponentMetadata(instance['meta'], definition);
   if (meta !== undefined) instance['meta'] = meta;
   if (instance['styles'] !== undefined) {
     if (!definition.metadata.includes('styles')) {
       throw new TypeError(`Component "${definition.name}" does not permit caller styles.`);
     }
-    instance['styles'] = normalizeElementStyles(instance['styles'], definition);
+    instance['styles'] = decodeComponentStyles(instance['styles'], definition);
   }
   for (const removedInstanceHandler of ['keys', 'onInput', 'onPaste', 'pointer'] as const) {
     if (instance[removedInstanceHandler] !== undefined) {
@@ -2164,12 +2164,12 @@ function adoptComponentInstanceOptions(
   return Object.freeze(instance);
 }
 
-function componentBehaviorInput<TPrepared extends object>(
+function componentBehaviorInput<TModel extends object>(
   id: string | undefined,
   accessibleName: string | undefined,
-  model: Readonly<TPrepared>,
+  model: Readonly<TModel>,
   state: Readonly<ElementState>
-): ComponentBehaviorInput<TPrepared> {
+): ComponentBehaviorInput<TModel> {
   return Object.freeze({
     ...(id === undefined ? {} : { id }),
     ...(accessibleName === undefined ? {} : { accessibleName }),
@@ -2181,16 +2181,16 @@ function componentBehaviorInput<TPrepared extends object>(
   });
 }
 
-function resolveComponentAccessibleRole<TPrepared extends object>(
+function resolveComponentAccessibleRole<TModel extends object>(
   definition: ComponentDefinitionIdentity & {
     readonly accessibleRole:
       | import('../accessibility/types.ts').AccessibleRole
       | ((
           this: undefined,
-          input: ComponentBehaviorInput<TPrepared>
+          input: ComponentBehaviorInput<TModel>
         ) => import('../accessibility/types.ts').AccessibleRole);
   },
-  behavior: ComponentBehaviorInput<TPrepared>,
+  behavior: ComponentBehaviorInput<TModel>,
   instanceId: string | undefined,
 ): import('../accessibility/types.ts').AccessibleRole {
   const resolver = definition.accessibleRole;
@@ -2231,7 +2231,7 @@ function assertComponentState(
   }
 }
 
-function normalizeComponentMetadata(
+function decodeComponentMetadata(
   value: unknown,
   definition: ComponentRuntimeContract
 ): ComponentInstanceOptions['meta'] {
@@ -2252,8 +2252,8 @@ function normalizeComponentMetadata(
   const focusValue = value['focus'];
   const layerValue = value['layer'];
   const accessibleNameValue = value['accessibleName'];
-  const focus = normalizeCallerFocus(focusValue, definition.name);
-  const layer = normalizeElementLayer(layerValue, definition.name, 'caller');
+  const focus = decodeCallerFocus(focusValue, definition.name);
+  const layer = decodeElementLayer(layerValue, definition.name, 'caller');
   const accessibleName = accessibleNameValue === undefined
     ? undefined
     : cleanComponentAccessibleName(accessibleNameValue, definition.name);
@@ -2275,14 +2275,14 @@ function cleanComponentAccessibleName(value: unknown, component: string): string
   return clean;
 }
 
-function componentInstanceMeta<TPrepared extends object>(
+function componentInstanceMeta<TModel extends object>(
   value: ComponentInstanceOptions,
   definition: ComponentRuntimeContract,
-  behavior: ComponentBehaviorInput<TPrepared>,
+  behavior: ComponentBehaviorInput<TModel>,
   requiredLayer: ElementLayer | undefined,
   focusScope: ((
     this: undefined,
-    input: ComponentBehaviorInput<TPrepared>
+    input: ComponentBehaviorInput<TModel>
   ) => ElementFocusScope | undefined) | undefined
 ): ComponentInstanceOptions['meta'] & {
   readonly styles?: ElementStyles<string, ComponentVisualState>;
@@ -2292,7 +2292,7 @@ function componentInstanceMeta<TPrepared extends object>(
   const requiredScope = focusScope === undefined
     ? undefined
     : executeComponentPhase(definition.name, value.id, 'metadata', () =>
-        normalizeFocusScope(
+        decodeFocusScope(
           focusScope.call(undefined, behavior),
           definition.name
         )
@@ -2323,20 +2323,20 @@ function componentInstanceMeta<TPrepared extends object>(
   });
 }
 
-function componentDefinitionLayer<TPrepared extends object>(
+function componentDefinitionLayer<TModel extends object>(
   instanceId: string | undefined,
   definition: ComponentDefinitionIdentity & {
     readonly layer?: (
       this: undefined,
-      input: ComponentBehaviorInput<TPrepared>
+      input: ComponentBehaviorInput<TModel>
     ) => ElementLayer | undefined;
   },
-  behavior: ComponentBehaviorInput<TPrepared>
+  behavior: ComponentBehaviorInput<TModel>
 ): ElementLayer | undefined {
   return definition.layer === undefined
     ? undefined
     : executeComponentPhase(definition.name, instanceId, 'metadata', () =>
-        normalizeElementLayer(
+        decodeElementLayer(
           definition.layer?.call(undefined, behavior),
           definition.name,
           'definition'
@@ -2344,7 +2344,7 @@ function componentDefinitionLayer<TPrepared extends object>(
       );
 }
 
-function normalizeCallerFocus(value: unknown, component: string): ElementFocus | undefined {
+function decodeCallerFocus(value: unknown, component: string): ElementFocus | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) {
     throw new TypeError(`Component "${component}" meta.focus must be an object.`);
@@ -2370,7 +2370,7 @@ function normalizeCallerFocus(value: unknown, component: string): ElementFocus |
   });
 }
 
-function normalizeFocusScope(
+function decodeFocusScope(
   value: unknown,
   component: string
 ): ElementFocusScope | undefined {
@@ -2390,7 +2390,7 @@ function normalizeFocusScope(
   }
   const initialFocus = value['initialFocus'] === undefined
     ? undefined
-    : normalizeInitialFocusSelector(value['initialFocus'], component);
+    : decodeInitialFocusSelector(value['initialFocus'], component);
   return Object.freeze({
     kind: 'contain' as const,
     ...(initialFocus === undefined ? {} : { initialFocus }),
@@ -2398,7 +2398,7 @@ function normalizeFocusScope(
   });
 }
 
-function normalizeInitialFocusSelector(
+function decodeInitialFocusSelector(
   value: unknown,
   component: string
 ): NonNullable<ElementFocusScope['initialFocus']> {
@@ -2446,7 +2446,7 @@ function normalizeInitialFocusSelector(
   });
 }
 
-function normalizeElementLayer(
+function decodeElementLayer(
   value: unknown,
   component: string,
   owner: 'caller' | 'definition'
@@ -2494,11 +2494,11 @@ function normalizeElementLayer(
   });
 }
 
-function normalizeElementStyles(
+function decodeComponentStyles(
   value: unknown,
   definition: ComponentRuntimeContract
 ): ElementStyles {
-  return adoptElementStyles(value, {
+  return decodeElementStyles(value, {
     subject: `Component "${definition.name}" styles`,
     parts: definition.partSet,
     states: definition.visualStateSet,
@@ -2518,7 +2518,7 @@ function assertUniqueStringMembers(
   }
 }
 
-function normalizeChildBounds(values: unknown, parent: Rect, childCount: number): readonly Rect[] {
+function decodeChildBounds(values: unknown, parent: Rect, childCount: number): readonly Rect[] {
   if (!Array.isArray(values)) throw new TypeError('Composite component layout must return an array.');
   if (values.length !== childCount) {
     throw new RangeError(`Composite component layout returned ${String(values.length)} bounds for ${String(childCount)} children.`);
@@ -2550,7 +2550,7 @@ function componentSlotMeasurements(
   });
 }
 
-function normalizeComponentLayout(
+function decodeComponentLayout(
   value: unknown,
   definition: ComponentRuntimeContract,
   ranges: readonly { readonly name: string; readonly start: number; readonly count: number }[],
@@ -2578,7 +2578,7 @@ function normalizeComponentLayout(
     }
     flattened.push(...bounds as Rect[]);
   }
-  return normalizeChildBounds(flattened, parent, childCount);
+  return decodeChildBounds(flattened, parent, childCount);
 }
 
 function localBounds(bounds: Rect): Rect {

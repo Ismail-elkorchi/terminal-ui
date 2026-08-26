@@ -13,7 +13,7 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
   const frame = renderElementFrame(button({
     id: 'run',
     label: 'Run',
-    onAction: () => ({ kind: 'run' })
+    onPress: () => ({ kind: 'run' })
   }), { columns: 12, rows: 2 });
 
   const first = createVisualSnapshot({ frame, previousFrame: frame });
@@ -35,7 +35,7 @@ test('element snapshots render opaque elements through the testing facade', () =
   const element = button({
     id: 'save',
     label: 'Save',
-    onAction: () => ({ kind: 'save' })
+    onPress: () => ({ kind: 'save' })
   });
 
   const first = renderElementSnapshot({

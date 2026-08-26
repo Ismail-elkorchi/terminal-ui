@@ -15,5 +15,5 @@ table({
   getRowId: (row) => row.id,
   density: regular
 });
-button({ id: 'compact-action', label: 'Save', density: compact, onAction: ignoreMessage });
-button({ id: 'regular-action', label: 'Save', density: regular, onAction: ignoreMessage });
+button({ id: 'compact-action', label: 'Save', density: compact, onPress: ignoreMessage });
+button({ id: 'regular-action', label: 'Save', density: regular, onPress: ignoreMessage });

@@ -35,10 +35,9 @@ function dashboardElement(state) {
         textInput({
           id: 'action-field',
           meta: { accessibleName: 'Action' },
-          presentation: { value: state.submitted ? 'Submitted' : 'Press enter', cursor: 0 },
-          onAction: (action) => action.kind === 'submit'
-            ? { type: 'submit' }
-            : ignoreMessage()
+          state: { value: state.submitted ? 'Submitted' : 'Press enter', cursor: 0 },
+          onTransition: () => ignoreMessage(),
+          onSubmit: () => ({ type: 'submit' })
         })
       ], { id: 'panes' }),
       statusBar({

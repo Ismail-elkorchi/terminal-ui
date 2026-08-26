@@ -4,13 +4,13 @@ import test from 'node:test';
 import { text } from '../components/index.ts';
 import { createMemoryTerminalHost } from '../host/index.ts';
 import { defineTui } from './definition.ts';
-import { normalizeTuiRunOptions } from './run-configuration.ts';
+import { resolveTuiRunOptions } from './run-configuration.ts';
 import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
 import { isTerminalTheme, resolveThemeColor } from '../theme/index.ts';
 
 void test('TUI run options own partial theme definitions at admission', () => {
   const color = { kind: 'ansi' as const, value: 1 };
-  const options = normalizeTuiRunOptions({
+  const options = resolveTuiRunOptions({
     theme: { tokens: { colors: { 'text.default': color } } }
   });
   color.value = 2;
@@ -40,7 +40,7 @@ void test('owned host recovery bypasses a hung restore before host disposal', as
     app,
     host,
     true,
-    normalizeTuiRunOptions({ lifecycle: { defaultTimeoutMs: 5 } }),
+    resolveTuiRunOptions({ lifecycle: { defaultTimeoutMs: 5 } }),
     undefined
   );
   const session = await host.beginSession({ id: app.id });

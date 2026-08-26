@@ -9,8 +9,8 @@ import { column, row, viewport } from '../../dist/layout/index.js';
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'addressed-field',
-    presentation: { value: 'Go', cursor: 0 },
-    onAction: () => ignoreMessage()
+    state: { value: 'Go', cursor: 0 },
+    onTransition: () => ignoreMessage()
   }), { columns: 8, rows: 2 });
   const output = renderFrameDebug(frame);
 
@@ -70,8 +70,8 @@ test('TUI frame cursor follows the centered active listbox item', () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     id: 'cursor-listbox',
     items,
-    projectItem: (item) => ({ id: item, label: item }),
-    presentation: {
+    toOption: (item) => ({ id: item, label: item }),
+    state: {
       activeId: 'Item 6',
       selection: { mode: 'single', selectedId: 'Item 6' }
     },
@@ -136,8 +136,8 @@ test('renderDiffAnsi serializes clear, write, and structural cursor state', () =
   const previous = renderElementFrame(text({ content: 'Longer text', id: 'before' }), { columns: 16, rows: 2 });
   const next = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'after',
-    presentation: { value: 'Go', cursor: 0 },
-    onAction: () => ignoreMessage()
+    state: { value: 'Go', cursor: 0 },
+    onTransition: () => ignoreMessage()
   }), { columns: 16, rows: 2 });
   const diff = diffFrames(previous, next);
   const output = renderDiffAnsi(diff);
@@ -155,8 +155,8 @@ test('TUI rendering windows large listbox and dataGrid components to visible hei
     listbox({ meta: { accessibleName: "List" },
       id: 'many-items',
       items: manyItems,
-      projectItem: (item) => ({ id: item, label: item }),
-      presentation: {
+      toOption: (item) => ({ id: item, label: item }),
+      state: {
         activeId: 'Item 990',
         selection: { mode: 'single', selectedId: 'Item 990' }
       },
@@ -166,7 +166,7 @@ test('TUI rendering windows large listbox and dataGrid components to visible hei
       id: 'many-rows',
       rows: manyItems.map((item) => [item, 'value']),
       getRowId: (_row, index) => String(index),
-      presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
+      state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
       onTransition: (action) => action
     })
   ], {

@@ -42,7 +42,7 @@ deno add jsr:@ismail-elkorchi/terminal-ui
   sources, progress, editors, and non-TTY input.
 - [Components](./guides/components.md) is the semantic component catalog and
   controlled-state contract.
-- [Behavior helpers](./guides/behavior.md) covers reducers, prepared
+- [Behavior helpers](./guides/behavior.md) covers reducers, retained
   collections, editing, navigation, selection, and scrolling.
 - [Layout](./guides/layout.md) covers tracks, surfaces, viewports, overlays,
   responsive composition, and measured windows.

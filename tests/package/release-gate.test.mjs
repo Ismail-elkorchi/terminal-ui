@@ -74,7 +74,7 @@ test('element rendering code uses semantic styles instead of raw terminal colors
   ].filter((file) => ![
     '/src/renderer/internal/ansi.ts',
     '/src/renderer/internal/serialization-policy.ts',
-    '/src/renderer/internal/frame.ts'
+    '/src/renderer/frame.ts'
   ].some((suffix) => file.pathname.endsWith(suffix)));
   const forbiddenPatterns = [
     /\bkind:\s*['"]ansi['"]/u,

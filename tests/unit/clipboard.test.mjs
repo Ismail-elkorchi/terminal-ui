@@ -21,7 +21,7 @@ test('clipboard OSC 52 sequence is gated by explicit policy', () => {
 
   assert.equal(denied.status, 'rejected');
   assert.equal(denied.diagnostic.code, 'HOST_CAPABILITY_UNAVAILABLE');
-  assert.equal(allowed.status, 'prepared');
+  assert.equal(allowed.status, 'encoded');
   assert.equal(allowed.sequence, '\u001B]52;c;Y29weSBtZQ==\u0007');
   assert.equal(oversized.status, 'rejected');
   assert.equal(oversized.diagnostic.data?.maxBytes, 2);
@@ -38,7 +38,7 @@ test('clipboard OSC 52 Base64 output covers complete UTF-8 byte groups and paddi
 
   for (const [value, encoded] of cases) {
     const result = createClipboardWriteSequence(value, { allowed: true });
-    assert.equal(result.status, 'prepared');
+    assert.equal(result.status, 'encoded');
     assert.equal(result.sequence, `\u001B]52;c;${encoded}\u0007`);
   }
 });
@@ -48,11 +48,11 @@ test('clipboard limits apply to sanitized UTF-8 bytes before Base64 encoding', (
   const oversized = createClipboardWriteSequence('界🙂', { allowed: true, maxBytes: 6 });
   const sanitized = createClipboardWriteSequence('\u001B[31mf', { allowed: true, maxBytes: 1 });
 
-  assert.equal(exact.status, 'prepared');
+  assert.equal(exact.status, 'encoded');
   assert.equal(exact.byteLength, 7);
   assert.equal(oversized.status, 'rejected');
   assert.equal(oversized.diagnostic.data?.byteLength, 7);
-  assert.equal(sanitized.status, 'prepared');
+  assert.equal(sanitized.status, 'encoded');
   assert.equal(sanitized.sequence, '\u001B]52;c;Zg==\u0007');
 });
 
@@ -72,7 +72,7 @@ test('clipboard limits must be finite non-negative safe integers', () => {
   }
   assert.equal(
     createClipboardWriteSequence('', { allowed: true, maxBytes: Number.MAX_SAFE_INTEGER }).status,
-    'prepared'
+    'encoded'
   );
 });
 

@@ -10,10 +10,10 @@ import {
 import {
   scrollbarsForRenderNode,
   viewportScrollbarState,
-} from '../renderer/internal/renderers/support/scroll.ts';
+} from '../renderer/internal/node-renderers/support/scroll.ts';
 import type { LayoutNode } from '../renderer/contracts.ts';
-import type { RenderNode, RenderNodeOfKind } from '../renderer/model/index.ts';
-import { resolveRenderNodeMessage } from '../renderer/model/node.ts';
+import type { RenderNode, RenderNodeOfKind } from '../renderer/internal/render-tree/index.ts';
+import { resolveRenderNodeMessage } from '../renderer/internal/render-tree/node.ts';
 
 export function focusRevealMessages<TMessage>(
   renderNode: RenderNode<TMessage>,

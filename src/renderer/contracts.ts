@@ -88,7 +88,7 @@ export interface RenderStyleInput<TPart extends string> {
   readonly base?: TerminalStyle;
 }
 
-export interface RenderSourceInput {
+export interface FrameSourceInput {
   readonly cellRole?: FrameCellRole;
   readonly partName?: string;
   readonly partType?: string;
@@ -149,7 +149,7 @@ export interface CanvasPainterInput {
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly style: (input: RenderStyleInput<'content'>) => TerminalStyle | undefined;
-  readonly source: (input?: RenderSourceInput) => FrameCellSource;
+  readonly frameSource: (input?: FrameSourceInput) => FrameCellSource;
 }
 
 export type CanvasPainter = (input: CanvasPainterInput) => void;

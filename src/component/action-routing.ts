@@ -58,7 +58,7 @@ export function mappedKeyBindings(
           throw new TypeError(`Component definition keys.triggers[${String(index)}].onKey must be a function.`);
         }
         return Object.freeze({
-          trigger: normalizeComponentKeyTrigger(
+          trigger: decodeComponentKeyTrigger(
             binding['trigger'],
             `Component definition keys.triggers[${String(index)}].trigger`,
           ),
@@ -104,7 +104,7 @@ export function mappedKeyBindings(
   });
 }
 
-export function normalizeComponentHitTargets(
+export function decodeComponentHitTargets(
   value: unknown,
   allocation: Rect,
   mapper: ((action: unknown) => unknown) | undefined,
@@ -129,8 +129,8 @@ export function normalizeComponentHitTargets(
     }
     ids.add(id);
     const bounds = absoluteHitTargetBounds(target['bounds'], allocation, component, id);
-    const accepts = normalizeAcceptedPointerEvents(target['accepts'], component, id);
-    const focus = normalizePointerFocusIntent(target['focus'], component, id);
+    const accepts = decodeAcceptedPointerEvents(target['accepts'], component, id);
+    const focus = decodePointerFocusIntent(target['focus'], component, id);
     const message = target['message'];
     if (!isPointerMessage(message)) {
       throw new TypeError(`Component "${component}" hit target "${id}" must provide a message function.`);
@@ -197,7 +197,7 @@ function absoluteHitTargetBounds(
   });
 }
 
-function normalizeAcceptedPointerEvents(
+function decodeAcceptedPointerEvents(
   value: unknown,
   component: string,
   id: string,
@@ -228,7 +228,7 @@ function isPointerMessage(value: unknown): value is (event: RoutedPointerEvent) 
   return typeof value === 'function';
 }
 
-function normalizePointerFocusIntent(
+function decodePointerFocusIntent(
   value: unknown,
   component: string,
   id: string,
@@ -260,7 +260,7 @@ function isKeyHandler(value: unknown): value is (event: ElementKeyEvent) => unkn
   return typeof value === 'function';
 }
 
-function normalizeComponentKeyTrigger(
+function decodeComponentKeyTrigger(
   value: unknown,
   subject: string,
 ): Extract<InputTrigger, { readonly kind: 'key' | 'codePoint' | 'physicalKey' }> {

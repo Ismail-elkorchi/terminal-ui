@@ -12,7 +12,7 @@ import {
   statusBar
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
-import { appendLogHistory, prepareLogHistory } from '../../dist/behavior/index.js';
+import { appendLogHistory, createLogHistory } from '../../dist/behavior/index.js';
 import { waitUntil } from '../helpers/async.ts';
 
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
@@ -23,7 +23,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
   const harness = result.harness;
   const app = defineTui({
     id: 'pty-resize-streaming',
-    init: () => ({ state: ({ history: prepareLogHistory([]) }) }),
+    init: () => ({ state: ({ history: createLogHistory([]) }) }),
     inputBindings: [{
       id: 'finish-stream',
       triggers: [{ kind: 'key', key: 'enter' }],

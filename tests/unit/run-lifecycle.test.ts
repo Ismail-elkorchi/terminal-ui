@@ -72,8 +72,8 @@ void test('intentional finalization timer cancellation is not a clock failure', 
     update: (state) => ({ state }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'abort-rejecting-clock-output',
-      presentation: { value: 'ready', cursor: 0 },
-      onAction: () => ({})
+      state: { value: 'ready', cursor: 0 },
+      onTransition: () => ({})
     }),
     nonTty: { mode: 'last_frame' }
   });
@@ -91,10 +91,9 @@ function exitOnSubmitApp(id: string, onExit?: () => void | Promise<void>) {
     update: () => ({ state: { done: true }, exit: {} }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: `${id}-input`,
-      presentation: { value: '', cursor: 0 },
-      onAction: (action) => action.kind === 'submit'
-        ? { kind: 'exit' as const }
-        : ignoreMessage()
+      state: { value: '', cursor: 0 },
+      onTransition: () => ignoreMessage(),
+      onSubmit: () => ({ kind: 'exit' as const }),
     }),
     ...(onExit === undefined ? {} : { onExit }),
   });

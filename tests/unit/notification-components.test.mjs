@@ -13,7 +13,7 @@ import {
   renderElementFrame,
   renderFramePlain
 } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { grid } from '../../dist/layout/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
@@ -31,7 +31,7 @@ test('notificationRegion is a live region with focusable explicit dismiss action
       tone: 'success',
       dismissible: true
     }],
-    onAction: (action) => ({ kind: 'notification', action })
+    onDismiss: (action) => ({ kind: 'notification', action })
   });
   const frame = renderElementFrame(element, { columns: 40, rows: 8 });
   const targets = renderElementRegions(element, { columns: 40, rows: 8 })
@@ -60,7 +60,7 @@ test('notificationHistory is a controlled listbox over completed notifications',
       tone: 'success',
       dismissible: true
     }],
-    onAction: (action) => action
+    onTransition: (action) => action
   });
   const frame = renderElementFrame(element, { columns: 40, rows: 8 });
   const targets = renderElementRegions(element, { columns: 40, rows: 8 })
@@ -232,7 +232,7 @@ test('notification history keeps tone, progress, and selection meaningful withou
     selectedId: 'failure',
     scroll: createScrollState(),
     maxWidth: 28,
-    onAction: (action) => action
+    onTransition: (transition) => transition
   }), { columns: 40, rows: 8 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
     frame,
@@ -255,7 +255,7 @@ test('notificationHistory rejects invalid runtime contracts during construction'
   assert.throws(() => notificationHistory({ meta: { accessibleName: "Notification history" },
     id: 'missing-handler',
     items: []
-  }), /onAction must be a function/u);
+  }), /onTransition must be a function/u);
 });
 
 function colorCapabilities() {

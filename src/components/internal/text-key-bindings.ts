@@ -1,7 +1,7 @@
 import type { ElementKeyTriggerBinding } from '../../element/metadata.ts';
 import type { TextEditOperation } from '../../text/index.ts';
 
-export interface TextEditingAction {
+export interface TextEditingTransition {
   readonly kind: 'edit';
   readonly operation: TextEditOperation;
 }
@@ -9,8 +9,8 @@ export interface TextEditingAction {
 export function textEditingTriggers(
   readOnly: boolean,
   multiline: boolean
-): readonly ElementKeyTriggerBinding<TextEditingAction>[] {
-  const bindings: ElementKeyTriggerBinding<TextEditingAction>[] = [
+): readonly ElementKeyTriggerBinding<TextEditingTransition>[] {
+  const bindings: ElementKeyTriggerBinding<TextEditingTransition>[] = [
     repeatingMovement('arrowLeft', 'moveLeft'),
     repeatingMovement('arrowRight', 'moveRight'),
     repeatingMovement('home', 'moveHome'),
@@ -52,20 +52,20 @@ export function textEditingTriggers(
 function repeatingMovement(
   keyName: 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'pageUp' | 'pageDown' | 'home' | 'end',
   kind: 'moveLeft' | 'moveRight' | 'moveLineUp' | 'moveLineDown' | 'movePageUp' | 'movePageDown' | 'moveHome' | 'moveEnd'
-): ElementKeyTriggerBinding<TextEditingAction> {
+): ElementKeyTriggerBinding<TextEditingTransition> {
   return repeatingEdit(keyName, { kind });
 }
 
 function repeatingEdit(
   keyName: Parameters<typeof trigger>[0],
   operation: TextEditOperation
-): ElementKeyTriggerBinding<TextEditingAction> {
+): ElementKeyTriggerBinding<TextEditingTransition> {
   return key(keyName, {}, operation);
 }
 
 function repeat(
-  binding: ElementKeyTriggerBinding<TextEditingAction>
-): ElementKeyTriggerBinding<TextEditingAction> {
+  binding: ElementKeyTriggerBinding<TextEditingTransition>
+): ElementKeyTriggerBinding<TextEditingTransition> {
   return {
     trigger: { ...binding.trigger, eventType: 'repeat' },
     onKey: binding.onKey
@@ -76,7 +76,7 @@ function movement(
   keyName: 'arrowLeft' | 'arrowRight' | 'arrowUp' | 'arrowDown' | 'pageUp' | 'pageDown' | 'home' | 'end',
   kind: Extract<TextEditOperation, { readonly extendSelection?: boolean }>['kind'],
   modifiers: { readonly shift: true }
-): ElementKeyTriggerBinding<TextEditingAction> {
+): ElementKeyTriggerBinding<TextEditingTransition> {
   return key(keyName, modifiers, selectedMovement(kind));
 }
 
@@ -100,7 +100,7 @@ function selectedMovement(
 function wordMovement(
   keyName: 'arrowLeft' | 'arrowRight',
   kind: 'moveWordLeft' | 'moveWordRight'
-): readonly ElementKeyTriggerBinding<TextEditingAction>[] {
+): readonly ElementKeyTriggerBinding<TextEditingTransition>[] {
   return [
     key(keyName, { ctrl: true }, { kind }),
     key(keyName, { alt: true }, { kind }),
@@ -112,7 +112,7 @@ function wordMovement(
 function wordDeletion(
   keyName: 'backspace' | 'delete',
   kind: 'deleteWordBackward' | 'deleteWordForward'
-): readonly ElementKeyTriggerBinding<TextEditingAction>[] {
+): readonly ElementKeyTriggerBinding<TextEditingTransition>[] {
   return [
     key(keyName, { ctrl: true }, { kind }),
     key(keyName, { alt: true }, { kind })
@@ -123,7 +123,7 @@ function key(
   keyName: Parameters<typeof trigger>[0],
   modifiers: Parameters<typeof trigger>[1],
   operation: TextEditOperation
-): ElementKeyTriggerBinding<TextEditingAction> {
+): ElementKeyTriggerBinding<TextEditingTransition> {
   return { trigger: trigger(keyName, modifiers), onKey: () => ({ kind: 'edit', operation }) };
 }
 

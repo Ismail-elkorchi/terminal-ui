@@ -10,7 +10,7 @@ richText({ segments: content });
 button({
   id: 'open',
   label: 'Open',
-  onAction: ignoreMessage,
+  onPress: ignoreMessage,
   leading: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
   styles: { parts: { label: { fg: { kind: 'theme', token: 'custom.brand' } } } }
 });
@@ -30,7 +30,7 @@ surface(text({ content: 'invalid title source' }), {
 button({
   id: 'invalid-token',
   label: 'Invalid',
-  onAction: ignoreMessage,
+  onPress: ignoreMessage,
   styles: {
       // @ts-expect-error custom color tokens require the custom.* namespace
       parts: { label: { fg: { kind: 'theme', token: 'brand.accent' } } }

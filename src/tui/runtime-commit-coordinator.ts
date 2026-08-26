@@ -14,7 +14,7 @@ import {
   rerenderCurrentFrame,
   resolveTuiTheme
 } from './runtime-frame.ts';
-import { diffFrames } from '../renderer/internal/frame.ts';
+import { diffFrames } from '../renderer/frame.ts';
 import type { TerminalSize } from '../geometry/types.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import { focusPathsEqual } from '../interaction/focus.ts';

@@ -11,7 +11,7 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import {
@@ -46,7 +46,7 @@ test('clipped component composites preserve descendant layers and interaction', 
     children: [button({
       id: 'elevated-action',
       label: 'TOP',
-      onAction: () => ({ kind: 'activate' }),
+      onPress: () => ({ kind: 'activate' }),
       meta: { layer: { zIndex: 20 } }
     })],
     definition: {
@@ -95,7 +95,7 @@ test('named slots enforce cardinality, ownership, and child-message policy', () 
   const action = button({
     id: 'captured-action',
     label: 'Run',
-    onAction: () => ({ kind: 'child' })
+    onPress: () => ({ kind: 'child' })
   });
   const element = capturing({
     id: 'capture-owner',
@@ -146,8 +146,8 @@ test('component names do not select private focus traversal policies', () => {
   const stack = (name) => component({
     id: 'named-stack',
     children: [
-      button({ id: 'first-action', label: 'First', onAction: () => ignoreMessage() }),
-      button({ id: 'second-action', label: 'Second', onAction: () => ignoreMessage() })
+      button({ id: 'first-action', label: 'First', onPress: () => ignoreMessage() }),
+      button({ id: 'second-action', label: 'Second', onPress: () => ignoreMessage() })
     ],
     definition: {
       ...compositeComponentDefinition,
@@ -376,7 +376,7 @@ test('component accessibility validates owned focus once and final focus across 
       content: [button({
         id: 'child-action',
         label: 'Run',
-        onAction: () => ignoreMessage()
+        onPress: () => ignoreMessage()
       })]
     }
   });
@@ -1466,6 +1466,16 @@ test('malformed component definitions fail as programmer errors', () => {
     /Component definition must be an object/u
   );
   assert.throws(
+    () => defineComponent({
+      ...leafComponentDefinition,
+      semantics: 'semantic',
+      createModel: 'not-a-function',
+      render() {},
+      accessibility: ({ id }) => ({ id, role: 'text', label: id })
+    }),
+    /createModel must be a function/u
+  );
+  assert.throws(
     () => component({
       id: 'unsafe-name',
       definition: {
@@ -1523,7 +1533,7 @@ test('component instances adopt shared metadata once before retaining it', () =>
   const element = button({
     id: 'adopted-metadata',
     label: 'Action',
-    onAction: () => ignoreMessage(),
+    onPress: () => ignoreMessage(),
     styles: {
         get root() {
           rootStyleReads += 1;
@@ -1627,7 +1637,7 @@ test('composed keyboard handlers do not create an implicit container focus targe
       content: button({
         id: 'keyboard-container-action',
         label: 'Action',
-        onAction: () => ignoreMessage()
+        onPress: () => ignoreMessage()
       })
     },
     onAction: () => ignoreMessage()
@@ -1877,7 +1887,7 @@ test('semantic leaf definitions reject unreachable focus-owned behavior', () => 
 test('decorative elements reject interaction throughout their subtree', () => {
   assert.throws(
     () => renderElementFrame(column([
-      button({ id: 'decorative-child-button', label: 'Press', onAction: () => ({ kind: 'press' }) })
+      button({ id: 'decorative-child-button', label: 'Press', onPress: () => ({ kind: 'press' }) })
     ], {
       id: 'decorative-parent',
       meta: { accessibility: { decorative: true } }
@@ -1914,12 +1924,12 @@ test('component composites arrange opaque children while preserving interaction 
         button({
           id: 'save',
           label: 'Save',
-          onAction: () => ({ kind: 'save' })
+          onPress: () => ({ kind: 'save' })
         }),
         button({
           id: 'cancel',
           label: 'Cancel',
-          onAction: () => ({ kind: 'cancel' })
+          onPress: () => ({ kind: 'cancel' })
         })
       ],
       definition: {
@@ -2050,7 +2060,7 @@ test('composed component accessibility uses declared slot names and optional slo
   assert.equal('content' in received, false);
 });
 
-test('component preparation treats retained models as opaque', () => {
+test('component infrastructure treats retained models as opaque', () => {
   let ownKeyReads = 0;
   const retained = new Proxy({ entries: Object.freeze([Object.freeze({ id: 'one' })]) }, {
     ownKeys(target) {
@@ -2067,7 +2077,7 @@ test('component preparation treats retained models as opaque', () => {
     structure: 'leaf',
     semantics: 'semantic',
     accessibleRole: 'group',
-    prepare: (value) => value.model,
+    createModel: (value) => value.model,
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
     accessibility: ({ id }) => ({ id, role: 'group', label: id })
@@ -2079,14 +2089,14 @@ test('component preparation treats retained models as opaque', () => {
   assert.equal(ownKeyReads, 0);
 });
 
-test('component-owned prepared models may use domain objects', () => {
+test('component-owned models may use domain objects', () => {
   const domainModel = defineComponent({
     name: 'terminal-ui-tests/components/domain-model',
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
     accessibleRole: 'group',
-    prepare: (value) => value.model,
+    createModel: (value) => value.model,
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
     accessibility: ({ id, model }) => ({ id, role: 'group', label: String(model.size) })
@@ -2095,7 +2105,7 @@ test('component-owned prepared models may use domain objects', () => {
   assert.doesNotThrow(() => domainModel({ id: 'map', model: supplied }));
 });
 
-test('component preparation may retain custom domain instances', () => {
+test('component models may retain custom domain instances', () => {
   class DomainRecord {
     constructor(label) {
       this.label = label;
@@ -2107,7 +2117,7 @@ test('component preparation may retain custom domain instances', () => {
     structure: 'leaf',
     semantics: 'semantic',
     accessibleRole: 'group',
-    prepare: (value) => ({ domain: value.model }),
+    createModel: (value) => ({ domain: value.model }),
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
     accessibility: ({ id }) => ({ id, role: 'group', label: id })
@@ -2117,20 +2127,20 @@ test('component preparation may retain custom domain instances', () => {
   assert.doesNotThrow(() => retainedDomain({ id: 'retained-domain', model: domain }));
 });
 
-test('component prepared models are data objects rather than callable hooks', () => {
+test('component models are data objects rather than callable hooks', () => {
   const callableModel = defineComponent({
     name: 'terminal-ui-tests/components/callable-model',
     identity: 'required',
     structure: 'leaf',
     semantics: 'semantic',
     accessibleRole: 'group',
-    prepare: () => () => 'not a data model',
+    createModel: () => () => 'not a data model',
     measure: () => ({ minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 }),
     render: () => undefined,
     accessibility: ({ id }) => ({ id, role: 'group', label: id })
   });
 
-  assert.throws(() => callableModel({ id: 'callable-model' }), /prepare must return an object/u);
+  assert.throws(() => callableModel({ id: 'callable-model' }), /createModel must return an object/u);
 });
 
 test('built-in factories reject malformed nested options where they are consumed', () => {
@@ -2138,14 +2148,14 @@ test('built-in factories reject malformed nested options where they are consumed
     id: 'dataGrid',
     rows: [],
     getRowId: () => 'row',
-    presentation: null,
+    state: null,
     onTransition: (transition) => transition
-  }), /dataGrid presentation/u);
+  }), /dataGrid state/u);
   assert.throws(() => textArea({ meta: { accessibleName: "Text area" },
     id: 'editor',
-    presentation: null,
-    onAction: (action) => action
-  }), componentCause(/textArea presentation/u));
+    state: null,
+    onTransition: (action) => action
+  }), componentCause(/textArea state/u));
 });
 
 function assertNoTerminalControls(value) {

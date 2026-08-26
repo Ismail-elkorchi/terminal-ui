@@ -1,6 +1,6 @@
 import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
-import { projectTuiOutput } from '../renderer/internal/output-projection.ts';
-import { diffFrames } from '../renderer/internal/render.ts';
+import { renderTuiOutput } from '../renderer/output.ts';
+import { diffFrames } from '../renderer/frame.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
@@ -101,26 +101,26 @@ export async function runTuiNonTty<TState, TMessage>(
 
   const diagnostics: TerminalDiagnostic[] = [];
   if (policy.mode === 'last_frame') {
-    const projection = projectTuiOutput({ frame });
-    const output = await runTuiLifecyclePhase({
+    const rendered = renderTuiOutput({ frame });
+    const outputResult = await runTuiLifecyclePhase({
       clock: host.clock,
       target: app.id,
       phase: 'output',
       timeoutMs: options.lifecycle.outputFlushTimeoutMs,
       operation: async (signal) => {
         requireCommittedTerminalWrite(await host.write(
-          { text: `${projection.accessibleText}\n\n${projection.plainTextFrame}\n` },
+          { text: `${rendered.accessibleText}\n\n${rendered.plainTextFrame}\n` },
           { signal }
         ));
       }
     });
-    if (output.status !== 'settled') diagnostics.push(diagnostic(
+    if (outputResult.status !== 'settled') diagnostics.push(diagnostic(
       'TUI_OUTPUT_FAILED',
-      `Non-TTY TUI output ${output.status === 'timed_out' ? 'timed out' : 'failed'}.`,
+      `Non-TTY TUI output ${outputResult.status === 'timed_out' ? 'timed out' : 'failed'}.`,
       {
         target: app.id,
-        ...(output.diagnostic.cause === undefined ? {} : { cause: output.diagnostic.cause }),
-        data: { status: output.status }
+        ...(outputResult.diagnostic.cause === undefined ? {} : { cause: outputResult.diagnostic.cause }),
+        data: { status: outputResult.status }
       }
     ));
   }

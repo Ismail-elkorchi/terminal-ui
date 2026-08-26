@@ -23,6 +23,6 @@ export interface ScrollbarInteractionState {
   readonly activeTargetId?: string;
 }
 
-export type ScrollbarInteractionAction =
+export type ScrollbarInteractionTransition =
   | { readonly kind: 'pointer'; readonly event: RoutedPointerEvent }
   | { readonly kind: 'reset' };

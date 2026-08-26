@@ -31,10 +31,9 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
     view: (state) => textInput({
       id: 'submit',
       meta: { accessibleName: 'Submission' },
-      presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onAction: (action) => action.kind === 'submit'
-        ? { submitted: true }
-        : ignoreMessage()
+      state: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
+      onTransition: () => ignoreMessage(),
+      onSubmit: () => ({ submitted: true })
     })
   });
 

@@ -6,29 +6,29 @@ import {
 import {
   createVisualSnapshot
 } from '../../dist/testing/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   createScrollState,
   appendLogHistory,
   extractLogViewerSelectionText,
-  prepareLogHistory,
+  createLogHistory,
   logHistoryEntryAt,
   logViewerSearchMatches
 } from '../../dist/behavior/index.js';
-import { searchLogViewerHistory } from '../../dist/components/factories/log-viewer-data.js';
+import { searchLogViewerHistory } from '../../dist/components/internal/log-viewer-layout.js';
 import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import { logViewer } from '../../dist/components/index.js';
-import { prepareCollectionQuery } from '../../dist/component/index.js';
+import { compileCollectionQuery } from '../../dist/component/index.js';
 
 function entry(index, text = `Row ${index}`) {
   return { id: `row-${index}`, text };
 }
 
-test('log viewer rejects structural lookalikes for prepared history', () => {
+test('log viewer rejects structural lookalikes for retained history', () => {
   assert.throws(() => logViewer({
     id: 'forged-log',
     history: {
@@ -37,12 +37,12 @@ test('log viewer rejects structural lookalikes for prepared history', () => {
       entryCount: 0,
       bodyLength: 0
     }
-  }), /must be created with prepareLogHistory/u);
+  }), /must be created with createLogHistory/u);
 });
 
 test('log viewer follows the tail by default and marks omitted earlier rows', () => {
   const entries = Array.from({ length: 20 }, (_value, index) => entry(index));
-  const frame = renderElementFrame(logViewer({ id: 'log', history: prepareLogHistory(entries) }), { columns: 36, rows: 4 });
+  const frame = renderElementFrame(logViewer({ id: 'log', history: createLogHistory(entries) }), { columns: 36, rows: 4 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /\.\.\. 16 earlier rows omitted \.\.\./u);
@@ -60,7 +60,7 @@ test('log viewer accepts explicit scroll state and marks omitted later rows', ()
   const entries = Array.from({ length: 10 }, (_value, index) => entry(index));
   const frame = renderElementFrame(logViewer({
     id: 'log',
-    history: prepareLogHistory(entries),
+    history: createLogHistory(entries),
     scroll: createScrollState({ offsetRow: 0, contentRows: 10, viewportRows: 3 })
   }), { columns: 48, rows: 3 });
   const output = renderFramePlain(frame);
@@ -76,7 +76,7 @@ test('log viewer accepts explicit scroll state and marks omitted later rows', ()
 test('log viewer sanitizes terminal control sequences before rendering and accessibility', () => {
   const frame = renderElementFrame(logViewer({
     id: 'safe-log',
-    history: prepareLogHistory([entry(0, 'safe \u001B[31mred\u001B[0m text')])
+    history: createLogHistory([entry(0, 'safe \u001B[31mred\u001B[0m text')])
   }), { columns: 40, rows: 2 });
   const output = renderFramePlain(frame);
 
@@ -85,11 +85,11 @@ test('log viewer sanitizes terminal control sequences before rendering and acces
 });
 
 test('log viewer search reuses retained segment results and invalidates only appended segments', () => {
-  const history = prepareLogHistory(Array.from(
+  const history = createLogHistory(Array.from(
     { length: 100 },
     (_value, index) => entry(index, `record ${index} searchable`)
   ));
-  const query = prepareCollectionQuery({ text: 'searchable', mode: 'contains' });
+  const query = compileCollectionQuery({ text: 'searchable', mode: 'contains' });
   const first = searchLogViewerHistory(history, query, new Set());
   const second = searchLogViewerHistory(history, query, new Set());
 
@@ -111,7 +111,7 @@ test('log viewer search reuses retained segment results and invalidates only app
 test('log viewer renders timestamp, metadata, and entry styles through visible rows', () => {
   const element = logViewer({
     id: 'metadata-log',
-    history: prepareLogHistory([{
+    history: createLogHistory([{
       id: 'meta-1',
       timestamp: '10:30',
       metadata: { status: 'ok', source: 'worker' },
@@ -143,8 +143,8 @@ test('log viewer renders timestamp, metadata, and entry styles through visible r
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
 
-test('log viewer rendering uses the prepared metadata order used for row layout', () => {
-  const history = prepareLogHistory([{
+test('log viewer rendering uses the retained metadata order used for row layout', () => {
+  const history = createLogHistory([{
     id: 'ordered',
     metadata: { a: 'long-value', Z: 'short' },
     text: 'body'
@@ -163,7 +163,7 @@ test('log viewer rendering uses the prepared metadata order used for row layout'
 test('log viewer renders log levels through log theme tokens and lets entry styles refine them', () => {
   const frame = renderElementFrame(logViewer({
     id: 'level-log',
-    history: prepareLogHistory([
+    history: createLogHistory([
       { id: 'info', level: 'info', text: 'Server ready' },
       { id: 'warn', level: 'warning', text: 'Memory high' },
       { id: 'error', level: 'error', text: 'Request failed', style: { bold: true } }
@@ -179,7 +179,7 @@ test('log viewer renders log levels through log theme tokens and lets entry styl
 });
 
 test('log viewer renders folded history as visible document metadata', () => {
-  const history = prepareLogHistory([
+  const history = createLogHistory([
     { id: 'a', text: 'alpha\nmore alpha', metadata: { source: 'worker' } },
     { id: 'b', text: 'bravo' }
   ]);
@@ -196,7 +196,7 @@ test('log viewer renders folded history as visible document metadata', () => {
 });
 
 test('log viewer folding preserves source-local selection anchors', () => {
-  const history = prepareLogHistory([
+  const history = createLogHistory([
     { id: 'a', text: 'alpha\nmore alpha' },
     { id: 'b', text: 'bravo' }
   ]);
@@ -219,7 +219,7 @@ test('log viewer folding preserves source-local selection anchors', () => {
 test('log viewer wraps visible rows when requested', () => {
   const frame = renderElementFrame(logViewer({
     id: 'wrapped-log',
-    history: prepareLogHistory([entry(0, 'abcdef')]),
+    history: createLogHistory([entry(0, 'abcdef')]),
     wrap: true
   }), { columns: 3, rows: 3 });
 
@@ -230,7 +230,7 @@ test('log viewer wraps visible rows when requested', () => {
 
 test('log viewer search navigates to the first match and exposes match segments', () => {
   const entries = Array.from({ length: 12 }, (_value, index) => entry(index, index === 8 ? 'needle row' : `plain ${index}`));
-  const element = logViewer({ id: 'search-log', history: prepareLogHistory(entries), query: { text: 'needle' } });
+  const element = logViewer({ id: 'search-log', history: createLogHistory(entries), query: { text: 'needle' } });
   const frame = renderElementFrame(element, { columns: 40, rows: 5 });
 
   const matchedCells = frame.cells.filter((cell) => cell.source?.description === 'body.match');
@@ -248,7 +248,7 @@ test('log viewer search navigates to the first match and exposes match segments'
 test('wrapped log viewer search centers the row containing the first highlight', () => {
   const frame = renderElementFrame(logViewer({
     id: 'wrapped-search-log',
-    history: prepareLogHistory([{
+    history: createLogHistory([{
       id: 'long-record',
       text: `${'prefix '.repeat(12)}needle suffix`
     }]),
@@ -261,7 +261,7 @@ test('wrapped log viewer search centers the row containing the first highlight',
 });
 
 test('wrapped log viewer search navigates by exact occurrence identity', () => {
-  const history = prepareLogHistory([{
+  const history = createLogHistory([{
     id: 'long-record',
     text: `needle ${'padding '.repeat(8)}needle suffix`
   }]);
@@ -285,7 +285,7 @@ test('wrapped log viewer search navigates by exact occurrence identity', () => {
 test('log viewer counts only queries represented by highlighted spans', () => {
   const frame = renderElementFrame(logViewer({
     id: 'span-scoped-search',
-    history: prepareLogHistory([{ id: 'split-boundary', timestamp: 'a', text: 'b' }]),
+    history: createLogHistory([{ id: 'split-boundary', timestamp: 'a', text: 'b' }]),
     query: { text: '] b' }
   }), { columns: 40, rows: 2 });
 
@@ -301,7 +301,7 @@ test('log viewer counts only queries represented by highlighted spans', () => {
 test('log viewer search rejects code-unit substrings inside one grapheme', () => {
   const frame = renderElementFrame(logViewer({
     id: 'grapheme-scoped-search',
-    history: prepareLogHistory([{ id: 'family', text: 'team 👨‍👩‍👧‍👦' }]),
+    history: createLogHistory([{ id: 'family', text: 'team 👨‍👩‍👧‍👦' }]),
     query: { text: '👨' }
   }), { columns: 40, rows: 2 });
 
@@ -315,11 +315,11 @@ test('log viewer search rejects code-unit substrings inside one grapheme', () =>
 test('log viewer renders empty and selected text states in high contrast and no color output', () => {
   const emptyFrame = renderElementFrame(logViewer({
     id: 'empty-log',
-    history: prepareLogHistory([])
+    history: createLogHistory([])
   }), { columns: 32, rows: 3 }, { theme: highContrastTheme });
   const selectedFrame = renderElementFrame(logViewer({
     id: 'selected-log',
-    history: prepareLogHistory([
+    history: createLogHistory([
       { id: 'alpha', text: 'alpha' },
       { id: 'bravo', text: 'bravo charlie' }
     ]),
@@ -351,7 +351,7 @@ test('log viewer selection extraction is pure and sanitized', () => {
     entry(1, 'bravo \u001B[31mcharlie\u001B[0m')
   ];
   const text = extractLogViewerSelectionText({
-    history: prepareLogHistory(entries),
+    history: createLogHistory(entries),
     selection: {
       anchor: { entryId: 'row-0', offset: 3 },
       focus: { entryId: 'row-1', offset: 12 }
@@ -364,23 +364,23 @@ test('log viewer selection extraction is pure and sanitized', () => {
 test('log viewer maps pointer selection through metadata to canonical body offsets', () => {
   const regions = renderElementRegions(logViewer({
     id: 'selectable-log',
-    history: prepareLogHistory([
+    history: createLogHistory([
       { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
       { id: 'bravo', text: 'bravo' }
     ]),
     scroll: createScrollState({ offsetRow: 0, contentRows: 2, viewportRows: 2 }),
-    onAction: (action) => ({ action }),
+    onTransition: (action) => ({ action }),
     onContextMenu: (event) => ({ context: event }),
   }), { columns: 48, rows: 2 });
   const target = targetById(regions, 'selectable-log:text');
   const frame = renderElementFrame(logViewer({
     id: 'selectable-log',
-    history: prepareLogHistory([
+    history: createLogHistory([
       { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
       { id: 'bravo', text: 'bravo' }
     ]),
     scroll: createScrollState({ offsetRow: 0, contentRows: 2, viewportRows: 2 }),
-    onAction: (action) => ({ action })
+    onTransition: (action) => ({ action })
   }), { columns: 48, rows: 2 });
   const alpha = frame.cells.find((cell) => cell.source?.partName === 'body' && cell.text === 'p');
   const bravo = frame.cells.find((cell) => cell.source?.itemId === 'bravo' && cell.text === 'a');
@@ -400,11 +400,11 @@ test('log viewer maps pointer selection through metadata to canonical body offse
   assert.deepEqual(target.focus, { kind: 'focus', path: ['selectable-log'] });
   assert.deepEqual(target.message(press)?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', position: { entryId: 'alpha', offset: 2 } }
+    transition: { kind: 'placeCaret', position: { entryId: 'alpha', offset: 2 } }
   });
   assert.deepEqual(target.message(drag)?.action, {
     kind: 'pointer',
-    action: {
+    transition: {
       kind: 'extendSelection',
       anchor: { entryId: 'alpha', offset: 2 },
       position: { entryId: 'bravo', offset: 2 }
@@ -412,7 +412,7 @@ test('log viewer maps pointer selection through metadata to canonical body offse
   });
   assert.deepEqual(doubleClick?.action, {
     kind: 'pointer',
-    action: {
+    transition: {
       kind: 'endSelection',
       anchor: { entryId: 'bravo', offset: 0 },
       position: { entryId: 'bravo', offset: 5 },
@@ -430,14 +430,14 @@ test('log viewer maps pointer selection through metadata to canonical body offse
 test('scrollable log viewer couples captured drag selection with one controlled scroll step', () => {
   const regions = renderElementRegions(logViewer({
     id: 'drag-scroll-log',
-    history: prepareLogHistory([
+    history: createLogHistory([
       { id: 'one', text: 'one' },
       { id: 'two', text: 'two' },
       { id: 'three', text: 'three' },
       { id: 'four', text: 'four' },
     ]),
     scroll: createScrollState(),
-    onAction: (action) => ({ action }),
+    onTransition: (action) => ({ action }),
   }), { columns: 16, rows: 2 });
   const target = targetById(regions, 'drag-scroll-log:text');
   const press = {
@@ -453,7 +453,7 @@ test('scrollable log viewer couples captured drag selection with one controlled 
   ));
 
   assert.equal(message?.action.kind, 'pointer');
-  assert.deepEqual(message?.action.scroll, {
+  assert.deepEqual(message?.action.scrollRequest, {
     nextState: { offsetRow: 1, offsetColumn: 0, followTail: false },
     source: 'drag',
     target: 'content',
@@ -463,7 +463,7 @@ test('scrollable log viewer couples captured drag selection with one controlled 
 test('wrapped log viewer preserves selected body source and visual style', () => {
   const frame = renderElementFrame(logViewer({
     id: 'wrapped-selection',
-    history: prepareLogHistory([{ id: 'alpha', text: 'alpha bravo' }]),
+    history: createLogHistory([{ id: 'alpha', text: 'alpha bravo' }]),
     wrap: true,
     selection: {
       anchor: { entryId: 'alpha', offset: 2 },
@@ -480,7 +480,7 @@ test('wrapped log viewer preserves selected body source and visual style', () =>
 test('wrapped log viewer selection does not alter cached row geometry', () => {
   const frame = renderElementFrame(logViewer({
     id: 'wrapped-selection-markers',
-    history: prepareLogHistory([{ id: 'alpha', text: 'abcd' }]),
+    history: createLogHistory([{ id: 'alpha', text: 'abcd' }]),
     wrap: true,
     selection: {
       anchor: { entryId: 'alpha', offset: 1 },

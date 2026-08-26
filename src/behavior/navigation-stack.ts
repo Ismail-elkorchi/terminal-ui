@@ -7,7 +7,7 @@ export interface NavigationStack<TState = unknown> {
   readonly entries: readonly NavigationEntry<TState>[];
 }
 
-export type NavigationStackAction<TState = unknown> =
+export type NavigationStackTransition<TState = unknown> =
   | { readonly kind: 'push'; readonly entry: NavigationEntry<TState> }
   | { readonly kind: 'pop' }
   | { readonly kind: 'replace'; readonly entry: NavigationEntry<TState> }
@@ -15,17 +15,17 @@ export type NavigationStackAction<TState = unknown> =
 
 export function navigationStackReducer<TState>(
   stack: NavigationStack<TState>,
-  action: NavigationStackAction<TState>
+  transition: NavigationStackTransition<TState>
 ): NavigationStack<TState> {
-  switch (action.kind) {
+  switch (transition.kind) {
     case 'push':
-      return { entries: [...stack.entries, action.entry] };
+      return { entries: [...stack.entries, transition.entry] };
     case 'pop':
       return { entries: stack.entries.slice(0, -1) };
     case 'replace':
-      return { entries: [...stack.entries.slice(0, -1), action.entry] };
+      return { entries: [...stack.entries.slice(0, -1), transition.entry] };
     case 'reset':
-      return { entries: action.entries };
+      return { entries: transition.entries };
   }
 }
 

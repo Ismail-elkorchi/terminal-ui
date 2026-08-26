@@ -3,14 +3,13 @@ import test from 'node:test';
 import { ignoreMessage, measureConstrainedBox } from '../../dist/component/index.js';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
-import { anchored, column, flow, grid, measuredColumn, measuredViewport, normalizeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { anchored, column, flow, grid, measuredColumn, measuredViewport, decodeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
+import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 import {
-  measuredWindow,
-  prepareCommandSuggestions,
-  prepareMeasuredCollection,
-  prepareSearchPickerIndex
+  createCommandSuggestions,
+  createSearchPickerIndex
 } from '../../dist/behavior/index.js';
+import { createMeasuredCollection, measuredWindow } from '../../dist/collection/index.js';
 
 test('anonymous accessibility identities remain unique when layout collapses siblings', () => {
   const frame = renderElementFrame(column([
@@ -110,7 +109,7 @@ test('grid and splitPane layouts arrange common app frames', () => {
     text({ content: 'status', id: 'status' }),
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
-      presentation: { input: { text: '/help', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+      view: { input: { text: '/help', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
       onTransition: (action) => action
     })
   ], {
@@ -194,7 +193,7 @@ test('flow and anchored layouts reject invalid runtime geometry options', () => 
 });
 
 test('measuredViewport remains a semantic-neutral controlled windowing layout', () => {
-  const window = measuredWindow(prepareMeasuredCollection([
+  const window = measuredWindow(createMeasuredCollection([
       { id: 'one', value: 'one', rows: 1 },
       { id: 'two', value: 'two', rows: 1 },
       { id: 'three', value: 'three', rows: 1 },
@@ -224,7 +223,7 @@ test('measuredViewport remains a semantic-neutral controlled windowing layout', 
 });
 
 test('measuredColumn rejects row metadata that disagrees with child measurement', () => {
-  const window = measuredWindow(prepareMeasuredCollection([
+  const window = measuredWindow(createMeasuredCollection([
     { id: 'mismatch', value: 'one row', rows: 2 }
   ]), {
     viewportRows: 2,
@@ -240,7 +239,7 @@ test('measuredColumn rejects row metadata that disagrees with child measurement'
   );
 });
 
-test('measuredColumn rejects unprepared window-shaped objects', () => {
+test('measuredColumn rejects ad hoc window-shaped objects', () => {
   assert.throws(
     () => measuredColumn({
       entries: [],
@@ -258,14 +257,14 @@ test('measuredColumn rejects unprepared window-shaped objects', () => {
 
 test('interactive row fills do not inflate intrinsic content tracks', () => {
   const element = row([
-    button({ id: 'back', label: 'Back', onAction: () => ignoreMessage() }),
-    button({ id: 'forward', label: 'Forward', onAction: () => ignoreMessage() }),
+    button({ id: 'back', label: 'Back', onPress: () => ignoreMessage() }),
+    button({ id: 'forward', label: 'Forward', onPress: () => ignoreMessage() }),
     surface(commandInput({ meta: { accessibleName: "Command input" },
       id: 'address',
-      presentation: { input: { text: 'example.test', cursor: 12 }, open: false, suggestions: prepareCommandSuggestions([]) },
+      view: { input: { text: 'example.test', cursor: 12 }, open: false, suggestions: createCommandSuggestions([]) },
       onTransition: (action) => action
     }), { appearance: 'inset' }),
-    button({ id: 'menu', label: 'Menu', onAction: () => ignoreMessage() })
+    button({ id: 'menu', label: 'Menu', onPress: () => ignoreMessage() })
   ], {
     id: 'browser-toolbar-shape',
     gap: 1,
@@ -290,10 +289,10 @@ test('form content tracks include field labels and control gaps', () => {
     form({ meta: { accessibleName: "Form" }, slots: { content: [
       field({ control: textInput({ meta: { accessibleName: "Text input" },
           id: 'name',
-          presentation: { value: '', cursor: 0 },
-          onAction: (action) => action
+          state: { value: '', cursor: 0 },
+          onTransition: (action) => action
         }), id: 'name-field', label: 'Name' }),
-      button({ id: 'submit', label: 'Submit', onAction: () => ignoreMessage() })
+      button({ id: 'submit', label: 'Submit', onPress: () => ignoreMessage() })
     ] }, id: 'profile-form', gap: 1 }),
     text({ content: 'remaining' })
   ], {
@@ -330,7 +329,7 @@ test('constrained component boxes apply intrinsic content padding margin and lim
     maxHeight: 8
   });
   assert.throws(
-    () => normalizeLayoutFlowOptions({ minWidth: 10, maxWidth: 4 }, 'fixture'),
+    () => decodeLayoutFlowOptions({ minWidth: 10, maxWidth: 4 }, 'fixture'),
     /minWidth must not exceed maxWidth/u
   );
 
@@ -347,8 +346,8 @@ test('constrained component boxes apply intrinsic content padding margin and lim
         minWidth: 10,
         control: textInput({ meta: { accessibleName: "Text input" },
           id: 'constrained-input',
-          presentation: { value: '', cursor: 0 },
-          onAction: (action) => action
+          state: { value: '', cursor: 0 },
+          onTransition: (action) => action
         })
       })
     ] }
@@ -368,9 +367,9 @@ test('wrapped text-area content tracks retain intrinsic width', () => {
   const element = row([
     textArea({ meta: { accessibleName: "Text area" },
       id: 'wrapped-content-editor',
-      presentation: { document: prepareTextDocument('x'), caret: textCaretAt(0 )},
+      state: { document: createTextDocument('x'), caret: textCaretAt(0 )},
       wrap: true,
-      onAction: (action) => action
+      onTransition: (action) => action
     }),
     text({ content: 'remaining', id: 'wrapped-content-sibling' })
   ], {
@@ -388,8 +387,8 @@ test('searchPicker content tracks use the active text-width profile', () => {
   const element = row([
     searchPicker({ meta: { accessibleName: "Search" },
       id: 'profiled-searchPicker',
-      searchPickerIndex: prepareSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
-      presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
+      searchPickerIndex: createSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
+      view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
       onTransition: (action) => action
     }),
     text({ content: 'remaining', id: 'profiled-searchPicker-sibling' })
@@ -418,7 +417,7 @@ test('column children use their measured height unless a fill track is explicit'
   const compact = column([
     text({ content: 'Title', id: 'compact-title' }),
     text({ content: 'Description', id: 'compact-description' }),
-    button({ id: 'compact-action', label: 'Continue', onAction: () => ignoreMessage() })
+    button({ id: 'compact-action', label: 'Continue', onPress: () => ignoreMessage() })
   ], { gap: 1 });
   const expanded = column([
     text({ content: 'Title', id: 'expanded-title' }),
@@ -619,11 +618,11 @@ test('layout flow normalization reads owned layout fields without decoding the c
     get unrelated() { throw new Error('unrelated component option was inspected'); }
   };
 
-  const normalized = normalizeLayoutFlowOptions(options, 'test layout');
+  const normalized = decodeLayoutFlowOptions(options, 'test layout');
   assert.deepEqual(normalized, { gap: 2, padding: { top: 1, left: 3 } });
   padding.left = 9;
   assert.deepEqual(normalized.padding, { top: 1, left: 3 });
-  assert.throws(() => normalizeLayoutFlowOptions({ minWidth: -1 }, 'test layout'), /non-negative safe integer/u);
+  assert.throws(() => decodeLayoutFlowOptions({ minWidth: -1 }, 'test layout'), /non-negative safe integer/u);
 });
 
 test('surface margin sizes the outer box while border and padding inset content', () => {

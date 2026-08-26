@@ -1,8 +1,8 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
-import type { RenderNodeOfKind } from '../model/index.ts';
+import type { RenderNodeOfKind } from './render-tree/index.ts';
 import type { Rect } from '../contracts.ts';
 import { layoutBoxBounds, layoutPaddingBounds } from '../../geometry/layout.ts';
-import { layoutFlowOptions } from './renderers/support/layout.ts';
+import { layoutFlowOptions } from './node-renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
 type SurfaceNode = RenderNodeOfKind<unknown, 'surface'>;
 type AbsoluteNode = RenderNodeOfKind<unknown, 'absolute'>;

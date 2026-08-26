@@ -20,10 +20,10 @@ import type {
 } from './types.ts';
 import { minimalTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
-import { adoptTerminalDiagnostic } from '../diagnostics.ts';
+import { decodeTerminalDiagnostic } from '../diagnostics.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
 import { measureTextCells, sanitizeTerminalCellText, sanitizeTerminalText } from '../text/index.ts';
-import { prepareProgressSnapshot } from './progress.ts';
+import { decodeProgressSnapshot } from './progress.ts';
 import type {
   PromptChoice,
   PromptDataSource,
@@ -32,7 +32,7 @@ import type {
   PromptValidator,
 } from './types.ts';
 
-const preparedPromptDefinitions = new WeakSet<object>();
+const registeredPromptDefinitions = new WeakSet<object>();
 
 export function confirm(options: ConfirmPromptOptions): ConfirmPromptDefinition;
 export function confirm(options: unknown): ConfirmPromptDefinition {
@@ -55,7 +55,7 @@ export function password(options: PasswordPromptOptions): PasswordPromptDefiniti
 export function password(options: unknown): PasswordPromptDefinition {
   const supplied = promptOptions(options);
   assertOptionalString(supplied['defaultValue'], 'Password prompt defaultValue');
-  const mask = prepareMask(supplied['mask']);
+  const mask = decodeMask(supplied['mask']);
   return registerPrompt(Object.freeze({
     kind: 'password',
     ...valuePromptDefinition(supplied),
@@ -69,7 +69,7 @@ export function select<TValue>(options: unknown): SelectPromptDefinition<TValue>
   return registerPrompt(Object.freeze({
     kind: 'select',
     ...valuePromptDefinition<TValue>(supplied),
-    choices: prepareChoiceSource<TValue>(supplied['choices']),
+    choices: decodeChoiceSource<TValue>(supplied['choices']),
   }) as SelectPromptDefinition<TValue>);
 }
 
@@ -94,7 +94,7 @@ export function multiselect<TValue>(options: unknown): MultiSelectPromptDefiniti
   return registerPrompt(Object.freeze({
     kind: 'multiselect',
     ...valuePromptDefinition<readonly TValue[]>(owned),
-    choices: prepareChoiceSource<TValue>(supplied['choices']),
+    choices: decodeChoiceSource<TValue>(supplied['choices']),
     ...(minSelected === undefined ? {} : { minSelected }),
     ...(maxSelected === undefined ? {} : { maxSelected }),
     ...(rangeSelection === undefined ? {} : { rangeSelection })
@@ -110,7 +110,7 @@ export function autocomplete<TValue>(options: unknown): AutocompletePromptDefini
   return registerPrompt(Object.freeze({
     kind: 'autocomplete',
     ...valuePromptDefinition<TValue>(supplied),
-    choices: prepareChoiceSource<TValue>(supplied['choices']),
+    choices: decodeChoiceSource<TValue>(supplied['choices']),
     ...(debounceMs === undefined ? {} : { debounceMs })
   }) as AutocompletePromptDefinition<TValue>);
 }
@@ -119,7 +119,7 @@ export function editor(options: EditorPromptOptions): EditorPromptDefinition;
 export function editor(options: unknown): EditorPromptDefinition {
   const supplied = promptOptions(options);
   assertOptionalString(supplied['defaultValue'], 'Editor prompt defaultValue');
-  const editorCommand = prepareEditorCommand(supplied['editorCommand']);
+  const editorCommand = decodeEditorCommand(supplied['editorCommand']);
   const editorAdapter = supplied['editorAdapter'];
   if (editorAdapter !== undefined && (!isNonArrayObject(editorAdapter) || typeof editorAdapter['edit'] !== 'function')) {
     throw new TypeError('Editor prompt editorAdapter must provide an edit() function.');
@@ -128,7 +128,7 @@ export function editor(options: unknown): EditorPromptDefinition {
     kind: 'editor',
     ...commonPromptDefinition<string>(supplied),
     ...(supplied['defaultValue'] === undefined ? {} : { defaultValue: supplied['defaultValue'] as string }),
-    ...prepareValidationOptions<string>(supplied),
+    ...decodeValidationOptions<string>(supplied),
     ...(editorCommand === undefined ? {} : { editorCommand }),
     ...(editorAdapter === undefined ? {} : { editorAdapter })
   }) as unknown as EditorPromptDefinition);
@@ -147,9 +147,9 @@ export function progress(options: unknown): ProgressPromptDefinition {
       ...supplied,
       nonTty: supplied['nonTty'] ?? { mode: 'transcript_only' },
     }),
-    ...prepareTranscriptOption(supplied),
+    ...decodeTranscriptOption(supplied),
     ...(task === undefined ? {} : { progressTask: task }),
-    progress: prepareProgressSnapshot(supplied['progress'])
+    progress: decodeProgressSnapshot(supplied['progress'])
   }) as ProgressPromptDefinition);
 }
 
@@ -159,9 +159,9 @@ function valuePromptDefinition<TValue>(
   return {
     ...commonPromptDefinition<TValue>(options),
     ...(options['defaultValue'] === undefined ? {} : { defaultValue: options['defaultValue'] as TValue }),
-    ...prepareValidationOptions<TValue>(options),
+    ...decodeValidationOptions<TValue>(options),
     ...(options['theme'] === undefined ? {} : { theme: resolveThemeInput(options['theme'], minimalTheme) }),
-    ...prepareTranscriptOption(options),
+    ...decodeTranscriptOption(options),
   };
 }
 
@@ -172,8 +172,8 @@ function commonPromptDefinition<TValue>(
   const label = requiredNonEmptyText(options['label'], 'Prompt label');
   const description = optionalText(options['description'], 'Prompt description');
   const timeoutMs = optionalPositiveSafeInteger(options['timeoutMs'], 'Prompt timeoutMs');
-  const accessibility = prepareAccessibility(options['accessibility']);
-  const nonTty = prepareNonTtyPolicy<TValue>(options['nonTty']);
+  const accessibility = decodeAccessibility(options['accessibility']);
+  const nonTty = decodeNonTtyPolicy<TValue>(options['nonTty']);
   return {
     ...(id === undefined ? {} : { id }),
     label,
@@ -184,7 +184,7 @@ function commonPromptDefinition<TValue>(
   };
 }
 
-function prepareValidationOptions<TValue>(options: Readonly<Record<string, unknown>>) {
+function decodeValidationOptions<TValue>(options: Readonly<Record<string, unknown>>) {
   const required = options['required'];
   if (required !== undefined && typeof required !== 'boolean') {
     throw new TypeError('Prompt required must be a boolean when provided.');
@@ -199,7 +199,7 @@ function prepareValidationOptions<TValue>(options: Readonly<Record<string, unkno
   };
 }
 
-function prepareTranscriptOption(options: Readonly<Record<string, unknown>>) {
+function decodeTranscriptOption(options: Readonly<Record<string, unknown>>) {
   const transcript = options['transcript'];
   if (transcript !== undefined && typeof transcript !== 'boolean') {
     throw new TypeError('Prompt transcript must be a boolean when provided.');
@@ -208,13 +208,13 @@ function prepareTranscriptOption(options: Readonly<Record<string, unknown>>) {
 }
 
 export function assertPromptDefinition(value: unknown): void {
-  if (!preparedPromptDefinitions.has(value as object)) {
+  if (!registeredPromptDefinitions.has(value as object)) {
     throw new TypeError('Prompt definition must be created by a prompt factory.');
   }
 }
 
 function registerPrompt<TPrompt extends object>(prompt: TPrompt): TPrompt {
-  preparedPromptDefinitions.add(prompt);
+  registeredPromptDefinitions.add(prompt);
   return prompt;
 }
 
@@ -267,7 +267,7 @@ function assertArray(value: unknown, subject: string): readonly unknown[] {
   return value;
 }
 
-function prepareMask(value: unknown): string | undefined {
+function decodeMask(value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'string') throw new TypeError('Password prompt mask must be a string.');
   const mask = sanitizeTerminalCellText(value).text;
@@ -278,14 +278,14 @@ function prepareMask(value: unknown): string | undefined {
   return mask;
 }
 
-function prepareAccessibility(value: unknown): { readonly id?: string } | undefined {
+function decodeAccessibility(value: unknown): { readonly id?: string } | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('Prompt accessibility must be an object.');
   const id = optionalNonEmptyText(value['id'], 'Prompt accessibility id');
   return Object.freeze(id === undefined ? {} : { id });
 }
 
-function prepareNonTtyPolicy<TValue>(value: unknown): BasePromptOptions<TValue>['nonTty'] {
+function decodeNonTtyPolicy<TValue>(value: unknown): BasePromptOptions<TValue>['nonTty'] {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('Prompt nonTty policy must be an object.');
   const mode = value['mode'];
@@ -303,16 +303,16 @@ function prepareNonTtyPolicy<TValue>(value: unknown): BasePromptOptions<TValue>[
   return Object.freeze({ mode, ...(diagnosticHint === undefined ? {} : { diagnosticHint }) });
 }
 
-function prepareChoiceSource<TValue>(value: unknown): PromptDataSource<TValue> {
-  if (Array.isArray(value)) return prepareChoices<TValue>(value);
+function decodeChoiceSource<TValue>(value: unknown): PromptDataSource<TValue> {
+  if (Array.isArray(value)) return decodeChoices<TValue>(value);
   if (typeof value !== 'function') throw new TypeError('Prompt choices must be an array or data source function.');
   const source = value as (query: PromptDataSourceQuery) => unknown;
-  return async (query) => prepareChoiceResult<TValue>(await source(query), query.offset);
+  return async (query) => decodeChoiceResult<TValue>(await source(query), query.offset);
 }
 
-export function prepareChoiceResult<TValue>(value: unknown, offset = 0): PromptDataSourceResult<TValue> {
+export function decodeChoiceResult<TValue>(value: unknown, offset = 0): PromptDataSourceResult<TValue> {
   if (!isNonArrayObject(value)) throw new TypeError('Prompt data source result must be an object.');
-  const choices = prepareChoices<TValue>(value['choices']);
+  const choices = decodeChoices<TValue>(value['choices']);
   const total = optionalNonNegativeSafeInteger(value['total'], 'Prompt data source total');
   if (total !== undefined && total < offset + choices.length) {
     throw new RangeError('Prompt data source total cannot be smaller than the returned choice window.');
@@ -331,11 +331,11 @@ export function prepareChoiceResult<TValue>(value: unknown, offset = 0): PromptD
     ...(hasMore === undefined ? {} : { hasMore }),
     ...(diagnostics === undefined
       ? {}
-      : { diagnostics: Object.freeze(diagnostics.map((entry) => adoptTerminalDiagnostic(entry))) }),
+      : { diagnostics: Object.freeze(diagnostics.map((entry) => decodeTerminalDiagnostic(entry))) }),
   });
 }
 
-function prepareChoices<TValue>(value: unknown): readonly PromptChoice<TValue>[] {
+function decodeChoices<TValue>(value: unknown): readonly PromptChoice<TValue>[] {
   if (!Array.isArray(value)) throw new TypeError('Prompt choices must be an array.');
   const ids = new Set<string>();
   return Object.freeze(value.map((entry, index) => {
@@ -369,7 +369,7 @@ function prepareChoices<TValue>(value: unknown): readonly PromptChoice<TValue>[]
   }));
 }
 
-function prepareEditorCommand(value: unknown): readonly string[] | undefined {
+function decodeEditorCommand(value: unknown): readonly string[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length === 0 || value.some((part) => typeof part !== 'string' || part.length === 0)) {
     throw new TypeError('Editor prompt editorCommand must be a non-empty array of non-empty strings.');

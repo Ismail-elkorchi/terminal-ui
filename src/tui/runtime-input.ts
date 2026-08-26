@@ -9,10 +9,10 @@ import {
   renderFocusRelation,
   renderNodeLayoutKeyChainForFocus
 } from '../renderer/internal/focus.ts';
-import { viewportKeyboardScrollMessage } from '../renderer/internal/renderers/support/scroll.ts';
+import { viewportKeyboardScrollMessage } from '../renderer/internal/node-renderers/support/scroll.ts';
 import type { LayoutNode } from '../renderer/contracts.ts';
-import type { RenderNode } from '../renderer/model/types.ts';
-import { resolveRenderNodeMessage } from '../renderer/model/node.ts';
+import type { RenderNode } from '../renderer/internal/render-tree/types.ts';
+import { resolveRenderNodeMessage } from '../renderer/internal/render-tree/node.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import { resolveTuiInputBinding } from './input-bindings.ts';

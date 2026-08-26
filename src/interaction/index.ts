@@ -1,12 +1,12 @@
 export type * from './anchored-surface.ts';
 export { placeAnchoredSurface } from './anchored-surface.ts';
-export type * from './collection.ts';
+export type * from './collection-interaction.ts';
 export {
   collectionInteractionReducer,
   normalizeCollectionInteraction,
-  ownSelectionState,
-  prepareCollectionInteractionIndex,
-} from './collection.ts';
+  decodeSelectionState,
+  createCollectionInteractionIndex,
+} from './collection-interaction.ts';
 export type * from './focus.ts';
 export type * from './navigation.ts';
 export { adjacentItemId, defaultNavigationPolicy } from './navigation.ts';

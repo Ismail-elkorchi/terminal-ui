@@ -1,4 +1,4 @@
-import type { RenderNode } from '../model/index.ts';
+import type { RenderNode } from './render-tree/index.ts';
 import { focusPathsEqual } from '../../interaction/focus.ts';
 import { hasTransparentFocusIdentity } from './focus-identity.ts';
 import type { FocusPath, InitialFocusSelector } from '../../interaction/focus.ts';

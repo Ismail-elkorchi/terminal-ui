@@ -1,6 +1,6 @@
 import { findUnsupportedField, isNonArrayObject } from '../foundation/validation.ts';
 import { isThemeColorToken } from './color.ts';
-import type { TerminalColor, TerminalStyle } from './render.ts';
+import type { TerminalColor, TerminalStyle } from './render-content.ts';
 
 const terminalStyleFlagFields = [
   'bold',
@@ -26,7 +26,7 @@ const maximumCanonicalTerminalStyleKeyLength = 1_024;
 const maximumCanonicalTerminalStyleWeight = 262_144;
 let canonicalTerminalStyleWeight = 0;
 
-export function normalizeTerminalStyle(value: unknown, subject: string): TerminalStyle {
+export function decodeTerminalStyle(value: unknown, subject = 'terminal style'): TerminalStyle {
   if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
   const existing = normalizedTerminalStyles.get(value);
   if (existing !== undefined) return existing;
@@ -41,8 +41,8 @@ export function normalizeTerminalStyle(value: unknown, subject: string): Termina
     flags[field] = flag;
   }
   const candidate = {
-    ...(fg === undefined ? {} : { fg: normalizeTerminalColor(fg, `${subject}.fg`) }),
-    ...(bg === undefined ? {} : { bg: normalizeTerminalColor(bg, `${subject}.bg`) }),
+    ...(fg === undefined ? {} : { fg: decodeTerminalColor(fg, `${subject}.fg`) }),
+    ...(bg === undefined ? {} : { bg: decodeTerminalColor(bg, `${subject}.bg`) }),
     ...flags
   };
   const key = terminalStyleKey(candidate);
@@ -65,7 +65,7 @@ export function normalizeTerminalStyle(value: unknown, subject: string): Termina
   return normalized;
 }
 
-function normalizeTerminalColor(value: unknown, subject: string): TerminalColor {
+function decodeTerminalColor(value: unknown, subject: string): TerminalColor {
   if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
   const kind = ownValue(value, 'kind');
   switch (kind) {
@@ -113,7 +113,7 @@ export function mergeTerminalStyles(
   );
   return Object.keys(merged).length === 0
     ? undefined
-    : normalizeTerminalStyle(merged, 'Terminal style composition');
+    : decodeTerminalStyle(merged, 'Terminal style composition');
 }
 
 function assertSupportedFields(

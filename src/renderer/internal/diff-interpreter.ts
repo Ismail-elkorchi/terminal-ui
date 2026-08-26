@@ -1,13 +1,13 @@
-import { createFrameBuffer } from './frame-buffer.ts';
+import { createFrameBuffer } from '../frame-buffer.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
-import { sameFrameCellSource, sameTerminalStyle } from '../../visual/render.ts';
-import { sameFrameCell } from './frame.ts';
+import { sameFrameCellSource, sameTerminalStyle } from '../../visual/render-content.ts';
+import { sameFrameCell } from '../frame.ts';
 import type { FrameDescriptor, RenderDiffDescriptor, RenderOperation } from '../contracts.ts';
 import type { CursorPosition } from '../contracts.ts';
 import type { FrameCell } from '../contracts.ts';
 import type { GraphicPlacementDescriptor } from '../../graphics/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import type { TerminalStyle } from '../../visual/render.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
 
 export function fullRewriteDiffFromFrame(frame: FrameDescriptor): RenderDiffDescriptor {
   const operations: RenderOperation[] = [];
@@ -40,7 +40,7 @@ export function fullRewriteDiffFromFrame(frame: FrameDescriptor): RenderDiffDesc
   });
 }
 
-export interface RenderDiffProjection {
+export interface ReplayedFrame {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
@@ -51,11 +51,11 @@ export interface RenderDiffProjection {
 }
 
 export function applyRenderDiff(
-  previous: FrameDescriptor | RenderDiffProjection | undefined,
+  previous: FrameDescriptor | ReplayedFrame | undefined,
   diff: RenderDiffDescriptor,
-): RenderDiffProjection {
+): ReplayedFrame {
   if (!diff.fullRewrite && previous === undefined) {
-    throw new Error('An incremental render diff requires a previous frame projection.');
+    throw new Error('An incremental render diff requires a previous replayed frame.');
   }
   if (
     !diff.fullRewrite
@@ -107,26 +107,26 @@ export function applyRenderDiff(
   });
 }
 
-export function renderDiffProjectionMatchesFrame(
-  projection: RenderDiffProjection,
+export function replayedFrameMatches(
+  replayed: ReplayedFrame,
   frame: FrameDescriptor,
 ): boolean {
   if (
-    projection.width !== frame.width
-    || projection.height !== frame.height
-    || textWidthProfileKey(projection.widthProfile) !== textWidthProfileKey(frame.widthProfile)
-    || !sameTerminalStyle(projection.canvasStyle, frame.canvasStyle)
-    || !sameCursor(projection.cursor, frame.cursor)
-    || projection.cells.length !== frame.cells.length
-    || projection.graphics.length !== frame.graphics.length
+    replayed.width !== frame.width
+    || replayed.height !== frame.height
+    || textWidthProfileKey(replayed.widthProfile) !== textWidthProfileKey(frame.widthProfile)
+    || !sameTerminalStyle(replayed.canvasStyle, frame.canvasStyle)
+    || !sameCursor(replayed.cursor, frame.cursor)
+    || replayed.cells.length !== frame.cells.length
+    || replayed.graphics.length !== frame.graphics.length
   ) return false;
-  return projection.cells.every((cell, index) => {
+  return replayed.cells.every((cell, index) => {
     const expected = frame.cells[index];
     if (expected === undefined) return false;
     return cell.row === expected.row
       && cell.column === expected.column
       && sameFrameCell(cell, expected);
-  }) && projection.graphics.every((placement, index) => {
+  }) && replayed.graphics.every((placement, index) => {
     const expected = frame.graphics[index];
     if (expected === undefined) return false;
     return placement.id === expected.id

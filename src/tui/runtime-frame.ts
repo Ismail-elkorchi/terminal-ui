@@ -1,9 +1,10 @@
-import type { RenderNode } from '../renderer/model/index.ts';
+import type { RenderNode } from '../renderer/internal/render-tree/index.ts';
 import { defaultTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
 import { withFrameAccessibility } from '../renderer/internal/frame-snapshot.ts';
-import { diffFrames, renderElementInternal, rerenderElementInternal } from '../renderer/internal/render.ts';
+import { diffFrames } from '../renderer/frame.ts';
+import { renderElementInternal, rerenderElementInternal } from '../renderer/internal/render-element.ts';
 import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-planner.ts';
 import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
 import {
@@ -22,10 +23,10 @@ import type { TerminalGraphicsCommitter } from './graphics-committer.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { PointerVisualSnapshot } from '../interaction/pointer-interaction.ts';
-import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
+import type { Frame, RenderDiff } from '../renderer/frame.ts';
 import type { LayoutNode, Rect } from '../renderer/contracts.ts';
-import type { RenderRegion } from '../renderer/internal/render.ts';
-import type { RenderBudgetLimits } from '../renderer/internal/render-budget.ts';
+import type { RenderRegion } from '../renderer/internal/render-regions.ts';
+import type { RenderBudgetLimits } from '../renderer/render-budget.ts';
 import type { GraphicsBudgetLimits } from '../graphics/index.ts';
 import type { TuiApp, TuiContext, TuiTheme } from './types.ts';
 import { tuiDefinition } from './definition.ts';
@@ -69,13 +70,13 @@ export function renderCurrentFrame<TState, TMessage>(
 export function rerenderCurrentFrame<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   state: TState,
-  prepared: RenderCommitCandidate<TMessage>,
+  candidate: RenderCommitCandidate<TMessage>,
   focusPath: FocusPath | undefined,
   stateVersion: number,
   commitId: string,
   pointerVisuals?: PointerVisualSnapshot,
 ): RenderCommitCandidate<TMessage> {
-  const renderResult = rerenderElementInternal<TMessage>(prepared, {
+  const renderResult = rerenderElementInternal<TMessage>(candidate, {
     ...(focusPath === undefined ? {} : { focusPath }),
     ...(pointerVisuals === undefined ? {} : { pointerVisuals }),
   });

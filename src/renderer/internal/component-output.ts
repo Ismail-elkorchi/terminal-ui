@@ -1,11 +1,11 @@
 import { decodeAccessibleSnapshot } from '../../accessibility/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
-import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
-import { normalizeUntrustedFrameCellSource } from '../../visual/source.ts';
+import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
+import { decodeFrameCellSource } from '../../visual/frame-source.ts';
 import type { AccessibleNode, AccessibleSnapshot } from '../../accessibility/index.ts';
 import type { CursorPosition, FocusTarget, Rect } from '../contracts.ts';
 
-export function normalizeComponentFocusTargets(
+export function decodeComponentFocusTargets(
   value: unknown,
   owner: string
 ): readonly FocusTarget[] {
@@ -39,7 +39,7 @@ export function normalizeComponentFocusTargets(
       bounds: target['bounds'],
       ...(cursor === undefined
         ? {}
-        : { cursor: normalizeComponentCursor(cursor, `Component "${owner}" focus target "${id}" cursor`) }),
+        : { cursor: decodeComponentCursor(cursor, `Component "${owner}" focus target "${id}" cursor`) }),
       ...(disabled === undefined ? {} : { disabled }),
       ...(order === undefined ? {} : { order }),
       ...(scopeId === undefined ? {} : { scopeId })
@@ -48,7 +48,7 @@ export function normalizeComponentFocusTargets(
   return normalized;
 }
 
-export function adoptRenderedAccessibility(
+export function decodeRenderedAccessibility(
   snapshot: AccessibleSnapshot,
   frameFocused: boolean
 ): AccessibleSnapshot {
@@ -146,7 +146,7 @@ function collectAccessibleNodes(
   return nodes;
 }
 
-function normalizeComponentCursor(value: unknown, subject: string): CursorPosition {
+function decodeComponentCursor(value: unknown, subject: string): CursorPosition {
   if (!isNonArrayObject(value)
     || !isSafeInteger(value['row'])
     || !isSafeInteger(value['column'])) {
@@ -157,8 +157,8 @@ function normalizeComponentCursor(value: unknown, subject: string): CursorPositi
   return {
     row: value['row'],
     column: value['column'],
-    ...(style === undefined ? {} : { style: normalizeTerminalStyle(style, `${subject} style`) }),
-    ...(source === undefined ? {} : { source: normalizeUntrustedFrameCellSource(source) })
+    ...(style === undefined ? {} : { style: decodeTerminalStyle(style, `${subject} style`) }),
+    ...(source === undefined ? {} : { source: decodeFrameCellSource(source) })
   };
 }
 

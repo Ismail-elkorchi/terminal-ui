@@ -1,7 +1,7 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
-import { measureRenderBlock as renderBlockSize, measureRenderLine } from '../visual/render.ts';
-import type { RenderBlock, RenderLine, RenderSpan } from '../visual/render.ts';
+import { measureRenderBlock as renderBlockSize, measureRenderLine } from '../visual/render-content.ts';
+import type { RenderBlock, RenderLine, RenderSpan } from '../visual/render-content.ts';
 import type { TextMeasurementOptions } from '../text/index.ts';
 import type { Measurement, MeasurementInput } from './contracts.ts';
 

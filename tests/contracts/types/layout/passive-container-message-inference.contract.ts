@@ -6,8 +6,8 @@ export type Message =
   | { readonly kind: 'quit' };
 
 const actions = row([
-  button({ id: 'save', label: 'Save', onAction: () => ({ kind: 'save' } as const) }),
-  button({ id: 'quit', label: 'Quit', onAction: () => ({ kind: 'quit' } as const) })
+  button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) }),
+  button({ id: 'quit', label: 'Quit', onPress: () => ({ kind: 'quit' } as const) })
 ] as const, { id: 'actions', gap: 1 });
 const panel = surface(column([actions], { id: 'content' }), {
   id: 'panel',

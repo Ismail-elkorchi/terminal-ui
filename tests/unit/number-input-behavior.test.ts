@@ -5,16 +5,16 @@ import {
   createNumberInputConfiguration,
   createNumberInputState,
   numberInputAnalysis,
-  numberInputPresentation,
+  numberInputView,
   numberInputReducer
 } from '../../dist/behavior/index.js';
 import { numberInput } from '../../dist/components/index.js';
-import type { NumberInputControlAction } from '../../dist/components/index.js';
+import type { NumberInputControlTransition } from '../../dist/components/index.js';
 import {
   renderElementFrame,
   renderFramePlain
 } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
 
 void test('number input analysis preserves empty incomplete invalid valid and range states', () => {
@@ -39,7 +39,7 @@ void test('number input reducer keeps editable invalid text and commits reverts 
   const stepped = numberInputReducer(configured, { kind: 'step', direction: 'increment' });
 
   assert.equal(typed.input.text, '-.');
-  assert.equal(numberInputPresentation(typed).validity, 'incomplete');
+  assert.equal(numberInputView(typed).validity, 'incomplete');
   assert.strictEqual(rejected, typed);
   assert.equal(reverted.input.text, '4');
   assert.equal(stepped.input.text, '6');
@@ -59,7 +59,7 @@ void test('number input configuration owns grammar-aware formatting and validati
 
   assert.equal(comma.input.text, '1,5');
   assert.equal(stepped.input.text, '1,75');
-  assert.equal(numberInputPresentation(edited).validity, 'valid');
+  assert.equal(numberInputView(edited).validity, 'valid');
   assert.equal(exponent.input.text, '1e+3');
   assert.throws(() => createNumberInputConfiguration({ step: -1 }), /step must be finite and greater than zero/u);
   assert.throws(
@@ -113,15 +113,15 @@ void test('number input commit can clamp out-of-range text only when requested',
 });
 
 void test('number input renders controlled text validity and pointer step controls', () => {
-  const messages: NumberInputControlAction[] = [];
+  const messages: NumberInputControlTransition[] = [];
   const element = numberInput({ meta: { accessibleName: "Number input" },
     id: 'workers',
-    presentation: numberInputPresentation({
+    view: numberInputView({
       input: { text: '-.', cursor: 2 },
       committed: 4,
       configuration: createNumberInputConfiguration()
     }),
-    onAction: (action) => {
+    onTransition: (action) => {
       messages.push(action);
       return action;
     }

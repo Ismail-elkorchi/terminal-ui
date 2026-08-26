@@ -1,4 +1,4 @@
-export { defineTui, projectTuiBindingHelp } from './definition.ts';
+export { defineTui, tuiBindingHelp } from './definition.ts';
 export { createTuiRuntime } from './runtime.ts';
 export { runTui, TuiRunError } from './run.ts';
 export { defaultTuiLifecyclePolicy } from './run-configuration.ts';

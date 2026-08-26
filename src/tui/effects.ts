@@ -11,7 +11,7 @@ import type {
   TuiEffectOutput,
   TuiEffectPolicy
 } from './types.ts';
-import { prepareCopySelectedTextInput } from './selection.ts';
+import { decodeCopySelectedTextInput } from './selection.ts';
 
 interface ActiveEffect {
   readonly id: string;
@@ -317,7 +317,7 @@ async function executeEffect<TMessage>(
           : suspend(operation, controller.signal);
       },
       copySelectedText: (input) => options.copySelectedText(
-        prepareCopySelectedTextInput(input),
+        decodeCopySelectedTextInput(input),
         controller.signal,
       ),
     };

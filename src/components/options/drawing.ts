@@ -3,8 +3,8 @@ import type {
   CanvasPainter,
   Measurement
 } from '../../renderer/contracts.ts';
-import type { CanvasStylePart } from '../../ui-model/style-parts.ts';
-import type { ImageStylePart } from '../../ui-model/style-parts.ts';
+import type { CanvasStylePart } from '../style-parts.ts';
+import type { ImageStylePart } from '../style-parts.ts';
 import type { ImageFit, RasterImage } from '../../graphics/index.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 

@@ -1,7 +1,7 @@
 import type { ElementTextRole, ElementVisualState } from '../element/metadata.ts';
 import type { ThemeColorToken } from '../theme/index.ts';
-import type { RenderNode } from './model/index.ts';
-import type { TerminalStyle } from '../visual/render.ts';
+import type { RenderNode } from './internal/render-tree/index.ts';
+import type { TerminalStyle } from '../visual/render-content.ts';
 import { mergeTerminalStyles } from '../visual/terminal-style.ts';
 
 export interface RenderNodeStyleInput {

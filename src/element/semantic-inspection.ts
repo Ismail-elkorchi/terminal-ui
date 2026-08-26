@@ -26,7 +26,7 @@ interface AdoptionBudget {
   readonly ancestors: Set<object>;
 }
 
-export function adoptComponentSemanticInspection(value: unknown): ComponentSemanticInspection {
+export function decodeComponentSemanticInspection(value: unknown): ComponentSemanticInspection {
   if (!isNonArrayObject(value)) {
     throw new TypeError('Component inspection() must return an object.');
   }
@@ -36,11 +36,11 @@ export function adoptComponentSemanticInspection(value: unknown): ComponentSeman
   }
   const budget: AdoptionBudget = { nodes: 0, ancestors: new Set() };
   return Object.freeze({
-    ...adoptOptionalInspectionValue(value, 'value', budget),
-    ...adoptOptionalInspectionValue(value, 'active', budget),
-    ...adoptOptionalInspectionValue(value, 'selection', budget),
-    ...adoptValidation(value['validation']),
-    ...adoptCollection(value['collection']),
+    ...decodeOptionalInspectionValue(value, 'value', budget),
+    ...decodeOptionalInspectionValue(value, 'active', budget),
+    ...decodeOptionalInspectionValue(value, 'selection', budget),
+    ...decodeValidation(value['validation']),
+    ...decodeCollection(value['collection']),
     ...(value['redacted'] === undefined
       ? {}
       : value['redacted'] === true
@@ -48,7 +48,7 @@ export function adoptComponentSemanticInspection(value: unknown): ComponentSeman
         : invalid('Component inspection() redacted must be true when present.')),
     ...(value['details'] === undefined
       ? {}
-      : { details: adoptInspectionRecord(value['details'], budget, 0, 'details') }),
+      : { details: decodeInspectionRecord(value['details'], budget, 0, 'details') }),
   });
 }
 
@@ -63,16 +63,16 @@ function findUnsupportedField(
   return Object.keys(value).find((field) => !allowed.has(field));
 }
 
-function adoptOptionalInspectionValue(
+function decodeOptionalInspectionValue(
   source: Readonly<Record<string, unknown>>,
   field: 'value' | 'active' | 'selection',
   budget: AdoptionBudget,
 ): Partial<Record<typeof field, ComponentInspectionValue>> {
   if (source[field] === undefined) return {};
-  return { [field]: adoptInspectionValue(source[field], budget, 0, field) };
+  return { [field]: decodeInspectionValue(source[field], budget, 0, field) };
 }
 
-function adoptValidation(value: unknown): Pick<ComponentSemanticInspection, 'validation'> | object {
+function decodeValidation(value: unknown): Pick<ComponentSemanticInspection, 'validation'> | object {
   if (value === undefined) return {};
   if (!isNonArrayObject(value)) {
     throw new TypeError('Component inspection() validation must be an object.');
@@ -97,7 +97,7 @@ function adoptValidation(value: unknown): Pick<ComponentSemanticInspection, 'val
   };
 }
 
-function adoptCollection(value: unknown): Pick<ComponentSemanticInspection, 'collection'> | object {
+function decodeCollection(value: unknown): Pick<ComponentSemanticInspection, 'collection'> | object {
   if (value === undefined) return {};
   if (!isNonArrayObject(value)) {
     throw new TypeError('Component inspection() collection must be an object.');
@@ -115,7 +115,7 @@ function adoptCollection(value: unknown): Pick<ComponentSemanticInspection, 'col
   return { collection: Object.freeze(collection) };
 }
 
-function adoptInspectionValue(
+function decodeInspectionValue(
   value: unknown,
   budget: AdoptionBudget,
   depth: number,
@@ -144,13 +144,13 @@ function adoptInspectionValue(
       throw new RangeError(`Component inspection() ${path} exceeds ${String(maximumComponentInspectionArrayLength)} entries.`);
     }
     return withAncestor(value, budget, path, () => Object.freeze(value.map((entry, index) =>
-      adoptInspectionValue(entry, budget, depth + 1, `${path}[${String(index)}]`)
+      decodeInspectionValue(entry, budget, depth + 1, `${path}[${String(index)}]`)
     )));
   }
-  return adoptInspectionRecord(value, budget, depth, path);
+  return decodeInspectionRecord(value, budget, depth, path);
 }
 
-function adoptInspectionRecord(
+function decodeInspectionRecord(
   value: unknown,
   budget: AdoptionBudget,
   depth: number,
@@ -172,7 +172,7 @@ function adoptInspectionRecord(
     if (descriptor.value === undefined) {
       throw new TypeError(`Component inspection() ${path}.${field} cannot be undefined.`);
     }
-    return [field, adoptInspectionValue(descriptor.value, budget, depth + 1, `${path}.${field}`)];
+    return [field, decodeInspectionValue(descriptor.value, budget, depth + 1, `${path}.${field}`)];
   }))));
 }
 

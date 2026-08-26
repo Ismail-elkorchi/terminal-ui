@@ -21,21 +21,21 @@ import {
   leafComponentDefinition
 } from '../helpers/component-definition.mjs';
 import { renderElementFrame } from '../../dist/renderer/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
 
 test('element inspection exposes an immutable factory description without implementation payloads', () => {
   const element = surface(column([
     textInput({ meta: { accessibleName: "Text input" },
       id: 'query',
-      presentation: { value: '', cursor: 0 },
-      onAction: (action) => ({ kind: 'query', action }),
+      state: { value: '', cursor: 0 },
+      onTransition: (action) => ({ kind: 'query', action }),
       styles: {
           parts: { value: { bold: true } },
           states: { focused: { root: { underline: true } } }
         }
     }),
-    button({ id: 'submit', label: 'Search', onAction: () => ({ kind: 'submit' }) })
+    button({ id: 'submit', label: 'Search', onPress: () => ({ kind: 'submit' }) })
   ], { id: 'controls' }), { id: 'panel', appearance: 'raised' });
 
   const inspection = inspectElement(element);
@@ -93,10 +93,10 @@ test('element inspection identifies defined components without exposing their de
   assert.equal('definition' in inspection, false);
 });
 
-test('element inspection never exposes sensitive prepared input', () => {
+test('element inspection never exposes sensitive component model', () => {
   const inspection = inspectElement(passwordInput({ meta: { accessibleName: "Password input" },
     id: 'secret',
-    presentation: { value: 'correct horse battery staple', cursor: 28 },
+    state: { value: 'correct horse battery staple', cursor: 28 },
     required: true,
     disabled: true
   }));
@@ -111,13 +111,13 @@ test('built-in inspection summarizes valid values larger than its tooling budget
   const value = 'x'.repeat(5_000);
   const inputInspection = inspectElement(textInput({ meta: { accessibleName: "Text input" },
     id: 'large-input',
-    presentation: { value, cursor: value.length },
+    state: { value, cursor: value.length },
     disabled: true
   }));
   const areaInspection = inspectElement(textArea({ meta: { accessibleName: "Text area" },
     id: 'large-area',
-    presentation: {
-      document: prepareTextDocument(value),
+    state: {
+      document: createTextDocument(value),
       caret: textCaretAt(value.length)
     },
     disabled: true
@@ -128,14 +128,14 @@ test('built-in inspection summarizes valid values larger than its tooling budget
   assert.deepEqual(areaInspection.semantic?.value, summary);
 });
 
-test('element inspection adopts explicit definition-owned projections', () => {
+test('element inspection adopts explicit definition-owned semantic descriptions', () => {
   const active = { id: 'one' };
   const element = componentElement({
-    id: 'projected',
+    id: 'inspected',
     secret: 'private model value',
     definition: {
       ...leafComponentDefinition,
-      prepare: (value) => ({ renamedPrivateField: value.secret }),
+      createModel: (value) => ({ renamedPrivateField: value.secret }),
       inspection: () => ({ active }),
       render() {},
       accessibility: ({ id }) => ({ id, role: 'text', label: id })
@@ -266,7 +266,7 @@ test('element inspection reports factory-declared focus capability instead of ge
     id: 'busy-button-inspection',
     label: 'Busy',
     busy: true,
-    onAction: () => ignoreMessage()
+    onPress: () => ignoreMessage()
   });
   assert.equal(inspectElement(busyButton).inputs.focus, 'item');
   assert.deepEqual(
@@ -294,20 +294,20 @@ test('element inspection reports factory-declared focus capability instead of ge
   const dismissibleNotifications = notificationRegion({
     id: 'dismissible-notifications',
     items: [{ id: 'one', title: 'One' }],
-    onAction: (action) => action
+    onDismiss: (action) => action
   });
   const notificationArchive = notificationHistory({ meta: { accessibleName: "Notification history" },
     id: 'notification-archive',
     items: [],
     scroll: createScrollState(),
-    onAction: (action) => action
+    onTransition: (action) => action
   });
   assert.equal(inspectElement(dismissibleNotifications).inputs.focus, 'item');
   assert.equal(inspectElement(notificationArchive).inputs.focus, 'item');
 
   const focusScope = componentElement({
     id: 'component-scope-inspection',
-    children: [button({ id: 'scoped-button', label: 'Scoped', onAction: () => ignoreMessage() })],
+    children: [button({ id: 'scoped-button', label: 'Scoped', onPress: () => ignoreMessage() })],
     definition: {
       ...compositeComponentDefinition,
       layout: ({ bounds }) => [bounds],
@@ -323,7 +323,7 @@ test('element inspection omits private implementation children with no public fa
     id: 'choice',
     label: 'Choice',
     options: [{ id: 'alpha', label: 'Alpha', value: 'alpha' }],
-    presentation: {
+    state: {
       kind: 'select',
       open: true,
       interaction: { activeId: 'alpha', selection: { mode: 'single', selectedId: 'alpha' } }

@@ -4,7 +4,7 @@ import {
   normalizeTextSelection,
   previousGraphemeBoundary,
   replaceTextRange
-} from './selection-model.ts';
+} from './text-range.ts';
 import {
   lineEndOffset,
   lineOffsetByDelta,
@@ -217,7 +217,7 @@ function isWordOperation(operation: TextEditOperation): boolean {
 }
 
 function requiredWordIndex(index: TerminalTextIndex | undefined): TerminalTextIndex {
-  if (index === undefined) throw new Error('Word editing requires a prepared terminal text index.');
+  if (index === undefined) throw new Error('Word editing requires a terminal text index.');
   return index;
 }
 

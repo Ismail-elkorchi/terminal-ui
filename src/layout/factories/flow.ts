@@ -1,10 +1,10 @@
-import { layoutElementFromRenderNode } from '../../renderer/model/element.ts';
+import { layoutElementFromRenderNode } from '../../renderer/internal/render-tree/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ColumnOptions, FlowOptions, RowOptions } from '../options.ts';
-import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
-import { optionalRenderNodeId, renderNodeChildren } from '../../renderer/model/element.ts';
-import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
-import { assertTrackCount } from './internals.ts';
+import { renderNodeMeta as componentMetaProps } from '../../renderer/internal/render-tree/metadata.ts';
+import { optionalRenderNodeId, renderNodeChildren } from '../../renderer/internal/render-tree/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import { assertTrackCount } from './track-options.ts';
 import {
   assertOptionalFiniteNumber,
   isStringMember

@@ -1,5 +1,5 @@
-import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
-import type { RenderNode } from '../../renderer/model/index.ts';
+import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/internal/render-tree/element.ts';
+import type { RenderNode } from '../../renderer/internal/render-tree/index.ts';
 import type {
   Element,
   ElementChildren,
@@ -7,19 +7,19 @@ import type {
   ElementMessage,
   StructuralElementOptions
 } from '../../element/index.ts';
-import { adoptElementStyles } from '../../element/styles.ts';
+import { decodeElementStyles } from '../../element/styles.ts';
 import type {
   AbsoluteOptions,
   AnchoredOptions,
   PortalOptions,
   SurfaceOptions
 } from '../options.ts';
-import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
+import { renderNodeMeta as componentMetaProps } from '../../renderer/internal/render-tree/metadata.ts';
 import {
   optionalRenderNodeId,
   renderNodeChildren
-} from '../../renderer/model/element.ts';
-import { assertSurfaceChild, surfaceLayoutProps } from './internals.ts';
+} from '../../renderer/internal/render-tree/element.ts';
+import { assertSurfaceChild, surfaceLayoutProps } from './surface-options.ts';
 import { normalizeBorderTitle } from '../../visual/border.ts';
 import {
   assertFiniteNumber,
@@ -53,7 +53,7 @@ export function surface<const TChild extends Element<unknown>>(
     ...componentMetaProps({
       ...options,
       ...(options.styles === undefined ? {} : {
-        styles: adoptElementStyles(options.styles, {
+        styles: decodeElementStyles(options.styles, {
           subject: 'surface() styles',
           parts: new Set(['border', 'title']),
           states: new Set(),

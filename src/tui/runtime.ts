@@ -41,7 +41,7 @@ import { createResizeCoordinator } from './resize-coordinator.ts';
 import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
 import type { PointerMotionEvent } from './pointer-motion-coordinator.ts';
 import type { TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
-import { decodeTerminalGraphicsMode, normalizeGraphicsBudgetLimits } from '../graphics/index.ts';
+import { decodeTerminalGraphicsMode, resolveGraphicsBudgetLimits } from '../graphics/index.ts';
 import type { GraphicsBudgetLimits, TerminalGraphicsMode } from '../graphics/index.ts';
 import type {
   InputEvent,
@@ -74,7 +74,7 @@ import { focusLifecycleMessages } from './focus-lifecycle.ts';
 import { focusNavigationPath } from '../renderer/internal/focus.ts';
 import { assertTuiApp, tuiDefinition } from './definition.ts';
 import { decodeTuiInitialResult } from './hook-results.ts';
-import { prepareCopySelectedTextInput } from './selection.ts';
+import { decodeCopySelectedTextInput } from './selection.ts';
 
 type MutableTuiRuntimeMetrics = {
   -readonly [TKey in Exclude<keyof TuiRuntimeMetrics, 'diagnostics' | 'effects' | 'sources'>]: TuiRuntimeMetrics[TKey];
@@ -103,7 +103,7 @@ export function createTuiRuntime<TState, TMessage>(
     options,
     undefined,
     decodeTerminalGraphicsMode(options.graphics),
-    normalizeGraphicsBudgetLimits(options.graphicsBudget),
+    resolveGraphicsBudgetLimits(options.graphicsBudget),
   );
 }
 
@@ -115,7 +115,7 @@ export function createTuiRuntimeWithCapabilitySnapshot<TState, TMessage>(
     options,
     capabilities,
     options.graphics ?? 'none',
-    normalizeGraphicsBudgetLimits(options.graphicsBudget),
+    resolveGraphicsBudgetLimits(options.graphicsBudget),
   );
 }
 
@@ -252,16 +252,16 @@ function createRuntime<TState, TMessage>(
         : dispatchManyInternal(ownedMessages, 'external'));
     },
     copySelectedText(input) {
-      let prepared: ReturnType<typeof prepareCopySelectedTextInput>;
+      let request: ReturnType<typeof decodeCopySelectedTextInput>;
       try {
-        prepared = prepareCopySelectedTextInput(input);
+        request = decodeCopySelectedTextInput(input);
       } catch (cause) {
         return Promise.reject(errorFromUnknown(cause));
       }
       return dispatchQueue.run(async () => {
         lifecycle.assertOperational();
         const context = await createRuntimeContext();
-        return commits.copySelectedText(prepared, context.capabilities);
+        return commits.copySelectedText(request, context.capabilities);
       });
     },
     resize(terminalSize) {
@@ -530,7 +530,7 @@ function createRuntime<TState, TMessage>(
     try {
       const context = await createRuntimeContext();
       const initial = decodeTuiInitialResult<TState, TMessage>(definition.init(context));
-      const preparedSubscriptions = await subscriptions.prepare(initial.state, context);
+      const subscriptionPlan = await subscriptions.plan(initial.state, context);
       const result = await commits.initial(initial.state, context, store.version(), () => {
         store.initialize(initial.state);
         if (lifecycle.phase() === 'starting') lifecycle.activate();
@@ -538,7 +538,7 @@ function createRuntime<TState, TMessage>(
       metrics.frameCommits += 1;
       recordCommittedRender(result.render, result.diff);
       if (lifecycle.active()) runPostCommit('subscription_activation', () => {
-        subscriptions.activate(preparedSubscriptions);
+        subscriptions.activate(subscriptionPlan);
       });
       for (const item of result.diagnostics) diagnostics.report(item);
       changes.publish({
@@ -664,8 +664,8 @@ function createRuntime<TState, TMessage>(
     }
 
     const previousRender = commits.render();
-    const preparedSubscriptions = reduction.exitReason === undefined
-      ? await subscriptions.prepare(reduction.state, context)
+    const subscriptionPlan = reduction.exitReason === undefined
+      ? await subscriptions.plan(reduction.state, context)
       : undefined;
     lifecycle.assertOperational();
     const result = await commits.transition(
@@ -689,8 +689,8 @@ function createRuntime<TState, TMessage>(
       frame: result.render.frame
     });
     if (exit !== undefined) changes.publish({ kind: 'exit', exit });
-    if (preparedSubscriptions !== undefined && lifecycle.active()) {
-      runPostCommit('subscription_activation', () => { subscriptions.activate(preparedSubscriptions); });
+    if (subscriptionPlan !== undefined && lifecycle.active()) {
+      runPostCommit('subscription_activation', () => { subscriptions.activate(subscriptionPlan); });
     }
     if (reduction.exitReason === undefined && lifecycle.active()) {
       runPostCommit('effect_cancellation', () => { effects.cancelIds(reduction.cancelEffects); });

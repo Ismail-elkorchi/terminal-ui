@@ -12,13 +12,13 @@ const noModifiers = { ctrl: false, alt: false, shift: false, meta: false };
 
 test('toolbar preserves caller-owned flexible layout', () => {
   const frame = renderElementFrame(toolbar(row([
-    button({ id: 'back', label: 'Back', onAction: () => ignoreMessage() }),
+    button({ id: 'back', label: 'Back', onPress: () => ignoreMessage() }),
     textInput({ meta: { accessibleName: "Text input" },
       id: 'location',
-      presentation: { value: 'example.test', cursor: 0 },
-      onAction: () => ignoreMessage()
+      state: { value: 'example.test', cursor: 0 },
+      onTransition: () => ignoreMessage()
     }),
-    button({ id: 'menu', label: 'Menu', onAction: () => ignoreMessage() })
+    button({ id: 'menu', label: 'Menu', onPress: () => ignoreMessage() })
   ], {
     id: 'toolbar-row',
     sizes: [{ kind: 'content' }, { kind: 'fill' }, { kind: 'content' }]
@@ -42,13 +42,13 @@ test('toolbar is one tab stop and provides orientation-aware roving focus', asyn
     init: () => ({ state: undefined }),
     update: (state) => ({ state }),
     view: () => column([
-      button({ id: 'before', label: 'Before', onAction: () => ignoreMessage() }),
+      button({ id: 'before', label: 'Before', onPress: () => ignoreMessage() }),
       toolbar(row([
-        button({ id: 'first', label: 'First', onAction: () => ignoreMessage() }),
+        button({ id: 'first', label: 'First', onPress: () => ignoreMessage() }),
         button({ id: 'disabled', label: 'Disabled', disabled: true }),
-        button({ id: 'last', label: 'Last', onAction: () => ignoreMessage() })
+        button({ id: 'last', label: 'Last', onPress: () => ignoreMessage() })
       ]), { id: 'actions', label: 'Actions' }),
-      button({ id: 'after', label: 'After', onAction: () => ignoreMessage() })
+      button({ id: 'after', label: 'After', onPress: () => ignoreMessage() })
     ])
   });
   const runtime = createTuiRuntime({
@@ -86,8 +86,8 @@ test('vertical toolbar uses up and down rather than left and right', async () =>
     init: () => ({ state: undefined }),
     update: (state) => ({ state }),
     view: () => toolbar(column([
-      button({ id: 'top', label: 'Top', onAction: () => ignoreMessage() }),
-      button({ id: 'bottom', label: 'Bottom', onAction: () => ignoreMessage() })
+      button({ id: 'top', label: 'Top', onPress: () => ignoreMessage() }),
+      button({ id: 'bottom', label: 'Bottom', onPress: () => ignoreMessage() })
     ]), { id: 'vertical-actions', label: 'Vertical actions', orientation: 'vertical' })
   });
   const runtime = createTuiRuntime({
@@ -107,7 +107,7 @@ test('vertical toolbar uses up and down rather than left and right', async () =>
   await runtime.dispose();
 });
 
-test('toggle button shares compact adornment presentation while retaining pressed semantics', () => {
+test('toggle button shares compact adornment styles while retaining pressed semantics', () => {
   const frame = renderElementFrame(toggleButton({
     id: 'bookmark',
     accessibleName: 'Bookmark this page',

@@ -1,29 +1,30 @@
 /** First-party application patterns built from the foundational controls. */
-export { commandInput, searchPicker } from './factories/documents.ts';
+export { commandInput, searchPicker } from './factories/suggestion-controls.ts';
 export { logViewer } from './factories/log-viewer.ts';
-export { helpBar } from './factories/feedback.ts';
-export { prepareCommandSuggestions } from '../behavior/command-input-state.ts';
-export type * from './options/documents.ts';
-export type { HelpBarOptions } from './options/feedback.ts';
+export { helpBar } from './factories/indicators.ts';
+export { createCommandSuggestions } from '../behavior/command-input-operations.ts';
+export type * from './options/patterns.ts';
+export type { HelpBarOptions } from './options/feedback-and-visualizations.ts';
 export type {
-  CommandInputPresentation,
+  CommandInputView,
   CommandInputSubmitEvent,
   CommandInputTransition,
   CommandSuggestion,
-} from '../ui-model/command-input.ts';
-export type { CommandInputDisplay, CommandInputValidation, LogEntry } from '../ui-model/documents.ts';
+} from '../behavior/command-input.ts';
+export type { CommandInputDisplay, CommandInputValidation } from './command-input.ts';
+export type { LogEntry } from '../behavior/log-history.ts';
 export type {
   SearchPickerAcceptEvent,
   SearchPickerControlTransition,
-  SearchPickerPresentation,
-  ScrollableSearchPickerPresentation,
+  SearchPickerView,
+  ScrollableSearchPickerView,
   SearchPickerTransition,
-  UnscrolledSearchPickerPresentation,
-} from '../ui-model/search-picker.ts';
+  UnscrolledSearchPickerView,
+} from '../behavior/search-picker.ts';
 export type {
-  LogViewerAction,
+  LogViewerTransition,
   LogViewerBodyAnchor,
   LogViewerContextMenuEvent,
-  LogViewerControlAction,
+  LogViewerControlTransition,
   LogViewerSelection,
-} from '../ui-model/log-viewer.ts';
+} from '../behavior/log-viewer.ts';

@@ -42,24 +42,29 @@ import {
   externalVirtualList
 } from '../fixtures/external-component-catalog.mjs';
 
+const externalButtonControl = ({ onPress, ...options }) => externalButton({
+  ...options,
+  ...(onPress === undefined ? {} : { onAction: onPress })
+});
+
 runButtonConformance('built-in', button);
-runButtonConformance('external', externalButton);
+runButtonConformance('external', externalButtonControl);
 runMessageRoutingConformance('built-in', button);
-runMessageRoutingConformance('external', externalButton);
+runMessageRoutingConformance('external', externalButtonControl);
 
 runEditableControlConformance('built-in', {
   active: ({ id, value, onInsert }) => textInput({
     id,
     meta: { accessibleName: 'Value' },
-    presentation: { value, cursor: value.length },
-    onAction: (action) => action.kind === 'edit' && action.operation.kind === 'insert'
+    state: { value, cursor: value.length },
+    onTransition: (action) => action.kind === 'edit' && action.operation.kind === 'insert'
       ? onInsert(action.operation.text)
       : ignoreMessage()
   }),
   disabled: ({ id, value }) => textInput({
     id,
     meta: { accessibleName: 'Value' },
-    presentation: { value, cursor: value.length },
+    state: { value, cursor: value.length },
     disabled: true
   })
 });
@@ -76,8 +81,8 @@ runVirtualCollectionConformance('built-in', {
     id,
     meta: { accessibleName: 'Rows' },
     items,
-    projectItem: (item) => ({ id: item, label: item }),
-    presentation: {
+    toOption: (item) => ({ id: item, label: item }),
+    state: {
       activeId: items[activeIndex],
       selection: { mode: 'single', selectedId: items[activeIndex] }
     },
@@ -87,8 +92,8 @@ runVirtualCollectionConformance('built-in', {
     id,
     meta: { accessibleName: 'Rows' },
     items,
-    projectItem: (item) => ({ id: item, label: item }),
-    presentation: {
+    toOption: (item) => ({ id: item, label: item }),
+    state: {
       activeId: items[activeIndex],
       selection: { mode: 'single', selectedId: items[activeIndex] }
     },
@@ -111,7 +116,7 @@ runPopupChoiceConformance('built-in', (id) => combobox({
     { id: 'one', label: 'One', value: 'one' },
     { id: 'two', label: 'Two', value: 'two' }
   ],
-  presentation: {
+  state: {
     kind: 'select',
     open: true,
     interaction: { activeId: 'two', selection: { mode: 'single', selectedId: 'one' } }
@@ -130,7 +135,7 @@ runDialogConformance('built-in', (id) => dialog({
   focusPolicy: { returnFocus: 'restore' },
   slots: {
     content: button({
-      id: `${id}:content`, label: 'Dialog content', onAction: () => ignoreMessage()
+      id: `${id}:content`, label: 'Dialog content', onPress: () => ignoreMessage()
     })
   }
 }));
@@ -148,7 +153,7 @@ runDialogConformance('external', (id) => externalDialog({
 
 runTooltipConformance('built-in', (id) => tooltip({
   id,
-  trigger: button({ id: `${id}:trigger`, label: 'Info', onAction: () => ignoreMessage() }),
+  trigger: button({ id: `${id}:trigger`, label: 'Info', onPress: () => ignoreMessage() }),
   content: 'More information',
   open: true,
   onTransition: () => ignoreMessage()

@@ -1,0 +1,51 @@
+import { cyclicIndex } from '../foundation/cyclic-index.ts';
+
+export type ProgressValueStatus = 'empty' | 'partial' | 'complete' | 'overflow';
+
+export interface ProgressFrameCell {
+  readonly cellIndex: number;
+  readonly active: boolean;
+}
+
+export interface ProgressFrame {
+  readonly width: number;
+  readonly frame: number;
+  readonly activeStart: number;
+  readonly activeWidth: number;
+  readonly cells: readonly ProgressFrameCell[];
+}
+
+export function progressValueStatus(value: number, max: number): ProgressValueStatus {
+  const normalizedMax = normalizePositiveInteger(max, 100);
+  const normalizedValue = normalizeFiniteNumber(value, 0);
+  if (normalizedValue <= 0) return 'empty';
+  if (normalizedValue > normalizedMax) return 'overflow';
+  return normalizedValue === normalizedMax ? 'complete' : 'partial';
+}
+
+export function indeterminateProgressFrame(frame: number, width: number): ProgressFrame {
+  const normalizedWidth = normalizePositiveInteger(width, 1);
+  const normalizedFrame = cyclicIndex(frame, normalizedWidth);
+  const activeWidth = Math.max(1, Math.min(normalizedWidth, Math.ceil(normalizedWidth / 3)));
+  return {
+    width: normalizedWidth,
+    frame: normalizedFrame,
+    activeStart: normalizedFrame,
+    activeWidth,
+    cells: Array.from({ length: normalizedWidth }, (_unused, cellIndex) => ({
+      cellIndex,
+      active: wrappedDistance(cellIndex, normalizedFrame, normalizedWidth) < activeWidth
+    }))
+  };
+}
+
+function normalizePositiveInteger(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+function normalizeFiniteNumber(value: number, fallback: number): number {
+  return Number.isFinite(value) ? value : fallback;
+}
+function wrappedDistance(index: number, start: number, width: number): number {
+  return (index - start + width) % width;
+}

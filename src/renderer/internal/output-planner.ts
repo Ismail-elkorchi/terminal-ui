@@ -39,7 +39,7 @@ interface EncodedOutput {
   readonly usesHyperlink: boolean;
 }
 
-type PreparedOutputOperation =
+type PlannedOutputOperation =
   | {
       readonly kind: 'write';
       readonly row: number;
@@ -54,7 +54,7 @@ export function planTerminalOutput(
   options?: RenderSerializeOptions
 ): TerminalOutputPlan {
   const policy = createTerminalSerializationPolicy(options);
-  const operations = prepareOperations(diff.operations, policy.capabilities);
+  const operations = planOutputOperations(diff.operations, policy.capabilities);
   const serializer = createRenderSpanSerializer(options);
   const encodedVariants = encodeOperations(diff, operations, policy, serializer);
   const { baseline, optimized } = encodedVariants;
@@ -105,7 +105,7 @@ export function frameRecoverySuffix(
 
 function encodeOperations(
   diff: RenderDiff,
-  operations: readonly PreparedOutputOperation[],
+  operations: readonly PlannedOutputOperation[],
   policy: ReturnType<typeof createTerminalSerializationPolicy>,
   serializer: RenderSpanSerializer,
 ): { readonly baseline: EncodedOutput; readonly optimized: EncodedOutput } {
@@ -210,11 +210,11 @@ function cursorAfterColumns(
   return nextColumn > frameWidth ? undefined : { row: start.row, column: nextColumn };
 }
 
-function prepareOperations(
+function planOutputOperations(
   operations: readonly RenderOperation[],
   capabilities: TerminalOutputCapabilityProfile
-): readonly PreparedOutputOperation[] {
-  return Object.freeze(operations.map((operation): PreparedOutputOperation => {
+): readonly PlannedOutputOperation[] {
+  return Object.freeze(operations.map((operation): PlannedOutputOperation => {
     if (operation.kind !== 'write') return Object.freeze({ ...operation });
     return Object.freeze({
       kind: 'write',

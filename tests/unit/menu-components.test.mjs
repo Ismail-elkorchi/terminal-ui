@@ -20,10 +20,10 @@ import {
   menuBar
 } from '../../dist/components/index.js';
 import {
-  contextMenuPresentation,
-  menuTriggerPresentation,
-  menuBarPresentation,
-  menuPresentation
+  contextMenuView,
+  menuTriggerView,
+  menuBarView,
+  menuView
 } from '../../dist/behavior/index.js';
 import { column } from '../../dist/layout/index.js';
 
@@ -70,7 +70,7 @@ const items = [
 test('menu component renders nested checked disabled items with menu accessibility', () => {
   const frame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },
     id: 'file-menu',
-    presentation: menuPresentation(items, { activePath: ['open', 'recent'] }),
+    view: menuView(items, { activePath: ['open', 'recent'] }),
     onTransition: (action) => action
   }), { columns: 40, rows: 8 });
   const output = renderFramePlain(frame);
@@ -99,7 +99,7 @@ test('simple action menus omit unused checkbox and submenu columns', () => {
   ];
   const frame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },
     id: 'compact-actions',
-    presentation: menuPresentation(simpleItems, { activePath: ['alpha'] }),
+    view: menuView(simpleItems, { activePath: ['alpha'] }),
     onTransition: (action) => action
   }), { columns: 20, rows: 2 });
 
@@ -109,7 +109,7 @@ test('simple action menus omit unused checkbox and submenu columns', () => {
 });
 
 test('menu models reject duplicate identities across nested branches', () => {
-  assert.throws(() => menuPresentation([
+  assert.throws(() => menuView([
     {
       kind: 'submenu',
       id: 'file',
@@ -121,7 +121,7 @@ test('menu models reject duplicate identities across nested branches', () => {
 });
 
 test('menu radio groups permit at most one checked sibling', () => {
-  assert.doesNotThrow(() => menuPresentation([
+  assert.doesNotThrow(() => menuView([
     { kind: 'radio', id: 'light', groupId: 'theme', label: 'Light', checked: false },
     { kind: 'radio', id: 'dark', groupId: 'theme', label: 'Dark', checked: true, disabled: true },
     {
@@ -130,17 +130,17 @@ test('menu radio groups permit at most one checked sibling', () => {
       ]
     }
   ], { activePath: [] }));
-  assert.throws(() => menuPresentation([
+  assert.throws(() => menuView([
     { kind: 'radio', id: 'first', groupId: 'theme', label: 'First', checked: true },
     { kind: 'radio', id: 'second', groupId: 'theme', label: 'Second', checked: true }
   ], { activePath: [] }), /cannot contain more than one checked item/u);
 });
 
 test('menu models reject malformed structural item variants at the factory boundary', () => {
-  assert.throws(() => menuPresentation([
+  assert.throws(() => menuView([
     { kind: 'submenu', id: 'empty', label: 'Empty', children: [] }
   ], { activePath: [] }), /requires at least one child/u);
-  assert.throws(() => menuPresentation([
+  assert.throws(() => menuView([
     { kind: 'check', id: 'check', label: 'Check' }
   ], { activePath: [] }), /requires boolean checked state/u);
 });
@@ -149,7 +149,7 @@ test('menu factories validate and own retained shortcut bindings', () => {
   const shortcut = { kind: 'key', key: 'n' };
   const element = menu({ meta: { accessibleName: "Menu" },
     id: 'shortcut-menu',
-    presentation: menuPresentation([
+    view: menuView([
       { kind: 'action', id: 'new', label: 'New', shortcut }
     ], { activePath: ['new'] }),
     onTransition: (action) => action
@@ -159,7 +159,7 @@ test('menu factories validate and own retained shortcut bindings', () => {
   assert.match(renderFramePlain(renderElementFrame(element, { columns: 20, rows: 1 })), /N$/u);
   assert.throws(() => menu({ meta: { accessibleName: "Menu" },
     id: 'invalid-shortcut-menu',
-    presentation: menuPresentation([
+    view: menuView([
       { kind: 'action', id: 'new', label: 'New', shortcut: { kind: 'text', text: 'n' } }
     ], { activePath: ['new'] }),
     onTransition: (action) => action
@@ -174,7 +174,7 @@ test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => 
         { kind: 'action', id: 'file', label: 'File' },
         { kind: 'action', id: 'edit', label: 'Edit', disabled: true }
       ],
-      presentation: menuBarPresentation([
+      view: menuBarView([
         { kind: 'action', id: 'file', label: 'File' },
         { kind: 'action', id: 'edit', label: 'Edit', disabled: true }
       ], { kind: 'closed', active: 'file' }),
@@ -186,7 +186,7 @@ test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => 
     contextMenu({ meta: { accessibleName: "Context menu" },
       id: 'context',
       title: 'Actions',
-      presentation: contextMenuPresentation(items, {
+      view: contextMenuView(items, {
         kind: 'open',
         anchor: { kind: 'cursor', row: 3, column: 1 },
         menu: { activePath: ['autosave'] }
@@ -203,7 +203,7 @@ test('menuBar contextMenu and menuTrigger render reusable menu surfaces', () => 
         { kind: 'action', id: 'light', label: 'Light' },
         { kind: 'action', id: 'dark', label: 'Dark' }
       ],
-      presentation: menuTriggerPresentation([
+      view: menuTriggerView([
         { kind: 'action', id: 'light', label: 'Light' },
         { kind: 'action', id: 'dark', label: 'Dark' }
       ], { kind: 'open', active: 'dark', menu: { activePath: ['dark'] } }),
@@ -236,7 +236,7 @@ test('open icon-only menu triggers preserve their caller-supplied accessible nam
     items: [
       { kind: 'action', id: 'settings', label: 'Settings' }
     ],
-    presentation: menuTriggerPresentation([
+    view: menuTriggerView([
       { kind: 'action', id: 'settings', label: 'Settings' }
     ], { kind: 'open', active: 'settings', menu: { activePath: ['settings'] } }),
     onTransition: (action) => action,
@@ -256,7 +256,7 @@ test('open menu bars name their popup from the active heading', () => {
     id: 'main-menu',
     meta: { accessibleName: 'Application menu' },
     items,
-    presentation: menuBarPresentation(items, {
+    view: menuBarView(items, {
       kind: 'open',
       active: 'open',
       menu: { activePath: ['recent'] }
@@ -275,10 +275,10 @@ test('open menu bars require an enabled submenu heading', () => {
     id: 'invalid-menu',
     meta: { accessibleName: 'Application menu' },
     items,
-    presentation: {
+    view: {
       kind: 'open',
       active: 'new',
-      menu: menuPresentation(items, { activePath: ['new'] })
+      menu: menuView(items, { activePath: ['new'] })
     },
     onTransition: (action) => action
   }), /active must identify an enabled submenu heading/u);
@@ -287,7 +287,7 @@ test('open menu bars require an enabled submenu heading', () => {
 test('closed context menus do not publish focus or implementation accessibility scaffolding', () => {
   const frame = renderElementFrame(contextMenu({ meta: { accessibleName: "Context menu" },
     id: 'closed-context',
-    presentation: contextMenuPresentation(items, { kind: 'closed' }),
+    view: contextMenuView(items, { kind: 'closed' }),
     onTransition: (action) => action
   }), { columns: 24, rows: 4 });
 
@@ -304,7 +304,7 @@ test('internal popup nodes expose layout names without claiming public factory p
       { kind: 'action', id: 'one', label: 'One' },
       { kind: 'action', id: 'two', label: 'Two' }
     ],
-    presentation: menuTriggerPresentation([
+    view: menuTriggerView([
       { kind: 'action', id: 'one', label: 'One' },
       { kind: 'action', id: 'two', label: 'Two' }
     ], { kind: 'open', active: 'one', menu: { activePath: ['one'] } }),
@@ -329,7 +329,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
     view: (state) => column([
       menu({ meta: { accessibleName: "Menu" },
         id: 'actions',
-        presentation: menuPresentation(items, {
+        view: menuView(items, {
           activePath: state.action === 'recent' ? ['autosave'] : ['open', 'recent']
         }),
         onTransition: (action) => action,
@@ -340,7 +340,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
         items: [
           { kind: 'action', id: 'help', label: 'Help' }
         ],
-        presentation: { kind: 'closed', active: 'help' },
+        view: { kind: 'closed', active: 'help' },
         onTransition: (action) => action,
         onActivate: (event) => event
       })

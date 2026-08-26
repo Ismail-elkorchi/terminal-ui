@@ -12,19 +12,19 @@ export interface TextHighlightOptions extends TextMeasurementOptions {
   readonly locale?: string;
 }
 
-export interface PreparedTextSearchIndex {
+export interface TextSearchIndex {
   readonly textIndex: TerminalTextIndex;
   readonly graphemes: readonly string[];
 }
 
-export interface PreparedTextSearchQuery {
+export interface CompiledTextSearchQuery {
   readonly graphemes: readonly string[];
 }
 
-export function prepareTextSearchIndex(
+export function createTextSearchIndex(
   text: string,
   options: TextHighlightOptions = {}
-): PreparedTextSearchIndex {
+): TextSearchIndex {
   const textIndex = createTerminalTextIndex(text, options);
   return Object.freeze({
     textIndex,
@@ -32,18 +32,18 @@ export function prepareTextSearchIndex(
   });
 }
 
-export function prepareTextSearchQuery(
+export function compileTextSearchQuery(
   query: string,
   options: TextHighlightOptions = {}
-): PreparedTextSearchQuery {
+): CompiledTextSearchQuery {
   return Object.freeze({
     graphemes: normalizedGraphemes(createTerminalTextIndex(query, options), options)
   });
 }
 
-export function findPreparedTextMatches(
-  index: PreparedTextSearchIndex,
-  query: PreparedTextSearchQuery
+export function findTextMatches(
+  index: TextSearchIndex,
+  query: CompiledTextSearchQuery
 ): readonly TextHighlightMatch[] {
   if (query.graphemes.length === 0 || query.graphemes.every((grapheme) => grapheme.length === 0)) return [];
   const matches: TextHighlightMatch[] = [];

@@ -6,10 +6,10 @@ import {
   ignoreMessage,
   measureRenderSpans,
   paintComponentScrollbar,
-  prepareComponentScrollbar,
-  prepareComponentScrollbarOptions,
-  prepareComponentScrollPolicy,
-  prepareComponentScrollState,
+  layoutComponentScrollbar,
+  decodeComponentScrollbarOptions,
+  decodeComponentScrollPolicy,
+  decodeComponentScrollState,
   span,
 } from '../../component/index.ts';
 import type {
@@ -43,19 +43,19 @@ import type {
   NotificationItem,
   NotificationPlacement,
   NotificationTone,
-} from '../../ui-model/feedback.ts';
+} from '../../behavior/notification.ts';
 import type {
   NotificationHistoryTransition,
-  NotificationRegionAction,
-} from '../../ui-model/notification.ts';
+  NotificationDismissEvent,
+} from '../../behavior/notification-history.ts';
 import type {
   NotificationHistoryStylePart,
   NotificationStylePart,
-} from '../../ui-model/style-parts.ts';
-import { assertStableIds } from '../../ui-model/identity.ts';
-import { isNotificationTone } from '../../ui-model/status.ts';
-import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import type { NotificationHistoryOptions, NotificationRegionOptions } from '../options/feedback.ts';
+} from '../style-parts.ts';
+import { assertStableIds } from '../../collection/identity.ts';
+import { isNotificationTone } from '../status.ts';
+import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
+import type { NotificationHistoryOptions, NotificationRegionOptions } from '../options/feedback-and-visualizations.ts';
 
 interface NotificationModel {
   readonly items: readonly NotificationItem[];
@@ -78,7 +78,7 @@ interface NotificationOwnOptions {
   readonly scrollPolicy?: ScrollPolicy;
 }
 
-type NotificationRegionComponentAction = NotificationRegionAction;
+type NotificationRegionComponentAction = NotificationDismissEvent;
 type NotificationHistoryComponentAction = NotificationHistoryTransition;
 
 const parts = [
@@ -109,7 +109,7 @@ const passiveRegion = defineComponent<
   metadata: ['focus', 'layer', 'styles'],
   parts,
   visualStates: [],
-  prepare: (value) => prepareNotifications(value, false, false),
+  createModel: (value) => createNotificationsModel(value, false, false),
   measure: measureNotifications,
   render: paintRegionNotifications,
   accessibility: (input) => accessibleNotifications(input, 'region', false),
@@ -133,11 +133,11 @@ const activeRegion = defineComponent<
   metadata: ['focus', 'layer', 'styles'],
   parts,
   visualStates: ['hovered', 'pressed'],
-  prepare: (value) => prepareNotifications(value, false, true),
+  createModel: (value) => createNotificationsModel(value, false, true),
   measure: measureNotifications,
   render: paintRegionNotifications,
   focusTargets: (input) => focusTargets(input, 'region'),
-  hitTargets: (input) => hitTargets<NotificationRegionAction>(input, 'region'),
+  hitTargets: (input) => hitTargets<NotificationDismissEvent>(input, 'region'),
   accessibility: (input) => accessibleNotifications(input, 'region', true),
 });
 
@@ -159,7 +159,7 @@ const history = defineComponent<
   metadata: ['focus', 'layer', 'styles'],
   parts: historyParts,
   visualStates: ['hovered', 'pressed', 'active', 'selected', 'disabled'],
-  prepare: (value) => prepareNotifications(value, true, true),
+  createModel: (value) => createNotificationsModel(value, true, true),
   measure: measureNotifications,
   render: paintHistoryNotifications,
   keys: (input) => ({
@@ -180,7 +180,7 @@ const history = defineComponent<
 export function notificationRegion<const TMessage extends ComponentMessage = never>(
   options: NotificationRegionOptions<TMessage>,
 ): Element<TMessage> {
-  if (options.onAction === undefined) {
+  if (options.onDismiss === undefined) {
     return passiveRegion({
       items: options.items,
       id: options.id,
@@ -190,21 +190,21 @@ export function notificationRegion<const TMessage extends ComponentMessage = nev
       ...(options.meta === undefined ? {} : { meta: options.meta }),
     });
   }
-  assertRequiredCallback(options.onAction, 'notificationRegion onAction');
-  const { onAction, ...own } = options;
+  assertRequiredCallback(options.onDismiss, 'notificationRegion onDismiss');
+  const { onDismiss, ...own } = options;
   return activeRegion({
       ...own,
       id: options.id,
       ...(options.meta === undefined ? {} : { meta: options.meta }),
-      onAction,
+      onAction: onDismiss,
   });
 }
 
 export function notificationHistory<const TMessage extends ComponentMessage = never>(
   options: NotificationHistoryOptions<TMessage>,
 ): Element<TMessage> {
-  assertRequiredCallback(options.onAction, 'notificationHistory onAction');
-  const { onAction, ...own } = options;
+  assertRequiredCallback(options.onTransition, 'notificationHistory onTransition');
+  const { onTransition, ...own } = options;
   return history({
     ...own,
     id: options.id,
@@ -213,11 +213,11 @@ export function notificationHistory<const TMessage extends ComponentMessage = ne
     ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
     ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
     ...(options.meta === undefined ? {} : { meta: options.meta }),
-    onAction,
+    onAction: onTransition,
   });
 }
 
-function prepareNotifications(
+function createNotificationsModel(
   value: Readonly<NotificationOwnOptions>,
   acceptsSelection: boolean,
   showDismissActions: boolean,
@@ -225,7 +225,7 @@ function prepareNotifications(
   if (!Array.isArray(value.items)) {
     throw new TypeError('notification options must contain an items array.');
   }
-  const items = value.items.map(prepareItem);
+  const items = value.items.map(decodeNotificationItem);
   assertStableIds(items, (item) => item.id, 'notifications');
   const placement = value.placement;
   assertOptionalEnum(
@@ -248,18 +248,18 @@ function prepareNotifications(
   if (selectedId !== undefined && typeof selectedId !== 'string') {
     throw new TypeError('notification selectedId must be a string.');
   }
-  const scroll = prepareComponentScrollState(value.scroll, 'notificationHistory scroll');
+  const scroll = decodeComponentScrollState(value.scroll, 'notificationHistory scroll');
   if (acceptsSelection && scroll === undefined) {
     throw new TypeError('notificationHistory requires a controlled scroll state.');
   }
   if (!acceptsSelection && value.scroll !== undefined) {
     throw new TypeError('notificationRegion cannot define scroll state.');
   }
-  const scrollbar = prepareComponentScrollbarOptions(
+  const scrollbar = decodeComponentScrollbarOptions(
     value.scrollbar,
     'notificationHistory scrollbar',
   );
-  const scrollPolicy = prepareComponentScrollPolicy(
+  const scrollPolicy = decodeComponentScrollPolicy(
     value.scrollPolicy,
     'notificationHistory scrollPolicy',
   );
@@ -275,7 +275,7 @@ function prepareNotifications(
   };
 }
 
-function prepareItem(value: NotificationItem, index: number): NotificationItem {
+function decodeNotificationItem(value: NotificationItem, index: number): NotificationItem {
   if (!isNonArrayObject(value)) {
     throw new TypeError(`notification items[${String(index)}] must be an object.`);
   }
@@ -428,7 +428,7 @@ function historyLayout(
   if (scroll === undefined) {
     throw new Error('Notification history requires controlled scroll state.');
   }
-  const scrollbar = prepareComponentScrollbar({
+  const scrollbar = layoutComponentScrollbar({
     bounds: input.bounds,
     scroll,
     contentRows: cardRows(value),
@@ -544,7 +544,7 @@ function paintHistoryNotifications(
         base,
         ...(state === undefined ? {} : { states: [state] }),
       }),
-      source: (sourceInput) => input.source(sourceInput),
+      frameSource: (sourceInput) => input.frameSource(sourceInput),
     });
   }
 }
@@ -890,7 +890,7 @@ function hitTargets<TAction>(
       id: input.id,
       plan: layout.scrollbar,
       ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
-      onScroll: (event) => ({ kind: 'scroll', scroll: event.nextState }) as TAction,
+      onScroll: (request) => ({ kind: 'scroll', scroll: request.nextState }) as TAction,
     }),
   ];
 }
@@ -994,11 +994,11 @@ function partSpan(
   itemId: string,
   value: TerminalStyle | undefined,
   state: ElementVisualState | undefined,
-  cellRole: import('../../visual/source.ts').FrameCellRole = 'text',
+  cellRole: import('../../visual/frame-source.ts').FrameCellRole = 'text',
 ): RenderSpan {
   return span(text, {
     ...(value === undefined ? {} : { style: value }),
-    source: input.source({
+    source: input.frameSource({
       cellRole,
       partName,
       partType: part,

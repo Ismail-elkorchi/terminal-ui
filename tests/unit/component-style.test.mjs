@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
 import {
-  prepareCommandSuggestions,
-  prepareLogHistory,
-  prepareSearchPickerIndex,
-  prepareTreeSource,
-  prepareTreeView,
+  createCommandSuggestions,
+  createLogHistory,
+  createSearchPickerIndex,
+  createTreeSource,
+  createTreeView,
 } from '../../dist/behavior/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 
@@ -44,7 +44,7 @@ import {
   switchControl as createToggleSwitch,
   tree as createTree
 } from '../../dist/components/index.js';
-import { prepareTextDocument, terminalTextWidth, textCaretAt } from '../../dist/text/index.js';
+import { createTextDocument, terminalTextWidth, textCaretAt } from '../../dist/text/index.js';
 import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import {
   row,
@@ -52,14 +52,14 @@ import {
   surface
 } from '../../dist/layout/index.js';
 
-const noMessage = () => undefined;
+const noMessage = () => ignoreMessage();
 
 function button(options) {
   return createButton(
     options.disabled === true
       ? options
       : {
-          onAction: noMessage,
+          onPress: noMessage,
           ...options
         }
   );
@@ -67,37 +67,37 @@ function button(options) {
 
 function textInput(options) {
   return createTextInput(
-    options.disabled === true ? options : { onAction: noMessage, ...options }
+    options.disabled === true ? options : { onTransition: noMessage, ...options }
   );
 }
 
 function switchControl(options) {
   return createToggleSwitch(
-    options.disabled === true ? options : { onAction: noMessage, ...options }
+    options.disabled === true ? options : { onTransition: noMessage, ...options }
   );
 }
 
 function slider(options) {
   return createSlider(
-    options.disabled === true ? options : { onAction: noMessage, ...options }
+    options.disabled === true ? options : { onTransition: noMessage, ...options }
   );
 }
 
 function checkboxGroup(options) {
   return createCheckboxGroup(
-    options.disabled === true ? options : { onAction: noMessage, ...options }
+    options.disabled === true ? options : { onTransition: noMessage, ...options }
   );
 }
 
 function colorSwatchPicker(options) {
   return createColorSwatchPicker(
-    options.disabled === true ? options : { onAction: noMessage, ...options }
+    options.disabled === true ? options : { onTransition: noMessage, ...options }
   );
 }
 
 function calendar(options) {
   return createCalendar(
-    options.disabled === true ? options : { onAction: noMessage, ...options }
+    options.disabled === true ? options : { onTransition: noMessage, ...options }
   );
 }
 
@@ -122,7 +122,7 @@ function tabs(options) {
 
 function searchPicker(options) {
   return createSearchPicker({ meta: { accessibleName: "Search" },
-    presentation: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
+    view: { input: { text: '', cursor: 0 }, query: { mode: 'fuzzy' } },
     onTransition: noMessage,
     ...options
   });
@@ -137,7 +137,7 @@ function commandInput(options) {
 
 function listbox(options) {
   return createListbox({ meta: { accessibleName: "List" },
-    presentation: { selection: { mode: 'none' } },
+    state: { selection: { mode: 'none' } },
     onTransition: noMessage,
     ...options
   });
@@ -145,18 +145,18 @@ function listbox(options) {
 
 function dataGrid(options) {
   return createDataGrid({ meta: { accessibleName: "Data grid" },
-    presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
+    state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: noMessage,
     ...options
   });
 }
 
 function tree(options) {
-  const { nodes, presentation = { expandedIds: [], selection: { mode: 'none' } }, ...rest } = options;
-  const source = prepareTreeSource(nodes);
+  const { nodes, state = { expandedIds: [], selection: { mode: 'none' } }, ...rest } = options;
+  const source = createTreeSource(nodes);
   return createTree({ meta: { accessibleName: "Tree" },
-    presentation,
-    view: prepareTreeView(source, presentation),
+    state,
+    view: createTreeView(source, state),
     onTransition: noMessage,
     ...rest
   });
@@ -193,7 +193,7 @@ test('button and text input use user style slots', () => {
 }), { columns: 12, rows: 1 });
   const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'styled-input',
-    presentation: { value: 'abc', cursor: 0 },
+    state: { value: 'abc', cursor: 0 },
     styles: {
             parts: { value: tokenStyle('status.warning') },
             states: { focused: { root: tokenStyle('status.warning') } }
@@ -213,7 +213,7 @@ test('button states use shared styles and structural markers', () => {
     id: 'pending',
     label: 'Sync',
     busy: true,
-    onAction: () => ignoreMessage()
+    onPress: () => ignoreMessage()
   }), { columns: 16, rows: 1 });
   const destructiveFrame = renderElementFrame(button({
     id: 'destructive',
@@ -269,7 +269,7 @@ test('ghost buttons inherit their surface until focus makes them visible', () =>
 test('text entry frames use shared border, focus, and error styles', () => {
   const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'query',
-    presentation: { value: 'abc', cursor: 0 },
+    state: { value: 'abc', cursor: 0 },
     styles: {
             parts: { border: tokenStyle('status.info') },
             states: { focused: { root: tokenStyle('status.success') } }
@@ -277,8 +277,8 @@ test('text entry frames use shared border, focus, and error styles', () => {
 }), { columns: 16, rows: 1 }, { focusPath: ['query'] });
   const areaFrame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'body',
-    presentation: { document: prepareTextDocument('details'), caret: textCaretAt(0 )},
-    onAction: noMessage,
+    state: { document: createTextDocument('details'), caret: textCaretAt(0 )},
+    onTransition: noMessage,
     error: 'Required',
     styles: {
             parts: { error: tokenStyle('status.error') }
@@ -294,7 +294,7 @@ test('text entry frames use shared border, focus, and error styles', () => {
 test('menu searchPicker dataGrid and tree use selected placeholder and title slots', () => {
   const menuFrame = renderElementFrame(menuBar({ meta: { accessibleName: "Menu bar" },
     id: 'styled-menu',
-    presentation: { kind: 'closed', active: 'file' },
+    view: { kind: 'closed', active: 'file' },
     items: [
         { kind: 'action', id: 'file', label: 'File' },
         { kind: 'action', id: 'edit', label: 'Edit' }
@@ -306,7 +306,7 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
   const searchPickerFrame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
     id: 'styled-searchPicker',
     title: 'Commands',
-    searchPickerIndex: prepareSearchPickerIndex([]),
+    searchPickerIndex: createSearchPickerIndex([]),
     styles: {
             parts: {
               title: tokenStyle('status.error'),
@@ -327,7 +327,7 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
 }), { columns: 20, rows: 2 });
   const treeFrame = renderElementFrame(tree({
     id: 'selected-tree',
-    presentation: {
+    state: {
       expandedIds: [],
       activeId: 'api',
       selection: { mode: 'single', selectedId: 'api' }
@@ -348,10 +348,10 @@ test('menu searchPicker dataGrid and tree use selected placeholder and title slo
 
 test('listbox dataGrid and tree share data navigation selection and match styles', () => {
   const listFrame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    projectItem: (item) => ({ id: String(item), label: String(item) }),
+    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'styled-listbox',
     items: ['Atlas', 'Pulse'],
-    presentation: {
+    state: {
       activeId: 'Atlas',
       selection: { mode: 'single', selectedId: 'Atlas' }
     },
@@ -360,7 +360,7 @@ test('listbox dataGrid and tree share data navigation selection and match styles
   const tableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'styled-dataGrid',
-    presentation: {
+    state: {
       interaction: {
         kind: 'row', activeRowId: '0', selection: { mode: 'single', selectedRowId: '0' },
       }
@@ -372,7 +372,7 @@ test('listbox dataGrid and tree share data navigation selection and match styles
   const activeTableFrame = renderElementFrame(dataGrid({ meta: { accessibleName: "Data grid" },
     getRowId: (_row, index) => String(index),
     id: 'active-dataGrid',
-    presentation: {
+    state: {
       interaction: {
         kind: 'cell',
         activeCell: { rowId: '0', columnId: 'name-0' },
@@ -387,7 +387,7 @@ test('listbox dataGrid and tree share data navigation selection and match styles
   }), { columns: 18, rows: 3 });
   const treeFrame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'filtered-tree',
-    presentation: {
+    state: {
       expandedIds: ['root'],
       query: { text: 'api', mode: 'contains' },
       selection: { mode: 'none' }
@@ -424,14 +424,14 @@ test('default interactive component anatomy uses theme tokens instead of termina
 }), { columns: 16, rows: 1 }, { focusPath: ['none'] });
   const inputFrame = renderElementFrame(textInput({
     id: 'query',
-    presentation: { value: 'find', cursor: 0 },
+    state: { value: 'find', cursor: 0 },
     meta: { accessibleName: "Text input",
         focus: { disabled: true }
     }
 }), { columns: 18, rows: 1 });
   const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'command',
-    presentation: { input: { text: '/open README.md', cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([
+    view: { input: { text: '/open README.md', cursor: 0 }, open: true, suggestions: createCommandSuggestions([
       { id: 'open', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/open' }, label: 'Open file' },
       { id: 'save', completion: { range: { startOffset: 0, endOffsetExclusive: 15 }, text: '/save' }, label: 'Save file' }
     ]), activeSuggestionId: 'open' },
@@ -439,7 +439,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
   }), { columns: 36, rows: 3 });
   const menuFrame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },
     id: 'menu',
-    presentation: {
+    view: {
       activePath: ['open'],
       items: [
         { kind: 'action', id: 'open', label: 'Open' },
@@ -451,26 +451,26 @@ test('default interactive component anatomy uses theme tokens instead of termina
     id: 'region',
     label: 'Region',
     meta: { accessibleName: "Menu", focus: { disabled: true } },
-    presentation: { kind: 'closed', active: 'us' },
+    view: { kind: 'closed', active: 'us' },
     items: [
       { kind: 'action', id: 'us', label: 'United States' }
     ]
   }), { columns: 32, rows: 1 });
   const searchPickerFrame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
     id: 'searchPicker',
-    presentation: {
+    view: {
       input: { text: 'o', cursor: 1 },
       query: { mode: 'fuzzy' },
       activeId: 'toggle'
     },
-    searchPickerIndex: prepareSearchPickerIndex([
+    searchPickerIndex: createSearchPickerIndex([
       { id: 'open', label: 'Open file' },
       { id: 'toggle', label: 'Toggle theme' }
     ])
   }), { columns: 36, rows: 5 });
   const tabsFrame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
-    presentation: { activeId: 'one', selectedId: 'one' },
+    state: { activeId: 'one', selectedId: 'one' },
     tabs: [
       { id: 'one', label: 'One', panel: text({ content: 'One' }) },
       { id: 'two', label: 'Two', panel: text({ content: 'Two' }) }
@@ -485,7 +485,7 @@ test('default interactive component anatomy uses theme tokens instead of termina
   }), { columns: 18, rows: 3 });
   const treeFrame = renderElementFrame(tree({
     id: 'tree',
-    presentation: {
+    state: {
       expandedIds: ['root'],
       activeId: 'api',
       selection: { mode: 'single', selectedId: 'api' }
@@ -533,7 +533,7 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
             kind: 'branch',
             children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
         }],
-    presentation: {
+    state: {
       expandedIds: ['root'],
       selection: { mode: 'none' }
     },
@@ -567,8 +567,8 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
     listbox({
       id: 'selection-listbox',
       items: ['Atlas'],
-      projectItem: (item) => ({ id: item, label: item }),
-      presentation: {
+      toOption: (item) => ({ id: item, label: item }),
+      state: {
         activeId: 'Atlas',
         selection: { mode: 'single', selectedId: 'Atlas' }
       },
@@ -579,7 +579,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
       rows: [['Atlas']],
       columns: [{ id: 'name', header: 'Name', value: (row) => row[0] }],
       getRowId: () => 'atlas',
-      presentation: {
+      state: {
         interaction: {
           kind: 'row', activeRowId: 'atlas', selection: { mode: 'single', selectedRowId: 'atlas' },
         }
@@ -588,7 +588,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
     }),
     tree({
       id: 'selection-tree',
-      presentation: {
+      state: {
         expandedIds: [],
         activeId: 'atlas',
         selection: { mode: 'single', selectedId: 'atlas' }
@@ -616,7 +616,7 @@ test('data selections rely on graphical backgrounds and retain a monochrome mark
 test('tabs use shared selected disabled and value styles', () => {
   const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
-    presentation: { activeId: 'data', selectedId: 'data' },
+    state: { activeId: 'data', selectedId: 'data' },
     tabs: [
       { id: 'dash', label: 'Dash', panel: text({ content: 'Dashboard' }) },
       { id: 'data', label: 'Data', panel: text({ content: 'Data view' }) },
@@ -642,7 +642,7 @@ test('tabs use shared selected disabled and value styles', () => {
 test('log viewer omissions and dialog borders use their direct style slots', () => {
   const logViewerFrame = renderElementFrame(logViewer({
     id: 'styled-log-viewer',
-    history: prepareLogHistory(Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` }))),
+    history: createLogHistory(Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` }))),
     styles: {
             parts: { marker: tokenStyle('status.warning') }
         }
@@ -650,7 +650,7 @@ test('log viewer omissions and dialog borders use their direct style slots', () 
   const modalFrame = renderElementFrame(dialog({
     slots: {
       content: text({ content: 'Body' }),
-      actions: row([button({ id: 'dialog-ok', label: 'OK', onAction: () => ({ kind: 'ok' }) })])
+      actions: row([button({ id: 'dialog-ok', label: 'OK', onPress: () => ({ kind: 'ok' }) })])
     },
     id: 'styled-dialog',
     title: 'Panel',
@@ -681,7 +681,7 @@ test('structural text roles use shared visual grammar', () => {
 });
 
 test('layout surfaces do not inherit component focus state', () => {
-  const focusedFrame = renderElementFrame(surface(textInput({ meta: { accessibleName: "Text input" }, id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
+  const focusedFrame = renderElementFrame(surface(textInput({ meta: { accessibleName: "Text input" }, id: 'pane-field', state: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
     appearance: 'bar'
   }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'], theme: defaultTheme });
@@ -785,7 +785,7 @@ test('chart components apply their styles and source metadata', () => {
     id: 'bars',
     label: 'Builds',
     items: [{ id: 'atlas', label: 'Atlas', value: 5 }],
-    presentation: { activeId: 'atlas', selection: { mode: 'single', selectedId: 'atlas' } },
+    state: { activeId: 'atlas', selection: { mode: 'single', selectedId: 'atlas' } },
     onTransition: noMessage,
     styles: {
             parts: { label: tokenStyle('accent.primary') },
@@ -796,7 +796,7 @@ test('chart components apply their styles and source metadata', () => {
     id: 'chart',
     label: 'Requests',
     series: [],
-    dataState: 'error',
+    dataStatus: 'error',
     errorText: 'Unavailable'
   }), { columns: 24, rows: 1 });
   const heatmapFrame = renderElementFrame(heatmap({
@@ -838,7 +838,7 @@ test('choice and picker controls use shared form visual styles and source metada
   const checkboxFrame = renderElementFrame(checkboxGroup({ meta: { accessibleName: "Choices" },
     id: 'checks',
     label: 'Checks',
-    presentation: {
+    state: {
       activeId: 'a',
       selection: { mode: 'multiple', selectedIds: ['a'] }
     },
@@ -850,7 +850,7 @@ test('choice and picker controls use shared form visual styles and source metada
   const colorFrame = renderElementFrame(colorSwatchPicker({ meta: { accessibleName: "Colors" },
     id: 'colors',
     label: 'Colors',
-    presentation: {
+    state: {
       activeId: 'green',
       selection: { mode: 'single', selectedId: 'green' }
     },
@@ -859,7 +859,7 @@ test('choice and picker controls use shared form visual styles and source metada
   const dateFrame = renderElementFrame(calendar({ meta: { accessibleName: "Calendar" },
     id: 'dates',
     label: 'Dates',
-    presentation: calendarFixture({ selectedDate: { year: 2026, month: 6, day: 2 } })
+    view: calendarFixture({ selectedDate: { year: 2026, month: 6, day: 2 } })
   }), { columns: 30, rows: 8 });
 
   assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.description === 'value.on')?.bg?.token, 'control.toggle.on.background');

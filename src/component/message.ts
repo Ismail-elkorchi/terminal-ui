@@ -20,7 +20,7 @@ export function mapComponentAction(
   const message = mapper(action);
   if (message === undefined || message === null) {
     throw new TypeError(
-      'Component onAction returned null or undefined. Return ignoreMessage() to ignore an action.',
+      'Component action mapper returned null or undefined. Return ignoreMessage() to ignore an action.',
     );
   }
   return message;

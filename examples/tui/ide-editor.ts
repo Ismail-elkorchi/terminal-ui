@@ -13,7 +13,7 @@ import {
   grid,
   helpBar,
   menuBar,
-  prepareCommandSuggestions,
+  createCommandSuggestions,
   overlay,
   runTui,
   splitPane,
@@ -31,30 +31,30 @@ import type {
   MenuItem,
   TabCloseEvent,
   TabsTransition,
-  TextAreaAction,
+  TextAreaTransition,
   TreeNode,
-  ScrollableTreePresentation,
+  ScrollableTreeState,
   TreeTransition,
   TuiContext,
 } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import {
-  commandInputPresentation,
+  commandInputView,
   createCommandInputState,
   createTextAreaState,
   commandInputReducer,
   createScrollState,
-  menuBarPresentation,
+  menuBarView,
   menuBarReducer,
   tabsReducer,
   textAreaReducer,
   treeReducer,
-  prepareTreeSource,
-  prepareTreeView,
+  createTreeSource,
+  createTreeView,
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import type { CommandInputState, MenuBarState, TextAreaState } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { PreparedTreeSource } from '@ismail-elkorchi/terminal-ui';
+import type { TreeSource } from '@ismail-elkorchi/terminal-ui';
 import { createTuiRuntime } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TuiEffect, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
 import { textDocumentBytes, textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
@@ -108,8 +108,8 @@ interface ChooserState {
 interface EditorState {
   readonly root?: string;
   readonly nodes: readonly TreeNode<EntryMetadata>[];
-  readonly treeSource: PreparedTreeSource<EntryMetadata>;
-  readonly tree: ScrollableTreePresentation;
+  readonly treeSource: TreeSource<EntryMetadata>;
+  readonly tree: ScrollableTreeState;
   readonly buffers: readonly EditorBuffer[];
   readonly activePath?: string;
   readonly menu: MenuBarState;
@@ -121,17 +121,17 @@ interface EditorState {
 }
 
 type EditorMessage =
-  | { readonly kind: 'menu'; readonly action: MenuBarTransition }
+  | { readonly kind: 'menu'; readonly transition: MenuBarTransition }
   | { readonly kind: 'menuActivate'; readonly id: string }
-  | { readonly kind: 'tree'; readonly action: TreeTransition }
+  | { readonly kind: 'tree'; readonly transition: TreeTransition }
   | { readonly kind: 'treeActivate'; readonly id: string }
-  | { readonly kind: 'tabs'; readonly action: TabsTransition }
+  | { readonly kind: 'tabs'; readonly transition: TabsTransition }
   | { readonly kind: 'closeTab'; readonly event: TabCloseEvent }
-  | { readonly kind: 'edit'; readonly path: string; readonly action: TextAreaAction }
-  | { readonly kind: 'command'; readonly action: CommandInputTransition }
+  | { readonly kind: 'edit'; readonly path: string; readonly transition: TextAreaTransition }
+  | { readonly kind: 'command'; readonly transition: CommandInputTransition }
   | { readonly kind: 'submitCommand'; readonly value: string }
   | { readonly kind: 'showChooser'; readonly mode: OpenMode }
-  | { readonly kind: 'chooser'; readonly action: CommandInputTransition }
+  | { readonly kind: 'chooser'; readonly transition: CommandInputTransition }
   | { readonly kind: 'submitChooser'; readonly value: string }
   | { readonly kind: 'dismissChooser' }
   | { readonly kind: 'requestOpen'; readonly mode: OpenMode; readonly path: string }
@@ -163,7 +163,7 @@ const MAX_EDITOR_FILE_BYTES = 4 * 1_024 * 1_024;
 function initialState(): EditorState {
   return {
     nodes: [],
-    treeSource: prepareTreeSource<EntryMetadata>([]),
+    treeSource: createTreeSource<EntryMetadata>([]),
     tree: {
       expandedIds: [],
       selection: { mode: 'single', selectionFollowsActive: true },
@@ -179,7 +179,7 @@ function initialState(): EditorState {
 }
 
 function emptyCommand(): CommandInputState {
-  return createCommandInputState({ suggestions: prepareCommandSuggestions([]) });
+  return createCommandInputState({ suggestions: createCommandSuggestions([]) });
 }
 
 export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorOperations) {
@@ -219,14 +219,14 @@ function updateEditor(
 ): TuiUpdateResult<EditorState, EditorMessage> {
   switch (message.kind) {
     case 'menu': {
-      const menu = menuBarReducer(state.menu, message.action, menuItems);
+      const menu = menuBarReducer(state.menu, message.transition, menuItems);
       return result({ ...state, menu });
     }
     case 'menuActivate':
       return commandResult(state, message.id, operations);
     case 'tree': {
-      const treeState = treeReducer(state.tree, message.action, {
-        view: prepareTreeView(state.treeSource, state.tree),
+      const treeState = treeReducer(state.tree, message.transition, {
+        view: createTreeView(state.treeSource, state.tree),
       });
       return result({ ...state, tree: treeState });
     }
@@ -236,20 +236,20 @@ function updateEditor(
       return requestOpen(state, 'file', node.metadata.path, operations);
     }
     case 'tabs':
-      return updateTabs(state, message.action);
+      return updateTabs(state, message.transition);
     case 'closeTab':
       return result(closeBuffer(state, message.event.id));
     case 'edit': {
       const buffer = state.buffers.find((candidate) => candidate.path === message.path);
       if (buffer === undefined) return result(state);
-      const editor = textAreaReducer(buffer.editor, message.action).state;
+      const editor = textAreaReducer(buffer.editor, message.transition).state;
       if (textDocumentBytes(editor.document) > MAX_EDITOR_FILE_BYTES) {
         return result({ ...state, notice: `Files are limited to ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} in this example.` });
       }
       return result(updateBuffer(state, message.path, (candidate) => ({ ...candidate, editor })));
     }
     case 'command':
-      return result({ ...state, command: commandInputReducer(state.command, message.action) });
+      return result({ ...state, command: commandInputReducer(state.command, message.transition) });
     case 'submitCommand':
       return submitCommand(state, message.value, operations);
     case 'showChooser':
@@ -259,7 +259,7 @@ function updateEditor(
         ? result(state)
         : result({
             ...state,
-            chooser: { ...state.chooser, command: commandInputReducer(state.chooser.command, message.action) }
+            chooser: { ...state.chooser, command: commandInputReducer(state.chooser.command, message.transition) }
           });
     case 'submitChooser':
       return state.chooser === undefined
@@ -275,7 +275,7 @@ function updateEditor(
         ...state,
         root: message.root,
         nodes: message.nodes,
-        treeSource: prepareTreeSource(message.nodes),
+        treeSource: createTreeSource(message.nodes),
         tree: {
           expandedIds: message.nodes.filter((node) => node.kind !== 'leaf').map((node) => node.id),
           ...(message.nodes[0]?.id === undefined ? {} : { activeId: message.nodes[0].id }),
@@ -567,8 +567,8 @@ function topMenu(state: EditorState): Element<EditorMessage> {
     id: 'editor-menu',
     meta: { accessibleName: 'Application menu' },
     items: menuItems,
-    presentation: menuBarPresentation(menuItems, state.menu),
-    onTransition: (action): EditorMessage => ({ kind: 'menu', action }),
+    view: menuBarView(menuItems, state.menu),
+    onTransition: (transition): EditorMessage => ({ kind: 'menu', transition }),
     onActivate: (event): EditorMessage => ({ kind: 'menuActivate', id: event.id }),
   }), { id: 'editor-menu-surface', appearance: 'bar', padding: { left: 1, right: 1 } });
 }
@@ -580,10 +580,10 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
     tree({
       id: 'editor-tree',
       meta: { accessibleName: 'File explorer' },
-      view: prepareTreeView(state.treeSource, state.tree),
-      presentation: state.tree,
+      view: createTreeView(state.treeSource, state.tree),
+      state: state.tree,
       emptyText: 'Use /folder <path>',
-      onTransition: (action): EditorMessage => ({ kind: 'tree', action }),
+      onTransition: (transition): EditorMessage => ({ kind: 'tree', transition }),
       onActivate: (event): EditorMessage => ({ kind: 'treeActivate', id: event.id }),
     }),
     helpBar({ id: 'explorer-help', groups: [{ id: 'tree', bindings: [
@@ -614,17 +614,17 @@ function editorPane(state: EditorState): Element<EditorMessage> {
       panel: textArea({
         id: `editor:${buffer.path}`,
         meta: { accessibleName: `Editor ${buffer.label}` },
-        presentation: buffer.editor,
+        state: buffer.editor,
         lineNumbers: true,
         highlightActiveLine: true,
         scrollbar: { visible: 'auto' },
-        onAction: (action: TextAreaAction): EditorMessage => ({ kind: 'edit', path: buffer.path, action })
+        onTransition: (transition: TextAreaTransition): EditorMessage => ({ kind: 'edit', path: buffer.path, transition })
       })
     })),
-    presentation: state.activePath === undefined
+    state: state.activePath === undefined
       ? {}
       : { activeId: state.activePath, selectedId: state.activePath },
-    onTransition: (action): EditorMessage => ({ kind: 'tabs', action }),
+    onTransition: (transition): EditorMessage => ({ kind: 'tabs', transition }),
     onClose: (event): EditorMessage => ({ kind: 'closeTab', event }),
   });
 }
@@ -651,11 +651,11 @@ function commandPane(state: EditorState): Element<EditorMessage> {
     id: 'editor-command',
     prompt: '› ',
     placeholder: '/open README.md, /folder src, /save, /close',
-    presentation: commandInputPresentation(state.command),
+    view: commandInputView(state.command),
     display: 'popup',
     placement: 'above',
     maxVisibleSuggestions: 6,
-    onTransition: (action): EditorMessage => ({ kind: 'command', action }),
+    onTransition: (transition): EditorMessage => ({ kind: 'command', transition }),
     onSubmit: (event): EditorMessage => ({ kind: 'submitCommand', value: event.value })
   }), {
     id: 'editor-command-surface',
@@ -681,9 +681,9 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
         id: 'path-chooser-input',
         prompt: 'Path › ',
         placeholder: chooser.mode === 'folder' ? '/path/to/folder' : '/path/to/file',
-        presentation: commandInputPresentation(chooser.command),
+        view: commandInputView(chooser.command),
         display: 'compact',
-        onTransition: (action): EditorMessage => ({ kind: 'chooser', action }),
+        onTransition: (transition): EditorMessage => ({ kind: 'chooser', transition }),
         onSubmit: (event): EditorMessage => ({ kind: 'submitChooser', value: event.value })
       })
     },
@@ -692,18 +692,18 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
     modal: true,
     focusPolicy: { initialFocus: { kind: 'element', elementId: 'path-chooser-input' }, returnFocus: 'restore' },
     dismissal: { dismissOnEscape: true, dismissOnOutsidePress: true },
-    onAction: (): EditorMessage => ({ kind: 'dismissChooser' }),
+    onDismiss: (): EditorMessage => ({ kind: 'dismissChooser' }),
     width: 72,
     padding: { left: 1, right: 1 }
   });
 }
 
-function updateTabs(state: EditorState, action: TabsTransition): TuiUpdateResult<EditorState, EditorMessage> {
+function updateTabs(state: EditorState, transition: TabsTransition): TuiUpdateResult<EditorState, EditorMessage> {
   const selected = tabsReducer(
     state.activePath === undefined
       ? {}
       : { activeId: state.activePath, selectedId: state.activePath },
-    action,
+    transition,
     {
       tabs: state.buffers.map((buffer) => ({ id: buffer.path })),
       activation: 'automatic'
@@ -870,7 +870,7 @@ export async function runScriptedIdeEditor() {
     await waitForIdle(runtime);
     await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: planPath });
     await waitForIdle(runtime);
-    await runtime.dispatch({ kind: 'edit', path: planPath, action: { kind: 'edit', operation: { kind: 'insert', text: 'planned: ' } } });
+    await runtime.dispatch({ kind: 'edit', path: planPath, transition: { kind: 'edit', operation: { kind: 'insert', text: 'planned: ' } } });
     await runtime.dispatch({ kind: 'saveActive' });
     await waitForIdle(runtime);
     await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: readmePath });

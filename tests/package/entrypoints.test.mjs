@@ -40,17 +40,17 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.behavior.textInputReducer, 'function');
   assert.equal('gridCellRects' in terminalUi, false);
   assert.equal('layoutContentBounds' in terminalUi, false);
-  assert.equal('normalizeLayoutFlowOptions' in terminalUi, false);
+  assert.equal('decodeLayoutFlowOptions' in terminalUi, false);
 });
 
 test('focused component entrypoints own their factories and companion contracts', () => {
   assertNoTypeDiagnostics(`
-    import { link, type DisclosureAction } from '@ismail-elkorchi/terminal-ui/components/foundations';
-    import { textInput, type TextInputAction } from '@ismail-elkorchi/terminal-ui/components/forms';
+    import { link, type DisclosureTransition } from '@ismail-elkorchi/terminal-ui/components/foundations';
+    import { textInput, type TextInputTransition } from '@ismail-elkorchi/terminal-ui/components/forms';
     import { dataGrid, tableColumn, type DataGridTransition } from '@ismail-elkorchi/terminal-ui/components/collections';
     import { menuTrigger, type MenuTriggerTransition } from '@ismail-elkorchi/terminal-ui/components/overlays';
     import { progressBar, type NotificationHistoryTransition } from '@ismail-elkorchi/terminal-ui/components/feedback';
-    import { commandInput, prepareCommandSuggestions, type CommandInputTransition } from '@ismail-elkorchi/terminal-ui/components/patterns';
+    import { commandInput, createCommandSuggestions, type CommandInputTransition } from '@ismail-elkorchi/terminal-ui/components/patterns';
     import { chart, type ChartTransition } from '@ismail-elkorchi/terminal-ui/components/visualizations';
 
     void link;
@@ -60,9 +60,9 @@ test('focused component entrypoints own their factories and companion contracts'
     void menuTrigger;
     void progressBar;
     void commandInput;
-    void prepareCommandSuggestions;
+    void createCommandSuggestions;
     void chart;
-    type Contracts = DisclosureAction | TextInputAction | DataGridTransition |
+    type Contracts = DisclosureTransition | TextInputTransition | DataGridTransition |
       MenuTriggerTransition | NotificationHistoryTransition | CommandInputTransition | ChartTransition;
     type _Use = Contracts;
   `);
@@ -137,17 +137,23 @@ test('testing harness exposes captured output, clocks, and PTY input closure', (
 
 test('entrypoint declarations expose layered public type contracts', async () => {
   const declaration = await readFile(new URL('../../dist/index.d.ts', import.meta.url), 'utf8');
-  const componentContractsDeclaration = await readFile(new URL('../../dist/ui-model/contracts.d.ts', import.meta.url), 'utf8');
+  const componentDomainDeclarations = (await Promise.all([
+    '../../dist/collection/item.d.ts',
+    '../../dist/components/status-bar.d.ts',
+    '../../dist/components/progress.d.ts',
+    '../../dist/behavior/log-history.d.ts',
+    '../../dist/components/validation.d.ts'
+  ].map((path) => readFile(new URL(path, import.meta.url), 'utf8')))).join('\n');
   const componentElementDeclaration = await readFile(new URL('../../dist/element/types.d.ts', import.meta.url), 'utf8');
   const componentOptionDeclarations = (await Promise.all([
     'base',
-    'content',
-    'documents',
+    'content-and-collections',
+    'patterns',
     'drawing',
-    'feedback',
+    'feedback-and-visualizations',
     'foundations',
     'forms',
-    'menus',
+    'overlays',
     'tabs',
     'collections'
   ].map((name) => name === 'base'
@@ -186,7 +192,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'LogLevel',
     'ValidationLevel'
   ]) {
-    assert.match(componentContractsDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
+    assert.match(componentDomainDeclarations, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
   }
   assert.doesNotMatch(componentOptionDeclarations, /\bFrameBuffer\b/u);
 
@@ -216,13 +222,13 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'CommandInputTransition',
     'CommandInputState',
     'LogHistory',
-    'LogViewerAction',
+    'LogViewerTransition',
     'NavigationEntry',
     'NavigationStack',
-    'NavigationStackAction',
-    'NotificationAction',
+    'NavigationStackTransition',
+    'NotificationTransition',
     'SearchPickerTransition',
-    'ScrollAction',
+    'ScrollTransition',
     'DataGridTransition',
     'TreeTransition'
   ]) {
@@ -312,7 +318,7 @@ test('public renderer helpers accept component elements', () => {
     const panels = tabs({
       id: 'tabs',
       tabs: [{ id: 'main', label: 'Main', panel: text({ content: 'x', id: 'x' }) }],
-      presentation: { activeId: 'main', selectedId: 'main' },
+      state: { activeId: 'main', selectedId: 'main' },
       onTransition: (action) => action
     });
     const element = column([
@@ -356,7 +362,7 @@ test('component packages can use the narrow authoring entrypoint', () => {
       structure: 'leaf',
       semantics: 'semantic',
       accessibleRole: 'meter',
-      prepare(value) {
+      createModel(value) {
         if (typeof value.value !== 'number') {
           throw new TypeError('meter requires a numeric value');
         }
@@ -386,7 +392,7 @@ test('component packages can use the narrow authoring entrypoint', () => {
     const action = button({
       id: 'activate',
       label: 'Activate',
-      onAction: (): Message => ({ kind: 'activate' })
+      onPress: (): Message => ({ kind: 'activate' })
     });
     const panelComponent = defineComponent({
       name: 'terminal-ui-tests/components/componentPanel',
@@ -455,7 +461,7 @@ test('leaf authoring helpers preserve inferred options and actions', () => {
       name: 'terminal-ui-tests/components/status',
       identity: 'required',
       accessibleRole: 'status',
-      prepare: (value) => ({ label: value.label }),
+      createModel: (value) => ({ label: value.label }),
       measure: () => ({ minWidth: 1, minHeight: 1, preferredWidth: 1, preferredHeight: 1 }),
       render: () => undefined,
       accessibility: ({ id, model }) => ({ id, role: 'status', label: model.label }),

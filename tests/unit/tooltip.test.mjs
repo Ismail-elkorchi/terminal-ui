@@ -15,7 +15,7 @@ import { button, tooltip } from '../../dist/components/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 function trigger(id) {
-  return button({ id: `${id}-trigger`, label: 'Trigger', onAction: () => ({ kind: 'trigger' }) });
+  return button({ id: `${id}-trigger`, label: 'Trigger', onPress: () => ({ kind: 'trigger' }) });
 }
 
 test('tooltip renders bounded popover content with semantic surface tokens', () => {

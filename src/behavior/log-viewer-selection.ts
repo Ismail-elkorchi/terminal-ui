@@ -2,9 +2,9 @@ import { extractTextSelection } from '../text/index.ts';
 import {
   logHistoryRecordById,
   logHistorySegments,
-} from '../ui-model/log-history.ts';
-import type { LogHistory, LogHistoryRecord } from '../ui-model/log-history.ts';
-import type { LogViewerBodyAnchor, LogViewerSelection } from '../ui-model/log-viewer.ts';
+} from './log-history.ts';
+import type { LogHistory, LogHistoryRecord } from './log-history.ts';
+import type { LogViewerBodyAnchor, LogViewerSelection } from './log-viewer.ts';
 
 export interface ExtractLogViewerSelectionTextInput {
   readonly history: LogHistory;

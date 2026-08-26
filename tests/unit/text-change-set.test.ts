@@ -5,12 +5,12 @@ import {
   applyTextChangeSet,
   createTextChangeSet,
   invertTextChangeSet,
-  prepareTextDocument,
+  createTextDocument,
   textDocumentText
 } from '../../dist/text/index.js';
 
 void test('text change sets apply ordered UTF-16 edits against one source revision', () => {
-  const document = prepareTextDocument('A🙂BCDEF');
+  const document = createTextDocument('A🙂BCDEF');
   const changeSet = createTextChangeSet([
     { startOffset: 1, endOffsetExclusive: 3, insertedText: 'emoji' },
     { startOffset: 5, endOffsetExclusive: 7, insertedText: '!' }
@@ -32,13 +32,13 @@ void test('text change sets reject ambiguous ranges before editing', () => {
     { startOffset: 2, endOffsetExclusive: 2, insertedText: 'y' }
   ]), /ordered by source offset and must not overlap/u);
   assert.throws(() => applyTextChangeSet(
-    prepareTextDocument('short'),
+    createTextDocument('short'),
     createTextChangeSet([{ startOffset: 5, endOffsetExclusive: 6, insertedText: '' }])
   ), /exceeds the source document/u);
 });
 
 void test('text change sets preserve exact UTF-16 boundaries instead of applying interactive caret normalization', () => {
-  const document = prepareTextDocument('ab');
+  const document = createTextDocument('ab');
   const changeSet = createTextChangeSet([
     { startOffset: 0, endOffsetExclusive: 1, insertedText: 'X' },
     { startOffset: 1, endOffsetExclusive: 1, insertedText: '\u0301' }
@@ -51,14 +51,14 @@ void test('text change sets preserve exact UTF-16 boundaries instead of applying
     'ab'
   );
 
-  const crlf = prepareTextDocument('a\r\nb');
+  const crlf = createTextDocument('a\r\nb');
   assert.equal(textDocumentText(applyTextChangeSet(crlf, createTextChangeSet([
     { startOffset: 2, endOffsetExclusive: 2, insertedText: 'X' }
   ]))), 'a\rX\nb');
 });
 
 void test('text change sets discard empty changes and preserve document identity for equal replacements', () => {
-  const document = prepareTextDocument('same');
+  const document = createTextDocument('same');
   assert.deepEqual(createTextChangeSet([
     { startOffset: 2, endOffsetExclusive: 2, insertedText: '' }
   ]).changes, []);

@@ -1,8 +1,8 @@
 import { finiteNonNegativeIntegerOrZero } from '../foundation/validation.ts';
 import type {
   CreateScrollStateInput,
-  ScrollAction,
-  ScrollEvent,
+  ScrollTransition,
+  ScrollRequest,
   ScrollGeometry,
   ScrollState,
   ScrollVisibleWindow,
@@ -25,31 +25,31 @@ export function createScrollState(input: CreateScrollStateInput = {}): ScrollSta
 
 export function scrollReducer(
   state: ScrollState,
-  action: ScrollAction,
+  transition: ScrollTransition,
   geometry: ScrollGeometry = unboundedGeometry,
 ): ScrollState {
   const normalized = normalizeScrollState(state, geometry);
-  switch (action.kind) {
+  switch (transition.kind) {
     case 'setOffset':
       return preserveScrollIdentity(state, normalizeScrollState({
         ...normalized,
-        offsetRow: action.rows ?? normalized.offsetRow,
-        offsetColumn: action.columns ?? normalized.offsetColumn,
-        followTail: action.rows === undefined ? normalized.followTail : false,
+        offsetRow: transition.rows ?? normalized.offsetRow,
+        offsetColumn: transition.columns ?? normalized.offsetColumn,
+        followTail: transition.rows === undefined ? normalized.followTail : false,
       }, geometry));
     case 'scrollLines':
       return preserveScrollIdentity(state, normalizeScrollState({
         ...normalized,
-        offsetRow: normalized.offsetRow + (action.rows ?? 0),
-        offsetColumn: normalized.offsetColumn + (action.columns ?? 0),
-        followTail: action.rows === undefined || action.rows >= 0 ? normalized.followTail : false,
+        offsetRow: normalized.offsetRow + (transition.rows ?? 0),
+        offsetColumn: normalized.offsetColumn + (transition.columns ?? 0),
+        followTail: transition.rows === undefined || transition.rows >= 0 ? normalized.followTail : false,
       }, geometry));
     case 'scrollPages':
       return preserveScrollIdentity(state, normalizeScrollState({
         ...normalized,
-        offsetRow: normalized.offsetRow + (action.rows ?? 0) * Math.max(1, geometry.viewportRows),
-        offsetColumn: normalized.offsetColumn + (action.columns ?? 0) * Math.max(1, geometry.viewportColumns),
-        followTail: action.rows === undefined || action.rows >= 0 ? normalized.followTail : false,
+        offsetRow: normalized.offsetRow + (transition.rows ?? 0) * Math.max(1, geometry.viewportRows),
+        offsetColumn: normalized.offsetColumn + (transition.columns ?? 0) * Math.max(1, geometry.viewportColumns),
+        followTail: transition.rows === undefined || transition.rows >= 0 ? normalized.followTail : false,
       }, geometry));
     case 'top':
       return preserveScrollIdentity(state, { ...normalized, offsetRow: 0, followTail: false });
@@ -66,24 +66,24 @@ export function scrollReducer(
           normalized.offsetRow,
           geometry.contentRows,
           geometry.viewportRows,
-          action.itemIndex,
-          action.alignment,
+          transition.itemIndex,
+          transition.alignment,
         ),
         followTail: false,
       });
     case 'setFollowTail':
       return preserveScrollIdentity(state, {
         ...normalized,
-        followTail: action.followTail,
-        offsetRow: action.followTail
+        followTail: transition.followTail,
+        offsetRow: transition.followTail
           ? bottomOffset(geometry.contentRows, geometry.viewportRows)
           : normalized.offsetRow,
       });
   }
 }
 
-export function applyScrollEvent(state: ScrollState, event: ScrollEvent): ScrollState {
-  return preserveScrollIdentity(state, event.nextState);
+export function applyScrollRequest(state: ScrollState, request: ScrollRequest): ScrollState {
+  return preserveScrollIdentity(state, request.nextState);
 }
 
 export function visibleWindowFromScroll(

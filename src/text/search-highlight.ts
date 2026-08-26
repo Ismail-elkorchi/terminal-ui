@@ -1,7 +1,7 @@
 import {
-  findPreparedTextMatches,
-  prepareTextSearchIndex,
-  prepareTextSearchQuery
+  findTextMatches,
+  createTextSearchIndex,
+  compileTextSearchQuery
 } from './search-index.ts';
 import type { TextHighlightMatch, TextHighlightOptions } from './search-index.ts';
 
@@ -10,8 +10,8 @@ export function findTextHighlightMatches(
   query: string,
   options: TextHighlightOptions = {}
 ): readonly TextHighlightMatch[] {
-  return findPreparedTextMatches(
-    prepareTextSearchIndex(text, options),
-    prepareTextSearchQuery(query, options)
+  return findTextMatches(
+    createTextSearchIndex(text, options),
+    compileTextSearchQuery(query, options)
   );
 }

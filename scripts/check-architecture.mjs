@@ -27,16 +27,16 @@ const architectureDependencyGraph = new Map();
 const failures = [];
 const deterministicGlobalLayers = new Set([
   'behavior',
+  'collection',
   'component',
   'components',
   'layout',
   'renderer',
-  'ui-model',
   'visual'
 ]);
 const timerRestrictedLayers = new Set([...deterministicGlobalLayers, 'tui']);
 const componentDefinitionPrivateRendererDependencies = new Set([
-  'renderer/model/component-node.ts'
+  'renderer/internal/render-tree/component-node.ts'
 ]);
 const componentSharedRendererDependencies = new Set([
   'renderer/contracts.ts',
@@ -58,15 +58,16 @@ const ambientRuntimeNames = new Set([
 ]);
 const architectureDependencies = new Map([
   ['accessibility', new Set(['diagnostics.ts', 'foundation', 'result.ts', 'text'])],
-  ['behavior', new Set(['foundation', 'interaction', 'text', 'ui-model'])],
+  ['behavior', new Set(['collection', 'foundation', 'input', 'interaction', 'text', 'visual'])],
+  ['collection', new Set(['foundation', 'text'])],
   ['component', new Set([
     'accessibility', 'behavior', 'element', 'foundation', 'geometry', 'input',
-    'interaction', 'renderer', 'text', 'theme', 'ui-model', 'visual'
+    'collection', 'interaction', 'renderer', 'text', 'theme', 'visual'
   ])],
   ['components', new Set([
     'accessibility', 'behavior', 'component', 'element', 'foundation', 'geometry',
     'graphics', 'input', 'interaction', 'layout', 'renderer', 'text', 'theme',
-    'ui-model', 'visual'
+    'collection', 'visual'
   ])],
   ['diagnostic-identity.ts', new Set()],
   ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'foundation', 'text'])],
@@ -79,13 +80,13 @@ const architectureDependencies = new Map([
   ['index.ts', new Set([
     'behavior', 'component', 'components', 'diagnostics.ts', 'element', 'errors.ts',
     'foundation', 'graphics', 'host', 'interaction', 'layout', 'result.ts', 'tui',
-    'ui-model', 'visual'
+    'collection', 'visual'
   ])],
   ['input', new Set(['diagnostics.ts', 'foundation', 'host', 'protocol', 'text'])],
   ['interaction', new Set(['diagnostics.ts', 'foundation', 'geometry', 'input', 'text'])],
   ['layout', new Set([
-    'behavior', 'element', 'foundation', 'geometry', 'interaction', 'renderer',
-    'ui-model', 'visual'
+    'behavior', 'collection', 'element', 'foundation', 'geometry', 'interaction', 'renderer',
+    'visual'
   ])],
   ['prompts', new Set([
     'accessibility', 'diagnostics.ts', 'foundation', 'host', 'input', 'renderer',
@@ -94,7 +95,7 @@ const architectureDependencies = new Map([
   ['protocol', new Set(['diagnostics.ts', 'foundation', 'geometry', 'graphics', 'text'])],
   ['renderer', new Set([
     'accessibility', 'behavior', 'diagnostics.ts', 'element', 'foundation', 'geometry', 'graphics',
-    'input', 'interaction', 'protocol', 'text', 'theme', 'ui-model', 'visual'
+    'input', 'interaction', 'protocol', 'text', 'theme', 'visual'
   ])],
   ['result.ts', new Set(['diagnostics.ts'])],
   ['testing', new Set([
@@ -112,7 +113,6 @@ const architectureDependencies = new Map([
     'geometry', 'graphics', 'host', 'input', 'interaction', 'protocol', 'renderer',
     'text', 'theme', 'transcript'
   ])],
-  ['ui-model', new Set(['element', 'foundation', 'geometry', 'input', 'interaction', 'text', 'visual'])],
   ['visual', new Set(['foundation', 'text'])]
 ]);
 const externalRuntimeDependencies = new Map([
@@ -507,17 +507,23 @@ function inspectDependencyAuthority(filePath, sourceLayer, dependency) {
 function forbiddenPrivateDependency(sourceFile, sourceLayer, targetFile) {
   const sourcePath = sourceRelative(sourceFile);
   const targetPath = sourceRelative(targetFile);
-  if (sourcePath.startsWith('renderer/model/') && targetPath.startsWith('renderer/internal/')) return true;
+  if (sourcePath.startsWith('renderer/internal/render-tree/')) {
+    return targetPath.startsWith('renderer/internal/')
+      && !targetPath.startsWith('renderer/internal/render-tree/');
+  }
   if (sourceLayer === 'component' && targetPath.startsWith('renderer/')) {
     if (componentSharedRendererDependencies.has(targetPath)) return false;
     return sourcePath !== 'component/definition.ts'
       || !componentDefinitionPrivateRendererDependencies.has(targetPath);
   }
   if (sourceLayer === 'components'
-    && (targetPath.startsWith('renderer/internal/') || targetPath.startsWith('renderer/model/'))) {
+    && (targetPath.startsWith('renderer/internal/') || targetPath.startsWith('renderer/internal/render-tree/'))) {
     return true;
   }
-  return sourceLayer === 'layout' && targetPath.startsWith('renderer/internal/');
+  if (sourceLayer === 'layout' && targetPath.startsWith('renderer/internal/')) {
+    return !targetPath.startsWith('renderer/internal/render-tree/');
+  }
+  return false;
 }
 
 function inspectPublicBoundary(sourceFile, filePath, sourceEntrypoints) {
@@ -767,10 +773,10 @@ function reportRuntimeCycles(graph) {
   for (const component of stronglyConnectedComponents(graph)) {
     if (component.length <= 1) continue;
     const units = [...new Set(component.map(architectureUnit))];
-    const modelOnly = units.length === 1
+    const renderTreeOnly = units.length === 1
       && units[0] === 'renderer'
-      && component.every((filePath) => sourceRelative(filePath).startsWith('renderer/model/'));
-    if (modelOnly) continue;
+      && component.every((filePath) => sourceRelative(filePath).startsWith('renderer/internal/render-tree/'));
+    if (renderTreeOnly) continue;
     const key = cycleKey(component);
     reported.add(key);
     failures.push(`runtime dependency cycle: ${component.map(relative).sort().join(', ')}`);
@@ -794,9 +800,7 @@ function cycleKey(component) {
 
 function isPrivateModulePath(filePath) {
   return filePath.startsWith('internal/')
-    || filePath.startsWith('model/')
-    || filePath.includes('/internal/')
-    || filePath.includes('/model/');
+    || filePath.includes('/internal/');
 }
 
 function sourceRelative(filePath) {

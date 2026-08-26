@@ -8,7 +8,7 @@ children does not decide its category.
 
 Use this matrix to choose the narrowest component that matches the job. Add a
 component only when it has distinct state, actions, accessibility, or
-presentation semantics that current layout and component contracts cannot
+visual semantics that current layout and component contracts cannot
 express cleanly.
 
 Factories whose primary responsibility is positioning, sizing, clipping,
@@ -21,7 +21,7 @@ interactive collections from `/components/collections`, popup surfaces from
 `/components/overlays`, progress and notification output from
 `/components/feedback`, charts from `/components/visualizations`, and
 application-oriented composites from `/components/patterns`. Each focused
-entrypoint also owns the actions, presentation types, and required typed
+entrypoint also owns the actions, state or view types, and required typed
 constructors for its component family. The
 `/components` entrypoint is the complete catalog when that distinction is not
 useful to the consumer.
@@ -38,7 +38,7 @@ useful to the consumer.
 | `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command picker, number parser, or multi-line editor. |
 | `passwordInput()` | Caller-controlled single-line secret entry that masks rendered content, accessibility output, and TUI transcripts. | Secret storage, validation, or authentication by itself. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
-| `tabs()` | Tab header plus selected-panel layout with semantic select, close, and navigation actions. | Navigation routing, persistence, or hidden panel state. |
+| `tabs()` | Tab header plus selected-panel layout with semantic selection, close, and navigation interactions. | Navigation routing, persistence, or hidden panel state. |
 | `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. | A general overlay system, route, or storage for open/closed state. |
 | `canvas()` | Safe drawing component with explicit measurement and semantic label or decorative metadata. | Raw ANSI output or an imperative terminal API. |
 | `form()` | Semantic grouping of related controls with the form accessibility role. | Retaining values, performing validation, or submitting by itself. |
@@ -63,14 +63,14 @@ useful to the consumer.
 | `list()` | Passive ordered or unordered semantic list. | A keyboard-managed selector; use `listbox()` for that. |
 | `listView()` | Variable-height arbitrary-element collection with independent active item and selection policy. | A fixed-row option selector or virtual data store. |
 | `listbox()` | Fixed-row option collection with stable IDs, filtering, active-item navigation, and explicit selection policy. | Passive sequential content or arbitrary nested controls. |
-| `table()` | Passive structured rows and columns with optional controlled scrolling and sorting presentation. | A keyboard-managed grid. |
+| `table()` | Passive structured rows and columns with optional controlled scrolling and sorting state. | A keyboard-managed grid. |
 | `dataGrid()` | Row- or cell-navigation grid with explicit active position, selection policy, sorting, resizing, and scrolling. | A spreadsheet engine or database. |
 | `tree()` | Expandable immutable hierarchy with caller-owned disclosure, active position, selection, filtering, loading, and scrolling state. | A filesystem API or data-loading state machine. |
 | `pagination()` | Page navigation control paired with caller-controlled paging state. | Data loading or page storage. |
 | `logViewer()` | Append-heavy structured log viewer with severity, timestamps, metadata, search, pointer selection, context-menu events, and follow-tail actions. | Terminal scrollback, a command input, or a session transcript. |
 | `disclosure()` | One caller-controlled expandable section composed from an arbitrary child element. | Durable expansion storage, heterogeneous feed policy, or data loading. |
 | `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. | A command bar, menu bar, or interactive layout frame. |
-| `helpBar()` | Grouped keybinding hints with deterministic constrained-width projection. | Keybinding registration or command routing. |
+| `helpBar()` | Grouped keybinding hints with deterministic constrained-width layout. | Keybinding registration or command routing. |
 | `activityIndicator()` | Compact caller-driven running or settled process state. | Scheduling, hidden timers, or progress measurement. |
 | `progressBar()` | Determinate or indeterminate progress display. | Editable range input or status record. |
 | `notificationRegion()` | Bounded live notifications with optional explicit dismissal actions. | A global toast manager, durable notification storage, or expiry policy. |
@@ -141,16 +141,16 @@ component's transition callback. Passive collections can still scroll when
 given an explicit scroll-state callback; availability and scrolling are
 independent concerns.
 
-`listbox()`, `table()`, `dataGrid()`, and `tree()` accept either raw local data or a prepared
+`listbox()`, `table()`, `dataGrid()`, and `tree()` accept either raw local data or a retained
 collection from the behavior entrypoint. The two inputs are mutually
-exclusive. Use raw arrays for small data; retain prepared complete or windowed
-collections when projection, identity, or hierarchy flattening must not repeat
-on every `view()` call. The raw `items` plus `projectItem` convenience path
-projects the complete supplied array each time the component factory is called,
+exclusive. Use raw arrays for small data; retain complete or windowed collection
+snapshots when filtering, identity indexing, or hierarchy flattening must not repeat
+on every `view()` call. The raw `items` plus `toOption` convenience path
+maps the complete supplied array each time the component factory is called,
 so its construction cost is `O(n)` even when only a small viewport is visible.
 
-`logViewer()` always accepts a prepared `LogHistory`. Create it with
-`prepareLogHistory()` and retain it in application state. Add log entries
+`logViewer()` always accepts a retained `LogHistory`. Create it with
+`createLogHistory()` and retain it in application state. Add log entries
 with `appendLogHistory()` so sanitation, identity, offsets, wrapping,
 and search data remain reusable across frames.
 
@@ -214,7 +214,7 @@ button({
     ascii: '+',
     accessibleText: 'confirm'
   }],
-  onAction: () => ({ kind: 'save' })
+  onPress: () => ({ kind: 'save' })
 });
 ```
 

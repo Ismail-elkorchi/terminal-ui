@@ -122,7 +122,7 @@ test('sparkline renders an empty state with chart source metadata', () => {
 test('barChart windows visible bars and exposes selected accessibility', () => {
   const frame = renderElementFrame(barChart({
     id: 'bars',
-    presentation: { activeId: 'c', selection: { mode: 'single', selectedId: 'c' } },
+    state: { activeId: 'c', selection: { mode: 'single', selectedId: 'c' } },
     onTransition: (transition) => transition,
     items: [
       { id: 'a', label: 'A', value: 1 },
@@ -157,7 +157,7 @@ test('barChart owns retained item data at construction', () => {
 
 test('visualizations own retained multiple-selection state at construction', () => {
   const selectedIds = ['a'];
-  const presentation = { selection: { mode: 'multiple', selectedIds, anchorId: 'a' } };
+  const visualizationState = { selection: { mode: 'multiple', selectedIds, anchorId: 'a' } };
   const elements = [
     barChart({
       id: 'owned-bar-selection',
@@ -165,7 +165,7 @@ test('visualizations own retained multiple-selection state at construction', () 
         { id: 'a', label: 'A', value: 1 },
         { id: 'b', label: 'B', value: 2 }
       ],
-      presentation,
+      state: visualizationState,
       onTransition: (transition) => transition
     }),
     chart({
@@ -178,7 +178,7 @@ test('visualizations own retained multiple-selection state at construction', () 
           { id: 'b', label: 'B', value: 2 }
         ]
       }],
-      presentation,
+      state: visualizationState,
       onTransition: (transition) => transition
     }),
     heatmap({
@@ -187,7 +187,7 @@ test('visualizations own retained multiple-selection state at construction', () 
         { id: 'a', label: 'A', value: 1 },
         { id: 'b', label: 'B', value: 2 }
       ]],
-      presentation,
+      state: visualizationState,
       onTransition: (transition) => transition
     })
   ];
@@ -223,7 +223,7 @@ test('barChart budgets labels and fills in terminal cells under wide profiles', 
 test('barChart renders its loading data state', () => {
   const frame = renderElementFrame(barChart({
     id: 'loading-bars',
-    dataState: 'loading',
+    dataStatus: 'loading',
     loadingText: 'Loading bars',
     items: []
   }), { columns: 24, rows: 1 });
@@ -235,12 +235,12 @@ test('barChart renders its loading data state', () => {
 
 test('chart and meter reject values outside their component-specific state contracts', () => {
   assert.throws(
-    () => chart({ id: 'invalid-chart', series: [], dataState: 'success' }),
-    hasCauseMessage(/chart dataState must be one of loading, error/u)
+    () => chart({ id: 'invalid-chart', series: [], dataStatus: 'success' }),
+    hasCauseMessage(/chart dataStatus must be one of loading, error/u)
   );
   assert.throws(
-    () => meter({ id: 'invalid-meter', value: 10, result: 'running' }),
-    hasCauseMessage(/meter result must be success, warning, or error/u)
+    () => meter({ id: 'invalid-meter', value: 10, status: 'running' }),
+    hasCauseMessage(/meter status must be success, warning, or error/u)
   );
 });
 
@@ -324,7 +324,7 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
     id: 'fit-selected-first',
     min: 0,
     max: 10,
-    presentation: { activeId: 'load:0', selection: { mode: 'single', selectedId: 'load:0' } },
+    state: { activeId: 'load:0', selection: { mode: 'single', selectedId: 'load:0' } },
     onTransition: (transition) => transition,
     sampleMode: 'fit',
     series: [chartSeries('load', [0, 10], { kind: 'scatter' })]
@@ -333,7 +333,7 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
     id: 'fit-selected-last',
     min: 0,
     max: 10,
-    presentation: { activeId: 'load:1', selection: { mode: 'single', selectedId: 'load:1' } },
+    state: { activeId: 'load:1', selection: { mode: 'single', selectedId: 'load:1' } },
     onTransition: (transition) => transition,
     sampleMode: 'fit',
     series: [chartSeries('load', [0, 10], { kind: 'scatter' })]
@@ -355,7 +355,7 @@ test('chart window sample mode renders a raw aligned window', () => {
       sampleMode: 'window',
       sampleAlign: 'end'
     })],
-    presentation: { selection: { mode: 'none' } },
+    state: { selection: { mode: 'none' } },
     onTransition: (action) => ({ kind: 'chart', action })
   }), { columns: 3, rows: 3 });
   const firstTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:0');
@@ -425,7 +425,7 @@ test('selected heatmap cells and fixed-grid chart glyphs remain one cell under a
   const heatmapFrame = renderElementFrame(heatmap({
     id: 'selected-wide-heatmap',
     rows: [[heatmapCell('first', 1), heatmapCell('second', 0)]],
-    presentation: { activeId: 'first', selection: { mode: 'single', selectedId: 'first' } },
+    state: { activeId: 'first', selection: { mode: 'single', selectedId: 'first' } },
     onTransition: (transition) => transition,
     cellWidth: 1,
     gap: 0,
@@ -434,7 +434,7 @@ test('selected heatmap cells and fixed-grid chart glyphs remain one cell under a
   }), { columns: 2, rows: 1 }, { widthProfile });
   const chartFrame = renderElementFrame(chart({
     id: 'wide-grid-chart',
-    presentation: { activeId: 'load:1', selection: { mode: 'single', selectedId: 'load:1' } },
+    state: { activeId: 'load:1', selection: { mode: 'single', selectedId: 'load:1' } },
     onTransition: (transition) => transition,
     series: [chartSeries('load', [1, 2], { kind: 'area' })]
   }), { columns: 2, rows: 2 }, { widthProfile });
@@ -469,7 +469,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
     showLegend: true,
     xLabel: 'watch cycle',
     yLabel: 'signal',
-    presentation: { activeId: 'scatter:2', selection: { mode: 'single', selectedId: 'scatter:2' } },
+    state: { activeId: 'scatter:2', selection: { mode: 'single', selectedId: 'scatter:2' } },
     series: [
       chartSeries('line', [1, 3, 2, 4], {
         label: 'Line',
@@ -507,7 +507,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
 test('chart renders error state without anonymous text cells', () => {
   const frame = renderElementFrame(chart({
     id: 'error-chart',
-    dataState: 'error',
+    dataStatus: 'error',
     errorText: 'Chart unavailable',
     series: [chartSeries('one', [1, 2, 3])]
   }), { columns: 24, rows: 1 });
@@ -544,7 +544,7 @@ test('meter renders a labeled bounded meter with progress accessibility', () => 
     value: 75,
     max: 100,
     width: 10,
-    result: 'success'
+    status: 'success'
   }), { columns: 32, rows: 1 });
 
   const output = renderFramePlain(frame);
@@ -560,7 +560,7 @@ test('meter renders a labeled bounded meter with progress accessibility', () => 
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.elementKind, 'terminal-ui/components/meter');
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.description, 'metric.label');
   assert.equal(frame.cells.find((cell) => cell.text === '7')?.source?.description, 'metric.value');
-  assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.description, 'result.value');
+  assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.description, 'status.value');
 });
 
 test('meter width is a terminal-cell budget under wide profiles', () => {
@@ -584,7 +584,7 @@ test('meter dial variant renders distinct tested dial anatomy', () => {
     max: 100,
     width: 8,
     variant: 'dial',
-    result: 'warning'
+    status: 'warning'
   }), { columns: 16, rows: 4 });
   const output = renderFramePlain(frame);
 
@@ -643,7 +643,7 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     ],
     min: 0,
     max: 5,
-    presentation: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
+    state: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
     onTransition: (action) => ({ kind: 'heatmap', action })
   }), { columns: 12, rows: 3 });
 
@@ -687,14 +687,14 @@ test('chart components preserve visualization meaning in high contrast and no co
   const highContrast = renderElementFrame(chart({
     id: 'contrast-chart',
     showLegend: true,
-    presentation: { activeId: 'alpha:1', selection: { mode: 'single', selectedId: 'alpha:1' } },
+    state: { activeId: 'alpha:1', selection: { mode: 'single', selectedId: 'alpha:1' } },
     onTransition: (transition) => transition,
     series: [chartSeries('alpha', [1, 3, 2], { label: 'Alpha', glyph: '+' })]
   }), { columns: 18, rows: 5 }, { theme: highContrastTheme });
   const noColor = renderElementFrame(heatmap({
     id: 'mono-heatmap',
     rows: [[heatmapCell('a', 1), heatmapCell('b', 4)]],
-    presentation: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
+    state: { activeId: 'b', selection: { mode: 'single', selectedId: 'b' } },
     onTransition: (transition) => transition,
     min: 0,
     max: 4

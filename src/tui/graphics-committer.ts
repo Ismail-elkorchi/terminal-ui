@@ -10,7 +10,7 @@ import type { TerminalGraphicsTransport } from '../protocol/index.ts';
 import {
   createGraphicsBudget,
   GraphicsBudgetExceededError,
-  normalizeGraphicsBudgetLimits,
+  resolveGraphicsBudgetLimits,
 } from '../graphics/index.ts';
 import type {
   GraphicPlacement,
@@ -74,7 +74,7 @@ export function createTerminalGraphicsCommitter(
   budgetInput?: Partial<GraphicsBudgetLimits>,
   reportDiagnostic?: (item: TerminalDiagnostic) => void,
 ): TerminalGraphicsCommitter {
-  const budgetLimits = normalizeGraphicsBudgetLimits(budgetInput);
+  const budgetLimits = resolveGraphicsBudgetLimits(budgetInput);
   let active: 'kitty' | 'sixel' | undefined;
   let transport: TerminalGraphicsTransport = 'direct';
   let nextImageId = randomProtocolId();

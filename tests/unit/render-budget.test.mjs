@@ -52,8 +52,8 @@ test('render measurement and region work are bounded where they are produced', (
 test('published hit targets and accessibility trees share the render budget', () => {
   assert.throws(
     () => renderElementFrame(row([
-      button({ id: 'one', label: 'One', onAction: () => 'one' }),
-      button({ id: 'two', label: 'Two', onAction: () => 'two' }),
+      button({ id: 'one', label: 'One', onPress: () => 'one' }),
+      button({ id: 'two', label: 'Two', onPress: () => 'two' }),
     ]), size, { limits: { hitTargets: 1 } }),
     /hitTargets limit of 1/u,
   );

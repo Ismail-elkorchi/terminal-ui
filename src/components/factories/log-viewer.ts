@@ -12,10 +12,10 @@ import {
   defineComponent,
   ignoreMessage,
   paintComponentScrollbar,
-  prepareComponentScrollbar,
-  prepareComponentScrollbarOptions,
-  prepareComponentScrollPolicy,
-  prepareComponentScrollState,
+  layoutComponentScrollbar,
+  decodeComponentScrollbarOptions,
+  decodeComponentScrollPolicy,
+  decodeComponentScrollState,
   span,
   wrapRenderSpans,
 } from '../../component/index.ts';
@@ -41,36 +41,36 @@ import {
   textWidthProfileKey,
 } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
-import { assertLogHistory, logHistoryRecordById, logHistorySegments } from '../../ui-model/log-history.ts';
-import type { LogHistory, LogHistoryRecord, LogSearchMatch } from '../../ui-model/log-history.ts';
+import { assertLogHistory, logHistoryRecordById, logHistorySegments } from '../../behavior/log-history.ts';
+import type { LogHistory, LogHistoryRecord, LogSearchMatch } from '../../behavior/log-history.ts';
 import type {
-  LogViewerAction,
+  LogViewerTransition,
   LogViewerBodyAnchor,
   LogViewerContextMenuEvent,
   LogViewerSelection,
-} from '../../ui-model/log-viewer.ts';
-import type { LogViewerStylePart } from '../../ui-model/style-parts.ts';
-import type { FrameCellSource } from '../../visual/source.ts';
-import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import { matchCollectionQuery, prepareCollectionQuery } from '../../text/query.ts';
-import type { PreparedCollectionQuery } from '../../text/query.ts';
+} from '../../behavior/log-viewer.ts';
+import type { LogViewerStylePart } from '../style-parts.ts';
+import type { FrameCellSource } from '../../visual/frame-source.ts';
+import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
+import { matchCollectionQuery, compileCollectionQuery } from '../../text/query.ts';
+import type { CompiledCollectionQuery } from '../../text/query.ts';
 import type {
   LogViewerOptions,
   UnscrolledLogViewerOptions,
   ScrollableLogViewerOptions,
-} from '../options/documents.ts';
+} from '../options/patterns.ts';
 import {
   logViewerLayout,
-  logViewerRecordModel,
+  createLogViewerRecordView,
   logViewerRowForEntry,
   searchLogViewerHistory,
   visibleLogViewerRecords,
-} from './log-viewer-data.ts';
+} from '../internal/log-viewer-layout.ts';
 
 interface LogViewerModel {
   readonly history: LogHistory;
   readonly wrap: boolean;
-  readonly query: PreparedCollectionQuery;
+  readonly query: CompiledCollectionQuery;
   readonly activeMatchId?: string;
   readonly foldedIds: readonly string[];
   readonly selection?: LogViewerSelection;
@@ -81,10 +81,10 @@ interface LogViewerModel {
 
 type LogViewerComponentOptions = Omit<
   LogViewerOptions<ComponentMessage>,
-  'id' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'
+  'id' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'
 >;
 
-type LogViewerComponentAction = LogViewerAction | {
+type LogViewerComponentAction = LogViewerTransition | {
   readonly kind: 'contextMenu';
   readonly event: LogViewerContextMenuEvent;
 };
@@ -120,7 +120,7 @@ interface LogViewerWindow {
   readonly matchCount: number;
   readonly followTail: boolean;
   readonly selectedText?: string;
-  readonly scrollbar: ReturnType<typeof prepareComponentScrollbar>;
+  readonly scrollbar: ReturnType<typeof layoutComponentScrollbar>;
 }
 
 const logViewerWindows = new WeakMap<LogViewerModel, Map<string, LogViewerWindow>>();
@@ -160,7 +160,7 @@ const passiveLogViewer = defineComponent<
   'required',
   readonly ['focus', 'layer', 'styles'],
   readonly ['focused', 'hovered', 'active', 'selected', 'disabled']
->({ ...baseDefinition, prepare: prepareLogViewer });
+>({ ...baseDefinition, createModel: createLogViewerModel });
 
 const activeLogViewer = defineComponent<
   LogViewerComponentOptions,
@@ -173,7 +173,7 @@ const activeLogViewer = defineComponent<
   readonly ['focused', 'hovered', 'active', 'selected', 'disabled']
 >({
   ...baseDefinition,
-  prepare: prepareLogViewer,
+  createModel: createLogViewerModel,
   keys: ({ model }) => {
     const search = searchLogViewerHistory(
       model.history,
@@ -202,47 +202,47 @@ export function logViewer<const TMessage extends ComponentMessage = never>(
 export function logViewer<const TMessage extends ComponentMessage = never>(
   options: LogViewerOptions<TMessage>,
 ): Element<TMessage> {
-  if (options.onAction === undefined) {
+  if (options.onTransition === undefined) {
     return passiveLogViewer(options);
   }
-  assertRequiredCallback(options.onAction, 'logViewer onAction');
+  assertRequiredCallback(options.onTransition, 'logViewer onTransition');
   if (options.scroll === undefined) {
-    const { onAction, onContextMenu, ...componentOptions } = options;
+    const { onTransition, onContextMenu, ...componentOptions } = options;
     return activeLogViewer({
       ...componentOptions,
       onAction: (action) => action.kind === 'contextMenu'
         ? onContextMenu?.(action.event) ?? ignoreMessage()
-        : action.kind === 'scroll' ? ignoreMessage() : onAction(action),
+        : action.kind === 'scroll' ? ignoreMessage() : onTransition(action),
     });
   }
-  const { onAction, onContextMenu, ...componentOptions } = options;
+  const { onTransition, onContextMenu, ...componentOptions } = options;
   return activeLogViewer({
     ...componentOptions,
     onAction: (action) => action.kind === 'contextMenu'
       ? onContextMenu?.(action.event) ?? ignoreMessage()
-      : onAction(action),
+      : onTransition(action),
   });
 }
 
-function prepareLogViewer(value: Readonly<LogViewerComponentOptions>): LogViewerModel {
+function createLogViewerModel(value: Readonly<LogViewerComponentOptions>): LogViewerModel {
   const history = value.history;
   assertLogHistory(history);
   const wrap = optionalBoolean(value.wrap, 'logViewer wrap') ?? false;
-  const query = prepareCollectionQuery(value.query ?? { text: '', mode: 'contains' });
+  const query = compileCollectionQuery(value.query ?? { text: '', mode: 'contains' });
   const activeMatchId = value.activeMatchId === undefined
     ? undefined
     : nonEmpty(value.activeMatchId, 'logViewer activeMatchId');
-  const foldedIds = prepareStringArray(value.foldedIds);
+  const foldedIds = ownStringArray(value.foldedIds);
   if (activeMatchId !== undefined) {
     const search = searchLogViewerHistory(history, query, new Set(foldedIds));
     if (!search.matches.some((match) => match.id === activeMatchId)) {
       throw new RangeError('logViewer activeMatchId must identify a match for the current query.');
     }
   }
-  const selection = prepareSelection(value.selection);
-  const scroll = prepareComponentScrollState(value.scroll, 'logViewer scroll');
-  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'logViewer scrollbar');
-  const scrollPolicy = prepareComponentScrollPolicy(
+  const selection = ownLogViewerSelection(value.selection);
+  const scroll = decodeComponentScrollState(value.scroll, 'logViewer scroll');
+  const scrollbar = decodeComponentScrollbarOptions(value.scrollbar, 'logViewer scrollbar');
+  const scrollPolicy = decodeComponentScrollPolicy(
     value.scrollPolicy,
     'logViewer scrollPolicy',
   );
@@ -296,7 +296,7 @@ function renderLogViewer(input: ComponentRenderInput<LogViewerModel, LogViewerSt
     plan: window.scrollbar,
     theme: input.theme,
     style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
-    source: (sourceInput) => input.source(sourceInput),
+    frameSource: (sourceInput) => input.frameSource(sourceInput),
   });
 }
 
@@ -354,7 +354,7 @@ function logViewerWindow(
       viewportRows: input.bounds.height,
       viewportColumns: input.bounds.width,
     });
-  let scrollbar = prepareComponentScrollbar({
+  let scrollbar = layoutComponentScrollbar({
     bounds: input.bounds,
     scroll: initialScroll,
     contentRows: initialLayout.totalRows,
@@ -378,7 +378,7 @@ function logViewerWindow(
       viewportRows: scrollbar.contentBounds.height,
       viewportColumns: scrollbar.contentBounds.width,
     });
-    scrollbar = prepareComponentScrollbar({
+    scrollbar = layoutComponentScrollbar({
       bounds: input.bounds,
       scroll,
       contentRows: layout.totalRows,
@@ -394,7 +394,7 @@ function logViewerWindow(
     .flatMap(({ record, localStart, localEnd }) =>
       recordRows(
         input,
-        logViewerRecordModel(record, foldedIds.has(record.entry.id)),
+        createLogViewerRecordView(record, foldedIds.has(record.entry.id)),
         input.model.query,
         activeMatch,
         selectionForRecord(input.model.history, record, input.model.selection),
@@ -446,8 +446,8 @@ function matchingLogViewerRow(
   const record = logHistoryRecordById(input.model.history, match.entryId);
   const entryStart = logViewerRowForEntry(layout, match.entryIndex);
   if (record === undefined || entryStart === undefined) return undefined;
-  const model = logViewerRecordModel(record, foldedIds.has(record.entry.id));
-  const spans = fullLineSpans(input, model, input.model.query, undefined, undefined, false);
+  const recordView = createLogViewerRecordView(record, foldedIds.has(record.entry.id));
+  const spans = fullLineSpans(input, recordView, input.model.query, undefined, undefined, false);
   const rows: number[] = [];
   let row = 0;
   let used = 0;
@@ -481,8 +481,8 @@ function recordRows(
   input:
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
-  record: ReturnType<typeof logViewerRecordModel>,
-  query: PreparedCollectionQuery,
+  record: ReturnType<typeof createLogViewerRecordView>,
+  query: CompiledCollectionQuery,
   activeMatch: LogSearchMatch | undefined,
   selection: { readonly start: number; readonly end: number } | undefined,
   width: number,
@@ -519,8 +519,8 @@ function fullLineSpans(
   input:
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
-  record: ReturnType<typeof logViewerRecordModel>,
-  query: PreparedCollectionQuery,
+  record: ReturnType<typeof createLogViewerRecordView>,
+  query: CompiledCollectionQuery,
   activeMatch: LogSearchMatch | undefined,
   selection: { readonly start: number; readonly end: number } | undefined,
   styled: boolean,
@@ -601,8 +601,8 @@ function bodySegments(
   input:
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
-  record: ReturnType<typeof logViewerRecordModel>,
-  query: PreparedCollectionQuery,
+  record: ReturnType<typeof createLogViewerRecordView>,
+  query: CompiledCollectionQuery,
   activeMatch: LogSearchMatch | undefined,
   selection: { readonly start: number; readonly end: number } | undefined,
   styled: boolean,
@@ -677,7 +677,7 @@ function highlightSegments(
     | ComponentInput<LogViewerModel>
     | ComponentInteractionInput<LogViewerModel, LogViewerStylePart>,
   text: string,
-  query: PreparedCollectionQuery,
+  query: CompiledCollectionQuery,
   part: LogViewerStylePart,
   partName: string,
   record: LogHistoryRecord,
@@ -756,8 +756,8 @@ function segment(
   const style = styled && 'style' in input
     ? segmentStyle(input, part, record, matched, active)
     : undefined;
-  const source = 'source' in input
-    ? input.source({
+  const source = 'frameSource' in input
+    ? input.frameSource({
       cellRole: partType === 'delimiter' || part === 'marker' || part === 'empty'
         ? 'decoration'
         : partType === 'separator'
@@ -896,8 +896,8 @@ function neutralSegment(
         : {}),
     })
     : undefined;
-  const source = 'source' in input
-    ? input.source({
+  const source = 'frameSource' in input
+    ? input.frameSource({
       cellRole: part === 'marker' || part === 'empty' ? 'decoration' : 'separator',
       partName,
       partType,
@@ -970,7 +970,7 @@ function logViewerHitTargets(
       id: input.id ?? 'log-viewer',
       plan: window.scrollbar,
       ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
-      onScroll: (event) => ({ kind: 'scroll', event }),
+      onScroll: (request) => ({ kind: 'scroll', request }),
     })),
   ];
 }
@@ -1029,23 +1029,23 @@ function logViewerPointerMessage(
   model: LogViewerModel,
   window: LogViewerWindow,
   event: RoutedPointerEvent,
-  action: import('../../interaction/text-pointer.ts').PointerSelectionAction<LogViewerBodyAnchor>,
+  transition: import('../../interaction/text-pointer.ts').PointerSelectionTransition<LogViewerBodyAnchor>,
 ): Extract<LogViewerComponentAction, { readonly kind: 'pointer' }> {
-  const scroll = logViewerDragScrollEvent(model, window, action, event);
+  const scrollRequest = logViewerDragScrollRequest(model, window, transition, event);
   return {
     kind: 'pointer',
-    action,
-    ...(scroll === undefined ? {} : { scroll }),
+    transition,
+    ...(scrollRequest === undefined ? {} : { scrollRequest }),
   };
 }
 
-function logViewerDragScrollEvent(
+function logViewerDragScrollRequest(
   model: LogViewerModel,
   window: LogViewerWindow,
-  action: import('../../interaction/text-pointer.ts').PointerSelectionAction<LogViewerBodyAnchor>,
+  transition: import('../../interaction/text-pointer.ts').PointerSelectionTransition<LogViewerBodyAnchor>,
   event: RoutedPointerEvent,
-): import('../../interaction/scroll.ts').ScrollEvent | undefined {
-  if (model.scroll === undefined || action.kind !== 'extendSelection') return undefined;
+): import('../../interaction/scroll.ts').ScrollRequest | undefined {
+  if (model.scroll === undefined || transition.kind !== 'extendSelection') return undefined;
   const localRow = event.localRow ?? event.row - window.scrollbar.contentBounds.row + 1;
   const rows = localRow < 1
     ? -1
@@ -1198,15 +1198,15 @@ function logViewerDescription(model: LogViewerModel, window: LogViewerWindow): s
   }.${followTail}${query}${selection}`;
 }
 
-function prepareSelection(value: LogViewerSelection | undefined): LogViewerSelection | undefined {
+function ownLogViewerSelection(value: LogViewerSelection | undefined): LogViewerSelection | undefined {
   if (value === undefined) return undefined;
   return {
-    anchor: prepareAnchor(value.anchor, 'logViewer selection anchor'),
-    focus: prepareAnchor(value.focus, 'logViewer selection focus'),
+    anchor: decodeLogViewerAnchor(value.anchor, 'logViewer selection anchor'),
+    focus: decodeLogViewerAnchor(value.focus, 'logViewer selection focus'),
   };
 }
 
-function prepareAnchor(value: LogViewerBodyAnchor, subject: string): LogViewerBodyAnchor {
+function decodeLogViewerAnchor(value: LogViewerBodyAnchor, subject: string): LogViewerBodyAnchor {
   return {
     entryId: nonEmpty(value.entryId, `${subject} entryId`),
     offset: nonNegativeInteger(value.offset, `${subject} offset`),
@@ -1214,7 +1214,7 @@ function prepareAnchor(value: LogViewerBodyAnchor, subject: string): LogViewerBo
 }
 
 
-function prepareStringArray(value: readonly string[] | undefined): readonly string[] {
+function ownStringArray(value: readonly string[] | undefined): readonly string[] {
   if (value === undefined) return [];
   return value.map((entry) => sanitizeTerminalText(entry).text);
 }

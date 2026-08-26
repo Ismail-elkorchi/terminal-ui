@@ -1,16 +1,16 @@
 import { measureTerminalCellText } from '../../text/index.ts';
 import type { Rect } from '../../geometry/types.ts';
-import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
+import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render-content.ts';
 import {
   deriveFrameCellSource,
   frameCellSource
-} from '../../visual/source.ts';
-import type { FrameCellSource } from '../../visual/source.ts';
-import { normalizeTerminalStyle } from '../../visual/terminal-style.ts';
-import { normalizeTerminalLink } from '../../visual/render.ts';
+} from '../../visual/frame-source.ts';
+import type { FrameCellSource } from '../../visual/frame-source.ts';
+import { decodeTerminalStyle } from '../../visual/terminal-style.ts';
+import { decodeTerminalLink } from '../../visual/render-content.ts';
 import type { RenderTarget, RenderTargetCell } from '../contracts.ts';
 import { intersectRects } from './rect.ts';
-import { transferPreparedRenderSpans } from './frame-buffer.ts';
+import { transferFrameBufferSpans } from '../frame-buffer.ts';
 
 /** Creates the bounded, write-only target exposed to component definitions. */
 export function createLocalComponentRenderTarget(
@@ -145,11 +145,11 @@ function writeClippedSpans(
     const measured = measureTerminalCellText(span.text, { widthProfile: target.widthProfile });
     const style = span.style === undefined
       ? undefined
-      : normalizeTerminalStyle(
+      : decodeTerminalStyle(
           span.style,
           owner === undefined ? 'Render span style' : `Component "${owner.name}" render span style`,
         );
-    const link = span.link === undefined ? undefined : normalizeTerminalLink(span.link);
+    const link = span.link === undefined ? undefined : decodeTerminalLink(span.link);
     const source = owner === undefined
       ? span.source === undefined ? undefined : frameCellSource(span.source)
       : scopedFrameSource(owner, span.source);
@@ -162,7 +162,7 @@ function writeClippedSpans(
     let run: { readonly text: string; readonly cells: number }[] = [];
     const flush = (): void => {
       if (run.length === 0) return;
-      transferPreparedRenderSpans(target, row, runColumn, [{ graphemes: run, ...metadata }]);
+      transferFrameBufferSpans(target, row, runColumn, [{ graphemes: run, ...metadata }]);
       run = [];
     };
     for (const grapheme of measured.graphemes) {

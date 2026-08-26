@@ -14,7 +14,7 @@ scroll or resize action that changes geometry.
 | `column()` | Vertical tracks with shared flow options. | A visual panel or semantic control group by itself. |
 | `row()` | Horizontal tracks with shared flow options. | A toolbar, menu, or command model. |
 | `flow()` | Multi-line horizontal or vertical flow from measured child sizes. | A virtualized data collection or semantic list. |
-| `measuredColumn()` | A prepared variable-height window projected into child elements with stable identities. | Measuring items, filtering, selection policy, or a domain-specific feed. |
+| `measuredColumn()` | A retained variable-height window rendered as child elements with stable identities. | Measuring items, filtering, selection policy, or a domain-specific feed. |
 | `grid()` | Row/column tracks and named areas for spatial composition. | An accessible data grid or breakpoint policy engine. |
 | `splitPane()` | Static pane tracks or caller-controlled divider resizing. | Retaining pane content, persistence, or a window manager. |
 | `surface()` | Single-child visual containment, border and title geometry, and background construction. | Multi-child flow; compose children before wrapping. |
@@ -42,7 +42,7 @@ min/max dimensions, alignment, justification, overflow, z-index, visibility,
 and focus scope. Tiny terminal sizes should produce clipped or empty regions,
 not crashes.
 
-`normalizeLayoutFlowOptions()` validates shared flow semantics and copies retained insets without decoding the containing typed options object.
+`decodeLayoutFlowOptions()` validates shared flow semantics and copies retained insets without decoding the containing typed options object.
 
 For `surface()`, margin is outside the painted surface, min/max dimensions and
 alignment size the surface itself, and padding is inside its border. A shadow
@@ -51,15 +51,15 @@ uses the final row and column of the surface's visual bounds.
 Without explicit sizes, `column()` stacks children at their measured heights;
 use a fill track only for content that should consume remaining rows.
 
-Variable-height feeds prepare their row index outside `view()` and retain it
-until item membership or measurements change. `prepareMeasuredCollection()`
-performs the initial linear preparation. Append, prepend, replacement, and
+Variable-height feeds create their row index outside `view()` and retain it
+until item membership or measurements change. `createMeasuredCollection()`
+performs the initial linear construction. Append, prepend, replacement, and
 removal operations return persistent collection versions, while
 `measuredWindow()` queries only the indexed rows intersecting the viewport.
 `measuredColumn()` then creates elements only for those visible entries.
 
 Rows are caller-owned measurements for a particular layout context. If a width,
-theme, terminal text profile, or application presentation change alters wrapping,
+theme, terminal text profile, or application content change alters wrapping,
 rebuild or replace the affected measurements explicitly; the collection never
 retains elements or tries to infer domain changes. For stable scrolling, derive
 an item anchor from the old collection with `measuredAnchorAt()` before applying
@@ -71,7 +71,7 @@ clamp the window to its end.
 A `viewport()` with `onScroll` also participates in focus reveal. Components
 inside it publish logical focus targets even when those targets are currently
 clipped. When Tab or Shift+Tab reaches one of them, the runtime sends the
-viewport a `ScrollEvent` with `source: 'focus'` and the nearest controlled
+viewport a `ScrollRequest` with `source: 'focus'` and the nearest controlled
 offset that reveals the target. The caller remains the sole owner of scroll
 state; a passive viewport does not become scrollable merely because it clips a
 focusable child.

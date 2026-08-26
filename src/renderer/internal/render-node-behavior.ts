@@ -1,36 +1,39 @@
-import { structuralNodeRenderers } from './renderers/index.ts';
+import { structuralNodeRenderers } from './node-renderers/index.ts';
 import { normalizeMeasurement, zeroMeasurement } from '../measurement.ts';
 import {
   renderNodeFactoryName,
   renderNodeFocusUnavailable,
   renderNodeInteractionUnavailable,
   resolveRenderNodeMessage
-} from '../model/node.ts';
-import {
-  emptyRect, hasKeyboardOrInputMap
-} from './renderers/support/common.ts';
+} from './render-tree/node.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import { isAccessibleRole } from '../../accessibility/types.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { RenderNode } from '../model/index.ts';
-import type { RenderBudget } from './render-budget.ts';
+import type { RenderNode } from './render-tree/index.ts';
+import type { RenderBudget } from '../render-budget.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { RenderNodeLayoutTarget } from './focus.ts';
 import type { LayoutNode, Rect, RenderFocusRelation } from '../contracts.ts';
 import type { FocusTarget, HitTarget, Measurement } from '../contracts.ts';
-import type { RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
-import type { RenderNodeOfKind } from '../model/types.ts';
-import type { StructuralRenderNodeKind } from './renderers/types.ts';
+import type { RenderNodeRenderer, RenderNodeRenderInput } from './render-tree/renderer.ts';
+import type { RenderNodeOfKind } from './render-tree/types.ts';
+import type { StructuralRenderNodeKind } from './node-renderers/types.ts';
 import {
-  normalizeComponentFocusTargets
+  decodeComponentFocusTargets
 } from './component-output.ts';
-import { adoptMeasurement } from '../measurement-validation.ts';
-import { intersectRects } from './rect.ts';
+import { decodeMeasurement } from '../measurement-validation.ts';
+import { emptyRect, intersectRects } from './rect.ts';
 import { scopedFrameSource } from './scoped-render-target.ts';
 
 function rendererForRenderNode<TMessage>(renderNode: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {
   if (renderNode.kind === 'component') return renderNode.definition.renderer;
   return rendererForStructuralNode(renderNode);
+}
+
+function hasKeyboardOrTextInput(renderNode: RenderNode): boolean {
+  return (renderNode.keyMap !== undefined && Object.keys(renderNode.keyMap).length > 0)
+    || renderNode.inputMap?.text !== undefined
+    || renderNode.inputMap?.paste !== undefined;
 }
 
 function rendererForStructuralNode<TMessage, TKind extends StructuralRenderNodeKind>(
@@ -143,7 +146,7 @@ function measureRenderNode(
     widthProfile: context.widthProfile
   });
   if (renderNode.kind === 'component') {
-    return adoptMeasurement(measurement, `Component "${renderNode.id ?? renderNodeFactoryName(renderNode)}"`);
+    return decodeMeasurement(measurement, `Component "${renderNode.id ?? renderNodeFactoryName(renderNode)}"`);
   }
   return normalizeMeasurement(measurement);
 }
@@ -235,7 +238,7 @@ export function focusTargetsForRenderNode(
   }) ?? [];
   const factoryName = renderNodeFactoryName(renderNode);
   const explicit = (renderNode.kind === 'component'
-    ? normalizeComponentFocusTargets(produced, renderNode.id ?? factoryName)
+    ? decodeComponentFocusTargets(produced, renderNode.id ?? factoryName)
     : produced)
     .map((target): FocusTarget => ({
       ...target,
@@ -266,7 +269,7 @@ export function focusTargetsForRenderNode(
     : explicit;
   const mayInferFocusTarget = renderNode.kind !== 'component'
     || renderNode.definition.inspection.structure === 'leaf';
-  const targets = bounded.length > 0 || !hasKeyboardOrInputMap(renderNode) || !mayInferFocusTarget
+  const targets = bounded.length > 0 || !hasKeyboardOrTextInput(renderNode) || !mayInferFocusTarget
     ? bounded
     : [{ id: 'self', bounds }];
   return targets.map((target): FocusTarget => {

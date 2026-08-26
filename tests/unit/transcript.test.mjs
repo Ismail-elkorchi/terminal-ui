@@ -950,7 +950,7 @@ test('transcript redaction uses unambiguous paths for arbitrary JSON keys', () =
   assert.equal(validateTranscript(redacted).status, 'success');
 });
 
-test('transcript redaction projects JSON keys without collisions or audit-path leaks', () => {
+test('transcript redaction maps JSON keys without collisions or audit-path leaks', () => {
   const reporter = createDiagnosticOccurrenceReporter('json-key-redaction');
   const reported = reporter.report(diagnostic('HOST_STREAM_CLOSED', 'Plain failure.', {
     data: {

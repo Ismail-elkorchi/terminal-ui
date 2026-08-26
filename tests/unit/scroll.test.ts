@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  applyScrollEvent,
+  applyScrollRequest,
   createScrollState,
   normalizeScrollState,
   scrollReducer,
@@ -87,10 +87,10 @@ void test('item-into-view changes scroll position without retaining collection s
   });
 });
 
-void test('scroll events expose semantic state and do not leak routed pointer input', () => {
+void test('scroll requests expose semantic state and do not leak routed pointer input', () => {
   const stale = createScrollState({ offsetRow: 79 });
   const rendered = createScrollState({ offsetRow: 71 });
-  const next = applyScrollEvent(stale, {
+  const next = applyScrollRequest(stale, {
     nextState: rendered,
     source: 'wheel',
     target: 'content',

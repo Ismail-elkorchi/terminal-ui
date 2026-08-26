@@ -1,7 +1,7 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
-import { normalizeTerminalLink } from './render.ts';
-import { normalizeTerminalStyle } from './terminal-style.ts';
-import type { TerminalLink, TerminalStyle } from './render.ts';
+import { decodeTerminalLink } from './render-content.ts';
+import { decodeTerminalStyle } from './terminal-style.ts';
+import type { TerminalLink, TerminalStyle } from './render-content.ts';
 
 interface InlineSegmentBase {
   readonly style?: TerminalStyle;
@@ -138,16 +138,16 @@ function normalizedDecoration(
   index: number,
   links: WeakMap<object, TerminalLink>,
 ): Pick<InlineSegmentBase, 'style' | 'link'> {
-  const preparedLink = link === undefined
+  const ownedLink = link === undefined
     ? undefined
     : typeof link === 'object' && link !== null
       ? links.get(link) ?? normalizeAndRetainInlineLink(link, links)
-      : normalizeTerminalLink(link);
+      : decodeTerminalLink(link);
   return {
     ...(style === undefined
       ? {}
-      : { style: normalizeTerminalStyle(style, `Inline content segment ${String(index)} style`) }),
-    ...(preparedLink === undefined ? {} : { link: preparedLink })
+      : { style: decodeTerminalStyle(style, `Inline content segment ${String(index)} style`) }),
+    ...(ownedLink === undefined ? {} : { link: ownedLink })
   };
 }
 
@@ -155,7 +155,7 @@ function normalizeAndRetainInlineLink(
   value: object,
   links: WeakMap<object, TerminalLink>,
 ): TerminalLink {
-  const prepared = normalizeTerminalLink(value);
-  links.set(value, prepared);
-  return prepared;
+  const normalized = decodeTerminalLink(value);
+  links.set(value, normalized);
+  return normalized;
 }

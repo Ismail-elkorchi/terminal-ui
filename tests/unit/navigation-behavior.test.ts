@@ -2,22 +2,22 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  checkboxGroupPresentation,
+  normalizeCheckboxGroupState,
   checkboxGroupReducer,
-  colorSwatchPickerPresentation,
+  normalizeColorSwatchPickerState,
   colorSwatchPickerReducer,
   commitCombobox,
   comboboxReducer,
-  menuPresentation,
+  menuView,
   menuReducer,
-  menuTriggerPresentation,
+  menuTriggerView,
   menuTriggerReducer,
-  radioGroupPresentation,
+  normalizeRadioGroupState,
   radioGroupReducer,
   tabsReducer,
 } from '../../dist/behavior/index.js';
 import type { ChoiceItem, MenuItem } from '../../dist/components/index.js';
-import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
+import { createCollectionInteractionIndex } from '../../dist/interaction/index.js';
 import { adjacentItemId } from '../../dist/behavior/index.js';
 
 const choices = [
@@ -44,11 +44,11 @@ void test('menu behavior owns nested active position but not application activat
   ] satisfies readonly MenuItem[];
   const entered = menuReducer({ activePath: ['file'] }, { kind: 'enter' }, items);
   const returned = menuReducer(entered, { kind: 'back' }, items);
-  const presentation = menuPresentation(items, entered);
+  const view = menuView(items, entered);
 
   assert.deepEqual(entered.activePath, ['file', 'open']);
   assert.deepEqual(returned.activePath, ['file']);
-  const fileItem = presentation.items[0];
+  const fileItem = view.items[0];
   assert.equal(fileItem?.kind === 'submenu' ? fileItem.expanded : undefined, true);
   assert.equal(menuReducer(returned, { kind: 'setActive', id: 'disabled' }, items), returned);
   assert.equal(menuReducer(returned, { kind: 'move', delta: 1 }, items), returned);
@@ -70,7 +70,7 @@ void test('menu trigger reuses the menu foundation and keeps activation out of i
 
   assert.deepEqual(opened.kind === 'open' ? opened.menu.activePath : [], ['alpha']);
   assert.deepEqual(moved.kind === 'open' ? moved.menu.activePath : [], ['beta']);
-  assert.deepEqual(menuTriggerPresentation(items, dismissed), { kind: 'closed', active: 'alpha' });
+  assert.deepEqual(menuTriggerView(items, dismissed), { kind: 'closed', active: 'alpha' });
 });
 
 void test('tabs support automatic and manual activation without conflating close events', () => {
@@ -98,7 +98,7 @@ void test('combobox focus and committed selection remain independent', () => {
     open: false,
     interaction: { activeId: 'alpha', selection: { mode: 'single', selectedId: 'alpha' } },
   } as const;
-  const index = prepareCollectionInteractionIndex(['alpha', 'beta']);
+  const index = createCollectionInteractionIndex(['alpha', 'beta']);
   const opened = comboboxReducer(initial, { kind: 'open' }, { index });
   const moved = comboboxReducer(opened, { kind: 'moveActive', delta: 1 }, { index });
   const dismissed = comboboxReducer(moved, { kind: 'dismiss', reason: 'escape' }, { index });
@@ -113,7 +113,7 @@ void test('combobox focus and committed selection remain independent', () => {
 });
 
 void test('selection commitment is carried by controlled selection state', () => {
-  const index = prepareCollectionInteractionIndex(['alpha', 'beta']);
+  const index = createCollectionInteractionIndex(['alpha', 'beta']);
   const manual = comboboxReducer({
     kind: 'select',
     open: true,
@@ -139,7 +139,7 @@ void test('selection commitment is carried by controlled selection state', () =>
 
 void test('combobox page navigation preserves page intent and commitment closes the popup', () => {
   const enabledIds = ['one', 'two', 'three', 'four', 'five'];
-  const index = prepareCollectionInteractionIndex(enabledIds);
+  const index = createCollectionInteractionIndex(enabledIds);
   const initial = {
     kind: 'select' as const,
     open: true,
@@ -176,36 +176,36 @@ void test('choice controls use active position and committed selection consisten
   const radio = radioGroupReducer(emptySingle, { kind: 'select', id: 'beta' }, choices);
   const color = colorSwatchPickerReducer(emptySingle, { kind: 'select', id: 'beta' }, choices);
 
-  assert.deepEqual(checkboxGroupPresentation(checked, choices), {
+  assert.deepEqual(normalizeCheckboxGroupState(checked, choices), {
     activeId: 'beta',
     selection: { mode: 'multiple', selectedIds: ['alpha', 'beta'], anchorId: 'beta' },
   });
-  assert.deepEqual(radioGroupPresentation(radio, choices), {
+  assert.deepEqual(normalizeRadioGroupState(radio, choices), {
     activeId: 'beta', selection: { mode: 'single', selectedId: 'beta' },
   });
-  assert.deepEqual(colorSwatchPickerPresentation(color, choices), {
+  assert.deepEqual(normalizeColorSwatchPickerState(color, choices), {
     activeId: 'beta', selection: { mode: 'single', selectedId: 'beta' },
   });
 });
 
-void test('choice presentations normalize replacement and reject duplicate identities', () => {
+void test('choice states normalize replacement and reject duplicate identities', () => {
   const changed = [
     { id: 'beta', label: 'Beta', value: 3 },
     { id: 'alpha', label: 'Alpha', value: 1, disabled: true },
   ] satisfies readonly ChoiceItem<number>[];
   assert.deepEqual(
-    checkboxGroupPresentation({
+    normalizeCheckboxGroupState({
       activeId: 'alpha',
       selection: { mode: 'multiple', selectedIds: ['missing', 'beta', 'beta', 'alpha'] },
     }, changed),
     { selection: { mode: 'multiple', selectedIds: ['beta'] } },
   );
-  assert.deepEqual(radioGroupPresentation({
+  assert.deepEqual(normalizeRadioGroupState({
     activeId: 'missing', selection: { mode: 'single', selectedId: 'alpha' },
   }, changed), { selection: { mode: 'single' } });
   const first = choices[0];
   assert.ok(first);
-  assert.throws(() => checkboxGroupPresentation({
+  assert.throws(() => normalizeCheckboxGroupState({
     selection: { mode: 'multiple', selectedIds: [] },
   }, [first, first]), /ids must be unique/u);
 });

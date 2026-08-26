@@ -3,28 +3,28 @@ import test from 'node:test';
 
 import {
   activeSearchPickerEntry,
-  autocompleteComboboxPresentation,
+  autocompleteComboboxView,
   autocompleteComboboxReducer,
-  commandInputPresentation,
+  commandInputView,
   commandInputReducer,
   createAutocompleteComboboxState,
   createCommandInputState,
   createSearchPickerState,
   createScrollState,
-  prepareSearchPickerIndex,
-  prepareCommandSuggestions,
-  searchPickerPresentation,
+  createSearchPickerIndex,
+  createCommandSuggestions,
+  searchPickerView,
   searchPickerReducer,
   searchPickerWindow,
 } from '../../dist/behavior/index.js';
-import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
+import { createCollectionInteractionIndex } from '../../dist/interaction/index.js';
 
 const entries = [
   { id: 'open', label: 'Open file', value: 'open', keywords: ['file'] },
   { id: 'close', label: 'Close file', value: 'close', keywords: ['file'] },
   { id: 'theme', label: 'Change theme', value: 'theme', keywords: ['view'] },
 ];
-const index = prepareSearchPickerIndex(entries);
+const index = createSearchPickerIndex(entries);
 const emptyQuery = { text: '', mode: 'fuzzy' } as const;
 
 void test('search picker owns query and active position but acceptance stays an event', () => {
@@ -37,12 +37,12 @@ void test('search picker owns query and active position but acceptance stays an 
     searchPickerIndex: index,
   });
 
-  assert.deepEqual(searchPickerPresentation(queried), {
+  assert.deepEqual(searchPickerView(queried), {
     input: { text: 'file', cursor: 4 },
     query: { mode: 'contains' },
     activeId: 'open',
   });
-  assert.equal(searchPickerPresentation(moved).activeId, 'close');
+  assert.equal(searchPickerView(moved).activeId, 'close');
   assert.equal('selectedId' in moved, false);
 });
 
@@ -55,14 +55,14 @@ void test('search picker query editing is Unicode-safe and reselects the first e
     searchPickerIndex: index,
   });
 
-  assert.equal(searchPickerPresentation(typed).input.text, 'file🙂');
-  assert.equal(searchPickerPresentation(typed).activeId, undefined);
-  assert.equal(searchPickerPresentation(shortened).input.text, 'file');
-  assert.equal(searchPickerPresentation(shortened).activeId, 'open');
+  assert.equal(searchPickerView(typed).input.text, 'file🙂');
+  assert.equal(searchPickerView(typed).activeId, undefined);
+  assert.equal(searchPickerView(shortened).input.text, 'file');
+  assert.equal(searchPickerView(shortened).activeId, 'open');
 });
 
 void test('disabled matches never become active', () => {
-  const disabledIndex = prepareSearchPickerIndex([
+  const disabledIndex = createSearchPickerIndex([
     { id: 'disabled', label: 'Disabled', value: 1, disabled: true },
   ]);
   const result = searchPickerReducer(
@@ -70,20 +70,20 @@ void test('disabled matches never become active', () => {
     { kind: 'setQuery', query: { text: 'disabled', mode: 'contains' } },
     { searchPickerIndex: disabledIndex },
   );
-  assert.equal(searchPickerPresentation(result).activeId, undefined);
+  assert.equal(searchPickerView(result).activeId, undefined);
 });
 
 void test('activeSearchPickerEntry returns stable-id activation rather than array position', () => {
-  const presentation = {
+  const view = {
     input: { text: 'file', cursor: 4 },
     query: { mode: 'contains' } as const,
     activeId: 'close',
   };
-  assert.equal(activeSearchPickerEntry({ searchPickerIndex: index, presentation })?.id, 'close');
+  assert.equal(activeSearchPickerEntry({ searchPickerIndex: index, view })?.id, 'close');
 });
 
 void test('windowing preserves explicit scroll with an offscreen active id', () => {
-  const manyIndex = prepareSearchPickerIndex(Array.from({ length: 5 }, (_, entryIndex) => ({
+  const manyIndex = createSearchPickerIndex(Array.from({ length: 5 }, (_, entryIndex) => ({
     id: String(entryIndex),
     label: `Entry ${String(entryIndex)}`,
     value: entryIndex,
@@ -114,8 +114,8 @@ void test('default picker navigation clamps and optional wrap is explicit', () =
     searchPickerIndex: index,
     navigation: { boundary: 'wrap', initial: 'directional-edge' },
   });
-  assert.equal(searchPickerPresentation(clamped).activeId, 'theme');
-  assert.equal(searchPickerPresentation(wrapped).activeId, 'open');
+  assert.equal(searchPickerView(clamped).activeId, 'theme');
+  assert.equal(searchPickerView(wrapped).activeId, 'open');
 });
 
 void test('scroll transitions consume semantic renderer state', () => {
@@ -125,17 +125,17 @@ void test('scroll transitions consume semantic renderer state', () => {
     scroll: createScrollState(),
   }, index), {
     kind: 'scroll',
-    event: {
+    request: {
       nextState: rendered,
       source: 'wheel',
       target: 'content',
     },
   }, { searchPickerIndex: index });
-  assert.equal(searchPickerPresentation(moved).scroll, rendered);
+  assert.equal(searchPickerView(moved).scroll, rendered);
 });
 
 void test('editable popup adapters share text editing and active-result transitions', () => {
-  const commandSuggestions = prepareCommandSuggestions(entries.map((entry) => ({
+  const commandSuggestions = createCommandSuggestions(entries.map((entry) => ({
     id: entry.id,
     label: entry.label,
     completion: { range: { startOffset: 0, endOffsetExclusive: 0 }, text: entry.label },
@@ -149,7 +149,7 @@ void test('editable popup adapters share text editing and active-result transiti
     { kind: 'edit', operation: { kind: 'insert', text: 'f' } },
     { searchPickerIndex: index },
   );
-  const autocompleteIndex = prepareCollectionInteractionIndex(['open', 'close']);
+  const autocompleteIndex = createCollectionInteractionIndex(['open', 'close']);
   const autocomplete = autocompleteComboboxReducer(
     createAutocompleteComboboxState({ open: false }, autocompleteIndex),
     { kind: 'edit', operation: { kind: 'insert', text: 'f' } },
@@ -158,9 +158,9 @@ void test('editable popup adapters share text editing and active-result transiti
     },
   );
 
-  assert.equal(commandInputPresentation(command).input.text, 'f');
-  assert.equal(searchPickerPresentation(search).input.text, 'f');
-  assert.equal(autocompleteComboboxPresentation(autocomplete).input.text, 'f');
-  assert.equal(commandInputPresentation(command).open, true);
+  assert.equal(commandInputView(command).input.text, 'f');
+  assert.equal(searchPickerView(search).input.text, 'f');
+  assert.equal(autocompleteComboboxView(autocomplete).input.text, 'f');
+  assert.equal(commandInputView(command).open, true);
   assert.equal(autocomplete.editor.open, true);
 });

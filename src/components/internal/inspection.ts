@@ -1,5 +1,5 @@
 import type { ComponentInspectionValue } from '../../component/index.ts';
-import type { SelectionState } from '../../interaction/collection.ts';
+import type { SelectionState } from '../../interaction/collection-interaction.ts';
 import type { TextSelection } from '../../text/index.ts';
 import {
   maximumComponentInspectionArrayLength,
@@ -30,10 +30,10 @@ export function inspectTextDocumentValue(document: TextDocument): ComponentInspe
 
 export function inspectCollectionValues<TValue>(
   values: readonly TValue[],
-  project: (value: TValue) => ComponentInspectionValue,
+  inspect: (value: TValue) => ComponentInspectionValue,
 ): ComponentInspectionValue {
   return values.length <= maximumComponentInspectionArrayLength
-    ? Object.freeze(values.map(project))
+    ? Object.freeze(values.map(inspect))
     : Object.freeze({ itemCount: values.length, truncated: true });
 }
 

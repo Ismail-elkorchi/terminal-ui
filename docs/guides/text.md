@@ -26,8 +26,8 @@ language boundaries. Node, Deno, and Bun therefore share the locale contract
 and grapheme-alignment invariants rather than a package-owned Unicode data
 version.
 
-`createTerminalTextIndex()` prepares grapheme offsets and word boundaries once.
-Its word-selection and word-movement lookups use that prepared data. Immutable
+`createTerminalTextIndex()` indexes grapheme offsets and word boundaries once.
+Its word-selection and word-movement lookups use that retained index. Immutable
 text documents retain these indexes per visited line and naturally invalidate
 them when an edit produces a new document.
 

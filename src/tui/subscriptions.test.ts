@@ -37,8 +37,8 @@ void test('subscription cancellation retires a source blocked on channel capacit
     }
   });
 
-  const prepared = await manager.prepare({}, await managerContext(host));
-  manager.activate(prepared);
+  const plan = await manager.plan({}, await managerContext(host));
+  manager.activate(plan);
   await dispatchStarted.promise;
   manager.cancel();
 

@@ -12,8 +12,8 @@ import {
   noColorTheme
 } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
-import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { createCommandSuggestions } from '../../dist/behavior/index.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { activityIndicator,
   commandInput as createCommandInput,
   disclosure,
@@ -27,7 +27,7 @@ import { activityIndicator,
 } from '../../dist/components/index.js';
 import { column, surface } from '../../dist/layout/index.js';
 import {
-  prepareTextDocument,
+  createTextDocument,
   textCaretAt,
   textDocumentSelectionBetween,
   textDocumentText
@@ -39,14 +39,14 @@ test('enabled disclosure requires its action boundary during construction', () =
     label: 'Details',
     expanded: false,
     slots: { content: text({ content: 'Details' }) }
-  }), /requires onAction to map its semantic actions/u);
+  }), /disclosure onTransition must be a function/u);
 });
 
 function textInput(options) {
   return createTextInput(
     options.disabled === true
       ? options
-      : { onAction: (action) => action, ...options }
+      : { onTransition: (action) => action, ...options }
   );
 }
 
@@ -54,7 +54,7 @@ function numberInput(options) {
   return createNumberInput(
     options.disabled === true
       ? options
-      : { onAction: (action) => action, ...options }
+      : { onTransition: (action) => action, ...options }
   );
 }
 
@@ -62,7 +62,7 @@ function textArea(options) {
   return createTextArea(
     options.disabled === true
       ? options
-      : { onAction: (action) => action, ...options }
+      : { onTransition: (action) => action, ...options }
   );
 }
 
@@ -265,8 +265,8 @@ test('unwrapped richText preserves explicit line breaks in measurement and rende
 test('textArea renders multiline windows and exposes cursor/accessibility state', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'body',
-    presentation: {
-      document: prepareTextDocument('line one\nline two'),
+    state: {
+      document: createTextDocument('line one\nline two'),
       caret: textCaretAt('line one\nline'.length),
       selection: textDocumentSelectionBetween(0, 4)
     },
@@ -290,16 +290,16 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
 test('editable text controls expose source metadata for frame, value, placeholder, and selection', () => {
   const inputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'email',
-    presentation: { value: 'abc', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 2 } },
+    state: { value: 'abc', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 2 } },
   }), { columns: 12, rows: 1 });
   const placeholderFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'empty',
-    presentation: { value: '', cursor: 0 },
+    state: { value: '', cursor: 0 },
     placeholder: 'Email'
   }), { columns: 12, rows: 1 });
   const numberFrame = renderElementFrame(numberInput({ meta: { accessibleName: "Number input" },
     id: 'qty',
-    presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42 }
+    view: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42 }
   }), { columns: 12, rows: 1 });
 
   assert.equal(inputFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'frame.prefix');
@@ -317,16 +317,16 @@ test('text components map Unicode cursor positions through the shared text contr
   const value = 'a🙂界b';
   const textInputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'unicode-input',
-    presentation: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }
+    state: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-input'] });
   const secondaryInputFrame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'unicode-field',
-    presentation: { value: 'go🙂', cursor: 'go🙂'.length }
+    state: { value: 'go🙂', cursor: 'go🙂'.length }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-field'] });
   const commandFrame = renderElementFrame(commandInput({ meta: { accessibleName: "Command input" },
     id: 'unicode-command',
     prompt: '> ',
-    presentation: { input: { text: value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: false, suggestions: prepareCommandSuggestions([]) }
+    view: { input: { text: value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: false, suggestions: createCommandSuggestions([]) }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 6 });
@@ -358,15 +358,15 @@ test('text components map Unicode cursor positions through the shared text contr
 test('textArea editable cells expose gutter, value, placeholder, and selection source metadata', () => {
   const selectedFrame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'notes',
-    presentation: {
-      document: prepareTextDocument('alpha\nbeta'),
+    state: {
+      document: createTextDocument('alpha\nbeta'),
       caret: textCaretAt(0),
       selection: textDocumentSelectionBetween(1, 4)
     },
   }), { columns: 12, rows: 2 });
   const placeholderFrame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'notes-empty',
-    presentation: { document: prepareTextDocument(''), caret: textCaretAt(0) },
+    state: { document: createTextDocument(''), caret: textCaretAt(0) },
     placeholder: 'Write notes'
   }), { columns: 12, rows: 1 });
 
@@ -382,7 +382,7 @@ test('textArea content inherits its containing surface instead of painting glyph
   const createArea = (extra = {}) => textArea({
     meta: { accessibleName: 'Text area' },
     id: 'inherited-editor',
-    presentation: { document: prepareTextDocument('alpha'), caret: textCaretAt(0) },
+    state: { document: createTextDocument('alpha'), caret: textCaretAt(0) },
     ...extra
   });
   const bare = renderElementFrame(createArea(), { columns: 16, rows: 3 });
@@ -424,8 +424,8 @@ test('textArea paints active lines gutters decorations and validation as coheren
   const frame = renderElementFrame(textArea({
     meta: { accessibleName: 'Text area' },
     id: 'plane-editor',
-    presentation: {
-      document: prepareTextDocument('alpha\nbeta'),
+    state: {
+      document: createTextDocument('alpha\nbeta'),
       caret: textCaretAt(0)
     },
     lineNumbers: true,
@@ -453,7 +453,7 @@ test('textArea paints active lines gutters decorations and validation as coheren
 test('textArea can opt into line number gutter and active line anatomy', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'editor',
-    presentation: { document: prepareTextDocument('alpha\nbeta'), caret: textCaretAt('alpha\nb'.length) },
+    state: { document: createTextDocument('alpha\nbeta'), caret: textCaretAt('alpha\nb'.length) },
     lineNumbers: { minWidth: 2 },
     highlightActiveLine: true
   }), { columns: 24, rows: 2 }, { focusPath: ['editor'] });
@@ -480,7 +480,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
   const cursor = lines.slice(0, 9).join('\n').length + 1;
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'wide-gutter-editor',
-    presentation: { document: prepareTextDocument(value), caret: textCaretAt(cursor) },
+    state: { document: createTextDocument(value), caret: textCaretAt(cursor) },
     lineNumbers: true
   }), { columns: 24, rows: 12 }, { focusPath: ['wide-gutter-editor'] });
 
@@ -493,8 +493,8 @@ test('textArea cursor uses the actual line-number gutter width', () => {
 test('textArea renders caller-controlled decoration ranges without overriding selection', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'searchable',
-    presentation: {
-      document: prepareTextDocument('alpha beta gamma'),
+    state: {
+      document: createTextDocument('alpha beta gamma'),
       caret: textCaretAt(0),
       selection: textDocumentSelectionBetween(0, 5)
     },
@@ -522,7 +522,7 @@ test('textArea renders caller-controlled decoration ranges without overriding se
 test('textArea can soft-wrap long logical lines while preserving editor anatomy', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'wrapped-editor',
-    presentation: { document: prepareTextDocument('alpha beta gamma'), caret: textCaretAt('alpha beta'.length) },
+    state: { document: createTextDocument('alpha beta gamma'), caret: textCaretAt('alpha beta'.length) },
     lineNumbers: { minWidth: 2 },
     highlightActiveLine: true,
     wrap: true
@@ -539,7 +539,7 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
 });
 
 test('textArea row-offset maps come from decorated terminal layout geometry', () => {
-  const document = prepareTextDocument('a\tb🙂éwide\nsecond line');
+  const document = createTextDocument('a\tb🙂éwide\nsecond line');
   const narrow = createTextAreaRowOffsetMap({
     document,
     terminalWidth: 12,
@@ -570,11 +570,11 @@ test('textArea row-offset maps come from decorated terminal layout geometry', ()
 });
 
 test('textArea decorations preserve source while styling, concealing, and replacing display text', () => {
-  const document = prepareTextDocument('**bold** [site](target.md)');
+  const document = createTextDocument('**bold** [site](target.md)');
   const frame = renderElementFrame(textArea({
     meta: { accessibleName: 'Hybrid editor' },
     id: 'decorated-editor',
-    presentation: { document, caret: textCaretAt(4) },
+    state: { document, caret: textCaretAt(4) },
     decorations: [
       { kind: 'conceal', startOffset: 0, endOffsetExclusive: 2 },
       { kind: 'style', startOffset: 2, endOffsetExclusive: 6, style: { bold: true }, label: 'strong' },
@@ -604,8 +604,8 @@ test('textArea accessibility positions use the sanitized and decorated text coor
   const sanitized = renderElementFrame(textArea({
     meta: { accessibleName: 'Sanitized editor' },
     id: 'sanitized-editor',
-    presentation: {
-      document: prepareTextDocument(controlSource),
+    state: {
+      document: createTextDocument(controlSource),
       caret: textCaretAt(controlSource.length),
       selection: textDocumentSelectionBetween(1, 3),
     },
@@ -621,8 +621,8 @@ test('textArea accessibility positions use the sanitized and decorated text coor
   const replaced = renderElementFrame(textArea({
     meta: { accessibleName: 'Replacement editor' },
     id: 'replacement-editor',
-    presentation: {
-      document: prepareTextDocument('before [site](target.md) after'),
+    state: {
+      document: createTextDocument('before [site](target.md) after'),
       caret: textCaretAt(24),
       selection: textDocumentSelectionBetween(7, 24),
     },
@@ -647,7 +647,7 @@ test('textArea decoration boundaries cannot expose fragments of terminal control
   const frame = renderElementFrame(textArea({
     meta: { accessibleName: 'Control editor' },
     id: 'control-editor',
-    presentation: { document: prepareTextDocument(source), caret: textCaretAt(source.length) },
+    state: { document: createTextDocument(source), caret: textCaretAt(source.length) },
     decorations: [{ kind: 'style', startOffset: 2, endOffsetExclusive: 3, style: { bold: true } }],
   }), { columns: 8, rows: 1 });
 
@@ -660,7 +660,7 @@ test('textArea requires accessibility replacement text to describe a visual repl
   assert.throws(() => textArea({
     meta: { accessibleName: 'Invalid editor' },
     id: 'invalid-editor',
-    presentation: { document: prepareTextDocument('value'), caret: textCaretAt(0) },
+    state: { document: createTextDocument('value'), caret: textCaretAt(0) },
     decorations: [{ kind: 'style', startOffset: 0, endOffsetExclusive: 1, style: { bold: true }, accessibilityText: 'letter' }],
   }), /style decoration 0 cannot replace or relabel content/u);
 });
@@ -669,7 +669,7 @@ test('textArea replacement decorations compose only with styles that cover the c
   const frame = renderElementFrame(textArea({
     meta: { accessibleName: 'Composed decoration editor' },
     id: 'composed-decoration-editor',
-    presentation: { document: prepareTextDocument('abcdef'), caret: textCaretAt(0) },
+    state: { document: createTextDocument('abcdef'), caret: textCaretAt(0) },
     decorations: [
       { kind: 'style', startOffset: 0, endOffsetExclusive: 4, style: { bold: true }, label: 'outer' },
       {
@@ -689,7 +689,7 @@ test('textArea replacement decorations compose only with styles that cover the c
   assert.throws(() => textArea({
     meta: { accessibleName: 'Partial decoration editor' },
     id: 'partial-decoration-editor',
-    presentation: { document: prepareTextDocument('abcdef'), caret: textCaretAt(0) },
+    state: { document: createTextDocument('abcdef'), caret: textCaretAt(0) },
     decorations: [
       { kind: 'replace', startOffset: 1, endOffsetExclusive: 4, replacementText: 'X' },
       { kind: 'style', startOffset: 2, endOffsetExclusive: 5, style: { bold: true } },
@@ -701,7 +701,7 @@ test('textArea concealments union overlapping syntax ranges without becoming rep
   const frame = renderElementFrame(textArea({
     meta: { accessibleName: 'Concealed syntax editor' },
     id: 'concealed-syntax-editor',
-    presentation: { document: prepareTextDocument('[label](target)'), caret: textCaretAt(0) },
+    state: { document: createTextDocument('[label](target)'), caret: textCaretAt(0) },
     decorations: [
       { kind: 'conceal', startOffset: 0, endOffsetExclusive: 1, label: 'outer.start' },
       { kind: 'conceal', startOffset: 6, endOffsetExclusive: 15, label: 'outer.end' },
@@ -716,13 +716,13 @@ test('textArea concealments union overlapping syntax ranges without becoming rep
   assert.throws(() => textArea({
     meta: { accessibleName: 'Empty replacement editor' },
     id: 'empty-replacement-editor',
-    presentation: { document: prepareTextDocument('value'), caret: textCaretAt(0) },
+    state: { document: createTextDocument('value'), caret: textCaretAt(0) },
     decorations: [{ kind: 'replace', startOffset: 0, endOffsetExclusive: 1, replacementText: '' }],
   }), /requires non-empty replacementText/u);
   assert.throws(() => textArea({
     meta: { accessibleName: 'Conflicting replacement editor' },
     id: 'conflicting-replacement-editor',
-    presentation: { document: prepareTextDocument('value'), caret: textCaretAt(0) },
+    state: { document: createTextDocument('value'), caret: textCaretAt(0) },
     decorations: [
       { kind: 'conceal', startOffset: 0, endOffsetExclusive: 2 },
       { kind: 'replace', startOffset: 1, endOffsetExclusive: 3, replacementText: 'X' },
@@ -733,7 +733,7 @@ test('textArea concealments union overlapping syntax ranges without becoming rep
 test('wrapped textArea exposes scrollbar scope over visual rows', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'wrapped-scroll',
-    presentation: { document: prepareTextDocument('alpha beta gamma delta'), caret: textCaretAt(0), scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0, followTail: false } },
+    state: { document: createTextDocument('alpha beta gamma delta'), caret: textCaretAt(0), scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0, followTail: false } },
     wrap: true,
     scrollbar: { visible: 'always', axis: 'vertical' }
   }), { columns: 9, rows: 2 });
@@ -750,13 +750,13 @@ test('editable text controls remain readable in high contrast and no-color rende
   const element = column([
     textInput({ meta: { accessibleName: "Text input" },
       id: 'contrast-input',
-      presentation: { value: 'alpha', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 4 } },
+      state: { value: 'alpha', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 4 } },
       error: 'Invalid value'
     }),
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'contrast-command',
       prompt: '/',
-      presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+      view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
       placeholder: 'command',
       validation: { level: 'warning', message: 'Waiting' }
     })
@@ -787,13 +787,13 @@ test('editable text controls remain identifiable when the theme has no field fil
   const frame = renderElementFrame(column([
     textInput({
       id: 'no-color-input',
-      presentation: { value: 'alpha', cursor: 0 },
+      state: { value: 'alpha', cursor: 0 },
       meta: { accessibleName: "Text input", focus: { disabled: true } }
     }),
     commandInput({
       id: 'no-color-command',
       prompt: '› ',
-      presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+      view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
       placeholder: '/open',
       meta: { accessibleName: "Command input", focus: { disabled: true } }
     })
@@ -808,7 +808,7 @@ test('editable text controls remain identifiable when the theme has no field fil
 test('disabled textInput exposes no mouse hit target', () => {
   const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'disabled-input',
-    presentation: { value: 'locked', cursor: 0 },
+    state: { value: 'locked', cursor: 0 },
     disabled: true
   }), { columns: 16, rows: 1 });
 
@@ -818,8 +818,8 @@ test('disabled textInput exposes no mouse hit target', () => {
 test('textInput maps pointer positions to text offsets when opted in', () => {
   const regions = renderElementRegions(textInput({ meta: { accessibleName: "Text input" },
     id: 'editable-input',
-    presentation: { value: 'alpha', cursor: 0 },
-    onAction: (action) => ({ action })
+    state: { value: 'alpha', cursor: 0 },
+    onTransition: (action) => ({ action })
   }), { columns: 16, rows: 1 });
   const target = targetById(regions, 'editable-input:text');
   const message = target.message(pointerEvent({
@@ -832,19 +832,19 @@ test('textInput maps pointer positions to text offsets when opted in', () => {
 
   assert.deepEqual(message?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 2 }
+    transition: { kind: 'placeCaret', offset: 2 }
   });
 });
 
 test('editable text targets share word selection and non-mutating context menus', () => {
   const regions = renderElementRegions(createTextInput({ meta: { accessibleName: 'Text input' },
     id: 'shared-text-pointer',
-    presentation: {
+    state: {
       value: 'alpha bravo',
       cursor: 3,
       selection: { startOffset: 0, endOffsetExclusive: 5 },
     },
-    onAction: (action) => ({ action }),
+    onTransition: (action) => ({ action }),
     onContextMenu: (event) => ({ context: event }),
   }), { columns: 20, rows: 1 });
   const target = targetById(regions, 'shared-text-pointer:text');
@@ -859,7 +859,7 @@ test('editable text targets share word selection and non-mutating context menus'
 
   assert.deepEqual(doubleClick?.action, {
     kind: 'pointer',
-    action: { kind: 'endSelection', anchor: 6, offset: 11 },
+    transition: { kind: 'endSelection', anchor: 6, offset: 11 },
   });
   assert.deepEqual(contextMenu?.context, {
     kind: 'contextMenu',
@@ -874,8 +874,8 @@ test('editable text targets share word selection and non-mutating context menus'
 test('numberInput exposes the shared text pointer editing contract', () => {
   const regions = renderElementRegions(createNumberInput({ meta: { accessibleName: 'Number input' },
     id: 'number-pointer',
-    presentation: { value: '12345', cursor: 0, validity: 'valid', parsedValue: 12345 },
-    onAction: (action) => ({ action }),
+    view: { value: '12345', cursor: 0, validity: 'valid', parsedValue: 12345 },
+    onTransition: (action) => ({ action }),
   }), { columns: 16, rows: 1 });
   const target = targetById(regions, 'number-pointer:input');
   const placed = target.message(pointerEvent({
@@ -888,15 +888,15 @@ test('numberInput exposes the shared text pointer editing contract', () => {
 
   assert.deepEqual(placed?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 3 },
+    transition: { kind: 'placeCaret', offset: 3 },
   });
 });
 
 test('single-line text controls share cursor-relative rendering and pointer geometry', () => {
   const textElement = createTextInput({ meta: { accessibleName: 'Text input' },
     id: 'windowed-text-input',
-    presentation: { value: 'abcdef', cursor: 6 },
-    onAction: (action) => ({ action }),
+    state: { value: 'abcdef', cursor: 6 },
+    onTransition: (action) => ({ action }),
   });
   const textFrame = renderElementFrame(textElement, { columns: 6, rows: 1 }, {
     focusPath: ['windowed-text-input'],
@@ -916,13 +916,13 @@ test('single-line text controls share cursor-relative rendering and pointer geom
   assert.match(renderFramePlain(textFrame), /‹def/u);
   assert.deepEqual(textMessage?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 3 },
+    transition: { kind: 'placeCaret', offset: 3 },
   });
 
   const numberElement = createNumberInput({ meta: { accessibleName: 'Number input' },
     id: 'windowed-number-input',
-    presentation: { value: '12345', cursor: 5, validity: 'valid', parsedValue: 12345 },
-    onAction: (action) => ({ action }),
+    view: { value: '12345', cursor: 5, validity: 'valid', parsedValue: 12345 },
+    onTransition: (action) => ({ action }),
   });
   const numberFrame = renderElementFrame(numberElement, { columns: 12, rows: 1 }, {
     focusPath: ['windowed-number-input'],
@@ -942,14 +942,14 @@ test('single-line text controls share cursor-relative rendering and pointer geom
   assert.match(renderFramePlain(numberFrame), /‹5/u);
   assert.deepEqual(numberMessage?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 4 },
+    transition: { kind: 'placeCaret', offset: 4 },
   });
 });
 
 test('disabled textInput exposes no editable pointer targets', () => {
   const frame = renderElementFrame(textInput({ meta: { accessibleName: "Text input" },
     id: 'disabled-editable-input',
-    presentation: { value: 'locked', cursor: 0 },
+    state: { value: 'locked', cursor: 0 },
     disabled: true
   }), { columns: 16, rows: 1 });
 
@@ -959,9 +959,9 @@ test('disabled textInput exposes no editable pointer targets', () => {
 test('textArea maps pointer positions through gutters visual rows and selection drag actions', () => {
   const regions = renderElementRegions(textArea({ meta: { accessibleName: "Text area" },
     id: 'editable-area',
-    presentation: { document: prepareTextDocument('alpha\nbeta'), caret: textCaretAt(0) },
+    state: { document: createTextDocument('alpha\nbeta'), caret: textCaretAt(0) },
     lineNumbers: true,
-    onAction: (action) => ({ action })
+    onTransition: (action) => ({ action })
   }), { columns: 24, rows: 2 });
   const target = targetById(regions, 'editable-area:text');
   const place = target.message(pointerEvent({
@@ -996,27 +996,27 @@ test('textArea maps pointer positions through gutters visual rows and selection 
 
   assert.deepEqual(place?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 8 }
+    transition: { kind: 'placeCaret', offset: 8 }
   });
   assert.deepEqual(drag?.action, {
     kind: 'pointer',
-    action: { kind: 'extendSelection', anchor: 8, offset: 9 }
+    transition: { kind: 'extendSelection', anchor: 8, offset: 9 }
   });
   assert.deepEqual(dragEnd?.action, {
     kind: 'pointer',
-    action: { kind: 'endSelection', anchor: 8, offset: 10 }
+    transition: { kind: 'endSelection', anchor: 8, offset: 10 }
   });
 });
 
 test('scrollable textArea couples captured drag selection with one controlled scroll step', () => {
   const regions = renderElementRegions(textArea({ meta: { accessibleName: 'Text area' },
     id: 'drag-scroll-area',
-    presentation: {
-      document: prepareTextDocument('one\ntwo\nthree\nfour'),
+    state: {
+      document: createTextDocument('one\ntwo\nthree\nfour'),
       caret: textCaretAt(0),
       scroll: { offsetRow: 0, offsetColumn: 0, followTail: false },
     },
-    onAction: (action) => ({ action }),
+    onTransition: (action) => ({ action }),
   }), { columns: 16, rows: 2 });
   const target = targetById(regions, 'drag-scroll-area:text');
   const message = target.message(pointerEvent({
@@ -1032,7 +1032,7 @@ test('scrollable textArea couples captured drag selection with one controlled sc
   }));
 
   assert.equal(message?.action.kind, 'pointer');
-  assert.deepEqual(message?.action.scroll, {
+  assert.deepEqual(message?.action.scrollRequest, {
     nextState: { offsetRow: 1, offsetColumn: 0, followTail: false },
     source: 'drag',
     target: 'content',
@@ -1042,7 +1042,7 @@ test('scrollable textArea couples captured drag selection with one controlled sc
 test('textArea horizontal windows use visual cells without splitting graphemes', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'unicode-area',
-    presentation: { document: prepareTextDocument('a🙂界b\nplain'), caret: textCaretAt('a🙂界'.length), scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0, followTail: false } },
+    state: { document: createTextDocument('a🙂界b\nplain'), caret: textCaretAt('a🙂界'.length), scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0, followTail: false } },
   }), { columns: 5, rows: 2 }, { focusPath: ['unicode-area'] });
 
   assert.equal(renderFramePlain(frame), '› 界b\n│ in');

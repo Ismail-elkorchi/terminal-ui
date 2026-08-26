@@ -3,10 +3,10 @@ import type { Rect } from '../geometry/types.ts';
 import type { RoutedPointerEvent } from '../input/pointer.ts';
 import { ignoreMessage, type MessageResolution } from '../interaction/message.ts';
 import type {
-  ScrollAction,
-  ScrollEvent,
-  ScrollEventSource,
-  ScrollEventTarget,
+  ScrollTransition,
+  ScrollRequest,
+  ScrollRequestSource,
+  ScrollRequestTarget,
   ScrollGeometry,
   ScrollPolicy,
   ScrollState
@@ -19,63 +19,74 @@ import type {
 import type { HitTarget, RenderTarget } from '../renderer/contracts.ts';
 import { oneCellGlyph } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { FrameCellSource } from '../visual/source.ts';
-import { assertOptionalEnum } from '../foundation/validation.ts';
+import type { FrameCellSource } from '../visual/frame-source.ts';
+import { assertOptionalEnum, isNonArrayObject } from '../foundation/validation.ts';
 import {
   scrollRouteDescriptor,
   type ScrollRoutable,
 } from '../interaction/scroll-route.ts';
 
-export function prepareComponentScrollState(
-  value: ScrollState | undefined,
+export function decodeComponentScrollState(
+  value: unknown,
   subject: string,
 ): ScrollState | undefined {
   if (value === undefined) return undefined;
+  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
+  if (typeof value['followTail'] !== 'boolean') {
+    throw new TypeError(`${subject}.followTail must be a boolean.`);
+  }
   return Object.freeze({
-    offsetRow: nonNegativeInteger(value.offsetRow, `${subject}.offsetRow`),
-    offsetColumn: nonNegativeInteger(value.offsetColumn, `${subject}.offsetColumn`),
-    followTail: value.followTail,
+    offsetRow: nonNegativeInteger(value['offsetRow'], `${subject}.offsetRow`),
+    offsetColumn: nonNegativeInteger(value['offsetColumn'], `${subject}.offsetColumn`),
+    followTail: value['followTail'],
   });
 }
 
-export function prepareComponentScrollbarOptions(
-  value: ScrollbarOptions | undefined,
+export function decodeComponentScrollbarOptions(
+  value: unknown,
   subject: string,
 ): ScrollbarOptions | undefined {
   if (value === undefined) return undefined;
-  assertOptionalEnum(value.visible, ['auto', 'always', 'never'], `${subject}.visible`);
-  assertOptionalEnum(value.axis, ['vertical', 'horizontal', 'both'], `${subject}.axis`);
+  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
+  const visible = value['visible'];
+  const axis = value['axis'];
+  const visualState = value['visualState'];
+  assertOptionalEnum(visible, ['auto', 'always', 'never'], `${subject}.visible`);
+  assertOptionalEnum(axis, ['vertical', 'horizontal', 'both'], `${subject}.axis`);
   assertOptionalEnum(
-    value.visualState,
+    visualState,
     ['idle', 'active', 'hover', 'disabled', 'inactive'],
     `${subject}.visualState`,
   );
   return Object.freeze({
-    ...(value.visible === undefined ? {} : { visible: value.visible }),
-    ...(value.axis === undefined ? {} : { axis: value.axis }),
-    ...(value.visualState === undefined ? {} : { visualState: value.visualState })
+    ...(visible === undefined ? {} : { visible }),
+    ...(axis === undefined ? {} : { axis }),
+    ...(visualState === undefined ? {} : { visualState })
   });
 }
 
-export function prepareComponentScrollPolicy(
-  value: ScrollPolicy | undefined,
+export function decodeComponentScrollPolicy(
+  value: unknown,
   subject: string,
 ): ScrollPolicy | undefined {
   if (value === undefined) return undefined;
-  const wheel = value.wheel;
+  if (!isNonArrayObject(value)) throw new TypeError(`${subject} must be an object.`);
+  const wheel = value['wheel'];
   if (wheel === undefined) return Object.freeze({});
-  assertOptionalEnum(wheel.unit, ['line', 'page'], `${subject}.wheel.unit`);
+  if (!isNonArrayObject(wheel)) throw new TypeError(`${subject}.wheel must be an object.`);
+  const unit = wheel['unit'];
+  assertOptionalEnum(unit, ['line', 'page'], `${subject}.wheel.unit`);
   const optional = (field: 'rows' | 'columns'): number | undefined => wheel[field] === undefined ? undefined : nonNegativeInteger(wheel[field], `${subject}.wheel.${field}`);
   const rows = optional('rows');
   const columns = optional('columns');
   return Object.freeze({ wheel: Object.freeze({
-    ...(wheel.unit === undefined ? {} : { unit: wheel.unit }),
+    ...(unit === undefined ? {} : { unit }),
     ...(rows === undefined ? {} : { rows }),
     ...(columns === undefined ? {} : { columns })
   }) });
 }
 
-function nonNegativeInteger(value: number, subject: string): number {
+function nonNegativeInteger(value: unknown, subject: string): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw new RangeError(`${subject} must be a non-negative safe integer.`);
   return value;
 }
@@ -107,7 +118,7 @@ export interface ComponentScrollbarPlan {
   readonly scrollbar: ScrollbarState;
 }
 
-export function prepareComponentScrollbar(input: {
+export function layoutComponentScrollbar(input: {
   readonly bounds: Rect;
   readonly scroll: ScrollState;
   readonly contentRows: number;
@@ -175,9 +186,9 @@ export function paintComponentScrollbar(input: {
   readonly style?: (
     part: 'scrollbarTrack' | 'scrollbarThumb',
     state: 'hovered' | 'disabled' | 'active' | undefined,
-    base: import('../visual/render.ts').TerminalStyle,
-  ) => import('../visual/render.ts').TerminalStyle | undefined;
-  readonly source: (input: {
+    base: import('../visual/render-content.ts').TerminalStyle,
+  ) => import('../visual/render-content.ts').TerminalStyle | undefined;
+  readonly frameSource: (input: {
     readonly cellRole: 'scrollbar';
     readonly partName: string;
     readonly partType: 'track' | 'thumb';
@@ -186,10 +197,10 @@ export function paintComponentScrollbar(input: {
   }) => FrameCellSource;
 }): void {
   if (input.plan.layout?.verticalTrack !== undefined) {
-    paintTrack(input.target, input.plan.layout.verticalTrack, input.theme, input.source, input.style);
+    paintTrack(input.target, input.plan.layout.verticalTrack, input.theme, input.frameSource, input.style);
   }
   if (input.plan.layout?.horizontalTrack !== undefined) {
-    paintTrack(input.target, input.plan.layout.horizontalTrack, input.theme, input.source, input.style);
+    paintTrack(input.target, input.plan.layout.horizontalTrack, input.theme, input.frameSource, input.style);
   }
 }
 
@@ -197,7 +208,7 @@ export function componentScrollbarHitTargets<TAction>(input: {
   readonly id: string;
   readonly plan: ComponentScrollbarPlan;
   readonly policy?: ScrollPolicy;
-  readonly onScroll: (event: ScrollEvent) => MessageResolution<TAction>;
+  readonly onScroll: (request: ScrollRequest) => MessageResolution<TAction>;
 }): readonly HitTarget<TAction>[] {
   const wheel = normalizedWheelPolicy(input.policy);
   const targets: (HitTarget<TAction> & ScrollRoutable<TAction>)[] = [];
@@ -321,8 +332,8 @@ function paintTrack(
   resolveStyle?: (
     part: 'scrollbarTrack' | 'scrollbarThumb',
     state: 'hovered' | 'disabled' | 'active' | undefined,
-    base: import('../visual/render.ts').TerminalStyle,
-  ) => import('../visual/render.ts').TerminalStyle | undefined,
+    base: import('../visual/render-content.ts').TerminalStyle,
+  ) => import('../visual/render-content.ts').TerminalStyle | undefined,
 ): void {
   const size = track.axis === 'vertical' ? track.bounds.height : track.bounds.width;
   for (let offset = 0; offset < size; offset += 1) {
@@ -370,7 +381,7 @@ function componentScrollbarTrackTargets<TAction>(
   track: ComponentScrollbarTrack,
   state: ScrollbarState,
   wheel: NormalizedWheelPolicy,
-  onScroll: (event: ScrollEvent) => MessageResolution<TAction>
+  onScroll: (request: ScrollRequest) => MessageResolution<TAction>
 ): readonly HitTarget<TAction>[] {
   const trackTarget: HitTarget<TAction> & ScrollRoutable<TAction> = {
     id: `${id}:scrollbar:${track.axis}:track`,
@@ -385,11 +396,11 @@ function componentScrollbarTrackTargets<TAction>(
           wheel,
           onScroll
         )
-      : emitScrollAction(
+      : emitScrollTransition(
           pointer,
           state,
           track.axis === 'vertical' ? 'verticalScrollbarTrack' : 'horizontalScrollbarTrack',
-          trackAction(track, state, pointer),
+          trackTransition(track, state, pointer),
           onScroll
         ),
     [scrollRouteDescriptor]: wheelRoute(
@@ -409,11 +420,11 @@ function componentScrollbarTrackTargets<TAction>(
       bounds: thumbBounds,
       accepts: ['pointerDown', 'dragStart', 'drag'],
       cursor: 'pointer',
-      message: (pointer) => emitScrollAction(
+      message: (pointer) => emitScrollTransition(
         pointer,
         state,
         track.axis === 'vertical' ? 'verticalScrollbarThumb' : 'horizontalScrollbarThumb',
-        thumbAction(track, state, pointer),
+        thumbTransition(track, state, pointer),
         onScroll
       )
     }
@@ -441,35 +452,35 @@ function normalizeWheelAmount(value: number | undefined, fallback: number): numb
 function emitScroll<TAction>(
   pointer: RoutedPointerEvent,
   scroll: ScrollbarState,
-  target: ScrollEventTarget,
+  target: ScrollRequestTarget,
   policy: NormalizedWheelPolicy,
-  onScroll: (event: ScrollEvent) => MessageResolution<TAction>
+  onScroll: (request: ScrollRequest) => MessageResolution<TAction>
 ): MessageResolution<TAction> {
-  const action = wheelAction(pointer, policy);
-  return emitScrollAction(pointer, scroll, target, action, onScroll);
+  const transition = wheelTransition(pointer, policy);
+  return emitScrollTransition(pointer, scroll, target, transition, onScroll);
 }
 
 function wheelRoute<TAction>(
   initial: ScrollState,
   geometry: ScrollbarState,
-  target: ScrollEventTarget,
+  target: ScrollRequestTarget,
   policy: NormalizedWheelPolicy,
-  onScroll: (event: ScrollEvent) => MessageResolution<TAction>,
+  onScroll: (request: ScrollRequest) => MessageResolution<TAction>,
 ) {
   return Object.freeze({
     state: initial,
     route(pointer: RoutedPointerEvent, state: ScrollState) {
-      const action = wheelAction(pointer, policy);
-      const nextState = action === undefined
+      const transition = wheelTransition(pointer, policy);
+      const nextState = transition === undefined
         ? state
-        : scrollReducer(state, action, scrollGeometry(geometry));
+        : scrollReducer(state, transition, scrollGeometry(geometry));
       return Object.freeze({
         nextState,
-        message: action === undefined
+        message: transition === undefined
           ? ignoreMessage()
           : onScroll({
               nextState,
-              source: scrollEventSource(pointer),
+              source: scrollRequestSource(pointer),
               target,
             }),
       });
@@ -477,26 +488,26 @@ function wheelRoute<TAction>(
   });
 }
 
-function emitScrollAction<TAction>(
+function emitScrollTransition<TAction>(
   pointer: RoutedPointerEvent,
   scroll: ScrollbarState,
-  target: ScrollEventTarget,
-  action: ScrollAction | undefined,
-  onScroll: (event: ScrollEvent) => MessageResolution<TAction>
+  target: ScrollRequestTarget,
+  transition: ScrollTransition | undefined,
+  onScroll: (request: ScrollRequest) => MessageResolution<TAction>
 ): MessageResolution<TAction> {
-  return action === undefined
+  return transition === undefined
     ? ignoreMessage()
     : onScroll({
-      nextState: scrollReducer(scrollPosition(scroll), action, scrollGeometry(scroll)),
-      source: scrollEventSource(pointer),
+      nextState: scrollReducer(scrollPosition(scroll), transition, scrollGeometry(scroll)),
+      source: scrollRequestSource(pointer),
       target,
     });
 }
 
-function wheelAction(
+function wheelTransition(
   event: RoutedPointerEvent,
   policy: NormalizedWheelPolicy
-): ScrollAction | undefined {
+): ScrollTransition | undefined {
   if (event.deltaRows === 0 && event.deltaColumns === 0) return undefined;
   const rows = event.deltaRows === 0 ? undefined : event.deltaRows * policy.rows;
   const columns = event.deltaColumns === 0 ? undefined : event.deltaColumns * policy.columns;
@@ -507,11 +518,11 @@ function wheelAction(
   };
 }
 
-function trackAction(
+function trackTransition(
   track: ComponentScrollbarTrack,
   state: ScrollbarState,
   event: RoutedPointerEvent
-): ScrollAction | undefined {
+): ScrollTransition | undefined {
   const position = track.axis === 'vertical' ? event.localRow : event.localColumn;
   if (position === undefined) return undefined;
   const trackSize = track.axis === 'vertical' ? track.bounds.height : track.bounds.width;
@@ -523,11 +534,11 @@ function trackAction(
     : { kind: 'setOffset', columns: offset };
 }
 
-function thumbAction(
+function thumbTransition(
   track: ComponentScrollbarTrack,
   state: ScrollbarState,
   event: RoutedPointerEvent
-): ScrollAction | undefined {
+): ScrollTransition | undefined {
   const position = track.axis === 'vertical' ? event.localRow : event.localColumn;
   if (position === undefined) return undefined;
   const trackSize = track.axis === 'vertical' ? track.bounds.height : track.bounds.width;
@@ -629,7 +640,7 @@ function scrollGeometry(scroll: ScrollbarState): ScrollGeometry {
   };
 }
 
-function scrollEventSource(event: RoutedPointerEvent): ScrollEventSource {
+function scrollRequestSource(event: RoutedPointerEvent): ScrollRequestSource {
   return event.kind === 'pointerDown' || event.kind === 'dragStart' || event.kind === 'drag'
     ? event.kind
     : 'wheel';

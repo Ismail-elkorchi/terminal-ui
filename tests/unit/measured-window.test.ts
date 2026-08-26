@@ -7,11 +7,11 @@ import {
   measuredCollectionItemById,
   measuredWindow,
   prependMeasuredItems,
-  prepareMeasuredCollection,
+  createMeasuredCollection,
   removeMeasuredItems,
   replaceMeasuredItem
-} from '../../dist/behavior/index.js';
-import type { MeasuredCollectionItem } from '../../dist/behavior/index.js';
+} from '../../dist/collection/index.js';
+import type { MeasuredCollectionItem } from '../../dist/collection/index.js';
 
 const items: readonly [
   MeasuredCollectionItem<string>,
@@ -23,8 +23,8 @@ const items: readonly [
   { id: 'three', value: 'three', rows: 1 }
 ];
 
-void test('measuredWindow projects terminal rows from a prepared collection', () => {
-  const collection = prepareMeasuredCollection(items);
+void test('measuredWindow queries terminal rows from a retained collection', () => {
+  const collection = createMeasuredCollection(items);
   const window = measuredWindow(collection, { viewportRows: 3, offsetRow: 1 });
 
   assert.equal(window.totalRows, 7);
@@ -41,7 +41,7 @@ void test('measuredWindow projects terminal rows from a prepared collection', ()
 });
 
 void test('active reveal preserves an already-visible oversized item', () => {
-  const collection = prepareMeasuredCollection(items);
+  const collection = createMeasuredCollection(items);
   const fitting = measuredWindow(collection, { viewportRows: 5, activeId: 'three' });
   const oversized = measuredWindow(collection, {
     viewportRows: 3,
@@ -57,7 +57,7 @@ void test('active reveal preserves an already-visible oversized item', () => {
 });
 
 void test('append and prepend return persistent collection versions', () => {
-  const initial = prepareMeasuredCollection(items.slice(0, 2));
+  const initial = createMeasuredCollection(items.slice(0, 2));
   const appended = appendMeasuredItems(initial, [items[2]]);
   const prepended = prependMeasuredItems(appended, [
     { id: 'zero', value: 'zero', rows: 3 }
@@ -77,11 +77,11 @@ void test('append and prepend return persistent collection versions', () => {
   assert.equal(prependMeasuredItems(initial, []), initial);
 });
 
-void test('preparation owns membership and measurement metadata without traversing values', () => {
+void test('collection construction owns membership and measurement metadata without traversing values', () => {
   const value = { mutableApplicationState: 1 };
   const suppliedItem = { id: 'owned', value, rows: 2 };
   const supplied = [suppliedItem];
-  const collection = prepareMeasuredCollection(supplied);
+  const collection = createMeasuredCollection(supplied);
 
   suppliedItem.rows = 8;
   supplied.push({ id: 'later', value, rows: 1 });
@@ -96,7 +96,7 @@ void test('preparation owns membership and measurement metadata without traversi
 });
 
 void test('replace and remove preserve old versions and elide semantic no-ops', () => {
-  const initial = prepareMeasuredCollection(items);
+  const initial = createMeasuredCollection(items);
   const unchanged = replaceMeasuredItem(initial, items[1]);
   const replaced = replaceMeasuredItem(initial, { id: 'two', value: 'changed', rows: 2 });
   const removed = removeMeasuredItems(replaced, ['one', 'missing', 'one']);
@@ -113,7 +113,7 @@ void test('replace and remove preserve old versions and elide semantic no-ops', 
 });
 
 void test('an item anchor preserves its viewport row when preceding rows change', () => {
-  const initial = prepareMeasuredCollection(items);
+  const initial = createMeasuredCollection(items);
   const anchor = measuredAnchorAt(initial, { offsetRow: 3, viewportRow: 1 });
   assert.ok(anchor);
   const expanded = replaceMeasuredItem(initial, { id: 'one', value: 'one', rows: 5 });
@@ -132,7 +132,7 @@ void test('an item anchor preserves its viewport row when preceding rows change'
 });
 
 void test('anchors clamp after shrink, fall back after removal, and yield to active reveal', () => {
-  const initial = prepareMeasuredCollection(items);
+  const initial = createMeasuredCollection(items);
   const anchor = { itemId: 'two', rowWithinItem: 3, viewportRow: 1 } as const;
   const shrunk = replaceMeasuredItem(initial, { id: 'two', value: 'two', rows: 1 });
   const removed = removeMeasuredItems(shrunk, ['two']);
@@ -155,16 +155,16 @@ void test('anchors clamp after shrink, fall back after removal, and yield to act
   }).offsetRow, 2);
 });
 
-void test('prepared collections reject malformed data and fabricated handles', () => {
-  assert.throws(() => prepareMeasuredCollection([
+void test('retained collections reject malformed data and fabricated handles', () => {
+  assert.throws(() => createMeasuredCollection([
     items[0],
     { id: 'one', value: 'duplicate', rows: 1 }
   ]), /item ids must be unique/u);
   assert.throws(
-    () => prepareMeasuredCollection([{ id: 'bad', value: 'bad', rows: 0 }]),
+    () => createMeasuredCollection([{ id: 'bad', value: 'bad', rows: 0 }]),
     /positive safe integer/u
   );
-  const collection = prepareMeasuredCollection(items);
+  const collection = createMeasuredCollection(items);
   assert.throws(
     () => appendMeasuredItems(collection, [{ id: 'one', value: 'duplicate', rows: 1 }]),
     /item ids must be unique/u
@@ -176,6 +176,6 @@ void test('prepared collections reject malformed data and fabricated handles', (
   assert.throws(
     // @ts-expect-error Runtime nominality rejects fabricated JavaScript handles.
     () => measuredWindow({ kind: 'measured-collection', itemCount: 0, totalRows: 0 }, { viewportRows: 1 }),
-    /must be created with prepareMeasuredCollection/u
+    /must be created with createMeasuredCollection/u
   );
 });

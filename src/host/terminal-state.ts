@@ -983,7 +983,7 @@ function initialTerminalState(
   host: TerminalHost,
   options: TerminalStateAuthorityOptions
 ): TerminalStateSnapshot {
-  const explicit = normalizeInitialState(options.initialState);
+  const explicit = decodeInitialTerminalState(options.initialState);
   const rawInput = explicit.rawInput ?? host.stdin.isRawModeEnabled?.() ?? false;
   const values = {
     rawInput,
@@ -1015,7 +1015,7 @@ function initialKnowledge(
   return Object.hasOwn(state, kind) ? 'explicit' : 'assumed';
 }
 
-function normalizeInitialState(initial: unknown): TerminalInitialState {
+function decodeInitialTerminalState(initial: unknown): TerminalInitialState {
   if (initial === undefined) return {};
   if (typeof initial !== 'object' || initial === null || Array.isArray(initial)) {
     throw new TypeError('Terminal initial state must be an object.');

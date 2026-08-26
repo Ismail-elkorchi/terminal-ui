@@ -7,7 +7,7 @@ import type { PromptRuntimeState } from './state.ts';
 import type { PromptChoice } from './types.ts';
 import type { PromptDefinition } from './types.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { RenderSpan } from '../visual/render.ts';
+import type { RenderSpan } from '../visual/render-content.ts';
 
 export function renderPromptText<TChoice>(
   prompt: PromptDefinition<TChoice>,

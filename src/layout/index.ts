@@ -22,13 +22,15 @@ export type {
   GridOptions,
   RowOptions,
   PortalOptions,
+  SplitPaneStylePart,
   SplitPaneOptions,
+  SurfaceStylePart,
   SurfaceOptions,
   ScrollableViewportOptions,
   ViewportOffset,
   ViewportOptions
 } from './options.ts';
-export type { SplitPaneAction } from '../ui-model/split-pane.ts';
+export type { SplitPaneTransition } from '../behavior/split-pane.ts';
 export {
   defineBreakpoints,
   responsive,
@@ -77,4 +79,4 @@ export {
   layoutPaddingBounds,
   splitTracks
 } from '../geometry/layout.ts';
-export { normalizeLayoutFlowOptions } from './prepare.ts';
+export { decodeLayoutFlowOptions } from './decode-options.ts';

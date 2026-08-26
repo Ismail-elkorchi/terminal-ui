@@ -11,8 +11,8 @@ import {
   dirtyRegionsForRegionChanges
 } from '../../dist/renderer/internal/dirty-regions.js';
 import { applyRenderDiff } from '../../dist/renderer/internal/diff-interpreter.js';
-import { createFrameBuffer } from '../../dist/renderer/internal/frame-buffer.js';
-import { renderElementInternal, renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { createFrameBuffer } from '../../dist/renderer/frame-buffer.js';
+import { renderElementInternal, renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { dirtyRegionsForRenderCommit } from '../../dist/tui/runtime-frame.js';
 import {
   absolute,
@@ -150,7 +150,7 @@ test('retained commit damage includes neighboring cells changed by frame passes'
   assert.equal(renderFramePlain(removalReplay), renderFramePlain(previous.frame));
 });
 
-test('incremental diff projections reject width-profile changes', () => {
+test('incremental diff replay rejects width-profile changes', () => {
   const wide = { emoji: 'wide', ambiguous: 'narrow' };
   const narrow = { emoji: 'narrow', ambiguous: 'narrow' };
   const previous = renderElementFrame(text({ content: '🙂' }), { columns: 4, rows: 1 }, { widthProfile: wide });
@@ -165,8 +165,8 @@ test('incremental diff projections reject width-profile changes', () => {
   );
 
   const rewritten = renderElementFrame(text({ content: '🙂' }), { columns: 4, rows: 1 }, { widthProfile: narrow });
-  const projection = applyRenderDiff(undefined, diffFrames(undefined, rewritten));
-  assert.deepEqual(projection.widthProfile, narrow);
+  const replayed = applyRenderDiff(undefined, diffFrames(undefined, rewritten));
+  assert.deepEqual(replayed.widthProfile, narrow);
 });
 
 test('diff replay preserves the target canvas style explicitly', () => {
@@ -395,10 +395,10 @@ function movingOverlay(row, column) {
 function borderGlyph(id, content) {
   return canvas({
     id,
-    painter({ canvas: target, source }) {
+    painter({ canvas: target, frameSource }) {
       target.text(0, 0, [{
         text: content,
-        source: source({ cellRole: 'border', partName: 'border', partType: 'border' })
+        source: frameSource({ cellRole: 'border', partName: 'border', partType: 'border' })
       }]);
     }
   });
@@ -408,8 +408,8 @@ function cursorInput(cursor, value = 'abcd', id = 'cursor-input') {
   return textInput({
     id,
     meta: { accessibleName: 'Cursor input' },
-    presentation: { value, cursor },
-    onAction: () => ignoreMessage()
+    state: { value, cursor },
+    onTransition: () => ignoreMessage()
   });
 }
 

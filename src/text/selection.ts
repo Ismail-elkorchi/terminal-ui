@@ -1,7 +1,7 @@
 import { sanitizeTerminalText } from './sanitize.ts';
-import { normalizeTextSelection, selectedText } from './selection-model.ts';
+import { normalizeTextSelection, selectedText } from './text-range.ts';
 import {
-  normalizeTextDocumentSelectionModel,
+  normalizeTextDocumentSelection,
   textDocumentSlice,
 } from './document.ts';
 import type { TextDocument } from './document.ts';
@@ -48,7 +48,7 @@ export interface ExtractTextDocumentSelectionInput {
 export function extractTextDocumentSelection(
   input: ExtractTextDocumentSelectionInput,
 ): string | undefined {
-  const selection = normalizeTextDocumentSelectionModel(input.document, input.selection);
+  const selection = normalizeTextDocumentSelection(input.document, input.selection);
   if (selection === undefined) return undefined;
   const start = Math.min(selection.anchor.offset, selection.focus.offset);
   const end = Math.max(selection.anchor.offset, selection.focus.offset);

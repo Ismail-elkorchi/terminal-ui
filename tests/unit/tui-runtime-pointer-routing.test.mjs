@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
-  prepareTreeSource,
-  prepareTreeView,
+  createTreeSource,
+  createTreeView,
 } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
@@ -22,7 +22,7 @@ test('TUI runtime routes mouse events to elements under the pointer', async () =
     view: (state) => button({
       id: 'mouse-field',
       label: state.clicked ? 'clicked' : 'idle',
-      onAction: () => ({ clicked: true })
+      onPress: () => ({ clicked: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -54,7 +54,7 @@ test('TUI pointer click activates once on left release and ignores right click o
     view: (state) => button({
       id: 'pointer-field',
       label: `clicks ${state.clicks}`,
-      onAction: () => ({ clicks: 1 })
+      onPress: () => ({ clicks: 1 })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -75,7 +75,7 @@ test('TUI pointer click activates once on left release and ignores right click o
   assert.deepEqual(runtime.state(), { clicks: 1 });
 });
 
-test('runtime owns built-in hover and press presentation without application messages', async () => {
+test('runtime owns built-in hover and press treeState without application messages', async () => {
   const app = defineTui({
     id: 'runtime-pointer-interaction',
     init: () => ({ state: ({ activations: 0 }) }),
@@ -83,7 +83,7 @@ test('runtime owns built-in hover and press presentation without application mes
     view: () => button({
       id: 'runtime-button',
       label: 'Run',
-      onAction: () => ({ kind: 'activate' })
+      onPress: () => ({ kind: 'activate' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
@@ -625,7 +625,7 @@ test('terminal focus loss cancels pressed and hovered pointer state', async () =
     view: () => button({
       id: 'focus-loss-button',
       label: 'Button',
-      onAction: () => ({ kind: 'activate' })
+      onPress: () => ({ kind: 'activate' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 1 } });
@@ -695,21 +695,21 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
   const nodes = [
     { id: 'root', label: 'Root', kind: 'branch', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
   ];
-  const source = prepareTreeSource(nodes);
+  const source = createTreeSource(nodes);
   const app = defineTui({
     id: 'tree-mouse-routing',
     init: () => ({ state: ({ activeId: undefined }) }),
     update: (_state, message) => ({ state: { activeId: message.id } }),
     view: (state) => {
-      const presentation = {
+      const treeState = {
         expandedIds: ['root'],
         ...(state.activeId === undefined ? {} : { activeId: state.activeId }),
         selection: { mode: 'none' }
       };
       return tree({ meta: { accessibleName: "Tree" },
         id: 'tree',
-        presentation,
-        view: prepareTreeView(source, presentation),
+        state: treeState,
+        view: createTreeView(source, treeState),
         onTransition: (action) => action.kind === 'setActive' ? { id: action.id } : undefined
       });
     }
@@ -731,20 +731,20 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
   const nodes = [
     { id: 'root', label: 'Root', kind: 'branch', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
   ];
-  const presentation = {
+  const treeState = {
     expandedIds: ['root'],
     activeId: 'root',
     selection: { mode: 'none' }
   };
-  const source = prepareTreeSource(nodes);
+  const source = createTreeSource(nodes);
   const app = defineTui({
     id: 'tree-disclosure-routing',
     init: () => ({ state: ({ events: [] }) }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => tree({ meta: { accessibleName: "Tree" },
       id: 'tree',
-      presentation,
-      view: prepareTreeView(source, presentation),
+      state: treeState,
+      view: createTreeView(source, treeState),
       onTransition: (action) => ({ kind: 'tree', action })
     })
   });
@@ -776,7 +776,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
       button({
     id: 'lower-mouse-field',
     label: 'lower',
-    onAction: () => ({ clicked: 'lower' }),
+    onPress: () => ({ clicked: 'lower' }),
     meta: {
         layer: {
             zIndex: 0
@@ -786,7 +786,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
       button({
     id: 'upper-mouse-field',
     label: 'upper',
-    onAction: () => ({ clicked: 'upper' }),
+    onPress: () => ({ clicked: 'upper' }),
     meta: {
         layer: {
             zIndex: 20
@@ -822,12 +822,12 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
       button({
         id: 'lower-overlay-field',
         label: 'lower',
-        onAction: () => ({ clicked: 'lower' })
+        onPress: () => ({ clicked: 'lower' })
       }),
       button({
         id: 'upper-overlay-field',
         label: 'upper',
-        onAction: () => ({ clicked: 'upper' })
+        onPress: () => ({ clicked: 'upper' })
       })
     ], { id: 'same-layer-overlay' })
   });

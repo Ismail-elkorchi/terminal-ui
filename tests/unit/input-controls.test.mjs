@@ -30,7 +30,7 @@ test('switchControl slider and rangeSlider render caller-controlled values with 
       id: 'switch',
       label: 'Live updates',
       checked: true,
-      onAction: () => ({ kind: 'toggle' })
+      onTransition: () => ({ kind: 'toggle' })
     }),
     slider({ meta: { accessibleName: "Slider" },
       id: 'slider',
@@ -39,7 +39,7 @@ test('switchControl slider and rangeSlider render caller-controlled values with 
       min: 0,
       max: 100,
       width: 11,
-      onAction: (action) => ({ kind: 'volume', action })
+      onTransition: (action) => ({ kind: 'volume', action })
     }),
     rangeSlider({ meta: { accessibleName: "Range" },
       id: 'range',
@@ -47,7 +47,7 @@ test('switchControl slider and rangeSlider render caller-controlled values with 
       state: { value: { start: 20, end: 80 }, activeHandle: 'start' },
       range: { min: 0, max: 100 },
       width: 11,
-      onAction: (action) => ({ kind: 'range', action })
+      onTransition: (action) => ({ kind: 'range', action })
     })
   ], { gap: 1 });
   const frame = renderElementFrame(element, { columns: 56, rows: 7 });
@@ -75,20 +75,20 @@ test('switchControl slider and rangeSlider render caller-controlled values with 
 
 test('slider controls reject invalid caller-supplied numeric contracts consistently', () => {
   const validRangeState = { value: { start: 10, end: 20 }, activeHandle: 'start' };
-  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'nan-slider', label: '', value: Number.NaN, onAction: () => ignoreMessage() }), /value must be finite/u);
-  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'bounds-slider', label: '', value: 1, min: 2, max: 1, onAction: () => ignoreMessage() }), /finite ordered bounds/u);
-  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'step-slider', label: '', value: 1, step: 0, onAction: () => ignoreMessage() }), /step must be finite and greater than zero/u);
-  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'width-slider', label: '', value: 1, width: 1.5, onAction: () => ignoreMessage() }), /width must be a positive safe integer/u);
+  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'nan-slider', label: '', value: Number.NaN, onTransition: () => ignoreMessage() }), /value must be finite/u);
+  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'bounds-slider', label: '', value: 1, min: 2, max: 1, onTransition: () => ignoreMessage() }), /finite ordered bounds/u);
+  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'step-slider', label: '', value: 1, step: 0, onTransition: () => ignoreMessage() }), /step must be finite and greater than zero/u);
+  assert.throws(() => slider({ meta: { accessibleName: "Slider" }, id: 'width-slider', label: '', value: 1, width: 1.5, onTransition: () => ignoreMessage() }), /width must be a positive safe integer/u);
   assert.throws(
-    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'nan-range', label: '', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
+    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'nan-range', label: '', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' }, onTransition: () => ignoreMessage() }),
     /value must be finite/u
   );
   assert.throws(
-    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'ordered-range', label: '', state: { value: { start: 20, end: 10 }, activeHandle: 'start' }, onAction: () => ignoreMessage() }),
+    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'ordered-range', label: '', state: { value: { start: 20, end: 10 }, activeHandle: 'start' }, onTransition: () => ignoreMessage() }),
     /start value must be less than or equal/u
   );
   assert.throws(
-    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'width-range', label: '', state: validRangeState, width: 0, onAction: () => ignoreMessage() }),
+    () => rangeSlider({ meta: { accessibleName: "Range" }, id: 'width-range', label: '', state: validRangeState, width: 0, onTransition: () => ignoreMessage() }),
     /width must be a positive safe integer/u
   );
 });
@@ -104,7 +104,7 @@ test('slider generated bindings use normalized arrow-key identities', async () =
       value: state.value,
       min: 0,
       max: 10,
-      onAction: (action) => ({ value: action.kind === 'change' ? action.value : state.value })
+      onTransition: (action) => ({ value: action.kind === 'change' ? action.value : state.value })
     })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
@@ -147,7 +147,7 @@ test('rangeSlider pointer capture preserves the pressed handle and arrow keys us
       range: options.range,
       step: options.step,
       width: 11,
-      onAction: (action) => ({ action })
+      onTransition: (action) => ({ action })
     })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
@@ -196,16 +196,16 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
         { id: 'email', label: 'Email', value: 'email' },
         { id: 'sms', label: 'SMS', value: 'sms' }
       ],
-      presentation: {
+      state: {
         activeId: 'email',
         selection: { mode: 'multiple', selectedIds: ['email'] }
       },
-      onAction: (action) => ({ kind: 'channel', action })
+      onTransition: (action) => ({ kind: 'channel', action })
     }),
     colorSwatchPicker({ meta: { accessibleName: "Colors" },
       id: 'colors',
       label: 'Accent',
-      presentation: {
+      state: {
         activeId: 'green',
         selection: { mode: 'single', selectedId: 'green' }
       },
@@ -214,17 +214,17 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
         { id: 'green', label: 'Green', value: 'green', swatch: '■' },
         { id: 'blue', label: 'Blue', value: 'blue', swatch: '◆' }
       ],
-      onAction: (action) => ({ kind: 'color', action })
+      onTransition: (action) => ({ kind: 'color', action })
     }),
     calendar({ meta: { accessibleName: "Calendar" },
       id: 'dates',
       label: 'June',
-      presentation: calendarFixture({
+      view: calendarFixture({
         selectedDate: { year: 2026, month: 6, day: 15 },
         activeDate: { year: 2026, month: 6, day: 15 },
         today: { year: 2026, month: 6, day: 10 }
       }),
-      onAction: (action) => ({ kind: 'date', action })
+      onTransition: (action) => ({ kind: 'date', action })
     })
   ], { gap: 1 });
   const frame = renderElementFrame(element, { columns: 72, rows: 18 });
@@ -284,20 +284,20 @@ test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
     id: 'wide-colors',
     label: '',
     columns: 1,
-    presentation: { selection: { mode: 'single' } },
+    state: { selection: { mode: 'single' } },
     options: [{ id: 'dots', label: '··', value: 'dots', swatch: 'x' }],
-    onAction: () => ignoreMessage()
+    onTransition: () => ignoreMessage()
   }), { columns: 20, rows: 2 }, { widthProfile });
   const calendarFrame = renderElementFrame(calendar({ meta: { accessibleName: "Calendar" },
     id: 'wide-calendar',
     label: '',
-    presentation: {
+    view: {
       monthLabel: 'Month',
       weekdays: ['··', '··', '··', '··', '··', '··', '··'],
       days: [],
       interaction: { selection: { mode: 'single' } }
     },
-    onAction: () => ignoreMessage()
+    onTransition: () => ignoreMessage()
   }), { columns: 32, rows: 3 }, { widthProfile });
 
   assert.equal(
@@ -320,12 +320,12 @@ test('picker swatches remain inside their fixed cell budget under ambiguous-wide
     id: 'wide-swatch',
     label: '',
     columns: 2,
-    presentation: { selection: { mode: 'single' } },
+    state: { selection: { mode: 'single' } },
     options: [
       { id: 'first', label: 'First', value: 1, swatch: '■' },
       { id: 'second', label: 'Second', value: 2, swatch: '◆' }
     ],
-    onAction: () => ({ kind: 'combobox' })
+    onTransition: () => ({ kind: 'combobox' })
   }), { columns: 24, rows: 1 }, { widthProfile });
 
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'option.first.swatch')?.text, '*');
@@ -345,7 +345,7 @@ test('form controls keep state visible in high contrast and no-color rendering m
       label: 'Agree',
       checked: true,
       required: true,
-      onAction: () => ignoreMessage()
+      onTransition: () => ignoreMessage()
     }),
     slider({ meta: { accessibleName: "Slider" },
       id: 'volume',
@@ -354,24 +354,24 @@ test('form controls keep state visible in high contrast and no-color rendering m
       min: 0,
       max: 100,
       width: 5,
-      onAction: () => ignoreMessage()
+      onTransition: () => ignoreMessage()
     }),
     combobox({
       id: 'region',
       label: 'Region',
       placeholder: 'Select region',
-      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
+      state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       options: [{ id: 'eu', label: 'Europe', value: 'eu' }],
       onTransition: () => ignoreMessage()
     }),
     calendar({ meta: { accessibleName: "Calendar" },
       id: 'calendar',
       label: '',
-      presentation: calendarFixture({
+      view: calendarFixture({
         selectedDate: { year: 2026, month: 6, day: 2 },
         today: { year: 2026, month: 6, day: 2 }
       }),
-      onAction: () => ignoreMessage()
+      onTransition: () => ignoreMessage()
     })
   ], { gap: 1 });
   const frame = renderElementFrame(element, { columns: 32, rows: 14 }, { theme: highContrastTheme });
@@ -398,11 +398,11 @@ test('form controls keep state visible in high contrast and no-color rendering m
 
 test('controls clipped to an empty layout region expose no pointer targets', () => {
   const frame = renderElementFrame(column([
-    checkbox({ id: 'visible', label: 'Visible', checked: false, onAction: () => ignoreMessage() }),
+    checkbox({ id: 'visible', label: 'Visible', checked: false, onTransition: () => ignoreMessage() }),
     combobox({
       id: 'clipped-combobox',
       label: 'Clipped',
-      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
+      state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       options: [{ id: 'one', label: 'One', value: 'one' }],
       onTransition: (action) => action
     })

@@ -1,8 +1,8 @@
-import { calendarPresentation } from '../../dist/behavior/index.js';
+import { calendarView } from '../../dist/behavior/index.js';
 
 export function calendarFixture(options = {}) {
   const visibleMonth = options.visibleMonth ?? { year: 2026, month: 6 };
-  return calendarPresentation({
+  return calendarView({
     visibleMonth,
     ...(options.selectedDate === undefined ? {} : { selectedDate: options.selectedDate }),
     ...(options.activeDate === undefined ? {} : { activeDate: options.activeDate })

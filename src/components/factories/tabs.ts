@@ -19,13 +19,13 @@ import type { LayoutFlowOptions, Rect } from '../../geometry/types.ts';
 import {
   layoutContentBounds,
   layoutInsetSize,
-  normalizeLayoutFlowOptions,
+  decodeLayoutFlowOptions,
 } from '../../layout/index.ts';
 import { pointerVisualState } from '../../interaction/index.ts';
 import type { MessageResolution } from '../../interaction/index.ts';
 import { oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
-import type { TabCloseEvent, TabsTransition } from '../../ui-model/tabs.ts';
-import type { TabsStylePart } from '../../ui-model/style-parts.ts';
+import type { TabCloseEvent, TabsTransition } from '../../behavior/tabs.ts';
+import type { TabsStylePart } from '../style-parts.ts';
 import type { ComponentInspectionValue } from '../../component/index.ts';
 import {
   inlineContentAccessibleText,
@@ -33,7 +33,7 @@ import {
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
-import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import type { TabsOptions } from '../options/tabs.ts';
 
 interface TabModelItem {
@@ -83,7 +83,7 @@ type TabsFactory = <
 ) => Element<TMessage>;
 
 type TabsComponentAction =
-  | { readonly kind: 'transition'; readonly action: TabsTransition }
+  | { readonly kind: 'transition'; readonly transition: TabsTransition }
   | { readonly kind: 'close'; readonly event: TabCloseEvent };
 
 const instantiateTabs = defineComponent<
@@ -115,7 +115,7 @@ const instantiateTabs = defineComponent<
     }) satisfies ComponentInspectionValue,
     collection: { startIndex: 0, totalCount: model.tabs.length, visibleCount: model.tabs.length },
   }),
-  prepare: prepareTabs,
+  createModel: createTabsModel,
   measure(input) {
     const headerWidth = tabHeaderEntries(input)
       .reduce((width, entry, index) => width + entry.width + (index === 0 ? 0 : 1), 0);
@@ -248,8 +248,8 @@ export const tabs: TabsFactory = <
   const items = options.tabs;
   const shared = {
     id: options.id,
-    ...(options.presentation.activeId === undefined ? {} : { activeId: options.presentation.activeId }),
-    ...(options.presentation.selectedId === undefined ? {} : { selectedId: options.presentation.selectedId }),
+    ...(options.state.activeId === undefined ? {} : { activeId: options.state.activeId }),
+    ...(options.state.selectedId === undefined ? {} : { selectedId: options.state.selectedId }),
     ...(options.maxTabWidth === undefined ? {} : { maxTabWidth: options.maxTabWidth }),
     ...(options.gap === undefined ? {} : { gap: options.gap }),
     ...(options.padding === undefined ? {} : { padding: options.padding }),
@@ -289,7 +289,7 @@ export const tabs: TabsFactory = <
       if (action.kind === 'close') {
         return options.onClose?.(action.event as TabCloseEvent<TId>) ?? ignoreMessage();
       }
-      return options.onTransition(action.action as TabsTransition<TId>);
+      return options.onTransition(action.transition as TabsTransition<TId>);
     },
   });
 };
@@ -562,9 +562,9 @@ function tabSpan(
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    ...('source' in input
+    ...('frameSource' in input
       ? {
-        source: input.source({
+        source: input.frameSource({
           partName,
           partType: part,
           ...(itemId === undefined ? {} : { itemId }),
@@ -649,7 +649,7 @@ function tabsAccessibility(
   };
 }
 
-function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
+function createTabsModel(value: Readonly<TabsOwnOptions>): TabsModel {
   const rawTabs = value.tabs;
   if (rawTabs.length === 0) {
     throw new TypeError('tabs tabs must be a non-empty array.');
@@ -716,7 +716,7 @@ function prepareTabs(value: Readonly<TabsOwnOptions>): TabsModel {
     selectedIndex,
     activeIndex,
     ...(maxTabWidth === undefined ? {} : { maxTabWidth: maxTabWidth }),
-    layout: normalizeLayoutFlowOptions(value, 'tabs'),
+    layout: decodeLayoutFlowOptions(value, 'tabs'),
   };
 }
 
@@ -736,6 +736,6 @@ function tabCloseTargetId(id: string | undefined, tabId: string): string {
   return `${id ?? 'tabs'}:tab:${tabId}:close`;
 }
 
-function transition(action: TabsTransition): TabsComponentAction {
-  return { kind: 'transition', action };
+function transition(transition: TabsTransition): TabsComponentAction {
+  return { kind: 'transition', transition };
 }

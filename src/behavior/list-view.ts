@@ -1,16 +1,40 @@
-import { collectionInteractionReducer } from '../interaction/collection.ts';
-import type { CollectionInteractionIndex } from '../interaction/collection.ts';
+import { collectionInteractionReducer } from '../interaction/collection-interaction.ts';
+import type { CollectionInteractionIndex } from '../interaction/collection-interaction.ts';
 import type { NavigationPolicy } from '../interaction/navigation.ts';
-import type {
-  ListViewControlTransition,
-  ListViewPresentation,
-  ListViewTransition,
-  ScrollableListViewPresentation,
-  UnscrolledListViewPresentation,
-} from '../ui-model/semantic-list.ts';
-import { applyScrollEvent } from './scroll.ts';
-import { measuredWindow } from './measured-window.ts';
-import type { MeasuredCollection } from '../ui-model/measured-collection.ts';
+import type { CollectionInteractionTransition, CollectionInteractionState } from '../interaction/collection-interaction.ts';
+import type { ScrollRequest, ScrollState } from '../interaction/scroll.ts';
+import { applyScrollRequest } from './scroll.ts';
+import { measuredWindow } from '../collection/measured-window-operations.ts';
+import type { MeasuredCollection } from '../collection/measured-collection.ts';
+
+/** @beta */
+export interface UnscrolledListViewState extends CollectionInteractionState {
+  readonly scroll?: never;
+}
+
+/** @beta */
+export interface ScrollableListViewState extends CollectionInteractionState {
+  readonly scroll: ScrollState;
+}
+
+/** @beta */
+export type ListViewState = UnscrolledListViewState | ScrollableListViewState;
+
+/** @beta */
+export type ListViewTransition = CollectionInteractionTransition | {
+  readonly kind: 'scroll';
+  readonly request: ScrollRequest;
+};
+
+/** @beta */
+export type ListViewControlTransition = Exclude<ListViewTransition, { readonly kind: 'scroll' }>;
+
+/** @beta */
+export interface ListViewActivateEvent {
+  readonly kind: 'activate';
+  readonly id: string;
+  readonly itemIndex: number;
+}
 
 /** @beta */
 export interface ListViewReducerOptions<TValue = unknown> {
@@ -22,26 +46,26 @@ export interface ListViewReducerOptions<TValue = unknown> {
 
 /** @beta */
 export function listViewReducer(
-  state: ScrollableListViewPresentation,
-  action: ListViewTransition,
+  state: ScrollableListViewState,
+  transition: ListViewTransition,
   options: ListViewReducerOptions,
-): ScrollableListViewPresentation;
+): ScrollableListViewState;
 export function listViewReducer(
-  state: UnscrolledListViewPresentation,
-  action: ListViewControlTransition,
+  state: UnscrolledListViewState,
+  transition: ListViewControlTransition,
   options: ListViewReducerOptions,
-): UnscrolledListViewPresentation;
+): UnscrolledListViewState;
 export function listViewReducer(
-  state: ListViewPresentation,
-  action: ListViewTransition,
+  state: ListViewState,
+  transition: ListViewTransition,
   options: ListViewReducerOptions,
-): ListViewPresentation {
-  if (action.kind === 'scroll') {
+): ListViewState {
+  if (transition.kind === 'scroll') {
     if (state.scroll === undefined) return state;
-    const scroll = applyScrollEvent(state.scroll, action.event);
+    const scroll = applyScrollRequest(state.scroll, transition.request);
     return scroll === state.scroll ? state : { ...state, scroll };
   }
-  const interaction = collectionInteractionReducer(state, action, {
+  const interaction = collectionInteractionReducer(state, transition, {
     index: options.index,
     ...(options.navigation === undefined ? {} : { navigation: options.navigation }),
   });

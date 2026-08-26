@@ -2,7 +2,7 @@ import { isNonArrayObject } from '../../foundation/validation.ts';
 import type { ElementAccessibility } from '../../element/metadata.ts';
 import type { AccessibilityOptions } from '../../accessibility/index.ts';
 import type { LayoutNode } from '../contracts.ts';
-import type { RenderNode } from '../model/index.ts';
+import type { RenderNode } from './render-tree/index.ts';
 
 export function isDecorativeAccessibility(
   value: ElementAccessibility | undefined

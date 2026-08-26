@@ -1,6 +1,6 @@
 import { segmentGraphemesForMeasurement } from '../../text/graphemes.ts';
 import {
-  prepareTextDocument,
+  createTextDocument,
   sanitizeTerminalText,
   textDocumentParentChange,
   textDocumentText,
@@ -8,45 +8,45 @@ import {
   type TextDocument,
   type TextWidthProfile
 } from '../../text/index.ts';
-import { textDocumentCanProjectDirectly, textDocumentEditExact } from '../../text/document.ts';
-import type { TerminalStyle } from '../../visual/render.ts';
+import { textDocumentCanRenderDirectly, textDocumentEditExact } from '../../text/document.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
 
-interface PreparedTextAreaDecorationBase {
+interface TextAreaDecorationModelBase {
   readonly startOffset: number;
   readonly endOffsetExclusive: number;
   readonly order: number;
   readonly label: string;
 }
 
-interface PreparedTextAreaStyleDecoration extends PreparedTextAreaDecorationBase {
+interface TextAreaStyleDecorationModel extends TextAreaDecorationModelBase {
   readonly kind: 'style';
   readonly style?: TerminalStyle;
   readonly replacementText?: never;
   readonly accessibilityText?: never;
 }
 
-interface PreparedTextAreaReplacementDecoration extends PreparedTextAreaDecorationBase {
+interface TextAreaReplacementDecorationModel extends TextAreaDecorationModelBase {
   readonly kind: 'replace';
   readonly style?: TerminalStyle;
   readonly replacementText: string;
   readonly accessibilityText?: string;
 }
 
-interface PreparedTextAreaConcealDecoration extends PreparedTextAreaDecorationBase {
+interface TextAreaConcealDecorationModel extends TextAreaDecorationModelBase {
   readonly kind: 'conceal';
   readonly style?: never;
   readonly replacementText?: never;
   readonly accessibilityText?: never;
 }
 
-export type PreparedTextAreaDecoration =
-  | PreparedTextAreaStyleDecoration
-  | PreparedTextAreaReplacementDecoration
-  | PreparedTextAreaConcealDecoration;
+export type TextAreaDecorationModel =
+  | TextAreaStyleDecorationModel
+  | TextAreaReplacementDecorationModel
+  | TextAreaConcealDecorationModel;
 
-type PreparedTextAreaContentDecoration =
-  | PreparedTextAreaReplacementDecoration
-  | PreparedTextAreaConcealDecoration;
+type TextAreaContentDecorationModel =
+  | TextAreaReplacementDecorationModel
+  | TextAreaConcealDecorationModel;
 
 export interface ProjectedTextStyleRange {
   readonly startOffset: number;
@@ -123,7 +123,7 @@ const terminalStyleFields: readonly TerminalStyleField[] = Object.freeze([
 
 export function createTextAreaProjection(
   document: TextDocument,
-  decorations: readonly PreparedTextAreaDecoration[],
+  decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile
 ): TextAreaProjection {
   const key = projectionKey(decorations, widthProfile);
@@ -134,7 +134,7 @@ export function createTextAreaProjection(
   const source = textDocumentText(document);
   if (
     decorations.every((decoration) => decoration.kind === 'style')
-    && textDocumentCanProjectDirectly(document)
+    && textDocumentCanRenderDirectly(document)
   ) {
     return retainProjection(document, key, directProjection(document, source, decorations, profileKey));
   }
@@ -217,7 +217,7 @@ function retainProjection(
 function directProjection(
   document: TextDocument,
   source: string,
-  decorations: readonly PreparedTextAreaDecoration[],
+  decorations: readonly TextAreaDecorationModel[],
   profileKey: string,
 ): TextAreaProjection {
   const segment: MappingSegment = Object.freeze({
@@ -258,7 +258,7 @@ function inheritedProjectedDocument(
     : [...parentCache.values()].toReversed().find((candidate) => (
         candidate.widthProfileKey === profileKey
       ));
-  if (parent === undefined) return prepareTextDocument(text);
+  if (parent === undefined) return createTextDocument(text);
   if (parent.text === text) return parent.document;
   const prefix = commonPrefixLength(parent.text, text);
   const suffix = commonSuffixLength(parent.text, text, prefix);
@@ -288,12 +288,12 @@ function commonSuffixLength(left: string, right: string, prefix: number): number
 }
 
 function directStyleRanges(
-  decorations: readonly PreparedTextAreaDecoration[],
+  decorations: readonly TextAreaDecorationModel[],
   sourceLength: number,
 ): readonly ProjectedTextStyleRange[] {
   if (decorations.length === 0) return Object.freeze([]);
-  const starts = new Map<number, PreparedTextAreaDecoration[]>();
-  const ends = new Map<number, PreparedTextAreaDecoration[]>();
+  const starts = new Map<number, TextAreaDecorationModel[]>();
+  const ends = new Map<number, TextAreaDecorationModel[]>();
   const boundaries = new Set<number>([0, sourceLength]);
   for (const decoration of decorations) {
     boundaries.add(decoration.startOffset);
@@ -335,13 +335,13 @@ function directStyleRanges(
 function projectSource(
   builder: ProjectionBuilder,
   source: string,
-  decorations: readonly PreparedTextAreaDecoration[]
+  decorations: readonly TextAreaDecorationModel[]
 ): void {
   const boundaries = new Set<number>([0, source.length]);
-  const starts = new Map<number, PreparedTextAreaDecoration[]>();
-  const ends = new Map<number, PreparedTextAreaDecoration[]>();
-  const replacements = new Map<number, PreparedTextAreaContentDecoration>();
-  const virtual = new Map<number, PreparedTextAreaReplacementDecoration[]>();
+  const starts = new Map<number, TextAreaDecorationModel[]>();
+  const ends = new Map<number, TextAreaDecorationModel[]>();
+  const replacements = new Map<number, TextAreaContentDecorationModel>();
+  const virtual = new Map<number, TextAreaReplacementDecorationModel[]>();
   for (const decoration of decorations) {
     boundaries.add(decoration.startOffset);
     boundaries.add(decoration.endOffsetExclusive);
@@ -386,7 +386,7 @@ function projectSource(
 
 function appendResolvedReplacement(
   builder: ProjectionBuilder,
-  decoration: PreparedTextAreaContentDecoration,
+  decoration: TextAreaContentDecorationModel,
   active: ActiveDecorationStyles,
 ): void {
   active.add(decoration);
@@ -396,9 +396,9 @@ function appendResolvedReplacement(
 }
 
 function appendEvent(
-  events: Map<number, PreparedTextAreaDecoration[]>,
+  events: Map<number, TextAreaDecorationModel[]>,
   offset: number,
-  decoration: PreparedTextAreaDecoration
+  decoration: TextAreaDecorationModel
 ): void {
   const entries = events.get(offset);
   if (entries === undefined) events.set(offset, [decoration]);
@@ -410,7 +410,7 @@ class ActiveDecorationStyles {
   readonly #labels: HeapEntry<string>[] = [];
   readonly #fields = new Map<TerminalStyleField, HeapEntry<TerminalStyle[TerminalStyleField]>[]>();
 
-  add(decoration: PreparedTextAreaDecoration): void {
+  add(decoration: TextAreaDecorationModel): void {
     this.#active.add(decoration.order);
     heapPush(this.#labels, { order: decoration.order, value: decoration.label });
     for (const field of terminalStyleFields) {
@@ -422,7 +422,7 @@ class ActiveDecorationStyles {
     }
   }
 
-  remove(decoration: PreparedTextAreaDecoration): void {
+  remove(decoration: TextAreaDecorationModel): void {
     this.#active.delete(decoration.order);
   }
 
@@ -539,7 +539,7 @@ function appendSourcePiece(
 
 function appendReplacement(
   builder: ProjectionBuilder,
-  decoration: PreparedTextAreaContentDecoration,
+  decoration: TextAreaContentDecorationModel,
   resolved: ResolvedDecoration,
 ): void {
   const displayText = decoration.kind === 'conceal'
@@ -772,7 +772,7 @@ function sameTerminalStyle(left: TerminalStyle | undefined, right: TerminalStyle
 }
 
 function projectionKey(
-  decorations: readonly PreparedTextAreaDecoration[],
+  decorations: readonly TextAreaDecorationModel[],
   widthProfile: TextWidthProfile
 ): string {
   return `${textWidthProfileKey(widthProfile)}:${JSON.stringify(decorations)}`;

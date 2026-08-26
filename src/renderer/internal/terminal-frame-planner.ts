@@ -2,7 +2,7 @@ import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { Frame, FrameCell } from '../contracts.ts';
 import type { RenderDiff } from '../contracts.ts';
-import { diffFrames } from './frame.ts';
+import { diffFrames } from '../frame.ts';
 import { sameTerminalFrameCell } from './frame-cell-equality.ts';
 import { frameIndex } from './frame-index.ts';
 import { frameRecoverySuffix, planTerminalOutput } from './output-planner.ts';
@@ -64,8 +64,8 @@ export function planTerminalFrameOutput(
   const policy = createTerminalSerializationPolicy({ capabilities: unsynchronizedCapabilities });
   let selected: TerminalFrameOutputPlan | undefined;
   for (const movement of rowMovementCandidates(previous, next)) {
-    const projected = applyTerminalRowMovement(previous, movement);
-    const repair = diffFrames(projected, next);
+    const shifted = applyTerminalRowMovement(previous, movement);
+    const repair = diffFrames(shifted, next);
     const repairPlan = planTerminalOutput(repair, {
       ...managedOptions,
       capabilities: unsynchronizedCapabilities

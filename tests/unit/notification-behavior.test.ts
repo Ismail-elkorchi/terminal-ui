@@ -5,11 +5,11 @@ import {
   createNotificationState,
   nextNotificationExpiry,
   activeNotificationItems,
-  notificationHistoryAction,
+  notificationTransitionFromHistory,
   notificationHistoryItems,
   notificationReducer
 } from '../../dist/behavior/index.js';
-import type { NotificationAction } from '../../dist/behavior/index.js';
+import type { NotificationTransition } from '../../dist/behavior/index.js';
 
 void test('notification controller keeps visible capacity, queue order, conflicts, and history explicit', () => {
   const policy = { maxVisible: 2, maxQueued: 2, maxHistory: 4 };
@@ -69,9 +69,9 @@ void test('notification controller pauses deadlines, resumes them, expires recor
   assert.equal(state.history[0]?.reason, 'expired');
 });
 
-void test('notification history actions convert to controller actions with explicit time', () => {
+void test('notification history transitions convert to controller transitions with explicit time', () => {
   const scroll = { offsetRow: 3, offsetColumn: 0, followTail: false };
-  assert.deepEqual(notificationHistoryAction({
+  assert.deepEqual(notificationTransitionFromHistory({
     kind: 'selection',
     selectedId: 'b',
     scroll,
@@ -81,12 +81,12 @@ void test('notification history actions convert to controller actions with expli
     scroll,
     now: 50,
   });
-  assert.deepEqual(notificationHistoryAction({ kind: 'scroll', scroll }, 50), {
+  assert.deepEqual(notificationTransitionFromHistory({ kind: 'scroll', scroll }, 50), {
     kind: 'scrollHistory',
     scroll,
     now: 50,
   });
-  assert.deepEqual(notificationHistoryAction({ kind: 'remove', id: 'a' }, 50), {
+  assert.deepEqual(notificationTransitionFromHistory({ kind: 'remove', id: 'a' }, 50), {
     kind: 'removeHistory',
     id: 'a',
     now: 50
@@ -106,7 +106,7 @@ void test('notification capacity records each dropped item exactly once with the
   assert.deepEqual(notificationHistoryItems(state).map((item) => item.id), ['b']);
 });
 
-void test('notification history keeps completion data in behavior state and projects render items', () => {
+void test('notification history keeps completion data in behavior state and derives render items', () => {
   let state = notificationReducer(createNotificationState(), enqueue('a', 'Alpha', 1));
   state = notificationReducer(state, { kind: 'dismiss', id: 'a', now: 1e300 });
 
@@ -128,6 +128,6 @@ function enqueue(
   id: string,
   title: string,
   now: number
-): Extract<NotificationAction, { readonly kind: 'enqueue' }> {
+): Extract<NotificationTransition, { readonly kind: 'enqueue' }> {
   return { kind: 'enqueue', notification: { id, title }, now };
 }

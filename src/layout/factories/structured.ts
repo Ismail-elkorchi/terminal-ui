@@ -1,4 +1,4 @@
-import { layoutElementFromRenderNode, toRenderNodes } from '../../renderer/model/element.ts';
+import { layoutElementFromRenderNode, toRenderNodes } from '../../renderer/internal/render-tree/element.ts';
 import type {
   Element,
   ElementChildren,
@@ -7,13 +7,13 @@ import type {
   ElementValue
 } from '../../element/index.ts';
 import type { GridAreasOptions, GridOptions } from '../options.ts';
-import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
+import { renderNodeMeta as componentMetaProps } from '../../renderer/internal/render-tree/metadata.ts';
 import {
   optionalRenderNodeId,
   renderNodeChildren
-} from '../../renderer/model/element.ts';
-import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
-import { assertGridAreaChildren, gridAreaNames, parseGridAreas } from './internals.ts';
+} from '../../renderer/internal/render-tree/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
+import { assertGridAreaChildren, gridAreaNames, parseGridAreas } from './grid-areas.ts';
 
 export function grid<const TChildren extends ElementChildren>(
   children: TChildren,

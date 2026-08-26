@@ -1,5 +1,5 @@
 /** Status, progress, and notification feedback components. */
-export { activityIndicator, progressBar, statusBar } from './factories/feedback.ts';
+export { activityIndicator, progressBar, statusBar } from './factories/indicators.ts';
 export { notificationHistory, notificationRegion } from './factories/notifications.ts';
 export type {
   ActivityIndicatorOptions,
@@ -7,15 +7,19 @@ export type {
   NotificationRegionOptions,
   ProgressBarOptions,
   StatusBarOptions,
-} from './options/feedback.ts';
+} from './options/feedback-and-visualizations.ts';
 export type {
   NotificationItem,
   NotificationPlacement,
   NotificationTone,
+} from '../behavior/notification.ts';
+export type {
   ProgressBarDisplay,
   ProgressBarLabelPosition,
   ProgressBarMode,
+} from './progress.ts';
+export type {
   StatusBarItem,
-} from '../ui-model/feedback.ts';
-export type { NotificationHistoryTransition } from '../ui-model/notification.ts';
-export { isNotificationTone, isProcessStatus, isStatusBarStatus } from '../ui-model/status.ts';
+} from './status-bar.ts';
+export type { NotificationHistoryTransition } from '../behavior/notification-history.ts';
+export { isNotificationTone, isProcessStatus, isStatusBarStatus } from './status.ts';

@@ -1,7 +1,7 @@
 /** Renderer-native primitives and foundational semantic controls. */
 export { canvas, image } from './factories/drawing.ts';
-export { disclosure, richText, text } from './factories/content.ts';
-export { divider } from './factories/menus.ts';
+export { disclosure, richText, text } from './factories/text-and-disclosure.ts';
+export { divider } from './factories/divider-and-tooltip.ts';
 export { link, toggleButton, toolbar } from './factories/foundations.ts';
 export type * from './options/drawing.ts';
 export type {
@@ -12,7 +12,6 @@ export type {
   RichTextOptions,
   RichTextLinkActivateEvent,
   TextOptions,
-} from './options/content.ts';
-export type { DividerOptions } from './options/menus.ts';
+} from './options/content-and-collections.ts';
 export type * from './options/foundations.ts';
-export type { DisclosureAction } from '../ui-model/disclosure.ts';
+export type { DisclosureTransition } from './disclosure.ts';

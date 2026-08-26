@@ -2,32 +2,32 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  findPreparedTextMatches,
-  prepareTextSearchIndex,
-  prepareTextSearchQuery
+  findTextMatches,
+  createTextSearchIndex,
+  compileTextSearchQuery
 } from './search-index.ts';
 
-void test('prepared text search preserves grapheme boundaries and normalization', () => {
-  const index = prepareTextSearchIndex('Cafe\u0301 CAFÉ 👨‍👩‍👧‍👦 café', {
+void test('indexed text search preserves grapheme boundaries and normalization', () => {
+  const index = createTextSearchIndex('Cafe\u0301 CAFÉ 👨‍👩‍👧‍👦 café', {
     accentSensitive: false,
     caseSensitive: false
   });
 
-  assert.deepEqual(findPreparedTextMatches(
+  assert.deepEqual(findTextMatches(
     index,
-    prepareTextSearchQuery('café', { accentSensitive: false, caseSensitive: false })
+    compileTextSearchQuery('café', { accentSensitive: false, caseSensitive: false })
   ), [
     { startGraphemeIndex: 0, endGraphemeIndexExclusive: 4 },
     { startGraphemeIndex: 5, endGraphemeIndexExclusive: 9 },
     { startGraphemeIndex: 12, endGraphemeIndexExclusive: 16 }
   ]);
-  assert.deepEqual(findPreparedTextMatches(index, prepareTextSearchQuery('👨')), []);
+  assert.deepEqual(findTextMatches(index, compileTextSearchQuery('👨')), []);
 });
 
-void test('prepared text search emits non-overlapping ordered matches', () => {
-  const index = prepareTextSearchIndex('aaaaa');
+void test('indexed text search emits non-overlapping ordered matches', () => {
+  const index = createTextSearchIndex('aaaaa');
 
-  assert.deepEqual(findPreparedTextMatches(index, prepareTextSearchQuery('aa')), [
+  assert.deepEqual(findTextMatches(index, compileTextSearchQuery('aa')), [
     { startGraphemeIndex: 0, endGraphemeIndexExclusive: 2 },
     { startGraphemeIndex: 2, endGraphemeIndexExclusive: 4 }
   ]);

@@ -3,8 +3,8 @@ import type { FocusLifecycleEvent, FocusPath } from '../interaction/focus.ts';
 import { isIgnoredMessage } from '../interaction/message.ts';
 import { collectRenderNodeLayoutTargets } from '../renderer/internal/focus.ts';
 import type { LayoutNode } from '../renderer/contracts.ts';
-import type { RenderNode, RenderNodeOfKind } from '../renderer/model/index.ts';
-import { resolveRenderNodeMessage } from '../renderer/model/node.ts';
+import type { RenderNode, RenderNodeOfKind } from '../renderer/internal/render-tree/index.ts';
+import { resolveRenderNodeMessage } from '../renderer/internal/render-tree/node.ts';
 
 interface FocusLifecycleTarget<TMessage> {
   readonly key: string;

@@ -6,16 +6,15 @@ import {
   createScrollState,
   listboxReducer,
   listViewReducer,
-  measuredWindow,
-  prepareMeasuredCollection,
-  prepareListboxCollection
+  createListboxCollection
 } from '../../dist/behavior/index.js';
+import { createMeasuredCollection, measuredWindow } from '../../dist/collection/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
-import { layoutElement } from '../../dist/renderer/internal/layout.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { layoutElement } from '../../dist/renderer/layout.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { button, list, listbox, listView, text } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
-import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
+import { createCollectionInteractionIndex } from '../../dist/interaction/index.js';
 
 const mousePress = (row, column) => ({
   kind: 'mouse',
@@ -63,7 +62,7 @@ test('passive list preserves arbitrary child semantics without interaction', () 
 });
 
 test('listView measures arbitrary rows and derives one active-item scroll window', () => {
-  const collection = prepareMeasuredCollection([
+  const collection = createMeasuredCollection([
     { id: 'first', rows: 2, value: { label: 'First', content: text({ content: 'First A\nFirst B' }) } },
     { id: 'second', rows: 1, value: { label: 'Second', content: text({ content: 'Second' }) } },
     { id: 'third', rows: 2, value: { label: 'Third', content: text({ content: 'Third A\nThird B' }) } }
@@ -73,7 +72,7 @@ test('listView measures arbitrary rows and derives one active-item scroll window
     id: 'activity',
     window,
     renderItem: (item) => item.value,
-    presentation: {
+    state: {
       activeId: 'third',
       selection: { mode: 'single', selectedId: 'first' },
       scroll: createScrollState({ offsetRow: window.offsetRow })
@@ -103,7 +102,7 @@ test('listView measures arbitrary rows and derives one active-item scroll window
 });
 
 test('listView clips partial measured items at both viewport edges', () => {
-  const collection = prepareMeasuredCollection([
+  const collection = createMeasuredCollection([
     { id: 'first', rows: 3, value: { label: 'First', content: text({ content: 'A1\nA2\nA3' }) } },
     { id: 'second', rows: 3, value: { label: 'Second', content: text({ content: 'B1\nB2\nB3' }) } }
   ]);
@@ -112,7 +111,7 @@ test('listView clips partial measured items at both viewport edges', () => {
     id: 'clipped-items',
     window,
     renderItem: (item) => item.value,
-    presentation: {
+    state: {
       selection: { mode: 'none' },
       scroll: createScrollState({ offsetRow: window.offsetRow })
     },
@@ -136,7 +135,7 @@ test('listView clips partial measured items at both viewport edges', () => {
 });
 
 test('listView translates an oversized item through its clipped viewport', () => {
-  const collection = prepareMeasuredCollection([{
+  const collection = createMeasuredCollection([{
     id: 'oversized',
     rows: 5,
     value: { content: text({ id: 'oversized-content', content: 'one\ntwo\nthree\nfour\nfive' }) }
@@ -146,7 +145,7 @@ test('listView translates an oversized item through its clipped viewport', () =>
     id: 'oversized-list',
     window,
     renderItem: (item) => item.value,
-    presentation: {
+    state: {
       activeId: 'oversized',
       selection: { mode: 'none' },
       scroll: createScrollState({ offsetRow: window.offsetRow })
@@ -160,13 +159,13 @@ test('listView translates an oversized item through its clipped viewport', () =>
 });
 
 test('listView translates nested pointer targets in a clipped item', () => {
-  const collection = prepareMeasuredCollection([{
+  const collection = createMeasuredCollection([{
     id: 'action',
     rows: 2,
     value: {
       content: column([
         text({ content: 'heading' }),
-        button({ id: 'clipped-action', label: 'Run', onAction: () => ({ kind: 'run' }) })
+        button({ id: 'clipped-action', label: 'Run', onPress: () => ({ kind: 'run' }) })
       ])
     }
   }]);
@@ -175,7 +174,7 @@ test('listView translates nested pointer targets in a clipped item', () => {
     id: 'clipped-actions',
     window,
     renderItem: (item) => item.value,
-    presentation: {
+    state: {
       selection: { mode: 'none' },
       scroll: createScrollState({ offsetRow: window.offsetRow })
     },
@@ -192,7 +191,7 @@ test('listView translates nested pointer targets in a clipped item', () => {
 });
 
 test('listView intrinsic height is the supplied viewport and off-window activity remains valid', () => {
-  const collection = prepareMeasuredCollection([
+  const collection = createMeasuredCollection([
     { id: 'first', rows: 50, value: { content: text({ content: Array(50).fill('first').join('\n') }) } },
     { id: 'second', rows: 50, value: { content: text({ content: Array(50).fill('second').join('\n') }) } }
   ]);
@@ -201,7 +200,7 @@ test('listView intrinsic height is the supplied viewport and off-window activity
     id: 'intrinsic-list',
     window,
     renderItem: (item) => item.value,
-    presentation: { selection: { mode: 'none' } },
+    state: { selection: { mode: 'none' } },
     onTransition: (transition) => transition
   });
   const layout = layoutElement(column([view, text({ content: 'footer' })], {
@@ -214,7 +213,7 @@ test('listView intrinsic height is the supplied viewport and off-window activity
     id: 'invalid-active-list',
     window,
     renderItem: (item) => item.value,
-    presentation: { activeId: 'second', selection: { mode: 'none' } },
+    state: { activeId: 'second', selection: { mode: 'none' } },
     onTransition: (transition) => transition
   });
   assert.equal(
@@ -225,7 +224,7 @@ test('listView intrinsic height is the supplied viewport and off-window activity
     id: 'invalid-horizontal-list',
     window,
     renderItem: (item) => item.value,
-    presentation: { selection: { mode: 'none' }, scroll: createScrollState() },
+    state: { selection: { mode: 'none' }, scroll: createScrollState() },
     scrollbar: { axis: 'horizontal' },
     onTransition: (transition) => transition
   }), /scrollbar axis must be vertical/u);
@@ -233,7 +232,7 @@ test('listView intrinsic height is the supplied viewport and off-window activity
 
 test('listView owns retained multiple-selection state at construction', () => {
   const selectedIds = ['first'];
-  const window = measuredWindow(prepareMeasuredCollection([
+  const window = measuredWindow(createMeasuredCollection([
     { id: 'first', rows: 1, value: { content: text({ content: 'First' }) } },
     { id: 'second', rows: 1, value: { content: text({ content: 'Second' }) } }
   ]), { viewportRows: 2 });
@@ -241,7 +240,7 @@ test('listView owns retained multiple-selection state at construction', () => {
     id: 'owned-list-view-selection',
     window,
     renderItem: (item) => item.value,
-    presentation: {
+    state: {
       selection: { mode: 'multiple', selectedIds, anchorId: 'first' }
     },
     onTransition: (transition) => transition
@@ -258,8 +257,8 @@ test('listView reducer separates active position, committed selection, and child
     activeId: 'first',
     selection: { mode: 'single', selectedId: 'first' }
   };
-  const index = prepareCollectionInteractionIndex(['first', 'second']);
-  const collection = prepareMeasuredCollection([
+  const index = createCollectionInteractionIndex(['first', 'second']);
+  const collection = createMeasuredCollection([
     { id: 'first', rows: 1, value: 'First' },
     { id: 'second', rows: 1, value: 'Second' }
   ]);
@@ -273,15 +272,15 @@ test('listView reducer separates active position, committed selection, and child
     collection,
     viewportRows: 1,
   });
-  const actionWindow = measuredWindow(prepareMeasuredCollection([{
+  const actionWindow = measuredWindow(createMeasuredCollection([{
     id: 'row', rows: 1,
-    value: { content: button({ id: 'row-action', label: 'Run', onAction: () => ({ kind: 'run' }) }) }
+    value: { content: button({ id: 'row-action', label: 'Run', onPress: () => ({ kind: 'run' }) }) }
   }]), { viewportRows: 1 });
   const actionList = listView({ meta: { accessibleName: "List" },
     id: 'actions',
     window: actionWindow,
     renderItem: (item) => item.value,
-    presentation: { activeId: 'row', selection: { mode: 'none' } },
+    state: { activeId: 'row', selection: { mode: 'none' } },
     onTransition: (transition) => transition
   });
   const actionTarget = renderElementRegions(actionList, { columns: 16, rows: 1 })
@@ -298,7 +297,7 @@ test('listView reducer separates active position, committed selection, and child
 });
 
 test('listView reducer returns controlled reveal scroll and rejects conflicting row geometry', () => {
-  const collection = prepareMeasuredCollection([
+  const collection = createMeasuredCollection([
     { id: 'first', rows: 2, value: 'First' },
     { id: 'second', rows: 2, value: 'Second' }
   ]);
@@ -307,7 +306,7 @@ test('listView reducer returns controlled reveal scroll and rejects conflicting 
     selection: { mode: 'none' },
     scroll: createScrollState()
   }, { kind: 'moveActive', delta: 1 }, {
-    index: prepareCollectionInteractionIndex(['first', 'second']),
+    index: createCollectionInteractionIndex(['first', 'second']),
     collection,
     viewportRows: 2
   });
@@ -315,9 +314,9 @@ test('listView reducer returns controlled reveal scroll and rejects conflicting 
   assert.equal(moved.scroll.offsetRow, 2);
   assert.equal(listViewReducer(moved, {
     kind: 'scroll',
-    event: { nextState: moved.scroll, source: 'wheel', target: 'content' }
+    request: { nextState: moved.scroll, source: 'wheel', target: 'content' }
   }, {
-    index: prepareCollectionInteractionIndex(['first', 'second']),
+    index: createCollectionInteractionIndex(['first', 'second']),
     collection,
     viewportRows: 2
   }), moved);
@@ -330,25 +329,25 @@ test('listView reducer returns controlled reveal scroll and rejects conflicting 
     id: 'height-mismatch',
     window,
     renderItem: (item) => ({ content: text({ content: item.value }) }),
-    presentation: { selection: { mode: 'none' }, scroll: moved.scroll },
+    state: { selection: { mode: 'none' }, scroll: moved.scroll },
     onTransition: (transition) => transition
   }), { columns: 20, rows: 2 }), /declares 2/u);
 });
 
-test('windowed collection uses its declared external projection query', () => {
-  const collection = prepareListboxCollection(
+test('windowed collection uses its declared external window query', () => {
+  const collection = createListboxCollection(
     ['Item 100'],
     (item, index) => ({ id: String(index), label: item }),
     {
       startIndex: 100,
       totalCount: 1_000,
-      domain: { kind: 'projection', query: { text: 'item', mode: 'contains' } }
+      scope: { kind: 'query', query: { text: 'item', mode: 'contains' } }
     }
   );
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     id: 'window-filter',
     collection,
-    presentation: { selection: { mode: 'none' } },
+    state: { selection: { mode: 'none' } },
     onTransition: (transition) => transition
   }), { columns: 24, rows: 2 });
 
@@ -357,11 +356,11 @@ test('windowed collection uses its declared external projection query', () => {
 
 test('listbox component filters items and can use explicit shared scroll state', () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    projectItem: (item) => ({ id: String(item), label: String(item) }),
+    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'filtered-listbox',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
     query: { text: 'a' },
-    presentation: {
+    state: {
       selection: { mode: 'none' },
       scroll: createScrollState({ offsetRow: 1 })
     },
@@ -377,18 +376,18 @@ test('listbox component filters items and can use explicit shared scroll state',
 
 test('listbox component exposes source-aware row values matches and empty filter state', () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    projectItem: (item) => ({ id: String(item), label: String(item) }),
+    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'items',
     items: ['Atlas', 'Pulse'],
-    presentation: { activeId: 'Atlas', selection: { mode: 'single', selectedId: 'Atlas' } },
+    state: { activeId: 'Atlas', selection: { mode: 'single', selectedId: 'Atlas' } },
     query: { text: 'at' },
     onTransition: (transition) => transition
   }), { columns: 24, rows: 2 });
   const emptyFrame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    projectItem: (item) => ({ id: String(item), label: String(item) }),
+    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'empty-items',
     items: [],
-    presentation: { selection: { mode: 'none' } },
+    state: { selection: { mode: 'none' } },
     query: { text: 'missing' },
     onTransition: (transition) => transition
   }), { columns: 24, rows: 2 });
@@ -402,20 +401,20 @@ test('listbox component exposes source-aware row values matches and empty filter
   assert.match(renderFramePlain(emptyFrame), /No matching items/u);
 });
 
-test('listbox projects object values once for visible text filtering and accessibility', () => {
+test('listbox maps object values once for visible text filtering and accessibility', () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
     id: 'object-listbox',
     items: [
       { key: 'atlas', title: 'Atlas', detail: 'Primary workspace', aliases: ['north'] },
       { key: 'pulse', title: 'Pulse', detail: 'Telemetry workspace', aliases: ['metrics'] }
     ],
-    projectItem: (item) => ({
+    toOption: (item) => ({
       id: item.key,
       label: item.title,
       description: item.detail,
       keywords: item.aliases
     }),
-    presentation: { selection: { mode: 'none' } },
+    state: { selection: { mode: 'none' } },
     query: { text: 'metrics' },
     onTransition: (transition) => transition
   }), { columns: 32, rows: 3 });
@@ -430,11 +429,11 @@ test('listbox projects object values once for visible text filtering and accessi
 
 test('listbox cursor and mouse hit targets use the filtered visible rows', async () => {
   const frame = renderElementFrame(listbox({ meta: { accessibleName: "List" },
-    projectItem: (item) => ({ id: String(item), label: String(item) }),
+    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-listbox',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
     query: { text: 'br' },
-    presentation: { activeId: 'bravo', selection: { mode: 'single', selectedId: 'bravo' } },
+    state: { activeId: 'bravo', selection: { mode: 'single', selectedId: 'bravo' } },
     onTransition: (action) => ({ kind: 'chosen', action })
   }), { columns: 24, rows: 2 });
 
@@ -463,10 +462,10 @@ test('listbox cursor and mouse hit targets use the filtered visible rows', async
       state: { selected: message.action.id }
     }),
     view: () => listbox({ meta: { accessibleName: "List" },
-    projectItem: (item) => ({ id: String(item), label: String(item) }),
+    toOption: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-listbox',
       items: ['alpha', 'bravo'],
-      presentation: { selection: { mode: 'single' } },
+      state: { selection: { mode: 'single' } },
       onTransition: (action) => ({ kind: 'chosen', action })
     })
   });
@@ -483,22 +482,22 @@ test('listbox cursor and mouse hit targets use the filtered visible rows', async
 
 test('listbox active position and committed selection use stable identity across data changes', () => {
   const items = ['alpha', 'bravo', 'charlie'];
-  const projectItem = (item) => ({ id: item, label: item });
+  const toOption = (item) => ({ id: item, label: item });
   const selected = listboxReducer(
     { activeId: 'bravo', selection: { mode: 'single', selectedId: 'bravo' } },
     { kind: 'commitActive' },
-    { items, projectItem }
+    { items, toOption }
   );
   const reordered = [items[2], items[1], items[0]];
-  const moved = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: reordered, projectItem });
+  const moved = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: reordered, toOption });
   const inserted = ['delta', ...reordered];
   const filtered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, {
     items: inserted,
-    projectItem,
+    toOption,
     query: { text: 'bravo' }
   });
   const deleted = inserted.filter((item) => item !== 'bravo');
-  const recovered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: deleted, projectItem });
+  const recovered = listboxReducer(selected, { kind: 'moveActive', delta: 1 }, { items: deleted, toOption });
 
   assert.equal(selected.selection.selectedId, 'bravo');
   assert.equal(moved.activeId, 'alpha');
@@ -513,7 +512,7 @@ test('filtered listbox scrolling uses visible positions instead of sparse source
     label: index === 500 || index === 700 || index === 900 ? `visible-${index}` : `hidden-${index}`,
     disabled: index === 700
   }));
-  const projectItem = (item) => ({
+  const toOption = (item) => ({
     id: item.id,
     label: item.label,
     disabled: item.disabled
@@ -526,13 +525,13 @@ test('filtered listbox scrolling uses visible positions instead of sparse source
 
   const first = listboxReducer(base, { kind: 'commitActive' }, {
     items,
-    projectItem,
+    toOption,
     query: { text: 'visible' },
     pageSize: 1
   });
   const paged = listboxReducer(first, { kind: 'pageActive', delta: 1 }, {
     items,
-    projectItem,
+    toOption,
     query: { text: 'visible' },
     pageSize: 1
   });
@@ -545,10 +544,10 @@ test('filtered listbox scrolling uses visible positions instead of sparse source
 });
 
 test('windowed listbox active position keeps global collection identity while scroll stays positional', () => {
-  const collection = prepareListboxCollection(
+  const collection = createListboxCollection(
     ['Item 100', 'Item 101'],
     (item, index) => ({ id: String(index), label: item }),
-    { startIndex: 100, totalCount: 1_000, domain: { kind: 'source' } }
+    { startIndex: 100, totalCount: 1_000, scope: { kind: 'source' } }
   );
   const state = {
     activeId: '100',
@@ -573,8 +572,8 @@ test('listbox pointer selection and double-click activation match keyboard seman
     view: () => listbox({ meta: { accessibleName: "List" },
       id: 'activation-listbox',
       items: ['alpha'],
-      projectItem: (item) => ({ id: item, label: item }),
-      presentation: { selection: { mode: 'single' } },
+      toOption: (item) => ({ id: item, label: item }),
+      state: { selection: { mode: 'single' } },
       onTransition: (action) => action,
       onActivate: (event) => event
     })
@@ -600,8 +599,8 @@ test('listbox preserves the component runtime rejection of null application mess
     view: () => listbox({ meta: { accessibleName: "List" },
       id: 'null-listbox',
       items: ['alpha'],
-      projectItem: (item) => ({ id: item, label: item }),
-      presentation: { selection: { mode: 'single' } },
+      toOption: (item) => ({ id: item, label: item }),
+      state: { selection: { mode: 'single' } },
       onTransition: () => null
     })
   });
@@ -614,7 +613,7 @@ test('listbox preserves the component runtime rejection of null application mess
     await runtime.start();
     await assert.rejects(
       runtime.handleInput(mousePress(1, 1)),
-      /onAction returned null or undefined.*ignoreMessage/u
+      /action mapper returned null or undefined.*ignoreMessage/u
     );
   } finally {
     await runtime.dispose();

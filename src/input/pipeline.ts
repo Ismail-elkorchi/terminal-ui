@@ -3,7 +3,7 @@ import { LEGACY_KEYBOARD_PROFILE, decodeKeyboardProfile } from '../protocol/inde
 import {
   createInputDecoderFromNormalizedOptions,
   decodeInputChunk,
-  normalizeInputDecodeLimits
+  resolveInputDecodeLimits
 } from './decoder.ts';
 import type { NormalizedInputDecodeOptions } from './decoder.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
@@ -140,7 +140,7 @@ export function resolveInputPipelineProfile(options: unknown = {}): InputPipelin
     focusReporting: focusReporting ?? false,
     mouseReporting: mouseReporting ?? 'none',
     escapeDelayMs: escapeDelay(escapeDelayMs),
-    limits: normalizeInputDecodeLimits(limits),
+    limits: resolveInputDecodeLimits(limits),
     diagnostics: Object.freeze(available
       ? []
       : [unsupportedKeyboardDiagnostic(requested, keyboardSupport, keyboardAvailability)])

@@ -77,7 +77,7 @@ use focus containment without a special runtime mode.
 
 Transient feedback should be bounded by composition, not app roles. For
 example, mount a live `notificationRegion()` inside an overlay child whose
-layout bounds are the area where notifications may appear. Live presentation
+layout bounds are the area where notifications may appear. Live content
 uses live accessibility and may expose focusable dismissal for dismissible
 items. Use `notificationHistory()` only when the application needs a focusable,
 selected, keyboard-navigable notification collection. The region

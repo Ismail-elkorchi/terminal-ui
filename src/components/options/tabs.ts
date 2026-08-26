@@ -2,19 +2,19 @@ import type { Element } from '../../element/index.ts';
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
-import type { ItemBase } from '../../ui-model/contracts.ts';
+import type { LabeledItem } from '../../collection/item.ts';
 import type {
   TabCloseEvent,
-  TabsPresentation,
+  TabsState,
   TabsTransition,
-} from '../../ui-model/tabs.ts';
-import type { TabsStylePart } from '../../ui-model/style-parts.ts';
+} from '../../behavior/tabs.ts';
+import type { TabsStylePart } from '../style-parts.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 
 export interface TabItem<
   TId extends string = string,
   TMessage extends ComponentMessage = never,
-> extends ItemBase {
+> extends LabeledItem {
   readonly id: TId;
   readonly leading?: InlineContent;
   readonly badge?: string;
@@ -25,7 +25,7 @@ export interface TabItem<
 interface TabsBaseOptions<TId extends string, TMessage extends ComponentMessage> extends LayoutFlowOptions {
   readonly id: string;
   readonly tabs: readonly TabItem<TId, TMessage>[];
-  readonly presentation: TabsPresentation<TId>;
+  readonly state: TabsState<TId>;
   readonly maxTabWidth?: number;
   readonly busy?: boolean;
   readonly inert?: boolean;
@@ -36,7 +36,7 @@ interface TabsBaseOptions<TId extends string, TMessage extends ComponentMessage>
 interface ActiveTabsOptions<TId extends string, TMessage extends ComponentMessage> {
   readonly disabled?: false;
   readonly inert?: false;
-  readonly onTransition: (action: TabsTransition<TId>) => MessageResolution<TMessage>;
+  readonly onTransition: (transition: TabsTransition<TId>) => MessageResolution<TMessage>;
   readonly onClose?: (event: TabCloseEvent<TId>) => MessageResolution<TMessage>;
 }
 
@@ -62,6 +62,6 @@ export type TabsOptions<
 
 export type {
   TabCloseEvent,
-  TabsPresentation,
+  TabsState,
   TabsTransition,
-} from '../../ui-model/tabs.ts';
+} from '../../behavior/tabs.ts';

@@ -9,7 +9,7 @@ import {
 } from '../helpers/component-definition.mjs';
 import { button, tabs, text, textArea, textInput } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 test('TUI tabs expose clickable tab hit targets', async () => {
   const app = defineTui({
@@ -18,7 +18,7 @@ test('TUI tabs expose clickable tab hit targets', async () => {
     update: (_state, message) => ({ state: { selected: message.selected } }),
     view: (state) => tabs({ meta: { accessibleName: "Tabs" },
       id: 'click-tabs',
-      presentation: { activeId: state.selected, selectedId: state.selected },
+      state: { activeId: state.selected, selectedId: state.selected },
       tabs: [
         { id: 'left', label: 'Left', panel: text({ content: 'left panel' }) },
         { id: 'right', label: 'Right', panel: text({ content: 'right panel' }) }
@@ -50,13 +50,13 @@ test('TUI pointer presses focus the declared target before application actions',
     view: (state) => row([
       textInput({ meta: { accessibleName: "Text input" },
         id: 'first-field',
-        presentation: { value: `first ${String(state.pointerActions)}`, cursor: 0 },
-        onAction: () => ({ kind: 'pointer' })
+        state: { value: `first ${String(state.pointerActions)}`, cursor: 0 },
+        onTransition: () => ({ kind: 'pointer' })
       }),
       textInput({ meta: { accessibleName: "Text input" },
         id: 'second-field',
-        presentation: { value: 'second', cursor: 0 },
-        onAction: () => ({ kind: 'pointer' })
+        state: { value: 'second', cursor: 0 },
+        onTransition: () => ({ kind: 'pointer' })
       })
     ], { id: 'pointer-focus-fields', sizes: [{ kind: 'fill' }, { kind: 'fill' }] })
   });
@@ -95,8 +95,8 @@ test('TUI wheel input preserves the current focus path', async () => {
     update: (state) => ({ state: { scrolls: state.scrolls + 1 } }),
     view: () => textArea({ meta: { accessibleName: "Text area" },
       id: 'wheel-field',
-      presentation: { document: prepareTextDocument('one\ntwo\nthree\nfour'), caret: textCaretAt(0), scroll: createScrollState({ contentRows: 4, viewportRows: 2 }) },
-      onAction: () => ({ kind: 'scroll' })
+      state: { document: createTextDocument('one\ntwo\nthree\nfour'), caret: textCaretAt(0), scroll: createScrollState({ contentRows: 4, viewportRows: 2 }) },
+      onTransition: () => ({ kind: 'scroll' })
     })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } });
@@ -130,7 +130,7 @@ test('TUI runtime routes mouse input through the committed render cache', async 
     update: (state) => ({ state: { count: state.count + 1 } }),
     view: (state) => {
       viewCalls += 1;
-      return button({ id: 'cached-button', label: `Count ${state.count}`, onAction: () => ({ kind: 'click' }) });
+      return button({ id: 'cached-button', label: `Count ${state.count}`, onPress: () => ({ kind: 'click' }) });
     }
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });

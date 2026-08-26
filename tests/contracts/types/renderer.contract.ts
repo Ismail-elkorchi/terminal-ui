@@ -94,7 +94,7 @@ writeOnly({});
 writeOnly({
   id: 'invalid-action-mapper',
   // @ts-expect-error action-free components cannot accept an action mapper
-  onAction: () => ({ kind: 'unused' })
+  onTransition: () => ({ kind: 'unused' })
 });
 
 const rendererWithUnsupportedPlacement: SemanticLeafComponentDefinition = {
@@ -141,7 +141,7 @@ decoration({});
 decoration({
   id: 'keyed-decoration',
   // @ts-expect-error decorative component instances cannot map actions
-  onAction: () => ({ kind: 'press' })
+  onTransition: () => ({ kind: 'press' })
 });
 
 // @ts-expect-error semantic leaf components require accessibility

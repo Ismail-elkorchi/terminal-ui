@@ -4,8 +4,8 @@ import {
 } from '../../protocol/index.ts';
 import type { Rect } from '../contracts.ts';
 import type { CursorPosition } from '../contracts.ts';
-import type { TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render.ts';
-import { sameTerminalColor } from '../../visual/render.ts';
+import type { TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render-content.ts';
+import { sameTerminalColor } from '../../visual/render-content.ts';
 import {
   ansi256ToBasicAnsi,
   rgbToAnsi256,

@@ -5,7 +5,7 @@ import { barChartReducer, chartReducer, heatmapReducer } from '../../dist/behavi
 import { barChart, chart, heatmap } from '../../dist/components/index.js';
 import type { BarChartItem } from '../../dist/components/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
 
 const manual = {};
@@ -36,7 +36,7 @@ void test('bar chart pointer targets emit stable active-id transitions', () => {
       { id: 'cpu', label: 'CPU', value: 40 },
       { id: 'memory', label: 'Memory', value: 70 },
     ],
-    presentation: { activeId: 'cpu', selection: { mode: 'single', selectedId: 'cpu' } },
+    state: { activeId: 'cpu', selection: { mode: 'single', selectedId: 'cpu' } },
     onTransition: (transition) => transition,
   }), { columns: 20, rows: 2 });
   const targets = regions.flatMap((region) => region.hitTargets);
@@ -81,7 +81,7 @@ void test('chart behavior navigates points, series, and pages through globally s
   ], {}), /unique across all series/u);
 });
 
-void test('window charts render active and selected states through the shared presentation', () => {
+void test('window charts render active and selected states through the shared interaction state', () => {
   const frame = renderElementFrame(chart({
     id: 'windowed',
     label: 'CPU trend',
@@ -95,7 +95,7 @@ void test('window charts render active and selected states through the shared pr
       })),
       sampleMode: 'window',
     }],
-    presentation: { activeId: 'point-5', selection: { mode: 'single', selectedId: 'point-5' } },
+    state: { activeId: 'point-5', selection: { mode: 'single', selectedId: 'point-5' } },
     onTransition: (transition) => transition,
   }), { columns: 3, rows: 3 });
   assert.equal(frame.cells.some((cell) => cell.source?.description === 'selection.cpu.point-5'), true);
@@ -125,14 +125,14 @@ void test('chart and heatmap pointer transitions follow the same active-datum co
       label: 'CPU',
       points: [{ id: 'first', label: 'First', value: 1 }, { id: 'second', label: 'Second', value: 2 }],
     }],
-    presentation: { selection: { mode: 'none' } },
+    state: { selection: { mode: 'none' } },
     onTransition: (transition) => transition,
   }), { columns: 4, rows: 2 });
   const heatmapRegions = renderElementRegions(heatmap({
     id: 'heatmap-actions',
     label: 'Utilization',
     rows: [[{ id: 'one', label: 'One', value: 1 }]],
-    presentation: { selection: { mode: 'none' } },
+    state: { selection: { mode: 'none' } },
     onTransition: (transition) => transition,
   }), { columns: 4, rows: 1 });
   assert.deepEqual(chartRegions.flatMap((region) => region.hitTargets)[0]?.message(routedPointerEvent({

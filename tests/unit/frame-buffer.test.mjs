@@ -11,7 +11,7 @@ import {
 } from '../../dist/renderer/index.js';
 import { richText } from '../../dist/components/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
-import { blitFrameCell } from '../../dist/renderer/internal/frame-buffer.js';
+import { blitFrameCell } from '../../dist/renderer/frame-buffer.js';
 import { createClippedRenderTarget } from '../../dist/renderer/internal/scoped-render-target.js';
 import {
   frameSnapshotMetadata,

@@ -9,9 +9,9 @@ import { createTranscriptRecorder } from '../../dist/transcript/index.js';
 
 function textInput(options) {
   return createTextInput(
-    options.onAction !== undefined
+    options.onTransition !== undefined
       ? options
-      : { onAction: () => ignoreMessage(), ...options }
+      : { onTransition: () => ignoreMessage(), ...options }
   );
 }
 
@@ -20,7 +20,7 @@ test('TUI runtime does not reserve escape or ctrlC key events', async () => {
     id: 'unreserved-keys',
     init: () => ({ state: ({ ready: true }) }),
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'exit-field', presentation: { value: 'ready', cursor: 0 } })
+    view: () => textInput({ meta: { accessibleName: "Text input" }, id: 'exit-field', state: { value: 'ready', cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -57,8 +57,9 @@ test('TUI runtime decodes input chunks before routing them', async () => {
     update: (_state, message) => ({ state: { committed: message.committed } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'commit-field',
-      presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
+      state: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
+      onTransition: () => ignoreMessage(),
+      onSubmit: () => ({ committed: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -80,8 +81,9 @@ test('TUI runtime buffers split input chunks before routing them', async () => {
     update: (_state, message) => ({ state: { committed: message.committed } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'split-commit-field',
-      presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
+      state: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
+      onTransition: () => ignoreMessage(),
+      onSubmit: () => ({ committed: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -116,7 +118,7 @@ test('decoded input resolves earlier raw input before it is admitted', async () 
     view: () => button({
       id: 'mixed-input-button',
       label: 'Run',
-      onAction: () => ignoreMessage()
+      onPress: () => ignoreMessage()
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -152,8 +154,9 @@ test('TUI runtime expires every incomplete terminal token before unrelated input
     update: (_state, message) => ({ state: { committed: message.committed } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'deadline-field',
-      presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
+      state: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
+      onTransition: () => ignoreMessage(),
+      onSubmit: () => ({ committed: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -185,8 +188,8 @@ test('TUI runtime does not expire an active bracketed paste as Escape ambiguity'
     }),
     view: (value) => textInput({ meta: { accessibleName: "Text input" },
       id: 'slow-paste-field',
-      presentation: { value, cursor: value.length },
-      onAction: (action) => action.kind === 'edit'
+      state: { value, cursor: value.length },
+      onTransition: (action) => action.kind === 'edit'
         ? { operation: action.operation }
         : ignoreMessage()
     })
@@ -216,8 +219,9 @@ test('TUI runtime ignores non-command paste, focus, and mouse events without cor
     update: (_state, message) => ({ state: { committed: message.committed } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'protocol-field',
-      presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onAction: (action) => action.kind === 'submit' ? { committed: true } : ignoreMessage()
+      state: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
+      onTransition: () => ignoreMessage(),
+      onSubmit: () => ({ committed: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -272,7 +276,7 @@ async function actionsForChunks(chunks) {
     view: () => button({
       id: 'partition-button',
       label: 'Run',
-      onAction: () => ({ kind: 'space' })
+      onPress: () => ({ kind: 'space' })
     })
   });
   const host = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } }).host;
@@ -298,7 +302,7 @@ async function graphemeActions(chunks, binding) {
     view: () => button({
       id: 'grapheme-button',
       label: 'Run',
-      onAction: () => ignoreMessage()
+      onPress: () => ignoreMessage()
     })
   });
   const host = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } }).host;

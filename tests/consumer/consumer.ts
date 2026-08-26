@@ -6,7 +6,7 @@ import {
   createTerminalHost,
   defineTui,
   success,
-  prepareCommandSuggestions,
+  createCommandSuggestions,
   passwordInput,
   splitPane,
   surface,
@@ -15,7 +15,7 @@ import {
   tree,
   type CommandInputTransition,
   type DataGridTransition,
-  type TextInputAction,
+  type TextInputTransition,
   type TreeTransition
 } from '@ismail-elkorchi/terminal-ui';
 import { defineComponent, type Element } from '@ismail-elkorchi/terminal-ui/component';
@@ -36,7 +36,7 @@ type Message =
   | { readonly kind: 'selectRow'; readonly transition: DataGridTransition }
   | { readonly kind: 'tree'; readonly transition: TreeTransition }
   | { readonly kind: 'command'; readonly transition: CommandInputTransition }
-  | { readonly kind: 'secret'; readonly action: TextInputAction }
+  | { readonly kind: 'secret'; readonly action: TextInputTransition }
   | { readonly kind: 'submit' };
 
 interface State {
@@ -47,7 +47,7 @@ function view(state: State): Element<Message> {
   const increment: Element<{ readonly kind: 'increment' }> = button({
     id: 'increment',
     label: 'Increment',
-    onAction: () => ({ kind: 'increment' }) as const
+    onPress: () => ({ kind: 'increment' }) as const
   });
   const processes: Element<{ readonly kind: 'selectRow'; readonly transition: DataGridTransition }> = dataGrid({
     getRowId: (row) => String(row.id),
@@ -58,18 +58,18 @@ function view(state: State): Element<Message> {
       { id: 'id', header: 'ID', value: (row) => row.id },
       { id: 'name', header: 'Name', value: (row) => row.name }
     ],
-    presentation: { interaction: { kind: 'row', selection: { mode: 'single' as const } } },
+    state: { interaction: { kind: 'row', selection: { mode: 'single' as const } } },
     onTransition: (transition) => ({ kind: 'selectRow' as const, transition })
   });
-  const treePresentation = { selection: { mode: 'single' as const }, expandedIds: [] };
+  const treeState = { selection: { mode: 'single' as const }, expandedIds: [] };
   const files: Element<{ readonly kind: 'tree'; readonly transition: TreeTransition }> = tree({
     id: 'files',
     meta: { accessibleName: 'Files' },
-    view: behavior.prepareTreeView(
-      behavior.prepareTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]),
-      treePresentation,
+    view: behavior.createTreeView(
+      behavior.createTreeSource([{ id: 'src', label: 'src', kind: 'leaf' }]),
+      treeState,
     ),
-    presentation: treePresentation,
+    state: treeState,
     onTransition: (transition) => ({ kind: 'tree' as const, transition })
   });
   const commands: Element<
@@ -78,8 +78,8 @@ function view(state: State): Element<Message> {
   > = commandInput({
     id: 'commands',
     meta: { accessibleName: 'Commands' },
-    presentation: behavior.commandInputPresentation(behavior.createCommandInputState({
-      suggestions: prepareCommandSuggestions([{
+    view: behavior.commandInputView(behavior.createCommandInputState({
+      suggestions: createCommandSuggestions([{
         id: 'open',
         label: 'Open',
         completion: { range: { startOffset: 0, endOffsetExclusive: 0 }, text: 'open' }
@@ -91,11 +91,11 @@ function view(state: State): Element<Message> {
     onTransition: (transition) => ({ kind: 'command' as const, transition }),
     onSubmit: () => ({ kind: 'submit' as const })
   });
-  const secret: Element<{ readonly kind: 'secret'; readonly action: TextInputAction }> = passwordInput({
+  const secret: Element<{ readonly kind: 'secret'; readonly action: TextInputTransition }> = passwordInput({
     id: 'secret',
     meta: { accessibleName: 'Secret' },
-    presentation: { value: 'private', cursor: 7 },
-    onAction: (action) => ({ kind: 'secret', action })
+    state: { value: 'private', cursor: 7 },
+    onTransition: (action) => ({ kind: 'secret', action })
   });
   const content: Element<Message> = column([
     text({ content: `Count: ${String(state.count)}`, id: 'count', textRole: 'metric' }),
@@ -139,7 +139,7 @@ const scroll = behavior.scrollReducer(
   scrollGeometry
 );
 const command = behavior.commandInputReducer(behavior.createCommandInputState({
-  suggestions: prepareCommandSuggestions([])
+  suggestions: createCommandSuggestions([])
 }), { kind: 'edit', operation: { kind: 'insert', text: 'open' } });
 const split = behavior.splitPaneReducer(behavior.createSplitPaneState(2), {
   kind: 'resizeBy',
@@ -148,8 +148,8 @@ const split = behavior.splitPaneReducer(behavior.createSplitPaneState(2), {
 const panes = splitPane([text({ content: 'Left' }), text({ content: 'Right' })], {
   id: 'consumer-panes',
   direction: 'horizontal',
-  ...behavior.splitPanePresentation(split),
-  onAction: (action) => ({ kind: 'split' as const, action })
+  ...behavior.splitPaneLayout(split),
+  onTransition: (action) => ({ kind: 'split' as const, action })
 });
 const renderedView = renderElementFrame(view({ count: 1 }), {
   columns: 40,

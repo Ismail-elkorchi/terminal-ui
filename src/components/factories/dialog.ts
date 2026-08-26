@@ -11,7 +11,7 @@ import {
   isStringMember,
 } from '../../foundation/validation.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
-import { column, normalizeLayoutFlowOptions, portal, surface } from '../../layout/index.ts';
+import { column, decodeLayoutFlowOptions, portal, surface } from '../../layout/index.ts';
 import type { InitialFocusSelector } from '../../interaction/focus.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import {
@@ -23,17 +23,17 @@ import type {
   PopupFocusPolicy,
 } from '../../interaction/popup.ts';
 import type { DialogOptions } from '../options/dialog.ts';
-import type { DialogAction, DialogDismissal, DialogFocusPolicy } from '../../ui-model/dialog.ts';
-import type { DialogStylePart } from '../../ui-model/style-parts.ts';
+import type { DialogDismissEvent, DialogDismissal, DialogFocusPolicy } from '../dialog.ts';
+import type { DialogStylePart } from '../style-parts.ts';
 import {
   type BorderOptions,
   type BorderTitle,
   borderTitleAccessibleText,
   normalizeBorderTitle,
 } from '../../visual/border.ts';
-import { divider } from './menus.ts';
+import { divider } from './divider-and-tooltip.ts';
 
-interface PreparedDialog {
+interface DialogModel {
   readonly title?: BorderTitle;
   readonly label: string;
   readonly border: BorderOptions;
@@ -47,7 +47,7 @@ interface PreparedDialog {
 
 type DialogComponentOptions = Omit<
   DialogOptions<ComponentMessage>,
-  'id' | 'slots' | 'styles' | 'meta' | 'onAction'
+  'id' | 'slots' | 'styles' | 'meta' | 'onDismiss'
 >;
 
 const dialogSlots = {
@@ -57,8 +57,8 @@ const dialogSlots = {
 
 const instantiateDialog = defineComponent<
   DialogComponentOptions,
-  PreparedDialog,
-  DialogAction,
+  DialogModel,
+  DialogDismissEvent,
   DialogStylePart,
   readonly [],
   'required',
@@ -73,17 +73,17 @@ const instantiateDialog = defineComponent<
   slots: dialogSlots,
   metadata: ['focus', 'layer', 'styles'],
   parts: ['background', 'border', 'title', 'actionSeparator'],
-  prepare(value) {
+  createModel(value) {
     const modal = value.modal;
     if (typeof modal !== 'boolean') throw new TypeError('dialog modal must be a boolean.');
-    const title = prepareDialogTitle(value.title);
-    const label = prepareDialogAccessibleName(value.accessibleName, title);
-    const border = prepareDialogBorder(value.border) ?? { kind: 'single' as const };
-    const width = prepareDialogDimension(value.width, 'width');
-    const height = prepareDialogDimension(value.height, 'height');
-    const focusPolicy = prepareDialogFocusPolicy(value.focusPolicy, modal);
-    const dismissal = prepareDialogDismissal(value.dismissal);
-    const layout = normalizeLayoutFlowOptions(value, 'dialog');
+    const title = decodeDialogTitle(value.title);
+    const label = dialogAccessibleName(value.accessibleName, title);
+    const border = decodeDialogBorder(value.border) ?? { kind: 'single' as const };
+    const width = decodeDialogDimension(value.width, 'width');
+    const height = decodeDialogDimension(value.height, 'height');
+    const focusPolicy = decodeDialogFocusPolicy(value.focusPolicy, modal);
+    const dismissal = decodeDialogDismissal(value.dismissal);
+    const layout = decodeLayoutFlowOptions(value, 'dialog');
     if (
       width !== undefined &&
       ((layout.minWidth ?? 0) > width || (layout.maxWidth ?? width) < width)
@@ -215,18 +215,18 @@ export function dialog<
       onAction: ignoreDismissal,
     });
   }
-  const onAction = options.onAction;
-  if (typeof onAction !== 'function') {
-    throw new TypeError('dialog onAction must be a function.');
+  const onDismiss = options.onDismiss;
+  if (typeof onDismiss !== 'function') {
+    throw new TypeError('dialog onDismiss must be a function.');
   }
   return instantiateDialog({
     ...options,
     slots: options.slots,
-    onAction: (action: DialogAction): MessageResolution<TMessage> => onAction(action),
+    onAction: (event: DialogDismissEvent): MessageResolution<TMessage> => onDismiss(event),
   });
 }
 
-function prepareDialogAccessibleName(
+function dialogAccessibleName(
   value: string | undefined,
   title: BorderTitle | undefined,
 ): string {
@@ -237,7 +237,7 @@ function prepareDialogAccessibleName(
   return label;
 }
 
-function dialogPopupFocusPolicy(model: PreparedDialog): PopupFocusPolicy {
+function dialogPopupFocusPolicy(model: DialogModel): PopupFocusPolicy {
   return {
     trapFocus: model.modal,
     returnFocus: model.focusPolicy?.returnFocus ?? 'restore',
@@ -255,7 +255,7 @@ function dialogPopupDismissalPolicy(dismissal: DialogDismissal): PopupDismissalP
   };
 }
 
-function prepareDialogTitle(value: DialogComponentOptions['title']): BorderTitle | undefined {
+function decodeDialogTitle(value: DialogComponentOptions['title']): BorderTitle | undefined {
   if (value === undefined) return undefined;
   try {
     return normalizeBorderTitle(value);
@@ -264,7 +264,7 @@ function prepareDialogTitle(value: DialogComponentOptions['title']): BorderTitle
   }
 }
 
-function prepareDialogBorder(value: DialogComponentOptions['border']): BorderOptions | undefined {
+function decodeDialogBorder(value: DialogComponentOptions['border']): BorderOptions | undefined {
   if (value === undefined) return undefined;
   if (!isNonArrayObject(value)) throw new TypeError('dialog border must be an object.');
   const kind = value.kind;
@@ -286,7 +286,7 @@ function prepareDialogBorder(value: DialogComponentOptions['border']): BorderOpt
   return Object.freeze({ kind, ...(titleAlign === undefined ? {} : { titleAlign }) });
 }
 
-function prepareDialogDimension(
+function decodeDialogDimension(
   value: DialogComponentOptions['width'],
   name: 'width' | 'height',
 ): number | undefined {
@@ -297,7 +297,7 @@ function prepareDialogDimension(
   return value;
 }
 
-function prepareDialogFocusPolicy(
+function decodeDialogFocusPolicy(
   value: DialogComponentOptions['focusPolicy'],
   modal: boolean,
 ): DialogFocusPolicy | undefined {
@@ -311,14 +311,14 @@ function prepareDialogFocusPolicy(
   }
   const initialFocus = value.initialFocus === undefined
     ? undefined
-    : prepareInitialFocus(value.initialFocus);
+    : decodeInitialFocus(value.initialFocus);
   return Object.freeze({
     ...(initialFocus === undefined ? {} : { initialFocus }),
     returnFocus: value.returnFocus,
   });
 }
 
-function prepareInitialFocus(value: InitialFocusSelector): InitialFocusSelector {
+function decodeInitialFocus(value: InitialFocusSelector): InitialFocusSelector {
   if (!isNonArrayObject(value)) throw new TypeError('dialog initialFocus must be an object.');
   const kind = value.kind;
   if (!isStringMember(kind, ['path', 'element', 'elementTarget'])) {
@@ -363,7 +363,7 @@ function isNonEmptyStringArray(value: unknown): value is readonly string[] {
     value.every((segment) => typeof segment === 'string' && segment.trim() !== '');
 }
 
-function prepareDialogDismissal(
+function decodeDialogDismissal(
   value: DialogComponentOptions['dismissal'],
 ): DialogDismissal | undefined {
   if (value === undefined) return undefined;

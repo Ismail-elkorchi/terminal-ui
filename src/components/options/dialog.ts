@@ -6,13 +6,13 @@ import type {
   ElementStyles
 } from '../../element/metadata.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
-import type { DialogStylePart } from '../../ui-model/style-parts.ts';
+import type { DialogStylePart } from '../style-parts.ts';
 import type { BorderOptions, BorderTitle } from '../../visual/border.ts';
 import type {
-  DialogAction,
+  DialogDismissEvent,
   DialogDismissal,
   DialogFocusPolicy
-} from '../../ui-model/dialog.ts';
+} from '../dialog.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 
 interface DialogBaseOptions extends LayoutFlowOptions {
@@ -47,12 +47,12 @@ type DialogModality =
 
 interface PassiveDialog {
   readonly dismissal?: never;
-  readonly onAction?: never;
+  readonly onDismiss?: never;
 }
 
 interface DismissibleDialog<TMessage extends ComponentMessage> {
   readonly dismissal: DialogDismissal;
-  readonly onAction: (action: DialogAction) => MessageResolution<TMessage>;
+  readonly onDismiss: (event: DialogDismissEvent) => MessageResolution<TMessage>;
 }
 
 export type DialogOptions<TMessage extends ComponentMessage = never> = DialogBaseOptions
@@ -61,8 +61,8 @@ export type DialogOptions<TMessage extends ComponentMessage = never> = DialogBas
   & (PassiveDialog | DismissibleDialog<TMessage>);
 
 export type {
-  DialogAction,
+  DialogDismissEvent,
   DialogDismissReason,
   DialogDismissal,
   DialogFocusPolicy
-} from '../../ui-model/dialog.ts';
+} from '../dialog.ts';

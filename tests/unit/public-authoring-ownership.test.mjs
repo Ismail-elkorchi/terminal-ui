@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createMemoryTerminalHost, createTerminalHost } from '../../dist/host/index.js';
 import { createInputPipeline } from '../../dist/input/index.js';
-import { defineTui, projectTuiBindingHelp } from '../../dist/tui/index.js';
+import { defineTui, tuiBindingHelp } from '../../dist/tui/index.js';
 
 test('public authoring boundaries retain the values they validate', async () => {
   const init = () => 0;
@@ -30,7 +30,7 @@ test('public authoring boundaries retain the values they validate', async () => 
 
   assert.equal(initReads, 1);
   assert.equal(bindingIdReads, 1);
-  assert.deepEqual(projectTuiBindingHelp(app), [{
+  assert.deepEqual(tuiBindingHelp(app), [{
     id: 'owned-binding',
     label: 'Quit',
     bindings: [{ binding: { kind: 'key', key: 'q' }, label: 'Quit' }],

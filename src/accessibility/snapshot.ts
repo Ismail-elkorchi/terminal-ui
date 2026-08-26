@@ -1,4 +1,4 @@
-import { adoptAccessibleSnapshot } from './validate.ts';
+import { decodeAccessibleSnapshotWithPolicy } from './validate.ts';
 import type {
   AccessibleNode,
   AccessibleSnapshot,
@@ -6,7 +6,7 @@ import type {
 } from './types.ts';
 
 export function createAccessibleSnapshot(input: AccessibleSnapshotInput): AccessibleSnapshot {
-  const result = adoptAccessibleSnapshot(input, true);
+  const result = decodeAccessibleSnapshotWithPolicy(input, true);
   if (result.status === 'success') return result.value;
   throw new TypeError(result.error.message);
 }

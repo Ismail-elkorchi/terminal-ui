@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createTuiRuntime, defineTui, projectTuiBindingHelp } from '../../dist/tui/index.js';
+import { createTuiRuntime, defineTui, tuiBindingHelp } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { listboxReducer } from '../../dist/behavior/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
@@ -15,9 +15,9 @@ import { testKeyInput } from '../helpers/component-definition.mjs';
 function textInput(options) {
   if (options.keys !== undefined) return testKeyInput(options);
   return createTextInput(
-    options.onAction !== undefined
+    options.onTransition !== undefined
       ? options
-      : { onAction: () => ignoreMessage(), ...options }
+      : { onTransition: () => ignoreMessage(), ...options }
   );
 }
 
@@ -26,7 +26,7 @@ test('defineTui rejects duplicate binding identities and duplicate triggers with
   assert.throws(() => defineTui({
     init: () => ({ state: null }),
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, presentation: { value: '', cursor: 0 } }),
+    view: () => textInput({ meta: { accessibleName: "Text input" }, state: { value: '', cursor: 0 } }),
     inputBindings: [
       { id: 'submit', triggers: [trigger], message: 'first' },
       { id: 'submit', triggers: [{ kind: 'key', key: 'escape' }], message: 'second' }
@@ -35,7 +35,7 @@ test('defineTui rejects duplicate binding identities and duplicate triggers with
   assert.throws(() => defineTui({
     init: () => ({ state: null }),
     update: (state) => ({ state }),
-    view: () => textInput({ meta: { accessibleName: "Text input" }, presentation: { value: '', cursor: 0 } }),
+    view: () => textInput({ meta: { accessibleName: "Text input" }, state: { value: '', cursor: 0 } }),
     inputBindings: [{ id: 'submit', triggers: [trigger, trigger], message: 'submit' }]
   }), /duplicate trigger/u);
 });
@@ -49,8 +49,8 @@ test('defineTui owns input bindings and validates the fields it consumes', async
     update: (_state, message) => ({ state: message }),
     view: () => createTextInput({ meta: { accessibleName: "Text input" },
       id: 'exact-field',
-      presentation: { value: '', cursor: 0 },
-      onAction: () => ignoreMessage()
+      state: { value: '', cursor: 0 },
+      onTransition: () => ignoreMessage()
     }),
     inputBindings: bindings
   };
@@ -58,14 +58,14 @@ test('defineTui owns input bindings and validates the fields it consumes', async
 
   trigger.key = 'escape';
   bindings.push({ id: 'late', triggers: [{ kind: 'key', key: 'escape' }], message: 'late' });
-  assert.deepEqual(projectTuiBindingHelp(app), [{
+  assert.deepEqual(tuiBindingHelp(app), [{
     id: 'submit',
     label: 'Submit',
     bindings: [{ binding: { kind: 'key', key: 'enter' }, label: 'Submit' }]
   }]);
-  assert.equal(Object.isFrozen(projectTuiBindingHelp(app)), true);
-  assert.equal(Object.isFrozen(projectTuiBindingHelp(app)[0]?.bindings), true);
-  assert.equal(Object.isFrozen(projectTuiBindingHelp(app)[0]?.bindings[0]?.binding), true);
+  assert.equal(Object.isFrozen(tuiBindingHelp(app)), true);
+  assert.equal(Object.isFrozen(tuiBindingHelp(app)[0]?.bindings), true);
+  assert.equal(Object.isFrozen(tuiBindingHelp(app)[0]?.bindings[0]?.binding), true);
 
   assert.doesNotThrow(() => defineTui({ ...definition, unsupported: true }));
   assert.doesNotThrow(() => defineTui({
@@ -114,8 +114,8 @@ test('Kitty release and repeat events cannot activate controls or traverse focus
       state: { activations: [...state.activations, message.id] }
     }),
     view: () => column([
-      button({ id: 'first', label: 'First', onAction: () => ({ id: 'first' }) }),
-      button({ id: 'second', label: 'Second', onAction: () => ({ id: 'second' }) })
+      button({ id: 'first', label: 'First', onPress: () => ({ id: 'first' }) }),
+      button({ id: 'second', label: 'Second', onPress: () => ({ id: 'second' }) })
     ])
   });
   const host = createMemoryTerminalHost({
@@ -158,8 +158,8 @@ test('editable controls opt cursor movement into Kitty key repeat', async () => 
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => createTextInput({ meta: { accessibleName: "Text input" },
       id: 'editor',
-      presentation: { value: 'ab', cursor: 1 },
-      onAction: (action) => action
+      state: { value: 'ab', cursor: 1 },
+      onTransition: (action) => action
     })
   });
   const host = createMemoryTerminalHost({
@@ -184,7 +184,7 @@ test('editable controls opt cursor movement into Kitty key repeat', async () => 
 
 test('TUI runtime reduces Kitty repeat bursts before the render boundary', async () => {
   const items = Array.from({ length: 10 }, (_value, index) => `item-${String(index)}`);
-  const reducerOptions = { items, projectItem: (item) => ({ id: item, label: item }) };
+  const reducerOptions = { items, toOption: (item) => ({ id: item, label: item }) };
   const app = defineTui({
     id: 'kitty-repeat-burst',
     init: () => ({
@@ -195,12 +195,12 @@ test('TUI runtime reduces Kitty repeat bursts before the render boundary', async
       focus: { kind: 'element', elementId: 'repeat-listbox' }
     }),
     update: (state, transition) => ({ state: listboxReducer(state, transition, reducerOptions) }),
-    view: (presentation) => listbox({
+    view: (state) => listbox({
       id: 'repeat-listbox',
       meta: { accessibleName: 'Repeat navigation' },
       items,
-      projectItem: reducerOptions.projectItem,
-      presentation,
+      toOption: reducerOptions.toOption,
+      state,
       onTransition: (transition) => transition
     })
   });
@@ -243,7 +243,7 @@ test('application navigation bindings retain every admitted transition', async (
       triggers: [{ kind: 'key', key: 'arrowDown' }],
       message: 'move'
     }],
-    view: (state) => button({ id: 'count', label: String(state), onAction: () => ignoreMessage() })
+    view: (state) => button({ id: 'count', label: String(state), onPress: () => ignoreMessage() })
   });
   const runtime = createTuiRuntime({
     app,
@@ -269,7 +269,7 @@ test('state-dependent navigation bindings retain sequential routing semantics', 
       triggers: [{ kind: 'key', key: 'arrowDown' }],
       toMessage: ({ state }) => state + 1
     }],
-    view: (state) => button({ id: 'count', label: String(state), onAction: () => ignoreMessage() })
+    view: (state) => button({ id: 'count', label: String(state), onPress: () => ignoreMessage() })
   });
   const runtime = createTuiRuntime({
     app,
@@ -291,8 +291,8 @@ test('TUI runtime exposes input-profile fallback diagnostics', async () => {
     update: (state) => ({ state }),
     view: () => createTextInput({ meta: { accessibleName: "Text input" },
       id: 'profile-field',
-      presentation: { value: 'ready', cursor: 0 },
-      onAction: () => ignoreMessage()
+      state: { value: 'ready', cursor: 0 },
+      onTransition: () => ignoreMessage()
     })
   });
   const runtime = createTuiRuntime({
@@ -314,8 +314,8 @@ test('TUI runtime routes key events through focused element keymaps', async () =
     init: () => ({ state: ({ active: 'none' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({ meta: { accessibleName: "Text input" }, id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      textInput({ meta: { accessibleName: "Text input" }, id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      textInput({ meta: { accessibleName: "Text input" }, id: 'first', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      textInput({ meta: { accessibleName: "Text input" }, id: 'second', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -342,8 +342,8 @@ test('TUI runtime lets focused elements handle tab before focus traversal', asyn
     init: () => ({ state: ({ active: 'none' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      textInput({ meta: { accessibleName: "Text input" }, id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { tab: () => ({ active: 'accepted' }) } }),
-      textInput({ meta: { accessibleName: "Text input" }, id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      textInput({ meta: { accessibleName: "Text input" }, id: 'first', state: { value: state.active, cursor: 0 }, keys: { tab: () => ({ active: 'accepted' }) } }),
+      textInput({ meta: { accessibleName: "Text input" }, id: 'second', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 4 } });
@@ -367,7 +367,7 @@ test('TUI runtime routes default app key bindings after focused elements', async
       { id: 'close', triggers: [{ kind: 'key', key: 'escape' }], message: { active: 'closed' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => textInput({ meta: { accessibleName: "Text input" }, id: 'field', presentation: { value: state.active, cursor: 0 } })
+    view: (state) => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { value: state.active, cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -397,7 +397,7 @@ test('TUI runtime lets focused elements override after-focus app bindings', asyn
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: state.active, cursor: 0 },
+      state: { value: state.active, cursor: 0 },
       keys: { escape: () => ({ active: 'local' }) }
     })
   });
@@ -428,7 +428,7 @@ test('TUI runtime lets before-focus app bindings intentionally preempt elements'
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: state.active, cursor: 0 },
+      state: { value: state.active, cursor: 0 },
       keys: { enter: () => ({ active: 'local' }) }
     })
   });
@@ -452,8 +452,8 @@ test('TUI runtime does not steal printable text for default app bindings', async
     update: (state, message) => ({ state: { value: `${state.value}${message.value}` } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-          presentation: { value: state.value, cursor: 0 },
-          onAction: (action) => ({
+          state: { value: state.value, cursor: 0 },
+          onTransition: (action) => ({
             value: action.kind === 'edit' && action.operation.kind === 'insert'
               ? action.operation.text
               : ''
@@ -482,8 +482,8 @@ test('TUI runtime routes committed text before after-focus app bindings', async 
     update: (state, message) => ({ state: { value: `${state.value}${message.value}` } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: state.value, cursor: state.value.length },
-      onAction: (action) => ({
+      state: { value: state.value, cursor: state.value.length },
+      onTransition: (action) => ({
         value: action.kind === 'edit' && action.operation.kind === 'insert'
           ? action.operation.text
           : ''
@@ -518,7 +518,7 @@ test('TUI runtime routes committed text through app text bindings', async () => 
     update: (_state, message) => ({ state: message }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: state.value, cursor: 0 }
+      state: { value: state.value, cursor: 0 }
     })
   });
   const runtime = createTuiRuntime({
@@ -547,7 +547,7 @@ test('TUI runtime routes committed text through component text key bindings', as
     update: (_state, message) => ({ state: message }),
     view: (state) => testKeyInput({
       id: 'field',
-      presentation: { value: state.value, cursor: 0 },
+      state: { value: state.value, cursor: 0 },
       keys: { text: { q: () => ({ value: 'component' }) } }
     })
   });
@@ -585,7 +585,7 @@ test('TUI runtime evaluates app key binding predicates and dynamic messages', as
     update: (_state, message) => ({ state: message }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: state.active, cursor: 0 },
+      state: { value: state.active, cursor: 0 },
       keys: { enter: () => ({ active: 'ready', enabled: true }) }
     })
   });
@@ -619,7 +619,7 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
       }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => textInput({ meta: { accessibleName: "Text input" }, id: 'field', presentation: { value: state.active, cursor: 0 } })
+    view: (state) => textInput({ meta: { accessibleName: "Text input" }, id: 'field', state: { value: state.active, cursor: 0 } })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 32, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -638,7 +638,7 @@ test('TUI runtime routes escape through focused element keymaps', async () => {
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'dialog-field',
-      presentation: { value: state.active, cursor: 0 },
+      state: { value: state.active, cursor: 0 },
       keys: { escape: () => ({ active: 'closed' }) }
     })
   });
@@ -675,8 +675,8 @@ test('TUI runtime routes focused text and paste through one edit-operation chann
     }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: state.value, cursor: 0 },
-      onAction: (action) => action.kind === 'edit'
+      state: { value: state.value, cursor: 0 },
+      onTransition: (action) => action.kind === 'edit'
         ? { operation: action.operation }
         : ignoreMessage()
     })
@@ -701,8 +701,8 @@ test('TUI runtime routes single-space input chunks as text for editable focused 
     update: (state, message) => ({ state: { value: `${state.value}${message.text}` } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: state.value, cursor: 0 },
-      onAction: (action) => ({ text: action.kind === 'edit' && action.operation.kind === 'insert' ? action.operation.text : '' })
+      state: { value: state.value, cursor: 0 },
+      onTransition: (action) => ({ text: action.kind === 'edit' && action.operation.kind === 'insert' ? action.operation.text : '' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
@@ -725,9 +725,9 @@ test('TUI runtime lets focused space key bindings override text insertion', asyn
     update: (_state, message) => ({ state: { value: message.text } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: state.value, cursor: 0 },
+      state: { value: state.value, cursor: 0 },
       keys: { space: () => ({ text: 'space-key' }) },
-      onAction: (action) => ({ text: action.kind === 'edit' && action.operation.kind === 'insert' ? action.operation.text : '' })
+      onTransition: (action) => ({ text: action.kind === 'edit' && action.operation.kind === 'insert' ? action.operation.text : '' })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
@@ -747,8 +747,8 @@ test('TUI runtime decodes input chunks through the configured input pipeline', a
     update: (state, message) => ({ state: { value: `${state.value}${message.text}` } }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'pipeline-field',
-      presentation: { value: state.value, cursor: 0 },
-      onAction: (action) => ({
+      state: { value: state.value, cursor: 0 },
+      onTransition: (action) => ({
         text: action.kind === 'edit' && action.operation.kind === 'insert'
           ? action.operation.text
           : ''
@@ -783,8 +783,8 @@ test('character bindings isolate bound graphemes and retain unmatched text runs'
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: '', cursor: 0 },
-      onAction: (action) =>
+      state: { value: '', cursor: 0 },
+      onTransition: (action) =>
         action.kind === 'edit' && action.operation.kind === 'insert'
           ? { kind: 'insert', text: action.operation.text }
           : ignoreMessage()
@@ -818,8 +818,8 @@ test('character routing applies the decode event budget before dispatch', async 
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => textInput({ meta: { accessibleName: "Text input" },
       id: 'field',
-      presentation: { value: '', cursor: 0 },
-      onAction: (action) =>
+      state: { value: '', cursor: 0 },
+      onTransition: (action) =>
         action.kind === 'edit' && action.operation.kind === 'insert'
           ? { kind: 'insert', text: action.operation.text }
           : ignoreMessage()
@@ -847,7 +847,7 @@ test('component code-point and physical-key triggers match unnamed keys', async 
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => testKeyInput({
       id: 'field',
-      presentation: { value: '', cursor: 0 },
+      state: { value: '', cursor: 0 },
       keys: {
         triggers: [
           {

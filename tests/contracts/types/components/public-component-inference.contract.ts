@@ -13,8 +13,8 @@ const linked = richText({
   segments: [{ kind: 'text', text: 'Documentation', link: { href: 'https://example.test' } }],
   onLinkActivate: (event) => ({ kind: 'open-link', href: event.link.href } as const),
 });
-const save = button({ id: 'save', label: 'Save', onAction: () => ({ kind: 'save' } as const) });
-const quit = button({ id: 'quit', label: 'Quit', onAction: () => ({ kind: 'quit', force: true } as const) });
+const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
+const quit = button({ id: 'quit', label: 'Quit', onPress: () => ({ kind: 'quit', force: true } as const) });
 const toolbar = row([passive, save, quit] as const);
 const wrappedToolbar = semanticToolbar(toolbar, { id: 'toolbar', label: 'Actions' });
 

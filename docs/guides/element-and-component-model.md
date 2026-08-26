@@ -54,11 +54,11 @@ const saveButton = state.saving
   ? button({
       ...saveButtonOptions,
       busy: true,
-      onAction: (): Message => ({ kind: 'save' })
+      onPress: (): Message => ({ kind: 'save' })
     })
   : button({
       ...saveButtonOptions,
-      onAction: (): Message => ({ kind: 'save' })
+      onPress: (): Message => ({ kind: 'save' })
     });
 
 saveButton satisfies import('@ismail-elkorchi/terminal-ui/components').Element<Message>;
@@ -76,18 +76,23 @@ Rules:
 - There are no mutable component instances, global style cascade, product
   composites, or app-shell recipes.
 
-## Event Vocabulary
+## Interaction Vocabulary
 
-Each component defines one typed action union. Its single `onAction(action)`
-property maps semantic actions to caller-controlled messages:
+Built-in components distinguish requests to change controlled state from
+completed semantic occurrences:
 
 | Contract | Use |
 | --- | --- |
-| `onAction` | Activation, editing, submission, selection, navigation, scrolling, dismissal, context menus, and visualization interaction. The action union states exactly what a component can emit. |
-| `ignoreMessage()` | Explicitly declines a handled action without weakening message types or using `undefined`. |
+| `onTransition` | Navigation, editing, selection, scrolling, open state, and other requests that the application may reduce into its controlled state. |
+| `ScrollRequest` | The proposed next scroll state emitted by a controlled viewport or component; the application accepts it by updating its state. |
+| Event callbacks | Completed occurrences use precise names such as `onPress`, `onSubmit`, `onActivate`, `onAccept`, `onCommit`, `onClose`, and `onDismiss`. |
+| `onContextMenu` | A right-click occurrence that carries the relevant semantic position or selection. |
+| `ignoreMessage()` | Explicitly handles an interaction without producing an application message. |
 
-Factories compile definition-owned keyboard, text, pointer, focus, and hit-target
-strategies once. Instance handlers only map the resulting semantic action.
+The low-level `defineComponent()` authoring API deliberately retains one
+generic `onAction` mapper because package authors define their own action
+vocabulary. A built-in or package-level factory should expose domain-specific
+transition and event callbacks rather than leaking that implementation channel.
 
 ## Entry Points
 
@@ -96,6 +101,7 @@ strategies once. Instance handlers only map the resulting semantic action.
 | `./component` | `defineComponent()`, opaque elements, authoring contracts, bounded painting and terminal-style composition helpers, and component interaction helpers. |
 | `./components` | Built-in catalog and component-domain public data contracts. It consumes `./component`. |
 | `./layout` | Layout and composition factories plus responsive view selection. |
+| `./collection` | Stable collection identity, complete or windowed snapshots, and measured variable-height windows. |
 | `./behavior` | Pure reducers and controlled-state helpers. |
 | `./renderer` | Frame construction, diffing, serialization, and drawing primitives. |
 | `./tui` | App definitions, runtime lifecycle, subscriptions, and session policy. |
@@ -107,16 +113,16 @@ not expose renderer internals as ordinary component APIs.
 ## Internal Representation
 
 Every definition is compiled once. Each factory call separates framework-owned
-fields, performs typed component preparation, and creates the same generic
+fields, performs typed component model construction, and creates the same generic
 component runtime node through one private construction path. The node stores
-the prepared model opaquely; the compiled hooks retain its real type. Layout,
+the component model opaquely; the compiled hooks retain its real type. Layout,
 rendering, and runtime code resolve opaque handles only at the renderer boundary.
 
 A render node can contain:
 
 ```text
 compiled definition
-prepared model and named slots
+component model and named slots
 layer and focus metadata
 typed root, part, and visual-state styles
 key and input maps
@@ -160,7 +166,7 @@ bounds, theme data, source metadata, and caller-controlled state. It does not re
 direct frame-buffer or terminal-host access.
 
 `defineComponent()` is owned and exported only by the narrow `./component`
-entrypoint. It creates an immutable factory from component-owned preparation,
+entrypoint. It creates an immutable factory from component-owned model construction,
 measurement, painting or composition, accessibility, focus-target, and
 hit-target hooks without exposing private node fields. Composite definitions
 arrange typed named slots; composed definitions build ordinary element trees
@@ -184,7 +190,7 @@ identity, factory category and name, declared capabilities, focus policy,
 the resolved accessibility role, semantic value, active item, selection,
 validation, collection window, component-specific state, style metadata, and
 child structure; it does not expose private props, callback values, sensitive
-prepared values, or drawing hooks. Focus inspection applies the same logical
+component models, or drawing hooks. Focus inspection applies the same logical
 disablement policy as rendering, including disabled controls and inert subtrees.
 Busy and read-only controls remain focusable unless separately disabled.
 It describes whether an element can produce a focus item or scope before

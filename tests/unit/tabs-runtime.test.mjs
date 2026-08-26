@@ -7,15 +7,15 @@ import { tabs, text, textInput } from '../../dist/components/index.js';
 test('tabs render only the selected panel as focusable content', () => {
   const element = tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
-    presentation: { activeId: 'second', selectedId: 'second' },
+    state: { activeId: 'second', selectedId: 'second' },
     tabs: [
       {
         id: 'first',
         label: 'First',
         panel: textInput({ meta: { accessibleName: "Text input" },
           id: 'first-input',
-          presentation: { value: 'hidden', cursor: 0 },
-          onAction: (action) => action
+          state: { value: 'hidden', cursor: 0 },
+          onTransition: (action) => action
         })
       },
       {
@@ -24,8 +24,8 @@ test('tabs render only the selected panel as focusable content', () => {
         description: 'Visible editor panel',
         panel: textInput({ meta: { accessibleName: "Text input" },
           id: 'second-input',
-          presentation: { value: 'visible', cursor: 0 },
-          onAction: (action) => action
+          state: { value: 'visible', cursor: 0 },
+          onTransition: (action) => action
         })
       }
     ],
@@ -59,7 +59,7 @@ test('tabs render only the selected panel as focusable content', () => {
 test('tabs keep active markers disabled targets and overflow visible without color', () => {
   const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
-    presentation: { activeId: 'alpha', selectedId: 'alpha' },
+    state: { activeId: 'alpha', selectedId: 'alpha' },
     tabs: [
       { id: 'alpha', label: 'Alpha', panel: text({ content: 'Alpha panel' }) },
       { id: 'beta', label: 'Beta', disabled: true, panel: text({ content: 'Beta panel' }) },
@@ -78,7 +78,7 @@ test('tabs keep active markers disabled targets and overflow visible without col
 test('tabs keep the selected tab visible when headers overflow', () => {
   const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'tabs',
-    presentation: { activeId: 'gamma', selectedId: 'gamma' },
+    state: { activeId: 'gamma', selectedId: 'gamma' },
     tabs: [
       { id: 'alpha', label: 'Alpha', panel: text({ content: 'Alpha panel' }) },
       { id: 'beta', label: 'Beta', panel: text({ content: 'Beta panel' }) },
@@ -112,7 +112,7 @@ test('tabs keep the selected tab visible when headers overflow', () => {
 test('tabs paint a complete strip and raise the selected tab', () => {
   const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'painted-tabs',
-    presentation: { activeId: 'second', selectedId: 'second' },
+    state: { activeId: 'second', selectedId: 'second' },
     tabs: [
       { id: 'first', label: 'First', panel: text({ content: 'First panel' }) },
       { id: 'second', label: 'Second', closable: true, panel: text({ content: 'Second panel' }) }
@@ -147,7 +147,7 @@ test('tabs paint a complete strip and raise the selected tab', () => {
 test('tabs bound individual labels without losing close actions or accessible names', () => {
   const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'bounded-tabs',
-    presentation: { activeId: 'long', selectedId: 'long' },
+    state: { activeId: 'long', selectedId: 'long' },
     maxTabWidth: 12,
     tabs: [
       {
@@ -173,7 +173,7 @@ test('tabs bound individual labels without losing close actions or accessible na
 test('a one-cell tab limit prioritizes the close action over decoration', () => {
   const frame = renderElementFrame(tabs({ meta: { accessibleName: "Tabs" },
     id: 'minimal-tab',
-    presentation: { activeId: 'only', selectedId: 'only' },
+    state: { activeId: 'only', selectedId: 'only' },
     maxTabWidth: 1,
     tabs: [{ id: 'only', label: 'Only', closable: true, panel: text({ content: 'Panel' }) }],
     onTransition: (action) => ({ kind: 'tabs', action })
@@ -186,7 +186,7 @@ test('a one-cell tab limit prioritizes the close action over decoration', () => 
 test('tab controls preserve one-cell geometry under ambiguous-wide profiles', () => {
   const element = tabs({ meta: { accessibleName: "Tabs" },
     id: 'fixed-cell-tabs',
-    presentation: { activeId: 'second', selectedId: 'second' },
+    state: { activeId: 'second', selectedId: 'second' },
     tabs: [
       { id: 'first', label: 'First', panel: text({ content: 'First panel' }) },
       { id: 'second', label: 'Second', closable: true, panel: text({ content: 'Second panel' }) }

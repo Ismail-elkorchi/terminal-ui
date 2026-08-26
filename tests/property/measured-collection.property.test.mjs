@@ -6,10 +6,10 @@ import {
   measuredCollectionItemById,
   measuredWindow,
   prependMeasuredItems,
-  prepareMeasuredCollection,
+  createMeasuredCollection,
   removeMeasuredItems,
   replaceMeasuredItem
-} from '../../dist/behavior/index.js';
+} from '../../dist/collection/index.js';
 
 test('persistent measured collections agree with a flat reference model', () => {
   for (const seed of [0x5eedc0de, 0x10203040, 0x89abcdef, 0x76543210, 0xf00dcafe]) {
@@ -21,7 +21,7 @@ function assertPersistentScenario(seed) {
   const random = deterministicRandom(seed);
   let nextId = 0;
   let reference = Array.from({ length: 40 }, () => newItem());
-  let collection = prepareMeasuredCollection(reference);
+  let collection = createMeasuredCollection(reference);
   const retainedVersions = [];
 
   for (let operation = 0; operation < 800; operation += 1) {

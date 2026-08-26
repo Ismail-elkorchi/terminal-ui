@@ -1,12 +1,12 @@
 import type { MouseModifiers } from '../input/types.ts';
 import type { TextSelection } from '../text/types.ts';
 
-export type PointerSelectionAction<TCoordinate> =
+export type PointerSelectionTransition<TCoordinate> =
   | { readonly kind: 'placeCaret'; readonly position: TCoordinate }
   | { readonly kind: 'extendSelection'; readonly anchor: TCoordinate; readonly position: TCoordinate }
   | { readonly kind: 'endSelection'; readonly anchor: TCoordinate; readonly position: TCoordinate };
 
-export type TextPointerAction =
+export type TextPointerTransition =
   | { readonly kind: 'placeCaret'; readonly offset: number }
   | { readonly kind: 'extendSelection'; readonly anchor: number; readonly offset: number }
   | { readonly kind: 'endSelection'; readonly anchor: number; readonly offset: number };

@@ -1,16 +1,16 @@
 /** Passive and interactive data visualizations. */
-export { barChart, chart, heatmap } from './factories/chart-components.ts';
-export { meter, sparkline } from './factories/feedback.ts';
+export { barChart, chart, heatmap } from './factories/charts.ts';
+export { meter, sparkline } from './factories/indicators.ts';
 export type {
   BarChartOptions,
   ChartOptions,
   HeatmapOptions,
   MeterOptions,
   SparklineOptions,
-} from './options/feedback.ts';
+} from './options/feedback-and-visualizations.ts';
 export type {
   BarChartItem,
-  ChartDataState,
+  ChartDataStatus,
   ChartInterpolation,
   ChartPoint,
   ChartSampleAlign,
@@ -18,15 +18,15 @@ export type {
   ChartSeries,
   ChartSeriesKind,
   HeatmapCell,
-  MeterResult,
+  MeterStatus,
   MeterVariant,
   ValueScale,
   ValueScaleStop,
-} from '../ui-model/feedback.ts';
+} from '../behavior/visualization-data.ts';
 export type {
   BarChartTransition,
   ChartTransition,
   HeatmapTransition,
   VisualizationActivateEvent,
-  VisualizationPresentation,
-} from '../ui-model/visualization.ts';
+  VisualizationState,
+} from '../behavior/visualization.ts';

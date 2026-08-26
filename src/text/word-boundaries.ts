@@ -1,34 +1,34 @@
 import { segmentGraphemes, segmentWords } from './graphemes.ts';
-import { clampTextOffset, normalizeTextCursor } from './selection-model.ts';
+import { clampTextOffset, normalizeTextCursor } from './text-range.ts';
 import type { TextBoundaryOptions, TextSelection } from './types.ts';
 
-export interface PreparedWordBoundaryIndex {
+export interface WordBoundaryIndex {
   previous(offset: number): number;
   next(offset: number): number;
   selectionAt(offset: number): TextSelection;
 }
 
-export function prepareWordBoundaryIndex(
+export function createWordBoundaryIndex(
   text: string,
   graphemeOffsets: readonly number[],
   options: TextBoundaryOptions = {}
-): PreparedWordBoundaryIndex {
+): WordBoundaryIndex {
   const segments = [...normalizedWordSegments(text, graphemeOffsets, options)];
   const starts = segments.map((segment) => segment.startOffset);
   const ends = segments.map((segment) => segment.endOffsetExclusive);
   return {
     previous(offset) {
-      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const cursor = normalizeIndexedOffset(offset, graphemeOffsets, text.length);
       const index = lowerBound(starts, cursor) - 1;
       return segments[index]?.startOffset ?? 0;
     },
     next(offset) {
-      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const cursor = normalizeIndexedOffset(offset, graphemeOffsets, text.length);
       const index = upperBound(ends, cursor);
       return segments[index]?.endOffsetExclusive ?? text.length;
     },
     selectionAt(offset) {
-      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const cursor = normalizeIndexedOffset(offset, graphemeOffsets, text.length);
       const index = upperBound(starts, cursor) - 1;
       const segment = segments[index];
       const selected = segment !== undefined
@@ -105,12 +105,12 @@ export function lineOffsetByDelta(text: string, offset: number, delta: number): 
 function standaloneWordBoundaryIndex(
   text: string,
   options: TextBoundaryOptions
-): PreparedWordBoundaryIndex {
+): WordBoundaryIndex {
   const graphemes = segmentGraphemes(text);
   const graphemeOffsets = [...graphemes.map((segment) => segment.startOffset), text.length];
   return {
     previous(offset) {
-      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const cursor = normalizeIndexedOffset(offset, graphemeOffsets, text.length);
       let boundary = 0;
       for (const segment of normalizedWordSegments(text, graphemeOffsets, options)) {
         if (segment.startOffset >= cursor) break;
@@ -119,14 +119,14 @@ function standaloneWordBoundaryIndex(
       return boundary;
     },
     next(offset) {
-      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const cursor = normalizeIndexedOffset(offset, graphemeOffsets, text.length);
       for (const segment of normalizedWordSegments(text, graphemeOffsets, options)) {
         if (segment.endOffsetExclusive > cursor) return segment.endOffsetExclusive;
       }
       return text.length;
     },
     selectionAt(offset) {
-      const cursor = normalizePreparedOffset(offset, graphemeOffsets, text.length);
+      const cursor = normalizeIndexedOffset(offset, graphemeOffsets, text.length);
       let last: { readonly startOffset: number; readonly endOffsetExclusive: number } | undefined;
       for (const segment of normalizedWordSegments(text, graphemeOffsets, options)) {
         if (cursor >= segment.startOffset && cursor < segment.endOffsetExclusive) {
@@ -150,8 +150,8 @@ function* normalizedWordSegments(
   options: TextBoundaryOptions
 ): Iterable<{ readonly startOffset: number; readonly endOffsetExclusive: number }> {
   for (const segment of segmentWords(text, options)) {
-    const startOffset = normalizePreparedOffset(segment.startOffset, graphemeOffsets, text.length);
-    const endOffsetExclusive = normalizePreparedOffset(
+    const startOffset = normalizeIndexedOffset(segment.startOffset, graphemeOffsets, text.length);
+    const endOffsetExclusive = normalizeIndexedOffset(
       segment.endOffsetExclusive,
       graphemeOffsets,
       text.length
@@ -160,7 +160,7 @@ function* normalizedWordSegments(
   }
 }
 
-function normalizePreparedOffset(
+function normalizeIndexedOffset(
   offset: number,
   graphemeOffsets: readonly number[],
   textLength: number

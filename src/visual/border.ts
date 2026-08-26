@@ -50,9 +50,9 @@ export function normalizeBorderTitle(title: BorderTitle): BorderTitle {
     throw new TypeError('Border title slots could not be read.', { cause });
   }
   const normalized = Object.freeze({
-    ...(start === undefined ? {} : { start: normalizeBorderTitleContent(start) }),
-    ...(center === undefined ? {} : { center: normalizeBorderTitleContent(center) }),
-    ...(end === undefined ? {} : { end: normalizeBorderTitleContent(end) })
+    ...(start === undefined ? {} : { start: decodeBorderTitleContent(start) }),
+    ...(center === undefined ? {} : { center: decodeBorderTitleContent(center) }),
+    ...(end === undefined ? {} : { end: decodeBorderTitleContent(end) })
   });
   normalizedBorderTitles.add(normalized);
   return normalized;
@@ -71,7 +71,7 @@ export function borderTitleAccessibleText(title: BorderTitle | undefined): strin
     .join(' ');
 }
 
-function normalizeBorderTitleContent(content: unknown): BorderTitleContent {
+function decodeBorderTitleContent(content: unknown): BorderTitleContent {
   return typeof content === 'string'
     ? sanitizeTerminalText(content).text
     : normalizeInlineContent(content as InlineContent);

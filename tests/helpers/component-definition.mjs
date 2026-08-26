@@ -13,7 +13,7 @@ export const leafComponentDefinition = Object.freeze({
   identity: 'required',
   name: 'terminal-ui-tests/components/testLeaf',
   parts: Object.freeze([]),
-  prepare: (value) => value,
+  createModel: (value) => value,
   measure: () => unitMeasurement
 });
 
@@ -30,7 +30,7 @@ export const compositeComponentDefinition = Object.freeze({
       messages: 'bubble'
     })
   }),
-  prepare: (value) => value,
+  createModel: (value) => value,
   measure: ({ childCount, measureChild }) => {
     const children = Array.from({ length: childCount }, (_unused, index) =>
       measureChild(index)
@@ -78,7 +78,7 @@ export function componentElement({ definition, children, ...options }) {
 }
 
 export function testKeyInput(options) {
-  const onAction = options.onAction;
+  const onTransition = options.onTransition;
   const definition = defineComponent({
     name: 'terminal-ui-tests/components/key-input',
     identity: 'required',
@@ -86,7 +86,7 @@ export function testKeyInput(options) {
     semantics: 'semantic',
     accessibleRole: 'textbox',
     metadata: ['focus', 'layer', 'styles'],
-    prepare(value) {
+    createModel(value) {
       if (typeof value.value !== 'string') {
         throw new TypeError('test key input value must be a string.');
       }
@@ -100,12 +100,12 @@ export function testKeyInput(options) {
     }),
     render: ({ target, model }) => target.write(0, 0, [span(model.value)]),
     keys: () => options.keys ?? {},
-    onInput: ({ text }) => onAction === undefined
+    onInput: ({ text }) => onTransition === undefined
       ? ignoreMessage()
-      : onAction({ kind: 'edit', operation: { kind: 'insert', text } }),
-    onPaste: ({ text }) => onAction === undefined
+      : onTransition({ kind: 'edit', operation: { kind: 'insert', text } }),
+    onPaste: ({ text }) => onTransition === undefined
       ? ignoreMessage()
-      : onAction({ kind: 'edit', operation: { kind: 'insert', text } }),
+      : onTransition({ kind: 'edit', operation: { kind: 'insert', text } }),
     focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
     accessibility: ({ id, model, focused }) => ({
       id,
@@ -117,7 +117,7 @@ export function testKeyInput(options) {
   });
   return definition({
     id: options.id,
-    value: options.presentation?.value ?? '',
+    value: options.state?.value ?? '',
     ...(options.meta === undefined ? {} : { meta: options.meta }),
     onAction: (action) => action
   });

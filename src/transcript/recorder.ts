@@ -8,7 +8,7 @@ import type {
 } from './types.ts';
 import { interactionTranscriptFormatVersion } from './types.ts';
 import {
-  adoptDiagnosticOccurrence,
+  decodeDiagnosticOccurrence,
   createDiagnosticOccurrenceReporter,
   diagnostic
 } from '../diagnostics.ts';
@@ -96,7 +96,7 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
   if (onStep !== undefined && typeof onStep !== 'function') {
     throw new TypeError('Transcript onStep must be a function.');
   }
-  const retention = prepareRetention(options['retention']);
+  const retention = decodeRetention(options['retention']);
   const suppliedOptions = {
     id: suppliedIdValue,
     source: sourceValue,
@@ -178,7 +178,7 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
   };
 
   function recordOccurrence(value: DiagnosticOccurrence): void {
-    const item = adoptDiagnosticOccurrence(value);
+    const item = decodeDiagnosticOccurrence(value);
     if (diagnosticIds.has(item.id) || diagnosticStepIds.has(item.id)) return;
     retainDiagnostic(item);
     appendStep(Object.freeze({ kind: 'diagnostic', occurrence: item }));
@@ -368,7 +368,7 @@ export function createTranscriptRecorder(value: unknown = {}): TranscriptRecorde
   }
 }
 
-function prepareRetention(value: unknown): Readonly<Required<TranscriptRetentionPolicy>> {
+function decodeRetention(value: unknown): Readonly<Required<TranscriptRetentionPolicy>> {
   if (value === undefined) return defaultTranscriptRetentionPolicy;
   if (!isNonArrayObject(value)) throw new TypeError('Transcript retention must be an object.');
   return Object.freeze({
@@ -501,7 +501,7 @@ function recordedTranscriptStep(step: InteractionTranscriptStep): InteractionTra
       return Object.freeze({ kind: 'snapshot', snapshot: snapshot.value });
     }
     case 'diagnostic':
-      return Object.freeze({ kind: 'diagnostic', occurrence: adoptDiagnosticOccurrence(step.occurrence) });
+      return Object.freeze({ kind: 'diagnostic', occurrence: decodeDiagnosticOccurrence(step.occurrence) });
     case 'restore':
       return snapshotCanonicalJsonValue(step, 'Transcript restore step');
   }

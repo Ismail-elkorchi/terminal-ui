@@ -5,8 +5,8 @@ import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import type { TerminalSerializationPolicy } from './serialization-policy.ts';
-import type { RenderSpan, TerminalLink, TerminalStyle } from '../../visual/render.ts';
-import { normalizeTerminalLink, sameTerminalLink, sameTerminalStyle } from '../../visual/render.ts';
+import type { RenderSpan, TerminalLink, TerminalStyle } from '../../visual/render-content.ts';
+import { decodeTerminalLink, sameTerminalLink, sameTerminalStyle } from '../../visual/render-content.ts';
 
 export interface RenderSerializeOptions {
   readonly capabilities: TerminalOutputCapabilityProfile;
@@ -150,7 +150,7 @@ function effectiveLink(span: RenderSpan, options: RenderSerializeOptions | undef
     || options.capabilities.hyperlinks.support !== 'supported'
     || options.capabilities.hyperlinks.availability !== 'available'
   ) return undefined;
-  return normalizeTerminalLink(span.link);
+  return decodeTerminalLink(span.link);
 }
 
 function openLink(link: TerminalLink | undefined, policy: TerminalSerializationPolicy): string {

@@ -1,6 +1,6 @@
 import { segmentGraphemesForMeasurement } from './graphemes.ts';
-import { selectedText } from './selection-model.ts';
-import { lineSelectionAt, prepareWordBoundaryIndex } from './word-boundaries.ts';
+import { selectedText } from './text-range.ts';
+import { lineSelectionAt, createWordBoundaryIndex } from './word-boundaries.ts';
 import type { TerminalTextIndex, TextIndexOptions, TextSelection } from './types.ts';
 
 const encoder = new TextEncoder();
@@ -17,9 +17,9 @@ export function createTerminalTextIndex(
     retainedByteOffsets ??= utf8ByteOffsets(graphemes);
     return retainedByteOffsets;
   };
-  let words: ReturnType<typeof prepareWordBoundaryIndex> | undefined;
-  const wordIndex = (): ReturnType<typeof prepareWordBoundaryIndex> => {
-    words ??= prepareWordBoundaryIndex(text, codeUnitOffsets, options);
+  let words: ReturnType<typeof createWordBoundaryIndex> | undefined;
+  const wordIndex = (): ReturnType<typeof createWordBoundaryIndex> => {
+    words ??= createWordBoundaryIndex(text, codeUnitOffsets, options);
     return words;
   };
 

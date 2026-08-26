@@ -2,17 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  paginationPresentation,
+  paginationView,
   paginationReducer
 } from '../../dist/behavior/index.js';
 import type { PaginationState } from '../../dist/behavior/index.js';
 import { pagination } from '../../dist/components/index.js';
-import type { PaginationAction } from '../../dist/components/index.js';
+import type { PaginationTransition } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
-void test('pagination reducer bounds semantic navigation actions', () => {
+void test('pagination reducer bounds semantic navigation transitions', () => {
   const options = { pageCount: 4 };
   const previous = paginationReducer({ pageNumber: 1 }, { kind: 'previous' }, options);
   const next = paginationReducer(previous, { kind: 'next' }, options);
@@ -25,18 +25,18 @@ void test('pagination reducer bounds semantic navigation actions', () => {
   assert.deepEqual(selected, { pageNumber: 4 });
   assert.deepEqual(first, { pageNumber: 1 });
   assert.deepEqual(last, { pageNumber: 4 });
-  assert.deepEqual(paginationPresentation({ pageNumber: 10 }, options), { pageNumber: 4, pageCount: 4 });
+  assert.deepEqual(paginationView({ pageNumber: 10 }, options), { pageNumber: 4, pageCount: 4 });
 });
 
-void test('pagination routes keyboard and pointer controls through the same action stream', async () => {
-  const app = defineTui<PaginationState, PaginationAction>({
+void test('pagination routes keyboard and pointer controls through the same transition stream', async () => {
+  const app = defineTui<PaginationState, PaginationTransition>({
     id: 'pagination-actions',
     init: () => ({ state: ({ pageNumber: 2 }) }),
     update: (state, action) => ({ state: paginationReducer(state, action, { pageCount: 4 }) }),
     view: (state) => pagination({ meta: { accessibleName: "Pagination" },
       id: 'pages',
-      ...paginationPresentation(state, { pageCount: 4 }),
-      onAction: (action) => action
+      ...paginationView(state, { pageCount: 4 }),
+      onTransition: (action) => action
     })
   });
   const runtime = createTuiRuntime({

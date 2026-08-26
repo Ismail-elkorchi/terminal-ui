@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  commandInputPresentation,
+  commandInputView,
   commandInputReducer,
   createCommandInputState,
-  prepareCommandSuggestions
+  createCommandSuggestions
 } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
@@ -15,7 +15,7 @@ import {
   renderFramePlain
 } from '../../dist/renderer/index.js';
 import { applyRenderDiff } from '../../dist/renderer/internal/diff-interpreter.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { button, commandInput } from '../../dist/components/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
 import { column, row } from '../../dist/layout/index.js';
@@ -24,9 +24,9 @@ function testCommandInput(options) {
   return commandInput({ meta: { accessibleName: "Command input" },
     onTransition: () => ignoreMessage(),
     ...options,
-    presentation: {
-      open: options.presentation.suggestions.totalCount > 0,
-      ...options.presentation
+    view: {
+      open: options.view.suggestions.totalCount > 0,
+      ...options.view
     }
   });
 }
@@ -46,7 +46,7 @@ function commandSuggestion(id, text, endOffsetExclusive, options = {}, startOffs
 test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
   const initial = createCommandInputState({
     submissions: ['build', 'test'],
-    suggestions: prepareCommandSuggestions([
+    suggestions: createCommandSuggestions([
       commandSuggestion('test-watch', 'test --watch', 1),
       commandSuggestion('test-coverage', 'test --coverage', 1)
     ])
@@ -71,7 +71,7 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
 
   const refreshed = commandInputReducer(earlier, {
     kind: 'setSuggestions',
-    suggestions: prepareCommandSuggestions([
+    suggestions: createCommandSuggestions([
       commandSuggestion('test-watch', 'test --watch', 5),
       commandSuggestion('test-coverage', 'test --coverage', 5)
     ])
@@ -88,7 +88,7 @@ test('commandInputReducer bounds submissions independently from edit history', (
   let state = createCommandInputState({
     submissionLimit: 2,
     editHistoryPolicy: { maxEntries: 1, maxRetainedBytes: 100 },
-    suggestions: prepareCommandSuggestions([])
+    suggestions: createCommandSuggestions([])
   });
   for (const value of ['one', 'two', 'three']) {
     state = commandInputReducer(state, { kind: 'recordSubmission', value });
@@ -102,7 +102,7 @@ test('commandInputReducer bounds submissions independently from edit history', (
 
 test('commandInputReducer skips disabled suggestions for selection and acceptance', () => {
   const initial = createCommandInputState({
-    suggestions: prepareCommandSuggestions([
+    suggestions: createCommandSuggestions([
       commandSuggestion('deploy', 'deploy', 0, { label: 'Deploy', disabled: true }),
       commandSuggestion('status', 'status', 0, { label: 'Status' }),
       commandSuggestion('destroy', 'destroy', 0, { label: 'Destroy', disabled: true })
@@ -129,7 +129,7 @@ test('commandInputReducer skips disabled suggestions for selection and acceptanc
 test('commandInputReducer ignores accept when every suggestion is disabled', () => {
   const initial = createCommandInputState({
     value: 'd',
-    suggestions: prepareCommandSuggestions([
+    suggestions: createCommandSuggestions([
       commandSuggestion('deploy', 'deploy', 1, { label: 'Deploy', disabled: true })
     ])
   });
@@ -141,11 +141,11 @@ test('commandInputReducer ignores accept when every suggestion is disabled', () 
   assert.deepEqual(accepted.editor.input, { text: 'd', cursor: 1 });
 });
 
-test('commandInput projects controlled state and separates transitions from submission', async () => {
+test('commandInput renders controlled state and separates transitions from submission', async () => {
   const createdCommand = createCommandInputState({
       value: 'te',
       submissions: ['build'],
-      suggestions: prepareCommandSuggestions([commandSuggestion('test', 'test', 2)])
+      suggestions: createCommandSuggestions([commandSuggestion('test', 'test', 2)])
     });
   const command = {
     ...createdCommand,
@@ -162,7 +162,7 @@ test('commandInput projects controlled state and separates transitions from subm
     update: (state, message) => ({ state: { ...state, messages: [...state.messages, message] } }),
     view: (state) => testCommandInput({
       id: 'command',
-      presentation: commandInputPresentation(state.command),
+      view: commandInputView(state.command),
       onTransition: (action) => ({ kind: 'action', action }),
       onSubmit: ({ value }) => ({ kind: 'action', action: { kind: 'submit', value } })
     })
@@ -178,14 +178,14 @@ test('commandInput projects controlled state and separates transitions from subm
   await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   await runtime.handleInput({ kind: 'key', key: 'escape', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
-  assert.deepEqual(commandInputPresentation(command), {
+  assert.deepEqual(commandInputView(command), {
     input: {
       text: 'te',
       cursor: 2,
       selection: { startOffset: 0, endOffsetExclusive: 1 },
     },
     open: true,
-    suggestions: prepareCommandSuggestions([commandSuggestion('test', 'test', 2)]),
+    suggestions: createCommandSuggestions([commandSuggestion('test', 'test', 2)]),
     activeSuggestionId: 'test',
     submissionIndex: 0
   });
@@ -205,7 +205,7 @@ test('commandInput component renders prompt, suggestions, cursor, and accessibil
     testCommandInput({
       id: 'command',
       prompt: '/',
-      presentation: { input: { text: 'op', cursor: 2 }, open: true, suggestions: prepareCommandSuggestions([
+      view: { input: { text: 'op', cursor: 2 }, open: true, suggestions: createCommandSuggestions([
         commandSuggestion('open', 'open', 2, { description: 'Open item' }),
         commandSuggestion('options', 'options', 2)
       ]), activeSuggestionId: 'options' },
@@ -235,10 +235,10 @@ test('commandInput popup anchors suggestions without increasing the input height
   const command = testCommandInput({
     id: 'omnibox',
     prompt: '',
-    presentation: {
+    view: {
       input: { text: 'exa', cursor: 3 },
       open: true,
-      suggestions: prepareCommandSuggestions([
+      suggestions: createCommandSuggestions([
         commandSuggestion('example-com', 'https://example.com', 3, { label: 'Example', description: 'History' }),
         commandSuggestion('example-org', 'https://example.org', 3, { label: 'Example.org', description: 'Bookmark' })
       ]),
@@ -270,15 +270,15 @@ test('commandInput popup anchors suggestions without increasing the input height
 test('read-only command input rejects pointer suggestion activation', () => {
   const target = targetById(renderElementRegions(commandInput({ meta: { accessibleName: "Command input" },
     id: 'read-only-command',
-    presentation: {
+    view: {
       input: { text: 'a', cursor: 1 },
       open: true,
-      suggestions: prepareCommandSuggestions([commandSuggestion('alpha', 'alpha', 1, { label: 'Alpha' })]),
+      suggestions: createCommandSuggestions([commandSuggestion('alpha', 'alpha', 1, { label: 'Alpha' })]),
       activeSuggestionId: 'alpha'
     },
     display: 'popup',
     readOnly: true,
-    onTransition: (action) => action
+    onTransition: (transition) => transition
   }), { columns: 24, rows: 4 }), 'read-only-command:suggestions:list:option:alpha');
   const event = {
     ...pointerEvent({ row: 2, column: 1, localRow: 1, localColumn: 1 }),
@@ -293,7 +293,7 @@ test('commandInput fills tall bounds while preserving its one-row natural size',
   const element = testCommandInput({
     id: 'tall-command',
     prompt: '› ',
-    presentation: { input: { text: 'open', cursor: 4 }, open: false, suggestions: prepareCommandSuggestions([]) },
+    view: { input: { text: 'open', cursor: 4 }, open: false, suggestions: createCommandSuggestions([]) },
     display: 'popup',
     onTransition: (action) => ({ action })
   });
@@ -326,7 +326,7 @@ test('commandInput fills tall bounds while preserving its one-row natural size',
   assert.deepEqual(target.bounds, { row: 1, column: 1, width: 20, height: 3 });
   assert.deepEqual(message?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 4 }
+    transition: { kind: 'placeCaret', offset: 4 }
   });
 });
 
@@ -334,10 +334,10 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
   const app = defineTui({
     id: 'command-generated-keys',
     init: () => ({ state: ({
-      presentation: {
+      view: {
         input: { text: 'exa', cursor: 3 },
         open: true,
-        suggestions: prepareCommandSuggestions([
+        suggestions: createCommandSuggestions([
           commandSuggestion('one', 'https://one.example', 3, { label: 'One' }),
           commandSuggestion('two', 'https://two.example', 3, { label: 'Two' })
         ])
@@ -348,8 +348,8 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
       ? {
           state: {
             ...state,
-            presentation: {
-              ...state.presentation,
+            view: {
+              ...state.view,
               ...(message.action.kind === 'moveSuggestion'
                 ? { activeSuggestionId: message.action.delta > 0 ? 'one' : 'two' }
                 : {})
@@ -359,9 +359,9 @@ test('commandInput generated keys navigate and submit the selected suggestion', 
       : { state: { ...state, submitted: message.value } },
     view: (state) => testCommandInput({
       id: 'generated-command',
-      presentation: state.presentation,
+      view: state.view,
       display: 'popup',
-      onTransition: (action) => ({ kind: 'action', action }),
+      onTransition: (transition) => ({ kind: 'action', action: transition }),
       onSubmit: ({ value }) => ({ kind: 'submit', value })
     })
   });
@@ -395,10 +395,10 @@ test('commandInput leaves Tab available for focus traversal without suggestions'
     view: () => row([
       testCommandInput({
         id: 'command',
-        presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+        view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
         onTransition: (action) => ({ kind: 'command', action })
       }),
-      button({ id: 'next', label: 'Next', onAction: () => ({ kind: 'button' }) })
+      button({ id: 'next', label: 'Next', onPress: () => ({ kind: 'button' }) })
     ])
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
@@ -423,13 +423,13 @@ test('commandInput cursor-only keyboard and pointer transitions repaint the comm
     init: () => ({
       state: createCommandInputState({
         value: 'abcd',
-        suggestions: prepareCommandSuggestions([])
+        suggestions: createCommandSuggestions([])
       })
     }),
     update: (state, action) => ({ state: commandInputReducer(state, action) }),
     view: (state) => testCommandInput({
       id: 'command-cursor',
-      presentation: commandInputPresentation(state),
+      view: commandInputView(state),
       onTransition: (action) => action
     })
   });
@@ -478,7 +478,7 @@ test('commandInput renders completion preview validation footer match styles and
     testCommandInput({
       id: 'launcher',
       prompt: '?',
-      presentation: { input: { text: 'a🙂', cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: true, suggestions: prepareCommandSuggestions([
+      view: { input: { text: 'a🙂', cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }, open: true, suggestions: createCommandSuggestions([
         commandSuggestion('emoji-match', 'a🙂bc', 'a🙂'.length, { description: 'first match' })
       ]), activeSuggestionId: 'emoji-match' },
       completionPreview: 'bc',
@@ -515,7 +515,7 @@ test('commandInput stays compact by default even when suggestions are provided',
     testCommandInput({
       id: 'compact-command',
       prompt: '/',
-      presentation: { input: { text: '', cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([
+      view: { input: { text: '', cursor: 0 }, open: true, suggestions: createCommandSuggestions([
         commandSuggestion('open', 'open', 0, { description: 'Open item' })
       ]), activeSuggestionId: 'open' },
       placeholder: 'Type a command',
@@ -537,7 +537,7 @@ test('commandInput windows long input around the cursor', () => {
     testCommandInput({
       id: 'long-command',
       prompt: '>',
-      presentation: { input: { text: value, cursor: value.length }, open: false, suggestions: prepareCommandSuggestions([]) }
+      view: { input: { text: value, cursor: value.length }, open: false, suggestions: createCommandSuggestions([]) }
     }),
     { columns: 18, rows: 3 }
   );
@@ -559,7 +559,7 @@ test('commandInput maps pointer positions through the cursor-relative input wind
     testCommandInput({
       id: 'windowed-command',
       prompt: '>',
-      presentation: { input: { text: 'abcdef', cursor: 6 }, open: false, suggestions: prepareCommandSuggestions([]) },
+      view: { input: { text: 'abcdef', cursor: 6 }, open: false, suggestions: createCommandSuggestions([]) },
       onTransition: (action) => ({ action })
     }),
     { columns: 5, rows: 1 }
@@ -574,7 +574,7 @@ test('commandInput maps pointer positions through the cursor-relative input wind
 
   assert.deepEqual(message?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 3 }
+    transition: { kind: 'placeCaret', offset: 3 }
   });
 });
 
@@ -582,14 +582,14 @@ test('commandInput exposes shared drag word-selection and context-menu semantics
   const regions = renderElementRegions(testCommandInput({
     id: 'command-pointer-semantics',
     prompt: '',
-    presentation: {
+    view: {
       input: {
         text: 'alpha bravo',
         cursor: 0,
         selection: { startOffset: 0, endOffsetExclusive: 5 },
       },
       open: false,
-      suggestions: prepareCommandSuggestions([]),
+      suggestions: createCommandSuggestions([]),
     },
     onTransition: (transition) => ({ transition }),
     onContextMenu: (event) => ({ context: event }),
@@ -608,7 +608,7 @@ test('commandInput exposes shared drag word-selection and context-menu semantics
 
   assert.deepEqual(doubleClick?.transition, {
     kind: 'pointer',
-    action: { kind: 'endSelection', anchor: 6, offset: 11 },
+    transition: { kind: 'endSelection', anchor: 6, offset: 11 },
   });
   assert.deepEqual(contextMenu?.context, {
     kind: 'contextMenu',
@@ -624,11 +624,11 @@ test('commandInput renders one prompt without a separate focus marker', () => {
   const explicit = renderElementFrame(testCommandInput({
     id: 'explicit-prompt',
     prompt: '› ',
-    presentation: { input: { text: 'open', cursor: 4 }, open: false, suggestions: prepareCommandSuggestions([]) }
+    view: { input: { text: 'open', cursor: 4 }, open: false, suggestions: createCommandSuggestions([]) }
   }), { columns: 16, rows: 1 }, { focusPath: ['explicit-prompt'] });
   const defaultPrompt = renderElementFrame(testCommandInput({
     id: 'default-prompt',
-    presentation: { input: { text: 'open', cursor: 4 }, open: false, suggestions: prepareCommandSuggestions([]) }
+    view: { input: { text: 'open', cursor: 4 }, open: false, suggestions: createCommandSuggestions([]) }
   }), { columns: 16, rows: 1 }, { focusPath: ['default-prompt'] });
 
   assert.equal(renderFramePlain(explicit), '› open');
@@ -684,7 +684,7 @@ test('commandInput exposes prompt value selection suggestion validation and foot
     testCommandInput({
       id: 'cmd-source',
       prompt: ':',
-      presentation: { input: { text: 'open file', cursor: 0, selection: { startOffset: 5, endOffsetExclusive: 9 } }, open: true, suggestions: prepareCommandSuggestions([
+      view: { input: { text: 'open file', cursor: 0, selection: { startOffset: 5, endOffsetExclusive: 9 } }, open: true, suggestions: createCommandSuggestions([
         commandSuggestion('open-file', 'open-file', 9, { label: 'Open file', description: 'recent' }, 5)
       ]), activeSuggestionId: 'open-file' },
       completionPreview: 's',
@@ -717,7 +717,7 @@ test('commandInput exposes prompt value selection suggestion validation and foot
 test('commandInput rejects invalid validation levels at its factory boundary', () => {
   assert.throws(() => testCommandInput({
     id: 'invalid-validation-level',
-    presentation: { input: { text: '', cursor: 0 }, open: false, suggestions: prepareCommandSuggestions([]) },
+    view: { input: { text: '', cursor: 0 }, open: false, suggestions: createCommandSuggestions([]) },
     validation: { message: 'Invalid', level: 'success' }
   }), /validation level must be one of info, warning, error/u);
 });

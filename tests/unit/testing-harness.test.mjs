@@ -21,7 +21,7 @@ import {
 import { column } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.ts';
 import { ignoreMessage } from '../../dist/component/index.js';
-import { prepareTreeSource, prepareTreeView } from '../../dist/behavior/index.js';
+import { createTreeSource, createTreeView } from '../../dist/behavior/index.js';
 
 test('testing harness records input and output deterministically', async () => {
   const harness = createTerminalHarness();
@@ -109,8 +109,9 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
     view: (state) => textInput({ meta: { accessibleName: "Text input" },
       id: 'submit',
-      presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onAction: (action) => action.kind === 'submit' ? { submitted: true } : ignoreMessage()
+      state: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
+      onTransition: () => ignoreMessage(),
+      onSubmit: () => ({ submitted: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -248,8 +249,9 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
     view: (_state, context) => textInput({ meta: { accessibleName: "Text input" },
       id: 'resize-field',
-      presentation: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
-      onAction: (action) => action.kind === 'submit' ? { done: true } : ignoreMessage()
+      state: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
+      onTransition: () => ignoreMessage(),
+      onSubmit: () => ({ done: true })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -275,12 +277,12 @@ test('terminal harness resize events drive active TUI resize handling', async ()
 
 test('interaction scripts assert styled text focus selection and hit targets against recorded frames', async () => {
   const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 9 } });
-  const treePresentation = {
+  const treeState = {
     expandedIds: ['root'],
     activeId: 'child',
     selection: { mode: 'single', selectedId: 'child' }
   };
-  const treeSource = prepareTreeSource([{
+  const treeSource = createTreeSource([{
     id: 'root',
     label: 'Root',
     kind: 'branch',
@@ -293,14 +295,14 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     }),
     tree({ meta: { accessibleName: "Tree" },
       id: 'tree',
-      presentation: treePresentation,
-      view: prepareTreeView(treeSource, treePresentation),
+      state: treeState,
+      view: createTreeView(treeSource, treeState),
       onTransition: (action) => ({ kind: 'tree', action })
     }),
     button({
       id: 'confirm',
       label: 'Confirm',
-      onAction: () => ({ kind: 'confirm' })
+      onPress: () => ({ kind: 'confirm' })
     })
   ]), { columns: 24, rows: 9 });
   harness.recordCommit({

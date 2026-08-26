@@ -4,10 +4,10 @@ import { ignoreMessage } from '../../dist/component/index.js';
 
 import {
   createScrollState,
-  prepareLogHistory,
-  prepareSearchPickerIndex,
-  prepareTreeSource,
-  prepareTreeView,
+  createLogHistory,
+  createSearchPickerIndex,
+  createTreeSource,
+  createTreeView,
 } from '../../dist/behavior/index.js';
 import {
   asciiSymbols,
@@ -35,7 +35,7 @@ import {
   text
 } from '../../dist/components/index.js';
 import { viewport } from '../../dist/layout/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 test('scrollbarLayout reserves edge tracks and computes proportional thumbs', () => {
   const layout = scrollbarLayout(
@@ -238,10 +238,10 @@ test('log viewer scrollbar is opt-in and preserves scoped visible-window accessi
   const items = Array.from({ length: 8 }, (_value, index) => ({ id: `row-${index}`, text: `Row ${index}` }));
   const frame = renderElementFrame(logViewer({
     id: 'log',
-    history: prepareLogHistory(items),
+    history: createLogHistory(items),
     scroll: createScrollState({ offsetRow: 0, contentRows: 8, viewportRows: 3 }),
     scrollbar: {},
-    onAction: () => ignoreMessage()
+    onTransition: () => ignoreMessage()
   }), { columns: 12, rows: 3 });
 
   assert.equal(frame.cells.filter((cell) => cell.column === 12).length, 3);
@@ -252,9 +252,9 @@ test('log viewer scrollbar is opt-in and preserves scoped visible-window accessi
 test('textArea scrollbar follows explicit text scroll state', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'body',
-    presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
+    state: { document: createTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: {},
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 10, rows: 2 });
 
   const output = renderFramePlain(frame);
@@ -267,9 +267,9 @@ test('textArea scrollbar follows explicit text scroll state', () => {
 test('component scrollbars expose producing-element metadata and visual state', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'body',
-    presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
+    state: { document: createTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: { visible: 'always', visualState: 'hover' },
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 10, rows: 2 });
 
   const thumbCell = frame.cells.find((cell) => cell.text === defaultTheme.tokens.symbols.scrollbarVerticalThumb);
@@ -299,7 +299,7 @@ test('dataGrid scrollbar can expose vertical and horizontal scroll scope togethe
       {
         id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: { kind: 'fixed', cells: 10 } }
     ],
-    presentation: {
+    state: {
       interaction: { kind: 'row', selection: { mode: 'single' } },
       scroll: createScrollState({ offsetRow: 1, offsetColumn: 8 })
     },
@@ -314,7 +314,7 @@ test('dataGrid scrollbar can expose vertical and horizontal scroll scope togethe
 test('menu scrollbar windows menu rows instead of drawing a fixed decoration only', () => {
   const frame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },
     id: 'menu',
-    presentation: {
+    view: {
       activePath: ['save'],
       items: [
         { kind: 'action', id: 'new', label: 'New' },
@@ -342,16 +342,16 @@ test('tree scrollbar follows explicit tree scroll state', () => {
     { id: 'c', label: 'Charlie', kind: 'leaf' },
     { id: 'd', label: 'Delta', kind: 'leaf' }
   ];
-  const presentation = {
+  const treeState = {
     expandedIds: [],
     selection: { mode: 'none' },
     scroll: createScrollState({ offsetRow: 1 })
   };
-  const source = prepareTreeSource(nodes);
+  const source = createTreeSource(nodes);
   const frame = renderElementFrame(tree({ meta: { accessibleName: "Tree" },
     id: 'tree',
-    view: prepareTreeView(source, presentation),
-    presentation,
+    view: createTreeView(source, treeState),
+    state: treeState,
     scrollbar: {},
     onTransition: () => ignoreMessage()
   }), { columns: 16, rows: 2 });
@@ -367,13 +367,13 @@ test('searchPicker scrollbar renders beside the filtered result window', () => {
   const frame = renderElementFrame(searchPicker({ meta: { accessibleName: "Search" },
     id: 'searchPicker',
     title: 'Actions',
-    searchPickerIndex: prepareSearchPickerIndex([
+    searchPickerIndex: createSearchPickerIndex([
       { id: 'one', label: 'One', value: 'one' },
       { id: 'two', label: 'Two', value: 'two' },
       { id: 'three', label: 'Three', value: 'three' },
       { id: 'four', label: 'Four', value: 'four' }
     ]),
-    presentation: {
+    view: {
       input: { text: '', cursor: 0 },
       query: { mode: 'fuzzy' },
       scroll: createScrollState({ offsetRow: 1 })

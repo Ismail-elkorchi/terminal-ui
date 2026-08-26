@@ -14,7 +14,7 @@ import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
 import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
 import { TuiInputSuspensionController } from './input-suspension.ts';
 import { createTerminalSuspension } from './terminal-suspension.ts';
-import { normalizeTuiRunOptions } from './run-configuration.ts';
+import { resolveTuiRunOptions } from './run-configuration.ts';
 import { inputProfileForSession } from './session-policy.ts';
 import { createTuiTranscript, withTuiTranscript } from './transcript.ts';
 import type {
@@ -41,7 +41,7 @@ export async function runTui<TState, TMessage>(
   const diagnosticReporter = createDiagnosticOccurrenceReporter(`${app.id}:run`);
   let normalized: NormalizedTuiRunOptions<TState>;
   try {
-    normalized = normalizeTuiRunOptions(options);
+    normalized = resolveTuiRunOptions(options);
   } catch (cause) {
     throw new TuiRunError(withTuiTranscript(errorExit(app.id, reportDiagnostics(diagnosticReporter, [
       diagnostic('TUI_RUN_FAILED', 'TUI run configuration is invalid.', {

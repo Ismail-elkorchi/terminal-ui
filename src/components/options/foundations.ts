@@ -1,9 +1,10 @@
 import type { ComponentMessage, ComponentMetadataOptions } from '../../component/index.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
-import type { LinkActivateEvent, ToggleButtonTransition } from '../../ui-model/foundations.ts';
-import type { ButtonStylePart, LinkStylePart } from '../../ui-model/style-parts.ts';
-import type { ButtonTone } from '../../ui-model/forms.ts';
-import type { ComponentDensity } from '../../ui-model/contracts.ts';
+import type { LinkActivateEvent, ToggleButtonTransition } from '../foundation-controls.ts';
+import type { ButtonStylePart, DividerStylePart, LinkStylePart } from '../style-parts.ts';
+import type { DividerLineKind, DividerOrientation } from '../divider.ts';
+import type { ButtonTone } from '../form-controls.ts';
+import type { ComponentDensity } from '../density.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 
 interface AvailableControl {
@@ -59,7 +60,7 @@ type ToggleButtonName =
 
 export type ToggleButtonOptions<TMessage extends ComponentMessage = never> = ToggleButtonBaseOptions & ToggleButtonName & (
   | AvailableControl & {
-      readonly onTransition: (action: ToggleButtonTransition) => MessageResolution<TMessage>;
+      readonly onTransition: (transition: ToggleButtonTransition) => MessageResolution<TMessage>;
     }
   | UnavailableControl & { readonly onTransition?: never }
 );
@@ -71,4 +72,15 @@ export interface ToolbarOptions {
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'layer']>;
 }
 
-export type { LinkActivateEvent, ToggleButtonTransition } from '../../ui-model/foundations.ts';
+export interface DividerOptions {
+  readonly id?: string;
+  readonly orientation?: DividerOrientation;
+  readonly line?: DividerLineKind;
+  readonly label?: string;
+  readonly labelAlign?: 'start' | 'center' | 'end';
+  readonly styles?: import('../../element/metadata.ts').ElementStyles<DividerStylePart>;
+  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
+}
+
+export type { LinkActivateEvent, ToggleButtonTransition } from '../foundation-controls.ts';
+export type { DividerLineKind, DividerOrientation } from '../divider.ts';

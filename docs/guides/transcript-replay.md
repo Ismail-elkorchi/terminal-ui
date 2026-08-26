@@ -62,5 +62,5 @@ validated, canonically ordered, detached, and frozen once when they cross that
 boundary.
 Recording the same occurrence twice is idempotent; reporting equal content
 twice creates two occurrences. Consumers may group occurrences by
-`diagnostic.fingerprint` for presentation, but transcripts preserve every
+`diagnostic.fingerprint` for display, but transcripts preserve every
 occurrence.

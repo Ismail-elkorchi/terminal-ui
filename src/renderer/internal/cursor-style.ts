@@ -1,6 +1,6 @@
 import type { CursorPosition } from '../contracts.ts';
-import type { FrameBuffer } from './frame-buffer.ts';
-import type { FrameCell, TerminalStyle } from './frame.ts';
+import type { FrameBuffer } from '../frame-buffer.ts';
+import type { FrameCell, TerminalStyle } from '../frame.ts';
 
 export function applyCursorStyle(buffer: FrameBuffer, cursor: CursorPosition | undefined): void {
   if (cursor?.style === undefined || !insideBuffer(buffer, cursor.row, cursor.column)) return;

@@ -17,18 +17,18 @@ const fakeImage: RasterImage = {
   contentDigest: `raster:sha256:${'0'.repeat(64)}`,
 };
 
-// @ts-expect-error prompt definitions are prepared by prompt factories
+// @ts-expect-error prompt definitions are created by prompt factories
 const fakePrompt: PromptDefinition = { kind: 'input', label: 'Name' };
 
-// @ts-expect-error TUI applications are prepared by defineTui()
+// @ts-expect-error TUI applications are created by defineTui()
 const fakeApp: TuiApp<undefined, string> = {
   id: 'fake',
 };
 
-// @ts-expect-error log history is prepared by prepareLogHistory()
+// @ts-expect-error log history is created by createLogHistory()
 const fakeHistory: LogHistory = { kind: 'log-history', entryCount: 0 };
 
-// @ts-expect-error collection indexes are prepared and opaque
+// @ts-expect-error collection indexes are created and opaque
 const fakeIndex: CollectionInteractionIndex = {};
 
 void fakeTheme;

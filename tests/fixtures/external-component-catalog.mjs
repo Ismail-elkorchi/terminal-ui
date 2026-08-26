@@ -3,8 +3,8 @@ import {
   defineComponent,
   ignoreMessage,
   paintComponentScrollbar,
-  prepareComponentScrollbar,
-  prepareComponentScrollbarOptions,
+  layoutComponentScrollbar,
+  decodeComponentScrollbarOptions,
   span
 } from '../../dist/component/index.js';
 import {
@@ -30,7 +30,7 @@ export const externalText = defineComponent({
   accessibleRole: 'text',
   metadata: ['styles', 'layer'],
   parts: ['content'],
-  prepare(value) {
+  createModel(value) {
     const input = value;
     return { content: cleanString(input.content, 'externalText content') };
   },
@@ -43,11 +43,11 @@ export const externalText = defineComponent({
       preferredHeight: lines.length
     };
   },
-  render({ model, target, style, source }) {
+  render({ model, target, style, frameSource }) {
     const contentStyle = style({ part: 'content' });
     model.content.split('\n').forEach((text, row) => target.write(row, 0, [span(text, {
       ...(contentStyle === undefined ? {} : { style: contentStyle }),
-      source: source({ partName: 'content', partType: 'content', cellRole: 'text' })
+      source: frameSource({ partName: 'content', partType: 'content', cellRole: 'text' })
     })]));
   },
   accessibility: ({ id, model }) => ({ id, role: 'text', value: model.content })
@@ -62,7 +62,7 @@ export const externalButton = defineComponent({
   states: ['disabled', 'busy'],
   metadata: ['focus', 'layer', 'styles'],
   parts: ['label'],
-  prepare(value) {
+  createModel(value) {
     const input = value;
     return { label: cleanString(input.label, 'externalButton label') };
   },
@@ -74,11 +74,11 @@ export const externalButton = defineComponent({
       preferredHeight: 1
     };
   },
-  render({ model, target, style, source }) {
+  render({ model, target, style, frameSource }) {
     const labelStyle = style({ part: 'label', base: { bold: true } });
     target.write(0, 0, [span(` ${model.label} `, {
       ...(labelStyle === undefined ? {} : { style: labelStyle }),
-      source: source({ partName: 'label', partType: 'label', cellRole: 'content' })
+      source: frameSource({ partName: 'label', partType: 'label', cellRole: 'content' })
     })]);
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
@@ -113,7 +113,7 @@ export const externalTextInput = defineComponent({
   states: ['disabled', 'readOnly'],
   metadata: ['focus', 'styles'],
   parts: ['value'],
-  prepare(value) {
+  createModel(value) {
     const input = value;
     return {
       label: cleanString(input.label, 'externalTextInput label'),
@@ -128,11 +128,11 @@ export const externalTextInput = defineComponent({
       preferredHeight: 1
     };
   },
-  render({ model, target, style, source }) {
+  render({ model, target, style, frameSource }) {
     const valueStyle = style({ part: 'value' });
     target.write(0, 0, [span(model.value, {
       ...(valueStyle === undefined ? {} : { style: valueStyle }),
-      source: source({ partName: 'value', partType: 'value', cellRole: 'content' })
+      source: frameSource({ partName: 'value', partType: 'value', cellRole: 'content' })
     })]);
   },
   focusTargets: ({ bounds, model, widthProfile }) => [{
@@ -176,13 +176,13 @@ export const externalVirtualList = defineComponent({
   states: ['disabled'],
   metadata: ['focus', 'styles'],
   parts: ['item', 'scrollbar'],
-  prepare(value) {
+  createModel(value) {
     const input = value;
     if (!Array.isArray(input.items)) throw new TypeError('externalVirtualList items must be an array.');
     const items = Object.freeze(input.items.map((item, index) => cleanString(item, `externalVirtualList item ${String(index)}`)));
     const offset = input.offset ?? 0;
     if (!Number.isSafeInteger(offset) || offset < 0) throw new RangeError('externalVirtualList offset must be a non-negative safe integer.');
-    const scrollbar = prepareComponentScrollbarOptions(input.scrollbar, 'externalVirtualList scrollbar');
+    const scrollbar = decodeComponentScrollbarOptions(input.scrollbar, 'externalVirtualList scrollbar');
     return { items, offset: Math.min(offset, Math.max(0, items.length - 1)), ...(scrollbar === undefined ? {} : { scrollbar }) };
   },
   measure({ model, constraints, widthProfile }) {
@@ -201,10 +201,15 @@ export const externalVirtualList = defineComponent({
       const itemStyle = input.style({ part: 'item' });
       input.target.write(row, 0, [span(item, {
         ...(itemStyle === undefined ? {} : { style: itemStyle }),
-        source: input.source({ partName: `item.${String(input.model.offset + row)}`, partType: 'item', cellRole: 'text', itemIndex: input.model.offset + row })
+        source: input.frameSource({ partName: `item.${String(input.model.offset + row)}`, partType: 'item', cellRole: 'text', itemIndex: input.model.offset + row })
       })]);
     });
-    paintComponentScrollbar({ target: input.target, plan, theme: input.theme, source: input.source });
+    paintComponentScrollbar({
+      target: input.target,
+      plan,
+      theme: input.theme,
+      frameSource: input.frameSource,
+    });
   },
   focusTargets: ({ bounds }) => [{ id: 'self', bounds }],
   keys: () => ({
@@ -225,7 +230,7 @@ export const externalVirtualList = defineComponent({
       ...componentScrollbarHitTargets({
         id: input.id,
         plan,
-        onScroll: (event) => ({ kind: 'scroll', event })
+        onScroll: (request) => ({ kind: 'scroll', request })
       })
     ];
   },
@@ -255,7 +260,7 @@ export const externalVirtualList = defineComponent({
 });
 
 function virtualListPlan(input) {
-  return prepareComponentScrollbar({
+  return layoutComponentScrollbar({
     bounds: input.bounds,
     scroll: {
       offsetRow: input.model.offset,
@@ -277,7 +282,7 @@ export const externalCombobox = defineComponent({
   accessibleRole: 'combobox',
   states: ['disabled'],
   metadata: ['focus', 'layer', 'styles'],
-  prepare(value) {
+  createModel(value) {
     const input = value;
     if (!Array.isArray(input.items)) throw new TypeError('externalCombobox items must be an array.');
     const items = Object.freeze(input.items.map((item, index) => cleanString(item, `externalCombobox item ${String(index)}`)));
@@ -360,7 +365,7 @@ export const externalDialog = defineComponent({
   accessibleRole: 'dialog',
   slots: externalDialogSlots,
   metadata: ['focus', 'layer', 'styles'],
-  prepare(value) {
+  createModel(value) {
     const input = value;
     if (typeof input.modal !== 'boolean') throw new TypeError('externalDialog modal must be a boolean.');
     return { title: cleanString(input.title, 'externalDialog title'), modal: input.modal };
@@ -405,7 +410,7 @@ export const externalTooltip = defineComponent({
   semantics: 'semantic',
   accessibleRole: 'group',
   slots: externalTooltipSlots,
-  prepare(value) {
+  createModel(value) {
     const input = value;
     if (typeof input.open !== 'boolean') throw new TypeError('externalTooltip open must be a boolean.');
     return { content: cleanString(input.content, 'externalTooltip content'), open: input.open };
@@ -444,7 +449,7 @@ export const externalChart = defineComponent({
   accessibleRole: 'group',
   metadata: ['styles', 'layer'],
   parts: ['bar'],
-  prepare(value) {
+  createModel(value) {
     const input = value;
     if (!Array.isArray(input.values) || input.values.some((entry) => typeof entry !== 'number' || !Number.isFinite(entry) || entry < 0)) {
       throw new TypeError('externalChart values must be finite non-negative numbers.');
@@ -454,7 +459,7 @@ export const externalChart = defineComponent({
   measure({ model }) {
     return { minWidth: 1, minHeight: 1, preferredWidth: model.values.length, preferredHeight: 4 };
   },
-  render({ model, target, style, source, bounds }) {
+  render({ model, target, style, frameSource, bounds }) {
     const maximum = Math.max(1, ...model.values);
     model.values.slice(0, bounds.width).forEach((value, column) => {
       const height = Math.min(bounds.height, Math.round(value / maximum * bounds.height));
@@ -462,7 +467,7 @@ export const externalChart = defineComponent({
         const barStyle = style({ part: 'bar', base: { fg: { kind: 'theme', token: 'accent.primary' } } });
         target.write(bounds.height - offset - 1, column, [span('█', {
           ...(barStyle === undefined ? {} : { style: barStyle }),
-          source: source({ partName: `bar.${String(column)}`, partType: 'bar', cellRole: 'chart', itemIndex: column })
+          source: frameSource({ partName: `bar.${String(column)}`, partType: 'bar', cellRole: 'chart', itemIndex: column })
         })]);
       }
     });

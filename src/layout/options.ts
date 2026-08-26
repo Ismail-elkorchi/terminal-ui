@@ -1,4 +1,4 @@
-import type { ScrollEvent, ScrollPolicy } from '../interaction/scroll.ts';
+import type { ScrollRequest, ScrollPolicy } from '../interaction/scroll.ts';
 import type { ElementValue } from '../element/index.ts';
 import type {
   ElementKeyBindings,
@@ -6,19 +6,20 @@ import type {
   InteractiveElementOptions,
   StructuralElementOptions
 } from '../element/metadata.ts';
-import type { SurfaceStylePart } from '../ui-model/style-parts.ts';
 import type { BorderOptions, BorderTitle } from '../visual/border.ts';
 import type { ScrollbarOptions } from '../interaction/scrollbar.ts';
-import type { SurfaceAppearance } from '../visual/surface.ts';
+import type { SurfaceAppearance } from '../visual/surface-appearance.ts';
 import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from '../geometry/types.ts';
-import type { SplitPaneStylePart } from '../ui-model/style-parts.ts';
-import type { SplitPaneAction } from '../ui-model/split-pane.ts';
+import type { SplitPaneTransition } from '../behavior/split-pane.ts';
 import type {
   AnchoredSurfaceAnchor,
   AnchoredSurfaceFit,
   AnchoredSurfacePlacement,
   AnchoredSurfaceSide
 } from '../interaction/anchored-surface.ts';
+
+export type SurfaceStylePart = 'border' | 'title';
+export type SplitPaneStylePart = 'divider' | 'dividerActive';
 
 export interface ColumnOptions extends StructuralElementOptions, LayoutFlowOptions {
   readonly sizes?: readonly LayoutSize[];
@@ -56,7 +57,7 @@ export interface PassiveSplitPaneOptions extends SplitPaneOptionsBase {
   readonly sizes?: readonly LayoutSize[];
   readonly activeDivider?: never;
   readonly resizeStep?: never;
-  readonly onAction?: never;
+  readonly onTransition?: never;
   readonly keys?: never;
 }
 
@@ -65,7 +66,7 @@ export interface ResizableSplitPaneOptions<TMessage> extends SplitPaneOptionsBas
   readonly sizes: readonly { readonly kind: 'percent'; readonly value: number }[];
   readonly activeDivider?: number;
   readonly resizeStep?: number;
-  readonly onAction: (action: SplitPaneAction) => TMessage;
+  readonly onTransition: (transition: SplitPaneTransition) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -97,7 +98,7 @@ export interface ScrollableViewportOptions<TMessage = never>
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly keyboardScroll?: import('../interaction/scroll.ts').ScrollKeyboardPolicy;
-  readonly onScroll: (event: ScrollEvent) => TMessage;
+  readonly onScroll: (request: ScrollRequest) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 

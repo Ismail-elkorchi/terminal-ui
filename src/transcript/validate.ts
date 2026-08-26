@@ -1,7 +1,7 @@
 import { decodeAccessibleSnapshot } from '../accessibility/index.ts';
 import {
-  adoptDiagnosticOccurrence,
-  adoptTerminalDiagnostic,
+  decodeDiagnosticOccurrence,
+  decodeTerminalDiagnostic,
   diagnostic
 } from '../diagnostics.ts';
 import { snapshotCanonicalJsonValue } from '../foundation/json.ts';
@@ -16,10 +16,10 @@ import {
 import { tuiMessageSources } from '../interaction/message.ts';
 import { failure, success } from '../result.ts';
 import { defineTextWidthProfile, measureTextCells } from '../text/index.ts';
-import { isFrameCellInteractionState, isFrameCellRole } from '../visual/source.ts';
+import { isFrameCellInteractionState, isFrameCellRole } from '../visual/frame-source.ts';
 import {
   applyRenderDiff,
-  renderDiffProjectionMatchesFrame
+  replayedFrameMatches
 } from '../renderer/internal/diff-interpreter.ts';
 import type {
   TerminalRestoreCompletion,
@@ -42,9 +42,9 @@ import type {
   Rect,
   RenderOperation
 } from '../renderer/index.ts';
-import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter.ts';
+import type { ReplayedFrame } from '../renderer/internal/diff-interpreter.ts';
 import type { TextWidthProfile } from '../text/index.ts';
-import { normalizeTerminalStyle } from '../visual/terminal-style.ts';
+import { decodeTerminalStyle } from '../visual/terminal-style.ts';
 import type { FrameCellSource, RenderSpan, TerminalLink, TerminalStyle } from '../visual/index.ts';
 import type {
   GraphicOperationDescriptor,
@@ -502,16 +502,16 @@ function transcriptDiagnosticOccurrenceIssue(
 function decodeOccurrence(value: unknown): DiagnosticOccurrence | string {
   if (!isNonArrayObject(value)) return 'diagnostic occurrence must be an object.';
   try {
-    return adoptDiagnosticOccurrence(value);
+    return decodeDiagnosticOccurrence(value);
   } catch (cause) {
     return errorMessage(cause).replace(/^Invalid diagnostic occurrence: /u, '');
   }
 }
 
-function adoptDiagnosticIssue(value: unknown, adoptions: TranscriptAdoptions): string | undefined {
+function decodeDiagnosticIssue(value: unknown, adoptions: TranscriptAdoptions): string | undefined {
   if (!isNonArrayObject(value)) return 'diagnostic must be an object.';
   try {
-    adoptions.diagnostics.set(value, adoptTerminalDiagnostic(value));
+    adoptions.diagnostics.set(value, decodeTerminalDiagnostic(value));
     return undefined;
   } catch (cause) {
     return errorMessage(cause).replace(/^Invalid terminal diagnostic: /u, '');
@@ -547,7 +547,7 @@ function transcriptOrderingIssue(steps: readonly InteractionTranscriptStep[]): s
   const commitIds = new Set<string>();
   let lastStateVersion = -1;
   let restorationSeen = false;
-  let previousProjection: RenderDiffProjection | undefined;
+  let previousFrame: ReplayedFrame | undefined;
   for (const [index, step] of steps.entries()) {
     if (step.kind === 'restore' && step.phase === 'shutdown') {
       restorationSeen = true;
@@ -564,15 +564,15 @@ function transcriptOrderingIssue(steps: readonly InteractionTranscriptStep[]): s
       return `Transcript commit stateVersion decreases at index ${String(index)}.`;
     }
     lastStateVersion = stateVersion;
-    if (previousProjection === undefined && !diff.fullRewrite) {
+    if (previousFrame === undefined && !diff.fullRewrite) {
       return `Transcript first commit at index ${String(index)} must contain a full rewrite.`;
     }
     try {
-      const projection = applyRenderDiff(previousProjection, diff);
-      if (!renderDiffProjectionMatchesFrame(projection, frame)) {
+      const replayed = applyRenderDiff(previousFrame, diff);
+      if (!replayedFrameMatches(replayed, frame)) {
         return `Transcript commit at index ${String(index)} diff does not reproduce its frame.`;
       }
-      previousProjection = projection;
+      previousFrame = replayed;
     } catch (cause) {
       return `Transcript commit at index ${String(index)} diff chain is invalid: ${errorMessage(cause)}.`;
     }
@@ -1021,7 +1021,7 @@ function terminalStyleIssue(
   if (style === undefined) return undefined;
   try {
     if (!isNonArrayObject(style)) return `${subject} must be an object.`;
-    const normalized = normalizeTerminalStyle(style, subject);
+    const normalized = decodeTerminalStyle(style, subject);
     adoptions.styles.set(style, normalized);
     return undefined;
   } catch (cause) {
@@ -1371,7 +1371,7 @@ function restoreResultIssue(result: unknown, adoptions: TranscriptAdoptions): st
   if (!Array.isArray(typed.diagnostics)) return 'restore result requires diagnostics.';
   const diagnostics = [];
   for (const item of typed.diagnostics) {
-    const issue = adoptDiagnosticIssue(item, adoptions);
+    const issue = decodeDiagnosticIssue(item, adoptions);
     if (issue !== undefined) return `restore diagnostic: ${issue}`;
     if (isNonArrayObject(item)) {
       const adopted = adoptions.diagnostics.get(item);

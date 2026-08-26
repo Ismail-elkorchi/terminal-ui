@@ -30,7 +30,7 @@ export function createBoundedEditHistory<TSnapshot, TGroup extends string = stri
   policy: EditHistoryPolicy = defaultEditHistoryPolicy
 ): BoundedEditHistory<TSnapshot, TGroup> {
   return Object.freeze({
-    policy: prepareEditHistoryPolicy(policy),
+    policy: normalizeEditHistoryPolicy(policy),
     undo: Object.freeze([]),
     redo: Object.freeze([]),
     retainedBytes: 0
@@ -111,7 +111,7 @@ export function redoEditHistory<TSnapshot, TGroup extends string>(
   };
 }
 
-function prepareEditHistoryPolicy(policy: EditHistoryPolicy): EditHistoryPolicy {
+function normalizeEditHistoryPolicy(policy: EditHistoryPolicy): EditHistoryPolicy {
   return Object.freeze({
     maxEntries: nonNegativeInteger(policy.maxEntries, 'edit history maxEntries'),
     maxRetainedBytes: nonNegativeInteger(

@@ -26,7 +26,7 @@ function view(state) {
         label: item.label,
         summary: [{ kind: 'text', text: item.status }],
         expanded: state.expandedId === item.id,
-        onAction: () => ({ kind: 'select', id: item.id }),
+        onTransition: () => ({ kind: 'select', id: item.id }),
         slots: { content: text({ content: item.detail, id: `${item.id}:detail` }) }
       })), { id: 'activity' }),
     statusBar({

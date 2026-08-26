@@ -10,7 +10,7 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import {
   button,
   checkbox,
@@ -25,14 +25,14 @@ import {
 } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
 import {
-  autocompleteComboboxPresentation,
+  autocompleteComboboxView,
   autocompleteComboboxReducer,
   commitAutocompleteCombobox,
   commitCombobox,
   comboboxReducer,
   createAutocompleteComboboxState,
 } from '../../dist/behavior/index.js';
-import { prepareCollectionInteractionIndex } from '../../dist/interaction/index.js';
+import { createCollectionInteractionIndex } from '../../dist/interaction/index.js';
 
 const enter = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 const tab = { kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
@@ -42,9 +42,9 @@ test('text controls reject every malformed provided handler', () => {
   for (const control of [textInput, passwordInput]) {
     assert.throws(() => control({
       id: 'malformed-handler',
-      presentation: { value: '', cursor: 0 },
-      onAction: 'not-a-function'
-    }), /onAction must be a function/u);
+      state: { value: '', cursor: 0 },
+      onTransition: 'not-a-function'
+    }), /onTransition must be a function/u);
   }
 });
 
@@ -53,8 +53,8 @@ test('form components render settings and setup-wizard shapes with scoped state'
     field({
       control: textInput({ meta: { accessibleName: "Text input" },
       id: 'name-input',
-      presentation: { value: '', cursor: 0 },
-      onAction: (action) => action,
+      state: { value: '', cursor: 0 },
+      onTransition: (action) => action,
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
@@ -67,12 +67,12 @@ test('form components render settings and setup-wizard shapes with scoped state'
       id: 'telemetry',
       label: 'Send diagnostics',
       checked: true,
-      onAction: () => ({ kind: 'toggleTelemetry' })
+      onTransition: () => ({ kind: 'toggleTelemetry' })
     }),
     radioGroup({ meta: { accessibleName: "Choices" },
       id: 'mode',
       label: 'Install mode',
-      presentation: {
+      state: {
         activeId: 'safe',
         selection: { mode: 'single', selectedId: 'safe' }
       },
@@ -80,12 +80,12 @@ test('form components render settings and setup-wizard shapes with scoped state'
         { id: 'safe', label: 'Safe', value: 'safe' },
         { id: 'fast', label: 'Fast', value: 'fast', disabled: true }
       ],
-      onAction: (action) => ({ kind: 'mode', action })
+      onTransition: (action) => ({ kind: 'mode', action })
     }),
     combobox({
       id: 'region',
       label: 'Region',
-      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
+      state: { kind: 'select', open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
       options: [
         { id: 'eu', label: 'Europe', value: 'eu' },
         { id: 'us', label: 'United States', value: 'us' }
@@ -94,12 +94,12 @@ test('form components render settings and setup-wizard shapes with scoped state'
     }),
     numberInput({ meta: { accessibleName: "Number input" },
       id: 'workers',
-      presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4, min: 1, max: 8 },
-      onAction: (action) => action
+      view: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4, min: 1, max: 8 },
+      onTransition: (action) => action
     }),
     row([
-      button({ id: 'submit', label: 'Continue', onAction: () => ({ kind: 'submit' }) }),
-      button({ id: 'cancel', label: 'Cancel', onAction: () => ({ kind: 'cancel' }) })
+      button({ id: 'submit', label: 'Continue', onPress: () => ({ kind: 'submit' }) }),
+      button({ id: 'cancel', label: 'Cancel', onPress: () => ({ kind: 'cancel' }) })
     ])
   ] },
     id: 'setup-form',
@@ -125,7 +125,7 @@ test('open combobox renders a bounded popup with painted option targets only', (
   const frame = renderElementFrame(combobox({
     id: 'region',
     label: 'Region',
-    presentation: {
+    state: {
       kind: 'select',
       open: true,
       interaction: {
@@ -164,7 +164,7 @@ test('closed combobox renders only its trigger and hides popup accessibility chi
   const frame = renderElementFrame(combobox({
     id: 'region',
     label: 'Region',
-    presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
+    state: { kind: 'select', open: false, interaction: { selection: { mode: 'single', selectedId: 'eu' } } },
     options: [
       { id: 'eu', label: 'Europe', value: 'eu' },
       { id: 'us', label: 'United States', value: 'us' }
@@ -183,7 +183,7 @@ test('autocomplete combobox shares editable popup state without changing select-
     { id: 'alpha', label: 'Alpha', value: 'alpha' },
     { id: 'beta', label: 'Beta', value: 'beta' },
   ];
-  const indexForText = (text) => prepareCollectionInteractionIndex(
+  const indexForText = (text) => createCollectionInteractionIndex(
     options
       .filter((option) => option.label.toLowerCase().includes(text.toLowerCase()))
       .map((option) => option.id),
@@ -200,12 +200,12 @@ test('autocomplete combobox shares editable popup state without changing select-
     indexForText(''),
   );
   const typed = autocompleteComboboxReducer(initial, { kind: 'setText', value: 'be' }, behavior);
-  const presentation = autocompleteComboboxPresentation(typed);
+  const view = autocompleteComboboxView(typed);
   const frame = renderElementFrame(combobox({
     id: 'language',
     label: 'Language',
     options: [options[1]],
-    presentation,
+    view,
     onTransition: () => ({ kind: 'transition' }),
     onCommit: () => ({ kind: 'commit' }),
   }), { columns: 24, rows: 6 });
@@ -218,8 +218,8 @@ test('autocomplete combobox shares editable popup state without changing select-
   assert.match(renderFramePlain(frame), /Language: be/u);
   assert.equal(frame.accessibility.root.role, 'combobox');
   assert.equal(frame.accessibility.root.value, 'be');
-  assert.equal(presentation.activeId, 'beta');
-  assert.equal(autocompleteComboboxPresentation(committed).input.text, 'Beta');
+  assert.equal(view.activeId, 'beta');
+  assert.equal(autocompleteComboboxView(committed).input.text, 'Beta');
   assert.deepEqual(committed.selection, { mode: 'single', selectedId: 'beta' });
   assert.equal(committed.editor.open, false);
 });
@@ -229,7 +229,7 @@ test('autocomplete combobox exposes shared word-selection and context-menu seman
     id: 'autocomplete-pointer-semantics',
     label: 'Language',
     options: [],
-    presentation: {
+    view: {
       kind: 'autocomplete',
       open: false,
       input: {
@@ -275,7 +275,7 @@ test('autocomplete combobox exposes shared word-selection and context-menu seman
     button: 'left',
   })?.transition, {
     kind: 'pointer',
-    action: { kind: 'endSelection', anchor: 6, offset: 11 },
+    transition: { kind: 'endSelection', anchor: 6, offset: 11 },
   });
   assert.deepEqual(target.message({ ...base, kind: 'contextMenu', button: 'right' })?.context, {
     kind: 'contextMenu',
@@ -292,7 +292,7 @@ test('autocomplete combobox keeps long input rendering cursor and pointer geomet
     id: 'windowed-autocomplete',
     label: 'Q',
     options: [],
-    presentation: {
+    view: {
       kind: 'autocomplete',
       open: false,
       input: { text: 'abcdefgh', cursor: 8 },
@@ -335,7 +335,7 @@ test('autocomplete combobox keeps long input rendering cursor and pointer geomet
   assert.match(renderFramePlain(frame), /^Q: ‹efgh/u);
   assert.deepEqual(message?.transition, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 4 },
+    transition: { kind: 'placeCaret', offset: 4 },
   });
 });
 
@@ -346,11 +346,11 @@ test('controlled combobox pages and commits through its public behavior operatio
     value: index + 1,
   }));
   const enabledIds = options.map((option) => option.id);
-  const behavior = { index: prepareCollectionInteractionIndex(enabledIds), pageSize: 3 };
+  const behavior = { index: createCollectionInteractionIndex(enabledIds), pageSize: 3 };
   const app = defineTui({
     id: 'combobox-behavior',
     init: () => ({ state: ({
-      presentation: {
+      combobox: {
         kind: 'select',
         open: true,
         interaction: { activeId: 'option-1', selection: { mode: 'single' } },
@@ -358,16 +358,16 @@ test('controlled combobox pages and commits through its public behavior operatio
     }) }),
     update: (state, message) => ({
       state: {
-        presentation: message.kind === 'transition'
-          ? comboboxReducer(state.presentation, message.transition, behavior)
-          : commitCombobox(state.presentation, message.event, behavior),
+        combobox: message.kind === 'transition'
+          ? comboboxReducer(state.combobox, message.transition, behavior)
+          : commitCombobox(state.combobox, message.event, behavior),
       },
     }),
     view: (state) => combobox({
       id: 'choice',
       label: 'Choice',
       options,
-      presentation: state.presentation,
+      state: state.combobox,
       maxVisibleOptions: behavior.pageSize,
       onTransition: (transition) => ({ kind: 'transition', transition }),
       onCommit: (event) => ({ kind: 'commit', event }),
@@ -382,9 +382,9 @@ test('controlled combobox pages and commits through its public behavior operatio
     await runtime.handleInput(pageDown);
     const result = await runtime.handleInput(enter);
 
-    assert.equal(result.state.presentation.open, false);
-    assert.equal(result.state.presentation.interaction.activeId, 'option-4');
-    assert.deepEqual(result.state.presentation.interaction.selection, {
+    assert.equal(result.state.combobox.open, false);
+    assert.equal(result.state.combobox.interaction.activeId, 'option-4');
+    assert.deepEqual(result.state.combobox.interaction.selection, {
       mode: 'single',
       selectedId: 'option-4',
     });
@@ -398,8 +398,8 @@ test('form fields expose label required description and validation source anatom
     field({
       control: textInput({ meta: { accessibleName: "Text input" },
       id: 'name-input',
-      presentation: { value: '', cursor: 0 },
-      onAction: (action) => action,
+      state: { value: '', cursor: 0 },
+      onTransition: (action) => action,
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
@@ -412,7 +412,7 @@ test('form fields expose label required description and validation source anatom
       id: 'terms',
       label: 'Accept terms',
       checked: false,
-      onAction: ({ checked }) => checked,
+      onTransition: ({ checked }) => checked,
       required: true,
       error: 'Required before submit'
     })
@@ -442,8 +442,8 @@ test('form accessibility exposes labels, values, validation, required, disabled,
     field({
       control: textInput({ meta: { accessibleName: "Text input" },
       id: 'email',
-      presentation: { value: 'user@example.test', cursor: 0 },
-      onAction: (action) => action,
+      state: { value: 'user@example.test', cursor: 0 },
+      onTransition: (action) => action,
       required: true
       }),
       id: 'email-field',
@@ -455,12 +455,12 @@ test('form accessibility exposes labels, values, validation, required, disabled,
       checked: false,
       required: true,
       error: 'Required before submit',
-      onAction: () => ({ kind: 'toggleTerms' })
+      onTransition: () => ({ kind: 'toggleTerms' })
     }),
     radioGroup({ meta: { accessibleName: "Choices" },
       id: 'tier',
       label: 'Tier',
-      presentation: {
+      state: {
         activeId: 'free',
         selection: { mode: 'single', selectedId: 'free' }
       },
@@ -468,7 +468,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
         { id: 'free', label: 'Free', value: 'free' },
         { id: 'pro', label: 'Pro', value: 'pro', disabled: true }
       ],
-      onAction: (action) => action
+      onTransition: (action) => action
     })
   ] },
     id: 'account-form',
@@ -503,8 +503,8 @@ test('control labels create a structural accessible-name relationship', () => {
     label({ id: 'email-label', forId: 'email-input', text: 'Email' }),
     textInput({ meta: { accessibleName: "Text input" },
       id: 'email-input',
-      presentation: { value: 'user@example.test', cursor: 0 },
-      onAction: (action) => action
+      state: { value: 'user@example.test', cursor: 0 },
+      onTransition: (action) => action
     })
   ] },
     id: 'labelled-form',
@@ -539,16 +539,16 @@ test('form controls emit submit and cancel messages while app state owns values'
     view: (state) => form({ meta: { accessibleName: "Form" }, slots: { content: [
       textInput({ meta: { accessibleName: "Text input" },
         id: 'query',
-        presentation: { value: state.result, cursor: 0 },
-        onAction: (action) => ({
+        state: { value: state.result, cursor: 0 },
+        onTransition: (action) => ({
           kind: action.kind === 'edit' && action.operation.kind === 'insert'
             ? `typed:${action.operation.text}`
             : action.kind
         })
       }),
       row([
-        button({ id: 'submit', label: 'Submit', onAction: () => ({ kind: 'submit' }) }),
-        button({ id: 'cancel', label: 'Cancel', onAction: () => ({ kind: 'cancel' }) })
+        button({ id: 'submit', label: 'Submit', onPress: () => ({ kind: 'submit' }) }),
+        button({ id: 'cancel', label: 'Cancel', onPress: () => ({ kind: 'cancel' }) })
       ])
     ] },
       id: 'flow-form',

@@ -19,7 +19,7 @@ import type {
 import {
   applyRenderDiff
 } from '../renderer/internal/diff-interpreter.ts';
-import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter.ts';
+import type { ReplayedFrame } from '../renderer/internal/diff-interpreter.ts';
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import type { TextWidthProfile } from '../text/index.ts';
 import type { FrameCellSource, RenderSpan, TerminalLink } from '../visual/index.ts';
@@ -42,7 +42,7 @@ interface RedactionContext {
   readonly identifiers: Map<string, string>;
   readonly reservedValues: Set<string>;
   readonly assignedIdentifiers: Set<string>;
-  projection?: RenderDiffProjection;
+  replayedFrame?: ReplayedFrame;
 }
 
 export function redactTranscript(
@@ -185,16 +185,16 @@ function redactCommit(
   context: RedactionContext
 ): TranscriptRuntimeCommit {
   const diff = redactDiff(commit.diff, `${path}.diff`, context);
-  const projection = applyRenderDiff(context.projection, diff);
-  context.projection = projection;
+  const replayed = applyRenderDiff(context.replayedFrame, diff);
+  context.replayedFrame = replayed;
 
-  const cells = projection.cells;
+  const cells = replayed.cells;
   for (const [index, cell] of commit.frame.cells.entries()) {
-    const projected = cells[index];
-    if (projected !== undefined) {
+    const replayedCell = cells[index];
+    if (replayedCell !== undefined) {
       recordFrameCellChanges(
         cell,
-        projected,
+        replayedCell,
         `${path}.frame.cells[${String(index)}]`,
         context
       );

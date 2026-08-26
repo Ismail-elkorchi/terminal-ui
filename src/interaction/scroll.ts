@@ -12,7 +12,7 @@ export interface ScrollGeometry {
   readonly viewportColumns: number;
 }
 
-export type ScrollAction =
+export type ScrollTransition =
   | { readonly kind: 'setOffset'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'scrollLines'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'scrollPages'; readonly rows?: number; readonly columns?: number }
@@ -25,11 +25,11 @@ export type ScrollAction =
   }
   | { readonly kind: 'setFollowTail'; readonly followTail: boolean };
 
-export type ScrollEventSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag' | 'focus' | 'keyboard';
+export type ScrollRequestSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag' | 'focus' | 'keyboard';
 
 export type ScrollKeyboardPolicy = 'vertical' | 'horizontal' | 'both';
 
-export type ScrollEventTarget =
+export type ScrollRequestTarget =
   | 'content'
   | 'verticalScrollbarTrack'
   | 'verticalScrollbarThumb'
@@ -48,11 +48,11 @@ export interface ScrollPolicy {
   readonly wheel?: ScrollWheelPolicy;
 }
 
-/** A semantic scroll transition. The routed pointer event stays inside the runtime. */
-export interface ScrollEvent {
+/** A request for the caller to accept the proposed scroll state. Raw input stays inside the runtime. */
+export interface ScrollRequest {
   readonly nextState: ScrollState;
-  readonly source: ScrollEventSource;
-  readonly target: ScrollEventTarget;
+  readonly source: ScrollRequestSource;
+  readonly target: ScrollRequestTarget;
 }
 
 export interface CreateScrollStateInput {

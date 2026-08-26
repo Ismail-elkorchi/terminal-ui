@@ -2,11 +2,11 @@ import { defineComponent } from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { CanvasOptions, ImageOptions } from '../options/drawing.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
-import { adoptMeasurement, createLocalCanvas2D, span } from '../../renderer/index.ts';
+import { decodeMeasurement, createLocalCanvas2D, span } from '../../renderer/index.ts';
 import type { CanvasPainter, Measurement, TerminalStyle } from '../../renderer/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
-import type { CanvasStylePart } from '../../ui-model/style-parts.ts';
-import type { ImageStylePart } from '../../ui-model/style-parts.ts';
+import type { CanvasStylePart } from '../style-parts.ts';
+import type { ImageStylePart } from '../style-parts.ts';
 import { isRasterImage } from '../../graphics/index.ts';
 import type { ImageFit, RasterImage } from '../../graphics/index.ts';
 import { inlineSegmentText, normalizeInlineContent } from '../../visual/inline-content.ts';
@@ -36,8 +36,8 @@ const semanticCanvas = defineComponent<
   accessibleRole: 'image',
   metadata: ['styles', 'layer'],
   parts: ['content'],
-  prepare(value) {
-    const model = prepareCanvas(value);
+  createModel(value) {
+    const model = createCanvasModel(value);
     if (
       value.decorative !== undefined && value.decorative
     ) {
@@ -74,11 +74,11 @@ const decorativeCanvas = defineComponent<
   semantics: 'decorative',
   metadata: ['styles', 'layer'],
   parts: ['content'],
-  prepare(value) {
+  createModel(value) {
     if (value.decorative !== true) {
       throw new TypeError('decorative canvas requires decorative: true.');
     }
-    return prepareCanvas(value);
+    return createCanvasModel(value);
   },
   measure: ({ model }) => model.measurement,
   render: paintCanvas,
@@ -119,8 +119,8 @@ const semanticImage = defineComponent<
   accessibleRole: 'image',
   metadata: ['styles', 'layer'],
   parts: ['fallback'],
-  prepare(value) {
-    const model = prepareImage(value);
+  createModel(value) {
+    const model = createImageModel(value);
     if (value.decorative === true) throw new TypeError('Semantic image decorative must be false or absent.');
     if (model.label === undefined) throw new TypeError('Semantic image requires a non-empty label.');
     return Object.freeze({ ...model, label: model.label });
@@ -145,9 +145,9 @@ const decorativeImage = defineComponent<
   semantics: 'decorative',
   metadata: ['styles', 'layer'],
   parts: ['fallback'],
-  prepare(value) {
+  createModel(value) {
     if (value.decorative !== true) throw new TypeError('Decorative image requires decorative: true.');
-    return prepareImage(value);
+    return createImageModel(value);
   },
   measure: ({ model }) => model.measurement,
   render: renderImage,
@@ -158,10 +158,10 @@ export function image(options: ImageOptions): Element {
   return options.decorative === true ? decorativeImage(options) : semanticImage(options);
 }
 
-function prepareImage(value: Readonly<ImageOwnOptions>): ImageModel {
+function createImageModel(value: Readonly<ImageOwnOptions>): ImageModel {
   if (!isRasterImage(value.image)) throw new TypeError('image resource must be created by rasterImage().');
-  const measurement = adoptMeasurement(value.measurement, 'image');
-  const fit = normalizeImageFit(value.fit);
+  const measurement = decodeMeasurement(value.measurement, 'image');
+  const fit = decodeImageFit(value.fit);
   const label = value.label;
   if (label !== undefined && typeof label !== 'string') throw new TypeError('image label must be a string.');
   const normalizedLabel = label === undefined ? undefined : sanitizeTerminalText(label).text.trim();
@@ -182,7 +182,7 @@ function prepareImage(value: Readonly<ImageOwnOptions>): ImageModel {
   });
 }
 
-function normalizeImageFit(value: unknown): ImageFit {
+function decodeImageFit(value: unknown): ImageFit {
   if (value === undefined) return 'contain';
   if (value === 'contain' || value === 'cover' || value === 'fill') return value;
   throw new TypeError("image fit must be 'contain', 'cover', or 'fill'.");
@@ -201,7 +201,7 @@ function renderImage(
       return span(inlineSegmentText(segment, input.theme.tokens.symbols.mode), {
         ...(style === undefined ? {} : { style }),
         ...(segment.link === undefined ? {} : { link: segment.link }),
-        source: input.source({
+        source: input.frameSource({
           partName: 'fallback',
           itemIndex: index,
           description: 'image fallback',
@@ -217,13 +217,13 @@ function renderImage(
   });
 }
 
-function prepareCanvas(
+function createCanvasModel(
   value: Readonly<Pick<CanvasOwnOptions, 'painter' | 'measurement' | 'label'>>,
 ): CanvasModel {
   const painter = value.painter;
   if (!isCanvasPainter(painter)) throw new TypeError('canvas painter must be a function.');
   const measurement = value.measurement;
-  const ownedMeasurement = adoptMeasurement(measurement, 'canvas');
+  const ownedMeasurement = decodeMeasurement(measurement, 'canvas');
   const label = value.label;
   if (label !== undefined && typeof label !== 'string') {
     throw new TypeError('canvas label must be a string.');
@@ -251,6 +251,6 @@ function paintCanvas(
     bounds: input.bounds,
     theme: input.theme,
     style: input.style,
-    source: input.source,
+    frameSource: input.frameSource,
   });
 }

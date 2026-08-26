@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { createScrollState, dataGridReducer, paginationWindow, prepareTableCollection } from '../../dist/behavior/index.js';
+import { createScrollState, dataGridReducer, paginationWindow, createTableCollection } from '../../dist/behavior/index.js';
 import { dataGrid, listbox, pagination, table, tableColumn } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
@@ -29,8 +29,8 @@ test('listbox and data grid reject invalid stable identities and interaction tar
   assert.throws(() => listbox({ meta: { accessibleName: "List" },
     id: 'duplicate-listbox',
     items: ['alpha', 'alpha'],
-    projectItem: (item) => ({ id: item, label: item }),
-    presentation: { selection: { mode: 'none' } },
+    toOption: (item) => ({ id: item, label: item }),
+    state: { selection: { mode: 'none' } },
     onTransition: (transition) => transition
   }), /ids must be unique/u);
 
@@ -39,7 +39,7 @@ test('listbox and data grid reject invalid stable identities and interaction tar
     rows: [['alpha']],
     getRowId: () => '',
     columns: [{ id: 'value', header: 'Value', value: (row) => row[0] }],
-    presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
+    state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (transition) => transition
   }), /id must be non-empty/u);
 
@@ -48,7 +48,7 @@ test('listbox and data grid reject invalid stable identities and interaction tar
     rows: [['alpha']],
     getRowId: () => 'alpha',
     columns: [{ id: 'value', value: (row) => row[0] }],
-    presentation: {
+    state: {
       interaction: {
         kind: 'cell',
         activeCell: { rowId: 'alpha', columnId: 'missing' },
@@ -88,7 +88,7 @@ test('data grid renders stable row selection independently from active position'
       { id: 'name', header: 'Name', value: (row) => row.name, width: 7 },
       { id: 'score', header: 'Score', value: (row) => row.score, width: 5 }
     ],
-    presentation: {
+    state: {
       interaction: {
         kind: 'row',
         activeRowId: 'alpha',
@@ -110,7 +110,7 @@ test('data grid renders stable row selection independently from active position'
 
 test('pressing another row commits its selection before transient pressed styling renders', async () => {
   const rows = [{ id: 'alpha', name: 'Alpha' }, { id: 'bravo', name: 'Bravo' }];
-  const collection = prepareTableCollection(rows, (row) => row.id);
+  const collection = createTableCollection(rows, (row) => row.id);
   const options = { collection, columnIds: ['name'] };
   const app = defineTui({
     id: 'grid-pressed-state',
@@ -122,12 +122,12 @@ test('pressing another row commits its selection before transient pressed stylin
       }
     } }),
     update: (state, transition) => ({ state: dataGridReducer(state, transition, options) }),
-    view: (presentation) => dataGrid({
+    view: (state) => dataGrid({
       id: 'pressed-grid',
       meta: { accessibleName: 'Data grid' },
       collection,
       columns: [{ id: 'name', value: (row) => row.name }],
-      presentation,
+      state,
       onTransition: (transition) => transition
     })
   });
@@ -161,7 +161,7 @@ test('cell grids address cells with stable row and column ids', () => {
       { id: 'name', header: 'Name', value: (row) => row.name, width: 7 },
       { id: 'score', header: 'Score', value: (row) => row.score, width: 5 }
     ],
-    presentation: {
+    state: {
       interaction: {
         kind: 'cell',
         activeCell: { rowId: 'atlas', columnId: 'name' },
@@ -193,7 +193,7 @@ test('pointer focus transitions and activation events use separate callbacks', a
       rows: [{ id: 'alpha', name: 'Alpha' }],
       getRowId: (row) => row.id,
       columns: [{ id: 'name', value: (row) => row.name }],
-      presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
+      state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
       onTransition: (transition) => ({ channel: 'transition', transition }),
       onActivate: (event) => ({ channel: 'activate', event })
     })
@@ -229,7 +229,7 @@ test('data grid evaluates cells once per instance and preserves renderer spans',
         return { kind: 'text', text: String(value), style: { bold: true } };
       }
     })],
-    presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
+    state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (transition) => transition
   }), { columns: 12, rows: 1 });
 
@@ -251,7 +251,7 @@ test('data grid renders sorting, controlled widths, sticky headers, and both-axi
       { id: 'name', header: 'Name', value: (row) => row.name, width: 12, sortable: true, resizable: true },
       { id: 'score', header: 'Score', value: (row) => row.score, width: 8 }
     ],
-    presentation: {
+    state: {
       interaction: {
         kind: 'cell',
         activeCell: { rowId: 'row-2', columnId: 'name' },
@@ -276,10 +276,10 @@ test('data grid renders sorting, controlled widths, sticky headers, and both-axi
 });
 
 test('windowed table collections retain global accessibility windows', () => {
-  const collection = prepareTableCollection(
+  const collection = createTableCollection(
     [{ id: '100', name: 'Hundred' }, { id: '101', name: 'Hundred one' }],
     (row) => row.id,
-    { startIndex: 100, totalCount: 1_000, domain: { kind: 'source' } }
+    { startIndex: 100, totalCount: 1_000, scope: { kind: 'source' } }
   );
   const frame = renderElementFrame(table({ meta: { accessibleName: "Table" },
     id: 'windowed-table',
@@ -307,7 +307,7 @@ test('complete table collections retain inferred structure by collection identit
       },
     },
   ));
-  const collection = prepareTableCollection(rows, (_row, index) => String(index));
+  const collection = createTableCollection(rows, (_row, index) => String(index));
 
   renderElementFrame(table({ meta: { accessibleName: "Table" }, id: 'inferred-once', collection }), { columns: 24, rows: 4 });
   renderElementFrame(table({ meta: { accessibleName: "Table" }, id: 'inferred-again', collection }), { columns: 30, rows: 5 });
@@ -323,10 +323,10 @@ test('windowed table collections require explicit structure without scanning row
       return Reflect.get(target, property, receiver);
     },
   })];
-  const collection = prepareTableCollection(rows, () => 'visible', {
+  const collection = createTableCollection(rows, () => 'visible', {
     startIndex: 10,
     totalCount: 100,
-    domain: { kind: 'source' },
+    scope: { kind: 'source' },
   });
 
   assert.throws(
@@ -356,7 +356,7 @@ test('table and pagination compose explicitly over a bounded page', () => {
       label: 'Fleet',
       pageNumber: page.pageNumber,
       pageCount: page.pageCount,
-      onAction: (action) => action
+      onTransition: (action) => action
     })
   ]), { columns: 40, rows: 5 });
 
@@ -372,7 +372,7 @@ test('data grid disabled state removes semantic and pointer interaction', () => 
     rows: [{ id: 'row', name: 'Row' }],
     getRowId: (row) => row.id,
     columns: [{ id: 'name', value: (row) => row.name }],
-    presentation: { interaction: {
+    state: { interaction: {
       kind: 'row', activeRowId: 'row', selection: { mode: 'single' },
     } },
     disabled: true

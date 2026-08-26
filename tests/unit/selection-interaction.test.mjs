@@ -5,13 +5,13 @@ import {
   createMemoryTerminalHost } from '../../dist/host/index.js';
 import { text } from '../../dist/components/index.js';
 import {
-  ownSelectionState
+  decodeSelectionState
 } from '../../dist/interaction/index.js';
 import {
   extractTextBufferSelection,
   extractTextDocumentSelection,
   extractTextSelection,
-  prepareTextDocument,
+  createTextDocument,
 } from '../../dist/text/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
@@ -23,7 +23,7 @@ test('collection selection ownership detaches mutable multiple-selection state',
     anchorId: 'first',
     rangeSelectionEnabled: true
   };
-  const owned = ownSelectionState(supplied, 'test selection');
+  const owned = decodeSelectionState(supplied, 'test selection');
 
   selectedIds.push('second');
   supplied.anchorId = 'second';
@@ -37,11 +37,11 @@ test('collection selection ownership detaches mutable multiple-selection state',
   assert.equal(Object.isFrozen(owned), true);
   assert.equal(Object.isFrozen(owned.selectedIds), true);
   assert.throws(
-    () => ownSelectionState({ mode: 'multiple', selectedIds: ['duplicate', 'duplicate'] }, 'test selection'),
+    () => decodeSelectionState({ mode: 'multiple', selectedIds: ['duplicate', 'duplicate'] }, 'test selection'),
     /test selection\.selectedIds must be unique/u
   );
   assert.throws(
-    () => ownSelectionState({ mode: 'single', selectionFollowsActive: 'yes' }, 'test selection'),
+    () => decodeSelectionState({ mode: 'single', selectionFollowsActive: 'yes' }, 'test selection'),
     /test selection\.selectionFollowsActive must be a boolean/u
   );
 });
@@ -69,7 +69,7 @@ test('selection extraction slices original offsets before sanitizing selected co
   }), 'bravo');
 
   assert.equal(extractTextDocumentSelection({
-    document: prepareTextDocument('alpha\n🙂 bravo'),
+    document: createTextDocument('alpha\n🙂 bravo'),
     selection: {
       anchor: { offset: 6, affinity: 'downstream' },
       focus: { offset: 14, affinity: 'downstream' },

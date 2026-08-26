@@ -1,12 +1,12 @@
-import { span } from './frame.ts';
-import { frameCellSource } from '../../visual/source.ts';
+import { span } from '../frame.ts';
+import { frameCellSource } from '../../visual/frame-source.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderTarget } from '../contracts.ts';
 import type { Rect } from '../contracts.ts';
-import type { FrameCellSource } from '../../visual/render.ts';
-import type { TerminalStyle } from '../../visual/render.ts';
+import type { FrameCellSource } from '../../visual/render-content.ts';
+import type { TerminalStyle } from '../../visual/render-content.ts';
 import type {
-  ScrollbarInteractionAction,
+  ScrollbarInteractionTransition,
   ScrollbarInteractionState,
   ScrollbarOptions,
   ScrollbarState,
@@ -15,7 +15,7 @@ import type {
 import { oneCellGlyph } from '../../text/index.ts';
 
 export type {
-  ScrollbarInteractionAction,
+  ScrollbarInteractionTransition,
   ScrollbarInteractionState,
   ScrollbarOptions,
   ScrollbarState,
@@ -136,10 +136,10 @@ export function renderScrollbars(
 
 export function scrollbarInteractionReducer(
   state: ScrollbarInteractionState,
-  action: ScrollbarInteractionAction
+  transition: ScrollbarInteractionTransition
 ): ScrollbarInteractionState {
-  if (action.kind === 'reset') return {};
-  const event = action.event;
+  if (transition.kind === 'reset') return {};
+  const event = transition.event;
   switch (event.kind) {
     case 'enter':
     case 'hover':

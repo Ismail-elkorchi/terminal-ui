@@ -16,13 +16,13 @@ import {
   collectionInteractionHas,
   collectionInteractionIds,
   collectionInteractionPosition,
-} from './collection.ts';
-import type { CollectionInteractionIndex } from './collection.ts';
+} from './collection-interaction.ts';
+import type { CollectionInteractionIndex } from './collection-interaction.ts';
 import { adjacentItemId } from './navigation.ts';
 import type { NavigationPolicy } from './navigation.ts';
 import { popupReducer } from './popup.ts';
 import type { AnchoredSurfaceDismissReason } from './anchored-surface.ts';
-import type { TextPointerAction } from './text-pointer.ts';
+import type { TextPointerTransition } from './text-pointer.ts';
 
 export interface EditablePopupCompletion {
   readonly range: TextSelection;
@@ -48,7 +48,7 @@ export type EditablePopupInputTransition =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }
   | { readonly kind: 'undo' }
   | { readonly kind: 'redo' }
-  | { readonly kind: 'pointer'; readonly action: TextPointerAction }
+  | { readonly kind: 'pointer'; readonly transition: TextPointerTransition }
   | { readonly kind: 'setText'; readonly value: string }
   | { readonly kind: 'open' }
   | { readonly kind: 'toggle' }
@@ -95,7 +95,7 @@ export function editablePopupInputReducer(
     case 'redo':
       return updateHistory(state, transition, options);
     case 'pointer': {
-      const input = pointerBuffer(state.input, transition.action);
+      const input = pointerBuffer(state.input, transition.transition);
       const editHistory = breakTextEditHistoryGroup(state.editHistory);
       const index = options.indexForText(input.text);
       const activeId = validOrFirst(index, state.activeId);
@@ -213,13 +213,13 @@ function updateHistory(
   );
 }
 
-function pointerBuffer(buffer: TextEditBuffer, action: TextPointerAction): TextEditBuffer {
-  const offset = normalizeTextCursor(buffer.text, action.offset);
-  if (action.kind === 'placeCaret') {
+function pointerBuffer(buffer: TextEditBuffer, transition: TextPointerTransition): TextEditBuffer {
+  const offset = normalizeTextCursor(buffer.text, transition.offset);
+  if (transition.kind === 'placeCaret') {
     if (offset === buffer.cursor && buffer.selection === undefined) return buffer;
     return Object.freeze({ text: buffer.text, cursor: offset });
   }
-  const anchor = normalizeTextCursor(buffer.text, action.anchor);
+  const anchor = normalizeTextCursor(buffer.text, transition.anchor);
   const startOffset = Math.min(anchor, offset);
   const endOffsetExclusive = Math.max(anchor, offset);
   return Object.freeze({

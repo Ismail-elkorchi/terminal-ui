@@ -9,7 +9,7 @@ export {
   padRenderLine,
   span,
   wrapRenderSpans
-} from '../visual/render.ts';
+} from '../visual/render-content.ts';
 export type {
   ClipRenderSpansOptions,
   PadRenderLineOptions,
@@ -22,7 +22,7 @@ export type {
   TerminalColor,
   TerminalLink,
   TerminalStyle
-} from '../visual/render.ts';
+} from '../visual/render-content.ts';
 export { mergeTerminalStyles } from '../visual/terminal-style.ts';
 export type {
   Canvas2D,
@@ -89,8 +89,8 @@ export {
   transformCanvasPoint,
   transformCanvasRect,
   verticalAxis
-} from './internal/canvas2d/index.ts';
-export { createClippedCanvas2D as createLocalCanvas2D } from './internal/canvas2d/canvas2d.ts';
+} from './canvas2d/index.ts';
+export { createClippedCanvas2D as createLocalCanvas2D } from './canvas2d/canvas2d.ts';
 export type {
   AreaSeriesOptions,
   AxisLine,
@@ -103,18 +103,18 @@ export type {
   ChartScale,
   SeriesOptions,
   TooltipLine
-} from './internal/canvas2d/index.ts';
-export { drawBorder } from './internal/border.ts';
+} from './canvas2d/index.ts';
+export { drawBorder } from './border.ts';
 export type {
   BorderKind,
   BorderStyle,
   BorderTitle,
   BorderTitleContent,
   BorderTitleSlots
-} from './internal/border.ts';
+} from './border.ts';
 export {
   createFrameBuffer
-} from './internal/frame-buffer.ts';
+} from './frame-buffer.ts';
 export type {
   AnsiStyleState,
   DiffFramesOptions,
@@ -124,20 +124,20 @@ export type {
   FrameBufferSnapshotOptions,
   RenderDiffAnsiOptions,
   RenderSerializeOptions
-} from './internal/frame.ts';
+} from './frame.ts';
 export {
   boxDrawingJoinPass
-} from './internal/frame-passes/index.ts';
+} from './frame-passes/index.ts';
 export type {
   FramePass,
   FramePassContext,
   FrameCellRole
-} from './internal/frame-passes/index.ts';
+} from './frame-passes/index.ts';
 export {
   frameCellSource,
   sameFrameCellSource
-} from '../visual/source.ts';
-export type { FrameCellSource } from '../visual/source.ts';
+} from '../visual/frame-source.ts';
+export type { FrameCellSource } from '../visual/frame-source.ts';
 export {
   clampMeasurement,
   combineMeasurementsHorizontally,
@@ -152,48 +152,48 @@ export {
   normalizeMeasurement,
   zeroMeasurement
 } from './measurement.ts';
-export { adoptMeasurement } from './measurement-validation.ts';
+export { decodeMeasurement } from './measurement-validation.ts';
 export {
   highlightRenderSpans
-} from './internal/text-highlight.ts';
+} from './text-highlight.ts';
 export type {
   HighlightRenderSpan,
   HighlightRenderSpansOptions
-} from './internal/text-highlight.ts';
+} from './text-highlight.ts';
 export {
   diffFrames,
   renderDiffAnsi,
   renderFrameAnsi,
   renderFrameDebug,
   renderFramePlain,
-  renderElementFrame,
   sameFrameCell,
   serializeRenderSpansStateful,
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle
-} from './internal/render.ts';
+} from './frame.ts';
+export { renderElementFrame } from './render-element.ts';
 export type {
   RenderElementOptions
-} from './internal/render.ts';
-export type { RenderBudgetLimits } from './internal/render-budget.ts';
-export { defaultRenderBudgetLimits } from './internal/render-budget.ts';
+} from './render-element.ts';
+export type { RenderBudgetLimits } from './render-budget.ts';
+export { defaultRenderBudgetLimits } from './render-budget.ts';
 export {
   layoutElement
-} from './internal/layout.ts';
+} from './layout.ts';
 export type {
   PointerClickCount,
   PointerEventKind,
   RoutedPointerEvent
 } from '../input/pointer.ts';
 export {
-  projectTuiOutput,
+  renderTuiOutput,
   renderAccessibleSnapshot
-} from './internal/output-projection.ts';
+} from './output.ts';
 export type {
-  OutputProjection,
-  OutputProjectionInput
-} from './internal/output-projection.ts';
+  RenderedTuiOutput,
+  RenderTuiOutputOptions
+} from './output.ts';
 export {
   gridCellRects,
   splitTracks

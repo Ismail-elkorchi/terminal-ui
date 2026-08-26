@@ -156,7 +156,7 @@ export function createDiagnosticOccurrenceReporter(owner: string): DiagnosticOcc
   return Object.freeze({
     owner: normalizedOwner,
     report(item: TerminalDiagnostic) {
-      const content = adoptTerminalDiagnostic(item);
+      const content = decodeTerminalDiagnostic(item);
       const sequence = nextSequence;
       nextSequence += 1;
       const occurrence = Object.freeze({
@@ -171,7 +171,7 @@ export function createDiagnosticOccurrenceReporter(owner: string): DiagnosticOcc
   });
 }
 
-export function adoptTerminalDiagnostic(item: unknown): TerminalDiagnostic {
+export function decodeTerminalDiagnostic(item: unknown): TerminalDiagnostic {
   if (typeof item === 'object' && item !== null) {
     const existing = canonicalDiagnostics.get(item);
     if (existing !== undefined) return existing;
@@ -457,7 +457,7 @@ export function terminalDiagnosticIssue(item: unknown): string | undefined {
   return undefined;
 }
 
-export function adoptDiagnosticOccurrence(item: unknown): DiagnosticOccurrence {
+export function decodeDiagnosticOccurrence(item: unknown): DiagnosticOccurrence {
   if (typeof item === 'object' && item !== null) {
     const existing = canonicalDiagnosticOccurrences.get(item);
     if (existing !== undefined) return existing;
@@ -490,7 +490,7 @@ export function adoptDiagnosticOccurrence(item: unknown): DiagnosticOccurrence {
     id,
     owner,
     sequence,
-    diagnostic: adoptTerminalDiagnostic(item['diagnostic'])
+    diagnostic: decodeTerminalDiagnostic(item['diagnostic'])
   });
   canonicalDiagnosticOccurrences.set(occurrence, occurrence);
   return occurrence;

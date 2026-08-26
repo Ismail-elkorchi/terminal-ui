@@ -5,7 +5,7 @@ import type { CursorVisibilityPolicy, ProtocolRequirement, SessionProtocolPolicy
 import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiTheme } from './types.ts';
 import { decodeTerminalGraphicsMode } from '../graphics/index.ts';
 import type { TerminalGraphicsMode } from '../graphics/index.ts';
-import { normalizeGraphicsBudgetLimits } from '../graphics/index.ts';
+import { resolveGraphicsBudgetLimits } from '../graphics/index.ts';
 import type { GraphicsBudgetLimits } from '../graphics/index.ts';
 import { defaultTheme } from '../theme/index.ts';
 import { resolveThemeInput } from '../theme/theme.ts';
@@ -35,26 +35,26 @@ export const defaultTuiLifecyclePolicy: NormalizedTuiLifecyclePolicy = Object.fr
   hostDisposalTimeoutMs: 1_000
 });
 
-export function normalizeTuiRunOptions<TState>(
+export function resolveTuiRunOptions<TState>(
   options: unknown,
 ): NormalizedTuiRunOptions<TState> {
   const supplied = objectValue(options, 'TUI run options');
-  const host = normalizeHost(supplied['host']);
-  const initialFocus = normalizeInitialFocus(supplied['initialFocus']);
-  const theme = normalizeTheme<TState>(supplied['theme']);
+  const host = decodeTerminalHost(supplied['host']);
+  const initialFocus = decodeInitialFocus(supplied['initialFocus']);
+  const theme = resolveTuiTheme<TState>(supplied['theme']);
   return Object.freeze({
     ...(host === undefined ? {} : { host }),
     ...(initialFocus === undefined ? {} : { initialFocus }),
     ...(theme === undefined ? {} : { theme }),
-    sessionPolicy: normalizeSessionPolicy(supplied['sessionPolicy']),
-    lifecycle: normalizeLifecyclePolicy(supplied['lifecycle']),
-    input: normalizeInputPolicy(supplied['input']),
+    sessionPolicy: resolveTuiSessionPolicy(supplied['sessionPolicy']),
+    lifecycle: resolveTuiLifecyclePolicy(supplied['lifecycle']),
+    input: resolveTuiInputPolicy(supplied['input']),
     graphics: decodeTerminalGraphicsMode(supplied['graphics']),
-    graphicsBudget: normalizeGraphicsBudgetLimits(supplied['graphicsBudget']),
+    graphicsBudget: resolveGraphicsBudgetLimits(supplied['graphicsBudget']),
   });
 }
 
-function normalizeHost(value: unknown): TerminalHost | undefined {
+function decodeTerminalHost(value: unknown): TerminalHost | undefined {
   if (value === undefined) return undefined;
   const host = objectValue(value, 'TUI run host');
   const methods = [
@@ -87,13 +87,13 @@ function normalizeHost(value: unknown): TerminalHost | undefined {
   return value as TerminalHost;
 }
 
-function normalizeTheme<TState>(value: unknown): TuiTheme<TState> | undefined {
+function resolveTuiTheme<TState>(value: unknown): TuiTheme<TState> | undefined {
   if (value === undefined) return undefined;
   if (typeof value === 'function') return value;
   return resolveThemeInput(value, defaultTheme);
 }
 
-function normalizeInputPolicy(value: unknown): Readonly<Required<TuiRunInputPolicy>> {
+function resolveTuiInputPolicy(value: unknown): Readonly<Required<TuiRunInputPolicy>> {
   const policy = optionalObjectValue(value, 'TUI input policy');
   const escapeDelayMs = policy?.['escapeDelayMs'] ?? 25;
   if (typeof escapeDelayMs !== 'number' || !Number.isFinite(escapeDelayMs) || escapeDelayMs < 0) {
@@ -102,7 +102,7 @@ function normalizeInputPolicy(value: unknown): Readonly<Required<TuiRunInputPoli
   return Object.freeze({ escapeDelayMs });
 }
 
-function normalizeLifecyclePolicy(value: unknown): NormalizedTuiLifecyclePolicy {
+function resolveTuiLifecyclePolicy(value: unknown): NormalizedTuiLifecyclePolicy {
   const policy = optionalObjectValue(value, 'TUI lifecycle policy');
   const fallback = optionalTimeout(policy?.['defaultTimeoutMs'], 'defaultTimeoutMs');
   return Object.freeze({
@@ -132,7 +132,7 @@ function optionalTimeout(value: unknown, name: keyof TuiLifecyclePolicy): number
   return value;
 }
 
-function normalizeSessionPolicy(value: unknown): SessionProtocolPolicy {
+function resolveTuiSessionPolicy(value: unknown): SessionProtocolPolicy {
   if (value === undefined) return defaultSessionProtocolPolicy;
   const policy = objectValue(value, 'TUI session policy');
   const keyboard = objectValue(policy['keyboard'], 'TUI session policy keyboard');
@@ -174,7 +174,7 @@ function managedTuiKeyboardProfile(value: unknown): TerminalKeyboardProfile {
   return profile;
 }
 
-function normalizeInitialFocus(value: unknown): InitialFocusSelector | undefined {
+function decodeInitialFocus(value: unknown): InitialFocusSelector | undefined {
   if (value === undefined) return undefined;
   const selector = objectValue(value, 'TUI initial focus selector');
   const kind = selector['kind'];

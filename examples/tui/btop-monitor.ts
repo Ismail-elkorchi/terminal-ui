@@ -34,10 +34,10 @@ import type {
 import {
   createScrollState,
   dataGridReducer,
-  prepareTableCollection,
+  createTableCollection,
   sortTableRows,
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { DataGridTransition, ScrollableDataGridPresentation } from '@ismail-elkorchi/terminal-ui';
+import type { DataGridTransition, ScrollableDataGridState } from '@ismail-elkorchi/terminal-ui';
 import { keyInput, pointerInput } from '@ismail-elkorchi/terminal-ui/testing';
 import { themeColor } from '@ismail-elkorchi/terminal-ui/theme';
 import type { ThemeColorToken } from '@ismail-elkorchi/terminal-ui/theme';
@@ -54,14 +54,14 @@ interface ProcessRow {
 
 interface MonitorState {
   readonly tick: number;
-  readonly processTable: ScrollableDataGridPresentation;
+  readonly processTable: ScrollableDataGridState;
   readonly processes: CompleteTableCollection<ProcessRow>;
 }
 
 type MonitorMessage =
   | { readonly kind: 'tick'; readonly tick: number }
   | { readonly kind: 'cycleSort' }
-  | { readonly kind: 'processTable'; readonly action: DataGridTransition }
+  | { readonly kind: 'processTable'; readonly transition: DataGridTransition }
   | { readonly kind: 'exit' };
 
 interface CoreSample {
@@ -142,8 +142,8 @@ export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
       message: { kind: 'exit' }
     },
     { id: 'next-sort', triggers: [sortKey, { kind: 'text', text: 's' }], label: 'Sort', message: { kind: 'cycleSort' } },
-    { id: 'next-process', triggers: [{ kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: 1 } } },
-    { id: 'previous-process', triggers: [{ kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: -1 } } }
+    { id: 'next-process', triggers: [{ kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'processTable', transition: { kind: 'moveRow', delta: 1 } } },
+    { id: 'previous-process', triggers: [{ kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'processTable', transition: { kind: 'moveRow', delta: -1 } } }
   ],
   update: updateMonitor,
   view: monitorView,
@@ -155,7 +155,7 @@ function initialState(): MonitorState {
   const sort = { columnId: 'memory', direction: 'descending' } as const;
   return {
     tick: 0,
-    processes: prepareProcessCollection(sort),
+    processes: createProcessCollection(sort),
     processTable: {
       interaction: {
         kind: 'row',
@@ -186,7 +186,7 @@ function updateMonitor(
       return {
         state: {
           ...state,
-          processes: prepareProcessCollection(sort),
+          processes: createProcessCollection(sort),
           processTable: {
             ...state.processTable,
             sort,
@@ -195,7 +195,7 @@ function updateMonitor(
       };
     }
     case 'processTable': {
-      const processTable = dataGridReducer(state.processTable, message.action, {
+      const processTable = dataGridReducer(state.processTable, message.transition, {
         collection: state.processes,
         columnIds: processColumns.map((column) => column.id),
         pageSize: 20
@@ -208,7 +208,7 @@ function updateMonitor(
           ...state,
           processTable,
           processes: sortChanged && processTable.sort !== undefined
-            ? prepareProcessCollection(processTable.sort)
+            ? createProcessCollection(processTable.sort)
             : state.processes,
         }
       };
@@ -546,12 +546,12 @@ function processPanel(state: MonitorState) {
       id: 'process-table',
       meta: { accessibleName: 'Processes' },
       collection: state.processes,
-      presentation: state.processTable,
+      state: state.processTable,
       density: 'compact',
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
       columns: processColumns,
-      onTransition: (action): MonitorMessage => ({ kind: 'processTable', action })
+      onTransition: (transition): MonitorMessage => ({ kind: 'processTable', transition })
     })
   ], { id: 'proc-column', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
     id: 'process-panel',
@@ -576,10 +576,10 @@ function footerHelp() {
   });
 }
 
-function prepareProcessCollection(
-  sort: NonNullable<ScrollableDataGridPresentation['sort']>,
+function createProcessCollection(
+  sort: NonNullable<ScrollableDataGridState['sort']>,
 ): CompleteTableCollection<ProcessRow> {
-  return prepareTableCollection(
+  return createTableCollection(
     sortTableRows(processRows, sort, processValueForColumn),
     processRowId,
   );
@@ -738,9 +738,9 @@ export async function runScriptedBtopMonitor() {
   }
 }
 
-function selectedProcessId(presentation: ScrollableDataGridPresentation): string | undefined {
-  return presentation.interaction.kind === 'row' && presentation.interaction.selection.mode === 'single'
-    ? presentation.interaction.selection.selectedRowId
+function selectedProcessId(state: ScrollableDataGridState): string | undefined {
+  return state.interaction.kind === 'row' && state.interaction.selection.mode === 'single'
+    ? state.interaction.selection.selectedRowId
     : undefined;
 }
 

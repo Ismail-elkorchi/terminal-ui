@@ -1,6 +1,6 @@
 import { resolveTerminalCapabilities } from '../host/index.ts';
 import { isNonArrayObject } from '../foundation/validation.ts';
-import { diffFrames, projectTuiOutput, renderElementFrame } from '../renderer/index.ts';
+import { diffFrames, renderTuiOutput, renderElementFrame } from '../renderer/index.ts';
 import type { Element } from '../element/index.ts';
 import type { TerminalSize } from '../host/index.ts';
 import type { FocusPath } from '../interaction/index.ts';
@@ -63,11 +63,11 @@ export function renderElementSnapshot(input: ElementSnapshotInput): ElementSnaps
 export function createVisualSnapshot(input: VisualSnapshotInput): VisualSnapshotArtifacts {
   const frame = normalizeFrame(input.frame);
   const diff = input.diff ?? diffFrames(input.previousFrame, input.frame);
-  const projection = projectTuiOutput({ frame: input.frame, ansi: input.ansi ?? defaultAnsiOptions() });
+  const output = renderTuiOutput({ frame: input.frame, ansi: input.ansi ?? defaultAnsiOptions() });
   return {
-    plainTextFrame: projection.plainTextFrame,
-    accessibleText: projection.accessibleText,
-    ansiFrame: normalizeAnsi(projection.ansiFrame ?? ''),
+    plainTextFrame: output.plainTextFrame,
+    accessibleText: output.accessibleText,
+    ansiFrame: normalizeAnsi(output.ansiFrame ?? ''),
     frameJson: stableJson(frame),
     accessibilityJson: stableJson(input.frame.accessibility),
     diffJson: stableJson(diff),

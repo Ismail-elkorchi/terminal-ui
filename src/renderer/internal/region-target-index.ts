@@ -1,6 +1,6 @@
 import { collectLayoutFocusTargets, collectRenderNodeLayoutTargets } from './focus.ts';
 import type { LayoutFocusTarget, RenderNodeLayoutTarget } from './focus.ts';
-import type { RenderNode } from '../model/index.ts';
+import type { RenderNode } from './render-tree/index.ts';
 import type { LayoutNode, Rect } from '../contracts.ts';
 
 export interface RegionTargetIndex<TMessage> {

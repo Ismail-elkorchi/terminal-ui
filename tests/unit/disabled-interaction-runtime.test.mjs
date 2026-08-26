@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
+import { createCommandSuggestions } from '../../dist/behavior/index.js';
 
 import { ignoreMessage } from '../../dist/component/index.js';
 import { defineTui } from '../../dist/tui/index.js';
@@ -30,7 +30,7 @@ import {
   textInput,
   switchControl
 } from '../../dist/components/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 const formOptions = [
   { id: 'alpha', label: 'Alpha', value: 'alpha' },
@@ -69,7 +69,7 @@ const disabledElementCases = [
       id: 'disabled-checkbox-list',
       label: 'Channels',
       options: formOptions,
-      presentation: { selection: { mode: 'multiple', selectedIds: [] } },
+      state: { selection: { mode: 'multiple', selectedIds: [] } },
       disabled: true
     })
   },
@@ -79,7 +79,7 @@ const disabledElementCases = [
       id: 'disabled-radio',
       label: 'Tier',
       options: formOptions,
-      presentation: { selection: { mode: 'single' } },
+      state: { selection: { mode: 'single' } },
       disabled: true
     })
   },
@@ -89,7 +89,7 @@ const disabledElementCases = [
       id: 'disabled-combobox',
       label: 'Tier',
       options: formOptions,
-      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
+      state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true
     })
   },
@@ -99,7 +99,7 @@ const disabledElementCases = [
       id: 'disabled-colors',
       label: 'Accent',
       options: formOptions,
-      presentation: { selection: { mode: 'single' } },
+      state: { selection: { mode: 'single' } },
       disabled: true
     })
   },
@@ -108,31 +108,31 @@ const disabledElementCases = [
     element: () => calendar({ meta: { accessibleName: "Calendar" },
       id: 'disabled-date',
       label: 'Date',
-      presentation: calendarFixture(),
+      view: calendarFixture(),
       disabled: true
     })
   },
   {
     name: 'textInput',
-    element: () => textInput({ meta: { accessibleName: "Text input" }, id: 'disabled-text-input', presentation: { value: 'locked', cursor: 0 }, disabled: true })
+    element: () => textInput({ meta: { accessibleName: "Text input" }, id: 'disabled-text-input', state: { value: 'locked', cursor: 0 }, disabled: true })
   },
   {
     name: 'numberInput',
     element: () => numberInput({ meta: { accessibleName: "Number input" },
       id: 'disabled-number-input',
-      presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4 },
+      view: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4 },
       disabled: true
     })
   },
   {
     name: 'textArea',
-    element: () => textArea({ meta: { accessibleName: "Text area" }, id: 'disabled-text-area', presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) }, disabled: true })
+    element: () => textArea({ meta: { accessibleName: "Text area" }, id: 'disabled-text-area', state: { document: createTextDocument('locked'), caret: textCaretAt(0) }, disabled: true })
   },
   {
     name: 'open contextMenu',
     element: () => contextMenu({ meta: { accessibleName: "Context menu" },
       id: 'disabled-context-menu',
-      presentation: {
+      view: {
         kind: 'open',
         anchor: { kind: 'cursor', row: 0, column: 0 },
         menu: {
@@ -188,15 +188,15 @@ test('unavailable controls ignore unreachable interaction options', () => {
       id: 'invalid-disabled-button',
       label: 'Disabled',
       disabled: true,
-      onAction: 'unreachable'
+      onPress: 'unreachable'
     }),
   );
   assert.doesNotThrow(
     () => textInput({ meta: { accessibleName: "Text input" },
       id: 'invalid-disabled-input',
-      presentation: { value: '', cursor: 0 },
+      state: { value: '', cursor: 0 },
       disabled: true,
-      onAction: 'unreachable'
+      onTransition: 'unreachable'
     }),
   );
   assert.doesNotThrow(
@@ -204,7 +204,7 @@ test('unavailable controls ignore unreachable interaction options', () => {
       id: 'invalid-disabled-combobox',
       label: 'Choice',
       options: formOptions,
-      presentation: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
+      state: { kind: 'select', open: false, interaction: { selection: { mode: 'single' } } },
       disabled: true,
       onTransition: 'unreachable'
     }),
@@ -212,9 +212,9 @@ test('unavailable controls ignore unreachable interaction options', () => {
   assert.doesNotThrow(
     () => textArea({ meta: { accessibleName: "Text area" },
       id: 'invalid-disabled-editor',
-      presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) },
+      state: { document: createTextDocument('locked'), caret: textCaretAt(0) },
       disabled: true,
-      onAction: 'unreachable'
+      onTransition: 'unreachable'
     }),
   );
   assert.doesNotThrow(
@@ -233,7 +233,7 @@ test('commandInput preserves disabled suggestion semantics', () => {
     commandInput({ meta: { accessibleName: "Command input" },
       id: 'command',
       prompt: '>',
-      presentation: { input: { text: 'de', cursor: 0 }, open: true, suggestions: prepareCommandSuggestions([
+      view: { input: { text: 'de', cursor: 0 }, open: true, suggestions: createCommandSuggestions([
         { id: 'deploy', completion: { range: { startOffset: 0, endOffsetExclusive: 2 }, text: 'deploy' }, label: 'Deploy', description: 'Unavailable', disabled: true }
       ]) },
       query: { text: 'de', mode: 'contains' },

@@ -9,8 +9,8 @@ export interface CollectionQuery {
   readonly caseSensitive?: boolean;
 }
 
-export interface PreparedCollectionQuery {
-  readonly kind: 'prepared-collection-query';
+export interface CompiledCollectionQuery {
+  readonly kind: 'compiled-collection-query';
   readonly text: string;
   readonly mode: QueryMatchMode;
   readonly caseSensitive: boolean;
@@ -23,8 +23,8 @@ export interface QueryCandidate {
   readonly group?: string;
 }
 
-export interface PreparedQueryCandidate extends QueryCandidate {
-  readonly kind: 'prepared-query-candidate';
+export interface IndexedQueryCandidate extends QueryCandidate {
+  readonly kind: 'indexed-query-candidate';
 }
 
 export interface QueryMatch {
@@ -43,37 +43,37 @@ export interface QueryMatchRange {
   readonly end: number;
 }
 
-interface PreparedField {
+interface IndexedQueryField {
   readonly text: string;
-  readonly graphemes: readonly PreparedGrapheme[];
+  readonly graphemes: readonly IndexedQueryGrapheme[];
 }
 
-interface PreparedGrapheme {
+interface IndexedQueryGrapheme {
   readonly folded: string;
   readonly original: string;
   readonly start: number;
   readonly end: number;
 }
 
-interface PreparedCandidateData {
-  readonly fields: readonly PreparedField[];
+interface QueryCandidateIndex {
+  readonly fields: readonly IndexedQueryField[];
 }
 
-interface PreparedQueryData {
+interface CompiledQueryData {
   readonly graphemes: readonly string[];
 }
 
-const preparedCandidates = new WeakMap<object, PreparedCandidateData>();
-const preparedQueries = new WeakMap<object, PreparedQueryData>();
+const queryCandidateIndexes = new WeakMap<object, QueryCandidateIndex>();
+const compiledQueries = new WeakMap<object, CompiledQueryData>();
 
 function isNonArrayObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export function prepareCollectionQuery(query: CollectionQuery): PreparedCollectionQuery;
-export function prepareCollectionQuery(query: unknown): PreparedCollectionQuery {
-  if (isNonArrayObject(query) && preparedQueries.has(query)) {
-    return query as unknown as PreparedCollectionQuery;
+export function compileCollectionQuery(query: CollectionQuery): CompiledCollectionQuery;
+export function compileCollectionQuery(query: unknown): CompiledCollectionQuery {
+  if (isNonArrayObject(query) && compiledQueries.has(query)) {
+    return query as unknown as CompiledCollectionQuery;
   }
   if (!isNonArrayObject(query)) throw new TypeError('collection query must be an object.');
   const text = query['text'];
@@ -88,60 +88,60 @@ export function prepareCollectionQuery(query: unknown): PreparedCollectionQuery 
   }
   const normalizedText = sanitizeTerminalText(text).text.trim();
   const sensitive = caseSensitive === true;
-  const prepared = Object.freeze({
-    kind: 'prepared-collection-query' as const,
+  const indexed = Object.freeze({
+    kind: 'compiled-collection-query' as const,
     text: normalizedText,
     mode: mode ?? 'contains',
     caseSensitive: sensitive
   });
-  preparedQueries.set(prepared, Object.freeze({
+  compiledQueries.set(indexed, Object.freeze({
     graphemes: Object.freeze(segmentGraphemes(normalizedText).map((part) =>
       normalizeGrapheme(part.text, sensitive)))
   }));
-  return prepared;
+  return indexed;
 }
 
-export function prepareQueryCandidate(candidate: QueryCandidate): PreparedQueryCandidate;
-export function prepareQueryCandidate(candidate: unknown): PreparedQueryCandidate {
-  if (isPreparedQueryCandidate(candidate)) return candidate;
+export function indexQueryCandidate(candidate: QueryCandidate): IndexedQueryCandidate;
+export function indexQueryCandidate(candidate: unknown): IndexedQueryCandidate {
+  if (isIndexedQueryCandidate(candidate)) return candidate;
   assertQueryCandidate(candidate);
   const secondary = candidate.secondary === undefined
     ? undefined
     : Object.freeze([...candidate.secondary]);
-  const prepared = Object.freeze({
-    kind: 'prepared-query-candidate' as const,
+  const indexed = Object.freeze({
+    kind: 'indexed-query-candidate' as const,
     id: candidate.id,
     primary: candidate.primary,
     ...(secondary === undefined ? {} : { secondary }),
     ...(candidate.group === undefined ? {} : { group: candidate.group })
   });
-  preparedCandidates.set(prepared, Object.freeze({
+  queryCandidateIndexes.set(indexed, Object.freeze({
     fields: Object.freeze([
-      prepareField(prepared.primary),
-      ...(prepared.secondary ?? []).map(prepareField)
+      indexQueryField(indexed.primary),
+      ...(indexed.secondary ?? []).map(indexQueryField)
     ])
   }));
-  return prepared;
+  return indexed;
 }
 
 export function matchCollectionQuery(
   candidate: QueryCandidate,
   query: CollectionQuery,
 ): QueryMatch | undefined {
-  return matchPreparedCollectionQuery(
-    prepareQueryCandidate(candidate),
-    prepareCollectionQuery(query)
+  return matchCompiledCollectionQuery(
+    indexQueryCandidate(candidate),
+    compileCollectionQuery(query)
   );
 }
 
-export function matchPreparedCollectionQuery(
-  candidate: PreparedQueryCandidate,
-  query: PreparedCollectionQuery,
+export function matchCompiledCollectionQuery(
+  candidate: IndexedQueryCandidate,
+  query: CompiledCollectionQuery,
 ): QueryMatch | undefined {
-  const candidateData = preparedCandidates.get(candidate);
-  if (candidateData === undefined) throw new TypeError('candidate must be created by prepareQueryCandidate().');
-  const queryData = preparedQueries.get(query);
-  if (queryData === undefined) throw new TypeError('query must be created by prepareCollectionQuery().');
+  const candidateData = queryCandidateIndexes.get(candidate);
+  if (candidateData === undefined) throw new TypeError('candidate must be created by indexQueryCandidate().');
+  const queryData = compiledQueries.get(query);
+  if (queryData === undefined) throw new TypeError('query must be created by compileCollectionQuery().');
   if (queryData.graphemes.length === 0) return queryMatch(candidate, 0, []);
 
   let best: { readonly score: number; readonly indexes: readonly number[]; readonly fieldIndex: number } | undefined;
@@ -165,19 +165,19 @@ export function queryCandidates(
   query: CollectionQuery,
 ): readonly QueryMatch[] {
   if (!Array.isArray(candidates)) throw new TypeError('query candidates must be an array.');
-  const prepared = candidates.map((candidate, index) => {
+  const indexed = candidates.map((candidate, index) => {
     assertQueryCandidate(candidate, index);
-    return prepareQueryCandidate(candidate);
+    return indexQueryCandidate(candidate);
   });
-  return queryPreparedCandidates(prepared, prepareCollectionQuery(query));
+  return queryIndexedCandidates(indexed, compileCollectionQuery(query));
 }
 
-export function queryPreparedCandidates(
-  candidates: readonly PreparedQueryCandidate[],
-  query: PreparedCollectionQuery,
+export function queryIndexedCandidates(
+  candidates: readonly IndexedQueryCandidate[],
+  query: CompiledCollectionQuery,
 ): readonly QueryMatch[] {
   return Object.freeze(candidates.flatMap((candidate) => {
-    const match = matchPreparedCollectionQuery(candidate, query);
+    const match = matchCompiledCollectionQuery(candidate, query);
     return match === undefined ? [] : [match];
   }).sort((left, right) => right.score - left.score));
 }
@@ -217,8 +217,8 @@ function codeUnitComparison(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function isPreparedQueryCandidate(value: unknown): value is PreparedQueryCandidate {
-  return isNonArrayObject(value) && preparedCandidates.has(value);
+function isIndexedQueryCandidate(value: unknown): value is IndexedQueryCandidate {
+  return isNonArrayObject(value) && queryCandidateIndexes.has(value);
 }
 
 function assertQueryCandidate(candidate: unknown, index?: number): asserts candidate is QueryCandidate {
@@ -238,7 +238,7 @@ function assertQueryCandidate(candidate: unknown, index?: number): asserts candi
   }
 }
 
-function prepareField(text: string): PreparedField {
+function indexQueryField(text: string): IndexedQueryField {
   return Object.freeze({
     text,
     graphemes: Object.freeze(segmentGraphemes(text).map((part) => Object.freeze({
@@ -290,7 +290,7 @@ function matchGraphemes(
 }
 
 function rangesForIndexes(
-  field: PreparedField | undefined,
+  field: IndexedQueryField | undefined,
   fieldIndex: number,
   indexes: readonly number[]
 ): readonly QueryMatchRange[] {
@@ -323,7 +323,7 @@ function rangesForIndexes(
 }
 
 function queryMatch(
-  candidate: PreparedQueryCandidate,
+  candidate: IndexedQueryCandidate,
   score: number,
   ranges: readonly QueryMatchRange[]
 ): QueryMatch {

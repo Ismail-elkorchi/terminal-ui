@@ -7,7 +7,7 @@ import { blockSpan,
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import {
   absolute,
   overlay,
@@ -325,7 +325,7 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
         }
       }),
       absolute(button({
-    id: 'region-button', label: 'Launch', onAction: () => ({ kind: 'launch' }),
+    id: 'region-button', label: 'Launch', onPress: () => ({ kind: 'launch' }),
     meta: {
         layer: {
             zIndex: 10

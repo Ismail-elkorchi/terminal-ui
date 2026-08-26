@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  adoptDiagnosticOccurrence,
-  adoptTerminalDiagnostic,
+  decodeDiagnosticOccurrence,
+  decodeTerminalDiagnostic,
   createDiagnosticOccurrenceReporter,
   diagnostic
 } from '../../dist/diagnostics.js';
@@ -112,8 +112,8 @@ test('transcript decoding retains every successful nested adoption', () => {
   const commit = result.value.steps[2].commit;
   const restore = result.value.steps[3].result;
   assert.strictEqual(decodeInputEvent(input), input);
-  assert.strictEqual(adoptDiagnosticOccurrence(stepOccurrence), stepOccurrence);
-  assert.strictEqual(adoptTerminalDiagnostic(stepOccurrence.diagnostic), stepOccurrence.diagnostic);
+  assert.strictEqual(decodeDiagnosticOccurrence(stepOccurrence), stepOccurrence);
+  assert.strictEqual(decodeTerminalDiagnostic(stepOccurrence.diagnostic), stepOccurrence.diagnostic);
   assert.strictEqual(defineTextWidthProfile(commit.frame.widthProfile), commit.frame.widthProfile);
   assert.strictEqual(defineTextWidthProfile(commit.diff.widthProfile), commit.diff.widthProfile);
   assert.strictEqual(decodeAccessibleSnapshot(commit.frame.accessibility).value, commit.frame.accessibility);

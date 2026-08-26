@@ -22,7 +22,7 @@ const tabKey = {
 
 function focusInput(options) {
   if (options.keys !== undefined) return testKeyInput(options);
-  return textInput({ meta: { accessibleName: "Text input" }, onAction: () => ignoreMessage(), ...options });
+  return textInput({ meta: { accessibleName: "Text input" }, onTransition: () => ignoreMessage(), ...options });
 }
 
 test('richText keyboard activation resolves the focused linked segment', async () => {
@@ -70,19 +70,19 @@ test('TUI focus traversal reveals logical targets in a controlled viewport', asy
     id: 'focus-reveal-tui',
     init: () => ({ state: ({ scroll: { offsetRow: 0, offsetColumn: 0, followTail: false } }) }),
     update: (state, message) => message.kind === 'scroll'
-      ? { state: { scroll: message.event.nextState } }
+      ? { state: { scroll: message.request.nextState } }
       : { state },
     view: (state) => viewport(column(
       Array.from({ length: 8 }, (_value, index) => button({
         id: `action-${String(index + 1)}`,
         label: `Action ${String(index + 1)}`,
-        onAction: () => ignoreMessage()
+        onPress: () => ignoreMessage()
       })),
       { id: 'actions' }
     ), {
       id: 'actions-viewport',
       offset: { row: state.scroll.offsetRow, column: state.scroll.offsetColumn },
-      onScroll: (event) => ({ kind: 'scroll', event })
+      onScroll: (request) => ({ kind: 'scroll', request })
     })
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
@@ -124,9 +124,9 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
       column([
         focusInput({
           id: 'command',
-          presentation: { value: state.command, cursor: 0 },
+          state: { value: state.command, cursor: 0 },
           keys: { enter: () => ({ kind: 'open' }) },
-          onAction: ({ operation }) => ({
+          onTransition: ({ operation }) => ({
             kind: 'text',
             text: operation.kind === 'insert' ? operation.text : ''
           })
@@ -137,7 +137,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
             surface(button({
               id: 'accept',
               label: 'Accept',
-              onAction: () => ({ kind: 'accept' })
+              onPress: () => ({ kind: 'accept' })
             }), {
     id: 'searchPicker-surface',
     meta: {
@@ -199,9 +199,9 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
       column([
         focusInput({
           id: 'command',
-          presentation: { value: state.command, cursor: 0 },
+          state: { value: state.command, cursor: 0 },
           keys: { enter: () => ({ kind: 'openA' }) },
-          onAction: ({ operation }) => ({
+          onTransition: ({ operation }) => ({
             kind: 'text',
             text: operation.kind === 'insert' ? operation.text : ''
           })
@@ -210,8 +210,8 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
       ...(state.modal === 'a' || state.modal === 'b'
         ? [
             surface(column([
-              button({ id: 'open-b', label: 'Open B', onAction: () => ({ kind: 'openB' }) }),
-              button({ id: 'close-a', label: 'Close A', onAction: () => ({ kind: 'closeA' }) })
+              button({ id: 'open-b', label: 'Open B', onPress: () => ({ kind: 'openB' }) }),
+              button({ id: 'close-a', label: 'Close A', onPress: () => ({ kind: 'closeA' }) })
             ], { id: 'modal-a-actions' }), {
     id: 'modal-a',
     meta: {
@@ -228,7 +228,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
             surface(button({
               id: 'close-b',
               label: 'Close B',
-              onAction: () => ({ kind: 'closeB' })
+              onPress: () => ({ kind: 'closeB' })
             }), {
     id: 'modal-b',
     meta: {
@@ -276,8 +276,8 @@ test('anonymous container focus identity survives terminal resize', async () => 
     init: () => ({ state: ({ value: '' }) }),
     update: (state) => ({ state }),
     view: (state) => column([
-      focusInput({ id: 'first', presentation: { value: state.value, cursor: 0 } }),
-      focusInput({ id: 'second', presentation: { value: state.value, cursor: 0 } })
+      focusInput({ id: 'first', state: { value: state.value, cursor: 0 } }),
+      focusInput({ id: 'second', state: { value: state.value, cursor: 0 } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 40, rows: 6 } });
@@ -305,8 +305,8 @@ test('runTui accepts an initial focus path', async () => {
     init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
     view: (state) => column([
-      focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      focusInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      focusInput({ id: 'first', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      focusInput({ id: 'second', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 4 } });
@@ -385,8 +385,8 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
     init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      focusInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      focusInput({ id: 'first', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      focusInput({ id: 'second', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const firstHarness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -422,8 +422,8 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
     init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      focusInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      focusInput({ id: 'first', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      focusInput({ id: 'second', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -502,8 +502,8 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
     init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      focusInput({ id: 'first', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
-      focusInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+      focusInput({ id: 'first', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      focusInput({ id: 'second', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
@@ -529,7 +529,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
     view: (state) => column([
       focusInput({
     id: 'disabled',
-    presentation: { value: state.active, cursor: 0 },
+    state: { value: state.active, cursor: 0 },
     keys: { enter: () => ({ active: 'disabled' }) },
     meta: {
         focus: { disabled: true, order: 0 }
@@ -537,7 +537,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
 }),
       focusInput({
     id: 'later',
-    presentation: { value: state.active, cursor: 0 },
+    state: { value: state.active, cursor: 0 },
     keys: { enter: () => ({ active: 'later' }) },
     meta: {
         focus: { order: 2 }
@@ -545,7 +545,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
 }),
       focusInput({
     id: 'first',
-    presentation: { value: state.active, cursor: 0 },
+    state: { value: state.active, cursor: 0 },
     keys: { enter: () => ({ active: 'first' }) },
     meta: {
         focus: { order: 1 }
@@ -574,9 +574,9 @@ test('TUI runtime traps focus inside modal and scoped popover elements', async (
     init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      focusInput({ id: 'background', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'background' }) } }),
+      focusInput({ id: 'background', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'background' }) } }),
       dialog({
-        slots: { content: focusInput({ id: 'dialog-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'dialog' }) } }) },
+        slots: { content: focusInput({ id: 'dialog-field', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'dialog' }) } }) },
         id: 'dialog',
         accessibleName: 'Modal editor',
         modal: true,
@@ -608,8 +608,8 @@ test('TUI runtime traps focus inside modal and scoped popover elements', async (
     init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => column([
-      focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
-      surface(focusInput({ id: 'popover-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'popover' }) } }), {
+      focusInput({ id: 'page-field', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
+      surface(focusInput({ id: 'popover-field', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'popover' }) } }), {
     id: 'popover',
     meta: {
         layer: {
@@ -649,18 +649,18 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
     view: (state) => column([
       focusInput({
         id: 'dialog-launcher',
-        presentation: { value: '', cursor: 0 },
+        state: { value: '', cursor: 0 },
         keys: { enter: () => ({ kind: 'open' }) }
       }),
       ...(state.open
         ? [dialog({
             slots: {
               content: column([
-                surface(focusInput({ id: 'nested-dialog-field', presentation: { value: '', cursor: 0 } }), {
+                surface(focusInput({ id: 'nested-dialog-field', state: { value: '', cursor: 0 } }), {
                   id: 'nested-dialog-surface'
                 }),
-                focusInput({ id: 'first-dialog-field', presentation: { value: '', cursor: 0 } }),
-                focusInput({ id: 'preferred-dialog-field', presentation: { value: '', cursor: 0 } })
+                focusInput({ id: 'first-dialog-field', state: { value: '', cursor: 0 } }),
+                focusInput({ id: 'preferred-dialog-field', state: { value: '', cursor: 0 } })
               ])
             },
             id: 'lifecycle-dialog',
@@ -674,7 +674,7 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
               dismissOnEscape: true,
               dismissOnOutsidePress: true
             },
-            onAction: (action) => action,
+            onDismiss: (action) => action,
             width: 24,
             height: 6
           })]
@@ -705,11 +705,11 @@ test('TUI runtime focuses top-layer context menus and open menu triggers', async
     init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
-      focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
+      focusInput({ id: 'page-field', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
       contextMenu({
     id: 'actions-menu',
     title: 'Actions',
-    presentation: {
+    view: {
       kind: 'open',
       anchor: { kind: 'cursor', row: 1, column: 1 },
       menu: {
@@ -755,11 +755,11 @@ test('TUI runtime focuses top-layer context menus and open menu triggers', async
     init: () => ({ state: ({ active: 'idle' }) }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
-      focusInput({ id: 'page-field', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
+      focusInput({ id: 'page-field', state: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'page' }) } }),
       menuTrigger({
     id: 'theme-menuTrigger',
     label: 'Theme',
-    presentation: {
+    view: {
       kind: 'open',
       active: 'dark',
       menu: {
@@ -938,10 +938,10 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
         }
       }),
       listbox({ meta: { accessibleName: "List" },
-        projectItem: (item) => ({ id: String(item), label: String(item) }),
+        toOption: (item) => ({ id: String(item), label: String(item) }),
         id: 'choices',
         items: ['Alpha', 'Beta'],
-        presentation: {
+        state: {
           activeId: 'Beta',
           selection: { mode: 'single', selectedId: 'Beta' }
         },
@@ -951,7 +951,7 @@ test('TUI frame accessibility uses element metadata and marks only the active fo
         id: 'grid',
         rows: [['A1', 'B1']],
         getRowId: (_row, index) => String(index),
-        presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
+        state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
         onTransition: () => ({ active: 'none' })
       })
     ])

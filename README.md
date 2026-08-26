@@ -91,12 +91,12 @@ const app = defineTui<State, Message>({
     button({
       id: 'increment',
       label: 'Increment',
-      onAction: (): Message => ({ kind: 'increment' })
+      onPress: (): Message => ({ kind: 'increment' })
     }),
     button({
       id: 'quit',
       label: 'Quit',
-      onAction: (): Message => ({ kind: 'quit' })
+      onPress: (): Message => ({ kind: 'quit' })
     })
   ])
 });
@@ -121,7 +121,7 @@ contains diagnostics and the final accessible snapshot.
   and `viewport()` own geometry.
 - Components own interaction and accessibility while application state remains
   controlled by the caller.
-- The `behavior` namespace provides pure reducers and prepared collections
+- The `behavior` namespace provides pure reducers, retained collections, and indexes
   for editing, keyboard and pointer text selection, paste, navigation,
   scrolling, and large data.
 - Semantic themes adapt to terminal color capabilities; top-level component

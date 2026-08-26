@@ -13,7 +13,7 @@ Non-TTY behavior is deterministic and surface-specific.
   `transcript_only` or `last_frame`. These modes do
   not enter alternate screen, raw input, mouse reporting, focus reporting, or
   other full-screen protocols.
-- `last_frame` output comes from the same output projection
+- `last_frame` output comes from the same rendered output
   as visual frames and accessibility snapshots. The human output includes an
   accessible linear summary followed by the plain frame, rather than only a raw
   rectangle dump.

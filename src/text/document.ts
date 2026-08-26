@@ -1,5 +1,5 @@
-import { normalizeTextCursor } from './selection-model.ts';
-import { isTerminalTextProjectionSafe } from './sanitize.ts';
+import { normalizeTextCursor } from './text-range.ts';
+import { isTerminalTextSafe } from './sanitize.ts';
 import type { TextCaret, TextDocumentSelection, TextPosition, TextSelection } from './types.ts';
 
 declare const textDocumentBrand: unique symbol;
@@ -27,7 +27,7 @@ interface PieceMetrics {
   readonly length: number;
   readonly bytes: number;
   readonly lineBreaks: number;
-  readonly terminalProjectionSafe: boolean;
+  readonly terminalTextSafe: boolean;
   readonly height: number;
 }
 
@@ -54,13 +54,13 @@ const EMPTY_LEAF: PieceLeaf = Object.freeze({
   length: 0,
   bytes: 0,
   lineBreaks: 0,
-  terminalProjectionSafe: true,
+  terminalTextSafe: true,
   height: 1
 });
 const MAX_INITIAL_PIECE_LENGTH = 4_096;
 const documents = new WeakMap<object, TextDocumentData>();
 
-export function prepareTextDocument(value: string): TextDocument {
+export function createTextDocument(value: string): TextDocument {
   if (typeof value !== 'string') throw new TypeError('text document source must be a string.');
   return createDocument(treeFromText(value));
 }
@@ -90,8 +90,8 @@ export function textDocumentText(document: TextDocument): string {
 }
 
 /** Whether multiline terminal sanitization can preserve this document verbatim. */
-export function textDocumentCanProjectDirectly(document: TextDocument): boolean {
-  return dataFor(document).root.terminalProjectionSafe;
+export function textDocumentCanRenderDirectly(document: TextDocument): boolean {
+  return dataFor(document).root.terminalTextSafe;
 }
 
 export function textDocumentSlice(
@@ -196,7 +196,7 @@ export function normalizeTextDocumentOffset(document: TextDocument, offset: numb
   return line.startOffset + normalizeTextCursor(line.text, bounded - line.startOffset);
 }
 
-export function normalizeTextDocumentSelection(
+export function normalizeTextDocumentRange(
   document: TextDocument,
   selection: TextSelection | undefined
 ): TextSelection | undefined {
@@ -228,7 +228,7 @@ export function normalizeTextCaret(document: TextDocument, caret: TextCaret): Te
   });
 }
 
-export function normalizeTextDocumentSelectionModel(
+export function normalizeTextDocumentSelection(
   document: TextDocument,
   selection: TextDocumentSelection | undefined
 ): TextDocumentSelection | undefined {
@@ -245,7 +245,7 @@ export function textDocumentSelectionRange(
 ): { readonly startOffset: number; readonly endOffsetExclusive: number } {
   const focus = normalizeTextCaret(document, caret).position.offset;
   if (selection === undefined) return { startOffset: focus, endOffsetExclusive: focus };
-  const normalized = normalizeTextDocumentSelectionModel(document, selection);
+  const normalized = normalizeTextDocumentSelection(document, selection);
   if (normalized === undefined) return { startOffset: focus, endOffsetExclusive: focus };
   return {
     startOffset: Math.min(normalized.anchor.offset, normalized.focus.offset),
@@ -318,7 +318,7 @@ function leaf(text: string): PieceLeaf {
     length: text.length,
     bytes: new TextEncoder().encode(text).byteLength,
     lineBreaks,
-    terminalProjectionSafe: isTerminalTextProjectionSafe(text),
+    terminalTextSafe: isTerminalTextSafe(text),
     height: 1
   });
 }
@@ -333,7 +333,7 @@ function branch(left: PieceNode, right: PieceNode): PieceNode {
     length: left.length + right.length,
     bytes: left.bytes + right.bytes,
     lineBreaks: left.lineBreaks + right.lineBreaks,
-    terminalProjectionSafe: left.terminalProjectionSafe && right.terminalProjectionSafe,
+    terminalTextSafe: left.terminalTextSafe && right.terminalTextSafe,
     height: Math.max(left.height, right.height) + 1
   });
 }

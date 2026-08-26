@@ -39,7 +39,7 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
     throw new TypeError('TUI transcript must be a boolean when provided.');
   }
   const inputBindings = normalizeInputBindings(suppliedInputBindings);
-  const nonTty = normalizeNonTty(suppliedNonTty);
+  const nonTty = decodeNonTty(suppliedNonTty);
   const normalized = Object.freeze({
     id,
     init,
@@ -72,7 +72,7 @@ export function tuiDefinition<TState, TMessage>(
   return definition as TuiDefinition<TState, TMessage>;
 }
 
-export function projectTuiBindingHelp<TState, TMessage>(
+export function tuiBindingHelp<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
 ): readonly TuiBindingHelpItem[] {
   return Object.freeze((tuiDefinition(app).inputBindings ?? []).flatMap((binding) => {
@@ -103,7 +103,7 @@ function normalizeInputBindings<TState, TMessage>(
       throw new TypeError(`TUI input binding id ${JSON.stringify(binding.id)} is duplicated.`);
     }
     ids.add(binding.id);
-    const triggers = normalizeBindingTriggers(binding.id, binding.triggers);
+    const triggers = decodeBindingTriggers(binding.id, binding.triggers);
     const base = {
       id: binding.id,
       triggers,
@@ -180,7 +180,7 @@ function decodeInputBinding(value: unknown, index: number): DecodedInputBinding 
   });
 }
 
-function normalizeBindingTriggers(id: string, values: readonly unknown[]): readonly InputTrigger[] {
+function decodeBindingTriggers(id: string, values: readonly unknown[]): readonly InputTrigger[] {
   const identities = new Set<string>();
   return Object.freeze(values.map((value) => {
     const trigger = decodeInputTrigger(value);
@@ -193,7 +193,7 @@ function normalizeBindingTriggers(id: string, values: readonly unknown[]): reado
   }));
 }
 
-function normalizeNonTty(value: unknown): TuiDefinition<unknown, unknown>['nonTty'] {
+function decodeNonTty(value: unknown): TuiDefinition<unknown, unknown>['nonTty'] {
   if (value === undefined) return undefined;
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError('TUI nonTty must be an object.');

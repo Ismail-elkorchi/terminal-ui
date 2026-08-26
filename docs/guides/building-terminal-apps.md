@@ -41,8 +41,8 @@ const app = defineTui<State, Message>({
   },
   view: (state) => column([
     text({ content: state.saved ? 'Saved' : 'Unsaved' }),
-    button({ id: 'save', label: 'Save', onAction: (): Message => ({ kind: 'save' }) }),
-    button({ id: 'quit', label: 'Quit', onAction: (): Message => ({ kind: 'quit' }) })
+    button({ id: 'save', label: 'Save', onPress: (): Message => ({ kind: 'save' }) }),
+    button({ id: 'quit', label: 'Quit', onPress: (): Message => ({ kind: 'quit' }) })
   ])
 });
 
@@ -81,7 +81,7 @@ type Message = { readonly kind: 'save' };
 button({
   id: 'save',
   label: 'Save',
-  onAction: (): Message => ({ kind: 'save' }),
+  onPress: (): Message => ({ kind: 'save' }),
   styles: {
     states: { focused: { root: { bold: true } } }
   },
@@ -99,7 +99,9 @@ Rules:
 - keep declared capabilities such as `disabled`, `busy`, `readOnly`, and
   `inert`, plus domain values, on the component itself;
 - put cross-cutting system metadata under `meta`;
-- route every component's semantic events through its typed `onAction` channel;
+- map controlled state requests through `onTransition` and completed occurrences
+  through the component's semantic event callback, such as `onPress`, `onSubmit`,
+  `onActivate`, or `onDismiss`;
 - keep state caller-controlled.
 
 ## Controlled Components

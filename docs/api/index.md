@@ -13,7 +13,7 @@ The root entrypoint exposes the main vertical path:
 - `tableColumn()` when a table column needs typed cell content
 - layout factories such as `column()`, `row()`, `grid()`, `surface()`,
   and `viewport()`
-- the `behavior` namespace for controlled-state reducers and prepared views
+- the `behavior` namespace for controlled-state reducers, retained indexes, and derived views
 - the runtime-owned `copySelectedText()` operation for caller-controlled TUI
   clipboard output
 

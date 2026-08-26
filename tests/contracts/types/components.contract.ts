@@ -20,13 +20,13 @@ const drawing = canvas({
   label: 'drawing',
   measurement: { minWidth: 0, minHeight: 0, preferredWidth: 1, preferredHeight: 1 }
 });
-const save = button({ id: 'save', label: 'Save', onAction: () => ({ kind: 'save' } as const) });
+const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
 const rows = dataGrid({
   id: 'rows',
   rows: [{ id: 1, name: 'one' }],
   getRowId: (row) => String(row.id),
   columns: [{ id: 'name', value: (row) => row.name }],
-  presentation: { interaction: { kind: 'row', selection: { mode: 'single' as const } } },
+  state: { interaction: { kind: 'row', selection: { mode: 'single' as const } } },
   onTransition: (transition) => ({ kind: 'grid' as const, transition })
 });
 const passive: Element = text({ content: 'Ready' });
@@ -59,9 +59,9 @@ type SaveMessage = ElementMessage<typeof save>;
 const message: SaveMessage = { kind: 'save' };
 
 // @ts-expect-error interactive components require stable identity
-button({ label: 'Invalid', onAction: () => ({ kind: 'invalid' } as const) });
+button({ label: 'Invalid', onPress: () => ({ kind: 'invalid' } as const) });
 // @ts-expect-error component options reject misspelled fields at the typed public boundary
-button({ id: 'danger', label: 'Delete', disabeld: true, onAction: () => ({ kind: 'delete' } as const) });
+button({ id: 'danger', label: 'Delete', disabeld: true, onPress: () => ({ kind: 'delete' } as const) });
 
 void rows;
 void drawing;

@@ -1,4 +1,4 @@
-import type { TerminalStyle } from '../visual/render.ts';
+import type { TerminalStyle } from '../visual/render-content.ts';
 import { decodeTerminalSymbols, mergeSymbols, symbolEntries } from './symbols.ts';
 import type { TerminalDesignTokenDefinition, TerminalDesignTokens, ThemeColor, ThemeColorToken } from './tokens.ts';
 import { isThemeColorToken } from '../visual/color.ts';
@@ -28,7 +28,7 @@ export function createTheme(input: unknown): TerminalTheme {
   if (typeof name !== 'string' || name.trim() === '') {
     throw new TypeError('Theme name must be a non-empty string.');
   }
-  const tokens = normalizeDesignTokens(supplied['tokens']);
+  const tokens = decodeDesignTokens(supplied['tokens']);
   return ownTheme(name, tokens);
 }
 
@@ -67,11 +67,11 @@ export function mergeDesignTokens(base: unknown, override: unknown): TerminalDes
 }
 
 function mergeDesignTokenValues(base: unknown, override: unknown): TerminalDesignTokens {
-  const normalizedBase = normalizeDesignTokens(base);
+  const normalizedBase = decodeDesignTokens(base);
   if (override === undefined) return normalizedBase;
   const definition = record(override, 'Design token definition');
   const colors = optionalRecord(definition['colors'], 'Theme colors');
-  return normalizeDesignTokens({
+  return decodeDesignTokens({
     colors: { ...normalizedBase.colors, ...(colors ?? {}) },
     symbols: mergeSymbols(normalizedBase.symbols, definition['symbols'])
   });
@@ -124,10 +124,10 @@ export function sameThemeRendering(left: TerminalTheme, right: TerminalTheme): b
   return identity !== undefined && identity === renderingIdentities.get(right);
 }
 
-function normalizeDesignTokens(value: unknown): TerminalDesignTokens {
+function decodeDesignTokens(value: unknown): TerminalDesignTokens {
   const tokens = record(value, 'Design tokens');
   if (isCanonicalDesignTokens(tokens)) return tokens;
-  const colors = normalizeColorTokens(tokens['colors']);
+  const colors = decodeColorTokens(tokens['colors']);
   const symbols = decodeTerminalSymbols(tokens['symbols']);
   const normalized = Object.freeze({ colors, symbols });
   canonicalDesignTokens.add(normalized);
@@ -157,19 +157,19 @@ function colorEntries(colors: TerminalDesignTokens['colors']): readonly unknown[
     ]);
 }
 
-function normalizeColorTokens(value: unknown): TerminalDesignTokens['colors'] {
+function decodeColorTokens(value: unknown): TerminalDesignTokens['colors'] {
   const colors = record(value, 'Theme colors');
   const entries: [ThemeColorToken, ThemeColor][] = [];
   for (const [token, color] of Object.entries(colors)) {
     if (!isThemeColorToken(token)) {
       throw new TypeError(`Unsupported color token: ${token}. Custom color tokens must use the custom.* namespace.`);
     }
-    entries.push([token, normalizeThemeColor(color, `Theme color ${token}`)]);
+    entries.push([token, decodeThemeColor(color, `Theme color ${token}`)]);
   }
   return Object.freeze(Object.fromEntries(entries));
 }
 
-function normalizeThemeColor(value: unknown, subject: string): ThemeColor {
+function decodeThemeColor(value: unknown, subject: string): ThemeColor {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`${subject} must be an object.`);
   }

@@ -52,8 +52,8 @@ const actionRow = defineComponent<
   accessibility: ({ id, children }) => ({ id, role: 'group', label: 'Actions', children })
 });
 
-const save = button({ id: 'save', label: 'Save', onAction: () => ({ kind: 'save' } as const) });
-const cancel = button({ id: 'cancel', label: 'Cancel', onAction: () => ({ kind: 'cancel' } as const) });
+const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
+const cancel = button({ id: 'cancel', label: 'Cancel', onPress: () => ({ kind: 'cancel' } as const) });
 const composite = actionRow({ id: 'actions', slots: { actions: [save, cancel] as const } });
 const compositeMessageType: Assert<Equal<
   MessageOf<typeof composite>,
@@ -122,7 +122,7 @@ const inertInteractive = defineComponent<
 });
 inertInteractive({ id: 'inert', inert: true });
 // @ts-expect-error inert components cannot route actions
-inertInteractive({ id: 'inert-with-handler', inert: true, onAction: () => ({ kind: 'mapped' }) });
+inertInteractive({ id: 'inert-with-handler', inert: true, onTransition: () => ({ kind: 'mapped' }) });
 // @ts-expect-error available actionful components require an action mapper
 inertInteractive({ id: 'available-without-handler' });
 
@@ -141,10 +141,10 @@ const badge = defineComponent<
   structure: 'leaf',
   semantics: 'semantic',
   accessibleRole: 'status',
-  prepare(value) {
+  createModel(value) {
     const typedOptions: Readonly<BadgeOptions> = value;
     void typedOptions;
-    // @ts-expect-error preparation exposes declared options, not an unknown record
+    // @ts-expect-error model construction exposes declared options, not an unknown record
     void value.applicationData;
     if (typeof value.label !== 'string') {
       throw new TypeError('badge label must be a string');
@@ -191,7 +191,7 @@ const instantiateGenericBox = defineComponent<
   structure: 'leaf',
   semantics: 'semantic',
   accessibleRole: 'list',
-  prepare(value) {
+  createModel(value) {
     if (!Array.isArray(value.values)
       || value.values.some((entry) => typeof entry !== 'string')) {
       throw new TypeError('generic box values must be strings');
@@ -322,7 +322,7 @@ nonInteractiveWrapper({ id: 'interactive', slots: { content: save } });
 actionRow({ id: 'legacy-children', children: [save] });
 
 // @ts-expect-error undefined is not an application message resolution
-interactive({ id: 'undefined-action', onAction: () => undefined });
+interactive({ id: 'undefined-action', onTransition: () => undefined });
 
 const componentMessage: ComponentMessage = 'valid';
 void componentMessage;

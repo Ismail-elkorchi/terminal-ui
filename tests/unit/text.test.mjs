@@ -12,7 +12,7 @@ import {
   measureTextCells,
   oneCellGlyph,
   padTextCells,
-  prepareTextDocument,
+  createTextDocument,
   sanitizeTerminalCellText,
   sanitizeTerminalText,
   segmentGraphemes,
@@ -257,7 +257,7 @@ test('terminal text index handles wide cells, lines, tabs, and standalone helper
   assert.equal(selectedText('one\tأربعة two', wordSelectionAt('one\tأربعة two', 5)), 'أربعة');
 });
 
-test('terminal text index prepares word segmentation once for repeated lookups', () => {
+test('terminal text index retains word segmentation for repeated lookups', () => {
   const original = Intl.Segmenter.prototype.segment;
   let wordSegmentations = 0;
   Intl.Segmenter.prototype.segment = function segment(value) {
@@ -345,7 +345,7 @@ test('word editing uses Unicode word boundaries for punctuation and multilingual
 
 test('text document editing handles multiline inserts and line/page movement', () => {
   const pasted = editTextDocument({
-    document: prepareTextDocument('alpha'),
+    document: createTextDocument('alpha'),
     caret: textCaretAt(5)
   }, { kind: 'insert', text: '\nbravo\ncharlie' });
   assert.equal(textDocumentText(pasted.document), 'alpha\nbravo\ncharlie');
@@ -371,7 +371,7 @@ test('text document editing handles multiline inserts and line/page movement', (
   });
   const twelveLines = Array.from({ length: 12 }, (_, index) => `line${String(index)}`).join('\n');
   const page = editTextDocument({
-    document: prepareTextDocument(twelveLines),
+    document: createTextDocument(twelveLines),
     caret: textCaretAt('line0'.length)
   }, { kind: 'movePageDown' });
   assert.equal(page.caret.position.offset, twelveLines.indexOf('line10') + 'line1'.length);

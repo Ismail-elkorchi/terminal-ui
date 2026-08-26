@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   textAreaReducer,
   createTextAreaState,
-  textInputPresentation,
+  textInputState,
   textInputReducer
 } from '../../dist/behavior/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
@@ -14,11 +14,11 @@ void test('textInputReducer applies edits and grapheme-aware pointer selections'
   const initial = { text: 'a🙂bc', cursor: 0 };
   const placed = textInputReducer(initial, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 2 }
+    transition: { kind: 'placeCaret', offset: 2 }
   });
   const selected = textInputReducer(placed, {
     kind: 'pointer',
-    action: { kind: 'extendSelection', anchor: 1, offset: 4 }
+    transition: { kind: 'extendSelection', anchor: 1, offset: 4 }
   });
   const replaced = textInputReducer(selected, {
     kind: 'edit',
@@ -26,7 +26,7 @@ void test('textInputReducer applies edits and grapheme-aware pointer selections'
   });
 
   assert.deepEqual(placed, { text: 'a🙂bc', cursor: 1 });
-  assert.deepEqual(textInputPresentation(selected), {
+  assert.deepEqual(textInputState(selected), {
     value: 'a🙂bc',
     cursor: 4,
     selection: { startOffset: 1, endOffsetExclusive: 4 }
@@ -38,7 +38,7 @@ void test('textAreaReducer preserves exact boundaries in long ASCII lines and co
   const source = 'a'.repeat(250_000);
   const midpoint = source.length / 2;
   const placed = textAreaReducer(createTextAreaState({ value: source }), {
-    kind: 'pointer', action: { kind: 'placeCaret', offset: midpoint }
+    kind: 'pointer', transition: { kind: 'placeCaret', offset: midpoint }
   }).state;
   const inserted = textAreaReducer(placed, { kind: 'edit', operation: { kind: 'insert', text: 'x' } });
   assert.deepEqual(inserted.changeSet.changes, [{
@@ -49,10 +49,10 @@ void test('textAreaReducer preserves exact boundaries in long ASCII lines and co
   assert.equal(inserted.state.caret.position.offset, midpoint + 1);
 
   const combining = textAreaReducer(createTextAreaState({ value: 'e\u0301' }), {
-    kind: 'pointer', action: { kind: 'placeCaret', offset: 1 }
+    kind: 'pointer', transition: { kind: 'placeCaret', offset: 1 }
   });
   const crlf = textAreaReducer(createTextAreaState({ value: 'a\r\nb' }), {
-    kind: 'pointer', action: { kind: 'placeCaret', offset: 2 }
+    kind: 'pointer', transition: { kind: 'placeCaret', offset: 2 }
   });
   assert.equal(combining.state.caret.position.offset, 0);
   assert.equal(crlf.state.caret.position.offset, 1);
@@ -66,12 +66,12 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
   });
   const selectedTransition = textAreaReducer(initial, {
     kind: 'pointer',
-    action: { kind: 'endSelection', anchor: 6, offset: 10 }
+    transition: { kind: 'endSelection', anchor: 6, offset: 10 }
   });
   const selected = selectedTransition.state;
   const scrolledTransition = textAreaReducer(selected, {
     kind: 'scroll',
-    event: {
+    request: {
       nextState: createScrollState({ offsetRow: 3 }),
       source: 'wheel',
       target: 'content'
@@ -215,7 +215,7 @@ void test('textAreaReducer reports exact grapheme deletion and selected paste ch
   });
   const selected = textAreaReducer(deleted.state, {
     kind: 'pointer',
-    action: { kind: 'endSelection', anchor: 0, offset: 2 }
+    transition: { kind: 'endSelection', anchor: 0, offset: 2 }
   });
   const pasted = textAreaReducer(selected.state, {
     kind: 'edit',
@@ -243,11 +243,11 @@ void test('textAreaReducer preserves identity for no-op pointer and scroll actio
   });
   const revealed = textAreaReducer(initial, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 0 }
+    transition: { kind: 'placeCaret', offset: 0 }
   });
   const scrolled = textAreaReducer({ ...initial, revealCaret: false }, {
     kind: 'scroll',
-    event: {
+    request: {
       nextState: initial.scroll,
       source: 'wheel',
       target: 'content'

@@ -1,5 +1,5 @@
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { FrameCellSource } from '../../visual/source.ts';
+import type { FrameCellSource } from '../../visual/frame-source.ts';
 import {
   inlineSegmentText
 } from '../../visual/inline-content.ts';
@@ -7,8 +7,8 @@ import type {
   InlineContent,
   InlineContentSegment
 } from '../../visual/inline-content.ts';
-import { span } from '../../visual/render.ts';
-import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import { span } from '../../visual/render-content.ts';
+import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
 import { mergeStyles, themeStyle } from '../style-resolution.ts';
 
 export interface InlineContentRenderOptions {

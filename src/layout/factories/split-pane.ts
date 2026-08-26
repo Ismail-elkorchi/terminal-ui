@@ -1,12 +1,12 @@
 import { mergeKeyBindings } from '../../element/metadata-normalization.ts';
-import { optionalRenderNodeId, requiredRenderNodeId, renderNodeChildren } from '../../renderer/model/element.ts';
-import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
+import { optionalRenderNodeId, requiredRenderNodeId, renderNodeChildren } from '../../renderer/internal/render-tree/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
-import { adoptElementStyles } from '../../element/styles.ts';
-import { layoutElementFromRenderNode } from '../../renderer/model/element.ts';
-import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
-import type { SplitPaneAction } from '../../ui-model/split-pane.ts';
+import { decodeElementStyles } from '../../element/styles.ts';
+import { layoutElementFromRenderNode } from '../../renderer/internal/render-tree/element.ts';
+import { renderNodeInteraction as interactionProps } from '../../renderer/internal/render-tree/metadata.ts';
+import type { SplitPaneTransition } from '../../behavior/split-pane.ts';
 import type { ResizableSplitPaneOptions, SplitPaneOptions } from '../options.ts';
 
 export function splitPane<
@@ -21,12 +21,12 @@ export function splitPane<
   assertSplitPaneOptions(renderChildren.length, options);
   const styles = options.styles === undefined
     ? undefined
-    : adoptElementStyles(options.styles, {
+    : decodeElementStyles(options.styles, {
         subject: 'splitPane() styles',
         parts: new Set(['divider', 'dividerActive']),
         states: new Set(),
       });
-  if (options.onAction === undefined) {
+  if (options.onTransition === undefined) {
     return layoutElementFromRenderNode<'splitPane', Message>({
       ...optionalRenderNodeId(options.id),
       kind: 'splitPane',
@@ -48,7 +48,7 @@ export function splitPane<
       direction: options.direction,
       sizes: options.sizes,
       activeDivider: options.activeDivider ?? 0,
-      toActionMessage: (action: SplitPaneAction) => options.onAction(action),
+      toActionMessage: (transition: SplitPaneTransition) => options.onTransition(transition),
       ...renderNodeLayoutProps({ ...options, gap: options.gap ?? 1 })
     },
     children: renderChildren,
@@ -60,11 +60,11 @@ function splitPaneKeyBindings<TMessage>(
   options: ResizableSplitPaneOptions<TMessage>
 ): ElementKeyBindings<TMessage> {
   const step = normalizedResizeStep(options.resizeStep);
-  const action = options.onAction;
-  const selectPrevious = () => action({ kind: 'moveActiveDivider', delta: -1 });
-  const selectNext = () => action({ kind: 'moveActiveDivider', delta: 1 });
-  const shrinkLeading = () => action({ kind: 'resizeBy', deltaShare: -step });
-  const growLeading = () => action({ kind: 'resizeBy', deltaShare: step });
+  const transition = options.onTransition;
+  const selectPrevious = () => transition({ kind: 'moveActiveDivider', delta: -1 });
+  const selectNext = () => transition({ kind: 'moveActiveDivider', delta: 1 });
+  const shrinkLeading = () => transition({ kind: 'resizeBy', deltaShare: -step });
+  const growLeading = () => transition({ kind: 'resizeBy', deltaShare: step });
   return {
     ...(options.direction === 'horizontal'
       ? {
@@ -79,8 +79,8 @@ function splitPaneKeyBindings<TMessage>(
           arrowLeft: selectPrevious,
           arrowRight: selectNext
         }),
-    home: () => action({ kind: 'firstActiveDivider' }),
-    end: () => action({ kind: 'lastActiveDivider' })
+    home: () => transition({ kind: 'firstActiveDivider' }),
+    end: () => transition({ kind: 'lastActiveDivider' })
   };
 }
 
@@ -92,7 +92,7 @@ function assertSplitPaneOptions<TMessage>(
   if (options.sizes !== undefined && options.sizes.length !== childCount) {
     throw new RangeError(`splitPane sizes length ${String(options.sizes.length)} must match child count ${String(childCount)}.`);
   }
-  if (options.onAction === undefined) return;
+  if (options.onTransition === undefined) return;
   if (childCount < 2) throw new RangeError('Resizable splitPane requires at least two children.');
   if ((options.gap ?? 1) < 1) throw new RangeError('Resizable splitPane requires a gap of at least one cell.');
   const active = options.activeDivider ?? 0;

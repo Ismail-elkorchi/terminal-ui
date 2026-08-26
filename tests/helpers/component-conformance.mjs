@@ -12,7 +12,7 @@ export function runButtonConformance(name, createButton) {
     const element = createButton({
       id: `${name}-button`,
       label: `Go\u001b[31m界`,
-      onAction: () => ({ kind: 'activate' }),
+      onPress: () => ({ kind: 'activate' }),
       styles: { parts: { label: { underline: true } } }
     });
     const input = {
@@ -51,16 +51,16 @@ export function runButtonConformance(name, createButton) {
 
 export function runMessageRoutingConformance(name, createButton) {
   test(`${name}: message routing distinguishes values, ignored actions, and invalid absence`, async () => {
-    const ordinary = await runButtonAction(name, createButton, () => ({ kind: 'ordinary' }));
+    const ordinary = await runButtonPressEvent(name, createButton, () => ({ kind: 'ordinary' }));
     assert.deepEqual(ordinary.messages, [{ kind: 'ordinary' }]);
 
-    const ignored = await runButtonAction(name, createButton, () => ignoreMessage());
+    const ignored = await runButtonPressEvent(name, createButton, () => ignoreMessage());
     assert.deepEqual(ignored.messages, []);
 
     for (const absent of [undefined, null]) {
       await assert.rejects(
-        runButtonAction(name, createButton, () => absent),
-        /onAction returned null or undefined.*ignoreMessage/u
+        runButtonPressEvent(name, createButton, () => absent),
+        /action mapper returned null or undefined.*ignoreMessage/u
       );
     }
   });
@@ -216,7 +216,7 @@ function flattenLayout(root) {
   return nodes;
 }
 
-async function runButtonAction(name, createButton, onAction) {
+async function runButtonPressEvent(name, createButton, onPress) {
   const app = defineTui({
     id: `${name}-message-routing`,
     init: () => ({ state: ({ messages: [] }) }),
@@ -224,7 +224,7 @@ async function runButtonAction(name, createButton, onAction) {
     view: () => createButton({
       id: `${name}-message-button`,
       label: 'Action',
-      onAction
+      onPress
     })
   });
   const runtime = createTuiRuntime({

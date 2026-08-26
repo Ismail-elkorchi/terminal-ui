@@ -3,11 +3,11 @@ import {
   defineComponent,
   ignoreMessage,
   paintComponentScrollbar,
-  prepareComponentScrollbar,
-  prepareComponentScrollbarOptions,
-  prepareComponentScrollPolicy,
-  prepareComponentScrollState,
-  prepareTerminalStyle,
+  layoutComponentScrollbar,
+  decodeComponentScrollbarOptions,
+  decodeComponentScrollPolicy,
+  decodeComponentScrollState,
+  decodeTerminalStyle,
   span,
 } from '../../component/index.ts';
 import type {
@@ -34,8 +34,8 @@ import {
   measureTextCells,
   normalizeTextCaret,
   normalizeTextDocumentOffset,
-  normalizeTextDocumentSelectionModel,
-  prepareTextDocument,
+  normalizeTextDocumentSelection,
+  createTextDocument,
   sanitizeTerminalText,
   textDocumentLength,
   textDocumentLineAt,
@@ -60,15 +60,15 @@ import {
   terminalStyleHasBackground,
   type TerminalTheme
 } from '../../theme/index.ts';
-import type { TextAreaAction } from '../../ui-model/text-area.ts';
+import type { TextAreaTransition } from '../../behavior/text-area.ts';
 import type {
   TextAreaDecoration,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions,
-} from '../../ui-model/content.ts';
-import type { TextAreaStylePart } from '../../ui-model/style-parts.ts';
-import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import type { ScrollableTextAreaOptions, TextAreaOptions } from '../options/content.ts';
+} from '../text-area.ts';
+import type { TextAreaStylePart } from '../style-parts.ts';
+import type { RenderSpan, TerminalStyle } from '../../visual/render-content.ts';
+import type { ScrollableTextAreaOptions, TextAreaOptions } from '../options/content-and-collections.ts';
 import { textEditingTriggers } from '../internal/text-key-bindings.ts';
 import { textPointerTarget } from '../internal/text-pointer-target.ts';
 import {
@@ -79,7 +79,7 @@ import {
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import {
   createTextAreaProjection,
-  type PreparedTextAreaDecoration,
+  type TextAreaDecorationModel,
   type ProjectedTextStyleRange,
   type TextAreaProjection
 } from '../internal/text-area-projection.ts';
@@ -101,7 +101,7 @@ interface TextAreaModel {
   readonly caret: TextCaret;
   readonly placeholder: string;
   readonly selection?: TextDocumentSelection;
-  readonly decorations: readonly PreparedTextAreaDecoration[];
+  readonly decorations: readonly TextAreaDecorationModel[];
   readonly lineNumbers?: { readonly startNumber: number; readonly minWidth: number };
   readonly highlightActiveLine: boolean;
   readonly wrap: boolean;
@@ -115,7 +115,7 @@ interface TextAreaModel {
 
 const textAreaDecorationBoundaryIndexes = new WeakMap<TextDocument, TerminalTextIndex>();
 
-type TextAreaComponentAction = TextAreaAction | {
+type TextAreaComponentAction = TextAreaTransition | {
   readonly kind: 'contextMenu';
   readonly event: TextContextMenuEvent;
 };
@@ -125,7 +125,7 @@ type TextAreaFactory = <const TMessage extends ComponentMessage = never>(
 ) => Element<TMessage>;
 
 const instantiateTextArea = defineComponent<
-  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'>,
+  Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>,
   TextAreaModel,
   TextAreaComponentAction,
   TextAreaStylePart,
@@ -154,7 +154,7 @@ const instantiateTextArea = defineComponent<
     'scrollbarTrack', 'scrollbarThumb',
   ],
   visualStates: ['focused', 'hovered', 'active', 'selected', 'disabled', 'readOnly'],
-  prepare: prepareTextArea,
+  createModel: createTextAreaModel,
   inspection: ({ model }) => {
     const selection = model.selection === undefined
       ? undefined
@@ -214,7 +214,7 @@ const instantiateTextArea = defineComponent<
             ),
           ),
           ...(cursorStyle === undefined ? {} : { style: cursorStyle }),
-          source: input.source({ cellRole: 'cursor', partName: 'cursor', partType: 'cursor' }),
+          source: input.frameSource({ cellRole: 'cursor', partName: 'cursor', partType: 'cursor' }),
         },
       }),
     }];
@@ -242,12 +242,12 @@ const instantiateTextArea = defineComponent<
           );
         },
         wordSelectionAt: (offset) => textAreaWordSelectionAt(input.model.document, offset, input.widthProfile),
-        onPointer: (action, event) => {
-          const scroll = textAreaDragScrollEvent(input, geometry, action, event);
+        onPointer: (transition, event) => {
+          const scrollRequest = textAreaDragScrollRequest(input, geometry, transition, event);
           return {
             kind: 'pointer',
-            action,
-            ...(scroll === undefined ? {} : { scroll }),
+            transition,
+            ...(scrollRequest === undefined ? {} : { scrollRequest }),
           };
         },
         onContextMenu: (event) => ({ kind: 'contextMenu', event }),
@@ -256,7 +256,7 @@ const instantiateTextArea = defineComponent<
         id: input.id ?? 'text-area',
         plan: geometry.scrollbar,
         ...(input.model.scrollPolicy === undefined ? {} : { policy: input.model.scrollPolicy }),
-        onScroll: (event) => ({ kind: 'scroll', event }),
+        onScroll: (request) => ({ kind: 'scroll', request }),
       })),
     ];
   },
@@ -326,45 +326,45 @@ const instantiateTextArea = defineComponent<
 
 export const textArea: TextAreaFactory = (options) => {
   if (options.disabled === true) return instantiateTextArea(options);
-  assertRequiredCallback(options.onAction, 'textArea onAction');
+  assertRequiredCallback(options.onTransition, 'textArea onTransition');
   if (!isScrollableTextArea(options)) {
-    const { onAction, onContextMenu, ...componentOptions } = options;
+    const { onTransition, onContextMenu, ...componentOptions } = options;
     return instantiateTextArea({
       ...componentOptions,
       onAction: (action) => action.kind === 'contextMenu'
         ? onContextMenu?.(action.event) ?? ignoreMessage()
-        : action.kind === 'scroll' ? ignoreMessage() : onAction(action),
+        : action.kind === 'scroll' ? ignoreMessage() : onTransition(action),
     });
   }
-  const { onAction, onContextMenu, ...componentOptions } = options;
+  const { onTransition, onContextMenu, ...componentOptions } = options;
   return instantiateTextArea({
     ...componentOptions,
     onAction: (action) => action.kind === 'contextMenu'
       ? onContextMenu?.(action.event) ?? ignoreMessage()
-      : onAction(action),
+      : onTransition(action),
   });
 };
 
 function isScrollableTextArea<TMessage extends ComponentMessage>(
   options: Exclude<TextAreaOptions<TMessage>, { readonly disabled: true }>,
 ): options is ScrollableTextAreaOptions<TMessage> {
-  return hasScrollState(options.presentation);
+  return hasScrollState(options.state);
 }
 
 function hasScrollState(value: unknown): boolean {
   return isNonArrayObject(value) && Reflect.get(value, 'scroll') !== undefined;
 }
 
-function prepareTextArea(
-  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onAction' | 'onContextMenu' | 'styles' | 'meta'>>,
+function createTextAreaModel(
+  value: Readonly<Omit<TextAreaOptions<ComponentMessage>, 'id' | 'disabled' | 'readOnly' | 'onTransition' | 'onContextMenu' | 'styles' | 'meta'>>,
 ): TextAreaModel {
-  if (!isNonArrayObject(value.presentation)) {
-    throw new TypeError('textArea presentation must be an object.');
+  if (!isNonArrayObject(value.state)) {
+    throw new TypeError('textArea state must be an object.');
   }
-  const presentation = value.presentation;
-  const document = presentation.document;
+  const state = value.state;
+  const document = state.document;
   assertTextDocument(document);
-  const caret = presentation.caret;
+  const caret = state.caret;
   if (!isNonArrayObject(caret) || !isNonArrayObject(caret.position)) {
     throw new TypeError('textArea caret must contain a position object.');
   }
@@ -394,31 +394,31 @@ function prepareTextArea(
   };
   const normalizedCaret = normalizeTextCaret(document, decodedCaret);
   let selection: TextDocumentSelection | undefined;
-  if (presentation.selection !== undefined) {
-    const candidate = presentation.selection;
+  if (state.selection !== undefined) {
+    const candidate = state.selection;
     if (!isNonArrayObject(candidate)) {
       throw new TypeError('textArea selection must contain anchor and focus positions.');
     }
-    selection = normalizeTextDocumentSelectionModel(document, {
-      anchor: prepareTextPosition(candidate.anchor, 'textArea selection.anchor'),
-      focus: prepareTextPosition(candidate.focus, 'textArea selection.focus'),
+    selection = normalizeTextDocumentSelection(document, {
+      anchor: decodeTextPosition(candidate.anchor, 'textArea selection.anchor'),
+      focus: decodeTextPosition(candidate.focus, 'textArea selection.focus'),
     });
   }
-  const decorations = prepareTextAreaDecorations(value.decorations, document);
-  const scroll = prepareComponentScrollState(presentation.scroll, 'textArea scroll');
-  const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'textArea scrollbar');
-  const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'textArea scrollPolicy');
+  const decorations = createTextAreaModelDecorations(value.decorations, document);
+  const scroll = decodeComponentScrollState(state.scroll, 'textArea scroll');
+  const scrollbar = decodeComponentScrollbarOptions(value.scrollbar, 'textArea scrollbar');
+  const scrollPolicy = decodeComponentScrollPolicy(value.scrollPolicy, 'textArea scrollPolicy');
   if (scroll === undefined && (scrollbar !== undefined || scrollPolicy !== undefined)) {
     throw new TypeError('textArea scrollbar and scrollPolicy require scroll state.');
   }
-  const lineNumbers = prepareLineNumbers(value.lineNumbers);
+  const lineNumbers = decodeLineNumbers(value.lineNumbers);
   const highlightActiveLine = booleanOption(
     value.highlightActiveLine,
     'textArea highlightActiveLine',
   );
-  const wrap = prepareWrap(value.wrap);
+  const wrap = decodeWrap(value.wrap);
   const required = booleanOption(value.required, 'textArea required');
-  const revealCaret = booleanOption(presentation.revealCaret, 'textArea revealCaret');
+  const revealCaret = booleanOption(state.revealCaret, 'textArea revealCaret');
   return {
     document,
     caret: normalizedCaret,
@@ -448,9 +448,9 @@ export function createTextAreaRowOffsetMap(
   const terminalRows = layoutDimension(options.terminalRows, 'terminalRows');
   const widthProfile = options.widthProfile ?? defaultTextWidthProfile;
   const theme = options.theme ?? defaultTheme;
-  const lineNumbers = prepareLineNumbers(options.lineNumbers);
-  const wrap = prepareWrap(options.wrap);
-  const decorations = prepareTextAreaDecorations(options.decorations, options.document);
+  const lineNumbers = decodeLineNumbers(options.lineNumbers);
+  const wrap = decodeWrap(options.wrap);
+  const decorations = createTextAreaModelDecorations(options.decorations, options.document);
   const projection = createTextAreaProjection(options.document, decorations, widthProfile);
   const lineCount = textDocumentLineCount(projection.document);
   const prefixWidth = textAreaPrefixWidth(
@@ -461,11 +461,11 @@ export function createTextAreaRowOffsetMap(
   );
   let contentWidth = Math.max(0, terminalWidth - prefixWidth);
   let layout = layoutTextAreaDocument(projection.document, contentWidth, wrap, widthProfile);
-  const scrollbarOptions = prepareComponentScrollbarOptions(
+  const scrollbarOptions = decodeComponentScrollbarOptions(
     options.scrollbar,
     'textArea row-offset map scrollbar'
   );
-  const plan = prepareComponentScrollbar({
+  const plan = layoutComponentScrollbar({
     bounds: {
       row: 0,
       column: prefixWidth,
@@ -515,7 +515,7 @@ interface TextAreaGeometry {
   readonly lineCount: number;
   readonly prefixWidth: number;
   readonly layout: TextAreaDocumentLayout;
-  readonly scrollbar: ReturnType<typeof prepareComponentScrollbar>;
+  readonly scrollbar: ReturnType<typeof layoutComponentScrollbar>;
 }
 
 function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometry {
@@ -624,7 +624,7 @@ function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStyleP
     plan: geometry.scrollbar,
     theme: input.theme,
     style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
-    source: (sourceInput) => input.source(sourceInput),
+    frameSource: (sourceInput) => input.frameSource(sourceInput),
   });
   paintTextAreaError(input);
 }
@@ -644,7 +644,7 @@ function paintTextAreaPlane(
   for (let row = 0; row < bounds.height; row += 1) {
     input.target.write(bounds.row + row, bounds.column, [span(' '.repeat(bounds.width), {
       ...(style === undefined ? {} : { style }),
-      source: input.source({
+      source: input.frameSource({
         cellRole: 'decoration',
         partName,
         partType: 'background',
@@ -665,7 +665,7 @@ function paintTextAreaError(
   });
   input.target.write(row, input.bounds.column, [span(input.model.error, {
     ...(style === undefined ? {} : { style }),
-    source: input.source({
+    source: input.frameSource({
       cellRole: 'text',
       partName: 'error',
       partType: 'error',
@@ -708,13 +708,13 @@ function pointerOffset(input: ComponentInput<TextAreaModel>, row: number, column
   ));
 }
 
-function textAreaDragScrollEvent(
+function textAreaDragScrollRequest(
   input: ComponentInput<TextAreaModel>,
   geometry: TextAreaGeometry,
-  action: import('../../interaction/text-pointer.ts').TextPointerAction,
+  transition: import('../../interaction/text-pointer.ts').TextPointerTransition,
   event: import('../../input/pointer.ts').RoutedPointerEvent,
-): import('../../interaction/scroll.ts').ScrollEvent | undefined {
-  if (input.model.scroll === undefined || action.kind !== 'extendSelection') return undefined;
+): import('../../interaction/scroll.ts').ScrollRequest | undefined {
+  if (input.model.scroll === undefined || transition.kind !== 'extendSelection') return undefined;
   const localRow = event.localRow ?? event.row - geometry.scrollbar.contentBounds.row + 1;
   const rows = localRow < 1
     ? -1
@@ -750,7 +750,7 @@ function textAreaWordSelectionAt(
   };
 }
 
-function prepareTextPosition(value: TextCaret['position'], owner: string): TextCaret['position'] {
+function decodeTextPosition(value: TextCaret['position'], owner: string): TextCaret['position'] {
   if (!isNonArrayObject(value)) {
     throw new TypeError(`${owner} must contain offset and affinity.`);
   }
@@ -765,15 +765,15 @@ function prepareTextPosition(value: TextCaret['position'], owner: string): TextC
   return { offset, affinity };
 }
 
-function prepareTextAreaDecorations(
+function createTextAreaModelDecorations(
   value: readonly TextAreaDecoration[] | undefined,
   document: TextDocument,
-): readonly PreparedTextAreaDecoration[] {
+): readonly TextAreaDecorationModel[] {
   if (value === undefined) return Object.freeze([]);
   if (!Array.isArray(value)) throw new TypeError('textArea decorations must be an array.');
   if (value.length === 0) return Object.freeze([]);
   const boundaryIndex = textAreaDecorationBoundaryIndex(document);
-  const prepared = value.map((candidate, index): PreparedTextAreaDecoration => {
+  const decorationModels = value.map((candidate, index): TextAreaDecorationModel => {
     if (!isNonArrayObject(candidate)) {
       throw new TypeError(`textArea decorations[${String(index)}] is invalid.`);
     }
@@ -812,7 +812,7 @@ function prepareTextAreaDecorations(
       `decoration.${String(index)}`;
     const style = candidate['style'] === undefined
       ? undefined
-      : prepareTerminalStyle(candidate['style'], `textArea decorations[${String(index)}].style`);
+      : decodeTerminalStyle(candidate['style'], `textArea decorations[${String(index)}].style`);
     const base = { startOffset, endOffsetExclusive, order: index, label };
     switch (kind) {
       case 'style':
@@ -841,7 +841,7 @@ function prepareTextAreaDecorations(
         return Object.freeze({ ...base, kind });
     }
   });
-  const replacements = prepared
+  const replacements = decorationModels
     .filter((decoration) => decoration.kind === 'replace')
     .toSorted((left, right) => left.startOffset - right.startOffset || left.endOffsetExclusive - right.endOffsetExclusive);
   let previousEnd = 0;
@@ -853,7 +853,7 @@ function prepareTextAreaDecorations(
     }
     previousEnd = Math.max(previousEnd, replacement.endOffsetExclusive);
   }
-  for (const decoration of prepared) {
+  for (const decoration of decorationModels) {
     if (decoration.kind !== 'style') continue;
     if (
       replacementContainingInteriorOffset(replacements, decoration.startOffset) !== undefined
@@ -862,25 +862,25 @@ function prepareTextAreaDecorations(
       throw new RangeError('textArea style decorations must not partially overlap replacement decorations.');
     }
   }
-  const conceals = mergeTextAreaConcealments(prepared.filter((decoration) => decoration.kind === 'conceal'));
+  const conceals = mergeTextAreaConcealments(decorationModels.filter((decoration) => decoration.kind === 'conceal'));
   for (const conceal of conceals) {
     if (replacements.some((replacement) => rangesOverlap(conceal, replacement))) {
       throw new RangeError('textArea conceal and replacement decorations must not overlap.');
     }
   }
   return Object.freeze([
-    ...prepared.filter((decoration) => decoration.kind !== 'conceal'),
+    ...decorationModels.filter((decoration) => decoration.kind !== 'conceal'),
     ...conceals,
   ]);
 }
 
 function mergeTextAreaConcealments(
-  decorations: readonly PreparedTextAreaDecoration[],
-): readonly PreparedTextAreaDecoration[] {
+  decorations: readonly TextAreaDecorationModel[],
+): readonly TextAreaDecorationModel[] {
   const ordered = decorations.toSorted((left, right) => (
     left.startOffset - right.startOffset || left.endOffsetExclusive - right.endOffsetExclusive
   ));
-  const merged: PreparedTextAreaDecoration[] = [];
+  const merged: TextAreaDecorationModel[] = [];
   for (const decoration of ordered) {
     const previous = merged.at(-1);
     if (previous === undefined || decoration.startOffset > previous.endOffsetExclusive) {
@@ -899,17 +899,17 @@ function mergeTextAreaConcealments(
 }
 
 function rangesOverlap(
-  left: Pick<PreparedTextAreaDecoration, 'startOffset' | 'endOffsetExclusive'>,
-  right: Pick<PreparedTextAreaDecoration, 'startOffset' | 'endOffsetExclusive'>,
+  left: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'>,
+  right: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'>,
 ): boolean {
   return left.startOffset < right.endOffsetExclusive
     && right.startOffset < left.endOffsetExclusive;
 }
 
 function replacementContainingInteriorOffset(
-  replacements: readonly PreparedTextAreaDecoration[],
+  replacements: readonly TextAreaDecorationModel[],
   offset: number,
-): PreparedTextAreaDecoration | undefined {
+): TextAreaDecorationModel | undefined {
   let low = 0;
   let high = replacements.length;
   while (low < high) {
@@ -937,7 +937,7 @@ function textAreaDecorationBoundaryIndex(document: TextDocument): TerminalTextIn
   return created;
 }
 
-function prepareLineNumbers(
+function decodeLineNumbers(
   value: boolean | TextAreaLineNumberOptions | undefined,
 ): { readonly startNumber: number; readonly minWidth: number } | undefined {
   if (value === undefined || value === false) return undefined;
@@ -956,7 +956,7 @@ function prepareLineNumbers(
   return Object.freeze({ startNumber, minWidth });
 }
 
-function prepareWrap(value: boolean | TextAreaWrapOptions | undefined): boolean {
+function decodeWrap(value: boolean | TextAreaWrapOptions | undefined): boolean {
   if (value === undefined || value === false) return false;
   if (value === true) return true;
   if (
@@ -974,7 +974,7 @@ function textAreaDisplayDocument(model: TextAreaModel, widthProfile: TextWidthPr
   readonly usesPlaceholder: boolean;
 } {
   const usesPlaceholder = textDocumentLength(model.document) === 0 && model.placeholder !== '';
-  const source = usesPlaceholder ? prepareTextDocument(model.placeholder) : model.document;
+  const source = usesPlaceholder ? createTextDocument(model.placeholder) : model.document;
   const projection = createTextAreaProjection(
     source,
     usesPlaceholder ? [] : model.decorations,
@@ -1006,7 +1006,7 @@ function textAreaScrollbar(
   prefixWidth: number,
 ) {
   const raw = input.model.scroll;
-  return prepareComponentScrollbar({
+  return layoutComponentScrollbar({
     bounds: {
       row: input.bounds.row,
       column: input.bounds.column + prefixWidth,
@@ -1085,7 +1085,7 @@ function textAreaPrefixSpans(
   if (input.model.lineNumbers === undefined) {
     return [span(`${marker} `, {
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
-      source: input.source({
+      source: input.frameSource({
         cellRole: 'decoration',
         partName: active ? 'activeLine' : 'gutter',
         partType: active ? 'activeLine' : 'gutter',
@@ -1118,7 +1118,7 @@ function textAreaPrefixSpans(
   return [
     span(marker, {
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
-      source: input.source({
+      source: input.frameSource({
         cellRole: 'decoration',
         partName: active ? 'activeLine' : 'gutter',
         partType: 'marker',
@@ -1127,7 +1127,7 @@ function textAreaPrefixSpans(
     }),
     span(lineNumber, {
       ...(lineNumberStyle === undefined ? {} : { style: lineNumberStyle }),
-      source: input.source({
+      source: input.frameSource({
         cellRole: 'decoration',
         partName: 'lineNumber',
         partType: 'lineNumber',
@@ -1136,7 +1136,7 @@ function textAreaPrefixSpans(
     }),
     span(` ${input.theme.tokens.symbols.borderSingle.vertical} `, {
       ...(markerStyle === undefined ? {} : { style: markerStyle }),
-      source: input.source({
+      source: input.frameSource({
         cellRole: 'decoration',
         partName: active ? 'activeLine' : 'gutter',
         partType: 'gutter',
@@ -1252,7 +1252,7 @@ function textAreaValueSpans(
       (placeholder ? 'placeholder' : active ? 'activeLine.value' : 'value');
     return [span(text, {
       ...(style === undefined ? {} : { style }),
-      source: input.source({
+      source: input.frameSource({
         cellRole: 'text',
         partName: part,
         partType: selected ? 'selection' : decoration === undefined ? part : 'decoration',
@@ -1412,7 +1412,7 @@ function logicalLineLayouts(
       continue;
     }
     const line = textDocumentLineAt(document, lineIndex);
-    if (line !== undefined) result[lineIndex] = prepareLogicalLineLayout(line.text, width, wrap, widthProfile);
+    if (line !== undefined) result[lineIndex] = layoutLogicalLine(line.text, width, wrap, widthProfile);
   }
   const owned = Object.freeze(result.filter((line): line is TextAreaLogicalLineLayout => line !== undefined));
   const byKey = textAreaLogicalLayouts.get(document) ?? new Map<string, readonly TextAreaLogicalLineLayout[]>();
@@ -1426,7 +1426,7 @@ function logicalLineLayouts(
   return owned;
 }
 
-function prepareLogicalLineLayout(
+function layoutLogicalLine(
   text: string,
   width: number,
   wrap: boolean,

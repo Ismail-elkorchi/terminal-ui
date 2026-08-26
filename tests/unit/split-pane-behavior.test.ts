@@ -3,16 +3,16 @@ import test from 'node:test';
 
 import {
   createSplitPaneState,
-  splitPanePresentation,
+  splitPaneLayout,
   splitPaneReducer
 } from '../../dist/behavior/index.js';
 import type { SplitPaneState } from '../../dist/behavior/index.js';
 import { text } from '../../dist/components/index.js';
 import { splitPane } from '../../dist/layout/index.js';
-import type { SplitPaneAction } from '../../dist/layout/index.js';
+import type { SplitPaneTransition } from '../../dist/layout/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
-import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { renderElementRegions } from '../../dist/renderer/internal/render-element.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
 
@@ -28,7 +28,7 @@ void test('split pane reducer preserves adjacent share totals and enforces const
 
   assert.deepEqual(moved.shares, [0.4, 0.35, 0.25]);
   assert.equal(moved.shares.reduce((sum, value) => sum + value, 0), 1);
-  assert.deepEqual(splitPanePresentation(moved).sizes, [
+  assert.deepEqual(splitPaneLayout(moved).sizes, [
     { kind: 'percent', value: 40 },
     { kind: 'percent', value: 35 },
     { kind: 'percent', value: 25 }
@@ -58,7 +58,7 @@ void test('split pane drag uses its immutable press anchor', () => {
 void test('resizable split pane routes keyboard and captured pointer drag actions', async () => {
   const app = defineTui<
     { readonly split: SplitPaneState },
-    { readonly action: SplitPaneAction }
+    { readonly action: SplitPaneTransition }
   >({
     id: 'resizable-split-pane',
     init: () => ({ state: ({ split: createSplitPaneState(2, [0.5, 0.5]) }) }),
@@ -71,8 +71,8 @@ void test('resizable split pane routes keyboard and captured pointer drag action
     ], {
       id: 'workspace-split',
       direction: 'horizontal',
-      ...splitPanePresentation(state.split),
-      onAction: (action) => ({ action })
+      ...splitPaneLayout(state.split),
+      onTransition: (action) => ({ action })
     })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
@@ -108,7 +108,7 @@ void test('vertical split pane divider exposes complete pointer lifecycle action
     id: 'vertical-split',
     direction: 'vertical',
     sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 12, rows: 9 });
   const divider = regions.flatMap((region) => region.hitTargets).find((target) => target.id === 'divider.0');
   assert.ok(divider);
@@ -149,7 +149,7 @@ void test('passive split pane dividers remain structural instead of active', () 
     id: 'interactive-split',
     direction: 'horizontal',
     sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
-    onAction: (action) => action
+    onTransition: (action) => action
   }), { columns: 12, rows: 2 });
   const passiveDivider = passive.cells.find((cell) => cell.source?.elementId === 'passive-split');
   const activeDivider = interactive.cells.find((cell) => cell.source?.elementId === 'interactive-split');
@@ -166,7 +166,7 @@ void test('resizable split pane rejects geometry that cannot expose dividers', (
       id: 'invalid-one-pane',
       direction: 'horizontal',
       sizes: [{ kind: 'percent', value: 100 }],
-      onAction: () => ({ kind: 'none' })
+      onTransition: () => ({ kind: 'none' })
     }),
     /requires at least two children/u
   );
@@ -176,7 +176,7 @@ void test('resizable split pane rejects geometry that cannot expose dividers', (
       direction: 'horizontal',
       sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
       gap: 0,
-      onAction: () => ({ kind: 'none' })
+      onTransition: () => ({ kind: 'none' })
     }),
     /gap of at least one cell/u
   );

@@ -23,7 +23,7 @@ import {
 import {
   inlineContentAccessibleText,
   normalizeInlineContent,
-  normalizeTerminalLink
+  decodeTerminalLink
 } from '../../dist/visual/index.js';
 
 const symbol = {
@@ -53,7 +53,7 @@ test('inline content normalization sanitizes caller-supplied data and validates 
     href: 'https://example.test/',
     id: 'docs'
   });
-  assert.equal(normalizeTerminalLink(normalized[0].link), normalized[0].link);
+  assert.equal(decodeTerminalLink(normalized[0].link), normalized[0].link);
   style.fg.r = 99;
   assert.deepEqual(normalized[0]?.style?.fg, { kind: 'rgb', r: 1, g: 2, b: 3 });
   assert.equal(inlineContentAccessibleText(normalized), 'safestatus');
@@ -129,7 +129,7 @@ test('inline content adoption reads each consumed segment field once', () => {
   });
 });
 
-test('rich text projects symbol mode and accessible text while the renderer produces source metadata', () => {
+test('rich text derives symbol mode and accessible text while the renderer produces source metadata', () => {
   const element = richText({
     id: 'inline',
     segments: [
@@ -164,7 +164,7 @@ test('inline adornments use component part styles and source anatomy', () => {
     renderElementFrame(button({
       id: 'save',
       label: 'Save',
-      onAction: () => ignoreMessage(),
+      onPress: () => ignoreMessage(),
       leading: [symbol],
       trailing: [{ kind: 'text', text: 'S' }],
       styles: { parts: { leading: leadingStyle, trailing: trailingStyle } },
@@ -172,7 +172,7 @@ test('inline adornments use component part styles and source anatomy', () => {
     }), { columns: 20, rows: 1 }),
     renderElementFrame(menu({
       id: 'actions',
-      presentation: {
+      view: {
         activePath: ['open'],
         items: [{ kind: 'action', id: 'open', label: 'Open', leading: [symbol], trailing: [{ kind: 'text', text: 'O' }] }]
       },
@@ -185,7 +185,7 @@ test('inline adornments use component part styles and source anatomy', () => {
     }), { columns: 24, rows: 1 }),
     renderElementFrame(tabs({
       id: 'views',
-      presentation: { activeId: 'main', selectedId: 'main' },
+      state: { activeId: 'main', selectedId: 'main' },
       tabs: [{ id: 'main', label: 'Main', leading: [symbol], panel: text({ content: 'Panel' }) }],
       onTransition: (action) => action,
       styles: {
@@ -222,7 +222,7 @@ test('dataGrid inline cell content preserves caller style while replacing inject
     id: 'results',
     rows: [{ id: 'one', state: 'ready' }],
     getRowId: (row) => row.id,
-    presentation: { interaction: { kind: 'row', selection: { mode: 'single' } } },
+    state: { interaction: { kind: 'row', selection: { mode: 'single' } } },
     onTransition: (action) => action,
     columns: [tableColumn({
       id: 'state',

@@ -1,13 +1,13 @@
-import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
-import type { RenderNode } from '../../renderer/model/index.ts';
+import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/internal/render-tree/element.ts';
+import type { RenderNode } from '../../renderer/internal/render-tree/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { ViewportOptions } from '../options.ts';
-import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
+import { renderNodeInteraction as interactionProps } from '../../renderer/internal/render-tree/metadata.ts';
 import {
   optionalRenderNodeId,
   requiredRenderNodeId
-} from '../../renderer/model/element.ts';
-import { renderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
+} from '../../renderer/internal/render-tree/element.ts';
+import { renderNodeLayoutProps } from '../../renderer/internal/render-tree/props/shared-layout.ts';
 
 export function viewport<const TChild extends Element<unknown>, const TMessage = never>(
   child: TChild,

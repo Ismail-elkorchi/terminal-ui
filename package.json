@@ -37,6 +37,10 @@
       "types": "./dist/interaction/index.d.ts",
       "default": "./dist/interaction/index.js"
     },
+    "./collection": {
+      "types": "./dist/collection/index.d.ts",
+      "default": "./dist/collection/index.js"
+    },
     "./protocol": {
       "types": "./dist/protocol/index.d.ts",
       "default": "./dist/protocol/index.js"

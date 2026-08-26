@@ -52,7 +52,7 @@ export interface GraphicsBudget {
   admitLiveResources(count: number): void;
 }
 
-export function normalizeGraphicsBudgetLimits(value?: unknown): GraphicsBudgetLimits {
+export function resolveGraphicsBudgetLimits(value?: unknown): GraphicsBudgetLimits {
   if (value === undefined) return defaultGraphicsBudgetLimits;
   if (typeof value === 'object' && value !== null && canonicalGraphicsBudgetLimits.has(value)) {
     return value as GraphicsBudgetLimits;
@@ -70,7 +70,7 @@ export function normalizeGraphicsBudgetLimits(value?: unknown): GraphicsBudgetLi
 }
 
 export function createGraphicsBudget(value?: unknown): GraphicsBudget {
-  const limits = normalizeGraphicsBudgetLimits(value);
+  const limits = resolveGraphicsBudgetLimits(value);
   let placements = 0;
   let commitBytes = 0;
   return Object.freeze({

@@ -12,8 +12,8 @@ import {
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { row } from '../../dist/layout/index.js';
 import { layoutElement, renderElementFrame } from '../../dist/renderer/index.js';
-import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
-import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { createCommandSuggestions } from '../../dist/behavior/index.js';
+import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 const noModifiers = Object.freeze({ ctrl: false, alt: false, shift: false, meta: false });
@@ -22,54 +22,54 @@ test('editable components share one read-only mutation policy', async () => {
   const cases = [
     {
       name: 'textInput',
-      element: (onAction) => textInput({ meta: { accessibleName: "Text input" },
+      element: (onTransition) => textInput({ meta: { accessibleName: "Text input" },
         id: 'control',
-        presentation: { value: 'abc', cursor: 1 },
+        state: { value: 'abc', cursor: 1 },
         readOnly: true,
-        onAction
+        onTransition
       }),
       mutationKeys: ['backspace', 'delete', 'enter']
     },
     {
       name: 'passwordInput',
-      element: (onAction) => passwordInput({ meta: { accessibleName: "Password input" },
+      element: (onTransition) => passwordInput({ meta: { accessibleName: "Password input" },
         id: 'control',
-        presentation: { value: 'abc', cursor: 1 },
+        state: { value: 'abc', cursor: 1 },
         readOnly: true,
-        onAction
+        onTransition
       }),
       mutationKeys: ['backspace', 'delete', 'enter']
     },
     {
       name: 'numberInput',
-      element: (onAction) => numberInput({ meta: { accessibleName: "Number input" },
+      element: (onTransition) => numberInput({ meta: { accessibleName: "Number input" },
         id: 'control',
-        presentation: { value: '12', cursor: 1, validity: 'valid', parsedValue: 12 },
+        view: { value: '12', cursor: 1, validity: 'valid', parsedValue: 12 },
         readOnly: true,
-        onAction
+        onTransition
       }),
       mutationKeys: ['backspace', 'delete', 'arrowUp', 'arrowDown', 'enter']
     },
     {
       name: 'textArea',
-      element: (onAction) => textArea({ meta: { accessibleName: "Text area" },
+      element: (onTransition) => textArea({ meta: { accessibleName: "Text area" },
         id: 'control',
-        presentation: {
-          document: prepareTextDocument('abc'),
+        state: {
+          document: createTextDocument('abc'),
           caret: textCaretAt(1)
         },
         readOnly: true,
-        onAction
+        onTransition
       }),
       mutationKeys: ['backspace', 'delete', 'enter']
     },
     {
       name: 'commandInput',
-      element: (onAction) => commandInput({ meta: { accessibleName: "Command input" },
+      element: (onTransition) => commandInput({ meta: { accessibleName: "Command input" },
         id: 'control',
-        presentation: { input: { text: 'abc', cursor: 1 }, open: false, suggestions: prepareCommandSuggestions([]) },
+        view: { input: { text: 'abc', cursor: 1 }, open: false, suggestions: createCommandSuggestions([]) },
         readOnly: true,
-        onTransition: onAction
+        onTransition: onTransition
       }),
       mutationKeys: ['backspace', 'delete', 'arrowUp', 'arrowDown', 'enter']
     }
@@ -81,15 +81,15 @@ test('editable components share one read-only mutation policy', async () => {
 });
 
 test('read-only command input cannot accept a completion', async () => {
-  const runtime = runtimeFor((onAction) => commandInput({ meta: { accessibleName: "Command input" },
+  const runtime = runtimeFor((onTransition) => commandInput({ meta: { accessibleName: "Command input" },
     id: 'control',
-    presentation: {
+    view: {
       input: { text: 'a', cursor: 1 },
       open: true,
-      suggestions: prepareCommandSuggestions([{ id: 'alpha', completion: { range: { startOffset: 0, endOffsetExclusive: 1 }, text: 'alpha' }, label: 'alpha' }])
+      suggestions: createCommandSuggestions([{ id: 'alpha', completion: { range: { startOffset: 0, endOffsetExclusive: 1 }, text: 'alpha' }, label: 'alpha' }])
     },
     readOnly: true,
-    onTransition: onAction
+    onTransition: onTransition
   }));
 
   await runtime.start();
@@ -101,7 +101,7 @@ test('read-only command input cannot accept a completion', async () => {
 test('read-only number input preserves selection and omits stepper geometry', () => {
   const control = numberInput({ meta: { accessibleName: "Number input" },
     id: 'read-only-number',
-    presentation: {
+    view: {
       value: '12',
       cursor: 1,
       selection: { startOffset: 0, endOffsetExclusive: 1 },
@@ -110,7 +110,7 @@ test('read-only number input preserves selection and omits stepper geometry', ()
       committedValue: 12
     },
     readOnly: true,
-    onAction: () => ({ kind: 'unused' })
+    onTransition: () => ({ kind: 'unused' })
   });
   const frame = renderElementFrame(control, { columns: 12, rows: 1 }, {
     focusPath: ['read-only-number']

@@ -40,7 +40,7 @@ export function decodeInputChunk(
   chunk: TerminalInputChunk,
   options: InputDecodeOptions = {}
 ): readonly InputEvent[] {
-  const normalized = normalizeDecodeOptions(options);
+  const normalized = resolveDecodeOptions(options);
   const limits = normalized.limits;
   assertHostChunkWithinLimit(chunk, limits);
   const text = decodeUtf8Chunk(chunk);
@@ -49,7 +49,7 @@ export function decodeInputChunk(
 }
 
 export function createInputDecoder(options: InputDecodeOptions = {}): InputDecoder {
-  return createInputDecoderFromNormalizedOptions(normalizeDecodeOptions(options));
+  return createInputDecoderFromNormalizedOptions(resolveDecodeOptions(options));
 }
 
 /** Internal trusted path for pipeline profiles that already own canonical options. */
@@ -366,7 +366,7 @@ function controlPrefixLength(original: string, normalizedLength: number): number
   return first === 0x9b || first === 0x8f ? normalizedLength - 1 : normalizedLength;
 }
 
-export function normalizeInputDecodeLimits(value: unknown): InputDecodeLimits {
+export function resolveInputDecodeLimits(value: unknown): InputDecodeLimits {
   const limits = optionalRecord(value, 'Input decode limits');
   return Object.freeze({
     maxHostChunkBytes: positiveInteger(
@@ -407,7 +407,7 @@ export function normalizeInputDecodeLimits(value: unknown): InputDecodeLimits {
   });
 }
 
-function normalizeDecodeOptions(value: unknown): NormalizedInputDecodeOptions {
+function resolveDecodeOptions(value: unknown): NormalizedInputDecodeOptions {
   const options = record(value, 'Input decode options');
   const bracketedPaste = options['bracketedPaste'];
   if (bracketedPaste !== undefined && typeof bracketedPaste !== 'boolean') {
@@ -427,7 +427,7 @@ function normalizeDecodeOptions(value: unknown): NormalizedInputDecodeOptions {
   ) {
     throw new TypeError('Input decode option mouseReporting is unsupported.');
   }
-  const limits = normalizeInputDecodeLimits(options['limits']);
+  const limits = resolveInputDecodeLimits(options['limits']);
   const keyboard = options['keyboard'] === undefined
     ? undefined
     : decodeKeyboardProfile(options['keyboard']);

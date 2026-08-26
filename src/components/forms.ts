@@ -10,7 +10,7 @@ export {
   rangeSlider,
   slider,
   textInput,
-} from './factories/control-components.ts';
+} from './factories/input-controls.ts';
 export {
   createTextAreaRowOffsetMap,
   textArea,
@@ -26,40 +26,46 @@ export type {
   TextAreaStyleDecoration,
   TextAreaOptions,
   UnscrolledTextAreaOptions,
-} from './options/content.ts';
+} from './options/content-and-collections.ts';
 export type {
-  AnyComboboxPresentation,
   AutocompleteComboboxControlTransition,
-  AutocompleteComboboxPresentation,
   AutocompleteComboboxState,
+  AutocompleteComboboxView,
   AutocompleteComboboxTransition,
   ComboboxCommitEvent,
   ComboboxControlTransition,
-  ComboboxPresentation,
-  ScrollableComboboxPresentation,
+  ComboboxState,
+  ScrollableComboboxState,
   ComboboxTransition,
-  UnscrolledComboboxPresentation,
-} from '../ui-model/combobox.ts';
+  UnscrolledComboboxState,
+} from '../behavior/combobox.ts';
 export type {
-  CalendarAction,
+  CalendarTransition,
   CalendarDate,
   CalendarDay,
   CalendarMonth,
-} from '../ui-model/calendar.ts';
+} from '../behavior/calendar.ts';
 export type {
-  CheckboxGroupAction,
-  ColorSwatchPickerAction,
-  RadioGroupAction,
-} from '../ui-model/choice-controls.ts';
-export type { NumberInputAction, NumberInputControlAction, NumberInputValidity } from '../ui-model/number-input.ts';
-export type { RangeSliderAction, RangeSliderHandle, RangeSliderState } from '../ui-model/range-slider.ts';
-export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
+  CheckboxGroupTransition,
+  ColorSwatchPickerTransition,
+  RadioGroupTransition,
+} from '../behavior/choice-controls.ts';
+export type { NumberInputTransition, NumberInputControlTransition, NumberInputValidity } from '../behavior/number-input.ts';
 export type {
-  TextAreaAction,
-  TextAreaControlAction,
-  TextAreaPresentation,
-  ScrollableTextAreaPresentation,
-  UnscrolledTextAreaPresentation,
-} from '../ui-model/text-area.ts';
-export type { PointerSelectionAction, TextPointerAction } from '../interaction/text-pointer.ts';
-export { isValidationLevel } from '../ui-model/status.ts';
+  NumericRange,
+  RangeSliderHandle,
+  RangeSliderState,
+  RangeSliderStepDirection,
+  RangeSliderTransition,
+  RangeSliderValue,
+} from '../behavior/range-slider.ts';
+export type { TextInputTransition, TextInputState } from '../behavior/text-input.ts';
+export type {
+  TextAreaTransition,
+  TextAreaControlTransition,
+  TextAreaControlState,
+  ScrollableTextAreaControlState,
+  UnscrolledTextAreaControlState,
+} from '../behavior/text-area.ts';
+export type { PointerSelectionTransition, TextPointerTransition } from '../interaction/text-pointer.ts';
+export { isValidationLevel } from './status.ts';

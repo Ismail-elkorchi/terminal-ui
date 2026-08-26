@@ -10,6 +10,10 @@ export function intersectRects(left: Rect, right: Rect): Rect | undefined {
   return width === 0 || height === 0 ? undefined : { row, column, width, height };
 }
 
+export function emptyRect(bounds: Rect): Rect {
+  return { row: bounds.row, column: bounds.column, width: 0, height: 0 };
+}
+
 export function cellInsideRect(
   position: { readonly row: number; readonly column: number },
   rect: Rect

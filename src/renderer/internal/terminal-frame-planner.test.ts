@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { defaultTerminalOutputCapabilities } from '../../protocol/index.ts';
-import { span } from '../../visual/render.ts';
-import { applyRenderDiff, renderDiffProjectionMatchesFrame } from './diff-interpreter.ts';
-import { createFrameBuffer } from './frame-buffer.ts';
-import { diffFrames } from './frame.ts';
+import { span } from '../../visual/render-content.ts';
+import { applyRenderDiff, replayedFrameMatches } from './diff-interpreter.ts';
+import { createFrameBuffer } from '../frame-buffer.ts';
+import { diffFrames } from '../frame.ts';
 import {
   applyTerminalRowMovement,
   planTerminalFrameOutput
@@ -48,7 +48,7 @@ void test('row movement plus its canonical repair reproduces each deterministic 
     const previousLines = Array.from({ length: 12 }, (_value, index) => `row-${String(index)}`);
     const movement = { top: 2, bottom: 11, rows } as const;
     const previous = rowsFrame(previousLines);
-    const projected = applyTerminalRowMovement(previous, movement);
+    const shifted = applyTerminalRowMovement(previous, movement);
     const nextLines = previousLines.map((value, index) => {
       const row = index + 1;
       if (row < movement.top || row > movement.bottom) return value;
@@ -58,8 +58,8 @@ void test('row movement plus its canonical repair reproduces each deterministic 
         : previousLines[source - 1] ?? '';
     });
     const next = rowsFrame(nextLines);
-    const repaired = applyRenderDiff(projected, diffFrames(projected, next));
-    assert.equal(renderDiffProjectionMatchesFrame(repaired, next), true, `rows=${String(rows)}`);
+    const repaired = applyRenderDiff(shifted, diffFrames(shifted, next));
+    assert.equal(replayedFrameMatches(repaired, next), true, `rows=${String(rows)}`);
   }
 });
 

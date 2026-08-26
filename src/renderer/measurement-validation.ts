@@ -3,7 +3,7 @@ import type { Measurement } from './contracts.ts';
 
 const adoptedMeasurements = new WeakMap<object, Measurement>();
 
-export function adoptMeasurement(
+export function decodeMeasurement(
   value: unknown,
   owner: string
 ): Measurement {

@@ -8,10 +8,10 @@ import type { Element, ElementMessage } from '../../element/index.ts';
 import { assertOptionalEnum, assertRequiredCallback } from '../../foundation/validation.ts';
 import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
-import type { LinkActivateEvent } from '../../ui-model/foundations.ts';
+import type { LinkActivateEvent } from '../foundation-controls.ts';
 import type { ElementKeyEvent } from '../../element/metadata.ts';
 import type { RoutedPointerEvent } from '../../input/index.ts';
-import type { LinkStylePart } from '../../ui-model/style-parts.ts';
+import type { LinkStylePart } from '../style-parts.ts';
 import type { LinkOptions, ToggleButtonOptions, ToolbarOptions } from '../options/foundations.ts';
 import { instantiateToggleButton } from './forms.ts';
 
@@ -68,7 +68,7 @@ const instantiateLink = defineComponent<
     input.target.write(0, 0, [span(input.model.label, {
       ...(style === undefined ? {} : { style }),
       link: { href: input.model.href },
-      source: input.source({ partName: 'label', partType: 'link', cellRole: 'text' }),
+      source: input.frameSource({ partName: 'label', partType: 'link', cellRole: 'text' }),
     })]);
   },
   keys: ({ model, busy }) => busy ? {} : {

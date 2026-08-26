@@ -3,7 +3,7 @@ export {
   createGraphicsBudget,
   defaultGraphicsBudgetLimits,
   GraphicsBudgetExceededError,
-  normalizeGraphicsBudgetLimits,
+  resolveGraphicsBudgetLimits,
 } from './budget.ts';
 export { decodeTerminalGraphicsMode } from './mode.ts';
 export type { RasterImage, RasterImageDescriptor, RasterImageInput, RasterPixelFormat } from './raster-image.ts';

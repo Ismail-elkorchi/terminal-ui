@@ -21,7 +21,7 @@ export interface KeyboardState {
   readonly pressed: readonly PressedKey[];
 }
 
-export type KeyboardStateAction =
+export type KeyboardStateTransition =
   | { readonly kind: 'key'; readonly event: KeyEvent }
   | { readonly kind: 'focus'; readonly event: FocusEvent };
 
@@ -29,16 +29,16 @@ export function createKeyboardState(): KeyboardState {
   return { pressed: [] };
 }
 
-export function reduceKeyboardState(state: KeyboardState, action: KeyboardStateAction): KeyboardState {
-  if (action.kind === 'focus') return action.event.focused ? state : createKeyboardState();
-  const identity = pressedKeyIdentity(action.event);
+export function reduceKeyboardState(state: KeyboardState, transition: KeyboardStateTransition): KeyboardState {
+  if (transition.kind === 'focus') return transition.event.focused ? state : createKeyboardState();
+  const identity = pressedKeyIdentity(transition.event);
   const index = state.pressed.findIndex((candidate) => sameIdentity(candidate.identity, identity));
-  if (action.event.eventType === 'release') {
+  if (transition.event.eventType === 'release') {
     return index < 0
       ? state
       : { pressed: state.pressed.filter((_, candidateIndex) => candidateIndex !== index) };
   }
-  const pressed = { identity, modifiers: action.event.modifiers } satisfies PressedKey;
+  const pressed = { identity, modifiers: transition.event.modifiers } satisfies PressedKey;
   if (index < 0) return { pressed: [...state.pressed, pressed] };
   return {
     pressed: state.pressed.map((candidate, candidateIndex) => candidateIndex === index ? pressed : candidate)

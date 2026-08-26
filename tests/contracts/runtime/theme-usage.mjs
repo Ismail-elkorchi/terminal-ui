@@ -6,7 +6,7 @@ import { defaultTheme, resolveThemeColor } from '@ismail-elkorchi/terminal-ui/th
 const action = { kind: 'save' };
 const element = surface(column([
   text({ content: 'Ready' }),
-  button({ id: 'save', label: 'Save', onAction: () => action })
+  button({ id: 'save', label: 'Save', onPress: () => action })
 ]), { id: 'surface', appearance: 'raised' });
 const state = scrollReducer(createScrollState({ contentRows: 10, viewportRows: 3 }), {
   kind: 'scrollLines',

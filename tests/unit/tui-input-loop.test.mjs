@@ -64,12 +64,12 @@ test('the interactive input loop watches each pending event source exactly once'
 
 test('the interactive input loop reduces separately chunked navigation before rendering', async () => {
   const items = Array.from({ length: 10 }, (_value, index) => `item-${String(index)}`);
-  const reducerOptions = { items, projectItem: (item) => ({ id: item, label: item }) };
+  const reducerOptions = { items, toOption: (item) => ({ id: item, label: item }) };
   const app = defineTui({
     id: 'read-ahead-navigation',
     init: () => ({
       state: {
-        presentation: {
+        state: {
           activeId: 'item-0',
           selection: { mode: 'single', selectedId: 'item-0', selectionFollowsActive: true }
         }
@@ -80,7 +80,7 @@ test('the interactive input loop reduces separately chunked navigation before re
       ? { state, exit: {} }
       : {
         state: {
-          presentation: listboxReducer(state.presentation, message, reducerOptions)
+          state: listboxReducer(state.state, message, reducerOptions)
         }
       },
     inputBindings: [
@@ -90,8 +90,8 @@ test('the interactive input loop reduces separately chunked navigation before re
       id: 'read-ahead-listbox',
       meta: { accessibleName: 'Read-ahead navigation' },
       items,
-      projectItem: reducerOptions.projectItem,
-      presentation: state.presentation,
+      toOption: reducerOptions.toOption,
+      state: state.state,
       onTransition: (transition) => transition
     })
   });
@@ -134,7 +134,7 @@ test('the interactive input loop reduces separately chunked navigation before re
   signals.dispose();
 
   assert.equal(exit.status, 'completed');
-  assert.equal(exit.state.presentation.activeId, 'item-9');
+  assert.equal(exit.state.state.activeId, 'item-9');
   assert.ok(runtime.metrics().frameCommits <= 4, `frame commits: ${String(runtime.metrics().frameCommits)}`);
   await runtime.dispose();
 });

@@ -18,13 +18,13 @@ const notifications = createNotificationState();
 notificationRegion({
   id: 'live',
   items: activeNotificationItems(notifications),
-  onAction: (action) => ({ kind: 'dismiss' as const, id: action.id })
+  onDismiss: (action) => ({ kind: 'dismiss' as const, id: action.id })
 });
 notificationHistory({
   id: 'history',
   items: notificationHistoryItems(notifications),
   scroll: createScrollState(),
-  onAction: (action) => ({ kind: 'notification' as const, action })
+  onTransition: (action) => ({ kind: 'notification' as const, action })
 });
 dialog({
   slots: { content: text({ content: 'Body' }) },
@@ -35,7 +35,7 @@ dialog({
     dismissOnEscape: true,
     dismissOnOutsidePress: false
   },
-  onAction: (action) => ({ kind: 'dismiss' as const, action })
+  onDismiss: (action) => ({ kind: 'dismiss' as const, action })
 });
 progressBar({
   id: 'determinate',

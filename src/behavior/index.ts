@@ -4,212 +4,183 @@ export {
   calendarDateId,
   compareDates,
   defaultCalendarFocusSearchLimitDays,
-  calendarPresentation,
+  calendarView,
   calendarReducer
-} from './calendar.ts';
+} from './calendar-operations.ts';
 export type {
   CalendarBehaviorOptions,
   CalendarState
-} from './calendar.ts';
+} from './calendar-operations.ts';
 export type {
   CalendarDate,
   CalendarMonth,
-  CalendarAction,
+  CalendarTransition,
   CalendarDay,
-  CalendarPresentation,
-} from '../ui-model/calendar.ts';
-export { dataWindow, rowWindow } from './data-window.ts';
+  CalendarView,
+} from './calendar.ts';
+export { sliceVisibleRows, visibleRowWindow } from './visible-row-window.ts';
 export {
-  autocompleteComboboxPresentation,
+  autocompleteComboboxView,
   autocompleteComboboxReducer,
   commitAutocompleteCombobox,
   commitCombobox,
   comboboxReducer,
   createAutocompleteComboboxState,
-} from './combobox.ts';
+} from './combobox-operations.ts';
 export type {
   AutocompleteComboboxCommitOptions,
   AutocompleteComboboxReducerOptions,
   ComboboxReducerOptions,
   CreateAutocompleteComboboxStateInput,
-} from './combobox.ts';
+} from './combobox-operations.ts';
 export type {
   AutocompleteComboboxControlTransition,
-  AutocompleteComboboxPresentation,
   AutocompleteComboboxState,
+  AutocompleteComboboxView,
   AutocompleteComboboxTransition,
-  AnyComboboxPresentation,
   ComboboxCommitEvent,
   ComboboxControlTransition,
-  ComboboxPresentation,
-  ScrollableComboboxPresentation,
+  ComboboxState,
+  ScrollableComboboxState,
   ComboboxTransition,
-  UnscrolledComboboxPresentation,
-  ScrollableAutocompleteComboboxPresentation,
-  UnscrolledAutocompleteComboboxPresentation,
-} from '../ui-model/combobox.ts';
-export {
-  completeCollection,
-  isCollectionProjection,
-  windowedCollection,
-} from '../ui-model/collection.ts';
+  UnscrolledComboboxState,
+  ScrollableAutocompleteComboboxView,
+  UnscrolledAutocompleteComboboxView,
+} from './combobox.ts';
 export type {
-  CollectionProjection,
-  CollectionRecord,
-  CompleteCollectionProjection,
-  WindowedCollectionProjection,
-} from '../ui-model/collection.ts';
+  VisibleRowSlice,
+  VisibleRowWindow,
+  VisibleRowWindowInput,
+} from './visible-row-window.ts';
 export {
-  isMeasuredWindow,
-  measuredAnchorAt,
-  measuredWindow,
-} from './measured-window.ts';
+  commandInputView
+} from './command-input-operations.ts';
 export type {
-  MeasuredAnchorAtOptions,
-  MeasuredWindow,
-  MeasuredWindowAnchor,
-  MeasuredWindowEntry,
-  MeasuredWindowOptions
-} from './measured-window.ts';
-export {
-  appendMeasuredItems,
-  measuredCollectionItemById,
-  prepareMeasuredCollection,
-  prependMeasuredItems,
-  removeMeasuredItems,
-  replaceMeasuredItem
-} from '../ui-model/measured-collection.ts';
-export type {
-  MeasuredCollection,
-  MeasuredCollectionItem
-} from '../ui-model/measured-collection.ts';
-export type { DataWindow, DataWindowInput } from './data-window.ts';
-export {
-  commandInputPresentation
+  CommandInputView
 } from './command-input.ts';
-export type {
-  CommandInputPresentation
-} from '../ui-model/command-input.ts';
 export {
   createCommandInputState,
   commandInputReducer,
-  prepareCommandSuggestions
-} from './command-input-state.ts';
+  createCommandSuggestions
+} from './command-input-operations.ts';
 export type {
   CreateCommandInputStateInput,
   CommandInputState
-} from './command-input-state.ts';
+} from './command-input-operations.ts';
 export type {
   CommandInputSubmitEvent,
   CommandInputTransition,
   CommandCompletion,
   CommandSuggestion,
-} from '../ui-model/command-input.ts';
+} from './command-input.ts';
 export {
-  applyTextPointerAction,
+  applyTextPointerTransition,
   createTextAreaState,
-  selectionFromTextPointerAction,
+  selectionFromTextPointerTransition,
   textAreaReducer,
-  textInputPresentation,
+  textInputState,
   textInputReducer
 } from './text-editing.ts';
 export type {
   CreateTextAreaStateInput,
   TextAreaEditHistory,
   TextAreaEditSnapshot,
-  TextAreaTransition,
+  TextAreaReduction,
   TextAreaState
 } from './text-editing.ts';
 export type {
-  TextAreaAction,
-  TextAreaControlAction,
-  TextAreaPresentation,
-  ScrollableTextAreaPresentation,
-  UnscrolledTextAreaPresentation,
-} from '../ui-model/text-area.ts';
-export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
-export type { PointerSelectionAction, TextPointerAction } from '../interaction/text-pointer.ts';
+  TextAreaTransition,
+  TextAreaControlTransition,
+  TextAreaControlState,
+  ScrollableTextAreaControlState,
+  UnscrolledTextAreaControlState,
+} from './text-area.ts';
+export type { TextInputTransition, TextInputState } from './text-input.ts';
+export type { PointerSelectionTransition, TextPointerTransition } from '../interaction/text-pointer.ts';
 export {
   indeterminateProgressFrame,
-  progressCompletionState
-} from './feedback.ts';
+  progressValueStatus
+} from './progress.ts';
 export type {
-  ProgressCompletionState,
+  ProgressValueStatus,
   ProgressFrame,
   ProgressFrameCell
-} from './feedback.ts';
+} from './progress.ts';
 export { listViewReducer } from './list-view.ts';
 export type { ListViewReducerOptions } from './list-view.ts';
 export {
-  prepareListboxCollection,
+  createListboxCollection,
   listboxReducer,
   visibleListboxEntries
-} from './list.ts';
+} from './listbox-operations.ts';
 export type {
   ListboxReducerOptions,
-} from './list.ts';
+} from './listbox-operations.ts';
 export type {
   CompleteListboxCollection,
   ListboxActivateEvent,
   ListboxCollection,
-  ListboxCollectionRecord,
+  ListboxCollectionItem,
   ListboxControlTransition,
   ListboxOption,
-  ListboxOptionProjector,
-  ListboxPresentation,
-  ScrollableListboxPresentation,
+  ListboxOptionMapper,
+  ListboxState,
+  ScrollableListboxState,
   ListboxTransition,
   ListboxViewEntry,
-  UnscrolledListboxPresentation,
+  UnscrolledListboxState,
   WindowedListboxCollection
-} from '../ui-model/list.ts';
-export { rangeSliderReducer } from './range-slider.ts';
+} from './listbox.ts';
+export { rangeSliderReducer } from './range-slider-operations.ts';
 export type {
-  RangeSliderAction,
+  RangeSliderTransition,
   RangeSliderHandle,
+  NumericRange,
   RangeSliderReducerOptions,
-  RangeSliderState
-} from '../ui-model/range-slider.ts';
+  RangeSliderState,
+  RangeSliderStepDirection,
+  RangeSliderValue,
+} from './range-slider.ts';
 export {
   createNumberInputConfiguration,
   createNumberInputState,
   defaultNumberInputConfiguration,
   numberInputAnalysis,
-  numberInputPresentation,
+  numberInputView,
   numberInputReducer
-} from './number-input.ts';
+} from './number-input-operations.ts';
 export type {
   NumberInputAnalysis,
   NumberInputBehaviorOptions,
   NumberInputConfiguration,
   NumberInputGrammar,
-  NumberInputPresentation,
+  NumberInputView,
   NumberInputState
-} from './number-input.ts';
-export type { NumberInputAction, NumberInputControlAction, NumberInputValidity } from '../ui-model/number-input.ts';
+} from './number-input-operations.ts';
+export type { NumberInputTransition, NumberInputControlTransition, NumberInputValidity } from './number-input.ts';
 export {
   paginationWindow,
-  paginationPresentation,
+  paginationView,
   paginationReducer
-} from './pagination.ts';
+} from './pagination-operations.ts';
 export type {
-  PaginationInput,
+  PaginationWindowInput,
   PaginationWindow,
-  PaginationPresentation,
+  PaginationView,
   PaginationReducerOptions,
   PaginationState
-} from './pagination.ts';
-export type { PaginationAction } from '../ui-model/pagination.ts';
+} from './pagination-operations.ts';
+export type { PaginationTransition } from './pagination.ts';
 export {
   createNotificationState,
   nextNotificationExpiry,
   activeNotificationItems,
-  notificationHistoryAction,
+  notificationTransitionFromHistory,
   notificationHistoryItems,
   notificationReducer,
-} from './notifications.ts';
+} from './notification-operations.ts';
 export type {
-  NotificationAction,
+  NotificationTransition,
   NotificationConflictPolicy,
   NotificationHistoryEntry,
   NotificationHistoryReason,
@@ -217,15 +188,15 @@ export type {
   NotificationPolicy,
   NotificationRecord,
   NotificationState
-} from './notifications.ts';
-export type { NotificationItem, NotificationTone } from '../ui-model/feedback.ts';
+} from './notification-operations.ts';
+export type { NotificationItem, NotificationTone } from './notification.ts';
 export {
   createSearchPickerState,
-  searchPickerPresentation,
+  searchPickerView,
   searchPickerReducer,
   searchPickerWindow,
   activeSearchPickerEntry
-} from './search-picker.ts';
+} from './search-picker-operations.ts';
 export type {
   CreateSearchPickerStateInput,
   SearchPickerActiveInput,
@@ -235,69 +206,69 @@ export type {
   UnscrolledSearchPickerState,
   SearchPickerWindow,
   SearchPickerWindowInput
-} from './search-picker.ts';
+} from './search-picker-operations.ts';
 export type {
   SearchPickerAcceptEvent,
   SearchPickerControlTransition,
-  SearchPickerPresentation,
-  ScrollableSearchPickerPresentation,
+  SearchPickerView,
+  ScrollableSearchPickerView,
   SearchPickerTransition,
-  UnscrolledSearchPickerPresentation,
-} from '../ui-model/search-picker.ts';
-export { prepareSearchPickerIndex, searchPickerEntryById } from '../ui-model/search-picker-index.ts';
-export type { SearchPickerIndex } from '../ui-model/search-picker-index.ts';
+  UnscrolledSearchPickerView,
+} from './search-picker.ts';
+export { createSearchPickerIndex, searchPickerEntryById } from './search-picker-index.ts';
+export type { SearchPickerIndex } from './search-picker-index.ts';
 export {
-  contextMenuPresentation,
+  contextMenuView,
   contextMenuReducer,
-  menuTriggerPresentation,
+  menuTriggerView,
   menuTriggerReducer,
-  menuBarPresentation,
+  menuBarView,
   menuBarReducer,
-  menuPresentation,
+  menuView,
   menuReducer
-} from './menu.ts';
+} from './menu-operations.ts';
 export type {
   ContextMenuState,
   MenuTriggerState,
   MenuBarState,
   MenuState
-} from './menu.ts';
+} from './menu-operations.ts';
 export type {
   ContextMenuTransition,
-  ContextMenuPresentation,
+  ContextMenuView,
   MenuTriggerTransition,
-  MenuTriggerPresentation,
+  MenuTriggerView,
   MenuActivateEvent,
   MenuTransition,
   MenuBarTransition,
-  MenuBarPresentation,
-  MenuPresentation
-} from '../ui-model/menu.ts';
-export { tabsReducer } from './tabs.ts';
-export type { TabBehaviorItem, TabsReducerOptions } from './tabs.ts';
-export type { TabCloseEvent, TabsActivation, TabsPresentation, TabsTransition } from '../ui-model/tabs.ts';
+  MenuBarView,
+  MenuView
+} from './menu.ts';
+export { tabsReducer } from './tabs-operations.ts';
+export type { TabBehaviorItem, TabsReducerOptions } from './tabs-operations.ts';
+export type { TabCloseEvent, TabsActivation, TabsState, TabsTransition } from './tabs.ts';
 export type {
-  LogViewerAction,
+  LogViewerTransition,
   LogViewerBodyAnchor,
   LogViewerContextMenuEvent,
-  LogViewerControlAction,
+  LogViewerControlTransition,
   LogViewerSelection
-} from '../ui-model/log-viewer.ts';
+} from './log-viewer.ts';
 export {
   barChartReducer,
   chartReducer,
   heatmapReducer
-} from './visualization.ts';
+} from './visualization-operations.ts';
 export type {
   VisualizationReducerOptions
-} from './visualization.ts';
+} from './visualization-operations.ts';
 export type {
   BarChartTransition,
   ChartTransition,
   HeatmapTransition,
   VisualizationActivateEvent,
-  VisualizationPresentation
-} from '../ui-model/visualization.ts';
+  VisualizationState
+} from './visualization.ts';
 export type {
   BarChartItem,
   ChartInterpolation,
@@ -309,30 +280,27 @@ export type {
   HeatmapCell,
   ValueScale,
   ValueScaleStop,
-} from '../ui-model/feedback.ts';
+} from './visualization-data.ts';
 export {
-  checkboxGroupPresentation,
   checkboxGroupReducer,
-  colorSwatchPickerPresentation,
   colorSwatchPickerReducer,
   normalizeCheckboxGroupState,
   normalizeColorSwatchPickerState,
   normalizeRadioGroupState,
-  radioGroupPresentation,
   radioGroupReducer
-} from './choice-controls.ts';
+} from './choice-controls-operations.ts';
 export type {
   CheckboxGroupState,
   ColorSwatchPickerState,
   RadioGroupState
-} from './choice-controls.ts';
+} from './choice-controls-operations.ts';
 export type {
-  CheckboxGroupAction,
-  ColorSwatchPickerAction,
-  RadioGroupAction
-} from '../ui-model/choice-controls.ts';
+  CheckboxGroupTransition,
+  ColorSwatchPickerTransition,
+  RadioGroupTransition
+} from './choice-controls.ts';
 export {
-  applyScrollEvent,
+  applyScrollRequest,
   createScrollState,
   normalizeScrollState,
   scrollReducer,
@@ -340,15 +308,15 @@ export {
 } from './scroll.ts';
 export type {
   CreateScrollStateInput,
-  ScrollAction,
+  ScrollTransition,
   ScrollPolicy,
   ScrollState,
   ScrollVisibleWindow,
   ScrollWheelPolicy,
   ScrollWheelUnit,
-  ScrollEvent,
-  ScrollEventSource,
-  ScrollEventTarget
+  ScrollRequest,
+  ScrollRequestSource,
+  ScrollRequestTarget
 } from '../interaction/scroll.ts';
 export {
   activeNavigationEntry,
@@ -357,35 +325,35 @@ export {
 export type {
   NavigationEntry,
   NavigationStack,
-  NavigationStackAction
+  NavigationStackTransition
 } from './navigation-stack.ts';
 export {
   appendLogHistory,
-  prepareLogHistory,
+  createLogHistory,
   logHistoryEntryAt,
   logHistoryRecordById,
   logHistoryRecordMatches,
   logHistoryEntries
-} from '../ui-model/log-history.ts';
+} from './log-history.ts';
 export type {
   LogHistory,
   LogHistoryRecord,
   LogEntry,
   LogSearchField,
   LogSearchMatch
-} from '../ui-model/log-history.ts';
+} from './log-history.ts';
 export {
   followTailScrollState,
   nextLogViewerMatch,
   logViewerReducer,
   logViewerSearchMatches
-} from './log-viewer.ts';
+} from './log-viewer-operations.ts';
 export type {
   LogViewerReducerOptions,
   UnscrolledLogViewerState,
   ScrollableLogViewerState,
   LogViewerState
-} from './log-viewer.ts';
+} from './log-viewer-operations.ts';
 export {
   adjacentItemId,
   defaultNavigationPolicy
@@ -397,73 +365,73 @@ export type {
 } from '../interaction/navigation.ts';
 export {
   createSplitPaneState,
-  splitPanePresentation,
+  splitPaneLayout,
   splitPaneReducer
-} from './split-pane.ts';
+} from './split-pane-operations.ts';
 export type {
   SplitPaneConstraint,
   SplitPaneDragState,
-  SplitPanePresentation,
+  SplitPaneLayout,
   SplitPaneReducerOptions,
   SplitPaneState
-} from './split-pane.ts';
-export type { SplitPaneAction } from '../ui-model/split-pane.ts';
+} from './split-pane-operations.ts';
+export type { SplitPaneTransition } from './split-pane.ts';
 export {
   dataGridReducer,
-  prepareTableCollection,
+  createTableCollection,
   sortTableRows
-} from './table.ts';
+} from './table-operations.ts';
 export type {
   DataGridReducerOptions,
   TableCellValueGetter,
-} from './table.ts';
+} from './table-operations.ts';
 export type {
   DataGridActivateEvent,
   DataGridCell,
   DataGridControlTransition,
   DataGridInteraction,
-  DataGridPresentation,
-  ScrollableDataGridPresentation,
+  DataGridState,
+  ScrollableDataGridState,
   DataGridTransition,
   TableCollection,
-  TableCollectionRecord,
+  TableCollectionRow,
   CompleteTableCollection,
   WindowedTableCollection,
-  TablePresentation,
+  TableState,
   TableSortState,
-  UnscrolledDataGridPresentation,
-} from '../ui-model/table.ts';
+  UnscrolledDataGridState,
+} from './table.ts';
 export {
-  isPreparedTreeView,
-  prepareTreeSource,
-  prepareTreeView,
-  prepareTreeCollection,
-  prepareTreeRows,
+  isTreeView,
+  createTreeSource,
+  createTreeView,
+  createTreeCollection,
+  createTreeCollectionFromRows,
   selectableTreeRows,
   treeDisclosureTransition,
   treeNodeMatches,
   treeReducer,
   visibleTreeRows
-} from './tree.ts';
-export type { TreeReducerOptions } from './tree.ts';
+} from './tree-operations.ts';
+export type { TreeReducerOptions } from './tree-operations.ts';
 export type {
   CompleteTreeCollection,
   TreeCollection,
-  TreeCollectionRecord,
+  TreeCollectionRow,
   TreeControlTransition,
   TreeDisclosureTransition,
-  TreeLoadState,
-  TreePresentation,
-  ScrollableTreePresentation,
+  TreeLoadStatus,
+  TreeState,
+  ScrollableTreeState,
   TreeTransition,
   TreeVisibleRow,
-  UnscrolledTreePresentation,
+  UnscrolledTreeState,
   WindowedTreeCollection
-} from '../ui-model/tree.ts';
+} from './tree.ts';
 export type {
   CollectionWindow,
-  CollectionWindowDomain,
-  CollectionWindowDomainInput,
-} from '../ui-model/collection.ts';
+  CollectionWindowScope,
+  CollectionWindowScopeInput,
+} from '../collection/snapshot.ts';
 export { extractLogViewerSelectionText } from './log-viewer-selection.ts';
 export type { ExtractLogViewerSelectionTextInput } from './log-viewer-selection.ts';

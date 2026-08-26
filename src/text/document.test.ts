@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import {
   isTextDocument,
-  prepareTextDocument,
+  createTextDocument,
   textDocumentEdit,
   textDocumentLength,
   textDocumentLineAt,
@@ -12,7 +12,7 @@ import {
 } from './document.ts';
 
 void test('text documents are opaque retained values', () => {
-  const document = prepareTextDocument('alpha\nbeta');
+  const document = createTextDocument('alpha\nbeta');
 
   assert.equal(isTextDocument({}), false);
   assert.deepEqual(Object.keys(document), []);
@@ -21,7 +21,7 @@ void test('text documents are opaque retained values', () => {
 });
 
 void test('piece-tree edits preserve content and document identity for no-op replacements', () => {
-  const document = prepareTextDocument('alpha\nbeta\ngamma');
+  const document = createTextDocument('alpha\nbeta\ngamma');
   const noChange = textDocumentEdit(document, { startOffset: 6, endOffsetExclusive: 10 }, 'beta');
   const changed = textDocumentEdit(document, { startOffset: 6, endOffsetExclusive: 10 }, 'BRAVO');
 
@@ -38,7 +38,7 @@ void test('piece-tree edits preserve content and document identity for no-op rep
 void test('single-character edits in large documents preserve exact text geometry', () => {
   const lines = Array.from({ length: 20_000 }, (_value, index) => `line-${String(index)}`);
   const source = lines.join('\n');
-  const document = prepareTextDocument(source);
+  const document = createTextDocument(source);
   const start = source.indexOf('line-10000') + 5;
   const changed = textDocumentEdit(document, {
     startOffset: start,
