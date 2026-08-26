@@ -5,6 +5,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { globFiles } from './glob-files.mjs';
+import { createPackedConsumerManifest } from './packed-consumer-manifest.mjs';
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const fixtureRoot = join(projectRoot, 'tests', 'consumer');
@@ -53,9 +54,11 @@ try {
   const packageSource = await readFile(packagePath, 'utf8');
   await writeFile(
     packagePath,
-    packageSource
-      .replace('__TERMINAL_UI_TARBALL__', join(packRoot, filename))
-      .replace('__EXTERNAL_COMPONENT_TARBALL__', join(packRoot, externalFilename)),
+    createPackedConsumerManifest(
+      packageSource,
+      join(packRoot, filename),
+      join(packRoot, externalFilename)
+    ),
     'utf8'
   );
 
