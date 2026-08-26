@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import test from 'node:test';
 
 import { findAccessibleNode } from '../../dist/accessibility/index.js';
@@ -16,6 +17,7 @@ const examples = [
   { name: 'IDE editor', app: ideEditorApp, anchor: 'Open a folder or file' },
   { name: 'btop monitor', app: btopMonitorApp, anchor: 'CPU' }
 ];
+const virtualFile = (name) => resolve('/virtual', name);
 
 for (const example of examples) {
   test(`${example.name} remains usable across themes and resize`, async () => {
@@ -82,7 +84,7 @@ test('IDE filesystem effects leave command input and resize responsive', async (
 
     release.release();
     await waitUntil(() => runtime.state().operation.kind === 'idle');
-    assert.equal(runtime.state().activePath, '/virtual/slow.txt');
+    assert.equal(runtime.state().activePath, virtualFile('slow.txt'));
   } finally {
     release.release();
     await runtime.dispose();
@@ -136,7 +138,7 @@ test('IDE file operations replace earlier work through one effect lane', async (
     calls[0].pending.release();
     calls[1].pending.release();
     await waitUntil(() => runtime.state().operation.kind === 'idle');
-    assert.equal(runtime.state().activePath, '/virtual/second.txt');
+    assert.equal(runtime.state().activePath, virtualFile('second.txt'));
   } finally {
     for (const call of calls) call.pending.release();
     await runtime.dispose();
@@ -158,16 +160,16 @@ test('IDE preserves the active tab and refuses to discard dirty buffers', async 
       await runtime.dispatch({ kind: 'requestOpen', mode: 'file', path: targetPath });
       await waitUntil(() => runtime.state().operation.kind === 'idle');
     }
-    await runtime.dispatch({ kind: 'closeTab', event: { kind: 'close', id: '/virtual/a.txt' } });
-    assert.equal(runtime.state().activePath, '/virtual/c.txt');
+    await runtime.dispatch({ kind: 'closeTab', event: { kind: 'close', id: virtualFile('a.txt') } });
+    assert.equal(runtime.state().activePath, virtualFile('c.txt'));
 
     await runtime.dispatch({
       kind: 'edit',
-      path: '/virtual/c.txt',
+      path: virtualFile('c.txt'),
       action: { kind: 'edit', operation: { kind: 'insert', text: 'changed' } },
     });
     await runtime.dispatch({ kind: 'closeActive' });
-    assert.equal(runtime.state().activePath, '/virtual/c.txt');
+    assert.equal(runtime.state().activePath, virtualFile('c.txt'));
     assert.match(runtime.state().notice, /Save c\.txt before closing/u);
 
     await runtime.dispatch({ kind: 'exit' });
