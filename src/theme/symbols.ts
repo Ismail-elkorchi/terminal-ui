@@ -160,39 +160,44 @@ export function mergeSymbols(base: TerminalSymbols, override: unknown): Terminal
   const repertoire = requestedMode === undefined || requestedMode === base.mode
     ? base
     : requestedMode === 'ascii' ? asciiSymbols : unicodeSymbols;
-  return decodeTerminalSymbols({
+  const merged: Record<string, unknown> = {
     mode: requestedMode ?? repertoire.mode,
     borderSingle: mergeBorder(repertoire.borderSingle, definition['borderSingle']),
     borderRounded: mergeBorder(repertoire.borderRounded, definition['borderRounded']),
-    treeExpanded: definition['treeExpanded'] ?? repertoire.treeExpanded,
-    treeCollapsed: definition['treeCollapsed'] ?? repertoire.treeCollapsed,
-    pointer: definition['pointer'] ?? repertoire.pointer,
-    selected: definition['selected'] ?? repertoire.selected,
-    unselected: definition['unselected'] ?? repertoire.unselected,
-    checkboxChecked: definition['checkboxChecked'] ?? repertoire.checkboxChecked,
-    checkboxUnchecked: definition['checkboxUnchecked'] ?? repertoire.checkboxUnchecked,
-    radioChecked: definition['radioChecked'] ?? repertoire.radioChecked,
-    radioUnchecked: definition['radioUnchecked'] ?? repertoire.radioUnchecked,
-    statusError: definition['statusError'] ?? repertoire.statusError,
-    statusWarning: definition['statusWarning'] ?? repertoire.statusWarning,
-    statusInfo: definition['statusInfo'] ?? repertoire.statusInfo,
-    statusSuccess: definition['statusSuccess'] ?? repertoire.statusSuccess,
-    progressFilled: definition['progressFilled'] ?? repertoire.progressFilled,
-    progressEmpty: definition['progressEmpty'] ?? repertoire.progressEmpty,
-    spinnerFrames: definition['spinnerFrames'] ?? repertoire.spinnerFrames,
-    collapsed: definition['collapsed'] ?? repertoire.collapsed,
-    expanded: definition['expanded'] ?? repertoire.expanded,
-    scrollbarVerticalTrack: definition['scrollbarVerticalTrack'] ?? repertoire.scrollbarVerticalTrack,
-    scrollbarVerticalThumb: definition['scrollbarVerticalThumb'] ?? repertoire.scrollbarVerticalThumb,
-    scrollbarHorizontalTrack: definition['scrollbarHorizontalTrack'] ?? repertoire.scrollbarHorizontalTrack,
-    scrollbarHorizontalThumb: definition['scrollbarHorizontalThumb'] ?? repertoire.scrollbarHorizontalThumb,
-    viewportClipTop: definition['viewportClipTop'] ?? repertoire.viewportClipTop,
-    viewportClipBottom: definition['viewportClipBottom'] ?? repertoire.viewportClipBottom,
-    viewportClipLeft: definition['viewportClipLeft'] ?? repertoire.viewportClipLeft,
-    viewportClipRight: definition['viewportClipRight'] ?? repertoire.viewportClipRight,
-    viewportEmpty: definition['viewportEmpty'] ?? repertoire.viewportEmpty
-  });
+  };
+  for (const field of terminalSymbolValueFields) merged[field] = definition[field] ?? repertoire[field];
+  return decodeTerminalSymbols(merged);
 }
+
+const terminalSymbolValueFields = [
+  'treeExpanded',
+  'treeCollapsed',
+  'pointer',
+  'selected',
+  'unselected',
+  'checkboxChecked',
+  'checkboxUnchecked',
+  'radioChecked',
+  'radioUnchecked',
+  'statusError',
+  'statusWarning',
+  'statusInfo',
+  'statusSuccess',
+  'progressFilled',
+  'progressEmpty',
+  'spinnerFrames',
+  'collapsed',
+  'expanded',
+  'scrollbarVerticalTrack',
+  'scrollbarVerticalThumb',
+  'scrollbarHorizontalTrack',
+  'scrollbarHorizontalThumb',
+  'viewportClipTop',
+  'viewportClipBottom',
+  'viewportClipLeft',
+  'viewportClipRight',
+  'viewportEmpty',
+] as const satisfies readonly (keyof TerminalSymbols)[];
 
 export function decodeTerminalSymbols(value: unknown): TerminalSymbols {
   const symbols = record(value, 'Terminal symbols');

@@ -1,7 +1,8 @@
 /** First-party application patterns built from the foundational controls. */
-export { commandInput, searchPicker } from './factories/suggestion-controls.ts';
+export { commandInput } from './factories/command-input.ts';
+export { searchPicker } from './factories/search-picker.ts';
 export { logViewer } from './factories/log-viewer.ts';
-export { helpBar } from './factories/indicators.ts';
+export { helpBar } from './factories/feedback-indicators.ts';
 export { createCommandSuggestions } from '../behavior/command-input-operations.ts';
 export type * from './options/patterns.ts';
 export type { HelpBarOptions } from './options/feedback-and-visualizations.ts';

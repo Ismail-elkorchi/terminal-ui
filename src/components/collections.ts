@@ -1,7 +1,8 @@
 /** Passive collections and interaction-managed collection controls. */
 export { list, listView } from './factories/collections.ts';
 export { listbox } from './factories/listbox.ts';
-export { dataGrid, table, tree } from './factories/structured-collections.ts';
+export { dataGrid, table } from './factories/data-table.ts';
+export { tree } from './factories/tree.ts';
 export { pagination } from './factories/pagination.ts';
 export { tabs } from './factories/tabs.ts';
 export type * from './options/collections.ts';

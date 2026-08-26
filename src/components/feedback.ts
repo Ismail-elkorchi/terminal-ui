@@ -1,5 +1,5 @@
 /** Status, progress, and notification feedback components. */
-export { activityIndicator, progressBar, statusBar } from './factories/indicators.ts';
+export { activityIndicator, progressBar, statusBar } from './factories/feedback-indicators.ts';
 export { notificationHistory, notificationRegion } from './factories/notifications.ts';
 export type {
   ActivityIndicatorOptions,

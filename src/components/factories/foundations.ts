@@ -13,7 +13,7 @@ import type { ElementKeyEvent } from '../../element/metadata.ts';
 import type { RoutedPointerEvent } from '../../input/index.ts';
 import type { LinkStylePart } from '../style-parts.ts';
 import type { LinkOptions, ToggleButtonOptions, ToolbarOptions } from '../options/foundations.ts';
-import { instantiateToggleButton } from './forms.ts';
+import { instantiateToggleButton } from './action-button.ts';
 
 interface LinkModel {
   readonly label: string;

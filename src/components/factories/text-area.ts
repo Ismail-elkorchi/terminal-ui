@@ -773,74 +773,9 @@ function createTextAreaModelDecorations(
   if (!Array.isArray(value)) throw new TypeError('textArea decorations must be an array.');
   if (value.length === 0) return Object.freeze([]);
   const boundaryIndex = textAreaDecorationBoundaryIndex(document);
-  const decorationModels = value.map((candidate, index): TextAreaDecorationModel => {
-    if (!isNonArrayObject(candidate)) {
-      throw new TypeError(`textArea decorations[${String(index)}] is invalid.`);
-    }
-    const startOffset = candidate['startOffset'];
-    const endOffsetExclusive = candidate['endOffsetExclusive'];
-    const kind = candidate['kind'];
-    if (!isStringMember(kind, ['style', 'replace', 'conceal'])) {
-      throw new TypeError(`textArea decorations[${String(index)}].kind is invalid.`);
-    }
-    const replacementText = candidate['replacementText'];
-    const accessibilityText = candidate['accessibilityText'];
-    if (
-      typeof startOffset !== 'number' ||
-      typeof endOffsetExclusive !== 'number' ||
-      !Number.isSafeInteger(startOffset) ||
-      !Number.isSafeInteger(endOffsetExclusive) ||
-      startOffset < 0 ||
-      endOffsetExclusive < startOffset ||
-      (endOffsetExclusive === startOffset && kind !== 'replace') ||
-      endOffsetExclusive > textDocumentLength(document)
-    ) {
-      throw new RangeError(`textArea decorations[${String(index)}] range is invalid.`);
-    }
-    if (accessibilityText !== undefined && typeof accessibilityText !== 'string') {
-      throw new TypeError(`textArea decorations[${String(index)}].accessibilityText must be a string.`);
-    }
-    if (
-      !terminalTextIndexHasBoundary(boundaryIndex, startOffset)
-      || !terminalTextIndexHasBoundary(boundaryIndex, endOffsetExclusive)
-    ) {
-      throw new RangeError(
-        `textArea decorations[${String(index)}] must align with text grapheme boundaries.`
-      );
-    }
-    const label = textOption(candidate['label'], `textArea decorations[${String(index)}].label`) ??
-      `decoration.${String(index)}`;
-    const style = candidate['style'] === undefined
-      ? undefined
-      : decodeTerminalStyle(candidate['style'], `textArea decorations[${String(index)}].style`);
-    const base = { startOffset, endOffsetExclusive, order: index, label };
-    switch (kind) {
-      case 'style':
-        if (replacementText !== undefined || accessibilityText !== undefined) {
-          throw new TypeError(`textArea style decoration ${String(index)} cannot replace or relabel content.`);
-        }
-        return Object.freeze({ ...base, kind, ...(style === undefined ? {} : { style }) });
-      case 'replace':
-        if (typeof replacementText !== 'string') {
-          throw new TypeError(`textArea replacement decoration ${String(index)} requires replacementText.`);
-        }
-        if (replacementText.length === 0) {
-          throw new TypeError(`textArea replacement decoration ${String(index)} requires non-empty replacementText.`);
-        }
-        return Object.freeze({
-          ...base,
-          kind,
-          replacementText,
-          ...(style === undefined ? {} : { style }),
-          ...(accessibilityText === undefined ? {} : { accessibilityText }),
-        });
-      case 'conceal':
-        if (replacementText !== undefined || accessibilityText !== undefined || style !== undefined) {
-          throw new TypeError(`textArea conceal decoration ${String(index)} cannot replace, style, or relabel content.`);
-        }
-        return Object.freeze({ ...base, kind });
-    }
-  });
+  const decorationModels = value.map((candidate, index) =>
+    decodeTextAreaDecoration(candidate, index, document, boundaryIndex)
+  );
   const replacements = decorationModels
     .filter((decoration) => decoration.kind === 'replace')
     .toSorted((left, right) => left.startOffset - right.startOffset || left.endOffsetExclusive - right.endOffsetExclusive);
@@ -872,6 +807,89 @@ function createTextAreaModelDecorations(
     ...decorationModels.filter((decoration) => decoration.kind !== 'conceal'),
     ...conceals,
   ]);
+}
+
+function decodeTextAreaDecoration(
+  candidate: unknown,
+  index: number,
+  document: TextDocument,
+  boundaryIndex: TerminalTextIndex,
+): TextAreaDecorationModel {
+  if (!isNonArrayObject(candidate)) {
+    throw new TypeError(`textArea decorations[${String(index)}] is invalid.`);
+  }
+  const kind = candidate['kind'];
+  if (!isStringMember(kind, ['style', 'replace', 'conceal'])) {
+    throw new TypeError(`textArea decorations[${String(index)}].kind is invalid.`);
+  }
+  const range = decodeTextAreaDecorationRange(candidate, index, kind, document, boundaryIndex);
+  const label = textOption(candidate['label'], `textArea decorations[${String(index)}].label`) ??
+    `decoration.${String(index)}`;
+  const style = candidate['style'] === undefined
+    ? undefined
+    : decodeTerminalStyle(candidate['style'], `textArea decorations[${String(index)}].style`);
+  const base = { ...range, order: index, label };
+  return decodeTextAreaDecorationKind(candidate, index, kind, base, style);
+}
+
+function decodeTextAreaDecorationRange(
+  candidate: Readonly<Record<string, unknown>>,
+  index: number,
+  kind: TextAreaDecoration['kind'],
+  document: TextDocument,
+  boundaryIndex: TerminalTextIndex,
+): Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'> {
+  const startOffset = candidate['startOffset'];
+  const endOffsetExclusive = candidate['endOffsetExclusive'];
+  if (typeof startOffset !== 'number' || typeof endOffsetExclusive !== 'number' ||
+    !Number.isSafeInteger(startOffset) || !Number.isSafeInteger(endOffsetExclusive) ||
+    startOffset < 0 || endOffsetExclusive < startOffset ||
+    (endOffsetExclusive === startOffset && kind !== 'replace') ||
+    endOffsetExclusive > textDocumentLength(document)) {
+    throw new RangeError(`textArea decorations[${String(index)}] range is invalid.`);
+  }
+  if (!terminalTextIndexHasBoundary(boundaryIndex, startOffset)
+    || !terminalTextIndexHasBoundary(boundaryIndex, endOffsetExclusive)) {
+    throw new RangeError(`textArea decorations[${String(index)}] must align with text grapheme boundaries.`);
+  }
+  return { startOffset, endOffsetExclusive };
+}
+
+function decodeTextAreaDecorationKind(
+  candidate: Readonly<Record<string, unknown>>,
+  index: number,
+  kind: TextAreaDecoration['kind'],
+  base: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive' | 'order' | 'label'>,
+  style: TerminalStyle | undefined,
+): TextAreaDecorationModel {
+  const replacementText = candidate['replacementText'];
+  const accessibilityText = candidate['accessibilityText'];
+  if (accessibilityText !== undefined && typeof accessibilityText !== 'string') {
+    throw new TypeError(`textArea decorations[${String(index)}].accessibilityText must be a string.`);
+  }
+  switch (kind) {
+    case 'style':
+      if (replacementText !== undefined || accessibilityText !== undefined) {
+        throw new TypeError(`textArea style decoration ${String(index)} cannot replace or relabel content.`);
+      }
+      return Object.freeze({ ...base, kind, ...(style === undefined ? {} : { style }) });
+    case 'replace':
+      if (typeof replacementText !== 'string' || replacementText.length === 0) {
+        throw new TypeError(`textArea replacement decoration ${String(index)} requires non-empty replacementText.`);
+      }
+      return Object.freeze({
+        ...base,
+        kind,
+        replacementText,
+        ...(style === undefined ? {} : { style }),
+        ...(accessibilityText === undefined ? {} : { accessibilityText }),
+      });
+    case 'conceal':
+      if (replacementText !== undefined || accessibilityText !== undefined || style !== undefined) {
+        throw new TypeError(`textArea conceal decoration ${String(index)} cannot replace, style, or relabel content.`);
+      }
+      return Object.freeze({ ...base, kind });
+  }
 }
 
 function mergeTextAreaConcealments(
@@ -1052,34 +1070,10 @@ function textAreaPrefixSpans(
   active: boolean,
 ): readonly RenderSpan[] {
   const availabilityStates = textAreaAvailabilityStates(input);
-  const marker = active
-    ? input.focus === 'self'
-      ? input.theme.tokens.symbols.pointer
-      : input.theme.tokens.symbols.selected
-    : visibleRow === 0
-    ? input.disabled
-      ? ' '
-      : input.model.error !== ''
-      ? input.theme.tokens.symbols.statusError
-      : input.focus === 'self'
-      ? input.theme.tokens.symbols.pointer
-      : input.theme.tokens.symbols.borderSingle.vertical
-    : input.theme.tokens.symbols.borderSingle.vertical;
+  const marker = textAreaGutterMarker(input, active, visibleRow);
   const markerStyle = input.style({
     part: active ? 'activeLine' : 'gutter',
-    base: active
-      ? {
-        fg: { kind: 'theme', token: 'editor.gutter.active.foreground' },
-        bg: { kind: 'theme', token: 'editor.activeLine.background' },
-        bold: true,
-      }
-      : {
-        fg: {
-          kind: 'theme',
-          token: input.model.error !== '' ? 'status.error' : 'editor.gutter.foreground',
-        },
-        bg: { kind: 'theme', token: 'editor.gutter.background' },
-      },
+    base: textAreaGutterStyle(input, active),
     ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
   });
   if (input.model.lineNumbers === undefined) {
@@ -1103,16 +1097,7 @@ function textAreaPrefixSpans(
     : ''.padStart(width, ' ');
   const lineNumberStyle = input.style({
     part: 'lineNumber',
-    base: active
-      ? {
-        fg: { kind: 'theme', token: 'editor.gutter.active.foreground' },
-        bg: { kind: 'theme', token: 'editor.activeLine.background' },
-        bold: true,
-      }
-      : {
-        fg: { kind: 'theme', token: 'editor.gutter.foreground' },
-        bg: { kind: 'theme', token: 'editor.gutter.background' },
-      },
+    base: textAreaLineNumberStyle(active),
     ...(availabilityStates.length === 0 ? {} : { states: availabilityStates }),
   });
   return [
@@ -1145,6 +1130,52 @@ function textAreaPrefixSpans(
     }),
   ];
 }
+
+function textAreaGutterMarker(
+  input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>,
+  active: boolean,
+  visibleRow: number,
+): string {
+  if (active) {
+    return input.focus === 'self' ? input.theme.tokens.symbols.pointer : input.theme.tokens.symbols.selected;
+  }
+  if (visibleRow !== 0) return input.theme.tokens.symbols.borderSingle.vertical;
+  if (input.disabled) return ' ';
+  if (input.model.error !== '') return input.theme.tokens.symbols.statusError;
+  return input.focus === 'self'
+    ? input.theme.tokens.symbols.pointer
+    : input.theme.tokens.symbols.borderSingle.vertical;
+}
+
+function textAreaGutterStyle(
+  input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>,
+  active: boolean,
+): TerminalStyle {
+  return active
+    ? textAreaActiveLineStyle
+    : {
+      fg: {
+        kind: 'theme',
+        token: input.model.error !== '' ? 'status.error' : 'editor.gutter.foreground',
+      },
+      bg: { kind: 'theme', token: 'editor.gutter.background' },
+    };
+}
+
+function textAreaLineNumberStyle(active: boolean): TerminalStyle {
+  return active
+    ? textAreaActiveLineStyle
+    : {
+      fg: { kind: 'theme', token: 'editor.gutter.foreground' },
+      bg: { kind: 'theme', token: 'editor.gutter.background' },
+    };
+}
+
+const textAreaActiveLineStyle = Object.freeze<TerminalStyle>({
+  fg: { kind: 'theme', token: 'editor.gutter.active.foreground' },
+  bg: { kind: 'theme', token: 'editor.activeLine.background' },
+  bold: true,
+});
 
 interface VisibleTextWindow {
   readonly text: string;
@@ -1191,75 +1222,113 @@ function textAreaValueSpans(
   }
   const boundaries = [...cuts].toSorted((left, right) => left - right);
   let decorationIndex = 0;
-  return boundaries.flatMap((start, index) => {
+  const spans: RenderSpan[] = [];
+  for (const [index, start] of boundaries.entries()) {
     const end = boundaries[index + 1];
-    if (end === undefined || end <= start) return [];
+    if (end === undefined || end <= start) continue;
     const text = window.text.slice(start - absoluteStart, end - absoluteStart);
-    const selected = selection !== undefined &&
-      start >= selection.startOffset &&
-      end <= selection.endOffsetExclusive;
     while ((decorations[decorationIndex]?.endOffsetExclusive ?? Number.POSITIVE_INFINITY) <= start) {
       decorationIndex += 1;
     }
-    const candidate = decorations[decorationIndex];
-    const decoration = !selected
-      && candidate !== undefined
-      && start >= candidate.startOffset
-      && end <= candidate.endOffsetExclusive
-      ? candidate
-      : undefined;
-    const placeholder = geometry.usesPlaceholder;
-    const part: TextAreaStylePart = selected
-      ? 'selection'
-      : decoration === undefined
-      ? placeholder ? 'placeholder' : active ? 'activeLine' : 'value'
-      : 'decoration';
-    const base: TerminalStyle = selected
-      ? {
-        fg: { kind: 'theme', token: 'selection.foreground' },
-        bg: { kind: 'theme', token: 'selection.background' },
-      }
-      : decoration === undefined
-      ? {
-        fg: { kind: 'theme', token: placeholder ? 'input.placeholder' : 'text.default' },
-        ...(active
-          ? { bg: { kind: 'theme' as const, token: 'editor.activeLine.background' as const } }
-          : {}),
-      }
-      : {
-        ...(active
-          ? { bg: { kind: 'theme' as const, token: 'editor.activeLine.background' as const } }
-          : {}),
-        ...(decoration.style ?? {
-              fg: { kind: 'theme' as const, token: 'menu.match' as const },
-              underline: true
-            }),
-      };
-    const availability = textAreaAvailabilityStates(input);
-    const style = input.style({
-      part,
-      base,
-      ...(selected
-        ? {
-          states: [
-            ...availability,
-            'selected' as const,
-          ],
-        }
-        : availability.length === 0 ? {} : { states: availability }),
-    });
-    const description = selected ? 'selection' : decoration?.label ??
-      (placeholder ? 'placeholder' : active ? 'activeLine.value' : 'value');
-    return [span(text, {
-      ...(style === undefined ? {} : { style }),
-      source: input.frameSource({
-        cellRole: 'text',
-        partName: part,
-        partType: selected ? 'selection' : decoration === undefined ? part : 'decoration',
-        description,
-      }),
-    })];
+    const segment = textAreaValueSegment(
+      selection,
+      decorations[decorationIndex],
+      start,
+      end,
+      geometry.usesPlaceholder,
+      active,
+    );
+    spans.push(textAreaValueSegmentSpan(input, text, segment, active));
+  }
+  return spans;
+}
+
+interface TextAreaValueSegment {
+  readonly selected: boolean;
+  readonly placeholder: boolean;
+  readonly decoration?: ProjectedTextStyleRange;
+  readonly part: TextAreaStylePart;
+  readonly description: string;
+}
+
+function textAreaValueSegment(
+  selection: TextSelection | undefined,
+  candidate: ProjectedTextStyleRange | undefined,
+  start: number,
+  end: number,
+  placeholder: boolean,
+  active: boolean,
+): TextAreaValueSegment {
+  const selected = selection !== undefined
+    && start >= selection.startOffset
+    && end <= selection.endOffsetExclusive;
+  const decoration = !selected && candidate !== undefined
+    && start >= candidate.startOffset
+    && end <= candidate.endOffsetExclusive
+    ? candidate
+    : undefined;
+  const part: TextAreaStylePart = selected
+    ? 'selection'
+    : decoration !== undefined
+      ? 'decoration'
+      : placeholder
+        ? 'placeholder'
+        : active ? 'activeLine' : 'value';
+  const description = selected
+    ? 'selection'
+    : decoration?.label ?? (placeholder ? 'placeholder' : active ? 'activeLine.value' : 'value');
+  return { selected, placeholder, ...(decoration === undefined ? {} : { decoration }), part, description };
+}
+
+function textAreaValueSegmentSpan(
+  input: ComponentRenderInput<TextAreaModel, TextAreaStylePart>,
+  text: string,
+  segment: TextAreaValueSegment,
+  active: boolean,
+): RenderSpan {
+  const base = textAreaValueSegmentBase(segment, active);
+  const availability = textAreaAvailabilityStates(input);
+  const style = input.style({
+    part: segment.part,
+    base,
+    ...(segment.selected
+      ? { states: [...availability, 'selected' as const] }
+      : availability.length === 0 ? {} : { states: availability }),
   });
+  return span(text, {
+    ...(style === undefined ? {} : { style }),
+    source: input.frameSource({
+      cellRole: 'text',
+      partName: segment.part,
+      partType: segment.selected ? 'selection' : segment.decoration === undefined ? segment.part : 'decoration',
+      description: segment.description,
+    }),
+  });
+}
+
+function textAreaValueSegmentBase(segment: TextAreaValueSegment, active: boolean): TerminalStyle {
+  if (segment.selected) {
+    return {
+      fg: { kind: 'theme', token: 'selection.foreground' },
+      bg: { kind: 'theme', token: 'selection.background' },
+    };
+  }
+  const activeBackground: TerminalStyle = active
+    ? { bg: { kind: 'theme', token: 'editor.activeLine.background' } }
+    : {};
+  if (segment.decoration !== undefined) {
+    return {
+      ...activeBackground,
+      ...(segment.decoration.style ?? {
+        fg: { kind: 'theme', token: 'menu.match' },
+        underline: true,
+      }),
+    };
+  }
+  return {
+    fg: { kind: 'theme', token: segment.placeholder ? 'input.placeholder' : 'text.default' },
+    ...activeBackground,
+  };
 }
 
 function projectedStyleRangesBetween(

@@ -15,16 +15,24 @@ export function decodeInputTrigger(value: unknown): InputTrigger {
   if (!isNonArrayObject(value) || typeof value['kind'] !== 'string') {
     throw new TypeError('Input trigger must be an object with a kind.');
   }
-  if (value['kind'] === 'text') {
-    if (typeof value['text'] !== 'string' || segmentGraphemes(value['text']).length !== 1) {
-      throw new TypeError('Text input trigger must contain exactly one grapheme.');
-    }
-    return Object.freeze({ kind: 'text', text: value['text'] });
+  if (value['kind'] === 'text') return decodeTextTrigger(value);
+  if (value['kind'] === 'focus') return decodeFocusTrigger(value);
+  return decodeKeyboardTrigger(value);
+}
+
+function decodeTextTrigger(value: Readonly<Record<string, unknown>>): InputTrigger {
+  if (typeof value['text'] !== 'string' || segmentGraphemes(value['text']).length !== 1) {
+    throw new TypeError('Text input trigger must contain exactly one grapheme.');
   }
-  if (value['kind'] === 'focus') {
-    if (typeof value['focused'] !== 'boolean') throw new TypeError('Focus input trigger requires focused boolean.');
-    return Object.freeze({ kind: 'focus', focused: value['focused'] });
-  }
+  return Object.freeze({ kind: 'text', text: value['text'] });
+}
+
+function decodeFocusTrigger(value: Readonly<Record<string, unknown>>): InputTrigger {
+  if (typeof value['focused'] !== 'boolean') throw new TypeError('Focus input trigger requires focused boolean.');
+  return Object.freeze({ kind: 'focus', focused: value['focused'] });
+}
+
+function decodeKeyboardTrigger(value: Readonly<Record<string, unknown>>): InputTrigger {
   if (value['kind'] !== 'key' && value['kind'] !== 'codePoint' && value['kind'] !== 'physicalKey') {
     throw new TypeError('Input trigger kind is unsupported.');
   }
@@ -186,12 +194,25 @@ function modifierMatches(
   expected: Exclude<KeyModifierTrigger, { readonly kind: 'any' }> | undefined,
   actual: KeyModifiers
 ): boolean {
+  return primaryModifiersMatch(expected, actual) && lockModifiersMatch(expected, actual);
+}
+
+function primaryModifiersMatch(
+  expected: Exclude<KeyModifierTrigger, { readonly kind: 'any' }> | undefined,
+  actual: KeyModifiers,
+): boolean {
   return (expected?.ctrl ?? false) === actual.ctrl
     && (expected?.alt ?? false) === actual.alt
     && (expected?.shift ?? false) === actual.shift
     && (expected?.meta ?? false) === actual.meta
     && (expected?.super ?? false) === (actual.super ?? false)
-    && (expected?.hyper ?? false) === (actual.hyper ?? false)
-    && (expected?.capsLock === undefined || expected.capsLock === (actual.capsLock ?? false))
+    && (expected?.hyper ?? false) === (actual.hyper ?? false);
+}
+
+function lockModifiersMatch(
+  expected: Exclude<KeyModifierTrigger, { readonly kind: 'any' }> | undefined,
+  actual: KeyModifiers,
+): boolean {
+  return (expected?.capsLock === undefined || expected.capsLock === (actual.capsLock ?? false))
     && (expected?.numLock === undefined || expected.numLock === (actual.numLock ?? false));
 }

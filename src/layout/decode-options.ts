@@ -21,6 +21,17 @@ export function decodeLayoutFlowOptions(
     justify?: NonNullable<LayoutFlowOptions['justify']>;
     overflow?: NonNullable<LayoutFlowOptions['overflow']>;
   } = {};
+  Object.assign(result, decodeLayoutDimensions(options, owner));
+  Object.assign(result, decodeLayoutInsets(options, owner));
+  Object.assign(result, decodeLayoutAlignment(options, owner));
+  return result;
+}
+
+function decodeLayoutDimensions(
+  options: Readonly<Record<string, unknown>>,
+  owner: string,
+): Pick<LayoutFlowOptions, 'gap' | 'minWidth' | 'minHeight' | 'maxWidth' | 'maxHeight'> {
+  const result: { gap?: number; minWidth?: number; minHeight?: number; maxWidth?: number; maxHeight?: number } = {};
   for (const field of ['gap', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight'] as const) {
     const member = options[field];
     if (member === undefined) continue;
@@ -35,31 +46,50 @@ export function decodeLayoutFlowOptions(
   if (result.minHeight !== undefined && result.maxHeight !== undefined && result.minHeight > result.maxHeight) {
     throw new RangeError(`${owner} minHeight must not exceed maxHeight.`);
   }
+  return result;
+}
+
+function decodeLayoutInsets(
+  options: Readonly<Record<string, unknown>>,
+  owner: string,
+): Pick<LayoutFlowOptions, 'padding' | 'margin'> {
+  const result: { padding?: LayoutInsetInput; margin?: LayoutInsetInput } = {};
   for (const field of ['padding', 'margin'] as const) {
     const member = options[field];
-    if (member === undefined) continue;
-    result[field] = decodeInsets(member, `${owner} ${field}`);
+    if (member !== undefined) result[field] = decodeInsets(member, `${owner} ${field}`);
   }
-  const align = options['align'];
-  if (align !== undefined && align !== 'start' && align !== 'center' && align !== 'end' && align !== 'stretch') {
-    throw new TypeError(`${owner} align is invalid.`);
-  }
-  if (align !== undefined) result.align = align;
-  const justify = options['justify'];
-  if (justify !== undefined
-    && justify !== 'start'
-    && justify !== 'center'
-    && justify !== 'end'
-    && justify !== 'stretch') {
-    throw new TypeError(`${owner} justify is invalid.`);
-  }
-  if (justify !== undefined) result.justify = justify;
-  const overflow = options['overflow'];
-  if (overflow !== undefined && overflow !== 'clip' && overflow !== 'visible') {
-    throw new TypeError(`${owner} overflow is invalid.`);
-  }
-  if (overflow !== undefined) result.overflow = overflow;
   return result;
+}
+
+function decodeLayoutAlignment(
+  options: Readonly<Record<string, unknown>>,
+  owner: string,
+): Pick<LayoutFlowOptions, 'align' | 'justify' | 'overflow'> {
+  const align = decodeLayoutEnum(options['align'], ['start', 'center', 'end', 'stretch'], `${owner} align`);
+  const justify = decodeLayoutEnum(options['justify'], ['start', 'center', 'end', 'stretch'], `${owner} justify`);
+  const overflow = decodeLayoutEnum(options['overflow'], ['clip', 'visible'], `${owner} overflow`);
+  return {
+    ...(align === undefined ? {} : { align }),
+    ...(justify === undefined ? {} : { justify }),
+    ...(overflow === undefined ? {} : { overflow }),
+  };
+}
+
+function decodeLayoutEnum<const TValue extends string>(
+  value: unknown,
+  values: readonly TValue[],
+  label: string,
+): TValue | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !isLayoutEnumValue(value, values)) throw new TypeError(`${label} is invalid.`);
+  return value;
+}
+
+function isLayoutEnumValue<TValue extends string>(
+  value: string,
+  values: readonly TValue[],
+): value is TValue {
+  return values.some((candidate) => candidate === value);
 }
 
 function decodeInsets(value: unknown, label: string): LayoutInsetInput {

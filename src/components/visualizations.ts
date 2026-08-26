@@ -1,6 +1,6 @@
 /** Passive and interactive data visualizations. */
 export { barChart, chart, heatmap } from './factories/charts.ts';
-export { meter, sparkline } from './factories/indicators.ts';
+export { meter, sparkline } from './factories/compact-visualizations.ts';
 export type {
   BarChartOptions,
   ChartOptions,

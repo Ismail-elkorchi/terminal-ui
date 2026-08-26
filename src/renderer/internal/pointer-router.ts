@@ -79,77 +79,99 @@ export function createPointerRouter<TMessage>(options: PointerRouterOptions): Po
   let previousClick: CompletedPointerClick | undefined;
   let visualRevision = 0;
 
+  function routePointer(
+    regions: readonly RenderRegion<TMessage>[],
+    event: TerminalMouseEvent,
+    occurredAt: number,
+  ): readonly PointerRouteResult<TMessage>[] {
+    const accepted = event.action === 'move'
+      ? [...acceptedKindsForEvent(event), 'click' as const]
+      : acceptedKindsForEvent(event);
+    const pointerHit = topHitAt(regions, event.row, event.column, accepted);
+    switch (event.action) {
+      case 'press': return routePress(regions, event, pointerHit);
+      case 'drag': return routeDrag(regions, event);
+      case 'release': return routeRelease(regions, event, pointerHit, occurredAt);
+      case 'move': return routeMove(regions, event, pointerHit);
+      case 'wheel': return [routeResult(event, pointerHit, 'scroll', press)];
+    }
+  }
+
+  function routePress(
+    regions: readonly RenderRegion<TMessage>[],
+    event: TerminalMouseEvent,
+    pointerHit: QualifiedHit<TMessage> | undefined,
+  ): readonly PointerRouteResult<TMessage>[] {
+    if (event.button !== 'left' || pointerHit?.identity !== previousClick?.identity) previousClick = undefined;
+    const nextPress = pointerHit === undefined ? undefined : pointerPress(event, pointerHit);
+    if (press?.identity !== nextPress?.identity) visualRevision += 1;
+    press = nextPress;
+    return pressResults(regions, event, pointerHit, press);
+  }
+
+  function routeDrag(
+    regions: readonly RenderRegion<TMessage>[],
+    event: TerminalMouseEvent,
+  ): readonly PointerRouteResult<TMessage>[] {
+    if (press === undefined) return [];
+    const captured = hitByIdentity(regions, press.identity);
+    if (captured === undefined) {
+      press = undefined;
+      visualRevision += 1;
+      previousClick = undefined;
+      return [];
+    }
+    const kind = press.dragging ? 'drag' : 'dragStart';
+    press = { ...press, dragging: true };
+    return [routeResult(event, captured, kind, press)];
+  }
+
+  function routeRelease(
+    regions: readonly RenderRegion<TMessage>[],
+    event: TerminalMouseEvent,
+    pointerHit: QualifiedHit<TMessage> | undefined,
+    occurredAt: number,
+  ): readonly PointerRouteResult<TMessage>[] {
+    const activePress = press;
+    press = undefined;
+    if (activePress !== undefined) visualRevision += 1;
+    const captured = activePress === undefined ? undefined : hitByIdentity(regions, activePress.identity);
+    if (activePress?.dragging === true) previousClick = undefined;
+    const clickCount = completedClickCount(
+      event,
+      pointerHit,
+      captured,
+      activePress,
+      previousClick,
+      occurredAt,
+      doubleClickIntervalMs,
+      doubleClickMaxDistance,
+    );
+    previousClick = completedPointerClick(event, activePress, clickCount, occurredAt);
+    return releaseResults(event, pointerHit, captured, activePress, clickCount);
+  }
+
+  function routeMove(
+    regions: readonly RenderRegion<TMessage>[],
+    event: TerminalMouseEvent,
+    pointerHit: QualifiedHit<TMessage> | undefined,
+  ): readonly PointerRouteResult<TMessage>[] {
+    const previous = hover === undefined ? undefined : hitByIdentity(regions, hover.identity);
+    const results = hoverResults(event, previous, pointerHit);
+    const nextHover = pointerHit === undefined ? undefined : {
+      identity: pointerHit.identity,
+      ownerIdentity: pointerHit.target.ownerIdentity,
+      targetId: pointerHit.target.id,
+      sourceEvent: event,
+    };
+    if (hover?.identity !== nextHover?.identity) visualRevision += 1;
+    hover = nextHover;
+    return results;
+  }
+
   return {
     route(regions, event, occurredAt = options.now()) {
-      const pointerHit = topHitAt(
-        regions,
-        event.row,
-        event.column,
-        event.action === 'move' ? [...acceptedKindsForEvent(event), 'click'] : acceptedKindsForEvent(event),
-      );
-      if (event.action === 'press') {
-        if (event.button !== 'left' || pointerHit?.identity !== previousClick?.identity) previousClick = undefined;
-        const nextPress = pointerHit === undefined ? undefined : pointerPress(event, pointerHit);
-        if (press?.identity !== nextPress?.identity) visualRevision += 1;
-        press = nextPress;
-        return pressResults(regions, event, pointerHit, press);
-      }
-      if (event.action === 'drag' && press !== undefined) {
-        const captured = hitByIdentity(regions, press.identity);
-        if (captured === undefined) {
-          press = undefined;
-          visualRevision += 1;
-          previousClick = undefined;
-          return [];
-        }
-        const kind = press.dragging ? 'drag' : 'dragStart';
-        press = { ...press, dragging: true };
-        return [routeResult(event, captured, kind, press)];
-      }
-      if (event.action === 'release') {
-        const activePress = press;
-        press = undefined;
-        if (activePress !== undefined) visualRevision += 1;
-        const captured = activePress === undefined ? undefined : hitByIdentity(regions, activePress.identity);
-        if (activePress?.dragging === true) previousClick = undefined;
-        const clickCount = completedClickCount(
-          event,
-          pointerHit,
-          captured,
-          activePress,
-          previousClick,
-          occurredAt,
-          doubleClickIntervalMs,
-          doubleClickMaxDistance
-        );
-        if (clickCount === 1 && activePress !== undefined) {
-          previousClick = {
-            identity: activePress.identity,
-            button: activePress.button,
-            row: event.row,
-            column: event.column,
-            completedAt: occurredAt
-          };
-        } else if (clickCount !== 1) {
-          previousClick = undefined;
-        }
-        return releaseResults(event, pointerHit, captured, activePress, clickCount);
-      }
-      if (event.action === 'move') {
-        const previous = hover === undefined ? undefined : hitByIdentity(regions, hover.identity);
-        const results = hoverResults(event, previous, pointerHit);
-        const nextHover = pointerHit === undefined ? undefined : {
-          identity: pointerHit.identity,
-          ownerIdentity: pointerHit.target.ownerIdentity,
-          targetId: pointerHit.target.id,
-          sourceEvent: event,
-        };
-        if (hover?.identity !== nextHover?.identity) visualRevision += 1;
-        hover = nextHover;
-        return results;
-      }
-      if (event.action === 'wheel') return [routeResult(event, pointerHit, 'scroll', press)];
-      return [];
+      return routePointer(regions, event, occurredAt);
     },
     routeWheel(regions, event, targetIdentity) {
       return routeWheelThroughAncestors(regions, event, targetIdentity, press);
@@ -214,6 +236,22 @@ function pointerPress<TMessage>(event: TerminalMouseEvent, hit: QualifiedHit<TMe
     localColumn: local.column,
     dragging: false,
     sourceEvent: event
+  };
+}
+
+function completedPointerClick(
+  event: TerminalMouseEvent,
+  activePress: PointerPress | undefined,
+  clickCount: PointerClickCount | undefined,
+  occurredAt: number,
+): CompletedPointerClick | undefined {
+  if (clickCount !== 1 || activePress === undefined) return undefined;
+  return {
+    identity: activePress.identity,
+    button: activePress.button,
+    row: event.row,
+    column: event.column,
+    completedAt: occurredAt,
   };
 }
 

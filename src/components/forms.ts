@@ -1,16 +1,23 @@
 /** Form containers, editable controls, and value controls. */
-export { button, checkbox, combobox, field, form, label, switchControl } from './factories/forms.ts';
+export { form, field, label } from './factories/form-layout.ts';
+export { button } from './factories/action-button.ts';
+export { checkbox, switchControl } from './factories/boolean-controls.ts';
+export { combobox } from './factories/combobox.ts';
 export {
-  calendar,
-  checkboxGroup,
-  colorSwatchPicker,
-  numberInput,
-  passwordInput,
-  radioGroup,
   rangeSlider,
   slider,
+} from './factories/range-controls.ts';
+export {
+  checkboxGroup,
+  radioGroup,
+  colorSwatchPicker,
+} from './factories/choice-controls.ts';
+export { calendar } from './factories/calendar.ts';
+export {
   textInput,
-} from './factories/input-controls.ts';
+  passwordInput,
+  numberInput,
+} from './factories/text-entry-controls.ts';
 export {
   createTextAreaRowOffsetMap,
   textArea,

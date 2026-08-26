@@ -234,7 +234,6 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     stateVersion: number,
     commitId: string
   ): RuntimeRenderResolution<TMessage> {
-    const diagnostics: TerminalDiagnostic[] = [];
     let desiredFocusPath = requestedFocusPath;
     let render = renderCurrentFrame(
       options.app,
@@ -247,38 +246,73 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
       options.graphicsBudget,
       options.pointerVisuals?.(),
     );
-    if (initialFocus !== undefined) {
-      const resolution = resolveInitialFocusSelector(render.layout, initialFocus);
-      if (resolution.kind === 'matched' && !focusPathsEqual(resolution.path, render.frame.focusPath)) {
-        desiredFocusPath = resolution.path;
-        render = rerenderCurrentFrame(
+    const initial = resolveInitialFocus(state, render, desiredFocusPath, initialFocus, stateVersion, commitId);
+    render = initial.render;
+    desiredFocusPath = initial.desiredFocusPath;
+    const recovered = resolveFocusReturnPaths(
+      state,
+      render,
+      desiredFocusPath,
+      previousReturnPaths,
+      stateVersion,
+      commitId,
+    );
+    render = recovered.render;
+    const nextReturnPaths = recovered.returnPaths;
+    const renderDiagnostics = newRenderDiagnostics(render);
+    return {
+      render,
+      ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
+      focusReturnPaths: nextReturnPaths,
+      renderDiagnosticFingerprints: renderDiagnostics.fingerprints,
+      diagnostics: [...initial.diagnostics, ...renderDiagnostics.diagnostics],
+    };
+  }
+
+  function resolveInitialFocus(
+    state: TState,
+    current: RenderCommitCandidate<TMessage>,
+    desiredFocusPath: FocusPath | undefined,
+    initialFocus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
+    stateVersion: number,
+    commitId: string,
+  ): InitialFocusResolution<TMessage> {
+    if (initialFocus === undefined) return { render: current, desiredFocusPath, diagnostics: [] };
+    const resolution = resolveInitialFocusSelector(current.layout, initialFocus);
+    if (resolution.kind === 'matched') {
+      if (focusPathsEqual(resolution.path, current.frame.focusPath)) {
+        return { render: current, desiredFocusPath: resolution.path, diagnostics: [] };
+      }
+      return {
+        render: rerenderCurrentFrame(
           options.app,
           state,
-          render,
-          desiredFocusPath,
+          current,
+          resolution.path,
           stateVersion,
           commitId,
           options.pointerVisuals?.(),
-        );
-      } else if (resolution.kind !== 'matched') {
-        diagnostics.push(diagnostic(
-          'TUI_FOCUS_SELECTION_INVALID',
-          resolution.kind === 'missing'
-            ? 'Focus selector did not match an active focus target.'
-            : 'Focus selector matched multiple active focus targets.',
-          {
-            severity: 'warning',
-            target: options.app.id,
-            data: {
-              reason: resolution.kind,
-              ...(resolution.kind === 'ambiguous'
-                ? { paths: resolution.paths.map((path) => path.join('/')) }
-                : {})
-            }
-          }
-        ));
-      }
+        ),
+        desiredFocusPath: resolution.path,
+        diagnostics: [],
+      };
     }
+    return {
+      render: current,
+      desiredFocusPath,
+      diagnostics: [initialFocusDiagnostic(options.app.id, resolution)],
+    };
+  }
+
+  function resolveFocusReturnPaths(
+    state: TState,
+    current: RenderCommitCandidate<TMessage>,
+    desiredFocusPath: FocusPath | undefined,
+    previousReturnPaths: readonly FocusPath[],
+    stateVersion: number,
+    commitId: string,
+  ): FocusReturnResolution<TMessage> {
+    let render = current;
     let nextReturnPaths = previousReturnPaths
       .filter((path) => findAnyLayoutFocusTarget(render.layout, path) !== undefined)
       .map((path) => [...path]);
@@ -312,21 +346,20 @@ export function createRuntimeCommitCoordinator<TState, TMessage>(
     if (nextReturnPaths.length > 0 && focusPathsEqual(render.frame.focusPath, nextReturnPaths.at(-1))) {
       nextReturnPaths = nextReturnPaths.slice(0, -1);
     }
-    const renderDiagnosticFingerprints: string[] = [];
+    return { render, returnPaths: nextReturnPaths };
+  }
+
+  function newRenderDiagnostics(render: RenderCommitCandidate<TMessage>): RenderDiagnosticResolution {
+    const fingerprints: string[] = [];
+    const diagnostics: TerminalDiagnostic[] = [];
     const candidateFingerprints = new Set<string>();
     for (const item of render.frame.accessibility.diagnostics) {
       if (acceptedRenderDiagnostics.has(item.fingerprint) || candidateFingerprints.has(item.fingerprint)) continue;
       candidateFingerprints.add(item.fingerprint);
-      renderDiagnosticFingerprints.push(item.fingerprint);
+      fingerprints.push(item.fingerprint);
       diagnostics.push(item);
     }
-    return {
-      render,
-      ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
-      focusReturnPaths: nextReturnPaths,
-      renderDiagnosticFingerprints,
-      diagnostics
-    };
+    return { fingerprints, diagnostics };
   }
 
   function observeCommittedFrame(frame: Frame, diff: RenderDiff): void {
@@ -357,4 +390,47 @@ interface RuntimeRenderResolution<TMessage> {
   readonly focusReturnPaths: readonly FocusPath[];
   readonly renderDiagnosticFingerprints: readonly string[];
   readonly diagnostics: readonly TerminalDiagnostic[];
+}
+
+interface InitialFocusResolution<TMessage> {
+  readonly render: RenderCommitCandidate<TMessage>;
+  readonly desiredFocusPath: FocusPath | undefined;
+  readonly diagnostics: readonly TerminalDiagnostic[];
+}
+
+interface FocusReturnResolution<TMessage> {
+  readonly render: RenderCommitCandidate<TMessage>;
+  readonly returnPaths: readonly FocusPath[];
+}
+
+interface RenderDiagnosticResolution {
+  readonly fingerprints: readonly string[];
+  readonly diagnostics: readonly TerminalDiagnostic[];
+}
+
+type UnmatchedInitialFocusResolution = Exclude<
+  ReturnType<typeof resolveInitialFocusSelector>,
+  { readonly kind: 'matched' }
+>;
+
+function initialFocusDiagnostic(
+  appId: string,
+  resolution: UnmatchedInitialFocusResolution,
+): TerminalDiagnostic {
+  return diagnostic(
+    'TUI_FOCUS_SELECTION_INVALID',
+    resolution.kind === 'missing'
+      ? 'Focus selector did not match an active focus target.'
+      : 'Focus selector matched multiple active focus targets.',
+    {
+      severity: 'warning',
+      target: appId,
+      data: {
+        reason: resolution.kind,
+        ...(resolution.kind === 'ambiguous'
+          ? { paths: resolution.paths.map((path) => path.join('/')) }
+          : {}),
+      },
+    },
+  );
 }

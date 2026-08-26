@@ -164,26 +164,15 @@ function decodeTerminalText(
     }
 
     const remaining = text.slice(index);
-    if (options.bracketedPaste === true) {
-      const paste = bracketedPasteFromPrefix(
-        remaining,
-        index === 0 ? pasteSearchFrom : BRACKETED_PASTE_START.length
-      );
-      if (paste !== undefined) {
-        assertPastePayloadWithinLimit(paste.event.text.length, limits);
-        flushText();
-        pushEvent(paste.event);
-        index += paste.length;
-        continue;
-      }
-      if (isIncompleteBracketedPaste(remaining)) {
-        assertIncompletePasteWithinLimit(remaining, limits);
-        if (!final) break;
-        flushText();
-        pushEvent({ kind: 'unknown', sequence: remaining });
-        index = text.length;
-        continue;
-      }
+    const paste = options.bracketedPaste === true
+      ? decodeBracketedPasteUnit(remaining, index === 0 ? pasteSearchFrom : BRACKETED_PASTE_START.length, final, limits)
+      : undefined;
+    if (paste?.kind === 'pending') break;
+    if (paste?.kind === 'event') {
+      flushText();
+      pushEvent(paste.event);
+      index += paste.length;
+      continue;
     }
 
     const frame = terminalControlFrame(remaining, index === 0 ? protocolSearchFrom : 0);
@@ -192,53 +181,10 @@ function decodeTerminalText(
     }
     if (!final && frame.kind === 'pending') break;
 
-    const focus = options.focusReporting === true ? focusFromPrefix(normalizedControlPrefix(remaining)) : undefined;
-    if (focus !== undefined) {
-      flushText();
-      pushEvent(focus.event);
-      index += controlPrefixLength(remaining, focus.length);
-      continue;
-    }
-
-    const mouse = options.mouseReporting !== undefined && options.mouseReporting !== 'none'
-      ? mouseFromPrefix(
-          normalizedControlPrefix(remaining),
-          limits.maxMouseFieldDigits,
-          options.mouseReporting
-        )
-      : undefined;
-    if (mouse !== undefined) {
-      flushText();
-      pushEvent(mouse.event);
-      index += controlPrefixLength(remaining, mouse.length);
-      continue;
-    }
-
-    const normalizedRemaining = normalizedControlPrefix(remaining);
-    const key = enhancedKeyFromPrefix(
-      normalizedRemaining,
-      options.keyboard ?? LEGACY_KEYBOARD_PROFILE,
-      limits.maxKittyAssociatedTextCodePoints
-    ) ?? keyFromPrefix(normalizedRemaining);
-    if (key !== undefined) {
-      flushText();
-      pushEvent(key);
-      index += controlPrefixLength(remaining, key.sequence?.length ?? 0);
-      continue;
-    }
-
-    const unknown = unknownTerminalControlFromPrefix(remaining, final);
-    if (unknown !== undefined) {
-      flushText();
-      pushEvent({ kind: 'unknown', sequence: unknown });
-      index += unknown.length;
-      continue;
-    }
-
-    const control = unknownControlFromPrefix(remaining);
+    const control = decodeTerminalControlUnit(remaining, options, limits, final);
     if (control !== undefined) {
       flushText();
-      pushEvent({ kind: 'unknown', sequence: control });
+      pushEvent(control.event);
       index += control.length;
       continue;
     }
@@ -262,6 +208,58 @@ function decodeTerminalText(
       : BRACKETED_PASTE_START.length,
     protocolSearchFrom: remainder.length === 0 ? 0 : Math.max(0, remainder.length - 1)
   };
+}
+
+type DecodedPasteUnit =
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'event'; readonly event: InputEvent; readonly length: number };
+
+function decodeBracketedPasteUnit(
+  value: string,
+  searchFrom: number,
+  final: boolean,
+  limits: InputDecodeLimits,
+): DecodedPasteUnit | undefined {
+  const paste = bracketedPasteFromPrefix(value, searchFrom);
+  if (paste !== undefined) {
+    assertPastePayloadWithinLimit(paste.event.text.length, limits);
+    return { kind: 'event', event: paste.event, length: paste.length };
+  }
+  if (!isIncompleteBracketedPaste(value)) return undefined;
+  assertIncompletePasteWithinLimit(value, limits);
+  return final
+    ? { kind: 'event', event: { kind: 'unknown', sequence: value }, length: value.length }
+    : { kind: 'pending' };
+}
+
+interface DecodedTerminalControlUnit {
+  readonly event: InputEvent;
+  readonly length: number;
+}
+
+function decodeTerminalControlUnit(
+  value: string,
+  options: InputDecodeOptions,
+  limits: InputDecodeLimits,
+  final: boolean,
+): DecodedTerminalControlUnit | undefined {
+  const normalized = normalizedControlPrefix(value);
+  const focus = options.focusReporting === true ? focusFromPrefix(normalized) : undefined;
+  if (focus !== undefined) return { event: focus.event, length: controlPrefixLength(value, focus.length) };
+  const mouse = options.mouseReporting !== undefined && options.mouseReporting !== 'none'
+    ? mouseFromPrefix(normalized, limits.maxMouseFieldDigits, options.mouseReporting)
+    : undefined;
+  if (mouse !== undefined) return { event: mouse.event, length: controlPrefixLength(value, mouse.length) };
+  const key = enhancedKeyFromPrefix(
+    normalized,
+    options.keyboard ?? LEGACY_KEYBOARD_PROFILE,
+    limits.maxKittyAssociatedTextCodePoints,
+  ) ?? keyFromPrefix(normalized);
+  if (key !== undefined) {
+    return { event: key, length: controlPrefixLength(value, key.sequence?.length ?? 0) };
+  }
+  const unknown = unknownTerminalControlFromPrefix(value, final) ?? unknownControlFromPrefix(value);
+  return unknown === undefined ? undefined : { event: { kind: 'unknown', sequence: unknown }, length: unknown.length };
 }
 
 function plainTextRunEnd(value: string, start: number): number {

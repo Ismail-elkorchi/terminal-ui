@@ -772,51 +772,66 @@ function createRuntime<TState, TMessage>(
     const results: TuiInputResult<TState>[] = [];
     const routedEvents = routingInputEvents(events, flushCharacterText);
     for (let index = 0; index < routedEvents.length;) {
-      const event = routedEvents[index];
-      if (event === undefined) break;
-      const navigationRun = repeatedNavigationRun(routedEvents, index);
-      if (navigationRun.length > 1 && navigationRun.every(navigationInputCanBatch)) {
-        results.push(...await wheelInput.flush());
-        if (results.at(-1)?.exit !== undefined) break;
-        results.push(...await pointerMotion.flush());
-        if (results.at(-1)?.exit !== undefined) break;
-        results.push(await handleNavigationInputRun(navigationRun));
-        if (results.at(-1)?.exit !== undefined) break;
-        index += navigationRun.length;
-        continue;
-      }
-      if (isWheelInputEvent(event)) {
-        results.push(...await pointerMotion.flush());
-        if (results.at(-1)?.exit !== undefined) break;
-        results.push(...await enqueueWheelInput(event));
-        if (results.at(-1)?.exit !== undefined) break;
-        index += 1;
-        continue;
-      }
-      if (isPointerMotionEvent(event)) {
-        results.push(...await wheelInput.flush());
-        if (results.at(-1)?.exit !== undefined) break;
-        enqueuePointerMotion(event, occurredAt);
-        index += 1;
-        continue;
-      }
-      results.push(...await wheelInput.flush());
-      if (results.at(-1)?.exit !== undefined) break;
-      results.push(...await pointerMotion.flush());
-      if (results.at(-1)?.exit !== undefined) break;
-      const result = await handleInputImmediately(
-        event,
-        occurredAt
-      );
-      results.push(result);
-      if (result.exit !== undefined) break;
-      index += 1;
+      const chunk = await processInputChunk(routedEvents, index, occurredAt);
+      results.push(...chunk.results);
+      if (chunk.exit) break;
+      index += chunk.consumed;
     }
     const pending = combinePendingInput(wheelInput.pending(), pointerMotion.pending());
     return {
       results,
       ...(pending === undefined ? {} : { pending })
     };
+  }
+
+  async function processInputChunk(
+    events: readonly InputEvent[],
+    index: number,
+    occurredAt: number,
+  ): Promise<{
+    readonly results: readonly TuiInputResult<TState>[];
+    readonly consumed: number;
+    readonly exit: boolean;
+  }> {
+    const event = events[index];
+    if (event === undefined) return { results: [], consumed: 1, exit: false };
+    const navigationRun = repeatedNavigationRun(events, index);
+    if (navigationRun.length > 1 && navigationRun.every(navigationInputCanBatch)) {
+      const flushed = await flushInputCoordinators(true, true);
+      if (inputResultsExit(flushed)) return { results: flushed, consumed: navigationRun.length, exit: true };
+      const navigation = await handleNavigationInputRun(navigationRun);
+      const results = [...flushed, navigation];
+      return { results, consumed: navigationRun.length, exit: inputResultsExit(results) };
+    }
+    if (isWheelInputEvent(event)) {
+      const flushed = await flushInputCoordinators(false, true);
+      if (inputResultsExit(flushed)) return { results: flushed, consumed: 1, exit: true };
+      const results = [...flushed, ...await enqueueWheelInput(event)];
+      return { results, consumed: 1, exit: inputResultsExit(results) };
+    }
+    if (isPointerMotionEvent(event)) {
+      const results = await flushInputCoordinators(true, false);
+      if (!inputResultsExit(results)) enqueuePointerMotion(event, occurredAt);
+      return { results, consumed: 1, exit: inputResultsExit(results) };
+    }
+    const flushed = await flushInputCoordinators(true, true);
+    if (inputResultsExit(flushed)) return { results: flushed, consumed: 1, exit: true };
+    const result = await handleInputImmediately(event, occurredAt);
+    return { results: [...flushed, result], consumed: 1, exit: result.exit !== undefined };
+  }
+
+  async function flushInputCoordinators(
+    wheel: boolean,
+    pointer: boolean,
+  ): Promise<readonly TuiInputResult<TState>[]> {
+    const results: TuiInputResult<TState>[] = [];
+    if (wheel) results.push(...await wheelInput.flush());
+    if (!inputResultsExit(results) && pointer) results.push(...await pointerMotion.flush());
+    return results;
+  }
+
+  function inputResultsExit(results: readonly TuiInputResult<TState>[]): boolean {
+    return results.at(-1)?.exit !== undefined;
   }
 
   async function handleNavigationInputRun(

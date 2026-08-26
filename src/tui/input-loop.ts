@@ -55,112 +55,9 @@ export async function runTuiInputLoop<TState, TMessage>(
     watchSuspension();
     for (;;) {
       const event = await events.next();
-      if (event.kind === 'suspend') {
-        let inputReleaseStarted = false;
-        try {
-          events.cancel('inputReady');
-          inputDispatchQueued = false;
-          events.cancel('inputWork');
-          events.cancel('inputBatch');
-          const exit = await settleInputWork();
-          if (exit !== undefined) return exit;
-          const releaseInput = host.stdin.release?.bind(host.stdin);
-          if (releaseInput === undefined) {
-            throw new Error('Terminal host input cannot be released for an external operation.');
-          }
-          const suspendingInput = input;
-          if (suspendingInput === undefined) {
-            throw new Error('Terminal input is unavailable during suspension.');
-          }
-          inputReleaseStarted = true;
-          events.cancel('input');
-          inputReadPending = false;
-          inputController.abort('terminal_input_suspended');
-          await releaseTerminalInput(suspendingInput, releaseInput);
-          input = undefined;
-          runtime.resetInput();
-          suspendedRequest = event.request;
-          event.request.paused();
-          watchResume(event.request);
-        } catch (cause) {
-          event.request.pauseFailed(cause);
-          if (inputReleaseStarted) throw cause;
-          watchSuspension();
-        }
-        continue;
-      }
-      if (event.kind === 'resume') {
-        suspendedRequest = undefined;
-        openInput();
-        event.request.resumed();
-        watchSuspension();
-        continue;
-      }
-      if (event.kind === 'input') {
-        inputReadPending = false;
-        if (event.value.done === true) {
-          inputEnded = true;
-          if (inputWorkNext === undefined) scheduleQueuedInputOrFlush();
-        } else {
-          enqueueInput(event.value.value);
-          watchInputIfAvailable();
-          if (inputWorkNext === undefined) scheduleQueuedInputOrFlush();
-        }
-        continue;
-      }
-      if (event.kind === 'inputReady') {
-        inputDispatchQueued = false;
-        startQueuedInputOrFlush();
-        continue;
-      }
-      if (event.kind === 'inputWork') {
-        inputWorkNext = undefined;
-        const batch = normalizeInputWork(event.outcome.work);
-        const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
-        if (exit !== undefined) return exit;
-        inputBatchNext = batch.pending;
-        if (inputBatchNext !== undefined) {
-          endAfterInputBatch = event.outcome.endAfter;
-          events.watch('inputBatch', inputBatchNext, (results) => ({ kind: 'inputBatch', results }));
-        } else if (event.outcome.endAfter) break;
-        else {
-          startQueuedInputOrFlush();
-          watchInputIfAvailable();
-        }
-        continue;
-      }
-      if (event.kind === 'inputBatch') {
-        inputBatchNext = undefined;
-        const exit = event.results.find((result) => result.exit !== undefined)?.exit;
-        if (exit !== undefined) return exit;
-        if (endAfterInputBatch) break;
-        startQueuedInputOrFlush();
-        watchInputIfAvailable();
-        continue;
-      }
-      if (event.kind === 'resize') {
-        resizeNext = undefined;
-        if (resizeQueued) {
-          resizeQueued = false;
-          watchResize(runtime.resize(host.getTerminalSize()));
-        }
-        continue;
-      }
-      if (event.kind === 'runtime') {
-        if (event.change.kind === 'exit') return event.change.exit;
-        watchRuntimeChange();
-        continue;
-      }
-      watchSignal();
-      transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });
-      if (event.signal === 'resize') {
-        if (resizeNext === undefined) watchResize(runtime.resize(host.getTerminalSize()));
-        else resizeQueued = true;
-        continue;
-      }
-      inputController.abort(`terminal_signal:${event.signal}`);
-      retireTuiRuntimeInput(runtime);
-      return handleTuiSignal(runtime, appId, event.signal);
+      const transition = await transitionFor(event);
+      if (transition.kind === 'exit') return transition.exit;
+      if (transition.kind === 'complete') break;
     }
   } finally {
     events.close();
@@ -189,6 +86,134 @@ export async function runTuiInputLoop<TState, TMessage>(
     ],
     snapshot: tuiSnapshot(appId)
   };
+
+  async function transitionFor(event: InputLoopEvent<TState>): Promise<InputLoopTransition<TState>> {
+    switch (event.kind) {
+      case 'suspend': return suspendTransition(event.request);
+      case 'resume': return resumeTransition(event.request);
+      case 'input': return inputTransition(event.value);
+      case 'inputReady': return inputReadyTransition();
+      case 'inputWork': return inputWorkTransition(event.outcome);
+      case 'inputBatch': return inputBatchTransition(event.results);
+      case 'resize': return resizeTransition();
+      case 'runtime': return runtimeTransition(event.change);
+      case 'signal': return signalTransition(event.signal);
+    }
+  }
+
+  async function suspendTransition(request: InputSuspensionRequest): Promise<InputLoopTransition<TState>> {
+    let inputReleaseStarted = false;
+    try {
+      events.cancel('inputReady');
+      inputDispatchQueued = false;
+      events.cancel('inputWork');
+      events.cancel('inputBatch');
+      const exit = await settleInputWork();
+      if (exit !== undefined) return { kind: 'exit', exit };
+      const releaseInput = host.stdin.release?.bind(host.stdin);
+      if (releaseInput === undefined) {
+        throw new Error('Terminal host input cannot be released for an external operation.');
+      }
+      const suspendingInput = input;
+      if (suspendingInput === undefined) throw new Error('Terminal input is unavailable during suspension.');
+      inputReleaseStarted = true;
+      events.cancel('input');
+      inputReadPending = false;
+      inputController.abort('terminal_input_suspended');
+      await releaseTerminalInput(suspendingInput, releaseInput);
+      input = undefined;
+      runtime.resetInput();
+      suspendedRequest = request;
+      request.paused();
+      watchResume(request);
+    } catch (cause) {
+      request.pauseFailed(cause);
+      if (inputReleaseStarted) throw cause;
+      watchSuspension();
+    }
+    return continueInputLoop;
+  }
+
+  function resumeTransition(request: InputSuspensionRequest): InputLoopTransition<TState> {
+    suspendedRequest = undefined;
+    openInput();
+    request.resumed();
+    watchSuspension();
+    return continueInputLoop;
+  }
+
+  function inputTransition(value: IteratorResult<TerminalInputChunk>): InputLoopTransition<TState> {
+    inputReadPending = false;
+    if (value.done === true) {
+      inputEnded = true;
+    } else {
+      enqueueInput(value.value);
+      watchInputIfAvailable();
+    }
+    if (inputWorkNext === undefined) scheduleQueuedInputOrFlush();
+    return continueInputLoop;
+  }
+
+  function inputReadyTransition(): InputLoopTransition<TState> {
+    inputDispatchQueued = false;
+    startQueuedInputOrFlush();
+    return continueInputLoop;
+  }
+
+  function inputWorkTransition(outcome: InputWorkOutcome<TState>): InputLoopTransition<TState> {
+    inputWorkNext = undefined;
+    const batch = normalizeInputWork(outcome.work);
+    const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
+    if (exit !== undefined) return { kind: 'exit', exit };
+    inputBatchNext = batch.pending;
+    if (inputBatchNext !== undefined) {
+      endAfterInputBatch = outcome.endAfter;
+      events.watch('inputBatch', inputBatchNext, (results) => ({ kind: 'inputBatch', results }));
+      return continueInputLoop;
+    }
+    if (outcome.endAfter) return completeInputLoop;
+    startQueuedInputOrFlush();
+    watchInputIfAvailable();
+    return continueInputLoop;
+  }
+
+  function inputBatchTransition(results: readonly TuiInputResult<TState>[]): InputLoopTransition<TState> {
+    inputBatchNext = undefined;
+    const exit = results.find((result) => result.exit !== undefined)?.exit;
+    if (exit !== undefined) return { kind: 'exit', exit };
+    if (endAfterInputBatch) return completeInputLoop;
+    startQueuedInputOrFlush();
+    watchInputIfAvailable();
+    return continueInputLoop;
+  }
+
+  function resizeTransition(): InputLoopTransition<TState> {
+    resizeNext = undefined;
+    if (resizeQueued) {
+      resizeQueued = false;
+      watchResize(runtime.resize(host.getTerminalSize()));
+    }
+    return continueInputLoop;
+  }
+
+  function runtimeTransition(change: TuiRuntimeChange<TState>): InputLoopTransition<TState> {
+    if (change.kind === 'exit') return { kind: 'exit', exit: change.exit };
+    watchRuntimeChange();
+    return continueInputLoop;
+  }
+
+  function signalTransition(signal: TerminalSignal): InputLoopTransition<TState> {
+    watchSignal();
+    transcript?.record({ kind: 'input', event: { kind: 'signal', signal } });
+    if (signal === 'resize') {
+      if (resizeNext === undefined) watchResize(runtime.resize(host.getTerminalSize()));
+      else resizeQueued = true;
+      return continueInputLoop;
+    }
+    inputController.abort(`terminal_signal:${signal}`);
+    retireTuiRuntimeInput(runtime);
+    return { kind: 'exit', exit: handleTuiSignal(runtime, appId, signal) };
+  }
 
   function openInput(): void {
     inputController = new AbortController();
@@ -396,6 +421,14 @@ interface InputWorkOutcome<TState> {
   readonly work: TuiInputBatchResult<TState> | readonly TuiInputResult<TState>[];
   readonly endAfter: boolean;
 }
+
+type InputLoopTransition<TState> =
+  | { readonly kind: 'continue' }
+  | { readonly kind: 'complete' }
+  | { readonly kind: 'exit'; readonly exit: TuiExit<TState> };
+
+const continueInputLoop = Object.freeze({ kind: 'continue' as const });
+const completeInputLoop = Object.freeze({ kind: 'complete' as const });
 
 type InputLoopEvent<TState> =
   | { readonly kind: 'input'; readonly value: IteratorResult<TerminalInputChunk> }

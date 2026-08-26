@@ -48,6 +48,17 @@ interface KeyboardFrame {
   readonly previous: KeyboardScreenState;
 }
 
+interface RestoredKeyboardFrame {
+  readonly screen: TerminalScreen;
+  readonly previous: KeyboardScreenState;
+}
+
+interface RestoreOperationOutcome {
+  readonly continue: boolean;
+  readonly completion?: TerminalRestoreCompletion;
+  readonly diagnostic?: TerminalDiagnostic;
+}
+
 export interface TerminalStateAuthorityOptions {
   readonly rawInputKnowledge: TerminalStateKnowledge;
   readonly initialState?: TerminalInitialState;
@@ -472,82 +483,17 @@ export class TerminalStateAuthority {
     const completed: TerminalRestoreCompletion[] = [];
     const diagnostics: TerminalDiagnostic[] = [];
     for (const operation of createTerminalRestorePlan(lease.initialState).operations) {
-      if (!this.isCurrentGeneration(generation)) {
-        diagnostics.push(supersededRestoreDiagnostic(lease));
+      const interruption = this.restoreInterruption(lease, operation, context, generation);
+      if (interruption !== undefined) {
+        diagnostics.push(interruption);
         break;
       }
-      if (restoreWasCancelled(context)) {
-        diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
-        break;
-      }
-      const stateMatches = operation.kind === 'mouseReporting'
-        ? sameMouseReportingState(this.#current.mouseReporting, operation.state)
-        : Object.is(this.#current[operation.kind], operation.state);
-      const hasKeyboardFrame = operation.kind === 'keyboardProfile'
-        && lease.keyboardFrameState(this.activeScreen()) !== 'none';
-      if (operation.kind === 'keyboardProfile' && !hasKeyboardFrame) continue;
-      if (operation.kind !== 'keyboardProfile' && stateMatches && !this.#uncertain.has(operation.kind)) continue;
+      if (!this.shouldRestoreOperation(lease, operation)) continue;
       attempted.push(operation);
-      try {
-        const restoredKeyboard = operation.kind === 'keyboardProfile'
-          ? await lease.restoreKeyboardFrame(this.activeScreen(), this.recoveryProtocol(context))
-          : undefined;
-        if (operation.kind !== 'keyboardProfile') {
-          await this.applyRestoreOperation(operation, context);
-        }
-        if (!this.isCurrentGeneration(generation)) {
-          diagnostics.push(supersededRestoreDiagnostic(lease, operation.kind));
-          break;
-        }
-        if (operation.kind === 'rawInput' && this.#rawInputKnowledge === 'observed') {
-          const observed = this.#host.stdin.isRawModeEnabled?.();
-          if (observed !== undefined && observed !== operation.state) {
-            this.setKnown('rawInput', observed, 'observed');
-            diagnostics.push(rawInputObservationMismatchDiagnostic(lease, observed));
-            continue;
-          }
-        }
-        if (operation.kind === 'keyboardProfile') {
-          if (restoredKeyboard === undefined) {
-            throw new Error('The active screen did not own a keyboard frame to restore.');
-          }
-          this.setKeyboardScreenState(restoredKeyboard.screen, restoredKeyboard.previous);
-        } else {
-          this.setKnown(
-            operation.kind,
-            operation.state,
-            knowledgeAfterMutation(operation.kind, this.#rawInputKnowledge)
-          );
-        }
-        completed.push(Object.freeze({
-          ...(operation.kind === 'keyboardProfile' && restoredKeyboard !== undefined
-            ? { kind: 'keyboardProfile' as const, state: restoredKeyboard.previous.profile }
-            : operation),
-          assurance: operation.kind === 'rawInput' && this.#rawInputKnowledge === 'observed'
-            ? 'observed'
-            : 'sent'
-        }));
-        if (restoreWasCancelled(context)) {
-          diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind));
-          break;
-        }
-      } catch (cause) {
-        if (!this.isCurrentGeneration(generation)) {
-          diagnostics.push(supersededRestoreDiagnostic(lease, operation.kind, cause));
-          break;
-        }
-        this.markIndeterminate(operation.kind);
-        if (restoreWasCancelled(context)) {
-          diagnostics.push(restoreCancellationDiagnostic(lease, context.signal, operation.kind, cause));
-          break;
-        }
-        diagnostics.push(diagnostic('HOST_RESTORE_FAILED', `Failed to restore terminal state: ${operation.kind}.`, {
-          severity: 'error',
-          target: lease.id,
-          cause,
-          data: { operation: operation.kind }
-        }));
-      }
+      const outcome = await this.restoreOperation(lease, operation, context, generation);
+      if (outcome.completion !== undefined) completed.push(outcome.completion);
+      if (outcome.diagnostic !== undefined) diagnostics.push(outcome.diagnostic);
+      if (!outcome.continue) break;
     }
     const resultingState = this.snapshot();
     const status = diagnostics.length === 0 ? 'restored' : completed.length === 0 ? 'failed' : 'partial';
@@ -565,6 +511,117 @@ export class TerminalStateAuthority {
       lease.completeRestore(result);
     }
     return this.recordRestore(result);
+  }
+
+  private restoreInterruption(
+    lease: TerminalSessionLease,
+    operation: TerminalStateChange,
+    context: TerminalOperationContext,
+    generation: number,
+  ): TerminalDiagnostic | undefined {
+    if (!this.isCurrentGeneration(generation)) return supersededRestoreDiagnostic(lease);
+    return restoreWasCancelled(context)
+      ? restoreCancellationDiagnostic(lease, context.signal, operation.kind)
+      : undefined;
+  }
+
+  private shouldRestoreOperation(lease: TerminalSessionLease, operation: TerminalStateChange): boolean {
+    if (operation.kind === 'keyboardProfile') {
+      return lease.keyboardFrameState(this.activeScreen()) !== 'none';
+    }
+    const stateMatches = operation.kind === 'mouseReporting'
+      ? sameMouseReportingState(this.#current.mouseReporting, operation.state)
+      : Object.is(this.#current[operation.kind], operation.state);
+    return !stateMatches || this.#uncertain.has(operation.kind);
+  }
+
+  private async restoreOperation(
+    lease: TerminalSessionLease,
+    operation: TerminalStateChange,
+    context: TerminalOperationContext,
+    generation: number,
+  ): Promise<RestoreOperationOutcome> {
+    try {
+      const restoredKeyboard = operation.kind === 'keyboardProfile'
+        ? await lease.restoreKeyboardFrame(this.activeScreen(), this.recoveryProtocol(context))
+        : undefined;
+      if (operation.kind !== 'keyboardProfile') await this.applyRestoreOperation(operation, context);
+      if (!this.isCurrentGeneration(generation)) {
+        return { continue: false, diagnostic: supersededRestoreDiagnostic(lease, operation.kind) };
+      }
+      const observationIssue = this.restoreObservationIssue(lease, operation);
+      if (observationIssue !== undefined) return { continue: true, diagnostic: observationIssue };
+      const completion = this.acceptRestoredOperation(operation, restoredKeyboard);
+      const cancellation = restoreWasCancelled(context)
+        ? restoreCancellationDiagnostic(lease, context.signal, operation.kind)
+        : undefined;
+      return { continue: cancellation === undefined, completion, ...(cancellation === undefined ? {} : {
+        diagnostic: cancellation,
+      }) };
+    } catch (cause) {
+      return this.restoreOperationFailure(lease, operation, context, generation, cause);
+    }
+  }
+
+  private restoreObservationIssue(
+    lease: TerminalSessionLease,
+    operation: TerminalStateChange,
+  ): TerminalDiagnostic | undefined {
+    if (operation.kind !== 'rawInput' || this.#rawInputKnowledge !== 'observed') return undefined;
+    const observed = this.#host.stdin.isRawModeEnabled?.();
+    if (observed === undefined || observed === operation.state) return undefined;
+    this.setKnown('rawInput', observed, 'observed');
+    return rawInputObservationMismatchDiagnostic(lease, observed);
+  }
+
+  private acceptRestoredOperation(
+    operation: TerminalStateChange,
+    restoredKeyboard: RestoredKeyboardFrame | undefined,
+  ): TerminalRestoreCompletion {
+    if (operation.kind === 'keyboardProfile') {
+      if (restoredKeyboard === undefined) {
+        throw new Error('The active screen did not own a keyboard frame to restore.');
+      }
+      this.setKeyboardScreenState(restoredKeyboard.screen, restoredKeyboard.previous);
+      return Object.freeze({
+        kind: 'keyboardProfile',
+        state: restoredKeyboard.previous.profile,
+        assurance: 'sent',
+      });
+    }
+    this.setKnown(operation.kind, operation.state, knowledgeAfterMutation(operation.kind, this.#rawInputKnowledge));
+    return Object.freeze({
+      ...operation,
+      assurance: operation.kind === 'rawInput' && this.#rawInputKnowledge === 'observed' ? 'observed' : 'sent',
+    });
+  }
+
+  private restoreOperationFailure(
+    lease: TerminalSessionLease,
+    operation: TerminalStateChange,
+    context: TerminalOperationContext,
+    generation: number,
+    cause: unknown,
+  ): RestoreOperationOutcome {
+    if (!this.isCurrentGeneration(generation)) {
+      return { continue: false, diagnostic: supersededRestoreDiagnostic(lease, operation.kind, cause) };
+    }
+    this.markIndeterminate(operation.kind);
+    if (restoreWasCancelled(context)) {
+      return {
+        continue: false,
+        diagnostic: restoreCancellationDiagnostic(lease, context.signal, operation.kind, cause),
+      };
+    }
+    return {
+      continue: true,
+      diagnostic: diagnostic('HOST_RESTORE_FAILED', `Failed to restore terminal state: ${operation.kind}.`, {
+        severity: 'error',
+        target: lease.id,
+        cause,
+        data: { operation: operation.kind },
+      }),
+    };
   }
 
   private async applyRestoreOperation(

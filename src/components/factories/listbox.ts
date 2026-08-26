@@ -512,105 +512,7 @@ function renderListbox(
     }]);
   }
   for (const [row, entry] of plan.rows.entries()) {
-    const selected = selectionContains(input.model.selection, entry.id);
-    const active = entry.id === input.model.activeId;
-    const pointer = pointerVisualState(
-      input.pointerState,
-      `${input.id ?? 'listbox'}:option:${entry.id}`,
-    );
-    const states = entry.disabled
-      ? ['disabled' as const]
-      : [
-        ...(selected ? ['selected' as const] : []),
-        ...(active ? ['active' as const] : []),
-        ...(pointer === undefined ? [] : [pointer]),
-      ];
-    const state = states.at(-1);
-    const itemStyle = input.style({
-      part: 'item',
-      base: selected
-        ? {
-          fg: { kind: 'theme', token: 'selection.foreground' },
-          bg: { kind: 'theme', token: 'selection.background' },
-        }
-        : { fg: { kind: 'theme', token: 'text.default' } },
-      ...(states.length === 0 ? {} : { states }),
-    });
-    const markerStyle = input.style({
-      part: 'marker',
-      ...(states.length === 0 ? {} : { states }),
-      ...(itemStyle === undefined ? {} : { base: itemStyle }),
-    });
-    const spans: RenderSpan[] = [
-      {
-        text: selected && !terminalStyleHasBackground(markerStyle, input.theme)
-          ? input.theme.tokens.symbols.selected
-          : input.theme.tokens.symbols.unselected,
-        ...(markerStyle === undefined ? {} : { style: markerStyle }),
-        source: input.frameSource({
-          cellRole: 'decoration',
-          partName: 'marker',
-          partType: 'marker',
-          description: `item.${entry.id}.marker`,
-          itemId: entry.id,
-          itemIndex: entry.itemIndex,
-          ...(state === undefined ? {} : { interactionState: state }),
-        }),
-      },
-      {
-        text: ' ',
-        ...(markerStyle === undefined ? {} : { style: markerStyle }),
-        source: input.frameSource({
-          cellRole: 'decoration',
-          partName: 'marker.gap',
-          partType: 'spacing',
-          description: `item.${entry.id}.marker.gap`,
-          itemId: entry.id,
-          itemIndex: entry.itemIndex,
-        }),
-      },
-      ...highlightedListLabel(entry.label, entry.matches, itemStyle, input, entry, states),
-      ...(entry.description === undefined ? [] : [{
-        text: ` · ${entry.description}`,
-        ...optionalSpanStyle(input.style({
-          part: 'description',
-          base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
-          ...(states.length === 0 ? {} : { states }),
-        })),
-        source: input.frameSource({
-          cellRole: 'text',
-          partName: 'description',
-          partType: 'text',
-          description: `item.${entry.id}.description`,
-          itemId: entry.id,
-          itemIndex: entry.itemIndex,
-          ...(state === undefined ? {} : { interactionState: state }),
-        }),
-      }]),
-    ];
-    const clipped = clipRenderLine(line(spans), plan.scrollbar.contentBounds.width, {
-      widthProfile: input.widthProfile,
-    });
-    input.target.writeLine(
-      plan.scrollbar.contentBounds.row + row,
-      plan.scrollbar.contentBounds.column,
-      padRenderLine(clipped, plan.scrollbar.contentBounds.width, {
-        widthProfile: input.widthProfile,
-        fill: {
-          text: ' ',
-          ...(itemStyle === undefined ? {} : { style: itemStyle }),
-          source: input.frameSource({
-            cellRole: 'decoration',
-            partName: 'padding',
-            partType: 'spacing',
-            description: `item.${entry.id}.padding`,
-            itemId: entry.id,
-            itemIndex: entry.itemIndex,
-            ...(state === undefined ? {} : { interactionState: state }),
-          }),
-        },
-      }),
-    );
+    renderListboxRow(input, plan, entry, row);
   }
   paintComponentScrollbar({
     target: input.target,
@@ -619,6 +521,141 @@ function renderListbox(
     style: (part, state, base) => input.style({ part, base, ...(state === undefined ? {} : { states: [state] }) }),
     frameSource: (sourceInput) => input.frameSource(sourceInput),
   });
+}
+
+function renderListboxRow(
+  input: import('../../component/index.ts').ComponentRenderInput<ListboxModel, DataListStylePart>,
+  plan: ReturnType<typeof listPlan>,
+  entry: ListEntryModel,
+  row: number,
+): void {
+  const selected = selectionContains(input.model.selection, entry.id);
+  const active = entry.id === input.model.activeId;
+  const pointer = pointerVisualState(input.pointerState, `${input.id ?? 'listbox'}:option:${entry.id}`);
+  const states = entry.disabled
+    ? ['disabled' as const]
+    : [
+      ...(selected ? ['selected' as const] : []),
+      ...(active ? ['active' as const] : []),
+      ...(pointer === undefined ? [] : [pointer]),
+    ];
+  const state = states.at(-1);
+  const itemStyle = input.style({
+    part: 'item',
+    base: selected
+      ? {
+        fg: { kind: 'theme', token: 'selection.foreground' },
+        bg: { kind: 'theme', token: 'selection.background' },
+      }
+      : { fg: { kind: 'theme', token: 'text.default' } },
+    ...(states.length === 0 ? {} : { states }),
+  });
+  const markerStyle = input.style({
+    part: 'marker',
+    ...(states.length === 0 ? {} : { states }),
+    ...(itemStyle === undefined ? {} : { base: itemStyle }),
+  });
+  const spans = listboxRowSpans(input, entry, selected, states, state, itemStyle, markerStyle);
+  const clipped = clipRenderLine(line(spans), plan.scrollbar.contentBounds.width, {
+    widthProfile: input.widthProfile,
+  });
+  input.target.writeLine(
+    plan.scrollbar.contentBounds.row + row,
+    plan.scrollbar.contentBounds.column,
+    padRenderLine(clipped, plan.scrollbar.contentBounds.width, {
+      widthProfile: input.widthProfile,
+      fill: listboxPaddingSpan(input, entry, state, itemStyle),
+    }),
+  );
+}
+
+function listboxRowSpans(
+  input: import('../../component/index.ts').ComponentRenderInput<ListboxModel, DataListStylePart>,
+  entry: ListEntryModel,
+  selected: boolean,
+  states: readonly Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'>[],
+  state: Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'> | undefined,
+  itemStyle: TerminalStyle | undefined,
+  markerStyle: TerminalStyle | undefined,
+): readonly RenderSpan[] {
+  return [
+    {
+      text: selected && !terminalStyleHasBackground(markerStyle, input.theme)
+        ? input.theme.tokens.symbols.selected
+        : input.theme.tokens.symbols.unselected,
+      ...(markerStyle === undefined ? {} : { style: markerStyle }),
+      source: input.frameSource({
+        cellRole: 'decoration',
+        partName: 'marker',
+        partType: 'marker',
+        description: `item.${entry.id}.marker`,
+        itemId: entry.id,
+        itemIndex: entry.itemIndex,
+        ...(state === undefined ? {} : { interactionState: state }),
+      }),
+    },
+    {
+      text: ' ',
+      ...(markerStyle === undefined ? {} : { style: markerStyle }),
+      source: input.frameSource({
+        cellRole: 'decoration',
+        partName: 'marker.gap',
+        partType: 'spacing',
+        description: `item.${entry.id}.marker.gap`,
+        itemId: entry.id,
+        itemIndex: entry.itemIndex,
+      }),
+    },
+    ...highlightedListLabel(entry.label, entry.matches, itemStyle, input, entry, states),
+    ...listboxDescriptionSpans(input, entry, states, state),
+  ];
+}
+
+function listboxDescriptionSpans(
+  input: import('../../component/index.ts').ComponentRenderInput<ListboxModel, DataListStylePart>,
+  entry: ListEntryModel,
+  states: readonly Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'>[],
+  state: Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'> | undefined,
+): readonly RenderSpan[] {
+  if (entry.description === undefined) return [];
+  return [{
+    text: ` · ${entry.description}`,
+    ...optionalSpanStyle(input.style({
+      part: 'description',
+      base: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
+      ...(states.length === 0 ? {} : { states }),
+    })),
+    source: input.frameSource({
+      cellRole: 'text',
+      partName: 'description',
+      partType: 'text',
+      description: `item.${entry.id}.description`,
+      itemId: entry.id,
+      itemIndex: entry.itemIndex,
+      ...(state === undefined ? {} : { interactionState: state }),
+    }),
+  }];
+}
+
+function listboxPaddingSpan(
+  input: import('../../component/index.ts').ComponentRenderInput<ListboxModel, DataListStylePart>,
+  entry: ListEntryModel,
+  state: Exclude<import('../../element/metadata.ts').ElementVisualState, 'default'> | undefined,
+  style: TerminalStyle | undefined,
+): RenderSpan {
+  return {
+    text: ' ',
+    ...(style === undefined ? {} : { style }),
+    source: input.frameSource({
+      cellRole: 'decoration',
+      partName: 'padding',
+      partType: 'spacing',
+      description: `item.${entry.id}.padding`,
+      itemId: entry.id,
+      itemIndex: entry.itemIndex,
+      ...(state === undefined ? {} : { interactionState: state }),
+    }),
+  };
 }
 
 function accessibleListbox(

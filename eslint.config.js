@@ -36,6 +36,9 @@ export default [
         projectService: true,
         tsconfigRootDir
       }
+    },
+    rules: {
+      complexity: ['error', { max: 25, variant: 'modified' }]
     }
   },
   {

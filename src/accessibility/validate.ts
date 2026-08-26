@@ -48,41 +48,12 @@ export function decodeAccessibleSnapshotWithPolicy(
     return failure(accessibilityFailure(`Unsupported accessible snapshot source: ${String(candidate['source'])}.`));
   }
   const source = candidate['source'];
-  let title = candidate['title'];
-  if (title !== undefined && typeof title !== 'string') {
-    return failure(accessibilityFailure('Accessible snapshot title must be a string.'));
-  }
-  if (typeof title === 'string') {
-    const sanitizedTitle = sanitizeTerminalText(title);
-    if (!sanitizeText && sanitizedTitle.changed) {
-      return failure(accessibilityFailure('Accessible snapshot title must not contain terminal control sequences.'));
-    }
-    title = sanitizedTitle.text;
-  }
-  const suppliedFocusPath = candidate['focusPath'];
-  if (!sanitizeText && suppliedFocusPath === undefined) {
-    return failure(accessibilityFailure('Accessible snapshot focusPath must be a string array.'));
-  }
-  if (suppliedFocusPath !== undefined
-    && (!Array.isArray(suppliedFocusPath) || !suppliedFocusPath.every((item) => typeof item === 'string'))) {
-    return failure(accessibilityFailure('Accessible snapshot focusPath must be a string array.'));
-  }
-  const suppliedDiagnostics = candidate['diagnostics'];
-  if (!sanitizeText && suppliedDiagnostics === undefined) {
-    return failure(accessibilityFailure('Accessible snapshot diagnostics must be an array.'));
-  }
-  if (suppliedDiagnostics !== undefined && !Array.isArray(suppliedDiagnostics)) {
-    return failure(accessibilityFailure('Accessible snapshot diagnostics must be an array.'));
-  }
-  const diagnostics = [];
-  for (const [index, item] of (suppliedDiagnostics ?? []).entries()) {
-    try {
-      diagnostics.push(decodeTerminalDiagnostic(item));
-    } catch (cause) {
-      const detail = cause instanceof Error ? cause.message : String(cause);
-      return failure(accessibilityFailure(`Invalid accessible snapshot diagnostic at index ${String(index)}: ${detail}`));
-    }
-  }
+  const titleResult = decodeAccessibleTitle(candidate['title'], sanitizeText);
+  if (titleResult.kind === 'issue') return failure(titleResult.issue);
+  const focusPathResult = decodeAccessibleFocusPath(candidate['focusPath'], sanitizeText);
+  if (focusPathResult.kind === 'issue') return failure(focusPathResult.issue);
+  const diagnosticsResult = decodeAccessibleDiagnostics(candidate['diagnostics'], sanitizeText);
+  if (diagnosticsResult.kind === 'issue') return failure(diagnosticsResult.issue);
   const nodes = new WeakMap<object, AccessibleNode>();
   const nodesById = new Map<string, AccessibleNode>();
   let actualFocusPath: readonly string[] = [];
@@ -102,16 +73,16 @@ export function decodeAccessibleSnapshotWithPolicy(
   }
   const root = nodes.get(rootValue);
   if (root === undefined) return failure(accessibilityFailure('Accessible snapshot root was not adopted.'));
-  const ownedTitle = typeof title === 'string' ? title : undefined;
+  const ownedTitle = titleResult.value;
   const focusPath = Object.freeze([
-    ...(suppliedFocusPath ?? actualFocusPath)
+    ...(focusPathResult.value ?? actualFocusPath)
   ]);
   const owned = Object.freeze({
     source,
     ...(ownedTitle === undefined ? {} : { title: ownedTitle }),
     root,
     focusPath,
-    diagnostics: Object.freeze(diagnostics)
+    diagnostics: diagnosticsResult.value
   });
   const focusIssue = firstFocusIssue(owned, actualFocusPath);
   if (focusIssue !== undefined) return failure(focusIssue);
@@ -122,6 +93,66 @@ export function decodeAccessibleSnapshotWithPolicy(
   decodedAccessibleSnapshots.set(snapshot, owned);
   decodedAccessibleSnapshots.set(owned, owned);
   return success(owned);
+}
+
+type AccessibleMemberResult<TValue> =
+  | { readonly kind: 'value'; readonly value: TValue }
+  | { readonly kind: 'issue'; readonly issue: TerminalDiagnostic };
+
+function decodeAccessibleTitle(
+  value: unknown,
+  sanitizeText: boolean,
+): AccessibleMemberResult<string | undefined> {
+  if (value === undefined) return { kind: 'value', value: undefined };
+  if (typeof value !== 'string') {
+    return { kind: 'issue', issue: accessibilityFailure('Accessible snapshot title must be a string.') };
+  }
+  const sanitized = sanitizeTerminalText(value);
+  if (!sanitizeText && sanitized.changed) {
+    return {
+      kind: 'issue',
+      issue: accessibilityFailure('Accessible snapshot title must not contain terminal control sequences.'),
+    };
+  }
+  return { kind: 'value', value: sanitized.text };
+}
+
+function decodeAccessibleFocusPath(
+  value: unknown,
+  optional: boolean,
+): AccessibleMemberResult<readonly string[] | undefined> {
+  if (value === undefined && optional) return { kind: 'value', value: undefined };
+  if (!isAccessibleStringArray(value)) {
+    return { kind: 'issue', issue: accessibilityFailure('Accessible snapshot focusPath must be a string array.') };
+  }
+  return { kind: 'value', value: Object.freeze([...value]) };
+}
+
+function isAccessibleStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function decodeAccessibleDiagnostics(
+  value: unknown,
+  optional: boolean,
+): AccessibleMemberResult<readonly TerminalDiagnostic[]> {
+  if (value === undefined && optional) return { kind: 'value', value: Object.freeze([]) };
+  if (!Array.isArray(value)) {
+    return { kind: 'issue', issue: accessibilityFailure('Accessible snapshot diagnostics must be an array.') };
+  }
+  const diagnostics: TerminalDiagnostic[] = [];
+  for (const [index, item] of value.entries()) {
+    try {
+      diagnostics.push(decodeTerminalDiagnostic(item));
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      return {
+        kind: 'issue',
+        issue: accessibilityFailure(`Invalid accessible snapshot diagnostic at index ${String(index)}: ${detail}`),
+      };
+    }
+  }
+  return { kind: 'value', value: Object.freeze(diagnostics) };
 }
 
 const namedRoles = new Set<AccessibleNode['role']>([
@@ -179,21 +210,7 @@ function firstNodeIssue(
 ): TerminalDiagnostic | undefined {
   if (!isNonArrayObject(node)) return accessibilityFailure('Accessible node must be an object.');
   const original = node;
-  const candidate = { ...node };
-  for (const field of ['numericValue', 'scope', 'window', 'position', 'textPosition'] as const) {
-    if (isNonArrayObject(candidate[field])) candidate[field] = { ...candidate[field] };
-  }
-  if (isNonArrayObject(candidate['textPosition'])) {
-    const textPosition = candidate['textPosition'] as Record<string, unknown>;
-    if (isNonArrayObject(textPosition['selection'])) {
-      textPosition['selection'] = { ...textPosition['selection'] };
-    }
-  }
-  if (Array.isArray(candidate['children'])) {
-    const children: unknown[] = [];
-    for (const child of candidate['children']) children.push(child);
-    candidate['children'] = children;
-  }
+  const candidate = copyAccessibleNode(node);
   const unknownField = findUnsupportedField(candidate, accessibleNodeFields);
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node field is unsupported: ${unknownField}.`);
@@ -208,119 +225,27 @@ function firstNodeIssue(
   }
   const role = candidate['role'];
   if (sanitizeText) sanitizeNodeText(candidate);
-  const labelIssue = optionalStringIssue(candidate, 'label', id);
-  if (labelIssue !== undefined) return labelIssue;
-  const descriptionIssue = optionalStringIssue(candidate, 'description', id);
-  if (descriptionIssue !== undefined) return descriptionIssue;
-  const controlsIssue = optionalStringIssue(candidate, 'controls', id);
-  if (controlsIssue !== undefined) return controlsIssue;
-  if (candidate['controls'] === '') return accessibilityFailure('Accessible node controls must not be empty.', id);
-  const labelledByIssue = optionalStringIssue(candidate, 'labelledBy', id);
-  if (labelledByIssue !== undefined) return labelledByIssue;
-  if (candidate['labelledBy'] === '') return accessibilityFailure('Accessible node labelledBy must not be empty.', id);
-  const describedBy = candidate['describedBy'];
-  if (describedBy !== undefined) {
-    if (!Array.isArray(describedBy) || describedBy.length === 0) {
-      return accessibilityFailure('Accessible node describedBy must contain unique non-empty node ids.', id);
-    }
-    const ownedTargets: string[] = [];
-    for (const target of describedBy as readonly unknown[]) {
-      if (typeof target !== 'string' || target.length === 0 || ownedTargets.includes(target)) {
-        return accessibilityFailure('Accessible node describedBy must contain unique non-empty node ids.', id);
-      }
-      ownedTargets.push(sanitizeText ? sanitizeTerminalText(target).text : target);
-    }
-    if (ownedTargets.some((target) => target === '')) {
-      return accessibilityFailure('Accessible node describedBy ids must not contain terminal controls.', id);
-    }
-    candidate['describedBy'] = ownedTargets;
-  }
-  const activeDescendantIssue = optionalStringIssue(candidate, 'activeDescendant', id);
-  if (activeDescendantIssue !== undefined) return activeDescendantIssue;
-  if (candidate['activeDescendant'] === '') {
-    return accessibilityFailure('Accessible node activeDescendant must not be empty.', id);
-  }
-  const errorMessageIssue = optionalStringIssue(candidate, 'errorMessage', id);
-  if (errorMessageIssue !== undefined) return errorMessageIssue;
-  if (candidate['errorMessage'] === '') {
-    return accessibilityFailure('Accessible node errorMessage must not be empty.', id);
-  }
-  if (candidate['value'] !== undefined && !isAccessibleValue(candidate['value'])) {
-    return accessibilityFailure('Accessible node value must be string, number, boolean, or null.', id);
-  }
-  if (typeof candidate['value'] === 'string' && sanitizeTerminalText(candidate['value']).changed) {
-    return accessibilityFailure('Accessible node value must not contain terminal control sequences.', id);
-  }
-  for (const field of [
-    'focused',
-    'selected',
-    'disabled',
-    'busy',
-    'readOnly',
-    'expanded',
-    'multiSelectable',
-    'required',
-  ] as const) {
-    if (candidate[field] !== undefined && typeof candidate[field] !== 'boolean') {
-      return accessibilityFailure(`Accessible node ${field} must be a boolean.`, id);
-    }
-  }
-  if (candidate['checked'] !== undefined && typeof candidate['checked'] !== 'boolean' && candidate['checked'] !== 'mixed') {
-    return accessibilityFailure('Accessible node checked must be a boolean or "mixed".', id);
-  }
-  if (candidate['pressed'] !== undefined && typeof candidate['pressed'] !== 'boolean' && candidate['pressed'] !== 'mixed') {
-    return accessibilityFailure('Accessible node pressed must be a boolean or "mixed".', id);
-  }
-  const current = candidate['current'];
-  if (current !== undefined && typeof current !== 'boolean'
-    && current !== 'page' && current !== 'step' && current !== 'location'
-    && current !== 'date' && current !== 'time') {
-    return accessibilityFailure('Accessible node current state is invalid.', id);
-  }
-  if (candidate['orientation'] !== undefined
-    && candidate['orientation'] !== 'horizontal'
-    && candidate['orientation'] !== 'vertical') {
-    return accessibilityFailure('Accessible node orientation must be horizontal or vertical.', id);
-  }
-  if (candidate['invalid'] !== undefined && typeof candidate['invalid'] !== 'boolean'
-    && candidate['invalid'] !== 'grammar' && candidate['invalid'] !== 'spelling') {
-    return accessibilityFailure('Accessible node invalid state is invalid.', id);
-  }
+  const scalarIssue = firstNodeScalarIssue(candidate, id, sanitizeText);
+  if (scalarIssue !== undefined) return scalarIssue;
   const stateRoleIssue = roleStateIssue(candidate, id);
   if (stateRoleIssue !== undefined) return stateRoleIssue;
-  const numericValueIssue = numericValueIssueForNode(candidate, id);
-  if (numericValueIssue !== undefined) return numericValueIssue;
-  const liveIssue = liveIssueForNode(candidate, id);
-  if (liveIssue !== undefined) return liveIssue;
-  const scopeIssue = scopeIssueForNode(candidate, id);
-  if (scopeIssue !== undefined) return scopeIssue;
-  const windowIssue = windowIssueForNode(candidate, id);
-  if (windowIssue !== undefined) return windowIssue;
-  const positionIssue = positionIssueForNode(candidate, id);
-  if (positionIssue !== undefined) return positionIssue;
-  const textPositionIssue = textPositionIssueForNode(candidate, id);
-  if (textPositionIssue !== undefined) return textPositionIssue;
+  const structuredIssue = firstNodeStructuredValueIssue(candidate, id);
+  if (structuredIssue !== undefined) return structuredIssue;
   if (candidate['children'] !== undefined && !Array.isArray(candidate['children'])) {
     return accessibilityFailure('Accessible node children must be an array.', id);
   }
   if (candidate['focused'] === true) recordFocusPath(Object.freeze(currentPath));
-  const children: AccessibleNode[] = [];
-  for (const child of candidate['children'] ?? []) {
-    const childIssue = firstNodeIssue(
-      child,
-      ids,
-      adopted,
-      nodesById,
-      sanitizeText,
-      currentPath,
-      recordFocusPath,
-    );
-    if (childIssue !== undefined) return childIssue;
-    if (isNonArrayObject(child)) {
-      const ownedChild = adopted.get(child);
-      if (ownedChild !== undefined) children.push(ownedChild);
-    }
-  }
+  const childResult = adoptAccessibleChildren(
+    candidate['children'] ?? [],
+    ids,
+    adopted,
+    nodesById,
+    sanitizeText,
+    currentPath,
+    recordFocusPath,
+  );
+  if (childResult.kind === 'failure') return childResult.issue;
+  const children = childResult.children;
   const relationshipIssue = childRoleIssue(candidate, id);
   if (relationshipIssue !== undefined) return relationshipIssue;
   const owned = ownedAccessibleNode(candidate, id, role, children);
@@ -328,6 +253,178 @@ function firstNodeIssue(
   nodesById.set(id, owned);
   return undefined;
 }
+
+function copyAccessibleNode(node: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  const candidate = { ...node };
+  for (const field of ['numericValue', 'scope', 'window', 'position', 'textPosition'] as const) {
+    if (isNonArrayObject(candidate[field])) candidate[field] = { ...candidate[field] };
+  }
+  if (isNonArrayObject(candidate['textPosition'])) {
+    const textPosition = candidate['textPosition'] as Record<string, unknown>;
+    if (isNonArrayObject(textPosition['selection'])) {
+      textPosition['selection'] = { ...textPosition['selection'] };
+    }
+  }
+  if (Array.isArray(candidate['children'])) {
+    candidate['children'] = [...candidate['children'] as readonly unknown[]];
+  }
+  return candidate;
+}
+
+function firstNodeScalarIssue(
+  candidate: Record<string, unknown>,
+  id: string,
+  sanitizeText: boolean,
+): TerminalDiagnostic | undefined {
+  const relationshipIssue = firstNodeTextRelationshipIssue(candidate, id, sanitizeText);
+  if (relationshipIssue !== undefined) return relationshipIssue;
+  const valueIssue = nodeValueIssue(candidate['value'], id);
+  if (valueIssue !== undefined) return valueIssue;
+  return firstNodeStateShapeIssue(candidate, id);
+}
+
+function firstNodeTextRelationshipIssue(
+  candidate: Record<string, unknown>,
+  id: string,
+  sanitizeText: boolean,
+): TerminalDiagnostic | undefined {
+  for (const field of ['label', 'description', 'controls', 'labelledBy', 'activeDescendant', 'errorMessage'] as const) {
+    const issue = optionalStringIssue(candidate, field, id);
+    if (issue !== undefined) return issue;
+  }
+  for (const field of ['controls', 'labelledBy', 'activeDescendant', 'errorMessage'] as const) {
+    if (candidate[field] === '') return accessibilityFailure(`Accessible node ${field} must not be empty.`, id);
+  }
+  return adoptDescribedBy(candidate, id, sanitizeText);
+}
+
+function adoptDescribedBy(
+  candidate: Record<string, unknown>,
+  id: string,
+  sanitizeText: boolean,
+): TerminalDiagnostic | undefined {
+  const describedBy = candidate['describedBy'];
+  if (describedBy === undefined) return undefined;
+  if (!Array.isArray(describedBy) || describedBy.length === 0) {
+    return accessibilityFailure('Accessible node describedBy must contain unique non-empty node ids.', id);
+  }
+  const ownedTargets: string[] = [];
+  for (const target of describedBy as readonly unknown[]) {
+    if (typeof target !== 'string' || target.length === 0 || ownedTargets.includes(target)) {
+      return accessibilityFailure('Accessible node describedBy must contain unique non-empty node ids.', id);
+    }
+    const owned = sanitizeText ? sanitizeTerminalText(target).text : target;
+    if (owned === '') {
+      return accessibilityFailure('Accessible node describedBy ids must not contain terminal controls.', id);
+    }
+    ownedTargets.push(owned);
+  }
+  candidate['describedBy'] = ownedTargets;
+  return undefined;
+}
+
+function nodeValueIssue(value: unknown, id: string): TerminalDiagnostic | undefined {
+  if (value !== undefined && !isAccessibleValue(value)) {
+    return accessibilityFailure('Accessible node value must be string, number, boolean, or null.', id);
+  }
+  if (typeof value === 'string' && sanitizeTerminalText(value).changed) {
+    return accessibilityFailure('Accessible node value must not contain terminal control sequences.', id);
+  }
+  return undefined;
+}
+
+function firstNodeStateShapeIssue(
+  candidate: Readonly<Record<string, unknown>>,
+  id: string,
+): TerminalDiagnostic | undefined {
+  for (const field of nodeBooleanStateFields) {
+    if (candidate[field] !== undefined && typeof candidate[field] !== 'boolean') {
+      return accessibilityFailure(`Accessible node ${field} must be a boolean.`, id);
+    }
+  }
+  for (const field of ['checked', 'pressed'] as const) {
+    const value = candidate[field];
+    if (value !== undefined && typeof value !== 'boolean' && value !== 'mixed') {
+      return accessibilityFailure(`Accessible node ${field} must be a boolean or "mixed".`, id);
+    }
+  }
+  const current = candidate['current'];
+  if (!isAccessibleCurrent(current)) return accessibilityFailure('Accessible node current state is invalid.', id);
+  const orientation = candidate['orientation'];
+  if (orientation !== undefined && orientation !== 'horizontal' && orientation !== 'vertical') {
+    return accessibilityFailure('Accessible node orientation must be horizontal or vertical.', id);
+  }
+  const invalid = candidate['invalid'];
+  if (invalid !== undefined && typeof invalid !== 'boolean' && invalid !== 'grammar' && invalid !== 'spelling') {
+    return accessibilityFailure('Accessible node invalid state is invalid.', id);
+  }
+  return undefined;
+}
+
+const nodeBooleanStateFields = [
+  'focused',
+  'selected',
+  'disabled',
+  'busy',
+  'readOnly',
+  'expanded',
+  'multiSelectable',
+  'required',
+] as const;
+
+function isAccessibleCurrent(value: unknown): boolean {
+  return value === undefined
+    || typeof value === 'boolean'
+    || value === 'page'
+    || value === 'step'
+    || value === 'location'
+    || value === 'date'
+    || value === 'time';
+}
+
+function firstNodeStructuredValueIssue(
+  candidate: Readonly<Record<string, unknown>>,
+  id: string,
+): TerminalDiagnostic | undefined {
+  for (const validate of nodeStructuredValueValidators) {
+    const issue = validate(candidate, id);
+    if (issue !== undefined) return issue;
+  }
+  return undefined;
+}
+
+const nodeStructuredValueValidators = [
+  numericValueIssueForNode,
+  liveIssueForNode,
+  scopeIssueForNode,
+  windowIssueForNode,
+  positionIssueForNode,
+  textPositionIssueForNode,
+] as const;
+
+function adoptAccessibleChildren(
+  children: readonly unknown[],
+  ids: Set<string>,
+  adopted: WeakMap<object, AccessibleNode>,
+  nodesById: Map<string, AccessibleNode>,
+  sanitizeText: boolean,
+  path: readonly string[],
+  recordFocusPath: (path: readonly string[]) => void,
+): AccessibleChildrenResult {
+  const ownedChildren: AccessibleNode[] = [];
+  for (const child of children) {
+    const issue = firstNodeIssue(child, ids, adopted, nodesById, sanitizeText, path, recordFocusPath);
+    if (issue !== undefined) return { kind: 'failure', issue };
+    if (!isNonArrayObject(child)) continue;
+    const ownedChild = adopted.get(child);
+    if (ownedChild !== undefined) ownedChildren.push(ownedChild);
+  }
+  return { kind: 'success', children: ownedChildren };
+}
+
+type AccessibleChildrenResult =
+  | { readonly kind: 'success'; readonly children: readonly AccessibleNode[] }
+  | { readonly kind: 'failure'; readonly issue: TerminalDiagnostic };
 
 function sanitizeNodeText(node: Record<string, unknown>): void {
   for (const field of [
@@ -358,20 +455,52 @@ function ownedAccessibleNode(
   role: AccessibleNode['role'],
   children: readonly AccessibleNode[]
 ): AccessibleNode {
-  const accessibleValue = value['value'];
-  const checked = value['checked'];
-  const live = value['live'];
   return Object.freeze({
     id,
     role,
+    ...ownedAccessibleText(value),
+    ...ownedAccessibleBooleanStates(value),
+    ...ownedAccessibleEnumeratedStates(value),
+    ...ownedAccessibleStructuredValues(value),
+    ...ownedAccessibleRelationships(value, children),
+  });
+}
+
+function ownedAccessibleText(
+  value: Readonly<Record<string, unknown>>,
+): Pick<AccessibleNode, 'label' | 'value' | 'description'> {
+  const accessibleValue = value['value'];
+  return {
     ...(typeof value['label'] === 'string' ? { label: value['label'] } : {}),
     ...(isAccessibleValue(accessibleValue) ? { value: accessibleValue } : {}),
+    ...(typeof value['description'] === 'string' ? { description: value['description'] } : {}),
+  };
+}
+
+function ownedAccessibleBooleanStates(
+  value: Readonly<Record<string, unknown>>,
+): Pick<
+  AccessibleNode,
+  'focused' | 'selected' | 'disabled' | 'busy' | 'readOnly' | 'expanded' | 'multiSelectable' | 'required'
+> {
+  return {
     ...(typeof value['focused'] === 'boolean' ? { focused: value['focused'] } : {}),
     ...(typeof value['selected'] === 'boolean' ? { selected: value['selected'] } : {}),
     ...(typeof value['disabled'] === 'boolean' ? { disabled: value['disabled'] } : {}),
     ...(typeof value['busy'] === 'boolean' ? { busy: value['busy'] } : {}),
     ...(typeof value['readOnly'] === 'boolean' ? { readOnly: value['readOnly'] } : {}),
     ...(typeof value['expanded'] === 'boolean' ? { expanded: value['expanded'] } : {}),
+    ...(typeof value['multiSelectable'] === 'boolean' ? { multiSelectable: value['multiSelectable'] } : {}),
+    ...(typeof value['required'] === 'boolean' ? { required: value['required'] } : {}),
+  };
+}
+
+function ownedAccessibleEnumeratedStates(
+  value: Readonly<Record<string, unknown>>,
+): Pick<AccessibleNode, 'checked' | 'pressed' | 'current' | 'orientation' | 'invalid' | 'live'> {
+  const checked = value['checked'];
+  const live = value['live'];
+  return {
     ...(typeof checked === 'boolean' || checked === 'mixed' ? { checked } : {}),
     ...(typeof value['pressed'] === 'boolean' || value['pressed'] === 'mixed'
       ? { pressed: value['pressed'] }
@@ -382,18 +511,33 @@ function ownedAccessibleNode(
     ...(value['orientation'] === 'horizontal' || value['orientation'] === 'vertical'
       ? { orientation: value['orientation'] }
       : {}),
-    ...(typeof value['multiSelectable'] === 'boolean' ? { multiSelectable: value['multiSelectable'] } : {}),
-    ...(typeof value['required'] === 'boolean' ? { required: value['required'] } : {}),
     ...(typeof value['invalid'] === 'boolean' || value['invalid'] === 'grammar' || value['invalid'] === 'spelling'
       ? { invalid: value['invalid'] }
       : {}),
-    ...ownedNumericValue(value['numericValue']),
     ...(live === 'off' || live === 'polite' || live === 'assertive' ? { live } : {}),
+  };
+}
+
+function ownedAccessibleStructuredValues(
+  value: Readonly<Record<string, unknown>>,
+): Pick<AccessibleNode, 'numericValue' | 'scope' | 'window' | 'position' | 'textPosition'> {
+  return {
+    ...ownedNumericValue(value['numericValue']),
     ...ownedScope(value['scope']),
     ...ownedWindow(value['window']),
     ...ownedPosition(value['position']),
     ...ownedTextPosition(value['textPosition']),
-    ...(typeof value['description'] === 'string' ? { description: value['description'] } : {}),
+  };
+}
+
+function ownedAccessibleRelationships(
+  value: Readonly<Record<string, unknown>>,
+  children: readonly AccessibleNode[],
+): Pick<
+  AccessibleNode,
+  'controls' | 'labelledBy' | 'describedBy' | 'activeDescendant' | 'errorMessage' | 'children'
+> {
+  return {
     ...(typeof value['controls'] === 'string' ? { controls: value['controls'] } : {}),
     ...(typeof value['labelledBy'] === 'string' ? { labelledBy: value['labelledBy'] } : {}),
     ...(Array.isArray(value['describedBy'])
@@ -401,8 +545,8 @@ function ownedAccessibleNode(
       : {}),
     ...(typeof value['activeDescendant'] === 'string' ? { activeDescendant: value['activeDescendant'] } : {}),
     ...(typeof value['errorMessage'] === 'string' ? { errorMessage: value['errorMessage'] } : {}),
-    ...(value['children'] === undefined ? {} : { children: Object.freeze([...children]) })
-  });
+    ...(value['children'] === undefined ? {} : { children: Object.freeze([...children]) }),
+  };
 }
 
 function ownedNumericValue(value: unknown): { readonly numericValue?: AccessibleNumericValue } {

@@ -127,6 +127,8 @@ interface DecodedInputBinding {
   readonly toMessage?: (context: unknown) => NonNullable<unknown>;
 }
 
+type InputBindingCallback = (context: unknown) => unknown;
+
 function decodeInputBinding(value: unknown, index: number): DecodedInputBinding {
   const subject = `TUI input binding at index ${String(index)}`;
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -150,9 +152,28 @@ function decodeInputBinding(value: unknown, index: number): DecodedInputBinding 
   if (label !== undefined && typeof label !== 'string') {
     throw new TypeError(`${subject} label must be a string.`);
   }
-  if (enabled !== undefined && typeof enabled !== 'boolean' && typeof enabled !== 'function') {
+  if (enabled !== undefined && typeof enabled !== 'boolean' && !isInputBindingCallback(enabled)) {
     throw new TypeError(`${subject} enabled must be a boolean or function.`);
   }
+  const payload = decodeInputBindingPayload(candidate, subject);
+  return Object.freeze({
+    id,
+    triggers,
+    ...(phase === undefined ? {} : { phase }),
+    ...(label === undefined ? {} : { label }),
+    ...(typeof enabled === 'boolean'
+      ? { enabled }
+      : isInputBindingCallback(enabled)
+        ? { enabled: checkedEnabledPredicate(enabled, subject) }
+        : {}),
+    ...payload,
+  });
+}
+
+function decodeInputBindingPayload(
+  candidate: Readonly<Record<string, unknown>>,
+  subject: string,
+): Pick<DecodedInputBinding, 'message' | 'toMessage'> {
   const hasMessage = Object.hasOwn(candidate, 'message');
   const hasToMessage = Object.hasOwn(candidate, 'toMessage');
   if (hasMessage === hasToMessage) {
@@ -163,21 +184,44 @@ function decodeInputBinding(value: unknown, index: number): DecodedInputBinding 
   if (hasMessage && (message === undefined || message === null)) {
     throw new TypeError(`${subject} message cannot be null or undefined.`);
   }
-  if (hasToMessage && typeof toMessage !== 'function') {
+  if (hasToMessage && !isInputBindingCallback(toMessage)) {
     throw new TypeError(`${subject} toMessage must be a function.`);
   }
-  return Object.freeze({
-    id,
-    triggers,
-    ...(phase === undefined ? {} : { phase }),
-    ...(label === undefined ? {} : { label }),
-    ...(enabled === undefined ? {} : {
-      enabled: enabled as boolean | ((context: unknown) => boolean),
-    }),
-    ...(hasMessage ? { message: message as NonNullable<unknown> } : {
-      toMessage: toMessage as (context: unknown) => NonNullable<unknown>,
-    }),
-  });
+  if (hasMessage && message !== undefined && message !== null) return { message };
+  if (isInputBindingCallback(toMessage)) return {
+    toMessage: checkedMessageMapper(toMessage, subject),
+  };
+  throw new TypeError(`${subject} message mapping is invalid.`);
+}
+
+function isInputBindingCallback(value: unknown): value is InputBindingCallback {
+  return typeof value === 'function';
+}
+
+function checkedEnabledPredicate(
+  predicate: InputBindingCallback,
+  subject: string,
+): (context: unknown) => boolean {
+  return (context) => {
+    const result = predicate(context);
+    if (typeof result !== 'boolean') {
+      throw new TypeError(`${subject} enabled predicate must return a boolean.`);
+    }
+    return result;
+  };
+}
+
+function checkedMessageMapper(
+  mapper: InputBindingCallback,
+  subject: string,
+): (context: unknown) => NonNullable<unknown> {
+  return (context) => {
+    const result = mapper(context);
+    if (result === undefined || result === null) {
+      throw new TypeError(`${subject} toMessage cannot return null or undefined.`);
+    }
+    return result;
+  };
 }
 
 function decodeBindingTriggers(id: string, values: readonly unknown[]): readonly InputTrigger[] {

@@ -59,10 +59,7 @@ class PtyOutput implements TerminalOutput {
 }
 
 export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): PtyTerminalHost {
-  let terminalSize = options.terminalSize ?? {
-    columns: options.stdout?.columns ?? 80,
-    rows: options.stdout?.rows ?? 24
-  };
+  let terminalSize = initialPtyTerminalSize(options);
   const inputSource = new RuntimeInput({ ...options.stdin, isTty: options.stdin?.isTty ?? true });
   const stdin = new TerminalInputAuthority(inputSource);
   const stdout = new PtyOutput({ ...options.stdout, isTty: options.stdout?.isTty ?? true }, () => terminalSize);
@@ -70,24 +67,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
   const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'pty');
   const clock = new RuntimeClock();
   const runtime = options.runtime ?? 'node';
-  const resolverInput = {
-    host: {
-      runtime,
-      inputIsTty: stdin.isTty(),
-      outputIsTty: stdout.isTty(),
-      columns: terminalSize.columns,
-      rows: terminalSize.rows,
-      supportsRawInput: options.stdin?.setRawMode !== undefined,
-      supportsResizeEvents: options.subscribeSignals !== undefined,
-      supportsTerminalProtocols: stdout.isTty()
-    },
-    environment: { variables: options.env ?? {} },
-    ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
-    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
-    ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile }),
-    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
-    ...(options.capabilities?.graphics === undefined ? {} : { graphics: options.capabilities.graphics })
-  } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
+  const resolverInput = ptyCapabilityResolverInput(options, runtime, stdin, stdout, terminalSize);
   const env = new ObjectEnvironment(options.env ?? {});
   const setTerminalSize = async (nextTerminalSize: TerminalSize): Promise<void> => {
     terminalSize = nextTerminalSize;
@@ -139,4 +119,39 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
   return host;
+}
+
+function initialPtyTerminalSize(options: PtyTerminalHostOptions): TerminalSize {
+  return options.terminalSize ?? {
+    columns: options.stdout?.columns ?? 80,
+    rows: options.stdout?.rows ?? 24,
+  };
+}
+
+function ptyCapabilityResolverInput(
+  options: PtyTerminalHostOptions,
+  runtime: NonNullable<PtyTerminalHostOptions['runtime']>,
+  stdin: TerminalInputAuthority,
+  stdout: TerminalOutput,
+  terminalSize: TerminalSize,
+): Parameters<typeof resolveTerminalCapabilities>[0] {
+  const capabilities = options.capabilities;
+  return {
+    host: {
+      runtime,
+      inputIsTty: stdin.isTty(),
+      outputIsTty: stdout.isTty(),
+      columns: terminalSize.columns,
+      rows: terminalSize.rows,
+      supportsRawInput: options.stdin?.setRawMode !== undefined,
+      supportsResizeEvents: options.subscribeSignals !== undefined,
+      supportsTerminalProtocols: stdout.isTty(),
+    },
+    environment: { variables: options.env ?? {} },
+    ...(capabilities?.probes === undefined ? {} : { probes: capabilities.probes }),
+    ...(capabilities?.colorDepth === undefined ? {} : { colorDepth: capabilities.colorDepth }),
+    ...(capabilities?.widthProfile === undefined ? {} : { widthProfile: capabilities.widthProfile }),
+    ...(capabilities?.overrides === undefined ? {} : { overrides: capabilities.overrides }),
+    ...(capabilities?.graphics === undefined ? {} : { graphics: capabilities.graphics }),
+  };
 }

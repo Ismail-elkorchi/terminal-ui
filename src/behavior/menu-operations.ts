@@ -84,37 +84,25 @@ export function menuBarReducer(
     case 'setActiveHeading':
       return enabledItem(items, transition.id) === undefined
         ? state
-        : transition.id === state.active
-          ? state
-        : state.kind === 'open'
-          ? openMenuBar(items, transition.id)
-          : { kind: 'closed', active: transition.id };
+        : menuBarAtHeading(state, items, transition.id);
     case 'moveHeading': {
       const next = adjacentItemId(headings.map((item) => item.id), active, transition.delta);
-      return next === undefined || next === state.active
-        ? state
-        : state.kind === 'open' ? openMenuBar(items, next) : { kind: 'closed', active: next };
+      return next === undefined ? state : menuBarAtHeading(state, items, next);
     }
     case 'firstHeading': {
       const first = headings[0]?.id;
-      return first === undefined || first === state.active
-        ? state
-        : state.kind === 'open' ? openMenuBar(items, first) : { kind: 'closed', active: first };
+      return first === undefined ? state : menuBarAtHeading(state, items, first);
     }
     case 'lastHeading': {
       const last = headings.at(-1)?.id;
-      return last === undefined || last === state.active
-        ? state
-        : state.kind === 'open' ? openMenuBar(items, last) : { kind: 'closed', active: last };
+      return last === undefined ? state : menuBarAtHeading(state, items, last);
     }
     case 'open': {
       const heading = validId(headings, transition.id ?? active);
       return heading === undefined ? state : openMenuBar(items, heading);
     }
     case 'close':
-      return state.kind === 'closed' && state.active === active
-        ? state
-        : active === undefined ? { kind: 'closed' } : { kind: 'closed', active };
+      return closeMenuBar(state, active);
     case 'activateHeading': {
       const item = enabledItem(items, transition.id);
       if (item === undefined) return state;
@@ -128,6 +116,20 @@ export function menuBarReducer(
       return menu === state.menu ? state : { ...state, menu };
     }
   }
+}
+
+function menuBarAtHeading(
+  state: MenuBarState,
+  items: readonly MenuItem[],
+  active: string,
+): MenuBarState {
+  if (active === state.active) return state;
+  return state.kind === 'open' ? openMenuBar(items, active) : { kind: 'closed', active };
+}
+
+function closeMenuBar(state: MenuBarState, active: string | undefined): MenuBarState {
+  if (state.kind === 'closed' && state.active === active) return state;
+  return active === undefined ? { kind: 'closed' } : { kind: 'closed', active };
 }
 
 export function menuBarView(items: readonly MenuItem[], state: MenuBarState): MenuBarView {

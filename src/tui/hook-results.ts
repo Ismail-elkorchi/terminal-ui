@@ -135,24 +135,39 @@ function decodeTuiEventSource<TMessage>(value: unknown, index: number): TuiEvent
   if (sourceName !== undefined && sourceName !== 'signal' && sourceName !== 'timer' && sourceName !== 'external') {
     throw new TypeError(`${label} source is invalid.`);
   }
-  const channel = source['channel'];
-  let capacity: number | undefined;
-  let cadenceMs: number | undefined;
-  if (channel !== undefined) {
-    const decodedChannel = objectResult(channel, `${label} channel`);
-    const candidate = decodedChannel['capacity'];
-    if (typeof candidate !== 'number' || !Number.isSafeInteger(candidate) || candidate < 1) {
-      throw new RangeError(`${label} channel capacity must be a positive safe integer.`);
-    }
-    capacity = candidate;
-    const cadenceCandidate = decodedChannel['cadenceMs'];
-    if (cadenceCandidate !== undefined) {
-      if (typeof cadenceCandidate !== 'number' || !Number.isFinite(cadenceCandidate) || cadenceCandidate <= 0) {
-        throw new RangeError(`${label} channel cadenceMs must be a positive finite number.`);
-      }
-      cadenceMs = cadenceCandidate;
-    }
+  const channel = decodeTuiEventSourceChannel(source['channel'], label);
+  const callbacks = decodeTuiEventSourceCallbacks<TMessage>(source, label);
+  return Object.freeze({
+    id,
+    generation,
+    ...(sourceName === undefined ? {} : { source: sourceName }),
+    ...(channel === undefined ? {} : { channel }),
+    ...callbacks,
+  });
+}
+
+function decodeTuiEventSourceChannel(
+  value: unknown,
+  label: string,
+): TuiEventSource<unknown>['channel'] {
+  if (value === undefined) return undefined;
+  const channel = objectResult(value, `${label} channel`);
+  const capacity = channel['capacity'];
+  if (typeof capacity !== 'number' || !Number.isSafeInteger(capacity) || capacity < 1) {
+    throw new RangeError(`${label} channel capacity must be a positive safe integer.`);
   }
+  const cadenceMs = channel['cadenceMs'];
+  if (cadenceMs !== undefined
+    && (typeof cadenceMs !== 'number' || !Number.isFinite(cadenceMs) || cadenceMs <= 0)) {
+    throw new RangeError(`${label} channel cadenceMs must be a positive finite number.`);
+  }
+  return Object.freeze({ capacity, ...(cadenceMs === undefined ? {} : { cadenceMs }) });
+}
+
+function decodeTuiEventSourceCallbacks<TMessage>(
+  source: Readonly<Record<string, unknown>>,
+  label: string,
+): Pick<TuiEventSource<TMessage>, 'run' | 'onLifecycle' | 'dispose'> {
   const run = source['run'];
   if (typeof run !== 'function') throw new TypeError(`${label} run must be a function.`);
   const onLifecycle = source['onLifecycle'];
@@ -163,13 +178,7 @@ function decodeTuiEventSource<TMessage>(value: unknown, index: number): TuiEvent
   if (dispose !== undefined && typeof dispose !== 'function') {
     throw new TypeError(`${label} dispose must be a function when provided.`);
   }
-  return Object.freeze({
-    id,
-    generation,
-    ...(sourceName === undefined ? {} : { source: sourceName }),
-    ...(capacity === undefined ? {} : {
-      channel: Object.freeze({ capacity, ...(cadenceMs === undefined ? {} : { cadenceMs }) }),
-    }),
+  return {
     run: (context: TuiSubscriptionContext, sink: TuiSourceSink<TMessage>) =>
       Promise.resolve(run.call(source, context, sink)) as Promise<void>,
     ...(onLifecycle === undefined ? {} : {
@@ -177,7 +186,7 @@ function decodeTuiEventSource<TMessage>(value: unknown, index: number): TuiEvent
         decodeMessageResolution<TMessage>(onLifecycle.call(source, event), `${label} onLifecycle`)
     }),
     ...(dispose === undefined ? {} : { dispose: () => dispose.call(source) as void | Promise<void> })
-  });
+  };
 }
 
 function decodeInitialFocusSelector(value: unknown, label: string): InitialFocusSelector {

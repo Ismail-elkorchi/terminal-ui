@@ -89,12 +89,29 @@ export function createInputPipeline(options: InputPipelineOptions = {}): InputPi
 export function resolveInputPipelineProfile(options?: InputPipelineOptions): InputPipelineProfile;
 export function resolveInputPipelineProfile(options: unknown = {}): InputPipelineProfile {
   const supplied = record(options, 'Input pipeline options');
-  const keyboard = supplied['keyboard'];
+  const features = decodeInputPipelineFeatures(supplied);
+  const keyboard = resolveKeyboardInputProfile(supplied);
+  return Object.freeze({
+    keyboard: Object.freeze({ active: keyboard.active, requested: keyboard.requested }),
+    bracketedPaste: features.bracketedPaste,
+    focusReporting: features.focusReporting,
+    mouseReporting: features.mouseReporting,
+    escapeDelayMs: escapeDelay(supplied['escapeDelayMs']),
+    limits: resolveInputDecodeLimits(supplied['limits']),
+    diagnostics: Object.freeze(keyboard.diagnostic === undefined ? [] : [keyboard.diagnostic]),
+  });
+}
+
+interface InputPipelineFeatures {
+  readonly bracketedPaste: boolean;
+  readonly focusReporting: boolean;
+  readonly mouseReporting: MouseReportingMode;
+}
+
+function decodeInputPipelineFeatures(supplied: Readonly<Record<string, unknown>>): InputPipelineFeatures {
   const bracketedPaste = supplied['bracketedPaste'];
   const focusReporting = supplied['focusReporting'];
   const mouseReporting = supplied['mouseReporting'];
-  const escapeDelayMs = supplied['escapeDelayMs'];
-  const limits = supplied['limits'];
   if (bracketedPaste !== undefined && typeof bracketedPaste !== 'boolean') {
     throw new TypeError('Input pipeline option bracketedPaste must be boolean.');
   }
@@ -108,7 +125,23 @@ export function resolveInputPipelineProfile(options: unknown = {}): InputPipelin
     && mouseReporting !== 'all') {
     throw new TypeError('Input pipeline mouseReporting is unsupported.');
   }
-  const requested = decodeKeyboardProfile(keyboard ?? LEGACY_KEYBOARD_PROFILE);
+  return {
+    bracketedPaste: bracketedPaste ?? false,
+    focusReporting: focusReporting ?? false,
+    mouseReporting: mouseReporting ?? 'none',
+  };
+}
+
+interface ResolvedKeyboardInputProfile {
+  readonly requested: TerminalKeyboardProfile;
+  readonly active: TerminalKeyboardProfile;
+  readonly diagnostic?: TerminalDiagnostic;
+}
+
+function resolveKeyboardInputProfile(
+  supplied: Readonly<Record<string, unknown>>,
+): ResolvedKeyboardInputProfile {
+  const requested = decodeKeyboardProfile(supplied['keyboard'] ?? LEGACY_KEYBOARD_PROFILE);
   const capabilities = requested.kind === 'legacy'
     ? undefined
     : optionalRecord(supplied['capabilities'], 'Input pipeline capabilities');
@@ -133,18 +166,11 @@ export function resolveInputPipelineProfile(options: unknown = {}): InputPipelin
   }
   const available = requested.kind === 'legacy'
     || keyboardSupport === 'supported' && keyboardAvailability === 'available';
-  const active = available ? requested : LEGACY_KEYBOARD_PROFILE;
-  return Object.freeze({
-    keyboard: Object.freeze({ active, requested }),
-    bracketedPaste: bracketedPaste ?? false,
-    focusReporting: focusReporting ?? false,
-    mouseReporting: mouseReporting ?? 'none',
-    escapeDelayMs: escapeDelay(escapeDelayMs),
-    limits: resolveInputDecodeLimits(limits),
-    diagnostics: Object.freeze(available
-      ? []
-      : [unsupportedKeyboardDiagnostic(requested, keyboardSupport, keyboardAvailability)])
-  });
+  return {
+    requested,
+    active: available ? requested : LEGACY_KEYBOARD_PROFILE,
+    ...(available ? {} : { diagnostic: unsupportedKeyboardDiagnostic(requested, keyboardSupport, keyboardAvailability) }),
+  };
 }
 
 function escapeDelay(value: unknown): number {
