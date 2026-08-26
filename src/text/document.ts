@@ -1,4 +1,3 @@
-import { sanitizeTerminalText } from './sanitize.ts';
 import { normalizeTextCursor } from './selection-model.ts';
 import type { TextCaret, TextDocumentSelection, TextPosition, TextSelection } from './types.ts';
 
@@ -15,7 +14,7 @@ export interface TextDocumentLine {
   readonly text: string;
 }
 
-export interface TextDocumentChange {
+export interface TextDocumentMutation {
   readonly document: TextDocument;
   readonly replaced: { readonly startOffset: number; readonly endOffsetExclusive: number };
   readonly insertedLength: number;
@@ -44,7 +43,7 @@ interface PieceBranch extends PieceMetrics {
 interface TextDocumentData {
   readonly root: PieceNode;
   readonly parent?: TextDocument;
-  readonly change?: Omit<TextDocumentChange, 'document'>;
+  readonly change?: Omit<TextDocumentMutation, 'document'>;
 }
 
 const EMPTY_LEAF: PieceLeaf = Object.freeze({
@@ -59,7 +58,8 @@ const MAX_INITIAL_PIECE_LENGTH = 4_096;
 const documents = new WeakMap<object, TextDocumentData>();
 
 export function prepareTextDocument(value: string): TextDocument {
-  return createDocument(treeFromText(sanitizeTerminalText(value).text));
+  if (typeof value !== 'string') throw new TypeError('text document source must be a string.');
+  return createDocument(treeFromText(value));
 }
 
 export function assertTextDocument(value: unknown): asserts value is TextDocument {
@@ -103,35 +103,35 @@ export function textDocumentEdit(
   document: TextDocument,
   range: { readonly startOffset: number; readonly endOffsetExclusive: number },
   insertion: string
-): TextDocumentChange {
+): TextDocumentMutation {
   const start = normalizeTextDocumentOffset(document, Math.min(range.startOffset, range.endOffsetExclusive));
   const end = normalizeTextDocumentOffset(document, Math.max(range.startOffset, range.endOffsetExclusive));
-  const sanitized = sanitizeTerminalText(insertion).text;
-  if (start === end && sanitized.length === 0) {
+  if (typeof insertion !== 'string') throw new TypeError('text document insertion must be a string.');
+  if (start === end && insertion.length === 0) {
     return {
       document,
       replaced: { startOffset: start, endOffsetExclusive: end },
       insertedLength: 0
     };
   }
-  if (sanitized === textDocumentSlice(document, start, end)) {
+  if (insertion === textDocumentSlice(document, start, end)) {
     return {
       document,
       replaced: { startOffset: start, endOffsetExclusive: end },
-      insertedLength: sanitized.length
+      insertedLength: insertion.length
     };
   }
   const root = dataFor(document).root;
   const [before, remainder] = split(root, start);
   const [, after] = split(remainder, end - start);
-  const next = concat(concat(before, treeFromText(sanitized)), after);
+  const next = concat(concat(before, treeFromText(insertion)), after);
   return {
     document: createDocument(next, document, {
       replaced: { startOffset: start, endOffsetExclusive: end },
-      insertedLength: sanitized.length,
+      insertedLength: insertion.length,
     }),
     replaced: { startOffset: start, endOffsetExclusive: end },
-    insertedLength: sanitized.length
+    insertedLength: insertion.length
   };
 }
 
@@ -160,6 +160,9 @@ export function textDocumentLineIndexAtOffset(document: TextDocument, offset: nu
 export function normalizeTextDocumentOffset(document: TextDocument, offset: number): number {
   const length = textDocumentLength(document);
   const bounded = clampOffset(offset, length);
+  if (bounded > 0 && bounded < length && textDocumentSlice(document, bounded - 1, bounded + 1) === '\r\n') {
+    return bounded - 1;
+  }
   const lineIndex = textDocumentLineIndexAtOffset(document, bounded);
   const line = textDocumentLineAt(document, lineIndex);
   if (line === undefined || bounded > line.endOffsetExclusive) return bounded;
@@ -237,7 +240,7 @@ export function textDocumentParentChange(document: TextDocument): {
 function createDocument(
   root: PieceNode,
   parent?: TextDocument,
-  change?: Omit<TextDocumentChange, 'document'>,
+  change?: Omit<TextDocumentMutation, 'document'>,
 ): TextDocument {
   const document = Object.freeze({}) as TextDocument;
   documents.set(document, Object.freeze({

@@ -242,7 +242,7 @@ function updateEditor(
     case 'edit': {
       const buffer = state.buffers.find((candidate) => candidate.path === message.path);
       if (buffer === undefined) return result(state);
-      const editor = textAreaReducer(buffer.editor, message.action);
+      const editor = textAreaReducer(buffer.editor, message.action).state;
       if (textDocumentBytes(editor.document) > MAX_EDITOR_FILE_BYTES) {
         return result({ ...state, notice: `Files are limited to ${formatByteLimit(MAX_EDITOR_FILE_BYTES)} in this example.` });
       }

@@ -28,7 +28,9 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import { scrollReducer } from '../../behavior/scroll.ts';
 import {
   assertTextDocument,
+  createRowOffsetMap,
   createTerminalTextIndex,
+  defaultTextWidthProfile,
   measureTextCells,
   normalizeTextCaret,
   normalizeTextDocumentOffset,
@@ -45,6 +47,7 @@ import {
   textWidthProfileKey,
 } from '../../text/index.ts';
 import type {
+  RowOffsetMap,
   TerminalTextIndex,
   TextCaret,
   TextDocument,
@@ -52,10 +55,14 @@ import type {
   TextSelection,
   TextWidthProfile,
 } from '../../text/index.ts';
-import { terminalStyleHasBackground } from '../../theme/index.ts';
+import {
+  defaultTheme,
+  terminalStyleHasBackground,
+  type TerminalTheme
+} from '../../theme/index.ts';
 import type { TextAreaAction } from '../../ui-model/text-area.ts';
 import type {
-  TextAreaHighlight,
+  TextAreaDecoration,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions,
 } from '../../ui-model/content.ts';
@@ -70,13 +77,30 @@ import {
   inspectValidation,
 } from '../internal/inspection.ts';
 import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
+import {
+  createTextAreaProjection,
+  type PreparedTextAreaDecoration,
+  type TextAreaProjection
+} from '../internal/text-area-projection.ts';
+
+export interface TextAreaRowOffsetMapOptions {
+  readonly document: TextDocument;
+  readonly terminalWidth: number;
+  readonly terminalRows: number;
+  readonly decorations?: readonly TextAreaDecoration[];
+  readonly lineNumbers?: boolean | TextAreaLineNumberOptions;
+  readonly wrap?: boolean | TextAreaWrapOptions;
+  readonly scrollbar?: ScrollbarOptions;
+  readonly widthProfile?: TextWidthProfile;
+  readonly theme?: TerminalTheme;
+}
 
 interface TextAreaModel {
   readonly document: TextDocument;
   readonly caret: TextCaret;
   readonly placeholder: string;
   readonly selection?: TextDocumentSelection;
-  readonly highlights: readonly PreparedTextAreaHighlight[];
+  readonly decorations: readonly PreparedTextAreaDecoration[];
   readonly lineNumbers?: { readonly startNumber: number; readonly minWidth: number };
   readonly highlightActiveLine: boolean;
   readonly wrap: boolean;
@@ -86,10 +110,6 @@ interface TextAreaModel {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-}
-
-interface PreparedTextAreaHighlight extends TextAreaHighlight {
-  readonly label: string;
 }
 
 type TextAreaComponentAction = TextAreaAction | {
@@ -127,7 +147,7 @@ const instantiateTextArea = defineComponent<
     'gutter',
     'lineNumber',
     'activeLine',
-    'highlight',
+    'decoration',
     'scrollbarTrack', 'scrollbarThumb',
   ],
   visualStates: ['focused', 'hovered', 'active', 'selected', 'disabled', 'readOnly'],
@@ -160,7 +180,10 @@ const instantiateTextArea = defineComponent<
     readOnly ? ignoreMessage() : ({ kind: 'edit', operation: { kind: 'insert', text } }),
   focusTargets(input) {
     const geometry = textAreaGeometry(input);
-    const caret = textAreaCursorInLayout(geometry.layout, input.model.caret);
+    const caret = textAreaCursorInLayout(
+      geometry.layout,
+      projectedCaret(geometry.projection, input.model.caret)
+    );
     const row = caret.rowIndex - geometry.scrollbar.scroll.offsetRow;
     const column = geometry.prefixWidth +
       caret.columnCells -
@@ -263,7 +286,7 @@ const instantiateTextArea = defineComponent<
     return {
       id,
       role: 'textbox',
-      value,
+      value: geometry.usesPlaceholder ? value : geometry.projection.accessibilityText,
       textPosition: {
         caretOffset: model.caret.position.offset,
         ...(selection === undefined ? {} : { selection }),
@@ -360,7 +383,7 @@ function prepareTextArea(
       focus: prepareTextPosition(candidate.focus, 'textArea selection.focus'),
     });
   }
-  const highlights = prepareTextAreaHighlights(value.highlights, document);
+  const decorations = prepareTextAreaDecorations(value.decorations, document);
   const scroll = prepareComponentScrollState(presentation.scroll, 'textArea scroll');
   const scrollbar = prepareComponentScrollbarOptions(value.scrollbar, 'textArea scrollbar');
   const scrollPolicy = prepareComponentScrollPolicy(value.scrollPolicy, 'textArea scrollPolicy');
@@ -379,7 +402,7 @@ function prepareTextArea(
     document,
     caret: normalizedCaret,
     ...(selection === undefined ? {} : { selection }),
-    highlights,
+    decorations,
     placeholder: textOption(value.placeholder, 'textArea placeholder') ?? '',
     ...(lineNumbers === undefined ? {} : { lineNumbers }),
     highlightActiveLine,
@@ -393,8 +416,65 @@ function prepareTextArea(
   };
 }
 
+export function createTextAreaRowOffsetMap(
+  options: TextAreaRowOffsetMapOptions
+): RowOffsetMap {
+  if (!isNonArrayObject(options)) {
+    throw new TypeError('Text area row-offset map options must be an object.');
+  }
+  assertTextDocument(options.document);
+  const terminalWidth = layoutDimension(options.terminalWidth, 'terminalWidth');
+  const terminalRows = layoutDimension(options.terminalRows, 'terminalRows');
+  const widthProfile = options.widthProfile ?? defaultTextWidthProfile;
+  const theme = options.theme ?? defaultTheme;
+  const lineNumbers = prepareLineNumbers(options.lineNumbers);
+  const wrap = prepareWrap(options.wrap);
+  const decorations = prepareTextAreaDecorations(options.decorations, options.document);
+  const projection = createTextAreaProjection(options.document, decorations, widthProfile);
+  const lineCount = textDocumentLineCount(projection.document);
+  const prefixWidth = textAreaPrefixWidth(
+    lineNumbers === undefined ? {} : { lineNumbers },
+    theme,
+    widthProfile,
+    lineCount
+  );
+  let contentWidth = Math.max(0, terminalWidth - prefixWidth);
+  let layout = layoutTextAreaDocument(projection.document, contentWidth, wrap, widthProfile);
+  const scrollbarOptions = prepareComponentScrollbarOptions(
+    options.scrollbar,
+    'textArea row-offset map scrollbar'
+  );
+  const plan = prepareComponentScrollbar({
+    bounds: {
+      row: 0,
+      column: prefixWidth,
+      width: contentWidth,
+      height: terminalRows
+    },
+    scroll: { offsetRow: 0, offsetColumn: 0, followTail: false },
+    contentRows: layout.contentRows,
+    contentColumns: layout.contentColumns,
+    ...(scrollbarOptions === undefined ? {} : { options: scrollbarOptions }),
+    defaultAxis: 'both'
+  });
+  if (plan.contentBounds.width !== contentWidth) {
+    contentWidth = plan.contentBounds.width;
+    layout = layoutTextAreaDocument(projection.document, contentWidth, wrap, widthProfile);
+  }
+  return createRowOffsetMap(layout.lines.map((line) => (
+    projection.sourceOffsetAtDisplayOffset(line.start, 'upstream')
+  )));
+}
+
+function layoutDimension(value: number, field: string): number {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new RangeError(`Text area row-offset map ${field} must be a non-negative finite number.`);
+  }
+  return Math.floor(value);
+}
+
 function measureTextArea(input: ComponentMeasureInput<TextAreaModel>): Measurement {
-  const document = textAreaDisplayDocument(input.model).document;
+  const document = textAreaDisplayDocument(input.model, input.widthProfile).document;
   const count = textDocumentLineCount(document);
   const prefix = textAreaPrefixWidth(input.model, input.theme, input.widthProfile, count);
   const width = Math.max(0, input.constraints.width - prefix);
@@ -409,6 +489,7 @@ function measureTextArea(input: ComponentMeasureInput<TextAreaModel>): Measureme
 
 interface TextAreaGeometry {
   readonly document: TextDocument;
+  readonly projection: TextAreaProjection;
   readonly usesPlaceholder: boolean;
   readonly lineCount: number;
   readonly prefixWidth: number;
@@ -417,7 +498,7 @@ interface TextAreaGeometry {
 }
 
 function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometry {
-  const display = textAreaDisplayDocument(input.model);
+  const display = textAreaDisplayDocument(input.model, input.widthProfile);
   const lineCount = textDocumentLineCount(display.document);
   const prefixWidth = textAreaPrefixWidth(input.model, input.theme, input.widthProfile, lineCount);
   let frameWidth = Math.max(0, input.bounds.width - prefixWidth);
@@ -440,6 +521,7 @@ function textAreaGeometry(input: ComponentInput<TextAreaModel>): TextAreaGeometr
   }
   return {
     document: display.document,
+    projection: display.projection,
     usesPlaceholder: display.usesPlaceholder,
     lineCount,
     prefixWidth,
@@ -474,9 +556,21 @@ function paintTextArea(input: ComponentRenderInput<TextAreaModel, TextAreaStyleP
     input.model.document,
     input.model.caret.position.offset,
   );
-  const selection = geometry.usesPlaceholder || input.model.selection === undefined
+  const sourceSelection = geometry.usesPlaceholder || input.model.selection === undefined
     ? undefined
     : textDocumentSelectionRange(input.model.document, input.model.selection, input.model.caret);
+  const selection = sourceSelection === undefined
+    ? undefined
+    : {
+        startOffset: geometry.projection.displayOffsetAtSourceOffset(
+          sourceSelection.startOffset,
+          'downstream'
+        ),
+        endOffsetExclusive: geometry.projection.displayOffsetAtSourceOffset(
+          sourceSelection.endOffsetExclusive,
+          'upstream'
+        )
+      };
   for (let visibleRow = 0; visibleRow < content.height; visibleRow += 1) {
     const rowIndex = geometry.scrollbar.scroll.offsetRow + visibleRow;
     const line = geometry.layout.lines[rowIndex];
@@ -587,10 +681,10 @@ function pointerOffset(input: ComponentInput<TextAreaModel>, row: number, column
     column - 1 - geometry.prefixWidth + geometry.scrollbar.scroll.offsetColumn,
   );
   const grapheme = line.index.visualColumnToGraphemeIndex(visualColumn);
-  return normalizeTextDocumentOffset(
-    input.model.document,
+  return normalizeTextDocumentOffset(input.model.document, geometry.projection.sourceOffsetAtDisplayOffset(
     line.start + line.index.graphemeIndexToCodeUnitOffset(grapheme),
-  );
+    'downstream'
+  ));
 }
 
 function textAreaDragScrollEvent(
@@ -650,41 +744,65 @@ function prepareTextPosition(value: TextCaret['position'], owner: string): TextC
   return { offset, affinity };
 }
 
-function prepareTextAreaHighlights(
-  value: readonly TextAreaHighlight[] | undefined,
+function prepareTextAreaDecorations(
+  value: readonly TextAreaDecoration[] | undefined,
   document: TextDocument,
-): readonly PreparedTextAreaHighlight[] {
+): readonly PreparedTextAreaDecoration[] {
   if (value === undefined) return Object.freeze([]);
-  if (!Array.isArray(value)) throw new TypeError('textArea highlights must be an array.');
-  return Object.freeze(value.map((candidate, index) => {
+  if (!Array.isArray(value)) throw new TypeError('textArea decorations must be an array.');
+  const prepared = value.map((candidate, index): PreparedTextAreaDecoration => {
     if (!isNonArrayObject(candidate)) {
-      throw new TypeError(`textArea highlights[${String(index)}] is invalid.`);
+      throw new TypeError(`textArea decorations[${String(index)}] is invalid.`);
     }
     const startOffset = candidate['startOffset'];
     const endOffsetExclusive = candidate['endOffsetExclusive'];
+    const replacementText = candidate['replacementText'];
+    const accessibilityText = candidate['accessibilityText'];
     if (
       typeof startOffset !== 'number' ||
       typeof endOffsetExclusive !== 'number' ||
       !Number.isSafeInteger(startOffset) ||
       !Number.isSafeInteger(endOffsetExclusive) ||
       startOffset < 0 ||
-      endOffsetExclusive <= startOffset ||
+      endOffsetExclusive < startOffset ||
+      (endOffsetExclusive === startOffset && replacementText === undefined) ||
       endOffsetExclusive > textDocumentLength(document)
     ) {
-      throw new RangeError(`textArea highlights[${String(index)}] range is invalid.`);
+      throw new RangeError(`textArea decorations[${String(index)}] range is invalid.`);
     }
-    const label = textOption(candidate['label'], `textArea highlights[${String(index)}].label`) ??
-      `highlight.${String(index)}`;
+    if (replacementText !== undefined && typeof replacementText !== 'string') {
+      throw new TypeError(`textArea decorations[${String(index)}].replacementText must be a string.`);
+    }
+    if (accessibilityText !== undefined && typeof accessibilityText !== 'string') {
+      throw new TypeError(`textArea decorations[${String(index)}].accessibilityText must be a string.`);
+    }
+    const label = textOption(candidate['label'], `textArea decorations[${String(index)}].label`) ??
+      `decoration.${String(index)}`;
     const style = candidate['style'] === undefined
       ? undefined
-      : prepareTerminalStyle(candidate['style'], `textArea highlights[${String(index)}].style`);
+      : prepareTerminalStyle(candidate['style'], `textArea decorations[${String(index)}].style`);
     return Object.freeze({
       startOffset: normalizeTextDocumentOffset(document, startOffset),
       endOffsetExclusive: normalizeTextDocumentOffset(document, endOffsetExclusive),
       label,
       ...(style === undefined ? {} : { style }),
+      ...(replacementText === undefined ? {} : { replacementText }),
+      ...(accessibilityText === undefined ? {} : { accessibilityText })
     });
-  }));
+  });
+  const replacements = prepared
+    .filter((decoration) => decoration.replacementText !== undefined)
+    .toSorted((left, right) => left.startOffset - right.startOffset || left.endOffsetExclusive - right.endOffsetExclusive);
+  let previousEnd = 0;
+  for (let index = 0; index < replacements.length; index += 1) {
+    const replacement = replacements[index];
+    if (replacement === undefined) continue;
+    if (index > 0 && replacement.startOffset < previousEnd) {
+      throw new RangeError('textArea replacement decorations must not overlap.');
+    }
+    previousEnd = Math.max(previousEnd, replacement.endOffsetExclusive);
+  }
+  return Object.freeze(prepared);
 }
 
 function prepareLineNumbers(
@@ -718,14 +836,35 @@ function prepareWrap(value: boolean | TextAreaWrapOptions | undefined): boolean 
   return value['mode'] !== 'none';
 }
 
-function textAreaDisplayDocument(model: TextAreaModel): {
+function textAreaDisplayDocument(model: TextAreaModel, widthProfile: TextWidthProfile): {
   readonly document: TextDocument;
+  readonly projection: TextAreaProjection;
   readonly usesPlaceholder: boolean;
 } {
   const usesPlaceholder = textDocumentLength(model.document) === 0 && model.placeholder !== '';
+  const source = usesPlaceholder ? prepareTextDocument(model.placeholder) : model.document;
+  const projection = createTextAreaProjection(
+    source,
+    usesPlaceholder ? [] : model.decorations,
+    widthProfile
+  );
   return {
-    document: usesPlaceholder ? prepareTextDocument(model.placeholder) : model.document,
+    document: projection.document,
+    projection,
     usesPlaceholder,
+  };
+}
+
+function projectedCaret(projection: TextAreaProjection, caret: TextCaret): TextCaret {
+  return {
+    ...caret,
+    position: {
+      ...caret.position,
+      offset: projection.displayOffsetAtSourceOffset(
+        caret.position.offset,
+        caret.position.affinity === 'upstream' ? 'upstream' : 'downstream'
+      )
+    }
   };
 }
 
@@ -755,7 +894,7 @@ function textAreaScrollbar(
 }
 
 function textAreaPrefixWidth(
-  model: TextAreaModel,
+  model: Pick<TextAreaModel, 'lineNumbers'>,
   theme: ComponentInput<TextAreaModel>['theme'],
   widthProfile: TextWidthProfile,
   lineCount: number,
@@ -909,12 +1048,12 @@ function textAreaValueSpans(
     cuts.add(Math.max(absoluteStart, Math.min(absoluteEnd, selection.startOffset)));
     cuts.add(Math.max(absoluteStart, Math.min(absoluteEnd, selection.endOffsetExclusive)));
   }
-  for (const highlight of input.model.highlights) {
-    if (highlight.endOffsetExclusive <= absoluteStart || highlight.startOffset >= absoluteEnd) {
+  for (const decoration of geometry.projection.styleRanges) {
+    if (decoration.endOffsetExclusive <= absoluteStart || decoration.startOffset >= absoluteEnd) {
       continue;
     }
-    cuts.add(Math.max(absoluteStart, highlight.startOffset));
-    cuts.add(Math.min(absoluteEnd, highlight.endOffsetExclusive));
+    cuts.add(Math.max(absoluteStart, decoration.startOffset));
+    cuts.add(Math.min(absoluteEnd, decoration.endOffsetExclusive));
   }
   const boundaries = [...cuts].toSorted((left, right) => left - right);
   return boundaries.flatMap((start, index) => {
@@ -924,23 +1063,23 @@ function textAreaValueSpans(
     const selected = selection !== undefined &&
       start >= selection.startOffset &&
       end <= selection.endOffsetExclusive;
-    const highlight = selected
+    const decoration = selected
       ? undefined
-      : input.model.highlights.find((candidate) =>
+      : geometry.projection.styleRanges.find((candidate) =>
         start >= candidate.startOffset && end <= candidate.endOffsetExclusive
       );
     const placeholder = geometry.usesPlaceholder;
     const part: TextAreaStylePart = selected
       ? 'selection'
-      : highlight === undefined
+      : decoration === undefined
       ? placeholder ? 'placeholder' : active ? 'activeLine' : 'value'
-      : 'highlight';
+      : 'decoration';
     const base: TerminalStyle = selected
       ? {
         fg: { kind: 'theme', token: 'selection.foreground' },
         bg: { kind: 'theme', token: 'selection.background' },
       }
-      : highlight === undefined
+      : decoration === undefined
       ? {
         fg: { kind: 'theme', token: placeholder ? 'input.placeholder' : 'text.default' },
         ...(active
@@ -951,9 +1090,10 @@ function textAreaValueSpans(
         ...(active
           ? { bg: { kind: 'theme' as const, token: 'editor.activeLine.background' as const } }
           : {}),
-        fg: { kind: 'theme', token: 'menu.match' },
-        underline: true,
-        ...highlight.style,
+        ...(decoration.style ?? {
+              fg: { kind: 'theme' as const, token: 'menu.match' as const },
+              underline: true
+            }),
       };
     const availability = textAreaAvailabilityStates(input);
     const style = input.style({
@@ -968,14 +1108,14 @@ function textAreaValueSpans(
         }
         : availability.length === 0 ? {} : { states: availability }),
     });
-    const description = selected ? 'selection' : highlight?.label ??
+    const description = selected ? 'selection' : decoration?.label ??
       (placeholder ? 'placeholder' : active ? 'activeLine.value' : 'value');
     return [span(text, {
       ...(style === undefined ? {} : { style }),
       source: input.source({
         cellRole: 'text',
         partName: part,
-        partType: selected ? 'selection' : highlight === undefined ? part : 'highlight',
+        partType: selected ? 'selection' : decoration === undefined ? part : 'decoration',
         description,
       }),
     })];

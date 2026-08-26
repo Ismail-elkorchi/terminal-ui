@@ -7,16 +7,16 @@ const publishWorkflow = await workflowSource(new URL('../../.github/workflows/pu
 const sourceRoot = new URL('../../src/', import.meta.url);
 const repositoryRoot = new URL('../../', import.meta.url);
 
-test('host smoke CI runs only the installed Node runtime coverage', () => {
-  const hostSmoke = workflowJob(ciWorkflow, 'host-smoke');
-  const linuxFull = workflowJob(ciWorkflow, 'linux-full');
+test('CI verifies the complete package on Node 24 across Ubuntu, macOS, and Windows', () => {
+  const verification = workflowJob(ciWorkflow, 'verify');
 
-  assert.match(hostSmoke, /node scripts\/runtime-smoke\.mjs/u);
-  assert.match(hostSmoke, /node --test tests\/integration\/node-host-lifecycle\.test\.mjs/u);
-  assert.doesNotMatch(hostSmoke, /tests\/runtime\/runtime-smoke\.test\.mjs|npm run check:runtime/u);
-  assert.match(linuxFull, /denoland\/setup-deno/u);
-  assert.match(linuxFull, /oven-sh\/setup-bun/u);
-  assert.match(linuxFull, /npm run check:runtime/u);
+  assert.match(verification, /os: \[ubuntu-latest, macos-latest, windows-latest\]/u);
+  assert.match(verification, /node-version: 24/u);
+  assert.match(verification, /denoland\/setup-deno/u);
+  assert.match(verification, /oven-sh\/setup-bun/u);
+  for (const command of ['npm ci', 'npm run build', 'npm test', 'npm run verify', 'npm pack --dry-run']) {
+    assert.match(verification, new RegExp(`- run: ${command.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')}`, 'u'));
+  }
 });
 
 test('registry publication is gated by a verified immutable release tag', () => {

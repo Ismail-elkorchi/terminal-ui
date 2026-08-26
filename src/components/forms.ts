@@ -11,11 +11,16 @@ export {
   slider,
   textInput,
 } from './factories/control-components.ts';
-export { textArea } from './factories/text-area.ts';
+export {
+  createTextAreaRowOffsetMap,
+  textArea,
+  type TextAreaRowOffsetMapOptions
+} from './factories/text-area.ts';
 export type * from './options/forms.ts';
 export type {
   DisabledTextAreaOptions,
   ScrollableTextAreaOptions,
+  TextAreaDecoration,
   TextAreaOptions,
   UnscrolledTextAreaOptions,
 } from './options/content.ts';

@@ -1,5 +1,6 @@
 import {
   defineComponent,
+  ignoreMessage,
   line,
   measureRenderSpans,
   span,
@@ -21,6 +22,10 @@ import type { InlineContent } from '../../visual/inline-content.ts';
 import type { RenderSpan } from '../../visual/render.ts';
 import type { ElementMessage } from '../../element/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
+import { assertRequiredCallback } from '../../foundation/validation.ts';
+import type { ElementKeyEvent } from '../../element/metadata.ts';
+import type { RoutedPointerEvent } from '../../input/index.ts';
+import type { RichTextActivateEvent } from '../options/content.ts';
 
 interface PreparedText {
   readonly content: string;
@@ -151,34 +156,34 @@ function textRoleStyle(role: ElementTextRole): TerminalStyle {
 interface PreparedRichText {
   readonly segments: InlineContent;
   readonly wrap?: { readonly preserveWords: boolean };
+  readonly interactive: boolean;
 }
 
-export const richText: SemanticLeafComponentFactory<
-  Pick<RichTextOptions, 'segments' | 'wrap'>,
-  never,
-  RichTextStylePart,
-  readonly [],
-  'optional',
-  readonly ['styles', 'layer']
-> = defineComponent<
-  Pick<RichTextOptions, 'segments' | 'wrap'>,
+interface RichTextComponentAction {
+  readonly kind: 'activate';
+  readonly event: RichTextActivateEvent;
+}
+
+const instantiateRichText = defineComponent<
+  Pick<RichTextOptions, 'segments' | 'wrap'> & { readonly interactive: boolean },
   PreparedRichText,
-  never,
+  RichTextComponentAction,
   RichTextStylePart,
   readonly [],
   'optional',
-  readonly ['styles', 'layer']
+  readonly ['focus', 'styles', 'layer']
 >({
   name: 'terminal-ui/components/rich-text',
   identity: 'optional',
   structure: 'leaf',
   semantics: 'semantic',
   accessibleRole: 'text',
-  metadata: ['styles', 'layer'],
+  metadata: ['focus', 'styles', 'layer'],
   parts: ['content', 'link'],
   prepare(value) {
     const segments = value.segments;
     const wrap = value.wrap;
+    if (typeof value.interactive !== 'boolean') throw new TypeError('richText interactive state must be boolean.');
     if (wrap !== undefined && typeof wrap !== 'boolean' && !isNonArrayObject(wrap)) {
       throw new TypeError('richText wrap must be a boolean or options object.');
     }
@@ -188,6 +193,7 @@ export const richText: SemanticLeafComponentFactory<
     }
     return {
       segments: normalizeInlineContent(segments),
+      interactive: value.interactive,
       ...(wrap === true || typeof wrap === 'object'
         ? { wrap: Object.freeze({ preserveWords: preserveWords === true }) }
         : {}),
@@ -235,7 +241,19 @@ export const richText: SemanticLeafComponentFactory<
       : [line(spans)];
     input.target.writeBlock(0, 0, { lines: lines.slice(0, input.bounds.height) });
   },
-  accessibility({ id, model }) {
+  keys: ({ model }) => !model.interactive ? {} : {
+    enter: (event) => ({ kind: 'activate', event: richTextKeyboardActivation(event) })
+  },
+  focusTargets: ({ bounds, model }) => !model.interactive ? [] : [{ id: 'self', bounds }],
+  hitTargets: ({ id, bounds, model }) => !model.interactive ? [] : [{
+    id: `${id ?? 'rich-text'}:content`,
+    bounds,
+    accepts: ['click'],
+    cursor: 'pointer',
+    focus: { kind: 'target', targetId: 'self' },
+    message: (event) => ({ kind: 'activate', event: richTextPointerActivation(event) })
+  }],
+  accessibility({ id, model, focused }) {
     const children = model.segments.flatMap((segment, index) => segment.link === undefined ? [] : [{
       id: `${id}:link:${String(index)}`,
       role: 'link' as const,
@@ -246,10 +264,53 @@ export const richText: SemanticLeafComponentFactory<
       id,
       role: 'text',
       value: inlineContentAccessibleText(model.segments),
+      ...(focused ? { focused: true } : {}),
       ...(children.length === 0 ? {} : { children }),
     };
   },
 });
+
+export function richText(
+  options: Omit<RichTextOptions, 'onActivate'> & { readonly onActivate?: never }
+): Element;
+export function richText<const TMessage extends ComponentMessage>(
+  options: Omit<RichTextOptions<TMessage>, 'onActivate'> & { readonly onActivate: NonNullable<RichTextOptions<TMessage>['onActivate']> }
+): Element<TMessage>;
+export function richText(
+  options: RichTextOptions<ComponentMessage>
+): Element<ComponentMessage> {
+  const model = {
+    ...(options.id === undefined ? {} : { id: options.id }),
+    segments: options.segments,
+    interactive: options.onActivate !== undefined,
+    ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
+    ...(options.styles === undefined ? {} : { styles: options.styles }),
+    ...(options.meta === undefined ? {} : { meta: options.meta })
+  };
+  if (options.onActivate === undefined) return instantiateRichText({ ...model, onAction: () => ignoreMessage() });
+  if (options.id === undefined) throw new TypeError('interactive richText requires an id.');
+  const onActivate = options.onActivate;
+  assertRequiredCallback(onActivate, 'richText onActivate');
+  return instantiateRichText({
+    ...model,
+    onAction: (action) => onActivate(action.event)
+  });
+}
+
+function richTextKeyboardActivation(event: ElementKeyEvent): RichTextActivateEvent {
+  if (event.input.kind !== 'key') throw new TypeError('richText keyboard activation requires a key event.');
+  return Object.freeze({
+    kind: 'activate', row: 0, column: 0,
+    trigger: Object.freeze({ kind: 'keyboard', modifiers: event.input.modifiers })
+  });
+}
+
+function richTextPointerActivation(event: RoutedPointerEvent): RichTextActivateEvent {
+  return Object.freeze({
+    kind: 'activate', row: event.localRow ?? 0, column: event.localColumn ?? 0,
+    trigger: Object.freeze({ kind: 'pointer', button: event.button, modifiers: event.modifiers })
+  });
+}
 
 function richTextSpans(input: {
   readonly model: PreparedRichText;

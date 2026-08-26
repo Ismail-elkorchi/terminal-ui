@@ -42,7 +42,7 @@ import type {
 } from '../../ui-model/text-area.ts';
 import type {
   TableColumn,
-  TextAreaHighlight,
+  TextAreaDecoration,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../../ui-model/content.ts';
@@ -60,6 +60,7 @@ import type {
 import type { DisclosureAction } from '../../ui-model/disclosure.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
+import type { KeyModifiers, MouseButton, MouseModifiers } from '../../input/index.ts';
 
 export interface TextOptions {
   readonly id?: string;
@@ -70,12 +71,22 @@ export interface TextOptions {
   readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
-export interface RichTextOptions {
+export interface RichTextActivateEvent {
+  readonly kind: 'activate';
+  readonly row: number;
+  readonly column: number;
+  readonly trigger:
+    | { readonly kind: 'keyboard'; readonly modifiers: KeyModifiers }
+    | { readonly kind: 'pointer'; readonly button: MouseButton; readonly modifiers: MouseModifiers };
+}
+
+export interface RichTextOptions<TMessage extends ComponentMessage = never> {
   readonly id?: string;
   readonly segments: InlineContent;
   readonly wrap?: boolean | RichTextWrapOptions;
   readonly styles?: import("../../element/metadata.ts").ElementStyles<RichTextStylePart>;
-  readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
+  readonly meta?: ComponentMetadataOptions<readonly ['focus', 'styles', 'layer']>;
+  readonly onActivate?: (event: RichTextActivateEvent) => MessageResolution<TMessage>;
 }
 
 export interface RichTextWrapOptions {
@@ -393,7 +404,7 @@ export interface PaginationOptions<TMessage extends ComponentMessage = never> {
 
 interface TextAreaBaseOptions {
   readonly id: string;
-  readonly highlights?: readonly TextAreaHighlight[];
+  readonly decorations?: readonly TextAreaDecoration[];
   readonly placeholder?: string;
   readonly lineNumbers?: boolean | TextAreaLineNumberOptions;
   readonly highlightActiveLine?: boolean;
@@ -461,7 +472,7 @@ export type {
   TableColumnWidth,
   TableRenderedColumn,
   TableValueColumn,
-  TextAreaHighlight,
+  TextAreaDecoration,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../../ui-model/content.ts';

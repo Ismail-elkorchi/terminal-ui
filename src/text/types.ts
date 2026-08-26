@@ -47,6 +47,22 @@ export interface TextSelection {
   readonly endOffsetExclusive: number;
 }
 
+export interface TextDocumentChange {
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
+  readonly insertedText: string;
+}
+
+export interface TextChangeSet {
+  readonly changes: readonly TextDocumentChange[];
+}
+
+export interface RowOffsetMap {
+  readonly rowCount: number;
+  sourceOffsetAtRow(row: number): number;
+  rowAtSourceOffset(offset: number): number;
+}
+
 export type TextAffinity = 'upstream' | 'downstream';
 
 export interface TextPosition {

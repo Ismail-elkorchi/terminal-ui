@@ -6,7 +6,7 @@ component, layout, input, accessibility, and testing foundations.
 `terminal-ui` is ESM-only, has no runtime dependencies, and supports Node
 `>=24`, current Deno and Bun, and memory-backed tests.
 
-The `0.1.x` line is a development release. Public declarations are marked
+The `0.2.x` line is a development release. Public declarations are marked
 `stable`, `beta`, or `experimental` in the generated
 [API reference](./docs/api/reference.md). Terminal graphics remain
 experimental pending physical-terminal compatibility evidence.

@@ -99,11 +99,13 @@ export interface TableCellSelection {
   readonly columnIndex?: number;
 }
 
-export interface TextAreaHighlight {
+export interface TextAreaDecoration {
   readonly startOffset: number;
   readonly endOffsetExclusive: number;
   readonly label?: string;
   readonly style?: TerminalStyle;
+  readonly replacementText?: string;
+  readonly accessibilityText?: string;
 }
 
 export interface TextAreaWrapOptions {

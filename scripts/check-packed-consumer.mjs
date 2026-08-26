@@ -90,7 +90,7 @@ try {
 async function assertPeerComponentInstallation(consumerRoot) {
   const packageRoot = join(consumerRoot, 'node_modules', 'terminal-ui-peer-component-fixture');
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
-  if (manifest.peerDependencies?.['@ismail-elkorchi/terminal-ui'] !== '^0.1.0') {
+  if (manifest.peerDependencies?.['@ismail-elkorchi/terminal-ui'] !== '^0.2.0') {
     throw new Error('External component fixture must declare terminal-ui as a peer dependency.');
   }
   const nested = join(packageRoot, 'node_modules', '@ismail-elkorchi', 'terminal-ui');

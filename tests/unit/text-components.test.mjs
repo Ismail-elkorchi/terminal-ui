@@ -21,6 +21,7 @@ import { activityIndicator,
   numberInput as createNumberInput,
   richText,
   text,
+  createTextAreaRowOffsetMap,
   textArea as createTextArea,
   textInput as createTextInput
 } from '../../dist/components/index.js';
@@ -28,7 +29,8 @@ import { column, surface } from '../../dist/layout/index.js';
 import {
   prepareTextDocument,
   textCaretAt,
-  textDocumentSelectionBetween
+  textDocumentSelectionBetween,
+  textDocumentText
 } from '../../dist/text/index.js';
 
 test('enabled disclosure requires its action boundary during construction', () => {
@@ -169,6 +171,23 @@ test('richText gives linked spans the default link style without overriding expl
     bg: { kind: 'theme', token: 'app.background' },
     underline: true,
     bold: true
+  });
+});
+
+test('interactive richText reports exact local pointer coordinates through one generic activation boundary', () => {
+  const regions = renderElementRegions(richText({
+    id: 'interactive-rich-text',
+    segments: [{ kind: 'text', text: 'first\nsecond' }],
+    onActivate: (event) => ({ event })
+  }), { columns: 12, rows: 2 });
+  const target = targetById(regions, 'interactive-rich-text:content');
+  const message = target.message(pointerEvent({
+    kind: 'click', row: 2, column: 4, localRow: 1, localColumn: 3
+  }));
+
+  assert.deepEqual(message?.event, {
+    kind: 'activate', row: 1, column: 3,
+    trigger: { kind: 'pointer', button: 'left', modifiers: { ctrl: false, alt: false, shift: false } }
   });
 });
 
@@ -330,7 +349,7 @@ test('textArea content inherits its containing surface instead of painting glyph
   );
 });
 
-test('textArea paints active lines gutters highlights and validation as coherent planes', () => {
+test('textArea paints active lines gutters decorations and validation as coherent planes', () => {
   const frame = renderElementFrame(textArea({
     meta: { accessibleName: 'Text area' },
     id: 'plane-editor',
@@ -340,18 +359,18 @@ test('textArea paints active lines gutters highlights and validation as coherent
     },
     lineNumbers: true,
     highlightActiveLine: true,
-    highlights: [{ startOffset: 1, endOffsetExclusive: 4, label: 'search.match' }],
+    decorations: [{ startOffset: 1, endOffsetExclusive: 4, label: 'search.match' }],
     error: 'Required'
   }), { columns: 20, rows: 4 });
-  const highlight = frame.cells.find((cell) => cell.text === 'l');
+  const decoration = frame.cells.find((cell) => cell.text === 'l');
   const activeFill = frame.cells.find((cell) =>
     cell.row === 1 && cell.source?.description === 'activeLine.background'
   );
   const unusedGutter = frame.cells.find((cell) => cell.row === 3 && cell.column === 1);
   const error = frame.cells.find((cell) => cell.row === 4 && cell.text === 'R');
 
-  assert.equal(highlight?.source?.partType, 'highlight');
-  assert.equal(highlight?.style?.bg?.token, 'editor.activeLine.background');
+  assert.equal(decoration?.source?.partType, 'decoration');
+  assert.equal(decoration?.style?.bg?.token, 'editor.activeLine.background');
   assert.equal(activeFill?.style?.bg?.token, 'editor.activeLine.background');
   assert.equal(unusedGutter?.source?.description, 'gutter.background');
   assert.equal(unusedGutter?.style?.bg?.token, 'editor.gutter.background');
@@ -400,7 +419,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
   assert.equal(frame.cells.find((cell) => cell.row === 10 && cell.text === 'l')?.column, 7);
 });
 
-test('textArea renders caller-controlled highlight ranges without overriding selection', () => {
+test('textArea renders caller-controlled decoration ranges without overriding selection', () => {
   const frame = renderElementFrame(textArea({ meta: { accessibleName: "Text area" },
     id: 'searchable',
     presentation: {
@@ -408,22 +427,22 @@ test('textArea renders caller-controlled highlight ranges without overriding sel
       caret: textCaretAt(0),
       selection: textDocumentSelectionBetween(0, 5)
     },
-    highlights: [
+    decorations: [
       { startOffset: 6, endOffsetExclusive: 10, label: 'search.match' },
       { startOffset: 11, endOffsetExclusive: 16, label: 'custom.match', style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true } }
     ]
   }), { columns: 24, rows: 1 });
   const selected = frame.cells.find((cell) => cell.text === 'a');
-  const highlighted = frame.cells.find((cell) => cell.text === 'b');
+  const decorated = frame.cells.find((cell) => cell.text === 'b');
   const custom = frame.cells.find((cell) => cell.text === 'g');
 
   assert.equal(renderFramePlain(frame), '› alpha beta gamma');
   assert.equal(selected?.source?.partType, 'selection');
   assert.equal(selected?.style?.bg?.token, 'selection.background');
-  assert.equal(highlighted?.source?.partType, 'highlight');
-  assert.equal(highlighted?.source?.description, 'search.match');
-  assert.equal(highlighted?.style?.fg?.token, 'menu.match');
-  assert.equal(highlighted?.style?.underline, true);
+  assert.equal(decorated?.source?.partType, 'decoration');
+  assert.equal(decorated?.source?.description, 'search.match');
+  assert.equal(decorated?.style?.fg?.token, 'menu.match');
+  assert.equal(decorated?.style?.underline, true);
   assert.equal(custom?.source?.description, 'custom.match');
   assert.equal(custom?.style?.fg?.token, 'status.warning');
   assert.equal(custom?.style?.bold, true);
@@ -446,6 +465,65 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
     frame.accessibility.root.description,
     '1 lines. Showing 1-3 of 3 rows. Omitted before: 0. Omitted after: 0. Horizontal offset: 0.'
   );
+});
+
+test('textArea row-offset maps come from decorated terminal layout geometry', () => {
+  const document = prepareTextDocument('a\tb🙂éwide\nsecond line');
+  const narrow = createTextAreaRowOffsetMap({
+    document,
+    terminalWidth: 12,
+    terminalRows: 10,
+    lineNumbers: true,
+    wrap: true,
+    scrollbar: { visible: 'auto' }
+  });
+  const wide = createTextAreaRowOffsetMap({
+    document,
+    terminalWidth: 24,
+    terminalRows: 10,
+    lineNumbers: true,
+    wrap: true,
+    scrollbar: { visible: 'auto' }
+  });
+
+  assert.deepEqual(
+    Array.from({ length: narrow.rowCount }, (_value, row) => narrow.sourceOffsetAtRow(row)),
+    [0, 5, 12, 19]
+  );
+  assert.equal(narrow.rowAtSourceOffset(11), 1);
+  assert.equal(narrow.rowAtSourceOffset(12), 2);
+  assert.deepEqual(
+    Array.from({ length: wide.rowCount }, (_value, row) => wide.sourceOffsetAtRow(row)),
+    [0, 12]
+  );
+});
+
+test('textArea decorations preserve source while styling, concealing, and replacing display text', () => {
+  const document = prepareTextDocument('**bold** [site](target.md)');
+  const frame = renderElementFrame(textArea({
+    meta: { accessibleName: 'Hybrid editor' },
+    id: 'decorated-editor',
+    presentation: { document, caret: textCaretAt(4) },
+    decorations: [
+      { startOffset: 0, endOffsetExclusive: 2, replacementText: '' },
+      { startOffset: 2, endOffsetExclusive: 6, style: { bold: true }, label: 'strong' },
+      { startOffset: 6, endOffsetExclusive: 8, replacementText: '' },
+      {
+        startOffset: 9,
+        endOffsetExclusive: 26,
+        replacementText: 'site',
+        accessibilityText: 'Link: site',
+        style: { underline: true },
+        label: 'link'
+      }
+    ]
+  }), { columns: 24, rows: 1 }, { focusPath: ['decorated-editor'] });
+
+  assert.equal(renderFramePlain(frame), '› bold site');
+  assert.equal(frame.cells.find((cell) => cell.text === 'b')?.style?.bold, true);
+  assert.equal(frame.cells.find((cell) => cell.text === 's')?.style?.underline, true);
+  assert.equal(frame.accessibility.root.value, 'bold Link: site');
+  assert.equal(textDocumentText(document), '**bold** [site](target.md)');
 });
 
 test('wrapped textArea exposes scrollbar scope over visual rows', () => {

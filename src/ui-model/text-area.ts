@@ -1,5 +1,5 @@
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
-import type { TextCaret, TextDocument, TextDocumentSelection, TextEditOperation } from '../text/index.ts';
+import type { TextCaret, TextChangeSet, TextDocument, TextDocumentSelection, TextEditOperation } from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
 
 interface TextAreaPresentationBase {
@@ -23,6 +23,7 @@ export type TextAreaPresentation =
 
 export type TextAreaAction =
   | { readonly kind: 'edit'; readonly operation: TextEditOperation }
+  | { readonly kind: 'applyChanges'; readonly changeSet: TextChangeSet; readonly caretOffset?: number }
   | { readonly kind: 'undo' }
   | { readonly kind: 'redo' }
   | {

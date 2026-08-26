@@ -431,11 +431,13 @@ visual containment.
 Use `textArea({ lineNumbers: true })` or
 `textArea({ lineNumbers: { startNumber, minWidth }, highlightActiveLine: true })` when a
 multi-line text region needs editor-like anatomy. The renderer emits the gutter,
-line-number, active-line, value, placeholder, selection, caller-controlled highlight,
+line-number, active-line, value, placeholder, selection, caller-controlled decoration,
 cursor, scrollbar, and validation parts with structured source metadata and ordinary style
-slots. `highlights: [{ startOffset, endOffsetExclusive, label, style }]` uses
-zero-based UTF-16 code-unit offsets for generic text ranges such as search
-matches; selection remains visually stronger. `wrap: true` or
+slots. `decorations` uses zero-based UTF-16 code-unit offsets for generic style
+ranges, concealed ranges, replacement text, and virtual text. The exact source
+document remains canonical for editing, copying, and persistence; selection
+remains visually stronger. `createTextAreaRowOffsetMap()` derives source offsets
+from the same decorated layout used to render the component. `wrap: true` or
 `wrap: { mode: 'soft' }` turns long logical lines into visual rows and composes
 with the same scroll state, scrollbar, cursor, and accessibility contracts. The
 cursor uses the generic `input.cursor` token in frame metadata. The component does
@@ -448,7 +450,7 @@ non-empty `error` uses one trailing row when the allocation has room for it.
 Pass the text-area state as `presentation` and map `onAction` to an
 application message. The `TextAreaAction` union covers standard edits,
 grapheme-aware pointer selection, and scrolling; `textAreaReducer()` provides
-the default controlled behavior. Initialize that state with
+the next state and the exact UTF-16 `TextChangeSet` for each action. Initialize that state with
 `createTextAreaState()` and retain it in application state. Its prepared text
 document keeps line, grapheme, wrapping, cursor, and pointer projections stable
 across selection and scroll updates; replacing it inside `view()` discards that

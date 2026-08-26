@@ -1,5 +1,7 @@
 export * from './factories/content.ts';
-export { textArea } from './factories/text-area.ts';
+export {
+  textArea
+} from './factories/text-area.ts';
 export { pagination } from './factories/data.ts';
 export { dataGrid, table, tree } from './factories/data-components.ts';
 export * from './factories/dialog.ts';

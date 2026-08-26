@@ -53,6 +53,10 @@ export type {
 } from './tui/index.ts';
 
 export * from './components/factories.ts';
+export {
+  createTextAreaRowOffsetMap,
+  type TextAreaRowOffsetMapOptions
+} from './components/factories/text-area.ts';
 export { rasterImage } from './graphics/index.ts';
 export type {
   ImageFit,

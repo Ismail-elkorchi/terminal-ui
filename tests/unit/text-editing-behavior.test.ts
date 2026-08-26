@@ -34,17 +34,42 @@ void test('textInputReducer applies edits and grapheme-aware pointer selections'
   assert.deepEqual(replaced, { text: 'aXc', cursor: 2 });
 });
 
+void test('textAreaReducer preserves exact boundaries in long ASCII lines and complex graphemes', () => {
+  const source = 'a'.repeat(250_000);
+  const midpoint = source.length / 2;
+  const placed = textAreaReducer(createTextAreaState({ value: source }), {
+    kind: 'pointer', action: { kind: 'placeCaret', offset: midpoint }
+  }).state;
+  const inserted = textAreaReducer(placed, { kind: 'edit', operation: { kind: 'insert', text: 'x' } });
+  assert.deepEqual(inserted.changeSet.changes, [{
+    startOffset: midpoint,
+    endOffsetExclusive: midpoint,
+    insertedText: 'x'
+  }]);
+  assert.equal(inserted.state.caret.position.offset, midpoint + 1);
+
+  const combining = textAreaReducer(createTextAreaState({ value: 'e\u0301' }), {
+    kind: 'pointer', action: { kind: 'placeCaret', offset: 1 }
+  });
+  const crlf = textAreaReducer(createTextAreaState({ value: 'a\r\nb' }), {
+    kind: 'pointer', action: { kind: 'placeCaret', offset: 2 }
+  });
+  assert.equal(combining.state.caret.position.offset, 0);
+  assert.equal(crlf.state.caret.position.offset, 1);
+});
+
 void test('textAreaReducer owns editing selection and normalized scroll in one action channel', () => {
   const initial = createTextAreaState({
     value: 'alpha\nbeta',
     caret: { position: { offset: 0, affinity: 'downstream' } },
     scroll: createScrollState()
   });
-  const selected = textAreaReducer(initial, {
+  const selectedTransition = textAreaReducer(initial, {
     kind: 'pointer',
     action: { kind: 'endSelection', anchor: 6, offset: 10 }
   });
-  const scrolled = textAreaReducer(selected, {
+  const selected = selectedTransition.state;
+  const scrolledTransition = textAreaReducer(selected, {
     kind: 'scroll',
     event: {
       nextState: createScrollState({ offsetRow: 3 }),
@@ -52,7 +77,10 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
       target: 'content'
     }
   });
+  const scrolled = scrolledTransition.state;
 
+  assert.deepEqual(selectedTransition.changeSet.changes, []);
+  assert.deepEqual(scrolledTransition.changeSet.changes, []);
   assert.equal(textDocumentText(selected.document), 'alpha\nbeta');
   assert.deepEqual({
     caret: selected.caret,
@@ -85,7 +113,7 @@ void test('textAreaReducer shares bounded multiline undo and preserves controlle
     scroll: createScrollState({ offsetRow: 4 }),
     historyPolicy: { maxEntries: 2, maxRetainedBytes: 1_000 }
   });
-  const edited = textAreaReducer(initial, {
+  const editedTransition = textAreaReducer(initial, {
     kind: 'edit',
     operation: {
       kind: 'replaceRange',
@@ -93,9 +121,23 @@ void test('textAreaReducer shares bounded multiline undo and preserves controlle
       text: '🙂'
     }
   });
-  const undone = textAreaReducer(edited, { kind: 'undo' });
-  const redone = textAreaReducer(undone, { kind: 'redo' });
+  const edited = editedTransition.state;
+  const undoneTransition = textAreaReducer(edited, { kind: 'undo' });
+  const undone = undoneTransition.state;
+  const redoneTransition = textAreaReducer(undone, { kind: 'redo' });
+  const redone = redoneTransition.state;
 
+  assert.deepEqual(editedTransition.changeSet.changes, [{
+    startOffset: 0,
+    endOffsetExclusive: 5,
+    insertedText: '🙂'
+  }]);
+  assert.deepEqual(undoneTransition.changeSet.changes, [{
+    startOffset: 0,
+    endOffsetExclusive: 2,
+    insertedText: 'alpha'
+  }]);
+  assert.deepEqual(redoneTransition.changeSet, editedTransition.changeSet);
   assert.equal(textDocumentText(edited.document), '🙂\nbeta');
   assert.equal(edited.caret.position.offset, 2);
   assert.equal(textDocumentText(undone.document), 'alpha\nbeta');
@@ -105,19 +147,56 @@ void test('textAreaReducer shares bounded multiline undo and preserves controlle
   assert.ok(redone.history.retainedBytes <= redone.history.policy.maxRetainedBytes);
 });
 
-void test('textAreaReducer derives its cursor from sanitized inserted text', () => {
+void test('textAreaReducer preserves source text and reports the exact inserted text', () => {
   const initial = createTextAreaState({
     value: 'ab',
     caret: { position: { offset: 1, affinity: 'downstream' } },
     scroll: createScrollState()
   });
-  const edited = textAreaReducer(initial, {
+  const editedTransition = textAreaReducer(initial, {
     kind: 'edit',
     operation: { kind: 'insert', text: '\u001B[31mX\u001B[0m' }
   });
+  const edited = editedTransition.state;
 
-  assert.equal(textDocumentText(edited.document), 'aXb');
-  assert.equal(edited.caret.position.offset, 2);
+  assert.equal(textDocumentText(edited.document), 'a\u001B[31mX\u001B[0mb');
+  assert.equal(edited.caret.position.offset, 11);
+  assert.deepEqual(editedTransition.changeSet.changes, [{
+    startOffset: 1,
+    endOffsetExclusive: 1,
+    insertedText: '\u001B[31mX\u001B[0m'
+  }]);
+});
+
+void test('textAreaReducer reports exact grapheme deletion and selected paste changes', () => {
+  const initial = createTextAreaState({
+    value: 'a🙂b',
+    caret: { position: { offset: 3, affinity: 'downstream' } }
+  });
+  const deleted = textAreaReducer(initial, {
+    kind: 'edit',
+    operation: { kind: 'deleteBackward' }
+  });
+  const selected = textAreaReducer(deleted.state, {
+    kind: 'pointer',
+    action: { kind: 'endSelection', anchor: 0, offset: 2 }
+  });
+  const pasted = textAreaReducer(selected.state, {
+    kind: 'edit',
+    operation: { kind: 'replaceSelection', text: '\tline\r\n' }
+  });
+
+  assert.deepEqual(deleted.changeSet.changes, [{
+    startOffset: 1,
+    endOffsetExclusive: 3,
+    insertedText: ''
+  }]);
+  assert.deepEqual(pasted.changeSet.changes, [{
+    startOffset: 0,
+    endOffsetExclusive: 2,
+    insertedText: '\tline\r\n'
+  }]);
+  assert.equal(textDocumentText(pasted.state.document), '\tline\r\n');
 });
 
 void test('textAreaReducer preserves identity for no-op pointer and scroll actions', () => {
@@ -139,7 +218,35 @@ void test('textAreaReducer preserves identity for no-op pointer and scroll actio
     }
   });
 
-  assert.equal(revealed, initial);
-  assert.equal(scrolled.revealCaret, false);
-  assert.equal(scrolled.scroll, initial.scroll);
+  assert.equal(revealed.state, initial);
+  assert.equal(scrolled.state.revealCaret, false);
+  assert.equal(scrolled.state.scroll, initial.scroll);
+  assert.deepEqual(revealed.changeSet.changes, []);
+  assert.deepEqual(scrolled.changeSet.changes, []);
+});
+
+void test('textAreaReducer applies one exact multi-range change set with one undo entry', () => {
+  const initial = createTextAreaState({ value: 'one two one', scroll: createScrollState({ offsetRow: 2 }) });
+  const changeSet = {
+    changes: [
+      { startOffset: 0, endOffsetExclusive: 3, insertedText: '1' },
+      { startOffset: 8, endOffsetExclusive: 11, insertedText: '1' }
+    ]
+  } as const;
+  const changed = textAreaReducer(initial, { kind: 'applyChanges', changeSet });
+
+  assert.equal(textDocumentText(changed.state.document), '1 two 1');
+  assert.deepEqual(changed.changeSet, changeSet);
+  assert.equal(changed.state.history.undo.length, 1);
+  assert.equal(changed.state.caret.position.offset, 7);
+  const undone = textAreaReducer(changed.state, { kind: 'undo' });
+  assert.equal(textDocumentText(undone.state.document), 'one two one');
+  assert.deepEqual(undone.changeSet.changes, [
+    { startOffset: 0, endOffsetExclusive: 1, insertedText: 'one' },
+    { startOffset: 6, endOffsetExclusive: 7, insertedText: 'one' }
+  ]);
+  const redone = textAreaReducer(undone.state, { kind: 'redo' });
+  assert.equal(textDocumentText(redone.state.document), '1 two 1');
+  assert.deepEqual(redone.changeSet, changed.changeSet);
+  assert.equal(redone.state.scroll, initial.scroll);
 });

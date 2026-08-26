@@ -4,11 +4,18 @@ import type { TextEditBuffer, TextSelection } from './types.ts';
 export function normalizeTextCursor(text: string, cursor: number): number {
   const bounded = clampTextOffset(cursor, text.length);
   if (bounded === 0 || bounded === text.length) return bounded;
+  if (isSimpleGraphemeBoundary(text, bounded)) return bounded;
   for (const segment of segmentGraphemes(text)) {
     if (bounded === segment.startOffset || bounded === segment.endOffsetExclusive) return bounded;
     if (bounded > segment.startOffset && bounded < segment.endOffsetExclusive) return segment.startOffset;
   }
   return bounded;
+}
+
+function isSimpleGraphemeBoundary(text: string, offset: number): boolean {
+  const previous = text.charCodeAt(offset - 1);
+  const next = text.charCodeAt(offset);
+  return previous < 0x80 && next < 0x80 && !(previous === 0x0d && next === 0x0a);
 }
 
 export function normalizeTextSelection(text: string, selection: TextSelection | undefined): TextSelection | undefined {

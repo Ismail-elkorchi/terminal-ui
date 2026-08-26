@@ -117,6 +117,7 @@ export type {
   CreateTextAreaStateInput,
   TextAreaEditHistory,
   TextAreaEditSnapshot,
+  TextAreaTransition,
   TextAreaState
 } from './text-editing.ts';
 export type {

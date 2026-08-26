@@ -7,6 +7,12 @@ export {
   emptyTextEditHistory
 } from './edit-history.ts';
 export { defaultEditHistoryPolicy } from './bounded-history.ts';
+export {
+  applyTextChangeSet,
+  createTextChangeSet,
+  emptyTextChangeSet,
+  invertTextChangeSet
+} from './change-set.ts';
 export { editTextBuffer } from './edit.ts';
 export { editTextDocument } from './document-edit.ts';
 export type { TextDocumentEditResult, TextDocumentEditState } from './document-edit.ts';
@@ -30,7 +36,7 @@ export {
   textDocumentSelectionRange,
   textDocumentText
 } from './document.ts';
-export type { TextDocument, TextDocumentChange, TextDocumentLine } from './document.ts';
+export type { TextDocument, TextDocumentLine, TextDocumentMutation } from './document.ts';
 export { segmentGraphemes } from './graphemes.ts';
 export { measureTerminalCellText, measureTextCells } from './measure.ts';
 export {
@@ -67,6 +73,7 @@ export {
   selectedText
 } from './selection-model.ts';
 export { createTerminalTextIndex } from './terminal-text-index.ts';
+export { createRowOffsetMap } from './row-offset-map.ts';
 export { terminalTextWidth } from './terminal-width.ts';
 export {
   extractTextBufferSelection,

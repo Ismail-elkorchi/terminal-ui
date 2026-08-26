@@ -49,7 +49,7 @@ export type TextAreaStylePart =
   | 'gutter'
   | 'lineNumber'
   | 'activeLine'
-  | 'highlight'
+  | 'decoration'
   | 'scrollbarTrack'
   | 'scrollbarThumb';
 export type LogViewerStylePart =

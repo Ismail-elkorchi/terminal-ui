@@ -10,6 +10,7 @@ export type {
   DisclosureMessage,
   DisclosureOptions,
   RichTextOptions,
+  RichTextActivateEvent,
   TextOptions,
 } from './options/content.ts';
 export type { DividerOptions } from './options/menus.ts';
