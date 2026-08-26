@@ -22,7 +22,7 @@ import { activityIndicator,
   richText,
   text,
   createTextAreaDecorations,
-  mapTextAreaDecorationsThroughChanges,
+  updateTextAreaDecorations,
   createTextAreaRowOffsetMap,
   textArea as createTextArea,
   textInput as createTextInput
@@ -640,7 +640,7 @@ test('textArea decorations are immutable retained values scoped to one document'
   }), /must be created for the current text document/u);
 });
 
-test('textArea decorations map unaffected ranges through one exact document change', () => {
+test('textArea decorations update current ranges through one exact document change', () => {
   const document = createTextDocument('alpha beta gamma');
   const decorations = createTextAreaDecorations({
     document,
@@ -654,7 +654,14 @@ test('textArea decorations map unaffected ranges through one exact document chan
     startOffset: 8,
     endOffsetExclusive: 9,
   }, 'XYZ').document;
-  const mapped = mapTextAreaDecorationsThroughChanges({ decorations, document: changed });
+  const mapped = updateTextAreaDecorations({
+    previousDecorations: decorations,
+    document: changed,
+    decorations: [
+      { kind: 'style', startOffset: 0, endOffsetExclusive: 5, style: { bold: true }, label: 'alpha' },
+      { kind: 'style', startOffset: 13, endOffsetExclusive: 18, style: { underline: true }, label: 'gamma' },
+    ],
+  });
   const frame = renderElementFrame(textArea({
     id: 'mapped-decoration-editor',
     meta: { accessibleName: 'Mapped decorations' },
@@ -666,13 +673,14 @@ test('textArea decorations map unaffected ranges through one exact document chan
   assert.equal(frame.cells.find((cell) => cell.text === 'a')?.style?.bold, true);
   assert.equal(frame.cells.find((cell) => cell.text === 'g')?.style?.underline, true);
   assert.equal(frame.cells.find((cell) => cell.text === 'b')?.style?.italic, undefined);
-  assert.throws(() => mapTextAreaDecorationsThroughChanges({
-    decorations,
+  assert.throws(() => updateTextAreaDecorations({
+    previousDecorations: decorations,
     document: createTextDocument('unrelated'),
+    decorations: [],
   }), /created directly from their source/u);
 });
 
-test('mapped replacement projection keeps multiline decoration boundaries atomic', () => {
+test('updated replacement projection keeps multiline decoration boundaries atomic', () => {
   let document = createTextDocument('abXX\nYYcd');
   let decorations = createTextAreaDecorations({
     document,
@@ -694,7 +702,16 @@ test('mapped replacement projection keeps multiline decoration boundaries atomic
     startOffset: 1,
     endOffsetExclusive: 1,
   }, '!').document;
-  decorations = mapTextAreaDecorationsThroughChanges({ decorations, document });
+  decorations = updateTextAreaDecorations({
+    previousDecorations: decorations,
+    document,
+    decorations: [{
+      kind: 'replace',
+      startOffset: 3,
+      endOffsetExclusive: 8,
+      replacementText: 'Z',
+    }],
+  });
   const frame = renderElementFrame(textArea({
     id: 'multiline-decoration-after-edit',
     meta: { accessibleName: 'Multiline decorated editor' },
@@ -704,6 +721,45 @@ test('mapped replacement projection keeps multiline decoration boundaries atomic
 
   assert.equal(renderFramePlain(frame), '› a!bZcd');
   assert.equal(frame.accessibility.root.value, 'a!bZcd');
+});
+
+test('updated replacement projection applies parser changes outside the source edit', () => {
+  let document = createTextDocument('first value\nsecond value');
+  let decorations = createTextAreaDecorations({
+    document,
+    decorations: [
+      { kind: 'replace', startOffset: 6, endOffsetExclusive: 11, replacementText: 'one' },
+      { kind: 'replace', startOffset: 19, endOffsetExclusive: 24, replacementText: 'two' },
+    ],
+  });
+  renderElementFrame(textArea({
+    id: 'semantic-decoration-before-edit',
+    meta: { accessibleName: 'Semantic decoration editor' },
+    state: { document, caret: textCaretAt(0) },
+    decorations,
+  }), { columns: 30, rows: 2 });
+
+  document = textDocumentEdit(document, {
+    startOffset: 0,
+    endOffsetExclusive: 0,
+  }, '!').document;
+  decorations = updateTextAreaDecorations({
+    previousDecorations: decorations,
+    document,
+    decorations: [
+      { kind: 'replace', startOffset: 7, endOffsetExclusive: 12, replacementText: 'one' },
+      { kind: 'replace', startOffset: 20, endOffsetExclusive: 25, replacementText: 'changed' },
+    ],
+  });
+  const frame = renderElementFrame(textArea({
+    id: 'semantic-decoration-after-edit',
+    meta: { accessibleName: 'Semantic decoration editor' },
+    state: { document, caret: textCaretAt(0) },
+    decorations,
+  }), { columns: 30, rows: 2 });
+
+  assert.equal(renderFramePlain(frame), '› !first one\n│ second changed');
+  assert.equal(frame.accessibility.root.value, '!first one\nsecond changed');
 });
 
 test('textArea can soft-wrap long logical lines while preserving editor anatomy', () => {

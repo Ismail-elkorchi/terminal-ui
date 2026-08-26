@@ -61,7 +61,7 @@ export {
 } from './components/factories/text-area.ts';
 export {
   createTextAreaDecorations,
-  mapTextAreaDecorationsThroughChanges,
+  updateTextAreaDecorations,
 } from './components/text-area-decorations.ts';
 export { rasterImage } from './graphics/index.ts';
 export type {

@@ -436,10 +436,11 @@ cursor, scrollbar, and validation parts with structured source metadata and ordi
 slots. Create retained decoration data with
 `createTextAreaDecorations({ document, decorations })`, then pass the result as
 `decorations`. After an exact document edit,
-`mapTextAreaDecorationsThroughChanges({ decorations, document })` shifts
-unaffected ranges to the new revision and discards ranges intersecting changed
-text. Replace those discarded ranges with current parser or application data.
-Build a new decoration set when the decoration semantics themselves change.
+`updateTextAreaDecorations({ previousDecorations, document, decorations })` validates the
+complete current decoration set while retaining the exact affected range from
+the preceding revision. This lets changed parser output replace stale ranges
+without forcing the displayed document and offset maps through a complete
+rebuild. Build a new decoration set when no direct document lineage exists.
 This performs structural and grapheme-boundary validation once and gives
 unchanged syntax data a stable identity across renders. Decoration entries use
 zero-based UTF-16 code-unit offsets and an explicit operation kind:

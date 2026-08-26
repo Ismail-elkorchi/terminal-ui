@@ -25,7 +25,7 @@ export {
 } from './factories/text-area.ts';
 export {
   createTextAreaDecorations,
-  mapTextAreaDecorationsThroughChanges,
+  updateTextAreaDecorations,
 } from './text-area-decorations.ts';
 export type * from './options/forms.ts';
 export type {
@@ -33,7 +33,7 @@ export type {
   ScrollableTextAreaOptions,
   TextAreaConcealDecoration,
   CreateTextAreaDecorationsInput,
-  MapTextAreaDecorationsThroughChangesInput,
+  UpdateTextAreaDecorationsInput,
   TextAreaDecoration,
   TextAreaDecorations,
   TextAreaReplacementDecoration,

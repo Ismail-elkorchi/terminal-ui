@@ -22,7 +22,7 @@ import {
   canvas,
   commandInput,
   createTextAreaDecorations,
-  mapTextAreaDecorationsThroughChanges,
+  updateTextAreaDecorations,
   form,
   textInput,
   listbox,
@@ -1003,7 +1003,7 @@ test('tab and CR projection updates only the changed logical-line range', { time
   assert.ok(durationMs < 750, `line-local text projection took ${durationMs.toFixed(1)}ms`);
 });
 
-test('mapped replacement decorations retain projected documents and offset maps', { timeout: 10_000 }, () => {
+test('updated replacement decorations retain projected documents and offset maps', { timeout: 10_000 }, () => {
   const source = Array.from(
     { length: 20_000 },
     (_value, index) => `line ${String(index).padStart(5, '0')} value`,
@@ -1024,7 +1024,16 @@ test('mapped replacement decorations retain projected documents and offset maps'
     defaultTextWidthProfile,
   );
   document = textDocumentEdit(document, { startOffset: 2, endOffsetExclusive: 2 }, 'X').document;
-  decorations = mapTextAreaDecorationsThroughChanges({ decorations, document });
+  decorations = updateTextAreaDecorations({
+    previousDecorations: decorations,
+    document,
+    decorations: [{
+      kind: 'replace',
+      startOffset: source.lastIndexOf('value') + 1,
+      endOffsetExclusive: source.lastIndexOf('value') + 6,
+      replacementText: 'result',
+    }],
+  });
 
   const started = performance.now();
   const next = createTextAreaProjection(

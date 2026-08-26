@@ -28,9 +28,10 @@ export interface CreateTextAreaDecorationsInput {
   readonly decorations: readonly TextAreaDecoration[];
 }
 
-export interface MapTextAreaDecorationsThroughChangesInput {
-  readonly decorations: TextAreaDecorations;
+export interface UpdateTextAreaDecorationsInput {
+  readonly previousDecorations: TextAreaDecorations;
   readonly document: TextDocument;
+  readonly decorations: readonly TextAreaDecoration[];
 }
 
 interface TextAreaDecorationModelBase {
@@ -74,6 +75,13 @@ export interface TextAreaDecorationsData {
 export interface TextAreaDecorationMapping {
   readonly previous: readonly TextAreaDecorationModel[];
   readonly changes: readonly TextDocumentChange[];
+  readonly previousAffectedRange: TextAreaDecorationAffectedRange;
+  readonly nextAffectedRange: TextAreaDecorationAffectedRange;
+}
+
+export interface TextAreaDecorationAffectedRange {
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
 }
 
 const decorationData = new WeakMap<object, TextAreaDecorationsData>();
@@ -94,9 +102,16 @@ export function createTextAreaDecorations(
   if (!Array.isArray(input.decorations)) {
     throw new TypeError('Text area decorations must be an array.');
   }
-  if (input.decorations.length === 0) return emptyTextAreaDecorations(input.document);
-  const models = input.decorations.map((candidate, index) => (
-    decodeTextAreaDecoration(candidate, index, input.document)
+  return createDecorations(input.document, input.decorations);
+}
+
+function createDecorations(
+  document: TextDocument,
+  decorations: readonly TextAreaDecoration[],
+): TextAreaDecorations {
+  if (decorations.length === 0) return emptyTextAreaDecorations(document);
+  const models = decorations.map((candidate, index) => (
+    decodeTextAreaDecoration(candidate, index, document)
   ));
   const replacements = models
     .filter((decoration) => decoration.kind === 'replace')
@@ -111,7 +126,7 @@ export function createTextAreaDecorations(
       throw new RangeError('Text area conceal and replacement decorations must not overlap.');
     }
   }
-  return registerDecorations(input.document, Object.freeze([
+  return registerDecorations(document, Object.freeze([
     ...models.filter((decoration) => decoration.kind !== 'conceal'),
     ...conceals,
   ]));
@@ -136,36 +151,35 @@ export function emptyTextAreaDecorations(document: TextDocument): TextAreaDecora
 }
 
 /**
- * Carries unaffected decoration ranges through the exact changes that created
- * the next document revision. Decorations intersecting changed text are
- * discarded so a parser or other owner can replace them with current data.
+ * Creates current decorations for the next document revision and records the
+ * exact source and decoration changes needed for incremental projection.
  * @beta
  */
-export function mapTextAreaDecorationsThroughChanges(
-  input: MapTextAreaDecorationsThroughChangesInput,
+export function updateTextAreaDecorations(
+  input: UpdateTextAreaDecorationsInput,
 ): TextAreaDecorations {
   if (!isNonArrayObject(input)) {
-    throw new TypeError('Text area decoration mapping input must be an object.');
+    throw new TypeError('Text area decoration update input must be an object.');
   }
   assertTextDocument(input.document);
-  const source = readTextAreaDecorations(input.decorations);
+  if (!Array.isArray(input.decorations)) {
+    throw new TypeError('Text area decorations must be an array.');
+  }
+  const source = readTextAreaDecorations(input.previousDecorations);
   const mutation = textDocumentPreviousMutation(input.document);
   if (mutation?.document !== source.document) {
     throw new TypeError(
-      'Text area decorations can only be mapped to the document revision created directly from their source.',
+      'Text area decorations can only be updated for the document revision created directly from their source.',
     );
   }
-  const mapped = source.decorations.flatMap((decoration) => {
-    const range = mapDecorationRange(decoration, mutation.changes);
-    return range === undefined
-      ? []
-      : [decorationFromModel(decoration, range)];
-  });
-  const result = createTextAreaDecorations({ document: input.document, decorations: mapped });
+  const result = createDecorations(input.document, input.decorations);
   const next = readTextAreaDecorations(result).decorations;
+  const affected = decorationAffectedRanges(source.decorations, next, mutation.changes);
   decorationMappings.set(next, Object.freeze({
     previous: source.decorations,
     changes: mutation.changes,
+    previousAffectedRange: affected.previous,
+    nextAffectedRange: affected.next,
   }));
   return result;
 }
@@ -224,34 +238,127 @@ export function textAreaDecorationIntersectsChange(
       && change.startOffset < decoration.endOffsetExclusive;
 }
 
-function decorationFromModel(
-  decoration: TextAreaDecorationModel,
-  range: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'>,
-): TextAreaDecoration {
-  const base = {
-    ...range,
-    label: decoration.label,
-  };
-  switch (decoration.kind) {
-    case 'style':
-      return {
-        ...base,
-        kind: decoration.kind,
-        ...(decoration.style === undefined ? {} : { style: decoration.style }),
-      };
-    case 'replace':
-      return {
-        ...base,
-        kind: decoration.kind,
-        replacementText: decoration.replacementText,
-        ...(decoration.style === undefined ? {} : { style: decoration.style }),
-        ...(decoration.accessibilityText === undefined
-          ? {}
-          : { accessibilityText: decoration.accessibilityText }),
-      };
-    case 'conceal':
-      return { ...base, kind: decoration.kind };
+function decorationAffectedRanges(
+  previous: readonly TextAreaDecorationModel[],
+  next: readonly TextAreaDecorationModel[],
+  changes: readonly TextDocumentChange[],
+): {
+  readonly previous: TextAreaDecorationAffectedRange;
+  readonly next: TextAreaDecorationAffectedRange;
+} {
+  let previousRange: TextAreaDecorationAffectedRange | undefined;
+  let nextRange: TextAreaDecorationAffectedRange | undefined;
+  let delta = 0;
+  for (const change of changes) {
+    previousRange = includeAffectedRange(previousRange, change.startOffset, change.endOffsetExclusive);
+    const nextStart = change.startOffset + delta;
+    const nextEnd = nextStart + change.insertedText.length;
+    nextRange = includeAffectedRange(nextRange, nextStart, nextEnd);
+    delta += change.insertedText.length
+      - (change.endOffsetExclusive - change.startOffset);
   }
+
+  const remaining = new Map<string, number>();
+  for (const decoration of next) {
+    const key = decorationSemanticKey(decoration);
+    remaining.set(key, (remaining.get(key) ?? 0) + 1);
+  }
+  for (const decoration of previous) {
+    const mappedRange = mapDecorationRange(decoration, changes);
+    if (mappedRange === undefined) {
+      previousRange = includeDecorationRange(previousRange, decoration);
+      continue;
+    }
+    const key = decorationSemanticKey({ ...decoration, ...mappedRange });
+    const count = remaining.get(key) ?? 0;
+    if (count > 0) {
+      if (count === 1) remaining.delete(key);
+      else remaining.set(key, count - 1);
+      continue;
+    }
+    previousRange = includeDecorationRange(previousRange, decoration);
+    nextRange = includeDecorationRange(nextRange, mappedRange);
+  }
+  for (const decoration of next) {
+    const key = decorationSemanticKey(decoration);
+    const count = remaining.get(key) ?? 0;
+    if (count === 0) continue;
+    remaining.set(key, count - 1);
+    nextRange = includeDecorationRange(nextRange, decoration);
+    previousRange = includeAffectedRange(
+      previousRange,
+      previousOffsetAtNextOffset(changes, decoration.startOffset, 'upstream'),
+      previousOffsetAtNextOffset(changes, decoration.endOffsetExclusive, 'downstream'),
+    );
+  }
+  const first = changes[0];
+  if (first === undefined) {
+    throw new TypeError('Text area decoration updates require a changed document revision.');
+  }
+  return Object.freeze({
+    previous: Object.freeze(previousRange ?? {
+      startOffset: first.startOffset,
+      endOffsetExclusive: first.endOffsetExclusive,
+    }),
+    next: Object.freeze(nextRange ?? {
+      startOffset: first.startOffset,
+      endOffsetExclusive: first.startOffset + first.insertedText.length,
+    }),
+  });
+}
+
+function includeDecorationRange(
+  range: TextAreaDecorationAffectedRange | undefined,
+  decoration: Pick<TextAreaDecorationModel, 'startOffset' | 'endOffsetExclusive'>,
+): TextAreaDecorationAffectedRange {
+  return includeAffectedRange(range, decoration.startOffset, decoration.endOffsetExclusive);
+}
+
+function includeAffectedRange(
+  range: TextAreaDecorationAffectedRange | undefined,
+  startOffset: number,
+  endOffsetExclusive: number,
+): TextAreaDecorationAffectedRange {
+  return range === undefined
+    ? { startOffset, endOffsetExclusive }
+    : {
+        startOffset: Math.min(range.startOffset, startOffset),
+        endOffsetExclusive: Math.max(range.endOffsetExclusive, endOffsetExclusive),
+      };
+}
+
+function previousOffsetAtNextOffset(
+  changes: readonly TextDocumentChange[],
+  offset: number,
+  affinity: 'upstream' | 'downstream',
+): number {
+  let delta = 0;
+  for (const change of changes) {
+    const nextStart = change.startOffset + delta;
+    const nextEnd = nextStart + change.insertedText.length;
+    if (offset < nextStart) return offset - delta;
+    if (offset <= nextEnd) {
+      return affinity === 'upstream' ? change.startOffset : change.endOffsetExclusive;
+    }
+    delta += change.insertedText.length
+      - (change.endOffsetExclusive - change.startOffset);
+  }
+  return offset - delta;
+}
+
+function decorationSemanticKey(
+  decoration: TextAreaDecorationModel,
+): string {
+  return JSON.stringify([
+    decoration.kind,
+    decoration.order,
+    decoration.startOffset,
+    decoration.endOffsetExclusive,
+    decoration.label,
+    decoration.kind === 'replace' ? decoration.replacementText : undefined,
+    decoration.kind === 'replace' ? decoration.accessibilityText : undefined,
+    decoration.kind === 'conceal' ? undefined : decoration.style,
+  ]);
 }
 
 function assertReplacementRelationships(

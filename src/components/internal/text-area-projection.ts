@@ -28,7 +28,6 @@ import type {
   TextAreaReplacementDecorationModel,
 } from '../text-area-decorations.ts';
 import {
-  textAreaDecorationIntersectsChange,
   textAreaDecorationMapping,
 } from '../text-area-decorations.ts';
 
@@ -287,36 +286,30 @@ function incrementalMaterializedProjection(
     previous?.sourceDocument !== mutation.document
     || previous.decorations !== decorationMapping.previous
   ) return undefined;
-  const firstChange = mutation.changes[0];
-  const lastChange = mutation.changes.at(-1);
-  if (firstChange === undefined || lastChange === undefined) return previousProjection;
-
-  const intersectedContent = decorationMapping.previous.filter((decoration) => (
-    decoration.kind !== 'style'
-    && mutation.changes.some((change) => textAreaDecorationIntersectsChange(decoration, change))
-  ));
-  const changedStart = Math.min(
-    firstChange.startOffset,
-    ...intersectedContent.map((decoration) => decoration.startOffset),
-  );
-  const changedEnd = Math.max(
-    lastChange.endOffsetExclusive,
-    ...intersectedContent.map((decoration) => decoration.endOffsetExclusive),
-  );
   const sourceDelta = mutation.changes.reduce((total, change) => (
     total + change.insertedText.length
       - (change.endOffsetExclusive - change.startOffset)
   ), 0);
   const previousRange = completeMaterializedSourceRange(
     mutation.document,
-    changedStart,
-    changedEnd,
+    decorationMapping.previousAffectedRange.startOffset,
+    decorationMapping.previousAffectedRange.endOffsetExclusive,
     decorationMapping.previous,
+  );
+  const nextRange = completeMaterializedSourceRange(
+    document,
+    decorationMapping.nextAffectedRange.startOffset,
+    decorationMapping.nextAffectedRange.endOffsetExclusive,
+    decorations,
   );
   const previousSourceStart = previousRange.startOffset;
   const previousSourceEnd = previousRange.endOffsetExclusive;
-  const nextSourceStart = previousSourceStart;
-  const nextSourceEnd = previousSourceEnd + sourceDelta;
+  const nextSourceStart = nextRange.startOffset;
+  const nextSourceEnd = nextRange.endOffsetExclusive;
+  if (
+    previousSourceStart !== nextSourceStart
+    || nextSourceEnd - previousSourceEnd !== sourceDelta
+  ) return undefined;
   const localDecorations = decorationsWithinRange(
     decorations,
     nextSourceStart,
