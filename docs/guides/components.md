@@ -85,10 +85,15 @@ useful to the consumer.
 
 ## Inline hyperlinks and interactive links
 
-Use a linked segment in `richText()` when the terminal emulator should own an
-inline OSC 8 hyperlink. Rich text exposes each link in accessibility output,
-but it does not create a terminal-ui focus target, pointer hit target, or
-application message. Activation behavior belongs to the terminal emulator.
+Use a linked segment in `richText()` for an inline OSC 8 hyperlink. Without an
+`onLinkActivate` callback, activation belongs to the terminal emulator. With a
+callback, every logical link becomes one keyboard focus target and accessible
+link, with exact pointer targets for each visible fragment. Adjacent segments
+that share the same link object form one logical link, allowing style changes
+inside a label. An explicit link `id` groups its fragments even when wrapping
+or layout separates them. The activation event carries the retained link and
+preserves the keyboard or pointer modifiers. Unlinked text never becomes
+interactive merely because another segment has a link.
 
 Use `link()` when the application owns activation. It participates in keyboard
 focus and pointer routing and reports the triggering key or pointer event,

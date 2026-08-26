@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { performance } from 'node:perf_hooks';
 import test from 'node:test';
 
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
@@ -8,6 +9,7 @@ import { createInputDecoder } from '../../dist/input/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   diffFrames,
+  layoutElement,
   renderDiffAnsi,
   renderFramePlain,
   renderElementFrame
@@ -15,6 +17,7 @@ import {
 import { prepareCommandSuggestions } from '../../dist/behavior/index.js';
 import { dirtyRegionsForRegionChanges } from '../../dist/renderer/internal/dirty-regions.js';
 import { renderElementRegions } from '../../dist/renderer/internal/render.js';
+import { createTextAreaProjection } from '../../dist/components/internal/text-area-projection.js';
 import {
   button,
   canvas,
@@ -30,10 +33,17 @@ import {
   dialog,
   table,
   text,
+  textArea,
   tree
 } from '../../dist/components/index.js';
 import { column, overlay } from '../../dist/layout/index.js';
 import { ignoreMessage } from '../../dist/component/index.js';
+import {
+  defaultTextWidthProfile,
+  prepareTextDocument,
+  textCaretAt,
+  textDocumentEdit,
+} from '../../dist/text/index.js';
 import {
   appendLogHistory,
   appendMeasuredItems,
@@ -916,6 +926,76 @@ test('custom canvas render stays bounded even when painters write outside the te
 
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal(renderFramePlain(frame).split('\n').length, 8);
+});
+
+test('text area projection cost remains subquadratic for large decoration sets', () => {
+  const count = 8_000;
+  const source = 'x'.repeat(count);
+  const decorations = Array.from({ length: count }, (_value, index) => ({
+    kind: 'style',
+    startOffset: index,
+    endOffsetExclusive: index + 1,
+    order: index,
+    label: `decoration.${String(index)}`,
+    style: { bold: index % 2 === 0 },
+  }));
+  const started = performance.now();
+  const projection = createTextAreaProjection(
+    prepareTextDocument(source),
+    decorations,
+    defaultTextWidthProfile,
+  );
+  const durationMs = performance.now() - started;
+
+  assert.equal(projection.text, source);
+  assert.equal(projection.styleRanges.length, count);
+  assert.ok(durationMs < 4_000, `projection took ${durationMs.toFixed(1)}ms`);
+
+  const graphemeCount = 4_000;
+  const complexSource = 'e\u0301'.repeat(graphemeCount);
+  const complexDocument = prepareTextDocument(complexSource);
+  const complexDecorations = Array.from({ length: graphemeCount }, (_value, index) => ({
+    kind: 'style',
+    startOffset: index * 2,
+    endOffsetExclusive: index * 2 + 2,
+    label: `complex.${String(index)}`,
+    style: { italic: index % 2 === 0 },
+  }));
+  const componentStarted = performance.now();
+  renderElementFrame(textArea({
+    id: 'decorated-performance-editor',
+    meta: { accessibleName: 'Decorated performance editor' },
+    presentation: { document: complexDocument, caret: textCaretAt(0) },
+    decorations: complexDecorations,
+    onAction: ignoreMessage,
+  }), { columns: 80, rows: 2 });
+  const componentDurationMs = performance.now() - componentStarted;
+  assert.ok(componentDurationMs < 4_000, `component projection took ${componentDurationMs.toFixed(1)}ms`);
+});
+
+test('large text area edits retain line geometry instead of rebuilding the document', { timeout: 10_000 }, () => {
+  const source = Array.from(
+    { length: 20_000 },
+    (_value, index) => `line ${String(index).padStart(5, '0')} ${'x'.repeat(25)}`,
+  ).join('\n');
+  let document = prepareTextDocument(source);
+  const element = () => textArea({
+    id: 'incremental-large-editor',
+    meta: { accessibleName: 'Incremental large editor' },
+    presentation: { document, caret: textCaretAt(0) },
+    onAction: ignoreMessage,
+  });
+
+  renderElementFrame(element(), { columns: 80, rows: 20 });
+  document = textDocumentEdit(document, {
+    startOffset: 10,
+    endOffsetExclusive: 10,
+  }, 'z').document;
+  const started = performance.now();
+  layoutElement(element(), { columns: 80, rows: 20 });
+  const durationMs = performance.now() - started;
+
+  assert.ok(durationMs < 750, `incremental text area layout took ${durationMs.toFixed(1)}ms`);
 });
 
 test('resize storms skip unchanged terminal sizes and commit each distinct sequential resize', async () => {

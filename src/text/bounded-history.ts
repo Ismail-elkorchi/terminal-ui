@@ -50,6 +50,22 @@ export function recordEditHistory<TSnapshot, TGroup extends string>(
   return historyValue(history.policy, undo, [], group);
 }
 
+export function replaceEditHistoryGroup<TSnapshot, TGroup extends string>(
+  history: BoundedEditHistory<TSnapshot, TGroup>,
+  snapshot: TSnapshot,
+  retainedBytes: number,
+  group: TGroup
+): BoundedEditHistory<TSnapshot, TGroup> {
+  if (history.currentGroup !== group || history.undo.length === 0) {
+    return recordEditHistory(history, snapshot, retainedBytes, group);
+  }
+  const undo = boundHistoryEntries([
+    ...history.undo.slice(0, -1),
+    historyEntry(snapshot, retainedBytes)
+  ], history.policy);
+  return historyValue(history.policy, undo, [], undo.length === 0 ? undefined : group);
+}
+
 export function breakEditHistoryGroup<TSnapshot, TGroup extends string>(
   history: BoundedEditHistory<TSnapshot, TGroup>
 ): BoundedEditHistory<TSnapshot, TGroup> {

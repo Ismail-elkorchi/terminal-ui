@@ -433,10 +433,14 @@ Use `textArea({ lineNumbers: true })` or
 multi-line text region needs editor-like anatomy. The renderer emits the gutter,
 line-number, active-line, value, placeholder, selection, caller-controlled decoration,
 cursor, scrollbar, and validation parts with structured source metadata and ordinary style
-slots. `decorations` uses zero-based UTF-16 code-unit offsets for generic style
-ranges, concealed ranges, replacement text, and virtual text. The exact source
-document remains canonical for editing, copying, and persistence; selection
-remains visually stronger. `createTextAreaRowOffsetMap()` derives source offsets
+slots. `decorations` uses zero-based UTF-16 code-unit offsets and an explicit
+operation kind: `{ kind: 'style' }`, `{ kind: 'replace', replacementText }`, or
+`{ kind: 'conceal' }`. A style entry may override the component's decoration
+style; a zero-length replacement inserts virtual text.
+Concealments may overlap or nest and are unioned; they are distinct from
+non-empty replacement atoms, which cannot overlap. The exact source document
+remains canonical for editing, copying, and persistence; selection remains
+visually stronger. `createTextAreaRowOffsetMap()` derives source offsets
 from the same decorated layout used to render the component. `wrap: true` or
 `wrap: { mode: 'soft' }` turns long logical lines into visual rows and composes
 with the same scroll state, scrollbar, cursor, and accessibility contracts. The

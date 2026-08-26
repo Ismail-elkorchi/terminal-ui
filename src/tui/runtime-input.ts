@@ -5,6 +5,8 @@ import { ignoreMessage, isIgnoredMessage } from '../interaction/message.ts';
 import type { MessageResolution } from '../interaction/message.ts';
 import {
   findRenderNodeFocusTarget,
+  focusedTargetIdForLayoutNode,
+  renderFocusRelation,
   renderNodeLayoutKeyChainForFocus
 } from '../renderer/internal/focus.ts';
 import { viewportKeyboardScrollMessage } from '../renderer/internal/renderers/support/scroll.ts';
@@ -63,6 +65,7 @@ export function resolveRuntimeInputMessage<TState, TMessage>(
       const message = componentKeyMessage(
         focusedLayout.renderNode,
         focusedLayout.layoutNode,
+        focusedLayout.path,
         event,
         input.focusPath,
         input.theme,
@@ -91,6 +94,7 @@ export function resolveRuntimeInputMessage<TState, TMessage>(
       const focusedMessage = componentKeyMessage(
         target.renderNode,
         target.layoutNode,
+        target.path,
         input.event,
         input.focusPath,
         input.theme,
@@ -150,12 +154,20 @@ function committedTextInputEvent(
 function componentKeyMessage<TMessage>(
   renderNode: RenderNode<TMessage>,
   layoutNode: LayoutNode,
+  renderNodePath: FocusPath,
   event: InputEvent,
   focusPath: FocusPath | undefined,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
 ): MessageResolution<TMessage> {
-  const keyMap = resolvedRenderNodeKeyMap(renderNode, layoutNode, theme, widthProfile);
+  const keyMap = resolvedRenderNodeKeyMap(
+    renderNode,
+    layoutNode,
+    renderNodePath,
+    focusPath,
+    theme,
+    widthProfile,
+  );
   const handler = event.kind === 'key'
     ? keyMap?.triggers?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
       ?? (
@@ -180,11 +192,21 @@ function componentKeyMessage<TMessage>(
 export function resolvedRenderNodeKeyMap<TMessage>(
   renderNode: RenderNode<TMessage>,
   layoutNode: LayoutNode,
+  renderNodePath: FocusPath,
+  focusPath: FocusPath | undefined,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
 ) {
+  const focusedTargetId = focusedTargetIdForLayoutNode(layoutNode, renderNodePath, focusPath);
   return renderNode.kind === 'component' && renderNode.definition.renderer.keyMap !== undefined
-    ? renderNode.definition.renderer.keyMap({ renderNode, layoutNode, theme, widthProfile })
+    ? renderNode.definition.renderer.keyMap({
+        renderNode,
+        layoutNode,
+        theme,
+        widthProfile,
+        focus: renderFocusRelation(focusPath, renderNodePath),
+        ...(focusedTargetId === undefined ? {} : { focusedTargetId }),
+      })
     : renderNode.keyMap;
 }
 

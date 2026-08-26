@@ -140,6 +140,7 @@ test('link activation preserves keyboard and pointer intent', async () => {
     host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 1 } })
   });
   await runtime.start();
+  assert.equal(runtime.frame().cells.find((cell) => cell.text === 'D')?.style?.bold, true);
   await runtime.handleInput({
     kind: 'key',
     key: 'enter',

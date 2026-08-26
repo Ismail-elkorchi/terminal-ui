@@ -25,6 +25,46 @@ function focusInput(options) {
   return textInput({ meta: { accessibleName: "Text input" }, onAction: () => ignoreMessage(), ...options });
 }
 
+test('richText keyboard activation resolves the focused linked segment', async () => {
+  const app = defineTui({
+    id: 'rich-text-link-focus',
+    init: () => ({ state: { activated: undefined } }),
+    update: (_state, message) => ({ state: { activated: message } }),
+    view: () => richText({
+      id: 'links',
+      segments: [
+        { kind: 'text', text: 'First', link: { href: 'https://example.test/first' } },
+        { kind: 'text', text: ' / ' },
+        { kind: 'text', text: 'Second', link: { href: 'https://example.test/second' } },
+      ],
+      onLinkActivate: (event) => event,
+    }),
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createTerminalHarness({ terminalSize: { columns: 24, rows: 1 } }).host,
+    initialFocus: { kind: 'path', path: ['links', 'link:1'] },
+  });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'enter',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard',
+  });
+
+  assert.deepEqual(runtime.state().activated, {
+    kind: 'activate',
+    link: { href: 'https://example.test/second' },
+    trigger: {
+      kind: 'keyboard',
+      modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    },
+  });
+});
+
 test('TUI focus traversal reveals logical targets in a controlled viewport', async () => {
   const app = defineTui({
     id: 'focus-reveal-tui',

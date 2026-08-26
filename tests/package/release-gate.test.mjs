@@ -14,9 +14,10 @@ test('CI verifies the complete package on Node 24 across Ubuntu, macOS, and Wind
   assert.match(verification, /node-version: 24/u);
   assert.match(verification, /denoland\/setup-deno/u);
   assert.match(verification, /oven-sh\/setup-bun/u);
-  for (const command of ['npm ci', 'npm run build', 'npm test', 'npm run verify', 'npm pack --dry-run']) {
+  for (const command of ['npm ci', 'npm test']) {
     assert.match(verification, new RegExp(`- run: ${command.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')}`, 'u'));
   }
+  assert.doesNotMatch(verification, /- run: npm run (?:build|verify)|- run: npm pack --dry-run/u);
 });
 
 test('registry publication is gated by a verified immutable release tag', () => {

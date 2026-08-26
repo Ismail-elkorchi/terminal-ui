@@ -6,10 +6,15 @@ import {
   span,
   wrapRenderSpans,
 } from '../../component/index.ts';
-import type { ComponentMessage, SemanticLeafComponentFactory } from '../../component/index.ts';
+import type {
+  ComponentInteractionInput,
+  ComponentMessage,
+  SemanticLeafComponentFactory,
+} from '../../component/index.ts';
 import type { Element } from '../../element/index.ts';
 import type { DisclosureOptions, RichTextOptions, TextOptions } from '../options/content.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import type { ElementTextRole } from '../../element/metadata.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import type { RichTextStylePart, TextStylePart } from '../../ui-model/style-parts.ts';
@@ -19,13 +24,14 @@ import {
   normalizeInlineContent,
 } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
-import type { RenderSpan } from '../../visual/render.ts';
+import type { RenderLine, RenderSpan } from '../../visual/render.ts';
 import type { ElementMessage } from '../../element/index.ts';
 import { isNonArrayObject } from '../../foundation/validation.ts';
 import { assertRequiredCallback } from '../../foundation/validation.ts';
 import type { ElementKeyEvent } from '../../element/metadata.ts';
 import type { RoutedPointerEvent } from '../../input/index.ts';
-import type { RichTextActivateEvent } from '../options/content.ts';
+import type { RichTextLinkActivateEvent } from '../options/content.ts';
+import type { Rect } from '../../geometry/types.ts';
 
 interface PreparedText {
   readonly content: string;
@@ -155,13 +161,21 @@ function textRoleStyle(role: ElementTextRole): TerminalStyle {
 
 interface PreparedRichText {
   readonly segments: InlineContent;
+  readonly links: readonly PreparedRichTextLink[];
+  readonly linkIndexBySegment: readonly (number | undefined)[];
   readonly wrap?: { readonly preserveWords: boolean };
   readonly interactive: boolean;
 }
 
+interface PreparedRichTextLink {
+  readonly link: import('../../visual/render.ts').TerminalLink;
+  readonly label: string;
+  readonly segmentIndexes: readonly number[];
+}
+
 interface RichTextComponentAction {
   readonly kind: 'activate';
-  readonly event: RichTextActivateEvent;
+  readonly event: RichTextLinkActivateEvent;
 }
 
 const instantiateRichText = defineComponent<
@@ -171,7 +185,8 @@ const instantiateRichText = defineComponent<
   RichTextStylePart,
   readonly [],
   'optional',
-  readonly ['focus', 'styles', 'layer']
+  readonly ['focus', 'styles', 'layer'],
+  readonly ['focused', 'hovered', 'pressed']
 >({
   name: 'terminal-ui/components/rich-text',
   identity: 'optional',
@@ -180,6 +195,7 @@ const instantiateRichText = defineComponent<
   accessibleRole: 'text',
   metadata: ['focus', 'styles', 'layer'],
   parts: ['content', 'link'],
+  visualStates: ['focused', 'hovered', 'pressed'],
   prepare(value) {
     const segments = value.segments;
     const wrap = value.wrap;
@@ -191,8 +207,15 @@ const instantiateRichText = defineComponent<
     if (preserveWords !== undefined && typeof preserveWords !== 'boolean') {
       throw new TypeError('richText wrap preserveWords must be a boolean.');
     }
+    const normalizedSegments = normalizeInlineContent(segments);
+    const preparedLinks = prepareRichTextLinks(normalizedSegments);
+    if (value.interactive && preparedLinks.links.length === 0) {
+      throw new TypeError('interactive richText requires at least one linked segment.');
+    }
     return {
-      segments: normalizeInlineContent(segments),
+      segments: normalizedSegments,
+      links: preparedLinks.links,
+      linkIndexBySegment: preparedLinks.linkIndexBySegment,
       interactive: value.interactive,
       ...(wrap === true || typeof wrap === 'object'
         ? { wrap: Object.freeze({ preserveWords: preserveWords === true }) }
@@ -223,58 +246,83 @@ const instantiateRichText = defineComponent<
         preferredHeight: lines.length,
       };
     }
+    const lines = splitRichTextLines(spans);
     return {
       minWidth: 0,
       minHeight: 0,
-      preferredWidth: measureRenderSpans(spans, { widthProfile: input.widthProfile }),
-      preferredHeight: 1,
+      preferredWidth: Math.max(0, ...lines.map((current) =>
+        measureRenderSpans(current.spans, { widthProfile: input.widthProfile })
+      )),
+      preferredHeight: lines.length,
     };
   },
   render(input) {
     if (input.bounds.width === 0 || input.bounds.height === 0) return;
     const spans = richTextSpans(input);
-    const lines = input.model.wrap !== undefined
-      ? wrapRenderSpans(spans, input.bounds.width, {
-          widthProfile: input.widthProfile,
-          preserveWords: input.model.wrap.preserveWords,
-        })
-      : [line(spans)];
+    const lines = richTextLines(input.model, spans, input.bounds.width, input.widthProfile);
     input.target.writeBlock(0, 0, { lines: lines.slice(0, input.bounds.height) });
   },
-  keys: ({ model }) => !model.interactive ? {} : {
-    enter: (event) => ({ kind: 'activate', event: richTextKeyboardActivation(event) })
+  keys: ({ model, focusedTargetId }) => {
+    if (!model.interactive || focusedTargetId === undefined) return {};
+    const linkIndex = richTextTargetLinkIndex(focusedTargetId, model);
+    if (linkIndex === undefined) return {};
+    return {
+      enter: (event) => ({
+        kind: 'activate',
+        event: richTextKeyboardActivation(model, linkIndex, event),
+      }),
+    };
   },
-  focusTargets: ({ bounds, model }) => !model.interactive ? [] : [{ id: 'self', bounds }],
-  hitTargets: ({ id, bounds, model }) => !model.interactive ? [] : [{
-    id: `${id ?? 'rich-text'}:content`,
-    bounds,
-    accepts: ['click'],
-    cursor: 'pointer',
-    focus: { kind: 'target', targetId: 'self' },
-    message: (event) => ({ kind: 'activate', event: richTextPointerActivation(event) })
-  }],
-  accessibility({ id, model, focused }) {
-    const children = model.segments.flatMap((segment, index) => segment.link === undefined ? [] : [{
+  focusTargets(input) {
+    if (!input.model.interactive) return [];
+    return richTextLinkGeometry(input).map(({ linkIndex, bounds }) => ({
+      id: richTextTargetId(linkIndex),
+      bounds,
+    }));
+  },
+  hitTargets(input) {
+    if (!input.model.interactive) return [];
+    return richTextLinkGeometry(input).flatMap(({ linkIndex, fragments }) =>
+      fragments.map((bounds, fragmentIndex) => ({
+        id: `${input.id ?? 'rich-text'}:link:${String(linkIndex)}:${String(fragmentIndex)}`,
+        bounds,
+        accepts: ['click', 'contextMenu', 'pointerDown'] as const,
+        cursor: 'pointer' as const,
+        focus: { kind: 'target' as const, targetId: richTextTargetId(linkIndex) },
+        message: (event: RoutedPointerEvent) =>
+          event.kind === 'pointerDown' && event.button !== 'middle'
+            ? ignoreMessage()
+            : ({
+                kind: 'activate' as const,
+                event: richTextPointerActivation(input.model, linkIndex, event),
+              }),
+      }))
+    );
+  },
+  accessibility({ id, model, focusedTargetId }) {
+    const children = model.links.map((link, index) => ({
       id: `${id}:link:${String(index)}`,
       role: 'link' as const,
-      label: inlineSegmentText(segment, 'unicode'),
-      value: segment.link.href,
-    }]);
+      label: link.label,
+      value: link.link.href,
+      ...(focusedTargetId === richTextTargetId(index) ? { focused: true } : {}),
+    }));
     return {
       id,
       role: 'text',
       value: inlineContentAccessibleText(model.segments),
-      ...(focused ? { focused: true } : {}),
       ...(children.length === 0 ? {} : { children }),
     };
   },
 });
 
 export function richText(
-  options: Omit<RichTextOptions, 'onActivate'> & { readonly onActivate?: never }
+  options: Omit<RichTextOptions, 'onLinkActivate'> & { readonly onLinkActivate?: never }
 ): Element;
 export function richText<const TMessage extends ComponentMessage>(
-  options: Omit<RichTextOptions<TMessage>, 'onActivate'> & { readonly onActivate: NonNullable<RichTextOptions<TMessage>['onActivate']> }
+  options: Omit<RichTextOptions<TMessage>, 'onLinkActivate'> & {
+    readonly onLinkActivate: NonNullable<RichTextOptions<TMessage>['onLinkActivate']>
+  }
 ): Element<TMessage>;
 export function richText(
   options: RichTextOptions<ComponentMessage>
@@ -282,37 +330,246 @@ export function richText(
   const model = {
     ...(options.id === undefined ? {} : { id: options.id }),
     segments: options.segments,
-    interactive: options.onActivate !== undefined,
+    interactive: options.onLinkActivate !== undefined,
     ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
     ...(options.styles === undefined ? {} : { styles: options.styles }),
     ...(options.meta === undefined ? {} : { meta: options.meta })
   };
-  if (options.onActivate === undefined) return instantiateRichText({ ...model, onAction: () => ignoreMessage() });
+  if (options.onLinkActivate === undefined) {
+    return instantiateRichText({ ...model, onAction: () => ignoreMessage() });
+  }
   if (options.id === undefined) throw new TypeError('interactive richText requires an id.');
-  const onActivate = options.onActivate;
-  assertRequiredCallback(onActivate, 'richText onActivate');
+  const onLinkActivate = options.onLinkActivate;
+  assertRequiredCallback(onLinkActivate, 'richText onLinkActivate');
   return instantiateRichText({
     ...model,
-    onAction: (action) => onActivate(action.event)
+    onAction: (action) => onLinkActivate(action.event)
   });
 }
 
-function richTextKeyboardActivation(event: ElementKeyEvent): RichTextActivateEvent {
+function richTextKeyboardActivation(
+  model: PreparedRichText,
+  linkIndex: number,
+  event: ElementKeyEvent,
+): RichTextLinkActivateEvent {
   if (event.input.kind !== 'key') throw new TypeError('richText keyboard activation requires a key event.');
+  const link = richTextLink(model, linkIndex);
   return Object.freeze({
-    kind: 'activate', row: 0, column: 0,
+    kind: 'activate',
+    link,
     trigger: Object.freeze({ kind: 'keyboard', modifiers: event.input.modifiers })
   });
 }
 
-function richTextPointerActivation(event: RoutedPointerEvent): RichTextActivateEvent {
+function richTextPointerActivation(
+  model: PreparedRichText,
+  linkIndex: number,
+  event: RoutedPointerEvent,
+): RichTextLinkActivateEvent {
+  const link = richTextLink(model, linkIndex);
   return Object.freeze({
-    kind: 'activate', row: event.localRow ?? 0, column: event.localColumn ?? 0,
+    kind: 'activate',
+    link,
     trigger: Object.freeze({ kind: 'pointer', button: event.button, modifiers: event.modifiers })
   });
 }
 
+interface RichTextLinkGeometry {
+  readonly linkIndex: number;
+  readonly bounds: Rect;
+  readonly fragments: readonly Rect[];
+}
+
+function richTextLinkGeometry(
+  input: ComponentInteractionInput<PreparedRichText, RichTextStylePart>,
+): readonly RichTextLinkGeometry[] {
+  if (input.bounds.width <= 0 || input.bounds.height <= 0) return [];
+  const lines = richTextLines(
+    input.model,
+    richTextSpans(input),
+    input.bounds.width,
+    input.widthProfile,
+  );
+  const fragmentsByLink = new Map<number, Rect[]>();
+  for (let row = 0; row < Math.min(lines.length, input.bounds.height); row += 1) {
+    const currentLine = lines[row];
+    if (currentLine === undefined) continue;
+    let column = 0;
+    for (const currentSpan of currentLine.spans) {
+      const width = measureRenderSpans([currentSpan], { widthProfile: input.widthProfile });
+      const segmentIndex = currentSpan.source?.itemIndex;
+      const linkIndex = segmentIndex === undefined
+        ? undefined
+        : input.model.linkIndexBySegment[segmentIndex];
+      const visibleWidth = Math.max(0, Math.min(width, input.bounds.width - column));
+      if (linkIndex !== undefined && visibleWidth > 0) {
+        const fragments = fragmentsByLink.get(linkIndex) ?? [];
+        fragments.push({ row, column, width: visibleWidth, height: 1 });
+        fragmentsByLink.set(linkIndex, fragments);
+      }
+      column += width;
+      if (column >= input.bounds.width) break;
+    }
+  }
+  return Object.freeze([...fragmentsByLink.entries()]
+    .toSorted(([left], [right]) => left - right)
+    .map(([linkIndex, fragments]) => ({
+      linkIndex,
+      bounds: unionRichTextFragments(fragments),
+      fragments: Object.freeze(fragments),
+    })));
+}
+
+function unionRichTextFragments(fragments: readonly Rect[]): Rect {
+  const first = fragments[0];
+  if (first === undefined) return { row: 0, column: 0, width: 0, height: 0 };
+  let top = first.row;
+  let left = first.column;
+  let bottom = first.row + first.height;
+  let right = first.column + first.width;
+  for (const fragment of fragments.slice(1)) {
+    top = Math.min(top, fragment.row);
+    left = Math.min(left, fragment.column);
+    bottom = Math.max(bottom, fragment.row + fragment.height);
+    right = Math.max(right, fragment.column + fragment.width);
+  }
+  return { row: top, column: left, width: right - left, height: bottom - top };
+}
+
+function richTextLines(
+  model: PreparedRichText,
+  spans: readonly RenderSpan[],
+  width: number,
+  widthProfile: TextWidthProfile,
+): readonly RenderLine[] {
+  return model.wrap === undefined
+    ? splitRichTextLines(spans)
+    : wrapRenderSpans(spans, width, {
+        widthProfile,
+        preserveWords: model.wrap.preserveWords,
+      });
+}
+
+function splitRichTextLines(spans: readonly RenderSpan[]): readonly RenderLine[] {
+  const lines: RenderLine[] = [];
+  let current: RenderSpan[] = [];
+  for (const currentSpan of spans) {
+    const parts = currentSpan.text.split('\n');
+    for (let index = 0; index < parts.length; index += 1) {
+      const text = parts[index] ?? '';
+      if (text.length > 0) current.push(span(text, richTextSpanOptions(currentSpan)));
+      if (index < parts.length - 1) {
+        lines.push(line(current));
+        current = [];
+      }
+    }
+  }
+  lines.push(line(current));
+  return Object.freeze(lines);
+}
+
+function richTextSpanOptions(value: RenderSpan): Omit<RenderSpan, 'text'> {
+  return {
+    ...(value.style === undefined ? {} : { style: value.style }),
+    ...(value.link === undefined ? {} : { link: value.link }),
+    ...(value.source === undefined ? {} : { source: value.source }),
+  };
+}
+
+function richTextTargetId(linkIndex: number): string {
+  return `link:${String(linkIndex)}`;
+}
+
+function richTextTargetLinkIndex(
+  targetId: string,
+  model: PreparedRichText,
+): number | undefined {
+  if (!targetId.startsWith('link:')) return undefined;
+  const value = targetId.slice('link:'.length);
+  if (!/^(?:0|[1-9][0-9]*)$/u.test(value)) return undefined;
+  const linkIndex = Number(value);
+  return model.links[linkIndex] === undefined ? undefined : linkIndex;
+}
+
+function richTextLink(model: PreparedRichText, linkIndex: number) {
+  const link = model.links[linkIndex]?.link;
+  if (link === undefined) throw new TypeError('richText activation target is not a logical link.');
+  return link;
+}
+
+function richTextLinkLabel(segment: InlineContent[number]): string {
+  return segment.kind === 'text' ? segment.text : segment.accessibleText;
+}
+
+function prepareRichTextLinks(segments: InlineContent): {
+  readonly links: readonly PreparedRichTextLink[];
+  readonly linkIndexBySegment: readonly (number | undefined)[];
+} {
+  const links: {
+    link: import('../../visual/render.ts').TerminalLink;
+    label: string;
+    segmentIndexes: number[];
+  }[] = [];
+  const explicit = new Map<string, number>();
+  const linkIndexBySegment: (number | undefined)[] = Array.from({ length: segments.length });
+  let previousAnonymousLink: import('../../visual/render.ts').TerminalLink | undefined;
+  let previousAnonymousIndex: number | undefined;
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
+    const segment = segments[segmentIndex];
+    const link = segment?.link;
+    if (segment === undefined || link === undefined) {
+      previousAnonymousLink = undefined;
+      previousAnonymousIndex = undefined;
+      continue;
+    }
+    let linkIndex: number;
+    if (link.id !== undefined) {
+      const retained = explicit.get(link.id);
+      if (retained !== undefined) {
+        const existing = links[retained];
+        if (existing?.link.href !== link.href) {
+          throw new TypeError(`richText link id "${link.id}" cannot identify different destinations.`);
+        }
+        linkIndex = retained;
+      } else {
+        linkIndex = links.length;
+        explicit.set(link.id, linkIndex);
+        links.push({ link, label: '', segmentIndexes: [] });
+      }
+      previousAnonymousLink = undefined;
+      previousAnonymousIndex = undefined;
+    } else if (previousAnonymousLink === link && previousAnonymousIndex !== undefined) {
+      linkIndex = previousAnonymousIndex;
+    } else {
+      linkIndex = links.length;
+      links.push({ link, label: '', segmentIndexes: [] });
+      previousAnonymousLink = link;
+      previousAnonymousIndex = linkIndex;
+    }
+    const prepared = links[linkIndex];
+    if (prepared === undefined) continue;
+    prepared.label += richTextLinkLabel(segment);
+    prepared.segmentIndexes.push(segmentIndex);
+    linkIndexBySegment[segmentIndex] = linkIndex;
+  }
+  const owned = links.map((link, index): PreparedRichTextLink => {
+    if (link.label.trim().length === 0) {
+      throw new TypeError(`richText logical link ${String(index)} requires a non-empty accessible label.`);
+    }
+    return Object.freeze({
+      link: link.link,
+      label: link.label,
+      segmentIndexes: Object.freeze(link.segmentIndexes),
+    });
+  });
+  return Object.freeze({
+    links: Object.freeze(owned),
+    linkIndexBySegment: Object.freeze(linkIndexBySegment),
+  });
+}
+
 function richTextSpans(input: {
+  readonly id?: string;
   readonly model: PreparedRichText;
   readonly theme: import('../../theme/index.ts').TerminalTheme;
   readonly style: (
@@ -321,8 +578,11 @@ function richTextSpans(input: {
   readonly source: (
     input?: import('../../component/index.ts').ComponentSourceInput,
   ) => import('../../visual/source.ts').FrameCellSource;
+  readonly focusedTargetId?: string;
+  readonly pointerState?: import('../../interaction/pointer-interaction.ts').PointerInteractionState;
 }): readonly RenderSpan[] {
   return input.model.segments.map((segment, index) => {
+    const linkIndex = input.model.linkIndexBySegment[index];
     const linkBase: TerminalStyle | undefined = segment.link === undefined
       ? undefined
       : { fg: { kind: 'theme', token: 'link.foreground' }, underline: true };
@@ -332,6 +592,9 @@ function richTextSpans(input: {
         ...linkBase,
         ...segment.style,
       },
+      ...(segment.link === undefined
+        ? {}
+        : { states: richTextLinkVisualStates(input, linkIndex) }),
     });
     return span(inlineSegmentText(segment, input.theme.tokens.symbols.mode), {
       ...(style === undefined ? {} : { style }),
@@ -344,6 +607,22 @@ function richTextSpans(input: {
       }),
     });
   });
+}
+
+function richTextLinkVisualStates(
+  input: Pick<
+    Parameters<typeof richTextSpans>[0],
+    'id' | 'focusedTargetId' | 'pointerState'
+  >,
+  linkIndex: number | undefined,
+): readonly ('focused' | 'hovered' | 'pressed')[] {
+  if (linkIndex === undefined) return Object.freeze([]);
+  const states: ('focused' | 'hovered' | 'pressed')[] = [];
+  if (input.focusedTargetId === richTextTargetId(linkIndex)) states.push('focused');
+  const prefix = `${input.id ?? 'rich-text'}:link:${String(linkIndex)}:`;
+  if (input.pointerState?.pressedTargetId?.startsWith(prefix) === true) states.push('pressed');
+  else if (input.pointerState?.hoveredTargetId?.startsWith(prefix) === true) states.push('hovered');
+  return states;
 }
 
 function richTextMeasureSpans(

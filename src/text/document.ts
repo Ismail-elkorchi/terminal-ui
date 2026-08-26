@@ -1,4 +1,5 @@
 import { normalizeTextCursor } from './selection-model.ts';
+import { isTerminalTextProjectionSafe } from './sanitize.ts';
 import type { TextCaret, TextDocumentSelection, TextPosition, TextSelection } from './types.ts';
 
 declare const textDocumentBrand: unique symbol;
@@ -26,6 +27,7 @@ interface PieceMetrics {
   readonly length: number;
   readonly bytes: number;
   readonly lineBreaks: number;
+  readonly terminalProjectionSafe: boolean;
   readonly height: number;
 }
 
@@ -52,6 +54,7 @@ const EMPTY_LEAF: PieceLeaf = Object.freeze({
   length: 0,
   bytes: 0,
   lineBreaks: 0,
+  terminalProjectionSafe: true,
   height: 1
 });
 const MAX_INITIAL_PIECE_LENGTH = 4_096;
@@ -86,6 +89,11 @@ export function textDocumentText(document: TextDocument): string {
   return textDocumentSlice(document, 0, textDocumentLength(document));
 }
 
+/** Whether multiline terminal sanitization can preserve this document verbatim. */
+export function textDocumentCanProjectDirectly(document: TextDocument): boolean {
+  return dataFor(document).root.terminalProjectionSafe;
+}
+
 export function textDocumentSlice(
   document: TextDocument,
   start?: number,
@@ -107,6 +115,25 @@ export function textDocumentEdit(
   const start = normalizeTextDocumentOffset(document, Math.min(range.startOffset, range.endOffsetExclusive));
   const end = normalizeTextDocumentOffset(document, Math.max(range.startOffset, range.endOffsetExclusive));
   if (typeof insertion !== 'string') throw new TypeError('text document insertion must be a string.');
+  return textDocumentEditAtOffsets(document, start, end, insertion);
+}
+
+/** Applies an already validated UTF-16 edit without interactive caret normalization. */
+export function textDocumentEditExact(
+  document: TextDocument,
+  startOffset: number,
+  endOffsetExclusive: number,
+  insertion: string
+): TextDocumentMutation {
+  return textDocumentEditAtOffsets(document, startOffset, endOffsetExclusive, insertion);
+}
+
+function textDocumentEditAtOffsets(
+  document: TextDocument,
+  start: number,
+  end: number,
+  insertion: string
+): TextDocumentMutation {
   if (start === end && insertion.length === 0) {
     return {
       document,
@@ -282,7 +309,8 @@ function leaf(text: string): PieceLeaf {
   if (text.length === 0) return EMPTY_LEAF;
   let lineBreaks = 0;
   for (let index = 0; index < text.length; index += 1) {
-    if (text.charCodeAt(index) === 10) lineBreaks += 1;
+    const code = text.charCodeAt(index);
+    if (code === 10) lineBreaks += 1;
   }
   return Object.freeze({
     kind: 'leaf',
@@ -290,6 +318,7 @@ function leaf(text: string): PieceLeaf {
     length: text.length,
     bytes: new TextEncoder().encode(text).byteLength,
     lineBreaks,
+    terminalProjectionSafe: isTerminalTextProjectionSafe(text),
     height: 1
   });
 }
@@ -304,6 +333,7 @@ function branch(left: PieceNode, right: PieceNode): PieceNode {
     length: left.length + right.length,
     bytes: left.bytes + right.bytes,
     lineBreaks: left.lineBreaks + right.lineBreaks,
+    terminalProjectionSafe: left.terminalProjectionSafe && right.terminalProjectionSafe,
     height: Math.max(left.height, right.height) + 1
   });
 }

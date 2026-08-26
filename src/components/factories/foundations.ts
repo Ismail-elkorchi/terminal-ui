@@ -52,13 +52,18 @@ const instantiateLink = defineComponent<
     preferredHeight: 1,
   }),
   render(input) {
-    const state = input.disabled
-      ? 'disabled'
-      : pointerVisualState(input.pointerState, `${input.id ?? 'link'}:link`);
+    const pointerState = pointerVisualState(input.pointerState, `${input.id ?? 'link'}:link`);
+    const states = input.disabled
+      ? ['disabled' as const]
+      : [
+          ...(input.focus === 'self' ? ['focused' as const] : []),
+          ...(input.busy ? ['busy' as const] : []),
+          ...(pointerState === undefined ? [] : [pointerState]),
+        ];
     const style = input.style({
       part: 'label',
       base: { fg: { kind: 'theme', token: 'link.foreground' }, underline: true },
-      ...(state === undefined ? {} : { states: [state] }),
+      ...(states.length === 0 ? {} : { states }),
     });
     input.target.write(0, 0, [span(input.model.label, {
       ...(style === undefined ? {} : { style }),

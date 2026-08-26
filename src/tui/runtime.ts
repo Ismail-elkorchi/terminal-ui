@@ -920,6 +920,8 @@ function createRuntime<TState, TMessage>(
       : resolvedRenderNodeKeyMap(
           focusedLayout.renderNode,
           focusedLayout.layoutNode,
+          focusedLayout.path,
+          commits.focusPath(),
           current.theme,
           current.frame.widthProfile,
         );

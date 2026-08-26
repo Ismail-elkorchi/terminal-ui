@@ -15,6 +15,7 @@ export type {
   ComponentInput,
   ComponentInspectionInput,
   ComponentInteractionInput,
+  ComponentKeyInput,
   ComponentLayoutInput,
   ComponentMeasureConstraints,
   ComponentMeasureInput,

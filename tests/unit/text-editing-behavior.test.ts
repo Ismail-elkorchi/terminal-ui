@@ -147,6 +147,42 @@ void test('textAreaReducer shares bounded multiline undo and preserves controlle
   assert.ok(redone.history.retainedBytes <= redone.history.policy.maxRetainedBytes);
 });
 
+void test('textAreaReducer groups consecutive insertions into one exact undo step', () => {
+  let state = createTextAreaState({ value: '' });
+  for (const text of ['h', 'e', 'l', 'l', 'o']) {
+    state = textAreaReducer(state, {
+      kind: 'edit',
+      operation: { kind: 'insert', text }
+    }).state;
+  }
+
+  assert.equal(textDocumentText(state.document), 'hello');
+  assert.equal(state.history.undo.length, 1);
+  const undone = textAreaReducer(state, { kind: 'undo' });
+  assert.equal(textDocumentText(undone.state.document), '');
+  assert.deepEqual(undone.changeSet.changes, [{
+    startOffset: 0,
+    endOffsetExclusive: 5,
+    insertedText: ''
+  }]);
+});
+
+void test('textAreaReducer does not retain history for semantically empty change sets', () => {
+  const initial = createTextAreaState({ value: 'same' });
+  const empty = textAreaReducer(initial, {
+    kind: 'applyChanges',
+    changeSet: { changes: [{ startOffset: 2, endOffsetExclusive: 2, insertedText: '' }] }
+  });
+  const equal = textAreaReducer(initial, {
+    kind: 'applyChanges',
+    changeSet: { changes: [{ startOffset: 0, endOffsetExclusive: 4, insertedText: 'same' }] }
+  });
+
+  assert.equal(empty.state, initial);
+  assert.equal(equal.state, initial);
+  assert.equal(initial.history.undo.length, 0);
+});
+
 void test('textAreaReducer preserves source text and reports the exact inserted text', () => {
   const initial = createTextAreaState({
     value: 'ab',

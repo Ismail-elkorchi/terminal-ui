@@ -1,20 +1,22 @@
 import {
-  textDocumentEdit,
+  textDocumentEditExact,
   textDocumentLength,
   textDocumentSlice,
   type TextDocument
 } from './document.ts';
 import type { TextChangeSet, TextDocumentChange } from './types.ts';
 
-export const emptyTextChangeSet: TextChangeSet = Object.freeze({
-  changes: Object.freeze([])
-});
+const preparedChangeSets = new WeakSet<object>();
+export const emptyTextChangeSet: TextChangeSet = Object.freeze({ changes: Object.freeze([]) });
+preparedChangeSets.add(emptyTextChangeSet);
 
 export function createTextChangeSet(
   changes: readonly TextDocumentChange[]
 ): TextChangeSet {
   if (!Array.isArray(changes)) throw new TypeError('Text changes must be an array.');
-  const owned = changes.map((change, index) => prepareChange(change, index));
+  const owned = changes
+    .map((change, index) => prepareChange(change, index))
+    .filter((change) => change.startOffset !== change.endOffsetExclusive || change.insertedText.length > 0);
   for (let index = 1; index < owned.length; index += 1) {
     const previous = owned[index - 1];
     const current = owned[index];
@@ -23,24 +25,31 @@ export function createTextChangeSet(
       throw new RangeError('Text changes must be ordered by source offset and must not overlap.');
     }
   }
-  return owned.length === 0
-    ? emptyTextChangeSet
-    : Object.freeze({ changes: Object.freeze(owned) });
+  return ownChangeSet(owned);
 }
 
 export function applyTextChangeSet(
   document: TextDocument,
   changeSet: TextChangeSet
 ): TextDocument {
-  validateChangeSetForDocument(document, changeSet);
+  const prepared = prepareTextChangeSetForDocument(document, changeSet);
+  return applyPreparedTextChangeSet(document, prepared);
+}
+
+export function applyPreparedTextChangeSet(
+  document: TextDocument,
+  changeSet: TextChangeSet
+): TextDocument {
   let next = document;
   for (let index = changeSet.changes.length - 1; index >= 0; index -= 1) {
     const change = changeSet.changes[index];
     if (change === undefined) continue;
-    next = textDocumentEdit(next, {
-      startOffset: change.startOffset,
-      endOffsetExclusive: change.endOffsetExclusive
-    }, change.insertedText).document;
+    next = textDocumentEditExact(
+      next,
+      change.startOffset,
+      change.endOffsetExclusive,
+      change.insertedText
+    ).document;
   }
   return next;
 }
@@ -49,9 +58,16 @@ export function invertTextChangeSet(
   document: TextDocument,
   changeSet: TextChangeSet
 ): TextChangeSet {
-  validateChangeSetForDocument(document, changeSet);
+  const prepared = prepareTextChangeSetForDocument(document, changeSet);
+  return invertPreparedTextChangeSet(document, prepared);
+}
+
+export function invertPreparedTextChangeSet(
+  document: TextDocument,
+  changeSet: TextChangeSet
+): TextChangeSet {
   let delta = 0;
-  return createTextChangeSet(changeSet.changes.map((change) => {
+  const inverted = changeSet.changes.map((change) => {
     const startOffset = change.startOffset + delta;
     const endOffsetExclusive = startOffset + change.insertedText.length;
     const insertedText = textDocumentSlice(
@@ -61,14 +77,15 @@ export function invertTextChangeSet(
     );
     delta += change.insertedText.length
       - (change.endOffsetExclusive - change.startOffset);
-    return { startOffset, endOffsetExclusive, insertedText };
-  }));
+    return Object.freeze({ startOffset, endOffsetExclusive, insertedText });
+  });
+  return ownChangeSet(inverted);
 }
 
-function validateChangeSetForDocument(
+export function prepareTextChangeSetForDocument(
   document: TextDocument,
   changeSet: unknown
-): asserts changeSet is TextChangeSet {
+): TextChangeSet {
   if (
     changeSet === null
     || typeof changeSet !== 'object'
@@ -76,8 +93,19 @@ function validateChangeSetForDocument(
   ) {
     throw new TypeError('Text change set must contain a changes array.');
   }
-  const changes = (changeSet as { readonly changes: readonly unknown[] }).changes;
+  const candidate = changeSet as { readonly changes: readonly unknown[] };
+  const changes = candidate.changes;
   const sourceLength = textDocumentLength(document);
+  if (preparedChangeSets.has(candidate)) {
+    for (let index = 0; index < changes.length; index += 1) {
+      const change = changes[index] as TextDocumentChange | undefined;
+      if (change !== undefined && change.endOffsetExclusive > sourceLength) {
+        throw new RangeError(`Text changes[${String(index)}] exceeds the source document.`);
+      }
+    }
+    return changeSet as TextChangeSet;
+  }
+  const owned: TextDocumentChange[] = [];
   let previousEnd = 0;
   for (let index = 0; index < changes.length; index += 1) {
     const change = prepareChange(changes[index], index);
@@ -88,7 +116,18 @@ function validateChangeSetForDocument(
       throw new RangeError('Text changes must be ordered by source offset and must not overlap.');
     }
     previousEnd = change.endOffsetExclusive;
+    if (change.startOffset !== change.endOffsetExclusive || change.insertedText.length > 0) {
+      owned.push(change);
+    }
   }
+  return ownChangeSet(owned);
+}
+
+function ownChangeSet(changes: readonly TextDocumentChange[]): TextChangeSet {
+  if (changes.length === 0) return emptyTextChangeSet;
+  const owned = Object.freeze({ changes: Object.freeze(changes) });
+  preparedChangeSets.add(owned);
+  return owned;
 }
 
 function prepareChange(value: unknown, index: number): TextDocumentChange {

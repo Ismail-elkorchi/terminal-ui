@@ -114,6 +114,8 @@ export interface RenderNodeKeyInput<
   readonly layoutNode: LayoutNode;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
+  readonly focus: RenderFocusRelation;
+  readonly focusedTargetId?: string;
 }
 
 export interface RenderNodeRenderer<

@@ -218,10 +218,10 @@ or installing a private copy:
 ```json
 {
   "peerDependencies": {
-    "@ismail-elkorchi/terminal-ui": "^0.2.0"
+    "@ismail-elkorchi/terminal-ui": "^0.1.4"
   },
   "devDependencies": {
-    "@ismail-elkorchi/terminal-ui": "^0.2.0"
+    "@ismail-elkorchi/terminal-ui": "^0.1.4"
   }
 }
 ```

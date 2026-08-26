@@ -60,7 +60,7 @@ function sanitize(
     const cached = sanitizeCache.get(cacheKey);
     if (cached !== undefined) return cached;
   }
-  if (!hasUnsafeTerminalText(text) && !/[\t\r]/u.test(text) && (mode === 'multiline' || !text.includes('\n'))) {
+  if (isTerminalTextProjectionSafe(text) && (mode === 'multiline' || !text.includes('\n'))) {
     const result = Object.freeze({
       text,
       changed: false,
@@ -95,6 +95,11 @@ function sanitize(
     trimSanitizeCache();
   }
   return result;
+}
+
+/** Whether multiline terminal sanitization preserves a string byte-for-byte. */
+export function isTerminalTextProjectionSafe(text: string): boolean {
+  return !hasUnsafeTerminalText(text) && !/[\t\r]/u.test(text);
 }
 
 function hasUnsafeTerminalText(text: string): boolean {

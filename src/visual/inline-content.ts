@@ -28,8 +28,9 @@ export function normalizeInlineContent(content: InlineContent): InlineContent {
   const segments: readonly InlineContentSegment[] = content;
   if (!Array.isArray(content)) throw new TypeError('Inline content must be an array.');
   if (normalizedInlineContents.has(content)) return segments;
+  const links = new WeakMap<object, TerminalLink>();
   const normalized = Object.freeze(segments.map((segment, index) =>
-    normalizeInlineSegment(segment, index)));
+    normalizeInlineSegment(segment, index, links)));
   normalizedInlineContents.add(normalized);
   return normalized;
 }
@@ -52,7 +53,11 @@ export function inlineContentAccessibleText(content: InlineContent): string {
 
 const normalizedInlineContents = new WeakSet<InlineContent>();
 
-function normalizeInlineSegment(value: unknown, index: number): InlineContentSegment {
+function normalizeInlineSegment(
+  value: unknown,
+  index: number,
+  links: WeakMap<object, TerminalLink>,
+): InlineContentSegment {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`Inline content segment ${String(index)} must be an object.`);
   }
@@ -67,7 +72,7 @@ function normalizeInlineSegment(value: unknown, index: number): InlineContentSeg
   } catch (cause) {
     throw new TypeError(`Inline content segment ${String(index)} could not be read.`, { cause });
   }
-  const decoration = normalizedDecoration(style, link, index);
+  const decoration = normalizedDecoration(style, link, index, links);
   if (kind === 'text') {
     let text: unknown;
     try {
@@ -130,12 +135,27 @@ function normalizedSymbol(value: string, name: string): string {
 function normalizedDecoration(
   style: unknown,
   link: unknown,
-  index: number
+  index: number,
+  links: WeakMap<object, TerminalLink>,
 ): Pick<InlineSegmentBase, 'style' | 'link'> {
+  const preparedLink = link === undefined
+    ? undefined
+    : typeof link === 'object' && link !== null
+      ? links.get(link) ?? normalizeAndRetainInlineLink(link, links)
+      : normalizeTerminalLink(link);
   return {
     ...(style === undefined
       ? {}
       : { style: normalizeTerminalStyle(style, `Inline content segment ${String(index)} style`) }),
-    ...(link === undefined ? {} : { link: normalizeTerminalLink(link) })
+    ...(preparedLink === undefined ? {} : { link: preparedLink })
   };
+}
+
+function normalizeAndRetainInlineLink(
+  value: object,
+  links: WeakMap<object, TerminalLink>,
+): TerminalLink {
+  const prepared = normalizeTerminalLink(value);
+  links.set(value, prepared);
+  return prepared;
 }

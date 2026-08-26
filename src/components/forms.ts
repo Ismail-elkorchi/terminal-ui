@@ -20,7 +20,10 @@ export type * from './options/forms.ts';
 export type {
   DisabledTextAreaOptions,
   ScrollableTextAreaOptions,
+  TextAreaConcealDecoration,
   TextAreaDecoration,
+  TextAreaReplacementDecoration,
+  TextAreaStyleDecoration,
   TextAreaOptions,
   UnscrolledTextAreaOptions,
 } from './options/content.ts';

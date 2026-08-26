@@ -36,3 +36,33 @@ void test('text change sets reject ambiguous ranges before editing', () => {
     createTextChangeSet([{ startOffset: 5, endOffsetExclusive: 6, insertedText: '' }])
   ), /exceeds the source document/u);
 });
+
+void test('text change sets preserve exact UTF-16 boundaries instead of applying interactive caret normalization', () => {
+  const document = prepareTextDocument('ab');
+  const changeSet = createTextChangeSet([
+    { startOffset: 0, endOffsetExclusive: 1, insertedText: 'X' },
+    { startOffset: 1, endOffsetExclusive: 1, insertedText: '\u0301' }
+  ]);
+
+  const changed = applyTextChangeSet(document, changeSet);
+  assert.equal(textDocumentText(changed), 'X\u0301b');
+  assert.equal(
+    textDocumentText(applyTextChangeSet(changed, invertTextChangeSet(document, changeSet))),
+    'ab'
+  );
+
+  const crlf = prepareTextDocument('a\r\nb');
+  assert.equal(textDocumentText(applyTextChangeSet(crlf, createTextChangeSet([
+    { startOffset: 2, endOffsetExclusive: 2, insertedText: 'X' }
+  ]))), 'a\rX\nb');
+});
+
+void test('text change sets discard empty changes and preserve document identity for equal replacements', () => {
+  const document = prepareTextDocument('same');
+  assert.deepEqual(createTextChangeSet([
+    { startOffset: 2, endOffsetExclusive: 2, insertedText: '' }
+  ]).changes, []);
+  assert.equal(applyTextChangeSet(document, createTextChangeSet([
+    { startOffset: 0, endOffsetExclusive: 4, insertedText: 'same' }
+  ])), document);
+});

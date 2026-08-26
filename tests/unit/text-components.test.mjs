@@ -174,21 +174,92 @@ test('richText gives linked spans the default link style without overriding expl
   });
 });
 
-test('interactive richText reports exact local pointer coordinates through one generic activation boundary', () => {
-  const regions = renderElementRegions(richText({
+test('interactive richText exposes each logical link as the focus pointer and accessibility target', () => {
+  const element = richText({
     id: 'interactive-rich-text',
-    segments: [{ kind: 'text', text: 'first\nsecond' }],
-    onActivate: (event) => ({ event })
-  }), { columns: 12, rows: 2 });
-  const target = targetById(regions, 'interactive-rich-text:content');
+    wrap: true,
+    segments: [
+      { kind: 'text', text: 'plain ' },
+      { kind: 'text', text: 'first link', link: { href: 'https://example.test/first', id: 'first' } },
+      { kind: 'text', text: ' and ' },
+      { kind: 'text', text: 'second', link: { href: 'https://example.test/second' } },
+    ],
+    onLinkActivate: (event) => ({ event })
+  });
+  const regions = renderElementRegions(element, { columns: 8, rows: 5 });
+  const targets = regions.flatMap((region) => region.hitTargets);
+  assert.equal(targets.some((target) => target.id.includes('plain')), false);
+  assert.ok(targets.filter((target) => target.id.startsWith('interactive-rich-text:link:0:')).length > 1);
+  assert.ok(targets.some((target) => target.id.startsWith('interactive-rich-text:link:1:')));
+
+  const target = targets.find((current) => current.id.startsWith('interactive-rich-text:link:0:'));
+  assert.ok(target);
   const message = target.message(pointerEvent({
-    kind: 'click', row: 2, column: 4, localRow: 1, localColumn: 3
+    kind: 'click', row: target.bounds.row, column: target.bounds.column, localRow: 0, localColumn: 0
   }));
 
   assert.deepEqual(message?.event, {
-    kind: 'activate', row: 1, column: 3,
+    kind: 'activate',
+    link: { href: 'https://example.test/first', id: 'first' },
     trigger: { kind: 'pointer', button: 'left', modifiers: { ctrl: false, alt: false, shift: false } }
   });
+
+  const focused = renderElementFrame(element, { columns: 8, rows: 5 }, {
+    focusPath: ['interactive-rich-text', 'link:1']
+  });
+  assert.equal(focused.accessibility.root.focused, undefined);
+  assert.equal(focused.accessibility.root.children?.[0]?.focused, undefined);
+  assert.equal(focused.accessibility.root.children?.[1]?.focused, true);
+  assert.equal(focused.cells.find((cell) =>
+    cell.text === 's' && cell.source?.itemIndex === 3
+  )?.style?.bold, true);
+  assert.deepEqual(focused.accessibility.focusPath, [
+    'interactive-rich-text',
+    'interactive-rich-text:link:1'
+  ]);
+});
+
+test('richText preserves one logical link across styled segments', () => {
+  const link = { href: 'https://example.test/docs' };
+  const element = richText({
+    id: 'styled-logical-link',
+    segments: [
+      { kind: 'text', text: 'Doc', link, style: { bold: true } },
+      { kind: 'text', text: 'umentation', link, style: { italic: true } },
+    ],
+    wrap: true,
+    onLinkActivate: (event) => event,
+  });
+  const frame = renderElementFrame(element, { columns: 5, rows: 3 });
+  const targets = renderElementRegions(element, { columns: 5, rows: 3 })
+    .flatMap((region) => region.hitTargets);
+
+  assert.equal(frame.accessibility.root.children?.length, 1);
+  assert.equal(frame.accessibility.root.children?.[0]?.label, 'Documentation');
+  assert.ok(targets.length > 1);
+  assert.ok(targets.every((target) => target.id.startsWith('styled-logical-link:link:0:')));
+
+  const separate = renderElementFrame(richText({
+    id: 'separate-links',
+    segments: [
+      { kind: 'text', text: 'one', link: { href: link.href } },
+      { kind: 'text', text: 'two', link: { href: link.href } },
+    ],
+    onLinkActivate: (event) => event,
+  }), { columns: 8, rows: 1 });
+  assert.equal(separate.accessibility.root.children?.length, 2);
+});
+
+test('unwrapped richText preserves explicit line breaks in measurement and rendering', () => {
+  const frame = renderElementFrame(richText({
+    id: 'multiline-rich-text',
+    segments: [
+      { kind: 'text', text: 'first\n' },
+      { kind: 'text', text: 'second' },
+    ],
+  }), { columns: 8, rows: 2 });
+
+  assert.equal(renderFramePlain(frame), 'first\nsecond');
 });
 
 test('textArea renders multiline windows and exposes cursor/accessibility state', () => {
@@ -359,7 +430,7 @@ test('textArea paints active lines gutters decorations and validation as coheren
     },
     lineNumbers: true,
     highlightActiveLine: true,
-    decorations: [{ startOffset: 1, endOffsetExclusive: 4, label: 'search.match' }],
+    decorations: [{ kind: 'style', startOffset: 1, endOffsetExclusive: 4, label: 'search.match' }],
     error: 'Required'
   }), { columns: 20, rows: 4 });
   const decoration = frame.cells.find((cell) => cell.text === 'l');
@@ -428,8 +499,8 @@ test('textArea renders caller-controlled decoration ranges without overriding se
       selection: textDocumentSelectionBetween(0, 5)
     },
     decorations: [
-      { startOffset: 6, endOffsetExclusive: 10, label: 'search.match' },
-      { startOffset: 11, endOffsetExclusive: 16, label: 'custom.match', style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true } }
+      { kind: 'style', startOffset: 6, endOffsetExclusive: 10, label: 'search.match' },
+      { kind: 'style', startOffset: 11, endOffsetExclusive: 16, label: 'custom.match', style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true } }
     ]
   }), { columns: 24, rows: 1 });
   const selected = frame.cells.find((cell) => cell.text === 'a');
@@ -505,10 +576,11 @@ test('textArea decorations preserve source while styling, concealing, and replac
     id: 'decorated-editor',
     presentation: { document, caret: textCaretAt(4) },
     decorations: [
-      { startOffset: 0, endOffsetExclusive: 2, replacementText: '' },
-      { startOffset: 2, endOffsetExclusive: 6, style: { bold: true }, label: 'strong' },
-      { startOffset: 6, endOffsetExclusive: 8, replacementText: '' },
+      { kind: 'conceal', startOffset: 0, endOffsetExclusive: 2 },
+      { kind: 'style', startOffset: 2, endOffsetExclusive: 6, style: { bold: true }, label: 'strong' },
+      { kind: 'conceal', startOffset: 6, endOffsetExclusive: 8 },
       {
+        kind: 'replace',
         startOffset: 9,
         endOffsetExclusive: 26,
         replacementText: 'site',
@@ -523,7 +595,139 @@ test('textArea decorations preserve source while styling, concealing, and replac
   assert.equal(frame.cells.find((cell) => cell.text === 'b')?.style?.bold, true);
   assert.equal(frame.cells.find((cell) => cell.text === 's')?.style?.underline, true);
   assert.equal(frame.accessibility.root.value, 'bold Link: site');
+  assert.equal(frame.accessibility.root.textPosition.caretOffset, 2);
   assert.equal(textDocumentText(document), '**bold** [site](target.md)');
+});
+
+test('textArea accessibility positions use the sanitized and decorated text coordinate space', () => {
+  const controlSource = 'a\r\n\u001B[31mb\u001B[0m';
+  const sanitized = renderElementFrame(textArea({
+    meta: { accessibleName: 'Sanitized editor' },
+    id: 'sanitized-editor',
+    presentation: {
+      document: prepareTextDocument(controlSource),
+      caret: textCaretAt(controlSource.length),
+      selection: textDocumentSelectionBetween(1, 3),
+    },
+    decorations: [{ kind: 'style', startOffset: 4, endOffsetExclusive: 5, style: { bold: true } }],
+  }), { columns: 16, rows: 2 }, { focusPath: ['sanitized-editor'] });
+
+  assert.equal(sanitized.accessibility.root.value, 'a\nb');
+  assert.deepEqual(sanitized.accessibility.root.textPosition, {
+    caretOffset: 3,
+    selection: { startOffset: 1, endOffsetExclusive: 2 },
+  });
+
+  const replaced = renderElementFrame(textArea({
+    meta: { accessibleName: 'Replacement editor' },
+    id: 'replacement-editor',
+    presentation: {
+      document: prepareTextDocument('before [site](target.md) after'),
+      caret: textCaretAt(24),
+      selection: textDocumentSelectionBetween(7, 24),
+    },
+    decorations: [{
+      kind: 'replace',
+      startOffset: 7,
+      endOffsetExclusive: 24,
+      replacementText: 'site',
+      accessibilityText: 'Link: site',
+    }],
+  }), { columns: 32, rows: 1 }, { focusPath: ['replacement-editor'] });
+
+  assert.equal(replaced.accessibility.root.value, 'before Link: site after');
+  assert.deepEqual(replaced.accessibility.root.textPosition, {
+    caretOffset: 17,
+    selection: { startOffset: 7, endOffsetExclusive: 17 },
+  });
+});
+
+test('textArea decoration boundaries cannot expose fragments of terminal control sequences', () => {
+  const source = 'A\u001B[31mB\u001B[0mC';
+  const frame = renderElementFrame(textArea({
+    meta: { accessibleName: 'Control editor' },
+    id: 'control-editor',
+    presentation: { document: prepareTextDocument(source), caret: textCaretAt(source.length) },
+    decorations: [{ kind: 'style', startOffset: 2, endOffsetExclusive: 3, style: { bold: true } }],
+  }), { columns: 8, rows: 1 });
+
+  assert.equal(renderFramePlain(frame), '› ABC');
+  assert.equal(frame.accessibility.root.value, 'ABC');
+  assert.equal(frame.accessibility.root.textPosition.caretOffset, 3);
+});
+
+test('textArea requires accessibility replacement text to describe a visual replacement', () => {
+  assert.throws(() => textArea({
+    meta: { accessibleName: 'Invalid editor' },
+    id: 'invalid-editor',
+    presentation: { document: prepareTextDocument('value'), caret: textCaretAt(0) },
+    decorations: [{ kind: 'style', startOffset: 0, endOffsetExclusive: 1, style: { bold: true }, accessibilityText: 'letter' }],
+  }), /style decoration 0 cannot replace or relabel content/u);
+});
+
+test('textArea replacement decorations compose only with styles that cover the complete visual atom', () => {
+  const frame = renderElementFrame(textArea({
+    meta: { accessibleName: 'Composed decoration editor' },
+    id: 'composed-decoration-editor',
+    presentation: { document: prepareTextDocument('abcdef'), caret: textCaretAt(0) },
+    decorations: [
+      { kind: 'style', startOffset: 0, endOffsetExclusive: 4, style: { bold: true }, label: 'outer' },
+      {
+        kind: 'replace',
+        startOffset: 1,
+        endOffsetExclusive: 3,
+        replacementText: 'X',
+        style: { underline: true },
+        label: 'replacement',
+      },
+    ],
+  }), { columns: 8, rows: 1 });
+  const replacement = frame.cells.find((cell) => cell.text === 'X');
+
+  assert.equal(replacement?.style?.bold, true);
+  assert.equal(replacement?.style?.underline, true);
+  assert.throws(() => textArea({
+    meta: { accessibleName: 'Partial decoration editor' },
+    id: 'partial-decoration-editor',
+    presentation: { document: prepareTextDocument('abcdef'), caret: textCaretAt(0) },
+    decorations: [
+      { kind: 'replace', startOffset: 1, endOffsetExclusive: 4, replacementText: 'X' },
+      { kind: 'style', startOffset: 2, endOffsetExclusive: 5, style: { bold: true } },
+    ],
+  }), /must not partially overlap replacement decorations/u);
+});
+
+test('textArea concealments union overlapping syntax ranges without becoming replacements', () => {
+  const frame = renderElementFrame(textArea({
+    meta: { accessibleName: 'Concealed syntax editor' },
+    id: 'concealed-syntax-editor',
+    presentation: { document: prepareTextDocument('[label](target)'), caret: textCaretAt(0) },
+    decorations: [
+      { kind: 'conceal', startOffset: 0, endOffsetExclusive: 1, label: 'outer.start' },
+      { kind: 'conceal', startOffset: 6, endOffsetExclusive: 15, label: 'outer.end' },
+      { kind: 'conceal', startOffset: 8, endOffsetExclusive: 14, label: 'destination' },
+      { kind: 'style', startOffset: 1, endOffsetExclusive: 6, style: { underline: true }, label: 'label' },
+    ],
+  }), { columns: 16, rows: 1 });
+
+  assert.equal(renderFramePlain(frame), '› label');
+  assert.equal(frame.accessibility.root.value, 'label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'l')?.style?.underline, true);
+  assert.throws(() => textArea({
+    meta: { accessibleName: 'Empty replacement editor' },
+    id: 'empty-replacement-editor',
+    presentation: { document: prepareTextDocument('value'), caret: textCaretAt(0) },
+    decorations: [{ kind: 'replace', startOffset: 0, endOffsetExclusive: 1, replacementText: '' }],
+  }), /requires non-empty replacementText/u);
+  assert.throws(() => textArea({
+    meta: { accessibleName: 'Conflicting replacement editor' },
+    id: 'conflicting-replacement-editor',
+    presentation: { document: prepareTextDocument('value'), caret: textCaretAt(0) },
+    decorations: [
+      { kind: 'conceal', startOffset: 0, endOffsetExclusive: 2 },
+      { kind: 'replace', startOffset: 1, endOffsetExclusive: 3, replacementText: 'X' },
+    ],
+  }), /conceal and replacement decorations must not overlap/u);
 });
 
 test('wrapped textArea exposes scrollbar scope over visual rows', () => {

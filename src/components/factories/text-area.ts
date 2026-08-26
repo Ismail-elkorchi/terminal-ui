@@ -80,6 +80,7 @@ import type { TextContextMenuEvent } from '../../interaction/text-pointer.ts';
 import {
   createTextAreaProjection,
   type PreparedTextAreaDecoration,
+  type ProjectedTextStyleRange,
   type TextAreaProjection
 } from '../internal/text-area-projection.ts';
 
@@ -111,6 +112,8 @@ interface TextAreaModel {
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
 }
+
+const textAreaDecorationBoundaryIndexes = new WeakMap<TextDocument, TerminalTextIndex>();
 
 type TextAreaComponentAction = TextAreaAction | {
   readonly kind: 'contextMenu';
@@ -283,13 +286,31 @@ const instantiateTextArea = defineComponent<
     const selection = model.selection === undefined
       ? undefined
       : textDocumentSelectionRange(model.document, model.selection, model.caret);
+    const accessibilityCaret = geometry.usesPlaceholder
+      ? 0
+      : geometry.projection.accessibilityOffsetAtSourceOffset(
+          model.caret.position.offset,
+          model.caret.position.affinity
+        );
+    const accessibilitySelection = geometry.usesPlaceholder || selection === undefined
+      ? undefined
+      : {
+          startOffset: geometry.projection.accessibilityOffsetAtSourceOffset(
+            selection.startOffset,
+            'downstream'
+          ),
+          endOffsetExclusive: geometry.projection.accessibilityOffsetAtSourceOffset(
+            selection.endOffsetExclusive,
+            'upstream'
+          )
+        };
     return {
       id,
       role: 'textbox',
       value: geometry.usesPlaceholder ? value : geometry.projection.accessibilityText,
       textPosition: {
-        caretOffset: model.caret.position.offset,
-        ...(selection === undefined ? {} : { selection }),
+        caretOffset: accessibilityCaret,
+        ...(accessibilitySelection === undefined ? {} : { selection: accessibilitySelection }),
       },
       description,
       required: model.required,
@@ -750,12 +771,18 @@ function prepareTextAreaDecorations(
 ): readonly PreparedTextAreaDecoration[] {
   if (value === undefined) return Object.freeze([]);
   if (!Array.isArray(value)) throw new TypeError('textArea decorations must be an array.');
+  if (value.length === 0) return Object.freeze([]);
+  const boundaryIndex = textAreaDecorationBoundaryIndex(document);
   const prepared = value.map((candidate, index): PreparedTextAreaDecoration => {
     if (!isNonArrayObject(candidate)) {
       throw new TypeError(`textArea decorations[${String(index)}] is invalid.`);
     }
     const startOffset = candidate['startOffset'];
     const endOffsetExclusive = candidate['endOffsetExclusive'];
+    const kind = candidate['kind'];
+    if (!isStringMember(kind, ['style', 'replace', 'conceal'])) {
+      throw new TypeError(`textArea decorations[${String(index)}].kind is invalid.`);
+    }
     const replacementText = candidate['replacementText'];
     const accessibilityText = candidate['accessibilityText'];
     if (
@@ -765,33 +792,57 @@ function prepareTextAreaDecorations(
       !Number.isSafeInteger(endOffsetExclusive) ||
       startOffset < 0 ||
       endOffsetExclusive < startOffset ||
-      (endOffsetExclusive === startOffset && replacementText === undefined) ||
+      (endOffsetExclusive === startOffset && kind !== 'replace') ||
       endOffsetExclusive > textDocumentLength(document)
     ) {
       throw new RangeError(`textArea decorations[${String(index)}] range is invalid.`);
     }
-    if (replacementText !== undefined && typeof replacementText !== 'string') {
-      throw new TypeError(`textArea decorations[${String(index)}].replacementText must be a string.`);
-    }
     if (accessibilityText !== undefined && typeof accessibilityText !== 'string') {
       throw new TypeError(`textArea decorations[${String(index)}].accessibilityText must be a string.`);
+    }
+    if (
+      !terminalTextIndexHasBoundary(boundaryIndex, startOffset)
+      || !terminalTextIndexHasBoundary(boundaryIndex, endOffsetExclusive)
+    ) {
+      throw new RangeError(
+        `textArea decorations[${String(index)}] must align with text grapheme boundaries.`
+      );
     }
     const label = textOption(candidate['label'], `textArea decorations[${String(index)}].label`) ??
       `decoration.${String(index)}`;
     const style = candidate['style'] === undefined
       ? undefined
       : prepareTerminalStyle(candidate['style'], `textArea decorations[${String(index)}].style`);
-    return Object.freeze({
-      startOffset: normalizeTextDocumentOffset(document, startOffset),
-      endOffsetExclusive: normalizeTextDocumentOffset(document, endOffsetExclusive),
-      label,
-      ...(style === undefined ? {} : { style }),
-      ...(replacementText === undefined ? {} : { replacementText }),
-      ...(accessibilityText === undefined ? {} : { accessibilityText })
-    });
+    const base = { startOffset, endOffsetExclusive, order: index, label };
+    switch (kind) {
+      case 'style':
+        if (replacementText !== undefined || accessibilityText !== undefined) {
+          throw new TypeError(`textArea style decoration ${String(index)} cannot replace or relabel content.`);
+        }
+        return Object.freeze({ ...base, kind, ...(style === undefined ? {} : { style }) });
+      case 'replace':
+        if (typeof replacementText !== 'string') {
+          throw new TypeError(`textArea replacement decoration ${String(index)} requires replacementText.`);
+        }
+        if (replacementText.length === 0) {
+          throw new TypeError(`textArea replacement decoration ${String(index)} requires non-empty replacementText.`);
+        }
+        return Object.freeze({
+          ...base,
+          kind,
+          replacementText,
+          ...(style === undefined ? {} : { style }),
+          ...(accessibilityText === undefined ? {} : { accessibilityText }),
+        });
+      case 'conceal':
+        if (replacementText !== undefined || accessibilityText !== undefined || style !== undefined) {
+          throw new TypeError(`textArea conceal decoration ${String(index)} cannot replace, style, or relabel content.`);
+        }
+        return Object.freeze({ ...base, kind });
+    }
   });
   const replacements = prepared
-    .filter((decoration) => decoration.replacementText !== undefined)
+    .filter((decoration) => decoration.kind === 'replace')
     .toSorted((left, right) => left.startOffset - right.startOffset || left.endOffsetExclusive - right.endOffsetExclusive);
   let previousEnd = 0;
   for (let index = 0; index < replacements.length; index += 1) {
@@ -802,7 +853,88 @@ function prepareTextAreaDecorations(
     }
     previousEnd = Math.max(previousEnd, replacement.endOffsetExclusive);
   }
-  return Object.freeze(prepared);
+  for (const decoration of prepared) {
+    if (decoration.kind !== 'style') continue;
+    if (
+      replacementContainingInteriorOffset(replacements, decoration.startOffset) !== undefined
+      || replacementContainingInteriorOffset(replacements, decoration.endOffsetExclusive) !== undefined
+    ) {
+      throw new RangeError('textArea style decorations must not partially overlap replacement decorations.');
+    }
+  }
+  const conceals = mergeTextAreaConcealments(prepared.filter((decoration) => decoration.kind === 'conceal'));
+  for (const conceal of conceals) {
+    if (replacements.some((replacement) => rangesOverlap(conceal, replacement))) {
+      throw new RangeError('textArea conceal and replacement decorations must not overlap.');
+    }
+  }
+  return Object.freeze([
+    ...prepared.filter((decoration) => decoration.kind !== 'conceal'),
+    ...conceals,
+  ]);
+}
+
+function mergeTextAreaConcealments(
+  decorations: readonly PreparedTextAreaDecoration[],
+): readonly PreparedTextAreaDecoration[] {
+  const ordered = decorations.toSorted((left, right) => (
+    left.startOffset - right.startOffset || left.endOffsetExclusive - right.endOffsetExclusive
+  ));
+  const merged: PreparedTextAreaDecoration[] = [];
+  for (const decoration of ordered) {
+    const previous = merged.at(-1);
+    if (previous === undefined || decoration.startOffset > previous.endOffsetExclusive) {
+      merged.push(decoration);
+      continue;
+    }
+    merged[merged.length - 1] = Object.freeze({
+      kind: 'conceal',
+      startOffset: previous.startOffset,
+      endOffsetExclusive: Math.max(previous.endOffsetExclusive, decoration.endOffsetExclusive),
+      order: Math.min(previous.order, decoration.order),
+      label: previous.label,
+    });
+  }
+  return Object.freeze(merged);
+}
+
+function rangesOverlap(
+  left: Pick<PreparedTextAreaDecoration, 'startOffset' | 'endOffsetExclusive'>,
+  right: Pick<PreparedTextAreaDecoration, 'startOffset' | 'endOffsetExclusive'>,
+): boolean {
+  return left.startOffset < right.endOffsetExclusive
+    && right.startOffset < left.endOffsetExclusive;
+}
+
+function replacementContainingInteriorOffset(
+  replacements: readonly PreparedTextAreaDecoration[],
+  offset: number,
+): PreparedTextAreaDecoration | undefined {
+  let low = 0;
+  let high = replacements.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if ((replacements[middle]?.startOffset ?? Number.POSITIVE_INFINITY) < offset) low = middle + 1;
+    else high = middle;
+  }
+  const candidate = replacements[low - 1];
+  return candidate !== undefined
+    && candidate.startOffset < offset
+    && offset < candidate.endOffsetExclusive
+    ? candidate
+    : undefined;
+}
+
+function terminalTextIndexHasBoundary(index: TerminalTextIndex, offset: number): boolean {
+  return index.graphemeIndexToCodeUnitOffset(index.codeUnitOffsetToGraphemeIndex(offset)) === offset;
+}
+
+function textAreaDecorationBoundaryIndex(document: TextDocument): TerminalTextIndex {
+  const existing = textAreaDecorationBoundaryIndexes.get(document);
+  if (existing !== undefined) return existing;
+  const created = createTerminalTextIndex(textDocumentText(document));
+  textAreaDecorationBoundaryIndexes.set(document, created);
+  return created;
 }
 
 function prepareLineNumbers(
@@ -1048,14 +1180,17 @@ function textAreaValueSpans(
     cuts.add(Math.max(absoluteStart, Math.min(absoluteEnd, selection.startOffset)));
     cuts.add(Math.max(absoluteStart, Math.min(absoluteEnd, selection.endOffsetExclusive)));
   }
-  for (const decoration of geometry.projection.styleRanges) {
-    if (decoration.endOffsetExclusive <= absoluteStart || decoration.startOffset >= absoluteEnd) {
-      continue;
-    }
+  const decorations = projectedStyleRangesBetween(
+    geometry.projection.styleRanges,
+    absoluteStart,
+    absoluteEnd,
+  );
+  for (const decoration of decorations) {
     cuts.add(Math.max(absoluteStart, decoration.startOffset));
     cuts.add(Math.min(absoluteEnd, decoration.endOffsetExclusive));
   }
   const boundaries = [...cuts].toSorted((left, right) => left - right);
+  let decorationIndex = 0;
   return boundaries.flatMap((start, index) => {
     const end = boundaries[index + 1];
     if (end === undefined || end <= start) return [];
@@ -1063,11 +1198,16 @@ function textAreaValueSpans(
     const selected = selection !== undefined &&
       start >= selection.startOffset &&
       end <= selection.endOffsetExclusive;
-    const decoration = selected
-      ? undefined
-      : geometry.projection.styleRanges.find((candidate) =>
-        start >= candidate.startOffset && end <= candidate.endOffsetExclusive
-      );
+    while ((decorations[decorationIndex]?.endOffsetExclusive ?? Number.POSITIVE_INFINITY) <= start) {
+      decorationIndex += 1;
+    }
+    const candidate = decorations[decorationIndex];
+    const decoration = !selected
+      && candidate !== undefined
+      && start >= candidate.startOffset
+      && end <= candidate.endOffsetExclusive
+      ? candidate
+      : undefined;
     const placeholder = geometry.usesPlaceholder;
     const part: TextAreaStylePart = selected
       ? 'selection'
@@ -1122,6 +1262,26 @@ function textAreaValueSpans(
   });
 }
 
+function projectedStyleRangesBetween(
+  ranges: readonly ProjectedTextStyleRange[],
+  startOffset: number,
+  endOffsetExclusive: number,
+): readonly ProjectedTextStyleRange[] {
+  let low = 0;
+  let high = ranges.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if ((ranges[middle]?.endOffsetExclusive ?? Number.POSITIVE_INFINITY) <= startOffset) {
+      low = middle + 1;
+    } else {
+      high = middle;
+    }
+  }
+  let end = low;
+  while ((ranges[end]?.startOffset ?? Number.POSITIVE_INFINITY) < endOffsetExclusive) end += 1;
+  return ranges.slice(low, end);
+}
+
 interface TextAreaLayoutLine {
   readonly text: string;
   readonly start: number;
@@ -1151,6 +1311,10 @@ interface TextAreaLogicalLineLayout {
 
 const textAreaLayouts = new WeakMap<TextDocument, Map<string, TextAreaDocumentLayout>>();
 const textAreaLogicalLayouts = new WeakMap<TextDocument, Map<string, readonly TextAreaLogicalLineLayout[]>>();
+const sharedLogicalLineLayouts = new Map<string, TextAreaLogicalLineLayout>();
+const sharedLogicalLineLayoutMaximumTextLength = 4_096;
+const sharedLogicalLineLayoutWeightLimit = 1_048_576;
+let sharedLogicalLineLayoutWeight = 0;
 
 function layoutTextAreaDocument(
   document: TextDocument,
@@ -1177,21 +1341,22 @@ function layoutTextAreaDocument(
   const logicalLineRowStarts: number[] = [];
   let intrinsicColumns = 0;
   const logicalLines = logicalLineLayouts(document, normalizedWidth, wrap, widthProfile, key);
+  let logicalLineStart = 0;
   for (let lineIndex = 0; lineIndex < logicalLines.length; lineIndex += 1) {
     logicalLineRowStarts.push(lines.length);
-    const line = textDocumentLineAt(document, lineIndex);
     const logical = logicalLines[lineIndex];
-    if (line === undefined || logical === undefined) continue;
+    if (logical === undefined) continue;
     intrinsicColumns = Math.max(intrinsicColumns, logical.intrinsicColumns);
     for (const visual of logical.visualLines) {
       lines.push({
         text: visual.text,
-        start: line.startOffset + visual.localStart,
+        start: logicalLineStart + visual.localStart,
         logicalLineIndex: lineIndex,
         firstVisualLine: visual.firstVisualLine,
         index: visual.index,
       });
     }
+    logicalLineStart += logical.text.length + (lineIndex < logicalLines.length - 1 ? 1 : 0);
   }
   const created = Object.freeze({
     lines: Object.freeze(lines),
@@ -1267,13 +1432,24 @@ function prepareLogicalLineLayout(
   wrap: boolean,
   widthProfile: TextWidthProfile,
 ): TextAreaLogicalLineLayout {
+  const cacheKey = text.length <= sharedLogicalLineLayoutMaximumTextLength
+    ? `${wrap ? 'wrap' : 'single'}:${String(width)}:${textWidthProfileKey(widthProfile)}\u0000${text}`
+    : undefined;
+  if (cacheKey !== undefined) {
+    const cached = sharedLogicalLineLayouts.get(cacheKey);
+    if (cached !== undefined) {
+      sharedLogicalLineLayouts.delete(cacheKey);
+      sharedLogicalLineLayouts.set(cacheKey, cached);
+      return cached;
+    }
+  }
   const index = createTerminalTextIndex(text, { widthProfile });
   if (!wrap || width <= 0 || index.cells <= width || text === '') {
-    return Object.freeze({
+    return retainSharedLogicalLineLayout(cacheKey, Object.freeze({
       text,
       intrinsicColumns: index.cells,
       visualLines: Object.freeze([{ text, localStart: 0, firstVisualLine: true, index }]),
-    });
+    }));
   }
   const visualLines: TextAreaLogicalLineLayout['visualLines'][number][] = [];
   let visualColumn = 0;
@@ -1295,7 +1471,27 @@ function prepareLogicalLineLayout(
     visualColumn = index.graphemeIndexToVisualColumn(endGrapheme);
     if (endOffset >= text.length) break;
   }
-  return Object.freeze({ text, intrinsicColumns: index.cells, visualLines: Object.freeze(visualLines) });
+  return retainSharedLogicalLineLayout(cacheKey, Object.freeze({
+    text,
+    intrinsicColumns: index.cells,
+    visualLines: Object.freeze(visualLines),
+  }));
+}
+
+function retainSharedLogicalLineLayout(
+  key: string | undefined,
+  layout: TextAreaLogicalLineLayout,
+): TextAreaLogicalLineLayout {
+  if (key === undefined) return layout;
+  sharedLogicalLineLayouts.set(key, layout);
+  sharedLogicalLineLayoutWeight += key.length;
+  while (sharedLogicalLineLayoutWeight > sharedLogicalLineLayoutWeightLimit) {
+    const oldest = sharedLogicalLineLayouts.keys().next().value;
+    if (oldest === undefined) break;
+    sharedLogicalLineLayouts.delete(oldest);
+    sharedLogicalLineLayoutWeight -= oldest.length;
+  }
+  return layout;
 }
 
 function textAreaCursorInLayout(

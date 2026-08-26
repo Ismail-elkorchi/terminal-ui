@@ -1,6 +1,6 @@
 {
   "name": "@ismail-elkorchi/terminal-ui",
-  "version": "0.2.0",
+  "version": "0.1.4",
   "description": "Typed terminal UI framework for prompts, full-screen apps, accessible components, deterministic rendering, and testing.",
   "type": "module",
   "types": "./dist/index.d.ts",
@@ -162,7 +162,6 @@
     "benchmark:compare": "node scripts/check-performance-report.mjs",
     "docs:api": "npm run build && node scripts/generate-api-reference.mjs",
     "test": "npm run check",
-    "verify": "npm run check && npm pack --dry-run",
     "prepare": "npm run build"
   },
   "engines": {

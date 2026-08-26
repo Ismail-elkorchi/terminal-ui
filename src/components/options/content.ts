@@ -61,6 +61,7 @@ import type { DisclosureAction } from '../../ui-model/disclosure.ts';
 import type { ComponentMetadataOptions } from '../../component/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { KeyModifiers, MouseButton, MouseModifiers } from '../../input/index.ts';
+import type { TerminalLink } from '../../visual/render.ts';
 
 export interface TextOptions {
   readonly id?: string;
@@ -71,10 +72,9 @@ export interface TextOptions {
   readonly meta?: ComponentMetadataOptions<readonly ['styles', 'layer']>;
 }
 
-export interface RichTextActivateEvent {
+export interface RichTextLinkActivateEvent {
   readonly kind: 'activate';
-  readonly row: number;
-  readonly column: number;
+  readonly link: TerminalLink;
   readonly trigger:
     | { readonly kind: 'keyboard'; readonly modifiers: KeyModifiers }
     | { readonly kind: 'pointer'; readonly button: MouseButton; readonly modifiers: MouseModifiers };
@@ -84,9 +84,12 @@ export interface RichTextOptions<TMessage extends ComponentMessage = never> {
   readonly id?: string;
   readonly segments: InlineContent;
   readonly wrap?: boolean | RichTextWrapOptions;
-  readonly styles?: import("../../element/metadata.ts").ElementStyles<RichTextStylePart>;
+  readonly styles?: import("../../element/metadata.ts").ElementStyles<
+    RichTextStylePart,
+    'focused' | 'hovered' | 'pressed'
+  >;
   readonly meta?: ComponentMetadataOptions<readonly ['focus', 'styles', 'layer']>;
-  readonly onActivate?: (event: RichTextActivateEvent) => MessageResolution<TMessage>;
+  readonly onLinkActivate?: (event: RichTextLinkActivateEvent) => MessageResolution<TMessage>;
 }
 
 export interface RichTextWrapOptions {
@@ -472,7 +475,10 @@ export type {
   TableColumnWidth,
   TableRenderedColumn,
   TableValueColumn,
+  TextAreaConcealDecoration,
   TextAreaDecoration,
   TextAreaLineNumberOptions,
+  TextAreaReplacementDecoration,
+  TextAreaStyleDecoration,
   TextAreaWrapOptions
 } from '../../ui-model/content.ts';

@@ -157,6 +157,12 @@ export interface ComponentInput<TPrepared extends object>
   readonly viewport: Rect;
 }
 
+export interface ComponentKeyInput<TPrepared extends object>
+  extends ComponentInput<TPrepared> {
+  readonly focus: RenderFocusRelation;
+  readonly focusedTargetId?: string;
+}
+
 export interface ComponentInteractionInput<
   TPrepared extends object,
   TPart extends string = string
@@ -311,7 +317,7 @@ interface InteractiveDefinition<TPrepared extends object, TAction, TPart extends
   ) => readonly HitTarget<TAction>[];
   readonly keys?: (
     this: undefined,
-    input: ComponentInput<TPrepared>
+    input: ComponentKeyInput<TPrepared>
   ) => ElementKeyBindings<TAction>;
   readonly onInput?: (
     this: undefined,
@@ -1503,13 +1509,19 @@ function adaptDefinition<
             input.renderNode.id,
             'keyboard',
             () => mappedKeyBindings(
-              definition.keys?.call(undefined, componentInput<TPrepared>(
-                input.renderNode,
-                input.layoutNode.bounds,
-                input.layoutNode.viewport,
-                input.theme,
-                input.widthProfile,
-              )),
+              definition.keys?.call(undefined, {
+                ...componentInput<TPrepared>(
+                  input.renderNode,
+                  input.layoutNode.bounds,
+                  input.layoutNode.viewport,
+                  input.theme,
+                  input.widthProfile,
+                ),
+                focus: input.focus,
+                ...(input.focusedTargetId === undefined
+                  ? {}
+                  : { focusedTargetId: input.focusedTargetId }),
+              }),
               input.renderNode.props.toActionMessage,
               definition.name,
               input.renderNode.id,
