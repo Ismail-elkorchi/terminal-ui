@@ -18,6 +18,7 @@ export interface TuiDefinition<TState, TMessage> {
   readonly view: TuiView<TState, TMessage>;
   readonly inputBindings?: readonly TuiInputBinding<TState, TMessage>[];
   readonly subscriptions?: TuiSubscriptions<TState, TMessage>;
+  readonly resizeMessage?: TuiResizeMessage<TState, TMessage>;
   readonly onExit?: TuiExitHandler<TState>;
   readonly transcript?: boolean;
   readonly nonTty?: TuiNonTtyPolicy;
@@ -100,6 +101,15 @@ export interface TuiContext {
   readonly diagnostics: readonly DiagnosticOccurrence[];
   readonly clock: TerminalClock;
 }
+
+export interface TuiResizeContext extends TuiContext {
+  readonly previousTerminalSize: TerminalSize;
+}
+
+export type TuiResizeMessage<TState, TMessage> = (
+  state: TState,
+  context: TuiResizeContext
+) => MessageResolution<TMessage>;
 
 export type { TuiMessageSource } from '../interaction/message.ts';
 

@@ -1770,6 +1770,8 @@ A dash means the component does not expose local cell styling.
 | `TuiMessageSource` | type | beta | <code>type TuiMessageSource = typeof tuiMessageSources[number]</code> | `@ismail-elkorchi/terminal-ui/tui` (type only) | [src/interaction/message.ts](../../src/interaction/message.ts) |
 | `TuiNonTtyMode` | type | beta | <code>type TuiNonTtyMode = 'reject' \| 'transcript_only' \| 'last_frame'</code> | `@ismail-elkorchi/terminal-ui/tui` (type only) | [src/tui/types.ts](../../src/tui/types.ts) |
 | `TuiNonTtyPolicy` | interface | beta | <code>interface TuiNonTtyPolicy</code> | `@ismail-elkorchi/terminal-ui/tui` (type only) | [src/tui/types.ts](../../src/tui/types.ts) |
+| `TuiResizeContext` | interface | beta | <code>interface TuiResizeContext</code> | `@ismail-elkorchi/terminal-ui/tui` (type only) | [src/tui/types.ts](../../src/tui/types.ts) |
+| `TuiResizeMessage` | type | beta | <code>type TuiResizeMessage = (state: TState, context: TuiResizeContext) =&gt; MessageResolution&lt;TMessage&gt;</code> | `@ismail-elkorchi/terminal-ui/tui` (type only) | [src/tui/types.ts](../../src/tui/types.ts) |
 | `TuiRunError` | class | beta | <code>typeof TuiRunError</code> | `@ismail-elkorchi/terminal-ui`, `@ismail-elkorchi/terminal-ui/tui` | [src/tui/run.ts](../../src/tui/run.ts) |
 | `TuiRunInputPolicy` | interface | beta | <code>interface TuiRunInputPolicy</code> | `@ismail-elkorchi/terminal-ui/tui` (type only) | [src/tui/types.ts](../../src/tui/types.ts) |
 | `TuiRunOptions` | interface | beta | <code>interface TuiRunOptions</code> | `@ismail-elkorchi/terminal-ui` (type only), `@ismail-elkorchi/terminal-ui/tui` (type only) | [src/tui/types.ts](../../src/tui/types.ts) |

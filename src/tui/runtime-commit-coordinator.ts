@@ -34,12 +34,13 @@ import type { CopySelectedTextInput } from './selection.ts';
 
 export function createRuntimeCommitCoordinator<TState, TMessage>(
   options: Pick<TuiRuntimeOptions<TState, TMessage>, 'app' | 'host' | 'theme' | 'initialFocus' | 'graphics' | 'graphicsBudget'> & {
+    readonly initialTerminalSize: TerminalSize;
     readonly reportDiagnostic?: (item: TerminalDiagnostic) => void;
     readonly pointerVisuals?: () => PointerVisualSnapshot;
   },
   signal: AbortSignal
 ) {
-  let currentTerminalSize = options.host.getTerminalSize();
+  let currentTerminalSize = options.initialTerminalSize;
   let currentRender: RenderCommitCandidate<TMessage> | undefined;
   let currentFocusPath: FocusPath | undefined = options.initialFocus?.kind === 'path'
     ? options.initialFocus.path

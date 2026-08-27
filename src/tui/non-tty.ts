@@ -9,6 +9,7 @@ import { renderCurrentFrame, resolveTuiTheme } from './runtime-frame.ts';
 import { recordTuiCommit } from './transcript.ts';
 import { tuiDefinition } from './definition.ts';
 import { decodeTuiInitialResult } from './hook-results.ts';
+import { decodeTuiTerminalSize } from './terminal-size.ts';
 import type { DiagnosticOccurrence, DiagnosticOccurrenceReporter, TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile, TerminalHost } from '../host/index.ts';
 import type { Frame } from '../renderer/contracts.ts';
@@ -161,7 +162,7 @@ export async function runTuiNonTty<TState, TMessage>(
 
 function nonTtyContext(host: TerminalHost, capabilities: TerminalCapabilityProfile): TuiContext {
   return {
-    terminalSize: host.getTerminalSize(),
+    terminalSize: decodeTuiTerminalSize(host.getTerminalSize()),
     capabilities,
     diagnostics: [],
     clock: host.clock

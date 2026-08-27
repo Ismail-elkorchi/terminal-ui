@@ -244,6 +244,18 @@ do not create unbounded context-copying work.
 custom event loops. Dispatches are serialized, so stream events, timers, input,
 signals, and app-triggered messages cannot overlap render commits.
 
+Controlled applications that retain layout-dependent state can define
+`resizeMessage(state, context)`. The runtime resolves that message with both
+the previously committed `context.previousTerminalSize` and the new
+`context.terminalSize`, reduces it through the ordinary update function, and
+only then commits the resized frame. The callback runs only when the dimensions
+actually change and must return either an application message or
+`ignoreMessage()`. Terminal sizes are validated and retained as immutable
+values before resize work is queued. This keeps row anchors and other
+caller-owned geometry in the same serialized message path as input and effects.
+Applications that have no layout-dependent state can omit the hook and receive
+the ordinary resize-only redraw.
+
 Anonymous layout nodes receive deterministic structural identities based on
 their parent path, kind, and sibling ordinal. That identity survives terminal
 resizes. Components whose focus or interaction state must survive sibling

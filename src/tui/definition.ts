@@ -21,6 +21,7 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
   const view = supplied['view'];
   const suppliedInputBindings = supplied['inputBindings'];
   const subscriptions = supplied['subscriptions'];
+  const resizeMessage = supplied['resizeMessage'];
   const onExit = supplied['onExit'];
   const transcript = supplied['transcript'];
   const suppliedNonTty = supplied['nonTty'];
@@ -31,6 +32,9 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
   if (typeof view !== 'function') throw new TypeError('TUI view must be a function.');
   if (subscriptions !== undefined && typeof subscriptions !== 'function') {
     throw new TypeError('TUI subscriptions must be a function when provided.');
+  }
+  if (resizeMessage !== undefined && typeof resizeMessage !== 'function') {
+    throw new TypeError('TUI resizeMessage must be a function when provided.');
   }
   if (onExit !== undefined && typeof onExit !== 'function') {
     throw new TypeError('TUI onExit must be a function when provided.');
@@ -47,6 +51,7 @@ export function defineTui<TState, TMessage extends NonNullable<unknown>>(
     view,
     ...(inputBindings === undefined ? {} : { inputBindings }),
     ...(subscriptions === undefined ? {} : { subscriptions }),
+    ...(resizeMessage === undefined ? {} : { resizeMessage }),
     ...(onExit === undefined ? {} : { onExit }),
     ...(transcript === undefined ? {} : { transcript }),
     ...(nonTty === undefined ? {} : { nonTty })

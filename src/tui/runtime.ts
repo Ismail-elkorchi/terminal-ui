@@ -40,7 +40,7 @@ import { createWheelInputCoordinator } from './wheel-input-coordinator.ts';
 import { createResizeCoordinator } from './resize-coordinator.ts';
 import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
 import type { PointerMotionEvent } from './pointer-motion-coordinator.ts';
-import type { TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
+import type { TerminalCapabilityProfile, TerminalInputChunk, TerminalSize } from '../host/index.ts';
 import { decodeTerminalGraphicsMode, resolveGraphicsBudgetLimits } from '../graphics/index.ts';
 import type { GraphicsBudgetLimits, TerminalGraphicsMode } from '../graphics/index.ts';
 import type {
@@ -73,12 +73,20 @@ import { focusRevealMessages } from './focus-reveal.ts';
 import { focusLifecycleMessages } from './focus-lifecycle.ts';
 import { focusNavigationPath } from '../renderer/internal/focus.ts';
 import { assertTuiApp, tuiDefinition } from './definition.ts';
-import { decodeTuiInitialResult } from './hook-results.ts';
+import { decodeMessageResolution, decodeTuiInitialResult } from './hook-results.ts';
 import { decodeCopySelectedTextInput } from './selection.ts';
+import { decodeTuiTerminalSize } from './terminal-size.ts';
 
 type MutableTuiRuntimeMetrics = {
   -readonly [TKey in Exclude<keyof TuiRuntimeMetrics, 'diagnostics' | 'effects' | 'sources'>]: TuiRuntimeMetrics[TKey];
 };
+
+interface RuntimeTransitionInput<TMessage> {
+  readonly messages: readonly PendingTuiMessage<TMessage>[];
+  readonly terminalSize: TerminalSize;
+  readonly requestedFocusPath: FocusPath | undefined;
+  readonly forceFrame?: boolean;
+}
 
 const inputRetirement = new WeakMap<object, () => void>();
 const terminalFailure = new WeakMap<object, (cause: unknown) => void>();
@@ -150,6 +158,7 @@ function createRuntime<TState, TMessage>(
   let recordGraphicsDiagnostic: (item: TerminalDiagnostic) => void = ignoreTerminalDiagnostic;
   const commits = createRuntimeCommitCoordinator({
     ...options,
+    initialTerminalSize: decodeTuiTerminalSize(options.host.getTerminalSize()),
     graphics,
     graphicsBudget,
     reportDiagnostic: (item) => { recordGraphicsDiagnostic(item); },
@@ -193,7 +202,7 @@ function createRuntime<TState, TMessage>(
       }
     }
   });
-  const resizeCoordinator = createResizeCoordinator(async (terminalSize: ReturnType<typeof commits.terminalSize>) => {
+  const resizeCoordinator = createResizeCoordinator(async (terminalSize: TerminalSize) => {
     await wheelInput.flush();
     await pointerMotion.flush();
     return dispatchQueue.run(() => resizeInternal(terminalSize));
@@ -265,7 +274,11 @@ function createRuntime<TState, TMessage>(
       });
     },
     resize(terminalSize) {
-      return resizeCoordinator.request(terminalSize);
+      try {
+        return resizeCoordinator.request(decodeTuiTerminalSize(terminalSize));
+      } catch (cause) {
+        return Promise.reject(errorFromUnknown(cause));
+      }
     },
     async handleInput(rawEvent) {
       const decoded = decodeInputEvent(rawEvent);
@@ -322,9 +335,13 @@ function createRuntime<TState, TMessage>(
     },
     redraw() {
       return dispatchQueue.run(async () => {
+        const terminalSize = decodeTuiTerminalSize(options.host.getTerminalSize());
+        if (!sameTerminalSize(terminalSize, commits.terminalSize())) {
+          return resizeInternal(terminalSize);
+        }
         await commitRuntimeTransition({
           messages: [],
-          terminalSize: options.host.getTerminalSize(),
+          terminalSize,
           requestedFocusPath: commits.focusPath(),
           forceFrame: true
         });
@@ -617,34 +634,54 @@ function createRuntime<TState, TMessage>(
     });
   }
 
-  async function resizeInternal(terminalSize: Parameters<TuiRuntime<TState, TMessage>['resize']>[0]): Promise<Frame> {
+  async function resizeInternal(terminalSize: TerminalSize): Promise<Frame> {
     lifecycle.assertOperational();
+    const previousTerminalSize = commits.terminalSize();
     runInstrumentation('transcript_input', () => options.transcript?.record({
       kind: 'input',
       event: { kind: 'resize', terminalSize }
     }));
-    await commitRuntimeTransition({ messages: [], terminalSize, requestedFocusPath: commits.focusPath() });
+    if (sameTerminalSize(terminalSize, previousTerminalSize)) return commits.frame();
+    const context = await createRuntimeContext(terminalSize);
+    lifecycle.assertOperational();
+    const resolution = definition.resizeMessage === undefined
+      ? undefined
+      : decodeMessageResolution<TMessage>(
+          definition.resizeMessage(store.state(), Object.freeze({
+            ...context,
+            previousTerminalSize
+          })),
+          'TUI resizeMessage'
+        );
+    const messages: readonly PendingTuiMessage<TMessage>[] = resolution === undefined || isIgnoredMessage(resolution)
+      ? Object.freeze([])
+      : Object.freeze([{ message: resolution, source: 'signal' }]);
+    await commitRuntimeTransitionInContext(
+      { messages, terminalSize, requestedFocusPath: commits.focusPath() },
+      context
+    );
     return commits.frame();
   }
 
   async function createRuntimeContext(
-    terminalSize: ReturnType<typeof commits.terminalSize> = commits.terminalSize()
+    terminalSize: TerminalSize = commits.terminalSize()
   ): Promise<TuiContext> {
     return runtimeContext.create(terminalSize, diagnostics.values());
   }
 
-  async function commitRuntimeTransition(input: {
-    readonly messages: readonly PendingTuiMessage<TMessage>[];
-    readonly terminalSize: ReturnType<typeof commits.terminalSize>;
-    readonly requestedFocusPath: FocusPath | undefined;
-    readonly forceFrame?: boolean;
-  }): Promise<TState> {
+  async function commitRuntimeTransition(input: RuntimeTransitionInput<TMessage>): Promise<TState> {
     const context = await createRuntimeContext(input.terminalSize);
+    return commitRuntimeTransitionInContext(input, context);
+  }
+
+  async function commitRuntimeTransitionInContext(
+    input: RuntimeTransitionInput<TMessage>,
+    context: TuiContext
+  ): Promise<TState> {
     lifecycle.assertOperational();
     const reduction = store.reduce(input.messages, context);
     const terminalSize = commits.terminalSize();
-    const terminalSizeChanged = input.terminalSize.columns !== terminalSize.columns
-      || input.terminalSize.rows !== terminalSize.rows;
+    const terminalSizeChanged = !sameTerminalSize(input.terminalSize, terminalSize);
     const focusChanged = !focusPathsEqual(input.requestedFocusPath, commits.focusPath());
     const requiresFrame = input.forceFrame === true
       || reduction.stateVersion !== store.version()
@@ -716,6 +753,13 @@ function createRuntime<TState, TMessage>(
       }
     }
     return store.state();
+  }
+
+  function sameTerminalSize(
+    left: TerminalSize,
+    right: TerminalSize
+  ): boolean {
+    return left.columns === right.columns && left.rows === right.rows;
   }
 
   function recordReductionMessages(reduction: RuntimeReduction<TState, TMessage>): void {
