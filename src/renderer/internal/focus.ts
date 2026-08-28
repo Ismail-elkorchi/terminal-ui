@@ -70,11 +70,13 @@ export function collectRenderNodeLayoutTargets<TMessage>(
 }
 
 export function resolveFocusPath(layout: LayoutNode, requested: FocusPath | undefined): FocusPath | undefined {
-  const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout));
-  if (targets.length === 0) return undefined;
-  if (requested !== undefined && targets.some((target) => focusPathsEqual(target.path, requested))) {
+  const collected = collectLayoutFocusTargets(layout);
+  if (requested !== undefined && scopedFocusTargets(layout, collected, false, true)
+    .some((target) => focusPathsEqual(target.path, requested))) {
     return requested;
   }
+  const targets = scopedFocusTargets(layout, collected);
+  if (targets.length === 0) return undefined;
   return targets[0]?.path;
 }
 
@@ -155,7 +157,12 @@ export function findRenderNodeFocusTarget<TMessage>(
   path: FocusPath | undefined
 ): RenderNodeFocusTarget<TMessage> | undefined {
   if (path === undefined) return undefined;
-  return scopedFocusTargets(layout, collectRenderNodeFocusTargets(renderNode, layout))
+  return scopedFocusTargets(
+    layout,
+    collectRenderNodeFocusRegionTargets(renderNode, layout, []),
+    false,
+    true,
+  )
     .find((target) => focusPathsEqual(target.path, path));
 }
 
@@ -405,8 +412,11 @@ function scopedFocusTargets<TTarget extends LayoutFocusTarget>(
   layout: LayoutNode,
   targets: readonly TTarget[],
   includeRevealable = false,
+  includeClipped = false,
 ): readonly TTarget[] {
-  const enabled = targets.filter((target) => target.focusable || (includeRevealable && target.revealable));
+  const enabled = targets.filter((target) => target.focusable
+    || (includeRevealable && target.revealable)
+    || (includeClipped && !target.disabled));
   if (enabled.length === 0) return [];
   const activeScope = activeFocusScope(collectFocusScopes(layout));
   const scoped = activeScope === undefined

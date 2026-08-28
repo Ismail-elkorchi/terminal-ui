@@ -699,6 +699,55 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'dialog-launcher']);
 });
 
+test('TUI runtime preserves clipped modal focus so Escape can dismiss after a tiny resize', async () => {
+  const app = defineTui({
+    id: 'clipped-modal-focus',
+    init: () => ({ state: { open: true } }),
+    update: (state, message) => message === 'close'
+      ? { state: { open: false } }
+      : { state },
+    view: (state) => overlay([
+      focusInput({ id: 'modal-launcher', state: { value: '', cursor: 0 } }),
+      ...(state.open ? [dialog({
+        id: 'clipped-dialog',
+        title: 'Clipped dialog',
+        modal: true,
+        focusPolicy: {
+          initialFocus: { kind: 'element', elementId: 'clipped-dialog-field' },
+          returnFocus: 'restore'
+        },
+        dismissal: { dismissOnEscape: true, dismissOnOutsidePress: false },
+        onDismiss: () => 'close',
+        slots: {
+          content: focusInput({ id: 'clipped-dialog-field', state: { value: '', cursor: 0 } })
+        },
+        width: 24,
+        height: 6
+      })] : [])
+    ])
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ terminalSize: { columns: 40, rows: 10 } }),
+    initialFocus: { kind: 'element', elementId: 'modal-launcher' }
+  });
+
+  await runtime.start();
+  const dialogFocus = runtime.frame().focusPath;
+  assert.equal(dialogFocus.at(-1), 'clipped-dialog-field');
+  await runtime.resize({ columns: 12, rows: 3 });
+  assert.deepEqual(runtime.frame().focusPath, dialogFocus);
+  await runtime.handleInput({
+    kind: 'key', key: 'escape',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press', location: 'standard'
+  });
+
+  assert.deepEqual(runtime.state(), { open: false });
+  assert.equal(runtime.frame().focusPath.at(-1), 'modal-launcher');
+  await runtime.dispose();
+});
+
 test('TUI runtime focuses top-layer context menus and open menu triggers', async () => {
   const contextMenuApp = defineTui({
     id: 'context-menu-focus',
