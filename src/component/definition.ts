@@ -308,13 +308,31 @@ interface MeasuredComponentDefinition<
   ) => Measurement;
 }
 
-interface InteractiveDefinition<TModel extends object, TAction, TPart extends string> {
+type ComponentFocusTargets<TModel extends object, TPart extends string> = (
+  this: undefined,
+  input: ComponentInteractionInput<TModel, TPart>
+) => readonly FocusTarget[];
+
+type ComponentFocusTargetLifecycle<TModel extends object, TAction> = (
+  this: undefined,
+  event: FocusTargetLifecycleEvent,
+  input: ComponentBehaviorInput<TModel>
+) => MessageResolution<TAction>;
+
+type FocusTargetDefinition<TModel extends object, TAction, TPart extends string> =
+  | {
+      readonly focusTargets?: never;
+      readonly onFocusTarget?: never;
+    }
+  | {
+      readonly focusTargets: ComponentFocusTargets<TModel, TPart>;
+      readonly onFocusTarget?: ComponentFocusTargetLifecycle<TModel, TAction>;
+    };
+
+type InteractiveDefinition<TModel extends object, TAction, TPart extends string> =
+  FocusTargetDefinition<TModel, TAction, TPart> & {
   /** Prevents raw text events from being recorded while this component owns focus. */
   readonly sensitiveInput?: boolean;
-  readonly focusTargets?: (
-    this: undefined,
-    input: ComponentInteractionInput<TModel, TPart>
-  ) => readonly FocusTarget[];
   readonly hitTargets?: (
     this: undefined,
     input: ComponentInteractionInput<TModel, TPart>
@@ -336,24 +354,18 @@ interface InteractiveDefinition<TModel extends object, TAction, TPart extends st
     event: FocusLifecycleEvent,
     input: ComponentBehaviorInput<TModel>
   ) => MessageResolution<TAction>;
-  readonly onFocusTarget?: (
-    this: undefined,
-    event: FocusTargetLifecycleEvent,
-    input: ComponentBehaviorInput<TModel>
-  ) => MessageResolution<TAction>;
   readonly focusNavigation?: (
     this: undefined,
     input: ComponentBehaviorInput<TModel>
   ) => FocusNavigation;
-}
+};
 
-interface SemanticDefinition<
+type SemanticDefinition<
   TModel extends object,
   TAction,
   TSlots extends ComponentSlotShape,
   TPart extends string
->
-  extends InteractiveDefinition<TModel, TAction, TPart> {
+> = InteractiveDefinition<TModel, TAction, TPart> & {
   readonly semantics: 'semantic';
   readonly accessibleRole:
     | import('../accessibility/types.ts').AccessibleRole
@@ -373,7 +385,7 @@ interface SemanticDefinition<
     this: undefined,
     input: ComponentInspectionInput<TModel>
   ) => ComponentSemanticInspection;
-}
+};
 
 interface DecorativeDefinition {
   readonly semantics: 'decorative';
@@ -454,8 +466,7 @@ export type SemanticLeafDefinition<
   TIdentity extends ComponentIdentity = 'required',
   TMetadata extends readonly ComponentMetadataCapability[] = readonly [],
   TVisualStates extends readonly ComponentVisualState[] = readonly []
-> = Omit<
-  SemanticLeafComponentDefinition<
+> = SemanticLeafComponentDefinition<
     TOptions,
     TModel,
     TAction,
@@ -464,9 +475,11 @@ export type SemanticLeafDefinition<
     TIdentity,
     TMetadata,
     TVisualStates
-  >,
-  'structure' | 'semantics'
->;
+  > extends infer TDefinition
+    ? TDefinition extends unknown
+      ? Omit<TDefinition, 'structure' | 'semantics'>
+      : never
+    : never;
 
 /** A decorative leaf definition with invariant structure fields supplied by the authoring helper. */
 export type DecorativeLeafDefinition<
@@ -1567,6 +1580,9 @@ function assertDefinitionInteraction(
   if (value['sensitiveInput'] === true && value['onInput'] === undefined && value['onPaste'] === undefined) {
     throw new TypeError('A sensitive-input component must declare onInput or onPaste.');
   }
+  if (value['onFocusTarget'] !== undefined && value['focusTargets'] === undefined) {
+    throw new TypeError('A component with onFocusTarget() must declare focusTargets().');
+  }
   if (structure === 'leaf'
     && semantics === 'semantic'
     && value['focusTargets'] === undefined
@@ -1575,7 +1591,6 @@ function assertDefinitionInteraction(
       || value['onInput'] !== undefined
       || value['onPaste'] !== undefined
       || value['onFocus'] !== undefined
-      || value['onFocusTarget'] !== undefined
       || value['focusNavigation'] !== undefined
       || value['sensitiveInput'] === true
     )) {
@@ -1785,14 +1800,14 @@ function adaptDefinition<
       ),
       ...(definition.focusTargets === undefined ? {} : {
         focusTargets: (input) => executeComponentPhase(definition.name, input.renderNode.id, 'focus', () =>
-          (definition.focusTargets?.call(undefined, componentInteractionInput(
-          contract,
-          input.renderNode,
-          input.bounds,
-          input.viewport,
-          input.theme,
-          input.widthProfile
-          )) ?? []).map((target) => toAbsoluteFocusTarget(target, input.bounds))
+          definition.focusTargets.call(undefined, componentInteractionInput(
+            contract,
+            input.renderNode,
+            input.bounds,
+            input.viewport,
+            input.theme,
+            input.widthProfile
+          )).map((target) => toAbsoluteFocusTarget(target, input.bounds))
         )
       }),
       ...(definition.hitTargets === undefined ? {} : {

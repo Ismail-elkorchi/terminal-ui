@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  button,
   checkbox,
   commandInput,
   dataGrid,
@@ -206,11 +207,14 @@ void test('component focus-target lifecycle reports internal target transitions'
       observed.push(message.event);
       return { state };
     },
-    view: () => targets({ id: 'targets', onAction: (event) => ({ event }) }),
+    view: () => row([
+      targets({ id: 'targets', onAction: (event) => ({ event }) }),
+      button({ id: 'next', label: 'Next', onPress: () => ({ event: 'next' }) }),
+    ]),
   });
   const runtime = createTuiRuntime({
     app,
-    host: createMemoryTerminalHost({ terminalSize: { columns: 8, rows: 1 } }),
+    host: createMemoryTerminalHost({ terminalSize: { columns: 16, rows: 1 } }),
   });
 
   await runtime.start();
@@ -229,6 +233,32 @@ void test('component focus-target lifecycle reports internal target transitions'
     'component:focusEnter',
     'target:focusTargetEnter:left',
     'target:focusTargetLeave:left',
+    'target:focusTargetEnter:right',
+  ]);
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'tab',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard',
+  });
+  assert.deepEqual(observed, [
+    'component:focusEnter',
+    'target:focusTargetEnter:left',
+    'target:focusTargetLeave:left',
+    'target:focusTargetEnter:right',
+    'target:focusTargetLeave:right',
+    'component:focusLeave',
+  ]);
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'tab',
+    modifiers: { ctrl: false, alt: false, shift: true, meta: false },
+    eventType: 'press',
+    location: 'standard',
+  });
+  assert.deepEqual(observed.slice(-2), [
+    'component:focusEnter',
     'target:focusTargetEnter:right',
   ]);
   await runtime.dispose();

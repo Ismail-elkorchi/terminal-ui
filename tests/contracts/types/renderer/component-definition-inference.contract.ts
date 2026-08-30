@@ -2,7 +2,8 @@ import { button, text, type Element } from '@ismail-elkorchi/terminal-ui/compone
 import {
   defineComponent,
   span,
-  type ComponentMessage
+  type ComponentMessage,
+  type SemanticComposedComponentDefinition,
 } from '@ismail-elkorchi/terminal-ui/component';
 import { row } from '@ismail-elkorchi/terminal-ui/layout';
 
@@ -256,6 +257,23 @@ const composed = defineComponent({
   accessibility: ({ id, children }) => ({ id, role: 'group', label: 'Composed', children })
 });
 composed({ id: 'composed' });
+
+// @ts-expect-error target lifecycle hooks require locally declared focus targets
+const targetlessLifecycle: SemanticComposedComponentDefinition<
+  Record<never, never>,
+  Record<never, never>,
+  { readonly kind: 'target-focus' }
+> = {
+  name: 'terminal-ui-tests/components/targetless-lifecycle',
+  identity: 'required',
+  structure: 'composed',
+  semantics: 'semantic',
+  accessibleRole: 'group',
+  compose: () => text({ content: 'Child' }),
+  onFocusTarget: () => ({ kind: 'target-focus' } as const),
+  accessibility: ({ id, children }) => ({ id, role: 'group', label: id, children }),
+};
+void targetlessLifecycle;
 
 const captureSlots = {
   content: { cardinality: 'one', owner: 'caller', messages: 'capture' }

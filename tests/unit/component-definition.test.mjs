@@ -1884,6 +1884,27 @@ test('semantic leaf definitions reject unreachable focus-owned behavior', () => 
   );
 });
 
+test('target lifecycle hooks require focus targets owned by the same component', () => {
+  assert.throws(
+    () => defineComponent({
+      name: 'terminal-ui-tests/components/unreachable-target-lifecycle',
+      identity: 'required',
+      structure: 'composed',
+      semantics: 'semantic',
+      accessibleRole: 'group',
+      compose: () => text({ content: 'Child' }),
+      onFocusTarget: () => ({ kind: 'target-focus' }),
+      accessibility: ({ id, children }) => ({
+        id,
+        role: 'group',
+        label: 'Target lifecycle owner',
+        children,
+      }),
+    }),
+    /onFocusTarget\(\) must declare focusTargets\(\)/u,
+  );
+});
+
 test('decorative elements reject interaction throughout their subtree', () => {
   assert.throws(
     () => renderElementFrame(column([
