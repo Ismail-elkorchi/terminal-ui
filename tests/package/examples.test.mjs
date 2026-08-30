@@ -18,7 +18,7 @@ for (const example of exampleScripts) {
     assert.equal(result.stderr, '');
     assert.notEqual(result.stdout.trim(), '');
     if (example.endsWith('/ide-editor.ts')) {
-      const summary = JSON.parse(result.stdout);
+      const summary = parseSummary(result.stdout, example);
       assert.equal(summary.status, 'completed');
       assert.equal(summary.rootOpened, true);
       assert.equal(summary.activeFile, 'README.md');
@@ -31,7 +31,7 @@ for (const example of exampleScripts) {
       assert.ok(summary.frames >= 6);
     }
     if (example.endsWith('/interactive-workspace.ts')) {
-      const summary = JSON.parse(result.stdout);
+      const summary = parseSummary(result.stdout, example);
       assert.equal(summary.status, 'completed');
       assert.equal(summary.selectedNode, 'queue:review');
       assert.equal(summary.selectedTicket, 'T-103');
@@ -49,7 +49,7 @@ for (const example of exampleScripts) {
       assert.ok(summary.frames >= 4);
     }
     if (example.endsWith('/btop-monitor.ts')) {
-      const summary = JSON.parse(result.stdout);
+      const summary = parseSummary(result.stdout, example);
       assert.equal(summary.status, 'completed');
       assert.equal(summary.wheelBatchShared, true);
       assert.equal(summary.offsetAfterWheel > 0, true);
@@ -63,9 +63,19 @@ for (const example of exampleScripts) {
       assert.doesNotMatch(result.stdout, /Verified/u);
     }
     if (example.endsWith('/testing/harness.mjs')) {
-      const summary = JSON.parse(result.stdout);
+      const summary = parseSummary(result.stdout, example);
       assert.equal(summary.diagnosticCount, 0);
       assert.equal(summary.frameCount, 1);
     }
   });
+}
+
+function parseSummary(output, example) {
+  const summary = JSON.parse(output);
+  assert.equal(
+    summary !== null && typeof summary === 'object' && !Array.isArray(summary),
+    true,
+    `${example} must print one summary object`,
+  );
+  return summary;
 }

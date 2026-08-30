@@ -80,7 +80,13 @@ test('runPrompt renders empty states for choice prompts', async () => {
   await waitUntil(() => /No choices/.test(selectHarness.output()));
   selectHarness.host.input('\u001B');
   selectHarness.host.endInput();
-  await selectRun;
+  const selectResult = await selectRun;
+
+  assert.equal(selectResult.status, 'aborted');
+  assert.equal(selectResult.reason, 'cancelled');
+  assert.equal(selectResult.snapshot.root.role, 'listbox');
+  assert.equal(selectResult.snapshot.root.label, 'Pick');
+  assert.equal(selectResult.snapshot.root.value, null);
 
   const multiselectHarness = createTerminalHarness();
   const multiselectRun = runPrompt(multiselect({ label: 'Pick many', choices: [] }), multiselectHarness.host);
@@ -88,7 +94,13 @@ test('runPrompt renders empty states for choice prompts', async () => {
   await waitUntil(() => /No choices/.test(multiselectHarness.output()));
   multiselectHarness.host.input('\u001B');
   multiselectHarness.host.endInput();
-  await multiselectRun;
+  const multiselectResult = await multiselectRun;
+
+  assert.equal(multiselectResult.status, 'aborted');
+  assert.equal(multiselectResult.reason, 'cancelled');
+  assert.equal(multiselectResult.snapshot.root.role, 'listbox');
+  assert.equal(multiselectResult.snapshot.root.label, 'Pick many');
+  assert.equal(multiselectResult.snapshot.root.value, null);
 });
 
 test('runPrompt searches select choices by keyword and description', async () => {

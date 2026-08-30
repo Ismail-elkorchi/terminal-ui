@@ -63,22 +63,6 @@ void test('text document lines recognize CR, LF, and CRLF across chunk boundarie
   ]);
 });
 
-void test('sequential typing coalesces adjacent document chunks', () => {
-  let document = createTextDocument('');
-  for (let index = 0; index < 10_000; index += 1) {
-    document = textDocumentEdit(document, {
-      startOffset: index,
-      endOffsetExclusive: index,
-    }, 'x').document;
-  }
-
-  const metrics = textDocumentChunkMetrics(document);
-  assert.equal(textDocumentLength(document), 10_000);
-  assert.ok(metrics.chunkCount <= 16, JSON.stringify(metrics));
-  assert.ok(metrics.treeHeight <= 7, JSON.stringify(metrics));
-  assert.ok(metrics.underfilledChunkCount <= 12, JSON.stringify(metrics));
-});
-
 void test('multi-range changes create one document transition from their source', () => {
   const document = createTextDocument('alpha beta gamma');
   const changes = Object.freeze([

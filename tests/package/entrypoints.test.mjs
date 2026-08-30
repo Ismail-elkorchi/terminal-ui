@@ -68,6 +68,33 @@ test('focused component entrypoints own their factories and companion contracts'
   `);
 });
 
+test('high-risk negative type contracts fail at the intended public arguments', () => {
+  const diagnostics = typecheckSource(`
+    import { button } from '@ismail-elkorchi/terminal-ui/components';
+    import { renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
+
+    button({ id: 'save', label: 'Save', unknownOption: true, onPress: () => 'save' });
+    renderElementFrame(button({ id: 'ok', label: 'Ok', onPress: () => 'ok' }), {
+      columns: '20',
+      rows: 2
+    });
+  `, { name: 'negative-public-contracts' });
+
+  assert.deepEqual(
+    diagnostics.map((item) => ({
+      code: item.code,
+      line: item.file === undefined || item.start === undefined
+        ? undefined
+        : item.file.getLineAndCharacterOfPosition(item.start).line + 1,
+    })),
+    [
+      { code: 2353, line: 5 },
+      { code: 2322, line: 7 },
+    ],
+    diagnostics.map(formatTypeDiagnostic).join('\n'),
+  );
+});
+
 test('public constant catalogs and policies are immutable at runtime', async () => {
   const diagnostics = await import('../../dist/diagnostics.js');
   const accessibility = await import('@ismail-elkorchi/terminal-ui/accessibility');

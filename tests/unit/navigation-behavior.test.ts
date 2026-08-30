@@ -36,6 +36,14 @@ void test('shared navigation applies initial policy before movement', () => {
   assert.equal(emptyResult, undefined);
 });
 
+void test('shared navigation applies clamp and wrap boundaries at both edges', () => {
+  const ids = ['one', 'two', 'three'] as const;
+  assert.equal(adjacentItemId(ids, 'one', -1), 'one');
+  assert.equal(adjacentItemId(ids, 'three', 1), 'three');
+  assert.equal(adjacentItemId(ids, 'one', -1, { boundary: 'wrap', initial: 'first' }), 'three');
+  assert.equal(adjacentItemId(ids, 'three', 1, { boundary: 'wrap', initial: 'first' }), 'one');
+});
+
 void test('menu behavior owns nested active position but not application activation', () => {
   const items = [
     { kind: 'submenu', id: 'file', label: 'File', children: [{ kind: 'action', id: 'open', label: 'Open' }] },

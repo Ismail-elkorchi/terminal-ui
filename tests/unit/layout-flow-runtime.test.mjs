@@ -3,7 +3,20 @@ import test from 'node:test';
 import { ignoreMessage, measureConstrainedBox } from '../../dist/component/index.js';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
 import { button, commandInput, field, form, searchPicker, text, textArea, textInput } from '../../dist/components/index.js';
-import { anchored, column, flow, grid, measuredColumn, measuredViewport, decodeLayoutFlowOptions, row, splitPane, surface } from '../../dist/layout/index.js';
+import {
+  anchored,
+  column,
+  decodeLayoutFlowOptions,
+  flow,
+  grid,
+  layoutMarginBounds,
+  layoutPaddingBounds,
+  measuredColumn,
+  measuredViewport,
+  row,
+  splitPane,
+  surface,
+} from '../../dist/layout/index.js';
 import { createTextDocument, textCaretAt } from '../../dist/text/index.js';
 import {
   createCommandSuggestions,
@@ -105,6 +118,23 @@ test('track helpers split fixed, percent, and fill regions deterministically', (
       { row: 1, column: 6, width: 2, height: 1 }
     ]
   );
+});
+
+test('layout inset helpers clamp margin and padding bounds independently', () => {
+  const bounds = { row: 2, column: 3, width: 8, height: 5 };
+
+  assert.deepEqual(layoutMarginBounds(bounds, { top: 1, right: 2, bottom: 1, left: 1 }), {
+    row: 3,
+    column: 4,
+    width: 5,
+    height: 3,
+  });
+  assert.deepEqual(layoutPaddingBounds(bounds, 10), {
+    row: 12,
+    column: 13,
+    width: 0,
+    height: 0,
+  });
 });
 
 test('grid and splitPane layouts arrange common app frames', () => {

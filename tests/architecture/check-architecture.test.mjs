@@ -19,6 +19,14 @@ test('architecture checker rejects authority, determinism, and dependency-cycle 
   assert.match(result.output, /runtime dependency cycle/u);
   assert.match(result.output, /type dependency cycle crosses architecture boundaries/u);
   assert.match(result.output, /imports itself/u);
+  assert.match(result.output, /creates a raw timer/u);
+  assert.match(result.output, /calls nondeterministic runtime API Math\.random/u);
+  assert.match(result.output, /imports forbidden host runtime dependency/u);
+});
+
+test('architecture checker accepts permitted dependencies and shadowed ambient names', async () => {
+  const result = await checkFixture('accepted');
+  assert.equal(result.code, 0, result.output);
 });
 
 async function checkFixture(name) {

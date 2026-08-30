@@ -20,6 +20,7 @@ import {
   menuBar
 } from '../../dist/components/index.js';
 import {
+  contextMenuReducer,
   contextMenuView,
   menuTriggerView,
   menuBarView,
@@ -66,6 +67,22 @@ const items = [
   { kind: 'action', id: 'delete', label: 'Delete', tone: 'destructive' },
   { kind: 'action', id: 'disabled', label: 'Disabled', disabled: true }
 ];
+
+test('context menu reducer owns open, nested navigation, and dismissal transitions', () => {
+  const anchor = { kind: 'cursor', row: 2, column: 3 };
+  const opened = contextMenuReducer({ kind: 'closed' }, { kind: 'open', anchor }, items);
+  const moved = contextMenuReducer(opened, {
+    kind: 'menu',
+    transition: { kind: 'move', delta: 1 },
+  }, items);
+  const dismissed = contextMenuReducer(moved, { kind: 'dismiss', reason: 'escape' }, items);
+
+  assert.equal(opened.kind, 'open');
+  assert.deepEqual(opened.kind === 'open' ? opened.anchor : undefined, anchor);
+  assert.deepEqual(moved.kind === 'open' ? moved.menu.activePath : undefined, ['open']);
+  assert.deepEqual(dismissed, { kind: 'closed' });
+  assert.equal(contextMenuReducer(dismissed, { kind: 'dismiss', reason: 'escape' }, items), dismissed);
+});
 
 test('menu component renders nested checked disabled items with menu accessibility', () => {
   const frame = renderElementFrame(menu({ meta: { accessibleName: "Menu" },

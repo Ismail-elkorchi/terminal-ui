@@ -48,24 +48,6 @@ test('registry publication is gated by a verified immutable release tag', () => 
   assert.doesNotMatch(jsrPublication, /NPM_TOKEN|JSR_TOKEN/u);
 });
 
-test('element and renderer modules do not write through terminal hosts', async () => {
-  const renderingFiles = [
-    ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/layout/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/renderer/', import.meta.url))
-  ];
-  const forbiddenPatterns = [
-    /\bhost\.write\s*\(/u
-  ];
-
-  for (const file of renderingFiles) {
-    const source = await readFile(file, 'utf8');
-    for (const pattern of forbiddenPatterns) {
-      assert.doesNotMatch(source, pattern, file.pathname);
-    }
-  }
-});
-
 test('element rendering code uses semantic styles instead of raw terminal colors', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
@@ -105,16 +87,12 @@ test('documentation local links resolve', async () => {
   }
 });
 
-test('renderer layer has no command, clipboard, or raw ANSI side effects', async () => {
+test('renderer layer contains no clipboard or raw ANSI escape hatches', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/renderer/', import.meta.url))
   ].filter((file) => !file.pathname.endsWith('/src/renderer/internal/serialization-policy.ts'));
   const forbiddenPatterns = [
-    /\bnode:child_process\b/u,
-    /\bchild_process\b/u,
-    /\bspawn\s*\(/u,
-    /\bexec(?:File)?\s*\(/u,
     /\bclipboard\b/iu,
     /\bnavigator\.clipboard\b/u,
     /\bwriteText\s*\(/u,

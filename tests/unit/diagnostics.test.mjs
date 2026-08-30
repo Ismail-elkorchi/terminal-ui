@@ -1,12 +1,24 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { TerminalUiError } from '../../dist/index.js';
+
 import {
   createDiagnosticOccurrenceReporter,
   diagnostic,
   diagnosticOccurrenceIssue,
   terminalDiagnosticIssue
 } from '../../dist/diagnostics.js';
+
+test('TerminalUiError retains the public package error identity and cause', () => {
+  const cause = new Error('cause');
+  const error = new TerminalUiError('failed', { cause });
+
+  assert.equal(error.name, 'TerminalUiError');
+  assert.equal(error.message, 'failed');
+  assert.equal(error.cause, cause);
+  assert.equal(error instanceof Error, true);
+});
 
 test('diagnostic fingerprints do not depend on the process locale comparator', () => {
   const options = { data: { z: 1, 'ä': 2 } };

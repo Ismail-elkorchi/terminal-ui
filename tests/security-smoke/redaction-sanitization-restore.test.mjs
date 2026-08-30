@@ -9,7 +9,7 @@ import { password,
 import { sanitizeTerminalText } from '../../dist/text/index.js';
 import { text } from '../../dist/components/index.js';
 
-test('security lane proves password redaction and control-sequence sanitization', async () => {
+test('terminal-security smoke check proves password redaction and control-sequence sanitization', async () => {
   const secret = 'super-secret-token';
   const host = createMemoryTerminalHost();
   const running = runPrompt(password({ label: 'Token' }), host);
@@ -31,7 +31,7 @@ test('security lane proves password redaction and control-sequence sanitization'
   assert.ok(sanitized.removedControlSequences.length >= 2);
 });
 
-test('security lane proves terminal sessions restore after TUI failures', async () => {
+test('terminal-security smoke check proves terminal sessions restore after TUI failures', async () => {
   const host = createMemoryTerminalHost();
   const app = defineTui({
     id: 'restore-after-failure',

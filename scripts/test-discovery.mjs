@@ -4,12 +4,12 @@ import { globFiles } from './glob-files.mjs';
 const testLaneNames = Object.freeze([
   'acceptance',
   'conformance',
+  'invariants',
   'integration',
   'package',
   'performance',
-  'property',
   'runtime',
-  'security',
+  'security-smoke',
   'unit'
 ]);
 

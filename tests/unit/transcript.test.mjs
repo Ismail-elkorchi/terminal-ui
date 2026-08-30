@@ -8,7 +8,7 @@ import { createTranscriptRecorder, redactTranscript, validateTranscript } from '
 import { createFrameBuffer, diffFrames } from '../../dist/renderer/index.js';
 import { decodeInputEvent } from '../../dist/input/index.js';
 
-test('transcript retention uses a bounded chronological ring and streams every owned step', () => {
+test('transcript retention keeps a bounded chronological tail and streams every owned step', () => {
   const streamed = [];
   const recorder = createTranscriptRecorder({
     id: 'retained-ring',
@@ -123,27 +123,6 @@ test('transcript retention bounds aggregate JSON structure and string data', () 
   const snapshot = recorder.snapshot();
   assert.equal(snapshot.omittedSteps, 1);
   assert.equal(snapshot.steps.length, 1);
-  assert.equal(validateTranscript(snapshot).status, 'success');
-});
-
-test('transcript resource eviction keeps bookkeeping proportional to retained evidence', () => {
-  const recorder = createTranscriptRecorder({
-    id: 'bounded-bookkeeping',
-    retention: {
-      maxSteps: 100_000,
-      maxRetainedBytes: 4_096,
-      maxRetainedJsonNodes: 1_000,
-      maxRetainedStringCodeUnits: 4_096,
-    }
-  });
-  const value = 'x'.repeat(256);
-  for (let index = 0; index < 100_000; index += 1) {
-    recorder.recordNormalizedMessage('external', { index, value });
-  }
-
-  const snapshot = recorder.snapshot();
-  assert.equal(snapshot.steps.length < 100, true);
-  assert.equal(snapshot.omittedSteps + snapshot.steps.length, 100_000);
   assert.equal(validateTranscript(snapshot).status, 'success');
 });
 

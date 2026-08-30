@@ -7,8 +7,11 @@ import {
   runPrompt } from '../../dist/prompts/index.js';
 import { createPtyTerminalHarness,
   createTerminalHarness,
+  isPtyHarnessUnavailable,
+  pasteInput,
   replayTranscript,
-  runInteractionScript } from '../../dist/testing/index.js';
+  runInteractionScript,
+  wheelInput } from '../../dist/testing/index.js';
 import { validateTranscript } from '../../dist/transcript/index.js';
 import { defineTui } from '../../dist/tui/index.js';
 import { diffFrames, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
@@ -57,6 +60,34 @@ test('testing harness records paste script steps as paste events', async () => {
     kind: 'input',
     event: { kind: 'paste', text: 'clip', bracketed: true }
   });
+});
+
+test('public input-event helpers construct immutable paste and wheel events', () => {
+  const paste = pasteInput('clip', false);
+  const wheel = wheelInput({
+    row: 3,
+    column: 4,
+    deltaRows: -2,
+    modifiers: { ctrl: true },
+  });
+
+  assert.deepEqual(paste, { kind: 'paste', text: 'clip', bracketed: false });
+  assert.equal(Object.isFrozen(paste), true);
+  assert.equal(wheel.kind, 'mouse');
+  assert.equal(wheel.action, 'wheel');
+  assert.equal(wheel.button, 'wheelUp');
+  assert.equal(wheel.deltaRows, -2);
+  assert.equal(wheel.modifiers.ctrl, true);
+  assert.equal(Object.isFrozen(wheel), true);
+  assert.equal(Object.isFrozen(wheel.modifiers), true);
+});
+
+test('PTY unavailability predicate proves the unavailable result variant', () => {
+  const result = createPtyTerminalHarness({ available: false });
+
+  assert.equal(isPtyHarnessUnavailable(result), true);
+  assert.equal(result.status, 'unavailable');
+  assert.equal(isPtyHarnessUnavailable({ status: 'available' }), false);
 });
 
 test('interaction script assertion failures return typed diagnostics instead of throwing', async () => {
